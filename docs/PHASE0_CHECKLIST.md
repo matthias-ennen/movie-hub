@@ -9,7 +9,7 @@
 - [x] Authentication mit E-Mail/Passwort vorbereitet/aktiviert
 - [x] Security Rules im Repository angelegt
 - [x] automatisierte Security-Rule-Tests im Repository angelegt
-- [ ] Security Rules tatsächlich erfolgreich ausführen
+- [x] Security Rules im Firestore Emulator erfolgreich getestet
 - [ ] Firebase Hosting im Firebase-Projekt aktivieren
 
 ## Web-App
@@ -27,7 +27,7 @@
 ## Deployment
 - [x] Firebase-Hosting-Konfiguration versioniert
 - [x] CI-Workflow für Build und Security-Tests angelegt
-- [ ] CI erfolgreich durchlaufen lassen
+- [x] CI: Installation, Vite-Build und Firestore-Rules-Tests erfolgreich
 - [ ] erste Version deployen
 - [ ] Deployment aus `main` automatisieren
 
@@ -39,10 +39,10 @@
 - [ ] ersten TMDB-Testabruf durchführen
 
 ## Abschluss
-- [ ] angemeldeter Nutzer kann eigenen Testzustand speichern und lesen
-- [ ] unauthentifizierter Zugriff wird abgelehnt
-- [ ] fremder Benutzerzugriff wird abgelehnt
+- [ ] angemeldeter Nutzer kann eigenen Testzustand im realen Firebase-Projekt speichern und lesen
+- [x] unauthentifizierter Zugriff wird in den versionierten Rules-Tests abgelehnt
+- [x] fremder Benutzerzugriff wird in den versionierten Rules-Tests abgelehnt
 - [ ] minimale Web-App ist öffentlich über Firebase Hosting erreichbar
 
 ## Hinweis
-Checkboxen zu realen Tests werden erst nach tatsächlich durchgeführter Prüfung abgehakt.
+Checkboxen zu realen Firebase-/Gerätetests werden erst nach tatsächlich durchgeführter Prüfung abgehakt. Die Security-Regeln wurden automatisiert gegen den lokalen Firestore Emulator geprüft; der reale End-to-End-Test gegen `movie-hub-62459` steht noch aus.
