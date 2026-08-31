@@ -1,0 +1,39 @@
+# Movie Hub – Security-Konzept
+
+Stand: 31. August 2026
+
+## Ziele
+
+- persönliche Filmdaten sind standardmäßig privat
+- keine Secrets im öffentlichen Repository oder Client-Code
+- Firestore-Zugriffe sind an Firebase Authentication gebunden
+- jeder Benutzer darf ausschließlich seine eigenen Daten lesen und schreiben
+- administrative Jobs erhalten nur die Rechte, die sie tatsächlich benötigen
+
+## Geplante Firestore-Regeln
+
+Persönliche Daten liegen ausschließlich unter `users/{uid}`. Zugriff ist nur erlaubt, wenn `request.auth.uid` der Ziel-UID entspricht.
+
+Öffentliche Katalogdaten werden getrennt modelliert und erhalten eigene Leseregeln.
+
+## Secrets
+
+Nicht ins Repository gehören insbesondere:
+- TMDB-Server-/API-Secrets, soweit geheim zu behandeln
+- Firebase Admin Service Account Credentials
+- CI/CD-Service-Account-Schlüssel
+- sonstige private Provider-Zugangsdaten
+
+Solche Werte werden über GitHub Secrets, Firebase/Google Secret-Verwaltung oder vergleichbare sichere Mechanismen bereitgestellt.
+
+## Client-Konfiguration
+
+Die normale Firebase-Web-Konfiguration einschließlich Web-API-Key ist Teil der Client-Konfiguration und ersetzt keine Security Rules. Schutz entsteht durch Authentication, Rules und serverseitige Rechte.
+
+## Prüfungen vor Freigabe
+
+- unauthentifizierter Zugriff auf persönliche Daten wird abgewiesen
+- Benutzer A kann Daten von Benutzer B nicht lesen
+- Benutzer A kann Daten von Benutzer B nicht verändern
+- gültiger Benutzer kann eigenen Filmzustand lesen und schreiben
+- Regeln werden versioniert und nach Änderungen erneut getestet
