@@ -1,0 +1,33 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownsUserData(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+      allow read, write: if ownsUserData(userId);
+
+      match /{document=**} {
+        allow read, write: if ownsUserData(userId);
+      }
+    }
+
+    // Öffentliche Katalogdaten dürfen gelesen, aber niemals direkt vom Client
+    // verändert werden. Schreibzugriffe erfolgen später ausschließlich über
+    // vertrauenswürdige Build-/Backend-Prozesse.
+    match /catalog/{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
