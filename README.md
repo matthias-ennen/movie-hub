@@ -49,10 +49,10 @@ Details:
 - Firebase Web-App: `movie-hub-web`
 - Firestore: Standard Edition, `europe-west3` (Frankfurt), Produktionsmodus
 - Firebase Authentication: E-Mail/Passwort als erste Anmeldemethode
-- TMDB: Zugang noch einzurichten
+- TMDB: Developer-/Personal-Use-Zugang vorbereitet
 
 ## Status
 
 Projektstart: 31. August 2026
 
-Aktueller Stand: Architektur, Roadmap und initiales Datenmodell sind dokumentiert. Nächster Umsetzungsschritt ist Phase 0: Firebase-Fundament, Security Rules, Hosting und React/Vite-Grundgerüst.
+Aktueller Stand: Architektur, Roadmap und Datenmodell sind dokumentiert. Phase 0 wird auf `phase-0-foundation` umgesetzt und über Draft-PR #9 geprüft. Das Ideen-Sammel-Issue ist #8.
