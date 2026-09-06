@@ -50,7 +50,10 @@ Die normale Firebase-Web-Konfiguration ist Client-Konfiguration. Für den Live-B
 
 - Deployment aus `main` automatisieren
 - GitHub Secret-Scanning-Hinweis für den früher eingecheckten Firebase-Web-Key fachlich auflösen
-- TMDB-Zugangsdaten sicher für spätere automatisierte Jobs hinterlegen und ersten Testabruf durchführen
+
+## TMDB-Abgrenzung
+
+Der TMDB-Account und der vorbereitete Developer-/Personal-Use-Zugang sind vorhanden. API-Zugangsdaten, erster Testabruf und die eigentliche TMDB-Integration werden in Phase 2 / Issue #2 behandelt und blockieren Phase 0 nicht.
 
 ## Später
 
