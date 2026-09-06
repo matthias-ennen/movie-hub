@@ -1,31 +1,8 @@
 import { useState } from 'react'
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { useAuth } from './hooks/useAuth.js'
-import {
-  auth,
-  isFirebaseConfigured,
-  missingFirebaseConfigKeys,
-} from './lib/firebase.js'
+import { firebaseReady } from './lib/firebase.js'
 import { runPhase0WriteReadTest } from './services/phase0Test.js'
-
-function SetupNotice() {
-  return (
-    <main className="shell">
-      <section className="panel">
-        <p className="eyebrow">Movie Hub · Phase 0</p>
-        <h1>Firebase-Konfiguration fehlt</h1>
-        <p>
-          Das Web-Grundgerüst ist vorhanden. Kopiere <code>.env.example</code> nach
-          <code> .env</code> und trage die Firebase-Web-Konfiguration der App
-          <strong> movie-hub-web</strong> ein.
-        </p>
-        <p className="muted">
-          Fehlende Pflichtwerte: {missingFirebaseConfigKeys.join(', ')}
-        </p>
-      </section>
-    </main>
-  )
-}
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -39,6 +16,7 @@ function Login() {
     setMessage('')
 
     try {
+      const { auth } = await firebaseReady
       await signInWithEmailAndPassword(auth, email.trim(), password)
     } catch (error) {
       setMessage(error.message)
@@ -105,6 +83,11 @@ function Dashboard({ user }) {
     }
   }
 
+  async function handleSignOut() {
+    const { auth } = await firebaseReady
+    await signOut(auth)
+  }
+
   return (
     <main className="shell">
       <section className="panel">
@@ -127,7 +110,7 @@ function Dashboard({ user }) {
           <button onClick={runTest} disabled={testing}>
             {testing ? 'Test läuft …' : 'Firestore schreiben + lesen'}
           </button>
-          <button className="secondary" onClick={() => signOut(auth)}>
+          <button className="secondary" onClick={handleSignOut}>
             Abmelden
           </button>
         </div>
@@ -140,16 +123,20 @@ function Dashboard({ user }) {
 export default function App() {
   const { user, loading, error } = useAuth()
 
-  if (!isFirebaseConfigured) {
-    return <SetupNotice />
-  }
-
   if (loading) {
     return <main className="shell"><p>Lade Firebase-Sitzung …</p></main>
   }
 
   if (error) {
-    return <main className="shell"><p className="error">{error.message}</p></main>
+    return (
+      <main className="shell">
+        <section className="panel">
+          <p className="eyebrow">Movie Hub · Phase 0</p>
+          <h1>Firebase konnte nicht initialisiert werden</h1>
+          <p className="error">{error.message}</p>
+        </section>
+      </main>
+    )
   }
 
   return user ? <Dashboard user={user} /> : <Login />
