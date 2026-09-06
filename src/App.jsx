@@ -9,6 +9,8 @@ import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } fr
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
 import { firebaseReady } from './lib/firebase.js'
+import { ProfileProvider, useProfiles } from './profiles/ProfileProvider.jsx'
+import { ThemeProvider } from './theme/ThemeProvider.jsx'
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -55,17 +57,34 @@ function Login() {
   )
 }
 
-function Header({ currentView, onViewChange, user, onSignOut, profileOpen, onProfileToggle, onProfileClose }) {
+function Header({
+  currentView,
+  onViewChange,
+  user,
+  onSignOut,
+  profileOpen,
+  onProfileToggle,
+  onProfileClose,
+  activeProfile,
+  profiles,
+  onProfileSelect,
+}) {
   const navItems = [
     ['home', 'Home'],
     ['movies', 'Filme'],
     ['series', 'Serien'],
     ['library', 'Meine Inhalte'],
   ]
+  const profileInitial = activeProfile?.displayName?.trim().charAt(0).toUpperCase() || 'M'
 
   function openProfileSettings() {
     onProfileClose()
     onViewChange('profile')
+  }
+
+  function handleProfileSelect(profileId) {
+    onProfileSelect(profileId)
+    onProfileClose()
   }
 
   return (
@@ -84,15 +103,32 @@ function Header({ currentView, onViewChange, user, onSignOut, profileOpen, onPro
             className={currentView === 'profile' ? 'profile-button active' : 'profile-button'}
             onClick={onProfileToggle}
             data-focusable="true"
-            aria-label="Profil öffnen"
+            aria-label={`Profil öffnen: ${activeProfile?.displayName ?? 'Movie Hub'}`}
             aria-expanded={profileOpen}
           >
-            <span className="avatar">M</span><span className="profile-label">Profil</span>
+            <span className="avatar">{profileInitial}</span><span className="profile-label">{activeProfile?.displayName ?? 'Profil'}</span>
           </button>
           {profileOpen && (
             <div className="profile-menu" role="menu" aria-label="Profilmenü">
-              <strong>Movie-Hub-Profil</strong>
+              <strong>{activeProfile?.displayName ?? 'Movie-Hub-Profil'}</strong>
               <span>{user.email}</span>
+              {profiles.length > 1 && (
+                <div className="profile-menu-switcher" aria-label="Profil wechseln">
+                  {profiles.map((profile) => (
+                    <button
+                      type="button"
+                      key={profile.id}
+                      className={profile.id === activeProfile?.id ? 'profile-menu-profile active' : 'profile-menu-profile'}
+                      onClick={() => handleProfileSelect(profile.id)}
+                      data-focusable="true"
+                      role="menuitemradio"
+                      aria-checked={profile.id === activeProfile?.id}
+                    >
+                      {profile.displayName}
+                    </button>
+                  ))}
+                </div>
+              )}
               <button type="button" className="profile-settings-link" onClick={openProfileSettings} data-focusable="true" role="menuitem">Profil & Design</button>
               <button type="button" onClick={onSignOut} data-focusable="true" role="menuitem">Abmelden</button>
             </div>
@@ -155,6 +191,7 @@ function SearchView({ titles, onOpen }) {
 }
 
 function MovieHub({ user }) {
+  const { profiles, activeProfile, selectProfile } = useProfiles()
   const [currentView, setCurrentView] = useState('home')
   const [selectedTitle, setSelectedTitle] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -257,6 +294,9 @@ function MovieHub({ user }) {
         profileOpen={profileOpen}
         onProfileToggle={() => setProfileOpen((open) => !open)}
         onProfileClose={() => setProfileOpen(false)}
+        activeProfile={activeProfile}
+        profiles={profiles}
+        onProfileSelect={selectProfile}
       />
       {currentView === 'home' && (
         <main>
@@ -280,6 +320,30 @@ function MovieHub({ user }) {
   )
 }
 
+function AuthenticatedMovieHub({ user }) {
+  const { loading, error, activeProfile } = useProfiles()
+
+  if (loading) return <main className="auth-shell"><p className="loading-copy">Movie-Hub-Profile werden geladen …</p></main>
+
+  if (error || !activeProfile) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-panel">
+          <p className="eyebrow">Movie Hub</p>
+          <h1>Profile konnten nicht geladen werden</h1>
+          <p className="error">{error?.message ?? 'Kein aktives Profil verfügbar.'}</p>
+        </section>
+      </main>
+    )
+  }
+
+  return (
+    <ThemeProvider>
+      <MovieHub user={user} />
+    </ThemeProvider>
+  )
+}
+
 export default function App() {
   const { user, loading, error } = useAuth()
 
@@ -297,5 +361,9 @@ export default function App() {
     )
   }
 
-  return user ? <MovieHub user={user} /> : <Login />
+  return user ? (
+    <ProfileProvider user={user}>
+      <AuthenticatedMovieHub user={user} />
+    </ProfileProvider>
+  ) : <Login />
 }
