@@ -1,11 +1,12 @@
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
-import { db } from '../lib/firebase.js'
+import { firebaseReady } from '../lib/firebase.js'
 
 export async function runPhase0WriteReadTest(uid) {
-  if (!db || !uid) {
-    throw new Error('Firestore oder Benutzer-ID fehlt.')
+  if (!uid) {
+    throw new Error('Benutzer-ID fehlt.')
   }
 
+  const { db } = await firebaseReady
   const testRef = doc(db, 'users', uid, 'diagnostics', 'phase0')
 
   await setDoc(
