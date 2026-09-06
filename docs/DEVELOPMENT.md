@@ -1,6 +1,6 @@
 # Movie Hub – lokale Entwicklung
 
-Stand: 31. August 2026
+Stand: 6. September 2026
 
 ## Voraussetzungen
 
@@ -13,11 +13,11 @@ Stand: 31. August 2026
 
 1. Repository auschecken.
 2. `npm install` ausführen.
-3. `.env.example` nach `.env` kopieren.
-4. Die Firebase-Web-Konfiguration aus Firebase Console > Projekteinstellungen > `movie-hub-web` in `.env` eintragen.
-5. `npm run dev` starten.
+3. `npm run dev` starten.
 
-Die normale Firebase-Web-Konfiguration ist Client-Konfiguration. Admin-SDK-/Service-Account-Schlüssel oder sonstige Secrets gehören weder in `.env.example` noch ins Repository.
+Die Firebase-Web-Konfiguration der registrierten App `movie-hub-web` ist als normale Client-Konfiguration im Web-Code hinterlegt, damit lokale Builds, CI und Firebase Hosting ohne private Build-Secrets funktionieren. Diese Werte identifizieren das Firebase-Projekt, ersetzen aber keine Zugriffskontrolle.
+
+Für lokale oder spätere Testumgebungen können die Werte weiterhin über `VITE_FIREBASE_*`-Umgebungsvariablen überschrieben werden. Admin-SDK-/Service-Account-Schlüssel oder sonstige echte Secrets gehören niemals in Client-Code oder Repository.
 
 ## Phase-0-Test
 
@@ -46,4 +46,8 @@ Der Build landet in `dist/` und ist für Firebase Hosting konfiguriert.
 
 Die Hosting-Konfiguration liegt in `firebase.json`, das Firebase-Projekt in `.firebaserc`.
 
-Ein reales Deployment wird erst durchgeführt, nachdem Firebase Hosting im Projekt aktiviert und der Build sowie die Security-Tests erfolgreich geprüft wurden.
+Der nächste reale Phase-0-Schritt ist:
+1. Testnutzer in Firebase Authentication anlegen.
+2. aktuelle Firestore Rules in das reale Firebase-Projekt deployen.
+3. Web-App auf Firebase Hosting deployen.
+4. Login, Reload-Persistenz und Firestore-Schreib-/Lesetest gegen das echte Projekt durchführen.
