@@ -1,0 +1,103 @@
+/* Phase 1.4: gezielte TV-/D-Pad-Feinheiten, ohne die Theme-Presets zu duplizieren. */
+
+.poster-track {
+  scroll-padding-inline: var(--page-inline);
+}
+
+.poster-card:focus-visible,
+.action-button:focus-visible,
+.nav-link:focus-visible,
+.icon-button:focus-visible,
+.profile-button:focus-visible,
+.theme-choice:focus-visible,
+.switch-control:focus-visible,
+.interval-button:focus-visible,
+.account-signout:focus-visible {
+  position: relative;
+  z-index: 12;
+}
+
+@media (min-width: 1200px) and (max-height: 800px) {
+  /* 1280×720 / kompakte TV-Höhen: mehr Inhalt oberhalb der Falz sichtbar. */
+  :root[data-theme='cinema'] {
+    --hero-min-height: min(72vh, 560px);
+    --hero-row-overlap: -3.4rem;
+    --poster-track-width: clamp(165px, 15vw, 225px);
+  }
+
+  .hero {
+    padding-top: clamp(2.8rem, 7vh, 4.2rem);
+    padding-bottom: clamp(3rem, 8vh, 4.8rem);
+  }
+
+  .hero-description {
+    margin: 0.9rem 0 1.3rem;
+    font-size: clamp(0.96rem, 1.25vw, 1.12rem);
+  }
+
+  .content-row {
+    margin-bottom: 1.8rem;
+  }
+
+  .row-heading {
+    margin-bottom: 0.65rem;
+  }
+
+  .browse-page {
+    padding-top: clamp(2rem, 4vh, 3rem);
+    padding-bottom: 3rem;
+  }
+
+  .page-heading,
+  .profile-heading {
+    margin-bottom: 1.6rem;
+  }
+
+  .detail-backdrop {
+    padding: 3vh 5vw;
+  }
+
+  .detail-modal {
+    max-height: 94vh;
+  }
+
+  .detail-art {
+    min-height: 0;
+  }
+
+  .detail-copy {
+    padding: clamp(1.5rem, 3vw, 2.6rem);
+  }
+
+  .settings-panel {
+    margin-bottom: 1.1rem;
+    padding: 1.1rem 1.4rem;
+  }
+
+  .settings-heading {
+    margin-bottom: 1.1rem;
+  }
+
+  .theme-choice {
+    gap: 0.6rem;
+    padding: 0.6rem;
+  }
+
+  .theme-choice-copy > span:last-child {
+    font-size: 0.76rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
