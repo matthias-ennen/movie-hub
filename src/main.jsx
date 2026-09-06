@@ -4,6 +4,7 @@ import App from './App.jsx'
 import './index.css'
 import './styles/themes.css'
 import './styles/profile.css'
+import './styles/profiles.css'
 import './styles/tv.css'
 import './styles/tmdb.css'
 
