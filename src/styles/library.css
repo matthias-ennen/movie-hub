@@ -124,6 +124,12 @@
   font: inherit;
 }
 
+.watched-date-control input:focus-visible,
+.personal-note-form textarea:focus-visible {
+  outline: var(--focus-width-control) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
 .watched-date-control input {
   min-height: 46px;
   padding: 0.65rem 0.75rem;
