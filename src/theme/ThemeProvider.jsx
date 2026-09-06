@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import {
   AUTO_SWITCH_INTERVALS,
   DEFAULT_THEME_SETTINGS,
@@ -6,25 +7,38 @@ import {
   getPeriodKey,
   isAutoSwitchInterval,
   isThemeId,
+  normalizeThemeSettings,
   resolveThemeForStartup,
 } from './themeConfig.js'
 
-const STORAGE_KEY = 'movie-hub-theme-settings-v1'
+const LEGACY_STORAGE_KEY = 'movie-hub-theme-settings-v1'
 const ThemeContext = createContext(null)
 
-function loadThemeSettings() {
+function loadLegacyThemeSettings() {
   if (typeof window === 'undefined') return DEFAULT_THEME_SETTINGS
 
   try {
-    const stored = window.localStorage.getItem(STORAGE_KEY)
+    const stored = window.localStorage.getItem(LEGACY_STORAGE_KEY)
     return resolveThemeForStartup(stored ? JSON.parse(stored) : DEFAULT_THEME_SETTINGS)
   } catch {
     return DEFAULT_THEME_SETTINGS
   }
 }
 
+function settingsEqual(a, b) {
+  return JSON.stringify(normalizeThemeSettings(a)) === JSON.stringify(normalizeThemeSettings(b))
+}
+
 export function ThemeProvider({ children }) {
-  const [settings, setSettings] = useState(loadThemeSettings)
+  const { activeProfile, updateActiveProfileThemeSettings } = useProfiles()
+  const [settings, setSettings] = useState(() => resolveThemeForStartup(activeProfile?.themeSettings ?? loadLegacyThemeSettings()))
+  const [hydratedProfileId, setHydratedProfileId] = useState(activeProfile?.id ?? null)
+
+  useEffect(() => {
+    if (!activeProfile) return
+    setSettings(resolveThemeForStartup(activeProfile.themeSettings ?? loadLegacyThemeSettings()))
+    setHydratedProfileId(activeProfile.id)
+  }, [activeProfile?.id])
 
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = settings.themeId
@@ -32,12 +46,26 @@ export function ThemeProvider({ children }) {
   }, [settings.themeId])
 
   useEffect(() => {
+    if (!activeProfile || hydratedProfileId !== activeProfile.id) return undefined
+
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+      // Legacy-Spiegel bleibt als Migrations-/Offline-Fallback erhalten. Die
+      // führende Persistenz liegt ab Phase 2.3 im aktiven Firestore-Profil.
+      window.localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(settings))
     } catch {
       // localStorage kann z. B. im privaten Browsermodus blockiert sein.
     }
-  }, [settings])
+
+    if (settingsEqual(settings, activeProfile.themeSettings)) return undefined
+
+    const timer = window.setTimeout(() => {
+      updateActiveProfileThemeSettings(settings).catch((error) => {
+        console.error('Theme-Einstellungen konnten nicht im Profil gespeichert werden.', error)
+      })
+    }, 180)
+
+    return () => window.clearTimeout(timer)
+  }, [settings, activeProfile, hydratedProfileId, updateActiveProfileThemeSettings])
 
   const selectTheme = useCallback((themeId) => {
     if (!isThemeId(themeId)) return
