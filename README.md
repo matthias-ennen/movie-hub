@@ -51,7 +51,7 @@ Details:
 - Firebase Authentication: E-Mail/Passwort
 - klassisches Firebase Hosting eingerichtet
 - Live-App: `https://movie-hub-62459.web.app`
-- TMDB: Developer-/Personal-Use-Zugang vorbereitet
+- TMDB: Developer-/Personal-Use-Zugang vorbereitet; eigentliche Integration folgt in Phase 2
 
 ## Status
 
@@ -61,4 +61,4 @@ Stand: 6. September 2026
 
 Phase 0 ist real auf Firebase getestet: Login funktioniert, die Authentifizierung bleibt nach einem Browser-Reload erhalten, und der Firestore-Schreib-/Lesetest im eigenen Benutzerbereich ist erfolgreich. Firestore Rules und die minimale Web-App wurden erfolgreich ins reale Firebase-Projekt deployt. CI-Build und automatisierte Rules-Tests sind grün.
 
-Offen in Phase 0 sind vor allem das automatische Deployment aus `main`, die fachliche Auflösung des GitHub Secret-Scanning-Hinweises zum früher eingecheckten Firebase-Web-Key und der erste sichere TMDB-Testabruf. Das Ideen-Sammel-Issue ist #8; der aktuelle Implementierungs-PR ist #9.
+Offen in Phase 0 sind noch das automatische Deployment aus `main` und die fachliche Auflösung des GitHub Secret-Scanning-Hinweises zum früher eingecheckten Firebase-Web-Key. TMDB-Zugangsdaten und der erste TMDB-Testabruf werden in Phase 2 / Issue #2 weitergeführt. Das Ideen-Sammel-Issue ist #8; der aktuelle Implementierungs-PR ist #9.
