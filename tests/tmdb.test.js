@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTmdbImageUrl, normalizeTmdbTitle } from '../src/services/tmdb.js'
+import { buildTmdbImageUrl, normalizeTmdbTitle, toMovieHubTitle } from '../src/services/tmdb.js'
 
 describe('TMDB adapter', () => {
   it('normalizes a movie payload without exposing authentication concerns to UI code', () => {
@@ -17,6 +17,9 @@ describe('TMDB adapter', () => {
       backdrop_path: '/backdrop.jpg',
       original_language: 'en',
       status: 'Released',
+      credits: {
+        cast: [{ id: 1, name: 'Darsteller Eins', character: 'Figur', profile_path: '/person.jpg' }],
+      },
     }, 'movie')
 
     expect(normalized).toMatchObject({
@@ -29,9 +32,11 @@ describe('TMDB adapter', () => {
       runtimeMinutes: 121,
       genres: [{ id: 878, name: 'Science Fiction' }],
       voteAverage: 8.2,
+      cast: [{ id: 1, name: 'Darsteller Eins', character: 'Figur' }],
     })
     expect(normalized.posterUrl).toBe('https://image.tmdb.org/t/p/w500/poster.jpg')
     expect(normalized.backdropUrl).toBe('https://image.tmdb.org/t/p/w1280/backdrop.jpg')
+    expect(normalized.cast[0].profileUrl).toBe('https://image.tmdb.org/t/p/w185/person.jpg')
   })
 
   it('normalizes TV payloads as Movie-Hub series', () => {
@@ -44,6 +49,7 @@ describe('TMDB adapter', () => {
       number_of_seasons: 8,
       number_of_episodes: 73,
       genres: [{ id: 18, name: 'Drama' }],
+      vote_average: 8.5,
     }, 'tv')
 
     expect(normalized).toMatchObject({
@@ -54,10 +60,36 @@ describe('TMDB adapter', () => {
       numberOfSeasons: 8,
       numberOfEpisodes: 73,
     })
+
+    const catalogItem = toMovieHubTitle(normalized, { id: 'got' })
+    expect(catalogItem).toMatchObject({
+      id: 'got',
+      type: 'series',
+      meta: '8 Staffeln · 73 Folgen',
+      genre: 'Drama',
+      score: '8,5',
+      providerIds: [],
+    })
+  })
+
+  it('formats movie runtime for the UI catalog', () => {
+    const catalogItem = toMovieHubTitle(normalizeTmdbTitle({
+      id: 11,
+      title: 'Krieg der Sterne',
+      release_date: '1977-05-25',
+      runtime: 121,
+      genres: [],
+      vote_average: 8.2,
+    }, 'movie'))
+
+    expect(catalogItem.meta).toBe('2 Std. 1 Min.')
+    expect(catalogItem.genre).toBe('Ohne Genreangabe')
+    expect(catalogItem.id).toBe('tmdb-movie-11')
   })
 
   it('returns null for missing images and rejects unsupported media types', () => {
     expect(buildTmdbImageUrl(null)).toBeNull()
     expect(() => normalizeTmdbTitle({ id: 1 }, 'person')).toThrow(/Unsupported TMDB media type/)
+    expect(() => toMovieHubTitle({ source: 'other' })).toThrow(/normalized TMDB title/)
   })
 })
