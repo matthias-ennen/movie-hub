@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { collection, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
+import { LibraryProvider } from '../library/LibraryProvider.jsx'
 import { firebaseReady } from '../lib/firebase.js'
 import { DEFAULT_THEME_SETTINGS, normalizeThemeSettings } from '../theme/themeConfig.js'
 
@@ -178,7 +179,13 @@ export function ProfileProvider({ user, children }) {
     updateActiveProfileThemeSettings,
   }), [profiles, activeProfile, loading, error, selectProfile, createProfile, renameProfile, updateActiveProfileThemeSettings])
 
-  return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>
+  return (
+    <ProfileContext.Provider value={value}>
+      <LibraryProvider user={user} activeProfile={activeProfile}>
+        {children}
+      </LibraryProvider>
+    </ProfileContext.Provider>
+  )
 }
 
 export function useProfiles() {

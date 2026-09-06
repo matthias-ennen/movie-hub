@@ -1,0 +1,182 @@
+.personal-title-state {
+  margin: 0 0 var(--space-8);
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-panel);
+  background: color-mix(in srgb, var(--color-surface) 90%, transparent);
+}
+
+.personal-title-state-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.personal-title-state-heading h3 {
+  margin: 0;
+  font-size: clamp(1.15rem, 1.7vw, 1.45rem);
+}
+
+.personal-rating-summary {
+  flex: 0 0 auto;
+  padding: 0.42rem 0.65rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-focus);
+  color: var(--color-bg);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.personal-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-bottom: var(--space-5);
+}
+
+.personal-action {
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+  font-weight: 850;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.personal-action > span:first-child {
+  font-size: 1.15rem;
+}
+
+.personal-action.active {
+  border-color: var(--color-focus);
+  background: color-mix(in srgb, var(--color-surface-soft) 70%, var(--color-brand-accent) 30%);
+}
+
+.personal-action:hover,
+.personal-action:focus-visible,
+.rating-button:hover,
+.rating-button:focus-visible,
+.personal-note-form button:hover,
+.personal-note-form button:focus-visible {
+  transform: translateY(-1px);
+  border-color: var(--color-focus);
+}
+
+.personal-rating-block {
+  display: grid;
+  gap: 0.7rem;
+  margin-bottom: var(--space-5);
+}
+
+.personal-rating-block > span,
+.watched-date-control,
+.personal-note-form label {
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.personal-rating-buttons {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(40px, 1fr));
+  gap: 0.4rem;
+}
+
+.rating-button {
+  min-width: 40px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+  font-weight: 900;
+}
+
+.rating-button.active {
+  border-color: var(--color-focus);
+  background: var(--color-focus);
+  color: var(--color-bg);
+}
+
+.watched-date-control {
+  width: min(260px, 100%);
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: var(--space-5);
+}
+
+.watched-date-control input,
+.personal-note-form textarea {
+  width: 100%;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-control);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.watched-date-control input:focus-visible,
+.personal-note-form textarea:focus-visible {
+  outline: var(--focus-width-control) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
+.watched-date-control input {
+  min-height: 46px;
+  padding: 0.65rem 0.75rem;
+}
+
+.personal-note-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.personal-note-form label {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.personal-note-form textarea {
+  min-height: 86px;
+  resize: vertical;
+  padding: 0.75rem 0.85rem;
+  line-height: 1.45;
+}
+
+.personal-note-form button {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+  font-weight: 850;
+}
+
+.personal-state-message {
+  margin: var(--space-4) 0 0;
+  color: var(--color-muted);
+  font-size: 0.84rem;
+}
+
+@media (max-width: 980px) {
+  .personal-rating-buttons {
+    grid-template-columns: repeat(5, minmax(42px, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .personal-action-grid {
+    grid-template-columns: 1fr;
+  }
+}
