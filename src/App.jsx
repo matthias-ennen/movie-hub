@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
-import BrowseViewPlaceholder from './components/PosterCard.jsx'
 import ContentRow from './components/ContentRow.jsx'
 import DetailModal from './components/DetailModal.jsx'
 import Hero from './components/Hero.jsx'
