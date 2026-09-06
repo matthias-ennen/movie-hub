@@ -1,0 +1,100 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  /* Midnight-Basis. Phase 1.2 überschreibt diese Tokens je Theme. */
+  --color-bg: #07090d;
+  --color-bg-elevated: #10141b;
+  --color-surface: #11151c;
+  --color-surface-soft: #171c25;
+  --color-surface-control: #252c39;
+  --color-text: #f7f8fb;
+  --color-text-soft: #d4d8e0;
+  --color-muted: #a6afbf;
+  --color-muted-strong: #7f899c;
+  --color-line: rgba(255, 255, 255, 0.1);
+  --color-line-strong: rgba(255, 255, 255, 0.14);
+  --color-focus: #ffffff;
+  --color-brand-accent: #8da7ff;
+  --color-eyebrow: #9fb2f7;
+  --color-danger: #ffaaaa;
+
+  --page-inline: clamp(1.3rem, 5vw, 5.5rem);
+  --page-gutter-total: clamp(2.6rem, 10vw, 11rem);
+  --page-block: clamp(4rem, 7vw, 6.5rem);
+  --topbar-height: 78px;
+  --content-max-width: 1500px;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  --radius-xs: 0.35rem;
+  --radius-sm: 0.45rem;
+  --radius-control: 0.75rem;
+  --radius-card: 0.85rem;
+  --radius-search: 0.9rem;
+  --radius-panel: 1.4rem;
+  --radius-hero-art: 2rem;
+  --radius-pill: 999px;
+
+  --focus-width: 4px;
+  --focus-offset: 4px;
+  --focus-width-control: 3px;
+
+  --hero-min-height: min(72vh, 760px);
+  --hero-art-width: min(46vw, 700px);
+  --hero-copy-max: 720px;
+  --hero-description-max: 650px;
+  --hero-row-overlap: -3.7rem;
+
+  --poster-track-width: clamp(154px, 15vw, 230px);
+  --poster-grid-min: clamp(145px, 13vw, 210px);
+  --poster-grid-max: 250px;
+  --poster-gap: clamp(0.75rem, 1.2vw, 1.15rem);
+  --poster-grid-gap: clamp(1rem, 1.8vw, 1.6rem);
+  --poster-aspect-ratio: 2 / 3;
+  --poster-focus-scale: 1.045;
+  --provider-badge-size: 28px;
+
+  --control-height: 52px;
+  --control-height-compact: 46px;
+  --transition-fast: 140ms ease;
+
+  --shadow-card: 0 16px 34px rgba(0, 0, 0, 0.3);
+  --shadow-panel: 0 35px 120px rgba(0, 0, 0, 0.65);
+  --shadow-menu: 0 24px 70px rgba(0, 0, 0, 0.48);
+}
+
+@media (max-width: 1050px) {
+  :root {
+    --page-inline: 1.2rem;
+    --page-gutter-total: 2.4rem;
+    --hero-min-height: 680px;
+  }
+}
+
+@media (max-width: 760px) {
+  :root {
+    --page-inline: 1rem;
+    --page-gutter-total: 2rem;
+    --page-block: 3rem;
+    --hero-min-height: 640px;
+    --hero-row-overlap: -2rem;
+    --poster-track-width: 155px;
+  }
+}
+
+@media (max-width: 460px) {
+  :root {
+    --hero-min-height: 600px;
+    --poster-track-width: 142px;
+  }
+}
