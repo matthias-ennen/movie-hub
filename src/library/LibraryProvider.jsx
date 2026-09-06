@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { collection, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
 import { firebaseReady } from '../lib/firebase.js'
-import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import {
   EMPTY_TITLE_STATE,
   applyTitleStatePatch,
@@ -12,8 +11,7 @@ import {
 
 const LibraryContext = createContext(null)
 
-export function LibraryProvider({ user, children }) {
-  const { activeProfile } = useProfiles()
+export function LibraryProvider({ user, activeProfile, children }) {
   const [statesByKey, setStatesByKey] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
