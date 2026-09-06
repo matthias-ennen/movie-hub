@@ -1,6 +1,6 @@
 # Movie Hub – Issue-Plan
 
-Stand: 31. August 2026
+Stand: 6. September 2026
 
 ## Kern-Issues
 
@@ -20,4 +20,8 @@ Aus #8 werden umsetzungsreife Punkte bei Bedarf in eigene Issues überführt, oh
 
 ## Aktiver Arbeitsstand
 
-Phase 0 wird auf dem Branch `phase-0-foundation` umgesetzt und über Draft-PR #9 gegen `main` geprüft. Technische Prüfpunkte werden erst nach tatsächlicher Ausführung als bestanden markiert.
+Phase 0 wird auf dem Branch `phase-0-foundation` über PR #9 abgeschlossen. Der reale Firebase-End-to-End-Test ist bestanden: Hosting, Authentication, Persistenz nach Reload sowie Firestore Write/Read funktionieren. CI-Build und automatisierte Firestore-Rules-Tests sind grün.
+
+Vor dem Abschluss von Phase 0 werden noch das Deployment aus `main` automatisiert und der vorhandene GitHub Secret-Scanning-Hinweis zum früher eingecheckten Firebase-Web-Key fachlich aufgelöst. TMDB-Funktionalität gehört inhaltlich zu Phase 2 und wird dort weitergeführt.
+
+Technische Prüfpunkte werden erst nach tatsächlicher Ausführung als bestanden markiert.
