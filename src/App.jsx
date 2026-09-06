@@ -4,6 +4,7 @@ import ContentRow from './components/ContentRow.jsx'
 import DetailModal from './components/DetailModal.jsx'
 import Hero from './components/Hero.jsx'
 import PosterCard from './components/PosterCard.jsx'
+import ProfileView from './components/ProfileView.jsx'
 import { rowDefinitions, titles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
@@ -63,6 +64,11 @@ function Header({ currentView, onViewChange, user, onSignOut }) {
     ['library', 'Meine Inhalte'],
   ]
 
+  function openProfileSettings() {
+    setProfileOpen(false)
+    onViewChange('profile')
+  }
+
   return (
     <header className="topbar">
       <button type="button" className="brand brand-button" onClick={() => onViewChange('home')} data-focusable="true">MOVIE <span>HUB</span></button>
@@ -74,13 +80,21 @@ function Header({ currentView, onViewChange, user, onSignOut }) {
       <div className="top-actions">
         <button type="button" className={currentView === 'search' ? 'icon-button active' : 'icon-button'} onClick={() => onViewChange('search')} data-focusable="true" aria-label="Suche">⌕</button>
         <div className="profile-wrap">
-          <button type="button" className="profile-button" onClick={() => setProfileOpen((open) => !open)} data-focusable="true" aria-label="Profil öffnen">
+          <button
+            type="button"
+            className={currentView === 'profile' ? 'profile-button active' : 'profile-button'}
+            onClick={() => setProfileOpen((open) => !open)}
+            data-focusable="true"
+            aria-label="Profil öffnen"
+            aria-expanded={profileOpen}
+          >
             <span className="avatar">M</span><span className="profile-label">Profil</span>
           </button>
           {profileOpen && (
             <div className="profile-menu">
               <strong>Movie-Hub-Profil</strong>
               <span>{user.email}</span>
+              <button type="button" className="profile-settings-link" onClick={openProfileSettings} data-focusable="true">Profil & Design</button>
               <button type="button" onClick={onSignOut} data-focusable="true">Abmelden</button>
             </div>
           )}
@@ -170,6 +184,7 @@ function MovieHub({ user }) {
       {currentView === 'series' && <BrowseView title="Serien" subtitle="Serien entdecken, merken und später direkt beim passenden Anbieter öffnen." items={series} onOpen={setSelectedTitle} />}
       {currentView === 'library' && <BrowseView title="Meine Inhalte" subtitle="Der vorbereitete Platz für Favoriten, Watchlist, Bewertungen und Gesehenes." items={library} onOpen={setSelectedTitle} />}
       {currentView === 'search' && <SearchView onOpen={setSelectedTitle} />}
+      {currentView === 'profile' && <ProfileView user={user} onSignOut={handleSignOut} />}
       {selectedTitle && <DetailModal item={selectedTitle} onClose={() => setSelectedTitle(null)} />}
     </div>
   )
