@@ -34,13 +34,6 @@
 - [x] Firestore Rules ins reale Projekt deployt
 - [ ] Deployment aus `main` automatisieren
 
-## TMDB
-- [x] vorhandenen TMDB-Account wieder aktiviert
-- [x] Developer-/Personal-Use-Zugang vorbereitet/beantragt
-- [ ] API-Zugangsdaten sicher hinterlegen
-- [ ] Secret-Strategie für automatisierte TMDB-Jobs finalisieren
-- [ ] ersten TMDB-Testabruf durchführen
-
 ## Abschluss
 - [x] angemeldeter Nutzer kann eigenen Testzustand im realen Firebase-Projekt speichern und lesen
 - [x] unauthentifizierter Zugriff wird in den versionierten Rules-Tests abgelehnt
@@ -49,6 +42,10 @@
 - [x] Auth-Persistenz nach Reload verifiziert
 - [ ] Deployment aus `main` automatisiert
 - [ ] GitHub Secret-Scanning-Hinweis zum früher eingecheckten Firebase-Web-Key fachlich aufgelöst
+
+## TMDB-Abgrenzung
+
+Der vorhandene TMDB-Account und der vorbereitete Developer-/Personal-Use-Zugang sind dokumentiert. API-Zugangsdaten, erster Testabruf und die eigentliche TMDB-Integration gehören inhaltlich zu Phase 2 / Issue #2 und blockieren den Abschluss von Phase 0 nicht.
 
 ## Verifizierter Realstand
 
