@@ -5,6 +5,7 @@ import {
   hasPersonalTitleState,
   normalizeTitleState,
 } from '../src/library/libraryState.js'
+import { buildPersonalRows } from '../src/library/personalRows.js'
 
 describe('persönlicher Film-/Serienzustand', () => {
   it('verwendet TMDB-Typ und TMDB-ID als stabile Referenz', () => {
@@ -35,5 +36,36 @@ describe('persönlicher Film-/Serienzustand', () => {
     expect(hasPersonalTitleState({ favorite: true })).toBe(true)
     expect(hasPersonalTitleState({ rating: 8 })).toBe(true)
     expect(hasPersonalTitleState({ note: 'Merken' })).toBe(true)
+  })
+
+  it('erzeugt nur nicht-leere persönliche Reihen und sortiert sie fest', () => {
+    const titles = [
+      { id: 'b', title: 'Beta' },
+      { id: 'a', title: 'Alpha' },
+      { id: 'c', title: 'Charlie' },
+    ]
+    const states = {
+      a: { watchlist: true, favorite: true, watched: true, watchedAt: '2026-09-01', rating: 8 },
+      b: { watchlist: true, favorite: false, watched: true, watchedAt: '2026-09-05', rating: 10 },
+      c: { watchlist: false, favorite: true, watched: false, watchedAt: null, rating: null },
+    }
+
+    const rows = buildPersonalRows(titles, (item) => states[item.id] ?? {})
+
+    expect(rows.map((row) => row.id)).toEqual([
+      'my-watchlist',
+      'my-favorites',
+      'my-watched',
+      'my-ratings',
+    ])
+    expect(rows[0].items.map((item) => item.title)).toEqual(['Alpha', 'Beta'])
+    expect(rows[1].items.map((item) => item.title)).toEqual(['Alpha', 'Charlie'])
+    expect(rows[2].items.map((item) => item.title)).toEqual(['Beta', 'Alpha'])
+    expect(rows[3].items.map((item) => item.title)).toEqual(['Beta', 'Alpha'])
+  })
+
+  it('liefert bei einem leeren Profil keine toten persönlichen Reihen', () => {
+    const rows = buildPersonalRows([{ id: 'a', title: 'Alpha' }], () => ({}))
+    expect(rows).toEqual([])
   })
 })
