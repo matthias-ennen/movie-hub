@@ -1,6 +1,6 @@
 # Movie Hub – Firebase Setup
 
-Stand: 31. August 2026
+Stand: 6. September 2026
 
 ## Bereits eingerichtet
 
@@ -10,49 +10,47 @@ Stand: 31. August 2026
 - Cloud Firestore: Standard Edition
 - Firestore-Region: `europe-west3` (Frankfurt)
 - Firestore-Modus: Produktion / standardmäßig gesperrt
-- Firebase Authentication: E-Mail/Passwort als erste Anmeldemethode
+- Firebase Authentication: E-Mail/Passwort
+- erster Firebase-Nutzer angelegt
+- klassisches Firebase Hosting eingerichtet
+- Live-URL: `https://movie-hub-62459.web.app`
 - Google Analytics: aktiviert
 
-## Im Repository vorbereitet
+## Im Repository umgesetzt
 
 - React/Vite-Grundgerüst
 - Firebase SDK
-- Firebase-Web-Konfiguration über lokale `.env`-Datei
+- Firebase-Konfiguration für lokale Entwicklung über `VITE_FIREBASE_*`
+- automatische Live-Konfiguration auf Firebase Hosting über `__/firebase/init.json`
 - Login/Logout-Oberfläche
-- lokaler Auth-Persistenzmodus
+- Browser-Persistenz für Authentication
 - Firestore-Schreib-/Lesetest für `users/{uid}/diagnostics/phase0`
 - versionierte Firestore Security Rules
 - automatisierte Rules-Tests über den Firestore Emulator
 - Firebase-Hosting-Konfiguration
 - CI-Workflow für Build und Rules-Tests
 
-Die Umsetzung befindet sich bis zur Abnahme auf `phase-0-foundation` / Draft-PR #9.
+## Real geprüft am 6. September 2026
 
-## Noch einzurichten bzw. real zu prüfen
-
-### Firebase-Web-Konfiguration
-Die Werte aus Firebase Console > Projekteinstellungen > `movie-hub-web` werden lokal in `.env` eingetragen. `.env` ist vom Git-Tracking ausgeschlossen.
-
-### Firestore Security Rules
-Ziel: angemeldete Nutzer dürfen ausschließlich ihre eigenen Dokumente unter `users/{uid}` lesen und schreiben. Die Regeln liegen im Repository, müssen aber vor Freigabe tatsächlich über die Emulator-Tests und anschließend gegen das reale Projekt geprüft werden.
-
-### Firebase Hosting
-- Hosting-Site für Movie Hub im Firebase-Projekt aktivieren
-- React/Vite-Build veröffentlichen
-- später automatisches Deployment aus `main`
-
-### Auth-Test
-- ersten Testnutzer anlegen
-- Login/Logout in Web-App testen
-- Auth-Status nach Reload prüfen
-
-### Firestore-End-to-End-Test
-- Testdokument unter `users/{uid}/diagnostics/phase0` schreiben
-- Dokument erneut lesen
-- Zugriff mit falscher/fehlender Identität muss abgewiesen werden
+- React/Vite-Build erfolgreich
+- Firestore Rules erfolgreich ins reale Firebase-Projekt deployt
+- Web-App erfolgreich auf Firebase Hosting deployt
+- Login gegen Firebase Authentication erfolgreich
+- Auth-Status bleibt nach Browser-Reload erhalten
+- eigener Firestore-Testzustand kann geschrieben und wieder gelesen werden
+- Live-App ist über `https://movie-hub-62459.web.app` erreichbar
 
 ## Sicherheit
-Die normale Firebase-Web-Konfiguration darf als Client-Konfiguration verwendet werden. Geheimnisse wie Admin-/Service-Account-Schlüssel gehören niemals ins öffentliche Repository.
+
+Persönliche Daten liegen unter `users/{uid}`. Die aktuellen Security Rules erlauben einem angemeldeten Benutzer ausschließlich Zugriffe auf den eigenen UID-Bereich. Unauthentifizierter Zugriff und Zugriffe auf eine fremde UID werden durch automatisierte Emulator-Tests abgelehnt.
+
+Die normale Firebase-Web-Konfiguration ist Client-Konfiguration. Für den Live-Betrieb wird sie nicht im Repository gespeichert, sondern von Firebase Hosting zur Laufzeit geliefert. Admin-/Service-Account-Schlüssel und andere echte Secrets gehören niemals in Client-Code oder Repository.
+
+## Noch offen in Phase 0
+
+- Deployment aus `main` automatisieren
+- GitHub Secret-Scanning-Hinweis für den früher eingecheckten Firebase-Web-Key fachlich auflösen
+- TMDB-Zugangsdaten sicher für spätere automatisierte Jobs hinterlegen und ersten Testabruf durchführen
 
 ## Später
 
