@@ -6,32 +6,47 @@
 - [x] Firestore Standard Edition angelegt
 - [x] Region `europe-west3` gewählt
 - [x] Firestore im Produktionsmodus gestartet
-- [x] Authentication mit E-Mail/Passwort vorbereitet/aktiviert
-- [ ] Security Rules im Repository anlegen
-- [ ] Security Rules testen
-- [ ] Firebase Hosting aktivieren
+- [x] Authentication mit E-Mail/Passwort aktiviert
+- [x] erster Firebase-Nutzer angelegt
+- [x] Security Rules im Repository angelegt
+- [x] automatisierte Security-Rule-Tests im Repository angelegt
+- [x] Security Rules im Firestore Emulator erfolgreich getestet
+- [x] klassisches Firebase Hosting im Firebase-Projekt eingerichtet
 
 ## Web-App
-- [ ] React/Vite-Projekt anlegen
-- [ ] Firebase SDK integrieren
-- [ ] Login/Logout implementieren
-- [ ] Auth-Status persistieren
-- [ ] Testzugriff auf Firestore implementieren
-- [ ] minimale Startseite bereitstellen
+- [x] React/Vite-Projektgrundgerüst angelegt
+- [x] Firebase SDK integriert
+- [x] lokale Firebase-Konfiguration über Umgebungsvariablen gekapselt
+- [x] Live-Konfiguration über `__/firebase/init.json` vorbereitet
+- [x] Login/Logout implementiert
+- [x] lokale Auth-Persistenz im Code vorgesehen
+- [x] Testzugriff auf Firestore implementiert
+- [x] minimale Phase-0-Startseite bereitgestellt
+- [x] Login/Logout real gegen Firebase getestet
+- [x] Auth-Status nach Reload real geprüft
+- [x] Firestore-Schreib-/Lesetest real durchgeführt
 
 ## Deployment
-- [ ] Firebase Hosting konfigurieren
-- [ ] Build lokal/CI erfolgreich
-- [ ] erste Version deployen
+- [x] Firebase-Hosting-Konfiguration versioniert
+- [x] CI-Workflow für Build und Security-Tests angelegt
+- [x] CI: Installation, Vite-Build und Firestore-Rules-Tests erfolgreich
+- [x] erste Version real auf Firebase Hosting deployt
+- [x] Firestore Rules ins reale Projekt deployt
 - [ ] Deployment aus `main` automatisieren
 
-## TMDB
-- [ ] TMDB-Account/API-Zugang anlegen
-- [ ] Secret-Strategie festlegen
-- [ ] ersten TMDB-Testabruf durchführen
-
 ## Abschluss
-- [ ] angemeldeter Nutzer kann eigenen Testzustand speichern und lesen
-- [ ] unauthentifizierter Zugriff wird abgelehnt
-- [ ] fremder Benutzerzugriff wird abgelehnt
-- [ ] minimale Web-App ist öffentlich über Firebase Hosting erreichbar
+- [x] angemeldeter Nutzer kann eigenen Testzustand im realen Firebase-Projekt speichern und lesen
+- [x] unauthentifizierter Zugriff wird in den versionierten Rules-Tests abgelehnt
+- [x] fremder Benutzerzugriff wird in den versionierten Rules-Tests abgelehnt
+- [x] minimale Web-App ist öffentlich über Firebase Hosting erreichbar
+- [x] Auth-Persistenz nach Reload verifiziert
+- [ ] Deployment aus `main` automatisiert
+- [ ] GitHub Secret-Scanning-Hinweis zum früher eingecheckten Firebase-Web-Key fachlich aufgelöst
+
+## TMDB-Abgrenzung
+
+Der vorhandene TMDB-Account und der vorbereitete Developer-/Personal-Use-Zugang sind dokumentiert. API-Zugangsdaten, erster Testabruf und die eigentliche TMDB-Integration gehören inhaltlich zu Phase 2 / Issue #2 und blockieren den Abschluss von Phase 0 nicht.
+
+## Verifizierter Realstand
+
+Am 6. September 2026 wurden auf dem Tablet Login, Browser-Reload-Persistenz und der reale Firestore Write/Read-Test erfolgreich durchgeführt. Die App ist unter `https://movie-hub-62459.web.app` erreichbar.
