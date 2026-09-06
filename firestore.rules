@@ -11,15 +11,29 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
+      // Das Kontodokument selbst bleibt ausschließlich für die eigene UID.
       allow read, write: if ownsUserData(userId);
 
-      match /{document=**} {
+      // Interne Movie-Hub-Profile und alle später darunter liegenden
+      // persönlichen Zustände (Watchlist, Bewertungen usw.) sind strikt an
+      // die authentifizierte Firebase-UID gebunden.
+      match /profiles/{profileId} {
+        allow read, write: if ownsUserData(userId);
+
+        match /{document=**} {
+          allow read, write: if ownsUserData(userId);
+        }
+      }
+
+      // Bestehende technische Diagnosepfade bleiben für Phase-0-/Regeltests
+      // verfügbar, aber ebenfalls nur innerhalb der eigenen UID.
+      match /diagnostics/{document=**} {
         allow read, write: if ownsUserData(userId);
       }
     }
 
     // Öffentliche Katalogdaten dürfen gelesen, aber niemals direkt vom Client
-    // verändert werden. Schreibzugriffe erfolgen später ausschließlich über
+    // verändert werden. Schreibzugriffe erfolgen ausschließlich über
     // vertrauenswürdige Build-/Backend-Prozesse.
     match /catalog/{document=**} {
       allow read: if true;
