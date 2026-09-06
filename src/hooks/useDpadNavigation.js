@@ -1,26 +1,73 @@
 import { useEffect } from 'react'
 
-export function useDpadNavigation(detailOpen, onBack) {
+const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
+const BACK_KEYS = new Set(['Escape', 'BrowserBack', 'GoBack'])
+
+function isEditable(element) {
+  if (!element) return false
+  return element.matches?.('input, textarea, select, [contenteditable="true"]') ?? false
+}
+
+function isVisibleFocusable(element) {
+  return !element.disabled && element.getAttribute('aria-hidden') !== 'true' && element.offsetParent !== null
+}
+
+function getFocusableCandidates(scopeSelector) {
+  const root = scopeSelector ? document.querySelector(scopeSelector) : document
+  if (!root) return []
+
+  return [...root.querySelectorAll('[data-focusable="true"]')].filter(isVisibleFocusable)
+}
+
+function focusCandidate(candidate) {
+  if (!candidate) return
+  candidate.focus({ preventScroll: true })
+  candidate.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+}
+
+export function useDpadNavigation({ detailOpen, profileMenuOpen, onBack }) {
   useEffect(() => {
+    const initialFocus = window.requestAnimationFrame(() => {
+      const active = document.activeElement
+      if (!active || active === document.body) {
+        focusCandidate(getFocusableCandidates(null)[0])
+      }
+    })
+
     function handleKeyDown(event) {
-      if (event.key === 'Escape' || event.key === 'Backspace') {
-        if (detailOpen) {
+      const active = document.activeElement
+      const editable = isEditable(active)
+      const isBackspaceNavigation = event.key === 'Backspace' && !editable
+      const isAndroidBack = event.keyCode === 461
+
+      if (BACK_KEYS.has(event.key) || isBackspaceNavigation || isAndroidBack) {
+        const handled = onBack?.() !== false
+        if (handled) {
           event.preventDefault()
-          onBack()
+          event.stopPropagation()
         }
         return
       }
 
-      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return
+      if (!ARROW_KEYS.has(event.key)) return
 
-      const active = document.activeElement
-      if (!active || active.tagName === 'INPUT') return
+      // In Texteingaben bleiben Links/Rechts für die Cursorbewegung reserviert.
+      // Hoch/Runter dürfen den Fokus dagegen zurück in die TV-Oberfläche führen.
+      if (editable && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) return
 
-      const scope = detailOpen ? '.detail-modal ' : ''
-      const candidates = [...document.querySelectorAll(`${scope}[data-focusable="true"]`)]
-        .filter((element) => !element.disabled && element.offsetParent !== null)
+      const scopeSelector = detailOpen
+        ? '.detail-modal'
+        : profileMenuOpen
+          ? '.profile-wrap'
+          : null
+      const candidates = getFocusableCandidates(scopeSelector)
+      if (!candidates.length) return
 
-      if (!candidates.includes(active)) return
+      if (!active || !candidates.includes(active)) {
+        event.preventDefault()
+        focusCandidate(candidates[0])
+        return
+      }
 
       const current = active.getBoundingClientRect()
       const currentX = current.left + current.width / 2
@@ -46,19 +93,25 @@ export function useDpadNavigation(detailOpen, onBack) {
           const horizontal = direction === 'ArrowLeft' || direction === 'ArrowRight'
           const primary = horizontal ? Math.abs(dx) : Math.abs(dy)
           const secondary = horizontal ? Math.abs(dy) : Math.abs(dx)
-          return { candidate, score: primary + secondary * 2.4 }
+
+          // Bevorzuge Ziele in derselben visuellen Spur. Dadurch springt der
+          // Fokus in Posterreihen horizontal und zwischen Reihen möglichst
+          // senkrecht, statt diagonal zu weit entfernten Elementen zu wandern.
+          return { candidate, score: primary + secondary * 2.7 }
         })
         .filter(Boolean)
         .sort((a, b) => a.score - b.score)
 
       if (ranked[0]) {
         event.preventDefault()
-        ranked[0].candidate.focus()
-        ranked[0].candidate.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+        focusCandidate(ranked[0].candidate)
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [detailOpen, onBack])
+    return () => {
+      window.cancelAnimationFrame(initialFocus)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [detailOpen, profileMenuOpen, onBack])
 }
