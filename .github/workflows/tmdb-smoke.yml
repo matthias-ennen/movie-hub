@@ -15,6 +15,10 @@ on:
         description: Optional TMDB ID (defaults to 11 for movie / 1399 for tv)
         required: false
         type: string
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmdb-smoke.yml'
 
 permissions:
   contents: read
