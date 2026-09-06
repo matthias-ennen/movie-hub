@@ -1,4 +1,6 @@
 export default function Hero({ item, onOpen }) {
+  const hasBackdrop = Boolean(item.backdropUrl)
+
   return (
     <section className="hero" style={{ '--poster-accent': item.accent, '--poster-accent-2': item.accent2 }}>
       <div className="hero-copy">
@@ -6,10 +8,10 @@ export default function Hero({ item, onOpen }) {
         <h1>{item.title}</h1>
         <div className="hero-meta">
           <strong>{item.score}</strong>
-          <span>{item.year}</span>
+          <span>{item.year || '–'}</span>
           <span>{item.meta}</span>
         </div>
-        <p className="hero-description">{item.description}</p>
+        <p className="hero-description">{item.description || 'Für diesen Titel liegt noch keine deutsche Beschreibung vor.'}</p>
         <div className="hero-actions">
           <button type="button" className="action-button action-button-primary" onClick={() => onOpen(item)} data-focusable="true">
             ▶ Ansehen
@@ -19,7 +21,8 @@ export default function Hero({ item, onOpen }) {
           </button>
         </div>
       </div>
-      <div className="hero-art" aria-hidden="true">
+      <div className={hasBackdrop ? 'hero-art has-image' : 'hero-art'} aria-hidden="true">
+        {hasBackdrop && <img className="hero-art-image" src={item.backdropUrl} alt="" />}
         <span>{item.title}</span>
       </div>
     </section>
