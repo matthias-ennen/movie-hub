@@ -27,6 +27,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Generate TMDB catalog
+        env:
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+          TMDB_LANGUAGE: de-DE
+        run: npm run tmdb:catalog
+
       - name: Build
         run: npm run build
 

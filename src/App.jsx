@@ -1,11 +1,11 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import ContentRow from './components/ContentRow.jsx'
 import DetailModal from './components/DetailModal.jsx'
 import Hero from './components/Hero.jsx'
 import PosterCard from './components/PosterCard.jsx'
 import ProfileView from './components/ProfileView.jsx'
-import { rowDefinitions, titles } from './data/catalog.js'
+import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
 import { firebaseReady } from './lib/firebase.js'
@@ -118,13 +118,16 @@ function BrowseView({ title, subtitle, items, onOpen }) {
   )
 }
 
-function SearchView({ onOpen }) {
+function SearchView({ titles, onOpen }) {
   const [query, setQuery] = useState('')
   const results = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('de')
     if (!normalized) return titles
-    return titles.filter((item) => `${item.title} ${item.genre}`.toLocaleLowerCase('de').includes(normalized))
-  }, [query])
+    return titles.filter((item) => {
+      const haystack = `${item.title || ''} ${item.originalTitle || ''} ${item.genre || ''}`.toLocaleLowerCase('de')
+      return haystack.includes(normalized)
+    })
+  }, [query, titles])
 
   return (
     <main className="browse-page search-page">
@@ -155,6 +158,41 @@ function MovieHub({ user }) {
   const [currentView, setCurrentView] = useState('home')
   const [selectedTitle, setSelectedTitle] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [catalog, setCatalog] = useState({
+    source: 'fallback',
+    titles: fallbackTitles,
+    rowDefinitions: fallbackRowDefinitions,
+  })
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCatalog() {
+      try {
+        const response = await fetch('/catalog.json', { cache: 'no-store' })
+        if (!response.ok) throw new Error(`Katalog konnte nicht geladen werden (${response.status})`)
+        const data = await response.json()
+
+        if (!Array.isArray(data.titles) || !data.titles.length || !Array.isArray(data.rowDefinitions)) return
+        if (!cancelled) {
+          setCatalog({
+            source: data.source === 'tmdb' ? 'tmdb' : 'fallback',
+            titles: data.titles,
+            rowDefinitions: data.rowDefinitions,
+            generatedAt: data.generatedAt || null,
+          })
+        }
+      } catch (error) {
+        console.warn('Movie Hub verwendet den lokalen Katalog-Fallback.', error)
+      }
+    }
+
+    loadCatalog()
+    return () => { cancelled = true }
+  }, [])
+
+  const titles = catalog.titles.length ? catalog.titles : fallbackTitles
+  const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
   const heroItem = titles[0]
 
   const handleViewChange = useCallback((nextView) => {
@@ -183,8 +221,6 @@ function MovieHub({ user }) {
       return true
     }
 
-    // Auf Home wird der Zurück-Impuls bewusst nicht geschluckt. In der
-    // späteren Fire-TV-Hülle kann dadurch die native App-Navigation übernehmen.
     return false
   }, [currentView, profileOpen, selectedTitle])
 
@@ -203,12 +239,13 @@ function MovieHub({ user }) {
     () => rowDefinitions.map((row) => ({
       ...row,
       items: row.ids.map((id) => titles.find((item) => item.id === id)).filter(Boolean),
-    })),
-    [],
+    })).filter((row) => row.items.length),
+    [rowDefinitions, titles],
   )
   const movies = titles.filter((item) => item.type === 'movie')
   const series = titles.filter((item) => item.type === 'series')
-  const library = titles.filter((item) => ['dune-2', 'shogun', 'arrival', 'severance', 'oppenheimer', 'dark'].includes(item.id))
+  const library = titles.slice(0, Math.min(6, titles.length))
+  const liveTmdb = catalog.source === 'tmdb'
 
   return (
     <div className="app-shell">
@@ -225,15 +262,18 @@ function MovieHub({ user }) {
         <main>
           <Hero item={heroItem} onOpen={handleOpenTitle} />
           <div className="rows-wrap">
-            <div className="prototype-strip"><strong>Phase 1 Prototyp</strong><span>Kontrollierte Testdaten · echte TMDB-Daten folgen in Phase 2</span></div>
+            <div className="prototype-strip">
+              <strong>{liveTmdb ? 'Echte TMDB-Daten' : 'Entwicklungsfallback'}</strong>
+              <span>{liveTmdb ? 'Filme & Serien · deutsche Metadaten · Poster & Backdrops' : 'Der Live-TMDB-Katalog konnte noch nicht geladen werden.'}</span>
+            </div>
             {rows.map((row) => <ContentRow key={row.id} title={row.title} items={row.items} onOpen={handleOpenTitle} />)}
           </div>
         </main>
       )}
-      {currentView === 'movies' && <BrowseView title="Filme" subtitle="Deine Filmwelt – später gespeist aus TMDB und deinen Streamingdiensten." items={movies} onOpen={handleOpenTitle} />}
-      {currentView === 'series' && <BrowseView title="Serien" subtitle="Serien entdecken, merken und später direkt beim passenden Anbieter öffnen." items={series} onOpen={handleOpenTitle} />}
-      {currentView === 'library' && <BrowseView title="Meine Inhalte" subtitle="Der vorbereitete Platz für Favoriten, Watchlist, Bewertungen und Gesehenes." items={library} onOpen={handleOpenTitle} />}
-      {currentView === 'search' && <SearchView onOpen={handleOpenTitle} />}
+      {currentView === 'movies' && <BrowseView title="Filme" subtitle="Echte Filmdaten aus TMDB in der Movie-Hub-Oberfläche." items={movies} onOpen={handleOpenTitle} />}
+      {currentView === 'series' && <BrowseView title="Serien" subtitle="Echte Seriendaten aus TMDB – auf dieselbe ruhige TV-Oberfläche reduziert." items={series} onOpen={handleOpenTitle} />}
+      {currentView === 'library' && <BrowseView title="Meine Inhalte" subtitle="Noch eine Katalogauswahl. Persönliche Watchlist, Favoriten und Bewertungen folgen in Phase 2.4." items={library} onOpen={handleOpenTitle} />}
+      {currentView === 'search' && <SearchView titles={titles} onOpen={handleOpenTitle} />}
       {currentView === 'profile' && <ProfileView user={user} onSignOut={handleSignOut} />}
       {selectedTitle && <DetailModal item={selectedTitle} onClose={() => setSelectedTitle(null)} />}
     </div>
