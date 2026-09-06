@@ -85,21 +85,22 @@ export default function ProfileView({ user, onSignOut }) {
           Wenn diese Funktion aktiv ist, wählt Movie Hub beim ersten Start einer neuen Wechselperiode zufällig eines der fünf Designs aus.
         </p>
 
-        <div className={autoSwitchEnabled ? 'interval-controls' : 'interval-controls disabled'} aria-label="Intervall für automatischen Designwechsel">
-          {autoSwitchIntervals.map((interval) => (
-            <button
-              type="button"
-              key={interval.id}
-              className={autoSwitchInterval === interval.id ? 'interval-button active' : 'interval-button'}
-              onClick={() => setAutoSwitchInterval(interval.id)}
-              data-focusable="true"
-              disabled={!autoSwitchEnabled}
-              aria-pressed={autoSwitchInterval === interval.id}
-            >
-              {interval.label}
-            </button>
-          ))}
-        </div>
+        {autoSwitchEnabled && (
+          <div className="interval-controls" aria-label="Intervall für automatischen Designwechsel">
+            {autoSwitchIntervals.map((interval) => (
+              <button
+                type="button"
+                key={interval.id}
+                className={autoSwitchInterval === interval.id ? 'interval-button active' : 'interval-button'}
+                onClick={() => setAutoSwitchInterval(interval.id)}
+                data-focusable="true"
+                aria-pressed={autoSwitchInterval === interval.id}
+              >
+                {interval.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <p className="settings-hint">
           Eine manuelle Designwahl schaltet die Automatik nicht aus. Das manuell gewählte Design bleibt bis zum nächsten planmäßigen Wechsel aktiv.
