@@ -6,6 +6,7 @@ import './index.css'
 import './styles/themes.css'
 import './styles/profile.css'
 import './styles/tv.css'
+import './styles/tmdb.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
