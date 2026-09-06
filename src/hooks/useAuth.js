@@ -1,40 +1,44 @@
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
-import { auth, firebaseReady } from '../lib/firebase.js'
+import { firebaseReady } from '../lib/firebase.js'
 
 export function useAuth() {
   const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(Boolean(auth))
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    if (!auth) {
-      setLoading(false)
-      return undefined
-    }
-
     let unsubscribe = () => {}
+    let active = true
 
     firebaseReady
-      .then(() => {
+      .then(({ auth }) => {
+        if (!active) return
+
         unsubscribe = onAuthStateChanged(
           auth,
           (nextUser) => {
+            if (!active) return
             setUser(nextUser)
             setLoading(false)
           },
           (nextError) => {
+            if (!active) return
             setError(nextError)
             setLoading(false)
           },
         )
       })
       .catch((nextError) => {
+        if (!active) return
         setError(nextError)
         setLoading(false)
       })
 
-    return () => unsubscribe()
+    return () => {
+      active = false
+      unsubscribe()
+    }
   }, [])
 
   return { user, loading, error }
