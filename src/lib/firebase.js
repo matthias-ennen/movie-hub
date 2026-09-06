@@ -2,10 +2,7 @@ import { getApps, initializeApp } from 'firebase/app'
 import { browserLocalPersistence, getAuth, setPersistence } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
-// Firebase Web configuration is client configuration, but we still keep concrete
-// project values out of the public repository to avoid accidental secret alerts.
-// Supply them via Vite environment variables during local development/builds.
-const firebaseConfig = {
+const envConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
@@ -17,24 +14,41 @@ const firebaseConfig = {
 
 const requiredConfigKeys = ['apiKey', 'authDomain', 'projectId', 'appId']
 
-export const isFirebaseConfigured = requiredConfigKeys.every(
-  (key) => Boolean(firebaseConfig[key]),
-)
+function isCompleteConfig(config) {
+  return requiredConfigKeys.every((key) => Boolean(config[key]))
+}
 
-export const missingFirebaseConfigKeys = requiredConfigKeys.filter(
-  (key) => !firebaseConfig[key],
-)
+async function loadFirebaseConfig() {
+  if (isCompleteConfig(envConfig)) {
+    return envConfig
+  }
 
-let app = null
-let auth = null
-let db = null
-let firebaseReady = Promise.resolve()
+  const response = await fetch('/__/firebase/init.json', { cache: 'no-store' })
 
-if (isFirebaseConfigured) {
+  if (!response.ok) {
+    throw new Error(
+      'Firebase-Konfiguration konnte nicht geladen werden. Auf Firebase Hosting wird sie automatisch bereitgestellt; lokal bitte VITE_FIREBASE_* Variablen verwenden.',
+    )
+  }
+
+  const hostingConfig = await response.json()
+
+  if (!isCompleteConfig(hostingConfig)) {
+    throw new Error('Firebase Hosting hat keine vollständige Web-Konfiguration geliefert.')
+  }
+
+  return hostingConfig
+}
+
+export let app = null
+export let auth = null
+export let db = null
+
+export const firebaseReady = loadFirebaseConfig().then(async (firebaseConfig) => {
   app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig)
   auth = getAuth(app)
   db = getFirestore(app)
-  firebaseReady = setPersistence(auth, browserLocalPersistence)
-}
+  await setPersistence(auth, browserLocalPersistence)
 
-export { app, auth, db, firebaseReady }
+  return { app, auth, db }
+})
