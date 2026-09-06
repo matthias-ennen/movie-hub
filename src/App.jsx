@@ -8,6 +8,8 @@ import ProfileView from './components/ProfileView.jsx'
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
+import { useLibrary } from './library/LibraryProvider.jsx'
+import { buildPersonalRows } from './library/personalRows.js'
 import { firebaseReady } from './lib/firebase.js'
 import { ProfileProvider, useProfiles } from './profiles/ProfileProvider.jsx'
 import { ThemeProvider } from './theme/ThemeProvider.jsx'
@@ -154,6 +156,35 @@ function BrowseView({ title, subtitle, items, onOpen }) {
   )
 }
 
+function PersonalLibraryView({ rows, onOpen, profileName, loading, error }) {
+  return (
+    <main className="browse-page personal-library-page">
+      <div className="page-heading">
+        <p className="eyebrow">{profileName ?? 'Movie Hub'}</p>
+        <h1>Meine Inhalte</h1>
+        <p>Deine Watchlist, Favoriten, gesehenen Titel und persönlichen Bewertungen – getrennt für dieses Profil.</p>
+      </div>
+
+      {loading && <p className="loading-copy">Persönliche Inhalte werden geladen …</p>}
+      {error && <p className="error">Persönliche Inhalte konnten nicht geladen werden: {error.message}</p>}
+
+      {!loading && !error && rows.length === 0 && (
+        <section className="library-empty-state">
+          <p className="settings-kicker">Noch leer</p>
+          <h2>Deine persönlichen Reihen entstehen hier automatisch.</h2>
+          <p>Öffne einen Film oder eine Serie und markiere ihn als Favorit, für später, gesehen oder gib eine Bewertung ab.</p>
+        </section>
+      )}
+
+      {rows.length > 0 && (
+        <div className="rows-wrap personal-library-rows">
+          {rows.map((row) => <ContentRow key={row.id} title={row.title} items={row.items} onOpen={onOpen} />)}
+        </div>
+      )}
+    </main>
+  )
+}
+
 function SearchView({ titles, onOpen }) {
   const [query, setQuery] = useState('')
   const results = useMemo(() => {
@@ -192,6 +223,7 @@ function SearchView({ titles, onOpen }) {
 
 function MovieHub({ user }) {
   const { profiles, activeProfile, selectProfile } = useProfiles()
+  const { getTitleState, loading: libraryLoading, error: libraryError } = useLibrary()
   const [currentView, setCurrentView] = useState('home')
   const [selectedTitle, setSelectedTitle] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -279,9 +311,12 @@ function MovieHub({ user }) {
     })).filter((row) => row.items.length),
     [rowDefinitions, titles],
   )
+  const personalRows = useMemo(
+    () => buildPersonalRows(titles, getTitleState),
+    [titles, getTitleState],
+  )
   const movies = titles.filter((item) => item.type === 'movie')
   const series = titles.filter((item) => item.type === 'series')
-  const library = titles.slice(0, Math.min(6, titles.length))
   const liveTmdb = catalog.source === 'tmdb'
 
   return (
@@ -306,13 +341,24 @@ function MovieHub({ user }) {
               <strong>{liveTmdb ? 'Echte TMDB-Daten' : 'Entwicklungsfallback'}</strong>
               <span>{liveTmdb ? 'Filme & Serien · deutsche Metadaten · Poster & Backdrops' : 'Der Live-TMDB-Katalog konnte noch nicht geladen werden.'}</span>
             </div>
+            {!libraryLoading && !libraryError && personalRows.map((row) => (
+              <ContentRow key={row.id} title={row.title} items={row.items} onOpen={handleOpenTitle} />
+            ))}
             {rows.map((row) => <ContentRow key={row.id} title={row.title} items={row.items} onOpen={handleOpenTitle} />)}
           </div>
         </main>
       )}
       {currentView === 'movies' && <BrowseView title="Filme" subtitle="Echte Filmdaten aus TMDB in der Movie-Hub-Oberfläche." items={movies} onOpen={handleOpenTitle} />}
       {currentView === 'series' && <BrowseView title="Serien" subtitle="Echte Seriendaten aus TMDB – auf dieselbe ruhige TV-Oberfläche reduziert." items={series} onOpen={handleOpenTitle} />}
-      {currentView === 'library' && <BrowseView title="Meine Inhalte" subtitle="Noch eine Katalogauswahl. Persönliche Watchlist, Favoriten und Bewertungen folgen in Phase 2.4." items={library} onOpen={handleOpenTitle} />}
+      {currentView === 'library' && (
+        <PersonalLibraryView
+          rows={personalRows}
+          onOpen={handleOpenTitle}
+          profileName={activeProfile?.displayName}
+          loading={libraryLoading}
+          error={libraryError}
+        />
+      )}
       {currentView === 'search' && <SearchView titles={titles} onOpen={handleOpenTitle} />}
       {currentView === 'profile' && <ProfileView user={user} onSignOut={handleSignOut} />}
       {selectedTitle && <DetailModal item={selectedTitle} onClose={() => setSelectedTitle(null)} />}
