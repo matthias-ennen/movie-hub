@@ -17,6 +17,74 @@
   z-index: 12;
 }
 
+/*
+ * Echte TMDB-Beschreibungen können deutlich länger als die Phase-1-Testtexte
+ * sein. Der Dialog braucht deshalb eine definite Viewport-Höhe, damit die
+ * Informationsspalte als eigener Scrollcontainer schrumpfen kann, statt vom
+ * äußeren overflow:hidden abgeschnitten zu werden.
+ */
+.detail-backdrop {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (min-width: 761px) {
+  .detail-modal {
+    height: min(760px, 92vh);
+    max-height: 92vh;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  @supports (height: 100dvh) {
+    .detail-modal {
+      height: min(760px, 92dvh);
+      max-height: 92dvh;
+    }
+  }
+
+  .detail-art {
+    min-height: 0;
+    height: 100%;
+  }
+
+  .detail-copy {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+  }
+}
+
+@media (max-width: 760px) {
+  .detail-modal {
+    height: 94vh;
+    max-height: 94vh;
+    grid-template-rows: minmax(180px, 32vh) minmax(0, 1fr);
+  }
+
+  @supports (height: 100dvh) {
+    .detail-modal {
+      height: 94dvh;
+      max-height: 94dvh;
+      grid-template-rows: minmax(180px, 32dvh) minmax(0, 1fr);
+    }
+  }
+
+  .detail-art {
+    min-height: 0;
+  }
+
+  .detail-copy {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 @media (min-width: 1200px) and (max-height: 800px) {
   /* 1280×720 / kompakte TV-Höhen: mehr Inhalt oberhalb der Falz sichtbar. */
   :root[data-theme='cinema'] {
@@ -59,6 +127,13 @@
 
   .detail-modal {
     max-height: 94vh;
+  }
+
+  @supports (height: 100dvh) {
+    .detail-modal {
+      height: min(760px, 94dvh);
+      max-height: 94dvh;
+    }
   }
 
   .detail-art {
