@@ -1,14 +1,28 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { providers } from '../data/catalog.js'
 import { ProviderBadge } from './ProviderBadges.jsx'
 
 export default function DetailModal({ item, onClose }) {
   const [providerMessage, setProviderMessage] = useState('')
+  const returnFocusRef = useRef(null)
 
   useEffect(() => {
-    const target = document.querySelector('[data-detail-autofocus="true"]')
-    target?.focus()
-  }, [item])
+    const active = document.activeElement
+    returnFocusRef.current = active instanceof HTMLElement ? active : null
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.querySelector('[data-detail-autofocus="true"]')
+      target?.focus({ preventScroll: true })
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      const returnTarget = returnFocusRef.current
+      if (returnTarget?.isConnected) {
+        window.requestAnimationFrame(() => returnTarget.focus({ preventScroll: true }))
+      }
+    }
+  }, [item.id])
 
   if (!item) return null
 
