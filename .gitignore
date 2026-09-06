@@ -8,3 +8,4 @@ firebase-debug.log
 firestore-debug.log
 coverage/
 .DS_Store
+gha-creds-*.json
