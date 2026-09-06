@@ -9,15 +9,16 @@ Stand: 6. September 2026
 - Java 21 für den lokalen Firestore Emulator
 - optional Firebase CLI (`npx firebase ...` funktioniert ebenfalls)
 
-## Ersteinrichtung
+## Ersteinrichtung lokal
 
 1. Repository auschecken.
 2. `npm install` ausführen.
-3. `npm run dev` starten.
+3. `.env.example` nach `.env` kopieren und für die lokale Entwicklung die Firebase-Web-Konfiguration der App `movie-hub-web` als `VITE_FIREBASE_*`-Werte eintragen.
+4. `npm run dev` starten.
 
-Die Firebase-Web-Konfiguration der registrierten App `movie-hub-web` ist als normale Client-Konfiguration im Web-Code hinterlegt, damit lokale Builds, CI und Firebase Hosting ohne private Build-Secrets funktionieren. Diese Werte identifizieren das Firebase-Projekt, ersetzen aber keine Zugriffskontrolle.
+Auf **Firebase Hosting** lädt Movie Hub die registrierte Firebase-Web-Konfiguration automatisch über den reservierten Hosting-Endpunkt `__/firebase/init.json`. Dadurch müssen die Client-Konfigurationswerte für den Live-Build nicht im Repository hinterlegt werden.
 
-Für lokale oder spätere Testumgebungen können die Werte weiterhin über `VITE_FIREBASE_*`-Umgebungsvariablen überschrieben werden. Admin-SDK-/Service-Account-Schlüssel oder sonstige echte Secrets gehören niemals in Client-Code oder Repository.
+Admin-SDK-/Service-Account-Schlüssel oder andere echte Secrets gehören niemals in Client-Code oder Repository.
 
 ## Phase-0-Test
 
@@ -26,6 +27,8 @@ Nach Anmeldung zeigt die minimale App einen Button `Firestore schreiben + lesen`
 `users/{uid}/diagnostics/phase0`
 
 und liest dasselbe Dokument anschließend wieder zurück.
+
+Der reale Test gegen `movie-hub-62459` wurde am 6. September 2026 erfolgreich durchgeführt: Login, Firestore Write/Read und Auth-Persistenz nach Reload funktionieren.
 
 ## Security Rules lokal testen
 
@@ -46,8 +49,10 @@ Der Build landet in `dist/` und ist für Firebase Hosting konfiguriert.
 
 Die Hosting-Konfiguration liegt in `firebase.json`, das Firebase-Projekt in `.firebaserc`.
 
-Der nächste reale Phase-0-Schritt ist:
-1. Testnutzer in Firebase Authentication anlegen.
-2. aktuelle Firestore Rules in das reale Firebase-Projekt deployen.
-3. Web-App auf Firebase Hosting deployen.
-4. Login, Reload-Persistenz und Firestore-Schreib-/Lesetest gegen das echte Projekt durchführen.
+Der erste reale Deploy wurde am 6. September 2026 erfolgreich mit
+
+`firebase deploy --only firestore:rules,hosting`
+
+durchgeführt. Die Live-App ist unter `https://movie-hub-62459.web.app` erreichbar.
+
+Offen bleibt die Automatisierung des Deployments aus `main`; dafür wird ein eigener CI/CD-Schritt eingerichtet.
