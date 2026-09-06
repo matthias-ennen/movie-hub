@@ -2,27 +2,17 @@ import { getApps, initializeApp } from 'firebase/app'
 import { browserLocalPersistence, getAuth, setPersistence } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
-// Firebase Web configuration is public client configuration. It identifies the
-// Firebase project; authorization is enforced by Authentication + Firestore Rules.
-// Environment variables can override these values for local/testing scenarios.
+// Firebase Web configuration is client configuration, but we still keep concrete
+// project values out of the public repository to avoid accidental secret alerts.
+// Supply them via Vite environment variables during local development/builds.
 const firebaseConfig = {
-  apiKey:
-    import.meta.env.VITE_FIREBASE_API_KEY ||
-    'AIzaSyAyyVfuxIe4bkTcmxLalA9lt82QJ23xLVk',
-  authDomain:
-    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ||
-    'movie-hub-62459.firebaseapp.com',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'movie-hub-62459',
-  storageBucket:
-    import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ||
-    'movie-hub-62459.firebasestorage.app',
-  messagingSenderId:
-    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '612913221205',
-  appId:
-    import.meta.env.VITE_FIREBASE_APP_ID ||
-    '1:612913221205:web:637ee2b917f32eeadacedc',
-  measurementId:
-    import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'G-PY40R98PV1',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 }
 
 const requiredConfigKeys = ['apiKey', 'authDomain', 'projectId', 'appId']
