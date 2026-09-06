@@ -1,0 +1,51 @@
+name: TMDB Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      media_type:
+        description: TMDB media type
+        required: true
+        default: movie
+        type: choice
+        options:
+          - movie
+          - tv
+      tmdb_id:
+        description: Optional TMDB ID (defaults to 11 for movie / 1399 for tv)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+      TMDB_TEST_TYPE: ${{ inputs.media_type }}
+      TMDB_TEST_ID: ${{ inputs.tmdb_id }}
+      TMDB_LANGUAGE: de-DE
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Verify TMDB secret is configured
+        run: |
+          if [ -z "$TMDB_API_READ_TOKEN" ]; then
+            echo "::error::Repository secret TMDB_API_READ_TOKEN is not configured."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run TMDB smoke test
+        run: npm run tmdb:smoke

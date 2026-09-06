@@ -30,5 +30,8 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Test TMDB adapter
+        run: npm run test:tmdb
+
       - name: Test Firestore rules
         run: npm run test:rules
