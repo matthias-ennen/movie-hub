@@ -1,0 +1,80 @@
+.hero-art.has-image,
+.poster-art.has-image,
+.detail-art.has-image {
+  background: var(--color-bg-elevated);
+}
+
+.hero-art-image,
+.poster-image,
+.detail-art-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.hero-art.has-image::after,
+.poster-art.has-image::after,
+.detail-art.has-image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hero-art.has-image::after {
+  background: linear-gradient(180deg, transparent 38%, rgba(0, 0, 0, 0.58) 100%);
+}
+
+.poster-art.has-image::after {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.06) 35%, rgba(0, 0, 0, 0.78) 100%);
+}
+
+.detail-art.has-image::after {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.04) 45%, rgba(0, 0, 0, 0.72) 100%);
+}
+
+.hero-art.has-image > span,
+.poster-art.has-image .poster-kicker,
+.poster-art.has-image .poster-title,
+.poster-art.has-image .poster-year,
+.detail-art.has-image .detail-type,
+.detail-art.has-image .detail-art-title {
+  position: relative;
+  z-index: 2;
+}
+
+.poster-art.has-image .poster-kicker {
+  opacity: 0.9;
+}
+
+.poster-art.has-image .poster-title {
+  font-size: clamp(0.92rem, 1.35vw, 1.25rem);
+}
+
+.cast-block {
+  margin: 1.2rem 0 1.4rem;
+}
+
+.cast-block h3 {
+  margin-bottom: 0.45rem;
+}
+
+.cast-block p,
+.tmdb-credit {
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+
+.tmdb-credit {
+  margin: 1.1rem 0 0;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 760px) {
+  .hero-art.has-image {
+    min-height: 260px;
+  }
+}
