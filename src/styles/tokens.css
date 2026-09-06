@@ -21,6 +21,7 @@
   --color-danger: #ffaaaa;
 
   --page-inline: clamp(1.3rem, 5vw, 5.5rem);
+  --page-gutter-total: clamp(2.6rem, 10vw, 11rem);
   --page-block: clamp(4rem, 7vw, 6.5rem);
   --topbar-height: 78px;
   --content-max-width: 1500px;
@@ -75,6 +76,7 @@
 @media (max-width: 1050px) {
   :root {
     --page-inline: 1.2rem;
+    --page-gutter-total: 2.4rem;
     --hero-min-height: 680px;
   }
 }
@@ -82,6 +84,7 @@
 @media (max-width: 760px) {
   :root {
     --page-inline: 1rem;
+    --page-gutter-total: 2rem;
     --page-block: 3rem;
     --hero-min-height: 640px;
     --hero-row-overlap: -2rem;
