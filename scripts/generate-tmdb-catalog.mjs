@@ -123,9 +123,28 @@ function getRowRequest(row) {
         },
       }
     case 'popular-movies':
-      return { path: '/movie/popular', params: { language, region: country } }
+      return {
+        path: '/discover/movie',
+        params: {
+          language,
+          region: country,
+          watch_region: country,
+          with_watch_providers: TMDB_DISCOVER_PROVIDER_IDS,
+          sort_by: 'popularity.desc',
+          include_adult: false,
+        },
+      }
     case 'popular-series':
-      return { path: '/tv/popular', params: { language } }
+      return {
+        path: '/discover/tv',
+        params: {
+          language,
+          watch_region: country,
+          with_watch_providers: TMDB_DISCOVER_PROVIDER_IDS,
+          sort_by: 'popularity.desc',
+          include_adult: false,
+        },
+      }
     default:
       throw new Error(`Unknown catalog row source: ${row.source}`)
   }
