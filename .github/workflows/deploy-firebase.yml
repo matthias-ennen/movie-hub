@@ -3,6 +3,11 @@ name: Deploy Firebase
 on:
   push:
     branches: [main]
+  schedule:
+    # Daily refresh in the early morning. A failed refresh never reaches the
+    # deploy step, so the last working catalog remains live.
+    - cron: '17 03 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read

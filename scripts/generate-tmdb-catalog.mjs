@@ -5,33 +5,66 @@ import { normalizeTmdbTitle, normalizeTmdbWatchProviders, toMovieHubTitle } from
 
 const token = process.env.TMDB_API_READ_TOKEN
 const language = process.env.TMDB_LANGUAGE || 'de-DE'
+const country = process.env.TMDB_COUNTRY || 'DE'
 
-if (!token) {
-  console.error('TMDB_API_READ_TOKEN is missing. Catalog generation must run only in a trusted server/CI context.')
-  process.exit(2)
+// These rows are product configuration, not hard-coded editorial content.
+// Changing a title, the source, or the amount of content later does not affect
+// the public catalog format or any personal Firestore data.
+export const CATALOG_ROWS = [
+  { id: 'trending', title: 'Jetzt beliebt', source: 'trending', mediaType: 'all', limit: 10 },
+  { id: 'new-movies', title: 'Neue Filme', source: 'recent-movies', mediaType: 'movie', limit: 10 },
+  { id: 'new-series', title: 'Neue Serien', source: 'recent-series', mediaType: 'tv', limit: 10 },
+  { id: 'movies', title: 'Filme entdecken', source: 'popular-movies', mediaType: 'movie', limit: 10 },
+  { id: 'series', title: 'Serien entdecken', source: 'popular-series', mediaType: 'tv', limit: 10 },
+]
+
+const CANDIDATES_PER_ROW = 24
+const MINIMUM_TITLES_PER_ROW = 6
+// Each candidate needs a detail and a provider request. Two workers keep the
+// total request rate deliberately conservative for the daily TMDB job.
+const REQUEST_CONCURRENCY = 2
+const ACCENT_PAIRS = [
+  ['#c88953', '#50311f'],
+  ['#d45d36', '#23314c'],
+  ['#7199a7', '#25353a'],
+  ['#6d8291', '#1a212b'],
+  ['#b04a35', '#321b18'],
+  ['#57777b', '#182628'],
+  ['#497ea8', '#16283a'],
+  ['#7168a5', '#241f3c'],
+]
+
+function isoDateDaysAgo(days) {
+  const date = new Date()
+  date.setUTCDate(date.getUTCDate() - days)
+  return date.toISOString().slice(0, 10)
 }
 
-const targets = [
-  { key: 'dune-2', mediaType: 'movie', query: 'Dune: Part Two', year: 2024, accent: '#c88953', accent2: '#50311f' },
-  { key: 'blade-runner', mediaType: 'movie', query: 'Blade Runner 2049', year: 2017, accent: '#d45d36', accent2: '#23314c' },
-  { key: 'arrival', mediaType: 'movie', query: 'Arrival', year: 2016, accent: '#7199a7', accent2: '#25353a' },
-  { key: 'interstellar', mediaType: 'movie', query: 'Interstellar', year: 2014, accent: '#6d8291', accent2: '#1a212b' },
-  { key: 'oppenheimer', mediaType: 'movie', query: 'Oppenheimer', year: 2023, accent: '#d76c2d', accent2: '#421d10' },
-  { key: 'civil-war', mediaType: 'movie', query: 'Civil War', year: 2024, accent: '#87634a', accent2: '#2b211a' },
-  { key: 'shogun', mediaType: 'tv', query: 'Shogun', year: 2024, accent: '#b04a35', accent2: '#321b18' },
-  { key: 'severance', mediaType: 'tv', query: 'Severance', year: 2022, accent: '#57777b', accent2: '#182628' },
-  { key: 'dark', mediaType: 'tv', query: 'Dark', year: 2017, accent: '#4f6672', accent2: '#121a1e' },
-  { key: 'expanse', mediaType: 'tv', query: 'The Expanse', year: 2015, accent: '#497ea8', accent2: '#16283a' },
-  { key: 'andor', mediaType: 'tv', query: 'Andor', year: 2022, accent: '#68768b', accent2: '#1c222d' },
-  { key: 'three-body', mediaType: 'tv', query: '3 Body Problem', year: 2024, accent: '#7168a5', accent2: '#241f3c' },
-]
+function today() {
+  return new Date().toISOString().slice(0, 10)
+}
 
-const rowBlueprints = [
-  { id: 'top', title: 'Aktuell im Movie Hub', keys: ['dune-2', 'oppenheimer', 'shogun', 'interstellar', 'severance', 'andor'] },
-  { id: 'scifi', title: 'Science-Fiction & Technik', keys: ['blade-runner', 'arrival', 'interstellar', 'expanse', 'three-body', 'andor'] },
-  { id: 'series', title: 'Serien entdecken', keys: ['shogun', 'severance', 'dark', 'expanse', 'andor', 'three-body'] },
-  { id: 'drama', title: 'Drama & große Geschichten', keys: ['oppenheimer', 'civil-war', 'arrival', 'dune-2', 'shogun', 'dark'] },
-]
+function normalizeCandidate(candidate, fallbackMediaType) {
+  const mediaType = candidate?.media_type || fallbackMediaType
+  const id = Number(candidate?.id)
+  if (!Number.isFinite(id) || !['movie', 'tv'].includes(mediaType)) return null
+  return { id, mediaType }
+}
+
+function uniqueCandidates(candidates) {
+  const seen = new Set()
+  return candidates.filter((candidate) => {
+    if (!candidate) return false
+    const key = `${candidate.mediaType}-${candidate.id}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+function accentFor(tmdbId) {
+  return ACCENT_PAIRS[Math.abs(Number(tmdbId) || 0) % ACCENT_PAIRS.length]
+}
 
 async function tmdbFetch(path, searchParams = {}) {
   const endpoint = new URL(`https://api.themoviedb.org/3${path}`)
@@ -54,66 +87,147 @@ async function tmdbFetch(path, searchParams = {}) {
   return response.json()
 }
 
-async function resolveTarget(target) {
-  const searchPath = target.mediaType === 'tv' ? '/search/tv' : '/search/movie'
-  const yearKey = target.mediaType === 'tv' ? 'first_air_date_year' : 'year'
-  const searchResult = await tmdbFetch(searchPath, {
-    query: target.query,
-    language,
-    include_adult: false,
-    [yearKey]: target.year,
-  })
+function getRowRequest(row) {
+  switch (row.source) {
+    case 'trending':
+      return { path: '/trending/all/week', params: { language } }
+    case 'recent-movies':
+      return {
+        path: '/discover/movie',
+        params: {
+          language,
+          region: country,
+          sort_by: 'primary_release_date.desc',
+          include_adult: false,
+          'primary_release_date.gte': isoDateDaysAgo(180),
+          'primary_release_date.lte': today(),
+        },
+      }
+    case 'recent-series':
+      return {
+        path: '/discover/tv',
+        params: {
+          language,
+          sort_by: 'first_air_date.desc',
+          include_adult: false,
+          'first_air_date.gte': isoDateDaysAgo(365),
+          'first_air_date.lte': today(),
+        },
+      }
+    case 'popular-movies':
+      return { path: '/movie/popular', params: { language, region: country } }
+    case 'popular-series':
+      return { path: '/tv/popular', params: { language } }
+    default:
+      throw new Error(`Unknown catalog row source: ${row.source}`)
+  }
+}
 
-  const match = Array.isArray(searchResult.results) ? searchResult.results[0] : null
-  if (!match?.id) throw new Error(`No TMDB match found for ${target.query} (${target.year})`)
+async function getRowCandidates(row) {
+  const request = getRowRequest(row)
+  const payload = await tmdbFetch(request.path, request.params)
+  const results = Array.isArray(payload?.results) ? payload.results : []
+  return uniqueCandidates(
+    results
+      .slice(0, CANDIDATES_PER_ROW)
+      .map((candidate) => normalizeCandidate(candidate, row.mediaType)),
+  )
+}
 
-  const detailPath = target.mediaType === 'tv' ? `/tv/${match.id}` : `/movie/${match.id}`
-  const payload = await tmdbFetch(detailPath, {
-    language,
-    append_to_response: 'credits',
-  })
+async function resolveCandidate(candidate) {
+  const detailPath = candidate.mediaType === 'tv' ? `/tv/${candidate.id}` : `/movie/${candidate.id}`
+  const providerPath = candidate.mediaType === 'tv'
+    ? `/tv/${candidate.id}/watch/providers`
+    : `/movie/${candidate.id}/watch/providers`
 
-  const normalized = normalizeTmdbTitle(payload, target.mediaType)
-  const providersPath = target.mediaType === 'tv' ? `/tv/${match.id}/watch/providers` : `/movie/${match.id}/watch/providers`
-  const providerPayload = await tmdbFetch(providersPath)
-  const providerData = normalizeTmdbWatchProviders(providerPayload, 'DE')
+  const [payload, providerPayload] = await Promise.all([
+    tmdbFetch(detailPath, { language, append_to_response: 'credits' }),
+    tmdbFetch(providerPath),
+  ])
+  const normalized = normalizeTmdbTitle(payload, candidate.mediaType)
+  const providerData = normalizeTmdbWatchProviders(providerPayload, country)
+  const [accent, accent2] = accentFor(normalized.tmdbId)
 
   return toMovieHubTitle(normalized, {
-    id: target.key,
-    accent: target.accent,
-    accent2: target.accent2,
+    id: `tmdb-${normalized.type}-${normalized.tmdbId}`,
+    accent,
+    accent2,
     ...providerData,
   })
 }
 
-try {
-  const titles = []
-  for (const target of targets) {
-    console.log(`TMDB catalog: ${target.query} (${target.year})`)
-    titles.push(await resolveTarget(target))
+async function mapWithConcurrency(values, limit, callback) {
+  const results = new Array(values.length)
+  let nextIndex = 0
+
+  async function worker() {
+    while (nextIndex < values.length) {
+      const index = nextIndex++
+      results[index] = await callback(values[index])
+    }
   }
 
-  const availableIds = new Set(titles.map((title) => title.id))
-  const rowDefinitions = rowBlueprints.map((row) => ({
-    id: row.id,
-    title: row.title,
-    ids: row.keys.filter((key) => availableIds.has(key)),
-  }))
+  await Promise.all(Array.from({ length: Math.min(limit, values.length) }, worker))
+  return results
+}
 
-  const catalog = {
+export function buildRowDefinitions(rows, titlesByCandidate) {
+  return rows.map(({ id, title, candidates, limit }) => {
+    const ids = candidates
+      .map((candidate) => titlesByCandidate.get(`${candidate.mediaType}-${candidate.id}`))
+      .filter((item) => item?.providerIds?.length)
+      .slice(0, limit)
+      .map((item) => item.id)
+
+    if (ids.length < MINIMUM_TITLES_PER_ROW) {
+      throw new Error(`TMDB catalog row "${title}" has only ${ids.length} supported titles; at least ${MINIMUM_TITLES_PER_ROW} are required.`)
+    }
+
+    return { id, title, ids }
+  })
+}
+
+export async function generateCatalog() {
+  if (!token) {
+    throw new Error('TMDB_API_READ_TOKEN is missing. Catalog generation must run only in a trusted server/CI context.')
+  }
+
+  const rowsWithCandidates = await Promise.all(CATALOG_ROWS.map(async (row) => ({
+    ...row,
+    candidates: await getRowCandidates(row),
+  })))
+
+  const candidates = uniqueCandidates(rowsWithCandidates.flatMap((row) => row.candidates))
+  console.log(`TMDB catalog: resolving ${candidates.length} current candidates`)
+  const resolvedTitles = await mapWithConcurrency(candidates, REQUEST_CONCURRENCY, resolveCandidate)
+  const titlesByCandidate = new Map(resolvedTitles.map((title) => [`${title.type === 'series' ? 'tv' : 'movie'}-${title.tmdbId}`, title]))
+  const rowDefinitions = buildRowDefinitions(rowsWithCandidates, titlesByCandidate)
+  const visibleIds = new Set(rowDefinitions.flatMap((row) => row.ids))
+  const titles = resolvedTitles.filter((title) => visibleIds.has(title.id))
+
+  return {
     source: 'tmdb',
     language,
+    country,
     generatedAt: new Date().toISOString(),
     attribution: 'This product uses the TMDB API but is not endorsed or certified by TMDB.',
     titles,
     rowDefinitions,
   }
+}
 
+async function writeCatalog(catalog) {
   const outputPath = resolve(dirname(fileURLToPath(import.meta.url)), '../public/catalog.json')
   await mkdir(dirname(outputPath), { recursive: true })
   await writeFile(outputPath, `${JSON.stringify(catalog, null, 2)}\n`, 'utf8')
-  console.log(`TMDB catalog generated: ${titles.length} titles -> public/catalog.json`)
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exit(1)
+  console.log(`TMDB catalog generated: ${catalog.titles.length} titles -> public/catalog.json`)
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  try {
+    await writeCatalog(await generateCatalog())
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  }
 }

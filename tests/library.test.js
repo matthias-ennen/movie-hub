@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyTitleStatePatch,
+  createTitleSnapshot,
   getTitleStateKey,
   hasPersonalTitleState,
   normalizeTitleState,
 } from '../src/library/libraryState.js'
-import { buildPersonalRows } from '../src/library/personalRows.js'
+import { buildPersonalRows, mergeCatalogWithPersonalSnapshots } from '../src/library/personalRows.js'
 
 describe('persönlicher Film-/Serienzustand', () => {
   it('verwendet TMDB-Typ und TMDB-ID als stabile Referenz', () => {
@@ -36,6 +37,24 @@ describe('persönlicher Film-/Serienzustand', () => {
     expect(hasPersonalTitleState({ favorite: true })).toBe(true)
     expect(hasPersonalTitleState({ rating: 8 })).toBe(true)
     expect(hasPersonalTitleState({ note: 'Merken' })).toBe(true)
+  })
+
+  it('keeps a public title snapshot with a personal state for later catalog refreshes', () => {
+    const snapshot = createTitleSnapshot({
+      id: 'tmdb-movie-11',
+      tmdbId: 11,
+      type: 'movie',
+      source: 'tmdb',
+      title: 'Krieg der Sterne',
+      description: 'Eine weit, weit entfernte Galaxis.',
+      providerIds: ['prime'],
+    })
+
+    const merged = mergeCatalogWithPersonalSnapshots([], {
+      'movie-11': { favorite: true, titleSnapshot: snapshot },
+    })
+
+    expect(merged).toMatchObject([{ tmdbId: 11, title: 'Krieg der Sterne', providerIds: ['prime'] }])
   })
 
   it('erzeugt nur nicht-leere persönliche Reihen und sortiert sie fest', () => {

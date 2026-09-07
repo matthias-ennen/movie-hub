@@ -81,6 +81,14 @@ Abschlusskriterium: dokumentierte Testmatrix und stabile Fallback-Logik je Anbie
 
 Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behandelt fehlende/mehrdeutige Daten sauber.
 
+### Laufendes Paket #53 – Automatische TMDB-Katalogaktualisierung
+
+- täglicher GitHub-Actions-Job für den öffentlichen Katalog
+- aktuelle Trend-, Neuheiten- und Popularitätsreihen für Filme und Serien
+- deutsche Anbieter-Verfügbarkeit als Auswahlkriterium
+- atomare Veröffentlichung: bei Fehler bleibt der letzte Live-Katalog bestehen
+- persönliche Listen bleiben unabhängig von wechselnden Entdeckungsreihen sichtbar
+
 ## Phase 6 – Personalisierung und Automatisierung
 
 - persönliche Top 100 aus Bewertungen und Präferenzen

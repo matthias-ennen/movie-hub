@@ -58,3 +58,19 @@ export function buildPersonalRows(titles, getTitleState) {
     }))
     .filter((row) => row.items.length > 0)
 }
+
+export function mergeCatalogWithPersonalSnapshots(titles, statesByKey) {
+  const merged = new Map()
+  for (const item of Array.isArray(titles) ? titles : []) {
+    merged.set(getTitleStateKey(item), item)
+  }
+
+  for (const state of Object.values(statesByKey || {})) {
+    if (!hasPersonalTitleState(state) || !state?.titleSnapshot) continue
+    const key = getTitleStateKey(state.titleSnapshot)
+    if (key && !merged.has(key)) merged.set(key, state.titleSnapshot)
+  }
+
+  return [...merged.values()]
+}
+import { getTitleStateKey, hasPersonalTitleState } from './libraryState.js'

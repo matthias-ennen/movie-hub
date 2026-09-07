@@ -4,6 +4,7 @@ import { firebaseReady } from '../lib/firebase.js'
 import {
   EMPTY_TITLE_STATE,
   applyTitleStatePatch,
+  createTitleSnapshot,
   getTitleStateKey,
   hasPersonalTitleState,
   normalizeTitleState,
@@ -91,6 +92,7 @@ export function LibraryProvider({ user, activeProfile, children }) {
           tmdbId: item.tmdbId ?? null,
           type: item.type === 'series' ? 'series' : 'movie',
         },
+        titleSnapshot: createTitleSnapshot(item),
         updatedAt: serverTimestamp(),
       }
 
