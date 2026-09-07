@@ -1,9 +1,20 @@
 export const providers = {
-  netflix: { label: 'Netflix', short: 'N' },
-  prime: { label: 'Prime Video', short: 'P' },
-  disney: { label: 'Disney+', short: 'D+' },
-  youtube: { label: 'YouTube', short: 'YT' },
-  waipu: { label: 'waipu.tv', short: 'W' },
+  netflix: { label: 'Netflix', short: 'N', searchUrl: (title) => `https://www.netflix.com/search?q=${encodeURIComponent(title)}` },
+  prime: { label: 'Prime Video', short: 'P', searchUrl: (title) => `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${encodeURIComponent(title)}` },
+  disney: { label: 'Disney+', short: 'D+', searchUrl: () => 'https://www.disneyplus.com/de-de' },
+  youtube: { label: 'YouTube', short: 'YT', searchUrl: (title) => `https://www.youtube.com/results?search_query=${encodeURIComponent(title)}` },
+  waipu: { label: 'waipu.tv', short: 'W', searchUrl: () => 'https://www.waipu.tv/' },
+}
+
+/**
+ * A provider's own public page is the first, deliberately simple destination.
+ * Precise native-app deep links are handled separately, because their support
+ * differs between Android, Fire TV and the browser.
+ */
+export function getProviderDestination(providerId, title) {
+  const provider = providers[providerId]
+  if (!provider?.searchUrl || !title) return null
+  return provider.searchUrl(title)
 }
 
 export const titles = [
