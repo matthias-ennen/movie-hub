@@ -81,3 +81,28 @@ Nach dem Merge der Phase-2.1-Grundlage wird in den Repository-Einstellungen ein 
 ## Attribution
 
 Vor der breiten sichtbaren Nutzung von TMDB-Daten in Phase 2.2 werden die jeweils aktuellen TMDB-Nutzungs- und Attribution-Anforderungen geprüft und in der Oberfläche umgesetzt.
+
+## Automatische Katalogaktualisierung (#53)
+
+Der öffentliche Katalog ist ein täglich neu erzeugtes Hosting-Artefakt. Der Ablauf
+läuft in GitHub Actions auf dem Default-Branch:
+
+1. TMDB liefert aktuelle Trend-, Neuheiten- und Popularitätslisten für Filme und Serien.
+2. Movie Hub lädt zu den Kandidaten die deutschen Metadaten und die deutsche
+   Anbieter-Verfügbarkeit.
+3. In den sichtbaren Reihen bleiben nur Titel mit mindestens einem unterstützten
+   Anbieter (Netflix, Prime Video, Disney+, YouTube oder waipu.tv).
+4. Erst wenn alle Reihen ausreichend gefüllt sind, wird das neue `catalog.json`
+   gebaut und gemeinsam mit der Web-App auf Firebase Hosting veröffentlicht.
+
+Der Zeitplan ist täglich um **03:17 UTC**; derselbe Workflow kann bei Bedarf auch
+manuell gestartet werden. Schlägt ein Abruf, die Mindestprüfung oder der Build
+fehl, wird nichts veröffentlicht. Das bisherige, funktionierende Katalog-Artefakt
+bleibt dann live.
+
+Die Auswahlreihen, ihre Titel und ihre Größe liegen als Konfiguration im Generator.
+Sie können später geändert oder um weitere TMDB-Quellen erweitert werden, ohne
+persönliche Daten umzubauen. Für neue persönliche Zustände wird außerdem eine
+kompakte öffentliche Titelkopie gespeichert. Dadurch bleiben Watchlist, Favoriten,
+Bewertungen und Notizen sichtbar, auch wenn ein Titel später nicht mehr in den
+tagesaktuellen Entdeckungsreihen auftaucht.

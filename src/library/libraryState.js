@@ -5,6 +5,42 @@ export const EMPTY_TITLE_STATE = {
   rating: null,
   watchedAt: null,
   note: '',
+  titleSnapshot: null,
+}
+
+/**
+ * The public catalog is deliberately refreshed over time. A compact copy of
+ * the title is kept with a personal state so a watchlist or rating never
+ * disappears merely because that title is no longer in today's discovery
+ * rows. It contains public TMDB metadata only, never authentication data.
+ */
+export function createTitleSnapshot(item) {
+  if (!item || typeof item !== 'object' || !item.title) return null
+
+  return {
+    id: String(item.id ?? ''),
+    tmdbId: Number.isFinite(Number(item.tmdbId)) ? Number(item.tmdbId) : null,
+    type: item.type === 'series' ? 'series' : 'movie',
+    source: item.source === 'tmdb' ? 'tmdb' : 'fallback',
+    title: String(item.title).slice(0, 300),
+    originalTitle: item.originalTitle ? String(item.originalTitle).slice(0, 300) : null,
+    description: item.description ? String(item.description).slice(0, 2500) : '',
+    year: Number.isInteger(item.year) ? item.year : null,
+    meta: item.meta ? String(item.meta).slice(0, 120) : '',
+    genre: item.genre ? String(item.genre).slice(0, 500) : '',
+    score: item.score ? String(item.score).slice(0, 30) : '–',
+    posterUrl: item.posterUrl ? String(item.posterUrl) : null,
+    backdropUrl: item.backdropUrl ? String(item.backdropUrl) : null,
+    accent: item.accent ? String(item.accent).slice(0, 32) : '#657184',
+    accent2: item.accent2 ? String(item.accent2).slice(0, 32) : '#1c2531',
+    providerIds: Array.isArray(item.providerIds) ? item.providerIds.filter(Boolean).map(String).slice(0, 10) : [],
+  }
+}
+
+export function normalizeTitleSnapshot(value) {
+  if (!value || typeof value !== 'object' || typeof value.title !== 'string' || !value.title.trim()) return null
+
+  return createTitleSnapshot(value)
 }
 
 export function getTitleStateKey(item) {
@@ -35,6 +71,7 @@ export function normalizeTitleState(value) {
       ? value.watchedAt
       : null,
     note: typeof value?.note === 'string' ? value.note.slice(0, 500) : '',
+    titleSnapshot: normalizeTitleSnapshot(value?.titleSnapshot),
   }
 }
 

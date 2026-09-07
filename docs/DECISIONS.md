@@ -29,3 +29,18 @@ Auf Postern sollen nur kompakte Provider-Symbole erscheinen. Bei mehreren Wieder
 Status: entschieden
 
 Verfügbarkeit, Metadaten und andere objektive Fakten werden aus strukturierten Quellen ermittelt. KI darf Empfehlungen, Rankings und Kategorien erzeugen, aber keine Verfügbarkeitsfakten erfinden.
+
+## ADR-006 – Täglicher, atomarer TMDB-Katalog
+
+Status: entschieden
+
+Movie Hub erzeugt seinen öffentlichen Katalog täglich in einem vertrauenswürdigen
+GitHub-Actions-Workflow. TMDB-Zugangsdaten bleiben dabei ausschließlich in GitHub
+Secrets. Der Ablauf validiert vor dem Firebase-Deploy, dass jede sichtbare Reihe
+ausreichend aktuelle Titel mit einem unterstützten deutschen Anbieter enthält.
+Bei einem Fehler wird kein Teilkatalog veröffentlicht; Firebase Hosting liefert
+weiterhin den zuletzt erfolgreichen Stand aus.
+
+Die Entdeckungsregeln sind zentral konfiguriert. Persönliche Zustände werden
+zusätzlich mit einer kleinen öffentlichen Titelkopie abgesichert, damit sie von
+einem dynamischen Katalogwechsel unabhängig bleiben.

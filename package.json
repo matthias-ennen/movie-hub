@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run tests/firestore.rules.test.js\"",
     "test:tmdb": "vitest run tests/tmdb.test.js",
+    "test:catalog": "vitest run tests/catalog-generator.test.js",
     "test:library": "vitest run tests/library.test.js",
     "tmdb:smoke": "node scripts/tmdb-smoke-test.mjs",
     "tmdb:catalog": "node scripts/generate-tmdb-catalog.mjs"

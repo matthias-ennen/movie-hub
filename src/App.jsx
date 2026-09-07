@@ -9,7 +9,7 @@ import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } fr
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
 import { useLibrary } from './library/LibraryProvider.jsx'
-import { buildPersonalRows } from './library/personalRows.js'
+import { buildPersonalRows, mergeCatalogWithPersonalSnapshots } from './library/personalRows.js'
 import { firebaseReady } from './lib/firebase.js'
 import { ProfileProvider, useProfiles } from './profiles/ProfileProvider.jsx'
 import { ThemeProvider } from './theme/ThemeProvider.jsx'
@@ -239,7 +239,7 @@ function ExitConfirmationDialog({ onCancel, onClose }) {
 
 function MovieHub({ user }) {
   const { profiles, activeProfile, selectProfile } = useProfiles()
-  const { getTitleState, loading: libraryLoading, error: libraryError } = useLibrary()
+  const { getTitleState, statesByKey, loading: libraryLoading, error: libraryError } = useLibrary()
   const [currentView, setCurrentView] = useState('home')
   const [selectedTitle, setSelectedTitle] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -371,8 +371,8 @@ function MovieHub({ user }) {
     [rowDefinitions, titles],
   )
   const personalRows = useMemo(
-    () => buildPersonalRows(titles, getTitleState),
-    [titles, getTitleState],
+    () => buildPersonalRows(mergeCatalogWithPersonalSnapshots(titles, statesByKey), getTitleState),
+    [titles, statesByKey, getTitleState],
   )
   const movies = titles.filter((item) => item.type === 'movie')
   const series = titles.filter((item) => item.type === 'series')
