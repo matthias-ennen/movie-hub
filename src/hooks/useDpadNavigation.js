@@ -25,7 +25,7 @@ function focusCandidate(candidate) {
   candidate.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
 }
 
-export function useDpadNavigation({ detailOpen, profileMenuOpen, onBack }) {
+export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen, onBack }) {
   useEffect(() => {
     const initialFocus = window.requestAnimationFrame(() => {
       const active = document.activeElement
@@ -55,11 +55,13 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, onBack }) {
       // Hoch/Runter dürfen den Fokus dagegen zurück in die TV-Oberfläche führen.
       if (editable && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) return
 
-      const scopeSelector = detailOpen
-        ? '.detail-modal'
-        : profileMenuOpen
-          ? '.profile-wrap'
-          : null
+      const scopeSelector = exitDialogOpen
+        ? '.exit-dialog'
+        : detailOpen
+          ? '.detail-modal'
+          : profileMenuOpen
+            ? '.profile-wrap'
+            : null
       const candidates = getFocusableCandidates(scopeSelector)
       if (!candidates.length) return
 
@@ -113,5 +115,5 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, onBack }) {
       window.cancelAnimationFrame(initialFocus)
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [detailOpen, profileMenuOpen, onBack])
+  }, [detailOpen, profileMenuOpen, exitDialogOpen, onBack])
 }
