@@ -126,8 +126,13 @@ export default function DetailModal({ item, onClose }) {
     const destination = getProviderDestination(providerId, item.title)
     if (!destination) return
 
-    // The Android shell exposes only a host-whitelisted external browser
-    // fallback here. Provider-specific app deep links are a later step.
+    if (window.MovieHubNative?.openProvider) {
+      window.MovieHubNative.openProvider(providerId, item.title, destination)
+      return
+    }
+
+    // Older installed shells retain the safe web fallback after the hosted UI
+    // gains provider-intent support.
     if (window.MovieHubNative?.openExternalUrl) {
       window.MovieHubNative.openExternalUrl(destination)
       return

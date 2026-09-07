@@ -3,6 +3,7 @@ package de.matthiasennen.moviehub;
 import android.annotation.SuppressLint;
 import android.content.ActivityNotFoundException;
 import android.app.AlertDialog;
+import android.app.SearchManager;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -256,9 +257,8 @@ public final class MainActivity extends ComponentActivity {
 
     /**
      * Deliberately narrow bridge for the hosted Movie Hub page. It exposes no
-     * credentials or storage. It can open only a small allow-list of public
-     * provider websites in an external browser; provider-app deep links are
-     * intentionally a later, explicit feature.
+     * credentials or storage. Provider launches are restricted to five known
+     * provider IDs, their expected HTTPS domains and an explicit package list.
      */
     private final class NativeBridge {
         @JavascriptInterface
@@ -300,6 +300,28 @@ public final class MainActivity extends ComponentActivity {
                     // No external browser is available. Movie Hub stays open.
                 }
             });
+        }
+
+        /**
+         * Try a provider-owned title/search destination in an installed app,
+         * then the provider app itself and finally the already validated web
+         * destination. Every step is user-triggered and allow-listed.
+         */
+        @JavascriptInterface
+        public void openProvider(String providerId, String title, String rawFallbackUrl) {
+            final Uri fallbackUri;
+            try {
+                fallbackUri = Uri.parse(rawFallbackUrl);
+            } catch (Exception ignored) {
+                return;
+            }
+
+            if (!isAllowedProviderDestination(providerId, fallbackUri)) {
+                return;
+            }
+
+            final String safeTitle = title == null ? "" : title.trim();
+            runOnUiThread(() -> launchProvider(providerId, safeTitle, fallbackUri));
         }
 
         /** A user-created Movie-Hub media entry. HTTP(S) is required; unlike
@@ -364,6 +386,93 @@ public final class MainActivity extends ComponentActivity {
                 || isDomainOrSubdomain(normalizedHost, "disneyplus.com")
                 || isDomainOrSubdomain(normalizedHost, "youtube.com")
                 || isDomainOrSubdomain(normalizedHost, "waipu.tv");
+    }
+
+    private boolean isAllowedProviderDestination(String providerId, Uri uri) {
+        if (providerId == null || uri == null || !"https".equalsIgnoreCase(uri.getScheme())) {
+            return false;
+        }
+
+        String host = uri.getHost();
+        if (host == null) return false;
+        String expectedDomain = getProviderDomain(providerId);
+        return expectedDomain != null
+                && isDomainOrSubdomain(host.toLowerCase(java.util.Locale.ROOT), expectedDomain);
+    }
+
+    private String getProviderDomain(String providerId) {
+        switch (providerId) {
+            case "netflix": return "netflix.com";
+            case "prime": return "primevideo.com";
+            case "disney": return "disneyplus.com";
+            case "youtube": return "youtube.com";
+            case "waipu": return "waipu.tv";
+            default: return null;
+        }
+    }
+
+    private String[] getProviderPackages(String providerId) {
+        switch (providerId) {
+            case "netflix":
+                return new String[] { "com.netflix.ninja", "com.netflix.mediaclient" };
+            case "prime":
+                return new String[] {
+                        "com.amazon.avod",
+                        "com.amazon.amazonvideo.livingroom",
+                        "com.amazon.avod.thirdpartyclient"
+                };
+            case "disney":
+                return new String[] { "com.disney.disneyplus" };
+            case "youtube":
+                return new String[] {
+                        "com.amazon.firetv.youtube",
+                        "com.google.android.youtube.tv",
+                        "com.google.android.youtube"
+                };
+            case "waipu":
+                return new String[] { "de.exaring.waipu.firetv", "de.exaring.waipu" };
+            default:
+                return new String[0];
+        }
+    }
+
+    private void launchProvider(String providerId, String title, Uri fallbackUri) {
+        String[] packages = getProviderPackages(providerId);
+
+        for (String packageName : packages) {
+            Intent deepLink = new Intent(Intent.ACTION_VIEW, fallbackUri);
+            deepLink.addCategory(Intent.CATEGORY_BROWSABLE);
+            deepLink.setPackage(packageName);
+            if (tryStartActivity(deepLink)) return;
+        }
+
+        if (!title.isEmpty()) {
+            for (String packageName : packages) {
+                Intent search = new Intent(Intent.ACTION_SEARCH);
+                search.setPackage(packageName);
+                search.putExtra(SearchManager.QUERY, title);
+                if (tryStartActivity(search)) return;
+            }
+        }
+
+        for (String packageName : packages) {
+            Intent launch = getPackageManager().getLeanbackLaunchIntentForPackage(packageName);
+            if (launch == null) {
+                launch = getPackageManager().getLaunchIntentForPackage(packageName);
+            }
+            if (launch != null && tryStartActivity(launch)) return;
+        }
+
+        tryStartActivity(new Intent(Intent.ACTION_VIEW, fallbackUri));
+    }
+
+    private boolean tryStartActivity(Intent intent) {
+        try {
+            startActivity(intent);
+            return true;
+        } catch (ActivityNotFoundException | SecurityException ignored) {
+            return false;
+        }
     }
 
     private boolean isDomainOrSubdomain(String host, String domain) {
