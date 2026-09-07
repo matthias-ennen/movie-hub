@@ -291,7 +291,7 @@ function MovieHub({ user }) {
     setSelectedTitle(item)
   }, [])
 
-  const handleBack = useCallback(() => {
+  const closeInteractiveLayer = useCallback(() => {
     if (selectedTitle) {
       setSelectedTitle(null)
       return true
@@ -307,6 +307,12 @@ function MovieHub({ user }) {
       return true
     }
 
+    return false
+  }, [currentView, profileOpen, selectedTitle])
+
+  const handleBack = useCallback(() => {
+    if (closeInteractiveLayer()) return true
+
     if (exitDialogOpen) {
       setExitDialogOpen(false)
       return true
@@ -314,7 +320,11 @@ function MovieHub({ user }) {
 
     setExitDialogOpen(true)
     return true
-  }, [currentView, exitDialogOpen, profileOpen, selectedTitle])
+  }, [closeInteractiveLayer, exitDialogOpen])
+
+  const handleNativeBack = useCallback(() => (
+    closeInteractiveLayer() ? 'handled' : 'confirm'
+  ), [closeInteractiveLayer])
 
   const closeApp = useCallback(() => {
     if (typeof window.MovieHubNative?.closeApp === 'function') {
@@ -326,17 +336,17 @@ function MovieHub({ user }) {
   }, [])
 
   useEffect(() => {
-    // The Android shell asks this tiny, explicit bridge first when the user
-    // presses the physical Back button. Keeping the decision in the React app
-    // makes Back behave the same on Fire TV, Android phones and the browser.
-    window.__movieHubNativeBack = handleBack
+    // Android asks whether Movie Hub still has a UI layer to close. At the
+    // root it opens a native confirmation dialog, which is more reliable than
+    // relying on a WebView-rendered dialog during a system Back gesture.
+    window.__movieHubNativeBack = handleNativeBack
 
     return () => {
-      if (window.__movieHubNativeBack === handleBack) {
+      if (window.__movieHubNativeBack === handleNativeBack) {
         delete window.__movieHubNativeBack
       }
     }
-  }, [handleBack])
+  }, [handleNativeBack])
 
   useDpadNavigation({
     detailOpen: Boolean(selectedTitle),
