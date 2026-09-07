@@ -22,6 +22,12 @@ android {
         // installed one, otherwise Fire OS refuses the update.
         versionCode appVersionCode
         versionName "0.1.${appVersionCode}"
+        multiDexEnabled true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     signingConfigs {
@@ -49,4 +55,9 @@ dependencies {
     // Android's supported, backward-compatible Back dispatcher. It handles
     // current predictive-back gestures and Fire OS/older Android uniformly.
     implementation "androidx.activity:activity:1.10.1"
+    // Media3 provides the native, D-Pad-capable player UI. SMBJ supplies the
+    // SMB2/3 byte source used by the experimental FRITZ!NAS preflight.
+    implementation "androidx.media3:media3-exoplayer:1.8.0"
+    implementation "androidx.media3:media3-ui:1.8.0"
+    implementation "com.hierynomus:smbj:0.15.0"
 }

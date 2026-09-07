@@ -4,6 +4,7 @@ import { useLibrary } from '../library/LibraryProvider.jsx'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import { useAuth } from '../hooks/useAuth.js'
 import { loadSharedMedia, removeSharedMedia, saveSharedMedia } from '../library/sharedMedia.js'
+import { normaliseMedia } from '../library/sharedMediaModel.js'
 import { ProviderBadge } from './ProviderBadges.jsx'
 
 export default function DetailModal({ item, onClose }) {
@@ -152,8 +153,9 @@ export default function DetailModal({ item, onClose }) {
     setMediaMessage('')
     try {
       const entry = { ...mediaDraft, id: editingMediaId }
+      const normalized = normaliseMedia(entry)
       const id = await saveSharedMedia(user.uid, item, entry)
-      const saved = { ...mediaDraft, id }
+      const saved = { ...normalized, id }
       setSharedMedia((all) => [...all.filter((value) => value.id !== id), saved]
         .sort((a, b) => a.label.localeCompare(b.label, 'de')))
       setMediaDraft({ label: '', url: '', type: 'web' })
@@ -203,7 +205,25 @@ export default function DetailModal({ item, onClose }) {
     }
   }
 
-  function launchMedia(entry) { if (entry.type === 'video') setPlaying(entry); else openUrl(entry.url) }
+  function launchMedia(entry) {
+    if (entry.type === 'smb') {
+      if (window.MovieHubNative?.playSmbMedia) {
+        window.MovieHubNative.playSmbMedia(entry.label, entry.url)
+      } else {
+        setMediaMessage('SMB-Netzwerkvideos können nur in der aktuellen Android-/Fire-TV-App abgespielt werden.')
+      }
+      return
+    }
+    if (entry.type === 'video') setPlaying(entry)
+    else openUrl(entry.url)
+  }
+
+  function mediaIcon(entry) { return entry.type === 'web' ? '↗' : '▶' }
+
+  function mediaActionLabel(entry) {
+    if (entry.type === 'smb') return 'Netzwerkvideo in Movie Hub abspielen'
+    return entry.type === 'video' ? 'In Movie Hub abspielen' : 'Webseite öffnen'
+  }
 
   return (
     <div className="detail-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -428,8 +448,8 @@ export default function DetailModal({ item, onClose }) {
                   data-media-autofocus={index === 0 ? 'true' : undefined}
                   onClick={() => { setMediaPickerOpen(false); launchMedia(entry) }}
                 >
-                  <span aria-hidden="true">{entry.type === 'video' ? '▶' : '↗'}</span>
-                  <span>{entry.label}<small>{entry.type === 'video' ? 'In Movie Hub abspielen' : 'Webseite öffnen'}</small></span>
+                  <span aria-hidden="true">{mediaIcon(entry)}</span>
+                  <span>{entry.label}<small>{mediaActionLabel(entry)}</small></span>
                 </button>
               ))}
             </div>
@@ -445,19 +465,20 @@ export default function DetailModal({ item, onClose }) {
             <p>Hier gespeicherte Links erscheinen bei diesem Titel in jedem Profil.</p>
             <form onSubmit={addMedia} className="media-form">
               <label>Bezeichnung<input required maxLength="80" placeholder="z. B. Deutscher Trailer" value={mediaDraft.label} onChange={(event) => setMediaDraft({ ...mediaDraft, label: event.target.value })} data-focusable="true" data-media-autofocus="true" /></label>
-              <label>Adresse<input required type="url" inputMode="url" placeholder="https://… oder http://…" value={mediaDraft.url} onChange={(event) => setMediaDraft({ ...mediaDraft, url: event.target.value })} data-focusable="true" /></label>
-              <label>Aktion<select value={mediaDraft.type} onChange={(event) => setMediaDraft({ ...mediaDraft, type: event.target.value })} data-focusable="true"><option value="web">Web-Link öffnen</option><option value="video">Video in Movie Hub abspielen</option></select></label>
+              <label>Adresse<input required type="text" inputMode="url" placeholder={mediaDraft.type === 'smb' ? 'smb://fritz.box/Freigabe/Ordner/video.mp4' : 'https://… oder http://…'} value={mediaDraft.url} onChange={(event) => setMediaDraft({ ...mediaDraft, url: event.target.value })} data-focusable="true" /></label>
+              <label>Aktion<select value={mediaDraft.type} onChange={(event) => setMediaDraft({ ...mediaDraft, type: event.target.value })} data-focusable="true"><option value="web">Web-Link öffnen</option><option value="video">Video in Movie Hub abspielen</option><option value="smb">SMB-/Netzwerkvideo</option></select></label>
               <div className="media-form-actions">
                 <button type="submit" disabled={mediaBusy} data-focusable="true">{editingMediaId ? 'Änderung speichern' : 'Hinzufügen'}</button>
                 {editingMediaId && <button type="button" disabled={mediaBusy} data-focusable="true" onClick={resetMediaDraft}>Abbrechen</button>}
               </div>
             </form>
+            {mediaDraft.type === 'smb' && <p className="media-form-hint">Erlaubt sind <code>smb://server/freigabe/datei</code> und Windows-Pfade wie <code>\\server\freigabe\datei</code>. Zugangsdaten fragt die Android-/Fire-TV-App beim ersten Start nur auf diesem Gerät ab.</p>}
             {mediaMessage && <p className="personal-state-message" role="status">{mediaMessage}</p>}
             {sharedMedia.length > 0 && (
               <div className="media-entry-list">
                 {sharedMedia.map((entry) => (
                   <div className="media-entry" key={entry.id}>
-                    <button type="button" data-focusable="true" onClick={() => launchMedia(entry)}><span aria-hidden="true">{entry.type === 'video' ? '▶' : '↗'}</span> {entry.label}</button>
+                    <button type="button" data-focusable="true" onClick={() => launchMedia(entry)}><span aria-hidden="true">{mediaIcon(entry)}</span> {entry.label}</button>
                     <button type="button" data-focusable="true" disabled={mediaBusy} onClick={() => editMedia(entry)}>Bearbeiten</button>
                     <button type="button" className="media-delete" data-focusable="true" disabled={mediaBusy} onClick={() => deleteMedia(entry)}>{pendingDeleteId === entry.id ? 'Wirklich löschen?' : 'Löschen'}</button>
                   </div>

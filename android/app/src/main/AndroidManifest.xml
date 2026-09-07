@@ -31,6 +31,10 @@
         android:enableOnBackInvokedCallback="true"
         android:usesCleartextTraffic="true">
         <activity
+            android:name=".SmbPlayerActivity"
+            android:exported="false"
+            android:screenOrientation="landscape" />
+        <activity
             android:name=".MainActivity"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:exported="true"

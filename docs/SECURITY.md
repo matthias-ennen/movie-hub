@@ -26,6 +26,12 @@ Nicht ins Repository gehören insbesondere:
 
 Solche Werte werden über GitHub Secrets, Firebase/Google Secret-Verwaltung oder vergleichbare sichere Mechanismen bereitgestellt.
 
+## Lokale SMB-Zugangsdaten
+
+Gemeinsame Movie-Hub-Medieneinträge dürfen einen `smb://`-Pfad, aber niemals Benutzername oder Kennwort enthalten. Die Android-/Fire-TV-App speichert einen auf Wunsch gemerkten FRITZ!NAS-Zugang ausschließlich lokal. Das Kennwort wird mit AES-GCM verschlüsselt; der nicht exportierbare Schlüssel liegt im Android Keystore. Firestore, die Web-App und das Repository erhalten diese Zugangsdaten nicht. Auf jedem neuen Gerät müssen sie erneut eingegeben werden.
+
+Movie Hub öffnet SMB ausschließlich als ausgehende Verbindung im Heimnetz. Eine Portfreigabe der FRITZ!Box ins Internet ist weder nötig noch vorgesehen.
+
 ## Client-Konfiguration
 
 Die normale Firebase-Web-Konfiguration einschließlich Web-API-Key ist Teil der Client-Konfiguration und ersetzt keine Security Rules. Schutz entsteht durch Authentication, Rules und serverseitige Rechte.

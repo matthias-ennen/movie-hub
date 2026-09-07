@@ -337,6 +337,27 @@ public final class MainActivity extends ComponentActivity {
                 catch (ActivityNotFoundException ignored) { }
             });
         }
+
+        /** Opens an SMB2/3 source only inside Movie Hub's native player. The
+         * shared URL contains no credentials; the player obtains them from the
+         * protected, device-local credential store or asks the user. */
+        @JavascriptInterface
+        public void playSmbMedia(String label, String rawUrl) {
+            final SmbLocation location;
+            try {
+                location = SmbLocation.parse(rawUrl);
+            } catch (IllegalArgumentException ignored) {
+                return;
+            }
+
+            runOnUiThread(() -> {
+                Intent intent = new Intent(MainActivity.this, SmbPlayerActivity.class);
+                intent.putExtra(SmbPlayerActivity.EXTRA_LABEL,
+                        label == null ? "Netzwerkvideo" : label.trim());
+                intent.putExtra(SmbPlayerActivity.EXTRA_URL, location.getUri().toString());
+                startActivity(intent);
+            });
+        }
     }
 
     private final class MovieHubWebViewClient extends WebViewClient {
