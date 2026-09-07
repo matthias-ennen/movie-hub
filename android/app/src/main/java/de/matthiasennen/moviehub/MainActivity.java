@@ -1,9 +1,8 @@
 package de.matthiasennen.moviehub;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
+import android.app.AlertDialog;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
@@ -18,14 +17,15 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.window.OnBackInvokedCallback;
-import android.window.OnBackInvokedDispatcher;
+
+import androidx.activity.ComponentActivity;
+import androidx.activity.OnBackPressedCallback;
 
 /**
  * Thin Fire TV/Android shell. Movie Hub itself stays deployed on Firebase, so
  * catalog and UI updates do not require installing a new APK.
  */
-public final class MainActivity extends Activity {
+public final class MainActivity extends ComponentActivity {
     private static final String APP_URL = "https://movie-hub-62459.web.app/";
     private static final String MOVIE_HUB_HOST = "movie-hub-62459.web.app";
     private static final String FIREBASE_AUTH_HOST = "movie-hub-62459.firebaseapp.com";
@@ -33,7 +33,7 @@ public final class MainActivity extends Activity {
     private FrameLayout container;
     private WebView webView;
     private View offlineView;
-    private OnBackInvokedCallback systemBackCallback;
+    private AlertDialog exitDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,7 +43,12 @@ public final class MainActivity extends Activity {
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
             loadMovieHub();
         }
-        registerSystemBackCallback();
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                handleBackNavigation();
+            }
+        });
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -125,50 +130,39 @@ public final class MainActivity extends Activity {
         offlineView.requestFocus();
     }
 
-    @Override
-    public void onBackPressed() {
-        handleBackNavigation();
-    }
-
-    /**
-     * Android 13+ no longer guarantees delivery to Activity.onBackPressed()
-     * when predictive Back is enabled. The same handler is registered with
-     * OnBackInvokedDispatcher below, while this override remains the fallback
-     * for Fire OS and older Android versions.
-     */
     private void handleBackNavigation() {
         if (offlineView.getVisibility() == View.VISIBLE) {
-            moveTaskToBack(true);
+            showExitConfirmation();
             return;
         }
 
-        // The hosted app gets the first chance to close its detail view, menu
-        // or subpage. Falling back to WebView history keeps normal browsing
-        // intact; at the root we background the app instead of unexpectedly
-        // destroying the Fire-TV task.
+        // The hosted UI decides whether a detail view, menu or subpage needs
+        // closing. At Movie Hub's root Android owns the confirmation dialog,
+        // so it is reliable even if the WebView is busy or reloading.
         webView.evaluateJavascript(
-                "(typeof window.__movieHubNativeBack === 'function' && window.__movieHubNativeBack()) ? 'true' : 'false'",
+                "typeof window.__movieHubNativeBack === 'function' ? window.__movieHubNativeBack() : 'confirm'",
                 result -> {
-                    if ("\"true\"".equals(result)) {
+                    if ("\"handled\"".equals(result)) {
                         return;
                     }
-                    if (webView.canGoBack()) {
-                        webView.goBack();
-                    } else {
-                        moveTaskToBack(true);
-                    }
+                    showExitConfirmation();
                 });
     }
 
-    private void registerSystemBackCallback() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+    private void showExitConfirmation() {
+        if (isFinishing() || (exitDialog != null && exitDialog.isShowing())) {
             return;
         }
 
-        systemBackCallback = this::handleBackNavigation;
-        getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                OnBackInvokedDispatcher.PRIORITY_DEFAULT,
-                systemBackCallback);
+        exitDialog = new AlertDialog.Builder(this)
+                .setTitle("Movie Hub schließen?")
+                .setMessage("Du kannst Movie Hub jederzeit über den Startbildschirm wieder öffnen.")
+                .setNegativeButton("Abbrechen", null)
+                .setPositiveButton("Schließen", (dialog, which) -> finishAndRemoveTask())
+                .create();
+        exitDialog.setOnShowListener(dialog -> exitDialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus());
+        exitDialog.setOnDismissListener(dialog -> exitDialog = null);
+        exitDialog.show();
     }
 
     @Override
@@ -194,9 +188,9 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && systemBackCallback != null) {
-            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(systemBackCallback);
-            systemBackCallback = null;
+        if (exitDialog != null) {
+            exitDialog.dismiss();
+            exitDialog = null;
         }
         if (webView != null) {
             webView.setWebViewClient(null);
