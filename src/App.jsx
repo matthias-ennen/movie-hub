@@ -293,6 +293,19 @@ function MovieHub({ user }) {
     return false
   }, [currentView, profileOpen, selectedTitle])
 
+  useEffect(() => {
+    // The Android shell asks this tiny, explicit bridge first when the user
+    // presses the physical Back button. Keeping the decision in the React app
+    // makes Back behave the same on Fire TV, Android phones and the browser.
+    window.__movieHubNativeBack = handleBack
+
+    return () => {
+      if (window.__movieHubNativeBack === handleBack) {
+        delete window.__movieHubNativeBack
+      }
+    }
+  }, [handleBack])
+
   useDpadNavigation({
     detailOpen: Boolean(selectedTitle),
     profileMenuOpen: profileOpen,

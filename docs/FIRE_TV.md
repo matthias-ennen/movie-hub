@@ -16,4 +16,12 @@ The `Android APK` GitHub Actions workflow always creates a sideloadable debug AP
 
 ## Sideload test
 
-After the workflow succeeds, download `movie-hub-fire-tv-release-apk`, extract `app-release.apk`, and install it with the chosen sideload method. Use the debug artifact only until release signing is configured. The next phase covers WebView lifecycle, session handling, and native bridge behavior; the following phase covers remote-control testing on the actual Fire TV Stick.
+After the workflow succeeds, download `movie-hub-fire-tv-release-apk`, extract `app-release.apk`, and install it with the chosen sideload method. Use the debug artifact only until release signing is configured.
+
+## Phase 3.2 WebView session and lifecycle
+
+The WebView keeps Firebase's browser-local login session, cookies and web storage enabled. It saves and restores its page state across a normal Android recreation and pauses/resumes cleanly when the app moves into the background or foreground.
+
+The Android Back button first calls the hosted Movie Hub UI: it closes an open detail view, profile menu or subpage just like the browser UI. Only after that does it use WebView history. At Movie Hub's root the app is placed in the background instead of being unexpectedly destroyed.
+
+`MovieHubNative` is intentionally a narrow native bridge. It currently exposes only the platform and app version; it never exposes credentials, Firebase data, storage or provider deep links. The next phase covers remote-control testing on the actual Fire TV Stick.

@@ -4,6 +4,8 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
@@ -22,6 +24,8 @@ import android.widget.TextView;
  */
 public final class MainActivity extends Activity {
     private static final String APP_URL = "https://movie-hub-62459.web.app/";
+    private static final String MOVIE_HUB_HOST = "movie-hub-62459.web.app";
+    private static final String FIREBASE_AUTH_HOST = "movie-hub-62459.firebaseapp.com";
 
     private FrameLayout container;
     private WebView webView;
@@ -32,7 +36,9 @@ public final class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         hideSystemUi();
         createContent();
-        loadMovieHub();
+        if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
+            loadMovieHub();
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -44,7 +50,13 @@ public final class MainActivity extends Activity {
         webView.setBackgroundColor(Color.rgb(9, 10, 16));
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true);
+        webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(false);
+        webView.getSettings().setSupportMultipleWindows(false);
         webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
+        CookieManager cookies = CookieManager.getInstance();
+        cookies.setAcceptCookie(true);
+        cookies.setAcceptThirdPartyCookies(webView, true);
+        webView.addJavascriptInterface(new NativeBridge(), "MovieHubNative");
         webView.setWebViewClient(new MovieHubWebViewClient());
         container.addView(webView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -110,11 +122,58 @@ public final class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
+        if (offlineView.getVisibility() == View.VISIBLE) {
+            moveTaskToBack(true);
+            return;
         }
+
+        // The hosted app gets the first chance to close its detail view, menu
+        // or subpage. Falling back to WebView history keeps normal browsing
+        // intact; at the root we background the app instead of unexpectedly
+        // destroying the Fire-TV task.
+        webView.evaluateJavascript(
+                "(typeof window.__movieHubNativeBack === 'function' && window.__movieHubNativeBack()) ? 'true' : 'false'",
+                result -> {
+                    if ("\"true\"".equals(result)) {
+                        return;
+                    }
+                    if (webView.canGoBack()) {
+                        webView.goBack();
+                    } else {
+                        moveTaskToBack(true);
+                    }
+                });
+    }
+
+    @Override
+    protected void onPause() {
+        webView.onPause();
+        webView.pauseTimers();
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        webView.onResume();
+        webView.resumeTimers();
+        hideSystemUi();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        webView.saveState(outState);
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (webView != null) {
+            webView.setWebViewClient(null);
+            webView.removeAllViews();
+            webView.destroy();
+        }
+        super.onDestroy();
     }
 
     @Override
@@ -142,7 +201,47 @@ public final class MainActivity extends Activity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
+    /**
+     * Deliberately narrow bridge for the hosted Movie Hub page. It exposes no
+     * credentials, storage or provider deep links; later native features can
+     * be added explicitly instead of giving the page broad device access.
+     */
+    private final class NativeBridge {
+        @JavascriptInterface
+        public String getPlatform() {
+            return "android";
+        }
+
+        @JavascriptInterface
+        public String getAppVersion() {
+            try {
+                return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            } catch (Exception ignored) {
+                return "unknown";
+            }
+        }
+    }
+
     private final class MovieHubWebViewClient extends WebViewClient {
+        @Override
+        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            if (request.isForMainFrame() && !isTrustedMovieHubUrl(request.getUrl().getScheme(), request.getUrl().getHost())) {
+                // Do not silently hand arbitrary URLs to the WebView. Provider
+                // deep links are intentionally a later, explicit feature.
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public void onPageFinished(WebView view, String url) {
+            android.net.Uri uri = android.net.Uri.parse(url);
+            if (isTrustedMovieHubUrl(uri.getScheme(), uri.getHost())) {
+                offlineView.setVisibility(View.GONE);
+                webView.setVisibility(View.VISIBLE);
+            }
+        }
+
         @Override
         public void onReceivedError(WebView view, WebResourceRequest request,
                                     WebResourceError error) {
@@ -150,5 +249,10 @@ public final class MainActivity extends Activity {
                 showOfflineView();
             }
         }
+    }
+
+    private boolean isTrustedMovieHubUrl(String scheme, String host) {
+        return "https".equalsIgnoreCase(scheme)
+                && (MOVIE_HUB_HOST.equalsIgnoreCase(host) || FIREBASE_AUTH_HOST.equalsIgnoreCase(host));
     }
 }
