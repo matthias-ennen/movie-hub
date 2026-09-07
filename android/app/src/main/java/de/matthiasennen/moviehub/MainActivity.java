@@ -220,6 +220,11 @@ public final class MainActivity extends Activity {
                 return "unknown";
             }
         }
+
+        @JavascriptInterface
+        public void closeApp() {
+            runOnUiThread(() -> finishAndRemoveTask());
+        }
     }
 
     private final class MovieHubWebViewClient extends WebViewClient {

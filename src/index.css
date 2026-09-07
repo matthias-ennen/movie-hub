@@ -593,6 +593,62 @@ p {
   backdrop-filter: blur(12px);
 }
 
+.exit-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(2, 4, 7, 0.76);
+  backdrop-filter: blur(10px);
+}
+
+.exit-dialog {
+  width: min(460px, 100%);
+  padding: clamp(1.6rem, 4vw, 2.5rem);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-panel);
+}
+
+.exit-dialog h2 {
+  margin-bottom: 0.65rem;
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+}
+
+.exit-dialog p:not(.settings-kicker) {
+  margin-bottom: 1.6rem;
+  color: var(--color-muted);
+  line-height: 1.55;
+}
+
+.exit-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.exit-dialog-actions button {
+  min-height: 48px;
+  padding: 0.7rem 1.15rem;
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  font-weight: 800;
+}
+
+.exit-cancel {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.exit-confirm {
+  background: var(--color-text);
+  color: var(--color-bg) !important;
+}
+
 .detail-modal {
   width: min(1120px, 100%);
   max-height: min(760px, 92vh);

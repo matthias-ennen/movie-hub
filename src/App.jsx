@@ -221,12 +221,29 @@ function SearchView({ titles, onOpen }) {
   )
 }
 
+function ExitConfirmationDialog({ onCancel, onClose }) {
+  return (
+    <div className="exit-backdrop">
+      <section className="exit-dialog" role="dialog" aria-modal="true" aria-labelledby="exit-dialog-title">
+        <p className="settings-kicker">Movie Hub</p>
+        <h2 id="exit-dialog-title">App schließen?</h2>
+        <p>Du kannst Movie Hub jederzeit über den Startbildschirm wieder öffnen.</p>
+        <div className="exit-dialog-actions">
+          <button type="button" className="exit-cancel" onClick={onCancel} data-focusable="true" autoFocus>Abbrechen</button>
+          <button type="button" className="exit-confirm" onClick={onClose} data-focusable="true">Schließen</button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
 function MovieHub({ user }) {
   const { profiles, activeProfile, selectProfile } = useProfiles()
   const { getTitleState, loading: libraryLoading, error: libraryError } = useLibrary()
   const [currentView, setCurrentView] = useState('home')
   const [selectedTitle, setSelectedTitle] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [exitDialogOpen, setExitDialogOpen] = useState(false)
   const [catalog, setCatalog] = useState({
     source: 'fallback',
     titles: fallbackTitles,
@@ -290,8 +307,23 @@ function MovieHub({ user }) {
       return true
     }
 
-    return false
-  }, [currentView, profileOpen, selectedTitle])
+    if (exitDialogOpen) {
+      setExitDialogOpen(false)
+      return true
+    }
+
+    setExitDialogOpen(true)
+    return true
+  }, [currentView, exitDialogOpen, profileOpen, selectedTitle])
+
+  const closeApp = useCallback(() => {
+    if (typeof window.MovieHubNative?.closeApp === 'function') {
+      window.MovieHubNative.closeApp()
+      return
+    }
+
+    setExitDialogOpen(false)
+  }, [])
 
   useEffect(() => {
     // The Android shell asks this tiny, explicit bridge first when the user
@@ -309,6 +341,7 @@ function MovieHub({ user }) {
   useDpadNavigation({
     detailOpen: Boolean(selectedTitle),
     profileMenuOpen: profileOpen,
+    exitDialogOpen,
     onBack: handleBack,
   })
 
@@ -375,6 +408,7 @@ function MovieHub({ user }) {
       {currentView === 'search' && <SearchView titles={titles} onOpen={handleOpenTitle} />}
       {currentView === 'profile' && <ProfileView user={user} onSignOut={handleSignOut} />}
       {selectedTitle && <DetailModal item={selectedTitle} onClose={() => setSelectedTitle(null)} />}
+      {exitDialogOpen && <ExitConfirmationDialog onCancel={() => setExitDialogOpen(false)} onClose={closeApp} />}
     </div>
   )
 }
