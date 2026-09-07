@@ -30,6 +30,12 @@ service cloud.firestore {
       match /diagnostics/{document=**} {
         allow read, write: if ownsUserData(userId);
       }
+
+      // Gemeinsame Medien sind kontoweit (nicht profilbezogen), damit jeder
+      // Eintrag in allen Movie-Hub-Profilen sichtbar und pflegbar ist.
+      match /sharedMedia/{document=**} {
+        allow read, write: if ownsUserData(userId);
+      }
     }
 
     // Öffentliche Katalogdaten dürfen gelesen, aber niemals direkt vom Client

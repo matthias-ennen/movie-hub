@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTmdbImageUrl, normalizeTmdbTitle, normalizeTmdbWatchProviders, toMovieHubTitle } from '../src/services/tmdb.js'
+import { buildTmdbImageUrl, normalizeTmdbTitle, normalizeTmdbVideos, normalizeTmdbWatchProviders, toMovieHubTitle } from '../src/services/tmdb.js'
 
 describe('TMDB adapter', () => {
   it('normalizes a movie payload without exposing authentication concerns to UI code', () => {
@@ -122,6 +122,34 @@ describe('TMDB adapter', () => {
       providerOffers: [],
       watchProviderLink: null,
     })
+  })
+
+  it('prefers official German trailers and keeps a separate teaser', () => {
+    const videos = normalizeTmdbVideos([
+      { results: [
+        { key: 'english1', site: 'YouTube', type: 'Trailer', iso_639_1: 'en', official: true, name: 'Official trailer' },
+        { key: 'german01', site: 'YouTube', type: 'Trailer', iso_639_1: 'de', official: true, name: 'Deutscher Trailer' },
+        { key: 'teaser01', site: 'YouTube', type: 'Teaser', iso_639_1: 'de', official: true, name: 'Deutscher Teaser' },
+        { key: 'ignored1', site: 'Vimeo', type: 'Trailer', iso_639_1: 'de', official: true },
+      ] },
+    ], 'en')
+
+    expect(videos).toEqual([
+      expect.objectContaining({ type: 'trailer', label: 'Trailer', language: 'de', key: 'german01', official: true }),
+      expect.objectContaining({ type: 'teaser', label: 'Teaser', language: 'de', key: 'teaser01', official: true }),
+    ])
+    expect(videos[0].url).toBe('https://www.youtube.com/watch?v=german01')
+  })
+
+  it('falls back to the original-language trailer and rejects malformed video references', () => {
+    const videos = normalizeTmdbVideos({ results: [
+      { key: 'french01', site: 'YouTube', type: 'Trailer', iso_639_1: 'fr', official: true },
+      { key: 'bad key!', site: 'YouTube', type: 'Trailer', iso_639_1: 'de', official: true },
+      { key: 'feature1', site: 'YouTube', type: 'Featurette', iso_639_1: 'de', official: true },
+    ] }, 'fr')
+
+    expect(videos).toHaveLength(1)
+    expect(videos[0]).toMatchObject({ key: 'french01', language: 'fr', type: 'trailer' })
   })
 
   it('returns null for missing images and rejects unsupported media types', () => {

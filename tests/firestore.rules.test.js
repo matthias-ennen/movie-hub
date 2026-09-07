@@ -89,6 +89,26 @@ describe('Firestore Security Rules', () => {
     await assertFails(getDoc(foreignStateRef))
   })
 
+  it('teilt gemeinsame Movie-Hub-Medien kontoweit statt profilbezogen', async () => {
+    const db = testEnv.authenticatedContext('alice').firestore()
+    const mediaRef = doc(db, 'users', 'alice', 'sharedMedia', 'movie-11', 'entries', 'trailer')
+
+    await assertSucceeds(setDoc(mediaRef, {
+      label: 'Deutscher Trailer',
+      type: 'web',
+      url: 'https://www.youtube.com/watch?v=test123',
+    }))
+    expect((await assertSucceeds(getDoc(mediaRef))).data().label).toBe('Deutscher Trailer')
+  })
+
+  it('verweigert Zugriff auf gemeinsame Medien eines fremden Kontos', async () => {
+    const db = testEnv.authenticatedContext('alice').firestore()
+    const foreignMediaRef = doc(db, 'users', 'bob', 'sharedMedia', 'movie-11', 'entries', 'trailer')
+
+    await assertFails(setDoc(foreignMediaRef, { label: 'Fremd', type: 'web', url: 'https://example.com' }))
+    await assertFails(getDoc(foreignMediaRef))
+  })
+
   it('verweigert unbekannte persönliche Pfade trotz eigener UID', async () => {
     const db = testEnv.authenticatedContext('alice').firestore()
     await assertFails(setDoc(doc(db, 'users', 'alice', 'unbekannt', 'x'), { ok: false }))
