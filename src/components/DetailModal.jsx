@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { providers } from '../data/catalog.js'
+import { getProviderDestination, providers } from '../data/catalog.js'
 import { useLibrary } from '../library/LibraryProvider.jsx'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import { ProviderBadge } from './ProviderBadges.jsx'
@@ -7,7 +7,6 @@ import { ProviderBadge } from './ProviderBadges.jsx'
 export default function DetailModal({ item, onClose }) {
   const { activeProfile } = useProfiles()
   const { getTitleState, updateTitleState, loading: libraryLoading } = useLibrary()
-  const [providerMessage, setProviderMessage] = useState('')
   const [personalMessage, setPersonalMessage] = useState('')
   const [personalBusy, setPersonalBusy] = useState(false)
   const [noteDraft, setNoteDraft] = useState('')
@@ -59,6 +58,20 @@ export default function DetailModal({ item, onClose }) {
   async function handleSaveNote(event) {
     event.preventDefault()
     await savePersonalPatch({ note: noteDraft }, 'Notiz gespeichert.')
+  }
+
+  function openProvider(providerId) {
+    const destination = getProviderDestination(providerId, item.title)
+    if (!destination) return
+
+    // The Android shell exposes only a host-whitelisted external browser
+    // fallback here. Provider-specific app deep links are a later step.
+    if (window.MovieHubNative?.openExternalUrl) {
+      window.MovieHubNative.openExternalUrl(destination)
+      return
+    }
+
+    window.open(destination, '_blank', 'noopener,noreferrer')
   }
 
   return (
@@ -207,7 +220,8 @@ export default function DetailModal({ item, onClose }) {
                     key={providerId}
                     className="action-button provider-action"
                     data-focusable="true"
-                    onClick={() => setProviderMessage(`${provider.label}: direkter Start folgt in Phase 4.`)}
+                    onClick={() => openProvider(providerId)}
+                    aria-label={`${provider.label} öffnen`}
                   >
                     <ProviderBadge providerId={providerId} />
                     {provider.label}
@@ -216,9 +230,9 @@ export default function DetailModal({ item, onClose }) {
               })}
             </div>
           ) : (
-            <p className="prototype-note">Streaming-Verfügbarkeit und direkter Start werden in einer späteren Phase an echte Provider-Daten angebunden.</p>
+            <p className="prototype-note">Für diesen Titel ist derzeit kein unterstützter Anbieter in Deutschland hinterlegt.</p>
           )}
-          {providerMessage && <p className="prototype-note">{providerMessage}</p>}
+          {hasProviders && <p className="prototype-note">Der gewählte Anbieter wird außerhalb von Movie Hub geöffnet.</p>}
           {item.tmdbId && <p className="tmdb-credit">Datenquelle: TMDB · ID {item.tmdbId}</p>}
         </div>
       </section>

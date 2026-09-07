@@ -1,9 +1,12 @@
 package de.matthiasennen.moviehub;
 
 import android.annotation.SuppressLint;
+import android.content.ActivityNotFoundException;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.net.Uri;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.view.Gravity;
@@ -238,8 +241,9 @@ public final class MainActivity extends ComponentActivity {
 
     /**
      * Deliberately narrow bridge for the hosted Movie Hub page. It exposes no
-     * credentials, storage or provider deep links; later native features can
-     * be added explicitly instead of giving the page broad device access.
+     * credentials or storage. It can open only a small allow-list of public
+     * provider websites in an external browser; provider-app deep links are
+     * intentionally a later, explicit feature.
      */
     private final class NativeBridge {
         @JavascriptInterface
@@ -259,6 +263,28 @@ public final class MainActivity extends ComponentActivity {
         @JavascriptInterface
         public void closeApp() {
             runOnUiThread(() -> finishAndRemoveTask());
+        }
+
+        @JavascriptInterface
+        public void openExternalUrl(String rawUrl) {
+            final Uri uri;
+            try {
+                uri = Uri.parse(rawUrl);
+            } catch (Exception ignored) {
+                return;
+            }
+
+            if (!isAllowedProviderWebsite(uri)) {
+                return;
+            }
+
+            runOnUiThread(() -> {
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                } catch (ActivityNotFoundException ignored) {
+                    // No external browser is available. Movie Hub stays open.
+                }
+            });
         }
     }
 
@@ -294,5 +320,24 @@ public final class MainActivity extends ComponentActivity {
     private boolean isTrustedMovieHubUrl(String scheme, String host) {
         return "https".equalsIgnoreCase(scheme)
                 && (MOVIE_HUB_HOST.equalsIgnoreCase(host) || FIREBASE_AUTH_HOST.equalsIgnoreCase(host));
+    }
+
+    private boolean isAllowedProviderWebsite(Uri uri) {
+        if (uri == null || !"https".equalsIgnoreCase(uri.getScheme())) {
+            return false;
+        }
+
+        String host = uri.getHost();
+        if (host == null) return false;
+        String normalizedHost = host.toLowerCase(java.util.Locale.ROOT);
+        return isDomainOrSubdomain(normalizedHost, "netflix.com")
+                || isDomainOrSubdomain(normalizedHost, "primevideo.com")
+                || isDomainOrSubdomain(normalizedHost, "disneyplus.com")
+                || isDomainOrSubdomain(normalizedHost, "youtube.com")
+                || isDomainOrSubdomain(normalizedHost, "waipu.tv");
+    }
+
+    private boolean isDomainOrSubdomain(String host, String domain) {
+        return domain.equals(host) || host.endsWith("." + domain);
     }
 }
