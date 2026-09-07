@@ -19,4 +19,21 @@ describe('provider destinations', () => {
   it('does not create a destination for unknown providers', () => {
     expect(getProviderDestination('unknown', 'Dune: Part Two')).toBeNull()
   })
+
+  it('keeps every supported fallback on its expected HTTPS provider domain', () => {
+    const expectedHosts = {
+      netflix: 'www.netflix.com',
+      prime: 'www.primevideo.com',
+      disney: 'www.disneyplus.com',
+      youtube: 'www.youtube.com',
+      waipu: 'www.waipu.tv',
+    }
+
+    for (const [providerId, expectedHost] of Object.entries(expectedHosts)) {
+      const destination = getProviderDestination(providerId, 'Dune: Part Two')
+      const parsed = new URL(destination)
+      expect(parsed.protocol).toBe('https:')
+      expect(parsed.hostname).toBe(expectedHost)
+    }
+  })
 })
