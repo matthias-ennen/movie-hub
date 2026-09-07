@@ -228,6 +228,20 @@ export default function DetailModal({ item, onClose }) {
             </div>
           )}
 
+          <button
+            type="button"
+            className="media-manage-shortcut"
+            data-focusable="true"
+            onClick={() => { resetMediaDraft(); setMediaEditorOpen(true) }}
+          >
+            <span className="media-manage-shortcut-icon" aria-hidden="true">＋</span>
+            <span>
+              <strong>{sharedMedia.length ? 'Movie-Hub-Links & Videos verwalten' : 'Link oder Video hinzufügen'}</strong>
+              <small>Gemeinsam in allen Profilen verfügbar</small>
+            </span>
+          </button>
+          {mediaMessage && !mediaEditorOpen && <p className="personal-state-message" role="status">{mediaMessage}</p>}
+
           <section className="personal-title-state" aria-labelledby="personal-title-state-heading">
             <div className="personal-title-state-heading">
               <div>
@@ -389,13 +403,6 @@ export default function DetailModal({ item, onClose }) {
             <p className="prototype-note">Für diesen Titel ist derzeit kein unterstützter Anbieter in Deutschland hinterlegt.</p>
           )}
           {hasProviders && <p className="prototype-note">Der gewählte Anbieter wird außerhalb von Movie Hub geöffnet.</p>}
-          <button
-            type="button"
-            className="manage-media-button"
-            data-focusable="true"
-            onClick={() => { resetMediaDraft(); setMediaEditorOpen(true) }}
-          >{sharedMedia.length ? 'Movie-Hub-Medien verwalten' : 'Eigenen Link oder Video hinzufügen'}</button>
-          {mediaMessage && !mediaEditorOpen && <p className="personal-state-message" role="status">{mediaMessage}</p>}
           {item.tmdbId && <p className="tmdb-credit">Datenquelle: TMDB · ID {item.tmdbId}</p>}
         </div>
       </section>
