@@ -1,6 +1,6 @@
 # Movie Hub – Roadmap
 
-Stand: 31. August 2026
+Stand: 7. September 2026
 
 ## Arbeitsprinzip
 
@@ -61,6 +61,8 @@ Abschlusskriterium: Filmzustände bleiben nach Neustart erhalten und sind für d
 
 Abschlusskriterium: Movie Hub startet als APK zuverlässig und ist vollständig mit der Fire-TV-Fernbedienung bedienbar.
 
+Status: abgeschlossen. Die reale Geräteabnahme wurde in #40 mit APK-Build #35 bestätigt; das übergeordnete Paket #3 ist geschlossen.
+
 ## Phase 4 – Deep Links und Provider-Auswahl
 
 Für Netflix, Prime Video, Disney+, YouTube und waipu.tv jeweils testen:
@@ -69,6 +71,8 @@ Für Netflix, Prime Video, Disney+, YouTube und waipu.tv jeweils testen:
 3. App-Start als Fallback
 
 Abschlusskriterium: dokumentierte Testmatrix und stabile Fallback-Logik je Anbieter.
+
+Aktuelles Paket: #50 – Provider-Intents und reale Fire-TV-Testmatrix. Die grundlegende Fire-TV-Abnahme aus #40 ist abgeschlossen, sodass dieses Paket nicht mehr blockiert ist.
 
 ## Phase 5 – Dynamische Verfügbarkeit
 
@@ -81,7 +85,7 @@ Abschlusskriterium: dokumentierte Testmatrix und stabile Fallback-Logik je Anbie
 
 Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behandelt fehlende/mehrdeutige Daten sauber.
 
-### Laufendes Paket #53 – Automatische TMDB-Katalogaktualisierung
+### Abgeschlossenes Paket #53 – Automatische TMDB-Katalogaktualisierung
 
 - täglicher GitHub-Actions-Job für den öffentlichen Katalog
 - aktuelle Trend-, Neuheiten- und Popularitätsreihen für Filme und Serien
@@ -89,7 +93,7 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - atomare Veröffentlichung: bei Fehler bleibt der letzte Live-Katalog bestehen
 - persönliche Listen bleiben unabhängig von wechselnden Entdeckungsreihen sichtbar
 
-### Laufendes Paket #57 – Trailer, Teaser und gemeinsame Movie-Hub-Medien
+### Abgeschlossenes Paket #57 – Trailer, Teaser und gemeinsame Movie-Hub-Medien
 
 - automatische Trailer-/Teaser-Referenzen aus TMDB, bevorzugt deutsch und offiziell
 - gemeinsame manuelle Web- und Video-URLs je Titel, sichtbar in allen internen Profilen
@@ -97,6 +101,15 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - integrierter Video-Player für HTTP(S)-Quellen, soweit Container und Codec vom Gerät unterstützt werden
 - Bearbeiten und Löschen der gemeinsamen Einträge aus jedem Profil
 - D-Pad- und Zurück-Verhalten für Auswahl, Verwaltung und Player
+
+### Geplantes Paket #62 – SMB-/FRITZ!NAS-Medien
+
+- stabile `smb://`- oder eindeutig umwandelbare UNC-Pfade als gemeinsame Medienquelle je Titel
+- Referenzsystem: an einer FRITZ!Box angeschlossene, per SMB freigegebene Festplatte
+- Zugangsdaten ausschließlich geschützt auf dem jeweiligen Android-/Fire-TV-Gerät
+- nativer Abruf und Wiedergabe über den Movie-Hub-Player
+- klare Fehlerzustände für fehlendes Heimnetz, Anmeldung und nicht erreichbare Dateien
+- kein UPnP-/DLNA-Browser und keine unsichere Freigabe ins öffentliche Internet
 
 ## Phase 6 – Personalisierung und Automatisierung
 
