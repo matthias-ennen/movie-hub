@@ -1,5 +1,5 @@
 .personal-title-state {
-  margin: 0 0 var(--space-8);
+  margin: var(--space-8) 0;
   padding: clamp(1rem, 2vw, 1.5rem);
   border: 1px solid var(--color-line);
   border-radius: var(--radius-panel);
@@ -315,16 +315,24 @@
 
 .media-form {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr) minmax(180px, 0.7fr);
-  gap: 0.7rem;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 0.9rem;
 }
 
 .media-form label {
+  min-width: 0;
   display: grid;
   gap: 0.4rem;
   color: var(--color-muted);
   font-size: 0.85rem;
   font-weight: 800;
+}
+
+.media-form input,
+.media-form select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .media-form-actions {
@@ -381,7 +389,7 @@
   background: #000;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .media-form {
     grid-template-columns: 1fr;
   }
