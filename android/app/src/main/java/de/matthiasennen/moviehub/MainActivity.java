@@ -3,6 +3,7 @@ package de.matthiasennen.moviehub;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
@@ -17,6 +18,8 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 
 /**
  * Thin Fire TV/Android shell. Movie Hub itself stays deployed on Firebase, so
@@ -30,6 +33,7 @@ public final class MainActivity extends Activity {
     private FrameLayout container;
     private WebView webView;
     private View offlineView;
+    private OnBackInvokedCallback systemBackCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,6 +43,7 @@ public final class MainActivity extends Activity {
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
             loadMovieHub();
         }
+        registerSystemBackCallback();
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -122,6 +127,16 @@ public final class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        handleBackNavigation();
+    }
+
+    /**
+     * Android 13+ no longer guarantees delivery to Activity.onBackPressed()
+     * when predictive Back is enabled. The same handler is registered with
+     * OnBackInvokedDispatcher below, while this override remains the fallback
+     * for Fire OS and older Android versions.
+     */
+    private void handleBackNavigation() {
         if (offlineView.getVisibility() == View.VISIBLE) {
             moveTaskToBack(true);
             return;
@@ -143,6 +158,17 @@ public final class MainActivity extends Activity {
                         moveTaskToBack(true);
                     }
                 });
+    }
+
+    private void registerSystemBackCallback() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return;
+        }
+
+        systemBackCallback = this::handleBackNavigation;
+        getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                systemBackCallback);
     }
 
     @Override
@@ -168,6 +194,10 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && systemBackCallback != null) {
+            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(systemBackCallback);
+            systemBackCallback = null;
+        }
         if (webView != null) {
             webView.setWebViewClient(null);
             webView.removeAllViews();

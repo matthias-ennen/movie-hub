@@ -22,6 +22,6 @@ After the workflow succeeds, download `movie-hub-fire-tv-release-apk`, extract `
 
 The WebView keeps Firebase's browser-local login session, cookies and web storage enabled. It saves and restores its page state across a normal Android recreation and pauses/resumes cleanly when the app moves into the background or foreground.
 
-The Android Back button first calls the hosted Movie Hub UI: it closes an open detail view, profile menu or subpage just like the browser UI. At Movie Hub's root it opens a confirmation dialog with **Abbrechen** (the initially focused safe choice) and **Schließen**. Only **Schließen** ends the Android task; another Back press on the dialog acts as **Abbrechen**.
+The Android Back button first calls the hosted Movie Hub UI: it closes an open detail view, profile menu or subpage just like the browser UI. This also uses Android's current predictive-back callback, so it works on current Android phones as well as Fire TV. At Movie Hub's root it opens a confirmation dialog with **Abbrechen** (the initially focused safe choice) and **Schließen**. Only **Schließen** ends the Android task; another Back press on the dialog acts as **Abbrechen**.
 
 `MovieHubNative` is intentionally a narrow native bridge. It exposes the platform, app version and the explicit user-confirmed app close action; it never exposes credentials, Firebase data, storage or provider deep links. The next phase covers remote-control testing on the actual Fire TV Stick.

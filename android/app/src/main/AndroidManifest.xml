@@ -13,6 +13,7 @@
         android:label="Movie Hub"
         android:supportsRtl="true"
         android:theme="@style/Theme.MovieHub"
+        android:enableOnBackInvokedCallback="true"
         android:usesCleartextTraffic="false">
         <activity
             android:name=".MainActivity"
