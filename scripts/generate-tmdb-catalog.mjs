@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { normalizeTmdbTitle, toMovieHubTitle } from '../src/services/tmdb.js'
+import { normalizeTmdbTitle, normalizeTmdbWatchProviders, toMovieHubTitle } from '../src/services/tmdb.js'
 
 const token = process.env.TMDB_API_READ_TOKEN
 const language = process.env.TMDB_LANGUAGE || 'de-DE'
@@ -74,10 +74,15 @@ async function resolveTarget(target) {
   })
 
   const normalized = normalizeTmdbTitle(payload, target.mediaType)
+  const providersPath = target.mediaType === 'tv' ? `/tv/${match.id}/watch/providers` : `/movie/${match.id}/watch/providers`
+  const providerPayload = await tmdbFetch(providersPath)
+  const providerData = normalizeTmdbWatchProviders(providerPayload, 'DE')
+
   return toMovieHubTitle(normalized, {
     id: target.key,
     accent: target.accent,
     accent2: target.accent2,
+    ...providerData,
   })
 }
 

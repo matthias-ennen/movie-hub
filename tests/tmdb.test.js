@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTmdbImageUrl, normalizeTmdbTitle, toMovieHubTitle } from '../src/services/tmdb.js'
+import { buildTmdbImageUrl, normalizeTmdbTitle, normalizeTmdbWatchProviders, toMovieHubTitle } from '../src/services/tmdb.js'
 
 describe('TMDB adapter', () => {
   it('normalizes a movie payload without exposing authentication concerns to UI code', () => {
@@ -85,6 +85,43 @@ describe('TMDB adapter', () => {
     expect(catalogItem.meta).toBe('2 Std. 1 Min.')
     expect(catalogItem.genre).toBe('Ohne Genreangabe')
     expect(catalogItem.id).toBe('tmdb-movie-11')
+  })
+
+  it('keeps only supported German watch providers and their real offer types', () => {
+    const providers = normalizeTmdbWatchProviders({
+      results: {
+        DE: {
+          link: 'https://www.themoviedb.org/movie/11/watch?locale=DE',
+          flatrate: [
+            { provider_id: 8, provider_name: 'Netflix' },
+            { provider_id: 119, provider_name: 'Amazon Prime Video' },
+            { provider_id: 999, provider_name: 'Unbekannter Anbieter' },
+          ],
+          rent: [
+            { provider_id: 192, provider_name: 'YouTube' },
+            { provider_id: 8, provider_name: 'Netflix' },
+          ],
+          buy: [{ provider_id: 337, provider_name: 'Disney Plus' }],
+        },
+      },
+    })
+
+    expect(providers.providerIds).toEqual(['netflix', 'prime', 'youtube', 'disney'])
+    expect(providers.providerOffers).toEqual([
+      { id: 'netflix', tmdbProviderId: 8, offerTypes: ['flatrate', 'rent'] },
+      { id: 'prime', tmdbProviderId: 119, offerTypes: ['flatrate'] },
+      { id: 'youtube', tmdbProviderId: 192, offerTypes: ['rent'] },
+      { id: 'disney', tmdbProviderId: 337, offerTypes: ['buy'] },
+    ])
+    expect(providers.watchProviderLink).toBe('https://www.themoviedb.org/movie/11/watch?locale=DE')
+  })
+
+  it('returns no provider when TMDB has no German availability', () => {
+    expect(normalizeTmdbWatchProviders({ results: { US: {} } })).toEqual({
+      providerIds: [],
+      providerOffers: [],
+      watchProviderLink: null,
+    })
   })
 
   it('returns null for missing images and rejects unsupported media types', () => {
