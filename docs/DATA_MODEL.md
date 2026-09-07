@@ -41,6 +41,13 @@ users/{uid}/recommendations/{documentId}
   algorithmVersion  string
   source             string         # ai | rules | hybrid
   categories        map/array
+
+users/{uid}/sharedMedia/{type-tmdbId}/entries/{entryId}
+  label             string          # frei wählbare Bezeichnung
+  url               string          # erreichbare HTTP(S)-Adresse
+  type              string          # web | video
+  titleRef          map             # TMDB-ID, Medientyp, Titelschnappschuss
+  updatedAt         timestamp
 ```
 
 ## Persönlicher Filmzustand
@@ -69,6 +76,10 @@ Beispiele:
 - Später ansehen
 
 Systemlisten wie Favoriten oder Watchlist müssen nicht zwingend als separate Dokumente gespeichert werden; sie können aus dem persönlichen Filmzustand berechnet werden. Kuratierte oder KI-generierte Reihen können zusätzlich als Listendokumente persistiert werden.
+
+## Gemeinsame Movie-Hub-Medien
+
+Manuell gepflegte Web- und Video-URLs liegen kontoweit unter `users/{uid}/sharedMedia` und bewusst nicht unter einem internen Profil. Dadurch sind dieselben Einträge in allen Profilen sichtbar und aus jedem Profil pflegbar. Film und Serie werden im Dokumentschlüssel getrennt, damit identische numerische TMDB-IDs nicht kollidieren.
 
 ## Externe Filmdaten
 

@@ -89,6 +89,15 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - atomare Veröffentlichung: bei Fehler bleibt der letzte Live-Katalog bestehen
 - persönliche Listen bleiben unabhängig von wechselnden Entdeckungsreihen sichtbar
 
+### Laufendes Paket #57 – Trailer, Teaser und gemeinsame Movie-Hub-Medien
+
+- automatische Trailer-/Teaser-Referenzen aus TMDB, bevorzugt deutsch und offiziell
+- gemeinsame manuelle Web- und Video-URLs je Titel, sichtbar in allen internen Profilen
+- Movie Hub als eigener Anbieterbutton mit Direkteinstieg oder Auswahl bei mehreren Einträgen
+- integrierter Video-Player für HTTP(S)-Quellen, soweit Container und Codec vom Gerät unterstützt werden
+- Bearbeiten und Löschen der gemeinsamen Einträge aus jedem Profil
+- D-Pad- und Zurück-Verhalten für Auswahl, Verwaltung und Player
+
 ## Phase 6 – Personalisierung und Automatisierung
 
 - persönliche Top 100 aus Bewertungen und Präferenzen
@@ -108,7 +117,6 @@ Abschlusskriterium: Empfehlungen werden reproduzierbar aus aktuellen Filmdaten u
 - mehrere Profile
 - Smartphone-optimierte Verwaltungsansicht
 - Bewertungsverlauf
-- Trailer
 - Suche und Filter
 - eigene Sammlungen
 - Import/Export persönlicher Filmdaten

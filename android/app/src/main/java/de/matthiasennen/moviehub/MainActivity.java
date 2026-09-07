@@ -14,6 +14,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
@@ -66,6 +67,9 @@ public final class MainActivity extends ComponentActivity {
         webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(false);
         webView.getSettings().setSupportMultipleWindows(false);
         webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
+        // User-managed home-network video URLs may use plain HTTP. The top-level
+        // WebView remains locked to Movie Hub's HTTPS hosts below.
+        webView.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         CookieManager cookies = CookieManager.getInstance();
         cookies.setAcceptCookie(true);
         cookies.setAcceptThirdPartyCookies(webView, true);
@@ -284,6 +288,20 @@ public final class MainActivity extends ComponentActivity {
                 } catch (ActivityNotFoundException ignored) {
                     // No external browser is available. Movie Hub stays open.
                 }
+            });
+        }
+
+        /** A user-created Movie-Hub media entry. HTTP(S) is required; unlike
+         * provider links this intentionally is not limited to five domains. */
+        @JavascriptInterface
+        public void openMediaUrl(String rawUrl) {
+            final Uri uri;
+            try { uri = Uri.parse(rawUrl); } catch (Exception ignored) { return; }
+            if (uri == null || !("https".equalsIgnoreCase(uri.getScheme())
+                    || "http".equalsIgnoreCase(uri.getScheme()))) return;
+            runOnUiThread(() -> {
+                try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
+                catch (ActivityNotFoundException ignored) { }
             });
         }
     }

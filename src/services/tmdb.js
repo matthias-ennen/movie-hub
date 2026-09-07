@@ -10,6 +10,7 @@ const TARGET_PROVIDER_IDS = new Map([
 ])
 
 const WATCH_OFFER_TYPES = ['flatrate', 'free', 'ads', 'rent', 'buy']
+const SUPPORTED_TMDB_VIDEO_TYPES = new Set(['Trailer', 'Teaser'])
 
 function normalizeProviderName(value) {
   return String(value || '')
@@ -90,6 +91,69 @@ export function normalizeTmdbWatchProviders(payload, countryCode = 'DE') {
     providerOffers,
     watchProviderLink: typeof regional.link === 'string' ? regional.link : null,
   }
+}
+
+function videoLanguage(video) {
+  return String(video?.iso_639_1 || '').toLowerCase()
+}
+
+function videoScore(video, preferredLanguage, type) {
+  let score = 0
+  if (videoLanguage(video) === preferredLanguage) score += 100
+  if (video.official) score += 20
+  if (video.type === type) score += 10
+  if (Number(video.size) >= 1080) score += 2
+  const publishedAt = Date.parse(video.published_at)
+  if (Number.isFinite(publishedAt)) score += Math.min(publishedAt / 1e15, 1)
+  return score
+}
+
+/**
+ * Select at most one trailer and one teaser from TMDB's public YouTube
+ * references. German and official entries win; the title's original language
+ * is the next fallback. Movie Hub stores only the public video reference.
+ */
+export function normalizeTmdbVideos(payloads, originalLanguage = 'en') {
+  const candidates = (Array.isArray(payloads) ? payloads : [payloads])
+    .flatMap((payload) => Array.isArray(payload?.results) ? payload.results : [])
+    .filter((video) => (
+      video?.site === 'YouTube'
+      && typeof video.key === 'string'
+      && /^[A-Za-z0-9_-]{6,20}$/.test(video.key)
+      && SUPPORTED_TMDB_VIDEO_TYPES.has(video.type)
+    ))
+
+  const unique = [...new Map(candidates.map((video) => [video.key, video])).values()]
+  const preferredLanguages = [...new Set(['de', String(originalLanguage || '').toLowerCase(), 'en'].filter(Boolean))]
+
+  function select(type, excludedKeys = new Set()) {
+    const matching = unique.filter((video) => video.type === type && !excludedKeys.has(video.key))
+    if (!matching.length) return null
+
+    for (const preferredLanguage of preferredLanguages) {
+      const localized = matching
+        .filter((video) => videoLanguage(video) === preferredLanguage)
+        .sort((a, b) => videoScore(b, preferredLanguage, type) - videoScore(a, preferredLanguage, type))
+      if (localized[0]) return localized[0]
+    }
+
+    return matching.sort((a, b) => videoScore(b, '', type) - videoScore(a, '', type))[0]
+  }
+
+  const trailer = select('Trailer')
+  const teaser = select('Teaser', new Set(trailer ? [trailer.key] : []))
+
+  return [trailer, teaser].filter(Boolean).map((video) => ({
+    id: `youtube-${video.key}`,
+    type: video.type.toLowerCase(),
+    label: video.type === 'Teaser' ? 'Teaser' : 'Trailer',
+    name: video.name || null,
+    language: videoLanguage(video) || null,
+    official: Boolean(video.official),
+    site: 'youtube',
+    key: video.key,
+    url: `https://www.youtube.com/watch?v=${video.key}`,
+  }))
 }
 
 export function normalizeTmdbTitle(payload, mediaType) {
@@ -182,6 +246,7 @@ export function toMovieHubTitle(normalized, options = {}) {
     providerIds,
     providerOffers,
     watchProviderLink: options.watchProviderLink || null,
+    videos: Array.isArray(options.videos) ? options.videos : [],
     accent: options.accent || '#657184',
     accent2: options.accent2 || '#1c2531',
   }

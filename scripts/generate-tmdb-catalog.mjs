@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { normalizeTmdbTitle, normalizeTmdbWatchProviders, toMovieHubTitle } from '../src/services/tmdb.js'
+import { normalizeTmdbTitle, normalizeTmdbVideos, normalizeTmdbWatchProviders, toMovieHubTitle } from '../src/services/tmdb.js'
 
 const token = process.env.TMDB_API_READ_TOKEN
 const language = process.env.TMDB_LANGUAGE || 'de-DE'
@@ -166,19 +166,26 @@ async function resolveCandidate(candidate) {
   const providerPath = candidate.mediaType === 'tv'
     ? `/tv/${candidate.id}/watch/providers`
     : `/movie/${candidate.id}/watch/providers`
+  const videoPath = candidate.mediaType === 'tv'
+    ? `/tv/${candidate.id}/videos`
+    : `/movie/${candidate.id}/videos`
 
-  const [payload, providerPayload] = await Promise.all([
+  const [payload, providerPayload, germanVideos, fallbackVideos] = await Promise.all([
     tmdbFetch(detailPath, { language, append_to_response: 'credits' }),
     tmdbFetch(providerPath),
+    tmdbFetch(videoPath, { language: 'de-DE' }),
+    tmdbFetch(videoPath, { language: 'en-US' }),
   ])
   const normalized = normalizeTmdbTitle(payload, candidate.mediaType)
   const providerData = normalizeTmdbWatchProviders(providerPayload, country)
+  const videos = normalizeTmdbVideos([germanVideos, fallbackVideos], normalized.originalLanguage)
   const [accent, accent2] = accentFor(normalized.tmdbId)
 
   return toMovieHubTitle(normalized, {
     id: `tmdb-${normalized.type}-${normalized.tmdbId}`,
     accent,
     accent2,
+    videos,
     ...providerData,
   })
 }

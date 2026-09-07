@@ -55,13 +55,15 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
       // Hoch/Runter dürfen den Fokus dagegen zurück in die TV-Oberfläche führen.
       if (editable && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) return
 
-      const scopeSelector = exitDialogOpen
-        ? '.exit-dialog'
-        : detailOpen
-          ? '.detail-modal'
-          : profileMenuOpen
-            ? '.profile-wrap'
-            : null
+      const scopeSelector = document.querySelector('.media-panel')
+        ? '.media-panel'
+        : exitDialogOpen
+          ? '.exit-dialog'
+          : detailOpen
+            ? '.detail-modal'
+            : profileMenuOpen
+              ? '.profile-wrap'
+              : null
       const candidates = getFocusableCandidates(scopeSelector)
       if (!candidates.length) return
 

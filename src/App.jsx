@@ -293,6 +293,7 @@ function MovieHub({ user }) {
 
   const closeInteractiveLayer = useCallback(() => {
     if (selectedTitle) {
+      if (window.__movieHubDetailBack?.()) return true
       setSelectedTitle(null)
       return true
     }

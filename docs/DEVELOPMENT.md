@@ -38,6 +38,7 @@ Der Befehl startet den Firestore Emulator temporär und prüft mindestens:
 - unauthentifizierter Zugriff wird abgelehnt
 - eigene UID darf lesen/schreiben
 - fremde UID wird abgelehnt
+- gemeinsame Movie-Hub-Medien sind innerhalb der eigenen UID erlaubt und für fremde Konten gesperrt
 
 ## Build
 

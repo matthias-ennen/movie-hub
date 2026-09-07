@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:unit": "vitest run --exclude tests/firestore.rules.test.js",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run tests/firestore.rules.test.js\"",
     "test:tmdb": "vitest run tests/tmdb.test.js",
     "test:catalog": "vitest run tests/catalog-generator.test.js",

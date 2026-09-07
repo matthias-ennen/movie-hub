@@ -19,7 +19,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -29,7 +31,10 @@ button {
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+video:focus-visible {
   outline: var(--focus-width-control) solid var(--color-focus);
   outline-offset: var(--focus-offset);
 }
