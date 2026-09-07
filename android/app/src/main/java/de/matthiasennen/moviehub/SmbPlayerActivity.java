@@ -21,7 +21,9 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.ui.PlayerView;
 
@@ -31,6 +33,11 @@ import java.util.Locale;
 public final class SmbPlayerActivity extends ComponentActivity {
     public static final String EXTRA_LABEL = "movie_hub_media_label";
     public static final String EXTRA_URL = "movie_hub_smb_url";
+
+    private static final int MIN_BUFFER_MS = 30_000;
+    private static final int MAX_BUFFER_MS = 60_000;
+    private static final int PLAYBACK_BUFFER_MS = 10_000;
+    private static final int BACK_BUFFER_MS = 10_000;
 
     private SmbLocation location;
     private CredentialStore credentialStore;
@@ -196,7 +203,18 @@ public final class SmbPlayerActivity extends ComponentActivity {
             ProgressiveMediaSource mediaSource = new ProgressiveMediaSource.Factory(
                     () -> new SmbDataSource(location, playbackCredentials))
                     .createMediaSource(MediaItem.fromUri(location.getUri()));
-            player = new ExoPlayer.Builder(this).build();
+            LoadControl loadControl = new DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(
+                            MIN_BUFFER_MS,
+                            MAX_BUFFER_MS,
+                            PLAYBACK_BUFFER_MS,
+                            PLAYBACK_BUFFER_MS)
+                    .setBackBuffer(BACK_BUFFER_MS, false)
+                    .setPrioritizeTimeOverSizeThresholds(true)
+                    .build();
+            player = new ExoPlayer.Builder(this)
+                    .setLoadControl(loadControl)
+                    .build();
             playerView.setPlayer(player);
             player.addListener(new Player.Listener() {
                 @Override
