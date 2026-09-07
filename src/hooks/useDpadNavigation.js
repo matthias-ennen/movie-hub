@@ -22,7 +22,12 @@ function getFocusableCandidates(scopeSelector) {
 function focusCandidate(candidate) {
   if (!candidate) return
   candidate.focus({ preventScroll: true })
-  candidate.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  const isInsideDialog = candidate.closest('.detail-modal, .media-panel, .exit-dialog, .profile-menu')
+  candidate.scrollIntoView({
+    behavior: 'smooth',
+    block: 'nearest',
+    inline: isInsideDialog ? 'nearest' : 'center',
+  })
 }
 
 export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen, onBack }) {
