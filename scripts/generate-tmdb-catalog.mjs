@@ -20,6 +20,10 @@ export const CATALOG_ROWS = [
 
 const CANDIDATES_PER_ROW = 24
 const MINIMUM_TITLES_PER_ROW = 6
+// Stable TMDB provider identifiers for the providers Movie Hub currently
+// exposes. They prefilter the new-release rows before the detailed per-title
+// availability check below. waipu.tv remains covered by that later check.
+const TMDB_DISCOVER_PROVIDER_IDS = '8|119|337|192'
 // Each candidate needs a detail and a provider request. Two workers keep the
 // total request rate deliberately conservative for the daily TMDB job.
 const REQUEST_CONCURRENCY = 2
@@ -97,6 +101,8 @@ function getRowRequest(row) {
         params: {
           language,
           region: country,
+          watch_region: country,
+          with_watch_providers: TMDB_DISCOVER_PROVIDER_IDS,
           sort_by: 'primary_release_date.desc',
           include_adult: false,
           'primary_release_date.gte': isoDateDaysAgo(180),
@@ -108,6 +114,8 @@ function getRowRequest(row) {
         path: '/discover/tv',
         params: {
           language,
+          watch_region: country,
+          with_watch_providers: TMDB_DISCOVER_PROVIDER_IDS,
           sort_by: 'first_air_date.desc',
           include_adult: false,
           'first_air_date.gte': isoDateDaysAgo(365),
