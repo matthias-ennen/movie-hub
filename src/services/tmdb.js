@@ -1,5 +1,24 @@
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p'
 
+const TARGET_PROVIDER_IDS = new Map([
+  ['netflix', 'netflix'],
+  ['amazonprimevideo', 'prime'],
+  ['primevideo', 'prime'],
+  ['disneyplus', 'disney'],
+  ['youtube', 'youtube'],
+  ['waiputv', 'waipu'],
+])
+
+const WATCH_OFFER_TYPES = ['flatrate', 'free', 'ads', 'rent', 'buy']
+
+function normalizeProviderName(value) {
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/gi, '')
+    .toLowerCase()
+}
+
 function normalizeMediaType(mediaType) {
   if (mediaType === 'movie') return 'movie'
   if (mediaType === 'tv' || mediaType === 'series') return 'series'
@@ -35,6 +54,42 @@ export function buildTmdbImageUrl(path, size = 'w500') {
   if (!path) return null
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   return `${TMDB_IMAGE_BASE_URL}/${size}${normalizedPath}`
+}
+
+/**
+ * Reduce TMDB's regional watch-provider response to the providers Movie Hub
+ * currently supports. The original TMDB link and offer types stay in the
+ * catalog so a later UI/Intent step can make an informed choice.
+ */
+export function normalizeTmdbWatchProviders(payload, countryCode = 'DE') {
+  const regional = payload?.results?.[countryCode]
+  if (!regional || typeof regional !== 'object') {
+    return { providerIds: [], providerOffers: [], watchProviderLink: null }
+  }
+
+  const offers = new Map()
+  for (const offerType of WATCH_OFFER_TYPES) {
+    const providers = Array.isArray(regional[offerType]) ? regional[offerType] : []
+    for (const provider of providers) {
+      const providerId = TARGET_PROVIDER_IDS.get(normalizeProviderName(provider?.provider_name))
+      if (!providerId) continue
+
+      const existing = offers.get(providerId) || {
+        id: providerId,
+        tmdbProviderId: Number.isFinite(Number(provider?.provider_id)) ? Number(provider.provider_id) : null,
+        offerTypes: [],
+      }
+      if (!existing.offerTypes.includes(offerType)) existing.offerTypes.push(offerType)
+      offers.set(providerId, existing)
+    }
+  }
+
+  const providerOffers = [...offers.values()]
+  return {
+    providerIds: providerOffers.map((provider) => provider.id),
+    providerOffers,
+    watchProviderLink: typeof regional.link === 'string' ? regional.link : null,
+  }
 }
 
 export function normalizeTmdbTitle(payload, mediaType) {
@@ -113,13 +168,20 @@ export function toMovieHubTitle(normalized, options = {}) {
     meta = [seasonText, episodeText].filter(Boolean).join(' · ') || formatRuntime(normalized.runtimeMinutes) || 'Serie'
   }
 
+  const providerOffers = Array.isArray(options.providerOffers) ? options.providerOffers : []
+  const providerIds = providerOffers.length
+    ? providerOffers.map((provider) => provider.id).filter(Boolean)
+    : Array.isArray(options.providerIds) ? options.providerIds : []
+
   return {
     ...normalized,
     id: options.id || `tmdb-${normalized.type}-${normalized.tmdbId}`,
     meta: meta || (normalized.type === 'series' ? 'Serie' : 'Film'),
     genre: normalized.genres.map((genre) => genre.name).filter(Boolean).join(' · ') || 'Ohne Genreangabe',
     score: formatScore(normalized.voteAverage),
-    providerIds: Array.isArray(options.providerIds) ? options.providerIds : [],
+    providerIds,
+    providerOffers,
+    watchProviderLink: options.watchProviderLink || null,
     accent: options.accent || '#657184',
     accent2: options.accent2 || '#1c2531',
   }
