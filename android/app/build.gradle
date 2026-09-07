@@ -2,6 +2,12 @@ plugins {
     id 'com.android.application'
 }
 
+def signingProperties = new Properties()
+def signingPropertiesFile = rootProject.file('signing.properties')
+if (signingPropertiesFile.exists()) {
+    signingPropertiesFile.withInputStream { signingProperties.load(it) }
+}
+
 android {
     namespace 'de.matthiasennen.moviehub'
     compileSdk 35
@@ -10,7 +16,29 @@ android {
         applicationId 'de.matthiasennen.moviehub'
         minSdk 23
         targetSdk 35
-        versionCode 1
-        versionName '0.1.0'
+        // A later signed GitHub Actions build must always be newer than the
+        // installed one, otherwise Fire OS refuses the update.
+        versionCode (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+        versionName "0.1.${System.getenv('GITHUB_RUN_NUMBER') ?: '1'}"
+    }
+
+    signingConfigs {
+        if (signingPropertiesFile.exists()) {
+            release {
+                storeFile file(signingProperties['storeFile'])
+                storePassword signingProperties['storePassword']
+                keyAlias signingProperties['keyAlias']
+                keyPassword signingProperties['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (signingPropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+        }
     }
 }
