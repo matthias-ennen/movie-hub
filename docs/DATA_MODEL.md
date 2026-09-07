@@ -44,8 +44,8 @@ users/{uid}/recommendations/{documentId}
 
 users/{uid}/sharedMedia/{type-tmdbId}/entries/{entryId}
   label             string          # frei wählbare Bezeichnung
-  url               string          # erreichbare HTTP(S)-Adresse
-  type              string          # web | video
+  url               string          # HTTP(S)-Adresse oder zugangsdatenfreier SMB-Pfad
+  type              string          # web | video | smb
   titleRef          map             # TMDB-ID, Medientyp, Titelschnappschuss
   updatedAt         timestamp
 ```
@@ -79,7 +79,9 @@ Systemlisten wie Favoriten oder Watchlist müssen nicht zwingend als separate Do
 
 ## Gemeinsame Movie-Hub-Medien
 
-Manuell gepflegte Web- und Video-URLs liegen kontoweit unter `users/{uid}/sharedMedia` und bewusst nicht unter einem internen Profil. Dadurch sind dieselben Einträge in allen Profilen sichtbar und aus jedem Profil pflegbar. Film und Serie werden im Dokumentschlüssel getrennt, damit identische numerische TMDB-IDs nicht kollidieren.
+Manuell gepflegte Web-, Video- und SMB-Adressen liegen kontoweit unter `users/{uid}/sharedMedia` und bewusst nicht unter einem internen Profil. Dadurch sind dieselben Einträge in allen Profilen sichtbar und aus jedem Profil pflegbar. Film und Serie werden im Dokumentschlüssel getrennt, damit identische numerische TMDB-IDs nicht kollidieren.
+
+Ein SMB-Eintrag enthält ausschließlich einen kanonischen Pfad wie `smb://fritz.box/FRITZ.NAS/Ordner/video.mp4`. Benutzername und Kennwort sind weder Teil dieser URL noch des Firestore-Dokuments. Sie werden je Server/Freigabe ausschließlich auf dem Android-/Fire-TV-Gerät verschlüsselt gespeichert.
 
 ## Externe Filmdaten
 

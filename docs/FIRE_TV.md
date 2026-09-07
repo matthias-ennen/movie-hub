@@ -26,6 +26,14 @@ The Android Back button first calls the hosted Movie Hub UI: it closes an open d
 
 `MovieHubNative` is intentionally a narrow native bridge. It exposes the platform, app version, the explicit user-confirmed app close action, opening a user-managed HTTP(S) media link and an allow-listed provider launch; it never exposes credentials, Firebase data, storage or unrestricted WebView navigation. Movie-Hub video URLs play in the hosted detail view and therefore depend on the codecs available in Android WebView/Fire OS; MP4 with H.264/AAC is the compatibility baseline.
 
+## Phase 5.2 SMB-/FRITZ!NAS preflight
+
+The shared media editor additionally accepts credential-free `smb://server/share/path/video` addresses and converts unambiguous UNC paths. In a normal browser these entries show a clear native-app requirement. In the current Android/Fire-TV shell, a dedicated bridge method opens an unexported full-screen Media3 player.
+
+The first technical candidate uses SMBJ for SMB2/3 random-access reads and supplies those bytes to Media3 through a custom data source, enabling pause, resume and seeking without copying the complete file to device storage. Username and password are requested by the native player. If the user chooses to remember them, they are AES-GCM encrypted with a non-exportable Android Keystore key and stored only on that device, scoped to server and share.
+
+This library/player combination remains a preflight candidate until it has streamed a real FRITZ!NAS reference file on Fire TV and the remote-control/error scenarios in issue #62 have been verified.
+
 ## Phase 4.3 provider launch chain
 
 Provider buttons pass only the provider ID, title and the already validated HTTPS fallback to Android. The native shell accepts Netflix, Prime Video, Disney+, YouTube and waipu.tv and verifies that the fallback domain matches the provider before doing anything.

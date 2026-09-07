@@ -278,6 +278,17 @@
   color: var(--color-muted);
 }
 
+.media-form-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.media-form-hint code {
+  color: var(--color-text);
+}
+
 .media-picker-list,
 .media-entry-list {
   display: grid;

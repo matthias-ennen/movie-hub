@@ -72,7 +72,7 @@ Für Netflix, Prime Video, Disney+, YouTube und waipu.tv jeweils testen:
 
 Abschlusskriterium: dokumentierte Testmatrix und stabile Fallback-Logik je Anbieter.
 
-Aktuelles Paket: #50 – Provider-Intents und reale Fire-TV-Testmatrix. Die grundlegende Fire-TV-Abnahme aus #40 ist abgeschlossen, sodass dieses Paket nicht mehr blockiert ist.
+Status: abgeschlossen. #50 wurde mit APK-Build #39 auf realer Fire-TV-Hardware abgenommen; die konkreten Anbieterergebnisse und bewusst akzeptierten Testgrenzen sind dort dokumentiert. Titelgenaue, manuell hinterlegbare Anbieterlinks folgen separat in #65.
 
 ## Phase 5 – Dynamische Verfügbarkeit
 
@@ -102,7 +102,7 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - Bearbeiten und Löschen der gemeinsamen Einträge aus jedem Profil
 - D-Pad- und Zurück-Verhalten für Auswahl, Verwaltung und Player
 
-### Geplantes Paket #62 – SMB-/FRITZ!NAS-Medien
+### Aktives Paket #62 – SMB-/FRITZ!NAS-Medien
 
 - stabile `smb://`- oder eindeutig umwandelbare UNC-Pfade als gemeinsame Medienquelle je Titel
 - Referenzsystem: an einer FRITZ!Box angeschlossene, per SMB freigegebene Festplatte
@@ -110,6 +110,7 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - nativer Abruf und Wiedergabe über den Movie-Hub-Player
 - klare Fehlerzustände für fehlendes Heimnetz, Anmeldung und nicht erreichbare Dateien
 - kein UPnP-/DLNA-Browser und keine unsichere Freigabe ins öffentliche Internet
+- erster technischer Kandidat: SMBJ als SMB2/3-Datenquelle und ein nativer Media3-Player; die endgültige Festlegung erfolgt nach der realen FRITZ!NAS-/Fire-TV-Abnahme
 
 ## Phase 6 – Personalisierung und Automatisierung
 
