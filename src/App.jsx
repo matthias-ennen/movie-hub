@@ -337,14 +337,17 @@ function MovieHub({ user }) {
 
   useEffect(() => {
     // Android asks whether Movie Hub still has a UI layer to close. At the
-    // root it opens a native confirmation dialog, which is more reliable than
-    // relying on a WebView-rendered dialog during a system Back gesture.
+    // root it asks this themed React surface to display the confirmation.
     window.__movieHubNativeBack = handleNativeBack
+    window.__movieHubShowExitConfirmation = () => {
+      setExitDialogOpen(true)
+    }
 
     return () => {
       if (window.__movieHubNativeBack === handleNativeBack) {
         delete window.__movieHubNativeBack
       }
+      delete window.__movieHubShowExitConfirmation
     }
   }, [handleNativeBack])
 

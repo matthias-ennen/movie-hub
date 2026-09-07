@@ -132,24 +132,35 @@ public final class MainActivity extends ComponentActivity {
 
     private void handleBackNavigation() {
         if (offlineView.getVisibility() == View.VISIBLE) {
-            showExitConfirmation();
+            showNativeExitConfirmation();
             return;
         }
 
         // The hosted UI decides whether a detail view, menu or subpage needs
-        // closing. At Movie Hub's root Android owns the confirmation dialog,
-        // so it is reliable even if the WebView is busy or reloading.
+        // closing. At Movie Hub's root it renders its own themed confirmation
+        // dialog. Android keeps a native fallback only while the page is not
+        // ready (for example during loading or offline recovery).
         webView.evaluateJavascript(
                 "typeof window.__movieHubNativeBack === 'function' ? window.__movieHubNativeBack() : 'confirm'",
                 result -> {
                     if ("\"handled\"".equals(result)) {
                         return;
                     }
-                    showExitConfirmation();
+                    requestThemedExitConfirmation();
                 });
     }
 
-    private void showExitConfirmation() {
+    private void requestThemedExitConfirmation() {
+        webView.evaluateJavascript(
+                "typeof window.__movieHubShowExitConfirmation === 'function' ? (window.__movieHubShowExitConfirmation(), 'shown') : 'fallback'",
+                result -> {
+                    if (!"\"shown\"".equals(result)) {
+                        showNativeExitConfirmation();
+                    }
+                });
+    }
+
+    private void showNativeExitConfirmation() {
         if (isFinishing() || (exitDialog != null && exitDialog.isShowing())) {
             return;
         }
