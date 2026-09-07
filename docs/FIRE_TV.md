@@ -24,4 +24,17 @@ The WebView keeps Firebase's browser-local login session, cookies and web storag
 
 The Android Back button first calls the hosted Movie Hub UI: it closes an open detail view, profile menu or subpage just like the browser UI. The Android shell uses AndroidX's backward-compatible Back dispatcher on current phones, Fire TV and older Android versions alike. At Movie Hub's root it opens Movie Hub's own confirmation dialog with **Abbrechen** (the initially focused safe choice) and **Schließen**; it automatically follows the active profile theme. Only **Schließen** ends the Android task; another Back press on the dialog acts as **Abbrechen**. A native Android dialog is used only as a reliable fallback while Movie Hub is loading or unavailable.
 
-`MovieHubNative` is intentionally a narrow native bridge. It exposes the platform, app version, the explicit user-confirmed app close action and opening a user-managed HTTP(S) media link; it never exposes credentials, Firebase data, storage or unrestricted WebView navigation. Provider deep links remain a separate phase. Movie-Hub video URLs play in the hosted detail view and therefore depend on the codecs available in Android WebView/Fire OS; MP4 with H.264/AAC is the compatibility baseline.
+`MovieHubNative` is intentionally a narrow native bridge. It exposes the platform, app version, the explicit user-confirmed app close action, opening a user-managed HTTP(S) media link and an allow-listed provider launch; it never exposes credentials, Firebase data, storage or unrestricted WebView navigation. Movie-Hub video URLs play in the hosted detail view and therefore depend on the codecs available in Android WebView/Fire OS; MP4 with H.264/AAC is the compatibility baseline.
+
+## Phase 4.3 provider launch chain
+
+Provider buttons pass only the provider ID, title and the already validated HTTPS fallback to Android. The native shell accepts Netflix, Prime Video, Disney+, YouTube and waipu.tv and verifies that the fallback domain matches the provider before doing anything.
+
+For each allow-listed provider, Android tries in this order:
+
+1. open the provider's title/search HTTPS destination in a known installed Android/Fire-TV package;
+2. send a standard Android search intent with the title;
+3. open the provider's Leanback or normal launcher activity;
+4. open the existing HTTPS destination without a package restriction.
+
+Unsupported package names, missing apps and rejected intents are treated as normal fallbacks. The real result per provider is recorded on Fire TV in issue #50 because providers do not publish one stable title-level deep-link contract for every Fire OS generation.
