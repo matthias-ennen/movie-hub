@@ -128,7 +128,9 @@ public final class MainActivity extends ComponentActivity {
     private void loadMovieHub() {
         offlineView.setVisibility(View.GONE);
         webView.setVisibility(View.VISIBLE);
-        webView.loadUrl(APP_URL);
+        // A package update must not restore an older cached index page. The
+        // hosted assets remain hash-versioned and can still use normal caching.
+        webView.loadUrl(APP_URL + "?shell=" + BuildConfig.VERSION_CODE);
     }
 
     private void showOfflineView() {
