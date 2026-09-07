@@ -228,19 +228,65 @@ export default function DetailModal({ item, onClose }) {
             </div>
           )}
 
-          <button
-            type="button"
-            className="media-manage-shortcut"
-            data-focusable="true"
-            onClick={() => { resetMediaDraft(); setMediaEditorOpen(true) }}
-          >
-            <span className="media-manage-shortcut-icon" aria-hidden="true">＋</span>
-            <span>
-              <strong>{sharedMedia.length ? 'Movie-Hub-Links & Videos verwalten' : 'Link oder Video hinzufügen'}</strong>
-              <small>Gemeinsam in allen Profilen verfügbar</small>
-            </span>
-          </button>
-          {mediaMessage && !mediaEditorOpen && <p className="personal-state-message" role="status">{mediaMessage}</p>}
+          {automaticVideos.length > 0 && (
+            <section className="catalog-videos" aria-labelledby="catalog-videos-heading">
+              <h3 id="catalog-videos-heading">Videos</h3>
+              <div className="video-actions">
+                {automaticVideos.map((video, index) => (
+                  <button
+                    type="button"
+                    className="action-button video-action"
+                    key={video.id || video.url}
+                    data-focusable="true"
+                    data-detail-autofocus={index === 0 ? 'true' : undefined}
+                    onClick={() => openUrl(video.url)}
+                  >▶ {video.label || (video.type === 'teaser' ? 'Teaser' : 'Trailer')}</button>
+                ))}
+              </div>
+              <p className="prototype-note">Trailer und Teaser werden über YouTube geöffnet.</p>
+            </section>
+          )}
+
+          <h3>Wo ansehen?</h3>
+          {(sharedMedia.length > 0 || hasProviders) ? (
+            <div className="provider-actions" aria-label="Anbieter und Movie-Hub-Medien">
+              {sharedMedia.length > 0 && (
+                <button
+                  type="button"
+                  className="action-button provider-action movie-hub-action"
+                  data-focusable="true"
+                  data-detail-autofocus={automaticVideos.length === 0 ? 'true' : undefined}
+                  onClick={() => sharedMedia.length === 1 ? launchMedia(sharedMedia[0]) : setMediaPickerOpen(true)}
+                  aria-label={sharedMedia.length === 1 ? `${sharedMedia[0].label} über Movie Hub öffnen` : 'Movie-Hub-Medien auswählen'}
+                >
+                  <span className="movie-hub-provider-mark" aria-hidden="true">MH</span>
+                  Movie Hub
+                </button>
+              )}
+              {providerIds.map((providerId, index) => {
+                const provider = providers[providerId]
+                if (!provider) return null
+                return (
+                  <button
+                    type="button"
+                    key={providerId}
+                    className="action-button provider-action"
+                    data-focusable="true"
+                    data-detail-autofocus={automaticVideos.length === 0 && sharedMedia.length === 0 && index === 0 ? 'true' : undefined}
+                    onClick={() => openProvider(providerId)}
+                    aria-label={`${provider.label} öffnen`}
+                  >
+                    <ProviderBadge providerId={providerId} />
+                    {provider.label}
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="prototype-note">Für diesen Titel ist derzeit kein unterstützter Anbieter in Deutschland hinterlegt.</p>
+          )}
+          {hasProviders && <p className="prototype-note">Der gewählte Anbieter wird außerhalb von Movie Hub geöffnet.</p>}
+          {item.tmdbId && <p className="tmdb-credit">Datenquelle: TMDB · ID {item.tmdbId}</p>}
 
           <section className="personal-title-state" aria-labelledby="personal-title-state-heading">
             <div className="personal-title-state-heading">
@@ -262,7 +308,7 @@ export default function DetailModal({ item, onClose }) {
                 )}
                 disabled={personalBusy || libraryLoading}
                 data-focusable="true"
-                data-detail-autofocus="true"
+                data-detail-autofocus={automaticVideos.length === 0 && sharedMedia.length === 0 && !hasProviders ? 'true' : undefined}
               >
                 <span aria-hidden="true">♥</span>
                 <span>{personalState.favorite ? 'Favorit' : 'Als Favorit'}</span>
@@ -348,62 +394,19 @@ export default function DetailModal({ item, onClose }) {
             {personalMessage && <p className="personal-state-message" role="status">{personalMessage}</p>}
           </section>
 
-          {automaticVideos.length > 0 && (
-            <section className="catalog-videos" aria-labelledby="catalog-videos-heading">
-              <h3 id="catalog-videos-heading">Videos</h3>
-              <div className="video-actions">
-                {automaticVideos.map((video) => (
-                  <button
-                    type="button"
-                    className="action-button video-action"
-                    key={video.id || video.url}
-                    data-focusable="true"
-                    onClick={() => openUrl(video.url)}
-                  >▶ {video.label || (video.type === 'teaser' ? 'Teaser' : 'Trailer')}</button>
-                ))}
-              </div>
-              <p className="prototype-note">Trailer und Teaser werden über YouTube geöffnet.</p>
-            </section>
-          )}
-
-          <h3>Wo ansehen?</h3>
-          {(sharedMedia.length > 0 || hasProviders) ? (
-            <div className="provider-actions" aria-label="Anbieter und Movie-Hub-Medien">
-              {sharedMedia.length > 0 && (
-                <button
-                  type="button"
-                  className="action-button provider-action movie-hub-action"
-                  data-focusable="true"
-                  onClick={() => sharedMedia.length === 1 ? launchMedia(sharedMedia[0]) : setMediaPickerOpen(true)}
-                  aria-label={sharedMedia.length === 1 ? `${sharedMedia[0].label} über Movie Hub öffnen` : 'Movie-Hub-Medien auswählen'}
-                >
-                  <span className="movie-hub-provider-mark" aria-hidden="true">MH</span>
-                  Movie Hub
-                </button>
-              )}
-              {providerIds.map((providerId) => {
-                const provider = providers[providerId]
-                if (!provider) return null
-                return (
-                  <button
-                    type="button"
-                    key={providerId}
-                    className="action-button provider-action"
-                    data-focusable="true"
-                    onClick={() => openProvider(providerId)}
-                    aria-label={`${provider.label} öffnen`}
-                  >
-                    <ProviderBadge providerId={providerId} />
-                    {provider.label}
-                  </button>
-                )
-              })}
-            </div>
-          ) : (
-            <p className="prototype-note">Für diesen Titel ist derzeit kein unterstützter Anbieter in Deutschland hinterlegt.</p>
-          )}
-          {hasProviders && <p className="prototype-note">Der gewählte Anbieter wird außerhalb von Movie Hub geöffnet.</p>}
-          {item.tmdbId && <p className="tmdb-credit">Datenquelle: TMDB · ID {item.tmdbId}</p>}
+          <button
+            type="button"
+            className="media-manage-shortcut"
+            data-focusable="true"
+            onClick={() => { resetMediaDraft(); setMediaEditorOpen(true) }}
+          >
+            <span className="media-manage-shortcut-icon" aria-hidden="true">＋</span>
+            <span>
+              <strong>{sharedMedia.length ? 'Movie-Hub-Links & Videos verwalten' : 'Link oder Video hinzufügen'}</strong>
+              <small>Gemeinsam in allen Profilen verfügbar</small>
+            </span>
+          </button>
+          {mediaMessage && !mediaEditorOpen && <p className="personal-state-message" role="status">{mediaMessage}</p>}
         </div>
       </section>
       {mediaPickerOpen && (
