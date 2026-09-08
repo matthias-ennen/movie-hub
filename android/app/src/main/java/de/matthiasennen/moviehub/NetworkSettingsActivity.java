@@ -136,6 +136,7 @@ public final class NetworkSettingsActivity extends ComponentActivity {
     }
 
     private void renderConnections() {
+        Object focusedTag = getCurrentFocus() == null ? null : getCurrentFocus().getTag();
         listContainer.removeAllViews();
         List<SmbConnection> connections = connectionStore.loadAll();
         if (connections.isEmpty()) {
@@ -144,6 +145,10 @@ public final class NetworkSettingsActivity extends ComponentActivity {
         }
         for (SmbConnection connection : connections) {
             listContainer.addView(createConnectionCard(connection));
+        }
+        if (focusedTag != null) {
+            View replacement = listContainer.findViewWithTag(focusedTag);
+            if (replacement != null) replacement.requestFocus();
         }
     }
 
@@ -193,10 +198,12 @@ public final class NetworkSettingsActivity extends ComponentActivity {
         actions.setOrientation(compact ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
         if (connection.isEnabled()) {
             Button check = actionButton("Erneut prüfen");
+            check.setTag(connection.getEndpointKey() + ":check");
             check.setOnClickListener(view -> checkConnection(connection.withEnabled(true)));
             actions.addView(check);
 
             Button disconnect = actionButton("Verbindung trennen");
+            disconnect.setTag(connection.getEndpointKey() + ":toggle");
             disconnect.setOnClickListener(view -> disconnect(connection));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -204,11 +211,13 @@ public final class NetworkSettingsActivity extends ComponentActivity {
             actions.addView(disconnect, params);
         } else {
             Button connect = actionButton("Verbinden");
+            connect.setTag(connection.getEndpointKey() + ":toggle");
             connect.setOnClickListener(view -> connect(connection));
             actions.addView(connect);
         }
 
         Button edit = actionButton("Bearbeiten");
+        edit.setTag(connection.getEndpointKey() + ":edit");
         edit.setOnClickListener(view -> showConnectionDialog(connection));
         LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -216,6 +225,7 @@ public final class NetworkSettingsActivity extends ComponentActivity {
         actions.addView(edit, editParams);
 
         Button remove = actionButton("Entfernen");
+        remove.setTag(connection.getEndpointKey() + ":remove");
         remove.setOnClickListener(view -> confirmRemove(connection));
         LinearLayout.LayoutParams removeParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
