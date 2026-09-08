@@ -33,6 +33,26 @@ describe('gemeinsame Movie-Hub-Medien', () => {
       .toBe('smb://fritz.box/FRITZ.NAS/Meine%20Filme/Test.mkv')
     expect(normalizeSmbUrl('\\\\fritz.box\\FRITZ.NAS\\Meine Filme\\Test.mkv'))
       .toBe('smb://fritz.box/FRITZ.NAS/Meine%20Filme/Test.mkv')
+    expect(normalizeSmbUrl('smb://fritz.box/FRITZ.NAS/Meine%20Filme/Test%20Film.mkv'))
+      .toBe('smb://fritz.box/FRITZ.NAS/Meine%20Filme/Test%20Film.mkv')
+  })
+
+  it('normalizes SMB without relying on the browser URL parser', () => {
+    const originalUrl = globalThis.URL
+    globalThis.URL = class UnsupportedUrlParser {
+      constructor() {
+        throw new Error('custom schemes unsupported')
+      }
+    }
+
+    try {
+      expect(normalizeSmbUrl('smb://fritz.box/FRITZ.NAS/Filme/Cujo.mkv'))
+        .toBe('smb://fritz.box/FRITZ.NAS/Filme/Cujo.mkv')
+      expect(normaliseMedia({ label: 'Cujo', url: 'smb://fritz.box/FRITZ.NAS/Filme/Cujo.mkv', type: 'video' }))
+        .toMatchObject({ label: 'Cujo', url: 'smb://fritz.box/FRITZ.NAS/Filme/Cujo.mkv', type: 'video' })
+    } finally {
+      globalThis.URL = originalUrl
+    }
   })
 
   it('migrates legacy provider and SMB types without losing their URLs', () => {
@@ -65,6 +85,7 @@ describe('gemeinsame Movie-Hub-Medien', () => {
   it('rejects credentials, local files, scripts and malformed SMB paths', () => {
     expect(() => normalizeSmbUrl('smb://user:secret@fritz.box/FRITZ.NAS/Test.mp4')).toThrow(/Kennwort/)
     expect(() => normalizeSmbUrl('smb://fritz.box/FRITZ.NAS')).toThrow(/Freigabe/)
+    expect(() => normalizeSmbUrl('smb://fritz.box/FRITZ.NAS/../Test.mp4')).toThrow(/relativen/)
     for (const url of ['file:///sdcard/video.mp4', 'javascript:alert(1)']) {
       expect(() => normalizeMediaUrl(url)).toThrow(/HTTP/)
       expect(() => normalizeVideoUrl(url)).toThrow(/HTTP/)
