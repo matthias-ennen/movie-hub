@@ -21,12 +21,16 @@ export async function saveSharedMedia(userId, item, entry) {
   const { db } = await firebaseReady
   const normalized = normaliseMedia(entry)
   const entryCollection = collection(db, 'users', userId, 'sharedMedia', titleMediaKey(item), 'entries')
-  const entryRef = normalized.id ? doc(entryCollection, normalized.id) : doc(entryCollection)
+  const targetId = normalized.type === 'provider'
+    ? `provider-${normalized.providerId}`
+    : normalized.id
+  const entryRef = targetId ? doc(entryCollection, targetId) : doc(entryCollection)
   const id = entryRef.id
   await setDoc(entryRef, {
     label: normalized.label,
     url: normalized.url,
     type: normalized.type,
+    providerId: normalized.providerId || null,
     titleRef: {
       tmdbId: Number.isFinite(Number(item?.tmdbId)) ? Number(item.tmdbId) : null,
       type: item?.type === 'series' ? 'series' : 'movie',

@@ -3,6 +3,43 @@ export function titleMediaKey(item) {
   return `${type}-${String(item?.tmdbId || item?.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`
 }
 
+const PROVIDER_LINK_DOMAINS = Object.freeze({
+  netflix: ['netflix.com'],
+  prime: ['primevideo.com', 'amazon.de'],
+  disney: ['disneyplus.com'],
+  youtube: ['youtube.com', 'youtu.be'],
+  waipu: ['waipu.tv'],
+})
+
+export function getProviderAllowedDomains(providerId) {
+  return PROVIDER_LINK_DOMAINS[String(providerId || '')] || []
+}
+
+function isDomainOrSubdomain(hostname, domain) {
+  return hostname === domain || hostname.endsWith(`.${domain}`)
+}
+
+export function normalizeProviderUrl(value, providerId) {
+  const domains = getProviderAllowedDomains(providerId)
+  if (domains.length === 0) {
+    throw new Error('Bitte wähle einen unterstützten Anbieter aus.')
+  }
+
+  const url = new URL(String(value || '').trim())
+  if (url.protocol !== 'https:') {
+    throw new Error('Anbieter-Links müssen eine HTTPS-Adresse verwenden.')
+  }
+  if (url.username || url.password) {
+    throw new Error('Zugangsdaten dürfen nicht in der Adresse stehen.')
+  }
+
+  const hostname = url.hostname.toLowerCase()
+  if (!domains.some((domain) => isDomainOrSubdomain(hostname, domain))) {
+    throw new Error(`Die Adresse passt nicht zum gewählten Anbieter. Erlaubt: ${domains.join(', ')}.`)
+  }
+  return url.toString()
+}
+
 function normalizeUncPath(value) {
   const parts = value.replace(/^\\\\+/, '').split(/\\+/).filter(Boolean)
   if (parts.length < 3) {
@@ -46,11 +83,16 @@ export function normalizeMediaUrl(value, type = 'web') {
 export function normaliseMedia(entry) {
   const label = String(entry?.label || '').trim().slice(0, 80)
   if (!label) throw new Error('Bitte gib eine Bezeichnung ein.')
-  const type = ['video', 'smb'].includes(entry?.type) ? entry.type : 'web'
-  return {
+  const type = ['video', 'smb', 'provider'].includes(entry?.type) ? entry.type : 'web'
+  const providerId = type === 'provider' ? String(entry?.providerId || '') : null
+  const normalized = {
     id: entry?.id,
     label,
-    url: normalizeMediaUrl(entry?.url, type),
+    url: type === 'provider'
+      ? normalizeProviderUrl(entry?.url, providerId)
+      : normalizeMediaUrl(entry?.url, type),
     type,
   }
+  if (providerId) normalized.providerId = providerId
+  return normalized
 }
