@@ -41,12 +41,15 @@ public final class SmbPlayerActivity extends ComponentActivity {
 
     private SmbLocation location;
     private CredentialStore credentialStore;
+    private NetworkConnectionStore connectionStore;
+    private SmbConnection connection;
     private SmbCredentials credentials;
     private ExoPlayer player;
     private PlayerView playerView;
     private TextView statusView;
     private Button credentialsButton;
     private boolean saveCredentialsWhenReady;
+    private boolean persistCredentialsWhenReady = true;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -68,8 +71,13 @@ public final class SmbPlayerActivity extends ComponentActivity {
         }
 
         credentialStore = new CredentialStore(this);
-        credentials = credentialStore.load(location.getCredentialKey());
-        if (credentials == null) {
+        connectionStore = new NetworkConnectionStore(this);
+        SmbCredentials persistentCredentials = credentialStore.load(location.getCredentialKey());
+        connection = connectionStore.ensure(location, persistentCredentials != null);
+        credentials = loadCredentials();
+        if (!connection.isEnabled()) {
+            showDisconnectedState();
+        } else if (credentials == null) {
             showStatus("Für " + location.getDisplayEndpoint() + " werden lokale Zugangsdaten benötigt.");
             showCredentialsDialog(false);
         } else {
@@ -186,8 +194,14 @@ public final class SmbPlayerActivity extends ComponentActivity {
                     return;
                 }
                 credentials = new SmbCredentials(user, password.getText().toString());
-                saveCredentialsWhenReady = remember.isChecked();
-                if (!remember.isChecked()) credentialStore.remove(location.getCredentialKey());
+                saveCredentialsWhenReady = true;
+                persistCredentialsWhenReady = remember.isChecked();
+                connection = connection.withEnabled(true)
+                        .withCredentialMode(persistCredentialsWhenReady);
+                connectionStore.save(connection);
+                if (!persistCredentialsWhenReady) {
+                    credentialStore.remove(location.getCredentialKey());
+                }
                 dialog.dismiss();
                 startPlayback();
             });
@@ -195,8 +209,32 @@ public final class SmbPlayerActivity extends ComponentActivity {
         dialog.show();
     }
 
+    private SmbCredentials loadCredentials() {
+        if (connection != null && !connection.usesPersistentCredentials()) {
+            return SessionCredentialStore.load(location.getCredentialKey());
+        }
+        return credentialStore.load(location.getCredentialKey());
+    }
+
+    private void showDisconnectedState() {
+        showStatus("Das Netzlaufwerk " + location.getDisplayEndpoint() + " ist getrennt.");
+        credentialsButton.setText("Netzlaufwerk verbinden");
+        credentialsButton.setOnClickListener(view -> {
+            connection = connection.withEnabled(true);
+            connectionStore.save(connection);
+            credentials = loadCredentials();
+            credentialsButton.setText("Netzwerkzugang ändern");
+            credentialsButton.setOnClickListener(value -> showCredentialsDialog(true));
+            if (credentials == null) showCredentialsDialog(false);
+            else startPlayback();
+        });
+        credentialsButton.requestFocus();
+    }
+
     private void startPlayback() {
         releasePlayer();
+        credentialsButton.setText("Netzwerkzugang ändern");
+        credentialsButton.setOnClickListener(view -> showCredentialsDialog(true));
         showStatus("Verbindung zu " + location.getDisplayEndpoint() + " wird hergestellt …");
         try {
             SmbCredentials playbackCredentials = credentials;
@@ -222,7 +260,16 @@ public final class SmbPlayerActivity extends ComponentActivity {
                     if (playbackState == Player.STATE_READY) {
                         statusView.setVisibility(View.GONE);
                         if (saveCredentialsWhenReady) {
-                            credentialStore.save(location.getCredentialKey(), playbackCredentials);
+                            if (persistCredentialsWhenReady) {
+                                credentialStore.save(location.getCredentialKey(), playbackCredentials);
+                                SessionCredentialStore.remove(location.getCredentialKey());
+                            } else {
+                                credentialStore.remove(location.getCredentialKey());
+                                SessionCredentialStore.save(location.getCredentialKey(), playbackCredentials);
+                            }
+                            connection = connection.withEnabled(true)
+                                    .withCredentialMode(persistCredentialsWhenReady);
+                            connectionStore.save(connection);
                             saveCredentialsWhenReady = false;
                         }
                     } else if (playbackState == Player.STATE_BUFFERING) {
@@ -256,6 +303,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
         if (message.contains("LOGON_FAILURE") || message.contains("ACCESS_DENIED")
                 || message.contains("AUTHENTICAT")) {
             if (credentialStore != null) credentialStore.remove(location.getCredentialKey());
+            SessionCredentialStore.remove(location.getCredentialKey());
             return "Anmeldung an FRITZ!NAS fehlgeschlagen. Bitte Benutzername und Kennwort prüfen.";
         }
         if (message.contains("OBJECT_NAME_NOT_FOUND") || message.contains("OBJECT_PATH_NOT_FOUND")
