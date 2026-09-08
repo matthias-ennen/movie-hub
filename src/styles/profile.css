@@ -343,8 +343,49 @@
   flex: 0 0 auto;
 }
 
-.profile-menu .profile-settings-link {
+.profile-menu .profile-settings-link,
+.profile-menu .app-settings-link {
   background: color-mix(in srgb, var(--color-surface-control) 82%, var(--color-brand-accent) 18%);
+}
+
+.network-settings-panel {
+  max-width: 920px;
+}
+
+.network-settings-open {
+  width: min(100%, 620px);
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--color-focus) 48%, var(--color-line));
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-surface-soft) 82%, var(--color-brand-accent) 18%);
+  color: var(--color-text);
+  text-align: left;
+}
+
+.network-settings-open > span:first-child {
+  flex: 0 0 auto;
+  font-size: 2rem;
+  color: var(--color-brand-accent);
+}
+
+.network-settings-open > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.network-settings-open strong,
+.network-settings-open small {
+  overflow-wrap: anywhere;
+}
+
+.network-settings-open small {
+  color: var(--color-muted);
+  line-height: 1.4;
 }
 
 @media (max-width: 1180px) {
