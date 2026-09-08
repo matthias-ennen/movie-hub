@@ -330,6 +330,10 @@
   gap: 0.9rem;
 }
 
+.media-form.has-provider {
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr) minmax(0, 0.9fr) minmax(0, 0.9fr);
+}
+
 .media-form label {
   min-width: 0;
   display: grid;
@@ -401,7 +405,8 @@
 }
 
 @media (max-width: 900px) {
-  .media-form {
+  .media-form,
+  .media-form.has-provider {
     grid-template-columns: 1fr;
   }
 

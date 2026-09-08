@@ -340,6 +340,34 @@ public final class MainActivity extends ComponentActivity {
             runOnUiThread(() -> launchProvider(providerId, safeTitle, fallbackUri));
         }
 
+        /** Prefer a user-supplied provider-owned title URL and retain the
+         * complete generic provider fallback chain when it cannot be opened. */
+        @JavascriptInterface
+        public void openProviderExact(String providerId, String title,
+                                      String rawExactUrl, String rawFallbackUrl) {
+            final Uri exactUri;
+            final Uri fallbackUri;
+            try {
+                String normalizedYouTubeUrl = "youtube".equals(providerId)
+                        ? YouTubeUrlResolver.canonicalWatchUrl(rawExactUrl)
+                        : null;
+                exactUri = Uri.parse(normalizedYouTubeUrl == null
+                        ? rawExactUrl
+                        : normalizedYouTubeUrl);
+                fallbackUri = Uri.parse(rawFallbackUrl);
+            } catch (Exception ignored) {
+                return;
+            }
+
+            if (!isAllowedProviderDestination(providerId, exactUri)
+                    || !isAllowedProviderDestination(providerId, fallbackUri)) {
+                return;
+            }
+
+            final String safeTitle = title == null ? "" : title.trim();
+            runOnUiThread(() -> launchProviderExact(providerId, safeTitle, exactUri, fallbackUri));
+        }
+
         /** A user-created Movie-Hub media entry. HTTP(S) is required; unlike
          * provider links this intentionally is not limited to five domains. */
         @JavascriptInterface
@@ -424,32 +452,15 @@ public final class MainActivity extends ComponentActivity {
         String normalizedHost = host.toLowerCase(java.util.Locale.ROOT);
         return isDomainOrSubdomain(normalizedHost, "netflix.com")
                 || isDomainOrSubdomain(normalizedHost, "primevideo.com")
+                || isDomainOrSubdomain(normalizedHost, "amazon.de")
                 || isDomainOrSubdomain(normalizedHost, "disneyplus.com")
                 || isDomainOrSubdomain(normalizedHost, "youtube.com")
+                || isDomainOrSubdomain(normalizedHost, "youtu.be")
                 || isDomainOrSubdomain(normalizedHost, "waipu.tv");
     }
 
     private boolean isAllowedProviderDestination(String providerId, Uri uri) {
-        if (providerId == null || uri == null || !"https".equalsIgnoreCase(uri.getScheme())) {
-            return false;
-        }
-
-        String host = uri.getHost();
-        if (host == null) return false;
-        String expectedDomain = getProviderDomain(providerId);
-        return expectedDomain != null
-                && isDomainOrSubdomain(host.toLowerCase(java.util.Locale.ROOT), expectedDomain);
-    }
-
-    private String getProviderDomain(String providerId) {
-        switch (providerId) {
-            case "netflix": return "netflix.com";
-            case "prime": return "primevideo.com";
-            case "disney": return "disneyplus.com";
-            case "youtube": return "youtube.com";
-            case "waipu": return "waipu.tv";
-            default: return null;
-        }
+        return uri != null && ProviderUrlPolicy.isAllowed(providerId, uri.toString());
     }
 
     private String[] getProviderPackages(String providerId) {
@@ -505,6 +516,18 @@ public final class MainActivity extends ComponentActivity {
         }
 
         tryStartActivity(new Intent(Intent.ACTION_VIEW, fallbackUri));
+    }
+
+    private void launchProviderExact(String providerId, String title,
+                                     Uri exactUri, Uri fallbackUri) {
+        for (String packageName : getProviderPackages(providerId)) {
+            Intent deepLink = new Intent(Intent.ACTION_VIEW, exactUri);
+            deepLink.addCategory(Intent.CATEGORY_BROWSABLE);
+            deepLink.setPackage(packageName);
+            if (tryStartActivity(deepLink)) return;
+        }
+
+        launchProvider(providerId, title, fallbackUri);
     }
 
     private void launchYouTubeMedia(Uri canonicalUri, Uri originalUri) {
