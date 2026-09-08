@@ -44,3 +44,15 @@ weiterhin den zuletzt erfolgreichen Stand aus.
 Die Entdeckungsregeln sind zentral konfiguriert. Persönliche Zustände werden
 zusätzlich mit einer kleinen öffentlichen Titelkopie abgesichert, damit sie von
 einem dynamischen Katalogwechsel unabhängig bleiben.
+
+## ADR-007 – Automatische Anbieter strikt von eigenen Inhalten trennen
+
+Status: entschieden
+
+Netflix, Prime Video, Disney+, YouTube und waipu.tv sind ausschließlich automatische Anbieter. Ob ein Anbieter bei einem Titel erscheint, wird aus den strukturierten TMDB-Verfügbarkeitsdaten bestimmt. Der Benutzer hinterlegt keine eigenen Anbieter-Links und kann die automatischen Anbieterbuttons nicht bearbeiten.
+
+Beim Öffnen versucht die native Android-/Fire-TV-Schicht weiterhin bestmöglich, den TMDB-Titel an die jeweilige Anbieter-App zu übergeben. Unterstützt die App keine externe Titelsuche, folgen die vorhandenen App-, Suchseiten- und Web-Fallbacks. Diese Suchverbesserung ist Implementierungsdetail und keine Bedienoption oder Garantie.
+
+Der Movie-Hub-Button enthält ausschließlich selbst hinzugefügte Inhalte. Das Bedienmodell kennt dafür nur **Link hinzufügen** und **Video hinzufügen**. Ein Link wird extern geöffnet; ein Video wird im Movie-Hub-Player wiedergegeben. Bei Videos wird HTTP(S), `smb://` oder UNC automatisch aus der Adresse erkannt. SMB-Zugangsdaten bleiben zentral unter **Einstellungen → Netzlaufwerke**.
+
+Bestehende manuelle Anbieter-Links werden nicht gelöscht. Sie werden als normale eigene Links unter dem Movie-Hub-Button weitergeführt. Bestehende explizite SMB-Medientypen werden als Videos weitergeführt; die Netzwerkquelle wird anschließend automatisch aus der URL erkannt.
