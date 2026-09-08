@@ -1,6 +1,6 @@
 # Movie Hub – Architektur
 
-Stand: 31. August 2026
+Stand: 8. September 2026
 
 ## Ziel
 
@@ -17,7 +17,7 @@ Movie Hub ist eine persönliche, TV-optimierte Filmzentrale für mehrere Streami
 ### Firebase Hosting
 - Hosting der zentralen Movie-Hub-Web-App
 - dieselbe Web-App wird im Browser und innerhalb der Fire-TV-APK verwendet
-- Deployments sollen später automatisiert aus `main` erfolgen
+- Deployments aus `main` liefern UI- und Katalogänderungen ohne APK-Neuinstallation aus
 
 ### Firebase Authentication
 - zentrale Benutzeridentität für persönliche Daten
@@ -31,6 +31,7 @@ Movie Hub ist eine persönliche, TV-optimierte Filmzentrale für mehrere Streami
 - Watchlist / später ansehen
 - persönliche Notizen
 - persönliche Listen und daraus abgeleitete Empfehlungen
+- kontoweit gemeinsame eigene Links und Videos je Titel
 - Zugriff ausschließlich über definierte Security Rules
 
 ### TMDB
@@ -48,14 +49,28 @@ Unterstützte Zielanbieter:
 - YouTube
 - waipu.tv / lineares Fernsehen
 
-Auf Filmkarten werden nur kompakte Provider-Symbole eingeblendet. Gibt es mehrere Wiedergabeoptionen, öffnet Movie Hub ein Auswahlmenü.
+Die Anbieter sind systemseitig und vollständig automatisch. TMDB bestimmt, welche Provider bei einem Titel angezeigt werden. Der Benutzer kann Anbieterbuttons weder bearbeiten noch mit eigenen Ziel-URLs überschreiben.
+
+Auf Filmkarten werden nur kompakte Provider-Symbole eingeblendet. In der Detailansicht stehen die automatisch ermittelten Anbieter neben einem optionalen Movie-Hub-Button für eigene Inhalte.
+
+### Eigene Movie-Hub-Inhalte
+
+Der Movie-Hub-Button ist fachlich vom Provider-Layer getrennt. Unter ihm liegen ausschließlich vom Benutzer selbst hinzugefügte Inhalte:
+
+- **Link**: HTTP(S)-Adresse, die in der passenden externen App beziehungsweise im Browser geöffnet wird
+- **Video**: HTTP(S)-Video oder SMB-/UNC-Netzwerkvideo; das zugrunde liegende Protokoll wird automatisch aus der Adresse erkannt
+
+SMB ist kein eigener Bedien- oder Medientyp. Zugangsdaten und Netzlaufwerksdefinitionen bleiben ausschließlich gerätelokal unter **Einstellungen → Netzlaufwerke**.
 
 ### Fire-TV-App
 - schlanke Android-/Fire-OS-APK
 - lädt die zentrale Web-App
 - D-Pad-/Fernbedienungsnavigation
-- native Bridge für Android Intents und Deep Links
-- Fallback-Kette je Anbieter: direkter Film-Link -> Anbieter-Suche/Content-Link -> App öffnen
+- native Bridge für Android Intents, App-Starts, Web-/YouTube-Links und SMB-Wiedergabe
+- automatische Provider-Fallback-Kette: bestmögliche Titelsuche -> anbietereigene Such-/Startadresse -> App öffnen -> Web-Fallback
+- YouTube behält seine auf Fire TV funktionierende HTTPS-Titelsuche als bevorzugten ersten Versuch
+
+Die Titelsuche ist Best Effort. Ob eine fremde Anbieter-App externe Suchparameter verarbeitet, entscheidet die jeweilige App; Movie Hub garantiert deshalb nur den bestmöglichen Start, nicht die titelgenaue Zielseite.
 
 ### Automatisierung / KI
 Objektive Fakten werden programmatisch ermittelt; KI erzeugt Empfehlungen, keine Verfügbarkeitsfakten.
@@ -69,12 +84,13 @@ Mögliche regelmäßige Jobs:
 ## Architekturprinzipien
 
 1. Externe Filmdaten und persönliche Nutzerdaten strikt trennen.
-2. Keine geheimen Zugangsdaten im Client oder öffentlichen Repository.
-3. TV-first: Bedienbarkeit mit Fernbedienung ist Kernanforderung.
-4. Web-App und APK klar trennen: Inhalte/Web-UI zentral, native Gerätefunktionen in der APK.
-5. Provider-Verfügbarkeit und Deep-Link-Fähigkeit sind zwei getrennte Probleme.
-6. Firestore wird von Anfang an mit Authentication und restriktiven Regeln betrieben.
-7. Erst belastbare Basis, danach Automatisierung und KI.
+2. Automatische Provider und benutzereigene Links/Videos strikt trennen.
+3. Keine geheimen Zugangsdaten im Client oder öffentlichen Repository.
+4. TV-first: Bedienbarkeit mit Fernbedienung ist Kernanforderung.
+5. Web-App und APK klar trennen: Inhalte/Web-UI zentral, native Gerätefunktionen in der APK.
+6. Provider-Verfügbarkeit und Deep-Link-/Suchfähigkeit sind zwei getrennte Probleme.
+7. Firestore wird von Anfang an mit Authentication und restriktiven Regeln betrieben.
+8. Erst belastbare Basis, danach Automatisierung und KI.
 
 ## Aktueller Infrastrukturstand
 
@@ -83,12 +99,12 @@ Mögliche regelmäßige Jobs:
 - Firebase Project ID: `movie-hub-62459`
 - Web-App: `movie-hub-web`
 - Firestore: Standard Edition, Region `europe-west3` (Frankfurt), Produktionsmodus
-- Firebase Authentication: E-Mail/Passwort vorgesehen/aktiviert
-- TMDB: Zugang noch einzurichten
+- Firebase Authentication: E-Mail/Passwort aktiviert
+- TMDB: täglicher Katalog und deutsche Watch-Provider-Daten integriert
 
 ## Noch bewusst offen
 
-- exakte Deep-Link-Schemata je Fire-TV-App
+- weitere belastbare App-spezifische Such-/Deep-Link-Verbesserungen je Anbieter
 - geeignete Quelle für deutsches Live-TV/EPG
 - endgültige Darstellung und Branding der Provider-Symbole
 - genaue Form der täglichen Empfehlungsautomation

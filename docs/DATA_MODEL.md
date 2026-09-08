@@ -1,10 +1,10 @@
 # Movie Hub – Datenmodell
 
-Stand: 31. August 2026
+Stand: 8. September 2026
 
 ## Ziel
 
-Das Datenmodell trennt externe Filmdaten von persönlichen Nutzerdaten. TMDB bleibt Quelle für allgemeine Filminformationen; Firestore speichert nur Movie-Hub-spezifische und persönliche Zustände.
+Das Datenmodell trennt externe Filmdaten von persönlichen Nutzerdaten. TMDB bleibt Quelle für allgemeine Filminformationen und Anbieter-Verfügbarkeit; Firestore speichert nur Movie-Hub-spezifische und persönliche Zustände.
 
 ## Grundprinzip
 
@@ -39,13 +39,13 @@ users/{uid}/lists/{listId}
 users/{uid}/recommendations/{documentId}
   generatedAt       timestamp
   algorithmVersion  string
-  source             string         # ai | rules | hybrid
+  source            string          # ai | rules | hybrid
   categories        map/array
 
 users/{uid}/sharedMedia/{type-tmdbId}/entries/{entryId}
   label             string          # frei wählbare Bezeichnung
-  url               string          # HTTP(S)-Adresse oder zugangsdatenfreier SMB-Pfad
-  type              string          # web | video | smb
+  url               string          # HTTP(S)-Adresse oder bei Videos SMB-Pfad
+  type              string          # web | video
   titleRef          map             # TMDB-ID, Medientyp, Titelschnappschuss
   updatedAt         timestamp
 ```
@@ -77,11 +77,27 @@ Beispiele:
 
 Systemlisten wie Favoriten oder Watchlist müssen nicht zwingend als separate Dokumente gespeichert werden; sie können aus dem persönlichen Filmzustand berechnet werden. Kuratierte oder KI-generierte Reihen können zusätzlich als Listendokumente persistiert werden.
 
-## Gemeinsame Movie-Hub-Medien
+## Eigene Links und Videos
 
-Manuell gepflegte Web-, Video- und SMB-Adressen liegen kontoweit unter `users/{uid}/sharedMedia` und bewusst nicht unter einem internen Profil. Dadurch sind dieselben Einträge in allen Profilen sichtbar und aus jedem Profil pflegbar. Film und Serie werden im Dokumentschlüssel getrennt, damit identische numerische TMDB-IDs nicht kollidieren.
+Manuell gepflegte Inhalte liegen kontoweit unter `users/{uid}/sharedMedia` und bewusst nicht unter einem internen Profil. Dadurch sind dieselben Einträge in allen Profilen sichtbar und aus jedem Profil pflegbar. Film und Serie werden im Dokumentschlüssel getrennt, damit identische numerische TMDB-IDs nicht kollidieren.
 
-Ein SMB-Eintrag enthält ausschließlich einen kanonischen Pfad wie `smb://fritz.box/FRITZ.NAS/Ordner/video.mp4`. Benutzername und Kennwort sind weder Teil dieser URL noch des Firestore-Dokuments. Sie werden je Server/Freigabe ausschließlich auf dem Android-/Fire-TV-Gerät verschlüsselt gespeichert.
+Das Bedien- und Datenmodell kennt nur zwei Typen:
+
+- `web`: ein eigener Link. Unterstützt werden HTTP- und HTTPS-Adressen. Beim Öffnen wird die passende externe App beziehungsweise der Browser verwendet.
+- `video`: ein eigenes Video. Movie Hub erkennt aus der Adresse automatisch, ob es sich um ein HTTP(S)-Video oder um ein Netzwerkvideo über `smb://` beziehungsweise einen UNC-Pfad handelt.
+
+SMB ist damit kein eigener fachlicher Medientyp mehr. Ein Netzwerkvideo enthält ausschließlich einen kanonischen Pfad wie `smb://fritz.box/FRITZ.NAS/Ordner/video.mp4`. Benutzername und Kennwort sind weder Teil dieser URL noch des Firestore-Dokuments. Sie werden je Server/Freigabe ausschließlich auf dem Android-/Fire-TV-Gerät über **Einstellungen → Netzlaufwerke** verwaltet.
+
+Providerbuttons sind vollständig davon getrennt. Netflix, Prime Video, Disney+, YouTube und waipu.tv werden aus den TMDB-Verfügbarkeitsdaten bestimmt. Eigene Provider-Overrides werden nicht mehr gespeichert oder ausgewertet.
+
+### Migration bestehender Einträge
+
+Bereits vorhandene Daten bleiben erhalten:
+
+- bisheriger Typ `provider` → `web`; URL und Dokument-ID bleiben erhalten und der Eintrag erscheint künftig unter dem Movie-Hub-Button
+- bisheriger Typ `smb` → `video`; URL und Dokument-ID bleiben erhalten, die SMB-Erkennung erfolgt anschließend automatisch aus der Adresse
+
+Die Migration wird beim Laden vorhandener gemeinsamer Medien bestmöglich in Firestore nachgezogen. Ein fehlgeschlagener Migrationsschreibzugriff verhindert nicht, dass ein gültiger Alt-Eintrag weiterhin gelesen wird.
 
 ## Externe Filmdaten
 
@@ -101,7 +117,7 @@ Diese Daten gehören nicht in `users/{uid}/movies`, sondern werden beim Build/ü
 
 ## Provider-Daten
 
-Provider-Verfügbarkeit wird getrennt vom persönlichen Zustand modelliert. Ein möglicher Cache kann später z. B. so aussehen:
+Provider-Verfügbarkeit wird getrennt vom persönlichen Zustand und von eigenen Links/Videos modelliert. Ein möglicher Cache kann später z. B. so aussehen:
 
 ```text
 catalog/{tmdbId}
@@ -119,6 +135,7 @@ Ob dieser Cache in Firestore, als Build-Artefakt oder als statische JSON-Datei g
 - Ein angemeldeter Nutzer darf ausschließlich Dokumente unter seiner eigenen `uid` lesen und schreiben.
 - Öffentliche Katalogdaten werden separat behandelt.
 - Administrative/automatisierte Jobs erhalten keine unnötigen Client-Rechte.
+- SMB-Zugangsdaten werden niemals in Firestore oder einer Medien-URL gespeichert.
 
 ## Beispielregeln – nur als Plan, noch nicht produktiv übernehmen
 

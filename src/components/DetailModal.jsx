@@ -4,7 +4,7 @@ import { useLibrary } from '../library/LibraryProvider.jsx'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import { useAuth } from '../hooks/useAuth.js'
 import { loadSharedMedia, removeSharedMedia, saveSharedMedia } from '../library/sharedMedia.js'
-import { getProviderAllowedDomains, normaliseMedia } from '../library/sharedMediaModel.js'
+import { isSmbMediaUrl, normaliseMedia } from '../library/sharedMediaModel.js'
 import { ProviderBadge } from './ProviderBadges.jsx'
 
 export default function DetailModal({ item, onClose }) {
@@ -15,7 +15,7 @@ export default function DetailModal({ item, onClose }) {
   const [personalBusy, setPersonalBusy] = useState(false)
   const [noteDraft, setNoteDraft] = useState('')
   const [sharedMedia, setSharedMedia] = useState([])
-  const [mediaDraft, setMediaDraft] = useState({ label: '', url: '', type: 'web', providerId: '' })
+  const [mediaDraft, setMediaDraft] = useState({ label: '', url: '', type: '' })
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false)
   const [mediaEditorOpen, setMediaEditorOpen] = useState(false)
   const [editingMediaId, setEditingMediaId] = useState(null)
@@ -26,12 +26,6 @@ export default function DetailModal({ item, onClose }) {
   const returnFocusRef = useRef(null)
   const providerIds = Array.isArray(item.providerIds) ? item.providerIds : []
   const hasProviders = providerIds.length > 0
-  const regularMedia = sharedMedia.filter((entry) => entry.type !== 'provider')
-  const providerLinks = new Map(
-    sharedMedia
-      .filter((entry) => entry.type === 'provider' && entry.providerId)
-      .map((entry) => [entry.providerId, entry]),
-  )
   const cast = Array.isArray(item.cast) ? item.cast.slice(0, 5) : []
   const automaticVideos = Array.isArray(item.videos) ? item.videos : []
   const personalState = getTitleState(item)
@@ -63,16 +57,16 @@ export default function DetailModal({ item, onClose }) {
     let cancelled = false
     setSharedMedia([])
     setMediaMessage('')
-      setMediaEditorOpen(false)
-      setMediaPickerOpen(false)
-      setPlaying(null)
-      setPendingDeleteId(null)
+    setMediaEditorOpen(false)
+    setMediaPickerOpen(false)
+    setPlaying(null)
+    setPendingDeleteId(null)
     if (user) {
       loadSharedMedia(user.uid, item)
         .then((entries) => { if (!cancelled) setSharedMedia(entries) })
         .catch((error) => {
           console.error(error)
-          if (!cancelled) setMediaMessage('Movie-Hub-Medien konnten nicht geladen werden.')
+          if (!cancelled) setMediaMessage('Eigene Links und Videos konnten nicht geladen werden.')
         })
     }
     return () => { cancelled = true }
@@ -132,33 +126,18 @@ export default function DetailModal({ item, onClose }) {
   function openProvider(providerId) {
     const destination = getProviderDestination(providerId, item.title)
     if (!destination) return
-    const exactUrl = providerLinks.get(providerId)?.url || null
-
-    if (exactUrl && window.MovieHubNative?.openProviderExact) {
-      window.MovieHubNative.openProviderExact(providerId, item.title, exactUrl, destination)
-      return
-    }
-
-    // Older shells can still hand a validated exact URL to Android's normal
-    // app-link resolution until the current native bridge is installed.
-    if (exactUrl && window.MovieHubNative?.openMediaUrl) {
-      window.MovieHubNative.openMediaUrl(exactUrl)
-      return
-    }
 
     if (window.MovieHubNative?.openProvider) {
       window.MovieHubNative.openProvider(providerId, item.title, destination)
       return
     }
 
-    // Older installed shells retain the safe web fallback after the hosted UI
-    // gains provider-intent support.
     if (window.MovieHubNative?.openExternalUrl) {
       window.MovieHubNative.openExternalUrl(destination)
       return
     }
 
-    window.open(exactUrl || destination, '_blank', 'noopener,noreferrer')
+    window.open(destination, '_blank', 'noopener,noreferrer')
   }
 
   function openUrl(url) {
@@ -177,7 +156,7 @@ export default function DetailModal({ item, onClose }) {
       const saved = { ...normalized, id }
       setSharedMedia((all) => [...all.filter((value) => value.id !== id), saved]
         .sort((a, b) => a.label.localeCompare(b.label, 'de')))
-      setMediaDraft({ label: '', url: '', type: 'web', providerId: '' })
+      setMediaDraft({ label: '', url: '', type: '' })
       setEditingMediaId(null)
       setMediaMessage(editingMediaId ? 'Eintrag aktualisiert.' : 'Eintrag für alle Profile gespeichert.')
     } catch (error) {
@@ -188,17 +167,24 @@ export default function DetailModal({ item, onClose }) {
     }
   }
 
+  function startMediaDraft(type) {
+    setEditingMediaId(null)
+    setPendingDeleteId(null)
+    setMediaDraft({ label: '', url: '', type })
+    setMediaMessage('')
+  }
+
   function editMedia(entry) {
     setEditingMediaId(entry.id)
     setPendingDeleteId(null)
-    setMediaDraft({ label: entry.label, url: entry.url, type: entry.type, providerId: entry.providerId || '' })
+    setMediaDraft({ label: entry.label, url: entry.url, type: entry.type })
     setMediaMessage('')
   }
 
   function resetMediaDraft() {
     setEditingMediaId(null)
     setPendingDeleteId(null)
-    setMediaDraft({ label: '', url: '', type: 'web', providerId: '' })
+    setMediaDraft({ label: '', url: '', type: '' })
     setMediaMessage('')
   }
 
@@ -225,28 +211,26 @@ export default function DetailModal({ item, onClose }) {
   }
 
   function launchMedia(entry) {
-    if (entry.type === 'provider') {
-      openProvider(entry.providerId)
-      return
-    }
-    if (entry.type === 'smb') {
-      if (window.MovieHubNative?.playSmbMedia) {
-        window.MovieHubNative.playSmbMedia(entry.label, entry.url)
-      } else {
-        setMediaMessage('SMB-Netzwerkvideos können nur in der aktuellen Android-/Fire-TV-App abgespielt werden.')
+    if (entry.type === 'video') {
+      if (isSmbMediaUrl(entry.url)) {
+        if (window.MovieHubNative?.playSmbMedia) {
+          window.MovieHubNative.playSmbMedia(entry.label, entry.url)
+        } else {
+          setMediaMessage('Netzwerkvideos können nur in der aktuellen Android-/Fire-TV-App abgespielt werden.')
+        }
+        return
       }
+      setPlaying(entry)
       return
     }
-    if (entry.type === 'video') setPlaying(entry)
-    else openUrl(entry.url)
+    openUrl(entry.url)
   }
 
-  function mediaIcon(entry) { return ['web', 'provider'].includes(entry.type) ? '↗' : '▶' }
+  function mediaIcon(entry) { return entry.type === 'video' ? '▶' : '↗' }
 
   function mediaActionLabel(entry) {
-    if (entry.type === 'provider') return `${providers[entry.providerId]?.label || 'Anbieter'} direkt öffnen`
-    if (entry.type === 'smb') return 'Netzwerkvideo in Movie Hub abspielen'
-    return entry.type === 'video' ? 'In Movie Hub abspielen' : 'Webseite öffnen'
+    if (entry.type === 'video' && isSmbMediaUrl(entry.url)) return 'Netzwerkvideo in Movie Hub abspielen'
+    return entry.type === 'video' ? 'In Movie Hub abspielen' : 'In passender App oder im Browser öffnen'
   }
 
   return (
@@ -297,16 +281,16 @@ export default function DetailModal({ item, onClose }) {
           )}
 
           <h3>Wo ansehen?</h3>
-          {(regularMedia.length > 0 || hasProviders) ? (
-            <div className="provider-actions" aria-label="Anbieter und Movie-Hub-Medien">
-              {regularMedia.length > 0 && (
+          {(sharedMedia.length > 0 || hasProviders) ? (
+            <div className="provider-actions" aria-label="Automatische Anbieter und eigene Movie-Hub-Inhalte">
+              {sharedMedia.length > 0 && (
                 <button
                   type="button"
                   className="action-button provider-action movie-hub-action"
                   data-focusable="true"
                   data-detail-autofocus={automaticVideos.length === 0 ? 'true' : undefined}
-                  onClick={() => regularMedia.length === 1 ? launchMedia(regularMedia[0]) : setMediaPickerOpen(true)}
-                  aria-label={regularMedia.length === 1 ? `${regularMedia[0].label} über Movie Hub öffnen` : 'Movie-Hub-Medien auswählen'}
+                  onClick={() => sharedMedia.length === 1 ? launchMedia(sharedMedia[0]) : setMediaPickerOpen(true)}
+                  aria-label={sharedMedia.length === 1 ? `${sharedMedia[0].label} über Movie Hub öffnen` : 'Eigene Movie-Hub-Links und Videos auswählen'}
                 >
                   <span className="movie-hub-provider-mark" aria-hidden="true">MH</span>
                   Movie Hub
@@ -321,7 +305,7 @@ export default function DetailModal({ item, onClose }) {
                     key={providerId}
                     className="action-button provider-action"
                     data-focusable="true"
-                    data-detail-autofocus={automaticVideos.length === 0 && regularMedia.length === 0 && index === 0 ? 'true' : undefined}
+                    data-detail-autofocus={automaticVideos.length === 0 && sharedMedia.length === 0 && index === 0 ? 'true' : undefined}
                     onClick={() => openProvider(providerId)}
                     aria-label={`${provider.label} öffnen`}
                   >
@@ -334,7 +318,7 @@ export default function DetailModal({ item, onClose }) {
           ) : (
             <p className="prototype-note">Für diesen Titel ist derzeit kein unterstützter Anbieter in Deutschland hinterlegt.</p>
           )}
-          {hasProviders && <p className="prototype-note">Der gewählte Anbieter wird außerhalb von Movie Hub geöffnet.</p>}
+          {hasProviders && <p className="prototype-note">Anbieter werden automatisch aus TMDB bestimmt und in der passenden App beziehungsweise Suchseite geöffnet.</p>}
           {item.tmdbId && <p className="tmdb-credit">Datenquelle: TMDB · ID {item.tmdbId}</p>}
 
           <section className="personal-title-state" aria-labelledby="personal-title-state-heading">
@@ -357,7 +341,7 @@ export default function DetailModal({ item, onClose }) {
                 )}
                 disabled={personalBusy || libraryLoading}
                 data-focusable="true"
-                data-detail-autofocus={automaticVideos.length === 0 && regularMedia.length === 0 && !hasProviders ? 'true' : undefined}
+                data-detail-autofocus={automaticVideos.length === 0 && sharedMedia.length === 0 && !hasProviders ? 'true' : undefined}
               >
                 <span aria-hidden="true">♥</span>
                 <span>{personalState.favorite ? 'Favorit' : 'Als Favorit'}</span>
@@ -451,8 +435,8 @@ export default function DetailModal({ item, onClose }) {
           >
             <span className="media-manage-shortcut-icon" aria-hidden="true">＋</span>
             <span>
-              <strong>{sharedMedia.length ? 'Movie-Hub-Links & Videos verwalten' : 'Link oder Video hinzufügen'}</strong>
-              <small>Gemeinsam in allen Profilen verfügbar</small>
+              <strong>{sharedMedia.length ? 'Eigene Links und Videos' : 'Link oder Video hinzufügen'}</strong>
+              <small>Eigene Inhalte · gemeinsam in allen Profilen verfügbar</small>
             </span>
           </button>
           {mediaMessage && !mediaEditorOpen && <p className="personal-state-message" role="status">{mediaMessage}</p>}
@@ -464,7 +448,7 @@ export default function DetailModal({ item, onClose }) {
             <p className="settings-kicker">Movie Hub</p>
             <h2 id="media-picker-heading">Was möchtest du öffnen?</h2>
             <div className="media-picker-list">
-              {regularMedia.map((entry, index) => (
+              {sharedMedia.map((entry, index) => (
                 <button
                   type="button"
                   key={entry.id}
@@ -485,22 +469,28 @@ export default function DetailModal({ item, onClose }) {
         <div className="media-layer detail-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setMediaEditorOpen(false)}>
           <section className="media-panel media-editor-panel" role="dialog" aria-modal="true" aria-labelledby="media-editor-heading">
             <p className="settings-kicker">Für alle Profile</p>
-            <h2 id="media-editor-heading">Movie-Hub-Medien verwalten</h2>
-            <p>Hier gespeicherte Links erscheinen bei diesem Titel in jedem Profil.</p>
-            <form onSubmit={addMedia} className={mediaDraft.type === 'provider' ? 'media-form has-provider' : 'media-form'}>
-              <label>Bezeichnung<input required maxLength="80" placeholder="z. B. Deutscher Trailer" value={mediaDraft.label} onChange={(event) => setMediaDraft({ ...mediaDraft, label: event.target.value })} data-focusable="true" data-media-autofocus="true" /></label>
-              <label>Adresse<input required type="text" inputMode="url" placeholder={mediaDraft.type === 'smb' ? 'smb://fritz.box/Freigabe/Ordner/video.mp4' : 'https://…'} value={mediaDraft.url} onChange={(event) => setMediaDraft({ ...mediaDraft, url: event.target.value })} data-focusable="true" /></label>
-              <label>Aktion<select value={mediaDraft.type} disabled={Boolean(editingMediaId)} onChange={(event) => setMediaDraft({ ...mediaDraft, type: event.target.value, providerId: event.target.value === 'provider' ? (mediaDraft.providerId || providerIds[0] || '') : mediaDraft.providerId })} data-focusable="true"><option value="web">Web-Link öffnen</option><option value="video">Video in Movie Hub abspielen</option><option value="smb">SMB-/Netzwerkvideo</option>{hasProviders && <option value="provider">Anbieter-Link</option>}</select></label>
-              {mediaDraft.type === 'provider' && (
-                <label>Anbieter<select required value={mediaDraft.providerId} disabled={Boolean(editingMediaId)} onChange={(event) => setMediaDraft({ ...mediaDraft, providerId: event.target.value })} data-focusable="true">{providerIds.map((providerId) => providers[providerId] && <option value={providerId} key={providerId}>{providers[providerId].label}</option>)}</select></label>
-              )}
-              <div className="media-form-actions">
-                <button type="submit" disabled={mediaBusy} data-focusable="true">{editingMediaId ? 'Änderung speichern' : 'Hinzufügen'}</button>
-                {editingMediaId && <button type="button" disabled={mediaBusy} data-focusable="true" onClick={resetMediaDraft}>Abbrechen</button>}
-              </div>
-            </form>
-            {mediaDraft.type === 'smb' && <p className="media-form-hint">Erlaubt sind <code>smb://server/freigabe/datei</code> und Windows-Pfade wie <code>\\server\freigabe\datei</code>. Zugangsdaten fragt die Android-/Fire-TV-App beim ersten Start nur auf diesem Gerät ab.</p>}
-            {mediaDraft.type === 'provider' && <p className="media-form-hint">Der Link ersetzt den vorhandenen {providers[mediaDraft.providerId]?.label || 'Anbieter'}-Button für diesen Titel. Erlaubte offizielle Domains: <code>{getProviderAllowedDomains(mediaDraft.providerId).join(', ')}</code>.</p>}
+            <h2 id="media-editor-heading">Eigene Links und Videos</h2>
+            <p>Hier verwaltest du nur eigene Inhalte. Netflix, Prime Video, Disney+, YouTube und waipu.tv werden automatisch über TMDB angezeigt.</p>
+
+            <div className="media-kind-actions" aria-label="Eigenen Inhalt hinzufügen">
+              <button type="button" data-focusable="true" data-media-autofocus={!mediaDraft.type ? 'true' : undefined} onClick={() => startMediaDraft('web')}>↗ Link hinzufügen</button>
+              <button type="button" data-focusable="true" onClick={() => startMediaDraft('video')}>▶ Video hinzufügen</button>
+            </div>
+
+            {mediaDraft.type && (
+              <form onSubmit={addMedia} className="media-form">
+                <h3 className="media-form-title">{editingMediaId ? 'Eintrag bearbeiten' : mediaDraft.type === 'video' ? 'Video hinzufügen' : 'Link hinzufügen'}</h3>
+                <label>Bezeichnung<input required maxLength="80" placeholder={mediaDraft.type === 'video' ? 'z. B. Film auf NAS' : 'z. B. YouTube-Video'} value={mediaDraft.label} onChange={(event) => setMediaDraft({ ...mediaDraft, label: event.target.value })} data-focusable="true" /></label>
+                <label>Adresse<input required type="text" placeholder={mediaDraft.type === 'video' ? 'https://…/video.mp4, smb://… oder \\Server\Freigabe\video.mkv' : 'https://…'} value={mediaDraft.url} onChange={(event) => setMediaDraft({ ...mediaDraft, url: event.target.value })} data-focusable="true" /></label>
+                <div className="media-form-actions">
+                  <button type="submit" disabled={mediaBusy} data-focusable="true">{editingMediaId ? 'Änderung speichern' : 'Hinzufügen'}</button>
+                  <button type="button" disabled={mediaBusy} data-focusable="true" onClick={resetMediaDraft}>Abbrechen</button>
+                </div>
+              </form>
+            )}
+
+            {mediaDraft.type === 'web' && <p className="media-form-hint">Links werden außerhalb des Movie-Hub-Players in der passenden App oder im Browser geöffnet. YouTube-Links werden auf unterstützten Geräten gezielt an die YouTube-App übergeben.</p>}
+            {mediaDraft.type === 'video' && <p className="media-form-hint">Movie Hub erkennt die Quelle automatisch: HTTP(S)-Videos laufen im Movie-Hub-Player; <code>smb://server/freigabe/datei</code> und Windows-Pfade wie <code>\\Server\Freigabe\datei</code> werden als Netzwerkvideo geöffnet. Zugangsdaten kommen aus <strong>Einstellungen → Netzlaufwerke</strong>.</p>}
             {mediaMessage && <p className="personal-state-message" role="status">{mediaMessage}</p>}
             {sharedMedia.length > 0 && (
               <div className="media-entry-list">

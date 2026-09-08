@@ -66,13 +66,14 @@ Status: abgeschlossen. Die reale Geräteabnahme wurde in #40 mit APK-Build #35 b
 ## Phase 4 – Deep Links und Provider-Auswahl
 
 Für Netflix, Prime Video, Disney+, YouTube und waipu.tv jeweils testen:
-1. direkter Deep Link zum konkreten Film
-2. interner Content-/Suchlink
+1. bestmögliche Titelsuche mit dem TMDB-Titel
+2. anbietereigene Such-/Startadresse
 3. App-Start als Fallback
+4. Web-Fallback
 
 Abschlusskriterium: dokumentierte Testmatrix und stabile Fallback-Logik je Anbieter.
 
-Status: abgeschlossen. #50 wurde mit APK-Build #39 auf realer Fire-TV-Hardware abgenommen; die konkreten Anbieterergebnisse und bewusst akzeptierten Testgrenzen sind dort dokumentiert. Titelgenaue, manuell hinterlegbare Anbieterlinks folgen separat in #65.
+Status: #50 wurde mit APK-Build #39 auf realer Fire-TV-Hardware abgenommen. Die Providerbuttons bleiben vollständig automatisch und können nicht durch benutzereigene Links überschrieben werden. Weitere Best-Effort-Verbesserungen der automatischen Titelsuche werden getrennt in #75 behandelt.
 
 ## Phase 5 – Dynamische Verfügbarkeit
 
@@ -111,6 +112,16 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - klare Fehlerzustände für fehlendes Heimnetz, Anmeldung und nicht erreichbare Dateien
 - vollständig mit der signierten APK Build #43 auf realer Fire-TV-Hardware abgenommen
 
+### Aktuelles Paket #65 – Automatische Anbieter von eigenen Links und Videos trennen
+
+- Netflix, Prime Video, Disney+, YouTube und waipu.tv ausschließlich aus TMDB bestimmen
+- keine editierbaren Anbieter-Links und keine Provider-Overrides mehr
+- eigener Movie-Hub-Button enthält ausschließlich benutzereigene Inhalte
+- Bedienung nur noch über **Link hinzufügen** und **Video hinzufügen**
+- HTTP(S)- und SMB-/UNC-Quelle bei Videos automatisch erkennen
+- bestehende Provider-Links als normale Links und bestehende SMB-Typen als Videos migrieren, ohne URLs oder Einträge zu löschen
+- technische Tests automatisieren; reale Android-/Fire-TV-Bedienung anschließend manuell abnehmen
+
 ### Aktives Paket #69 – Netzlaufwerke verwalten
 
 - eigener geräteweiter Einstellungsbereich über das Profilmenü
@@ -118,7 +129,7 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - Erreichbarkeits- und Anmeldestatus mit Farbe und verständlichem Text
 - wahlweise verschlüsselte gerätelokale Speicherung oder nur aktuelle App-Sitzung
 - Zugangsdaten bleiben vollständig außerhalb von Weboberfläche und Cloud
-- bestehende SMB-Medieneinträge werden über Server, Port und Freigabe zugeordnet
+- bestehende Netzwerkvideos werden über Server, Port und Freigabe zugeordnet
 
 ## Phase 6 – Personalisierung und Automatisierung
 
