@@ -174,7 +174,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
 
         CheckBox remember = new CheckBox(this);
         remember.setText("Auf diesem Gerät geschützt speichern");
-        remember.setChecked(true);
+        remember.setChecked(connection == null || connection.usesPersistentCredentials());
         content.addView(remember);
 
         AlertDialog dialog = new AlertDialog.Builder(this)
@@ -193,7 +193,11 @@ public final class SmbPlayerActivity extends ComponentActivity {
                     username.setError("Bitte FRITZ!Box-Benutzername eingeben.");
                     return;
                 }
-                credentials = new SmbCredentials(user, password.getText().toString());
+                String enteredPassword = password.getText().toString();
+                String effectivePassword = replacing && enteredPassword.isEmpty() && credentials != null
+                        ? credentials.getPassword()
+                        : enteredPassword;
+                credentials = new SmbCredentials(user, effectivePassword);
                 saveCredentialsWhenReady = true;
                 persistCredentialsWhenReady = remember.isChecked();
                 connection = connection.withEnabled(true)
