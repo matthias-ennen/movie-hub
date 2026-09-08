@@ -1,6 +1,6 @@
 # Movie Hub – Roadmap
 
-Stand: 7. September 2026
+Stand: 8. September 2026
 
 ## Arbeitsprinzip
 
@@ -102,15 +102,23 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - Bearbeiten und Löschen der gemeinsamen Einträge aus jedem Profil
 - D-Pad- und Zurück-Verhalten für Auswahl, Verwaltung und Player
 
-### Aktives Paket #62 – SMB-/FRITZ!NAS-Medien
+### Abgeschlossenes Paket #62 – SMB-/FRITZ!NAS-Medien
 
 - stabile `smb://`- oder eindeutig umwandelbare UNC-Pfade als gemeinsame Medienquelle je Titel
 - Referenzsystem: an einer FRITZ!Box angeschlossene, per SMB freigegebene Festplatte
 - Zugangsdaten ausschließlich geschützt auf dem jeweiligen Android-/Fire-TV-Gerät
-- nativer Abruf und Wiedergabe über den Movie-Hub-Player
+- nativer SMB2/3-Abruf und Wiedergabe über den gepufferten Media3-Player
 - klare Fehlerzustände für fehlendes Heimnetz, Anmeldung und nicht erreichbare Dateien
-- kein UPnP-/DLNA-Browser und keine unsichere Freigabe ins öffentliche Internet
-- erster technischer Kandidat: SMBJ als SMB2/3-Datenquelle und ein nativer Media3-Player; die endgültige Festlegung erfolgt nach der realen FRITZ!NAS-/Fire-TV-Abnahme
+- vollständig mit der signierten APK Build #43 auf realer Fire-TV-Hardware abgenommen
+
+### Aktives Paket #69 – Netzlaufwerke verwalten
+
+- eigener geräteweiter Einstellungsbereich über das Profilmenü
+- Netzlaufwerke anlegen, bearbeiten, verbinden, prüfen, trennen und entfernen
+- Erreichbarkeits- und Anmeldestatus mit Farbe und verständlichem Text
+- wahlweise verschlüsselte gerätelokale Speicherung oder nur aktuelle App-Sitzung
+- Zugangsdaten bleiben vollständig außerhalb von Weboberfläche und Cloud
+- bestehende SMB-Medieneinträge werden über Server, Port und Freigabe zugeordnet
 
 ## Phase 6 – Personalisierung und Automatisierung
 

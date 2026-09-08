@@ -5,6 +5,7 @@ import DetailModal from './components/DetailModal.jsx'
 import Hero from './components/Hero.jsx'
 import PosterCard from './components/PosterCard.jsx'
 import ProfileView from './components/ProfileView.jsx'
+import SettingsView from './components/SettingsView.jsx'
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
@@ -84,6 +85,11 @@ function Header({
     onViewChange('profile')
   }
 
+  function openAppSettings() {
+    onProfileClose()
+    onViewChange('settings')
+  }
+
   function handleProfileSelect(profileId) {
     onProfileSelect(profileId)
     onProfileClose()
@@ -102,7 +108,7 @@ function Header({
         <div className="profile-wrap">
           <button
             type="button"
-            className={currentView === 'profile' ? 'profile-button active' : 'profile-button'}
+            className={currentView === 'profile' || currentView === 'settings' ? 'profile-button active' : 'profile-button'}
             onClick={onProfileToggle}
             data-focusable="true"
             aria-label={`Profil öffnen: ${activeProfile?.displayName ?? 'Movie Hub'}`}
@@ -132,6 +138,7 @@ function Header({
                 </div>
               )}
               <button type="button" className="profile-settings-link" onClick={openProfileSettings} data-focusable="true" role="menuitem">Profil & Design</button>
+              <button type="button" className="app-settings-link" onClick={openAppSettings} data-focusable="true" role="menuitem">Einstellungen</button>
               <button type="button" onClick={onSignOut} data-focusable="true" role="menuitem">Abmelden</button>
             </div>
           )}
@@ -360,6 +367,9 @@ function MovieHub({ user }) {
   })
 
   async function handleSignOut() {
+    if (typeof window.MovieHubNative?.clearSessionSmbCredentials === 'function') {
+      window.MovieHubNative.clearSessionSmbCredentials()
+    }
     const { auth } = await firebaseReady
     await signOut(auth)
   }
@@ -421,6 +431,7 @@ function MovieHub({ user }) {
       )}
       {currentView === 'search' && <SearchView titles={titles} onOpen={handleOpenTitle} />}
       {currentView === 'profile' && <ProfileView user={user} onSignOut={handleSignOut} />}
+      {currentView === 'settings' && <SettingsView />}
       {selectedTitle && <DetailModal item={selectedTitle} onClose={() => setSelectedTitle(null)} />}
       {exitDialogOpen && <ExitConfirmationDialog onCancel={() => setExitDialogOpen(false)} onClose={closeApp} />}
     </div>
