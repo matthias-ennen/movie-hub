@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { CATALOG_ROWS, buildRowDefinitions } from '../scripts/generate-tmdb-catalog.mjs'
+import {
+  CATALOG_ROWS,
+  PROVIDER_TEST_REFERENCES,
+  applyProviderTestReference,
+  buildProviderTestRows,
+  buildRowDefinitions,
+} from '../scripts/generate-tmdb-catalog.mjs'
 
 describe('automatischer TMDB-Katalog', () => {
   it('defines separate configurable discovery rows', () => {
@@ -32,5 +38,51 @@ describe('automatischer TMDB-Katalog', () => {
 
     expect(() => buildRowDefinitions([{ id: 'test', title: 'Test', candidates, limit: 10 }], titles))
       .toThrow(/at least 6/)
+  })
+
+  it('keeps Machete Kills as an isolated waipu device-test reference', () => {
+    expect(PROVIDER_TEST_REFERENCES).toContainEqual(expect.objectContaining({
+      id: 106747,
+      mediaType: 'movie',
+      providerId: 'waipu',
+    }))
+
+    const reference = PROVIDER_TEST_REFERENCES[0]
+    const title = applyProviderTestReference({
+      id: 'tmdb-movie-106747',
+      tmdbId: 106747,
+      providerIds: [],
+      providerOffers: [],
+    }, reference)
+
+    expect(title.providerIds).toEqual(['waipu'])
+    expect(title.providerOffers).toContainEqual({
+      id: 'waipu',
+      tmdbProviderId: null,
+      offerTypes: ['test-reference'],
+    })
+    expect(title.providerTestReference.providerId).toBe('waipu')
+
+    const rows = buildProviderTestRows(
+      [reference],
+      new Map([['movie-106747', title]]),
+    )
+    expect(rows).toEqual([
+      { id: 'provider-test-waipu', title: 'Anbieter-Test · waipu.tv', ids: ['tmdb-movie-106747'] },
+    ])
+  })
+
+  it('does not duplicate waipu when TMDB already reports it', () => {
+    const reference = PROVIDER_TEST_REFERENCES[0]
+    const title = applyProviderTestReference({
+      id: 'tmdb-movie-106747',
+      providerIds: ['waipu'],
+      providerOffers: [{ id: 'waipu', tmdbProviderId: 999, offerTypes: ['flatrate'] }],
+    }, reference)
+
+    expect(title.providerIds).toEqual(['waipu'])
+    expect(title.providerOffers).toEqual([
+      { id: 'waipu', tmdbProviderId: 999, offerTypes: ['flatrate'] },
+    ])
   })
 })
