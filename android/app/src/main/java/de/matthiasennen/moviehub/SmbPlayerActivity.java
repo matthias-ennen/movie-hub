@@ -1,18 +1,17 @@
 package de.matthiasennen.moviehub;
 
-import android.app.AlertDialog;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.text.InputType;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.CheckBox;
-import android.widget.EditText;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.activity.ComponentActivity;
@@ -38,6 +37,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
     private static final int MAX_BUFFER_MS = 60_000;
     private static final int PLAYBACK_BUFFER_MS = 10_000;
     private static final int BACK_BUFFER_MS = 10_000;
+    private static final int MOVIE_HUB_BLUE = Color.rgb(141, 167, 255);
 
     private SmbLocation location;
     private CredentialStore credentialStore;
@@ -47,9 +47,8 @@ public final class SmbPlayerActivity extends ComponentActivity {
     private ExoPlayer player;
     private PlayerView playerView;
     private TextView statusView;
-    private Button credentialsButton;
-    private boolean saveCredentialsWhenReady;
-    private boolean persistCredentialsWhenReady = true;
+    private TextView titleView;
+    private Button closeButton;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -75,11 +74,13 @@ public final class SmbPlayerActivity extends ComponentActivity {
         SmbCredentials persistentCredentials = credentialStore.load(location.getCredentialKey());
         connection = connectionStore.ensure(location, persistentCredentials != null);
         credentials = loadCredentials();
+
         if (!connection.isEnabled()) {
-            showDisconnectedState();
+            showStatus("Das Netzlaufwerk " + location.getDisplayEndpoint()
+                    + " ist getrennt. Bitte unter Einstellungen → Netzlaufwerke verbinden.");
         } else if (credentials == null) {
-            showStatus("Für " + location.getDisplayEndpoint() + " werden lokale Zugangsdaten benötigt.");
-            showCredentialsDialog(false);
+            showStatus("Für " + location.getDisplayEndpoint()
+                    + " fehlen lokale Zugangsdaten. Bitte unter Einstellungen → Netzlaufwerke einrichten.");
         } else {
             startPlayback();
         }
@@ -95,30 +96,42 @@ public final class SmbPlayerActivity extends ComponentActivity {
         playerView.setControllerShowTimeoutMs(5000);
         playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING);
         playerView.setKeepScreenOn(true);
+        playerView.setControllerVisibilityListener(this::setChromeVisibility);
         root.addView(playerView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
 
-        TextView title = new TextView(this);
+        titleView = new TextView(this);
         String label = rawLabel == null || rawLabel.trim().isEmpty() ? "Netzwerkvideo" : rawLabel.trim();
-        title.setText("Movie Hub · " + label);
-        title.setTextColor(Color.WHITE);
-        title.setTextSize(18);
-        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        title.setPadding(dp(22), dp(14), dp(22), dp(14));
+        SpannableString titleText = new SpannableString("Movie Hub · " + label);
+        titleText.setSpan(new ForegroundColorSpan(MOVIE_HUB_BLUE), 6, 9,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        titleView.setText(titleText);
+        titleView.setTextColor(Color.WHITE);
+        titleView.setTextSize(18);
+        titleView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        titleView.setPadding(dp(22), dp(14), dp(22), dp(14));
         FrameLayout.LayoutParams titleParams = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.TOP | Gravity.START);
-        root.addView(title, titleParams);
+        root.addView(titleView, titleParams);
 
-        Button close = new Button(this);
-        close.setText("× Schließen");
-        close.setAllCaps(false);
-        close.setOnClickListener(view -> finish());
+        closeButton = new Button(this);
+        closeButton.setText("×");
+        closeButton.setTextColor(Color.WHITE);
+        closeButton.setTextSize(28);
+        closeButton.setAllCaps(false);
+        closeButton.setGravity(Gravity.CENTER);
+        closeButton.setMinWidth(0);
+        closeButton.setMinHeight(0);
+        closeButton.setPadding(0, 0, 0, dp(3));
+        closeButton.setBackground(makeCloseBackground(false));
+        closeButton.setOnFocusChangeListener((view, focused) ->
+                view.setBackground(makeCloseBackground(focused)));
+        closeButton.setOnClickListener(view -> finish());
         FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP | Gravity.END);
-        closeParams.setMargins(dp(12), dp(10), dp(16), dp(12));
-        root.addView(close, closeParams);
+                dp(48), dp(48), Gravity.TOP | Gravity.END);
+        closeParams.setMargins(dp(12), dp(12), dp(18), dp(12));
+        root.addView(closeButton, closeParams);
 
         statusView = new TextView(this);
         statusView.setTextColor(Color.WHITE);
@@ -132,85 +145,22 @@ public final class SmbPlayerActivity extends ComponentActivity {
         statusParams.setMargins(dp(48), 0, dp(48), 0);
         root.addView(statusView, statusParams);
 
-        credentialsButton = new Button(this);
-        credentialsButton.setText("Netzwerkzugang ändern");
-        credentialsButton.setAllCaps(false);
-        credentialsButton.setOnClickListener(view -> showCredentialsDialog(true));
-        FrameLayout.LayoutParams credentialsParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM | Gravity.START);
-        credentialsParams.setMargins(dp(16), dp(12), dp(12), dp(16));
-        root.addView(credentialsButton, credentialsParams);
-
         setContentView(root);
     }
 
-    private void showCredentialsDialog(boolean replacing) {
-        if (location == null || isFinishing()) return;
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(24), dp(8), dp(24), 0);
+    private GradientDrawable makeCloseBackground(boolean focused) {
+        GradientDrawable background = new GradientDrawable();
+        background.setShape(GradientDrawable.OVAL);
+        background.setColor(Color.argb(focused ? 100 : 70, 255, 255, 255));
+        background.setStroke(dp(focused ? 3 : 1),
+                focused ? Color.WHITE : Color.argb(120, 255, 255, 255));
+        return background;
+    }
 
-        TextView endpoint = new TextView(this);
-        endpoint.setText("Zugang für " + location.getDisplayEndpoint()
-                + "\nDie Daten bleiben verschlüsselt auf diesem Gerät.");
-        endpoint.setTextSize(15);
-        endpoint.setPadding(0, 0, 0, dp(14));
-        content.addView(endpoint);
-
-        EditText username = new EditText(this);
-        username.setHint("FRITZ!Box-Benutzername");
-        username.setSingleLine(true);
-        if (credentials != null) username.setText(credentials.getUsername());
-        content.addView(username, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        EditText password = new EditText(this);
-        password.setHint("Kennwort");
-        password.setSingleLine(true);
-        password.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        content.addView(password, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        CheckBox remember = new CheckBox(this);
-        remember.setText("Auf diesem Gerät geschützt speichern");
-        remember.setChecked(connection == null || connection.usesPersistentCredentials());
-        content.addView(remember);
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(replacing ? "Netzwerkzugang ändern" : "Netzwerkzugang")
-                .setView(content)
-                .setNegativeButton("Abbrechen", (value, which) -> {
-                    if (credentials == null) showStatus("Ohne Zugangsdaten kann das Netzwerkvideo nicht gestartet werden.");
-                })
-                .setPositiveButton("Verbinden", null)
-                .create();
-        dialog.setOnShowListener(value -> {
-            username.requestFocus();
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
-                String user = username.getText().toString().trim();
-                if (user.isEmpty()) {
-                    username.setError("Bitte FRITZ!Box-Benutzername eingeben.");
-                    return;
-                }
-                String enteredPassword = password.getText().toString();
-                String effectivePassword = replacing && enteredPassword.isEmpty() && credentials != null
-                        ? credentials.getPassword()
-                        : enteredPassword;
-                credentials = new SmbCredentials(user, effectivePassword);
-                saveCredentialsWhenReady = true;
-                persistCredentialsWhenReady = remember.isChecked();
-                connection = connection.withEnabled(true)
-                        .withCredentialMode(persistCredentialsWhenReady);
-                connectionStore.save(connection);
-                if (!persistCredentialsWhenReady) {
-                    credentialStore.remove(location.getCredentialKey());
-                }
-                dialog.dismiss();
-                startPlayback();
-            });
-        });
-        dialog.show();
+    private void setChromeVisibility(int visibility) {
+        int target = visibility == View.VISIBLE ? View.VISIBLE : View.GONE;
+        if (titleView != null) titleView.setVisibility(target);
+        if (closeButton != null) closeButton.setVisibility(target);
     }
 
     private SmbCredentials loadCredentials() {
@@ -220,25 +170,8 @@ public final class SmbPlayerActivity extends ComponentActivity {
         return credentialStore.load(location.getCredentialKey());
     }
 
-    private void showDisconnectedState() {
-        showStatus("Das Netzlaufwerk " + location.getDisplayEndpoint() + " ist getrennt.");
-        credentialsButton.setText("Netzlaufwerk verbinden");
-        credentialsButton.setOnClickListener(view -> {
-            connection = connection.withEnabled(true);
-            connectionStore.save(connection);
-            credentials = loadCredentials();
-            credentialsButton.setText("Netzwerkzugang ändern");
-            credentialsButton.setOnClickListener(value -> showCredentialsDialog(true));
-            if (credentials == null) showCredentialsDialog(false);
-            else startPlayback();
-        });
-        credentialsButton.requestFocus();
-    }
-
     private void startPlayback() {
         releasePlayer();
-        credentialsButton.setText("Netzwerkzugang ändern");
-        credentialsButton.setOnClickListener(view -> showCredentialsDialog(true));
         showStatus("Verbindung zu " + location.getDisplayEndpoint() + " wird hergestellt …");
         try {
             SmbCredentials playbackCredentials = credentials;
@@ -263,19 +196,6 @@ public final class SmbPlayerActivity extends ComponentActivity {
                 public void onPlaybackStateChanged(int playbackState) {
                     if (playbackState == Player.STATE_READY) {
                         statusView.setVisibility(View.GONE);
-                        if (saveCredentialsWhenReady) {
-                            if (persistCredentialsWhenReady) {
-                                credentialStore.save(location.getCredentialKey(), playbackCredentials);
-                                SessionCredentialStore.remove(location.getCredentialKey());
-                            } else {
-                                credentialStore.remove(location.getCredentialKey());
-                                SessionCredentialStore.save(location.getCredentialKey(), playbackCredentials);
-                            }
-                            connection = connection.withEnabled(true)
-                                    .withCredentialMode(persistCredentialsWhenReady);
-                            connectionStore.save(connection);
-                            saveCredentialsWhenReady = false;
-                        }
                     } else if (playbackState == Player.STATE_BUFFERING) {
                         showStatus("Netzwerkvideo wird geladen …");
                     }
@@ -284,7 +204,6 @@ public final class SmbPlayerActivity extends ComponentActivity {
                 @Override
                 public void onPlayerError(PlaybackException error) {
                     showStatus(readableError(error));
-                    credentialsButton.requestFocus();
                 }
             });
             player.setMediaSource(mediaSource);
@@ -292,7 +211,6 @@ public final class SmbPlayerActivity extends ComponentActivity {
             player.play();
         } catch (Exception error) {
             showStatus(readableError(error));
-            credentialsButton.requestFocus();
         }
     }
 
@@ -308,7 +226,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
                 || message.contains("AUTHENTICAT")) {
             if (credentialStore != null) credentialStore.remove(location.getCredentialKey());
             SessionCredentialStore.remove(location.getCredentialKey());
-            return "Anmeldung an FRITZ!NAS fehlgeschlagen. Bitte Benutzername und Kennwort prüfen.";
+            return "Anmeldung an FRITZ!NAS fehlgeschlagen. Bitte Zugangsdaten unter Einstellungen → Netzlaufwerke prüfen.";
         }
         if (message.contains("OBJECT_NAME_NOT_FOUND") || message.contains("OBJECT_PATH_NOT_FOUND")
                 || message.contains("NO SUCH FILE")) {
