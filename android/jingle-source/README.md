@@ -1,0 +1,1 @@
+Build-only source fragments for the Movie Hub startup jingle. The Android build reconstructs the packaged resource as res/raw/start.mp3 before compilation. These fragments are not packaged as runtime assets.
