@@ -291,6 +291,9 @@ public final class NetworkSettingsActivity extends ComponentActivity {
 
     private void disconnect(SmbConnection connection) {
         connectionStore.save(connection.withEnabled(false));
+        if (!connection.usesPersistentCredentials()) {
+            SessionCredentialStore.remove(connection.getEndpointKey());
+        }
         statuses.remove(connection.getEndpointKey());
         renderConnections();
     }
