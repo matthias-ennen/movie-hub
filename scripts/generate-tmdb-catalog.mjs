@@ -18,6 +18,20 @@ export const CATALOG_ROWS = [
   { id: 'series', title: 'Serien entdecken', source: 'popular-series', mediaType: 'tv', limit: 10 },
 ]
 
+// Temporary device-test references. Metadata continues to come from TMDB.
+// The provider flag is deliberately isolated and documented so it cannot be
+// mistaken for the future provider-catalog architecture.
+export const PROVIDER_TEST_REFERENCES = [
+  {
+    id: 106747,
+    mediaType: 'movie',
+    providerId: 'waipu',
+    rowId: 'provider-test-waipu',
+    rowTitle: 'Anbieter-Test · waipu.tv',
+    note: 'Machete Kills – waipu availability manually confirmed for Fire-TV acceptance on 2026-09-08.',
+  },
+]
+
 const CANDIDATES_PER_ROW = 24
 const MINIMUM_TITLES_PER_ROW = 6
 // Stable TMDB provider identifiers for the providers Movie Hub currently
@@ -48,6 +62,10 @@ function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function candidateKey(candidate) {
+  return `${candidate.mediaType}-${candidate.id}`
+}
+
 function normalizeCandidate(candidate, fallbackMediaType) {
   const mediaType = candidate?.media_type || fallbackMediaType
   const id = Number(candidate?.id)
@@ -59,7 +77,7 @@ function uniqueCandidates(candidates) {
   const seen = new Set()
   return candidates.filter((candidate) => {
     if (!candidate) return false
-    const key = `${candidate.mediaType}-${candidate.id}`
+    const key = candidateKey(candidate)
     if (seen.has(key)) return false
     seen.add(key)
     return true
@@ -68,6 +86,35 @@ function uniqueCandidates(candidates) {
 
 function accentFor(tmdbId) {
   return ACCENT_PAIRS[Math.abs(Number(tmdbId) || 0) % ACCENT_PAIRS.length]
+}
+
+export function applyProviderTestReference(title, reference) {
+  if (!title || !reference?.providerId) return title
+
+  const providerIds = Array.isArray(title.providerIds) ? [...title.providerIds] : []
+  if (!providerIds.includes(reference.providerId)) providerIds.push(reference.providerId)
+
+  const providerOffers = Array.isArray(title.providerOffers)
+    ? title.providerOffers.map((provider) => ({ ...provider }))
+    : []
+
+  if (!providerOffers.some((provider) => provider.id === reference.providerId)) {
+    providerOffers.push({
+      id: reference.providerId,
+      tmdbProviderId: null,
+      offerTypes: ['test-reference'],
+    })
+  }
+
+  return {
+    ...title,
+    providerIds,
+    providerOffers,
+    providerTestReference: {
+      providerId: reference.providerId,
+      note: reference.note || null,
+    },
+  }
 }
 
 async function tmdbFetch(path, searchParams = {}) {
@@ -208,7 +255,7 @@ async function mapWithConcurrency(values, limit, callback) {
 export function buildRowDefinitions(rows, titlesByCandidate) {
   return rows.map(({ id, title, candidates, limit }) => {
     const ids = candidates
-      .map((candidate) => titlesByCandidate.get(`${candidate.mediaType}-${candidate.id}`))
+      .map((candidate) => titlesByCandidate.get(candidateKey(candidate)))
       .filter((item) => item?.providerIds?.length)
       .slice(0, limit)
       .map((item) => item.id)
@@ -219,6 +266,16 @@ export function buildRowDefinitions(rows, titlesByCandidate) {
 
     return { id, title, ids }
   })
+}
+
+export function buildProviderTestRows(references, titlesByCandidate) {
+  return references
+    .map((reference) => {
+      const title = titlesByCandidate.get(candidateKey(reference))
+      if (!title) return null
+      return { id: reference.rowId, title: reference.rowTitle, ids: [title.id] }
+    })
+    .filter(Boolean)
 }
 
 export async function generateCatalog() {
@@ -234,10 +291,21 @@ export async function generateCatalog() {
   const candidates = uniqueCandidates(rowsWithCandidates.flatMap((row) => row.candidates))
   console.log(`TMDB catalog: resolving ${candidates.length} current candidates`)
   const resolvedTitles = await mapWithConcurrency(candidates, REQUEST_CONCURRENCY, resolveCandidate)
-  const titlesByCandidate = new Map(resolvedTitles.map((title) => [`${title.type === 'series' ? 'tv' : 'movie'}-${title.tmdbId}`, title]))
-  const rowDefinitions = buildRowDefinitions(rowsWithCandidates, titlesByCandidate)
+  const titlesByCandidate = new Map(
+    resolvedTitles.map((title) => [`${title.type === 'series' ? 'tv' : 'movie'}-${title.tmdbId}`, title]),
+  )
+
+  for (const reference of PROVIDER_TEST_REFERENCES) {
+    const key = candidateKey(reference)
+    const current = titlesByCandidate.get(key) || await resolveCandidate(reference)
+    titlesByCandidate.set(key, applyProviderTestReference(current, reference))
+  }
+
+  const discoveryRows = buildRowDefinitions(rowsWithCandidates, titlesByCandidate)
+  const providerTestRows = buildProviderTestRows(PROVIDER_TEST_REFERENCES, titlesByCandidate)
+  const rowDefinitions = [...providerTestRows, ...discoveryRows]
   const visibleIds = new Set(rowDefinitions.flatMap((row) => row.ids))
-  const titles = resolvedTitles.filter((title) => visibleIds.has(title.id))
+  const titles = [...titlesByCandidate.values()].filter((title) => visibleIds.has(title.id))
 
   return {
     source: 'tmdb',
