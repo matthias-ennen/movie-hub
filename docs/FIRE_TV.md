@@ -32,7 +32,13 @@ The shared media editor additionally accepts credential-free `smb://server/share
 
 The first technical candidate uses SMBJ for SMB2/3 random-access reads and supplies those bytes to Media3 through a custom data source, enabling pause, resume and seeking without copying the complete file to device storage. Username and password are requested by the native player. If the user chooses to remember them, they are AES-GCM encrypted with a non-exportable Android Keystore key and stored only on that device, scoped to server and share.
 
-This library/player combination remains a preflight candidate until it has streamed a real FRITZ!NAS reference file on Fire TV and the remote-control/error scenarios in issue #62 have been verified.
+The SMB2/3 and Media3 combination, including the tuned playback buffer, was fully accepted on a real Fire TV with signed APK build #43. Issue #62 is complete.
+
+## Phase 5.3 device-local network-drive settings
+
+The profile menu now contains a separate **Einstellungen** entry. Its **Netzlaufwerke** section opens an unexported native Android activity; the hosted page never receives the username or password. The native manager can add, edit, test, disconnect, reconnect and remove device-local SMB connections.
+
+Status checks create only short-lived SMB sessions and report untested, checking, reachable/authenticated or failed states with both colour and text. **Verbindung trennen** disables automatic use without deleting encrypted credentials. Persistent credentials remain encrypted with Android Keystore; session-only credentials live only in process memory and are cleared on explicit app close, sign-out or process termination. Existing SMB media URLs match a connection by server, port and share.
 
 ## Phase 4.3 provider launch chain
 
