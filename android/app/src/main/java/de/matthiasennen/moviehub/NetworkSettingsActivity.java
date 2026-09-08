@@ -149,6 +149,7 @@ public final class NetworkSettingsActivity extends ComponentActivity {
 
     private View createConnectionCard(SmbConnection connection) {
         LinearLayout card = new LinearLayout(this);
+        boolean compact = getResources().getConfiguration().screenWidthDp < 600;
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(20), dp(18), dp(20), dp(18));
         card.setBackgroundColor(COLOR_SURFACE);
@@ -158,7 +159,7 @@ public final class NetworkSettingsActivity extends ComponentActivity {
         card.setLayoutParams(cardParams);
 
         LinearLayout top = new LinearLayout(this);
-        top.setOrientation(LinearLayout.HORIZONTAL);
+        top.setOrientation(compact ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.TOP);
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
@@ -166,13 +167,17 @@ public final class NetworkSettingsActivity extends ComponentActivity {
         String endpoint = connection.getDisplayEndpoint();
         if (!connection.getBasePath().isEmpty()) endpoint += "/" + connection.getBasePath();
         copy.addView(text(endpoint, 14, COLOR_MUTED, false));
-        top.addView(copy, new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        top.addView(copy, new LinearLayout.LayoutParams(
+                compact ? LinearLayout.LayoutParams.MATCH_PARENT : 0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, compact ? 0 : 1));
 
         ConnectionStatus status = statusFor(connection);
         TextView statusView = text("● " + status.text, 14, status.color, true);
-        statusView.setGravity(Gravity.END);
-        top.addView(statusView);
+        statusView.setGravity(compact ? Gravity.START : Gravity.END);
+        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        statusParams.setMargins(0, compact ? dp(8) : 0, 0, 0);
+        top.addView(statusView, statusParams);
         card.addView(top);
 
         TextView mode = text(connection.usesPersistentCredentials()
@@ -185,7 +190,6 @@ public final class NetworkSettingsActivity extends ComponentActivity {
         card.addView(mode, modeParams);
 
         LinearLayout actions = new LinearLayout(this);
-        boolean compact = getResources().getConfiguration().screenWidthDp < 600;
         actions.setOrientation(compact ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
         if (connection.isEnabled()) {
             Button check = actionButton("Erneut prüfen");
