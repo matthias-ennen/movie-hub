@@ -348,9 +348,13 @@ public final class MainActivity extends ComponentActivity {
             try { uri = Uri.parse(rawUrl); } catch (Exception ignored) { return; }
             if (uri == null || !("https".equalsIgnoreCase(uri.getScheme())
                     || "http".equalsIgnoreCase(uri.getScheme()))) return;
+            final String canonicalYouTubeUrl = YouTubeUrlResolver.canonicalWatchUrl(rawUrl);
             runOnUiThread(() -> {
-                try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
-                catch (ActivityNotFoundException ignored) { }
+                if (canonicalYouTubeUrl != null) {
+                    launchYouTubeMedia(Uri.parse(canonicalYouTubeUrl), uri);
+                    return;
+                }
+                tryStartActivity(new Intent(Intent.ACTION_VIEW, uri));
             });
         }
 
@@ -501,6 +505,19 @@ public final class MainActivity extends ComponentActivity {
         }
 
         tryStartActivity(new Intent(Intent.ACTION_VIEW, fallbackUri));
+    }
+
+    private void launchYouTubeMedia(Uri canonicalUri, Uri originalUri) {
+        for (String packageName : getProviderPackages("youtube")) {
+            Intent deepLink = new Intent(Intent.ACTION_VIEW, canonicalUri);
+            deepLink.addCategory(Intent.CATEGORY_BROWSABLE);
+            deepLink.setPackage(packageName);
+            if (tryStartActivity(deepLink)) return;
+        }
+
+        // Preserve the exact user-created link when no known YouTube app
+        // accepts the stable watch URL.
+        tryStartActivity(new Intent(Intent.ACTION_VIEW, originalUri));
     }
 
     private boolean tryStartActivity(Intent intent) {
