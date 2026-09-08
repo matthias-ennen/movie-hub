@@ -55,8 +55,7 @@
     gap: 0.35rem;
   }
 
-  .topbar .icon-button,
-  .topbar .profile-button {
+  .topbar .icon-button {
     flex: 0 0 var(--control-height-compact);
     width: var(--control-height-compact);
     height: var(--control-height-compact);
@@ -66,16 +65,24 @@
     padding: 0;
     border-radius: var(--radius-pill);
   }
-
-  .topbar .profile-button .avatar {
-    flex: 0 0 36px;
-    margin: 0;
-  }
 }
 
 @media (min-width: 761px) and (max-width: 1050px) {
   .topbar .profile-button {
+    flex: 0 0 var(--control-height-compact);
+    width: var(--control-height-compact);
+    height: var(--control-height-compact);
+    min-width: var(--control-height-compact);
+    min-height: var(--control-height-compact);
+    justify-content: center;
     gap: 0;
+    padding: 0;
+    border-radius: var(--radius-pill);
+  }
+
+  .topbar .profile-button .avatar {
+    flex: 0 0 36px;
+    margin: 0;
   }
 }
 
