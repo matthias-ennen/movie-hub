@@ -11,6 +11,22 @@ function normalizeUncPath(value) {
   return `smb://${parts.map((part) => encodeURIComponent(part)).join('/')}`
 }
 
+function decodeSmbPathSegment(value) {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    throw new Error('Der SMB-Pfad enthält eine ungültige Zeichenkodierung.')
+  }
+}
+
+function normalizeSmbPathSegment(value) {
+  const decoded = decodeSmbPathSegment(value)
+  if (decoded === '.' || decoded === '..') {
+    throw new Error('SMB-Pfade dürfen keine relativen Pfadsegmente enthalten.')
+  }
+  return encodeURIComponent(decoded)
+}
+
 export function isSmbMediaUrl(value) {
   const input = String(value || '').trim()
   return input.startsWith('\\\\') || input.toLowerCase().startsWith('smb://')
@@ -19,21 +35,37 @@ export function isSmbMediaUrl(value) {
 export function normalizeSmbUrl(value) {
   const input = String(value || '').trim()
   const candidate = input.startsWith('\\\\') ? normalizeUncPath(input) : input
-  const url = new URL(candidate)
-  if (url.protocol !== 'smb:') {
+
+  // Do not use the browser/WebView URL parser for SMB URLs. Older Fire TV
+  // WebViews can reject non-HTTP schemes even though the same URL is valid for
+  // Movie Hub's native SMB player. Parse the small supported SMB grammar here
+  // so a valid Firestore entry is normalized identically on every device.
+  if (!candidate.toLowerCase().startsWith('smb://')) {
     throw new Error('Bitte gib einen SMB- oder UNC-Netzwerkpfad ein.')
   }
-  if (!url.hostname || url.username || url.password) {
-    throw new Error('Benutzername und Kennwort gehören nicht in den SMB-Pfad.')
-  }
-  if (url.search || url.hash) {
+
+  const remainder = candidate.slice(6)
+  if (remainder.includes('?') || remainder.includes('#')) {
     throw new Error('SMB-Pfade dürfen keine Abfrage oder Sprungmarke enthalten.')
   }
-  const pathParts = url.pathname.split('/').filter(Boolean)
-  if (pathParts.length < 2 || pathParts.some((part) => part === '.' || part === '..')) {
+
+  const firstSlash = remainder.indexOf('/')
+  if (firstSlash <= 0) {
     throw new Error('Der SMB-Pfad braucht mindestens Freigabe und Dateiname.')
   }
-  return url.toString()
+
+  const authority = remainder.slice(0, firstSlash)
+  if (!authority || authority.includes('@') || /\s/.test(authority)) {
+    throw new Error('Benutzername und Kennwort gehören nicht in den SMB-Pfad.')
+  }
+
+  const rawPathParts = remainder.slice(firstSlash + 1).split('/').filter(Boolean)
+  if (rawPathParts.length < 2) {
+    throw new Error('Der SMB-Pfad braucht mindestens Freigabe und Dateiname.')
+  }
+
+  const pathParts = rawPathParts.map(normalizeSmbPathSegment)
+  return `smb://${authority}/${pathParts.join('/')}`
 }
 
 export function normalizeMediaUrl(value) {
