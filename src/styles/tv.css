@@ -12,7 +12,8 @@
 .theme-choice:focus-visible,
 .switch-control:focus-visible,
 .interval-button:focus-visible,
-.account-signout:focus-visible {
+.account-signout:focus-visible,
+.network-settings-open:focus-visible {
   position: relative;
   z-index: 12;
 }
