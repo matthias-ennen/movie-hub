@@ -179,11 +179,16 @@ public final class MainActivity extends ComponentActivity {
                 .setTitle("Movie Hub schließen?")
                 .setMessage("Du kannst Movie Hub jederzeit über den Startbildschirm wieder öffnen.")
                 .setNegativeButton("Abbrechen", null)
-                .setPositiveButton("Schließen", (dialog, which) -> finishAndRemoveTask())
+                .setPositiveButton("Schließen", (dialog, which) -> closeMovieHub())
                 .create();
         exitDialog.setOnShowListener(dialog -> exitDialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus());
         exitDialog.setOnDismissListener(dialog -> exitDialog = null);
         exitDialog.show();
+    }
+
+    private void closeMovieHub() {
+        SessionCredentialStore.clear();
+        finishAndRemoveTask();
     }
 
     @Override
@@ -277,7 +282,18 @@ public final class MainActivity extends ComponentActivity {
 
         @JavascriptInterface
         public void closeApp() {
-            runOnUiThread(() -> finishAndRemoveTask());
+            runOnUiThread(() -> closeMovieHub());
+        }
+
+        @JavascriptInterface
+        public void openNetworkSettings() {
+            runOnUiThread(() -> startActivity(
+                    new Intent(MainActivity.this, NetworkSettingsActivity.class)));
+        }
+
+        @JavascriptInterface
+        public void clearSessionSmbCredentials() {
+            SessionCredentialStore.clear();
         }
 
         @JavascriptInterface
