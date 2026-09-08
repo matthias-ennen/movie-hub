@@ -22,6 +22,7 @@
     </queries>
 
     <application
+        android:name=".MovieHubApplication"
         android:allowBackup="false"
         android:banner="@drawable/tv_banner"
         android:icon="@drawable/ic_movie_hub"
