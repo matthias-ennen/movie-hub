@@ -10,11 +10,11 @@ final class ProviderLaunchPolicy {
             case "netflix":
             case "prime":
             case "disney":
-            case "waipu":
                 return true;
             default:
-                // YouTube's HTTPS results URL is verified on Fire TV and
-                // therefore deliberately remains the first attempt.
+                // YouTube's HTTPS results URL is verified on Fire TV. waipu.tv
+                // now also uses an official app.waipu.tv destination first
+                // (waiputhek for VOD, sender page for future live entries).
                 return false;
         }
     }

@@ -11,12 +11,12 @@ public final class ProviderLaunchPolicyTest {
         assertTrue(ProviderLaunchPolicy.triesTextSearchFirst("netflix"));
         assertTrue(ProviderLaunchPolicy.triesTextSearchFirst("prime"));
         assertTrue(ProviderLaunchPolicy.triesTextSearchFirst("disney"));
-        assertTrue(ProviderLaunchPolicy.triesTextSearchFirst("waipu"));
     }
 
     @Test
-    public void keepsVerifiedYouTubeHttpsSearchFirst() {
+    public void keepsVerifiedHttpsOrDeepLinkDestinationFirst() {
         assertFalse(ProviderLaunchPolicy.triesTextSearchFirst("youtube"));
+        assertFalse(ProviderLaunchPolicy.triesTextSearchFirst("waipu"));
         assertFalse(ProviderLaunchPolicy.triesTextSearchFirst("unknown"));
         assertFalse(ProviderLaunchPolicy.triesTextSearchFirst(null));
     }

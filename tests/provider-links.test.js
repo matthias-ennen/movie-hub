@@ -11,9 +11,11 @@ describe('provider destinations', () => {
       .toBe('https://www.youtube.com/results?search_query=Dune%3A%20Part%20Two')
   })
 
-  it('uses the provider home page where no stable public title search exists', () => {
+  it('uses stable provider entry pages where no title search is required', () => {
     expect(getProviderDestination('disney', 'Shōgun')).toBe('https://www.disneyplus.com/de-de')
-    expect(getProviderDestination('waipu', 'Dune: Part Two')).toBe('https://www.waipu.tv/')
+    expect(getProviderDestination('waipu', 'Machete Kills')).toBe('https://app.waipu.tv/waiputhek')
+    expect(getProviderDestination('waipu', 'Live TV', { waipuMode: 'live' }))
+      .toBe('https://www.waipu.tv/sender/das-erste/')
   })
 
   it('does not create a destination for unknown providers', () => {
@@ -26,7 +28,7 @@ describe('provider destinations', () => {
       prime: 'www.primevideo.com',
       disney: 'www.disneyplus.com',
       youtube: 'www.youtube.com',
-      waipu: 'www.waipu.tv',
+      waipu: 'app.waipu.tv',
     }
 
     for (const [providerId, expectedHost] of Object.entries(expectedHosts)) {
