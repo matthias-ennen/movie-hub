@@ -18,6 +18,14 @@
   z-index: 12;
 }
 
+/* The detail close button is absolutely anchored inside .detail-copy.
+ * The generic TV focus rule above must not turn it back into a relative
+ * element when Fire TV gives it D-Pad focus, otherwise it jumps into the
+ * normal content flow. */
+.icon-button.detail-close:focus-visible {
+  position: absolute;
+}
+
 /*
  * Echte TMDB-Beschreibungen können deutlich länger als die Phase-1-Testtexte
  * sein. Der Dialog braucht deshalb eine definite Viewport-Höhe, damit die
