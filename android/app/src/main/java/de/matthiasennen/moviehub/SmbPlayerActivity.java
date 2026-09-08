@@ -96,7 +96,12 @@ public final class SmbPlayerActivity extends ComponentActivity {
         playerView.setControllerShowTimeoutMs(5000);
         playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING);
         playerView.setKeepScreenOn(true);
-        playerView.setControllerVisibilityListener(this::setChromeVisibility);
+        playerView.setControllerVisibilityListener(new PlayerView.ControllerVisibilityListener() {
+            @Override
+            public void onVisibilityChanged(int visibility) {
+                setChromeVisibility(visibility);
+            }
+        });
         root.addView(playerView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
 
