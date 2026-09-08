@@ -6,8 +6,29 @@ def signingProperties = new Properties()
 def signingPropertiesFile = rootProject.file('signing.properties')
 def githubRunNumber = System.getenv('GITHUB_RUN_NUMBER')
 def appVersionCode = githubRunNumber == null ? 1 : githubRunNumber.toInteger()
+def startupJingleSourceDir = rootProject.file('jingle-source')
+def startupJingleResDir = layout.buildDirectory.dir('generated/startupJingleRes').get().asFile
 if (signingPropertiesFile.exists()) {
     signingPropertiesFile.withInputStream { signingProperties.load(it) }
+}
+
+tasks.register('generateStartupJingle') {
+    def sourceParts = fileTree(startupJingleSourceDir) {
+        include 'start_*.b64'
+    }
+    def outputFile = new File(startupJingleResDir, 'raw/start.mp3')
+    inputs.files(sourceParts)
+    outputs.file(outputFile)
+
+    doLast {
+        def parts = sourceParts.files.sort { left, right -> left.name <=> right.name }
+        if (parts.isEmpty()) {
+            throw new GradleException('Startup jingle source fragments are missing.')
+        }
+        outputFile.parentFile.mkdirs()
+        def encoded = parts.collect { it.getText('UTF-8').trim() }.join('')
+        outputFile.bytes = encoded.decodeBase64()
+    }
 }
 
 android {
@@ -23,6 +44,12 @@ android {
         versionCode appVersionCode
         versionName "0.1.${appVersionCode}"
         multiDexEnabled true
+    }
+
+    sourceSets {
+        main {
+            res.srcDir startupJingleResDir
+        }
     }
 
     compileOptions {
@@ -49,6 +76,10 @@ android {
             minifyEnabled false
         }
     }
+}
+
+tasks.named('preBuild').configure {
+    dependsOn tasks.named('generateStartupJingle')
 }
 
 dependencies {
