@@ -102,7 +102,7 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - Bearbeiten und Löschen der gemeinsamen Einträge aus jedem Profil
 - D-Pad- und Zurück-Verhalten für Auswahl, Verwaltung und Player
 
-### Aktives Paket #62 – SMB-/FRITZ!NAS-Medien
+### Abgeschlossenes Paket #62 – SMB-/FRITZ!NAS-Medien
 
 - stabile `smb://`- oder eindeutig umwandelbare UNC-Pfade als gemeinsame Medienquelle je Titel
 - Referenzsystem: an einer FRITZ!Box angeschlossene, per SMB freigegebene Festplatte
@@ -111,6 +111,14 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - klare Fehlerzustände für fehlendes Heimnetz, Anmeldung und nicht erreichbare Dateien
 - kein UPnP-/DLNA-Browser und keine unsichere Freigabe ins öffentliche Internet
 - erster technischer Kandidat: SMBJ als SMB2/3-Datenquelle und ein nativer Media3-Player; die endgültige Festlegung erfolgt nach der realen FRITZ!NAS-/Fire-TV-Abnahme
+
+### Aktives Paket #69 – geräteweite Netzlaufwerkverwaltung
+
+- Profilmenü → **Einstellungen → Netzlaufwerke**
+- Verbindungen anlegen, bearbeiten, prüfen, trennen und entfernen
+- verständlicher Status in Grau, Gelb, Grün oder Rot mit zusätzlichem Text
+- Zugangsdaten wahlweise nur für die App-Sitzung oder verschlüsselt gerätelokal speichern
+- gespeicherte Verbindung bei Bedarf nach App-Neustart automatisch wiederverwenden
 
 ## Phase 6 – Personalisierung und Automatisierung
 

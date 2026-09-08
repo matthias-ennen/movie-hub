@@ -179,7 +179,10 @@ public final class MainActivity extends ComponentActivity {
                 .setTitle("Movie Hub schließen?")
                 .setMessage("Du kannst Movie Hub jederzeit über den Startbildschirm wieder öffnen.")
                 .setNegativeButton("Abbrechen", null)
-                .setPositiveButton("Schließen", (dialog, which) -> finishAndRemoveTask())
+                .setPositiveButton("Schließen", (dialog, which) -> {
+                    SessionCredentialStore.clearAll();
+                    finishAndRemoveTask();
+                })
                 .create();
         exitDialog.setOnShowListener(dialog -> exitDialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus());
         exitDialog.setOnDismissListener(dialog -> exitDialog = null);
@@ -277,7 +280,18 @@ public final class MainActivity extends ComponentActivity {
 
         @JavascriptInterface
         public void closeApp() {
-            runOnUiThread(() -> finishAndRemoveTask());
+            runOnUiThread(() -> {
+                SessionCredentialStore.clearAll();
+                finishAndRemoveTask();
+            });
+        }
+
+        /** Opens the device-local native SMB connection manager. Credentials
+         * never cross the JavaScript bridge. */
+        @JavascriptInterface
+        public void openNetworkDriveSettings() {
+            runOnUiThread(() -> startActivity(new Intent(
+                    MainActivity.this, NetworkDriveSettingsActivity.class)));
         }
 
         @JavascriptInterface

@@ -84,6 +84,11 @@ function Header({
     onViewChange('profile')
   }
 
+  function openAppSettings() {
+    onProfileClose()
+    onViewChange('settings')
+  }
+
   function handleProfileSelect(profileId) {
     onProfileSelect(profileId)
     onProfileClose()
@@ -102,7 +107,7 @@ function Header({
         <div className="profile-wrap">
           <button
             type="button"
-            className={currentView === 'profile' ? 'profile-button active' : 'profile-button'}
+            className={currentView === 'profile' || currentView === 'settings' ? 'profile-button active' : 'profile-button'}
             onClick={onProfileToggle}
             data-focusable="true"
             aria-label={`Profil öffnen: ${activeProfile?.displayName ?? 'Movie Hub'}`}
@@ -132,6 +137,7 @@ function Header({
                 </div>
               )}
               <button type="button" className="profile-settings-link" onClick={openProfileSettings} data-focusable="true" role="menuitem">Profil & Design</button>
+              <button type="button" className="profile-settings-link" onClick={openAppSettings} data-focusable="true" role="menuitem">Einstellungen</button>
               <button type="button" onClick={onSignOut} data-focusable="true" role="menuitem">Abmelden</button>
             </div>
           )}
@@ -234,6 +240,48 @@ function ExitConfirmationDialog({ onCancel, onClose }) {
         </div>
       </section>
     </div>
+  )
+}
+
+function SettingsView() {
+  const nativeSettingsAvailable = typeof window.MovieHubNative?.openNetworkDriveSettings === 'function'
+
+  function openNetworkDrives() {
+    window.MovieHubNative?.openNetworkDriveSettings?.()
+  }
+
+  return (
+    <main className="browse-page profile-page settings-page">
+      <div className="page-heading profile-heading">
+        <p className="eyebrow">Movie Hub auf diesem Gerät</p>
+        <h1>Einstellungen</h1>
+        <p>Geräteeinstellungen gelten unabhängig vom ausgewählten Movie-Hub-Profil.</p>
+      </div>
+
+      <section className="settings-panel network-settings-panel" aria-labelledby="network-drives-heading">
+        <div className="settings-heading">
+          <div>
+            <p className="settings-kicker">Heimnetz</p>
+            <h2 id="network-drives-heading">Netzlaufwerke</h2>
+          </div>
+          <span className="settings-status">Gerätelokal</span>
+        </div>
+
+        <p className="settings-description">
+          Richte SMB-/FRITZ!NAS-Verbindungen ein, prüfe ihre Erreichbarkeit und verwalte die automatische Anmeldung. Die Verbindungen stehen danach allen Movie-Hub-Profilen auf diesem Gerät zur Verfügung.
+        </p>
+
+        {nativeSettingsAvailable ? (
+          <button type="button" className="network-settings-open" onClick={openNetworkDrives} data-focusable="true">
+            Netzlaufwerke verwalten
+          </button>
+        ) : (
+          <p className="settings-hint">
+            Netzlaufwerke können nur in der aktuellen Android-/Fire-TV-App verwaltet werden. Im Browser bleiben gespeicherte SMB-Medieneinträge sichtbar, lassen sich aber nicht verbinden.
+          </p>
+        )}
+      </section>
+    </main>
   )
 }
 
@@ -421,6 +469,7 @@ function MovieHub({ user }) {
       )}
       {currentView === 'search' && <SearchView titles={titles} onOpen={handleOpenTitle} />}
       {currentView === 'profile' && <ProfileView user={user} onSignOut={handleSignOut} />}
+      {currentView === 'settings' && <SettingsView />}
       {selectedTitle && <DetailModal item={selectedTitle} onClose={() => setSelectedTitle(null)} />}
       {exitDialogOpen && <ExitConfirmationDialog onCancel={() => setExitDialogOpen(false)} onClose={closeApp} />}
     </div>

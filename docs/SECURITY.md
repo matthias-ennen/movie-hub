@@ -30,6 +30,8 @@ Solche Werte werden über GitHub Secrets, Firebase/Google Secret-Verwaltung oder
 
 Gemeinsame Movie-Hub-Medieneinträge dürfen einen `smb://`-Pfad, aber niemals Benutzername oder Kennwort enthalten. Die Android-/Fire-TV-App speichert einen auf Wunsch gemerkten FRITZ!NAS-Zugang ausschließlich lokal. Das Kennwort wird mit AES-GCM verschlüsselt; der nicht exportierbare Schlüssel liegt im Android Keystore. Firestore, die Web-App und das Repository erhalten diese Zugangsdaten nicht. Auf jedem neuen Gerät müssen sie erneut eingegeben werden.
 
+Ohne die Option **Zugangsdaten auf diesem Gerät speichern und automatisch verbinden** liegen Benutzername und Kennwort nur im Arbeitsspeicher des aktuellen App-Prozesses. Movie Hub leert diesen Sitzungsspeicher beim ausdrücklichen Schließen; ein beendeter Prozess kann ihn ebenfalls nicht wiederherstellen. Auch die native Netzlaufwerkverwaltung gibt Zugangsdaten niemals über die JavaScript-Brücke an die gehostete Web-App zurück.
+
 Movie Hub öffnet SMB ausschließlich als ausgehende Verbindung im Heimnetz. Eine Portfreigabe der FRITZ!Box ins Internet ist weder nötig noch vorgesehen.
 
 ## Client-Konfiguration

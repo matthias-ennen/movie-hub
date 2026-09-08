@@ -47,6 +47,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
     private TextView statusView;
     private Button credentialsButton;
     private boolean saveCredentialsWhenReady;
+    private boolean saveSessionWhenReady;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -68,7 +69,8 @@ public final class SmbPlayerActivity extends ComponentActivity {
         }
 
         credentialStore = new CredentialStore(this);
-        credentials = credentialStore.load(location.getCredentialKey());
+        credentials = SessionCredentialStore.load(location.getCredentialKey());
+        if (credentials == null) credentials = credentialStore.load(location.getCredentialKey());
         if (credentials == null) {
             showStatus("Für " + location.getDisplayEndpoint() + " werden lokale Zugangsdaten benötigt.");
             showCredentialsDialog(false);
@@ -165,9 +167,14 @@ public final class SmbPlayerActivity extends ComponentActivity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         CheckBox remember = new CheckBox(this);
-        remember.setText("Auf diesem Gerät geschützt speichern");
-        remember.setChecked(true);
+        remember.setText("Zugangsdaten auf diesem Gerät speichern und automatisch verbinden");
+        remember.setChecked(!replacing || credentialStore.load(location.getCredentialKey()) != null);
         content.addView(remember);
+
+        TextView rememberHint = new TextView(this);
+        rememberHint.setText("Ohne diese Option gelten die Zugangsdaten nur bis zum Trennen oder App-Neustart.");
+        rememberHint.setTextSize(13);
+        content.addView(rememberHint);
 
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(replacing ? "Netzwerkzugang ändern" : "Netzwerkzugang")
@@ -187,6 +194,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
                 }
                 credentials = new SmbCredentials(user, password.getText().toString());
                 saveCredentialsWhenReady = remember.isChecked();
+                saveSessionWhenReady = !remember.isChecked();
                 if (!remember.isChecked()) credentialStore.remove(location.getCredentialKey());
                 dialog.dismiss();
                 startPlayback();
@@ -223,7 +231,11 @@ public final class SmbPlayerActivity extends ComponentActivity {
                         statusView.setVisibility(View.GONE);
                         if (saveCredentialsWhenReady) {
                             credentialStore.save(location.getCredentialKey(), playbackCredentials);
+                            SessionCredentialStore.remove(location.getCredentialKey());
                             saveCredentialsWhenReady = false;
+                        } else if (saveSessionWhenReady) {
+                            SessionCredentialStore.save(location.getCredentialKey(), playbackCredentials);
+                            saveSessionWhenReady = false;
                         }
                     } else if (playbackState == Player.STATE_BUFFERING) {
                         showStatus("Netzwerkvideo wird geladen …");
@@ -256,6 +268,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
         if (message.contains("LOGON_FAILURE") || message.contains("ACCESS_DENIED")
                 || message.contains("AUTHENTICAT")) {
             if (credentialStore != null) credentialStore.remove(location.getCredentialKey());
+            SessionCredentialStore.remove(location.getCredentialKey());
             return "Anmeldung an FRITZ!NAS fehlgeschlagen. Bitte Benutzername und Kennwort prüfen.";
         }
         if (message.contains("OBJECT_NAME_NOT_FOUND") || message.contains("OBJECT_PATH_NOT_FOUND")

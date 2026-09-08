@@ -343,6 +343,22 @@
   flex: 0 0 auto;
 }
 
+.network-settings-open {
+  min-height: 48px;
+  padding: 0.75rem 1.05rem;
+  border: 1px solid color-mix(in srgb, var(--color-brand-accent) 62%, var(--color-line));
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-surface-soft) 72%, var(--color-brand-accent) 28%);
+  color: var(--color-text);
+  font-weight: 900;
+}
+
+.network-settings-open:hover,
+.network-settings-open:focus-visible {
+  border-color: var(--color-focus);
+  background: color-mix(in srgb, var(--color-surface-soft) 58%, var(--color-brand-accent) 42%);
+}
+
 .profile-menu .profile-settings-link {
   background: color-mix(in srgb, var(--color-surface-control) 82%, var(--color-brand-accent) 18%);
 }

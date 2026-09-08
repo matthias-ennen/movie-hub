@@ -32,6 +32,12 @@ The shared media editor additionally accepts credential-free `smb://server/share
 
 The first technical candidate uses SMBJ for SMB2/3 random-access reads and supplies those bytes to Media3 through a custom data source, enabling pause, resume and seeking without copying the complete file to device storage. Username and password are requested by the native player. If the user chooses to remember them, they are AES-GCM encrypted with a non-exportable Android Keystore key and stored only on that device, scoped to server and share.
 
+## Phase 5.3 device-local network-drive settings
+
+The hosted profile menu exposes **Einstellungen → Netzlaufwerke**. In the Android/Fire-TV app this opens an unexported native connection manager; in a browser the page explains that native SMB management is unavailable. Drive name, server, port, share and optional base folder are stored only on the device. The manager checks reachability on opening or on explicit request and always combines its gray/yellow/green/red status with readable text.
+
+Credentials can either remain in a process-only session store or be encrypted by `CredentialStore`. Session credentials are cleared when Movie Hub is explicitly closed and are never written to disk. Persisted credentials allow an on-demand automatic reconnect after a later app start; Movie Hub does not hold an idle SMB socket open in the background. Both modes are keyed by `server:port/share`, so existing SMB media URLs use the matching centrally managed connection without being rewritten.
+
 This library/player combination remains a preflight candidate until it has streamed a real FRITZ!NAS reference file on Fire TV and the remote-control/error scenarios in issue #62 have been verified.
 
 ## Phase 4.3 provider launch chain
