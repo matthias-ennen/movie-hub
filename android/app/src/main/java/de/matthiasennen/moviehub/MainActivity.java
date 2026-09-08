@@ -490,6 +490,9 @@ public final class MainActivity extends ComponentActivity {
 
     private void launchProvider(String providerId, String title, Uri fallbackUri) {
         String[] packages = getProviderPackages(providerId);
+        boolean textSearchFirst = ProviderLaunchPolicy.triesTextSearchFirst(providerId);
+
+        if (textSearchFirst && tryProviderTextSearch(packages, title)) return;
 
         for (String packageName : packages) {
             Intent deepLink = new Intent(Intent.ACTION_VIEW, fallbackUri);
@@ -498,14 +501,7 @@ public final class MainActivity extends ComponentActivity {
             if (tryStartActivity(deepLink)) return;
         }
 
-        if (!title.isEmpty()) {
-            for (String packageName : packages) {
-                Intent search = new Intent(Intent.ACTION_SEARCH);
-                search.setPackage(packageName);
-                search.putExtra(SearchManager.QUERY, title);
-                if (tryStartActivity(search)) return;
-            }
-        }
+        if (!textSearchFirst && tryProviderTextSearch(packages, title)) return;
 
         for (String packageName : packages) {
             Intent launch = getPackageManager().getLeanbackLaunchIntentForPackage(packageName);
@@ -516,6 +512,19 @@ public final class MainActivity extends ComponentActivity {
         }
 
         tryStartActivity(new Intent(Intent.ACTION_VIEW, fallbackUri));
+    }
+
+    private boolean tryProviderTextSearch(String[] packages, String title) {
+        if (title.isEmpty()) return false;
+        for (String packageName : packages) {
+            Intent search = new Intent(Intent.ACTION_SEARCH);
+            search.setPackage(packageName);
+            search.putExtra(SearchManager.QUERY, title);
+            search.putExtra(SearchManager.USER_QUERY, title);
+            search.putExtra(Intent.EXTRA_TEXT, title);
+            if (tryStartActivity(search)) return true;
+        }
+        return false;
     }
 
     private void launchProviderExact(String providerId, String title,
