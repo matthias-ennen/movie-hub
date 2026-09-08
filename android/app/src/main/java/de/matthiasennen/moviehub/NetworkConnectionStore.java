@@ -7,6 +7,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
@@ -34,7 +35,7 @@ final class NetworkConnectionStore {
         } catch (Exception ignored) {
             // A corrupt list behaves like an empty list and can be rebuilt locally.
         }
-        result.sort(Comparator.comparing(SmbConnection::getName, String.CASE_INSENSITIVE_ORDER));
+        sortByName(result);
         return result;
     }
 
@@ -57,34 +58,50 @@ final class NetworkConnectionStore {
 
     synchronized void save(SmbConnection connection) {
         List<SmbConnection> all = loadAll();
-        all.removeIf(value -> value.getEndpointKey().equals(connection.getEndpointKey()));
+        removeEndpoint(all, connection.getEndpointKey());
         all.add(connection);
         write(all);
     }
 
     synchronized void replace(String previousEndpointKey, SmbConnection connection) {
         List<SmbConnection> all = loadAll();
-        all.removeIf(value -> value.getEndpointKey().equals(previousEndpointKey)
-                || value.getEndpointKey().equals(connection.getEndpointKey()));
+        removeEndpoint(all, previousEndpointKey);
+        removeEndpoint(all, connection.getEndpointKey());
         all.add(connection);
         write(all);
     }
 
     synchronized void remove(String endpointKey) {
         List<SmbConnection> all = loadAll();
-        all.removeIf(value -> value.getEndpointKey().equals(endpointKey));
+        removeEndpoint(all, endpointKey);
         write(all);
     }
 
     private void write(List<SmbConnection> connections) {
         try {
-            connections.sort(Comparator.comparing(SmbConnection::getName,
-                    String.CASE_INSENSITIVE_ORDER));
+            sortByName(connections);
             JSONArray array = new JSONArray();
             for (SmbConnection connection : connections) array.put(connection.toJson());
             preferences.edit().putString(CONNECTIONS, array.toString()).commit();
         } catch (Exception error) {
             throw new IllegalStateException("Netzlaufwerke konnten nicht gespeichert werden.", error);
         }
+    }
+
+    private void removeEndpoint(List<SmbConnection> connections, String endpointKey) {
+        for (int index = connections.size() - 1; index >= 0; index--) {
+            if (connections.get(index).getEndpointKey().equals(endpointKey)) {
+                connections.remove(index);
+            }
+        }
+    }
+
+    private void sortByName(List<SmbConnection> connections) {
+        Collections.sort(connections, new Comparator<SmbConnection>() {
+            @Override
+            public int compare(SmbConnection left, SmbConnection right) {
+                return String.CASE_INSENSITIVE_ORDER.compare(left.getName(), right.getName());
+            }
+        });
     }
 }
