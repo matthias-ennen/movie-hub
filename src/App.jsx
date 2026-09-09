@@ -14,6 +14,8 @@ import { buildPersonalRows, mergeCatalogWithPersonalSnapshots } from './library/
 import { firebaseReady } from './lib/firebase.js'
 import { ProfileProvider, useProfiles } from './profiles/ProfileProvider.jsx'
 import { ThemeProvider } from './theme/ThemeProvider.jsx'
+import { TmdbCatalogProvider, useTmdbCatalog } from './tmdb/TmdbCatalogProvider.jsx'
+import { buildTmdbCatalogRows, mergePublicAndPersonalCatalog } from './tmdb/tmdbCatalogModel.js'
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -247,6 +249,7 @@ function ExitConfirmationDialog({ onCancel, onClose }) {
 function MovieHub({ user }) {
   const { profiles, activeProfile, selectProfile } = useProfiles()
   const { getTitleState, statesByKey, loading: libraryLoading, error: libraryError } = useLibrary()
+  const { personalTitles: tmdbPersonalTitles } = useTmdbCatalog()
   const [currentView, setCurrentView] = useState('home')
   const [selectedTitle, setSelectedTitle] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -284,9 +287,13 @@ function MovieHub({ user }) {
     return () => { cancelled = true }
   }, [])
 
-  const titles = catalog.titles.length ? catalog.titles : fallbackTitles
+  const publicTitles = catalog.titles.length ? catalog.titles : fallbackTitles
+  const titles = useMemo(
+    () => mergePublicAndPersonalCatalog(publicTitles, tmdbPersonalTitles),
+    [publicTitles, tmdbPersonalTitles],
+  )
   const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
-  const heroItem = titles[0]
+  const heroItem = publicTitles[0] || titles[0]
 
   const handleViewChange = useCallback((nextView) => {
     setProfileOpen(false)
@@ -385,6 +392,7 @@ function MovieHub({ user }) {
     () => buildPersonalRows(mergeCatalogWithPersonalSnapshots(titles, statesByKey), getTitleState),
     [titles, statesByKey, getTitleState],
   )
+  const tmdbRows = useMemo(() => buildTmdbCatalogRows(titles), [titles])
   const movies = titles.filter((item) => item.type === 'movie')
   const series = titles.filter((item) => item.type === 'series')
   const liveTmdb = catalog.source === 'tmdb'
@@ -412,6 +420,9 @@ function MovieHub({ user }) {
               <span>{liveTmdb ? 'Filme & Serien · deutsche Metadaten · Poster & Backdrops' : 'Der Live-TMDB-Katalog konnte noch nicht geladen werden.'}</span>
             </div>
             {!libraryLoading && !libraryError && personalRows.map((row) => (
+              <ContentRow key={row.id} title={row.title} items={row.items} onOpen={handleOpenTitle} />
+            ))}
+            {tmdbRows.map((row) => (
               <ContentRow key={row.id} title={row.title} items={row.items} onOpen={handleOpenTitle} />
             ))}
             {rows.map((row) => <ContentRow key={row.id} title={row.title} items={row.items} onOpen={handleOpenTitle} />)}
@@ -481,7 +492,9 @@ export default function App() {
 
   return user ? (
     <ProfileProvider user={user}>
-      <AuthenticatedMovieHub user={user} />
+      <TmdbCatalogProvider user={user}>
+        <AuthenticatedMovieHub user={user} />
+      </TmdbCatalogProvider>
     </ProfileProvider>
   ) : <Login />
 }

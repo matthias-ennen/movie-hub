@@ -1,5 +1,6 @@
 package de.matthiasennen.moviehub;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -11,8 +12,14 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 
-/** Minimal native TMDB authentication client. Secrets never cross the WebView bridge. */
+/** Native TMDB authentication and personal-catalog client. Secrets never cross the WebView bridge. */
 final class TmdbApiClient {
     private static final String API_BASE = "https://api.themoviedb.org/3";
     private static final int CONNECT_TIMEOUT_MS = 10_000;
@@ -74,10 +81,6 @@ final class TmdbApiClient {
                 "POST", "/authentication/token/validate_with_login",
                 apiReadAccessToken, loginBody);
 
-        // Continue with the token returned by TMDB after successful validation.
-        // It is normally identical to the original request token, but using the
-        // response value keeps the session step tied to the token TMDB actually
-        // accepted instead of assuming identity.
         String validatedRequestToken = validatedLogin.optString("request_token").trim();
         if (validatedRequestToken.isEmpty()) validatedRequestToken = requestToken;
 
@@ -100,15 +103,215 @@ final class TmdbApiClient {
 
     static void validateSession(String apiReadAccessToken, String sessionId)
             throws TmdbException {
-        final String encodedSession;
-        try {
-            encodedSession = URLEncoder.encode(sessionId, "UTF-8");
-        } catch (Exception impossible) {
+        request("GET", "/account?session_id=" + encode(sessionId), apiReadAccessToken, null);
+    }
+
+    static JSONObject fetchPersonalCatalog(String apiReadAccessToken, String sessionId)
+            throws TmdbException {
+        String encodedSession = encode(sessionId);
+        JSONObject account = request(
+                "GET", "/account?session_id=" + encodedSession, apiReadAccessToken, null);
+        long accountId = account.optLong("id", 0);
+        if (accountId <= 0) {
             throw new TmdbException(ErrorKind.RESPONSE, 0,
-                    "Die TMDB-Session konnte nicht geprüft werden.");
+                    "TMDB hat keine gültige Account-ID geliefert.");
         }
-        request("GET", "/movie/550/account_states?session_id=" + encodedSession,
+
+        Map<Integer, String> movieGenres = fetchGenreNames(apiReadAccessToken, "movie");
+        Map<Integer, String> tvGenres = fetchGenreNames(apiReadAccessToken, "tv");
+        LinkedHashMap<String, JSONObject> titles = new LinkedHashMap<>();
+
+        mergePagedList(titles, apiReadAccessToken, encodedSession, accountId,
+                "movie", "favorite/movies", "favorite", movieGenres);
+        mergePagedList(titles, apiReadAccessToken, encodedSession, accountId,
+                "tv", "favorite/tv", "favorite", tvGenres);
+        mergePagedList(titles, apiReadAccessToken, encodedSession, accountId,
+                "movie", "watchlist/movies", "watchlist", movieGenres);
+        mergePagedList(titles, apiReadAccessToken, encodedSession, accountId,
+                "tv", "watchlist/tv", "watchlist", tvGenres);
+
+        int favoriteCount = 0;
+        int watchlistCount = 0;
+        JSONArray resultTitles = new JSONArray();
+        for (JSONObject title : titles.values()) {
+            if (title.optBoolean("favorite")) favoriteCount++;
+            if (title.optBoolean("watchlist")) watchlistCount++;
+            try {
+                title.put("providerIds", fetchSupportedProviders(
+                        apiReadAccessToken,
+                        title.optString("mediaType"),
+                        title.optLong("tmdbId")));
+            } catch (Exception ignored) {
+                // Provider availability enriches the catalog but must not make
+                // a valid personal-list sync fail. The public catalog can still
+                // supply provider data for titles it already contains.
+                try { title.put("providerIds", new JSONArray()); } catch (Exception ignoredJson) {}
+            }
+            resultTitles.put(title);
+        }
+
+        try {
+            JSONObject safeAccount = new JSONObject();
+            safeAccount.put("id", accountId);
+            safeAccount.put("username", account.optString("username"));
+            safeAccount.put("name", account.optString("name"));
+
+            JSONObject counts = new JSONObject();
+            counts.put("favorite", favoriteCount);
+            counts.put("watchlist", watchlistCount);
+            counts.put("total", titles.size());
+
+            JSONObject result = new JSONObject();
+            result.put("account", safeAccount);
+            result.put("counts", counts);
+            result.put("titles", resultTitles);
+            return result;
+        } catch (Exception error) {
+            throw new TmdbException(ErrorKind.RESPONSE, 0,
+                    "Der persönliche TMDB-Katalog konnte nicht aufbereitet werden.");
+        }
+    }
+
+    private static void mergePagedList(
+            LinkedHashMap<String, JSONObject> target,
+            String apiReadAccessToken,
+            String encodedSession,
+            long accountId,
+            String mediaType,
+            String endpoint,
+            String membership,
+            Map<Integer, String> genreNames) throws TmdbException {
+        int page = 1;
+        int order = 0;
+        int totalPages;
+        do {
+            String path = "/account/" + accountId + "/" + endpoint
+                    + "?language=de-DE&page=" + page
+                    + "&sort_by=created_at.desc&session_id=" + encodedSession;
+            JSONObject response = request("GET", path, apiReadAccessToken, null);
+            JSONArray results = response.optJSONArray("results");
+            if (results != null) {
+                for (int index = 0; index < results.length(); index++) {
+                    JSONObject raw = results.optJSONObject(index);
+                    if (raw == null || raw.optLong("id", 0) <= 0) continue;
+                    order++;
+                    String key = mediaType + ":" + raw.optLong("id");
+                    JSONObject normalized = target.get(key);
+                    if (normalized == null) {
+                        normalized = normalizeListTitle(raw, mediaType, genreNames);
+                        target.put(key, normalized);
+                    }
+                    try {
+                        normalized.put(membership, true);
+                        normalized.put(membership + "Order", order);
+                    } catch (Exception ignored) {}
+                }
+            }
+            totalPages = Math.max(1, response.optInt("total_pages", 1));
+            page++;
+        } while (page <= totalPages);
+    }
+
+    private static JSONObject normalizeListTitle(
+            JSONObject raw, String mediaType, Map<Integer, String> genreNames) throws TmdbException {
+        try {
+            boolean movie = "movie".equals(mediaType);
+            long tmdbId = raw.optLong("id");
+            String title = movie ? raw.optString("title") : raw.optString("name");
+            String originalTitle = movie
+                    ? raw.optString("original_title")
+                    : raw.optString("original_name");
+            String releaseDate = movie
+                    ? raw.optString("release_date")
+                    : raw.optString("first_air_date");
+
+            JSONArray names = new JSONArray();
+            JSONArray ids = raw.optJSONArray("genre_ids");
+            if (ids != null) {
+                for (int index = 0; index < ids.length(); index++) {
+                    String name = genreNames.get(ids.optInt(index));
+                    if (name != null && !name.isEmpty()) names.put(name);
+                }
+            }
+
+            JSONObject result = new JSONObject();
+            result.put("tmdbId", tmdbId);
+            result.put("mediaType", mediaType);
+            result.put("title", title.isEmpty() ? originalTitle : title);
+            result.put("originalTitle", originalTitle);
+            result.put("description", raw.optString("overview"));
+            result.put("releaseDate", releaseDate);
+            result.put("posterPath", raw.optString("poster_path", null));
+            result.put("backdropPath", raw.optString("backdrop_path", null));
+            result.put("originalLanguage", raw.optString("original_language", null));
+            result.put("voteAverage", raw.optDouble("vote_average", 0));
+            result.put("voteCount", raw.optLong("vote_count", 0));
+            result.put("genreNames", names);
+            result.put("favorite", false);
+            result.put("watchlist", false);
+            return result;
+        } catch (Exception error) {
+            throw new TmdbException(ErrorKind.RESPONSE, 0,
+                    "Ein persönlicher TMDB-Titel konnte nicht verarbeitet werden.");
+        }
+    }
+
+    private static Map<Integer, String> fetchGenreNames(String apiReadAccessToken, String mediaType)
+            throws TmdbException {
+        JSONObject response = request(
+                "GET", "/genre/" + mediaType + "/list?language=de-DE",
                 apiReadAccessToken, null);
+        Map<Integer, String> names = new HashMap<>();
+        JSONArray genres = response.optJSONArray("genres");
+        if (genres != null) {
+            for (int index = 0; index < genres.length(); index++) {
+                JSONObject genre = genres.optJSONObject(index);
+                if (genre != null && genre.optInt("id") > 0) {
+                    names.put(genre.optInt("id"), genre.optString("name"));
+                }
+            }
+        }
+        return names;
+    }
+
+    private static JSONArray fetchSupportedProviders(
+            String apiReadAccessToken, String mediaType, long tmdbId) throws TmdbException {
+        JSONObject response = request(
+                "GET", "/" + mediaType + "/" + tmdbId + "/watch/providers",
+                apiReadAccessToken, null);
+        JSONObject regions = response.optJSONObject("results");
+        JSONObject de = regions == null ? null : regions.optJSONObject("DE");
+        Set<String> providerIds = new LinkedHashSet<>();
+        if (de != null) {
+            for (String offerType : new String[] { "flatrate", "free", "ads", "rent", "buy" }) {
+                JSONArray providers = de.optJSONArray(offerType);
+                if (providers == null) continue;
+                for (int index = 0; index < providers.length(); index++) {
+                    JSONObject provider = providers.optJSONObject(index);
+                    String movieHubId = provider == null
+                            ? null
+                            : supportedProviderId(provider.optString("provider_name"));
+                    if (movieHubId != null) providerIds.add(movieHubId);
+                }
+            }
+        }
+        JSONArray result = new JSONArray();
+        for (String providerId : providerIds) result.put(providerId);
+        return result;
+    }
+
+    private static String supportedProviderId(String providerName) {
+        String normalized = Normalizer.normalize(providerName == null ? "" : providerName,
+                        Normalizer.Form.NFKD)
+                .replaceAll("\\p{M}+", "")
+                .replaceAll("[^A-Za-z0-9]", "")
+                .toLowerCase(java.util.Locale.ROOT);
+        if ("netflix".equals(normalized)) return "netflix";
+        if ("amazonprimevideo".equals(normalized) || "primevideo".equals(normalized)) return "prime";
+        if ("disneyplus".equals(normalized)) return "disney";
+        if ("youtube".equals(normalized)) return "youtube";
+        if ("waiputv".equals(normalized)) return "waipu";
+        return null;
     }
 
     static void deleteSession(String apiReadAccessToken, String sessionId)
@@ -121,6 +324,15 @@ final class TmdbApiClient {
                     "Die TMDB-Session konnte nicht zum Trennen vorbereitet werden.");
         }
         request("DELETE", "/authentication/session", apiReadAccessToken, body);
+    }
+
+    private static String encode(String value) throws TmdbException {
+        try {
+            return URLEncoder.encode(value, "UTF-8");
+        } catch (Exception impossible) {
+            throw new TmdbException(ErrorKind.RESPONSE, 0,
+                    "Die TMDB-Session konnte nicht verarbeitet werden.");
+        }
     }
 
     private static JSONObject request(String method, String path, String apiReadAccessToken,
@@ -166,9 +378,6 @@ final class TmdbApiClient {
                 if ("/authentication/token/validate_with_login".equals(path)
                         && (statusCode == 400 || statusCode == 401
                         || statusCode == 403 || statusCode == 422)) {
-                    // Keep account-login rejections separate from application-token
-                    // failures so the settings UI can show TMDB's exact safe status
-                    // message instead of collapsing every 401 into a generic error.
                     kind = ErrorKind.ACCOUNT_LOGIN;
                 } else if (statusCode == 401 || statusCode == 403) {
                     kind = ErrorKind.AUTHENTICATION;

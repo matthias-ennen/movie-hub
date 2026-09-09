@@ -28,6 +28,7 @@ describe('Firestore Security Rules', () => {
     await assertFails(getDoc(doc(db, 'users', 'alice', 'diagnostics', 'phase0')))
     await assertFails(getDoc(doc(db, 'users', 'alice', 'profiles', 'main')))
     await assertFails(getDoc(doc(db, 'users', 'alice', 'profiles', 'main', 'titles', 'movie-11')))
+    await assertFails(getDoc(doc(db, 'users', 'alice', 'tmdbCatalog', 'movie:11')))
   })
 
   it('erlaubt einem Benutzer Lesen und Schreiben im eigenen Diagnosebereich', async () => {
@@ -101,12 +102,62 @@ describe('Firestore Security Rules', () => {
     expect((await assertSucceeds(getDoc(mediaRef))).data().label).toBe('Deutscher Trailer')
   })
 
-  it('verweigert Zugriff auf gemeinsame Medien eines fremden Kontos', async () => {
+  it('erlaubt den nicht geheimen persönlichen TMDB-Katalog kontoweit', async () => {
+    const db = testEnv.authenticatedContext('alice').firestore()
+    const catalogRef = doc(db, 'users', 'alice', 'tmdbCatalog', 'movie:11')
+    const syncRef = doc(db, 'users', 'alice', 'tmdbSync', 'state')
+
+    await assertSucceeds(setDoc(catalogRef, {
+      tmdbId: 11,
+      mediaType: 'movie',
+      title: 'Star Wars',
+      originalTitle: 'Star Wars',
+      description: '',
+      releaseDate: '1977-05-25',
+      posterPath: null,
+      backdropPath: null,
+      originalLanguage: 'en',
+      voteAverage: 8.2,
+      voteCount: 1000,
+      genreNames: ['Abenteuer'],
+      providerIds: ['disney'],
+      favorite: true,
+      watchlist: false,
+      favoriteOrder: 1,
+      watchlistOrder: null,
+      syncedAt: '2026-09-09T12:00:00Z',
+    }))
+    await assertSucceeds(setDoc(syncRef, {
+      syncedAt: '2026-09-09T12:00:00Z',
+      accountId: 123,
+      accountUsername: 'alice-tmdb',
+      accountName: null,
+      favoriteCount: 1,
+      watchlistCount: 0,
+      totalCount: 1,
+    }))
+    expect((await assertSucceeds(getDoc(catalogRef))).data().favorite).toBe(true)
+  })
+
+  it('verhindert das Einschleusen unbekannter Felder in den TMDB-Katalog', async () => {
+    const db = testEnv.authenticatedContext('alice').firestore()
+    const ref = doc(db, 'users', 'alice', 'tmdbCatalog', 'movie:11')
+    await assertFails(setDoc(ref, {
+      tmdbId: 11,
+      mediaType: 'movie',
+      title: 'Star Wars',
+      apiReadAccessToken: 'darf-nicht-gespeichert-werden',
+    }))
+  })
+
+  it('verweigert Zugriff auf gemeinsamen TMDB-Katalog und Medien eines fremden Kontos', async () => {
     const db = testEnv.authenticatedContext('alice').firestore()
     const foreignMediaRef = doc(db, 'users', 'bob', 'sharedMedia', 'movie-11', 'entries', 'trailer')
+    const foreignTmdbRef = doc(db, 'users', 'bob', 'tmdbCatalog', 'movie:11')
 
     await assertFails(setDoc(foreignMediaRef, { label: 'Fremd', type: 'web', url: 'https://example.com' }))
     await assertFails(getDoc(foreignMediaRef))
+    await assertFails(getDoc(foreignTmdbRef))
   })
 
   it('verweigert unbekannte persönliche Pfade trotz eigener UID', async () => {
