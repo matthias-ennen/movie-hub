@@ -7,15 +7,15 @@ import org.junit.Test;
 
 public final class ProviderLaunchPolicyTest {
     @Test
-    public void searchesTextFirstForAppsThatIgnoredTheirHttpsQuery() {
+    public void searchesTextFirstForAppsThatMayIgnoreTheirHttpsQuery() {
         assertTrue(ProviderLaunchPolicy.triesTextSearchFirst("netflix"));
         assertTrue(ProviderLaunchPolicy.triesTextSearchFirst("prime"));
         assertTrue(ProviderLaunchPolicy.triesTextSearchFirst("disney"));
+        assertTrue(ProviderLaunchPolicy.triesTextSearchFirst("youtube"));
     }
 
     @Test
-    public void keepsVerifiedHttpsOrDeepLinkDestinationFirst() {
-        assertFalse(ProviderLaunchPolicy.triesTextSearchFirst("youtube"));
+    public void keepsVerifiedProviderDestinationFirstWhereAppropriate() {
         assertFalse(ProviderLaunchPolicy.triesTextSearchFirst("waipu"));
         assertFalse(ProviderLaunchPolicy.triesTextSearchFirst("unknown"));
         assertFalse(ProviderLaunchPolicy.triesTextSearchFirst(null));
