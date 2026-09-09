@@ -9,11 +9,16 @@ import android.app.Application;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
+import android.view.WindowManager;
 import android.view.animation.AccelerateInterpolator;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
@@ -53,16 +58,24 @@ final class StartupIntroOverlay {
     }
 
     private static void attach(Activity activity) {
-        ViewGroup content = activity.findViewById(android.R.id.content);
-        if (content == null) {
+        Window window = activity.getWindow();
+        prepareFullscreenWindow(window);
+
+        View decor = window.getDecorView();
+        if (!(decor instanceof ViewGroup)) {
             return;
         }
+        ViewGroup root = (ViewGroup) decor;
 
         FrameLayout overlay = new FrameLayout(activity);
-        overlay.setBackgroundColor(Color.TRANSPARENT);
+        // The overlay itself starts opaque black so there cannot be even a
+        // one-frame glimpse of the WebView or window background around it.
+        overlay.setBackgroundColor(Color.BLACK);
+        overlay.setFitsSystemWindows(false);
         overlay.setFocusable(true);
         overlay.setFocusableInTouchMode(true);
         overlay.setClickable(true);
+        overlay.setZ(10_000f);
 
         FrameLayout collapseLayer = new FrameLayout(activity);
         collapseLayer.setBackgroundColor(Color.BLACK);
@@ -88,7 +101,10 @@ final class StartupIntroOverlay {
         coreLine.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         overlay.addView(coreLine, lineParams(activity, Math.max(1, dp(activity, 2))));
 
-        content.addView(overlay, new ViewGroup.LayoutParams(
+        // Add directly to DecorView, not android.R.id.content. This is the
+        // uppermost Activity window layer and therefore covers the complete
+        // visible app surface on phones as well as Fire TV.
+        root.addView(overlay, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
         overlay.bringToFront();
@@ -98,8 +114,35 @@ final class StartupIntroOverlay {
             if (!overlay.isAttachedToWindow() || activity.isFinishing()) {
                 return;
             }
-            startCrtShutdown(activity, content, overlay, collapseLayer, glowLine, coreLine);
+            startCrtShutdown(activity, root, overlay, collapseLayer, glowLine, coreLine);
         }, LOGO_HOLD_MS);
+    }
+
+    @SuppressWarnings("deprecation")
+    private static void prepareFullscreenWindow(Window window) {
+        window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        window.setStatusBarColor(Color.BLACK);
+        window.setNavigationBarColor(Color.BLACK);
+
+        View decor = window.getDecorView();
+        decor.setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false);
+            WindowInsetsController controller = window.getInsetsController();
+            if (controller != null) {
+                controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                controller.setSystemBarsBehavior(
+                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        }
     }
 
     private static LinearLayout createLogo(Activity activity) {
@@ -157,11 +200,16 @@ final class StartupIntroOverlay {
 
     private static void startCrtShutdown(
             Activity activity,
-            ViewGroup content,
+            ViewGroup root,
             FrameLayout overlay,
             FrameLayout collapseLayer,
             View glowLine,
             View coreLine) {
+
+        // From this point the collapsing black panel itself provides the black
+        // image. Making only the overlay background transparent allows the
+        // already loaded Movie Hub surface to be revealed by the CRT collapse.
+        overlay.setBackgroundColor(Color.TRANSPARENT);
 
         AccelerateInterpolator collapseInterpolator = new AccelerateInterpolator(1.35f);
 
@@ -207,22 +255,22 @@ final class StartupIntroOverlay {
         shutdown.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
-                removeOverlay(content, overlay);
-                requestWebViewFocus(content);
+                removeOverlay(overlay);
+                requestWebViewFocus(root);
             }
 
             @Override
             public void onAnimationCancel(Animator animation) {
-                removeOverlay(content, overlay);
-                requestWebViewFocus(content);
+                removeOverlay(overlay);
+                requestWebViewFocus(root);
             }
         });
         shutdown.start();
     }
 
-    private static void removeOverlay(ViewGroup content, View overlay) {
-        if (overlay.getParent() == content) {
-            content.removeView(overlay);
+    private static void removeOverlay(View overlay) {
+        if (overlay.getParent() instanceof ViewGroup) {
+            ((ViewGroup) overlay.getParent()).removeView(overlay);
         }
     }
 
