@@ -35,6 +35,9 @@
             android:name=".NetworkSettingsActivity"
             android:exported="false" />
         <activity
+            android:name=".TmdbSettingsActivity"
+            android:exported="false" />
+        <activity
             android:name=".SmbPlayerActivity"
             android:exported="false"
             android:screenOrientation="landscape" />
