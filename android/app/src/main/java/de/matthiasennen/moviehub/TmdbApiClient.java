@@ -20,6 +20,7 @@ final class TmdbApiClient {
 
     enum ErrorKind {
         AUTHENTICATION,
+        ACCOUNT_LOGIN,
         NETWORK,
         SERVICE,
         RESPONSE
@@ -69,12 +70,20 @@ final class TmdbApiClient {
             throw new TmdbException(ErrorKind.RESPONSE, 0,
                     "Die TMDB-Anmeldung konnte nicht vorbereitet werden.");
         }
-        request("POST", "/authentication/token/validate_with_login",
+        JSONObject validatedLogin = request(
+                "POST", "/authentication/token/validate_with_login",
                 apiReadAccessToken, loginBody);
+
+        // Continue with the token returned by TMDB after successful validation.
+        // It is normally identical to the original request token, but using the
+        // response value keeps the session step tied to the token TMDB actually
+        // accepted instead of assuming identity.
+        String validatedRequestToken = validatedLogin.optString("request_token").trim();
+        if (validatedRequestToken.isEmpty()) validatedRequestToken = requestToken;
 
         JSONObject sessionBody = new JSONObject();
         try {
-            sessionBody.put("request_token", requestToken);
+            sessionBody.put("request_token", validatedRequestToken);
         } catch (Exception impossible) {
             throw new TmdbException(ErrorKind.RESPONSE, 0,
                     "Die TMDB-Session konnte nicht vorbereitet werden.");
@@ -145,16 +154,30 @@ final class TmdbApiClient {
 
             if (statusCode < 200 || statusCode >= 300) {
                 String statusMessage = safeStatusMessage(responseText);
+                int tmdbStatusCode = safeTmdbStatusCode(responseText);
+                String diagnosticMessage = statusMessage.isEmpty()
+                        ? "TMDB hat die Anfrage abgelehnt."
+                        : statusMessage;
+                if (tmdbStatusCode > 0) {
+                    diagnosticMessage = "TMDB-Status " + tmdbStatusCode + ": " + diagnosticMessage;
+                }
+
                 ErrorKind kind;
-                if (statusCode == 401 || statusCode == 403) {
+                if ("/authentication/token/validate_with_login".equals(path)
+                        && (statusCode == 400 || statusCode == 401
+                        || statusCode == 403 || statusCode == 422)) {
+                    // Keep account-login rejections separate from application-token
+                    // failures so the settings UI can show TMDB's exact safe status
+                    // message instead of collapsing every 401 into a generic error.
+                    kind = ErrorKind.ACCOUNT_LOGIN;
+                } else if (statusCode == 401 || statusCode == 403) {
                     kind = ErrorKind.AUTHENTICATION;
                 } else if (statusCode >= 500) {
                     kind = ErrorKind.SERVICE;
                 } else {
                     kind = ErrorKind.RESPONSE;
                 }
-                throw new TmdbException(kind, statusCode,
-                        statusMessage.isEmpty() ? "TMDB hat die Anfrage abgelehnt." : statusMessage);
+                throw new TmdbException(kind, statusCode, diagnosticMessage);
             }
 
             if (responseText.isEmpty()) return new JSONObject();
@@ -190,6 +213,15 @@ final class TmdbApiClient {
             return message;
         } catch (Exception ignored) {
             return "";
+        }
+    }
+
+    private static int safeTmdbStatusCode(String responseText) {
+        if (responseText == null || responseText.isEmpty()) return 0;
+        try {
+            return new JSONObject(responseText).optInt("status_code", 0);
+        } catch (Exception ignored) {
+            return 0;
         }
     }
 }
