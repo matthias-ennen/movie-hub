@@ -4,6 +4,8 @@
 
 Matthias hat den aktuellen Movie-Hub-Stand am 9. September 2026 **bis hierhin auf Smartphone, Tablet und Fire TV abgenommen**. Sollten später noch Auffälligkeiten entstehen, werden dafür neue Issues angelegt, statt bereits abgenommene Arbeitspakete wieder unscharf zu öffnen.
 
+Mit der anschließenden Abnahme von #86 ist auch die erste Version der Seite **„Über Movie Hub“** abgeschlossen. Spätere gestalterische oder inhaltliche Überarbeitungen werden bei Bedarf als neue, klar abgegrenzte Issues angelegt.
+
 ## Abgenommener Funktionsumfang
 
 ### Android / Fire TV Shell
@@ -72,8 +74,32 @@ Zielhierarchie je Anbieter:
 
 Die Paketlisten enthalten Android-/Android-TV- und reale Fire-TV-Varianten. Unterschiedliche Suchfähigkeiten der Fremd-Apps sind kein Blocker, solange die vereinbarte Mindestfunktion erreicht wird.
 
+Für waipu.tv sind als stabile Ziele dokumentiert:
+
+- Waiputhek: `https://app.waipu.tv/waiputhek`
+- Das Erste / Live-TV: `https://www.waipu.tv/sender/das-erste/`
+
+### Über Movie Hub
+
+- eigener Menüpunkt **„Über Movie Hub“** zwischen Einstellungen und Abmelden
+- native App-Version und `versionCode` werden aus der installierten APK gelesen
+- Web-Build wird separat und automatisch ausgewiesen
+- Plattforminformation für Android bzw. Fire TV
+- GitHub-Projektlink über sicheren Öffnungsweg
+- Hinweise zu TMDB, Firebase, Datenschutz und verwendeten Open-Source-Komponenten
+- Browser-Fallback funktioniert ohne native APK-Informationen
+- responsive und D-Pad-taugliche Darstellung
+
+Technischer Stand der ersten Umsetzung:
+
+- PR #108 in `main`
+- CI #175 grün
+- Firebase-Deploy #64 grün
+- Android APK #100 grün
+
 ## Abgeschlossene Issues dieses Abnahmepakets
 
+- #86 – „Über Movie Hub“-Seite mit Version, Build und Projektinformationen
 - #87 – Persönliche TMDB-Verbindung in den Einstellungen sicher einrichten
 - #90 – Persönlichen TMDB-Katalog aus Favoriten und Watchlist synchronisieren
 - #94 – Movie-Hub-Startintro mit 5-Sekunden-Logo und CRT-Abschaltung
@@ -86,11 +112,18 @@ Die Paketlisten enthalten Android-/Android-TV- und reale Fire-TV-Varianten. Unte
 ## Weiterhin offen
 
 - #78 – übergeordnete Katalogarchitektur und spätere Anbieterkataloge
+- #4 – Phase 5: Streaming-Verfügbarkeit und waipu.tv-Live-Badges
+- #7 – Phase 6: Persönliche Empfehlungen, Top 100 und Automatisierung
 - #8 – Ideen-Sammelstelle
-- weitere langfristige Phasen-/Backlog-Issues
 
 ## Nächstes Arbeitspaket
 
-**#86 – „Über Movie Hub“-Seite mit Version, Build und Projektinformationen**
+**#78 – Katalogarchitektur: TMDB-Katalog und anbieterspezifische Kataloge**
 
-Ziel ist eine TV-taugliche About-Seite mit klar getrennten Angaben für native APK und zentral ausgelieferte Web-Oberfläche, Projekt-/Datenhinweisen sowie sauberer D-Pad-/Zurück-Navigation.
+Die persönliche TMDB-Verbindung (#87) und der persönliche TMDB-Katalog (#90) sind bereits umgesetzt und abgenommen. Damit ist der nächste logische Schritt innerhalb von #78, die **Anbieterkataloge** sauber zu konkretisieren: Welche Titel gehören jeweils in Netflix-, Prime-Video-, Disney+-, YouTube- und waipu.tv-Kataloge, aus welchen strukturierten Quellen kommen diese Zuordnungen, wie groß sollen die Kataloge sein und wie bleiben Katalogzugehörigkeit, TMDB-Metadaten und aktuelle Verfügbarkeit technisch getrennt.
+
+Für waipu.tv soll dabei die Trennung zwischen Mediathek/Waiputhek und linearem Live-TV ausdrücklich erhalten bleiben.
+
+## Tagesabschluss 09.09.2026
+
+Der Entwicklungsstand dieses Tages ist dokumentiert und abgenommen. Für heute erfolgen keine weiteren Funktionsänderungen. Die weitere Entwicklung setzt beim nächsten Termin mit #78 beziehungsweise einem daraus abgeleiteten konkreten Teil-Issue fort.
