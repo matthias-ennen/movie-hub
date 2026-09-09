@@ -7,16 +7,16 @@ import org.junit.Test;
 
 public final class ProviderLaunchPolicyTest {
     @Test
-    public void searchesTextFirstForAppsThatMayIgnoreTheirHttpsQuery() {
+    public void searchesTextFirstForEverySupportedProvider() {
         assertTrue(ProviderLaunchPolicy.triesTextSearchFirst("netflix"));
         assertTrue(ProviderLaunchPolicy.triesTextSearchFirst("prime"));
         assertTrue(ProviderLaunchPolicy.triesTextSearchFirst("disney"));
         assertTrue(ProviderLaunchPolicy.triesTextSearchFirst("youtube"));
+        assertTrue(ProviderLaunchPolicy.triesTextSearchFirst("waipu"));
     }
 
     @Test
-    public void keepsVerifiedProviderDestinationFirstWhereAppropriate() {
-        assertFalse(ProviderLaunchPolicy.triesTextSearchFirst("waipu"));
+    public void rejectsUnknownProvider() {
         assertFalse(ProviderLaunchPolicy.triesTextSearchFirst("unknown"));
         assertFalse(ProviderLaunchPolicy.triesTextSearchFirst(null));
     }
