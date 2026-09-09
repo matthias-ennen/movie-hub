@@ -481,6 +481,7 @@ public final class MainActivity extends ComponentActivity {
                 return new String[] { "com.netflix.ninja", "com.netflix.mediaclient" };
             case "prime":
                 return new String[] {
+                        "com.amazon.firebat",
                         "com.amazon.avod",
                         "com.amazon.amazonvideo.livingroom",
                         "com.amazon.avod.thirdpartyclient"
@@ -494,7 +495,11 @@ public final class MainActivity extends ComponentActivity {
                         "com.google.android.youtube"
                 };
             case "waipu":
-                return new String[] { "de.exaring.waipu.firetv", "de.exaring.waipu" };
+                return new String[] {
+                        "de.exaring.waipu.firetv.live",
+                        "de.exaring.waipu.firetv",
+                        "de.exaring.waipu"
+                };
             default:
                 return new String[0];
         }
