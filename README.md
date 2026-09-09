@@ -1,20 +1,18 @@
 # Movie Hub
 
-Movie Hub ist eine persönliche, TV-optimierte Filmzentrale für Fire TV. Die Anwendung bündelt Filme aus Netflix, Prime Video, Disney+, YouTube und waipu.tv in einer gemeinsamen Oberfläche und verbindet Streaming-Verfügbarkeit mit persönlichen Bewertungen, Listen und Empfehlungen.
+Movie Hub ist eine persönliche, TV-optimierte Filmzentrale für Fire TV, Android-Smartphones und Tablets. Die Anwendung bündelt Filme und Serien aus Netflix, Prime Video, Disney+, YouTube und waipu.tv in einer gemeinsamen Oberfläche und verbindet Streaming-Verfügbarkeit mit persönlichen Bewertungen, Listen, eigenen Medien und TMDB-Daten.
 
 ## Zielbild
 
 - Streaming-artige Oberfläche mit großen Postern und Backdrops
-- Persönliche Listen wie „Meine Top 100“, Science-Fiction & Technik, Thriller & Psychologie, Politik & Gesellschaft usw.
+- Persönliche Listen und ein eigenes Filmgedächtnis
 - Kompakte Provider-Symbole direkt auf den Filmkarten
-- Auswahlmenü, wenn ein Film auf mehreren Plattformen verfügbar ist
+- Automatische Anbieterbuttons mit bestmöglichem App-/Suchstart
 - Deutsche Filmdaten, Poster, Bewertungen, Genres und Besetzung über TMDB
-- Aktuelle Streaming-Verfügbarkeit für Deutschland, soweit technisch zuverlässig abrufbar
-- waipu.tv-Badge, wenn ein Film aktuell oder zeitnah im linearen Fernsehen läuft
-- Persönliches Filmgedächtnis: Bewertung 1–10, gesehen, Favorit, später ansehen, Datum gesehen und Notiz
+- Persönlicher TMDB-Katalog aus Favoriten und Watchlist
+- Eigene Links sowie HTTP(S)- und SMB-/FRITZ!NAS-Videos
 - Fire-TV-Fernbedienungsnavigation mit Fokussteuerung
-- Direkter Start eines Films in der jeweiligen Fire-TV-App per Deep Link/Android Intent, soweit vom Anbieter unterstützt
-- Web-App als zentrale Oberfläche; kleine Fire-TV-APK als nativer Wrapper und Deep-Link-Brücke
+- Web-App als zentrale Oberfläche; Android-/Fire-TV-APK als nativer Wrapper und Gerätebrücke
 
 ## Zielarchitektur
 
@@ -22,23 +20,24 @@ Movie Hub ist eine persönliche, TV-optimierte Filmzentrale für Fire TV. Die An
 2. **Hosting:** Firebase Hosting
 3. **Backend:** Cloud Firestore + Firebase Authentication
 4. **Filmdaten:** TMDB
-5. **Automatisierung:** CI/CD und regelmäßige Daten-/Empfehlungsjobs
-6. **Fire TV:** schlanke Android-/Fire-OS-App mit WebView und Intent-/Deep-Link-Layer
+5. **Automatisierung:** CI/CD und regelmäßige Datenjobs
+6. **Android / Fire TV:** schlanke native App mit WebView, sicherer Geräteablage, Player und Intent-/Deep-Link-Layer
 7. **Provider:** Netflix, Prime Video, Disney+, YouTube, waipu.tv
 
 Details:
 - [Architektur](docs/ARCHITECTURE.md)
 - [Datenmodell](docs/DATA_MODEL.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Abnahme 09.09.2026](docs/ACCEPTANCE_2026-09-09.md)
 
 ## Entwicklungsphasen
 
 - **Phase 0:** Firebase-, Security-, Hosting- und Projektfundament
 - **Phase 1:** TV-optimierte Streaming-Oberfläche
 - **Phase 2:** TMDB-Filmdaten und persönliches Filmgedächtnis
-- **Phase 3:** Fire-TV-APK
+- **Phase 3:** Android-/Fire-TV-APK
 - **Phase 4:** Deep Links und Provider-Auswahl
-- **Phase 5:** Dynamische Streaming-/waipu.tv-Verfügbarkeit
+- **Phase 5:** Dynamische Verfügbarkeit, persönliche Kataloge und eigene Medien
 - **Phase 6:** Personalisierung, Toplisten und Automatisierung/KI
 
 ## Infrastrukturstand
@@ -47,18 +46,21 @@ Details:
 - Firebase-Projekt: `movie-hub`
 - Firebase Project ID: `movie-hub-62459`
 - Firebase Web-App: `movie-hub-web`
-- Firestore: Standard Edition, `europe-west3` (Frankfurt), Produktionsmodus
+- Firestore: Standard Edition, `europe-west3` (Frankfurt)
 - Firebase Authentication: E-Mail/Passwort
-- klassisches Firebase Hosting eingerichtet
-- Live-App: `https://movie-hub-62459.web.app`
-- TMDB: Developer-/Personal-Use-Zugang vorbereitet; eigentliche Integration folgt in Phase 2
+- Firebase Hosting: `https://movie-hub-62459.web.app`
+- Android-/Fire-TV-App: signierte GitHub-Actions-APK mit fortlaufendem `versionCode`
 
 ## Status
 
 Projektstart: 31. August 2026
 
-Stand: 6. September 2026
+Stand: **9. September 2026**
 
-Phase 0 ist real auf Firebase getestet: Login funktioniert, die Authentifizierung bleibt nach einem Browser-Reload erhalten, und der Firestore-Schreib-/Lesetest im eigenen Benutzerbereich ist erfolgreich. Firestore Rules und die minimale Web-App wurden erfolgreich ins reale Firebase-Projekt deployt. CI-Build und automatisierte Rules-Tests sind grün.
+Der aktuelle Funktionsstand ist von Matthias auf **Smartphone, Tablet und Fire TV bis hierhin abgenommen**. Dazu gehören insbesondere die native Android-/Fire-TV-Hülle, D-Pad-/Zurück-Navigation, Profile und persönliche Zustände, SMB-/FRITZ!NAS-Wiedergabe, persönliche TMDB-Verbindung und -Synchronisation, automatische Providerbuttons für Netflix, Prime Video, Disney+, YouTube und waipu.tv sowie das Movie-Hub-Startintro mit Jingle und CRT-Abschaltung.
 
-Offen in Phase 0 sind noch das automatische Deployment aus `main` und die fachliche Auflösung des GitHub Secret-Scanning-Hinweises zum früher eingecheckten Firebase-Web-Key. TMDB-Zugangsdaten und der erste TMDB-Testabruf werden in Phase 2 / Issue #2 weitergeführt. Das Ideen-Sammel-Issue ist #8; der aktuelle Implementierungs-PR ist #9.
+Für Provider gilt bewusst Best Effort: Titelsuche ist optimal, die Suchseite ist akzeptiert und das zuverlässige Öffnen der richtigen Anbieter-App ist die Mindestanforderung. Das Fire-TV-Sideloading kann Launcher-Grafiken anders darstellen als Smartphone/Tablet; die APK enthält trotzdem ein normales Android-Icon und ein separates TV-Banner.
+
+Die zu diesem Abnahmestand gehörenden Detail-Issues werden abgeschlossen. Neue Auffälligkeiten werden als neue, klar abgegrenzte Issues erfasst.
+
+**Nächstes Arbeitspaket:** #86 – „Über Movie Hub“-Seite mit Version, Build und Projektinformationen.
