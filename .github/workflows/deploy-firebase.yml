@@ -32,11 +32,35 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Generate TMDB catalog
+      # Scheduled/manual runs are catalog refreshes first. Preserve the strict
+      # quality gate: if TMDB cannot produce a complete catalog, deploy nothing.
+      - name: Generate TMDB catalog for strict refresh
+        if: ${{ github.event_name != 'push' }}
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
         run: npm run tmdb:catalog
+
+      # A code push must not be blocked by a temporary provider/catalog gap at
+      # TMDB. Try to refresh, but allow the next step to restore the last known
+      # good production catalog when this attempt fails its quality gate.
+      - name: Generate fresh TMDB catalog for code deploy
+        id: push_catalog
+        if: ${{ github.event_name == 'push' }}
+        continue-on-error: true
+        env:
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+          TMDB_LANGUAGE: de-DE
+        run: npm run tmdb:catalog
+
+      - name: Reuse last deployed catalog after transient refresh failure
+        if: ${{ github.event_name == 'push' && steps.push_catalog.outcome == 'failure' }}
+        run: |
+          echo "Fresh TMDB catalog did not pass its quality gate; reusing the last deployed catalog."
+          curl --fail --silent --show-error --location \
+            https://movie-hub-62459.web.app/catalog.json \
+            --output public/catalog.json
+          node -e "const fs=require('node:fs'); const c=JSON.parse(fs.readFileSync('public/catalog.json','utf8')); if(c?.source!=='tmdb'||!Array.isArray(c?.titles)||c.titles.length===0||!Array.isArray(c?.rowDefinitions)||c.rowDefinitions.length===0) throw new Error('Last deployed catalog is not a valid non-empty TMDB catalog.'); console.log('Reusing live TMDB catalog with '+c.titles.length+' titles from '+(c.generatedAt||'unknown time')+'.');"
 
       - name: Build
         run: npm run build
