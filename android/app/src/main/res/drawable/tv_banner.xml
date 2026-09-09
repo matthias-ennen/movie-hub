@@ -1,14 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="rectangle">
-            <solid android:color="#11131F" />
-        </shape>
-    </item>
-    <item android:left="34dp" android:top="20dp" android:right="34dp" android:bottom="20dp">
-        <shape android:shape="rectangle">
-            <solid android:color="#EA2B5E" />
-            <corners android:radius="8dp" />
-        </shape>
-    </item>
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+
+    <!-- Fire-TV-Banner vollständig weiß bis an alle Ränder. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M0,0h320v180h-320z" />
+
+    <!-- Zentrierter blauer Movie-Hub-TV ohne Antennen. -->
+    <path
+        android:fillColor="#4BB5F1"
+        android:pathData="M78,38 H242 C252,38 260,46 260,56 V122 C260,132 252,140 242,140 H78 C68,140 60,132 60,122 V56 C60,46 68,38 78,38 Z" />
+
+    <!-- Weiße innere Kontur. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M88,49 H232 C240,49 246,55 246,63 V115 C246,123 240,129 232,129 H88 C80,129 74,123 74,115 V63 C74,55 80,49 88,49 Z" />
+
+    <!-- Blauer Bildschirm. -->
+    <path
+        android:fillColor="#4BB5F1"
+        android:pathData="M95,57 H225 C231,57 236,62 236,68 V110 C236,116 231,121 225,121 H95 C89,121 84,116 84,110 V68 C84,62 89,57 95,57 Z" />
+
+    <!-- Weiße Playtaste exakt mittig. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M148,72 L179,88 C183,90 183,94 179,96 L148,112 C144,114 140,111 140,107 V77 C140,73 144,70 148,72 Z" />
+
+    <!-- Zwei TV-Füße. -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#4BB5F1"
+        android:strokeWidth="13"
+        android:strokeLineCap="round"
+        android:pathData="M104,138 L93,154" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#4BB5F1"
+        android:strokeWidth="13"
+        android:strokeLineCap="round"
+        android:pathData="M216,138 L227,154" />
+</vector>
