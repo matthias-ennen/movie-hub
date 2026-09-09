@@ -10,10 +10,14 @@ final class ProviderLaunchPolicy {
             case "netflix":
             case "prime":
             case "disney":
+            case "youtube":
+                // These apps have been observed to accept an HTTPS destination
+                // without necessarily applying its search query. Prefer the
+                // platform search intent first and retain the HTTPS URL as the
+                // next fallback when the installed app ignores ACTION_SEARCH.
                 return true;
             default:
-                // YouTube's HTTPS results URL is verified on Fire TV. waipu.tv
-                // now also uses an official app.waipu.tv destination first
+                // waipu.tv uses an official app.waipu.tv destination first
                 // (waiputhek for VOD, sender page for future live entries).
                 return false;
         }
