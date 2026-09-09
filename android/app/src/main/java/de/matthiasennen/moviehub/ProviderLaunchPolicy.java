@@ -11,14 +11,13 @@ final class ProviderLaunchPolicy {
             case "prime":
             case "disney":
             case "youtube":
-                // These apps have been observed to accept an HTTPS destination
-                // without necessarily applying its search query. Prefer the
-                // platform search intent first and retain the HTTPS URL as the
-                // next fallback when the installed app ignores ACTION_SEARCH.
+            case "waipu":
+                // Prefer a provider-internal search entry point for every
+                // supported provider. Apps that do not consume ACTION_SEARCH
+                // fall back to their validated HTTPS destination, then their
+                // normal launcher activity and finally the browser.
                 return true;
             default:
-                // waipu.tv uses an official app.waipu.tv destination first
-                // (waiputhek for VOD, sender page for future live entries).
                 return false;
         }
     }
