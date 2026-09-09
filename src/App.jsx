@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
+import AboutView from './components/AboutView.jsx'
 import ContentRow from './components/ContentRow.jsx'
 import DetailModal from './components/DetailModal.jsx'
 import Hero from './components/Hero.jsx'
@@ -92,10 +93,17 @@ function Header({
     onViewChange('settings')
   }
 
+  function openAbout() {
+    onProfileClose()
+    onViewChange('about')
+  }
+
   function handleProfileSelect(profileId) {
     onProfileSelect(profileId)
     onProfileClose()
   }
+
+  const profileAreaActive = currentView === 'profile' || currentView === 'settings' || currentView === 'about'
 
   return (
     <header className="topbar">
@@ -110,7 +118,7 @@ function Header({
         <div className="profile-wrap">
           <button
             type="button"
-            className={currentView === 'profile' || currentView === 'settings' ? 'profile-button active' : 'profile-button'}
+            className={profileAreaActive ? 'profile-button active' : 'profile-button'}
             onClick={onProfileToggle}
             data-focusable="true"
             aria-label={`Profil öffnen: ${activeProfile?.displayName ?? 'Movie Hub'}`}
@@ -141,6 +149,7 @@ function Header({
               )}
               <button type="button" className="profile-settings-link" onClick={openProfileSettings} data-focusable="true" role="menuitem">Profil & Design</button>
               <button type="button" className="app-settings-link" onClick={openAppSettings} data-focusable="true" role="menuitem">Einstellungen</button>
+              <button type="button" className="about-settings-link" onClick={openAbout} data-focusable="true" role="menuitem">Über Movie Hub</button>
               <button type="button" onClick={onSignOut} data-focusable="true" role="menuitem">Abmelden</button>
             </div>
           )}
@@ -443,6 +452,7 @@ function MovieHub({ user }) {
       {currentView === 'search' && <SearchView titles={titles} onOpen={handleOpenTitle} />}
       {currentView === 'profile' && <ProfileView user={user} onSignOut={handleSignOut} />}
       {currentView === 'settings' && <SettingsView />}
+      {currentView === 'about' && <AboutView />}
       {selectedTitle && <DetailModal item={selectedTitle} onClose={() => setSelectedTitle(null)} />}
       {exitDialogOpen && <ExitConfirmationDialog onCancel={() => setExitDialogOpen(false)} onClose={closeApp} />}
     </div>
