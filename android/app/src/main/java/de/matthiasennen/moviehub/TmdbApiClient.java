@@ -91,7 +91,13 @@ final class TmdbApiClient {
 
     static void validateSession(String apiReadAccessToken, String sessionId)
             throws TmdbException {
-        String encodedSession = URLEncoder.encode(sessionId, StandardCharsets.UTF_8);
+        final String encodedSession;
+        try {
+            encodedSession = URLEncoder.encode(sessionId, "UTF-8");
+        } catch (Exception impossible) {
+            throw new TmdbException(ErrorKind.RESPONSE, 0,
+                    "Die TMDB-Session konnte nicht geprüft werden.");
+        }
         request("GET", "/movie/550/account_states?session_id=" + encodedSession,
                 apiReadAccessToken, null);
     }
