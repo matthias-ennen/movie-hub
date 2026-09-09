@@ -292,6 +292,12 @@ public final class MainActivity extends ComponentActivity {
         }
 
         @JavascriptInterface
+        public void openTmdbSettings() {
+            runOnUiThread(() -> startActivity(
+                    new Intent(MainActivity.this, TmdbSettingsActivity.class)));
+        }
+
+        @JavascriptInterface
         public void clearSessionSmbCredentials() {
             SessionCredentialStore.clear();
         }
