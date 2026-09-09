@@ -2,16 +2,22 @@ package de.matthiasennen.moviehub;
 
 import android.app.Application;
 import android.media.MediaPlayer;
+import android.os.Handler;
+import android.os.Looper;
 
 /** Starts Movie Hub's one-shot native startup branding and jingle per app process. */
 public final class MovieHubApplication extends Application {
+    private static final long STARTUP_JINGLE_DELAY_MS = 1_000L;
+
     private MediaPlayer startupJingle;
 
     @Override
     public void onCreate() {
         super.onCreate();
         StartupIntroOverlay.register(this);
-        playStartupJingle();
+        new Handler(Looper.getMainLooper()).postDelayed(
+                this::playStartupJingle,
+                STARTUP_JINGLE_DELAY_MS);
     }
 
     private void playStartupJingle() {
