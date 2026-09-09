@@ -297,6 +297,12 @@ public final class MainActivity extends ComponentActivity {
                     new Intent(MainActivity.this, TmdbSettingsActivity.class)));
         }
 
+        /** Starts a native read-only TMDB sync. Only sanitized catalog JSON is returned to JavaScript. */
+        @JavascriptInterface
+        public void requestTmdbCatalogSync() {
+            TmdbCatalogSyncCoordinator.request(MainActivity.this, webView);
+        }
+
         @JavascriptInterface
         public void clearSessionSmbCredentials() {
             SessionCredentialStore.clear();
