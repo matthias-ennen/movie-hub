@@ -1,10 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="48dp"
-    android:height="48dp"
-    android:viewportWidth="48"
-    android:viewportHeight="48">
-    <path android:fillColor="#11131F" android:pathData="M4,4h40v40h-40z" />
-    <path android:fillColor="#EA2B5E" android:pathData="M14,12h20v24h-20z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M21,18l10,6l-10,6z" />
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Vollständig weißer Launcher-Hintergrund. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M0,0h108v108h-108z" />
+
+    <!-- TV-Antennen. -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#4BB5F1"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:pathData="M44,30 L33,18" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#4BB5F1"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:pathData="M64,30 L75,18" />
+
+    <!-- Blaue TV-Silhouette mit abgerundeter Kontur. -->
+    <path
+        android:fillColor="#4BB5F1"
+        android:pathData="M30,31 H78 C84,31 88,35 88,41 V73 C88,79 84,83 78,83 H30 C24,83 20,79 20,73 V41 C20,35 24,31 30,31 Z" />
+
+    <!-- Weiße innere Kontur und blauer Bildschirm. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,38 H74 C79,38 82,41 82,46 V68 C82,73 79,76 74,76 H34 C29,76 26,73 26,68 V46 C26,41 29,38 34,38 Z" />
+    <path
+        android:fillColor="#4BB5F1"
+        android:pathData="M36,42 H72 C76,42 78,44 78,48 V66 C78,70 76,72 72,72 H36 C32,72 30,70 30,66 V48 C30,44 32,42 36,42 Z" />
+
+    <!-- Weiße Playtaste. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M48,49 L67,57 L67,59 L48,68 Z" />
+
+    <!-- TV-Füße. -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#4BB5F1"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:pathData="M36,82 L32,90" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#4BB5F1"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:pathData="M72,82 L76,90" />
 </vector>
