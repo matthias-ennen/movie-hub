@@ -1,10 +1,10 @@
 # Movie Hub – Roadmap
 
-Stand: 8. September 2026
+Stand: 9. September 2026
 
 ## Arbeitsprinzip
 
-Movie Hub wird schrittweise über klar abgegrenzte GitHub-Issues entwickelt. Ein Arbeitspaket gilt erst als abgeschlossen, wenn technische Prüfpunkte durchgeführt wurden; Fire-TV-bezogene Punkte benötigen zusätzlich eine manuelle Geräteabnahme.
+Movie Hub wird schrittweise über klar abgegrenzte GitHub-Issues entwickelt. Ein Arbeitspaket gilt erst als abgeschlossen, wenn technische Prüfpunkte durchgeführt wurden; Fire-TV-bezogene Punkte benötigen zusätzlich eine manuelle Geräteabnahme. Später auftretende Auffälligkeiten werden nach einer bestätigten Abnahme grundsätzlich als neue Issues erfasst.
 
 ## Phase 0 – Fundament
 
@@ -61,7 +61,7 @@ Abschlusskriterium: Filmzustände bleiben nach Neustart erhalten und sind für d
 
 Abschlusskriterium: Movie Hub startet als APK zuverlässig und ist vollständig mit der Fire-TV-Fernbedienung bedienbar.
 
-Status: abgeschlossen. Die reale Geräteabnahme wurde in #40 mit APK-Build #35 bestätigt; das übergeordnete Paket #3 ist geschlossen.
+Status: abgeschlossen. Die reale Geräteabnahme wurde in #40 mit APK-Build #35 bestätigt; das übergeordnete Paket #3 ist geschlossen. Die Shell wurde anschließend um Startintro, Jingle, Launcher-Grafiken, SMB-, TMDB- und Providerfunktionen erweitert und am 09.09.2026 erneut auf Smartphone, Tablet und Fire TV abgenommen.
 
 ## Phase 4 – Deep Links und Provider-Auswahl
 
@@ -73,7 +73,7 @@ Für Netflix, Prime Video, Disney+, YouTube und waipu.tv jeweils testen:
 
 Abschlusskriterium: dokumentierte Testmatrix und stabile Fallback-Logik je Anbieter.
 
-Status: #50 wurde mit APK-Build #39 auf realer Fire-TV-Hardware abgenommen. Die Providerbuttons bleiben vollständig automatisch und können nicht durch benutzereigene Links überschrieben werden. Weitere Best-Effort-Verbesserungen der automatischen Titelsuche werden getrennt in #75 behandelt.
+Status: Providerbuttons sind vollständig automatisch und können nicht durch benutzereigene Links überschrieben werden. Die gemeinsame Android-/Fire-TV-Fallback-Logik wurde mit #102 abgeschlossen und am 09.09.2026 abgenommen. Unterschiedliche Suchfähigkeiten der Fremd-Apps bleiben Best Effort.
 
 ## Phase 5 – Dynamische Verfügbarkeit
 
@@ -112,24 +112,53 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - klare Fehlerzustände für fehlendes Heimnetz, Anmeldung und nicht erreichbare Dateien
 - vollständig mit der signierten APK Build #43 auf realer Fire-TV-Hardware abgenommen
 
-### Aktuelles Paket #65 – Automatische Anbieter von eigenen Links und Videos trennen
+### Abgeschlossenes Paket #65 – Automatische Anbieter von eigenen Links und Videos trennen
 
-- Netflix, Prime Video, Disney+, YouTube und waipu.tv ausschließlich aus TMDB bestimmen
-- keine editierbaren Anbieter-Links und keine Provider-Overrides mehr
+- Netflix, Prime Video, Disney+, YouTube und waipu.tv ausschließlich automatisch bestimmen
+- keine editierbaren Anbieter-Links und keine Provider-Overrides
 - eigener Movie-Hub-Button enthält ausschließlich benutzereigene Inhalte
-- Bedienung nur noch über **Link hinzufügen** und **Video hinzufügen**
+- Bedienung über **Link hinzufügen** und **Video hinzufügen**
 - HTTP(S)- und SMB-/UNC-Quelle bei Videos automatisch erkennen
-- bestehende Provider-Links als normale Links und bestehende SMB-Typen als Videos migrieren, ohne URLs oder Einträge zu löschen
-- technische Tests automatisieren; reale Android-/Fire-TV-Bedienung anschließend manuell abnehmen
+- bestehende Daten verlustfrei migrieren
 
-### Aktives Paket #69 – Netzlaufwerke verwalten
+### Abgeschlossenes Paket #69 – Netzlaufwerke verwalten
 
-- eigener geräteweiter Einstellungsbereich über das Profilmenü
+- geräteweiter Einstellungsbereich über das Profilmenü
 - Netzlaufwerke anlegen, bearbeiten, verbinden, prüfen, trennen und entfernen
-- Erreichbarkeits- und Anmeldestatus mit Farbe und verständlichem Text
+- Erreichbarkeits- und Anmeldestatus mit verständlichem Text
 - wahlweise verschlüsselte gerätelokale Speicherung oder nur aktuelle App-Sitzung
 - Zugangsdaten bleiben vollständig außerhalb von Weboberfläche und Cloud
-- bestehende Netzwerkvideos werden über Server, Port und Freigabe zugeordnet
+
+### Abgeschlossene persönliche TMDB-Pakete #87 und #90
+
+- persönlicher API Read Access Token und persönliche TMDB-Session sicher gerätelokal
+- Favoriten und Watchlist für Filme und Serien vollständig synchronisieren
+- gemeinsamer persönlicher TMDB-Katalog für alle Movie-Hub-Profile eines Kontos
+- Katalogzugehörigkeit bleibt getrennt von profilbezogenen Movie-Hub-Zuständen
+
+### Abgeschlossenes UX-/Informationspaket #86 – Über Movie Hub
+
+- eigener About-Bereich im Profilmenü
+- native APK-Version und Build separat vom Web-Build anzeigen
+- Projekt-, Daten-, Datenschutz- und Open-Source-Hinweise
+- responsive und D-Pad-taugliche Darstellung
+- erste Version am 09.09.2026 abgenommen; spätere Überarbeitungen werden getrennt behandelt
+
+## Aktuelles nächstes Arbeitspaket – #78 Katalogarchitektur
+
+Die persönliche TMDB-Seite und der persönliche TMDB-Katalog sind umgesetzt. Als nächster logischer Schritt wird #78 weitergeführt und in konkrete Teilpakete zerlegt.
+
+Zielrichtung:
+
+- fachlich getrennte Kataloge für Netflix, Prime Video, Disney+, YouTube und waipu.tv
+- klare Auswahlregel und Größe je Anbieterkatalog
+- Katalogzugehörigkeit unabhängig von der momentanen Wiedergabeverfügbarkeit
+- TMDB-ID + Medientyp weiterhin als zentrale Identitäts-/Metadatenbasis
+- strukturierte Provider- oder andere Datenquellen für die eigentliche Katalogzugehörigkeit
+- waipu.tv-Mediathek/Waiputhek klar vom linearen Live-TV trennen
+- keine Vermischung mit benutzereigenen Movie-Hub-Links und Videos
+
+Der erste Schritt im nächsten Termin soll eine Produkt-/Datenentscheidung sein, wie die fünf Anbieterkataloge konkret befüllt und auf der Startseite dargestellt werden. Daraus wird anschließend ein klar abgegrenztes neues Umsetzungs-Issue unter #78 erstellt.
 
 ## Phase 6 – Personalisierung und Automatisierung
 
@@ -147,9 +176,9 @@ Abschlusskriterium: Empfehlungen werden reproduzierbar aus aktuellen Filmdaten u
 ## Später / optional
 
 - komfortable Geräte-Kopplung per Code/QR statt Texteingabe am TV
-- mehrere Profile
 - Smartphone-optimierte Verwaltungsansicht
 - Bewertungsverlauf
-- Suche und Filter
+- Suche und Filter weiter ausbauen
 - eigene Sammlungen
 - Import/Export persönlicher Filmdaten
+- vollständige Drittlizenz-/Impressums-/Datenschutzansicht für „Über Movie Hub“
