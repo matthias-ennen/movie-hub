@@ -6,6 +6,7 @@ import android.app.AlertDialog;
 import android.app.SearchManager;
 import android.content.Intent;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.net.Uri;
 import android.webkit.CookieManager;
@@ -272,12 +273,22 @@ public final class MainActivity extends ComponentActivity {
         }
 
         @JavascriptInterface
+        public String getPlatformLabel() {
+            return "Amazon".equalsIgnoreCase(Build.MANUFACTURER) ? "Fire TV" : "Android";
+        }
+
+        @JavascriptInterface
         public String getAppVersion() {
             try {
                 return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
             } catch (Exception ignored) {
                 return "unknown";
             }
+        }
+
+        @JavascriptInterface
+        public String getAppBuild() {
+            return Integer.toString(getInstalledVersionCode());
         }
 
         @JavascriptInterface
@@ -306,6 +317,28 @@ public final class MainActivity extends ComponentActivity {
         @JavascriptInterface
         public void clearSessionSmbCredentials() {
             SessionCredentialStore.clear();
+        }
+
+        @JavascriptInterface
+        public void openProjectUrl(String rawUrl) {
+            final Uri uri;
+            try {
+                uri = Uri.parse(rawUrl);
+            } catch (Exception ignored) {
+                return;
+            }
+
+            if (!isAllowedProjectUrl(uri)) {
+                return;
+            }
+
+            runOnUiThread(() -> {
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                } catch (ActivityNotFoundException ignored) {
+                    // No external browser is available. Movie Hub stays open.
+                }
+            });
         }
 
         @JavascriptInterface
@@ -452,6 +485,17 @@ public final class MainActivity extends ComponentActivity {
     private boolean isTrustedMovieHubUrl(String scheme, String host) {
         return "https".equalsIgnoreCase(scheme)
                 && (MOVIE_HUB_HOST.equalsIgnoreCase(host) || FIREBASE_AUTH_HOST.equalsIgnoreCase(host));
+    }
+
+    private boolean isAllowedProjectUrl(Uri uri) {
+        if (uri == null || !"https".equalsIgnoreCase(uri.getScheme())
+                || !"github.com".equalsIgnoreCase(uri.getHost())) {
+            return false;
+        }
+
+        String path = uri.getPath();
+        return path != null && ("/matthias-ennen/movie-hub".equals(path)
+                || path.startsWith("/matthias-ennen/movie-hub/"));
     }
 
     private boolean isAllowedProviderWebsite(Uri uri) {
