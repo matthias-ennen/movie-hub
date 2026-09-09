@@ -1,6 +1,22 @@
+import { useTmdbCatalog } from '../tmdb/TmdbCatalogProvider.jsx'
+
+function formatSyncTime(value) {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('de-DE')
+}
+
 export default function SettingsView() {
   const nativeNetworkSettings = typeof window.MovieHubNative?.openNetworkSettings === 'function'
   const nativeTmdbSettings = typeof window.MovieHubNative?.openTmdbSettings === 'function'
+  const {
+    syncState,
+    syncBusy,
+    syncMessage,
+    requestSync,
+    nativeSyncAvailable,
+    error: tmdbCatalogError,
+  } = useTmdbCatalog()
 
   function openNetworkSettings() {
     if (nativeNetworkSettings) window.MovieHubNative.openNetworkSettings()
@@ -9,6 +25,8 @@ export default function SettingsView() {
   function openTmdbSettings() {
     if (nativeTmdbSettings) window.MovieHubNative.openTmdbSettings()
   }
+
+  const lastSync = formatSyncTime(syncState?.syncedAt)
 
   return (
     <main className="browse-page profile-page app-settings-page">
@@ -49,11 +67,11 @@ export default function SettingsView() {
             <p className="settings-kicker">Filmdaten</p>
             <h2 id="tmdb-settings-heading">The Movie Database</h2>
           </div>
-          <span className="settings-status">Nur dieses Gerät</span>
+          <span className="settings-status">Zugang nur auf diesem Gerät</span>
         </div>
 
         <p className="settings-description">
-          Hinterlege deinen persönlichen TMDB API Read Access Token und verbinde dein TMDB-Konto. Diese eine Geräteverbindung wird von allen Movie-Hub-Profilen gemeinsam genutzt.
+          Hinterlege deinen persönlichen TMDB API Read Access Token und verbinde dein TMDB-Konto. Diese eine Geräteverbindung wird von allen Movie-Hub-Profilen gemeinsam genutzt. Synchronisierte Favoriten und Watchlist werden anschließend kontoweit in Movie Hub bereitgestellt.
         </p>
 
         {nativeTmdbSettings ? (
@@ -66,6 +84,33 @@ export default function SettingsView() {
             Persönliche TMDB-Zugangsdaten werden ausschließlich in der aktuellen Android-/Fire-TV-App geschützt gespeichert. Im Browser ist die Einrichtung aus Sicherheitsgründen nicht verfügbar.
           </p>
         )}
+
+        {nativeSyncAvailable && (
+          <button
+            type="button"
+            className="network-settings-open tmdb-sync-open"
+            onClick={requestSync}
+            disabled={syncBusy}
+            data-focusable="true"
+          >
+            <span aria-hidden="true">↻</span>
+            <span>
+              <strong>{syncBusy ? 'TMDB wird synchronisiert …' : 'Jetzt synchronisieren'}</strong>
+              <small>Favoriten und Watchlist für Filme und Serien aktualisieren</small>
+            </span>
+          </button>
+        )}
+
+        {syncState && (
+          <div className="tmdb-sync-summary" aria-label="Letzte TMDB-Synchronisierung">
+            <strong>Persönlicher TMDB-Katalog</strong>
+            <span>{syncState.favoriteCount ?? 0} Favoriten · {syncState.watchlistCount ?? 0} Watchlist-Titel · {syncState.totalCount ?? 0} Titel insgesamt</span>
+            {lastSync && <small>Letzte Synchronisierung: {lastSync}</small>}
+          </div>
+        )}
+
+        {syncMessage && <p className="settings-hint tmdb-sync-message">{syncMessage}</p>}
+        {tmdbCatalogError && <p className="error">TMDB-Katalog konnte nicht geladen werden: {tmdbCatalogError.message}</p>}
       </section>
     </main>
   )
