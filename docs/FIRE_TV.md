@@ -18,6 +18,18 @@ The `Android APK` GitHub Actions workflow always creates a sideloadable debug AP
 
 After the workflow succeeds, download `movie-hub-fire-tv-release-apk`, extract `app-release.apk`, and install it with the chosen sideload method. Use the debug artifact only until release signing is configured.
 
+## Native startup branding
+
+A real Android/Fire-TV app-process start plays the packaged Movie Hub jingle immediately and shows a native full-screen branding layer above the WebView while the hosted app continues loading underneath.
+
+The visual sequence is deliberately independent from Firebase/network readiness:
+
+- 5.0 seconds: pure-black screen with the centered two-colour **MOVIE HUB** wordmark
+- 1.0 second: restrained CRT power-off animation; the complete black layer and logo collapse vertically, recede slightly, briefly form a cool white/blue phosphor line, then contract into the centre and disappear
+- no VHS noise, glitch filter or video/GIF asset is used
+- the branding runs only once per actual app process, so returning from the background or recreating an Activity does not replay it
+- the existing jingle remains optional and failure-tolerant; audio can never block startup
+
 ## Phase 3.2 WebView session and lifecycle
 
 The WebView keeps Firebase's browser-local login session, cookies and web storage enabled. It saves and restores its page state across a normal Android recreation and pauses/resumes cleanly when the app moves into the background or foreground.
