@@ -3,13 +3,14 @@ package de.matthiasennen.moviehub;
 import android.app.Application;
 import android.media.MediaPlayer;
 
-/** Plays the Movie Hub brand jingle once when the Android app process starts. */
+/** Starts Movie Hub's one-shot native startup branding and jingle per app process. */
 public final class MovieHubApplication extends Application {
     private MediaPlayer startupJingle;
 
     @Override
     public void onCreate() {
         super.onCreate();
+        StartupIntroOverlay.register(this);
         playStartupJingle();
     }
 
@@ -37,7 +38,7 @@ public final class MovieHubApplication extends Application {
         try {
             startupJingle.release();
         } catch (RuntimeException ignored) {
-            // The jingle is optional; app startup must never fail because of audio.
+            // Startup branding is optional; the app must never fail because of audio.
         }
         startupJingle = null;
     }
