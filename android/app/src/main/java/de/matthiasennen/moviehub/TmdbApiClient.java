@@ -141,7 +141,7 @@ final class TmdbApiClient {
                         apiReadAccessToken,
                         title.optString("mediaType"),
                         title.optLong("tmdbId")));
-            } catch (TmdbException ignored) {
+            } catch (Exception ignored) {
                 // Provider availability enriches the catalog but must not make
                 // a valid personal-list sync fail. The public catalog can still
                 // supply provider data for titles it already contains.
