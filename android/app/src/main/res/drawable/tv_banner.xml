@@ -25,10 +25,10 @@
         android:fillColor="#4BB5F1"
         android:pathData="M95,57 H225 C231,57 236,62 236,68 V110 C236,116 231,121 225,121 H95 C89,121 84,116 84,110 V68 C84,62 89,57 95,57 Z" />
 
-    <!-- Weiße Playtaste exakt mittig. -->
+    <!-- Weiße Playtaste optisch exakt im Bildschirm zentriert. -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M148,72 L179,88 C183,90 183,94 179,96 L148,112 C144,114 140,111 140,107 V77 C140,73 144,70 148,72 Z" />
+        android:pathData="M152,69 L183,85 C187,87 187,91 183,93 L152,109 C148,111 144,108 144,104 V74 C144,70 148,67 152,69 Z" />
 
     <!-- Zwei TV-Füße. -->
     <path
