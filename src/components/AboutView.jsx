@@ -16,7 +16,7 @@ function readNativeValue(methodName) {
 function deriveBuildFromVersion(version) {
   if (!version) return null
   const parts = version.split('.')
-  const candidate = parts.at(-1)
+  const candidate = parts[parts.length - 1]
   return /^\d+$/.test(candidate ?? '') ? candidate : null
 }
 
