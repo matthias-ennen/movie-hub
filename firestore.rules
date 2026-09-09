@@ -36,6 +36,31 @@ service cloud.firestore {
       match /sharedMedia/{document=**} {
         allow read, write: if ownsUserData(userId);
       }
+
+      // Der persönliche TMDB-Katalog ist wie die geräteweite TMDB-Verbindung
+      // kontoweit und damit für alle internen Movie-Hub-Profile identisch. Es
+      // dürfen ausschließlich nicht geheime Katalogfelder gespeichert werden.
+      match /tmdbCatalog/{titleId} {
+        allow read, delete: if ownsUserData(userId);
+        allow create, update: if ownsUserData(userId)
+          && request.resource.data.keys().hasOnly([
+            'tmdbId', 'mediaType', 'title', 'originalTitle', 'description',
+            'releaseDate', 'posterPath', 'backdropPath', 'originalLanguage',
+            'voteAverage', 'voteCount', 'genreNames', 'providerIds',
+            'favorite', 'watchlist', 'favoriteOrder', 'watchlistOrder', 'syncedAt'
+          ]);
+      }
+
+      // Synchronisationsmetadaten enthalten ebenfalls keine Secrets, sondern
+      // nur Account-Anzeigeinformationen, Zähler und Zeitpunkt.
+      match /tmdbSync/{documentId} {
+        allow read, delete: if ownsUserData(userId);
+        allow create, update: if ownsUserData(userId)
+          && request.resource.data.keys().hasOnly([
+            'syncedAt', 'accountId', 'accountUsername', 'accountName',
+            'favoriteCount', 'watchlistCount', 'totalCount'
+          ]);
+      }
     }
 
     // Öffentliche Katalogdaten dürfen gelesen, aber niemals direkt vom Client
