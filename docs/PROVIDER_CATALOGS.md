@@ -38,6 +38,20 @@ Produktentscheidung:
 
 Die Anbieterkataloge werden nicht unter `users/{uid}` in Firestore dupliziert. Sie werden vom bestehenden vertrauenswürdigen CI-/TMDB-Job erzeugt und zusammen mit dem öffentlichen Movie-Hub-Katalog ausgeliefert.
 
+## Angebotsarten: Browse-Katalog und Suche sind getrennt
+
+TMDB/JustWatch kann einen Titel je Anbieter mit unterschiedlichen Angebotsarten melden. Movie Hub behält diese strukturiert als `offerTypes` am Anbieterangebot:
+
+- `flatrate` – im Abo enthalten
+- `free` – kostenlos verfügbar
+- `ads` – kostenlos/enthalten mit Werbung
+- `rent` – nur leihbar
+- `buy` – nur kaufbar
+
+Für die **sichtbaren Anbieter-Kataloge und Home-Reihen** werden bewusst nur `flatrate`, `free` und `ads` berücksichtigt. Ein Film, der bei Amazon oder YouTube ausschließlich gekauft oder geliehen werden kann, soll nicht so wirken, als sei er Bestandteil eines Prime-/YouTube-Abokatalogs.
+
+`rent` und `buy` werden deshalb nicht verworfen. Sie bleiben als Verfügbarkeitsattribute relevant und werden im geplanten großen Suchindex (#114) ausdrücklich mit berücksichtigt. Ein Rent-/Buy-only-Titel soll später über die Movie-Hub-Suche auffindbar sein und den Providerbutton erhalten. Movie Hub zeigt zunächst keine redundanten Preise oder Kauf-/Leih-Zwischenabfrage; der Providerbutton öffnet direkt den Anbieter, der dort die aktuellen Konditionen anzeigt.
+
 ## Öffentliche Katalogstruktur
 
 Der generierte Katalog enthält zusätzlich `providerCatalogs`:
@@ -48,6 +62,7 @@ Der generierte Katalog enthält zusätzlich `providerCatalogs`:
     "netflix": {
       "id": "netflix",
       "label": "Netflix",
+      "browseOfferTypes": ["flatrate", "free", "ads"],
       "homeTitle": "Beliebt auf Netflix",
       "movieTitle": "Filme auf Netflix",
       "seriesTitle": "Serien auf Netflix",
@@ -67,9 +82,9 @@ Die IDs referenzieren dieselben Titelobjekte im zentralen `titles`-Bestand. Ein 
 
 Der Job ermittelt für Deutschland zunächst die aktuellen TMDB-Watch-Provider-IDs. Dadurch hängt Movie Hub nicht unnötig von fest eingetragenen Provider-Nummern ab.
 
-Anschließend werden je Anbieter und Medientyp populäre verfügbare Titel über TMDB Discover ermittelt. Es werden maximal 100 Filme und 100 Serien aufgenommen. Die Kandidaten werden über TMDB-ID + Typ dedupliziert und anschließend mit Metadaten, Cast, Videos und den verfügbaren Providerinformationen aufgelöst.
+Anschließend werden je Anbieter und Medientyp populäre verfügbare Titel über TMDB Discover ermittelt. Die Browse-Abfrage setzt explizit `with_watch_monetization_types=flatrate|free|ads`. Es werden maximal 100 Filme und 100 Serien aufgenommen. Die Kandidaten werden über TMDB-ID + Typ dedupliziert und anschließend mit Metadaten, Cast, Videos und den verfügbaren Providerinformationen aufgelöst.
 
-Wenn derselbe Titel über mehrere Anbieter gefunden wird, werden die Provider-Mitgliedschaften zusammengeführt.
+Wenn derselbe Titel über mehrere Anbieter gefunden wird, werden die Provider-Mitgliedschaften zusammengeführt. Die detaillierten Providerangebote eines Titels dürfen weiterhin zusätzlich `rent`/`buy` enthalten; diese Attribute bestimmen aber nicht die Aufnahme in eine Browse-Reihe.
 
 Der bestehende Deploy-Schutz bleibt erhalten: Schlägt die Katalogerzeugung transient fehl, soll der zuletzt erfolgreich veröffentlichte Katalog live bleiben, statt einen unvollständigen Stand zu publizieren.
 
@@ -110,9 +125,13 @@ Titel, die keinem der öffentlichen Anbieter-Kataloge zugeordnet sind – beispi
 
 ### Suche und Details
 
-Die Suche arbeitet über den zusammengeführten Titelbestand und findet dadurch auch Titel aus den großen Anbieter-Katalogen.
+Die heutige Suche arbeitet noch über den zusammengeführten geladenen Titelbestand. Die spätere nahezu vollständige Suche wird in #114 als eigener skalierbarer Index umgesetzt. Dort sollen neben `flatrate/free/ads` auch `rent/buy` berücksichtigt und vollständige Detaildaten erst bei Bedarf geladen/gecached werden.
 
-Die Detailansicht bleibt fachlich unabhängig von der Katalogzugehörigkeit. Die automatischen Anbieterbuttons werden weiterhin aus den Verfügbarkeitsdaten des Titels bestimmt; eigene Links und Videos bleiben ausschließlich unter dem Movie-Hub-Button.
+Die Detailansicht bleibt fachlich unabhängig von der Katalogzugehörigkeit. Die automatischen Anbieterbuttons werden weiterhin aus den Verfügbarkeitsdaten des Titels bestimmt; eigene Links und Videos bleiben ausschließlich unter dem Movie-Hub-Button. Die Angebotsart wird technisch gespeichert, aber zunächst nicht als zusätzlicher Preis-/Kaufdialog vor den Providerstart geschaltet.
+
+## Provider-Auswahl
+
+Die kontoweite Auswahl der sichtbaren Streaminganbieter ist ein separates Folge-Arbeitspaket #113. Der zentrale öffentliche Gesamtkatalog wird dafür nicht pro Nutzer neu erzeugt; die Nutzerwahl filtert den gemeinsamen Datenbestand.
 
 ## Firestore
 
@@ -124,7 +143,7 @@ Eine spätere schnell aktualisierte Datenquelle, beispielsweise für echtes waip
 
 ## Datenquelle und Attribution
 
-Film- und Seriendaten sowie Watch-Provider-Daten werden über TMDB bezogen. Die Watch-Provider-Daten basieren auf der TMDB-Partnerschaft mit JustWatch. Movie Hub weist deshalb sowohl auf TMDB als auch auf JustWatch hin.
+Film- und Seriendaten sowie Watch-Provider-Daten werden über TMDB bezogen. Die Watch-Provider-Daten basieren auf der TMDB-Partnerschaft mit JustWatch. Movie Hub weist deshalb sowohl auf TMDB als auch auf JustWatch hin. Die vollständige rechtliche/Compliance-Prüfung vor öffentlicher Verteilung wird in #112 geführt.
 
 ## Abnahme #78
 
@@ -132,13 +151,17 @@ Für die technische Abnahme sind insbesondere zu prüfen:
 
 - CI und Android-Build grün
 - Kataloggenerator erzeugt die Anbieterbestände erfolgreich
+- Browse-Katalogabfragen berücksichtigen nur `flatrate`, `free`, `ads`
+- `rent`/`buy` bleiben als strukturierte Providerattribute erhalten, führen aber nicht allein zur Browse-Katalogmitgliedschaft
 - keine fest eingebauten Demo-Titel oder Demo-Reihen mehr im Client
 - Home zeigt die Anbieterreihen nach den persönlichen Reihen
 - Home-Reihen enthalten maximal 20 gemischte Titel
 - „Filme“ und „Serien“ zeigen getrennte Anbieterreihen
-- Suche findet Titel aus den erweiterten Katalogen
+- Suche findet Titel aus den derzeit geladenen erweiterten Katalogen
 - Detailansicht und Providerbuttons bleiben funktionsfähig
 - D-Pad-Navigation auf Fire TV bleibt stabil
 - Smartphone- und Tablet-Darstellung bleibt nutzbar
 
 Issue #78 wird erst nach der manuellen Geräteabnahme geschlossen.
+
+Folgepakete: #113 Provider-Auswahl, #114 großer Suchindex, #112 Compliance/Veröffentlichung.

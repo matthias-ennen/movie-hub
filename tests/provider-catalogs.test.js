@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  PROVIDER_BROWSE_OFFER_TYPES,
   PROVIDER_CATALOG_DEFINITIONS,
   PROVIDER_CATALOG_SIZE,
   PROVIDER_HOME_SIZE,
   buildHomeIds,
+  buildProviderDiscoverParams,
   buildProviderHomeRows,
   mergeProviderCatalogTitle,
 } from '../scripts/provider-catalogs.mjs'
@@ -16,6 +18,23 @@ describe('provider catalog architecture', () => {
     expect(PROVIDER_CATALOG_DEFINITIONS.map((provider) => provider.id)).toEqual([
       'netflix', 'prime', 'disney', 'youtube', 'waipu',
     ])
+  })
+
+  it('uses only included/free/ads offers for provider browse catalogs', () => {
+    expect(PROVIDER_BROWSE_OFFER_TYPES).toEqual(['flatrate', 'free', 'ads'])
+
+    const movieParams = buildProviderDiscoverParams(119, 'movie', 2)
+    expect(movieParams.with_watch_providers).toBe(119)
+    expect(movieParams.with_watch_monetization_types).toBe('flatrate|free|ads')
+    expect(movieParams.with_watch_monetization_types).not.toContain('rent')
+    expect(movieParams.with_watch_monetization_types).not.toContain('buy')
+    expect(movieParams.watch_region).toBe('DE')
+    expect(movieParams.region).toBe('DE')
+    expect(movieParams.page).toBe(2)
+
+    const seriesParams = buildProviderDiscoverParams(119, 'tv')
+    expect(seriesParams.region).toBeUndefined()
+    expect(seriesParams.with_watch_monetization_types).toBe('flatrate|free|ads')
   })
 
   it('builds a popularity-sorted mixed home selection', () => {
