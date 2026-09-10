@@ -7,6 +7,7 @@ import Hero from './components/Hero.jsx'
 import PosterCard from './components/PosterCard.jsx'
 import ProfileView from './components/ProfileView.jsx'
 import SettingsView from './components/SettingsView.jsx'
+import { buildProviderBrowseRows } from './catalog/providerCatalogRows.js'
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
@@ -159,7 +160,7 @@ function Header({
   )
 }
 
-function BrowseView({ title, subtitle, items, onOpen }) {
+function BrowseView({ title, subtitle, items, rows = [], onOpen }) {
   return (
     <main className="browse-page">
       <div className="page-heading">
@@ -167,9 +168,15 @@ function BrowseView({ title, subtitle, items, onOpen }) {
         <h1>{title}</h1>
         <p>{subtitle}</p>
       </div>
-      <div className="poster-grid">
-        {items.map((item) => <PosterCard key={item.id} item={item} onOpen={onOpen} />)}
-      </div>
+      {rows.length > 0 ? (
+        <div className="rows-wrap browse-provider-rows">
+          {rows.map((row) => <ContentRow key={row.id} title={row.title} items={row.items} onOpen={onOpen} />)}
+        </div>
+      ) : (
+        <div className="poster-grid">
+          {items.map((item) => <PosterCard key={item.id} item={item} onOpen={onOpen} />)}
+        </div>
+      )}
     </main>
   )
 }
@@ -267,6 +274,7 @@ function MovieHub({ user }) {
     source: 'fallback',
     titles: fallbackTitles,
     rowDefinitions: fallbackRowDefinitions,
+    providerCatalogs: {},
   })
 
   useEffect(() => {
@@ -284,6 +292,7 @@ function MovieHub({ user }) {
             source: data.source === 'tmdb' ? 'tmdb' : 'fallback',
             titles: data.titles,
             rowDefinitions: data.rowDefinitions,
+            providerCatalogs: data.providerCatalogs && typeof data.providerCatalogs === 'object' ? data.providerCatalogs : {},
             generatedAt: data.generatedAt || null,
           })
         }
@@ -404,6 +413,15 @@ function MovieHub({ user }) {
   const tmdbRows = useMemo(() => buildTmdbCatalogRows(titles), [titles])
   const movies = titles.filter((item) => item.type === 'movie')
   const series = titles.filter((item) => item.type === 'series')
+  const hasProviderCatalogs = Object.keys(catalog.providerCatalogs || {}).length > 0
+  const providerMovieRows = useMemo(
+    () => hasProviderCatalogs ? buildProviderBrowseRows(catalog.providerCatalogs, titles, 'movie') : [],
+    [catalog.providerCatalogs, titles, hasProviderCatalogs],
+  )
+  const providerSeriesRows = useMemo(
+    () => hasProviderCatalogs ? buildProviderBrowseRows(catalog.providerCatalogs, titles, 'series') : [],
+    [catalog.providerCatalogs, titles, hasProviderCatalogs],
+  )
   const liveTmdb = catalog.source === 'tmdb'
 
   return (
@@ -438,8 +456,24 @@ function MovieHub({ user }) {
           </div>
         </main>
       )}
-      {currentView === 'movies' && <BrowseView title="Filme" subtitle="Echte Filmdaten aus TMDB in der Movie-Hub-Oberfläche." items={movies} onOpen={handleOpenTitle} />}
-      {currentView === 'series' && <BrowseView title="Serien" subtitle="Echte Seriendaten aus TMDB – auf dieselbe ruhige TV-Oberfläche reduziert." items={series} onOpen={handleOpenTitle} />}
+      {currentView === 'movies' && (
+        <BrowseView
+          title="Filme"
+          subtitle="Filme nach Anbieter – mit bis zu 100 Titeln je Katalog."
+          items={movies}
+          rows={providerMovieRows}
+          onOpen={handleOpenTitle}
+        />
+      )}
+      {currentView === 'series' && (
+        <BrowseView
+          title="Serien"
+          subtitle="Serien nach Anbieter – getrennt von den Filmkatalogen."
+          items={series}
+          rows={providerSeriesRows}
+          onOpen={handleOpenTitle}
+        />
+      )}
       {currentView === 'library' && (
         <PersonalLibraryView
           rows={personalRows}
