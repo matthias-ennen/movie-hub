@@ -257,19 +257,26 @@ async function mapWithConcurrency(values, limit, callback) {
 }
 
 export function buildRowDefinitions(rows, titlesByCandidate) {
-  return rows.map(({ id, title, candidates, limit }) => {
-    const ids = candidates
-      .map((candidate) => titlesByCandidate.get(candidateKey(candidate)))
-      .filter((item) => item?.providerIds?.length)
-      .slice(0, limit)
-      .map((item) => item.id)
+  return rows
+    .map(({ id, title, candidates, limit }) => {
+      const ids = candidates
+        .map((candidate) => titlesByCandidate.get(candidateKey(candidate)))
+        .filter((item) => item?.providerIds?.length)
+        .slice(0, limit)
+        .map((item) => item.id)
 
-    if (ids.length < MINIMUM_TITLES_PER_ROW) {
-      throw new Error(`TMDB catalog row "${title}" has only ${ids.length} supported titles; at least ${MINIMUM_TITLES_PER_ROW} are required.`)
-    }
+      // Discovery rows are supplemental. A short-lived TMDB/provider mismatch
+      // in one of them must not block a healthy provider-catalog refresh and
+      // force Movie Hub to keep serving an older catalog. Thin rows are simply
+      // omitted for this generation and can return on the next refresh.
+      if (ids.length < MINIMUM_TITLES_PER_ROW) {
+        console.warn(`TMDB catalog row "${title}" skipped: only ${ids.length} supported titles; at least ${MINIMUM_TITLES_PER_ROW} are required.`)
+        return null
+      }
 
-    return { id, title, ids }
-  })
+      return { id, title, ids }
+    })
+    .filter(Boolean)
 }
 
 export function buildProviderTestRows(references, titlesByCandidate) {
