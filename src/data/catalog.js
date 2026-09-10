@@ -1,13 +1,31 @@
+import { isProviderEnabledSnapshot } from '../settings/providerSelectionRuntime.js'
+
 export const WAIPU_VOD_URL = 'https://app.waipu.tv/waiputhek'
 export const WAIPU_LIVE_URL = 'https://www.waipu.tv/sender/das-erste/'
 
-export const providers = {
+export const providerDirectory = {
   netflix: { label: 'Netflix', short: 'N', searchUrl: (title) => `https://www.netflix.com/search?q=${encodeURIComponent(title)}` },
   prime: { label: 'Prime Video', short: 'P', searchUrl: (title) => `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${encodeURIComponent(title)}` },
   disney: { label: 'Disney+', short: 'D+', searchUrl: () => 'https://www.disneyplus.com/de-de' },
   youtube: { label: 'YouTube', short: 'YT', searchUrl: (title) => `https://www.youtube.com/results?search_query=${encodeURIComponent(title)}` },
   waipu: { label: 'waipu.tv', short: 'W', searchUrl: () => WAIPU_VOD_URL },
 }
+
+// Bestehende Komponenten greifen weiter über `providers[id]` zu. Der Proxy
+// hält diese API stabil, blendet aber konto-weit deaktivierte Anbieter aus.
+// Die vollständige Definition bleibt separat über providerDirectory verfügbar.
+export const providers = new Proxy(providerDirectory, {
+  get(target, property, receiver) {
+    if (
+      typeof property === 'string'
+      && Object.prototype.hasOwnProperty.call(target, property)
+      && !isProviderEnabledSnapshot(property)
+    ) {
+      return undefined
+    }
+    return Reflect.get(target, property, receiver)
+  },
+})
 
 /**
  * A provider's own public page is the first, deliberately simple destination.
@@ -20,7 +38,9 @@ export const providers = {
  * entry point and let the user switch to the desired channel from there.
  */
 export function getProviderDestination(providerId, title, options = {}) {
-  if (providerId === 'waipu' && options?.waipuMode === 'live') return WAIPU_LIVE_URL
+  if (providerId === 'waipu' && options?.waipuMode === 'live') {
+    return isProviderEnabledSnapshot('waipu') ? WAIPU_LIVE_URL : null
+  }
 
   const provider = providers[providerId]
   if (!provider?.searchUrl || !title) return null
