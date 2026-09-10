@@ -11,6 +11,7 @@ const country = process.env.TMDB_COUNTRY || 'DE'
 
 export const PROVIDER_CATALOG_SIZE = 100
 export const PROVIDER_HOME_SIZE = 20
+export const PROVIDER_BROWSE_OFFER_TYPES = ['flatrate', 'free', 'ads']
 
 export const PROVIDER_CATALOG_DEFINITIONS = [
   {
@@ -163,6 +164,19 @@ function normalizeDiscoverCandidate(raw, mediaType) {
   }
 }
 
+export function buildProviderDiscoverParams(tmdbProviderId, mediaType, page = 1) {
+  return {
+    language,
+    region: mediaType === 'movie' ? country : undefined,
+    watch_region: country,
+    with_watch_providers: tmdbProviderId,
+    with_watch_monetization_types: PROVIDER_BROWSE_OFFER_TYPES.join('|'),
+    sort_by: 'popularity.desc',
+    include_adult: false,
+    page,
+  }
+}
+
 async function discoverProviderCandidates(tmdbProviderId, mediaType) {
   if (!tmdbProviderId) return []
 
@@ -172,15 +186,7 @@ async function discoverProviderCandidates(tmdbProviderId, mediaType) {
 
   while (results.length < PROVIDER_CATALOG_SIZE && page <= totalPages) {
     const path = mediaType === 'movie' ? '/discover/movie' : '/discover/tv'
-    const payload = await tmdbFetch(path, {
-      language,
-      region: mediaType === 'movie' ? country : undefined,
-      watch_region: country,
-      with_watch_providers: tmdbProviderId,
-      sort_by: 'popularity.desc',
-      include_adult: false,
-      page,
-    })
+    const payload = await tmdbFetch(path, buildProviderDiscoverParams(tmdbProviderId, mediaType, page))
 
     totalPages = Math.min(Number(payload?.total_pages) || 1, 500)
     const pageCandidates = (Array.isArray(payload?.results) ? payload.results : [])
@@ -328,6 +334,7 @@ export async function generateProviderCatalogs() {
       id: definition.id,
       label: definition.label,
       source: 'tmdb-watch-providers',
+      browseOfferTypes: [...PROVIDER_BROWSE_OFFER_TYPES],
       homeTitle: definition.homeTitle,
       movieTitle: definition.movieTitle,
       seriesTitle: definition.seriesTitle,
