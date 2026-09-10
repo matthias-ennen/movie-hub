@@ -1,6 +1,11 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  buildProviderHomeRows,
+  generateProviderCatalogs,
+  mergeProviderCatalogTitle,
+} from './provider-catalogs.mjs'
 import { normalizeTmdbTitle, normalizeTmdbVideos, normalizeTmdbWatchProviders, toMovieHubTitle } from '../src/services/tmdb.js'
 
 const token = process.env.TMDB_API_READ_TOKEN
@@ -18,9 +23,8 @@ export const CATALOG_ROWS = [
   { id: 'series', title: 'Serien entdecken', source: 'popular-series', mediaType: 'tv', limit: 10 },
 ]
 
-// Temporary device-test references. Metadata continues to come from TMDB.
-// The provider flag is deliberately isolated and documented so it cannot be
-// mistaken for the future provider-catalog architecture.
+// Historical device-test fixture retained for regression tests. It is no longer
+// injected into the production home rows now that provider catalogs are real.
 export const PROVIDER_TEST_REFERENCES = [
   {
     id: 106747,
@@ -35,11 +39,11 @@ export const PROVIDER_TEST_REFERENCES = [
 const CANDIDATES_PER_ROW = 24
 const MINIMUM_TITLES_PER_ROW = 6
 // Stable TMDB provider identifiers for the providers Movie Hub currently
-// exposes. They prefilter the new-release rows before the detailed per-title
-// availability check below. waipu.tv remains covered by that later check.
+// exposes. They prefilter the compact discovery rows. The full provider
+// catalogs resolve their current provider ids dynamically in provider-catalogs.mjs.
 const TMDB_DISCOVER_PROVIDER_IDS = '8|119|337|192'
-// Each candidate needs a detail and a provider request. Two workers keep the
-// total request rate deliberately conservative for the daily TMDB job.
+// Each compact discovery candidate needs detail/provider/video requests. The
+// large provider catalogs use their own bounded concurrency and retry policy.
 const REQUEST_CONCURRENCY = 2
 const ACCENT_PAIRS = [
   ['#c88953', '#50311f'],
@@ -283,28 +287,35 @@ export async function generateCatalog() {
     throw new Error('TMDB_API_READ_TOKEN is missing. Catalog generation must run only in a trusted server/CI context.')
   }
 
-  const rowsWithCandidates = await Promise.all(CATALOG_ROWS.map(async (row) => ({
-    ...row,
-    candidates: await getRowCandidates(row),
-  })))
+  const [rowsWithCandidates, providerResult] = await Promise.all([
+    Promise.all(CATALOG_ROWS.map(async (row) => ({
+      ...row,
+      candidates: await getRowCandidates(row),
+    }))),
+    generateProviderCatalogs(),
+  ])
 
   const candidates = uniqueCandidates(rowsWithCandidates.flatMap((row) => row.candidates))
-  console.log(`TMDB catalog: resolving ${candidates.length} current candidates`)
+  console.log(`TMDB catalog: resolving ${candidates.length} current discovery candidates`)
   const resolvedTitles = await mapWithConcurrency(candidates, REQUEST_CONCURRENCY, resolveCandidate)
   const titlesByCandidate = new Map(
     resolvedTitles.map((title) => [`${title.type === 'series' ? 'tv' : 'movie'}-${title.tmdbId}`, title]),
   )
 
-  for (const reference of PROVIDER_TEST_REFERENCES) {
-    const key = candidateKey(reference)
-    const current = titlesByCandidate.get(key) || await resolveCandidate(reference)
-    titlesByCandidate.set(key, applyProviderTestReference(current, reference))
+  for (const providerTitle of providerResult.titles) {
+    const key = `${providerTitle.type === 'series' ? 'tv' : 'movie'}-${providerTitle.tmdbId}`
+    titlesByCandidate.set(key, mergeProviderCatalogTitle(titlesByCandidate.get(key), providerTitle))
   }
 
   const discoveryRows = buildRowDefinitions(rowsWithCandidates, titlesByCandidate)
-  const providerTestRows = buildProviderTestRows(PROVIDER_TEST_REFERENCES, titlesByCandidate)
-  const rowDefinitions = [...providerTestRows, ...discoveryRows]
-  const visibleIds = new Set(rowDefinitions.flatMap((row) => row.ids))
+  const providerHomeRows = buildProviderHomeRows(providerResult.providerCatalogs)
+  const rowDefinitions = [...providerHomeRows, ...discoveryRows]
+  const providerCatalogIds = Object.values(providerResult.providerCatalogs)
+    .flatMap((provider) => [...provider.movieIds, ...provider.seriesIds])
+  const visibleIds = new Set([
+    ...rowDefinitions.flatMap((row) => row.ids),
+    ...providerCatalogIds,
+  ])
   const titles = [...titlesByCandidate.values()].filter((title) => visibleIds.has(title.id))
 
   return {
@@ -313,8 +324,10 @@ export async function generateCatalog() {
     country,
     generatedAt: new Date().toISOString(),
     attribution: 'This product uses the TMDB API but is not endorsed or certified by TMDB.',
+    providerAttribution: 'Watch-provider availability is powered by JustWatch via TMDB.',
     titles,
     rowDefinitions,
+    providerCatalogs: providerResult.providerCatalogs,
   }
 }
 
