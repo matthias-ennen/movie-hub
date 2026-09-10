@@ -1,7 +1,7 @@
-import { providers } from '../data/catalog.js'
+import { providerDirectory, providers } from '../data/catalog.js'
 
 export function ProviderBadge({ providerId }) {
-  const provider = providers[providerId]
+  const provider = providerDirectory[providerId]
   if (!provider) return null
 
   return (
@@ -12,9 +12,12 @@ export function ProviderBadge({ providerId }) {
 }
 
 export default function ProviderBadges({ providerIds }) {
+  const visibleProviderIds = providerIds.filter((providerId) => Boolean(providers[providerId]))
+  if (!visibleProviderIds.length) return null
+
   return (
     <div className="provider-badges" aria-label="Verfügbare Anbieter">
-      {providerIds.map((providerId) => (
+      {visibleProviderIds.map((providerId) => (
         <ProviderBadge providerId={providerId} key={providerId} />
       ))}
     </div>

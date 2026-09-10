@@ -1,4 +1,7 @@
+import { PROVIDER_OPTIONS } from '../settings/providerSelectionModel.js'
+import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { useTmdbCatalog } from '../tmdb/TmdbCatalogProvider.jsx'
+import { ProviderBadge } from './ProviderBadges.jsx'
 
 function formatSyncTime(value) {
   if (!value) return null
@@ -9,6 +12,14 @@ function formatSyncTime(value) {
 export default function SettingsView() {
   const nativeNetworkSettings = typeof window.MovieHubNative?.openNetworkSettings === 'function'
   const nativeTmdbSettings = typeof window.MovieHubNative?.openTmdbSettings === 'function'
+  const {
+    enabledProviderIds,
+    loading: providerLoading,
+    error: providerError,
+    savingProviderId,
+    isProviderEnabled,
+    setProviderEnabled,
+  } = useProviderSelection()
   const {
     syncState,
     syncBusy,
@@ -26,15 +37,70 @@ export default function SettingsView() {
     if (nativeTmdbSettings) window.MovieHubNative.openTmdbSettings()
   }
 
+  function toggleProvider(providerId) {
+    const nextEnabled = !isProviderEnabled(providerId)
+    setProviderEnabled(providerId, nextEnabled).catch(() => {})
+  }
+
   const lastSync = formatSyncTime(syncState?.syncedAt)
+  const providerBusy = providerLoading || Boolean(savingProviderId)
 
   return (
     <main className="browse-page profile-page app-settings-page">
       <div className="page-heading profile-heading">
         <p className="eyebrow">Movie Hub</p>
         <h1>Einstellungen</h1>
-        <p>Geräteweite Einstellungen für Movie Hub auf diesem Smartphone, Tablet oder Fire TV.</p>
+        <p>Kontoweite Streaming-Auswahl und geräteweite Verbindungen für Movie Hub.</p>
       </div>
+
+      <section className="settings-panel provider-selection-panel" aria-labelledby="provider-selection-heading">
+        <div className="settings-heading">
+          <div>
+            <p className="settings-kicker">Streaming</p>
+            <h2 id="provider-selection-heading">Streaminganbieter</h2>
+          </div>
+          <span className="settings-status">
+            {providerLoading ? 'Wird geladen …' : `${enabledProviderIds.length} von ${PROVIDER_OPTIONS.length} aktiv`}
+          </span>
+        </div>
+
+        <p className="settings-description">
+          Wähle aus, welche Anbieter Movie Hub für dich berücksichtigen soll. Die Auswahl gilt für dein gesamtes Movie-Hub-Konto und wird zwischen deinen Geräten synchronisiert.
+        </p>
+
+        <div className="provider-selection-list" aria-label="Streaminganbieter auswählen">
+          {PROVIDER_OPTIONS.map((provider) => {
+            const enabled = isProviderEnabled(provider.id)
+            const saving = savingProviderId === provider.id
+            return (
+              <button
+                type="button"
+                key={provider.id}
+                className={enabled ? 'provider-selection-row active' : 'provider-selection-row'}
+                onClick={() => toggleProvider(provider.id)}
+                disabled={providerBusy}
+                aria-pressed={enabled}
+                data-focusable="true"
+              >
+                <ProviderBadge providerId={provider.id} />
+                <span className="provider-selection-copy">
+                  <strong>{provider.label}</strong>
+                  <small>{provider.description}</small>
+                </span>
+                <span className={enabled ? 'provider-selection-switch active' : 'provider-selection-switch'} aria-hidden="true">
+                  <span className="provider-selection-knob" />
+                </span>
+                <span className="provider-selection-state">{saving ? 'Speichert …' : enabled ? 'An' : 'Aus'}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <p className="settings-hint">
+          Aktuell stehen die vollständig in Movie Hub angebundenen Anbieter zur Auswahl. Weitere Dienste wie Joyn, Netzkino, WOW/Sky, Apple TV+, Paramount+, RTL+, MagentaTV+, Crunchyroll, Pluto TV, ARD, ZDF und arte werden erst ergänzt, wenn Datenquelle, App-Öffnung und Compliance sauber geprüft sind.
+        </p>
+        {providerError && <p className="error" role="status">Streaminganbieter konnten nicht gespeichert oder synchronisiert werden: {providerError.message}</p>}
+      </section>
 
       <section className="settings-panel network-settings-panel" aria-labelledby="network-settings-heading">
         <div className="settings-heading">
