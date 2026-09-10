@@ -73,6 +73,12 @@ Wenn derselbe Titel über mehrere Anbieter gefunden wird, werden die Provider-Mi
 
 Der bestehende Deploy-Schutz bleibt erhalten: Schlägt die Katalogerzeugung transient fehl, soll der zuletzt erfolgreich veröffentlichte Katalog live bleiben, statt einen unvollständigen Stand zu publizieren.
 
+### Kein Demo-Fallback mehr
+
+Die App enthält keine fest eingebauten Beispiel-Filme oder Beispiel-Serien mehr. Der lokale Client-Fallback ist absichtlich leer. Öffentliche Inhalte kommen ausschließlich aus dem automatisch erzeugten `/catalog.json`; persönliche TMDB- und Movie-Hub-Daten werden unabhängig davon zur Laufzeit ergänzt.
+
+Kann der öffentliche Katalog vorübergehend nicht geladen werden, werden deshalb keine veralteten Demo-Kacheln eingeblendet. Der letzte erfolgreich veröffentlichte Live-Katalog bleibt serverseitig durch den Deploy-Schutz erhalten.
+
 ## Benutzeroberfläche
 
 ### Home
@@ -126,6 +132,7 @@ Für die technische Abnahme sind insbesondere zu prüfen:
 
 - CI und Android-Build grün
 - Kataloggenerator erzeugt die Anbieterbestände erfolgreich
+- keine fest eingebauten Demo-Titel oder Demo-Reihen mehr im Client
 - Home zeigt die Anbieterreihen nach den persönlichen Reihen
 - Home-Reihen enthalten maximal 20 gemischte Titel
 - „Filme“ und „Serien“ zeigen getrennte Anbieterreihen
