@@ -1,4 +1,6 @@
 export default function Hero({ item, onOpen }) {
+  if (!item) return null
+
   const hasBackdrop = Boolean(item.backdropUrl)
 
   return (
