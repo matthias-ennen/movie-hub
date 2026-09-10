@@ -9,6 +9,7 @@ import './styles/library.css'
 import './styles/media-controls.css'
 import './styles/tv.css'
 import './styles/tmdb.css'
+import './styles/provider-selection.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
