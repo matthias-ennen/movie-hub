@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   CATALOG_ROWS,
   PROVIDER_TEST_REFERENCES,
@@ -29,15 +29,43 @@ describe('automatischer TMDB-Katalog', () => {
     ])
   })
 
-  it('rejects an incomplete row instead of publishing a thin catalog', () => {
+  it('skips an incomplete supplemental discovery row without blocking the provider catalog refresh', () => {
     const candidates = Array.from({ length: 5 }, (_, index) => ({ id: index + 1, mediaType: 'tv' }))
     const titles = new Map(candidates.map((candidate) => [
       `tv-${candidate.id}`,
       { id: `tmdb-series-${candidate.id}`, providerIds: ['netflix'] },
     ]))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    expect(() => buildRowDefinitions([{ id: 'test', title: 'Test', candidates, limit: 10 }], titles))
-      .toThrow(/at least 6/)
+    expect(buildRowDefinitions([{ id: 'test', title: 'Test', candidates, limit: 10 }], titles)).toEqual([])
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/skipped.*only 5 supported titles/))
+    warn.mockRestore()
+  })
+
+  it('keeps healthy discovery rows when another supplemental row is too thin', () => {
+    const thinCandidates = Array.from({ length: 5 }, (_, index) => ({ id: index + 1, mediaType: 'tv' }))
+    const healthyCandidates = Array.from({ length: 7 }, (_, index) => ({ id: index + 10, mediaType: 'movie' }))
+    const titles = new Map([
+      ...thinCandidates.map((candidate) => [
+        `tv-${candidate.id}`,
+        { id: `tmdb-series-${candidate.id}`, providerIds: ['netflix'] },
+      ]),
+      ...healthyCandidates.map((candidate) => [
+        `movie-${candidate.id}`,
+        { id: `tmdb-movie-${candidate.id}`, providerIds: ['prime'] },
+      ]),
+    ])
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const rows = buildRowDefinitions([
+      { id: 'thin', title: 'Thin', candidates: thinCandidates, limit: 10 },
+      { id: 'healthy', title: 'Healthy', candidates: healthyCandidates, limit: 10 },
+    ], titles)
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].id).toBe('healthy')
+    expect(rows[0].ids).toHaveLength(7)
+    warn.mockRestore()
   })
 
   it('keeps Machete Kills as an isolated waipu device-test reference', () => {
