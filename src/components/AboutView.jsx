@@ -111,9 +111,10 @@ export default function AboutView() {
           <h2 id="about-services-heading">Woher Movie Hub seine Daten bekommt</h2>
           <ul className="about-list">
             <li><strong>TMDB</strong><span>Film- und Seriendaten, Bilder, Metadaten und Providerinformationen.</span></li>
+            <li><strong>JustWatch</strong><span>Streaming-Verfügbarkeitsdaten, die Movie Hub über die TMDB-Watch-Provider-Daten nutzt.</span></li>
             <li><strong>Firebase</strong><span>Hosting, Anmeldung und kontobezogene Movie-Hub-Daten in Firestore.</span></li>
           </ul>
-          <p className="about-note">This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+          <p className="about-note">This product uses the TMDB API but is not endorsed or certified by TMDB. Watch-provider availability is powered by JustWatch via TMDB.</p>
         </section>
 
         <section className="settings-panel about-panel" aria-labelledby="about-privacy-heading">
