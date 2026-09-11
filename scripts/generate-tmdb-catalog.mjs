@@ -45,6 +45,7 @@ const TMDB_DISCOVER_PROVIDER_IDS = '8|119|337|192'
 // Each compact discovery candidate needs detail/provider/video requests. The
 // large provider catalogs use their own bounded concurrency and retry policy.
 const REQUEST_CONCURRENCY = 2
+const MAX_RETRIES = 5
 const ACCENT_PAIRS = [
   ['#c88953', '#50311f'],
   ['#d45d36', '#23314c'],
@@ -92,6 +93,10 @@ function accentFor(tmdbId) {
   return ACCENT_PAIRS[Math.abs(Number(tmdbId) || 0) % ACCENT_PAIRS.length]
 }
 
+function sleep(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
 export function applyProviderTestReference(title, reference) {
   if (!title || !reference?.providerId) return title
 
@@ -121,7 +126,7 @@ export function applyProviderTestReference(title, reference) {
   }
 }
 
-async function tmdbFetch(path, searchParams = {}) {
+export async function tmdbFetch(path, searchParams = {}, attempt = 0) {
   const endpoint = new URL(`https://api.themoviedb.org/3${path}`)
   for (const [key, value] of Object.entries(searchParams)) {
     if (value !== undefined && value !== null && value !== '') endpoint.searchParams.set(key, String(value))
@@ -133,6 +138,15 @@ async function tmdbFetch(path, searchParams = {}) {
       Authorization: `Bearer ${token}`,
     },
   })
+
+  if ((response.status === 429 || response.status >= 500) && attempt < MAX_RETRIES) {
+    const retryAfter = Number(response.headers.get('retry-after'))
+    const delay = Number.isFinite(retryAfter) && retryAfter > 0
+      ? retryAfter * 1000
+      : 1000 * (2 ** attempt)
+    await sleep(delay)
+    return tmdbFetch(path, searchParams, attempt + 1)
+  }
 
   if (!response.ok) {
     const body = await response.text()
