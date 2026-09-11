@@ -8,6 +8,8 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.net.Uri;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
@@ -35,11 +37,16 @@ public final class MainActivity extends ComponentActivity {
     private static final String APP_URL = "https://movie-hub-62459.web.app/";
     private static final String MOVIE_HUB_HOST = "movie-hub-62459.web.app";
     private static final String FIREBASE_AUTH_HOST = "movie-hub-62459.firebaseapp.com";
+    private static final long STARTUP_TIMEOUT_MS = 10_000L;
 
     private FrameLayout container;
     private WebView webView;
+    private View loadingView;
     private View offlineView;
     private AlertDialog exitDialog;
+    private final Handler startupHandler = new Handler(Looper.getMainLooper());
+    private Runnable startupTimeout;
+    private boolean automaticRetryUsed;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,6 +55,8 @@ public final class MainActivity extends ComponentActivity {
         createContent();
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
             loadMovieHub();
+        } else {
+            hideLoadingView();
         }
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -69,6 +78,7 @@ public final class MainActivity extends ComponentActivity {
         webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(false);
         webView.getSettings().setSupportMultipleWindows(false);
         webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
+        webView.getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
         // User-managed home-network video URLs may use plain HTTP. The top-level
         // WebView remains locked to Movie Hub's HTTPS hosts below.
         webView.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
@@ -81,6 +91,12 @@ public final class MainActivity extends ComponentActivity {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
 
+        loadingView = createLoadingView();
+        loadingView.setVisibility(View.GONE);
+        container.addView(loadingView, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT));
+
         offlineView = createOfflineView();
         offlineView.setVisibility(View.GONE);
         container.addView(offlineView, new FrameLayout.LayoutParams(
@@ -88,6 +104,33 @@ public final class MainActivity extends ComponentActivity {
                 FrameLayout.LayoutParams.MATCH_PARENT));
 
         setContentView(container);
+    }
+
+    private View createLoadingView() {
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setGravity(Gravity.CENTER);
+        content.setPadding(dp(48), dp(48), dp(48), dp(48));
+        content.setBackgroundColor(Color.rgb(9, 10, 16));
+
+        TextView title = new TextView(this);
+        title.setText("Movie Hub wird geladen …");
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(24);
+        title.setGravity(Gravity.CENTER);
+        content.addView(title);
+
+        TextView hint = new TextView(this);
+        hint.setText("Einen Moment bitte.");
+        hint.setTextColor(Color.rgb(190, 195, 210));
+        hint.setTextSize(16);
+        hint.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        hintParams.topMargin = dp(10);
+        content.addView(hint, hintParams);
+        return content;
     }
 
     private View createOfflineView() {
@@ -128,16 +171,72 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void loadMovieHub() {
+        automaticRetryUsed = false;
+        startMovieHubLoad();
+    }
+
+    private void startMovieHubLoad() {
+        cancelStartupTimeout();
         offlineView.setVisibility(View.GONE);
+        loadingView.setVisibility(View.VISIBLE);
+        loadingView.bringToFront();
         webView.setVisibility(View.VISIBLE);
-        // A package update must not restore an older cached index page. The
-        // hosted assets remain hash-versioned and can still use normal caching.
-        webView.loadUrl(APP_URL + "?shell=" + getInstalledVersionCode());
+        webView.stopLoading();
+
+        // Keep normal WebView caching for hash-versioned assets, but force the
+        // HTML entry point to be a fresh request for every cold start/retry.
+        String startupUrl = APP_URL
+                + "?shell=" + getInstalledVersionCode()
+                + "&startup=" + System.currentTimeMillis();
+        webView.loadUrl(startupUrl);
+        scheduleStartupTimeout();
+    }
+
+    private void scheduleStartupTimeout() {
+        cancelStartupTimeout();
+        startupTimeout = () -> {
+            if (!automaticRetryUsed) {
+                automaticRetryUsed = true;
+                startMovieHubLoad();
+                return;
+            }
+            showOfflineView();
+        };
+        startupHandler.postDelayed(startupTimeout, STARTUP_TIMEOUT_MS);
+    }
+
+    private void cancelStartupTimeout() {
+        if (startupTimeout != null) {
+            startupHandler.removeCallbacks(startupTimeout);
+            startupTimeout = null;
+        }
+    }
+
+    private void verifyHostedUiReady(WebView view) {
+        view.evaluateJavascript(
+                "Boolean(document.getElementById('root') && document.getElementById('root').childElementCount > 0)",
+                result -> {
+                    if ("true".equals(result)) {
+                        cancelStartupTimeout();
+                        offlineView.setVisibility(View.GONE);
+                        hideLoadingView();
+                        webView.setVisibility(View.VISIBLE);
+                    }
+                });
+    }
+
+    private void hideLoadingView() {
+        if (loadingView != null) {
+            loadingView.setVisibility(View.GONE);
+        }
     }
 
     private void showOfflineView() {
+        cancelStartupTimeout();
+        hideLoadingView();
         webView.setVisibility(View.GONE);
         offlineView.setVisibility(View.VISIBLE);
+        offlineView.bringToFront();
         offlineView.requestFocus();
     }
 
@@ -215,6 +314,7 @@ public final class MainActivity extends ComponentActivity {
 
     @Override
     protected void onDestroy() {
+        cancelStartupTimeout();
         if (exitDialog != null) {
             exitDialog.dismiss();
             exitDialog = null;
@@ -467,7 +567,15 @@ public final class MainActivity extends ComponentActivity {
         @Override
         public void onPageFinished(WebView view, String url) {
             android.net.Uri uri = android.net.Uri.parse(url);
-            if (isTrustedMovieHubUrl(uri.getScheme(), uri.getHost())) {
+            if (!isTrustedMovieHubUrl(uri.getScheme(), uri.getHost())) {
+                return;
+            }
+
+            if (MOVIE_HUB_HOST.equalsIgnoreCase(uri.getHost())) {
+                verifyHostedUiReady(view);
+            } else {
+                cancelStartupTimeout();
+                hideLoadingView();
                 offlineView.setVisibility(View.GONE);
                 webView.setVisibility(View.VISIBLE);
             }
@@ -477,6 +585,11 @@ public final class MainActivity extends ComponentActivity {
         public void onReceivedError(WebView view, WebResourceRequest request,
                                     WebResourceError error) {
             if (request.isForMainFrame()) {
+                if (!automaticRetryUsed) {
+                    automaticRetryUsed = true;
+                    startMovieHubLoad();
+                    return;
+                }
                 showOfflineView();
             }
         }
