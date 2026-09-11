@@ -24,7 +24,7 @@ export const SEARCH_PAGES_PER_OFFER = Math.max(
 )
 const REQUEST_CONCURRENCY = 3
 const MAX_RETRIES = 4
-const MINIMUM_BROAD_INDEX_SIZE = 2000
+const MINIMUM_BROAD_DISCOVERY_SIZE = 2000
 const ACCENT_PAIRS = [
   ['#c88953', '#50311f'],
   ['#d45d36', '#23314c'],
@@ -325,15 +325,16 @@ export async function generateBroadSearchIndexFromTmdb() {
     `Search index discovery: ${tasks.length} provider/media/offer scans · up to ${SEARCH_PAGES_PER_OFFER} pages each`,
   )
   const discovered = await mapWithConcurrency(tasks, REQUEST_CONCURRENCY, discoverOfferEntries)
-  const artifact = buildBroadArtifact(catalog, discovered.flat())
+  const broadEntries = mergeProviderSearchEntries(discovered.flat())
+  console.log(`Search index discovery resolved ${broadEntries.length} unique titles before catalog merge.`)
 
-  if (artifact.entries.length < MINIMUM_BROAD_INDEX_SIZE) {
+  if (broadEntries.length < MINIMUM_BROAD_DISCOVERY_SIZE) {
     throw new Error(
-      `Broad search index quality gate failed: ${artifact.entries.length} entries; at least ${MINIMUM_BROAD_INDEX_SIZE} are required.`,
+      `Broad search index quality gate failed: ${broadEntries.length} discovered entries; at least ${MINIMUM_BROAD_DISCOVERY_SIZE} are required.`,
     )
   }
 
-  return writeSearchIndex(artifact)
+  return writeSearchIndex(buildBroadArtifact(catalog, broadEntries))
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
