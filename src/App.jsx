@@ -6,6 +6,7 @@ import DetailModal from './components/DetailModal.jsx'
 import Hero from './components/Hero.jsx'
 import PosterCard from './components/PosterCard.jsx'
 import ProfileView from './components/ProfileView.jsx'
+import SearchView from './components/SearchView.jsx'
 import SettingsView from './components/SettingsView.jsx'
 import { buildProviderBrowseRows } from './catalog/providerCatalogRows.js'
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
@@ -206,42 +207,6 @@ function PersonalLibraryView({ rows, onOpen, profileName, loading, error }) {
           {rows.map((row) => <ContentRow key={row.id} title={row.title} items={row.items} onOpen={onOpen} />)}
         </div>
       )}
-    </main>
-  )
-}
-
-function SearchView({ titles, onOpen }) {
-  const [query, setQuery] = useState('')
-  const results = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase('de')
-    if (!normalized) return titles
-    return titles.filter((item) => {
-      const haystack = `${item.title || ''} ${item.originalTitle || ''} ${item.genre || ''}`.toLocaleLowerCase('de')
-      return haystack.includes(normalized)
-    })
-  }, [query, titles])
-
-  return (
-    <main className="browse-page search-page">
-      <div className="page-heading">
-        <p className="eyebrow">Schnell finden</p>
-        <h1>Suche</h1>
-      </div>
-      <label className="search-box">
-        <span>⌕</span>
-        <input
-          autoFocus
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Film, Serie oder Genre …"
-          aria-label="Filme und Serien suchen"
-          data-focusable="true"
-        />
-      </label>
-      <p className="result-count">{results.length} Treffer</p>
-      <div className="poster-grid">
-        {results.map((item) => <PosterCard key={item.id} item={item} onOpen={onOpen} />)}
-      </div>
     </main>
   )
 }
@@ -483,7 +448,14 @@ function MovieHub({ user }) {
           error={libraryError}
         />
       )}
-      {currentView === 'search' && <SearchView titles={titles} onOpen={handleOpenTitle} />}
+      {currentView === 'search' && (
+        <SearchView
+          publicTitles={publicTitles}
+          personalTitles={tmdbPersonalTitles}
+          fullTitles={titles}
+          onOpen={handleOpenTitle}
+        />
+      )}
       {currentView === 'profile' && <ProfileView user={user} onSignOut={handleSignOut} />}
       {currentView === 'settings' && <SettingsView />}
       {currentView === 'about' && <AboutView />}
