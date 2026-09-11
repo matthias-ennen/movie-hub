@@ -1,13 +1,10 @@
+import { TMDB_PROVIDER_REGISTRY } from '../providers/providerRegistry.js'
+
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p'
 
-const TARGET_PROVIDER_IDS = new Map([
-  ['netflix', 'netflix'],
-  ['amazonprimevideo', 'prime'],
-  ['primevideo', 'prime'],
-  ['disneyplus', 'disney'],
-  ['youtube', 'youtube'],
-  ['waiputv', 'waipu'],
-])
+const TARGET_PROVIDER_IDS = new Map(
+  TMDB_PROVIDER_REGISTRY.flatMap((provider) => provider.aliases.map((alias) => [alias, provider.id])),
+)
 
 const WATCH_OFFER_TYPES = ['flatrate', 'free', 'ads', 'rent', 'buy']
 const SUPPORTED_TMDB_VIDEO_TYPES = new Set(['Trailer', 'Teaser'])
