@@ -11,8 +11,11 @@ export function ProviderBadge({ providerId }) {
   )
 }
 
-export default function ProviderBadges({ providerIds }) {
-  const visibleProviderIds = providerIds.filter((providerId) => Boolean(providers[providerId]))
+export default function ProviderBadges({ providerIds, maxVisible = Number.POSITIVE_INFINITY }) {
+  const visibleProviderIds = providerIds
+    .filter((providerId) => Boolean(providers[providerId]))
+    .slice(0, maxVisible)
+
   if (!visibleProviderIds.length) return null
 
   return (

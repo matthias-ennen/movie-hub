@@ -16,10 +16,12 @@ export default function PosterCard({ item, onOpen }) {
       <span className={hasPoster ? 'poster-art has-image' : 'poster-art'} aria-hidden="true">
         {hasPoster && <img className="poster-image" src={posterUrl} alt="" loading="lazy" />}
         <span className="poster-kicker">{item.type === 'series' ? 'SERIE' : 'FILM'}</span>
-        <span className="poster-title">{item.title}</span>
-        <span className="poster-year">{item.year || '–'}</span>
+        <span className="poster-copy">
+          <span className="poster-title">{item.title}</span>
+          <span className="poster-year">{item.year || '–'}</span>
+        </span>
       </span>
-      {item.providerIds?.length > 0 && <ProviderBadges providerIds={item.providerIds} />}
+      {item.providerIds?.length > 0 && <ProviderBadges providerIds={item.providerIds} maxVisible={3} />}
     </button>
   )
 }

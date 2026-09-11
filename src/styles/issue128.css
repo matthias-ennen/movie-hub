@@ -127,6 +127,55 @@
   margin-top: 0;
 }
 
+/* Poster: Titel und Jahr bleiben oberhalb einer einzigen Anbieterzeile. */
+.poster-card .poster-art {
+  padding-bottom: calc(2rem + 1.8rem);
+}
+
+.poster-card .poster-copy {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.poster-card .poster-title {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: clamp(0.92rem, 1.35vw, 1.28rem);
+  line-height: 1.02;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.poster-card .poster-year {
+  margin-top: 0;
+  font-size: 0.74rem;
+  line-height: 1;
+}
+
+.poster-card .provider-badges {
+  left: 0.65rem;
+  right: 0.65rem;
+  bottom: 0.65rem;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  gap: 0.3rem;
+  overflow: hidden;
+}
+
+.poster-card .provider-badge {
+  flex: 0 0 auto;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.32rem;
+  font-size: 0.62rem;
+}
+
 @media (max-width: 1050px) {
   .hero-carousel .hero {
     grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
