@@ -5,6 +5,7 @@ import {
   normalizeTmdbWatchProviders,
   toMovieHubTitle,
 } from '../src/services/tmdb.js'
+import { selectNeutralTmdbPosterUrl } from '../src/services/tmdbImages.js'
 
 const token = process.env.TMDB_API_READ_TOKEN
 const language = process.env.TMDB_LANGUAGE || 'de-DE'
@@ -218,10 +219,14 @@ async function resolveCatalogTitle(candidate, membershipOffers) {
   const path = candidate.mediaType === 'movie' ? `/movie/${candidate.id}` : `/tv/${candidate.id}`
   const payload = await tmdbFetch(path, {
     language,
-    append_to_response: 'credits,videos,watch/providers',
+    append_to_response: 'credits,videos,watch/providers,images',
+    include_image_language: 'null',
   })
 
-  const normalized = normalizeTmdbTitle(payload, candidate.mediaType)
+  const normalized = {
+    ...normalizeTmdbTitle(payload, candidate.mediaType),
+    neutralPosterUrl: selectNeutralTmdbPosterUrl(payload?.images),
+  }
   const providerData = normalizeTmdbWatchProviders(payload?.['watch/providers'], country)
   const videos = normalizeTmdbVideos([payload?.videos], normalized.originalLanguage)
   const providerOffers = mergeProviderOffers(providerData.providerOffers, membershipOffers)
@@ -248,6 +253,7 @@ export function mergeProviderCatalogTitle(existing, incoming) {
     ...existing,
     providerIds: providerOffers.map((offer) => offer.id),
     providerOffers,
+    neutralPosterUrl: existing.neutralPosterUrl || incoming.neutralPosterUrl || null,
     videos: Array.isArray(existing.videos) && existing.videos.length ? existing.videos : incoming.videos,
     cast: Array.isArray(existing.cast) && existing.cast.length ? existing.cast : incoming.cast,
   }
