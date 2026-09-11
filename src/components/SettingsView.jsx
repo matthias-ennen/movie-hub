@@ -9,7 +9,19 @@ function formatSyncTime(value) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('de-DE')
 }
 
-export default function SettingsView() {
+function visibleProviderOptions(availableTmdbProviderIds) {
+  const available = Array.isArray(availableTmdbProviderIds)
+    ? new Set(availableTmdbProviderIds)
+    : null
+
+  return PROVIDER_OPTIONS.filter((provider) => {
+    if (provider.source === 'special') return provider.id === 'waipu'
+    if (!available) return provider.defaultEnabled
+    return available.has(provider.id)
+  })
+}
+
+export default function SettingsView({ availableTmdbProviderIds = null }) {
   const nativeNetworkSettings = typeof window.MovieHubNative?.openNetworkSettings === 'function'
   const nativeTmdbSettings = typeof window.MovieHubNative?.openTmdbSettings === 'function'
   const {
@@ -44,6 +56,8 @@ export default function SettingsView() {
 
   const lastSync = formatSyncTime(syncState?.syncedAt)
   const providerBusy = providerLoading || Boolean(savingProviderId)
+  const providerOptions = visibleProviderOptions(availableTmdbProviderIds)
+  const activeVisibleProviders = providerOptions.filter((provider) => enabledProviderIds.includes(provider.id)).length
 
   return (
     <main className="browse-page profile-page app-settings-page">
@@ -60,7 +74,7 @@ export default function SettingsView() {
             <h2 id="provider-selection-heading">Streaminganbieter</h2>
           </div>
           <span className="settings-status">
-            {providerLoading ? 'Wird geladen …' : `${enabledProviderIds.length} von ${PROVIDER_OPTIONS.length} aktiv`}
+            {providerLoading ? 'Wird geladen …' : `${activeVisibleProviders} von ${providerOptions.length} aktiv`}
           </span>
         </div>
 
@@ -69,7 +83,7 @@ export default function SettingsView() {
         </p>
 
         <div className="provider-selection-list" aria-label="Streaminganbieter auswählen">
-          {PROVIDER_OPTIONS.map((provider) => {
+          {providerOptions.map((provider) => {
             const enabled = isProviderEnabled(provider.id)
             const saving = savingProviderId === provider.id
             return (
@@ -97,7 +111,7 @@ export default function SettingsView() {
         </div>
 
         <p className="settings-hint">
-          Aktuell stehen die vollständig in Movie Hub angebundenen Anbieter zur Auswahl. Weitere Dienste wie Joyn, Netzkino, WOW/Sky, Apple TV+, Paramount+, RTL+, MagentaTV+, Crunchyroll, Pluto TV, ARD, ZDF und arte werden erst ergänzt, wenn Datenquelle, App-Öffnung und Compliance sauber geprüft sind.
+          Zusätzliche Dienste erscheinen hier nur, wenn der aktuelle TMDB/JustWatch-Katalog sie für Deutschland tatsächlich als Watch Provider liefert. Neue Anbieter sind standardmäßig aus, bis du sie aktivierst. waipu.tv bleibt als bestehende Sonderintegration sichtbar; der vollständige Waiputhek-Katalog wird separat behandelt.
         </p>
         {providerError && <p className="error" role="status">Streaminganbieter konnten nicht gespeichert oder synchronisiert werden: {providerError.message}</p>}
       </section>
