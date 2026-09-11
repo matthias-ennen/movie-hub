@@ -5,6 +5,7 @@ import {
   applyProviderTestReference,
   buildProviderTestRows,
   buildRowDefinitions,
+  tmdbFetch,
 } from '../scripts/generate-tmdb-catalog.mjs'
 
 describe('automatischer TMDB-Katalog', () => {
@@ -13,6 +14,29 @@ describe('automatischer TMDB-Katalog', () => {
       'trending', 'new-movies', 'new-series', 'movies', 'series',
     ])
     expect(CATALOG_ROWS.every((row) => row.limit === 10)).toBe(true)
+  })
+
+  it('retries a throttled TMDB request before failing the catalog refresh', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response('{"status_code":25}', {
+        status: 429,
+        headers: { 'retry-after': '0.001' },
+      }))
+      .mockResolvedValueOnce(new Response('{"results":[]}', {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }))
+
+    try {
+      const request = tmdbFetch('/discover/movie', { language: 'de-DE' })
+      await vi.runAllTimersAsync()
+      await expect(request).resolves.toEqual({ results: [] })
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    } finally {
+      fetchMock.mockRestore()
+      vi.useRealTimers()
+    }
   })
 
   it('keeps only titles with a supported German provider in each row', () => {
