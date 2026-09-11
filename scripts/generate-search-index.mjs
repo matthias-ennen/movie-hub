@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { TMDB_PROVIDER_REGISTRY } from '../src/providers/providerRegistry.js'
@@ -8,10 +8,12 @@ import {
   buildSearchIndexArtifact,
   toSearchIndexEntry,
 } from '../src/search/searchIndex.js'
+import { SEARCH_DETAIL_BUCKET_COUNT, SEARCH_DETAIL_VERSION } from '../src/search/lazySearchDetails.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const catalogPath = resolve(root, 'public/catalog.json')
 const searchIndexPath = resolve(root, 'public/search-index.json')
+const searchDetailsDirectory = resolve(root, 'public/search-details')
 
 const token = process.env.TMDB_API_READ_TOKEN
 const language = process.env.TMDB_LANGUAGE || 'de-DE'
@@ -111,8 +113,28 @@ async function loadProviderDirectory(mediaType) {
   return Array.isArray(payload?.results) ? payload.results : []
 }
 
+async function loadGenreDirectory(mediaType) {
+  const tmdbType = mediaType === 'series' || mediaType === 'tv' ? 'tv' : 'movie'
+  const payload = await tmdbFetch(`/genre/${tmdbType}/list`, { language })
+  return new Map((Array.isArray(payload?.genres) ? payload.genres : [])
+    .filter((genre) => Number.isFinite(Number(genre?.id)) && genre?.name)
+    .map((genre) => [Number(genre.id), genre.name]))
+}
+
 function accentFor(tmdbId) {
   return ACCENT_PAIRS[Math.abs(Number(tmdbId) || 0) % ACCENT_PAIRS.length]
+}
+
+function detailBucket(tmdbId) {
+  return (Math.abs(Number(tmdbId) || 0) % SEARCH_DETAIL_BUCKET_COUNT)
+    .toString(16)
+    .padStart(2, '0')
+}
+
+function genreNamesFromIds(raw, genreNamesById) {
+  return (Array.isArray(raw?.genre_ids) ? raw.genre_ids : [])
+    .map((id) => genreNamesById?.get?.(Number(id)))
+    .filter(Boolean)
 }
 
 export function buildSearchDiscoverParams(tmdbProviderIds, mediaType, offerType, page = 1) {
@@ -161,6 +183,53 @@ export function searchEntryFromDiscover(raw, mediaType, provider, tmdbProviderId
       offerTypes: [offerType],
     }],
   }, { scope: 'public' })
+}
+
+export function searchDetailFromDiscover(raw, mediaType, genreNamesById = new Map()) {
+  const normalized = normalizeTmdbTitle(raw, mediaType)
+  return {
+    id: `tmdb-${normalized.type}-${normalized.tmdbId}`,
+    tmdbId: normalized.tmdbId,
+    type: normalized.type,
+    title: normalized.title,
+    originalTitle: normalized.originalTitle,
+    description: normalized.description,
+    year: normalized.year,
+    releaseDate: normalized.releaseDate,
+    backdropUrl: normalized.backdropUrl,
+    originalLanguage: normalized.originalLanguage,
+    voteAverage: normalized.voteAverage,
+    genreNames: genreNamesFromIds(raw, genreNamesById),
+    completeness: 'discover',
+  }
+}
+
+function searchDetailFromCatalogTitle(title) {
+  const genreNames = Array.isArray(title?.genres)
+    ? title.genres.map((genre) => typeof genre === 'string' ? genre : genre?.name).filter(Boolean)
+    : String(title?.genre || '')
+      .split('·')
+      .map((value) => value.trim())
+      .filter((value) => value && value !== 'Ohne Genreangabe')
+
+  return {
+    id: title.id,
+    tmdbId: Number.isFinite(Number(title.tmdbId)) ? Number(title.tmdbId) : null,
+    type: title.type === 'series' ? 'series' : 'movie',
+    title: title.title,
+    originalTitle: title.originalTitle || null,
+    description: title.description || '',
+    year: Number.isFinite(Number(title.year)) ? Number(title.year) : null,
+    releaseDate: title.releaseDate || null,
+    backdropUrl: title.backdropUrl || null,
+    originalLanguage: title.originalLanguage || null,
+    voteAverage: Number.isFinite(Number(title.voteAverage)) ? Number(title.voteAverage) : null,
+    genreNames,
+    meta: title.meta || null,
+    cast: Array.isArray(title.cast) ? title.cast : [],
+    videos: Array.isArray(title.videos) ? title.videos : [],
+    completeness: 'catalog',
+  }
 }
 
 function mergeOfferTypes(values) {
@@ -214,11 +283,32 @@ export function mergeProviderSearchEntries(entries) {
   return [...merged.values()]
 }
 
-async function discoverOfferEntries({ provider, tmdbProviderIds, mediaType, offerType }) {
+export function mergeSearchDetails(details) {
+  const merged = new Map()
+  for (const detail of Array.isArray(details) ? details : []) {
+    if (!detail?.id) continue
+    const current = merged.get(detail.id)
+    if (!current || detail.completeness === 'catalog') {
+      merged.set(detail.id, detail)
+      continue
+    }
+    merged.set(detail.id, {
+      ...detail,
+      ...current,
+      description: current.description || detail.description || '',
+      backdropUrl: current.backdropUrl || detail.backdropUrl || null,
+      genreNames: current.genreNames?.length ? current.genreNames : detail.genreNames || [],
+      voteAverage: current.voteAverage ?? detail.voteAverage ?? null,
+    })
+  }
+  return [...merged.values()]
+}
+
+async function discoverOfferEntries({ provider, tmdbProviderIds, mediaType, offerType, genreNamesById }) {
   if (!tmdbProviderIds.length) return []
 
   const path = mediaType === 'movie' ? '/discover/movie' : '/discover/tv'
-  const entries = []
+  const records = []
   let page = 1
   let totalPages = 1
 
@@ -232,7 +322,10 @@ async function discoverOfferEntries({ provider, tmdbProviderIds, mediaType, offe
     for (const raw of Array.isArray(payload?.results) ? payload.results : []) {
       try {
         const entry = searchEntryFromDiscover(raw, mediaType, provider, tmdbProviderIds, offerType)
-        if (entry) entries.push(entry)
+        if (entry) records.push({
+          entry,
+          detail: searchDetailFromDiscover(raw, mediaType, genreNamesById),
+        })
       } catch (error) {
         console.warn(
           `Search-index candidate skipped for ${provider.id}/${mediaType}/${offerType}:`,
@@ -243,7 +336,7 @@ async function discoverOfferEntries({ provider, tmdbProviderIds, mediaType, offe
     page += 1
   }
 
-  return entries
+  return records
 }
 
 async function readCatalog() {
@@ -290,20 +383,79 @@ async function writeSearchIndex(searchIndex) {
   return searchIndex
 }
 
+async function writeSearchDetails(details, generatedAt = new Date().toISOString()) {
+  const merged = mergeSearchDetails(details)
+  const buckets = new Map(Array.from({ length: SEARCH_DETAIL_BUCKET_COUNT }, (_, index) => [
+    index.toString(16).padStart(2, '0'),
+    [],
+  ]))
+
+  for (const detail of merged) {
+    if (!Number.isFinite(Number(detail.tmdbId))) continue
+    buckets.get(detailBucket(detail.tmdbId))?.push(detail)
+  }
+
+  await rm(searchDetailsDirectory, { recursive: true, force: true })
+  await mkdir(searchDetailsDirectory, { recursive: true })
+
+  let totalBytes = 0
+  const shards = []
+  for (const [bucket, entries] of buckets) {
+    const payload = {
+      kind: 'search-detail-shard',
+      version: SEARCH_DETAIL_VERSION,
+      bucket,
+      generatedAt,
+      count: entries.length,
+      entries,
+    }
+    const json = `${JSON.stringify(payload)}\n`
+    totalBytes += Buffer.byteLength(json)
+    await writeFile(resolve(searchDetailsDirectory, `${bucket}.json`), json, 'utf8')
+    shards.push({ bucket, count: entries.length, path: `/search-details/${bucket}.json` })
+  }
+
+  const manifest = {
+    kind: 'search-detail-manifest',
+    version: SEARCH_DETAIL_VERSION,
+    generatedAt,
+    bucketCount: SEARCH_DETAIL_BUCKET_COUNT,
+    count: merged.length,
+    shards,
+  }
+  const manifestJson = `${JSON.stringify(manifest)}\n`
+  totalBytes += Buffer.byteLength(manifestJson)
+  await writeFile(resolve(searchDetailsDirectory, 'manifest.json'), manifestJson, 'utf8')
+  console.log(`Movie Hub lazy search details generated: ${merged.length} entries in ${SEARCH_DETAIL_BUCKET_COUNT} shards · ${(totalBytes / 1024 / 1024).toFixed(2)} MiB total`)
+  return manifest
+}
+
+export async function generateSearchDetailsFromCatalog() {
+  const catalog = await readCatalog()
+  return writeSearchDetails(
+    catalog.titles.map(searchDetailFromCatalogTitle),
+    catalog.generatedAt || new Date().toISOString(),
+  )
+}
+
 export async function generateSearchIndexFromCatalog() {
   const catalog = await readCatalog()
   const searchIndex = buildSearchIndexArtifact(catalog)
   if (!searchIndex.entries.length) throw new Error('Search index generation produced no entries.')
-  return writeSearchIndex(searchIndex)
+  await writeSearchIndex(searchIndex)
+  await writeSearchDetails(catalog.titles.map(searchDetailFromCatalogTitle), searchIndex.generatedAt)
+  return searchIndex
 }
 
 export async function generateBroadSearchIndexFromTmdb() {
   if (!token) throw new Error('TMDB_API_READ_TOKEN is missing. Broad search-index generation must run in trusted CI.')
 
   const catalog = await readCatalog()
-  const [movieDirectory, tvDirectory] = await Promise.all([
+  const [movieDirectory, tvDirectory, movieGenres, tvGenres] = await Promise.all([
     loadProviderDirectory('movie'),
     loadProviderDirectory('tv'),
+    loadGenreDirectory('movie'),
+    loadGenreDirectory('tv'),
   ])
 
   const tasks = []
@@ -313,10 +465,22 @@ export async function generateBroadSearchIndexFromTmdb() {
 
     for (const offerType of SEARCH_OFFER_TYPES) {
       if (movieProviderIds.length) {
-        tasks.push({ provider, tmdbProviderIds: movieProviderIds, mediaType: 'movie', offerType })
+        tasks.push({
+          provider,
+          tmdbProviderIds: movieProviderIds,
+          mediaType: 'movie',
+          offerType,
+          genreNamesById: movieGenres,
+        })
       }
       if (tvProviderIds.length) {
-        tasks.push({ provider, tmdbProviderIds: tvProviderIds, mediaType: 'tv', offerType })
+        tasks.push({
+          provider,
+          tmdbProviderIds: tvProviderIds,
+          mediaType: 'tv',
+          offerType,
+          genreNamesById: tvGenres,
+        })
       }
     }
   }
@@ -325,7 +489,8 @@ export async function generateBroadSearchIndexFromTmdb() {
     `Search index discovery: ${tasks.length} provider/media/offer scans · up to ${SEARCH_PAGES_PER_OFFER} pages each`,
   )
   const discovered = await mapWithConcurrency(tasks, REQUEST_CONCURRENCY, discoverOfferEntries)
-  const broadEntries = mergeProviderSearchEntries(discovered.flat())
+  const records = discovered.flat()
+  const broadEntries = mergeProviderSearchEntries(records.map((record) => record.entry))
   console.log(`Search index discovery resolved ${broadEntries.length} unique titles before catalog merge.`)
 
   if (broadEntries.length < MINIMUM_BROAD_DISCOVERY_SIZE) {
@@ -334,7 +499,13 @@ export async function generateBroadSearchIndexFromTmdb() {
     )
   }
 
-  return writeSearchIndex(buildBroadArtifact(catalog, broadEntries))
+  const searchIndex = buildBroadArtifact(catalog, broadEntries)
+  await writeSearchIndex(searchIndex)
+  await writeSearchDetails([
+    ...records.map((record) => record.detail),
+    ...catalog.titles.map(searchDetailFromCatalogTitle),
+  ], searchIndex.generatedAt)
+  return searchIndex
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

@@ -80,6 +80,18 @@ jobs:
             npm run search:index
           fi
 
+          # Lazy search-detail shards are a separate deploy artifact. Reuse the
+          # complete last-known-good shard set when available. On the very first
+          # rollout (or if the live set is invalid), derive a smaller but valid
+          # fallback from the restored browse catalog without changing the
+          # already restored broad search index.
+          if npm run search:details:restore; then
+            echo "Live lazy search details validated."
+          else
+            echo "No reusable live detail shards found; deriving fallback details from the restored catalog."
+            npm run search:details
+          fi
+
       - name: Build
         run: npm run build
 
