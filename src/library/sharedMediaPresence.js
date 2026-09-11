@@ -1,6 +1,7 @@
 import { collection, getDocs, limit, query } from 'firebase/firestore'
 import { useEffect, useState } from 'react'
 import { firebaseReady } from '../lib/firebase.js'
+import { SHARED_MEDIA_CHANGED_EVENT } from './sharedMedia.js'
 import { titleMediaKey } from './sharedMediaModel.js'
 
 const presenceCache = new Map()
@@ -61,6 +62,7 @@ export function useSharedMediaPresence(item) {
           return
         }
 
+        const titleKey = titleMediaKey(item)
         const key = presenceKey(userId, item)
         const listener = (value) => {
           if (active) setHasMedia(Boolean(value))
@@ -68,7 +70,26 @@ export function useSharedMediaPresence(item) {
         const listeners = listenersByKey.get(key) || new Set()
         listeners.add(listener)
         listenersByKey.set(key, listeners)
+
+        const handleSharedMediaChanged = (event) => {
+          const detail = event?.detail
+          if (detail?.userId !== userId || detail?.titleKey !== titleKey) return
+
+          if (typeof detail.hasMedia === 'boolean') {
+            publish(key, detail.hasMedia)
+            return
+          }
+
+          // Deleting one entry needs a fresh existence check: another own
+          // link/video for the same title may still remain.
+          presenceCache.delete(key)
+          pendingReads.delete(key)
+          readPresence(userId, item).then(listener)
+        }
+        window.addEventListener(SHARED_MEDIA_CHANGED_EVENT, handleSharedMediaChanged)
+
         unsubscribe = () => {
+          window.removeEventListener(SHARED_MEDIA_CHANGED_EVENT, handleSharedMediaChanged)
           const current = listenersByKey.get(key)
           current?.delete(listener)
           if (current?.size === 0) listenersByKey.delete(key)
