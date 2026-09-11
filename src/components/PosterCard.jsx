@@ -1,8 +1,11 @@
+import { useSharedMediaPresence } from '../library/sharedMediaPresence.js'
 import ProviderBadges from './ProviderBadges.jsx'
 
 export default function PosterCard({ item, onOpen }) {
   const posterUrl = item.neutralPosterUrl || item.posterUrl || null
   const hasPoster = Boolean(posterUrl)
+  const hasMovieHub = useSharedMediaPresence(item)
+  const providerIds = Array.isArray(item.providerIds) ? item.providerIds : []
 
   return (
     <button
@@ -21,7 +24,9 @@ export default function PosterCard({ item, onOpen }) {
           <span className="poster-year">{item.year || '–'}</span>
         </span>
       </span>
-      {item.providerIds?.length > 0 && <ProviderBadges providerIds={item.providerIds} maxVisible={3} />}
+      {(hasMovieHub || providerIds.length > 0) && (
+        <ProviderBadges providerIds={providerIds} maxVisible={3} includeMovieHub={hasMovieHub} />
+      )}
     </button>
   )
 }
