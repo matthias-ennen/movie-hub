@@ -1,3 +1,4 @@
+import { TMDB_PROVIDER_REGISTRY } from '../src/providers/providerRegistry.js'
 import {
   normalizeTmdbTitle,
   normalizeTmdbVideos,
@@ -13,48 +14,14 @@ export const PROVIDER_CATALOG_SIZE = 100
 export const PROVIDER_HOME_SIZE = 20
 export const PROVIDER_BROWSE_OFFER_TYPES = ['flatrate', 'free', 'ads']
 
-export const PROVIDER_CATALOG_DEFINITIONS = [
-  {
-    id: 'netflix',
-    label: 'Netflix',
-    aliases: ['netflix'],
-    homeTitle: 'Beliebt auf Netflix',
-    movieTitle: 'Filme auf Netflix',
-    seriesTitle: 'Serien auf Netflix',
-  },
-  {
-    id: 'prime',
-    label: 'Prime Video',
-    aliases: ['amazonprimevideo', 'primevideo'],
-    homeTitle: 'Highlights bei Prime Video',
-    movieTitle: 'Filme bei Prime Video',
-    seriesTitle: 'Serien bei Prime Video',
-  },
-  {
-    id: 'disney',
-    label: 'Disney+',
-    aliases: ['disneyplus'],
-    homeTitle: 'Entdecken auf Disney+',
-    movieTitle: 'Filme auf Disney+',
-    seriesTitle: 'Serien auf Disney+',
-  },
-  {
-    id: 'youtube',
-    label: 'YouTube',
-    aliases: ['youtube'],
-    homeTitle: 'Gefragt auf YouTube',
-    movieTitle: 'Filme auf YouTube',
-    seriesTitle: 'Serien auf YouTube',
-  },
-  {
-    id: 'waipu',
-    label: 'waipu.tv',
-    aliases: ['waiputv'],
-    homeTitle: 'Aus der waiputhek',
-    movieTitle: 'Filme in der waiputhek',
-    seriesTitle: 'Serien in der waiputhek',
-  },
-]
+export const PROVIDER_CATALOG_DEFINITIONS = TMDB_PROVIDER_REGISTRY.map((provider) => ({
+  id: provider.id,
+  label: provider.label,
+  aliases: provider.aliases,
+  homeTitle: provider.homeTitle,
+  movieTitle: provider.movieTitle,
+  seriesTitle: provider.seriesTitle,
+}))
 
 const REQUEST_CONCURRENCY = 5
 const MAX_RETRIES = 3
@@ -140,10 +107,12 @@ async function mapWithConcurrency(values, limit, callback) {
   return results
 }
 
-function findProviderId(providerDirectory, definition) {
+function findProviderIds(providerDirectory, definition) {
   const aliases = new Set(definition.aliases)
-  const match = providerDirectory.find((provider) => aliases.has(normalizeProviderName(provider?.provider_name)))
-  return Number.isFinite(Number(match?.provider_id)) ? Number(match.provider_id) : null
+  return [...new Set(providerDirectory
+    .filter((provider) => aliases.has(normalizeProviderName(provider?.provider_name)))
+    .map((provider) => Number(provider?.provider_id))
+    .filter((providerId) => Number.isFinite(providerId)))]
 }
 
 async function loadProviderDirectory(mediaType) {
@@ -164,12 +133,16 @@ function normalizeDiscoverCandidate(raw, mediaType) {
   }
 }
 
-export function buildProviderDiscoverParams(tmdbProviderId, mediaType, page = 1) {
+export function buildProviderDiscoverParams(tmdbProviderIds, mediaType, page = 1) {
+  const providerIds = (Array.isArray(tmdbProviderIds) ? tmdbProviderIds : [tmdbProviderIds])
+    .map(Number)
+    .filter(Number.isFinite)
+
   return {
     language,
     region: mediaType === 'movie' ? country : undefined,
     watch_region: country,
-    with_watch_providers: tmdbProviderId,
+    with_watch_providers: providerIds.join('|'),
     with_watch_monetization_types: PROVIDER_BROWSE_OFFER_TYPES.join('|'),
     sort_by: 'popularity.desc',
     include_adult: false,
@@ -177,8 +150,9 @@ export function buildProviderDiscoverParams(tmdbProviderId, mediaType, page = 1)
   }
 }
 
-async function discoverProviderCandidates(tmdbProviderId, mediaType) {
-  if (!tmdbProviderId) return []
+async function discoverProviderCandidates(tmdbProviderIds, mediaType) {
+  const providerIds = Array.isArray(tmdbProviderIds) ? tmdbProviderIds : [tmdbProviderIds]
+  if (!providerIds.filter(Boolean).length) return []
 
   const results = []
   let page = 1
@@ -186,7 +160,7 @@ async function discoverProviderCandidates(tmdbProviderId, mediaType) {
 
   while (results.length < PROVIDER_CATALOG_SIZE && page <= totalPages) {
     const path = mediaType === 'movie' ? '/discover/movie' : '/discover/tv'
-    const payload = await tmdbFetch(path, buildProviderDiscoverParams(tmdbProviderId, mediaType, page))
+    const payload = await tmdbFetch(path, buildProviderDiscoverParams(providerIds, mediaType, page))
 
     totalPages = Math.min(Number(payload?.total_pages) || 1, 500)
     const pageCandidates = (Array.isArray(payload?.results) ? payload.results : [])
@@ -203,12 +177,12 @@ async function discoverProviderCandidates(tmdbProviderId, mediaType) {
   return results.slice(0, PROVIDER_CATALOG_SIZE)
 }
 
-function addMembership(memberships, candidate, definition, tmdbProviderId) {
+function addMembership(memberships, candidate, definition) {
   const key = providerKey(candidate.mediaType, candidate.id)
   const current = memberships.get(key) || new Map()
   current.set(definition.id, {
     id: definition.id,
-    tmdbProviderId,
+    tmdbProviderId: null,
     offerTypes: ['catalog'],
   })
   memberships.set(key, current)
@@ -293,6 +267,7 @@ export function buildProviderHomeRows(providerCatalogs) {
       if (!catalog?.homeIds?.length) return null
       return {
         id: `provider-${definition.id}-home`,
+        providerId: definition.id,
         title: catalog.homeTitle || definition.homeTitle,
         ids: catalog.homeIds,
       }
@@ -313,21 +288,16 @@ export async function generateProviderCatalogs() {
   const allCandidates = new Map()
 
   for (const definition of PROVIDER_CATALOG_DEFINITIONS) {
-    const movieProviderId = findProviderId(movieDirectory, definition)
-    const tvProviderId = findProviderId(tvDirectory, definition)
+    const movieProviderIds = findProviderIds(movieDirectory, definition)
+    const tvProviderIds = findProviderIds(tvDirectory, definition)
     const [movies, series] = await Promise.all([
-      discoverProviderCandidates(movieProviderId, 'movie'),
-      discoverProviderCandidates(tvProviderId, 'tv'),
+      discoverProviderCandidates(movieProviderIds, 'movie'),
+      discoverProviderCandidates(tvProviderIds, 'tv'),
     ])
 
     for (const candidate of [...movies, ...series]) {
       allCandidates.set(providerKey(candidate.mediaType, candidate.id), candidate)
-      addMembership(
-        memberships,
-        candidate,
-        definition,
-        candidate.mediaType === 'movie' ? movieProviderId : tvProviderId,
-      )
+      addMembership(memberships, candidate, definition)
     }
 
     providerCatalogs[definition.id] = {
@@ -338,8 +308,10 @@ export async function generateProviderCatalogs() {
       homeTitle: definition.homeTitle,
       movieTitle: definition.movieTitle,
       seriesTitle: definition.seriesTitle,
-      movieTmdbProviderId: movieProviderId,
-      seriesTmdbProviderId: tvProviderId,
+      movieTmdbProviderId: movieProviderIds.length === 1 ? movieProviderIds[0] : null,
+      seriesTmdbProviderId: tvProviderIds.length === 1 ? tvProviderIds[0] : null,
+      movieTmdbProviderIds: movieProviderIds,
+      seriesTmdbProviderIds: tvProviderIds,
       movieIds: movies.map((candidate) => movieHubId('movie', candidate.id)),
       seriesIds: series.map((candidate) => movieHubId('tv', candidate.id)),
       homeIds: buildHomeIds(movies, series),
@@ -347,9 +319,10 @@ export async function generateProviderCatalogs() {
       seriesCount: series.length,
     }
 
+    const exposed = movieProviderIds.length || tvProviderIds.length
     console.log(
       `Provider catalog ${definition.label}: ${movies.length} movies · ${series.length} series`
-      + `${movieProviderId || tvProviderId ? '' : ' (provider not exposed by TMDB for this region)'}`,
+      + `${exposed ? ` · TMDB ${[...new Set([...movieProviderIds, ...tvProviderIds])].join(',')}` : ' (provider not exposed by TMDB for this region)'}`,
     )
   }
 
