@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { PROVIDER_OPTIONS } from '../settings/providerSelectionModel.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { useTmdbCatalog } from '../tmdb/TmdbCatalogProvider.jsx'
@@ -7,6 +8,20 @@ function formatSyncTime(value) {
   if (!value) return null
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('de-DE')
+}
+
+function catalogTmdbProviderIds(providerCatalogs) {
+  if (!providerCatalogs || typeof providerCatalogs !== 'object') return null
+
+  return Object.values(providerCatalogs)
+    .filter((provider) => (
+      (Array.isArray(provider.movieTmdbProviderIds) && provider.movieTmdbProviderIds.length)
+      || (Array.isArray(provider.seriesTmdbProviderIds) && provider.seriesTmdbProviderIds.length)
+      || Number.isFinite(Number(provider.movieTmdbProviderId))
+      || Number.isFinite(Number(provider.seriesTmdbProviderId))
+    ))
+    .map((provider) => provider.id)
+    .filter(Boolean)
 }
 
 function visibleProviderOptions(availableTmdbProviderIds) {
@@ -24,6 +39,7 @@ function visibleProviderOptions(availableTmdbProviderIds) {
 export default function SettingsView({ availableTmdbProviderIds = null }) {
   const nativeNetworkSettings = typeof window.MovieHubNative?.openNetworkSettings === 'function'
   const nativeTmdbSettings = typeof window.MovieHubNative?.openTmdbSettings === 'function'
+  const [liveTmdbProviderIds, setLiveTmdbProviderIds] = useState(availableTmdbProviderIds)
   const {
     enabledProviderIds,
     loading: providerLoading,
@@ -41,6 +57,28 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
     error: tmdbCatalogError,
   } = useTmdbCatalog()
 
+  useEffect(() => {
+    if (Array.isArray(availableTmdbProviderIds)) {
+      setLiveTmdbProviderIds(availableTmdbProviderIds)
+      return undefined
+    }
+
+    let cancelled = false
+    fetch('/catalog.json', { cache: 'no-store' })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Katalog konnte nicht geladen werden (${response.status})`)
+        return response.json()
+      })
+      .then((catalog) => {
+        if (!cancelled) setLiveTmdbProviderIds(catalogTmdbProviderIds(catalog?.providerCatalogs))
+      })
+      .catch(() => {
+        if (!cancelled) setLiveTmdbProviderIds(null)
+      })
+
+    return () => { cancelled = true }
+  }, [availableTmdbProviderIds])
+
   function openNetworkSettings() {
     if (nativeNetworkSettings) window.MovieHubNative.openNetworkSettings()
   }
@@ -56,7 +94,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
 
   const lastSync = formatSyncTime(syncState?.syncedAt)
   const providerBusy = providerLoading || Boolean(savingProviderId)
-  const providerOptions = visibleProviderOptions(availableTmdbProviderIds)
+  const providerOptions = visibleProviderOptions(liveTmdbProviderIds)
   const activeVisibleProviders = providerOptions.filter((provider) => enabledProviderIds.includes(provider.id)).length
 
   return (
