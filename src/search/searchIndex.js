@@ -30,6 +30,7 @@ export function toSearchIndexEntry(title, { scope = 'public' } = {}) {
     ...providerOffers.map((offer) => offer.id),
   ].filter(Boolean))]
 
+  const tmdbId = Number.isFinite(Number(title.tmdbId)) ? Number(title.tmdbId) : null
   const originalTitle = title.originalTitle || null
   const year = Number.isFinite(Number(title.year)) ? Number(title.year) : null
   const searchText = normalizeText([
@@ -40,7 +41,8 @@ export function toSearchIndexEntry(title, { scope = 'public' } = {}) {
 
   return {
     id: title.id,
-    tmdbId: Number.isFinite(Number(title.tmdbId)) ? Number(title.tmdbId) : null,
+    tmdbId,
+    source: title.source || (tmdbId ? 'tmdb' : null),
     type: title.type === 'series' ? 'series' : 'movie',
     title: title.title,
     originalTitle,
