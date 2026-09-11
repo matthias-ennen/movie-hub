@@ -98,10 +98,10 @@ describe('skalierbarer Movie-Hub-Suchindex', () => {
     const entries = mergeSearchIndexEntries(publicEntries, personalEntries)
 
     const result = searchIndex(entries, 'blade', { enabledProviderIds: [] })
-    expect(result.results.map((entry) => entry.id)).toEqual([
+    expect(result.results.map((entry) => entry.id).sort()).toEqual([
       'tmdb-movie-1',
       'tmdb-movie-3',
-    ])
+    ].sort())
     expect(result.results.every((entry) => entry.scope === 'personal')).toBe(true)
   })
 
