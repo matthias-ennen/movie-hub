@@ -1,7 +1,8 @@
 import ProviderBadges from './ProviderBadges.jsx'
 
 export default function PosterCard({ item, onOpen }) {
-  const hasPoster = Boolean(item.posterUrl)
+  const posterUrl = item.neutralPosterUrl || item.posterUrl || null
+  const hasPoster = Boolean(posterUrl)
 
   return (
     <button
@@ -13,7 +14,7 @@ export default function PosterCard({ item, onOpen }) {
       style={{ '--poster-accent': item.accent, '--poster-accent-2': item.accent2 }}
     >
       <span className={hasPoster ? 'poster-art has-image' : 'poster-art'} aria-hidden="true">
-        {hasPoster && <img className="poster-image" src={item.posterUrl} alt="" loading="lazy" />}
+        {hasPoster && <img className="poster-image" src={posterUrl} alt="" loading="lazy" />}
         <span className="poster-kicker">{item.type === 'series' ? 'SERIE' : 'FILM'}</span>
         <span className="poster-title">{item.title}</span>
         <span className="poster-year">{item.year || '–'}</span>
