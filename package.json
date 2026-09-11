@@ -15,7 +15,9 @@
     "test:library": "vitest run tests/library.test.js",
     "tmdb:smoke": "node scripts/tmdb-smoke-test.mjs",
     "tmdb:catalog": "node scripts/generate-tmdb-catalog.mjs && node scripts/generate-search-index.mjs",
-    "search:index": "node scripts/generate-search-index.mjs"
+    "search:index": "node scripts/generate-search-index.mjs",
+    "search:details": "node scripts/generate-search-details.mjs",
+    "search:details:restore": "node scripts/restore-live-search-details.mjs"
   },
   "dependencies": {
     "firebase": "^11.10.0",
