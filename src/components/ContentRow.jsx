@@ -2,11 +2,11 @@ import { providerIdForRowTitle } from '../settings/providerSelectionModel.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import PosterCard from './PosterCard.jsx'
 
-export default function ContentRow({ title, items, onOpen }) {
+export default function ContentRow({ title, items, onOpen, providerId = null }) {
   const { isProviderEnabled } = useProviderSelection()
-  const providerId = providerIdForRowTitle(title)
+  const resolvedProviderId = providerId || providerIdForRowTitle(title)
 
-  if (providerId && !isProviderEnabled(providerId)) return null
+  if (resolvedProviderId && !isProviderEnabled(resolvedProviderId)) return null
 
   return (
     <section className="content-row">

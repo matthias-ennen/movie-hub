@@ -95,8 +95,10 @@ describe('TMDB adapter', () => {
           flatrate: [
             { provider_id: 8, provider_name: 'Netflix' },
             { provider_id: 119, provider_name: 'Amazon Prime Video' },
+            { provider_id: 304, provider_name: 'Joyn Plus' },
             { provider_id: 999, provider_name: 'Unbekannter Anbieter' },
           ],
+          free: [{ provider_id: 341, provider_name: 'ARD Mediathek' }],
           rent: [
             { provider_id: 192, provider_name: 'YouTube' },
             { provider_id: 8, provider_name: 'Netflix' },
@@ -106,14 +108,32 @@ describe('TMDB adapter', () => {
       },
     })
 
-    expect(providers.providerIds).toEqual(['netflix', 'prime', 'youtube', 'disney'])
+    expect(providers.providerIds).toEqual(['netflix', 'prime', 'joyn', 'ard', 'youtube', 'disney'])
     expect(providers.providerOffers).toEqual([
       { id: 'netflix', tmdbProviderId: 8, offerTypes: ['flatrate', 'rent'] },
       { id: 'prime', tmdbProviderId: 119, offerTypes: ['flatrate'] },
+      { id: 'joyn', tmdbProviderId: 304, offerTypes: ['flatrate'] },
+      { id: 'ard', tmdbProviderId: 341, offerTypes: ['free'] },
       { id: 'youtube', tmdbProviderId: 192, offerTypes: ['rent'] },
       { id: 'disney', tmdbProviderId: 337, offerTypes: ['buy'] },
     ])
     expect(providers.watchProviderLink).toBe('https://www.themoviedb.org/movie/11/watch?locale=DE')
+  })
+
+  it('recognizes plus-sign provider names through normalized registry aliases', () => {
+    const providers = normalizeTmdbWatchProviders({
+      results: {
+        DE: {
+          flatrate: [
+            { provider_id: 350, provider_name: 'Apple TV+' },
+            { provider_id: 531, provider_name: 'Paramount+' },
+            { provider_id: 100, provider_name: 'RTL+' },
+          ],
+        },
+      },
+    })
+
+    expect(providers.providerIds).toEqual(['appletv', 'paramount', 'rtlplus'])
   })
 
   it('returns no provider when TMDB has no German availability', () => {

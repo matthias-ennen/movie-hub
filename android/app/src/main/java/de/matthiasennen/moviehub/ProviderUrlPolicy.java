@@ -34,6 +34,18 @@ final class ProviderUrlPolicy {
             case "prime": return new String[] { "primevideo.com", "amazon.de" };
             case "disney": return new String[] { "disneyplus.com" };
             case "youtube": return new String[] { "youtube.com", "youtu.be" };
+            case "joyn": return new String[] { "joyn.de" };
+            case "wow": return new String[] { "wowtv.de" };
+            case "appletv": return new String[] { "tv.apple.com" };
+            case "paramount": return new String[] { "paramountplus.com" };
+            case "rtlplus": return new String[] { "plus.rtl.de" };
+            case "crunchyroll": return new String[] { "crunchyroll.com" };
+            case "pluto": return new String[] { "pluto.tv" };
+            case "ard": return new String[] { "ardmediathek.de" };
+            case "zdf": return new String[] { "zdf.de" };
+            case "arte": return new String[] { "arte.tv" };
+            case "netzkino": return new String[] { "netzkino.de" };
+            case "magenta": return new String[] { "magentatv.de" };
             case "waipu": return new String[] { "waipu.tv" };
             default: return new String[0];
         }

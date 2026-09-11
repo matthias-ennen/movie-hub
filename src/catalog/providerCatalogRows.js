@@ -18,6 +18,7 @@ export function buildProviderBrowseRows(providerCatalogs, titles, mediaType) {
 
       return {
         id: `provider-${catalog.id}-${mediaType}`,
+        providerId: catalog.id,
         title: title || `${catalog.label || catalog.id} · ${mediaType === 'series' ? 'Serien' : 'Filme'}`,
         items,
       }
@@ -30,6 +31,7 @@ export function buildProviderBrowseRows(providerCatalogs, titles, mediaType) {
   if (remaining.length) {
     providerRows.push({
       id: `provider-other-${mediaType}`,
+      providerId: null,
       title: mediaType === 'series' ? 'Weitere Serien in Movie Hub' : 'Weitere Filme in Movie Hub',
       items: remaining,
     })
