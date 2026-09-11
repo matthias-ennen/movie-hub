@@ -39,6 +39,7 @@ jobs:
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
+          TMDB_SEARCH_PAGES_PER_OFFER: 30
         run: npm run tmdb:catalog
 
       # A code push must not be blocked by a temporary provider/catalog gap at
@@ -51,6 +52,7 @@ jobs:
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
+          TMDB_SEARCH_PAGES_PER_OFFER: 30
         run: npm run tmdb:catalog
 
       - name: Reuse last deployed catalog after transient refresh failure
