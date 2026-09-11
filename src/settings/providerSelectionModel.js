@@ -8,6 +8,7 @@ export const PROVIDER_OPTIONS = PROVIDER_REGISTRY.map((provider) => ({
   label: provider.label,
   short: provider.short,
   source: provider.source,
+  defaultEnabled: Boolean(provider.defaultEnabled),
   description: provider.description,
 }))
 
