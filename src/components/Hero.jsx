@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import '../styles/issue128.css'
 
 const MAX_HEROES = 5
+const SWIPE_MIN_DISTANCE = 48
 
 export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }) {
   const slides = useMemo(() => {
@@ -15,6 +16,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
   }, [item, items])
   const signature = slides.map((entry) => entry.id).join('|')
   const [activeIndex, setActiveIndex] = useState(0)
+  const touchStartRef = useRef(null)
 
   useEffect(() => {
     setActiveIndex(0)
@@ -31,6 +33,20 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
     setActiveIndex(index)
   }
 
+  function stepHero(direction) {
+    const nextIndex = Math.max(0, Math.min(slides.length - 1, safeIndex + direction))
+    if (nextIndex !== safeIndex) selectHero(nextIndex)
+  }
+
+  function handleCarouselKeyDown(event) {
+    if (event.target.closest?.('.hero-dot')) return
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+
+    event.preventDefault()
+    event.stopPropagation()
+    stepHero(event.key === 'ArrowRight' ? 1 : -1)
+  }
+
   function handleDotKeyDown(event, index) {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
     event.preventDefault()
@@ -45,8 +61,39 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
     dots?.[nextIndex]?.focus({ preventScroll: true })
   }
 
+  function handleTouchStart(event) {
+    const touch = event.touches?.[0]
+    if (!touch) return
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY }
+  }
+
+  function handleTouchEnd(event) {
+    const start = touchStartRef.current
+    const touch = event.changedTouches?.[0]
+    touchStartRef.current = null
+    if (!start || !touch) return
+
+    const deltaX = touch.clientX - start.x
+    const deltaY = touch.clientY - start.y
+    const horizontalDistance = Math.abs(deltaX)
+    const verticalDistance = Math.abs(deltaY)
+
+    if (horizontalDistance < SWIPE_MIN_DISTANCE || horizontalDistance <= verticalDistance * 1.15) return
+    stepHero(deltaX < 0 ? 1 : -1)
+  }
+
   return (
-    <section className="hero-carousel" aria-label={`${eyebrow}: ${activeItem.title}`}>
+    <section
+      className="hero-carousel"
+      aria-label={`${eyebrow}: ${activeItem.title}`}
+      aria-roledescription="Karussell"
+      tabIndex={0}
+      data-focusable="true"
+      onKeyDown={handleCarouselKeyDown}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={() => { touchStartRef.current = null }}
+    >
       <div className="hero" style={{ '--poster-accent': activeItem.accent, '--poster-accent-2': activeItem.accent2 }}>
         <div className="hero-copy">
           <p className="eyebrow">{eyebrow}</p>
