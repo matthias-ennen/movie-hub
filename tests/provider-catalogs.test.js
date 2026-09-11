@@ -12,19 +12,21 @@ import {
 import { buildProviderBrowseRows } from '../src/catalog/providerCatalogRows.js'
 
 describe('provider catalog architecture', () => {
-  it('keeps 100 movies and 100 series per provider with 20 mixed home titles', () => {
+  it('keeps 100 movies and 100 series per TMDB provider with 20 mixed home titles', () => {
     expect(PROVIDER_CATALOG_SIZE).toBe(100)
     expect(PROVIDER_HOME_SIZE).toBe(20)
     expect(PROVIDER_CATALOG_DEFINITIONS.map((provider) => provider.id)).toEqual([
-      'netflix', 'prime', 'disney', 'youtube', 'waipu',
+      'netflix', 'prime', 'disney', 'youtube', 'joyn', 'wow', 'appletv', 'paramount',
+      'rtlplus', 'crunchyroll', 'pluto', 'ard', 'zdf', 'arte', 'netzkino', 'magenta',
     ])
+    expect(PROVIDER_CATALOG_DEFINITIONS.map((provider) => provider.id)).not.toContain('waipu')
   })
 
   it('uses only included/free/ads offers for provider browse catalogs', () => {
     expect(PROVIDER_BROWSE_OFFER_TYPES).toEqual(['flatrate', 'free', 'ads'])
 
     const movieParams = buildProviderDiscoverParams(119, 'movie', 2)
-    expect(movieParams.with_watch_providers).toBe(119)
+    expect(movieParams.with_watch_providers).toBe('119')
     expect(movieParams.with_watch_monetization_types).toBe('flatrate|free|ads')
     expect(movieParams.with_watch_monetization_types).not.toContain('rent')
     expect(movieParams.with_watch_monetization_types).not.toContain('buy')
@@ -32,9 +34,10 @@ describe('provider catalog architecture', () => {
     expect(movieParams.region).toBe('DE')
     expect(movieParams.page).toBe(2)
 
-    const seriesParams = buildProviderDiscoverParams(119, 'tv')
-    expect(seriesParams.region).toBeUndefined()
-    expect(seriesParams.with_watch_monetization_types).toBe('flatrate|free|ads')
+    const combinedParams = buildProviderDiscoverParams([119, 701], 'tv')
+    expect(combinedParams.region).toBeUndefined()
+    expect(combinedParams.with_watch_providers).toBe('119|701')
+    expect(combinedParams.with_watch_monetization_types).toBe('flatrate|free|ads')
   })
 
   it('builds a popularity-sorted mixed home selection', () => {
@@ -54,14 +57,14 @@ describe('provider catalog architecture', () => {
     ])
   })
 
-  it('turns provider catalogs into editorial home rows', () => {
+  it('turns TMDB provider catalogs into editorial home rows with stable provider ids', () => {
     const rows = buildProviderHomeRows({
       netflix: {
         homeTitle: 'Beliebt auf Netflix',
         homeIds: ['tmdb-movie-1', 'tmdb-series-2'],
       },
-      waipu: {
-        homeTitle: 'Aus der waiputhek',
+      ard: {
+        homeTitle: 'Aus der ARD Mediathek',
         homeIds: ['tmdb-movie-3'],
       },
     })
@@ -69,12 +72,14 @@ describe('provider catalog architecture', () => {
     expect(rows).toEqual([
       {
         id: 'provider-netflix-home',
+        providerId: 'netflix',
         title: 'Beliebt auf Netflix',
         ids: ['tmdb-movie-1', 'tmdb-series-2'],
       },
       {
-        id: 'provider-waipu-home',
-        title: 'Aus der waiputhek',
+        id: 'provider-ard-home',
+        providerId: 'ard',
+        title: 'Aus der ARD Mediathek',
         ids: ['tmdb-movie-3'],
       },
     ])
@@ -125,11 +130,14 @@ describe('provider catalog architecture', () => {
     const movieRows = buildProviderBrowseRows(catalogs, titles, 'movie')
     const seriesRows = buildProviderBrowseRows(catalogs, titles, 'series')
 
+    expect(movieRows[0].providerId).toBe('netflix')
     expect(movieRows[0].title).toBe('Filme auf Netflix')
     expect(movieRows[0].items.map((item) => item.id)).toEqual(['tmdb-movie-1'])
+    expect(movieRows[1].providerId).toBeNull()
     expect(movieRows[1].title).toBe('Weitere Filme in Movie Hub')
     expect(movieRows[1].items.map((item) => item.id)).toEqual(['tmdb-movie-3'])
     expect(seriesRows).toHaveLength(1)
+    expect(seriesRows[0].providerId).toBe('netflix')
     expect(seriesRows[0].title).toBe('Serien auf Netflix')
     expect(seriesRows[0].items.map((item) => item.id)).toEqual(['tmdb-series-2'])
   })
