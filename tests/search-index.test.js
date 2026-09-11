@@ -35,6 +35,7 @@ describe('skalierbarer Movie-Hub-Suchindex', () => {
     expect(entry).toMatchObject({
       id: 'tmdb-movie-1',
       tmdbId: 1,
+      source: 'tmdb',
       type: 'movie',
       title: 'Blade Runner',
       year: 1982,
