@@ -9,6 +9,7 @@ import ProfileView from './components/ProfileView.jsx'
 import SearchView from './components/SearchView.jsx'
 import SettingsView from './components/SettingsView.jsx'
 import { buildProviderBrowseRows } from './catalog/providerCatalogRows.js'
+import { selectHeroItems, selectHomeHeroItems, selectPersonalHeroItems } from './catalog/heroSelection.js'
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
@@ -161,52 +162,58 @@ function Header({
   )
 }
 
-function BrowseView({ title, subtitle, items, rows = [], onOpen }) {
+function BrowseView({ title, subtitle, items, rows = [], heroItems = [], onOpen }) {
   return (
-    <main className="browse-page">
-      <div className="page-heading">
-        <p className="eyebrow">Movie Hub</p>
-        <h1>{title}</h1>
-        <p>{subtitle}</p>
-      </div>
-      {rows.length > 0 ? (
-        <div className="rows-wrap browse-provider-rows">
-          {rows.map((row) => <ContentRow key={row.id} title={row.title} items={row.items} onOpen={onOpen} />)}
+    <main className="category-page">
+      <Hero items={heroItems} onOpen={onOpen} eyebrow={title} />
+      <section className="browse-page">
+        <div className="page-heading">
+          <p className="eyebrow">Movie Hub</p>
+          <h1>{title}</h1>
+          <p>{subtitle}</p>
         </div>
-      ) : (
-        <div className="poster-grid">
-          {items.map((item) => <PosterCard key={item.id} item={item} onOpen={onOpen} />)}
-        </div>
-      )}
+        {rows.length > 0 ? (
+          <div className="rows-wrap browse-provider-rows">
+            {rows.map((row) => <ContentRow key={row.id} title={row.title} items={row.items} onOpen={onOpen} />)}
+          </div>
+        ) : (
+          <div className="poster-grid">
+            {items.map((item) => <PosterCard key={item.id} item={item} onOpen={onOpen} />)}
+          </div>
+        )}
+      </section>
     </main>
   )
 }
 
-function PersonalLibraryView({ rows, onOpen, profileName, loading, error }) {
+function PersonalLibraryView({ rows, heroItems = [], onOpen, profileName, loading, error }) {
   return (
-    <main className="browse-page personal-library-page">
-      <div className="page-heading">
-        <p className="eyebrow">{profileName ?? 'Movie Hub'}</p>
-        <h1>Meine Inhalte</h1>
-        <p>Deine Watchlist, Favoriten, gesehenen Titel und persönlichen Bewertungen – getrennt für dieses Profil.</p>
-      </div>
-
-      {loading && <p className="loading-copy">Persönliche Inhalte werden geladen …</p>}
-      {error && <p className="error">Persönliche Inhalte konnten nicht geladen werden: {error.message}</p>}
-
-      {!loading && !error && rows.length === 0 && (
-        <section className="library-empty-state">
-          <p className="settings-kicker">Noch leer</p>
-          <h2>Deine persönlichen Reihen entstehen hier automatisch.</h2>
-          <p>Öffne einen Film oder eine Serie und markiere ihn als Favorit, für später, gesehen oder gib eine Bewertung ab.</p>
-        </section>
-      )}
-
-      {rows.length > 0 && (
-        <div className="rows-wrap personal-library-rows">
-          {rows.map((row) => <ContentRow key={row.id} title={row.title} items={row.items} onOpen={onOpen} />)}
+    <main className="personal-library-shell">
+      <Hero items={heroItems} onOpen={onOpen} eyebrow="Meine Inhalte" />
+      <section className="browse-page personal-library-page">
+        <div className="page-heading">
+          <p className="eyebrow">{profileName ?? 'Movie Hub'}</p>
+          <h1>Meine Inhalte</h1>
+          <p>Deine Watchlist, Favoriten, gesehenen Titel und persönlichen Bewertungen – getrennt für dieses Profil.</p>
         </div>
-      )}
+
+        {loading && <p className="loading-copy">Persönliche Inhalte werden geladen …</p>}
+        {error && <p className="error">Persönliche Inhalte konnten nicht geladen werden: {error.message}</p>}
+
+        {!loading && !error && rows.length === 0 && (
+          <section className="library-empty-state">
+            <p className="settings-kicker">Noch leer</p>
+            <h2>Deine persönlichen Reihen entstehen hier automatisch.</h2>
+            <p>Öffne einen Film oder eine Serie und markiere ihn als Favorit, für später, gesehen oder gib eine Bewertung ab.</p>
+          </section>
+        )}
+
+        {rows.length > 0 && (
+          <div className="rows-wrap personal-library-rows">
+            {rows.map((row) => <ContentRow key={row.id} title={row.title} items={row.items} onOpen={onOpen} />)}
+          </div>
+        )}
+      </section>
     </main>
   )
 }
@@ -276,7 +283,6 @@ function MovieHub({ user }) {
     [publicTitles, tmdbPersonalTitles],
   )
   const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
-  const heroItem = publicTitles[0] || titles[0]
 
   const handleViewChange = useCallback((nextView) => {
     setProfileOpen(false)
@@ -378,6 +384,10 @@ function MovieHub({ user }) {
   const tmdbRows = useMemo(() => buildTmdbCatalogRows(titles), [titles])
   const movies = titles.filter((item) => item.type === 'movie')
   const series = titles.filter((item) => item.type === 'series')
+  const homeHeroes = useMemo(() => selectHomeHeroItems(publicTitles), [publicTitles])
+  const movieHeroes = useMemo(() => selectHeroItems(titles, { type: 'movie' }), [titles])
+  const seriesHeroes = useMemo(() => selectHeroItems(titles, { type: 'series' }), [titles])
+  const personalHeroes = useMemo(() => selectPersonalHeroItems(personalRows), [personalRows])
   const hasProviderCatalogs = Object.keys(catalog.providerCatalogs || {}).length > 0
   const providerMovieRows = useMemo(
     () => hasProviderCatalogs ? buildProviderBrowseRows(catalog.providerCatalogs, titles, 'movie') : [],
@@ -405,7 +415,7 @@ function MovieHub({ user }) {
       />
       {currentView === 'home' && (
         <main>
-          <Hero item={heroItem} onOpen={handleOpenTitle} />
+          <Hero items={homeHeroes} onOpen={handleOpenTitle} />
           <div className="rows-wrap">
             <div className="prototype-strip">
               <strong>{liveTmdb ? 'Echte TMDB-Daten' : 'Entwicklungsfallback'}</strong>
@@ -427,6 +437,7 @@ function MovieHub({ user }) {
           subtitle="Filme nach Anbieter – mit bis zu 100 Titeln je Katalog."
           items={movies}
           rows={providerMovieRows}
+          heroItems={movieHeroes}
           onOpen={handleOpenTitle}
         />
       )}
@@ -436,12 +447,14 @@ function MovieHub({ user }) {
           subtitle="Serien nach Anbieter – getrennt von den Filmkatalogen."
           items={series}
           rows={providerSeriesRows}
+          heroItems={seriesHeroes}
           onOpen={handleOpenTitle}
         />
       )}
       {currentView === 'library' && (
         <PersonalLibraryView
           rows={personalRows}
+          heroItems={personalHeroes}
           onOpen={handleOpenTitle}
           profileName={activeProfile?.displayName}
           loading={libraryLoading}

@@ -1,32 +1,94 @@
-export default function Hero({ item, onOpen }) {
-  if (!item) return null
+import { useEffect, useMemo, useState } from 'react'
+import '../styles/issue128.css'
 
-  const hasBackdrop = Boolean(item.backdropUrl)
+const MAX_HEROES = 5
+
+export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }) {
+  const slides = useMemo(() => {
+    const source = Array.isArray(items) && items.length ? items : item ? [item] : []
+    const seen = new Set()
+    return source.filter((entry) => {
+      if (!entry?.id || seen.has(entry.id)) return false
+      seen.add(entry.id)
+      return true
+    }).slice(0, MAX_HEROES)
+  }, [item, items])
+  const signature = slides.map((entry) => entry.id).join('|')
+  const [activeIndex, setActiveIndex] = useState(0)
+
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [signature])
+
+  if (!slides.length) return null
+
+  const safeIndex = Math.min(activeIndex, slides.length - 1)
+  const activeItem = slides[safeIndex]
+  const heroBackdropUrl = activeItem.heroBackdropUrl || null
+
+  function selectHero(index) {
+    if (index < 0 || index >= slides.length) return
+    setActiveIndex(index)
+  }
+
+  function handleDotKeyDown(event, index) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    event.preventDefault()
+    event.stopPropagation()
+
+    const direction = event.key === 'ArrowRight' ? 1 : -1
+    const nextIndex = Math.max(0, Math.min(slides.length - 1, index + direction))
+    if (nextIndex === index) return
+
+    selectHero(nextIndex)
+    const dots = event.currentTarget.parentElement?.querySelectorAll('.hero-dot')
+    dots?.[nextIndex]?.focus({ preventScroll: true })
+  }
 
   return (
-    <section className="hero" style={{ '--poster-accent': item.accent, '--poster-accent-2': item.accent2 }}>
-      <div className="hero-copy">
-        <p className="eyebrow">Heute im Fokus</p>
-        <h1>{item.title}</h1>
-        <div className="hero-meta">
-          <strong>{item.score}</strong>
-          <span>{item.year || '–'}</span>
-          <span>{item.meta}</span>
+    <section className="hero-carousel" aria-label={`${eyebrow}: ${activeItem.title}`}>
+      <div className="hero" style={{ '--poster-accent': activeItem.accent, '--poster-accent-2': activeItem.accent2 }}>
+        <div className="hero-copy">
+          <p className="eyebrow">{eyebrow}</p>
+          <h1>{activeItem.title}</h1>
+          <div className="hero-meta">
+            <strong>{activeItem.score}</strong>
+            <span>{activeItem.year || '–'}</span>
+            <span>{activeItem.meta}</span>
+          </div>
+          <p className="hero-description">{activeItem.description || 'Für diesen Titel liegt noch keine deutsche Beschreibung vor.'}</p>
+          <div className="hero-actions">
+            <button type="button" className="action-button action-button-primary" onClick={() => onOpen(activeItem)} data-focusable="true">
+              ▶ Ansehen
+            </button>
+            <button type="button" className="action-button action-button-secondary" onClick={() => onOpen(activeItem)} data-focusable="true">
+              ⓘ Details
+            </button>
+          </div>
         </div>
-        <p className="hero-description">{item.description || 'Für diesen Titel liegt noch keine deutsche Beschreibung vor.'}</p>
-        <div className="hero-actions">
-          <button type="button" className="action-button action-button-primary" onClick={() => onOpen(item)} data-focusable="true">
-            ▶ Ansehen
-          </button>
-          <button type="button" className="action-button action-button-secondary" onClick={() => onOpen(item)} data-focusable="true">
-            ⓘ Details
-          </button>
+        <div className={heroBackdropUrl ? 'hero-art has-image' : 'hero-art'} aria-hidden="true">
+          {heroBackdropUrl && <img className="hero-art-image" src={heroBackdropUrl} alt="" />}
         </div>
       </div>
-      <div className={hasBackdrop ? 'hero-art has-image' : 'hero-art'} aria-hidden="true">
-        {hasBackdrop && <img className="hero-art-image" src={item.backdropUrl} alt="" />}
-        <span>{item.title}</span>
-      </div>
+
+      {slides.length > 1 && (
+        <div className="hero-dots" role="tablist" aria-label="Hero auswählen">
+          {slides.map((slide, index) => (
+            <button
+              key={slide.id}
+              type="button"
+              className={index === safeIndex ? 'hero-dot active' : 'hero-dot'}
+              aria-label={`Hero ${index + 1}: ${slide.title}`}
+              aria-selected={index === safeIndex}
+              role="tab"
+              data-focusable="true"
+              onClick={() => selectHero(index)}
+              onFocus={() => selectHero(index)}
+              onKeyDown={(event) => handleDotKeyDown(event, index)}
+            />
+          ))}
+        </div>
+      )}
     </section>
   )
 }
