@@ -5,6 +5,7 @@ import {
   mergeSearchIndexEntries,
   searchIndex,
 } from '../search/searchIndex.js'
+import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import PosterCard from './PosterCard.jsx'
 
@@ -13,6 +14,7 @@ export default function SearchView({ publicTitles, personalTitles, fullTitles, o
   const [remoteEntries, setRemoteEntries] = useState(null)
   const [indexLoading, setIndexLoading] = useState(true)
   const [indexError, setIndexError] = useState(null)
+  const [detailLoadingId, setDetailLoadingId] = useState(null)
   const { enabledProviderIds } = useProviderSelection()
 
   useEffect(() => {
@@ -63,8 +65,23 @@ export default function SearchView({ publicTitles, personalTitles, fullTitles, o
   )
   const normalizedLength = query.trim().length
 
-  function openEntry(entry) {
-    onOpen(fullById.get(entry.id) || entry)
+  async function openEntry(entry) {
+    const fullTitle = fullById.get(entry.id)
+    if (fullTitle) {
+      onOpen(fullTitle)
+      return
+    }
+
+    setDetailLoadingId(entry.id)
+    try {
+      const detail = await loadSearchDetail(entry)
+      onOpen(detail)
+    } catch (error) {
+      console.warn('Movie Hub konnte die zusätzlichen Suchdetails nicht laden.', error)
+      onOpen(toSearchDetailFallback(entry))
+    } finally {
+      setDetailLoadingId(null)
+    }
   }
 
   return (
@@ -95,6 +112,7 @@ export default function SearchView({ publicTitles, personalTitles, fullTitles, o
       )}
 
       {indexLoading && <p className="loading-copy">Suchindex wird geladen …</p>}
+      {detailLoadingId && <p className="loading-copy">Details werden geladen …</p>}
       {indexError && <p className="settings-hint">Der separate Suchindex ist momentan nicht erreichbar. Movie Hub verwendet vorübergehend den geladenen Katalog als Suchfallback.</p>}
 
       {normalizedLength >= SEARCH_MIN_QUERY_LENGTH && searchResult.results.length === 0 && !indexLoading && (
