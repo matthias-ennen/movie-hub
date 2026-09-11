@@ -12,7 +12,9 @@
 
 .hero-carousel .hero {
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: start;
   gap: clamp(1.5rem, 3vw, 4rem);
+  padding-top: clamp(1.1rem, 2vw, 1.75rem);
 }
 
 .hero-carousel .hero-copy {
@@ -105,8 +107,8 @@
 @media (max-width: 1050px) {
   .hero-carousel .hero {
     grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-    align-content: center;
-    padding-top: clamp(3.2rem, 6vw, 5rem);
+    align-content: start;
+    padding-top: 1.25rem;
   }
 
   .hero-carousel .hero-copy {
@@ -130,7 +132,7 @@
     min-height: 560px;
     grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
     gap: 1rem;
-    padding: 3rem 1rem 4.6rem;
+    padding: 1rem 1rem 4.6rem;
   }
 
   .hero-carousel .hero h1 {
@@ -164,7 +166,7 @@
 
   .hero-carousel .hero-art {
     min-height: 250px;
-    align-self: center;
+    align-self: start;
     aspect-ratio: 16 / 10;
     padding: 0;
   }
@@ -178,7 +180,7 @@
   .hero-carousel .hero {
     min-height: auto;
     grid-template-columns: 1fr;
-    padding-top: 2.5rem;
+    padding-top: 1rem;
   }
 
   .hero-carousel .hero-copy {

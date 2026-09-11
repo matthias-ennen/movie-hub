@@ -24,7 +24,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
 
   const safeIndex = Math.min(activeIndex, slides.length - 1)
   const activeItem = slides[safeIndex]
-  const heroBackdropUrl = activeItem.heroBackdropUrl || null
+  const heroBackdropUrl = activeItem.backdropUrl || null
 
   function selectHero(index) {
     if (index < 0 || index >= slides.length) return
