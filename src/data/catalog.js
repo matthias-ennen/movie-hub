@@ -1,15 +1,18 @@
+import { PROVIDER_REGISTRY } from '../providers/providerRegistry.js'
 import { isProviderEnabledSnapshot } from '../settings/providerSelectionRuntime.js'
 
 export const WAIPU_VOD_URL = 'https://app.waipu.tv/waiputhek'
 export const WAIPU_LIVE_URL = 'https://www.waipu.tv/sender/das-erste/'
 
-export const providerDirectory = {
-  netflix: { label: 'Netflix', short: 'N', searchUrl: (title) => `https://www.netflix.com/search?q=${encodeURIComponent(title)}` },
-  prime: { label: 'Prime Video', short: 'P', searchUrl: (title) => `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${encodeURIComponent(title)}` },
-  disney: { label: 'Disney+', short: 'D+', searchUrl: () => 'https://www.disneyplus.com/de-de' },
-  youtube: { label: 'YouTube', short: 'YT', searchUrl: (title) => `https://www.youtube.com/results?search_query=${encodeURIComponent(title)}` },
-  waipu: { label: 'waipu.tv', short: 'W', searchUrl: () => WAIPU_VOD_URL },
-}
+export const providerDirectory = Object.fromEntries(PROVIDER_REGISTRY.map((provider) => [
+  provider.id,
+  {
+    label: provider.label,
+    short: provider.short,
+    source: provider.source,
+    searchUrl: provider.searchUrl,
+  },
+]))
 
 // Bestehende Komponenten greifen weiter über `providers[id]` zu. Der Proxy
 // hält diese API stabil, blendet aber konto-weit deaktivierte Anbieter aus.
