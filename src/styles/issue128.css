@@ -176,6 +176,12 @@
   font-size: 0.62rem;
 }
 
+.poster-card .provider-movie-hub {
+  border-color: rgba(141, 167, 255, 0.8);
+  background: var(--color-brand-accent);
+  color: #0a0d12;
+}
+
 @media (max-width: 1050px) {
   .hero-carousel .hero {
     grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);

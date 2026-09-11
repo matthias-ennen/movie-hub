@@ -2,6 +2,19 @@ import { collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc } from 'fi
 import { firebaseReady } from '../lib/firebase.js'
 import { normaliseMedia, titleMediaKey } from './sharedMediaModel.js'
 
+export const SHARED_MEDIA_CHANGED_EVENT = 'moviehub:shared-media-changed'
+
+function notifySharedMediaChanged(userId, item, hasMedia) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(SHARED_MEDIA_CHANGED_EVENT, {
+    detail: {
+      userId,
+      titleKey: titleMediaKey(item),
+      hasMedia,
+    },
+  }))
+}
+
 export async function loadSharedMedia(userId, item) {
   const { db } = await firebaseReady
   const snapshot = await getDocs(collection(db, 'users', userId, 'sharedMedia', titleMediaKey(item), 'entries'))
@@ -52,10 +65,13 @@ export async function saveSharedMedia(userId, item, entry) {
     },
     updatedAt: serverTimestamp(),
   }, { merge: true })
+  notifySharedMediaChanged(userId, item, true)
   return id
 }
 
 export async function removeSharedMedia(userId, item, id) {
   const { db } = await firebaseReady
   await deleteDoc(doc(db, 'users', userId, 'sharedMedia', titleMediaKey(item), 'entries', id))
+  // null means: re-check the title, because there may still be another own link/video.
+  notifySharedMediaChanged(userId, item, null)
 }
