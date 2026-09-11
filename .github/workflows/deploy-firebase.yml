@@ -62,16 +62,19 @@ jobs:
             --output public/catalog.json
           node -e "const fs=require('node:fs'); const c=JSON.parse(fs.readFileSync('public/catalog.json','utf8')); if(c?.source!=='tmdb'||!Array.isArray(c?.titles)||c.titles.length===0||!Array.isArray(c?.rowDefinitions)||c.rowDefinitions.length===0) throw new Error('Last deployed catalog is not a valid non-empty TMDB catalog.'); console.log('Reusing live TMDB catalog with '+c.titles.length+' titles from '+(c.generatedAt||'unknown time')+'.');"
 
-          # Preserve the independently deployed search index as well. On the
-          # very first rollout it may not exist yet; in that case derive a
-          # valid compact index from the restored catalog instead of deleting
-          # search support from Hosting.
+          # Firebase Hosting rewrites unknown paths to index.html. Therefore a
+          # successful HTTP response alone cannot prove that search-index.json
+          # already exists. Validate the downloaded payload inside the shell
+          # condition and derive the first index from the restored catalog when
+          # the live response is HTML or otherwise invalid.
           if curl --fail --silent --show-error --location \
             https://movie-hub-62459.web.app/search-index.json \
-            --output public/search-index.json; then
-            node -e "const fs=require('node:fs'); const s=JSON.parse(fs.readFileSync('public/search-index.json','utf8')); if(s?.kind!=='search-index'||!Array.isArray(s?.entries)||s.entries.length===0) throw new Error('Last deployed search index is invalid.'); console.log('Reusing live search index with '+s.entries.length+' entries from '+(s.generatedAt||'unknown time')+'.');"
+            --output public/search-index.json \
+            && node -e "const fs=require('node:fs'); const s=JSON.parse(fs.readFileSync('public/search-index.json','utf8')); if(s?.kind!=='search-index'||!Array.isArray(s?.entries)||s.entries.length===0) process.exit(1); console.log('Reusing live search index with '+s.entries.length+' entries from '+(s.generatedAt||'unknown time')+'.');"; then
+            echo "Live search index validated."
           else
             echo "No reusable live search index found; deriving one from the restored catalog."
+            rm -f public/search-index.json
             npm run search:index
           fi
 
