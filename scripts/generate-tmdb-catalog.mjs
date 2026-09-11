@@ -7,6 +7,7 @@ import {
   mergeProviderCatalogTitle,
 } from './provider-catalogs.mjs'
 import { normalizeTmdbTitle, normalizeTmdbVideos, normalizeTmdbWatchProviders, toMovieHubTitle } from '../src/services/tmdb.js'
+import { selectNeutralTmdbPosterUrl } from '../src/services/tmdbImages.js'
 
 const token = process.env.TMDB_API_READ_TOKEN
 const language = process.env.TMDB_LANGUAGE || 'de-DE'
@@ -236,12 +237,19 @@ async function resolveCandidate(candidate) {
     : `/movie/${candidate.id}/videos`
 
   const [payload, providerPayload, germanVideos, fallbackVideos] = await Promise.all([
-    tmdbFetch(detailPath, { language, append_to_response: 'credits' }),
+    tmdbFetch(detailPath, {
+      language,
+      append_to_response: 'credits,images',
+      include_image_language: 'null',
+    }),
     tmdbFetch(providerPath),
     tmdbFetch(videoPath, { language: 'de-DE' }),
     tmdbFetch(videoPath, { language: 'en-US' }),
   ])
-  const normalized = normalizeTmdbTitle(payload, candidate.mediaType)
+  const normalized = {
+    ...normalizeTmdbTitle(payload, candidate.mediaType),
+    neutralPosterUrl: selectNeutralTmdbPosterUrl(payload?.images),
+  }
   const providerData = normalizeTmdbWatchProviders(providerPayload, country)
   const videos = normalizeTmdbVideos([germanVideos, fallbackVideos], normalized.originalLanguage)
   const [accent, accent2] = accentFor(normalized.tmdbId)
