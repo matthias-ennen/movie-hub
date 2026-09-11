@@ -8,13 +8,25 @@
 
 .hero-carousel {
   position: relative;
+  touch-action: pan-y;
+  overscroll-behavior-x: contain;
+}
+
+.hero-carousel:focus-visible {
+  outline: none;
+}
+
+.hero-carousel:focus-visible .hero {
+  box-shadow: inset 0 0 0 2px rgba(141, 167, 255, 0.5);
 }
 
 .hero-carousel .hero {
+  min-height: clamp(430px, 54vh, 580px);
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   align-items: start;
   gap: clamp(1.5rem, 3vw, 4rem);
   padding-top: clamp(1.1rem, 2vw, 1.75rem);
+  padding-bottom: clamp(3.4rem, 4.5vw, 4.25rem);
 }
 
 .hero-carousel .hero-copy {
@@ -64,7 +76,7 @@
   position: absolute;
   z-index: 6;
   left: 50%;
-  bottom: clamp(1.4rem, 3vw, 2.4rem);
+  bottom: clamp(1.1rem, 2vw, 1.6rem);
   display: flex;
   align-items: center;
   gap: 0.7rem;
@@ -94,9 +106,20 @@
   outline-offset: 4px;
 }
 
+/* Die frühere TMDB-Diagnoseleiste war nur für die Entwicklungsphase gedacht. */
+.prototype-strip {
+  display: none !important;
+}
+
+/* Home-Reihen beginnen direkt nach dem Hero statt in dessen unteren Bereich hineinzuragen. */
+.hero-carousel + .rows-wrap {
+  margin-top: 0;
+}
+
 .category-page .browse-page,
 .personal-library-shell .browse-page {
   min-height: auto;
+  padding-top: clamp(1.25rem, 2.4vw, 2rem);
 }
 
 .category-page .rows-wrap,
@@ -109,6 +132,7 @@
     grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
     align-content: start;
     padding-top: 1.25rem;
+    padding-bottom: 3.6rem;
   }
 
   .hero-carousel .hero-copy {
@@ -129,10 +153,10 @@
   }
 
   .hero-carousel .hero {
-    min-height: 560px;
+    min-height: 500px;
     grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
     gap: 1rem;
-    padding: 1rem 1rem 4.6rem;
+    padding: 1rem 1rem 3.6rem;
   }
 
   .hero-carousel .hero h1 {
@@ -172,7 +196,7 @@
   }
 
   .hero-dots {
-    bottom: 1.35rem;
+    bottom: 1.1rem;
   }
 }
 
@@ -180,7 +204,7 @@
   .hero-carousel .hero {
     min-height: auto;
     grid-template-columns: 1fr;
-    padding-top: 1rem;
+    padding: 1rem;
   }
 
   .hero-carousel .hero-copy {
@@ -203,8 +227,13 @@
     left: auto;
     bottom: auto;
     justify-content: center;
-    padding: 0.8rem 0 1.2rem;
+    padding: 0.65rem 0 0.9rem;
     transform: none;
     background: var(--color-bg);
+  }
+
+  .category-page .browse-page,
+  .personal-library-shell .browse-page {
+    padding-top: 1rem;
   }
 }
