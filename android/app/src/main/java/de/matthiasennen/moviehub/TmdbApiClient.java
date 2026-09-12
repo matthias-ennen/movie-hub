@@ -129,13 +129,19 @@ final class TmdbApiClient {
                 "movie", "watchlist/movies", "watchlist", movieGenres);
         mergePagedList(titles, apiReadAccessToken, encodedSession, accountId,
                 "tv", "watchlist/tv", "watchlist", tvGenres);
+        mergePagedList(titles, apiReadAccessToken, encodedSession, accountId,
+                "movie", "rated/movies", "rated", movieGenres);
+        mergePagedList(titles, apiReadAccessToken, encodedSession, accountId,
+                "tv", "rated/tv", "rated", tvGenres);
 
         int favoriteCount = 0;
         int watchlistCount = 0;
+        int ratedCount = 0;
         JSONArray resultTitles = new JSONArray();
         for (JSONObject title : titles.values()) {
             if (title.optBoolean("favorite")) favoriteCount++;
             if (title.optBoolean("watchlist")) watchlistCount++;
+            if (title.optBoolean("rated")) ratedCount++;
             try {
                 title.put("providerIds", fetchSupportedProviders(
                         apiReadAccessToken,
@@ -159,6 +165,7 @@ final class TmdbApiClient {
             JSONObject counts = new JSONObject();
             counts.put("favorite", favoriteCount);
             counts.put("watchlist", watchlistCount);
+            counts.put("rated", ratedCount);
             counts.put("total", titles.size());
 
             JSONObject result = new JSONObject();
@@ -204,6 +211,11 @@ final class TmdbApiClient {
                     try {
                         normalized.put(membership, true);
                         normalized.put(membership + "Order", order);
+                        if ("rated".equals(membership)) {
+                            JSONObject rating = raw.optJSONObject("rating");
+                            double ratingValue = rating == null ? 0 : rating.optDouble("value", 0);
+                            if (ratingValue > 0) normalized.put("ratingValue", ratingValue);
+                        }
                     } catch (Exception ignored) {}
                 }
             }
@@ -249,6 +261,7 @@ final class TmdbApiClient {
             result.put("genreNames", names);
             result.put("favorite", false);
             result.put("watchlist", false);
+            result.put("rated", false);
             return result;
         } catch (Exception error) {
             throw new TmdbException(ErrorKind.RESPONSE, 0,

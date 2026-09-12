@@ -1,13 +1,7 @@
+import { getTitleStateKey, hasPersonalTitleState } from './libraryState.js'
+
 function byTitle(a, b) {
   return String(a.title ?? '').localeCompare(String(b.title ?? ''), 'de')
-}
-
-function byWatchedDateDesc(getTitleState) {
-  return (a, b) => {
-    const aDate = getTitleState(a).watchedAt ?? ''
-    const bDate = getTitleState(b).watchedAt ?? ''
-    return bDate.localeCompare(aDate) || byTitle(a, b)
-  }
 }
 
 function byRatingDesc(getTitleState) {
@@ -30,15 +24,9 @@ export function buildPersonalRows(titles, getTitleState) {
     },
     {
       id: 'my-favorites',
-      title: 'Favoriten',
+      title: 'Meine Favoriten',
       matches: (state) => state.favorite,
       sort: byTitle,
-    },
-    {
-      id: 'my-watched',
-      title: 'Gesehen',
-      matches: (state) => state.watched,
-      sort: byWatchedDateDesc(getTitleState),
     },
     {
       id: 'my-ratings',
@@ -73,4 +61,3 @@ export function mergeCatalogWithPersonalSnapshots(titles, statesByKey) {
 
   return [...merged.values()]
 }
-import { getTitleStateKey, hasPersonalTitleState } from './libraryState.js'

@@ -194,7 +194,7 @@ function PersonalLibraryView({ rows, heroItems = [], onOpen, profileName, loadin
         <div className="page-heading">
           <p className="eyebrow">{profileName ?? 'Movie Hub'}</p>
           <h1>Meine Inhalte</h1>
-          <p>Deine Watchlist, Favoriten, gesehenen Titel und persönlichen Bewertungen – getrennt für dieses Profil.</p>
+          <p>Deine Movie-Hub-Watchlist, Favoriten und Bewertungen sowie deine synchronisierten persönlichen TMDB-Listen.</p>
         </div>
 
         {loading && <p className="loading-copy">Persönliche Inhalte werden geladen …</p>}
@@ -204,7 +204,7 @@ function PersonalLibraryView({ rows, heroItems = [], onOpen, profileName, loadin
           <section className="library-empty-state">
             <p className="settings-kicker">Noch leer</p>
             <h2>Deine persönlichen Reihen entstehen hier automatisch.</h2>
-            <p>Öffne einen Film oder eine Serie und markiere ihn als Favorit, für später, gesehen oder gib eine Bewertung ab.</p>
+            <p>Öffne einen Film oder eine Serie und markiere ihn für die Watchlist, als Favorit oder gib eine Bewertung ab.</p>
           </section>
         )}
 
@@ -340,8 +340,6 @@ function MovieHub({ user }) {
   }, [])
 
   useEffect(() => {
-    // Android asks whether Movie Hub still has a UI layer to close. At the
-    // root it asks this themed React surface to display the confirmation.
     window.__movieHubNativeBack = handleNativeBack
     window.__movieHubShowExitConfirmation = () => {
       setExitDialogOpen(true)
@@ -382,12 +380,13 @@ function MovieHub({ user }) {
     [titles, statesByKey, getTitleState],
   )
   const tmdbRows = useMemo(() => buildTmdbCatalogRows(titles), [titles])
+  const combinedPersonalRows = useMemo(() => [...personalRows, ...tmdbRows], [personalRows, tmdbRows])
   const movies = titles.filter((item) => item.type === 'movie')
   const series = titles.filter((item) => item.type === 'series')
   const homeHeroes = useMemo(() => selectHomeHeroItems(publicTitles), [publicTitles])
   const movieHeroes = useMemo(() => selectHeroItems(titles, { type: 'movie' }), [titles])
   const seriesHeroes = useMemo(() => selectHeroItems(titles, { type: 'series' }), [titles])
-  const personalHeroes = useMemo(() => selectPersonalHeroItems(personalRows), [personalRows])
+  const personalHeroes = useMemo(() => selectPersonalHeroItems(combinedPersonalRows), [combinedPersonalRows])
   const hasProviderCatalogs = Object.keys(catalog.providerCatalogs || {}).length > 0
   const providerMovieRows = useMemo(
     () => hasProviderCatalogs ? buildProviderBrowseRows(catalog.providerCatalogs, titles, 'movie') : [],
@@ -421,13 +420,13 @@ function MovieHub({ user }) {
               <strong>{liveTmdb ? 'Echte TMDB-Daten' : 'Entwicklungsfallback'}</strong>
               <span>{liveTmdb ? 'Filme & Serien · deutsche Metadaten · Poster & Backdrops' : 'Der Live-TMDB-Katalog konnte noch nicht geladen werden.'}</span>
             </div>
+            {rows.map((row) => <ContentRow key={row.id} title={row.title} items={row.items} onOpen={handleOpenTitle} />)}
             {!libraryLoading && !libraryError && personalRows.map((row) => (
               <ContentRow key={row.id} title={row.title} items={row.items} onOpen={handleOpenTitle} />
             ))}
             {tmdbRows.map((row) => (
               <ContentRow key={row.id} title={row.title} items={row.items} onOpen={handleOpenTitle} />
             ))}
-            {rows.map((row) => <ContentRow key={row.id} title={row.title} items={row.items} onOpen={handleOpenTitle} />)}
           </div>
         </main>
       )}
@@ -453,7 +452,7 @@ function MovieHub({ user }) {
       )}
       {currentView === 'library' && (
         <PersonalLibraryView
-          rows={personalRows}
+          rows={combinedPersonalRows}
           heroItems={personalHeroes}
           onOpen={handleOpenTitle}
           profileName={activeProfile?.displayName}

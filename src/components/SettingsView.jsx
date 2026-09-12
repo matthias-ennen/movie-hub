@@ -100,7 +100,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
   return (
     <main className="browse-page profile-page app-settings-page">
       <div className="page-heading profile-heading">
-        <p className="eyebrow">Movie Hub</p>
+        <p className="eyebrow">Dein Movie Hub</p>
         <h1>Einstellungen</h1>
         <p>Kontoweite Streaming-Auswahl und geräteweite Verbindungen für Movie Hub.</p>
       </div>
@@ -189,7 +189,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
         </div>
 
         <p className="settings-description">
-          Hinterlege deinen persönlichen TMDB API Read Access Token und verbinde dein TMDB-Konto. Diese eine Geräteverbindung wird von allen Movie-Hub-Profilen gemeinsam genutzt. Synchronisierte Favoriten und Watchlist werden anschließend kontoweit in Movie Hub bereitgestellt.
+          Hinterlege deinen persönlichen TMDB API Read Access Token und verbinde dein TMDB-Konto. Diese eine Geräteverbindung wird von allen Movie-Hub-Profilen gemeinsam genutzt. Synchronisierte Favoriten, Watchlist und Bewertungen werden anschließend kontoweit in Movie Hub bereitgestellt.
         </p>
 
         {nativeTmdbSettings ? (
@@ -214,7 +214,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
             <span aria-hidden="true">↻</span>
             <span>
               <strong>{syncBusy ? 'TMDB wird synchronisiert …' : 'Jetzt synchronisieren'}</strong>
-              <small>Favoriten und Watchlist für Filme und Serien aktualisieren</small>
+              <small>Favoriten, Watchlist und Bewertungen für Filme und Serien aktualisieren</small>
             </span>
           </button>
         )}
@@ -222,7 +222,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
         {syncState && (
           <div className="tmdb-sync-summary" aria-label="Letzte TMDB-Synchronisierung">
             <strong>Persönlicher TMDB-Katalog</strong>
-            <span>{syncState.favoriteCount ?? 0} Favoriten · {syncState.watchlistCount ?? 0} Watchlist-Titel · {syncState.totalCount ?? 0} Titel insgesamt</span>
+            <span>{syncState.favoriteCount ?? 0} Favoriten · {syncState.watchlistCount ?? 0} Watchlist-Titel · {syncState.ratingCount ?? 0} Bewertungen · {syncState.totalCount ?? 0} Titel insgesamt</span>
             {lastSync && <small>Letzte Synchronisierung: {lastSync}</small>}
           </div>
         )}
