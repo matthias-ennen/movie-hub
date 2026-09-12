@@ -209,8 +209,7 @@ final class TmdbApiClient {
                         normalized.put(membership, true);
                         normalized.put(membership + "Order", order);
                         if ("rated".equals(membership)) {
-                            JSONObject rating = raw.optJSONObject("rating");
-                            double ratingValue = rating == null ? 0 : rating.optDouble("value", 0);
+                            double ratingValue = extractRatingValue(raw.opt("rating"));
                             if (ratingValue > 0) normalized.put("ratingValue", ratingValue);
                         }
                     } catch (Exception ignored) {}
@@ -219,6 +218,18 @@ final class TmdbApiClient {
             totalPages = Math.max(1, response.optInt("total_pages", 1));
             page++;
         } while (page <= totalPages);
+    }
+
+    static double extractRatingValue(Object rawRating) {
+        final double ratingValue;
+        if (rawRating instanceof Number) {
+            ratingValue = ((Number) rawRating).doubleValue();
+        } else if (rawRating instanceof JSONObject) {
+            ratingValue = ((JSONObject) rawRating).optDouble("value", 0);
+        } else {
+            return 0;
+        }
+        return Double.isFinite(ratingValue) && ratingValue > 0 ? ratingValue : 0;
     }
 
     private static JSONObject normalizeListTitle(
