@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import {
   collection,
-  deleteDoc,
   doc,
   getDocs,
   onSnapshot,
@@ -66,6 +65,7 @@ async function replaceTmdbCatalog(userId, payload) {
     accountName: account.name || null,
     favoriteCount: Number.isFinite(Number(counts.favorite)) ? Number(counts.favorite) : 0,
     watchlistCount: Number.isFinite(Number(counts.watchlist)) ? Number(counts.watchlist) : 0,
+    ratingCount: Number.isFinite(Number(counts.rated)) ? Number(counts.rated) : 0,
     totalCount: incoming.size,
   })
 
@@ -73,6 +73,7 @@ async function replaceTmdbCatalog(userId, payload) {
     syncedAt,
     favoriteCount: Number(counts.favorite) || 0,
     watchlistCount: Number(counts.watchlist) || 0,
+    ratingCount: Number(counts.rated) || 0,
     totalCount: incoming.size,
   }
 }
@@ -130,11 +131,7 @@ export function TmdbCatalogProvider({ user, children }) {
     }
   }, [user?.uid])
 
-  const personalTitles = useMemo(() => documents.map((item) => normalizePersonalTmdbTitle({
-    ...item,
-    favorite: item.favorite,
-    watchlist: item.watchlist,
-  })), [documents])
+  const personalTitles = useMemo(() => documents.map((item) => normalizePersonalTmdbTitle(item)), [documents])
 
   useEffect(() => {
     if (!user?.uid) return undefined
@@ -147,7 +144,7 @@ export function TmdbCatalogProvider({ user, children }) {
         const payload = parseNativePayload(rawPayload)
         if (!payload.ok) throw new Error(payload.error || 'TMDB-Synchronisierung fehlgeschlagen.')
         const result = await replaceTmdbCatalog(user.uid, payload)
-        setSyncMessage(`Synchronisiert: ${result.favoriteCount} Favoriten · ${result.watchlistCount} Watchlist-Titel.`)
+        setSyncMessage(`Synchronisiert: ${result.favoriteCount} Favoriten · ${result.watchlistCount} Watchlist-Titel · ${result.ratingCount} Bewertungen.`)
       } catch (nextError) {
         setSyncMessage(nextError instanceof Error ? nextError.message : 'TMDB-Synchronisierung fehlgeschlagen.')
       } finally {
@@ -169,7 +166,7 @@ export function TmdbCatalogProvider({ user, children }) {
       return
     }
     setSyncBusy(true)
-    setSyncMessage('Favoriten und Watchlist werden von TMDB geladen …')
+    setSyncMessage('Favoriten, Watchlist und Bewertungen werden von TMDB geladen …')
     try {
       window.MovieHubNative.requestTmdbCatalogSync()
     } catch (nextError) {
