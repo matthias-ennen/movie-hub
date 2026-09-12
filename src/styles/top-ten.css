@@ -8,7 +8,7 @@
 
 .top-ten-track {
   grid-auto-columns: var(--top-ten-poster-width);
-  padding-top: clamp(0.65rem, 1.5vw, 1rem);
+  padding-top: calc(var(--poster-focus-safe) + 0.45rem);
   padding-bottom: clamp(2rem, 3.5vw, 3rem);
 }
 

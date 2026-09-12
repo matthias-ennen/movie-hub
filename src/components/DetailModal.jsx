@@ -138,7 +138,7 @@ export default function DetailModal({ item, onClose }) {
   function markWatchedFromProvider() {
     const watchedAt = localDateValue()
     setPersonalMessage('Als gesehen markiert.')
-    updateTitleState(item, { watched: true, watchedAt })
+    updateTitleState(item, { watched: true, watchedAt, watchedMarkedAt: new Date().toISOString() })
       .catch((error) => {
         console.error(error)
         setPersonalMessage('Anbieter geöffnet, aber „Gesehen“ konnte nicht gespeichert werden.')

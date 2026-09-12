@@ -80,6 +80,8 @@ Die öffentlichen Listen aggregieren die bereits geordneten Rohlisten aller akti
 
 Die persönliche Liste wird ausschließlich aus tatsächlich vorhandenen persönlichen Reihen gebildet. Profilbezogene Movie-Hub-Bewertungen haben Vorrang, danach folgen die kontoweiten persönlichen TMDB-Bewertungen und schließlich TMDB-Beliebtheit sowie belastbare Tie-Breaker. Die allgemeinen profilbezogenen Sortier- und Gesehen-Einstellungen verändern die nummerierte Rangfolge bewusst nicht. Es entstehen weder zusätzliche Laufzeit-API-Aufrufe noch Firestore-Lesevorgänge je Poster.
 
+Direkt hinter der persönlichen Top 10 folgt **Als gesehen markiert** als profilbezogener Verlauf mit höchstens 100 Titeln. Neue Markierungen speichern zusätzlich zum editierbaren Gesehen-Datum einen exakten Markierungszeitpunkt; die jüngste steht vorn. Bestehende Datensätze ohne diesen Zeitpunkt bleiben über ihr Gesehen-Datum stabil einsortiert.
+
 ### Persönliche Smart-Reihen
 
 Unter **Meine Inhalte** können interne Movie-Hub-Profile bis zu zehn eigene dynamische Posterreihen verwalten. Gespeichert wird jeweils eine profilbezogene Filterregel, keine feste Kopie von Titel-IDs. Die Reihen werden beim Laden aus dem aktuellen öffentlichen Katalog berechnet und aktualisieren sich dadurch mit jedem erfolgreichen Katalogwechsel automatisch.

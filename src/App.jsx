@@ -22,7 +22,7 @@ import { useHeroFirstPage } from './hooks/useHeroFirstPage.js'
 import { useCurationClock } from './hooks/useCurationClock.js'
 import { useProviderSelection } from './settings/useProviderSelection.js'
 import { useLibrary } from './library/LibraryProvider.jsx'
-import { buildPersonalRows, mergeCatalogWithPersonalSnapshots } from './library/personalRows.js'
+import { buildPersonalRows, buildWatchedHistoryRows, mergeCatalogWithPersonalSnapshots } from './library/personalRows.js'
 import { useSharedMediaCatalog } from './library/useSharedMediaCatalog.js'
 import { mergeSharedMediaCatalogTitles, mergeTitlesWithSharedMediaCatalog } from './library/sharedMediaCatalogModel.js'
 import { firebaseReady } from './lib/firebase.js'
@@ -504,9 +504,17 @@ function MovieHub({ user }) {
     ].filter((row) => row.items.length),
     [catalog.providerCatalogs, rowDefinitions, titles],
   )
+  const personalCatalogTitles = useMemo(
+    () => mergeCatalogWithPersonalSnapshots(titles, statesByKey),
+    [titles, statesByKey],
+  )
   const personalRows = useMemo(
-    () => buildPersonalRows(mergeCatalogWithPersonalSnapshots(titles, statesByKey), getTitleState),
-    [titles, statesByKey, getTitleState],
+    () => buildPersonalRows(personalCatalogTitles, getTitleState),
+    [personalCatalogTitles, getTitleState, statesByKey],
+  )
+  const watchedHistoryRows = useMemo(
+    () => buildWatchedHistoryRows(personalCatalogTitles, getTitleState),
+    [personalCatalogTitles, getTitleState, statesByKey],
   )
   const tmdbRows = useMemo(() => buildTmdbCatalogRows(titles), [titles])
   const personalSmartRows = useMemo(
@@ -530,12 +538,23 @@ function MovieHub({ user }) {
     [combinedPersonalRows, getTitleState, statesByKey],
   )
   const personalDisplayRows = useMemo(
-    () => insertTopTenRow(combinedPersonalRows, {
-      id: 'top-ten-personal',
-      title: 'Deine persönliche Top 10',
-      items: personalTopTen,
-    }),
-    [combinedPersonalRows, personalTopTen],
+    () => {
+      const rowsWithTopTen = insertTopTenRow(combinedPersonalRows, {
+        id: 'top-ten-personal',
+        title: 'Deine persönliche Top 10',
+        items: personalTopTen,
+      })
+      if (!watchedHistoryRows.length) return rowsWithTopTen
+
+      const topTenIndex = rowsWithTopTen.findIndex((row) => row.id === 'top-ten-personal')
+      const insertionIndex = topTenIndex >= 0 ? topTenIndex + 1 : rowsWithTopTen.length
+      return [
+        ...rowsWithTopTen.slice(0, insertionIndex),
+        ...watchedHistoryRows,
+        ...rowsWithTopTen.slice(insertionIndex),
+      ]
+    },
+    [combinedPersonalRows, personalTopTen, watchedHistoryRows],
   )
   const providerTopTenInput = useMemo(() => ({
     providerCatalogs: catalog.providerCatalogs,

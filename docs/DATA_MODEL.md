@@ -27,6 +27,16 @@ users/{uid}/profiles/{profileId}
   contentRowSettings map          # bis zu 10 Smart-Reihen für Meine Inhalte
   contentDisplaySettings map      # Sortierung, Wechselintervall und Gesehen-Behandlung
 
+users/{uid}/profiles/{profileId}/titles/{type-tmdbId}
+  watched           boolean
+  watchedAt         string | null    # editierbares lokales Datum, YYYY-MM-DD
+  watchedMarkedAt   string | null    # exakter ISO-Zeitpunkt für den Gesehen-Verlauf
+  favorite          boolean
+  watchlist         boolean
+  rating            number | null
+  note              string
+  titleSnapshot     map | null
+
 users/{uid}/movies/{tmdbId}
   rating            number | null   # 1 bis 10
   watched           boolean
