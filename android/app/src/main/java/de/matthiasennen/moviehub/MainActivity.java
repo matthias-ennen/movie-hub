@@ -37,16 +37,17 @@ public final class MainActivity extends ComponentActivity {
     private static final String APP_URL = "https://movie-hub-62459.web.app/";
     private static final String MOVIE_HUB_HOST = "movie-hub-62459.web.app";
     private static final String FIREBASE_AUTH_HOST = "movie-hub-62459.firebaseapp.com";
-    private static final long STARTUP_TIMEOUT_MS = 10_000L;
+    private static final long STARTUP_TIMEOUT_MS = 12_000L;
 
     private FrameLayout container;
     private WebView webView;
     private View loadingView;
     private View offlineView;
+    private Button retryButton;
     private AlertDialog exitDialog;
     private final Handler startupHandler = new Handler(Looper.getMainLooper());
     private Runnable startupTimeout;
-    private boolean automaticRetryUsed;
+    private boolean startupFailureVisible;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -141,14 +142,14 @@ public final class MainActivity extends ComponentActivity {
         content.setBackgroundColor(Color.rgb(9, 10, 16));
 
         TextView title = new TextView(this);
-        title.setText("Movie Hub ist nicht erreichbar");
+        title.setText("Movie Hub konnte nicht vollständig geladen werden");
         title.setTextColor(Color.WHITE);
         title.setTextSize(26);
         title.setGravity(Gravity.CENTER);
         content.addView(title);
 
         TextView hint = new TextView(this);
-        hint.setText("Bitte prüfe die Internetverbindung und versuche es erneut.");
+        hint.setText("Bitte prüfe deine Internetverbindung und versuche es erneut.");
         hint.setTextColor(Color.rgb(190, 195, 210));
         hint.setTextSize(17);
         hint.setGravity(Gravity.CENTER);
@@ -158,25 +159,25 @@ public final class MainActivity extends ComponentActivity {
         hintParams.topMargin = dp(14);
         content.addView(hint, hintParams);
 
-        Button retry = new Button(this);
-        retry.setText("Erneut versuchen");
-        retry.setAllCaps(false);
-        retry.setOnClickListener(view -> loadMovieHub());
+        retryButton = new Button(this);
+        retryButton.setText("Erneut versuchen");
+        retryButton.setAllCaps(false);
+        retryButton.setOnClickListener(view -> loadMovieHub());
         LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
         buttonParams.topMargin = dp(28);
-        content.addView(retry, buttonParams);
+        content.addView(retryButton, buttonParams);
         return content;
     }
 
     private void loadMovieHub() {
-        automaticRetryUsed = false;
         startMovieHubLoad();
     }
 
     private void startMovieHubLoad() {
         cancelStartupTimeout();
+        startupFailureVisible = false;
         offlineView.setVisibility(View.GONE);
         loadingView.setVisibility(View.VISIBLE);
         loadingView.bringToFront();
@@ -194,14 +195,7 @@ public final class MainActivity extends ComponentActivity {
 
     private void scheduleStartupTimeout() {
         cancelStartupTimeout();
-        startupTimeout = () -> {
-            if (!automaticRetryUsed) {
-                automaticRetryUsed = true;
-                startMovieHubLoad();
-                return;
-            }
-            showOfflineView();
-        };
+        startupTimeout = () -> handleStartupFailure();
         startupHandler.postDelayed(startupTimeout, STARTUP_TIMEOUT_MS);
     }
 
@@ -212,19 +206,6 @@ public final class MainActivity extends ComponentActivity {
         }
     }
 
-    private void verifyHostedUiReady(WebView view) {
-        view.evaluateJavascript(
-                "Boolean(document.getElementById('root') && document.getElementById('root').childElementCount > 0)",
-                result -> {
-                    if ("true".equals(result)) {
-                        cancelStartupTimeout();
-                        offlineView.setVisibility(View.GONE);
-                        hideLoadingView();
-                        webView.setVisibility(View.VISIBLE);
-                    }
-                });
-    }
-
     private void hideLoadingView() {
         if (loadingView != null) {
             loadingView.setVisibility(View.GONE);
@@ -233,11 +214,45 @@ public final class MainActivity extends ComponentActivity {
 
     private void showOfflineView() {
         cancelStartupTimeout();
+        startupFailureVisible = true;
         hideLoadingView();
         webView.setVisibility(View.GONE);
         offlineView.setVisibility(View.VISIBLE);
         offlineView.bringToFront();
-        offlineView.requestFocus();
+        retryButton.requestFocus();
+    }
+
+    private void handleStartupFailure() {
+        showOfflineView();
+        StartupIntroOverlay.notifyStartupFailed(this);
+    }
+
+    void showStartupFailureAfterIntro() {
+        showOfflineView();
+    }
+
+    void restoreStartupFocus() {
+        if (offlineView.getVisibility() == View.VISIBLE) {
+            retryButton.requestFocus();
+        } else if (webView.getVisibility() == View.VISIBLE) {
+            webView.requestFocus();
+        }
+    }
+
+    private void showHostedUiReady() {
+        if (startupFailureVisible) return;
+        String currentUrl = webView.getUrl();
+        if (currentUrl == null) return;
+        Uri currentUri = Uri.parse(currentUrl);
+        if (!MOVIE_HUB_HOST.equalsIgnoreCase(currentUri.getHost())
+                || !"https".equalsIgnoreCase(currentUri.getScheme())) {
+            return;
+        }
+        cancelStartupTimeout();
+        offlineView.setVisibility(View.GONE);
+        hideLoadingView();
+        webView.setVisibility(View.VISIBLE);
+        StartupIntroOverlay.notifyStartupReady(this);
     }
 
     private void handleBackNavigation() {
@@ -389,6 +404,11 @@ public final class MainActivity extends ComponentActivity {
         @JavascriptInterface
         public String getAppBuild() {
             return Integer.toString(getInstalledVersionCode());
+        }
+
+        @JavascriptInterface
+        public void notifyStartupReady() {
+            runOnUiThread(() -> showHostedUiReady());
         }
 
         @JavascriptInterface
@@ -572,7 +592,9 @@ public final class MainActivity extends ComponentActivity {
             }
 
             if (MOVIE_HUB_HOST.equalsIgnoreCase(uri.getHost())) {
-                verifyHostedUiReady(view);
+                // The page itself reports presentation readiness only after
+                // the real Home Hero and the initial row layout are mounted.
+                return;
             } else {
                 cancelStartupTimeout();
                 hideLoadingView();
@@ -585,12 +607,7 @@ public final class MainActivity extends ComponentActivity {
         public void onReceivedError(WebView view, WebResourceRequest request,
                                     WebResourceError error) {
             if (request.isForMainFrame()) {
-                if (!automaticRetryUsed) {
-                    automaticRetryUsed = true;
-                    startMovieHubLoad();
-                    return;
-                }
-                showOfflineView();
+                handleStartupFailure();
             }
         }
     }

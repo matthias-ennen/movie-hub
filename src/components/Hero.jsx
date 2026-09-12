@@ -35,6 +35,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   useEffect(() => {
     clearTransitionTimers()
     transitionLockRef.current = false
+    readyReportedRef.current = false
     setActiveIndex(0)
     setTransition(null)
   }, [signature])
@@ -49,9 +50,9 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   const activeBackdropUrl = activeItem?.backdropUrl || null
 
   const reportReady = useCallback((reason) => {
-    if (readyReportedRef.current) return
+    if (!onReady || readyReportedRef.current) return
     readyReportedRef.current = true
-    onReady?.({ item: activeItem, reason })
+    onReady({ item: activeItem, reason })
   }, [activeItem, onReady])
 
   useEffect(() => {

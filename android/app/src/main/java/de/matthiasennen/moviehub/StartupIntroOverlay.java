@@ -20,7 +20,6 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.view.animation.AccelerateInterpolator;
-import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -30,11 +29,13 @@ import android.widget.TextView;
  * The hosted WebView keeps loading underneath while this overlay is visible.
  */
 final class StartupIntroOverlay {
-    static final long LOGO_HOLD_MS = 5_000L;
+    static final long MIN_LOGO_HOLD_MS = 5_000L;
+    static final long MAX_LOGO_HOLD_MS = 12_000L;
     static final long CRT_COLLAPSE_MS = 650L;
     static final long CRT_LINE_MS = 350L;
 
     private static boolean consumed;
+    private static StartupSession activeSession;
 
     private StartupIntroOverlay() {}
 
@@ -44,7 +45,7 @@ final class StartupIntroOverlay {
             public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
                 if (!consumed && activity instanceof MainActivity) {
                     consumed = true;
-                    attach(activity);
+                    attach((MainActivity) activity);
                 }
             }
 
@@ -53,11 +54,33 @@ final class StartupIntroOverlay {
             @Override public void onActivityPaused(Activity activity) {}
             @Override public void onActivityStopped(Activity activity) {}
             @Override public void onActivitySaveInstanceState(Activity activity, Bundle outState) {}
-            @Override public void onActivityDestroyed(Activity activity) {}
+            @Override
+            public void onActivityDestroyed(Activity activity) {
+                if (activeSession != null && activeSession.belongsTo(activity)) {
+                    activeSession.abort();
+                }
+            }
         });
     }
 
-    private static void attach(Activity activity) {
+    static void notifyStartupReady(MainActivity activity) {
+        activity.runOnUiThread(() -> {
+            if (activeSession != null && activeSession.belongsTo(activity)) {
+                activeSession.onContentReady();
+            }
+        });
+    }
+
+    static void notifyStartupFailed(MainActivity activity) {
+        activity.runOnUiThread(() -> {
+            activity.showStartupFailureAfterIntro();
+            if (activeSession != null && activeSession.belongsTo(activity)) {
+                activeSession.onContentReady();
+            }
+        });
+    }
+
+    private static void attach(MainActivity activity) {
         Window window = activity.getWindow();
         prepareFullscreenWindow(window);
 
@@ -110,12 +133,94 @@ final class StartupIntroOverlay {
         overlay.bringToFront();
         overlay.requestFocus();
 
-        overlay.postDelayed(() -> {
-            if (!overlay.isAttachedToWindow() || activity.isFinishing()) {
+        activeSession = new StartupSession(
+                activity, overlay, collapseLayer, glowLine, coreLine);
+        activeSession.start();
+    }
+
+    private static final class StartupSession {
+        private final MainActivity activity;
+        private final FrameLayout overlay;
+        private final FrameLayout collapseLayer;
+        private final View glowLine;
+        private final View coreLine;
+        private final StartupGate gate = new StartupGate();
+        private final Runnable minimumTimer = this::onMinimumElapsed;
+        private final Runnable maximumTimer = this::onMaximumElapsed;
+        private boolean finished;
+
+        StartupSession(
+                MainActivity activity,
+                FrameLayout overlay,
+                FrameLayout collapseLayer,
+                View glowLine,
+                View coreLine) {
+            this.activity = activity;
+            this.overlay = overlay;
+            this.collapseLayer = collapseLayer;
+            this.glowLine = glowLine;
+            this.coreLine = coreLine;
+        }
+
+        void start() {
+            overlay.postDelayed(minimumTimer, MIN_LOGO_HOLD_MS);
+            overlay.postDelayed(maximumTimer, MAX_LOGO_HOLD_MS);
+        }
+
+        boolean belongsTo(Activity candidate) {
+            return activity == candidate;
+        }
+
+        void onContentReady() {
+            if (gate.onContentReady()) startShutdown();
+        }
+
+        private void onMinimumElapsed() {
+            if (gate.onMinimumElapsed()) startShutdown();
+        }
+
+        private void onMaximumElapsed() {
+            activity.showStartupFailureAfterIntro();
+            if (gate.onMaximumElapsed()) startShutdown();
+        }
+
+        private void startShutdown() {
+            if (finished || !overlay.isAttachedToWindow()
+                    || activity.isFinishing() || activity.isDestroyed()) {
+                abort();
                 return;
             }
-            startCrtShutdown(activity, root, overlay, collapseLayer, glowLine, coreLine);
-        }, LOGO_HOLD_MS);
+
+            cancelTimers();
+            startCrtShutdown(
+                    overlay,
+                    collapseLayer,
+                    glowLine,
+                    coreLine,
+                    this::finish);
+        }
+
+        private void finish() {
+            if (finished) return;
+            finished = true;
+            cancelTimers();
+            removeOverlay(overlay);
+            if (activeSession == this) activeSession = null;
+            activity.restoreStartupFocus();
+        }
+
+        void abort() {
+            if (finished) return;
+            finished = true;
+            cancelTimers();
+            removeOverlay(overlay);
+            if (activeSession == this) activeSession = null;
+        }
+
+        private void cancelTimers() {
+            overlay.removeCallbacks(minimumTimer);
+            overlay.removeCallbacks(maximumTimer);
+        }
     }
 
     @SuppressWarnings("deprecation")
@@ -199,12 +304,11 @@ final class StartupIntroOverlay {
     }
 
     private static void startCrtShutdown(
-            Activity activity,
-            ViewGroup root,
             FrameLayout overlay,
             FrameLayout collapseLayer,
             View glowLine,
-            View coreLine) {
+            View coreLine,
+            Runnable onFinished) {
 
         // From this point the collapsing black panel itself provides the black
         // image. Making only the overlay background transparent allows the
@@ -255,14 +359,12 @@ final class StartupIntroOverlay {
         shutdown.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
-                removeOverlay(overlay);
-                requestWebViewFocus(root);
+                onFinished.run();
             }
 
             @Override
             public void onAnimationCancel(Animator animation) {
-                removeOverlay(overlay);
-                requestWebViewFocus(root);
+                onFinished.run();
             }
         });
         shutdown.start();
@@ -272,22 +374,6 @@ final class StartupIntroOverlay {
         if (overlay.getParent() instanceof ViewGroup) {
             ((ViewGroup) overlay.getParent()).removeView(overlay);
         }
-    }
-
-    private static boolean requestWebViewFocus(View view) {
-        if (view instanceof WebView && view.getVisibility() == View.VISIBLE) {
-            return view.requestFocus();
-        }
-        if (!(view instanceof ViewGroup)) {
-            return false;
-        }
-        ViewGroup group = (ViewGroup) view;
-        for (int i = 0; i < group.getChildCount(); i++) {
-            if (requestWebViewFocus(group.getChildAt(i))) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static int dp(Activity activity, int value) {

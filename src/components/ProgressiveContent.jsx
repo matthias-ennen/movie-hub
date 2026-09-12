@@ -65,7 +65,13 @@ function useProgressiveCount({
   return { visibleCount, sentinelRef }
 }
 
-export function ProgressiveRows({ rows, heroReady, onOpen, className = 'rows-wrap' }) {
+export function ProgressiveRows({
+  rows,
+  heroReady,
+  onOpen,
+  className = 'rows-wrap',
+  onInitialContentReady,
+}) {
   const { visibleCount, sentinelRef } = useProgressiveCount({
     total: rows.length,
     ready: heroReady,
@@ -73,6 +79,27 @@ export function ProgressiveRows({ rows, heroReady, onOpen, className = 'rows-wra
     batchSize: ROW_REVEAL_BATCH_SIZE,
     requestEvent: PROGRESSIVE_ROW_REQUEST_EVENT,
   })
+  const initialReadyReportedRef = useRef(false)
+
+  useEffect(() => {
+    if (!heroReady || initialReadyReportedRef.current || !onInitialContentReady) return undefined
+
+    const expectedInitialRows = Math.min(INITIAL_VISIBLE_ROWS, rows.length)
+    if (visibleCount < expectedInitialRows) return undefined
+
+    let secondFrame = null
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        initialReadyReportedRef.current = true
+        onInitialContentReady({ visibleRowCount: visibleCount })
+      })
+    })
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
+    }
+  }, [heroReady, onInitialContentReady, rows.length, visibleCount])
 
   return (
     <div
