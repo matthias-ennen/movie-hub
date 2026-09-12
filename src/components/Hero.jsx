@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import '../styles/issue128.css'
+import AgeRatingBadge from './AgeRatingBadge.jsx'
 
 const MAX_HEROES = 5
 const SWIPE_MIN_DISTANCE = 48
@@ -104,12 +105,12 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
         aria-hidden={interactive ? undefined : true}
       >
         <div className="hero-copy">
-          <p className="eyebrow">{eyebrow}</p>
           <h1>{entry.title}</h1>
           <div className="hero-meta">
             <strong>{entry.score}</strong>
             <span>{entry.year || '–'}</span>
             <span>{entry.meta}</span>
+            <AgeRatingBadge value={entry.ageRating} className="hero-age-rating" />
           </div>
           <p className="hero-description">{entry.description || 'Für diesen Titel liegt noch keine deutsche Beschreibung vor.'}</p>
           <div className="hero-actions">
@@ -150,6 +151,8 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
       data-focusable="true"
       onKeyDown={handleCarouselKeyDown}
     >
+      <p className="eyebrow hero-carousel-eyebrow">{eyebrow}</p>
+
       <div
         className={stageClassName}
         onTouchStart={handleTouchStart}
