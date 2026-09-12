@@ -149,6 +149,12 @@ Die kontoweite Auswahl der sichtbaren Streaminganbieter stammt aus #113 und umfa
 
 #171 trennt Kandidatenmenge und sichtbares Reihenlimit. Flexible Anbieter-, Kategorie-, Entdeckungs- und Smart-Reihen werden je Profil ausgewogen, nach Beliebtheit, Aktualität, belastbarer Bewertung oder stärkerer Entdeckungsvariation sortiert. Optional wechselt die Logik täglich oder wöchentlich. Die Berechnung ist innerhalb der Periode stabil und funktioniert ohne strukturelle Änderung weiter, wenn spätere Pakete den öffentlichen Datenbestand vergrößern.
 
+## Aggregierte Top 10
+
+#173 verwendet die vorhandene Reihenfolge der `movieIds`, `seriesIds` und `homeIds` als Rangsignal. Für jeden aktivierten Anbieter erhält Position `r` in einer Liste mit `N` Titeln den normalisierten Wert `(N - r + 1) / N`. Punkte desselben Titels werden nach Medientyp und TMDB-ID summiert; Gleichstände lösen Beliebtheit, Stimmenzahl, Durchschnittsbewertung und eine stabile ID auf.
+
+Movie Hub liefert dieselbe Art Rangquelle aus seinem kontoweiten Shared-Media-Manifest und den bereits geladenen Titelmetadaten. Home wählt bei genügend Kandidaten fünf Filme und fünf Serien, Filme und Serien filtern streng nach ihrem Medientyp. Damit sind die Listen dynamisch und wachsen mit später größeren Katalogen, ohne offizielle Plattform-Charts zu behaupten oder neue TMDB-Aufrufe zu benötigen.
+
 ## Firestore
 
 Für die öffentlichen Anbieter-Kataloge werden in diesem Paket **keine neuen Firestore-Collections** angelegt.

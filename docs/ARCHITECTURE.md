@@ -72,6 +72,14 @@ Flexible Anbieter-, Kategorie-, Entdeckungs- und Smart-Reihen trennen Kandidaten
 
 Home, Filme und Serien koordinieren ihre Hero-Auswahl gemeinsam. Bei ausreichender Kandidatenmenge verwenden die drei Seiten unterschiedliche erste Heroes; weitere Überschneidungen bleiben zulässig. Semantische Neuheiten-/Trendreihen sowie persönliche Watchlist-, Favoriten-, Bewertungs- und TMDB-Reihen behalten ihre fachliche Ordnung.
 
+### Top-10-Sonderreihen
+
+Home, Filme, Serien und Meine Inhalte setzen nach der dritten tatsächlich sichtbaren normalen Posterreihe eine größere, nummerierte Top-10-Reihe ein. Sie bleibt Teil desselben progressiven Render- und D-Pad-Pfads; die Posterkarte selbst wird wiederverwendet.
+
+Die öffentlichen Listen aggregieren die bereits geordneten Rohlisten aller aktivierten Anbieter mit normalisierten Positionspunkten. Gleiche Titel werden über Medientyp und TMDB-ID zusammengeführt; Home strebt bei ausreichender Auswahl fünf Filme und fünf Serien an. Movie Hub ist als aktivierbare eigene Rangquelle enthalten und ordnet seinen Katalog nach den vorhandenen TMDB-Qualitätssignalen.
+
+Die persönliche Liste wird ausschließlich aus tatsächlich vorhandenen persönlichen Reihen gebildet. Profilbezogene Movie-Hub-Bewertungen haben Vorrang, danach folgen die kontoweiten persönlichen TMDB-Bewertungen und schließlich TMDB-Beliebtheit sowie belastbare Tie-Breaker. Die allgemeinen profilbezogenen Sortier- und Gesehen-Einstellungen verändern die nummerierte Rangfolge bewusst nicht. Es entstehen weder zusätzliche Laufzeit-API-Aufrufe noch Firestore-Lesevorgänge je Poster.
+
 ### Persönliche Smart-Reihen
 
 Unter **Meine Inhalte** können interne Movie-Hub-Profile bis zu zehn eigene dynamische Posterreihen verwalten. Gespeichert wird jeweils eine profilbezogene Filterregel, keine feste Kopie von Titel-IDs. Die Reihen werden beim Laden aus dem aktuellen öffentlichen Katalog berechnet und aktualisieren sich dadurch mit jedem erfolgreichen Katalogwechsel automatisch.

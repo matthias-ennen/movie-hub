@@ -144,7 +144,7 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - responsive und D-Pad-taugliche Darstellung
 - erste Version am 09.09.2026 abgenommen; spätere Überarbeitungen werden getrennt behandelt
 
-## Aktuelle Arbeitspakete – #170 und #171
+## Aktuelle Arbeitspakete – #170, #171 und #173
 
 Die technische Hero-first-Grundlage aus #166/#168 und die Kaltstartkorrektur #169 sind integriert; die manuelle Geräteabnahme von #166 bleibt getrennt offen.
 
@@ -163,6 +163,15 @@ Die technische Hero-first-Grundlage aus #166/#168 und die Kaltstartkorrektur #16
 - optionaler täglicher oder wöchentlicher Wechsel;
 - profilbezogene Behandlung gesehener Titel;
 - Trennung von vollständiger Kandidatenmenge und sichtbarem Reihenlimit als Vorbereitung auf größere spätere Katalogbestände.
+
+#173 ergänzt vier dynamisch abgeleitete Top-10-Sonderreihen:
+
+- Einbau nach der dritten tatsächlich sichtbaren Reihe auf Home, Filme, Serien und Meine Inhalte;
+- rund 150 Prozent große Poster mit gut lesbarer Rangnummer 1 bis 10;
+- anbieterübergreifende Rangaggregation ohne Behauptung offizieller Plattform-Charts;
+- getrennte Film-, Serien- und gemischte Home-Liste;
+- profilbezogene persönliche Liste mit Movie-Hub-Bewertung vor persönlicher TMDB-Bewertung und TMDB-Beliebtheit;
+- keine neue Laufzeit-API, kein zusätzlicher Firestore-Zugriff je Poster und keine gespeicherte Rangliste.
 
 ## Danach vorgemerkt – #137 Sammlungen
 

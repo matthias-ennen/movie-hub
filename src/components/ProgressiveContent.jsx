@@ -109,7 +109,14 @@ export function ProgressiveRows({
       data-visible-row-count={visibleCount}
     >
       {rows.slice(0, visibleCount).map((row) => (
-        <ContentRow key={row.id} title={row.title} items={row.items} onOpen={onOpen} />
+        <ContentRow
+          key={row.id}
+          title={row.title}
+          items={row.items}
+          onOpen={onOpen}
+          providerId={row.providerId}
+          variant={row.variant}
+        />
       ))}
       {heroReady && visibleCount < rows.length && (
         <div ref={sentinelRef} className="progressive-content-sentinel" aria-hidden="true" />

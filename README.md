@@ -65,4 +65,4 @@ Für Provider gilt bewusst Best Effort: Titelsuche ist optimal, die Suchseite is
 
 Die zu diesem Abnahmestand gehörenden Detail-Issues werden abgeschlossen. Neue Auffälligkeiten werden als neue, klar abgegrenzte Issues erfasst.
 
-**Aktuelle Arbeitspakete:** #170 integriert Movie Hub als virtuellen Anbieter-Katalog; #171 ergänzt profilbezogene, dynamische Heroes und Posterreihen. Die technische Hero-first-Grundlage aus #166/#169 bleibt dabei erhalten.
+**Aktuelle Arbeitspakete:** #170 integriert Movie Hub als virtuellen Anbieter-Katalog; #171 ergänzt profilbezogene, dynamische Heroes und Posterreihen. #173 fügt auf Home, Filme, Serien und Meine Inhalte eine dynamische Top-10-Sonderreihe nach der dritten sichtbaren Posterreihe ein. Die technische Hero-first-Grundlage aus #166/#169 bleibt dabei erhalten.
