@@ -57,7 +57,7 @@ describe('persönlicher Film-/Serienzustand', () => {
     expect(merged).toMatchObject([{ tmdbId: 11, title: 'Krieg der Sterne', providerIds: ['prime'] }])
   })
 
-  it('erzeugt nur nicht-leere persönliche Reihen und sortiert sie fest', () => {
+  it('erzeugt genau die drei persönlichen Reihen und sortiert sie fest', () => {
     const titles = [
       { id: 'b', title: 'Beta' },
       { id: 'a', title: 'Alpha' },
@@ -74,13 +74,16 @@ describe('persönlicher Film-/Serienzustand', () => {
     expect(rows.map((row) => row.id)).toEqual([
       'my-watchlist',
       'my-favorites',
-      'my-watched',
       'my-ratings',
+    ])
+    expect(rows.map((row) => row.title)).toEqual([
+      'Meine Watchlist',
+      'Meine Favoriten',
+      'Meine Bewertungen',
     ])
     expect(rows[0].items.map((item) => item.title)).toEqual(['Alpha', 'Beta'])
     expect(rows[1].items.map((item) => item.title)).toEqual(['Alpha', 'Charlie'])
     expect(rows[2].items.map((item) => item.title)).toEqual(['Beta', 'Alpha'])
-    expect(rows[3].items.map((item) => item.title)).toEqual(['Beta', 'Alpha'])
   })
 
   it('liefert bei einem leeren Profil keine toten persönlichen Reihen', () => {
