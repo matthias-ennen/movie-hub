@@ -35,21 +35,51 @@ function scrollPosterTrackToCandidate(candidate) {
   }
 }
 
+function scrollPageToPosterCandidate(candidate) {
+  if (!candidate) return
+
+  const scrollingElement = document.scrollingElement || document.documentElement
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight
+  if (!scrollingElement || !viewportHeight) return
+
+  const cardRect = candidate.getBoundingClientRect()
+  const topbarRect = document.querySelector('.topbar')?.getBoundingClientRect()
+  const safeTop = Math.max(0, topbarRect?.bottom || 0) + 24
+  const safeBottom = Math.max(safeTop, viewportHeight - 32)
+  const targetCenterY = safeTop + ((safeBottom - safeTop) / 2)
+  const cardCenterY = cardRect.top + (cardRect.height / 2)
+  const deltaY = cardCenterY - targetCenterY
+
+  if (Math.abs(deltaY) <= 1) return
+
+  const currentTop = scrollingElement.scrollTop || window.scrollY || 0
+  const maxTop = Math.max(0, scrollingElement.scrollHeight - viewportHeight)
+  const targetTop = Math.max(0, Math.min(currentTop + deltaY, maxTop))
+
+  window.scrollTo({ top: targetTop, behavior: 'smooth' })
+}
+
 function focusCandidate(candidate) {
   if (!candidate) return
   candidate.focus({ preventScroll: true })
   const isInsideDialog = candidate.closest('.detail-modal, .media-panel, .exit-dialog, .profile-menu')
   const isPoster = candidate.matches?.('.poster-card')
 
+  // Fire TV/WebView kann einen verschachtelten scrollIntoView()-Aufruf für das
+  // Dokument und den separaten horizontalen Poster-Track-Scroll verlieren.
+  // Poster werden deshalb auf Seitenebene explizit vertikal positioniert und
+  // der innere Track anschließend unabhängig horizontal zentriert.
+  if (isPoster && !isInsideDialog) {
+    scrollPageToPosterCandidate(candidate)
+    window.requestAnimationFrame(() => scrollPosterTrackToCandidate(candidate))
+    return
+  }
+
   candidate.scrollIntoView({
     behavior: 'smooth',
-    block: isPoster ? 'center' : 'nearest',
-    inline: isInsideDialog || isPoster ? 'nearest' : 'center',
+    block: 'nearest',
+    inline: isInsideDialog ? 'nearest' : 'center',
   })
-
-  if (isPoster) {
-    window.requestAnimationFrame(() => scrollPosterTrackToCandidate(candidate))
-  }
 }
 
 function consume(event) {
