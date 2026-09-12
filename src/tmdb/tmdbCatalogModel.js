@@ -80,7 +80,7 @@ export function normalizePersonalTmdbTitle(raw) {
     tmdbRating,
     favoriteOrder: finiteNumber(raw.favoriteOrder),
     watchlistOrder: finiteNumber(raw.watchlistOrder),
-    ratingOrder: finiteNumber(raw.ratingOrder),
+    ratingOrder: finiteNumber(raw.ratingOrder ?? raw.ratedOrder),
     syncedAt: raw.syncedAt || null,
   }
 }
