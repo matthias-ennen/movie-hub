@@ -19,16 +19,37 @@ function getFocusableCandidates(scopeSelector) {
   return [...root.querySelectorAll('[data-focusable="true"]')].filter(isVisibleFocusable)
 }
 
+function scrollPosterTrackToCandidate(candidate) {
+  const track = candidate?.closest?.('.poster-track')
+  if (!track) return
+
+  const trackRect = track.getBoundingClientRect()
+  const cardRect = candidate.getBoundingClientRect()
+  const cardCenterInTrack = (cardRect.left - trackRect.left) + track.scrollLeft + (cardRect.width / 2)
+  const targetLeft = cardCenterInTrack - (track.clientWidth / 2)
+  const maxLeft = Math.max(0, track.scrollWidth - track.clientWidth)
+  const clampedLeft = Math.max(0, Math.min(targetLeft, maxLeft))
+
+  if (Math.abs(track.scrollLeft - clampedLeft) > 1) {
+    track.scrollTo({ left: clampedLeft, behavior: 'smooth' })
+  }
+}
+
 function focusCandidate(candidate) {
   if (!candidate) return
   candidate.focus({ preventScroll: true })
   const isInsideDialog = candidate.closest('.detail-modal, .media-panel, .exit-dialog, .profile-menu')
   const isPoster = candidate.matches?.('.poster-card')
+
   candidate.scrollIntoView({
     behavior: 'smooth',
     block: isPoster ? 'center' : 'nearest',
     inline: isInsideDialog || isPoster ? 'nearest' : 'center',
   })
+
+  if (isPoster) {
+    window.requestAnimationFrame(() => scrollPosterTrackToCandidate(candidate))
+  }
 }
 
 function consume(event) {
