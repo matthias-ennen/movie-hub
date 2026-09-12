@@ -144,21 +144,24 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - responsive und D-Pad-taugliche Darstellung
 - erste Version am 09.09.2026 abgenommen; spätere Überarbeitungen werden getrennt behandelt
 
-## Aktuelles nächstes Arbeitspaket – #78 Katalogarchitektur
+## Aktuell vorbereitetes Arbeitspaket – #166 Hero-first Rendering
 
-Die persönliche TMDB-Seite und der persönliche TMDB-Katalog sind umgesetzt. Als nächster logischer Schritt wird #78 weitergeführt und in konkrete Teilpakete zerlegt.
+Nach Abschluss der persönlichen Smart-Reihen in #163 ist #166 als eigenständiges Performance-/UX-Paket vorbereitet.
 
 Zielrichtung:
 
-- fachlich getrennte Kataloge für Netflix, Prime Video, Disney+, YouTube und waipu.tv
-- klare Auswahlregel und Größe je Anbieterkatalog
-- Katalogzugehörigkeit unabhängig von der momentanen Wiedergabeverfügbarkeit
-- TMDB-ID + Medientyp weiterhin als zentrale Identitäts-/Metadatenbasis
-- strukturierte Provider- oder andere Datenquellen für die eigentliche Katalogzugehörigkeit
-- waipu.tv-Mediathek/Waiputhek klar vom linearen Live-TV trennen
-- keine Vermischung mit benutzereigenen Movie-Hub-Links und Videos
+- auf Home, Filme, Serien und Meine Inhalte zuerst den reservierten Hero-Bereich anzeigen
+- Hero-Bild gegenüber nachfolgenden Postern priorisieren
+- Posterreihen erst danach kontrolliert und schrittweise mounten
+- Offscreen-Karten und zugehörige Presence-/Firestore-Arbeit verzögern
+- Fokus- und D-Pad-Navigation beim progressiven Nachladen stabil halten
+- Wirkung auf Fire TV mit Vorher-/Nachher-Messwerten dokumentieren
 
-Der erste Schritt im nächsten Termin soll eine Produkt-/Datenentscheidung sein, wie die fünf Anbieterkataloge konkret befüllt und auf der Startseite dargestellt werden. Daraus wird anschließend ein klar abgegrenztes neues Umsetzungs-Issue unter #78 erstellt.
+Die Umsetzung beginnt erst nach ausdrücklicher fachlicher Freigabe. Inhalt, Sortierung und vorhandene Kategorie-/Reiheneinstellungen bleiben unverändert.
+
+## Danach vorgemerkt – #137 Sammlungen
+
+#137 bleibt das eigenständige Konzept-/UX-Paket für gruppierte Sammlungen und eine mögliche Sammlungs-Detailseite. Nach der Produktentscheidung wird es in klar abgegrenzte technische Umsetzungspakete zerlegt. Die Performance-Grundlage aus #166 sollte möglichst vorher umgesetzt werden, weil Sammlungen zusätzliche inhaltsreiche Ansichten erzeugen können.
 
 ## Phase 6 – Personalisierung und Automatisierung
 
@@ -171,13 +174,15 @@ Der erste Schritt im nächsten Termin soll eine Produkt-/Datenentscheidung sein,
 - strukturierte JSON-/Firestore-Ausgabe der Empfehlungen
 - KI nur für Empfehlung/Einordnung, nicht für objektive Verfügbarkeitsfakten
 
-### Aktuelles Paket #163 – Persönliche Smart-Reihen
+### Abgeschlossenes Paket #163 – Persönliche Smart-Reihen
 
 - bis zu zehn profilbezogene, selbst konfigurierte Posterreihen ausschließlich unter **Meine Inhalte**
 - Filter nach Schauspieler/in, Regie/Serienschöpfer, Thema, Filmreihe oder Jahrzehnt
 - stabile TMDB-IDs statt fehleranfälligem Namensvergleich
 - automatische Aktualisierung aus dem aktuellen öffentlichen Katalog
 - Anlegen, Bearbeiten, Aktivieren, Verschieben und Löschen per Touch, Tastatur und D-Pad
+- Fokusbindung im Editor sowie Fokuswiederherstellung nach Speichern und Umschalten
+- themengesteuerte Schalter und Zustände über die zentralen Layout-Tokens
 - getrennt von den mit #156 abgeschlossenen Film- und Serienkategorien
 
 Abschlusskriterium: Empfehlungen werden reproduzierbar aus aktuellen Filmdaten und persönlichen Signalen erzeugt und automatisch in Movie Hub sichtbar.
