@@ -217,9 +217,12 @@ function mergeProviderOffers(primary = [], membershipOffers = []) {
 
 async function resolveCatalogTitle(candidate, membershipOffers) {
   const path = candidate.mediaType === 'movie' ? `/movie/${candidate.id}` : `/tv/${candidate.id}`
+  const appendToResponse = candidate.mediaType === 'movie'
+    ? 'credits,videos,watch/providers,images,release_dates'
+    : 'credits,videos,watch/providers,images,content_ratings'
   const payload = await tmdbFetch(path, {
     language,
-    append_to_response: 'credits,videos,watch/providers,images',
+    append_to_response: appendToResponse,
     include_image_language: 'null',
   })
 
@@ -256,6 +259,7 @@ export function mergeProviderCatalogTitle(existing, incoming) {
     neutralPosterUrl: existing.neutralPosterUrl || incoming.neutralPosterUrl || null,
     videos: Array.isArray(existing.videos) && existing.videos.length ? existing.videos : incoming.videos,
     cast: Array.isArray(existing.cast) && existing.cast.length ? existing.cast : incoming.cast,
+    ageRating: existing.ageRating ?? incoming.ageRating ?? null,
   }
 }
 
