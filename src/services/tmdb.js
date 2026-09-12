@@ -216,10 +216,9 @@ export function normalizeTmdbTitle(payload, mediaType) {
       ? payload.episode_run_time[0]
       : null
 
-  const cast = Array.isArray(payload.credits?.cast)
+  const fullCast = Array.isArray(payload.credits?.cast)
     ? payload.credits.cast
-      .filter((person) => person?.name)
-      .slice(0, 8)
+      .filter((person) => person?.name && Number.isFinite(Number(person.id)))
       .map((person) => ({
         id: Number.isFinite(Number(person.id)) ? Number(person.id) : null,
         name: person.name,
@@ -227,6 +226,27 @@ export function normalizeTmdbTitle(payload, mediaType) {
         profileUrl: buildTmdbImageUrl(person.profile_path, 'w185'),
       }))
     : []
+  const cast = fullCast.slice(0, 8)
+  const movieDirectors = Array.isArray(payload.credits?.crew)
+    ? payload.credits.crew.filter((person) => person?.job === 'Director')
+    : []
+  const tvCreators = Array.isArray(payload.created_by) ? payload.created_by : []
+  const creators = [...new Map([...movieDirectors, ...tvCreators]
+    .filter((person) => person?.name && Number.isFinite(Number(person.id)))
+    .map((person) => [Number(person.id), {
+      id: Number(person.id),
+      name: person.name,
+      profileUrl: buildTmdbImageUrl(person.profile_path, 'w185'),
+    }])).values()]
+  const keywordPayload = isMovie ? payload.keywords?.keywords : payload.keywords?.results
+  const keywords = Array.isArray(keywordPayload)
+    ? keywordPayload
+      .filter((keyword) => keyword?.name && Number.isFinite(Number(keyword.id)))
+      .map((keyword) => ({ id: Number(keyword.id), name: keyword.name }))
+    : []
+  const collection = isMovie && payload.belongs_to_collection?.name && Number.isFinite(Number(payload.belongs_to_collection.id))
+    ? { id: Number(payload.belongs_to_collection.id), name: payload.belongs_to_collection.name }
+    : null
 
   return {
     source: 'tmdb',
@@ -244,6 +264,12 @@ export function normalizeTmdbTitle(payload, mediaType) {
       ? payload.genres.map((genre) => ({ id: genre.id ?? null, name: genre.name || '' })).filter((genre) => genre.name)
       : [],
     cast,
+    smartFacets: {
+      cast: fullCast,
+      creators,
+      keywords,
+      collection,
+    },
     voteAverage: Number.isFinite(Number(payload.vote_average)) ? Number(payload.vote_average) : null,
     voteCount: Number.isFinite(Number(payload.vote_count)) ? Number(payload.vote_count) : null,
     popularity: Number.isFinite(Number(payload.popularity)) ? Number(payload.popularity) : null,

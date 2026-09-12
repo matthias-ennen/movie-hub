@@ -1,6 +1,6 @@
 # Movie Hub – Issue-Plan
 
-Stand: 6. September 2026
+Stand: 12. September 2026
 
 ## Kern-Issues
 
@@ -19,6 +19,10 @@ Stand: 6. September 2026
 Aus #8 werden umsetzungsreife Punkte bei Bedarf in eigene Issues überführt, ohne dass die Sammelstelle geschlossen werden muss.
 
 ## Aktiver Arbeitsstand
+
+Das aktuelle Umsetzungs-Issue ist #163: profilbezogene Smart-Reihen ausschließlich unter **Meine Inhalte**. Es baut auf den mit #156 fertiggestellten und abgenommenen Film-/Serienkategorien auf, verwendet jedoch eine getrennte Filter- und Speicherlogik.
+
+Die früheren Phase-0-Arbeiten sind abgeschlossen; der folgende historische Abschnitt dokumentiert ihren damaligen Abschlussweg.
 
 Phase 0 wird auf dem Branch `phase-0-foundation` über PR #9 abgeschlossen. Der reale Firebase-End-to-End-Test ist bestanden: Hosting, Authentication, Persistenz nach Reload sowie Firestore Write/Read funktionieren. CI-Build und automatisierte Firestore-Rules-Tests sind grün.
 

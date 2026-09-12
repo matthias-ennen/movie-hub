@@ -218,8 +218,8 @@ function mergeProviderOffers(primary = [], membershipOffers = []) {
 async function resolveCatalogTitle(candidate, membershipOffers) {
   const path = candidate.mediaType === 'movie' ? `/movie/${candidate.id}` : `/tv/${candidate.id}`
   const appendToResponse = candidate.mediaType === 'movie'
-    ? 'credits,videos,watch/providers,images,release_dates'
-    : 'credits,videos,watch/providers,images,content_ratings'
+    ? 'credits,keywords,videos,watch/providers,images,release_dates'
+    : 'credits,keywords,videos,watch/providers,images,content_ratings'
   const payload = await tmdbFetch(path, {
     language,
     append_to_response: appendToResponse,
@@ -259,6 +259,21 @@ export function mergeProviderCatalogTitle(existing, incoming) {
     neutralPosterUrl: existing.neutralPosterUrl || incoming.neutralPosterUrl || null,
     videos: Array.isArray(existing.videos) && existing.videos.length ? existing.videos : incoming.videos,
     cast: Array.isArray(existing.cast) && existing.cast.length ? existing.cast : incoming.cast,
+    smartFacets: {
+      cast: [...new Map([
+        ...(incoming.smartFacets?.cast || []),
+        ...(existing.smartFacets?.cast || []),
+      ].map((person) => [person.id, person])).values()],
+      creators: [...new Map([
+        ...(incoming.smartFacets?.creators || []),
+        ...(existing.smartFacets?.creators || []),
+      ].map((person) => [person.id, person])).values()],
+      keywords: [...new Map([
+        ...(incoming.smartFacets?.keywords || []),
+        ...(existing.smartFacets?.keywords || []),
+      ].map((keyword) => [keyword.id, keyword])).values()],
+      collection: existing.smartFacets?.collection || incoming.smartFacets?.collection || null,
+    },
     ageRating: existing.ageRating ?? incoming.ageRating ?? null,
   }
 }

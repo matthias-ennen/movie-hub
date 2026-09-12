@@ -8,6 +8,7 @@ import {
 } from './provider-catalogs.mjs'
 import { normalizeTmdbTitle, normalizeTmdbVideos, normalizeTmdbWatchProviders, toMovieHubTitle } from '../src/services/tmdb.js'
 import { selectNeutralTmdbPosterUrl } from '../src/services/tmdbImages.js'
+import { finalizePersonalSmartCatalog } from '../src/catalog/personalSmartRows.js'
 
 const token = process.env.TMDB_API_READ_TOKEN
 const language = process.env.TMDB_LANGUAGE || 'de-DE'
@@ -240,7 +241,7 @@ async function resolveCandidate(candidate) {
   const [payload, providerPayload, germanVideos, fallbackVideos] = await Promise.all([
     tmdbFetch(detailPath, {
       language,
-      append_to_response: `credits,images,${ratingAppend}`,
+      append_to_response: `credits,keywords,images,${ratingAppend}`,
       include_image_language: 'null',
     }),
     tmdbFetch(providerPath),
@@ -348,6 +349,8 @@ export async function generateCatalog() {
   ])
   const titles = [...titlesByCandidate.values()].filter((title) => visibleIds.has(title.id))
 
+  const smartCatalog = finalizePersonalSmartCatalog(titles)
+
   return {
     source: 'tmdb',
     language,
@@ -355,7 +358,8 @@ export async function generateCatalog() {
     generatedAt: new Date().toISOString(),
     attribution: 'This product uses the TMDB API but is not endorsed or certified by TMDB.',
     providerAttribution: 'Watch-provider availability is powered by JustWatch via TMDB.',
-    titles,
+    titles: smartCatalog.titles,
+    smartFilterOptions: smartCatalog.smartFilterOptions,
     rowDefinitions,
     providerCatalogs: providerResult.providerCatalogs,
   }

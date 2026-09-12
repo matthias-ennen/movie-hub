@@ -1,6 +1,6 @@
 # Movie Hub – Datenmodell
 
-Stand: 8. September 2026
+Stand: 12. September 2026
 
 ## Ziel
 
@@ -17,6 +17,13 @@ users/{uid}
   displayName
   createdAt
   updatedAt
+
+users/{uid}/profiles/{profileId}
+  displayName        string
+  role               string
+  themeSettings      map
+  categorySettings   map          # feste Reihen auf Filme/Serien
+  contentRowSettings map          # bis zu 10 Smart-Reihen für Meine Inhalte
 
 users/{uid}/movies/{tmdbId}
   rating            number | null   # 1 bis 10
@@ -77,6 +84,23 @@ Beispiele:
 
 Systemlisten wie Favoriten oder Watchlist müssen nicht zwingend als separate Dokumente gespeichert werden; sie können aus dem persönlichen Filmzustand berechnet werden. Kuratierte oder KI-generierte Reihen können zusätzlich als Listendokumente persistiert werden.
 
+### Persönliche Smart-Reihen
+
+Die unter **Meine Inhalte** konfigurierten dynamischen Reihen liegen als kleine Regelliste direkt im jeweiligen Profildokument:
+
+```text
+contentRowSettings.rows[]
+  id          string
+  type        string       # cast | creator | keyword | collection | decade
+  valueId     number       # stabile TMDB-ID bzw. Beginn des Jahrzehnts
+  valueLabel  string       # sichtbarer Namensschnappschuss
+  title       string       # automatisch vorgeschlagen, optional angepasst
+  enabled     boolean
+  order       number
+```
+
+Die Liste wird auf zehn gültige, eindeutige Regeln begrenzt. Sie enthält keine feste Titelmenge. Treffer werden clientseitig aus den Facetten des aktuellen öffentlichen Katalogs berechnet; eine leere Regel bleibt gespeichert und kann nach einem späteren Katalogupdate wieder sichtbar werden.
+
 ## Eigene Links und Videos
 
 Manuell gepflegte Inhalte liegen kontoweit unter `users/{uid}/sharedMedia` und bewusst nicht unter einem internen Profil. Dadurch sind dieselben Einträge in allen Profilen sichtbar und aus jedem Profil pflegbar. Film und Serie werden im Dokumentschlüssel getrennt, damit identische numerische TMDB-IDs nicht kollidieren.
@@ -112,6 +136,7 @@ TMDB liefert u. a.:
 - Backdrops
 - Besetzung
 - TMDB-Rating
+- filterbare Besetzungs-, Regie-/Creator-, Keyword-, Collection- und Jahrzehnt-Facetten für persönliche Reihen
 
 Diese Daten gehören nicht in `users/{uid}/movies`, sondern werden beim Build/über einen Cache oder eine getrennte öffentliche Datenschicht bereitgestellt.
 

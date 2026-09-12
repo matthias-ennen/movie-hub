@@ -1,6 +1,6 @@
 # Movie Hub – TMDB-Anbindung
 
-Stand: 9. September 2026
+Stand: 12. September 2026
 
 ## Ziel
 
@@ -15,6 +15,8 @@ Der öffentliche Movie-Hub-Katalog wird zentral erzeugt. Dieser technische Anwen
 ```text
 TMDB_API_READ_TOKEN
 ```
+
+Für persönliche Smart-Reihen normalisiert derselbe Katalogjob zusätzlich Credits, Keywords, Film-Collections und Jahrzehnte. Pro Titel werden nur numerische Filterfacetten veröffentlicht; Namen und optionale Personenbilder liegen dedupliziert in einem Katalogverzeichnis für die lokale Vorschlagsliste. Dadurch benötigt die Web-App auch für diese Funktion keinen direkten TMDB-Zugriff.
 
 Der zentrale Token darf **nicht** als `VITE_TMDB_*` angelegt werden. Vite-Variablen mit `VITE_` sind für Browser-Code vorgesehen und können im ausgelieferten Client sichtbar werden.
 
