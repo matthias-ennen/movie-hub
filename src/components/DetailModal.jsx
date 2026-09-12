@@ -7,6 +7,7 @@ import { useAuth } from '../hooks/useAuth.js'
 import { loadSharedMedia, removeSharedMedia, saveSharedMedia } from '../library/sharedMedia.js'
 import { isSmbMediaUrl, normaliseMedia } from '../library/sharedMediaModel.js'
 import { ProviderBadge } from './ProviderBadges.jsx'
+import AgeRatingBadge from './AgeRatingBadge.jsx'
 
 export default function DetailModal({ item, onClose }) {
   const { activeProfile } = useProfiles()
@@ -267,7 +268,12 @@ export default function DetailModal({ item, onClose }) {
           >×</button>
           <p className="eyebrow">Movie Hub · {item.source === 'tmdb' ? 'TMDB' : 'Testdaten'}</p>
           <h2>{item.title}</h2>
-          <div className="meta-line"><strong>{item.score}</strong><span>{item.year || '–'}</span><span>{item.meta}</span></div>
+          <div className="meta-line">
+            <strong>{item.score}</strong>
+            <span>{item.year || '–'}</span>
+            <span>{item.meta}</span>
+            <AgeRatingBadge value={item.ageRating} className="detail-age-rating" />
+          </div>
           <p className="genre">{item.genre}</p>
           <p className="detail-description">{item.description || 'Für diesen Titel liegt noch keine deutsche Beschreibung vor.'}</p>
           {cast.length > 0 && (
