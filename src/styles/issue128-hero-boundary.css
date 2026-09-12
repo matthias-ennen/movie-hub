@@ -1,12 +1,12 @@
 /*
- * #147 / #128 Geräteabnahme
+ * #147 / #153 Geräteabnahme
  *
  * Der Hero besteht absichtlich aus drei voneinander getrennten Bereichen:
  * 1. statische Eyebrow/Überschrift,
- * 2. fester Hero-Viewport mit ausschließlich absolut positionierten Slides,
+ * 2. fester Hero-Viewport mit genau einem animierten Slide,
  * 3. statische Punktnavigation darunter.
  *
- * Nur die Slide-Layer im Viewport werden transformiert. Der Viewport selbst,
+ * Nur der einzelne Slide im Viewport wird transformiert. Der Viewport selbst,
  * die Punkte und der restliche Seitenfluss erhalten niemals eine Animation.
  */
 html,
@@ -43,20 +43,24 @@ body,
   pointer-events: none;
 }
 
-/* Dieser Block ist die einzige sichtbare Animationsfläche. Seine Höhe bleibt
- * während eines Hero-Wechsels konstant, damit darunter nichts springen oder
- * horizontal mitgezogen werden kann. */
+/*
+ * Ein bewusst großzügiger, aber fester Viewport verhindert, dass längere
+ * Titel-/Meta-Kombinationen die Action-Buttons unten abschneiden. Seine Höhe
+ * bleibt während des Hero-Wechsels konstant, damit Punkte und Reihen darunter
+ * nicht springen.
+ */
 .hero-viewport {
   position: relative;
   width: 100%;
   max-width: 100%;
-  height: clamp(430px, 54vh, 580px);
-  min-height: clamp(430px, 54vh, 580px);
+  height: clamp(500px, 60vh, 640px);
+  min-height: clamp(500px, 60vh, 640px);
   overflow: hidden;
   contain: layout paint;
   isolation: isolate;
   touch-action: pan-y;
-  overscroll-behavior: none;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: auto;
 }
 
 .hero-slide-layer {
@@ -68,9 +72,11 @@ body,
   contain: layout paint;
 }
 
-/* Jeder Slide ist vollständig aus dem normalen Seitenfluss genommen. Dadurch
- * kann weder seine Breite noch seine Höhe die Punkte oder Inhalte darunter
- * beeinflussen. */
+/*
+ * Nur ein kompletter Hero/Backdrop ist gleichzeitig im DOM. Der Wechsel läuft
+ * in zwei kurzen Phasen über denselben Slot (erst raus, dann neuer Inhalt rein).
+ * Das spart auf Fire TV eine zweite große GPU-Compositing-Fläche.
+ */
 .hero-carousel .hero-slide {
   position: absolute;
   inset: 0;
@@ -80,73 +86,64 @@ body,
   max-height: 100%;
   margin: 0;
   overflow: hidden;
-  backface-visibility: hidden;
-  transform: translate3d(0, 0, 0);
-  will-change: transform, opacity;
+  transform: translateX(0);
 }
 
 .hero-slide-current {
   z-index: 2;
-  transform: translate3d(0, 0, 0);
-  opacity: 1;
-}
-
-.hero-slide-outgoing {
-  z-index: 1;
-  pointer-events: none;
-}
-
-.hero-slide-incoming {
-  z-index: 2;
+  transform: translateX(0);
 }
 
 .hero-slide-out-left {
-  animation: hero-panel-out-left 360ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: hero-panel-out-left 170ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 
 .hero-slide-in-left {
-  animation: hero-panel-in-right 360ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: hero-panel-in-right 170ms cubic-bezier(0, 0, 0.2, 1) both;
 }
 
 .hero-slide-out-right {
-  animation: hero-panel-out-right 360ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: hero-panel-out-right 170ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 
 .hero-slide-in-right {
-  animation: hero-panel-in-left 360ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: hero-panel-in-left 170ms cubic-bezier(0, 0, 0.2, 1) both;
 }
 
 @keyframes hero-panel-out-left {
-  from { transform: translate3d(0, 0, 0); opacity: 1; }
-  to { transform: translate3d(-100%, 0, 0); opacity: 0.72; }
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
 }
 
 @keyframes hero-panel-in-right {
-  from { transform: translate3d(100%, 0, 0); opacity: 0.72; }
-  to { transform: translate3d(0, 0, 0); opacity: 1; }
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }
 
 @keyframes hero-panel-out-right {
-  from { transform: translate3d(0, 0, 0); opacity: 1; }
-  to { transform: translate3d(100%, 0, 0); opacity: 0.72; }
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
 }
 
 @keyframes hero-panel-in-left {
-  from { transform: translate3d(-100%, 0, 0); opacity: 0.72; }
-  to { transform: translate3d(0, 0, 0); opacity: 1; }
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
 }
 
-/* Die bestehenden Hero-Innenabstände bleiben erhalten, aber die Höhe kommt
- * ausschließlich vom Viewport und nicht mehr vom jeweiligen Slide-Inhalt. */
+.hero-carousel[aria-busy='true'] .hero-actions {
+  pointer-events: none;
+}
+
+/* Die Höhe kommt ausschließlich vom Viewport, der Inneninhalt bekommt unten
+ * zusätzlich Luft für vollständig sichtbare abgerundete Action-Buttons. */
 .hero-carousel .hero {
   min-height: 100%;
   height: 100%;
   max-height: 100%;
-  padding-bottom: clamp(1.35rem, 2vw, 2rem);
+  padding-bottom: clamp(1.75rem, 2.6vw, 2.5rem);
 }
 
-/* Pfeile liegen fest auf dem Viewport. Sie selbst werden nie transformiert
- * durch einen Hero-Wechsel und lösen nur dieselbe stepHero()-Animation aus. */
+/* Pfeile liegen fest auf dem Viewport und werden nie mittransformiert. */
 .hero-viewport .hero-nav {
   z-index: 10;
 }
@@ -168,20 +165,38 @@ body,
   background: var(--color-bg);
 }
 
+/* Filme, Serien und Meine Inhalte sollen nach Hero/Punkten genauso direkt mit
+ * der ersten Posterreihe beginnen wie Home. Die redundante zweite Seiten-
+ * Überschrift bleibt deshalb ausgeblendet und es gibt keinen Zusatzabstand. */
+.category-page .page-heading,
+.personal-library-shell .page-heading {
+  display: none;
+}
+
+.category-page .browse-page,
+.personal-library-shell .browse-page {
+  padding-top: 0;
+}
+
 @media (max-width: 1050px) {
+  .hero-viewport {
+    height: 560px;
+    min-height: 560px;
+  }
+
   .hero-carousel-eyebrow {
     padding-top: 1.25rem;
   }
 
   .hero-carousel .hero {
-    padding-bottom: 1.5rem;
+    padding-bottom: 1.85rem;
   }
 }
 
 @media (max-width: 760px) {
   .hero-viewport {
-    height: 500px;
-    min-height: 500px;
+    height: 590px;
+    min-height: 590px;
   }
 
   .hero-carousel-eyebrow {
@@ -189,14 +204,14 @@ body,
   }
 
   .hero-carousel .hero {
-    padding-bottom: 1rem;
+    padding-bottom: 1.35rem;
   }
 }
 
 @media (max-width: 560px) {
   .hero-viewport {
-    height: 610px;
-    min-height: 610px;
+    height: 720px;
+    min-height: 720px;
   }
 
   .hero-carousel-eyebrow {

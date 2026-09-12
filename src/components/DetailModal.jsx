@@ -26,6 +26,7 @@ export default function DetailModal({ item, onClose }) {
   const [mediaMessage, setMediaMessage] = useState('')
   const [playing, setPlaying] = useState(null)
   const returnFocusRef = useRef(null)
+  const personalBusyRef = useRef(false)
   const providerIds = Array.isArray(item.providerIds) ? item.providerIds : []
   const hasProviders = providerIds.length > 0
   const cast = Array.isArray(item.cast) ? item.cast.slice(0, 5) : []
@@ -107,6 +108,9 @@ export default function DetailModal({ item, onClose }) {
   if (!item) return null
 
   async function savePersonalPatch(patch, message) {
+    if (personalBusyRef.current || libraryLoading) return
+
+    personalBusyRef.current = true
     setPersonalBusy(true)
     setPersonalMessage('')
     try {
@@ -116,12 +120,14 @@ export default function DetailModal({ item, onClose }) {
       console.error(error)
       setPersonalMessage('Persönliche Einstellung konnte nicht gespeichert werden.')
     } finally {
+      personalBusyRef.current = false
       setPersonalBusy(false)
     }
   }
 
   async function handleSaveNote(event) {
     event.preventDefault()
+    if (noteDraft === personalState.note) return
     await savePersonalPatch({ note: noteDraft }, 'Notiz gespeichert.')
   }
 
@@ -343,7 +349,7 @@ export default function DetailModal({ item, onClose }) {
           {hasProviders && <p className="prototype-note">Anbieter werden automatisch aus TMDB bestimmt und in der passenden App beziehungsweise Suchseite geöffnet.</p>}
           {item.tmdbId && <p className="tmdb-credit">Datenquelle: TMDB · ID {item.tmdbId}</p>}
 
-          <section className="personal-title-state" aria-labelledby="personal-title-state-heading">
+          <section className="personal-title-state" aria-labelledby="personal-title-state-heading" aria-busy={personalBusy}>
             <div className="personal-title-state-heading">
               <div>
                 <p className="personal-profile-name">{activeProfile?.displayName ?? 'Profil'}</p>
@@ -357,11 +363,11 @@ export default function DetailModal({ item, onClose }) {
                 type="button"
                 className={personalState.favorite ? 'personal-action favorite active' : 'personal-action favorite'}
                 aria-pressed={personalState.favorite}
+                aria-disabled={personalBusy || libraryLoading}
                 onClick={() => savePersonalPatch(
                   { favorite: !personalState.favorite },
                   personalState.favorite ? 'Aus Favoriten entfernt.' : 'Zu Favoriten hinzugefügt.',
                 )}
-                disabled={personalBusy || libraryLoading}
                 data-focusable="true"
                 data-detail-autofocus={automaticVideos.length === 0 && sharedMedia.length === 0 && !hasProviders ? 'true' : undefined}
               >
@@ -372,11 +378,11 @@ export default function DetailModal({ item, onClose }) {
                 type="button"
                 className={personalState.watchlist ? 'personal-action watchlist active' : 'personal-action watchlist'}
                 aria-pressed={personalState.watchlist}
+                aria-disabled={personalBusy || libraryLoading}
                 onClick={() => savePersonalPatch(
                   { watchlist: !personalState.watchlist },
                   personalState.watchlist ? 'Aus der Watchlist entfernt.' : 'Zur Watchlist hinzugefügt.',
                 )}
-                disabled={personalBusy || libraryLoading}
                 data-focusable="true"
               >
                 <span aria-hidden="true">{personalState.watchlist ? '−' : '＋'}</span>
@@ -386,11 +392,11 @@ export default function DetailModal({ item, onClose }) {
                 type="button"
                 className={personalState.watched ? 'personal-action watched active' : 'personal-action watched'}
                 aria-pressed={personalState.watched}
+                aria-disabled={personalBusy || libraryLoading}
                 onClick={() => savePersonalPatch(
                   { watched: !personalState.watched },
                   personalState.watched ? 'Als ungesehen markiert.' : 'Als gesehen markiert.',
                 )}
-                disabled={personalBusy || libraryLoading}
                 data-focusable="true"
               >
                 <span aria-hidden="true">✓</span>
@@ -407,11 +413,11 @@ export default function DetailModal({ item, onClose }) {
                     key={rating}
                     className={personalState.rating === rating ? 'rating-button active' : 'rating-button'}
                     aria-pressed={personalState.rating === rating}
+                    aria-disabled={personalBusy || libraryLoading}
                     onClick={() => savePersonalPatch(
                       { rating: personalState.rating === rating ? null : rating },
                       personalState.rating === rating ? 'Bewertung entfernt.' : `Mit ${rating}/10 bewertet.`,
                     )}
-                    disabled={personalBusy || libraryLoading}
                     data-focusable="true"
                   >{rating}</button>
                 ))}
@@ -425,7 +431,7 @@ export default function DetailModal({ item, onClose }) {
                   type="date"
                   value={personalState.watchedAt ?? ''}
                   onChange={(event) => savePersonalPatch({ watched: true, watchedAt: event.target.value || null }, 'Gesehen-Datum gespeichert.')}
-                  disabled={personalBusy || libraryLoading}
+                  aria-disabled={personalBusy || libraryLoading}
                   data-focusable="true"
                 />
               </label>
@@ -443,7 +449,11 @@ export default function DetailModal({ item, onClose }) {
                   data-focusable="true"
                 />
               </label>
-              <button type="submit" disabled={personalBusy || libraryLoading || noteDraft === personalState.note} data-focusable="true">Notiz speichern</button>
+              <button
+                type="submit"
+                aria-disabled={personalBusy || libraryLoading || noteDraft === personalState.note}
+                data-focusable="true"
+              >Notiz speichern</button>
             </form>
 
             {personalMessage && <p className="personal-state-message" role="status">{personalMessage}</p>}

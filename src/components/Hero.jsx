@@ -5,7 +5,7 @@ import AgeRatingBadge from './AgeRatingBadge.jsx'
 
 const MAX_HEROES = 5
 const SWIPE_MIN_DISTANCE = 48
-const HERO_TRANSITION_MS = 360
+const HERO_PHASE_MS = 170
 
 export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }) {
   const slides = useMemo(() => {
@@ -22,40 +22,25 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
   const [activeIndex, setActiveIndex] = useState(0)
   const [transition, setTransition] = useState(null)
   const touchStartRef = useRef(null)
-  const transitionTimerRef = useRef(null)
-  const viewportRef = useRef(null)
+  const transitionTimerRef = useRef([])
+  const transitionLockRef = useRef(false)
+
+  function clearTransitionTimers() {
+    transitionTimerRef.current.forEach((timer) => window.clearTimeout(timer))
+    transitionTimerRef.current = []
+  }
 
   useEffect(() => {
+    clearTransitionTimers()
+    transitionLockRef.current = false
     setActiveIndex(0)
     setTransition(null)
   }, [signature])
 
   useEffect(() => () => {
-    if (transitionTimerRef.current) window.clearTimeout(transitionTimerRef.current)
+    clearTransitionTimers()
+    transitionLockRef.current = false
   }, [])
-
-  useEffect(() => {
-    const viewport = viewportRef.current
-    if (!viewport) return undefined
-
-    function blockNativeHorizontalPan(event) {
-      const start = touchStartRef.current
-      const touch = event.touches?.[0]
-      if (!start || !touch) return
-
-      const deltaX = touch.clientX - start.x
-      const deltaY = touch.clientY - start.y
-      const horizontalDistance = Math.abs(deltaX)
-      const verticalDistance = Math.abs(deltaY)
-
-      if (horizontalDistance > 8 && horizontalDistance > verticalDistance * 1.05 && event.cancelable) {
-        event.preventDefault()
-      }
-    }
-
-    viewport.addEventListener('touchmove', blockNativeHorizontalPan, { passive: false })
-    return () => viewport.removeEventListener('touchmove', blockNativeHorizontalPan)
-  }, [signature])
 
   if (!slides.length) return null
 
@@ -63,17 +48,26 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
   const activeItem = slides[safeIndex]
 
   function selectHero(index, direction = null) {
-    if (index < 0 || index >= slides.length || index === safeIndex) return
+    if (transitionLockRef.current || index < 0 || index >= slides.length || index === safeIndex) return
 
+    transitionLockRef.current = true
     const resolvedDirection = direction || (index > safeIndex ? 'left' : 'right')
-    setTransition({ fromIndex: safeIndex, toIndex: index, direction: resolvedDirection })
-    setActiveIndex(index)
+    clearTransitionTimers()
+    setTransition({ phase: 'out', targetIndex: index, direction: resolvedDirection })
 
-    if (transitionTimerRef.current) window.clearTimeout(transitionTimerRef.current)
-    transitionTimerRef.current = window.setTimeout(() => {
-      setTransition(null)
-      transitionTimerRef.current = null
-    }, HERO_TRANSITION_MS)
+    const swapTimer = window.setTimeout(() => {
+      setActiveIndex(index)
+      setTransition({ phase: 'in', targetIndex: index, direction: resolvedDirection })
+
+      const finishTimer = window.setTimeout(() => {
+        transitionLockRef.current = false
+        setTransition(null)
+        transitionTimerRef.current = []
+      }, HERO_PHASE_MS)
+      transitionTimerRef.current = [finishTimer]
+    }, HERO_PHASE_MS)
+
+    transitionTimerRef.current = [swapTimer]
   }
 
   function stepHero(direction) {
@@ -109,7 +103,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
     const start = touchStartRef.current
     const touch = event.changedTouches?.[0]
     touchStartRef.current = null
-    if (!start || !touch) return
+    if (!start || !touch || transitionLockRef.current) return
 
     const deltaX = touch.clientX - start.x
     const deltaY = touch.clientY - start.y
@@ -117,19 +111,17 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
     const verticalDistance = Math.abs(deltaY)
 
     if (horizontalDistance < SWIPE_MIN_DISTANCE || horizontalDistance <= verticalDistance * 1.15) return
-    if (event.cancelable) event.preventDefault()
     stepHero(deltaX < 0 ? 1 : -1)
   }
 
-  function renderHeroPanel(entry, interactive, className = '') {
+  function renderHeroPanel(entry, className = '') {
     const heroBackdropUrl = entry.backdropUrl || null
 
     return (
       <div
-        key={`${entry.id}-${interactive ? 'active' : 'outgoing'}`}
+        key={entry.id}
         className={`hero hero-slide ${className}`.trim()}
         style={{ '--poster-accent': entry.accent, '--poster-accent-2': entry.accent2 }}
-        aria-hidden={interactive ? undefined : true}
       >
         <div className="hero-copy">
           <h1>{entry.title}</h1>
@@ -141,21 +133,12 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
           </div>
           <p className="hero-description">{entry.description || 'Für diesen Titel liegt noch keine deutsche Beschreibung vor.'}</p>
           <div className="hero-actions">
-            {interactive ? (
-              <>
-                <button type="button" className="action-button action-button-primary" onClick={() => onOpen(entry)} data-focusable="true">
-                  ▶ Ansehen
-                </button>
-                <button type="button" className="action-button action-button-secondary" onClick={() => onOpen(entry)} data-focusable="true">
-                  ⓘ Details
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="action-button action-button-primary hero-action-ghost">▶ Ansehen</span>
-                <span className="action-button action-button-secondary hero-action-ghost">ⓘ Details</span>
-              </>
-            )}
+            <button type="button" className="action-button action-button-primary" onClick={() => onOpen(entry)} data-focusable="true">
+              ▶ Ansehen
+            </button>
+            <button type="button" className="action-button action-button-secondary" onClick={() => onOpen(entry)} data-focusable="true">
+              ⓘ Details
+            </button>
           </div>
         </div>
         <div className={heroBackdropUrl ? 'hero-art has-image' : 'hero-art'} aria-hidden="true">
@@ -165,11 +148,8 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
     )
   }
 
-  const outgoingClass = transition
-    ? `hero-slide-outgoing hero-slide-out-${transition.direction}`
-    : ''
-  const incomingClass = transition
-    ? `hero-slide-incoming hero-slide-in-${transition.direction}`
+  const panelClass = transition
+    ? `hero-slide-${transition.phase}-${transition.direction}`
     : 'hero-slide-current'
 
   return (
@@ -177,6 +157,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
       className="hero-carousel"
       aria-label={`${eyebrow}: ${activeItem.title}`}
       aria-roledescription="Karussell"
+      aria-busy={Boolean(transition)}
       tabIndex={0}
       data-focusable="true"
       onKeyDown={handleCarouselKeyDown}
@@ -184,15 +165,13 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
       <p className="eyebrow hero-carousel-eyebrow">{eyebrow}</p>
 
       <div
-        ref={viewportRef}
         className="hero-viewport"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null }}
       >
         <div className="hero-slide-layer">
-          {transition && renderHeroPanel(slides[transition.fromIndex], false, outgoingClass)}
-          {renderHeroPanel(activeItem, true, incomingClass)}
+          {renderHeroPanel(activeItem, panelClass)}
         </div>
 
         {slides.length > 1 && (
