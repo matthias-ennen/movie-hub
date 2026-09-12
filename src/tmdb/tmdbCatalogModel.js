@@ -1,5 +1,7 @@
 import { buildTmdbImageUrl } from '../services/tmdb.js'
 
+const SUPPORTED_AGE_RATINGS = new Set([0, 6, 12, 16, 18])
+
 function mediaTypeKey(value) {
   if (value === 'movie') return 'movie'
   if (value === 'tv' || value === 'series') return 'tv'
@@ -28,6 +30,11 @@ function score(value) {
 function finiteNumber(value) {
   const number = Number(value)
   return Number.isFinite(number) ? number : null
+}
+
+function ageRating(value) {
+  const rating = Number(value)
+  return SUPPORTED_AGE_RATINGS.has(rating) ? rating : null
 }
 
 export function normalizePersonalTmdbTitle(raw) {
@@ -64,6 +71,7 @@ export function normalizePersonalTmdbTitle(raw) {
     originalLanguage: raw.originalLanguage || null,
     voteAverage: finiteNumber(raw.voteAverage),
     voteCount: finiteNumber(raw.voteCount),
+    ageRating: ageRating(raw.ageRating),
     genreNames,
     genres: genreNames.map((name) => ({ name })),
     genre: genreNames.join(' · ') || 'Ohne Genreangabe',
@@ -116,6 +124,7 @@ export function mergePublicAndPersonalCatalog(publicTitles = [], personalTitles 
       watchlistOrder: personal.watchlistOrder,
       ratingOrder: personal.ratingOrder,
       syncedAt: personal.syncedAt,
+      ageRating: existing.ageRating ?? personal.ageRating ?? null,
       providerIds: existing.providerIds?.length ? existing.providerIds : personal.providerIds,
     })
   }
@@ -171,6 +180,7 @@ export function nativeTitleToFirestore(raw, syncedAt) {
     voteCount: normalized.voteCount,
     genreNames: normalized.genreNames,
     providerIds: normalized.providerIds,
+    ageRating: normalized.ageRating,
     favorite: normalized.tmdbFavorite,
     watchlist: normalized.tmdbWatchlist,
     rated: normalized.tmdbRated,

@@ -102,7 +102,7 @@ describe('Firestore Security Rules', () => {
     expect((await assertSucceeds(getDoc(mediaRef))).data().label).toBe('Deutscher Trailer')
   })
 
-  it('erlaubt den nicht geheimen persönlichen TMDB-Katalog kontoweit', async () => {
+  it('erlaubt Bewertungen und Altersfreigabe im nicht geheimen persönlichen TMDB-Katalog', async () => {
     const db = testEnv.authenticatedContext('alice').firestore()
     const catalogRef = doc(db, 'users', 'alice', 'tmdbCatalog', 'movie:11')
     const syncRef = doc(db, 'users', 'alice', 'tmdbSync', 'state')
@@ -121,10 +121,14 @@ describe('Firestore Security Rules', () => {
       voteCount: 1000,
       genreNames: ['Abenteuer'],
       providerIds: ['disney'],
+      ageRating: 12,
       favorite: true,
       watchlist: false,
+      rated: true,
+      ratingValue: 9,
       favoriteOrder: 1,
       watchlistOrder: null,
+      ratingOrder: 1,
       syncedAt: '2026-09-09T12:00:00Z',
     }))
     await assertSucceeds(setDoc(syncRef, {
@@ -134,9 +138,14 @@ describe('Firestore Security Rules', () => {
       accountName: null,
       favoriteCount: 1,
       watchlistCount: 0,
+      ratingCount: 1,
       totalCount: 1,
     }))
-    expect((await assertSucceeds(getDoc(catalogRef))).data().favorite).toBe(true)
+    const stored = (await assertSucceeds(getDoc(catalogRef))).data()
+    expect(stored.favorite).toBe(true)
+    expect(stored.rated).toBe(true)
+    expect(stored.ratingValue).toBe(9)
+    expect(stored.ageRating).toBe(12)
   })
 
   it('verhindert das Einschleusen unbekannter Felder in den TMDB-Katalog', async () => {

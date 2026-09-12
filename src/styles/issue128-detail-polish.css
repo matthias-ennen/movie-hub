@@ -1,0 +1,40 @@
+.personal-profile-name {
+  margin: 0 0 0.45rem;
+  color: var(--color-text);
+  font-size: clamp(1.15rem, 1.8vw, 1.45rem);
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.personal-title-state-heading h3 {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.personal-action.active {
+  background: var(--color-surface-soft);
+}
+
+.personal-action.favorite.active {
+  border-color: color-mix(in srgb, #ff5a63 72%, var(--color-line));
+  color: #ff5a63;
+}
+
+.personal-action.watchlist.active {
+  border-color: color-mix(in srgb, #4fd17b 72%, var(--color-line));
+  color: #4fd17b;
+}
+
+.personal-action.watched.active {
+  border-color: color-mix(in srgb, #5aa7ff 72%, var(--color-line));
+  color: #5aa7ff;
+}
+
+.personal-action.favorite.active > span:first-child,
+.personal-action.watchlist.active > span:first-child,
+.personal-action.watched.active > span:first-child {
+  color: currentColor;
+}

@@ -8,6 +8,15 @@ const TARGET_PROVIDER_IDS = new Map(
 
 const WATCH_OFFER_TYPES = ['flatrate', 'free', 'ads', 'rent', 'buy']
 const SUPPORTED_TMDB_VIDEO_TYPES = new Set(['Trailer', 'Teaser'])
+const GERMAN_AGE_RATINGS = new Set([0, 6, 12, 16, 18])
+const MOVIE_RELEASE_TYPE_PRIORITY = new Map([
+  [3, 0], // theatrical
+  [2, 1], // limited theatrical
+  [4, 2], // digital
+  [5, 3], // physical
+  [6, 4], // TV
+  [1, 5], // premiere
+])
 
 function normalizeProviderName(value) {
   return String(value || '')
@@ -46,6 +55,40 @@ function formatScore(value) {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   })
+}
+
+function parseGermanAgeRating(value) {
+  const text = String(value ?? '').trim()
+  if (!text) return null
+  const match = text.match(/(?:^|\D)(0|6|12|16|18)(?:\D|$)/)
+  if (!match) return null
+  const rating = Number(match[1])
+  return GERMAN_AGE_RATINGS.has(rating) ? rating : null
+}
+
+export function normalizeGermanAgeRating(payload, mediaType) {
+  const type = normalizeMediaType(mediaType)
+
+  if (type === 'movie') {
+    const regions = Array.isArray(payload?.release_dates?.results) ? payload.release_dates.results : []
+    const german = regions.find((region) => region?.iso_3166_1 === 'DE')
+    const releases = Array.isArray(german?.release_dates) ? german.release_dates : []
+
+    const candidates = releases
+      .map((release) => ({
+        rating: parseGermanAgeRating(release?.certification),
+        priority: MOVIE_RELEASE_TYPE_PRIORITY.get(Number(release?.type)) ?? 99,
+        date: Date.parse(release?.release_date || ''),
+      }))
+      .filter((entry) => entry.rating !== null)
+      .sort((a, b) => a.priority - b.priority || (Number.isFinite(a.date) ? a.date : Infinity) - (Number.isFinite(b.date) ? b.date : Infinity))
+
+    return candidates[0]?.rating ?? null
+  }
+
+  const ratings = Array.isArray(payload?.content_ratings?.results) ? payload.content_ratings.results : []
+  const german = ratings.find((rating) => rating?.iso_3166_1 === 'DE')
+  return parseGermanAgeRating(german?.rating)
 }
 
 export function buildTmdbImageUrl(path, size = 'w500') {
@@ -209,6 +252,7 @@ export function normalizeTmdbTitle(payload, mediaType) {
     backdropUrl: buildTmdbImageUrl(payload.backdrop_path, 'w1280'),
     originalLanguage: payload.original_language || null,
     status: payload.status || null,
+    ageRating: normalizeGermanAgeRating(payload, type),
   }
 }
 

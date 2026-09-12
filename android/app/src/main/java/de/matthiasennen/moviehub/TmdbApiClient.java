@@ -89,7 +89,7 @@ final class TmdbApiClient {
             sessionBody.put("request_token", validatedRequestToken);
         } catch (Exception impossible) {
             throw new TmdbException(ErrorKind.RESPONSE, 0,
-                    "Die TMDB-Session konnte nicht vorbereitet werden.");
+                    "Die TMDB-Anmeldung konnte nicht vorbereitet werden.");
         }
         JSONObject sessionResponse = request(
                 "POST", "/authentication/session/new", apiReadAccessToken, sessionBody);
@@ -143,14 +143,11 @@ final class TmdbApiClient {
             if (title.optBoolean("watchlist")) watchlistCount++;
             if (title.optBoolean("rated")) ratedCount++;
             try {
-                title.put("providerIds", fetchSupportedProviders(
-                        apiReadAccessToken,
-                        title.optString("mediaType"),
-                        title.optLong("tmdbId")));
+                enrichPersonalTitle(apiReadAccessToken, title);
             } catch (Exception ignored) {
-                // Provider availability enriches the catalog but must not make
-                // a valid personal-list sync fail. The public catalog can still
-                // supply provider data for titles it already contains.
+                // Provider availability and age rating enrich the catalog but
+                // must never turn a valid favorites/watchlist/rating sync into
+                // a failure. Public catalog data can still fill these fields.
                 try { title.put("providerIds", new JSONArray()); } catch (Exception ignoredJson) {}
             }
             resultTitles.put(title);
@@ -287,12 +284,31 @@ final class TmdbApiClient {
         return names;
     }
 
-    private static JSONArray fetchSupportedProviders(
-            String apiReadAccessToken, String mediaType, long tmdbId) throws TmdbException {
-        JSONObject response = request(
-                "GET", "/" + mediaType + "/" + tmdbId + "/watch/providers",
-                apiReadAccessToken, null);
-        JSONObject regions = response.optJSONObject("results");
+    private static void enrichPersonalTitle(
+            String apiReadAccessToken, JSONObject title) throws TmdbException {
+        String mediaType = title.optString("mediaType");
+        long tmdbId = title.optLong("tmdbId");
+        if (tmdbId <= 0 || !("movie".equals(mediaType) || "tv".equals(mediaType))) return;
+
+        String ratingAppend = "movie".equals(mediaType) ? "release_dates" : "content_ratings";
+        JSONObject detail = request(
+                "GET",
+                "/" + mediaType + "/" + tmdbId
+                        + "?language=de-DE&append_to_response=watch%2Fproviders%2C" + ratingAppend,
+                apiReadAccessToken,
+                null);
+
+        try {
+            title.put("providerIds", supportedProvidersFromPayload(detail.optJSONObject("watch/providers")));
+            Integer rating = extractGermanAgeRating(detail, mediaType);
+            if (rating != null) title.put("ageRating", rating);
+        } catch (Exception ignored) {
+            // The parent sync deliberately treats enrichment as optional.
+        }
+    }
+
+    private static JSONArray supportedProvidersFromPayload(JSONObject response) {
+        JSONObject regions = response == null ? null : response.optJSONObject("results");
         JSONObject de = regions == null ? null : regions.optJSONObject("DE");
         Set<String> providerIds = new LinkedHashSet<>();
         if (de != null) {
@@ -311,6 +327,71 @@ final class TmdbApiClient {
         JSONArray result = new JSONArray();
         for (String providerId : providerIds) result.put(providerId);
         return result;
+    }
+
+    private static Integer extractGermanAgeRating(JSONObject detail, String mediaType) {
+        if ("movie".equals(mediaType)) {
+            JSONObject payload = detail.optJSONObject("release_dates");
+            JSONArray countries = payload == null ? null : payload.optJSONArray("results");
+            int bestPriority = Integer.MAX_VALUE;
+            Integer bestRating = null;
+            if (countries != null) {
+                for (int index = 0; index < countries.length(); index++) {
+                    JSONObject country = countries.optJSONObject(index);
+                    if (country == null || !"DE".equals(country.optString("iso_3166_1"))) continue;
+                    JSONArray releases = country.optJSONArray("release_dates");
+                    if (releases == null) continue;
+                    for (int releaseIndex = 0; releaseIndex < releases.length(); releaseIndex++) {
+                        JSONObject release = releases.optJSONObject(releaseIndex);
+                        Integer rating = release == null ? null : parseGermanAgeRating(release.optString("certification"));
+                        if (rating == null) continue;
+                        int priority = releaseTypePriority(release.optInt("type", 0));
+                        if (priority < bestPriority) {
+                            bestPriority = priority;
+                            bestRating = rating;
+                        }
+                    }
+                }
+            }
+            return bestRating;
+        }
+
+        JSONObject payload = detail.optJSONObject("content_ratings");
+        JSONArray ratings = payload == null ? null : payload.optJSONArray("results");
+        if (ratings == null) return null;
+        for (int index = 0; index < ratings.length(); index++) {
+            JSONObject rating = ratings.optJSONObject(index);
+            if (rating != null && "DE".equals(rating.optString("iso_3166_1"))) {
+                return parseGermanAgeRating(rating.optString("rating"));
+            }
+        }
+        return null;
+    }
+
+    private static Integer parseGermanAgeRating(String value) {
+        if (value == null || value.trim().isEmpty()) return null;
+        String digits = value.replaceAll("[^0-9]", "");
+        if (digits.isEmpty()) return null;
+        try {
+            int rating = Integer.parseInt(digits);
+            return rating == 0 || rating == 6 || rating == 12 || rating == 16 || rating == 18
+                    ? rating
+                    : null;
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static int releaseTypePriority(int type) {
+        switch (type) {
+            case 3: return 0;
+            case 2: return 1;
+            case 4: return 2;
+            case 5: return 3;
+            case 6: return 4;
+            case 1: return 5;
+            default: return 99;
+        }
     }
 
     private static String supportedProviderId(String providerName) {

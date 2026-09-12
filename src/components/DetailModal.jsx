@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { getProviderDestination, providers } from '../data/catalog.js'
 import { useLibrary } from '../library/LibraryProvider.jsx'
+import { localDateValue } from '../library/libraryState.js'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import { useAuth } from '../hooks/useAuth.js'
 import { loadSharedMedia, removeSharedMedia, saveSharedMedia } from '../library/sharedMedia.js'
@@ -123,9 +124,24 @@ export default function DetailModal({ item, onClose }) {
     await savePersonalPatch({ note: noteDraft }, 'Notiz gespeichert.')
   }
 
+  function markWatchedFromProvider() {
+    const watchedAt = localDateValue()
+    setPersonalMessage('Als gesehen markiert.')
+    updateTitleState(item, { watched: true, watchedAt })
+      .catch((error) => {
+        console.error(error)
+        setPersonalMessage('Anbieter geöffnet, aber „Gesehen“ konnte nicht gespeichert werden.')
+      })
+  }
+
   function openProvider(providerId) {
     const destination = getProviderDestination(providerId, item.title)
     if (!destination) return
+
+    // State update is optimistic and starts before the provider launch, but we
+    // intentionally do not await it: browser fallbacks must keep the original
+    // user gesture so popup blockers do not prevent opening the provider.
+    markWatchedFromProvider()
 
     if (window.MovieHubNative?.openProvider) {
       window.MovieHubNative.openProvider(providerId, item.title, destination)
@@ -324,7 +340,7 @@ export default function DetailModal({ item, onClose }) {
           <section className="personal-title-state" aria-labelledby="personal-title-state-heading">
             <div className="personal-title-state-heading">
               <div>
-                <p className="settings-kicker">{activeProfile?.displayName ?? 'Profil'}</p>
+                <p className="personal-profile-name">{activeProfile?.displayName ?? 'Profil'}</p>
                 <h3 id="personal-title-state-heading">Meine Einstellungen</h3>
               </div>
               {personalState.rating && <span className="personal-rating-summary">{personalState.rating}/10</span>}
@@ -333,7 +349,7 @@ export default function DetailModal({ item, onClose }) {
             <div className="personal-action-grid">
               <button
                 type="button"
-                className={personalState.favorite ? 'personal-action active' : 'personal-action'}
+                className={personalState.favorite ? 'personal-action favorite active' : 'personal-action favorite'}
                 aria-pressed={personalState.favorite}
                 onClick={() => savePersonalPatch(
                   { favorite: !personalState.favorite },
@@ -348,21 +364,21 @@ export default function DetailModal({ item, onClose }) {
               </button>
               <button
                 type="button"
-                className={personalState.watchlist ? 'personal-action active' : 'personal-action'}
+                className={personalState.watchlist ? 'personal-action watchlist active' : 'personal-action watchlist'}
                 aria-pressed={personalState.watchlist}
                 onClick={() => savePersonalPatch(
                   { watchlist: !personalState.watchlist },
-                  personalState.watchlist ? 'Aus der Watchlist entfernt.' : 'Für später gemerkt.',
+                  personalState.watchlist ? 'Aus der Watchlist entfernt.' : 'Zur Watchlist hinzugefügt.',
                 )}
                 disabled={personalBusy || libraryLoading}
                 data-focusable="true"
               >
-                <span aria-hidden="true">＋</span>
-                <span>{personalState.watchlist ? 'Watchlist' : 'Später ansehen'}</span>
+                <span aria-hidden="true">{personalState.watchlist ? '−' : '＋'}</span>
+                <span>Watchlist</span>
               </button>
               <button
                 type="button"
-                className={personalState.watched ? 'personal-action active' : 'personal-action'}
+                className={personalState.watched ? 'personal-action watched active' : 'personal-action watched'}
                 aria-pressed={personalState.watched}
                 onClick={() => savePersonalPatch(
                   { watched: !personalState.watched },

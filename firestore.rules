@@ -46,8 +46,9 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly([
             'tmdbId', 'mediaType', 'title', 'originalTitle', 'description',
             'releaseDate', 'posterPath', 'backdropPath', 'originalLanguage',
-            'voteAverage', 'voteCount', 'genreNames', 'providerIds',
-            'favorite', 'watchlist', 'favoriteOrder', 'watchlistOrder', 'syncedAt'
+            'voteAverage', 'voteCount', 'genreNames', 'providerIds', 'ageRating',
+            'favorite', 'watchlist', 'rated', 'ratingValue',
+            'favoriteOrder', 'watchlistOrder', 'ratingOrder', 'syncedAt'
           ]);
       }
 
@@ -58,7 +59,7 @@ service cloud.firestore {
         allow create, update: if ownsUserData(userId)
           && request.resource.data.keys().hasOnly([
             'syncedAt', 'accountId', 'accountUsername', 'accountName',
-            'favoriteCount', 'watchlistCount', 'totalCount'
+            'favoriteCount', 'watchlistCount', 'ratingCount', 'totalCount'
           ]);
       }
     }
