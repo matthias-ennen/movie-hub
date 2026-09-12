@@ -19,20 +19,88 @@ function getFocusableCandidates(scopeSelector) {
   return [...root.querySelectorAll('[data-focusable="true"]')].filter(isVisibleFocusable)
 }
 
-function scrollPosterTrackToCandidate(candidate) {
+function getTrackVisibleBounds(track, padding = 0) {
+  const trackRect = track.getBoundingClientRect()
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth
+  const left = Math.max(0, trackRect.left) + padding
+  const right = Math.min(viewportWidth, trackRect.right) - padding
+
+  if (right <= left) {
+    return {
+      left: Math.max(0, trackRect.left),
+      right: Math.min(viewportWidth, trackRect.right),
+    }
+  }
+
+  return { left, right }
+}
+
+function scrollPosterTrackToCandidate(candidate, mode = 'center') {
   const track = candidate?.closest?.('.poster-track')
   if (!track) return
 
   const trackRect = track.getBoundingClientRect()
   const cardRect = candidate.getBoundingClientRect()
-  const cardCenterInTrack = (cardRect.left - trackRect.left) + track.scrollLeft + (cardRect.width / 2)
-  const targetLeft = cardCenterInTrack - (track.clientWidth / 2)
   const maxLeft = Math.max(0, track.scrollWidth - track.clientWidth)
-  const clampedLeft = Math.max(0, Math.min(targetLeft, maxLeft))
+  let targetLeft = track.scrollLeft
 
+  if (mode === 'nearest') {
+    const bounds = getTrackVisibleBounds(track, 20)
+
+    if (cardRect.left < bounds.left) {
+      targetLeft -= bounds.left - cardRect.left
+    } else if (cardRect.right > bounds.right) {
+      targetLeft += cardRect.right - bounds.right
+    } else {
+      return
+    }
+  } else {
+    const cardCenterInTrack = (cardRect.left - trackRect.left) + track.scrollLeft + (cardRect.width / 2)
+    targetLeft = cardCenterInTrack - (track.clientWidth / 2)
+  }
+
+  const clampedLeft = Math.max(0, Math.min(targetLeft, maxLeft))
   if (Math.abs(track.scrollLeft - clampedLeft) > 1) {
     track.scrollTo({ left: clampedLeft, behavior: 'smooth' })
   }
+}
+
+function getPosterClosestToViewportX(cards, sourceCenterX) {
+  if (!cards.length) return null
+
+  const fullyVisible = []
+  const partiallyVisible = []
+
+  cards.forEach((card) => {
+    const track = card.closest?.('.poster-track')
+    if (!track) return
+
+    const rect = card.getBoundingClientRect()
+    const bounds = getTrackVisibleBounds(track, 12)
+
+    if (rect.left >= bounds.left && rect.right <= bounds.right) {
+      fullyVisible.push(card)
+    } else if (rect.right > bounds.left && rect.left < bounds.right) {
+      partiallyVisible.push(card)
+    }
+  })
+
+  const pool = fullyVisible.length
+    ? fullyVisible
+    : partiallyVisible.length
+      ? partiallyVisible
+      : cards
+
+  return pool.reduce((best, candidate) => {
+    const rect = candidate.getBoundingClientRect()
+    const centerX = rect.left + (rect.width / 2)
+    const distance = Math.abs(centerX - sourceCenterX)
+
+    if (!best || distance < best.distance) {
+      return { candidate, distance }
+    }
+    return best
+  }, null)?.candidate || null
 }
 
 function scrollPageToPosterCandidate(candidate) {
@@ -59,7 +127,7 @@ function scrollPageToPosterCandidate(candidate) {
   window.scrollTo({ top: targetTop, behavior: 'smooth' })
 }
 
-function focusCandidate(candidate) {
+function focusCandidate(candidate, { posterHorizontal = 'center' } = {}) {
   if (!candidate) return
   candidate.focus({ preventScroll: true })
   const isInsideDialog = candidate.closest('.detail-modal, .media-panel, .exit-dialog, .profile-menu')
@@ -68,10 +136,10 @@ function focusCandidate(candidate) {
   // Fire TV/WebView kann einen verschachtelten scrollIntoView()-Aufruf für das
   // Dokument und den separaten horizontalen Poster-Track-Scroll verlieren.
   // Poster werden deshalb auf Seitenebene explizit vertikal positioniert und
-  // der innere Track anschließend unabhängig horizontal zentriert.
+  // der innere Track anschließend unabhängig horizontal geführt.
   if (isPoster && !isInsideDialog) {
     scrollPageToPosterCandidate(candidate)
-    window.requestAnimationFrame(() => scrollPosterTrackToCandidate(candidate))
+    window.requestAnimationFrame(() => scrollPosterTrackToCandidate(candidate, posterHorizontal))
     return
   }
 
@@ -141,6 +209,25 @@ function getFirstPageTarget() {
   return getFocusableCandidates(null).find((candidate) => !candidate.closest('.topbar')) || null
 }
 
+function focusAdjacentPosterRow(tracks, rowIndex, direction, active) {
+  const targetRowIndex = rowIndex + direction
+  if (targetRowIndex < 0 || targetRowIndex >= tracks.length) return false
+
+  const targetCards = getPosterCards(tracks[targetRowIndex])
+  if (!targetCards.length) return false
+
+  const sourceRect = active.getBoundingClientRect()
+  const sourceCenterX = sourceRect.left + (sourceRect.width / 2)
+  const target = getPosterClosestToViewportX(targetCards, sourceCenterX)
+
+  // Hoch/Runter verhält sich wie ein zweidimensionales Raster: gewählt wird die
+  // optisch nächstgelegene sichtbare Karte über/unter der aktuellen X-Position.
+  // Die Zielreihe behält ihren horizontalen Stand; nur angeschnittene Karten
+  // werden minimal nachgeführt statt jedes Mal wieder in die Mitte zu springen.
+  focusCandidate(target, { posterHorizontal: 'nearest' })
+  return true
+}
+
 function handlePageNavigation(event, active) {
   const direction = event.key
 
@@ -192,7 +279,6 @@ function handlePageNavigation(event, active) {
     if (!currentTrack) return false
 
     const cards = getPosterCards(currentTrack)
-    const cardIndex = cards.indexOf(active)
     if (direction === 'ArrowLeft') return moveWithin(cards, active, -1, event)
     if (direction === 'ArrowRight') return moveWithin(cards, active, 1, event)
 
@@ -204,19 +290,17 @@ function handlePageNavigation(event, active) {
 
     if (direction === 'ArrowUp') {
       if (rowIndex > 0) {
-        const previousCards = getPosterCards(tracks[rowIndex - 1])
-        focusCandidate(previousCards[Math.min(cardIndex, previousCards.length - 1)])
+        focusAdjacentPosterRow(tracks, rowIndex, -1, active)
       } else {
         focusCandidate(getHeroActions()[0] || getHeroTarget() || getPreferredTopbarTarget())
       }
       return true
     }
 
-    if (direction === 'ArrowDown' && rowIndex < tracks.length - 1) {
-      const nextCards = getPosterCards(tracks[rowIndex + 1])
-      focusCandidate(nextCards[Math.min(cardIndex, nextCards.length - 1)])
+    if (direction === 'ArrowDown') {
+      focusAdjacentPosterRow(tracks, rowIndex, 1, active)
+      return true
     }
-    return true
   }
 
   return false
