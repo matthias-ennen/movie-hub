@@ -12,8 +12,10 @@ function isVisibleFocusable(element) {
   return !element.disabled && element.getAttribute('aria-hidden') !== 'true' && element.offsetParent !== null
 }
 
-function getFocusableCandidates(scopeSelector) {
-  const root = scopeSelector ? document.querySelector(scopeSelector) : document
+function getFocusableCandidates(scope) {
+  const root = typeof scope === 'string'
+    ? document.querySelector(scope)
+    : scope || document
   if (!root) return []
 
   return [...root.querySelectorAll('[data-focusable="true"]')].filter(isVisibleFocusable)
@@ -336,23 +338,26 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
       // Hoch/Runter dürfen den Fokus dagegen zurück in die TV-Oberfläche führen.
       if (editable && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) return
 
-      const scopeSelector = document.querySelector('.media-panel')
-        ? '.media-panel'
-        : exitDialogOpen
-          ? '.exit-dialog'
+      const scope = document.querySelector('.media-panel')
+        || (exitDialogOpen
+          ? document.querySelector('.exit-dialog')
           : detailOpen
-            ? '.detail-modal'
+            ? document.querySelector('.detail-modal')
             : profileMenuOpen
-              ? '.profile-wrap'
-              : null
+              ? document.querySelector('.profile-wrap')
+              : document.querySelector('[data-dpad-focus-scope="true"]'))
 
-      if (!scopeSelector && active && handlePageNavigation(event, active)) return
+      if (!scope && active && handlePageNavigation(event, active)) return
 
-      const candidates = getFocusableCandidates(scopeSelector)
-      if (!candidates.length) return
+      const candidates = getFocusableCandidates(scope)
+      if (!candidates.length) {
+        if (scope) consume(event)
+        return
+      }
 
       if (!active || !candidates.includes(active)) {
-        event.preventDefault()
+        if (scope) consume(event)
+        else event.preventDefault()
         focusCandidate(candidates[0])
         return
       }
@@ -390,6 +395,11 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
       if (ranked[0]) {
         event.preventDefault()
         focusCandidate(ranked[0].candidate)
+      } else if (scope) {
+        // Ein geöffneter lokaler Editor bildet für D-Pad-Bedienung einen
+        // geschlossenen Fokusbereich. An seinen Rändern darf die Taste weder
+        // die Seite scrollen noch ein Steuerelement im Hintergrund erreichen.
+        consume(event)
       }
     }
 

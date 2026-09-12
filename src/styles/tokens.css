@@ -20,6 +20,19 @@
   --color-eyebrow: #9fb2f7;
   --color-danger: #ffaaaa;
 
+  /* Gemeinsame semantische Zustände für Kacheln und Schalter in allen Themes. */
+  --control-active-border: color-mix(in srgb, var(--color-brand-accent) 58%, var(--color-line));
+  --control-active-bg: color-mix(in srgb, var(--color-surface-soft) 82%, var(--color-brand-accent) 18%);
+  --control-inactive-bg: color-mix(in srgb, var(--color-bg-elevated) 88%, transparent);
+  --control-hover-border: color-mix(in srgb, var(--color-focus) 58%, var(--color-line));
+  --control-hover-bg: color-mix(in srgb, var(--color-surface-soft) 88%, var(--color-focus) 12%);
+  --control-busy-bg: color-mix(in srgb, var(--color-surface-soft) 84%, var(--color-brand-accent) 16%);
+  --switch-off-bg: color-mix(in srgb, var(--color-muted) 42%, var(--color-surface-control));
+  --switch-on-bg: var(--color-brand-accent);
+  --switch-knob-bg: var(--color-text);
+  --danger-border: color-mix(in srgb, var(--color-danger) 58%, var(--color-line));
+  --danger-bg: color-mix(in srgb, var(--color-danger) 24%, var(--color-surface-soft));
+
   --page-inline: clamp(1.3rem, 5vw, 5.5rem);
   --page-gutter-total: clamp(2.6rem, 10vw, 11rem);
   --page-block: clamp(4rem, 7vw, 6.5rem);

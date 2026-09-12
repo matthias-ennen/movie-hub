@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MAX_PERSONAL_SMART_ROWS,
   PERSONAL_SMART_ROW_TYPES,
@@ -18,12 +18,15 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
   const { activeProfile, updateActiveProfileContentRowSettings } = useProfiles()
   const settings = normalizePersonalSmartRowSettings(activeProfile?.contentRowSettings)
   const options = useMemo(() => normalizeSmartFilterOptions(filterOptions), [filterOptions])
+  const panelRef = useRef(null)
+  const busyRef = useRef(false)
   const [editingId, setEditingId] = useState(null)
   const [type, setType] = useState('cast')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(null)
   const [title, setTitle] = useState('')
   const [busy, setBusy] = useState(false)
+  const [busyAction, setBusyAction] = useState(null)
   const [message, setMessage] = useState('')
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
 
@@ -36,6 +39,43 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
     setMessage('')
     setConfirmDeleteId(null)
   }, [activeProfile?.id])
+
+  const focusTarget = useCallback((target) => {
+    const focus = () => {
+      const panel = panelRef.current
+      if (!panel) return
+
+      function findTarget(entry) {
+        if (entry?.kind === 'editor') {
+          return panel.querySelector('[data-personal-row-editor-autofocus="true"]')
+        }
+        if (entry?.kind === 'add') {
+          return panel.querySelector('[data-personal-row-add="true"]')
+        }
+        if (entry?.rowId) {
+          const row = [...panel.querySelectorAll('[data-personal-row-id]')]
+            .find((element) => element.dataset.personalRowId === entry.rowId)
+          const actions = Array.isArray(entry.actions) ? entry.actions : [entry.action]
+          return actions
+            .map((action) => row?.querySelector(`[data-personal-row-action="${action}"]`))
+            .find((element) => element && !element.disabled)
+        }
+        return null
+      }
+
+      const targets = Array.isArray(target) ? target : [target]
+      const candidate = targets.map(findTarget).find((element) => element && !element.disabled)
+      if (!candidate || candidate.disabled) return
+      candidate.focus({ preventScroll: true })
+      candidate.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+    }
+
+    window.requestAnimationFrame(() => window.requestAnimationFrame(focus))
+  }, [])
+
+  useEffect(() => {
+    if (editingId !== null) focusTarget({ kind: 'editor' })
+  }, [editingId, focusTarget])
 
   const typeDefinition = PERSONAL_SMART_ROW_TYPES.find((entry) => entry.id === type)
   const visibleOptions = useMemo(() => {
@@ -56,11 +96,22 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
   }
 
   function startAdd() {
+    if (busyRef.current) return
     resetForm()
     setEditingId('new')
   }
 
+  function cancelForm() {
+    if (busyRef.current) return
+    const returnTarget = editingId === 'new'
+      ? { kind: 'add' }
+      : { rowId: editingId, actions: ['edit', 'toggle'] }
+    resetForm()
+    focusTarget(returnTarget)
+  }
+
   function startEdit(row) {
+    if (busyRef.current) return
     setEditingId(row.id)
     setType(row.type)
     setQuery(row.valueLabel)
@@ -75,8 +126,11 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
     setTitle(defaultPersonalSmartRowTitle(type, option.label, option.id))
   }
 
-  async function persist(rows, successMessage) {
+  async function persist(rows, successMessage, returnTarget, actionKey) {
+    if (busyRef.current) return false
+    busyRef.current = true
     setBusy(true)
+    setBusyAction(actionKey)
     setMessage('')
     try {
       await updateActiveProfileContentRowSettings({ rows })
@@ -86,12 +140,16 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
       setMessage('Persönliche Reihen konnten nicht gespeichert werden.')
       return false
     } finally {
+      busyRef.current = false
       setBusy(false)
+      setBusyAction(null)
+      focusTarget(returnTarget)
     }
   }
 
   async function saveForm(event) {
     event.preventDefault()
+    if (busyRef.current) return
     if (!selected) {
       setMessage('Bitte zuerst einen Vorschlag auswählen.')
       return
@@ -118,38 +176,63 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
     const rows = editingId === 'new'
       ? [...settings.rows, row]
       : settings.rows.map((entry) => entry.id === editingId ? row : entry)
-    if (await persist(rows, 'Persönliche Reihe gespeichert.')) resetForm(false)
+    if (await persist(
+      rows,
+      'Persönliche Reihe gespeichert.',
+      { rowId: row.id, actions: ['toggle', 'edit'] },
+      `save:${row.id}`,
+    )) resetForm(false)
   }
 
   async function toggle(row) {
+    if (busyRef.current) return
     await persist(settings.rows.map((entry) => (
       entry.id === row.id ? { ...entry, enabled: !entry.enabled } : entry
-    )), row.enabled ? 'Reihe deaktiviert.' : 'Reihe aktiviert.')
+    )), row.enabled ? 'Reihe deaktiviert.' : 'Reihe aktiviert.', {
+      rowId: row.id,
+      actions: ['toggle', 'edit'],
+    }, `toggle:${row.id}`)
   }
 
   async function move(row, direction) {
+    if (busyRef.current) return
     const index = settings.rows.findIndex((entry) => entry.id === row.id)
     const target = index + direction
     if (index < 0 || target < 0 || target >= settings.rows.length) return
     const rows = [...settings.rows]
     ;[rows[index], rows[target]] = [rows[target], rows[index]]
-    await persist(rows, 'Reihenfolge gespeichert.')
+    const action = direction < 0 ? 'up' : 'down'
+    await persist(rows, 'Reihenfolge gespeichert.', {
+      rowId: row.id,
+      actions: [action, 'edit', 'toggle'],
+    }, `${action}:${row.id}`)
   }
 
   async function remove(row) {
+    if (busyRef.current) return
     if (confirmDeleteId !== row.id) {
       setConfirmDeleteId(row.id)
       setMessage(`„${row.title}“ wirklich löschen? Noch einmal Löschen wählen.`)
       return
     }
-    if (await persist(settings.rows.filter((entry) => entry.id !== row.id), 'Persönliche Reihe gelöscht.')) {
+    const index = settings.rows.findIndex((entry) => entry.id === row.id)
+    const remainingRows = settings.rows.filter((entry) => entry.id !== row.id)
+    const neighbour = remainingRows[Math.min(index, remainingRows.length - 1)]
+    const neighbourTarget = neighbour
+      ? { rowId: neighbour.id, actions: ['delete', 'edit', 'toggle'] }
+      : { kind: 'add' }
+    const returnTargets = [
+      { rowId: row.id, actions: ['delete', 'edit', 'toggle'] },
+      neighbourTarget,
+    ]
+    if (await persist(remainingRows, 'Persönliche Reihe gelöscht.', returnTargets, `delete:${row.id}`)) {
       setConfirmDeleteId(null)
       if (editingId === row.id) resetForm()
     }
   }
 
   return (
-    <section className="settings-panel personal-rows-settings-panel" aria-labelledby="personal-rows-settings-heading">
+    <section ref={panelRef} className="settings-panel personal-rows-settings-panel" aria-labelledby="personal-rows-settings-heading" aria-busy={busy}>
       <div className="settings-heading">
         <div>
           <p className="settings-kicker">Meine Inhalte</p>
@@ -168,18 +251,36 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
             const count = getPersonalSmartRowMatchCount(titles, row)
             const deleting = confirmDeleteId === row.id
             return (
-              <article className={row.enabled ? 'personal-row-setting active' : 'personal-row-setting'} key={row.id}>
+              <article
+                className={row.enabled ? 'personal-row-setting active' : 'personal-row-setting'}
+                key={row.id}
+                data-personal-row-id={row.id}
+              >
                 <div className="personal-row-setting-copy">
                   <strong>{row.title}</strong>
                   <span>{PERSONAL_SMART_ROW_TYPES.find((entry) => entry.id === row.type)?.label} · {row.valueLabel}</span>
                   <small>{count} {count === 1 ? 'Treffer' : 'Treffer'}{count === 0 ? ' · derzeit ausgeblendet' : ''}</small>
                 </div>
                 <div className="personal-row-setting-actions">
-                  <button type="button" onClick={() => toggle(row)} disabled={busy} data-focusable="true">{row.enabled ? 'Aus' : 'An'}</button>
-                  <button type="button" onClick={() => startEdit(row)} disabled={busy} data-focusable="true">Bearbeiten</button>
-                  <button type="button" onClick={() => move(row, -1)} disabled={busy || index === 0} aria-label={`${row.title} nach oben`} data-focusable="true">↑</button>
-                  <button type="button" onClick={() => move(row, 1)} disabled={busy || index === settings.rows.length - 1} aria-label={`${row.title} nach unten`} data-focusable="true">↓</button>
-                  <button type="button" className={deleting ? 'danger confirm' : 'danger'} onClick={() => remove(row)} disabled={busy} data-focusable="true">{deleting ? 'Löschen bestätigen' : 'Löschen'}</button>
+                  <button
+                    type="button"
+                    className={row.enabled ? 'personal-row-toggle active' : 'personal-row-toggle'}
+                    onClick={() => toggle(row)}
+                    role="switch"
+                    aria-checked={row.enabled}
+                    aria-label={`${row.title}: ${row.enabled ? 'An' : 'Aus'}`}
+                    aria-disabled={busy}
+                    aria-busy={busyAction === `toggle:${row.id}`}
+                    data-personal-row-action="toggle"
+                    data-focusable="true"
+                  >
+                    <span>{row.enabled ? 'An' : 'Aus'}</span>
+                    <span className={row.enabled ? 'category-choice-switch active' : 'category-choice-switch'} aria-hidden="true"><span /></span>
+                  </button>
+                  <button type="button" onClick={() => startEdit(row)} aria-disabled={busy} data-personal-row-action="edit" data-focusable="true">Bearbeiten</button>
+                  <button type="button" onClick={() => move(row, -1)} disabled={index === 0} aria-disabled={busy || index === 0} aria-busy={busyAction === `up:${row.id}`} aria-label={`${row.title} nach oben`} data-personal-row-action="up" data-focusable="true">↑</button>
+                  <button type="button" onClick={() => move(row, 1)} disabled={index === settings.rows.length - 1} aria-disabled={busy || index === settings.rows.length - 1} aria-busy={busyAction === `down:${row.id}`} aria-label={`${row.title} nach unten`} data-personal-row-action="down" data-focusable="true">↓</button>
+                  <button type="button" className={deleting ? 'danger confirm' : 'danger'} onClick={() => remove(row)} aria-disabled={busy} aria-busy={busyAction === `delete:${row.id}`} data-personal-row-action="delete" data-focusable="true">{deleting ? 'Löschen bestätigen' : 'Löschen'}</button>
                 </div>
               </article>
             )
@@ -188,12 +289,12 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
       )}
 
       {editingId === null && settings.rows.length < MAX_PERSONAL_SMART_ROWS && (
-        <button type="button" className="personal-row-add" onClick={startAdd} data-focusable="true">+ Persönliche Reihe hinzufügen</button>
+        <button type="button" className="personal-row-add" onClick={startAdd} data-personal-row-add="true" data-focusable="true">+ Persönliche Reihe hinzufügen</button>
       )}
 
       {editingId !== null && (
-        <form className="personal-row-editor" onSubmit={saveForm}>
-          <h3>{editingId === 'new' ? 'Persönliche Reihe hinzufügen' : 'Persönliche Reihe bearbeiten'}</h3>
+        <form className="personal-row-editor" onSubmit={saveForm} data-dpad-focus-scope="true" aria-labelledby="personal-row-editor-heading">
+          <h3 id="personal-row-editor-heading">{editingId === 'new' ? 'Persönliche Reihe hinzufügen' : 'Persönliche Reihe bearbeiten'}</h3>
           <label>
             Kategorie
             <select
@@ -204,6 +305,7 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
                 setSelected(null)
                 setTitle('')
               }}
+              data-personal-row-editor-autofocus="true"
               data-focusable="true"
             >
               {PERSONAL_SMART_ROW_TYPES.map((entry) => <option value={entry.id} key={entry.id}>{entry.label}</option>)}
@@ -259,8 +361,8 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
           )}
 
           <div className="personal-row-editor-actions">
-            <button type="submit" disabled={busy || !selected || !title.trim()} data-focusable="true">{busy ? 'Speichert …' : 'Reihe speichern'}</button>
-            <button type="button" onClick={resetForm} disabled={busy} data-focusable="true">Abbrechen</button>
+            <button type="submit" disabled={!selected || !title.trim()} aria-disabled={busy || !selected || !title.trim()} aria-busy={busyAction?.startsWith('save:')} data-focusable="true">{busy ? 'Speichert …' : 'Reihe speichern'}</button>
+            <button type="button" onClick={cancelForm} aria-disabled={busy} data-focusable="true">Abbrechen</button>
           </div>
         </form>
       )}
