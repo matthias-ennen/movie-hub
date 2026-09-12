@@ -90,6 +90,12 @@ Unterstützte Facetten sind Besetzung, Regie/Serienschöpfer, TMDB-Keyword, Film
 
 Diese Smart-Reihen sind fachlich und technisch von den festen Film-/Serienkategorien sowie von Watchlist, Favoriten, Bewertungen und synchronisierten TMDB-Listen getrennt.
 
+### Filmreihen-Navigation
+
+Der vertrauenswürdige Katalogjob löst die bei Filmen vorhandene TMDB-Collection-ID einmal je Sammlung über den offiziellen Collection-Endpunkt auf. `catalog.json` enthält daraus einen kompakten `collections`-Index mit Sammlungsmetadaten und sämtlichen von TMDB gelieferten Teilen. Vorhandene vollständige Katalogtitel reichern diese Einträge um die aktuelle Anbieterinformation an; Teile außerhalb des Browse-Katalogs bleiben als reduzierte öffentliche Detailobjekte navigierbar. Der Browser benötigt dafür keinen TMDB-Schlüssel und führt keine TMDB-Laufzeitabfrage aus.
+
+Auf der Film-Detailseite erscheint vor Videos und Anbieteraktionen ein eigener Abschnitt **Filmreihe**. Das darüber geöffnete Auswahlfenster zeigt alle Teile nach Veröffentlichungsdatum, markiert den aktuellen und den profilbezogenen Gesehen-Status und weist Verfügbarkeit immer je Einzeltitel aus. Die Auswahl ersetzt den aktuellen Film innerhalb derselben Detailansicht. Serien, eigene Sammlungen, Sammlungskacheln und eine eigenständige Sammlungsseite gehören nicht zu dieser ersten Stufe.
+
 ### Fire-TV-App
 - schlanke Android-/Fire-OS-APK
 - lädt die zentrale Web-App

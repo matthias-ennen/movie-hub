@@ -90,3 +90,11 @@ Status: entschieden
 Movie Hub bezeichnet die Top-10-Reihen als Ranglisten **bei den aktivierten Anbietern**, nicht als offizielle Charts einzelner Plattformen. Die öffentliche Reihenfolge entsteht deterministisch aus normalisierten Positionen der bereits geladenen Anbieter-Kataloge; Movie Hub zählt als eigene aktivierbare Quelle. Titel werden vor der Ausgabe dedupliziert und Home wird bei ausreichender Auswahl zwischen Filmen und Serien ausgeglichen.
 
 Unter **Meine Inhalte** wird eine getrennte profilbezogene Rangfolge aus vorhandenen persönlichen Reihen berechnet: zuerst eigene Movie-Hub-Bewertungen, danach persönliche TMDB-Bewertungen und anschließend öffentliche TMDB-Qualitätssignale. Die Top 10 wird nicht gespeichert und verursacht keine zusätzlichen Netz- oder Firestore-Abfragen pro Karte.
+
+## ADR-012 – Filmreihen zuerst als Detailnavigation
+
+Status: entschieden
+
+TMDB-Collections werden in der ersten Ausbaustufe als Beziehung zwischen Filmen und nicht als neuer allgemeiner Inhaltstyp behandelt. Ein eigener Abschnitt auf der Film-Detailseite öffnet eine vollständige Teileauswahl und ermöglicht den Wechsel des Films innerhalb derselben Detailansicht. Verfügbarkeit und persönliche Zustände gelten weiterhin ausschließlich je Einzeltitel.
+
+Der tägliche vertrauenswürdige Katalogjob erzeugt dafür einen kompakten Collection-Index; der Browser führt keine direkten TMDB-Abfragen aus. Sammlungskacheln, eine eigenständige Sammlungs-Detailseite, benutzerdefinierte Sammlungen und eine Übertragung auf Serien bleiben einer späteren, getrennten Produktentscheidung vorbehalten.

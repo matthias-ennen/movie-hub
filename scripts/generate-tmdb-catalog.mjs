@@ -9,6 +9,7 @@ import {
 import { normalizeTmdbTitle, normalizeTmdbVideos, normalizeTmdbWatchProviders, toMovieHubTitle } from '../src/services/tmdb.js'
 import { selectNeutralTmdbPosterUrl } from '../src/services/tmdbImages.js'
 import { finalizePersonalSmartCatalog } from '../src/catalog/personalSmartRows.js'
+import { buildFilmCollectionIndex, collectionIdForTitle } from '../src/catalog/filmCollections.js'
 
 const token = process.env.TMDB_API_READ_TOKEN
 const language = process.env.TMDB_LANGUAGE || 'de-DE'
@@ -47,6 +48,7 @@ const TMDB_DISCOVER_PROVIDER_IDS = '8|119|337|192'
 // Each compact discovery candidate needs detail/provider/video requests. The
 // large provider catalogs use their own bounded concurrency and retry policy.
 const REQUEST_CONCURRENCY = 2
+const COLLECTION_REQUEST_CONCURRENCY = 4
 const MAX_RETRIES = 5
 const ACCENT_PAIRS = [
   ['#c88953', '#50311f'],
@@ -313,6 +315,44 @@ export function buildProviderTestRows(references, titlesByCandidate) {
     .filter(Boolean)
 }
 
+export async function resolveFilmCollections(titles) {
+  const collectionsById = new Map()
+  for (const title of Array.isArray(titles) ? titles : []) {
+    const collectionId = collectionIdForTitle(title)
+    const collection = title?.smartFacets?.collection
+    if (title?.type !== 'movie' || !collectionId || collectionsById.has(collectionId)) continue
+    collectionsById.set(collectionId, {
+      id: collectionId,
+      name: collection?.name || 'Filmreihe',
+    })
+  }
+
+  const collectionRefs = [...collectionsById.values()]
+  if (!collectionRefs.length) return {}
+
+  console.log(`TMDB catalog: resolving ${collectionRefs.length} film collections`)
+  const payloads = await mapWithConcurrency(
+    collectionRefs,
+    COLLECTION_REQUEST_CONCURRENCY,
+    async (collection) => {
+      try {
+        return await tmdbFetch(`/collection/${collection.id}`, { language })
+      } catch (error) {
+        // Collections are an additional navigation index. A temporary failure
+        // must not discard an otherwise healthy provider catalog; the builder
+        // below still groups every known catalog member as a safe fallback.
+        console.warn(
+          `TMDB collection ${collection.id} could not be refreshed; using known catalog members:`,
+          error instanceof Error ? error.message : String(error),
+        )
+        return collection
+      }
+    },
+  )
+
+  return buildFilmCollectionIndex(payloads, titles)
+}
+
 export async function generateCatalog() {
   if (!token) {
     throw new Error('TMDB_API_READ_TOKEN is missing. Catalog generation must run only in a trusted server/CI context.')
@@ -349,6 +389,7 @@ export async function generateCatalog() {
   ])
   const titles = [...titlesByCandidate.values()].filter((title) => visibleIds.has(title.id))
 
+  const collections = await resolveFilmCollections(titles)
   const smartCatalog = finalizePersonalSmartCatalog(titles)
 
   return {
@@ -359,6 +400,7 @@ export async function generateCatalog() {
     attribution: 'This product uses the TMDB API but is not endorsed or certified by TMDB.',
     providerAttribution: 'Watch-provider availability is powered by JustWatch via TMDB.',
     titles: smartCatalog.titles,
+    collections,
     smartFilterOptions: smartCatalog.smartFilterOptions,
     rowDefinitions,
     providerCatalogs: providerResult.providerCatalogs,

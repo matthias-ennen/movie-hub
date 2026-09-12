@@ -65,4 +65,4 @@ Für Provider gilt bewusst Best Effort: Titelsuche ist optimal, die Suchseite is
 
 Die zu diesem Abnahmestand gehörenden Detail-Issues werden abgeschlossen. Neue Auffälligkeiten werden als neue, klar abgegrenzte Issues erfasst.
 
-**Aktuelle Arbeitspakete:** #170 integriert Movie Hub als virtuellen Anbieter-Katalog; #171 ergänzt profilbezogene, dynamische Heroes und Posterreihen. #173 fügt auf Home, Filme, Serien und Meine Inhalte eine dynamische Top-10-Sonderreihe nach der dritten sichtbaren Posterreihe ein. Die technische Hero-first-Grundlage aus #166/#169 bleibt dabei erhalten.
+Die Pakete #170/#171 und #173 sind integriert: Movie Hub arbeitet als virtueller Anbieter, Heroes und Posterreihen werden profilbezogen kuratiert und alle Inhaltsbereiche besitzen ihre dynamische Top 10. **Aktuelles Arbeitspaket #137** ergänzt vollständige Filmreihen direkt auf der Film-Detailseite. Eine eigenständige Sammlungsseite und Sammlungskacheln bleiben bewusst einer späteren Ausbaustufe vorbehalten.

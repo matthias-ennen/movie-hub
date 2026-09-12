@@ -158,6 +158,32 @@ Die Migration wird beim Laden vorhandener gemeinsamer Medien bestmöglich in Fir
 
 ## Externe Filmdaten
 
+### Öffentlicher Filmreihen-Index
+
+Filmreihen liegen ausschließlich als abgeleitete öffentliche TMDB-Daten im täglich erzeugten `catalog.json`:
+
+```text
+collections.{collectionId}
+  id              number
+  name            string
+  overview        string
+  posterUrl       string | null
+  backdropUrl     string | null
+  parts[]
+    id            string       # tmdb-movie-{tmdbId}
+    tmdbId        number
+    type          movie
+    title         string
+    year          number | null
+    releaseDate   string | null
+    posterUrl     string | null
+    backdropUrl   string | null
+    providerIds[] string
+    facets.collectionId number
+```
+
+Die Teileliste wird nach Veröffentlichungsdatum und stabilen Tie-Breakern sortiert und über die TMDB-ID dedupliziert. Anbieter- und Movie-Hub-Verfügbarkeit sowie persönliche Zustände bleiben Eigenschaften des einzelnen Films und werden nicht auf Sammlungsebene gespeichert oder behauptet. Alte Kataloge ohne `collections` werden weiterhin als leerer Filmreihen-Index akzeptiert.
+
 TMDB liefert u. a.:
 - Titel
 - Originaltitel

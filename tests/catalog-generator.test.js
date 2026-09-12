@@ -5,6 +5,7 @@ import {
   applyProviderTestReference,
   buildProviderTestRows,
   buildRowDefinitions,
+  resolveFilmCollections,
   tmdbFetch,
 } from '../scripts/generate-tmdb-catalog.mjs'
 
@@ -136,5 +137,44 @@ describe('automatischer TMDB-Katalog', () => {
     expect(title.providerOffers).toEqual([
       { id: 'waipu', tmdbProviderId: 999, offerTypes: ['flatrate'] },
     ])
+  })
+
+  it('resolves each referenced film collection only once', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      id: 40,
+      name: 'Sternensaga',
+      parts: [
+        { id: 1, title: 'Teil Eins', release_date: '2000-01-01' },
+        { id: 2, title: 'Teil Zwei', release_date: '2002-01-01' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }))
+
+    try {
+      const index = await resolveFilmCollections([
+        {
+          id: 'tmdb-movie-1',
+          tmdbId: 1,
+          type: 'movie',
+          title: 'Teil Eins',
+          smartFacets: { collection: { id: 40, name: 'Sternensaga' } },
+        },
+        {
+          id: 'tmdb-movie-2',
+          tmdbId: 2,
+          type: 'movie',
+          title: 'Teil Zwei',
+          smartFacets: { collection: { id: 40, name: 'Sternensaga' } },
+        },
+      ])
+
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(fetchMock.mock.calls[0][0].pathname).toBe('/3/collection/40')
+      expect(index['40'].parts.map((part) => part.tmdbId)).toEqual([1, 2])
+    } finally {
+      fetchMock.mockRestore()
+    }
   })
 })
