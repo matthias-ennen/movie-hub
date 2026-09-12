@@ -3,6 +3,7 @@ import '../styles/issue128.css'
 
 const MAX_HEROES = 5
 const SWIPE_MIN_DISTANCE = 48
+const HERO_TRANSITION_MS = 360
 
 export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }) {
   const slides = useMemo(() => {
@@ -16,49 +17,59 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
   }, [item, items])
   const signature = slides.map((entry) => entry.id).join('|')
   const [activeIndex, setActiveIndex] = useState(0)
+  const [transition, setTransition] = useState(null)
   const touchStartRef = useRef(null)
+  const transitionTimerRef = useRef(null)
 
   useEffect(() => {
     setActiveIndex(0)
+    setTransition(null)
   }, [signature])
+
+  useEffect(() => () => {
+    if (transitionTimerRef.current) window.clearTimeout(transitionTimerRef.current)
+  }, [])
 
   if (!slides.length) return null
 
   const safeIndex = Math.min(activeIndex, slides.length - 1)
   const activeItem = slides[safeIndex]
-  const heroBackdropUrl = activeItem.backdropUrl || null
 
-  function selectHero(index) {
-    if (index < 0 || index >= slides.length) return
+  function selectHero(index, direction = null) {
+    if (index < 0 || index >= slides.length || index === safeIndex) return
+
+    const resolvedDirection = direction || (index > safeIndex ? 'left' : 'right')
+    setTransition({ fromIndex: safeIndex, toIndex: index, direction: resolvedDirection })
     setActiveIndex(index)
+
+    if (transitionTimerRef.current) window.clearTimeout(transitionTimerRef.current)
+    transitionTimerRef.current = window.setTimeout(() => {
+      setTransition(null)
+      transitionTimerRef.current = null
+    }, HERO_TRANSITION_MS)
   }
 
   function stepHero(direction) {
-    const nextIndex = Math.max(0, Math.min(slides.length - 1, safeIndex + direction))
-    if (nextIndex !== safeIndex) selectHero(nextIndex)
+    let nextIndex = safeIndex
+
+    if (direction > 0) {
+      nextIndex = safeIndex === slides.length - 1 ? 0 : safeIndex + 1
+    } else if (safeIndex > 0) {
+      nextIndex = safeIndex - 1
+    }
+
+    if (nextIndex !== safeIndex) {
+      selectHero(nextIndex, direction > 0 ? 'left' : 'right')
+    }
   }
 
   function handleCarouselKeyDown(event) {
-    if (event.target.closest?.('.hero-dot')) return
+    if (event.target !== event.currentTarget) return
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
 
     event.preventDefault()
     event.stopPropagation()
     stepHero(event.key === 'ArrowRight' ? 1 : -1)
-  }
-
-  function handleDotKeyDown(event, index) {
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
-    event.preventDefault()
-    event.stopPropagation()
-
-    const direction = event.key === 'ArrowRight' ? 1 : -1
-    const nextIndex = Math.max(0, Math.min(slides.length - 1, index + direction))
-    if (nextIndex === index) return
-
-    selectHero(nextIndex)
-    const dots = event.currentTarget.parentElement?.querySelectorAll('.hero-dot')
-    dots?.[nextIndex]?.focus({ preventScroll: true })
   }
 
   function handleTouchStart(event) {
@@ -82,6 +93,54 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
     stepHero(deltaX < 0 ? 1 : -1)
   }
 
+  function renderHeroPanel(entry, interactive, className = '') {
+    const heroBackdropUrl = entry.backdropUrl || null
+
+    return (
+      <div
+        key={`${entry.id}-${interactive ? 'active' : 'outgoing'}`}
+        className={`hero hero-slide ${className}`.trim()}
+        style={{ '--poster-accent': entry.accent, '--poster-accent-2': entry.accent2 }}
+        aria-hidden={interactive ? undefined : true}
+      >
+        <div className="hero-copy">
+          <p className="eyebrow">{eyebrow}</p>
+          <h1>{entry.title}</h1>
+          <div className="hero-meta">
+            <strong>{entry.score}</strong>
+            <span>{entry.year || '–'}</span>
+            <span>{entry.meta}</span>
+          </div>
+          <p className="hero-description">{entry.description || 'Für diesen Titel liegt noch keine deutsche Beschreibung vor.'}</p>
+          <div className="hero-actions">
+            {interactive ? (
+              <>
+                <button type="button" className="action-button action-button-primary" onClick={() => onOpen(entry)} data-focusable="true">
+                  ▶ Ansehen
+                </button>
+                <button type="button" className="action-button action-button-secondary" onClick={() => onOpen(entry)} data-focusable="true">
+                  ⓘ Details
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="action-button action-button-primary hero-action-ghost">▶ Ansehen</span>
+                <span className="action-button action-button-secondary hero-action-ghost">ⓘ Details</span>
+              </>
+            )}
+          </div>
+        </div>
+        <div className={heroBackdropUrl ? 'hero-art has-image' : 'hero-art'} aria-hidden="true">
+          {heroBackdropUrl && <img className="hero-art-image" src={heroBackdropUrl} alt="" />}
+        </div>
+      </div>
+    )
+  }
+
+  const stageClassName = transition
+    ? `hero-stage is-transitioning direction-${transition.direction}`
+    : 'hero-stage'
+
   return (
     <section
       className="hero-carousel"
@@ -94,28 +153,9 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
       onTouchEnd={handleTouchEnd}
       onTouchCancel={() => { touchStartRef.current = null }}
     >
-      <div className="hero" style={{ '--poster-accent': activeItem.accent, '--poster-accent-2': activeItem.accent2 }}>
-        <div className="hero-copy">
-          <p className="eyebrow">{eyebrow}</p>
-          <h1>{activeItem.title}</h1>
-          <div className="hero-meta">
-            <strong>{activeItem.score}</strong>
-            <span>{activeItem.year || '–'}</span>
-            <span>{activeItem.meta}</span>
-          </div>
-          <p className="hero-description">{activeItem.description || 'Für diesen Titel liegt noch keine deutsche Beschreibung vor.'}</p>
-          <div className="hero-actions">
-            <button type="button" className="action-button action-button-primary" onClick={() => onOpen(activeItem)} data-focusable="true">
-              ▶ Ansehen
-            </button>
-            <button type="button" className="action-button action-button-secondary" onClick={() => onOpen(activeItem)} data-focusable="true">
-              ⓘ Details
-            </button>
-          </div>
-        </div>
-        <div className={heroBackdropUrl ? 'hero-art has-image' : 'hero-art'} aria-hidden="true">
-          {heroBackdropUrl && <img className="hero-art-image" src={heroBackdropUrl} alt="" />}
-        </div>
+      <div className={stageClassName}>
+        {transition && renderHeroPanel(slides[transition.fromIndex], false, 'hero-slide-outgoing')}
+        {renderHeroPanel(activeItem, true, transition ? 'hero-slide-incoming' : 'hero-slide-current')}
       </div>
 
       {slides.length > 1 && (
@@ -128,10 +168,8 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
               aria-label={`Hero ${index + 1}: ${slide.title}`}
               aria-selected={index === safeIndex}
               role="tab"
-              data-focusable="true"
+              tabIndex={-1}
               onClick={() => selectHero(index)}
-              onFocus={() => selectHero(index)}
-              onKeyDown={(event) => handleDotKeyDown(event, index)}
             />
           ))}
         </div>
