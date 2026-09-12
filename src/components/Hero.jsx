@@ -22,6 +22,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
   const [transition, setTransition] = useState(null)
   const touchStartRef = useRef(null)
   const transitionTimerRef = useRef(null)
+  const viewportRef = useRef(null)
 
   useEffect(() => {
     setActiveIndex(0)
@@ -31,6 +32,29 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
   useEffect(() => () => {
     if (transitionTimerRef.current) window.clearTimeout(transitionTimerRef.current)
   }, [])
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return undefined
+
+    function blockNativeHorizontalPan(event) {
+      const start = touchStartRef.current
+      const touch = event.touches?.[0]
+      if (!start || !touch) return
+
+      const deltaX = touch.clientX - start.x
+      const deltaY = touch.clientY - start.y
+      const horizontalDistance = Math.abs(deltaX)
+      const verticalDistance = Math.abs(deltaY)
+
+      if (horizontalDistance > 8 && horizontalDistance > verticalDistance * 1.05 && event.cancelable) {
+        event.preventDefault()
+      }
+    }
+
+    viewport.addEventListener('touchmove', blockNativeHorizontalPan, { passive: false })
+    return () => viewport.removeEventListener('touchmove', blockNativeHorizontalPan)
+  }, [signature])
 
   if (!slides.length) return null
 
@@ -92,6 +116,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
     const verticalDistance = Math.abs(deltaY)
 
     if (horizontalDistance < SWIPE_MIN_DISTANCE || horizontalDistance <= verticalDistance * 1.15) return
+    if (event.cancelable) event.preventDefault()
     stepHero(deltaX < 0 ? 1 : -1)
   }
 
@@ -154,13 +179,14 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
     >
       <p className="eyebrow hero-carousel-eyebrow">{eyebrow}</p>
 
-      <div className="hero-viewport">
-        <div
-          className={stageClassName}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          onTouchCancel={() => { touchStartRef.current = null }}
-        >
+      <div
+        ref={viewportRef}
+        className="hero-viewport"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => { touchStartRef.current = null }}
+      >
+        <div className={stageClassName}>
           {transition && renderHeroPanel(slides[transition.fromIndex], false, 'hero-slide-outgoing')}
           {renderHeroPanel(activeItem, true, transition ? 'hero-slide-incoming' : 'hero-slide-current')}
         </div>

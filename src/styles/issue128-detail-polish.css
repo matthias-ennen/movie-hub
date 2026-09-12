@@ -38,3 +38,12 @@
 .personal-action.watched.active > span:first-child {
   color: currentColor;
 }
+
+.detail-age-rating {
+  flex: 0 0 auto;
+  min-width: 1.65rem;
+  height: 1.65rem;
+  padding: 0 0.28rem;
+  font-size: 0.98rem;
+  box-shadow: none;
+}
