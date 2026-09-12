@@ -1,5 +1,7 @@
-import { collection, deleteDoc, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore'
 import { firebaseReady } from '../lib/firebase.js'
+import { buildSharedMediaTitleRef } from './sharedMediaCatalogModel.js'
+import { setSharedMediaCatalogPresence } from './sharedMediaCatalogRuntime.js'
 import { normaliseMedia, titleMediaKey } from './sharedMediaModel.js'
 
 export const SHARED_MEDIA_CHANGED_EVENT = 'moviehub:shared-media-changed'
@@ -17,7 +19,11 @@ function notifySharedMediaChanged(userId, item, hasMedia) {
 
 export async function loadSharedMedia(userId, item) {
   const { db } = await firebaseReady
-  const snapshot = await getDocs(collection(db, 'users', userId, 'sharedMedia', titleMediaKey(item), 'entries'))
+  const parentRef = doc(db, 'users', userId, 'sharedMedia', titleMediaKey(item))
+  const [snapshot, parentSnapshot] = await Promise.all([
+    getDocs(collection(parentRef, 'entries')),
+    getDoc(parentRef),
+  ])
   const entries = []
   const migrations = []
 
@@ -44,6 +50,24 @@ export async function loadSharedMedia(userId, item) {
 
   // A failed background migration must not make otherwise valid media vanish.
   await Promise.allSettled(migrations)
+  if (entries.length && (
+    !parentSnapshot.exists()
+    || parentSnapshot.data()?.hasMedia !== true
+    || !parentSnapshot.data()?.titleRef
+  )) {
+    await setDoc(parentRef, {
+      hasMedia: true,
+      titleRef: buildSharedMediaTitleRef(item),
+      updatedAt: serverTimestamp(),
+    }, { merge: true }).catch((error) => {
+      console.warn('Movie-Hub-Katalogeintrag konnte nicht nachgezogen werden.', error)
+    })
+  } else if (!entries.length && parentSnapshot.exists()) {
+    await deleteDoc(parentRef).catch((error) => {
+      console.warn('Leerer Movie-Hub-Katalogeintrag konnte nicht bereinigt werden.', error)
+    })
+  }
+  setSharedMediaCatalogPresence(userId, item, entries.length > 0)
   return entries.sort((a, b) => a.label.localeCompare(b.label, 'de'))
 }
 
@@ -53,7 +77,8 @@ export async function saveSharedMedia(userId, item, entry) {
   const entryCollection = collection(db, 'users', userId, 'sharedMedia', titleMediaKey(item), 'entries')
   const entryRef = normalized.id ? doc(entryCollection, normalized.id) : doc(entryCollection)
   const id = entryRef.id
-  await setDoc(entryRef, {
+  const batch = writeBatch(db)
+  batch.set(entryRef, {
     label: normalized.label,
     url: normalized.url,
     type: normalized.type,
@@ -65,13 +90,43 @@ export async function saveSharedMedia(userId, item, entry) {
     },
     updatedAt: serverTimestamp(),
   }, { merge: true })
+  batch.set(doc(db, 'users', userId, 'sharedMedia', titleMediaKey(item)), {
+    hasMedia: true,
+    titleRef: buildSharedMediaTitleRef(item),
+    updatedAt: serverTimestamp(),
+  }, { merge: true })
+  await batch.commit()
+  setSharedMediaCatalogPresence(userId, item, true)
   notifySharedMediaChanged(userId, item, true)
   return id
 }
 
 export async function removeSharedMedia(userId, item, id) {
   const { db } = await firebaseReady
-  await deleteDoc(doc(db, 'users', userId, 'sharedMedia', titleMediaKey(item), 'entries', id))
-  // null means: re-check the title, because there may still be another own link/video.
-  notifySharedMediaChanged(userId, item, null)
+  const parentRef = doc(db, 'users', userId, 'sharedMedia', titleMediaKey(item))
+  const entryCollection = collection(parentRef, 'entries')
+  const remaining = await getDocs(entryCollection)
+  const hasMedia = remaining.docs.some((entry) => {
+    if (entry.id === id) return false
+    try {
+      normaliseMedia({ id: entry.id, ...entry.data() })
+      return true
+    } catch {
+      return false
+    }
+  })
+  const batch = writeBatch(db)
+  batch.delete(doc(entryCollection, id))
+  if (hasMedia) {
+    batch.set(parentRef, {
+      hasMedia: true,
+      titleRef: buildSharedMediaTitleRef(item),
+      updatedAt: serverTimestamp(),
+    }, { merge: true })
+  } else {
+    batch.delete(parentRef)
+  }
+  await batch.commit()
+  setSharedMediaCatalogPresence(userId, item, hasMedia)
+  notifySharedMediaChanged(userId, item, hasMedia)
 }

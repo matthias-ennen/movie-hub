@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSharedMediaPresence } from '../library/sharedMediaPresence.js'
+import { useProviderSelection } from '../settings/useProviderSelection.js'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import ProviderBadges from './ProviderBadges.jsx'
 
@@ -8,24 +9,23 @@ export default function PosterCard({ item, onOpen }) {
   const [nearViewport, setNearViewport] = useState(false)
   const posterUrl = item.neutralPosterUrl || item.posterUrl || null
   const hasPoster = Boolean(posterUrl)
-  const hasMovieHub = useSharedMediaPresence(item, nearViewport)
+  const { isProviderEnabled } = useProviderSelection()
+  const movieHubEnabled = isProviderEnabled('moviehub')
+  const hasMovieHub = useSharedMediaPresence(item, nearViewport && movieHubEnabled)
   const providerIds = Array.isArray(item.providerIds) ? item.providerIds : []
 
   useEffect(() => {
     const card = cardRef.current
     if (!card) return undefined
-
     if (typeof IntersectionObserver === 'undefined') {
       setNearViewport(true)
       return undefined
     }
-
     const observer = new IntersectionObserver((entries) => {
       if (!entries.some((entry) => entry.isIntersecting)) return
       setNearViewport(true)
       observer.disconnect()
     }, { rootMargin: '600px 800px' })
-
     observer.observe(card)
     return () => observer.disconnect()
   }, [])

@@ -9,7 +9,27 @@ import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDe
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import PosterCard from './PosterCard.jsx'
 
-export default function SearchView({ publicTitles, personalTitles, fullTitles, onOpen }) {
+function mergePublicEntries(...sources) {
+  const entries = new Map()
+  for (const source of sources) {
+    for (const item of Array.isArray(source) ? source : []) {
+      if (!item?.id) continue
+      const current = entries.get(item.id)
+      entries.set(item.id, current
+        ? {
+            ...current,
+            ...item,
+            scope: 'public',
+            providerIds: [...new Set([...(current.providerIds || []), ...(item.providerIds || [])])],
+            providerOffers: [...(current.providerOffers || []), ...(item.providerOffers || [])],
+          }
+        : { ...item, scope: 'public' })
+    }
+  }
+  return [...entries.values()]
+}
+
+export default function SearchView({ publicTitles, personalTitles, movieHubTitles = [], fullTitles, onOpen }) {
   const [query, setQuery] = useState('')
   const [remoteEntries, setRemoteEntries] = useState(null)
   const [indexLoading, setIndexLoading] = useState(true)
@@ -51,9 +71,16 @@ export default function SearchView({ publicTitles, personalTitles, fullTitles, o
     () => buildSearchIndexEntries(personalTitles, { scope: 'personal' }),
     [personalTitles],
   )
+  const movieHubEntries = useMemo(
+    () => buildSearchIndexEntries(movieHubTitles, { scope: 'public' }),
+    [movieHubTitles],
+  )
   const entries = useMemo(
-    () => mergeSearchIndexEntries(publicEntries, personalEntries),
-    [publicEntries, personalEntries],
+    () => mergeSearchIndexEntries(
+      mergePublicEntries(publicEntries, movieHubEntries),
+      personalEntries,
+    ),
+    [publicEntries, movieHubEntries, personalEntries],
   )
   const fullById = useMemo(
     () => new Map((Array.isArray(fullTitles) ? fullTitles : []).map((title) => [title.id, title])),

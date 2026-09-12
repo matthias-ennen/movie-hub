@@ -1,5 +1,18 @@
 export const PROVIDER_REGISTRY = [
   {
+    id: 'moviehub',
+    label: 'Movie Hub',
+    short: 'MH',
+    source: 'moviehub',
+    defaultEnabled: true,
+    aliases: [],
+    description: 'Dein virtueller Anbieter für persönliche Links und Videos.',
+    homeTitle: 'Bei Movie Hub verfügbar',
+    movieTitle: 'Filme bei Movie Hub',
+    seriesTitle: 'Serien bei Movie Hub',
+    searchUrl: null,
+  },
+  {
     id: 'netflix',
     label: 'Netflix',
     short: 'N',

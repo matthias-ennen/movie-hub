@@ -66,3 +66,19 @@ Selbst konfigurierte Reihen unter **Meine Inhalte** werden als Smart-Reihen mode
 Die Treffermenge wird aus dem aktuellen öffentlichen Movie-Hub-Katalog berechnet. Der Katalogjob normalisiert Besetzung, Regie/Serienschöpfer, Keywords, Film-Collections und Jahrzehnte zu kompakten Facetten. Dadurch aktualisieren sich die Reihen automatisch, ohne dass TMDB-Zugangsdaten in die Web-App gelangen.
 
 Version 1 verwendet genau einen Filterwert je Reihe. Komplexe UND-/ODER-Regeln und Smart-Reihen außerhalb von **Meine Inhalte** bleiben späteren Paketen vorbehalten.
+
+## ADR-009 – Movie Hub als virtueller interner Anbieter
+
+Status: entschieden
+
+Eigene Links und Videos bleiben technisch und fachlich von automatischen TMDB-/JustWatch-Anbietern getrennt, bilden in der Oberfläche aber einen vollständigen internen Anbieter **Movie Hub**. Ein automatisch gepflegtes kontoweites Shared-Media-Manifest bestimmt seine Katalogmitgliedschaft. Movie Hub steht in der Anbieterwahl zuerst, ist nach einer versionierten Migration standardmäßig aktiv und kann als reiner Sichtbarkeitsfilter ausgeschaltet werden.
+
+Das Manifest enthält nur eine kompakte Titelreferenz und keine Medien-URL oder SMB-Zugangsdaten. Ein öffentlicher oder profilbezogener Nutzerkatalog wird nicht erzeugt.
+
+## ADR-010 – Deterministische profilbezogene Inhaltskuratierung
+
+Status: entschieden
+
+Flexible Posterreihen und Heroes werden clientseitig aus der jeweils vollständigen verfügbaren Kandidatenmenge kuratiert. Das Profil speichert nur Sortiermodus, Gesehen-Behandlung und optionales Wechselintervall. Die Berechnung ist ohne KI- oder Laufzeit-API reproduzierbar und innerhalb eines Tages beziehungsweise einer Woche stabil.
+
+Fachlich feste Reihen behalten ihre Bedeutung. Persönliche Listen behalten ihre persönliche Reihenfolge. Die koordinierte Hero-Auswahl reserviert bei ausreichender Kandidatenmenge unterschiedliche Starttitel für Home, Filme und Serien.

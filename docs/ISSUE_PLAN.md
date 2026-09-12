@@ -20,9 +20,14 @@ Aus #8 werden umsetzungsreife Punkte bei Bedarf in eigene Issues überführt, oh
 
 ## Aktiver Arbeitsstand
 
-#163 – profilbezogene Smart-Reihen ausschließlich unter **Meine Inhalte** – ist abgeschlossen.
+#163 – profilbezogene Smart-Reihen ausschließlich unter **Meine Inhalte** – ist abgeschlossen. Die technische Hero-first-Umsetzung aus #166/#168 und die Kaltstartkorrektur #169 sind integriert; #166 wartet noch auf die ausdrücklich getrennte manuelle Geräteabnahme.
 
-Als nächstes vorbereitet ist #166: Hero-first Rendering und progressive Posterreihen für schnellere Seitenwechsel auf Home, Filme, Serien und Meine Inhalte. Die Umsetzung beginnt erst nach ausdrücklicher fachlicher Freigabe. Danach ist #137 als Konzept-/UX-Arbeitspaket für gruppierte Sammlungen und eine mögliche Sammlungs-Detailseite vorgemerkt; aus der dortigen Produktentscheidung entstehen anschließend eigene Umsetzungs-Issues.
+Aktuell gemeinsam freigegeben sind:
+
+- #170 – Movie Hub als virtuellen, kontoweiten Anbieter-Katalog aus eigenen Links und Videos integrieren;
+- #171 – Heroes und flexible Posterreihen dynamisch sowie profilbezogen kuratieren.
+
+Danach ist #137 als Konzept-/UX-Arbeitspaket für gruppierte Sammlungen und eine mögliche Sammlungs-Detailseite vorgemerkt; aus der dortigen Produktentscheidung entstehen anschließend eigene Umsetzungs-Issues.
 
 Die früheren Phase-0-Arbeiten sind abgeschlossen; der folgende historische Abschnitt dokumentiert ihren damaligen Abschlussweg.
 

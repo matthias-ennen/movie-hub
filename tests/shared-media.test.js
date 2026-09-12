@@ -7,6 +7,11 @@ import {
   normalizeVideoUrl,
   titleMediaKey,
 } from '../src/library/sharedMediaModel.js'
+import {
+  buildSharedMediaTitleRef,
+  mergeSharedMediaCatalogTitles,
+  normalizeSharedMediaCatalogEntry,
+} from '../src/library/sharedMediaCatalogModel.js'
 
 describe('gemeinsame Movie-Hub-Medien', () => {
   it('uses a media-type-qualified key so movie and series ids cannot collide', () => {
@@ -99,5 +104,15 @@ describe('gemeinsame Movie-Hub-Medien', () => {
   it('requires a visible label', () => {
     expect(() => normaliseMedia({ label: ' ', url: 'https://example.com', type: 'web' }))
       .toThrow(/Bezeichnung/)
+  })
+
+  it('builds a deduplicated Movie-Hub provider title from the shared-media manifest', () => {
+    const item = { id: 'tmdb-movie-11', tmdbId: 11, type: 'movie', title: 'Testfilm', year: 2026 }
+    const titleRef = buildSharedMediaTitleRef(item)
+    const entry = normalizeSharedMediaCatalogEntry('movie-11', { hasMedia: true, titleRef })
+    const merged = mergeSharedMediaCatalogTitles([entry], [{ ...item, providerIds: ['netflix'] }])
+    expect(merged).toHaveLength(1)
+    expect(merged[0].providerIds).toEqual(['moviehub', 'netflix'])
+    expect(merged[0].movieHubCatalog).toBe(true)
   })
 })

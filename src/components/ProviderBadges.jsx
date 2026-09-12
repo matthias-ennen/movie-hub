@@ -3,20 +3,17 @@ import { providerDirectory, providers } from '../data/catalog.js'
 export function ProviderBadge({ providerId }) {
   const provider = providerDirectory[providerId]
   if (!provider) return null
+  const classId = providerId === 'moviehub' ? 'movie-hub' : providerId
 
   return (
-    <span className={`provider-badge provider-${providerId}`} title={provider.label}>
+    <span className={`provider-badge provider-${classId}`} title={provider.label}>
       {provider.short}
     </span>
   )
 }
 
 export function MovieHubBadge() {
-  return (
-    <span className="provider-badge provider-movie-hub" title="Movie Hub">
-      MH
-    </span>
-  )
+  return <ProviderBadge providerId="moviehub" />
 }
 
 export default function ProviderBadges({ providerIds, maxVisible = Number.POSITIVE_INFINITY, includeMovieHub = false }) {
@@ -24,6 +21,7 @@ export default function ProviderBadges({ providerIds, maxVisible = Number.POSITI
     ? Math.max(0, maxVisible - (includeMovieHub ? 1 : 0))
     : maxVisible
   const visibleProviderIds = providerIds
+    .filter((providerId) => providerId !== 'moviehub')
     .filter((providerId) => Boolean(providers[providerId]))
     .slice(0, automaticLimit)
 

@@ -50,3 +50,46 @@ export function selectPersonalHeroItems(rows, limit = HERO_LIMIT) {
   ))
   return selectHeroItems(items, { limit })
 }
+
+function identity(item) {
+  return `${item?.type === 'series' ? 'series' : 'movie'}:${item?.tmdbId ?? item?.id ?? ''}`
+}
+
+function fillHeroList(first, pool, limit) {
+  const result = []
+  const seen = new Set()
+  for (const item of [first, ...pool]) {
+    if (!item) continue
+    const key = identity(item)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    result.push(item)
+    if (result.length >= limit) break
+  }
+  return result
+}
+
+export function selectCoordinatedHeroItems(items, { limit = HERO_LIMIT } = {}) {
+  const safeLimit = Math.max(0, Number(limit) || 0)
+  const ranked = uniqueTitles(items)
+  const movies = ranked.filter((item) => item.type === 'movie')
+  const series = ranked.filter((item) => item.type === 'series')
+  const movieFirst = movies[0] || null
+  const seriesFirst = series[0] || null
+  const reservedFirstIds = new Set([movieFirst, seriesFirst].filter(Boolean).map(identity))
+  const homeFirst = ranked.find((item) => !reservedFirstIds.has(identity(item))) || ranked[0] || null
+
+  const homePool = []
+  if (homeFirst) {
+    const oppositeType = homeFirst.type === 'series' ? 'movie' : 'series'
+    const opposite = ranked.find((item) => item.type === oppositeType && identity(item) !== identity(homeFirst))
+    if (opposite) homePool.push(opposite)
+  }
+  homePool.push(...ranked)
+
+  return {
+    home: fillHeroList(homeFirst, homePool, safeLimit),
+    movies: fillHeroList(movieFirst, movies, safeLimit),
+    series: fillHeroList(seriesFirst, series, safeLimit),
+  }
+}

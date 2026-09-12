@@ -3,6 +3,7 @@ import { collection, doc, getDocs, serverTimestamp, setDoc } from 'firebase/fire
 import { LibraryProvider } from '../library/LibraryProvider.jsx'
 import { DEFAULT_CATEGORY_SETTINGS, normalizeCategorySettings } from '../catalog/categoryRows.js'
 import { normalizePersonalSmartRowSettings } from '../catalog/personalSmartRows.js'
+import { normalizeContentDisplaySettings } from '../catalog/contentDisplaySettings.js'
 import { firebaseReady } from '../lib/firebase.js'
 import { DEFAULT_THEME_SETTINGS, normalizeThemeSettings } from '../theme/themeConfig.js'
 
@@ -33,6 +34,7 @@ function normalizeProfile(snapshot) {
     themeSettings: normalizeThemeSettings(data.themeSettings),
     categorySettings: normalizeCategorySettings(data.categorySettings),
     contentRowSettings: normalizePersonalSmartRowSettings(data.contentRowSettings),
+    contentDisplaySettings: normalizeContentDisplaySettings(data.contentDisplaySettings),
   }
 }
 
@@ -77,6 +79,7 @@ export function ProfileProvider({ user, children }) {
             themeSettings: readLegacyThemeSettings(),
             categorySettings: normalizeCategorySettings(DEFAULT_CATEGORY_SETTINGS),
             contentRowSettings: normalizePersonalSmartRowSettings(),
+            contentDisplaySettings: normalizeContentDisplaySettings(),
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           })
@@ -129,6 +132,7 @@ export function ProfileProvider({ user, children }) {
     const themeSettings = normalizeThemeSettings(DEFAULT_THEME_SETTINGS)
     const categorySettings = normalizeCategorySettings(DEFAULT_CATEGORY_SETTINGS)
     const contentRowSettings = normalizePersonalSmartRowSettings()
+    const contentDisplaySettings = normalizeContentDisplaySettings()
 
     await setDoc(profileRef, {
       displayName,
@@ -136,11 +140,12 @@ export function ProfileProvider({ user, children }) {
       themeSettings,
       categorySettings,
       contentRowSettings,
+      contentDisplaySettings,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })
 
-    const newProfile = { id: profileRef.id, displayName, role: 'member', themeSettings, categorySettings, contentRowSettings }
+    const newProfile = { id: profileRef.id, displayName, role: 'member', themeSettings, categorySettings, contentRowSettings, contentDisplaySettings }
     setProfiles((current) => sortProfiles([...current, newProfile]))
     setActiveProfileId(profileRef.id)
     persistActiveProfile(user.uid, profileRef.id)
@@ -208,6 +213,21 @@ export function ProfileProvider({ user, children }) {
     )))
   }, [activeProfileId, user.uid])
 
+  const updateActiveProfileContentDisplaySettings = useCallback(async (contentDisplaySettings) => {
+    if (!activeProfileId) return
+    const normalized = normalizeContentDisplaySettings(contentDisplaySettings)
+    const { db } = await firebaseReady
+
+    await setDoc(doc(db, 'users', user.uid, 'profiles', activeProfileId), {
+      contentDisplaySettings: normalized,
+      updatedAt: serverTimestamp(),
+    }, { merge: true })
+
+    setProfiles((current) => current.map((profile) => (
+      profile.id === activeProfileId ? { ...profile, contentDisplaySettings: normalized } : profile
+    )))
+  }, [activeProfileId, user.uid])
+
   const value = useMemo(() => ({
     profiles,
     activeProfile,
@@ -219,7 +239,8 @@ export function ProfileProvider({ user, children }) {
     updateActiveProfileThemeSettings,
     updateActiveProfileCategorySettings,
     updateActiveProfileContentRowSettings,
-  }), [profiles, activeProfile, loading, error, selectProfile, createProfile, renameProfile, updateActiveProfileThemeSettings, updateActiveProfileCategorySettings, updateActiveProfileContentRowSettings])
+    updateActiveProfileContentDisplaySettings,
+  }), [profiles, activeProfile, loading, error, selectProfile, createProfile, renameProfile, updateActiveProfileThemeSettings, updateActiveProfileCategorySettings, updateActiveProfileContentRowSettings, updateActiveProfileContentDisplaySettings])
 
   return (
     <ProfileContext.Provider value={value}>

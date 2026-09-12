@@ -1,6 +1,6 @@
 # Movie Hub – Anbieterkataloge
 
-Stand: 10. September 2026
+Stand: 12. September 2026
 
 ## Ziel
 
@@ -37,6 +37,17 @@ Produktentscheidung:
 - Live-TV / EPG ist ausdrücklich nicht Bestandteil dieses Pakets
 
 Die Anbieterkataloge werden nicht unter `users/{uid}` in Firestore dupliziert. Sie werden vom bestehenden vertrauenswürdigen CI-/TMDB-Job erzeugt und zusammen mit dem öffentlichen Movie-Hub-Katalog ausgeliefert.
+
+## Virtueller Anbieter Movie Hub
+
+Movie Hub steht in der kontoweiten Anbieterauswahl an erster Stelle und ist standardmäßig aktiviert. Im Unterschied zu den öffentlichen Drittanbietern entsteht sein Katalog ausschließlich aus den eigenen Links und Videos des Kontos:
+
+```text
+users/{uid}/sharedMedia/{type-tmdbId}
+users/{uid}/sharedMedia/{type-tmdbId}/entries/{entryId}
+```
+
+Der übergeordnete Datensatz ist ein automatisch gepflegtes Manifest. Mindestens ein gültiger Eintrag bedeutet Katalogmitgliedschaft; das Löschen des letzten Eintrags entfernt sie. Filme und Serien werden über Medientyp + TMDB-ID dedupliziert. Die App baut daraus **Bei Movie Hub verfügbar**, **Filme bei Movie Hub** und **Serien bei Movie Hub**. Diese persönlichen Daten werden niemals in den öffentlichen Katalog geschrieben.
 
 ## Angebotsarten: Browse-Katalog und Suche sind getrennt
 
@@ -100,12 +111,13 @@ Kann der öffentliche Katalog vorübergehend nicht geladen werden, werden deshal
 
 Reihenfolge:
 
-1. persönliche Movie-Hub-Reihen
-2. persönlicher TMDB-Katalog
-3. Anbieterreihen
-4. allgemeine Entdeckungsreihen
+1. Movie-Hub-Anbieterreihe, sofern eigene Inhalte vorhanden und der Anbieter aktiv ist
+2. öffentliche Anbieterreihen
+3. allgemeine Entdeckungsreihen
+4. persönliche Movie-Hub-Reihen
+5. persönlicher TMDB-Katalog
 
-Die Anbieterreihen enthalten je bis zu 20 Filme und Serien gemischt und verwenden kurze redaktionelle Titel, beispielsweise:
+Die öffentlichen Anbieterreihen kuratieren je bis zu 20 Filme und Serien aus ihrem vollständigen verfügbaren Kandidatenpool und verwenden kurze redaktionelle Titel, beispielsweise:
 
 - Beliebt auf Netflix
 - Highlights bei Prime Video
@@ -121,17 +133,21 @@ Der Hauptreiter **Filme** zeigt getrennte Anbieterreihen, beispielsweise „Film
 
 Der Hauptreiter **Serien** funktioniert entsprechend mit getrennten Serienreihen. Filme und Serien werden dort ausdrücklich nicht gemischt.
 
-Titel, die keinem der öffentlichen Anbieter-Kataloge zugeordnet sind – beispielsweise ausschließlich persönliche TMDB-Titel – bleiben über eine zusätzliche Movie-Hub-Reihe erreichbar.
+Titel mit eigenen Links oder Videos erscheinen zuerst in **Filme bei Movie Hub** beziehungsweise **Serien bei Movie Hub**. Ausschließlich persönliche TMDB-Titel bleiben unabhängig davon in ihren persönlichen Reihen erreichbar.
 
 ### Suche und Details
 
 Die heutige Suche arbeitet noch über den zusammengeführten geladenen Titelbestand. Die spätere nahezu vollständige Suche wird in #114 als eigener skalierbarer Index umgesetzt. Dort sollen neben `flatrate/free/ads` auch `rent/buy` berücksichtigt und vollständige Detaildaten erst bei Bedarf geladen/gecached werden.
 
-Die Detailansicht bleibt fachlich unabhängig von der Katalogzugehörigkeit. Die automatischen Anbieterbuttons werden weiterhin aus den Verfügbarkeitsdaten des Titels bestimmt; eigene Links und Videos bleiben ausschließlich unter dem Movie-Hub-Button. Die Angebotsart wird technisch gespeichert, aber zunächst nicht als zusätzlicher Preis-/Kaufdialog vor den Providerstart geschaltet.
+Die Detailansicht bleibt fachlich unabhängig von der Katalogzugehörigkeit. Die automatischen Drittanbieterbuttons werden weiterhin aus den Verfügbarkeitsdaten des Titels bestimmt; eigene Links und Videos bleiben ausschließlich unter dem Movie-Hub-Button. Ist Movie Hub deaktiviert, wird dieser Wiedergabebutton ausgeblendet, während die Verwaltung der Einträge erhalten bleibt.
 
 ## Provider-Auswahl
 
-Die kontoweite Auswahl der sichtbaren Streaminganbieter ist ein separates Folge-Arbeitspaket #113. Der zentrale öffentliche Gesamtkatalog wird dafür nicht pro Nutzer neu erzeugt; die Nutzerwahl filtert den gemeinsamen Datenbestand.
+Die kontoweite Auswahl der sichtbaren Streaminganbieter stammt aus #113 und umfasst mit #170 zusätzlich Movie Hub. Der zentrale öffentliche Gesamtkatalog wird dafür nicht pro Nutzer neu erzeugt; die Nutzerwahl filtert den gemeinsamen Datenbestand und die private Movie-Hub-Katalogsicht.
+
+## Profilbezogene Kuratierung
+
+#171 trennt Kandidatenmenge und sichtbares Reihenlimit. Flexible Anbieter-, Kategorie-, Entdeckungs- und Smart-Reihen werden je Profil ausgewogen, nach Beliebtheit, Aktualität, belastbarer Bewertung oder stärkerer Entdeckungsvariation sortiert. Optional wechselt die Logik täglich oder wöchentlich. Die Berechnung ist innerhalb der Periode stabil und funktioniert ohne strukturelle Änderung weiter, wenn spätere Pakete den öffentlichen Datenbestand vergrößern.
 
 ## Firestore
 

@@ -1,118 +1,47 @@
-import { collection, getDocs, limit, query } from 'firebase/firestore'
+import { collection, doc, getDocs, limit, query, serverTimestamp, setDoc } from 'firebase/firestore'
 import { useEffect, useState } from 'react'
 import { firebaseReady } from '../lib/firebase.js'
-import { SHARED_MEDIA_CHANGED_EVENT } from './sharedMedia.js'
+import { buildSharedMediaTitleRef } from './sharedMediaCatalogModel.js'
+import { setSharedMediaCatalogPresence } from './sharedMediaCatalogRuntime.js'
 import { titleMediaKey } from './sharedMediaModel.js'
+import { useSharedMediaCatalog } from './useSharedMediaCatalog.js'
 
-const presenceCache = new Map()
-const pendingReads = new Map()
-const listenersByKey = new Map()
-
-function presenceKey(userId, item) {
-  return `${userId}:${titleMediaKey(item)}`
-}
-
-function publish(key, value) {
-  const normalized = Boolean(value)
-  presenceCache.set(key, normalized)
-  listenersByKey.get(key)?.forEach((listener) => listener(normalized))
-}
-
-async function readPresence(userId, item) {
-  const key = presenceKey(userId, item)
-  if (presenceCache.has(key)) return presenceCache.get(key)
-  if (pendingReads.has(key)) return pendingReads.get(key)
-
-  const pending = firebaseReady
-    .then(async ({ db }) => {
-      const entries = collection(db, 'users', userId, 'sharedMedia', titleMediaKey(item), 'entries')
-      const snapshot = await getDocs(query(entries, limit(1)))
-      const hasMedia = !snapshot.empty
-      publish(key, hasMedia)
-      return hasMedia
-    })
-    .catch((error) => {
-      console.warn('Movie-Hub-Badge konnte nicht geprüft werden.', error)
-      return false
-    })
-    .finally(() => pendingReads.delete(key))
-
-  pendingReads.set(key, pending)
-  return pending
-}
-
-export function setSharedMediaPresence(userId, item, hasMedia) {
-  if (!userId || !item) return
-  publish(presenceKey(userId, item), hasMedia)
-}
+const checkedLegacyPresence = new Set()
 
 export function useSharedMediaPresence(item, enabled = true) {
-  const [hasMedia, setHasMedia] = useState(false)
+  const { uid, loading, hasTitle } = useSharedMediaCatalog()
+  const catalogPresence = hasTitle(item)
+  const [legacyPresence, setLegacyPresence] = useState(false)
 
   useEffect(() => {
-    if (!enabled) {
-      setHasMedia(false)
-      return undefined
-    }
+    setLegacyPresence(false)
+    if (!enabled || loading || !uid || catalogPresence) return undefined
 
+    const key = `${uid}:${titleMediaKey(item)}`
+    if (checkedLegacyPresence.has(key)) return undefined
+    checkedLegacyPresence.add(key)
     let active = true
-    let unsubscribe = () => {}
 
     firebaseReady
-      .then(({ auth }) => {
-        if (!active) return
-        const userId = auth.currentUser?.uid
-        if (!userId) {
-          setHasMedia(false)
-          return
-        }
-
-        const titleKey = titleMediaKey(item)
-        const key = presenceKey(userId, item)
-        const listener = (value) => {
-          if (active) setHasMedia(Boolean(value))
-        }
-        const listeners = listenersByKey.get(key) || new Set()
-        listeners.add(listener)
-        listenersByKey.set(key, listeners)
-
-        const handleSharedMediaChanged = (event) => {
-          const detail = event?.detail
-          if (detail?.userId !== userId || detail?.titleKey !== titleKey) return
-
-          if (typeof detail.hasMedia === 'boolean') {
-            publish(key, detail.hasMedia)
-            return
-          }
-
-          // Deleting one entry needs a fresh existence check: another own
-          // link/video for the same title may still remain.
-          presenceCache.delete(key)
-          pendingReads.delete(key)
-          readPresence(userId, item).then(listener)
-        }
-        window.addEventListener(SHARED_MEDIA_CHANGED_EVENT, handleSharedMediaChanged)
-
-        unsubscribe = () => {
-          window.removeEventListener(SHARED_MEDIA_CHANGED_EVENT, handleSharedMediaChanged)
-          const current = listenersByKey.get(key)
-          current?.delete(listener)
-          if (current?.size === 0) listenersByKey.delete(key)
-        }
-
-        if (presenceCache.has(key)) {
-          listener(presenceCache.get(key))
-        } else {
-          readPresence(userId, item).then(listener)
-        }
+      .then(async ({ db }) => {
+        const parentRef = doc(db, 'users', uid, 'sharedMedia', titleMediaKey(item))
+        const snapshot = await getDocs(query(collection(parentRef, 'entries'), limit(1)))
+        if (snapshot.empty) return
+        await setDoc(parentRef, {
+          hasMedia: true,
+          titleRef: buildSharedMediaTitleRef(item),
+          updatedAt: serverTimestamp(),
+        }, { merge: true })
+        setSharedMediaCatalogPresence(uid, item, true)
+        if (active) setLegacyPresence(true)
       })
-      .catch((error) => console.warn('Movie-Hub-Badge konnte nicht initialisiert werden.', error))
+      .catch((error) => {
+        checkedLegacyPresence.delete(key)
+        console.warn('Älterer Movie-Hub-Katalogeintrag konnte nicht geprüft werden.', error)
+      })
 
-    return () => {
-      active = false
-      unsubscribe()
-    }
-  }, [enabled, item?.id, item?.tmdbId, item?.type])
+    return () => { active = false }
+  }, [enabled, loading, uid, catalogPresence, item?.id, item?.tmdbId, item?.type])
 
-  return hasMedia
+  return Boolean(enabled && (catalogPresence || legacyPresence))
 }

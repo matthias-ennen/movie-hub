@@ -5,6 +5,7 @@ import {
   normalizeCategorySettings,
 } from '../catalog/categoryRows.js'
 import PersonalRowsSettings from './PersonalRowsSettings.jsx'
+import ContentDisplaySettings from './ContentDisplaySettings.jsx'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import { useTheme } from '../theme/ThemeProvider.jsx'
 
@@ -233,6 +234,8 @@ export default function ProfileView({ user, onSignOut, publicTitles = [], smartF
       </section>
 
       <PersonalRowsSettings titles={publicTitles} filterOptions={smartFilterOptions} />
+
+      <ContentDisplaySettings />
 
       <section className="settings-panel" aria-labelledby="theme-heading">
         <div className="settings-heading">

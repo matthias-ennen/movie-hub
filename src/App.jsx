@@ -9,15 +9,21 @@ import SearchView from './components/SearchView.jsx'
 import SettingsView from './components/SettingsView.jsx'
 import { buildCategoryRows } from './catalog/categoryRows.js'
 import { buildPersonalSmartRows, normalizeSmartFilterOptions } from './catalog/personalSmartRows.js'
-import { buildProviderBrowseRows } from './catalog/providerCatalogRows.js'
-import { selectHeroItems, selectHomeHeroItems, selectPersonalHeroItems } from './catalog/heroSelection.js'
+import { buildProviderBrowseRows, buildProviderHomeRows } from './catalog/providerCatalogRows.js'
+import { selectCoordinatedHeroItems, selectPersonalHeroItems } from './catalog/heroSelection.js'
+import { buildMovieHubCatalogRows } from './catalog/movieHubCatalog.js'
+import { curateCatalogRows, curateTitles, hasEnabledAvailability, PUBLIC_POSTER_ROW_LIMIT } from './catalog/contentCuration.js'
+import { getContentPeriodKey, normalizeContentDisplaySettings, resolveContentSortMode } from './catalog/contentDisplaySettings.js'
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
 import { useHeroFirstPage } from './hooks/useHeroFirstPage.js'
+import { useCurationClock } from './hooks/useCurationClock.js'
 import { useProviderSelection } from './settings/useProviderSelection.js'
 import { useLibrary } from './library/LibraryProvider.jsx'
 import { buildPersonalRows, mergeCatalogWithPersonalSnapshots } from './library/personalRows.js'
+import { useSharedMediaCatalog } from './library/useSharedMediaCatalog.js'
+import { mergeSharedMediaCatalogTitles, mergeTitlesWithSharedMediaCatalog } from './library/sharedMediaCatalogModel.js'
 import { firebaseReady } from './lib/firebase.js'
 import { preloadHeroImage } from './performance/progressiveRendering.js'
 import { notifyNativeStartupReady } from './performance/nativeStartup.js'
@@ -325,6 +331,8 @@ function MovieHub({ user }) {
   const { getTitleState, statesByKey, loading: libraryLoading, error: libraryError } = useLibrary()
   const { personalTitles: tmdbPersonalTitles } = useTmdbCatalog()
   const { enabledProviderIds } = useProviderSelection()
+  const { entries: sharedMediaCatalogEntries, hasTitle: hasMovieHubTitle } = useSharedMediaCatalog()
+  const curationDayKey = useCurationClock()
   const [currentView, setCurrentView] = useState('home')
   const [selectedTitle, setSelectedTitle] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -374,11 +382,31 @@ function MovieHub({ user }) {
   }, [])
 
   const publicTitles = catalog.titles.length ? catalog.titles : fallbackTitles
-  const titles = useMemo(
+  const baseTitles = useMemo(
     () => mergePublicAndPersonalCatalog(publicTitles, tmdbPersonalTitles),
     [publicTitles, tmdbPersonalTitles],
   )
+  const movieHubTitles = useMemo(
+    () => mergeSharedMediaCatalogTitles(sharedMediaCatalogEntries, baseTitles),
+    [sharedMediaCatalogEntries, baseTitles],
+  )
+  const titles = useMemo(
+    () => mergeTitlesWithSharedMediaCatalog(baseTitles, movieHubTitles),
+    [baseTitles, movieHubTitles],
+  )
   const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
+  const contentDisplaySettings = useMemo(
+    () => normalizeContentDisplaySettings(activeProfile?.contentDisplaySettings),
+    [activeProfile?.contentDisplaySettings],
+  )
+  const activeSortMode = useMemo(
+    () => resolveContentSortMode(contentDisplaySettings, activeProfile?.id, new Date()),
+    [contentDisplaySettings, activeProfile?.id, curationDayKey],
+  )
+  const curationPeriodKey = contentDisplaySettings.autoSwitch.enabled
+    ? getContentPeriodKey(contentDisplaySettings.autoSwitch.interval, new Date())
+    : 'manual'
+  const curationSeed = `${activeProfile?.id || 'profile'}:${curationPeriodKey}:${catalog.generatedAt || 'catalog'}`
 
   const handleViewChange = useCallback((nextView) => {
     setProfileOpen(false)
@@ -464,12 +492,16 @@ function MovieHub({ user }) {
     await signOut(auth)
   }
 
-  const rows = useMemo(
-    () => rowDefinitions.map((row) => ({
-      ...row,
-      items: row.ids.map((id) => titles.find((item) => item.id === id)).filter(Boolean),
-    })).filter((row) => row.items.length),
-    [rowDefinitions, titles],
+  const rawHomeRows = useMemo(
+    () => [
+      ...buildProviderHomeRows(catalog.providerCatalogs, titles),
+      ...rowDefinitions.filter((row) => !row.providerId).map((row) => ({
+        ...row,
+        displayLimit: Array.isArray(row.ids) ? row.ids.length : 0,
+        items: (Array.isArray(row.ids) ? row.ids : []).map((id) => titles.find((item) => item.id === id)).filter(Boolean),
+      })),
+    ].filter((row) => row.items.length),
+    [catalog.providerCatalogs, rowDefinitions, titles],
   )
   const personalRows = useMemo(
     () => buildPersonalRows(mergeCatalogWithPersonalSnapshots(titles, statesByKey), getTitleState),
@@ -477,61 +509,169 @@ function MovieHub({ user }) {
   )
   const tmdbRows = useMemo(() => buildTmdbCatalogRows(titles), [titles])
   const personalSmartRows = useMemo(
-    () => buildPersonalSmartRows(publicTitles, activeProfile?.contentRowSettings),
-    [publicTitles, activeProfile?.contentRowSettings],
+    () => buildPersonalSmartRows(
+      publicTitles,
+      activeProfile?.contentRowSettings,
+      undefined,
+      (items, row) => curateTitles(items, {
+        mode: activeSortMode,
+        seed: `${curationSeed}:smart:${row.id}`,
+      }),
+    ),
+    [publicTitles, activeProfile?.contentRowSettings, activeSortMode, curationSeed],
   )
   const combinedPersonalRows = useMemo(
     () => [...personalRows, ...tmdbRows, ...personalSmartRows],
     [personalRows, tmdbRows, personalSmartRows],
   )
-  const movies = useMemo(() => titles.filter((item) => item.type === 'movie'), [titles])
-  const series = useMemo(() => titles.filter((item) => item.type === 'series'), [titles])
-  const homeHeroes = useMemo(() => selectHomeHeroItems(publicTitles), [publicTitles])
-  const movieHeroes = useMemo(() => selectHeroItems(titles, { type: 'movie' }), [titles])
-  const seriesHeroes = useMemo(() => selectHeroItems(titles, { type: 'series' }), [titles])
+  const eligiblePublicTitles = useMemo(
+    () => titles.filter((item) => hasEnabledAvailability(item, enabledProviderIds, hasMovieHubTitle)),
+    [titles, enabledProviderIds, hasMovieHubTitle],
+  )
+  const curatedPublicTitles = useMemo(
+    () => curateTitles(eligiblePublicTitles, {
+      mode: activeSortMode,
+      seed: `${curationSeed}:heroes`,
+      watchedMode: contentDisplaySettings.watchedMode,
+      getTitleState,
+    }),
+    [eligiblePublicTitles, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey],
+  )
+  const coordinatedHeroes = useMemo(
+    () => selectCoordinatedHeroItems(curatedPublicTitles),
+    [curatedPublicTitles],
+  )
+  const homeHeroes = coordinatedHeroes.home
+  const movieHeroes = coordinatedHeroes.movies
+  const seriesHeroes = coordinatedHeroes.series
+  const movies = useMemo(() => curatedPublicTitles.filter((item) => item.type === 'movie'), [curatedPublicTitles])
+  const series = useMemo(() => curatedPublicTitles.filter((item) => item.type === 'series'), [curatedPublicTitles])
   const personalHeroes = useMemo(() => selectPersonalHeroItems(combinedPersonalRows), [combinedPersonalRows])
+  const curatedHomeRows = useMemo(
+    () => curateCatalogRows(
+      rawHomeRows.map((row) => ({
+        ...row,
+        items: row.items.filter((item) => hasEnabledAvailability(item, enabledProviderIds, hasMovieHubTitle)),
+      })),
+      {
+        mode: activeSortMode,
+        seed: `${curationSeed}:home`,
+        watchedMode: contentDisplaySettings.watchedMode,
+        getTitleState,
+      },
+    ),
+    [rawHomeRows, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle],
+  )
+  const curateMovieHubTitles = useCallback((items, seedSuffix) => curateTitles(items, {
+    mode: activeSortMode,
+    seed: `${curationSeed}:moviehub:${seedSuffix}`,
+    watchedMode: contentDisplaySettings.watchedMode,
+    getTitleState,
+    limit: PUBLIC_POSTER_ROW_LIMIT,
+  }), [activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey])
+  const curatedMovieHubHomeTitles = useMemo(
+    () => curateMovieHubTitles(movieHubTitles, 'home'),
+    [movieHubTitles, curateMovieHubTitles],
+  )
+  const curatedMovieHubMovieTitles = useMemo(
+    () => curateMovieHubTitles(movieHubTitles.filter((item) => item.type === 'movie'), 'movies'),
+    [movieHubTitles, curateMovieHubTitles],
+  )
+  const curatedMovieHubSeriesTitles = useMemo(
+    () => curateMovieHubTitles(movieHubTitles.filter((item) => item.type === 'series'), 'series'),
+    [movieHubTitles, curateMovieHubTitles],
+  )
+  const movieHubHomeRows = useMemo(
+    () => enabledProviderIds.includes('moviehub') ? buildMovieHubCatalogRows(curatedMovieHubHomeTitles) : [],
+    [curatedMovieHubHomeTitles, enabledProviderIds],
+  )
+  const movieHubMovieRows = useMemo(
+    () => enabledProviderIds.includes('moviehub') ? buildMovieHubCatalogRows(curatedMovieHubMovieTitles, 'movie') : [],
+    [curatedMovieHubMovieTitles, enabledProviderIds],
+  )
+  const movieHubSeriesRows = useMemo(
+    () => enabledProviderIds.includes('moviehub') ? buildMovieHubCatalogRows(curatedMovieHubSeriesTitles, 'series') : [],
+    [curatedMovieHubSeriesTitles, enabledProviderIds],
+  )
   const hasProviderCatalogs = Object.keys(catalog.providerCatalogs || {}).length > 0
   const providerMovieRows = useMemo(
-    () => hasProviderCatalogs ? buildProviderBrowseRows(catalog.providerCatalogs, titles, 'movie') : [],
-    [catalog.providerCatalogs, titles, hasProviderCatalogs],
+    () => hasProviderCatalogs ? curateCatalogRows(
+      buildProviderBrowseRows(catalog.providerCatalogs, titles, 'movie').map((row) => ({
+        ...row,
+        items: row.items.filter((item) => hasEnabledAvailability(item, enabledProviderIds, hasMovieHubTitle)),
+      })),
+      {
+        mode: activeSortMode,
+        seed: `${curationSeed}:provider-movies`,
+        watchedMode: contentDisplaySettings.watchedMode,
+        getTitleState,
+        limit: PUBLIC_POSTER_ROW_LIMIT,
+      },
+    ) : [],
+    [catalog.providerCatalogs, titles, hasProviderCatalogs, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle],
   )
   const providerSeriesRows = useMemo(
-    () => hasProviderCatalogs ? buildProviderBrowseRows(catalog.providerCatalogs, titles, 'series') : [],
-    [catalog.providerCatalogs, titles, hasProviderCatalogs],
+    () => hasProviderCatalogs ? curateCatalogRows(
+      buildProviderBrowseRows(catalog.providerCatalogs, titles, 'series').map((row) => ({
+        ...row,
+        items: row.items.filter((item) => hasEnabledAvailability(item, enabledProviderIds, hasMovieHubTitle)),
+      })),
+      {
+        mode: activeSortMode,
+        seed: `${curationSeed}:provider-series`,
+        watchedMode: contentDisplaySettings.watchedMode,
+        getTitleState,
+        limit: PUBLIC_POSTER_ROW_LIMIT,
+      },
+    ) : [],
+    [catalog.providerCatalogs, titles, hasProviderCatalogs, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle],
   )
   const movieCategoryRows = useMemo(
     () => buildCategoryRows({
-      titles: publicTitles,
+      titles,
       mediaType: 'movie',
       enabledCategoryIds: activeProfile?.categorySettings?.enabledMovieCategoryIds,
       enabledProviderIds,
+      sortItems: (items, category) => curateTitles(items, {
+        mode: activeSortMode,
+        seed: `${curationSeed}:category-movie:${category.id}`,
+        watchedMode: contentDisplaySettings.watchedMode,
+        getTitleState,
+      }),
     }),
-    [publicTitles, activeProfile?.categorySettings?.enabledMovieCategoryIds, enabledProviderIds],
+    [titles, activeProfile?.categorySettings?.enabledMovieCategoryIds, enabledProviderIds, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey],
   )
   const seriesCategoryRows = useMemo(
     () => buildCategoryRows({
-      titles: publicTitles,
+      titles,
       mediaType: 'series',
       enabledCategoryIds: activeProfile?.categorySettings?.enabledSeriesCategoryIds,
       enabledProviderIds,
+      sortItems: (items, category) => curateTitles(items, {
+        mode: activeSortMode,
+        seed: `${curationSeed}:category-series:${category.id}`,
+        watchedMode: contentDisplaySettings.watchedMode,
+        getTitleState,
+      }),
     }),
-    [publicTitles, activeProfile?.categorySettings?.enabledSeriesCategoryIds, enabledProviderIds],
+    [titles, activeProfile?.categorySettings?.enabledSeriesCategoryIds, enabledProviderIds, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey],
   )
   const movieBrowseRows = useMemo(
-    () => [...movieCategoryRows, ...providerMovieRows],
-    [movieCategoryRows, providerMovieRows],
+    () => [...movieCategoryRows, ...movieHubMovieRows, ...providerMovieRows],
+    [movieCategoryRows, movieHubMovieRows, providerMovieRows],
   )
   const seriesBrowseRows = useMemo(
-    () => [...seriesCategoryRows, ...providerSeriesRows],
-    [seriesCategoryRows, providerSeriesRows],
+    () => [...seriesCategoryRows, ...movieHubSeriesRows, ...providerSeriesRows],
+    [seriesCategoryRows, movieHubSeriesRows, providerSeriesRows],
   )
   const homeRows = useMemo(
     () => [
-      ...rows,
+      ...movieHubHomeRows,
+      ...curatedHomeRows,
       ...(!libraryLoading && !libraryError ? personalRows : []),
       ...tmdbRows,
     ],
-    [rows, libraryLoading, libraryError, personalRows, tmdbRows],
+    [movieHubHomeRows, curatedHomeRows, libraryLoading, libraryError, personalRows, tmdbRows],
   )
   const heroItemsByView = useMemo(() => ({
     home: homeHeroes,
@@ -606,6 +746,7 @@ function MovieHub({ user }) {
         <SearchView
           publicTitles={publicTitles}
           personalTitles={tmdbPersonalTitles}
+          movieHubTitles={movieHubTitles}
           fullTitles={titles}
           onOpen={handleOpenTitle}
         />

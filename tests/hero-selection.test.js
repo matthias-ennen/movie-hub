@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   HERO_LIMIT,
+  selectCoordinatedHeroItems,
   selectHeroItems,
   selectHomeHeroItems,
   selectPersonalHeroItems,
@@ -52,5 +53,15 @@ describe('Hero-Auswahl', () => {
 
   it('returns fewer than five heroes only when fewer real titles exist', () => {
     expect(selectHeroItems([title('one'), title('two')])).toHaveLength(2)
+  })
+
+  it('coordinates different first heroes across Home, movies and series', () => {
+    const heroes = selectCoordinatedHeroItems([
+      title('m1'), title('s1', 'series'), title('m2'), title('s2', 'series'), title('m3'), title('s3', 'series'),
+    ])
+    const firstIds = [heroes.home[0].id, heroes.movies[0].id, heroes.series[0].id]
+    expect(new Set(firstIds).size).toBe(3)
+    expect(heroes.home.some((item) => item.type === 'movie')).toBe(true)
+    expect(heroes.home.some((item) => item.type === 'series')).toBe(true)
   })
 })

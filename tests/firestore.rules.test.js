@@ -101,13 +101,19 @@ describe('Firestore Security Rules', () => {
 
   it('teilt gemeinsame Movie-Hub-Medien kontoweit statt profilbezogen', async () => {
     const db = testEnv.authenticatedContext('alice').firestore()
+    const catalogRef = doc(db, 'users', 'alice', 'sharedMedia', 'movie-11')
     const mediaRef = doc(db, 'users', 'alice', 'sharedMedia', 'movie-11', 'entries', 'trailer')
 
+    await assertSucceeds(setDoc(catalogRef, {
+      hasMedia: true,
+      titleRef: { id: 'tmdb-movie-11', tmdbId: 11, type: 'movie', title: 'Star Wars' },
+    }))
     await assertSucceeds(setDoc(mediaRef, {
       label: 'Deutscher Trailer',
       type: 'web',
       url: 'https://www.youtube.com/watch?v=test123',
     }))
+    expect((await assertSucceeds(getDoc(catalogRef))).data().hasMedia).toBe(true)
     expect((await assertSucceeds(getDoc(mediaRef))).data().label).toBe('Deutscher Trailer')
   })
 
@@ -170,9 +176,12 @@ describe('Firestore Security Rules', () => {
 
   it('verweigert Zugriff auf gemeinsamen TMDB-Katalog und Medien eines fremden Kontos', async () => {
     const db = testEnv.authenticatedContext('alice').firestore()
+    const foreignCatalogRef = doc(db, 'users', 'bob', 'sharedMedia', 'movie-11')
     const foreignMediaRef = doc(db, 'users', 'bob', 'sharedMedia', 'movie-11', 'entries', 'trailer')
     const foreignTmdbRef = doc(db, 'users', 'bob', 'tmdbCatalog', 'movie:11')
 
+    await assertFails(setDoc(foreignCatalogRef, { hasMedia: true }))
+    await assertFails(getDoc(foreignCatalogRef))
     await assertFails(setDoc(foreignMediaRef, { label: 'Fremd', type: 'web', url: 'https://example.com' }))
     await assertFails(getDoc(foreignMediaRef))
     await assertFails(getDoc(foreignTmdbRef))

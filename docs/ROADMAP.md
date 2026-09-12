@@ -144,20 +144,25 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - responsive und D-Pad-taugliche Darstellung
 - erste Version am 09.09.2026 abgenommen; spätere Überarbeitungen werden getrennt behandelt
 
-## Aktuell vorbereitetes Arbeitspaket – #166 Hero-first Rendering
+## Aktuelle Arbeitspakete – #170 und #171
 
-Nach Abschluss der persönlichen Smart-Reihen in #163 ist #166 als eigenständiges Performance-/UX-Paket vorbereitet.
+Die technische Hero-first-Grundlage aus #166/#168 und die Kaltstartkorrektur #169 sind integriert; die manuelle Geräteabnahme von #166 bleibt getrennt offen.
 
-Zielrichtung:
+#170 erweitert die vorhandenen eigenen Links und Videos zum virtuellen Anbieter-Katalog **Movie Hub**:
 
-- auf Home, Filme, Serien und Meine Inhalte zuerst den reservierten Hero-Bereich anzeigen
-- Hero-Bild gegenüber nachfolgenden Postern priorisieren
-- Posterreihen erst danach kontrolliert und schrittweise mounten
-- Offscreen-Karten und zugehörige Presence-/Firestore-Arbeit verzögern
-- Fokus- und D-Pad-Navigation beim progressiven Nachladen stabil halten
-- Wirkung auf Fire TV mit Vorher-/Nachher-Messwerten dokumentieren
+- erster, standardmäßig aktiver Eintrag in der kontoweiten Anbieterwahl;
+- automatisch abgeleiteter Katalog ohne zweiten manuellen Pflegeweg;
+- eigene Reihen auf Home, Filme und Serien;
+- gleiche Sichtbarkeitswirkung auf Badges, Detailbutton, Suche und Kategorien wie bei anderen aktivierten Anbietern;
+- keinerlei Löschung eigener Inhalte beim Ausschalten.
 
-Die Umsetzung beginnt erst nach ausdrücklicher fachlicher Freigabe. Inhalt, Sortierung und vorhandene Kategorie-/Reiheneinstellungen bleiben unverändert.
+#171 ergänzt darauf aufbauend:
+
+- koordinierte, täglich reproduzierbare Hero-Auswahl mit unterschiedlichen Starttiteln auf Home, Filme und Serien;
+- fünf profilbezogene Sortierlogiken für flexible Reihen;
+- optionaler täglicher oder wöchentlicher Wechsel;
+- profilbezogene Behandlung gesehener Titel;
+- Trennung von vollständiger Kandidatenmenge und sichtbarem Reihenlimit als Vorbereitung auf größere spätere Katalogbestände.
 
 ## Danach vorgemerkt – #137 Sammlungen
 

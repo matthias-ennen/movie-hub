@@ -110,6 +110,7 @@ export function buildCategoryRows({
   enabledProviderIds = [],
   minimumTitles = MIN_CATEGORY_ROW_TITLES,
   limit = CATEGORY_ROW_LIMIT,
+  sortItems = null,
 } = {}) {
   const options = mediaType === 'series' ? SERIES_CATEGORY_OPTIONS : MOVIE_CATEGORY_OPTIONS
   const activeIds = new Set(Array.isArray(enabledCategoryIds) ? enabledCategoryIds : [])
@@ -123,13 +124,16 @@ export function buildCategoryRows({
 
   return options
     .filter((category) => activeIds.has(category.id))
-    .map((category) => ({
-      id: `category-${mediaType}-${category.id}`,
-      title: category.title,
-      items: [...uniqueTitles.values()]
-        .filter((item) => matchesCategory(item, category))
-        .sort(compareCategoryTitles)
-        .slice(0, Math.max(0, limit)),
-    }))
+    .map((category) => {
+      const matches = [...uniqueTitles.values()].filter((item) => matchesCategory(item, category))
+      const ranked = typeof sortItems === 'function'
+        ? sortItems(matches, category)
+        : matches.sort(compareCategoryTitles)
+      return {
+        id: `category-${mediaType}-${category.id}`,
+        title: category.title,
+        items: ranked.slice(0, Math.max(0, limit)),
+      }
+    })
     .filter((row) => row.items.length >= minimumTitles)
 }
