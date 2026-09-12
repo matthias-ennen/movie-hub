@@ -20,7 +20,9 @@ Aus #8 werden umsetzungsreife Punkte bei Bedarf in eigene Issues überführt, oh
 
 ## Aktiver Arbeitsstand
 
-Das aktuelle Umsetzungs-Issue ist #163: profilbezogene Smart-Reihen ausschließlich unter **Meine Inhalte**. Es baut auf den mit #156 fertiggestellten und abgenommenen Film-/Serienkategorien auf, verwendet jedoch eine getrennte Filter- und Speicherlogik.
+#163 – profilbezogene Smart-Reihen ausschließlich unter **Meine Inhalte** – ist abgeschlossen.
+
+Als nächstes vorbereitet ist #166: Hero-first Rendering und progressive Posterreihen für schnellere Seitenwechsel auf Home, Filme, Serien und Meine Inhalte. Die Umsetzung beginnt erst nach ausdrücklicher fachlicher Freigabe. Danach ist #137 als Konzept-/UX-Arbeitspaket für gruppierte Sammlungen und eine mögliche Sammlungs-Detailseite vorgemerkt; aus der dortigen Produktentscheidung entstehen anschließend eigene Umsetzungs-Issues.
 
 Die früheren Phase-0-Arbeiten sind abgeschlossen; der folgende historische Abschnitt dokumentiert ihren damaligen Abschlussweg.
 
