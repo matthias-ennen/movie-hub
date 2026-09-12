@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTmdbImageUrl, normalizeTmdbTitle, normalizeTmdbVideos, normalizeTmdbWatchProviders, toMovieHubTitle } from '../src/services/tmdb.js'
+import { buildTmdbImageUrl, normalizeGermanAgeRating, normalizeTmdbTitle, normalizeTmdbVideos, normalizeTmdbWatchProviders, toMovieHubTitle } from '../src/services/tmdb.js'
 
 describe('TMDB adapter', () => {
   it('normalizes a movie payload without exposing authentication concerns to UI code', () => {
@@ -17,6 +17,12 @@ describe('TMDB adapter', () => {
       backdrop_path: '/backdrop.jpg',
       original_language: 'en',
       status: 'Released',
+      release_dates: {
+        results: [{
+          iso_3166_1: 'DE',
+          release_dates: [{ certification: '12', type: 3, release_date: '1978-02-10T00:00:00.000Z' }],
+        }],
+      },
       credits: {
         cast: [{ id: 1, name: 'Darsteller Eins', character: 'Figur', profile_path: '/person.jpg' }],
       },
@@ -32,6 +38,7 @@ describe('TMDB adapter', () => {
       runtimeMinutes: 121,
       genres: [{ id: 878, name: 'Science Fiction' }],
       voteAverage: 8.2,
+      ageRating: 12,
       cast: [{ id: 1, name: 'Darsteller Eins', character: 'Figur' }],
     })
     expect(normalized.posterUrl).toBe('https://image.tmdb.org/t/p/w500/poster.jpg')
@@ -50,6 +57,7 @@ describe('TMDB adapter', () => {
       number_of_episodes: 73,
       genres: [{ id: 18, name: 'Drama' }],
       vote_average: 8.5,
+      content_ratings: { results: [{ iso_3166_1: 'DE', rating: '16' }] },
     }, 'tv')
 
     expect(normalized).toMatchObject({
@@ -59,6 +67,7 @@ describe('TMDB adapter', () => {
       runtimeMinutes: 60,
       numberOfSeasons: 8,
       numberOfEpisodes: 73,
+      ageRating: 16,
     })
 
     const catalogItem = toMovieHubTitle(normalized, { id: 'got' })
@@ -68,8 +77,22 @@ describe('TMDB adapter', () => {
       meta: '8 Staffeln · 73 Folgen',
       genre: 'Drama',
       score: '8,5',
+      ageRating: 16,
       providerIds: [],
     })
+  })
+
+  it('prefers the German theatrical movie certification and ignores foreign ratings', () => {
+    expect(normalizeGermanAgeRating({
+      release_dates: { results: [
+        { iso_3166_1: 'US', release_dates: [{ certification: 'R', type: 3 }] },
+        { iso_3166_1: 'DE', release_dates: [
+          { certification: '16', type: 5 },
+          { certification: '12', type: 3 },
+        ] },
+      ] },
+    }, 'movie')).toBe(12)
+    expect(normalizeGermanAgeRating({ release_dates: { results: [{ iso_3166_1: 'US', release_dates: [] }] } }, 'movie')).toBeNull()
   })
 
   it('formats movie runtime for the UI catalog', () => {
