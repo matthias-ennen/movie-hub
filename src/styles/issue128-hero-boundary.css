@@ -46,7 +46,7 @@ body,
 /*
  * Der Viewport bleibt während des Hero-Wechsels konstant, damit Punkte und
  * Reihen darunter nicht springen. Auf Tablet/Smartphone bleibt er bewusst
- * großzügig; TV/Desktop bekommt weiter unten eine kompaktere feste Höhe.
+ * großzügig; TV/Desktop wird über eigene Querformat-Regeln kompakt gehalten.
  */
 .hero-viewport {
   position: relative;
@@ -178,12 +178,8 @@ body,
 }
 
 /*
- * Fire TV / Desktop: Der Text ist bereits auf zwei Titel- und wenige
- * Beschreibungszeilen begrenzt. Deshalb braucht der Hero hier nicht die
- * großzügige Mobilhöhe. 430 px lassen die Action-Buttons vollständig sichtbar,
- * rücken die Punktnavigation aber wieder dicht unter den eigentlichen Inhalt.
- * Das Hero-Bild wird passend auf 680 px begrenzt (16:10 = 425 px Höhe), damit
- * auch dessen Rundung innerhalb des kompakten Viewports vollständig bleibt.
+ * Große Desktop-Viewports: Der Text ist bereits auf zwei Titel- und wenige
+ * Beschreibungszeilen begrenzt. 430 px reichen inklusive Button-Sicherheitsraum.
  */
 @media (min-width: 1051px) {
   .hero-viewport {
@@ -214,6 +210,44 @@ body,
 
   .hero-carousel .hero {
     padding-bottom: 1.85rem;
+  }
+}
+
+/*
+ * Fire TV meldet auf 4K-Geräten wegen der WebView-Skalierung häufig nur etwa
+ * 960 CSS-Pixel Breite. Dadurch landete der Fernseher bisher fälschlich in der
+ * Tablet-Regel mit 560 px Hero-Höhe und erzeugte den großen Leerraum unter den
+ * Buttons. Querformat-Viewports ab 761 px bekommen deshalb eine eigene kompakte
+ * Regel. Die Höhe ist aus dem maximal sichtbaren Inhalt abgeleitet: 2 Titel-
+ * zeilen, Meta, 3 Beschreibungszeilen, Buttons und Sicherheitsabstand.
+ */
+@media (min-width: 761px) and (max-width: 1050px) and (min-aspect-ratio: 16 / 10) {
+  .hero-viewport {
+    height: 390px;
+    min-height: 390px;
+  }
+
+  .hero-carousel .hero {
+    padding-top: 0.75rem;
+    padding-bottom: 1rem;
+  }
+
+  .hero-carousel .hero-copy {
+    padding-top: 1rem;
+  }
+
+  .hero-carousel .hero-description {
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    margin: 0.75rem 0 0.85rem;
+  }
+
+  .hero-carousel .hero-art {
+    max-width: 600px;
+  }
+
+  .hero-dots {
+    padding: 0.5rem 0 0.8rem;
   }
 }
 
