@@ -14,6 +14,7 @@ export const PROVIDER_OPTIONS = PROVIDER_REGISTRY.map((provider) => ({
 
 export const DEFAULT_ENABLED_PROVIDER_IDS = [...REGISTRY_DEFAULTS]
 export const KNOWN_PROVIDER_IDS = PROVIDER_OPTIONS.map((provider) => provider.id)
+export const PROVIDER_SELECTION_VERSION = 2
 
 const providerIdSet = new Set(KNOWN_PROVIDER_IDS)
 
@@ -21,6 +22,21 @@ export function normalizeEnabledProviderIds(value) {
   if (!Array.isArray(value)) return [...DEFAULT_ENABLED_PROVIDER_IDS]
   const requested = new Set(value.filter((providerId) => providerIdSet.has(providerId)))
   return KNOWN_PROVIDER_IDS.filter((providerId) => requested.has(providerId))
+}
+
+export function normalizeStoredProviderSelection(value, version = null) {
+  const hasStoredSelection = Array.isArray(value)
+  const normalized = normalizeEnabledProviderIds(value)
+  const legacy = Number(version) !== PROVIDER_SELECTION_VERSION
+  const enabledProviderIds = legacy && hasStoredSelection && !normalized.includes('moviehub')
+    ? normalizeEnabledProviderIds(['moviehub', ...normalized])
+    : normalized
+
+  return {
+    enabledProviderIds,
+    version: PROVIDER_SELECTION_VERSION,
+    needsMigration: legacy,
+  }
 }
 
 export function providerIdForRowTitle(title) {

@@ -98,7 +98,7 @@ export function getPersonalSmartRowMatchCount(titles, row) {
   return unique.size
 }
 
-export function buildPersonalSmartRows(titles, settings, limit = PERSONAL_SMART_ROW_LIMIT) {
+export function buildPersonalSmartRows(titles, settings, limit = PERSONAL_SMART_ROW_LIMIT, sortItems = null) {
   const normalized = normalizePersonalSmartRowSettings(settings)
   return normalized.rows
     .filter((row) => row.enabled)
@@ -107,10 +107,12 @@ export function buildPersonalSmartRows(titles, settings, limit = PERSONAL_SMART_
       for (const item of Array.isArray(titles) ? titles : []) {
         if (item?.id && matchesPersonalSmartRow(item, row) && !unique.has(item.id)) unique.set(item.id, item)
       }
+      const items = [...unique.values()]
+      const ranked = typeof sortItems === 'function' ? sortItems(items, row) : items.sort(byCatalogRank)
       return {
         id: `personal-smart-${row.id}`,
         title: row.title,
-        items: [...unique.values()].sort(byCatalogRank).slice(0, Math.max(0, Number(limit) || 0)),
+        items: ranked.slice(0, Math.max(0, Number(limit) || 0)),
       }
     })
     .filter((row) => row.items.length > 0)

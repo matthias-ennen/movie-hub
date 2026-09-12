@@ -10,6 +10,7 @@ import {
   mergeProviderCatalogTitle,
 } from '../scripts/provider-catalogs.mjs'
 import { buildProviderBrowseRows } from '../src/catalog/providerCatalogRows.js'
+import { buildProviderHomeRows as buildRuntimeProviderHomeRows } from '../src/catalog/providerCatalogRows.js'
 
 describe('provider catalog architecture', () => {
   it('keeps 100 movies and 100 series per TMDB provider with 20 mixed home titles', () => {
@@ -140,5 +141,22 @@ describe('provider catalog architecture', () => {
     expect(seriesRows[0].providerId).toBe('netflix')
     expect(seriesRows[0].title).toBe('Serien auf Netflix')
     expect(seriesRows[0].items.map((item) => item.id)).toEqual(['tmdb-series-2'])
+  })
+
+  it('keeps the full provider candidate pool separate from the visible Home limit', () => {
+    const titles = [
+      { id: 'tmdb-movie-1', type: 'movie' },
+      { id: 'tmdb-series-2', type: 'series' },
+      { id: 'tmdb-movie-3', type: 'movie' },
+    ]
+    const rows = buildRuntimeProviderHomeRows({ netflix: {
+      id: 'netflix',
+      homeTitle: 'Beliebt auf Netflix',
+      movieIds: ['tmdb-movie-1', 'tmdb-movie-3'],
+      seriesIds: ['tmdb-series-2'],
+    } }, titles, 2)
+
+    expect(rows[0].items).toHaveLength(3)
+    expect(rows[0].displayLimit).toBe(2)
   })
 })

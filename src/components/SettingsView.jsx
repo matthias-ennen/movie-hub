@@ -30,6 +30,7 @@ function visibleProviderOptions(availableTmdbProviderIds) {
     : null
 
   return PROVIDER_OPTIONS.filter((provider) => {
+    if (provider.source === 'moviehub') return true
     if (provider.source === 'special') return provider.id === 'waipu'
     if (!available) return provider.defaultEnabled
     return available.has(provider.id)
@@ -149,7 +150,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
         </div>
 
         <p className="settings-hint">
-          Zusätzliche Dienste erscheinen hier nur, wenn der aktuelle TMDB/JustWatch-Katalog sie für Deutschland tatsächlich als Watch Provider liefert. Neue Anbieter sind standardmäßig aus, bis du sie aktivierst. waipu.tv bleibt als bestehende Sonderintegration sichtbar; der vollständige Waiputhek-Katalog wird separat behandelt.
+          Movie Hub bildet seinen Katalog automatisch aus deinen persönlichen Links und Videos. Zusätzliche externe Dienste erscheinen hier nur, wenn der aktuelle TMDB/JustWatch-Katalog sie für Deutschland tatsächlich als Watch Provider liefert. Neue externe Anbieter sind standardmäßig aus, bis du sie aktivierst. waipu.tv bleibt als bestehende Sonderintegration sichtbar.
         </p>
         {providerError && <p className="error" role="status">Streaminganbieter konnten nicht gespeichert oder synchronisiert werden: {providerError.message}</p>}
       </section>

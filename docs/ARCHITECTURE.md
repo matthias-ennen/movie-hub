@@ -51,6 +51,8 @@ Unterstützte Zielanbieter:
 
 Die Anbieter sind systemseitig und vollständig automatisch. TMDB bestimmt, welche Provider bei einem Titel angezeigt werden. Der Benutzer kann Anbieterbuttons weder bearbeiten noch mit eigenen Ziel-URLs überschreiben.
 
+Zusätzlich erscheint **Movie Hub** an erster Stelle der kontoweiten Anbieterauswahl. Dieser interne virtuelle Anbieter wird nicht von TMDB erzeugt: Seine Katalogmitgliedschaft entsteht automatisch aus den kontoweiten eigenen Links und Videos. Das Ausschalten blendet Movie-Hub-Reihen, -Badges und den Wiedergabebutton aus, löscht aber keine eigenen Inhalte.
+
 Auf Filmkarten werden nur kompakte Provider-Symbole eingeblendet. In der Detailansicht stehen die automatisch ermittelten Anbieter neben einem optionalen Movie-Hub-Button für eigene Inhalte.
 
 ### Eigene Movie-Hub-Inhalte
@@ -61,6 +63,14 @@ Der Movie-Hub-Button ist fachlich vom Provider-Layer getrennt. Unter ihm liegen 
 - **Video**: HTTP(S)-Video oder SMB-/UNC-Netzwerkvideo; das zugrunde liegende Protokoll wird automatisch aus der Adresse erkannt
 
 SMB ist kein eigener Bedien- oder Medientyp. Zugangsdaten und Netzlaufwerksdefinitionen bleiben ausschließlich gerätelokal unter **Einstellungen → Netzlaufwerke**.
+
+Ein kontoweites Shared-Media-Manifest bildet daraus ohne öffentlichen Nutzerkatalog und ohne Abfrage jeder Posterkarte die Movie-Hub-Katalogsicht. Vor der Manifest-Einführung gespeicherte Einträge werden bei ihrem nächsten kontrollierten Presence-/Detailzugriff automatisch nachgezogen.
+
+### Profilbezogene Inhaltskuratierung
+
+Flexible Anbieter-, Kategorie-, Entdeckungs- und Smart-Reihen trennen Kandidatenmenge, Sortierung und sichtbares Posterlimit. Das aktive Profil wählt zwischen ausgewogen, beliebt, neu, bestbewertet und stärker entdeckungsorientiert. Ein optionaler täglicher oder wöchentlicher Wechsel bleibt innerhalb der Periode stabil. Gesehene Titel können in öffentlichen Reihen normal erscheinen, nach hinten rücken oder ausgeblendet werden.
+
+Home, Filme und Serien koordinieren ihre Hero-Auswahl gemeinsam. Bei ausreichender Kandidatenmenge verwenden die drei Seiten unterschiedliche erste Heroes; weitere Überschneidungen bleiben zulässig. Semantische Neuheiten-/Trendreihen sowie persönliche Watchlist-, Favoriten-, Bewertungs- und TMDB-Reihen behalten ihre fachliche Ordnung.
 
 ### Persönliche Smart-Reihen
 
@@ -88,7 +98,7 @@ Home, Filme, Serien und Meine Inhalte verwenden denselben gestuften Seitenaufbau
 2. Das aktive Backdrop-Bild wird eager und mit hoher Priorität geladen.
 3. Nach Bild-Load, Bildfehler, fehlendem Bild oder einem begrenzten Timeout wird zunächst genau eine Posterreihe freigegeben.
 4. Weitere Reihen werden in Viewportnähe oder auf eine D-Pad-Anforderung einzeln ergänzt.
-5. Posterbilder bleiben lazy und nachrangig; die Prüfung auf gemeinsame Movie-Hub-Medien startet erst, wenn eine Karte in die Nähe des Viewports gelangt.
+5. Posterbilder bleiben lazy und nachrangig; Movie-Hub-Verfügbarkeit kommt primär aus dem einmal kontoweit geladenen Manifest. Nur die einmalige Nachmigration älterer Einträge verwendet weiterhin die in Viewportnähe verzögerte Presence-Prüfung.
 
 Beim nativen Kaltstart gilt zusätzlich ein expliziter Handshake: Der anfänglich leere Katalog darf keine Hero-Bereitschaft melden. Erst wenn der echte Katalog verarbeitet, das Hero-Bild geladen beziehungsweise kontrolliert fehlgeschlagen und die erste Reihe über zwei Renderframes stabil gemountet ist, meldet die Web-App die Home-Oberfläche an Android. Die native Startfläche bleibt mindestens fünf Sekunden sichtbar. Nach spätestens zwölf Sekunden beendet sie die CRT-Sequenz in jedem Fall und zeigt bei ausbleibender Bereitschaft eine neutrale Fehleransicht mit Wiederholen-Aktion.
 

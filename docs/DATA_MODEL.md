@@ -15,6 +15,7 @@ Jeder Film wird intern über seine TMDB-ID referenziert. Dadurch müssen Titel, 
 ```text
 users/{uid}
   displayName
+  providerSettings    map          # kontoweite Anbieterauswahl inklusive Movie Hub
   createdAt
   updatedAt
 
@@ -24,6 +25,7 @@ users/{uid}/profiles/{profileId}
   themeSettings      map
   categorySettings   map          # feste Reihen auf Filme/Serien
   contentRowSettings map          # bis zu 10 Smart-Reihen für Meine Inhalte
+  contentDisplaySettings map      # Sortierung, Wechselintervall und Gesehen-Behandlung
 
 users/{uid}/movies/{tmdbId}
   rating            number | null   # 1 bis 10
@@ -48,6 +50,11 @@ users/{uid}/recommendations/{documentId}
   algorithmVersion  string
   source            string          # ai | rules | hybrid
   categories        map/array
+
+users/{uid}/sharedMedia/{type-tmdbId}
+  hasMedia          boolean       # automatisch abgeleitete Katalogmitgliedschaft
+  titleRef          map           # kompakter, rekonstruierbarer Titelschnappschuss
+  updatedAt         timestamp
 
 users/{uid}/sharedMedia/{type-tmdbId}/entries/{entryId}
   label             string          # frei wählbare Bezeichnung
@@ -113,6 +120,22 @@ Das Bedien- und Datenmodell kennt nur zwei Typen:
 SMB ist damit kein eigener fachlicher Medientyp mehr. Ein Netzwerkvideo enthält ausschließlich einen kanonischen Pfad wie `smb://fritz.box/FRITZ.NAS/Ordner/video.mp4`. Benutzername und Kennwort sind weder Teil dieser URL noch des Firestore-Dokuments. Sie werden je Server/Freigabe ausschließlich auf dem Android-/Fire-TV-Gerät über **Einstellungen → Netzlaufwerke** verwaltet.
 
 Providerbuttons sind vollständig davon getrennt. Netflix, Prime Video, Disney+, YouTube und waipu.tv werden aus den TMDB-Verfügbarkeitsdaten bestimmt. Eigene Provider-Overrides werden nicht mehr gespeichert oder ausgewertet.
+
+Der übergeordnete `sharedMedia/{type-tmdbId}`-Datensatz ist ein automatisch gepflegter Manifest-Eintrag. Er macht alle Titel mit mindestens einem gültigen Link oder Video ohne einzelne Abfrage pro Poster als kontoweiten Movie-Hub-Anbieter-Katalog lesbar. Der erste Eintrag legt das Manifest an, Änderungen aktualisieren es und das Löschen des letzten Eintrags entfernt es. Ältere Einträge werden beim nächsten vorhandenen, bereits progressiv verzögerten Presence-/Detailzugriff nachgezogen. Der Manifest-Datensatz enthält keine URL und keine Zugangsdaten; die eigentlichen Medien bleiben ausschließlich in `entries`.
+
+## Profilbezogene Sortierung und Abwechslung
+
+```text
+contentDisplaySettings
+  sortMode                 string    # balanced | popular | newest | top-rated | discover
+  watchedMode              string    # normal | demote | hide
+  autoSwitch.enabled       boolean
+  autoSwitch.interval      string    # daily | weekly
+  autoSwitch.periodKey     string | null
+  autoSwitch.periodOrdinal number | null
+```
+
+Die Einstellung liegt im internen Profil. Sie speichert Regeln, keine Titel-IDs. Die wirksame Reihenfolge wird reproduzierbar aus Profil, Wechselperiode, Katalogmetadaten und persönlichem Gesehen-Zustand berechnet.
 
 ### Migration bestehender Einträge
 

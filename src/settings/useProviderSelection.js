@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore'
 import { firebaseReady } from '../lib/firebase.js'
-import { DEFAULT_ENABLED_PROVIDER_IDS, normalizeEnabledProviderIds } from './providerSelectionModel.js'
+import {
+  DEFAULT_ENABLED_PROVIDER_IDS,
+  PROVIDER_SELECTION_VERSION,
+  normalizeEnabledProviderIds,
+  normalizeStoredProviderSelection,
+} from './providerSelectionModel.js'
 import {
   getProviderSelectionSnapshot,
   resetProviderSelectionSnapshot,
@@ -14,6 +19,7 @@ let started = false
 let dbRef = null
 let authUnsubscribe = null
 let userUnsubscribe = null
+let migrationUid = null
 
 function startProviderSelectionSync() {
   if (started) return
@@ -44,15 +50,31 @@ function startProviderSelectionSync() {
           userRef,
           (snapshot) => {
             if (getProviderSelectionSnapshot().uid !== user.uid) return
-            const stored = snapshot.data()?.providerSettings?.enabledProviderIds
+            const storedSettings = snapshot.data()?.providerSettings
+            const normalized = normalizeStoredProviderSelection(
+              storedSettings?.enabledProviderIds,
+              storedSettings?.version,
+            )
             updateProviderSelectionSnapshot({
-              enabledProviderIds: Array.isArray(stored)
-                ? normalizeEnabledProviderIds(stored)
-                : DEFAULT_ENABLED_PROVIDER_IDS,
+              enabledProviderIds: normalized.enabledProviderIds,
               loading: false,
               error: null,
               savingProviderId: null,
             })
+
+            if (normalized.needsMigration && migrationUid !== user.uid) {
+              migrationUid = user.uid
+              setDoc(userRef, {
+                providerSettings: {
+                  enabledProviderIds: normalized.enabledProviderIds,
+                  version: PROVIDER_SELECTION_VERSION,
+                  updatedAt: serverTimestamp(),
+                },
+              }, { merge: true }).catch((error) => {
+                migrationUid = null
+                console.warn('Streaminganbieter-Einstellungen konnten nicht migriert werden.', error)
+              })
+            }
           },
           (error) => {
             if (getProviderSelectionSnapshot().uid !== user.uid) return
@@ -82,6 +104,7 @@ export async function setProviderEnabled(providerId, enabled) {
     await setDoc(doc(dbRef, 'users', current.uid), {
       providerSettings: {
         enabledProviderIds: next,
+        version: PROVIDER_SELECTION_VERSION,
         updatedAt: serverTimestamp(),
       },
     }, { merge: true })
@@ -116,5 +139,6 @@ export function stopProviderSelectionSyncForTests() {
   authUnsubscribe = null
   dbRef = null
   started = false
+  migrationUid = null
   resetProviderSelectionSnapshot({ loading: true })
 }

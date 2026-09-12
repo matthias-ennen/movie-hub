@@ -8,11 +8,13 @@ import { loadSharedMedia, removeSharedMedia, saveSharedMedia } from '../library/
 import { isSmbMediaUrl, normaliseMedia } from '../library/sharedMediaModel.js'
 import { ProviderBadge } from './ProviderBadges.jsx'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
+import { useProviderSelection } from '../settings/useProviderSelection.js'
 
 export default function DetailModal({ item, onClose }) {
   const { activeProfile } = useProfiles()
   const { user } = useAuth()
   const { getTitleState, updateTitleState, loading: libraryLoading } = useLibrary()
+  const { isProviderEnabled } = useProviderSelection()
   const [personalMessage, setPersonalMessage] = useState('')
   const [personalBusy, setPersonalBusy] = useState(false)
   const [noteDraft, setNoteDraft] = useState('')
@@ -27,8 +29,10 @@ export default function DetailModal({ item, onClose }) {
   const [playing, setPlaying] = useState(null)
   const returnFocusRef = useRef(null)
   const personalBusyRef = useRef(false)
-  const providerIds = Array.isArray(item.providerIds) ? item.providerIds : []
+  const providerIds = (Array.isArray(item.providerIds) ? item.providerIds : [])
+    .filter((providerId) => providerId !== 'moviehub' && Boolean(providers[providerId]))
   const hasProviders = providerIds.length > 0
+  const showMovieHubProvider = sharedMedia.length > 0 && isProviderEnabled('moviehub')
   const cast = Array.isArray(item.cast) ? item.cast.slice(0, 5) : []
   const automaticVideos = Array.isArray(item.videos) ? item.videos : []
   const personalState = getTitleState(item)
@@ -309,9 +313,9 @@ export default function DetailModal({ item, onClose }) {
           )}
 
           <h3>Wo ansehen?</h3>
-          {(sharedMedia.length > 0 || hasProviders) ? (
+          {(showMovieHubProvider || hasProviders) ? (
             <div className="provider-actions" aria-label="Automatische Anbieter und eigene Movie-Hub-Inhalte">
-              {sharedMedia.length > 0 && (
+              {showMovieHubProvider && (
                 <button
                   type="button"
                   className="action-button provider-action movie-hub-action"
@@ -333,7 +337,7 @@ export default function DetailModal({ item, onClose }) {
                     key={providerId}
                     className="action-button provider-action"
                     data-focusable="true"
-                    data-detail-autofocus={automaticVideos.length === 0 && sharedMedia.length === 0 && index === 0 ? 'true' : undefined}
+                    data-detail-autofocus={automaticVideos.length === 0 && !showMovieHubProvider && index === 0 ? 'true' : undefined}
                     onClick={() => openProvider(providerId)}
                     aria-label={`${provider.label} öffnen`}
                   >
@@ -369,7 +373,7 @@ export default function DetailModal({ item, onClose }) {
                   personalState.favorite ? 'Aus Favoriten entfernt.' : 'Zu Favoriten hinzugefügt.',
                 )}
                 data-focusable="true"
-                data-detail-autofocus={automaticVideos.length === 0 && sharedMedia.length === 0 && !hasProviders ? 'true' : undefined}
+                data-detail-autofocus={automaticVideos.length === 0 && !showMovieHubProvider && !hasProviders ? 'true' : undefined}
               >
                 <span aria-hidden="true">♥</span>
                 <span>{personalState.favorite ? 'Favorit' : 'Als Favorit'}</span>

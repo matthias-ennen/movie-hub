@@ -22,7 +22,7 @@ Movie Hub ist eine persönliche, TV-optimierte Filmzentrale für Fire TV, Androi
 4. **Filmdaten:** TMDB
 5. **Automatisierung:** CI/CD und regelmäßige Datenjobs
 6. **Android / Fire TV:** schlanke native App mit WebView, sicherer Geräteablage, Player und Intent-/Deep-Link-Layer
-7. **Provider:** Netflix, Prime Video, Disney+, YouTube, waipu.tv
+7. **Provider:** automatische Drittanbieter sowie Movie Hub als virtueller Anbieter für persönliche Links und Videos
 
 Details:
 - [Architektur](docs/ARCHITECTURE.md)
@@ -65,4 +65,4 @@ Für Provider gilt bewusst Best Effort: Titelsuche ist optimal, die Suchseite is
 
 Die zu diesem Abnahmestand gehörenden Detail-Issues werden abgeschlossen. Neue Auffälligkeiten werden als neue, klar abgegrenzte Issues erfasst.
 
-**Aktuelles Arbeitspaket:** #166 – Hero-first Rendering und progressive Posterreihen für schnellere Seitenwechsel.
+**Aktuelle Arbeitspakete:** #170 integriert Movie Hub als virtuellen Anbieter-Katalog; #171 ergänzt profilbezogene, dynamische Heroes und Posterreihen. Die technische Hero-first-Grundlage aus #166/#169 bleibt dabei erhalten.
