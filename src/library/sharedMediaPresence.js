@@ -46,10 +46,15 @@ export function setSharedMediaPresence(userId, item, hasMedia) {
   publish(presenceKey(userId, item), hasMedia)
 }
 
-export function useSharedMediaPresence(item) {
+export function useSharedMediaPresence(item, enabled = true) {
   const [hasMedia, setHasMedia] = useState(false)
 
   useEffect(() => {
+    if (!enabled) {
+      setHasMedia(false)
+      return undefined
+    }
+
     let active = true
     let unsubscribe = () => {}
 
@@ -107,7 +112,7 @@ export function useSharedMediaPresence(item) {
       active = false
       unsubscribe()
     }
-  }, [item?.id, item?.tmdbId, item?.type])
+  }, [enabled, item?.id, item?.tmdbId, item?.type])
 
   return hasMedia
 }

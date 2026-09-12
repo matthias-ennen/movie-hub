@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import '../styles/issue128.css'
 import '../styles/issue128-hero-boundary.css'
+import { HERO_READY_TIMEOUT_MS } from '../performance/progressiveRendering.js'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 
 const MAX_HEROES = 5
 const SWIPE_MIN_DISTANCE = 48
 const HERO_PHASE_MS = 170
-
-export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }) {
+export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', onReady }) {
   const slides = useMemo(() => {
     const source = Array.isArray(items) && items.length ? items : item ? [item] : []
     const seen = new Set()
@@ -24,6 +24,8 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
   const touchStartRef = useRef(null)
   const transitionTimerRef = useRef([])
   const transitionLockRef = useRef(false)
+  const activeImageRef = useRef(null)
+  const readyReportedRef = useRef(false)
 
   function clearTransitionTimers() {
     transitionTimerRef.current.forEach((timer) => window.clearTimeout(timer))
@@ -42,10 +44,34 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
     transitionLockRef.current = false
   }, [])
 
-  if (!slides.length) return null
+  const safeIndex = Math.min(activeIndex, Math.max(0, slides.length - 1))
+  const activeItem = slides[safeIndex] || null
+  const activeBackdropUrl = activeItem?.backdropUrl || null
 
-  const safeIndex = Math.min(activeIndex, slides.length - 1)
-  const activeItem = slides[safeIndex]
+  const reportReady = useCallback((reason) => {
+    if (readyReportedRef.current) return
+    readyReportedRef.current = true
+    onReady?.({ item: activeItem, reason })
+  }, [activeItem, onReady])
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const image = activeImageRef.current
+      if (!activeBackdropUrl) {
+        reportReady(slides.length ? 'no-image' : 'no-hero')
+      } else if (image?.complete) {
+        reportReady(image.naturalWidth > 0 ? 'cached' : 'error')
+      }
+    })
+    const timeout = window.setTimeout(() => reportReady('timeout'), HERO_READY_TIMEOUT_MS)
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.clearTimeout(timeout)
+    }
+  }, [activeBackdropUrl, reportReady, slides.length])
+
+  if (!slides.length) return null
 
   function selectHero(index, direction = null) {
     if (transitionLockRef.current || index < 0 || index >= slides.length || index === safeIndex) return
@@ -142,7 +168,20 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
           </div>
         </div>
         <div className={heroBackdropUrl ? 'hero-art has-image' : 'hero-art'} aria-hidden="true">
-          {heroBackdropUrl && <img className="hero-art-image" src={heroBackdropUrl} alt="" draggable="false" />}
+          {heroBackdropUrl && (
+            <img
+              ref={entry.id === activeItem.id ? activeImageRef : null}
+              className="hero-art-image"
+              src={heroBackdropUrl}
+              alt=""
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+              draggable="false"
+              onLoad={() => reportReady('loaded')}
+              onError={() => reportReady('error')}
+            />
+          )}
         </div>
       </div>
     )

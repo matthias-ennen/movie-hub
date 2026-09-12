@@ -177,6 +177,16 @@ body,
   padding-top: 0;
 }
 
+/* Nicht fokussierbarer Beobachtungspunkt für das schrittweise Nachladen. Er
+ * erzeugt weder eine eigene Kachel noch einen sichtbaren Theme-Fremdkörper. */
+.progressive-content-sentinel {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 1px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 /*
  * Große Desktop-Viewports: Der Text ist bereits auf zwei Titel- und wenige
  * Beschreibungszeilen begrenzt. 430 px reichen inklusive Button-Sicherheitsraum.

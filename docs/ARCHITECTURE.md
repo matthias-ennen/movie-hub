@@ -80,6 +80,18 @@ Diese Smart-Reihen sind fachlich und technisch von den festen Film-/Serienkatego
 
 Die Titelsuche ist Best Effort. Ob eine fremde Anbieter-App externe Suchparameter verarbeitet, entscheidet die jeweilige App; Movie Hub garantiert deshalb nur den bestmöglichen Start, nicht die titelgenaue Zielseite.
 
+### Hero-first-Renderpfad
+
+Home, Filme, Serien und Meine Inhalte verwenden denselben gestuften Seitenaufbau:
+
+1. Die endgültige Hero-Fläche und der Hero-Inhalt werden zuerst gemountet.
+2. Das aktive Backdrop-Bild wird eager und mit hoher Priorität geladen.
+3. Nach Bild-Load, Bildfehler, fehlendem Bild oder einem begrenzten Timeout wird zunächst genau eine Posterreihe freigegeben.
+4. Weitere Reihen werden in Viewportnähe oder auf eine D-Pad-Anforderung einzeln ergänzt.
+5. Posterbilder bleiben lazy und nachrangig; die Prüfung auf gemeinsame Movie-Hub-Medien startet erst, wenn eine Karte in die Nähe des Viewports gelangt.
+
+Der nicht fokussierbare Lade-Sentinel kann keine D-Pad-Sackgasse erzeugen. Fordert die Fernbedienung unterhalb der letzten bereits sichtbaren Reihe den nächsten Inhalt an, wird die nächste Reihe synchron zur Navigation freigegeben und ihr räumlich passendes Poster fokussiert.
+
 ### Automatisierung / KI
 Objektive Fakten werden programmatisch ermittelt; KI erzeugt Empfehlungen, keine Verfügbarkeitsfakten.
 
