@@ -1,0 +1,12 @@
+/*
+ * #128 device acceptance: category/library rows live inside .browse-page,
+ * which already contributes one page-inline inset. ContentRow adds the same
+ * inset itself, so without compensation these rows start one gutter too far
+ * to the right compared with Home. Expand only the row wrapper back to the
+ * page edges; headings and poster tracks then use ContentRow's single gutter
+ * exactly like the Home rows.
+ */
+.category-page .browse-provider-rows,
+.personal-library-shell .personal-library-rows {
+  margin-inline: calc(var(--page-inline) * -1);
+}
