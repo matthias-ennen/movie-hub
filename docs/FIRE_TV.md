@@ -22,13 +22,17 @@ After the workflow succeeds, download `movie-hub-fire-tv-release-apk`, extract `
 
 A real Android/Fire-TV app-process start plays the packaged Movie Hub jingle immediately and shows a native full-screen branding layer above the WebView while the hosted app continues loading underneath.
 
-The visual sequence is deliberately independent from Firebase/network readiness:
+The visual sequence is coupled to the presentation readiness of the hosted Home page:
 
-- 5.0 seconds: pure-black screen with the centered two-colour **MOVIE HUB** wordmark
+- at least 5.0 seconds: pure-black screen with the centered two-colour **MOVIE HUB** wordmark
+- after those 5.0 seconds, the shutdown begins as soon as the real catalog, the real Home Hero (or its controlled image fallback) and the first row layout are ready
+- after an absolute maximum of 12.0 seconds, the shutdown always begins; an honest native error screen with **Erneut versuchen** is revealed if startup did not become ready
 - 1.0 second: restrained CRT power-off animation; the complete black layer and logo collapse vertically, recede slightly, briefly form a cool white/blue phosphor line, then contract into the centre and disappear
 - no VHS noise, glitch filter or video/GIF asset is used
 - the branding runs only once per actual app process, so returning from the background or recreating an Activity does not replay it
 - the existing jingle remains optional and failure-tolerant; audio can never block startup
+
+The ready signal is sent through the narrow `MovieHubNative` bridge. A merely mounted React root does not count as ready, which prevents poster rows from becoming visible before the first real Hero during a cold start.
 
 ## Phase 3.2 WebView session and lifecycle
 

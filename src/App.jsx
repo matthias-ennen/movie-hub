@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import AboutView from './components/AboutView.jsx'
 import DetailModal from './components/DetailModal.jsx'
@@ -20,10 +20,27 @@ import { useLibrary } from './library/LibraryProvider.jsx'
 import { buildPersonalRows, mergeCatalogWithPersonalSnapshots } from './library/personalRows.js'
 import { firebaseReady } from './lib/firebase.js'
 import { preloadHeroImage } from './performance/progressiveRendering.js'
+import { notifyNativeStartupReady } from './performance/nativeStartup.js'
 import { ProfileProvider, useProfiles } from './profiles/ProfileProvider.jsx'
 import { ThemeProvider } from './theme/ThemeProvider.jsx'
 import { TmdbCatalogProvider, useTmdbCatalog } from './tmdb/TmdbCatalogProvider.jsx'
 import { buildTmdbCatalogRows, mergePublicAndPersonalCatalog } from './tmdb/tmdbCatalogModel.js'
+
+function NativeStartupSignal() {
+  useEffect(() => {
+    let secondFrame = null
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => notifyNativeStartupReady())
+    })
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
+    }
+  }, [])
+
+  return null
+}
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -47,26 +64,29 @@ function Login() {
   }
 
   return (
-    <main className="auth-shell">
-      <section className="auth-panel">
-        <div className="brand brand-large">MOVIE <span>HUB</span></div>
-        <p className="eyebrow">Deine Streaming-Zentrale</p>
-        <h1>Willkommen zurück</h1>
-        <p className="muted">Filme und Serien an einem Ort entdecken, merken und später direkt beim passenden Anbieter öffnen.</p>
-        <form onSubmit={handleSubmit} className="form">
-          <label>
-            E-Mail
-            <input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
-          </label>
-          <label>
-            Passwort
-            <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-          </label>
-          <button type="submit" disabled={busy}>{busy ? 'Anmeldung läuft …' : 'Anmelden'}</button>
-        </form>
-        {message && <p className="error">{message}</p>}
-      </section>
-    </main>
+    <>
+      <NativeStartupSignal />
+      <main className="auth-shell">
+        <section className="auth-panel">
+          <div className="brand brand-large">MOVIE <span>HUB</span></div>
+          <p className="eyebrow">Deine Streaming-Zentrale</p>
+          <h1>Willkommen zurück</h1>
+          <p className="muted">Filme und Serien an einem Ort entdecken, merken und später direkt beim passenden Anbieter öffnen.</p>
+          <form onSubmit={handleSubmit} className="form">
+            <label>
+              E-Mail
+              <input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
+            </label>
+            <label>
+              Passwort
+              <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+            </label>
+            <button type="submit" disabled={busy}>{busy ? 'Anmeldung läuft …' : 'Anmelden'}</button>
+          </form>
+          {message && <p className="error">{message}</p>}
+        </section>
+      </main>
+    </>
   )
 }
 
@@ -213,18 +233,35 @@ function BrowseView({ viewId, title, subtitle, items, rows = [], heroItems = [],
   )
 }
 
-function HomeView({ heroItems, rows, onOpen, liveTmdb }) {
+function HomeView({ heroItems, rows, onOpen, liveTmdb, catalogStatus }) {
   const { heroReady, handleHeroReady } = useHeroFirstPage('home')
+  const startupReadyReportedRef = useRef(false)
+  const catalogReady = catalogStatus === 'ready'
+  const handleInitialContentReady = useCallback(() => {
+    if (!catalogReady || startupReadyReportedRef.current) return
+    startupReadyReportedRef.current = true
+    notifyNativeStartupReady()
+  }, [catalogReady])
 
   return (
     <main data-page-load-state={heroReady ? 'rows' : 'hero'}>
-      <Hero items={heroItems} onOpen={onOpen} onReady={handleHeroReady} />
+      <Hero
+        items={heroItems}
+        onOpen={onOpen}
+        onReady={catalogReady ? handleHeroReady : undefined}
+      />
       <div className="rows-wrap">
         <div className="prototype-strip">
           <strong>{liveTmdb ? 'Echte TMDB-Daten' : 'Entwicklungsfallback'}</strong>
           <span>{liveTmdb ? 'Filme & Serien · deutsche Metadaten · Poster & Backdrops' : 'Der Live-TMDB-Katalog konnte noch nicht geladen werden.'}</span>
         </div>
-        <ProgressiveRows rows={rows} heroReady={heroReady} onOpen={onOpen} className="progressive-home-rows" />
+        <ProgressiveRows
+          rows={rows}
+          heroReady={heroReady}
+          onOpen={onOpen}
+          className="progressive-home-rows"
+          onInitialContentReady={handleInitialContentReady}
+        />
       </div>
     </main>
   )
@@ -293,6 +330,7 @@ function MovieHub({ user }) {
   const [profileOpen, setProfileOpen] = useState(false)
   const [exitDialogOpen, setExitDialogOpen] = useState(false)
   const [catalog, setCatalog] = useState({
+    status: 'loading',
     source: 'fallback',
     titles: fallbackTitles,
     rowDefinitions: fallbackRowDefinitions,
@@ -309,9 +347,12 @@ function MovieHub({ user }) {
         if (!response.ok) throw new Error(`Katalog konnte nicht geladen werden (${response.status})`)
         const data = await response.json()
 
-        if (!Array.isArray(data.titles) || !data.titles.length || !Array.isArray(data.rowDefinitions)) return
+        if (!Array.isArray(data.titles) || !data.titles.length || !Array.isArray(data.rowDefinitions)) {
+          throw new Error('Der geladene Katalog ist unvollständig.')
+        }
         if (!cancelled) {
           setCatalog({
+            status: 'ready',
             source: data.source === 'tmdb' ? 'tmdb' : 'fallback',
             titles: data.titles,
             rowDefinitions: data.rowDefinitions,
@@ -322,6 +363,9 @@ function MovieHub({ user }) {
         }
       } catch (error) {
         console.warn('Movie Hub verwendet den lokalen Katalog-Fallback.', error)
+        if (!cancelled) {
+          setCatalog((current) => ({ ...current, status: 'error' }))
+        }
       }
     }
 
@@ -521,6 +565,7 @@ function MovieHub({ user }) {
           rows={homeRows}
           onOpen={handleOpenTitle}
           liveTmdb={liveTmdb}
+          catalogStatus={catalog.status}
         />
       )}
       {currentView === 'movies' && (
@@ -588,13 +633,16 @@ function AuthenticatedMovieHub({ user }) {
 
   if (error || !activeProfile) {
     return (
-      <main className="auth-shell">
-        <section className="auth-panel">
-          <p className="eyebrow">Movie Hub</p>
-          <h1>Profile konnten nicht geladen werden</h1>
-          <p className="error">{error?.message ?? 'Kein aktives Profil verfügbar.'}</p>
-        </section>
-      </main>
+      <>
+        <NativeStartupSignal />
+        <main className="auth-shell">
+          <section className="auth-panel">
+            <p className="eyebrow">Movie Hub</p>
+            <h1>Profile konnten nicht geladen werden</h1>
+            <p className="error">{error?.message ?? 'Kein aktives Profil verfügbar.'}</p>
+          </section>
+        </main>
+      </>
     )
   }
 
@@ -612,13 +660,16 @@ export default function App() {
 
   if (error) {
     return (
-      <main className="auth-shell">
-        <section className="auth-panel">
-          <p className="eyebrow">Movie Hub</p>
-          <h1>Firebase konnte nicht initialisiert werden</h1>
-          <p className="error">{error.message}</p>
-        </section>
-      </main>
+      <>
+        <NativeStartupSignal />
+        <main className="auth-shell">
+          <section className="auth-panel">
+            <p className="eyebrow">Movie Hub</p>
+            <h1>Firebase konnte nicht initialisiert werden</h1>
+            <p className="error">{error.message}</p>
+          </section>
+        </main>
+      </>
     )
   }
 

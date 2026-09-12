@@ -90,6 +90,8 @@ Home, Filme, Serien und Meine Inhalte verwenden denselben gestuften Seitenaufbau
 4. Weitere Reihen werden in Viewportnähe oder auf eine D-Pad-Anforderung einzeln ergänzt.
 5. Posterbilder bleiben lazy und nachrangig; die Prüfung auf gemeinsame Movie-Hub-Medien startet erst, wenn eine Karte in die Nähe des Viewports gelangt.
 
+Beim nativen Kaltstart gilt zusätzlich ein expliziter Handshake: Der anfänglich leere Katalog darf keine Hero-Bereitschaft melden. Erst wenn der echte Katalog verarbeitet, das Hero-Bild geladen beziehungsweise kontrolliert fehlgeschlagen und die erste Reihe über zwei Renderframes stabil gemountet ist, meldet die Web-App die Home-Oberfläche an Android. Die native Startfläche bleibt mindestens fünf Sekunden sichtbar. Nach spätestens zwölf Sekunden beendet sie die CRT-Sequenz in jedem Fall und zeigt bei ausbleibender Bereitschaft eine neutrale Fehleransicht mit Wiederholen-Aktion.
+
 Der nicht fokussierbare Lade-Sentinel kann keine D-Pad-Sackgasse erzeugen. Fordert die Fernbedienung unterhalb der letzten bereits sichtbaren Reihe den nächsten Inhalt an, wird die nächste Reihe synchron zur Navigation freigegeben und ihr räumlich passendes Poster fokussiert.
 
 ### Automatisierung / KI
