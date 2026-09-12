@@ -1,13 +1,14 @@
 /* Phase 1.4: gezielte TV-/D-Pad-Feinheiten, ohne die Theme-Presets zu duplizieren. */
 
 .poster-track {
-  --poster-focus-safe: clamp(0.8rem, 1.1vw, 1.05rem);
+  --poster-focus-safe: clamp(1.35rem, 1.7vw, 1.7rem);
   margin-left: calc(-1 * var(--poster-focus-safe));
   padding-top: var(--poster-focus-safe);
   padding-right: max(var(--page-inline), var(--poster-focus-safe));
   padding-bottom: calc(var(--poster-focus-safe) + var(--space-2));
   padding-left: var(--poster-focus-safe);
   scroll-padding-inline: var(--poster-focus-safe);
+  scroll-behavior: smooth;
 }
 
 .hero-carousel,
@@ -60,6 +61,7 @@
 
   .topbar .brand-button {
     min-height: var(--control-height-compact);
+    margin-left: -0.9rem;
     padding: 0.6rem 0.9rem;
     border-radius: 0.7rem;
   }
