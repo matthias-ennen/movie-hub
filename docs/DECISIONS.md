@@ -82,3 +82,11 @@ Status: entschieden
 Flexible Posterreihen und Heroes werden clientseitig aus der jeweils vollständigen verfügbaren Kandidatenmenge kuratiert. Das Profil speichert nur Sortiermodus, Gesehen-Behandlung und optionales Wechselintervall. Die Berechnung ist ohne KI- oder Laufzeit-API reproduzierbar und innerhalb eines Tages beziehungsweise einer Woche stabil.
 
 Fachlich feste Reihen behalten ihre Bedeutung. Persönliche Listen behalten ihre persönliche Reihenfolge. Die koordinierte Hero-Auswahl reserviert bei ausreichender Kandidatenmenge unterschiedliche Starttitel für Home, Filme und Serien.
+
+## ADR-011 – Abgeleitete Top 10 statt behaupteter Plattform-Charts
+
+Status: entschieden
+
+Movie Hub bezeichnet die Top-10-Reihen als Ranglisten **bei den aktivierten Anbietern**, nicht als offizielle Charts einzelner Plattformen. Die öffentliche Reihenfolge entsteht deterministisch aus normalisierten Positionen der bereits geladenen Anbieter-Kataloge; Movie Hub zählt als eigene aktivierbare Quelle. Titel werden vor der Ausgabe dedupliziert und Home wird bei ausreichender Auswahl zwischen Filmen und Serien ausgeglichen.
+
+Unter **Meine Inhalte** wird eine getrennte profilbezogene Rangfolge aus vorhandenen persönlichen Reihen berechnet: zuerst eigene Movie-Hub-Bewertungen, danach persönliche TMDB-Bewertungen und anschließend öffentliche TMDB-Qualitätssignale. Die Top 10 wird nicht gespeichert und verursacht keine zusätzlichen Netz- oder Firestore-Abfragen pro Karte.

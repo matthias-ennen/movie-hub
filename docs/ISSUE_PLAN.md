@@ -25,7 +25,8 @@ Aus #8 werden umsetzungsreife Punkte bei Bedarf in eigene Issues überführt, oh
 Aktuell gemeinsam freigegeben sind:
 
 - #170 – Movie Hub als virtuellen, kontoweiten Anbieter-Katalog aus eigenen Links und Videos integrieren;
-- #171 – Heroes und flexible Posterreihen dynamisch sowie profilbezogen kuratieren.
+- #171 – Heroes und flexible Posterreihen dynamisch sowie profilbezogen kuratieren;
+- #173 – dynamische Top-10-Sonderreihen auf Home, Filme, Serien und Meine Inhalte einfügen.
 
 Danach ist #137 als Konzept-/UX-Arbeitspaket für gruppierte Sammlungen und eine mögliche Sammlungs-Detailseite vorgemerkt; aus der dortigen Produktentscheidung entstehen anschließend eigene Umsetzungs-Issues.
 
