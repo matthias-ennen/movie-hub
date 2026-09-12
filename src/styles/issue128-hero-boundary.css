@@ -44,10 +44,9 @@ body,
 }
 
 /*
- * Ein bewusst großzügiger, aber fester Viewport verhindert, dass längere
- * Titel-/Meta-Kombinationen die Action-Buttons unten abschneiden. Seine Höhe
- * bleibt während des Hero-Wechsels konstant, damit Punkte und Reihen darunter
- * nicht springen.
+ * Der Viewport bleibt während des Hero-Wechsels konstant, damit Punkte und
+ * Reihen darunter nicht springen. Auf Tablet/Smartphone bleibt er bewusst
+ * großzügig; TV/Desktop bekommt weiter unten eine kompaktere feste Höhe.
  */
 .hero-viewport {
   position: relative;
@@ -176,6 +175,31 @@ body,
 .category-page .browse-page,
 .personal-library-shell .browse-page {
   padding-top: 0;
+}
+
+/*
+ * Fire TV / Desktop: Der Text ist bereits auf zwei Titel- und wenige
+ * Beschreibungszeilen begrenzt. Deshalb braucht der Hero hier nicht die
+ * großzügige Mobilhöhe. 430 px lassen die Action-Buttons vollständig sichtbar,
+ * rücken die Punktnavigation aber wieder dicht unter den eigentlichen Inhalt.
+ * Das Hero-Bild wird passend auf 680 px begrenzt (16:10 = 425 px Höhe), damit
+ * auch dessen Rundung innerhalb des kompakten Viewports vollständig bleibt.
+ */
+@media (min-width: 1051px) {
+  .hero-viewport {
+    height: 430px;
+    min-height: 430px;
+  }
+
+  .hero-carousel .hero-art {
+    max-width: 680px;
+  }
+
+  .hero-carousel .hero-description {
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    margin-bottom: 1.2rem;
+  }
 }
 
 @media (max-width: 1050px) {
