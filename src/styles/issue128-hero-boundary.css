@@ -1,0 +1,62 @@
+/*
+ * #128 Geräteabnahme: Der Slide-Effekt darf ausschließlich im Hero-Viewport
+ * stattfinden. Eyebrow, Punkte und der restliche Seiteninhalt bleiben Teil der
+ * unbewegten Seite.
+ */
+.hero-carousel {
+  touch-action: pan-y;
+  overscroll-behavior-x: none;
+}
+
+.hero-viewport {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  contain: paint;
+  isolation: isolate;
+}
+
+.hero-stage {
+  width: 100%;
+  max-width: 100%;
+  contain: layout paint;
+}
+
+/* Die Navigationspunkte liegen bewusst außerhalb des animierten Viewports. */
+.hero-dots {
+  position: relative;
+  z-index: 6;
+  left: auto;
+  bottom: auto;
+  width: 100%;
+  justify-content: center;
+  padding: 0.72rem 0 1rem;
+  transform: none;
+  background: var(--color-bg);
+}
+
+/* Der frühere untere Innenraum war für die absolut darüberliegenden Punkte
+ * reserviert. Seit die Punkte im Seitenfluss liegen, gehört dieser Raum wieder
+ * vollständig zum Hero-Inhalt. */
+.hero-carousel .hero {
+  padding-bottom: clamp(1.35rem, 2vw, 2rem);
+}
+
+@media (max-width: 1050px) {
+  .hero-carousel .hero {
+    padding-bottom: 1.5rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .hero-carousel .hero {
+    padding-bottom: 1rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .hero-dots {
+    padding: 0.65rem 0 0.9rem;
+  }
+}
