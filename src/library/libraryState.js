@@ -4,6 +4,7 @@ export const EMPTY_TITLE_STATE = {
   watched: false,
   rating: null,
   watchedAt: null,
+  watchedMarkedAt: null,
   note: '',
   titleSnapshot: null,
 }
@@ -74,6 +75,9 @@ export function normalizeTitleState(value) {
     watchedAt: typeof value?.watchedAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.watchedAt)
       ? value.watchedAt
       : null,
+    watchedMarkedAt: typeof value?.watchedMarkedAt === 'string' && Number.isFinite(Date.parse(value.watchedMarkedAt))
+      ? value.watchedMarkedAt
+      : null,
     note: typeof value?.note === 'string' ? value.note.slice(0, 500) : '',
     titleSnapshot: normalizeTitleSnapshot(value?.titleSnapshot),
   }
@@ -91,8 +95,15 @@ export function applyTitleStatePatch(currentValue, patch, date = new Date()) {
   const next = normalizeTitleState({ ...current, ...patch })
 
   if (Object.prototype.hasOwnProperty.call(patch, 'watched')) {
-    if (next.watched && !next.watchedAt) next.watchedAt = localDateValue(date)
-    if (!next.watched) next.watchedAt = null
+    if (next.watched) {
+      if (!next.watchedAt) next.watchedAt = localDateValue(date)
+      if (!current.watched || !current.watchedMarkedAt || patch.watchedMarkedAt) {
+        next.watchedMarkedAt = next.watchedMarkedAt || date.toISOString()
+      }
+    } else {
+      next.watchedAt = null
+      next.watchedMarkedAt = null
+    }
   }
 
   return next
