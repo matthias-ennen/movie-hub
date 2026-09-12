@@ -246,6 +246,7 @@ export function normalizeTmdbTitle(payload, mediaType) {
     cast,
     voteAverage: Number.isFinite(Number(payload.vote_average)) ? Number(payload.vote_average) : null,
     voteCount: Number.isFinite(Number(payload.vote_count)) ? Number(payload.vote_count) : null,
+    popularity: Number.isFinite(Number(payload.popularity)) ? Number(payload.popularity) : null,
     posterPath: payload.poster_path || null,
     backdropPath: payload.backdrop_path || null,
     posterUrl: buildTmdbImageUrl(payload.poster_path, 'w500'),

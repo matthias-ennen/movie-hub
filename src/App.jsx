@@ -8,11 +8,13 @@ import PosterCard from './components/PosterCard.jsx'
 import ProfileView from './components/ProfileView.jsx'
 import SearchView from './components/SearchView.jsx'
 import SettingsView from './components/SettingsView.jsx'
+import { buildCategoryRows } from './catalog/categoryRows.js'
 import { buildProviderBrowseRows } from './catalog/providerCatalogRows.js'
 import { selectHeroItems, selectHomeHeroItems, selectPersonalHeroItems } from './catalog/heroSelection.js'
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
+import { useProviderSelection } from './settings/useProviderSelection.js'
 import { useLibrary } from './library/LibraryProvider.jsx'
 import { buildPersonalRows, mergeCatalogWithPersonalSnapshots } from './library/personalRows.js'
 import { firebaseReady } from './lib/firebase.js'
@@ -238,6 +240,7 @@ function MovieHub({ user }) {
   const { profiles, activeProfile, selectProfile } = useProfiles()
   const { getTitleState, statesByKey, loading: libraryLoading, error: libraryError } = useLibrary()
   const { personalTitles: tmdbPersonalTitles } = useTmdbCatalog()
+  const { enabledProviderIds } = useProviderSelection()
   const [currentView, setCurrentView] = useState('home')
   const [selectedTitle, setSelectedTitle] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -396,6 +399,32 @@ function MovieHub({ user }) {
     () => hasProviderCatalogs ? buildProviderBrowseRows(catalog.providerCatalogs, titles, 'series') : [],
     [catalog.providerCatalogs, titles, hasProviderCatalogs],
   )
+  const movieCategoryRows = useMemo(
+    () => buildCategoryRows({
+      titles: publicTitles,
+      mediaType: 'movie',
+      enabledCategoryIds: activeProfile?.categorySettings?.enabledMovieCategoryIds,
+      enabledProviderIds,
+    }),
+    [publicTitles, activeProfile?.categorySettings?.enabledMovieCategoryIds, enabledProviderIds],
+  )
+  const seriesCategoryRows = useMemo(
+    () => buildCategoryRows({
+      titles: publicTitles,
+      mediaType: 'series',
+      enabledCategoryIds: activeProfile?.categorySettings?.enabledSeriesCategoryIds,
+      enabledProviderIds,
+    }),
+    [publicTitles, activeProfile?.categorySettings?.enabledSeriesCategoryIds, enabledProviderIds],
+  )
+  const movieBrowseRows = useMemo(
+    () => [...movieCategoryRows, ...providerMovieRows],
+    [movieCategoryRows, providerMovieRows],
+  )
+  const seriesBrowseRows = useMemo(
+    () => [...seriesCategoryRows, ...providerSeriesRows],
+    [seriesCategoryRows, providerSeriesRows],
+  )
   const liveTmdb = catalog.source === 'tmdb'
 
   return (
@@ -433,9 +462,9 @@ function MovieHub({ user }) {
       {currentView === 'movies' && (
         <BrowseView
           title="Filme"
-          subtitle="Filme nach Anbieter – mit bis zu 100 Titeln je Katalog."
+          subtitle="Deine Filmkategorien – danach die Kataloge deiner Anbieter."
           items={movies}
-          rows={providerMovieRows}
+          rows={movieBrowseRows}
           heroItems={movieHeroes}
           onOpen={handleOpenTitle}
         />
@@ -443,9 +472,9 @@ function MovieHub({ user }) {
       {currentView === 'series' && (
         <BrowseView
           title="Serien"
-          subtitle="Serien nach Anbieter – getrennt von den Filmkatalogen."
+          subtitle="Deine Serienkategorien – danach die Kataloge deiner Anbieter."
           items={series}
-          rows={providerSeriesRows}
+          rows={seriesBrowseRows}
           heroItems={seriesHeroes}
           onOpen={handleOpenTitle}
         />

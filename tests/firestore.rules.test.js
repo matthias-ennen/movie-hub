@@ -49,6 +49,10 @@ describe('Firestore Security Rules', () => {
     await assertSucceeds(setDoc(profileRef, {
       displayName: 'Hauptprofil',
       themeSettings: { themeId: 'midnight' },
+      categorySettings: {
+        enabledMovieCategoryIds: ['action', 'horror'],
+        enabledSeriesCategoryIds: ['crime', 'mystery'],
+      },
     }))
     await assertSucceeds(setDoc(stateRef, {
       favorite: true,
@@ -63,6 +67,7 @@ describe('Firestore Security Rules', () => {
     const profileSnapshot = await assertSucceeds(getDoc(profileRef))
     const stateSnapshot = await assertSucceeds(getDoc(stateRef))
     expect(profileSnapshot.data().displayName).toBe('Hauptprofil')
+    expect(profileSnapshot.data().categorySettings.enabledMovieCategoryIds).toEqual(['action', 'horror'])
     expect(stateSnapshot.data().rating).toBe(9)
     expect(stateSnapshot.data().favorite).toBe(true)
   })
