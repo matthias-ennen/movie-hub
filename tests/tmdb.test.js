@@ -13,6 +13,7 @@ describe('TMDB adapter', () => {
       genres: [{ id: 878, name: 'Science Fiction' }],
       vote_average: 8.2,
       vote_count: 20000,
+      popularity: 96.4,
       poster_path: '/poster.jpg',
       backdrop_path: '/backdrop.jpg',
       original_language: 'en',
@@ -38,6 +39,7 @@ describe('TMDB adapter', () => {
       runtimeMinutes: 121,
       genres: [{ id: 878, name: 'Science Fiction' }],
       voteAverage: 8.2,
+      popularity: 96.4,
       ageRating: 12,
       cast: [{ id: 1, name: 'Darsteller Eins', character: 'Figur' }],
     })

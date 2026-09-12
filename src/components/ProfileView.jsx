@@ -1,4 +1,9 @@
 import { useEffect, useState } from 'react'
+import {
+  MOVIE_CATEGORY_OPTIONS,
+  SERIES_CATEGORY_OPTIONS,
+  normalizeCategorySettings,
+} from '../catalog/categoryRows.js'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import { useTheme } from '../theme/ThemeProvider.jsx'
 
@@ -9,6 +14,7 @@ export default function ProfileView({ user, onSignOut }) {
     selectProfile,
     createProfile,
     renameProfile,
+    updateActiveProfileCategorySettings,
   } = useProfiles()
   const {
     themeId,
@@ -23,11 +29,53 @@ export default function ProfileView({ user, onSignOut }) {
   const [profileName, setProfileName] = useState(activeProfile?.displayName ?? '')
   const [profileMessage, setProfileMessage] = useState('')
   const [profileBusy, setProfileBusy] = useState(false)
+  const [categorySavingId, setCategorySavingId] = useState(null)
+  const [categoryMessage, setCategoryMessage] = useState('')
+  const categorySettings = normalizeCategorySettings(activeProfile?.categorySettings)
+  const categoryGroups = [
+    {
+      id: 'movie',
+      title: 'Filmkategorien',
+      options: MOVIE_CATEGORY_OPTIONS,
+      enabledIds: categorySettings.enabledMovieCategoryIds,
+    },
+    {
+      id: 'series',
+      title: 'Serienkategorien',
+      options: SERIES_CATEGORY_OPTIONS,
+      enabledIds: categorySettings.enabledSeriesCategoryIds,
+    },
+  ]
 
   useEffect(() => {
     setProfileName(activeProfile?.displayName ?? '')
     setProfileMessage('')
+    setCategoryMessage('')
   }, [activeProfile?.id, activeProfile?.displayName])
+
+  async function toggleCategory(mediaType, categoryId) {
+    if (!activeProfile || categorySavingId) return
+    const current = normalizeCategorySettings(activeProfile.categorySettings)
+    const key = mediaType === 'series' ? 'enabledSeriesCategoryIds' : 'enabledMovieCategoryIds'
+    const enabled = current[key].includes(categoryId)
+    const next = {
+      ...current,
+      [key]: enabled
+        ? current[key].filter((id) => id !== categoryId)
+        : [...current[key], categoryId],
+    }
+
+    setCategorySavingId(`${mediaType}:${categoryId}`)
+    setCategoryMessage('')
+    try {
+      await updateActiveProfileCategorySettings(next)
+    } catch (error) {
+      console.error(error)
+      setCategoryMessage('Kategorien konnten nicht gespeichert werden.')
+    } finally {
+      setCategorySavingId(null)
+    }
+  }
 
   async function handleCreateProfile() {
     setProfileBusy(true)
@@ -65,7 +113,7 @@ export default function ProfileView({ user, onSignOut }) {
       <div className="page-heading profile-heading">
         <p className="eyebrow">Dein Movie Hub</p>
         <h1>Profil & Design</h1>
-        <p>Jedes interne Profil bekommt seine eigenen Einstellungen. Design und automatischer Wechsel werden jetzt profilbezogen gespeichert.</p>
+        <p>Jedes interne Profil bekommt eigene Kategorien und Darstellungseinstellungen.</p>
       </div>
 
       <section className="settings-panel" aria-labelledby="profiles-heading">
@@ -108,7 +156,7 @@ export default function ProfileView({ user, onSignOut }) {
             <span className="profile-choice-avatar" aria-hidden="true">+</span>
             <span className="profile-choice-copy">
               <strong>Profil hinzufügen</strong>
-              <span>Eigenes Design und später eigene Inhalte</span>
+              <span>Eigene Kategorien, eigenes Design und eigene Inhalte</span>
             </span>
           </button>
         </div>
@@ -129,6 +177,58 @@ export default function ProfileView({ user, onSignOut }) {
           </form>
         )}
         {profileMessage && <p className="profile-message">{profileMessage}</p>}
+      </section>
+
+      <section className="settings-panel category-settings-panel" aria-labelledby="category-settings-heading">
+        <div className="settings-heading">
+          <div>
+            <p className="settings-kicker">Persönliche Auswahl</p>
+            <h2 id="category-settings-heading">Meine Kategorien</h2>
+          </div>
+          <span className="settings-status">Profil: {activeProfile?.displayName ?? '–'}</span>
+        </div>
+
+        <p className="settings-description">
+          Deine Auswahl erscheint auf Filme und Serien direkt vor den Anbieterreihen. Home und Meine Inhalte bleiben unverändert.
+        </p>
+
+        {activeProfile && categoryGroups.map((group) => (
+          <div className="category-settings-group" key={group.id}>
+            <div className="category-settings-group-heading">
+              <h3>{group.title}</h3>
+              <span>{group.enabledIds.length} von {group.options.length} aktiv</span>
+            </div>
+            <div className="category-choice-grid" aria-label={`${group.title} auswählen`}>
+              {group.options.map((category) => {
+                const enabled = group.enabledIds.includes(category.id)
+                const saving = categorySavingId === `${group.id}:${category.id}`
+                return (
+                  <button
+                    type="button"
+                    key={category.id}
+                    className={enabled ? 'category-choice active' : 'category-choice'}
+                    onClick={() => toggleCategory(group.id, category.id)}
+                    role="switch"
+                    aria-checked={enabled}
+                    aria-busy={saving}
+                    data-focusable="true"
+                  >
+                    <span>{category.title}</span>
+                    <span className={enabled ? 'category-choice-switch active' : 'category-choice-switch'} aria-hidden="true">
+                      <span />
+                    </span>
+                    <small>{saving ? 'Speichert …' : enabled ? 'An' : 'Aus'}</small>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+
+        {categoryMessage && <p className="error" role="status">{categoryMessage}</p>}
+        <p className="settings-hint">
+          Klassiker umfasst in dieser Version Filme mit Erscheinungsjahr vor 2000. Jede Änderung gilt nur für das aktuell aktive Profil.
+        </p>
       </section>
 
       <section className="settings-panel" aria-labelledby="theme-heading">
