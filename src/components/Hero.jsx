@@ -17,6 +17,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
       return true
     }).slice(0, MAX_HEROES)
   }, [item, items])
+
   const signature = slides.map((entry) => entry.id).join('|')
   const [activeIndex, setActiveIndex] = useState(0)
   const [transition, setTransition] = useState(null)
@@ -164,9 +165,12 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
     )
   }
 
-  const stageClassName = transition
-    ? `hero-stage is-transitioning direction-${transition.direction}`
-    : 'hero-stage'
+  const outgoingClass = transition
+    ? `hero-slide-outgoing hero-slide-out-${transition.direction}`
+    : ''
+  const incomingClass = transition
+    ? `hero-slide-incoming hero-slide-in-${transition.direction}`
+    : 'hero-slide-current'
 
   return (
     <section
@@ -186,9 +190,9 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null }}
       >
-        <div className={stageClassName}>
-          {transition && renderHeroPanel(slides[transition.fromIndex], false, 'hero-slide-outgoing')}
-          {renderHeroPanel(activeItem, true, transition ? 'hero-slide-incoming' : 'hero-slide-current')}
+        <div className="hero-slide-layer">
+          {transition && renderHeroPanel(slides[transition.fromIndex], false, outgoingClass)}
+          {renderHeroPanel(activeItem, true, incomingClass)}
         </div>
 
         {slides.length > 1 && (

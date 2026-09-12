@@ -1,7 +1,13 @@
 /*
- * #128 Geräteabnahme: Der Slide-Effekt darf ausschließlich im Hero-Viewport
- * stattfinden. Eyebrow, Punkte und der restliche Seiteninhalt bleiben Teil der
- * unbewegten Seite.
+ * #147 / #128 Geräteabnahme
+ *
+ * Der Hero besteht absichtlich aus drei voneinander getrennten Bereichen:
+ * 1. statische Eyebrow/Überschrift,
+ * 2. fester Hero-Viewport mit ausschließlich absolut positionierten Slides,
+ * 3. statische Punktnavigation darunter.
+ *
+ * Nur die Slide-Layer im Viewport werden transformiert. Der Viewport selbst,
+ * die Punkte und der restliche Seitenfluss erhalten niemals eine Animation.
  */
 html,
 body,
@@ -11,75 +17,202 @@ body,
   overscroll-behavior-x: none;
 }
 
+body,
 #root,
 .app-shell {
-  overflow-x: clip;
+  overflow-x: hidden;
 }
 
 .hero-carousel {
   position: relative;
   width: 100%;
   max-width: 100%;
-  overflow-x: clip;
+  overflow: visible;
   touch-action: pan-y;
-  overscroll-behavior: none;
+  overscroll-behavior-x: none;
 }
 
+/* Statischer Bereich oberhalb des animierten Viewports. */
+.hero-carousel-eyebrow {
+  position: relative;
+  z-index: 8;
+  top: auto;
+  left: auto;
+  margin: 0;
+  padding: clamp(1.1rem, 2vw, 1.75rem) var(--page-inline) 0.75rem;
+  pointer-events: none;
+}
+
+/* Dieser Block ist die einzige sichtbare Animationsfläche. Seine Höhe bleibt
+ * während eines Hero-Wechsels konstant, damit darunter nichts springen oder
+ * horizontal mitgezogen werden kann. */
 .hero-viewport {
   position: relative;
   width: 100%;
   max-width: 100%;
+  height: clamp(430px, 54vh, 580px);
+  min-height: clamp(430px, 54vh, 580px);
   overflow: hidden;
-  contain: paint;
+  contain: layout paint;
   isolation: isolate;
   touch-action: pan-y;
   overscroll-behavior: none;
 }
 
-.hero-stage {
+.hero-slide-layer {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  max-width: 100%;
+  height: 100%;
   overflow: hidden;
   contain: layout paint;
-  touch-action: pan-y;
 }
 
-/* Die Navigationspunkte liegen bewusst außerhalb des animierten Viewports. */
+/* Jeder Slide ist vollständig aus dem normalen Seitenfluss genommen. Dadurch
+ * kann weder seine Breite noch seine Höhe die Punkte oder Inhalte darunter
+ * beeinflussen. */
+.hero-carousel .hero-slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  max-height: 100%;
+  margin: 0;
+  overflow: hidden;
+  backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
+  will-change: transform, opacity;
+}
+
+.hero-slide-current {
+  z-index: 2;
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+}
+
+.hero-slide-outgoing {
+  z-index: 1;
+  pointer-events: none;
+}
+
+.hero-slide-incoming {
+  z-index: 2;
+}
+
+.hero-slide-out-left {
+  animation: hero-panel-out-left 360ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.hero-slide-in-left {
+  animation: hero-panel-in-right 360ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.hero-slide-out-right {
+  animation: hero-panel-out-right 360ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.hero-slide-in-right {
+  animation: hero-panel-in-left 360ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes hero-panel-out-left {
+  from { transform: translate3d(0, 0, 0); opacity: 1; }
+  to { transform: translate3d(-100%, 0, 0); opacity: 0.72; }
+}
+
+@keyframes hero-panel-in-right {
+  from { transform: translate3d(100%, 0, 0); opacity: 0.72; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+
+@keyframes hero-panel-out-right {
+  from { transform: translate3d(0, 0, 0); opacity: 1; }
+  to { transform: translate3d(100%, 0, 0); opacity: 0.72; }
+}
+
+@keyframes hero-panel-in-left {
+  from { transform: translate3d(-100%, 0, 0); opacity: 0.72; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+
+/* Die bestehenden Hero-Innenabstände bleiben erhalten, aber die Höhe kommt
+ * ausschließlich vom Viewport und nicht mehr vom jeweiligen Slide-Inhalt. */
+.hero-carousel .hero {
+  min-height: 100%;
+  height: 100%;
+  max-height: 100%;
+  padding-bottom: clamp(1.35rem, 2vw, 2rem);
+}
+
+/* Pfeile liegen fest auf dem Viewport. Sie selbst werden nie transformiert
+ * durch einen Hero-Wechsel und lösen nur dieselbe stepHero()-Animation aus. */
+.hero-viewport .hero-nav {
+  z-index: 10;
+}
+
+/* Statischer Bereich unterhalb des Viewports. */
 .hero-dots {
   position: relative;
   z-index: 6;
   left: auto;
   bottom: auto;
   width: 100%;
+  display: flex;
   justify-content: center;
   padding: 0.72rem 0 1rem;
+  margin: 0;
   transform: none;
   animation: none;
   contain: layout paint;
   background: var(--color-bg);
 }
 
-/* Der frühere untere Innenraum war für die absolut darüberliegenden Punkte
- * reserviert. Seit die Punkte im Seitenfluss liegen, gehört dieser Raum wieder
- * vollständig zum Hero-Inhalt. */
-.hero-carousel .hero {
-  padding-bottom: clamp(1.35rem, 2vw, 2rem);
-}
-
 @media (max-width: 1050px) {
+  .hero-carousel-eyebrow {
+    padding-top: 1.25rem;
+  }
+
   .hero-carousel .hero {
     padding-bottom: 1.5rem;
   }
 }
 
 @media (max-width: 760px) {
+  .hero-viewport {
+    height: 500px;
+    min-height: 500px;
+  }
+
+  .hero-carousel-eyebrow {
+    padding-top: 1.25rem;
+  }
+
   .hero-carousel .hero {
     padding-bottom: 1rem;
   }
 }
 
 @media (max-width: 560px) {
+  .hero-viewport {
+    height: 610px;
+    min-height: 610px;
+  }
+
+  .hero-carousel-eyebrow {
+    padding: 1rem 1rem 0.65rem;
+  }
+
   .hero-dots {
     padding: 0.65rem 0 0.9rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-slide-out-left,
+  .hero-slide-in-left,
+  .hero-slide-out-right,
+  .hero-slide-in-right {
+    animation-duration: 1ms;
   }
 }

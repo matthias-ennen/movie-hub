@@ -5,5 +5,9 @@
         <item name="android:windowBackground">@color/movie_hub_background</item>
         <item name="android:fontFamily">sans</item>
         <item name="android:colorAccent">#EA2B5E</item>
+        <!-- Android 12+ stellt Overscroll als sichtbaren Stretch der gesamten
+             WebView dar. Movie Hub hat eigene horizontale Hero-Gesten; deshalb
+             darf der native Container nicht zusätzlich optisch mitziehen. -->
+        <item name="android:overScrollMode">never</item>
     </style>
 </resources>
