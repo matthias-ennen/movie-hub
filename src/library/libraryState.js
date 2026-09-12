@@ -8,6 +8,8 @@ export const EMPTY_TITLE_STATE = {
   titleSnapshot: null,
 }
 
+const SUPPORTED_AGE_RATINGS = new Set([0, 6, 12, 16, 18])
+
 /**
  * The public catalog is deliberately refreshed over time. A compact copy of
  * the title is kept with a personal state so a watchlist or rating never
@@ -17,6 +19,7 @@ export const EMPTY_TITLE_STATE = {
 export function createTitleSnapshot(item) {
   if (!item || typeof item !== 'object' || !item.title) return null
 
+  const ageRating = Number(item.ageRating)
   return {
     id: String(item.id ?? ''),
     tmdbId: Number.isFinite(Number(item.tmdbId)) ? Number(item.tmdbId) : null,
@@ -31,6 +34,7 @@ export function createTitleSnapshot(item) {
     score: item.score ? String(item.score).slice(0, 30) : '–',
     posterUrl: item.posterUrl ? String(item.posterUrl) : null,
     backdropUrl: item.backdropUrl ? String(item.backdropUrl) : null,
+    ageRating: SUPPORTED_AGE_RATINGS.has(ageRating) ? ageRating : null,
     accent: item.accent ? String(item.accent).slice(0, 32) : '#657184',
     accent2: item.accent2 ? String(item.accent2).slice(0, 32) : '#1c2531',
     providerIds: Array.isArray(item.providerIds) ? item.providerIds.filter(Boolean).map(String).slice(0, 10) : [],
