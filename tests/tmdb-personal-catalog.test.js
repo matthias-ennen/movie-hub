@@ -33,6 +33,7 @@ describe('persönlicher TMDB-Katalog', () => {
     expect(title.tmdbId).toBe(693134)
     expect(title.tmdbFavorite).toBe(true)
     expect(title.tmdbWatchlist).toBe(true)
+    expect(title.tmdbRated).toBe(false)
     expect(title.genre).toBe('Science-Fiction · Abenteuer')
     expect(title.posterUrl).toContain('/w500/poster.jpg')
   })
@@ -56,19 +57,51 @@ describe('persönlicher TMDB-Katalog', () => {
     expect(merged[0].providerIds).toEqual(['prime', 'youtube'])
   })
 
-  it('führt Favoriten und Watchlist als zwei Reihen bei nur einem internen Titel', () => {
+  it('führt Favoriten und Watchlist mit den einheitlichen TMDB-Reihennamen', () => {
     const title = normalizePersonalTmdbTitle(dune)
     const rows = buildTmdbCatalogRows([title])
-    expect(rows.map((row) => row.title)).toEqual(['TMDB Favoriten', 'TMDB Watchlist'])
+    expect(rows.map((row) => row.title)).toEqual([
+      'Meine Watchlist · TMDB',
+      'Meine Favoriten · TMDB',
+    ])
     expect(rows[0].items[0].id).toBe(rows[1].items[0].id)
   })
 
-  it('persistiert ausschließlich normalisierte Katalogfelder', () => {
-    const stored = nativeTitleToFirestore({ ...dune, apiReadAccessToken: 'secret', sessionId: 'secret' }, '2026-09-09T12:00:00Z')
+  it('normalisiert TMDB-Bewertungen und erzeugt eine eigene Bewertungsreihe', () => {
+    const rated = normalizePersonalTmdbTitle({
+      ...dune,
+      favorite: false,
+      watchlist: false,
+      rated: true,
+      ratingValue: 9,
+      ratedOrder: 3,
+    })
+    const rows = buildTmdbCatalogRows([rated])
+
+    expect(rated.tmdbRated).toBe(true)
+    expect(rated.tmdbRating).toBe(9)
+    expect(rated.ratingOrder).toBe(3)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].title).toBe('Meine Bewertungen · TMDB')
+    expect(rows[0].items[0].id).toBe(rated.id)
+  })
+
+  it('persistiert ausschließlich normalisierte Katalogfelder einschließlich Bewertung', () => {
+    const stored = nativeTitleToFirestore({
+      ...dune,
+      rated: true,
+      ratingValue: 8.5,
+      ratedOrder: 4,
+      apiReadAccessToken: 'secret',
+      sessionId: 'secret',
+    }, '2026-09-09T12:00:00Z')
     expect(stored).not.toHaveProperty('apiReadAccessToken')
     expect(stored).not.toHaveProperty('sessionId')
     expect(stored).not.toHaveProperty('password')
     expect(stored.favorite).toBe(true)
     expect(stored.watchlist).toBe(true)
+    expect(stored.rated).toBe(true)
+    expect(stored.ratingValue).toBe(8.5)
+    expect(stored.ratingOrder).toBe(4)
   })
 })
