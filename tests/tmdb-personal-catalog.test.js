@@ -16,6 +16,7 @@ describe('persönlicher TMDB-Katalog', () => {
     posterPath: '/poster.jpg',
     genreNames: ['Science-Fiction', 'Abenteuer'],
     providerIds: ['prime'],
+    ageRating: 12,
     favorite: true,
     watchlist: true,
     favoriteOrder: 2,
@@ -34,6 +35,7 @@ describe('persönlicher TMDB-Katalog', () => {
     expect(title.tmdbFavorite).toBe(true)
     expect(title.tmdbWatchlist).toBe(true)
     expect(title.tmdbRated).toBe(false)
+    expect(title.ageRating).toBe(12)
     expect(title.genre).toBe('Science-Fiction · Abenteuer')
     expect(title.posterUrl).toContain('/w500/poster.jpg')
   })
@@ -47,6 +49,7 @@ describe('persönlicher TMDB-Katalog', () => {
       title: 'Dune: Part Two',
       description: 'Reichere öffentliche Metadaten',
       providerIds: ['prime', 'youtube'],
+      ageRating: 16,
     }
     const merged = mergePublicAndPersonalCatalog([publicTitle], [normalizePersonalTmdbTitle(dune)])
 
@@ -55,6 +58,7 @@ describe('persönlicher TMDB-Katalog', () => {
     expect(merged[0].tmdbFavorite).toBe(true)
     expect(merged[0].tmdbWatchlist).toBe(true)
     expect(merged[0].providerIds).toEqual(['prime', 'youtube'])
+    expect(merged[0].ageRating).toBe(16)
   })
 
   it('führt Favoriten und Watchlist mit den einheitlichen TMDB-Reihennamen', () => {
@@ -86,7 +90,7 @@ describe('persönlicher TMDB-Katalog', () => {
     expect(rows[0].items[0].id).toBe(rated.id)
   })
 
-  it('persistiert ausschließlich normalisierte Katalogfelder einschließlich Bewertung', () => {
+  it('persistiert ausschließlich normalisierte Katalogfelder einschließlich Bewertung und Altersfreigabe', () => {
     const stored = nativeTitleToFirestore({
       ...dune,
       rated: true,
@@ -103,5 +107,6 @@ describe('persönlicher TMDB-Katalog', () => {
     expect(stored.rated).toBe(true)
     expect(stored.ratingValue).toBe(8.5)
     expect(stored.ratingOrder).toBe(4)
+    expect(stored.ageRating).toBe(12)
   })
 })
