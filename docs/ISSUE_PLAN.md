@@ -22,13 +22,13 @@ Aus #8 werden umsetzungsreife Punkte bei Bedarf in eigene Issues überführt, oh
 
 #163 – profilbezogene Smart-Reihen ausschließlich unter **Meine Inhalte** – ist abgeschlossen. Die technische Hero-first-Umsetzung aus #166/#168 und die Kaltstartkorrektur #169 sind integriert; #166 wartet noch auf die ausdrücklich getrennte manuelle Geräteabnahme.
 
-Aktuell gemeinsam freigegeben sind:
+Integriert und zur Geräteabnahme bereitgestellt sind:
 
 - #170 – Movie Hub als virtuellen, kontoweiten Anbieter-Katalog aus eigenen Links und Videos integrieren;
 - #171 – Heroes und flexible Posterreihen dynamisch sowie profilbezogen kuratieren;
 - #173 – dynamische Top-10-Sonderreihen auf Home, Filme, Serien und Meine Inhalte einfügen.
 
-Danach ist #137 als Konzept-/UX-Arbeitspaket für gruppierte Sammlungen und eine mögliche Sammlungs-Detailseite vorgemerkt; aus der dortigen Produktentscheidung entstehen anschließend eigene Umsetzungs-Issues.
+Aktuell umgesetzt wird #137: vollständige TMDB-Filmreihen als eigener Navigationsbereich innerhalb der Film-Detailseite. Sammlungskacheln und eine eigenständige Sammlungs-Detailseite bleiben nach der gemeinsamen Produktentscheidung außerhalb dieser ersten Stufe.
 
 Die früheren Phase-0-Arbeiten sind abgeschlossen; der folgende historische Abschnitt dokumentiert ihren damaligen Abschlussweg.
 

@@ -144,7 +144,7 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - responsive und D-Pad-taugliche Darstellung
 - erste Version am 09.09.2026 abgenommen; spätere Überarbeitungen werden getrennt behandelt
 
-## Aktuelle Arbeitspakete – #170, #171 und #173
+## Integrierte Arbeitspakete – #170, #171 und #173
 
 Die technische Hero-first-Grundlage aus #166/#168 und die Kaltstartkorrektur #169 sind integriert; die manuelle Geräteabnahme von #166 bleibt getrennt offen.
 
@@ -173,9 +173,11 @@ Die technische Hero-first-Grundlage aus #166/#168 und die Kaltstartkorrektur #16
 - profilbezogene persönliche Liste mit Movie-Hub-Bewertung vor persönlicher TMDB-Bewertung und TMDB-Beliebtheit;
 - keine neue Laufzeit-API, kein zusätzlicher Firestore-Zugriff je Poster und keine gespeicherte Rangliste.
 
-## Danach vorgemerkt – #137 Sammlungen
+## Aktuelles Arbeitspaket – #137 Filmreihen
 
-#137 bleibt das eigenständige Konzept-/UX-Paket für gruppierte Sammlungen und eine mögliche Sammlungs-Detailseite. Nach der Produktentscheidung wird es in klar abgegrenzte technische Umsetzungspakete zerlegt. Die Performance-Grundlage aus #166 sollte möglichst vorher umgesetzt werden, weil Sammlungen zusätzliche inhaltsreiche Ansichten erzeugen können.
+#137 ergänzt ausschließlich bei Filmen einen eigenen Abschnitt **Filmreihe** auf der Detailseite. Der öffentliche Katalog erhält dafür eine vollständige, kompakte TMDB-Teileliste. Ein TV-, Touch- und tastaturtaugliches Auswahlfenster zeigt Reihenfolge, aktuellen Film, Gesehen-Status und Verfügbarkeit je Teil; eine Auswahl wechselt den Film innerhalb derselben Detailansicht.
+
+Eine eigenständige Sammlungs-Detailseite, Sammlungskacheln in Reihen oder Suche, benutzerdefinierte Sammlungen und eine Übertragung auf Serien bleiben zunächst zurückgestellt. Die Datenstruktur wird so angelegt, dass eine spätere Ausbaustufe darauf aufbauen kann.
 
 ## Phase 6 – Personalisierung und Automatisierung
 

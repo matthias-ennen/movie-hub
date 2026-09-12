@@ -56,6 +56,8 @@ Der öffentliche Standardkatalog ist ein täglich neu erzeugtes Hosting-Artefakt
 3. In den sichtbaren Reihen bleiben nur Titel mit mindestens einem unterstützten Anbieter (Netflix, Prime Video, Disney+, YouTube oder waipu.tv).
 4. Erst wenn alle Reihen ausreichend gefüllt sind, wird das neue `catalog.json` gebaut und gemeinsam mit der Web-App auf Firebase Hosting veröffentlicht.
 
+Für Filme mit `belongs_to_collection` ruft derselbe vertrauenswürdige Job jede eindeutige Collection-ID zusätzlich einmal über `/collection/{id}` ab. Der daraus erzeugte kompakte Filmreihen-Index enthält sämtliche gemeldeten Teile und ermöglicht die Navigation auf der Detailseite auch dann, wenn ein Teil nicht im begrenzten Browse-Katalog vorkommt. Ein vorübergehend fehlgeschlagener Collection-Abruf verwirft nicht den gesamten Anbieterkatalog: Movie Hub gruppiert in diesem Fall mindestens die bereits bekannten Katalogmitglieder. Im Browser erfolgen keine direkten TMDB-Collection-Aufrufe.
+
 Der Zeitplan ist täglich um **03:17 UTC**; derselbe Workflow kann bei Bedarf auch manuell gestartet werden. Schlägt ein Abruf, die Mindestprüfung oder der Build fehl, wird nichts veröffentlicht. Das bisherige funktionierende Katalog-Artefakt bleibt dann live.
 
 Die Auswahlreihen, ihre Titel und ihre Größe liegen als Konfiguration im Generator. Sie können später geändert oder um weitere öffentliche TMDB-Quellen erweitert werden, ohne persönliche Daten umzubauen.

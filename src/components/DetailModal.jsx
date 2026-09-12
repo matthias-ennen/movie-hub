@@ -1,16 +1,18 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { getProviderDestination, providers } from '../data/catalog.js'
+import { collectionIdForTitle, resolveFilmCollectionParts } from '../catalog/filmCollections.js'
 import { useLibrary } from '../library/LibraryProvider.jsx'
 import { localDateValue } from '../library/libraryState.js'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import { useAuth } from '../hooks/useAuth.js'
 import { loadSharedMedia, removeSharedMedia, saveSharedMedia } from '../library/sharedMedia.js'
 import { isSmbMediaUrl, normaliseMedia } from '../library/sharedMediaModel.js'
-import { ProviderBadge } from './ProviderBadges.jsx'
+import ProviderBadges, { ProviderBadge } from './ProviderBadges.jsx'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
+import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 
-export default function DetailModal({ item, onClose }) {
+export default function DetailModal({ item, collections = {}, titles = [], onSelectTitle, onClose }) {
   const { activeProfile } = useProfiles()
   const { user } = useAuth()
   const { getTitleState, updateTitleState, loading: libraryLoading } = useLibrary()
@@ -27,8 +29,19 @@ export default function DetailModal({ item, onClose }) {
   const [mediaBusy, setMediaBusy] = useState(false)
   const [mediaMessage, setMediaMessage] = useState('')
   const [playing, setPlaying] = useState(null)
+  const [collectionPickerOpen, setCollectionPickerOpen] = useState(false)
+  const [collectionBusyId, setCollectionBusyId] = useState(null)
   const returnFocusRef = useRef(null)
+  const collectionTriggerRef = useRef(null)
   const personalBusyRef = useRef(false)
+  const collectionId = collectionIdForTitle(item)
+  const filmCollection = collectionId ? collections[String(collectionId)] || null : null
+  const collectionParts = useMemo(
+    () => resolveFilmCollectionParts(filmCollection, titles),
+    [filmCollection, titles],
+  )
+  const currentCollectionIndex = collectionParts.findIndex((part) => Number(part.tmdbId) === Number(item.tmdbId))
+  const hasFilmCollection = item.type === 'movie' && collectionParts.length > 1
   const providerIds = (Array.isArray(item.providerIds) ? item.providerIds : [])
     .filter((providerId) => providerId !== 'moviehub' && Boolean(providers[providerId]))
   const hasProviders = providerIds.length > 0
@@ -41,18 +54,20 @@ export default function DetailModal({ item, onClose }) {
     const active = document.activeElement
     returnFocusRef.current = active instanceof HTMLElement ? active : null
 
-    const frame = window.requestAnimationFrame(() => {
-      const target = document.querySelector('[data-detail-autofocus="true"]')
-      target?.focus({ preventScroll: true })
-    })
-
     return () => {
-      window.cancelAnimationFrame(frame)
       const returnTarget = returnFocusRef.current
       if (returnTarget?.isConnected) {
         window.requestAnimationFrame(() => returnTarget.focus({ preventScroll: true }))
       }
     }
+  }, [])
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.querySelector('[data-detail-autofocus="true"]')
+      target?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
   }, [item.id])
 
   useEffect(() => {
@@ -66,6 +81,8 @@ export default function DetailModal({ item, onClose }) {
     setMediaMessage('')
     setMediaEditorOpen(false)
     setMediaPickerOpen(false)
+    setCollectionPickerOpen(false)
+    setCollectionBusyId(null)
     setPlaying(null)
     setPendingDeleteId(null)
     if (user) {
@@ -85,6 +102,10 @@ export default function DetailModal({ item, onClose }) {
         setPlaying(null)
         return true
       }
+      if (collectionPickerOpen) {
+        closeCollectionPicker()
+        return true
+      }
       if (mediaPickerOpen) {
         setMediaPickerOpen(false)
         return true
@@ -99,17 +120,60 @@ export default function DetailModal({ item, onClose }) {
     return () => {
       if (window.__movieHubDetailBack === closeTopMediaLayer) delete window.__movieHubDetailBack
     }
-  }, [mediaEditorOpen, mediaPickerOpen, playing])
+  }, [collectionPickerOpen, mediaEditorOpen, mediaPickerOpen, playing])
 
   useEffect(() => {
-    if (!mediaEditorOpen && !mediaPickerOpen && !playing) return undefined
+    if (!collectionPickerOpen && !mediaEditorOpen && !mediaPickerOpen && !playing) return undefined
     const frame = window.requestAnimationFrame(() => {
       document.querySelector('[data-media-autofocus="true"]')?.focus({ preventScroll: true })
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [mediaEditorOpen, mediaPickerOpen, playing])
+  }, [collectionPickerOpen, mediaEditorOpen, mediaPickerOpen, playing])
 
   if (!item) return null
+
+  function openCollectionPicker(event) {
+    collectionTriggerRef.current = event?.currentTarget || null
+    setCollectionBusyId(null)
+    setCollectionPickerOpen(true)
+  }
+
+  function closeCollectionPicker({ restoreFocus = true } = {}) {
+    setCollectionPickerOpen(false)
+    setCollectionBusyId(null)
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => {
+        if (collectionTriggerRef.current?.isConnected) {
+          collectionTriggerRef.current.focus({ preventScroll: true })
+        }
+      })
+    }
+  }
+
+  async function selectCollectionPart(part) {
+    if (!part || collectionBusyId) return
+    if (Number(part.tmdbId) === Number(item.tmdbId)) {
+      closeCollectionPicker()
+      return
+    }
+
+    setCollectionBusyId(part.id)
+    let detail = part
+    try {
+      detail = await loadSearchDetail(part)
+    } catch (error) {
+      console.warn('Zusätzliche Details zum Filmreihen-Teil konnten nicht geladen werden.', error)
+      detail = toSearchDetailFallback(part)
+    }
+
+    closeCollectionPicker({ restoreFocus: false })
+    onSelectTitle?.({
+      ...part,
+      ...detail,
+      facets: { ...(detail.facets || {}), collectionId: filmCollection.id },
+      providerIds: [...new Set([...(part.providerIds || []), ...(detail.providerIds || [])])],
+    })
+  }
 
   async function savePersonalPatch(patch, message) {
     if (personalBusyRef.current || libraryLoading) return
@@ -293,6 +357,29 @@ export default function DetailModal({ item, onClose }) {
             </div>
           )}
 
+          {hasFilmCollection && (
+            <section className="film-collection-summary" aria-labelledby="film-collection-heading">
+              <div>
+                <p className="settings-kicker">Filmreihe</p>
+                <h3 id="film-collection-heading">{filmCollection.name}</h3>
+                <p>
+                  {currentCollectionIndex >= 0
+                    ? `Teil ${currentCollectionIndex + 1} von ${collectionParts.length}`
+                    : `${collectionParts.length} Teile`}
+                  {' · '}nach Veröffentlichung
+                </p>
+              </div>
+              <button
+                ref={collectionTriggerRef}
+                type="button"
+                className="action-button film-collection-open"
+                data-focusable="true"
+                data-detail-autofocus="true"
+                onClick={openCollectionPicker}
+              >Alle Teile anzeigen</button>
+            </section>
+          )}
+
           {automaticVideos.length > 0 && (
             <section className="catalog-videos" aria-labelledby="catalog-videos-heading">
               <h3 id="catalog-videos-heading">Videos</h3>
@@ -303,7 +390,7 @@ export default function DetailModal({ item, onClose }) {
                     className="action-button video-action"
                     key={video.id || video.url}
                     data-focusable="true"
-                    data-detail-autofocus={index === 0 ? 'true' : undefined}
+                    data-detail-autofocus={!hasFilmCollection && index === 0 ? 'true' : undefined}
                     onClick={() => openUrl(video.url)}
                   >▶ {video.label || (video.type === 'teaser' ? 'Teaser' : 'Trailer')}</button>
                 ))}
@@ -320,7 +407,7 @@ export default function DetailModal({ item, onClose }) {
                   type="button"
                   className="action-button provider-action movie-hub-action"
                   data-focusable="true"
-                  data-detail-autofocus={automaticVideos.length === 0 ? 'true' : undefined}
+                  data-detail-autofocus={!hasFilmCollection && automaticVideos.length === 0 ? 'true' : undefined}
                   onClick={() => sharedMedia.length === 1 ? launchMedia(sharedMedia[0]) : setMediaPickerOpen(true)}
                   aria-label={sharedMedia.length === 1 ? `${sharedMedia[0].label} über Movie Hub öffnen` : 'Eigene Movie-Hub-Links und Videos auswählen'}
                 >
@@ -337,7 +424,7 @@ export default function DetailModal({ item, onClose }) {
                     key={providerId}
                     className="action-button provider-action"
                     data-focusable="true"
-                    data-detail-autofocus={automaticVideos.length === 0 && !showMovieHubProvider && index === 0 ? 'true' : undefined}
+                    data-detail-autofocus={!hasFilmCollection && automaticVideos.length === 0 && !showMovieHubProvider && index === 0 ? 'true' : undefined}
                     onClick={() => openProvider(providerId)}
                     aria-label={`${provider.label} öffnen`}
                   >
@@ -373,7 +460,7 @@ export default function DetailModal({ item, onClose }) {
                   personalState.favorite ? 'Aus Favoriten entfernt.' : 'Zu Favoriten hinzugefügt.',
                 )}
                 data-focusable="true"
-                data-detail-autofocus={automaticVideos.length === 0 && !showMovieHubProvider && !hasProviders ? 'true' : undefined}
+                data-detail-autofocus={!hasFilmCollection && automaticVideos.length === 0 && !showMovieHubProvider && !hasProviders ? 'true' : undefined}
               >
                 <span aria-hidden="true">♥</span>
                 <span>{personalState.favorite ? 'Favorit' : 'Als Favorit'}</span>
@@ -478,6 +565,70 @@ export default function DetailModal({ item, onClose }) {
           {mediaMessage && !mediaEditorOpen && <p className="personal-state-message" role="status">{mediaMessage}</p>}
         </div>
       </section>
+      {collectionPickerOpen && hasFilmCollection && (
+        <div className="media-layer detail-backdrop collection-layer" onMouseDown={(event) => event.target === event.currentTarget && closeCollectionPicker()}>
+          <section className="media-panel collection-panel" role="dialog" aria-modal="true" aria-labelledby="collection-picker-heading" aria-busy={Boolean(collectionBusyId)}>
+            <div className="collection-panel-heading">
+              <div>
+                <p className="settings-kicker">Filmreihe</p>
+                <h2 id="collection-picker-heading">{filmCollection.name}</h2>
+                <p>{collectionParts.length} Teile · sortiert nach Veröffentlichung</p>
+              </div>
+              <button type="button" className="collection-close" data-focusable="true" onClick={() => closeCollectionPicker()}>× Schließen</button>
+            </div>
+            <div className="collection-part-grid" aria-label={`Alle Teile von ${filmCollection.name}`}>
+              {collectionParts.map((part, index) => {
+                const isCurrent = Number(part.tmdbId) === Number(item.tmdbId)
+                const watched = getTitleState(part).watched
+                const movieHubAvailable = part.providerIds?.includes('moviehub') && isProviderEnabled('moviehub')
+                const automaticProviderIds = (part.providerIds || [])
+                  .filter((providerId) => providerId !== 'moviehub' && Boolean(providers[providerId]))
+                const hasAvailability = movieHubAvailable || automaticProviderIds.length > 0
+                return (
+                  <button
+                    type="button"
+                    key={part.id}
+                    className={isCurrent ? 'collection-part-card current' : 'collection-part-card'}
+                    data-focusable="true"
+                    data-media-autofocus={isCurrent || (currentCollectionIndex < 0 && index === 0) ? 'true' : undefined}
+                    aria-current={isCurrent ? 'true' : undefined}
+                    aria-disabled={Boolean(collectionBusyId)}
+                    aria-label={`${part.title}${part.year ? ` (${part.year})` : ''}${isCurrent ? ', aktuell geöffnet' : ''}${watched ? ', gesehen' : ''}`}
+                    onClick={() => selectCollectionPart(part)}
+                  >
+                    <span
+                      className={part.posterUrl ? 'collection-part-art has-image' : 'collection-part-art'}
+                      style={{ '--poster-accent': part.accent, '--poster-accent-2': part.accent2 }}
+                    >
+                      {part.posterUrl && <img src={part.posterUrl} alt="" loading="lazy" />}
+                      <span className="collection-part-number">{index + 1}</span>
+                      <span className="collection-part-statuses">
+                        {isCurrent && <span>Aktuell</span>}
+                        {watched && <span className="watched">✓ Gesehen</span>}
+                      </span>
+                      {hasAvailability && (
+                        <ProviderBadges
+                          providerIds={automaticProviderIds}
+                          includeMovieHub={movieHubAvailable}
+                          maxVisible={4}
+                        />
+                      )}
+                    </span>
+                    <span className="collection-part-copy">
+                      <strong>{part.title}</strong>
+                      <small>{part.year || 'Jahr unbekannt'}</small>
+                      <small className={hasAvailability ? 'available' : 'unavailable'}>
+                        {hasAvailability ? 'Bei deinen Anbietern verfügbar' : 'Derzeit nicht bei deinen Anbietern'}
+                      </small>
+                    </span>
+                    {collectionBusyId === part.id && <span className="collection-part-loading">Details werden geladen …</span>}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        </div>
+      )}
       {mediaPickerOpen && (
         <div className="media-layer detail-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setMediaPickerOpen(false)}>
           <section className="media-panel media-picker-panel" role="dialog" aria-modal="true" aria-labelledby="media-picker-heading">

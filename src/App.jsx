@@ -12,6 +12,7 @@ import { buildPersonalSmartRows, normalizeSmartFilterOptions } from './catalog/p
 import { buildProviderBrowseRows, buildProviderHomeRows } from './catalog/providerCatalogRows.js'
 import { selectCoordinatedHeroItems, selectPersonalHeroItems } from './catalog/heroSelection.js'
 import { buildMovieHubCatalogRows } from './catalog/movieHubCatalog.js'
+import { normalizeFilmCollectionIndex } from './catalog/filmCollections.js'
 import { buildPersonalTopTen, buildProviderTopTen, insertTopTenRow } from './catalog/topTenRows.js'
 import { curateCatalogRows, curateTitles, hasEnabledAvailability, PUBLIC_POSTER_ROW_LIMIT } from './catalog/contentCuration.js'
 import { getContentPeriodKey, normalizeContentDisplaySettings, resolveContentSortMode } from './catalog/contentDisplaySettings.js'
@@ -344,6 +345,7 @@ function MovieHub({ user }) {
     titles: fallbackTitles,
     rowDefinitions: fallbackRowDefinitions,
     providerCatalogs: {},
+    collections: {},
     smartFilterOptions: normalizeSmartFilterOptions(),
   })
 
@@ -366,6 +368,7 @@ function MovieHub({ user }) {
             titles: data.titles,
             rowDefinitions: data.rowDefinitions,
             providerCatalogs: data.providerCatalogs && typeof data.providerCatalogs === 'object' ? data.providerCatalogs : {},
+            collections: normalizeFilmCollectionIndex(data.collections),
             smartFilterOptions: normalizeSmartFilterOptions(data.smartFilterOptions),
             generatedAt: data.generatedAt || null,
           })
@@ -839,7 +842,15 @@ function MovieHub({ user }) {
       )}
       {currentView === 'settings' && <SettingsView />}
       {currentView === 'about' && <AboutView />}
-      {selectedTitle && <DetailModal item={selectedTitle} onClose={() => setSelectedTitle(null)} />}
+      {selectedTitle && (
+        <DetailModal
+          item={selectedTitle}
+          collections={catalog.collections}
+          titles={titles}
+          onSelectTitle={setSelectedTitle}
+          onClose={() => setSelectedTitle(null)}
+        />
+      )}
       {exitDialogOpen && <ExitConfirmationDialog onCancel={() => setExitDialogOpen(false)} onClose={closeApp} />}
     </div>
   )
