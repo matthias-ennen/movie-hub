@@ -1,6 +1,6 @@
 # Movie Hub – Architektur
 
-Stand: 8. September 2026
+Stand: 12. September 2026
 
 ## Ziel
 
@@ -61,6 +61,14 @@ Der Movie-Hub-Button ist fachlich vom Provider-Layer getrennt. Unter ihm liegen 
 - **Video**: HTTP(S)-Video oder SMB-/UNC-Netzwerkvideo; das zugrunde liegende Protokoll wird automatisch aus der Adresse erkannt
 
 SMB ist kein eigener Bedien- oder Medientyp. Zugangsdaten und Netzlaufwerksdefinitionen bleiben ausschließlich gerätelokal unter **Einstellungen → Netzlaufwerke**.
+
+### Persönliche Smart-Reihen
+
+Unter **Meine Inhalte** können interne Movie-Hub-Profile bis zu zehn eigene dynamische Posterreihen verwalten. Gespeichert wird jeweils eine profilbezogene Filterregel, keine feste Kopie von Titel-IDs. Die Reihen werden beim Laden aus dem aktuellen öffentlichen Katalog berechnet und aktualisieren sich dadurch mit jedem erfolgreichen Katalogwechsel automatisch.
+
+Unterstützte Facetten sind Besetzung, Regie/Serienschöpfer, TMDB-Keyword, Film-Collection und Jahrzehnt. Der vertrauenswürdige Katalogjob verdichtet die dafür benötigten TMDB-Daten zu numerischen Facetten pro Titel sowie deduplizierten Auswahlverzeichnissen. Die Web-App erhält weder den serverseitigen noch einen persönlichen TMDB-Schlüssel.
+
+Diese Smart-Reihen sind fachlich und technisch von den festen Film-/Serienkategorien sowie von Watchlist, Favoriten, Bewertungen und synchronisierten TMDB-Listen getrennt.
 
 ### Fire-TV-App
 - schlanke Android-/Fire-OS-APK

@@ -53,6 +53,9 @@ describe('Firestore Security Rules', () => {
         enabledMovieCategoryIds: ['action', 'horror'],
         enabledSeriesCategoryIds: ['crime', 'mystery'],
       },
+      contentRowSettings: {
+        rows: [{ id: 'brad-pitt', type: 'cast', valueId: 287, valueLabel: 'Brad Pitt', title: 'Mit Brad Pitt', enabled: true, order: 0 }],
+      },
     }))
     await assertSucceeds(setDoc(stateRef, {
       favorite: true,
@@ -68,6 +71,7 @@ describe('Firestore Security Rules', () => {
     const stateSnapshot = await assertSucceeds(getDoc(stateRef))
     expect(profileSnapshot.data().displayName).toBe('Hauptprofil')
     expect(profileSnapshot.data().categorySettings.enabledMovieCategoryIds).toEqual(['action', 'horror'])
+    expect(profileSnapshot.data().contentRowSettings.rows[0].title).toBe('Mit Brad Pitt')
     expect(stateSnapshot.data().rating).toBe(9)
     expect(stateSnapshot.data().favorite).toBe(true)
   })

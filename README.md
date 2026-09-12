@@ -55,12 +55,14 @@ Details:
 
 Projektstart: 31. August 2026
 
-Stand: **9. September 2026**
+Stand: **12. September 2026**
 
 Der aktuelle Funktionsstand ist von Matthias auf **Smartphone, Tablet und Fire TV bis hierhin abgenommen**. Dazu gehören insbesondere die native Android-/Fire-TV-Hülle, D-Pad-/Zurück-Navigation, Profile und persönliche Zustände, SMB-/FRITZ!NAS-Wiedergabe, persönliche TMDB-Verbindung und -Synchronisation, automatische Providerbuttons für Netflix, Prime Video, Disney+, YouTube und waipu.tv sowie das Movie-Hub-Startintro mit Jingle und CRT-Abschaltung.
+
+Die Seiten **Filme** und **Serien** besitzen seit #156 eigene profilbezogene Kategorieauswahlen. Das anschließende Paket #163 ergänzt davon getrennte, selbst konfigurierte Smart-Reihen ausschließlich unter **Meine Inhalte**.
 
 Für Provider gilt bewusst Best Effort: Titelsuche ist optimal, die Suchseite ist akzeptiert und das zuverlässige Öffnen der richtigen Anbieter-App ist die Mindestanforderung. Das Fire-TV-Sideloading kann Launcher-Grafiken anders darstellen als Smartphone/Tablet; die APK enthält trotzdem ein normales Android-Icon und ein separates TV-Banner.
 
 Die zu diesem Abnahmestand gehörenden Detail-Issues werden abgeschlossen. Neue Auffälligkeiten werden als neue, klar abgegrenzte Issues erfasst.
 
-**Nächstes Arbeitspaket:** #86 – „Über Movie Hub“-Seite mit Version, Build und Projektinformationen.
+**Aktuelles Arbeitspaket:** #163 – profilbezogene Smart-Reihen unter „Meine Inhalte“.

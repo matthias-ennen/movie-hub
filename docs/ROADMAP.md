@@ -1,6 +1,6 @@
 # Movie Hub – Roadmap
 
-Stand: 9. September 2026
+Stand: 12. September 2026
 
 ## Arbeitsprinzip
 
@@ -170,6 +170,15 @@ Der erste Schritt im nächsten Termin soll eine Produkt-/Datenentscheidung sein,
 - täglicher/regelmäßiger Empfehlungsjob
 - strukturierte JSON-/Firestore-Ausgabe der Empfehlungen
 - KI nur für Empfehlung/Einordnung, nicht für objektive Verfügbarkeitsfakten
+
+### Aktuelles Paket #163 – Persönliche Smart-Reihen
+
+- bis zu zehn profilbezogene, selbst konfigurierte Posterreihen ausschließlich unter **Meine Inhalte**
+- Filter nach Schauspieler/in, Regie/Serienschöpfer, Thema, Filmreihe oder Jahrzehnt
+- stabile TMDB-IDs statt fehleranfälligem Namensvergleich
+- automatische Aktualisierung aus dem aktuellen öffentlichen Katalog
+- Anlegen, Bearbeiten, Aktivieren, Verschieben und Löschen per Touch, Tastatur und D-Pad
+- getrennt von den mit #156 abgeschlossenen Film- und Serienkategorien
 
 Abschlusskriterium: Empfehlungen werden reproduzierbar aus aktuellen Filmdaten und persönlichen Signalen erzeugt und automatisch in Movie Hub sichtbar.
 

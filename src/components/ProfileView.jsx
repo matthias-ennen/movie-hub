@@ -4,10 +4,11 @@ import {
   SERIES_CATEGORY_OPTIONS,
   normalizeCategorySettings,
 } from '../catalog/categoryRows.js'
+import PersonalRowsSettings from './PersonalRowsSettings.jsx'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import { useTheme } from '../theme/ThemeProvider.jsx'
 
-export default function ProfileView({ user, onSignOut }) {
+export default function ProfileView({ user, onSignOut, publicTitles = [], smartFilterOptions = {} }) {
   const {
     profiles,
     activeProfile,
@@ -113,7 +114,7 @@ export default function ProfileView({ user, onSignOut }) {
       <div className="page-heading profile-heading">
         <p className="eyebrow">Dein Movie Hub</p>
         <h1>Profil & Design</h1>
-        <p>Jedes interne Profil bekommt eigene Kategorien und Darstellungseinstellungen.</p>
+        <p>Jedes interne Profil bekommt eigene Kategorien, persönliche Reihen und Darstellungseinstellungen.</p>
       </div>
 
       <section className="settings-panel" aria-labelledby="profiles-heading">
@@ -230,6 +231,8 @@ export default function ProfileView({ user, onSignOut }) {
           Klassiker umfasst in dieser Version Filme mit Erscheinungsjahr vor 2000. Jede Änderung gilt nur für das aktuell aktive Profil.
         </p>
       </section>
+
+      <PersonalRowsSettings titles={publicTitles} filterOptions={smartFilterOptions} />
 
       <section className="settings-panel" aria-labelledby="theme-heading">
         <div className="settings-heading">

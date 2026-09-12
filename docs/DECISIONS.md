@@ -56,3 +56,13 @@ Beim Öffnen versucht die native Android-/Fire-TV-Schicht weiterhin bestmöglich
 Der Movie-Hub-Button enthält ausschließlich selbst hinzugefügte Inhalte. Das Bedienmodell kennt dafür nur **Link hinzufügen** und **Video hinzufügen**. Ein Link wird extern geöffnet; ein Video wird im Movie-Hub-Player wiedergegeben. Bei Videos wird HTTP(S), `smb://` oder UNC automatisch aus der Adresse erkannt. SMB-Zugangsdaten bleiben zentral unter **Einstellungen → Netzlaufwerke**.
 
 Bestehende manuelle Anbieter-Links werden nicht gelöscht. Sie werden als normale eigene Links unter dem Movie-Hub-Button weitergeführt. Bestehende explizite SMB-Medientypen werden als Videos weitergeführt; die Netzwerkquelle wird anschließend automatisch aus der URL erkannt.
+
+## ADR-008 – Persönliche Reihen als profilbezogene Filterregeln
+
+Status: entschieden
+
+Selbst konfigurierte Reihen unter **Meine Inhalte** werden als Smart-Reihen modelliert. Ein Profil speichert höchstens zehn Regeln mit Filtertyp, stabiler numerischer ID, sichtbarem Namen, Reihentitel, Aktivstatus und Reihenfolge. Feste Titel-IDs werden nicht in der Regel gespeichert.
+
+Die Treffermenge wird aus dem aktuellen öffentlichen Movie-Hub-Katalog berechnet. Der Katalogjob normalisiert Besetzung, Regie/Serienschöpfer, Keywords, Film-Collections und Jahrzehnte zu kompakten Facetten. Dadurch aktualisieren sich die Reihen automatisch, ohne dass TMDB-Zugangsdaten in die Web-App gelangen.
+
+Version 1 verwendet genau einen Filterwert je Reihe. Komplexe UND-/ODER-Regeln und Smart-Reihen außerhalb von **Meine Inhalte** bleiben späteren Paketen vorbehalten.

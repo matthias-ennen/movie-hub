@@ -25,8 +25,14 @@ describe('TMDB adapter', () => {
         }],
       },
       credits: {
-        cast: [{ id: 1, name: 'Darsteller Eins', character: 'Figur', profile_path: '/person.jpg' }],
+        cast: [
+          { id: 1, name: 'Darsteller Eins', character: 'Figur', profile_path: '/person.jpg' },
+          ...Array.from({ length: 8 }, (_, index) => ({ id: index + 2, name: `Weitere Person ${index + 2}` })),
+        ],
+        crew: [{ id: 20, name: 'Regisseurin', job: 'Director', profile_path: '/director.jpg' }],
       },
+      keywords: { keywords: [{ id: 30, name: 'Weltraum' }] },
+      belongs_to_collection: { id: 40, name: 'Sternensaga' },
     }, 'movie')
 
     expect(normalized).toMatchObject({
@@ -41,11 +47,16 @@ describe('TMDB adapter', () => {
       voteAverage: 8.2,
       popularity: 96.4,
       ageRating: 12,
-      cast: [{ id: 1, name: 'Darsteller Eins', character: 'Figur' }],
     })
     expect(normalized.posterUrl).toBe('https://image.tmdb.org/t/p/w500/poster.jpg')
     expect(normalized.backdropUrl).toBe('https://image.tmdb.org/t/p/w1280/backdrop.jpg')
+    expect(normalized.cast[0]).toMatchObject({ id: 1, name: 'Darsteller Eins', character: 'Figur' })
     expect(normalized.cast[0].profileUrl).toBe('https://image.tmdb.org/t/p/w185/person.jpg')
+    expect(normalized.cast).toHaveLength(8)
+    expect(normalized.smartFacets.cast).toHaveLength(9)
+    expect(normalized.smartFacets.creators).toEqual([expect.objectContaining({ id: 20, name: 'Regisseurin' })])
+    expect(normalized.smartFacets.keywords).toEqual([{ id: 30, name: 'Weltraum' }])
+    expect(normalized.smartFacets.collection).toEqual({ id: 40, name: 'Sternensaga' })
   })
 
   it('normalizes TV payloads as Movie-Hub series', () => {
@@ -60,6 +71,8 @@ describe('TMDB adapter', () => {
       genres: [{ id: 18, name: 'Drama' }],
       vote_average: 8.5,
       content_ratings: { results: [{ iso_3166_1: 'DE', rating: '16' }] },
+      created_by: [{ id: 50, name: 'Serienschöpfer' }],
+      keywords: { results: [{ id: 60, name: 'Intrige' }] },
     }, 'tv')
 
     expect(normalized).toMatchObject({
@@ -71,6 +84,8 @@ describe('TMDB adapter', () => {
       numberOfEpisodes: 73,
       ageRating: 16,
     })
+    expect(normalized.smartFacets.creators).toEqual([expect.objectContaining({ id: 50, name: 'Serienschöpfer' })])
+    expect(normalized.smartFacets.keywords).toEqual([{ id: 60, name: 'Intrige' }])
 
     const catalogItem = toMovieHubTitle(normalized, { id: 'got' })
     expect(catalogItem).toMatchObject({

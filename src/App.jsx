@@ -9,6 +9,7 @@ import ProfileView from './components/ProfileView.jsx'
 import SearchView from './components/SearchView.jsx'
 import SettingsView from './components/SettingsView.jsx'
 import { buildCategoryRows } from './catalog/categoryRows.js'
+import { buildPersonalSmartRows, normalizeSmartFilterOptions } from './catalog/personalSmartRows.js'
 import { buildProviderBrowseRows } from './catalog/providerCatalogRows.js'
 import { selectHeroItems, selectHomeHeroItems, selectPersonalHeroItems } from './catalog/heroSelection.js'
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
@@ -250,6 +251,7 @@ function MovieHub({ user }) {
     titles: fallbackTitles,
     rowDefinitions: fallbackRowDefinitions,
     providerCatalogs: {},
+    smartFilterOptions: normalizeSmartFilterOptions(),
   })
 
   useEffect(() => {
@@ -268,6 +270,7 @@ function MovieHub({ user }) {
             titles: data.titles,
             rowDefinitions: data.rowDefinitions,
             providerCatalogs: data.providerCatalogs && typeof data.providerCatalogs === 'object' ? data.providerCatalogs : {},
+            smartFilterOptions: normalizeSmartFilterOptions(data.smartFilterOptions),
             generatedAt: data.generatedAt || null,
           })
         }
@@ -383,7 +386,14 @@ function MovieHub({ user }) {
     [titles, statesByKey, getTitleState],
   )
   const tmdbRows = useMemo(() => buildTmdbCatalogRows(titles), [titles])
-  const combinedPersonalRows = useMemo(() => [...personalRows, ...tmdbRows], [personalRows, tmdbRows])
+  const personalSmartRows = useMemo(
+    () => buildPersonalSmartRows(publicTitles, activeProfile?.contentRowSettings),
+    [publicTitles, activeProfile?.contentRowSettings],
+  )
+  const combinedPersonalRows = useMemo(
+    () => [...personalRows, ...tmdbRows, ...personalSmartRows],
+    [personalRows, tmdbRows, personalSmartRows],
+  )
   const movies = titles.filter((item) => item.type === 'movie')
   const series = titles.filter((item) => item.type === 'series')
   const homeHeroes = useMemo(() => selectHomeHeroItems(publicTitles), [publicTitles])
@@ -497,7 +507,14 @@ function MovieHub({ user }) {
           onOpen={handleOpenTitle}
         />
       )}
-      {currentView === 'profile' && <ProfileView user={user} onSignOut={handleSignOut} />}
+      {currentView === 'profile' && (
+        <ProfileView
+          user={user}
+          onSignOut={handleSignOut}
+          publicTitles={publicTitles}
+          smartFilterOptions={catalog.smartFilterOptions}
+        />
+      )}
       {currentView === 'settings' && <SettingsView />}
       {currentView === 'about' && <AboutView />}
       {selectedTitle && <DetailModal item={selectedTitle} onClose={() => setSelectedTitle(null)} />}

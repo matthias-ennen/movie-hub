@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { collection, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
 import { LibraryProvider } from '../library/LibraryProvider.jsx'
 import { DEFAULT_CATEGORY_SETTINGS, normalizeCategorySettings } from '../catalog/categoryRows.js'
+import { normalizePersonalSmartRowSettings } from '../catalog/personalSmartRows.js'
 import { firebaseReady } from '../lib/firebase.js'
 import { DEFAULT_THEME_SETTINGS, normalizeThemeSettings } from '../theme/themeConfig.js'
 
@@ -31,6 +32,7 @@ function normalizeProfile(snapshot) {
     role: data.role === 'primary' ? 'primary' : 'member',
     themeSettings: normalizeThemeSettings(data.themeSettings),
     categorySettings: normalizeCategorySettings(data.categorySettings),
+    contentRowSettings: normalizePersonalSmartRowSettings(data.contentRowSettings),
   }
 }
 
@@ -74,6 +76,7 @@ export function ProfileProvider({ user, children }) {
             role: 'primary',
             themeSettings: readLegacyThemeSettings(),
             categorySettings: normalizeCategorySettings(DEFAULT_CATEGORY_SETTINGS),
+            contentRowSettings: normalizePersonalSmartRowSettings(),
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           })
@@ -125,17 +128,19 @@ export function ProfileProvider({ user, children }) {
     const displayName = `Profil ${profiles.length + 1}`
     const themeSettings = normalizeThemeSettings(DEFAULT_THEME_SETTINGS)
     const categorySettings = normalizeCategorySettings(DEFAULT_CATEGORY_SETTINGS)
+    const contentRowSettings = normalizePersonalSmartRowSettings()
 
     await setDoc(profileRef, {
       displayName,
       role: 'member',
       themeSettings,
       categorySettings,
+      contentRowSettings,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })
 
-    const newProfile = { id: profileRef.id, displayName, role: 'member', themeSettings, categorySettings }
+    const newProfile = { id: profileRef.id, displayName, role: 'member', themeSettings, categorySettings, contentRowSettings }
     setProfiles((current) => sortProfiles([...current, newProfile]))
     setActiveProfileId(profileRef.id)
     persistActiveProfile(user.uid, profileRef.id)
@@ -188,6 +193,21 @@ export function ProfileProvider({ user, children }) {
     )))
   }, [activeProfileId, user.uid])
 
+  const updateActiveProfileContentRowSettings = useCallback(async (contentRowSettings) => {
+    if (!activeProfileId) return
+    const normalized = normalizePersonalSmartRowSettings(contentRowSettings)
+    const { db } = await firebaseReady
+
+    await setDoc(doc(db, 'users', user.uid, 'profiles', activeProfileId), {
+      contentRowSettings: normalized,
+      updatedAt: serverTimestamp(),
+    }, { merge: true })
+
+    setProfiles((current) => current.map((profile) => (
+      profile.id === activeProfileId ? { ...profile, contentRowSettings: normalized } : profile
+    )))
+  }, [activeProfileId, user.uid])
+
   const value = useMemo(() => ({
     profiles,
     activeProfile,
@@ -198,7 +218,8 @@ export function ProfileProvider({ user, children }) {
     renameProfile,
     updateActiveProfileThemeSettings,
     updateActiveProfileCategorySettings,
-  }), [profiles, activeProfile, loading, error, selectProfile, createProfile, renameProfile, updateActiveProfileThemeSettings, updateActiveProfileCategorySettings])
+    updateActiveProfileContentRowSettings,
+  }), [profiles, activeProfile, loading, error, selectProfile, createProfile, renameProfile, updateActiveProfileThemeSettings, updateActiveProfileCategorySettings, updateActiveProfileContentRowSettings])
 
   return (
     <ProfileContext.Provider value={value}>
