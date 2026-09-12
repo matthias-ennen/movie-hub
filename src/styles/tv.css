@@ -1,7 +1,20 @@
 /* Phase 1.4: gezielte TV-/D-Pad-Feinheiten, ohne die Theme-Presets zu duplizieren. */
 
 .poster-track {
-  scroll-padding-inline: var(--page-inline);
+  --poster-focus-safe: clamp(0.8rem, 1.1vw, 1.05rem);
+  margin-left: calc(-1 * var(--poster-focus-safe));
+  padding-top: var(--poster-focus-safe);
+  padding-right: max(var(--page-inline), var(--poster-focus-safe));
+  padding-bottom: calc(var(--poster-focus-safe) + var(--space-2));
+  padding-left: var(--poster-focus-safe);
+  scroll-padding-inline: var(--poster-focus-safe);
+}
+
+.hero-carousel,
+.hero-actions .action-button,
+.poster-card {
+  scroll-margin-top: calc(var(--topbar-height) + 1rem);
+  scroll-margin-bottom: 2rem;
 }
 
 .poster-card:focus-visible,
