@@ -235,11 +235,12 @@ async function resolveCandidate(candidate) {
   const videoPath = candidate.mediaType === 'tv'
     ? `/tv/${candidate.id}/videos`
     : `/movie/${candidate.id}/videos`
+  const ratingAppend = candidate.mediaType === 'tv' ? 'content_ratings' : 'release_dates'
 
   const [payload, providerPayload, germanVideos, fallbackVideos] = await Promise.all([
     tmdbFetch(detailPath, {
       language,
-      append_to_response: 'credits,images',
+      append_to_response: `credits,images,${ratingAppend}`,
       include_image_language: 'null',
     }),
     tmdbFetch(providerPath),
