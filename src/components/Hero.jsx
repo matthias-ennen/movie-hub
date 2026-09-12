@@ -131,7 +131,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
           </div>
         </div>
         <div className={heroBackdropUrl ? 'hero-art has-image' : 'hero-art'} aria-hidden="true">
-          {heroBackdropUrl && <img className="hero-art-image" src={heroBackdropUrl} alt="" />}
+          {heroBackdropUrl && <img className="hero-art-image" src={heroBackdropUrl} alt="" draggable="false" />}
         </div>
       </div>
     )
@@ -149,30 +149,53 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
       tabIndex={0}
       data-focusable="true"
       onKeyDown={handleCarouselKeyDown}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={() => { touchStartRef.current = null }}
     >
-      <div className={stageClassName}>
+      <div
+        className={stageClassName}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => { touchStartRef.current = null }}
+      >
         {transition && renderHeroPanel(slides[transition.fromIndex], false, 'hero-slide-outgoing')}
         {renderHeroPanel(activeItem, true, transition ? 'hero-slide-incoming' : 'hero-slide-current')}
       </div>
 
       {slides.length > 1 && (
-        <div className="hero-dots" role="tablist" aria-label="Hero auswählen">
-          {slides.map((slide, index) => (
-            <button
-              key={slide.id}
-              type="button"
-              className={index === safeIndex ? 'hero-dot active' : 'hero-dot'}
-              aria-label={`Hero ${index + 1}: ${slide.title}`}
-              aria-selected={index === safeIndex}
-              role="tab"
-              tabIndex={-1}
-              onClick={() => selectHero(index)}
-            />
-          ))}
-        </div>
+        <>
+          <button
+            type="button"
+            className="hero-nav hero-nav-prev"
+            aria-label="Vorherigen Hero anzeigen"
+            tabIndex={-1}
+            disabled={safeIndex === 0}
+            onClick={() => stepHero(-1)}
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className="hero-nav hero-nav-next"
+            aria-label="Nächsten Hero anzeigen"
+            tabIndex={-1}
+            onClick={() => stepHero(1)}
+          >
+            ›
+          </button>
+          <div className="hero-dots" role="tablist" aria-label="Hero auswählen">
+            {slides.map((slide, index) => (
+              <button
+                key={slide.id}
+                type="button"
+                className={index === safeIndex ? 'hero-dot active' : 'hero-dot'}
+                aria-label={`Hero ${index + 1}: ${slide.title}`}
+                aria-selected={index === safeIndex}
+                role="tab"
+                tabIndex={-1}
+                onClick={() => selectHero(index)}
+              />
+            ))}
+          </div>
+        </>
       )}
     </section>
   )
