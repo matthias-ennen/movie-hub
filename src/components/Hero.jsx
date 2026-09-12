@@ -23,6 +23,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
   const [transition, setTransition] = useState(null)
   const touchStartRef = useRef(null)
   const transitionTimerRef = useRef([])
+  const transitionLockRef = useRef(false)
 
   function clearTransitionTimers() {
     transitionTimerRef.current.forEach((timer) => window.clearTimeout(timer))
@@ -31,11 +32,15 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
 
   useEffect(() => {
     clearTransitionTimers()
+    transitionLockRef.current = false
     setActiveIndex(0)
     setTransition(null)
   }, [signature])
 
-  useEffect(() => () => clearTransitionTimers(), [])
+  useEffect(() => () => {
+    clearTransitionTimers()
+    transitionLockRef.current = false
+  }, [])
 
   if (!slides.length) return null
 
@@ -43,8 +48,9 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
   const activeItem = slides[safeIndex]
 
   function selectHero(index, direction = null) {
-    if (transition || index < 0 || index >= slides.length || index === safeIndex) return
+    if (transitionLockRef.current || index < 0 || index >= slides.length || index === safeIndex) return
 
+    transitionLockRef.current = true
     const resolvedDirection = direction || (index > safeIndex ? 'left' : 'right')
     clearTransitionTimers()
     setTransition({ phase: 'out', targetIndex: index, direction: resolvedDirection })
@@ -54,6 +60,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
       setTransition({ phase: 'in', targetIndex: index, direction: resolvedDirection })
 
       const finishTimer = window.setTimeout(() => {
+        transitionLockRef.current = false
         setTransition(null)
         transitionTimerRef.current = []
       }, HERO_PHASE_MS)
@@ -96,7 +103,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
     const start = touchStartRef.current
     const touch = event.changedTouches?.[0]
     touchStartRef.current = null
-    if (!start || !touch || transition) return
+    if (!start || !touch || transitionLockRef.current) return
 
     const deltaX = touch.clientX - start.x
     const deltaY = touch.clientY - start.y
@@ -174,7 +181,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
               className="hero-nav hero-nav-prev"
               aria-label="Vorherigen Hero anzeigen"
               tabIndex={-1}
-              disabled={safeIndex === 0 || Boolean(transition)}
+              disabled={safeIndex === 0}
               onClick={() => stepHero(-1)}
             >
               ‹
@@ -184,7 +191,6 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
               className="hero-nav hero-nav-next"
               aria-label="Nächsten Hero anzeigen"
               tabIndex={-1}
-              disabled={Boolean(transition)}
               onClick={() => stepHero(1)}
             >
               ›
@@ -204,7 +210,6 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus' }
               aria-selected={index === safeIndex}
               role="tab"
               tabIndex={-1}
-              disabled={Boolean(transition)}
               onClick={() => selectHero(index)}
             />
           ))}
