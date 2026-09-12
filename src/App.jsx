@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import AboutView from './components/AboutView.jsx'
-import ContentRow from './components/ContentRow.jsx'
 import DetailModal from './components/DetailModal.jsx'
 import Hero from './components/Hero.jsx'
-import PosterCard from './components/PosterCard.jsx'
+import { ProgressivePosterGrid, ProgressiveRows } from './components/ProgressiveContent.jsx'
 import ProfileView from './components/ProfileView.jsx'
 import SearchView from './components/SearchView.jsx'
 import SettingsView from './components/SettingsView.jsx'
@@ -15,10 +14,12 @@ import { selectHeroItems, selectHomeHeroItems, selectPersonalHeroItems } from '.
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
+import { useHeroFirstPage } from './hooks/useHeroFirstPage.js'
 import { useProviderSelection } from './settings/useProviderSelection.js'
 import { useLibrary } from './library/LibraryProvider.jsx'
 import { buildPersonalRows, mergeCatalogWithPersonalSnapshots } from './library/personalRows.js'
 import { firebaseReady } from './lib/firebase.js'
+import { preloadHeroImage } from './performance/progressiveRendering.js'
 import { ProfileProvider, useProfiles } from './profiles/ProfileProvider.jsx'
 import { ThemeProvider } from './theme/ThemeProvider.jsx'
 import { TmdbCatalogProvider, useTmdbCatalog } from './tmdb/TmdbCatalogProvider.jsx'
@@ -80,6 +81,7 @@ function Header({
   activeProfile,
   profiles,
   onProfileSelect,
+  onViewIntent,
 }) {
   const navItems = [
     ['home', 'Home'],
@@ -113,10 +115,29 @@ function Header({
 
   return (
     <header className="topbar">
-      <button type="button" className="brand brand-button" onClick={() => onViewChange('home')} data-focusable="true">MOVIE <span>HUB</span></button>
+      <button
+        type="button"
+        className="brand brand-button"
+        onClick={() => onViewChange('home')}
+        onFocus={() => onViewIntent('home')}
+        onPointerEnter={() => onViewIntent('home')}
+        data-focusable="true"
+      >
+        MOVIE <span>HUB</span>
+      </button>
       <nav className="main-nav" aria-label="Hauptnavigation">
         {navItems.map(([id, label]) => (
-          <button type="button" key={id} className={currentView === id ? 'nav-link active' : 'nav-link'} onClick={() => onViewChange(id)} data-focusable="true">{label}</button>
+          <button
+            type="button"
+            key={id}
+            className={currentView === id ? 'nav-link active' : 'nav-link'}
+            onClick={() => onViewChange(id)}
+            onFocus={() => onViewIntent(id)}
+            onPointerEnter={() => onViewIntent(id)}
+            data-focusable="true"
+          >
+            {label}
+          </button>
         ))}
       </nav>
       <div className="top-actions">
@@ -165,10 +186,12 @@ function Header({
   )
 }
 
-function BrowseView({ title, subtitle, items, rows = [], heroItems = [], onOpen }) {
+function BrowseView({ viewId, title, subtitle, items, rows = [], heroItems = [], onOpen }) {
+  const { heroReady, handleHeroReady } = useHeroFirstPage(viewId)
+
   return (
-    <main className="category-page">
-      <Hero items={heroItems} onOpen={onOpen} eyebrow={title} />
+    <main className="category-page" data-page-load-state={heroReady ? 'rows' : 'hero'}>
+      <Hero items={heroItems} onOpen={onOpen} eyebrow={title} onReady={handleHeroReady} />
       <section className="browse-page">
         <div className="page-heading">
           <p className="eyebrow">Movie Hub</p>
@@ -176,23 +199,43 @@ function BrowseView({ title, subtitle, items, rows = [], heroItems = [], onOpen 
           <p>{subtitle}</p>
         </div>
         {rows.length > 0 ? (
-          <div className="rows-wrap browse-provider-rows">
-            {rows.map((row) => <ContentRow key={row.id} title={row.title} items={row.items} onOpen={onOpen} />)}
-          </div>
+          <ProgressiveRows
+            rows={rows}
+            heroReady={heroReady}
+            onOpen={onOpen}
+            className="rows-wrap browse-provider-rows"
+          />
         ) : (
-          <div className="poster-grid">
-            {items.map((item) => <PosterCard key={item.id} item={item} onOpen={onOpen} />)}
-          </div>
+          <ProgressivePosterGrid items={items} heroReady={heroReady} onOpen={onOpen} />
         )}
       </section>
     </main>
   )
 }
 
-function PersonalLibraryView({ rows, heroItems = [], onOpen, profileName, loading, error }) {
+function HomeView({ heroItems, rows, onOpen, liveTmdb }) {
+  const { heroReady, handleHeroReady } = useHeroFirstPage('home')
+
   return (
-    <main className="personal-library-shell">
-      <Hero items={heroItems} onOpen={onOpen} eyebrow="Meine Inhalte" />
+    <main data-page-load-state={heroReady ? 'rows' : 'hero'}>
+      <Hero items={heroItems} onOpen={onOpen} onReady={handleHeroReady} />
+      <div className="rows-wrap">
+        <div className="prototype-strip">
+          <strong>{liveTmdb ? 'Echte TMDB-Daten' : 'Entwicklungsfallback'}</strong>
+          <span>{liveTmdb ? 'Filme & Serien · deutsche Metadaten · Poster & Backdrops' : 'Der Live-TMDB-Katalog konnte noch nicht geladen werden.'}</span>
+        </div>
+        <ProgressiveRows rows={rows} heroReady={heroReady} onOpen={onOpen} className="progressive-home-rows" />
+      </div>
+    </main>
+  )
+}
+
+function PersonalLibraryView({ rows, heroItems = [], onOpen, profileName, loading, error }) {
+  const { heroReady, handleHeroReady } = useHeroFirstPage('library')
+
+  return (
+    <main className="personal-library-shell" data-page-load-state={heroReady ? 'rows' : 'hero'}>
+      <Hero items={heroItems} onOpen={onOpen} eyebrow="Meine Inhalte" onReady={handleHeroReady} />
       <section className="browse-page personal-library-page">
         <div className="page-heading">
           <p className="eyebrow">{profileName ?? 'Movie Hub'}</p>
@@ -212,9 +255,12 @@ function PersonalLibraryView({ rows, heroItems = [], onOpen, profileName, loadin
         )}
 
         {rows.length > 0 && (
-          <div className="rows-wrap personal-library-rows">
-            {rows.map((row) => <ContentRow key={row.id} title={row.title} items={row.items} onOpen={onOpen} />)}
-          </div>
+          <ProgressiveRows
+            rows={rows}
+            heroReady={heroReady}
+            onOpen={onOpen}
+            className="rows-wrap personal-library-rows"
+          />
         )}
       </section>
     </main>
@@ -394,8 +440,8 @@ function MovieHub({ user }) {
     () => [...personalRows, ...tmdbRows, ...personalSmartRows],
     [personalRows, tmdbRows, personalSmartRows],
   )
-  const movies = titles.filter((item) => item.type === 'movie')
-  const series = titles.filter((item) => item.type === 'series')
+  const movies = useMemo(() => titles.filter((item) => item.type === 'movie'), [titles])
+  const series = useMemo(() => titles.filter((item) => item.type === 'series'), [titles])
   const homeHeroes = useMemo(() => selectHomeHeroItems(publicTitles), [publicTitles])
   const movieHeroes = useMemo(() => selectHeroItems(titles, { type: 'movie' }), [titles])
   const seriesHeroes = useMemo(() => selectHeroItems(titles, { type: 'series' }), [titles])
@@ -435,6 +481,23 @@ function MovieHub({ user }) {
     () => [...seriesCategoryRows, ...providerSeriesRows],
     [seriesCategoryRows, providerSeriesRows],
   )
+  const homeRows = useMemo(
+    () => [
+      ...rows,
+      ...(!libraryLoading && !libraryError ? personalRows : []),
+      ...tmdbRows,
+    ],
+    [rows, libraryLoading, libraryError, personalRows, tmdbRows],
+  )
+  const heroItemsByView = useMemo(() => ({
+    home: homeHeroes,
+    movies: movieHeroes,
+    series: seriesHeroes,
+    library: personalHeroes,
+  }), [homeHeroes, movieHeroes, personalHeroes, seriesHeroes])
+  const handleViewIntent = useCallback((nextView) => {
+    preloadHeroImage(heroItemsByView[nextView])
+  }, [heroItemsByView])
   const liveTmdb = catalog.source === 'tmdb'
 
   return (
@@ -450,27 +513,20 @@ function MovieHub({ user }) {
         activeProfile={activeProfile}
         profiles={profiles}
         onProfileSelect={selectProfile}
+        onViewIntent={handleViewIntent}
       />
       {currentView === 'home' && (
-        <main>
-          <Hero items={homeHeroes} onOpen={handleOpenTitle} />
-          <div className="rows-wrap">
-            <div className="prototype-strip">
-              <strong>{liveTmdb ? 'Echte TMDB-Daten' : 'Entwicklungsfallback'}</strong>
-              <span>{liveTmdb ? 'Filme & Serien · deutsche Metadaten · Poster & Backdrops' : 'Der Live-TMDB-Katalog konnte noch nicht geladen werden.'}</span>
-            </div>
-            {rows.map((row) => <ContentRow key={row.id} title={row.title} items={row.items} onOpen={handleOpenTitle} />)}
-            {!libraryLoading && !libraryError && personalRows.map((row) => (
-              <ContentRow key={row.id} title={row.title} items={row.items} onOpen={handleOpenTitle} />
-            ))}
-            {tmdbRows.map((row) => (
-              <ContentRow key={row.id} title={row.title} items={row.items} onOpen={handleOpenTitle} />
-            ))}
-          </div>
-        </main>
+        <HomeView
+          heroItems={homeHeroes}
+          rows={homeRows}
+          onOpen={handleOpenTitle}
+          liveTmdb={liveTmdb}
+        />
       )}
       {currentView === 'movies' && (
         <BrowseView
+          key="movies"
+          viewId="movies"
           title="Filme"
           subtitle="Deine Filmkategorien – danach die Kataloge deiner Anbieter."
           items={movies}
@@ -481,6 +537,8 @@ function MovieHub({ user }) {
       )}
       {currentView === 'series' && (
         <BrowseView
+          key="series"
+          viewId="series"
           title="Serien"
           subtitle="Deine Serienkategorien – danach die Kataloge deiner Anbieter."
           items={series}

@@ -65,4 +65,4 @@ Für Provider gilt bewusst Best Effort: Titelsuche ist optimal, die Suchseite is
 
 Die zu diesem Abnahmestand gehörenden Detail-Issues werden abgeschlossen. Neue Auffälligkeiten werden als neue, klar abgegrenzte Issues erfasst.
 
-**Aktuelles Arbeitspaket:** #163 – profilbezogene Smart-Reihen unter „Meine Inhalte“.
+**Aktuelles Arbeitspaket:** #166 – Hero-first Rendering und progressive Posterreihen für schnellere Seitenwechsel.

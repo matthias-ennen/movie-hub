@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { PROGRESSIVE_ROW_REQUEST_EVENT } from '../performance/progressiveRendering.js'
 
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
 const BACK_KEYS = new Set(['Escape', 'BrowserBack', 'GoBack'])
@@ -230,6 +231,29 @@ function focusAdjacentPosterRow(tracks, rowIndex, direction, active) {
   return true
 }
 
+function requestAndFocusNextPosterRow(active, currentTrack = null) {
+  const detail = { handled: false }
+  window.dispatchEvent(new CustomEvent(PROGRESSIVE_ROW_REQUEST_EVENT, { detail }))
+  if (!detail.handled) return false
+
+  const sourceRect = active?.getBoundingClientRect?.()
+  const sourceCenterX = sourceRect ? sourceRect.left + (sourceRect.width / 2) : null
+
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+    const tracks = getPosterTracks()
+    const currentIndex = currentTrack ? tracks.indexOf(currentTrack) : -1
+    const targetTrack = currentIndex >= 0 ? tracks[currentIndex + 1] : tracks[0]
+    const cards = getPosterCards(targetTrack)
+    if (!cards.length) return
+
+    const target = sourceCenterX == null
+      ? cards[0]
+      : getPosterClosestToViewportX(cards, sourceCenterX)
+    focusCandidate(target, { posterHorizontal: 'nearest' })
+  }))
+  return true
+}
+
 function handlePageNavigation(event, active) {
   const direction = event.key
 
@@ -252,7 +276,9 @@ function handlePageNavigation(event, active) {
 
     if (direction === 'ArrowDown') {
       consume(event)
-      focusCandidate(getHeroActions()[0] || getPosterCards(getPosterTracks()[0])[0])
+      const target = getHeroActions()[0] || getPosterCards(getPosterTracks()[0])[0]
+      if (target) focusCandidate(target)
+      else requestAndFocusNextPosterRow(active)
       return true
     }
 
@@ -271,7 +297,9 @@ function handlePageNavigation(event, active) {
     if (direction === 'ArrowUp') {
       focusCandidate(getHeroTarget())
     } else if (direction === 'ArrowDown') {
-      focusCandidate(getPosterCards(getPosterTracks()[0])[0])
+      const firstPoster = getPosterCards(getPosterTracks()[0])[0]
+      if (firstPoster) focusCandidate(firstPoster)
+      else requestAndFocusNextPosterRow(active)
     }
     return true
   }
@@ -300,7 +328,9 @@ function handlePageNavigation(event, active) {
     }
 
     if (direction === 'ArrowDown') {
-      focusAdjacentPosterRow(tracks, rowIndex, 1, active)
+      if (!focusAdjacentPosterRow(tracks, rowIndex, 1, active)) {
+        requestAndFocusNextPosterRow(active, currentTrack)
+      }
       return true
     }
   }
