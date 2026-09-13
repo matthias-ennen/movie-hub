@@ -42,6 +42,7 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
   const returnFocusRef = useRef(null)
   const collectionTriggerRef = useRef(null)
   const episodesTriggerRef = useRef(null)
+  const episodeTriggerRef = useRef(null)
   const seasonRequestRef = useRef(0)
   const personalBusyRef = useRef(false)
   const artworkOptions = {
@@ -151,6 +152,10 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
         closeCollectionPicker()
         return true
       }
+      if (episodeContext) {
+        closeEpisodeContext()
+        return true
+      }
       if (episodesPickerOpen) {
         closeEpisodesPicker()
         return true
@@ -161,10 +166,6 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
       }
       if (mediaEditorOpen) {
         setMediaEditorOpen(false)
-        return true
-      }
-      if (episodeContext) {
-        closeEpisodeContext()
         return true
       }
       return false
@@ -195,7 +196,7 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
   useEffect(() => {
     if (!episodeContext) return undefined
     const frame = window.requestAnimationFrame(() => {
-      document.querySelector('[data-episode-context-autofocus="true"]')?.focus({ preventScroll: true })
+      document.querySelector('[data-episode-detail-autofocus="true"]')?.focus({ preventScroll: true })
     })
     return () => window.cancelAnimationFrame(frame)
   }, [episodeContext?.id])
@@ -280,6 +281,7 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
   }
 
   function closeEpisodesPicker({ restoreFocus = true } = {}) {
+    setEpisodeContext(null)
     setEpisodesPickerOpen(false)
     if (restoreFocus) {
       window.requestAnimationFrame(() => {
@@ -288,17 +290,17 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
     }
   }
 
-  function selectEpisode(episode) {
+  function selectEpisode(episode, event) {
     if (!episode) return
+    episodeTriggerRef.current = event?.currentTarget || null
     setEpisodeContext(episode)
-    closeEpisodesPicker({ restoreFocus: false })
   }
 
   function closeEpisodeContext({ restoreFocus = true } = {}) {
     setEpisodeContext(null)
     if (restoreFocus) {
       window.requestAnimationFrame(() => {
-        if (episodesTriggerRef.current?.isConnected) episodesTriggerRef.current.focus({ preventScroll: true })
+        if (episodeTriggerRef.current?.isConnected) episodeTriggerRef.current.focus({ preventScroll: true })
       })
     }
   }
@@ -476,22 +478,7 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
             <AgeRatingBadge value={item.ageRating} className="detail-age-rating" />
           </div>
           <p className="genre">{item.genre}</p>
-          {episodeContext ? (
-            <section className="episode-context" aria-labelledby="episode-context-heading">
-              <p className="settings-kicker">{item.title} · Staffel {episodeContext.seasonNumber} · Folge {episodeContext.episodeNumber}</p>
-              <h3 id="episode-context-heading">{episodeContext.title}</h3>
-              <p className="detail-description">{episodeContext.description || 'Für diese Folge liegt noch keine deutsche Beschreibung vor.'}</p>
-              <button
-                type="button"
-                className="action-button episode-context-back"
-                data-focusable="true"
-                data-episode-context-autofocus="true"
-                onClick={() => closeEpisodeContext()}
-              >← Zur Staffelansicht</button>
-            </section>
-          ) : (
-            <p className="detail-description">{item.description || 'Für diesen Titel liegt noch keine deutsche Beschreibung vor.'}</p>
-          )}
+          <p className="detail-description">{item.description || 'Für diesen Titel liegt noch keine deutsche Beschreibung vor.'}</p>
           {cast.length > 0 && (
             <div className="cast-block">
               <h3>Besetzung</h3>
@@ -812,7 +799,15 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
       )}
       {episodesPickerOpen && hasSeriesNavigation && selectedSeason && (
         <div className="media-layer detail-backdrop collection-layer" onMouseDown={(event) => event.target === event.currentTarget && closeEpisodesPicker()}>
-          <section className="media-panel collection-panel episodes-panel" role="dialog" aria-modal="true" aria-labelledby="episodes-picker-heading" aria-busy={seasonLoading}>
+          <section
+            className="media-panel collection-panel episodes-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="episodes-picker-heading"
+            aria-busy={seasonLoading}
+            aria-hidden={episodeContext ? 'true' : undefined}
+            inert={episodeContext ? true : undefined}
+          >
             <div className="collection-panel-heading">
               <div>
                 <p className="settings-kicker">{item.title}</p>
@@ -847,7 +842,7 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
                     data-media-autofocus={episodeContext?.id === episode.id || (!episodeContext && index === 0) ? 'true' : undefined}
                     aria-current={episodeContext?.id === episode.id ? 'true' : undefined}
                     aria-label={`Staffel ${episode.seasonNumber}, Folge ${episode.episodeNumber}: ${episode.title}`}
-                    onClick={() => selectEpisode(episode)}
+                    onClick={(event) => selectEpisode(episode, event)}
                   >
                     <span className={episode.stillUrl ? 'episode-still has-image' : 'episode-still'}>
                       {episode.stillUrl && <img src={episode.stillUrl} alt="" loading="lazy" />}
@@ -868,6 +863,45 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
                 <button type="button" className="collection-close" data-focusable="true" data-media-autofocus="true" onClick={() => closeEpisodesPicker()}>Zurück</button>
               </div>
             )}
+          </section>
+        </div>
+      )}
+      {episodeContext && episodesPickerOpen && (
+        <div
+          className="media-layer detail-backdrop episode-detail-layer"
+          onMouseDown={(event) => event.target === event.currentTarget && closeEpisodeContext()}
+        >
+          <section
+            className="media-panel episode-detail-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="episode-detail-heading"
+          >
+            <div className={episodeContext.stillUrl ? 'episode-detail-art has-image' : 'episode-detail-art'}>
+              {episodeContext.stillUrl && <img src={episodeContext.stillUrl} alt="" />}
+              <span className="episode-detail-type">EPISODE</span>
+              <span className="episode-detail-number">Staffel {episodeContext.seasonNumber} · Folge {episodeContext.episodeNumber}</span>
+            </div>
+            <div className="episode-detail-copy" data-dpad-scroll-container="true">
+              <button
+                type="button"
+                className="icon-button episode-detail-close"
+                data-focusable="true"
+                data-episode-detail-autofocus="true"
+                onClick={() => closeEpisodeContext()}
+                aria-label="Episodendetails schließen"
+              >×</button>
+              <p className="eyebrow">{item.title}</p>
+              <h2 id="episode-detail-heading">{episodeContext.title}</h2>
+              <div className="episode-detail-meta" aria-label="Episodeninformationen">
+                <strong>Staffel {episodeContext.seasonNumber} · Folge {episodeContext.episodeNumber}</strong>
+                {episodeContext.airDate && <span>{episodeContext.airDate}</span>}
+                {episodeContext.runtimeMinutes && <span>{episodeContext.runtimeMinutes} Min.</span>}
+              </div>
+              <p className="episode-detail-description">
+                {episodeContext.description || 'Für diese Folge liegt noch keine deutsche Beschreibung vor.'}
+              </p>
+            </div>
           </section>
         </div>
       )}
