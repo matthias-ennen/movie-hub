@@ -180,6 +180,63 @@ final class TmdbApiClient {
         }
     }
 
+    static JSONObject fetchTitleMetadata(
+            String apiReadAccessToken, String mediaType, long tmdbId) throws TmdbException {
+        if (tmdbId <= 0 || !("movie".equals(mediaType) || "tv".equals(mediaType))) {
+            throw new TmdbException(ErrorKind.RESPONSE, 0, "Ungültiger TMDB-Titel.");
+        }
+
+        JSONObject detail = request(
+                "GET", "/" + mediaType + "/" + tmdbId + "?language=de-DE",
+                apiReadAccessToken, null);
+        try {
+            boolean movie = "movie".equals(mediaType);
+            JSONObject title = new JSONObject();
+            title.put("tmdbId", tmdbId);
+            title.put("mediaType", mediaType);
+            title.put("title", movie ? detail.optString("title") : detail.optString("name"));
+            title.put("originalTitle", movie
+                    ? detail.optString("original_title")
+                    : detail.optString("original_name"));
+            title.put("description", detail.optString("overview"));
+            title.put("releaseDate", movie
+                    ? detail.optString("release_date", null)
+                    : detail.optString("first_air_date", null));
+            title.put("posterPath", detail.optString("poster_path", null));
+            title.put("backdropPath", detail.optString("backdrop_path", null));
+            title.put("originalLanguage", detail.optString("original_language", null));
+            title.put("voteAverage", detail.optDouble("vote_average", 0));
+            title.put("voteCount", detail.optLong("vote_count", 0));
+            title.put("favorite", false);
+            title.put("watchlist", false);
+            title.put("rated", false);
+
+            JSONArray genreNames = new JSONArray();
+            JSONArray genres = detail.optJSONArray("genres");
+            if (genres != null) {
+                for (int index = 0; index < genres.length(); index++) {
+                    JSONObject genre = genres.optJSONObject(index);
+                    if (genre != null && !genre.optString("name").isEmpty()) {
+                        genreNames.put(genre.optString("name"));
+                    }
+                }
+            }
+            title.put("genreNames", genreNames);
+
+            enrichPersonalTitle(apiReadAccessToken, title, new HashMap<>());
+            if (!title.optBoolean("metadataComplete")) {
+                throw new TmdbException(ErrorKind.RESPONSE, 0,
+                        "TMDB-Metadaten konnten nicht vollständig aufbereitet werden.");
+            }
+            return title;
+        } catch (TmdbException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new TmdbException(ErrorKind.RESPONSE, 0,
+                    "Der TMDB-Titel konnte nicht aufbereitet werden.");
+        }
+    }
+
     private static void mergePagedList(
             LinkedHashMap<String, JSONObject> target,
             String apiReadAccessToken,

@@ -17,6 +17,7 @@ import { buildPersonalTopTen, buildProviderTopTen, insertTopTenRow } from './cat
 import { curateCatalogRows, curateTitles, hasEnabledAvailability, PUBLIC_POSTER_ROW_LIMIT } from './catalog/contentCuration.js'
 import { getContentPeriodKey, normalizeContentDisplaySettings, resolveContentSortMode } from './catalog/contentDisplaySettings.js'
 import { resolvePresentationArtwork } from './catalog/artworkRotation.js'
+import { loadCompleteTitleMetadata } from './catalog/loadCompleteTitleMetadata.js'
 import { mergeEnrichedTitle, sameTmdbTitle, titleNeedsMetadataEnrichment } from './catalog/titleMetadata.js'
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
@@ -28,7 +29,6 @@ import { useLibrary } from './library/LibraryProvider.jsx'
 import { buildPersonalRows, buildWatchedHistoryRows, mergeCatalogWithPersonalSnapshots } from './library/personalRows.js'
 import { refreshSharedMediaCatalogMetadata } from './library/sharedMedia.js'
 import { useSharedMediaCatalog } from './library/useSharedMediaCatalog.js'
-import { loadSearchDetail } from './search/lazySearchDetails.js'
 import { mergeSharedMediaCatalogTitles, mergeTitlesWithSharedMediaCatalog } from './library/sharedMediaCatalogModel.js'
 import { firebaseReady } from './lib/firebase.js'
 import { preloadHeroImage } from './performance/progressiveRendering.js'
@@ -454,7 +454,7 @@ function MovieHub({ user }) {
     setSelectedTitle(initiallySelected)
 
     if (titleNeedsMetadataEnrichment(item)) {
-      loadSearchDetail(item)
+      loadCompleteTitleMetadata(item)
         .then((detail) => {
           if (titleNeedsMetadataEnrichment(detail)) return
           setSelectedTitle((current) => {

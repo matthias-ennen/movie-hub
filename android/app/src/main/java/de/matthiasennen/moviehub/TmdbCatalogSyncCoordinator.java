@@ -57,6 +57,42 @@ final class TmdbCatalogSyncCoordinator {
         });
     }
 
+    static void requestTitle(
+            Context context, WebView webView, String mediaType, String rawTmdbId, String requestId) {
+        Context appContext = context.getApplicationContext();
+        EXECUTOR.submit(() -> {
+            JSONObject result;
+            try {
+                long tmdbId = Long.parseLong(rawTmdbId == null ? "" : rawTmdbId.trim());
+                TmdbCredentialStore.Credentials credentials =
+                        new TmdbCredentialStore(appContext).load();
+                if (!credentials.hasApiToken()) {
+                    result = errorPayload(
+                            "Hinterlege unter Einstellungen zuerst den persönlichen TMDB API-Zugang.");
+                } else {
+                    JSONObject title = TmdbApiClient.fetchTitleMetadata(
+                            credentials.getApiReadAccessToken(), mediaType, tmdbId);
+                    result = new JSONObject();
+                    result.put("ok", true);
+                    result.put("title", title);
+                    result.put("syncedAt", isoNow());
+                }
+            } catch (NumberFormatException error) {
+                result = errorPayload("Ungültige TMDB-ID.");
+            } catch (TmdbApiClient.TmdbException error) {
+                result = errorPayload(error.getMessage() == null
+                        ? "TMDB-Metadaten konnten nicht geladen werden."
+                        : error.getMessage());
+            } catch (Exception error) {
+                result = errorPayload("TMDB-Metadaten konnten nicht geladen werden.");
+            }
+            try {
+                result.put("requestId", requestId == null ? "" : requestId);
+            } catch (Exception ignored) {}
+            deliver(webView, result, "__movieHubTmdbTitleMetadataResult");
+        });
+    }
+
     private static JSONObject errorPayload(String message) {
         JSONObject result = new JSONObject();
         try {
@@ -73,11 +109,15 @@ final class TmdbCatalogSyncCoordinator {
     }
 
     private static void deliver(WebView webView, JSONObject payload) {
+        deliver(webView, payload, "__movieHubTmdbSyncResult");
+    }
+
+    private static void deliver(WebView webView, JSONObject payload, String callbackName) {
         if (webView == null) return;
         final String safeJsonString = JSONObject.quote(payload.toString());
         webView.post(() -> webView.evaluateJavascript(
-                "typeof window.__movieHubTmdbSyncResult === 'function'"
-                        + " ? window.__movieHubTmdbSyncResult(" + safeJsonString + ") : null",
+                "typeof window." + callbackName + " === 'function'"
+                        + " ? window." + callbackName + "(" + safeJsonString + ") : null",
                 null));
     }
 }
