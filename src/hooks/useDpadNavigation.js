@@ -22,6 +22,11 @@ function getFocusableCandidates(scope) {
   return [...root.querySelectorAll('[data-focusable="true"]')].filter(isVisibleFocusable)
 }
 
+function getTopMediaPanel() {
+  const panels = [...document.querySelectorAll('.media-panel')].filter((panel) => panel.offsetParent !== null)
+  return panels[panels.length - 1] || null
+}
+
 function getTrackVisibleBounds(track, padding = 0) {
   const trackRect = track.getBoundingClientRect()
   const viewportWidth = window.innerWidth || document.documentElement.clientWidth
@@ -368,7 +373,7 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
       // Hoch/Runter dürfen den Fokus dagegen zurück in die TV-Oberfläche führen.
       if (editable && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) return
 
-      const scope = document.querySelector('.media-panel')
+      const scope = getTopMediaPanel()
         || (exitDialogOpen
           ? document.querySelector('.exit-dialog')
           : detailOpen
@@ -389,6 +394,21 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
         if (scope) consume(event)
         else event.preventDefault()
         focusCandidate(candidates[0])
+        return
+      }
+
+      const episodeScrollContainer = active.closest?.('.episode-detail-panel')
+        ?.querySelector('[data-dpad-scroll-container="true"]')
+      if (
+        episodeScrollContainer
+        && (event.key === 'ArrowUp' || event.key === 'ArrowDown')
+        && episodeScrollContainer.scrollHeight > episodeScrollContainer.clientHeight
+      ) {
+        consume(event)
+        episodeScrollContainer.scrollBy({
+          top: event.key === 'ArrowDown' ? 180 : -180,
+          behavior: 'smooth',
+        })
         return
       }
 

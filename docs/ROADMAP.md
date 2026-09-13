@@ -189,7 +189,7 @@ Das integrierte #179 speichert je Titel bis zu drei bevorzugt sprachneutrale Pos
 
 ## Aktuelles Arbeitspaket – #178 Staffeln und Folgen
 
-Nach der Abnahme von #137/#181/#179 folgt die Seriennavigation mit Staffelauswahl, Staffelposter sowie einer Folgenauswahl, die Episodentitel und -beschreibung in derselben Detailansicht darstellt. Kompakte Staffelinformationen bleiben am Serienobjekt; Episoden werden aus separat veröffentlichten Shards erst beim Öffnen einer Staffel geladen. Zurück schließt zuerst die Folgenauswahl, dann den Episodenkontext und zuletzt die Serien-Detailseite. Alte Kataloge ohne Staffelmetadaten bleiben unverändert nutzbar. Die Geräteabnahme bleibt bis zum Test des neuen Builds offen.
+Nach der Abnahme von #137/#181/#179 folgt die Seriennavigation mit Staffelauswahl, Staffelposter und bedarfsgeladener Folgenliste. Kompakte Staffelinformationen bleiben am Serienobjekt; Episoden werden aus separat veröffentlichten Shards erst beim Öffnen einer Staffel geladen. Eine ausgewählte Folge öffnet einen eigenen Episoden-Detaildialog mit vollständiger Beschreibung, während die Serien-Detailseite unverändert bleibt. Zurück schließt zuerst den Episoden-Detaildialog, stellt Fokus und Listenposition wieder her, schließt danach die Folgenauswahl und zuletzt die Serien-Detailseite. Alte Kataloge ohne Staffelmetadaten bleiben unverändert nutzbar. Die Geräteabnahme bleibt bis zum Test des neuen Builds offen.
 
 ## Phase 6 – Personalisierung und Automatisierung
 

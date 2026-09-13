@@ -39,7 +39,16 @@ describe('Staffel- und Folgenkatalog', () => {
       name: 'Staffel 1',
       episodes: [
         { id: 2, episode_number: 2, season_number: 1, name: 'Der Königsweg' },
-        { id: 1, episode_number: 1, season_number: 1, name: 'Der Winter naht', overview: 'Beschreibung', still_path: '/e1.jpg' },
+        {
+          id: 1,
+          episode_number: 1,
+          season_number: 1,
+          name: 'Der Winter naht',
+          overview: 'Beschreibung',
+          air_date: '2011-04-17',
+          runtime: 62,
+          still_path: '/e1.jpg',
+        },
       ],
     })
 
@@ -48,6 +57,8 @@ describe('Staffel- und Folgenkatalog', () => {
       title: 'Der Winter naht',
       description: 'Beschreibung',
       seriesTitle: 'Game of Thrones',
+      airDate: '2011-04-17',
+      runtimeMinutes: 62,
     })
     expect(detail.episodes[0].stillUrl).toContain('/w780/e1.jpg')
   })
