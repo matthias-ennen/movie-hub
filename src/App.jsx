@@ -26,6 +26,7 @@ import { useCurationClock } from './hooks/useCurationClock.js'
 import { useProviderSelection } from './settings/useProviderSelection.js'
 import { useLibrary } from './library/LibraryProvider.jsx'
 import { buildPersonalRows, buildWatchedHistoryRows, mergeCatalogWithPersonalSnapshots } from './library/personalRows.js'
+import { refreshSharedMediaCatalogMetadata } from './library/sharedMedia.js'
 import { useSharedMediaCatalog } from './library/useSharedMediaCatalog.js'
 import { loadSearchDetail } from './search/lazySearchDetails.js'
 import { mergeSharedMediaCatalogTitles, mergeTitlesWithSharedMediaCatalog } from './library/sharedMediaCatalogModel.js'
@@ -336,7 +337,11 @@ function MovieHub({ user }) {
   const { getTitleState, statesByKey, loading: libraryLoading, error: libraryError } = useLibrary()
   const { personalTitles: tmdbPersonalTitles } = useTmdbCatalog()
   const { enabledProviderIds } = useProviderSelection()
-  const { entries: sharedMediaCatalogEntries, hasTitle: hasMovieHubTitle } = useSharedMediaCatalog()
+  const {
+    entries: sharedMediaCatalogEntries,
+    hasTitle: hasMovieHubTitle,
+    loading: sharedMediaCatalogLoading,
+  } = useSharedMediaCatalog()
   const curationDayKey = useCurationClock()
   const [currentView, setCurrentView] = useState('home')
   const [selectedTitle, setSelectedTitle] = useState(null)
@@ -387,6 +392,12 @@ function MovieHub({ user }) {
     loadCatalog()
     return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    if (sharedMediaCatalogLoading || !user?.uid || !sharedMediaCatalogEntries.length) return
+    refreshSharedMediaCatalogMetadata(user.uid, sharedMediaCatalogEntries)
+      .catch((error) => console.warn('Movie-Hub-Katalogmetadaten konnten nicht profilgebunden ergänzt werden.', error))
+  }, [user?.uid, sharedMediaCatalogLoading, sharedMediaCatalogEntries])
 
   const publicTitles = catalog.titles.length ? catalog.titles : fallbackTitles
   const contentDisplaySettings = useMemo(

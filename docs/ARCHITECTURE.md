@@ -66,7 +66,7 @@ SMB ist kein eigener Bedien- oder Medientyp. Zugangsdaten und Netzlaufwerksdefin
 
 Ein kontoweites Shared-Media-Manifest bildet daraus ohne öffentlichen Nutzerkatalog und ohne Abfrage jeder Posterkarte die Movie-Hub-Katalogsicht. Vor der Manifest-Einführung gespeicherte Einträge werden bei ihrem nächsten kontrollierten Presence-/Detailzugriff automatisch nachgezogen.
 
-Anbieterzugehörigkeit und Titelmetadaten bleiben getrennte Wahrheiten: Mindestens ein gültiger eigener Link oder ein Video erzeugt die Movie-Hub-Mitgliedschaft; das gemeinsame Lesemodell ergänzt daraus die Anbieter-ID `moviehub`. Die kompakte Titelreferenz wird unabhängig davon aus veröffentlichten Detail-Shards progressiv sowie durch einen vertrauenswürdigen täglichen Firestore-/TMDB-Backfill vervollständigt. Vollständige Manifestmetadaten haben beim Zusammenführen Vorrang vor schwächeren Browse-Snapshots.
+Anbieterzugehörigkeit und Titelmetadaten bleiben getrennte Wahrheiten: Mindestens ein gültiger eigener Link oder ein Video erzeugt die Movie-Hub-Mitgliedschaft; das gemeinsame Lesemodell ergänzt daraus die Anbieter-ID `moviehub`. Die kompakte Titelreferenz wird profilgebunden beim Laden des Movie-Hub-Katalogs sowie beim Öffnen eines Titels aus veröffentlichten Detail-Shards vervollständigt. Ein vertrauenswürdiger Firestore-/TMDB-Backfill bleibt als zusätzliche Schutzschicht vorgesehen, sobald das Deployment-Dienstkonto Firestore-Datenzugriff besitzt. Vollständige Manifestmetadaten haben beim Zusammenführen Vorrang vor schwächeren Browse-Snapshots.
 
 ### Profilbezogene Inhaltskuratierung
 

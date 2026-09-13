@@ -1,10 +1,63 @@
 import { collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore'
+import { mergeEnrichedTitle, titleNeedsMetadataEnrichment } from '../catalog/titleMetadata.js'
 import { firebaseReady } from '../lib/firebase.js'
+import { loadSearchDetail } from '../search/lazySearchDetails.js'
 import { buildSharedMediaTitleRef } from './sharedMediaCatalogModel.js'
 import { setSharedMediaCatalogPresence } from './sharedMediaCatalogRuntime.js'
 import { normaliseMedia, titleMediaKey } from './sharedMediaModel.js'
 
 export const SHARED_MEDIA_CHANGED_EVENT = 'moviehub:shared-media-changed'
+
+const catalogMetadataRefreshes = new Map()
+
+async function refreshCatalogMetadata(userId, entries, {
+  loadDetail = loadSearchDetail,
+  resolveFirebase = () => firebaseReady,
+  writeTitleRef = null,
+  limit = 25,
+} = {}) {
+  const candidates = (Array.isArray(entries) ? entries : [])
+    .filter((entry) => titleNeedsMetadataEnrichment(entry?.titleRef))
+    .slice(0, Math.max(0, Number(limit) || 0))
+  if (!userId || !candidates.length) return { candidates: candidates.length, updated: 0 }
+
+  const firebase = writeTitleRef ? null : await resolveFirebase()
+  let updated = 0
+  for (const entry of candidates) {
+    try {
+      const detail = await loadDetail(entry.titleRef)
+      if (titleNeedsMetadataEnrichment(detail)) continue
+      const enriched = {
+        ...mergeEnrichedTitle(entry.titleRef, detail),
+        metadataUpdatedAt: new Date().toISOString(),
+      }
+      const nextTitleRef = buildSharedMediaTitleRef(enriched)
+      if (writeTitleRef) {
+        await writeTitleRef(entry.key, nextTitleRef)
+      } else {
+        await setDoc(doc(firebase.db, 'users', userId, 'sharedMedia', entry.key), {
+          hasMedia: true,
+          titleRef: nextTitleRef,
+          updatedAt: serverTimestamp(),
+        }, { merge: true })
+      }
+      setSharedMediaCatalogPresence(userId, enriched, true)
+      updated++
+    } catch (error) {
+      console.warn(`Movie-Hub-Metadaten konnten für ${entry.key} nicht ergänzt werden.`, error)
+    }
+  }
+  return { candidates: candidates.length, updated }
+}
+
+export function refreshSharedMediaCatalogMetadata(userId, entries, options = {}) {
+  if (!userId) return Promise.resolve({ candidates: 0, updated: 0 })
+  if (catalogMetadataRefreshes.has(userId)) return catalogMetadataRefreshes.get(userId)
+  const promise = refreshCatalogMetadata(userId, entries, options)
+    .finally(() => catalogMetadataRefreshes.delete(userId))
+  catalogMetadataRefreshes.set(userId, promise)
+  return promise
+}
 
 function notifySharedMediaChanged(userId, item, hasMedia) {
   if (typeof window === 'undefined') return
