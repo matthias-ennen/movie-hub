@@ -183,6 +183,8 @@ Eine eigenständige Sammlungs-Detailseite, Sammlungskacheln in Reihen oder Suche
 
 #181 schließt diese Lücke. Unvollständige Titel werden beim Öffnen anhand ihrer TMDB-Identität aus veröffentlichten Detail-Shards ergänzt. Ein vertrauenswürdiger täglicher Backfill prüft außerdem alle Movie-Hub-Manifeste, lädt fehlende Titel- und Collection-Daten und schreibt ausschließlich eine kompakte öffentliche Titelreferenz zurück. Eigene Links und Videos bleiben unangetastet. Die Anbieterkennung `moviehub` wird weiterhin aus der Katalogmitgliedschaft abgeleitet und gemeinsam mit externen Provider-IDs an dieselben UI-Verbraucher übergeben.
 
+Die technische Umsetzung von #181 ist integriert; offen bleibt die gemeinsame Geräteabnahme mit #137 anhand der Filmreihe „Stirb langsam“.
+
 Das integrierte #179 speichert je Titel bis zu drei bevorzugt sprachneutrale Poster und drei Querformatbilder. Profile können zwischen täglichem, wöchentlichem und ausgeschaltetem Bildwechsel wählen. Posterkarte und geöffnete Detailseite verwenden dabei dasselbe Motiv; der doppelte Titeltext auf dem linken Detailposter entfällt. Hero-Bilder werden unabhängig aus den Querformatkandidaten gewählt.
 
 ## Nächstes getrenntes Arbeitspaket – #178 Staffeln und Folgen
