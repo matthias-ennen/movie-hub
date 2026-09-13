@@ -72,8 +72,8 @@ export function collectSeriesSeasonReferences(titles) {
     entryKey(reference.seriesTmdbId, reference.seasonNumber),
     reference,
   ])).values()].sort((left, right) => (
-    left.seasonNumber - right.seasonNumber
-    || left.seriesTmdbId - right.seriesTmdbId
+    left.seriesTmdbId - right.seriesTmdbId
+    || left.seasonNumber - right.seasonNumber
   ))
 }
 
