@@ -78,11 +78,12 @@ describe('Staffel- und Folgenkatalog', () => {
   it('sammelt jede Staffel je Serie genau einmal für den CI-Katalog', () => {
     const references = collectSeriesSeasonReferences([
       { type: 'series', tmdbId: 20, title: 'Serie B', numberOfSeasons: 2 },
-      { type: 'series', tmdbId: 10, title: 'Serie A', seasons: [{ season_number: 1 }, { season_number: 1 }] },
+      { type: 'series', tmdbId: 10, title: 'Serie A', seasons: [{ season_number: 2 }, { season_number: 1 }, { season_number: 1 }] },
       { type: 'movie', tmdbId: 99, title: 'Film' },
     ])
     expect(references).toEqual([
       { seriesTmdbId: 10, seriesTitle: 'Serie A', seasonNumber: 1 },
+      { seriesTmdbId: 10, seriesTitle: 'Serie A', seasonNumber: 2 },
       { seriesTmdbId: 20, seriesTitle: 'Serie B', seasonNumber: 1 },
       { seriesTmdbId: 20, seriesTitle: 'Serie B', seasonNumber: 2 },
     ])
