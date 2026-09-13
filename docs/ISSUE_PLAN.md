@@ -28,9 +28,9 @@ Integriert und zur Geräteabnahme bereitgestellt sind:
 - #171 – Heroes und flexible Posterreihen dynamisch sowie profilbezogen kuratieren;
 - #173 – dynamische Top-10-Sonderreihen auf Home, Filme, Serien und Meine Inhalte einfügen.
 
-Aktuell umgesetzt werden #137 und #179: vollständige TMDB-Filmreihen werden über alle relevanten Titelquellen nachgezogen; mehrere sprachneutrale Poster- und Hero-Bildkandidaten erhalten eine profilbezogene Rotation. Sammlungskacheln und eine eigenständige Sammlungs-Detailseite bleiben nach der gemeinsamen Produktentscheidung außerhalb dieser Stufe.
+Nach der fehlgeschlagenen Geräteprüfung bleibt #137 geöffnet. Aktuell ergänzt #181 die Filmreihenlogik um einen vollständigen, kontoweiten Metadaten-Lebenszyklus für den virtuellen Movie-Hub-Anbieterkatalog. #179 ist technisch integriert; seine manuelle Bildabnahme bleibt von der Filmreihenkorrektur getrennt.
 
-Als getrenntes Folgepaket ist #178 vorgesehen: Serien-Detailseiten erhalten eine Staffel- und Episodennavigation mit passenden Staffelpostern und Episodentexten. Dieses Paket beginnt erst nach Abnahme der aktuellen APK.
+Als getrenntes Folgepaket ist #178 vorgesehen: Serien-Detailseiten erhalten eine Staffel- und Episodennavigation mit passenden Staffelpostern und Episodentexten. Dieses Paket beginnt erst nach Abnahme der korrigierten #137/#181-APK.
 
 Die früheren Phase-0-Arbeiten sind abgeschlossen; der folgende historische Abschnitt dokumentiert ihren damaligen Abschlussweg.
 

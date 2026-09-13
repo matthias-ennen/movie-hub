@@ -173,15 +173,17 @@ Die technische Hero-first-Grundlage aus #166/#168 und die Kaltstartkorrektur #16
 - profilbezogene persönliche Liste mit Movie-Hub-Bewertung vor persönlicher TMDB-Bewertung und TMDB-Beliebtheit;
 - keine neue Laufzeit-API, kein zusätzlicher Firestore-Zugriff je Poster und keine gespeicherte Rangliste.
 
-## Aktuelles Arbeitspaket – #137 Filmreihen und #179 Artwork
+## Aktuelles Korrekturpaket – #137 Filmreihen und #181 Movie-Hub-Metadaten
 
 #137 ergänzt ausschließlich bei Filmen einen eigenen Abschnitt **Filmreihe** auf der Detailseite. Der öffentliche Katalog erhält dafür eine vollständige, kompakte TMDB-Teileliste. Ein TV-, Touch- und tastaturtaugliches Auswahlfenster zeigt Reihenfolge, aktuellen Film, Gesehen-Status und Verfügbarkeit je Teil; eine Auswahl wechselt den Film innerhalb derselben Detailansicht.
 
 Eine eigenständige Sammlungs-Detailseite, Sammlungskacheln in Reihen oder Suche, benutzerdefinierte Sammlungen und eine Übertragung auf Serien bleiben zunächst zurückgestellt. Die Datenstruktur wird so angelegt, dass eine spätere Ausbaustufe darauf aufbauen kann.
 
-#137 ergänzt außerdem eine explizite Metadaten-Vollständigkeit und zieht fehlende Sammlungsinformationen sowohl im persönlichen TMDB-Sync als auch inkrementell im nächtlichen Suchkatalog nach. Dadurch können Filme aus einer Reihe unabhängig von ihrem Eintrittspfad erkannt werden; vorhandene Altbestände werden ohne harte Migration weitergelesen und bei den regulären Sync-/Generatorläufen vervollständigt.
+#137 ergänzt außerdem eine explizite Metadaten-Vollständigkeit und zieht fehlende Sammlungsinformationen sowohl im persönlichen TMDB-Sync als auch inkrementell im nächtlichen Suchkatalog nach. Die Geräteprüfung mit „Stirb langsam“ hat gezeigt, dass persönliche Movie-Hub-Manifeste außerhalb dieser beiden Quellen noch nicht garantiert erreicht wurden; #137 bleibt deshalb bis zur erneuten Abnahme geöffnet.
 
-#179 speichert je Titel bis zu drei bevorzugt sprachneutrale Poster und drei Querformatbilder. Profile können zwischen täglichem, wöchentlichem und ausgeschaltetem Bildwechsel wählen. Posterkarte und geöffnete Detailseite verwenden dabei dasselbe Motiv; der doppelte Titeltext auf dem linken Detailposter entfällt. Hero-Bilder werden unabhängig aus den Querformatkandidaten gewählt.
+#181 schließt diese Lücke. Unvollständige Titel werden beim Öffnen anhand ihrer TMDB-Identität aus veröffentlichten Detail-Shards ergänzt. Ein vertrauenswürdiger täglicher Backfill prüft außerdem alle Movie-Hub-Manifeste, lädt fehlende Titel- und Collection-Daten und schreibt ausschließlich eine kompakte öffentliche Titelreferenz zurück. Eigene Links und Videos bleiben unangetastet. Die Anbieterkennung `moviehub` wird weiterhin aus der Katalogmitgliedschaft abgeleitet und gemeinsam mit externen Provider-IDs an dieselben UI-Verbraucher übergeben.
+
+Das integrierte #179 speichert je Titel bis zu drei bevorzugt sprachneutrale Poster und drei Querformatbilder. Profile können zwischen täglichem, wöchentlichem und ausgeschaltetem Bildwechsel wählen. Posterkarte und geöffnete Detailseite verwenden dabei dasselbe Motiv; der doppelte Titeltext auf dem linken Detailposter entfällt. Hero-Bilder werden unabhängig aus den Querformatkandidaten gewählt.
 
 ## Nächstes getrenntes Arbeitspaket – #178 Staffeln und Folgen
 

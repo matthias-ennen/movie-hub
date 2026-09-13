@@ -100,7 +100,15 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
         })
     }
     return () => { cancelled = true }
-  }, [user?.uid, item.id])
+  }, [
+    user?.uid,
+    item.id,
+    item.metadataVersion,
+    item.metadataComplete,
+    item.collectionChecked,
+    item.collectionId,
+    item.collectionDetails,
+  ])
 
   useEffect(() => {
     const closeTopMediaLayer = () => {

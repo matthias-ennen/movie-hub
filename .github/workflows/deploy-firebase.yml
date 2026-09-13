@@ -108,5 +108,16 @@ jobs:
           workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
           service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
 
+      - name: Enrich personal Movie-Hub provider metadata
+        continue-on-error: true
+        env:
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+          TMDB_LANGUAGE: de-DE
+          TMDB_COUNTRY: DE
+          GOOGLE_CLOUD_PROJECT: movie-hub-62459
+          MOVIE_HUB_METADATA_BACKFILL_LIMIT: 250
+          MOVIE_HUB_METADATA_MAX_AGE_DAYS: 30
+        run: npm run moviehub:metadata:backfill
+
       - name: Deploy Hosting and Firestore Rules
         run: npx firebase-tools deploy --only hosting,firestore:rules --project movie-hub-62459 --non-interactive

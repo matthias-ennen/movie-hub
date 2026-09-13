@@ -17,6 +17,7 @@ import { buildPersonalTopTen, buildProviderTopTen, insertTopTenRow } from './cat
 import { curateCatalogRows, curateTitles, hasEnabledAvailability, PUBLIC_POSTER_ROW_LIMIT } from './catalog/contentCuration.js'
 import { getContentPeriodKey, normalizeContentDisplaySettings, resolveContentSortMode } from './catalog/contentDisplaySettings.js'
 import { resolvePresentationArtwork } from './catalog/artworkRotation.js'
+import { mergeEnrichedTitle, sameTmdbTitle, titleNeedsMetadataEnrichment } from './catalog/titleMetadata.js'
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
@@ -26,6 +27,7 @@ import { useProviderSelection } from './settings/useProviderSelection.js'
 import { useLibrary } from './library/LibraryProvider.jsx'
 import { buildPersonalRows, buildWatchedHistoryRows, mergeCatalogWithPersonalSnapshots } from './library/personalRows.js'
 import { useSharedMediaCatalog } from './library/useSharedMediaCatalog.js'
+import { loadSearchDetail } from './search/lazySearchDetails.js'
 import { mergeSharedMediaCatalogTitles, mergeTitlesWithSharedMediaCatalog } from './library/sharedMediaCatalogModel.js'
 import { firebaseReady } from './lib/firebase.js'
 import { preloadHeroImage } from './performance/progressiveRendering.js'
@@ -434,10 +436,27 @@ function MovieHub({ user }) {
   const handleOpenTitle = useCallback((item, displayedPosterUrl = null) => {
     setProfileOpen(false)
     const presented = resolvePresentationArtwork(item, artworkOptions)
-    setSelectedTitle({
+    const initiallySelected = {
       ...presented,
       displayPosterUrl: displayedPosterUrl || item?.displayPosterUrl || presented.displayPosterUrl,
-    })
+    }
+    setSelectedTitle(initiallySelected)
+
+    if (titleNeedsMetadataEnrichment(item)) {
+      loadSearchDetail(item)
+        .then((detail) => {
+          if (titleNeedsMetadataEnrichment(detail)) return
+          setSelectedTitle((current) => {
+            if (!current || !sameTmdbTitle(current, item)) return current
+            const hydrated = resolvePresentationArtwork(mergeEnrichedTitle(current, detail), artworkOptions)
+            return {
+              ...hydrated,
+              displayPosterUrl: current.displayPosterUrl || hydrated.displayPosterUrl,
+            }
+          })
+        })
+        .catch((error) => console.warn('Movie-Hub-Titelmetadaten konnten nicht progressiv ergänzt werden.', error))
+    }
   }, [artworkOptions])
 
   const closeInteractiveLayer = useCallback(() => {

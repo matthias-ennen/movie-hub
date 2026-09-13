@@ -89,6 +89,14 @@ Die Web-App liest diese Firestore-Dokumente und erzeugt daraus zur Laufzeit die 
 
 Der breite Suchkatalog entsteht weiterhin aus kostengünstigen Discover-Antworten. Da diese Antworten keine verlässliche Sammlungszugehörigkeit und keine vollständige Bildauswahl enthalten, reichert der Nachtlauf inkrementell standardmäßig bis zu 400 noch unvollständige Suchdetails an. Bereits angereicherte Detail-Shards werden vor der Neuerzeugung wiederhergestellt. Das Limit kann vertrauenswürdig über `TMDB_SEARCH_DETAIL_ENRICH_LIMIT` angepasst werden; neue oder bislang unvollständige Titel werden so nach und nach vervollständigt, ohne alle Suchtreffer täglich neu abzurufen.
 
+## Movie-Hub-Anbieterkatalog (#181)
+
+Eigene Links und Videos definieren eine kontoweite, benutzerspezifische Anbieterzugehörigkeit. Beim Öffnen eines unvollständigen Movie-Hub-Titels versucht die Web-App zunächst, dessen veröffentlichte Detail-Shard anhand von Medientyp und TMDB-ID zu laden. Erfolgreich ergänzte Daten werden über den normalen Manifestzugriff progressiv in die kompakte Firestore-Titelreferenz übernommen.
+
+Zusätzlich durchsucht der tägliche vertrauenswürdige Deployment-Job ausschließlich die übergeordneten `sharedMedia`-Manifestdokumente nach fehlenden, veralteten oder unvollständigen Metadaten. Er ruft vollständige TMDB-Titeldetails und bei Filmen einmal je Collection die Teileliste ab. Links, Videoadressen und darunter liegende `entries` werden weder gelesen noch verändert. Standardmäßig werden höchstens 250 Kandidaten pro Lauf verarbeitet und vollständige Daten nach 30 Tagen erneut geprüft; beide Grenzen sind über `MOVIE_HUB_METADATA_BACKFILL_LIMIT` und `MOVIE_HUB_METADATA_MAX_AGE_DAYS` konfigurierbar.
+
+Der Job verwendet die bereits für Firebase Deployment konfigurierte Workload Identity und den CI-seitigen TMDB-Token. Es entsteht kein TMDB-Schlüssel im Browser und keine dauerhafte Schlüsseldatei im Repository.
+
 Damit bedeutet **Katalog** in Movie Hub fachlich eine Sammlung beziehungsweise Katalogzugehörigkeit – nicht zwingend eine einzelne Datei. Der öffentliche Katalog ist wegen seines gemeinsamen Snapshot-Charakters eine JSON-Datei; der persönliche Katalog ist wegen seiner nutzerbezogenen Veränderlichkeit eine Firestore-Collection. Spätere Anbieterkataloge können abhängig von Quelle und Aktualisierungsart ebenfalls als generierte Snapshots oder strukturierte Datenhaltung umgesetzt werden, solange sie in dasselbe Movie-Hub-Titelmodell normalisiert werden.
 
 ## Phase-2-Strategie

@@ -65,7 +65,10 @@ export function toSearchDetailFallback(entry) {
 
 export function mergeSearchDetail(entry, detail) {
   const fallback = toSearchDetailFallback(entry)
-  if (!detail || detail.id !== fallback.id) return fallback
+  const sameIdentity = detail?.id === fallback.id
+    || (Number(detail?.tmdbId) === Number(fallback.tmdbId)
+      && (detail?.type === 'series' ? 'series' : 'movie') === fallback.type)
+  if (!detail || !sameIdentity) return fallback
 
   const genreNames = normaliseGenres(detail)
   const voteAverage = Number.isFinite(Number(detail.voteAverage))
@@ -181,7 +184,12 @@ export async function loadSearchDetail(entry, {
   if (!bucket) return toSearchDetailFallback(entry)
 
   const shard = await loadShard(bucket, fetchImpl)
+  const entryType = entry.type === 'series' ? 'series' : 'movie'
   const detail = shard.entries.find((candidate) => candidate?.id === entry.id)
+    || shard.entries.find((candidate) => (
+      Number(candidate?.tmdbId) === Number(entry.tmdbId)
+      && (candidate?.type === 'series' ? 'series' : 'movie') === entryType
+    ))
   if (!detail) return toSearchDetailFallback(entry)
 
   memoryDetails.set(entry.id, detail)

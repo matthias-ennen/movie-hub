@@ -94,6 +94,35 @@ describe('lazy search details', () => {
     expect(secondFetch).not.toHaveBeenCalled()
   })
 
+  it('hydrates an old Movie-Hub id through the same TMDB identity', async () => {
+    const result = await loadSearchDetail(entry({ id: 'legacy-movie-65', providerIds: ['moviehub'] }), {
+      storage: storage(),
+      fetchImpl: async () => ({
+        ok: true,
+        json: async () => ({
+          kind: 'search-detail-shard',
+          entries: [{
+            id: 'tmdb-movie-65',
+            tmdbId: 65,
+            type: 'movie',
+            description: 'Vollständiger Treffer',
+            collectionChecked: true,
+            collectionId: 99,
+            collectionDetails: { id: 99, parts: [{ id: 65 }, { id: 66 }] },
+            metadataVersion: 2,
+            metadataComplete: true,
+            completeness: 'enriched',
+          }],
+        }),
+      }),
+    })
+
+    expect(result.id).toBe('legacy-movie-65')
+    expect(result.providerIds).toEqual(['moviehub'])
+    expect(result.collectionId).toBe(99)
+    expect(result.metadataComplete).toBe(true)
+  })
+
   it('falls back safely when a shard does not contain the title', async () => {
     const result = await loadSearchDetail(entry(), {
       storage: storage(),

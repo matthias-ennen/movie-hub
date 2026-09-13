@@ -1,4 +1,5 @@
 import { titleMediaKey } from './sharedMediaModel.js'
+import { mergeEnrichedTitle, titleNeedsMetadataEnrichment } from '../catalog/titleMetadata.js'
 
 function finiteNumber(value) {
   if (value === null || value === undefined || value === '') return null
@@ -10,6 +11,28 @@ function imagePaths(value) {
   return [...new Set((Array.isArray(value) ? value : [])
     .filter((path) => typeof path === 'string' && path.trim())
     .map((path) => path.trim()))].slice(0, 3)
+}
+
+function compactCast(value) {
+  return (Array.isArray(value) ? value : []).slice(0, 8).map((person) => ({
+    id: finiteNumber(person?.id),
+    name: String(person?.name || '').trim().slice(0, 120),
+    character: person?.character ? String(person.character).slice(0, 160) : null,
+    profileUrl: typeof person?.profileUrl === 'string' ? person.profileUrl : null,
+  })).filter((person) => person.name)
+}
+
+function compactVideos(value) {
+  return (Array.isArray(value) ? value : []).slice(0, 8).map((video) => ({
+    id: String(video?.id || '').slice(0, 100),
+    name: String(video?.name || '').slice(0, 160),
+    site: String(video?.site || '').slice(0, 40),
+    key: String(video?.key || '').slice(0, 160),
+    type: String(video?.type || '').slice(0, 60),
+    official: video?.official === true,
+    language: video?.language ? String(video.language).slice(0, 20) : null,
+    url: typeof video?.url === 'string' ? video.url : null,
+  })).filter((video) => video.key || video.url)
 }
 
 function compactCollection(value) {
@@ -45,11 +68,28 @@ export function buildSharedMediaTitleRef(item) {
     tmdbId,
     type,
     title: String(item?.title || '').trim().slice(0, 160),
+    originalTitle: item?.originalTitle ? String(item.originalTitle).slice(0, 160) : null,
     year: finiteNumber(item?.year),
+    releaseDate: typeof item?.releaseDate === 'string' ? item.releaseDate : null,
+    runtimeMinutes: finiteNumber(item?.runtimeMinutes),
     posterUrl: typeof item?.posterUrl === 'string' ? item.posterUrl : null,
     neutralPosterUrl: typeof item?.neutralPosterUrl === 'string' ? item.neutralPosterUrl : null,
     backdropUrl: typeof item?.backdropUrl === 'string' ? item.backdropUrl : null,
     description: typeof item?.description === 'string' ? item.description.slice(0, 600) : '',
+    genre: typeof item?.genre === 'string' ? item.genre.slice(0, 500) : 'Ohne Genreangabe',
+    genres: (Array.isArray(item?.genres) ? item.genres : []).slice(0, 20).map((genre) => ({
+      id: finiteNumber(genre?.id),
+      name: String(typeof genre === 'string' ? genre : genre?.name || '').slice(0, 100),
+    })).filter((genre) => genre.name),
+    cast: compactCast(item?.cast),
+    videos: compactVideos(item?.videos),
+    voteAverage: finiteNumber(item?.voteAverage),
+    voteCount: finiteNumber(item?.voteCount),
+    popularity: finiteNumber(item?.popularity),
+    ageRating: finiteNumber(item?.ageRating),
+    providerIds: [...new Set((Array.isArray(item?.providerIds) ? item.providerIds : [])
+      .filter((providerId) => providerId && providerId !== 'moviehub')
+      .map(String))].slice(0, 30),
     artwork: {
       posterPaths: imagePaths(artwork.posterPaths),
       heroBackdropPaths: imagePaths(artwork.heroBackdropPaths),
@@ -85,7 +125,7 @@ export function sharedMediaCatalogTitle(entry) {
     ...ref,
     id,
     type,
-    providerIds: ['moviehub'],
+    providerIds: [...new Set(['moviehub', ...(ref.providerIds || [])])],
     providerOffers: [],
     movieHubCatalog: true,
   }
@@ -98,13 +138,17 @@ export function mergeSharedMediaCatalogTitles(entries, titles) {
     const fallback = sharedMediaCatalogTitle(entry)
     if (!fallback) continue
     const current = byKey.get(entry.key)
-    const providerIds = [...new Set(['moviehub', ...(current?.providerIds || [])])]
-    result.push({
-      ...fallback,
-      ...(current || {}),
-      providerIds,
-      movieHubCatalog: true,
-    })
+    if (!current) {
+      result.push(fallback)
+      continue
+    }
+
+    const storedIsRicher = titleNeedsMetadataEnrichment(current)
+      && !titleNeedsMetadataEnrichment(fallback)
+    const merged = storedIsRicher
+      ? mergeEnrichedTitle(current, fallback)
+      : mergeEnrichedTitle(fallback, current)
+    result.push({ ...merged, movieHubCatalog: true })
   }
   return result
 }

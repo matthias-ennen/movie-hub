@@ -17,10 +17,12 @@
     "tmdb:catalog": "node scripts/generate-tmdb-catalog.mjs && node scripts/generate-search-index.mjs",
     "search:index": "node scripts/generate-search-index.mjs",
     "search:details": "node scripts/generate-search-details.mjs",
-    "search:details:restore": "node scripts/restore-live-search-details.mjs"
+    "search:details:restore": "node scripts/restore-live-search-details.mjs",
+    "moviehub:metadata:backfill": "node scripts/enrich-shared-media-metadata.mjs"
   },
   "dependencies": {
     "firebase": "^11.10.0",
+    "firebase-admin": "^13.4.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

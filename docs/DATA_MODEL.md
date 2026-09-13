@@ -131,7 +131,34 @@ SMB ist damit kein eigener fachlicher Medientyp mehr. Ein Netzwerkvideo enthält
 
 Providerbuttons sind vollständig davon getrennt. Netflix, Prime Video, Disney+, YouTube und waipu.tv werden aus den TMDB-Verfügbarkeitsdaten bestimmt. Eigene Provider-Overrides werden nicht mehr gespeichert oder ausgewertet.
 
-Der übergeordnete `sharedMedia/{type-tmdbId}`-Datensatz ist ein automatisch gepflegter Manifest-Eintrag. Er macht alle Titel mit mindestens einem gültigen Link oder Video ohne einzelne Abfrage pro Poster als kontoweiten Movie-Hub-Anbieter-Katalog lesbar. Der erste Eintrag legt das Manifest an, Änderungen aktualisieren es und das Löschen des letzten Eintrags entfernt es. Ältere Einträge werden beim nächsten vorhandenen, bereits progressiv verzögerten Presence-/Detailzugriff nachgezogen. Der Manifest-Datensatz enthält keine URL und keine Zugangsdaten; die eigentlichen Medien bleiben ausschließlich in `entries`.
+Der übergeordnete `sharedMedia/{type-tmdbId}`-Datensatz ist ein automatisch gepflegter Manifest-Eintrag. Er macht alle Titel mit mindestens einem gültigen Link oder Video ohne einzelne Abfrage pro Poster als kontoweiten Movie-Hub-Anbieter-Katalog lesbar. Der erste Eintrag legt das Manifest an, Änderungen aktualisieren es und das Löschen des letzten Eintrags entfernt es. Ältere Einträge werden beim nächsten vorhandenen, bereits progressiv verzögerten Presence-/Detailzugriff sowie durch den täglichen vertrauenswürdigen Backfill nachgezogen. Der Manifest-Datensatz enthält keine URL und keine Zugangsdaten; die eigentlichen Medien bleiben ausschließlich in `entries`.
+
+```text
+users/{uid}/sharedMedia/{type-tmdbId}
+  hasMedia             true
+  titleRef
+    tmdbId             number
+    type               movie | series
+    title              string
+    description        string
+    releaseDate        string | null
+    runtimeMinutes     number | null
+    genres[]            compact public metadata
+    cast[]              compact public metadata
+    videos[]            public TMDB video references
+    providerIds[]       external provider ids; moviehub is derived
+    artwork             compact image candidates
+    collection*         compact collection metadata
+    metadataVersion     number
+    metadataComplete    boolean
+    metadataUpdatedAt   ISO string
+  entries/{entryId}
+    label               string
+    url                 string
+    type                web | video
+```
+
+`hasMedia` beziehungsweise die Existenz gültiger `entries` ist die einzige Quelle der Movie-Hub-Anbieterzugehörigkeit. `providerIds: ['moviehub']` wird im Lesemodell ergänzt und nicht als redundantes Firestore-Feld gepflegt. Der Backfill liest oder verändert keine URLs und keine SMB-Zugangsdaten.
 
 ## Profilbezogene Sortierung und Abwechslung
 

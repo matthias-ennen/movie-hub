@@ -66,6 +66,8 @@ SMB ist kein eigener Bedien- oder Medientyp. Zugangsdaten und Netzlaufwerksdefin
 
 Ein kontoweites Shared-Media-Manifest bildet daraus ohne öffentlichen Nutzerkatalog und ohne Abfrage jeder Posterkarte die Movie-Hub-Katalogsicht. Vor der Manifest-Einführung gespeicherte Einträge werden bei ihrem nächsten kontrollierten Presence-/Detailzugriff automatisch nachgezogen.
 
+Anbieterzugehörigkeit und Titelmetadaten bleiben getrennte Wahrheiten: Mindestens ein gültiger eigener Link oder ein Video erzeugt die Movie-Hub-Mitgliedschaft; das gemeinsame Lesemodell ergänzt daraus die Anbieter-ID `moviehub`. Die kompakte Titelreferenz wird unabhängig davon aus veröffentlichten Detail-Shards progressiv sowie durch einen vertrauenswürdigen täglichen Firestore-/TMDB-Backfill vervollständigt. Vollständige Manifestmetadaten haben beim Zusammenführen Vorrang vor schwächeren Browse-Snapshots.
+
 ### Profilbezogene Inhaltskuratierung
 
 Flexible Anbieter-, Kategorie-, Entdeckungs- und Smart-Reihen trennen Kandidatenmenge, Sortierung und sichtbares Posterlimit. Das aktive Profil wählt zwischen ausgewogen, beliebt, neu, bestbewertet und stärker entdeckungsorientiert. Ein optionaler täglicher oder wöchentlicher Wechsel bleibt innerhalb der Periode stabil. Gesehene Titel können in öffentlichen Reihen normal erscheinen, nach hinten rücken oder ausgeblendet werden.
@@ -92,7 +94,7 @@ Diese Smart-Reihen sind fachlich und technisch von den festen Film-/Serienkatego
 
 ### Filmreihen-Navigation
 
-Der vertrauenswürdige Katalogjob löst die bei Filmen vorhandene TMDB-Collection-ID einmal je Sammlung über den offiziellen Collection-Endpunkt auf. `catalog.json` enthält daraus einen kompakten `collections`-Index mit Sammlungsmetadaten und sämtlichen von TMDB gelieferten Teilen. Vorhandene vollständige Katalogtitel reichern diese Einträge um die aktuelle Anbieterinformation an; Teile außerhalb des Browse-Katalogs bleiben als reduzierte öffentliche Detailobjekte navigierbar. Der Browser benötigt dafür keinen TMDB-Schlüssel und führt keine TMDB-Laufzeitabfrage aus.
+Der vertrauenswürdige Katalogjob löst die bei Filmen vorhandene TMDB-Collection-ID einmal je Sammlung über den offiziellen Collection-Endpunkt auf. `catalog.json` enthält daraus einen kompakten `collections`-Index mit Sammlungsmetadaten und sämtlichen von TMDB gelieferten Teilen. Vorhandene vollständige Katalogtitel reichern diese Einträge um die aktuelle Anbieterinformation an; Teile außerhalb des Browse-Katalogs bleiben als reduzierte öffentliche Detailobjekte navigierbar. Zusätzlich können persönliche Movie-Hub-Manifeste ihre eigene kompakte Collection-Teileliste tragen, wenn ihr Titel außerhalb des Browse-Katalogs liegt. Der Browser benötigt dafür keinen TMDB-Schlüssel und führt keine direkten TMDB-Laufzeitabfragen aus.
 
 Auf der Film-Detailseite erscheint vor Videos und Anbieteraktionen ein eigener Abschnitt **Filmreihe**. Das darüber geöffnete Auswahlfenster zeigt alle Teile nach Veröffentlichungsdatum, markiert den aktuellen und den profilbezogenen Gesehen-Status und weist Verfügbarkeit immer je Einzeltitel aus. Die Auswahl ersetzt den aktuellen Film innerhalb derselben Detailansicht. Serien, eigene Sammlungen, Sammlungskacheln und eine eigenständige Sammlungsseite gehören nicht zu dieser ersten Stufe.
 

@@ -135,4 +135,38 @@ describe('gemeinsame Movie-Hub-Medien', () => {
       artwork: { posterPaths: ['/a.jpg', '/b.jpg'], heroBackdropPaths: ['/wide.jpg'] },
     })
   })
+
+  it('bevorzugt vollständige gespeicherte Metadaten gegenüber einem schwächeren Browse-Titel', () => {
+    const titleRef = buildSharedMediaTitleRef({
+      id: 'tmdb-movie-562',
+      tmdbId: 562,
+      type: 'movie',
+      title: 'Stirb langsam',
+      collectionId: 1570,
+      collectionName: 'Stirb langsam - Collection',
+      collectionChecked: true,
+      collectionDetails: { id: 1570, name: 'Stirb langsam - Collection', parts: [
+        { id: 562, title: 'Stirb langsam' },
+        { id: 1573, title: 'Stirb langsam 2' },
+      ] },
+      metadataVersion: 2,
+      metadataComplete: true,
+      metadataUpdatedAt: '2026-09-13T09:00:00.000Z',
+      providerIds: ['disney'],
+    })
+    const entry = normalizeSharedMediaCatalogEntry('movie-562', { hasMedia: true, titleRef })
+    const [merged] = mergeSharedMediaCatalogTitles([entry], [{
+      id: 'tmdb-movie-562',
+      tmdbId: 562,
+      type: 'movie',
+      title: 'Stirb langsam',
+      metadataVersion: 1,
+      metadataComplete: false,
+      providerIds: ['prime'],
+    }])
+
+    expect(merged.collectionId).toBe(1570)
+    expect(merged.collectionDetails.parts).toHaveLength(2)
+    expect(merged.providerIds).toEqual(['prime', 'moviehub', 'disney'])
+  })
 })
