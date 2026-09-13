@@ -209,6 +209,9 @@ export function searchDetailFromDiscover(raw, mediaType, genreNamesById = new Ma
     metadataComplete: normalized.metadataComplete,
     metadataVersion: normalized.metadataVersion,
     originalLanguage: normalized.originalLanguage,
+    numberOfSeasons: normalized.numberOfSeasons,
+    numberOfEpisodes: normalized.numberOfEpisodes,
+    seasons: normalized.seasons,
     voteAverage: normalized.voteAverage,
     genreNames: genreNamesFromIds(raw, genreNamesById),
     completeness: 'discover',
@@ -245,6 +248,13 @@ function searchDetailFromCatalogTitle(title) {
     metadataVersion: Number(title.metadataVersion) || 1,
     metadataUpdatedAt: title.metadataUpdatedAt || null,
     originalLanguage: title.originalLanguage || null,
+    numberOfSeasons: title.type === 'series' && Number.isInteger(Number(title.numberOfSeasons))
+      ? Number(title.numberOfSeasons)
+      : null,
+    numberOfEpisodes: title.type === 'series' && Number.isInteger(Number(title.numberOfEpisodes))
+      ? Number(title.numberOfEpisodes)
+      : null,
+    seasons: title.type === 'series' && Array.isArray(title.seasons) ? title.seasons : [],
     voteAverage: Number.isFinite(Number(title.voteAverage)) ? Number(title.voteAverage) : null,
     genreNames,
     meta: title.meta || null,
@@ -412,6 +422,9 @@ async function enrichSearchDetail(entry, genreNamesByType, collectionCache) {
     metadataVersion: 2,
     metadataUpdatedAt: new Date().toISOString(),
     originalLanguage: normalized.originalLanguage,
+    numberOfSeasons: normalized.numberOfSeasons,
+    numberOfEpisodes: normalized.numberOfEpisodes,
+    seasons: normalized.seasons,
     voteAverage: normalized.voteAverage,
     genreNames: normalized.genres?.map((genre) => genre.name).filter(Boolean)
       || genreNamesFromIds(payload, genreNamesByType.get(tmdbType)),
@@ -626,6 +639,7 @@ export async function generateBroadSearchIndexFromTmdb() {
       const existing = existingById.get(entry.id)
       return existing?.metadataComplete !== true
         || (entry.type === 'movie' && existing?.collectionId && !existing?.collectionDetails)
+        || (entry.type === 'series' && (!Array.isArray(existing?.seasons) || existing.seasons.length === 0))
     })
     .slice(0, SEARCH_DETAIL_ENRICH_LIMIT)
   console.log(`Search details: enriching ${enrichmentCandidates.length} of ${searchIndex.entries.length} titles with full metadata.`)

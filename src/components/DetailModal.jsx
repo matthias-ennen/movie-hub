@@ -12,6 +12,7 @@ import ProviderBadges, { ProviderBadge } from './ProviderBadges.jsx'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
+import { loadSeriesSeasonDetail, normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
 
 export default function DetailModal({ item, collections = {}, titles = [], onSelectTitle, onClose }) {
   const { activeProfile } = useProfiles()
@@ -32,14 +33,32 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
   const [playing, setPlaying] = useState(null)
   const [collectionPickerOpen, setCollectionPickerOpen] = useState(false)
   const [collectionBusyId, setCollectionBusyId] = useState(null)
+  const [selectedSeasonNumber, setSelectedSeasonNumber] = useState(null)
+  const [seasonDetail, setSeasonDetail] = useState(null)
+  const [seasonLoading, setSeasonLoading] = useState(false)
+  const [seasonMessage, setSeasonMessage] = useState('')
+  const [episodesPickerOpen, setEpisodesPickerOpen] = useState(false)
+  const [episodeContext, setEpisodeContext] = useState(null)
   const returnFocusRef = useRef(null)
   const collectionTriggerRef = useRef(null)
+  const episodesTriggerRef = useRef(null)
+  const seasonRequestRef = useRef(0)
   const personalBusyRef = useRef(false)
   const artworkOptions = {
     profileId: activeProfile?.id || 'profile',
     rotationMode: activeProfile?.contentDisplaySettings?.artworkRotation,
   }
-  const detailPosterUrl = item?.displayPosterUrl || resolveArtworkUrl(item, artworkOptions)
+  const seriesSeasons = useMemo(() => normalizeSeriesSeasons(item?.seasons, {
+    seriesTmdbId: item?.tmdbId,
+    numberOfSeasons: item?.numberOfSeasons,
+  }), [item?.tmdbId, item?.numberOfSeasons, item?.seasons])
+  const selectedSeason = seriesSeasons.find((season) => season.seasonNumber === selectedSeasonNumber)
+    || seriesSeasons[0]
+    || null
+  const hasSeriesNavigation = item?.type === 'series' && seriesSeasons.length > 0
+  const detailPosterUrl = hasSeriesNavigation && selectedSeason?.posterUrl
+    ? selectedSeason.posterUrl
+    : item?.displayPosterUrl || resolveArtworkUrl(item, artworkOptions)
   const filmCollection = findFilmCollectionForTitle(item, collections)
     || buildFilmCollection(item?.collectionDetails, titles)
   const collectionParts = useMemo(
@@ -82,6 +101,16 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
   }, [activeProfile?.id, item.id, personalState.note])
 
   useEffect(() => {
+    seasonRequestRef.current += 1
+    setSelectedSeasonNumber(seriesSeasons[0]?.seasonNumber ?? null)
+    setSeasonDetail(null)
+    setSeasonLoading(false)
+    setSeasonMessage('')
+    setEpisodesPickerOpen(false)
+    setEpisodeContext(null)
+  }, [item.id])
+
+  useEffect(() => {
     let cancelled = false
     setSharedMedia([])
     setMediaMessage('')
@@ -89,6 +118,8 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
     setMediaPickerOpen(false)
     setCollectionPickerOpen(false)
     setCollectionBusyId(null)
+    setEpisodesPickerOpen(false)
+    setEpisodeContext(null)
     setPlaying(null)
     setPendingDeleteId(null)
     if (user) {
@@ -120,6 +151,10 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
         closeCollectionPicker()
         return true
       }
+      if (episodesPickerOpen) {
+        closeEpisodesPicker()
+        return true
+      }
       if (mediaPickerOpen) {
         setMediaPickerOpen(false)
         return true
@@ -128,21 +163,42 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
         setMediaEditorOpen(false)
         return true
       }
+      if (episodeContext) {
+        closeEpisodeContext()
+        return true
+      }
       return false
     }
     window.__movieHubDetailBack = closeTopMediaLayer
     return () => {
       if (window.__movieHubDetailBack === closeTopMediaLayer) delete window.__movieHubDetailBack
     }
-  }, [collectionPickerOpen, mediaEditorOpen, mediaPickerOpen, playing])
+  }, [collectionPickerOpen, episodeContext, episodesPickerOpen, mediaEditorOpen, mediaPickerOpen, playing])
 
   useEffect(() => {
-    if (!collectionPickerOpen && !mediaEditorOpen && !mediaPickerOpen && !playing) return undefined
+    if (!collectionPickerOpen && !episodesPickerOpen && !mediaEditorOpen && !mediaPickerOpen && !playing) return undefined
     const frame = window.requestAnimationFrame(() => {
       document.querySelector('[data-media-autofocus="true"]')?.focus({ preventScroll: true })
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [collectionPickerOpen, mediaEditorOpen, mediaPickerOpen, playing])
+  }, [
+    collectionPickerOpen,
+    episodesPickerOpen,
+    mediaEditorOpen,
+    mediaPickerOpen,
+    playing,
+    seasonDetail,
+    seasonLoading,
+    seasonMessage,
+  ])
+
+  useEffect(() => {
+    if (!episodeContext) return undefined
+    const frame = window.requestAnimationFrame(() => {
+      document.querySelector('[data-episode-context-autofocus="true"]')?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [episodeContext?.id])
 
   if (!item) return null
 
@@ -191,6 +247,60 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
       collectionChecked: true,
       providerIds: [...new Set([...(part.providerIds || []), ...(detail.providerIds || [])])],
     }, displayedPosterUrl)
+  }
+
+  function selectSeason(nextSeason) {
+    if (!nextSeason || seasonLoading) return
+    setSelectedSeasonNumber(nextSeason.seasonNumber)
+    setSeasonDetail(null)
+    setSeasonMessage('')
+    setEpisodeContext(null)
+  }
+
+  async function openEpisodesPicker(event) {
+    if (!selectedSeason || seasonLoading) return
+    const requestId = seasonRequestRef.current + 1
+    seasonRequestRef.current = requestId
+    episodesTriggerRef.current = event?.currentTarget || null
+    setEpisodesPickerOpen(true)
+    setSeasonLoading(true)
+    setSeasonMessage('')
+    try {
+      const detail = await loadSeriesSeasonDetail(item, selectedSeason)
+      if (seasonRequestRef.current !== requestId) return
+      setSeasonDetail(detail)
+    } catch (error) {
+      if (seasonRequestRef.current !== requestId) return
+      console.warn('Folgendaten konnten nicht geladen werden.', error)
+      setSeasonDetail(null)
+      setSeasonMessage(error instanceof Error ? error.message : 'Folgendaten konnten nicht geladen werden.')
+    } finally {
+      if (seasonRequestRef.current === requestId) setSeasonLoading(false)
+    }
+  }
+
+  function closeEpisodesPicker({ restoreFocus = true } = {}) {
+    setEpisodesPickerOpen(false)
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => {
+        if (episodesTriggerRef.current?.isConnected) episodesTriggerRef.current.focus({ preventScroll: true })
+      })
+    }
+  }
+
+  function selectEpisode(episode) {
+    if (!episode) return
+    setEpisodeContext(episode)
+    closeEpisodesPicker({ restoreFocus: false })
+  }
+
+  function closeEpisodeContext({ restoreFocus = true } = {}) {
+    setEpisodeContext(null)
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => {
+        if (episodesTriggerRef.current?.isConnected) episodesTriggerRef.current.focus({ preventScroll: true })
+      })
+    }
   }
 
   async function savePersonalPatch(patch, message) {
@@ -366,12 +476,65 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
             <AgeRatingBadge value={item.ageRating} className="detail-age-rating" />
           </div>
           <p className="genre">{item.genre}</p>
-          <p className="detail-description">{item.description || 'Für diesen Titel liegt noch keine deutsche Beschreibung vor.'}</p>
+          {episodeContext ? (
+            <section className="episode-context" aria-labelledby="episode-context-heading">
+              <p className="settings-kicker">{item.title} · Staffel {episodeContext.seasonNumber} · Folge {episodeContext.episodeNumber}</p>
+              <h3 id="episode-context-heading">{episodeContext.title}</h3>
+              <p className="detail-description">{episodeContext.description || 'Für diese Folge liegt noch keine deutsche Beschreibung vor.'}</p>
+              <button
+                type="button"
+                className="action-button episode-context-back"
+                data-focusable="true"
+                data-episode-context-autofocus="true"
+                onClick={() => closeEpisodeContext()}
+              >← Zur Staffelansicht</button>
+            </section>
+          ) : (
+            <p className="detail-description">{item.description || 'Für diesen Titel liegt noch keine deutsche Beschreibung vor.'}</p>
+          )}
           {cast.length > 0 && (
             <div className="cast-block">
               <h3>Besetzung</h3>
               <p>{cast.map((person) => person.name).join(' · ')}</p>
             </div>
+          )}
+
+          {hasSeriesNavigation && (
+            <section className="series-navigation-summary" aria-labelledby="series-navigation-heading">
+              <div className="series-navigation-heading">
+                <div>
+                  <p className="settings-kicker">Staffeln und Folgen</p>
+                  <h3 id="series-navigation-heading">{selectedSeason?.title || `Staffel ${selectedSeason?.seasonNumber}`}</h3>
+                  <p>
+                    {selectedSeason?.episodeCount !== null && selectedSeason?.episodeCount !== undefined
+                      ? `${selectedSeason.episodeCount} ${selectedSeason.episodeCount === 1 ? 'Folge' : 'Folgen'}`
+                      : 'Folgen werden beim Öffnen geladen'}
+                  </p>
+                </div>
+                <button
+                  ref={episodesTriggerRef}
+                  type="button"
+                  className="action-button episodes-open"
+                  data-focusable="true"
+                  data-detail-autofocus="true"
+                  aria-busy={seasonLoading}
+                  onClick={openEpisodesPicker}
+                >{seasonLoading ? 'Folgen werden geladen …' : 'Folgen anzeigen'}</button>
+              </div>
+              <div className="season-selector" aria-label="Staffel auswählen">
+                {seriesSeasons.map((season) => (
+                  <button
+                    type="button"
+                    key={season.id}
+                    className={season.seasonNumber === selectedSeason?.seasonNumber ? 'season-button active' : 'season-button'}
+                    aria-pressed={season.seasonNumber === selectedSeason?.seasonNumber}
+                    data-focusable="true"
+                    onClick={() => selectSeason(season)}
+                  >Staffel {season.seasonNumber}</button>
+                ))}
+              </div>
+              {seasonMessage && !episodesPickerOpen && <p className="series-navigation-message" role="status">{seasonMessage}</p>}
+            </section>
           )}
 
           {hasFilmCollection && (
@@ -407,7 +570,7 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
                     className="action-button video-action"
                     key={video.id || video.url}
                     data-focusable="true"
-                    data-detail-autofocus={!hasFilmCollection && index === 0 ? 'true' : undefined}
+                    data-detail-autofocus={!hasFilmCollection && !hasSeriesNavigation && index === 0 ? 'true' : undefined}
                     onClick={() => openUrl(video.url)}
                   >▶ {video.label || (video.type === 'teaser' ? 'Teaser' : 'Trailer')}</button>
                 ))}
@@ -424,7 +587,7 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
                   type="button"
                   className="action-button provider-action movie-hub-action"
                   data-focusable="true"
-                  data-detail-autofocus={!hasFilmCollection && automaticVideos.length === 0 ? 'true' : undefined}
+                  data-detail-autofocus={!hasFilmCollection && !hasSeriesNavigation && automaticVideos.length === 0 ? 'true' : undefined}
                   onClick={() => sharedMedia.length === 1 ? launchMedia(sharedMedia[0]) : setMediaPickerOpen(true)}
                   aria-label={sharedMedia.length === 1 ? `${sharedMedia[0].label} über Movie Hub öffnen` : 'Eigene Movie-Hub-Links und Videos auswählen'}
                 >
@@ -441,7 +604,7 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
                     key={providerId}
                     className="action-button provider-action"
                     data-focusable="true"
-                    data-detail-autofocus={!hasFilmCollection && automaticVideos.length === 0 && !showMovieHubProvider && index === 0 ? 'true' : undefined}
+                    data-detail-autofocus={!hasFilmCollection && !hasSeriesNavigation && automaticVideos.length === 0 && !showMovieHubProvider && index === 0 ? 'true' : undefined}
                     onClick={() => openProvider(providerId)}
                     aria-label={`${provider.label} öffnen`}
                   >
@@ -477,7 +640,7 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
                   personalState.favorite ? 'Aus Favoriten entfernt.' : 'Zu Favoriten hinzugefügt.',
                 )}
                 data-focusable="true"
-                data-detail-autofocus={!hasFilmCollection && automaticVideos.length === 0 && !showMovieHubProvider && !hasProviders ? 'true' : undefined}
+                data-detail-autofocus={!hasFilmCollection && !hasSeriesNavigation && automaticVideos.length === 0 && !showMovieHubProvider && !hasProviders ? 'true' : undefined}
               >
                 <span aria-hidden="true">♥</span>
                 <span>{personalState.favorite ? 'Favorit' : 'Als Favorit'}</span>
@@ -644,6 +807,67 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
                 )
               })}
             </div>
+          </section>
+        </div>
+      )}
+      {episodesPickerOpen && hasSeriesNavigation && selectedSeason && (
+        <div className="media-layer detail-backdrop collection-layer" onMouseDown={(event) => event.target === event.currentTarget && closeEpisodesPicker()}>
+          <section className="media-panel collection-panel episodes-panel" role="dialog" aria-modal="true" aria-labelledby="episodes-picker-heading" aria-busy={seasonLoading}>
+            <div className="collection-panel-heading">
+              <div>
+                <p className="settings-kicker">{item.title}</p>
+                <h2 id="episodes-picker-heading">Staffel {selectedSeason.seasonNumber}</h2>
+                <p>{seasonDetail?.episodes?.length ?? selectedSeason.episodeCount ?? 0} Folgen</p>
+              </div>
+              <button
+                type="button"
+                className="collection-close"
+                data-focusable="true"
+                data-media-autofocus={seasonLoading ? 'true' : undefined}
+                onClick={() => closeEpisodesPicker()}
+              >× Schließen</button>
+            </div>
+
+            {seasonLoading && <p className="episodes-status" role="status">Folgen werden geladen …</p>}
+            {!seasonLoading && seasonMessage && (
+              <div className="episodes-empty" role="status">
+                <strong>Folgen konnten noch nicht geladen werden.</strong>
+                <p>{seasonMessage}</p>
+                <button type="button" className="collection-close" data-focusable="true" data-media-autofocus="true" onClick={() => closeEpisodesPicker()}>Zurück</button>
+              </div>
+            )}
+            {!seasonLoading && !seasonMessage && seasonDetail?.episodes?.length > 0 && (
+              <div className="episode-grid" aria-label={`Folgen von Staffel ${selectedSeason.seasonNumber}`}>
+                {seasonDetail.episodes.map((episode, index) => (
+                  <button
+                    type="button"
+                    key={episode.id}
+                    className={episodeContext?.id === episode.id ? 'episode-card current' : 'episode-card'}
+                    data-focusable="true"
+                    data-media-autofocus={episodeContext?.id === episode.id || (!episodeContext && index === 0) ? 'true' : undefined}
+                    aria-current={episodeContext?.id === episode.id ? 'true' : undefined}
+                    aria-label={`Staffel ${episode.seasonNumber}, Folge ${episode.episodeNumber}: ${episode.title}`}
+                    onClick={() => selectEpisode(episode)}
+                  >
+                    <span className={episode.stillUrl ? 'episode-still has-image' : 'episode-still'}>
+                      {episode.stillUrl && <img src={episode.stillUrl} alt="" loading="lazy" />}
+                      <span>Folge {episode.episodeNumber}</span>
+                    </span>
+                    <span className="episode-copy">
+                      <strong>{episode.title}</strong>
+                      <small>{episode.airDate || 'Ausstrahlungsdatum unbekannt'}</small>
+                      <span>{episode.description || 'Keine Beschreibung verfügbar.'}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {!seasonLoading && !seasonMessage && seasonDetail && seasonDetail.episodes.length === 0 && (
+              <div className="episodes-empty" role="status">
+                <strong>Für diese Staffel wurden keine Folgen gefunden.</strong>
+                <button type="button" className="collection-close" data-focusable="true" data-media-autofocus="true" onClick={() => closeEpisodesPicker()}>Zurück</button>
+              </div>
+            )}
           </section>
         </div>
       )}

@@ -1,6 +1,6 @@
 # Movie Hub – Datenmodell
 
-Stand: 12. September 2026
+Stand: 13. September 2026
 
 ## Ziel
 
@@ -9,6 +9,34 @@ Das Datenmodell trennt externe Filmdaten von persönlichen Nutzerdaten. TMDB ble
 ## Grundprinzip
 
 Jeder Film wird intern über seine TMDB-ID referenziert. Dadurch müssen Titel, Poster und andere externe Metadaten nicht als persönliche Nutzerdaten dupliziert werden.
+
+## Öffentliche Serienmetadaten
+
+Ein Serienobjekt kann zusätzlich kompakte Staffeln enthalten:
+
+```text
+titles[].seasons[]
+  seriesTmdbId     number
+  seasonNumber     number
+  title            string
+  description      string
+  airDate          string | null
+  episodeCount     number | null
+  posterPath       string | null
+  posterUrl        string | null
+
+public/series-details/{bucket}.json
+  entries[]
+    seriesTmdbId
+    seriesTitle
+    seasonNumber
+    title
+    description
+    posterPath
+    episodes[]      # Folge, Titel, Beschreibung, Datum, Laufzeit, Standbild
+```
+
+Staffel 0 (Specials) gehört zunächst nicht zur sichtbaren Navigation. Episoden werden getrennt vom Hauptkatalog veröffentlicht und nur bei Bedarf geladen. Es werden ausschließlich öffentliche TMDB-Metadaten gespeichert; persönliche Gesehen- oder Bewertungszustände für einzelne Folgen sind nicht Teil dieses Pakets.
 
 ## Firestore-Struktur – Version 1
 

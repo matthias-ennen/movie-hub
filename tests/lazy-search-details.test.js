@@ -47,6 +47,22 @@ describe('lazy search details', () => {
     expect(fallback.meta).toBe('Film')
   })
 
+  it('keeps compact season summaries when a series detail is hydrated lazily', () => {
+    const fallback = toSearchDetailFallback(entry({
+      id: 'tmdb-series-65',
+      type: 'series',
+      numberOfSeasons: 2,
+      numberOfEpisodes: 12,
+      seasons: [{ season_number: 2, name: 'Zweite Staffel', episode_count: 6 }],
+    }))
+
+    expect(fallback.numberOfSeasons).toBe(2)
+    expect(fallback.numberOfEpisodes).toBe(12)
+    expect(fallback.seasons).toEqual([
+      expect.objectContaining({ seasonNumber: 2, title: 'Zweite Staffel', episodeCount: 6 }),
+    ])
+  })
+
   it('merges a discover detail seed without overwriting provider membership', () => {
     const merged = mergeSearchDetail(entry(), {
       id: 'tmdb-movie-65',

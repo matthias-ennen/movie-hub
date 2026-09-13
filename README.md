@@ -55,7 +55,7 @@ Details:
 
 Projektstart: 31. August 2026
 
-Stand: **12. September 2026**
+Stand: **13. September 2026**
 
 Der aktuelle Funktionsstand ist von Matthias auf **Smartphone, Tablet und Fire TV bis hierhin abgenommen**. Dazu gehören insbesondere die native Android-/Fire-TV-Hülle, D-Pad-/Zurück-Navigation, Profile und persönliche Zustände, SMB-/FRITZ!NAS-Wiedergabe, persönliche TMDB-Verbindung und -Synchronisation, automatische Providerbuttons für Netflix, Prime Video, Disney+, YouTube und waipu.tv sowie das Movie-Hub-Startintro mit Jingle und CRT-Abschaltung.
 
@@ -65,4 +65,4 @@ Für Provider gilt bewusst Best Effort: Titelsuche ist optimal, die Suchseite is
 
 Die zu diesem Abnahmestand gehörenden Detail-Issues werden abgeschlossen. Neue Auffälligkeiten werden als neue, klar abgegrenzte Issues erfasst.
 
-Die Pakete #170/#171 und #173 sind integriert: Movie Hub arbeitet als virtueller Anbieter, Heroes und Posterreihen werden profilbezogen kuratiert und alle Inhaltsbereiche besitzen ihre dynamische Top 10. **Aktuelles Arbeitspaket #137** ergänzt vollständige Filmreihen direkt auf der Film-Detailseite. Eine eigenständige Sammlungsseite und Sammlungskacheln bleiben bewusst einer späteren Ausbaustufe vorbehalten.
+Die Pakete #170/#171 und #173 sind integriert: Movie Hub arbeitet als virtueller Anbieter, Heroes und Posterreihen werden profilbezogen kuratiert und alle Inhaltsbereiche besitzen ihre dynamische Top 10. Die Filmreihen- und Metadatenpakete #137/#181 wurden mit Build 205 abgenommen. **Aktuelles Arbeitspaket #178** ergänzt auf Serien-Detailseiten eine Staffelauswahl, Staffelposter und lazy geladene Episoden innerhalb derselben Ansicht. Eine eigenständige Sammlungsseite und Sammlungskacheln bleiben bewusst einer späteren Ausbaustufe vorbehalten.

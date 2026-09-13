@@ -266,6 +266,9 @@ export function mergeProviderCatalogTitle(existing, incoming) {
     },
     videos: Array.isArray(existing.videos) && existing.videos.length ? existing.videos : incoming.videos,
     cast: Array.isArray(existing.cast) && existing.cast.length ? existing.cast : incoming.cast,
+    numberOfSeasons: existing.numberOfSeasons ?? incoming.numberOfSeasons ?? null,
+    numberOfEpisodes: existing.numberOfEpisodes ?? incoming.numberOfEpisodes ?? null,
+    seasons: Array.isArray(existing.seasons) && existing.seasons.length ? existing.seasons : incoming.seasons || [],
     smartFacets: {
       cast: [...new Map([
         ...(incoming.smartFacets?.cast || []),

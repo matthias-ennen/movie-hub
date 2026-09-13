@@ -14,10 +14,12 @@
     "test:catalog": "vitest run tests/catalog-generator.test.js",
     "test:library": "vitest run tests/library.test.js",
     "tmdb:smoke": "node scripts/tmdb-smoke-test.mjs",
-    "tmdb:catalog": "node scripts/generate-tmdb-catalog.mjs && node scripts/generate-search-index.mjs",
+    "tmdb:catalog": "node scripts/generate-tmdb-catalog.mjs && node scripts/generate-search-index.mjs && node scripts/generate-series-details.mjs",
     "search:index": "node scripts/generate-search-index.mjs",
     "search:details": "node scripts/generate-search-details.mjs",
     "search:details:restore": "node scripts/restore-live-search-details.mjs",
+    "series:details": "node scripts/generate-series-details.mjs",
+    "series:details:restore": "node scripts/restore-live-series-details.mjs",
     "moviehub:metadata:backfill": "node scripts/enrich-shared-media-metadata.mjs"
   },
   "dependencies": {

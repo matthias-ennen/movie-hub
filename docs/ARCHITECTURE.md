@@ -1,6 +1,6 @@
 # Movie Hub – Architektur
 
-Stand: 12. September 2026
+Stand: 13. September 2026
 
 ## Ziel
 
@@ -97,6 +97,12 @@ Diese Smart-Reihen sind fachlich und technisch von den festen Film-/Serienkatego
 Der vertrauenswürdige Katalogjob löst die bei Filmen vorhandene TMDB-Collection-ID einmal je Sammlung über den offiziellen Collection-Endpunkt auf. `catalog.json` enthält daraus einen kompakten `collections`-Index mit Sammlungsmetadaten und sämtlichen von TMDB gelieferten Teilen. Vorhandene vollständige Katalogtitel reichern diese Einträge um die aktuelle Anbieterinformation an; Teile außerhalb des Browse-Katalogs bleiben als reduzierte öffentliche Detailobjekte navigierbar. Zusätzlich können persönliche Movie-Hub-Manifeste ihre eigene kompakte Collection-Teileliste tragen, wenn ihr Titel außerhalb des Browse-Katalogs liegt. Der Browser benötigt dafür keinen TMDB-Schlüssel und führt keine direkten TMDB-Laufzeitabfragen aus.
 
 Auf der Film-Detailseite erscheint vor Videos und Anbieteraktionen ein eigener Abschnitt **Filmreihe**. Das darüber geöffnete Auswahlfenster zeigt alle Teile nach Veröffentlichungsdatum, markiert den aktuellen und den profilbezogenen Gesehen-Status und weist Verfügbarkeit immer je Einzeltitel aus. Die Auswahl ersetzt den aktuellen Film innerhalb derselben Detailansicht. Serien, eigene Sammlungen, Sammlungskacheln und eine eigenständige Sammlungsseite gehören nicht zu dieser ersten Stufe.
+
+### Serien-, Staffel- und Folgen-Navigation
+
+Serien tragen nur kompakte, sortierte Staffelzusammenfassungen. Die wesentlich größeren Episodenlisten liegen in einem eigenen öffentlichen, nach Serien-ID aufgeteilten Shard-Katalog und werden erst durch **Folgen anzeigen** geladen. Staffelwechsel aktualisieren das linke Poster mit Rückfall auf das Serienposter. Eine Folgenselektion ersetzt weder Route noch Titelobjekt, sondern öffnet einen Episodenkontext innerhalb derselben Detailansicht. Dadurch bilden Folgenauswahl, Episodenkontext und Serien-Detailseite klar getrennte Zurück- und Fokusebenen für Touch, Tastatur und D-Pad.
+
+Der tägliche vertrauenswürdige TMDB-Job erzeugt Staffelzusammenfassungen und Episodenshards inkrementell. Die Web-App führt dafür keine direkten TMDB-Abfragen aus. Fehlen die neuen Felder in einem älteren Katalog, bleibt die bisherige Serien-Detailansicht ohne Navigationsblock erhalten.
 
 ### Fire-TV-App
 - schlanke Android-/Fire-OS-APK

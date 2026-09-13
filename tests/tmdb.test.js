@@ -68,6 +68,10 @@ describe('TMDB adapter', () => {
       episode_run_time: [60],
       number_of_seasons: 8,
       number_of_episodes: 73,
+      seasons: [
+        { id: 10, season_number: 1, name: 'Staffel 1', episode_count: 10, poster_path: '/season-1.jpg' },
+        { id: 11, season_number: 2, name: 'Staffel 2', episode_count: 10 },
+      ],
       genres: [{ id: 18, name: 'Drama' }],
       vote_average: 8.5,
       content_ratings: { results: [{ iso_3166_1: 'DE', rating: '16' }] },
@@ -82,6 +86,10 @@ describe('TMDB adapter', () => {
       runtimeMinutes: 60,
       numberOfSeasons: 8,
       numberOfEpisodes: 73,
+      seasons: [
+        expect.objectContaining({ seasonNumber: 1, episodeCount: 10 }),
+        expect.objectContaining({ seasonNumber: 2, episodeCount: 10 }),
+      ],
       ageRating: 16,
     })
     expect(normalized.smartFacets.creators).toEqual([expect.objectContaining({ id: 50, name: 'Serienschöpfer' })])

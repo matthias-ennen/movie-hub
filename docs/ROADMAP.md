@@ -179,17 +179,17 @@ Die technische Hero-first-Grundlage aus #166/#168 und die Kaltstartkorrektur #16
 
 Eine eigenständige Sammlungs-Detailseite, Sammlungskacheln in Reihen oder Suche, benutzerdefinierte Sammlungen und eine Übertragung auf Serien bleiben zunächst zurückgestellt. Die Datenstruktur wird so angelegt, dass eine spätere Ausbaustufe darauf aufbauen kann.
 
-#137 ergänzt außerdem eine explizite Metadaten-Vollständigkeit und zieht fehlende Sammlungsinformationen sowohl im persönlichen TMDB-Sync als auch inkrementell im nächtlichen Suchkatalog nach. Die Geräteprüfung mit „Stirb langsam“ hat gezeigt, dass persönliche Movie-Hub-Manifeste außerhalb dieser beiden Quellen noch nicht garantiert erreicht wurden; #137 bleibt deshalb bis zur erneuten Abnahme geöffnet.
+#137 ergänzt außerdem eine explizite Metadaten-Vollständigkeit und zieht fehlende Sammlungsinformationen sowohl im persönlichen TMDB-Sync als auch inkrementell im nächtlichen Suchkatalog nach. Die gemeinsame Geräteprüfung mit „Stirb langsam“ wurde mit Build 205 erfolgreich abgeschlossen.
 
 #181 schließt diese Lücke. Unvollständige Titel werden profilgebunden beim Laden des Movie-Hub-Katalogs und beim Öffnen anhand ihrer TMDB-Identität aus veröffentlichten Detail-Shards ergänzt. Reicht der veröffentlichte Stand nicht aus, lädt die Android-/Fire-TV-Shell den einzelnen Titel sicher über den gerätelokalen TMDB-Zugang nach. Ein optionaler vertrauenswürdiger Backfill kann außerdem alle Movie-Hub-Manifeste direkt über TMDB aktualisieren, sobald das Deployment-Dienstkonto Firestore-Datenzugriff besitzt. Eigene Links und Videos bleiben unangetastet. Die Anbieterkennung `moviehub` wird weiterhin aus der Katalogmitgliedschaft abgeleitet und gemeinsam mit externen Provider-IDs an dieselben UI-Verbraucher übergeben.
 
-Die technische Umsetzung von #181 ist integriert; offen bleibt die gemeinsame Geräteabnahme mit #137 anhand der Filmreihe „Stirb langsam“.
+Die technische Umsetzung und gemeinsame Geräteabnahme von #181 und #137 sind mit Build 205 abgeschlossen. Der optionale CI-Backfill mit zusätzlicher Firestore-IAM-Rolle bleibt davon getrennt in #185.
 
 Das integrierte #179 speichert je Titel bis zu drei bevorzugt sprachneutrale Poster und drei Querformatbilder. Profile können zwischen täglichem, wöchentlichem und ausgeschaltetem Bildwechsel wählen. Posterkarte und geöffnete Detailseite verwenden dabei dasselbe Motiv; der doppelte Titeltext auf dem linken Detailposter entfällt. Hero-Bilder werden unabhängig aus den Querformatkandidaten gewählt.
 
-## Nächstes getrenntes Arbeitspaket – #178 Staffeln und Folgen
+## Aktuelles Arbeitspaket – #178 Staffeln und Folgen
 
-Nach der Abnahme von #137/#179 folgt die Seriennavigation mit Staffelauswahl, Staffelposter sowie einer Folgenauswahl, die Episodentitel und -beschreibung in derselben Detailansicht darstellt. Sie wird bewusst nicht mit der Filmreihen- und Artwork-Migration gekoppelt.
+Nach der Abnahme von #137/#181/#179 folgt die Seriennavigation mit Staffelauswahl, Staffelposter sowie einer Folgenauswahl, die Episodentitel und -beschreibung in derselben Detailansicht darstellt. Kompakte Staffelinformationen bleiben am Serienobjekt; Episoden werden aus separat veröffentlichten Shards erst beim Öffnen einer Staffel geladen. Zurück schließt zuerst die Folgenauswahl, dann den Episodenkontext und zuletzt die Serien-Detailseite. Alte Kataloge ohne Staffelmetadaten bleiben unverändert nutzbar. Die Geräteabnahme bleibt bis zum Test des neuen Builds offen.
 
 ## Phase 6 – Personalisierung und Automatisierung
 
