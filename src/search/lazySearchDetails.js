@@ -1,3 +1,5 @@
+import { normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
+
 export const SEARCH_DETAIL_VERSION = 1
 export const SEARCH_DETAIL_BUCKET_COUNT = 64
 export const SEARCH_DETAIL_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
@@ -38,6 +40,9 @@ function normaliseGenres(detail) {
 
 export function toSearchDetailFallback(entry) {
   const type = entry?.type === 'series' ? 'series' : 'movie'
+  const numberOfSeasons = type === 'series' && Number.isInteger(Number(entry?.numberOfSeasons))
+    ? Number(entry.numberOfSeasons)
+    : null
   return {
     ...entry,
     source: 'tmdb',
@@ -52,6 +57,13 @@ export function toSearchDetailFallback(entry) {
     collectionDetails: entry?.collectionDetails || null,
     metadataVersion: Number(entry?.metadataVersion) || 1,
     originalLanguage: entry?.originalLanguage || null,
+    numberOfSeasons,
+    numberOfEpisodes: type === 'series' && Number.isInteger(Number(entry?.numberOfEpisodes))
+      ? Number(entry.numberOfEpisodes)
+      : null,
+    seasons: type === 'series'
+      ? normalizeSeriesSeasons(entry?.seasons, { seriesTmdbId: entry?.tmdbId, numberOfSeasons })
+      : [],
     genres: [],
     genre: entry?.genre || 'Ohne Genreangabe',
     cast: Array.isArray(entry?.cast) ? entry.cast : [],

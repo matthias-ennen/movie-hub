@@ -14,6 +14,7 @@ import './styles/provider-selection.css'
 import './styles/issue128-row-alignment.css'
 import './styles/top-ten.css'
 import './styles/film-collections.css'
+import './styles/series-navigation.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

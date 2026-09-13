@@ -35,4 +35,23 @@ describe('TMDB discovery detail seeds', () => {
     expect(detail).not.toHaveProperty('providerIds')
     expect(detail).not.toHaveProperty('providerOffers')
   })
+
+  it('preserves compact season summaries from enriched series payloads', () => {
+    const detail = searchDetailFromDiscover({
+      id: 1399,
+      name: 'Game of Thrones',
+      first_air_date: '2011-04-17',
+      number_of_seasons: 2,
+      number_of_episodes: 20,
+      seasons: [
+        { season_number: 0, name: 'Specials' },
+        { season_number: 1, name: 'Staffel 1', episode_count: 10 },
+        { season_number: 2, name: 'Staffel 2', episode_count: 10 },
+      ],
+    }, 'tv')
+
+    expect(detail.numberOfSeasons).toBe(2)
+    expect(detail.numberOfEpisodes).toBe(20)
+    expect(detail.seasons.map((season) => season.seasonNumber)).toEqual([1, 2])
+  })
 })

@@ -1,0 +1,213 @@
+.series-navigation-summary {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0 0 var(--space-8);
+  padding: 1rem 1.1rem;
+  border: 1px solid color-mix(in srgb, var(--color-brand-accent) 50%, var(--color-line));
+  border-radius: var(--radius-panel);
+  background: color-mix(in srgb, var(--color-surface) 88%, var(--color-brand-accent) 12%);
+}
+
+.series-navigation-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.series-navigation-heading .settings-kicker {
+  margin-bottom: 0.25rem;
+}
+
+.series-navigation-heading h3 {
+  margin: 0 0 0.25rem;
+  font-size: clamp(1.1rem, 1.8vw, 1.4rem);
+}
+
+.series-navigation-heading p:last-child,
+.series-navigation-message {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+
+.episodes-open {
+  flex: 0 0 auto;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+.season-selector {
+  display: flex;
+  gap: 0.55rem;
+  overflow-x: auto;
+  padding: 0.2rem 0.15rem 0.45rem;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+
+.season-button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-control);
+  color: var(--color-text);
+  font-weight: 850;
+}
+
+.season-button.active {
+  border-color: var(--color-focus);
+  background: color-mix(in srgb, var(--color-brand-accent) 24%, var(--color-surface-control));
+  color: var(--color-focus);
+}
+
+.episode-context {
+  margin-bottom: var(--space-5);
+  padding: 0.95rem 1rem;
+  border-left: 3px solid var(--color-brand-accent);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  background: color-mix(in srgb, var(--color-surface) 92%, var(--color-brand-accent) 8%);
+}
+
+.episode-context h3 {
+  margin: 0.2rem 0 0.5rem;
+  font-size: clamp(1.25rem, 2.2vw, 1.75rem);
+}
+
+.episode-context-back {
+  margin-top: 0.8rem;
+}
+
+.episodes-panel {
+  width: min(1180px, 94vw);
+}
+
+.episode-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: clamp(0.8rem, 1.5vw, 1.15rem);
+  overflow: auto;
+  padding: var(--space-3);
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.episode-card {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: var(--radius-card);
+  background: var(--color-surface-control);
+  color: var(--color-text);
+  text-align: left;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), filter var(--transition-fast);
+}
+
+.episode-card:hover,
+.episode-card:focus-visible {
+  z-index: 2;
+  transform: scale(1.025);
+  border-color: var(--color-focus);
+  outline: none;
+  filter: brightness(1.06);
+}
+
+.episode-card.current {
+  border-color: color-mix(in srgb, var(--color-brand-accent) 75%, var(--color-focus));
+}
+
+.episode-still {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: linear-gradient(155deg, var(--color-brand-accent), #121722 70%);
+}
+
+.episode-still::after {
+  content: '';
+  position: absolute;
+  inset: 45% 0 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.72));
+}
+
+.episode-still img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.episode-still > span {
+  position: absolute;
+  left: 0.65rem;
+  bottom: 0.55rem;
+  z-index: 2;
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.episode-copy {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.75rem;
+}
+
+.episode-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.episode-copy small {
+  color: var(--color-muted);
+}
+
+.episode-copy > span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--color-text) 80%, var(--color-muted));
+  font-size: 0.78rem;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.episodes-status,
+.episodes-empty {
+  align-self: center;
+  justify-self: center;
+  max-width: 560px;
+  padding: var(--space-6);
+  text-align: center;
+}
+
+.episodes-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+}
+
+.episodes-empty p {
+  color: var(--color-muted);
+}
+
+@media (max-width: 760px) {
+  .series-navigation-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .episodes-open {
+    width: 100%;
+  }
+
+  .episode-grid {
+    grid-template-columns: 1fr;
+  }
+}

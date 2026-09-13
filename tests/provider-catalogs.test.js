@@ -89,16 +89,21 @@ describe('provider catalog architecture', () => {
   it('merges provider memberships without duplicating the title', () => {
     const merged = mergeProviderCatalogTitle(
       {
-        id: 'tmdb-movie-1',
+        id: 'tmdb-series-1',
         tmdbId: 1,
+        type: 'series',
         providerIds: ['netflix'],
         providerOffers: [{ id: 'netflix', tmdbProviderId: 8, offerTypes: ['flatrate'] }],
         videos: [{ id: 'trailer' }],
         cast: [{ name: 'Cast' }],
+        numberOfSeasons: 2,
+        numberOfEpisodes: 16,
+        seasons: [{ seasonNumber: 1 }, { seasonNumber: 2 }],
       },
       {
-        id: 'tmdb-movie-1',
+        id: 'tmdb-series-1',
         tmdbId: 1,
+        type: 'series',
         providerIds: ['prime'],
         providerOffers: [{ id: 'prime', tmdbProviderId: 119, offerTypes: ['catalog'] }],
         videos: [],
@@ -109,6 +114,9 @@ describe('provider catalog architecture', () => {
     expect(merged.providerIds).toEqual(['netflix', 'prime'])
     expect(merged.videos).toEqual([{ id: 'trailer' }])
     expect(merged.cast).toEqual([{ name: 'Cast' }])
+    expect(merged.numberOfSeasons).toBe(2)
+    expect(merged.numberOfEpisodes).toBe(16)
+    expect(merged.seasons).toHaveLength(2)
   })
 
   it('separates movie and series rows in the browse tabs', () => {

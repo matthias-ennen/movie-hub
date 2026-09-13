@@ -1,5 +1,6 @@
 import { TMDB_PROVIDER_REGISTRY } from '../providers/providerRegistry.js'
 import { selectTmdbArtwork } from './tmdbImages.js'
+import { normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
 
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p'
 
@@ -270,6 +271,12 @@ export function normalizeTmdbTitle(payload, mediaType) {
     runtimeMinutes,
     numberOfSeasons: type === 'series' ? payload.number_of_seasons ?? null : null,
     numberOfEpisodes: type === 'series' ? payload.number_of_episodes ?? null : null,
+    seasons: type === 'series'
+      ? normalizeSeriesSeasons(payload.seasons, {
+          seriesTmdbId: payload.id,
+          numberOfSeasons: payload.number_of_seasons,
+        })
+      : [],
     genres: Array.isArray(payload.genres)
       ? payload.genres.map((genre) => ({ id: genre.id ?? null, name: genre.name || '' })).filter((genre) => genre.name)
       : [],
