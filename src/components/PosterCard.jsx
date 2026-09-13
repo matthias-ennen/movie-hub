@@ -7,7 +7,7 @@ import ProviderBadges from './ProviderBadges.jsx'
 export default function PosterCard({ item, onOpen, rank = null }) {
   const cardRef = useRef(null)
   const [nearViewport, setNearViewport] = useState(false)
-  const posterUrl = item.neutralPosterUrl || item.posterUrl || null
+  const posterUrl = item.displayPosterUrl || item.neutralPosterUrl || item.posterUrl || null
   const hasPoster = Boolean(posterUrl)
   const { isProviderEnabled } = useProviderSelection()
   const movieHubEnabled = isProviderEnabled('moviehub')
@@ -35,7 +35,7 @@ export default function PosterCard({ item, onOpen, rank = null }) {
       ref={cardRef}
       type="button"
       className={rank ? 'poster-card top-ten-poster-card' : 'poster-card'}
-      onClick={() => onOpen(item)}
+      onClick={() => onOpen(item, posterUrl)}
       data-focusable="true"
       data-top-ten-rank={rank || undefined}
       aria-label={rank ? `Platz ${rank}: ${item.title} öffnen` : `${item.title} öffnen`}

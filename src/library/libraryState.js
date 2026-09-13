@@ -11,6 +11,34 @@ export const EMPTY_TITLE_STATE = {
 
 const SUPPORTED_AGE_RATINGS = new Set([0, 6, 12, 16, 18])
 
+function finiteNumber(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function compactCollectionDetails(value) {
+  if (!value || typeof value !== 'object' || !Array.isArray(value.parts)) return null
+  const id = finiteNumber(value.id)
+  if (!id) return null
+  return {
+    id,
+    name: String(value.name || '').slice(0, 160),
+    overview: String(value.overview || '').slice(0, 1000),
+    poster_path: value.poster_path || value.posterPath || null,
+    backdrop_path: value.backdrop_path || value.backdropPath || null,
+    parts: value.parts.map((part) => ({
+      id: finiteNumber(part?.tmdbId ?? part?.id),
+      title: String(part?.title || '').slice(0, 160),
+      original_title: String(part?.originalTitle || part?.original_title || '').slice(0, 160),
+      overview: String(part?.description || part?.overview || '').slice(0, 600),
+      release_date: part?.releaseDate || part?.release_date || null,
+      poster_path: part?.posterPath || part?.poster_path || null,
+      backdrop_path: part?.backdropPath || part?.backdrop_path || null,
+      vote_average: finiteNumber(part?.voteAverage ?? part?.vote_average),
+    })).filter((part) => part.id && part.title),
+  }
+}
+
 /**
  * The public catalog is deliberately refreshed over time. A compact copy of
  * the title is kept with a personal state so a watchlist or rating never
@@ -21,6 +49,16 @@ export function createTitleSnapshot(item) {
   if (!item || typeof item !== 'object' || !item.title) return null
 
   const ageRating = Number(item.ageRating)
+  const artwork = item.artwork && typeof item.artwork === 'object' ? item.artwork : {}
+  const imagePaths = (value) => [...new Set((Array.isArray(value) ? value : [])
+    .filter((path) => typeof path === 'string' && path.trim())
+    .map((path) => path.trim()))].slice(0, 3)
+  const collectionId = item.type === 'series'
+    ? null
+    : Number.isFinite(Number(item.collectionId ?? item.facets?.collectionId ?? item.smartFacets?.collection?.id))
+      ? Number(item.collectionId ?? item.facets?.collectionId ?? item.smartFacets?.collection?.id)
+      : null
+  const collectionDetails = compactCollectionDetails(item.collectionDetails)
   return {
     id: String(item.id ?? ''),
     tmdbId: Number.isFinite(Number(item.tmdbId)) ? Number(item.tmdbId) : null,
@@ -35,6 +73,19 @@ export function createTitleSnapshot(item) {
     score: item.score ? String(item.score).slice(0, 30) : '–',
     posterUrl: item.posterUrl ? String(item.posterUrl) : null,
     backdropUrl: item.backdropUrl ? String(item.backdropUrl) : null,
+    artwork: {
+      posterPaths: imagePaths(artwork.posterPaths),
+      heroBackdropPaths: imagePaths(artwork.heroBackdropPaths),
+    },
+    collectionId,
+    collectionName: collectionId
+      ? String(item.collectionName || item.smartFacets?.collection?.name || '').slice(0, 160) || null
+      : null,
+    collectionChecked: item.type === 'series' ? null : item.collectionChecked === true,
+    collectionDetails,
+    metadataVersion: Math.max(1, Number(item.metadataVersion) || 1),
+    metadataComplete: item.metadataComplete === true,
+    metadataUpdatedAt: item.metadataUpdatedAt ? String(item.metadataUpdatedAt) : null,
     ageRating: SUPPORTED_AGE_RATINGS.has(ageRating) ? ageRating : null,
     accent: item.accent ? String(item.accent).slice(0, 32) : '#657184',
     accent2: item.accent2 ? String(item.accent2).slice(0, 32) : '#1c2531',

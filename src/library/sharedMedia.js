@@ -50,14 +50,22 @@ export async function loadSharedMedia(userId, item) {
 
   // A failed background migration must not make otherwise valid media vanish.
   await Promise.allSettled(migrations)
+  const nextTitleRef = buildSharedMediaTitleRef(item)
+  const storedTitleRef = parentSnapshot.data()?.titleRef
+  const titleRefNeedsRefresh = !storedTitleRef
+    || Number(storedTitleRef.metadataVersion || 0) < Number(nextTitleRef.metadataVersion || 0)
+    || (nextTitleRef.collectionChecked === true && storedTitleRef.collectionChecked !== true)
+    || (nextTitleRef.collectionDetails && !storedTitleRef.collectionDetails)
+    || ((nextTitleRef.artwork?.posterPaths?.length || 0) > (storedTitleRef.artwork?.posterPaths?.length || 0))
+    || ((nextTitleRef.artwork?.heroBackdropPaths?.length || 0) > (storedTitleRef.artwork?.heroBackdropPaths?.length || 0))
   if (entries.length && (
     !parentSnapshot.exists()
     || parentSnapshot.data()?.hasMedia !== true
-    || !parentSnapshot.data()?.titleRef
+    || titleRefNeedsRefresh
   )) {
     await setDoc(parentRef, {
       hasMedia: true,
-      titleRef: buildSharedMediaTitleRef(item),
+      titleRef: nextTitleRef,
       updatedAt: serverTimestamp(),
     }, { merge: true }).catch((error) => {
       console.warn('Movie-Hub-Katalogeintrag konnte nicht nachgezogen werden.', error)

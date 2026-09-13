@@ -21,7 +21,7 @@ export function preloadHeroImage(items) {
   if (typeof Image === 'undefined') return false
 
   const firstItem = Array.isArray(items) ? items[0] : items
-  const url = firstItem?.backdropUrl
+  const url = firstItem?.displayHeroBackdropUrl || firstItem?.backdropUrl
   if (!url || preloadedHeroImages.has(url)) return false
 
   preloadedHeroImages.add(url)

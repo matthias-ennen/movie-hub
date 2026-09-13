@@ -5,7 +5,6 @@ import {
   normalizeTmdbWatchProviders,
   toMovieHubTitle,
 } from '../src/services/tmdb.js'
-import { selectNeutralTmdbPosterUrl } from '../src/services/tmdbImages.js'
 
 const token = process.env.TMDB_API_READ_TOKEN
 const language = process.env.TMDB_LANGUAGE || 'de-DE'
@@ -223,13 +222,10 @@ async function resolveCatalogTitle(candidate, membershipOffers) {
   const payload = await tmdbFetch(path, {
     language,
     append_to_response: appendToResponse,
-    include_image_language: 'null',
+    include_image_language: 'null,de,en',
   })
 
-  const normalized = {
-    ...normalizeTmdbTitle(payload, candidate.mediaType),
-    neutralPosterUrl: selectNeutralTmdbPosterUrl(payload?.images),
-  }
+  const normalized = normalizeTmdbTitle(payload, candidate.mediaType)
   const providerData = normalizeTmdbWatchProviders(payload?.['watch/providers'], country)
   const videos = normalizeTmdbVideos([payload?.videos], normalized.originalLanguage)
   const providerOffers = mergeProviderOffers(providerData.providerOffers, membershipOffers)
@@ -257,6 +253,17 @@ export function mergeProviderCatalogTitle(existing, incoming) {
     providerIds: providerOffers.map((offer) => offer.id),
     providerOffers,
     neutralPosterUrl: existing.neutralPosterUrl || incoming.neutralPosterUrl || null,
+    neutralPosterPath: existing.neutralPosterPath || incoming.neutralPosterPath || null,
+    artwork: {
+      posterPaths: [...new Set([
+        ...(existing.artwork?.posterPaths || []),
+        ...(incoming.artwork?.posterPaths || []),
+      ])].slice(0, 3),
+      heroBackdropPaths: [...new Set([
+        ...(existing.artwork?.heroBackdropPaths || []),
+        ...(incoming.artwork?.heroBackdropPaths || []),
+      ])].slice(0, 3),
+    },
     videos: Array.isArray(existing.videos) && existing.videos.length ? existing.videos : incoming.videos,
     cast: Array.isArray(existing.cast) && existing.cast.length ? existing.cast : incoming.cast,
     smartFacets: {
@@ -274,6 +281,10 @@ export function mergeProviderCatalogTitle(existing, incoming) {
       ].map((keyword) => [keyword.id, keyword])).values()],
       collection: existing.smartFacets?.collection || incoming.smartFacets?.collection || null,
     },
+    collectionId: existing.collectionId ?? incoming.collectionId ?? null,
+    collectionName: existing.collectionName || incoming.collectionName || null,
+    collectionChecked: existing.collectionChecked === true || incoming.collectionChecked === true,
+    metadataVersion: Math.max(Number(existing.metadataVersion) || 0, Number(incoming.metadataVersion) || 0),
     ageRating: existing.ageRating ?? incoming.ageRating ?? null,
   }
 }

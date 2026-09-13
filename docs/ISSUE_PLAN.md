@@ -1,6 +1,6 @@
 # Movie Hub – Issue-Plan
 
-Stand: 12. September 2026
+Stand: 13. September 2026
 
 ## Kern-Issues
 
@@ -28,7 +28,9 @@ Integriert und zur Geräteabnahme bereitgestellt sind:
 - #171 – Heroes und flexible Posterreihen dynamisch sowie profilbezogen kuratieren;
 - #173 – dynamische Top-10-Sonderreihen auf Home, Filme, Serien und Meine Inhalte einfügen.
 
-Aktuell umgesetzt wird #137: vollständige TMDB-Filmreihen als eigener Navigationsbereich innerhalb der Film-Detailseite. Sammlungskacheln und eine eigenständige Sammlungs-Detailseite bleiben nach der gemeinsamen Produktentscheidung außerhalb dieser ersten Stufe.
+Aktuell umgesetzt werden #137 und #179: vollständige TMDB-Filmreihen werden über alle relevanten Titelquellen nachgezogen; mehrere sprachneutrale Poster- und Hero-Bildkandidaten erhalten eine profilbezogene Rotation. Sammlungskacheln und eine eigenständige Sammlungs-Detailseite bleiben nach der gemeinsamen Produktentscheidung außerhalb dieser Stufe.
+
+Als getrenntes Folgepaket ist #178 vorgesehen: Serien-Detailseiten erhalten eine Staffel- und Episodennavigation mit passenden Staffelpostern und Episodentexten. Dieses Paket beginnt erst nach Abnahme der aktuellen APK.
 
 Die früheren Phase-0-Arbeiten sind abgeschlossen; der folgende historische Abschnitt dokumentiert ihren damaligen Abschlussweg.
 

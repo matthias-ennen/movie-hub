@@ -92,20 +92,20 @@ export default function SearchView({ publicTitles, personalTitles, movieHubTitle
   )
   const normalizedLength = query.trim().length
 
-  async function openEntry(entry) {
+  async function openEntry(entry, displayedPosterUrl = null) {
     const fullTitle = fullById.get(entry.id)
     if (fullTitle) {
-      onOpen(fullTitle)
+      onOpen(fullTitle, displayedPosterUrl)
       return
     }
 
     setDetailLoadingId(entry.id)
     try {
       const detail = await loadSearchDetail(entry)
-      onOpen(detail)
+      onOpen(detail, displayedPosterUrl)
     } catch (error) {
       console.warn('Movie Hub konnte die zusätzlichen Suchdetails nicht laden.', error)
-      onOpen(toSearchDetailFallback(entry))
+      onOpen(toSearchDetailFallback(entry), displayedPosterUrl)
     } finally {
       setDetailLoadingId(null)
     }

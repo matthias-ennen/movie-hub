@@ -107,12 +107,32 @@ describe('gemeinsame Movie-Hub-Medien', () => {
   })
 
   it('builds a deduplicated Movie-Hub provider title from the shared-media manifest', () => {
-    const item = { id: 'tmdb-movie-11', tmdbId: 11, type: 'movie', title: 'Testfilm', year: 2026 }
+    const item = {
+      id: 'tmdb-movie-11',
+      tmdbId: 11,
+      type: 'movie',
+      title: 'Testfilm',
+      year: 2026,
+      collectionId: 40,
+      collectionName: 'Testreihe',
+      collectionChecked: true,
+      metadataVersion: 2,
+      metadataComplete: true,
+      artwork: { posterPaths: ['/a.jpg', '/b.jpg'], heroBackdropPaths: ['/wide.jpg'] },
+    }
     const titleRef = buildSharedMediaTitleRef(item)
     const entry = normalizeSharedMediaCatalogEntry('movie-11', { hasMedia: true, titleRef })
     const merged = mergeSharedMediaCatalogTitles([entry], [{ ...item, providerIds: ['netflix'] }])
     expect(merged).toHaveLength(1)
     expect(merged[0].providerIds).toEqual(['moviehub', 'netflix'])
     expect(merged[0].movieHubCatalog).toBe(true)
+    expect(titleRef).toMatchObject({
+      collectionId: 40,
+      collectionName: 'Testreihe',
+      collectionChecked: true,
+      metadataVersion: 2,
+      metadataComplete: true,
+      artwork: { posterPaths: ['/a.jpg', '/b.jpg'], heroBackdropPaths: ['/wide.jpg'] },
+    })
   })
 })

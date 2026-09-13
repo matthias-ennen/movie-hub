@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildFilmCollectionIndex,
   collectionIdForTitle,
+  findFilmCollectionForTitle,
   normalizeFilmCollectionIndex,
   resolveFilmCollectionParts,
 } from '../src/catalog/filmCollections.js'
@@ -61,6 +62,20 @@ describe('Filmreihen-Katalog', () => {
   it('accepts old catalogs without a collection index', () => {
     expect(normalizeFilmCollectionIndex(undefined)).toEqual({})
     expect(normalizeFilmCollectionIndex([])).toEqual({})
+  })
+
+  it('finds a collection defensively by the current TMDB id', () => {
+    const collections = buildFilmCollectionIndex([{
+      id: 40,
+      name: 'Sternensaga',
+      parts: [
+        { id: 1, title: 'Erster Film' },
+        { id: 2, title: 'Zweiter Film' },
+      ],
+    }])
+
+    expect(findFilmCollectionForTitle({ type: 'movie', tmdbId: 2 }, collections)?.id).toBe(40)
+    expect(findFilmCollectionForTitle({ type: 'series', tmdbId: 2 }, collections)).toBeNull()
   })
 
   it('merges current provider and Movie-Hub availability by TMDB id', () => {

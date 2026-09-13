@@ -47,7 +47,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
 
   const safeIndex = Math.min(activeIndex, Math.max(0, slides.length - 1))
   const activeItem = slides[safeIndex] || null
-  const activeBackdropUrl = activeItem?.backdropUrl || null
+  const activeBackdropUrl = activeItem?.displayHeroBackdropUrl || activeItem?.backdropUrl || null
 
   const reportReady = useCallback((reason) => {
     if (!onReady || readyReportedRef.current) return
@@ -142,7 +142,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   }
 
   function renderHeroPanel(entry, className = '') {
-    const heroBackdropUrl = entry.backdropUrl || null
+    const heroBackdropUrl = entry.displayHeroBackdropUrl || entry.backdropUrl || null
 
     return (
       <div

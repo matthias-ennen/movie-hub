@@ -16,6 +16,7 @@ import { normalizeFilmCollectionIndex } from './catalog/filmCollections.js'
 import { buildPersonalTopTen, buildProviderTopTen, insertTopTenRow } from './catalog/topTenRows.js'
 import { curateCatalogRows, curateTitles, hasEnabledAvailability, PUBLIC_POSTER_ROW_LIMIT } from './catalog/contentCuration.js'
 import { getContentPeriodKey, normalizeContentDisplaySettings, resolveContentSortMode } from './catalog/contentDisplaySettings.js'
+import { resolvePresentationArtwork } from './catalog/artworkRotation.js'
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
@@ -386,23 +387,36 @@ function MovieHub({ user }) {
   }, [])
 
   const publicTitles = catalog.titles.length ? catalog.titles : fallbackTitles
-  const baseTitles = useMemo(
-    () => mergePublicAndPersonalCatalog(publicTitles, tmdbPersonalTitles),
-    [publicTitles, tmdbPersonalTitles],
-  )
-  const movieHubTitles = useMemo(
-    () => mergeSharedMediaCatalogTitles(sharedMediaCatalogEntries, baseTitles),
-    [sharedMediaCatalogEntries, baseTitles],
-  )
-  const titles = useMemo(
-    () => mergeTitlesWithSharedMediaCatalog(baseTitles, movieHubTitles),
-    [baseTitles, movieHubTitles],
-  )
-  const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
   const contentDisplaySettings = useMemo(
     () => normalizeContentDisplaySettings(activeProfile?.contentDisplaySettings),
     [activeProfile?.contentDisplaySettings],
   )
+  const artworkOptions = useMemo(() => ({
+    profileId: activeProfile?.id || 'profile',
+    rotationMode: contentDisplaySettings.artworkRotation,
+    date: new Date(),
+  }), [activeProfile?.id, contentDisplaySettings.artworkRotation, curationDayKey])
+  const baseTitles = useMemo(
+    () => mergePublicAndPersonalCatalog(publicTitles, tmdbPersonalTitles),
+    [publicTitles, tmdbPersonalTitles],
+  )
+  const rawMovieHubTitles = useMemo(
+    () => mergeSharedMediaCatalogTitles(sharedMediaCatalogEntries, baseTitles),
+    [sharedMediaCatalogEntries, baseTitles],
+  )
+  const rawTitles = useMemo(
+    () => mergeTitlesWithSharedMediaCatalog(baseTitles, rawMovieHubTitles),
+    [baseTitles, rawMovieHubTitles],
+  )
+  const titles = useMemo(
+    () => rawTitles.map((item) => resolvePresentationArtwork(item, artworkOptions)),
+    [rawTitles, artworkOptions],
+  )
+  const movieHubTitles = useMemo(
+    () => rawMovieHubTitles.map((item) => resolvePresentationArtwork(item, artworkOptions)),
+    [rawMovieHubTitles, artworkOptions],
+  )
+  const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
   const activeSortMode = useMemo(
     () => resolveContentSortMode(contentDisplaySettings, activeProfile?.id, new Date()),
     [contentDisplaySettings, activeProfile?.id, curationDayKey],
@@ -417,10 +431,14 @@ function MovieHub({ user }) {
     setCurrentView(nextView)
   }, [])
 
-  const handleOpenTitle = useCallback((item) => {
+  const handleOpenTitle = useCallback((item, displayedPosterUrl = null) => {
     setProfileOpen(false)
-    setSelectedTitle(item)
-  }, [])
+    const presented = resolvePresentationArtwork(item, artworkOptions)
+    setSelectedTitle({
+      ...presented,
+      displayPosterUrl: displayedPosterUrl || item?.displayPosterUrl || presented.displayPosterUrl,
+    })
+  }, [artworkOptions])
 
   const closeInteractiveLayer = useCallback(() => {
     if (selectedTitle) {
@@ -847,7 +865,7 @@ function MovieHub({ user }) {
           item={selectedTitle}
           collections={catalog.collections}
           titles={titles}
-          onSelectTitle={setSelectedTitle}
+          onSelectTitle={handleOpenTitle}
           onClose={() => setSelectedTitle(null)}
         />
       )}

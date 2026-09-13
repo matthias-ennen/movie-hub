@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getProviderDestination, providers } from '../data/catalog.js'
-import { collectionIdForTitle, resolveFilmCollectionParts } from '../catalog/filmCollections.js'
+import { buildFilmCollection, findFilmCollectionForTitle, resolveFilmCollectionParts } from '../catalog/filmCollections.js'
+import { resolveArtworkUrl } from '../catalog/artworkRotation.js'
 import { useLibrary } from '../library/LibraryProvider.jsx'
 import { localDateValue } from '../library/libraryState.js'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
@@ -34,8 +35,13 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
   const returnFocusRef = useRef(null)
   const collectionTriggerRef = useRef(null)
   const personalBusyRef = useRef(false)
-  const collectionId = collectionIdForTitle(item)
-  const filmCollection = collectionId ? collections[String(collectionId)] || null : null
+  const artworkOptions = {
+    profileId: activeProfile?.id || 'profile',
+    rotationMode: activeProfile?.contentDisplaySettings?.artworkRotation,
+  }
+  const detailPosterUrl = item?.displayPosterUrl || resolveArtworkUrl(item, artworkOptions)
+  const filmCollection = findFilmCollectionForTitle(item, collections)
+    || buildFilmCollection(item?.collectionDetails, titles)
   const collectionParts = useMemo(
     () => resolveFilmCollectionParts(filmCollection, titles),
     [filmCollection, titles],
@@ -167,12 +173,16 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
     }
 
     closeCollectionPicker({ restoreFocus: false })
+    const displayedPosterUrl = resolveArtworkUrl(part, artworkOptions)
     onSelectTitle?.({
       ...part,
       ...detail,
       facets: { ...(detail.facets || {}), collectionId: filmCollection.id },
+      collectionId: filmCollection.id,
+      collectionName: filmCollection.name,
+      collectionChecked: true,
       providerIds: [...new Set([...(part.providerIds || []), ...(detail.providerIds || [])])],
-    })
+    }, displayedPosterUrl)
   }
 
   async function savePersonalPatch(patch, message) {
@@ -327,10 +337,9 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
   return (
     <div className="detail-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="detail-modal" role="dialog" aria-modal="true" aria-label={`Details zu ${item.title}`}>
-        <div className={item.posterUrl ? 'detail-art has-image' : 'detail-art'} style={{ '--poster-accent': item.accent, '--poster-accent-2': item.accent2 }}>
-          {item.posterUrl && <img className="detail-art-image" src={item.posterUrl} alt="" />}
+        <div className={detailPosterUrl ? 'detail-art has-image' : 'detail-art'} style={{ '--poster-accent': item.accent, '--poster-accent-2': item.accent2 }}>
+          {detailPosterUrl && <img className="detail-art-image" src={detailPosterUrl} alt={`Poster zu ${item.title}`} />}
           <span className="detail-type">{item.type === 'series' ? 'SERIE' : 'FILM'}</span>
-          <span className="detail-art-title">{item.title}</span>
         </div>
         <div className="detail-copy">
           <button
@@ -580,6 +589,7 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
               {collectionParts.map((part, index) => {
                 const isCurrent = Number(part.tmdbId) === Number(item.tmdbId)
                 const watched = getTitleState(part).watched
+                const partPosterUrl = resolveArtworkUrl(part, artworkOptions)
                 const movieHubAvailable = part.providerIds?.includes('moviehub') && isProviderEnabled('moviehub')
                 const automaticProviderIds = (part.providerIds || [])
                   .filter((providerId) => providerId !== 'moviehub' && Boolean(providers[providerId]))
@@ -597,10 +607,10 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
                     onClick={() => selectCollectionPart(part)}
                   >
                     <span
-                      className={part.posterUrl ? 'collection-part-art has-image' : 'collection-part-art'}
+                      className={partPosterUrl ? 'collection-part-art has-image' : 'collection-part-art'}
                       style={{ '--poster-accent': part.accent, '--poster-accent-2': part.accent2 }}
                     >
-                      {part.posterUrl && <img src={part.posterUrl} alt="" loading="lazy" />}
+                      {partPosterUrl && <img src={partPosterUrl} alt="" loading="lazy" />}
                       <span className="collection-part-number">{index + 1}</span>
                       <span className="collection-part-statuses">
                         {isCurrent && <span>Aktuell</span>}

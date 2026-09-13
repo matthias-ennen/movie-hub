@@ -13,11 +13,14 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.List;
 
 /** Native TMDB authentication and personal-catalog client. Secrets never cross the WebView bridge. */
 final class TmdbApiClient {
@@ -138,12 +141,13 @@ final class TmdbApiClient {
         int watchlistCount = 0;
         int ratedCount = 0;
         JSONArray resultTitles = new JSONArray();
+        Map<Long, JSONObject> collectionCache = new HashMap<>();
         for (JSONObject title : titles.values()) {
             if (title.optBoolean("favorite")) favoriteCount++;
             if (title.optBoolean("watchlist")) watchlistCount++;
             if (title.optBoolean("rated")) ratedCount++;
             try {
-                enrichPersonalTitle(apiReadAccessToken, title);
+                enrichPersonalTitle(apiReadAccessToken, title, collectionCache);
             } catch (Exception ignored) {
                 // Provider availability and age rating enrich the catalog but
                 // must never turn a valid favorites/watchlist/rating sync into
@@ -296,7 +300,8 @@ final class TmdbApiClient {
     }
 
     private static void enrichPersonalTitle(
-            String apiReadAccessToken, JSONObject title) throws TmdbException {
+            String apiReadAccessToken, JSONObject title,
+            Map<Long, JSONObject> collectionCache) throws TmdbException {
         String mediaType = title.optString("mediaType");
         long tmdbId = title.optLong("tmdbId");
         if (tmdbId <= 0 || !("movie".equals(mediaType) || "tv".equals(mediaType))) return;
@@ -305,7 +310,8 @@ final class TmdbApiClient {
         JSONObject detail = request(
                 "GET",
                 "/" + mediaType + "/" + tmdbId
-                        + "?language=de-DE&append_to_response=watch%2Fproviders%2C" + ratingAppend,
+                        + "?language=de-DE&append_to_response=watch%2Fproviders%2C"
+                        + ratingAppend + "%2Cimages&include_image_language=null%2Cde%2Cen",
                 apiReadAccessToken,
                 null);
 
@@ -313,9 +319,136 @@ final class TmdbApiClient {
             title.put("providerIds", supportedProvidersFromPayload(detail.optJSONObject("watch/providers")));
             Integer rating = extractGermanAgeRating(detail, mediaType);
             if (rating != null) title.put("ageRating", rating);
+            String posterPath = detail.optString("poster_path", title.optString("posterPath", null));
+            String backdropPath = detail.optString("backdrop_path", title.optString("backdropPath", null));
+            if (posterPath != null && !posterPath.isEmpty()) title.put("posterPath", posterPath);
+            if (backdropPath != null && !backdropPath.isEmpty()) title.put("backdropPath", backdropPath);
+
+            JSONObject artwork = new JSONObject();
+            JSONObject images = detail.optJSONObject("images");
+            artwork.put("posterPaths", selectImagePaths(images, "posters", posterPath, false));
+            artwork.put("heroBackdropPaths", selectImagePaths(images, "backdrops", backdropPath, true));
+            title.put("artwork", artwork);
+
+            if ("movie".equals(mediaType)) {
+                title.put("collectionChecked", true);
+                JSONObject collection = detail.optJSONObject("belongs_to_collection");
+                if (collection != null && collection.optLong("id", 0) > 0) {
+                    long collectionId = collection.optLong("id");
+                    title.put("collectionId", collectionId);
+                    title.put("collectionName", collection.optString("name", null));
+                    try {
+                        JSONObject collectionDetails = collectionCache.get(collectionId);
+                        if (collectionDetails == null) {
+                            JSONObject rawCollection = request(
+                                    "GET", "/collection/" + collectionId + "?language=de-DE",
+                                    apiReadAccessToken, null);
+                            collectionDetails = sanitizeCollection(rawCollection);
+                            collectionCache.put(collectionId, collectionDetails);
+                        }
+                        title.put("collectionDetails", collectionDetails);
+                    } catch (Exception ignoredCollection) {
+                        // The collection id remains usable and a later sync can
+                        // retry the optional parts list.
+                    }
+                } else {
+                    title.put("collectionId", JSONObject.NULL);
+                    title.put("collectionName", JSONObject.NULL);
+                }
+            }
+            title.put("metadataVersion", 2);
+            title.put("metadataComplete", true);
         } catch (Exception ignored) {
             // The parent sync deliberately treats enrichment as optional.
         }
+    }
+
+    private static JSONObject sanitizeCollection(JSONObject raw) {
+        JSONObject result = new JSONObject();
+        if (raw == null) return result;
+        try {
+            result.put("id", raw.optLong("id"));
+            result.put("name", raw.optString("name"));
+            result.put("overview", raw.optString("overview"));
+            result.put("poster_path", raw.optString("poster_path", null));
+            result.put("backdrop_path", raw.optString("backdrop_path", null));
+            JSONArray parts = new JSONArray();
+            JSONArray rawParts = raw.optJSONArray("parts");
+            if (rawParts != null) {
+                for (int index = 0; index < rawParts.length(); index++) {
+                    JSONObject rawPart = rawParts.optJSONObject(index);
+                    if (rawPart == null || rawPart.optLong("id", 0) <= 0 || rawPart.optBoolean("adult")) continue;
+                    JSONObject part = new JSONObject();
+                    part.put("id", rawPart.optLong("id"));
+                    part.put("title", rawPart.optString("title"));
+                    part.put("original_title", rawPart.optString("original_title"));
+                    part.put("overview", rawPart.optString("overview"));
+                    part.put("release_date", rawPart.optString("release_date", null));
+                    part.put("poster_path", rawPart.optString("poster_path", null));
+                    part.put("backdrop_path", rawPart.optString("backdrop_path", null));
+                    part.put("vote_average", rawPart.optDouble("vote_average", 0));
+                    parts.put(part);
+                }
+            }
+            result.put("parts", parts);
+        } catch (Exception ignored) {
+            // Every value is derived from a valid TMDB JSON response.
+        }
+        return result;
+    }
+
+    private static JSONArray selectImagePaths(
+            JSONObject images, String key, String fallbackPath, boolean landscape) {
+        List<JSONObject> candidates = new ArrayList<>();
+        JSONArray source = images == null ? null : images.optJSONArray(key);
+        if (source != null) {
+            for (int index = 0; index < source.length(); index++) {
+                JSONObject image = source.optJSONObject(index);
+                if (image == null || image.optString("file_path").isEmpty()) continue;
+                int width = image.optInt("width", 0);
+                int height = image.optInt("height", 0);
+                if (width > 0 && height > 0) {
+                    if (landscape && width <= height) continue;
+                    if (!landscape && height <= width) continue;
+                }
+                candidates.add(image);
+            }
+        }
+
+        candidates.sort(Comparator
+                .comparingInt(TmdbApiClient::imageLanguageRank)
+                .thenComparing(Comparator.comparingDouble(TmdbApiClient::imageQualityScore).reversed())
+                .thenComparing(image -> image.optString("file_path")));
+
+        LinkedHashSet<String> paths = new LinkedHashSet<>();
+        for (JSONObject image : candidates) {
+            paths.add(image.optString("file_path"));
+            if (paths.size() == 3) break;
+        }
+        if (paths.size() < 3 && fallbackPath != null && !fallbackPath.isEmpty()) paths.add(fallbackPath);
+
+        JSONArray result = new JSONArray();
+        for (String path : paths) {
+            result.put(path);
+            if (result.length() == 3) break;
+        }
+        return result;
+    }
+
+    private static int imageLanguageRank(JSONObject image) {
+        if (image == null || image.isNull("iso_639_1")) return 0;
+        String language = image.optString("iso_639_1");
+        if ("de".equals(language)) return 1;
+        if ("en".equals(language)) return 2;
+        return 3;
+    }
+
+    private static double imageQualityScore(JSONObject image) {
+        if (image == null) return 0;
+        double voteAverage = image.optDouble("vote_average", 0);
+        long voteCount = Math.min(9999, image.optLong("vote_count", 0));
+        int size = Math.max(image.optInt("width", 0), image.optInt("height", 0));
+        return voteAverage * 1_000_000d + voteCount * 1_000d + size;
     }
 
     private static JSONArray supportedProvidersFromPayload(JSONObject response) {

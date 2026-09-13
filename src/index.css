@@ -679,8 +679,7 @@ p {
     linear-gradient(155deg, var(--poster-accent), var(--poster-accent-2) 68%, #080a0f);
 }
 
-.detail-type,
-.detail-art-title {
+.detail-type {
   position: relative;
   z-index: 1;
 }
@@ -690,15 +689,6 @@ p {
   font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 0.16em;
-}
-
-.detail-art-title {
-  max-width: 90%;
-  font-size: clamp(2rem, 4vw, 4rem);
-  font-weight: 950;
-  line-height: 0.92;
-  letter-spacing: -0.05em;
-  text-transform: uppercase;
 }
 
 .detail-copy {

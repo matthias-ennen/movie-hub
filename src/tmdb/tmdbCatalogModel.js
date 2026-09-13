@@ -37,6 +37,20 @@ function ageRating(value) {
   return SUPPORTED_AGE_RATINGS.has(rating) ? rating : null
 }
 
+function stringPaths(value, limit = 3) {
+  return [...new Set((Array.isArray(value) ? value : [])
+    .filter((path) => typeof path === 'string' && path.trim())
+    .map((path) => path.trim()))].slice(0, limit)
+}
+
+function normalizeArtwork(raw) {
+  const artwork = raw?.artwork && typeof raw.artwork === 'object' ? raw.artwork : {}
+  return {
+    posterPaths: stringPaths([...(Array.isArray(artwork.posterPaths) ? artwork.posterPaths : []), raw?.posterPath]),
+    heroBackdropPaths: stringPaths([...(Array.isArray(artwork.heroBackdropPaths) ? artwork.heroBackdropPaths : []), raw?.backdropPath]),
+  }
+}
+
 export function normalizePersonalTmdbTitle(raw) {
   const key = tmdbCatalogKey(raw)
   if (!key) throw new Error('Ungültiger persönlicher TMDB-Titel.')
@@ -52,6 +66,8 @@ export function normalizePersonalTmdbTitle(raw) {
     ? [...new Set(raw.providerIds.map((value) => String(value || '').trim()).filter(Boolean))]
     : []
   const tmdbRating = finiteNumber(raw.ratingValue ?? raw.tmdbRating)
+  const artwork = normalizeArtwork(raw)
+  const collectionId = type === 'movie' ? finiteNumber(raw.collectionId) : null
 
   return {
     id: `tmdb-${type}-${tmdbId}`,
@@ -68,6 +84,18 @@ export function normalizePersonalTmdbTitle(raw) {
     backdropPath: raw.backdropPath || null,
     posterUrl: buildTmdbImageUrl(raw.posterPath, 'w500'),
     backdropUrl: buildTmdbImageUrl(raw.backdropPath, 'w1280'),
+    neutralPosterPath: artwork.posterPaths[0] || raw.posterPath || null,
+    neutralPosterUrl: buildTmdbImageUrl(artwork.posterPaths[0] || raw.posterPath, 'w500'),
+    artwork,
+    collectionId,
+    collectionName: collectionId && typeof raw.collectionName === 'string' ? raw.collectionName : null,
+    collectionChecked: type === 'movie' ? raw.collectionChecked === true : null,
+    collectionDetails: type === 'movie' && raw.collectionDetails && typeof raw.collectionDetails === 'object'
+      ? raw.collectionDetails
+      : null,
+    metadataVersion: Math.max(1, finiteNumber(raw.metadataVersion) || 1),
+    metadataComplete: raw.metadataComplete === true,
+    metadataUpdatedAt: raw.metadataUpdatedAt || raw.syncedAt || null,
     originalLanguage: raw.originalLanguage || null,
     voteAverage: finiteNumber(raw.voteAverage),
     voteCount: finiteNumber(raw.voteCount),
@@ -126,6 +154,21 @@ export function mergePublicAndPersonalCatalog(publicTitles = [], personalTitles 
       syncedAt: personal.syncedAt,
       ageRating: existing.ageRating ?? personal.ageRating ?? null,
       providerIds: existing.providerIds?.length ? existing.providerIds : personal.providerIds,
+      artwork: {
+        posterPaths: [...new Set([...(existing.artwork?.posterPaths || []), ...(personal.artwork?.posterPaths || [])])].slice(0, 3),
+        heroBackdropPaths: [...new Set([...(existing.artwork?.heroBackdropPaths || []), ...(personal.artwork?.heroBackdropPaths || [])])].slice(0, 3),
+      },
+      collectionId: existing.collectionChecked === true
+        ? existing.collectionId ?? null
+        : personal.collectionId ?? existing.collectionId ?? null,
+      collectionName: existing.collectionChecked === true
+        ? existing.collectionName || null
+        : personal.collectionName || existing.collectionName || null,
+      collectionChecked: existing.collectionChecked === true || personal.collectionChecked === true,
+      collectionDetails: existing.collectionDetails || personal.collectionDetails || null,
+      metadataVersion: Math.max(Number(existing.metadataVersion) || 0, Number(personal.metadataVersion) || 0),
+      metadataComplete: existing.metadataComplete === true || personal.metadataComplete === true,
+      metadataUpdatedAt: existing.metadataUpdatedAt || personal.metadataUpdatedAt || personal.syncedAt || null,
     })
   }
 
@@ -175,6 +218,14 @@ export function nativeTitleToFirestore(raw, syncedAt) {
     releaseDate: normalized.releaseDate,
     posterPath: normalized.posterPath,
     backdropPath: normalized.backdropPath,
+    artwork: normalized.artwork,
+    collectionId: normalized.collectionId,
+    collectionName: normalized.collectionName,
+    collectionChecked: normalized.collectionChecked,
+    collectionDetails: normalized.collectionDetails,
+    metadataVersion: normalized.metadataVersion,
+    metadataComplete: normalized.metadataComplete,
+    metadataUpdatedAt: syncedAt || normalized.metadataUpdatedAt || null,
     originalLanguage: normalized.originalLanguage,
     voteAverage: normalized.voteAverage,
     voteCount: normalized.voteCount,

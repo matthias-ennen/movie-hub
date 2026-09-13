@@ -34,11 +34,25 @@ function scoreFor(value) {
 }
 
 export function collectionIdForTitle(item) {
+  if (item?.type === 'series' || item?.mediaType === 'tv') return null
   return finiteId(
     item?.facets?.collectionId
       ?? item?.smartFacets?.collection?.id
       ?? item?.collectionId,
   )
+}
+
+export function findFilmCollectionForTitle(item, collections = {}) {
+  if (!item || item.type === 'series') return null
+  const directId = collectionIdForTitle(item)
+  if (directId && collections?.[String(directId)]) return collections[String(directId)]
+
+  const tmdbId = finiteId(item.tmdbId)
+  if (!tmdbId) return null
+  return Object.values(collections || {}).find((collection) => (
+    Array.isArray(collection?.parts)
+      && collection.parts.some((part) => finiteId(part?.tmdbId) === tmdbId)
+  )) || null
 }
 
 export function compareCollectionParts(left, right) {
@@ -68,6 +82,8 @@ export function normalizeCollectionPart(raw, collectionId) {
     : null
   const rawYear = raw?.year
   const [accent, accent2] = accentsFor(tmdbId)
+  const posterPath = raw?.posterPath || raw?.poster_path || null
+  const backdropPath = raw?.backdropPath || raw?.backdrop_path || null
 
   return {
     id: `tmdb-movie-${tmdbId}`,
@@ -81,8 +97,16 @@ export function normalizeCollectionPart(raw, collectionId) {
       ? Number(rawYear)
       : releaseYear(releaseDate),
     releaseDate,
-    posterUrl: raw?.posterUrl || buildTmdbImageUrl(raw?.poster_path, 'w500'),
-    backdropUrl: raw?.backdropUrl || buildTmdbImageUrl(raw?.backdrop_path, 'w1280'),
+    posterPath,
+    backdropPath,
+    posterUrl: raw?.posterUrl || buildTmdbImageUrl(posterPath, 'w500'),
+    backdropUrl: raw?.backdropUrl || buildTmdbImageUrl(backdropPath, 'w1280'),
+    neutralPosterPath: raw?.neutralPosterPath || posterPath,
+    neutralPosterUrl: raw?.neutralPosterUrl || raw?.posterUrl || buildTmdbImageUrl(posterPath, 'w500'),
+    artwork: {
+      posterPaths: [...new Set([...(raw?.artwork?.posterPaths || []), posterPath].filter(Boolean))].slice(0, 3),
+      heroBackdropPaths: [...new Set([...(raw?.artwork?.heroBackdropPaths || []), backdropPath].filter(Boolean))].slice(0, 3),
+    },
     voteAverage,
     score: raw?.score || scoreFor(voteAverage),
     meta: raw?.meta || 'Film',
@@ -95,6 +119,10 @@ export function normalizeCollectionPart(raw, collectionId) {
     accent,
     accent2,
     facets: { collectionId: finiteId(collectionId) },
+    collectionId: finiteId(collectionId),
+    collectionName: raw?.collectionName || null,
+    collectionChecked: true,
+    metadataVersion: Math.max(2, Number(raw?.metadataVersion) || 0),
     detailSource: raw?.detailSource || 'collection',
   }
 }
