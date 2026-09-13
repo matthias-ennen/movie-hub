@@ -8,7 +8,9 @@ import {
   withContentAutoSwitch,
   withManualContentSortMode,
   withWatchedDisplayMode,
+  withArtworkRotation,
 } from '../catalog/contentDisplaySettings.js'
+import { ARTWORK_ROTATION_MODES } from '../catalog/artworkRotation.js'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 
 export default function ContentDisplaySettings() {
@@ -116,6 +118,35 @@ export default function ContentDisplaySettings() {
         <p className="settings-hint">
           Eine manuelle Auswahl bleibt bis zum nächsten täglichen oder wöchentlichen Wechsel wirksam. Innerhalb einer Periode bleibt die Reihenfolge stabil.
         </p>
+      </div>
+
+      <div className="content-display-subsection">
+        <div className="category-settings-group-heading">
+          <h3>Bildwechsel</h3>
+          <span>Poster und Hero-Bilder</span>
+        </div>
+        <p className="settings-hint">
+          Movie Hub verwendet je Film und Serie passende Bildvarianten. Die Auswahl bleibt innerhalb des gewählten Zeitraums stabil.
+        </p>
+        <div className="watched-display-grid" aria-label="Intervall für den Bildwechsel">
+          {ARTWORK_ROTATION_MODES.map((mode) => {
+            const selected = settings.artworkRotation === mode.id
+            return (
+              <button
+                type="button"
+                key={mode.id}
+                className={selected ? 'watched-display-choice active' : 'watched-display-choice'}
+                onClick={() => save(withArtworkRotation(settings, mode.id), `artwork:${mode.id}`)}
+                disabled={Boolean(savingKey)}
+                aria-pressed={selected}
+                data-focusable="true"
+              >
+                <strong>{mode.label}</strong>
+                <span>{mode.description}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="content-display-subsection">

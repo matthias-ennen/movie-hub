@@ -40,8 +40,7 @@
 .poster-art.has-image .poster-kicker,
 .poster-art.has-image .poster-title,
 .poster-art.has-image .poster-year,
-.detail-art.has-image .detail-type,
-.detail-art.has-image .detail-art-title {
+.detail-art.has-image .detail-type {
   position: relative;
   z-index: 2;
 }

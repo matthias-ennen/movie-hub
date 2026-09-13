@@ -6,9 +6,40 @@ function finiteNumber(value) {
   return Number.isFinite(number) ? number : null
 }
 
+function imagePaths(value) {
+  return [...new Set((Array.isArray(value) ? value : [])
+    .filter((path) => typeof path === 'string' && path.trim())
+    .map((path) => path.trim()))].slice(0, 3)
+}
+
+function compactCollection(value) {
+  if (!value || typeof value !== 'object' || !Array.isArray(value.parts)) return null
+  const id = finiteNumber(value.id)
+  if (!id) return null
+  return {
+    id,
+    name: String(value.name || '').slice(0, 160),
+    overview: String(value.overview || '').slice(0, 1000),
+    poster_path: value.poster_path || value.posterPath || null,
+    backdrop_path: value.backdrop_path || value.backdropPath || null,
+    parts: value.parts.map((part) => ({
+      id: finiteNumber(part?.tmdbId ?? part?.id),
+      title: String(part?.title || '').slice(0, 160),
+      original_title: String(part?.originalTitle || part?.original_title || '').slice(0, 160),
+      overview: String(part?.description || part?.overview || '').slice(0, 600),
+      release_date: part?.releaseDate || part?.release_date || null,
+      poster_path: part?.posterPath || part?.poster_path || null,
+      backdrop_path: part?.backdropPath || part?.backdrop_path || null,
+      vote_average: finiteNumber(part?.voteAverage ?? part?.vote_average),
+    })).filter((part) => part.id && part.title),
+  }
+}
+
 export function buildSharedMediaTitleRef(item) {
   const type = item?.type === 'series' ? 'series' : 'movie'
   const tmdbId = finiteNumber(item?.tmdbId)
+  const collectionId = type === 'movie' ? finiteNumber(item?.collectionId ?? item?.facets?.collectionId ?? item?.smartFacets?.collection?.id) : null
+  const artwork = item?.artwork && typeof item.artwork === 'object' ? item.artwork : {}
   return {
     id: String(item?.id || (tmdbId !== null ? `tmdb-${type}-${tmdbId}` : '')).slice(0, 100),
     tmdbId,
@@ -19,6 +50,19 @@ export function buildSharedMediaTitleRef(item) {
     neutralPosterUrl: typeof item?.neutralPosterUrl === 'string' ? item.neutralPosterUrl : null,
     backdropUrl: typeof item?.backdropUrl === 'string' ? item.backdropUrl : null,
     description: typeof item?.description === 'string' ? item.description.slice(0, 600) : '',
+    artwork: {
+      posterPaths: imagePaths(artwork.posterPaths),
+      heroBackdropPaths: imagePaths(artwork.heroBackdropPaths),
+    },
+    collectionId,
+    collectionName: collectionId
+      ? String(item?.collectionName || item?.smartFacets?.collection?.name || '').trim().slice(0, 160) || null
+      : null,
+    collectionChecked: type === 'movie' ? item?.collectionChecked === true : null,
+    collectionDetails: type === 'movie' ? compactCollection(item?.collectionDetails) : null,
+    metadataVersion: Math.max(1, finiteNumber(item?.metadataVersion) || 1),
+    metadataComplete: item?.metadataComplete === true,
+    metadataUpdatedAt: typeof item?.metadataUpdatedAt === 'string' ? item.metadataUpdatedAt : null,
   }
 }
 

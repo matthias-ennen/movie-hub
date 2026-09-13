@@ -9,6 +9,7 @@ import {
   toSearchIndexEntry,
 } from '../src/search/searchIndex.js'
 import { SEARCH_DETAIL_BUCKET_COUNT, SEARCH_DETAIL_VERSION } from '../src/search/lazySearchDetails.js'
+import { buildFilmCollection } from '../src/catalog/filmCollections.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const catalogPath = resolve(root, 'public/catalog.json')
@@ -25,6 +26,10 @@ export const SEARCH_PAGES_PER_OFFER = Math.max(
   Math.min(50, Number(process.env.TMDB_SEARCH_PAGES_PER_OFFER) || 10),
 )
 const REQUEST_CONCURRENCY = 3
+const SEARCH_DETAIL_ENRICH_LIMIT = Math.max(
+  0,
+  Math.min(2000, Number(process.env.TMDB_SEARCH_DETAIL_ENRICH_LIMIT) || 400),
+)
 const MAX_RETRIES = 4
 const MINIMUM_BROAD_DISCOVERY_SIZE = 2000
 const ACCENT_PAIRS = [
@@ -197,6 +202,12 @@ export function searchDetailFromDiscover(raw, mediaType, genreNamesById = new Ma
     year: normalized.year,
     releaseDate: normalized.releaseDate,
     backdropUrl: normalized.backdropUrl,
+    artwork: normalized.artwork,
+    collectionId: normalized.collectionId,
+    collectionName: normalized.collectionName,
+    collectionChecked: normalized.collectionChecked,
+    metadataComplete: normalized.metadataComplete,
+    metadataVersion: normalized.metadataVersion,
     originalLanguage: normalized.originalLanguage,
     voteAverage: normalized.voteAverage,
     genreNames: genreNamesFromIds(raw, genreNamesById),
@@ -222,6 +233,17 @@ function searchDetailFromCatalogTitle(title) {
     year: Number.isFinite(Number(title.year)) ? Number(title.year) : null,
     releaseDate: title.releaseDate || null,
     backdropUrl: title.backdropUrl || null,
+    posterPath: title.posterPath || null,
+    backdropPath: title.backdropPath || null,
+    neutralPosterPath: title.neutralPosterPath || null,
+    neutralPosterUrl: title.neutralPosterUrl || null,
+    artwork: title.artwork || null,
+    collectionId: title.collectionId ?? title.facets?.collectionId ?? title.smartFacets?.collection?.id ?? null,
+    collectionName: title.collectionName || title.smartFacets?.collection?.name || null,
+    collectionChecked: title.type === 'movie' ? title.collectionChecked === true : null,
+    metadataComplete: title.metadataComplete === true,
+    metadataVersion: Number(title.metadataVersion) || 1,
+    metadataUpdatedAt: title.metadataUpdatedAt || null,
     originalLanguage: title.originalLanguage || null,
     voteAverage: Number.isFinite(Number(title.voteAverage)) ? Number(title.voteAverage) : null,
     genreNames,
@@ -288,7 +310,21 @@ export function mergeSearchDetails(details) {
   for (const detail of Array.isArray(details) ? details : []) {
     if (!detail?.id) continue
     const current = merged.get(detail.id)
-    if (!current || detail.completeness === 'catalog') {
+    const detailRank = detail.completeness === 'catalog' ? 3 : detail.completeness === 'enriched' ? 2 : 1
+    const currentRank = current?.completeness === 'catalog' ? 3 : current?.completeness === 'enriched' ? 2 : 1
+    if (!current || detailRank > currentRank) {
+      merged.set(detail.id, current ? {
+        ...current,
+        ...detail,
+        description: detail.description || current.description || '',
+        backdropUrl: detail.backdropUrl || current.backdropUrl || null,
+        artwork: detail.artwork || current.artwork || null,
+        genreNames: detail.genreNames?.length ? detail.genreNames : current.genreNames || [],
+        voteAverage: detail.voteAverage ?? current.voteAverage ?? null,
+      } : detail)
+      continue
+    }
+    if (detailRank === currentRank && detail.completeness === 'catalog') {
       merged.set(detail.id, detail)
       continue
     }
@@ -297,11 +333,91 @@ export function mergeSearchDetails(details) {
       ...current,
       description: current.description || detail.description || '',
       backdropUrl: current.backdropUrl || detail.backdropUrl || null,
+      artwork: current.artwork || detail.artwork || null,
+      collectionId: current.collectionChecked === true
+        ? current.collectionId ?? null
+        : detail.collectionId ?? current.collectionId ?? null,
+      collectionName: current.collectionChecked === true
+        ? current.collectionName || null
+        : detail.collectionName || current.collectionName || null,
+      collectionChecked: current.collectionChecked === true || detail.collectionChecked === true,
+      metadataVersion: Math.max(Number(current.metadataVersion) || 0, Number(detail.metadataVersion) || 0),
       genreNames: current.genreNames?.length ? current.genreNames : detail.genreNames || [],
       voteAverage: current.voteAverage ?? detail.voteAverage ?? null,
     })
   }
   return [...merged.values()]
+}
+
+async function readExistingSearchDetails() {
+  try {
+    const manifest = JSON.parse(await readFile(resolve(searchDetailsDirectory, 'manifest.json'), 'utf8'))
+    if (!Array.isArray(manifest?.shards)) return []
+    const shards = await Promise.all(manifest.shards.map(async (shard) => {
+      if (!/^[0-9a-f]{2}$/.test(String(shard?.bucket || ''))) return []
+      try {
+        const payload = JSON.parse(await readFile(resolve(searchDetailsDirectory, `${shard.bucket}.json`), 'utf8'))
+        return Array.isArray(payload?.entries) ? payload.entries : []
+      } catch {
+        return []
+      }
+    }))
+    return shards.flat()
+  } catch {
+    return []
+  }
+}
+
+async function enrichSearchDetail(entry, genreNamesByType, collectionCache) {
+  const tmdbType = entry.type === 'series' ? 'tv' : 'movie'
+  const payload = await tmdbFetch(`/${tmdbType}/${entry.tmdbId}`, {
+    language,
+    append_to_response: 'images',
+    include_image_language: 'null,de,en',
+  })
+  const normalized = normalizeTmdbTitle(payload, tmdbType)
+  let collectionDetails = null
+  if (normalized.type === 'movie' && normalized.collectionId) {
+    if (!collectionCache.has(normalized.collectionId)) {
+      collectionCache.set(normalized.collectionId, tmdbFetch(`/collection/${normalized.collectionId}`, { language })
+        .then((collection) => buildFilmCollection(collection, [normalized]))
+        .catch((error) => {
+          collectionCache.delete(normalized.collectionId)
+          console.warn(`TMDB collection ${normalized.collectionId} could not be enriched for search:`, error instanceof Error ? error.message : String(error))
+          return null
+        }))
+    }
+    collectionDetails = await collectionCache.get(normalized.collectionId)
+  }
+  return {
+    id: entry.id,
+    tmdbId: normalized.tmdbId,
+    type: normalized.type,
+    title: normalized.title,
+    originalTitle: normalized.originalTitle,
+    description: normalized.description,
+    year: normalized.year,
+    releaseDate: normalized.releaseDate,
+    posterPath: normalized.posterPath,
+    backdropPath: normalized.backdropPath,
+    neutralPosterPath: normalized.neutralPosterPath,
+    neutralPosterUrl: normalized.neutralPosterUrl,
+    backdropUrl: normalized.backdropUrl,
+    artwork: normalized.artwork,
+    collectionId: normalized.collectionId,
+    collectionName: normalized.collectionName,
+    collectionChecked: normalized.collectionChecked,
+    collectionDetails,
+    metadataComplete: true,
+    metadataVersion: 2,
+    metadataUpdatedAt: new Date().toISOString(),
+    originalLanguage: normalized.originalLanguage,
+    voteAverage: normalized.voteAverage,
+    genreNames: normalized.genres?.map((genre) => genre.name).filter(Boolean)
+      || genreNamesFromIds(payload, genreNamesByType.get(tmdbType)),
+    meta: normalized.type === 'series' ? 'Serie' : null,
+    completeness: 'enriched',
+  }
 }
 
 async function discoverOfferEntries({ provider, tmdbProviderIds, mediaType, offerType, genreNamesById }) {
@@ -500,9 +616,40 @@ export async function generateBroadSearchIndexFromTmdb() {
   }
 
   const searchIndex = buildBroadArtifact(catalog, broadEntries)
+  const existingDetails = await readExistingSearchDetails()
+  const existingById = new Map(existingDetails.map((detail) => [detail.id, detail]))
+  const activeSearchIds = new Set(searchIndex.entries.map((entry) => entry.id))
+  const collectionCache = new Map()
+  const enrichmentCandidates = searchIndex.entries
+    .filter((entry) => {
+      if (!entry?.tmdbId) return false
+      const existing = existingById.get(entry.id)
+      return existing?.metadataComplete !== true
+        || (entry.type === 'movie' && existing?.collectionId && !existing?.collectionDetails)
+    })
+    .slice(0, SEARCH_DETAIL_ENRICH_LIMIT)
+  console.log(`Search details: enriching ${enrichmentCandidates.length} of ${searchIndex.entries.length} titles with full metadata.`)
+  const enrichedDetails = await mapWithConcurrency(
+    enrichmentCandidates,
+    REQUEST_CONCURRENCY,
+    async (entry) => {
+      try {
+        return await enrichSearchDetail(
+          entry,
+          new Map([['movie', movieGenres], ['tv', tvGenres]]),
+          collectionCache,
+        )
+      } catch (error) {
+        console.warn(`Search detail ${entry.id} could not be enriched; retaining last known metadata:`, error instanceof Error ? error.message : String(error))
+        return existingById.get(entry.id) || null
+      }
+    },
+  )
   await writeSearchIndex(searchIndex)
   await writeSearchDetails([
+    ...existingDetails.filter((detail) => activeSearchIds.has(detail.id)),
     ...records.map((record) => record.detail),
+    ...enrichedDetails.filter(Boolean),
     ...catalog.titles.map(searchDetailFromCatalogTitle),
   ], searchIndex.generatedAt)
   return searchIndex

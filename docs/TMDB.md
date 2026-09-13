@@ -1,6 +1,6 @@
 # Movie Hub – TMDB-Anbindung
 
-Stand: 12. September 2026
+Stand: 13. September 2026
 
 ## Ziel
 
@@ -58,6 +58,8 @@ Der öffentliche Standardkatalog ist ein täglich neu erzeugtes Hosting-Artefakt
 
 Für Filme mit `belongs_to_collection` ruft derselbe vertrauenswürdige Job jede eindeutige Collection-ID zusätzlich einmal über `/collection/{id}` ab. Der daraus erzeugte kompakte Filmreihen-Index enthält sämtliche gemeldeten Teile und ermöglicht die Navigation auf der Detailseite auch dann, wenn ein Teil nicht im begrenzten Browse-Katalog vorkommt. Ein vorübergehend fehlgeschlagener Collection-Abruf verwirft nicht den gesamten Anbieterkatalog: Movie Hub gruppiert in diesem Fall mindestens die bereits bekannten Katalogmitglieder. Im Browser erfolgen keine direkten TMDB-Collection-Aufrufe.
 
+Vollständige Titelabfragen laden außerdem bis zu drei geeignete Poster und drei Querformatbilder. Poster werden bevorzugt sprachneutral gewählt; deutsche und englische Bilder dienen als geordnete Rückfallebene. Der Generator prüft Bildformat und TMDB-Bewertung, speichert jedoch nur TMDB-Pfade beziehungsweise abgeleitete Bild-URLs. Die profilbezogene tägliche, wöchentliche oder deaktivierte Rotation wird anschließend deterministisch im Client berechnet und erzeugt keine zusätzlichen API-Aufrufe.
+
 Der Zeitplan ist täglich um **03:17 UTC**; derselbe Workflow kann bei Bedarf auch manuell gestartet werden. Schlägt ein Abruf, die Mindestprüfung oder der Build fehl, wird nichts veröffentlicht. Das bisherige funktionierende Katalog-Artefakt bleibt dann live.
 
 Die Auswahlreihen, ihre Titel und ihre Größe liegen als Konfiguration im Generator. Sie können später geändert oder um weitere öffentliche TMDB-Quellen erweitert werden, ohne persönliche Daten umzubauen.
@@ -81,7 +83,11 @@ Alle Seiten werden geladen und Titel über `TMDB-ID + Medientyp` dedupliziert. E
 
 Der native Android-Teil darf an die Web-App ausschließlich bereinigte Katalogfelder übergeben, beispielsweise TMDB-ID, Typ, Titel, Beschreibung, Posterpfad, Genre, öffentliche Provider-IDs und Favorit-/Watchlist-Zuordnung. Firestore Security Rules begrenzen den persönlichen Katalog zusätzlich auf eine feste Feldliste, sodass dort keine TMDB-Secrets gespeichert werden dürfen.
 
+Bei jeder persönlichen Synchronisierung werden vollständige Titeldetails einschließlich Bildkandidaten und geprüftem Sammlungsstatus geladen. Gehört ein Film zu einer Reihe, wird deren Teileliste je eindeutiger Collection-ID nur einmal pro Lauf abgerufen und kompakt am Titel referenziert. Damit funktionieren Filmreihen auch für Titel, die ausschließlich durch TMDB-Favoriten oder Watchlist in Movie Hub gelangt sind.
+
 Die Web-App liest diese Firestore-Dokumente und erzeugt daraus zur Laufzeit die Reihen **TMDB Favoriten** und **TMDB Watchlist**. Existiert derselbe Titel bereits im öffentlichen `catalog.json`, wird er anhand von TMDB-ID und Typ zusammengeführt statt als zweite Filmkopie behandelt.
+
+Der breite Suchkatalog entsteht weiterhin aus kostengünstigen Discover-Antworten. Da diese Antworten keine verlässliche Sammlungszugehörigkeit und keine vollständige Bildauswahl enthalten, reichert der Nachtlauf inkrementell standardmäßig bis zu 400 noch unvollständige Suchdetails an. Bereits angereicherte Detail-Shards werden vor der Neuerzeugung wiederhergestellt. Das Limit kann vertrauenswürdig über `TMDB_SEARCH_DETAIL_ENRICH_LIMIT` angepasst werden; neue oder bislang unvollständige Titel werden so nach und nach vervollständigt, ohne alle Suchtreffer täglich neu abzurufen.
 
 Damit bedeutet **Katalog** in Movie Hub fachlich eine Sammlung beziehungsweise Katalogzugehörigkeit – nicht zwingend eine einzelne Datei. Der öffentliche Katalog ist wegen seines gemeinsamen Snapshot-Charakters eine JSON-Datei; der persönliche Katalog ist wegen seiner nutzerbezogenen Veränderlichkeit eine Firestore-Collection. Spätere Anbieterkataloge können abhängig von Quelle und Aktualisierungsart ebenfalls als generierte Snapshots oder strukturierte Datenhaltung umgesetzt werden, solange sie in dasselbe Movie-Hub-Titelmodell normalisiert werden.
 

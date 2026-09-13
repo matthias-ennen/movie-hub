@@ -1,4 +1,5 @@
 import { TMDB_PROVIDER_REGISTRY } from '../providers/providerRegistry.js'
+import { selectTmdbArtwork } from './tmdbImages.js'
 
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p'
 
@@ -247,6 +248,15 @@ export function normalizeTmdbTitle(payload, mediaType) {
   const collection = isMovie && payload.belongs_to_collection?.name && Number.isFinite(Number(payload.belongs_to_collection.id))
     ? { id: Number(payload.belongs_to_collection.id), name: payload.belongs_to_collection.name }
     : null
+  const collectionChecked = isMovie
+    ? Object.prototype.hasOwnProperty.call(payload, 'belongs_to_collection')
+    : null
+  const metadataComplete = Array.isArray(payload.genres)
+  const artwork = selectTmdbArtwork(payload?.images, {
+    primaryPosterPath: payload.poster_path,
+    primaryBackdropPath: payload.backdrop_path,
+  })
+  const neutralPosterPath = artwork.posterPaths[0] || payload.poster_path || null
 
   return {
     source: 'tmdb',
@@ -270,11 +280,19 @@ export function normalizeTmdbTitle(payload, mediaType) {
       keywords,
       collection,
     },
+    collectionId: collection?.id ?? null,
+    collectionName: collection?.name ?? null,
+    collectionChecked,
+    metadataComplete,
+    metadataVersion: 2,
     voteAverage: Number.isFinite(Number(payload.vote_average)) ? Number(payload.vote_average) : null,
     voteCount: Number.isFinite(Number(payload.vote_count)) ? Number(payload.vote_count) : null,
     popularity: Number.isFinite(Number(payload.popularity)) ? Number(payload.popularity) : null,
     posterPath: payload.poster_path || null,
     backdropPath: payload.backdrop_path || null,
+    neutralPosterPath,
+    neutralPosterUrl: buildTmdbImageUrl(neutralPosterPath, 'w500'),
+    artwork,
     posterUrl: buildTmdbImageUrl(payload.poster_path, 'w500'),
     backdropUrl: buildTmdbImageUrl(payload.backdrop_path, 'w1280'),
     originalLanguage: payload.original_language || null,

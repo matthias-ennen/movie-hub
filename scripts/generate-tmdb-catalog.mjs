@@ -7,7 +7,6 @@ import {
   mergeProviderCatalogTitle,
 } from './provider-catalogs.mjs'
 import { normalizeTmdbTitle, normalizeTmdbVideos, normalizeTmdbWatchProviders, toMovieHubTitle } from '../src/services/tmdb.js'
-import { selectNeutralTmdbPosterUrl } from '../src/services/tmdbImages.js'
 import { finalizePersonalSmartCatalog } from '../src/catalog/personalSmartRows.js'
 import { buildFilmCollectionIndex, collectionIdForTitle } from '../src/catalog/filmCollections.js'
 
@@ -244,16 +243,13 @@ async function resolveCandidate(candidate) {
     tmdbFetch(detailPath, {
       language,
       append_to_response: `credits,keywords,images,${ratingAppend}`,
-      include_image_language: 'null',
+      include_image_language: 'null,de,en',
     }),
     tmdbFetch(providerPath),
     tmdbFetch(videoPath, { language: 'de-DE' }),
     tmdbFetch(videoPath, { language: 'en-US' }),
   ])
-  const normalized = {
-    ...normalizeTmdbTitle(payload, candidate.mediaType),
-    neutralPosterUrl: selectNeutralTmdbPosterUrl(payload?.images),
-  }
+  const normalized = normalizeTmdbTitle(payload, candidate.mediaType)
   const providerData = normalizeTmdbWatchProviders(providerPayload, country)
   const videos = normalizeTmdbVideos([germanVideos, fallbackVideos], normalized.originalLanguage)
   const [accent, accent2] = accentFor(normalized.tmdbId)
@@ -388,15 +384,21 @@ export async function generateCatalog() {
     ...providerCatalogIds,
   ])
   const titles = [...titlesByCandidate.values()].filter((title) => visibleIds.has(title.id))
+  const generatedAt = new Date().toISOString()
+  const versionedTitles = titles.map((title) => ({
+    ...title,
+    metadataVersion: Math.max(2, Number(title.metadataVersion) || 0),
+    metadataUpdatedAt: generatedAt,
+  }))
 
-  const collections = await resolveFilmCollections(titles)
-  const smartCatalog = finalizePersonalSmartCatalog(titles)
+  const collections = await resolveFilmCollections(versionedTitles)
+  const smartCatalog = finalizePersonalSmartCatalog(versionedTitles)
 
   return {
     source: 'tmdb',
     language,
     country,
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     attribution: 'This product uses the TMDB API but is not endorsed or certified by TMDB.',
     providerAttribution: 'Watch-provider availability is powered by JustWatch via TMDB.',
     titles: smartCatalog.titles,

@@ -16,6 +16,12 @@ describe('persönlicher TMDB-Katalog', () => {
     posterPath: '/poster.jpg',
     genreNames: ['Science-Fiction', 'Abenteuer'],
     providerIds: ['prime'],
+    collectionId: 726871,
+    collectionName: 'Dune-Filmreihe',
+    collectionChecked: true,
+    metadataVersion: 2,
+    metadataComplete: true,
+    artwork: { posterPaths: ['/neutral.jpg', '/poster.jpg'], heroBackdropPaths: ['/wide.jpg'] },
     ageRating: 12,
     favorite: true,
     watchlist: true,
@@ -38,6 +44,9 @@ describe('persönlicher TMDB-Katalog', () => {
     expect(title.ageRating).toBe(12)
     expect(title.genre).toBe('Science-Fiction · Abenteuer')
     expect(title.posterUrl).toContain('/w500/poster.jpg')
+    expect(title.neutralPosterUrl).toContain('/w500/neutral.jpg')
+    expect(title.collectionId).toBe(726871)
+    expect(title.collectionChecked).toBe(true)
   })
 
   it('dedupliziert einen persönlichen Titel gegen den öffentlichen Katalog', () => {
@@ -108,5 +117,8 @@ describe('persönlicher TMDB-Katalog', () => {
     expect(stored.ratingValue).toBe(8.5)
     expect(stored.ratingOrder).toBe(4)
     expect(stored.ageRating).toBe(12)
+    expect(stored.collectionId).toBe(726871)
+    expect(stored.collectionChecked).toBe(true)
+    expect(stored.artwork.posterPaths).toEqual(['/neutral.jpg', '/poster.jpg'])
   })
 })

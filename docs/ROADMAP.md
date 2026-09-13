@@ -1,6 +1,6 @@
 # Movie Hub – Roadmap
 
-Stand: 12. September 2026
+Stand: 13. September 2026
 
 ## Arbeitsprinzip
 
@@ -173,11 +173,19 @@ Die technische Hero-first-Grundlage aus #166/#168 und die Kaltstartkorrektur #16
 - profilbezogene persönliche Liste mit Movie-Hub-Bewertung vor persönlicher TMDB-Bewertung und TMDB-Beliebtheit;
 - keine neue Laufzeit-API, kein zusätzlicher Firestore-Zugriff je Poster und keine gespeicherte Rangliste.
 
-## Aktuelles Arbeitspaket – #137 Filmreihen
+## Aktuelles Arbeitspaket – #137 Filmreihen und #179 Artwork
 
 #137 ergänzt ausschließlich bei Filmen einen eigenen Abschnitt **Filmreihe** auf der Detailseite. Der öffentliche Katalog erhält dafür eine vollständige, kompakte TMDB-Teileliste. Ein TV-, Touch- und tastaturtaugliches Auswahlfenster zeigt Reihenfolge, aktuellen Film, Gesehen-Status und Verfügbarkeit je Teil; eine Auswahl wechselt den Film innerhalb derselben Detailansicht.
 
 Eine eigenständige Sammlungs-Detailseite, Sammlungskacheln in Reihen oder Suche, benutzerdefinierte Sammlungen und eine Übertragung auf Serien bleiben zunächst zurückgestellt. Die Datenstruktur wird so angelegt, dass eine spätere Ausbaustufe darauf aufbauen kann.
+
+#137 ergänzt außerdem eine explizite Metadaten-Vollständigkeit und zieht fehlende Sammlungsinformationen sowohl im persönlichen TMDB-Sync als auch inkrementell im nächtlichen Suchkatalog nach. Dadurch können Filme aus einer Reihe unabhängig von ihrem Eintrittspfad erkannt werden; vorhandene Altbestände werden ohne harte Migration weitergelesen und bei den regulären Sync-/Generatorläufen vervollständigt.
+
+#179 speichert je Titel bis zu drei bevorzugt sprachneutrale Poster und drei Querformatbilder. Profile können zwischen täglichem, wöchentlichem und ausgeschaltetem Bildwechsel wählen. Posterkarte und geöffnete Detailseite verwenden dabei dasselbe Motiv; der doppelte Titeltext auf dem linken Detailposter entfällt. Hero-Bilder werden unabhängig aus den Querformatkandidaten gewählt.
+
+## Nächstes getrenntes Arbeitspaket – #178 Staffeln und Folgen
+
+Nach der Abnahme von #137/#179 folgt die Seriennavigation mit Staffelauswahl, Staffelposter sowie einer Folgenauswahl, die Episodentitel und -beschreibung in derselben Detailansicht darstellt. Sie wird bewusst nicht mit der Filmreihen- und Artwork-Migration gekoppelt.
 
 ## Phase 6 – Personalisierung und Automatisierung
 

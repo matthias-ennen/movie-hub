@@ -45,6 +45,12 @@ export function toSearchDetailFallback(entry) {
     description: entry?.description || '',
     releaseDate: entry?.releaseDate || null,
     backdropUrl: entry?.backdropUrl || null,
+    artwork: entry?.artwork || null,
+    collectionId: entry?.collectionId ?? null,
+    collectionName: entry?.collectionName || null,
+    collectionChecked: type === 'movie' ? entry?.collectionChecked === true : null,
+    collectionDetails: entry?.collectionDetails || null,
+    metadataVersion: Number(entry?.metadataVersion) || 1,
     originalLanguage: entry?.originalLanguage || null,
     genres: [],
     genre: entry?.genre || 'Ohne Genreangabe',
@@ -83,6 +89,18 @@ export function mergeSearchDetail(entry, detail) {
     voteAverage,
     score: formatScore(voteAverage),
     meta: detail.meta || fallback.meta,
+    artwork: detail.artwork || fallback.artwork || null,
+    collectionId: detail.collectionChecked === true
+      ? detail.collectionId ?? null
+      : fallback.collectionId ?? detail.collectionId ?? null,
+    collectionName: detail.collectionChecked === true
+      ? detail.collectionName || null
+      : fallback.collectionName || detail.collectionName || null,
+    collectionChecked: fallback.type === 'movie'
+      ? detail.collectionChecked === true || fallback.collectionChecked === true
+      : null,
+    collectionDetails: detail.collectionDetails || fallback.collectionDetails || null,
+    metadataVersion: Math.max(Number(detail.metadataVersion) || 0, Number(fallback.metadataVersion) || 0),
     detailSource: detail.completeness || 'discover',
   }
 }

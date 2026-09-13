@@ -56,6 +56,7 @@ const WATCHED_MODE_IDS = new Set(WATCHED_DISPLAY_MODES.map((mode) => mode.id))
 export const DEFAULT_CONTENT_DISPLAY_SETTINGS = Object.freeze({
   sortMode: 'balanced',
   watchedMode: 'normal',
+  artworkRotation: 'daily',
   autoSwitch: Object.freeze({
     enabled: false,
     interval: 'daily',
@@ -73,6 +74,9 @@ export function normalizeContentDisplaySettings(value) {
   return {
     sortMode: SORT_MODE_IDS.has(settings.sortMode) ? settings.sortMode : DEFAULT_CONTENT_DISPLAY_SETTINGS.sortMode,
     watchedMode: WATCHED_MODE_IDS.has(settings.watchedMode) ? settings.watchedMode : DEFAULT_CONTENT_DISPLAY_SETTINGS.watchedMode,
+    artworkRotation: ['daily', 'weekly', 'off'].includes(settings.artworkRotation)
+      ? settings.artworkRotation
+      : DEFAULT_CONTENT_DISPLAY_SETTINGS.artworkRotation,
     autoSwitch: {
       enabled: Boolean(autoSwitch.enabled),
       interval: INTERVAL_IDS.has(autoSwitch.interval) ? autoSwitch.interval : DEFAULT_CONTENT_DISPLAY_SETTINGS.autoSwitch.interval,
@@ -178,5 +182,15 @@ export function withWatchedDisplayMode(value, watchedMode) {
   return {
     ...settings,
     watchedMode: WATCHED_MODE_IDS.has(watchedMode) ? watchedMode : settings.watchedMode,
+  }
+}
+
+export function withArtworkRotation(value, artworkRotation) {
+  const settings = normalizeContentDisplaySettings(value)
+  return {
+    ...settings,
+    artworkRotation: ['daily', 'weekly', 'off'].includes(artworkRotation)
+      ? artworkRotation
+      : settings.artworkRotation,
   }
 }

@@ -46,6 +46,10 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly([
             'tmdbId', 'mediaType', 'title', 'originalTitle', 'description',
             'releaseDate', 'posterPath', 'backdropPath', 'originalLanguage',
+            'artwork', 'collectionId', 'collectionName', 'collectionChecked',
+            'collectionDetails',
+            'metadataVersion', 'metadataUpdatedAt',
+            'metadataComplete',
             'voteAverage', 'voteCount', 'genreNames', 'providerIds', 'ageRating',
             'favorite', 'watchlist', 'rated', 'ratingValue',
             'favoriteOrder', 'watchlistOrder', 'ratingOrder', 'syncedAt'
