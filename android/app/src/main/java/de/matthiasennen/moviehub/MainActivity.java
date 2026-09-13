@@ -434,6 +434,13 @@ public final class MainActivity extends ComponentActivity {
             TmdbCatalogSyncCoordinator.request(MainActivity.this, webView);
         }
 
+        /** Loads one sanitized title with the encrypted device-local TMDB API token. */
+        @JavascriptInterface
+        public void requestTmdbTitleMetadata(String mediaType, String tmdbId, String requestId) {
+            TmdbCatalogSyncCoordinator.requestTitle(
+                    MainActivity.this, webView, mediaType, tmdbId, requestId);
+        }
+
         @JavascriptInterface
         public void clearSessionSmbCredentials() {
             SessionCredentialStore.clear();

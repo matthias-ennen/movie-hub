@@ -1,7 +1,7 @@
 import { collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore'
+import { loadCompleteTitleMetadata } from '../catalog/loadCompleteTitleMetadata.js'
 import { mergeEnrichedTitle, titleNeedsMetadataEnrichment } from '../catalog/titleMetadata.js'
 import { firebaseReady } from '../lib/firebase.js'
-import { loadSearchDetail } from '../search/lazySearchDetails.js'
 import { buildSharedMediaTitleRef } from './sharedMediaCatalogModel.js'
 import { setSharedMediaCatalogPresence } from './sharedMediaCatalogRuntime.js'
 import { normaliseMedia, titleMediaKey } from './sharedMediaModel.js'
@@ -11,7 +11,7 @@ export const SHARED_MEDIA_CHANGED_EVENT = 'moviehub:shared-media-changed'
 const catalogMetadataRefreshes = new Map()
 
 async function refreshCatalogMetadata(userId, entries, {
-  loadDetail = loadSearchDetail,
+  loadDetail = loadCompleteTitleMetadata,
   resolveFirebase = () => firebaseReady,
   writeTitleRef = null,
   limit = 25,
