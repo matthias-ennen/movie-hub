@@ -28,7 +28,7 @@ Integriert und zur Geräteabnahme bereitgestellt sind:
 - #171 – Heroes und flexible Posterreihen dynamisch sowie profilbezogen kuratieren;
 - #173 – dynamische Top-10-Sonderreihen auf Home, Filme, Serien und Meine Inhalte einfügen.
 
-Nach der fehlgeschlagenen Geräteprüfung bleibt #137 geöffnet. Aktuell ergänzt #181 die Filmreihenlogik um einen vollständigen, kontoweiten Metadaten-Lebenszyklus für den virtuellen Movie-Hub-Anbieterkatalog. #179 ist technisch integriert; seine manuelle Bildabnahme bleibt von der Filmreihenkorrektur getrennt.
+Nach der fehlgeschlagenen Geräteprüfung bleibt #137 geöffnet. #181 ist technisch integriert und ergänzt die Filmreihenlogik um einen vollständigen, kontoweiten Metadaten-Lebenszyklus für den virtuellen Movie-Hub-Anbieterkatalog; #137/#181 warten gemeinsam auf die erneute Geräteabnahme. #179 ist technisch integriert; seine manuelle Bildabnahme bleibt von der Filmreihenkorrektur getrennt.
 
 Als getrenntes Folgepaket ist #178 vorgesehen: Serien-Detailseiten erhalten eine Staffel- und Episodennavigation mit passenden Staffelpostern und Episodentexten. Dieses Paket beginnt erst nach Abnahme der korrigierten #137/#181-APK.
 
