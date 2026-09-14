@@ -59,6 +59,8 @@ Der Firebase-Workflow bietet bei einem manuellen Start zwei Modi:
 
 Beide Modi stellen zuerst den letzten veröffentlichten Detailstand wieder her und verarbeiten anschließend die nächsten fehlenden beziehungsweise veralteten Datensätze. Dadurch kann der beschleunigte Modus wiederholt werden, ohne bereits abgeschlossene Arbeit zu verlieren. Nach der Generierung schreibt der Workflow einen Füllstandsbericht für Browse-Katalog, Suchindex, vollständige Suchdetails und Serienstaffeln in die GitHub-Actions-Zusammenfassung.
 
+Für einen kontrollierten einmaligen Start über einen Code-Merge aktiviert die Commit-Kennzeichnung `[data-bootstrap]` ebenfalls ausschließlich für diesen Push den beschleunigten Modus. Spätere normale Pushes und Zeitplanläufe verwenden wieder die Standardgrenzen.
+
 ## Noch nicht Bestandteil von Phase 1
 
 Phase 1 vergrößert den Datenbestand noch nicht auf 15.000–30.000 Titel. Der Index wird zunächst aus dem aktuellen öffentlichen Katalog abgeleitet. Damit werden Format, Client-Suche, Providerfilterung, Ergebnisbegrenzung und Deployment-Schutz eingeführt, bevor der Datenumfang stark wächst.
