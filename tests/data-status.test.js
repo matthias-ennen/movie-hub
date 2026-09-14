@@ -1,0 +1,28 @@
+import { describe, expect, it } from 'vitest'
+import { buildDataStatus } from '../scripts/report-data-status.mjs'
+
+describe('Datenfüllstandsbericht', () => {
+  it('separates catalog, search index, complete details and season backlog', () => {
+    const status = buildDataStatus({
+      catalog: { titles: [{ type: 'movie' }, { type: 'series' }] },
+      searchIndex: { entries: [{ type: 'movie' }, { type: 'movie' }, { type: 'series' }] },
+      searchDetails: [
+        { type: 'movie', metadataComplete: true },
+        { type: 'series', metadataComplete: false },
+        { type: 'series', metadataComplete: true },
+      ],
+      seriesManifest: {
+        availableSeasonCount: 12,
+        requestedSeasonCount: 15,
+        pendingSeasonCount: 3,
+      },
+    })
+
+    expect(status).toEqual({
+      catalog: { total: 2, movies: 1, series: 1 },
+      searchIndex: { total: 3, movies: 2, series: 1 },
+      completeSearchDetails: { total: 2, pending: 1, movies: 1, series: 1 },
+      seriesSeasons: { available: 12, requested: 15, pending: 3 },
+    })
+  })
+})
