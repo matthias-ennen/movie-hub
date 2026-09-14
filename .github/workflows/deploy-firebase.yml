@@ -8,6 +8,15 @@ on:
     # deploy step, so the last working catalog remains live.
     - cron: '17 03 * * *'
   workflow_dispatch:
+    inputs:
+      data_mode:
+        description: Datenaufbau pro Lauf
+        required: true
+        default: standard
+        type: choice
+        options:
+          - standard
+          - accelerated
 
 permissions:
   contents: read
@@ -49,8 +58,8 @@ jobs:
           TMDB_LANGUAGE: de-DE
           TMDB_SEARCH_MOVIE_PAGES_PER_OFFER: 50
           TMDB_SEARCH_SERIES_PAGES_PER_OFFER: 50
-          TMDB_SEARCH_DETAIL_ENRICH_LIMIT: 400
-          TMDB_SERIES_SEASON_ENRICH_LIMIT: 600
+          TMDB_SEARCH_DETAIL_ENRICH_LIMIT: ${{ inputs.data_mode == 'accelerated' && '2000' || '400' }}
+          TMDB_SERIES_SEASON_ENRICH_LIMIT: ${{ inputs.data_mode == 'accelerated' && '2000' || '600' }}
         run: npm run tmdb:catalog
 
       # A code push must not be blocked by a temporary provider/catalog gap at
@@ -105,6 +114,9 @@ jobs:
             echo "No reusable live detail shards found; deriving fallback details from the restored catalog."
             npm run search:details
           fi
+
+      - name: Report data fill levels
+        run: npm run data:status
 
       - name: Build
         run: npm run build

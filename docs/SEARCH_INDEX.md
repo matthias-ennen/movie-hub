@@ -52,6 +52,13 @@ Der Produktionslauf verwendet derzeit jeweils 50 Seiten pro Anbieter und Angebot
 
 Gleiche Seitentiefen erzwingen weder identische Titelzahlen noch eine prozentuale Gleichverteilung von Filmen und Serien. Der Generator führt Überschneidungen über TMDB-ID und Medientyp zusammen; außerdem können einzelne Anbieter-/Angebotsabfragen bereits vor dem konfigurierten Limit enden.
 
+Der Firebase-Workflow bietet bei einem manuellen Start zwei Modi:
+
+- `standard`: bis zu 400 vollständige Suchdetails und 600 Staffeln pro Lauf
+- `accelerated`: bis zu 2.000 vollständige Suchdetails und 2.000 Staffeln pro Lauf
+
+Beide Modi stellen zuerst den letzten veröffentlichten Detailstand wieder her und verarbeiten anschließend die nächsten fehlenden beziehungsweise veralteten Datensätze. Dadurch kann der beschleunigte Modus wiederholt werden, ohne bereits abgeschlossene Arbeit zu verlieren. Nach der Generierung schreibt der Workflow einen Füllstandsbericht für Browse-Katalog, Suchindex, vollständige Suchdetails und Serienstaffeln in die GitHub-Actions-Zusammenfassung.
+
 ## Noch nicht Bestandteil von Phase 1
 
 Phase 1 vergrößert den Datenbestand noch nicht auf 15.000–30.000 Titel. Der Index wird zunächst aus dem aktuellen öffentlichen Katalog abgeleitet. Damit werden Format, Client-Suche, Providerfilterung, Ergebnisbegrenzung und Deployment-Schutz eingeführt, bevor der Datenumfang stark wächst.
