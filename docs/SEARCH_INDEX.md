@@ -1,6 +1,6 @@
 # Movie Hub – Suchindex
 
-Stand: 11. September 2026
+Stand: 14. September 2026
 
 ## Zweck
 
@@ -40,6 +40,17 @@ Nicht im Suchindex liegen insbesondere Beschreibung, Cast, Videos, Backdrops, La
 ## Veröffentlichung und Fehlerschutz
 
 `npm run tmdb:catalog` erzeugt Katalog und Suchindex gemeinsam. Bei einem fehlgeschlagenen frischen Kataloglauf auf einem Code-Deploy wird neben dem letzten gültigen `catalog.json` auch der letzte gültige `search-index.json` wiederverwendet. Existiert bei der ersten Einführung noch kein veröffentlichter Suchindex, wird er aus dem wiederhergestellten Katalog abgeleitet.
+
+## Discovery-Tiefe
+
+Die TMDB-Discovery-Tiefe ist für Filme und Serien getrennt konfigurierbar:
+
+- `TMDB_SEARCH_MOVIE_PAGES_PER_OFFER`
+- `TMDB_SEARCH_SERIES_PAGES_PER_OFFER`
+
+Der Produktionslauf verwendet derzeit jeweils 50 Seiten pro Anbieter und Angebotsart. Die frühere interne, fachlich nicht begründete Obergrenze von 50 Seiten wurde entfernt. Als technische Außengrenze gilt weiterhin das von TMDB bereitgestellte Maximum von 500 Discovery-Seiten. Die bisherige gemeinsame Variable `TMDB_SEARCH_PAGES_PER_OFFER` bleibt als kompatibler Rückfallwert erhalten.
+
+Gleiche Seitentiefen erzwingen weder identische Titelzahlen noch eine prozentuale Gleichverteilung von Filmen und Serien. Der Generator führt Überschneidungen über TMDB-ID und Medientyp zusammen; außerdem können einzelne Anbieter-/Angebotsabfragen bereits vor dem konfigurierten Limit enden.
 
 ## Noch nicht Bestandteil von Phase 1
 
