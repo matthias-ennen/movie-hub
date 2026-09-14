@@ -3,6 +3,8 @@ import {
   SEARCH_OFFER_TYPES,
   buildSearchDiscoverParams,
   mergeProviderSearchEntries,
+  resolveSearchPageLimits,
+  searchPageLimitForMediaType,
   searchEntryFromDiscover,
 } from '../scripts/generate-search-index.mjs'
 
@@ -25,6 +27,28 @@ function movie(id = 1, overrides = {}) {
 }
 
 describe('breiter Provider-Suchindex', () => {
+  it('configures movie and series discovery independently without an arbitrary 50-page cap', () => {
+    const limits = resolveSearchPageLimits({
+      TMDB_SEARCH_PAGES_PER_OFFER: '32',
+      TMDB_SEARCH_MOVIE_PAGES_PER_OFFER: '75',
+      TMDB_SEARCH_SERIES_PAGES_PER_OFFER: '50',
+    })
+
+    expect(limits).toEqual({ movie: 75, series: 50 })
+    expect(searchPageLimitForMediaType('movie', limits)).toBe(75)
+    expect(searchPageLimitForMediaType('tv', limits)).toBe(50)
+  })
+
+  it('keeps the external TMDB discovery maximum of 500 pages', () => {
+    const limits = resolveSearchPageLimits({
+      TMDB_SEARCH_MOVIE_PAGES_PER_OFFER: '700',
+      TMDB_SEARCH_SERIES_PAGES_PER_OFFER: '900',
+    })
+
+    expect(searchPageLimitForMediaType('movie', limits)).toBe(500)
+    expect(searchPageLimitForMediaType('tv', limits)).toBe(500)
+  })
+
   it('queries one provider and one offer type explicitly in Germany', () => {
     expect(buildSearchDiscoverParams([9], 'movie', 'rent', 3)).toMatchObject({
       language: 'de-DE',

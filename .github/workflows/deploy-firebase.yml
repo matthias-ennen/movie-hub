@@ -47,7 +47,8 @@ jobs:
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
-          TMDB_SEARCH_PAGES_PER_OFFER: 32
+          TMDB_SEARCH_MOVIE_PAGES_PER_OFFER: 50
+          TMDB_SEARCH_SERIES_PAGES_PER_OFFER: 50
           TMDB_SEARCH_DETAIL_ENRICH_LIMIT: 400
           TMDB_SERIES_SEASON_ENRICH_LIMIT: 600
         run: npm run tmdb:catalog
@@ -62,7 +63,8 @@ jobs:
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
-          TMDB_SEARCH_PAGES_PER_OFFER: 32
+          TMDB_SEARCH_MOVIE_PAGES_PER_OFFER: 50
+          TMDB_SEARCH_SERIES_PAGES_PER_OFFER: 50
           TMDB_SEARCH_DETAIL_ENRICH_LIMIT: 400
           TMDB_SERIES_SEASON_ENRICH_LIMIT: 600
         run: npm run tmdb:catalog

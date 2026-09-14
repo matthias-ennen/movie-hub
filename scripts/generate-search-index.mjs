@@ -21,10 +21,28 @@ const language = process.env.TMDB_LANGUAGE || 'de-DE'
 const country = process.env.TMDB_COUNTRY || 'DE'
 
 export const SEARCH_OFFER_TYPES = ['flatrate', 'free', 'ads', 'rent', 'buy']
-export const SEARCH_PAGES_PER_OFFER = Math.max(
-  1,
-  Math.min(50, Number(process.env.TMDB_SEARCH_PAGES_PER_OFFER) || 10),
-)
+const TMDB_MAX_DISCOVER_PAGES = 500
+
+export function resolveSearchPageLimits(environment = process.env) {
+  const parseLimit = (value, fallback) => {
+    if (value === undefined || value === null || String(value).trim() === '') return fallback
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? Math.max(1, Math.floor(parsed)) : fallback
+  }
+
+  const legacyLimit = parseLimit(environment.TMDB_SEARCH_PAGES_PER_OFFER, 10)
+  return {
+    movie: parseLimit(environment.TMDB_SEARCH_MOVIE_PAGES_PER_OFFER, legacyLimit),
+    series: parseLimit(environment.TMDB_SEARCH_SERIES_PAGES_PER_OFFER, legacyLimit),
+  }
+}
+
+export const SEARCH_PAGE_LIMITS = resolveSearchPageLimits()
+
+export function searchPageLimitForMediaType(mediaType, limits = SEARCH_PAGE_LIMITS) {
+  const configuredLimit = mediaType === 'movie' ? limits.movie : limits.series
+  return Math.min(configuredLimit, TMDB_MAX_DISCOVER_PAGES)
+}
 const REQUEST_CONCURRENCY = 3
 const SEARCH_DETAIL_ENRICH_LIMIT = Math.max(
   0,
@@ -441,7 +459,8 @@ async function discoverOfferEntries({ provider, tmdbProviderIds, mediaType, offe
   let page = 1
   let totalPages = 1
 
-  while (page <= Math.min(totalPages, SEARCH_PAGES_PER_OFFER, 500)) {
+  const pageLimit = searchPageLimitForMediaType(mediaType)
+  while (page <= Math.min(totalPages, pageLimit)) {
     const payload = await tmdbFetch(
       path,
       buildSearchDiscoverParams(tmdbProviderIds, mediaType, offerType, page),
@@ -482,6 +501,10 @@ function buildBroadArtifact(catalog, entries) {
     ...entries,
     ...buildSearchIndexArtifact(catalog).entries,
   ])
+  const effectivePageLimits = {
+    movie: searchPageLimitForMediaType('movie'),
+    series: searchPageLimitForMediaType('tv'),
+  }
 
   return {
     source: 'tmdb',
@@ -495,7 +518,8 @@ function buildBroadArtifact(catalog, entries) {
     coverage: {
       mode: 'provider-discover',
       offerTypes: [...SEARCH_OFFER_TYPES],
-      pagesPerOffer: SEARCH_PAGES_PER_OFFER,
+      pagesPerOffer: Math.max(effectivePageLimits.movie, effectivePageLimits.series),
+      pageLimitsByMediaType: effectivePageLimits,
       providerCount: TMDB_PROVIDER_REGISTRY.length,
     },
     count: mergedEntries.length,
@@ -615,7 +639,7 @@ export async function generateBroadSearchIndexFromTmdb() {
   }
 
   console.log(
-    `Search index discovery: ${tasks.length} provider/media/offer scans · up to ${SEARCH_PAGES_PER_OFFER} pages each`,
+    `Search index discovery: ${tasks.length} provider/media/offer scans · up to ${searchPageLimitForMediaType('movie')} movie pages and ${searchPageLimitForMediaType('tv')} series pages each`,
   )
   const discovered = await mapWithConcurrency(tasks, REQUEST_CONCURRENCY, discoverOfferEntries)
   const records = discovered.flat()
