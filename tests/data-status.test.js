@@ -4,6 +4,7 @@ import { buildDataStatus } from '../scripts/report-data-status.mjs'
 describe('Datenfüllstandsbericht', () => {
   it('separates catalog, search index, complete details and season backlog', () => {
     const status = buildDataStatus({
+      generatedAt: '2026-09-15T08:00:00.000Z',
       catalog: { titles: [{ type: 'movie' }, { type: 'series' }] },
       searchIndex: { entries: [{ type: 'movie' }, { type: 'movie' }, { type: 'series' }] },
       searchDetails: [
@@ -19,6 +20,9 @@ describe('Datenfüllstandsbericht', () => {
     })
 
     expect(status).toEqual({
+      kind: 'movie-hub-data-status',
+      version: 1,
+      generatedAt: '2026-09-15T08:00:00.000Z',
       catalog: { total: 2, movies: 1, series: 1 },
       searchIndex: { total: 3, movies: 2, series: 1 },
       completeSearchDetails: { total: 2, pending: 1, movies: 1, series: 1 },

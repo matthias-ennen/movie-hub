@@ -59,6 +59,10 @@ Der Firebase-Workflow bietet bei einem manuellen Start zwei Modi:
 
 Beide Modi stellen zuerst den letzten veröffentlichten Detailstand wieder her und verarbeiten anschließend die nächsten fehlenden beziehungsweise veralteten Datensätze. Dadurch kann der beschleunigte Modus wiederholt werden, ohne bereits abgeschlossene Arbeit zu verlieren. Nach der Generierung schreibt der Workflow einen Füllstandsbericht für Browse-Katalog, Suchindex, vollständige Suchdetails und Serienstaffeln in die GitHub-Actions-Zusammenfassung.
 
+Zusätzlich veröffentlicht derselbe Lauf den kompakten Stand als `/data-status.json`. Der Bereich **Über Movie Hub** lädt ausschließlich diese kleine Statusdatei und zeigt daraus Kataloggröße, Suchindex, vollständige Suchdetails, Serienstaffeln und den Zeitpunkt des letzten erfolgreichen Datenlaufs. Dafür werden im Client weder Firestore noch TMDB noch die 64 Detail-Shards abgefragt. Ist die Datei vorübergehend nicht erreichbar, bleibt der übrige About-Bereich nutzbar und kennzeichnet den Datenstand als nicht verfügbar.
+
+Beim Zusammenführen bestehender Detail-Shards hat ein erfolgreich angereicherter Datensatz Vorrang vor einem älteren unvollständigen Katalog-Schnappschuss. Damit bleiben erfolgreich nachgeladene Metadaten erhalten und bereits verarbeitete Titel werden nicht dauerhaft erneut als offen gemeldet.
+
 Für einen kontrollierten einmaligen Start über einen Code-Merge aktiviert die Commit-Kennzeichnung `[data-bootstrap]` ebenfalls ausschließlich für diesen Push den beschleunigten Modus. Spätere normale Pushes und Zeitplanläufe verwenden wieder die Standardgrenzen.
 
 ## Noch nicht Bestandteil von Phase 1
