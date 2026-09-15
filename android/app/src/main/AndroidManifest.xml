@@ -25,8 +25,9 @@
         android:name=".MovieHubApplication"
         android:allowBackup="false"
         android:banner="@drawable/tv_banner"
-        android:icon="@drawable/ic_movie_hub"
+        android:icon="@mipmap/ic_movie_hub"
         android:label="Movie Hub"
+        android:roundIcon="@mipmap/ic_movie_hub"
         android:supportsRtl="true"
         android:theme="@style/Theme.MovieHub"
         android:enableOnBackInvokedCallback="true"
@@ -43,8 +44,11 @@
             android:screenOrientation="landscape" />
         <activity
             android:name=".MainActivity"
+            android:banner="@drawable/tv_banner"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:exported="true"
+            android:icon="@mipmap/ic_movie_hub"
+            android:label="Movie Hub"
             android:launchMode="singleTop"
             android:screenOrientation="landscape">
             <intent-filter>

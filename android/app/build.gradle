@@ -8,6 +8,8 @@ def githubRunNumber = System.getenv('GITHUB_RUN_NUMBER')
 def appVersionCode = githubRunNumber == null ? 1 : githubRunNumber.toInteger()
 def startupJingleSourceDir = rootProject.file('jingle-source')
 def startupJingleResDir = layout.buildDirectory.dir('generated/startupJingleRes').get().asFile
+def launcherIconFile = file('src/main/res/mipmap-nodpi/ic_movie_hub.png')
+def tvBannerFile = file('src/main/res/drawable-xhdpi/tv_banner.png')
 if (signingPropertiesFile.exists()) {
     signingPropertiesFile.withInputStream { signingProperties.load(it) }
 }
@@ -28,6 +30,51 @@ tasks.register('generateStartupJingle') {
         outputFile.parentFile.mkdirs()
         def encoded = parts.collect { it.getText('UTF-8').trim() }.join('')
         outputFile.bytes = encoded.decodeBase64()
+    }
+}
+
+def readPngDimensions = { File pngFile ->
+    pngFile.withInputStream { stream ->
+        def input = new DataInputStream(stream)
+        byte[] signature = new byte[8]
+        input.readFully(signature)
+        byte[] expectedSignature = [-119, 80, 78, 71, 13, 10, 26, 10] as byte[]
+        if (!Arrays.equals(signature, expectedSignature)) {
+            throw new GradleException("${pngFile} is not a PNG file.")
+        }
+
+        def chunkLength = input.readInt()
+        byte[] chunkType = new byte[4]
+        input.readFully(chunkType)
+        if (chunkLength < 8 || new String(chunkType, 'US-ASCII') != 'IHDR') {
+            throw new GradleException("${pngFile} has no valid PNG IHDR chunk.")
+        }
+
+        [input.readInt(), input.readInt()]
+    }
+}
+
+tasks.register('verifyLauncherArtwork') {
+    inputs.files(launcherIconFile, tvBannerFile)
+
+    doLast {
+        def expectedArtwork = [
+            (launcherIconFile): [512, 512],
+            (tvBannerFile): [320, 180],
+        ]
+
+        expectedArtwork.each { artworkFile, expectedDimensions ->
+            if (!artworkFile.isFile()) {
+                throw new GradleException("Required launcher artwork is missing: ${artworkFile}")
+            }
+            def actualDimensions = readPngDimensions(artworkFile)
+            if (actualDimensions != expectedDimensions) {
+                throw new GradleException(
+                    "${artworkFile} must be ${expectedDimensions[0]}x${expectedDimensions[1]} px " +
+                    "but is ${actualDimensions[0]}x${actualDimensions[1]} px."
+                )
+            }
+        }
     }
 }
 
@@ -80,6 +127,7 @@ android {
 
 tasks.named('preBuild').configure {
     dependsOn tasks.named('generateStartupJingle')
+    dependsOn tasks.named('verifyLauncherArtwork')
 }
 
 dependencies {
