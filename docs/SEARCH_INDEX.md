@@ -54,10 +54,12 @@ Gleiche Seitentiefen erzwingen weder identische Titelzahlen noch eine prozentual
 
 Der Firebase-Workflow bietet bei einem manuellen Start zwei Modi:
 
-- `standard`: bis zu 400 vollständige Suchdetails und 600 Staffeln pro Lauf
+- `standard`: bis zu 800 vollständige Suchdetails und 600 Staffeln pro Lauf
 - `accelerated`: bis zu 2.000 vollständige Suchdetails und 2.000 Staffeln pro Lauf
 
-Beide Modi stellen zuerst den letzten veröffentlichten Detailstand wieder her und verarbeiten anschließend die nächsten fehlenden beziehungsweise veralteten Datensätze. Dadurch kann der beschleunigte Modus wiederholt werden, ohne bereits abgeschlossene Arbeit zu verlieren. Nach der Generierung schreibt der Workflow einen Füllstandsbericht für Browse-Katalog, Suchindex, vollständige Suchdetails und Serienstaffeln in die GitHub-Actions-Zusammenfassung.
+Beide Modi stellen zuerst den letzten veröffentlichten Detailstand wieder her und verarbeiten anschließend zunächst fehlende beziehungsweise unvollständige Datensätze. Danach folgen vollständige Suchdetails, deren `metadataUpdatedAt` mindestens 30 Tage zurückliegt. Unter den fälligen Datensätzen werden fehlende Collection- oder Staffelinformationen priorisiert, anschließend gilt der älteste Stand zuerst. Frisch geprüfte optionale Lücken werden nicht bei jedem täglichen Lauf erneut geladen. Datensätze ohne gültigen Aktualisierungszeitpunkt gelten als veraltet. Das Alter ist über `TMDB_SEARCH_DETAIL_MAX_AGE_DAYS` konfigurierbar.
+
+Mit dem Standardlimit von 800 kann der derzeit rund 20.000 Titel große Suchbestand rechnerisch innerhalb von ungefähr 26 täglichen Läufen einmal vollständig erneuert werden. Der 30-Tage-Wert bestimmt die Fälligkeit, ist wegen neuer Titel, temporärer TMDB-Fehler und möglicher Laufabbrüche aber keine harte Aktualisierungsgarantie. Nach der Generierung schreibt der Workflow einen Füllstandsbericht für Browse-Katalog, Suchindex, vollständige Suchdetails und Serienstaffeln in die GitHub-Actions-Zusammenfassung.
 
 Zusätzlich veröffentlicht derselbe Lauf den kompakten Stand als `/data-status.json`. Der Bereich **Über Movie Hub** lädt ausschließlich diese kleine Statusdatei und zeigt daraus Kataloggröße, Suchindex, vollständige Suchdetails, Serienstaffeln und den Zeitpunkt des letzten erfolgreichen Datenlaufs. Dafür werden im Client weder Firestore noch TMDB noch die 64 Detail-Shards abgefragt. Ist die Datei vorübergehend nicht erreichbar, bleibt der übrige About-Bereich nutzbar und kennzeichnet den Datenstand als nicht verfügbar.
 

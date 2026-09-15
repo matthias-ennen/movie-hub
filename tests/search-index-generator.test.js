@@ -5,8 +5,10 @@ import {
   mergeSearchDetails,
   mergeProviderSearchEntries,
   resolveSearchPageLimits,
+  resolveSearchDetailRefreshOptions,
   searchPageLimitForMediaType,
   searchEntryFromDiscover,
+  selectSearchDetailEnrichmentCandidates,
 } from '../scripts/generate-search-index.mjs'
 
 const prime = {
@@ -48,6 +50,18 @@ describe('breiter Provider-Suchindex', () => {
 
     expect(searchPageLimitForMediaType('movie', limits)).toBe(500)
     expect(searchPageLimitForMediaType('tv', limits)).toBe(500)
+  })
+
+  it('uses a sustainable default refresh capacity and bounds explicit settings', () => {
+    expect(resolveSearchDetailRefreshOptions({})).toEqual({ limit: 800, maxAgeDays: 30 })
+    expect(resolveSearchDetailRefreshOptions({
+      TMDB_SEARCH_DETAIL_ENRICH_LIMIT: '5000',
+      TMDB_SEARCH_DETAIL_MAX_AGE_DAYS: '500',
+    })).toEqual({ limit: 2000, maxAgeDays: 365 })
+    expect(resolveSearchDetailRefreshOptions({
+      TMDB_SEARCH_DETAIL_ENRICH_LIMIT: '0',
+      TMDB_SEARCH_DETAIL_MAX_AGE_DAYS: '14',
+    })).toEqual({ limit: 0, maxAgeDays: 14 })
   })
 
   it('queries one provider and one offer type explicitly in Germany', () => {
@@ -158,5 +172,82 @@ describe('breiter Provider-Suchindex', () => {
       metadataComplete: true,
       completeness: 'enriched',
     })
+  })
+
+  it('refreshes gaps first and then stale details from oldest to newest', () => {
+    const entries = [1, 2, 3, 4, 5, 6].map((id) => ({
+      id: `tmdb-movie-${id}`,
+      tmdbId: id,
+      type: 'movie',
+    }))
+    const complete = (id, metadataUpdatedAt, overrides = {}) => ({
+      id: `tmdb-movie-${id}`,
+      tmdbId: id,
+      type: 'movie',
+      metadataComplete: true,
+      metadataUpdatedAt,
+      collectionChecked: true,
+      ...overrides,
+    })
+    const existingDetails = [
+      { ...complete(1, '2026-09-14T00:00:00.000Z'), metadataComplete: false },
+      complete(2, '2026-05-01T00:00:00.000Z', { collectionId: 42, collectionDetails: null }),
+      complete(3, '2026-06-01T00:00:00.000Z'),
+      complete(4, '2026-07-15T00:00:00.000Z'),
+      complete(5, 'kein-datum'),
+      complete(6, '2026-09-10T00:00:00.000Z'),
+    ]
+
+    const selected = selectSearchDetailEnrichmentCandidates(entries, existingDetails, {
+      limit: 5,
+      maxAgeDays: 30,
+      now: new Date('2026-09-15T00:00:00.000Z'),
+    })
+
+    expect(selected.map((entry) => entry.tmdbId)).toEqual([1, 2, 5, 3, 4])
+  })
+
+  it('does not refresh complete details before their configured age', () => {
+    const entry = { id: 'tmdb-movie-42', tmdbId: 42, type: 'movie' }
+    const details = [{
+      ...entry,
+      metadataComplete: true,
+      metadataUpdatedAt: '2026-08-17T00:00:01.000Z',
+      collectionChecked: true,
+    }]
+
+    expect(selectSearchDetailEnrichmentCandidates([entry], details, {
+      now: new Date('2026-09-15T00:00:00.000Z'),
+      maxAgeDays: 30,
+      limit: 800,
+    })).toEqual([])
+  })
+
+  it('does not repeatedly refresh fresh optional collection or season gaps', () => {
+    const entries = [
+      { id: 'tmdb-movie-42', tmdbId: 42, type: 'movie' },
+      { id: 'tmdb-series-43', tmdbId: 43, type: 'series' },
+    ]
+    const details = [
+      {
+        ...entries[0],
+        metadataComplete: true,
+        metadataUpdatedAt: '2026-09-14T00:00:00.000Z',
+        collectionId: 7,
+        collectionDetails: null,
+      },
+      {
+        ...entries[1],
+        metadataComplete: true,
+        metadataUpdatedAt: '2026-09-14T00:00:00.000Z',
+        seasons: [],
+      },
+    ]
+
+    expect(selectSearchDetailEnrichmentCandidates(entries, details, {
+      now: new Date('2026-09-15T00:00:00.000Z'),
+      maxAgeDays: 30,
+      limit: 800,
+    })).toEqual([])
   })
 })

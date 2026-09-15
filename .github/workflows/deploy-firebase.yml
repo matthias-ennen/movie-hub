@@ -58,7 +58,8 @@ jobs:
           TMDB_LANGUAGE: de-DE
           TMDB_SEARCH_MOVIE_PAGES_PER_OFFER: 50
           TMDB_SEARCH_SERIES_PAGES_PER_OFFER: 50
-          TMDB_SEARCH_DETAIL_ENRICH_LIMIT: ${{ (inputs.data_mode == 'accelerated' || contains(github.event.head_commit.message, '[data-bootstrap]')) && '2000' || '400' }}
+          TMDB_SEARCH_DETAIL_ENRICH_LIMIT: ${{ (inputs.data_mode == 'accelerated' || contains(github.event.head_commit.message, '[data-bootstrap]')) && '2000' || '800' }}
+          TMDB_SEARCH_DETAIL_MAX_AGE_DAYS: 30
           TMDB_SERIES_SEASON_ENRICH_LIMIT: ${{ (inputs.data_mode == 'accelerated' || contains(github.event.head_commit.message, '[data-bootstrap]')) && '2000' || '600' }}
         run: npm run tmdb:catalog
 
@@ -74,7 +75,8 @@ jobs:
           TMDB_LANGUAGE: de-DE
           TMDB_SEARCH_MOVIE_PAGES_PER_OFFER: 50
           TMDB_SEARCH_SERIES_PAGES_PER_OFFER: 50
-          TMDB_SEARCH_DETAIL_ENRICH_LIMIT: ${{ contains(github.event.head_commit.message, '[data-bootstrap]') && '2000' || '400' }}
+          TMDB_SEARCH_DETAIL_ENRICH_LIMIT: ${{ contains(github.event.head_commit.message, '[data-bootstrap]') && '2000' || '800' }}
+          TMDB_SEARCH_DETAIL_MAX_AGE_DAYS: 30
           TMDB_SERIES_SEASON_ENRICH_LIMIT: ${{ contains(github.event.head_commit.message, '[data-bootstrap]') && '2000' || '600' }}
         run: npm run tmdb:catalog
 
