@@ -2,236 +2,264 @@
 
 Stand: 15. September 2026
 
-## Arbeitsprinzip
+## Leitprinzip
 
-Movie Hub wird schrittweise über klar abgegrenzte GitHub-Issues entwickelt. Ein Arbeitspaket gilt erst als abgeschlossen, wenn technische Prüfpunkte durchgeführt wurden; Fire-TV-bezogene Punkte benötigen zusätzlich eine manuelle Geräteabnahme. Später auftretende Auffälligkeiten werden nach einer bestätigten Abnahme grundsätzlich als neue Issues erfasst.
+Movie Hub wird schrittweise über klar abgegrenzte GitHub-Issues entwickelt. Ein Arbeitspaket gilt erst als abgeschlossen, wenn die technischen Prüfpunkte erfüllt sind; Fire-TV-bezogene Änderungen benötigen zusätzlich die vereinbarte manuelle Geräteabnahme.
 
-## Phase 0 – Fundament
+Für die nächste Entwicklungsstrecke gilt ausdrücklich:
 
-Ziel: belastbare technische Grundlage schaffen, bevor UI und Integrationen wachsen.
+1. **Stabilität vor neuen Komfortfunktionen**
+2. **Datenkonsistenz vor weiterer UI-Komplexität**
+3. **Security-Hygiene vor öffentlicher Verteilung**
+4. Änderungen an derselben kritischen Navigation oder Datenstruktur möglichst nacheinander statt parallel
 
-- Architektur dokumentieren
-- Firebase-Projekt konfigurieren
-- Firestore-Datenmodell festlegen
-- Firebase Authentication aktivieren
-- Firestore Security Rules implementieren und testen
-- Firebase Hosting einrichten
-- React/Vite-Grundgerüst anlegen
-- Deployment-Pipeline vorbereiten
-- TMDB-Zugang einrichten und Secret-Strategie festlegen
+## Bereits erreichte Grundlage
 
-Abschlusskriterium: Eine minimale Web-App wird sicher über Firebase Hosting ausgeliefert; Anmeldung funktioniert; ein angemeldeter Nutzer kann ausschließlich seinen eigenen Testzustand in Firestore lesen/schreiben.
+### Phase 0 – Fundament
 
-## Phase 1 – TV-optimierte Oberfläche
+Abgeschlossen:
 
-- Streaming-artige Startseite
-- Hero-Bereich
-- horizontale Filmreihen
-- Poster-Karten
-- Provider-Symbole als Overlay
-- D-Pad-/Tastaturnavigation
-- sichtbarer Fokuszustand
-- Film-Detailansicht
-- Provider-Auswahlmenü bei mehreren Diensten
+- Firebase Hosting und Authentication
+- Firestore-Datenmodell und Security Rules
+- React/Vite-Web-App
+- CI-/Deployment-Pipeline
+- TMDB-Secret-Strategie
 
-Abschlusskriterium: Oberfläche ist im Desktop-Browser und in 1280×720 sowie 1920×1080 sinnvoll bedienbar.
+### Phase 1 – TV-optimierte Oberfläche
 
-## Phase 2 – Echte Filmdaten und persönliches Filmgedächtnis
+Weitgehend abgeschlossen und produktiv genutzt:
 
-- TMDB-ID als Referenz
-- deutsche Metadaten, Poster, Backdrops, Cast, Laufzeit, Genres
-- Bewertung 1–10
-- gesehen / ungesehen
-- Favorit
-- später ansehen
-- Datum gesehen
-- persönliche Notiz
-- persönliche/systemische Listen
+- Streaming-artige Hauptseiten
+- Hero-Bereiche
+- horizontale Posterreihen
+- D-Pad-/Tastatur-/Touch-Navigation
+- Detailansichten
+- Providerdarstellung
+- responsive Smartphone-/Tablet-/TV-Oberfläche
 
-Abschlusskriterium: Filmzustände bleiben nach Neustart erhalten und sind für denselben Benutzer geräteübergreifend abrufbar.
+### Phase 2 – Filmdaten und persönliches Filmgedächtnis
 
-## Phase 3 – Fire-TV-App
+Weitgehend abgeschlossen:
 
-- Android-/Fire-OS-Projekt
-- schlanke APK mit WebView/native Bridge
-- D-Pad, OK und Zurück
-- App-Lifecycle und Fokuswiederherstellung
-- Sideloading auf mindestens einem Fire TV Stick HD
-- Test auf weiteren verfügbaren Fire-TV-Geräten
+- TMDB-Metadaten, Poster, Backdrops, Cast, Genres und Laufzeiten
+- Bewertung, gesehen/ungesehen, Favorit, Watchlist
+- persönliche Notizen
+- profilbezogene Zustände
+- persönlicher TMDB-Katalog
 
-Abschlusskriterium: Movie Hub startet als APK zuverlässig und ist vollständig mit der Fire-TV-Fernbedienung bedienbar.
+### Phase 3 – Android-/Fire-TV-App
 
-Status: abgeschlossen. Die reale Geräteabnahme wurde in #40 mit APK-Build #35 bestätigt; das übergeordnete Paket #3 ist geschlossen. Die Shell wurde anschließend um Startintro, Jingle, Launcher-Grafiken, SMB-, TMDB- und Providerfunktionen erweitert und am 09.09.2026 erneut auf Smartphone, Tablet und Fire TV abgenommen.
+Abgeschlossen und mehrfach auf realen Geräten geprüft:
 
-Nachtrag #202: Für die weiterhin unbefriedigende Launcher-Kachel einer per Sideload installierten App werden das quadratische Android-Icon und das breite TV-Banner als getrennte echte PNG-Ressourcen paketiert und zusätzlich direkt an der Launcher-Activity deklariert. Die technische Paketprüfung erfolgt automatisiert; ob der Amazon-Launcher das 16:9-Banner bei Sideloading tatsächlich verwendet, bleibt eine getrennte manuelle Fire-TV-Abnahme.
+- Android-/Fire-OS-WebView-Shell
+- native Bridge
+- Jingle und Startintro
+- CRT-/Startübergang
+- signierte Update-APK
+- SMB-/Media3-Wiedergabe
+- lokale geschützte SMB-Zugangsdaten
+- getrennte Smartphone-/Tablet- und Fire-TV-Launcher-Komponenten
 
-## Phase 4 – Deep Links und Provider-Auswahl
+#202 zur getrennten Launcher-Grafik wurde am 15.09.2026 manuell abgenommen und geschlossen.
 
-Für Netflix, Prime Video, Disney+, YouTube und waipu.tv jeweils testen:
-1. bestmögliche Titelsuche mit dem TMDB-Titel
-2. anbietereigene Such-/Startadresse
-3. App-Start als Fallback
-4. Web-Fallback
+### Phase 4 – Deep Links und Provider
 
-Abschlusskriterium: dokumentierte Testmatrix und stabile Fallback-Logik je Anbieter.
+Abgeschlossen:
 
-Status: Providerbuttons sind vollständig automatisch und können nicht durch benutzereigene Links überschrieben werden. Die gemeinsame Android-/Fire-TV-Fallback-Logik wurde mit #102 abgeschlossen und am 09.09.2026 abgenommen. Unterschiedliche Suchfähigkeiten der Fremd-Apps bleiben Best Effort.
+- automatische Providerbuttons
+- Netflix, Prime Video, Disney+, YouTube, waipu.tv und weitere unterstützte Anbieter
+- native App-/Such-/Web-Fallbacks
+- keine benutzerdefinierten Overrides für externe Anbieter
+- eigene Links und Videos bleiben im virtuellen Anbieter **Movie Hub** getrennt
 
-## Phase 5 – Dynamische Verfügbarkeit
+### Phase 5 – Katalog, Verfügbarkeit und Datenqualität
 
-- Streaming-Verfügbarkeit Deutschland
-- mehrere Anbieter pro Film
-- Provider-Overlays dynamisch aktualisieren
-- lineares TV/waipu.tv getrennt modellieren
-- „heute im Fernsehen“ / Zeitangaben
-- Datenquelle und Attribution dokumentieren
+Große Teile sind bereits umgesetzt:
 
-Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behandelt fehlende/mehrdeutige Daten sauber.
+- tägliche automatische Katalogaktualisierung
+- deutscher Providerbestand
+- separater großer Suchindex
+- `flatrate`, `free`, `ads`, `rent` und `buy`
+- Lazy-/Shard-basierte vollständige Detaildaten
+- rollierende Aktualisierung vollständiger Suchdetails
+- Staffel-/Episodendaten als getrennte Katalogdaten
+- Datenfüllstand unter **Über Movie Hub**
 
-### Abgeschlossenes Paket #53 – Automatische TMDB-Katalogaktualisierung
+#196 und #200 bilden die aktuelle Datenqualitäts-/Statusgrundlage. #196 wurde am 15.09.2026 manuell abgenommen und geschlossen.
 
-- täglicher GitHub-Actions-Job für den öffentlichen Katalog
-- aktuelle Trend-, Neuheiten- und Popularitätsreihen für Filme und Serien
-- deutsche Anbieter-Verfügbarkeit als Auswahlkriterium
-- atomare Veröffentlichung: bei Fehler bleibt der letzte Live-Katalog bestehen
-- persönliche Listen bleiben unabhängig von wechselnden Entdeckungsreihen sichtbar
+Noch offen in Phase 5 ist insbesondere der spätere Ausbau von **linearem Fernsehen / waipu.tv / EPG** aus #4.
 
-### Abgeschlossenes Paket #57 – Trailer, Teaser und gemeinsame Movie-Hub-Medien
+## Integrierte Funktionen mit noch offenen formalen Abnahmen
 
-- automatische Trailer-/Teaser-Referenzen aus TMDB, bevorzugt deutsch und offiziell
-- gemeinsame manuelle Web- und Video-URLs je Titel, sichtbar in allen internen Profilen
-- Movie Hub als eigener Anbieterbutton mit Direkteinstieg oder Auswahl bei mehreren Einträgen
-- integrierter Video-Player für HTTP(S)-Quellen, soweit Container und Codec vom Gerät unterstützt werden
-- Bearbeiten und Löschen der gemeinsamen Einträge aus jedem Profil
-- D-Pad- und Zurück-Verhalten für Auswahl, Verwaltung und Player
+Einige Issues sind technisch längst auf `main`, aber formal noch offen. Sie sind kein Anlass für eine erneute Implementierung, sondern müssen bereinigt beziehungsweise gezielt nachgetestet werden:
 
-### Abgeschlossenes Paket #62 – SMB-/FRITZ!NAS-Medien
+- #134 – Kaltstart-/WebView-Absicherung
+- #150 – TMDB-Bewertungsreihe
+- #166 – Hero-first Rendering und progressive Reihen
+- #170 – Movie Hub als eigener Anbieter-Katalog
+- #171 – profilgebundene Kuratierung
 
-- stabile `smb://`- oder eindeutig umwandelbare UNC-Pfade als gemeinsame Medienquelle je Titel
-- Referenzsystem: an einer FRITZ!Box angeschlossene, per SMB freigegebene Festplatte
-- Zugangsdaten ausschließlich geschützt auf dem jeweiligen Android-/Fire-TV-Gerät
-- nativer SMB2/3-Abruf und Wiedergabe über den gepufferten Media3-Player
-- klare Fehlerzustände für fehlendes Heimnetz, Anmeldung und nicht erreichbare Dateien
-- vollständig mit der signierten APK Build #43 auf realer Fire-TV-Hardware abgenommen
+#173 (Top-10-Sonderreihen), #137/#181 (Filmreihen und Movie-Hub-Metadaten) sowie weitere zugrunde liegende Pakete sind bereits integriert beziehungsweise abgenommen.
 
-### Abgeschlossenes Paket #65 – Automatische Anbieter von eigenen Links und Videos trennen
+## Aktuelle Entwicklungsreihenfolge
 
-- Netflix, Prime Video, Disney+, YouTube und waipu.tv ausschließlich automatisch bestimmen
-- keine editierbaren Anbieter-Links und keine Provider-Overrides
-- eigener Movie-Hub-Button enthält ausschließlich benutzereigene Inhalte
-- Bedienung über **Link hinzufügen** und **Video hinzufügen**
-- HTTP(S)- und SMB-/UNC-Quelle bei Videos automatisch erkennen
-- bestehende Daten verlustfrei migrieren
+### 1. #185 – Firestore-IAM-Backfill sauber aktivieren
 
-### Abgeschlossenes Paket #69 – Netzlaufwerke verwalten
+Kleines vorbereitendes Betriebs-/Security-Paket:
 
-- geräteweiter Einstellungsbereich über das Profilmenü
-- Netzlaufwerke anlegen, bearbeiten, verbinden, prüfen, trennen und entfernen
-- Erreichbarkeits- und Anmeldestatus mit verständlichem Text
-- wahlweise verschlüsselte gerätelokale Speicherung oder nur aktuelle App-Sitzung
-- Zugangsdaten bleiben vollständig außerhalb von Weboberfläche und Cloud
+- minimal notwendige Firestore-Berechtigungen für das Deployment-Dienstkonto
+- keine pauschale Owner-/Editor-/Datastore-Admin-Rolle
+- Workload Identity Federation beibehalten
+- administrativen Backfill ohne `PERMISSION_DENIED` testen
 
-### Abgeschlossene persönliche TMDB-Pakete #87 und #90
+Dieser Wartungspfad ist später für Datenmigrationen und Backfills nützlich.
 
-- persönlicher API Read Access Token und persönliche TMDB-Session sicher gerätelokal
-- Favoriten und Watchlist für Filme und Serien vollständig synchronisieren
-- gemeinsamer persönlicher TMDB-Katalog für alle Movie-Hub-Profile eines Kontos
-- Katalogzugehörigkeit bleibt getrennt von profilbezogenen Movie-Hub-Zuständen
+### 2. #191 – Fire-TV-Stabilität, Navigation und Posterlast
 
-### Abgeschlossenes UX-/Informationspaket #86 – Über Movie Hub
+**Nächstes großes Arbeitspaket.**
 
-- eigener About-Bereich im Profilmenü
-- native APK-Version und Build separat vom Web-Build anzeigen
-- Projekt-, Daten-, Datenschutz- und Open-Source-Hinweise
-- responsive und D-Pad-taugliche Darstellung
-- erste Version am 09.09.2026 abgenommen; spätere Überarbeitungen werden getrennt behandelt
+Ziel:
 
-### Datenqualitäts- und Informationspakete #196 und #200
+- bekannte Fire-TV-Abstürze beim Hauptseitenwechsel diagnostizieren und beseitigen
+- posterweise Firestore-Fallback-Reads entfernen
+- Movie-Hub-Präsenz zentralisieren
+- D-Pad-Repeat kontrollieren
+- gestapelte Scrollbewegungen verhindern
+- Hero-Preloading beruhigen
+- Speicher-/Renderer-Verhalten auf beiden Fire TV Sticks messen
+- horizontale Posterbegrenzung nur bei nachgewiesenem Bedarf
 
-- veröffentlicht den Laufzeit-Füllstand als kleine statische Statusdatei;
-- zeigt Browse-Katalog, Suchindex, vollständige Suchdetails und Serienstaffeln unter **Über Movie Hub**;
-- lädt dafür keine Detail-Shards, keine Firestore-Dokumente und keine TMDB-Daten im Client;
-- verhindert, dass alte unvollständige Katalog-Schnappschüsse eine erfolgreiche Detailanreicherung wieder überschreiben;
-- aktualisiert vollständige Suchdetails rollierend nach 30 Tagen, wobei Lücken und anschließend die ältesten Stände Vorrang haben;
-- meldet einen nicht erreichbaren Status klar, ohne den übrigen About-Bereich zu blockieren.
+#191 ist Voraussetzung für die endgültige Fire-TV-Abnahme von #178 und die spätere Schleifennavigation aus #195.
 
-## Integrierte Arbeitspakete – #170, #171 und #173
+### 3. #178 – Staffeln und Folgen final abnehmen
 
-Die technische Hero-first-Grundlage aus #166/#168 und die Kaltstartkorrektur #169 sind integriert; die manuelle Geräteabnahme von #166 bleibt getrennt offen.
+Die Daten- und Staffelnavigation ist bereits integriert. Die **aktuell gültige Produktentscheidung** lautet:
 
-#170 erweitert die vorhandenen eigenen Links und Videos zum virtuellen Anbieter-Katalog **Movie Hub**:
+- Staffeln sind auswählbar.
+- Die Folgen einer Staffel werden in einer scroll-/navigierbaren Liste angezeigt.
+- Die Folgenliste dient ausschließlich zum Durchblättern und Informieren.
+- Eine Folge ist **nicht anklickbar/öffnbar**.
+- Das Navigieren durch Folgen verändert die Serien-Detailseite nicht.
+- Serientitel und Serienbeschreibung bleiben unverändert stehen.
 
-- erster, standardmäßig aktiver Eintrag in der kontoweiten Anbieterwahl;
-- automatisch abgeleiteter Katalog ohne zweiten manuellen Pflegeweg;
-- eigene Reihen auf Home, Filme und Serien;
-- gleiche Sichtbarkeitswirkung auf Badges, Detailbutton, Suche und Kategorien wie bei anderen aktivierten Anbietern;
-- keinerlei Löschung eigener Inhalte beim Ausschalten.
+Die frühere Idee einer Episoden-Detailansicht ist damit verworfen.
 
-#171 ergänzt darauf aufbauend:
+Nach #191 wird dieses endgültige Verhalten auf Smartphone, Tablet und Fire TV abgenommen und #178 geschlossen.
 
-- koordinierte, täglich reproduzierbare Hero-Auswahl mit unterschiedlichen Starttiteln auf Home, Filme und Serien;
-- fünf profilbezogene Sortierlogiken für flexible Reihen;
-- optionaler täglicher oder wöchentlicher Wechsel;
-- profilbezogene Behandlung gesehener Titel;
-- Trennung von vollständiger Kandidatenmenge und sichtbarem Reihenlimit als Vorbereitung auf größere spätere Katalogbestände.
+### 4. #114 – Großen Suchindex endgültig abschließen
 
-#173 ergänzt vier dynamisch abgeleitete Top-10-Sonderreihen:
+Die wesentliche Sucharchitektur ist bereits umgesetzt und der Datenbestand liegt in der geplanten Größenordnung. Nach stabiler Fire-TV-Basis folgt nur noch eine abschließende Bestands-/Performanceprüfung gegen die Abnahmekriterien von #114.
 
-- Einbau nach der dritten tatsächlich sichtbaren Reihe auf Home, Filme, Serien und Meine Inhalte;
-- rund 150 Prozent große Poster mit gut lesbarer Rangnummer 1 bis 10;
-- anbieterübergreifende Rangaggregation ohne Behauptung offizieller Plattform-Charts;
-- getrennte Film-, Serien- und gemischte Home-Liste;
-- profilbezogene persönliche Liste mit Movie-Hub-Bewertung vor persönlicher TMDB-Bewertung und TMDB-Beliebtheit;
-- keine neue Laufzeit-API, kein zusätzlicher Firestore-Zugriff je Poster und keine gespeicherte Rangliste.
+Ziel ist, #114 danach zu schließen und keine neue Sucharchitektur zu beginnen, solange die bestehende Lösung die Zielgröße zuverlässig trägt.
 
-## Aktuelles Korrekturpaket – #137 Filmreihen und #181 Movie-Hub-Metadaten
+### 5. #117 – Dependency-Audit
 
-#137 ergänzt ausschließlich bei Filmen einen eigenen Abschnitt **Filmreihe** auf der Detailseite. Der öffentliche Katalog erhält dafür eine vollständige, kompakte TMDB-Teileliste. Ein TV-, Touch- und tastaturtaugliches Auswahlfenster zeigt Reihenfolge, aktuellen Film, Gesehen-Status und Verfügbarkeit je Teil; eine Auswahl wechselt den Film innerhalb derselben Detailansicht.
+Danach Security-Hygiene auf stabiler Laufzeitbasis:
 
-Eine eigenständige Sammlungs-Detailseite, Sammlungskacheln in Reihen oder Suche, benutzerdefinierte Sammlungen und eine Übertragung auf Serien bleiben zunächst zurückgestellt. Die Datenstruktur wird so angelegt, dass eine spätere Ausbaustufe darauf aufbauen kann.
+- aktuellen npm-Audit-Stand neu ermitteln
+- Critical-/High-Funde bewerten und soweit möglich beseitigen
+- verbleibende Findings dokumentieren
+- vollständige Web-/Firebase-/Android-Regression
 
-#137 ergänzt außerdem eine explizite Metadaten-Vollständigkeit und zieht fehlende Sammlungsinformationen sowohl im persönlichen TMDB-Sync als auch inkrementell im nächtlichen Suchkatalog nach. Die gemeinsame Geräteprüfung mit „Stirb langsam“ wurde mit Build 205 erfolgreich abgeschlossen.
+Die Reihenfolge nach #191 ist bewusst gewählt, damit Dependency-Updates die Diagnose des bestehenden Fire-TV-Problems nicht verfälschen.
 
-#181 schließt diese Lücke. Unvollständige Titel werden profilgebunden beim Laden des Movie-Hub-Katalogs und beim Öffnen anhand ihrer TMDB-Identität aus veröffentlichten Detail-Shards ergänzt. Reicht der veröffentlichte Stand nicht aus, lädt die Android-/Fire-TV-Shell den einzelnen Titel sicher über den gerätelokalen TMDB-Zugang nach. Ein optionaler vertrauenswürdiger Backfill kann außerdem alle Movie-Hub-Manifeste direkt über TMDB aktualisieren, sobald das Deployment-Dienstkonto Firestore-Datenzugriff besitzt. Eigene Links und Videos bleiben unangetastet. Die Anbieterkennung `moviehub` wird weiterhin aus der Katalogmitgliedschaft abgeleitet und gemeinsam mit externen Provider-IDs an dieselben UI-Verbraucher übergeben.
+### 6. #205 – Persönliche Klartextdaten in Firestore verschlüsseln
 
-Die technische Umsetzung und gemeinsame Geräteabnahme von #181 und #137 sind mit Build 205 abgeschlossen. Der optionale CI-Backfill mit zusätzlicher Firestore-IAM-Rolle bleibt davon getrennt in #185.
+Festgelegtes Modell:
 
-Das integrierte #179 speichert je Titel bis zu drei bevorzugt sprachneutrale Poster und drei Querformatbilder. Profile können zwischen täglichem, wöchentlichem und ausgeschaltetem Bildwechsel wählen. Posterkarte und geöffnete Detailseite verwenden dabei dasselbe Motiv; der doppelte Titeltext auf dem linken Detailposter entfällt. Hero-Bilder werden unabhängig aus den Querformatkandidaten gewählt.
+- keine Ende-zu-Ende-Verschlüsselung
+- keine Gerätefreigabe und kein Recovery Key
+- appseitiger gemeinsamer Schlüssel
+- AES-256-GCM mit zufälligem IV/Nonce und `cryptoVersion`
 
-## Aktuelles Arbeitspaket – #178 Staffeln und Folgen
+Verschlüsselt werden mindestens:
 
-Nach der Abnahme von #137/#181/#179 folgt die Seriennavigation mit Staffelauswahl, Staffelposter und bedarfsgeladener Folgenliste. Kompakte Staffelinformationen bleiben am Serienobjekt; Episoden werden aus separat veröffentlichten Shards erst beim Öffnen einer Staffel geladen. Eine ausgewählte Folge öffnet einen eigenen Episoden-Detaildialog mit vollständiger Beschreibung, während die Serien-Detailseite unverändert bleibt. Zurück schließt zuerst den Episoden-Detaildialog, stellt Fokus und Listenposition wieder her, schließt danach die Folgenauswahl und zuletzt die Serien-Detailseite. Alte Kataloge ohne Staffelmetadaten bleiben unverändert nutzbar. Die Geräteabnahme bleibt bis zum Test des neuen Builds offen.
+- `sharedMedia.entries.url`
+- `sharedMedia.entries.label`
+- persönliche `note`
 
-## Phase 6 – Personalisierung und Automatisierung
+Bestehende Klartextdaten werden verlustfrei migriert. Öffentliche TMDB-/Katalogdaten bleiben bewusst lesbar. Der Schlüssel soll nach Möglichkeit über die native Android-/Fire-TV-Schicht bereitgestellt werden und nicht unnötig im öffentlichen Web-Bundle liegen.
 
-- persönliche Top 100 aus Bewertungen und Präferenzen
+### 7. #195 – 50 Poster und bedingt zyklische Navigation
+
+Erst nach #191:
+
+- reguläre Reihen auf maximal 50 Titel erweitern
+- beim ersten Betreten bleibt der linke Rand geschlossen
+- erst der Sprung vom letzten Poster nach rechts zum ersten schaltet die Schleife frei
+- danach direkter Umlauf in beide Richtungen
+- Verlassen der Reihe nach oben/unten setzt die Freigabe zurück
+- keine lange Smooth-Scroll-Fahrt über alle Zwischenposter
+
+### 8. #176 – Sichtbarkeit von Inhaltsbereichen je Profil
+
+Danach kann die Oberfläche weiter individualisiert werden. Vor Implementierung wird eine überschaubare Seiten-/Modulmatrix festgelegt. Bereits vorhandene Provider-, Kategorie-, Smart-Reihen- und Sortiereinstellungen dürfen nicht doppelt konfiguriert werden.
+
+### 9. #190 – Optionale Trailer im Hero
+
+Spätere Komfortfunktion, erst nach stabiler Fire-TV-Performance. Vor Umsetzung müssen Verzögerung, Ton, Einstellungsbereich und Player-Verhalten verbindlich entschieden werden.
+
+### 10. #4 – Live-TV-/waipu-Ausbau
+
+Die allgemeine Streaming-Verfügbarkeit wird nicht neu gebaut. Das alte Phase-5-Issue wird auf die tatsächlich noch offenen Funktionen konzentriert:
+
+- lineares Fernsehen
+- EPG/Sendezeiten
+- waipu.tv-Live-Status
+- belastbare Aktualisierung und Attribution
+
+### 11. #118 – Benachrichtigen, wenn ein Titel inklusive wird
+
+Aufbauend auf stabilem Provider-/Suchindex:
+
+- beobachtete Titel nutzerbezogen speichern
+- Wechsel von `rent`/`buy`/nicht inklusive zu `flatrate`/`free`/`ads` erkennen
+- nur echte Zustandsänderungen melden
+- einfache Ein-Klick-Bedienung
+
+### 12. #7 – Persönliche Empfehlungen und Top 100
+
+Spätere Phase 6:
+
+- persönliche Top 100
 - „Heute für dich“
-- ähnliche Filme
+- ähnliche Titel
 - noch nicht gesehen
-- neue verfügbare Filme
-- täglicher/regelmäßiger Empfehlungsjob
-- strukturierte JSON-/Firestore-Ausgabe der Empfehlungen
-- KI nur für Empfehlung/Einordnung, nicht für objektive Verfügbarkeitsfakten
+- regelmäßige Empfehlungsjobs
+- KI nur für Empfehlung und Einordnung, nie für objektive Verfügbarkeitsfakten
 
-### Abgeschlossenes Paket #163 – Persönliche Smart-Reihen
+### 13. #129 – Deutsch/Englisch
 
-- bis zu zehn profilbezogene, selbst konfigurierte Posterreihen ausschließlich unter **Meine Inhalte**
-- Filter nach Schauspieler/in, Regie/Serienschöpfer, Thema, Filmreihe oder Jahrzehnt
-- stabile TMDB-IDs statt fehleranfälligem Namensvergleich
-- automatische Aktualisierung aus dem aktuellen öffentlichen Katalog
-- Anlegen, Bearbeiten, Aktivieren, Verschieben und Löschen per Touch, Tastatur und D-Pad
-- Fokusbindung im Editor sowie Fokuswiederherstellung nach Speichern und Umschalten
-- themengesteuerte Schalter und Zustände über die zentralen Layout-Tokens
-- getrennt von den mit #156 abgeschlossenen Film- und Serienkategorien
+Internationalisierung erst dann, wenn die deutschsprachige Funktionsoberfläche weitgehend stabil ist. Dadurch müssen während der aktiven Produktentwicklung nicht ständig doppelte GUI-Texte nachgezogen werden.
 
-Abschlusskriterium: Empfehlungen werden reproduzierbar aus aktuellen Filmdaten und persönlichen Signalen erzeugt und automatisch in Movie Hub sichtbar.
+### 14. #112 – Compliance als Release-Gate
+
+Vor einer öffentlichen oder kommerziellen Verteilung müssen unter anderem abgeschlossen sein:
+
+- TMDB-/JustWatch-Attribution und Nutzungsbedingungen
+- Marken-/Logo-Prüfung
+- Datenschutz/DSGVO
+- Impressum/Anbieterkennzeichnung
+- OSS-/Drittlizenzen
+- Security-/Dateninventur
+
+#112 läuft als Querschnittsthema mit; einzelne technische Punkte werden bereits früher über #117, #185 und #205 bearbeitet.
+
+## Dauerhaft offen
+
+#8 bleibt als Ideen-Sammelstelle bestehen. Umsetzungsreife Ideen werden daraus in klar abgegrenzte Issues überführt.
+
+## Abhängigkeitskette der nächsten Pakete
+
+`#185 → #191 → #178 → #114 → #117 → #205 → #195`
+
+Danach folgen die voneinander weniger abhängigen UX-/Produktpakete `#176`, `#190`, `#4`, `#118`, `#7` und `#129`.
 
 ## Später / optional
 
-- komfortable Geräte-Kopplung per Code/QR statt Texteingabe am TV
+- komfortable Geräte-Kopplung per Code/QR
 - Smartphone-optimierte Verwaltungsansicht
 - Bewertungsverlauf
-- Suche und Filter weiter ausbauen
 - eigene Sammlungen
 - Import/Export persönlicher Filmdaten
-- vollständige Drittlizenz-/Impressums-/Datenschutzansicht für „Über Movie Hub“
+- zusätzliche Verwaltungs- und Diagnosefunktionen
