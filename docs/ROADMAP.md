@@ -144,12 +144,13 @@ Abschlusskriterium: Verfügbarkeit ist nachvollziehbar aktualisiert und UI behan
 - responsive und D-Pad-taugliche Darstellung
 - erste Version am 09.09.2026 abgenommen; spätere Überarbeitungen werden getrennt behandelt
 
-### Datenqualitäts- und Informationspaket #196
+### Datenqualitäts- und Informationspakete #196 und #200
 
 - veröffentlicht den Laufzeit-Füllstand als kleine statische Statusdatei;
 - zeigt Browse-Katalog, Suchindex, vollständige Suchdetails und Serienstaffeln unter **Über Movie Hub**;
 - lädt dafür keine Detail-Shards, keine Firestore-Dokumente und keine TMDB-Daten im Client;
 - verhindert, dass alte unvollständige Katalog-Schnappschüsse eine erfolgreiche Detailanreicherung wieder überschreiben;
+- aktualisiert vollständige Suchdetails rollierend nach 30 Tagen, wobei Lücken und anschließend die ältesten Stände Vorrang haben;
 - meldet einen nicht erreichbaren Status klar, ohne den übrigen About-Bereich zu blockieren.
 
 ## Integrierte Arbeitspakete – #170, #171 und #173

@@ -44,10 +44,21 @@ export function searchPageLimitForMediaType(mediaType, limits = SEARCH_PAGE_LIMI
   return Math.min(configuredLimit, TMDB_MAX_DISCOVER_PAGES)
 }
 const REQUEST_CONCURRENCY = 3
-const SEARCH_DETAIL_ENRICH_LIMIT = Math.max(
-  0,
-  Math.min(2000, Number(process.env.TMDB_SEARCH_DETAIL_ENRICH_LIMIT) || 400),
-)
+
+export function resolveSearchDetailRefreshOptions(environment = process.env) {
+  const configuredLimit = Number(environment.TMDB_SEARCH_DETAIL_ENRICH_LIMIT)
+  const configuredMaxAgeDays = Number(environment.TMDB_SEARCH_DETAIL_MAX_AGE_DAYS)
+  return {
+    limit: Number.isFinite(configuredLimit) && String(environment.TMDB_SEARCH_DETAIL_ENRICH_LIMIT ?? '').trim() !== ''
+      ? Math.max(0, Math.min(2000, Math.floor(configuredLimit)))
+      : 800,
+    maxAgeDays: Number.isFinite(configuredMaxAgeDays) && configuredMaxAgeDays > 0
+      ? Math.max(1, Math.min(365, Math.floor(configuredMaxAgeDays)))
+      : 30,
+  }
+}
+
+const SEARCH_DETAIL_REFRESH_OPTIONS = resolveSearchDetailRefreshOptions()
 const MAX_RETRIES = 4
 const MINIMUM_BROAD_DISCOVERY_SIZE = 2000
 const ACCENT_PAIRS = [
@@ -382,6 +393,50 @@ export function mergeSearchDetails(details) {
   return [...merged.values()]
 }
 
+function searchDetailHasStructuralGap(entry, existing) {
+  return (entry.type === 'movie' && existing?.collectionId && !existing?.collectionDetails)
+    || (entry.type === 'series' && (!Array.isArray(existing?.seasons) || existing.seasons.length === 0))
+}
+
+function searchDetailUpdatedAt(existing) {
+  const timestamp = Date.parse(existing?.metadataUpdatedAt || '')
+  return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY
+}
+
+export function selectSearchDetailEnrichmentCandidates(entries, existingDetails, {
+  limit = SEARCH_DETAIL_REFRESH_OPTIONS.limit,
+  maxAgeDays = SEARCH_DETAIL_REFRESH_OPTIONS.maxAgeDays,
+  now = Date.now(),
+} = {}) {
+  const existingById = new Map((Array.isArray(existingDetails) ? existingDetails : [])
+    .map((detail) => [detail?.id, detail]))
+  const nowMilliseconds = now instanceof Date ? now.getTime() : Number(now)
+  const cutoff = (Number.isFinite(nowMilliseconds) ? nowMilliseconds : Date.now())
+    - Math.max(1, Number(maxAgeDays) || 30) * 86_400_000
+
+  return (Array.isArray(entries) ? entries : [])
+    .map((entry, index) => {
+      const existing = existingById.get(entry?.id)
+      return {
+        entry,
+        index,
+        incomplete: existing?.metadataComplete !== true,
+        structuralGap: searchDetailHasStructuralGap(entry, existing),
+        updatedAt: searchDetailUpdatedAt(existing),
+      }
+    })
+    .filter((candidate) => candidate.entry?.tmdbId
+      && (candidate.incomplete || candidate.updatedAt <= cutoff))
+    .sort((left, right) => {
+      if (left.incomplete !== right.incomplete) return left.incomplete ? -1 : 1
+      if (left.structuralGap !== right.structuralGap) return left.structuralGap ? -1 : 1
+      if (left.updatedAt !== right.updatedAt) return left.updatedAt - right.updatedAt
+      return left.index - right.index
+    })
+    .slice(0, Math.max(0, Number(limit) || 0))
+    .map((candidate) => candidate.entry)
+}
+
 async function readExistingSearchDetails() {
   try {
     const manifest = JSON.parse(await readFile(resolve(searchDetailsDirectory, 'manifest.json'), 'utf8'))
@@ -662,16 +717,15 @@ export async function generateBroadSearchIndexFromTmdb() {
   const existingById = new Map(existingDetails.map((detail) => [detail.id, detail]))
   const activeSearchIds = new Set(searchIndex.entries.map((entry) => entry.id))
   const collectionCache = new Map()
-  const enrichmentCandidates = searchIndex.entries
-    .filter((entry) => {
-      if (!entry?.tmdbId) return false
-      const existing = existingById.get(entry.id)
-      return existing?.metadataComplete !== true
-        || (entry.type === 'movie' && existing?.collectionId && !existing?.collectionDetails)
-        || (entry.type === 'series' && (!Array.isArray(existing?.seasons) || existing.seasons.length === 0))
-    })
-    .slice(0, SEARCH_DETAIL_ENRICH_LIMIT)
-  console.log(`Search details: enriching ${enrichmentCandidates.length} of ${searchIndex.entries.length} titles with full metadata.`)
+  const enrichmentCandidates = selectSearchDetailEnrichmentCandidates(
+    searchIndex.entries,
+    existingDetails,
+    SEARCH_DETAIL_REFRESH_OPTIONS,
+  )
+  console.log(
+    `Search details: enriching ${enrichmentCandidates.length} of ${searchIndex.entries.length} titles with full metadata `
+    + `(incomplete first; due structural gaps next; then older than ${SEARCH_DETAIL_REFRESH_OPTIONS.maxAgeDays} days).`,
+  )
   const enrichedDetails = await mapWithConcurrency(
     enrichmentCandidates,
     REQUEST_CONCURRENCY,
