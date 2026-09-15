@@ -18,6 +18,17 @@ The `Android APK` GitHub Actions workflow always creates a sideloadable debug AP
 
 After the workflow succeeds, download `movie-hub-fire-tv-release-apk`, extract `app-release.apk`, and install it with the chosen sideload method. Use the debug artifact only until release signing is configured.
 
+## Launcher artwork
+
+The single APK contains two deliberately separate launcher assets:
+
+- `mipmap-nodpi/ic_movie_hub.png`: a real 512 × 512 PNG used as the standard Android icon on phones and tablets;
+- `drawable-xhdpi/tv_banner.png`: a real 320 × 180 PNG referenced as the Android TV/Fire TV banner.
+
+Both the application and the exported `MainActivity` declare their icon, label and TV banner explicitly. The Android build validates the PNG signatures and exact dimensions before compiling resources. This maximizes compatibility with older Fire OS launchers while retaining the normal square Android launcher icon in the same APK.
+
+Issue #202 tracks the real-device result. For a meaningful Fire-TV test, remove the previously installed package completely, install the new signed APK, and restart the launcher or Fire TV. ADB can verify the packaged `LEANBACK_LAUNCHER` activity and restart launcher state, but it cannot inject Amazon Appstore artwork into the Fire-TV launcher. If a correctly packaged sideloaded APK still receives no wide tile, the remaining path is distribution through Amazon Live App Testing rather than another in-app graphics change.
+
 ## Native startup branding
 
 A real Android/Fire-TV app-process start plays the packaged Movie Hub jingle immediately and shows a native full-screen branding layer above the WebView while the hosted app continues loading underneath.

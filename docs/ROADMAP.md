@@ -1,6 +1,6 @@
 # Movie Hub – Roadmap
 
-Stand: 13. September 2026
+Stand: 15. September 2026
 
 ## Arbeitsprinzip
 
@@ -62,6 +62,8 @@ Abschlusskriterium: Filmzustände bleiben nach Neustart erhalten und sind für d
 Abschlusskriterium: Movie Hub startet als APK zuverlässig und ist vollständig mit der Fire-TV-Fernbedienung bedienbar.
 
 Status: abgeschlossen. Die reale Geräteabnahme wurde in #40 mit APK-Build #35 bestätigt; das übergeordnete Paket #3 ist geschlossen. Die Shell wurde anschließend um Startintro, Jingle, Launcher-Grafiken, SMB-, TMDB- und Providerfunktionen erweitert und am 09.09.2026 erneut auf Smartphone, Tablet und Fire TV abgenommen.
+
+Nachtrag #202: Für die weiterhin unbefriedigende Launcher-Kachel einer per Sideload installierten App werden das quadratische Android-Icon und das breite TV-Banner als getrennte echte PNG-Ressourcen paketiert und zusätzlich direkt an der Launcher-Activity deklariert. Die technische Paketprüfung erfolgt automatisiert; ob der Amazon-Launcher das 16:9-Banner bei Sideloading tatsächlich verwendet, bleibt eine getrennte manuelle Fire-TV-Abnahme.
 
 ## Phase 4 – Deep Links und Provider-Auswahl
 
