@@ -51,11 +51,28 @@
             android:label="Movie Hub"
             android:launchMode="singleTop"
             android:screenOrientation="landscape">
+            <!-- Phones and tablets resolve the regular launcher entry. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+            TV launchers resolve this independent component and still open MainActivity.
+            Fire OS currently ignores android:banner for sideloaded apps, so the same
+            16:9 artwork is deliberately supplied as the alias icon as well.
+        -->
+        <activity-alias
+            android:name=".TvLauncherAlias"
+            android:exported="true"
+            android:icon="@drawable/tv_banner"
+            android:label="Movie Hub"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
     </application>
 </manifest>
