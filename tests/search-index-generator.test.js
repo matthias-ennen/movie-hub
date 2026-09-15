@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   SEARCH_OFFER_TYPES,
   buildSearchDiscoverParams,
+  mergeSearchDetails,
   mergeProviderSearchEntries,
   resolveSearchPageLimits,
   searchPageLimitForMediaType,
@@ -121,5 +122,41 @@ describe('breiter Provider-Suchindex', () => {
     }])
 
     expect(merged.providerOffers[0].offerTypes).toEqual(['rent'])
+  })
+
+  it('keeps successful enrichment ahead of an incomplete historic catalog snapshot', () => {
+    const incompleteCatalog = {
+      id: 'tmdb-movie-42',
+      tmdbId: 42,
+      type: 'movie',
+      title: 'Alter Katalogtitel',
+      posterPath: '/catalog-poster.jpg',
+      metadataComplete: false,
+      completeness: 'catalog',
+    }
+    const enriched = {
+      id: 'tmdb-movie-42',
+      tmdbId: 42,
+      type: 'movie',
+      title: 'Vollständiger Titel',
+      description: 'Vollständige TMDB-Details',
+      metadataComplete: true,
+      metadataVersion: 2,
+      completeness: 'enriched',
+    }
+
+    const [merged] = mergeSearchDetails([
+      incompleteCatalog,
+      enriched,
+      incompleteCatalog,
+    ])
+
+    expect(merged).toMatchObject({
+      title: 'Vollständiger Titel',
+      description: 'Vollständige TMDB-Details',
+      posterPath: '/catalog-poster.jpg',
+      metadataComplete: true,
+      completeness: 'enriched',
+    })
   })
 })

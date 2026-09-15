@@ -338,8 +338,13 @@ export function mergeSearchDetails(details) {
   for (const detail of Array.isArray(details) ? details : []) {
     if (!detail?.id) continue
     const current = merged.get(detail.id)
-    const detailRank = detail.completeness === 'catalog' ? 3 : detail.completeness === 'enriched' ? 2 : 1
-    const currentRank = current?.completeness === 'catalog' ? 3 : current?.completeness === 'enriched' ? 2 : 1
+    // A successfully enriched record must always beat an incomplete snapshot,
+    // even when that snapshot once came from the smaller browse catalog. The
+    // source rank only decides between records with the same completeness.
+    const detailRank = (detail.metadataComplete === true ? 10 : 0)
+      + (detail.completeness === 'catalog' ? 3 : detail.completeness === 'enriched' ? 2 : 1)
+    const currentRank = (current?.metadataComplete === true ? 10 : 0)
+      + (current?.completeness === 'catalog' ? 3 : current?.completeness === 'enriched' ? 2 : 1)
     if (!current || detailRank > currentRank) {
       merged.set(detail.id, current ? {
         ...current,

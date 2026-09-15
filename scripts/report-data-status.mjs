@@ -1,4 +1,4 @@
-import { appendFile, readFile } from 'node:fs/promises'
+import { appendFile, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -12,7 +12,7 @@ function countByType(entries) {
   }, { movies: 0, series: 0 })
 }
 
-export function buildDataStatus({ catalog, searchIndex, searchDetails, seriesManifest }) {
+export function buildDataStatus({ catalog, searchIndex, searchDetails, seriesManifest, generatedAt = null }) {
   const catalogTypes = countByType(catalog?.titles)
   const searchTypes = countByType(searchIndex?.entries)
   const completeDetails = (Array.isArray(searchDetails) ? searchDetails : [])
@@ -21,6 +21,13 @@ export function buildDataStatus({ catalog, searchIndex, searchDetails, seriesMan
   const totalSearchDetails = Array.isArray(searchDetails) ? searchDetails.length : 0
 
   return {
+    kind: 'movie-hub-data-status',
+    version: 1,
+    generatedAt: generatedAt
+      || seriesManifest?.generatedAt
+      || searchIndex?.generatedAt
+      || catalog?.generatedAt
+      || null,
     catalog: { total: catalogTypes.movies + catalogTypes.series, ...catalogTypes },
     searchIndex: { total: searchTypes.movies + searchTypes.series, ...searchTypes },
     completeSearchDetails: {
@@ -71,9 +78,21 @@ export async function reportDataStatus() {
     readSearchDetails(),
     readJson(resolve(root, 'public/series-details/manifest.json')),
   ])
-  const status = buildDataStatus({ catalog, searchIndex, searchDetails, seriesManifest })
+  const status = buildDataStatus({
+    catalog,
+    searchIndex,
+    searchDetails,
+    seriesManifest,
+    generatedAt: new Date().toISOString(),
+  })
   const markdown = toMarkdown(status)
   console.log(markdown)
+  await writeFile(
+    resolve(root, 'public/data-status.json'),
+    `${JSON.stringify(status)}\n`,
+    'utf8',
+  )
+  console.log('Movie Hub data status generated -> public/data-status.json')
   if (process.env.GITHUB_STEP_SUMMARY) {
     await appendFile(process.env.GITHUB_STEP_SUMMARY, markdown, 'utf8')
   }

@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+import { loadDataStatus } from '../about/dataStatus.js'
 import '../styles/about.css'
 
 const PROJECT_URL = 'https://github.com/matthias-ennen/movie-hub'
@@ -27,12 +29,54 @@ function formatBuildTime(value) {
   return date.toLocaleString('de-DE')
 }
 
+function formatDataTime(value) {
+  if (!value) return 'Zeitpunkt nicht verfügbar'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString('de-DE')
+}
+
+function formatCount(value) {
+  return Number(value || 0).toLocaleString('de-DE')
+}
+
+function formatCompletion(complete, total) {
+  if (!total) return '–'
+  const percentage = (complete / total) * 100
+  return `${percentage.toLocaleString('de-DE', {
+    minimumFractionDigits: percentage === 100 ? 0 : 2,
+    maximumFractionDigits: 2,
+  })} %`
+}
+
 export default function AboutView() {
+  const [dataState, setDataState] = useState({ state: 'loading', value: null })
   const nativeVersion = readNativeValue('getAppVersion')
   const nativeBuild = readNativeValue('getAppBuild') || deriveBuildFromVersion(nativeVersion)
   const nativePlatform = readNativeValue('getPlatformLabel') || (nativeVersion ? 'Android / Fire TV' : 'Web')
   const webBuild = typeof __MOVIE_HUB_WEB_BUILD__ !== 'undefined' ? __MOVIE_HUB_WEB_BUILD__ : 'local'
   const webBuiltAt = typeof __MOVIE_HUB_WEB_BUILT_AT__ !== 'undefined' ? __MOVIE_HUB_WEB_BUILT_AT__ : null
+  const dataStatus = dataState.value
+  const searchDetailTotal = dataStatus
+    ? dataStatus.completeSearchDetails.total + dataStatus.completeSearchDetails.pending
+    : 0
+  const dataComplete = dataStatus
+    ? dataStatus.completeSearchDetails.pending === 0 && dataStatus.seriesSeasons.pending === 0
+    : false
+
+  useEffect(() => {
+    let active = true
+    loadDataStatus()
+      .then((value) => {
+        if (active) setDataState({ state: 'ready', value })
+      })
+      .catch(() => {
+        if (active) setDataState({ state: 'error', value: null })
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   function openProject() {
     if (typeof window.MovieHubNative?.openProjectUrl === 'function') {
@@ -91,6 +135,70 @@ export default function AboutView() {
             <small>APK und Web-Oberfläche können unabhängig voneinander aktualisiert werden.</small>
           </article>
         </div>
+      </section>
+
+      <section className="settings-panel about-panel about-data-panel" aria-labelledby="about-data-heading">
+        <div className="settings-heading">
+          <div>
+            <p className="settings-kicker">Aktueller Katalog</p>
+            <h2 id="about-data-heading">Datenbestand</h2>
+          </div>
+          <span
+            className={`settings-status about-data-status${dataState.state === 'ready' ? dataComplete ? ' is-complete' : ' is-warning' : ''}`}
+            aria-live="polite"
+          >
+            {dataState.state === 'loading'
+              ? 'Wird geladen'
+              : dataState.state === 'error'
+                ? 'Nicht verfügbar'
+                : dataComplete
+                  ? 'Vollständig'
+                  : `${formatCount(dataStatus.completeSearchDetails.pending)} Suchdetails offen`}
+          </span>
+        </div>
+
+        {dataState.state === 'loading' && (
+          <p className="about-data-message">Der Stand des letzten erfolgreichen Datenlaufs wird geladen …</p>
+        )}
+
+        {dataState.state === 'error' && (
+          <p className="about-data-message about-data-error">
+            Der aktuelle Datenstand ist vorübergehend nicht verfügbar. Die übrigen App-Informationen bleiben davon unberührt.
+          </p>
+        )}
+
+        {dataStatus && (
+          <>
+            <div className="about-data-grid">
+              <article className="about-info-card about-data-card">
+                <span>Browse-Katalog</span>
+                <strong>{formatCount(dataStatus.catalog.total)}</strong>
+                <small>{formatCount(dataStatus.catalog.movies)} Filme · {formatCount(dataStatus.catalog.series)} Serien</small>
+              </article>
+              <article className="about-info-card about-data-card">
+                <span>Suchindex</span>
+                <strong>{formatCount(dataStatus.searchIndex.total)}</strong>
+                <small>{formatCount(dataStatus.searchIndex.movies)} Filme · {formatCount(dataStatus.searchIndex.series)} Serien</small>
+              </article>
+              <article className="about-info-card about-data-card">
+                <span>Vollständige Suchdetails</span>
+                <strong>{formatCount(dataStatus.completeSearchDetails.total)} / {formatCount(searchDetailTotal)}</strong>
+                <small>
+                  {formatCompletion(dataStatus.completeSearchDetails.total, searchDetailTotal)} vollständig
+                  {' · '}{formatCount(dataStatus.completeSearchDetails.pending)} offen
+                </small>
+              </article>
+              <article className="about-info-card about-data-card">
+                <span>Serienstaffeln</span>
+                <strong>{formatCount(dataStatus.seriesSeasons.available)} / {formatCount(dataStatus.seriesSeasons.requested)}</strong>
+                <small>{formatCount(dataStatus.seriesSeasons.pending)} offen</small>
+              </article>
+            </div>
+            <p className="about-data-updated">
+              Stand des letzten erfolgreichen Datenlaufs: {formatDataTime(dataStatus.generatedAt)}
+            </p>
+          </>
+        )}
       </section>
 
       <div className="about-section-grid">
