@@ -9,9 +9,9 @@ Movie Hub wird schrittweise über klar abgegrenzte GitHub-Issues entwickelt. Ein
 Für die nächste Entwicklungsstrecke gilt:
 
 1. **Kleine sichtbare UI-Themen zuerst sauber abschließen.**
-2. **Einstellungen zentral und profilbezogen strukturieren.**
+2. **Einstellungen, Profilsteuerung und Sichtbarkeit gemeinsam strukturieren.**
 3. **Security-/Dependency-Hygiene vor größeren Datenmigrationen.**
-4. **Daten- und SMB-Architekturänderungen nacheinander statt parallel.**
+4. **SMB-Identität, Migration und Verschlüsselung als zusammenhängendes Datenpaket behandeln.**
 5. Vor Beginn jedes größeren Pakets wird dessen Scope noch einmal fachlich und technisch überprüft; zusätzliche Punkte dürfen dabei ergänzt werden.
 
 ## Aktuell abgeschlossener Stand
@@ -26,7 +26,16 @@ Zu den zuletzt abgeschlossenen bzw. abgenommenen Paketen gehören insbesondere:
 
 Die Fire-TV-Stabilität wurde durch vertikale Virtualisierung, gezieltes Poster-Prefetching und reduzierte Posterlast deutlich verbessert und real getestet.
 
-Das bisherige starre 20er-/40er-Verhalten einzelner Reihen wird **nicht mehr in #195 weiterentwickelt**, sondern bewusst in #222 als profilbezogene Einstellung neu gelöst.
+Das bisherige starre 20er-/40er-Verhalten einzelner Reihen wird nicht mehr in #195 weiterentwickelt, sondern in #222 als profilbezogene Einstellung neu gelöst.
+
+## Zusammengeführte Arbeitspakete
+
+Zur Vermeidung von Doppelarbeit wurden zwei Überschneidungen bereinigt:
+
+- **#176 wurde vollständig in #222 übernommen.** Einstellungen, Profilsteuerung und Sichtbarkeit von Inhaltsbereichen werden gemeinsam umgesetzt.
+- **#220 wurde vollständig in #205 übernommen.** SMB-Normalisierung/Dubletten, lokale Credential-Zuordnung, Migration und Verschlüsselung persönlicher Pfade werden gemeinsam geplant und umgesetzt.
+
+#176 und #220 sind deshalb als separate Arbeitspakete geschlossen.
 
 ## Aktuelle Entwicklungsreihenfolge
 
@@ -40,19 +49,21 @@ Kleine sichtbare Inkonsistenzen bündeln und bereinigen:
 
 Das Paket wird vor Umsetzung noch einmal gegen die betroffenen Ansichten geprüft und darf um weitere kleine Layoutpunkte ergänzt werden.
 
-### 2. #222 – Einstellungen aufräumen und erweitern
+### 2. #222 – Einstellungen, Profilsteuerung und Sichtbarkeit aufräumen und erweitern
 
-Die Einstellungsseite wird strukturell aufgeräumt und um profilbezogene Steuerungen ergänzt.
-
-Fest vorgesehen:
+Gemeinsames Profil-/Settings-Arbeitspaket:
 
 - Posterreihen: **30 / 40 / 50 / 60 / 70**, Standard 50
 - Heroes: **3 / 4 / 5 / 6 / 7**, Standard 5
 - Hauptbenutzer und Unterbenutzer können unterschiedliche Werte besitzen
 - alte feste 20er-/40er-Grenzen normaler Reihen entfallen zugunsten der Profil-Einstellung
-- Limit greift früh nach Filterung/Sortierung, nicht erst beim Rendern
+- Limits greifen früh nach Filterung/Sortierung, nicht erst beim Rendern
+- Einstellungsseite logisch neu gruppieren
+- profilbezogene Sichtbarkeit größerer Inhaltsmodule integrieren
+- keine redundanten Einzelschalter für bereits vorhandene Detailsteuerungen
+- ausgeblendete Bereiche verursachen möglichst keine unnötige Aufbereitung
 
-Vor Umsetzung wird zusätzlich geprüft, welche weiteren Einstellungen sinnvoll sind und wie bestehende Optionen logisch gruppiert werden.
+Vor Umsetzung wird eine Seiten-/Modulmatrix für Home, Filme, Serien und Meine Inhalte festgelegt und geprüft, welche weiteren sinnvollen Einstellungen in dasselbe Paket gehören.
 
 ### 3. #117 – Dependency-Audit: bekannte npm-Sicherheitswarnungen bereinigen
 
@@ -62,32 +73,26 @@ Vor Umsetzung wird zusätzlich geprüft, welche weiteren Einstellungen sinnvoll 
 - verbleibende Findings dokumentieren
 - vollständige Web-/Firebase-/Android-Regression
 
-### 4. #205 – Persönliche Links, SMB-Pfade und Notizen in Firestore verschlüsseln
+### 4. #205 – Persönliche Daten schützen und SMB-Verbindungen konsolidieren
 
-Pragmatische appseitige Verschlüsselung sensibler persönlicher Klartextfelder:
+Gemeinsames Daten-/SMB-Sicherheits-Arbeitspaket:
 
-- `sharedMedia.entries.url`
-- `sharedMedia.entries.label`
-- persönliche `note`
-- AES-256-GCM mit zufälligem IV/Nonce und `cryptoVersion`
-- bestehende Klartextdaten verlustfrei migrieren
+- Host + Share als case-insensitive SMB-Verbindungsidentität normalisieren
+- `Share`, `share` und `SHARE` derselben realen Freigabe zuordnen
+- vollständige Unterordner-/Dateipfade unverändert erhalten
+- bestehende Netzlaufwerk-Dubletten zusammenführen
+- nur einen lokalen Credential-Satz je realer Freigabe verwenden
+- anschließend sensible persönliche Felder (`url`, `label`, `note`) per AES-256-GCM verschlüsseln
+- `cryptoVersion` und verlustfreie idempotente Migration vorsehen
+- native Kryptobrücke gegenüber öffentlichem Web-Bundle bevorzugen
 - keine E2E-, Gerätefreigabe- oder Recovery-Key-Architektur
 
-Vor Umsetzung wird die Kryptobrücke und Migration noch einmal konkret gegen die aktuelle App-/WebView-Architektur ausgearbeitet.
-
-### 5. #220 – SMB-Netzlaufwerke normalisieren und Dubletten zusammenführen
-
-- Host und Share für die Verbindungsidentität case-insensitive normalisieren
-- vollständigen Medienpfad unverändert erhalten
-- `Share`, `share` und `SHARE` als dieselbe reale SMB-Verbindung behandeln
-- doppelte Netzlaufwerke migrieren/zusammenführen
-- nur einen lokalen Credential-Satz je realer Freigabe benötigen
+Interne Reihenfolge des Pakets: zuerst SMB-Identität und Dubletten stabilisieren, danach Verschlüsselungsformat und Klartextmigration durchführen.
 
 ## Danach geplante Produktpakete
 
-Nach diesen fünf Paketen wird die weitere Reihenfolge neu bewertet. Bereits vorhandene spätere Kandidaten sind unter anderem:
+Nach diesen vier Paketen wird die weitere Reihenfolge neu bewertet. Bereits vorhandene spätere Kandidaten sind unter anderem:
 
-- #176 – profilbezogenes Sichtbarkeitskonzept für Inhaltsbereiche
 - #190 – optionale automatische Trailer im Hero
 - #4 – Live-TV-/waipu-/EPG-Ausbau
 - #118 – Benachrichtigen, wenn ein Titel inklusive wird
@@ -101,6 +106,6 @@ Nach diesen fünf Paketen wird die weitere Reihenfolge neu bewertet. Bereits vor
 
 ## Nächste Abhängigkeitskette
 
-`#218 → #222 → #117 → #205 → #220`
+`#218 → #222 → #117 → #205`
 
-Diese Reihenfolge gilt als aktueller Arbeitsplan. Jedes Paket wird unmittelbar vor Beginn noch einmal kurz fachlich/technisch geschärft; dabei können zusätzliche Punkte ergänzt werden, ohne die Grundreihenfolge unnötig zu verändern.
+Diese Reihenfolge gilt als aktueller Arbeitsplan. Jedes Paket wird unmittelbar vor Beginn noch einmal fachlich und technisch geschärft; dabei können zusätzliche Punkte ergänzt werden, ohne die Grundreihenfolge unnötig zu verändern.
