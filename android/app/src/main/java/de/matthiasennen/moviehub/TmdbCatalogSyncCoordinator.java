@@ -45,9 +45,16 @@ final class TmdbCatalogSyncCoordinator {
                     result.put("syncedAt", isoNow());
                 }
             } catch (TmdbApiClient.TmdbException error) {
-                result = errorPayload(error.getMessage() == null
+                String message = error.getMessage() == null
                         ? "TMDB-Synchronisierung fehlgeschlagen."
-                        : error.getMessage());
+                        : error.getMessage();
+                if (shouldRunRequestDiagnostics(error)) {
+                    String diagnostic = runRequestDiagnostics(appContext);
+                    if (!diagnostic.isEmpty()) {
+                        message += " · Diagnose: " + diagnostic;
+                    }
+                }
+                result = errorPayload(message);
             } catch (Exception error) {
                 result = errorPayload("Der persönliche TMDB-Katalog konnte nicht synchronisiert werden.");
             } finally {
@@ -91,6 +98,23 @@ final class TmdbCatalogSyncCoordinator {
             } catch (Exception ignored) {}
             deliver(webView, result, "__movieHubTmdbTitleMetadataResult");
         });
+    }
+
+    private static boolean shouldRunRequestDiagnostics(TmdbApiClient.TmdbException error) {
+        int httpStatus = error.getStatusCode();
+        return httpStatus == 429 || httpStatus >= 500;
+    }
+
+    private static String runRequestDiagnostics(Context appContext) {
+        try {
+            TmdbCredentialStore.Credentials credentials =
+                    new TmdbCredentialStore(appContext).load();
+            if (!credentials.hasApiToken() || !credentials.hasSession()) return "";
+            return TmdbSyncDiagnostics.run(
+                    credentials.getApiReadAccessToken(), credentials.getSessionId()).getSummary();
+        } catch (Exception ignored) {
+            return "Kernrequest-Diagnose konnte nicht ausgeführt werden";
+        }
     }
 
     private static JSONObject errorPayload(String message) {
