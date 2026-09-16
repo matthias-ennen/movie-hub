@@ -130,6 +130,6 @@ describe('fehlertoleranter TMDB-Teil-Sync', () => {
 
     expect(summary).toContain('5 von 6 Bereichen aktualisiert')
     expect(summary).toContain('✓ Watchlist Filme: 3 (nach Wiederholung)')
-    expect(summary).toContain('⚠ Bewertungen Serien: nicht aktualisiert – bisheriger Stand beibehalten')
+    expect(summary).toContain('⚠ Bewertungen Serien: nicht aktualisiert (HTTP 500 · TMDB-Status 11) – bisheriger Stand beibehalten')
   })
 })
