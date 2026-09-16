@@ -5,13 +5,14 @@ import {
 } from '../scripts/enrich-shared-media-metadata.mjs'
 
 function detailPayload(id = 562) {
+  const secondPart = id === 1573
   return {
     id,
-    title: 'Stirb langsam',
-    original_title: 'Die Hard',
-    overview: 'John McClane gerät in einen Überfall.',
-    release_date: '1988-07-15',
-    runtime: 132,
+    title: secondPart ? 'Stirb langsam 2' : 'Stirb langsam',
+    original_title: secondPart ? 'Die Hard 2' : 'Die Hard',
+    overview: secondPart ? 'John McClane gerät erneut in Schwierigkeiten.' : 'John McClane gerät in einen Überfall.',
+    release_date: secondPart ? '1990-07-02' : '1988-07-15',
+    runtime: secondPart ? 124 : 132,
     genres: [{ id: 28, name: 'Action' }],
     credits: { cast: [{ id: 62, name: 'Bruce Willis', character: 'John McClane' }], crew: [] },
     keywords: { keywords: [] },
@@ -102,5 +103,44 @@ describe('Movie-Hub-Metadaten-Backfill', () => {
     expect(result).toEqual({ scanned: 2, candidates: 1, updated: 1, failed: 0 })
     expect(set).toHaveBeenCalledTimes(1)
     expect(fetchTmdb).toHaveBeenCalledTimes(2)
+  })
+
+  it('selektiert einen formal vollständigen TMDB-Platzhalter erneut und repariert seinen Titel', async () => {
+    const set = vi.fn(async () => {})
+    const documents = [{
+      ref: { path: 'users/user-1/sharedMedia/movie-1573', set },
+      data: () => ({
+        hasMedia: true,
+        titleRef: {
+          tmdbId: 1573,
+          type: 'movie',
+          title: 'TMDB #1573',
+          metadataVersion: 2,
+          metadataComplete: true,
+          collectionChecked: true,
+          collectionId: 1570,
+          collectionDetails: collectionPayload,
+          metadataUpdatedAt: '2026-09-16T08:00:00.000Z',
+        },
+      }),
+    }]
+    const db = { collectionGroup: () => ({ get: async () => ({ docs: documents, size: documents.length }) }) }
+    const fetchTmdb = vi.fn(async (path) => path.startsWith('/collection/') ? collectionPayload : detailPayload(1573))
+
+    const result = await runSharedMediaMetadataBackfill({
+      db,
+      fetchTmdb,
+      now: new Date('2026-09-16T09:00:00.000Z'),
+      ageDays: 30,
+    })
+
+    expect(result).toEqual({ scanned: 1, candidates: 1, updated: 1, failed: 0 })
+    expect(set).toHaveBeenCalledTimes(1)
+    expect(set.mock.calls[0][0].titleRef).toMatchObject({
+      tmdbId: 1573,
+      title: 'Stirb langsam 2',
+      metadataVersion: 2,
+      metadataComplete: true,
+    })
   })
 })
