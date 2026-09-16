@@ -127,7 +127,8 @@ export function formatTmdbSyncSummary(rawSections) {
       const retry = section.retried ? ' (nach Wiederholung)' : ''
       return `✓ ${section.label}: ${section.count ?? 0}${retry}`
     }
-    return `⚠ ${section.label}: nicht aktualisiert – bisheriger Stand beibehalten`
+    const reason = section.error ? ` (${section.error})` : ''
+    return `⚠ ${section.label}: nicht aktualisiert${reason} – bisheriger Stand beibehalten`
   })
   return `${successful} von ${sections.length} Bereichen aktualisiert. ${details.join(' · ')}`
 }
