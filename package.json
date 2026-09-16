@@ -25,6 +25,7 @@
     "moviehub:metadata:backfill": "node scripts/enrich-shared-media-metadata.mjs"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.14.13",
     "firebase": "^11.10.0",
     "firebase-admin": "^13.4.0",
     "react": "^19.1.1",
