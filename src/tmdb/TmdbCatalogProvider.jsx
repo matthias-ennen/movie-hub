@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
   collection,
   doc,
@@ -7,7 +7,9 @@ import {
   setDoc,
   writeBatch,
 } from 'firebase/firestore'
+import { isUsableTitle, mergeEnrichedTitle } from '../catalog/titleMetadata.js'
 import { firebaseReady } from '../lib/firebase.js'
+import { loadSearchDetail } from '../search/lazySearchDetails.js'
 import {
   nativeTitleToFirestore,
   normalizePersonalTmdbTitle,
@@ -16,6 +18,7 @@ import {
 
 const TmdbCatalogContext = createContext(null)
 const BATCH_SIZE = 400
+const PLACEHOLDER_REPAIR_LIMIT = 20
 
 function parseNativePayload(value) {
   if (value && typeof value === 'object') return value
@@ -34,6 +37,28 @@ async function commitOperations(db, operations) {
   }
 }
 
+async function repairRawPersonalTitle(raw) {
+  const normalized = normalizePersonalTmdbTitle(raw)
+  if (isUsableTitle(normalized.title)) return raw
+
+  try {
+    const detail = await loadSearchDetail(normalized)
+    if (!isUsableTitle(detail?.title)) return raw
+    return {
+      ...raw,
+      title: detail.title,
+      originalTitle: detail.originalTitle || raw.originalTitle || detail.title,
+      description: detail.description || raw.description || '',
+      releaseDate: detail.releaseDate || raw.releaseDate || null,
+      posterPath: detail.posterPath || raw.posterPath || null,
+      backdropPath: detail.backdropPath || raw.backdropPath || null,
+    }
+  } catch (error) {
+    console.warn(`TMDB-Titel ${normalized.tmdbId} konnte vor dem Speichern nicht aufgelöst werden.`, error)
+    return raw
+  }
+}
+
 async function replaceTmdbCatalog(userId, payload) {
   const { db } = await firebaseReady
   const catalogRef = collection(db, 'users', userId, 'tmdbCatalog')
@@ -44,7 +69,8 @@ async function replaceTmdbCatalog(userId, payload) {
   for (const raw of Array.isArray(payload.titles) ? payload.titles : []) {
     const key = tmdbCatalogKey(raw)
     if (!key) continue
-    incoming.set(key, nativeTitleToFirestore(raw, syncedAt))
+    const repaired = await repairRawPersonalTitle(raw)
+    incoming.set(key, nativeTitleToFirestore(repaired, syncedAt))
   }
 
   const operations = []
@@ -78,6 +104,24 @@ async function replaceTmdbCatalog(userId, payload) {
   }
 }
 
+function firestoreTitleRepairPatch(repaired) {
+  const patch = { title: repaired.title }
+  if (isUsableTitle(repaired.originalTitle)) patch.originalTitle = repaired.originalTitle
+  if (typeof repaired.description === 'string' && repaired.description.trim()) {
+    patch.description = repaired.description
+  }
+  if (typeof repaired.releaseDate === 'string' && repaired.releaseDate.trim()) {
+    patch.releaseDate = repaired.releaseDate
+  }
+  if (typeof repaired.posterPath === 'string' && repaired.posterPath) {
+    patch.posterPath = repaired.posterPath
+  }
+  if (typeof repaired.backdropPath === 'string' && repaired.backdropPath) {
+    patch.backdropPath = repaired.backdropPath
+  }
+  return patch
+}
+
 export function TmdbCatalogProvider({ user, children }) {
   const [documents, setDocuments] = useState([])
   const [syncState, setSyncState] = useState(null)
@@ -85,8 +129,13 @@ export function TmdbCatalogProvider({ user, children }) {
   const [error, setError] = useState(null)
   const [syncBusy, setSyncBusy] = useState(false)
   const [syncMessage, setSyncMessage] = useState('')
+  const [metadataRepairs, setMetadataRepairs] = useState({})
+  const repairInFlightRef = useRef(new Set())
 
   useEffect(() => {
+    setMetadataRepairs({})
+    repairInFlightRef.current.clear()
+
     if (!user?.uid) {
       setDocuments([])
       setSyncState(null)
@@ -131,7 +180,57 @@ export function TmdbCatalogProvider({ user, children }) {
     }
   }, [user?.uid])
 
-  const personalTitles = useMemo(() => documents.map((item) => normalizePersonalTmdbTitle(item)), [documents])
+  const normalizedDocuments = useMemo(
+    () => documents.map((item) => normalizePersonalTmdbTitle(item)),
+    [documents],
+  )
+
+  const personalTitles = useMemo(() => normalizedDocuments.map((item) => {
+    const key = tmdbCatalogKey(item)
+    const repair = key ? metadataRepairs[key] : null
+    return repair ? mergeEnrichedTitle(item, repair) : item
+  }), [normalizedDocuments, metadataRepairs])
+
+  useEffect(() => {
+    if (!user?.uid) return undefined
+
+    const candidates = normalizedDocuments
+      .filter((item) => !isUsableTitle(item.title))
+      .filter((item) => {
+        const key = tmdbCatalogKey(item)
+        return key && !repairInFlightRef.current.has(key)
+      })
+      .slice(0, PLACEHOLDER_REPAIR_LIMIT)
+
+    if (!candidates.length) return undefined
+    let disposed = false
+
+    for (const item of candidates) {
+      const key = tmdbCatalogKey(item)
+      repairInFlightRef.current.add(key)
+
+      loadSearchDetail(item)
+        .then(async (detail) => {
+          if (!isUsableTitle(detail?.title) || disposed) return
+          const repaired = mergeEnrichedTitle(item, detail)
+          setMetadataRepairs((current) => ({ ...current, [key]: repaired }))
+
+          const { db } = await firebaseReady
+          if (disposed) return
+          await setDoc(
+            doc(db, 'users', user.uid, 'tmdbCatalog', key),
+            firestoreTitleRepairPatch(repaired),
+            { merge: true },
+          )
+        })
+        .catch((nextError) => {
+          console.warn(`TMDB-Platzhaltertitel ${key} konnte nicht automatisch repariert werden.`, nextError)
+        })
+        .finally(() => repairInFlightRef.current.delete(key))
+    }
+
+    return () => { disposed = true }
+  }, [user?.uid, normalizedDocuments])
 
   useEffect(() => {
     if (!user?.uid) return undefined
