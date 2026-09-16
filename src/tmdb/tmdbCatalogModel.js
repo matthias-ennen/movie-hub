@@ -1,4 +1,5 @@
 import { isUsableTitle } from '../catalog/titleMetadata.js'
+import { STANDARD_POSTER_ROW_LIMIT } from '../performance/posterRows.js'
 import { buildTmdbImageUrl } from '../services/tmdb.js'
 
 const SUPPORTED_AGE_RATINGS = new Set([0, 6, 12, 16, 18])
@@ -202,11 +203,12 @@ function orderByTmdbRating(items) {
     })
 }
 
-export function buildTmdbCatalogRows(items = []) {
+export function buildTmdbCatalogRows(items = [], limit = STANDARD_POSTER_ROW_LIMIT) {
+  const safeLimit = Math.max(0, Number(limit) || 0)
   const rows = [
-    { id: 'tmdb-watchlist', title: 'Meine Watchlist · TMDB', items: orderByMembership(items, 'tmdbWatchlist', 'watchlistOrder') },
-    { id: 'tmdb-favorites', title: 'Meine Favoriten · TMDB', items: orderByMembership(items, 'tmdbFavorite', 'favoriteOrder') },
-    { id: 'tmdb-ratings', title: 'Meine Bewertungen · TMDB', items: orderByTmdbRating(items) },
+    { id: 'tmdb-watchlist', title: 'Meine Watchlist · TMDB', items: orderByMembership(items, 'tmdbWatchlist', 'watchlistOrder').slice(0, safeLimit) },
+    { id: 'tmdb-favorites', title: 'Meine Favoriten · TMDB', items: orderByMembership(items, 'tmdbFavorite', 'favoriteOrder').slice(0, safeLimit) },
+    { id: 'tmdb-ratings', title: 'Meine Bewertungen · TMDB', items: orderByTmdbRating(items).slice(0, safeLimit) },
   ]
   return rows.filter((row) => row.items.length > 0)
 }
