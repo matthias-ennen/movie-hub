@@ -1,6 +1,8 @@
+import { isUsableTitle } from '../catalog/titleMetadata.js'
 import { buildTmdbImageUrl } from '../services/tmdb.js'
 
 const SUPPORTED_AGE_RATINGS = new Set([0, 6, 12, 16, 18])
+const LOADING_TITLE = 'Titel wird geladen …'
 
 function mediaTypeKey(value) {
   if (value === 'movie') return 'movie'
@@ -58,7 +60,9 @@ export function normalizePersonalTmdbTitle(raw) {
   const mediaType = mediaTypeKey(raw.mediaType)
   const type = mediaType === 'movie' ? 'movie' : 'series'
   const tmdbId = Number(raw.tmdbId)
-  const title = String(raw.title || raw.originalTitle || `TMDB #${tmdbId}`).trim()
+  const rawTitle = String(raw.title || raw.originalTitle || '').trim()
+  const title = isUsableTitle(rawTitle) ? rawTitle : LOADING_TITLE
+  const originalTitle = isUsableTitle(raw.originalTitle) ? String(raw.originalTitle).trim() : title
   const genreNames = Array.isArray(raw.genreNames)
     ? raw.genreNames.map((value) => String(value || '').trim()).filter(Boolean)
     : []
@@ -76,7 +80,7 @@ export function normalizePersonalTmdbTitle(raw) {
     mediaType,
     type,
     title,
-    originalTitle: raw.originalTitle || title,
+    originalTitle,
     description: raw.description || '',
     year: yearFromDate(raw.releaseDate),
     releaseDate: raw.releaseDate || null,
@@ -94,7 +98,7 @@ export function normalizePersonalTmdbTitle(raw) {
       ? raw.collectionDetails
       : null,
     metadataVersion: Math.max(1, finiteNumber(raw.metadataVersion) || 1),
-    metadataComplete: raw.metadataComplete === true,
+    metadataComplete: raw.metadataComplete === true && isUsableTitle(title),
     metadataUpdatedAt: raw.metadataUpdatedAt || raw.syncedAt || null,
     originalLanguage: raw.originalLanguage || null,
     voteAverage: finiteNumber(raw.voteAverage),
@@ -213,7 +217,7 @@ export function nativeTitleToFirestore(raw, syncedAt) {
     tmdbId: normalized.tmdbId,
     mediaType: normalized.mediaType,
     title: normalized.title,
-    originalTitle: normalized.originalTitle || null,
+    originalTitle: isUsableTitle(normalized.originalTitle) ? normalized.originalTitle : null,
     description: normalized.description || '',
     releaseDate: normalized.releaseDate,
     posterPath: normalized.posterPath,

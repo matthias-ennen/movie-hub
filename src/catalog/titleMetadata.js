@@ -1,10 +1,13 @@
 export const CURRENT_TITLE_METADATA_VERSION = 2
 
 const TMDB_PLACEHOLDER_TITLE = /^TMDB\s*#\s*\d+$/i
+const LOADING_PLACEHOLDER_TITLE = /^Titel wird geladen\s*…?$/i
 
 export function isUsableTitle(value) {
   const title = String(value ?? '').trim()
-  return Boolean(title) && !TMDB_PLACEHOLDER_TITLE.test(title)
+  return Boolean(title)
+    && !TMDB_PLACEHOLDER_TITLE.test(title)
+    && !LOADING_PLACEHOLDER_TITLE.test(title)
 }
 
 function timestampMilliseconds(value) {

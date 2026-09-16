@@ -49,6 +49,19 @@ describe('persönlicher TMDB-Katalog', () => {
     expect(title.collectionChecked).toBe(true)
   })
 
+  it('zeigt interne TMDB-IDs nicht als Benutzertitel an', () => {
+    const title = normalizePersonalTmdbTitle({
+      ...dune,
+      tmdbId: 928,
+      title: 'TMDB #928',
+      originalTitle: '',
+      metadataComplete: true,
+    })
+
+    expect(title.title).toBe('Titel wird geladen …')
+    expect(title.metadataComplete).toBe(false)
+  })
+
   it('dedupliziert einen persönlichen Titel gegen den öffentlichen Katalog', () => {
     const publicTitle = {
       id: 'tmdb-movie-693134',
@@ -68,6 +81,29 @@ describe('persönlicher TMDB-Katalog', () => {
     expect(merged[0].tmdbWatchlist).toBe(true)
     expect(merged[0].providerIds).toEqual(['prime', 'youtube'])
     expect(merged[0].ageRating).toBe(16)
+  })
+
+  it('nimmt einen persönlichen TMDB-Titel außerhalb des Anbieterbestands als regulären Titel auf', () => {
+    const personalOnly = normalizePersonalTmdbTitle({
+      tmdbId: 928,
+      mediaType: 'movie',
+      title: 'Gremlins 2 - Die Rückkehr der kleinen Monster',
+      releaseDate: '1990-06-15',
+      metadataVersion: 2,
+      metadataComplete: true,
+      collectionChecked: true,
+      favorite: true,
+    })
+
+    const merged = mergePublicAndPersonalCatalog([], [personalOnly])
+
+    expect(merged).toHaveLength(1)
+    expect(merged[0]).toMatchObject({
+      tmdbId: 928,
+      type: 'movie',
+      title: 'Gremlins 2 - Die Rückkehr der kleinen Monster',
+      tmdbFavorite: true,
+    })
   })
 
   it('führt Favoriten und Watchlist mit den einheitlichen TMDB-Reihennamen', () => {
