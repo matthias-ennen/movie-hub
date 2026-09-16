@@ -1,6 +1,6 @@
 import { stableStringHash } from './contentDisplaySettings.js'
 
-export const PUBLIC_POSTER_ROW_LIMIT = 40
+export const PUBLIC_POSTER_ROW_LIMIT = 50
 export const TOP_RATED_MINIMUM_VOTES = 50
 
 function finiteNumber(value, fallback = Number.NEGATIVE_INFINITY) {
