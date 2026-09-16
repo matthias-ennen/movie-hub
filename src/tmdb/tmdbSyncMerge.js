@@ -1,3 +1,5 @@
+import { nativeTitleToFirestore } from './tmdbCatalogModel.js'
+
 const DEFINITIONS = [
   { id: 'favorite_movies', label: 'Favoriten Filme', mediaType: 'movie', flag: 'favorite', orderField: 'favoriteOrder' },
   { id: 'favorite_tv', label: 'Favoriten Serien', mediaType: 'tv', flag: 'favorite', orderField: 'favoriteOrder' },
@@ -56,7 +58,6 @@ function preserveMembership(next, current, incoming, section) {
     next[orderField] = active ? finiteNumber(incoming?.[orderField]) : null
     if (section.rating) {
       next.ratingValue = active ? finiteNumber(incoming?.ratingValue) : null
-      next.ratedOrder = next[orderField]
     }
     return
   }
@@ -66,12 +67,16 @@ function preserveMembership(next, current, incoming, section) {
   next[orderField] = active ? finiteNumber(current?.[orderField] ?? current?.ratedOrder) : null
   if (section.rating) {
     next.ratingValue = active ? finiteNumber(current?.ratingValue) : null
-    next.ratedOrder = next[orderField]
   }
 }
 
 function hasMembership(item) {
   return item?.favorite === true || item?.watchlist === true || item?.rated === true
+}
+
+function canonicalDocument(item, id) {
+  const data = nativeTitleToFirestore(item, item?.syncedAt || null)
+  return { id, ...data }
 }
 
 export function mergeTmdbSyncDocuments(currentDocuments = [], incomingDocuments = [], rawSections = null) {
@@ -97,7 +102,7 @@ export function mergeTmdbSyncDocuments(currentDocuments = [], incomingDocuments 
       if (section) preserveMembership(next, current, incoming, section)
     }
 
-    if (hasMembership(next)) documents.push(next)
+    if (hasMembership(next)) documents.push(canonicalDocument(next, key))
   }
 
   const counts = {
