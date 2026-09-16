@@ -1,5 +1,4 @@
 import { titleMediaKey } from './sharedMediaModel.js'
-import { mergeEnrichedTitle, titleNeedsMetadataEnrichment } from '../catalog/titleMetadata.js'
 
 function finiteNumber(value) {
   if (value === null || value === undefined || value === '') return null
@@ -58,6 +57,15 @@ function compactCollection(value) {
   }
 }
 
+function withMovieHubAvailability(item, { fallback = false } = {}) {
+  return {
+    ...item,
+    providerIds: [...new Set(['moviehub', ...(Array.isArray(item?.providerIds) ? item.providerIds : [])])],
+    movieHubCatalog: true,
+    sharedMediaFallback: fallback,
+  }
+}
+
 export function buildSharedMediaTitleRef(item) {
   const type = item?.type === 'series' ? 'series' : 'movie'
   const tmdbId = finiteNumber(item?.tmdbId)
@@ -109,47 +117,56 @@ export function buildSharedMediaTitleRef(item) {
 export function normalizeSharedMediaCatalogEntry(id, value) {
   if (!value || value.hasMedia === false) return null
   const titleRef = buildSharedMediaTitleRef(value.titleRef)
-  if (!titleRef.title || (!titleRef.id && titleRef.tmdbId === null)) return null
+  if (!Number.isFinite(Number(titleRef.tmdbId)) || Number(titleRef.tmdbId) <= 0) return null
   return {
-    key: String(id || titleMediaKey(titleRef)),
+    // TMDB media type + id is the identity. The Firestore document id and
+    // cached title text are never allowed to create a competing title identity.
+    key: titleMediaKey(titleRef),
     titleRef,
   }
 }
 
 export function sharedMediaCatalogTitle(entry) {
   const ref = entry?.titleRef
-  if (!ref?.title) return null
-  const type = ref.type === 'series' ? 'series' : 'movie'
-  const id = ref.id || (ref.tmdbId !== null ? `tmdb-${type}-${ref.tmdbId}` : entry.key)
-  return {
+  const tmdbId = finiteNumber(ref?.tmdbId)
+  if (!tmdbId || tmdbId <= 0) return null
+  const type = ref?.type === 'series' ? 'series' : 'movie'
+  const id = ref?.id || `tmdb-${type}-${tmdbId}`
+  const title = String(ref?.title || '').trim() || `TMDB #${tmdbId}`
+
+  // This object is only a display fallback for a Movie-Hub title that is not
+  // present in the currently loaded canonical TMDB catalog. It deliberately
+  // carries no cached third-party provider availability and is marked
+  // incomplete so opening it hydrates from published/native TMDB metadata.
+  return withMovieHubAvailability({
     ...ref,
     id,
+    tmdbId,
     type,
-    providerIds: [...new Set(['moviehub', ...(ref.providerIds || [])])],
+    title,
+    providerIds: [],
     providerOffers: [],
-    movieHubCatalog: true,
-  }
+    metadataComplete: false,
+  }, { fallback: true })
 }
 
 export function mergeSharedMediaCatalogTitles(entries, titles) {
   const byKey = new Map((Array.isArray(titles) ? titles : []).map((item) => [titleMediaKey(item), item]))
   const result = []
+
   for (const entry of Array.isArray(entries) ? entries : []) {
-    const fallback = sharedMediaCatalogTitle(entry)
-    if (!fallback) continue
     const current = byKey.get(entry.key)
-    if (!current) {
-      result.push(fallback)
+    if (current) {
+      // Canonical TMDB/public/personal catalog metadata is authoritative.
+      // Shared Media contributes only Movie-Hub availability.
+      result.push(withMovieHubAvailability(current))
       continue
     }
 
-    const storedIsRicher = titleNeedsMetadataEnrichment(current)
-      && !titleNeedsMetadataEnrichment(fallback)
-    const merged = storedIsRicher
-      ? mergeEnrichedTitle(current, fallback)
-      : mergeEnrichedTitle(fallback, current)
-    result.push({ ...merged, movieHubCatalog: true })
+    const fallback = sharedMediaCatalogTitle(entry)
+    if (fallback) result.push(fallback)
   }
+
   return result
 }
 
@@ -159,11 +176,12 @@ export function mergeTitlesWithSharedMediaCatalog(titles, movieHubTitles) {
   const seen = new Set()
   const merged = (Array.isArray(titles) ? titles : []).map((item) => {
     const key = titleMediaKey(item)
-    const movieHubItem = movieHubByKey.get(key)
-    if (!movieHubItem) return item
+    if (!movieHubByKey.has(key)) return item
     seen.add(key)
-    return movieHubItem
+    // Keep the canonical title object intact and add only Movie-Hub presence.
+    return withMovieHubAvailability(item)
   })
+
   for (const item of Array.isArray(movieHubTitles) ? movieHubTitles : []) {
     const key = titleMediaKey(item)
     if (!seen.has(key)) merged.push(item)

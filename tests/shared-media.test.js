@@ -10,7 +10,9 @@ import {
 import {
   buildSharedMediaTitleRef,
   mergeSharedMediaCatalogTitles,
+  mergeTitlesWithSharedMediaCatalog,
   normalizeSharedMediaCatalogEntry,
+  sharedMediaCatalogTitle,
 } from '../src/library/sharedMediaCatalogModel.js'
 
 describe('gemeinsame Movie-Hub-Medien', () => {
@@ -106,7 +108,7 @@ describe('gemeinsame Movie-Hub-Medien', () => {
       .toThrow(/Bezeichnung/)
   })
 
-  it('builds a deduplicated Movie-Hub provider title from the shared-media manifest', () => {
+  it('builds a Movie-Hub provider view from the canonical TMDB title', () => {
     const item = {
       id: 'tmdb-movie-11',
       tmdbId: 11,
@@ -126,6 +128,7 @@ describe('gemeinsame Movie-Hub-Medien', () => {
     expect(merged).toHaveLength(1)
     expect(merged[0].providerIds).toEqual(['moviehub', 'netflix'])
     expect(merged[0].movieHubCatalog).toBe(true)
+    expect(merged[0].sharedMediaFallback).toBe(false)
     expect(titleRef).toMatchObject({
       collectionId: 40,
       collectionName: 'Testreihe',
@@ -136,37 +139,80 @@ describe('gemeinsame Movie-Hub-Medien', () => {
     })
   })
 
-  it('bevorzugt vollständige gespeicherte Metadaten gegenüber einem schwächeren Browse-Titel', () => {
-    const titleRef = buildSharedMediaTitleRef({
-      id: 'tmdb-movie-562',
-      tmdbId: 562,
-      type: 'movie',
-      title: 'Stirb langsam',
-      collectionId: 1570,
-      collectionName: 'Stirb langsam - Collection',
-      collectionChecked: true,
-      collectionDetails: { id: 1570, name: 'Stirb langsam - Collection', parts: [
-        { id: 562, title: 'Stirb langsam' },
-        { id: 1573, title: 'Stirb langsam 2' },
-      ] },
-      metadataVersion: 2,
-      metadataComplete: true,
-      metadataUpdatedAt: '2026-09-13T09:00:00.000Z',
-      providerIds: ['disney'],
+  it('uses TMDB type + id as identity even when the cached title text is missing', () => {
+    const entry = normalizeSharedMediaCatalogEntry('legacy-wrong-key', {
+      hasMedia: true,
+      titleRef: { tmdbId: 1573, type: 'movie', title: '' },
     })
-    const entry = normalizeSharedMediaCatalogEntry('movie-562', { hasMedia: true, titleRef })
-    const [merged] = mergeSharedMediaCatalogTitles([entry], [{
-      id: 'tmdb-movie-562',
-      tmdbId: 562,
+    expect(entry).not.toBeNull()
+    expect(entry.key).toBe('movie-1573')
+  })
+
+  it('never lets a cached TMDB placeholder overwrite the canonical title', () => {
+    const entry = normalizeSharedMediaCatalogEntry('movie-1573', {
+      hasMedia: true,
+      titleRef: {
+        id: 'tmdb-movie-1573',
+        tmdbId: 1573,
+        type: 'movie',
+        title: 'TMDB #1573',
+        year: 1900,
+        posterUrl: 'https://stale.example/poster.jpg',
+        providerIds: ['disney'],
+        metadataVersion: 2,
+        metadataComplete: true,
+      },
+    })
+    const canonical = {
+      id: 'tmdb-movie-1573',
+      tmdbId: 1573,
       type: 'movie',
-      title: 'Stirb langsam',
+      title: 'Stirb langsam 2',
+      year: 1990,
+      posterUrl: 'https://image.tmdb.org/current.jpg',
+      providerIds: ['prime'],
       metadataVersion: 1,
       metadataComplete: false,
-      providerIds: ['prime'],
-    }])
+    }
 
-    expect(merged.collectionId).toBe(1570)
-    expect(merged.collectionDetails.parts).toHaveLength(2)
-    expect(merged.providerIds).toEqual(['prime', 'moviehub', 'disney'])
+    const [movieHubTitle] = mergeSharedMediaCatalogTitles([entry], [canonical])
+    expect(movieHubTitle.title).toBe('Stirb langsam 2')
+    expect(movieHubTitle.year).toBe(1990)
+    expect(movieHubTitle.posterUrl).toBe('https://image.tmdb.org/current.jpg')
+    expect(movieHubTitle.providerIds).toEqual(['moviehub', 'prime'])
+    expect(movieHubTitle.providerIds).not.toContain('disney')
+    expect(movieHubTitle.sharedMediaFallback).toBe(false)
+
+    const [combined] = mergeTitlesWithSharedMediaCatalog([canonical], [movieHubTitle])
+    expect(combined.title).toBe('Stirb langsam 2')
+    expect(combined.year).toBe(1990)
+    expect(combined.posterUrl).toBe('https://image.tmdb.org/current.jpg')
+    expect(combined.providerIds).toEqual(['moviehub', 'prime'])
+  })
+
+  it('uses a stored title snapshot only as a non-canonical fallback when TMDB data is not loaded', () => {
+    const entry = normalizeSharedMediaCatalogEntry('movie-562', {
+      hasMedia: true,
+      titleRef: {
+        id: 'tmdb-movie-562',
+        tmdbId: 562,
+        type: 'movie',
+        title: 'Stirb langsam',
+        year: 1988,
+        providerIds: ['disney'],
+        metadataVersion: 2,
+        metadataComplete: true,
+      },
+    })
+    const fallback = sharedMediaCatalogTitle(entry)
+
+    expect(fallback).toMatchObject({
+      tmdbId: 562,
+      title: 'Stirb langsam',
+      movieHubCatalog: true,
+      sharedMediaFallback: true,
+      metadataComplete: false,
+    })
+    expect(fallback.providerIds).toEqual(['moviehub'])
   })
 })
