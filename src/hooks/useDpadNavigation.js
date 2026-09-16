@@ -3,6 +3,7 @@ import { PROGRESSIVE_ROW_REQUEST_EVENT } from '../performance/progressiveRenderi
 
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
 const BACK_KEYS = new Set(['Escape', 'BrowserBack', 'GoBack'])
+const DPAD_REPEAT_INTERVAL_MS = 90
 
 function isEditable(element) {
   if (!element) return false
@@ -43,7 +44,7 @@ function getTrackVisibleBounds(track, padding = 0) {
   return { left, right }
 }
 
-function scrollPosterTrackToCandidate(candidate, mode = 'center') {
+function scrollPosterTrackToCandidate(candidate, mode = 'center', behavior = 'smooth') {
   const track = candidate?.closest?.('.poster-track')
   if (!track) return
 
@@ -69,7 +70,7 @@ function scrollPosterTrackToCandidate(candidate, mode = 'center') {
 
   const clampedLeft = Math.max(0, Math.min(targetLeft, maxLeft))
   if (Math.abs(track.scrollLeft - clampedLeft) > 1) {
-    track.scrollTo({ left: clampedLeft, behavior: 'smooth' })
+    track.scrollTo({ left: clampedLeft, behavior })
   }
 }
 
@@ -111,7 +112,7 @@ function getPosterClosestToViewportX(cards, sourceCenterX) {
   }, null)?.candidate || null
 }
 
-function scrollPageToPosterCandidate(candidate) {
+function scrollPageToPosterCandidate(candidate, behavior = 'smooth') {
   if (!candidate) return
 
   const scrollingElement = document.scrollingElement || document.documentElement
@@ -132,10 +133,10 @@ function scrollPageToPosterCandidate(candidate) {
   const maxTop = Math.max(0, scrollingElement.scrollHeight - viewportHeight)
   const targetTop = Math.max(0, Math.min(currentTop + deltaY, maxTop))
 
-  window.scrollTo({ top: targetTop, behavior: 'smooth' })
+  window.scrollTo({ top: targetTop, behavior })
 }
 
-function focusCandidate(candidate, { posterHorizontal = 'center' } = {}) {
+function focusCandidate(candidate, { posterHorizontal = 'center', scrollBehavior = 'smooth' } = {}) {
   if (!candidate) return
   candidate.focus({ preventScroll: true })
   const isInsideDialog = candidate.closest('.detail-modal, .media-panel, .exit-dialog, .profile-menu')
@@ -146,13 +147,13 @@ function focusCandidate(candidate, { posterHorizontal = 'center' } = {}) {
   // Poster werden deshalb auf Seitenebene explizit vertikal positioniert und
   // der innere Track anschließend unabhängig horizontal geführt.
   if (isPoster && !isInsideDialog) {
-    scrollPageToPosterCandidate(candidate)
-    window.requestAnimationFrame(() => scrollPosterTrackToCandidate(candidate, posterHorizontal))
+    scrollPageToPosterCandidate(candidate, scrollBehavior)
+    window.requestAnimationFrame(() => scrollPosterTrackToCandidate(candidate, posterHorizontal, scrollBehavior))
     return
   }
 
   candidate.scrollIntoView({
-    behavior: 'smooth',
+    behavior: scrollBehavior,
     block: 'nearest',
     inline: isInsideDialog ? 'nearest' : 'center',
   })
@@ -170,7 +171,7 @@ function moveWithin(candidates, active, delta, event) {
   consume(event)
   const nextIndex = index + delta
   if (nextIndex >= 0 && nextIndex < candidates.length) {
-    focusCandidate(candidates[nextIndex])
+    focusCandidate(candidates[nextIndex], { scrollBehavior: event.repeat ? 'auto' : 'smooth' })
   }
   return true
 }
@@ -217,7 +218,7 @@ function getFirstPageTarget() {
   return getFocusableCandidates(null).find((candidate) => !candidate.closest('.topbar')) || null
 }
 
-function focusAdjacentPosterRow(tracks, rowIndex, direction, active) {
+function focusAdjacentPosterRow(tracks, rowIndex, direction, active, scrollBehavior = 'smooth') {
   const targetRowIndex = rowIndex + direction
   if (targetRowIndex < 0 || targetRowIndex >= tracks.length) return false
 
@@ -228,15 +229,11 @@ function focusAdjacentPosterRow(tracks, rowIndex, direction, active) {
   const sourceCenterX = sourceRect.left + (sourceRect.width / 2)
   const target = getPosterClosestToViewportX(targetCards, sourceCenterX)
 
-  // Hoch/Runter verhält sich wie ein zweidimensionales Raster: gewählt wird die
-  // optisch nächstgelegene sichtbare Karte über/unter der aktuellen X-Position.
-  // Die Zielreihe behält ihren horizontalen Stand; nur angeschnittene Karten
-  // werden minimal nachgeführt statt jedes Mal wieder in die Mitte zu springen.
-  focusCandidate(target, { posterHorizontal: 'nearest' })
+  focusCandidate(target, { posterHorizontal: 'nearest', scrollBehavior })
   return true
 }
 
-function requestAndFocusNextPosterRow(active, currentTrack = null) {
+function requestAndFocusNextPosterRow(active, currentTrack = null, scrollBehavior = 'smooth') {
   const detail = { handled: false }
   window.dispatchEvent(new CustomEvent(PROGRESSIVE_ROW_REQUEST_EVENT, { detail }))
   if (!detail.handled) return false
@@ -254,13 +251,14 @@ function requestAndFocusNextPosterRow(active, currentTrack = null) {
     const target = sourceCenterX == null
       ? cards[0]
       : getPosterClosestToViewportX(cards, sourceCenterX)
-    focusCandidate(target, { posterHorizontal: 'nearest' })
+    focusCandidate(target, { posterHorizontal: 'nearest', scrollBehavior })
   }))
   return true
 }
 
 function handlePageNavigation(event, active) {
   const direction = event.key
+  const scrollBehavior = event.repeat ? 'auto' : 'smooth'
 
   if (active.closest?.('.topbar')) {
     const topbarCandidates = getTopbarCandidates()
@@ -268,27 +266,25 @@ function handlePageNavigation(event, active) {
     if (direction === 'ArrowRight') return moveWithin(topbarCandidates, active, 1, event)
 
     consume(event)
-    if (direction === 'ArrowDown') focusCandidate(getFirstPageTarget())
+    if (direction === 'ArrowDown') focusCandidate(getFirstPageTarget(), { scrollBehavior })
     return true
   }
 
   if (active.matches?.('.hero-carousel')) {
     if (direction === 'ArrowUp') {
       consume(event)
-      focusCandidate(getPreferredTopbarTarget())
+      focusCandidate(getPreferredTopbarTarget(), { scrollBehavior })
       return true
     }
 
     if (direction === 'ArrowDown') {
       consume(event)
       const target = getHeroActions()[0] || getPosterCards(getPosterTracks()[0])[0]
-      if (target) focusCandidate(target)
-      else requestAndFocusNextPosterRow(active)
+      if (target) focusCandidate(target, { scrollBehavior })
+      else requestAndFocusNextPosterRow(active, null, scrollBehavior)
       return true
     }
 
-    // Links/Rechts verarbeitet Hero selbst, damit der sichtbare Slide-Wechsel
-    // und der zyklische Vorwärtslauf an einer Stelle bleiben.
     return false
   }
 
@@ -300,11 +296,11 @@ function handlePageNavigation(event, active) {
 
     consume(event)
     if (direction === 'ArrowUp') {
-      focusCandidate(getHeroTarget())
+      focusCandidate(getHeroTarget(), { scrollBehavior })
     } else if (direction === 'ArrowDown') {
       const firstPoster = getPosterCards(getPosterTracks()[0])[0]
-      if (firstPoster) focusCandidate(firstPoster)
-      else requestAndFocusNextPosterRow(active)
+      if (firstPoster) focusCandidate(firstPoster, { scrollBehavior })
+      else requestAndFocusNextPosterRow(active, null, scrollBehavior)
     }
     return true
   }
@@ -325,16 +321,16 @@ function handlePageNavigation(event, active) {
 
     if (direction === 'ArrowUp') {
       if (rowIndex > 0) {
-        focusAdjacentPosterRow(tracks, rowIndex, -1, active)
+        focusAdjacentPosterRow(tracks, rowIndex, -1, active, scrollBehavior)
       } else {
-        focusCandidate(getHeroActions()[0] || getHeroTarget() || getPreferredTopbarTarget())
+        focusCandidate(getHeroActions()[0] || getHeroTarget() || getPreferredTopbarTarget(), { scrollBehavior })
       }
       return true
     }
 
     if (direction === 'ArrowDown') {
-      if (!focusAdjacentPosterRow(tracks, rowIndex, 1, active)) {
-        requestAndFocusNextPosterRow(active, currentTrack)
+      if (!focusAdjacentPosterRow(tracks, rowIndex, 1, active, scrollBehavior)) {
+        requestAndFocusNextPosterRow(active, currentTrack, scrollBehavior)
       }
       return true
     }
@@ -345,6 +341,14 @@ function handlePageNavigation(event, active) {
 
 export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen, onBack }) {
   useEffect(() => {
+    let lastArrowKey = null
+    let lastArrowAt = 0
+
+    const resetRepeatState = () => {
+      lastArrowKey = null
+      lastArrowAt = 0
+    }
+
     const initialFocus = window.requestAnimationFrame(() => {
       const active = document.activeElement
       if (!active || active === document.body) {
@@ -369,9 +373,15 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
 
       if (!ARROW_KEYS.has(event.key)) return
 
-      // In Texteingaben bleiben Links/Rechts für die Cursorbewegung reserviert.
-      // Hoch/Runter dürfen den Fokus dagegen zurück in die TV-Oberfläche führen.
       if (editable && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) return
+
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
+      if (lastArrowKey === event.key && now - lastArrowAt < DPAD_REPEAT_INTERVAL_MS) {
+        consume(event)
+        return
+      }
+      lastArrowKey = event.key
+      lastArrowAt = now
 
       const scope = getTopMediaPanel()
         || (exitDialogOpen
@@ -393,7 +403,7 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
       if (!active || !candidates.includes(active)) {
         if (scope) consume(event)
         else event.preventDefault()
-        focusCandidate(candidates[0])
+        focusCandidate(candidates[0], { scrollBehavior: event.repeat ? 'auto' : 'smooth' })
         return
       }
 
@@ -407,7 +417,7 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
         consume(event)
         episodeScrollContainer.scrollBy({
           top: event.key === 'ArrowDown' ? 180 : -180,
-          behavior: 'smooth',
+          behavior: event.repeat ? 'auto' : 'smooth',
         })
         return
       }
@@ -444,19 +454,24 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
 
       if (ranked[0]) {
         event.preventDefault()
-        focusCandidate(ranked[0].candidate)
+        focusCandidate(ranked[0].candidate, { scrollBehavior: event.repeat ? 'auto' : 'smooth' })
       } else if (scope) {
-        // Ein geöffneter lokaler Editor bildet für D-Pad-Bedienung einen
-        // geschlossenen Fokusbereich. An seinen Rändern darf die Taste weder
-        // die Seite scrollen noch ein Steuerelement im Hintergrund erreichen.
         consume(event)
       }
     }
 
+    function handleKeyUp(event) {
+      if (ARROW_KEYS.has(event.key)) resetRepeatState()
+    }
+
     window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('blur', resetRepeatState)
     return () => {
       window.cancelAnimationFrame(initialFocus)
       window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('blur', resetRepeatState)
     }
   }, [detailOpen, profileMenuOpen, exitDialogOpen, onBack])
 }
