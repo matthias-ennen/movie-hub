@@ -1,7 +1,7 @@
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import ProviderBadges from './ProviderBadges.jsx'
 
-export default function PosterCard({ item, onOpen, rank = null, hasMovieHub = false }) {
+export default function PosterCard({ item, onOpen, rank = null, hasMovieHub = false, onFocus = null, posterIndex = null }) {
   const posterUrl = item.displayPosterUrl || item.neutralPosterUrl || item.posterUrl || null
   const hasPoster = Boolean(posterUrl)
   const providerIds = Array.isArray(item.providerIds) ? item.providerIds : []
@@ -11,7 +11,9 @@ export default function PosterCard({ item, onOpen, rank = null, hasMovieHub = fa
       type="button"
       className={rank ? 'poster-card top-ten-poster-card' : 'poster-card'}
       onClick={() => onOpen(item, posterUrl)}
+      onFocus={onFocus || undefined}
       data-focusable="true"
+      data-poster-index={posterIndex ?? undefined}
       data-top-ten-rank={rank || undefined}
       aria-label={rank ? `Platz ${rank}: ${item.title} öffnen` : `${item.title} öffnen`}
       style={{ '--poster-accent': item.accent, '--poster-accent-2': item.accent2 }}
