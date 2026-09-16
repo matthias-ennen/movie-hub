@@ -15,6 +15,7 @@ import {
   normalizePersonalTmdbTitle,
   tmdbCatalogKey,
 } from './tmdbCatalogModel.js'
+import { formatTmdbSyncSummary, mergeTmdbSyncDocuments } from './tmdbSyncMerge.js'
 
 const TmdbCatalogContext = createContext(null)
 const BATCH_SIZE = 400
@@ -96,43 +97,67 @@ async function replaceTmdbCatalog(userId, payload) {
   const catalogRef = collection(db, 'users', userId, 'tmdbCatalog')
   const current = await getDocs(catalogRef)
   const syncedAt = payload.syncedAt || new Date().toISOString()
-  const incoming = new Map()
+  const incomingDocuments = []
 
   for (const raw of Array.isArray(payload.titles) ? payload.titles : []) {
     const key = tmdbCatalogKey(raw)
     if (!key) continue
     const repaired = await repairRawPersonalTitle(raw)
-    incoming.set(key, nativeTitleToFirestore(repaired, syncedAt))
+    incomingDocuments.push({ id: key, ...nativeTitleToFirestore(repaired, syncedAt) })
   }
 
+  const currentDocuments = current.docs.map((snapshot) => ({
+    id: snapshot.id,
+    ...snapshot.data(),
+  }))
+  const merged = mergeTmdbSyncDocuments(currentDocuments, incomingDocuments, payload.sections)
+  const nextIds = new Set(merged.documents.map((item) => item.id))
   const operations = []
+
   for (const snapshot of current.docs) {
-    if (!incoming.has(snapshot.id)) operations.push({ type: 'delete', ref: snapshot.ref })
+    if (!nextIds.has(snapshot.id)) operations.push({ type: 'delete', ref: snapshot.ref })
   }
-  for (const [key, data] of incoming) {
-    operations.push({ type: 'set', ref: doc(catalogRef, key), data })
+  for (const item of merged.documents) {
+    const { id, ...data } = item
+    operations.push({ type: 'set', ref: doc(catalogRef, id), data })
   }
   await commitOperations(db, operations)
 
-  const counts = payload.counts || {}
   const account = payload.account || {}
+  const persistedSections = merged.sections.map((section) => ({
+    id: section.id,
+    label: section.label,
+    ok: section.ok,
+    count: section.count,
+    retried: section.retried,
+    preserved: section.preserved,
+    error: section.error,
+  }))
   await setDoc(doc(db, 'users', userId, 'tmdbSync', 'state'), {
     syncedAt,
     accountId: Number.isFinite(Number(account.id)) ? Number(account.id) : null,
     accountUsername: account.username || null,
     accountName: account.name || null,
-    favoriteCount: Number.isFinite(Number(counts.favorite)) ? Number(counts.favorite) : 0,
-    watchlistCount: Number.isFinite(Number(counts.watchlist)) ? Number(counts.watchlist) : 0,
-    ratingCount: Number.isFinite(Number(counts.rated)) ? Number(counts.rated) : 0,
-    totalCount: incoming.size,
+    favoriteCount: merged.counts.favorite,
+    watchlistCount: merged.counts.watchlist,
+    ratingCount: merged.counts.rated,
+    totalCount: merged.counts.total,
+    partial: merged.partial,
+    successfulSections: merged.successfulSections,
+    totalSections: merged.totalSections,
+    sections: persistedSections,
   })
 
   return {
     syncedAt,
-    favoriteCount: Number(counts.favorite) || 0,
-    watchlistCount: Number(counts.watchlist) || 0,
-    ratingCount: Number(counts.rated) || 0,
-    totalCount: incoming.size,
+    favoriteCount: merged.counts.favorite,
+    watchlistCount: merged.counts.watchlist,
+    ratingCount: merged.counts.rated,
+    totalCount: merged.counts.total,
+    partial: merged.partial,
+    successfulSections: merged.successfulSections,
+    totalSections: merged.totalSections,
+    sections: persistedSections,
   }
 }
 
@@ -284,7 +309,8 @@ export function TmdbCatalogProvider({ user, children }) {
         const payload = parseNativePayload(rawPayload)
         if (!payload.ok) throw new Error(payload.error || 'TMDB-Synchronisierung fehlgeschlagen.')
         const result = await replaceTmdbCatalog(user.uid, payload)
-        setSyncMessage(`Synchronisiert: ${result.favoriteCount} Favoriten · ${result.watchlistCount} Watchlist-Titel · ${result.ratingCount} Bewertungen.`)
+        const sectionSummary = formatTmdbSyncSummary(payload.sections)
+        setSyncMessage(sectionSummary || `Synchronisiert: ${result.favoriteCount} Favoriten · ${result.watchlistCount} Watchlist-Titel · ${result.ratingCount} Bewertungen.`)
       } catch (nextError) {
         setSyncMessage(nextError instanceof Error ? nextError.message : 'TMDB-Synchronisierung fehlgeschlagen.')
       } finally {

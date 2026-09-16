@@ -3,6 +3,7 @@ package de.matthiasennen.moviehub;
 import android.content.Context;
 import android.webkit.WebView;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
@@ -39,10 +40,15 @@ final class TmdbCatalogSyncCoordinator {
                     result = errorPayload(
                             "Verbinde unter Einstellungen zuerst den persönlichen TMDB-Zugang vollständig.");
                 } else {
-                    result = TmdbApiClient.fetchPersonalCatalog(
+                    result = TmdbResilientCatalogSync.fetchPersonalCatalog(
                             credentials.getApiReadAccessToken(), credentials.getSessionId());
-                    result.put("ok", true);
-                    result.put("syncedAt", isoNow());
+                    if (hasAuthenticationSectionFailure(result)) {
+                        result = errorPayload(
+                                "Die TMDB-Sitzung ist nicht mehr gültig. Bitte verbinde dein TMDB-Konto erneut.");
+                    } else {
+                        result.put("ok", true);
+                        result.put("syncedAt", isoNow());
+                    }
                 }
             } catch (TmdbApiClient.TmdbException error) {
                 String message = error.getMessage() == null
@@ -98,6 +104,18 @@ final class TmdbCatalogSyncCoordinator {
             } catch (Exception ignored) {}
             deliver(webView, result, "__movieHubTmdbTitleMetadataResult");
         });
+    }
+
+    private static boolean hasAuthenticationSectionFailure(JSONObject payload) {
+        JSONArray sections = payload == null ? null : payload.optJSONArray("sections");
+        if (sections == null) return false;
+        for (int index = 0; index < sections.length(); index++) {
+            JSONObject section = sections.optJSONObject(index);
+            if (section == null || section.optBoolean("ok", true)) continue;
+            String error = section.optString("error");
+            if (error.startsWith("HTTP 401") || error.startsWith("HTTP 403")) return true;
+        }
+        return false;
     }
 
     private static boolean shouldRunRequestDiagnostics(TmdbApiClient.TmdbException error) {
