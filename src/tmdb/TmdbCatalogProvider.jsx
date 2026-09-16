@@ -7,9 +7,9 @@ import {
   setDoc,
   writeBatch,
 } from 'firebase/firestore'
+import { loadCompleteTitleMetadata } from '../catalog/loadCompleteTitleMetadata.js'
 import { isUsableTitle, mergeEnrichedTitle } from '../catalog/titleMetadata.js'
 import { firebaseReady } from '../lib/firebase.js'
-import { loadSearchDetail } from '../search/lazySearchDetails.js'
 import {
   nativeTitleToFirestore,
   normalizePersonalTmdbTitle,
@@ -37,22 +37,54 @@ async function commitOperations(db, operations) {
   }
 }
 
+function canonicalGenreNames(detail, fallback = []) {
+  if (Array.isArray(detail?.genreNames) && detail.genreNames.length) {
+    return detail.genreNames.map((value) => String(value || '').trim()).filter(Boolean)
+  }
+  if (Array.isArray(detail?.genres) && detail.genres.length) {
+    return detail.genres
+      .map((genre) => typeof genre === 'string' ? genre : genre?.name)
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+  }
+  return Array.isArray(fallback) ? fallback : []
+}
+
+function applyCanonicalMetadataToRaw(raw, detail) {
+  const series = detail?.type === 'series' || detail?.mediaType === 'tv'
+  return {
+    ...raw,
+    title: detail.title,
+    originalTitle: detail.originalTitle || raw.originalTitle || detail.title,
+    description: detail.description || raw.description || '',
+    releaseDate: detail.releaseDate || raw.releaseDate || null,
+    posterPath: detail.posterPath || raw.posterPath || null,
+    backdropPath: detail.backdropPath || raw.backdropPath || null,
+    artwork: detail.artwork || raw.artwork || null,
+    collectionId: series ? null : detail.collectionId ?? raw.collectionId ?? null,
+    collectionName: series ? null : detail.collectionName || raw.collectionName || null,
+    collectionChecked: series ? null : detail.collectionChecked === true || raw.collectionChecked === true,
+    collectionDetails: series ? null : detail.collectionDetails || raw.collectionDetails || null,
+    metadataVersion: Math.max(Number(detail.metadataVersion) || 0, Number(raw.metadataVersion) || 0, 1),
+    metadataComplete: detail.metadataComplete === true,
+    metadataUpdatedAt: detail.metadataUpdatedAt || raw.metadataUpdatedAt || raw.syncedAt || null,
+    originalLanguage: detail.originalLanguage || raw.originalLanguage || null,
+    voteAverage: Number.isFinite(Number(detail.voteAverage)) ? Number(detail.voteAverage) : raw.voteAverage,
+    voteCount: Number.isFinite(Number(detail.voteCount)) ? Number(detail.voteCount) : raw.voteCount,
+    genreNames: canonicalGenreNames(detail, raw.genreNames),
+    providerIds: Array.isArray(detail.providerIds) ? detail.providerIds : raw.providerIds,
+    ageRating: detail.ageRating ?? raw.ageRating ?? null,
+  }
+}
+
 async function repairRawPersonalTitle(raw) {
   const normalized = normalizePersonalTmdbTitle(raw)
   if (isUsableTitle(normalized.title)) return raw
 
   try {
-    const detail = await loadSearchDetail(normalized)
+    const detail = await loadCompleteTitleMetadata(normalized)
     if (!isUsableTitle(detail?.title)) return raw
-    return {
-      ...raw,
-      title: detail.title,
-      originalTitle: detail.originalTitle || raw.originalTitle || detail.title,
-      description: detail.description || raw.description || '',
-      releaseDate: detail.releaseDate || raw.releaseDate || null,
-      posterPath: detail.posterPath || raw.posterPath || null,
-      backdropPath: detail.backdropPath || raw.backdropPath || null,
-    }
+    return applyCanonicalMetadataToRaw(raw, detail)
   } catch (error) {
     console.warn(`TMDB-Titel ${normalized.tmdbId} konnte vor dem Speichern nicht aufgelöst werden.`, error)
     return raw
@@ -105,19 +137,29 @@ async function replaceTmdbCatalog(userId, payload) {
 }
 
 function firestoreTitleRepairPatch(repaired) {
-  const patch = { title: repaired.title }
+  const patch = {
+    title: repaired.title,
+    metadataVersion: Math.max(1, Number(repaired.metadataVersion) || 1),
+    metadataComplete: repaired.metadataComplete === true,
+    metadataUpdatedAt: repaired.metadataUpdatedAt || repaired.syncedAt || new Date().toISOString(),
+  }
   if (isUsableTitle(repaired.originalTitle)) patch.originalTitle = repaired.originalTitle
-  if (typeof repaired.description === 'string' && repaired.description.trim()) {
-    patch.description = repaired.description
-  }
-  if (typeof repaired.releaseDate === 'string' && repaired.releaseDate.trim()) {
-    patch.releaseDate = repaired.releaseDate
-  }
-  if (typeof repaired.posterPath === 'string' && repaired.posterPath) {
-    patch.posterPath = repaired.posterPath
-  }
-  if (typeof repaired.backdropPath === 'string' && repaired.backdropPath) {
-    patch.backdropPath = repaired.backdropPath
+  if (typeof repaired.description === 'string') patch.description = repaired.description
+  if (typeof repaired.releaseDate === 'string' && repaired.releaseDate.trim()) patch.releaseDate = repaired.releaseDate
+  if (typeof repaired.posterPath === 'string' && repaired.posterPath) patch.posterPath = repaired.posterPath
+  if (typeof repaired.backdropPath === 'string' && repaired.backdropPath) patch.backdropPath = repaired.backdropPath
+  if (repaired.artwork && typeof repaired.artwork === 'object') patch.artwork = repaired.artwork
+  if (typeof repaired.originalLanguage === 'string' && repaired.originalLanguage) patch.originalLanguage = repaired.originalLanguage
+  if (Number.isFinite(Number(repaired.voteAverage))) patch.voteAverage = Number(repaired.voteAverage)
+  if (Number.isFinite(Number(repaired.voteCount))) patch.voteCount = Number(repaired.voteCount)
+  if (Number.isFinite(Number(repaired.ageRating))) patch.ageRating = Number(repaired.ageRating)
+  if (Array.isArray(repaired.genreNames)) patch.genreNames = repaired.genreNames
+  if (Array.isArray(repaired.providerIds)) patch.providerIds = repaired.providerIds
+  if (repaired.type !== 'series') {
+    patch.collectionId = repaired.collectionId ?? null
+    patch.collectionName = repaired.collectionName || null
+    patch.collectionChecked = repaired.collectionChecked === true
+    patch.collectionDetails = repaired.collectionDetails || null
   }
   return patch
 }
@@ -210,7 +252,7 @@ export function TmdbCatalogProvider({ user, children }) {
       const token = `${user.uid}:${key}`
       repairInFlightRef.current.add(token)
 
-      loadSearchDetail(item)
+      loadCompleteTitleMetadata(item)
         .then(async (detail) => {
           if (!isUsableTitle(detail?.title) || activeUidRef.current !== user.uid) return
           const repaired = mergeEnrichedTitle(item, detail)
