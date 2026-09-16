@@ -1,11 +1,18 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   INITIAL_VISIBLE_POSTERS,
   INITIAL_VISIBLE_ROWS,
+  cancelHeroImagePreload,
   initialVisibleCount,
   nextVisibleCount,
   preloadHeroImage,
 } from '../src/performance/progressiveRendering.js'
+
+afterEach(() => {
+  cancelHeroImagePreload()
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 describe('Hero-first und progressives Rendering', () => {
   it('mountet vor der Hero-Bereitschaft keine Reihen oder Poster', () => {
@@ -27,5 +34,22 @@ describe('Hero-first und progressives Rendering', () => {
 
   it('überspringt Hero-Preloading außerhalb eines Browsers', () => {
     expect(preloadHeroImage([{ backdropUrl: 'https://example.test/hero.jpg' }])).toBe(false)
+  })
+
+  it('lädt bei schnellem Navigationsfokus nur das zuletzt gemeinte Hero vor', () => {
+    vi.useFakeTimers()
+    const requests = []
+    class FakeImage {
+      set src(value) { requests.push(value) }
+    }
+    vi.stubGlobal('Image', FakeImage)
+
+    expect(preloadHeroImage([{ backdropUrl: 'https://example.test/movies.jpg' }], { delayMs: 275 })).toBe(true)
+    expect(preloadHeroImage([{ backdropUrl: 'https://example.test/series.jpg' }], { delayMs: 275 })).toBe(true)
+
+    vi.advanceTimersByTime(274)
+    expect(requests).toEqual([])
+    vi.advanceTimersByTime(1)
+    expect(requests).toEqual(['https://example.test/series.jpg'])
   })
 })
