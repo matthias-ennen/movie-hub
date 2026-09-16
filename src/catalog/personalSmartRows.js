@@ -1,5 +1,5 @@
 export const MAX_PERSONAL_SMART_ROWS = 10
-export const PERSONAL_SMART_ROW_LIMIT = 40
+export const PERSONAL_SMART_ROW_LIMIT = 50
 
 export const PERSONAL_SMART_ROW_TYPES = Object.freeze([
   { id: 'cast', label: 'Schauspieler/in', searchLabel: 'Schauspieler/in suchen' },

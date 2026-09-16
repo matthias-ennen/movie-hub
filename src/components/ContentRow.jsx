@@ -3,6 +3,9 @@ import { providerIdForRowTitle } from '../settings/providerSelectionModel.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import PosterCard from './PosterCard.jsx'
 
+const STANDARD_POSTER_ROW_LIMIT = 50
+const TOP_TEN_ROW_LIMIT = 10
+
 export default function ContentRow({ title, items, onOpen, providerId = null, variant = 'standard' }) {
   const { isProviderEnabled } = useProviderSelection()
   const { hasTitle: hasMovieHubTitle } = useSharedMediaCatalog()
@@ -12,15 +15,16 @@ export default function ContentRow({ title, items, onOpen, providerId = null, va
   if (resolvedProviderId && !isProviderEnabled(resolvedProviderId)) return null
 
   const topTen = variant === 'top-ten'
+  const visibleItems = (Array.isArray(items) ? items : []).slice(0, topTen ? TOP_TEN_ROW_LIMIT : STANDARD_POSTER_ROW_LIMIT)
 
   return (
     <section className={topTen ? 'content-row top-ten-row' : 'content-row'}>
       <div className="row-heading">
         <h2>{title}</h2>
-        <span>{items.length} Titel</span>
+        <span>{visibleItems.length} Titel</span>
       </div>
       <div className={topTen ? 'poster-track top-ten-track' : 'poster-track'}>
-        {items.map((item, index) => (
+        {visibleItems.map((item, index) => (
           <PosterCard
             item={item}
             onOpen={onOpen}
