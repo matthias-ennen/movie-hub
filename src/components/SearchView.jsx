@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSharedMediaCatalog } from '../library/useSharedMediaCatalog.js'
 import {
   SEARCH_MIN_QUERY_LENGTH,
   buildSearchIndexEntries,
@@ -35,7 +36,9 @@ export default function SearchView({ publicTitles, personalTitles, movieHubTitle
   const [indexLoading, setIndexLoading] = useState(true)
   const [indexError, setIndexError] = useState(null)
   const [detailLoadingId, setDetailLoadingId] = useState(null)
-  const { enabledProviderIds } = useProviderSelection()
+  const { enabledProviderIds, isProviderEnabled } = useProviderSelection()
+  const { hasTitle: hasMovieHubTitle } = useSharedMediaCatalog()
+  const movieHubEnabled = isProviderEnabled('moviehub')
 
   useEffect(() => {
     let cancelled = false
@@ -152,7 +155,14 @@ export default function SearchView({ publicTitles, personalTitles, movieHubTitle
 
       {searchResult.results.length > 0 && (
         <div className="poster-grid">
-          {searchResult.results.map((item) => <PosterCard key={item.id} item={item} onOpen={openEntry} />)}
+          {searchResult.results.map((item) => (
+            <PosterCard
+              key={item.id}
+              item={item}
+              onOpen={openEntry}
+              hasMovieHub={movieHubEnabled && hasMovieHubTitle(item)}
+            />
+          ))}
         </div>
       )}
     </main>
