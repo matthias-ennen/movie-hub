@@ -74,8 +74,24 @@ function hasMembership(item) {
   return item?.favorite === true || item?.watchlist === true || item?.rated === true
 }
 
+function identityFromDocumentKey(id) {
+  const match = String(id || '').match(/^(movie|tv):(\d+)$/)
+  if (!match) return null
+  return {
+    mediaType: match[1],
+    tmdbId: Number(match[2]),
+  }
+}
+
 function canonicalDocument(item, id) {
-  const data = nativeTitleToFirestore(item, item?.syncedAt || null)
+  const keyIdentity = identityFromDocumentKey(id)
+  const explicitTmdbId = finiteNumber(item?.tmdbId)
+  const canonicalInput = {
+    ...item,
+    mediaType: mediaTypeOf(item) || keyIdentity?.mediaType || null,
+    tmdbId: explicitTmdbId ?? keyIdentity?.tmdbId ?? null,
+  }
+  const data = nativeTitleToFirestore(canonicalInput, item?.syncedAt || null)
   return { id, ...data }
 }
 
