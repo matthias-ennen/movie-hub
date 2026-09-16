@@ -117,7 +117,7 @@ describe('Firestore Security Rules', () => {
     expect((await assertSucceeds(getDoc(mediaRef))).data().label).toBe('Deutscher Trailer')
   })
 
-  it('erlaubt Bewertungen und Altersfreigabe im nicht geheimen persönlichen TMDB-Katalog', async () => {
+  it('erlaubt Bewertungen, Altersfreigabe und den neuen Teil-Sync-Status im persönlichen TMDB-Katalog', async () => {
     const db = testEnv.authenticatedContext('alice').firestore()
     const catalogRef = doc(db, 'users', 'alice', 'tmdbCatalog', 'movie:11')
     const syncRef = doc(db, 'users', 'alice', 'tmdbSync', 'state')
@@ -154,20 +154,31 @@ describe('Firestore Security Rules', () => {
       syncedAt: '2026-09-09T12:00:00Z',
     }))
     await assertSucceeds(setDoc(syncRef, {
-      syncedAt: '2026-09-09T12:00:00Z',
+      syncedAt: '2026-09-16T11:35:00Z',
       accountId: 123,
       accountUsername: 'alice-tmdb',
       accountName: null,
-      favoriteCount: 1,
-      watchlistCount: 0,
-      ratingCount: 1,
-      totalCount: 1,
+      favoriteCount: 60,
+      watchlistCount: 65,
+      ratingCount: 31,
+      totalCount: 93,
+      partial: true,
+      successfulSections: 5,
+      totalSections: 6,
+      sections: [
+        { id: 'favorite_movies', label: 'Favoriten Filme', ok: true, count: 40, retried: false, preserved: false, error: null },
+        { id: 'rated_tv', label: 'Bewertungen Serien', ok: false, count: null, retried: true, preserved: true, error: 'HTTP 500 · TMDB-Status 11' },
+      ],
     }))
     const stored = (await assertSucceeds(getDoc(catalogRef))).data()
+    const syncState = (await assertSucceeds(getDoc(syncRef))).data()
     expect(stored.favorite).toBe(true)
     expect(stored.rated).toBe(true)
     expect(stored.ratingValue).toBe(9)
     expect(stored.ageRating).toBe(12)
+    expect(syncState.partial).toBe(true)
+    expect(syncState.successfulSections).toBe(5)
+    expect(syncState.sections[1].preserved).toBe(true)
   })
 
   it('verhindert das Einschleusen unbekannter Felder in den TMDB-Katalog', async () => {
@@ -177,6 +188,23 @@ describe('Firestore Security Rules', () => {
       tmdbId: 11,
       mediaType: 'movie',
       title: 'Star Wars',
+      apiReadAccessToken: 'darf-nicht-gespeichert-werden',
+    }))
+  })
+
+  it('verhindert unbekannte Top-Level-Felder im TMDB-Sync-Status', async () => {
+    const db = testEnv.authenticatedContext('alice').firestore()
+    const ref = doc(db, 'users', 'alice', 'tmdbSync', 'state')
+    await assertFails(setDoc(ref, {
+      syncedAt: '2026-09-16T11:35:00Z',
+      favoriteCount: 60,
+      watchlistCount: 65,
+      ratingCount: 31,
+      totalCount: 93,
+      partial: false,
+      successfulSections: 6,
+      totalSections: 6,
+      sections: [],
       apiReadAccessToken: 'darf-nicht-gespeichert-werden',
     }))
   })

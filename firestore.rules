@@ -57,13 +57,15 @@ service cloud.firestore {
       }
 
       // Synchronisationsmetadaten enthalten ebenfalls keine Secrets, sondern
-      // nur Account-Anzeigeinformationen, Zähler und Zeitpunkt.
+      // nur Account-Anzeigeinformationen, Zähler, Zeitpunkt und den
+      // sanitisierten Status der sechs persönlichen TMDB-Bereiche.
       match /tmdbSync/{documentId} {
         allow read, delete: if ownsUserData(userId);
         allow create, update: if ownsUserData(userId)
           && request.resource.data.keys().hasOnly([
             'syncedAt', 'accountId', 'accountUsername', 'accountName',
-            'favoriteCount', 'watchlistCount', 'ratingCount', 'totalCount'
+            'favoriteCount', 'watchlistCount', 'ratingCount', 'totalCount',
+            'partial', 'successfulSections', 'totalSections', 'sections'
           ]);
       }
     }
