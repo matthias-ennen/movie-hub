@@ -1,6 +1,7 @@
+import { STANDARD_POSTER_ROW_LIMIT } from '../performance/posterRows.js'
 import { getTitleStateKey, hasPersonalTitleState } from './libraryState.js'
 
-export const WATCHED_HISTORY_LIMIT = 100
+export const WATCHED_HISTORY_LIMIT = STANDARD_POSTER_ROW_LIMIT
 
 function byTitle(a, b) {
   return String(a.title ?? '').localeCompare(String(b.title ?? ''), 'de')
@@ -14,8 +15,9 @@ function byRatingDesc(getTitleState) {
   }
 }
 
-export function buildPersonalRows(titles, getTitleState) {
+export function buildPersonalRows(titles, getTitleState, limit = STANDARD_POSTER_ROW_LIMIT) {
   if (!Array.isArray(titles) || typeof getTitleState !== 'function') return []
+  const safeLimit = Math.max(0, Number(limit) || 0)
 
   const definitions = [
     {
@@ -44,7 +46,8 @@ export function buildPersonalRows(titles, getTitleState) {
       title: definition.title,
       items: titles
         .filter((item) => definition.matches(getTitleState(item)))
-        .sort(definition.sort),
+        .sort(definition.sort)
+        .slice(0, safeLimit),
     }))
     .filter((row) => row.items.length > 0)
 }

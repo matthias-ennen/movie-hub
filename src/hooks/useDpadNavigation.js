@@ -4,6 +4,7 @@ import { PROGRESSIVE_ROW_REQUEST_EVENT } from '../performance/progressiveRenderi
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
 const BACK_KEYS = new Set(['Escape', 'BrowserBack', 'GoBack'])
 const DPAD_REPEAT_INTERVAL_MS = 90
+const VIRTUAL_ROW_FOCUS_RETRIES = 10
 
 function isEditable(element) {
   if (!element) return false
@@ -142,10 +143,6 @@ function focusCandidate(candidate, { posterHorizontal = 'center', scrollBehavior
   const isInsideDialog = candidate.closest('.detail-modal, .media-panel, .exit-dialog, .profile-menu')
   const isPoster = candidate.matches?.('.poster-card')
 
-  // Fire TV/WebView kann einen verschachtelten scrollIntoView()-Aufruf für das
-  // Dokument und den separaten horizontalen Poster-Track-Scroll verlieren.
-  // Poster werden deshalb auf Seitenebene explizit vertikal positioniert und
-  // der innere Track anschließend unabhängig horizontal geführt.
   if (isPoster && !isInsideDialog) {
     scrollPageToPosterCandidate(candidate, scrollBehavior)
     window.requestAnimationFrame(() => scrollPosterTrackToCandidate(candidate, posterHorizontal, scrollBehavior))
@@ -218,41 +215,61 @@ function getFirstPageTarget() {
   return getFocusableCandidates(null).find((candidate) => !candidate.closest('.topbar')) || null
 }
 
-function focusAdjacentPosterRow(tracks, rowIndex, direction, active, scrollBehavior = 'smooth') {
-  const targetRowIndex = rowIndex + direction
-  if (targetRowIndex < 0 || targetRowIndex >= tracks.length) return false
+function getRowIndexFromTrack(track) {
+  const value = Number(track?.closest?.('.content-row')?.dataset?.rowIndex)
+  return Number.isInteger(value) ? value : null
+}
 
-  const targetCards = getPosterCards(tracks[targetRowIndex])
+function focusMountedPosterRow(targetRowIndex, active, scrollBehavior = 'smooth') {
+  if (!Number.isInteger(targetRowIndex)) return false
+  const targetTrack = document.querySelector(`.content-row[data-row-index="${targetRowIndex}"] .poster-track`)
+  const targetCards = getPosterCards(targetTrack)
   if (!targetCards.length) return false
 
-  const sourceRect = active.getBoundingClientRect()
-  const sourceCenterX = sourceRect.left + (sourceRect.width / 2)
-  const target = getPosterClosestToViewportX(targetCards, sourceCenterX)
-
+  const sourceRect = active?.getBoundingClientRect?.()
+  const sourceCenterX = sourceRect ? sourceRect.left + (sourceRect.width / 2) : null
+  const target = sourceCenterX == null
+    ? targetCards[0]
+    : getPosterClosestToViewportX(targetCards, sourceCenterX)
   focusCandidate(target, { posterHorizontal: 'nearest', scrollBehavior })
   return true
 }
 
-function requestAndFocusNextPosterRow(active, currentTrack = null, scrollBehavior = 'smooth') {
-  const detail = { handled: false }
-  window.dispatchEvent(new CustomEvent(PROGRESSIVE_ROW_REQUEST_EVENT, { detail }))
-  if (!detail.handled) return false
+function focusVirtualPosterRow(targetRowIndex, sourceCenterX, scrollBehavior = 'smooth', attempt = 0) {
+  const targetTrack = document.querySelector(`.content-row[data-row-index="${targetRowIndex}"] .poster-track`)
+  const targetCards = getPosterCards(targetTrack)
 
+  if (targetCards.length) {
+    const target = sourceCenterX == null
+      ? targetCards[0]
+      : getPosterClosestToViewportX(targetCards, sourceCenterX)
+    focusCandidate(target, { posterHorizontal: 'nearest', scrollBehavior })
+    return
+  }
+
+  if (attempt >= VIRTUAL_ROW_FOCUS_RETRIES) return
+  window.requestAnimationFrame(() => focusVirtualPosterRow(targetRowIndex, sourceCenterX, scrollBehavior, attempt + 1))
+}
+
+function requestAndFocusPosterRow(active, currentTrack = null, direction = 1, scrollBehavior = 'smooth') {
+  const currentRowIndex = currentTrack ? getRowIndexFromTrack(currentTrack) : -1
   const sourceRect = active?.getBoundingClientRect?.()
   const sourceCenterX = sourceRect ? sourceRect.left + (sourceRect.width / 2) : null
+  const detail = {
+    handled: false,
+    currentRowIndex: Number.isInteger(currentRowIndex) ? currentRowIndex : -1,
+    direction,
+    sourceCenterX,
+  }
 
-  window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
-    const tracks = getPosterTracks()
-    const currentIndex = currentTrack ? tracks.indexOf(currentTrack) : -1
-    const targetTrack = currentIndex >= 0 ? tracks[currentIndex + 1] : tracks[0]
-    const cards = getPosterCards(targetTrack)
-    if (!cards.length) return
+  window.dispatchEvent(new CustomEvent(PROGRESSIVE_ROW_REQUEST_EVENT, { detail }))
+  if (!detail.handled || !Number.isInteger(detail.targetRowIndex)) return false
 
-    const target = sourceCenterX == null
-      ? cards[0]
-      : getPosterClosestToViewportX(cards, sourceCenterX)
-    focusCandidate(target, { posterHorizontal: 'nearest', scrollBehavior })
-  }))
+  window.requestAnimationFrame(() => focusVirtualPosterRow(
+    detail.targetRowIndex,
+    sourceCenterX,
+    scrollBehavior,
+  ))
   return true
 }
 
@@ -281,7 +298,7 @@ function handlePageNavigation(event, active) {
       consume(event)
       const target = getHeroActions()[0] || getPosterCards(getPosterTracks()[0])[0]
       if (target) focusCandidate(target, { scrollBehavior })
-      else requestAndFocusNextPosterRow(active, null, scrollBehavior)
+      else requestAndFocusPosterRow(active, null, 1, scrollBehavior)
       return true
     }
 
@@ -300,7 +317,7 @@ function handlePageNavigation(event, active) {
     } else if (direction === 'ArrowDown') {
       const firstPoster = getPosterCards(getPosterTracks()[0])[0]
       if (firstPoster) focusCandidate(firstPoster, { scrollBehavior })
-      else requestAndFocusNextPosterRow(active, null, scrollBehavior)
+      else requestAndFocusPosterRow(active, null, 1, scrollBehavior)
     }
     return true
   }
@@ -313,15 +330,28 @@ function handlePageNavigation(event, active) {
     if (direction === 'ArrowLeft') return moveWithin(cards, active, -1, event)
     if (direction === 'ArrowRight') return moveWithin(cards, active, 1, event)
 
-    const tracks = getPosterTracks()
-    const rowIndex = tracks.indexOf(currentTrack)
-    if (rowIndex < 0) return false
-
+    const actualRowIndex = getRowIndexFromTrack(currentTrack)
     consume(event)
 
     if (direction === 'ArrowUp') {
+      if (Number.isInteger(actualRowIndex)) {
+        if (actualRowIndex <= 0) {
+          focusCandidate(getHeroActions()[0] || getHeroTarget() || getPreferredTopbarTarget(), { scrollBehavior })
+          return true
+        }
+        if (!focusMountedPosterRow(actualRowIndex - 1, active, scrollBehavior)) {
+          requestAndFocusPosterRow(active, currentTrack, -1, scrollBehavior)
+        }
+        return true
+      }
+
+      const tracks = getPosterTracks()
+      const rowIndex = tracks.indexOf(currentTrack)
       if (rowIndex > 0) {
-        focusAdjacentPosterRow(tracks, rowIndex, -1, active, scrollBehavior)
+        const targetCards = getPosterCards(tracks[rowIndex - 1])
+        const sourceRect = active.getBoundingClientRect()
+        const target = getPosterClosestToViewportX(targetCards, sourceRect.left + (sourceRect.width / 2))
+        focusCandidate(target, { posterHorizontal: 'nearest', scrollBehavior })
       } else {
         focusCandidate(getHeroActions()[0] || getHeroTarget() || getPreferredTopbarTarget(), { scrollBehavior })
       }
@@ -329,8 +359,22 @@ function handlePageNavigation(event, active) {
     }
 
     if (direction === 'ArrowDown') {
-      if (!focusAdjacentPosterRow(tracks, rowIndex, 1, active, scrollBehavior)) {
-        requestAndFocusNextPosterRow(active, currentTrack, scrollBehavior)
+      if (Number.isInteger(actualRowIndex)) {
+        if (!focusMountedPosterRow(actualRowIndex + 1, active, scrollBehavior)) {
+          requestAndFocusPosterRow(active, currentTrack, 1, scrollBehavior)
+        }
+        return true
+      }
+
+      const tracks = getPosterTracks()
+      const rowIndex = tracks.indexOf(currentTrack)
+      if (rowIndex >= 0 && rowIndex + 1 < tracks.length) {
+        const targetCards = getPosterCards(tracks[rowIndex + 1])
+        const sourceRect = active.getBoundingClientRect()
+        const target = getPosterClosestToViewportX(targetCards, sourceRect.left + (sourceRect.width / 2))
+        focusCandidate(target, { posterHorizontal: 'nearest', scrollBehavior })
+      } else {
+        requestAndFocusPosterRow(active, currentTrack, 1, scrollBehavior)
       }
       return true
     }

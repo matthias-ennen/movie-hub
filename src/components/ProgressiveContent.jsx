@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useSharedMediaCatalog } from '../library/useSharedMediaCatalog.js'
 import {
   INITIAL_VISIBLE_POSTERS,
-  INITIAL_VISIBLE_ROWS,
   POSTER_REVEAL_BATCH_SIZE,
   PROGRESSIVE_ROW_REQUEST_EVENT,
-  ROW_REVEAL_BATCH_SIZE,
   initialVisibleCount,
   nextVisibleCount,
 } from '../performance/progressiveRendering.js'
+import { estimatePosterRowHeight, ROW_VIRTUAL_OVERSCAN } from '../performance/posterRows.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import ContentRow from './ContentRow.jsx'
 import PosterCard from './PosterCard.jsx'
@@ -18,7 +18,6 @@ function useProgressiveCount({
   ready,
   initialCount,
   batchSize,
-  requestEvent = null,
 }) {
   const [visibleCount, setVisibleCount] = useState(0)
   const sentinelRef = useRef(null)
@@ -33,19 +32,6 @@ function useProgressiveCount({
   const revealNext = useCallback(() => {
     setVisibleCount((current) => nextVisibleCount(current, total, batchSize))
   }, [batchSize, total])
-
-  useEffect(() => {
-    if (!requestEvent || !ready) return undefined
-
-    function handleRequest(event) {
-      if (visibleCount >= total) return
-      event.detail.handled = true
-      revealNext()
-    }
-
-    window.addEventListener(requestEvent, handleRequest)
-    return () => window.removeEventListener(requestEvent, handleRequest)
-  }, [ready, requestEvent, revealNext, total, visibleCount])
 
   useEffect(() => {
     const sentinel = sentinelRef.current
@@ -67,6 +53,11 @@ function useProgressiveCount({
   return { visibleCount, sentinelRef }
 }
 
+function documentOffsetTop(element) {
+  if (!element || typeof window === 'undefined') return 0
+  return element.getBoundingClientRect().top + (window.scrollY || document.documentElement.scrollTop || 0)
+}
+
 export function ProgressiveRows({
   rows,
   heroReady,
@@ -74,26 +65,71 @@ export function ProgressiveRows({
   className = 'rows-wrap',
   onInitialContentReady,
 }) {
-  const { visibleCount, sentinelRef } = useProgressiveCount({
-    total: rows.length,
-    ready: heroReady,
-    initialCount: INITIAL_VISIBLE_ROWS,
-    batchSize: ROW_REVEAL_BATCH_SIZE,
-    requestEvent: PROGRESSIVE_ROW_REQUEST_EVENT,
-  })
+  const listRef = useRef(null)
+  const rowStateRef = useRef(new Map())
   const initialReadyReportedRef = useRef(false)
+  const [scrollMargin, setScrollMargin] = useState(0)
+  const activeRows = heroReady ? rows : []
+
+  const rowVirtualizer = useWindowVirtualizer({
+    count: activeRows.length,
+    estimateSize: (index) => estimatePosterRowHeight(activeRows[index]?.variant),
+    overscan: ROW_VIRTUAL_OVERSCAN,
+    scrollMargin,
+    getItemKey: (index) => activeRows[index]?.id || index,
+  })
+
+  const virtualItems = heroReady ? rowVirtualizer.getVirtualItems() : []
+
+  useLayoutEffect(() => {
+    if (!heroReady) {
+      setScrollMargin(0)
+      return undefined
+    }
+
+    const updateMargin = () => setScrollMargin(documentOffsetTop(listRef.current))
+    updateMargin()
+    window.addEventListener('resize', updateMargin)
+
+    let observer = null
+    if (typeof ResizeObserver !== 'undefined' && listRef.current) {
+      observer = new ResizeObserver(updateMargin)
+      observer.observe(listRef.current)
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateMargin)
+      observer?.disconnect()
+    }
+  }, [heroReady, rows.length])
 
   useEffect(() => {
-    if (!heroReady || initialReadyReportedRef.current || !onInitialContentReady) return undefined
+    if (!heroReady) return undefined
 
-    const expectedInitialRows = Math.min(INITIAL_VISIBLE_ROWS, rows.length)
-    if (visibleCount < expectedInitialRows) return undefined
+    function handleRowRequest(event) {
+      const currentIndex = Number(event.detail?.currentRowIndex)
+      const direction = Number(event.detail?.direction) || 1
+      const startIndex = Number.isInteger(currentIndex) ? currentIndex : -1
+      const targetIndex = startIndex + direction
+      if (targetIndex < 0 || targetIndex >= activeRows.length) return
+
+      event.detail.handled = true
+      event.detail.targetRowIndex = targetIndex
+      rowVirtualizer.scrollToIndex(targetIndex, { align: 'center', behavior: 'auto' })
+    }
+
+    window.addEventListener(PROGRESSIVE_ROW_REQUEST_EVENT, handleRowRequest)
+    return () => window.removeEventListener(PROGRESSIVE_ROW_REQUEST_EVENT, handleRowRequest)
+  }, [activeRows.length, heroReady, rowVirtualizer])
+
+  useEffect(() => {
+    if (!heroReady || initialReadyReportedRef.current || !onInitialContentReady || !virtualItems.length) return undefined
 
     let secondFrame = null
     const firstFrame = window.requestAnimationFrame(() => {
       secondFrame = window.requestAnimationFrame(() => {
         initialReadyReportedRef.current = true
-        onInitialContentReady({ visibleRowCount: visibleCount })
+        onInitialContentReady({ visibleRowCount: virtualItems.length })
       })
     })
 
@@ -101,28 +137,64 @@ export function ProgressiveRows({
       window.cancelAnimationFrame(firstFrame)
       if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
     }
-  }, [heroReady, onInitialContentReady, rows.length, visibleCount])
+  }, [heroReady, onInitialContentReady, virtualItems.length])
 
   return (
     <div
       className={className}
-      aria-busy={heroReady && visibleCount < rows.length}
+      aria-busy={!heroReady}
       data-progressive-rows="true"
-      data-visible-row-count={visibleCount}
+      data-virtualized-rows="true"
+      data-visible-row-count={virtualItems.length}
     >
-      {rows.slice(0, visibleCount).map((row) => (
-        <ContentRow
-          key={row.id}
-          title={row.title}
-          items={row.items}
-          onOpen={onOpen}
-          providerId={row.providerId}
-          variant={row.variant}
-        />
-      ))}
-      {heroReady && visibleCount < rows.length && (
-        <div ref={sentinelRef} className="progressive-content-sentinel" aria-hidden="true" />
-      )}
+      <div
+        ref={listRef}
+        className="virtualized-row-list"
+        style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}
+      >
+        {virtualItems.map((virtualRow) => {
+          const row = activeRows[virtualRow.index]
+          if (!row) return null
+          const savedState = rowStateRef.current.get(row.id) || { scrollLeft: 0, focusIndex: 0 }
+
+          return (
+            <div
+              key={virtualRow.key}
+              ref={rowVirtualizer.measureElement}
+              data-index={virtualRow.index}
+              className="virtualized-row-item"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
+              }}
+            >
+              <ContentRow
+                rowId={row.id}
+                rowIndex={virtualRow.index}
+                title={row.title}
+                items={row.items}
+                onOpen={onOpen}
+                providerId={row.providerId}
+                variant={row.variant}
+                virtualized
+                initialScrollLeft={savedState.scrollLeft}
+                initialFocusIndex={savedState.focusIndex}
+                onTrackScroll={(scrollLeft) => {
+                  const previous = rowStateRef.current.get(row.id) || {}
+                  rowStateRef.current.set(row.id, { ...previous, scrollLeft })
+                }}
+                onPosterFocus={(focusIndex) => {
+                  const previous = rowStateRef.current.get(row.id) || {}
+                  rowStateRef.current.set(row.id, { ...previous, focusIndex })
+                }}
+              />
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
