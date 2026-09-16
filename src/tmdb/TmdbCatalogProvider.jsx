@@ -131,8 +131,10 @@ export function TmdbCatalogProvider({ user, children }) {
   const [syncMessage, setSyncMessage] = useState('')
   const [metadataRepairs, setMetadataRepairs] = useState({})
   const repairInFlightRef = useRef(new Set())
+  const activeUidRef = useRef(null)
 
   useEffect(() => {
+    activeUidRef.current = user?.uid || null
     setMetadataRepairs({})
     repairInFlightRef.current.clear()
 
@@ -192,31 +194,30 @@ export function TmdbCatalogProvider({ user, children }) {
   }), [normalizedDocuments, metadataRepairs])
 
   useEffect(() => {
-    if (!user?.uid) return undefined
+    if (!user?.uid) return
 
     const candidates = normalizedDocuments
       .filter((item) => !isUsableTitle(item.title))
       .filter((item) => {
         const key = tmdbCatalogKey(item)
-        return key && !repairInFlightRef.current.has(key)
+        const token = key ? `${user.uid}:${key}` : null
+        return token && !repairInFlightRef.current.has(token)
       })
       .slice(0, PLACEHOLDER_REPAIR_LIMIT)
 
-    if (!candidates.length) return undefined
-    let disposed = false
-
     for (const item of candidates) {
       const key = tmdbCatalogKey(item)
-      repairInFlightRef.current.add(key)
+      const token = `${user.uid}:${key}`
+      repairInFlightRef.current.add(token)
 
       loadSearchDetail(item)
         .then(async (detail) => {
-          if (!isUsableTitle(detail?.title) || disposed) return
+          if (!isUsableTitle(detail?.title) || activeUidRef.current !== user.uid) return
           const repaired = mergeEnrichedTitle(item, detail)
           setMetadataRepairs((current) => ({ ...current, [key]: repaired }))
 
           const { db } = await firebaseReady
-          if (disposed) return
+          if (activeUidRef.current !== user.uid) return
           await setDoc(
             doc(db, 'users', user.uid, 'tmdbCatalog', key),
             firestoreTitleRepairPatch(repaired),
@@ -226,10 +227,8 @@ export function TmdbCatalogProvider({ user, children }) {
         .catch((nextError) => {
           console.warn(`TMDB-Platzhaltertitel ${key} konnte nicht automatisch repariert werden.`, nextError)
         })
-        .finally(() => repairInFlightRef.current.delete(key))
+        .finally(() => repairInFlightRef.current.delete(token))
     }
-
-    return () => { disposed = true }
   }, [user?.uid, normalizedDocuments])
 
   useEffect(() => {
