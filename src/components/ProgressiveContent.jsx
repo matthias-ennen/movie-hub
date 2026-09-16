@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSharedMediaCatalog } from '../library/useSharedMediaCatalog.js'
 import {
   INITIAL_VISIBLE_POSTERS,
   INITIAL_VISIBLE_ROWS,
@@ -8,6 +9,7 @@ import {
   initialVisibleCount,
   nextVisibleCount,
 } from '../performance/progressiveRendering.js'
+import { useProviderSelection } from '../settings/useProviderSelection.js'
 import ContentRow from './ContentRow.jsx'
 import PosterCard from './PosterCard.jsx'
 
@@ -132,6 +134,9 @@ export function ProgressivePosterGrid({ items, heroReady, onOpen }) {
     initialCount: INITIAL_VISIBLE_POSTERS,
     batchSize: POSTER_REVEAL_BATCH_SIZE,
   })
+  const { isProviderEnabled } = useProviderSelection()
+  const { hasTitle: hasMovieHubTitle } = useSharedMediaCatalog()
+  const movieHubEnabled = isProviderEnabled('moviehub')
 
   return (
     <div
@@ -140,7 +145,12 @@ export function ProgressivePosterGrid({ items, heroReady, onOpen }) {
       data-visible-poster-count={visibleCount}
     >
       {items.slice(0, visibleCount).map((item) => (
-        <PosterCard key={item.id} item={item} onOpen={onOpen} />
+        <PosterCard
+          key={item.id}
+          item={item}
+          onOpen={onOpen}
+          hasMovieHub={movieHubEnabled && hasMovieHubTitle(item)}
+        />
       ))}
       {heroReady && visibleCount < items.length && (
         <div ref={sentinelRef} className="progressive-content-sentinel" aria-hidden="true" />
