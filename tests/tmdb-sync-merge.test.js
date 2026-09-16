@@ -122,6 +122,30 @@ describe('fehlertoleranter TMDB-Teil-Sync', () => {
     expect(result.documents.some((item) => item.id === 'movie:4' && item.watchlist)).toBe(true)
   })
 
+  it('kanonisiert Legacy-Felder vor dem Firestore-Write', () => {
+    const current = [
+      {
+        id: 'movie:99',
+        tmdbId: 99,
+        mediaType: 'movie',
+        title: 'Altbestand',
+        favorite: false,
+        watchlist: false,
+        rated: true,
+        ratingValue: 7.5,
+        ratedOrder: 4,
+        legacyInternalField: 'darf nicht zurückgeschrieben werden',
+      },
+    ]
+
+    const result = mergeTmdbSyncDocuments(current, [], failSection('rated_movies'))
+    const stored = result.documents[0]
+
+    expect(stored.ratingOrder).toBe(4)
+    expect(stored).not.toHaveProperty('ratedOrder')
+    expect(stored).not.toHaveProperty('legacyInternalField')
+  })
+
   it('erstellt eine verständliche Abschlussmeldung pro Bereich', () => {
     const sections = failSection('rated_tv').map((section) => (
       section.id === 'watchlist_movies' ? { ...section, retried: true } : section
