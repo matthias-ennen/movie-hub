@@ -179,6 +179,7 @@ export function ProgressiveRows({
                 onOpen={onOpen}
                 providerId={row.providerId}
                 variant={row.variant}
+                virtualized
                 initialScrollLeft={savedState.scrollLeft}
                 initialFocusIndex={savedState.focusIndex}
                 onTrackScroll={(scrollLeft) => {
