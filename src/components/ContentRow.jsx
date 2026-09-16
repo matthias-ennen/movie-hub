@@ -18,6 +18,7 @@ export default function ContentRow({
   initialFocusIndex = 0,
   onTrackScroll = null,
   onPosterFocus = null,
+  virtualized = false,
 }) {
   const { isProviderEnabled } = useProviderSelection()
   const { hasTitle: hasMovieHubTitle } = useSharedMediaCatalog()
@@ -56,6 +57,7 @@ export default function ContentRow({
       className={topTen ? 'content-row top-ten-row' : 'content-row'}
       data-row-id={rowId || undefined}
       data-row-index={rowIndex ?? undefined}
+      style={virtualized ? { marginBottom: 0, paddingBottom: '2.4rem' } : undefined}
     >
       <div className="row-heading">
         <h2>{title}</h2>
