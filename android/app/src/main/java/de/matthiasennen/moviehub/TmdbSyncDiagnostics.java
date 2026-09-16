@@ -35,9 +35,10 @@ final class TmdbSyncDiagnostics {
         }
 
         DiagnosticSession session = new DiagnosticSession(apiReadAccessToken, sessionId);
+        long accountId = 0;
         try {
             JSONObject account = session.get("Account", "/account?session_id=" + encode(sessionId));
-            long accountId = account.optLong("id", 0);
+            accountId = account.optLong("id", 0);
             if (accountId <= 0) {
                 return Result.failure(session.requestCount,
                         "Account · gültige Account-ID fehlt");
@@ -58,8 +59,12 @@ final class TmdbSyncDiagnostics {
             Log.i(TAG, "DIAG OK · " + summary);
             return Result.success(summary);
         } catch (DiagnosticFailure failure) {
-            Log.w(TAG, "DIAG FAIL · " + failure.summary);
-            return Result.failure(session.requestCount, failure.summary);
+            String summary = failure.summary;
+            if (accountId > 0 && failure.isRatedTvFirstPageFailure()) {
+                summary += " · " + session.probeRatedTv(accountId);
+            }
+            Log.w(TAG, "DIAG FAIL · " + summary);
+            return Result.failure(session.requestCount, summary);
         } catch (Exception error) {
             String summary = "Diagnose konnte nicht abgeschlossen werden: "
                     + error.getClass().getSimpleName();
@@ -143,20 +148,109 @@ final class TmdbSyncDiagnostics {
 
                 String statusMessage = safeStatusMessage(responseText);
                 if (!statusMessage.isEmpty()) trace += " · " + statusMessage;
-                throw new DiagnosticFailure(trace);
+                throw new DiagnosticFailure(label, trace);
             } catch (DiagnosticFailure failure) {
                 throw failure;
             } catch (IOException error) {
                 long elapsedMs = Math.max(0L, System.currentTimeMillis() - startedAt);
-                throw new DiagnosticFailure("Request " + requestNumber + " · " + label
+                throw new DiagnosticFailure(label, "Request " + requestNumber + " · " + label
                         + " · Netzwerkfehler · " + elapsedMs + " ms");
             } catch (Exception error) {
                 long elapsedMs = Math.max(0L, System.currentTimeMillis() - startedAt);
-                throw new DiagnosticFailure("Request " + requestNumber + " · " + label
+                throw new DiagnosticFailure(label, "Request " + requestNumber + " · " + label
                         + " · Antwort nicht verarbeitbar · " + elapsedMs + " ms");
             } finally {
                 if (connection != null) connection.disconnect();
             }
+        }
+
+        String probeRatedTv(long accountId) {
+            String prefix = "/account/" + accountId + "/rated/tv";
+            String[] labels = {
+                    "minimal",
+                    "ohne sort_by",
+                    "sort_by=created_at.asc",
+                    "ohne language"
+            };
+            String[] paths = {
+                    prefix + "?page=1&session_id=" + encodedSession,
+                    prefix + "?language=de-DE&page=1&session_id=" + encodedSession,
+                    prefix + "?language=de-DE&page=1&sort_by=created_at.asc&session_id=" + encodedSession,
+                    prefix + "?page=1&sort_by=created_at.desc&session_id=" + encodedSession
+            };
+
+            StringBuilder summary = new StringBuilder("rated/tv-Probe");
+            for (int index = 0; index < labels.length; index++) {
+                ProbeResult result = probe(labels[index], paths[index]);
+                summary.append(" · ").append(labels[index]).append("=").append(result.shortStatus());
+                if (result.httpStatus == 429 && !result.retryAfter.isEmpty()) {
+                    summary.append(" (Retry-After ").append(result.retryAfter).append(")");
+                }
+                sleepBetweenRequests();
+            }
+            return summary.toString();
+        }
+
+        private ProbeResult probe(String label, String path) {
+            requestCount++;
+            int requestNumber = requestCount;
+            long startedAt = System.currentTimeMillis();
+            HttpURLConnection connection = null;
+            try {
+                URL url = new URL(API_BASE + path);
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
+                connection.setReadTimeout(READ_TIMEOUT_MS);
+                connection.setUseCaches(false);
+                connection.setRequestProperty("Accept", "application/json");
+                connection.setRequestProperty("Authorization", "Bearer " + apiReadAccessToken);
+
+                int httpStatus = connection.getResponseCode();
+                InputStream stream = httpStatus >= 200 && httpStatus < 300
+                        ? connection.getInputStream()
+                        : connection.getErrorStream();
+                String responseText = stream == null ? "" : readFully(stream);
+                long elapsedMs = Math.max(0L, System.currentTimeMillis() - startedAt);
+                int tmdbStatus = safeTmdbStatusCode(responseText);
+                String retryAfter = safeHeader(connection, "Retry-After");
+
+                String trace = "Probe Request " + requestNumber + " · rated/tv · " + label
+                        + " · HTTP " + httpStatus
+                        + (tmdbStatus > 0 ? " · TMDB " + tmdbStatus : "")
+                        + " · " + elapsedMs + " ms"
+                        + headerSuffix("Retry-After", retryAfter);
+                Log.i(TAG, trace);
+                return new ProbeResult(httpStatus, tmdbStatus, retryAfter);
+            } catch (IOException error) {
+                Log.w(TAG, "Probe Request " + requestNumber + " · rated/tv · " + label
+                        + " · Netzwerkfehler");
+                return new ProbeResult(0, 0, "");
+            } catch (Exception error) {
+                Log.w(TAG, "Probe Request " + requestNumber + " · rated/tv · " + label
+                        + " · Antwort nicht verarbeitbar");
+                return new ProbeResult(-1, 0, "");
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        }
+    }
+
+    private static final class ProbeResult {
+        private final int httpStatus;
+        private final int tmdbStatus;
+        private final String retryAfter;
+
+        ProbeResult(int httpStatus, int tmdbStatus, String retryAfter) {
+            this.httpStatus = httpStatus;
+            this.tmdbStatus = tmdbStatus;
+            this.retryAfter = retryAfter == null ? "" : retryAfter;
+        }
+
+        String shortStatus() {
+            if (httpStatus == 0) return "Netzwerkfehler";
+            if (httpStatus < 0) return "Antwortfehler";
+            return "HTTP " + httpStatus + (tmdbStatus > 0 ? "/TMDB " + tmdbStatus : "");
         }
     }
 
@@ -197,11 +291,17 @@ final class TmdbSyncDiagnostics {
     }
 
     private static final class DiagnosticFailure extends Exception {
+        private final String label;
         private final String summary;
 
-        DiagnosticFailure(String summary) {
+        DiagnosticFailure(String label, String summary) {
             super(summary);
+            this.label = label;
             this.summary = summary;
+        }
+
+        boolean isRatedTvFirstPageFailure() {
+            return "Bewertungen Serien · Seite 1".equals(label);
         }
     }
 
