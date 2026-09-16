@@ -130,6 +130,11 @@ jobs:
           workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
           service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
 
+      - name: Migrate legacy Movie-Hub presence parents
+        env:
+          GOOGLE_CLOUD_PROJECT: movie-hub-62459
+        run: npm run moviehub:presence:migrate
+
       - name: Enrich personal Movie-Hub provider metadata
         continue-on-error: true
         env:
