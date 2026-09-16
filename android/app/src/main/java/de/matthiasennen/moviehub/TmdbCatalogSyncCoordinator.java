@@ -39,7 +39,7 @@ final class TmdbCatalogSyncCoordinator {
                     result = errorPayload(
                             "Verbinde unter Einstellungen zuerst den persönlichen TMDB-Zugang vollständig.");
                 } else {
-                    result = TmdbApiClient.fetchPersonalCatalog(
+                    result = TmdbResilientCatalogSync.fetchPersonalCatalog(
                             credentials.getApiReadAccessToken(), credentials.getSessionId());
                     result.put("ok", true);
                     result.put("syncedAt", isoNow());
