@@ -123,6 +123,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify hosted hero player artifact
+        run: node scripts/verify-hero-player-build.mjs
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:
