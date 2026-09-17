@@ -1,22 +1,8 @@
 package de.matthiasennen.moviehub;
 
 import android.annotation.SuppressLint;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.PixelFormat;
-import android.graphics.Rect;
-import android.graphics.Typeface;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.text.SpannableString;
-import android.text.Spanned;
-import android.text.style.ForegroundColorSpan;
-import android.view.Gravity;
-import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -26,7 +12,6 @@ import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
@@ -36,22 +21,21 @@ import androidx.annotation.Nullable;
 
 import java.util.regex.Pattern;
 
-/** Full-screen Movie-Hub trailer player using YouTube's official iframe player as the primary content. */
+/** Full-screen trailer player using YouTube's official iframe player as the primary content. */
 public final class TrailerPlayerActivity extends ComponentActivity {
     public static final String EXTRA_VIDEO_ID = "movie_hub_trailer_video_id";
     public static final String EXTRA_TITLE = "movie_hub_trailer_title";
     public static final String EXTRA_SOUND_ENABLED = "movie_hub_trailer_sound_enabled";
 
     private static final Pattern VIDEO_ID = Pattern.compile("^[A-Za-z0-9_-]{6,20}$");
-    private static final int MOVIE_HUB_BLUE = Color.rgb(141, 167, 255);
-    private static final long CHROME_HIDE_DELAY_MS = 5_000L;
+    private static final float SWIPE_CLOSE_SCREEN_FRACTION = 0.25f;
+    private static final float SWIPE_HORIZONTAL_DOMINANCE = 1.4f;
 
-    private final Handler handler = new Handler(Looper.getMainLooper());
     private WebView playerWebView;
-    private TextView titleView;
     private TextView statusView;
-    private Button closeButton;
-    private Runnable hideChromeRunnable;
+    private float touchStartX;
+    private float touchStartY;
+    private boolean touchTracking;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -61,10 +45,9 @@ public final class TrailerPlayerActivity extends ComponentActivity {
 
         String rawVideoId = getIntent().getStringExtra(EXTRA_VIDEO_ID);
         String videoId = rawVideoId == null ? "" : rawVideoId.trim();
-        String title = getIntent().getStringExtra(EXTRA_TITLE);
         boolean soundEnabled = getIntent().getBooleanExtra(EXTRA_SOUND_ENABLED, false);
 
-        createContent(title);
+        createContent();
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -81,7 +64,7 @@ public final class TrailerPlayerActivity extends ComponentActivity {
     }
 
     @SuppressLint({"SetJavaScriptEnabled", "ClickableViewAccessibility"})
-    private void createContent(String rawTitle) {
+    private void createContent() {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
 
@@ -102,67 +85,61 @@ public final class TrailerPlayerActivity extends ComponentActivity {
             }
         });
         playerWebView.addJavascriptInterface(new TrailerEvents(), "MovieHubTrailerEvents");
-        playerWebView.setOnTouchListener((view, event) -> {
-            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) showChromeTemporarily();
-            return false;
-        });
-        playerWebView.setOnKeyListener((view, keyCode, event) -> {
-            if (event.getAction() == KeyEvent.ACTION_DOWN) showChromeTemporarily();
-            return false;
-        });
+        playerWebView.setOnTouchListener((view, event) -> handlePlayerTouch(event));
         root.addView(playerWebView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
 
-        titleView = new TextView(this);
-        String title = rawTitle == null || rawTitle.trim().isEmpty() ? "Trailer" : rawTitle.trim();
-        SpannableString titleText = new SpannableString("Movie Hub · " + title);
-        titleText.setSpan(new ForegroundColorSpan(MOVIE_HUB_BLUE), 6, 9,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        titleView.setText(titleText);
-        titleView.setTextColor(Color.WHITE);
-        titleView.setTextSize(18);
-        titleView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        titleView.setPadding(dp(22), dp(14), dp(22), dp(14));
-        FrameLayout.LayoutParams titleParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP | Gravity.START);
-        root.addView(titleView, titleParams);
-
-        closeButton = new Button(this);
-        closeButton.setText("");
-        closeButton.setAllCaps(false);
-        closeButton.setGravity(Gravity.CENTER);
-        closeButton.setMinWidth(0);
-        closeButton.setMinHeight(0);
-        closeButton.setPadding(0, 0, 0, 0);
-        closeButton.setForeground(new CloseXDrawable(dp(4), dp(12)));
-        closeButton.setBackground(makeCloseBackground(false));
-        closeButton.setOnFocusChangeListener((view, focused) -> {
-            view.setBackground(makeCloseBackground(focused));
-            if (focused) showChromeTemporarily();
-        });
-        closeButton.setOnClickListener(view -> finish());
-        closeButton.setContentDescription("Player schließen");
-        FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(
-                dp(48), dp(48), Gravity.TOP | Gravity.END);
-        closeParams.setMargins(dp(12), dp(12), dp(18), dp(12));
-        root.addView(closeButton, closeParams);
-
+        // Nur während Laden/Fehler sichtbar. Sobald YouTube bereit ist, bleibt
+        // ausschließlich der YouTube-Player mit seinen eigenen Controls sichtbar.
         statusView = new TextView(this);
         statusView.setTextColor(Color.WHITE);
         statusView.setTextSize(18);
-        statusView.setGravity(Gravity.CENTER);
+        statusView.setGravity(android.view.Gravity.CENTER);
         statusView.setBackgroundColor(Color.argb(190, 9, 10, 16));
         statusView.setPadding(dp(24), dp(18), dp(24), dp(18));
         FrameLayout.LayoutParams statusParams = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.CENTER);
+                android.view.Gravity.CENTER);
         statusParams.setMargins(dp(48), 0, dp(48), 0);
         root.addView(statusView, statusParams);
         statusView.setVisibility(View.GONE);
 
         setContentView(root);
-        showChromeTemporarily();
+    }
+
+    private boolean handlePlayerTouch(MotionEvent event) {
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                touchStartX = event.getX();
+                touchStartY = event.getY();
+                touchTracking = true;
+                return false;
+
+            case MotionEvent.ACTION_CANCEL:
+                touchTracking = false;
+                return false;
+
+            case MotionEvent.ACTION_UP:
+                if (!touchTracking) return false;
+                touchTracking = false;
+
+                float deltaX = event.getX() - touchStartX;
+                float deltaY = event.getY() - touchStartY;
+                float horizontal = Math.abs(deltaX);
+                float vertical = Math.abs(deltaY);
+                float width = playerWebView == null ? 0f : playerWebView.getWidth();
+                float threshold = Math.max(dp(120), width * SWIPE_CLOSE_SCREEN_FRACTION);
+
+                if (horizontal >= threshold
+                        && horizontal > vertical * SWIPE_HORIZONTAL_DOMINANCE) {
+                    finish();
+                    return true;
+                }
+                return false;
+
+            default:
+                return false;
+        }
     }
 
     private void startYouTubePlayer(String videoId, boolean soundEnabled) {
@@ -210,34 +187,14 @@ public final class TrailerPlayerActivity extends ComponentActivity {
 
         @JavascriptInterface
         public void error(String code) {
-            runOnUiThread(() -> showStatus("Der YouTube-Trailer konnte nicht abgespielt werden. Fehler: " + code));
+            runOnUiThread(() -> showStatus(
+                    "Der YouTube-Trailer konnte nicht abgespielt werden. Fehler: " + code));
         }
-    }
-
-    private GradientDrawable makeCloseBackground(boolean focused) {
-        GradientDrawable background = new GradientDrawable();
-        background.setShape(GradientDrawable.OVAL);
-        background.setColor(Color.TRANSPARENT);
-        if (focused) background.setStroke(dp(3), Color.WHITE);
-        return background;
-    }
-
-    private void showChromeTemporarily() {
-        if (titleView != null) titleView.setVisibility(View.VISIBLE);
-        if (closeButton != null) closeButton.setVisibility(View.VISIBLE);
-        if (hideChromeRunnable != null) handler.removeCallbacks(hideChromeRunnable);
-        hideChromeRunnable = () -> {
-            if (closeButton != null && closeButton.hasFocus()) return;
-            if (titleView != null) titleView.setVisibility(View.GONE);
-            if (closeButton != null) closeButton.setVisibility(View.GONE);
-        };
-        handler.postDelayed(hideChromeRunnable, CHROME_HIDE_DELAY_MS);
     }
 
     private void showStatus(String message) {
         statusView.setText(message);
         statusView.setVisibility(View.VISIBLE);
-        showChromeTemporarily();
     }
 
     @Override
@@ -261,7 +218,6 @@ public final class TrailerPlayerActivity extends ComponentActivity {
 
     @Override
     protected void onDestroy() {
-        if (hideChromeRunnable != null) handler.removeCallbacks(hideChromeRunnable);
         if (playerWebView != null) {
             playerWebView.loadUrl("about:blank");
             playerWebView.removeJavascriptInterface("MovieHubTrailerEvents");
@@ -294,33 +250,5 @@ public final class TrailerPlayerActivity extends ComponentActivity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
-    private static final class CloseXDrawable extends Drawable {
-        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final int inset;
-
-        CloseXDrawable(float strokeWidth, int inset) {
-            this.inset = inset;
-            paint.setColor(Color.WHITE);
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(strokeWidth);
-            paint.setStrokeCap(Paint.Cap.ROUND);
-        }
-
-        @Override
-        public void draw(Canvas canvas) {
-            Rect bounds = getBounds();
-            float left = bounds.left + inset;
-            float top = bounds.top + inset;
-            float right = bounds.right - inset;
-            float bottom = bounds.bottom - inset;
-            canvas.drawLine(left, top, right, bottom, paint);
-            canvas.drawLine(right, top, left, bottom, paint);
-        }
-
-        @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); }
-        @Override public void setColorFilter(@Nullable android.graphics.ColorFilter colorFilter) { paint.setColorFilter(colorFilter); }
-        @Override @SuppressWarnings("deprecation") public int getOpacity() { return PixelFormat.TRANSLUCENT; }
     }
 }
