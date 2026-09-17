@@ -1,5 +1,5 @@
 import { isUsableTitle } from '../catalog/titleMetadata.js'
-import { STANDARD_POSTER_ROW_LIMIT } from '../performance/posterRows.js'
+import { getActivePosterRowLimit } from '../profiles/profileExperienceRuntime.js'
 import { buildTmdbImageUrl } from '../services/tmdb.js'
 
 const SUPPORTED_AGE_RATINGS = new Set([0, 6, 12, 16, 18])
@@ -203,8 +203,8 @@ function orderByTmdbRating(items) {
     })
 }
 
-export function buildTmdbCatalogRows(items = [], limit = STANDARD_POSTER_ROW_LIMIT) {
-  const safeLimit = Math.max(0, Number(limit) || 0)
+export function buildTmdbCatalogRows(items = [], limit = getActivePosterRowLimit()) {
+  const safeLimit = Math.min(Math.max(0, Number(limit) || 0), getActivePosterRowLimit())
   const rows = [
     { id: 'tmdb-watchlist', title: 'Meine Watchlist · TMDB', items: orderByMembership(items, 'tmdbWatchlist', 'watchlistOrder').slice(0, safeLimit) },
     { id: 'tmdb-favorites', title: 'Meine Favoriten · TMDB', items: orderByMembership(items, 'tmdbFavorite', 'favoriteOrder').slice(0, safeLimit) },
