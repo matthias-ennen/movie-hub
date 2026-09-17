@@ -21,6 +21,7 @@ final class NetworkConnectionStore {
 
     NetworkConnectionStore(Context context) {
         preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
+        migrateCanonicalEndpoints(new CredentialStore(context));
     }
 
     synchronized void migrateCanonicalEndpoints(CredentialStore credentialStore) {
