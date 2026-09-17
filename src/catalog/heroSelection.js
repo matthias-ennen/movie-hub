@@ -1,3 +1,5 @@
+import { getActiveHeroCount } from '../profiles/profileExperienceRuntime.js'
+
 export const HERO_LIMIT = 5
 
 function uniqueTitles(items) {
@@ -13,13 +15,13 @@ function uniqueTitles(items) {
   return result
 }
 
-export function selectHeroItems(items, { type = null, limit = HERO_LIMIT } = {}) {
+export function selectHeroItems(items, { type = null, limit = getActiveHeroCount() } = {}) {
   const safeLimit = Math.max(0, Number(limit) || 0)
   const filtered = uniqueTitles(items).filter((item) => !type || item.type === type)
   return filtered.slice(0, safeLimit)
 }
 
-export function selectHomeHeroItems(items, limit = HERO_LIMIT) {
+export function selectHomeHeroItems(items, limit = getActiveHeroCount()) {
   const ranked = uniqueTitles(items)
   const safeLimit = Math.max(0, Number(limit) || 0)
   if (safeLimit === 0 || ranked.length <= 1) return ranked.slice(0, safeLimit)
@@ -44,7 +46,7 @@ export function selectHomeHeroItems(items, limit = HERO_LIMIT) {
     .slice(0, safeLimit)
 }
 
-export function selectPersonalHeroItems(rows, limit = HERO_LIMIT) {
+export function selectPersonalHeroItems(rows, limit = getActiveHeroCount()) {
   const items = (Array.isArray(rows) ? rows : []).flatMap((row) => (
     Array.isArray(row?.items) ? row.items : []
   ))
@@ -69,7 +71,7 @@ function fillHeroList(first, pool, limit) {
   return result
 }
 
-export function selectCoordinatedHeroItems(items, { limit = HERO_LIMIT } = {}) {
+export function selectCoordinatedHeroItems(items, { limit = getActiveHeroCount() } = {}) {
   const safeLimit = Math.max(0, Number(limit) || 0)
   const ranked = uniqueTitles(items)
   const movies = ranked.filter((item) => item.type === 'movie')
