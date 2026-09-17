@@ -1,6 +1,6 @@
 const YOUTUBE_KEY_PATTERN = /^[A-Za-z0-9_-]{6,20}$/
 const DIAGNOSTIC_ID = 'moviehub-hero-trailer-diagnostic'
-const DIAGNOSTIC_VERSION = 'D3'
+const DIAGNOSTIC_VERSION = 'D4'
 const EMBED_LOAD_TIMEOUT_MS = 4500
 
 export function showTrailerDiagnostic(message) {
@@ -50,6 +50,153 @@ const PLAYER_STATE = Object.freeze({
   PAUSED: 2,
   BUFFERING: 3,
   CUED: 5,
+})
+
+const nativePlayers = new Map()
+let nativeSequence = 0
+
+function nativeBridgeAvailable() {
+  return typeof window !== 'undefined'
+    && window.MovieHubHeroTrailer
+    && typeof window.MovieHubHeroTrailer.create === 'function'
+}
+
+function ensureNativeEventDispatcher() {
+  if (typeof window === 'undefined') return
+  window.__movieHubNativeHeroTrailerEvent = (token, type, muted, detail) => {
+    nativePlayers.get(String(token || ''))?.handleNativeEvent(type, muted, detail)
+  }
+}
+
+class NativeHeroTrailerPlayer {
+  constructor(host, options = {}) {
+    this.host = host
+    this.options = options
+    this.videoId = String(options.videoId || '')
+    this.destroyed = false
+    this.muted = true
+    this.volume = 100
+    this.state = PLAYER_STATE.UNSTARTED
+    this.token = `mh-${Date.now()}-${++nativeSequence}`
+
+    ensureNativeEventDispatcher()
+    nativePlayers.set(this.token, this)
+    showTrailerDiagnostic(`Nativer Referer-Player wird erstellt · ${this.videoId}`)
+    this.createNativeOverlay()
+  }
+
+  createNativeOverlay() {
+    if (!this.host || !this.videoId || !nativeBridgeAvailable()) {
+      this.options.events?.onError?.({ data: 'native-unavailable', target: this })
+      return
+    }
+
+    const rect = this.host.getBoundingClientRect()
+    const art = this.host.closest?.('.hero-art') || this.host.parentElement
+    const radius = Number.parseFloat(art ? window.getComputedStyle(art).borderTopLeftRadius : '0') || 0
+    const viewportWidth = Math.max(1, window.innerWidth || document.documentElement?.clientWidth || rect.width)
+
+    try {
+      window.MovieHubHeroTrailer.create(
+        this.token,
+        this.videoId,
+        rect.left,
+        rect.top,
+        rect.width,
+        rect.height,
+        radius,
+        viewportWidth,
+      )
+    } catch {
+      this.options.events?.onError?.({ data: 'native-create', target: this })
+    }
+  }
+
+  handleNativeEvent(type, muted, detail) {
+    if (this.destroyed) return
+
+    if (type === 'ready') {
+      showTrailerDiagnostic(`Nativer Referer-Player bereit · ${this.videoId}`)
+      this.options.events?.onReady?.({ target: this })
+      return
+    }
+
+    if (type === 'playing') {
+      this.muted = Boolean(muted)
+      this.state = PLAYER_STATE.PLAYING
+      showTrailerDiagnostic(`Nativer Referer-Player PLAYING · ${this.videoId}`)
+      this.options.events?.onStateChange?.({ data: PLAYER_STATE.PLAYING, target: this })
+      return
+    }
+
+    if (type === 'ended') {
+      this.state = PLAYER_STATE.ENDED
+      showTrailerDiagnostic(`Nativer Referer-Player ENDED · ${this.videoId}`)
+      this.options.events?.onStateChange?.({ data: PLAYER_STATE.ENDED, target: this })
+      return
+    }
+
+    if (type === 'error') {
+      showTrailerDiagnostic(`Nativer YouTube-Fehler ${detail || '?'} · ${this.videoId}`)
+      this.options.events?.onError?.({ data: detail || 'native-error', target: this })
+    }
+  }
+
+  playVideo() {
+    showTrailerDiagnostic(`Native Wiedergabe wird angefordert · ${this.videoId}`)
+    try {
+      window.MovieHubHeroTrailer?.play?.(this.token)
+    } catch {
+      this.options.events?.onError?.({ data: 'native-play', target: this })
+    }
+  }
+
+  mute() {
+    this.muted = true
+    try {
+      window.MovieHubHeroTrailer?.setMuted?.(this.token, true)
+    } catch {
+      // Keep local state; native player remains usable.
+    }
+  }
+
+  unMute() {
+    this.muted = false
+    try {
+      window.MovieHubHeroTrailer?.setMuted?.(this.token, false)
+    } catch {
+      this.muted = true
+    }
+  }
+
+  isMuted() {
+    return this.muted
+  }
+
+  setVolume(value) {
+    const numeric = Number(value)
+    this.volume = Number.isFinite(numeric) ? Math.max(0, Math.min(100, numeric)) : 100
+  }
+
+  getPlayerState() {
+    return this.state
+  }
+
+  destroy() {
+    if (this.destroyed) return
+    this.destroyed = true
+    nativePlayers.delete(this.token)
+    try {
+      window.MovieHubHeroTrailer?.destroy?.(this.token)
+    } catch {
+      // Native teardown is best-effort; page navigation must continue.
+    }
+  }
+}
+
+const NATIVE_OVERLAY_API = Object.freeze({
+  Player: NativeHeroTrailerPlayer,
+  PlayerState: PLAYER_STATE,
 })
 
 function parseYouTubeMessage(raw) {
@@ -199,9 +346,6 @@ class DirectYouTubeEmbedPlayer {
     this.command('playVideo')
     window.clearTimeout(this.fallbackPlayingTimer)
     this.fallbackPlayingTimer = window.setTimeout(() => {
-      // Manche Android-WebViews liefern die YouTube-postMessage-Events nicht
-      // zurück. Der IFrame selbst kann trotzdem korrekt autoplayen. In diesem
-      // Fall machen wir nach erfolgreichem IFrame-load die Ebene sichtbar.
       if (!this.destroyed && this.state !== PLAYER_STATE.PLAYING) {
         showTrailerDiagnostic(`Embed geladen, Status-Rückmeldung fehlt · ${this.videoId}`)
         this.emitState(PLAYER_STATE.PLAYING)
@@ -256,6 +400,11 @@ const DIRECT_EMBED_API = Object.freeze({
 export function loadYouTubeIframeApi() {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return Promise.reject(new Error('YouTube player is only available in the browser'))
+  }
+
+  if (nativeBridgeAvailable()) {
+    showTrailerDiagnostic('Nativer Referer-Player aktiv')
+    return Promise.resolve(NATIVE_OVERLAY_API)
   }
 
   showTrailerDiagnostic('Direkt-Embed-Modus aktiv')
