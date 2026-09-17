@@ -16,14 +16,6 @@
   box-shadow: 0 5px 16px rgba(0, 0, 0, 0.35);
 }
 
-.collection-part-art .provider-badge {
-  flex: 0 0 auto;
-  min-width: 2rem;
-  height: 2rem;
-  padding: 0 0.32rem;
-  font-size: 0.62rem;
-}
-
 .provider-action .provider-movie-hub {
   border-color: rgba(141, 167, 255, 0.8);
   background: var(--color-brand-accent);
