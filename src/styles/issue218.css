@@ -1,0 +1,132 @@
+/* #218 – kleine UI-Korrekturen bewusst als letzter Stylesheet-Layer. */
+
+/* Movie-Hub-Badge: dieselbe visuelle Referenz in Postern, Filmreihen und Detailaktionen. */
+.provider-movie-hub,
+.movie-hub-provider-mark {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.32rem;
+  border: 1px solid rgba(141, 167, 255, 0.8);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-accent);
+  color: #0a0d12;
+  font-size: 0.62rem;
+  font-weight: 950;
+  letter-spacing: -0.01em;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.35);
+}
+
+.collection-part-art .provider-badge {
+  flex: 0 0 auto;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.32rem;
+  font-size: 0.62rem;
+}
+
+.provider-action .provider-movie-hub {
+  border-color: rgba(141, 167, 255, 0.8);
+  background: var(--color-brand-accent);
+  color: #0a0d12;
+}
+
+/* Poster-Metadaten näher an die Anbieterbadges ziehen, Titel/Jahr bleiben als Block zusammen. */
+.poster-card .poster-art {
+  padding-bottom: calc(2rem + 1.15rem);
+}
+
+/* Staffel-Fokus exakt an der sichtbaren Schaltfläche und mit genügend Luft im Scrollcontainer. */
+.season-selector {
+  padding: 0.4rem 0.3rem 0.6rem;
+}
+
+.season-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-focus);
+}
+
+/* Links/Videos: kompakter Editor. Der bestehende Schließen-Button wird visuell zum bekannten X. */
+.media-editor-panel {
+  position: relative;
+  padding-top: clamp(1.25rem, 3vw, 2rem);
+}
+
+.media-editor-panel > .settings-kicker,
+.media-editor-panel > h2 {
+  padding-right: 3.6rem;
+}
+
+.media-editor-panel > p:not(.settings-kicker),
+.media-editor-panel .media-form-title,
+.media-editor-panel .media-form-hint {
+  display: none;
+}
+
+.media-editor-panel .media-kind-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.media-editor-panel .media-kind-actions button {
+  min-height: 56px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-control);
+  color: var(--color-text);
+  padding: 0.7rem 0.9rem;
+  font-weight: 850;
+  text-align: left;
+}
+
+.media-editor-panel .media-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 0.15rem;
+}
+
+.media-editor-panel .media-form-actions {
+  grid-column: 1 / -1;
+}
+
+/* Visuell immer „Speichern“, unabhängig davon ob neu oder bearbeitet. */
+.media-editor-panel .media-form-actions button:first-child {
+  font-size: 0;
+}
+
+.media-editor-panel .media-form-actions button:first-child::after {
+  content: 'Speichern';
+  font-size: 1rem;
+}
+
+/* Der bisherige Fertig-Button bleibt funktional derselbe Schließpfad, sitzt aber als X oben rechts. */
+.media-editor-panel > .media-cancel {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: var(--control-height-compact);
+  min-width: var(--control-height-compact);
+  height: var(--control-height-compact);
+  min-height: var(--control-height-compact);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-surface-control) 86%, transparent);
+  color: var(--color-text);
+  font-size: 0;
+  line-height: 1;
+}
+
+.media-editor-panel > .media-cancel::after {
+  content: '×';
+  font-size: 1.8rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+@media (max-width: 900px) {
+  .media-editor-panel .media-kind-actions,
+  .media-editor-panel .media-form {
+    grid-template-columns: 1fr;
+  }
+}
