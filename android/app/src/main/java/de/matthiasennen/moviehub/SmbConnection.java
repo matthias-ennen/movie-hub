@@ -81,7 +81,8 @@ final class SmbConnection {
     String getBasePath() { return basePath; }
     boolean usesPersistentCredentials() { return persistentCredentials; }
     boolean isEnabled() { return enabled; }
-    String getEndpointKey() { return host + ":" + port + "/" + share; }
+    String getEndpointKey() { return SmbEndpointIdentity.key(host, share); }
+    String getLegacyEndpointKey() { return host + ":" + port + "/" + share; }
     String getDisplayEndpoint() {
         return host + (port == 445 ? "" : ":" + port) + "/" + share;
     }
