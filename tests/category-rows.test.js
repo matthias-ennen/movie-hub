@@ -122,15 +122,15 @@ describe('profilbezogene Videothek-Kategorien', () => {
     expect(classicRows[0].items).toHaveLength(6)
   })
 
-  it('limits a category row to forty posters', () => {
+  it('uses the profile default of fifty posters instead of the old forty limit', () => {
     const rows = buildCategoryRows({
-      titles: Array.from({ length: 45 }, (_, index) => title(`action-${index}`, { popularity: index })),
+      titles: Array.from({ length: 70 }, (_, index) => title(`action-${index}`, { popularity: index })),
       mediaType: 'movie',
       enabledCategoryIds: ['action'],
       enabledProviderIds: ['netflix'],
     })
 
-    expect(rows[0].items).toHaveLength(40)
-    expect(rows[0].items[0].popularity).toBe(44)
+    expect(rows[0].items).toHaveLength(50)
+    expect(rows[0].items[0].popularity).toBe(69)
   })
 })
