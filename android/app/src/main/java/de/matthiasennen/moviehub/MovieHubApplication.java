@@ -52,14 +52,12 @@ public final class MovieHubApplication extends Application {
             return;
         }
         View root = activity.getWindow() == null ? null : activity.getWindow().getDecorView();
-        installWebChromeClientRecursive(activity, root);
+        installWebChromeClientRecursive(root);
     }
 
-    private void installWebChromeClientRecursive(Activity activity, View view) {
+    private void installWebChromeClientRecursive(View view) {
         if (view instanceof WebView) {
-            WebView webView = (WebView) view;
-            webView.setWebChromeClient(new WebChromeClient());
-            HeroTrailerOverlayBridge.install(activity, webView);
+            ((WebView) view).setWebChromeClient(new WebChromeClient());
             return;
         }
         if (!(view instanceof ViewGroup)) {
@@ -67,7 +65,7 @@ public final class MovieHubApplication extends Application {
         }
         ViewGroup group = (ViewGroup) view;
         for (int index = 0; index < group.getChildCount(); index += 1) {
-            installWebChromeClientRecursive(activity, group.getChildAt(index));
+            installWebChromeClientRecursive(group.getChildAt(index));
         }
     }
 
