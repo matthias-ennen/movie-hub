@@ -126,9 +126,10 @@ export function ProfileProvider({ user, children }) {
     [activeProfileId, profiles],
   )
 
-  useEffect(() => {
-    setActiveProfileExperienceRuntime(activeProfile?.experienceSettings)
-  }, [activeProfile?.experienceSettings])
+  // Runtime consumers (row builders / hero selection) are plain modules rather
+  // than React components. Keep their view of the active profile synchronous
+  // with this render so a profile switch never gets one frame of old limits.
+  setActiveProfileExperienceRuntime(activeProfile?.experienceSettings)
 
   const selectProfile = useCallback((profileId) => {
     if (!profiles.some((profile) => profile.id === profileId)) return
