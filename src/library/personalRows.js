@@ -1,7 +1,7 @@
-import { STANDARD_POSTER_ROW_LIMIT } from '../performance/posterRows.js'
+import { getActivePosterRowLimit } from '../profiles/profileExperienceRuntime.js'
 import { getTitleStateKey, hasPersonalTitleState } from './libraryState.js'
 
-export const WATCHED_HISTORY_LIMIT = STANDARD_POSTER_ROW_LIMIT
+export const WATCHED_HISTORY_LIMIT = 70
 
 function byTitle(a, b) {
   return String(a.title ?? '').localeCompare(String(b.title ?? ''), 'de')
@@ -15,9 +15,9 @@ function byRatingDesc(getTitleState) {
   }
 }
 
-export function buildPersonalRows(titles, getTitleState, limit = STANDARD_POSTER_ROW_LIMIT) {
+export function buildPersonalRows(titles, getTitleState, limit = getActivePosterRowLimit()) {
   if (!Array.isArray(titles) || typeof getTitleState !== 'function') return []
-  const safeLimit = Math.max(0, Number(limit) || 0)
+  const safeLimit = Math.min(Math.max(0, Number(limit) || 0), getActivePosterRowLimit())
 
   const definitions = [
     {
@@ -59,13 +59,14 @@ function watchedHistoryTime(state) {
   return Number.isFinite(watchedDate) ? watchedDate : 0
 }
 
-export function buildWatchedHistoryRows(titles, getTitleState, limit = WATCHED_HISTORY_LIMIT) {
+export function buildWatchedHistoryRows(titles, getTitleState, limit = getActivePosterRowLimit()) {
   if (!Array.isArray(titles) || typeof getTitleState !== 'function') return []
+  const safeLimit = Math.min(Math.max(0, Number(limit) || 0), getActivePosterRowLimit())
 
   const items = titles
     .filter((item) => getTitleState(item).watched)
     .sort((a, b) => watchedHistoryTime(getTitleState(b)) - watchedHistoryTime(getTitleState(a)) || byTitle(a, b))
-    .slice(0, Math.max(0, Number(limit) || 0))
+    .slice(0, safeLimit)
 
   return items.length ? [{ id: 'my-watched-history', title: 'Als gesehen markiert', items }] : []
 }
