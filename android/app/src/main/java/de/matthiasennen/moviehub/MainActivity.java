@@ -739,16 +739,6 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void launchYouTubeMedia(Uri canonicalUri, Uri originalUri) {
-        String videoId = canonicalUri == null ? null : canonicalUri.getQueryParameter("v");
-        if (videoId != null && videoId.matches("[A-Za-z0-9_-]{11}")) {
-            Intent intent = new Intent(MainActivity.this, TrailerPlayerActivity.class);
-            intent.putExtra(TrailerPlayerActivity.EXTRA_VIDEO_ID, videoId);
-            intent.putExtra(TrailerPlayerActivity.EXTRA_TITLE, "Trailer");
-            intent.putExtra(TrailerPlayerActivity.EXTRA_SOUND_ENABLED, true);
-            startActivity(intent);
-            return;
-        }
-
         for (String packageName : getProviderPackages("youtube")) {
             Intent deepLink = new Intent(Intent.ACTION_VIEW, canonicalUri);
             deepLink.addCategory(Intent.CATEGORY_BROWSABLE);

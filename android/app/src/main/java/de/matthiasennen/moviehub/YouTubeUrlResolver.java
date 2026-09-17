@@ -33,14 +33,9 @@ final class YouTubeUrlResolver {
         String videoId = null;
         if ("youtu.be".equals(normalizedHost)) {
             videoId = firstPathSegment(uri.getPath());
-        } else if (isDomainOrSubdomain(normalizedHost, "youtube.com")) {
-            String path = uri.getPath();
-            if ("/watch".equals(path)) {
-                videoId = queryParameter(uri.getRawQuery(), "v");
-            } else {
-                videoId = pathSegmentAfterPrefix(path, "/shorts/");
-                if (videoId == null) videoId = pathSegmentAfterPrefix(path, "/embed/");
-            }
+        } else if (isDomainOrSubdomain(normalizedHost, "youtube.com")
+                && "/watch".equals(uri.getPath())) {
+            videoId = queryParameter(uri.getRawQuery(), "v");
         }
 
         if (videoId == null || !VIDEO_ID.matcher(videoId).matches()) return null;
@@ -52,14 +47,6 @@ final class YouTubeUrlResolver {
         int nextSlash = path.indexOf('/', 1);
         String segment = nextSlash < 0 ? path.substring(1) : path.substring(1, nextSlash);
         return decode(segment);
-    }
-
-    private static String pathSegmentAfterPrefix(String path, String prefix) {
-        if (path == null || prefix == null || !path.startsWith(prefix)) return null;
-        String remainder = path.substring(prefix.length());
-        if (remainder.isEmpty()) return null;
-        int nextSlash = remainder.indexOf('/');
-        return decode(nextSlash < 0 ? remainder : remainder.substring(0, nextSlash));
     }
 
     private static String queryParameter(String rawQuery, String expectedName) {
