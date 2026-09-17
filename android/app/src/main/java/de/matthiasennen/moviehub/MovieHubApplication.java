@@ -1,9 +1,15 @@
 package de.matthiasennen.moviehub;
 
+import android.app.Activity;
 import android.app.Application;
 import android.media.MediaPlayer;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.View;
+import android.view.ViewGroup;
+import android.webkit.WebChromeClient;
+import android.webkit.WebView;
 
 /** Starts Movie Hub's one-shot native startup branding and jingle per app process. */
 public final class MovieHubApplication extends Application {
@@ -15,9 +21,52 @@ public final class MovieHubApplication extends Application {
     public void onCreate() {
         super.onCreate();
         StartupIntroOverlay.register(this);
+        registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
+            @Override
+            public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+                installWebChromeClient(activity);
+            }
+
+            @Override
+            public void onActivityStarted(Activity activity) {
+                installWebChromeClient(activity);
+            }
+
+            @Override
+            public void onActivityResumed(Activity activity) {
+                installWebChromeClient(activity);
+            }
+
+            @Override public void onActivityPaused(Activity activity) { }
+            @Override public void onActivityStopped(Activity activity) { }
+            @Override public void onActivitySaveInstanceState(Activity activity, Bundle outState) { }
+            @Override public void onActivityDestroyed(Activity activity) { }
+        });
         new Handler(Looper.getMainLooper()).postDelayed(
                 this::playStartupJingle,
                 STARTUP_JINGLE_DELAY_MS);
+    }
+
+    private void installWebChromeClient(Activity activity) {
+        if (!(activity instanceof MainActivity)) {
+            return;
+        }
+        View root = activity.getWindow() == null ? null : activity.getWindow().getDecorView();
+        installWebChromeClientRecursive(root);
+    }
+
+    private void installWebChromeClientRecursive(View view) {
+        if (view instanceof WebView) {
+            ((WebView) view).setWebChromeClient(new WebChromeClient());
+            return;
+        }
+        if (!(view instanceof ViewGroup)) {
+            return;
+        }
+        ViewGroup group = (ViewGroup) view;
+        for (int index = 0; index < group.getChildCount(); index += 1) {
+            installWebChromeClientRecursive(group.getChildAt(index));
+        }
     }
 
     private void playStartupJingle() {
