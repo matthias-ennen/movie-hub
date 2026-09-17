@@ -1,5 +1,7 @@
+import { getActivePosterRowLimit } from '../profiles/profileExperienceRuntime.js'
+
 export const MIN_CATEGORY_ROW_TITLES = 6
-export const CATEGORY_ROW_LIMIT = 40
+export const CATEGORY_ROW_LIMIT = 70
 
 export const MOVIE_CATEGORY_OPTIONS = [
   { id: 'action', title: 'Action', genreIds: [28] },
@@ -109,7 +111,7 @@ export function buildCategoryRows({
   enabledCategoryIds = [],
   enabledProviderIds = [],
   minimumTitles = MIN_CATEGORY_ROW_TITLES,
-  limit = CATEGORY_ROW_LIMIT,
+  limit = getActivePosterRowLimit(),
   sortItems = null,
 } = {}) {
   const options = mediaType === 'series' ? SERIES_CATEGORY_OPTIONS : MOVIE_CATEGORY_OPTIONS
@@ -129,10 +131,11 @@ export function buildCategoryRows({
       const ranked = typeof sortItems === 'function'
         ? sortItems(matches, category)
         : matches.sort(compareCategoryTitles)
+      const safeLimit = Math.min(Math.max(0, Number(limit) || 0), getActivePosterRowLimit())
       return {
         id: `category-${mediaType}-${category.id}`,
         title: category.title,
-        items: ranked.slice(0, Math.max(0, limit)),
+        items: ranked.slice(0, safeLimit),
       }
     })
     .filter((row) => row.items.length >= minimumTitles)
