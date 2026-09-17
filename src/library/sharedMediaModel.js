@@ -32,6 +32,17 @@ export function isSmbMediaUrl(value) {
   return input.startsWith('\\\\') || input.toLowerCase().startsWith('smb://')
 }
 
+export function isYouTubeMediaUrl(value) {
+  try {
+    const url = new URL(String(value || '').trim())
+    const host = url.hostname.toLowerCase()
+    if (!['http:', 'https:'].includes(url.protocol)) return false
+    return host === 'youtu.be' || host === 'youtube.com' || host.endsWith('.youtube.com')
+  } catch {
+    return false
+  }
+}
+
 export function normalizeSmbUrl(value) {
   const input = String(value || '').trim()
   const candidate = input.startsWith('\\\\') ? normalizeUncPath(input) : input
@@ -89,9 +100,11 @@ export function normaliseMedia(entry) {
 
   // The public model only knows links and videos. Legacy provider overrides
   // become ordinary links; legacy SMB entries become videos whose source is
-  // detected from the URL when they are launched.
+  // detected from the URL when they are launched. YouTube is always treated
+  // as a link so Android/Fire TV can route it through the native trailer player.
   const legacyType = String(entry?.type || '')
-  const type = legacyType === 'video' || legacyType === 'smb' ? 'video' : 'web'
+  const requestedType = legacyType === 'video' || legacyType === 'smb' ? 'video' : 'web'
+  const type = isYouTubeMediaUrl(entry?.url) ? 'web' : requestedType
 
   return {
     id: entry?.id,
