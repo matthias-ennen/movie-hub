@@ -3,6 +3,7 @@ import { collection, doc, getDocs, serverTimestamp, setDoc } from 'firebase/fire
 import { firebaseReady } from '../lib/firebase.js'
 import {
   canEncryptPersonalData,
+  isEncryptedPersonalValue,
   protectPersonalValue,
   readPersonalValue,
 } from '../lib/personalDataCrypto.js'
@@ -17,6 +18,24 @@ import {
 
 const LibraryContext = createContext(null)
 const NOTE_PURPOSE = 'profile.note'
+
+function readStoredNote(raw) {
+  if (isEncryptedPersonalValue(raw?.noteEncrypted) && canEncryptPersonalData()) {
+    return readPersonalValue(NOTE_PURPOSE, raw.noteEncrypted).value
+  }
+  if (isEncryptedPersonalValue(raw?.note) && canEncryptPersonalData()) {
+    return readPersonalValue(NOTE_PURPOSE, raw.note).value
+  }
+  return typeof raw?.note === 'string' ? raw.note : ''
+}
+
+function encryptedNoteFields(note) {
+  if (!canEncryptPersonalData()) return {}
+  return {
+    noteEncrypted: protectPersonalValue(NOTE_PURPOSE, note),
+    cryptoVersion: 1,
+  }
+}
 
 export function LibraryProvider({ user, activeProfile, children }) {
   const [statesByKey, setStatesByKey] = useState({})
@@ -52,13 +71,13 @@ export function LibraryProvider({ user, activeProfile, children }) {
         snapshot.forEach((stateDocument) => {
           const raw = stateDocument.data()
           try {
-            const hasStoredNote = Object.prototype.hasOwnProperty.call(raw, 'note')
-            const note = readPersonalValue(NOTE_PURPOSE, hasStoredNote ? raw.note : '')
-            nextStates[stateDocument.id] = normalizeTitleState({ ...raw, note: note.value })
-            if (hasStoredNote && note.legacyPlaintext && canEncryptPersonalData()) {
+            const note = readStoredNote(raw)
+            nextStates[stateDocument.id] = normalizeTitleState({ ...raw, note })
+            if (Object.prototype.hasOwnProperty.call(raw, 'note')
+                && canEncryptPersonalData()
+                && !isEncryptedPersonalValue(raw.noteEncrypted)) {
               migrations.push(setDoc(stateDocument.ref, {
-                note: protectPersonalValue(NOTE_PURPOSE, note.value),
-                cryptoVersion: 1,
+                ...encryptedNoteFields(note),
                 updatedAt: serverTimestamp(),
               }, { merge: true }))
             }
@@ -111,8 +130,10 @@ export function LibraryProvider({ user, activeProfile, children }) {
       const { note, ...publicState } = next
       const payload = {
         ...publicState,
-        note: protectPersonalValue(NOTE_PURPOSE, note),
-        cryptoVersion: 1,
+        // Temporary dual-write for old installed APKs. Remove plaintext via #223
+        // after all supported devices have the native MovieHubCrypto bridge.
+        note,
+        ...encryptedNoteFields(note),
         titleRef: {
           catalogId: String(item.id ?? ''),
           tmdbId: item.tmdbId ?? null,
