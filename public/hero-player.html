@@ -24,22 +24,51 @@
   <script>
     (() => {
       const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{6,20}$/
+      const parentOrigin = location.origin
       let player = null
       let apiReady = false
       let playerReady = false
       let pendingVideoId = ''
       let currentVideoId = ''
+      let pendingPlay = false
+
+      function emit(type, extra = {}) {
+        try {
+          parent.postMessage({
+            source: 'moviehub-hero-player',
+            type,
+            ...extra,
+          }, parentOrigin)
+        } catch (_) {}
+      }
 
       function diag(message) {
+        emit('diagnostic', { detail: String(message) })
         try { MovieHubHeroTrailerEvents.diagnostic(String(message)) } catch (_) {}
       }
 
       function fail(code) {
+        emit('error', { detail: String(code) })
         try { MovieHubHeroTrailerEvents.error(String(code)) } catch (_) {}
       }
 
       window.onerror = (message) => {
         diag(`JS-Fehler ${message}`)
+      }
+
+      function notifyReady() {
+        emit('ready')
+        try { MovieHubHeroTrailerEvents.ready() } catch (_) {}
+      }
+
+      function notifyPlaying(muted) {
+        emit('playing', { muted: Boolean(muted) })
+        try { MovieHubHeroTrailerEvents.playing(Boolean(muted)) } catch (_) {}
+      }
+
+      function notifyEnded() {
+        emit('ended')
+        try { MovieHubHeroTrailerEvents.ended() } catch (_) {}
       }
 
       function createPlayer(videoId) {
@@ -66,15 +95,19 @@
                 event.target.mute()
                 event.target.setVolume(100)
               } catch (_) {}
-              try { MovieHubHeroTrailerEvents.ready() } catch (_) {}
+              notifyReady()
+              if (pendingPlay) {
+                pendingPlay = false
+                try { event.target.playVideo() } catch (_) {}
+              }
             },
             onStateChange(event) {
               if (event.data === YT.PlayerState.PLAYING) {
                 let muted = true
                 try { muted = event.target.isMuted() } catch (_) {}
-                try { MovieHubHeroTrailerEvents.playing(muted) } catch (_) {}
+                notifyPlaying(muted)
               } else if (event.data === YT.PlayerState.ENDED) {
-                try { MovieHubHeroTrailerEvents.ended() } catch (_) {}
+                notifyEnded()
               }
             },
             onError(event) {
@@ -103,9 +136,7 @@
           player.mute()
           player.cueVideoById(videoId)
           diag(`Video-ID gesetzt · ${videoId}`)
-          if (playerReady) {
-            try { MovieHubHeroTrailerEvents.ready() } catch (_) {}
-          }
+          if (playerReady) notifyReady()
         } catch (_) {
           fail('set-video')
         }
@@ -123,8 +154,10 @@
       }
 
       window.movieHubPlay = () => {
+        pendingPlay = true
         try {
-          if (!player || !currentVideoId) return
+          if (!player || !currentVideoId || !playerReady) return
+          pendingPlay = false
           player.playVideo()
         } catch (_) {}
       }
@@ -137,10 +170,41 @@
           } else {
             player.unMute()
             player.setVolume(100)
-            player.playVideo()
+            if (playerReady) player.playVideo()
           }
         } catch (_) {}
       }
+
+      window.movieHubSetVolume = (value) => {
+        try {
+          if (player) player.setVolume(Number(value) || 0)
+        } catch (_) {}
+      }
+
+      window.movieHubStop = () => {
+        pendingPlay = false
+        try { player?.stopVideo?.() } catch (_) {}
+      }
+
+      window.addEventListener('message', (event) => {
+        if (event.origin !== parentOrigin || event.source !== parent) return
+        const message = event.data
+        if (!message || message.source !== 'moviehub-hero') return
+
+        if (message.action === 'load') {
+          window.movieHubLoadVideo(message.videoId)
+        } else if (message.action === 'play') {
+          window.movieHubPlay()
+        } else if (message.action === 'mute') {
+          window.movieHubSetMuted(true)
+        } else if (message.action === 'unmute') {
+          window.movieHubSetMuted(false)
+        } else if (message.action === 'volume') {
+          window.movieHubSetVolume(message.value)
+        } else if (message.action === 'stop') {
+          window.movieHubStop()
+        }
+      })
 
       window.onYouTubeIframeAPIReady = () => {
         apiReady = true
