@@ -8,6 +8,7 @@ export function selectHeroVideo(videos) {
     video
     && String(video.site || '').toLowerCase() === 'youtube'
     && YOUTUBE_KEY_PATTERN.test(String(video.key || ''))
+    && ['trailer', 'teaser'].includes(String(video.type || '').toLowerCase())
   ))
 
   return normalized.find((video) => String(video.type || '').toLowerCase() === 'trailer')
