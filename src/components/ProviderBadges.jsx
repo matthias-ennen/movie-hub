@@ -1,5 +1,7 @@
 import { providerDirectory, providers } from '../data/catalog.js'
 
+export const MAX_VISIBLE_PROVIDER_BADGES = 3
+
 export function ProviderBadge({ providerId }) {
   const provider = providerDirectory[providerId]
   if (!provider) return null
@@ -16,10 +18,10 @@ export function MovieHubBadge() {
   return <ProviderBadge providerId="moviehub" />
 }
 
-export default function ProviderBadges({ providerIds, maxVisible = Number.POSITIVE_INFINITY, includeMovieHub = false }) {
-  const automaticLimit = Number.isFinite(maxVisible)
-    ? Math.max(0, maxVisible - (includeMovieHub ? 1 : 0))
-    : maxVisible
+export default function ProviderBadges({ providerIds, maxVisible = MAX_VISIBLE_PROVIDER_BADGES, includeMovieHub = false }) {
+  const requestedLimit = Number.isFinite(maxVisible) ? maxVisible : MAX_VISIBLE_PROVIDER_BADGES
+  const totalLimit = Math.max(0, Math.min(MAX_VISIBLE_PROVIDER_BADGES, requestedLimit))
+  const automaticLimit = Math.max(0, totalLimit - (includeMovieHub ? 1 : 0))
   const visibleProviderIds = providerIds
     .filter((providerId) => providerId !== 'moviehub')
     .filter((providerId) => Boolean(providers[providerId]))
@@ -29,7 +31,7 @@ export default function ProviderBadges({ providerIds, maxVisible = Number.POSITI
 
   return (
     <div className="provider-badges" aria-label="Verfügbare Anbieter">
-      {includeMovieHub && <MovieHubBadge />}
+      {includeMovieHub && totalLimit > 0 && <MovieHubBadge />}
       {visibleProviderIds.map((providerId) => (
         <ProviderBadge providerId={providerId} key={providerId} />
       ))}
