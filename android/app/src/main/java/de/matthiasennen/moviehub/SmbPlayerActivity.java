@@ -132,7 +132,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
         closeButton.setMinWidth(0);
         closeButton.setMinHeight(0);
         closeButton.setPadding(0, 0, 0, 0);
-        closeButton.setForeground(new CloseXDrawable(dp(3), dp(14)));
+        closeButton.setForeground(new CloseXDrawable(dp(4), dp(12)));
         closeButton.setBackground(makeCloseBackground(false));
         closeButton.setOnFocusChangeListener((view, focused) ->
                 view.setBackground(makeCloseBackground(focused)));
@@ -300,7 +300,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
-    /** Weißes X mit definierter 3-dp-Strichstärke statt fontabhängigem ×-Glyph. */
+    /** Weißes X mit kräftiger 4-dp-Strichstärke und gerundeten Enden – optisch näher am Zahnrad. */
     private static final class CloseXDrawable extends Drawable {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final int inset;
