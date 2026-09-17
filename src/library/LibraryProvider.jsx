@@ -52,9 +52,10 @@ export function LibraryProvider({ user, activeProfile, children }) {
         snapshot.forEach((stateDocument) => {
           const raw = stateDocument.data()
           try {
-            const note = readPersonalValue(NOTE_PURPOSE, raw?.note ?? '')
+            const hasStoredNote = Object.prototype.hasOwnProperty.call(raw, 'note')
+            const note = readPersonalValue(NOTE_PURPOSE, hasStoredNote ? raw.note : '')
             nextStates[stateDocument.id] = normalizeTitleState({ ...raw, note: note.value })
-            if (note.legacyPlaintext && canEncryptPersonalData()) {
+            if (hasStoredNote && note.legacyPlaintext && canEncryptPersonalData()) {
               migrations.push(setDoc(stateDocument.ref, {
                 note: protectPersonalValue(NOTE_PURPOSE, note.value),
                 cryptoVersion: 1,
@@ -111,7 +112,7 @@ export function LibraryProvider({ user, activeProfile, children }) {
       const payload = {
         ...publicState,
         note: protectPersonalValue(NOTE_PURPOSE, note),
-        cryptoVersion: canEncryptPersonalData() ? 1 : null,
+        cryptoVersion: 1,
         titleRef: {
           catalogId: String(item.id ?? ''),
           tmdbId: item.tmdbId ?? null,
