@@ -1,6 +1,6 @@
 const YOUTUBE_KEY_PATTERN = /^[A-Za-z0-9_-]{6,20}$/
 const DIAGNOSTIC_ID = 'moviehub-hero-trailer-diagnostic'
-const DIAGNOSTIC_VERSION = 'D9'
+const DIAGNOSTIC_VERSION = 'D10'
 const DIAGNOSTIC_MAX_LINES = 9
 const diagnosticLines = []
 
@@ -92,15 +92,21 @@ function runBlankIframeProbe() {
 }
 
 async function runHostedPageFetchProbe(origin) {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 3500)
   try {
     const response = await fetch(`${origin}/hero-player.html?diag=${Date.now()}`, {
       cache: 'no-store',
       credentials: 'same-origin',
+      signal: controller.signal,
     })
     const body = await response.text()
     return `HTTP ${response.status} · ${body.length} Bytes`
   } catch (error) {
+    if (error?.name === 'AbortError') return 'Timeout nach 3,5 s'
     return `HTTP-Abruf Fehler · ${error?.name || 'Error'}: ${error?.message || '?'}`
+  } finally {
+    clearTimeout(timeout)
   }
 }
 
@@ -133,9 +139,9 @@ class HostedHeroTrailerPlayer {
     if (this.destroyed) return
     showTrailerDiagnostic(`about:blank-IFrame: ${blankProbe}`)
 
-    const fetchProbe = await runHostedPageFetchProbe(this.origin)
-    if (this.destroyed) return
-    showTrailerDiagnostic(`hero-player Fetch: ${fetchProbe}`)
+    runHostedPageFetchProbe(this.origin).then((fetchProbe) => {
+      if (!this.destroyed) showTrailerDiagnostic(`hero-player Fetch: ${fetchProbe}`)
+    })
 
     const iframe = document.createElement('iframe')
     iframe.className = 'hero-trailer-direct-iframe'
