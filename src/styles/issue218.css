@@ -1,7 +1,12 @@
 /* #218 – kleine UI-Korrekturen bewusst als letzter Stylesheet-Layer. */
 
-/* Movie-Hub-Badge: dieselbe visuelle Referenz in Postern, Filmreihen und Detailaktionen. */
-.provider-movie-hub,
+/* Movie-Hub-Badge: Farbe bleibt eigenständig, Geometrie kommt aus dem jeweiligen Badge-Kontext. */
+.provider-movie-hub {
+  border-color: rgba(141, 167, 255, 0.8);
+  background: var(--color-brand-accent);
+  color: #0a0d12;
+}
+
 .movie-hub-provider-mark {
   min-width: 2rem;
   height: 2rem;
@@ -20,6 +25,17 @@
   border-color: rgba(141, 167, 255, 0.8);
   background: var(--color-brand-accent);
   color: #0a0d12;
+}
+
+/* Filmreihen-Seite: gleiche Badge-Geometrie für alle Anbieter, linksbündig wie normale Poster. */
+.collection-part-art .provider-badges {
+  left: 0.65rem;
+  right: 0.65rem;
+  bottom: 0.65rem;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  gap: 0.3rem;
+  overflow: hidden;
 }
 
 /* Poster-Metadaten näher an die Anbieterbadges ziehen, Titel/Jahr bleiben als Block zusammen. */
@@ -78,6 +94,12 @@
 
 .media-editor-panel .media-form-actions {
   grid-column: 1 / -1;
+}
+
+/* Status-/Erfolgs-/Fehlermeldungen stehen immer am Ende der Kachel. */
+.media-editor-panel > .personal-state-message {
+  order: 20;
+  margin-bottom: 0;
 }
 
 /* Visuell immer „Speichern“, unabhängig davon ob neu oder bearbeitet. */
