@@ -6,6 +6,10 @@ import { normalizePersonalSmartRowSettings } from '../catalog/personalSmartRows.
 import { normalizeContentDisplaySettings } from '../catalog/contentDisplaySettings.js'
 import { firebaseReady } from '../lib/firebase.js'
 import { DEFAULT_THEME_SETTINGS, normalizeThemeSettings } from '../theme/themeConfig.js'
+import {
+  DEFAULT_PROFILE_EXPERIENCE_SETTINGS,
+  normalizeProfileExperienceSettings,
+} from './profileExperienceSettings.js'
 
 const ProfileContext = createContext(null)
 const LEGACY_THEME_STORAGE_KEY = 'movie-hub-theme-settings-v1'
@@ -35,6 +39,7 @@ function normalizeProfile(snapshot) {
     categorySettings: normalizeCategorySettings(data.categorySettings),
     contentRowSettings: normalizePersonalSmartRowSettings(data.contentRowSettings),
     contentDisplaySettings: normalizeContentDisplaySettings(data.contentDisplaySettings),
+    experienceSettings: normalizeProfileExperienceSettings(data.experienceSettings),
   }
 }
 
@@ -80,6 +85,7 @@ export function ProfileProvider({ user, children }) {
             categorySettings: normalizeCategorySettings(DEFAULT_CATEGORY_SETTINGS),
             contentRowSettings: normalizePersonalSmartRowSettings(),
             contentDisplaySettings: normalizeContentDisplaySettings(),
+            experienceSettings: normalizeProfileExperienceSettings(DEFAULT_PROFILE_EXPERIENCE_SETTINGS),
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           })
@@ -133,6 +139,7 @@ export function ProfileProvider({ user, children }) {
     const categorySettings = normalizeCategorySettings(DEFAULT_CATEGORY_SETTINGS)
     const contentRowSettings = normalizePersonalSmartRowSettings()
     const contentDisplaySettings = normalizeContentDisplaySettings()
+    const experienceSettings = normalizeProfileExperienceSettings(DEFAULT_PROFILE_EXPERIENCE_SETTINGS)
 
     await setDoc(profileRef, {
       displayName,
@@ -141,11 +148,21 @@ export function ProfileProvider({ user, children }) {
       categorySettings,
       contentRowSettings,
       contentDisplaySettings,
+      experienceSettings,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })
 
-    const newProfile = { id: profileRef.id, displayName, role: 'member', themeSettings, categorySettings, contentRowSettings, contentDisplaySettings }
+    const newProfile = {
+      id: profileRef.id,
+      displayName,
+      role: 'member',
+      themeSettings,
+      categorySettings,
+      contentRowSettings,
+      contentDisplaySettings,
+      experienceSettings,
+    }
     setProfiles((current) => sortProfiles([...current, newProfile]))
     setActiveProfileId(profileRef.id)
     persistActiveProfile(user.uid, profileRef.id)
@@ -228,6 +245,21 @@ export function ProfileProvider({ user, children }) {
     )))
   }, [activeProfileId, user.uid])
 
+  const updateActiveProfileExperienceSettings = useCallback(async (experienceSettings) => {
+    if (!activeProfileId) return
+    const normalized = normalizeProfileExperienceSettings(experienceSettings)
+    const { db } = await firebaseReady
+
+    await setDoc(doc(db, 'users', user.uid, 'profiles', activeProfileId), {
+      experienceSettings: normalized,
+      updatedAt: serverTimestamp(),
+    }, { merge: true })
+
+    setProfiles((current) => current.map((profile) => (
+      profile.id === activeProfileId ? { ...profile, experienceSettings: normalized } : profile
+    )))
+  }, [activeProfileId, user.uid])
+
   const value = useMemo(() => ({
     profiles,
     activeProfile,
@@ -240,7 +272,21 @@ export function ProfileProvider({ user, children }) {
     updateActiveProfileCategorySettings,
     updateActiveProfileContentRowSettings,
     updateActiveProfileContentDisplaySettings,
-  }), [profiles, activeProfile, loading, error, selectProfile, createProfile, renameProfile, updateActiveProfileThemeSettings, updateActiveProfileCategorySettings, updateActiveProfileContentRowSettings, updateActiveProfileContentDisplaySettings])
+    updateActiveProfileExperienceSettings,
+  }), [
+    profiles,
+    activeProfile,
+    loading,
+    error,
+    selectProfile,
+    createProfile,
+    renameProfile,
+    updateActiveProfileThemeSettings,
+    updateActiveProfileCategorySettings,
+    updateActiveProfileContentRowSettings,
+    updateActiveProfileContentDisplaySettings,
+    updateActiveProfileExperienceSettings,
+  ])
 
   return (
     <ProfileContext.Provider value={value}>
