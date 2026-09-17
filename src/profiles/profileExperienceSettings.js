@@ -8,6 +8,7 @@ export const DEFAULT_PROFILE_EXPERIENCE_SETTINGS = Object.freeze({
   heroTrailers: Object.freeze({
     enabled: false,
     delaySeconds: 15,
+    soundEnabled: true,
   }),
   visibility: Object.freeze({
     home: Object.freeze({
@@ -70,6 +71,7 @@ export function normalizeProfileExperienceSettings(value = {}) {
         HERO_TRAILER_DELAY_OPTIONS,
         DEFAULT_PROFILE_EXPERIENCE_SETTINGS.heroTrailers.delaySeconds,
       ),
+      soundEnabled: bool(heroTrailers.soundEnabled, DEFAULT_PROFILE_EXPERIENCE_SETTINGS.heroTrailers.soundEnabled),
     },
     visibility: {
       home: {
