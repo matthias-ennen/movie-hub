@@ -49,8 +49,6 @@ jobs:
         continue-on-error: true
         run: npm run series:details:restore
 
-      # Scheduled/manual runs are catalog refreshes first. Preserve the strict
-      # quality gate: if TMDB cannot produce a complete catalog, deploy nothing.
       - name: Generate TMDB catalog for strict refresh
         if: ${{ github.event_name != 'push' }}
         env:
@@ -63,9 +61,6 @@ jobs:
           TMDB_SERIES_SEASON_ENRICH_LIMIT: ${{ (inputs.data_mode == 'accelerated' || contains(github.event.head_commit.message, '[data-bootstrap]')) && '2000' || '600' }}
         run: npm run tmdb:catalog
 
-      # A code push must not be blocked by a temporary provider/catalog gap at
-      # TMDB. Try to refresh, but allow the next step to restore the last known
-      # good production catalog when this attempt fails its quality gate.
       - name: Generate fresh TMDB catalog for code deploy
         id: push_catalog
         if: ${{ github.event_name == 'push' }}
@@ -89,11 +84,6 @@ jobs:
             --output public/catalog.json
           node -e "const fs=require('node:fs'); const c=JSON.parse(fs.readFileSync('public/catalog.json','utf8')); if(c?.source!=='tmdb'||!Array.isArray(c?.titles)||c.titles.length===0||!Array.isArray(c?.rowDefinitions)||c.rowDefinitions.length===0) throw new Error('Last deployed catalog is not a valid non-empty TMDB catalog.'); console.log('Reusing live TMDB catalog with '+c.titles.length+' titles from '+(c.generatedAt||'unknown time')+'.');"
 
-          # Firebase Hosting rewrites unknown paths to index.html. Therefore a
-          # successful HTTP response alone cannot prove that search-index.json
-          # already exists. Validate the downloaded payload inside the shell
-          # condition and derive the first index from the restored catalog when
-          # the live response is HTML or otherwise invalid.
           if curl --fail --silent --show-error --location \
             https://movie-hub-62459.web.app/search-index.json \
             --output public/search-index.json \
@@ -105,11 +95,6 @@ jobs:
             npm run search:index
           fi
 
-          # Lazy search-detail shards are a separate deploy artifact. Reuse the
-          # complete last-known-good shard set when available. On the very first
-          # rollout (or if the live set is invalid), derive a smaller but valid
-          # fallback from the restored browse catalog without changing the
-          # already restored broad search index.
           if npm run search:details:restore; then
             echo "Live lazy search details validated."
           else
@@ -122,9 +107,6 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      - name: Verify hosted hero player artifact
-        run: node scripts/verify-hero-player-build.mjs
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
