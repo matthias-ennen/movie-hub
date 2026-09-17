@@ -1,5 +1,6 @@
 const YOUTUBE_KEY_PATTERN = /^[A-Za-z0-9_-]{6,20}$/
 const DIAGNOSTIC_ID = 'moviehub-hero-trailer-diagnostic'
+const DIAGNOSTIC_VERSION = 'D3'
 const EMBED_LOAD_TIMEOUT_MS = 4500
 
 export function showTrailerDiagnostic(message) {
@@ -25,7 +26,7 @@ export function showTrailerDiagnostic(message) {
     })
     document.body.appendChild(node)
   }
-  node.textContent = `Trailer-Diagnose: ${message}`
+  node.textContent = `Trailer-Diagnose ${DIAGNOSTIC_VERSION}: ${message}`
 }
 
 export function selectHeroVideo(videos) {
