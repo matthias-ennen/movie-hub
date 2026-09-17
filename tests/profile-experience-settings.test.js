@@ -12,6 +12,7 @@ import {
 import {
   filterRowsByExperienceVisibility,
   getActiveHeroCount,
+  getActiveHeroTrailerSettings,
   getActivePosterRowLimit,
   isExperienceModuleVisible,
   setActiveProfileExperienceRuntime,
@@ -43,33 +44,54 @@ describe('profilbezogene Oberflächeneinstellungen', () => {
     const settings = normalizeProfileExperienceSettings()
     expect(settings.posterRowLimit).toBe(50)
     expect(settings.heroCount).toBe(5)
+    expect(settings.heroTrailers).toEqual({ enabled: false, delaySeconds: 15, soundEnabled: true })
     expect(settings.visibility.home.hero).toBe(true)
     expect(settings.visibility.movies.top10).toBe(true)
     expect(settings.visibility.myContent.history).toBe(true)
   })
 
-  it('akzeptiert nur definierte Poster- und Hero-Werte', () => {
-    expect(normalizeProfileExperienceSettings({ posterRowLimit: 70, heroCount: 7 })).toMatchObject({
+  it('akzeptiert nur definierte Poster-, Hero- und Trailer-Werte', () => {
+    expect(normalizeProfileExperienceSettings({
       posterRowLimit: 70,
       heroCount: 7,
+      heroTrailers: { enabled: true, delaySeconds: 20, soundEnabled: false },
+    })).toMatchObject({
+      posterRowLimit: 70,
+      heroCount: 7,
+      heroTrailers: { enabled: true, delaySeconds: 20, soundEnabled: false },
     })
-    expect(normalizeProfileExperienceSettings({ posterRowLimit: 55, heroCount: 9 })).toMatchObject({
+    expect(normalizeProfileExperienceSettings({
+      posterRowLimit: 55,
+      heroCount: 9,
+      heroTrailers: { enabled: 'yes', delaySeconds: 12, soundEnabled: 'no' },
+    })).toMatchObject({
       posterRowLimit: 50,
       heroCount: 5,
+      heroTrailers: { enabled: false, delaySeconds: 15, soundEnabled: true },
     })
   })
 
-  it('ändert verschachtelte Sichtbarkeit ohne andere Defaults zu verlieren', () => {
-    const next = updateProfileExperienceSetting(undefined, 'visibility.home.providerRows', false)
-    expect(next.visibility.home.providerRows).toBe(false)
-    expect(next.visibility.home.hero).toBe(true)
-    expect(next.visibility.series.providerRows).toBe(true)
+  it('ändert verschachtelte Einstellungen ohne andere Defaults zu verlieren', () => {
+    const visibility = updateProfileExperienceSetting(undefined, 'visibility.home.providerRows', false)
+    expect(visibility.visibility.home.providerRows).toBe(false)
+    expect(visibility.visibility.home.hero).toBe(true)
+    expect(visibility.visibility.series.providerRows).toBe(true)
+
+    const trailers = updateProfileExperienceSetting(undefined, 'heroTrailers.soundEnabled', false)
+    expect(trailers.heroTrailers.soundEnabled).toBe(false)
+    expect(trailers.heroTrailers.enabled).toBe(false)
+    expect(trailers.heroTrailers.delaySeconds).toBe(15)
   })
 
-  it('wendet Posterlimit und Hero-Anzahl zur Laufzeit an', () => {
-    setActiveProfileExperienceRuntime({ posterRowLimit: 30, heroCount: 3 })
+  it('wendet Posterlimit, Hero-Anzahl und Trailerwerte zur Laufzeit an', () => {
+    setActiveProfileExperienceRuntime({
+      posterRowLimit: 30,
+      heroCount: 3,
+      heroTrailers: { enabled: true, delaySeconds: 10, soundEnabled: false },
+    })
     expect(getActivePosterRowLimit()).toBe(30)
     expect(getActiveHeroCount()).toBe(3)
+    expect(getActiveHeroTrailerSettings()).toEqual({ enabled: true, delaySeconds: 10, soundEnabled: false })
 
     const items = Array.from({ length: 80 }, (_, index) => title(index + 1))
     expect(limitPosterRowItems(items)).toHaveLength(30)
