@@ -1,3 +1,5 @@
+import { getActivePosterRowLimit } from '../profiles/profileExperienceRuntime.js'
+
 export function buildProviderBrowseRows(providerCatalogs, titles, mediaType) {
   const catalogs = providerCatalogs && typeof providerCatalogs === 'object'
     ? Object.values(providerCatalogs)
@@ -40,11 +42,12 @@ export function buildProviderBrowseRows(providerCatalogs, titles, mediaType) {
   return providerRows
 }
 
-export function buildProviderHomeRows(providerCatalogs, titles, limit = 20) {
+export function buildProviderHomeRows(providerCatalogs, titles, limit = getActivePosterRowLimit()) {
   const catalogs = providerCatalogs && typeof providerCatalogs === 'object'
     ? Object.values(providerCatalogs)
     : []
   const byId = new Map((Array.isArray(titles) ? titles : []).map((title) => [title.id, title]))
+  const safeLimit = Math.min(Math.max(0, Number(limit) || 0), getActivePosterRowLimit())
 
   return catalogs.map((catalog) => {
     const ids = [...(Array.isArray(catalog.movieIds) ? catalog.movieIds : []), ...(Array.isArray(catalog.seriesIds) ? catalog.seriesIds : [])]
@@ -57,7 +60,7 @@ export function buildProviderHomeRows(providerCatalogs, titles, limit = 20) {
       id: `provider-${catalog.id}-home`,
       providerId: catalog.id,
       title: catalog.homeTitle || `${catalog.label || catalog.id} entdecken`,
-      displayLimit: Math.max(0, Number(limit) || 0),
+      displayLimit: safeLimit,
       items,
     }
   }).filter(Boolean)
