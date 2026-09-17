@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react'
 import { collection, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
 import { LibraryProvider } from '../library/LibraryProvider.jsx'
 import { DEFAULT_CATEGORY_SETTINGS, normalizeCategorySettings } from '../catalog/categoryRows.js'
@@ -14,6 +14,7 @@ import {
 
 const ProfileContext = createContext(null)
 const LEGACY_THEME_STORAGE_KEY = 'movie-hub-theme-settings-v1'
+const PROFILE_EXPERIENCE_CHANGED_EVENT = 'moviehub:profile-experience-changed'
 
 function activeProfileStorageKey(uid) {
   return `movie-hub-active-profile-v1:${uid}`
@@ -58,6 +59,11 @@ function persistActiveProfile(uid, profileId) {
   } catch {
     // Lokaler Speicher ist nur Komfortzustand; Firestore-Profildaten bleiben davon unberührt.
   }
+}
+
+function notifyExperienceChanged() {
+  if (typeof window === 'undefined') return
+  window.setTimeout(() => window.dispatchEvent(new Event(PROFILE_EXPERIENCE_CHANGED_EVENT)), 0)
 }
 
 export function ProfileProvider({ user, children }) {
@@ -126,15 +132,13 @@ export function ProfileProvider({ user, children }) {
     [activeProfileId, profiles],
   )
 
-  // Runtime consumers (row builders / hero selection) are plain modules rather
-  // than React components. Keep their view of the active profile synchronous
-  // with this render so a profile switch never gets one frame of old limits.
   setActiveProfileExperienceRuntime(activeProfile?.experienceSettings)
 
   const selectProfile = useCallback((profileId) => {
     if (!profiles.some((profile) => profile.id === profileId)) return
     setActiveProfileId(profileId)
     persistActiveProfile(user.uid, profileId)
+    notifyExperienceChanged()
   }, [profiles, user.uid])
 
   const createProfile = useCallback(async () => {
@@ -172,6 +176,7 @@ export function ProfileProvider({ user, children }) {
     setProfiles((current) => sortProfiles([...current, newProfile]))
     setActiveProfileId(profileRef.id)
     persistActiveProfile(user.uid, profileRef.id)
+    notifyExperienceChanged()
     return profileRef.id
   }, [profiles.length, user.uid])
 
@@ -264,6 +269,7 @@ export function ProfileProvider({ user, children }) {
     setProfiles((current) => current.map((profile) => (
       profile.id === activeProfileId ? { ...profile, experienceSettings: normalized } : profile
     )))
+    notifyExperienceChanged()
   }, [activeProfileId, user.uid])
 
   const value = useMemo(() => ({
