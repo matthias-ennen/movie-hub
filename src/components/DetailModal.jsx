@@ -366,6 +366,15 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
     else window.open(url, '_blank', 'noopener,noreferrer')
   }
 
+  function openAutomaticVideo(video) {
+    const key = String(video?.key || '').trim()
+    if (/^[A-Za-z0-9_-]{6,20}$/.test(key) && window.MovieHubTrailer?.playHeroTrailer) {
+      window.MovieHubTrailer.playHeroTrailer(key, item.title || 'Trailer', true)
+      return
+    }
+    openUrl(video?.url)
+  }
+
   async function addMedia(event) {
     event.preventDefault()
     setMediaBusy(true)
@@ -558,7 +567,7 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
                     key={video.id || video.url}
                     data-focusable="true"
                     data-detail-autofocus={!hasFilmCollection && !hasSeriesNavigation && index === 0 ? 'true' : undefined}
-                    onClick={() => openUrl(video.url)}
+                    onClick={() => openAutomaticVideo(video)}
                   >▶ {video.label || (video.type === 'teaser' ? 'Teaser' : 'Trailer')}</button>
                 ))}
               </div>
