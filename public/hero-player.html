@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>Movie Hub Hero Trailer</title>
+  <style>
+    html, body, #player {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    iframe {
+      width: 100% !important;
+      height: 100% !important;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="player"></div>
+  <script>
+    (() => {
+      const params = new URLSearchParams(location.search)
+      const videoId = String(params.get('v') || '')
+      const validId = /^[A-Za-z0-9_-]{6,20}$/.test(videoId)
+      let player = null
+
+      function diag(message) {
+        try { MovieHubHeroTrailerEvents.diagnostic(String(message)) } catch (_) {}
+      }
+      function fail(code) {
+        try { MovieHubHeroTrailerEvents.error(String(code)) } catch (_) {}
+      }
+
+      window.onerror = (message) => {
+        diag(`JS-Fehler ${message}`)
+      }
+
+      window.onYouTubeIframeAPIReady = () => {
+        diag('YouTube-API bereit')
+        if (!validId) {
+          fail('invalid-video-id')
+          return
+        }
+        player = new YT.Player('player', {
+          videoId,
+          playerVars: {
+            autoplay: 0,
+            mute: 1,
+            controls: 0,
+            disablekb: 1,
+            fs: 0,
+            iv_load_policy: 3,
+            playsinline: 1,
+            rel: 0,
+            origin: location.origin,
+          },
+          events: {
+            onReady(event) {
+              diag('YouTube-Player bereit')
+              try {
+                event.target.mute()
+                event.target.setVolume(100)
+              } catch (_) {}
+              try { MovieHubHeroTrailerEvents.ready() } catch (_) {}
+            },
+            onStateChange(event) {
+              if (event.data === YT.PlayerState.PLAYING) {
+                let muted = true
+                try { muted = event.target.isMuted() } catch (_) {}
+                try { MovieHubHeroTrailerEvents.playing(muted) } catch (_) {}
+              } else if (event.data === YT.PlayerState.ENDED) {
+                try { MovieHubHeroTrailerEvents.ended() } catch (_) {}
+              }
+            },
+            onError(event) {
+              fail(event && event.data != null ? event.data : '?')
+            },
+            onAutoplayBlocked() {
+              fail('autoplay-blocked')
+            },
+          },
+        })
+      }
+
+      window.movieHubPlay = () => {
+        try { if (player) player.playVideo() } catch (_) {}
+      }
+
+      window.movieHubSetMuted = (muted) => {
+        try {
+          if (!player) return
+          if (muted) {
+            player.mute()
+          } else {
+            player.unMute()
+            player.setVolume(100)
+            player.playVideo()
+          }
+        } catch (_) {}
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://www.youtube.com/iframe_api'
+      script.onload = () => diag('YouTube-API-Script geladen')
+      script.onerror = () => {
+        diag('YouTube-API-Script Ladefehler')
+        fail('iframe-api-load')
+      }
+      document.head.appendChild(script)
+      diag('Player-Seite initialisiert')
+    })()
+  </script>
+</body>
+</html>
