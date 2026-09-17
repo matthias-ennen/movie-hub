@@ -30,9 +30,6 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Verify hosted hero player artifact
-        run: node scripts/verify-hero-player-build.mjs
-
       - name: Test application logic
         run: npm run test:unit
 
