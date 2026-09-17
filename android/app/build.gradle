@@ -14,6 +14,22 @@ if (signingPropertiesFile.exists()) {
     signingPropertiesFile.withInputStream { signingProperties.load(it) }
 }
 
+def personalDataKeyB64 = ''
+if (signingPropertiesFile.exists()) {
+    def configuredStoreFile = signingProperties['storeFile']
+    def configuredStorePassword = signingProperties['storePassword']
+    if (configuredStoreFile && configuredStorePassword) {
+        def storeFile = file(configuredStoreFile)
+        if (storeFile.isFile()) {
+            def digest = java.security.MessageDigest.getInstance('SHA-256')
+            digest.update(storeFile.bytes)
+            digest.update(configuredStorePassword.toString().getBytes('UTF-8'))
+            digest.update('movie-hub-personal-data-v1'.getBytes('UTF-8'))
+            personalDataKeyB64 = Base64.encoder.encodeToString(digest.digest())
+        }
+    }
+}
+
 tasks.register('generateStartupJingle') {
     def sourceParts = fileTree(startupJingleSourceDir) {
         include 'start_*.b64'
@@ -82,6 +98,10 @@ android {
     namespace 'de.matthiasennen.moviehub'
     compileSdk 35
 
+    buildFeatures {
+        buildConfig true
+    }
+
     defaultConfig {
         applicationId 'de.matthiasennen.moviehub'
         minSdk 23
@@ -91,6 +111,7 @@ android {
         versionCode appVersionCode
         versionName "0.1.${appVersionCode}"
         multiDexEnabled true
+        buildConfigField 'String', 'PERSONAL_DATA_KEY_B64', '"' + personalDataKeyB64 + '"'
     }
 
     sourceSets {
