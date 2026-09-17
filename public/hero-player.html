@@ -23,14 +23,17 @@
   <div id="player"></div>
   <script>
     (() => {
-      const params = new URLSearchParams(location.search)
-      const videoId = String(params.get('v') || '')
-      const validId = /^[A-Za-z0-9_-]{6,20}$/.test(videoId)
+      const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{6,20}$/
       let player = null
+      let apiReady = false
+      let playerReady = false
+      let pendingVideoId = ''
+      let currentVideoId = ''
 
       function diag(message) {
         try { MovieHubHeroTrailerEvents.diagnostic(String(message)) } catch (_) {}
       }
+
       function fail(code) {
         try { MovieHubHeroTrailerEvents.error(String(code)) } catch (_) {}
       }
@@ -39,12 +42,9 @@
         diag(`JS-Fehler ${message}`)
       }
 
-      window.onYouTubeIframeAPIReady = () => {
-        diag('YouTube-API bereit')
-        if (!validId) {
-          fail('invalid-video-id')
-          return
-        }
+      function createPlayer(videoId) {
+        currentVideoId = videoId
+        playerReady = false
         player = new YT.Player('player', {
           videoId,
           playerVars: {
@@ -60,6 +60,7 @@
           },
           events: {
             onReady(event) {
+              playerReady = true
               diag('YouTube-Player bereit')
               try {
                 event.target.mute()
@@ -86,8 +87,46 @@
         })
       }
 
+      function applyPendingVideo() {
+        if (!apiReady || !pendingVideoId) return
+        const videoId = pendingVideoId
+        pendingVideoId = ''
+
+        if (!player) {
+          diag(`YouTube-Player wird für ${videoId} erstellt`)
+          createPlayer(videoId)
+          return
+        }
+
+        currentVideoId = videoId
+        try {
+          player.mute()
+          player.cueVideoById(videoId)
+          diag(`Video-ID gesetzt · ${videoId}`)
+          if (playerReady) {
+            try { MovieHubHeroTrailerEvents.ready() } catch (_) {}
+          }
+        } catch (_) {
+          fail('set-video')
+        }
+      }
+
+      window.movieHubLoadVideo = (videoId) => {
+        const normalized = String(videoId || '')
+        if (!VIDEO_ID_PATTERN.test(normalized)) {
+          fail('invalid-video-id')
+          return
+        }
+        pendingVideoId = normalized
+        diag(`Video-ID empfangen · ${normalized}`)
+        applyPendingVideo()
+      }
+
       window.movieHubPlay = () => {
-        try { if (player) player.playVideo() } catch (_) {}
+        try {
+          if (!player || !currentVideoId) return
+          player.playVideo()
+        } catch (_) {}
       }
 
       window.movieHubSetMuted = (muted) => {
@@ -101,6 +140,12 @@
             player.playVideo()
           }
         } catch (_) {}
+      }
+
+      window.onYouTubeIframeAPIReady = () => {
+        apiReady = true
+        diag('YouTube-API bereit')
+        applyPendingVideo()
       }
 
       const script = document.createElement('script')
