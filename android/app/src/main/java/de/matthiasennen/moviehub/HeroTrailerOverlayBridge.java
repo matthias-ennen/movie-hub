@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.Outline;
+import android.net.Uri;
 import android.net.http.SslError;
 import android.os.Build;
 import android.view.View;
@@ -31,7 +32,7 @@ import java.util.WeakHashMap;
 final class HeroTrailerOverlayBridge {
     private static final String JS_INTERFACE = "MovieHubHeroTrailer";
     private static final String PLAYER_EVENTS_INTERFACE = "MovieHubHeroTrailerEvents";
-    private static final String MOVIE_HUB_BASE_URL = "https://movie-hub-62459.web.app/";
+    private static final String PLAYER_PAGE_URL = "https://movie-hub-62459.web.app/hero-player.html";
     private static final long PREPARE_DELAY_MS = 1200L;
     private static final Map<WebView, HeroTrailerOverlayBridge> INSTALLED =
             Collections.synchronizedMap(new WeakHashMap<>());
@@ -63,19 +64,22 @@ final class HeroTrailerOverlayBridge {
                        double widthCss, double heightCss,
                        double radiusCss, double viewportWidthCss) {
         if (!isValidToken(token) || !isValidVideoId(videoId) || viewportWidthCss <= 0) {
-            activity.runOnUiThread(() -> notifyHost(token, "diagnostic", true, "Bridge-Aufruf verworfen: ungültige Parameter"));
+            activity.runOnUiThread(() -> notifyHost(token, "diagnostic", true,
+                    "Bridge-Aufruf verworfen: ungültige Parameter"));
             return;
         }
         activity.runOnUiThread(() -> {
             activeToken = token;
             notifyHost(token, "diagnostic", true, "Bridge create() erreicht");
             try {
-                createOnUiThread(token, videoId, leftCss, topCss, widthCss, heightCss, radiusCss, viewportWidthCss);
+                createOnUiThread(token, videoId, leftCss, topCss, widthCss, heightCss,
+                        radiusCss, viewportWidthCss);
             } catch (Throwable error) {
                 String name = error.getClass().getSimpleName();
                 String message = error.getMessage();
                 notifyHost(token, "diagnostic", true,
-                        "Native Ausnahme " + name + (message == null || message.isEmpty() ? "" : " · " + message));
+                        "Native Ausnahme " + name
+                                + (message == null || message.isEmpty() ? "" : " · " + message));
                 detachPlayer();
             }
         });
@@ -135,6 +139,9 @@ final class HeroTrailerOverlayBridge {
             player.setWebViewClient(new DiagnosticWebViewClient());
             player.addJavascriptInterface(new PlayerEvents(), PLAYER_EVENTS_INTERFACE);
             playerWebView = player;
+
+            // Start Chromium/WebView renderer ahead of the first Hero autoplay.
+            player.loadUrl("about:blank");
         } catch (Throwable ignored) {
             playerWebView = null;
         }
@@ -202,38 +209,12 @@ final class HeroTrailerOverlayBridge {
         player.bringToFront();
         notifyHost(token, "diagnostic", true, "Nativer WebView angelegt");
 
-        player.loadDataWithBaseURL(
-                MOVIE_HUB_BASE_URL,
-                buildPlayerHtml(videoId),
-                "text/html",
-                "UTF-8",
-                null);
-        notifyHost(token, "diagnostic", true, "Native HTML-Ladung gestartet");
-    }
-
-    private String buildPlayerHtml(String videoId) {
-        String safeVideoId = JSONObject.quote(videoId);
-        return "<!doctype html><html><head>"
-                + "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,maximum-scale=1\">"
-                + "<style>html,body,#player{margin:0;width:100%;height:100%;overflow:hidden;background:#000}iframe{width:100%!important;height:100%!important;border:0}</style>"
-                + "</head><body><div id=\"player\"></div><script>"
-                + "function mhDiag(m){try{MovieHubHeroTrailerEvents.diagnostic(String(m));}catch(_){}}"
-                + "window.onerror=function(m){mhDiag('JS-Fehler '+m);};"
-                + "window.onYouTubeIframeAPIReady=function(){mhDiag('YouTube-API bereit');"
-                + "player=new YT.Player('player',{videoId:" + safeVideoId + ",playerVars:{autoplay:0,mute:1,controls:0,disablekb:1,fs:0,iv_load_policy:3,playsinline:1,rel:0,origin:'https://movie-hub-62459.web.app'},events:{"
-                + "onReady:function(e){mhDiag('YouTube-Player bereit');try{e.target.mute();e.target.setVolume(100);}catch(_){}MovieHubHeroTrailerEvents.ready();},"
-                + "onStateChange:function(e){if(e.data===YT.PlayerState.PLAYING){let muted=true;try{muted=e.target.isMuted();}catch(_){}MovieHubHeroTrailerEvents.playing(muted);}else if(e.data===YT.PlayerState.ENDED){MovieHubHeroTrailerEvents.ended();}},"
-                + "onError:function(e){MovieHubHeroTrailerEvents.error(String(e&&e.data!=null?e.data:'?'));},"
-                + "onAutoplayBlocked:function(){MovieHubHeroTrailerEvents.error('autoplay-blocked');}"
-                + "}});};"
-                + "let player=null;"
-                + "let s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';"
-                + "s.onload=function(){mhDiag('YouTube-API-Script geladen');};"
-                + "s.onerror=function(){mhDiag('YouTube-API-Script Ladefehler');MovieHubHeroTrailerEvents.error('iframe-api-load');};"
-                + "document.head.appendChild(s);"
-                + "window.movieHubPlay=function(){try{player&&player.playVideo();}catch(_){}};"
-                + "window.movieHubSetMuted=function(m){try{if(!player)return;if(m){player.mute();}else{player.unMute();player.setVolume(100);player.playVideo();}}catch(_){}};"
-                + "</script></body></html>";
+        String playerUrl = Uri.parse(PLAYER_PAGE_URL).buildUpon()
+                .appendQueryParameter("v", videoId)
+                .build()
+                .toString();
+        player.loadUrl(playerUrl);
+        notifyHost(token, "diagnostic", true, "Gehostete Player-Seite angefordert");
     }
 
     private final class DiagnosticWebViewClient extends WebViewClient {
@@ -241,7 +222,9 @@ final class HeroTrailerOverlayBridge {
         public void onPageFinished(WebView view, String url) {
             String token = activeToken;
             if (token == null) return;
-            notifyHost(token, "diagnostic", true, "Native HTML-Seite geladen");
+            if (url != null && url.contains("hero-player.html")) {
+                notifyHost(token, "diagnostic", true, "Gehostete Player-Seite geladen");
+            }
         }
 
         @Override
@@ -250,7 +233,8 @@ final class HeroTrailerOverlayBridge {
             if (token == null) return;
             String host = request.getUrl() == null ? "?" : request.getUrl().getHost();
             String detail = error == null ? "?" : String.valueOf(error.getErrorCode());
-            notifyHost(token, "diagnostic", true, "WebView-Netzwerkfehler " + detail + " · " + host);
+            notifyHost(token, "diagnostic", true,
+                    "WebView-Netzwerkfehler " + detail + " · " + host);
         }
 
         @Override
@@ -267,7 +251,8 @@ final class HeroTrailerOverlayBridge {
         public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
             String token = activeToken;
             if (token != null) {
-                notifyHost(token, "diagnostic", true, "SSL-Fehler " + (error == null ? "?" : error.getPrimaryError()));
+                notifyHost(token, "diagnostic", true,
+                        "SSL-Fehler " + (error == null ? "?" : error.getPrimaryError()));
             }
             if (handler != null) handler.cancel();
         }
@@ -278,7 +263,8 @@ final class HeroTrailerOverlayBridge {
         public void diagnostic(String message) {
             String token = activeToken;
             if (token == null) return;
-            activity.runOnUiThread(() -> notifyHost(token, "diagnostic", true, message == null ? "?" : message));
+            activity.runOnUiThread(() -> notifyHost(token, "diagnostic", true,
+                    message == null ? "?" : message));
         }
 
         @JavascriptInterface
