@@ -181,62 +181,6 @@ export default function ProfileView({ user, onSignOut, publicTitles = [], smartF
         {profileMessage && <p className="profile-message">{profileMessage}</p>}
       </section>
 
-      <section className="settings-panel category-settings-panel" aria-labelledby="category-settings-heading">
-        <div className="settings-heading">
-          <div>
-            <p className="settings-kicker">Persönliche Auswahl</p>
-            <h2 id="category-settings-heading">Meine Kategorien</h2>
-          </div>
-          <span className="settings-status">Profil: {activeProfile?.displayName ?? '–'}</span>
-        </div>
-
-        <p className="settings-description">
-          Deine Auswahl erscheint auf Filme und Serien direkt vor den Anbieterreihen. Home und Meine Inhalte bleiben unverändert.
-        </p>
-
-        {activeProfile && categoryGroups.map((group) => (
-          <div className="category-settings-group" key={group.id}>
-            <div className="category-settings-group-heading">
-              <h3>{group.title}</h3>
-              <span>{group.enabledIds.length} von {group.options.length} aktiv</span>
-            </div>
-            <div className="category-choice-grid" aria-label={`${group.title} auswählen`}>
-              {group.options.map((category) => {
-                const enabled = group.enabledIds.includes(category.id)
-                const saving = categorySavingId === `${group.id}:${category.id}`
-                return (
-                  <button
-                    type="button"
-                    key={category.id}
-                    className={enabled ? 'category-choice active' : 'category-choice'}
-                    onClick={() => toggleCategory(group.id, category.id)}
-                    role="switch"
-                    aria-checked={enabled}
-                    aria-busy={saving}
-                    data-focusable="true"
-                  >
-                    <span>{category.title}</span>
-                    <span className={enabled ? 'category-choice-switch active' : 'category-choice-switch'} aria-hidden="true">
-                      <span />
-                    </span>
-                    <small>{saving ? 'Speichert …' : enabled ? 'An' : 'Aus'}</small>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        ))}
-
-        {categoryMessage && <p className="error" role="status">{categoryMessage}</p>}
-        <p className="settings-hint">
-          Klassiker umfasst in dieser Version Filme mit Erscheinungsjahr vor 2000. Jede Änderung gilt nur für das aktuell aktive Profil.
-        </p>
-      </section>
-
-      <PersonalRowsSettings titles={publicTitles} filterOptions={smartFilterOptions} />
-
-      <ContentDisplaySettings />
-
       <section className="settings-panel" aria-labelledby="theme-heading">
         <div className="settings-heading">
           <div>
@@ -323,6 +267,62 @@ export default function ProfileView({ user, onSignOut, publicTitles = [], smartF
           Eine manuelle Designwahl schaltet die Automatik nicht aus. Das manuell gewählte Design bleibt bis zum nächsten planmäßigen Wechsel aktiv.
         </p>
       </section>
+
+      <section className="settings-panel category-settings-panel" aria-labelledby="category-settings-heading">
+        <div className="settings-heading">
+          <div>
+            <p className="settings-kicker">Persönliche Auswahl</p>
+            <h2 id="category-settings-heading">Meine Kategorien</h2>
+          </div>
+          <span className="settings-status">Profil: {activeProfile?.displayName ?? '–'}</span>
+        </div>
+
+        <p className="settings-description">
+          Deine Auswahl erscheint auf Filme und Serien direkt vor den Anbieterreihen. Home und Meine Inhalte bleiben unverändert.
+        </p>
+
+        {activeProfile && categoryGroups.map((group) => (
+          <div className="category-settings-group" key={group.id}>
+            <div className="category-settings-group-heading">
+              <h3>{group.title}</h3>
+              <span>{group.enabledIds.length} von {group.options.length} aktiv</span>
+            </div>
+            <div className="category-choice-grid" aria-label={`${group.title} auswählen`}>
+              {group.options.map((category) => {
+                const enabled = group.enabledIds.includes(category.id)
+                const saving = categorySavingId === `${group.id}:${category.id}`
+                return (
+                  <button
+                    type="button"
+                    key={category.id}
+                    className={enabled ? 'category-choice active' : 'category-choice'}
+                    onClick={() => toggleCategory(group.id, category.id)}
+                    role="switch"
+                    aria-checked={enabled}
+                    aria-busy={saving}
+                    data-focusable="true"
+                  >
+                    <span>{category.title}</span>
+                    <span className={enabled ? 'category-choice-switch active' : 'category-choice-switch'} aria-hidden="true">
+                      <span />
+                    </span>
+                    <small>{saving ? 'Speichert …' : enabled ? 'An' : 'Aus'}</small>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+
+        {categoryMessage && <p className="error" role="status">{categoryMessage}</p>}
+        <p className="settings-hint">
+          Klassiker umfasst in dieser Version Filme mit Erscheinungsjahr vor 2000. Jede Änderung gilt nur für das aktuell aktive Profil.
+        </p>
+      </section>
+
+      <PersonalRowsSettings titles={publicTitles} filterOptions={smartFilterOptions} />
+
+      <ContentDisplaySettings />
 
       <section className="settings-panel account-panel" aria-labelledby="account-heading">
         <div>
