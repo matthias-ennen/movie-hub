@@ -43,6 +43,10 @@
             android:exported="false"
             android:screenOrientation="landscape" />
         <activity
+            android:name=".TrailerPlayerActivity"
+            android:exported="false"
+            android:screenOrientation="landscape" />
+        <activity
             android:name=".MainActivity"
             android:banner="@drawable/tv_banner"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
