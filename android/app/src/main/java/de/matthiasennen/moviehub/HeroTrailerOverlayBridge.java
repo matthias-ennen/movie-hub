@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.Outline;
-import android.net.Uri;
 import android.net.http.SslError;
 import android.os.Build;
 import android.view.View;
@@ -28,7 +27,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-/** Native YouTube overlay for Hero trailers with explicit WebView referer support. */
+/** Native YouTube overlay for Hero trailers with an already-running player WebView. */
 final class HeroTrailerOverlayBridge {
     private static final String JS_INTERFACE = "MovieHubHeroTrailer";
     private static final String PLAYER_EVENTS_INTERFACE = "MovieHubHeroTrailerEvents";
@@ -41,6 +40,8 @@ final class HeroTrailerOverlayBridge {
     private final WebView hostWebView;
     private WebView playerWebView;
     private String activeToken;
+    private String pendingVideoId;
+    private boolean playerPageReady;
 
     static void install(Activity activity, WebView hostWebView) {
         if (activity == null || hostWebView == null) return;
@@ -70,6 +71,7 @@ final class HeroTrailerOverlayBridge {
         }
         activity.runOnUiThread(() -> {
             activeToken = token;
+            pendingVideoId = videoId;
             notifyHost(token, "diagnostic", true, "Bridge create() erreicht");
             try {
                 createOnUiThread(token, videoId, leftCss, topCss, widthCss, heightCss,
@@ -115,6 +117,9 @@ final class HeroTrailerOverlayBridge {
     private void preparePlayerWebView() {
         if (activity.isFinishing() || activity.isDestroyed() || playerWebView != null) return;
         try {
+            View rootView = activity.findViewById(android.R.id.content);
+            if (!(rootView instanceof ViewGroup)) return;
+
             WebView player = new WebView(activity);
             player.setBackgroundColor(Color.TRANSPARENT);
             player.setAlpha(0f);
@@ -138,12 +143,25 @@ final class HeroTrailerOverlayBridge {
             player.setWebChromeClient(new WebChromeClient());
             player.setWebViewClient(new DiagnosticWebViewClient());
             player.addJavascriptInterface(new PlayerEvents(), PLAYER_EVENTS_INTERFACE);
-            playerWebView = player;
 
-            // Start Chromium/WebView renderer ahead of the first Hero autoplay.
-            player.post(() -> player.loadUrl("about:blank"));
+            FrameLayout.LayoutParams preloadParams = new FrameLayout.LayoutParams(1, 1);
+            preloadParams.leftMargin = 0;
+            preloadParams.topMargin = 0;
+            ((ViewGroup) rootView).addView(player, preloadParams);
+            playerWebView = player;
+            playerPageReady = false;
+
+            // Load the fixed player document once. Hero changes only inject a video id afterwards.
+            player.post(() -> {
+                try {
+                    player.loadUrl(PLAYER_PAGE_URL);
+                } catch (Throwable ignored) {
+                    playerPageReady = false;
+                }
+            });
         } catch (Throwable ignored) {
             playerWebView = null;
+            playerPageReady = false;
         }
     }
 
@@ -151,8 +169,8 @@ final class HeroTrailerOverlayBridge {
                                   double leftCss, double topCss,
                                   double widthCss, double heightCss,
                                   double radiusCss, double viewportWidthCss) {
-        detachPlayerFromParent();
         activeToken = token;
+        pendingVideoId = videoId;
         notifyHost(token, "diagnostic", true, "UI-Thread erreicht");
 
         View rootView = activity.findViewById(android.R.id.content);
@@ -186,7 +204,6 @@ final class HeroTrailerOverlayBridge {
         WebView player = playerWebView;
         notifyHost(token, "diagnostic", true, "Vorbereiteter WebView übernommen");
         player.setAlpha(0f);
-        notifyHost(token, "diagnostic", true, "Player zurückgesetzt");
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             player.setClipToOutline(true);
@@ -197,35 +214,31 @@ final class HeroTrailerOverlayBridge {
                 }
             });
         }
-        notifyHost(token, "diagnostic", true, "Rundung gesetzt");
 
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(widthPx, heightPx);
         params.leftMargin = leftPx;
         params.topMargin = topPx;
-        notifyHost(token, "diagnostic", true, "LayoutParams gesetzt");
-
-        root.addView(player, params);
-        notifyHost(token, "diagnostic", true, "WebView zur Oberfläche hinzugefügt");
+        player.setLayoutParams(params);
         player.bringToFront();
-        notifyHost(token, "diagnostic", true, "Nativer WebView angelegt");
+        notifyHost(token, "diagnostic", true, "Vorgeladener Player positioniert");
 
-        String playerUrl = Uri.parse(PLAYER_PAGE_URL).buildUpon()
-                .appendQueryParameter("v", videoId)
-                .build()
-                .toString();
-        notifyHost(token, "diagnostic", true, "Player-Load in nächsten UI-Takt eingeplant");
-        player.post(() -> {
-            if (!matches(token) || playerWebView != player) return;
-            notifyHost(token, "diagnostic", true, "Gehostete Player-Seite wird jetzt geladen");
-            try {
-                player.loadUrl(playerUrl);
-                notifyHost(token, "diagnostic", true, "loadUrl() zurückgekehrt");
-            } catch (Throwable error) {
-                String name = error.getClass().getSimpleName();
-                String message = error.getMessage();
-                notifyHost(token, "diagnostic", true,
-                        "loadUrl-Ausnahme " + name
-                                + (message == null || message.isEmpty() ? "" : " · " + message));
+        if (playerPageReady) {
+            injectPendingVideo();
+        } else {
+            notifyHost(token, "diagnostic", true, "Warte auf vorgeladene Player-Seite");
+        }
+    }
+
+    private void injectPendingVideo() {
+        if (playerWebView == null || !playerPageReady || activeToken == null || pendingVideoId == null) return;
+        String token = activeToken;
+        String videoId = pendingVideoId;
+        pendingVideoId = null;
+        notifyHost(token, "diagnostic", true, "Video-ID wird an vorgeladenen Player übergeben");
+        String script = "window.movieHubLoadVideo && window.movieHubLoadVideo(" + JSONObject.quote(videoId) + ")";
+        playerWebView.evaluateJavascript(script, value -> {
+            if (matches(token)) {
+                notifyHost(token, "diagnostic", true, "Video-ID an Player übergeben");
             }
         });
     }
@@ -233,19 +246,23 @@ final class HeroTrailerOverlayBridge {
     private final class DiagnosticWebViewClient extends WebViewClient {
         @Override
         public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
-            String token = activeToken;
-            if (token == null) return;
             if (url != null && url.contains("hero-player.html")) {
-                notifyHost(token, "diagnostic", true, "Gehostete Player-Seite gestartet");
+                playerPageReady = false;
+                String token = activeToken;
+                if (token != null) {
+                    notifyHost(token, "diagnostic", true, "Vorgeladene Player-Seite startet");
+                }
             }
         }
 
         @Override
         public void onPageFinished(WebView view, String url) {
+            if (url == null || !url.contains("hero-player.html")) return;
+            playerPageReady = true;
             String token = activeToken;
-            if (token == null) return;
-            if (url != null && url.contains("hero-player.html")) {
-                notifyHost(token, "diagnostic", true, "Gehostete Player-Seite geladen");
+            if (token != null) {
+                notifyHost(token, "diagnostic", true, "Vorgeladene Player-Seite bereit");
+                injectPendingVideo();
             }
         }
 
@@ -341,23 +358,15 @@ final class HeroTrailerOverlayBridge {
     }
 
     private void detachPlayer() {
-        detachPlayerFromParent();
         if (playerWebView != null) {
             playerWebView.setAlpha(0f);
-            playerWebView.stopLoading();
-            playerWebView.post(() -> playerWebView.loadUrl("about:blank"));
+            FrameLayout.LayoutParams hidden = new FrameLayout.LayoutParams(1, 1);
+            hidden.leftMargin = 0;
+            hidden.topMargin = 0;
+            playerWebView.setLayoutParams(hidden);
         }
+        pendingVideoId = null;
         activeToken = null;
-    }
-
-    private void detachPlayerFromParent() {
-        if (playerWebView == null) return;
-        try {
-            ViewGroup parent = (ViewGroup) playerWebView.getParent();
-            if (parent != null) parent.removeView(playerWebView);
-        } catch (RuntimeException ignored) {
-            // Overlay teardown must never affect Movie Hub itself.
-        }
     }
 
     private boolean matches(String token) {
