@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   HERO_COUNT_OPTIONS,
+  HERO_TRAILER_DELAY_OPTIONS,
   POSTER_ROW_LIMIT_OPTIONS,
   normalizeProfileExperienceSettings,
   updateProfileExperienceSetting,
@@ -234,6 +235,59 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="content-display-subsection">
+          <div className="settings-heading">
+            <div>
+              <h3>Automatische Hero-Trailer</h3>
+              <p>Spielt nach der gewählten Wartezeit den vorhandenen Trailer, ersatzweise einen Teaser, direkt in der Hero-Bildfläche ab.</p>
+            </div>
+            <span className="settings-status">Standard Aus · 15 Sekunden · Ton an</span>
+          </div>
+          <div className="category-choice-grid">
+            <button
+              type="button"
+              className={experienceSettings.heroTrailers.enabled ? 'category-choice active' : 'category-choice'}
+              onClick={() => saveExperienceSetting('heroTrailers.enabled', !experienceSettings.heroTrailers.enabled)}
+              disabled={Boolean(experienceSaving)}
+              aria-pressed={experienceSettings.heroTrailers.enabled}
+              data-focusable="true"
+            >
+              <span>Hero-Trailer</span>
+              <small>{experienceSaving === 'heroTrailers.enabled' ? 'Speichert …' : experienceSettings.heroTrailers.enabled ? 'An' : 'Aus'}</small>
+              <span className={experienceSettings.heroTrailers.enabled ? 'category-choice-switch active' : 'category-choice-switch'} aria-hidden="true"><span /></span>
+            </button>
+            <button
+              type="button"
+              className={experienceSettings.heroTrailers.soundEnabled ? 'category-choice active' : 'category-choice'}
+              onClick={() => saveExperienceSetting('heroTrailers.soundEnabled', !experienceSettings.heroTrailers.soundEnabled)}
+              disabled={Boolean(experienceSaving) || !experienceSettings.heroTrailers.enabled}
+              aria-pressed={experienceSettings.heroTrailers.soundEnabled}
+              data-focusable="true"
+            >
+              <span>Trailer-Ton</span>
+              <small>{experienceSaving === 'heroTrailers.soundEnabled' ? 'Speichert …' : experienceSettings.heroTrailers.soundEnabled ? 'Mit Ton' : 'Stumm'}</small>
+              <span className={experienceSettings.heroTrailers.soundEnabled ? 'category-choice-switch active' : 'category-choice-switch'} aria-hidden="true"><span /></span>
+            </button>
+          </div>
+          <div className="content-sort-grid" aria-label="Startverzögerung für Hero-Trailer">
+            {HERO_TRAILER_DELAY_OPTIONS.map((seconds) => (
+              <button
+                type="button"
+                key={seconds}
+                className={experienceSettings.heroTrailers.delaySeconds === seconds ? 'content-sort-choice active' : 'content-sort-choice'}
+                onClick={() => saveExperienceSetting('heroTrailers.delaySeconds', seconds)}
+                disabled={Boolean(experienceSaving) || !experienceSettings.heroTrailers.enabled}
+                aria-pressed={experienceSettings.heroTrailers.delaySeconds === seconds}
+                data-focusable="true"
+              >
+                <span className="content-sort-choice-title"><strong>{seconds}</strong></span>
+                <span>Sekunden</span>
+              </button>
+            ))}
+          </div>
+          <p className="settings-hint">Bei „Mit Ton“ bleibt das Hero-Bild sichtbar, falls das Gerät Autoplay mit Ton blockiert. Bei „Stumm“ wird bewusst ohne Ton gestartet.</p>
         </div>
 
         <div className="content-display-subsection">
