@@ -60,9 +60,23 @@ final class HeroTrailerOverlayBridge {
                        double leftCss, double topCss,
                        double widthCss, double heightCss,
                        double radiusCss, double viewportWidthCss) {
-        if (!isValidToken(token) || !isValidVideoId(videoId) || viewportWidthCss <= 0) return;
-        activity.runOnUiThread(() -> createOnUiThread(
-                token, videoId, leftCss, topCss, widthCss, heightCss, radiusCss, viewportWidthCss));
+        if (!isValidToken(token) || !isValidVideoId(videoId) || viewportWidthCss <= 0) {
+            activity.runOnUiThread(() -> notifyHost(token, "diagnostic", true, "Bridge-Aufruf verworfen: ungültige Parameter"));
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            activeToken = token;
+            notifyHost(token, "diagnostic", true, "Bridge create() erreicht");
+            try {
+                createOnUiThread(token, videoId, leftCss, topCss, widthCss, heightCss, radiusCss, viewportWidthCss);
+            } catch (Throwable error) {
+                String name = error.getClass().getSimpleName();
+                String message = error.getMessage();
+                notifyHost(token, "diagnostic", true,
+                        "Native Ausnahme " + name + (message == null || message.isEmpty() ? "" : " · " + message));
+                destroyPlayer();
+            }
+        });
     }
 
     @JavascriptInterface
@@ -97,6 +111,8 @@ final class HeroTrailerOverlayBridge {
                                   double widthCss, double heightCss,
                                   double radiusCss, double viewportWidthCss) {
         destroyPlayer();
+        activeToken = token;
+        notifyHost(token, "diagnostic", true, "UI-Thread erreicht");
 
         View rootView = activity.findViewById(android.R.id.content);
         if (!(rootView instanceof ViewGroup) || hostWebView.getWidth() <= 0) {
@@ -116,8 +132,11 @@ final class HeroTrailerOverlayBridge {
         int widthPx = Math.max(1, (int) Math.round(widthCss * scale));
         int heightPx = Math.max(1, (int) Math.round(heightCss * scale));
         float radiusPx = (float) Math.max(0, radiusCss * scale);
+        notifyHost(token, "diagnostic", true,
+                "Layout geprüft · " + widthPx + "×" + heightPx + " @ " + leftPx + "," + topPx);
 
         WebView player = new WebView(activity);
+        notifyHost(token, "diagnostic", true, "WebView erzeugt");
         player.setBackgroundColor(Color.TRANSPARENT);
         player.setAlpha(0f);
         player.setFocusable(false);
@@ -270,7 +289,7 @@ final class HeroTrailerOverlayBridge {
     }
 
     private void notifyHost(String token, String type, boolean muted, String detail) {
-        if (hostWebView == null) return;
+        if (hostWebView == null || token == null) return;
         String script = "window.__movieHubNativeHeroTrailerEvent && window.__movieHubNativeHeroTrailerEvent("
                 + JSONObject.quote(token) + ","
                 + JSONObject.quote(type) + ","
