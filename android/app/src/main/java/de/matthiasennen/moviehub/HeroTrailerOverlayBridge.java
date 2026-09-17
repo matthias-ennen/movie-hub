@@ -4,13 +4,18 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.Outline;
+import android.net.http.SslError;
 import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -22,13 +27,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-/**
- * Native YouTube overlay for Hero trailers.
- *
- * YouTube requires Android WebView embeds to carry a real HTTP Referer/client
- * identity. Loading a tiny wrapper with loadDataWithBaseURL() supplies that
- * identity while keeping the player visually inside Movie Hub's Hero artwork.
- */
+/** Native YouTube overlay for Hero trailers with explicit WebView referer support. */
 final class HeroTrailerOverlayBridge {
     private static final String JS_INTERFACE = "MovieHubHeroTrailer";
     private static final String PLAYER_EVENTS_INTERFACE = "MovieHubHeroTrailerEvents";
@@ -38,7 +37,6 @@ final class HeroTrailerOverlayBridge {
 
     private final Activity activity;
     private final WebView hostWebView;
-
     private WebView playerWebView;
     private String activeToken;
 
@@ -140,7 +138,38 @@ final class HeroTrailerOverlayBridge {
         cookies.setAcceptThirdPartyCookies(player, true);
 
         player.setWebChromeClient(new WebChromeClient());
-        player.setWebViewClient(new WebViewClient());
+        player.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                if (!matches(token)) return;
+                notifyHost(token, "diagnostic", true, "Native HTML-Seite geladen");
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (!matches(token)) return;
+                String host = request.getUrl() == null ? "?" : request.getUrl().getHost();
+                String detail = error == null ? "?" : String.valueOf(error.getErrorCode());
+                notifyHost(token, "diagnostic", true, "WebView-Netzwerkfehler " + detail + " · " + host);
+            }
+
+            @Override
+            public void onReceivedHttpError(WebView view, WebResourceRequest request,
+                                            WebResourceResponse errorResponse) {
+                if (!matches(token)) return;
+                String host = request.getUrl() == null ? "?" : request.getUrl().getHost();
+                int status = errorResponse == null ? -1 : errorResponse.getStatusCode();
+                notifyHost(token, "diagnostic", true, "HTTP " + status + " · " + host);
+            }
+
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                if (matches(token)) {
+                    notifyHost(token, "diagnostic", true, "SSL-Fehler " + (error == null ? "?" : error.getPrimaryError()));
+                }
+                if (handler != null) handler.cancel();
+            }
+        });
         player.addJavascriptInterface(new PlayerEvents(token), PLAYER_EVENTS_INTERFACE);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -161,6 +190,7 @@ final class HeroTrailerOverlayBridge {
 
         activeToken = token;
         playerWebView = player;
+        notifyHost(token, "diagnostic", true, "Nativer WebView angelegt");
         player.loadDataWithBaseURL(
                 MOVIE_HUB_BASE_URL,
                 buildPlayerHtml(videoId),
@@ -174,16 +204,21 @@ final class HeroTrailerOverlayBridge {
         return "<!doctype html><html><head>"
                 + "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,maximum-scale=1\">"
                 + "<style>html,body,#player{margin:0;width:100%;height:100%;overflow:hidden;background:#000}iframe{width:100%!important;height:100%!important;border:0}</style>"
-                + "</head><body><div id=\"player\"></div>"
-                + "<script src=\"https://www.youtube.com/iframe_api\"></script><script>"
-                + "let player=null;"
-                + "window.onYouTubeIframeAPIReady=function(){"
+                + "</head><body><div id=\"player\"></div><script>"
+                + "function mhDiag(m){try{MovieHubHeroTrailerEvents.diagnostic(String(m));}catch(_){}}"
+                + "window.onerror=function(m){mhDiag('JS-Fehler '+m);};"
+                + "window.onYouTubeIframeAPIReady=function(){mhDiag('YouTube-API bereit');"
                 + "player=new YT.Player('player',{videoId:" + safeVideoId + ",playerVars:{autoplay:0,mute:1,controls:0,disablekb:1,fs:0,iv_load_policy:3,playsinline:1,rel:0,origin:'https://movie-hub-62459.web.app'},events:{"
-                + "onReady:function(e){try{e.target.mute();e.target.setVolume(100);}catch(_){}MovieHubHeroTrailerEvents.ready();},"
+                + "onReady:function(e){mhDiag('YouTube-Player bereit');try{e.target.mute();e.target.setVolume(100);}catch(_){}MovieHubHeroTrailerEvents.ready();},"
                 + "onStateChange:function(e){if(e.data===YT.PlayerState.PLAYING){let muted=true;try{muted=e.target.isMuted();}catch(_){}MovieHubHeroTrailerEvents.playing(muted);}else if(e.data===YT.PlayerState.ENDED){MovieHubHeroTrailerEvents.ended();}},"
                 + "onError:function(e){MovieHubHeroTrailerEvents.error(String(e&&e.data!=null?e.data:'?'));},"
                 + "onAutoplayBlocked:function(){MovieHubHeroTrailerEvents.error('autoplay-blocked');}"
                 + "}});};"
+                + "let player=null;"
+                + "let s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';"
+                + "s.onload=function(){mhDiag('YouTube-API-Script geladen');};"
+                + "s.onerror=function(){mhDiag('YouTube-API-Script Ladefehler');MovieHubHeroTrailerEvents.error('iframe-api-load');};"
+                + "document.head.appendChild(s);"
                 + "window.movieHubPlay=function(){try{player&&player.playVideo();}catch(_){}};"
                 + "window.movieHubSetMuted=function(m){try{if(!player)return;if(m){player.mute();}else{player.unMute();player.setVolume(100);player.playVideo();}}catch(_){}};"
                 + "</script></body></html>";
@@ -194,6 +229,11 @@ final class HeroTrailerOverlayBridge {
 
         PlayerEvents(String token) {
             this.token = token;
+        }
+
+        @JavascriptInterface
+        public void diagnostic(String message) {
+            activity.runOnUiThread(() -> notifyHost(token, "diagnostic", true, message == null ? "?" : message));
         }
 
         @JavascriptInterface
