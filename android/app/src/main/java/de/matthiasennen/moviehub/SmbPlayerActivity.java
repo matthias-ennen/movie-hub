@@ -1,7 +1,12 @@
 package de.matthiasennen.moviehub;
 
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.SpannableString;
@@ -121,18 +126,18 @@ public final class SmbPlayerActivity extends ComponentActivity {
         root.addView(titleView, titleParams);
 
         closeButton = new Button(this);
-        closeButton.setText("×");
-        closeButton.setTextColor(Color.WHITE);
-        closeButton.setTextSize(28);
+        closeButton.setText("");
         closeButton.setAllCaps(false);
         closeButton.setGravity(Gravity.CENTER);
         closeButton.setMinWidth(0);
         closeButton.setMinHeight(0);
-        closeButton.setPadding(0, 0, 0, dp(3));
+        closeButton.setPadding(0, 0, 0, 0);
+        closeButton.setForeground(new CloseXDrawable(dp(3), dp(14)));
         closeButton.setBackground(makeCloseBackground(false));
         closeButton.setOnFocusChangeListener((view, focused) ->
                 view.setBackground(makeCloseBackground(focused)));
         closeButton.setOnClickListener(view -> finish());
+        closeButton.setContentDescription("Player schließen");
         FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(
                 dp(48), dp(48), Gravity.TOP | Gravity.END);
         closeParams.setMargins(dp(12), dp(12), dp(18), dp(12));
@@ -156,9 +161,12 @@ public final class SmbPlayerActivity extends ComponentActivity {
     private GradientDrawable makeCloseBackground(boolean focused) {
         GradientDrawable background = new GradientDrawable();
         background.setShape(GradientDrawable.OVAL);
-        background.setColor(Color.argb(focused ? 100 : 70, 255, 255, 255));
-        background.setStroke(dp(focused ? 3 : 1),
-                focused ? Color.WHITE : Color.argb(120, 255, 255, 255));
+        background.setColor(Color.TRANSPARENT);
+        if (focused) {
+            background.setStroke(dp(3), Color.WHITE);
+        } else {
+            background.setStroke(0, Color.TRANSPARENT);
+        }
         return background;
     }
 
@@ -290,5 +298,46 @@ public final class SmbPlayerActivity extends ComponentActivity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    /** Weißes X mit definierter 3-dp-Strichstärke statt fontabhängigem ×-Glyph. */
+    private static final class CloseXDrawable extends Drawable {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final int inset;
+
+        CloseXDrawable(float strokeWidth, int inset) {
+            this.inset = inset;
+            paint.setColor(Color.WHITE);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(strokeWidth);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            Rect bounds = getBounds();
+            float left = bounds.left + inset;
+            float top = bounds.top + inset;
+            float right = bounds.right - inset;
+            float bottom = bounds.bottom - inset;
+            canvas.drawLine(left, top, right, bottom, paint);
+            canvas.drawLine(right, top, left, bottom, paint);
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            paint.setAlpha(alpha);
+        }
+
+        @Override
+        public void setColorFilter(@Nullable android.graphics.ColorFilter colorFilter) {
+            paint.setColorFilter(colorFilter);
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public int getOpacity() {
+            return PixelFormat.TRANSLUCENT;
+        }
     }
 }
