@@ -87,6 +87,7 @@ public final class MainActivity extends ComponentActivity {
         cookies.setAcceptCookie(true);
         cookies.setAcceptThirdPartyCookies(webView, true);
         webView.addJavascriptInterface(new NativeBridge(), "MovieHubNative");
+        webView.addJavascriptInterface(new PersonalDataCryptoBridge(), "MovieHubCrypto");
         webView.setWebViewClient(new MovieHubWebViewClient());
         container.addView(webView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
