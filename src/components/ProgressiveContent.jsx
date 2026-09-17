@@ -1,5 +1,5 @@
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSharedMediaCatalog } from '../library/useSharedMediaCatalog.js'
 import {
   INITIAL_VISIBLE_POSTERS,
@@ -9,6 +9,10 @@ import {
   nextVisibleCount,
 } from '../performance/progressiveRendering.js'
 import { estimatePosterRowHeight, ROW_VIRTUAL_OVERSCAN } from '../performance/posterRows.js'
+import {
+  filterRowsByExperienceVisibility,
+  inferExperiencePage,
+} from '../profiles/profileExperienceRuntime.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import ContentRow from './ContentRow.jsx'
 import PosterCard from './PosterCard.jsx'
@@ -69,7 +73,12 @@ export function ProgressiveRows({
   const rowStateRef = useRef(new Map())
   const initialReadyReportedRef = useRef(false)
   const [scrollMargin, setScrollMargin] = useState(0)
-  const activeRows = heroReady ? rows : []
+  const experiencePage = inferExperiencePage(rows, className)
+  const visibleRows = useMemo(
+    () => filterRowsByExperienceVisibility(rows, experiencePage),
+    [experiencePage, rows],
+  )
+  const activeRows = heroReady ? visibleRows : []
 
   const rowVirtualizer = useWindowVirtualizer({
     count: activeRows.length,
@@ -101,7 +110,7 @@ export function ProgressiveRows({
       window.removeEventListener('resize', updateMargin)
       observer?.disconnect()
     }
-  }, [heroReady, rows.length])
+  }, [heroReady, visibleRows.length])
 
   useEffect(() => {
     if (!heroReady) return undefined
@@ -123,7 +132,14 @@ export function ProgressiveRows({
   }, [activeRows.length, heroReady, rowVirtualizer])
 
   useEffect(() => {
-    if (!heroReady || initialReadyReportedRef.current || !onInitialContentReady || !virtualItems.length) return undefined
+    if (!heroReady || initialReadyReportedRef.current || !onInitialContentReady) return undefined
+
+    if (!virtualItems.length && activeRows.length === 0) {
+      initialReadyReportedRef.current = true
+      onInitialContentReady({ visibleRowCount: 0 })
+      return undefined
+    }
+    if (!virtualItems.length) return undefined
 
     let secondFrame = null
     const firstFrame = window.requestAnimationFrame(() => {
@@ -137,7 +153,7 @@ export function ProgressiveRows({
       window.cancelAnimationFrame(firstFrame)
       if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
     }
-  }, [heroReady, onInitialContentReady, virtualItems.length])
+  }, [activeRows.length, heroReady, onInitialContentReady, virtualItems.length])
 
   return (
     <div
