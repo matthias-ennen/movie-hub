@@ -22,6 +22,10 @@ export function getActiveHeroCount() {
   return activeSettings.heroCount
 }
 
+export function getActiveHeroTrailerSettings() {
+  return { ...activeSettings.heroTrailers }
+}
+
 export function isExperienceModuleVisible(page, module) {
   return activeSettings.visibility?.[page]?.[module] !== false
 }
