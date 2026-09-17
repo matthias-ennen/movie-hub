@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import '../styles/issue128.css'
 import '../styles/issue128-hero-boundary.css'
+import '../styles/hero-trailer.css'
 import { HERO_READY_TIMEOUT_MS } from '../performance/progressiveRendering.js'
-import { getActiveHeroCount, isExperienceModuleVisible } from '../profiles/profileExperienceRuntime.js'
+import {
+  getActiveHeroCount,
+  getActiveHeroTrailerSettings,
+  isExperienceModuleVisible,
+} from '../profiles/profileExperienceRuntime.js'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
+import { loadYouTubeIframeApi, selectHeroVideo } from './heroTrailer.js'
 
 const SWIPE_MIN_DISTANCE = 48
 const HERO_PHASE_MS = 170
+const TRAILER_START_TIMEOUT_MS = 8000
 
 function visibilityPage(eyebrow) {
   if (eyebrow === 'Filme') return 'movies'
@@ -15,9 +22,94 @@ function visibilityPage(eyebrow) {
   return 'home'
 }
 
+function HeroTrailerPlayer({ video, onPlaying, onEnded, onFailure }) {
+  const playerHostRef = useRef(null)
+  const playerRef = useRef(null)
+
+  useEffect(() => {
+    let cancelled = false
+    let startTimeout = null
+
+    async function start() {
+      try {
+        const YT = await loadYouTubeIframeApi()
+        if (cancelled || !playerHostRef.current) return
+
+        startTimeout = window.setTimeout(() => {
+          if (!cancelled) onFailure()
+        }, TRAILER_START_TIMEOUT_MS)
+
+        playerRef.current = new YT.Player(playerHostRef.current, {
+          videoId: video.key,
+          width: '100%',
+          height: '100%',
+          playerVars: {
+            autoplay: 1,
+            controls: 0,
+            disablekb: 1,
+            fs: 0,
+            iv_load_policy: 3,
+            modestbranding: 1,
+            playsinline: 1,
+            rel: 0,
+            origin: window.location.origin,
+          },
+          events: {
+            onReady(event) {
+              try {
+                event.target.unMute()
+                event.target.setVolume(100)
+                event.target.playVideo()
+              } catch {
+                onFailure()
+              }
+            },
+            onStateChange(event) {
+              if (cancelled) return
+              if (event.data === YT.PlayerState.PLAYING) {
+                window.clearTimeout(startTimeout)
+                startTimeout = null
+                onPlaying()
+              } else if (event.data === YT.PlayerState.ENDED) {
+                window.clearTimeout(startTimeout)
+                startTimeout = null
+                onEnded()
+              }
+            },
+            onError() {
+              window.clearTimeout(startTimeout)
+              startTimeout = null
+              if (!cancelled) onFailure()
+            },
+          },
+        })
+      } catch {
+        if (!cancelled) onFailure()
+      }
+    }
+
+    start()
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(startTimeout)
+      startTimeout = null
+      try {
+        playerRef.current?.destroy?.()
+      } catch {
+        // The iframe may already have been detached during a Hero/page change.
+      }
+      playerRef.current = null
+    }
+  }, [onEnded, onFailure, onPlaying, video.key])
+
+  return <div ref={playerHostRef} className="hero-trailer-player" aria-hidden="true" />
+}
+
 export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', onReady }) {
   const page = visibilityPage(eyebrow)
   const heroCount = getActiveHeroCount()
+  const heroTrailerSettings = getActiveHeroTrailerSettings()
   const heroVisible = isExperienceModuleVisible(page, 'hero')
   const slides = useMemo(() => {
     if (!heroVisible) return []
@@ -33,6 +125,10 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   const signature = slides.map((entry) => entry.id).join('|')
   const [activeIndex, setActiveIndex] = useState(0)
   const [transition, setTransition] = useState(null)
+  const [heroVisit, setHeroVisit] = useState(0)
+  const [attemptedVisit, setAttemptedVisit] = useState(null)
+  const [trailerVideo, setTrailerVideo] = useState(null)
+  const [trailerPlaying, setTrailerPlaying] = useState(false)
   const touchStartRef = useRef(null)
   const transitionTimerRef = useRef([])
   const transitionLockRef = useRef(false)
@@ -50,6 +146,10 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
     readyReportedRef.current = false
     setActiveIndex(0)
     setTransition(null)
+    setHeroVisit((value) => value + 1)
+    setAttemptedVisit(null)
+    setTrailerVideo(null)
+    setTrailerPlaying(false)
   }, [signature])
 
   useEffect(() => () => {
@@ -60,6 +160,39 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   const safeIndex = Math.min(activeIndex, Math.max(0, slides.length - 1))
   const activeItem = slides[safeIndex] || null
   const activeBackdropUrl = activeItem?.displayHeroBackdropUrl || activeItem?.backdropUrl || null
+  const activeHeroVideo = useMemo(() => selectHeroVideo(activeItem?.videos), [activeItem?.videos])
+
+  useEffect(() => {
+    setTrailerVideo(null)
+    setTrailerPlaying(false)
+
+    if (
+      !heroTrailerSettings.enabled
+      || !activeHeroVideo
+      || transition
+      || attemptedVisit === heroVisit
+    ) return undefined
+
+    const timer = window.setTimeout(() => {
+      setAttemptedVisit(heroVisit)
+      setTrailerVideo(activeHeroVideo)
+    }, heroTrailerSettings.delaySeconds * 1000)
+
+    return () => window.clearTimeout(timer)
+  }, [
+    activeHeroVideo,
+    activeItem?.id,
+    attemptedVisit,
+    heroTrailerSettings.delaySeconds,
+    heroTrailerSettings.enabled,
+    heroVisit,
+    transition,
+  ])
+
+  const stopTrailer = useCallback(() => {
+    setTrailerVideo(null)
+    setTrailerPlaying(false)
+  }, [])
 
   const reportReady = useCallback((reason) => {
     if (!onReady || readyReportedRef.current) return
@@ -92,6 +225,9 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
     transitionLockRef.current = true
     const resolvedDirection = direction || (index > safeIndex ? 'left' : 'right')
     clearTransitionTimers()
+    stopTrailer()
+    setHeroVisit((value) => value + 1)
+    setAttemptedVisit(null)
     setTransition({ phase: 'out', targetIndex: index, direction: resolvedDirection })
 
     const swapTimer = window.setTimeout(() => {
@@ -155,6 +291,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
 
   function renderHeroPanel(entry, className = '') {
     const heroBackdropUrl = entry.displayHeroBackdropUrl || entry.backdropUrl || null
+    const showTrailer = entry.id === activeItem.id && trailerVideo && !transition
 
     return (
       <div
@@ -184,7 +321,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
           {heroBackdropUrl && (
             <img
               ref={entry.id === activeItem.id ? activeImageRef : null}
-              className="hero-art-image"
+              className={trailerPlaying && showTrailer ? 'hero-art-image hero-art-image-trailer-playing' : 'hero-art-image'}
               src={heroBackdropUrl}
               alt=""
               loading="eager"
@@ -193,6 +330,15 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
               draggable="false"
               onLoad={() => reportReady('loaded')}
               onError={() => reportReady('error')}
+            />
+          )}
+          {showTrailer && (
+            <HeroTrailerPlayer
+              key={`${heroVisit}-${trailerVideo.key}`}
+              video={trailerVideo}
+              onPlaying={() => setTrailerPlaying(true)}
+              onEnded={stopTrailer}
+              onFailure={stopTrailer}
             />
           )}
         </div>
