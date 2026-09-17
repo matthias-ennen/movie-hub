@@ -1,50 +1,48 @@
 # Movie Hub – Issue-Plan
 
-Stand: 16. September 2026
+Stand: 17. September 2026
 
 ## Arbeitsprinzip
 
-Movie Hub wird in klar abgegrenzeten Arbeitspaketen weiterentwickelt. Vor Beginn eines Pakets wird dessen Umfang noch einmal kurz fachlich und technisch überprüft; dabei können weitere sinnvolle Punkte ergänzt werden. Überschneidende Themen werden bewusst zusammengeführt, damit keine parallelen Migrations- oder Einstellungslogiken entstehen.
+Movie Hub wird in klar abgegrenzeten Arbeitspaketen weiterentwickelt. Vor Beginn eines Pakets wird dessen Umfang noch einmal kurz fachlich und technisch überprüft. Bereits bekannte, gültige Katalogdaten dürfen durch nachgeladene oder partielle Metadaten nicht verschlechtert werden.
 
 ## Bereinigter aktueller Status
 
 Zuletzt abgeschlossen bzw. abgenommen:
 
 - #114 – großer Suchindex
-- #178 – Staffeln/Folgen/Episodendetail
+- #178 – Staffeln/Folgen
 - #191 – Fire-TV-Navigation, Posterlast und WebView-Stabilität
-- #195 – Posterreihen-/D-Pad-Paket; spätere variable Reihenlängen werden in #222 weitergeführt
+- #195 – Posterreihen-/D-Pad-Paket
 - #207 – robuste persönliche TMDB-Synchronisierung
+- #218 – Layout/UI-Konsistenz
+- #222 – Einstellungen, Profilsteuerung und Sichtbarkeit
+- #205 – Verschlüsselung persönlicher Daten und SMB-Konsolidierung
+- #190 – automatische Hero-Trailer sowie nativer Trailer-/Teaser-Player
 
-Die Fire-TV-App ist nach Phase 2 von #191 deutlich stabiler. Virtualisierung und Poster-Prefetching gelten damit als abgenommen.
+Die Fire-TV-App wurde mit diesem Stand am 17.09.2026 als zusammenhängender Stand abgenommen.
 
-## Zusammenführungen
+## Neu festgestelltes Datenintegritätsproblem
 
-- **#176 → #222:** Profilbezogene Sichtbarkeit von Inhaltsbereichen wird gemeinsam mit Einstellungen und Profilsteuerung umgesetzt; #176 ist als separates Paket geschlossen.
-- **#220 → #205:** SMB-Normalisierung, Dublettenbereinigung und Credential-Zuordnung werden gemeinsam mit der Verschlüsselungs-/Migrationsarchitektur umgesetzt; #220 ist als separates Paket geschlossen.
+Nach der Abnahme wurde bei einem Film beobachtet, dass ein Trailer im Hero vorhanden war, auf der Detailseite jedoch fehlte. Die Analyse zeigte: Der Katalog enthielt die Videodaten korrekt, eine spätere Metadaten-Anreicherung konnte sie jedoch durch ein leeres `videos`-Array überschreiben.
+
+Das wird nicht als einzelner Trailer-Sonderfall behandelt, sondern als allgemeines Datenintegritäts-/Merge-Arbeitspaket.
 
 ## Aktuelle Priorisierung
 
-### 1. #218 – Layout-Sammelissue: UI-Konsistenz und visuelle Korrekturen
+### 1. #225 – Kanonische Katalogdaten bei Metadaten-Anreicherung verlustfrei erhalten
 
-- MH-Badge überall konsistent wie auf normalen Posterkacheln darstellen
-- vertikalen Abstand zwischen Anbieterbadges und Titel/Jahr reduzieren
-- Fokusrahmen der Staffel-Schaltflächen auf Serien-Detailseiten korrigieren
-- vor Umsetzung weitere kleine Layoutauffälligkeiten sammeln, sofern sie fachlich in dieses Paket passen
+- alle Titel-Merge-Wege und Datenquellen inventarisieren
+- `catalog.json` als kanonischen öffentlichen Ist-Zustand behandeln
+- Feldmatrix für Merge-Regeln erstellen
+- leere Arrays, leere Strings, `null` und unvollständige Nachladedaten dürfen bestehende gültige Werte nicht löschen
+- Videos/Trailer/Teaser, Cast, Genres, Beschreibung, Artwork/Bilder, Provider, Collections, Serienmetadaten und weitere relevante Felder prüfen
+- zentrale Merge-Regeln statt UI-spezifischer Reparaturen
+- explizite „geprüft und leer“-Semantik nur dort verwenden, wo sie fachlich definiert ist
+- Regressionstests für monotone, verlustfreie Anreicherung
+- Hero, Reihe, Suche und Detailseite müssen für denselben Titel konsistente öffentliche Metadaten sehen
 
-### 2. #222 – Einstellungen, Profilsteuerung und Sichtbarkeit aufräumen und erweitern
-
-- Einstellungsseite logisch neu gruppieren
-- Posterreihen pro Profil auf 30/40/50/60/70 einstellbar machen, Standard 50
-- Hero-Anzahl pro Profil auf 3/4/5/6/7 einstellbar machen, Standard 5
-- alte feste 20er-/40er-Grenzen normaler Reihen ablösen
-- Limits früh nach Filterung/Sortierung anwenden, nicht erst im Rendering
-- profilbezogene Sichtbarkeit größerer Inhaltsbereiche integrieren
-- Seiten-/Modulmatrix für Home, Filme, Serien und Meine Inhalte festlegen
-- keine redundanten Einzelschalter für bereits vorhandene Detailsteuerungen
-- vor Umsetzung weitere sinnvolle Profil-/Account-Einstellungen ergänzen, falls sie in denselben Scope gehören
-
-### 3. #117 – Dependency-Audit und Security-Hygiene
+### 2. #117 – Dependency-Audit und Security-Hygiene
 
 - aktuellen npm-Audit-Stand neu ermitteln
 - Critical-/High-Funde bewerten und kontrolliert beseitigen
@@ -52,42 +50,44 @@ Die Fire-TV-App ist nach Phase 2 von #191 deutlich stabiler. Virtualisierung und
 - verbleibende Findings dokumentieren
 - Web-, Firebase- und Android-Regression vollständig prüfen
 
-### 4. #205 – Persönliche Daten schützen und SMB-Verbindungen konsolidieren
+### 3. #4 – Streaming-Verfügbarkeit und waipu.tv-/Live-TV-Ausbau
 
-Gemeinsames Daten-/SMB-Sicherheits-Arbeitspaket:
+- strukturierte Streaming-Verfügbarkeit weiter ausbauen
+- geeignete deutsche Live-TV-/EPG-Quelle prüfen
+- waipu.tv-/lineare TV-Verfügbarkeit getrennt von Streaming-Abos modellieren
+- Sendezeiten und Live-TV-Badges sinnvoll in UI und Detailansicht integrieren
+- Aktualitätszeitpunkt und Attribution nachvollziehbar halten
 
-- Host + Share als case-insensitive SMB-Verbindungsidentität normalisieren
-- Share-Schreibvarianten derselben realen Freigabe zuordnen
-- vollständige Unterordner-/Dateipfade unverändert erhalten
-- vorhandene Netzlaufwerk-Dubletten zusammenführen
-- pro realer Freigabe nur einen lokalen Credential-Satz verwenden
-- danach `sharedMedia.entries.url`, `sharedMedia.entries.label` und persönliche `note` verschlüsseln
-- AES-256-GCM mit zufälligem IV/Nonce und `cryptoVersion`
-- bestehende Klartextdaten verlustfrei und idempotent migrieren
-- native Kryptobrücke gegenüber öffentlichem Web-Bundle bevorzugen
-- keine E2E-, Gerätefreigabe- oder Recovery-Key-Architektur
+### 4. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
 
-Interne Reihenfolge: **SMB-Identität/Dubletten zuerst, Verschlüsselung/Migration danach**.
+- einfache Beobachten-Aktion direkt am Titel
+- rent/buy-only bzw. aktuell nicht inklusive Titel beobachten
+- Zustandswechsel zu `flatrate`, `free` oder `ads` erkennen
+- Benachrichtigungen nur bei echten Änderungen
+- Beobachtung einfach wieder entfernen
 
-## Danach
+### 5. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
 
-Nach Abschluss dieser vier Pakete wird die Reihenfolge neu bewertet. Bereits vorgemerkte spätere Themen:
+- persönliche Signale aus Bewertungen, gesehen/ungesehen, Favoriten und Watchlist nutzen
+- persönliche Top-100- und Empfehlungsreihen erzeugen
+- automatisierten, reproduzierbaren Job einrichten
+- strukturierte Verfügbarkeitsdaten als Faktenbasis verwenden
+- Ergebnisse ohne APK-Update aktualisieren
 
-- #190 – optionale automatische Hero-Trailer
-- #4 – Live-TV-/waipu-/EPG-Ausbau
-- #118 – „Benachrichtigen, wenn inklusive“
-- #7 – persönliche Empfehlungen / Top 100 / Automatisierung
-- #129 – Deutsch/Englisch-Umschaltung
-- #112 – Compliance als Release-Gate
+## Weitere spätere Themen
 
-## Dauerhaft offen
+- #129 – Deutsch/Englisch-Umschaltung der Movie-Hub-GUI
+- #112 – Compliance als Release-Gate vor öffentlicher Verteilung
+
+## Dauerhaft offen / Wartung
 
 - #8 – Ideen-Sammelstelle
+- #223 – temporäre Übergangslösungen und späterer Rückbau
 
 ## Abhängigkeitskette
 
-`#218 → #222 → #117 → #205`
+`#225 → #117 → #4 → #118 → #7`
 
 ## Leitentscheidung
 
-Der aktuelle Arbeitsplan ist bewusst kompakt: erst sichtbare UI-Korrekturen, dann die komplette Settings-/Profilarchitektur, danach Dependency-/Security-Hygiene und schließlich das zusammengeführte Daten-/SMB-Sicherheits- und Migrationspaket. Jedes Paket wird vor Start noch einmal konkretisiert und kann dabei sinnvoll erweitert werden.
+Vor neuen Komfort- und Erweiterungsfunktionen wird zuerst sichergestellt, dass der bestehende Katalogzustand innerhalb der gesamten App konsistent und verlustfrei bleibt. Danach folgt die offene Security-Hygiene. Anschließend geht die Produktentwicklung mit Streaming-/Live-TV-Ausbau, Verfügbarkeitsbenachrichtigungen und persönlicher Empfehlung/Automatisierung weiter.
