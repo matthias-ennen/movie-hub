@@ -133,6 +133,7 @@ final class HeroTrailerOverlayBridge {
 
             player.setWebChromeClient(new WebChromeClient());
             player.setWebViewClient(new DiagnosticWebViewClient());
+            player.addJavascriptInterface(new PlayerEvents(), PLAYER_EVENTS_INTERFACE);
             playerWebView = player;
         } catch (Throwable ignored) {
             playerWebView = null;
@@ -178,8 +179,7 @@ final class HeroTrailerOverlayBridge {
         WebView player = playerWebView;
         notifyHost(token, "diagnostic", true, "Vorbereiteter WebView übernommen");
         player.setAlpha(0f);
-        player.removeJavascriptInterface(PLAYER_EVENTS_INTERFACE);
-        player.addJavascriptInterface(new PlayerEvents(token), PLAYER_EVENTS_INTERFACE);
+        notifyHost(token, "diagnostic", true, "Player zurückgesetzt");
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             player.setClipToOutline(true);
@@ -190,19 +190,25 @@ final class HeroTrailerOverlayBridge {
                 }
             });
         }
+        notifyHost(token, "diagnostic", true, "Rundung gesetzt");
 
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(widthPx, heightPx);
         params.leftMargin = leftPx;
         params.topMargin = topPx;
+        notifyHost(token, "diagnostic", true, "LayoutParams gesetzt");
+
         root.addView(player, params);
+        notifyHost(token, "diagnostic", true, "WebView zur Oberfläche hinzugefügt");
         player.bringToFront();
         notifyHost(token, "diagnostic", true, "Nativer WebView angelegt");
+
         player.loadDataWithBaseURL(
                 MOVIE_HUB_BASE_URL,
                 buildPlayerHtml(videoId),
                 "text/html",
                 "UTF-8",
                 null);
+        notifyHost(token, "diagnostic", true, "Native HTML-Ladung gestartet");
     }
 
     private String buildPlayerHtml(String videoId) {
@@ -268,24 +274,24 @@ final class HeroTrailerOverlayBridge {
     }
 
     private final class PlayerEvents {
-        private final String token;
-
-        PlayerEvents(String token) {
-            this.token = token;
-        }
-
         @JavascriptInterface
         public void diagnostic(String message) {
+            String token = activeToken;
+            if (token == null) return;
             activity.runOnUiThread(() -> notifyHost(token, "diagnostic", true, message == null ? "?" : message));
         }
 
         @JavascriptInterface
         public void ready() {
+            String token = activeToken;
+            if (token == null) return;
             activity.runOnUiThread(() -> notifyHost(token, "ready", true, ""));
         }
 
         @JavascriptInterface
         public void playing(boolean muted) {
+            String token = activeToken;
+            if (token == null) return;
             activity.runOnUiThread(() -> {
                 if (!matches(token) || playerWebView == null) return;
                 playerWebView.setAlpha(1f);
@@ -295,6 +301,8 @@ final class HeroTrailerOverlayBridge {
 
         @JavascriptInterface
         public void ended() {
+            String token = activeToken;
+            if (token == null) return;
             activity.runOnUiThread(() -> {
                 if (!matches(token)) return;
                 notifyHost(token, "ended", true, "");
@@ -304,6 +312,8 @@ final class HeroTrailerOverlayBridge {
 
         @JavascriptInterface
         public void error(String code) {
+            String token = activeToken;
+            if (token == null) return;
             activity.runOnUiThread(() -> {
                 if (!matches(token)) return;
                 notifyHost(token, "error", true, code == null ? "?" : code);
@@ -328,7 +338,6 @@ final class HeroTrailerOverlayBridge {
             playerWebView.setAlpha(0f);
             playerWebView.stopLoading();
             playerWebView.loadUrl("about:blank");
-            playerWebView.removeJavascriptInterface(PLAYER_EVENTS_INTERFACE);
         }
         activeToken = null;
     }
