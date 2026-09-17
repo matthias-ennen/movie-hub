@@ -1,3 +1,5 @@
+import { getActivePosterRowLimit } from '../profiles/profileExperienceRuntime.js'
+
 export const MAX_PERSONAL_SMART_ROWS = 10
 export const PERSONAL_SMART_ROW_LIMIT = 50
 
@@ -98,8 +100,9 @@ export function getPersonalSmartRowMatchCount(titles, row) {
   return unique.size
 }
 
-export function buildPersonalSmartRows(titles, settings, limit = PERSONAL_SMART_ROW_LIMIT, sortItems = null) {
+export function buildPersonalSmartRows(titles, settings, limit = getActivePosterRowLimit(), sortItems = null) {
   const normalized = normalizePersonalSmartRowSettings(settings)
+  const safeLimit = Math.min(Math.max(0, Number(limit) || 0), getActivePosterRowLimit())
   return normalized.rows
     .filter((row) => row.enabled)
     .map((row) => {
@@ -112,7 +115,7 @@ export function buildPersonalSmartRows(titles, settings, limit = PERSONAL_SMART_
       return {
         id: `personal-smart-${row.id}`,
         title: row.title,
-        items: ranked.slice(0, Math.max(0, Number(limit) || 0)),
+        items: ranked.slice(0, safeLimit),
       }
     })
     .filter((row) => row.items.length > 0)
