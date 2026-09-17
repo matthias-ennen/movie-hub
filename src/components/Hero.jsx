@@ -52,11 +52,13 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   const [transition, setTransition] = useState(null)
   const [heroVisit, setHeroVisit] = useState(0)
   const [attemptedVisit, setAttemptedVisit] = useState(null)
+  const [heroFocused, setHeroFocused] = useState(false)
   const touchStartRef = useRef(null)
   const transitionTimerRef = useRef([])
   const transitionLockRef = useRef(false)
   const activeImageRef = useRef(null)
   const readyReportedRef = useRef(false)
+  const focusedElementRef = useRef(null)
 
   function clearTransitionTimers() {
     transitionTimerRef.current.forEach((timer) => window.clearTimeout(timer))
@@ -67,10 +69,12 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
     clearTransitionTimers()
     transitionLockRef.current = false
     readyReportedRef.current = false
+    focusedElementRef.current = null
     setActiveIndex(0)
     setTransition(null)
     setHeroVisit((value) => value + 1)
     setAttemptedVisit(null)
+    setHeroFocused(false)
   }, [signature])
 
   useEffect(() => () => {
@@ -85,7 +89,8 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
 
   useEffect(() => {
     if (
-      !heroTrailerSettings.enabled
+      !heroFocused
+      || !heroTrailerSettings.enabled
       || !activeHeroVideo
       || !activeItem
       || transition
@@ -102,6 +107,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
     activeHeroVideo,
     activeItem,
     attemptedVisit,
+    heroFocused,
     heroTrailerSettings.delaySeconds,
     heroTrailerSettings.enabled,
     heroTrailerSettings.soundEnabled,
@@ -134,14 +140,39 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
 
   if (!slides.length) return null
 
+  function resetTrailerIdleTimer() {
+    setHeroVisit((value) => value + 1)
+    setAttemptedVisit(null)
+  }
+
+  function handleHeroFocus(event) {
+    setHeroFocused(true)
+    if (focusedElementRef.current !== event.target) {
+      focusedElementRef.current = event.target
+      resetTrailerIdleTimer()
+    }
+  }
+
+  function handleHeroBlur(event) {
+    if (event.currentTarget.contains(event.relatedTarget)) return
+    focusedElementRef.current = null
+    setHeroFocused(false)
+    setAttemptedVisit(null)
+  }
+
+  function startTrailerNow() {
+    if (!activeHeroVideo || !activeItem) return
+    setAttemptedVisit(heroVisit)
+    launchNativeTrailer(activeHeroVideo, activeItem.title, heroTrailerSettings.soundEnabled)
+  }
+
   function selectHero(index, direction = null) {
     if (transitionLockRef.current || index < 0 || index >= slides.length || index === safeIndex) return
 
     transitionLockRef.current = true
     const resolvedDirection = direction || (index > safeIndex ? 'left' : 'right')
     clearTransitionTimers()
-    setHeroVisit((value) => value + 1)
-    setAttemptedVisit(null)
+    resetTrailerIdleTimer()
     setTransition({ phase: 'out', targetIndex: index, direction: resolvedDirection })
 
     const swapTimer = window.setTimeout(() => {
@@ -228,6 +259,16 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
             <button type="button" className="action-button action-button-secondary" onClick={() => onOpen(entry)} data-focusable="true">
               ⓘ Details
             </button>
+            <button
+              type="button"
+              className="action-button action-button-secondary"
+              onClick={startTrailerNow}
+              disabled={!activeHeroVideo}
+              data-focusable={activeHeroVideo ? 'true' : undefined}
+              aria-label={activeHeroVideo ? 'Trailer abspielen' : 'Kein Trailer verfügbar'}
+            >
+              ▶ Trailer
+            </button>
           </div>
         </div>
         <div className={heroBackdropUrl ? 'hero-art has-image' : 'hero-art'} aria-hidden="true">
@@ -263,6 +304,8 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
       tabIndex={0}
       data-focusable="true"
       onKeyDown={handleCarouselKeyDown}
+      onFocusCapture={handleHeroFocus}
+      onBlurCapture={handleHeroBlur}
     >
       <p className="eyebrow hero-carousel-eyebrow">{eyebrow}</p>
 
