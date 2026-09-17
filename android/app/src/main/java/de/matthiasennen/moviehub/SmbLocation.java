@@ -63,6 +63,7 @@ final class SmbLocation {
     int getPort() { return port; }
     String getShare() { return share; }
     String getPath() { return path; }
-    String getCredentialKey() { return host + ":" + port + "/" + share; }
+    String getCredentialKey() { return SmbEndpointIdentity.key(host, share); }
+    String getLegacyCredentialKey() { return host + ":" + port + "/" + share; }
     String getDisplayEndpoint() { return host + "/" + share; }
 }
