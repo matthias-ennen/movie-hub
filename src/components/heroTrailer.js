@@ -1,6 +1,6 @@
 const YOUTUBE_KEY_PATTERN = /^[A-Za-z0-9_-]{6,20}$/
 const DIAGNOSTIC_ID = 'moviehub-hero-trailer-diagnostic'
-const DIAGNOSTIC_VERSION = 'D6'
+const DIAGNOSTIC_VERSION = 'D7'
 const EMBED_LOAD_TIMEOUT_MS = 4500
 
 export function showTrailerDiagnostic(message) {
@@ -116,7 +116,7 @@ class NativeHeroTrailerPlayer {
     if (this.destroyed) return
 
     if (type === 'diagnostic') {
-      showTrailerDiagnostic(`${detail || 'Native Diagnose'} · ${this.videoId}`)
+      showTrailerDiagnostic(`${detail || '?'} · ${this.videoId}`)
       return
     }
 
@@ -311,7 +311,8 @@ class DirectYouTubeEmbedPlayer {
     try {
       this.iframe?.contentWindow?.postMessage(JSON.stringify(payload), this.embedOrigin)
     } catch {
-      // The direct embed remains usable even if WebView drops an optional command.
+      // Der direkte Embed bleibt als Wiedergabefläche bestehen, auch wenn eine
+      // optionale JS-Steuerungsnachricht vom WebView verworfen wird.
     }
   }
 
@@ -408,7 +409,6 @@ export function loadYouTubeIframeApi() {
 
   if (nativeBridgeAvailable()) {
     showTrailerDiagnostic('Nativer Referer-Player aktiv')
-    ensureNativeEventDispatcher()
     return Promise.resolve(NATIVE_OVERLAY_API)
   }
 
