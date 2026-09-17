@@ -21,7 +21,7 @@ function visibilityPage(eyebrow) {
 }
 
 function launchNativeTrailer(video, title, soundEnabled) {
-  const bridge = window.MovieHubNative
+  const bridge = window.MovieHubTrailer
   if (!bridge || typeof bridge.playHeroTrailer !== 'function') return false
   try {
     bridge.playHeroTrailer(String(video.key || ''), String(title || 'Trailer'), Boolean(soundEnabled))
