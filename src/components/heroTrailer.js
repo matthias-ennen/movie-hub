@@ -1,5 +1,6 @@
 const YOUTUBE_KEY_PATTERN = /^[A-Za-z0-9_-]{6,20}$/
 const DIAGNOSTIC_ID = 'moviehub-hero-trailer-diagnostic'
+const EMBED_LOAD_TIMEOUT_MS = 4500
 
 export function showTrailerDiagnostic(message) {
   if (typeof document === 'undefined') return
@@ -71,19 +72,17 @@ class DirectYouTubeEmbedPlayer {
     this.volume = 100
     this.state = PLAYER_STATE.UNSTARTED
     this.fallbackPlayingTimer = null
+    this.embedLoadTimer = null
+    this.embedOrigin = 'https://www.youtube.com'
+    this.noCookieAttempted = false
     this.messageHandler = (event) => this.handleMessage(event)
 
     showTrailerDiagnostic(`Direkt-Embed wird erstellt · ${this.videoId}`)
     this.createIframe()
   }
 
-  createIframe() {
-    if (!this.host || !this.videoId) {
-      this.options.events?.onError?.({ data: 2, target: this })
-      return
-    }
-
-    const origin = window.location.origin
+  buildEmbedUrl(origin) {
+    const pageOrigin = window.location.origin
     const params = new URLSearchParams({
       autoplay: '1',
       mute: '1',
@@ -94,13 +93,40 @@ class DirectYouTubeEmbedPlayer {
       playsinline: '1',
       rel: '0',
       enablejsapi: '1',
-      origin,
+      origin: pageOrigin,
       widget_referrer: window.location.href,
     })
+    return `${origin}/embed/${encodeURIComponent(this.videoId)}?${params}`
+  }
+
+  armEmbedLoadTimeout() {
+    window.clearTimeout(this.embedLoadTimer)
+    this.embedLoadTimer = window.setTimeout(() => {
+      if (this.destroyed || !this.iframe) return
+
+      if (!this.noCookieAttempted) {
+        this.noCookieAttempted = true
+        this.embedOrigin = 'https://www.youtube-nocookie.com'
+        showTrailerDiagnostic(`youtube.com lädt nicht – No-Cookie-Fallback · ${this.videoId}`)
+        this.iframe.src = this.buildEmbedUrl(this.embedOrigin)
+        this.armEmbedLoadTimeout()
+        return
+      }
+
+      showTrailerDiagnostic(`Auch No-Cookie-Embed lädt nicht · ${this.videoId}`)
+      this.options.events?.onError?.({ data: 'iframe-timeout', target: this })
+    }, EMBED_LOAD_TIMEOUT_MS)
+  }
+
+  createIframe() {
+    if (!this.host || !this.videoId) {
+      this.options.events?.onError?.({ data: 2, target: this })
+      return
+    }
 
     const iframe = document.createElement('iframe')
     iframe.className = 'hero-trailer-direct-iframe'
-    iframe.src = `https://www.youtube.com/embed/${encodeURIComponent(this.videoId)}?${params}`
+    iframe.src = this.buildEmbedUrl(this.embedOrigin)
     iframe.title = 'Movie Hub Trailer'
     iframe.allow = 'autoplay; encrypted-media; picture-in-picture'
     iframe.allowFullscreen = false
@@ -110,25 +136,27 @@ class DirectYouTubeEmbedPlayer {
 
     iframe.addEventListener('load', () => {
       if (this.destroyed) return
-      showTrailerDiagnostic(`Direkt-Embed geladen · ${this.videoId}`)
+      window.clearTimeout(this.embedLoadTimer)
+      showTrailerDiagnostic(`${this.noCookieAttempted ? 'No-Cookie-Embed' : 'Direkt-Embed'} geladen · ${this.videoId}`)
       window.addEventListener('message', this.messageHandler)
       this.send({ event: 'listening', id: `moviehub-${this.videoId}` })
       this.options.events?.onReady?.({ target: this })
-    }, { once: true })
+    })
 
     iframe.addEventListener('error', () => {
       if (this.destroyed) return
       showTrailerDiagnostic(`Direkt-Embed Ladefehler · ${this.videoId}`)
       this.options.events?.onError?.({ data: 'iframe-load', target: this })
-    }, { once: true })
+    })
 
     this.host.replaceChildren(iframe)
     this.iframe = iframe
+    this.armEmbedLoadTimeout()
   }
 
   send(payload) {
     try {
-      this.iframe?.contentWindow?.postMessage(JSON.stringify(payload), 'https://www.youtube.com')
+      this.iframe?.contentWindow?.postMessage(JSON.stringify(payload), this.embedOrigin)
     } catch {
       // Der direkte Embed bleibt als Wiedergabefläche bestehen, auch wenn eine
       // optionale JS-Steuerungsnachricht vom WebView verworfen wird.
@@ -149,7 +177,8 @@ class DirectYouTubeEmbedPlayer {
 
   handleMessage(event) {
     if (this.destroyed || event.source !== this.iframe?.contentWindow) return
-    if (!String(event.origin || '').includes('youtube.com')) return
+    const eventOrigin = String(event.origin || '')
+    if (!eventOrigin.includes('youtube.com') && !eventOrigin.includes('youtube-nocookie.com')) return
     const message = parseYouTubeMessage(event.data)
     if (!message) return
 
@@ -206,6 +235,7 @@ class DirectYouTubeEmbedPlayer {
   destroy() {
     this.destroyed = true
     window.clearTimeout(this.fallbackPlayingTimer)
+    window.clearTimeout(this.embedLoadTimer)
     window.removeEventListener('message', this.messageHandler)
     try {
       this.command('stopVideo')
