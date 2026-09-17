@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   HERO_COUNT_OPTIONS,
   HERO_TRAILER_DELAY_OPTIONS,
@@ -92,6 +92,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
   const [liveTmdbProviderIds, setLiveTmdbProviderIds] = useState(availableTmdbProviderIds)
   const [experienceSaving, setExperienceSaving] = useState(null)
   const [experienceError, setExperienceError] = useState(null)
+  const experienceFocusRef = useRef(null)
   const { activeProfile, updateActiveProfileExperienceSettings } = useProfiles()
   const experienceSettings = normalizeProfileExperienceSettings(activeProfile?.experienceSettings)
   const {
@@ -146,8 +147,13 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
     setProviderEnabled(providerId, nextEnabled).catch(() => {})
   }
 
-  async function saveExperienceSetting(path, value) {
+  async function saveExperienceSetting(path, value, focusTarget = null) {
     if (experienceSaving) return
+    experienceFocusRef.current = focusTarget instanceof HTMLElement
+      ? focusTarget
+      : document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
     setExperienceSaving(path)
     setExperienceError(null)
     try {
@@ -157,6 +163,11 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
       setExperienceError(error)
     } finally {
       setExperienceSaving(null)
+      window.requestAnimationFrame(() => {
+        const target = experienceFocusRef.current
+        experienceFocusRef.current = null
+        if (target?.isConnected && !target.disabled) target.focus({ preventScroll: true })
+      })
     }
   }
 
@@ -199,7 +210,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
                 type="button"
                 key={limit}
                 className={experienceSettings.posterRowLimit === limit ? 'content-sort-choice active' : 'content-sort-choice'}
-                onClick={() => saveExperienceSetting('posterRowLimit', limit)}
+                onClick={(event) => saveExperienceSetting('posterRowLimit', limit, event.currentTarget)}
                 disabled={Boolean(experienceSaving)}
                 aria-pressed={experienceSettings.posterRowLimit === limit}
                 data-focusable="true"
@@ -225,7 +236,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
                 type="button"
                 key={count}
                 className={experienceSettings.heroCount === count ? 'content-sort-choice active' : 'content-sort-choice'}
-                onClick={() => saveExperienceSetting('heroCount', count)}
+                onClick={(event) => saveExperienceSetting('heroCount', count, event.currentTarget)}
                 disabled={Boolean(experienceSaving)}
                 aria-pressed={experienceSettings.heroCount === count}
                 data-focusable="true"
@@ -241,7 +252,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
           <div className="settings-heading">
             <div>
               <h3>Automatische Hero-Trailer</h3>
-              <p>Spielt nach der gewählten Wartezeit den vorhandenen Trailer, ersatzweise einen Teaser, direkt in der Hero-Bildfläche ab.</p>
+              <p>Öffnet nach der gewählten Wartezeit den vorhandenen Trailer, ersatzweise einen Teaser, im Vollbild-Player.</p>
             </div>
             <span className="settings-status">Standard Aus · 15 Sekunden · Ton an</span>
           </div>
@@ -249,7 +260,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
             <button
               type="button"
               className={experienceSettings.heroTrailers.enabled ? 'category-choice active' : 'category-choice'}
-              onClick={() => saveExperienceSetting('heroTrailers.enabled', !experienceSettings.heroTrailers.enabled)}
+              onClick={(event) => saveExperienceSetting('heroTrailers.enabled', !experienceSettings.heroTrailers.enabled, event.currentTarget)}
               disabled={Boolean(experienceSaving)}
               aria-pressed={experienceSettings.heroTrailers.enabled}
               data-focusable="true"
@@ -261,7 +272,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
             <button
               type="button"
               className={experienceSettings.heroTrailers.soundEnabled ? 'category-choice active' : 'category-choice'}
-              onClick={() => saveExperienceSetting('heroTrailers.soundEnabled', !experienceSettings.heroTrailers.soundEnabled)}
+              onClick={(event) => saveExperienceSetting('heroTrailers.soundEnabled', !experienceSettings.heroTrailers.soundEnabled, event.currentTarget)}
               disabled={Boolean(experienceSaving) || !experienceSettings.heroTrailers.enabled}
               aria-pressed={experienceSettings.heroTrailers.soundEnabled}
               data-focusable="true"
@@ -277,7 +288,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
                 type="button"
                 key={seconds}
                 className={experienceSettings.heroTrailers.delaySeconds === seconds ? 'content-sort-choice active' : 'content-sort-choice'}
-                onClick={() => saveExperienceSetting('heroTrailers.delaySeconds', seconds)}
+                onClick={(event) => saveExperienceSetting('heroTrailers.delaySeconds', seconds, event.currentTarget)}
                 disabled={Boolean(experienceSaving) || !experienceSettings.heroTrailers.enabled}
                 aria-pressed={experienceSettings.heroTrailers.delaySeconds === seconds}
                 data-focusable="true"
@@ -287,7 +298,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
               </button>
             ))}
           </div>
-          <p className="settings-hint">Bei „Mit Ton“ bleibt das Hero-Bild sichtbar, falls das Gerät Autoplay mit Ton blockiert. Bei „Stumm“ wird bewusst ohne Ton gestartet.</p>
+          <p className="settings-hint">Bei „Mit Ton“ versucht Movie Hub den Vollbild-Trailer mit Ton zu starten. Falls das Gerät Autoplay mit Ton blockiert, wird stumm weitergespielt.</p>
         </div>
 
         <div className="content-display-subsection">
@@ -312,7 +323,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
                       type="button"
                       key={path}
                       className={enabled ? 'category-choice active' : 'category-choice'}
-                      onClick={() => saveExperienceSetting(path, !enabled)}
+                      onClick={(event) => saveExperienceSetting(path, !enabled, event.currentTarget)}
                       disabled={Boolean(experienceSaving)}
                       aria-pressed={enabled}
                       data-focusable="true"
