@@ -22,7 +22,7 @@ function visibilityPage(eyebrow) {
   return 'home'
 }
 
-function HeroTrailerPlayer({ video, onPlaying, onEnded, onFailure }) {
+function HeroTrailerPlayer({ video, soundEnabled, onPlaying, onEnded, onFailure }) {
   const playerHostRef = useRef(null)
   const playerRef = useRef(null)
 
@@ -57,8 +57,12 @@ function HeroTrailerPlayer({ video, onPlaying, onEnded, onFailure }) {
           events: {
             onReady(event) {
               try {
-                event.target.unMute()
-                event.target.setVolume(100)
+                if (soundEnabled) {
+                  event.target.unMute()
+                  event.target.setVolume(100)
+                } else {
+                  event.target.mute()
+                }
                 event.target.playVideo()
               } catch {
                 onFailure()
@@ -101,7 +105,7 @@ function HeroTrailerPlayer({ video, onPlaying, onEnded, onFailure }) {
       }
       playerRef.current = null
     }
-  }, [onEnded, onFailure, onPlaying, video.key])
+  }, [onEnded, onFailure, onPlaying, soundEnabled, video.key])
 
   return <div ref={playerHostRef} className="hero-trailer-player" aria-hidden="true" />
 }
@@ -193,6 +197,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
     setTrailerVideo(null)
     setTrailerPlaying(false)
   }, [])
+  const markTrailerPlaying = useCallback(() => setTrailerPlaying(true), [])
 
   const reportReady = useCallback((reason) => {
     if (!onReady || readyReportedRef.current) return
@@ -336,7 +341,8 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
             <HeroTrailerPlayer
               key={`${heroVisit}-${trailerVideo.key}`}
               video={trailerVideo}
-              onPlaying={() => setTrailerPlaying(true)}
+              soundEnabled={heroTrailerSettings.soundEnabled}
+              onPlaying={markTrailerPlaying}
               onEnded={stopTrailer}
               onFailure={stopTrailer}
             />
