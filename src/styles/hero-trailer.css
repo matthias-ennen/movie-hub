@@ -2,29 +2,43 @@
   overflow: hidden;
 }
 
-.hero-carousel .hero-art-image {
-  transition: opacity 180ms ease;
-}
-
-.hero-carousel .hero-art-image-trailer-playing {
-  opacity: 0;
-}
-
-.hero-trailer-player {
+/*
+ * Der statische Hero bleibt die Rückfallebene. Der YouTube-Player wird darüber
+ * gelegt, aber erst sichtbar, nachdem die IFrame-API tatsächlich PLAYING
+ * meldet. So kann ein noch ladender oder blockierter IFrame niemals das
+ * Hero-Bild mit einer schwarzen Fläche verdecken.
+ */
+.hero-trailer-layer {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #0b0e14;
+  border-radius: inherit;
+  background: transparent;
+  opacity: 0;
   pointer-events: none;
+  transition: opacity 180ms ease;
 }
 
-.hero-trailer-player iframe {
+.hero-trailer-layer.is-playing {
+  opacity: 1;
+}
+
+.hero-trailer-player-host,
+.hero-trailer-layer iframe {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   border: 0;
   display: block;
   pointer-events: none;
+}
+
+/* Der Player liegt innerhalb von .hero-art; dessen vorhandenes overflow:hidden
+ * und border-radius schneiden auch den Trailer exakt wie das Hero-Bild zu. */
+.hero-trailer-sound-button {
+  white-space: nowrap;
 }
