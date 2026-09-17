@@ -11,6 +11,7 @@ import org.json.JSONObject;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.MessageDigest;
+import java.util.List;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -29,21 +30,42 @@ final class CredentialStore {
     }
 
     SmbCredentials load(String endpoint) {
-        String value = preferences.getString(preferenceKey(endpoint), null);
-        if (value == null) return null;
-        try {
-            String[] parts = value.split(":", 2);
-            if (parts.length != 2) return null;
-            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-            cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(),
-                    new GCMParameterSpec(128, Base64.decode(parts[0], Base64.NO_WRAP)));
-            byte[] clear = cipher.doFinal(Base64.decode(parts[1], Base64.NO_WRAP));
-            JSONObject json = new JSONObject(new String(clear, StandardCharsets.UTF_8));
-            return new SmbCredentials(json.optString("username"), json.optString("password"));
-        } catch (Exception ignored) {
-            remove(endpoint);
-            return null;
+        return loadWithoutRemovingOnFailure(endpoint, true);
+    }
+
+    /**
+     * Migrates one or more legacy endpoint aliases to the canonical endpoint.
+     * Identical credentials are safe to collapse. Conflicting legacy credentials are preserved
+     * and deliberately not guessed; the user can then re-enter the correct credentials once.
+     */
+    boolean migrateAliases(String canonicalEndpoint, List<String> legacyEndpoints) {
+        if (loadWithoutRemovingOnFailure(canonicalEndpoint, false) != null) return true;
+
+        SmbCredentials candidate = null;
+        boolean foundAny = false;
+        for (String legacyEndpoint : legacyEndpoints) {
+            if (legacyEndpoint == null || legacyEndpoint.equals(canonicalEndpoint)) continue;
+            SmbCredentials legacy = loadWithoutRemovingOnFailure(legacyEndpoint, false);
+            if (legacy == null) continue;
+            foundAny = true;
+            if (candidate == null) {
+                candidate = legacy;
+            } else if (!sameCredentials(candidate, legacy)) {
+                // Preserve all legacy values. We cannot know which conflicting set is valid.
+                return false;
+            }
         }
+
+        if (!foundAny || candidate == null) return true;
+        if (!save(canonicalEndpoint, candidate)) return false;
+
+        // Only remove aliases after the canonical encrypted copy was written successfully.
+        for (String legacyEndpoint : legacyEndpoints) {
+            if (legacyEndpoint != null && !legacyEndpoint.equals(canonicalEndpoint)) {
+                remove(legacyEndpoint);
+            }
+        }
+        return true;
     }
 
     boolean save(String endpoint, SmbCredentials credentials) {
@@ -64,6 +86,29 @@ final class CredentialStore {
 
     void remove(String endpoint) {
         preferences.edit().remove(preferenceKey(endpoint)).apply();
+    }
+
+    private SmbCredentials loadWithoutRemovingOnFailure(String endpoint, boolean removeCorrupt) {
+        String value = preferences.getString(preferenceKey(endpoint), null);
+        if (value == null) return null;
+        try {
+            String[] parts = value.split(":", 2);
+            if (parts.length != 2) return null;
+            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(),
+                    new GCMParameterSpec(128, Base64.decode(parts[0], Base64.NO_WRAP)));
+            byte[] clear = cipher.doFinal(Base64.decode(parts[1], Base64.NO_WRAP));
+            JSONObject json = new JSONObject(new String(clear, StandardCharsets.UTF_8));
+            return new SmbCredentials(json.optString("username"), json.optString("password"));
+        } catch (Exception ignored) {
+            if (removeCorrupt) remove(endpoint);
+            return null;
+        }
+    }
+
+    private boolean sameCredentials(SmbCredentials left, SmbCredentials right) {
+        return left.getUsername().equals(right.getUsername())
+                && left.getPassword().equals(right.getPassword());
     }
 
     private String preferenceKey(String endpoint) {
