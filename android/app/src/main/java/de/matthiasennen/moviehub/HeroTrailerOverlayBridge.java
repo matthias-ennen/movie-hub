@@ -141,7 +141,7 @@ final class HeroTrailerOverlayBridge {
             playerWebView = player;
 
             // Start Chromium/WebView renderer ahead of the first Hero autoplay.
-            player.loadUrl("about:blank");
+            player.post(() -> player.loadUrl("about:blank"));
         } catch (Throwable ignored) {
             playerWebView = null;
         }
@@ -213,11 +213,33 @@ final class HeroTrailerOverlayBridge {
                 .appendQueryParameter("v", videoId)
                 .build()
                 .toString();
-        player.loadUrl(playerUrl);
-        notifyHost(token, "diagnostic", true, "Gehostete Player-Seite angefordert");
+        notifyHost(token, "diagnostic", true, "Player-Load in nächsten UI-Takt eingeplant");
+        player.post(() -> {
+            if (!matches(token) || playerWebView != player) return;
+            notifyHost(token, "diagnostic", true, "Gehostete Player-Seite wird jetzt geladen");
+            try {
+                player.loadUrl(playerUrl);
+                notifyHost(token, "diagnostic", true, "loadUrl() zurückgekehrt");
+            } catch (Throwable error) {
+                String name = error.getClass().getSimpleName();
+                String message = error.getMessage();
+                notifyHost(token, "diagnostic", true,
+                        "loadUrl-Ausnahme " + name
+                                + (message == null || message.isEmpty() ? "" : " · " + message));
+            }
+        });
     }
 
     private final class DiagnosticWebViewClient extends WebViewClient {
+        @Override
+        public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+            String token = activeToken;
+            if (token == null) return;
+            if (url != null && url.contains("hero-player.html")) {
+                notifyHost(token, "diagnostic", true, "Gehostete Player-Seite gestartet");
+            }
+        }
+
         @Override
         public void onPageFinished(WebView view, String url) {
             String token = activeToken;
@@ -323,7 +345,7 @@ final class HeroTrailerOverlayBridge {
         if (playerWebView != null) {
             playerWebView.setAlpha(0f);
             playerWebView.stopLoading();
-            playerWebView.loadUrl("about:blank");
+            playerWebView.post(() -> playerWebView.loadUrl("about:blank"));
         }
         activeToken = null;
     }
