@@ -1,6 +1,7 @@
+import { getActivePosterRowLimit } from '../profiles/profileExperienceRuntime.js'
 import { stableStringHash } from './contentDisplaySettings.js'
 
-export const PUBLIC_POSTER_ROW_LIMIT = 50
+export const PUBLIC_POSTER_ROW_LIMIT = 70
 export const TOP_RATED_MINIMUM_VOTES = 50
 
 function finiteNumber(value, fallback = Number.NEGATIVE_INFINITY) {
@@ -150,7 +151,8 @@ export function curateTitles(items, {
   const watchedAdjusted = watchedMode === 'demote'
     ? applyWatchedMode(ranked, watchedMode, getTitleState)
     : ranked
-  const safeLimit = Number.isFinite(Number(limit)) ? Math.max(0, Number(limit)) : watchedAdjusted.length
+  const requestedLimit = Number.isFinite(Number(limit)) ? Math.max(0, Number(limit)) : watchedAdjusted.length
+  const safeLimit = Math.min(requestedLimit, getActivePosterRowLimit())
   return watchedAdjusted.slice(0, safeLimit)
 }
 
