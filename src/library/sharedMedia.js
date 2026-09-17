@@ -2,6 +2,11 @@ import { collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, setDoc, w
 import { loadCompleteTitleMetadata } from '../catalog/loadCompleteTitleMetadata.js'
 import { mergeEnrichedTitle, titleNeedsMetadataEnrichment } from '../catalog/titleMetadata.js'
 import { firebaseReady } from '../lib/firebase.js'
+import {
+  canEncryptPersonalData,
+  protectPersonalValue,
+  readPersonalValue,
+} from '../lib/personalDataCrypto.js'
 import { buildSharedMediaTitleRef } from './sharedMediaCatalogModel.js'
 import { setSharedMediaCatalogPresence } from './sharedMediaCatalogRuntime.js'
 import { normaliseMedia, titleMediaKey } from './sharedMediaModel.js'
@@ -9,6 +14,24 @@ import { normaliseMedia, titleMediaKey } from './sharedMediaModel.js'
 export const SHARED_MEDIA_CHANGED_EVENT = 'moviehub:shared-media-changed'
 
 const catalogMetadataRefreshes = new Map()
+const LABEL_PURPOSE = 'sharedMedia.label'
+const URL_PURPOSE = 'sharedMedia.url'
+
+function decodeStoredMedia(raw, id = null) {
+  const label = readPersonalValue(LABEL_PURPOSE, raw?.label)
+  const url = readPersonalValue(URL_PURPOSE, raw?.url)
+  return {
+    normalized: normaliseMedia({ id, ...raw, label: label.value, url: url.value }),
+    legacyPlaintext: label.legacyPlaintext || url.legacyPlaintext,
+  }
+}
+
+function encryptedMediaFields(normalized) {
+  return {
+    label: protectPersonalValue(LABEL_PURPOSE, normalized.label),
+    url: protectPersonalValue(URL_PURPOSE, normalized.url),
+  }
+}
 
 async function refreshCatalogMetadata(userId, entries, {
   loadDetail = loadCompleteTitleMetadata,
@@ -83,21 +106,24 @@ export async function loadSharedMedia(userId, item) {
   for (const entry of snapshot.docs) {
     const raw = entry.data()
     try {
-      const normalized = normaliseMedia({ id: entry.id, ...raw })
+      const decoded = decodeStoredMedia(raw, entry.id)
+      const normalized = decoded.normalized
       entries.push(normalized)
 
-      // Preserve legacy entries while moving them to the new two-type model.
-      // Provider overrides become normal Movie-Hub links; old explicit SMB
-      // entries become videos and keep the same document id and URL.
+      const migration = {}
       if (raw.type === 'provider' || raw.type === 'smb' || raw.providerId) {
-        migrations.push(setDoc(entry.ref, {
-          type: normalized.type,
-          providerId: null,
-          updatedAt: serverTimestamp(),
-        }, { merge: true }))
+        migration.type = normalized.type
+        migration.providerId = null
       }
-    } catch {
-      // Ignore malformed legacy entries instead of breaking the whole title.
+      if (decoded.legacyPlaintext && canEncryptPersonalData()) {
+        Object.assign(migration, encryptedMediaFields(normalized), { cryptoVersion: 1 })
+      }
+      if (Object.keys(migration).length) {
+        migration.updatedAt = serverTimestamp()
+        migrations.push(setDoc(entry.ref, migration, { merge: true }))
+      }
+    } catch (error) {
+      console.warn(`Movie-Hub-Medieneintrag ${entry.id} konnte nicht gelesen werden.`, error)
     }
   }
 
@@ -138,10 +164,11 @@ export async function saveSharedMedia(userId, item, entry) {
   const entryCollection = collection(db, 'users', userId, 'sharedMedia', titleMediaKey(item), 'entries')
   const entryRef = normalized.id ? doc(entryCollection, normalized.id) : doc(entryCollection)
   const id = entryRef.id
+  const protectedFields = encryptedMediaFields(normalized)
   const batch = writeBatch(db)
   batch.set(entryRef, {
-    label: normalized.label,
-    url: normalized.url,
+    ...protectedFields,
+    cryptoVersion: canEncryptPersonalData() ? 1 : null,
     type: normalized.type,
     providerId: null,
     titleRef: {
@@ -170,7 +197,7 @@ export async function removeSharedMedia(userId, item, id) {
   const hasMedia = remaining.docs.some((entry) => {
     if (entry.id === id) return false
     try {
-      normaliseMedia({ id: entry.id, ...entry.data() })
+      decodeStoredMedia(entry.data(), entry.id)
       return true
     } catch {
       return false
