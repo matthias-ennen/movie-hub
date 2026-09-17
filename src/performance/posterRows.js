@@ -1,6 +1,6 @@
 import { getActivePosterRowLimit } from '../profiles/profileExperienceRuntime.js'
 
-export const STANDARD_POSTER_ROW_LIMIT = 70
+export const STANDARD_POSTER_ROW_LIMIT = 50
 export const TOP_TEN_ROW_LIMIT = 10
 export const ROW_VIRTUAL_OVERSCAN = 2
 
