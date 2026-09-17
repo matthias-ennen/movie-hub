@@ -84,9 +84,22 @@ export function normalizeProfileExperienceSettings(value = {}) {
   }
 }
 
+function cloneSettings(settings) {
+  return {
+    ...settings,
+    visibility: {
+      ...settings.visibility,
+      home: { ...settings.visibility.home },
+      movies: { ...settings.visibility.movies },
+      series: { ...settings.visibility.series },
+      myContent: { ...settings.visibility.myContent },
+    },
+  }
+}
+
 export function updateProfileExperienceSetting(settings, path, value) {
   const normalized = normalizeProfileExperienceSettings(settings)
-  const next = structuredClone(normalized)
+  const next = cloneSettings(normalized)
   const parts = String(path || '').split('.').filter(Boolean)
   if (!parts.length) return normalized
 
@@ -96,6 +109,6 @@ export function updateProfileExperienceSetting(settings, path, value) {
     if (!cursor[part] || typeof cursor[part] !== 'object') cursor[part] = {}
     cursor = cursor[part]
   }
-  cursor[parts.at(-1)] = value
+  cursor[parts[parts.length - 1]] = value
   return normalizeProfileExperienceSettings(next)
 }
