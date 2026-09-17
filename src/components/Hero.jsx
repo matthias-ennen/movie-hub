@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import '../styles/issue128.css'
 import '../styles/issue128-hero-boundary.css'
-import '../styles/hero-trailer.css'
 import { HERO_READY_TIMEOUT_MS } from '../performance/progressiveRendering.js'
 import {
   getActiveHeroCount,
@@ -9,11 +8,10 @@ import {
   isExperienceModuleVisible,
 } from '../profiles/profileExperienceRuntime.js'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
-import { loadYouTubeIframeApi, selectHeroVideo } from './heroTrailer.js'
+import { selectHeroVideo } from './heroTrailer.js'
 
 const SWIPE_MIN_DISTANCE = 48
 const HERO_PHASE_MS = 170
-const TRAILER_START_TIMEOUT_MS = 8000
 
 function visibilityPage(eyebrow) {
   if (eyebrow === 'Filme') return 'movies'
@@ -22,156 +20,15 @@ function visibilityPage(eyebrow) {
   return 'home'
 }
 
-function HeroTrailerPlayer({ video, muted, preferSound, playing, onPlaying, onEnded, onFailure, onMutedChange }) {
-  const playerHostRef = useRef(null)
-  const playerRef = useRef(null)
-  const automaticSoundAttemptedRef = useRef(false)
-
-  useEffect(() => {
-    let cancelled = false
-    let startTimeout = null
-    let soundCheckTimer = null
-
-    async function start() {
-      try {
-        const YT = await loadYouTubeIframeApi()
-        if (cancelled || !playerHostRef.current) return
-
-        startTimeout = window.setTimeout(() => {
-          if (!cancelled) onFailure()
-        }, TRAILER_START_TIMEOUT_MS)
-
-        playerRef.current = new YT.Player(playerHostRef.current, {
-          videoId: video.key,
-          width: '100%',
-          height: '100%',
-          playerVars: {
-            autoplay: 1,
-            controls: 0,
-            disablekb: 1,
-            fs: 0,
-            iv_load_policy: 3,
-            modestbranding: 1,
-            playsinline: 1,
-            rel: 0,
-            origin: window.location.origin,
-          },
-          events: {
-            onReady(event) {
-              try {
-                // Autoplay hat Vorrang: immer stumm beginnen. Ton wird erst
-                // nach stabilem PLAYING versucht bzw. durch Nutzeraktion gesetzt.
-                event.target.mute()
-                event.target.setVolume(100)
-                onMutedChange(true)
-                event.target.playVideo()
-              } catch {
-                onFailure()
-              }
-            },
-            onStateChange(event) {
-              if (cancelled) return
-              if (event.data === YT.PlayerState.PLAYING) {
-                window.clearTimeout(startTimeout)
-                startTimeout = null
-                onPlaying()
-
-                if (preferSound && !automaticSoundAttemptedRef.current) {
-                  automaticSoundAttemptedRef.current = true
-                  try {
-                    event.target.unMute()
-                    event.target.setVolume(100)
-                  } catch {
-                    onMutedChange(true)
-                    return
-                  }
-
-                  soundCheckTimer = window.setTimeout(() => {
-                    if (cancelled) return
-                    try {
-                      const stillPlaying = event.target.getPlayerState() === YT.PlayerState.PLAYING
-                      const isMuted = event.target.isMuted()
-                      if (!stillPlaying) {
-                        event.target.mute()
-                        event.target.playVideo()
-                        onMutedChange(true)
-                      } else {
-                        onMutedChange(isMuted)
-                      }
-                    } catch {
-                      onMutedChange(true)
-                    }
-                  }, 400)
-                }
-              } else if (event.data === YT.PlayerState.ENDED) {
-                window.clearTimeout(startTimeout)
-                window.clearTimeout(soundCheckTimer)
-                startTimeout = null
-                soundCheckTimer = null
-                onEnded()
-              }
-            },
-            onError() {
-              window.clearTimeout(startTimeout)
-              window.clearTimeout(soundCheckTimer)
-              startTimeout = null
-              soundCheckTimer = null
-              if (!cancelled) onFailure()
-            },
-          },
-        })
-      } catch {
-        if (!cancelled) onFailure()
-      }
-    }
-
-    start()
-
-    return () => {
-      cancelled = true
-      window.clearTimeout(startTimeout)
-      window.clearTimeout(soundCheckTimer)
-      startTimeout = null
-      soundCheckTimer = null
-      try {
-        playerRef.current?.destroy?.()
-      } catch {
-        // The iframe may already have been detached during a Hero/page change.
-      }
-      playerRef.current = null
-    }
-  }, [onEnded, onFailure, onMutedChange, onPlaying, preferSound, video.key])
-
-  useEffect(() => {
-    const player = playerRef.current
-    if (!player || !playing) return
-
-    try {
-      if (muted) {
-        player.mute()
-        onMutedChange(true)
-      } else {
-        player.unMute()
-        player.setVolume(100)
-        player.playVideo()
-        window.setTimeout(() => {
-          try {
-            onMutedChange(player.isMuted())
-          } catch {
-            onMutedChange(true)
-          }
-        }, 250)
-      }
-    } catch {
-      onMutedChange(true)
-    }
-  }, [muted, onMutedChange, playing])
-
-  return (
-    <div className={playing ? 'hero-trailer-layer is-playing' : 'hero-trailer-layer'} aria-hidden="true">
-      <div ref={playerHostRef} className="hero-trailer-player-host" />
-    </div>
-  )
+function launchNativeTrailer(video, title, soundEnabled) {
+  const bridge = window.MovieHubNative
+  if (!bridge || typeof bridge.playHeroTrailer !== 'function') return false
+  try {
+    bridge.playHeroTrailer(String(video.key || ''), String(title || 'Trailer'), Boolean(soundEnabled))
+    return true
+  } catch {
+    return false
+  }
 }
 
 export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', onReady }) {
@@ -195,9 +52,6 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   const [transition, setTransition] = useState(null)
   const [heroVisit, setHeroVisit] = useState(0)
   const [attemptedVisit, setAttemptedVisit] = useState(null)
-  const [trailerVideo, setTrailerVideo] = useState(null)
-  const [trailerPlaying, setTrailerPlaying] = useState(false)
-  const [trailerMuted, setTrailerMuted] = useState(true)
   const touchStartRef = useRef(null)
   const transitionTimerRef = useRef([])
   const transitionLockRef = useRef(false)
@@ -217,9 +71,6 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
     setTransition(null)
     setHeroVisit((value) => value + 1)
     setAttemptedVisit(null)
-    setTrailerVideo(null)
-    setTrailerPlaying(false)
-    setTrailerMuted(true)
   }, [signature])
 
   useEffect(() => () => {
@@ -233,40 +84,30 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   const activeHeroVideo = useMemo(() => selectHeroVideo(activeItem?.videos), [activeItem?.videos])
 
   useEffect(() => {
-    setTrailerVideo(null)
-    setTrailerPlaying(false)
-    setTrailerMuted(true)
-
     if (
       !heroTrailerSettings.enabled
       || !activeHeroVideo
+      || !activeItem
       || transition
       || attemptedVisit === heroVisit
     ) return undefined
 
     const timer = window.setTimeout(() => {
       setAttemptedVisit(heroVisit)
-      setTrailerVideo(activeHeroVideo)
+      launchNativeTrailer(activeHeroVideo, activeItem.title, heroTrailerSettings.soundEnabled)
     }, heroTrailerSettings.delaySeconds * 1000)
 
     return () => window.clearTimeout(timer)
   }, [
     activeHeroVideo,
-    activeItem?.id,
+    activeItem,
     attemptedVisit,
     heroTrailerSettings.delaySeconds,
     heroTrailerSettings.enabled,
+    heroTrailerSettings.soundEnabled,
     heroVisit,
     transition,
   ])
-
-  const stopTrailer = useCallback(() => {
-    setTrailerVideo(null)
-    setTrailerPlaying(false)
-    setTrailerMuted(true)
-  }, [])
-  const markTrailerPlaying = useCallback(() => setTrailerPlaying(true), [])
-  const updateTrailerMuted = useCallback((value) => setTrailerMuted(Boolean(value)), [])
 
   const reportReady = useCallback((reason) => {
     if (!onReady || readyReportedRef.current) return
@@ -299,7 +140,6 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
     transitionLockRef.current = true
     const resolvedDirection = direction || (index > safeIndex ? 'left' : 'right')
     clearTransitionTimers()
-    stopTrailer()
     setHeroVisit((value) => value + 1)
     setAttemptedVisit(null)
     setTransition({ phase: 'out', targetIndex: index, direction: resolvedDirection })
@@ -365,7 +205,6 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
 
   function renderHeroPanel(entry, className = '') {
     const heroBackdropUrl = entry.displayHeroBackdropUrl || entry.backdropUrl || null
-    const showTrailer = entry.id === activeItem.id && trailerVideo && !transition
 
     return (
       <div
@@ -389,17 +228,6 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
             <button type="button" className="action-button action-button-secondary" onClick={() => onOpen(entry)} data-focusable="true">
               ⓘ Details
             </button>
-            {trailerPlaying && showTrailer && (
-              <button
-                type="button"
-                className="action-button action-button-secondary hero-trailer-sound-button"
-                onClick={() => setTrailerMuted((value) => !value)}
-                data-focusable="true"
-                aria-label={trailerMuted ? 'Trailer-Ton einschalten' : 'Trailer stummschalten'}
-              >
-                {trailerMuted ? '🔇 Ton an' : '🔊 Ton aus'}
-              </button>
-            )}
           </div>
         </div>
         <div className={heroBackdropUrl ? 'hero-art has-image' : 'hero-art'} aria-hidden="true">
@@ -415,19 +243,6 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
               draggable="false"
               onLoad={() => reportReady('loaded')}
               onError={() => reportReady('error')}
-            />
-          )}
-          {showTrailer && (
-            <HeroTrailerPlayer
-              key={`${heroVisit}-${trailerVideo.key}`}
-              video={trailerVideo}
-              muted={trailerMuted}
-              preferSound={heroTrailerSettings.soundEnabled}
-              playing={trailerPlaying}
-              onPlaying={markTrailerPlaying}
-              onEnded={stopTrailer}
-              onFailure={stopTrailer}
-              onMutedChange={updateTrailerMuted}
             />
           )}
         </div>
