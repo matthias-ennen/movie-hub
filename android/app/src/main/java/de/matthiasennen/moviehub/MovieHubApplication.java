@@ -24,17 +24,17 @@ public final class MovieHubApplication extends Application {
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             @Override
             public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
-                installWebChromeClient(activity);
+                installMainWebViewSupport(activity);
             }
 
             @Override
             public void onActivityStarted(Activity activity) {
-                installWebChromeClient(activity);
+                installMainWebViewSupport(activity);
             }
 
             @Override
             public void onActivityResumed(Activity activity) {
-                installWebChromeClient(activity);
+                installMainWebViewSupport(activity);
             }
 
             @Override public void onActivityPaused(Activity activity) { }
@@ -47,34 +47,30 @@ public final class MovieHubApplication extends Application {
                 STARTUP_JINGLE_DELAY_MS);
     }
 
-    private void installWebChromeClient(Activity activity) {
-        if (!(activity instanceof MainActivity)) {
-            return;
-        }
+    private void installMainWebViewSupport(Activity activity) {
+        if (!(activity instanceof MainActivity)) return;
         View root = activity.getWindow() == null ? null : activity.getWindow().getDecorView();
-        installWebChromeClientRecursive(root);
+        installMainWebViewSupportRecursive(activity, root);
     }
 
-    private void installWebChromeClientRecursive(View view) {
+    private void installMainWebViewSupportRecursive(Activity activity, View view) {
         if (view instanceof WebView) {
-            ((WebView) view).setWebChromeClient(new WebChromeClient());
+            WebView webView = (WebView) view;
+            webView.setWebChromeClient(new WebChromeClient());
+            webView.addJavascriptInterface(new HeroTrailerLaunchBridge(activity), "MovieHubTrailer");
             return;
         }
-        if (!(view instanceof ViewGroup)) {
-            return;
-        }
+        if (!(view instanceof ViewGroup)) return;
         ViewGroup group = (ViewGroup) view;
         for (int index = 0; index < group.getChildCount(); index += 1) {
-            installWebChromeClientRecursive(group.getChildAt(index));
+            installMainWebViewSupportRecursive(activity, group.getChildAt(index));
         }
     }
 
     private void playStartupJingle() {
         try {
             startupJingle = MediaPlayer.create(this, R.raw.start);
-            if (startupJingle == null) {
-                return;
-            }
+            if (startupJingle == null) return;
             startupJingle.setOnCompletionListener(player -> releaseStartupJingle());
             startupJingle.setOnErrorListener((player, what, extra) -> {
                 releaseStartupJingle();
@@ -87,9 +83,7 @@ public final class MovieHubApplication extends Application {
     }
 
     private void releaseStartupJingle() {
-        if (startupJingle == null) {
-            return;
-        }
+        if (startupJingle == null) return;
         try {
             startupJingle.release();
         } catch (RuntimeException ignored) {
