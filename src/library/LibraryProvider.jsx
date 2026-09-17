@@ -2,6 +2,11 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { collection, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
 import { firebaseReady } from '../lib/firebase.js'
 import {
+  canEncryptPersonalData,
+  protectPersonalValue,
+  readPersonalValue,
+} from '../lib/personalDataCrypto.js'
+import {
   EMPTY_TITLE_STATE,
   applyTitleStatePatch,
   createTitleSnapshot,
@@ -11,6 +16,7 @@ import {
 } from './libraryState.js'
 
 const LibraryContext = createContext(null)
+const NOTE_PURPOSE = 'profile.note'
 
 export function LibraryProvider({ user, activeProfile, children }) {
   const [statesByKey, setStatesByKey] = useState({})
@@ -42,10 +48,26 @@ export function LibraryProvider({ user, activeProfile, children }) {
         if (cancelled) return
 
         const nextStates = {}
+        const migrations = []
         snapshot.forEach((stateDocument) => {
-          nextStates[stateDocument.id] = normalizeTitleState(stateDocument.data())
+          const raw = stateDocument.data()
+          try {
+            const note = readPersonalValue(NOTE_PURPOSE, raw?.note ?? '')
+            nextStates[stateDocument.id] = normalizeTitleState({ ...raw, note: note.value })
+            if (note.legacyPlaintext && canEncryptPersonalData()) {
+              migrations.push(setDoc(stateDocument.ref, {
+                note: protectPersonalValue(NOTE_PURPOSE, note.value),
+                cryptoVersion: 1,
+                updatedAt: serverTimestamp(),
+              }, { merge: true }))
+            }
+          } catch (cryptoError) {
+            console.warn(`Persönliche Notiz ${stateDocument.id} konnte nicht entschlüsselt werden.`, cryptoError)
+            nextStates[stateDocument.id] = normalizeTitleState({ ...raw, note: '' })
+          }
         })
-        setStatesByKey(nextStates)
+        await Promise.allSettled(migrations)
+        if (!cancelled) setStatesByKey(nextStates)
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError)
@@ -85,8 +107,11 @@ export function LibraryProvider({ user, activeProfile, children }) {
         'titles', key,
       )
 
+      const { note, ...publicState } = next
       const payload = {
-        ...next,
+        ...publicState,
+        note: protectPersonalValue(NOTE_PURPOSE, note),
+        cryptoVersion: canEncryptPersonalData() ? 1 : null,
         titleRef: {
           catalogId: String(item.id ?? ''),
           tmdbId: item.tmdbId ?? null,
