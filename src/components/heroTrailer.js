@@ -1,6 +1,6 @@
 const YOUTUBE_KEY_PATTERN = /^[A-Za-z0-9_-]{6,20}$/
 const DIAGNOSTIC_ID = 'moviehub-hero-trailer-diagnostic'
-const DIAGNOSTIC_VERSION = 'D4'
+const DIAGNOSTIC_VERSION = 'D5'
 const EMBED_LOAD_TIMEOUT_MS = 4500
 
 export function showTrailerDiagnostic(message) {
@@ -114,6 +114,11 @@ class NativeHeroTrailerPlayer {
 
   handleNativeEvent(type, muted, detail) {
     if (this.destroyed) return
+
+    if (type === 'diagnostic') {
+      showTrailerDiagnostic(`${detail || 'Native Diagnose'} · ${this.videoId}`)
+      return
+    }
 
     if (type === 'ready') {
       showTrailerDiagnostic(`Nativer Referer-Player bereit · ${this.videoId}`)
