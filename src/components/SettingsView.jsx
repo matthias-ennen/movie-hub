@@ -1,8 +1,56 @@
 import { useEffect, useState } from 'react'
+import {
+  HERO_COUNT_OPTIONS,
+  POSTER_ROW_LIMIT_OPTIONS,
+  normalizeProfileExperienceSettings,
+  updateProfileExperienceSetting,
+} from '../profiles/profileExperienceSettings.js'
+import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import { PROVIDER_OPTIONS } from '../settings/providerSelectionModel.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { useTmdbCatalog } from '../tmdb/TmdbCatalogProvider.jsx'
 import { ProviderBadge } from './ProviderBadges.jsx'
+
+const VISIBILITY_GROUPS = [
+  {
+    id: 'home',
+    title: 'Home',
+    options: [
+      ['hero', 'Hero-Bereich'],
+      ['top10', 'Top 10'],
+      ['personalRows', 'Persönliche Reihen'],
+      ['providerRows', 'Anbieter-Kataloge'],
+    ],
+  },
+  {
+    id: 'movies',
+    title: 'Filme',
+    options: [
+      ['hero', 'Hero-Bereich'],
+      ['top10', 'Top 10'],
+      ['providerRows', 'Anbieter-Kataloge'],
+    ],
+  },
+  {
+    id: 'series',
+    title: 'Serien',
+    options: [
+      ['hero', 'Hero-Bereich'],
+      ['top10', 'Top 10'],
+      ['providerRows', 'Anbieter-Kataloge'],
+    ],
+  },
+  {
+    id: 'myContent',
+    title: 'Meine Inhalte',
+    options: [
+      ['hero', 'Hero-Bereich'],
+      ['top10', 'Top 10'],
+      ['personalRows', 'Persönliche Reihen'],
+      ['history', 'Gesehen-Verlauf'],
+    ],
+  },
+]
 
 function formatSyncTime(value) {
   if (!value) return null
@@ -41,6 +89,10 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
   const nativeNetworkSettings = typeof window.MovieHubNative?.openNetworkSettings === 'function'
   const nativeTmdbSettings = typeof window.MovieHubNative?.openTmdbSettings === 'function'
   const [liveTmdbProviderIds, setLiveTmdbProviderIds] = useState(availableTmdbProviderIds)
+  const [experienceSaving, setExperienceSaving] = useState(null)
+  const [experienceError, setExperienceError] = useState(null)
+  const { activeProfile, updateActiveProfileExperienceSettings } = useProfiles()
+  const experienceSettings = normalizeProfileExperienceSettings(activeProfile?.experienceSettings)
   const {
     enabledProviderIds,
     loading: providerLoading,
@@ -93,6 +145,20 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
     setProviderEnabled(providerId, nextEnabled).catch(() => {})
   }
 
+  async function saveExperienceSetting(path, value) {
+    if (experienceSaving) return
+    setExperienceSaving(path)
+    setExperienceError(null)
+    try {
+      const next = updateProfileExperienceSetting(experienceSettings, path, value)
+      await updateActiveProfileExperienceSettings(next)
+    } catch (error) {
+      setExperienceError(error)
+    } finally {
+      setExperienceSaving(null)
+    }
+  }
+
   const lastSync = formatSyncTime(syncState?.syncedAt)
   const providerBusy = providerLoading || Boolean(savingProviderId)
   const providerOptions = visibleProviderOptions(liveTmdbProviderIds)
@@ -103,13 +169,117 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
       <div className="page-heading profile-heading">
         <p className="eyebrow">Dein Movie Hub</p>
         <h1>Einstellungen</h1>
-        <p>Kontoweite Streaming-Auswahl und geräteweite Verbindungen für Movie Hub.</p>
+        <p>Profilbezogene Darstellung sowie kontoweite Streaming- und Geräteverbindungen an einem Ort.</p>
       </div>
+
+      <section className="settings-panel content-display-panel" aria-labelledby="profile-display-heading">
+        <div className="settings-heading">
+          <div>
+            <p className="settings-kicker">Aktives Profil</p>
+            <h2 id="profile-display-heading">Oberfläche für {activeProfile?.displayName ?? 'dieses Profil'}</h2>
+          </div>
+          <span className="settings-status">Nur dieses Profil</span>
+        </div>
+        <p className="settings-description">
+          Diese Werte werden mit dem Profil synchronisiert und gelten damit auf Smartphone, Tablet und Fire TV. Andere Profile können eigene Werte verwenden.
+        </p>
+
+        <div className="content-display-subsection">
+          <div className="settings-heading">
+            <div>
+              <h3>Posterreihen</h3>
+              <p>Maximale Anzahl Titel pro normaler Posterreihe. Top-10-Reihen bleiben immer auf zehn Titel begrenzt.</p>
+            </div>
+            <span className="settings-status">Standard 50</span>
+          </div>
+          <div className="content-sort-grid" aria-label="Maximale Titel pro Posterreihe">
+            {POSTER_ROW_LIMIT_OPTIONS.map((limit) => (
+              <button
+                type="button"
+                key={limit}
+                className={experienceSettings.posterRowLimit === limit ? 'content-sort-choice active' : 'content-sort-choice'}
+                onClick={() => saveExperienceSetting('posterRowLimit', limit)}
+                disabled={Boolean(experienceSaving)}
+                aria-pressed={experienceSettings.posterRowLimit === limit}
+                data-focusable="true"
+              >
+                <span className="content-sort-choice-title"><strong>{limit}</strong></span>
+                <span>Titel je Reihe</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="content-display-subsection">
+          <div className="settings-heading">
+            <div>
+              <h3>Heroes</h3>
+              <p>Anzahl wechselnder Hero-Titel auf den Hauptseiten. Ein gemeinsamer Profilwert hält Preloading und Speicherbedarf vorhersehbar.</p>
+            </div>
+            <span className="settings-status">Standard 5</span>
+          </div>
+          <div className="content-sort-grid" aria-label="Anzahl Hero-Titel">
+            {HERO_COUNT_OPTIONS.map((count) => (
+              <button
+                type="button"
+                key={count}
+                className={experienceSettings.heroCount === count ? 'content-sort-choice active' : 'content-sort-choice'}
+                onClick={() => saveExperienceSetting('heroCount', count)}
+                disabled={Boolean(experienceSaving)}
+                aria-pressed={experienceSettings.heroCount === count}
+                data-focusable="true"
+              >
+                <span className="content-sort-choice-title"><strong>{count}</strong></span>
+                <span>Hero-Titel</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="content-display-subsection">
+          <div className="settings-heading">
+            <div>
+              <h3>Sichtbare Inhaltsbereiche</h3>
+              <p>Blende ganze Module aus, ohne persönliche Daten, Links, Bewertungen oder Regeln zu löschen.</p>
+            </div>
+          </div>
+          {VISIBILITY_GROUPS.map((group) => (
+            <div className="category-settings-group" key={group.id}>
+              <div className="category-settings-group-heading">
+                <h3>{group.title}</h3>
+                <span>profilbezogen</span>
+              </div>
+              <div className="category-choice-grid">
+                {group.options.map(([key, label]) => {
+                  const enabled = experienceSettings.visibility[group.id][key]
+                  const path = `visibility.${group.id}.${key}`
+                  return (
+                    <button
+                      type="button"
+                      key={path}
+                      className={enabled ? 'category-choice active' : 'category-choice'}
+                      onClick={() => saveExperienceSetting(path, !enabled)}
+                      disabled={Boolean(experienceSaving)}
+                      aria-pressed={enabled}
+                      data-focusable="true"
+                    >
+                      <span>{label}</span>
+                      <small>{experienceSaving === path ? 'Speichert …' : enabled ? 'Sichtbar' : 'Ausgeblendet'}</small>
+                      <span className={enabled ? 'category-choice-switch active' : 'category-choice-switch'} aria-hidden="true"><span /></span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+        {experienceError && <p className="error" role="status">Profileinstellungen konnten nicht gespeichert werden: {experienceError.message}</p>}
+      </section>
 
       <section className="settings-panel provider-selection-panel" aria-labelledby="provider-selection-heading">
         <div className="settings-heading">
           <div>
-            <p className="settings-kicker">Streaming</p>
+            <p className="settings-kicker">Konto · Streaming</p>
             <h2 id="provider-selection-heading">Streaminganbieter</h2>
           </div>
           <span className="settings-status">
@@ -118,7 +288,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
         </div>
 
         <p className="settings-description">
-          Wähle aus, welche Anbieter Movie Hub für dich berücksichtigen soll. Die Auswahl gilt für dein gesamtes Movie-Hub-Konto und wird zwischen deinen Geräten synchronisiert.
+          Wähle aus, welche Anbieter Movie Hub berücksichtigen soll. Diese Auswahl gilt für das gesamte Movie-Hub-Konto; die profilbezogene Sichtbarkeit des Anbieterbereichs wird oben gesteuert.
         </p>
 
         <div className="provider-selection-list" aria-label="Streaminganbieter auswählen">
@@ -158,7 +328,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
       <section className="settings-panel network-settings-panel" aria-labelledby="network-settings-heading">
         <div className="settings-heading">
           <div>
-            <p className="settings-kicker">Heimnetz</p>
+            <p className="settings-kicker">Gerät · Heimnetz</p>
             <h2 id="network-settings-heading">Netzlaufwerke</h2>
           </div>
           <span className="settings-status">Nur dieses Gerät</span>
@@ -183,7 +353,7 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
       <section className="settings-panel tmdb-settings-panel" aria-labelledby="tmdb-settings-heading">
         <div className="settings-heading">
           <div>
-            <p className="settings-kicker">Filmdaten</p>
+            <p className="settings-kicker">Gerät · Filmdaten</p>
             <h2 id="tmdb-settings-heading">The Movie Database</h2>
           </div>
           <span className="settings-status">Zugang nur auf diesem Gerät</span>
