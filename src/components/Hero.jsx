@@ -2,21 +2,33 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import '../styles/issue128.css'
 import '../styles/issue128-hero-boundary.css'
 import { HERO_READY_TIMEOUT_MS } from '../performance/progressiveRendering.js'
+import { getActiveHeroCount, isExperienceModuleVisible } from '../profiles/profileExperienceRuntime.js'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 
-const MAX_HEROES = 5
 const SWIPE_MIN_DISTANCE = 48
 const HERO_PHASE_MS = 170
+
+function visibilityPage(eyebrow) {
+  if (eyebrow === 'Filme') return 'movies'
+  if (eyebrow === 'Serien') return 'series'
+  if (eyebrow === 'Meine Inhalte') return 'myContent'
+  return 'home'
+}
+
 export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', onReady }) {
+  const page = visibilityPage(eyebrow)
+  const heroCount = getActiveHeroCount()
+  const heroVisible = isExperienceModuleVisible(page, 'hero')
   const slides = useMemo(() => {
+    if (!heroVisible) return []
     const source = Array.isArray(items) && items.length ? items : item ? [item] : []
     const seen = new Set()
     return source.filter((entry) => {
       if (!entry?.id || seen.has(entry.id)) return false
       seen.add(entry.id)
       return true
-    }).slice(0, MAX_HEROES)
-  }, [item, items])
+    }).slice(0, heroCount)
+  }, [heroCount, heroVisible, item, items])
 
   const signature = slides.map((entry) => entry.id).join('|')
   const [activeIndex, setActiveIndex] = useState(0)
@@ -59,7 +71,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
     const frame = window.requestAnimationFrame(() => {
       const image = activeImageRef.current
       if (!activeBackdropUrl) {
-        reportReady(slides.length ? 'no-image' : 'no-hero')
+        reportReady(slides.length ? 'no-image' : heroVisible ? 'no-hero' : 'hidden')
       } else if (image?.complete) {
         reportReady(image.naturalWidth > 0 ? 'cached' : 'error')
       }
@@ -70,7 +82,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
       window.cancelAnimationFrame(frame)
       window.clearTimeout(timeout)
     }
-  }, [activeBackdropUrl, reportReady, slides.length])
+  }, [activeBackdropUrl, heroVisible, reportReady, slides.length])
 
   if (!slides.length) return null
 
