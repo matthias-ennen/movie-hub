@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { buildCategoryRows } from '../src/catalog/categoryRows.js'
 import { selectCoordinatedHeroItems } from '../src/catalog/heroSelection.js'
+import { buildPersonalSmartRows } from '../src/catalog/personalSmartRows.js'
 import { buildPersonalRows } from '../src/library/personalRows.js'
 import { limitPosterRowItems } from '../src/performance/posterRows.js'
 import {
@@ -9,11 +10,13 @@ import {
   updateProfileExperienceSetting,
 } from '../src/profiles/profileExperienceSettings.js'
 import {
+  filterRowsByExperienceVisibility,
   getActiveHeroCount,
   getActivePosterRowLimit,
   isExperienceModuleVisible,
   setActiveProfileExperienceRuntime,
 } from '../src/profiles/profileExperienceRuntime.js'
+import { buildTmdbCatalogRows } from '../src/tmdb/tmdbCatalogModel.js'
 
 afterEach(() => {
   setActiveProfileExperienceRuntime(DEFAULT_PROFILE_EXPERIENCE_SETTINGS)
@@ -27,6 +30,11 @@ function title(index, type = 'movie') {
     title: `Titel ${index}`,
     providerIds: ['netflix'],
     genres: [{ id: type === 'movie' ? 28 : 10759 }],
+    facets: { castPersonIds: [123] },
+    tmdbWatchlist: true,
+    tmdbFavorite: true,
+    tmdbRated: true,
+    tmdbRating: 8,
   }
 }
 
@@ -81,6 +89,41 @@ describe('profilbezogene Oberflächeneinstellungen', () => {
       enabledProviderIds: ['netflix'],
     })
     expect(categoryRows[0].items).toHaveLength(30)
+  })
+
+  it('unterstützt 70 Titel auch für Smart- und TMDB-Reihen', () => {
+    setActiveProfileExperienceRuntime({ posterRowLimit: 70 })
+    const items = Array.from({ length: 80 }, (_, index) => title(index + 1))
+    const smartRows = buildPersonalSmartRows(items, {
+      rows: [{ id: 'cast-123', type: 'cast', valueId: 123, valueLabel: 'Test', enabled: true }],
+    })
+    expect(smartRows[0].items).toHaveLength(70)
+    expect(buildTmdbCatalogRows(items).every((row) => row.items.length === 70)).toBe(true)
+  })
+
+  it('filtert ausgeblendete Module ohne Daten zu verändern', () => {
+    setActiveProfileExperienceRuntime({
+      visibility: {
+        home: { top10: false, providerRows: false, personalRows: true },
+        myContent: { top10: true, personalRows: false, history: true },
+      },
+    })
+    const homeRows = [
+      { id: 'top-ten-home', variant: 'top-ten' },
+      { id: 'provider-netflix-home', providerId: 'netflix' },
+      { id: 'my-watchlist' },
+      { id: 'trending' },
+    ]
+    expect(filterRowsByExperienceVisibility(homeRows, 'home').map((row) => row.id))
+      .toEqual(['my-watchlist', 'trending'])
+
+    const personalRows = [
+      { id: 'top-ten-personal', variant: 'top-ten' },
+      { id: 'my-watchlist' },
+      { id: 'my-watched-history' },
+    ]
+    expect(filterRowsByExperienceVisibility(personalRows, 'myContent').map((row) => row.id))
+      .toEqual(['top-ten-personal', 'my-watched-history'])
   })
 
   it('hält Sichtbarkeit profilbezogen im Runtime-Modell', () => {
