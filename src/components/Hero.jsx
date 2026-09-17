@@ -22,13 +22,15 @@ function visibilityPage(eyebrow) {
   return 'home'
 }
 
-function HeroTrailerPlayer({ video, soundEnabled, onPlaying, onEnded, onFailure }) {
+function HeroTrailerPlayer({ video, muted, preferSound, playing, onPlaying, onEnded, onFailure, onMutedChange }) {
   const playerHostRef = useRef(null)
   const playerRef = useRef(null)
+  const automaticSoundAttemptedRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
     let startTimeout = null
+    let soundCheckTimer = null
 
     async function start() {
       try {
@@ -57,12 +59,11 @@ function HeroTrailerPlayer({ video, soundEnabled, onPlaying, onEnded, onFailure 
           events: {
             onReady(event) {
               try {
-                if (soundEnabled) {
-                  event.target.unMute()
-                  event.target.setVolume(100)
-                } else {
-                  event.target.mute()
-                }
+                // Autoplay hat Vorrang: immer stumm beginnen. Ton wird erst
+                // nach stabilem PLAYING versucht bzw. durch Nutzeraktion gesetzt.
+                event.target.mute()
+                event.target.setVolume(100)
+                onMutedChange(true)
                 event.target.playVideo()
               } catch {
                 onFailure()
@@ -74,15 +75,47 @@ function HeroTrailerPlayer({ video, soundEnabled, onPlaying, onEnded, onFailure 
                 window.clearTimeout(startTimeout)
                 startTimeout = null
                 onPlaying()
+
+                if (preferSound && !automaticSoundAttemptedRef.current) {
+                  automaticSoundAttemptedRef.current = true
+                  try {
+                    event.target.unMute()
+                    event.target.setVolume(100)
+                  } catch {
+                    onMutedChange(true)
+                    return
+                  }
+
+                  soundCheckTimer = window.setTimeout(() => {
+                    if (cancelled) return
+                    try {
+                      const stillPlaying = event.target.getPlayerState() === YT.PlayerState.PLAYING
+                      const isMuted = event.target.isMuted()
+                      if (!stillPlaying) {
+                        event.target.mute()
+                        event.target.playVideo()
+                        onMutedChange(true)
+                      } else {
+                        onMutedChange(isMuted)
+                      }
+                    } catch {
+                      onMutedChange(true)
+                    }
+                  }, 400)
+                }
               } else if (event.data === YT.PlayerState.ENDED) {
                 window.clearTimeout(startTimeout)
+                window.clearTimeout(soundCheckTimer)
                 startTimeout = null
+                soundCheckTimer = null
                 onEnded()
               }
             },
             onError() {
               window.clearTimeout(startTimeout)
+              window.clearTimeout(soundCheckTimer)
               startTimeout = null
+              soundCheckTimer = null
               if (!cancelled) onFailure()
             },
           },
@@ -97,7 +130,9 @@ function HeroTrailerPlayer({ video, soundEnabled, onPlaying, onEnded, onFailure 
     return () => {
       cancelled = true
       window.clearTimeout(startTimeout)
+      window.clearTimeout(soundCheckTimer)
       startTimeout = null
+      soundCheckTimer = null
       try {
         playerRef.current?.destroy?.()
       } catch {
@@ -105,9 +140,38 @@ function HeroTrailerPlayer({ video, soundEnabled, onPlaying, onEnded, onFailure 
       }
       playerRef.current = null
     }
-  }, [onEnded, onFailure, onPlaying, soundEnabled, video.key])
+  }, [onEnded, onFailure, onMutedChange, onPlaying, preferSound, video.key])
 
-  return <div ref={playerHostRef} className="hero-trailer-player" aria-hidden="true" />
+  useEffect(() => {
+    const player = playerRef.current
+    if (!player || !playing) return
+
+    try {
+      if (muted) {
+        player.mute()
+        onMutedChange(true)
+      } else {
+        player.unMute()
+        player.setVolume(100)
+        player.playVideo()
+        window.setTimeout(() => {
+          try {
+            onMutedChange(player.isMuted())
+          } catch {
+            onMutedChange(true)
+          }
+        }, 250)
+      }
+    } catch {
+      onMutedChange(true)
+    }
+  }, [muted, onMutedChange, playing])
+
+  return (
+    <div className={playing ? 'hero-trailer-layer is-playing' : 'hero-trailer-layer'} aria-hidden="true">
+      <div ref={playerHostRef} className="hero-trailer-player-host" />
+    </div>
+  )
 }
 
 export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', onReady }) {
@@ -133,6 +197,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   const [attemptedVisit, setAttemptedVisit] = useState(null)
   const [trailerVideo, setTrailerVideo] = useState(null)
   const [trailerPlaying, setTrailerPlaying] = useState(false)
+  const [trailerMuted, setTrailerMuted] = useState(true)
   const touchStartRef = useRef(null)
   const transitionTimerRef = useRef([])
   const transitionLockRef = useRef(false)
@@ -154,6 +219,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
     setAttemptedVisit(null)
     setTrailerVideo(null)
     setTrailerPlaying(false)
+    setTrailerMuted(true)
   }, [signature])
 
   useEffect(() => () => {
@@ -169,6 +235,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   useEffect(() => {
     setTrailerVideo(null)
     setTrailerPlaying(false)
+    setTrailerMuted(true)
 
     if (
       !heroTrailerSettings.enabled
@@ -196,8 +263,10 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   const stopTrailer = useCallback(() => {
     setTrailerVideo(null)
     setTrailerPlaying(false)
+    setTrailerMuted(true)
   }, [])
   const markTrailerPlaying = useCallback(() => setTrailerPlaying(true), [])
+  const updateTrailerMuted = useCallback((value) => setTrailerMuted(Boolean(value)), [])
 
   const reportReady = useCallback((reason) => {
     if (!onReady || readyReportedRef.current) return
@@ -320,13 +389,24 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
             <button type="button" className="action-button action-button-secondary" onClick={() => onOpen(entry)} data-focusable="true">
               ⓘ Details
             </button>
+            {trailerPlaying && showTrailer && (
+              <button
+                type="button"
+                className="action-button action-button-secondary hero-trailer-sound-button"
+                onClick={() => setTrailerMuted((value) => !value)}
+                data-focusable="true"
+                aria-label={trailerMuted ? 'Trailer-Ton einschalten' : 'Trailer stummschalten'}
+              >
+                {trailerMuted ? '🔇 Ton an' : '🔊 Ton aus'}
+              </button>
+            )}
           </div>
         </div>
         <div className={heroBackdropUrl ? 'hero-art has-image' : 'hero-art'} aria-hidden="true">
           {heroBackdropUrl && (
             <img
               ref={entry.id === activeItem.id ? activeImageRef : null}
-              className={trailerPlaying && showTrailer ? 'hero-art-image hero-art-image-trailer-playing' : 'hero-art-image'}
+              className="hero-art-image"
               src={heroBackdropUrl}
               alt=""
               loading="eager"
@@ -341,10 +421,13 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
             <HeroTrailerPlayer
               key={`${heroVisit}-${trailerVideo.key}`}
               video={trailerVideo}
-              soundEnabled={heroTrailerSettings.soundEnabled}
+              muted={trailerMuted}
+              preferSound={heroTrailerSettings.soundEnabled}
+              playing={trailerPlaying}
               onPlaying={markTrailerPlaying}
               onEnded={stopTrailer}
               onFailure={stopTrailer}
+              onMutedChange={updateTrailerMuted}
             />
           )}
         </div>
