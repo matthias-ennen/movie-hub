@@ -22,6 +22,8 @@ export const DEFAULT_PROFILE_EXPERIENCE_SETTINGS = Object.freeze({
       providerRows: true,
     }),
     myContent: Object.freeze({
+      hero: true,
+      top10: true,
       personalRows: true,
       history: true,
     }),
@@ -73,6 +75,8 @@ export function normalizeProfileExperienceSettings(value = {}) {
         providerRows: bool(series.providerRows),
       },
       myContent: {
+        hero: bool(myContent.hero),
+        top10: bool(myContent.top10),
         personalRows: bool(myContent.personalRows),
         history: bool(myContent.history),
       },
