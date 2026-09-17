@@ -14,10 +14,10 @@ afterEach(() => {
 })
 
 describe('personal data crypto bridge', () => {
-  it('keeps plaintext readable while no native bridge is available', () => {
+  it('keeps legacy plaintext readable but blocks new plaintext writes', () => {
     delete globalThis.window
     expect(canEncryptPersonalData()).toBe(false)
-    expect(protectPersonalValue('profile.note', 'privat')).toBe('privat')
+    expect(() => protectPersonalValue('profile.note', 'privat')).toThrow(/nicht sicher gespeichert/)
     expect(readPersonalValue('profile.note', 'privat')).toEqual({
       value: 'privat',
       legacyPlaintext: true,
