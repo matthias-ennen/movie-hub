@@ -6,6 +6,7 @@ import { normalizePersonalSmartRowSettings } from '../catalog/personalSmartRows.
 import { normalizeContentDisplaySettings } from '../catalog/contentDisplaySettings.js'
 import { firebaseReady } from '../lib/firebase.js'
 import { DEFAULT_THEME_SETTINGS, normalizeThemeSettings } from '../theme/themeConfig.js'
+import { setActiveProfileExperienceRuntime } from './profileExperienceRuntime.js'
 import {
   DEFAULT_PROFILE_EXPERIENCE_SETTINGS,
   normalizeProfileExperienceSettings,
@@ -124,6 +125,10 @@ export function ProfileProvider({ user, children }) {
     () => profiles.find((profile) => profile.id === activeProfileId) ?? null,
     [activeProfileId, profiles],
   )
+
+  useEffect(() => {
+    setActiveProfileExperienceRuntime(activeProfile?.experienceSettings)
+  }, [activeProfile?.experienceSettings])
 
   const selectProfile = useCallback((profileId) => {
     if (!profiles.some((profile) => profile.id === profileId)) return
