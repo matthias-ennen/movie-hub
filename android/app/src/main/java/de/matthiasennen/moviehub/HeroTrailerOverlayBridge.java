@@ -32,6 +32,7 @@ final class HeroTrailerOverlayBridge {
     private static final String JS_INTERFACE = "MovieHubHeroTrailer";
     private static final String PLAYER_EVENTS_INTERFACE = "MovieHubHeroTrailerEvents";
     private static final String MOVIE_HUB_BASE_URL = "https://movie-hub-62459.web.app/";
+    private static final long PREPARE_DELAY_MS = 1200L;
     private static final Map<WebView, HeroTrailerOverlayBridge> INSTALLED =
             Collections.synchronizedMap(new WeakHashMap<>());
 
@@ -47,6 +48,7 @@ final class HeroTrailerOverlayBridge {
             HeroTrailerOverlayBridge bridge = new HeroTrailerOverlayBridge(activity, hostWebView);
             hostWebView.addJavascriptInterface(bridge, JS_INTERFACE);
             INSTALLED.put(hostWebView, bridge);
+            hostWebView.postDelayed(bridge::preparePlayerWebView, PREPARE_DELAY_MS);
         }
     }
 
@@ -74,7 +76,7 @@ final class HeroTrailerOverlayBridge {
                 String message = error.getMessage();
                 notifyHost(token, "diagnostic", true,
                         "Native Ausnahme " + name + (message == null || message.isEmpty() ? "" : " · " + message));
-                destroyPlayer();
+                detachPlayer();
             }
         });
     }
@@ -101,16 +103,47 @@ final class HeroTrailerOverlayBridge {
     public void destroy(String token) {
         activity.runOnUiThread(() -> {
             if (!matches(token)) return;
-            destroyPlayer();
+            detachPlayer();
         });
     }
 
     @SuppressLint("SetJavaScriptEnabled")
+    private void preparePlayerWebView() {
+        if (activity.isFinishing() || activity.isDestroyed() || playerWebView != null) return;
+        try {
+            WebView player = new WebView(activity);
+            player.setBackgroundColor(Color.TRANSPARENT);
+            player.setAlpha(0f);
+            player.setFocusable(false);
+            player.setFocusableInTouchMode(false);
+            player.setClickable(false);
+            player.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+
+            WebSettings settings = player.getSettings();
+            settings.setJavaScriptEnabled(true);
+            settings.setDomStorageEnabled(true);
+            settings.setMediaPlaybackRequiresUserGesture(false);
+            settings.setJavaScriptCanOpenWindowsAutomatically(false);
+            settings.setSupportMultipleWindows(false);
+            settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+
+            CookieManager cookies = CookieManager.getInstance();
+            cookies.setAcceptCookie(true);
+            cookies.setAcceptThirdPartyCookies(player, true);
+
+            player.setWebChromeClient(new WebChromeClient());
+            player.setWebViewClient(new DiagnosticWebViewClient());
+            playerWebView = player;
+        } catch (Throwable ignored) {
+            playerWebView = null;
+        }
+    }
+
     private void createOnUiThread(String token, String videoId,
                                   double leftCss, double topCss,
                                   double widthCss, double heightCss,
                                   double radiusCss, double viewportWidthCss) {
-        destroyPlayer();
+        detachPlayerFromParent();
         activeToken = token;
         notifyHost(token, "diagnostic", true, "UI-Thread erreicht");
 
@@ -135,60 +168,17 @@ final class HeroTrailerOverlayBridge {
         notifyHost(token, "diagnostic", true,
                 "Layout geprüft · " + widthPx + "×" + heightPx + " @ " + leftPx + "," + topPx);
 
-        WebView player = new WebView(activity);
-        notifyHost(token, "diagnostic", true, "WebView erzeugt");
-        player.setBackgroundColor(Color.TRANSPARENT);
+        if (playerWebView == null) {
+            notifyHost(token, "diagnostic", true, "Vorbereiteter WebView fehlt");
+            notifyHost(token, "error", true, "native-webview-not-prepared");
+            hostWebView.postDelayed(this::preparePlayerWebView, PREPARE_DELAY_MS);
+            return;
+        }
+
+        WebView player = playerWebView;
+        notifyHost(token, "diagnostic", true, "Vorbereiteter WebView übernommen");
         player.setAlpha(0f);
-        player.setFocusable(false);
-        player.setFocusableInTouchMode(false);
-        player.setClickable(false);
-        player.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-
-        WebSettings settings = player.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setJavaScriptCanOpenWindowsAutomatically(false);
-        settings.setSupportMultipleWindows(false);
-        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-
-        CookieManager cookies = CookieManager.getInstance();
-        cookies.setAcceptCookie(true);
-        cookies.setAcceptThirdPartyCookies(player, true);
-
-        player.setWebChromeClient(new WebChromeClient());
-        player.setWebViewClient(new WebViewClient() {
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                if (!matches(token)) return;
-                notifyHost(token, "diagnostic", true, "Native HTML-Seite geladen");
-            }
-
-            @Override
-            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (!matches(token)) return;
-                String host = request.getUrl() == null ? "?" : request.getUrl().getHost();
-                String detail = error == null ? "?" : String.valueOf(error.getErrorCode());
-                notifyHost(token, "diagnostic", true, "WebView-Netzwerkfehler " + detail + " · " + host);
-            }
-
-            @Override
-            public void onReceivedHttpError(WebView view, WebResourceRequest request,
-                                            WebResourceResponse errorResponse) {
-                if (!matches(token)) return;
-                String host = request.getUrl() == null ? "?" : request.getUrl().getHost();
-                int status = errorResponse == null ? -1 : errorResponse.getStatusCode();
-                notifyHost(token, "diagnostic", true, "HTTP " + status + " · " + host);
-            }
-
-            @Override
-            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
-                if (matches(token)) {
-                    notifyHost(token, "diagnostic", true, "SSL-Fehler " + (error == null ? "?" : error.getPrimaryError()));
-                }
-                if (handler != null) handler.cancel();
-            }
-        });
+        player.removeJavascriptInterface(PLAYER_EVENTS_INTERFACE);
         player.addJavascriptInterface(new PlayerEvents(token), PLAYER_EVENTS_INTERFACE);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -206,9 +196,6 @@ final class HeroTrailerOverlayBridge {
         params.topMargin = topPx;
         root.addView(player, params);
         player.bringToFront();
-
-        activeToken = token;
-        playerWebView = player;
         notifyHost(token, "diagnostic", true, "Nativer WebView angelegt");
         player.loadDataWithBaseURL(
                 MOVIE_HUB_BASE_URL,
@@ -243,6 +230,43 @@ final class HeroTrailerOverlayBridge {
                 + "</script></body></html>";
     }
 
+    private final class DiagnosticWebViewClient extends WebViewClient {
+        @Override
+        public void onPageFinished(WebView view, String url) {
+            String token = activeToken;
+            if (token == null) return;
+            notifyHost(token, "diagnostic", true, "Native HTML-Seite geladen");
+        }
+
+        @Override
+        public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+            String token = activeToken;
+            if (token == null) return;
+            String host = request.getUrl() == null ? "?" : request.getUrl().getHost();
+            String detail = error == null ? "?" : String.valueOf(error.getErrorCode());
+            notifyHost(token, "diagnostic", true, "WebView-Netzwerkfehler " + detail + " · " + host);
+        }
+
+        @Override
+        public void onReceivedHttpError(WebView view, WebResourceRequest request,
+                                        WebResourceResponse errorResponse) {
+            String token = activeToken;
+            if (token == null) return;
+            String host = request.getUrl() == null ? "?" : request.getUrl().getHost();
+            int status = errorResponse == null ? -1 : errorResponse.getStatusCode();
+            notifyHost(token, "diagnostic", true, "HTTP " + status + " · " + host);
+        }
+
+        @Override
+        public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+            String token = activeToken;
+            if (token != null) {
+                notifyHost(token, "diagnostic", true, "SSL-Fehler " + (error == null ? "?" : error.getPrimaryError()));
+            }
+            if (handler != null) handler.cancel();
+        }
+    }
+
     private final class PlayerEvents {
         private final String token;
 
@@ -274,7 +298,7 @@ final class HeroTrailerOverlayBridge {
             activity.runOnUiThread(() -> {
                 if (!matches(token)) return;
                 notifyHost(token, "ended", true, "");
-                destroyPlayer();
+                detachPlayer();
             });
         }
 
@@ -283,7 +307,7 @@ final class HeroTrailerOverlayBridge {
             activity.runOnUiThread(() -> {
                 if (!matches(token)) return;
                 notifyHost(token, "error", true, code == null ? "?" : code);
-                destroyPlayer();
+                detachPlayer();
             });
         }
     }
@@ -298,21 +322,25 @@ final class HeroTrailerOverlayBridge {
         hostWebView.evaluateJavascript(script, null);
     }
 
-    private void destroyPlayer() {
+    private void detachPlayer() {
+        detachPlayerFromParent();
         if (playerWebView != null) {
-            try {
-                ViewGroup parent = (ViewGroup) playerWebView.getParent();
-                if (parent != null) parent.removeView(playerWebView);
-            } catch (RuntimeException ignored) {
-                // Overlay teardown must never affect Movie Hub itself.
-            }
-            playerWebView.removeJavascriptInterface(PLAYER_EVENTS_INTERFACE);
+            playerWebView.setAlpha(0f);
             playerWebView.stopLoading();
             playerWebView.loadUrl("about:blank");
-            playerWebView.destroy();
-            playerWebView = null;
+            playerWebView.removeJavascriptInterface(PLAYER_EVENTS_INTERFACE);
         }
         activeToken = null;
+    }
+
+    private void detachPlayerFromParent() {
+        if (playerWebView == null) return;
+        try {
+            ViewGroup parent = (ViewGroup) playerWebView.getParent();
+            if (parent != null) parent.removeView(playerWebView);
+        } catch (RuntimeException ignored) {
+            // Overlay teardown must never affect Movie Hub itself.
+        }
     }
 
     private boolean matches(String token) {
