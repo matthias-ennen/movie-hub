@@ -27,7 +27,9 @@ export function canEncryptPersonalData() {
 export function protectPersonalValue(purpose, value) {
   const clearText = String(value ?? '')
   const bridge = nativeCryptoBridge()
-  if (!bridge) return clearText
+  if (!bridge) {
+    throw new Error('Persönliche Movie-Hub-Daten können auf diesem Client nicht sicher gespeichert werden.')
+  }
 
   const encoded = bridge.encrypt(String(purpose || ''), clearText)
   const envelope = JSON.parse(encoded)
