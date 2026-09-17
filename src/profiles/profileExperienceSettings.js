@@ -1,9 +1,14 @@
 export const POSTER_ROW_LIMIT_OPTIONS = [30, 40, 50, 60, 70]
 export const HERO_COUNT_OPTIONS = [3, 4, 5, 6, 7]
+export const HERO_TRAILER_DELAY_OPTIONS = [10, 15, 20]
 
 export const DEFAULT_PROFILE_EXPERIENCE_SETTINGS = Object.freeze({
   posterRowLimit: 50,
   heroCount: 5,
+  heroTrailers: Object.freeze({
+    enabled: false,
+    delaySeconds: 15,
+  }),
   visibility: Object.freeze({
     home: Object.freeze({
       hero: true,
@@ -41,6 +46,7 @@ function bool(value, fallback = true) {
 
 export function normalizeProfileExperienceSettings(value = {}) {
   const visibility = value?.visibility || {}
+  const heroTrailers = value?.heroTrailers || {}
   const home = visibility.home || {}
   const movies = visibility.movies || {}
   const series = visibility.series || {}
@@ -57,6 +63,14 @@ export function normalizeProfileExperienceSettings(value = {}) {
       HERO_COUNT_OPTIONS,
       DEFAULT_PROFILE_EXPERIENCE_SETTINGS.heroCount,
     ),
+    heroTrailers: {
+      enabled: bool(heroTrailers.enabled, DEFAULT_PROFILE_EXPERIENCE_SETTINGS.heroTrailers.enabled),
+      delaySeconds: allowedNumber(
+        heroTrailers.delaySeconds,
+        HERO_TRAILER_DELAY_OPTIONS,
+        DEFAULT_PROFILE_EXPERIENCE_SETTINGS.heroTrailers.delaySeconds,
+      ),
+    },
     visibility: {
       home: {
         hero: bool(home.hero),
@@ -87,6 +101,7 @@ export function normalizeProfileExperienceSettings(value = {}) {
 function cloneSettings(settings) {
   return {
     ...settings,
+    heroTrailers: { ...settings.heroTrailers },
     visibility: {
       ...settings.visibility,
       home: { ...settings.visibility.home },
