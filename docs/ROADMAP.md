@@ -1,6 +1,6 @@
 # Movie Hub – Roadmap
 
-Stand: 16. September 2026
+Stand: 17. September 2026
 
 ## Leitprinzip
 
@@ -8,104 +8,93 @@ Movie Hub wird schrittweise über klar abgegrenzte GitHub-Issues entwickelt. Ein
 
 Für die nächste Entwicklungsstrecke gilt:
 
-1. **Kleine sichtbare UI-Themen zuerst sauber abschließen.**
-2. **Einstellungen, Profilsteuerung und Sichtbarkeit gemeinsam strukturieren.**
-3. **Security-/Dependency-Hygiene vor größeren Datenmigrationen.**
-4. **SMB-Identität, Migration und Verschlüsselung als zusammenhängendes Datenpaket behandeln.**
-5. Vor Beginn jedes größeren Pakets wird dessen Scope noch einmal fachlich und technisch überprüft; zusätzliche Punkte dürfen dabei ergänzt werden.
+1. **Datenintegrität vor neuen Produktfeatures absichern.**
+2. **Security-/Dependency-Hygiene anschließend bereinigen.**
+3. Danach wieder sichtbare Produktfeatures in klaren Paketen weiterentwickeln.
+4. Vor Beginn jedes größeren Pakets wird dessen Scope noch einmal fachlich und technisch überprüft.
+5. Der veröffentlichte Movie-Hub-Katalog ist der kanonische Ist-Zustand für öffentliche Titelmetadaten; Laufzeit-Anreicherungen dürfen gültige Katalogdaten nicht verschlechtern.
 
 ## Aktuell abgeschlossener Stand
 
 Zu den zuletzt abgeschlossenen bzw. abgenommenen Paketen gehören insbesondere:
 
 - #114 – großer Suchindex
-- #178 – Staffeln, Folgen und Episodendetail
+- #178 – Staffeln und Folgen auf der Serien-Detailseite
 - #191 – Fire-TV-Navigation, Posterlast und WebView-Stabilität
 - #195 – zentrale Begrenzung normaler Posterreihen / D-Pad-Entscheidung
 - #207 – robuste persönliche TMDB-Synchronisierung
+- #218 – Layout-Sammelissue / UI-Konsistenz
+- #222 – Einstellungen, Profilsteuerung und Sichtbarkeit
+- #205 – persönliche Daten schützen und SMB-Verbindungen konsolidieren
+- #190 – automatische Hero-Trailer und nativer Trailer-/Teaser-Player
 
-Die Fire-TV-Stabilität wurde durch vertikale Virtualisierung, gezieltes Poster-Prefetching und reduzierte Posterlast deutlich verbessert und real getestet.
+Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde am 17.09.2026 als zusammenhängender Stand abgenommen.
 
-Das bisherige starre 20er-/40er-Verhalten einzelner Reihen wird nicht mehr in #195 weiterentwickelt, sondern in #222 als profilbezogene Einstellung neu gelöst.
+## Neue Erkenntnis nach der Abnahme
 
-## Zusammengeführte Arbeitspakete
+Bei einem Titel wurde entdeckt, dass im Hero ein Trailer vorhanden war, auf der Detailseite nach progressiver Metadaten-Anreicherung jedoch nicht mehr. Ursache ist kein fehlender TMDB-Datensatz, sondern eine zu aggressive Merge-Semantik: Ein unvollständiger Nachlade-Datensatz konnte bereits vorhandene gültige Katalogfelder überschreiben.
 
-Zur Vermeidung von Doppelarbeit wurden zwei Überschneidungen bereinigt:
+Daraus entsteht ein eigenständiges Datenintegritäts-Arbeitspaket:
 
-- **#176 wurde vollständig in #222 übernommen.** Einstellungen, Profilsteuerung und Sichtbarkeit von Inhaltsbereichen werden gemeinsam umgesetzt.
-- **#220 wurde vollständig in #205 übernommen.** SMB-Normalisierung/Dubletten, lokale Credential-Zuordnung, Migration und Verschlüsselung persönlicher Pfade werden gemeinsam geplant und umgesetzt.
+### 1. #225 – Kanonische Katalogdaten bei Metadaten-Anreicherung verlustfrei erhalten
 
-#176 und #220 sind deshalb als separate Arbeitspakete geschlossen.
+- alle Titel-Merge-Wege inventarisieren
+- `catalog.json` als kanonischen öffentlichen Ist-Zustand absichern
+- Feldmatrix für Merge-Semantik definieren
+- leere/unvollständige Nachladedaten dürfen vorhandene gültige Werte nicht löschen
+- insbesondere Videos, Cast, Genres, Beschreibung, Artwork/Bilder, Provider, Collections und Serienmetadaten prüfen
+- zentrale statt ansichtsspezifische Merge-Regeln
+- Trailer-/Teaser-Konsistenz zwischen Hero und Detailseite herstellen
+- Regressionstests für verlustfreie und monotone Metadaten-Anreicherung
 
-## Aktuelle Entwicklungsreihenfolge
+Dieses Paket hat Vorrang vor weiteren Produktfeatures.
 
-### 1. #218 – Layout-Sammelissue: UI-Konsistenz und visuelle Korrekturen
+## Danach geplante Arbeitspakete
 
-Kleine sichtbare Inkonsistenzen bündeln und bereinigen:
+### 2. #117 – Dependency-Audit: bekannte npm-Sicherheitswarnungen bereinigen
 
-- Movie-Hub-Badge überall wie auf regulären Posterkacheln darstellen
-- Abstand Anbieterbadges ↔ Titel/Jahr kompakter machen
-- Fokusrahmen der Staffel-Schaltflächen auf Serien-Detailseiten sauber ausrichten und vollständig sichtbar machen
-
-Das Paket wird vor Umsetzung noch einmal gegen die betroffenen Ansichten geprüft und darf um weitere kleine Layoutpunkte ergänzt werden.
-
-### 2. #222 – Einstellungen, Profilsteuerung und Sichtbarkeit aufräumen und erweitern
-
-Gemeinsames Profil-/Settings-Arbeitspaket:
-
-- Posterreihen: **30 / 40 / 50 / 60 / 70**, Standard 50
-- Heroes: **3 / 4 / 5 / 6 / 7**, Standard 5
-- Hauptbenutzer und Unterbenutzer können unterschiedliche Werte besitzen
-- alte feste 20er-/40er-Grenzen normaler Reihen entfallen zugunsten der Profil-Einstellung
-- Limits greifen früh nach Filterung/Sortierung, nicht erst beim Rendern
-- Einstellungsseite logisch neu gruppieren
-- profilbezogene Sichtbarkeit größerer Inhaltsmodule integrieren
-- keine redundanten Einzelschalter für bereits vorhandene Detailsteuerungen
-- ausgeblendete Bereiche verursachen möglichst keine unnötige Aufbereitung
-
-Vor Umsetzung wird eine Seiten-/Modulmatrix für Home, Filme, Serien und Meine Inhalte festgelegt und geprüft, welche weiteren sinnvollen Einstellungen in dasselbe Paket gehören.
-
-### 3. #117 – Dependency-Audit: bekannte npm-Sicherheitswarnungen bereinigen
-
-- aktuellen `npm audit`-Stand ermitteln
+- aktuellen `npm audit`-Stand neu ermitteln
 - Critical-/High-Funde fachlich bewerten und kontrolliert beheben
 - keine blinden Breaking-Updates
 - verbleibende Findings dokumentieren
 - vollständige Web-/Firebase-/Android-Regression
 
-### 4. #205 – Persönliche Daten schützen und SMB-Verbindungen konsolidieren
+### 3. #4 – Streaming-Verfügbarkeit und waipu.tv-/Live-TV-Ausbau
 
-Gemeinsames Daten-/SMB-Sicherheits-Arbeitspaket:
+- aktuelle Streaming-Verfügbarkeit strukturiert weiterführen
+- Live-TV-/EPG-Datenquelle für Deutschland prüfen und anbinden
+- waipu.tv-/lineare TV-Verfügbarkeit getrennt von Streaming-Abos behandeln
+- Sendezeit/Verfügbarkeit in Detailansicht und Badges sinnvoll darstellen
+- Aktualität und Attribution nachvollziehbar halten
 
-- Host + Share als case-insensitive SMB-Verbindungsidentität normalisieren
-- `Share`, `share` und `SHARE` derselben realen Freigabe zuordnen
-- vollständige Unterordner-/Dateipfade unverändert erhalten
-- bestehende Netzlaufwerk-Dubletten zusammenführen
-- nur einen lokalen Credential-Satz je realer Freigabe verwenden
-- anschließend sensible persönliche Felder (`url`, `label`, `note`) per AES-256-GCM verschlüsseln
-- `cryptoVersion` und verlustfreie idempotente Migration vorsehen
-- native Kryptobrücke gegenüber öffentlichem Web-Bundle bevorzugen
-- keine E2E-, Gerätefreigabe- oder Recovery-Key-Architektur
+### 4. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
 
-Interne Reihenfolge des Pakets: zuerst SMB-Identität und Dubletten stabilisieren, danach Verschlüsselungsformat und Klartextmigration durchführen.
+- einfache Aktion direkt am Titel
+- rent/buy-only oder derzeit nicht enthaltene Titel beobachten
+- Wechsel zu `flatrate`, `free` oder `ads` bei aktivierten Anbietern erkennen
+- nur bei echter Zustandsänderung benachrichtigen
+- keine unnötige Regelverwaltung im normalen UI
 
-## Danach geplante Produktpakete
+### 5. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
 
-Nach diesen vier Paketen wird die weitere Reihenfolge neu bewertet. Bereits vorhandene spätere Kandidaten sind unter anderem:
+- Bewertungen, gesehen/ungesehen, Favoriten, Watchlist und Katalogdaten als Signale verwenden
+- persönliche Top-100- und Empfehlungsreihen erzeugen
+- wiederholbaren automatisierten Job etablieren
+- objektive Verfügbarkeitsdaten weiterhin ausschließlich aus strukturierten Quellen ableiten
+- Empfehlungen ohne APK-Update aktualisierbar machen
 
-- #190 – optionale automatische Trailer im Hero
-- #4 – Live-TV-/waipu-/EPG-Ausbau
-- #118 – Benachrichtigen, wenn ein Titel inklusive wird
-- #7 – persönliche Empfehlungen / Top 100 / Automatisierung
-- #129 – Deutsch/Englisch-Umschaltung
-- #112 – Compliance als Release-Gate vor öffentlicher Verteilung
+## Weitere spätere Pakete
 
-## Dauerhaft offen
+- #129 – Deutsch/Englisch-Umschaltung der GUI
+- #112 – rechtliche & Compliance-Prüfung als Release-Gate vor öffentlicher Verteilung
+
+## Dauerhaft offen / Wartung
 
 - #8 – Ideen-Sammelstelle
+- #223 – temporäre Übergangslösungen und späterer Rückbau; bleibt offen, solange noch Legacy-/Migrationspfade existieren
 
-## Nächste Abhängigkeitskette
+## Aktuelle Abhängigkeitskette
 
-`#218 → #222 → #117 → #205`
+`#225 → #117 → #4 → #118 → #7`
 
-Diese Reihenfolge gilt als aktueller Arbeitsplan. Jedes Paket wird unmittelbar vor Beginn noch einmal fachlich und technisch geschärft; dabei können zusätzliche Punkte ergänzt werden, ohne die Grundreihenfolge unnötig zu verändern.
+Diese Reihenfolge ist der aktuelle Arbeitsplan. Vor Beginn jedes Pakets wird dessen Scope noch einmal kurz gegen den dann aktuellen Stand geprüft.
