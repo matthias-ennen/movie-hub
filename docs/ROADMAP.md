@@ -45,15 +45,7 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 
 ## Danach geplante Arbeitspakete
 
-### 1. #4 – Streaming-Verfügbarkeit und waipu.tv-/Live-TV-Ausbau
-
-- aktuelle Streaming-Verfügbarkeit strukturiert weiterführen
-- Live-TV-/EPG-Datenquelle für Deutschland prüfen und anbinden
-- waipu.tv-/lineare TV-Verfügbarkeit getrennt von Streaming-Abos behandeln
-- Sendezeit/Verfügbarkeit in Detailansicht und Badges sinnvoll darstellen
-- Aktualität und Attribution nachvollziehbar halten
-
-### 2. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
+### 1. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
 
 - einfache Aktion direkt am Titel
 - rent/buy-only oder derzeit nicht enthaltene Titel beobachten
@@ -61,7 +53,7 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 - nur bei echter Zustandsänderung benachrichtigen
 - keine unnötige Regelverwaltung im normalen UI
 
-### 3. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
+### 2. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
 
 - Bewertungen, gesehen/ungesehen, Favoriten, Watchlist und Katalogdaten als Signale verwenden
 - persönliche Top-100- und Empfehlungsreihen erzeugen
@@ -74,6 +66,19 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 - #129 – Deutsch/Englisch-Umschaltung der GUI
 - #112 – rechtliche & Compliance-Prüfung als Release-Gate vor öffentlicher Verteilung
 
+## Ganz am Ende / zurückgestellt
+
+### #4 – Streaming-Verfügbarkeit und waipu.tv-/Live-TV-Ausbau
+
+- kein vollständiger kostenloser und offiziell dokumentierter Waiputhek-Katalog verfügbar
+- keine kostenlose offizielle EPG-Quelle mit vollständiger 14-Tage-Abdeckung der relevanten deutschen waipu.tv-Sender gefunden
+- mögliche EPG-plus-Teilintegration ist zeitlich, senderseitig und lizenzrechtlich begrenzt
+- keine kostenpflichtigen Quellen und keine privaten/reverse-engineerten waipu.tv-Schnittstellen verwenden
+- vor einer Wiederaufnahme Datenquellen, Nutzungsrecht und Produktumfang erneut prüfen
+- falls später umgesetzt, Waiputhek/VOD und konkrete lineare Sendetermine strikt trennen und Unvollständigkeit sichtbar machen
+
+#4 bleibt offen, gehört aber nicht mehr zur aktiven Entwicklungsstrecke. Die Neubewertung erfolgt frühestens nach dem Release-Gate #112 beziehungsweise dann, wenn sich die Datenlage wesentlich verbessert.
+
 ## Dauerhaft offen / Wartung
 
 - #8 – Ideen-Sammelstelle
@@ -81,6 +86,6 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 
 ## Aktuelle Abhängigkeitskette
 
-`#225 → #117 → #4 → #118 → #7`
+`#225 → #117 → #118 → #7`
 
-Diese Reihenfolge ist der aktuelle Arbeitsplan. Vor Beginn jedes Pakets wird dessen Scope noch einmal kurz gegen den dann aktuellen Stand geprüft.
+#4 ist bewusst aus der aktiven Abhängigkeitskette entfernt und ans Ende der Roadmap verschoben. Vor Beginn jedes aktiven Pakets wird dessen Scope noch einmal kurz gegen den dann aktuellen Stand geprüft.
