@@ -115,6 +115,11 @@ final class StartupIntroOverlay {
         overlay.addView(glowLine, CrtTransitionAnimator.glowLineParams(activity));
         overlay.addView(coreLine, CrtTransitionAnimator.coreLineParams(activity));
 
+        // Establish the CRT start state before this hierarchy ever becomes
+        // visible. Otherwise the complete Movie Hub image can be rendered for
+        // one frame before the posted switch-on animation collapses it.
+        CrtTransitionAnimator.prepareSwitchOn(collapseLayer, glowLine, coreLine);
+
         // Add directly to DecorView, not android.R.id.content. This is the
         // uppermost Activity window layer and therefore covers the complete
         // visible app surface on phones as well as Fire TV.
@@ -155,7 +160,6 @@ final class StartupIntroOverlay {
         }
 
         void start() {
-            CrtTransitionAnimator.prepareSwitchOn(collapseLayer, glowLine, coreLine);
             overlay.post(this::startSwitchOn);
             overlay.postDelayed(minimumTimer, MIN_LOGO_HOLD_MS);
             overlay.postDelayed(maximumTimer, MAX_LOGO_HOLD_MS);
