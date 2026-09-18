@@ -1,6 +1,6 @@
 # Movie Hub – Security-Konzept
 
-Stand: 31. August 2026
+Stand: 18. September 2026
 
 ## Ziele
 
@@ -49,3 +49,9 @@ Die normale Firebase-Web-Konfiguration einschließlich Web-API-Key ist Teil der 
 - Benutzer A kann Daten von Benutzer B nicht verändern
 - gültiger Benutzer kann eigenen Filmzustand lesen und schreiben
 - Regeln werden versioniert und nach Änderungen erneut getestet
+
+## Dependency-Hygiene
+
+JavaScript-Abhängigkeiten werden über ein versioniertes `package-lock.json` reproduzierbar installiert. CI, Firebase-Deployment und TMDB-Smoke-Test verwenden `npm ci`. Die zentrale CI schlägt bei neuen High- oder Critical-Funden aus `npm audit` fehl.
+
+Die aktuelle Bewertung einschließlich begründeter moderater Restbefunde ist im [Dependency-Audit](DEPENDENCY_AUDIT.md) dokumentiert. Sie ist Teil der technischen Vorarbeit für das Release-/Compliance-Gate #112.

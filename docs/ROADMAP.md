@@ -28,31 +28,14 @@ Zu den zuletzt abgeschlossenen bzw. abgenommenen Paketen gehören insbesondere:
 - #205 – persönliche Daten schützen und SMB-Verbindungen konsolidieren
 - #190 – automatische Hero-Trailer und nativer Trailer-/Teaser-Player
 - #226 – einheitlicher TV-Switch-On/Off-Effekt für Startsequenz und native Player
+- #225 – kanonische Katalogdaten bei Metadaten-Anreicherung verlustfrei erhalten
+- #228 – robuster nativer Kaltstart ohne zusätzlichen Tastendruck
 
-Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde am 17.09.2026 als zusammenhängender Stand abgenommen.
+Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zuletzt am 18.09.2026 abgenommen.
 
-## Neue Erkenntnis nach der Abnahme
+## Aktuelles Arbeitspaket
 
-Bei einem Titel wurde entdeckt, dass im Hero ein Trailer vorhanden war, auf der Detailseite nach progressiver Metadaten-Anreicherung jedoch nicht mehr. Ursache ist kein fehlender TMDB-Datensatz, sondern eine zu aggressive Merge-Semantik: Ein unvollständiger Nachlade-Datensatz konnte bereits vorhandene gültige Katalogfelder überschreiben.
-
-Daraus entsteht ein eigenständiges Datenintegritäts-Arbeitspaket:
-
-### 1. #225 – Kanonische Katalogdaten bei Metadaten-Anreicherung verlustfrei erhalten
-
-- alle Titel-Merge-Wege inventarisieren
-- `catalog.json` als kanonischen öffentlichen Ist-Zustand absichern
-- Feldmatrix für Merge-Semantik definieren
-- leere/unvollständige Nachladedaten dürfen vorhandene gültige Werte nicht löschen
-- insbesondere Videos, Cast, Genres, Beschreibung, Artwork/Bilder, Provider, Collections und Serienmetadaten prüfen
-- zentrale statt ansichtsspezifische Merge-Regeln
-- Trailer-/Teaser-Konsistenz zwischen Hero und Detailseite herstellen
-- Regressionstests für verlustfreie und monotone Metadaten-Anreicherung
-
-Dieses Paket hat Vorrang vor weiteren Produktfeatures.
-
-## Danach geplante Arbeitspakete
-
-### 2. #117 – Dependency-Audit: bekannte npm-Sicherheitswarnungen bereinigen
+### #117 – Dependency-Audit: bekannte npm-Sicherheitswarnungen bereinigen
 
 - aktuellen `npm audit`-Stand neu ermitteln
 - Critical-/High-Funde fachlich bewerten und kontrolliert beheben
@@ -60,7 +43,9 @@ Dieses Paket hat Vorrang vor weiteren Produktfeatures.
 - verbleibende Findings dokumentieren
 - vollständige Web-/Firebase-/Android-Regression
 
-### 3. #4 – Streaming-Verfügbarkeit und waipu.tv-/Live-TV-Ausbau
+## Danach geplante Arbeitspakete
+
+### 1. #4 – Streaming-Verfügbarkeit und waipu.tv-/Live-TV-Ausbau
 
 - aktuelle Streaming-Verfügbarkeit strukturiert weiterführen
 - Live-TV-/EPG-Datenquelle für Deutschland prüfen und anbinden
@@ -68,7 +53,7 @@ Dieses Paket hat Vorrang vor weiteren Produktfeatures.
 - Sendezeit/Verfügbarkeit in Detailansicht und Badges sinnvoll darstellen
 - Aktualität und Attribution nachvollziehbar halten
 
-### 4. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
+### 2. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
 
 - einfache Aktion direkt am Titel
 - rent/buy-only oder derzeit nicht enthaltene Titel beobachten
@@ -76,7 +61,7 @@ Dieses Paket hat Vorrang vor weiteren Produktfeatures.
 - nur bei echter Zustandsänderung benachrichtigen
 - keine unnötige Regelverwaltung im normalen UI
 
-### 5. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
+### 3. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
 
 - Bewertungen, gesehen/ungesehen, Favoriten, Watchlist und Katalogdaten als Signale verwenden
 - persönliche Top-100- und Empfehlungsreihen erzeugen
