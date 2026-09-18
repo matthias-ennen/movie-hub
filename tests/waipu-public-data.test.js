@@ -151,6 +151,19 @@ describe('WaipuEpgCache', () => {
     expect(client.getGrid).toHaveBeenCalledTimes(2)
   })
 
+  it('freezes a previously cached future slot locally once it has ended', async () => {
+    let now = Date.parse('2026-09-18T08:30:00Z')
+    const { cache } = await temporaryCache(() => now)
+    const client = {
+      getGrid: vi.fn(async () => ({ value: [{ id: 'movie' }], etag: '"grid-v1"' })),
+    }
+    await expect(cache.getGrid(client, 'ard', '2026-09-18T08:00:00Z')).resolves.toMatchObject({ cache: 'miss' })
+    now = Date.parse('2026-09-18T12:30:00Z')
+    await expect(cache.getGrid(client, 'ard', '2026-09-18T08:00:00Z')).resolves.toMatchObject({ cache: 'frozen' })
+    await expect(cache.getGrid(client, 'ard', '2026-09-18T08:00:00Z')).resolves.toMatchObject({ cache: 'immutable' })
+    expect(client.getGrid).toHaveBeenCalledOnce()
+  })
+
   it('deduplicates concurrent program detail requests and then persists the result', async () => {
     const { cache } = await temporaryCache()
     let release
