@@ -32,9 +32,11 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 - #4A: FreeEPG-Qualitätsprototyp abgeschlossen; Feed wegen veralteter Daten ungeeignet
 - bisheriger Konto-/OAuth-Prototyp: dokumentierter Versuch, nicht mehr im
   kritischen Umsetzungspfad
-- **#4B aktiv:** öffentlichen Sender-/EPG-Datenvertrag, 14-Tage-Horizont,
-  ETag/304, Requestvolumen und Stop-Grenzen reproduzierbar prüfen
-- #4C: öffentlichen Adapter und persistenten Slot-/Detailcache bauen
+- **#4B abgeschlossen:** vollständiger Sieben-Sender-/14-Tage-Nachweis,
+  reale Film-/Seriendetails, TMDB-Stichprobe, ETag/304, Requestvolumen und
+  Stop-Grenzen bestätigt
+- **#4C als nächstes:** öffentlichen Adapter und persistenten Sender-/Slot-/
+  ETag-/Detailcache bauen
 - #4D: rollierenden Import mit Requestbudget, niedriger Parallelität,
   Backoff, Circuit Breaker und stufenweiser Senderfreigabe betreiben
 - #4E: Film-/Serienklassifikation, TMDB-Matching und `waipu-live`-Artefakte erzeugen
