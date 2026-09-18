@@ -41,7 +41,9 @@ public final class MainActivity extends ComponentActivity {
     private static final String APP_URL = "https://movie-hub-62459.web.app/";
     private static final String MOVIE_HUB_HOST = "movie-hub-62459.web.app";
     private static final String FIREBASE_AUTH_HOST = "movie-hub-62459.firebaseapp.com";
-    private static final long STARTUP_TIMEOUT_MS = 12_000L;
+    private static final long STARTUP_READY_TIMEOUT_MS = 30_000L;
+    private static final long STARTUP_TIMEOUT_RETRY_DELAY_MS = 2_000L;
+    private static final long[] STARTUP_ERROR_RETRY_DELAYS_MS = {2_000L, 5_000L};
     private static final String STARTUP_FOCUS_READY_EVENT = "moviehub:startup-focus-ready";
     private static final long HERO_TRAILER_RESULT_RETRY_MS = 400L;
     private static final int HERO_TRAILER_RESULT_MAX_ATTEMPTS = 20;
@@ -55,8 +57,11 @@ public final class MainActivity extends ComponentActivity {
     private final Handler startupHandler = new Handler(Looper.getMainLooper());
     private final Handler heroTrailerResultHandler = new Handler(Looper.getMainLooper());
     private Runnable startupTimeout;
+    private Runnable startupRetry;
     private Runnable heroTrailerResultRetry;
-    private boolean startupFailureVisible;
+    private boolean hostedUiReady;
+    private boolean startupTimeoutRetryAttempted;
+    private int startupErrorRetryAttempts;
     private boolean activityResumed;
     private String pendingHeroTrailerRequestId;
     private String pendingHeroTrailerOutcome;
@@ -74,6 +79,7 @@ public final class MainActivity extends ComponentActivity {
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
             loadMovieHub();
         } else {
+            hostedUiReady = true;
             hideLoadingView();
         }
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -264,12 +270,14 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void loadMovieHub() {
+        resetStartupRecovery();
         startMovieHubLoad();
     }
 
     private void startMovieHubLoad() {
         cancelStartupTimeout();
-        startupFailureVisible = false;
+        cancelStartupRetry();
+        hostedUiReady = false;
         offlineView.setVisibility(View.GONE);
         loadingView.setVisibility(View.VISIBLE);
         loadingView.bringToFront();
@@ -287,8 +295,8 @@ public final class MainActivity extends ComponentActivity {
 
     private void scheduleStartupTimeout() {
         cancelStartupTimeout();
-        startupTimeout = () -> handleStartupFailure();
-        startupHandler.postDelayed(startupTimeout, STARTUP_TIMEOUT_MS);
+        startupTimeout = this::handleStartupReadyTimeout;
+        startupHandler.postDelayed(startupTimeout, STARTUP_READY_TIMEOUT_MS);
     }
 
     private void cancelStartupTimeout() {
@@ -296,6 +304,34 @@ public final class MainActivity extends ComponentActivity {
             startupHandler.removeCallbacks(startupTimeout);
             startupTimeout = null;
         }
+    }
+
+    private void resetStartupRecovery() {
+        cancelStartupRetry();
+        startupTimeoutRetryAttempted = false;
+        startupErrorRetryAttempts = 0;
+    }
+
+    private void cancelStartupRetry() {
+        if (startupRetry != null) {
+            startupHandler.removeCallbacks(startupRetry);
+            startupRetry = null;
+        }
+    }
+
+    private void scheduleAutomaticStartupRetry(long delayMs) {
+        cancelStartupTimeout();
+        cancelStartupRetry();
+        offlineView.setVisibility(View.GONE);
+        loadingView.setVisibility(View.VISIBLE);
+        loadingView.bringToFront();
+        webView.setVisibility(View.VISIBLE);
+
+        startupRetry = () -> {
+            startupRetry = null;
+            if (!hostedUiReady) startMovieHubLoad();
+        };
+        startupHandler.postDelayed(startupRetry, delayMs);
     }
 
     private void hideLoadingView() {
@@ -306,17 +342,46 @@ public final class MainActivity extends ComponentActivity {
 
     private void showOfflineView() {
         cancelStartupTimeout();
-        startupFailureVisible = true;
+        cancelStartupRetry();
         hideLoadingView();
-        webView.setVisibility(View.GONE);
+        // Keep the WebView alive behind the opaque error surface. A slow page
+        // can still finish its layout and recover automatically without a
+        // remote-control click.
+        webView.setVisibility(View.VISIBLE);
         offlineView.setVisibility(View.VISIBLE);
         offlineView.bringToFront();
         retryButton.requestFocus();
     }
 
-    private void handleStartupFailure() {
+    private void showFinalStartupFailure() {
         showOfflineView();
         StartupIntroOverlay.notifyStartupFailed(this);
+    }
+
+    private void handleStartupReadyTimeout() {
+        startupTimeout = null;
+        if (hostedUiReady) return;
+
+        if (!startupTimeoutRetryAttempted) {
+            startupTimeoutRetryAttempted = true;
+            scheduleAutomaticStartupRetry(STARTUP_TIMEOUT_RETRY_DELAY_MS);
+            return;
+        }
+
+        showFinalStartupFailure();
+    }
+
+    private void handleMainFrameStartupError() {
+        if (hostedUiReady) return;
+
+        if (startupErrorRetryAttempts < STARTUP_ERROR_RETRY_DELAYS_MS.length) {
+            long delayMs = STARTUP_ERROR_RETRY_DELAYS_MS[startupErrorRetryAttempts];
+            startupErrorRetryAttempts += 1;
+            scheduleAutomaticStartupRetry(delayMs);
+            return;
+        }
+
+        showFinalStartupFailure();
     }
 
     void showStartupFailureAfterIntro() {
@@ -326,7 +391,7 @@ public final class MainActivity extends ComponentActivity {
     void restoreStartupFocus() {
         if (offlineView.getVisibility() == View.VISIBLE) {
             retryButton.requestFocus();
-        } else if (webView.getVisibility() == View.VISIBLE) {
+        } else if (hostedUiReady && webView.getVisibility() == View.VISIBLE) {
             webView.requestFocus();
             String script = "window.__movieHubStartupFocusReady=true;"
                     + "window.dispatchEvent(new Event('" + STARTUP_FOCUS_READY_EVENT + "'));";
@@ -335,7 +400,6 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void showHostedUiReady() {
-        if (startupFailureVisible) return;
         String currentUrl = webView.getUrl();
         if (currentUrl == null) return;
         Uri currentUri = Uri.parse(currentUrl);
@@ -344,6 +408,8 @@ public final class MainActivity extends ComponentActivity {
             return;
         }
         cancelStartupTimeout();
+        cancelStartupRetry();
+        hostedUiReady = true;
         offlineView.setVisibility(View.GONE);
         hideLoadingView();
         webView.setVisibility(View.VISIBLE);
@@ -428,6 +494,7 @@ public final class MainActivity extends ComponentActivity {
     @Override
     protected void onDestroy() {
         cancelStartupTimeout();
+        cancelStartupRetry();
         clearPendingHeroTrailerResult();
         if (exitDialog != null) {
             exitDialog.dismiss();
@@ -718,7 +785,7 @@ public final class MainActivity extends ComponentActivity {
         public void onReceivedError(WebView view, WebResourceRequest request,
                                     WebResourceError error) {
             if (request.isForMainFrame()) {
-                handleStartupFailure();
+                handleMainFrameStartupError();
             }
         }
     }
