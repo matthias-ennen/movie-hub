@@ -53,7 +53,7 @@ Headers nur für den laufenden Prozess gesetzt:
 ```bash
 read -rsp 'Temporäre OAuth-Client-Authentifizierung: ' WAIPU_OAUTH_CLIENT_AUTH_B64
 export WAIPU_OAUTH_CLIENT_AUTH_B64
-npm run waipu:probe
+npm run waipu:account:probe
 unset WAIPU_OAUTH_CLIENT_AUTH_B64
 ```
 
@@ -66,7 +66,7 @@ geeigneten temporären Secret-Mechanismus bereitgestellt werden.
 
 1. `npm ci` ausführen.
 2. Client-Authentifizierung nur für den aktuellen Prozess bereitstellen.
-3. `npm run waipu:probe` starten.
+3. `npm run waipu:account:probe` starten.
 4. Die angezeigte Bestätigungsadresse auf einem persönlichen Gerät öffnen.
 5. Den kurzlebigen Benutzercode bestätigen.
 6. Warten, bis der lokale Runner den bereinigten Bericht geschrieben hat.
