@@ -122,10 +122,15 @@ export function normalizeStations(body) {
 
 export function normalizeGridInfo(body) {
   const source = objectValue(body)
-  const slots = stringArray(source.slots)
+  const rawSlots = stringArray(source.slots ?? source.timeSlots)
+  const slots = rawSlots.map((slot) => {
+    const match = slot.match(/^(\d{2})(?::00:00Z)?$/)
+    return match ? match[1] : null
+  })
   const slotDurationHours = integerValue(source.slotDurationHours ?? source.slotSizeHours)
-  const timezone = stringValue(source.timezone) || 'UTC'
-  if (!slots.length || slotDurationHours !== 4 || timezone.toUpperCase() !== 'UTC') {
+  const inferredUtc = rawSlots.length > 0 && rawSlots.every((slot) => /Z$/.test(slot))
+  const timezone = stringValue(source.timezone) || (inferredUtc ? 'UTC' : null)
+  if (!slots.length || slots.some((slot) => !slot) || slotDurationHours !== 4 || timezone?.toUpperCase() !== 'UTC') {
     throw new WaipuPublicDataError('SCHEMA_INVALID')
   }
   return { slots, slotDurationHours, timezone: 'UTC' }
