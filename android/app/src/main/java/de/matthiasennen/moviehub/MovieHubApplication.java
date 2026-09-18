@@ -57,7 +57,9 @@ public final class MovieHubApplication extends Application {
         if (view instanceof WebView) {
             WebView webView = (WebView) view;
             webView.setWebChromeClient(new WebChromeClient());
-            webView.addJavascriptInterface(new HeroTrailerLaunchBridge(activity), "MovieHubTrailer");
+            webView.addJavascriptInterface(
+                    new HeroTrailerLaunchBridge((MainActivity) activity),
+                    "MovieHubTrailer");
             return;
         }
         if (!(view instanceof ViewGroup)) return;

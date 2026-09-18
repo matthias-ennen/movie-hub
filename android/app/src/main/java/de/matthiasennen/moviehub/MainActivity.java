@@ -28,6 +28,10 @@ import android.widget.TextView;
 
 import androidx.activity.ComponentActivity;
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+
+import org.json.JSONObject;
 
 /**
  * Thin Fire TV/Android shell. Movie Hub itself stays deployed on Firebase, so
@@ -48,10 +52,14 @@ public final class MainActivity extends ComponentActivity {
     private final Handler startupHandler = new Handler(Looper.getMainLooper());
     private Runnable startupTimeout;
     private boolean startupFailureVisible;
+    private ActivityResultLauncher<Intent> heroTrailerLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        heroTrailerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> handleHeroTrailerResult(result.getResultCode(), result.getData()));
         hideSystemUi();
         createContent();
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
@@ -65,6 +73,32 @@ public final class MainActivity extends ComponentActivity {
                 handleBackNavigation();
             }
         });
+    }
+
+    void launchHeroTrailer(
+            String videoId,
+            String title,
+            boolean soundEnabled,
+            String requestId) {
+        Intent intent = new Intent(this, TrailerPlayerActivity.class);
+        intent.putExtra(TrailerPlayerActivity.EXTRA_VIDEO_ID, videoId);
+        intent.putExtra(TrailerPlayerActivity.EXTRA_TITLE, title);
+        intent.putExtra(TrailerPlayerActivity.EXTRA_SOUND_ENABLED, soundEnabled);
+        intent.putExtra(TrailerPlayerActivity.EXTRA_REQUEST_ID, requestId);
+        heroTrailerLauncher.launch(intent);
+    }
+
+    private void handleHeroTrailerResult(int resultCode, Intent data) {
+        if (resultCode != RESULT_OK || data == null || webView == null) return;
+
+        String requestId = data.getStringExtra(TrailerPlayerActivity.EXTRA_REQUEST_ID);
+        String outcome = data.getStringExtra(TrailerPlayerActivity.EXTRA_OUTCOME);
+        if (requestId == null || requestId.isEmpty() || outcome == null || outcome.isEmpty()) return;
+
+        String script = "window.dispatchEvent(new CustomEvent('moviehub:hero-trailer-result',"
+                + "{detail:{requestId:" + JSONObject.quote(requestId)
+                + ",outcome:" + JSONObject.quote(outcome) + "}}));";
+        webView.post(() -> webView.evaluateJavascript(script, null));
     }
 
     @SuppressLint("SetJavaScriptEnabled")

@@ -8,7 +8,14 @@ import {
   isExperienceModuleVisible,
 } from '../profiles/profileExperienceRuntime.js'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
-import { selectHeroVideo } from './heroTrailer.js'
+import {
+  didTrailerComplete,
+  getNextAutomaticHeroIndex,
+  HERO_POST_TRAILER_DELAY_MS,
+  HERO_TRAILER_RESULT_EVENT,
+  resolveHeroTimerAction,
+} from './heroAutoplay.js'
+import { selectHeroTrailer, selectHeroVideo } from './heroTrailer.js'
 
 const SWIPE_MIN_DISTANCE = 48
 const HERO_PHASE_MS = 170
@@ -20,10 +27,19 @@ function visibilityPage(eyebrow) {
   return 'home'
 }
 
-function launchNativeTrailer(video, title, soundEnabled) {
+function launchNativeTrailer(video, title, soundEnabled, requestId = '') {
   const bridge = window.MovieHubTrailer
   if (!bridge || typeof bridge.playHeroTrailer !== 'function') return false
   try {
+    if (requestId && typeof bridge.playHeroTrailerWithResult === 'function') {
+      bridge.playHeroTrailerWithResult(
+        String(video.key || ''),
+        String(title || 'Trailer'),
+        Boolean(soundEnabled),
+        requestId,
+      )
+      return true
+    }
     bridge.playHeroTrailer(String(video.key || ''), String(title || 'Trailer'), Boolean(soundEnabled))
     return true
   } catch {
@@ -56,6 +72,9 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   const touchStartRef = useRef(null)
   const transitionTimerRef = useRef([])
   const transitionLockRef = useRef(false)
+  const postTrailerTimerRef = useRef(null)
+  const trailerRequestRef = useRef(null)
+  const trailerRequestSequenceRef = useRef(0)
   const activeImageRef = useRef(null)
   const readyReportedRef = useRef(false)
   const focusedElementRef = useRef(null)
@@ -65,8 +84,21 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
     transitionTimerRef.current = []
   }
 
+  function clearPostTrailerTimer() {
+    if (postTrailerTimerRef.current !== null) {
+      window.clearTimeout(postTrailerTimerRef.current)
+      postTrailerTimerRef.current = null
+    }
+  }
+
+  function invalidateTrailerRequest() {
+    clearPostTrailerTimer()
+    trailerRequestRef.current = null
+  }
+
   useEffect(() => {
     clearTransitionTimers()
+    invalidateTrailerRequest()
     transitionLockRef.current = false
     readyReportedRef.current = false
     focusedElementRef.current = null
@@ -79,6 +111,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
 
   useEffect(() => () => {
     clearTransitionTimers()
+    invalidateTrailerRequest()
     transitionLockRef.current = false
   }, [])
 
@@ -86,12 +119,12 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   const activeItem = slides[safeIndex] || null
   const activeBackdropUrl = activeItem?.displayHeroBackdropUrl || activeItem?.backdropUrl || null
   const activeHeroVideo = useMemo(() => selectHeroVideo(activeItem?.videos), [activeItem?.videos])
+  const activeAutoTrailer = useMemo(() => selectHeroTrailer(activeItem?.videos), [activeItem?.videos])
 
   useEffect(() => {
     if (
       !heroFocused
       || !heroTrailerSettings.enabled
-      || !activeHeroVideo
       || !activeItem
       || transition
       || attemptedVisit === heroVisit
@@ -99,12 +132,41 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
 
     const timer = window.setTimeout(() => {
       setAttemptedVisit(heroVisit)
-      launchNativeTrailer(activeHeroVideo, activeItem.title, heroTrailerSettings.soundEnabled)
+      const action = resolveHeroTimerAction(
+        safeIndex,
+        slides.length,
+        Boolean(activeAutoTrailer),
+      )
+
+      if (action.type !== 'play-trailer') {
+        if (action.type === 'advance') selectHero(action.nextIndex, 'left')
+        return
+      }
+
+      trailerRequestSequenceRef.current += 1
+      const requestId = `hero-${Date.now()}-${trailerRequestSequenceRef.current}`
+      const launched = launchNativeTrailer(
+        activeAutoTrailer,
+        activeItem.title,
+        heroTrailerSettings.soundEnabled,
+        requestId,
+      )
+
+      if (launched) {
+        trailerRequestRef.current = {
+          requestId,
+          heroVisit,
+          index: safeIndex,
+          signature,
+        }
+      } else if (action.nextIndex !== null) {
+        selectHero(action.nextIndex, 'left')
+      }
     }, heroTrailerSettings.delaySeconds * 1000)
 
     return () => window.clearTimeout(timer)
   }, [
-    activeHeroVideo,
+    activeAutoTrailer,
     activeItem,
     attemptedVisit,
     heroFocused,
@@ -112,8 +174,39 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
     heroTrailerSettings.enabled,
     heroTrailerSettings.soundEnabled,
     heroVisit,
+    safeIndex,
+    signature,
+    slides.length,
     transition,
   ])
+
+  useEffect(() => {
+    function handleTrailerResult(event) {
+      const detail = event?.detail || {}
+      const request = trailerRequestRef.current
+      if (!request || detail.requestId !== request.requestId) return
+
+      trailerRequestRef.current = null
+      if (
+        !didTrailerComplete(detail.outcome)
+        || request.signature !== signature
+        || request.heroVisit !== heroVisit
+        || request.index !== safeIndex
+      ) return
+
+      const nextIndex = getNextAutomaticHeroIndex(request.index, slides.length)
+      if (nextIndex === null) return
+
+      clearPostTrailerTimer()
+      postTrailerTimerRef.current = window.setTimeout(() => {
+        postTrailerTimerRef.current = null
+        selectHero(nextIndex, 'left')
+      }, HERO_POST_TRAILER_DELAY_MS)
+    }
+
+    window.addEventListener(HERO_TRAILER_RESULT_EVENT, handleTrailerResult)
+    return () => window.removeEventListener(HERO_TRAILER_RESULT_EVENT, handleTrailerResult)
+  }, [heroVisit, safeIndex, signature, slides.length])
 
   const reportReady = useCallback((reason) => {
     if (!onReady || readyReportedRef.current) return
@@ -155,6 +248,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
 
   function handleHeroBlur(event) {
     if (event.currentTarget.contains(event.relatedTarget)) return
+    invalidateTrailerRequest()
     focusedElementRef.current = null
     setHeroFocused(false)
     setAttemptedVisit(null)
@@ -170,6 +264,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
     if (transitionLockRef.current || index < 0 || index >= slides.length || index === safeIndex) return
 
     transitionLockRef.current = true
+    invalidateTrailerRequest()
     const resolvedDirection = direction || (index > safeIndex ? 'left' : 'right')
     clearTransitionTimers()
     resetTrailerIdleTimer()
