@@ -1,6 +1,6 @@
 # Movie Hub – Issue-Plan
 
-Stand: 17. September 2026
+Stand: 18. September 2026
 
 ## Arbeitsprinzip
 
@@ -36,15 +36,7 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 
 ## Aktuelle Priorisierung
 
-### 1. #4 – Streaming-Verfügbarkeit und waipu.tv-/Live-TV-Ausbau
-
-- strukturierte Streaming-Verfügbarkeit weiter ausbauen
-- geeignete deutsche Live-TV-/EPG-Quelle prüfen
-- waipu.tv-/lineare TV-Verfügbarkeit getrennt von Streaming-Abos modellieren
-- Sendezeiten und Live-TV-Badges sinnvoll in UI und Detailansicht integrieren
-- Aktualitätszeitpunkt und Attribution nachvollziehbar halten
-
-### 2. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
+### 1. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
 
 - einfache Beobachten-Aktion direkt am Titel
 - rent/buy-only bzw. aktuell nicht inklusive Titel beobachten
@@ -52,7 +44,7 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 - Benachrichtigungen nur bei echten Änderungen
 - Beobachtung einfach wieder entfernen
 
-### 3. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
+### 2. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
 
 - persönliche Signale aus Bewertungen, gesehen/ungesehen, Favoriten und Watchlist nutzen
 - persönliche Top-100- und Empfehlungsreihen erzeugen
@@ -65,6 +57,16 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 - #129 – Deutsch/Englisch-Umschaltung der Movie-Hub-GUI
 - #112 – Compliance als Release-Gate vor öffentlicher Verteilung
 
+## Ganz am Ende / zurückgestellt
+
+### #4 – Streaming-Verfügbarkeit und waipu.tv-/Live-TV-Ausbau
+
+Die Recherche vom 18.09.2026 ist im Issue dokumentiert. Derzeit existiert weder ein kostenloser offizieller Waiputhek-Gesamtkatalog noch eine kostenlose offizielle EPG-Quelle mit vollständiger 14-Tage-Abdeckung der relevanten deutschen waipu.tv-Sender.
+
+Eine mögliche EPG-plus-Teilintegration wäre nur für wenige Sender und einen kürzeren Zeitraum geeignet und muss außerdem gegen die Nutzungsbedingungen des geplanten Verteilungsmodells geprüft werden. Kostenpflichtige Quellen, manuelle Katalogpflege sowie private oder reverse-engineerte waipu.tv-Endpunkte bleiben ausgeschlossen.
+
+#4 bleibt offen, ist aber aus der aktiven Planung entfernt. Eine Neubewertung erfolgt frühestens nach #112 oder bei einer wesentlichen Änderung der offiziellen und kostenlosen Datenlage.
+
 ## Dauerhaft offen / Wartung
 
 - #8 – Ideen-Sammelstelle
@@ -72,8 +74,10 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 
 ## Abhängigkeitskette
 
-`#225 → #117 → #4 → #118 → #7`
+`#225 → #117 → #118 → #7`
+
+#4 gehört nicht mehr zur aktiven Abhängigkeitskette.
 
 ## Leitentscheidung
 
-Vor neuen Komfort- und Erweiterungsfunktionen wird zuerst sichergestellt, dass der bestehende Katalogzustand innerhalb der gesamten App konsistent und verlustfrei bleibt. Danach folgt die offene Security-Hygiene. Anschließend geht die Produktentwicklung mit Streaming-/Live-TV-Ausbau, Verfügbarkeitsbenachrichtigungen und persönlicher Empfehlung/Automatisierung weiter.
+Vor neuen Komfort- und Erweiterungsfunktionen wird zuerst sichergestellt, dass der bestehende Katalogzustand innerhalb der gesamten App konsistent und verlustfrei bleibt. Danach folgt die offene Security-Hygiene. Anschließend geht die Produktentwicklung mit Verfügbarkeitsbenachrichtigungen und persönlicher Empfehlung/Automatisierung weiter. Der waipu.tv-/Live-TV-Ausbau bleibt bis zu einer tragfähigen kostenlosen und offiziellen Datenbasis zurückgestellt.
