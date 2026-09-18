@@ -145,24 +145,54 @@ Mögliche regelmäßige Jobs:
 - neue Filme einordnen
 - aus persönlichen Bewertungen neue Empfehlungen und Toplisten erzeugen
 
-### Öffentlicher Waipu-Live-Katalog – Machbarkeits- und Laststufe
+### Öffentlicher Waipu-Live-Katalog – validierter Datenweg
 
-Der bisherige FreeEPG-Ansatz ist wegen veralteter Programmdaten nicht als
-Produktionsquelle geeignet. Senderkonfiguration, Vier-Stunden-EPG-Raster und
-Programmdetails sind dagegen aktuell direkt bei Waipu ohne Anmeldung
-erreichbar. #4B vermisst diesen öffentlichen Datenvertrag reproduzierbar und
-fail-closed, ohne Waipu-Konto, Passwort oder Token.
+Der FreeEPG-Ansatz bleibt wegen veralteter Programmdaten ausgeschlossen. Die
+öffentlichen Waipu-Endpunkte für Senderkonfiguration, Vier-Stunden-EPG und
+Programmdetails sind dagegen ohne Anmeldung erreichbar. #4B hat den
+Datenvertrag mit sieben Hauptsendern über 14 vollständige Kalendertage
+bestätigt: 588/588 Grid-Slots, 2.774 eindeutige Programme, 83 Film- und 1.217
+Serienkandidaten sowie 13 reale Film-/Seriendetails.
 
-Der Abruf gehört nicht in die Android-/Fire-TV-App. Ein zentraler Importjob
-schreibt einen persistenten Sender-/Slot-/Detailcache und veröffentlicht nur
-vollständig erzeugte, bereinigte `waipu-live`-Artefakte. Die App lädt eine
-kompakte Titelübersicht für Badges und bei Bedarf senderweise TV-Daten. Ein
-späterer persönlicher Paketfilter bleibt eine optionale Erweiterung.
+Die kanonische Titelidentität bleibt `Medientyp + TMDB-ID`. Waipu liefert
+Sender und konkrete Ausstrahlungszeit. Der reale Stichprobenabgleich fand zehn
+von 13 Detailbeispielen bereits eindeutig im vorhandenen Movie-Hub-Suchindex.
+Offene Kandidaten werden erst nach der lokalen Suche gedrosselt über TMDB
+aufgelöst. Mindestscore, Abstand zum zweitbesten Treffer und ein
+Unsicherheits-Gate verhindern falsche Posterzuordnungen. Waipus Hauptgenre
+`Serien` allein reicht nicht aus, weil es auch Gerichtsshows, Doku-Soaps und
+Dokutainment umfasst.
 
-Da die Schnittstelle nicht als öffentliche Entwickler-API dokumentiert ist,
-gelten feste Requestbudgets, niedrige Parallelität, ETag/304, Retry-After,
-exponentielles Backoff und ein sofortiger Circuit Breaker bei 429/403. Es gibt
-keine IP-Rotation oder andere Umgehung von Sperren.
+Der Abruf gehört ausschließlich in einen zentralen Single-Flight-Importjob.
+#4C baut dafür einen persistenten Sender-, Slot-, ETag- und Detailcache. #4D
+ergänzt Checkpoints, Requestbudgets, adaptive Taktung, Backoff und Circuit
+Breaker. Abgeschlossene Slots werden eingefroren; täglich wird nur der neue
+äußere Tag ergänzt. Ein verpasster Lauf holt nur die fehlenden ein oder zwei
+Tage nach.
+
+Der belegte Produktionsstartwert ist eine aktive Anfrage mit global 500 bis
+650 ms Abstand inklusive Jitter. Erst nach sieben stabilen geplanten Läufen
+einer Ausbaustufe darf auf höchstens zwei aktive Anfragen und mindestens 350
+bis 500 ms globalen Startabstand hochgestuft werden. Es entstehen keine
+unabhängigen Worker-Bursts. 403 oder 429 stoppen und sperren die automatische
+Fortsetzung bis zur Prüfung.
+
+Der vollständige 398-Sender-Erstbestand umfasst für 14 Tage 33.432
+Grid-Requests und wird checkpoint-basiert über mehrere Wartungsfenster
+aufgebaut. Im laufenden Betrieb kommen täglich nur 2.388 neue Grid-Requests
+hinzu; ein Zwei-Tage-Nachlauf umfasst 4.776 Requests und kann gleichmäßig über
+bis zu zwei Stunden verteilt werden.
+
+Die Android-/Fire-TV-App ruft Waipu nie direkt auf. Der Import veröffentlicht
+nur vollständig validierte `waipu-live`-Artefakte: einen Statusindex, einen
+Senderindex, einen kompakten Titelindex für Badges und senderweise
+14-Tage-Dateien für den späteren TV-Reiter. Der letzte gültige Stand bleibt bei
+jedem Fehler online.
+
+Der vollständige Vertrag, die Messwerte, Requestmatrix, TMDB-Regeln und
+Abbruchlogik stehen in [WAIPU_PUBLIC_CONTRACT.md](WAIPU_PUBLIC_CONTRACT.md).
+Öffentliche Auslieferung bleibt bis zur API-/Rechte-/Attributionsprüfung und
+zum Compliance-Gate #112 gesperrt.
 
 ## Architekturprinzipien
 
