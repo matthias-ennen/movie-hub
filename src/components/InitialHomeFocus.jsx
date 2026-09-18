@@ -3,8 +3,13 @@ import { useEffect } from 'react'
 export const INITIAL_HOME_FOCUS_EVENT = 'moviehub:startup-focus-ready'
 
 export function getInitialHomeFocusTarget(root = document) {
-  return root.querySelector('.hero-carousel[data-focusable="true"]')
-    || root.querySelector('.main-nav .nav-link:first-child')
+  const hero = root.querySelector('.hero-carousel[data-focusable="true"]')
+  if (hero) return hero
+
+  const homePageReady = root.querySelector('main[data-page-load-state="rows"]')
+  if (!homePageReady) return null
+
+  return root.querySelector('.main-nav .nav-link:first-child')
 }
 
 /**
@@ -16,22 +21,20 @@ export function getInitialHomeFocusTarget(root = document) {
 export default function InitialHomeFocus() {
   useEffect(() => {
     let done = false
-    let frame = null
     let observer = null
 
     const focusInitialTarget = () => {
       if (done) return true
       const target = getInitialHomeFocusTarget()
       if (!(target instanceof HTMLElement)) return false
+      if (!target.isConnected) return false
 
+      target.focus({ preventScroll: true })
       done = true
-      frame = window.requestAnimationFrame(() => {
-        if (target.isConnected) target.focus({ preventScroll: true })
-      })
       return true
     }
 
-    const nativeStartup = typeof window.MovieHubNative?.notifyStartupReady === 'function'
+    const nativeStartup = Boolean(window.MovieHubNative)
     const observeUntilTargetExists = () => {
       if (done || observer) return
       observer = new MutationObserver(() => {
@@ -43,6 +46,8 @@ export default function InitialHomeFocus() {
       observer.observe(document.getElementById('root') ?? document.body, {
         childList: true,
         subtree: true,
+        attributes: true,
+        attributeFilter: ['data-page-load-state'],
       })
     }
     const handleNativeStartupFocus = () => {
@@ -59,7 +64,6 @@ export default function InitialHomeFocus() {
     return () => {
       observer?.disconnect()
       window.removeEventListener(INITIAL_HOME_FOCUS_EVENT, handleNativeStartupFocus)
-      if (frame !== null) window.cancelAnimationFrame(frame)
     }
   }, [])
 

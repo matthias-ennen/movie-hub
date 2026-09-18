@@ -43,6 +43,8 @@ public final class MainActivity extends ComponentActivity {
     private static final String FIREBASE_AUTH_HOST = "movie-hub-62459.firebaseapp.com";
     private static final long STARTUP_TIMEOUT_MS = 12_000L;
     private static final String STARTUP_FOCUS_READY_EVENT = "moviehub:startup-focus-ready";
+    private static final long HERO_TRAILER_RESULT_RETRY_MS = 400L;
+    private static final int HERO_TRAILER_RESULT_MAX_ATTEMPTS = 20;
 
     private FrameLayout container;
     private WebView webView;
@@ -51,8 +53,14 @@ public final class MainActivity extends ComponentActivity {
     private Button retryButton;
     private AlertDialog exitDialog;
     private final Handler startupHandler = new Handler(Looper.getMainLooper());
+    private final Handler heroTrailerResultHandler = new Handler(Looper.getMainLooper());
     private Runnable startupTimeout;
+    private Runnable heroTrailerResultRetry;
     private boolean startupFailureVisible;
+    private boolean activityResumed;
+    private String pendingHeroTrailerRequestId;
+    private String pendingHeroTrailerOutcome;
+    private int heroTrailerResultAttempts;
     private ActivityResultLauncher<Intent> heroTrailerLauncher;
 
     @Override
@@ -96,10 +104,58 @@ public final class MainActivity extends ComponentActivity {
         String outcome = data.getStringExtra(TrailerPlayerActivity.EXTRA_OUTCOME);
         if (requestId == null || requestId.isEmpty() || outcome == null || outcome.isEmpty()) return;
 
+        pendingHeroTrailerRequestId = requestId;
+        pendingHeroTrailerOutcome = outcome;
+        heroTrailerResultAttempts = 0;
+        schedulePendingHeroTrailerResult(0L);
+    }
+
+    void acknowledgeHeroTrailerResult(String requestId) {
+        runOnUiThread(() -> {
+            if (!requestId.equals(pendingHeroTrailerRequestId)) return;
+            clearPendingHeroTrailerResult();
+        });
+    }
+
+    private void schedulePendingHeroTrailerResult(long delayMs) {
+        if (!activityResumed || pendingHeroTrailerRequestId == null || webView == null) return;
+        if (heroTrailerResultRetry != null) {
+            heroTrailerResultHandler.removeCallbacks(heroTrailerResultRetry);
+        }
+        heroTrailerResultRetry = this::deliverPendingHeroTrailerResult;
+        heroTrailerResultHandler.postDelayed(heroTrailerResultRetry, delayMs);
+    }
+
+    private void deliverPendingHeroTrailerResult() {
+        heroTrailerResultRetry = null;
+        if (!activityResumed || pendingHeroTrailerRequestId == null || webView == null) return;
+
+        if (heroTrailerResultAttempts >= HERO_TRAILER_RESULT_MAX_ATTEMPTS) {
+            clearPendingHeroTrailerResult();
+            return;
+        }
+
+        String requestId = pendingHeroTrailerRequestId;
+        String outcome = pendingHeroTrailerOutcome;
+        heroTrailerResultAttempts += 1;
         String script = "window.dispatchEvent(new CustomEvent('moviehub:hero-trailer-result',"
                 + "{detail:{requestId:" + JSONObject.quote(requestId)
                 + ",outcome:" + JSONObject.quote(outcome) + "}}));";
-        webView.post(() -> webView.evaluateJavascript(script, null));
+        webView.evaluateJavascript(script, ignored -> {
+            if (requestId.equals(pendingHeroTrailerRequestId)) {
+                schedulePendingHeroTrailerResult(HERO_TRAILER_RESULT_RETRY_MS);
+            }
+        });
+    }
+
+    private void clearPendingHeroTrailerResult() {
+        if (heroTrailerResultRetry != null) {
+            heroTrailerResultHandler.removeCallbacks(heroTrailerResultRetry);
+            heroTrailerResultRetry = null;
+        }
+        pendingHeroTrailerRequestId = null;
+        pendingHeroTrailerOutcome = null;
+        heroTrailerResultAttempts = 0;
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -347,6 +403,7 @@ public final class MainActivity extends ComponentActivity {
 
     @Override
     protected void onPause() {
+        activityResumed = false;
         webView.onPause();
         webView.pauseTimers();
         super.onPause();
@@ -355,9 +412,11 @@ public final class MainActivity extends ComponentActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        activityResumed = true;
         webView.onResume();
         webView.resumeTimers();
         hideSystemUi();
+        schedulePendingHeroTrailerResult(HERO_TRAILER_RESULT_RETRY_MS);
     }
 
     @Override
@@ -369,6 +428,7 @@ public final class MainActivity extends ComponentActivity {
     @Override
     protected void onDestroy() {
         cancelStartupTimeout();
+        clearPendingHeroTrailerResult();
         if (exitDialog != null) {
             exitDialog.dismiss();
             exitDialog = null;

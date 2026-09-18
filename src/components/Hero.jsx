@@ -48,6 +48,16 @@ function launchNativeTrailer(video, title, soundEnabled, requestId = '') {
   }
 }
 
+function acknowledgeNativeTrailerResult(requestId) {
+  const bridge = window.MovieHubTrailer
+  if (!requestId || typeof bridge?.acknowledgeHeroTrailerResult !== 'function') return
+  try {
+    bridge.acknowledgeHeroTrailerResult(requestId)
+  } catch {
+    // Android retries unconfirmed results after the WebView resumes.
+  }
+}
+
 export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', onReady }) {
   const page = visibilityPage(eyebrow)
   const heroCount = getActiveHeroCount()
@@ -146,6 +156,12 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
 
       trailerRequestSequenceRef.current += 1
       const requestId = `hero-${Date.now()}-${trailerRequestSequenceRef.current}`
+      trailerRequestRef.current = {
+        requestId,
+        heroVisit,
+        index: safeIndex,
+        signature,
+      }
       const launched = launchNativeTrailer(
         activeAutoTrailer,
         activeItem.title,
@@ -153,15 +169,9 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
         requestId,
       )
 
-      if (launched) {
-        trailerRequestRef.current = {
-          requestId,
-          heroVisit,
-          index: safeIndex,
-          signature,
-        }
-      } else if (action.nextIndex !== null) {
-        selectHero(action.nextIndex, 'left')
+      if (!launched) {
+        trailerRequestRef.current = null
+        if (action.nextIndex !== null) selectHero(action.nextIndex, 'left')
       }
     }, heroTrailerSettings.delaySeconds * 1000)
 
@@ -187,6 +197,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
       const request = trailerRequestRef.current
       if (!request || detail.requestId !== request.requestId) return
 
+      acknowledgeNativeTrailerResult(detail.requestId)
       trailerRequestRef.current = null
       if (
         !didTrailerComplete(detail.outcome)

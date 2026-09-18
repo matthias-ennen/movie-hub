@@ -28,6 +28,13 @@ public final class HeroTrailerLaunchBridge {
         play(rawVideoId, rawTitle, soundEnabled, rawRequestId);
     }
 
+    @JavascriptInterface
+    public void acknowledgeHeroTrailerResult(String rawRequestId) {
+        final String requestId = rawRequestId == null ? "" : rawRequestId.trim();
+        if (!REQUEST_ID.matcher(requestId).matches()) return;
+        activity.acknowledgeHeroTrailerResult(requestId);
+    }
+
     private void play(
             String rawVideoId,
             String rawTitle,
