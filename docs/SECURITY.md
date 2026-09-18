@@ -42,9 +42,25 @@ Movie Hub öffnet SMB ausschließlich als ausgehende Verbindung im Heimnetz. Ein
 
 Die normale Firebase-Web-Konfiguration einschließlich Web-API-Key ist Teil der Client-Konfiguration und ersetzt keine Security Rules. Schutz entsteht durch Authentication, Rules und serverseitige Rechte.
 
-## Waipu-Konto-Prototyp
+## Waipu-Live-Import
 
-Der Machbarkeitsnachweis #4B ist ein lokaler, rein lesender Diagnose-Runner. Er
+Der produktiv geplante Waipu-Live-Import verwendet ausschließlich die ohne
+Anmeldung erreichbaren Sender-, Grid- und Programmdetail-Endpunkte. Movie Hub
+fragt dafür keine Waipu-Zugangsdaten ab, speichert keine Waipu-Token und sendet
+keine persönlichen Kontodaten. Der Import läuft zentral mit niedriger
+Parallelität, persistentem ETag-/Slot-/Detailcache, festem Requestbudget und
+einem Circuit Breaker für 403, 429 und wiederholte Serverfehler. Die Fire-TV-App
+fragt diese Endpunkte nicht direkt ab, sondern liest nur veröffentlichte,
+bereinigte Katalogartefakte.
+
+IP-Rotation, Proxy-Wechsel und verschleiernde Header zur Umgehung möglicher
+Anbieterschutzmaßnahmen sind ausgeschlossen. Eine öffentliche Verteilung bleibt
+bis zur API-/Rechteprüfung und zum Compliance-Gate #112 gesperrt.
+
+## Historischer Waipu-Konto-Prototyp
+
+Der frühere Machbarkeitsnachweis ist ein lokaler, rein lesender
+Diagnose-Runner. Er
 verlangt kein Waipu-Passwort, speichert weder Access- noch Refresh-Token und
 schreibt keine EPG- oder Kontodaten nach Firestore. Die für den Gerätefluss
 erforderliche OAuth-Client-Authentifizierung wird ausschließlich zur Laufzeit
@@ -54,8 +70,9 @@ noch in Workflow-Dateien, Berichten oder Logs abgelegt werden.
 Der Diagnosebericht enthält ausschließlich Zähler, HTTP-Statusklassen,
 Antwortgrößen, Feldnamen und den gemessenen EPG-Horizont. Senderkennungen,
 Programmtitel, Program IDs, Gerätecodes, Geräte-ID und vollständige
-API-Antworten werden nicht persistiert. Produktive, Keystore-verschlüsselte
-Tokenablage ist ausdrücklich erst Gegenstand von #4C.
+API-Antworten werden nicht persistiert. Er gehört nicht mehr zum produktiven
+Umsetzungspfad von #4; eine Tokenablage ist für den öffentlichen Basiskatalog
+nicht vorgesehen.
 
 ## Prüfungen vor Freigabe
 
