@@ -45,10 +45,10 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 - **#4B abgeschlossen:** öffentlicher Datenvertrag, vollständiger
   Sieben-Sender-/14-Tage-Nachweis, reale Film-/Seriendetails, TMDB-Stichprobe,
   Cache-Verhalten, Requestkosten und sichere Lastgrenzen bestätigt
-- **#4C als nächstes:** öffentlichen Waipu-Adapter mit persistentem Sender-,
-  Slot-, ETag- und Detailcache bauen
-- #4D: rollierenden, budgetierten Import mit Backoff, Circuit Breaker und
-  stufenweiser Senderfreigabe einrichten
+- **#4C abgeschlossen:** öffentlicher Read-only-Adapter, defensive
+  Normalisierung und persistenter Sender-/Slot-/ETag-/Detailcache umgesetzt
+- **#4D als nächstes:** rollierenden, budgetierten Import mit Checkpoints,
+  Backoff, Circuit Breaker und stufenweiser Senderfreigabe einrichten
 - #4E: Film-/Serienklassifikation, TMDB-Matching und getrennten
   `waipu-live`-Katalog erzeugen
 - #4F: erste Ausbaustufe mit `Waipu Live`-Badge und konkreten Sendeterminen

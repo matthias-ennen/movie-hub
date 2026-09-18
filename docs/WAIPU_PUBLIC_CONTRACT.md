@@ -195,7 +195,12 @@ Normalbetrieb entsteht täglich nur der neue äußere Tag. Selbst ein
 Zwei-Tage-Nachlauf kann bei niedriger Last bequem über ein zweistündiges
 Wartungsfenster verteilt werden.
 
-## Adaptive Produktionsstrategie für #4C und #4D
+## Umgesetzter #4C-Unterbau und adaptive Produktionsstrategie für #4D
+
+#4C stellt den tokenfreien Read-only-Client, defensive Normalisierung und
+den schema-versionierten, atomar geschriebenen Dateicache bereit. Abgeschlossene
+Slots werden ohne Folgeabruf eingefroren; Zukunftsslots nutzen ETag beziehungsweise
+Last-Modified. Programmdetails werden persistent und pro ID dedupliziert.
 
 ### Gemeinsame Schutzgrenzen
 
@@ -293,4 +298,5 @@ Der kleine kontrollierte Live-Lauf bleibt eine separate bewusste Aktion:
 npm run waipu:probe
 ```
 
-Der produktive, checkpoint-basierte Import wird erst in #4C/#4D implementiert.
+Der Adapter- und Cache-Unterbau ist in #4C implementiert. Der produktive,
+checkpoint-basierte und budgetierte Import folgt getrennt in #4D.

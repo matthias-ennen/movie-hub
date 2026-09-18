@@ -164,9 +164,9 @@ Unsicherheits-Gate verhindern falsche Posterzuordnungen. Waipus Hauptgenre
 Dokutainment umfasst.
 
 Der Abruf gehört ausschließlich in einen zentralen Single-Flight-Importjob.
-#4C baut dafür einen persistenten Sender-, Slot-, ETag- und Detailcache. #4D
-ergänzt Checkpoints, Requestbudgets, adaptive Taktung, Backoff und Circuit
-Breaker. Abgeschlossene Slots werden eingefroren; täglich wird nur der neue
+#4C hat dafür den öffentlichen Read-only-Client und einen persistenten
+Sender-, Slot-, ETag- und Detailcache umgesetzt. #4D ergänzt Checkpoints,
+Requestbudgets, adaptive Taktung, Backoff und Circuit Breaker. Abgeschlossene Slots werden eingefroren; täglich wird nur der neue
 äußere Tag ergänzt. Ein verpasster Lauf holt nur die fehlenden ein oder zwei
 Tage nach.
 

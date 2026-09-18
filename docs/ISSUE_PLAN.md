@@ -35,10 +35,11 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 - **#4B abgeschlossen:** vollständiger Sieben-Sender-/14-Tage-Nachweis,
   reale Film-/Seriendetails, TMDB-Stichprobe, ETag/304, Requestvolumen und
   Stop-Grenzen bestätigt
-- **#4C als nächstes:** öffentlichen Adapter und persistenten Sender-/Slot-/
-  ETag-/Detailcache bauen
-- #4D: rollierenden Import mit Requestbudget, niedriger Parallelität,
-  Backoff, Circuit Breaker und stufenweiser Senderfreigabe betreiben
+- **#4C abgeschlossen:** öffentlichen Read-only-Adapter und persistenten
+  Sender-/Slot-/ETag-/Detailcache umgesetzt
+- **#4D als nächstes:** rollierenden Import mit Requestbudget, Checkpoints,
+  niedriger Parallelität, Backoff, Circuit Breaker und stufenweiser
+  Senderfreigabe betreiben
 - #4E: Film-/Serienklassifikation, TMDB-Matching und `waipu-live`-Artefakte erzeugen
 - #4F: `Waipu Live`-Badge und konkrete Sendetermine an vorhandenen Titeln anzeigen
 - #4G: eigene TV-Registerkarte mit Sendern und 14-Tage-Posterkarten umsetzen
