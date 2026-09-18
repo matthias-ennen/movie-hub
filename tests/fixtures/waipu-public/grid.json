@@ -1,0 +1,18 @@
+[
+  {
+    "id": "fixture-film-id",
+    "title": "Fixture Film",
+    "genre": "Spielfilm",
+    "startTime": "2026-09-18T08:00:00.000Z",
+    "stopTime": "2026-09-18T10:00:00.000Z"
+  },
+  {
+    "id": "fixture-series-id",
+    "title": "Fixture Serie",
+    "genre": "Serie",
+    "seriesId": "fixture-series",
+    "episodeTitle": "Fixture Folge",
+    "startTime": "2026-09-18T10:00:00.000Z",
+    "stopTime": "2026-09-18T11:00:00.000Z"
+  }
+]
