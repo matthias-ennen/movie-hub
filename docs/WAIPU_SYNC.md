@@ -79,6 +79,25 @@ Der Koordinator empfiehlt eine höhere Stufe lediglich im Statusartefakt. Er
 schaltet weder Stufe noch Parallelität automatisch hoch. Zwei aktive Anfragen
 bleiben deshalb bis zu sieben realen stabilen Läufen ausdrücklich gesperrt.
 
+## Live-Nachweis der 7er-Stufe
+
+Der kontrollierte Bootstrap vom 18. September 2026 lief ausschließlich mit
+Parallelität 1, 500 ms Mindestabstand und bis zu 150 ms Jitter:
+
+- erster Kleinlauf: 20 Requests, 17 gespeicherte Grid-Slots und ein erfolgreich
+  wiederholter vorübergehender Fehler;
+- zwei checkpoint-gestützte Fortsetzungen: 300 sowie 275 Requests;
+- Endstand: 588 von 588 Grid-Slots für sieben Sender und 14 Tage gespeichert;
+- 3.363 Programmeinträge über alle Grid-Fenster gezählt; diese Zahl ist keine
+  deduplizierte Anzahl eindeutiger Sendungen;
+- kein `403`, kein `429`, Circuit Breaker geschlossen;
+- ein vollständiger Lauf als stabil gewertet; budgetbedingt pausierte Läufe
+  wurden korrekt nicht auf die sieben erforderlichen stabilen Läufe angerechnet.
+
+Damit sind Abruf, Begrenzung und Wiederaufnahme technisch nachgewiesen. Die
+Ergebnisse erlauben noch keine Hochstufung auf 20 Sender: Dafür fehlen weiterhin
+sechs zeitlich getrennte, vollständige stabile Läufe der 7er-Stufe.
+
 ## Persistente Dateien
 
 Standardpfade unter `artifacts/waipu-sync/`:
@@ -91,10 +110,11 @@ Standardpfade unter `artifacts/waipu-sync/`:
 Der Ordner ist vom Repository ausgeschlossen. Das Statusartefakt enthält keine
 Zugangsdaten, Tokens oder personenbezogenen Daten.
 
-## Noch offene Abnahme für #4D
+## Abnahmestand für #4D
 
-- CI-/Fixture-Prüfung des Koordinators;
-- kontrollierter Live-Start mit sieben Sendern und kleinem Budget;
-- sieben reale, fehlerfreie geplante Läufe der 7er-Stufe;
-- erst danach Entscheidung über zwei aktive Anfragen oder die 20er-Stufe;
-- geplanter Workflow mit Concurrency-Gruppe erst nach erfolgreichem Pilotbetrieb.
+- [x] CI-/Fixture-Prüfung des Koordinators;
+- [x] kontrollierter Live-Start mit sieben Sendern und kleinem Budget;
+- [ ] sieben zeitlich getrennte, vollständige stabile Läufe der 7er-Stufe;
+- [ ] erst danach Entscheidung über zwei aktive Anfragen oder die 20er-Stufe;
+- [ ] geplanter Workflow mit Concurrency-Gruppe erst nach erfolgreichem
+  Pilotbetrieb.
