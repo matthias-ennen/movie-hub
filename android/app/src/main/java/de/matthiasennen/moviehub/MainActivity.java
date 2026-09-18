@@ -506,6 +506,11 @@ public final class MainActivity extends ComponentActivity {
         }
 
         @JavascriptInterface
+        public int getHeroSequenceContractVersion() {
+            return 1;
+        }
+
+        @JavascriptInterface
         public void notifyStartupReady() {
             runOnUiThread(() -> showHostedUiReady());
         }

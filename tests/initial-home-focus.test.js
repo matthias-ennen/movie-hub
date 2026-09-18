@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { getInitialHomeFocusTarget } from '../src/components/InitialHomeFocus.jsx'
+import {
+  getInitialHomeFocusTarget,
+  LEGACY_NATIVE_STARTUP_FOCUS_DELAY_MS,
+  supportsNativeStartupFocusEvent,
+} from '../src/components/InitialHomeFocus.jsx'
 
 describe('initialer Home-Fokus', () => {
   it('bevorzugt den Hero vor dem Home-Menüpunkt', () => {
@@ -35,5 +39,14 @@ describe('initialer Home-Fokus', () => {
 
     expect(getInitialHomeFocusTarget(root)).toBeNull()
     expect(root.querySelector).toHaveBeenCalledTimes(2)
+  })
+
+  it('erkennt neue APKs und hält für ältere einen sicheren Rückfall bereit', () => {
+    expect(supportsNativeStartupFocusEvent({
+      getHeroSequenceContractVersion: () => 1,
+    })).toBe(true)
+    expect(supportsNativeStartupFocusEvent({ getAppBuild: () => '404' })).toBe(true)
+    expect(supportsNativeStartupFocusEvent({ getAppBuild: () => '402' })).toBe(false)
+    expect(LEGACY_NATIVE_STARTUP_FOCUS_DELAY_MS).toBe(12_000)
   })
 })

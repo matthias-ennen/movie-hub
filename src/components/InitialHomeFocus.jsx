@@ -1,6 +1,19 @@
 import { useEffect } from 'react'
 
 export const INITIAL_HOME_FOCUS_EVENT = 'moviehub:startup-focus-ready'
+export const LEGACY_NATIVE_STARTUP_FOCUS_DELAY_MS = 12_000
+
+export function supportsNativeStartupFocusEvent(bridge) {
+  if (!bridge) return false
+  try {
+    if (typeof bridge.getHeroSequenceContractVersion === 'function') {
+      return Number(bridge.getHeroSequenceContractVersion()) >= 1
+    }
+    return typeof bridge.getAppBuild === 'function' && Number(bridge.getAppBuild()) >= 403
+  } catch {
+    return false
+  }
+}
 
 export function getInitialHomeFocusTarget(root = document) {
   const hero = root.querySelector('.hero-carousel[data-focusable="true"]')
@@ -22,6 +35,7 @@ export default function InitialHomeFocus() {
   useEffect(() => {
     let done = false
     let observer = null
+    let legacyFallbackTimer = null
 
     const focusInitialTarget = () => {
       if (done) return true
@@ -34,7 +48,8 @@ export default function InitialHomeFocus() {
       return true
     }
 
-    const nativeStartup = Boolean(window.MovieHubNative)
+    const nativeBridge = window.MovieHubNative
+    const nativeStartup = supportsNativeStartupFocusEvent(nativeBridge)
     const observeUntilTargetExists = () => {
       if (done || observer) return
       observer = new MutationObserver(() => {
@@ -57,6 +72,11 @@ export default function InitialHomeFocus() {
     if (nativeStartup) {
       window.addEventListener(INITIAL_HOME_FOCUS_EVENT, handleNativeStartupFocus)
       if (window.__movieHubStartupFocusReady) handleNativeStartupFocus()
+    } else if (nativeBridge) {
+      legacyFallbackTimer = window.setTimeout(
+        handleNativeStartupFocus,
+        LEGACY_NATIVE_STARTUP_FOCUS_DELAY_MS,
+      )
     } else if (!focusInitialTarget()) {
       observeUntilTargetExists()
     }
@@ -64,6 +84,7 @@ export default function InitialHomeFocus() {
     return () => {
       observer?.disconnect()
       window.removeEventListener(INITIAL_HOME_FOCUS_EVENT, handleNativeStartupFocus)
+      if (legacyFallbackTimer !== null) window.clearTimeout(legacyFallbackTimer)
     }
   }, [])
 
