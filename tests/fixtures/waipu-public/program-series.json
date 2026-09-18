@@ -1,0 +1,17 @@
+{
+  "id": "fixture-series-id",
+  "textContent": {
+    "title": "Fixture Serie",
+    "descLong": "Synthetische Testbeschreibung"
+  },
+  "series": {
+    "id": "fixture-series",
+    "seasonNumber": 2,
+    "episodeNumber": 3,
+    "episodeTitle": "Fixture Folge"
+  },
+  "contentMeta": {
+    "mainGenre": "Serie"
+  },
+  "imageUrls": []
+}
