@@ -205,6 +205,12 @@ describe('WaipuSyncCoordinator', () => {
 })
 
 describe('Waipu single-flight lock', () => {
+  it('creates a missing parent directory on the first run', async () => {
+    const paths = await temporaryPaths()
+    const nestedLock = resolve(paths.root, 'missing', 'waipu', 'active.lock')
+    await expect(withWaipuSingleFlight(nestedLock, async () => 'created')).resolves.toBe('created')
+  })
+
   it('rejects an overlapping run and releases the lock afterwards', async () => {
     const paths = await temporaryPaths()
     let releaseFirst
