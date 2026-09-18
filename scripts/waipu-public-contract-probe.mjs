@@ -344,12 +344,12 @@ function createRequester({
 }
 
 export function buildRequestMatrix(stationCount = 398) {
-  const counts = [...new Set([5, 20, 50, Number(stationCount)]
+  const counts = [...new Set([5, 7, 20, 50, Number(stationCount)]
     .filter((value) => Number.isInteger(value) && value > 0))]
     .sort((left, right) => left - right)
   return counts.map((stations) => ({
     stations,
-    initialGridRequestsFor16Days: stations * 6 * 16,
+    initialGridRequestsFor14Days: stations * 6 * 14,
     newOuterHorizonGridRequestsPerDay: stations * 6,
     programDetailRequests: 'nicht enthalten; dedupliziert und nur für Film-/Serienkandidaten',
   }))
