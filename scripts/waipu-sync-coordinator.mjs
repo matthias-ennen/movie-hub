@@ -289,6 +289,7 @@ function baseStatus({ generatedAt, stage, selectedStations, slots, requestBudget
     metrics: {
       requestsStarted: 0,
       retries: 0,
+      retryReasons: {},
       slotsConsidered: selectedStations.length * slots.length,
       slotsPlanned: 0,
       slotsProcessed: 0,
@@ -349,6 +350,7 @@ export async function runWaipuSync(options = {}) {
     const metrics = {
       requestsStarted: 0,
       retries: 0,
+      retryReasons: {},
       slotsConsidered: 0,
       slotsPlanned: 0,
       slotsProcessed: 0,
@@ -365,6 +367,8 @@ export async function runWaipuSync(options = {}) {
           const backoff = retryBaseMs * (2 ** retries) + Math.floor(random() * (jitterMs + 1))
           retries += 1
           metrics.retries += 1
+          const reason = typeof error?.code === 'string' ? error.code : 'UNEXPECTED_ERROR'
+          metrics.retryReasons[reason] = Number(metrics.retryReasons[reason] || 0) + 1
           await sleep(backoff)
         }
       }
@@ -469,7 +473,9 @@ export async function runWaipuSync(options = {}) {
       state.updatedAt = new Date(now()).toISOString()
       status.metrics = { ...status.metrics, ...metrics }
       status.circuit = state.circuit
-      status.failure = sanitizedFailure(error)
+      status.failure = error?.code === 'REQUEST_BUDGET_EXHAUSTED'
+        ? null
+        : sanitizedFailure(error)
       await writeJsonAtomic(statePath, state)
       await writeJsonAtomic(statusPath, status)
       return status
