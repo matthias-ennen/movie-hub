@@ -42,9 +42,11 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
   veralteter Programmdaten ungeeignet
 - der bisherige Konto-/OAuth-Prototyp #4B bleibt als technischer Versuch
   dokumentiert, ist aber keine Voraussetzung mehr
-- **#4B neu aktiv:** öffentlichen Datenvertrag, EPG-Horizont, Cache-Verhalten,
-  Requestkosten und sichere Lastgrenzen reproduzierbar vermessen
-- #4C: öffentlichen Waipu-Adapter mit Sender-, Slot- und Detailcache bauen
+- **#4B abgeschlossen:** öffentlicher Datenvertrag, vollständiger
+  Sieben-Sender-/14-Tage-Nachweis, reale Film-/Seriendetails, TMDB-Stichprobe,
+  Cache-Verhalten, Requestkosten und sichere Lastgrenzen bestätigt
+- **#4C als nächstes:** öffentlichen Waipu-Adapter mit persistentem Sender-,
+  Slot-, ETag- und Detailcache bauen
 - #4D: rollierenden, budgetierten Import mit Backoff, Circuit Breaker und
   stufenweiser Senderfreigabe einrichten
 - #4E: Film-/Serienklassifikation, TMDB-Matching und getrennten
