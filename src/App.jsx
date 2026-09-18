@@ -32,6 +32,7 @@ import { useSharedMediaCatalog } from './library/useSharedMediaCatalog.js'
 import { mergeSharedMediaCatalogTitles, mergeTitlesWithSharedMediaCatalog } from './library/sharedMediaCatalogModel.js'
 import { firebaseReady } from './lib/firebase.js'
 import { preloadHeroImage } from './performance/progressiveRendering.js'
+import { loadCatalogWithRetry } from './performance/catalogStartup.js'
 import { notifyNativeStartupReady } from './performance/nativeStartup.js'
 import { ProfileProvider, useProfiles } from './profiles/ProfileProvider.jsx'
 import { ThemeProvider } from './theme/ThemeProvider.jsx'
@@ -362,13 +363,19 @@ function MovieHub({ user }) {
 
     async function loadCatalog() {
       try {
-        const response = await fetch('/catalog.json', { cache: 'no-store' })
-        if (!response.ok) throw new Error(`Katalog konnte nicht geladen werden (${response.status})`)
-        const data = await response.json()
+        const data = await loadCatalogWithRetry(async () => {
+          const response = await fetch('/catalog.json', { cache: 'no-store' })
+          if (!response.ok) throw new Error(`Katalog konnte nicht geladen werden (${response.status})`)
+          const loadedCatalog = await response.json()
 
-        if (!Array.isArray(data.titles) || !data.titles.length || !Array.isArray(data.rowDefinitions)) {
-          throw new Error('Der geladene Katalog ist unvollständig.')
-        }
+          if (!Array.isArray(loadedCatalog.titles)
+              || !loadedCatalog.titles.length
+              || !Array.isArray(loadedCatalog.rowDefinitions)) {
+            throw new Error('Der geladene Katalog ist unvollständig.')
+          }
+          return loadedCatalog
+        }, { shouldCancel: () => cancelled })
+
         if (!cancelled) {
           setCatalog({
             status: 'ready',
@@ -382,6 +389,7 @@ function MovieHub({ user }) {
           })
         }
       } catch (error) {
+        if (error?.name === 'AbortError') return
         console.warn('Movie Hub verwendet den lokalen Katalog-Fallback.', error)
         if (!cancelled) {
           setCatalog((current) => ({ ...current, status: 'error' }))
