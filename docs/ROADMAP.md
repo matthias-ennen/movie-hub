@@ -36,20 +36,26 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 
 ## Aktuelles Arbeitspaket
 
-### #4 – Persönlichen Waipu-Live-Katalog aus Konto-EPG erzeugen
+### #4 – Öffentlichen Waipu-Live-Katalog aus dem Waipu-EPG erzeugen
 
 - #4A: FreeEPG-Qualitätsprototyp technisch abgeschlossen; Quelle wegen
   veralteter Programmdaten ungeeignet
-- **#4B aktiv:** lokaler, rein lesender Konto-API-Machbarkeitsnachweis mit
-  Device OAuth, Token-Refresh, persönlicher Senderzählung sowie sparsamen
-  EPG-Stichproben für 0, 1, 3, 7 und 14 Tage
-- #4C: sichere native Waipu-Verbindung mit Android Keystore und Geräte-UI
-- #4D: rollierende EPG-Synchronisierung und Film-/Serienkandidatenmodell
-- #4E: TMDB-Matching und atomaren persönlichen Firestore-Katalog erzeugen
-- #4F: Waipu-Live-Reihen, Badge, Sendetermine und Status in Movie Hub darstellen
-- #4G: Robustheit, Geräteabnahme und Release-/Rechte-Gate
-- #4B schreibt weder nach Firestore noch in sichtbare Kataloge und persistiert
-  keine Waipu-Token oder Kontodaten
+- der bisherige Konto-/OAuth-Prototyp #4B bleibt als technischer Versuch
+  dokumentiert, ist aber keine Voraussetzung mehr
+- **#4B neu aktiv:** öffentlichen Datenvertrag, EPG-Horizont, Cache-Verhalten,
+  Requestkosten und sichere Lastgrenzen reproduzierbar vermessen
+- #4C: öffentlichen Waipu-Adapter mit Sender-, Slot- und Detailcache bauen
+- #4D: rollierenden, budgetierten Import mit Backoff, Circuit Breaker und
+  stufenweiser Senderfreigabe einrichten
+- #4E: Film-/Serienklassifikation, TMDB-Matching und getrennten
+  `waipu-live`-Katalog erzeugen
+- #4F: erste Ausbaustufe mit `Waipu Live`-Badge und konkreten Sendeterminen
+- #4G: zweite Ausbaustufe mit eigener TV-Registerkarte, Senderauswahl und
+  14-Tage-Posterkarten
+- #4H: Robustheit, Langzeitmessung, Geräteabnahme und Release-/Rechte-Gate
+- Movie Hub fragt keine Waipu-Zugangsdaten ab und speichert keine Waipu-Token
+- ein persönlicher Paket-/Senderfilter kann später optional ergänzt werden,
+  blockiert aber den öffentlichen Live-Katalog nicht
 - Waiputhek/VOD, Streaming, Aufnahmen und DRM bleiben ausdrücklich ausgeschlossen
 - öffentliche Verteilung bleibt bis zur Rechte- und API-Klärung gesperrt
 
@@ -83,6 +89,6 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 
 ## Aktuelle Abhängigkeitskette
 
-`#4A → #4B → #4C → #4D → #4E → #4F → #4G → #118 → #7`
+`#4A → #4B → #4C → #4D → #4E → #4F → #4G → #4H → #118 → #7`
 
 Die spätere öffentliche Verteilung von #4 bleibt zusätzlich durch die Compliance-Prüfung #112 gesperrt. Vor Beginn jedes aktiven Pakets wird dessen Scope noch einmal kurz gegen den dann aktuellen Stand geprüft.
