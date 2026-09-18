@@ -1,11 +1,17 @@
-# Persönlicher Waipu-Konto-Machbarkeitsnachweis
+# Historischer persönlicher Waipu-Konto-Machbarkeitsnachweis
+
+> Status 18.09.2026: historischer, technisch vorbereiteter Prototyp. Der
+> produktive #4-Pfad verwendet inzwischen die ohne Anmeldung erreichbaren
+> Sender-, EPG-Grid- und Programmdetail-Endpunkte. Dieser Konto-Prototyp bleibt
+> als Sicherheits- und Forschungsartefakt dokumentiert, ist aber keine
+> Voraussetzung für den Waipu-Live-Katalog mehr.
 
 Stand: 18. September 2026
 
 ## Zweck
 
-Diese Komponente ist die isolierte Umsetzungsstufe **#4B**. Sie prüft mit einem
-persönlichen waipu.tv-Konto, ob der inoffizielle, aus der Kodi-Erweiterung
+Diese Komponente war die ursprünglich vorgesehene Umsetzungsstufe **#4B**. Sie
+prüft mit einem persönlichen waipu.tv-Konto, ob der inoffizielle, aus der Kodi-Erweiterung
 `flubshi/pvr.waipu` bekannte technische Datenweg für Movie Hub grundsätzlich
 tragfähig ist.
 
