@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -223,6 +223,8 @@ describe('Waipu single-flight lock', () => {
       .rejects.toMatchObject({ code: 'SINGLE_FLIGHT_ACTIVE' })
     releaseFirst('first')
     await expect(first).resolves.toBe('first')
+    await expect(stat(paths.lockPath)).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(withWaipuSingleFlight(paths.lockPath, async () => 'third')).resolves.toBe('third')
+    await expect(stat(paths.lockPath)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 })
