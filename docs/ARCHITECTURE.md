@@ -145,19 +145,24 @@ Mögliche regelmäßige Jobs:
 - neue Filme einordnen
 - aus persönlichen Bewertungen neue Empfehlungen und Toplisten erzeugen
 
-### Persönlicher Waipu-Live-Katalog – Machbarkeitsstufe
+### Öffentlicher Waipu-Live-Katalog – Machbarkeits- und Laststufe
 
 Der bisherige FreeEPG-Ansatz ist wegen veralteter Programmdaten nicht als
-Produktionsquelle geeignet. #4B prüft deshalb isoliert einen persönlichen,
-rein lesenden Konto-EPG-Zugang. Der lokale Diagnose-Runner verwendet Device
-OAuth, hält Token nur im Arbeitsspeicher und erzeugt ausschließlich einen
-bereinigten technischen Bericht. Firestore, sichtbarer Katalog, Streaming,
-Aufnahmen und DRM bleiben unberührt.
+Produktionsquelle geeignet. Senderkonfiguration, Vier-Stunden-EPG-Raster und
+Programmdetails sind dagegen aktuell direkt bei Waipu ohne Anmeldung
+erreichbar. #4B vermisst diesen öffentlichen Datenvertrag reproduzierbar und
+fail-closed, ohne Waipu-Konto, Passwort oder Token.
 
-Erst nach einem erfolgreichen manuellen Live-Test folgt eine native
-Android-Integration. Deren spätere Sicherheitsgrenze entspricht dem
-persönlichen TMDB-Unterbau: Geheimnisse bleiben im nativen Keystore-Bereich;
-die WebView erhält nur normalisierte, nicht geheime Katalogdaten.
+Der Abruf gehört nicht in die Android-/Fire-TV-App. Ein zentraler Importjob
+schreibt einen persistenten Sender-/Slot-/Detailcache und veröffentlicht nur
+vollständig erzeugte, bereinigte `waipu-live`-Artefakte. Die App lädt eine
+kompakte Titelübersicht für Badges und bei Bedarf senderweise TV-Daten. Ein
+späterer persönlicher Paketfilter bleibt eine optionale Erweiterung.
+
+Da die Schnittstelle nicht als öffentliche Entwickler-API dokumentiert ist,
+gelten feste Requestbudgets, niedrige Parallelität, ETag/304, Retry-After,
+exponentielles Backoff und ein sofortiger Circuit Breaker bei 429/403. Es gibt
+keine IP-Rotation oder andere Umgehung von Sperren.
 
 ## Architekturprinzipien
 
@@ -183,7 +188,8 @@ die WebView erhält nur normalisierte, nicht geheime Katalogdaten.
 ## Noch bewusst offen
 
 - weitere belastbare App-spezifische Such-/Deep-Link-Verbesserungen je Anbieter
-- technischer, vertraglicher und rechtlicher Nachweis für persönlichen Waipu-Konto-EPG
+- technischer, vertraglicher und rechtlicher Nachweis für die öffentliche
+  Waipu-EPG-Nutzung und abgeleitete Katalogverteilung
 - endgültige Darstellung und Branding der Provider-Symbole
 - genaue Form der täglichen Empfehlungsautomation
 - Geräte-Kopplung ohne Texteingabe auf Fire TV
