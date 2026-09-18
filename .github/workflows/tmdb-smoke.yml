@@ -49,7 +49,7 @@ jobs:
           fi
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run TMDB smoke test
         run: npm run tmdb:smoke

@@ -15,10 +15,11 @@ describe('persönlicher Film-/Serienzustand', () => {
   })
 
   it('setzt beim Markieren als gesehen automatisch das lokale Datum', () => {
-    const next = applyTitleStatePatch({}, { watched: true }, new Date(2026, 8, 6, 12, 0, 0))
+    const markedAt = new Date(2026, 8, 6, 12, 0, 0)
+    const next = applyTitleStatePatch({}, { watched: true }, markedAt)
     expect(next.watched).toBe(true)
     expect(next.watchedAt).toBe('2026-09-06')
-    expect(next.watchedMarkedAt).toBe('2026-09-06T12:00:00.000Z')
+    expect(next.watchedMarkedAt).toBe(markedAt.toISOString())
   })
 
   it('entfernt das Gesehen-Datum beim Zurücksetzen auf ungesehen', () => {

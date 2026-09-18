@@ -7,6 +7,7 @@
 - [Verlustfreie Titelmetadaten](TITLE_METADATA_MERGE.md)
 - [Anbieterkataloge](PROVIDER_CATALOGS.md)
 - [Security-Konzept](SECURITY.md)
+- [Dependency-Audit](DEPENDENCY_AUDIT.md)
 - [Firebase-Setup](FIREBASE_SETUP.md)
 - [Roadmap](ROADMAP.md)
 - [Issue-Plan](ISSUE_PLAN.md)

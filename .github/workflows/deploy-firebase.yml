@@ -39,7 +39,7 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Restore incremental search-detail metadata
         continue-on-error: true

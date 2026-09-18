@@ -4,7 +4,7 @@ Stand: 6. September 2026
 
 ## Voraussetzungen
 
-- Node.js 22
+- Node.js 22.12 oder neuer
 - npm
 - Java 21 für den lokalen Firestore Emulator
 - optional Firebase CLI (`npx firebase ...` funktioniert ebenfalls)
@@ -12,7 +12,7 @@ Stand: 6. September 2026
 ## Ersteinrichtung lokal
 
 1. Repository auschecken.
-2. `npm install` ausführen.
+2. `npm ci` ausführen.
 3. `.env.example` nach `.env` kopieren und für die lokale Entwicklung die Firebase-Web-Konfiguration der App `movie-hub-web` als `VITE_FIREBASE_*`-Werte eintragen.
 4. `npm run dev` starten.
 
