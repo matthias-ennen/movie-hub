@@ -25,7 +25,7 @@ public final class StartupGateTest {
     }
 
     @Test
-    public void maximumAlwaysReleasesAnUnreadyStartup() {
+    public void maximumEndsIntroWithoutMarkingContentReady() {
         StartupGate gate = new StartupGate();
 
         assertTrue(gate.onMaximumElapsed());

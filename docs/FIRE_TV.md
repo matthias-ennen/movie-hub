@@ -37,7 +37,9 @@ The visual sequence is coupled to the presentation readiness of the hosted Home 
 
 - at least 5.0 seconds: pure-black screen with the centered two-colour **MOVIE HUB** wordmark
 - after those 5.0 seconds, the shutdown begins as soon as the real catalog, the real Home Hero (or its controlled image fallback) and the first row layout are ready
-- after an absolute maximum of 12.0 seconds, the shutdown always begins; an honest native error screen with **Erneut versuchen** is revealed if startup did not become ready
+- after an absolute maximum of 12.0 seconds, the shutdown always begins; if Home is not ready yet, a neutral native loading surface is revealed while the WebView remains active underneath
+- temporary `catalog.json` failures are retried after 1, 3 and 7 seconds; main-frame errors are retried automatically after 2 and 5 seconds
+- a missing readiness signal triggers one complete automatic reload after 30 seconds; only a second 30-second timeout or exhausted main-frame retries reveals **Erneut versuchen**, and even that final surface still accepts a late readiness signal without a remote-control click
 - 1.0 second: restrained CRT power-off animation; the complete black layer and logo collapse vertically, recede slightly, briefly form a cool white/blue phosphor line, then contract into the centre and disappear
 - no VHS noise, glitch filter or video/GIF asset is used
 - the branding runs only once per actual app process, so returning from the background or recreating an Activity does not replay it

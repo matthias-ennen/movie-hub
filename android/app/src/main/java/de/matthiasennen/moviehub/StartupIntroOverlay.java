@@ -193,7 +193,6 @@ final class StartupIntroOverlay {
         }
 
         private void onMaximumElapsed() {
-            activity.showStartupFailureAfterIntro();
             if (gate.onMaximumElapsed()) startShutdown();
         }
 
