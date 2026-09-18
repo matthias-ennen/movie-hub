@@ -27,19 +27,22 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 
 ## Aktuelles Arbeitspaket
 
-### #4 – Persönlichen Waipu-Live-Katalog aus Konto-EPG erzeugen
+### #4 – Öffentlichen Waipu-Live-Katalog aus dem Waipu-EPG erzeugen
 
 - #4A: FreeEPG-Qualitätsprototyp abgeschlossen; Feed wegen veralteter Daten ungeeignet
-- **#4B aktiv:** rein lesender Konto-API-Prototyp für Device OAuth, Refresh,
-  persönliche Sender und sparsame EPG-Horizont-Stichproben
-- #4C: native Waipu-Verbindung und Keystore-geschützte Tokenablage
-- #4D: rollierende EPG-Synchronisierung und Kandidatenmodell
-- #4E: sichere TMDB-Zuordnung und atomaren persönlichen Katalog erzeugen
-- #4F: Waipu-Live-Reihen, Badge, Sendetermine und Status darstellen
-- #4G: Robustheit, Geräteabnahme und Release-/Rechte-Gate
+- bisheriger Konto-/OAuth-Prototyp: dokumentierter Versuch, nicht mehr im
+  kritischen Umsetzungspfad
+- **#4B aktiv:** öffentlichen Sender-/EPG-Datenvertrag, 14-Tage-Horizont,
+  ETag/304, Requestvolumen und Stop-Grenzen reproduzierbar prüfen
+- #4C: öffentlichen Adapter und persistenten Slot-/Detailcache bauen
+- #4D: rollierenden Import mit Requestbudget, niedriger Parallelität,
+  Backoff, Circuit Breaker und stufenweiser Senderfreigabe betreiben
+- #4E: Film-/Serienklassifikation, TMDB-Matching und `waipu-live`-Artefakte erzeugen
+- #4F: `Waipu Live`-Badge und konkrete Sendetermine an vorhandenen Titeln anzeigen
+- #4G: eigene TV-Registerkarte mit Sendern und 14-Tage-Posterkarten umsetzen
+- #4H: Langzeitstabilität, Geräteabnahme und Release-/Rechte-Gate
 - keine Waiputhek-/VOD-Aussage aus linearen Sendeterminen ableiten
-- #4B schreibt weder nach Firestore noch in einen sichtbaren Katalog und
-  persistiert keine Token oder persönlichen Rohdaten
+- keine Waipu-Anmeldung und keine Waipu-Token für die öffentliche Basisintegration
 
 ## Aktuelle Priorisierung
 
@@ -71,14 +74,15 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 
 ## Abhängigkeitskette
 
-`#4A → #4B → #4C → #4D → #4E → #4F → #4G → #118 → #7`
+`#4A → #4B → #4C → #4D → #4E → #4F → #4G → #4H → #118 → #7`
 
 #4 ist wieder aktiv. Die öffentliche Verteilung bleibt bis zur API-/Rechteprüfung und zur Compliance-Prüfung #112 gesperrt.
 
 ## Leitentscheidung
 
-Der Waipu-Live-Ausbau beginnt nach dem gescheiterten FreeEPG-Qualitätstest mit
-einem vollständig isolierten persönlichen Konto-Machbarkeitsnachweis. Erst
-wenn Geräteanmeldung, Refresh, persönliche Sender, EPG-Horizont und vertretbare
-Requestlast praktisch bestätigt sind, beginnt die native Integration. Ein
-technischer Erfolg ersetzt nicht die spätere API-/Rechtefreigabe.
+Der Waipu-Live-Ausbau verwendet die öffentlich und ohne Anmeldung erreichbaren
+Waipu-Sender-, Grid- und Programmdetail-Endpunkte. Ein persönlicher Kontozugang
+ist für den Basis-Katalog nicht erforderlich. Der Import läuft zentral,
+budgetiert und gecacht; die App erhält ausschließlich fertige, bereinigte
+Katalogartefakte. Die Schnittstelle ist nicht öffentlich dokumentiert, daher
+bleiben Lastgrenzen, Langzeitstabilität und Rechteprüfung verbindliche Gates.
