@@ -25,8 +25,8 @@
     "test:epg": "vitest run tests/free-epg-quality.test.js",
     "waipu:probe": "node scripts/waipu-public-contract-probe.mjs",
     "waipu:account:probe": "node scripts/waipu-account-probe.mjs",
-    "test:waipu": "vitest run tests/waipu-account-probe.test.js tests/waipu-public-contract.test.js",
-    "test:waipu:public": "vitest run tests/waipu-public-contract.test.js",
+    "test:waipu": "vitest run tests/waipu-account-probe.test.js tests/waipu-public-contract.test.js tests/waipu-public-data.test.js",
+    "test:waipu:public": "vitest run tests/waipu-public-contract.test.js tests/waipu-public-data.test.js",
     "moviehub:presence:migrate": "node scripts/migrate-shared-media-presence.mjs",
     "moviehub:metadata:backfill": "node scripts/enrich-shared-media-metadata.mjs"
   },
