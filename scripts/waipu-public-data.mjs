@@ -354,9 +354,21 @@ export class WaipuEpgCache {
     return record
   }
 
-  async #revalidate(kind, key, fetcher, { immutable = false, useValidators = true } = {}) {
+  async #revalidate(kind, key, fetcher, {
+    immutable = false,
+    freezeExisting = false,
+    useValidators = true,
+  } = {}) {
     const cached = await this.read(kind, key)
     if (cached?.immutable) return { value: cached.value, cache: 'immutable' }
+    if (cached && freezeExisting) {
+      const frozen = await this.write(kind, key, {
+        value: cached.value,
+        etag: cached.etag,
+        lastModified: cached.lastModified,
+      }, { immutable: true })
+      return { value: frozen.value, cache: 'frozen' }
+    }
     const response = await fetcher(useValidators ? validators(cached) : {})
     if (response.notModified) {
       if (!cached) throw new WaipuPublicDataError('CACHE_MISS_ON_304', { status: 304 })
@@ -383,7 +395,7 @@ export class WaipuEpgCache {
       'grid',
       key,
       (conditions) => client.getGrid(stationId, slot, conditions),
-      { immutable },
+      { immutable, freezeExisting: immutable },
     )
   }
 
