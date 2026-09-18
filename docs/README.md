@@ -8,6 +8,7 @@
 - [Anbieterkataloge](PROVIDER_CATALOGS.md)
 - [Security-Konzept](SECURITY.md)
 - [Dependency-Audit](DEPENDENCY_AUDIT.md)
+- [FreeEPG-Qualitätsprüfung](FREE_EPG_QUALITY.md)
 - [Firebase-Setup](FIREBASE_SETUP.md)
 - [Roadmap](ROADMAP.md)
 - [Issue-Plan](ISSUE_PLAN.md)

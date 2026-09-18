@@ -21,18 +21,21 @@ Zuletzt abgeschlossen bzw. abgenommen:
 - #190 – automatische Hero-Trailer sowie nativer Trailer-/Teaser-Player
 - #225 – verlustfreie Metadaten-Anreicherung
 - #228 – robuster nativer Kaltstart
+- #117 – Dependency-Audit und Security-Hygiene
 
 Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 
 ## Aktuelles Arbeitspaket
 
-### #117 – Dependency-Audit und Security-Hygiene
+### #4 – Waipu-Live-Katalog
 
-- aktuellen npm-Audit-Stand neu ermitteln
-- Critical-/High-Funde bewerten und kontrolliert beseitigen
-- keine blinden Breaking-Updates
-- verbleibende Findings dokumentieren
-- Web-, Firebase- und Android-Regression vollständig prüfen
+- #4A: FreeEPG zentral abrufen, streamen und über ein Fail-Closed-Qualitäts-Gate prüfen
+- #4B: Senderidentitäten normalisieren und gegen waipu.tv abgleichen
+- #4C: Kandidaten sicher mit TMDB verknüpfen und zeitlich begrenzte Verfügbarkeiten erzeugen
+- #4D: Waipu-Live-Katalog und konkrete Sendezeit in der App darstellen
+- #4E: Automatisierung, Statusanzeige und Release-Prüfung
+- keine Waiputhek-/VOD-Aussage aus linearen Sendeterminen ableiten
+- keine ungeprüften Daten aus #4A in Firestore oder den sichtbaren Katalog schreiben
 
 ## Aktuelle Priorisierung
 
@@ -57,16 +60,6 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 - #129 – Deutsch/Englisch-Umschaltung der Movie-Hub-GUI
 - #112 – Compliance als Release-Gate vor öffentlicher Verteilung
 
-## Ganz am Ende / zurückgestellt
-
-### #4 – Streaming-Verfügbarkeit und waipu.tv-/Live-TV-Ausbau
-
-Die Recherche vom 18.09.2026 ist im Issue dokumentiert. Derzeit existiert weder ein kostenloser offizieller Waiputhek-Gesamtkatalog noch eine kostenlose offizielle EPG-Quelle mit vollständiger 14-Tage-Abdeckung der relevanten deutschen waipu.tv-Sender.
-
-Eine mögliche EPG-plus-Teilintegration wäre nur für wenige Sender und einen kürzeren Zeitraum geeignet und muss außerdem gegen die Nutzungsbedingungen des geplanten Verteilungsmodells geprüft werden. Kostenpflichtige Quellen, manuelle Katalogpflege sowie private oder reverse-engineerte waipu.tv-Endpunkte bleiben ausgeschlossen.
-
-#4 bleibt offen, ist aber aus der aktiven Planung entfernt. Eine Neubewertung erfolgt frühestens nach #112 oder bei einer wesentlichen Änderung der offiziellen und kostenlosen Datenlage.
-
 ## Dauerhaft offen / Wartung
 
 - #8 – Ideen-Sammelstelle
@@ -74,10 +67,10 @@ Eine mögliche EPG-plus-Teilintegration wäre nur für wenige Sender und einen k
 
 ## Abhängigkeitskette
 
-`#225 → #117 → #118 → #7`
+`#4A → #4B → #4C → #4D → #4E → #118 → #7`
 
-#4 gehört nicht mehr zur aktiven Abhängigkeitskette.
+#4 ist wieder aktiv. Die öffentliche Verteilung der aggregierten EPG-Daten bleibt bis zur Compliance-Prüfung #112 gesperrt.
 
 ## Leitentscheidung
 
-Vor neuen Komfort- und Erweiterungsfunktionen wird zuerst sichergestellt, dass der bestehende Katalogzustand innerhalb der gesamten App konsistent und verlustfrei bleibt. Danach folgt die offene Security-Hygiene. Anschließend geht die Produktentwicklung mit Verfügbarkeitsbenachrichtigungen und persönlicher Empfehlung/Automatisierung weiter. Der waipu.tv-/Live-TV-Ausbau bleibt bis zu einer tragfähigen kostenlosen und offiziellen Datenbasis zurückgestellt.
+Der Waipu-Live-Ausbau beginnt mit einer vollständig isolierten Qualitätsmessung. Erst ein aktueller, ausreichend abgedeckter und rechtlich freigegebener Datenstand darf später als sichtbarer Katalog veröffentlicht werden. Danach folgen Verfügbarkeitsbenachrichtigungen und persönliche Empfehlung/Automatisierung.

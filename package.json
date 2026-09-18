@@ -21,6 +21,8 @@
     "series:details": "node scripts/generate-series-details.mjs",
     "series:details:restore": "node scripts/restore-live-series-details.mjs",
     "data:status": "node scripts/report-data-status.mjs",
+    "epg:quality": "node scripts/free-epg-quality.mjs",
+    "test:epg": "vitest run tests/free-epg-quality.test.js",
     "moviehub:presence:migrate": "node scripts/migrate-shared-media-presence.mjs",
     "moviehub:metadata:backfill": "node scripts/enrich-shared-media-metadata.mjs"
   },
@@ -35,6 +37,7 @@
     "@vitejs/plugin-react": "^4.6.0",
     "firebase-admin": "^14.4.0",
     "firebase-tools": "^15.30.2",
+    "saxes": "^6.0.0",
     "vite": "^7.0.0",
     "vitest": "^5.0.1"
   }

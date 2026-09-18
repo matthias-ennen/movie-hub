@@ -30,18 +30,22 @@ Zu den zuletzt abgeschlossenen bzw. abgenommenen Paketen gehören insbesondere:
 - #226 – einheitlicher TV-Switch-On/Off-Effekt für Startsequenz und native Player
 - #225 – kanonische Katalogdaten bei Metadaten-Anreicherung verlustfrei erhalten
 - #228 – robuster nativer Kaltstart ohne zusätzlichen Tastendruck
+- #117 – Dependency-Audit und Security-Hygiene
 
 Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zuletzt am 18.09.2026 abgenommen.
 
 ## Aktuelles Arbeitspaket
 
-### #117 – Dependency-Audit: bekannte npm-Sicherheitswarnungen bereinigen
+### #4 – Waipu-Live-Katalog auf FreeEPG-Basis
 
-- aktuellen `npm audit`-Stand neu ermitteln
-- Critical-/High-Funde fachlich bewerten und kontrolliert beheben
-- keine blinden Breaking-Updates
-- verbleibende Findings dokumentieren
-- vollständige Web-/Firebase-/Android-Regression
+- **#4A aktiv:** isolierter FreeEPG-Import mit Aktualitäts- und Qualitätsbericht
+- #4B: FreeEPG-Sender mit der offiziellen waipu.tv-Senderliste abgleichen
+- #4C: sichere TMDB-Zuordnung und zeitlich begrenzten Waipu-Live-Katalog erzeugen
+- #4D: Waipu-Live-Katalog, Badge und nächste Ausstrahlung in der App darstellen
+- #4E: regelmäßigen Job, Statusanzeige und Release-Gate fertigstellen
+- keine Firestore-/Katalogschreibzugriffe aus #4A
+- Waiputhek/VOD bleibt ohne offizielle Datenquelle ausdrücklich ausgeschlossen
+- öffentliche Verteilung aggregierter EPG-Daten bleibt bis zur Rechteklärung gesperrt
 
 ## Danach geplante Arbeitspakete
 
@@ -66,19 +70,6 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 - #129 – Deutsch/Englisch-Umschaltung der GUI
 - #112 – rechtliche & Compliance-Prüfung als Release-Gate vor öffentlicher Verteilung
 
-## Ganz am Ende / zurückgestellt
-
-### #4 – Streaming-Verfügbarkeit und waipu.tv-/Live-TV-Ausbau
-
-- kein vollständiger kostenloser und offiziell dokumentierter Waiputhek-Katalog verfügbar
-- keine kostenlose offizielle EPG-Quelle mit vollständiger 14-Tage-Abdeckung der relevanten deutschen waipu.tv-Sender gefunden
-- mögliche EPG-plus-Teilintegration ist zeitlich, senderseitig und lizenzrechtlich begrenzt
-- keine kostenpflichtigen Quellen und keine privaten/reverse-engineerten waipu.tv-Schnittstellen verwenden
-- vor einer Wiederaufnahme Datenquellen, Nutzungsrecht und Produktumfang erneut prüfen
-- falls später umgesetzt, Waiputhek/VOD und konkrete lineare Sendetermine strikt trennen und Unvollständigkeit sichtbar machen
-
-#4 bleibt offen, gehört aber nicht mehr zur aktiven Entwicklungsstrecke. Die Neubewertung erfolgt frühestens nach dem Release-Gate #112 beziehungsweise dann, wenn sich die Datenlage wesentlich verbessert.
-
 ## Dauerhaft offen / Wartung
 
 - #8 – Ideen-Sammelstelle
@@ -86,6 +77,6 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 
 ## Aktuelle Abhängigkeitskette
 
-`#225 → #117 → #118 → #7`
+`#4A → #4B → #4C → #4D → #4E → #118 → #7`
 
-#4 ist bewusst aus der aktiven Abhängigkeitskette entfernt und ans Ende der Roadmap verschoben. Vor Beginn jedes aktiven Pakets wird dessen Scope noch einmal kurz gegen den dann aktuellen Stand geprüft.
+Die spätere öffentliche Verteilung von #4 bleibt zusätzlich durch die Compliance-Prüfung #112 gesperrt. Vor Beginn jedes aktiven Pakets wird dessen Scope noch einmal kurz gegen den dann aktuellen Stand geprüft.

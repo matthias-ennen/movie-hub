@@ -10,5 +10,6 @@ dist/
 firebase-debug.log
 firestore-debug.log
 coverage/
+artifacts/free-epg-quality/
 .DS_Store
 gha-creds-*.json
