@@ -1,4 +1,5 @@
 import { normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
+import { mergeEnrichedTitle } from '../catalog/titleMetadata.js'
 
 export const SEARCH_DETAIL_VERSION = 1
 export const SEARCH_DETAIL_BUCKET_COUNT = 64
@@ -64,7 +65,8 @@ export function toSearchDetailFallback(entry) {
     seasons: type === 'series'
       ? normalizeSeriesSeasons(entry?.seasons, { seriesTmdbId: entry?.tmdbId, numberOfSeasons })
       : [],
-    genres: [],
+    genres: Array.isArray(entry?.genres) ? entry.genres : [],
+    genreNames: Array.isArray(entry?.genreNames) ? entry.genreNames : [],
     genre: entry?.genre || 'Ohne Genreangabe',
     cast: Array.isArray(entry?.cast) ? entry.cast : [],
     videos: Array.isArray(entry?.videos) ? entry.videos : [],
@@ -83,13 +85,18 @@ export function mergeSearchDetail(entry, detail) {
   if (!detail || !sameIdentity) return fallback
 
   const genreNames = normaliseGenres(detail)
-  const voteAverage = Number.isFinite(Number(detail.voteAverage))
-    ? Number(detail.voteAverage)
+  const enriched = mergeEnrichedTitle(fallback, {
+    ...detail,
+    tmdbId: detail.tmdbId ?? fallback.tmdbId,
+    type: detail.type ?? fallback.type,
+    genreNames,
+  })
+  const voteAverage = Number.isFinite(Number(enriched.voteAverage))
+    ? Number(enriched.voteAverage)
     : fallback.voteAverage
 
   return {
-    ...fallback,
-    ...detail,
+    ...enriched,
     id: fallback.id,
     tmdbId: fallback.tmdbId,
     type: fallback.type,
@@ -97,25 +104,8 @@ export function mergeSearchDetail(entry, detail) {
     providerOffers: fallback.providerOffers || [],
     scope: fallback.scope,
     source: 'tmdb',
-    genres: genreNames.map((name) => ({ name })),
-    genre: genreNames.join(' · ') || fallback.genre,
-    cast: Array.isArray(detail.cast) ? detail.cast : fallback.cast,
-    videos: Array.isArray(detail.videos) ? detail.videos : fallback.videos,
     voteAverage,
     score: formatScore(voteAverage),
-    meta: detail.meta || fallback.meta,
-    artwork: detail.artwork || fallback.artwork || null,
-    collectionId: detail.collectionChecked === true
-      ? detail.collectionId ?? null
-      : fallback.collectionId ?? detail.collectionId ?? null,
-    collectionName: detail.collectionChecked === true
-      ? detail.collectionName || null
-      : fallback.collectionName || detail.collectionName || null,
-    collectionChecked: fallback.type === 'movie'
-      ? detail.collectionChecked === true || fallback.collectionChecked === true
-      : null,
-    collectionDetails: detail.collectionDetails || fallback.collectionDetails || null,
-    metadataVersion: Math.max(Number(detail.metadataVersion) || 0, Number(fallback.metadataVersion) || 0),
     detailSource: detail.completeness || 'discover',
   }
 }

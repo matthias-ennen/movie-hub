@@ -1,6 +1,6 @@
 # Movie Hub – Roadmap
 
-Stand: 17. September 2026
+Stand: 18. September 2026
 
 ## Leitprinzip
 
@@ -27,6 +27,7 @@ Zu den zuletzt abgeschlossenen bzw. abgenommenen Paketen gehören insbesondere:
 - #222 – Einstellungen, Profilsteuerung und Sichtbarkeit
 - #205 – persönliche Daten schützen und SMB-Verbindungen konsolidieren
 - #190 – automatische Hero-Trailer und nativer Trailer-/Teaser-Player
+- #226 – einheitlicher TV-Switch-On/Off-Effekt für Startsequenz und native Player
 
 Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde am 17.09.2026 als zusammenhängender Stand abgenommen.
 

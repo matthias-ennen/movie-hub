@@ -1,4 +1,4 @@
-import { isUsableTitle } from '../catalog/titleMetadata.js'
+import { isUsableTitle, mergeEnrichedTitle } from '../catalog/titleMetadata.js'
 import { getActivePosterRowLimit } from '../profiles/profileExperienceRuntime.js'
 import { buildTmdbImageUrl } from '../services/tmdb.js'
 
@@ -146,9 +146,9 @@ export function mergePublicAndPersonalCatalog(publicTitles = [], personalTitles 
       continue
     }
 
+    const mergedMetadata = mergeEnrichedTitle(existing, personal)
     byKey.set(key, {
-      ...personal,
-      ...existing,
+      ...mergedMetadata,
       tmdbFavorite: personal.tmdbFavorite,
       tmdbWatchlist: personal.tmdbWatchlist,
       tmdbRated: personal.tmdbRated,
@@ -157,22 +157,16 @@ export function mergePublicAndPersonalCatalog(publicTitles = [], personalTitles 
       watchlistOrder: personal.watchlistOrder,
       ratingOrder: personal.ratingOrder,
       syncedAt: personal.syncedAt,
-      ageRating: existing.ageRating ?? personal.ageRating ?? null,
-      providerIds: existing.providerIds?.length ? existing.providerIds : personal.providerIds,
-      artwork: {
-        posterPaths: [...new Set([...(existing.artwork?.posterPaths || []), ...(personal.artwork?.posterPaths || [])])].slice(0, 3),
-        heroBackdropPaths: [...new Set([...(existing.artwork?.heroBackdropPaths || []), ...(personal.artwork?.heroBackdropPaths || [])])].slice(0, 3),
-      },
       collectionId: existing.collectionChecked === true
         ? existing.collectionId ?? null
-        : personal.collectionId ?? existing.collectionId ?? null,
+        : mergedMetadata.collectionId,
       collectionName: existing.collectionChecked === true
         ? existing.collectionName || null
-        : personal.collectionName || existing.collectionName || null,
-      collectionChecked: existing.collectionChecked === true || personal.collectionChecked === true,
-      collectionDetails: existing.collectionDetails || personal.collectionDetails || null,
-      metadataVersion: Math.max(Number(existing.metadataVersion) || 0, Number(personal.metadataVersion) || 0),
-      metadataComplete: existing.metadataComplete === true || personal.metadataComplete === true,
+        : mergedMetadata.collectionName,
+      collectionChecked: existing.collectionChecked === true || mergedMetadata.collectionChecked === true,
+      collectionDetails: existing.collectionChecked === true
+        ? existing.collectionDetails || null
+        : mergedMetadata.collectionDetails,
       metadataUpdatedAt: existing.metadataUpdatedAt || personal.metadataUpdatedAt || personal.syncedAt || null,
     })
   }

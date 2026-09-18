@@ -106,6 +106,21 @@ describe('skalierbarer Movie-Hub-Suchindex', () => {
     expect(result.results.every((entry) => entry.scope === 'personal')).toBe(true)
   })
 
+  it('behält beim Zusammenführen die kanonischen öffentlichen Suchfelder', () => {
+    const publicEntries = buildSearchIndexEntries([
+      title({ title: 'Blade Runner', posterUrl: 'https://image.example/public.jpg' }),
+    ])
+    const personalEntries = buildSearchIndexEntries([
+      title({ title: 'TMDB #1', posterUrl: null, providerIds: [] }),
+    ], { scope: 'personal' })
+    const [merged] = mergeSearchIndexEntries(publicEntries, personalEntries)
+
+    expect(merged.title).toBe('Blade Runner')
+    expect(merged.posterUrl).toBe('https://image.example/public.jpg')
+    expect(merged.scope).toBe('personal')
+    expect(merged.providerIds).toEqual(['prime'])
+  })
+
   it('limits the rendered result set while reporting the full match count', () => {
     const entries = Array.from({ length: SEARCH_RESULT_LIMIT + 15 }, (_, index) => title({
       id: `tmdb-movie-${index + 1}`,

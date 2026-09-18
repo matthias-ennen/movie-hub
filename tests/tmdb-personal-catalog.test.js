@@ -83,6 +83,53 @@ describe('persönlicher TMDB-Katalog', () => {
     expect(merged[0].ageRating).toBe(16)
   })
 
+  it('lässt einen persönlichen Snapshot keine öffentlichen Trailer oder Anbieter löschen', () => {
+    const publicTitle = {
+      id: 'tmdb-movie-693134',
+      source: 'tmdb',
+      type: 'movie',
+      tmdbId: 693134,
+      title: 'Dune: Part Two',
+      videos: [{ id: 'trailer-1', site: 'YouTube', key: 'abc' }],
+      cast: [{ id: 1, name: 'Timothée Chalamet' }],
+      providerIds: ['prime'],
+      providerOffers: [{ id: 'prime', offerTypes: ['flatrate'] }],
+    }
+    const merged = mergePublicAndPersonalCatalog([publicTitle], [normalizePersonalTmdbTitle(dune)])
+
+    expect(merged[0].videos).toEqual(publicTitle.videos)
+    expect(merged[0].cast).toEqual(publicTitle.cast)
+    expect(merged[0].providerIds).toEqual(['prime'])
+    expect(merged[0].providerOffers).toEqual(publicTitle.providerOffers)
+    expect(merged[0].tmdbFavorite).toBe(true)
+  })
+
+  it('lässt einen persönlichen Snapshot keine kanonisch geprüfte Collection überschreiben', () => {
+    const publicTitle = {
+      id: 'tmdb-movie-693134',
+      source: 'tmdb',
+      type: 'movie',
+      tmdbId: 693134,
+      title: 'Dune: Part Two',
+      collectionId: 726871,
+      collectionName: 'Dune-Filmreihe',
+      collectionChecked: true,
+      collectionDetails: { id: 726871, parts: [{ id: 693134 }] },
+    }
+    const stalePersonal = normalizePersonalTmdbTitle({
+      ...dune,
+      collectionId: null,
+      collectionName: null,
+      collectionChecked: true,
+      collectionDetails: null,
+    })
+    const merged = mergePublicAndPersonalCatalog([publicTitle], [stalePersonal])
+
+    expect(merged[0].collectionId).toBe(726871)
+    expect(merged[0].collectionName).toBe('Dune-Filmreihe')
+    expect(merged[0].collectionDetails).toEqual(publicTitle.collectionDetails)
+  })
+
   it('nimmt einen persönlichen TMDB-Titel außerhalb des Anbieterbestands als regulären Titel auf', () => {
     const personalOnly = normalizePersonalTmdbTitle({
       tmdbId: 928,

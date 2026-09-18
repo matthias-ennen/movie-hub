@@ -80,6 +80,35 @@ describe('lazy search details', () => {
     expect(merged.detailSource).toBe('discover')
   })
 
+  it('lässt leere Suchdetails vorhandene Trailer und weitere Katalogdaten nicht löschen', () => {
+    const base = entry({
+      description: 'Kanonische Beschreibung',
+      videos: [{ id: 'trailer-1', site: 'YouTube', key: 'abc' }],
+      cast: [{ id: 1, name: 'Darsteller' }],
+      genres: [{ id: 18, name: 'Drama' }],
+      genreNames: ['Drama'],
+      artwork: { posterPaths: ['/poster.jpg'], heroBackdropPaths: ['/backdrop.jpg'] },
+    })
+    const merged = mergeSearchDetail(base, {
+      id: base.id,
+      tmdbId: base.tmdbId,
+      type: base.type,
+      description: '',
+      videos: [],
+      cast: [],
+      genres: [],
+      genreNames: [],
+      artwork: { posterPaths: [], heroBackdropPaths: [] },
+      completeness: 'discover',
+    })
+
+    expect(merged.description).toBe('Kanonische Beschreibung')
+    expect(merged.videos).toEqual(base.videos)
+    expect(merged.cast).toEqual(base.cast)
+    expect(merged.genre).toBe('Drama')
+    expect(merged.artwork).toEqual(base.artwork)
+  })
+
   it('loads only the matching shard and reuses the persistent cache afterwards', async () => {
     const fakeStorage = storage()
     const fetchImpl = vi.fn(async (url) => ({

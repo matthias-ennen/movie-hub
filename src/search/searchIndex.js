@@ -94,8 +94,8 @@ export function mergeSearchIndexEntries(publicEntries, personalEntries) {
     }
 
     merged.set(personalEntry.id, {
-      ...current,
       ...personalEntry,
+      ...current,
       scope: 'personal',
       providerOffers: [...providerOffers.values()],
       providerIds: [...new Set([...(current.providerIds || []), ...(personalEntry.providerIds || [])])],
