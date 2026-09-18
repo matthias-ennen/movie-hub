@@ -1,39 +1,64 @@
 import { useEffect } from 'react'
 
+export const INITIAL_HOME_FOCUS_EVENT = 'moviehub:startup-focus-ready'
+
+export function getInitialHomeFocusTarget(root = document) {
+  return root.querySelector('.hero-carousel[data-focusable="true"]')
+    || root.querySelector('.main-nav .nav-link:first-child')
+}
+
 /**
- * Setzt genau beim ersten Erscheinen der angemeldeten Hauptnavigation den Fokus
- * auf Home. Danach wird der Observer vollständig entfernt, sodass spätere
- * Re-Renders oder Rückkehr nach Home den aktuellen Fokus nicht überschreiben.
+ * Setzt den initialen Fokus auf den ersten Home-Hero. Im nativen Wrapper wartet
+ * die Weboberfläche damit bis die Startsequenz vollständig entfernt wurde,
+ * damit der Hero-Timer nicht verdeckt hinter dem Intro beginnt. Ohne Hero dient
+ * der Navigationspunkt Home als kontrollierter Rückfall.
  */
 export default function InitialHomeFocus() {
   useEffect(() => {
     let done = false
     let frame = null
+    let observer = null
 
-    const focusHome = () => {
+    const focusInitialTarget = () => {
       if (done) return true
-      const homeButton = document.querySelector('.main-nav .nav-link:first-child')
-      if (!(homeButton instanceof HTMLElement)) return false
+      const target = getInitialHomeFocusTarget()
+      if (!(target instanceof HTMLElement)) return false
 
       done = true
       frame = window.requestAnimationFrame(() => {
-        if (homeButton.isConnected) homeButton.focus({ preventScroll: true })
+        if (target.isConnected) target.focus({ preventScroll: true })
       })
       return true
     }
 
-    if (focusHome()) return () => window.cancelAnimationFrame(frame)
+    const nativeStartup = typeof window.MovieHubNative?.notifyStartupReady === 'function'
+    const observeUntilTargetExists = () => {
+      if (done || observer) return
+      observer = new MutationObserver(() => {
+        if (focusInitialTarget()) {
+          observer.disconnect()
+          observer = null
+        }
+      })
+      observer.observe(document.getElementById('root') ?? document.body, {
+        childList: true,
+        subtree: true,
+      })
+    }
+    const handleNativeStartupFocus = () => {
+      if (!focusInitialTarget()) observeUntilTargetExists()
+    }
 
-    const observer = new MutationObserver(() => {
-      if (focusHome()) observer.disconnect()
-    })
-    observer.observe(document.getElementById('root') ?? document.body, {
-      childList: true,
-      subtree: true,
-    })
+    if (nativeStartup) {
+      window.addEventListener(INITIAL_HOME_FOCUS_EVENT, handleNativeStartupFocus)
+      if (window.__movieHubStartupFocusReady) handleNativeStartupFocus()
+    } else if (!focusInitialTarget()) {
+      observeUntilTargetExists()
+    }
 
     return () => {
-      observer.disconnect()
+      observer?.disconnect()
+      window.removeEventListener(INITIAL_HOME_FOCUS_EVENT, handleNativeStartupFocus)
       if (frame !== null) window.cancelAnimationFrame(frame)
     }
   }, [])

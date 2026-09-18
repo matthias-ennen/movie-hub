@@ -17,3 +17,7 @@ export function resolveHeroTimerAction(currentIndex, heroCount, hasTrailer) {
 export function didTrailerComplete(outcome) {
   return outcome === 'completed'
 }
+
+export function shouldPreserveHeroSessionOnBlur(pendingTrailerRequest) {
+  return Boolean(pendingTrailerRequest)
+}

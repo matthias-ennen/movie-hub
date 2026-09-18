@@ -42,6 +42,7 @@ public final class MainActivity extends ComponentActivity {
     private static final String MOVIE_HUB_HOST = "movie-hub-62459.web.app";
     private static final String FIREBASE_AUTH_HOST = "movie-hub-62459.firebaseapp.com";
     private static final long STARTUP_TIMEOUT_MS = 12_000L;
+    private static final String STARTUP_FOCUS_READY_EVENT = "moviehub:startup-focus-ready";
 
     private FrameLayout container;
     private WebView webView;
@@ -271,6 +272,9 @@ public final class MainActivity extends ComponentActivity {
             retryButton.requestFocus();
         } else if (webView.getVisibility() == View.VISIBLE) {
             webView.requestFocus();
+            String script = "window.__movieHubStartupFocusReady=true;"
+                    + "window.dispatchEvent(new Event('" + STARTUP_FOCUS_READY_EVENT + "'));";
+            webView.post(() -> webView.evaluateJavascript(script, null));
         }
     }
 

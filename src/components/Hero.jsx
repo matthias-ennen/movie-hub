@@ -14,6 +14,7 @@ import {
   HERO_POST_TRAILER_DELAY_MS,
   HERO_TRAILER_RESULT_EVENT,
   resolveHeroTimerAction,
+  shouldPreserveHeroSessionOnBlur,
 } from './heroAutoplay.js'
 import { selectHeroTrailer, selectHeroVideo } from './heroTrailer.js'
 
@@ -248,6 +249,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
 
   function handleHeroBlur(event) {
     if (event.currentTarget.contains(event.relatedTarget)) return
+    if (shouldPreserveHeroSessionOnBlur(trailerRequestRef.current)) return
     invalidateTrailerRequest()
     focusedElementRef.current = null
     setHeroFocused(false)

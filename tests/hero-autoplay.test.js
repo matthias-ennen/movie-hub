@@ -4,6 +4,7 @@ import {
   getNextAutomaticHeroIndex,
   HERO_POST_TRAILER_DELAY_MS,
   resolveHeroTimerAction,
+  shouldPreserveHeroSessionOnBlur,
 } from '../src/components/heroAutoplay.js'
 
 describe('automatische Hero-Sequenz', () => {
@@ -33,5 +34,10 @@ describe('automatische Hero-Sequenz', () => {
     expect(didTrailerComplete('dismissed')).toBe(false)
     expect(didTrailerComplete('error')).toBe(false)
     expect(HERO_POST_TRAILER_DELAY_MS).toBe(3_000)
+  })
+
+  it('bewahrt die Hero-Sitzung beim Fokuswechsel zum nativen Trailerplayer', () => {
+    expect(shouldPreserveHeroSessionOnBlur({ requestId: 'hero-1' })).toBe(true)
+    expect(shouldPreserveHeroSessionOnBlur(null)).toBe(false)
   })
 })
