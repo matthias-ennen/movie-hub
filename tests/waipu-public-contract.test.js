@@ -93,10 +93,11 @@ describe('Waipu public contract probe', () => {
 
   it('calculates pilot and full request costs without sending requests', () => {
     expect(buildRequestMatrix(398)).toEqual([
-      expect.objectContaining({ stations: 5, initialGridRequestsFor16Days: 480 }),
-      expect.objectContaining({ stations: 20, initialGridRequestsFor16Days: 1_920 }),
-      expect.objectContaining({ stations: 50, initialGridRequestsFor16Days: 4_800 }),
-      expect.objectContaining({ stations: 398, initialGridRequestsFor16Days: 38_208 }),
+      expect.objectContaining({ stations: 5, initialGridRequestsFor14Days: 420 }),
+      expect.objectContaining({ stations: 7, initialGridRequestsFor14Days: 588 }),
+      expect.objectContaining({ stations: 20, initialGridRequestsFor14Days: 1_680 }),
+      expect.objectContaining({ stations: 50, initialGridRequestsFor14Days: 4_200 }),
+      expect.objectContaining({ stations: 398, initialGridRequestsFor14Days: 33_432 }),
     ])
   })
 
