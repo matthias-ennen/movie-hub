@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { rmSync } from 'node:fs'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -32,6 +33,17 @@ const DEFAULT_FUTURE_REFRESH_HOURS = 24
 const DEFAULT_LOCK_STALE_MS = 4 * 60 * 60 * 1_000
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const activeProcessLocks = new Set()
+
+process.once('exit', () => {
+  for (const lockPath of activeProcessLocks) {
+    try {
+      rmSync(lockPath, { recursive: true, force: true })
+    } catch {
+      // Der persistente Stale-Lock-Mechanismus bleibt die Absturzreserve.
+    }
+  }
+})
 
 const ERROR_MESSAGES = Object.freeze({
   INVALID_STAGE: 'Die angeforderte Waipu-Ausbaustufe ist ungültig oder noch nicht freigegeben.',
@@ -204,8 +216,20 @@ async function acquireLock(lockPath, { now, staleAfterMs }) {
     await rm(stalePath, { recursive: true, force: true })
     return acquireLock(lockPath, { now, staleAfterMs })
   }
-  await writeJsonAtomic(resolve(lockPath, 'owner.json'), { pid: process.pid, startedAt })
-  return async () => rm(lockPath, { recursive: true, force: true })
+  try {
+    await writeJsonAtomic(resolve(lockPath, 'owner.json'), { pid: process.pid, startedAt })
+    activeProcessLocks.add(lockPath)
+  } catch (error) {
+    await rm(lockPath, { recursive: true, force: true })
+    throw error
+  }
+  return async () => {
+    try {
+      await rm(lockPath, { recursive: true, force: true })
+    } finally {
+      activeProcessLocks.delete(lockPath)
+    }
+  }
 }
 
 export async function withWaipuSingleFlight(lockPath, task, options = {}) {
