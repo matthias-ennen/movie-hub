@@ -10,4 +10,12 @@
              darf der native Container nicht zusätzlich optisch mitziehen. -->
         <item name="android:overScrollMode">never</item>
     </style>
+
+    <style name="Theme.MovieHub.Player" parent="Theme.MovieHub">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowDisablePreview">true</item>
+    </style>
 </resources>

@@ -2,13 +2,10 @@ package de.matthiasennen.moviehub;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
-import android.animation.AnimatorSet;
-import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.app.Application;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.TypedValue;
@@ -19,7 +16,6 @@ import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
-import android.view.animation.AccelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -31,8 +27,8 @@ import android.widget.TextView;
 final class StartupIntroOverlay {
     static final long MIN_LOGO_HOLD_MS = 5_000L;
     static final long MAX_LOGO_HOLD_MS = 12_000L;
-    static final long CRT_COLLAPSE_MS = 650L;
-    static final long CRT_LINE_MS = 350L;
+    static final long CRT_COLLAPSE_MS = CrtTransitionAnimator.PANEL_TRANSITION_MS;
+    static final long CRT_LINE_MS = CrtTransitionAnimator.LINE_TRANSITION_MS;
 
     private static boolean consumed;
     private static StartupSession activeSession;
@@ -114,15 +110,10 @@ final class StartupIntroOverlay {
                 Gravity.CENTER);
         collapseLayer.addView(logo, logoParams);
 
-        View glowLine = createPhosphorLine(activity, dp(activity, 12), Color.rgb(86, 181, 238));
-        glowLine.setAlpha(0f);
-        glowLine.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-        overlay.addView(glowLine, lineParams(activity, dp(activity, 12)));
-
-        View coreLine = createPhosphorLine(activity, Math.max(1, dp(activity, 2)), Color.rgb(225, 247, 255));
-        coreLine.setAlpha(0f);
-        coreLine.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-        overlay.addView(coreLine, lineParams(activity, Math.max(1, dp(activity, 2))));
+        View glowLine = CrtTransitionAnimator.createGlowLine(activity);
+        View coreLine = CrtTransitionAnimator.createCoreLine(activity);
+        overlay.addView(glowLine, CrtTransitionAnimator.glowLineParams(activity));
+        overlay.addView(coreLine, CrtTransitionAnimator.coreLineParams(activity));
 
         // Add directly to DecorView, not android.R.id.content. This is the
         // uppermost Activity window layer and therefore covers the complete
@@ -147,6 +138,7 @@ final class StartupIntroOverlay {
         private final StartupGate gate = new StartupGate();
         private final Runnable minimumTimer = this::onMinimumElapsed;
         private final Runnable maximumTimer = this::onMaximumElapsed;
+        private Animator activeAnimator;
         private boolean finished;
 
         StartupSession(
@@ -163,8 +155,23 @@ final class StartupIntroOverlay {
         }
 
         void start() {
+            CrtTransitionAnimator.prepareSwitchOn(collapseLayer, glowLine, coreLine);
+            overlay.post(this::startSwitchOn);
             overlay.postDelayed(minimumTimer, MIN_LOGO_HOLD_MS);
             overlay.postDelayed(maximumTimer, MAX_LOGO_HOLD_MS);
+        }
+
+        private void startSwitchOn() {
+            if (finished || !overlay.isAttachedToWindow()) return;
+            activeAnimator = CrtTransitionAnimator.createSwitchOn(
+                    collapseLayer, glowLine, coreLine);
+            activeAnimator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    if (activeAnimator == animation) activeAnimator = null;
+                }
+            });
+            activeAnimator.start();
         }
 
         boolean belongsTo(Activity candidate) {
@@ -192,18 +199,36 @@ final class StartupIntroOverlay {
             }
 
             cancelTimers();
-            startCrtShutdown(
-                    overlay,
-                    collapseLayer,
-                    glowLine,
-                    coreLine,
-                    this::finish);
+            overlay.setBackgroundColor(Color.TRANSPARENT);
+            activeAnimator = CrtTransitionAnimator.createSwitchOff(
+                    collapseLayer, glowLine, coreLine);
+            activeAnimator.addListener(new AnimatorListenerAdapter() {
+                private boolean handled;
+
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    complete();
+                }
+
+                @Override
+                public void onAnimationCancel(Animator animation) {
+                    complete();
+                }
+
+                private void complete() {
+                    if (handled) return;
+                    handled = true;
+                    finish();
+                }
+            });
+            activeAnimator.start();
         }
 
         private void finish() {
             if (finished) return;
             finished = true;
             cancelTimers();
+            cancelAnimation();
             removeOverlay(overlay);
             if (activeSession == this) activeSession = null;
             activity.restoreStartupFocus();
@@ -213,6 +238,7 @@ final class StartupIntroOverlay {
             if (finished) return;
             finished = true;
             cancelTimers();
+            cancelAnimation();
             removeOverlay(overlay);
             if (activeSession == this) activeSession = null;
         }
@@ -220,6 +246,13 @@ final class StartupIntroOverlay {
         private void cancelTimers() {
             overlay.removeCallbacks(minimumTimer);
             overlay.removeCallbacks(maximumTimer);
+        }
+
+        private void cancelAnimation() {
+            if (activeAnimator == null) return;
+            activeAnimator.removeAllListeners();
+            activeAnimator.cancel();
+            activeAnimator = null;
         }
     }
 
@@ -281,93 +314,6 @@ final class StartupIntroOverlay {
         text.setIncludeFontPadding(false);
         text.setGravity(Gravity.CENTER);
         return text;
-    }
-
-    private static View createPhosphorLine(Activity activity, int height, int color) {
-        View line = new View(activity);
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(color);
-        background.setCornerRadius(Math.max(1f, height / 2f));
-        line.setBackground(background);
-        return line;
-    }
-
-    private static FrameLayout.LayoutParams lineParams(Activity activity, int height) {
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                height,
-                Gravity.CENTER);
-        int sideMargin = Math.round(activity.getResources().getDisplayMetrics().widthPixels * 0.11f);
-        params.leftMargin = sideMargin;
-        params.rightMargin = sideMargin;
-        return params;
-    }
-
-    private static void startCrtShutdown(
-            FrameLayout overlay,
-            FrameLayout collapseLayer,
-            View glowLine,
-            View coreLine,
-            Runnable onFinished) {
-
-        // From this point the collapsing black panel itself provides the black
-        // image. Making only the overlay background transparent allows the
-        // already loaded Movie Hub surface to be revealed by the CRT collapse.
-        overlay.setBackgroundColor(Color.TRANSPARENT);
-
-        AccelerateInterpolator collapseInterpolator = new AccelerateInterpolator(1.35f);
-
-        ObjectAnimator collapseY = ObjectAnimator.ofFloat(collapseLayer, View.SCALE_Y, 1f, 0.008f);
-        collapseY.setDuration(CRT_COLLAPSE_MS);
-        collapseY.setInterpolator(collapseInterpolator);
-
-        ObjectAnimator recedeX = ObjectAnimator.ofFloat(collapseLayer, View.SCALE_X, 1f, 0.965f);
-        recedeX.setDuration(CRT_COLLAPSE_MS);
-        recedeX.setInterpolator(collapseInterpolator);
-
-        ObjectAnimator coreAppear = ObjectAnimator.ofFloat(coreLine, View.ALPHA, 0f, 1f);
-        coreAppear.setStartDelay(500L);
-        coreAppear.setDuration(150L);
-
-        ObjectAnimator glowAppear = ObjectAnimator.ofFloat(glowLine, View.ALPHA, 0f, 0.52f);
-        glowAppear.setStartDelay(500L);
-        glowAppear.setDuration(150L);
-
-        AnimatorSet collapse = new AnimatorSet();
-        collapse.playTogether(collapseY, recedeX, coreAppear, glowAppear);
-
-        ObjectAnimator panelFade = ObjectAnimator.ofFloat(collapseLayer, View.ALPHA, 1f, 0f);
-        panelFade.setDuration(90L);
-
-        ObjectAnimator coreShrink = ObjectAnimator.ofFloat(coreLine, View.SCALE_X, 1f, 0f);
-        coreShrink.setDuration(CRT_LINE_MS);
-        coreShrink.setInterpolator(new AccelerateInterpolator(1.2f));
-        ObjectAnimator coreFade = ObjectAnimator.ofFloat(coreLine, View.ALPHA, 1f, 1f, 0f);
-        coreFade.setDuration(CRT_LINE_MS);
-
-        ObjectAnimator glowShrink = ObjectAnimator.ofFloat(glowLine, View.SCALE_X, 1f, 0f);
-        glowShrink.setDuration(CRT_LINE_MS);
-        glowShrink.setInterpolator(new AccelerateInterpolator(1.2f));
-        ObjectAnimator glowFade = ObjectAnimator.ofFloat(glowLine, View.ALPHA, 0.52f, 0.45f, 0f);
-        glowFade.setDuration(CRT_LINE_MS);
-
-        AnimatorSet lineCollapse = new AnimatorSet();
-        lineCollapse.playTogether(panelFade, coreShrink, coreFade, glowShrink, glowFade);
-
-        AnimatorSet shutdown = new AnimatorSet();
-        shutdown.playSequentially(collapse, lineCollapse);
-        shutdown.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                onFinished.run();
-            }
-
-            @Override
-            public void onAnimationCancel(Animator animation) {
-                onFinished.run();
-            }
-        });
-        shutdown.start();
     }
 
     private static void removeOverlay(View overlay) {

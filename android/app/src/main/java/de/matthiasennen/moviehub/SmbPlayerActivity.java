@@ -54,6 +54,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
     private TextView statusView;
     private TextView titleView;
     private Button closeButton;
+    private PlayerCrtTransition crtTransition;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -63,7 +64,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                finish();
+                requestClose();
             }
         });
 
@@ -87,7 +88,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
             showStatus("Für " + location.getDisplayEndpoint()
                     + " fehlen lokale Zugangsdaten. Bitte unter Einstellungen → Netzlaufwerke einrichten.");
         } else {
-            startPlayback();
+            crtTransition.runWhenVisible(this::startPlayback);
         }
     }
 
@@ -136,7 +137,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
         closeButton.setBackground(makeCloseBackground(false));
         closeButton.setOnFocusChangeListener((view, focused) ->
                 view.setBackground(makeCloseBackground(focused)));
-        closeButton.setOnClickListener(view -> finish());
+        closeButton.setOnClickListener(view -> requestClose());
         closeButton.setContentDescription("Player schließen");
         FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(
                 dp(48), dp(48), Gravity.TOP | Gravity.END);
@@ -155,7 +156,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
         statusParams.setMargins(dp(48), 0, dp(48), 0);
         root.addView(statusView, statusParams);
 
-        setContentView(root);
+        crtTransition = PlayerCrtTransition.install(this, root, this::finishImmediately);
     }
 
     private GradientDrawable makeCloseBackground(boolean focused) {
@@ -211,6 +212,8 @@ public final class SmbPlayerActivity extends ComponentActivity {
                         statusView.setVisibility(View.GONE);
                     } else if (playbackState == Player.STATE_BUFFERING) {
                         showStatus("Netzwerkvideo wird geladen …");
+                    } else if (playbackState == Player.STATE_ENDED) {
+                        requestClose();
                     }
                 }
 
@@ -265,6 +268,20 @@ public final class SmbPlayerActivity extends ComponentActivity {
         }
     }
 
+    private void requestClose() {
+        if (player != null) player.pause();
+        if (crtTransition == null) {
+            finishImmediately();
+            return;
+        }
+        crtTransition.requestClose();
+    }
+
+    private void finishImmediately() {
+        super.finish();
+        overridePendingTransition(0, 0);
+    }
+
     @Override
     protected void onPause() {
         if (player != null) player.pause();
@@ -273,6 +290,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
 
     @Override
     protected void onDestroy() {
+        if (crtTransition != null) crtTransition.destroy();
         releasePlayer();
         super.onDestroy();
     }

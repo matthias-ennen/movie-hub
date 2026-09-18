@@ -36,6 +36,7 @@ public final class TrailerPlayerActivity extends ComponentActivity {
     private float touchStartX;
     private float touchStartY;
     private boolean touchTracking;
+    private PlayerCrtTransition crtTransition;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -51,7 +52,7 @@ public final class TrailerPlayerActivity extends ComponentActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                finish();
+                requestClose();
             }
         });
 
@@ -60,7 +61,7 @@ public final class TrailerPlayerActivity extends ComponentActivity {
             return;
         }
 
-        startYouTubePlayer(videoId, soundEnabled);
+        crtTransition.runWhenVisible(() -> startYouTubePlayer(videoId, soundEnabled));
     }
 
     @SuppressLint({"SetJavaScriptEnabled", "ClickableViewAccessibility"})
@@ -104,7 +105,7 @@ public final class TrailerPlayerActivity extends ComponentActivity {
         root.addView(statusView, statusParams);
         statusView.setVisibility(View.GONE);
 
-        setContentView(root);
+        crtTransition = PlayerCrtTransition.install(this, root, this::finishImmediately);
     }
 
     private boolean handlePlayerTouch(MotionEvent event) {
@@ -132,7 +133,7 @@ public final class TrailerPlayerActivity extends ComponentActivity {
 
                 if (horizontal >= threshold
                         && horizontal > vertical * SWIPE_HORIZONTAL_DOMINANCE) {
-                    finish();
+                    requestClose();
                     return true;
                 }
                 return false;
@@ -182,7 +183,7 @@ public final class TrailerPlayerActivity extends ComponentActivity {
 
         @JavascriptInterface
         public void ended() {
-            runOnUiThread(() -> finish());
+            runOnUiThread(() -> requestClose());
         }
 
         @JavascriptInterface
@@ -195,6 +196,24 @@ public final class TrailerPlayerActivity extends ComponentActivity {
     private void showStatus(String message) {
         statusView.setText(message);
         statusView.setVisibility(View.VISIBLE);
+    }
+
+    private void requestClose() {
+        if (playerWebView != null) {
+            playerWebView.evaluateJavascript(
+                    "try{if(p)p.pauseVideo();}catch(e){}",
+                    null);
+        }
+        if (crtTransition == null) {
+            finishImmediately();
+            return;
+        }
+        crtTransition.requestClose();
+    }
+
+    private void finishImmediately() {
+        super.finish();
+        overridePendingTransition(0, 0);
     }
 
     @Override
@@ -218,6 +237,7 @@ public final class TrailerPlayerActivity extends ComponentActivity {
 
     @Override
     protected void onDestroy() {
+        if (crtTransition != null) crtTransition.destroy();
         if (playerWebView != null) {
             playerWebView.loadUrl("about:blank");
             playerWebView.removeJavascriptInterface("MovieHubTrailerEvents");
