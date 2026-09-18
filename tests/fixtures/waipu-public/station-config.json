@@ -1,0 +1,22 @@
+{
+  "stations": [
+    {
+      "id": "station-public",
+      "displayName": "Das Erste HD",
+      "logoTemplateUrl": "https://images.example/public/{format}.png",
+      "streamQualities": ["hd"]
+    },
+    {
+      "id": "station-commercial",
+      "displayName": "RTL HD",
+      "logoTemplateUrl": "https://images.example/commercial/{format}.png",
+      "streamQualities": ["hd"]
+    },
+    {
+      "id": "station-culture",
+      "displayName": "arte HD",
+      "logoTemplateUrl": "https://images.example/culture/{format}.png",
+      "streamQualities": ["hd"]
+    }
+  ]
+}

@@ -42,6 +42,54 @@ Movie Hub öffnet SMB ausschließlich als ausgehende Verbindung im Heimnetz. Ein
 
 Die normale Firebase-Web-Konfiguration einschließlich Web-API-Key ist Teil der Client-Konfiguration und ersetzt keine Security Rules. Schutz entsteht durch Authentication, Rules und serverseitige Rechte.
 
+## Waipu-Live-Import
+
+Der geplante Waipu-Live-Import verwendet ausschließlich die ohne Anmeldung
+erreichbaren Sender-, Grid- und Programmdetail-Endpunkte. Movie Hub fragt keine
+Waipu-Zugangsdaten ab, speichert keine Waipu-Token und sendet keine
+persönlichen Kontodaten. Die Fire-TV-/Android-App liest ausschließlich fertige
+Artefakte und erzeugt keine Waipu-Massenrequests.
+
+Der Import läuft als zentraler Single-Flight-Job mit persistentem Sender-,
+Slot-, ETag-, Detail- und TMDB-Matching-Cache. Abgeschlossene Slots werden
+eingefroren. Checkpoints und harte Budgets erlauben eine Fortsetzung in einem
+späteren Wartungsfenster, ohne den Gesamtbestand erneut anzufragen.
+
+Der belegte Startwert für die Produktionsplanung ist eine aktive Anfrage mit
+global 500 bis 650 ms Abstand inklusive Jitter. Höchstens zwei aktive
+Anfragen und ein globaler Startabstand von 350 bis 500 ms sind erst nach sieben
+stabilen geplanten Läufen einer Ausbaustufe zulässig. Unabhängige
+Worker-Bursts, IP-Rotation, Proxy-Wechsel und Header-Tarnung sind verboten.
+
+403 und 429 öffnen den Circuit Breaker und stoppen die automatische
+Fortsetzung bis zur manuellen Prüfung. Bei Timeout oder 5xx sind im
+Produktionsimport höchstens drei Versuche mit exponentiellem Backoff und
+Jitter zulässig. Ungültige, zu große oder schemafremde Antworten brechen
+fail-closed ab. Der letzte gültige Katalog bleibt online; partielle
+Generationen werden nie veröffentlicht.
+
+Da Waipu diese Endpunkte nicht als öffentliche Entwickler-API mit garantierten
+Quoten dokumentiert, bleiben Langzeitmessung, Attribution, Nutzungsrecht und
+Compliance-Gate #112 verbindliche Voraussetzungen. Öffentliche Verteilung ist
+bis zu dieser Prüfung gesperrt.
+
+## Historischer Waipu-Konto-Prototyp
+
+Der frühere Machbarkeitsnachweis ist ein lokaler, rein lesender
+Diagnose-Runner. Er
+verlangt kein Waipu-Passwort, speichert weder Access- noch Refresh-Token und
+schreibt keine EPG- oder Kontodaten nach Firestore. Die für den Gerätefluss
+erforderliche OAuth-Client-Authentifizierung wird ausschließlich zur Laufzeit
+über `WAIPU_OAUTH_CLIENT_AUTH_B64` bereitgestellt und darf weder im Repository
+noch in Workflow-Dateien, Berichten oder Logs abgelegt werden.
+
+Der Diagnosebericht enthält ausschließlich Zähler, HTTP-Statusklassen,
+Antwortgrößen, Feldnamen und den gemessenen EPG-Horizont. Senderkennungen,
+Programmtitel, Program IDs, Gerätecodes, Geräte-ID und vollständige
+API-Antworten werden nicht persistiert. Er gehört nicht mehr zum produktiven
+Umsetzungspfad von #4; eine Tokenablage ist für den öffentlichen Basiskatalog
+nicht vorgesehen.
+
 ## Prüfungen vor Freigabe
 
 - unauthentifizierter Zugriff auf persönliche Daten wird abgewiesen

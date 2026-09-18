@@ -1,0 +1,16 @@
+{
+  "id": "fixture-film-id",
+  "textContent": {
+    "title": "Fixture Film",
+    "titleOriginal": "Fixture Movie",
+    "descLong": "Synthetische Testbeschreibung"
+  },
+  "production": {
+    "year": 2026,
+    "countries": ["DE"]
+  },
+  "contentMeta": {
+    "mainGenre": "Spielfilm"
+  },
+  "imageUrls": []
+}

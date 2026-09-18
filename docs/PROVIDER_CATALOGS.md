@@ -49,6 +49,38 @@ users/{uid}/sharedMedia/{type-tmdbId}/entries/{entryId}
 
 Der übergeordnete Datensatz ist ein automatisch gepflegtes Manifest. Mindestens ein gültiger Eintrag bedeutet Katalogmitgliedschaft; das Löschen des letzten Eintrags entfernt sie. Filme und Serien werden über Medientyp + TMDB-ID dedupliziert. Die App baut daraus **Bei Movie Hub verfügbar**, **Filme bei Movie Hub** und **Serien bei Movie Hub**. Diese persönlichen Daten werden niemals in den öffentlichen Katalog geschrieben.
 
+## Validierter öffentlicher Waipu-Live-Katalog
+
+Der mit #4 geplante Waipu-Live-Katalog ist fachlich kein
+TMDB-/Waiputhek-Katalog. Er wird aus dem öffentlichen Waipu-Senderstamm und
+konkreten künftigen EPG-Ausstrahlungen abgeleitet. Der vollständige
+Sieben-Sender-/14-Tage-Nachweis bestätigte 588/588 Grid-Slots, 2.774 Programme,
+83 Film- und 1.217 Serienkandidaten sowie ausreichende reale Detailfelder.
+
+Die gemeinsame Titelidentität bleibt `Medientyp + TMDB-ID`; Waipu ergänzt nur
+Sender und Sendezeit. Zehn von 13 geprüften Details ließen sich bereits
+eindeutig dem vorhandenen Movie-Hub-Suchindex zuordnen. Offene Kandidaten werden
+nach der lokalen Suche gedrosselt über TMDB gesucht. Mehrdeutige Treffer,
+Gerichtsshows, Doku-Soaps und andere ungeeignete Programme bleiben durch
+Mindestscore, Trefferabstand, Untergenreprüfung und Unsicherheits-Gate
+unsichtbar.
+
+`waipu-live` und eine mögliche spätere Quelle `waipu-vod` bleiben getrennt.
+Eine lineare Ausstrahlung darf niemals als dauerhafte
+Waiputhek-Verfügbarkeit dargestellt werden. Der öffentliche Senderstamm
+beweist außerdem keine Freischaltung im persönlichen Waipu-Paket.
+
+Der zentrale, checkpoint-basierte Import veröffentlicht getrennte Artefakte:
+
+- kompakten Titelindex für `Waipu Live`-Badges und nächste Sendetermine;
+- Senderindex mit Logos und Datenstand;
+- senderweise 14-Tage-Dateien für die spätere TV-Registerkarte;
+- Statusindex mit Schema, Horizont, Zählern und Importzustand.
+
+Die Fire-TV-/Android-App ruft die Waipu-EPG-Endpunkte nicht selbst auf. Der
+letzte vollständig validierte Katalog bleibt bei Netz-, Schema- oder
+Teilausfällen online.
+
 ## Angebotsarten: Browse-Katalog und Suche sind getrennt
 
 TMDB/JustWatch kann einen Titel je Anbieter mit unterschiedlichen Angebotsarten melden. Movie Hub behält diese strukturiert als `offerTypes` am Anbieterangebot:
@@ -161,7 +193,9 @@ Für die öffentlichen Anbieter-Kataloge werden in diesem Paket **keine neuen Fi
 
 Firestore bleibt für persönliche bzw. kontobezogene Daten zuständig. Dadurch entstehen keine fünffachen Kopien derselben öffentlichen Katalogdaten pro Nutzer und keine unnötigen Firestore-Lese-/Schreibkosten.
 
-Eine spätere schnell aktualisierte Datenquelle, beispielsweise für echtes waipu.tv-Live-TV/EPG, kann unabhängig davon als eigener öffentlicher Feed oder Cache ergänzt werden.
+Der geplante Waipu-Live-Katalog ist ein zentral erzeugter öffentlicher
+Katalogbestand und wird nicht pro Nutzer unter einer UID dupliziert. Ein
+späterer persönlicher Paketfilter wäre eine getrennte optionale Ebene.
 
 ## Datenquelle und Attribution
 
