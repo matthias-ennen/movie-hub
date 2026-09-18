@@ -63,6 +63,8 @@ final class StartupIntroOverlay {
         activity.runOnUiThread(() -> {
             if (activeSession != null && activeSession.belongsTo(activity)) {
                 activeSession.onContentReady();
+            } else {
+                activity.restoreStartupFocus();
             }
         });
     }

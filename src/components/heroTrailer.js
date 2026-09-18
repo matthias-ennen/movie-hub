@@ -13,3 +13,13 @@ export function selectHeroVideo(videos) {
     || normalized.find((video) => String(video.type || '').toLowerCase() === 'teaser')
     || null
 }
+
+export function selectHeroTrailer(videos) {
+  const candidates = Array.isArray(videos) ? videos : []
+  return candidates.find((video) => (
+    video
+    && String(video.site || '').toLowerCase() === 'youtube'
+    && YOUTUBE_KEY_PATTERN.test(String(video.key || ''))
+    && String(video.type || '').toLowerCase() === 'trailer'
+  )) || null
+}

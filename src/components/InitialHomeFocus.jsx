@@ -1,40 +1,90 @@
 import { useEffect } from 'react'
 
+export const INITIAL_HOME_FOCUS_EVENT = 'moviehub:startup-focus-ready'
+export const LEGACY_NATIVE_STARTUP_FOCUS_DELAY_MS = 12_000
+
+export function supportsNativeStartupFocusEvent(bridge) {
+  if (!bridge) return false
+  try {
+    if (typeof bridge.getHeroSequenceContractVersion === 'function') {
+      return Number(bridge.getHeroSequenceContractVersion()) >= 1
+    }
+    return typeof bridge.getAppBuild === 'function' && Number(bridge.getAppBuild()) >= 403
+  } catch {
+    return false
+  }
+}
+
+export function getInitialHomeFocusTarget(root = document) {
+  const hero = root.querySelector('.hero-carousel[data-focusable="true"]')
+  if (hero) return hero
+
+  const homePageReady = root.querySelector('main[data-page-load-state="rows"]')
+  if (!homePageReady) return null
+
+  return root.querySelector('.main-nav .nav-link:first-child')
+}
+
 /**
- * Setzt genau beim ersten Erscheinen der angemeldeten Hauptnavigation den Fokus
- * auf Home. Danach wird der Observer vollständig entfernt, sodass spätere
- * Re-Renders oder Rückkehr nach Home den aktuellen Fokus nicht überschreiben.
+ * Setzt den initialen Fokus auf den ersten Home-Hero. Im nativen Wrapper wartet
+ * die Weboberfläche damit bis die Startsequenz vollständig entfernt wurde,
+ * damit der Hero-Timer nicht verdeckt hinter dem Intro beginnt. Ohne Hero dient
+ * der Navigationspunkt Home als kontrollierter Rückfall.
  */
 export default function InitialHomeFocus() {
   useEffect(() => {
     let done = false
-    let frame = null
+    let observer = null
+    let legacyFallbackTimer = null
 
-    const focusHome = () => {
+    const focusInitialTarget = () => {
       if (done) return true
-      const homeButton = document.querySelector('.main-nav .nav-link:first-child')
-      if (!(homeButton instanceof HTMLElement)) return false
+      const target = getInitialHomeFocusTarget()
+      if (!(target instanceof HTMLElement)) return false
+      if (!target.isConnected) return false
 
+      target.focus({ preventScroll: true })
       done = true
-      frame = window.requestAnimationFrame(() => {
-        if (homeButton.isConnected) homeButton.focus({ preventScroll: true })
-      })
       return true
     }
 
-    if (focusHome()) return () => window.cancelAnimationFrame(frame)
+    const nativeBridge = window.MovieHubNative
+    const nativeStartup = supportsNativeStartupFocusEvent(nativeBridge)
+    const observeUntilTargetExists = () => {
+      if (done || observer) return
+      observer = new MutationObserver(() => {
+        if (focusInitialTarget()) {
+          observer.disconnect()
+          observer = null
+        }
+      })
+      observer.observe(document.getElementById('root') ?? document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['data-page-load-state'],
+      })
+    }
+    const handleNativeStartupFocus = () => {
+      if (!focusInitialTarget()) observeUntilTargetExists()
+    }
 
-    const observer = new MutationObserver(() => {
-      if (focusHome()) observer.disconnect()
-    })
-    observer.observe(document.getElementById('root') ?? document.body, {
-      childList: true,
-      subtree: true,
-    })
+    if (nativeStartup) {
+      window.addEventListener(INITIAL_HOME_FOCUS_EVENT, handleNativeStartupFocus)
+      if (window.__movieHubStartupFocusReady) handleNativeStartupFocus()
+    } else if (nativeBridge) {
+      legacyFallbackTimer = window.setTimeout(
+        handleNativeStartupFocus,
+        LEGACY_NATIVE_STARTUP_FOCUS_DELAY_MS,
+      )
+    } else if (!focusInitialTarget()) {
+      observeUntilTargetExists()
+    }
 
     return () => {
-      observer.disconnect()
-      if (frame !== null) window.cancelAnimationFrame(frame)
+      observer?.disconnect()
+      window.removeEventListener(INITIAL_HOME_FOCUS_EVENT, handleNativeStartupFocus)
+      if (legacyFallbackTimer !== null) window.clearTimeout(legacyFallbackTimer)
     }
   }, [])
 

@@ -126,6 +126,14 @@ Home, Filme, Serien und Meine Inhalte verwenden denselben gestuften Seitenaufbau
 
 Beim nativen Kaltstart gilt zusätzlich ein expliziter Handshake: Der anfänglich leere Katalog darf keine Hero-Bereitschaft melden. Erst wenn der echte Katalog verarbeitet, das Hero-Bild geladen beziehungsweise kontrolliert fehlgeschlagen und die erste Reihe über zwei Renderframes stabil gemountet ist, meldet die Web-App die Home-Oberfläche an Android. Die native Startfläche bleibt mindestens fünf Sekunden sichtbar. Nach spätestens zwölf Sekunden beendet sie die CRT-Sequenz in jedem Fall und zeigt bei ausbleibender Bereitschaft eine neutrale Fehleransicht mit Wiederholen-Aktion.
 
+### Automatische Hero-Trailer-Sequenz
+
+Bei aktivierter profilbezogener Trailer-Automatik durchlaufen Home, Filme, Serien und Meine Inhalte ihre sichtbaren Heroes einmalig von vorn nach hinten. Jeder Hero beginnt mit der eingestellten Wartezeit. Besitzt er keinen gültigen YouTube-Trailer, wechselt die Web-App danach direkt zum nächsten Hero. Teaser bleiben für die manuelle Wiedergabe zulässig, gelten in der automatischen Sequenz jedoch nicht als Trailer.
+
+Beim nativen Kaltstart wird der erste Home-Hero erst nach dem vollständigen Entfernen der Startfläche fokussiert; dadurch beginnt sein Profiltimer weder zu früh noch verdeckt hinter dem Intro. Ist kein Hero vorhanden, bleibt der Navigationspunkt **Home** der kontrollierte Fokus-Rückfall.
+
+Der native Trailerplayer unterscheidet `completed`, `dismissed` und `error`. Erst nach einem natürlichen Videoende führt er den vollständigen CRT-Switch-Off aus, schließt die Activity und meldet anschließend `completed` zusammen mit einer eindeutigen Anforderungskennung an die Web-App zurück. Der technisch unvermeidliche vorübergehende Fokuswechsel zur Player-Activity lässt diese laufende Anforderung bestehen. Android hält die Rückmeldung über den `onResume`-Übergang hinweg vor, stellt sie wiederholt zu und verwirft sie erst nach einer Bestätigung der Web-App oder einem begrenzten Sicherheits-Timeout. Die Web-App wartet nach der bestätigten Rückmeldung weitere drei Sekunden und aktiviert dann den nächsten Hero, dessen eigener Profiltimer neu beginnt. Manuelles Schließen, Wiedergabefehler, echter Fokusverlust ohne laufenden Player, Seitenwechsel und veraltete Rückmeldungen lösen keinen automatischen Wechsel aus. Beim letzten Hero endet die Sequenz ohne Rücksprung zum ersten Hero.
+
 Der nicht fokussierbare Lade-Sentinel kann keine D-Pad-Sackgasse erzeugen. Fordert die Fernbedienung unterhalb der letzten bereits sichtbaren Reihe den nächsten Inhalt an, wird die nächste Reihe synchron zur Navigation freigegeben und ihr räumlich passendes Poster fokussiert.
 
 ### Automatisierung / KI

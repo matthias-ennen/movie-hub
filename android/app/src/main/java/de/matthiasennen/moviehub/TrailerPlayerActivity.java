@@ -2,6 +2,7 @@ package de.matthiasennen.moviehub;
 
 import android.annotation.SuppressLint;
 import android.graphics.Color;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.View;
@@ -26,6 +27,12 @@ public final class TrailerPlayerActivity extends ComponentActivity {
     public static final String EXTRA_VIDEO_ID = "movie_hub_trailer_video_id";
     public static final String EXTRA_TITLE = "movie_hub_trailer_title";
     public static final String EXTRA_SOUND_ENABLED = "movie_hub_trailer_sound_enabled";
+    public static final String EXTRA_REQUEST_ID = "movie_hub_trailer_request_id";
+    public static final String EXTRA_OUTCOME = "movie_hub_trailer_outcome";
+
+    private static final String OUTCOME_COMPLETED = "completed";
+    private static final String OUTCOME_DISMISSED = "dismissed";
+    private static final String OUTCOME_ERROR = "error";
 
     private static final Pattern VIDEO_ID = Pattern.compile("^[A-Za-z0-9_-]{6,20}$");
     private static final float SWIPE_CLOSE_SCREEN_FRACTION = 0.25f;
@@ -37,6 +44,9 @@ public final class TrailerPlayerActivity extends ComponentActivity {
     private float touchStartY;
     private boolean touchTracking;
     private PlayerCrtTransition crtTransition;
+    private String requestId = "";
+    private String outcome = OUTCOME_DISMISSED;
+    private boolean resultDelivered;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -47,6 +57,8 @@ public final class TrailerPlayerActivity extends ComponentActivity {
         String rawVideoId = getIntent().getStringExtra(EXTRA_VIDEO_ID);
         String videoId = rawVideoId == null ? "" : rawVideoId.trim();
         boolean soundEnabled = getIntent().getBooleanExtra(EXTRA_SOUND_ENABLED, false);
+        String rawRequestId = getIntent().getStringExtra(EXTRA_REQUEST_ID);
+        requestId = rawRequestId == null ? "" : rawRequestId;
 
         createContent();
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -81,6 +93,7 @@ public final class TrailerPlayerActivity extends ComponentActivity {
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) {
+                    outcome = OUTCOME_ERROR;
                     showStatus("Der Trailer konnte nicht geladen werden.");
                 }
             }
@@ -183,13 +196,18 @@ public final class TrailerPlayerActivity extends ComponentActivity {
 
         @JavascriptInterface
         public void ended() {
-            runOnUiThread(() -> requestClose());
+            runOnUiThread(() -> {
+                outcome = OUTCOME_COMPLETED;
+                requestClose();
+            });
         }
 
         @JavascriptInterface
         public void error(String code) {
-            runOnUiThread(() -> showStatus(
-                    "Der YouTube-Trailer konnte nicht abgespielt werden. Fehler: " + code));
+            runOnUiThread(() -> {
+                outcome = OUTCOME_ERROR;
+                showStatus("Der YouTube-Trailer konnte nicht abgespielt werden. Fehler: " + code);
+            });
         }
     }
 
@@ -212,6 +230,12 @@ public final class TrailerPlayerActivity extends ComponentActivity {
     }
 
     private void finishImmediately() {
+        if (resultDelivered) return;
+        resultDelivered = true;
+        Intent result = new Intent();
+        result.putExtra(EXTRA_REQUEST_ID, requestId);
+        result.putExtra(EXTRA_OUTCOME, outcome);
+        setResult(RESULT_OK, result);
         super.finish();
         overridePendingTransition(0, 0);
     }
