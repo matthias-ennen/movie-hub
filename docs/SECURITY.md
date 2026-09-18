@@ -42,6 +42,21 @@ Movie Hub öffnet SMB ausschließlich als ausgehende Verbindung im Heimnetz. Ein
 
 Die normale Firebase-Web-Konfiguration einschließlich Web-API-Key ist Teil der Client-Konfiguration und ersetzt keine Security Rules. Schutz entsteht durch Authentication, Rules und serverseitige Rechte.
 
+## Waipu-Konto-Prototyp
+
+Der Machbarkeitsnachweis #4B ist ein lokaler, rein lesender Diagnose-Runner. Er
+verlangt kein Waipu-Passwort, speichert weder Access- noch Refresh-Token und
+schreibt keine EPG- oder Kontodaten nach Firestore. Die für den Gerätefluss
+erforderliche OAuth-Client-Authentifizierung wird ausschließlich zur Laufzeit
+über `WAIPU_OAUTH_CLIENT_AUTH_B64` bereitgestellt und darf weder im Repository
+noch in Workflow-Dateien, Berichten oder Logs abgelegt werden.
+
+Der Diagnosebericht enthält ausschließlich Zähler, HTTP-Statusklassen,
+Antwortgrößen, Feldnamen und den gemessenen EPG-Horizont. Senderkennungen,
+Programmtitel, Program IDs, Gerätecodes, Geräte-ID und vollständige
+API-Antworten werden nicht persistiert. Produktive, Keystore-verschlüsselte
+Tokenablage ist ausdrücklich erst Gegenstand von #4C.
+
 ## Prüfungen vor Freigabe
 
 - unauthentifizierter Zugriff auf persönliche Daten wird abgewiesen

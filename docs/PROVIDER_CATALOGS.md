@@ -49,6 +49,19 @@ users/{uid}/sharedMedia/{type-tmdbId}/entries/{entryId}
 
 Der übergeordnete Datensatz ist ein automatisch gepflegtes Manifest. Mindestens ein gültiger Eintrag bedeutet Katalogmitgliedschaft; das Löschen des letzten Eintrags entfernt sie. Filme und Serien werden über Medientyp + TMDB-ID dedupliziert. Die App baut daraus **Bei Movie Hub verfügbar**, **Filme bei Movie Hub** und **Serien bei Movie Hub**. Diese persönlichen Daten werden niemals in den öffentlichen Katalog geschrieben.
 
+## Geplanter persönlicher Waipu-Live-Katalog
+
+Der mit #4 geplante Waipu-Live-Katalog ist fachlich kein öffentlicher
+TMDB-/Waiputhek-Katalog. Er wird aus den persönlichen Senderberechtigungen und
+konkreten künftigen EPG-Ausstrahlungen des verbundenen waipu.tv-Kontos
+abgeleitet. Die gemeinsame Titelidentität bleibt `Medientyp + TMDB-ID`; Waipu
+ergänzt nur zeitlich begrenzte Ausstrahlungen mit Sender und Sendezeit.
+
+`waipu-live` und eine mögliche spätere Quelle `waipu-vod` bleiben getrennt.
+Eine lineare Ausstrahlung darf niemals als dauerhafte Waiputhek-Verfügbarkeit
+dargestellt werden. #4B prüft zunächst ausschließlich die technische
+Machbarkeit und schreibt noch keine Katalogdaten.
+
 ## Angebotsarten: Browse-Katalog und Suche sind getrennt
 
 TMDB/JustWatch kann einen Titel je Anbieter mit unterschiedlichen Angebotsarten melden. Movie Hub behält diese strukturiert als `offerTypes` am Anbieterangebot:
@@ -161,7 +174,10 @@ Für die öffentlichen Anbieter-Kataloge werden in diesem Paket **keine neuen Fi
 
 Firestore bleibt für persönliche bzw. kontobezogene Daten zuständig. Dadurch entstehen keine fünffachen Kopien derselben öffentlichen Katalogdaten pro Nutzer und keine unnötigen Firestore-Lese-/Schreibkosten.
 
-Eine spätere schnell aktualisierte Datenquelle, beispielsweise für echtes waipu.tv-Live-TV/EPG, kann unabhängig davon als eigener öffentlicher Feed oder Cache ergänzt werden.
+Der geplante persönliche Waipu-Live-Katalog wird getrennt von diesen
+öffentlichen Anbieterbeständen unter der eigenen UID modelliert. Sein exaktes
+Firestore-Modell wird erst nach erfolgreichem #4B-Machbarkeitsnachweis in #4E
+umgesetzt.
 
 ## Datenquelle und Attribution
 

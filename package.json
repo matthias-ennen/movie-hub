@@ -23,6 +23,8 @@
     "data:status": "node scripts/report-data-status.mjs",
     "epg:quality": "node scripts/free-epg-quality.mjs",
     "test:epg": "vitest run tests/free-epg-quality.test.js",
+    "waipu:probe": "node scripts/waipu-account-probe.mjs",
+    "test:waipu": "vitest run tests/waipu-account-probe.test.js",
     "moviehub:presence:migrate": "node scripts/migrate-shared-media-presence.mjs",
     "moviehub:metadata:backfill": "node scripts/enrich-shared-media-metadata.mjs"
   },

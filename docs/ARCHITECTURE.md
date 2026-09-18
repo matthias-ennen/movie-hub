@@ -145,6 +145,20 @@ Mögliche regelmäßige Jobs:
 - neue Filme einordnen
 - aus persönlichen Bewertungen neue Empfehlungen und Toplisten erzeugen
 
+### Persönlicher Waipu-Live-Katalog – Machbarkeitsstufe
+
+Der bisherige FreeEPG-Ansatz ist wegen veralteter Programmdaten nicht als
+Produktionsquelle geeignet. #4B prüft deshalb isoliert einen persönlichen,
+rein lesenden Konto-EPG-Zugang. Der lokale Diagnose-Runner verwendet Device
+OAuth, hält Token nur im Arbeitsspeicher und erzeugt ausschließlich einen
+bereinigten technischen Bericht. Firestore, sichtbarer Katalog, Streaming,
+Aufnahmen und DRM bleiben unberührt.
+
+Erst nach einem erfolgreichen manuellen Live-Test folgt eine native
+Android-Integration. Deren spätere Sicherheitsgrenze entspricht dem
+persönlichen TMDB-Unterbau: Geheimnisse bleiben im nativen Keystore-Bereich;
+die WebView erhält nur normalisierte, nicht geheime Katalogdaten.
+
 ## Architekturprinzipien
 
 1. Externe Filmdaten und persönliche Nutzerdaten strikt trennen.
@@ -169,7 +183,7 @@ Mögliche regelmäßige Jobs:
 ## Noch bewusst offen
 
 - weitere belastbare App-spezifische Such-/Deep-Link-Verbesserungen je Anbieter
-- geeignete Quelle für deutsches Live-TV/EPG
+- technischer, vertraglicher und rechtlicher Nachweis für persönlichen Waipu-Konto-EPG
 - endgültige Darstellung und Branding der Provider-Symbole
 - genaue Form der täglichen Empfehlungsautomation
 - Geräte-Kopplung ohne Texteingabe auf Fire TV

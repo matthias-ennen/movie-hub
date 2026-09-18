@@ -36,16 +36,22 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 
 ## Aktuelles Arbeitspaket
 
-### #4 – Waipu-Live-Katalog auf FreeEPG-Basis
+### #4 – Persönlichen Waipu-Live-Katalog aus Konto-EPG erzeugen
 
-- **#4A aktiv:** isolierter FreeEPG-Import mit Aktualitäts- und Qualitätsbericht
-- #4B: FreeEPG-Sender mit der offiziellen waipu.tv-Senderliste abgleichen
-- #4C: sichere TMDB-Zuordnung und zeitlich begrenzten Waipu-Live-Katalog erzeugen
-- #4D: Waipu-Live-Katalog, Badge und nächste Ausstrahlung in der App darstellen
-- #4E: regelmäßigen Job, Statusanzeige und Release-Gate fertigstellen
-- keine Firestore-/Katalogschreibzugriffe aus #4A
-- Waiputhek/VOD bleibt ohne offizielle Datenquelle ausdrücklich ausgeschlossen
-- öffentliche Verteilung aggregierter EPG-Daten bleibt bis zur Rechteklärung gesperrt
+- #4A: FreeEPG-Qualitätsprototyp technisch abgeschlossen; Quelle wegen
+  veralteter Programmdaten ungeeignet
+- **#4B aktiv:** lokaler, rein lesender Konto-API-Machbarkeitsnachweis mit
+  Device OAuth, Token-Refresh, persönlicher Senderzählung sowie sparsamen
+  EPG-Stichproben für 0, 1, 3, 7 und 14 Tage
+- #4C: sichere native Waipu-Verbindung mit Android Keystore und Geräte-UI
+- #4D: rollierende EPG-Synchronisierung und Film-/Serienkandidatenmodell
+- #4E: TMDB-Matching und atomaren persönlichen Firestore-Katalog erzeugen
+- #4F: Waipu-Live-Reihen, Badge, Sendetermine und Status in Movie Hub darstellen
+- #4G: Robustheit, Geräteabnahme und Release-/Rechte-Gate
+- #4B schreibt weder nach Firestore noch in sichtbare Kataloge und persistiert
+  keine Waipu-Token oder Kontodaten
+- Waiputhek/VOD, Streaming, Aufnahmen und DRM bleiben ausdrücklich ausgeschlossen
+- öffentliche Verteilung bleibt bis zur Rechte- und API-Klärung gesperrt
 
 ## Danach geplante Arbeitspakete
 
@@ -77,6 +83,6 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 
 ## Aktuelle Abhängigkeitskette
 
-`#4A → #4B → #4C → #4D → #4E → #118 → #7`
+`#4A → #4B → #4C → #4D → #4E → #4F → #4G → #118 → #7`
 
 Die spätere öffentliche Verteilung von #4 bleibt zusätzlich durch die Compliance-Prüfung #112 gesperrt. Vor Beginn jedes aktiven Pakets wird dessen Scope noch einmal kurz gegen den dann aktuellen Stand geprüft.

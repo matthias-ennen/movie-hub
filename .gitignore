@@ -11,5 +11,6 @@ firebase-debug.log
 firestore-debug.log
 coverage/
 artifacts/free-epg-quality/
+artifacts/waipu-account-probe/
 .DS_Store
 gha-creds-*.json
