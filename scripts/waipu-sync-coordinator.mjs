@@ -185,6 +185,7 @@ export function assertStageAllowed(state, stage, { fullStageApproved = false } =
 
 async function acquireLock(lockPath, { now, staleAfterMs }) {
   const startedAt = new Date(now()).toISOString()
+  await mkdir(dirname(lockPath), { recursive: true })
   try {
     await mkdir(lockPath, { recursive: false })
   } catch (error) {
