@@ -1,5 +1,5 @@
 {
-  "slots": ["00", "04", "08", "12", "16", "20"],
-  "slotDurationHours": 4,
-  "timezone": "UTC"
+  "$schema": "https://epg-cache.waipu.tv/schemas/GridInfo.json",
+  "timeSlots": ["00:00:00Z", "04:00:00Z", "08:00:00Z", "12:00:00Z", "16:00:00Z", "20:00:00Z"],
+  "slotSizeHours": 4
 }

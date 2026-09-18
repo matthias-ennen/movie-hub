@@ -49,6 +49,14 @@ describe('Waipu public response normalization', () => {
     }] })).toEqual([{ id: 'ard', displayName: 'Das Erste HD', logoTemplateUrl: 'https://images.example/{format}.png', streamQualities: ['hd'] }])
     expect(normalizeGridInfo({ slots: ['00', '04'], slotDurationHours: 4, timezone: 'UTC' }))
       .toEqual({ slots: ['00', '04'], slotDurationHours: 4, timezone: 'UTC' })
+    expect(normalizeGridInfo({
+      timeSlots: ['00:00:00Z', '04:00:00Z', '08:00:00Z', '12:00:00Z', '16:00:00Z', '20:00:00Z'],
+      slotSizeHours: 4,
+    })).toEqual({
+      slots: ['00', '04', '08', '12', '16', '20'],
+      slotDurationHours: 4,
+      timezone: 'UTC',
+    })
     expect(normalizeGrid([{ id: 'movie', title: 'Film', genre: 'Spielfilm', startTime: '2026-09-18T08:00:00Z', stopTime: '2026-09-18T10:00:00Z' }]))
       .toMatchObject([{ id: 'movie', title: 'Film', genre: 'Spielfilm' }])
     expect(normalizeProgram({ id: 'movie', textContent: { title: 'Film', titleOriginal: 'Movie' }, production: { year: 2024, countries: ['DE'] }, contentMeta: { mainGenre: 'Spielfilm' } }))
