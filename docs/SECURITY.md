@@ -44,18 +44,34 @@ Die normale Firebase-Web-Konfiguration einschließlich Web-API-Key ist Teil der 
 
 ## Waipu-Live-Import
 
-Der produktiv geplante Waipu-Live-Import verwendet ausschließlich die ohne
-Anmeldung erreichbaren Sender-, Grid- und Programmdetail-Endpunkte. Movie Hub
-fragt dafür keine Waipu-Zugangsdaten ab, speichert keine Waipu-Token und sendet
-keine persönlichen Kontodaten. Der Import läuft zentral mit niedriger
-Parallelität, persistentem ETag-/Slot-/Detailcache, festem Requestbudget und
-einem Circuit Breaker für 403, 429 und wiederholte Serverfehler. Die Fire-TV-App
-fragt diese Endpunkte nicht direkt ab, sondern liest nur veröffentlichte,
-bereinigte Katalogartefakte.
+Der geplante Waipu-Live-Import verwendet ausschließlich die ohne Anmeldung
+erreichbaren Sender-, Grid- und Programmdetail-Endpunkte. Movie Hub fragt keine
+Waipu-Zugangsdaten ab, speichert keine Waipu-Token und sendet keine
+persönlichen Kontodaten. Die Fire-TV-/Android-App liest ausschließlich fertige
+Artefakte und erzeugt keine Waipu-Massenrequests.
 
-IP-Rotation, Proxy-Wechsel und verschleiernde Header zur Umgehung möglicher
-Anbieterschutzmaßnahmen sind ausgeschlossen. Eine öffentliche Verteilung bleibt
-bis zur API-/Rechteprüfung und zum Compliance-Gate #112 gesperrt.
+Der Import läuft als zentraler Single-Flight-Job mit persistentem Sender-,
+Slot-, ETag-, Detail- und TMDB-Matching-Cache. Abgeschlossene Slots werden
+eingefroren. Checkpoints und harte Budgets erlauben eine Fortsetzung in einem
+späteren Wartungsfenster, ohne den Gesamtbestand erneut anzufragen.
+
+Der belegte Startwert für die Produktionsplanung ist eine aktive Anfrage mit
+global 500 bis 650 ms Abstand inklusive Jitter. Höchstens zwei aktive
+Anfragen und ein globaler Startabstand von 350 bis 500 ms sind erst nach sieben
+stabilen geplanten Läufen einer Ausbaustufe zulässig. Unabhängige
+Worker-Bursts, IP-Rotation, Proxy-Wechsel und Header-Tarnung sind verboten.
+
+403 und 429 öffnen den Circuit Breaker und stoppen die automatische
+Fortsetzung bis zur manuellen Prüfung. Bei Timeout oder 5xx sind im
+Produktionsimport höchstens drei Versuche mit exponentiellem Backoff und
+Jitter zulässig. Ungültige, zu große oder schemafremde Antworten brechen
+fail-closed ab. Der letzte gültige Katalog bleibt online; partielle
+Generationen werden nie veröffentlicht.
+
+Da Waipu diese Endpunkte nicht als öffentliche Entwickler-API mit garantierten
+Quoten dokumentiert, bleiben Langzeitmessung, Attribution, Nutzungsrecht und
+Compliance-Gate #112 verbindliche Voraussetzungen. Öffentliche Verteilung ist
+bis zu dieser Prüfung gesperrt.
 
 ## Historischer Waipu-Konto-Prototyp
 
