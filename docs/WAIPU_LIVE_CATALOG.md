@@ -206,10 +206,9 @@ Vite-Public-Bestand schreiben:
 WAIPU_LIVE_OUTPUT=public/waipu-live npm run waipu:catalog
 ```
 
-Eine zeitlich begrenzte technische Testauslieferung für die Geräteabnahme darf
-mit den sieben Pilotsendern erfolgen. Die dauerhafte, automatisierte oder auf
-weitere Sender ausgeweitete öffentliche Veröffentlichung bleibt bis zum
-vorgesehenen Rechte- und Compliance-Gate gesperrt.
+Die veröffentlichte Ausbaustufe umfasst die ersten 50 Einträge der offiziellen
+Waipu-Senderreihenfolge. Der tägliche Workflow aktualisiert sie automatisiert;
+ein fehlerhafter Teilbestand ersetzt niemals den letzten gültigen Katalog.
 
 ## TV-Registerkarte und Senderfilter (#4G)
 
@@ -232,8 +231,9 @@ gerendert werden.
 Auf der TV-Seite gibt es bewusst keine Senderauswahl. Alle im veröffentlichten
 Senderindex vorhandenen Sender sind standardmäßig aktiv. Unter
 **Einstellungen → Sichtbare TV-Sender** können sie kontoweit einzeln
-ausgeblendet werden. Firestore speichert dafür unter
-`users/{uid}.waipuStationSettings.disabledStationIds` ausschließlich die
-ausgeschalteten Sender-IDs. Neu hinzukommende Sender sind dadurch automatisch
-aktiv. Fehlen die öffentlichen Artefakte, bleibt die Funktion mit einem
-erklärenden Leerzustand fehlertolerant.
+ausgeblendet und mit Pfeiltasten umsortiert werden. Firestore speichert unter
+`users/{uid}.waipuStationSettings` die ausgeschalteten IDs sowie die persönliche
+`stationOrder` (Schema-Version 2). Neue, noch nicht in `stationOrder` enthaltene
+Sender werden aktiviert am Ende der veröffentlichten Reihenfolge ergänzt.
+Fehlen die öffentlichen Artefakte, bleibt die Funktion mit einem erklärenden
+Leerzustand fehlertolerant.

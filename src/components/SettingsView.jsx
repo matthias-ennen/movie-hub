@@ -10,6 +10,7 @@ import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import { PROVIDER_OPTIONS } from '../settings/providerSelectionModel.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { useWaipuStationSelection } from '../settings/useWaipuStationSelection.js'
+import { moveWaipuStation } from '../settings/waipuStationSelectionModel.js'
 import { useTmdbCatalog } from '../tmdb/TmdbCatalogProvider.jsx'
 import { ProviderBadge } from './ProviderBadges.jsx'
 
@@ -119,7 +120,9 @@ export default function SettingsView({
     error: stationSelectionError,
     savingStationId,
     isStationEnabled,
+    orderStations,
     setStationEnabled,
+    setStationOrder,
   } = useWaipuStationSelection()
   const {
     syncState,
@@ -169,6 +172,11 @@ export default function SettingsView({
     setStationEnabled(stationId, !isStationEnabled(stationId)).catch(() => {})
   }
 
+  function moveStation(stationId, direction) {
+    const next = moveWaipuStation(stationOptions, stationId, direction)
+    setStationOrder(next, `order:${stationId}`).catch(() => {})
+  }
+
   async function saveExperienceSetting(path, value, focusTarget = null) {
     if (experienceSaving) return
     experienceFocusRef.current = focusTarget instanceof HTMLElement
@@ -197,7 +205,7 @@ export default function SettingsView({
   const providerBusy = providerLoading || Boolean(savingProviderId)
   const providerOptions = visibleProviderOptions(liveTmdbProviderIds)
   const activeVisibleProviders = providerOptions.filter((provider) => enabledProviderIds.includes(provider.id)).length
-  const stationOptions = Array.isArray(waipuStations) ? waipuStations : []
+  const stationOptions = orderStations(Array.isArray(waipuStations) ? waipuStations : [])
   const activeStationCount = stationOptions.filter((station) => !disabledStationIds.includes(station.id)).length
   const stationBusy = stationSelectionLoading || Boolean(savingStationId)
 
@@ -436,29 +444,52 @@ export default function SettingsView({
 
         {waipuStationStatus === 'ready' && stationOptions.length > 0 ? (
           <div className="provider-selection-list station-selection-list" aria-label="TV-Sender ein- oder ausblenden">
-            {stationOptions.map((station) => {
+            {stationOptions.map((station, index) => {
               const enabled = isStationEnabled(station.id)
               const saving = savingStationId === station.id
+              const moving = savingStationId === `order:${station.id}`
               return (
-                <button
-                  type="button"
+                <article
                   key={station.id}
-                  className={enabled ? 'provider-selection-row active' : 'provider-selection-row'}
-                  onClick={() => toggleStation(station.id)}
-                  disabled={stationBusy}
-                  aria-pressed={enabled}
-                  data-focusable="true"
+                  className={enabled ? 'station-selection-row active' : 'station-selection-row'}
                 >
                   <span className="station-selection-mark" aria-hidden="true">{stationInitials(station.name)}</span>
                   <span className="provider-selection-copy">
                     <strong>{station.name}</strong>
                     <small>{enabled ? 'Wird im TV-Reiter berücksichtigt' : 'Im TV-Reiter ausgeblendet'}</small>
                   </span>
-                  <span className={enabled ? 'provider-selection-switch active' : 'provider-selection-switch'} aria-hidden="true">
-                    <span className="provider-selection-knob" />
-                  </span>
-                  <span className="provider-selection-state">{saving ? 'Speichert …' : enabled ? 'An' : 'Aus'}</span>
-                </button>
+                  <div className="station-selection-actions">
+                    <button
+                      type="button"
+                      className={enabled ? 'personal-row-toggle active' : 'personal-row-toggle'}
+                      onClick={() => toggleStation(station.id)}
+                      role="switch"
+                      aria-checked={enabled}
+                      disabled={stationBusy}
+                      aria-label={`${station.name}: ${enabled ? 'An' : 'Aus'}`}
+                      data-focusable="true"
+                    >
+                      <span>{saving ? 'Speichert …' : enabled ? 'An' : 'Aus'}</span>
+                      <span className={enabled ? 'category-choice-switch active' : 'category-choice-switch'} aria-hidden="true"><span /></span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveStation(station.id, -1)}
+                      disabled={stationBusy || index === 0}
+                      aria-label={`${station.name} nach oben`}
+                      aria-busy={moving}
+                      data-focusable="true"
+                    >↑</button>
+                    <button
+                      type="button"
+                      onClick={() => moveStation(station.id, 1)}
+                      disabled={stationBusy || index === stationOptions.length - 1}
+                      aria-label={`${station.name} nach unten`}
+                      aria-busy={moving}
+                      data-focusable="true"
+                    >↓</button>
+                  </div>
+                </article>
               )
             })}
           </div>

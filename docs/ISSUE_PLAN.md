@@ -48,12 +48,12 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
   Tagesreihen aus den senderweisen 14-Tage-Dateien; keine Senderauswahl auf der
   TV-Seite. Alle veröffentlichten Sender sind standardmäßig aktiv und können
   ausschließlich in den kontoweiten Einstellungen einzeln ausgeblendet werden
-- **#4H aktiv:** Langzeitstabilität steht nach zwei getrennten, fehlerfreien
-  7-Sender-Läufen bei 2/7. Mehrfachzählung innerhalb desselben UTC-Tags wird
-  technisch verhindert. Ein begrenzter, als Testbestand markierter
-  7-Sender-Katalog ermöglicht jetzt die Geräteabnahme. Der tägliche gemeinsame
-  TMDB-/Waipu-/Firebase-Lauf ist eingerichtet; erster produktiver
-  End-to-End-Nachweis und Release-/Rechte-Gate für den erweiterten Betrieb bleiben offen
+- **#4H erweitert:** Die ersten 50 Sender der offiziellen Waipu-Reihenfolge sind
+  mit stabilen IDs freigegeben. Der tägliche gemeinsame TMDB-/Waipu-/Firebase-
+  Lauf, kontoweites Ein-/Ausschalten und die persönliche Pfeilsortierung sind
+  umgesetzt. Die vollständige 337er-Reihenfolge ist in
+  `docs/WAIPU_STATION_ORDER.md` dokumentiert. Der erste produktive 50er-
+  End-to-End-Lauf und seine Live-Abnahme bleiben als Abschlussnachweis offen
 - keine Waiputhek-/VOD-Aussage aus linearen Sendeterminen ableiten
 - keine Waipu-Anmeldung und keine Waipu-Token für die öffentliche Basisintegration
 
@@ -89,9 +89,9 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 
 `#4A → #4B → #4C → #4D → #4E → #4F → #4G → #4H → #118 → #7`
 
-#4 ist wieder aktiv. Ein begrenzter 7-Sender-Testbestand darf zur
-Geräteabnahme ausgeliefert werden. Automatisierte, dauerhafte oder erweiterte
-öffentliche Verteilung bleibt bis zur API-/Rechteprüfung und #112 gesperrt.
+#4 ist aktiv. Die 50er-Ausbaustufe wird funktional ausgeliefert und im Betrieb
+weiter beobachtet. Eine spätere Ausweitung über 50 Sender bleibt eine eigene,
+ausdrücklich freizugebende Stufe.
 
 ## Leitentscheidung
 

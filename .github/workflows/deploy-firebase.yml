@@ -53,8 +53,9 @@ jobs:
             artifacts/waipu-sync
             artifacts/waipu-live/match-decisions.json
             artifacts/waipu-live/detail-status.json
-          key: waipu-seven-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          key: waipu-fifty-v1-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
+            waipu-fifty-v1-
             waipu-seven-v1-
 
       - name: Seed verified Waipu stability history
@@ -131,27 +132,29 @@ jobs:
             npm run search:details
           fi
 
-      - name: Refresh seven-station Waipu grid
+      - name: Refresh 50-station Waipu grid
         id: waipu_sync
         if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         continue-on-error: true
         env:
           WAIPU_SYNC_LIVE: '1'
-          WAIPU_SYNC_REQUEST_BUDGET: '700'
-        run: npm run waipu:sync -- --live --stage=7
+          WAIPU_SYNC_APPROVED_STAGE: '50'
+          WAIPU_SYNC_REQUEST_BUDGET: '5000'
+          WAIPU_SYNC_PACE_MS: '400'
+          WAIPU_SYNC_JITTER_MS: '75'
+        run: npm run waipu:sync -- --live --stage=50
 
-      - name: Match and publish seven-station Waipu test catalog
+      - name: Match and publish 50-station Waipu catalog
         id: waipu_catalog
         if: ${{ (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && steps.waipu_sync.outcome == 'success' }}
         continue-on-error: true
         env:
           WAIPU_CATALOG_LIVE: '1'
-          WAIPU_TEST_MODE: '1'
           WAIPU_LIVE_OUTPUT: public/waipu-live
-          WAIPU_DETAIL_REQUEST_BUDGET: '1600'
+          WAIPU_DETAIL_REQUEST_BUDGET: '10000'
           WAIPU_DETAIL_PACE_MS: '400'
-          WAIPU_DETAIL_JITTER_MS: '100'
-          WAIPU_TMDB_REQUEST_BUDGET: '400'
+          WAIPU_DETAIL_JITTER_MS: '75'
+          WAIPU_TMDB_REQUEST_BUDGET: '4000'
           WAIPU_TMDB_PACE_MS: '250'
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
@@ -165,7 +168,7 @@ jobs:
             artifacts/waipu-sync
             artifacts/waipu-live/match-decisions.json
             artifacts/waipu-live/detail-status.json
-          key: waipu-seven-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          key: waipu-fifty-v1-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Report data fill levels
         run: npm run data:status

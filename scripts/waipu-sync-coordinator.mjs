@@ -9,18 +9,16 @@ import {
   WaipuPublicDataError,
   WAIPU_SLOT_DURATION_MS,
 } from './waipu-public-data.mjs'
+import {
+  WAIPU_OFFICIAL_FIRST_50_IDS,
+  WAIPU_OFFICIAL_FIRST_50_STATIONS,
+} from './waipu-station-order.mjs'
 
 export const WAIPU_SYNC_SCHEMA_VERSION = 1
 export const WAIPU_SYNC_STAGES = Object.freeze([7, 20, 50, 'full'])
-export const WAIPU_PILOT_STATIONS = Object.freeze([
-  'Das Erste',
-  'ZDF',
-  'RTL',
-  'SAT.1',
-  'ProSieben',
-  'VOX',
-  'Kabel Eins',
-])
+export const WAIPU_PILOT_STATIONS = Object.freeze(
+  WAIPU_OFFICIAL_FIRST_50_STATIONS.slice(0, 7).map(({ name }) => name),
+)
 
 const DEFAULT_REQUEST_BUDGET = 300
 const DEFAULT_PACE_MS = 500
@@ -47,7 +45,7 @@ process.once('exit', () => {
 
 const ERROR_MESSAGES = Object.freeze({
   INVALID_STAGE: 'Die angeforderte Waipu-Ausbaustufe ist ungültig oder noch nicht freigegeben.',
-  PILOT_STATIONS_MISSING: 'Die sieben festgelegten Waipu-Pilotsender sind nicht vollständig vorhanden.',
+  PILOT_STATIONS_MISSING: 'Die festgelegten Waipu-Sender dieser Ausbaustufe sind nicht vollständig vorhanden.',
   SINGLE_FLIGHT_ACTIVE: 'Ein anderer Waipu-Import ist bereits aktiv.',
   REQUEST_BUDGET_EXHAUSTED: 'Das Requestbudget dieses Waipu-Laufs ist erreicht.',
   CIRCUIT_OPEN: 'Der automatische Waipu-Import ist durch den Circuit Breaker gesperrt.',
@@ -79,15 +77,6 @@ function utcDayStart(value) {
   const date = dateValue(value)
   date.setUTCHours(0, 0, 0, 0)
   return date
-}
-
-function normalizedName(value) {
-  return String(value || '')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\bhd\b/gi, '')
-    .replace(/[^a-z0-9]+/gi, '')
-    .toLowerCase()
 }
 
 function stageKey(stage) {
@@ -125,26 +114,18 @@ export function selectStageStations(stations, stage = 7) {
   }
   const candidates = stations
     .filter((station) => station && typeof station.id === 'string' && typeof station.displayName === 'string')
-    .map((station) => ({ ...station, normalizedName: normalizedName(station.displayName) }))
-  const selected = []
-  const selectedIds = new Set()
-
-  for (const pilotName of WAIPU_PILOT_STATIONS) {
-    const target = normalizedName(pilotName)
-    const match = candidates.find((station) => station.normalizedName === target)
-    if (!match) throw new WaipuSyncError('PILOT_STATIONS_MISSING')
-    selected.push(match)
-    selectedIds.add(match.id)
-  }
-
   const limit = stage === 'full' ? candidates.length : stage
-  const remainder = candidates
-    .filter(({ id }) => !selectedIds.has(id))
-    .sort((left, right) => (
-      left.displayName.localeCompare(right.displayName, 'de') || left.id.localeCompare(right.id)
-    ))
-  return [...selected, ...remainder].slice(0, Math.min(limit, candidates.length))
-    .map(({ normalizedName: _normalizedName, ...station }) => station)
+  const byId = new Map(candidates.map((station) => [station.id, station]))
+  const configuredIds = stage === 'full'
+    ? WAIPU_OFFICIAL_FIRST_50_IDS
+    : WAIPU_OFFICIAL_FIRST_50_IDS.slice(0, limit)
+  const selected = configuredIds.map((id) => byId.get(id)).filter(Boolean)
+  if (selected.length !== configuredIds.length) throw new WaipuSyncError('PILOT_STATIONS_MISSING')
+
+  if (stage !== 'full') return selected
+  const selectedIds = new Set(configuredIds)
+  const remainder = candidates.filter(({ id }) => !selectedIds.has(id))
+  return [...selected, ...remainder]
 }
 
 function emptyState(now) {
@@ -216,8 +197,10 @@ async function loadState(path, now) {
   return state
 }
 
-export function assertStageAllowed(state, stage, { fullStageApproved = false } = {}) {
+export function assertStageAllowed(state, stage, { fullStageApproved = false, approvedStage = null } = {}) {
   if (!WAIPU_SYNC_STAGES.includes(stage)) throw new WaipuSyncError('INVALID_STAGE')
+  const numericApproval = Number(approvedStage)
+  if (stage !== 'full' && Number.isInteger(numericApproval) && stage <= numericApproval) return
   const required = previousStage(stage)
   if (required !== null && Number(state.stableRunsByStage?.[stageKey(required)] || 0) < 7) {
     throw new WaipuSyncError('INVALID_STAGE')
@@ -407,7 +390,10 @@ export async function runWaipuSync(options = {}) {
       await writeJsonAtomic(statePath, state)
     }
     if (circuitBlocksRun(state, runStartedAt)) throw new WaipuSyncError('CIRCUIT_OPEN')
-    assertStageAllowed(state, stage, { fullStageApproved: options.fullStageApproved === true })
+    assertStageAllowed(state, stage, {
+      fullStageApproved: options.fullStageApproved === true,
+      approvedStage: options.approvedStage,
+    })
 
     const slots = buildRollingSlots(runStartedAt, options.horizonDays || 14)
     const metrics = {
@@ -576,7 +562,10 @@ async function main() {
     stage: options.stage,
     resetCircuit: options.resetCircuit,
     fullStageApproved: process.env.WAIPU_SYNC_FULL_APPROVED === '1',
+    approvedStage: process.env.WAIPU_SYNC_APPROVED_STAGE,
     requestBudget: process.env.WAIPU_SYNC_REQUEST_BUDGET,
+    paceMs: process.env.WAIPU_SYNC_PACE_MS,
+    jitterMs: process.env.WAIPU_SYNC_JITTER_MS,
     statePath: process.env.WAIPU_SYNC_STATE,
     statusPath: process.env.WAIPU_SYNC_STATUS,
     cacheRoot: process.env.WAIPU_SYNC_CACHE_ROOT,
