@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "kind": "waipu-sync-checkpoint",
+  "updatedAt": "2026-09-19T10:30:21.570Z",
+  "stableRunsByStage": {
+    "7": 2,
+    "20": 0,
+    "50": 0,
+    "full": 0
+  },
+  "stableRunDatesByStage": {
+    "7": [
+      "2026-09-18",
+      "2026-09-19"
+    ],
+    "20": [],
+    "50": [],
+    "full": []
+  },
+  "circuit": {
+    "automaticRunsDisabled": false,
+    "reason": null,
+    "openedAt": null,
+    "blockedUntil": null
+  },
+  "slots": {}
+}

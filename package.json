@@ -26,6 +26,7 @@
     "waipu:probe": "node scripts/waipu-public-contract-probe.mjs",
     "waipu:sync": "node scripts/waipu-sync-coordinator.mjs",
     "waipu:catalog": "node scripts/waipu-live-catalog.mjs",
+    "waipu:restore": "node scripts/restore-live-waipu-catalog.mjs",
     "waipu:account:probe": "node scripts/waipu-account-probe.mjs",
     "test:waipu": "vitest run tests/waipu-account-probe.test.js tests/waipu-public-contract.test.js tests/waipu-public-data.test.js tests/waipu-sync-coordinator.test.js tests/waipu-live-catalog.test.js",
     "test:waipu:public": "vitest run tests/waipu-public-contract.test.js tests/waipu-public-data.test.js tests/waipu-sync-coordinator.test.js tests/waipu-live-catalog.test.js",

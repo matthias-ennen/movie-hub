@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WaipuEpgCache } from '../scripts/waipu-public-data.mjs'
 import { WaipuProgramDetailLoader } from '../scripts/waipu-program-detail-loader.mjs'
+import { restoreLiveWaipuCatalog } from '../scripts/restore-live-waipu-catalog.mjs'
 import {
   classifyWaipuGridProgram,
   classifyWaipuProgram,
@@ -323,6 +324,51 @@ describe('Waipu live catalog publication', () => {
     expect(stations.stations).toHaveLength(1)
     expect(titles.entries[0].tmdbId).toBe(667739)
     expect(shard.airings).toHaveLength(1)
+  })
+
+  it('restores and validates the last deployed generation before a refresh', async () => {
+    const root = await mkdtemp(resolve(tmpdir(), 'movie-hub-waipu-restore-'))
+    cleanupPaths.push(root)
+    const source = await buildWaipuLiveCatalog(buildFixture())
+    const payloads = new Map([
+      ['/waipu-live/index.json', source.index],
+      ['/waipu-live/stations.json', source.stations],
+      ['/waipu-live/titles.json', source.titles],
+      ['/waipu-live/stations/zdf.json', source.shards.zdf],
+    ])
+    const fetchImpl = vi.fn(async (url) => {
+      const payload = payloads.get(new URL(url).pathname)
+      const bytes = Buffer.from(JSON.stringify(payload))
+      return {
+        ok: Boolean(payload),
+        status: payload ? 200 : 404,
+        arrayBuffer: async () => bytes,
+      }
+    })
+    const output = resolve(root, 'restored')
+
+    await expect(restoreLiveWaipuCatalog({
+      baseUrl: 'https://movie-hub.example/waipu-live',
+      outputPath: output,
+      fetchImpl,
+    })).resolves.toMatchObject({ status: 'complete' })
+
+    const restoredIndex = JSON.parse(await readFile(resolve(output, 'index.json'), 'utf8'))
+    const restoredShard = JSON.parse(await readFile(resolve(output, 'stations', 'zdf.json'), 'utf8'))
+    expect(restoredIndex.counts).toEqual({ stations: 1, titles: 1, broadcasts: 1 })
+    expect(restoredShard.airings).toHaveLength(1)
+
+    payloads.set('/waipu-live/index.json', {
+      ...source.index,
+      counts: { ...source.index.counts, titles: 99 },
+    })
+    await expect(restoreLiveWaipuCatalog({
+      baseUrl: 'https://movie-hub.example/waipu-live',
+      outputPath: output,
+      fetchImpl,
+    })).rejects.toThrow('counts are inconsistent')
+    const preservedIndex = JSON.parse(await readFile(resolve(output, 'index.json'), 'utf8'))
+    expect(preservedIndex).toEqual(restoredIndex)
   })
 })
 

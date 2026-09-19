@@ -145,6 +145,38 @@ npm run waipu:sync -- --live --stage=7
 Diese Variablen ändern weder Stufe noch Lastgrenzen. Sie verhindern lediglich,
 dass ein neuer Worktree versehentlich einen zweiten, leeren Checkpoint beginnt.
 
+## Gemeinsamer täglicher Datenlauf
+
+Der vorhandene Workflow `Deploy Firebase` bleibt der einzige zentrale
+Produktionslauf. Sein Cron-Ausdruck `17 03 * * *` bedeutet 03:17 UTC und damit
+04:17 Uhr deutscher Winterzeit beziehungsweise 05:17 Uhr deutscher Sommerzeit.
+Es gibt keinen zweiten parallel laufenden Waipu-Job.
+
+Bei einem geplanten oder manuell gestarteten Datenlauf geschieht nacheinander:
+
+1. persistenten Waipu-Checkpoint, Cache und Matchentscheidungen wiederherstellen;
+2. letzten auf Firebase validierten `waipu-live`-Katalog als Rückfallstand laden;
+3. TMDB-Katalog und Suchindex aktualisieren;
+4. das rollierende 14-Tage-Fenster der sieben Pilotsender ergänzen;
+5. nur fehlende Programmdetails und offene TMDB-Zuordnungen nachladen;
+6. den neuen Waipu-Katalog atomar validieren;
+7. TMDB und Waipu gemeinsam bauen und einmal auf Firebase veröffentlichen;
+8. aktualisierten Checkpoint und Cache wieder persistent sichern.
+
+Der erste CI-Lauf darf für den einmaligen Cacheaufbau bis zu 700 Grid- und
+1.600 Detailrequests starten. Danach reduzieren Checkpoint und unveränderlicher
+Detailcache den täglichen Lauf im Normalfall auf das neue äußere Tagesfenster,
+kontrollierte Nahbereichsvalidierungen und neue Programmdetails. Der Grid-Sync
+bleibt bei einer aktiven Anfrage mit 500 ms Mindestabstand plus bis zu 150 ms
+Jitter. Nur das nachgelagerte Laden einzelner Programmdetails nutzt 400 ms plus
+bis zu 100 ms Jitter.
+
+Schlägt der Waipu-Refresh fehl, wird kein Teilbestand veröffentlicht. Der zuvor
+restaurierte letzte gültige Katalog bleibt im Build, wird erneut ausgeliefert
+und der Workflow wird nach dem Deployment sichtbar als fehlgeschlagen markiert.
+Ein `403` oder `429` wird dadurch nicht verdeckt und nicht durch aggressive
+Wiederholungen umgangen.
+
 Die nachgelagerte Film-/Serienklassifikation, TMDB-Zuordnung und atomare
 Katalogausgabe ist in [WAIPU_LIVE_CATALOG.md](./WAIPU_LIVE_CATALOG.md)
 dokumentiert.
@@ -156,5 +188,5 @@ dokumentiert.
 - [ ] sieben zeitlich getrennte, vollständige stabile Läufe der 7er-Stufe
   (Stand 19.09.2026: 2/7);
 - [ ] erst danach Entscheidung über zwei aktive Anfragen oder die 20er-Stufe;
-- [ ] geplanter Workflow mit Concurrency-Gruppe erst nach erfolgreichem
-  Pilotbetrieb.
+- [x] geplanter Workflow verwendet die vorhandene feste Firebase-Concurrency-
+  Gruppe und führt TMDB und Waipu nacheinander aus.

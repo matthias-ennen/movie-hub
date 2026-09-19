@@ -51,8 +51,9 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 - **#4H aktiv:** Langzeitstabilität steht nach zwei getrennten, fehlerfreien
   7-Sender-Läufen bei 2/7. Mehrfachzählung innerhalb desselben UTC-Tags wird
   technisch verhindert. Ein begrenzter, als Testbestand markierter
-  7-Sender-Katalog ermöglicht jetzt die Geräteabnahme; das Release-/Rechte-Gate
-  bleibt für den regelmäßigen beziehungsweise erweiterten Betrieb offen
+  7-Sender-Katalog ermöglicht jetzt die Geräteabnahme. Der tägliche gemeinsame
+  TMDB-/Waipu-/Firebase-Lauf ist eingerichtet; erster produktiver
+  End-to-End-Nachweis und Release-/Rechte-Gate für den erweiterten Betrieb bleiben offen
 - keine Waiputhek-/VOD-Aussage aus linearen Sendeterminen ableiten
 - keine Waipu-Anmeldung und keine Waipu-Token für die öffentliche Basisintegration
 
