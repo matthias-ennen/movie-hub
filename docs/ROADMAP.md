@@ -59,12 +59,15 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
   den kontoweiten Einstellungen einzeln ausblenden
 - **#4H aktiv:** Robustheit und Langzeitmessung mit 2/7 getrennten stabilen
   7-Sender-Läufen; Mehrfachzählung desselben UTC-Tags wird verhindert.
-  Geräteabnahme und Release-/Rechte-Gate bleiben offen
+  Ein begrenzter 7-Sender-Testkatalog ist für die Geräteabnahme freigegeben;
+  die Messung blockiert den Funktionstest nicht. Geräteabnahme und Gate für
+  den regelmäßigen/erweiterten Betrieb bleiben offen
 - Movie Hub fragt keine Waipu-Zugangsdaten ab und speichert keine Waipu-Token
 - ein persönlicher Paket-/Senderfilter kann später optional ergänzt werden,
   blockiert aber den öffentlichen Live-Katalog nicht
 - Waiputhek/VOD, Streaming, Aufnahmen und DRM bleiben ausdrücklich ausgeschlossen
-- öffentliche Verteilung bleibt bis zur Rechte- und API-Klärung gesperrt
+- automatisierte, dauerhafte oder über sieben Pilotsender hinausgehende
+  Verteilung bleibt bis zur Rechte- und API-Klärung gesperrt
 
 ## Danach geplante Arbeitspakete
 
@@ -98,4 +101,8 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 
 `#4A → #4B → #4C → #4D → #4E → #4F → #4G → #4H → #118 → #7`
 
-Die spätere öffentliche Verteilung von #4 bleibt zusätzlich durch die Compliance-Prüfung #112 gesperrt. Vor Beginn jedes aktiven Pakets wird dessen Scope noch einmal kurz gegen den dann aktuellen Stand geprüft.
+Der begrenzte 7-Sender-Testbestand von #4 ist für die Geräteabnahme freigegeben.
+Der spätere automatisierte, dauerhafte oder erweiterte öffentliche Betrieb
+bleibt zusätzlich durch die Compliance-Prüfung #112 gesperrt. Vor Beginn jedes
+aktiven Pakets wird dessen Scope noch einmal kurz gegen den dann aktuellen
+Stand geprüft.

@@ -16,7 +16,9 @@ Live-Streaming, Aufnahmen, Replay, Tuner- und DRM-Funktionen bleiben
 ausgeschlossen.
 
 Die öffentliche Erreichbarkeit ist keine Stabilitäts-, Nutzungs- oder
-Weiterveröffentlichungszusage. Öffentliche Auslieferung bleibt bis zur
+Weiterveröffentlichungszusage. Ein begrenzter, ausdrücklich gekennzeichneter
+7-Sender-Testbestand darf zur Geräteabnahme ausgeliefert werden. Automatisierte,
+dauerhafte oder erweiterte Auslieferung bleibt bis zur
 API-/Rechte-/Attributionsprüfung und zum Compliance-Gate #112 gesperrt.
 
 ## Freigegebene Read-only-Endpunkte

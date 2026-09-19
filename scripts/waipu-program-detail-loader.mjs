@@ -50,13 +50,27 @@ export class WaipuProgramDetailLoader {
       retries: 0,
       cacheHits: 0,
       detailsLoaded: 0,
+      detailsUnavailable: 0,
     }
   }
 
   async load(programId) {
-    const result = await this.cache.getProgram({
-      getProgram: (id) => this.#requestWithRetry(() => this.client.getProgram(id)),
-    }, programId)
+    let result
+    try {
+      result = await this.cache.getProgram({
+        getProgram: (id) => this.#requestWithRetry(() => this.client.getProgram(id)),
+      }, programId)
+    } catch (error) {
+      if (error?.code !== 'HTTP_ERROR' || ![404, 410].includes(error?.status)) throw error
+      const unavailable = { unavailable: true, status: error.status }
+      const record = await this.cache.write('program', programId, {
+        value: unavailable,
+        etag: null,
+        lastModified: null,
+      }, { immutable: true })
+      this.metrics.detailsUnavailable += 1
+      return record.value
+    }
     if (result.cache === 'immutable') this.metrics.cacheHits += 1
     else this.metrics.detailsLoaded += 1
     return result.value
