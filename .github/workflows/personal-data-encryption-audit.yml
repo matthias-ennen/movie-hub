@@ -43,7 +43,7 @@ jobs:
       - name: Audit encrypted personal Firestore fields
         env:
           GOOGLE_CLOUD_PROJECT: movie-hub-62459
-          MOVIE_HUB_EXPECT_NO_PLAINTEXT: ${{ inputs.expect_no_plaintext || 'false' }}
+          MOVIE_HUB_EXPECT_NO_PLAINTEXT: ${{ github.event_name == 'push' && 'true' || inputs.expect_no_plaintext || 'false' }}
         run: npm run personal-data:encryption:audit
 
       - name: Upload value-free audit report
