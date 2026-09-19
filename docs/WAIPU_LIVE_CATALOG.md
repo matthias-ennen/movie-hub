@@ -144,9 +144,20 @@ Der Index kennzeichnet eine solche Generation mit `releaseChannel: "test"`.
 Ohne `WAIPU_TEST_MODE=1` bleibt der strenge Produktionsmodus unverändert und
 fordert für lokal ungeklärte Kandidaten weiterhin eine echte TMDB-Suche.
 
+Im gemeinsamen täglichen Datenlauf ist `TMDB_API_READ_TOKEN` ausschließlich in
+der vertrauenswürdigen GitHub-Umgebung vorhanden. Der Matcher verwendet zuerst
+den frisch erzeugten Movie-Hub-Katalog und Suchindex. Nur danach fragt er für
+noch offene Programme gedrosselt direkt bei TMDB an. Positive und negative
+Entscheidungen werden persistent wiederverwendet; das Token gelangt weder in
+die Web-App noch in die Android-App oder in die Katalogartefakte.
+
 Die Ausgabe liegt unter `artifacts/waipu-live/current/`; Matchentscheidungen
 liegen unter `artifacts/waipu-live/match-decisions.json`. Beide Pfade sind
 bewusst nicht versioniert.
+
+Vor jedem geplanten Refresh lädt `npm run waipu:restore` den letzten auf
+Firebase vorhandenen und vollständig validierten Katalog. Er ist der
+Rückfallstand, falls Grid-, Detail- oder TMDB-Aktualisierung fehlschlägt.
 
 ## Atomare Ausgabe
 

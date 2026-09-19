@@ -60,8 +60,9 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 - **#4H aktiv:** Robustheit und Langzeitmessung mit 2/7 getrennten stabilen
   7-Sender-Läufen; Mehrfachzählung desselben UTC-Tags wird verhindert.
   Ein begrenzter 7-Sender-Testkatalog ist für die Geräteabnahme freigegeben;
-  die Messung blockiert den Funktionstest nicht. Geräteabnahme und Gate für
-  den regelmäßigen/erweiterten Betrieb bleiben offen
+  die Messung blockiert den Funktionstest nicht. Der persistente tägliche
+  TMDB→Waipu→Firebase-Lauf ist eingerichtet; Geräteabnahme, erster produktiver
+  End-to-End-Nachweis und Gate für den erweiterten Betrieb bleiben offen
 - Movie Hub fragt keine Waipu-Zugangsdaten ab und speichert keine Waipu-Token
 - ein persönlicher Paket-/Senderfilter kann später optional ergänzt werden,
   blockiert aber den öffentlichen Live-Katalog nicht

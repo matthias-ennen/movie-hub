@@ -22,6 +22,17 @@ regelmäßigen beziehungsweise erweiterten öffentlichen Betrieb.
 - [x] 229 lokal nicht eindeutige Programme nicht geraten und nicht angezeigt;
 - [x] keine direkten Waipu-Massenabrufe aus Smartphone, Tablet oder Fire TV.
 
+## Automatisierter Betrieb der sieben Pilotsender
+
+- [x] Waipu in den vorhandenen täglichen TMDB-/Firebase-Lauf integriert;
+- [x] feste Workflow-Concurrency verhindert parallele produktive Importe;
+- [x] Checkpoint, Grid-/Detailcache und Matchentscheidungen zwischen Läufen persistent;
+- [x] letzter gültiger Firebase-Katalog wird vor dem Refresh validiert restauriert;
+- [x] neue Generation ersetzt den Rückfallstand nur nach vollständiger Validierung;
+- [x] 403/429 und technische Fehler behalten den letzten gültigen Katalog online;
+- [x] fehlgeschlagener Waipu-Refresh wird nach dem Fallback sichtbar als Workflowfehler gemeldet;
+- [ ] erster manueller End-to-End-Lauf des neuen GitHub-Workflows erfolgreich;
+
 ## Langzeitstabilität der 7-Sender-Stufe
 
 | UTC-Tag | Ergebnis | Requests | Retries | 403/429 | Circuit |

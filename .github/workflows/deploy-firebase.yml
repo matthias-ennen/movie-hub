@@ -4,8 +4,8 @@ on:
   push:
     branches: [main]
   schedule:
-    # Daily refresh in the early morning. A failed refresh never reaches the
-    # deploy step, so the last working catalog remains live.
+    # Daily at 03:17 UTC (04:17 CET / 05:17 CEST). TMDB and Waipu are refreshed
+    # sequentially and published together; no second import job runs in parallel.
     - cron: '17 03 * * *'
   workflow_dispatch:
     inputs:
@@ -40,6 +40,32 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Restore persistent Waipu import state
+        if: ${{ github.event_name != 'push' }}
+        id: waipu_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            artifacts/waipu-sync
+            artifacts/waipu-live/match-decisions.json
+            artifacts/waipu-live/detail-status.json
+          key: waipu-seven-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            waipu-seven-v1-
+
+      - name: Seed verified Waipu stability history
+        if: ${{ github.event_name != 'push' }}
+        run: |
+          mkdir -p artifacts/waipu-sync
+          if [ ! -f artifacts/waipu-sync/checkpoint.json ]; then
+            cp .github/waipu/checkpoint.seed.json artifacts/waipu-sync/checkpoint.json
+          fi
+
+      - name: Restore last deployed Waipu catalog
+        if: ${{ github.event_name != 'push' }}
+        continue-on-error: true
+        run: npm run waipu:restore
 
       - name: Restore incremental search-detail metadata
         continue-on-error: true
@@ -102,6 +128,42 @@ jobs:
             npm run search:details
           fi
 
+      - name: Refresh seven-station Waipu grid
+        id: waipu_sync
+        if: ${{ github.event_name != 'push' }}
+        continue-on-error: true
+        env:
+          WAIPU_SYNC_LIVE: '1'
+          WAIPU_SYNC_REQUEST_BUDGET: '700'
+        run: npm run waipu:sync -- --live --stage=7
+
+      - name: Match and publish seven-station Waipu test catalog
+        id: waipu_catalog
+        if: ${{ github.event_name != 'push' && steps.waipu_sync.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          WAIPU_CATALOG_LIVE: '1'
+          WAIPU_TEST_MODE: '1'
+          WAIPU_LIVE_OUTPUT: public/waipu-live
+          WAIPU_DETAIL_REQUEST_BUDGET: '1600'
+          WAIPU_DETAIL_PACE_MS: '400'
+          WAIPU_DETAIL_JITTER_MS: '100'
+          WAIPU_TMDB_REQUEST_BUDGET: '400'
+          WAIPU_TMDB_PACE_MS: '250'
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+          TMDB_LANGUAGE: de-DE
+        run: npm run waipu:catalog -- --live
+
+      - name: Save persistent Waipu import state
+        if: ${{ always() && github.event_name != 'push' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            artifacts/waipu-sync
+            artifacts/waipu-live/match-decisions.json
+            artifacts/waipu-live/detail-status.json
+          key: waipu-seven-v1-${{ github.run_id }}-${{ github.run_attempt }}
+
       - name: Report data fill levels
         run: npm run data:status
 
@@ -133,3 +195,9 @@ jobs:
 
       - name: Deploy Hosting and Firestore Rules
         run: npx firebase-tools deploy --only hosting,firestore:rules --project movie-hub-62459 --non-interactive
+
+      - name: Report failed scheduled Waipu refresh
+        if: ${{ always() && github.event_name != 'push' && (steps.waipu_sync.outcome != 'success' || steps.waipu_catalog.outcome != 'success') }}
+        run: |
+          echo "::error::Waipu refresh failed; the last validated catalog remained in public/waipu-live."
+          exit 1
