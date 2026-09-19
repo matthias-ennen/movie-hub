@@ -1,0 +1,51 @@
+name: Personal Data Encryption Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      expect_no_plaintext:
+        description: Nach finaler Bereinigung vollständige Klartextfreiheit verlangen
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+
+      - name: Audit encrypted personal Firestore fields
+        env:
+          GOOGLE_CLOUD_PROJECT: movie-hub-62459
+          MOVIE_HUB_EXPECT_NO_PLAINTEXT: ${{ inputs.expect_no_plaintext }}
+        run: npm run personal-data:encryption:audit
+
+      - name: Upload value-free audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: personal-data-encryption-audit
+          path: personal-data-encryption-audit.json
+          if-no-files-found: warn
+          retention-days: 14
