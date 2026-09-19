@@ -57,3 +57,12 @@ export function planPersonalValueMigration({
     envelope: null,
   }
 }
+
+export function planPersonalValueCleanup(options) {
+  const result = planPersonalValueMigration(options)
+  return {
+    ...result,
+    deletePlaintext: result.plaintextPresent
+      && (result.status === 'verified' || result.status === 'migrate'),
+  }
+}
