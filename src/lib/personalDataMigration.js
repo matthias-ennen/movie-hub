@@ -1,10 +1,10 @@
-import { collection, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
+import { collection, deleteField, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
 import { firebaseReady } from './firebase.js'
 import {
   PERSONAL_CRYPTO_VERSION,
   canEncryptPersonalData,
 } from './personalDataCrypto.js'
-import { planPersonalValueMigration } from './personalDataMigrationPlan.js'
+import { planPersonalValueCleanup } from './personalDataMigrationPlan.js'
 
 const NOTE_PURPOSE = 'profile.note'
 const LABEL_PURPOSE = 'sharedMedia.label'
@@ -27,6 +27,7 @@ function emptyFieldSummary() {
     encryptedPresent: 0,
     migrated: 0,
     verified: 0,
+    plaintextRemoved: 0,
     empty: 0,
   }
 }
@@ -51,20 +52,24 @@ async function migrateProfileNotes(db, userId, report) {
     for (const title of titles.docs) {
       const raw = title.data()
       try {
-        const result = planPersonalValueMigration({
+        const result = planPersonalValueCleanup({
           purpose: NOTE_PURPOSE,
           plaintextPresent: own(raw, 'note'),
           plaintextValue: raw.note,
           encryptedValue: raw.noteEncrypted,
         })
-        if (result.status === 'migrate') {
+        const patch = {}
+        if (result.status === 'migrate') patch.noteEncrypted = result.envelope
+        if (result.deletePlaintext) patch.note = deleteField()
+        if (Object.keys(patch).length) {
           await setDoc(title.ref, {
-            noteEncrypted: result.envelope,
+            ...patch,
             cryptoVersion: PERSONAL_CRYPTO_VERSION,
             updatedAt: serverTimestamp(),
           }, { merge: true })
         }
         addFieldResult(report.fields.note, result)
+        if (result.deletePlaintext) report.fields.note.plaintextRemoved++
       } catch (error) {
         report.errors.push({
           path: title.ref.path,
@@ -95,7 +100,7 @@ async function migrateSharedMedia(db, userId, report) {
         { name: 'url', encryptedName: 'urlEncrypted', purpose: URL_PURPOSE },
       ]) {
         try {
-          const result = planPersonalValueMigration({
+          const result = planPersonalValueCleanup({
             purpose: field.purpose,
             plaintextPresent: own(raw, field.name),
             plaintextValue: raw[field.name],
@@ -104,6 +109,7 @@ async function migrateSharedMedia(db, userId, report) {
           })
           fieldResults.push([field.name, result])
           if (result.status === 'migrate') patch[field.encryptedName] = result.envelope
+          if (result.deletePlaintext) patch[field.name] = deleteField()
         } catch (error) {
           failed = true
           report.errors.push({
@@ -132,7 +138,10 @@ async function migrateSharedMedia(db, userId, report) {
           continue
         }
       }
-      fieldResults.forEach(([fieldName, result]) => addFieldResult(report.fields[fieldName], result))
+      fieldResults.forEach(([fieldName, result]) => {
+        addFieldResult(report.fields[fieldName], result)
+        if (result.deletePlaintext) report.fields[fieldName].plaintextRemoved++
+      })
     }
   }
 }
