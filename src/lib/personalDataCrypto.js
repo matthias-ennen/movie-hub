@@ -40,9 +40,6 @@ export function protectPersonalValue(purpose, value) {
 }
 
 export function readPersonalValue(purpose, value) {
-  if (typeof value === 'string') {
-    return { value, legacyPlaintext: true }
-  }
   if (!isEncryptedPersonalValue(value)) {
     throw new Error('Unbekanntes oder beschädigtes Movie-Hub-Verschlüsselungsformat.')
   }
@@ -52,5 +49,5 @@ export function readPersonalValue(purpose, value) {
     throw new Error('Diese persönlichen Daten benötigen die native Movie-Hub-Kryptobrücke.')
   }
   const clearText = bridge.decrypt(String(purpose || ''), JSON.stringify(value))
-  return { value: String(clearText ?? ''), legacyPlaintext: false }
+  return { value: String(clearText ?? '') }
 }
