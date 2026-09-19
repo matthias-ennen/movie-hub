@@ -134,10 +134,12 @@ export function ProfileProvider({ user, children }) {
     runPersonalDataEncryptionMigration(user.uid)
       .then((report) => {
         if (report.status !== 'complete') return
-        console.info('Persönliche Firestore-Daten wurden vollständig verschlüsselt geprüft.', {
+        console.info('Persönliche Firestore-Daten wurden verschlüsselt geprüft und von Klartext bereinigt.', {
           profiles: report.profileDocuments,
           titles: report.titleDocuments,
           sharedMediaEntries: report.sharedMediaEntries,
+          plaintextRemoved: Object.values(report.fields)
+            .reduce((total, field) => total + field.plaintextRemoved, 0),
         })
       })
       .catch((migrationError) => {
