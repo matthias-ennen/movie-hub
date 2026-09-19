@@ -169,7 +169,15 @@ function dayTitle(key, now, timeZone) {
 function fallbackTitle(airing, entry) {
   const type = airing.type
   const title = entry?.title || airing.title || `TMDB #${airing.tmdbId}`
+  const {
+    key: _key,
+    airings: _airings,
+    nextAiring: _nextAiring,
+    airingCount: _airingCount,
+    ...metadata
+  } = entry || {}
   return {
+    ...metadata,
     id: `waipu-${type}-${airing.tmdbId}`,
     source: 'tmdb',
     tmdbId: airing.tmdbId,
@@ -177,18 +185,18 @@ function fallbackTitle(airing, entry) {
     type,
     title,
     originalTitle: entry?.originalTitle || title,
-    description: '',
+    description: entry?.description || '',
     year: entry?.year || null,
     posterUrl: entry?.posterUrl || airing.imageUrl || null,
     neutralPosterUrl: entry?.posterUrl || airing.imageUrl || null,
-    backdropUrl: null,
-    artwork: { posterPaths: [], heroBackdropPaths: [] },
-    genre: 'TV-Programm',
-    meta: type === 'series' ? 'Serie' : 'Film',
-    score: '–',
-    providerIds: ['waipu'],
-    accent: '#657184',
-    accent2: '#1c2531',
+    backdropUrl: entry?.backdropUrl || null,
+    artwork: entry?.artwork || { posterPaths: [], heroBackdropPaths: [] },
+    genre: entry?.genre || 'TV-Programm',
+    meta: entry?.meta || (type === 'series' ? 'Serie' : 'Film'),
+    score: entry?.score || '–',
+    providerIds: [...new Set([...(Array.isArray(entry?.providerIds) ? entry.providerIds : []), 'waipu'])],
+    accent: entry?.accent || '#657184',
+    accent2: entry?.accent2 || '#1c2531',
   }
 }
 

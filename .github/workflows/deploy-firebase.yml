@@ -161,8 +161,12 @@ jobs:
           WAIPU_DETAIL_JITTER_MS: '75'
           WAIPU_TMDB_REQUEST_BUDGET: '4000'
           WAIPU_TMDB_PACE_MS: '250'
+          WAIPU_TMDB_METADATA_REQUEST_BUDGET: '4000'
+          WAIPU_TMDB_METADATA_CONCURRENCY: '3'
+          WAIPU_TMDB_METADATA_MAX_AGE_DAYS: '30'
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
+          TMDB_COUNTRY: DE
         run: npm run waipu:catalog -- --live
 
       - name: Save persistent Waipu import state

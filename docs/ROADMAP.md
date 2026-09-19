@@ -62,7 +62,10 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
   Ein begrenzter 7-Sender-Testkatalog ist für die Geräteabnahme freigegeben;
   die Messung blockiert den Funktionstest nicht. Der persistente tägliche
   TMDB→Waipu→Firebase-Lauf ist eingerichtet; Geräteabnahme, erster produktiver
-  End-to-End-Nachweis und Gate für den erweiterten Betrieb bleiben offen
+  End-to-End-Nachweis und Gate für den erweiterten Betrieb bleiben offen.
+  Neu über Waipu erkannte Titel werden vor der Veröffentlichung vollständig
+  aus TMDB angereichert; der TV-Reiter ist nicht mehr auf eine erst beim
+  Öffnen geladene Detailansicht angewiesen
 - Movie Hub fragt keine Waipu-Zugangsdaten ab und speichert keine Waipu-Token
 - ein persönlicher Paket-/Senderfilter kann später optional ergänzt werden,
   blockiert aber den öffentlichen Live-Katalog nicht

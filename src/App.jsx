@@ -581,6 +581,20 @@ function MovieHub({ user }) {
       loadCompleteTitleMetadata(item)
         .then((detail) => {
           if (titleNeedsMetadataEnrichment(detail)) return
+          setWaipuLiveEntries((entries) => entries.map((entry) => {
+            if (!sameTmdbTitle(entry, item)) return entry
+            const hydrated = mergeEnrichedTitle({
+              ...entry,
+              id: entry.id || `tmdb-${entry.type}-${entry.tmdbId}`,
+            }, detail)
+            return {
+              ...hydrated,
+              key: entry.key,
+              airings: entry.airings,
+              nextAiring: entry.nextAiring,
+              airingCount: entry.airingCount,
+            }
+          }))
           setSelectedTitle((current) => {
             if (!current || !sameTmdbTitle(current, item)) return current
             const hydrated = resolvePresentationArtwork(mergeEnrichedTitle(current, detail), artworkOptions)

@@ -18,6 +18,11 @@ import {
   matchWaipuProgram,
   normalizeTmdbMatchCandidate,
 } from './waipu-tmdb-matcher.mjs'
+import {
+  WaipuTmdbMetadataClient,
+  enrichWaipuTitleMetadata,
+  requireCompleteWaipuTitleMetadata,
+} from './waipu-title-metadata.mjs'
 
 export const WAIPU_LIVE_CATALOG_VERSION = 1
 
@@ -475,6 +480,12 @@ export function validateWaipuLiveCatalog(catalog) {
       || catalog.index.counts.broadcasts !== airingCount) {
     throw new Error('waipu-live counts are inconsistent.')
   }
+  if (catalog.index.metadata?.required === true) {
+    requireCompleteWaipuTitleMetadata(titles)
+    if (catalog.index.metadata.complete !== titles.length) {
+      throw new Error('waipu-live metadata counts are inconsistent.')
+    }
+  }
   return true
 }
 
@@ -562,16 +573,18 @@ async function main() {
     throw error
   }
   const cacheRoot = resolve(process.env.WAIPU_CACHE_ROOT || resolve(projectRoot, 'artifacts/waipu-sync/cache'))
+  const output = resolve(process.env.WAIPU_LIVE_OUTPUT || resolve(projectRoot, 'artifacts/waipu-live/current'))
   const syncStatus = await readJson(resolve(process.env.WAIPU_SYNC_STATUS || resolve(projectRoot, 'artifacts/waipu-sync/status.json')))
   if (syncStatus?.status !== 'complete') throw new Error('A complete Waipu sync status is required.')
   const movieHubCatalogPath = resolve(process.env.MOVIE_HUB_CATALOG_PATH || resolve(projectRoot, 'public/catalog.json'))
   const movieHubSearchIndexPath = resolve(process.env.MOVIE_HUB_SEARCH_INDEX_PATH || resolve(projectRoot, 'public/search-index.json'))
-  const [gridRecords, stationRecords, programRecords, catalog, searchIndex] = await Promise.all([
+  const [gridRecords, stationRecords, programRecords, catalog, searchIndex, previousWaipuTitles] = await Promise.all([
     readWaipuCacheRecords(cacheRoot, 'grid'),
     readWaipuCacheRecords(cacheRoot, 'stations'),
     readWaipuCacheRecords(cacheRoot, 'program'),
     readJson(movieHubCatalogPath, { titles: [] }),
     readJson(movieHubSearchIndexPath, { entries: [] }),
+    readJson(resolve(output, 'titles.json'), { entries: [] }),
   ])
   const programs = new Map(programRecords.map((record) => [record.key, record.value]))
   const stationDirectory = stationRecords[0]?.value || []
@@ -584,6 +597,14 @@ async function main() {
       language: process.env.TMDB_LANGUAGE || 'de-DE',
       maxRequests: Number(process.env.WAIPU_TMDB_REQUEST_BUDGET || 100),
       paceMs: Number(process.env.WAIPU_TMDB_PACE_MS || 250),
+    })
+    : null
+  const tmdbMetadataClient = process.env.TMDB_API_READ_TOKEN
+    ? new WaipuTmdbMetadataClient({
+      token: process.env.TMDB_API_READ_TOKEN,
+      language: process.env.TMDB_LANGUAGE || 'de-DE',
+      country: process.env.TMDB_COUNTRY || 'DE',
+      maxRequests: Number(process.env.WAIPU_TMDB_METADATA_REQUEST_BUDGET || 4000),
     })
     : null
   const detailLoader = live
@@ -630,11 +651,32 @@ async function main() {
           )
         },
       })
+      const metadata = await enrichWaipuTitleMetadata(liveCatalog.titles.entries, {
+        catalogTitles: catalog.titles,
+        cachedTitles: previousWaipuTitles.entries,
+        loadTitleMetadata: tmdbMetadataClient
+          ? (entry, updatedAt) => tmdbMetadataClient.loadTitle(entry, updatedAt)
+          : null,
+        concurrency: Number(process.env.WAIPU_TMDB_METADATA_CONCURRENCY || 3),
+        cacheMaxAgeDays: Number(process.env.WAIPU_TMDB_METADATA_MAX_AGE_DAYS || 30),
+        onProgress: ({ processed, total, fromCatalog, fromCache, fetched }) => {
+          process.stdout.write(
+            `Waipu-TMDB-Metadaten: ${processed}/${total} vollständig`
+            + ` · ${fromCatalog} aus Katalog · ${fromCache} aus Cache · ${fetched} neu geladen\n`,
+          )
+        },
+      })
+      liveCatalog.titles = titleArtifact(metadata.entries)
+      liveCatalog.index.metadata = {
+        required: true,
+        generatedAt: metadata.generatedAt,
+        ...metadata.metrics,
+      }
       liveCatalog.index.runtime = {
         detailRequests: detailLoader?.metrics || null,
         tmdbRequests: tmdbSearchClient?.requestsStarted || 0,
+        tmdbMetadataRequests: tmdbMetadataClient?.requestsStarted || 0,
       }
-      const output = resolve(process.env.WAIPU_LIVE_OUTPUT || resolve(projectRoot, 'artifacts/waipu-live/current'))
       await writeWaipuLiveCatalog(output, liveCatalog)
       if (live) {
         await writeJsonAtomic(detailStatusPath, {
@@ -650,6 +692,7 @@ async function main() {
         ...liveCatalog.index,
         detailRequests: detailLoader?.metrics || null,
         tmdbRequests: tmdbSearchClient?.requestsStarted || 0,
+        tmdbMetadataRequests: tmdbMetadataClient?.requestsStarted || 0,
       }, null, 2)}\n`)
     } catch (error) {
       if (live) {

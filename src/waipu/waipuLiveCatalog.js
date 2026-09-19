@@ -53,16 +53,29 @@ function normalizeEntry(raw, now) {
     .sort((left, right) => left.startTime.localeCompare(right.startTime))
   if (!airings.length) return null
 
+  const {
+    airings: _rawAirings,
+    nextAiring: _rawNextAiring,
+    airingCount: _rawAiringCount,
+    key: _rawKey,
+    ...metadata
+  } = raw
   return {
+    ...metadata,
     key,
     tmdbId: Number(raw.tmdbId),
     type: mediaType(raw.type),
+    mediaType: mediaType(raw.type) === 'series' ? 'tv' : 'movie',
     title: String(raw?.title || '').trim(),
     originalTitle: String(raw?.originalTitle || '').trim() || null,
     year: raw?.year !== null && raw?.year !== undefined && Number.isInteger(Number(raw.year))
       ? Number(raw.year)
       : null,
     posterUrl: String(raw?.posterUrl || '').trim() || null,
+    providerIds: [...new Set([
+      ...(Array.isArray(raw?.providerIds) ? raw.providerIds.map(String) : []),
+      'waipu',
+    ])],
     airings,
     nextAiring: airings[0],
     airingCount: airings.length,
