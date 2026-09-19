@@ -9,6 +9,15 @@ import { doc, getDoc, setDoc } from 'firebase/firestore'
 
 let testEnv
 
+function encryptedValue(ciphertext = 'ciphertext') {
+  return {
+    cryptoVersion: 1,
+    algorithm: 'A256GCM',
+    iv: 'base64-iv',
+    ciphertext,
+  }
+}
+
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
     projectId: 'movie-hub-rules-test',
@@ -63,7 +72,8 @@ describe('Firestore Security Rules', () => {
       watched: true,
       rating: 9,
       watchedAt: '2026-09-06',
-      note: 'Großartig',
+      noteEncrypted: encryptedValue('encrypted-note'),
+      cryptoVersion: 1,
       titleRef: { tmdbId: 11, type: 'movie' },
     }))
 
@@ -81,8 +91,16 @@ describe('Firestore Security Rules', () => {
     const mainRef = doc(db, 'users', 'alice', 'profiles', 'main', 'titles', 'movie-11')
     const childRef = doc(db, 'users', 'alice', 'profiles', 'child', 'titles', 'movie-11')
 
-    await assertSucceeds(setDoc(mainRef, { favorite: true, rating: 10 }))
-    await assertSucceeds(setDoc(childRef, { favorite: false, rating: 6 }))
+    await assertSucceeds(setDoc(mainRef, {
+      favorite: true,
+      rating: 10,
+      noteEncrypted: encryptedValue('main-note'),
+    }))
+    await assertSucceeds(setDoc(childRef, {
+      favorite: false,
+      rating: 6,
+      noteEncrypted: encryptedValue('child-note'),
+    }))
 
     expect((await assertSucceeds(getDoc(mainRef))).data().rating).toBe(10)
     expect((await assertSucceeds(getDoc(childRef))).data().rating).toBe(6)
@@ -109,12 +127,52 @@ describe('Firestore Security Rules', () => {
       titleRef: { id: 'tmdb-movie-11', tmdbId: 11, type: 'movie', title: 'Star Wars' },
     }))
     await assertSucceeds(setDoc(mediaRef, {
-      label: 'Deutscher Trailer',
+      labelEncrypted: encryptedValue('encrypted-label'),
       type: 'web',
-      url: 'https://www.youtube.com/watch?v=test123',
+      urlEncrypted: encryptedValue('encrypted-url'),
+      cryptoVersion: 1,
     }))
     expect((await assertSucceeds(getDoc(catalogRef))).data().hasMedia).toBe(true)
-    expect((await assertSucceeds(getDoc(mediaRef))).data().label).toBe('Deutscher Trailer')
+    expect((await assertSucceeds(getDoc(mediaRef))).data().labelEncrypted.algorithm).toBe('A256GCM')
+  })
+
+  it('verweigert persönliche Titelnotizen im Klartext auch dem Eigentümer', async () => {
+    const db = testEnv.authenticatedContext('alice').firestore()
+    const stateRef = doc(db, 'users', 'alice', 'profiles', 'main', 'titles', 'movie-12')
+
+    await assertFails(setDoc(stateRef, {
+      favorite: true,
+      note: 'Darf nicht gespeichert werden',
+      noteEncrypted: encryptedValue('encrypted-note'),
+    }))
+  })
+
+  it('verweigert Labels und Links im Klartext auch dem Eigentümer', async () => {
+    const db = testEnv.authenticatedContext('alice').firestore()
+    const mediaRef = doc(db, 'users', 'alice', 'sharedMedia', 'movie-12', 'entries', 'local')
+
+    await assertFails(setDoc(mediaRef, {
+      label: 'NAS',
+      url: 'smb://fritz.nas/Share/Movie.mkv',
+      labelEncrypted: encryptedValue('encrypted-label'),
+      urlEncrypted: encryptedValue('encrypted-url'),
+      type: 'video',
+    }))
+  })
+
+  it('verweigert beschädigte Verschlüsselungsumschläge', async () => {
+    const db = testEnv.authenticatedContext('alice').firestore()
+    const stateRef = doc(db, 'users', 'alice', 'profiles', 'main', 'titles', 'movie-13')
+
+    await assertFails(setDoc(stateRef, {
+      favorite: true,
+      noteEncrypted: {
+        cryptoVersion: 1,
+        algorithm: 'A256GCM',
+        iv: '',
+        ciphertext: 'ciphertext',
+      },
+    }))
   })
 
   it('erlaubt Bewertungen, Altersfreigabe und den neuen Teil-Sync-Status im persönlichen TMDB-Katalog', async () => {

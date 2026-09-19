@@ -10,6 +10,17 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    function isEncryptedPersonalValue(value) {
+      return value is map
+        && value.keys().hasOnly(['cryptoVersion', 'algorithm', 'iv', 'ciphertext'])
+        && value.cryptoVersion == 1
+        && value.algorithm == 'A256GCM'
+        && value.iv is string
+        && value.iv.size() > 0
+        && value.ciphertext is string
+        && value.ciphertext.size() > 0;
+    }
+
     match /users/{userId} {
       // Das Kontodokument selbst bleibt ausschließlich für die eigene UID.
       allow read, write: if ownsUserData(userId);
@@ -20,8 +31,11 @@ service cloud.firestore {
       match /profiles/{profileId} {
         allow read, write: if ownsUserData(userId);
 
-        match /{document=**} {
-          allow read, write: if ownsUserData(userId);
+        match /titles/{titleId} {
+          allow read, delete: if ownsUserData(userId);
+          allow create, update: if ownsUserData(userId)
+            && !request.resource.data.keys().hasAny(['note'])
+            && isEncryptedPersonalValue(request.resource.data.noteEncrypted);
         }
       }
 
@@ -33,8 +47,16 @@ service cloud.firestore {
 
       // Gemeinsame Medien sind kontoweit (nicht profilbezogen), damit jeder
       // Eintrag in allen Movie-Hub-Profilen sichtbar und pflegbar ist.
-      match /sharedMedia/{document=**} {
+      match /sharedMedia/{titleId} {
         allow read, write: if ownsUserData(userId);
+
+        match /entries/{entryId} {
+          allow read, delete: if ownsUserData(userId);
+          allow create, update: if ownsUserData(userId)
+            && !request.resource.data.keys().hasAny(['label', 'url'])
+            && isEncryptedPersonalValue(request.resource.data.labelEncrypted)
+            && isEncryptedPersonalValue(request.resource.data.urlEncrypted);
+        }
       }
 
       // Der persönliche TMDB-Katalog ist wie die geräteweite TMDB-Verbindung
