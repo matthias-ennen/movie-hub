@@ -128,6 +128,22 @@ WAIPU_TMDB_REQUEST_BUDGET=100
 WAIPU_TMDB_PACE_MS=250
 ```
 
+Für einen bewusst begrenzten Funktionstest darf der Erzeuger ausschließlich
+bereits lokal eindeutig auflösbare TMDB-Zuordnungen veröffentlichen. Offene,
+mehrdeutige oder zu schwache Treffer bleiben dabei unsichtbar:
+
+```bash
+WAIPU_TEST_MODE=1 \
+MOVIE_HUB_CATALOG_PATH=/path/to/catalog.json \
+MOVIE_HUB_SEARCH_INDEX_PATH=/path/to/search-index.json \
+WAIPU_LIVE_OUTPUT=public/waipu-live \
+npm run waipu:catalog
+```
+
+Der Index kennzeichnet eine solche Generation mit `releaseChannel: "test"`.
+Ohne `WAIPU_TEST_MODE=1` bleibt der strenge Produktionsmodus unverändert und
+fordert für lokal ungeklärte Kandidaten weiterhin eine echte TMDB-Suche.
+
 Die Ausgabe liegt unter `artifacts/waipu-live/current/`; Matchentscheidungen
 liegen unter `artifacts/waipu-live/match-decisions.json`. Beide Pfade sind
 bewusst nicht versioniert.
@@ -179,9 +195,10 @@ Vite-Public-Bestand schreiben:
 WAIPU_LIVE_OUTPUT=public/waipu-live npm run waipu:catalog
 ```
 
-Die produktive Veröffentlichung bleibt bis zum vorgesehenen Rechte- und
-Compliance-Gate gesperrt. Der App-Code reagiert bis dahin absichtlich
-fehlertolerant auf eine nicht vorhandene Datei.
+Eine zeitlich begrenzte technische Testauslieferung für die Geräteabnahme darf
+mit den sieben Pilotsendern erfolgen. Die dauerhafte, automatisierte oder auf
+weitere Sender ausgeweitete öffentliche Veröffentlichung bleibt bis zum
+vorgesehenen Rechte- und Compliance-Gate gesperrt.
 
 ## TV-Registerkarte und Senderfilter (#4G)
 

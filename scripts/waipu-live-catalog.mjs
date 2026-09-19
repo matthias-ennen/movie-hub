@@ -49,6 +49,7 @@ function emptyMetrics() {
     gridCandidates: 0,
     candidatePrograms: 0,
     detailsLoaded: 0,
+    detailsUnavailable: 0,
     detailsMissing: 0,
     classifiedPrograms: 0,
     classificationRejected: {},
@@ -208,6 +209,8 @@ export async function buildWaipuLiveCatalog({
   searchTmdb = null,
   decisions = new WaipuMatchDecisionStore(),
   allowIncompleteDetails = false,
+  allowUnresolvedMatches = false,
+  releaseChannel = 'production',
   now = Date.now,
 } = {}) {
   if (typeof loadProgramDetail !== 'function') throw new TypeError('loadProgramDetail must be a function.')
@@ -264,6 +267,11 @@ export async function buildWaipuLiveCatalog({
       seriesId: first.seriesId,
     }
     const detail = await loadProgramDetail(programId)
+    if (detail?.unavailable === true && [404, 410].includes(detail.status)) {
+      metrics.detailsUnavailable += 1
+      increment(metrics.classificationRejected, 'detail_unavailable')
+      continue
+    }
     if (!detail) {
       metrics.detailsMissing += 1
       increment(metrics.classificationRejected, 'detail_missing')
@@ -304,7 +312,7 @@ export async function buildWaipuLiveCatalog({
     error.metrics = metrics
     throw error
   }
-  if (metrics.matchSearchUnavailable > 0) {
+  if (metrics.matchSearchUnavailable > 0 && !allowUnresolvedMatches) {
     const error = new Error(`TMDB search is required for ${metrics.matchSearchUnavailable} unresolved Waipu programs.`)
     error.code = 'TMDB_SEARCH_REQUIRED'
     error.metrics = metrics
@@ -390,6 +398,7 @@ export async function buildWaipuLiveCatalog({
       kind: 'waipu-live-index',
       status: 'complete',
       generatedAt,
+      releaseChannel,
       horizon: { start, endExclusive },
       matcherVersion: WAIPU_MATCHER_VERSION,
       counts: {
@@ -525,6 +534,7 @@ async function readJson(path, fallback = null) {
 async function main() {
   const live = process.argv.slice(2).includes('--live')
   const resetCircuit = process.argv.slice(2).includes('--reset-circuit')
+  const testMode = process.env.WAIPU_TEST_MODE === '1'
   if (live && process.env.WAIPU_CATALOG_LIVE !== '1') {
     const error = new Error('Live program-detail loading requires WAIPU_CATALOG_LIVE=1 and --live.')
     error.code = 'LIVE_CONFIRMATION_REQUIRED'
@@ -533,12 +543,14 @@ async function main() {
   const cacheRoot = resolve(process.env.WAIPU_CACHE_ROOT || resolve(projectRoot, 'artifacts/waipu-sync/cache'))
   const syncStatus = await readJson(resolve(process.env.WAIPU_SYNC_STATUS || resolve(projectRoot, 'artifacts/waipu-sync/status.json')))
   if (syncStatus?.status !== 'complete') throw new Error('A complete Waipu sync status is required.')
+  const movieHubCatalogPath = resolve(process.env.MOVIE_HUB_CATALOG_PATH || resolve(projectRoot, 'public/catalog.json'))
+  const movieHubSearchIndexPath = resolve(process.env.MOVIE_HUB_SEARCH_INDEX_PATH || resolve(projectRoot, 'public/search-index.json'))
   const [gridRecords, stationRecords, programRecords, catalog, searchIndex] = await Promise.all([
     readWaipuCacheRecords(cacheRoot, 'grid'),
     readWaipuCacheRecords(cacheRoot, 'stations'),
     readWaipuCacheRecords(cacheRoot, 'program'),
-    readJson(resolve(projectRoot, 'public/catalog.json'), { titles: [] }),
-    readJson(resolve(projectRoot, 'public/search-index.json'), { entries: [] }),
+    readJson(movieHubCatalogPath, { titles: [] }),
+    readJson(movieHubSearchIndexPath, { entries: [] }),
   ])
   const programs = new Map(programRecords.map((record) => [record.key, record.value]))
   const stationDirectory = stationRecords[0]?.value || []
@@ -587,6 +599,8 @@ async function main() {
         candidates: localTmdbCandidates({ catalog, searchIndex }),
         searchTmdb: tmdbSearchClient ? (input) => tmdbSearchClient.search(input) : null,
         decisions,
+        allowUnresolvedMatches: testMode,
+        releaseChannel: testMode ? 'test' : 'production',
       })
       const output = resolve(process.env.WAIPU_LIVE_OUTPUT || resolve(projectRoot, 'artifacts/waipu-live/current'))
       await writeWaipuLiveCatalog(output, liveCatalog)

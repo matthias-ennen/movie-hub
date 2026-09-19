@@ -250,6 +250,20 @@ describe('Waipu live catalog publication', () => {
     }))).rejects.toMatchObject({ code: 'WAIPU_DETAILS_INCOMPLETE' })
   })
 
+  it('excludes a program whose upstream detail is explicitly unavailable', async () => {
+    const catalog = await buildWaipuLiveCatalog(buildFixture({
+      loadProgramDetail: async () => ({ unavailable: true, status: 410 }),
+    }))
+
+    expect(catalog.index.status).toBe('complete')
+    expect(catalog.index.counts).toEqual({ stations: 1, titles: 0, broadcasts: 0 })
+    expect(catalog.index.metrics).toMatchObject({
+      detailsUnavailable: 1,
+      detailsMissing: 0,
+      classificationRejected: { detail_unavailable: 1 },
+    })
+  })
+
   it('keeps every airing in the compact title index and exposes the earliest one', async () => {
     const catalog = await buildWaipuLiveCatalog(buildFixture({
       programs: [
@@ -278,6 +292,18 @@ describe('Waipu live catalog publication', () => {
     await expect(buildWaipuLiveCatalog(buildFixture({
       candidates: [{ tmdbId: 1, type: 'movie', title: 'Unrelated title', year: 2022 }],
     }))).rejects.toMatchObject({ code: 'TMDB_SEARCH_REQUIRED' })
+  })
+
+  it('keeps unresolved matches invisible in explicit test mode', async () => {
+    const catalog = await buildWaipuLiveCatalog(buildFixture({
+      candidates: [{ tmdbId: 1, type: 'movie', title: 'Unrelated title', year: 2022 }],
+      allowUnresolvedMatches: true,
+      releaseChannel: 'test',
+    }))
+
+    expect(catalog.index.releaseChannel).toBe('test')
+    expect(catalog.index.counts).toEqual({ stations: 1, titles: 0, broadcasts: 0 })
+    expect(catalog.index.metrics.matchSearchUnavailable).toBe(1)
   })
 
   it('writes a validated generation through an atomic directory swap', async () => {
@@ -327,5 +353,30 @@ describe('Waipu program detail loading', () => {
     expect(client.getProgram).toHaveBeenCalledTimes(2)
     expect(sleeps).toEqual([350])
     expect(loader.metrics).toMatchObject({ requestsStarted: 2, cacheHits: 1, detailsLoaded: 2 })
+  })
+
+  it('caches an explicitly removed program detail and does not request it again', async () => {
+    const root = await mkdtemp(resolve(tmpdir(), 'movie-hub-waipu-unavailable-'))
+    cleanupPaths.push(root)
+    const client = {
+      getProgram: vi.fn(async () => {
+        throw Object.assign(new Error('gone'), { code: 'HTTP_ERROR', status: 410 })
+      }),
+    }
+    const loader = new WaipuProgramDetailLoader({
+      cache: new WaipuEpgCache({ root }),
+      client,
+      paceMs: 350,
+      jitterMs: 0,
+    })
+
+    await expect(loader.load('gone-program')).resolves.toEqual({ unavailable: true, status: 410 })
+    await expect(loader.load('gone-program')).resolves.toEqual({ unavailable: true, status: 410 })
+    expect(client.getProgram).toHaveBeenCalledOnce()
+    expect(loader.metrics).toMatchObject({
+      requestsStarted: 1,
+      cacheHits: 1,
+      detailsUnavailable: 1,
+    })
   })
 })

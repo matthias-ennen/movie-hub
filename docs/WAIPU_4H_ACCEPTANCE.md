@@ -7,8 +7,20 @@ Stand: 19. September 2026
 #4H schließt den technischen Waipu-Live-Ausbau nicht durch weitere Funktionen,
 sondern durch belastbare Langzeitmessung, Geräteabnahme und ein getrenntes
 Release-/Rechte-Gate ab. Die App-Oberfläche aus #4F/#4G ist veröffentlicht;
-die erzeugten EPG-Artefakte bleiben bis zur Freigabe durch #112 absichtlich
-nicht öffentlich ausgeliefert.
+für die Geräteabnahme wird ein ausdrücklich als Testbestand gekennzeichneter
+7-Sender-/14-Tage-Katalog ausgeliefert. Langzeitmessung und #112 blockieren
+diesen Funktionstest nicht; sie bleiben Bedingungen für den späteren
+regelmäßigen beziehungsweise erweiterten öffentlichen Betrieb.
+
+## Begrenzter Testbestand vom 19.09.2026
+
+- [x] `releaseChannel: test` im Statusindex;
+- [x] sieben Pilotsender und 14-Tage-Horizont;
+- [x] 107 eindeutig zugeordnete Titel und 1.018 Ausstrahlungen;
+- [x] 1.297 Programmdetails verarbeitet;
+- [x] ein upstream entfallenes Detail sicher ausgeschlossen;
+- [x] 229 lokal nicht eindeutige Programme nicht geraten und nicht angezeigt;
+- [x] keine direkten Waipu-Massenabrufe aus Smartphone, Tablet oder Fire TV.
 
 ## Langzeitstabilität der 7-Sender-Stufe
 
@@ -70,13 +82,14 @@ einer tatsächlichen Prüfung auf dem jeweiligen Gerät im GitHub-Issue bestäti
 - [ ] Sender-Schalter in den Einstellungen sind vollständig per D-Pad bedienbar;
 - [ ] keine Abstürze oder auffällige Verzögerungen bei mehreren Tagesreihen.
 
-## Release- und Compliance-Gate
+## Gate für den regelmäßigen beziehungsweise erweiterten öffentlichen Betrieb
 
 - [ ] Attribution, Nutzungsbedingungen und zulässiger Veröffentlichungsumfang
   der abgeleiteten Waipu-EPG-Daten in #112 klären;
 - [ ] bestätigen, dass lineare Ausstrahlung nie als Waiputhek/VOD bezeichnet wird;
 - [ ] bestätigen, dass der öffentliche Senderstamm keine persönliche
   Tarifverfügbarkeit behauptet;
-- [ ] erst danach `waipu-live`-Artefakte öffentlich ausliefern.
+- [ ] erst danach automatisiert, dauerhaft oder über die sieben Pilotsender
+  hinaus ausliefern.
 
 Bis alle drei Bereiche abgeschlossen sind, bleibt GitHub-Issue #4 offen.

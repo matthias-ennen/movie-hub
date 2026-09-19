@@ -50,7 +50,9 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
   ausschließlich in den kontoweiten Einstellungen einzeln ausgeblendet werden
 - **#4H aktiv:** Langzeitstabilität steht nach zwei getrennten, fehlerfreien
   7-Sender-Läufen bei 2/7. Mehrfachzählung innerhalb desselben UTC-Tags wird
-  technisch verhindert; Geräteabnahme und Release-/Rechte-Gate bleiben offen
+  technisch verhindert. Ein begrenzter, als Testbestand markierter
+  7-Sender-Katalog ermöglicht jetzt die Geräteabnahme; das Release-/Rechte-Gate
+  bleibt für den regelmäßigen beziehungsweise erweiterten Betrieb offen
 - keine Waiputhek-/VOD-Aussage aus linearen Sendeterminen ableiten
 - keine Waipu-Anmeldung und keine Waipu-Token für die öffentliche Basisintegration
 
@@ -86,7 +88,9 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 
 `#4A → #4B → #4C → #4D → #4E → #4F → #4G → #4H → #118 → #7`
 
-#4 ist wieder aktiv. Die öffentliche Verteilung bleibt bis zur API-/Rechteprüfung und zur Compliance-Prüfung #112 gesperrt.
+#4 ist wieder aktiv. Ein begrenzter 7-Sender-Testbestand darf zur
+Geräteabnahme ausgeliefert werden. Automatisierte, dauerhafte oder erweiterte
+öffentliche Verteilung bleibt bis zur API-/Rechteprüfung und #112 gesperrt.
 
 ## Leitentscheidung
 
