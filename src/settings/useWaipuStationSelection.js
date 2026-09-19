@@ -6,6 +6,8 @@ import {
   WAIPU_STATION_SELECTION_VERSION,
   normalizeDisabledWaipuStationIds,
   normalizeStoredWaipuStationSelection,
+  normalizeWaipuStationOrder,
+  orderWaipuStations,
 } from './waipuStationSelectionModel.js'
 import {
   getWaipuStationSelectionSnapshot,
@@ -39,6 +41,7 @@ function startWaipuStationSelectionSync() {
         updateWaipuStationSelectionSnapshot({
           uid: user.uid,
           disabledStationIds: [],
+          stationOrder: [],
           loading: true,
           error: null,
           savingStationId: null,
@@ -53,9 +56,11 @@ function startWaipuStationSelectionSync() {
             const normalized = normalizeStoredWaipuStationSelection(
               stored?.disabledStationIds,
               stored?.version,
+              stored?.stationOrder,
             )
             updateWaipuStationSelectionSnapshot({
               disabledStationIds: normalized.disabledStationIds,
+              stationOrder: normalized.stationOrder,
               loading: false,
               error: null,
               savingStationId: null,
@@ -66,6 +71,7 @@ function startWaipuStationSelectionSync() {
               setDoc(userRef, {
                 waipuStationSettings: {
                   disabledStationIds: normalized.disabledStationIds,
+                  stationOrder: normalized.stationOrder,
                   version: WAIPU_STATION_SELECTION_VERSION,
                   updatedAt: serverTimestamp(),
                 },
@@ -103,12 +109,36 @@ export async function setWaipuStationEnabled(stationId, enabled) {
     await setDoc(doc(dbRef, 'users', current.uid), {
       waipuStationSettings: {
         disabledStationIds: next,
+        stationOrder: current.stationOrder,
         version: WAIPU_STATION_SELECTION_VERSION,
         updatedAt: serverTimestamp(),
       },
     }, { merge: true })
   } catch (error) {
     updateWaipuStationSelectionSnapshot({ disabledStationIds: previous, savingStationId: null, error })
+    throw error
+  }
+}
+
+export async function setWaipuStationOrder(stationOrder, savingStationId = 'order') {
+  const current = getWaipuStationSelectionSnapshot()
+  if (!current.uid || !dbRef) throw new Error('TV-Sendereinstellungen sind noch nicht bereit.')
+
+  const previous = current.stationOrder
+  const next = normalizeWaipuStationOrder(stationOrder)
+  updateWaipuStationSelectionSnapshot({ stationOrder: next, savingStationId, error: null })
+
+  try {
+    await setDoc(doc(dbRef, 'users', current.uid), {
+      waipuStationSettings: {
+        disabledStationIds: current.disabledStationIds,
+        stationOrder: next,
+        version: WAIPU_STATION_SELECTION_VERSION,
+        updatedAt: serverTimestamp(),
+      },
+    }, { merge: true })
+  } catch (error) {
+    updateWaipuStationSelectionSnapshot({ stationOrder: previous, savingStationId: null, error })
     throw error
   }
 }
@@ -123,11 +153,17 @@ export function useWaipuStationSelection() {
 
   const disabledSet = useMemo(() => new Set(state.disabledStationIds), [state.disabledStationIds])
   const isStationEnabled = useCallback((stationId) => !disabledSet.has(stationId), [disabledSet])
+  const orderStations = useCallback(
+    (stations) => orderWaipuStations(stations, state.stationOrder),
+    [state.stationOrder],
+  )
 
   return {
     ...state,
     isStationEnabled,
+    orderStations,
     setStationEnabled: setWaipuStationEnabled,
+    setStationOrder: setWaipuStationOrder,
   }
 }
 

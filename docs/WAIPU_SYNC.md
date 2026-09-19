@@ -2,6 +2,31 @@
 
 Stand: 19. September 2026
 
+## Aktueller Produktionsstand: 50 Sender
+
+Der tägliche Produktionsworkflow verwendet die ersten 50 Einträge der
+offiziellen Waipu-Reihenfolge mit festen Waipu-IDs. Er läuft weiterhin seriell
+und checkpoint-basiert. Grid und Programmdetails verwenden 400 ms Mindestabstand
+plus bis zu 75 ms Jitter. Der Bootstrap ist auf 5.000 Grid-, 10.000 Detail- und
+4.000 serielle TMDB-Suchrequests begrenzt; Folgeläufe nutzen die persistenten
+Caches und laden im Normalfall nur neue beziehungsweise gezielt zu
+revalidierende Daten.
+
+Die 50er-Stufe wurde am 19. September 2026 ausdrücklich freigegeben. Der
+Workflow protokolliert diese Entscheidung als `WAIPU_SYNC_APPROVED_STAGE=50`;
+sie hebt weder die serielle Ausführung noch die separate Sperre für `full` auf.
+Ein manueller Lauf benötigt weiterhin die doppelte Live-Bestätigung:
+
+```bash
+WAIPU_SYNC_LIVE=1 WAIPU_SYNC_APPROVED_STAGE=50 \
+npm run waipu:sync -- --live --stage=50
+```
+
+Die versionierte Zuordnung und die vollständige Website-Reihenfolge stehen in
+[WAIPU_STATION_ORDER.md](./WAIPU_STATION_ORDER.md). Die nachfolgenden Abschnitte
+zum 7er-Pilotbetrieb bleiben als historischer Sicherheits- und Lastnachweis
+erhalten.
+
 ## Zweck und Abgrenzung
 
 Der Sync-Koordinator baut den öffentlichen Waipu-EPG-Bestand kontrolliert und
@@ -157,19 +182,20 @@ Bei einem geplanten oder manuell gestarteten Datenlauf geschieht nacheinander:
 1. persistenten Waipu-Checkpoint, Cache und Matchentscheidungen wiederherstellen;
 2. letzten auf Firebase validierten `waipu-live`-Katalog als Rückfallstand laden;
 3. TMDB-Katalog und Suchindex aktualisieren;
-4. das rollierende 14-Tage-Fenster der sieben Pilotsender ergänzen;
+4. das rollierende 14-Tage-Fenster der 50 freigegebenen Sender ergänzen;
 5. nur fehlende Programmdetails und offene TMDB-Zuordnungen nachladen;
 6. den neuen Waipu-Katalog atomar validieren;
 7. TMDB und Waipu gemeinsam bauen und einmal auf Firebase veröffentlichen;
 8. aktualisierten Checkpoint und Cache wieder persistent sichern.
 
-Der erste CI-Lauf darf für den einmaligen Cacheaufbau bis zu 700 Grid- und
-1.600 Detailrequests starten. Danach reduzieren Checkpoint und unveränderlicher
+Der erste 50er-CI-Lauf darf für den einmaligen Cacheaufbau bis zu 5.000 Grid-
+und 10.000 Detailrequests starten. Danach reduzieren Checkpoint und unveränderlicher
 Detailcache den täglichen Lauf im Normalfall auf das neue äußere Tagesfenster,
 kontrollierte Nahbereichsvalidierungen und neue Programmdetails. Der Grid-Sync
-bleibt bei einer aktiven Anfrage mit 500 ms Mindestabstand plus bis zu 150 ms
-Jitter. Nur das nachgelagerte Laden einzelner Programmdetails nutzt 400 ms plus
-bis zu 100 ms Jitter.
+bleibt bei einer aktiven Anfrage mit 400 ms Mindestabstand plus bis zu 75 ms
+Jitter. Das nachgelagerte Laden einzelner Programmdetails nutzt dieselbe
+Taktung; TMDB bleibt seriell bei 250 ms und höchstens 4.000 Suchrequests im
+Bootstrap.
 
 Schlägt der Waipu-Refresh fehl, wird kein Teilbestand veröffentlicht. Der zuvor
 restaurierte letzte gültige Katalog bleibt im Build, wird erneut ausgeliefert

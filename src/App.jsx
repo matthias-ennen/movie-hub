@@ -353,6 +353,7 @@ function MovieHub({ user }) {
   const { enabledProviderIds } = useProviderSelection()
   const {
     disabledStationIds,
+    orderStations,
     loading: stationSelectionLoading,
   } = useWaipuStationSelection()
   const {
@@ -456,8 +457,9 @@ function MovieHub({ user }) {
 
   const activeWaipuStations = useMemo(() => {
     const disabled = new Set(disabledStationIds)
-    return waipuStationCatalog.stations.filter((station) => !disabled.has(station.id))
-  }, [disabledStationIds, waipuStationCatalog.stations])
+    return orderStations(waipuStationCatalog.stations)
+      .filter((station) => !disabled.has(station.id))
+  }, [disabledStationIds, orderStations, waipuStationCatalog.stations])
   const activeWaipuStationKey = activeWaipuStations.map((station) => station.id).join('|')
 
   useEffect(() => {
@@ -548,8 +550,9 @@ function MovieHub({ user }) {
     airings: tvSchedule.airings,
     titles,
     titleEntries: waipuLiveEntries,
+    stationOrder: activeWaipuStations.map((station) => station.id),
     now: tvClock,
-  }), [titles, tvClock, tvSchedule.airings, waipuLiveEntries])
+  }), [activeWaipuStations, titles, tvClock, tvSchedule.airings, waipuLiveEntries])
   const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
   const activeSortMode = useMemo(
     () => resolveContentSortMode(contentDisplaySettings, activeProfile?.id, new Date()),

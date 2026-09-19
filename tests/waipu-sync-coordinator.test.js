@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WaipuEpgCache, WaipuPublicDataError } from '../scripts/waipu-public-data.mjs'
+import { WAIPU_OFFICIAL_FIRST_50_STATIONS } from '../scripts/waipu-station-order.mjs'
 import {
   assertStageAllowed,
   buildRollingSlots,
@@ -31,18 +32,17 @@ async function temporaryPaths() {
 }
 
 function stations(count = 20) {
-  const pilots = [
-    ['ard', 'Das Erste HD'],
-    ['zdf', 'ZDF HD'],
-    ['rtl', 'RTL HD'],
-    ['sat1', 'SAT.1 HD'],
-    ['prosieben', 'ProSieben HD'],
-    ['vox', 'VOX HD'],
-    ['kabeleins', 'Kabel Eins HD'],
-  ].map(([id, displayName]) => ({ id, displayName, logoTemplateUrl: null, streamQualities: ['hd'] }))
+  const configured = WAIPU_OFFICIAL_FIRST_50_STATIONS
+    .slice(0, Math.min(count, WAIPU_OFFICIAL_FIRST_50_STATIONS.length))
+    .map(({ id, websiteName: displayName }) => ({
+      id,
+      displayName,
+      logoTemplateUrl: null,
+      streamQualities: ['hd'],
+    }))
   return [
-    ...pilots,
-    ...Array.from({ length: Math.max(0, count - pilots.length) }, (_, index) => ({
+    ...configured,
+    ...Array.from({ length: Math.max(0, count - configured.length) }, (_, index) => ({
       id: `extra-${index}`,
       displayName: `Zusatz ${String(index).padStart(2, '0')}`,
       logoTemplateUrl: null,
@@ -96,16 +96,20 @@ describe('Waipu rolling planner', () => {
     expect(slots.at(-1).toISOString()).toBe('2026-10-01T20:00:00.000Z')
   })
 
-  it('always starts with the seven named pilot stations', () => {
-    const input = [...stations(20)].reverse()
+  it('uses the official website order for every configured stage', () => {
+    const input = [...stations(50)].reverse()
     expect(selectStageStations(input, 7).map(({ id }) => id))
-      .toEqual(['ard', 'zdf', 'rtl', 'sat1', 'prosieben', 'vox', 'kabeleins'])
-    expect(selectStageStations(input, 20)).toHaveLength(20)
+      .toEqual(['ard', 'zdf', 'rtl', 'pro7', 'sat1', 'vox', 'rtl2'])
+    expect(selectStageStations(input, 20).map(({ id }) => id))
+      .toEqual(WAIPU_OFFICIAL_FIRST_50_STATIONS.slice(0, 20).map(({ id }) => id))
+    expect(selectStageStations(input, 50).map(({ id }) => id))
+      .toEqual(WAIPU_OFFICIAL_FIRST_50_STATIONS.map(({ id }) => id))
   })
 
   it('requires seven stable runs before a larger stage and explicit full approval', () => {
     const state = { stableRunsByStage: { 7: 6, 20: 7, 50: 7, full: 0 } }
     expect(() => assertStageAllowed(state, 20)).toThrowError(WaipuSyncError)
+    expect(() => assertStageAllowed(state, 50, { approvedStage: 50 })).not.toThrow()
     state.stableRunsByStage[7] = 7
     expect(() => assertStageAllowed(state, 20)).not.toThrow()
     expect(() => assertStageAllowed(state, 'full')).toThrowError(WaipuSyncError)

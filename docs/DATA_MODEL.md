@@ -44,7 +44,7 @@ Staffel 0 (Specials) gehört zunächst nicht zur sichtbaren Navigation. Episoden
 users/{uid}
   displayName
   providerSettings    map          # kontoweite Anbieterauswahl inklusive Movie Hub
-  waipuStationSettings map         # ausgeschaltete TV-Sender; alle übrigen sind aktiv
+  waipuStationSettings map         # TV-Senderauswahl und persönliche Reihenfolge
   createdAt
   updatedAt
 
@@ -102,6 +102,21 @@ users/{uid}/sharedMedia/{type-tmdbId}/entries/{entryId}
   titleRef          map             # TMDB-ID, Medientyp, Titelschnappschuss
   updatedAt         timestamp
 ```
+
+`waipuStationSettings` verwendet Schema-Version 2:
+
+```text
+waipuStationSettings
+  disabledStationIds array<string> # nur ausdrücklich ausgeschaltete Sender
+  stationOrder       array<string> # bekannte Sender-IDs in persönlicher Reihenfolge
+  version            number        # aktuell 2
+  updatedAt          timestamp
+```
+
+Eine fehlende oder leere `stationOrder` bedeutet die veröffentlichte
+Standardreihenfolge. Neue Sender werden standardmäßig aktiviert und hinter den
+bereits sortierten Sendern ergänzt. Version 1 wird beim Lesen verlustfrei
+migriert.
 
 ## Persönlicher Filmzustand
 

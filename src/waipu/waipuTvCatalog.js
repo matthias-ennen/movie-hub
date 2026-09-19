@@ -196,6 +196,7 @@ export function buildWaipuTvRows({
   airings = [],
   titles = [],
   titleEntries = [],
+  stationOrder = [],
   now = Date.now(),
   timeZone = 'Europe/Berlin',
 } = {}) {
@@ -206,6 +207,8 @@ export function buildWaipuTvRows({
   const entryByKey = new Map((Array.isArray(titleEntries) ? titleEntries : [])
     .map((entry) => [entry.key || titleKey(entry), entry])
     .filter(([key]) => key))
+  const stationRank = new Map((Array.isArray(stationOrder) ? stationOrder : [])
+    .map((id, index) => [id, index]))
   const groups = new Map()
   const seen = new Set()
 
@@ -238,6 +241,8 @@ export function buildWaipuTvRows({
       title: dayTitle(key, timestamp, timeZone),
       variant: 'tv',
       items: items.sort((left, right) => left.tvAiring.startTime.localeCompare(right.tvAiring.startTime)
+        || (stationRank.get(left.tvAiring.stationId) ?? Number.MAX_SAFE_INTEGER)
+          - (stationRank.get(right.tvAiring.stationId) ?? Number.MAX_SAFE_INTEGER)
         || left.tvAiring.stationName.localeCompare(right.tvAiring.stationName, 'de')),
     }))
 }
