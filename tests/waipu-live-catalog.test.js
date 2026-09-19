@@ -218,9 +218,11 @@ describe('Waipu live catalog publication', () => {
         episodeTitle: 'Das Leck',
       })
       : detail())
+    const onProgress = vi.fn()
     const catalog = await buildWaipuLiveCatalog(buildFixture({
       programs: [first, first, series, gridProgram({ id: 'news', title: 'heute', genre: 'Aktuelles' })],
       loadProgramDetail,
+      onProgress,
       candidates: [
         movieCandidate(),
         { tmdbId: 7263, type: 'series', title: 'Wallander', originalTitle: 'Wallander', year: 2005 },
@@ -243,6 +245,9 @@ describe('Waipu live catalog publication', () => {
       candidatePrograms: 2,
     })
     expect(catalog.shards.zdf.airings.map(({ tmdbId }) => tmdbId)).toEqual([667739, 7263])
+    expect(onProgress).toHaveBeenLastCalledWith(expect.objectContaining({
+      phase: 'programs', processed: 2, total: 2, detailsLoaded: 2, matchedPrograms: 2,
+    }))
   })
 
   it('fails closed when a candidate program detail is missing', async () => {

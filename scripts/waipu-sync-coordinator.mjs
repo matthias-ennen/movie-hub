@@ -452,7 +452,8 @@ export async function runWaipuSync(options = {}) {
       }
       metrics.slotsPlanned = tasks.length
 
-      for (const task of tasks) {
+      for (let taskIndex = 0; taskIndex < tasks.length; taskIndex += 1) {
+        const task = tasks[taskIndex]
         try {
           const result = await cache.getGrid(controlledClient, task.station.id, task.slot)
           state.slots[task.key] = {
@@ -466,6 +467,16 @@ export async function runWaipuSync(options = {}) {
           metrics.slotsProcessed += 1
           state.updatedAt = new Date(now()).toISOString()
           await writeJsonAtomic(statePath, state)
+          if (typeof options.onProgress === 'function'
+              && (metrics.slotsProcessed === 1 || metrics.slotsProcessed % 250 === 0 || taskIndex === tasks.length - 1)) {
+            options.onProgress({
+              phase: 'grid',
+              processed: metrics.slotsProcessed,
+              total: tasks.length,
+              requestsStarted: metrics.requestsStarted,
+              retries: metrics.retries,
+            })
+          }
         } catch (error) {
           if (error?.code === 'REQUEST_BUDGET_EXHAUSTED') {
             status.status = 'paused_request_budget'
@@ -570,6 +581,9 @@ async function main() {
     statusPath: process.env.WAIPU_SYNC_STATUS,
     cacheRoot: process.env.WAIPU_SYNC_CACHE_ROOT,
     lockPath: process.env.WAIPU_SYNC_LOCK,
+    onProgress: ({ processed, total, requestsStarted, retries }) => {
+      process.stdout.write(`Waipu EPG: ${processed}/${total} Slots · ${requestsStarted} Requests · ${retries} Retries\n`)
+    },
   })
   process.stdout.write(`${JSON.stringify(status, null, 2)}\n`)
   if (!['complete', 'paused_request_budget', 'paused_rate_limit'].includes(status.status)) {

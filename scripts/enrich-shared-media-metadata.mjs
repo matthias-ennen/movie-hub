@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildFilmCollection } from '../src/catalog/filmCollections.js'
 import { CURRENT_TITLE_METADATA_VERSION, titleNeedsMetadataEnrichment } from '../src/catalog/titleMetadata.js'
@@ -17,6 +19,7 @@ const updateLimit = Math.max(1, Math.min(2000, Number(process.env.MOVIE_HUB_META
 const maxAgeDays = Math.max(1, Math.min(365, Number(process.env.MOVIE_HUB_METADATA_MAX_AGE_DAYS) || 30))
 const concurrency = 3
 const maxRetries = 4
+const statusPath = resolve(process.env.MOVIE_HUB_METADATA_STATUS || 'artifacts/moviehub-metadata-status.json')
 
 function sleep(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
@@ -143,6 +146,8 @@ async function main() {
   ])
   const app = initializeApp({ credential: applicationDefault(), projectId })
   const result = await runSharedMediaMetadataBackfill({ db: getFirestore(app) })
+  await mkdir(dirname(statusPath), { recursive: true })
+  await writeFile(statusPath, `${JSON.stringify({ ...result, generatedAt: new Date().toISOString() })}\n`, 'utf8')
   console.log(`Movie-Hub metadata: scanned ${result.scanned}, selected ${result.candidates}, updated ${result.updated}, failed ${result.failed}.`)
   if (result.failed) process.exitCode = 1
 }

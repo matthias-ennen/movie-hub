@@ -212,6 +212,7 @@ export async function buildWaipuLiveCatalog({
   allowUnresolvedMatches = false,
   releaseChannel = 'production',
   now = Date.now,
+  onProgress = null,
 } = {}) {
   if (typeof loadProgramDetail !== 'function') throw new TypeError('loadProgramDetail must be a function.')
   const generatedAt = new Date(now()).toISOString()
@@ -257,7 +258,18 @@ export async function buildWaipuLiveCatalog({
 
   const matchesByProgram = new Map()
   const candidatesFor = createCandidateLookup(candidates)
+  let programIndex = 0
   for (const [programId, programBroadcasts] of byProgram) {
+    programIndex += 1
+    if (typeof onProgress === 'function' && (programIndex === 1 || programIndex % 250 === 0)) {
+      onProgress({
+        phase: 'programs',
+        processed: programIndex - 1,
+        total: byProgram.size,
+        detailsLoaded: metrics.detailsLoaded,
+        matchedPrograms: metrics.matchedPrograms,
+      })
+    }
     const first = programBroadcasts[0]
     const gridProgram = {
       id: programId,
@@ -304,6 +316,15 @@ export async function buildWaipuLiveCatalog({
     }
     metrics.matchedPrograms += 1
     matchesByProgram.set(programId, { input: normalized, decision })
+  }
+  if (typeof onProgress === 'function') {
+    onProgress({
+      phase: 'programs',
+      processed: byProgram.size,
+      total: byProgram.size,
+      detailsLoaded: metrics.detailsLoaded,
+      matchedPrograms: metrics.matchedPrograms,
+    })
   }
 
   if (metrics.detailsMissing > 0 && !allowIncompleteDetails) {
@@ -601,7 +622,18 @@ async function main() {
         decisions,
         allowUnresolvedMatches: testMode,
         releaseChannel: testMode ? 'test' : 'production',
+        onProgress: ({ processed, total, detailsLoaded, matchedPrograms }) => {
+          process.stdout.write(
+            `Waipu-Details: ${processed}/${total} · ${detailsLoaded} geladen · ${matchedPrograms} TMDB-zugeordnet`
+            + ` · ${detailLoader?.metrics?.requestsStarted || 0} Waipu-Requests`
+            + ` · ${tmdbSearchClient?.requestsStarted || 0} TMDB-Suchen\n`,
+          )
+        },
       })
+      liveCatalog.index.runtime = {
+        detailRequests: detailLoader?.metrics || null,
+        tmdbRequests: tmdbSearchClient?.requestsStarted || 0,
+      }
       const output = resolve(process.env.WAIPU_LIVE_OUTPUT || resolve(projectRoot, 'artifacts/waipu-live/current'))
       await writeWaipuLiveCatalog(output, liveCatalog)
       if (live) {
