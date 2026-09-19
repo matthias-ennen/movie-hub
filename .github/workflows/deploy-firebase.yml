@@ -41,6 +41,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Capture last published data baseline
+        id: workflow_baseline
+        continue-on-error: true
+        run: npm run workflow:baseline
+
       # A deliberately tagged main-branch commit provides an auditable emergency
       # refresh path when workflow_dispatch is unavailable. Ordinary code pushes
       # keep skipping the comparatively expensive live Waipu import.
@@ -67,7 +72,6 @@ jobs:
           fi
 
       - name: Restore last deployed Waipu catalog
-        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         continue-on-error: true
         run: npm run waipu:restore
 
@@ -80,6 +84,7 @@ jobs:
         run: npm run series:details:restore
 
       - name: Generate TMDB catalog for strict refresh
+        id: tmdb_catalog_strict
         if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
@@ -171,12 +176,17 @@ jobs:
           key: waipu-fifty-v1-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Report data fill levels
+        id: data_status
+        env:
+          DATA_STATUS_APPEND_SUMMARY: '0'
         run: npm run data:status
 
       - name: Build
+        id: app_build
         run: npm run build
 
       - name: Authenticate to Google Cloud
+        id: gcp_auth
         uses: google-github-actions/auth@v3
         with:
           project_id: movie-hub-62459
@@ -184,11 +194,13 @@ jobs:
           service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
 
       - name: Migrate legacy Movie-Hub presence parents
+        id: presence_migration
         env:
           GOOGLE_CLOUD_PROJECT: movie-hub-62459
         run: npm run moviehub:presence:migrate
 
       - name: Enrich personal Movie-Hub provider metadata
+        id: shared_metadata
         continue-on-error: true
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
@@ -200,7 +212,23 @@ jobs:
         run: npm run moviehub:metadata:backfill
 
       - name: Deploy Hosting and Firestore Rules
+        id: firebase_deploy
         run: npx firebase-tools deploy --only hosting,firestore:rules --project movie-hub-62459 --non-interactive
+
+      - name: Publish compact data workflow report
+        if: ${{ always() }}
+        env:
+          SUMMARY_DATA_MODE: ${{ inputs.data_mode || 'standard' }}
+          SUMMARY_TMDB_STRICT: ${{ steps.tmdb_catalog_strict.outcome }}
+          SUMMARY_TMDB_PUSH: ${{ steps.push_catalog.outcome }}
+          SUMMARY_WAIPU_SYNC: ${{ steps.waipu_sync.outcome }}
+          SUMMARY_WAIPU_CATALOG: ${{ steps.waipu_catalog.outcome }}
+          SUMMARY_PRESENCE: ${{ steps.presence_migration.outcome }}
+          SUMMARY_METADATA: ${{ steps.shared_metadata.outcome }}
+          SUMMARY_BUILD: ${{ steps.app_build.outcome }}
+          SUMMARY_AUTH: ${{ steps.gcp_auth.outcome }}
+          SUMMARY_DEPLOY: ${{ steps.firebase_deploy.outcome }}
+        run: npm run workflow:summary
 
       - name: Report failed scheduled Waipu refresh
         if: ${{ always() && (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && (steps.waipu_sync.outcome != 'success' || steps.waipu_catalog.outcome != 'success') }}

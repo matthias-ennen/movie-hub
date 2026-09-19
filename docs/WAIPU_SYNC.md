@@ -207,6 +207,22 @@ Die nachgelagerte Film-/Serienklassifikation, TMDB-Zuordnung und atomare
 Katalogausgabe ist in [WAIPU_LIVE_CATALOG.md](./WAIPU_LIVE_CATALOG.md)
 dokumentiert.
 
+## Kompakter GitHub-Datenlauf-Bericht
+
+Jeder Firebase-Workflow schreibt am Ende genau eine kompakte Gesamttabelle in
+die GitHub-Jobzusammenfassung. Sie verbindet TMDB-Browse-Katalog, Suchindex,
+Suchdetails, Serienstaffeln, Waipu-EPG, Waipu→TMDB-Zuordnung, persönliche
+Movie-Hub-Metadaten, Build und Firebase-Veröffentlichung. Neben dem Bestand
+zeigt sie die Veränderung zum zuletzt veröffentlichten Stand, verarbeitete
+Elemente sowie offene oder verworfene Datensätze. Fehlende optionale Artefakte
+lassen den Bericht nicht ausfallen.
+
+Lange Waipu-Schritte melden zusätzlich während der Ausführung alle 250
+Grid-Slots beziehungsweise Kandidaten eine kurze Fortschrittszeile im Live-Log.
+Ein normaler Code-Deploy stellt vor dem Build immer den letzten gültigen
+Waipu-Live-Katalog wieder her, damit ein nicht mit Waipu zusammenhängender
+Commit niemals auf den eingecheckten Pilotbestand zurückfällt.
+
 ## Abnahmestand für #4D
 
 - [x] CI-/Fixture-Prüfung des Koordinators;

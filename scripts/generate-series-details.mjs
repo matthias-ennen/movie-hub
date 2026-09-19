@@ -196,6 +196,8 @@ export async function generateSeriesDetails({ fetchSeason = tmdbSeasonFetch, now
     availableSeasonCount: entries.size,
     requestedSeasonCount: references.length,
     pendingSeasonCount: Math.max(0, references.length - entries.size),
+    refreshedCount: refreshed,
+    failedCount: failed,
     shards,
   }
   await writeFile(resolve(outputDirectory, 'manifest.json'), `${JSON.stringify(manifest)}\n`, 'utf8')

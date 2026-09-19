@@ -1,7 +1,10 @@
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildSharedMediaTitleRef } from '../src/library/sharedMediaCatalogModel.js'
 
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || 'movie-hub-62459'
+const statusPath = resolve(process.env.MOVIE_HUB_PRESENCE_STATUS || 'artifacts/moviehub-presence-status.json')
 
 export function parseSharedMediaEntryPath(path) {
   const segments = String(path || '').split('/').filter(Boolean)
@@ -100,6 +103,8 @@ async function main() {
   ])
   const app = initializeApp({ credential: applicationDefault(), projectId })
   const result = await migrateSharedMediaPresenceParents({ db: getFirestore(app) })
+  await mkdir(dirname(statusPath), { recursive: true })
+  await writeFile(statusPath, `${JSON.stringify({ ...result, generatedAt: new Date().toISOString() })}\n`, 'utf8')
   console.log(
     `Movie-Hub presence migration: scanned ${result.scannedEntries} entries, `
     + `${result.parentGroups} parents, created ${result.created}, repaired ${result.repaired}, `

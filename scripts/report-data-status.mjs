@@ -93,7 +93,7 @@ export async function reportDataStatus() {
     'utf8',
   )
   console.log('Movie Hub data status generated -> public/data-status.json')
-  if (process.env.GITHUB_STEP_SUMMARY) {
+  if (process.env.GITHUB_STEP_SUMMARY && process.env.DATA_STATUS_APPEND_SUMMARY !== '0') {
     await appendFile(process.env.GITHUB_STEP_SUMMARY, markdown, 'utf8')
   }
   return status
