@@ -88,11 +88,6 @@ function visibleProviderOptions(availableTmdbProviderIds) {
   })
 }
 
-function stationInitials(name) {
-  const words = String(name || '').trim().split(/\s+/).filter(Boolean)
-  return (words.length > 1 ? words.slice(0, 2).map((word) => word[0]).join('') : words[0]?.slice(0, 3) || 'TV').toUpperCase()
-}
-
 export default function SettingsView({
   availableTmdbProviderIds = null,
   waipuStations = [],
@@ -169,10 +164,12 @@ export default function SettingsView({
   }
 
   function toggleStation(stationId) {
+    if (stationBusy) return
     setStationEnabled(stationId, !isStationEnabled(stationId)).catch(() => {})
   }
 
   function moveStation(stationId, direction) {
+    if (stationBusy) return
     const next = moveWaipuStation(stationOptions, stationId, direction)
     setStationOrder(next, `order:${stationId}`).catch(() => {})
   }
@@ -443,7 +440,7 @@ export default function SettingsView({
         </p>
 
         {waipuStationStatus === 'ready' && stationOptions.length > 0 ? (
-          <div className="provider-selection-list station-selection-list" aria-label="TV-Sender ein- oder ausblenden">
+          <div className="personal-row-settings-list station-selection-list" aria-label="TV-Sender ein- oder ausblenden">
             {stationOptions.map((station, index) => {
               const enabled = isStationEnabled(station.id)
               const saving = savingStationId === station.id
@@ -451,22 +448,24 @@ export default function SettingsView({
               return (
                 <article
                   key={station.id}
-                  className={enabled ? 'station-selection-row active' : 'station-selection-row'}
+                  className={enabled ? 'personal-row-setting station-selection-row active' : 'personal-row-setting station-selection-row'}
+                  data-station-id={station.id}
                 >
-                  <span className="station-selection-mark" aria-hidden="true">{stationInitials(station.name)}</span>
-                  <span className="provider-selection-copy">
+                  <div className="personal-row-setting-copy station-selection-copy">
                     <strong>{station.name}</strong>
-                    <small>{enabled ? 'Wird im TV-Reiter berücksichtigt' : 'Im TV-Reiter ausgeblendet'}</small>
-                  </span>
-                  <div className="station-selection-actions">
+                    <span>{enabled ? 'Wird im TV-Reiter berücksichtigt' : 'Im TV-Reiter ausgeblendet'}</span>
+                  </div>
+                  <div className="personal-row-setting-actions station-selection-actions">
                     <button
                       type="button"
                       className={enabled ? 'personal-row-toggle active' : 'personal-row-toggle'}
                       onClick={() => toggleStation(station.id)}
                       role="switch"
                       aria-checked={enabled}
-                      disabled={stationBusy}
+                      aria-disabled={stationBusy}
+                      aria-busy={saving}
                       aria-label={`${station.name}: ${enabled ? 'An' : 'Aus'}`}
+                      data-station-action="toggle"
                       data-focusable="true"
                     >
                       <span>{saving ? 'Speichert …' : enabled ? 'An' : 'Aus'}</span>
@@ -475,17 +474,21 @@ export default function SettingsView({
                     <button
                       type="button"
                       onClick={() => moveStation(station.id, -1)}
-                      disabled={stationBusy || index === 0}
+                      disabled={index === 0}
+                      aria-disabled={stationBusy || index === 0}
                       aria-label={`${station.name} nach oben`}
                       aria-busy={moving}
+                      data-station-action="up"
                       data-focusable="true"
                     >↑</button>
                     <button
                       type="button"
                       onClick={() => moveStation(station.id, 1)}
-                      disabled={stationBusy || index === stationOptions.length - 1}
+                      disabled={index === stationOptions.length - 1}
+                      aria-disabled={stationBusy || index === stationOptions.length - 1}
                       aria-label={`${station.name} nach unten`}
                       aria-busy={moving}
+                      data-station-action="down"
                       data-focusable="true"
                     >↓</button>
                   </div>
