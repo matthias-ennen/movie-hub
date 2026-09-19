@@ -1,0 +1,148 @@
+# Waipu-Live-Katalog und TMDB-Zuordnung (#4E)
+
+Stand: 19. September 2026
+
+## Ergebnis und Grenze
+
+Der öffentliche Waipu-EPG-Bestand kann jetzt in einen unsichtbaren,
+stationsbezogenen MovieHub-Katalog übersetzt werden. Die kanonische Identität
+eines Titels ist immer `Medientyp + TMDB-ID`. Ein Waipu-Titel wird nur
+veröffentlicht, wenn Film beziehungsweise Serie aus Grid **und** Programmdetail
+belastbar bestimmbar sind und die TMDB-Zuordnung den Mindestscore sowie den
+Mindestabstand zum zweitbesten Kandidaten erfüllt.
+
+Unklare, widersprüchliche oder nicht gefundene Einträge bleiben unsichtbar. Sie
+werden weder geraten noch unter einer nur ähnlich klingenden TMDB-ID
+veröffentlicht. Dieses Arbeitspaket erzeugt noch keine sichtbare App-Zeile; die
+UI-Freigabe gehört zu #4F/#4G.
+
+## Eingangsquellen
+
+1. Der vollständige, checkpoint-fähige 14-Tage-Grid-Cache aus #4D.
+2. Öffentliche Waipu-Programmdetails, unveränderlich je `programId` gecacht.
+3. Zuerst der vorhandene MovieHub-Katalog und Suchindex als lokale
+   TMDB-Kandidatenquelle.
+4. Nur für lokal nicht eindeutig gelöste Titel die offizielle TMDB-Suche mit
+   `TMDB_API_READ_TOKEN`. Fehlt der Token und bleibt mindestens ein Kandidat
+   offen, wird keine neue Generation veröffentlicht.
+
+Der Live-Nachweis der 7er-Stufe umfasst 588 Grid-Slots, 3.363 rohe
+Programmeinträge und 2.774 im exakten Fenster eindeutige Programme. Darunter
+wurden 83 Film- und 1.217 Serienkandidaten erkannt. Alle 13 gezielt geprüften
+Programmdetails enthielten die für die Typbestimmung erforderlichen Felder; 10
+der 13 Stichproben ließen sich bereits gegen den vorhandenen Suchbestand
+zuordnen. Die übrigen Fälle belegen die beabsichtigte Fail-Closed-Grenze und
+werden nicht automatisch geraten.
+
+## Klassifikation
+
+- Grid-Genres `Film`, `Filme`, `Spielfilm`, `Fernsehfilm` und `TV-Film`
+  eröffnen ausschließlich einen Filmkandidaten.
+- Grid-Genres `Serie` und `Serien` eröffnen ausschließlich einen
+  Serienkandidaten.
+- Das Programmdetail muss den Typ bestätigen. Serienstruktur wie Serien-ID,
+  Staffel, Folge und Episodentitel verstärkt die Serienbestimmung.
+- Ein Film-/Serienkonflikt schließt den Eintrag aus.
+- Formate aus `Aktuelles`, `Dokus`, `Unterhaltung` oder `Shows` werden nicht nur
+  wegen ihres Grid-Eintrags als Film oder Serie behandelt.
+
+Reality, Dokutainment oder Gerichtsshows werden nicht pauschal ausgeschlossen:
+Sie erscheinen nur dann, wenn Waipu sie ausdrücklich als Serie liefert und eine
+starke, eindeutige TMDB-TV-Zuordnung existiert.
+
+## TMDB-Matcher
+
+Der Matcher normalisiert deutschen und originalen Titel, Satzzeichen,
+Diakritika und Schreibvarianten. Er bewertet:
+
+- Titel- beziehungsweise Originaltitelgleichheit;
+- Produktionsjahr, bei Filmen wesentlich strenger als bei Serien;
+- optional ein übereinstimmendes Produktionsland;
+- vorhandene Serienstruktur;
+- zwingend den gleichen Medientyp.
+
+Aktuelle Schwellenwerte:
+
+| Bedingung | Film | Serie |
+|---|---:|---:|
+| Mindestscore | 80 | 75 |
+| Mindestabstand zum zweiten Treffer | 12 | 12 |
+
+Mehrdeutige Treffer, Unterschreitungen und Negativbeispiele bleiben
+unveröffentlicht. Positive Entscheidungen werden persistent wiederverwendet.
+Negative Entscheidungen nach einer echten TMDB-Suche gelten sieben Tage und
+werden danach neu geprüft; ein früheres rein lokales `kein Treffer` blockiert
+keine spätere TMDB-Suche.
+
+## Anfrageverhalten und Wiederaufnahme
+
+Programmdetails werden einzeln und mit demselben zentralen Single-Flight-Lock
+wie der Grid-Sync geladen. Der Standard bleibt bewusst moderat:
+
+- eine aktive Waipu-Anfrage;
+- 500 ms Mindestabstand plus bis zu 150 ms Jitter;
+- 300 tatsächlich gestartete Requests je Lauf;
+- höchstens drei Retries bei Netzfehlern oder 5xx;
+- sofortiger Abbruch bei 403 oder 429.
+
+Ein `403` öffnet einen persistenten manuellen Circuit. Ein `429` speichert
+`Retry-After` beziehungsweise standardmäßig eine zweistündige Sperre. Der
+Status liegt in `artifacts/waipu-live/detail-status.json`; ein bewusst geprüfter
+manueller Neustart ist mit `--reset-circuit` möglich.
+
+Bereits geladene Programmdetails kosten in Folgeläufen keinen Request. Ein Lauf
+mit erreichtem Budget füllt daher nur den unveränderlichen Cache weiter; ein
+unvollständiger Katalog wird dabei nie veröffentlicht. Für einen späteren
+zweistündigen Zeitplan kann derselbe Befehl wiederholt ausgeführt werden. Erst
+nach weiteren stabilen Beobachtungen sollte `WAIPU_DETAIL_PACE_MS` bis zum
+eingebauten Minimum von 350 ms reduziert werden; Parallelität bleibt 1.
+
+Die TMDB-Suche läuft ebenfalls seriell, standardmäßig mit 250 ms Abstand und
+einem Budget von 100 Requests. Ein erschöpftes Budget bricht die Generation ab,
+statt einen scheinbar vollständigen Teilbestand zu veröffentlichen.
+
+## Ausführung
+
+Nur vorhandene Cache-Daten prüfen und daraus publizieren:
+
+```bash
+npm run waipu:catalog
+```
+
+Fehlende öffentliche Waipu-Programmdetails kontrolliert nachladen:
+
+```bash
+WAIPU_CATALOG_LIVE=1 \
+TMDB_API_READ_TOKEN=... \
+npm run waipu:catalog -- --live
+```
+
+Optionale Grenzen:
+
+```bash
+WAIPU_DETAIL_REQUEST_BUDGET=300
+WAIPU_DETAIL_PACE_MS=500
+WAIPU_DETAIL_JITTER_MS=150
+WAIPU_TMDB_REQUEST_BUDGET=100
+WAIPU_TMDB_PACE_MS=250
+```
+
+Die Ausgabe liegt unter `artifacts/waipu-live/current/`; Matchentscheidungen
+liegen unter `artifacts/waipu-live/match-decisions.json`. Beide Pfade sind
+bewusst nicht versioniert.
+
+## Atomare Ausgabe
+
+Eine Generation wird vollständig im Staging-Verzeichnis geschrieben und vor
+dem Verzeichniswechsel validiert. Erst danach ersetzt sie atomar die vorige
+Generation. Die Ausgabe besteht aus:
+
+- `index.json`: Status, Horizont, Versionen, Zähler und Ausschlussmetriken;
+- `stations.json`: kompakter Senderindex mit Logo-Template und verfügbaren
+  Streamqualitäten, ohne ein nicht belegtes Bildformat zu erraten;
+- `titles.json`: eindeutige TMDB-Titel mit nächster Ausstrahlung;
+- `stations/<stationId>.json`: zeitlich sortierte Ausstrahlungen je Sender.
+
+Fehlende Programmdetails, fehlende Kandidatenquelle, ungültige Referenzen,
+inkonsistente Zähler oder ein erschöpftes Requestbudget verhindern den
+Verzeichniswechsel vollständig.
