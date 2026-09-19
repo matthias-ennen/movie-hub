@@ -3,8 +3,6 @@ import { loadCompleteTitleMetadata } from '../catalog/loadCompleteTitleMetadata.
 import { mergeEnrichedTitle, titleNeedsMetadataEnrichment } from '../catalog/titleMetadata.js'
 import { firebaseReady } from '../lib/firebase.js'
 import {
-  canEncryptPersonalData,
-  isEncryptedPersonalValue,
   protectPersonalValue,
   readPersonalValue,
 } from '../lib/personalDataCrypto.js'
@@ -18,25 +16,17 @@ const catalogMetadataRefreshes = new Map()
 const LABEL_PURPOSE = 'sharedMedia.label'
 const URL_PURPOSE = 'sharedMedia.url'
 
-function decodeField(purpose, encryptedValue, legacyValue) {
-  if (isEncryptedPersonalValue(encryptedValue) && canEncryptPersonalData()) {
-    return readPersonalValue(purpose, encryptedValue).value
-  }
-  if (isEncryptedPersonalValue(legacyValue) && canEncryptPersonalData()) {
-    return readPersonalValue(purpose, legacyValue).value
-  }
-  if (typeof legacyValue === 'string') return legacyValue
-  throw new Error('Persönliches Movie-Hub-Feld ist auf diesem Client nicht lesbar.')
+function decodeField(purpose, encryptedValue) {
+  return readPersonalValue(purpose, encryptedValue).value
 }
 
 function decodeStoredMedia(raw, id = null) {
-  const label = decodeField(LABEL_PURPOSE, raw?.labelEncrypted, raw?.label)
-  const url = decodeField(URL_PURPOSE, raw?.urlEncrypted, raw?.url)
+  const label = decodeField(LABEL_PURPOSE, raw?.labelEncrypted)
+  const url = decodeField(URL_PURPOSE, raw?.urlEncrypted)
   return normaliseMedia({ id, ...raw, label, url })
 }
 
 function encryptedMediaFields(normalized) {
-  if (!canEncryptPersonalData()) return {}
   return {
     labelEncrypted: protectPersonalValue(LABEL_PURPOSE, normalized.label),
     urlEncrypted: protectPersonalValue(URL_PURPOSE, normalized.url),
@@ -125,11 +115,6 @@ export async function loadSharedMedia(userId, item) {
         migration.type = normalized.type
         migration.providerId = null
       }
-      if (canEncryptPersonalData()
-          && (!isEncryptedPersonalValue(raw.labelEncrypted)
-            || !isEncryptedPersonalValue(raw.urlEncrypted))) {
-        Object.assign(migration, encryptedMediaFields(normalized))
-      }
       if (Object.keys(migration).length) {
         migration.updatedAt = serverTimestamp()
         migrations.push(setDoc(entry.ref, migration, { merge: true }))
@@ -178,10 +163,6 @@ export async function saveSharedMedia(userId, item, entry) {
   const id = entryRef.id
   const batch = writeBatch(db)
   batch.set(entryRef, {
-    // Temporary dual-write for old installed APKs. Remove plaintext fields via #223
-    // after all supported devices have the native MovieHubCrypto bridge.
-    label: normalized.label,
-    url: normalized.url,
     ...encryptedMediaFields(normalized),
     type: normalized.type,
     providerId: null,
