@@ -41,8 +41,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # A deliberately tagged main-branch commit provides an auditable emergency
+      # refresh path when workflow_dispatch is unavailable. Ordinary code pushes
+      # keep skipping the comparatively expensive live Waipu import.
       - name: Restore persistent Waipu import state
-        if: ${{ github.event_name != 'push' }}
+        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         id: waipu_cache
         uses: actions/cache/restore@v4
         with:
@@ -55,7 +58,7 @@ jobs:
             waipu-seven-v1-
 
       - name: Seed verified Waipu stability history
-        if: ${{ github.event_name != 'push' }}
+        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         run: |
           mkdir -p artifacts/waipu-sync
           if [ ! -f artifacts/waipu-sync/checkpoint.json ]; then
@@ -63,7 +66,7 @@ jobs:
           fi
 
       - name: Restore last deployed Waipu catalog
-        if: ${{ github.event_name != 'push' }}
+        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         continue-on-error: true
         run: npm run waipu:restore
 
@@ -76,7 +79,7 @@ jobs:
         run: npm run series:details:restore
 
       - name: Generate TMDB catalog for strict refresh
-        if: ${{ github.event_name != 'push' }}
+        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
@@ -89,7 +92,7 @@ jobs:
 
       - name: Generate fresh TMDB catalog for code deploy
         id: push_catalog
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') }}
         continue-on-error: true
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
@@ -102,7 +105,7 @@ jobs:
         run: npm run tmdb:catalog
 
       - name: Reuse last deployed catalog after transient refresh failure
-        if: ${{ github.event_name == 'push' && steps.push_catalog.outcome == 'failure' }}
+        if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') && steps.push_catalog.outcome == 'failure' }}
         run: |
           echo "Fresh TMDB catalog did not pass its quality gate; reusing the last deployed catalog."
           curl --fail --silent --show-error --location \
@@ -130,7 +133,7 @@ jobs:
 
       - name: Refresh seven-station Waipu grid
         id: waipu_sync
-        if: ${{ github.event_name != 'push' }}
+        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         continue-on-error: true
         env:
           WAIPU_SYNC_LIVE: '1'
@@ -139,7 +142,7 @@ jobs:
 
       - name: Match and publish seven-station Waipu test catalog
         id: waipu_catalog
-        if: ${{ github.event_name != 'push' && steps.waipu_sync.outcome == 'success' }}
+        if: ${{ (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && steps.waipu_sync.outcome == 'success' }}
         continue-on-error: true
         env:
           WAIPU_CATALOG_LIVE: '1'
@@ -155,7 +158,7 @@ jobs:
         run: npm run waipu:catalog -- --live
 
       - name: Save persistent Waipu import state
-        if: ${{ always() && github.event_name != 'push' }}
+        if: ${{ always() && (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) }}
         uses: actions/cache/save@v4
         with:
           path: |
@@ -197,7 +200,7 @@ jobs:
         run: npx firebase-tools deploy --only hosting,firestore:rules --project movie-hub-62459 --non-interactive
 
       - name: Report failed scheduled Waipu refresh
-        if: ${{ always() && github.event_name != 'push' && (steps.waipu_sync.outcome != 'success' || steps.waipu_catalog.outcome != 'success') }}
+        if: ${{ always() && (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && (steps.waipu_sync.outcome != 'success' || steps.waipu_catalog.outcome != 'success') }}
         run: |
           echo "::error::Waipu refresh failed; the last validated catalog remained in public/waipu-live."
           exit 1
