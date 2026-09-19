@@ -282,9 +282,12 @@ Live-Retry; ihre Fehlerpfade werden mit lokalen Fixtures geprüft.
 - `waipu-live/stations/{stationId}.json`: chronologische Film-/Serien-
   ausstrahlungen für die TV-Registerkarte.
 
-Die App lädt zuerst nur Index und kompakte Titelübersicht. Senderdateien werden
-im TV-Reiter bei Bedarf geladen und clientseitig gecacht. Abgelaufene
-Ausstrahlungen werden zusätzlich beim Lesen über `stopTime <= now` ausgeblendet.
+Die App lädt für Badge und Detailansicht nur die kompakte Titelübersicht. Im
+TV-Reiter lädt sie zusätzlich Index, Senderverzeichnis und ausschließlich die
+Dateien der in den kontoweiten Einstellungen aktiven Sender; diese Dateien
+werden clientseitig gecacht. Alle Sender sind standardmäßig aktiv, die
+TV-Seite selbst enthält keine Senderauswahl. Abgelaufene Ausstrahlungen werden
+zusätzlich beim Lesen über `stopTime <= now` ausgeblendet.
 
 ## Lokale Vertragsprüfung
 

@@ -1,10 +1,12 @@
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import ProviderBadges from './ProviderBadges.jsx'
+import { formatTvAiringCard } from '../waipu/waipuTvCatalog.js'
 
 export default function PosterCard({ item, onOpen, rank = null, hasMovieHub = false, onFocus = null, posterIndex = null }) {
   const posterUrl = item.displayPosterUrl || item.neutralPosterUrl || item.posterUrl || null
   const hasPoster = Boolean(posterUrl)
   const providerIds = Array.isArray(item.providerIds) ? item.providerIds : []
+  const tvAiring = formatTvAiringCard(item.tvAiring)
 
   return (
     <button
@@ -18,7 +20,7 @@ export default function PosterCard({ item, onOpen, rank = null, hasMovieHub = fa
       aria-label={rank ? `Platz ${rank}: ${item.title} öffnen` : `${item.title} öffnen`}
       style={{ '--poster-accent': item.accent, '--poster-accent-2': item.accent2 }}
     >
-      <span className={hasPoster ? 'poster-art has-image' : 'poster-art'} aria-hidden="true">
+      <span className={`${hasPoster ? 'poster-art has-image' : 'poster-art'}${tvAiring ? ' has-tv-airing' : ''}`} aria-hidden="true">
         {hasPoster && <img className="poster-image" src={posterUrl} alt="" loading="lazy" fetchPriority="low" decoding="async" />}
         {rank && <span className="top-ten-rank">{rank}</span>}
         <AgeRatingBadge value={item.ageRating} className="poster-age-rating" />
@@ -27,6 +29,12 @@ export default function PosterCard({ item, onOpen, rank = null, hasMovieHub = fa
           <span className="poster-title">{item.title}</span>
           <span className="poster-year">{item.year || '–'}</span>
         </span>
+        {tvAiring && (
+          <span className="tv-airing-card-label">
+            <strong>{tvAiring.time}</strong>
+            <span>{tvAiring.stationName}</span>
+          </span>
+        )}
       </span>
       {(hasMovieHub || providerIds.length > 0) && (
         <ProviderBadges providerIds={providerIds} maxVisible={3} includeMovieHub={hasMovieHub} />

@@ -44,6 +44,7 @@ Staffel 0 (Specials) gehört zunächst nicht zur sichtbaren Navigation. Episoden
 users/{uid}
   displayName
   providerSettings    map          # kontoweite Anbieterauswahl inklusive Movie Hub
+  waipuStationSettings map         # ausgeschaltete TV-Sender; alle übrigen sind aktiv
   createdAt
   updatedAt
 

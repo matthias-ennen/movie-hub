@@ -17,6 +17,7 @@ import './styles/top-ten.css'
 import './styles/film-collections.css'
 import './styles/series-navigation.css'
 import './styles/issue218.css'
+import './styles/waipu-tv.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

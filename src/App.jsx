@@ -7,6 +7,7 @@ import { ProgressivePosterGrid, ProgressiveRows } from './components/Progressive
 import ProfileView from './components/ProfileView.jsx'
 import SearchView from './components/SearchView.jsx'
 import SettingsView from './components/SettingsView.jsx'
+import TvView from './components/TvView.jsx'
 import { buildCategoryRows } from './catalog/categoryRows.js'
 import { buildPersonalSmartRows, normalizeSmartFilterOptions } from './catalog/personalSmartRows.js'
 import { buildProviderBrowseRows, buildProviderHomeRows } from './catalog/providerCatalogRows.js'
@@ -25,6 +26,7 @@ import { useDpadNavigation } from './hooks/useDpadNavigation.js'
 import { useHeroFirstPage } from './hooks/useHeroFirstPage.js'
 import { useCurationClock } from './hooks/useCurationClock.js'
 import { useProviderSelection } from './settings/useProviderSelection.js'
+import { useWaipuStationSelection } from './settings/useWaipuStationSelection.js'
 import { useLibrary } from './library/LibraryProvider.jsx'
 import { buildPersonalRows, buildWatchedHistoryRows, mergeCatalogWithPersonalSnapshots } from './library/personalRows.js'
 import { refreshSharedMediaCatalogMetadata } from './library/sharedMedia.js'
@@ -43,6 +45,11 @@ import {
   loadWaipuLiveTitles,
   mergeWaipuLiveAvailability,
 } from './waipu/waipuLiveCatalog.js'
+import {
+  buildWaipuTvRows,
+  loadWaipuLiveStationCatalog,
+  loadWaipuTvAirings,
+} from './waipu/waipuTvCatalog.js'
 
 function NativeStartupSignal() {
   useEffect(() => {
@@ -125,6 +132,7 @@ function Header({
     ['home', 'Home'],
     ['movies', 'Filme'],
     ['series', 'Serien'],
+    ['tv', 'TV'],
     ['library', 'Meine Inhalte'],
   ]
   const profileInitial = activeProfile?.displayName?.trim().charAt(0).toUpperCase() || 'M'
@@ -344,6 +352,10 @@ function MovieHub({ user }) {
   const { personalTitles: tmdbPersonalTitles } = useTmdbCatalog()
   const { enabledProviderIds } = useProviderSelection()
   const {
+    disabledStationIds,
+    loading: stationSelectionLoading,
+  } = useWaipuStationSelection()
+  const {
     entries: sharedMediaCatalogEntries,
     hasTitle: hasMovieHubTitle,
     loading: sharedMediaCatalogLoading,
@@ -363,6 +375,14 @@ function MovieHub({ user }) {
     smartFilterOptions: normalizeSmartFilterOptions(),
   })
   const [waipuLiveEntries, setWaipuLiveEntries] = useState([])
+  const [waipuStationCatalog, setWaipuStationCatalog] = useState({
+    status: 'loading',
+    stations: [],
+    generatedAt: null,
+    horizon: null,
+  })
+  const [tvSchedule, setTvSchedule] = useState({ status: 'idle', airings: [] })
+  const [tvClock, setTvClock] = useState(() => Date.now())
 
   useEffect(() => {
     let cancelled = false
@@ -416,6 +436,14 @@ function MovieHub({ user }) {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+    loadWaipuLiveStationCatalog().then((stationCatalog) => {
+      if (!cancelled) setWaipuStationCatalog(stationCatalog)
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
     const nextStopTime = Math.min(...waipuLiveEntries
       .map((entry) => Date.parse(entry?.nextAiring?.stopTime))
       .filter(Number.isFinite))
@@ -425,6 +453,55 @@ function MovieHub({ user }) {
     }, Math.max(0, Math.min(2_147_483_647, nextStopTime - Date.now() + 1_000)))
     return () => window.clearTimeout(timeout)
   }, [waipuLiveEntries])
+
+  const activeWaipuStations = useMemo(() => {
+    const disabled = new Set(disabledStationIds)
+    return waipuStationCatalog.stations.filter((station) => !disabled.has(station.id))
+  }, [disabledStationIds, waipuStationCatalog.stations])
+  const activeWaipuStationKey = activeWaipuStations.map((station) => station.id).join('|')
+
+  useEffect(() => {
+    if (currentView !== 'tv') return undefined
+    if (waipuStationCatalog.status === 'loading' || stationSelectionLoading) {
+      setTvSchedule({ status: 'loading', airings: [] })
+      return undefined
+    }
+    if (waipuStationCatalog.status !== 'ready') {
+      setTvSchedule({ status: 'unavailable', airings: [] })
+      return undefined
+    }
+    if (!activeWaipuStations.length) {
+      setTvSchedule({ status: 'no-stations', airings: [] })
+      return undefined
+    }
+
+    let cancelled = false
+    setTvSchedule((current) => ({ ...current, status: 'loading' }))
+    loadWaipuTvAirings(activeWaipuStations)
+      .then((airings) => {
+        if (!cancelled) {
+          setTvClock(Date.now())
+          setTvSchedule({ status: 'ready', airings })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setTvSchedule({ status: 'unavailable', airings: [] })
+      })
+    return () => { cancelled = true }
+  }, [activeWaipuStationKey, currentView, stationSelectionLoading, waipuStationCatalog.status])
+
+  useEffect(() => {
+    if (tvSchedule.status !== 'ready') return undefined
+    const nextStopTime = Math.min(...tvSchedule.airings
+      .map((airing) => Date.parse(airing.stopTime))
+      .filter((stopTime) => Number.isFinite(stopTime) && stopTime > tvClock))
+    if (!Number.isFinite(nextStopTime)) return undefined
+    const timeout = window.setTimeout(
+      () => setTvClock(Date.now()),
+      Math.max(0, Math.min(2_147_483_647, nextStopTime - Date.now() + 1_000)),
+    )
+    return () => window.clearTimeout(timeout)
+  }, [tvClock, tvSchedule.airings, tvSchedule.status])
 
   useEffect(() => {
     if (sharedMediaCatalogLoading || !user?.uid || !sharedMediaCatalogEntries.length) return
@@ -467,6 +544,12 @@ function MovieHub({ user }) {
       .map((item) => resolvePresentationArtwork(item, artworkOptions)),
     [rawMovieHubTitles, waipuLiveEntries, artworkOptions],
   )
+  const tvRows = useMemo(() => buildWaipuTvRows({
+    airings: tvSchedule.airings,
+    titles,
+    titleEntries: waipuLiveEntries,
+    now: tvClock,
+  }), [titles, tvClock, tvSchedule.airings, waipuLiveEntries])
   const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
   const activeSortMode = useMemo(
     () => resolveContentSortMode(contentDisplaySettings, activeProfile?.id, new Date()),
@@ -899,6 +982,16 @@ function MovieHub({ user }) {
           onOpen={handleOpenTitle}
         />
       )}
+      {currentView === 'tv' && (
+        <TvView
+          rows={tvRows}
+          stations={activeWaipuStations}
+          totalStationCount={waipuStationCatalog.stations.length}
+          status={tvSchedule.status === 'idle' ? 'loading' : tvSchedule.status}
+          generatedAt={waipuStationCatalog.generatedAt}
+          onOpen={handleOpenTitle}
+        />
+      )}
       {currentView === 'library' && (
         <PersonalLibraryView
           rows={personalDisplayRows}
@@ -926,7 +1019,12 @@ function MovieHub({ user }) {
           smartFilterOptions={catalog.smartFilterOptions}
         />
       )}
-      {currentView === 'settings' && <SettingsView />}
+      {currentView === 'settings' && (
+        <SettingsView
+          waipuStations={waipuStationCatalog.stations}
+          waipuStationStatus={waipuStationCatalog.status}
+        />
+      )}
       {currentView === 'about' && <AboutView />}
       {selectedTitle && (
         <DetailModal

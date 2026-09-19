@@ -1,6 +1,6 @@
 # Movie Hub – Architektur
 
-Stand: 13. September 2026
+Stand: 19. September 2026
 
 ## Ziel
 
@@ -186,7 +186,7 @@ bis zu zwei Stunden verteilt werden.
 Die Android-/Fire-TV-App ruft Waipu nie direkt auf. Der Import veröffentlicht
 nur vollständig validierte `waipu-live`-Artefakte: einen Statusindex, einen
 Senderindex, einen kompakten Titelindex für Badges und senderweise
-14-Tage-Dateien für den späteren TV-Reiter. Der letzte gültige Stand bleibt bei
+14-Tage-Dateien für den TV-Reiter. Der letzte gültige Stand bleibt bei
 jedem Fehler online.
 
 Die erste UI-Stufe liest ausschließlich den kompakten Titelindex und verbindet
@@ -196,6 +196,14 @@ waipu.tv → übrige Anbieter`. Die Detailseite zeigt nur den nächsten linearen
 Sendetermin und die Zahl weiterer Termine. Abgelaufene Termine werden im Client
 ausgeblendet; einen ungeprüften titel- oder senderspezifischen Deep Link gibt es
 nicht.
+
+Die zweite UI-Stufe stellt die senderweisen Dateien im Hauptreiter **TV** als
+chronologische Tagesreihen dar. Die Seite enthält keine eigene Senderauswahl.
+Stattdessen sind alle veröffentlichten Sender standardmäßig aktiv und können
+nur unter den kontoweiten Einstellungen einzeln ausgeblendet werden. Gespeichert
+werden ausschließlich die ausgeschalteten Sender-IDs, sodass neue Sender ohne
+Migration automatisch erscheinen. Der Client lädt und cached nur Dateien der
+aktiven Sender; Zeit- und Senderhinweis sitzen direkt auf der Posterkarte.
 
 Der vollständige Vertrag, die Messwerte, Requestmatrix, TMDB-Regeln und
 Abbruchlogik stehen in [WAIPU_PUBLIC_CONTRACT.md](WAIPU_PUBLIC_CONTRACT.md).

@@ -12,6 +12,7 @@ import {
   ROW_VIRTUAL_OVERSCAN,
   STANDARD_POSTER_ROW_LIMIT,
   TOP_TEN_ROW_LIMIT,
+  TV_POSTER_ROW_LIMIT,
 } from '../src/performance/posterRows.js'
 import { buildTmdbCatalogRows } from '../src/tmdb/tmdbCatalogModel.js'
 
@@ -35,6 +36,8 @@ describe('Fire-TV Posterreihen-Last', () => {
     const items = Array.from({ length: 80 }, (_, index) => title(index + 1))
     expect(limitPosterRowItems(items)).toHaveLength(STANDARD_POSTER_ROW_LIMIT)
     expect(limitPosterRowItems(items, 'top-ten')).toHaveLength(TOP_TEN_ROW_LIMIT)
+    expect(limitPosterRowItems(Array.from({ length: 200 }, (_, index) => title(index + 1)), 'tv'))
+      .toHaveLength(TV_POSTER_ROW_LIMIT)
     expect(ROW_VIRTUAL_OVERSCAN).toBe(2)
     expect(estimatePosterRowHeight('top-ten')).toBeGreaterThan(estimatePosterRowHeight('standard'))
   })
