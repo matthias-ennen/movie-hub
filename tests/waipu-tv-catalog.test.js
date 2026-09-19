@@ -104,13 +104,30 @@ describe('Waipu TV catalog', () => {
     const rows = buildWaipuTvRows({
       airings,
       titles: [{ id: 'movie-11', tmdbId: 11, type: 'movie', title: 'Film A', providerIds: [] }],
-      titleEntries: [{ key: 'movie:22', tmdbId: 22, type: 'movie', title: 'Film B', posterUrl: 'https://image.test/b.jpg' }],
+      titleEntries: [{
+        key: 'movie:22',
+        tmdbId: 22,
+        type: 'movie',
+        title: 'Film B',
+        posterUrl: 'https://image.test/b.jpg',
+        description: 'Vollständige TMDB-Beschreibung',
+        ageRating: 16,
+        metadataVersion: 2,
+        metadataComplete: true,
+        collectionChecked: true,
+      }],
       now: Date.parse('2026-09-19T12:00:00.000Z'),
     })
     expect(rows).toHaveLength(1)
     expect(rows[0].title).toContain('Morgen')
     expect(rows[0].items.map(({ title }) => title)).toEqual(['Film A', 'Film B'])
-    expect(rows[0].items[1]).toMatchObject({ posterUrl: 'https://image.test/b.jpg', providerIds: ['waipu'] })
+    expect(rows[0].items[1]).toMatchObject({
+      posterUrl: 'https://image.test/b.jpg',
+      description: 'Vollständige TMDB-Beschreibung',
+      ageRating: 16,
+      metadataComplete: true,
+      providerIds: ['waipu'],
+    })
   })
 
   it('formats the time and station for a TV poster card', () => {

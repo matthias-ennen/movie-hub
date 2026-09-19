@@ -185,17 +185,32 @@ bis zu zwei Stunden verteilt werden.
 
 Die Android-/Fire-TV-App ruft Waipu nie direkt auf. Der Import veröffentlicht
 nur vollständig validierte `waipu-live`-Artefakte: einen Statusindex, einen
-Senderindex, einen kompakten Titelindex für Badges und senderweise
+Senderindex, einen TMDB-vollständigen Titelindex für Badges und Details sowie senderweise
 14-Tage-Dateien für den TV-Reiter. Der letzte gültige Stand bleibt bei
 jedem Fehler online.
 
-Die erste UI-Stufe liest ausschließlich den kompakten Titelindex und verbindet
-ihn über `Medientyp + TMDB-ID` mit vorhandenen MovieHub-Titeln. Poster zeigen
+Nach der eindeutigen Zuordnung lädt der zentrale Lauf für jeden neuen
+Waipu-Titel die kanonischen TMDB-Anzeigedaten einschließlich deutscher
+Altersfreigabe, Beschreibung, Genres, Besetzung, Bilder, Staffeln,
+Providerinformationen und gegebenenfalls Filmreihe. Bereits vollständige
+Titel werden zuerst aus dem frisch erzeugten Hauptkatalog und danach bis zu
+30 Tage aus dem letzten validierten Waipu-Katalog wiederverwendet. Erst wenn
+alle veröffentlichten Titel `metadataComplete` erfüllen, wird die neue
+Generation atomar freigegeben.
+
+Die erste UI-Stufe liest den Titelindex und verbindet ihn über
+`Medientyp + TMDB-ID` mit vorhandenen MovieHub-Titeln. Poster zeigen
 weiter maximal drei Anbieter-Badges mit der festen Priorität `Movie Hub →
 waipu.tv → übrige Anbieter`. Die Detailseite zeigt nur den nächsten linearen
 Sendetermin und die Zahl weiterer Termine. Abgelaufene Termine werden im Client
 ausgeblendet; einen ungeprüften titel- oder senderspezifischen Deep Link gibt es
 nicht.
+
+Falls ein älterer Rückfallbestand dennoch erst beim Öffnen eines Titels
+vervollständigt wird, übernimmt die Web-App das geladene TMDB-Ergebnis zusätzlich
+in ihren gemeinsamen Waipu-Titelspeicher. Dadurch aktualisiert sich auch die
+Posterkarte in derselben Sitzung. Dieser Laufzeitpfad ist nur eine
+Ausfallsicherung; der Normalfall bleibt die serverseitig vollständige Anzeige.
 
 Die zweite UI-Stufe stellt die senderweisen Dateien im Hauptreiter **TV** als
 chronologische Tagesreihen dar. Die Seite enthält keine eigene Senderauswahl.

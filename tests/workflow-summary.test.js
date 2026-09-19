@@ -20,6 +20,7 @@ describe('kompakter Workflow-Datenbericht', () => {
       waipuIndex: {
         horizon: { start: '2026-09-19T00:00:00.000Z', endExclusive: '2026-10-03T00:00:00.000Z' },
         counts: { stations: 50, titles: 830, broadcasts: 6100 },
+        metadata: { complete: 830, fromCatalog: 190, fromCache: 0, fetched: 640 },
         metrics: {
           detailsLoaded: 4200,
           matchedPrograms: 3600,
@@ -27,7 +28,7 @@ describe('kompakter Workflow-Datenbericht', () => {
           detailsMissing: 1,
           matchRejected: { no_candidate: 300, ambiguous_margin: 200, below_threshold: 100 },
         },
-        runtime: { detailRequests: { cacheHits: 1200 }, tmdbRequests: 740 },
+        runtime: { detailRequests: { cacheHits: 1200 }, tmdbRequests: 740, tmdbMetadataRequests: 640 },
       },
       waipuSync: { metrics: { slotsProcessed: 3600, requestsStarted: 3650, slotsSkippedByCheckpoint: 600, retries: 2 } },
       metadata: { scanned: 150, candidates: 20, updated: 19, failed: 1 },
@@ -56,8 +57,8 @@ describe('kompakter Workflow-Datenbericht', () => {
     expect(summary.rows).toHaveLength(10)
     expect(markdown).toContain('Lauf #321')
     expect(markdown).toContain('| Waipu EPG | ✅ erfolgreich | 50 Sender')
-    expect(markdown).toContain('3.600 zugeordnet · 740 TMDB-Suchen')
-    expect(markdown).toContain('603 verworfen · 1.200 Detail-Cachetreffer')
+    expect(markdown).toContain('3.600 zugeordnet · 830/830 Metadaten vollständig')
+    expect(markdown).toContain('603 verworfen · 740 Suchen · 640 Detailabrufe · 1.200 Waipu-Cache')
     expect(markdown).toContain('Waipu-Titelbestand: **+686 zum Live-Stand**')
     expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(12)
   })

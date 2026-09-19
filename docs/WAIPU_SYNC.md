@@ -184,9 +184,11 @@ Bei einem geplanten oder manuell gestarteten Datenlauf geschieht nacheinander:
 3. TMDB-Katalog und Suchindex aktualisieren;
 4. das rollierende 14-Tage-Fenster der 50 freigegebenen Sender ergänzen;
 5. nur fehlende Programmdetails und offene TMDB-Zuordnungen nachladen;
-6. den neuen Waipu-Katalog atomar validieren;
-7. TMDB und Waipu gemeinsam bauen und einmal auf Firebase veröffentlichen;
-8. aktualisierten Checkpoint und Cache wieder persistent sichern.
+6. jeden zugeordneten Titel aus Hauptkatalog, letztem validierten Waipu-Bestand
+   oder einem vollständigen TMDB-Detailabruf anreichern;
+7. den neuen Waipu-Katalog einschließlich vollständiger Metadaten atomar validieren;
+8. TMDB und Waipu gemeinsam bauen und einmal auf Firebase veröffentlichen;
+9. aktualisierten Checkpoint und Cache wieder persistent sichern.
 
 Der erste 50er-CI-Lauf darf für den einmaligen Cacheaufbau bis zu 5.000 Grid-
 und 10.000 Detailrequests starten. Danach reduzieren Checkpoint und unveränderlicher
@@ -196,6 +198,13 @@ bleibt bei einer aktiven Anfrage mit 400 ms Mindestabstand plus bis zu 75 ms
 Jitter. Das nachgelagerte Laden einzelner Programmdetails nutzt dieselbe
 Taktung; TMDB bleibt seriell bei 250 ms und höchstens 4.000 Suchrequests im
 Bootstrap.
+
+Die anschließende TMDB-Detailanreicherung arbeitet wie der vorhandene
+Suchdetailaufbau mit höchstens drei parallelen Abrufen, einem eigenen Budget
+von 4.000 Requests und 429-/5xx-Backoff. Im täglichen Normalbetrieb werden
+vollständige Titel aus Haupt- oder letztem Waipu-Katalog wiederverwendet; die
+größere Zahl der Detailabrufe fällt deshalb nur beim ersten vollständigen
+Aufbau beziehungsweise bei neuen oder nach 30 Tagen zu erneuernden Titeln an.
 
 Schlägt der Waipu-Refresh fehl, wird kein Teilbestand veröffentlicht. Der zuvor
 restaurierte letzte gültige Katalog bleibt im Build, wird erneut ausgeliefert

@@ -69,6 +69,8 @@ export function buildWorkflowSummary({
   const waipuCounts = waipuIndex.counts || {}
   const detailRequests = waipuIndex.runtime?.detailRequests || waipuDetail.metrics || {}
   const tmdbRequests = integer(waipuIndex.runtime?.tmdbRequests)
+  const waipuMetadata = waipuIndex.metadata || {}
+  const tmdbMetadataRequests = integer(waipuIndex.runtime?.tmdbMetadataRequests)
   const matchRejected = rejectedMatches(waipuMetrics)
   const detailRejected = integer(waipuMetrics.detailsUnavailable) + integer(waipuMetrics.detailsMissing)
   const tmdbOutcome = combinedOutcome(steps.tmdbStrict, steps.tmdbPush)
@@ -121,8 +123,8 @@ export function buildWorkflowSummary({
         area: 'Waipu → TMDB',
         status: outcome(steps.waipuCatalog),
         stock: `${number(waipuCounts.titles)} Titel · ${number(waipuCounts.broadcasts)} Ausstrahlungen`,
-        activity: `${number(waipuMetrics.detailsLoaded)} Details · ${number(waipuMetrics.matchedPrograms)} zugeordnet · ${number(tmdbRequests)} TMDB-Suchen`,
-        open: `${number(matchRejected + detailRejected)} verworfen · ${number(detailRequests.cacheHits)} Detail-Cachetreffer`,
+        activity: `${number(waipuMetrics.matchedPrograms)} zugeordnet · ${number(waipuMetadata.complete)}/${number(waipuCounts.titles)} Metadaten vollständig`,
+        open: `${number(matchRejected + detailRejected)} verworfen · ${number(tmdbRequests)} Suchen · ${number(tmdbMetadataRequests)} Detailabrufe · ${number(detailRequests.cacheHits)} Waipu-Cache`,
       },
       {
         area: 'Movie-Hub-Metadaten',

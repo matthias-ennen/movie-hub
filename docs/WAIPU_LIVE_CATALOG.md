@@ -169,12 +169,22 @@ Generation. Die Ausgabe besteht aus:
 - `stations.json`: kompakter Senderindex mit Logo-Template und verfügbaren
   Streamqualitäten, ohne ein nicht belegtes Bildformat zu erraten;
 - `titles.json`: eindeutige TMDB-Titel mit allen Ausstrahlungen des aktuellen
-  14-Tage-Fensters sowie der zum Erzeugungszeitpunkt nächsten Ausstrahlung;
+  14-Tage-Fensters, der zum Erzeugungszeitpunkt nächsten Ausstrahlung und den
+  vollständigen, für Poster und Detailseite benötigten TMDB-Metadaten;
 - `stations/<stationId>.json`: zeitlich sortierte Ausstrahlungen je Sender.
 
+Nach dem Matching werden vollständige Titelmetadaten zuerst aus dem frisch
+erzeugten Movie-Hub-Katalog, danach aus dem höchstens 30 Tage alten letzten
+Waipu-Titelindex und erst dann direkt von TMDB bezogen. Ein neuer TMDB-Abruf
+enthält deutsche Altersfreigabe, Beschreibung, Genres, Besetzung, Bilder,
+Videos, Provider, Staffeln und gegebenenfalls die Filmreihe. Waipu bleibt
+Quelle ausschließlich für Sender und Sendezeiten.
+
 Fehlende Programmdetails, fehlende Kandidatenquelle, ungültige Referenzen,
-inkonsistente Zähler oder ein erschöpftes Requestbudget verhindern den
-Verzeichniswechsel vollständig.
+unvollständige TMDB-Titelmetadaten, inkonsistente Zähler oder ein erschöpftes
+Requestbudget verhindern den Verzeichniswechsel vollständig. Der Statusindex
+weist `metadata.complete`, Wiederverwendung und neue TMDB-Detailabrufe separat
+aus.
 
 ## App-Integration (#4F)
 
@@ -184,6 +194,13 @@ normale MovieHub-Katalog unverändert. Eine Waipu-Verfügbarkeit wird nur bei
 exakter Übereinstimmung von Medientyp und TMDB-ID ergänzt. Bereits abgelaufene
 Ausstrahlungen werden im Client verworfen; aus den verbleibenden Terminen rückt
 der nächste automatisch nach.
+
+Ein ausschließlich über Waipu neu entdeckter Titel ist damit bereits beim
+ersten Rendern ein vollständiger TMDB-Titel. Das Öffnen der Detailseite ist
+nicht mehr der Auslöser für Altersfreigabe oder andere Standardmetadaten. Der
+weiterhin vorhandene Lazy-Load-Pfad aktualisiert bei einem älteren
+Rückfallbestand zusätzlich den gemeinsamen Waipu-Titelspeicher, damit eine
+Posterkarte nach dem Schließen der Detailseite nicht veraltet bleibt.
 
 Auf einer Posterkarte bleiben höchstens drei Anbieter-Badges sichtbar. Die
 Reihenfolge ist fest:
