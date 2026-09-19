@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { planPersonalValueMigration } from '../src/lib/personalDataMigrationPlan.js'
+import {
+  planPersonalValueCleanup,
+  planPersonalValueMigration,
+} from '../src/lib/personalDataMigrationPlan.js'
 
 const originalWindow = globalThis.window
 
@@ -35,6 +38,7 @@ describe('personal Firestore data migration', () => {
     })
 
     expect(result.status).toBe('migrate')
+    expect(result.plaintextPresent).toBe(true)
     expect(result.envelope).toMatchObject({
       cryptoVersion: 1,
       algorithm: 'A256GCM',
@@ -58,6 +62,7 @@ describe('personal Firestore data migration', () => {
     })
 
     expect(result).toMatchObject({ status: 'verified', envelope })
+    expect(result.plaintextPresent).toBe(true)
   })
 
   it('fails closed when ciphertext and plaintext differ', () => {
@@ -83,5 +88,59 @@ describe('personal Firestore data migration', () => {
       encryptedValue: undefined,
       required: true,
     })).toThrow(/fehlt/)
+  })
+
+  it('deletes plaintext only after a matching encrypted value was verified', () => {
+    installCryptoBridge()
+    const envelope = {
+      cryptoVersion: 1,
+      algorithm: 'A256GCM',
+      iv: 'test-iv',
+      ciphertext: 'Geprüfte Notiz',
+    }
+
+    expect(planPersonalValueCleanup({
+      purpose: 'profile.note',
+      plaintextPresent: true,
+      plaintextValue: 'Geprüfte Notiz',
+      encryptedValue: envelope,
+    })).toMatchObject({
+      status: 'verified',
+      deletePlaintext: true,
+      envelope,
+    })
+  })
+
+  it('keeps the document untouched when plaintext and ciphertext differ', () => {
+    installCryptoBridge()
+    expect(() => planPersonalValueCleanup({
+      purpose: 'profile.note',
+      plaintextPresent: true,
+      plaintextValue: 'Nicht löschen',
+      encryptedValue: {
+        cryptoVersion: 1,
+        algorithm: 'A256GCM',
+        iv: 'test-iv',
+        ciphertext: 'Anderer Wert',
+      },
+    })).toThrow(/stimmt nicht/)
+  })
+
+  it('does not schedule a deletion when no plaintext field exists', () => {
+    installCryptoBridge()
+    expect(planPersonalValueCleanup({
+      purpose: 'sharedMedia.label',
+      plaintextPresent: false,
+      encryptedValue: {
+        cryptoVersion: 1,
+        algorithm: 'A256GCM',
+        iv: 'test-iv',
+        ciphertext: 'Nur verschlüsselt',
+      },
+      required: true,
+    })).toMatchObject({
+      status: 'verified',
+      deletePlaintext: false,
+    })
   })
 })
