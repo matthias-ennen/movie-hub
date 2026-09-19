@@ -110,6 +110,10 @@ Standardpfade unter `artifacts/waipu-sync/`:
 Der Ordner ist vom Repository ausgeschlossen. Das Statusartefakt enthält keine
 Zugangsdaten, Tokens oder personenbezogenen Daten.
 
+Die nachgelagerte Film-/Serienklassifikation, TMDB-Zuordnung und atomare
+Katalogausgabe ist in [WAIPU_LIVE_CATALOG.md](./WAIPU_LIVE_CATALOG.md)
+dokumentiert.
+
 ## Abnahmestand für #4D
 
 - [x] CI-/Fixture-Prüfung des Koordinators;

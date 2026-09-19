@@ -13,5 +13,6 @@ coverage/
 artifacts/free-epg-quality/
 artifacts/waipu-account-probe/
 artifacts/waipu-sync/
+artifacts/waipu-live/
 .DS_Store
 gha-creds-*.json
