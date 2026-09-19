@@ -1,0 +1,114 @@
+.tv-program-page {
+  padding-bottom: 5rem;
+}
+
+.tv-program-heading {
+  max-width: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+
+.tv-program-heading > div:first-child {
+  max-width: 780px;
+}
+
+.tv-program-status {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 0.25rem;
+  min-width: 230px;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-elevated);
+  text-align: right;
+}
+
+.tv-program-status strong {
+  color: var(--color-text);
+}
+
+.tv-program-status span {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+
+.tv-program-rows {
+  margin-inline: calc(-1 * var(--page-inline));
+}
+
+.tv-program-empty {
+  margin-top: var(--space-8);
+}
+
+.poster-art.has-tv-airing .poster-copy {
+  padding-bottom: 2.5rem;
+}
+
+.tv-airing-card-label {
+  position: absolute;
+  left: 0.55rem;
+  bottom: 0.55rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: calc(100% - 4.5rem);
+  min-height: var(--provider-badge-size);
+  padding: 0 0.48rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius-sm);
+  background: rgba(7, 9, 13, 0.88);
+  color: var(--color-focus);
+  font-size: 0.68rem;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.35);
+}
+
+.tv-airing-card-label strong {
+  font-size: 0.75rem;
+}
+
+.tv-airing-card-label span {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.82);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.station-selection-list {
+  max-height: 38rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.25rem;
+}
+
+.station-selection-mark {
+  display: grid;
+  place-items: center;
+  width: var(--provider-badge-size);
+  height: var(--provider-badge-size);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius-sm);
+  background: #141923;
+  color: var(--color-focus);
+  font-size: 0.62rem;
+  font-weight: 950;
+}
+
+@media (max-width: 760px) {
+  .tv-program-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tv-program-status {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .tv-program-rows {
+    margin-inline: -1.2rem;
+  }
+}

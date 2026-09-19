@@ -1,6 +1,6 @@
 # Movie Hub – Issue-Plan
 
-Stand: 18. September 2026
+Stand: 19. September 2026
 
 ## Arbeitsprinzip
 
@@ -44,8 +44,10 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
   `waipu-live`-Artefakte erzeugt
 - **#4F abgeschlossen:** normales Waipu-Badge, feste Badge-Priorität und
   konkrete Sendetermine an vorhandenen Titeln umgesetzt
-- **#4G als nächstes:** eigene TV-Registerkarte mit Sendern und
-  14-Tage-Posterkarten umsetzen
+- **#4G technisch umgesetzt:** eigene TV-Registerkarte mit chronologischen
+  Tagesreihen aus den senderweisen 14-Tage-Dateien; keine Senderauswahl auf der
+  TV-Seite. Alle veröffentlichten Sender sind standardmäßig aktiv und können
+  ausschließlich in den kontoweiten Einstellungen einzeln ausgeblendet werden
 - #4H: Langzeitstabilität, Geräteabnahme und Release-/Rechte-Gate
 - keine Waiputhek-/VOD-Aussage aus linearen Sendeterminen ableiten
 - keine Waipu-Anmeldung und keine Waipu-Token für die öffentliche Basisintegration

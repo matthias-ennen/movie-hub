@@ -9,6 +9,7 @@ import {
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import { PROVIDER_OPTIONS } from '../settings/providerSelectionModel.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
+import { useWaipuStationSelection } from '../settings/useWaipuStationSelection.js'
 import { useTmdbCatalog } from '../tmdb/TmdbCatalogProvider.jsx'
 import { ProviderBadge } from './ProviderBadges.jsx'
 
@@ -86,7 +87,16 @@ function visibleProviderOptions(availableTmdbProviderIds) {
   })
 }
 
-export default function SettingsView({ availableTmdbProviderIds = null }) {
+function stationInitials(name) {
+  const words = String(name || '').trim().split(/\s+/).filter(Boolean)
+  return (words.length > 1 ? words.slice(0, 2).map((word) => word[0]).join('') : words[0]?.slice(0, 3) || 'TV').toUpperCase()
+}
+
+export default function SettingsView({
+  availableTmdbProviderIds = null,
+  waipuStations = [],
+  waipuStationStatus = 'loading',
+}) {
   const nativeNetworkSettings = typeof window.MovieHubNative?.openNetworkSettings === 'function'
   const nativeTmdbSettings = typeof window.MovieHubNative?.openTmdbSettings === 'function'
   const [liveTmdbProviderIds, setLiveTmdbProviderIds] = useState(availableTmdbProviderIds)
@@ -103,6 +113,14 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
     isProviderEnabled,
     setProviderEnabled,
   } = useProviderSelection()
+  const {
+    disabledStationIds,
+    loading: stationSelectionLoading,
+    error: stationSelectionError,
+    savingStationId,
+    isStationEnabled,
+    setStationEnabled,
+  } = useWaipuStationSelection()
   const {
     syncState,
     syncBusy,
@@ -147,6 +165,10 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
     setProviderEnabled(providerId, nextEnabled).catch(() => {})
   }
 
+  function toggleStation(stationId) {
+    setStationEnabled(stationId, !isStationEnabled(stationId)).catch(() => {})
+  }
+
   async function saveExperienceSetting(path, value, focusTarget = null) {
     if (experienceSaving) return
     experienceFocusRef.current = focusTarget instanceof HTMLElement
@@ -175,6 +197,9 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
   const providerBusy = providerLoading || Boolean(savingProviderId)
   const providerOptions = visibleProviderOptions(liveTmdbProviderIds)
   const activeVisibleProviders = providerOptions.filter((provider) => enabledProviderIds.includes(provider.id)).length
+  const stationOptions = Array.isArray(waipuStations) ? waipuStations : []
+  const activeStationCount = stationOptions.filter((station) => !disabledStationIds.includes(station.id)).length
+  const stationBusy = stationSelectionLoading || Boolean(savingStationId)
 
   return (
     <main className="browse-page profile-page app-settings-page">
@@ -388,6 +413,64 @@ export default function SettingsView({ availableTmdbProviderIds = null }) {
           Movie Hub bildet seinen Katalog automatisch aus deinen persönlichen Links und Videos. Zusätzliche externe Dienste erscheinen hier nur, wenn der aktuelle TMDB/JustWatch-Katalog sie für Deutschland tatsächlich als Watch Provider liefert. Neue externe Anbieter sind standardmäßig aus, bis du sie aktivierst. waipu.tv bleibt als bestehende Sonderintegration sichtbar.
         </p>
         {providerError && <p className="error" role="status">Streaminganbieter konnten nicht gespeichert oder synchronisiert werden: {providerError.message}</p>}
+      </section>
+
+      <section className="settings-panel provider-selection-panel" aria-labelledby="station-selection-heading">
+        <div className="settings-heading">
+          <div>
+            <p className="settings-kicker">Konto · TV</p>
+            <h2 id="station-selection-heading">Sichtbare TV-Sender</h2>
+          </div>
+          <span className="settings-status">
+            {waipuStationStatus === 'loading' || stationSelectionLoading
+              ? 'Wird geladen …'
+              : waipuStationStatus === 'ready'
+                ? `${activeStationCount} von ${stationOptions.length} aktiv`
+                : 'Noch nicht veröffentlicht'}
+          </span>
+        </div>
+
+        <p className="settings-description">
+          Alle verfügbaren Sender sind standardmäßig aktiviert. Schalte hier nur Sender aus, die dich auf der TV-Seite grundsätzlich nicht interessieren. Diese Auswahl gilt kontoweit auf allen Geräten.
+        </p>
+
+        {waipuStationStatus === 'ready' && stationOptions.length > 0 ? (
+          <div className="provider-selection-list station-selection-list" aria-label="TV-Sender ein- oder ausblenden">
+            {stationOptions.map((station) => {
+              const enabled = isStationEnabled(station.id)
+              const saving = savingStationId === station.id
+              return (
+                <button
+                  type="button"
+                  key={station.id}
+                  className={enabled ? 'provider-selection-row active' : 'provider-selection-row'}
+                  onClick={() => toggleStation(station.id)}
+                  disabled={stationBusy}
+                  aria-pressed={enabled}
+                  data-focusable="true"
+                >
+                  <span className="station-selection-mark" aria-hidden="true">{stationInitials(station.name)}</span>
+                  <span className="provider-selection-copy">
+                    <strong>{station.name}</strong>
+                    <small>{enabled ? 'Wird im TV-Reiter berücksichtigt' : 'Im TV-Reiter ausgeblendet'}</small>
+                  </span>
+                  <span className={enabled ? 'provider-selection-switch active' : 'provider-selection-switch'} aria-hidden="true">
+                    <span className="provider-selection-knob" />
+                  </span>
+                  <span className="provider-selection-state">{saving ? 'Speichert …' : enabled ? 'An' : 'Aus'}</span>
+                </button>
+              )
+            })}
+          </div>
+        ) : (
+          <p className="settings-hint">
+            Die Senderliste erscheint, sobald ein vollständig geprüfter Waipu-Live-Katalog veröffentlicht ist.
+          </p>
+        )}
+        <p className="settings-hint">
+          Neu hinzukommende Sender sind automatisch eingeschaltet. Die TV-Seite selbst enthält bewusst keine zusätzliche Senderauswahl.
+        </p>
+        {stationSelectionError && <p className="error" role="status">TV-Sendereinstellungen konnten nicht gespeichert oder synchronisiert werden: {stationSelectionError.message}</p>}
       </section>
 
       <section className="settings-panel network-settings-panel" aria-labelledby="network-settings-heading">

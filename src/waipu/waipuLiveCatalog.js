@@ -57,6 +57,12 @@ function normalizeEntry(raw, now) {
     key,
     tmdbId: Number(raw.tmdbId),
     type: mediaType(raw.type),
+    title: String(raw?.title || '').trim(),
+    originalTitle: String(raw?.originalTitle || '').trim() || null,
+    year: raw?.year !== null && raw?.year !== undefined && Number.isInteger(Number(raw.year))
+      ? Number(raw.year)
+      : null,
+    posterUrl: String(raw?.posterUrl || '').trim() || null,
     airings,
     nextAiring: airings[0],
     airingCount: airings.length,

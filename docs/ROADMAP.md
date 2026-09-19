@@ -1,6 +1,6 @@
 # Movie Hub – Roadmap
 
-Stand: 18. September 2026
+Stand: 19. September 2026
 
 ## Leitprinzip
 
@@ -53,8 +53,10 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
   getrennten `waipu-live`-Katalog erzeugt
 - **#4F abgeschlossen:** erste Ausbaustufe mit normalem Waipu-Badge, fester
   Badge-Priorität und konkreten Sendeterminen umgesetzt
-- **#4G als nächstes:** zweite Ausbaustufe mit eigener TV-Registerkarte, Senderauswahl und
-  14-Tage-Posterkarten
+- **#4G technisch umgesetzt:** zweite Ausbaustufe mit eigener TV-Registerkarte
+  und chronologischen 14-Tage-Posterkarten. Die TV-Seite enthält bewusst keine
+  Senderauswahl; alle Sender sind standardmäßig aktiv und lassen sich nur in
+  den kontoweiten Einstellungen einzeln ausblenden
 - #4H: Robustheit, Langzeitmessung, Geräteabnahme und Release-/Rechte-Gate
 - Movie Hub fragt keine Waipu-Zugangsdaten ab und speichert keine Waipu-Token
 - ein persönlicher Paket-/Senderfilter kann später optional ergänzt werden,

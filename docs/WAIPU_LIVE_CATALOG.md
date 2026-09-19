@@ -13,10 +13,9 @@ Mindestabstand zum zweitbesten Kandidaten erfüllt.
 
 Unklare, widersprüchliche oder nicht gefundene Einträge bleiben unsichtbar. Sie
 werden weder geraten noch unter einer nur ähnlich klingenden TMDB-ID
-veröffentlicht. Der Katalogerzeuger selbst erzeugt keine sichtbare App-Zeile.
-Die erste App-Integration aus #4F ordnet den Titelindex ausschließlich über
-`Medientyp + TMDB-ID` zu. Die vollständige TV-Oberfläche gehört weiterhin zu
-#4G.
+veröffentlicht. Die erste App-Integration aus #4F ordnet den Titelindex
+ausschließlich über `Medientyp + TMDB-ID` zu. #4G ergänzt daraus eine eigene
+TV-Oberfläche, ohne die Katalogerzeugung oder Titelidentität zu verändern.
 
 ## Eingangsquellen
 
@@ -183,3 +182,30 @@ WAIPU_LIVE_OUTPUT=public/waipu-live npm run waipu:catalog
 Die produktive Veröffentlichung bleibt bis zum vorgesehenen Rechte- und
 Compliance-Gate gesperrt. Der App-Code reagiert bis dahin absichtlich
 fehlertolerant auf eine nicht vorhandene Datei.
+
+## TV-Registerkarte und Senderfilter (#4G)
+
+Die Hauptnavigation enthält einen eigenen Reiter **TV**. Er lädt nach dem
+kompakten Senderindex ausschließlich die Dateien der aktuell sichtbaren
+Sender. Die Ladevorgänge sind auf vier gleichzeitige lokale Dateianfragen
+begrenzt; geladene Senderdateien werden fünf Minuten im Client
+zwischengespeichert. Das erzeugt keine zusätzlichen Waipu-Anfragen, weil die
+App nur die bereits veröffentlichten Movie-Hub-Artefakte liest.
+
+Ausstrahlungen werden in deutscher Ortszeit je Kalendertag gruppiert und
+innerhalb eines Tages nach Startzeit und Sender sortiert. Jede Posterkarte
+zeigt unten links Startzeit und Sender, behält rechts höchstens drei
+Anbieter-Badges und öffnet dieselbe Film-/Seriendetailseite wie die übrigen
+Katalogreihen. Abgelaufene Sendungen verschwinden anhand ihrer `stopTime`
+automatisch. Eine Tagesreihe kann bis zu 150 zugeordnete Sendungen enthalten;
+die bestehende Zeilenvirtualisierung verhindert, dass alle Reihen gleichzeitig
+gerendert werden.
+
+Auf der TV-Seite gibt es bewusst keine Senderauswahl. Alle im veröffentlichten
+Senderindex vorhandenen Sender sind standardmäßig aktiv. Unter
+**Einstellungen → Sichtbare TV-Sender** können sie kontoweit einzeln
+ausgeblendet werden. Firestore speichert dafür unter
+`users/{uid}.waipuStationSettings.disabledStationIds` ausschließlich die
+ausgeschalteten Sender-IDs. Neu hinzukommende Sender sind dadurch automatisch
+aktiv. Fehlen die öffentlichen Artefakte, bleibt die Funktion mit einem
+erklärenden Leerzustand fehlertolerant.
