@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -65,7 +65,8 @@ function clientFixture(overrides = {}) {
 }
 
 function runOptions(paths, client, additions = {}) {
-  let clock = Date.parse('2026-09-18T12:30:00.000Z')
+  const { startAt = '2026-09-18T12:30:00.000Z', ...optionAdditions } = additions
+  let clock = Date.parse(startAt)
   const sleeps = []
   return {
     options: {
@@ -81,7 +82,7 @@ function runOptions(paths, client, additions = {}) {
       horizonDays: 1,
       paceMs: 500,
       jitterMs: 0,
-      ...additions,
+      ...optionAdditions,
     },
     sleeps,
   }
@@ -204,6 +205,81 @@ describe('WaipuSyncCoordinator', () => {
     expect(result.promotion.stableRuns).toBe(0)
     expect(result.promotion.automaticPromotion).toBe(false)
   })
+
+  it('counts at most one complete stability run per UTC day', async () => {
+    const paths = await temporaryPaths()
+    const first = runOptions(paths, clientFixture(), { requestBudget: 50 })
+    const firstResult = await runWaipuSync(first.options)
+    expect(firstResult).toMatchObject({
+      status: 'complete',
+      stability: {
+        runDate: '2026-09-18',
+        recorded: true,
+        reason: null,
+      },
+      promotion: { stableRuns: 1 },
+    })
+
+    const duplicate = runOptions(paths, clientFixture(), { requestBudget: 50 })
+    const duplicateResult = await runWaipuSync(duplicate.options)
+    expect(duplicateResult).toMatchObject({
+      status: 'complete',
+      stability: {
+        runDate: '2026-09-18',
+        recorded: false,
+        reason: 'already_recorded_for_utc_day',
+      },
+      promotion: { stableRuns: 1 },
+    })
+
+    const nextDay = runOptions(paths, clientFixture(), {
+      requestBudget: 50,
+      startAt: '2026-09-19T12:30:00.000Z',
+    })
+    const nextDayResult = await runWaipuSync(nextDay.options)
+    expect(nextDayResult).toMatchObject({
+      status: 'complete',
+      stability: {
+        runDate: '2026-09-19',
+        recorded: true,
+        recordedDates: ['2026-09-18', '2026-09-19'],
+      },
+      promotion: { stableRuns: 2 },
+    })
+    const checkpoint = JSON.parse(await readFile(paths.statePath, 'utf8'))
+    expect(checkpoint.stableRunDatesByStage[7]).toEqual(['2026-09-18', '2026-09-19'])
+  })
+
+  it('migrates the existing counter without counting its last UTC day again', async () => {
+    const paths = await temporaryPaths()
+    await writeFile(paths.statePath, JSON.stringify({
+      schemaVersion: 1,
+      kind: 'waipu-sync-checkpoint',
+      updatedAt: '2026-09-19T10:30:21.570Z',
+      stableRunsByStage: { 7: 2, 20: 0, 50: 0, full: 0 },
+      circuit: {
+        automaticRunsDisabled: false,
+        reason: null,
+        openedAt: null,
+        blockedUntil: null,
+      },
+      slots: {},
+    }))
+    const run = runOptions(paths, clientFixture(), {
+      requestBudget: 50,
+      startAt: '2026-09-19T18:00:00.000Z',
+    })
+    const result = await runWaipuSync(run.options)
+    expect(result).toMatchObject({
+      status: 'complete',
+      stability: {
+        runDate: '2026-09-19',
+        recorded: false,
+        recordedDates: ['2026-09-19'],
+      },
+      promotion: { stableRuns: 2 },
+    })
+  })
 })
 
 describe('Waipu single-flight lock', () => {
@@ -225,6 +301,22 @@ describe('Waipu single-flight lock', () => {
     await expect(first).resolves.toBe('first')
     await expect(stat(paths.lockPath)).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(withWaipuSingleFlight(paths.lockPath, async () => 'third')).resolves.toBe('third')
+    await expect(stat(paths.lockPath)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('recovers an abandoned empty lock after its stale interval', async () => {
+    const paths = await temporaryPaths()
+    await mkdir(paths.lockPath)
+    const old = new Date('2026-09-18T10:00:00.000Z')
+    await utimes(paths.lockPath, old, old)
+    await expect(withWaipuSingleFlight(
+      paths.lockPath,
+      async () => 'recovered',
+      {
+        now: () => Date.parse('2026-09-18T10:02:00.000Z'),
+        staleAfterMs: 60_000,
+      },
+    )).resolves.toBe('recovered')
     await expect(stat(paths.lockPath)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 })

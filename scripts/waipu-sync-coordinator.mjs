@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { rmSync } from 'node:fs'
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
@@ -94,6 +94,14 @@ function stageKey(stage) {
   return String(stage)
 }
 
+function utcDateKey(value) {
+  return dateValue(value).toISOString().slice(0, 10)
+}
+
+function emptyStableRunDates() {
+  return { 7: [], 20: [], 50: [], full: [] }
+}
+
 function stageIndex(stage) {
   return WAIPU_SYNC_STAGES.findIndex((candidate) => candidate === stage)
 }
@@ -145,6 +153,7 @@ function emptyState(now) {
     kind: 'waipu-sync-checkpoint',
     updatedAt: new Date(now).toISOString(),
     stableRunsByStage: { 7: 0, 20: 0, 50: 0, full: 0 },
+    stableRunDatesByStage: emptyStableRunDates(),
     circuit: {
       automaticRunsDisabled: false,
       reason: null,
@@ -183,6 +192,27 @@ async function loadState(path, now) {
   ) {
     throw new WaipuSyncError('STATE_CORRUPT')
   }
+  if (!state.stableRunDatesByStage || typeof state.stableRunDatesByStage !== 'object') {
+    state.stableRunDatesByStage = emptyStableRunDates()
+    const legacyDate = Number.isFinite(Date.parse(state.updatedAt)) ? utcDateKey(state.updatedAt) : null
+    if (legacyDate) {
+      for (const stage of WAIPU_SYNC_STAGES) {
+        const key = stageKey(stage)
+        if (Number(state.stableRunsByStage[key] || 0) > 0) state.stableRunDatesByStage[key] = [legacyDate]
+      }
+    }
+  }
+  for (const stage of WAIPU_SYNC_STAGES) {
+    const key = stageKey(stage)
+    const dates = Array.isArray(state.stableRunDatesByStage[key])
+      ? state.stableRunDatesByStage[key]
+      : []
+    state.stableRunDatesByStage[key] = [...new Set(dates
+      .map((value) => String(value || '').trim())
+      .filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value)))]
+      .sort()
+      .slice(-64)
+  }
   return state
 }
 
@@ -204,7 +234,16 @@ async function acquireLock(lockPath, { now, staleAfterMs }) {
     if (error?.code !== 'EEXIST') throw error
     const owner = await readJson(resolve(lockPath, 'owner.json'), null)
     const ownerStartedAt = Date.parse(owner?.startedAt)
-    const stale = Number.isFinite(ownerStartedAt) && now() - ownerStartedAt >= staleAfterMs
+    let lockStartedAt = ownerStartedAt
+    if (!Number.isFinite(lockStartedAt)) {
+      try {
+        lockStartedAt = (await stat(lockPath)).mtimeMs
+      } catch (statError) {
+        if (statError?.code === 'ENOENT') return acquireLock(lockPath, { now, staleAfterMs })
+        throw statError
+      }
+    }
+    const stale = Number.isFinite(lockStartedAt) && now() - lockStartedAt >= staleAfterMs
     if (!stale) throw new WaipuSyncError('SINGLE_FLIGHT_ACTIVE')
     const stalePath = `${lockPath}.stale.${randomUUID()}`
     try {
@@ -453,7 +492,20 @@ export async function runWaipuSync(options = {}) {
       if (status.status === 'running') {
         status.status = 'complete'
         const key = stageKey(stage)
-        state.stableRunsByStage[key] = Number(state.stableRunsByStage[key] || 0) + 1
+        const stableRunDate = utcDateKey(runStartedAt)
+        const stableRunDates = state.stableRunDatesByStage[key]
+        const stableRunRecorded = !stableRunDates.includes(stableRunDate)
+        if (stableRunRecorded) {
+          stableRunDates.push(stableRunDate)
+          state.stableRunDatesByStage[key] = stableRunDates.slice(-64)
+          state.stableRunsByStage[key] = Number(state.stableRunsByStage[key] || 0) + 1
+        }
+        status.stability = {
+          runDate: stableRunDate,
+          recorded: stableRunRecorded,
+          reason: stableRunRecorded ? null : 'already_recorded_for_utc_day',
+          recordedDates: [...state.stableRunDatesByStage[key]],
+        }
       }
       pruneCheckpoints(state, slots[0].getTime())
       state.updatedAt = new Date(now()).toISOString()
@@ -525,6 +577,10 @@ async function main() {
     resetCircuit: options.resetCircuit,
     fullStageApproved: process.env.WAIPU_SYNC_FULL_APPROVED === '1',
     requestBudget: process.env.WAIPU_SYNC_REQUEST_BUDGET,
+    statePath: process.env.WAIPU_SYNC_STATE,
+    statusPath: process.env.WAIPU_SYNC_STATUS,
+    cacheRoot: process.env.WAIPU_SYNC_CACHE_ROOT,
+    lockPath: process.env.WAIPU_SYNC_LOCK,
   })
   process.stdout.write(`${JSON.stringify(status, null, 2)}\n`)
   if (!['complete', 'paused_request_budget', 'paused_rate_limit'].includes(status.status)) {

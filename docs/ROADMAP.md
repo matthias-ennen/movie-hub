@@ -57,7 +57,9 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
   und chronologischen 14-Tage-Posterkarten. Die TV-Seite enthält bewusst keine
   Senderauswahl; alle Sender sind standardmäßig aktiv und lassen sich nur in
   den kontoweiten Einstellungen einzeln ausblenden
-- #4H: Robustheit, Langzeitmessung, Geräteabnahme und Release-/Rechte-Gate
+- **#4H aktiv:** Robustheit und Langzeitmessung mit 2/7 getrennten stabilen
+  7-Sender-Läufen; Mehrfachzählung desselben UTC-Tags wird verhindert.
+  Geräteabnahme und Release-/Rechte-Gate bleiben offen
 - Movie Hub fragt keine Waipu-Zugangsdaten ab und speichert keine Waipu-Token
 - ein persönlicher Paket-/Senderfilter kann später optional ergänzt werden,
   blockiert aber den öffentlichen Live-Katalog nicht

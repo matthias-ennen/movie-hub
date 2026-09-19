@@ -48,7 +48,9 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
   Tagesreihen aus den senderweisen 14-Tage-Dateien; keine Senderauswahl auf der
   TV-Seite. Alle veröffentlichten Sender sind standardmäßig aktiv und können
   ausschließlich in den kontoweiten Einstellungen einzeln ausgeblendet werden
-- #4H: Langzeitstabilität, Geräteabnahme und Release-/Rechte-Gate
+- **#4H aktiv:** Langzeitstabilität steht nach zwei getrennten, fehlerfreien
+  7-Sender-Läufen bei 2/7. Mehrfachzählung innerhalb desselben UTC-Tags wird
+  technisch verhindert; Geräteabnahme und Release-/Rechte-Gate bleiben offen
 - keine Waiputhek-/VOD-Aussage aus linearen Sendeterminen ableiten
 - keine Waipu-Anmeldung und keine Waipu-Token für die öffentliche Basisintegration
 

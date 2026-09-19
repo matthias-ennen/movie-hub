@@ -10,6 +10,7 @@
 - [Dependency-Audit](DEPENDENCY_AUDIT.md)
 - [FreeEPG-Qualitätsprüfung](FREE_EPG_QUALITY.md)
 - [Öffentlicher Waipu-Datenvertrag](WAIPU_PUBLIC_CONTRACT.md)
+- [Waipu-#4H-Abnahme](WAIPU_4H_ACCEPTANCE.md)
 - [Historische Waipu-Konto-Machbarkeitsprüfung](WAIPU_ACCOUNT_PROBE.md)
 - [Firebase-Setup](FIREBASE_SETUP.md)
 - [Roadmap](ROADMAP.md)

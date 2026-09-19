@@ -1,6 +1,6 @@
 # Waipu-Sync-Koordinator (#4D)
 
-Stand: 18. September 2026
+Stand: 19. September 2026
 
 ## Zweck und Abgrenzung
 
@@ -32,6 +32,14 @@ Ohne `WAIPU_SYNC_LIVE=1` und `--live` wird kein Waipu-Request ausgeführt.
 Eine Budgetpause ist kein Fehler und keine stabile Messung. Der Checkpoint wird
 atomar gespeichert und der nächste Lauf setzt deterministisch fort.
 
+Seit #4H wird höchstens ein vollständiger Lauf je Ausbaustufe und UTC-Tag als
+Stabilitätsnachweis gezählt. Ein weiterer vollständiger Lauf am selben UTC-Tag
+bleibt technisch erfolgreich, erhöht den Zähler aber nicht. Der Status nennt
+dafür `stability.recorded = false` und den Grund
+`already_recorded_for_utc_day`. Die gezählten Lauftage stehen bereinigt unter
+`stableRunDatesByStage` im Checkpoint und unter
+`stability.recordedDates` im Status.
+
 ## Checkpoint und rollierendes Fenster
 
 Der Koordinator speichert je `stationId + slotStart` den letzten Prüfzeitpunkt,
@@ -48,6 +56,9 @@ zu laden.
 
 Ein atomarer Lock verhindert überlappende Importläufe. Ein Lock gilt erst nach
 vier Stunden als verwaist und wird dann durch atomisches Umbenennen übernommen.
+Fehlt nach einem Prozessabbruch die `owner.json`, verwendet die Wiederherstellung
+das Änderungsdatum des Lock-Verzeichnisses; ein leerer Lock kann dadurch nicht
+dauerhaft ohne Ablauf blockieren.
 Der produktive GitHub-Workflow muss zusätzlich eine feste Concurrency-Gruppe
 verwenden, bevor eine geplante Ausführung aktiviert wird.
 
@@ -94,9 +105,18 @@ Parallelität 1, 500 ms Mindestabstand und bis zu 150 ms Jitter:
 - ein vollständiger Lauf als stabil gewertet; budgetbedingt pausierte Läufe
   wurden korrekt nicht auf die sieben erforderlichen stabilen Läufe angerechnet.
 
+Der zweite zeitlich getrennte Lauf vom 19. September 2026 ergänzte das neue
+äußere Tagesfenster kontrolliert:
+
+- 44 gestartete Requests, keine Retries;
+- 56 verarbeitete und 532 per Checkpoint übersprungene Slots;
+- kein `403`, kein `429`, Circuit Breaker geschlossen;
+- Horizont vom 19.09.2026 bis 03.10.2026, Ende exklusiv;
+- Stabilitätsstand danach: 2/7.
+
 Damit sind Abruf, Begrenzung und Wiederaufnahme technisch nachgewiesen. Die
 Ergebnisse erlauben noch keine Hochstufung auf 20 Sender: Dafür fehlen weiterhin
-sechs zeitlich getrennte, vollständige stabile Läufe der 7er-Stufe.
+fünf zeitlich getrennte, vollständige stabile Läufe der 7er-Stufe.
 
 ## Persistente Dateien
 
@@ -110,6 +130,21 @@ Standardpfade unter `artifacts/waipu-sync/`:
 Der Ordner ist vom Repository ausgeschlossen. Das Statusartefakt enthält keine
 Zugangsdaten, Tokens oder personenbezogenen Daten.
 
+Für kontrollierte Folgeläufe aus einem separaten Worktree können die
+persistenten Pfade explizit gesetzt werden:
+
+```bash
+WAIPU_SYNC_LIVE=1 \
+WAIPU_SYNC_STATE=/sicherer/pfad/checkpoint.json \
+WAIPU_SYNC_STATUS=/sicherer/pfad/status.json \
+WAIPU_SYNC_CACHE_ROOT=/sicherer/pfad/cache \
+WAIPU_SYNC_LOCK=/sicherer/pfad/active.lock \
+npm run waipu:sync -- --live --stage=7
+```
+
+Diese Variablen ändern weder Stufe noch Lastgrenzen. Sie verhindern lediglich,
+dass ein neuer Worktree versehentlich einen zweiten, leeren Checkpoint beginnt.
+
 Die nachgelagerte Film-/Serienklassifikation, TMDB-Zuordnung und atomare
 Katalogausgabe ist in [WAIPU_LIVE_CATALOG.md](./WAIPU_LIVE_CATALOG.md)
 dokumentiert.
@@ -118,7 +153,8 @@ dokumentiert.
 
 - [x] CI-/Fixture-Prüfung des Koordinators;
 - [x] kontrollierter Live-Start mit sieben Sendern und kleinem Budget;
-- [ ] sieben zeitlich getrennte, vollständige stabile Läufe der 7er-Stufe;
+- [ ] sieben zeitlich getrennte, vollständige stabile Läufe der 7er-Stufe
+  (Stand 19.09.2026: 2/7);
 - [ ] erst danach Entscheidung über zwei aktive Anfragen oder die 20er-Stufe;
 - [ ] geplanter Workflow mit Concurrency-Gruppe erst nach erfolgreichem
   Pilotbetrieb.
