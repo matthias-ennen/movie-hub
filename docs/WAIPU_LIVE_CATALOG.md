@@ -13,8 +13,10 @@ Mindestabstand zum zweitbesten Kandidaten erfüllt.
 
 Unklare, widersprüchliche oder nicht gefundene Einträge bleiben unsichtbar. Sie
 werden weder geraten noch unter einer nur ähnlich klingenden TMDB-ID
-veröffentlicht. Dieses Arbeitspaket erzeugt noch keine sichtbare App-Zeile; die
-UI-Freigabe gehört zu #4F/#4G.
+veröffentlicht. Der Katalogerzeuger selbst erzeugt keine sichtbare App-Zeile.
+Die erste App-Integration aus #4F ordnet den Titelindex ausschließlich über
+`Medientyp + TMDB-ID` zu. Die vollständige TV-Oberfläche gehört weiterhin zu
+#4G.
 
 ## Eingangsquellen
 
@@ -140,9 +142,44 @@ Generation. Die Ausgabe besteht aus:
 - `index.json`: Status, Horizont, Versionen, Zähler und Ausschlussmetriken;
 - `stations.json`: kompakter Senderindex mit Logo-Template und verfügbaren
   Streamqualitäten, ohne ein nicht belegtes Bildformat zu erraten;
-- `titles.json`: eindeutige TMDB-Titel mit nächster Ausstrahlung;
+- `titles.json`: eindeutige TMDB-Titel mit allen Ausstrahlungen des aktuellen
+  14-Tage-Fensters sowie der zum Erzeugungszeitpunkt nächsten Ausstrahlung;
 - `stations/<stationId>.json`: zeitlich sortierte Ausstrahlungen je Sender.
 
 Fehlende Programmdetails, fehlende Kandidatenquelle, ungültige Referenzen,
 inkonsistente Zähler oder ein erschöpftes Requestbudget verhindern den
 Verzeichniswechsel vollständig.
+
+## App-Integration (#4F)
+
+Die App lädt `/waipu-live/titles.json` unabhängig vom normalen TMDB-Katalog.
+Fehlt die Datei, ist sie unvollständig oder nicht erreichbar, bleibt der
+normale MovieHub-Katalog unverändert. Eine Waipu-Verfügbarkeit wird nur bei
+exakter Übereinstimmung von Medientyp und TMDB-ID ergänzt. Bereits abgelaufene
+Ausstrahlungen werden im Client verworfen; aus den verbleibenden Terminen rückt
+der nächste automatisch nach.
+
+Auf einer Posterkarte bleiben höchstens drei Anbieter-Badges sichtbar. Die
+Reihenfolge ist fest:
+
+1. Movie Hub, sofern für den Titel eigene Links oder Videos vorliegen;
+2. waipu.tv, sofern mindestens eine aktive lineare Ausstrahlung vorliegt;
+3. die übrigen Anbieter in ihrer bisherigen Reihenfolge.
+
+Auf der Detailseite steht direkt unter der Beschreibung ein kompakter
+Waipu-Abschnitt mit Datum, Uhrzeit und Sender des nächsten Termins. Weitere
+Termine werden nur als Anzahl zusammengefasst. Der Waipu-Anbieterbutton öffnet
+den allgemeinen Live-TV-Einstieg; Movie Hub behauptet keinen ungeprüften
+titelspezifischen Deep Link. Wie bei allen Anbieterbuttons wird das Öffnen als
+„gesehen“ markiert.
+
+Für eine freigegebene Auslieferung kann der Erzeuger atomar direkt in den
+Vite-Public-Bestand schreiben:
+
+```bash
+WAIPU_LIVE_OUTPUT=public/waipu-live npm run waipu:catalog
+```
+
+Die produktive Veröffentlichung bleibt bis zum vorgesehenen Rechte- und
+Compliance-Gate gesperrt. Der App-Code reagiert bis dahin absichtlich
+fehlertolerant auf eine nicht vorhandene Datei.

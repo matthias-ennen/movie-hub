@@ -215,7 +215,7 @@ export const PROVIDER_REGISTRY = [
     source: 'special',
     defaultEnabled: true,
     aliases: ['waiputv'],
-    description: 'waipu.tv bleibt angebunden; der vollständige Waiputhek-Katalog folgt separat mit eigener Datenquelle.',
+    description: 'Filme und Serien aus dem linearen waipu.tv-Programm samt nächstem Sendetermin berücksichtigen.',
     searchUrl: () => 'https://app.waipu.tv/waiputhek',
   },
 ]

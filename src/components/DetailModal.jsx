@@ -13,6 +13,7 @@ import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { loadSeriesSeasonDetail, normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
+import { formatWaipuLiveAiring } from '../waipu/waipuLiveCatalog.js'
 
 export default function DetailModal({ item, collections = {}, titles = [], onSelectTitle, onClose }) {
   const { activeProfile } = useProfiles()
@@ -75,6 +76,8 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
   const cast = Array.isArray(item.cast) ? item.cast.slice(0, 5) : []
   const automaticVideos = Array.isArray(item.videos) ? item.videos : []
   const personalState = getTitleState(item)
+  const waipuAiringLabel = formatWaipuLiveAiring(item?.waipuLive?.nextAiring)
+  const additionalWaipuAirings = Math.max(0, Number(item?.waipuLive?.airingCount || 0) - 1)
 
   useEffect(() => {
     const active = document.activeElement
@@ -340,7 +343,9 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
   }
 
   function openProvider(providerId) {
-    const destination = getProviderDestination(providerId, item.title)
+    const destination = getProviderDestination(providerId, item.title, {
+      waipuMode: providerId === 'waipu' && item?.waipuLive ? 'live' : 'vod',
+    })
     if (!destination) return
 
     // State update is optimistic and starts before the provider launch, but we
@@ -488,6 +493,17 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
           </div>
           <p className="genre">{item.genre}</p>
           <p className="detail-description">{item.description || 'Für diesen Titel liegt noch keine deutsche Beschreibung vor.'}</p>
+          {waipuAiringLabel && (
+            <section className="waipu-airing-summary" aria-label="Nächster Sendetermin bei waipu.tv">
+              <p className="settings-kicker">Bei waipu.tv</p>
+              <p className="waipu-airing-time">{waipuAiringLabel}</p>
+              {additionalWaipuAirings > 0 && (
+                <p className="waipu-airing-more">
+                  {additionalWaipuAirings} weitere {additionalWaipuAirings === 1 ? 'Ausstrahlung' : 'Ausstrahlungen'} im 14-Tage-Programm
+                </p>
+              )}
+            </section>
+          )}
           {cast.length > 0 && (
             <div className="cast-block">
               <h3>Besetzung</h3>

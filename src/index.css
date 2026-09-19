@@ -726,6 +726,32 @@ p {
   line-height: 1.65;
 }
 
+.waipu-airing-summary {
+  max-width: 660px;
+  margin: calc(-1 * var(--space-4)) 0 var(--space-8);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-left: 3px solid var(--color-focus);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.waipu-airing-summary p {
+  margin: 0;
+}
+
+.waipu-airing-time {
+  margin-top: 0.35rem !important;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.waipu-airing-more {
+  margin-top: 0.3rem !important;
+  color: #aeb6c4;
+  font-size: 0.83rem;
+}
+
 .detail-copy h3 {
   margin-bottom: 0.8rem;
   font-size: 1rem;

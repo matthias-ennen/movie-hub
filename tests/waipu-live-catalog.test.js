@@ -250,6 +250,30 @@ describe('Waipu live catalog publication', () => {
     }))).rejects.toMatchObject({ code: 'WAIPU_DETAILS_INCOMPLETE' })
   })
 
+  it('keeps every airing in the compact title index and exposes the earliest one', async () => {
+    const catalog = await buildWaipuLiveCatalog(buildFixture({
+      programs: [
+        gridProgram(),
+        gridProgram({
+          id: 'program-2',
+          startTime: '2026-09-20T21:00:00.000Z',
+          stopTime: '2026-09-20T23:00:00.000Z',
+        }),
+      ],
+      loadProgramDetail: vi.fn(async (programId) => detail({ id: programId })),
+    }))
+
+    expect(catalog.titles.entries).toHaveLength(1)
+    expect(catalog.titles.entries[0]).toMatchObject({
+      airingCount: 2,
+      nextAiring: { startTime: '2026-09-20T18:00:00.000Z' },
+    })
+    expect(catalog.titles.entries[0].airings.map(({ startTime }) => startTime)).toEqual([
+      '2026-09-20T18:00:00.000Z',
+      '2026-09-20T21:00:00.000Z',
+    ])
+  })
+
   it('requires TMDB search when the local MovieHub index cannot resolve a candidate', async () => {
     await expect(buildWaipuLiveCatalog(buildFixture({
       candidates: [{ tmdbId: 1, type: 'movie', title: 'Unrelated title', year: 2022 }],

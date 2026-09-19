@@ -37,12 +37,15 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
   Stop-Grenzen bestätigt
 - **#4C abgeschlossen:** öffentlichen Read-only-Adapter und persistenten
   Sender-/Slot-/ETag-/Detailcache umgesetzt
-- **#4D als nächstes:** rollierenden Import mit Requestbudget, Checkpoints,
+- **#4D abgeschlossen:** rollierenden Import mit Requestbudget, Checkpoints,
   niedriger Parallelität, Backoff, Circuit Breaker und stufenweiser
-  Senderfreigabe betreiben
-- #4E: Film-/Serienklassifikation, TMDB-Matching und `waipu-live`-Artefakte erzeugen
-- #4F: `Waipu Live`-Badge und konkrete Sendetermine an vorhandenen Titeln anzeigen
-- #4G: eigene TV-Registerkarte mit Sendern und 14-Tage-Posterkarten umsetzen
+  Senderfreigabe umgesetzt
+- **#4E abgeschlossen:** Film-/Serienklassifikation, TMDB-Matching und
+  `waipu-live`-Artefakte erzeugt
+- **#4F abgeschlossen:** normales Waipu-Badge, feste Badge-Priorität und
+  konkrete Sendetermine an vorhandenen Titeln umgesetzt
+- **#4G als nächstes:** eigene TV-Registerkarte mit Sendern und
+  14-Tage-Posterkarten umsetzen
 - #4H: Langzeitstabilität, Geräteabnahme und Release-/Rechte-Gate
 - keine Waiputhek-/VOD-Aussage aus linearen Sendeterminen ableiten
 - keine Waipu-Anmeldung und keine Waipu-Token für die öffentliche Basisintegration

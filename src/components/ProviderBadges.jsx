@@ -18,20 +18,30 @@ export function MovieHubBadge() {
   return <ProviderBadge providerId="moviehub" />
 }
 
-export default function ProviderBadges({ providerIds, maxVisible = MAX_VISIBLE_PROVIDER_BADGES, includeMovieHub = false }) {
+export function prioritizeProviderBadges(providerIds = [], {
+  includeMovieHub = false,
+  maxVisible = MAX_VISIBLE_PROVIDER_BADGES,
+} = {}) {
   const requestedLimit = Number.isFinite(maxVisible) ? maxVisible : MAX_VISIBLE_PROVIDER_BADGES
   const totalLimit = Math.max(0, Math.min(MAX_VISIBLE_PROVIDER_BADGES, requestedLimit))
-  const automaticLimit = Math.max(0, totalLimit - (includeMovieHub ? 1 : 0))
-  const visibleProviderIds = providerIds
+  const uniqueProviderIds = [...new Set(Array.isArray(providerIds) ? providerIds : [])]
     .filter((providerId) => providerId !== 'moviehub')
     .filter((providerId) => Boolean(providers[providerId]))
-    .slice(0, automaticLimit)
+  const prioritized = [
+    ...(includeMovieHub ? ['moviehub'] : []),
+    ...(uniqueProviderIds.includes('waipu') ? ['waipu'] : []),
+    ...uniqueProviderIds.filter((providerId) => providerId !== 'waipu'),
+  ]
+  return prioritized.slice(0, totalLimit)
+}
 
-  if (!includeMovieHub && !visibleProviderIds.length) return null
+export default function ProviderBadges({ providerIds, maxVisible = MAX_VISIBLE_PROVIDER_BADGES, includeMovieHub = false }) {
+  const visibleProviderIds = prioritizeProviderBadges(providerIds, { includeMovieHub, maxVisible })
+
+  if (!visibleProviderIds.length) return null
 
   return (
     <div className="provider-badges" aria-label="Verfügbare Anbieter">
-      {includeMovieHub && totalLimit > 0 && <MovieHubBadge />}
       {visibleProviderIds.map((providerId) => (
         <ProviderBadge providerId={providerId} key={providerId} />
       ))}
