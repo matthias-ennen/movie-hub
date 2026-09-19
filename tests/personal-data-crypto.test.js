@@ -14,14 +14,11 @@ afterEach(() => {
 })
 
 describe('personal data crypto bridge', () => {
-  it('keeps legacy plaintext readable but blocks new plaintext writes', () => {
+  it('blocks plaintext reads and writes when the native bridge is unavailable', () => {
     delete globalThis.window
     expect(canEncryptPersonalData()).toBe(false)
     expect(() => protectPersonalValue('profile.note', 'privat')).toThrow(/nicht sicher gespeichert/)
-    expect(readPersonalValue('profile.note', 'privat')).toEqual({
-      value: 'privat',
-      legacyPlaintext: true,
-    })
+    expect(() => readPersonalValue('profile.note', 'privat')).toThrow(/Unbekanntes|beschädigtes/)
   })
 
   it('uses the native bridge for encrypted envelopes', () => {
@@ -54,7 +51,6 @@ describe('personal data crypto bridge', () => {
     expect(isEncryptedPersonalValue(protectedValue)).toBe(true)
     expect(readPersonalValue('sharedMedia.url', protectedValue)).toEqual({
       value: 'smb://fritz.nas/Share/Movie.mkv',
-      legacyPlaintext: false,
     })
   })
 
