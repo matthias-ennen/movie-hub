@@ -47,12 +47,13 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
   Cache-Verhalten, Requestkosten und sichere Lastgrenzen bestätigt
 - **#4C abgeschlossen:** öffentlicher Read-only-Adapter, defensive
   Normalisierung und persistenter Sender-/Slot-/ETag-/Detailcache umgesetzt
-- **#4D als nächstes:** rollierenden, budgetierten Import mit Checkpoints,
-  Backoff, Circuit Breaker und stufenweiser Senderfreigabe einrichten
-- #4E: Film-/Serienklassifikation, TMDB-Matching und getrennten
-  `waipu-live`-Katalog erzeugen
-- #4F: erste Ausbaustufe mit `Waipu Live`-Badge und konkreten Sendeterminen
-- #4G: zweite Ausbaustufe mit eigener TV-Registerkarte, Senderauswahl und
+- **#4D abgeschlossen:** rollierenden, budgetierten Import mit Checkpoints,
+  Backoff, Circuit Breaker und stufenweiser Senderfreigabe eingerichtet
+- **#4E abgeschlossen:** Film-/Serienklassifikation, TMDB-Matching und
+  getrennten `waipu-live`-Katalog erzeugt
+- **#4F abgeschlossen:** erste Ausbaustufe mit normalem Waipu-Badge, fester
+  Badge-Priorität und konkreten Sendeterminen umgesetzt
+- **#4G als nächstes:** zweite Ausbaustufe mit eigener TV-Registerkarte, Senderauswahl und
   14-Tage-Posterkarten
 - #4H: Robustheit, Langzeitmessung, Geräteabnahme und Release-/Rechte-Gate
 - Movie Hub fragt keine Waipu-Zugangsdaten ab und speichert keine Waipu-Token

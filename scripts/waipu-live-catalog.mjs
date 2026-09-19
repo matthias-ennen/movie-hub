@@ -336,23 +336,37 @@ export async function buildWaipuLiveCatalog({
     if (!stationAirings.has(broadcast.stationId)) stationAirings.set(broadcast.stationId, [])
     stationAirings.get(broadcast.stationId).push(airing)
 
-    const current = titleMap.get(key)
-    if (!current || airing.startTime < current.nextAiring.startTime) {
-      titleMap.set(key, {
+    let current = titleMap.get(key)
+    if (!current) {
+      current = {
         tmdbId: match.tmdbId,
         type: match.type,
         title: match.title,
         originalTitle: match.originalTitle,
         year: match.year,
         posterUrl: match.posterUrl,
-        nextAiring: {
-          stationId: broadcast.stationId,
-          stationName: broadcast.stationName,
-          startTime: airing.startTime,
-          stopTime: airing.stopTime,
-        },
-      })
+        airings: [],
+      }
+      titleMap.set(key, current)
     }
+    current.airings.push({
+      stationId: broadcast.stationId,
+      stationName: broadcast.stationName,
+      startTime: airing.startTime,
+      stopTime: airing.stopTime,
+      episodeTitle: airing.episodeTitle,
+      seasonNumber: airing.seasonNumber,
+      episodeNumber: airing.episodeNumber,
+    })
+  }
+
+  for (const title of titleMap.values()) {
+    title.airings.sort((left, right) => (
+      left.startTime.localeCompare(right.startTime)
+      || left.stationId.localeCompare(right.stationId)
+    ))
+    title.airingCount = title.airings.length
+    title.nextAiring = title.airings[0] || null
   }
 
   const selectedStations = (Array.isArray(stations) ? stations : [])
@@ -409,6 +423,12 @@ export function validateWaipuLiveCatalog(catalog) {
       throw new Error('Invalid or duplicate waipu-live title.')
     }
     if (!stationIds.has(title?.nextAiring?.stationId)) throw new Error('Unknown next-airing station.')
+    if (!Array.isArray(title.airings) || title.airingCount !== title.airings.length || title.airings.length === 0) {
+      throw new Error('Invalid waipu-live title airings.')
+    }
+    for (const airing of title.airings) {
+      if (!stationIds.has(airing?.stationId)) throw new Error('Unknown title-airing station.')
+    }
     titleKeys.add(key)
   }
   let airingCount = 0

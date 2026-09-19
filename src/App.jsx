@@ -38,6 +38,11 @@ import { ProfileProvider, useProfiles } from './profiles/ProfileProvider.jsx'
 import { ThemeProvider } from './theme/ThemeProvider.jsx'
 import { TmdbCatalogProvider, useTmdbCatalog } from './tmdb/TmdbCatalogProvider.jsx'
 import { buildTmdbCatalogRows, mergePublicAndPersonalCatalog } from './tmdb/tmdbCatalogModel.js'
+import {
+  advanceWaipuLiveTitles,
+  loadWaipuLiveTitles,
+  mergeWaipuLiveAvailability,
+} from './waipu/waipuLiveCatalog.js'
 
 function NativeStartupSignal() {
   useEffect(() => {
@@ -357,6 +362,7 @@ function MovieHub({ user }) {
     collections: {},
     smartFilterOptions: normalizeSmartFilterOptions(),
   })
+  const [waipuLiveEntries, setWaipuLiveEntries] = useState([])
 
   useEffect(() => {
     let cancelled = false
@@ -402,6 +408,25 @@ function MovieHub({ user }) {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+    loadWaipuLiveTitles().then((entries) => {
+      if (!cancelled) setWaipuLiveEntries(entries)
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    const nextStopTime = Math.min(...waipuLiveEntries
+      .map((entry) => Date.parse(entry?.nextAiring?.stopTime))
+      .filter(Number.isFinite))
+    if (!Number.isFinite(nextStopTime)) return undefined
+    const timeout = window.setTimeout(() => {
+      setWaipuLiveEntries((entries) => advanceWaipuLiveTitles(entries))
+    }, Math.max(0, Math.min(2_147_483_647, nextStopTime - Date.now() + 1_000)))
+    return () => window.clearTimeout(timeout)
+  }, [waipuLiveEntries])
+
+  useEffect(() => {
     if (sharedMediaCatalogLoading || !user?.uid || !sharedMediaCatalogEntries.length) return
     refreshSharedMediaCatalogMetadata(user.uid, sharedMediaCatalogEntries)
       .catch((error) => console.warn('Movie-Hub-Katalogmetadaten konnten nicht profilgebunden ergänzt werden.', error))
@@ -425,17 +450,22 @@ function MovieHub({ user }) {
     () => mergeSharedMediaCatalogTitles(sharedMediaCatalogEntries, baseTitles),
     [sharedMediaCatalogEntries, baseTitles],
   )
-  const rawTitles = useMemo(
+  const preWaipuTitles = useMemo(
     () => mergeTitlesWithSharedMediaCatalog(baseTitles, rawMovieHubTitles),
     [baseTitles, rawMovieHubTitles],
+  )
+  const rawTitles = useMemo(
+    () => mergeWaipuLiveAvailability(preWaipuTitles, waipuLiveEntries),
+    [preWaipuTitles, waipuLiveEntries],
   )
   const titles = useMemo(
     () => rawTitles.map((item) => resolvePresentationArtwork(item, artworkOptions)),
     [rawTitles, artworkOptions],
   )
   const movieHubTitles = useMemo(
-    () => rawMovieHubTitles.map((item) => resolvePresentationArtwork(item, artworkOptions)),
-    [rawMovieHubTitles, artworkOptions],
+    () => mergeWaipuLiveAvailability(rawMovieHubTitles, waipuLiveEntries)
+      .map((item) => resolvePresentationArtwork(item, artworkOptions)),
+    [rawMovieHubTitles, waipuLiveEntries, artworkOptions],
   )
   const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
   const activeSortMode = useMemo(

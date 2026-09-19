@@ -189,6 +189,14 @@ Senderindex, einen kompakten Titelindex für Badges und senderweise
 14-Tage-Dateien für den späteren TV-Reiter. Der letzte gültige Stand bleibt bei
 jedem Fehler online.
 
+Die erste UI-Stufe liest ausschließlich den kompakten Titelindex und verbindet
+ihn über `Medientyp + TMDB-ID` mit vorhandenen MovieHub-Titeln. Poster zeigen
+weiter maximal drei Anbieter-Badges mit der festen Priorität `Movie Hub →
+waipu.tv → übrige Anbieter`. Die Detailseite zeigt nur den nächsten linearen
+Sendetermin und die Zahl weiterer Termine. Abgelaufene Termine werden im Client
+ausgeblendet; einen ungeprüften titel- oder senderspezifischen Deep Link gibt es
+nicht.
+
 Der vollständige Vertrag, die Messwerte, Requestmatrix, TMDB-Regeln und
 Abbruchlogik stehen in [WAIPU_PUBLIC_CONTRACT.md](WAIPU_PUBLIC_CONTRACT.md).
 Öffentliche Auslieferung bleibt bis zur API-/Rechte-/Attributionsprüfung und

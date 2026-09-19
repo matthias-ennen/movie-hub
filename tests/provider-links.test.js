@@ -15,7 +15,7 @@ describe('provider destinations', () => {
     expect(getProviderDestination('disney', 'Shōgun')).toBe('https://www.disneyplus.com/de-de')
     expect(getProviderDestination('waipu', 'Machete Kills')).toBe('https://app.waipu.tv/waiputhek')
     expect(getProviderDestination('waipu', 'Live TV', { waipuMode: 'live' }))
-      .toBe('https://www.waipu.tv/sender/das-erste/')
+      .toBe('https://www.waipu.tv/fernsehen/')
   })
 
   it('does not create a destination for unknown providers', () => {
