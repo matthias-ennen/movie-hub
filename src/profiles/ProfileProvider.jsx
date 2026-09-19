@@ -5,6 +5,7 @@ import { DEFAULT_CATEGORY_SETTINGS, normalizeCategorySettings } from '../catalog
 import { normalizePersonalSmartRowSettings } from '../catalog/personalSmartRows.js'
 import { normalizeContentDisplaySettings } from '../catalog/contentDisplaySettings.js'
 import { firebaseReady } from '../lib/firebase.js'
+import { runPersonalDataEncryptionMigration } from '../lib/personalDataMigration.js'
 import { DEFAULT_THEME_SETTINGS, normalizeThemeSettings } from '../theme/themeConfig.js'
 import { setActiveProfileExperienceRuntime } from './profileExperienceRuntime.js'
 import {
@@ -126,6 +127,23 @@ export function ProfileProvider({ user, children }) {
     loadProfiles()
     return () => { cancelled = true }
   }, [user.uid])
+
+  useEffect(() => {
+    if (loading || error || profiles.length === 0) return
+
+    runPersonalDataEncryptionMigration(user.uid)
+      .then((report) => {
+        if (report.status !== 'complete') return
+        console.info('Persönliche Firestore-Daten wurden vollständig verschlüsselt geprüft.', {
+          profiles: report.profileDocuments,
+          titles: report.titleDocuments,
+          sharedMediaEntries: report.sharedMediaEntries,
+        })
+      })
+      .catch((migrationError) => {
+        console.error('Persönliche Firestore-Daten konnten nicht vollständig migriert werden.', migrationError)
+      })
+  }, [error, loading, profiles.length, user.uid])
 
   const activeProfile = useMemo(
     () => profiles.find((profile) => profile.id === activeProfileId) ?? null,
