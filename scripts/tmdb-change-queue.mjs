@@ -4,6 +4,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export const TMDB_CHANGE_QUEUE_VERSION = 1
 export const TMDB_CHANGE_RETENTION_DAYS = 30
+export const TMDB_CHANGE_REQUIRED_CONSUMERS = Object.freeze([
+  'tmdb-catalog',
+  'waipu-catalog',
+  'moviehub-metadata',
+  'personal-tmdb-metadata',
+  'firebase-publication',
+])
 const MAX_WINDOW_DAYS = 14
 const MAX_RETRIES = 4
 const DAY_MILLISECONDS = 86_400_000
@@ -186,6 +193,7 @@ export async function collectTmdbChangeQueue({
   now = new Date(),
   directory = defaultDirectory,
   sleepImpl = sleep,
+  requiredConsumers = TMDB_CHANGE_REQUIRED_CONSUMERS,
 } = {}) {
   let state = normalizeTmdbChangeState()
   try {
@@ -228,24 +236,119 @@ export async function collectTmdbChangeQueue({
   }
   await writeJsonAtomic(resolve(directory, 'change-set.json'), changeSet)
   await writeJsonAtomic(resolve(directory, 'state.next.json'), nextState)
+  await writeJsonAtomic(resolve(directory, 'run.json'), {
+    kind: 'tmdb-change-run',
+    version: TMDB_CHANGE_QUEUE_VERSION,
+    generationId: generatedAt,
+    generatedAt,
+    requiredConsumers: [...new Set(requiredConsumers.map((value) => String(value).trim()).filter(Boolean))],
+    acknowledgements: {},
+  })
   return changeSet
+}
+
+export async function acknowledgeTmdbChangeConsumer({
+  consumer,
+  directory = defaultDirectory,
+  now = new Date(),
+} = {}) {
+  const normalizedConsumer = String(consumer || '').trim()
+  if (!normalizedConsumer) throw new Error('A TMDB change consumer is required.')
+  const runPath = resolve(directory, 'run.json')
+  const run = JSON.parse(await readFile(runPath, 'utf8'))
+  if (run?.kind !== 'tmdb-change-run' || Number(run?.version) !== TMDB_CHANGE_QUEUE_VERSION) {
+    throw new Error('The staged TMDB change run is invalid.')
+  }
+  const stagedState = JSON.parse(await readFile(resolve(directory, 'state.next.json'), 'utf8'))
+  if (!run.generationId || run.generationId !== stagedState.generatedAt) {
+    throw new Error('The staged TMDB change run does not match its checkpoint.')
+  }
+  if (!Array.isArray(run.requiredConsumers) || !run.requiredConsumers.includes(normalizedConsumer)) {
+    throw new Error(`Unknown TMDB change consumer: ${normalizedConsumer}`)
+  }
+  const acknowledgedAt = (now instanceof Date ? now : new Date(now)).toISOString()
+  const nextRun = {
+    ...run,
+    acknowledgements: {
+      ...(run.acknowledgements && typeof run.acknowledgements === 'object' ? run.acknowledgements : {}),
+      [normalizedConsumer]: { acknowledgedAt },
+    },
+  }
+  await writeJsonAtomic(runPath, nextRun)
+  return nextRun
+}
+
+export async function verifyTmdbChangeConsumers({
+  directory = defaultDirectory,
+  excludedConsumers = [],
+} = {}) {
+  const stagedState = JSON.parse(await readFile(resolve(directory, 'state.next.json'), 'utf8'))
+  const run = JSON.parse(await readFile(resolve(directory, 'run.json'), 'utf8'))
+  if (run?.kind !== 'tmdb-change-run' || Number(run?.version) !== TMDB_CHANGE_QUEUE_VERSION) {
+    throw new Error('The staged TMDB change run is invalid.')
+  }
+  if (!run.generationId || run.generationId !== stagedState.generatedAt) {
+    throw new Error('The staged TMDB change run does not match its checkpoint.')
+  }
+  const excluded = new Set((Array.isArray(excludedConsumers) ? excludedConsumers : [])
+    .map((value) => String(value).trim()).filter(Boolean))
+  const missingConsumers = (Array.isArray(run.requiredConsumers) ? run.requiredConsumers : [])
+    .filter((consumer) => !excluded.has(consumer))
+    .filter((consumer) => !run.acknowledgements?.[consumer]?.acknowledgedAt)
+  if (missingConsumers.length > 0) {
+    throw new Error(`TMDB change checkpoint is missing acknowledgements: ${missingConsumers.join(', ')}`)
+  }
+  return run
 }
 
 export async function commitTmdbChangeQueue({ directory = defaultDirectory } = {}) {
   const nextPath = resolve(directory, 'state.next.json')
-  const nextState = normalizeTmdbChangeState(JSON.parse(await readFile(nextPath, 'utf8')))
+  const stagedState = JSON.parse(await readFile(nextPath, 'utf8'))
+  const nextState = normalizeTmdbChangeState(stagedState)
+  const runPath = resolve(directory, 'run.json')
+  const run = JSON.parse(await readFile(runPath, 'utf8'))
+  if (run?.kind !== 'tmdb-change-run' || Number(run?.version) !== TMDB_CHANGE_QUEUE_VERSION) {
+    throw new Error('The staged TMDB change run is invalid.')
+  }
+  if (!run.generationId || run.generationId !== stagedState.generatedAt) {
+    throw new Error('The staged TMDB change run does not match its checkpoint.')
+  }
+  await verifyTmdbChangeConsumers({ directory })
+  const committedAt = new Date().toISOString()
   await writeJsonAtomic(resolve(directory, 'state.json'), {
     ...nextState,
-    committedAt: new Date().toISOString(),
+    generationId: run.generationId,
+    committedAt,
+  })
+  await writeJsonAtomic(resolve(directory, 'last-run.json'), {
+    ...run,
+    status: 'committed',
+    committedAt,
   })
   await rm(nextPath, { force: true })
+  await rm(runPath, { force: true })
   return nextState
 }
 
 async function main() {
+  const acknowledgementIndex = process.argv.indexOf('--ack')
+  if (acknowledgementIndex >= 0) {
+    const consumer = process.argv[acknowledgementIndex + 1]
+    await acknowledgeTmdbChangeConsumer({ consumer })
+    console.log(`TMDB change consumer acknowledged: ${consumer}.`)
+    return
+  }
   if (process.argv.includes('--commit')) {
     const state = await commitTmdbChangeQueue()
     console.log(`TMDB change checkpoint committed through ${state.throughDate}.`)
+    return
+  }
+  if (process.argv.includes('--verify')) {
+    const excludedConsumers = process.argv.flatMap((argument, index, values) => (
+      argument === '--exclude' && values[index + 1] ? [values[index + 1]] : []
+    ))
+    const run = await verifyTmdbChangeConsumers({ excludedConsumers })
+    console.log(`TMDB change consumers verified for generation ${run.generationId}.`)
     return
   }
   const changeSet = await collectTmdbChangeQueue()

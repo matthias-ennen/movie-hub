@@ -56,6 +56,9 @@ export function buildWorkflowSummary({
   waipuDetail = {},
   presence = {},
   metadata = {},
+  personalMetadata = {},
+  tmdbChanges = {},
+  tmdbChangeRun = {},
   baselineData = null,
   baselineWaipu = null,
   steps = {},
@@ -84,6 +87,15 @@ export function buildWorkflowSummary({
       reportedAt: run.reportedAt || new Date().toISOString(),
     },
     rows: [
+      {
+        area: 'TMDB-Änderungen',
+        status: outcome(combinedOutcome(steps.tmdbChanges, steps.tmdbCheckpoint)),
+        stock: `${number(tmdbChanges.fetched?.movie)} Filme · ${number(tmdbChanges.fetched?.series)} Serien neu gemeldet`,
+        activity: `${tmdbChanges.startDate || '–'} bis ${tmdbChanges.endDate || '–'} · ${number(tmdbChanges.windows?.length)} Fenster`,
+        open: steps.tmdbCheckpoint === 'success'
+          ? `Checkpoint ${tmdbChanges.endDate || '–'} bestätigt`
+          : `${number(tmdbChanges.pending?.movie?.length + tmdbChanges.pending?.series?.length)} offen · ${number(tmdbChangeRun.requiredConsumers?.length)} Bestätigungen erforderlich`,
+      },
       {
         area: 'TMDB Browse-Katalog',
         status: outcome(tmdbOutcome),
@@ -132,6 +144,13 @@ export function buildWorkflowSummary({
         stock: `${number(metadata.scanned)} geprüft · ${number(metadata.candidates)} ausgewählt`,
         activity: `${number(metadata.updated)} aktualisiert`,
         open: `${number(metadata.failed)} Fehler`,
+      },
+      {
+        area: 'Persönliche TMDB-Metadaten',
+        status: outcome(steps.personalMetadata),
+        stock: `${number(personalMetadata.scanned)} geprüft · ${number(personalMetadata.candidates)} ausgewählt`,
+        activity: `${number(personalMetadata.updated)} aktualisiert`,
+        open: `${number(personalMetadata.failed)} Fehler`,
       },
       {
         area: 'Bestandsmigration',
@@ -184,7 +203,7 @@ async function readJson(path, fallback = {}) {
 }
 
 async function main() {
-  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, metadata, baselineData, baselineWaipu] = await Promise.all([
+  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, metadata, personalMetadata, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu] = await Promise.all([
     readJson('public/data-status.json'),
     readJson('public/catalog.json'),
     readJson('public/search-index.json'),
@@ -195,17 +214,25 @@ async function main() {
     readJson('artifacts/waipu-live/detail-status.json'),
     readJson('artifacts/moviehub-presence-status.json'),
     readJson('artifacts/moviehub-metadata-status.json'),
+    readJson('artifacts/personal-tmdb-metadata-status.json'),
+    readJson('artifacts/tmdb-data/change-set.json'),
+    readJson('artifacts/tmdb-data/run.json', null),
+    readJson('artifacts/tmdb-data/last-run.json', null),
     readJson('artifacts/workflow-baseline/data-status.json', null),
     readJson('artifacts/workflow-baseline/waipu-index.json', null),
   ])
   const summary = buildWorkflowSummary({
-    dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, metadata, baselineData, baselineWaipu,
+    dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, metadata, personalMetadata, tmdbChanges,
+    tmdbChangeRun: activeTmdbChangeRun || lastTmdbChangeRun || {}, baselineData, baselineWaipu,
     steps: {
+      tmdbChanges: process.env.SUMMARY_TMDB_CHANGES,
+      tmdbCheckpoint: process.env.SUMMARY_TMDB_CHECKPOINT,
       tmdbStrict: process.env.SUMMARY_TMDB_STRICT,
       tmdbPush: process.env.SUMMARY_TMDB_PUSH,
       waipuSync: process.env.SUMMARY_WAIPU_SYNC,
       waipuCatalog: process.env.SUMMARY_WAIPU_CATALOG,
       metadata: process.env.SUMMARY_METADATA,
+      personalMetadata: process.env.SUMMARY_PERSONAL_TMDB,
       presence: process.env.SUMMARY_PRESENCE,
       build: process.env.SUMMARY_BUILD,
       auth: process.env.SUMMARY_AUTH,
