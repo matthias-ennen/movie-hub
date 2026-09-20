@@ -72,7 +72,6 @@ jobs:
           fi
 
       - name: Restore last deployed Waipu catalog
-        continue-on-error: true
         run: npm run waipu:restore
 
       - name: Restore incremental search-detail metadata

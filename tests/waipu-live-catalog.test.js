@@ -375,6 +375,39 @@ describe('Waipu live catalog publication', () => {
     const preservedIndex = JSON.parse(await readFile(resolve(output, 'index.json'), 'utf8'))
     expect(preservedIndex).toEqual(restoredIndex)
   })
+
+  it('restores a complete title artifact larger than the former four-megabyte limit', async () => {
+    const root = await mkdtemp(resolve(tmpdir(), 'movie-hub-waipu-large-restore-'))
+    cleanupPaths.push(root)
+    const source = await buildWaipuLiveCatalog(buildFixture())
+    source.titles.restoreSizeFixture = 'x'.repeat((4 * 1024 * 1024) + 1)
+    const payloads = new Map([
+      ['/waipu-live/index.json', source.index],
+      ['/waipu-live/stations.json', source.stations],
+      ['/waipu-live/titles.json', source.titles],
+      ['/waipu-live/stations/zdf.json', source.shards.zdf],
+    ])
+    const fetchImpl = vi.fn(async (url) => {
+      const payload = payloads.get(new URL(url).pathname)
+      const bytes = Buffer.from(JSON.stringify(payload))
+      return {
+        ok: Boolean(payload),
+        status: payload ? 200 : 404,
+        headers: new Headers({ 'content-length': String(bytes.byteLength) }),
+        arrayBuffer: async () => bytes,
+      }
+    })
+    const output = resolve(root, 'restored')
+
+    await expect(restoreLiveWaipuCatalog({
+      baseUrl: 'https://movie-hub.example/waipu-live',
+      outputPath: output,
+      fetchImpl,
+    })).resolves.toMatchObject({ status: 'complete' })
+
+    const restoredTitles = JSON.parse(await readFile(resolve(output, 'titles.json'), 'utf8'))
+    expect(restoredTitles.restoreSizeFixture).toHaveLength((4 * 1024 * 1024) + 1)
+  })
 })
 
 describe('Waipu program detail loading', () => {

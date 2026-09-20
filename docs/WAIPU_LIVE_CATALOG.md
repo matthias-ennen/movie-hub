@@ -158,6 +158,13 @@ bewusst nicht versioniert.
 Vor jedem geplanten Refresh lädt `npm run waipu:restore` den letzten auf
 Firebase vorhandenen und vollständig validierten Katalog. Er ist der
 Rückfallstand, falls Grid-, Detail- oder TMDB-Aktualisierung fehlschlägt.
+Die Größenlimits sind dabei nach Artefakttyp getrennt: kleine Indexdateien
+bleiben eng begrenzt, während der durch vollständige TMDB-Metadaten deutlich
+größere Titelindex und die Sendershards eigene kontrollierte Grenzen besitzen.
+Schlägt diese Wiederherstellung fehl, beendet ein normaler Code-Deploy den
+Workflow vor dem Hosting-Deploy. Dadurch kann der im Repository liegende
+kleine Testbestand keinen bereits veröffentlichten vollständigen Datenbestand
+mehr ersetzen.
 
 ## Atomare Ausgabe
 

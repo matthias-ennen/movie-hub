@@ -3,7 +3,11 @@ import { pathToFileURL } from 'node:url'
 import { validateWaipuLiveCatalog, writeWaipuLiveCatalog } from './waipu-live-catalog.mjs'
 
 const DEFAULT_SOURCE = 'https://movie-hub-62459.web.app/waipu-live'
-const DEFAULT_MAX_BYTES = 4 * 1024 * 1024
+const DEFAULT_ARTIFACT_LIMITS = Object.freeze({
+  manifest: 4 * 1024 * 1024,
+  titles: 256 * 1024 * 1024,
+  stationShard: 16 * 1024 * 1024,
+})
 
 function sourceUrl(value) {
   const url = new URL(String(value || DEFAULT_SOURCE))
@@ -26,8 +30,14 @@ async function fetchJson(url, { fetchImpl, maxBytes }) {
     signal: AbortSignal.timeout(20_000),
   })
   if (!response.ok) throw new Error(`Waipu restore failed with HTTP ${response.status}.`)
+  const contentLength = Number(response.headers?.get?.('content-length'))
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    throw new Error(`Waipu restore artifact exceeds its ${maxBytes}-byte size limit.`)
+  }
   const bytes = Buffer.from(await response.arrayBuffer())
-  if (bytes.byteLength > maxBytes) throw new Error('Waipu restore artifact exceeds the size limit.')
+  if (bytes.byteLength > maxBytes) {
+    throw new Error(`Waipu restore artifact exceeds its ${maxBytes}-byte size limit.`)
+  }
   try {
     return JSON.parse(bytes.toString('utf8'))
   } catch (cause) {
@@ -39,14 +49,15 @@ export async function restoreLiveWaipuCatalog({
   baseUrl = DEFAULT_SOURCE,
   outputPath = resolve('public/waipu-live'),
   fetchImpl = globalThis.fetch,
-  maxBytes = DEFAULT_MAX_BYTES,
+  artifactLimits = DEFAULT_ARTIFACT_LIMITS,
 } = {}) {
   if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function.')
   const base = sourceUrl(baseUrl)
+  const limits = { ...DEFAULT_ARTIFACT_LIMITS, ...artifactLimits }
   const [index, stations, titles] = await Promise.all([
-    fetchJson(`${base}/index.json`, { fetchImpl, maxBytes }),
-    fetchJson(`${base}/stations.json`, { fetchImpl, maxBytes }),
-    fetchJson(`${base}/titles.json`, { fetchImpl, maxBytes }),
+    fetchJson(`${base}/index.json`, { fetchImpl, maxBytes: limits.manifest }),
+    fetchJson(`${base}/stations.json`, { fetchImpl, maxBytes: limits.manifest }),
+    fetchJson(`${base}/titles.json`, { fetchImpl, maxBytes: limits.titles }),
   ])
   const stationList = Array.isArray(stations?.stations) ? stations.stations : []
   const stationIds = stationList.map(({ id }) => safeStationId(id))
@@ -55,7 +66,10 @@ export async function restoreLiveWaipuCatalog({
   }
   const shards = Object.fromEntries(await Promise.all(stationIds.map(async (stationId) => ([
     stationId,
-    await fetchJson(`${base}/stations/${encodeURIComponent(stationId)}.json`, { fetchImpl, maxBytes }),
+    await fetchJson(`${base}/stations/${encodeURIComponent(stationId)}.json`, {
+      fetchImpl,
+      maxBytes: limits.stationShard,
+    }),
   ]))))
   const catalog = { index, stations, titles, shards }
   validateWaipuLiveCatalog(catalog)
