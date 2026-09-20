@@ -25,8 +25,12 @@ describe('nativer TMDB-Titeldetailzugriff', () => {
               collectionName: 'Stirb langsam - Collection',
               collectionChecked: true,
               collectionDetails: { id: 1570, name: 'Stirb langsam - Collection', parts: [] },
-              metadataVersion: 2,
+              metadataVersion: 3,
               metadataComplete: true,
+              metadataChecks: {
+                details: 'present', artwork: 'present', ageRating: 'absent', credits: 'present',
+                keywords: 'absent', videos: 'absent', providers: 'present', collection: 'present',
+              },
             },
           })))
         },

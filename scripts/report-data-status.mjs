@@ -1,6 +1,7 @@
 import { appendFile, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { titleNeedsMetadataEnrichment } from '../src/catalog/titleMetadata.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -16,13 +17,13 @@ export function buildDataStatus({ catalog, searchIndex, searchDetails, seriesMan
   const catalogTypes = countByType(catalog?.titles)
   const searchTypes = countByType(searchIndex?.entries)
   const completeDetails = (Array.isArray(searchDetails) ? searchDetails : [])
-    .filter((entry) => entry?.metadataComplete === true)
+    .filter((entry) => !titleNeedsMetadataEnrichment(entry, { requireContract: true }))
   const completeTypes = countByType(completeDetails)
   const totalSearchDetails = Array.isArray(searchDetails) ? searchDetails.length : 0
 
   return {
     kind: 'movie-hub-data-status',
-    version: 1,
+    version: 2,
     generatedAt: generatedAt
       || seriesManifest?.generatedAt
       || searchIndex?.generatedAt

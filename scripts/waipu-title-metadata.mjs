@@ -25,7 +25,10 @@ function sleep(milliseconds) {
 }
 
 function completeMetadata(value, options = {}) {
-  return Boolean(canonicalTitleKey(value)) && !titleNeedsMetadataEnrichment(value, options)
+  return Boolean(canonicalTitleKey(value)) && !titleNeedsMetadataEnrichment(value, {
+    ...options,
+    requireContract: true,
+  })
 }
 
 function mergeAiringMetadata(entry, metadata) {

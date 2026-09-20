@@ -2,7 +2,13 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { TMDB_PROVIDER_REGISTRY } from '../src/providers/providerRegistry.js'
-import { normalizeTmdbTitle } from '../src/services/tmdb.js'
+import {
+  normalizeTmdbTitle,
+  normalizeTmdbVideos,
+  normalizeTmdbWatchProviders,
+  toMovieHubTitle,
+} from '../src/services/tmdb.js'
+import { titleNeedsMetadataEnrichment } from '../src/catalog/titleMetadata.js'
 import {
   SEARCH_INDEX_VERSION,
   buildSearchIndexArtifact,
@@ -245,6 +251,7 @@ export function searchDetailFromDiscover(raw, mediaType, genreNamesById = new Ma
     collectionChecked: normalized.collectionChecked,
     metadataComplete: normalized.metadataComplete,
     metadataVersion: normalized.metadataVersion,
+    metadataChecks: normalized.metadataChecks,
     originalLanguage: normalized.originalLanguage,
     numberOfSeasons: normalized.numberOfSeasons,
     numberOfEpisodes: normalized.numberOfEpisodes,
@@ -283,6 +290,7 @@ function searchDetailFromCatalogTitle(title) {
     collectionChecked: title.type === 'movie' ? title.collectionChecked === true : null,
     metadataComplete: title.metadataComplete === true,
     metadataVersion: Number(title.metadataVersion) || 1,
+    metadataChecks: title.metadataChecks || null,
     metadataUpdatedAt: title.metadataUpdatedAt || null,
     originalLanguage: title.originalLanguage || null,
     numberOfSeasons: title.type === 'series' && Number.isInteger(Number(title.numberOfSeasons))
@@ -297,6 +305,11 @@ function searchDetailFromCatalogTitle(title) {
     meta: title.meta || null,
     cast: Array.isArray(title.cast) ? title.cast : [],
     videos: Array.isArray(title.videos) ? title.videos : [],
+    runtimeMinutes: Number.isFinite(Number(title.runtimeMinutes)) ? Number(title.runtimeMinutes) : null,
+    ageRating: Number.isFinite(Number(title.ageRating)) ? Number(title.ageRating) : null,
+    smartFacets: title.smartFacets || null,
+    providerIds: Array.isArray(title.providerIds) ? title.providerIds : [],
+    providerOffers: Array.isArray(title.providerOffers) ? title.providerOffers : [],
     completeness: 'catalog',
   }
 }
@@ -360,9 +373,9 @@ export function mergeSearchDetails(details) {
     // A successfully enriched record must always beat an incomplete snapshot,
     // even when that snapshot once came from the smaller browse catalog. The
     // source rank only decides between records with the same completeness.
-    const detailRank = (detail.metadataComplete === true ? 10 : 0)
+    const detailRank = (!titleNeedsMetadataEnrichment(detail, { requireContract: true }) ? 10 : 0)
       + (detail.completeness === 'catalog' ? 3 : detail.completeness === 'enriched' ? 2 : 1)
-    const currentRank = (current?.metadataComplete === true ? 10 : 0)
+    const currentRank = (current && !titleNeedsMetadataEnrichment(current, { requireContract: true }) ? 10 : 0)
       + (current?.completeness === 'catalog' ? 3 : current?.completeness === 'enriched' ? 2 : 1)
     if (!current || detailRank > currentRank) {
       merged.set(detail.id, current ? {
@@ -429,7 +442,7 @@ export function selectSearchDetailEnrichmentCandidates(entries, existingDetails,
       return {
         entry,
         index,
-        incomplete: existing?.metadataComplete !== true,
+        incomplete: !existing || titleNeedsMetadataEnrichment(existing, { requireContract: true }),
         changed: changedTitleKeys.has(`${entry?.type === 'series' ? 'series' : 'movie'}:${Number(entry?.tmdbId)}`),
         structuralGap: searchDetailHasStructuralGap(entry, existing),
         updatedAt: searchDetailUpdatedAt(existing),
@@ -471,10 +484,17 @@ async function enrichSearchDetail(entry, genreNamesByType, collectionCache) {
   const tmdbType = entry.type === 'series' ? 'tv' : 'movie'
   const payload = await tmdbFetch(`/${tmdbType}/${entry.tmdbId}`, {
     language,
-    append_to_response: 'images',
+    append_to_response: `credits,keywords,images,videos,watch/providers,${tmdbType === 'movie' ? 'release_dates' : 'content_ratings'}`,
     include_image_language: 'null,de,en',
   })
   const normalized = normalizeTmdbTitle(payload, tmdbType)
+  const providerData = normalizeTmdbWatchProviders(payload['watch/providers'], country)
+  const videos = normalizeTmdbVideos([payload.videos], normalized.originalLanguage)
+  const completeTitle = toMovieHubTitle(normalized, {
+    id: entry.id,
+    videos,
+    ...providerData,
+  })
   let collectionDetails = null
   if (normalized.type === 'movie' && normalized.collectionId) {
     if (!collectionCache.has(normalized.collectionId)) {
@@ -488,36 +508,20 @@ async function enrichSearchDetail(entry, genreNamesByType, collectionCache) {
     }
     collectionDetails = await collectionCache.get(normalized.collectionId)
   }
+  const collectionDetailFailed = normalized.type === 'movie'
+    && Boolean(normalized.collectionId)
+    && !collectionDetails
   return {
+    ...completeTitle,
     id: entry.id,
-    tmdbId: normalized.tmdbId,
-    type: normalized.type,
-    title: normalized.title,
-    originalTitle: normalized.originalTitle,
-    description: normalized.description,
-    year: normalized.year,
-    releaseDate: normalized.releaseDate,
-    posterPath: normalized.posterPath,
-    backdropPath: normalized.backdropPath,
-    neutralPosterPath: normalized.neutralPosterPath,
-    neutralPosterUrl: normalized.neutralPosterUrl,
-    backdropUrl: normalized.backdropUrl,
-    artwork: normalized.artwork,
-    collectionId: normalized.collectionId,
-    collectionName: normalized.collectionName,
-    collectionChecked: normalized.collectionChecked,
     collectionDetails,
-    metadataComplete: true,
-    metadataVersion: 2,
+    metadataChecks: collectionDetailFailed
+      ? { ...completeTitle.metadataChecks, collection: 'failed' }
+      : completeTitle.metadataChecks,
+    metadataComplete: completeTitle.metadataComplete && !collectionDetailFailed,
     metadataUpdatedAt: new Date().toISOString(),
-    originalLanguage: normalized.originalLanguage,
-    numberOfSeasons: normalized.numberOfSeasons,
-    numberOfEpisodes: normalized.numberOfEpisodes,
-    seasons: normalized.seasons,
-    voteAverage: normalized.voteAverage,
-    genreNames: normalized.genres?.map((genre) => genre.name).filter(Boolean)
+    genreNames: completeTitle.genres?.map((genre) => genre.name).filter(Boolean)
       || genreNamesFromIds(payload, genreNamesByType.get(tmdbType)),
-    meta: normalized.type === 'series' ? 'Serie' : null,
     completeness: 'enriched',
   }
 }

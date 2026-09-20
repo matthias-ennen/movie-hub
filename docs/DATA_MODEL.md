@@ -236,6 +236,16 @@ Jeder normalisierte Titel kann folgende rückwärtskompatible Metadaten tragen:
 ```text
 metadataVersion       number
 metadataComplete      boolean
+metadataChecks
+  details             present | absent | unchecked | failed
+  artwork             present | absent | unchecked | failed
+  ageRating           present | absent | unchecked | failed
+  credits             present | absent | unchecked | failed
+  keywords            present | absent | unchecked | failed
+  videos              present | absent | unchecked | failed
+  providers           present | absent | unchecked | failed
+  collection          present | absent | unchecked | failed  # Filme
+  seasons             present | absent | unchecked | failed  # Serien
 metadataUpdatedAt     timestamp | ISO string | null
 collectionId          number | null
 collectionName        string | null
@@ -245,7 +255,7 @@ artwork.posterPaths[]       string   # höchstens drei TMDB-Pfade
 artwork.heroBackdropPaths[] string   # höchstens drei TMDB-Pfade
 ```
 
-`collectionChecked: true` bedeutet bei Filmen ausdrücklich, dass eine vollständige TMDB-Detailantwort auf Zugehörigkeit geprüft wurde; `collectionId: null` ist dann ein bekanntes Ergebnis und kein fehlendes Feld. Breite Discover-Daten bleiben bis zu ihrer inkrementellen Anreicherung mit `metadataComplete: false` gekennzeichnet. Serien besitzen keine Filmreihenprüfung und verwenden dort `null`.
+Ab `metadataVersion: 3` ist `metadataComplete: true` nur zulässig, wenn alle gemeinsamen Prüffelder und das medientypspezifische Strukturfeld `present` oder `absent` sind. `absent` ist ein gültiger geprüfter Negativzustand; `unchecked` und `failed` bleiben unvollständig. `collectionChecked: true` bedeutet bei Filmen ausdrücklich, dass eine vollständige TMDB-Detailantwort auf Zugehörigkeit geprüft wurde; `collectionId: null` ist dann ein bekanntes Ergebnis und kein fehlendes Feld. Breite Discover-Daten und ältere V2-Datensätze erfüllen den strikten Vertrag bis zu ihrer inkrementellen Anreicherung nicht. Serien besitzen keine Filmreihenprüfung und verwenden dort `null`.
 
 Die Bildlisten enthalten ausschließlich bereinigte Pfade. Die konkrete tägliche oder wöchentliche Auswahl wird aus Profil-ID, Titel-ID, Bildart und Periode deterministisch berechnet. Das auf einer Posterkarte gewählte Bild wird beim Öffnen explizit an die Detailansicht weitergegeben, damit links dasselbe Motiv erscheint.
 

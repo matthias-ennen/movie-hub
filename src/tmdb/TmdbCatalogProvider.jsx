@@ -68,6 +68,7 @@ function applyCanonicalMetadataToRaw(raw, detail) {
     collectionDetails: series ? null : detail.collectionDetails || raw.collectionDetails || null,
     metadataVersion: Math.max(Number(detail.metadataVersion) || 0, Number(raw.metadataVersion) || 0, 1),
     metadataComplete: detail.metadataComplete === true,
+    metadataChecks: detail.metadataChecks || raw.metadataChecks || {},
     metadataUpdatedAt: detail.metadataUpdatedAt || raw.metadataUpdatedAt || raw.syncedAt || null,
     originalLanguage: detail.originalLanguage || raw.originalLanguage || null,
     voteAverage: Number.isFinite(Number(detail.voteAverage)) ? Number(detail.voteAverage) : raw.voteAverage,
@@ -75,6 +76,13 @@ function applyCanonicalMetadataToRaw(raw, detail) {
     genreNames: canonicalGenreNames(detail, raw.genreNames),
     providerIds: Array.isArray(detail.providerIds) ? detail.providerIds : raw.providerIds,
     ageRating: detail.ageRating ?? raw.ageRating ?? null,
+    runtimeMinutes: detail.runtimeMinutes ?? raw.runtimeMinutes ?? null,
+    numberOfSeasons: series ? detail.numberOfSeasons ?? raw.numberOfSeasons ?? null : null,
+    numberOfEpisodes: series ? detail.numberOfEpisodes ?? raw.numberOfEpisodes ?? null : null,
+    seasons: series && Array.isArray(detail.seasons) ? detail.seasons : raw.seasons || [],
+    cast: Array.isArray(detail.cast) ? detail.cast : raw.cast || [],
+    videos: Array.isArray(detail.videos) ? detail.videos : raw.videos || [],
+    smartFacets: detail.smartFacets || raw.smartFacets || {},
   }
 }
 
@@ -166,6 +174,7 @@ function firestoreTitleRepairPatch(repaired) {
     title: repaired.title,
     metadataVersion: Math.max(1, Number(repaired.metadataVersion) || 1),
     metadataComplete: repaired.metadataComplete === true,
+    metadataChecks: repaired.metadataChecks || {},
     metadataUpdatedAt: repaired.metadataUpdatedAt || repaired.syncedAt || new Date().toISOString(),
   }
   if (isUsableTitle(repaired.originalTitle)) patch.originalTitle = repaired.originalTitle
@@ -178,6 +187,13 @@ function firestoreTitleRepairPatch(repaired) {
   if (Number.isFinite(Number(repaired.voteAverage))) patch.voteAverage = Number(repaired.voteAverage)
   if (Number.isFinite(Number(repaired.voteCount))) patch.voteCount = Number(repaired.voteCount)
   if (Number.isFinite(Number(repaired.ageRating))) patch.ageRating = Number(repaired.ageRating)
+  if (Number.isFinite(Number(repaired.runtimeMinutes))) patch.runtimeMinutes = Number(repaired.runtimeMinutes)
+  if (Number.isFinite(Number(repaired.numberOfSeasons))) patch.numberOfSeasons = Number(repaired.numberOfSeasons)
+  if (Number.isFinite(Number(repaired.numberOfEpisodes))) patch.numberOfEpisodes = Number(repaired.numberOfEpisodes)
+  if (Array.isArray(repaired.seasons)) patch.seasons = repaired.seasons
+  if (Array.isArray(repaired.cast)) patch.cast = repaired.cast
+  if (Array.isArray(repaired.videos)) patch.videos = repaired.videos
+  if (repaired.smartFacets && typeof repaired.smartFacets === 'object') patch.smartFacets = repaired.smartFacets
   if (Array.isArray(repaired.genreNames)) patch.genreNames = repaired.genreNames
   if (Array.isArray(repaired.providerIds)) patch.providerIds = repaired.providerIds
   if (repaired.type !== 'series') {

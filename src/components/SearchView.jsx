@@ -6,7 +6,7 @@ import {
   mergeSearchIndexEntries,
   searchIndex,
 } from '../search/searchIndex.js'
-import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
+import { loadCompleteTitleMetadata } from '../catalog/loadCompleteTitleMetadata.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import PosterCard from './PosterCard.jsx'
 
@@ -36,6 +36,7 @@ export default function SearchView({ publicTitles, personalTitles, movieHubTitle
   const [indexLoading, setIndexLoading] = useState(true)
   const [indexError, setIndexError] = useState(null)
   const [detailLoadingId, setDetailLoadingId] = useState(null)
+  const [detailError, setDetailError] = useState(null)
   const { enabledProviderIds, isProviderEnabled } = useProviderSelection()
   const { hasTitle: hasMovieHubTitle } = useSharedMediaCatalog()
   const movieHubEnabled = isProviderEnabled('moviehub')
@@ -103,15 +104,55 @@ export default function SearchView({ publicTitles, personalTitles, movieHubTitle
     }
 
     setDetailLoadingId(entry.id)
+    setDetailError(null)
     try {
-      const detail = await loadSearchDetail(entry)
+      const detail = await loadCompleteTitleMetadata(entry, {
+        requireContract: true,
+        requireComplete: true,
+      })
       onOpen(detail, displayedPosterUrl)
     } catch (error) {
-      console.warn('Movie Hub konnte die zusätzlichen Suchdetails nicht laden.', error)
-      onOpen(toSearchDetailFallback(entry), displayedPosterUrl)
+      console.warn('Movie Hub konnte die vollständigen Suchdetails nicht laden.', error)
+      setDetailError({ entry, displayedPosterUrl })
     } finally {
       setDetailLoadingId(null)
     }
+  }
+
+  if (detailLoadingId) {
+    return (
+      <main className="browse-page search-page search-detail-state" aria-live="polite">
+        <p className="loading-copy">Details werden geladen …</p>
+      </main>
+    )
+  }
+
+  if (detailError) {
+    return (
+      <main className="browse-page search-page search-detail-state" role="alert">
+        <section className="library-empty-state">
+          <p className="settings-kicker">Details nicht erreichbar</p>
+          <h2>Die vollständigen Titeldetails konnten nicht geladen werden.</h2>
+          <p>Prüfe deine Verbindung und den TMDB API Read Access Token in den Einstellungen.</p>
+          <button
+            type="button"
+            className="action-button action-button-primary"
+            data-focusable="true"
+            onClick={() => openEntry(detailError.entry, detailError.displayedPosterUrl)}
+          >
+            Erneut versuchen
+          </button>
+          <button
+            type="button"
+            className="action-button action-button-secondary"
+            data-focusable="true"
+            onClick={() => setDetailError(null)}
+          >
+            Zurück zur Suche
+          </button>
+        </section>
+      </main>
+    )
   }
 
   return (
@@ -142,7 +183,6 @@ export default function SearchView({ publicTitles, personalTitles, movieHubTitle
       )}
 
       {indexLoading && <p className="loading-copy">Suchindex wird geladen …</p>}
-      {detailLoadingId && <p className="loading-copy">Details werden geladen …</p>}
       {indexError && <p className="settings-hint">Der separate Suchindex ist momentan nicht erreichbar. Movie Hub verwendet vorübergehend den geladenen Katalog als Suchfallback.</p>}
 
       {normalizedLength >= SEARCH_MIN_QUERY_LENGTH && searchResult.results.length === 0 && !indexLoading && (

@@ -1,4 +1,45 @@
-export const CURRENT_TITLE_METADATA_VERSION = 2
+export const CURRENT_TITLE_METADATA_VERSION = 3
+
+export const METADATA_CHECK_STATE = Object.freeze({
+  PRESENT: 'present',
+  ABSENT: 'absent',
+  FAILED: 'failed',
+  UNCHECKED: 'unchecked',
+})
+
+const COMMON_METADATA_CHECKS = Object.freeze([
+  'details',
+  'artwork',
+  'ageRating',
+  'credits',
+  'keywords',
+  'videos',
+  'providers',
+])
+
+export function requiredMetadataChecks(item) {
+  const type = item?.type === 'series' || item?.mediaType === 'tv' ? 'series' : 'movie'
+  return [...COMMON_METADATA_CHECKS, type === 'series' ? 'seasons' : 'collection']
+}
+
+export function metadataCheckState(value, checkedValue) {
+  return meaningful(value) || value === 0
+    ? METADATA_CHECK_STATE.PRESENT
+    : checkedValue === true
+      ? METADATA_CHECK_STATE.ABSENT
+      : METADATA_CHECK_STATE.UNCHECKED
+}
+
+export function metadataChecksComplete(item) {
+  if (!item || Number(item.metadataVersion || 0) < CURRENT_TITLE_METADATA_VERSION) return false
+  const checks = item.metadataChecks && typeof item.metadataChecks === 'object'
+    ? item.metadataChecks
+    : {}
+  return requiredMetadataChecks(item).every((key) => (
+    checks[key] === METADATA_CHECK_STATE.PRESENT
+    || checks[key] === METADATA_CHECK_STATE.ABSENT
+  ))
+}
 
 const TMDB_PLACEHOLDER_TITLE = /^TMDB\s*#\s*\d+$/i
 const LOADING_PLACEHOLDER_TITLE = /^Titel wird geladen\s*…?$/i
@@ -123,10 +164,13 @@ function latestTimestamp(base, enriched) {
 export function titleNeedsMetadataEnrichment(item, {
   now = Date.now(),
   maxAgeDays = null,
+  requireContract = false,
 } = {}) {
   if (!item?.tmdbId) return false
   if (!isUsableTitle(item.title)) return true
-  if (Number(item.metadataVersion || 0) < CURRENT_TITLE_METADATA_VERSION) return true
+  const metadataVersion = Number(item.metadataVersion || 0)
+  if (requireContract && metadataVersion < CURRENT_TITLE_METADATA_VERSION) return true
+  if (metadataVersion >= CURRENT_TITLE_METADATA_VERSION && !metadataChecksComplete(item)) return true
   if (item.metadataComplete !== true) return true
   if (item.type !== 'series' && item.mediaType !== 'tv') {
     if (item.collectionChecked !== true) return true
@@ -137,6 +181,28 @@ export function titleNeedsMetadataEnrichment(item, {
   const updatedAt = timestampMilliseconds(item.metadataUpdatedAt)
   if (!updatedAt) return true
   return Number(now) - updatedAt > Number(maxAgeDays) * 86400000
+}
+
+function mergeMetadataChecks(base, enriched) {
+  const result = {}
+  const rank = {
+    [METADATA_CHECK_STATE.UNCHECKED]: 0,
+    [METADATA_CHECK_STATE.FAILED]: 1,
+    [METADATA_CHECK_STATE.ABSENT]: 2,
+    [METADATA_CHECK_STATE.PRESENT]: 3,
+  }
+  const keys = new Set([
+    ...Object.keys(base && typeof base === 'object' ? base : {}),
+    ...Object.keys(enriched && typeof enriched === 'object' ? enriched : {}),
+  ])
+  for (const key of keys) {
+    const baseValue = base?.[key]
+    const enrichedValue = enriched?.[key]
+    result[key] = (rank[enrichedValue] ?? -1) > (rank[baseValue] ?? -1)
+      ? enrichedValue
+      : baseValue
+  }
+  return result
 }
 
 export function sameTmdbTitle(left, right) {
@@ -185,6 +251,7 @@ export function mergeEnrichedTitle(base, enriched) {
       : enriched.collectionName || (collectionIdChanged ? null : base.collectionName) || null
     : base.collectionName || enriched.collectionName || null
   const smartFacets = mergeSmartFacets(base.smartFacets, enriched.smartFacets)
+  const metadataChecks = mergeMetadataChecks(base.metadataChecks, enriched.metadataChecks)
   if (enrichedCollectionChecked) {
     smartFacets.collection = collectionId === null
       ? null
@@ -193,7 +260,8 @@ export function mergeEnrichedTitle(base, enriched) {
         || { id: collectionId, name: collectionName }
   }
 
-  return {
+  const metadataVersion = Math.max(Number(base.metadataVersion) || 0, Number(enriched.metadataVersion) || 0)
+  const mergedTitle = {
     ...merged,
     id: base.id,
     tmdbId: base.tmdbId,
@@ -236,8 +304,13 @@ export function mergeEnrichedTitle(base, enriched) {
       : base.voteAverage ?? enriched.voteAverage ?? null,
     voteCount: Math.max(baseVoteCount || 0, enrichedVoteCount || 0) || null,
     popularity: Math.max(Number(base.popularity) || 0, Number(enriched.popularity) || 0) || null,
-    metadataVersion: Math.max(Number(base.metadataVersion) || 0, Number(enriched.metadataVersion) || 0),
-    metadataComplete: isUsableTitle(title) && (base.metadataComplete === true || enriched.metadataComplete === true),
+    metadataVersion,
+    metadataChecks,
+    metadataComplete: false,
     metadataUpdatedAt: latestTimestamp(base.metadataUpdatedAt, enriched.metadataUpdatedAt),
   }
+  mergedTitle.metadataComplete = isUsableTitle(title) && (metadataVersion >= CURRENT_TITLE_METADATA_VERSION
+    ? metadataChecksComplete(mergedTitle)
+    : base.metadataComplete === true || enriched.metadataComplete === true)
+  return mergedTitle
 }

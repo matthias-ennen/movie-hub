@@ -8,9 +8,30 @@ describe('Datenfüllstandsbericht', () => {
       catalog: { titles: [{ type: 'movie' }, { type: 'series' }] },
       searchIndex: { entries: [{ type: 'movie' }, { type: 'movie' }, { type: 'series' }] },
       searchDetails: [
-        { type: 'movie', metadataComplete: true },
-        { type: 'series', metadataComplete: false },
-        { type: 'series', metadataComplete: true },
+        {
+          tmdbId: 1,
+          type: 'movie',
+          title: 'Movie',
+          metadataVersion: 3,
+          metadataComplete: true,
+          collectionChecked: true,
+          metadataChecks: {
+            details: 'present', artwork: 'absent', ageRating: 'absent', credits: 'absent',
+            keywords: 'absent', videos: 'absent', providers: 'absent', collection: 'absent',
+          },
+        },
+        { tmdbId: 2, type: 'series', title: 'Incomplete', metadataComplete: false },
+        {
+          tmdbId: 3,
+          type: 'series',
+          title: 'Series',
+          metadataVersion: 3,
+          metadataComplete: true,
+          metadataChecks: {
+            details: 'present', artwork: 'absent', ageRating: 'absent', credits: 'absent',
+            keywords: 'absent', videos: 'absent', providers: 'absent', seasons: 'absent',
+          },
+        },
       ],
       seriesManifest: {
         availableSeasonCount: 12,
@@ -21,7 +42,7 @@ describe('Datenfüllstandsbericht', () => {
 
     expect(status).toEqual({
       kind: 'movie-hub-data-status',
-      version: 1,
+      version: 2,
       generatedAt: '2026-09-15T08:00:00.000Z',
       catalog: { total: 2, movies: 1, series: 1 },
       searchIndex: { total: 3, movies: 2, series: 1 },
