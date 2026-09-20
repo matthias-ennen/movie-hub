@@ -74,12 +74,14 @@ jobs:
       - name: Restore last deployed Waipu catalog
         run: npm run waipu:restore
 
+      - name: Restore validated live TMDB data for code deploy
+        if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') }}
+        run: npm run tmdb:restore
+
       - name: Restore incremental search-detail metadata
-        continue-on-error: true
         run: npm run search:details:restore
 
       - name: Restore incremental series-season metadata
-        continue-on-error: true
         run: npm run series:details:restore
 
       - name: Generate TMDB catalog for strict refresh
@@ -94,47 +96,6 @@ jobs:
           TMDB_SEARCH_DETAIL_MAX_AGE_DAYS: 30
           TMDB_SERIES_SEASON_ENRICH_LIMIT: ${{ (inputs.data_mode == 'accelerated' || contains(github.event.head_commit.message, '[data-bootstrap]')) && '2000' || '600' }}
         run: npm run tmdb:catalog
-
-      - name: Generate fresh TMDB catalog for code deploy
-        id: push_catalog
-        if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') }}
-        continue-on-error: true
-        env:
-          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
-          TMDB_LANGUAGE: de-DE
-          TMDB_SEARCH_MOVIE_PAGES_PER_OFFER: 50
-          TMDB_SEARCH_SERIES_PAGES_PER_OFFER: 50
-          TMDB_SEARCH_DETAIL_ENRICH_LIMIT: ${{ contains(github.event.head_commit.message, '[data-bootstrap]') && '2000' || '800' }}
-          TMDB_SEARCH_DETAIL_MAX_AGE_DAYS: 30
-          TMDB_SERIES_SEASON_ENRICH_LIMIT: ${{ contains(github.event.head_commit.message, '[data-bootstrap]') && '2000' || '600' }}
-        run: npm run tmdb:catalog
-
-      - name: Reuse last deployed catalog after transient refresh failure
-        if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') && steps.push_catalog.outcome == 'failure' }}
-        run: |
-          echo "Fresh TMDB catalog did not pass its quality gate; reusing the last deployed catalog."
-          curl --fail --silent --show-error --location \
-            https://movie-hub-62459.web.app/catalog.json \
-            --output public/catalog.json
-          node -e "const fs=require('node:fs'); const c=JSON.parse(fs.readFileSync('public/catalog.json','utf8')); if(c?.source!=='tmdb'||!Array.isArray(c?.titles)||c.titles.length===0||!Array.isArray(c?.rowDefinitions)||c.rowDefinitions.length===0) throw new Error('Last deployed catalog is not a valid non-empty TMDB catalog.'); console.log('Reusing live TMDB catalog with '+c.titles.length+' titles from '+(c.generatedAt||'unknown time')+'.');"
-
-          if curl --fail --silent --show-error --location \
-            https://movie-hub-62459.web.app/search-index.json \
-            --output public/search-index.json \
-            && node -e "const fs=require('node:fs'); const s=JSON.parse(fs.readFileSync('public/search-index.json','utf8')); if(s?.kind!=='search-index'||!Array.isArray(s?.entries)||s.entries.length===0) process.exit(1); console.log('Reusing live search index with '+s.entries.length+' entries from '+(s.generatedAt||'unknown time')+'.');"; then
-            echo "Live search index validated."
-          else
-            echo "No reusable live search index found; deriving one from the restored catalog."
-            rm -f public/search-index.json
-            npm run search:index
-          fi
-
-          if npm run search:details:restore; then
-            echo "Live lazy search details validated."
-          else
-            echo "No reusable live detail shards found; deriving fallback details from the restored catalog."
-            npm run search:details
-          fi
 
       - name: Refresh 50-station Waipu grid
         id: waipu_sync
@@ -204,6 +165,7 @@ jobs:
 
       - name: Enrich personal Movie-Hub provider metadata
         id: shared_metadata
+        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         continue-on-error: true
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
@@ -223,7 +185,6 @@ jobs:
         env:
           SUMMARY_DATA_MODE: ${{ inputs.data_mode || 'standard' }}
           SUMMARY_TMDB_STRICT: ${{ steps.tmdb_catalog_strict.outcome }}
-          SUMMARY_TMDB_PUSH: ${{ steps.push_catalog.outcome }}
           SUMMARY_WAIPU_SYNC: ${{ steps.waipu_sync.outcome }}
           SUMMARY_WAIPU_CATALOG: ${{ steps.waipu_catalog.outcome }}
           SUMMARY_PRESENCE: ${{ steps.presence_migration.outcome }}
