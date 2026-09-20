@@ -11,11 +11,14 @@ import {
 import { SEARCH_DETAIL_BUCKET_COUNT, SEARCH_DETAIL_VERSION } from '../src/search/lazySearchDetails.js'
 import { buildFilmCollection } from '../src/catalog/filmCollections.js'
 import { readTmdbChangeSet, tmdbChangedTitleKeys } from './tmdb-change-queue.mjs'
+import { buildSearchIndexRunReport, writeSearchIndexRunReport } from './search-index-observability.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const catalogPath = resolve(root, 'public/catalog.json')
 const searchIndexPath = resolve(root, 'public/search-index.json')
 const searchDetailsDirectory = resolve(root, 'public/search-details')
+const baselineSearchIndexPath = resolve(process.env.WORKFLOW_BASELINE_SEARCH_INDEX || resolve(root, 'artifacts/workflow-baseline/search-index.json'))
+const searchRunReportPath = resolve(process.env.SEARCH_INDEX_RUN_REPORT || resolve(root, 'artifacts/search-index-run-report.json'))
 
 const token = process.env.TMDB_API_READ_TOKEN
 const language = process.env.TMDB_LANGUAGE || 'de-DE'
@@ -522,6 +525,10 @@ async function discoverOfferEntries({ provider, tmdbProviderIds, mediaType, offe
   const records = []
   let page = 1
   let totalPages = 1
+  let reportedTotalPages = null
+  let pagesFetched = 0
+  let rawResults = 0
+  let skippedResults = 0
 
   const pageLimit = searchPageLimitForMediaType(mediaType)
   while (page <= Math.min(totalPages, pageLimit)) {
@@ -530,8 +537,11 @@ async function discoverOfferEntries({ provider, tmdbProviderIds, mediaType, offe
       buildSearchDiscoverParams(tmdbProviderIds, mediaType, offerType, page),
     )
     totalPages = Math.min(Number(payload?.total_pages) || 1, 500)
+    if (reportedTotalPages === null) reportedTotalPages = totalPages
+    pagesFetched += 1
 
     for (const raw of Array.isArray(payload?.results) ? payload.results : []) {
+      rawResults += 1
       try {
         const entry = searchEntryFromDiscover(raw, mediaType, provider, tmdbProviderIds, offerType)
         if (entry) records.push({
@@ -539,6 +549,7 @@ async function discoverOfferEntries({ provider, tmdbProviderIds, mediaType, offe
           detail: searchDetailFromDiscover(raw, mediaType, genreNamesById),
         })
       } catch (error) {
+        skippedResults += 1
         console.warn(
           `Search-index candidate skipped for ${provider.id}/${mediaType}/${offerType}:`,
           error instanceof Error ? error.message : String(error),
@@ -548,7 +559,37 @@ async function discoverOfferEntries({ provider, tmdbProviderIds, mediaType, offe
     page += 1
   }
 
-  return records
+  const uniqueTitles = new Set(records.map(({ entry }) => `${entry.type}:${entry.tmdbId}`)).size
+  return {
+    records,
+    scan: {
+      key: `${provider.id}:${mediaType === 'movie' ? 'movie' : 'series'}:${offerType}`,
+      providerId: provider.id,
+      providerLabel: provider.label,
+      mediaType: mediaType === 'movie' ? 'movie' : 'series',
+      offerType,
+      tmdbProviderIds: [...tmdbProviderIds],
+      pageLimit,
+      reportedTotalPages: reportedTotalPages || 0,
+      pagesExpected: Math.min(reportedTotalPages || 0, pageLimit),
+      pagesFetched,
+      rawResults,
+      acceptedResults: records.length,
+      skippedResults,
+      uniqueTitles,
+      capped: Number(reportedTotalPages) > pageLimit,
+      status: pagesFetched === Math.min(reportedTotalPages || 0, pageLimit) ? 'complete' : 'incomplete',
+    },
+  }
+}
+
+async function readPreviousSearchIndex() {
+  try {
+    const value = JSON.parse(await readFile(baselineSearchIndexPath, 'utf8'))
+    return value?.kind === 'search-index' && Array.isArray(value?.entries) ? value : null
+  } catch {
+    return null
+  }
 }
 
 async function readCatalog() {
@@ -706,7 +747,12 @@ export async function generateBroadSearchIndexFromTmdb() {
     `Search index discovery: ${tasks.length} provider/media/offer scans · up to ${searchPageLimitForMediaType('movie')} movie pages and ${searchPageLimitForMediaType('tv')} series pages each`,
   )
   const discovered = await mapWithConcurrency(tasks, REQUEST_CONCURRENCY, discoverOfferEntries)
-  const records = discovered.flat()
+  const records = discovered.flatMap((result) => result.records)
+  const scans = discovered.map((result) => result.scan)
+  const incompleteScans = scans.filter((scan) => scan.status !== 'complete')
+  if (incompleteScans.length > 0) {
+    throw new Error(`Search index discovery produced ${incompleteScans.length} incomplete scans.`)
+  }
   const broadEntries = mergeProviderSearchEntries(records.map((record) => record.entry))
   console.log(`Search index discovery resolved ${broadEntries.length} unique titles before catalog merge.`)
 
@@ -717,6 +763,20 @@ export async function generateBroadSearchIndexFromTmdb() {
   }
 
   const searchIndex = buildBroadArtifact(catalog, broadEntries)
+  const previousSearchIndex = await readPreviousSearchIndex()
+  const runReport = buildSearchIndexRunReport({
+    scans,
+    previousIndex: previousSearchIndex,
+    currentIndex: searchIndex,
+    broadEntries,
+    generatedAt: searchIndex.generatedAt,
+  })
+  await writeSearchIndexRunReport(runReport, searchRunReportPath)
+  console.log(
+    `Search index provenance: ${runReport.scans.completed}/${runReport.scans.expected} scans complete · `
+    + `${runReport.index.addedCount} added · ${runReport.index.removedCount} removed · `
+    + `${runReport.index.changedOfferCount} provider offers changed.`,
+  )
   const existingDetails = await readExistingSearchDetails()
   const existingById = new Map(existingDetails.map((detail) => [detail.id, detail]))
   const activeSearchIds = new Set(searchIndex.entries.map((entry) => entry.id))

@@ -7,6 +7,7 @@ const outputDirectory = resolve(process.env.WORKFLOW_BASELINE_DIRECTORY || 'arti
 
 const sources = Object.freeze([
   ['data-status.json', '/data-status.json'],
+  ['search-index.json', '/search-index.json'],
   ['waipu-index.json', '/waipu-live/index.json'],
 ])
 

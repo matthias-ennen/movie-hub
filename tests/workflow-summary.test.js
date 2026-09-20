@@ -33,6 +33,10 @@ describe('kompakter Workflow-Datenbericht', () => {
       waipuSync: { metrics: { slotsProcessed: 3600, requestsStarted: 3650, slotsSkippedByCheckpoint: 600, retries: 2 } },
       metadata: { scanned: 150, candidates: 20, updated: 19, failed: 1 },
       personalMetadata: { scanned: 80, candidates: 12, updated: 12, failed: 0 },
+      searchRun: {
+        scans: { expected: 155, completed: 155, capped: 61 },
+        index: { baselineAvailable: true, addedCount: 240, removedCount: 1167, changedOfferCount: 83 },
+      },
       tmdbChanges: {
         startDate: '2026-09-18',
         endDate: '2026-09-19',
@@ -73,6 +77,7 @@ describe('kompakter Workflow-Datenbericht', () => {
     expect(markdown).toContain('603 verworfen · 740 Suchen · 640 Detailabrufe · 1.200 Waipu-Cache')
     expect(markdown).toContain('Waipu-Titelbestand: **+686 zum Live-Stand**')
     expect(markdown).toContain('| TMDB-Änderungen | ✅ erfolgreich | 27 Filme · 13 Serien neu gemeldet')
+    expect(markdown).toContain('| Suchindex | ✅ erfolgreich | 20.000 · 12.000 Filme · 8.000 Serien | +240 hinzu · -1.167 entfallen · 83 Angebote geändert | 155/155 Scans · 61 begrenzt · 256 Shards |')
     expect(markdown).toContain('| Persönliche TMDB-Metadaten | ✅ erfolgreich | 80 geprüft · 12 ausgewählt')
     expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(14)
   })

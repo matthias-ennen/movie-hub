@@ -57,6 +57,7 @@ export function buildWorkflowSummary({
   presence = {},
   metadata = {},
   personalMetadata = {},
+  searchRun = {},
   tmdbChanges = {},
   tmdbChangeRun = {},
   baselineData = null,
@@ -107,8 +108,10 @@ export function buildWorkflowSummary({
         area: 'Suchindex',
         status: outcome(tmdbOutcome),
         stock: `${number(searchTypes.total)} · ${number(searchTypes.movies)} Filme · ${number(searchTypes.series)} Serien`,
-        activity: `${difference(searchTypes.total, baselineData?.searchIndex?.total)} · ${integer(searchIndex.coverage?.providerCount)} Anbieter`,
-        open: `${integer(searchManifest.bucketCount)} Shards`,
+        activity: searchRun.index?.baselineAvailable
+          ? `+${number(searchRun.index?.addedCount)} hinzu · -${number(searchRun.index?.removedCount)} entfallen · ${number(searchRun.index?.changedOfferCount)} Angebote geändert`
+          : `${difference(searchTypes.total, baselineData?.searchIndex?.total)} · ${integer(searchIndex.coverage?.providerCount)} Anbieter`,
+        open: `${number(searchRun.scans?.completed)}/${number(searchRun.scans?.expected)} Scans · ${number(searchRun.scans?.capped)} begrenzt · ${integer(searchManifest.bucketCount)} Shards`,
       },
       {
         area: 'Suchdetails',
@@ -203,7 +206,7 @@ async function readJson(path, fallback = {}) {
 }
 
 async function main() {
-  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, metadata, personalMetadata, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu] = await Promise.all([
+  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, metadata, personalMetadata, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu] = await Promise.all([
     readJson('public/data-status.json'),
     readJson('public/catalog.json'),
     readJson('public/search-index.json'),
@@ -215,6 +218,7 @@ async function main() {
     readJson('artifacts/moviehub-presence-status.json'),
     readJson('artifacts/moviehub-metadata-status.json'),
     readJson('artifacts/personal-tmdb-metadata-status.json'),
+    readJson('artifacts/search-index-run-report.json'),
     readJson('artifacts/tmdb-data/change-set.json'),
     readJson('artifacts/tmdb-data/run.json', null),
     readJson('artifacts/tmdb-data/last-run.json', null),
@@ -222,7 +226,7 @@ async function main() {
     readJson('artifacts/workflow-baseline/waipu-index.json', null),
   ])
   const summary = buildWorkflowSummary({
-    dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, metadata, personalMetadata, tmdbChanges,
+    dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, metadata, personalMetadata, searchRun, tmdbChanges,
     tmdbChangeRun: activeTmdbChangeRun || lastTmdbChangeRun || {}, baselineData, baselineWaipu,
     steps: {
       tmdbChanges: process.env.SUMMARY_TMDB_CHANGES,
