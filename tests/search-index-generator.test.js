@@ -18,6 +18,19 @@ const prime = {
   aliases: ['amazonprimevideo', 'primevideo'],
 }
 
+function completeMetadataChecks(type = 'movie') {
+  return {
+    details: 'present',
+    artwork: 'present',
+    ageRating: 'absent',
+    credits: 'present',
+    keywords: 'absent',
+    videos: 'absent',
+    providers: 'present',
+    [type === 'series' ? 'seasons' : 'collection']: 'absent',
+  }
+}
+
 function movie(id = 1, overrides = {}) {
   return {
     id,
@@ -184,7 +197,9 @@ describe('breiter Provider-Suchindex', () => {
       title: 'Vollständiger Titel',
       description: 'Vollständige TMDB-Details',
       metadataComplete: true,
-      metadataVersion: 2,
+      metadataVersion: 3,
+      metadataChecks: completeMetadataChecks(),
+      collectionChecked: true,
       completeness: 'enriched',
     }
 
@@ -208,12 +223,16 @@ describe('breiter Provider-Suchindex', () => {
       id: `tmdb-movie-${id}`,
       tmdbId: id,
       type: 'movie',
+      title: `Movie ${id}`,
     }))
     const complete = (id, metadataUpdatedAt, overrides = {}) => ({
       id: `tmdb-movie-${id}`,
       tmdbId: id,
       type: 'movie',
+      title: `Movie ${id}`,
       metadataComplete: true,
+      metadataVersion: 3,
+      metadataChecks: completeMetadataChecks(),
       metadataUpdatedAt,
       collectionChecked: true,
       ...overrides,
@@ -233,14 +252,17 @@ describe('breiter Provider-Suchindex', () => {
       now: new Date('2026-09-15T00:00:00.000Z'),
     })
 
-    expect(selected.map((entry) => entry.tmdbId)).toEqual([1, 2, 5, 3, 4])
+    expect(selected.map((entry) => entry.tmdbId)).toEqual([2, 1, 5, 3, 4])
   })
 
   it('does not refresh complete details before their configured age', () => {
     const entry = { id: 'tmdb-movie-42', tmdbId: 42, type: 'movie' }
     const details = [{
       ...entry,
+      title: 'Movie 42',
       metadataComplete: true,
+      metadataVersion: 3,
+      metadataChecks: completeMetadataChecks(),
       metadataUpdatedAt: '2026-08-17T00:00:01.000Z',
       collectionChecked: true,
     }]
@@ -260,7 +282,10 @@ describe('breiter Provider-Suchindex', () => {
     }))
     const details = entries.map((entry) => ({
       ...entry,
+      title: `Movie ${entry.tmdbId}`,
       metadataComplete: true,
+      metadataVersion: 3,
+      metadataChecks: completeMetadataChecks(),
       metadataUpdatedAt: '2026-09-19T00:00:00.000Z',
       collectionChecked: true,
     }))
@@ -281,14 +306,20 @@ describe('breiter Provider-Suchindex', () => {
     const details = [
       {
         ...entries[0],
+        title: 'Movie 42',
         metadataComplete: true,
+        metadataVersion: 3,
+        metadataChecks: { ...completeMetadataChecks(), collection: 'present' },
         metadataUpdatedAt: '2026-09-14T00:00:00.000Z',
         collectionId: 7,
         collectionDetails: null,
       },
       {
         ...entries[1],
+        title: 'Series 43',
         metadataComplete: true,
+        metadataVersion: 3,
+        metadataChecks: completeMetadataChecks('series'),
         metadataUpdatedAt: '2026-09-14T00:00:00.000Z',
         seasons: [],
       },
@@ -298,6 +329,22 @@ describe('breiter Provider-Suchindex', () => {
       now: new Date('2026-09-15T00:00:00.000Z'),
       maxAgeDays: 30,
       limit: 800,
-    })).toEqual([])
+    }).map((entry) => entry.tmdbId)).toEqual([42])
+  })
+
+  it('migrates fresh legacy details whose strict check states are not documented', () => {
+    const entry = { id: 'tmdb-movie-42', tmdbId: 42, type: 'movie' }
+    expect(selectSearchDetailEnrichmentCandidates([entry], [{
+      ...entry,
+      title: 'Legacy detail',
+      metadataVersion: 2,
+      metadataComplete: true,
+      collectionChecked: true,
+      metadataUpdatedAt: '2026-09-20T00:00:00.000Z',
+    }], {
+      now: new Date('2026-09-20T01:00:00.000Z'),
+      maxAgeDays: 30,
+      limit: 800,
+    })).toEqual([entry])
   })
 })

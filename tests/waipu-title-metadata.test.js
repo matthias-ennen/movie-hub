@@ -50,8 +50,18 @@ function completeMetadata(overrides = {}) {
     collectionId: null,
     collectionChecked: true,
     collectionDetails: null,
-    metadataVersion: 2,
+    metadataVersion: 3,
     metadataComplete: true,
+    metadataChecks: {
+      details: 'present',
+      artwork: 'present',
+      ageRating: 'present',
+      credits: 'absent',
+      keywords: 'absent',
+      videos: 'absent',
+      providers: 'absent',
+      collection: 'absent',
+    },
     metadataUpdatedAt: '2026-09-19T18:00:00.000Z',
     ...overrides,
   }
@@ -151,7 +161,7 @@ describe('Waipu title metadata enrichment', () => {
       tmdbId: 8688,
       title: 'Spiel auf Zeit',
       ageRating: 16,
-      metadataVersion: 2,
+      metadataVersion: 3,
       metadataComplete: true,
       collectionChecked: true,
     })

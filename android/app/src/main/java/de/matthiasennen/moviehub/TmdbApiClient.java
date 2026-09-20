@@ -368,14 +368,42 @@ final class TmdbApiClient {
                 "GET",
                 "/" + mediaType + "/" + tmdbId
                         + "?language=de-DE&append_to_response=watch%2Fproviders%2C"
-                        + ratingAppend + "%2Cimages&include_image_language=null%2Cde%2Cen",
+                        + ratingAppend
+                        + "%2Cimages%2Ccredits%2Ckeywords%2Cvideos"
+                        + "&include_image_language=null%2Cde%2Cen",
                 apiReadAccessToken,
                 null);
 
         try {
+            boolean movie = "movie".equals(mediaType);
+            JSONObject metadataChecks = new JSONObject();
             title.put("providerIds", supportedProvidersFromPayload(detail.optJSONObject("watch/providers")));
             Integer rating = extractGermanAgeRating(detail, mediaType);
             if (rating != null) title.put("ageRating", rating);
+            if (movie) {
+                title.put("runtimeMinutes", nullablePositiveInteger(detail, "runtime"));
+            } else {
+                JSONArray runtimes = detail.optJSONArray("episode_run_time");
+                title.put("runtimeMinutes", runtimes != null && runtimes.length() > 0
+                        ? runtimes.optInt(0, 0)
+                        : JSONObject.NULL);
+                title.put("numberOfSeasons", nullablePositiveInteger(detail, "number_of_seasons"));
+                title.put("numberOfEpisodes", nullablePositiveInteger(detail, "number_of_episodes"));
+                title.put("seasons", sanitizeSeasons(detail.optJSONArray("seasons"), tmdbId));
+            }
+
+            JSONArray cast = sanitizeCast(detail.optJSONObject("credits"));
+            JSONArray creators = sanitizeCreators(detail, movie);
+            JSONArray keywords = sanitizeKeywords(detail.optJSONObject("keywords"), movie);
+            JSONArray videos = sanitizeVideos(detail.optJSONObject("videos"));
+            title.put("cast", cast);
+            title.put("videos", videos);
+
+            JSONObject smartFacets = new JSONObject();
+            smartFacets.put("cast", cast);
+            smartFacets.put("creators", creators);
+            smartFacets.put("keywords", keywords);
+            title.put("smartFacets", smartFacets);
             String posterPath = detail.optString("poster_path", title.optString("posterPath", null));
             String backdropPath = detail.optString("backdrop_path", title.optString("backdropPath", null));
             if (posterPath != null && !posterPath.isEmpty()) title.put("posterPath", posterPath);
@@ -387,13 +415,25 @@ final class TmdbApiClient {
             artwork.put("heroBackdropPaths", selectImagePaths(images, "backdrops", backdropPath, true));
             title.put("artwork", artwork);
 
-            if ("movie".equals(mediaType)) {
+            putMetadataCheck(metadataChecks, "details", title.optString("title"), true);
+            putMetadataCheck(metadataChecks, "artwork", artworkPaths(artwork), detail.has("images"));
+            putMetadataCheck(metadataChecks, "ageRating", rating, detail.has(ratingAppend));
+            putMetadataCheck(metadataChecks, "credits", combinedValues(cast, creators), detail.has("credits"));
+            putMetadataCheck(metadataChecks, "keywords", keywords, detail.has("keywords"));
+            putMetadataCheck(metadataChecks, "videos", videos, detail.has("videos"));
+            putMetadataCheck(metadataChecks, "providers", title.optJSONArray("providerIds"), detail.has("watch/providers"));
+
+            if (movie) {
                 title.put("collectionChecked", true);
                 JSONObject collection = detail.optJSONObject("belongs_to_collection");
                 if (collection != null && collection.optLong("id", 0) > 0) {
                     long collectionId = collection.optLong("id");
                     title.put("collectionId", collectionId);
                     title.put("collectionName", collection.optString("name", null));
+                    JSONObject collectionFacet = new JSONObject();
+                    collectionFacet.put("id", collectionId);
+                    collectionFacet.put("name", collection.optString("name", null));
+                    smartFacets.put("collection", collectionFacet);
                     try {
                         JSONObject collectionDetails = collectionCache.get(collectionId);
                         if (collectionDetails == null) {
@@ -404,20 +444,199 @@ final class TmdbApiClient {
                             collectionCache.put(collectionId, collectionDetails);
                         }
                         title.put("collectionDetails", collectionDetails);
+                        putMetadataCheck(metadataChecks, "collection", collectionDetails, true);
                     } catch (Exception ignoredCollection) {
-                        // The collection id remains usable and a later sync can
-                        // retry the optional parts list.
+                        metadataChecks.put("collection", "failed");
                     }
                 } else {
                     title.put("collectionId", JSONObject.NULL);
                     title.put("collectionName", JSONObject.NULL);
+                    smartFacets.put("collection", JSONObject.NULL);
+                    putMetadataCheck(metadataChecks, "collection", null, detail.has("belongs_to_collection"));
                 }
+            } else {
+                putMetadataCheck(metadataChecks, "seasons", title.optJSONArray("seasons"), detail.has("seasons"));
             }
-            title.put("metadataVersion", 2);
-            title.put("metadataComplete", true);
+            title.put("metadataVersion", 3);
+            title.put("metadataChecks", metadataChecks);
+            title.put("metadataComplete", metadataChecksComplete(metadataChecks, movie));
         } catch (Exception ignored) {
             // The parent sync deliberately treats enrichment as optional.
         }
+    }
+
+    private static Object nullablePositiveInteger(JSONObject source, String key) {
+        int value = source == null ? 0 : source.optInt(key, 0);
+        return value > 0 ? value : JSONObject.NULL;
+    }
+
+    private static JSONArray artworkPaths(JSONObject artwork) {
+        JSONArray result = new JSONArray();
+        if (artwork == null) return result;
+        for (String key : new String[] { "posterPaths", "heroBackdropPaths" }) {
+            JSONArray paths = artwork.optJSONArray(key);
+            if (paths == null) continue;
+            for (int index = 0; index < paths.length(); index++) {
+                String path = paths.optString(index);
+                if (!path.isEmpty()) result.put(path);
+            }
+        }
+        return result;
+    }
+
+    private static JSONArray combinedValues(JSONArray first, JSONArray second) {
+        JSONArray result = new JSONArray();
+        for (JSONArray source : new JSONArray[] { first, second }) {
+            if (source == null) continue;
+            for (int index = 0; index < source.length(); index++) result.put(source.opt(index));
+        }
+        return result;
+    }
+
+    private static void putMetadataCheck(
+            JSONObject checks, String key, Object value, boolean checked) throws Exception {
+        if (!checked) {
+            checks.put(key, "unchecked");
+        } else if (hasMetadataValue(value)) {
+            checks.put(key, "present");
+        } else {
+            checks.put(key, "absent");
+        }
+    }
+
+    private static boolean hasMetadataValue(Object value) {
+        if (value == null || value == JSONObject.NULL) return false;
+        if (value instanceof String) return !((String) value).trim().isEmpty();
+        if (value instanceof JSONArray) return ((JSONArray) value).length() > 0;
+        if (value instanceof JSONObject) return ((JSONObject) value).length() > 0;
+        return true;
+    }
+
+    private static boolean metadataChecksComplete(JSONObject checks, boolean movie) {
+        String[] common = new String[] {
+                "details", "artwork", "ageRating", "credits", "keywords", "videos", "providers"
+        };
+        for (String key : common) {
+            String value = checks == null ? "" : checks.optString(key);
+            if (!("present".equals(value) || "absent".equals(value))) return false;
+        }
+        String structural = checks.optString(movie ? "collection" : "seasons");
+        return "present".equals(structural) || "absent".equals(structural);
+    }
+
+    private static JSONArray sanitizeCast(JSONObject credits) {
+        JSONArray result = new JSONArray();
+        JSONArray cast = credits == null ? null : credits.optJSONArray("cast");
+        if (cast == null) return result;
+        for (int index = 0; index < cast.length() && result.length() < 20; index++) {
+            JSONObject raw = cast.optJSONObject(index);
+            if (raw == null || raw.optLong("id", 0) <= 0 || raw.optString("name").isEmpty()) continue;
+            try {
+                JSONObject person = new JSONObject();
+                person.put("id", raw.optLong("id"));
+                person.put("name", raw.optString("name"));
+                person.put("character", raw.optString("character", null));
+                person.put("profileUrl", imageUrl(raw.optString("profile_path", null), "w185"));
+                result.put(person);
+            } catch (Exception ignored) {}
+        }
+        return result;
+    }
+
+    private static JSONArray sanitizeCreators(JSONObject detail, boolean movie) {
+        LinkedHashMap<Long, JSONObject> creators = new LinkedHashMap<>();
+        JSONArray source = movie
+                ? (detail.optJSONObject("credits") == null
+                    ? null
+                    : detail.optJSONObject("credits").optJSONArray("crew"))
+                : detail.optJSONArray("created_by");
+        if (source == null) return new JSONArray();
+        for (int index = 0; index < source.length(); index++) {
+            JSONObject raw = source.optJSONObject(index);
+            if (raw == null || raw.optLong("id", 0) <= 0 || raw.optString("name").isEmpty()) continue;
+            if (movie && !"Director".equals(raw.optString("job"))) continue;
+            try {
+                JSONObject person = new JSONObject();
+                person.put("id", raw.optLong("id"));
+                person.put("name", raw.optString("name"));
+                person.put("profileUrl", imageUrl(raw.optString("profile_path", null), "w185"));
+                creators.put(raw.optLong("id"), person);
+            } catch (Exception ignored) {}
+        }
+        JSONArray result = new JSONArray();
+        for (JSONObject creator : creators.values()) result.put(creator);
+        return result;
+    }
+
+    private static JSONArray sanitizeKeywords(JSONObject payload, boolean movie) {
+        JSONArray result = new JSONArray();
+        JSONArray source = payload == null ? null : payload.optJSONArray(movie ? "keywords" : "results");
+        if (source == null) return result;
+        for (int index = 0; index < source.length(); index++) {
+            JSONObject raw = source.optJSONObject(index);
+            if (raw == null || raw.optLong("id", 0) <= 0 || raw.optString("name").isEmpty()) continue;
+            try {
+                JSONObject keyword = new JSONObject();
+                keyword.put("id", raw.optLong("id"));
+                keyword.put("name", raw.optString("name"));
+                result.put(keyword);
+            } catch (Exception ignored) {}
+        }
+        return result;
+    }
+
+    private static JSONArray sanitizeVideos(JSONObject payload) {
+        JSONArray result = new JSONArray();
+        JSONArray source = payload == null ? null : payload.optJSONArray("results");
+        if (source == null) return result;
+        for (int index = 0; index < source.length() && result.length() < 2; index++) {
+            JSONObject raw = source.optJSONObject(index);
+            String key = raw == null ? "" : raw.optString("key");
+            String type = raw == null ? "" : raw.optString("type");
+            if (!"YouTube".equalsIgnoreCase(raw == null ? "" : raw.optString("site"))
+                    || key.isEmpty()
+                    || !("Trailer".equals(type) || "Teaser".equals(type))) continue;
+            try {
+                JSONObject video = new JSONObject();
+                video.put("id", "youtube-" + key);
+                video.put("type", type.toLowerCase(java.util.Locale.ROOT));
+                video.put("label", "Teaser".equals(type) ? "Teaser" : "Trailer");
+                video.put("name", raw.optString("name", null));
+                video.put("official", raw.optBoolean("official"));
+                video.put("site", "youtube");
+                video.put("key", key);
+                video.put("url", "https://www.youtube.com/watch?v=" + key);
+                result.put(video);
+            } catch (Exception ignored) {}
+        }
+        return result;
+    }
+
+    private static JSONArray sanitizeSeasons(JSONArray source, long seriesTmdbId) {
+        JSONArray result = new JSONArray();
+        if (source == null) return result;
+        for (int index = 0; index < source.length(); index++) {
+            JSONObject raw = source.optJSONObject(index);
+            if (raw == null || raw.optInt("season_number", -1) < 0) continue;
+            try {
+                JSONObject season = new JSONObject();
+                season.put("id", raw.optLong("id", 0));
+                season.put("seriesTmdbId", seriesTmdbId);
+                season.put("seasonNumber", raw.optInt("season_number"));
+                season.put("title", raw.optString("name"));
+                season.put("description", raw.optString("overview"));
+                season.put("episodeCount", raw.optInt("episode_count", 0));
+                season.put("airDate", raw.optString("air_date", null));
+                season.put("posterPath", raw.optString("poster_path", null));
+                result.put(season);
+            } catch (Exception ignored) {}
+        }
+        return result;
+    }
+
+    private static Object imageUrl(String path, String size) {
+        if (path == null || path.trim().isEmpty()) return JSONObject.NULL;
+        return "https://image.tmdb.org/t/p/" + size + (path.startsWith("/") ? path : "/" + path);
     }
 
     private static JSONObject sanitizeCollection(JSONObject raw) {

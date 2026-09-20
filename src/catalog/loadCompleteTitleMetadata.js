@@ -1,13 +1,26 @@
 import { loadSearchDetail } from '../search/lazySearchDetails.js'
 import { loadNativeTmdbTitleMetadata } from '../tmdb/nativeTitleMetadata.js'
-import { titleNeedsMetadataEnrichment } from './titleMetadata.js'
+import { mergeEnrichedTitle, titleNeedsMetadataEnrichment } from './titleMetadata.js'
+
+export class IncompleteTitleMetadataError extends Error {
+  constructor(message = 'Die vollständigen Titeldetails konnten nicht geladen werden.') {
+    super(message)
+    this.name = 'IncompleteTitleMetadataError'
+  }
+}
 
 export async function loadCompleteTitleMetadata(item, {
   loadPublished = loadSearchDetail,
   loadNative = loadNativeTmdbTitleMetadata,
+  requireContract = false,
+  requireComplete = false,
 } = {}) {
   const published = await loadPublished(item)
-  if (!titleNeedsMetadataEnrichment(published)) return published
+  const enrichmentOptions = { requireContract }
+  if (!titleNeedsMetadataEnrichment(published, enrichmentOptions)) return published
   const native = await loadNative(item)
-  return native && !titleNeedsMetadataEnrichment(native) ? native : published
+  const merged = native ? mergeEnrichedTitle(published, native) : published
+  if (!titleNeedsMetadataEnrichment(merged, enrichmentOptions)) return merged
+  if (requireComplete) throw new IncompleteTitleMetadataError()
+  return merged
 }

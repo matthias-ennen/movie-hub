@@ -57,7 +57,10 @@ export function toSearchDetailFallback(entry) {
     collectionChecked: type === 'movie' ? entry?.collectionChecked === true : null,
     collectionDetails: entry?.collectionDetails || null,
     metadataVersion: Number(entry?.metadataVersion) || 1,
+    metadataComplete: entry?.metadataComplete === true,
+    metadataChecks: entry?.metadataChecks && typeof entry.metadataChecks === 'object' ? entry.metadataChecks : {},
     originalLanguage: entry?.originalLanguage || null,
+    runtimeMinutes: Number.isFinite(Number(entry?.runtimeMinutes)) ? Number(entry.runtimeMinutes) : null,
     numberOfSeasons,
     numberOfEpisodes: type === 'series' && Number.isInteger(Number(entry?.numberOfEpisodes))
       ? Number(entry.numberOfEpisodes)
@@ -70,6 +73,8 @@ export function toSearchDetailFallback(entry) {
     genre: entry?.genre || 'Ohne Genreangabe',
     cast: Array.isArray(entry?.cast) ? entry.cast : [],
     videos: Array.isArray(entry?.videos) ? entry.videos : [],
+    smartFacets: entry?.smartFacets && typeof entry.smartFacets === 'object' ? entry.smartFacets : {},
+    ageRating: Number.isFinite(Number(entry?.ageRating)) ? Number(entry.ageRating) : null,
     voteAverage: Number.isFinite(Number(entry?.voteAverage)) ? Number(entry.voteAverage) : null,
     score: entry?.score || '–',
     meta: entry?.meta || (type === 'series' ? 'Serie' : 'Film'),

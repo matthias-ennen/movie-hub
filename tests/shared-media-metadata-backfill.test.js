@@ -41,6 +41,17 @@ const collectionPayload = {
   ],
 }
 
+const completeChecks = {
+  details: 'present',
+  artwork: 'present',
+  ageRating: 'absent',
+  credits: 'present',
+  keywords: 'absent',
+  videos: 'absent',
+  providers: 'absent',
+  collection: 'absent',
+}
+
 describe('Movie-Hub-Metadaten-Backfill', () => {
   it('lädt Film- und Collection-Daten und erzeugt eine vollständige Anbieter-Titelreferenz', async () => {
     const fetchTmdb = vi.fn(async (path) => path.startsWith('/collection/') ? collectionPayload : detailPayload())
@@ -58,7 +69,7 @@ describe('Movie-Hub-Metadaten-Backfill', () => {
       tmdbId: 562,
       collectionId: 1570,
       collectionChecked: true,
-      metadataVersion: 2,
+      metadataVersion: 3,
       metadataComplete: true,
       metadataUpdatedAt: '2026-09-13T09:00:00.000Z',
     })
@@ -83,8 +94,9 @@ describe('Movie-Hub-Metadaten-Backfill', () => {
           tmdbId: 11,
           type: 'movie',
           title: 'Vollständig',
-          metadataVersion: 2,
+          metadataVersion: 3,
           metadataComplete: true,
+          metadataChecks: completeChecks,
           collectionChecked: true,
           collectionId: null,
           metadataUpdatedAt: '2026-09-10T09:00:00.000Z',
@@ -115,8 +127,9 @@ describe('Movie-Hub-Metadaten-Backfill', () => {
           tmdbId: 1573,
           type: 'movie',
           title: 'TMDB #1573',
-          metadataVersion: 2,
+          metadataVersion: 3,
           metadataComplete: true,
+          metadataChecks: completeChecks,
           collectionChecked: true,
           collectionId: 1570,
           collectionDetails: collectionPayload,
@@ -139,7 +152,7 @@ describe('Movie-Hub-Metadaten-Backfill', () => {
     expect(set.mock.calls[0][0].titleRef).toMatchObject({
       tmdbId: 1573,
       title: 'Stirb langsam 2',
-      metadataVersion: 2,
+      metadataVersion: 3,
       metadataComplete: true,
     })
   })
@@ -155,8 +168,9 @@ describe('Movie-Hub-Metadaten-Backfill', () => {
           tmdbId: 11,
           type: 'movie',
           title: 'Alter fälliger Titel',
-          metadataVersion: 2,
+          metadataVersion: 3,
           metadataComplete: true,
+          metadataChecks: completeChecks,
           collectionChecked: true,
           metadataUpdatedAt: '2026-07-01T00:00:00.000Z',
         },
@@ -169,8 +183,9 @@ describe('Movie-Hub-Metadaten-Backfill', () => {
           tmdbId: 562,
           type: 'movie',
           title: 'Stirb langsam',
-          metadataVersion: 2,
+          metadataVersion: 3,
           metadataComplete: true,
+          metadataChecks: completeChecks,
           collectionChecked: true,
           metadataUpdatedAt: '2026-09-19T00:00:00.000Z',
         },

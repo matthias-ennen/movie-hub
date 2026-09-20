@@ -1,6 +1,11 @@
 import { TMDB_PROVIDER_REGISTRY } from '../providers/providerRegistry.js'
 import { selectTmdbArtwork } from './tmdbImages.js'
 import { normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
+import {
+  CURRENT_TITLE_METADATA_VERSION,
+  metadataCheckState,
+  metadataChecksComplete,
+} from '../catalog/titleMetadata.js'
 
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p'
 
@@ -252,14 +257,40 @@ export function normalizeTmdbTitle(payload, mediaType) {
   const collectionChecked = isMovie
     ? Object.prototype.hasOwnProperty.call(payload, 'belongs_to_collection')
     : null
-  const metadataComplete = Array.isArray(payload.genres)
   const artwork = selectTmdbArtwork(payload?.images, {
     primaryPosterPath: payload.poster_path,
     primaryBackdropPath: payload.backdrop_path,
   })
   const neutralPosterPath = artwork.posterPaths[0] || payload.poster_path || null
 
-  return {
+  const metadataChecks = {
+    details: metadataCheckState([title || originalTitle], Array.isArray(payload.genres)),
+    artwork: metadataCheckState([
+      payload.poster_path,
+      payload.backdrop_path,
+      ...(Array.isArray(payload.images?.posters) ? payload.images.posters : []),
+      ...(Array.isArray(payload.images?.backdrops) ? payload.images.backdrops : []),
+    ].filter(Boolean), Object.prototype.hasOwnProperty.call(payload, 'images')),
+    ageRating: metadataCheckState(
+      normalizeGermanAgeRating(payload, type),
+      Object.prototype.hasOwnProperty.call(payload, isMovie ? 'release_dates' : 'content_ratings'),
+    ),
+    credits: metadataCheckState([
+      ...(Array.isArray(payload.credits?.cast) ? payload.credits.cast : []),
+      ...(Array.isArray(payload.credits?.crew) ? payload.credits.crew : []),
+      ...(Array.isArray(payload.created_by) ? payload.created_by : []),
+    ], Object.prototype.hasOwnProperty.call(payload, 'credits')),
+    keywords: metadataCheckState(keywordPayload, Object.prototype.hasOwnProperty.call(payload, 'keywords')),
+    videos: metadataCheckState(payload.videos?.results, Object.prototype.hasOwnProperty.call(payload, 'videos')),
+    providers: metadataCheckState(
+      payload['watch/providers']?.results?.DE,
+      Object.prototype.hasOwnProperty.call(payload, 'watch/providers'),
+    ),
+    ...(isMovie
+      ? { collection: metadataCheckState(payload.belongs_to_collection, Object.prototype.hasOwnProperty.call(payload, 'belongs_to_collection')) }
+      : { seasons: metadataCheckState(payload.seasons, Object.prototype.hasOwnProperty.call(payload, 'seasons')) }),
+  }
+  const result = {
     source: 'tmdb',
     tmdbId: Number(payload.id),
     type,
@@ -290,8 +321,9 @@ export function normalizeTmdbTitle(payload, mediaType) {
     collectionId: collection?.id ?? null,
     collectionName: collection?.name ?? null,
     collectionChecked,
-    metadataComplete,
-    metadataVersion: 2,
+    metadataComplete: false,
+    metadataVersion: CURRENT_TITLE_METADATA_VERSION,
+    metadataChecks,
     voteAverage: Number.isFinite(Number(payload.vote_average)) ? Number(payload.vote_average) : null,
     voteCount: Number.isFinite(Number(payload.vote_count)) ? Number(payload.vote_count) : null,
     popularity: Number.isFinite(Number(payload.popularity)) ? Number(payload.popularity) : null,
@@ -306,6 +338,8 @@ export function normalizeTmdbTitle(payload, mediaType) {
     status: payload.status || null,
     ageRating: normalizeGermanAgeRating(payload, type),
   }
+  result.metadataComplete = metadataChecksComplete(result)
+  return result
 }
 
 export function toMovieHubTitle(normalized, options = {}) {
@@ -330,7 +364,17 @@ export function toMovieHubTitle(normalized, options = {}) {
     ? providerOffers.map((provider) => provider.id).filter(Boolean)
     : Array.isArray(options.providerIds) ? options.providerIds : []
 
-  return {
+  const metadataChecks = {
+    ...(normalized.metadataChecks || {}),
+    ...(Object.prototype.hasOwnProperty.call(options, 'videos')
+      ? { videos: metadataCheckState(options.videos, true) }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(options, 'providerIds')
+      || Object.prototype.hasOwnProperty.call(options, 'providerOffers')
+      ? { providers: metadataCheckState(options.providerIds || options.providerOffers, true) }
+      : {}),
+  }
+  const result = {
     ...normalized,
     id: options.id || `tmdb-${normalized.type}-${normalized.tmdbId}`,
     meta: meta || (normalized.type === 'series' ? 'Serie' : 'Film'),
@@ -342,5 +386,9 @@ export function toMovieHubTitle(normalized, options = {}) {
     videos: Array.isArray(options.videos) ? options.videos : [],
     accent: options.accent || '#657184',
     accent2: options.accent2 || '#1c2531',
+    metadataChecks,
+    metadataComplete: false,
   }
+  result.metadataComplete = metadataChecksComplete(result)
+  return result
 }

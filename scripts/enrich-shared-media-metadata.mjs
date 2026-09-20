@@ -124,9 +124,13 @@ export async function runSharedMediaMetadataBackfill({
       snapshot,
       index,
       validDocument,
-      incomplete: titleRef?.metadataComplete !== true,
+      incomplete: titleNeedsMetadataEnrichment(titleRef, { requireContract: true }),
       changed: queuedChanges.has(key),
-      due: validDocument && titleNeedsMetadataEnrichment(titleRef, { now: now.getTime(), maxAgeDays: ageDays }),
+      due: validDocument && titleNeedsMetadataEnrichment(titleRef, {
+        now: now.getTime(),
+        maxAgeDays: ageDays,
+        requireContract: true,
+      }),
     }
   }).filter((candidate) => candidate.validDocument && (candidate.due || candidate.changed))
     .sort((left, right) => {

@@ -1,12 +1,58 @@
 import { describe, expect, it } from 'vitest'
 import {
   isUsableTitle,
+  metadataChecksComplete,
   mergeEnrichedTitle,
   sameTmdbTitle,
   titleNeedsMetadataEnrichment,
 } from '../src/catalog/titleMetadata.js'
 
+const completeChecks = {
+  details: 'present',
+  artwork: 'present',
+  ageRating: 'absent',
+  credits: 'present',
+  keywords: 'absent',
+  videos: 'absent',
+  providers: 'present',
+  collection: 'absent',
+}
+
 describe('kanonische Titelmetadaten', () => {
+  it('accepts checked negative values but rejects unchecked and failed contract groups', () => {
+    const complete = {
+      tmdbId: 562,
+      type: 'movie',
+      title: 'Stirb langsam',
+      metadataVersion: 3,
+      metadataComplete: true,
+      metadataChecks: completeChecks,
+      collectionChecked: true,
+    }
+    expect(metadataChecksComplete(complete)).toBe(true)
+    expect(titleNeedsMetadataEnrichment(complete, { requireContract: true })).toBe(false)
+    expect(metadataChecksComplete({
+      ...complete,
+      metadataChecks: { ...completeChecks, videos: 'unchecked' },
+    })).toBe(false)
+    expect(metadataChecksComplete({
+      ...complete,
+      metadataChecks: { ...completeChecks, videos: 'failed' },
+    })).toBe(false)
+  })
+
+  it('requires the new contract explicitly while legacy callers remain migratable', () => {
+    const legacy = {
+      tmdbId: 562,
+      type: 'movie',
+      title: 'Stirb langsam',
+      metadataVersion: 2,
+      metadataComplete: true,
+      collectionChecked: true,
+    }
+    expect(titleNeedsMetadataEnrichment(legacy)).toBe(false)
+    expect(titleNeedsMetadataEnrichment(legacy, { requireContract: true })).toBe(true)
+  })
   it('erkennt ungeprüfte Filme und fehlende Collection-Details als unvollständig', () => {
     expect(titleNeedsMetadataEnrichment({ tmdbId: 562, type: 'movie', metadataVersion: 1 })).toBe(true)
     expect(titleNeedsMetadataEnrichment({

@@ -80,9 +80,13 @@ export async function runPersonalTmdbMetadataBackfill({
       snapshot,
       index,
       validDocument,
-      incomplete: data?.metadataComplete !== true,
+      incomplete: titleNeedsMetadataEnrichment(data, { requireContract: true }),
       changed: queuedChanges.has(personalTitleKey(data)),
-      due: validDocument && titleNeedsMetadataEnrichment(data, { now: now.getTime(), maxAgeDays: ageDays }),
+      due: validDocument && titleNeedsMetadataEnrichment(data, {
+        now: now.getTime(),
+        maxAgeDays: ageDays,
+        requireContract: true,
+      }),
     }
   }).filter((candidate) => candidate.validDocument && (candidate.due || candidate.changed))
     .sort((left, right) => {

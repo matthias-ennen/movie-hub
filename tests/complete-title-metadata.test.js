@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { loadCompleteTitleMetadata } from '../src/catalog/loadCompleteTitleMetadata.js'
+import {
+  IncompleteTitleMetadataError,
+  loadCompleteTitleMetadata,
+} from '../src/catalog/loadCompleteTitleMetadata.js'
+
+const completeChecks = {
+  details: 'present',
+  artwork: 'present',
+  ageRating: 'absent',
+  credits: 'present',
+  keywords: 'absent',
+  videos: 'absent',
+  providers: 'present',
+  collection: 'absent',
+}
 
 describe('vollständige Titelmetadaten', () => {
   it('uses the secure native source when the published detail is incomplete', async () => {
@@ -56,5 +70,41 @@ describe('vollständige Titelmetadaten', () => {
     expect(nativeCalls).toBe(1)
     expect(result.title).toBe('Gremlins 2 - Die Rückkehr der kleinen Monster')
     expect(result.metadataComplete).toBe(true)
+  })
+
+  it('requires the strict contract for search-only details and preserves provider membership', async () => {
+    const item = {
+      id: 'tmdb-movie-562',
+      tmdbId: 562,
+      type: 'movie',
+      title: 'Stirb langsam',
+      providerIds: ['prime'],
+    }
+    const result = await loadCompleteTitleMetadata(item, {
+      requireContract: true,
+      requireComplete: true,
+      loadPublished: async () => ({ ...item, metadataVersion: 2, metadataComplete: true, collectionChecked: true }),
+      loadNative: async () => ({
+        ...item,
+        providerIds: [],
+        metadataVersion: 3,
+        metadataComplete: true,
+        metadataChecks: completeChecks,
+        collectionChecked: true,
+      }),
+    })
+
+    expect(result.metadataVersion).toBe(3)
+    expect(result.providerIds).toEqual(['prime'])
+  })
+
+  it('rejects an atomic search-only open when no complete source is available', async () => {
+    const item = { id: 'tmdb-movie-562', tmdbId: 562, type: 'movie', title: 'Stirb langsam' }
+    await expect(loadCompleteTitleMetadata(item, {
+      requireContract: true,
+      requireComplete: true,
+      loadPublished: async () => ({ ...item, metadataVersion: 2, metadataComplete: true, collectionChecked: true }),
+      loadNative: async () => null,
+    })).rejects.toBeInstanceOf(IncompleteTitleMetadataError)
   })
 })
