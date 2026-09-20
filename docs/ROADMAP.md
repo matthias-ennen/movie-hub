@@ -41,6 +41,8 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 
 #256 ist nach dem vollständig abgenommenen und geschlossenen #4 das nächste Arbeitspaket. Vor der Programmierung erfolgt nur noch eine kurze technische Scope-Kontrolle.
 
+Aktueller Umsetzungsschritt: Der V3-Vollständigkeitsvertrag und der atomare Search-only-Ladeweg sind umgesetzt. Als nächster kontrollierter Baustein wird die rein lesende Quelleninventur nach `Medientyp + TMDB-ID` eingeführt. Sie veröffentlicht oder überschreibt noch keine Metadaten; die Prioritätswarteschlange folgt erst nach Prüfung des ersten realen Inventarlaufs. Details: [Kanonischer Titelkandidatenbestand](TITLE_CANDIDATE_INVENTORY.md).
+
 Verbindlicher Umfang:
 
 - katalogrelevante Titel aus Browse/Anbietern, persönlichem TMDB-Katalog, Movie Hub und `waipu-live` zu einem kanonischen Bestand nach `Medientyp + TMDB-ID` zusammenführen;
