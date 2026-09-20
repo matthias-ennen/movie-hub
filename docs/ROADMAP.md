@@ -75,6 +75,25 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 - automatisierte, dauerhafte oder über sieben Pilotsender hinausgehende
   Verteilung bleibt bis zur Rechte- und API-Klärung gesperrt
 
+## Bestandsaufnahme und Triage vor dem nächsten Umsetzungspaket
+
+Die Beobachtungen zum Referenzstand APK 0.1.473 sind in #254 gesammelt und in
+[Bestandsaufnahme ab APK 0.1.473](APP_REVIEW_0.1.473.md) strukturiert. Wegen der
+Größe von #254 werden weitere Beobachtungen, offene Entscheidungen und die
+Paketbildung in #255 fortgeführt.
+
+Verbindliches Ziel ist eine gemeinsame technische Inhaltsseiten-Grundlage für
+**Home, Filme, Serien, TV und Meine Inhalte**. Bewährte Seiten-, Hero-,
+Posterreihen-, Fokus-, Lade- und Detailseitenlogik wird gemeinsam genutzt;
+TV ergänzt ausschließlich die fachlich notwendigen Zeit-, Sender- und
+Ausstrahlungszustände.
+
+Die dort vorgeschlagenen Pakete sind noch keine automatischen
+Programmieraufträge. Vor dem Start von #118 wird gemeinsam entschieden, welche
+Korrekturen zwingend davor liegen und welche später gebündelt werden. Jedes
+gewählte Paket beginnt mit einem kurzen Klärungsblock zu seinen ausdrücklich
+registrierten offenen Fragen.
+
 ## Danach geplante Arbeitspakete
 
 ### 1. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
@@ -105,9 +124,9 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 
 ## Aktuelle Abhängigkeitskette
 
-`#4A → #4B → #4C → #4D → #4E → #4F → #4G → #4H → #4I → #118 → #7`
+`#4A → #4B → #4C → #4D → #4E → #4F → #4G → #4H → #4I → Triage #254/#255 → #118 → #7`
 
-Der begrenzte 7-Sender-Testbestand von #4 ist für die Geräteabnahme freigegeben.
+Der veröffentlichte 50-Sender-Bestand von #4 ist für den Funktionstest und die Geräteabnahme freigegeben.
 Der spätere automatisierte, dauerhafte oder erweiterte öffentliche Betrieb
 bleibt zusätzlich durch die Compliance-Prüfung #112 gesperrt. Vor Beginn jedes
 aktiven Pakets wird dessen Scope noch einmal kurz gegen den dann aktuellen
