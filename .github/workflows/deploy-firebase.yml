@@ -67,6 +67,7 @@ jobs:
             artifacts/waipu-sync
             artifacts/waipu-live/match-decisions.json
             artifacts/waipu-live/detail-status.json
+            artifacts/waipu-live/unresolved.json
           key: waipu-fifty-v1-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             waipu-fifty-v1-
@@ -161,6 +162,7 @@ jobs:
             artifacts/waipu-sync
             artifacts/waipu-live/match-decisions.json
             artifacts/waipu-live/detail-status.json
+            artifacts/waipu-live/unresolved.json
           key: waipu-fifty-v1-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Report data fill levels
@@ -221,6 +223,16 @@ jobs:
         if: ${{ steps.personal_tmdb_metadata.outcome == 'success' }}
         run: npm run tmdb:changes:ack -- personal-tmdb-metadata
 
+      # Read-only consolidation checkpoint for #256. This records the union and
+      # overlap of every catalog-relevant source, but does not fetch TMDB data,
+      # publish public files or execute the future priority queue.
+      - name: Inventory canonical title candidates
+        id: candidate_inventory
+        continue-on-error: true
+        env:
+          GOOGLE_CLOUD_PROJECT: movie-hub-62459
+        run: npm run title:candidates:inventory
+
       - name: Validate TMDB change consumers before publication
         if: ${{ steps.tmdb_changes.outcome == 'success' }}
         run: npm run tmdb:changes:verify -- --exclude firebase-publication
@@ -257,6 +269,7 @@ jobs:
           SUMMARY_PRESENCE: ${{ steps.presence_migration.outcome }}
           SUMMARY_METADATA: ${{ steps.shared_metadata.outcome }}
           SUMMARY_PERSONAL_TMDB: ${{ steps.personal_tmdb_metadata.outcome }}
+          SUMMARY_CANDIDATE_INVENTORY: ${{ steps.candidate_inventory.outcome }}
           SUMMARY_BUILD: ${{ steps.app_build.outcome }}
           SUMMARY_AUTH: ${{ steps.gcp_auth.outcome }}
           SUMMARY_DEPLOY: ${{ steps.firebase_deploy.outcome }}
@@ -268,6 +281,15 @@ jobs:
         with:
           name: search-index-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/search-index-run-report.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Upload title-candidate inventory summary
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: title-candidate-inventory-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/title-candidate-inventory-summary.json
           if-no-files-found: ignore
           retention-days: 30
 

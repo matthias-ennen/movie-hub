@@ -263,6 +263,7 @@ export async function buildWaipuLiveCatalog({
   }
 
   const matchesByProgram = new Map()
+  const unresolvedPrograms = []
   const candidatesFor = createCandidateLookup(candidates)
   let programIndex = 0
   for (const [programId, programBroadcasts] of byProgram) {
@@ -315,6 +316,15 @@ export async function buildWaipuLiveCatalog({
     })
     if (decision.status !== 'matched') {
       increment(metrics.matchRejected, decision.reason || 'unmatched')
+      unresolvedPrograms.push({
+        programId,
+        type: normalized.type,
+        title: normalized.title,
+        originalTitle: normalized.originalTitle || null,
+        productionYear: normalized.productionYear || null,
+        reason: decision.reason || 'unmatched',
+        source: decision.source || null,
+      })
       if (typeof searchTmdb !== 'function' && decision.source === 'local') {
         metrics.matchSearchUnavailable += 1
       }
@@ -438,6 +448,13 @@ export async function buildWaipuLiveCatalog({
     stations: stationArtifact(selectedStations),
     titles: titleArtifact(titles),
     shards,
+    unresolved: {
+      schemaVersion: 1,
+      kind: 'waipu-unresolved-programs',
+      generatedAt,
+      count: unresolvedPrograms.length,
+      entries: unresolvedPrograms.sort((left, right) => left.programId.localeCompare(right.programId)),
+    },
     decisions,
   }
 }
@@ -619,6 +636,7 @@ async function main() {
     : null
   const lockPath = resolve(process.env.WAIPU_SYNC_LOCK || resolve(projectRoot, 'artifacts/waipu-sync/active.lock'))
   const detailStatusPath = resolve(process.env.WAIPU_DETAIL_STATUS || resolve(projectRoot, 'artifacts/waipu-live/detail-status.json'))
+  const unresolvedPath = resolve(process.env.WAIPU_UNRESOLVED_REPORT || resolve(projectRoot, 'artifacts/waipu-live/unresolved.json'))
   await withWaipuSingleFlight(lockPath, async () => {
     const decisions = await WaipuMatchDecisionStore.load(decisionsPath)
     if (live && !resetCircuit) {
@@ -681,6 +699,7 @@ async function main() {
         tmdbMetadataRequests: tmdbMetadataClient?.requestsStarted || 0,
       }
       await writeWaipuLiveCatalog(output, liveCatalog)
+      await writeJsonAtomic(unresolvedPath, liveCatalog.unresolved)
       if (live) {
         await writeJsonAtomic(detailStatusPath, {
           schemaVersion: 1,

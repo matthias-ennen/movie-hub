@@ -8,6 +8,8 @@ Der veröffentlichte `catalog.json`-Titel ist der kanonische öffentliche Ist-Zu
 
 Die zentrale Merge-Semantik liegt in `src/catalog/titleMetadata.js` (`mergeEnrichedTitle`). UI-Komponenten enthalten keine eigenen Reparaturregeln.
 
+Die vorgelagerte, rein lesende Zusammenführung der katalogrelevanten Identitäten ist in [Kanonischer Titelkandidatenbestand](TITLE_CANDIDATE_INVENTORY.md) beschrieben. Der Suchindex klassifiziert dabei Search-only-Titel, erweitert aber allein nicht die nächtliche Voranreicherung.
+
 ## Inventarisierte Quellen und Wege
 
 | Quelle/Weg | Rolle | Erwartete Vollständigkeit | Merge-Regel |

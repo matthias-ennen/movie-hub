@@ -33,6 +33,16 @@ describe('kompakter Workflow-Datenbericht', () => {
       waipuSync: { metrics: { slotsProcessed: 3600, requestsStarted: 3650, slotsSkippedByCheckpoint: 600, retries: 2 } },
       metadata: { scanned: 150, candidates: 20, updated: 19, failed: 1 },
       personalMetadata: { scanned: 80, candidates: 12, updated: 12, failed: 0 },
+      candidateInventory: {
+        counts: {
+          rawCandidateReferences: 1900,
+          canonicalCandidates: 1500,
+          deduplicatedReferences: 400,
+          overlappingCandidates: 300,
+          searchOnlyTitles: 16308,
+        },
+        unresolvedWaipu: { programs: 17 },
+      },
       searchRun: {
         scans: { expected: 155, completed: 155, capped: 61 },
         index: { baselineAvailable: true, addedCount: 240, removedCount: 1167, changedOfferCount: 83 },
@@ -61,6 +71,7 @@ describe('kompakter Workflow-Datenbericht', () => {
         waipuCatalog: 'success',
         metadata: 'success',
         personalMetadata: 'success',
+        candidateInventory: 'success',
         presence: 'success',
         build: 'success',
         auth: 'success',
@@ -70,7 +81,7 @@ describe('kompakter Workflow-Datenbericht', () => {
     })
 
     const markdown = workflowSummaryMarkdown(summary)
-    expect(summary.rows).toHaveLength(12)
+    expect(summary.rows).toHaveLength(13)
     expect(markdown).toContain('Lauf #321')
     expect(markdown).toContain('| Waipu EPG | ✅ erfolgreich | 50 Sender')
     expect(markdown).toContain('3.600 zugeordnet · 830/830 Metadaten vollständig')
@@ -79,7 +90,8 @@ describe('kompakter Workflow-Datenbericht', () => {
     expect(markdown).toContain('| TMDB-Änderungen | ✅ erfolgreich | 27 Filme · 13 Serien neu gemeldet')
     expect(markdown).toContain('| Suchindex | ✅ erfolgreich | 20.000 · 12.000 Filme · 8.000 Serien | +240 hinzu · -1.167 entfallen · 83 Angebote geändert | 155/155 Scans · 61 begrenzt · 256 Shards |')
     expect(markdown).toContain('| Persönliche TMDB-Metadaten | ✅ erfolgreich | 80 geprüft · 12 ausgewählt')
-    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(14)
+    expect(markdown).toContain('| Kanonische Titelkandidaten | ✅ erfolgreich | 1.500 Titel aus 1.900 Referenzen | 400 Dubletten entfernt · 300 Mehrfachzuordnungen | 16.308 nur Suche · 17 Waipu ungeklärt |')
+    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(15)
   })
 
   it('bleibt bei fehlenden optionalen Artefakten lesbar', () => {

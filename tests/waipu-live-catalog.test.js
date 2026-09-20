@@ -310,6 +310,17 @@ describe('Waipu live catalog publication', () => {
     expect(catalog.index.releaseChannel).toBe('test')
     expect(catalog.index.counts).toEqual({ stations: 1, titles: 0, broadcasts: 0 })
     expect(catalog.index.metrics.matchSearchUnavailable).toBe(1)
+    expect(catalog.unresolved).toMatchObject({
+      kind: 'waipu-unresolved-programs',
+      count: 1,
+      entries: [{
+        programId: 'program-1',
+        type: 'movie',
+        title: 'The Man from Toronto',
+        reason: 'no_candidate',
+        source: 'local',
+      }],
+    })
   })
 
   it('writes a validated generation through an atomic directory swap', async () => {
