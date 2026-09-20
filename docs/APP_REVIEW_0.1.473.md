@@ -51,7 +51,7 @@ Das Ziel ist nicht, alle Seiten optisch gleichzumachen. Das Ziel ist eine gemein
 | 3 | Fokus nach Reiterauswahl | Bewusste Auswahl von Home, Filme, Serien, TV oder Meine Inhalte setzt den Fokus auf den Hero beziehungsweise das erste Inhaltselement. Kein späteres automatisches Fokus-Stehlen. | Gemeinsame Inhaltsseiten |
 | 4 | TV-Hero und Einstellungen | TV erhält einen Hero und dieselbe steuerbare Modul-/Reihenlogik wie die übrigen Inhaltsseiten. | Gemeinsame Inhaltsseiten / TV |
 | 5 | TV-Zeitfenster | Nicht der vollständige 14-Tage-Bestand wird gleichzeitig gerendert. Die App zeigt begrenzte, zeitbezogene Ausschnitte; vierstündige Fenster sind nur eine Arbeitsannahme. | TV-Videothek |
-| 6 | TV-Detailseite und Metadaten | Karten und Details müssen bereits mit vollständigen kanonischen TMDB-Daten erscheinen; kein Qualitätsgewinn erst nach Öffnen der Detailseite. | TV-Metadaten |
+| 6 | TV-Detailseite und Metadaten | Karten und Details müssen bereits mit vollständigen kanonischen TMDB-Daten erscheinen; kein Qualitätsgewinn erst nach Öffnen der Detailseite. | #256 – Datenfundament |
 | 7 | Gemeinsamer Seitenbaukasten | Home, Filme, Serien, TV und Meine Inhalte verwenden dieselben belastbaren Grundbausteine und Interaktionsregeln. | Gemeinsame Inhaltsseiten |
 | 8 | Einstieg in laufende TV-Reihe | Beim Betreten der laufenden Reihe soll die zuletzt gestartete, noch laufende Sendung fokussiert und sinnvoll sichtbar ausgerichtet sein. Frühere laufende Titel bleiben links erreichbar. | TV-Videothek |
 | 9 | Überschrift und Abstände | TV beginnt mit „Das Fernsehprogramm“. Waipu wird dort nicht als Seitentitel genannt. Der vertikale Abstand ober- und unterhalb der entsprechenden Seitenüberschriften soll ungefähr halbiert werden. | Gemeinsame Inhaltsseiten |
@@ -87,17 +87,25 @@ Ziel:
 - `BALD` und `ON AIR` eindeutig und platzsparend darstellen;
 - Sendungen nicht einfach als vierzehn lange Tagesreihen ausgeben.
 
-### C. Vollständige TV-Metadaten und schnelle Details
+### C. #256 – Katalogübergreifendes Datenfundament
 
-Enthält Punkt 6 und ist technische Voraussetzung für eine hochwertige TV-Darstellung.
+Enthält Punkt 6, wurde über TV hinaus katalogübergreifend erweitert und ist das nächste eigenständige Arbeitspaket nach dem abgeschlossenen #4.
 
-Ziel:
+Verbindliches Ziel:
 
-- kanonische Identität immer als Medientyp plus TMDB-ID behandeln;
-- Ausstrahlungsdaten nur als Ergänzung zum kanonischen Titel führen;
-- Karten, Such-/Browse-Daten und Detailseite aus demselben vollständigen Metadatenstand speisen;
-- fehlende FSK-, Anbieter- oder sonstige TMDB-Daten nicht erst beim Öffnen sichtbar nachladen;
-- gewünschte Lade- und Cache-Grenzen messbar festlegen.
+- pro `Medientyp + TMDB-ID` genau einen kanonischen öffentlichen Titeldatensatz führen;
+- sichtbare Anbieter-, Waipu-, Movie-Hub- und persönliche Katalogtitel vor der Veröffentlichung vollständig prüfen und anreichern;
+- reine Suchindex-Titel weiterhin erst beim Öffnen vollständig laden dürfen, dann aber mit geschlossenem Ladezustand statt sichtbarem schrittweisen Seitenaufbau;
+- `metadataComplete` als „alle vorgesehenen Quellen/Felder geprüft“ definieren; optionale bei TMDB fehlende Felder blockieren nicht;
+- die Zustände „geprüft und vorhanden“, „geprüft und nicht vorhanden“ sowie „noch nicht geprüft/Abruf fehlgeschlagen“ technisch unterscheiden;
+- TMDB-Änderungslisten als tägliche Schnellspur und einen rollierenden 30-Tage-Umlauf als Sicherheitsnetz verwenden;
+- alle Quellen in einer gemeinsamen, nach `Medientyp + TMDB-ID` deduplizierten Prioritätswarteschlange zusammenführen;
+- normale Code-Deployments vom planmäßigen beziehungsweise manuellen Datenlauf trennen;
+- eine neue Generation erst nach vollständiger Prüfung aller zusammengehörigen Artefakte atomar veröffentlichen;
+- den letzten gültigen Datenbestand bei Teilfehlern beibehalten;
+- verspätete oder ausgefallene Nachtläufe und einen zu alten Datenstand sichtbar melden und den fehlenden TMDB-Changes-Zeitraum lückenlos nachholen.
+
+Die vollständige Spezifikation, Abgrenzung und Abnahme steht verbindlich in [Issue #256](https://github.com/matthias-ennen/movie-hub/issues/256). #200 liefert die bereits umgesetzte 30-Tage-Aktualisierung reiner Suchdetails; #256 führt die katalogübergreifende Orchestrierung, Validierung und Veröffentlichung zusammen.
 
 ### D. Trailer und Teaser
 
@@ -154,12 +162,15 @@ Die folgenden Fragen sind bewusst **nicht heute zu entscheiden**. Sie werden bei
 - Wie genau sehen Zeitmarkierung, Jetzt-Grenze und Kartenstatus aus?
 - Welche TV-Reihen lassen sich einzeln ein-/ausschalten und umsortieren?
 
-### Paket C – TV-Metadaten
+### Paket C – #256 Datenfundament
 
-- Welche Felder müssen bereits auf Karte und Detailseite garantiert vollständig sein?
-- Welche Ladezeit gilt auf Fire TV, Smartphone und Tablet als Abnahmegrenze?
-- Was zeigt die App, wenn TMDB vorübergehend nicht erreichbar ist, aber ein letzter gültiger Katalog vorliegt?
-- Wann darf eine Ausstrahlung ohne eindeutige TMDB-Zuordnung sichtbar werden – falls überhaupt?
+Die fachlichen Grundentscheidungen sind in #256 dokumentiert. Vor der Programmierung bleibt nur eine kurze letzte Scope-Kontrolle:
+
+- alle realen Titelquellen und erzeugten Artefakte gegen den aktuellen Repository-Stand inventarisieren;
+- sicherstellen, dass die neue gemeinsame Orchestrierung die abgeschlossenen Mechanismen aus #200, #207 und #225 wiederverwendet statt dupliziert;
+- Kapazitätsgrenzen so festlegen, dass neue und von TMDB gemeldete Änderungen vor dem normalen 30-Tage-Umlauf verarbeitet werden;
+- harte Veröffentlichungsgates und die gemeinsame Generationskennung technisch konkretisieren;
+- prüfen, wie Verzögerung, Ausfall und Alter des letzten gültigen Datenstands im Workflow-Bericht ausgewiesen werden.
 
 ### Paket D – Trailer und Teaser
 
@@ -183,18 +194,17 @@ Die folgenden Fragen sind bewusst **nicht heute zu entscheiden**. Sie werden bei
 
 ## Reihenfolge und Wiedereinstieg
 
-Die bestätigte Hauptreihenfolge bleibt zunächst:
+Die bestätigte Reihenfolge lautet jetzt:
 
-`#4 → #118 → #7`
+`#4 abgeschlossen → #256 Datenfundament → weitere Triage A/B/D/E → #118 → #7`
 
-Die Bestandsaufnahme ändert diese Reihenfolge nicht automatisch. Vor #118 findet ein kurzer Triage-Schritt statt:
+Nächster Wiedereinstieg:
 
-1. offene Abschlussabnahme von #4 prüfen;
-2. die Paketbildung A bis E gemeinsam bestätigen oder verändern;
-3. entscheiden, welche zwingenden Korrekturen vor #118 liegen und welche später gebündelt werden;
-4. für das zuerst gewählte Paket die zugehörigen Fragen einzeln klären;
-5. Scope und Abnahmekriterien in das konkrete Umsetzungsissue schreiben;
-6. erst danach implementieren, bauen und auf den Zielgeräten abnehmen.
+1. #4 bleibt vollständig abgenommen und geschlossen;
+2. #256 erhält unmittelbar vor der Umsetzung eine kurze technische Scope-Kontrolle gegen den aktuellen Repository-Stand;
+3. anschließend wird #256 umgesetzt, geprüft und dokumentiert;
+4. danach werden die verbleibenden Pakete A, B, D und E gemeinsam priorisiert;
+5. jedes weitere Paket beginnt mit seinen noch offenen fachlichen Fragen und klaren Abnahmekriterien.
 
 ## Dokumentationsregel für die Fortsetzung
 
