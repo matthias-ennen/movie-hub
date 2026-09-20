@@ -31,49 +31,30 @@ Zu den zuletzt abgeschlossenen bzw. abgenommenen Paketen gehören insbesondere:
 - #225 – kanonische Katalogdaten bei Metadaten-Anreicherung verlustfrei erhalten
 - #228 – robuster nativer Kaltstart ohne zusätzlichen Tastendruck
 - #117 – Dependency-Audit und Security-Hygiene
+- #4 – öffentlicher Waipu-Live-Katalog einschließlich 50-Sender-Bestand, TV-Integration und Geräteabnahme
 
 Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zuletzt am 18.09.2026 abgenommen.
 
 ## Aktuelles Arbeitspaket
 
-### #4 – Öffentlichen Waipu-Live-Katalog aus dem Waipu-EPG erzeugen
+### #256 – Datenfundament: vollständige kanonische Titelmetadaten vor Veröffentlichung
 
-- #4A: FreeEPG-Qualitätsprototyp technisch abgeschlossen; Quelle wegen
-  veralteter Programmdaten ungeeignet
-- der bisherige Konto-/OAuth-Prototyp #4B bleibt als technischer Versuch
-  dokumentiert, ist aber keine Voraussetzung mehr
-- **#4B abgeschlossen:** öffentlicher Datenvertrag, vollständiger
-  Sieben-Sender-/14-Tage-Nachweis, reale Film-/Seriendetails, TMDB-Stichprobe,
-  Cache-Verhalten, Requestkosten und sichere Lastgrenzen bestätigt
-- **#4C abgeschlossen:** öffentlicher Read-only-Adapter, defensive
-  Normalisierung und persistenter Sender-/Slot-/ETag-/Detailcache umgesetzt
-- **#4D abgeschlossen:** rollierenden, budgetierten Import mit Checkpoints,
-  Backoff, Circuit Breaker und stufenweiser Senderfreigabe eingerichtet
-- **#4E abgeschlossen:** Film-/Serienklassifikation, TMDB-Matching und
-  getrennten `waipu-live`-Katalog erzeugt
-- **#4F abgeschlossen:** erste Ausbaustufe mit normalem Waipu-Badge, fester
-  Badge-Priorität und konkreten Sendeterminen umgesetzt
-- **#4G technisch umgesetzt:** zweite Ausbaustufe mit eigener TV-Registerkarte
-  und chronologischen 14-Tage-Posterkarten. Die TV-Seite enthält bewusst keine
-  Senderauswahl; alle Sender sind standardmäßig aktiv und lassen sich nur in
-  den kontoweiten Einstellungen einzeln ausblenden
-- **#4H aktiv:** Der persistente tägliche TMDB→Waipu→Firebase-Lauf ist
-  eingerichtet. Die technisch freigegebene 50-Sender-Stufe hat am 19.09.2026
-  einen vollständigen Lauf mit 1.040 Titeln, 7.903 Ausstrahlungen und
-  1.040/1.040 vollständigen TMDB-Metadatensätzen bestanden. Die getrennte
-  Langzeitmessung und Geräteabnahme bleiben offen; sie blockieren den
-  Funktionstest nicht
-- **#4I technisch umgesetzt:** Waipu-Termin als einzelne Zeile unter
-  „Wo anschauen?“, einheitliche TV-Posterkarten, zeitgenauer statischer
-  ON-AIR-Badge und vollständige „Gesehen“-Markierung auch für Movie-Hub-,
-  HTTP- und SMB-Aufrufe. Automatisierte Prüfung ist erfolgt; die gemeinsame
-  Geräteabnahme steht noch aus
-- Movie Hub fragt keine Waipu-Zugangsdaten ab und speichert keine Waipu-Token
-- ein persönlicher Paket-/Senderfilter kann später optional ergänzt werden,
-  blockiert aber den öffentlichen Live-Katalog nicht
-- Waiputhek/VOD, Streaming, Aufnahmen und DRM bleiben ausdrücklich ausgeschlossen
-- automatisierte, dauerhafte oder über sieben Pilotsender hinausgehende
-  Verteilung bleibt bis zur Rechte- und API-Klärung gesperrt
+#256 ist nach dem vollständig abgenommenen und geschlossenen #4 das nächste Arbeitspaket. Vor der Programmierung erfolgt nur noch eine kurze technische Scope-Kontrolle.
+
+Verbindlicher Umfang:
+
+- katalogrelevante Titel aus Browse/Anbietern, persönlichem TMDB-Katalog, Movie Hub und `waipu-live` zu einem kanonischen Bestand nach `Medientyp + TMDB-ID` zusammenführen;
+- vollständige Titel serverseitig wiederverwenden und fehlende beziehungsweise veraltete Metadaten zentral ergänzen;
+- `metadataComplete` als vollständig geprüft definieren, ohne optionale bei TMDB nicht vorhandene Felder zu erzwingen;
+- TMDB-Änderungslisten als tägliche Schnellspur für Korrekturen, neue Trailer und andere Änderungen nutzen;
+- vollständige Titel zusätzlich rollierend nach spätestens 30 Tagen erneut prüfen; die in #200 umgesetzte Suchdetail-Logik wird eingebunden;
+- eine gemeinsame deduplizierte Prioritätswarteschlange für neue, fehlerhafte, geänderte und altersbedingt fällige Titel führen;
+- normale Code-Deployments vom planmäßigen beziehungsweise manuellen Datenlauf trennen;
+- alle zusammengehörigen Artefakte mit gemeinsamer Generationskennung validieren und atomar veröffentlichen;
+- bei jedem Teilfehler den letzten gültigen Stand online lassen;
+- verspätete oder ausgefallene Nachtläufe sichtbar melden und fehlende Changes-Zeiträume kontrolliert nachholen.
+
+Reine Suchindex-Titel außerhalb aller sichtbaren Kataloge müssen nicht vorangereichert werden. Beim Öffnen dürfen sie vollständig geladen werden, zeigen bis dahin jedoch ausschließlich einen klaren Ladezustand und anschließend die vollständige Detailseite auf einmal.
 
 ## Bestandsaufnahme und Triage vor dem nächsten Umsetzungspaket
 
@@ -89,9 +70,10 @@ TV ergänzt ausschließlich die fachlich notwendigen Zeit-, Sender- und
 Ausstrahlungszustände.
 
 Die dort vorgeschlagenen Pakete sind noch keine automatischen
-Programmieraufträge. Vor dem Start von #118 wird gemeinsam entschieden, welche
-Korrekturen zwingend davor liegen und welche später gebündelt werden. Jedes
-gewählte Paket beginnt mit einem kurzen Klärungsblock zu seinen ausdrücklich
+Programmieraufträge. #256 wurde daraus als eigenständiges nächstes
+Datenfundament-Paket ausgearbeitet. Die übrigen UI-, TV-, Trailer- und
+Erinnerungspakete werden erst nach #256 weiter priorisiert. Jedes gewählte
+Paket beginnt mit einem kurzen Klärungsblock zu seinen ausdrücklich
 registrierten offenen Fragen.
 
 ## Danach geplante Arbeitspakete
@@ -124,10 +106,6 @@ registrierten offenen Fragen.
 
 ## Aktuelle Abhängigkeitskette
 
-`#4A → #4B → #4C → #4D → #4E → #4F → #4G → #4H → #4I → Triage #254/#255 → #118 → #7`
+`#4 abgeschlossen → #256 Datenfundament → weitere Triage #254/#255 → #118 → #7`
 
-Der veröffentlichte 50-Sender-Bestand von #4 ist für den Funktionstest und die Geräteabnahme freigegeben.
-Der spätere automatisierte, dauerhafte oder erweiterte öffentliche Betrieb
-bleibt zusätzlich durch die Compliance-Prüfung #112 gesperrt. Vor Beginn jedes
-aktiven Pakets wird dessen Scope noch einmal kurz gegen den dann aktuellen
-Stand geprüft.
+#4 ist vollständig abgenommen und geschlossen. Der veröffentlichte 50-Sender-Bestand bleibt der gültige Ausgangsstand. Eine spätere Erweiterung oder öffentliche Verteilung bleibt von der Compliance-Prüfung #112 abhängig. Vor Beginn von #256 wird dessen Scope einmal kurz gegen den aktuellen Repository-Stand geprüft.
