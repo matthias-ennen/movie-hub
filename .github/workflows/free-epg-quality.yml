@@ -1,10 +1,9 @@
 name: FreeEPG Quality
 
 on:
-  schedule:
-    # One central probe per day is sufficient for the isolated #4A quality stage.
-    # A higher refresh frequency belongs to #4E after source quality is proven.
-    - cron: '47 03 * * *'
+  # Archived #4A negative-quality prototype. The automatic schedule is disabled
+  # because FreeEPG was proven stale and is not part of the production data flow.
+  # Keep a manual trigger only for an explicitly requested historical diagnosis.
   workflow_dispatch:
 
 permissions:
