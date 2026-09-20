@@ -11,7 +11,11 @@ import {
 import { SEARCH_DETAIL_BUCKET_COUNT, SEARCH_DETAIL_VERSION } from '../src/search/lazySearchDetails.js'
 import { buildFilmCollection } from '../src/catalog/filmCollections.js'
 import { readTmdbChangeSet, tmdbChangedTitleKeys } from './tmdb-change-queue.mjs'
-import { buildSearchIndexRunReport, writeSearchIndexRunReport } from './search-index-observability.mjs'
+import {
+  buildSearchIndexRunReport,
+  evaluateSearchIndexRunReport,
+  writeSearchIndexRunReport,
+} from './search-index-observability.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const catalogPath = resolve(root, 'public/catalog.json')
@@ -813,12 +817,16 @@ export async function generateBroadSearchIndexFromTmdb() {
     broadEntries,
     generatedAt: searchIndex.generatedAt,
   })
+  runReport.quality = evaluateSearchIndexRunReport(runReport)
   await writeSearchIndexRunReport(runReport, searchRunReportPath)
   console.log(
     `Search index provenance: ${runReport.scans.completed}/${runReport.scans.expected} scans complete · `
     + `${runReport.index.addedCount} added · ${runReport.index.removedCount} removed · `
     + `${runReport.index.changedOfferCount} provider offers changed.`,
   )
+  if (!runReport.quality.passed) {
+    throw new Error(`Search index publication gate failed: ${runReport.quality.reasons.join(' ')}`)
+  }
   const existingDetails = await readExistingSearchDetails()
   const existingById = new Map(existingDetails.map((detail) => [detail.id, detail]))
   const activeSearchIds = new Set(searchIndex.entries.map((entry) => entry.id))

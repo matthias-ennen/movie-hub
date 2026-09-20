@@ -263,12 +263,12 @@ jobs:
         run: npm run workflow:summary
 
       - name: Upload search-index diagnostics
-        if: ${{ always() && steps.tmdb_catalog_strict.outcome == 'success' }}
+        if: ${{ always() && (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) }}
         uses: actions/upload-artifact@v4
         with:
           name: search-index-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/search-index-run-report.json
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 30
 
       - name: Report failed scheduled Waipu refresh

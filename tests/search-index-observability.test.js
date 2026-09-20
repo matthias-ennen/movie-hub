@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildSearchIndexDiff,
   buildSearchIndexRunReport,
+  evaluateSearchIndexRunReport,
 } from '../scripts/search-index-observability.mjs'
 
 function title(type, tmdbId, providerId = 'netflix', offerTypes = ['flatrate']) {
@@ -66,5 +67,54 @@ describe('Suchindex-Herkunftsnachweis', () => {
         changedOfferCount: 0,
       },
     })
+  })
+
+  it('allows measured market churn while the complete index remains stable', () => {
+    const report = buildSearchIndexRunReport({
+      scans: Array.from({ length: 155 }, (_, index) => ({
+        key: `scan:${index}`,
+        status: 'complete',
+        pagesFetched: 1,
+        rawResults: 20,
+        skippedResults: 0,
+      })),
+      previousIndex: { entries: Array.from({ length: 1000 }, (_, index) => title(index < 600 ? 'movie' : 'series', index + 1)) },
+      currentIndex: { entries: Array.from({ length: 950 }, (_, index) => title(index < 570 ? 'movie' : 'series', index + 1)) },
+    })
+
+    expect(evaluateSearchIndexRunReport(report)).toMatchObject({
+      passed: true,
+      metrics: { totalDropRatio: 0.05, movieDropRatio: 0.05, seriesDropRatio: 0.05 },
+      reasons: [],
+    })
+  })
+
+  it('blocks missing baselines, incomplete scan sets and implausible media loss', () => {
+    const withoutBaseline = buildSearchIndexRunReport({
+      scans: [{ status: 'complete', rawResults: 10, skippedResults: 0 }],
+      currentIndex: { entries: [title('movie', 1)] },
+    })
+    expect(evaluateSearchIndexRunReport(withoutBaseline)).toMatchObject({ passed: false })
+
+    const report = buildSearchIndexRunReport({
+      scans: Array.from({ length: 154 }, (_, index) => ({
+        key: `scan:${index}`,
+        status: index === 0 ? 'incomplete' : 'complete',
+        rawResults: 20,
+        skippedResults: index === 1 ? 5 : 0,
+      })),
+      previousIndex: { entries: Array.from({ length: 1000 }, (_, index) => title(index < 500 ? 'movie' : 'series', index + 1)) },
+      currentIndex: { entries: Array.from({ length: 800 }, (_, index) => title(index < 450 ? 'movie' : 'series', index + 1)) },
+    })
+    const quality = evaluateSearchIndexRunReport(report)
+
+    expect(quality.passed).toBe(false)
+    expect(quality.reasons).toEqual(expect.arrayContaining([
+      expect.stringContaining('154 scans were scheduled'),
+      expect.stringContaining('153/154 scans completed'),
+      expect.stringContaining('Skipped-result ratio'),
+      expect.stringContaining('Total index drop 20.00%'),
+      expect.stringContaining('Series index drop 30.00%'),
+    ]))
   })
 })
