@@ -58,6 +58,8 @@ Das Ziel ist nicht, alle Seiten optisch gleichzumachen. Das Ziel ist eine gemein
 | 10 | TV als zeitgesteuerte Videothek | Vorgesehen sind TV-Hero, gemischte Jetzt-/Gleich-Reihe, kommende Filme, kommende Serien und eine erkennbare zeitliche Orientierung. Tagesreihen über 14 Tage entfallen als primäre Darstellung. | TV-Videothek |
 | 11 | `BALD` und `ON AIR` | Status nicht mehr unter „Film/Serie“, sondern im unteren Informationsbereich der Karte. `BALD` wechselt zum Startzeitpunkt in `ON AIR`; `BALD` bleibt optisch dezenter. | TV-Videothek |
 | 12 | TV-Beobachtung und Sendetermin-Erinnerung | Zwei Stufen: einen Titel bis zum Auftauchen im 14-Tage-Fenster beobachten und anschließend vor einem konkreten Sendetermin erinnern. Push zuerst; E-Mail nur optional und mit bestätigter Adresse. | Eigenes Erinnerungs-Paket, mit #118 koordiniert |
+| 13 | Direkter Waipu-Live-Absprung | Der Waipu-Button soll bei einer laufenden, eindeutig bekannten Ausstrahlung nach Möglichkeit direkt den richtigen Sender in der waipu.tv-App starten. Die EPG-Linkvorarbeit aus #75 muss auf Android und Fire TV real verifiziert werden. | #259 – Waipu-Live-Deep-Link |
+| 14 | Vollständiger Waipu-Senderausbau | Der 50-Sender-Bestand wird später auf alle technisch geeigneten und freigegebenen linearen Waipu-Sender erweitert. Offizielle Liste, technischer Stamm und Movie-Hub-fähige Sender werden getrennt abgeglichen. | #260 – Senderausbau |
 
 ## Vorgeschlagene Arbeitspakete
 
@@ -138,6 +140,35 @@ Abgrenzung zu #118:
 - Gemeinsame Infrastruktur für Push, Zustellhistorie und Gerätezuständigkeit soll geprüft werden.
 - Die fachlichen Zustände und Auslöser bleiben getrennt.
 
+
+### F. #259 – Direkter Start der laufenden Waipu-Sendung
+
+Enthält Punkt 13 und baut auf #4 sowie der historischen Vorarbeit aus #75 auf.
+
+Ziel:
+
+- verifizieren, ob öffentliche Sender- und Programm-ID das offizielle `app.waipu.tv/epgdetails/...`-Ziel eindeutig bilden;
+- den Link zunächst per ADB und anschließend aus Movie Hub prüfen;
+- auf Android sowie realer Fire-TV-Hardware tatsächlich den richtigen laufenden Sender starten;
+- kommende, abgelaufene, nicht abonnierte und nicht auflösbare Ziele sicher behandeln;
+- den allgemeinen Waipu-Live-Einstieg als Fallback behalten;
+- Waiputhek, Aufnahmen, Zugangsdaten, DRM und internes Streaming ausschließen.
+
+### G. #260 – Vollständiger kontrollierter Senderausbau
+
+Enthält Punkt 14 und baut auf dem abgenommenen 50-Sender-Stand aus #4 auf.
+
+Ziel:
+
+- offizielle Senderliste, technischen Senderstamm und Movie-Hub-fähige lineare Sender vollständig abgleichen;
+- jeden ausgeschlossenen oder noch nicht freigegebenen Eintrag mit Grund ausweisen;
+- Catch-up, VOD, Dubletten, regionale Varianten und fehlendes EPG sauber unterscheiden;
+- mehrere hundert Sender checkpoint-, budget- und cache-basiert in kontrollierten Wellen aufbauen;
+- auf den Geräten trotzdem nur den benötigten Zeit-/Sichtbereich laden und rendern;
+- bestehende persönliche Senderausblendungen und Reihenfolgen erhalten;
+- den gemeinsamen Deep-Link-Vertrag aus #259 senderunabhängig anwenden;
+- Compliance #112 vor öffentlicher Verteilung beachten.
+
 ## Offene Fragenregister
 
 Die folgenden Fragen sind bewusst **nicht heute zu entscheiden**. Sie werden beim Start des betreffenden Pakets einzeln und in überschaubaren Blöcken erneut vorgelegt.
@@ -192,19 +223,38 @@ Die fachlichen Grundentscheidungen sind in #256 dokumentiert. Vor der Programmie
 - Liegen Beobachtungen auf Konto- oder Profilebene?
 - Welche Daten müssen für den serverseitigen Abgleich minimal lesbar bleiben und welche werden verschlüsselt?
 
+
+### Paket F – #259 Waipu-Live-Deep-Link
+
+- Entspricht die öffentliche `programId` exakt der EPG-UUID im offiziellen Link?
+- Welches Sendersegment erwartet Waipu auf Android und Fire TV?
+- Öffnet der Link nur die EPG-Detailseite oder startet er bei laufender Sendung tatsächlich den Stream?
+- Wie wird bei mehreren gleichzeitig laufenden Ausstrahlungen desselben Titels gewählt?
+- Welche Fallbacks gelten bei fehlender App, Anmeldung, Tarifberechtigung oder abgelaufenem Termin?
+
+### Paket G – #260 Senderausbau
+
+- Welche technischen Eintragstypen zählen tatsächlich als lineare Sender?
+- Welche Ausbauwellen sind fachlich und hinsichtlich Requestkosten sinnvoll?
+- Welche Stabilitätsdauer und Leistungsgrenzen sind vor jeder Hochstufung verbindlich?
+- Wie werden regionale Varianten, Umbenennungen, entfernte Sender und echte Dubletten behandelt?
+- Welche maximale sichtbare Datenmenge darf Fire TV je Zeitfenster laden und rendern?
+
 ## Reihenfolge und Wiedereinstieg
 
 Die bestätigte Reihenfolge lautet jetzt:
 
-`#4 abgeschlossen → #256 Datenfundament → weitere Triage A/B/D/E → #118 → #7`
+`#4 abgeschlossen → #256 Datenfundament → #259 Deep-Link-Verifikation → Triage A/B/D/E → #260 Senderausbau in Wellen → #118 → #7`
 
 Nächster Wiedereinstieg:
 
 1. #4 bleibt vollständig abgenommen und geschlossen;
 2. #256 erhält unmittelbar vor der Umsetzung eine kurze technische Scope-Kontrolle gegen den aktuellen Repository-Stand;
 3. anschließend wird #256 umgesetzt, geprüft und dokumentiert;
-4. danach werden die verbleibenden Pakete A, B, D und E gemeinsam priorisiert;
-5. jedes weitere Paket beginnt mit seinen noch offenen fachlichen Fragen und klaren Abnahmekriterien.
+4. danach wird #259 mit dem vorhandenen 50-Sender-Bestand als eigenes Recherche-/Prototyp-Paket verifiziert;
+5. anschließend werden die Pakete A, B, D und E sowie die skalierbare TV-Datenladung gemeinsam priorisiert;
+6. #260 beginnt erst danach in kontrollierten Senderwellen;
+7. jedes weitere Paket beginnt mit seinen noch offenen fachlichen Fragen und klaren Abnahmekriterien.
 
 ## Dokumentationsregel für die Fortsetzung
 
