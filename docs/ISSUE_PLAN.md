@@ -48,13 +48,15 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 
 Die vollständige Sammlung steht in #254. Die strukturierte
 [Bestandsaufnahme ab APK 0.1.473](APP_REVIEW_0.1.473.md) und das
-Fortsetzungs-/Triage-Issue #255 bündeln sie in fünf vorläufige Pakete:
+Fortsetzungs-/Triage-Issue #255 bündeln sie in sieben vorläufige beziehungsweise bereits ausgearbeitete Pakete:
 
 1. gemeinsame Inhaltsseiten-Grundlage und Fokus;
 2. TV als zeitgesteuerte Videothek;
 3. #256 – katalogübergreifendes Datenfundament und kontrollierter Nachtlauf;
 4. Trailer und Teaser;
-5. TV-Beobachtungen und Erinnerungen.
+5. TV-Beobachtungen und Erinnerungen;
+6. #259 – direkter Start der laufenden Waipu-Sendung;
+7. #260 – vollständiger, kontrollierter Senderausbau über 50 hinaus.
 
 Für **Home, Filme, Serien, TV und Meine Inhalte** gilt verbindlich eine
 gemeinsame technische Inhaltsseiten-Grundlage. Vor jedem daraus entstehenden
@@ -73,7 +75,30 @@ zwingend davor liegen.
 - deduplizierte Warteschlange, atomare Veröffentlichung und Laufüberwachung
 - Trennung von Code-Deployment und Datenpflege
 
-### 2. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
+### 2. #259 – Waipu-Live-Deep-Link
+
+- aus konkreter Waipu-Ausstrahlung einen verifizierten `epgdetails`-Link bilden
+- mit dem bestehenden 50-Sender-Bestand auf Android und Fire TV testen
+- Abnahme nur bei tatsächlichem Start des richtigen laufenden Senders
+- allgemeiner Waipu-Live-Einstieg als sicherer Fallback
+- keine Aufnahmen, Waiputhek, Zugangsdaten oder DRM in diesem Paket
+
+### 3. Gemeinsame TV-Grundlage vor großer Senderausweitung
+
+- TV als begrenzte zeitgesteuerte Videothek statt vollständiger 14-Tage-Listen auf dem Gerät
+- nur den benötigten Zeit-/Sichtbereich laden und rendern
+- Fokus, Scrollposition und Fire-TV-Speicher bei großen Senderzahlen stabil halten
+
+### 4. #260 – Waipu-Senderbestand über 50 hinaus ausbauen
+
+- offizielle Liste, technischen Stamm und tatsächlich lineare Movie-Hub-Sender abgleichen
+- 337 dokumentierte offizielle Listeneinträge und zuletzt 398 technische Einträge klassifizieren
+- Catch-up, VOD, Dubletten, regionale Varianten und fehlendes EPG ausweisen
+- Ausbau mit Checkpoints, Budgets und Stabilitätsgates in kontrollierten Wellen
+- neue Sender standardmäßig aktivieren und bestehende persönliche Einstellungen erhalten
+- Compliance-Gate #112 vor öffentlicher Verteilung beachten
+
+### 5. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
 
 - einfache Beobachten-Aktion direkt am Titel
 - rent/buy-only bzw. aktuell nicht inklusive Titel beobachten
@@ -81,7 +106,7 @@ zwingend davor liegen.
 - Benachrichtigungen nur bei echten Änderungen
 - Beobachtung einfach wieder entfernen
 
-### 3. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
+### 6. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
 
 - persönliche Signale aus Bewertungen, gesehen/ungesehen, Favoriten und Watchlist nutzen
 - persönliche Top-100- und Empfehlungsreihen erzeugen
@@ -101,9 +126,9 @@ zwingend davor liegen.
 
 ## Abhängigkeitskette
 
-`#4 abgeschlossen → #256 Datenfundament → weitere Triage #254/#255 → #118 → #7`
+`#4 abgeschlossen → #256 Datenfundament → #259 Deep-Link-Verifikation → gemeinsame TV-Grundlage → #260 Senderausbau in Wellen → #118 → #7`
 
-#4 ist vollständig abgenommen und geschlossen. Der 50-Sender-Bestand bleibt der gültige Ausgangsstand. Eine spätere Ausweitung über 50 Sender bleibt eine eigene, ausdrücklich freizugebende Stufe.
+#4 ist vollständig abgenommen und geschlossen. Der 50-Sender-Bestand bleibt der gültige Ausgangsstand. #259 verifiziert den direkten Live-Absprung zunächst auf diesem Bestand. Die Ausweitung über 50 Sender ist mit #260 als eigene, ausdrücklich freizugebende und stufenweise Aufgabe dokumentiert.
 
 ## Leitentscheidung
 
