@@ -32,6 +32,15 @@ describe('kompakter Workflow-Datenbericht', () => {
       },
       waipuSync: { metrics: { slotsProcessed: 3600, requestsStarted: 3650, slotsSkippedByCheckpoint: 600, retries: 2 } },
       metadata: { scanned: 150, candidates: 20, updated: 19, failed: 1 },
+      personalMetadata: { scanned: 80, candidates: 12, updated: 12, failed: 0 },
+      tmdbChanges: {
+        startDate: '2026-09-18',
+        endDate: '2026-09-19',
+        windows: [{ startDate: '2026-09-18', endDate: '2026-09-19' }],
+        fetched: { movie: 27, series: 13 },
+        pending: { movie: Array.from({ length: 27 }), series: Array.from({ length: 13 }) },
+      },
+      tmdbChangeRun: { requiredConsumers: ['catalog', 'publication'] },
       presence: { parentGroups: 145, created: 2, repaired: 3, unresolved: 0 },
       baselineData: {
         catalog: { total: 1180 },
@@ -40,11 +49,14 @@ describe('kompakter Workflow-Datenbericht', () => {
       },
       baselineWaipu: { counts: { titles: 144 } },
       steps: {
+        tmdbChanges: 'success',
+        tmdbCheckpoint: 'success',
         tmdbStrict: 'success',
         tmdbPush: 'skipped',
         waipuSync: 'success',
         waipuCatalog: 'success',
         metadata: 'success',
+        personalMetadata: 'success',
         presence: 'success',
         build: 'success',
         auth: 'success',
@@ -54,13 +66,15 @@ describe('kompakter Workflow-Datenbericht', () => {
     })
 
     const markdown = workflowSummaryMarkdown(summary)
-    expect(summary.rows).toHaveLength(10)
+    expect(summary.rows).toHaveLength(12)
     expect(markdown).toContain('Lauf #321')
     expect(markdown).toContain('| Waipu EPG | ✅ erfolgreich | 50 Sender')
     expect(markdown).toContain('3.600 zugeordnet · 830/830 Metadaten vollständig')
     expect(markdown).toContain('603 verworfen · 740 Suchen · 640 Detailabrufe · 1.200 Waipu-Cache')
     expect(markdown).toContain('Waipu-Titelbestand: **+686 zum Live-Stand**')
-    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(12)
+    expect(markdown).toContain('| TMDB-Änderungen | ✅ erfolgreich | 27 Filme · 13 Serien neu gemeldet')
+    expect(markdown).toContain('| Persönliche TMDB-Metadaten | ✅ erfolgreich | 80 geprüft · 12 ausgewählt')
+    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(14)
   })
 
   it('bleibt bei fehlenden optionalen Artefakten lesbar', () => {
