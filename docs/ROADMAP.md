@@ -72,9 +72,28 @@ Ausstrahlungszustände.
 Die dort vorgeschlagenen Pakete sind noch keine automatischen
 Programmieraufträge. #256 wurde daraus als eigenständiges nächstes
 Datenfundament-Paket ausgearbeitet. Die übrigen UI-, TV-, Trailer- und
-Erinnerungspakete werden erst nach #256 weiter priorisiert. Jedes gewählte
+Erinnerungspakete sowie die getrennten Waipu-Folgepakete #259 und #260 werden nach #256 weiter priorisiert. #259 kann zunächst mit dem bestehenden 50-Sender-Bestand verifiziert werden; #260 benötigt zusätzlich eine skalierbare TV-Datenladung. Jedes gewählte
 Paket beginnt mit einem kurzen Klärungsblock zu seinen ausdrücklich
 registrierten offenen Fragen.
+
+## Bereits getrennt dokumentierte Waipu-Folgepakete
+
+### #259 – Waipu-Live: laufende Sendung direkt in waipu.tv starten
+
+- vorhandene EPG-Deep-Link-Vorarbeit aus #75 auf den aktuellen Waipu-Ausstrahlungsbestand anwenden;
+- verifizieren, ob Waipu-Sender-ID und öffentliche Programm-ID das offizielle `app.waipu.tv/epgdetails/...`-Ziel eindeutig bilden;
+- zunächst mit den vorhandenen 50 Sendern auf Android und realer Fire-TV-Hardware prüfen;
+- nur der tatsächliche Start des richtigen laufenden Senders gilt als Produkterfolg;
+- allgemeiner Waipu-Live-Einstieg bleibt Fallback; Waiputhek, Aufnahmen, Zugangsdaten und DRM bleiben getrennt.
+
+### #260 – Waipu-Live: Senderbestand über 50 hinaus vollständig ausbauen
+
+- offiziellen Senderbestand, technischen Senderstamm und tatsächlich Movie-Hub-fähige lineare Sender nachvollziehbar abgleichen;
+- 50 Sender bleiben der gültige Ausgangsstand; 337 offiziell dokumentierte Listeneinträge und zuletzt 398 technische Einträge sind zu klassifizieren, nicht blind gleichzusetzen;
+- Catch-up, VOD, Dubletten, regionale Varianten, fehlendes EPG und andere Ausschlussgründe dokumentieren;
+- Ausbau nach #256, #259 und skalierbarer TV-Datenladung in kontrollierten Wellen;
+- mehrere hundert Sender dürfen auf den Geräten nur als benötigter Zeit-/Sichtausschnitt geladen und gerendert werden;
+- öffentliche Verteilung bleibt vom Compliance-Gate #112 abhängig.
 
 ## Danach geplante Arbeitspakete
 
@@ -106,6 +125,6 @@ registrierten offenen Fragen.
 
 ## Aktuelle Abhängigkeitskette
 
-`#4 abgeschlossen → #256 Datenfundament → weitere Triage #254/#255 → #118 → #7`
+`#4 abgeschlossen → #256 Datenfundament → #259 Deep-Link-Verifikation → Triage der gemeinsamen TV-Grundlage → #260 Senderausbau in Wellen → #118 → #7`
 
-#4 ist vollständig abgenommen und geschlossen. Der veröffentlichte 50-Sender-Bestand bleibt der gültige Ausgangsstand. Eine spätere Erweiterung oder öffentliche Verteilung bleibt von der Compliance-Prüfung #112 abhängig. Vor Beginn von #256 wird dessen Scope einmal kurz gegen den aktuellen Repository-Stand geprüft.
+#4 ist vollständig abgenommen und geschlossen. Der veröffentlichte 50-Sender-Bestand bleibt der gültige Ausgangsstand. Der direkte Live-Absprung wird in #259 getrennt verifiziert; die spätere Erweiterung ist in #260 dokumentiert. Öffentliche Verteilung bleibt von der Compliance-Prüfung #112 abhängig. Vor Beginn von #256 wird dessen Scope einmal kurz gegen den aktuellen Repository-Stand geprüft.
