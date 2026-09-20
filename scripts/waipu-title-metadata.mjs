@@ -160,6 +160,7 @@ export async function enrichWaipuTitleMetadata(entries, {
   cacheMaxAgeDays = 30,
   now = new Date(),
   onProgress = null,
+  changedTitleKeys = new Set(),
 } = {}) {
   const timestamp = now instanceof Date ? now : new Date(now)
   const generatedAt = Number.isFinite(timestamp.getTime()) ? timestamp.toISOString() : new Date().toISOString()
@@ -167,6 +168,7 @@ export async function enrichWaipuTitleMetadata(entries, {
     .filter((title) => completeMetadata(title))
     .map((title) => [canonicalTitleKey(title), title]))
   const cachedByKey = new Map((Array.isArray(cachedTitles) ? cachedTitles : [])
+    .filter((title) => !changedTitleKeys.has(canonicalTitleKey(title)))
     .filter((title) => completeMetadata(title, {
       now: Date.parse(generatedAt),
       maxAgeDays: cacheMaxAgeDays,

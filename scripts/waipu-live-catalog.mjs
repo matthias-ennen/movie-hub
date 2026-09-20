@@ -23,6 +23,7 @@ import {
   enrichWaipuTitleMetadata,
   requireCompleteWaipuTitleMetadata,
 } from './waipu-title-metadata.mjs'
+import { readTmdbChangeSet, tmdbChangedTitleKeys } from './tmdb-change-queue.mjs'
 
 export const WAIPU_LIVE_CATALOG_VERSION = 1
 
@@ -651,6 +652,7 @@ async function main() {
           )
         },
       })
+      const changedTitleKeys = tmdbChangedTitleKeys(await readTmdbChangeSet())
       const metadata = await enrichWaipuTitleMetadata(liveCatalog.titles.entries, {
         catalogTitles: catalog.titles,
         cachedTitles: previousWaipuTitles.entries,
@@ -659,6 +661,7 @@ async function main() {
           : null,
         concurrency: Number(process.env.WAIPU_TMDB_METADATA_CONCURRENCY || 3),
         cacheMaxAgeDays: Number(process.env.WAIPU_TMDB_METADATA_MAX_AGE_DAYS || 30),
+        changedTitleKeys,
         onProgress: ({ processed, total, fromCatalog, fromCache, fetched }) => {
           process.stdout.write(
             `Waipu-TMDB-Metadaten: ${processed}/${total} vollständig`
