@@ -33,6 +33,6 @@ Das vollständige Inventar enthält keine Benutzer-ID, keinen Firestore-Pfad, ke
 
 `searchOnlyTitles` zählt gültige Suchindex-Titel, deren kanonische Identität in keiner Kandidatenquelle vorkommt. Sie werden weiterhin erst beim Öffnen vollständig geladen. `unresolvedWaipu.programs` zählt aktuelle Waipu-Programme ohne belastbare TMDB-Zuordnung; dieser Wert ist kein Titelbestand und wird ausdrücklich getrennt ausgewiesen.
 
-## Nächster Schritt
+## Folgeschritt
 
-Nach einem erfolgreichen realen Inventarlauf werden die beobachteten Größen und Überschneidungen geprüft. Erst danach wird aus derselben kanonischen Menge eine deduplizierte Prioritätswarteschlange aufgebaut: unvollständig/fehlgeschlagen, neu katalogrelevant, durch TMDB geändert, strukturelle Lücke und altersbedingt fällig. Pro Titel und Lauf darf dabei höchstens ein TMDB-Detailabruf entstehen.
+Der erste reale Inventarlauf wurde in Deploy Firebase #349 erfolgreich geprüft: 3.490 gültige Referenzen ergaben 3.217 Kandidaten, 15.920 weitere Titel blieben korrekt Search-only. Darauf baut nun die zunächst rein lesende [kanonische Titel-Prioritätswarteschlange](TITLE_PRIORITY_QUEUE.md) auf. Pro Titel und Lauf darf dabei höchstens ein TMDB-Detailabruf entstehen.
