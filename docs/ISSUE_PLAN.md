@@ -22,44 +22,27 @@ Zuletzt abgeschlossen bzw. abgenommen:
 - #225 – verlustfreie Metadaten-Anreicherung
 - #228 – robuster nativer Kaltstart
 - #117 – Dependency-Audit und Security-Hygiene
+- #4 – öffentlicher Waipu-Live-Katalog einschließlich 50-Sender-Bestand, TV-Integration und Geräteabnahme
 
 Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 
 ## Aktuelles Arbeitspaket
 
-### #4 – Öffentlichen Waipu-Live-Katalog aus dem Waipu-EPG erzeugen
+### #256 – Datenfundament: vollständige kanonische Titelmetadaten vor Veröffentlichung
 
-- #4A: FreeEPG-Qualitätsprototyp abgeschlossen; Feed wegen veralteter Daten ungeeignet
-- bisheriger Konto-/OAuth-Prototyp: dokumentierter Versuch, nicht mehr im
-  kritischen Umsetzungspfad
-- **#4B abgeschlossen:** vollständiger Sieben-Sender-/14-Tage-Nachweis,
-  reale Film-/Seriendetails, TMDB-Stichprobe, ETag/304, Requestvolumen und
-  Stop-Grenzen bestätigt
-- **#4C abgeschlossen:** öffentlichen Read-only-Adapter und persistenten
-  Sender-/Slot-/ETag-/Detailcache umgesetzt
-- **#4D abgeschlossen:** rollierenden Import mit Requestbudget, Checkpoints,
-  niedriger Parallelität, Backoff, Circuit Breaker und stufenweiser
-  Senderfreigabe umgesetzt
-- **#4E abgeschlossen:** Film-/Serienklassifikation, TMDB-Matching und
-  `waipu-live`-Artefakte erzeugt
-- **#4F abgeschlossen:** normales Waipu-Badge, feste Badge-Priorität und
-  konkrete Sendetermine an vorhandenen Titeln umgesetzt
-- **#4G technisch umgesetzt:** eigene TV-Registerkarte mit chronologischen
-  Tagesreihen aus den senderweisen 14-Tage-Dateien; keine Senderauswahl auf der
-  TV-Seite. Alle veröffentlichten Sender sind standardmäßig aktiv und können
-  ausschließlich in den kontoweiten Einstellungen einzeln ausgeblendet werden
-- **#4H technisch umgesetzt:** Die ersten 50 Sender der offiziellen
-  Waipu-Reihenfolge sind mit stabilen IDs freigegeben. Der tägliche gemeinsame
-  TMDB-/Waipu-/Firebase-Lauf, kontoweites Ein-/Ausschalten und die persönliche
-  Pfeilsortierung sind umgesetzt. Der vollständige 50er-Lauf vom 19.09.2026
-  lieferte 1.040 Titel, 7.903 Ausstrahlungen und 1.040/1.040 vollständige
-  TMDB-Metadatensätze. Langzeitbeobachtung und Geräteabnahme bleiben offen
-- **#4I technisch umgesetzt:** einzelne Waipu-Terminzeile unter
-  „Wo anschauen?“, einheitliche TV-Posterkarten, zeitgenauer statischer
-  `ON AIR`-Badge und vollständige „Gesehen“-Markierung für alle
-  Anbieter-Aufrufe; gemeinsame Geräteabnahme bleibt offen
-- keine Waiputhek-/VOD-Aussage aus linearen Sendeterminen ableiten
-- keine Waipu-Anmeldung und keine Waipu-Token für die öffentliche Basisintegration
+#4 ist vollständig abgenommen und geschlossen. #256 ist das nächste eigenständige Arbeitspaket; vor der Umsetzung erfolgt nur noch eine kurze technische Scope-Kontrolle.
+
+- alle katalogrelevanten Titelquellen in einem kanonischen Bestand nach `Medientyp + TMDB-ID` zusammenführen;
+- vollständige, geprüfte Metadaten zentral wiederverwenden und kontrolliert aktualisieren;
+- TMDB-Änderungslisten als tägliche Schnellspur einsetzen;
+- vollständige Titel zusätzlich im rollierenden 30-Tage-Umlauf erneut prüfen;
+- #200 für reine Suchdetails wiederverwenden und keine konkurrierende zweite Logik schaffen;
+- eine gemeinsame deduplizierte Prioritätswarteschlange aufbauen;
+- Code-Deployment und Datenlauf trennen;
+- eine vollständige Generation mit gemeinsamer Generationskennung validieren und atomar veröffentlichen;
+- bei Teilfehlern den letzten gültigen Stand erhalten;
+- verspätete oder ausgefallene Nachtläufe und einen zu alten Datenstand sichtbar melden;
+- reine Suchindex-Titel außerhalb sichtbarer Kataloge weiterhin erst beim Öffnen vollständig laden, dabei aber einen geschlossenen Lade-/Fehlerzustand verwenden.
 
 ## Triage des Referenzstands APK 0.1.473
 
@@ -69,7 +52,7 @@ Fortsetzungs-/Triage-Issue #255 bündeln sie in fünf vorläufige Pakete:
 
 1. gemeinsame Inhaltsseiten-Grundlage und Fokus;
 2. TV als zeitgesteuerte Videothek;
-3. vollständige TV-Metadaten und schnelle Details;
+3. #256 – katalogübergreifendes Datenfundament und kontrollierter Nachtlauf;
 4. Trailer und Teaser;
 5. TV-Beobachtungen und Erinnerungen.
 
@@ -82,7 +65,15 @@ zwingend davor liegen.
 
 ## Aktuelle Priorisierung
 
-### 1. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
+### 1. #256 – Datenfundament und Nachtlauf
+
+- nächstes Arbeitspaket nach #4
+- gemeinsame kanonische Titelmetadaten für alle katalogrelevanten Quellen
+- TMDB-Änderungslisten plus 30-Tage-Sicherheitsumlauf
+- deduplizierte Warteschlange, atomare Veröffentlichung und Laufüberwachung
+- Trennung von Code-Deployment und Datenpflege
+
+### 2. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
 
 - einfache Beobachten-Aktion direkt am Titel
 - rent/buy-only bzw. aktuell nicht inklusive Titel beobachten
@@ -90,7 +81,7 @@ zwingend davor liegen.
 - Benachrichtigungen nur bei echten Änderungen
 - Beobachtung einfach wieder entfernen
 
-### 2. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
+### 3. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
 
 - persönliche Signale aus Bewertungen, gesehen/ungesehen, Favoriten und Watchlist nutzen
 - persönliche Top-100- und Empfehlungsreihen erzeugen
@@ -110,11 +101,9 @@ zwingend davor liegen.
 
 ## Abhängigkeitskette
 
-`#4A → #4B → #4C → #4D → #4E → #4F → #4G → #4H → #4I → Triage #254/#255 → #118 → #7`
+`#4 abgeschlossen → #256 Datenfundament → weitere Triage #254/#255 → #118 → #7`
 
-#4 ist aktiv. Die 50er-Ausbaustufe wird funktional ausgeliefert und im Betrieb
-weiter beobachtet. Eine spätere Ausweitung über 50 Sender bleibt eine eigene,
-ausdrücklich freizugebende Stufe.
+#4 ist vollständig abgenommen und geschlossen. Der 50-Sender-Bestand bleibt der gültige Ausgangsstand. Eine spätere Ausweitung über 50 Sender bleibt eine eigene, ausdrücklich freizugebende Stufe.
 
 ## Leitentscheidung
 
