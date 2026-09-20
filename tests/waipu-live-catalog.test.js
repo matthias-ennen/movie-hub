@@ -419,6 +419,43 @@ describe('Waipu live catalog publication', () => {
     const restoredTitles = JSON.parse(await readFile(resolve(output, 'titles.json'), 'utf8'))
     expect(restoredTitles.restoreSizeFixture).toHaveLength((4 * 1024 * 1024) + 1)
   })
+
+  it('carries a valid legacy metadata generation through code deploys without weakening new publications', async () => {
+    const root = await mkdtemp(resolve(tmpdir(), 'movie-hub-waipu-legacy-restore-'))
+    cleanupPaths.push(root)
+    const source = await buildWaipuLiveCatalog(buildFixture())
+    source.index.metadata = { required: true, complete: 1 }
+    source.titles.entries[0] = {
+      ...source.titles.entries[0],
+      title: 'The Man from Toronto',
+      metadataVersion: 2,
+      metadataComplete: true,
+      collectionChecked: true,
+    }
+    const payloads = new Map([
+      ['/waipu-live/index.json', source.index],
+      ['/waipu-live/stations.json', source.stations],
+      ['/waipu-live/titles.json', source.titles],
+      ['/waipu-live/stations/zdf.json', source.shards.zdf],
+    ])
+    const fetchImpl = vi.fn(async (url) => {
+      const payload = payloads.get(new URL(url).pathname)
+      const bytes = Buffer.from(JSON.stringify(payload))
+      return {
+        ok: Boolean(payload),
+        status: payload ? 200 : 404,
+        headers: new Headers(),
+        arrayBuffer: async () => bytes,
+      }
+    })
+
+    expect(() => validateWaipuLiveCatalog(source)).toThrow('metadata is incomplete')
+    await expect(restoreLiveWaipuCatalog({
+      baseUrl: 'https://movie-hub.example/waipu-live',
+      outputPath: resolve(root, 'restored'),
+      fetchImpl,
+    })).resolves.toMatchObject({ status: 'complete' })
+  })
 })
 
 describe('Waipu program detail loading', () => {

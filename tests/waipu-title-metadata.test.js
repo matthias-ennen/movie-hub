@@ -89,6 +89,12 @@ describe('Waipu title metadata enrichment', () => {
     expect(requireCompleteWaipuTitleMetadata(result.entries)).toBe(true)
   })
 
+  it('accepts V2 metadata only when the restore path explicitly enables the migration bridge', () => {
+    const legacy = completeMetadata({ metadataVersion: 2, metadataChecks: undefined })
+    expect(() => requireCompleteWaipuTitleMetadata([legacy])).toThrow('metadata is incomplete')
+    expect(requireCompleteWaipuTitleMetadata([legacy], { allowLegacyContract: true })).toBe(true)
+  })
+
   it('loads missing metadata once and publishes the complete TMDB title', async () => {
     const loadTitleMetadata = vi.fn(async () => completeMetadata())
     const result = await enrichWaipuTitleMetadata([airingEntry()], {

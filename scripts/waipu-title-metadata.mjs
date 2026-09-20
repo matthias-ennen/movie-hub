@@ -24,10 +24,10 @@ function sleep(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
-function completeMetadata(value, options = {}) {
+function completeMetadata(value, { allowLegacyContract = false, ...options } = {}) {
   return Boolean(canonicalTitleKey(value)) && !titleNeedsMetadataEnrichment(value, {
     ...options,
-    requireContract: true,
+    requireContract: !allowLegacyContract,
   })
 }
 
@@ -218,9 +218,9 @@ export async function enrichWaipuTitleMetadata(entries, {
   return { entries: enriched, metrics, generatedAt }
 }
 
-export function requireCompleteWaipuTitleMetadata(entries) {
+export function requireCompleteWaipuTitleMetadata(entries, { allowLegacyContract = false } = {}) {
   for (const entry of Array.isArray(entries) ? entries : []) {
-    if (!completeMetadata(entry)) {
+    if (!completeMetadata(entry, { allowLegacyContract })) {
       throw new Error(`Waipu title metadata is incomplete for ${canonicalTitleKey(entry) || 'unknown title'}.`)
     }
   }

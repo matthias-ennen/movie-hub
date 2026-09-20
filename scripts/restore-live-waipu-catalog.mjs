@@ -72,8 +72,11 @@ export async function restoreLiveWaipuCatalog({
     }),
   ]))))
   const catalog = { index, stations, titles, shards }
-  validateWaipuLiveCatalog(catalog)
-  await writeWaipuLiveCatalog(outputPath, catalog)
+  // A code deploy may have to carry the last valid V2 generation until the
+  // scheduled refresh migrates it to the strict V3 contract. Only this restore
+  // path accepts that legacy contract; newly generated publications remain V3.
+  validateWaipuLiveCatalog(catalog, { allowLegacyMetadata: true })
+  await writeWaipuLiveCatalog(outputPath, catalog, { allowLegacyMetadata: true })
   return index
 }
 
