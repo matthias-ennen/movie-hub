@@ -10,7 +10,7 @@ import {
   normalizeTmdbWatchProviders,
   toMovieHubTitle,
 } from '../src/services/tmdb.js'
-import { readTmdbChangeSet, tmdbChangedTitleKeys } from './tmdb-change-queue.mjs'
+import { isTmdbTitleChangePending, readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
 
 const token = process.env.TMDB_API_READ_TOKEN
 const language = process.env.TMDB_LANGUAGE || 'de-DE'
@@ -110,7 +110,7 @@ export async function runSharedMediaMetadataBackfill({
 } = {}) {
   if (!db) throw new Error('Firestore Admin client is missing.')
   const source = await db.collectionGroup('sharedMedia').get()
-  const queuedChanges = changedTitleKeys || tmdbChangedTitleKeys(await readTmdbChangeSet())
+  const queuedChanges = changedTitleKeys || tmdbChangedTitleTimes(await readTmdbChangeSet())
   const candidates = source.docs.map((snapshot, index) => {
     const segments = String(snapshot.ref.path || '').split('/')
     const data = snapshot.data()
@@ -125,7 +125,7 @@ export async function runSharedMediaMetadataBackfill({
       index,
       validDocument,
       incomplete: titleNeedsMetadataEnrichment(titleRef, { requireContract: true }),
-      changed: queuedChanges.has(key),
+      changed: isTmdbTitleChangePending(queuedChanges, key, titleRef?.metadataUpdatedAt),
       due: validDocument && titleNeedsMetadataEnrichment(titleRef, {
         now: now.getTime(),
         maxAgeDays: ageDays,

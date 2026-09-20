@@ -20,6 +20,8 @@ function candidate(key, metadata = {}, sources = ['browse']) {
       failedReferences: 0,
       structuralGapReferences: 0,
       structuralOnlyGapReferences: 0,
+      referencesWithoutUpdatedAt: 0,
+      oldestUpdatedAt: '2026-09-20T00:00:00.000Z',
       latestUpdatedAt: '2026-09-20T00:00:00.000Z',
       sourceStates: {},
       ...metadata,
@@ -106,6 +108,53 @@ describe('read-only Titelprioritätsvorschau', () => {
     const preview = buildTitlePriorityPreview({ inventory })
     expect(preview.inputs.changeSetAvailable).toBe(false)
     expect(preview.counts).toMatchObject({ queued: 0, upToDate: 1 })
+  })
+
+  it('does not requeue a TMDB change already covered by newer canonical metadata', () => {
+    const inventory = {
+      candidates: [candidate('movie:11', {
+        oldestUpdatedAt: '2026-09-20T03:20:00.000Z',
+        latestUpdatedAt: '2026-09-20T03:20:00.000Z',
+      })],
+    }
+    const changeSet = {
+      kind: 'tmdb-change-set',
+      generatedAt: '2026-09-20T03:17:00.000Z',
+      pending: {
+        movie: [{ id: 11, lastSeen: '2026-09-20T03:17:00.000Z' }],
+        series: [],
+      },
+    }
+
+    const preview = buildTitlePriorityPreview({ inventory, changeSet })
+
+    expect(preview.queue).toEqual([])
+    expect(preview.counts).toMatchObject({ queued: 0, fetchRequired: 0, upToDate: 1 })
+  })
+
+  it('fans out a newer canonical copy when another membership predates a TMDB change', () => {
+    const inventory = {
+      candidates: [candidate('movie:11', {
+        oldestUpdatedAt: '2026-09-19T00:00:00.000Z',
+        latestUpdatedAt: '2026-09-20T03:20:00.000Z',
+      }, ['browse', 'personal-tmdb'])],
+    }
+    const changeSet = {
+      kind: 'tmdb-change-set',
+      pending: {
+        movie: [{ id: 11, lastSeen: '2026-09-20T03:17:00.000Z' }],
+        series: [],
+      },
+    }
+
+    const preview = buildTitlePriorityPreview({ inventory, changeSet })
+
+    expect(preview.queue[0]).toMatchObject({
+      key: 'movie:11',
+      priority: { id: 'tmdb-changed' },
+      action: 'reuse-canonical',
+      fetchRequired: false,
+    })
   })
 
   it('uses the structural priority only when the V3 structure check is the remaining gap', () => {

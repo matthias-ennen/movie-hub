@@ -8,7 +8,7 @@ import {
   normalizeSeriesSeasons,
   seriesSeasonBucket,
 } from '../src/catalog/seriesNavigation.js'
-import { readTmdbChangeSet, tmdbChangedTitleKeys } from './tmdb-change-queue.mjs'
+import { isTmdbTitleChangePending, readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const catalogPath = resolve(root, 'public/catalog.json')
@@ -41,7 +41,11 @@ export function selectSeriesSeasonRefreshCandidates(references, existingEntries,
     .map((reference, index) => ({
       reference,
       index,
-      changed: changedTitleKeys.has(`series:${Number(reference?.seriesTmdbId)}`),
+      changed: isTmdbTitleChangePending(
+        changedTitleKeys,
+        `series:${Number(reference?.seriesTmdbId)}`,
+        existingEntries.get(entryKey(reference?.seriesTmdbId, reference?.seasonNumber))?.generatedAt,
+      ),
       fresh: isFresh(existingEntries.get(entryKey(reference?.seriesTmdbId, reference?.seasonNumber)), timestamp),
     }))
     .filter((candidate) => candidate.changed || !candidate.fresh)
@@ -163,7 +167,7 @@ export async function generateSeriesDetails({ fetchSeason = tmdbSeasonFetch, now
   const existingEntries = await readExistingEntries()
   const activeKeys = new Set(references.map((reference) => entryKey(reference.seriesTmdbId, reference.seasonNumber)))
   const entries = new Map([...existingEntries].filter(([key]) => activeKeys.has(key)))
-  const queuedChanges = changedTitleKeys || tmdbChangedTitleKeys(await readTmdbChangeSet())
+  const queuedChanges = changedTitleKeys || tmdbChangedTitleTimes(await readTmdbChangeSet())
   const pending = selectSeriesSeasonRefreshCandidates(references, entries, {
     now,
     limit: requestLimit,

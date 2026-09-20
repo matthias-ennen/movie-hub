@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { titleNeedsMetadataEnrichment } from '../src/catalog/titleMetadata.js'
 import { nativeTitleToFirestore } from '../src/tmdb/tmdbCatalogModel.js'
 import { enrichSharedMediaTitleRef, tmdbFetch } from './enrich-shared-media-metadata.mjs'
-import { readTmdbChangeSet, tmdbChangedTitleKeys } from './tmdb-change-queue.mjs'
+import { isTmdbTitleChangePending, readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
 
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || 'movie-hub-62459'
 const updateLimit = Math.max(1, Math.min(2000, Number(process.env.PERSONAL_TMDB_METADATA_BACKFILL_LIMIT) || 250))
@@ -68,7 +68,7 @@ export async function runPersonalTmdbMetadataBackfill({
 } = {}) {
   if (!db) throw new Error('Firestore Admin client is missing.')
   const source = await db.collectionGroup('tmdbCatalog').get()
-  const queuedChanges = changedTitleKeys || tmdbChangedTitleKeys(await readTmdbChangeSet())
+  const queuedChanges = changedTitleKeys || tmdbChangedTitleTimes(await readTmdbChangeSet())
   const candidates = source.docs.map((snapshot, index) => {
     const segments = String(snapshot.ref.path || '').split('/')
     const data = snapshot.data()
@@ -81,7 +81,7 @@ export async function runPersonalTmdbMetadataBackfill({
       index,
       validDocument,
       incomplete: titleNeedsMetadataEnrichment(data, { requireContract: true }),
-      changed: queuedChanges.has(personalTitleKey(data)),
+      changed: isTmdbTitleChangePending(queuedChanges, personalTitleKey(data), data?.metadataUpdatedAt),
       due: validDocument && titleNeedsMetadataEnrichment(data, {
         now: now.getTime(),
         maxAgeDays: ageDays,

@@ -12,11 +12,14 @@ describe('Firebase workflow data separation', () => {
     expect(workflow).not.toContain('id: push_catalog')
   })
 
-  it('keeps live generation and personal metadata maintenance on data runs', async () => {
+  it('keeps live generation and the canonical executor on data runs', async () => {
     const workflow = await readFile('.github/workflows/deploy-firebase.yml', 'utf8')
 
     expect(workflow).toContain('id: tmdb_catalog_strict')
     expect(workflow).toContain("github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')")
-    expect(workflow).toMatch(/name: Enrich personal Movie-Hub provider metadata[\s\S]*?if:.*github\.event_name != 'push'/)
+    expect(workflow).toMatch(/name: Execute canonical title priority queue[\s\S]*?if:.*github\.event_name != 'push'/)
+    expect(workflow).toContain('run: npm run title:priority:execute')
+    expect(workflow).not.toContain('name: Enrich personal Movie-Hub provider metadata')
+    expect(workflow).not.toContain('name: Enrich personal TMDB catalog metadata')
   })
 })

@@ -8,8 +8,10 @@ import {
   collectTmdbChangeQueue,
   commitTmdbChangeQueue,
   fetchTmdbChangedIds,
+  isTmdbTitleChangePending,
   mergeTmdbPendingChanges,
   tmdbChangedTitleKeys,
+  tmdbChangedTitleTimes,
   verifyTmdbChangeConsumers,
 } from '../scripts/tmdb-change-queue.mjs'
 
@@ -70,6 +72,25 @@ describe('TMDB change queue', () => {
 
     expect(pending.movie.map(({ id }) => id)).toEqual([1, 3])
     expect(tmdbChangedTitleKeys({ pending })).toEqual(new Set(['movie:1', 'movie:3', 'series:4']))
+  })
+
+  it('treats a persisted change as consumed once metadata is at least as new', () => {
+    const changes = tmdbChangedTitleTimes({
+      pending: {
+        movie: [{ id: 11, lastSeen: '2026-09-20T03:17:00.000Z' }],
+        series: [{ id: 22, lastSeen: '2026-09-20T03:18:00.000Z' }],
+      },
+    })
+
+    expect(changes).toEqual(new Map([
+      ['movie:11', '2026-09-20T03:17:00.000Z'],
+      ['series:22', '2026-09-20T03:18:00.000Z'],
+    ]))
+    expect(isTmdbTitleChangePending(changes, 'movie:11', '2026-09-20T03:16:59.999Z')).toBe(true)
+    expect(isTmdbTitleChangePending(changes, 'movie:11', '2026-09-20T03:17:00.000Z')).toBe(false)
+    expect(isTmdbTitleChangePending(changes, 'movie:11', '2026-09-20T03:20:00.000Z')).toBe(false)
+    expect(isTmdbTitleChangePending(changes, 'series:22', null)).toBe(true)
+    expect(isTmdbTitleChangePending(new Set(['movie:11']), 'movie:11', '2026-09-21T00:00:00.000Z')).toBe(true)
   })
 
   it('commits a staged checkpoint only after every required consumer acknowledged it', async () => {

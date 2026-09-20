@@ -30,6 +30,7 @@
     "workflow:summary": "node scripts/report-workflow-summary.mjs",
     "title:candidates:inventory": "node scripts/build-title-candidate-inventory.mjs",
     "title:priority:preview": "node scripts/build-title-priority-preview.mjs",
+    "title:priority:execute": "node scripts/execute-title-priority-queue.mjs",
     "epg:quality": "node scripts/free-epg-quality.mjs",
     "test:epg": "vitest run tests/free-epg-quality.test.js",
     "waipu:probe": "node scripts/waipu-public-contract-probe.mjs",

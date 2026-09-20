@@ -162,12 +162,49 @@ export function mergeTmdbPendingChanges(state, changed, {
 }
 
 export function tmdbChangedTitleKeys(changeSet) {
-  return new Set([
-    ...(Array.isArray(changeSet?.pending?.movie) ? changeSet.pending.movie : [])
-      .map((entry) => canonicalKey('movie', entry?.id ?? entry)),
-    ...(Array.isArray(changeSet?.pending?.series) ? changeSet.pending.series : [])
-      .map((entry) => canonicalKey('series', entry?.id ?? entry)),
-  ].filter(Boolean))
+  return new Set(tmdbChangedTitleTimes(changeSet).keys())
+}
+
+export function tmdbChangedTitleTimes(changeSet) {
+  const result = new Map()
+  for (const [type, values] of Object.entries({
+    movie: changeSet?.pending?.movie,
+    series: changeSet?.pending?.series,
+  })) {
+    for (const entry of Array.isArray(values) ? values : []) {
+      const key = canonicalKey(type, entry?.id ?? entry)
+      if (!key) continue
+      const lastSeen = Date.parse(entry?.lastSeen || '')
+      const previous = Date.parse(result.get(key) || '')
+      if (Number.isFinite(lastSeen) && (!Number.isFinite(previous) || lastSeen > previous)) {
+        result.set(key, new Date(lastSeen).toISOString())
+      } else if (!result.has(key)) {
+        // Keep compatibility with explicitly supplied id-only change sets. A
+        // missing timestamp cannot prove that a consumer already processed it.
+        result.set(key, null)
+      }
+    }
+  }
+  return result
+}
+
+function timestampMilliseconds(value) {
+  if (!value) return null
+  if (typeof value?.toMillis === 'function') return value.toMillis()
+  if (Number.isFinite(Number(value?.seconds))) return Number(value.seconds) * 1000
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export function isTmdbTitleChangePending(changes, key, metadataUpdatedAt = null) {
+  if (!key || !changes?.has?.(key)) return false
+  // Existing Set-based callers deliberately mean "force this identity" and
+  // therefore retain their previous behaviour.
+  if (!(changes instanceof Map)) return true
+  const changedAt = timestampMilliseconds(changes.get(key))
+  const updatedAt = timestampMilliseconds(metadataUpdatedAt)
+  if (changedAt === null || updatedAt === null) return true
+  return updatedAt < changedAt
 }
 
 export async function readTmdbChangeSet(path = resolve(defaultDirectory, 'change-set.json')) {
