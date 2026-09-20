@@ -55,14 +55,36 @@ Details:
 
 Projektstart: 31. August 2026
 
-Stand: **15. September 2026**
+Stand: **20. September 2026**
 
-Der Funktionsstand vom 13. September ist von Matthias auf **Smartphone, Tablet und Fire TV bis hierhin abgenommen**. Dazu gehören insbesondere die native Android-/Fire-TV-Hülle, D-Pad-/Zurück-Navigation, Profile und persönliche Zustände, SMB-/FRITZ!NAS-Wiedergabe, persönliche TMDB-Verbindung und -Synchronisation, automatische Providerbuttons für Netflix, Prime Video, Disney+, YouTube und waipu.tv sowie das Movie-Hub-Startintro mit Jingle und CRT-Abschaltung.
+Das aktuelle Arbeitspaket ist
+[#4 – öffentlicher Waipu-Live-Katalog](https://github.com/matthias-ennen/movie-hub/issues/4).
+Der zentrale Datenlauf verarbeitet für die freigegebenen ersten 50 Sender einen
+rollierenden 14-Tage-EPG-Bestand, ordnet Filme und Serien reproduzierbar über
+Medientyp plus TMDB-ID zu und veröffentlicht fertige Movie-Hub-Katalogartefakte.
+Der vollständige Lauf vom 19.09.2026 lieferte 1.040 Titel, 7.903 Ausstrahlungen
+und 1.040/1.040 vollständige TMDB-Metadatensätze.
 
-Die Seiten **Filme** und **Serien** besitzen seit #156 eigene profilbezogene Kategorieauswahlen. Das anschließende Paket #163 ergänzt davon getrennte, selbst konfigurierte Smart-Reihen ausschließlich unter **Meine Inhalte**.
+Die technischen Stufen bis #4I sind umgesetzt. Dazu gehören TV-Reiter,
+kontoweite Senderauswahl und -sortierung, Waipu-Badges und Sendetermine,
+einheitliche TV-Posterkarten, zeitgenauer statischer `ON AIR`-Status sowie die
+vollständige „Gesehen“-Markierung bei Anbieter-Aufrufen. Langzeitbeobachtung
+und gemeinsame Geräteabnahme auf Fire TV, Smartphone und Tablet bleiben offen.
 
-Für Provider gilt bewusst Best Effort: Titelsuche ist optimal, die Suchseite ist akzeptiert und das zuverlässige Öffnen der richtigen Anbieter-App ist die Mindestanforderung. Das Fire-TV-Sideloading kann Launcher-Grafiken anders darstellen als Smartphone/Tablet. Mit #202 wird deshalb ein neuer, getrennt abnehmbarer Kompatibilitätsversuch umgesetzt: Die APK enthält ein echtes quadratisches PNG als Android-Icon und ein separates echtes 320 × 180-PNG als TV-Banner.
+Der aktuelle Produkt-Referenzstand ist **APK 0.1.473**. Beobachtungen dazu sind
+in [#254](https://github.com/matthias-ennen/movie-hub/issues/254) gesammelt und
+in der [Bestandsaufnahme ab APK 0.1.473](docs/APP_REVIEW_0.1.473.md)
+strukturiert. Die Fortsetzung, Paketbildung und offenen Entscheidungen werden
+in [#255](https://github.com/matthias-ennen/movie-hub/issues/255) geführt.
 
-Die zu diesem Abnahmestand gehörenden Detail-Issues werden abgeschlossen. Neue Auffälligkeiten werden als neue, klar abgegrenzte Issues erfasst.
+Für **Home, Filme, Serien, TV und Meine Inhalte** gilt als gemeinsames Ziel eine
+einheitliche, stabile technische Inhaltsseiten-Grundlage. Bewährte Hero-,
+Posterreihen-, Fokus-, Lade- und Detailseitenlogik wird wiederverwendet;
+seitenspezifisch bleiben nur fachlich notwendige Unterschiede.
 
-Die Pakete #170/#171 und #173 sind integriert: Movie Hub arbeitet als virtueller Anbieter, Heroes und Posterreihen werden profilbezogen kuratiert und alle Inhaltsbereiche besitzen ihre dynamische Top 10. Die Filmreihen- und Metadatenpakete #137/#181 wurden mit Build 205 abgenommen. **Aktuelles Arbeitspaket #178** ergänzt auf Serien-Detailseiten eine Staffelauswahl, Staffelposter und lazy geladene Episoden. Ein Klick auf eine Folge öffnet einen eigenen Episoden-Detaildialog, ohne Serientitel oder Serienbeschreibung zu ersetzen. Eine eigenständige Sammlungsseite und Sammlungskacheln bleiben bewusst einer späteren Ausbaustufe vorbehalten.
+Die bestätigte Hauptreihenfolge bleibt zunächst:
+
+`#4 → Triage #254/#255 → #118 → #7`
+
+Vor jedem Umsetzungspaket werden offene Produktfragen mit Matthias einzeln
+geklärt und anschließend im betreffenden Issue verbindlich dokumentiert.
