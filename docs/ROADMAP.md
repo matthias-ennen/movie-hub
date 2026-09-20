@@ -41,7 +41,7 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 
 #256 ist nach dem vollständig abgenommenen und geschlossenen #4 das nächste Arbeitspaket. Vor der Programmierung erfolgt nur noch eine kurze technische Scope-Kontrolle.
 
-Aktueller Umsetzungsschritt: Der V3-Vollständigkeitsvertrag und der atomare Search-only-Ladeweg sind umgesetzt. Als nächster kontrollierter Baustein wird die rein lesende Quelleninventur nach `Medientyp + TMDB-ID` eingeführt. Sie veröffentlicht oder überschreibt noch keine Metadaten; die Prioritätswarteschlange folgt erst nach Prüfung des ersten realen Inventarlaufs. Details: [Kanonischer Titelkandidatenbestand](TITLE_CANDIDATE_INVENTORY.md).
+Aktueller Umsetzungsschritt: Der V3-Vollständigkeitsvertrag, der atomare Search-only-Ladeweg und die rein lesende Quelleninventur nach `Medientyp + TMDB-ID` sind umgesetzt. Deploy Firebase #349 bestätigte 3.217 kanonische Kandidaten aus 3.490 Referenzen und 15.920 getrennte Search-only-Titel. Als nächster kontrollierter Baustein folgt die ebenfalls rein lesende [Prioritätsvorschau](TITLE_PRIORITY_QUEUE.md); sie veröffentlicht oder überschreibt noch keine Metadaten.
 
 Verbindlicher Umfang:
 

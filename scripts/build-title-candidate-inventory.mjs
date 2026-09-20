@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { titleNeedsMetadataEnrichment } from '../src/catalog/titleMetadata.js'
 
 export const TITLE_CANDIDATE_INVENTORY_VERSION = 1
 export const CANDIDATE_SOURCES = Object.freeze(['browse', 'personal-tmdb', 'movie-hub', 'waipu'])
@@ -57,10 +58,80 @@ function sourceValues({ catalog, personalDocuments, movieHubDocuments, waipuTitl
   }
 }
 
-function collectSource(source, references, candidates) {
+function timestampIso(value) {
+  let milliseconds = null
+  if (typeof value?.toMillis === 'function') milliseconds = value.toMillis()
+  else if (Number.isFinite(Number(value?.seconds))) milliseconds = Number(value.seconds) * 1000
+  else milliseconds = Date.parse(value)
+  return Number.isFinite(milliseconds) ? new Date(milliseconds).toISOString() : null
+}
+
+function metadataObservation(source, value, { now, maxAgeDays }) {
+  const strictComplete = !titleNeedsMetadataEnrichment(value, { requireContract: true })
+  const freshComplete = !titleNeedsMetadataEnrichment(value, {
+    now,
+    maxAgeDays,
+    requireContract: true,
+  })
+  const checks = value?.metadataChecks && typeof value.metadataChecks === 'object' ? value.metadataChecks : {}
+  const type = mediaType(value)
+  const structuralCheck = checks[type === 'series' ? 'seasons' : 'collection']
+  const checked = (state) => state === 'present' || state === 'absent'
+  const commonChecksComplete = [
+    'details', 'artwork', 'ageRating', 'credits', 'keywords', 'videos', 'providers',
+  ].every((key) => checked(checks[key]))
+  const structuralGap = !checked(structuralCheck)
+  return {
+    source,
+    strictComplete,
+    freshComplete,
+    failed: Object.values(checks).includes('failed'),
+    structuralGap,
+    structuralOnlyGap: !strictComplete
+      && Number(value?.metadataVersion) >= 3
+      && commonChecksComplete
+      && structuralGap,
+    metadataVersion: Math.max(0, Number(value?.metadataVersion) || 0),
+    metadataUpdatedAt: timestampIso(value?.metadataUpdatedAt),
+  }
+}
+
+function summarizeCandidateMetadata(observations) {
+  const values = Array.isArray(observations) ? observations : []
+  const sourceStates = Object.fromEntries(CANDIDATE_SOURCES
+    .map((source) => {
+      const matching = values.filter((observation) => observation.source === source)
+      if (!matching.length) return null
+      return [source, {
+        references: matching.length,
+        strictCompleteReferences: matching.filter(({ strictComplete }) => strictComplete).length,
+        freshCompleteReferences: matching.filter(({ freshComplete }) => freshComplete).length,
+        failedReferences: matching.filter(({ failed }) => failed).length,
+        structuralGapReferences: matching.filter(({ structuralGap }) => structuralGap).length,
+        structuralOnlyGapReferences: matching.filter(({ structuralOnlyGap }) => structuralOnlyGap).length,
+      }]
+    })
+    .filter(Boolean))
+  const updated = values.map(({ metadataUpdatedAt }) => metadataUpdatedAt).filter(Boolean).sort()
+  return {
+    strictCompleteAvailable: values.some(({ strictComplete }) => strictComplete),
+    freshCompleteAvailable: values.some(({ freshComplete }) => freshComplete),
+    incompleteReferences: values.filter(({ strictComplete }) => !strictComplete).length,
+    staleReferences: values.filter(({ strictComplete, freshComplete }) => strictComplete && !freshComplete).length,
+    failedReferences: values.filter(({ failed }) => failed).length,
+    structuralGapReferences: values.filter(({ structuralGap }) => structuralGap).length,
+    structuralOnlyGapReferences: values.filter(({ structuralOnlyGap }) => structuralOnlyGap).length,
+    latestUpdatedAt: updated.at(-1) || null,
+    sourceStates,
+  }
+}
+
+function collectSource(source, references, candidates, options) {
   const unique = new Set()
   let eligibleReferences = 0
   let rejectedReferences = 0
+  let strictCompleteReferences = 0
+  let freshCompleteReferences = 0
 
   for (const reference of references) {
     if (!reference.eligible) {
@@ -74,8 +145,12 @@ function collectSource(source, references, candidates) {
     }
     eligibleReferences += 1
     unique.add(identity.key)
-    const candidate = candidates.get(identity.key) || { ...identity, sources: [] }
+    const observation = metadataObservation(source, reference.value, options)
+    if (observation.strictComplete) strictCompleteReferences += 1
+    if (observation.freshComplete) freshCompleteReferences += 1
+    const candidate = candidates.get(identity.key) || { ...identity, sources: [], observations: [] }
     if (!candidate.sources.includes(source)) candidate.sources.push(source)
+    candidate.observations.push(observation)
     candidates.set(identity.key, candidate)
   }
 
@@ -85,6 +160,8 @@ function collectSource(source, references, candidates) {
     rejectedReferences,
     uniqueTitles: unique.size,
     duplicateReferences: Math.max(0, eligibleReferences - unique.size),
+    strictCompleteReferences,
+    freshCompleteReferences,
   }
 }
 
@@ -122,18 +199,25 @@ export function buildTitleCandidateInventory({
   personalDocuments = [],
   movieHubDocuments = [],
   generatedAt = new Date().toISOString(),
+  maxAgeDays = 30,
 } = {}) {
+  const generatedAtMilliseconds = Date.parse(generatedAt)
+  const metadataOptions = {
+    now: Number.isFinite(generatedAtMilliseconds) ? generatedAtMilliseconds : Date.now(),
+    maxAgeDays: Math.max(1, Number(maxAgeDays) || 30),
+  }
   const candidates = new Map()
   const sources = sourceValues({ catalog, personalDocuments, movieHubDocuments, waipuTitles })
   const sourceStats = Object.fromEntries(CANDIDATE_SOURCES.map((source) => [
     source,
-    collectSource(source, sources[source], candidates),
+    collectSource(source, sources[source], candidates, metadataOptions),
   ]))
 
   const candidateEntries = [...candidates.values()]
-    .map((candidate) => ({
+    .map(({ observations, ...candidate }) => ({
       ...candidate,
       sources: CANDIDATE_SOURCES.filter((source) => candidate.sources.includes(source)),
+      metadata: summarizeCandidateMetadata(observations),
     }))
     .sort((left, right) => left.key.localeCompare(right.key))
   const candidateKeys = new Set(candidateEntries.map(({ key }) => key))

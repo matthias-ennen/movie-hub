@@ -58,6 +58,7 @@ export function buildWorkflowSummary({
   metadata = {},
   personalMetadata = {},
   candidateInventory = {},
+  priorityPreview = {},
   searchRun = {},
   tmdbChanges = {},
   tmdbChangeRun = {},
@@ -164,6 +165,13 @@ export function buildWorkflowSummary({
         open: `${number(candidateInventory.counts?.searchOnlyTitles)} nur Suche · ${number(candidateInventory.unresolvedWaipu?.programs)} Waipu ungeklärt`,
       },
       {
+        area: 'Prioritätsvorschau',
+        status: outcome(steps.priorityPreview, '⏭️ noch nicht berechnet'),
+        stock: `${number(priorityPreview.counts?.queued)}/${number(priorityPreview.inputs?.candidates)} eingeplant · ${number(priorityPreview.counts?.selectedWithinCapacity)} in Tageskapazität`,
+        activity: `${number(priorityPreview.counts?.fetchRequired)} TMDB-Abrufe · ${number(priorityPreview.counts?.reusableCanonical)} Wiederverwendungen`,
+        open: `${number(priorityPreview.counts?.backlog)} Rückstand · ${number(priorityPreview.counts?.duplicateQueueEntries)} Queue-Dubletten`,
+      },
+      {
         area: 'Bestandsmigration',
         status: outcome(steps.presence),
         stock: `${number(presence.parentGroups)} Movie-Hub-Titel`,
@@ -214,7 +222,7 @@ async function readJson(path, fallback = {}) {
 }
 
 async function main() {
-  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, metadata, personalMetadata, candidateInventory, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu] = await Promise.all([
+  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, metadata, personalMetadata, candidateInventory, priorityPreview, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu] = await Promise.all([
     readJson('public/data-status.json'),
     readJson('public/catalog.json'),
     readJson('public/search-index.json'),
@@ -227,6 +235,7 @@ async function main() {
     readJson('artifacts/moviehub-metadata-status.json'),
     readJson('artifacts/personal-tmdb-metadata-status.json'),
     readJson('artifacts/title-candidate-inventory-summary.json'),
+    readJson('artifacts/title-priority-preview-summary.json'),
     readJson('artifacts/search-index-run-report.json'),
     readJson('artifacts/tmdb-data/change-set.json'),
     readJson('artifacts/tmdb-data/run.json', null),
@@ -235,7 +244,7 @@ async function main() {
     readJson('artifacts/workflow-baseline/waipu-index.json', null),
   ])
   const summary = buildWorkflowSummary({
-    dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, metadata, personalMetadata, candidateInventory, searchRun, tmdbChanges,
+    dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, metadata, personalMetadata, candidateInventory, priorityPreview, searchRun, tmdbChanges,
     tmdbChangeRun: activeTmdbChangeRun || lastTmdbChangeRun || {}, baselineData, baselineWaipu,
     steps: {
       tmdbChanges: process.env.SUMMARY_TMDB_CHANGES,
@@ -247,6 +256,7 @@ async function main() {
       metadata: process.env.SUMMARY_METADATA,
       personalMetadata: process.env.SUMMARY_PERSONAL_TMDB,
       candidateInventory: process.env.SUMMARY_CANDIDATE_INVENTORY,
+      priorityPreview: process.env.SUMMARY_PRIORITY_PREVIEW,
       presence: process.env.SUMMARY_PRESENCE,
       build: process.env.SUMMARY_BUILD,
       auth: process.env.SUMMARY_AUTH,

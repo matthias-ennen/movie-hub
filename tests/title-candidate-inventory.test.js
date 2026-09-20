@@ -65,7 +65,7 @@ describe('kanonischer Titelkandidatenbestand', () => {
       invalidSearchReferences: 1,
       byMediaType: { movie: 2, series: 2 },
     })
-    expect(inventory.candidates).toEqual([
+    expect(inventory.candidates.map(({ metadata: _metadata, ...candidate }) => candidate)).toEqual([
       { key: 'movie:11', type: 'movie', tmdbId: 11, sources: ['browse', 'personal-tmdb'] },
       { key: 'movie:33', type: 'movie', tmdbId: 33, sources: ['personal-tmdb'] },
       { key: 'series:22', type: 'series', tmdbId: 22, sources: ['browse', 'movie-hub'] },
@@ -77,6 +77,8 @@ describe('kanonischer Titelkandidatenbestand', () => {
       eligibleReferences: 2,
       rejectedReferences: 1,
       uniqueTitles: 2,
+      strictCompleteReferences: 0,
+      freshCompleteReferences: 0,
     })
     expect(inventory.unresolvedWaipu).toMatchObject({
       detailsAvailable: true,

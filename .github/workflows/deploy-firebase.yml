@@ -46,6 +46,15 @@ jobs:
         continue-on-error: true
         run: npm run workflow:baseline
 
+      - name: Restore title-candidate baseline
+        id: title_candidate_state_cache
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: artifacts/title-candidate-state.json
+          key: title-candidate-state-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: title-candidate-state-v1-
+
       - name: Restore persistent TMDB change state
         if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         id: tmdb_change_cache
@@ -189,6 +198,23 @@ jobs:
           GOOGLE_CLOUD_PROJECT: movie-hub-62459
         run: npm run moviehub:presence:migrate
 
+      # Read-only consolidation checkpoint for #256. This records the union and
+      # overlap of every catalog-relevant source before the existing source-
+      # specific backfills can change its metadata state.
+      - name: Inventory canonical title candidates
+        id: candidate_inventory
+        continue-on-error: true
+        env:
+          GOOGLE_CLOUD_PROJECT: movie-hub-62459
+        run: npm run title:candidates:inventory
+
+      - name: Preview canonical title priority queue
+        id: priority_preview
+        continue-on-error: true
+        env:
+          TITLE_PRIORITY_PREVIEW_LIMIT: ${{ (inputs.data_mode == 'accelerated' || contains(github.event.head_commit.message, '[data-bootstrap]')) && '2000' || '800' }}
+        run: npm run title:priority:preview
+
       - name: Enrich personal Movie-Hub provider metadata
         id: shared_metadata
         if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
@@ -223,16 +249,6 @@ jobs:
         if: ${{ steps.personal_tmdb_metadata.outcome == 'success' }}
         run: npm run tmdb:changes:ack -- personal-tmdb-metadata
 
-      # Read-only consolidation checkpoint for #256. This records the union and
-      # overlap of every catalog-relevant source, but does not fetch TMDB data,
-      # publish public files or execute the future priority queue.
-      - name: Inventory canonical title candidates
-        id: candidate_inventory
-        continue-on-error: true
-        env:
-          GOOGLE_CLOUD_PROJECT: movie-hub-62459
-        run: npm run title:candidates:inventory
-
       - name: Validate TMDB change consumers before publication
         if: ${{ steps.tmdb_changes.outcome == 'success' }}
         run: npm run tmdb:changes:verify -- --exclude firebase-publication
@@ -244,6 +260,14 @@ jobs:
       - name: Acknowledge published TMDB change generation
         if: ${{ steps.tmdb_changes.outcome == 'success' && steps.firebase_deploy.outcome == 'success' }}
         run: npm run tmdb:changes:ack -- firebase-publication
+
+      - name: Save published title-candidate baseline
+        if: ${{ steps.priority_preview.outcome == 'success' && steps.firebase_deploy.outcome == 'success' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: artifacts/title-candidate-state.json
+          key: title-candidate-state-v1-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Commit successful TMDB change checkpoint
         if: ${{ always() && steps.tmdb_changes.outcome == 'success' }}
@@ -270,6 +294,7 @@ jobs:
           SUMMARY_METADATA: ${{ steps.shared_metadata.outcome }}
           SUMMARY_PERSONAL_TMDB: ${{ steps.personal_tmdb_metadata.outcome }}
           SUMMARY_CANDIDATE_INVENTORY: ${{ steps.candidate_inventory.outcome }}
+          SUMMARY_PRIORITY_PREVIEW: ${{ steps.priority_preview.outcome }}
           SUMMARY_BUILD: ${{ steps.app_build.outcome }}
           SUMMARY_AUTH: ${{ steps.gcp_auth.outcome }}
           SUMMARY_DEPLOY: ${{ steps.firebase_deploy.outcome }}
@@ -284,12 +309,14 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
-      - name: Upload title-candidate inventory summary
+      - name: Upload title-candidate diagnostics
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: title-candidate-inventory-${{ github.run_id }}-${{ github.run_attempt }}
-          path: artifacts/title-candidate-inventory-summary.json
+          path: |
+            artifacts/title-candidate-inventory-summary.json
+            artifacts/title-priority-preview-summary.json
           if-no-files-found: ignore
           retention-days: 30
 
