@@ -16,7 +16,7 @@ import {
 } from '../src/search/searchIndex.js'
 import { SEARCH_DETAIL_BUCKET_COUNT, SEARCH_DETAIL_VERSION } from '../src/search/lazySearchDetails.js'
 import { buildFilmCollection } from '../src/catalog/filmCollections.js'
-import { readTmdbChangeSet, tmdbChangedTitleKeys } from './tmdb-change-queue.mjs'
+import { isTmdbTitleChangePending, readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
 import {
   buildSearchIndexRunReport,
   evaluateSearchIndexRunReport,
@@ -443,7 +443,11 @@ export function selectSearchDetailEnrichmentCandidates(entries, existingDetails,
         entry,
         index,
         incomplete: !existing || titleNeedsMetadataEnrichment(existing, { requireContract: true }),
-        changed: changedTitleKeys.has(`${entry?.type === 'series' ? 'series' : 'movie'}:${Number(entry?.tmdbId)}`),
+        changed: isTmdbTitleChangePending(
+          changedTitleKeys,
+          `${entry?.type === 'series' ? 'series' : 'movie'}:${Number(entry?.tmdbId)}`,
+          existing?.metadataUpdatedAt,
+        ),
         structuralGap: searchDetailHasStructuralGap(entry, existing),
         updatedAt: searchDetailUpdatedAt(existing),
       }
@@ -835,7 +839,7 @@ export async function generateBroadSearchIndexFromTmdb() {
   const existingById = new Map(existingDetails.map((detail) => [detail.id, detail]))
   const activeSearchIds = new Set(searchIndex.entries.map((entry) => entry.id))
   const collectionCache = new Map()
-  const changedTitleKeys = tmdbChangedTitleKeys(await readTmdbChangeSet())
+  const changedTitleKeys = tmdbChangedTitleTimes(await readTmdbChangeSet())
   const enrichmentCandidates = selectSearchDetailEnrichmentCandidates(
     searchIndex.entries,
     existingDetails,

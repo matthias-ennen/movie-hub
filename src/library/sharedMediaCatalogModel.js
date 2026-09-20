@@ -34,6 +34,13 @@ function compactVideos(value) {
   })).filter((video) => video.key || video.url)
 }
 
+function compactMetadataChecks(value) {
+  if (!value || typeof value !== 'object') return {}
+  const allowedStates = new Set(['present', 'absent', 'failed', 'unchecked'])
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key, state]) => typeof key === 'string' && allowedStates.has(state)))
+}
+
 function compactCollection(value) {
   if (!value || typeof value !== 'object' || !Array.isArray(value.parts)) return null
   const id = finiteNumber(value.id)
@@ -80,6 +87,12 @@ export function buildSharedMediaTitleRef(item) {
     year: finiteNumber(item?.year),
     releaseDate: typeof item?.releaseDate === 'string' ? item.releaseDate : null,
     runtimeMinutes: finiteNumber(item?.runtimeMinutes),
+    originalLanguage: typeof item?.originalLanguage === 'string' ? item.originalLanguage.slice(0, 20) : null,
+    numberOfSeasons: type === 'series' ? finiteNumber(item?.numberOfSeasons) : null,
+    numberOfEpisodes: type === 'series' ? finiteNumber(item?.numberOfEpisodes) : null,
+    seasons: type === 'series' && Array.isArray(item?.seasons) ? item.seasons.slice(0, 100) : [],
+    posterPath: typeof item?.posterPath === 'string' ? item.posterPath : null,
+    backdropPath: typeof item?.backdropPath === 'string' ? item.backdropPath : null,
     posterUrl: typeof item?.posterUrl === 'string' ? item.posterUrl : null,
     neutralPosterUrl: typeof item?.neutralPosterUrl === 'string' ? item.neutralPosterUrl : null,
     backdropUrl: typeof item?.backdropUrl === 'string' ? item.backdropUrl : null,
@@ -110,6 +123,7 @@ export function buildSharedMediaTitleRef(item) {
     collectionDetails: type === 'movie' ? compactCollection(item?.collectionDetails) : null,
     metadataVersion: Math.max(1, finiteNumber(item?.metadataVersion) || 1),
     metadataComplete: item?.metadataComplete === true,
+    metadataChecks: compactMetadataChecks(item?.metadataChecks),
     metadataUpdatedAt: typeof item?.metadataUpdatedAt === 'string' ? item.metadataUpdatedAt : null,
   }
 }

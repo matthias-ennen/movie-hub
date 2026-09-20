@@ -58,18 +58,21 @@ Projektstart: 31. August 2026
 Stand: **20. September 2026**
 
 Das aktuelle Arbeitspaket ist
-[#4 – öffentlicher Waipu-Live-Katalog](https://github.com/matthias-ennen/movie-hub/issues/4).
-Der zentrale Datenlauf verarbeitet für die freigegebenen ersten 50 Sender einen
-rollierenden 14-Tage-EPG-Bestand, ordnet Filme und Serien reproduzierbar über
-Medientyp plus TMDB-ID zu und veröffentlicht fertige Movie-Hub-Katalogartefakte.
-Der vollständige Lauf vom 19.09.2026 lieferte 1.040 Titel, 7.903 Ausstrahlungen
-und 1.040/1.040 vollständige TMDB-Metadatensätze.
+[#256 – vollständige kanonische Titelmetadaten vor Veröffentlichung](https://github.com/matthias-ennen/movie-hub/issues/256).
+Der geschützte Datenlauf führt Browse, persönlichen TMDB-Katalog, Movie Hub und
+Waipu über Medientyp plus TMDB-ID zu einer gemeinsamen Prioritätswarteschlange
+zusammen. Nach dem erfolgreichen Kontrolllauf #351 wird diese Warteschlange nun
+durch einen zentralen Executor verarbeitet: pro Identität höchstens ein
+TMDB-Detailabruf, danach Fan-out derselben geprüften V3-Kopie an alle betroffenen
+Quellen. Reine Search-only-Titel bleiben davon getrennt und laden ihre Details
+beim Öffnen atomar nach.
 
-Die technischen Stufen bis #4I sind umgesetzt. Dazu gehören TV-Reiter,
+Das Waipu-Arbeitspaket #4 ist abgeschlossen und abgenommen. Dazu gehören TV-Reiter,
 kontoweite Senderauswahl und -sortierung, Waipu-Badges und Sendetermine,
 einheitliche TV-Posterkarten, zeitgenauer statischer `ON AIR`-Status sowie die
-vollständige „Gesehen“-Markierung bei Anbieter-Aufrufen. Langzeitbeobachtung
-und gemeinsame Geräteabnahme auf Fire TV, Smartphone und Tablet bleiben offen.
+vollständige „Gesehen“-Markierung bei Anbieter-Aufrufen. Die gemeinsame
+Geräteabnahme auf Fire TV, Smartphone und Tablet ist erfolgt; Langzeitbeobachtung
+bleibt dauerhafte Wartungsaufgabe.
 
 Der aktuelle Produkt-Referenzstand ist **APK 0.1.473**. Beobachtungen dazu sind
 in [#254](https://github.com/matthias-ennen/movie-hub/issues/254) gesammelt und
@@ -84,7 +87,7 @@ seitenspezifisch bleiben nur fachlich notwendige Unterschiede.
 
 Die bestätigte Hauptreihenfolge bleibt zunächst:
 
-`#4 → Triage #254/#255 → #118 → #7`
+`#256 → #259 → Triage #254/#255 → #260 → #118 → #7`
 
 Vor jedem Umsetzungspaket werden offene Produktfragen mit Matthias einzeln
 geklärt und anschließend im betreffenden Issue verbindlich dokumentiert.

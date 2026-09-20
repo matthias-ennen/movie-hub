@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { tmdbChangedTitleKeys } from './tmdb-change-queue.mjs'
+import { isTmdbTitleChangePending, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
 
 export const TITLE_PRIORITY_PREVIEW_VERSION = 1
 export const TITLE_CANDIDATE_STATE_VERSION = 1
@@ -77,7 +77,7 @@ export function buildTitlePriorityPreview({
   const candidates = Array.isArray(inventory?.candidates) ? inventory.candidates : []
   const currentKeys = new Set(candidates.map(({ key }) => key).filter(Boolean))
   const changesAvailable = changeSet?.kind === 'tmdb-change-set'
-  const changedKeys = changesAvailable ? tmdbChangedTitleKeys(changeSet) : new Set()
+  const changedTitles = changesAvailable ? tmdbChangedTitleTimes(changeSet) : new Map()
   const queue = []
   let upToDate = 0
 
@@ -89,13 +89,19 @@ export function buildTitlePriorityPreview({
     const incomplete = failed || Number(metadata.incompleteReferences) > structuralOnlyGapReferences
     const stale = Number(metadata.staleReferences) > 0
     const isNew = Boolean(baseline) && !previousKeys.has(candidate.key)
-    const changed = changedKeys.has(candidate.key)
+    const changed = isTmdbTitleChangePending(
+      changedTitles,
+      candidate.key,
+      Number(metadata.referencesWithoutUpdatedAt) > 0 ? null : metadata.oldestUpdatedAt,
+    )
+    const changeCoveredByCanonical = changedTitles.has(candidate.key)
+      && !isTmdbTitleChangePending(changedTitles, candidate.key, metadata.latestUpdatedAt)
     const priority = priorityFor({ incomplete, isNew, changed, structuralGap, stale })
     if (!priority) {
       upToDate += 1
       continue
     }
-    const fetchRequired = changed || metadata.freshCompleteAvailable !== true
+    const fetchRequired = (changed && !changeCoveredByCanonical) || metadata.freshCompleteAvailable !== true
     queue.push({
       key: candidate.key,
       type: candidate.type,

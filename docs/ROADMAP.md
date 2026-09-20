@@ -41,7 +41,7 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 
 #256 ist nach dem vollständig abgenommenen und geschlossenen #4 das nächste Arbeitspaket. Vor der Programmierung erfolgt nur noch eine kurze technische Scope-Kontrolle.
 
-Aktueller Umsetzungsschritt: Der V3-Vollständigkeitsvertrag, der atomare Search-only-Ladeweg und die rein lesende Quelleninventur nach `Medientyp + TMDB-ID` sind umgesetzt. Deploy Firebase #349 bestätigte 3.217 kanonische Kandidaten aus 3.490 Referenzen und 15.920 getrennte Search-only-Titel. Als nächster kontrollierter Baustein folgt die ebenfalls rein lesende [Prioritätsvorschau](TITLE_PRIORITY_QUEUE.md); sie veröffentlicht oder überschreibt noch keine Metadaten.
+Aktueller Umsetzungsschritt: Der V3-Vollständigkeitsvertrag, der atomare Search-only-Ladeweg, die Quelleninventur und die Prioritätswarteschlange nach `Medientyp + TMDB-ID` sind umgesetzt. Deploy Firebase #351 bestätigte im zweiten Versuch 3.193 kanonische Kandidaten, 1.212 Queue-Einträge, höchstens 1.063 notwendige TMDB-Abrufe, 149 Wiederverwendungen, 0 Queue-Dubletten und 0 Kapazitätsrückstand. Der zentrale [Titel-Executor](TITLE_PRIORITY_QUEUE.md) ist nun in den geschützten Datenlauf eingebunden; seine erste produktive Ausführung und deren Ergebnisprüfung bleiben der nächste Kontrollpunkt.
 
 Verbindlicher Umfang:
 
@@ -129,4 +129,4 @@ registrierten offenen Fragen.
 
 `#4 abgeschlossen → #256 Datenfundament → #259 Deep-Link-Verifikation → Triage der gemeinsamen TV-Grundlage → #260 Senderausbau in Wellen → #118 → #7`
 
-#4 ist vollständig abgenommen und geschlossen. Der veröffentlichte 50-Sender-Bestand bleibt der gültige Ausgangsstand. Der direkte Live-Absprung wird in #259 getrennt verifiziert; die spätere Erweiterung ist in #260 dokumentiert. Öffentliche Verteilung bleibt von der Compliance-Prüfung #112 abhängig. Vor Beginn von #256 wird dessen Scope einmal kurz gegen den aktuellen Repository-Stand geprüft.
+#4 ist vollständig abgenommen und geschlossen. Der veröffentlichte 50-Sender-Bestand bleibt der gültige Ausgangsstand. #256 befindet sich in der Executor-Umsetzung und wird vor #259 technisch fertig geprüft. Der direkte Live-Absprung wird in #259 getrennt verifiziert; die spätere Erweiterung ist in #260 dokumentiert. Öffentliche Verteilung bleibt von der Compliance-Prüfung #112 abhängig.

@@ -9,6 +9,7 @@ import {
   normalizeTmdbWatchProviders,
   toMovieHubTitle,
 } from '../src/services/tmdb.js'
+import { isTmdbTitleChangePending } from './tmdb-change-queue.mjs'
 
 const DEFAULT_CONCURRENCY = 3
 const DEFAULT_MAX_REQUESTS = 4000
@@ -171,7 +172,11 @@ export async function enrichWaipuTitleMetadata(entries, {
     .filter((title) => completeMetadata(title))
     .map((title) => [canonicalTitleKey(title), title]))
   const cachedByKey = new Map((Array.isArray(cachedTitles) ? cachedTitles : [])
-    .filter((title) => !changedTitleKeys.has(canonicalTitleKey(title)))
+    .filter((title) => !isTmdbTitleChangePending(
+      changedTitleKeys,
+      canonicalTitleKey(title),
+      title?.metadataUpdatedAt,
+    ))
     .filter((title) => completeMetadata(title, {
       now: Date.parse(generatedAt),
       maxAgeDays: cacheMaxAgeDays,

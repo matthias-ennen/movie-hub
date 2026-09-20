@@ -31,8 +31,19 @@ describe('kompakter Workflow-Datenbericht', () => {
         runtime: { detailRequests: { cacheHits: 1200 }, tmdbRequests: 740, tmdbMetadataRequests: 640 },
       },
       waipuSync: { metrics: { slotsProcessed: 3600, requestsStarted: 3650, slotsSkippedByCheckpoint: 600, retries: 2 } },
-      metadata: { scanned: 150, candidates: 20, updated: 19, failed: 1 },
-      personalMetadata: { scanned: 80, candidates: 12, updated: 12, failed: 0 },
+      canonicalExecutor: {
+        counts: {
+          selected: 800,
+          canonicalReady: 800,
+          fetched: 700,
+          reused: 100,
+          tmdbRequests: 720,
+          catalogUpdated: 450,
+          searchDetailsUpdated: 620,
+          waipuUpdated: 210,
+          firestoreWrites: 32,
+        },
+      },
       candidateInventory: {
         counts: {
           rawCandidateReferences: 1900,
@@ -80,8 +91,7 @@ describe('kompakter Workflow-Datenbericht', () => {
         tmdbPush: 'skipped',
         waipuSync: 'success',
         waipuCatalog: 'success',
-        metadata: 'success',
-        personalMetadata: 'success',
+        canonicalExecutor: 'success',
         candidateInventory: 'success',
         priorityPreview: 'success',
         presence: 'success',
@@ -93,7 +103,7 @@ describe('kompakter Workflow-Datenbericht', () => {
     })
 
     const markdown = workflowSummaryMarkdown(summary)
-    expect(summary.rows).toHaveLength(14)
+    expect(summary.rows).toHaveLength(13)
     expect(markdown).toContain('Lauf #321')
     expect(markdown).toContain('| Waipu EPG | ✅ erfolgreich | 50 Sender')
     expect(markdown).toContain('3.600 zugeordnet · 830/830 Metadaten vollständig')
@@ -101,10 +111,10 @@ describe('kompakter Workflow-Datenbericht', () => {
     expect(markdown).toContain('Waipu-Titelbestand: **+686 zum Live-Stand**')
     expect(markdown).toContain('| TMDB-Änderungen | ✅ erfolgreich | 27 Filme · 13 Serien neu gemeldet')
     expect(markdown).toContain('| Suchindex | ✅ erfolgreich | 20.000 · 12.000 Filme · 8.000 Serien | +240 hinzu · -1.167 entfallen · 83 Angebote geändert | 155/155 Scans · 61 begrenzt · 256 Shards |')
-    expect(markdown).toContain('| Persönliche TMDB-Metadaten | ✅ erfolgreich | 80 geprüft · 12 ausgewählt')
+    expect(markdown).toContain('| Kanonischer Executor | ✅ erfolgreich | 800/800 kanonisch verarbeitet | 700 TMDB geladen · 100 wiederverwendet · 720 Requests | 450 Browse · 620 Suche · 210 Waipu · 32 persönlich verteilt |')
     expect(markdown).toContain('| Kanonische Titelkandidaten | ✅ erfolgreich | 1.500 Titel aus 1.900 Referenzen | 400 Dubletten entfernt · 300 Mehrfachzuordnungen | 16.308 nur Suche · 17 Waipu ungeklärt |')
     expect(markdown).toContain('| Prioritätsvorschau | ✅ erfolgreich | 900/1.500 eingeplant · 800 in Tageskapazität | 700 TMDB-Abrufe · 200 Wiederverwendungen | 100 Rückstand · 0 Queue-Dubletten |')
-    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(16)
+    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(15)
   })
 
   it('bleibt bei fehlenden optionalen Artefakten lesbar', () => {

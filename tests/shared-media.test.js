@@ -120,6 +120,7 @@ describe('gemeinsame Movie-Hub-Medien', () => {
       collectionChecked: true,
       metadataVersion: 2,
       metadataComplete: true,
+      metadataChecks: { details: 'present', collection: 'absent' },
       artwork: { posterPaths: ['/a.jpg', '/b.jpg'], heroBackdropPaths: ['/wide.jpg'] },
     }
     const titleRef = buildSharedMediaTitleRef(item)
@@ -135,6 +136,7 @@ describe('gemeinsame Movie-Hub-Medien', () => {
       collectionChecked: true,
       metadataVersion: 2,
       metadataComplete: true,
+      metadataChecks: { details: 'present', collection: 'absent' },
       artwork: { posterPaths: ['/a.jpg', '/b.jpg'], heroBackdropPaths: ['/wide.jpg'] },
     })
   })

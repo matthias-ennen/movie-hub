@@ -35,4 +35,4 @@ Das vollständige Inventar enthält keine Benutzer-ID, keinen Firestore-Pfad, ke
 
 ## Folgeschritt
 
-Der erste reale Inventarlauf wurde in Deploy Firebase #349 erfolgreich geprüft: 3.490 gültige Referenzen ergaben 3.217 Kandidaten, 15.920 weitere Titel blieben korrekt Search-only. Darauf baut nun die zunächst rein lesende [kanonische Titel-Prioritätswarteschlange](TITLE_PRIORITY_QUEUE.md) auf. Pro Titel und Lauf darf dabei höchstens ein TMDB-Detailabruf entstehen.
+Der erste reale Inventarlauf wurde in Deploy Firebase #349 erfolgreich geprüft: 3.490 gültige Referenzen ergaben 3.217 Kandidaten, 15.920 weitere Titel blieben korrekt Search-only. Deploy Firebase #351 bestätigte den Folgezustand mit 3.193 Kandidaten und 0 Queue-Dubletten. Auf diesem Bestand arbeitet nun die [kanonische Titel-Prioritätswarteschlange](TITLE_PRIORITY_QUEUE.md) einschließlich zentralem Executor. Pro Titel und Lauf darf dabei höchstens ein TMDB-Detailabruf entstehen.

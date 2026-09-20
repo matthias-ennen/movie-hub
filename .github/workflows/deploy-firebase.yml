@@ -174,16 +174,6 @@ jobs:
             artifacts/waipu-live/unresolved.json
           key: waipu-fifty-v1-${{ github.run_id }}-${{ github.run_attempt }}
 
-      - name: Report data fill levels
-        id: data_status
-        env:
-          DATA_STATUS_APPEND_SUMMARY: '0'
-        run: npm run data:status
-
-      - name: Build
-        id: app_build
-        run: npm run build
-
       - name: Authenticate to Google Cloud
         id: gcp_auth
         uses: google-github-actions/auth@v3
@@ -198,56 +188,52 @@ jobs:
           GOOGLE_CLOUD_PROJECT: movie-hub-62459
         run: npm run moviehub:presence:migrate
 
-      # Read-only consolidation checkpoint for #256. This records the union and
-      # overlap of every catalog-relevant source before the existing source-
-      # specific backfills can change its metadata state.
+      # #256 consolidates every catalog-relevant source before one canonical
+      # executor resolves and fans out the selected identities.
       - name: Inventory canonical title candidates
         id: candidate_inventory
-        continue-on-error: true
+        continue-on-error: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') }}
         env:
           GOOGLE_CLOUD_PROJECT: movie-hub-62459
         run: npm run title:candidates:inventory
 
       - name: Preview canonical title priority queue
         id: priority_preview
-        continue-on-error: true
+        continue-on-error: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') }}
         env:
           TITLE_PRIORITY_PREVIEW_LIMIT: ${{ (inputs.data_mode == 'accelerated' || contains(github.event.head_commit.message, '[data-bootstrap]')) && '2000' || '800' }}
         run: npm run title:priority:preview
 
-      - name: Enrich personal Movie-Hub provider metadata
-        id: shared_metadata
+      - name: Execute canonical title priority queue
+        id: canonical_executor
         if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
-        continue-on-error: true
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
           TMDB_COUNTRY: DE
           GOOGLE_CLOUD_PROJECT: movie-hub-62459
-          MOVIE_HUB_METADATA_BACKFILL_LIMIT: 250
-          MOVIE_HUB_METADATA_MAX_AGE_DAYS: 30
-        run: npm run moviehub:metadata:backfill
+          TITLE_CANONICAL_TMDB_REQUEST_BUDGET: 5000
+          TITLE_CANONICAL_CONCURRENCY: 3
+          TITLE_CANONICAL_MAX_AGE_DAYS: 30
+        run: npm run title:priority:execute
 
       - name: Acknowledge Movie-Hub metadata change consumer
-        if: ${{ steps.shared_metadata.outcome == 'success' }}
+        if: ${{ steps.canonical_executor.outcome == 'success' }}
         run: npm run tmdb:changes:ack -- moviehub-metadata
 
-      - name: Enrich personal TMDB catalog metadata
-        id: personal_tmdb_metadata
-        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
-        continue-on-error: true
-        env:
-          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
-          TMDB_LANGUAGE: de-DE
-          TMDB_COUNTRY: DE
-          GOOGLE_CLOUD_PROJECT: movie-hub-62459
-          PERSONAL_TMDB_METADATA_BACKFILL_LIMIT: 250
-          PERSONAL_TMDB_METADATA_MAX_AGE_DAYS: 30
-        run: npm run personal-tmdb:metadata:backfill
-
       - name: Acknowledge personal TMDB metadata change consumer
-        if: ${{ steps.personal_tmdb_metadata.outcome == 'success' }}
+        if: ${{ steps.canonical_executor.outcome == 'success' }}
         run: npm run tmdb:changes:ack -- personal-tmdb-metadata
+
+      - name: Report data fill levels
+        id: data_status
+        env:
+          DATA_STATUS_APPEND_SUMMARY: '0'
+        run: npm run data:status
+
+      - name: Build
+        id: app_build
+        run: npm run build
 
       - name: Validate TMDB change consumers before publication
         if: ${{ steps.tmdb_changes.outcome == 'success' }}
@@ -291,8 +277,7 @@ jobs:
           SUMMARY_WAIPU_SYNC: ${{ steps.waipu_sync.outcome }}
           SUMMARY_WAIPU_CATALOG: ${{ steps.waipu_catalog.outcome }}
           SUMMARY_PRESENCE: ${{ steps.presence_migration.outcome }}
-          SUMMARY_METADATA: ${{ steps.shared_metadata.outcome }}
-          SUMMARY_PERSONAL_TMDB: ${{ steps.personal_tmdb_metadata.outcome }}
+          SUMMARY_CANONICAL_EXECUTOR: ${{ steps.canonical_executor.outcome }}
           SUMMARY_CANDIDATE_INVENTORY: ${{ steps.candidate_inventory.outcome }}
           SUMMARY_PRIORITY_PREVIEW: ${{ steps.priority_preview.outcome }}
           SUMMARY_BUILD: ${{ steps.app_build.outcome }}
@@ -317,6 +302,7 @@ jobs:
           path: |
             artifacts/title-candidate-inventory-summary.json
             artifacts/title-priority-preview-summary.json
+            artifacts/title-canonical-executor-summary.json
           if-no-files-found: ignore
           retention-days: 30
 

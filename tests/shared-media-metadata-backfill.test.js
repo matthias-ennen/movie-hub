@@ -76,6 +76,16 @@ describe('Movie-Hub-Metadaten-Backfill', () => {
     expect(result.collectionDetails.parts).toHaveLength(2)
     expect(result.cast[0].name).toBe('Bruce Willis')
     expect(result.artwork.posterPaths).toEqual(['/poster.jpg'])
+    expect(result.metadataChecks).toEqual({
+      details: 'present',
+      artwork: 'present',
+      ageRating: 'absent',
+      credits: 'present',
+      keywords: 'absent',
+      videos: 'absent',
+      providers: 'absent',
+      collection: 'present',
+    })
   })
 
   it('aktualisiert nur echte unvollständige Manifest-Dokumente und fasst Fehler zusammen', async () => {

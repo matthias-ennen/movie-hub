@@ -2,9 +2,11 @@
 
 Stand: 20. September 2026
 
-## Aktuelle Stufe: read-only Vorschau
+## Aktuelle Stufe: zentraler Executor
 
-Die erste Warteschlangenstufe berechnet ausschließlich, welche kanonischen Titel warum bearbeitet würden. Sie ruft TMDB nicht auf, verändert keine Firestore-Dokumente und veröffentlicht keine Metadaten. Erst die Auswertung eines realen Laufs entscheidet über die spätere Aktivierung der schreibenden Verarbeitung.
+Die erste Warteschlangenstufe wurde in Deploy Firebase #350 und #351 read-only verifiziert. Lauf #351 wies 3.193 Kandidaten, 1.212 Queue-Einträge, 0 Queue-Dubletten und 0 Einträge außerhalb der beschleunigten Kapazität aus. Damit ist die schreibende Stufe aktiviert.
+
+Der zentrale Executor löst zunächst sämtliche ausgewählten Identitäten vollständig auf. Erst wenn jede ausgewählte Identität einen gültigen V3-Datensatz besitzt, beginnt der Fan-out an Browse-Katalog, vorhandene katalogrelevante Suchdetails, Waipu-Titel, persönliche TMDB-Kataloge und Movie-Hub-Titelreferenzen. Schlägt ein notwendiger Abruf oder die V3-Prüfung fehl, beginnt kein Fan-out und die öffentliche Generation wird nicht veröffentlicht.
 
 Eingang ist die in [Kanonischer Titelkandidatenbestand](TITLE_CANDIDATE_INVENTORY.md) definierte, über `Medientyp + TMDB-ID` deduplizierte Menge. Search-only-Titel und ungeklärte Waipu-Programme bleiben ausgeschlossen.
 
@@ -22,9 +24,9 @@ Ein Titel erhält genau einen Queue-Eintrag mit der höchsten zutreffenden Prior
 
 ## TMDB-Abruf oder Wiederverwendung
 
-Eine unvollständige Zielreferenz löst nicht automatisch einen neuen TMDB-Abruf aus. Existiert in einer anderen Quelle bereits eine frische vollständige V3-Kopie derselben Identität, wird sie als kanonische Basis wiederverwendet und später nur an die unvollständigen Zielmitgliedschaften weitergegeben.
+Eine unvollständige Zielreferenz löst nicht automatisch einen neuen TMDB-Abruf aus. Existiert in einer anderen Quelle bereits eine frische vollständige V3-Kopie derselben Identität, wird sie als kanonische Basis wiederverwendet und an die unvollständigen Zielmitgliedschaften weitergegeben.
 
-Ein neuer TMDB-Detailabruf ist in der Vorschau nur erforderlich, wenn keine frische vollständige Kopie vorhanden ist oder TMDB die Identität als geändert gemeldet hat. Damit bleibt die technische Obergrenze bei höchstens einem Detailabruf pro Identität und Lauf.
+Ein neuer TMDB-Detailabruf ist nur erforderlich, wenn keine frische vollständige Kopie vorhanden ist oder keine Quellkopie die gemeldete TMDB-Änderung bereits verarbeitet hat. Persistente Änderungs-IDs werden über `lastSeen` gegen `metadataUpdatedAt` geprüft: Eine mindestens gleich neue Kopie gilt als verarbeitet und wird nicht erneut geladen. Damit bleibt die technische Obergrenze bei höchstens einem Detailabruf pro Identität und Lauf.
 
 ## Zustand und Datenschutz
 
@@ -36,15 +38,16 @@ Fehlt beim ersten Lauf der Kandidaten-Basisstand oder bei einem Code-Deploy das 
 
 ## Kapazität
 
-Die Vorschau verwendet im Standardlauf 800 und im beschleunigten Lauf 2.000 Plätze. Sie weist ausgewählte Einträge und Rückstand getrennt aus. Diese Grenze steuert in der aktuellen Stufe noch keine Schnittstellenaufrufe.
+Die Queue verwendet im Standardlauf 800 und im beschleunigten Lauf 2.000 Plätze. Sie weist ausgewählte Einträge und Rückstand getrennt aus. Nur die ausgewählten Identitäten werden vom Executor verarbeitet.
 
-## Nächste Aktivierungsbedingung
+## Schreib- und Veröffentlichungsschutz
 
-Vor dem schreibenden Betrieb müssen mindestens folgende Punkte belegt sein:
+Für den schreibenden Betrieb gelten:
 
-- null Queue-Dubletten;
-- nachvollziehbare Größen je Priorität;
-- belastbare Trennung zwischen notwendigem TMDB-Abruf und Wiederverwendung;
-- sichtbarer Rückstand bei überschrittener Kapazität;
-- vollständiger Kandidaten-Basisstand aus einem vorherigen erfolgreichen Lauf;
-- vorhandenes TMDB-Changes-Artefakt im planmäßigen Datenlauf.
+- null Queue-Dubletten und höchstens eine Auflösung je Identität;
+- alle ausgewählten kanonischen Datensätze müssen vor dem Fan-out den V3-Vertrag erfüllen;
+- Wiederverwendung und TMDB-Abrufe werden getrennt gezählt;
+- persönliche Zustände wie Favorit, Watchlist und Bewertung bleiben beim Fan-out erhalten;
+- Waipu-Ausstrahlungen und quellenspezifische Anbieterzuordnungen bleiben erhalten;
+- öffentliche Dateien werden vor dem Produktions-Build aktualisiert und nur über den geschützten Firebase-Deploy veröffentlicht;
+- der TMDB-Checkpoint wird weiterhin erst nach allen Verbraucherbestätigungen und erfolgreicher Veröffentlichung fortgeschrieben.

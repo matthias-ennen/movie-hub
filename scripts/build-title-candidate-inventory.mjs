@@ -121,6 +121,8 @@ function summarizeCandidateMetadata(observations) {
     failedReferences: values.filter(({ failed }) => failed).length,
     structuralGapReferences: values.filter(({ structuralGap }) => structuralGap).length,
     structuralOnlyGapReferences: values.filter(({ structuralOnlyGap }) => structuralOnlyGap).length,
+    referencesWithoutUpdatedAt: values.filter(({ metadataUpdatedAt }) => !metadataUpdatedAt).length,
+    oldestUpdatedAt: updated[0] || null,
     latestUpdatedAt: updated.at(-1) || null,
     sourceStates,
   }
