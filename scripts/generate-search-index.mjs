@@ -10,6 +10,7 @@ import {
 } from '../src/search/searchIndex.js'
 import { SEARCH_DETAIL_BUCKET_COUNT, SEARCH_DETAIL_VERSION } from '../src/search/lazySearchDetails.js'
 import { buildFilmCollection } from '../src/catalog/filmCollections.js'
+import { readTmdbChangeSet, tmdbChangedTitleKeys } from './tmdb-change-queue.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const catalogPath = resolve(root, 'public/catalog.json')
@@ -407,6 +408,7 @@ export function selectSearchDetailEnrichmentCandidates(entries, existingDetails,
   limit = SEARCH_DETAIL_REFRESH_OPTIONS.limit,
   maxAgeDays = SEARCH_DETAIL_REFRESH_OPTIONS.maxAgeDays,
   now = Date.now(),
+  changedTitleKeys = new Set(),
 } = {}) {
   const existingById = new Map((Array.isArray(existingDetails) ? existingDetails : [])
     .map((detail) => [detail?.id, detail]))
@@ -421,14 +423,16 @@ export function selectSearchDetailEnrichmentCandidates(entries, existingDetails,
         entry,
         index,
         incomplete: existing?.metadataComplete !== true,
+        changed: changedTitleKeys.has(`${entry?.type === 'series' ? 'series' : 'movie'}:${Number(entry?.tmdbId)}`),
         structuralGap: searchDetailHasStructuralGap(entry, existing),
         updatedAt: searchDetailUpdatedAt(existing),
       }
     })
     .filter((candidate) => candidate.entry?.tmdbId
-      && (candidate.incomplete || candidate.updatedAt <= cutoff))
+      && (candidate.incomplete || candidate.changed || candidate.updatedAt <= cutoff))
     .sort((left, right) => {
       if (left.incomplete !== right.incomplete) return left.incomplete ? -1 : 1
+      if (left.changed !== right.changed) return left.changed ? -1 : 1
       if (left.structuralGap !== right.structuralGap) return left.structuralGap ? -1 : 1
       if (left.updatedAt !== right.updatedAt) return left.updatedAt - right.updatedAt
       return left.index - right.index
@@ -717,14 +721,15 @@ export async function generateBroadSearchIndexFromTmdb() {
   const existingById = new Map(existingDetails.map((detail) => [detail.id, detail]))
   const activeSearchIds = new Set(searchIndex.entries.map((entry) => entry.id))
   const collectionCache = new Map()
+  const changedTitleKeys = tmdbChangedTitleKeys(await readTmdbChangeSet())
   const enrichmentCandidates = selectSearchDetailEnrichmentCandidates(
     searchIndex.entries,
     existingDetails,
-    SEARCH_DETAIL_REFRESH_OPTIONS,
+    { ...SEARCH_DETAIL_REFRESH_OPTIONS, changedTitleKeys },
   )
   console.log(
     `Search details: enriching ${enrichmentCandidates.length} of ${searchIndex.entries.length} titles with full metadata `
-    + `(incomplete first; due structural gaps next; then older than ${SEARCH_DETAIL_REFRESH_OPTIONS.maxAgeDays} days).`,
+    + `(incomplete first; ${changedTitleKeys.size} queued TMDB changes next; then structural gaps and titles older than ${SEARCH_DETAIL_REFRESH_OPTIONS.maxAgeDays} days).`,
   )
   const enrichedDetails = await mapWithConcurrency(
     enrichmentCandidates,

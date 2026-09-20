@@ -223,6 +223,27 @@ describe('breiter Provider-Suchindex', () => {
     })).toEqual([])
   })
 
+  it('prioritizes a fresh detail when TMDB reported the title as changed', () => {
+    const entries = [41, 42].map((id) => ({
+      id: `tmdb-movie-${id}`,
+      tmdbId: id,
+      type: 'movie',
+    }))
+    const details = entries.map((entry) => ({
+      ...entry,
+      metadataComplete: true,
+      metadataUpdatedAt: '2026-09-19T00:00:00.000Z',
+      collectionChecked: true,
+    }))
+
+    expect(selectSearchDetailEnrichmentCandidates(entries, details, {
+      now: new Date('2026-09-20T00:00:00.000Z'),
+      maxAgeDays: 30,
+      limit: 1,
+      changedTitleKeys: new Set(['movie:42']),
+    }).map((entry) => entry.tmdbId)).toEqual([42])
+  })
+
   it('does not repeatedly refresh fresh optional collection or season gaps', () => {
     const entries = [
       { id: 'tmdb-movie-42', tmdbId: 42, type: 'movie' },

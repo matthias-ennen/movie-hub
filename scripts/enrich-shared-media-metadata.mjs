@@ -10,6 +10,7 @@ import {
   normalizeTmdbWatchProviders,
   toMovieHubTitle,
 } from '../src/services/tmdb.js'
+import { readTmdbChangeSet, tmdbChangedTitleKeys } from './tmdb-change-queue.mjs'
 
 const token = process.env.TMDB_API_READ_TOKEN
 const language = process.env.TMDB_LANGUAGE || 'de-DE'
@@ -105,18 +106,36 @@ export async function runSharedMediaMetadataBackfill({
   now = new Date(),
   limit = updateLimit,
   ageDays = maxAgeDays,
+  changedTitleKeys = null,
 } = {}) {
   if (!db) throw new Error('Firestore Admin client is missing.')
   const source = await db.collectionGroup('sharedMedia').get()
-  const candidates = source.docs.filter((snapshot) => {
+  const queuedChanges = changedTitleKeys || tmdbChangedTitleKeys(await readTmdbChangeSet())
+  const candidates = source.docs.map((snapshot, index) => {
     const segments = String(snapshot.ref.path || '').split('/')
     const data = snapshot.data()
-    return segments.length === 4
+    const titleRef = data?.titleRef
+    const key = `${titleRef?.type === 'series' ? 'series' : 'movie'}:${Number(titleRef?.tmdbId)}`
+    const validDocument = segments.length === 4
       && segments[0] === 'users'
       && segments[2] === 'sharedMedia'
       && data?.hasMedia === true
-      && titleNeedsMetadataEnrichment(data.titleRef, { now: now.getTime(), maxAgeDays: ageDays })
-  }).slice(0, Math.max(0, Number(limit) || 0))
+    return {
+      snapshot,
+      index,
+      validDocument,
+      incomplete: titleRef?.metadataComplete !== true,
+      changed: queuedChanges.has(key),
+      due: validDocument && titleNeedsMetadataEnrichment(titleRef, { now: now.getTime(), maxAgeDays: ageDays }),
+    }
+  }).filter((candidate) => candidate.validDocument && (candidate.due || candidate.changed))
+    .sort((left, right) => {
+      if (left.incomplete !== right.incomplete) return left.incomplete ? -1 : 1
+      if (left.changed !== right.changed) return left.changed ? -1 : 1
+      return left.index - right.index
+    })
+    .slice(0, Math.max(0, Number(limit) || 0))
+    .map((candidate) => candidate.snapshot)
 
   const collectionCache = new Map()
   let updated = 0

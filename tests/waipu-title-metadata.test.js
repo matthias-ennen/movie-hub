@@ -95,6 +95,20 @@ describe('Waipu title metadata enrichment', () => {
     })
   })
 
+  it('bypasses a fresh Waipu cache entry when TMDB reported the title as changed', async () => {
+    const loadTitleMetadata = vi.fn(async () => completeMetadata({ description: 'Aktualisierte Beschreibung' }))
+    const result = await enrichWaipuTitleMetadata([airingEntry()], {
+      cachedTitles: [completeMetadata()],
+      loadTitleMetadata,
+      changedTitleKeys: new Set(['movie:8688']),
+      now: new Date('2026-09-20T03:17:00.000Z'),
+    })
+
+    expect(loadTitleMetadata).toHaveBeenCalledOnce()
+    expect(result.metrics).toMatchObject({ fromCache: 0, fetched: 1 })
+    expect(result.entries[0].description).toBe('Aktualisierte Beschreibung')
+  })
+
   it('loads German certification together with the TMDB details', async () => {
     const fetchImpl = vi.fn(async () => ({
       ok: true,

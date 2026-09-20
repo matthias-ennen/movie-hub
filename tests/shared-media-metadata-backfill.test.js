@@ -143,4 +143,53 @@ describe('Movie-Hub-Metadaten-Backfill', () => {
       metadataComplete: true,
     })
   })
+
+  it('priorisiert einen frischen Titel, wenn TMDB ihn als geändert gemeldet hat', async () => {
+    const changedSet = vi.fn(async () => {})
+    const oldSet = vi.fn(async () => {})
+    const documents = [{
+      ref: { path: 'users/user-1/sharedMedia/movie-11', set: oldSet },
+      data: () => ({
+        hasMedia: true,
+        titleRef: {
+          tmdbId: 11,
+          type: 'movie',
+          title: 'Alter fälliger Titel',
+          metadataVersion: 2,
+          metadataComplete: true,
+          collectionChecked: true,
+          metadataUpdatedAt: '2026-07-01T00:00:00.000Z',
+        },
+      }),
+    }, {
+      ref: { path: 'users/user-1/sharedMedia/movie-562', set: changedSet },
+      data: () => ({
+        hasMedia: true,
+        titleRef: {
+          tmdbId: 562,
+          type: 'movie',
+          title: 'Stirb langsam',
+          metadataVersion: 2,
+          metadataComplete: true,
+          collectionChecked: true,
+          metadataUpdatedAt: '2026-09-19T00:00:00.000Z',
+        },
+      }),
+    }]
+    const db = { collectionGroup: () => ({ get: async () => ({ docs: documents, size: documents.length }) }) }
+    const fetchTmdb = vi.fn(async (path) => path.startsWith('/collection/') ? collectionPayload : detailPayload())
+
+    const result = await runSharedMediaMetadataBackfill({
+      db,
+      fetchTmdb,
+      now: new Date('2026-09-20T00:00:00.000Z'),
+      ageDays: 30,
+      limit: 1,
+      changedTitleKeys: new Set(['movie:562']),
+    })
+
+    expect(result).toEqual({ scanned: 2, candidates: 1, updated: 1, failed: 0 })
+    expect(changedSet).toHaveBeenCalledOnce()
+    expect(oldSet).not.toHaveBeenCalled()
+  })
 })

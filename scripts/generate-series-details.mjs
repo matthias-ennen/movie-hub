@@ -8,6 +8,7 @@ import {
   normalizeSeriesSeasons,
   seriesSeasonBucket,
 } from '../src/catalog/seriesNavigation.js'
+import { readTmdbChangeSet, tmdbChangedTitleKeys } from './tmdb-change-queue.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const catalogPath = resolve(root, 'public/catalog.json')
@@ -28,6 +29,28 @@ function isFresh(entry, now = Date.now()) {
   if (Number(entry?.version) !== SERIES_SEASON_DATA_VERSION) return false
   const generatedAt = Date.parse(entry?.generatedAt || '')
   return Number.isFinite(generatedAt) && now - generatedAt < maxAgeDays * 86_400_000
+}
+
+export function selectSeriesSeasonRefreshCandidates(references, existingEntries, {
+  now = Date.now(),
+  limit = requestLimit,
+  changedTitleKeys = new Set(),
+} = {}) {
+  const timestamp = now instanceof Date ? now.getTime() : Number(now)
+  return (Array.isArray(references) ? references : [])
+    .map((reference, index) => ({
+      reference,
+      index,
+      changed: changedTitleKeys.has(`series:${Number(reference?.seriesTmdbId)}`),
+      fresh: isFresh(existingEntries.get(entryKey(reference?.seriesTmdbId, reference?.seasonNumber)), timestamp),
+    }))
+    .filter((candidate) => candidate.changed || !candidate.fresh)
+    .sort((left, right) => {
+      if (left.changed !== right.changed) return left.changed ? -1 : 1
+      return left.index - right.index
+    })
+    .slice(0, Math.max(0, Number(limit) || 0))
+    .map((candidate) => candidate.reference)
 }
 
 async function sleep(milliseconds) {
@@ -131,7 +154,7 @@ async function mapWithConcurrency(values, limit, callback) {
   await Promise.all(Array.from({ length: Math.min(limit, values.length) }, worker))
 }
 
-export async function generateSeriesDetails({ fetchSeason = tmdbSeasonFetch, now = new Date() } = {}) {
+export async function generateSeriesDetails({ fetchSeason = tmdbSeasonFetch, now = new Date(), changedTitleKeys = null } = {}) {
   const catalog = JSON.parse(await readFile(catalogPath, 'utf8'))
   if (!Array.isArray(catalog?.titles)) throw new Error('The current catalog contains no title list.')
 
@@ -140,9 +163,12 @@ export async function generateSeriesDetails({ fetchSeason = tmdbSeasonFetch, now
   const existingEntries = await readExistingEntries()
   const activeKeys = new Set(references.map((reference) => entryKey(reference.seriesTmdbId, reference.seasonNumber)))
   const entries = new Map([...existingEntries].filter(([key]) => activeKeys.has(key)))
-  const pending = references
-    .filter((reference) => !isFresh(entries.get(entryKey(reference.seriesTmdbId, reference.seasonNumber)), now.getTime()))
-    .slice(0, requestLimit)
+  const queuedChanges = changedTitleKeys || tmdbChangedTitleKeys(await readTmdbChangeSet())
+  const pending = selectSeriesSeasonRefreshCandidates(references, entries, {
+    now,
+    limit: requestLimit,
+    changedTitleKeys: queuedChanges,
+  })
 
   let refreshed = 0
   let failed = 0
