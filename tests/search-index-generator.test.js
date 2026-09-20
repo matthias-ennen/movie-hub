@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   SEARCH_OFFER_TYPES,
+  buildCompletedSearchScan,
   buildSearchDiscoverParams,
   mergeSearchDetails,
   mergeProviderSearchEntries,
@@ -30,6 +31,34 @@ function movie(id = 1, overrides = {}) {
 }
 
 describe('breiter Provider-Suchindex', () => {
+  it('treats a scan as complete when TMDB changes its page count during pagination', () => {
+    const scan = buildCompletedSearchScan({
+      provider: prime,
+      tmdbProviderIds: [9],
+      mediaType: 'movie',
+      offerType: 'rent',
+      pageLimit: 50,
+      reportedTotalPages: 10,
+      finalReportedTotalPages: 9,
+      maximumReportedTotalPages: 10,
+      pagesFetched: 9,
+      rawResults: 177,
+      acceptedResults: 177,
+      skippedResults: 0,
+      uniqueTitles: 174,
+    })
+
+    expect(scan).toMatchObject({
+      status: 'complete',
+      reportedTotalPages: 10,
+      finalReportedTotalPages: 9,
+      maximumReportedTotalPages: 10,
+      paginationChanged: true,
+      pagesExpected: 9,
+      pagesFetched: 9,
+    })
+  })
+
   it('configures movie and series discovery independently without an arbitrary 50-page cap', () => {
     const limits = resolveSearchPageLimits({
       TMDB_SEARCH_PAGES_PER_OFFER: '32',
