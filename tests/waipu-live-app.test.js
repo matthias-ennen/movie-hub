@@ -82,9 +82,19 @@ describe('Waipu live app catalog', () => {
       now: Date.parse('2026-09-19T12:00:00.000Z'),
     })
     const label = formatWaipuLiveAiring(entry.nextAiring)
-    expect(label).toContain('20.09.2026')
-    expect(label).toContain('20:15–22:00 Uhr')
+    expect(label).toContain('Sonntag, 20. September')
+    expect(label).toContain('20:15 Uhr')
+    expect(label).not.toContain('22:00')
     expect(label).toContain('RTL')
+  })
+
+  it('removes a Waipu-only title immediately after its final broadcast', () => {
+    const entries = normalizeWaipuLiveTitles(rawCatalog, {
+      now: Date.parse('2026-09-23T00:00:00.000Z'),
+    })
+    expect(entries).toEqual([])
+    expect(mergeWaipuLiveAvailability([{ tmdbId: 667739, type: 'movie', providerIds: [] }], entries))
+      .toEqual([{ tmdbId: 667739, type: 'movie', providerIds: [] }])
   })
 
   it('fails softly when no published title index exists yet', async () => {

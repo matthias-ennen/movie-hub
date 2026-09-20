@@ -49,6 +49,7 @@ import {
   buildWaipuTvRows,
   loadWaipuLiveStationCatalog,
   loadWaipuTvAirings,
+  nextTvAiringTransition,
 } from './waipu/waipuTvCatalog.js'
 
 function NativeStartupSignal() {
@@ -494,13 +495,11 @@ function MovieHub({ user }) {
 
   useEffect(() => {
     if (tvSchedule.status !== 'ready') return undefined
-    const nextStopTime = Math.min(...tvSchedule.airings
-      .map((airing) => Date.parse(airing.stopTime))
-      .filter((stopTime) => Number.isFinite(stopTime) && stopTime > tvClock))
-    if (!Number.isFinite(nextStopTime)) return undefined
+    const nextTransition = nextTvAiringTransition(tvSchedule.airings, tvClock)
+    if (!Number.isFinite(nextTransition)) return undefined
     const timeout = window.setTimeout(
       () => setTvClock(Date.now()),
-      Math.max(0, Math.min(2_147_483_647, nextStopTime - Date.now() + 1_000)),
+      Math.max(0, Math.min(2_147_483_647, nextTransition - Date.now() + 1_000)),
     )
     return () => window.clearTimeout(timeout)
   }, [tvClock, tvSchedule.airings, tvSchedule.status])

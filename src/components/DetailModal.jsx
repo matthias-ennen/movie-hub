@@ -8,6 +8,7 @@ import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import { useAuth } from '../hooks/useAuth.js'
 import { loadSharedMedia, removeSharedMedia, saveSharedMedia } from '../library/sharedMedia.js'
 import { isSmbMediaUrl, normaliseMedia } from '../library/sharedMediaModel.js'
+import { launchMovieHubMedia } from '../library/providerMediaLaunch.js'
 import ProviderBadges, { ProviderBadge } from './ProviderBadges.jsx'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
@@ -77,7 +78,6 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
   const automaticVideos = Array.isArray(item.videos) ? item.videos : []
   const personalState = getTitleState(item)
   const waipuAiringLabel = formatWaipuLiveAiring(item?.waipuLive?.nextAiring)
-  const additionalWaipuAirings = Math.max(0, Number(item?.waipuLive?.airingCount || 0) - 1)
 
   useEffect(() => {
     const active = document.activeElement
@@ -446,19 +446,13 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
   }
 
   function launchMedia(entry) {
-    if (entry.type === 'video') {
-      if (isSmbMediaUrl(entry.url)) {
-        if (window.MovieHubNative?.playSmbMedia) {
-          window.MovieHubNative.playSmbMedia(entry.label, entry.url)
-        } else {
-          setMediaMessage('Netzwerkvideos können nur in der aktuellen Android-/Fire-TV-App abgespielt werden.')
-        }
-        return
-      }
-      setPlaying(entry)
-      return
-    }
-    openUrl(entry.url)
+    launchMovieHubMedia(entry, {
+      nativeBridge: window.MovieHubNative,
+      markWatched: markWatchedFromProvider,
+      openUrl,
+      playInline: setPlaying,
+      reportUnavailable: setMediaMessage,
+    })
   }
 
   function mediaIcon(entry) { return entry.type === 'video' ? '▶' : '↗' }
@@ -493,17 +487,6 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
           </div>
           <p className="genre">{item.genre}</p>
           <p className="detail-description">{item.description || 'Für diesen Titel liegt noch keine deutsche Beschreibung vor.'}</p>
-          {waipuAiringLabel && (
-            <section className="waipu-airing-summary" aria-label="Nächster Sendetermin bei waipu.tv">
-              <p className="settings-kicker">Bei waipu.tv</p>
-              <p className="waipu-airing-time">{waipuAiringLabel}</p>
-              {additionalWaipuAirings > 0 && (
-                <p className="waipu-airing-more">
-                  {additionalWaipuAirings} weitere {additionalWaipuAirings === 1 ? 'Ausstrahlung' : 'Ausstrahlungen'} im 14-Tage-Programm
-                </p>
-              )}
-            </section>
-          )}
           {cast.length > 0 && (
             <div className="cast-block">
               <h3>Besetzung</h3>
@@ -591,7 +574,7 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
             </section>
           )}
 
-          <h3>Wo ansehen?</h3>
+          <h3>Wo anschauen?</h3>
           {(showMovieHubProvider || hasProviders) ? (
             <div className="provider-actions" aria-label="Automatische Anbieter und eigene Movie-Hub-Inhalte">
               {showMovieHubProvider && (
@@ -628,6 +611,11 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
             </div>
           ) : (
             <p className="prototype-note">Für diesen Titel ist derzeit kein unterstützter Anbieter in Deutschland hinterlegt.</p>
+          )}
+          {waipuAiringLabel && (
+            <p className="waipu-provider-airing" aria-label="Nächster Sendetermin bei waipu.tv">
+              <strong>Bei waipu.tv:</strong> {waipuAiringLabel}
+            </p>
           )}
           {hasProviders && <p className="prototype-note">Anbieter werden automatisch aus TMDB bestimmt und in der passenden App beziehungsweise Suchseite geöffnet.</p>}
           {item.tmdbId && <p className="tmdb-credit">Datenquelle: TMDB · ID {item.tmdbId}</p>}

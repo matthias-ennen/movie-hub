@@ -235,6 +235,7 @@ export function buildWaipuTvRows({
       id: `waipu-airing-${airingKey}`,
       providerIds: [...new Set([...(Array.isArray(base.providerIds) ? base.providerIds : []), 'waipu'])],
       tvAiring: airing,
+      tvAiringOnAir: isTvAiringOnAir(airing, timestamp),
       waipuLive: {
         nextAiring: airing,
         airingCount: entry?.airingCount || 1,
@@ -265,6 +266,25 @@ export function formatTvAiringCard(airing, {
     hour: '2-digit', minute: '2-digit', hour12: false, timeZone,
   }).format(start)
   return { time, stationName: String(airing?.stationName || '').trim() }
+}
+
+export function isTvAiringOnAir(airing, now = Date.now()) {
+  const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
+  const startTime = Date.parse(airing?.startTime)
+  const stopTime = Date.parse(airing?.stopTime)
+  return Number.isFinite(timestamp)
+    && Number.isFinite(startTime)
+    && Number.isFinite(stopTime)
+    && startTime <= timestamp
+    && timestamp < stopTime
+}
+
+export function nextTvAiringTransition(airings = [], now = Date.now()) {
+  const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
+  const transitions = (Array.isArray(airings) ? airings : [])
+    .flatMap((airing) => [Date.parse(airing?.startTime), Date.parse(airing?.stopTime)])
+    .filter((value) => Number.isFinite(value) && value > timestamp)
+  return transitions.length ? Math.min(...transitions) : null
 }
 
 export function resetWaipuTvCacheForTests() {

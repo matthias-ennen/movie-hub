@@ -202,9 +202,12 @@ Die erste UI-Stufe liest den Titelindex und verbindet ihn über
 `Medientyp + TMDB-ID` mit vorhandenen MovieHub-Titeln. Poster zeigen
 weiter maximal drei Anbieter-Badges mit der festen Priorität `Movie Hub →
 waipu.tv → übrige Anbieter`. Die Detailseite zeigt nur den nächsten linearen
-Sendetermin und die Zahl weiterer Termine. Abgelaufene Termine werden im Client
-ausgeblendet; einen ungeprüften titel- oder senderspezifischen Deep Link gibt es
-nicht.
+Sendetermin als einzelne Zeile direkt unter den Anbieteraktionen. Weitere
+Termine werden dort nicht zusammengefasst. Abgelaufene Termine werden im
+Client ausgeblendet; einen ungeprüften titel- oder senderspezifischen Deep Link
+gibt es nicht. Persönliche Movie-Hub-Links sowie interne HTTP- und native
+SMB-Videos durchlaufen denselben profilbezogenen „Gesehen“-Schritt wie externe
+Anbieterbuttons.
 
 Falls ein älterer Rückfallbestand dennoch erst beim Öffnen eines Titels
 vervollständigt wird, übernimmt die Web-App das geladene TMDB-Ergebnis zusätzlich
@@ -218,7 +221,11 @@ Stattdessen sind alle veröffentlichten Sender standardmäßig aktiv und können
 nur unter den kontoweiten Einstellungen einzeln ausgeblendet werden. Gespeichert
 werden ausschließlich die ausgeschalteten Sender-IDs, sodass neue Sender ohne
 Migration automatisch erscheinen. Der Client lädt und cached nur Dateien der
-aktiven Sender; Zeit- und Senderhinweis sitzen direkt auf der Posterkarte.
+aktiven Sender. TV-Karten verwenden dieselbe Posterstruktur wie die übrigen
+Reihen. Zeit und Sender ergänzen sie als kollisionsfreie Textzeile; während
+einer laufenden Ausstrahlung erscheint zusätzlich ein statischer roter
+**ON AIR**-Badge. Eine gemeinsame Zeitsteuerung aktualisiert Start, Ende und
+das Entfernen abgelaufener Karten ohne App-Neustart.
 
 Der vollständige Vertrag, die Messwerte, Requestmatrix, TMDB-Regeln und
 Abbruchlogik stehen in [WAIPU_PUBLIC_CONTRACT.md](WAIPU_PUBLIC_CONTRACT.md).

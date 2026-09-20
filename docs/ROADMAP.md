@@ -1,6 +1,6 @@
 # Movie Hub – Roadmap
 
-Stand: 19. September 2026
+Stand: 20. September 2026
 
 ## Leitprinzip
 
@@ -57,15 +57,17 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
   und chronologischen 14-Tage-Posterkarten. Die TV-Seite enthält bewusst keine
   Senderauswahl; alle Sender sind standardmäßig aktiv und lassen sich nur in
   den kontoweiten Einstellungen einzeln ausblenden
-- **#4H aktiv:** Robustheit und Langzeitmessung mit 2/7 getrennten stabilen
-  7-Sender-Läufen; Mehrfachzählung desselben UTC-Tags wird verhindert.
-  Ein begrenzter 7-Sender-Testkatalog ist für die Geräteabnahme freigegeben;
-  die Messung blockiert den Funktionstest nicht. Der persistente tägliche
-  TMDB→Waipu→Firebase-Lauf ist eingerichtet; Geräteabnahme, erster produktiver
-  End-to-End-Nachweis und Gate für den erweiterten Betrieb bleiben offen.
-  Neu über Waipu erkannte Titel werden vor der Veröffentlichung vollständig
-  aus TMDB angereichert; der TV-Reiter ist nicht mehr auf eine erst beim
-  Öffnen geladene Detailansicht angewiesen
+- **#4H aktiv:** Der persistente tägliche TMDB→Waipu→Firebase-Lauf ist
+  eingerichtet. Die technisch freigegebene 50-Sender-Stufe hat am 19.09.2026
+  einen vollständigen Lauf mit 1.040 Titeln, 7.903 Ausstrahlungen und
+  1.040/1.040 vollständigen TMDB-Metadatensätzen bestanden. Die getrennte
+  Langzeitmessung und Geräteabnahme bleiben offen; sie blockieren den
+  Funktionstest nicht
+- **#4I technisch umgesetzt:** Waipu-Termin als einzelne Zeile unter
+  „Wo anschauen?“, einheitliche TV-Posterkarten, zeitgenauer statischer
+  ON-AIR-Badge und vollständige „Gesehen“-Markierung auch für Movie-Hub-,
+  HTTP- und SMB-Aufrufe. Automatisierte Prüfung ist erfolgt; die gemeinsame
+  Geräteabnahme steht noch aus
 - Movie Hub fragt keine Waipu-Zugangsdaten ab und speichert keine Waipu-Token
 - ein persönlicher Paket-/Senderfilter kann später optional ergänzt werden,
   blockiert aber den öffentlichen Live-Katalog nicht
@@ -103,7 +105,7 @@ Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zulet
 
 ## Aktuelle Abhängigkeitskette
 
-`#4A → #4B → #4C → #4D → #4E → #4F → #4G → #4H → #118 → #7`
+`#4A → #4B → #4C → #4D → #4E → #4F → #4G → #4H → #4I → #118 → #7`
 
 Der begrenzte 7-Sender-Testbestand von #4 ist für die Geräteabnahme freigegeben.
 Der spätere automatisierte, dauerhafte oder erweiterte öffentliche Betrieb

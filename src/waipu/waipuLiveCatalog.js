@@ -144,10 +144,9 @@ export function formatWaipuLiveAiring(airing, {
   const stop = new Date(airing?.stopTime)
   if (!Number.isFinite(start.getTime()) || !Number.isFinite(stop.getTime())) return null
   const date = new Intl.DateTimeFormat(locale, {
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
     timeZone,
   }).format(start)
   const time = new Intl.DateTimeFormat(locale, {
@@ -156,5 +155,5 @@ export function formatWaipuLiveAiring(airing, {
     hour12: false,
     timeZone,
   })
-  return `${date} · ${time.format(start)}–${time.format(stop)} Uhr · ${airing.stationName}`
+  return `${date} · ${time.format(start)} Uhr · ${airing.stationName}`
 }
