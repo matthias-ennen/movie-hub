@@ -58,6 +58,8 @@ Gemeinsam erforderlich sind `details`, `artwork`, `ageRating`, `credits`, `keywo
 
 V2-Datensätze bleiben während der Migration lesbar, erfüllen den strikten Vertrag jedoch nicht. Der nächtliche Datenlauf priorisiert sie zur Nachmigration. Reine Search-only-Titel dürfen aus einem solchen Datensatz keine Detailseite öffnen: Die App zeigt ausschließlich „Details werden geladen …“, lädt über den gerätelokal verschlüsselten TMDB API Read Access Token nach und öffnet die Seite erst nach erfolgreicher V3-Prüfung. Die TMDB-Benutzersitzung ist davon getrennt und wird nur für persönliche Listen, Favoriten und Bewertungen verwendet.
 
+Für Waipu gilt dieselbe Migrationsgrenze: Ein normaler Code-Deploy darf die letzte bereits veröffentlichte und nach dem bisherigen Vertrag vollständige V2-Generation unverändert wiederherstellen. Jede neu erzeugte Waipu-Generation muss dagegen den strikten V3-Vertrag erfüllen, bevor sie veröffentlicht wird. Die Ausnahme ist ausschließlich eine Lesebrücke und erzeugt keine neuen Legacy-Daten.
+
 ## Explizites Leeren
 
 Ein fehlender Wert, `null`, leerer Text oder ein leeres Array ist bei einer Ergänzungsquelle grundsätzlich **kein Löschsignal**. Die derzeit definierte Ausnahme ist die Film-Collection:

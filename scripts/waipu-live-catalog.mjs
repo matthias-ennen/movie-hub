@@ -459,7 +459,7 @@ export async function buildWaipuLiveCatalog({
   }
 }
 
-export function validateWaipuLiveCatalog(catalog) {
+export function validateWaipuLiveCatalog(catalog, { allowLegacyMetadata = false } = {}) {
   if (catalog?.index?.schemaVersion !== WAIPU_LIVE_CATALOG_VERSION || catalog?.index?.status !== 'complete') {
     throw new Error('Invalid waipu-live index.')
   }
@@ -499,7 +499,7 @@ export function validateWaipuLiveCatalog(catalog) {
     throw new Error('waipu-live counts are inconsistent.')
   }
   if (catalog.index.metadata?.required === true) {
-    requireCompleteWaipuTitleMetadata(titles)
+    requireCompleteWaipuTitleMetadata(titles, { allowLegacyContract: allowLegacyMetadata })
     if (catalog.index.metadata.complete !== titles.length) {
       throw new Error('waipu-live metadata counts are inconsistent.')
     }
@@ -520,8 +520,8 @@ async function writeJsonAtomic(path, value) {
   await rename(temporary, target)
 }
 
-export async function writeWaipuLiveCatalog(outputPath, catalog) {
-  validateWaipuLiveCatalog(catalog)
+export async function writeWaipuLiveCatalog(outputPath, catalog, { allowLegacyMetadata = false } = {}) {
+  validateWaipuLiveCatalog(catalog, { allowLegacyMetadata })
   const target = resolve(outputPath)
   const staging = `${target}.staging.${process.pid}.${randomUUID()}`
   const backup = `${target}.backup.${process.pid}.${randomUUID()}`
