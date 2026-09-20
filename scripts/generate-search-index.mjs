@@ -526,6 +526,8 @@ async function discoverOfferEntries({ provider, tmdbProviderIds, mediaType, offe
   let page = 1
   let totalPages = 1
   let reportedTotalPages = null
+  let finalReportedTotalPages = null
+  let maximumReportedTotalPages = 0
   let pagesFetched = 0
   let rawResults = 0
   let skippedResults = 0
@@ -538,6 +540,8 @@ async function discoverOfferEntries({ provider, tmdbProviderIds, mediaType, offe
     )
     totalPages = Math.min(Number(payload?.total_pages) || 1, 500)
     if (reportedTotalPages === null) reportedTotalPages = totalPages
+    finalReportedTotalPages = totalPages
+    maximumReportedTotalPages = Math.max(maximumReportedTotalPages, totalPages)
     pagesFetched += 1
 
     for (const raw of Array.isArray(payload?.results) ? payload.results : []) {
@@ -562,24 +566,62 @@ async function discoverOfferEntries({ provider, tmdbProviderIds, mediaType, offe
   const uniqueTitles = new Set(records.map(({ entry }) => `${entry.type}:${entry.tmdbId}`)).size
   return {
     records,
-    scan: {
-      key: `${provider.id}:${mediaType === 'movie' ? 'movie' : 'series'}:${offerType}`,
-      providerId: provider.id,
-      providerLabel: provider.label,
-      mediaType: mediaType === 'movie' ? 'movie' : 'series',
+    scan: buildCompletedSearchScan({
+      provider,
+      tmdbProviderIds,
+      mediaType,
       offerType,
-      tmdbProviderIds: [...tmdbProviderIds],
       pageLimit,
-      reportedTotalPages: reportedTotalPages || 0,
-      pagesExpected: Math.min(reportedTotalPages || 0, pageLimit),
+      reportedTotalPages,
+      finalReportedTotalPages,
+      maximumReportedTotalPages,
       pagesFetched,
       rawResults,
       acceptedResults: records.length,
       skippedResults,
       uniqueTitles,
-      capped: Number(reportedTotalPages) > pageLimit,
-      status: pagesFetched === Math.min(reportedTotalPages || 0, pageLimit) ? 'complete' : 'incomplete',
-    },
+    }),
+  }
+}
+
+export function buildCompletedSearchScan({
+  provider,
+  tmdbProviderIds,
+  mediaType,
+  offerType,
+  pageLimit,
+  reportedTotalPages,
+  finalReportedTotalPages,
+  maximumReportedTotalPages,
+  pagesFetched,
+  rawResults,
+  acceptedResults,
+  skippedResults,
+  uniqueTitles,
+}) {
+  const initialPages = Number(reportedTotalPages) || 0
+  const finalPages = Number(finalReportedTotalPages) || initialPages
+  const maximumPages = Number(maximumReportedTotalPages) || Math.max(initialPages, finalPages)
+  return {
+    key: `${provider.id}:${mediaType === 'movie' ? 'movie' : 'series'}:${offerType}`,
+    providerId: provider.id,
+    providerLabel: provider.label,
+    mediaType: mediaType === 'movie' ? 'movie' : 'series',
+    offerType,
+    tmdbProviderIds: [...tmdbProviderIds],
+    pageLimit,
+    reportedTotalPages: initialPages,
+    finalReportedTotalPages: finalPages,
+    maximumReportedTotalPages: maximumPages,
+    paginationChanged: initialPages !== finalPages,
+    pagesExpected: Math.min(finalPages, pageLimit),
+    pagesFetched,
+    rawResults,
+    acceptedResults,
+    skippedResults,
+    uniqueTitles,
+    capped: maximumPages > pageLimit,
+    status: 'complete',
   }
 }
 
