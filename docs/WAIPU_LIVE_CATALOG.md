@@ -209,12 +209,14 @@ Reihenfolge ist fest:
 2. waipu.tv, sofern mindestens eine aktive lineare Ausstrahlung vorliegt;
 3. die übrigen Anbieter in ihrer bisherigen Reihenfolge.
 
-Auf der Detailseite steht direkt unter der Beschreibung ein kompakter
-Waipu-Abschnitt mit Datum, Uhrzeit und Sender des nächsten Termins. Weitere
-Termine werden nur als Anzahl zusammengefasst. Der Waipu-Anbieterbutton öffnet
+Auf der Detailseite steht direkt unter den Anbieteraktionen im Bereich
+**„Wo anschauen?“** genau eine kompakte Zeile mit Datum, Startzeit und Sender
+des nächsten beziehungsweise gerade laufenden Termins. Eine weitere
+Terminliste oder Anzahl wird nicht angezeigt. Der Waipu-Anbieterbutton öffnet
 den allgemeinen Live-TV-Einstieg; Movie Hub behauptet keinen ungeprüften
-titelspezifischen Deep Link. Wie bei allen Anbieterbuttons wird das Öffnen als
-„gesehen“ markiert.
+titelspezifischen Deep Link. Jeder tatsächlich gestartete Anbieteraufruf wird
+als „gesehen“ markiert. Das gilt auch für persönliche Movie-Hub-Links, interne
+HTTP-Videos und über die native Android-/Fire-TV-Brücke gestartete SMB-Videos.
 
 Für eine freigegebene Auslieferung kann der Erzeuger atomar direkt in den
 Vite-Public-Bestand schreiben:
@@ -238,12 +240,16 @@ App nur die bereits veröffentlichten Movie-Hub-Artefakte liest.
 
 Ausstrahlungen werden in deutscher Ortszeit je Kalendertag gruppiert und
 innerhalb eines Tages nach Startzeit und Sender sortiert. Jede Posterkarte
-zeigt unten links Startzeit und Sender, behält rechts höchstens drei
-Anbieter-Badges und öffnet dieselbe Film-/Seriendetailseite wie die übrigen
-Katalogreihen. Abgelaufene Sendungen verschwinden anhand ihrer `stopTime`
-automatisch. Eine Tagesreihe kann bis zu 150 zugeordnete Sendungen enthalten;
-die bestehende Zeilenvirtualisierung verhindert, dass alle Reihen gleichzeitig
-gerendert werden.
+verwendet dieselbe Titel-, Jahr-, Altersfreigabe- und Anbieter-Darstellung wie
+Home, Filme und Serien. Startzeit und Sender ergänzen diese Standarddarstellung
+als eigene Textzeile, ohne die Anbieter-Badges zu überdecken. Während
+`startTime <= jetzt < stopTime` erscheint direkt unter **FILM** beziehungsweise
+**SERIE** ein statischer roter **ON AIR**-Badge. Der Client plant
+Neuberechnungen sowohl für den nächsten Sendestart als auch das nächste
+Sendeende; ein App-Neustart ist nicht erforderlich. Abgelaufene Sendungen
+verschwinden anhand ihrer `stopTime` automatisch. Eine Tagesreihe kann bis zu
+150 zugeordnete Sendungen enthalten; die bestehende Zeilenvirtualisierung
+verhindert, dass alle Reihen gleichzeitig gerendert werden.
 
 Auf der TV-Seite gibt es bewusst keine Senderauswahl. Alle im veröffentlichten
 Senderindex vorhandenen Sender sind standardmäßig aktiv. Unter

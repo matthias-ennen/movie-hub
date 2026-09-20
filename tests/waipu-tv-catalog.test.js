@@ -4,10 +4,12 @@ import {
   WAIPU_LIVE_STATIONS_URL,
   buildWaipuTvRows,
   formatTvAiringCard,
+  isTvAiringOnAir,
   loadWaipuLiveStationCatalog,
   loadWaipuTvAirings,
   normalizeWaipuLiveStationCatalog,
   normalizeWaipuStationShard,
+  nextTvAiringTransition,
 } from '../src/waipu/waipuTvCatalog.js'
 
 const index = {
@@ -127,7 +129,31 @@ describe('Waipu TV catalog', () => {
       ageRating: 16,
       metadataComplete: true,
       providerIds: ['waipu'],
+      tvAiringOnAir: false,
     })
+  })
+
+  it('marks only a currently running broadcast as on air', () => {
+    const airing = {
+      startTime: '2026-09-20T18:15:00.000Z',
+      stopTime: '2026-09-20T20:15:00.000Z',
+    }
+    expect(isTvAiringOnAir(airing, Date.parse('2026-09-20T18:14:59.000Z'))).toBe(false)
+    expect(isTvAiringOnAir(airing, Date.parse('2026-09-20T18:15:00.000Z'))).toBe(true)
+    expect(isTvAiringOnAir(airing, Date.parse('2026-09-20T20:14:59.000Z'))).toBe(true)
+    expect(isTvAiringOnAir(airing, Date.parse('2026-09-20T20:15:00.000Z'))).toBe(false)
+  })
+
+  it('schedules the next UI update at either a broadcast start or stop', () => {
+    const airings = [
+      { startTime: '2026-09-20T18:15:00.000Z', stopTime: '2026-09-20T20:15:00.000Z' },
+      { startTime: '2026-09-20T19:00:00.000Z', stopTime: '2026-09-20T21:00:00.000Z' },
+    ]
+    expect(nextTvAiringTransition(airings, Date.parse('2026-09-20T18:00:00.000Z')))
+      .toBe(Date.parse('2026-09-20T18:15:00.000Z'))
+    expect(nextTvAiringTransition(airings, Date.parse('2026-09-20T18:30:00.000Z')))
+      .toBe(Date.parse('2026-09-20T19:00:00.000Z'))
+    expect(nextTvAiringTransition(airings, Date.parse('2026-09-20T21:00:00.000Z'))).toBeNull()
   })
 
   it('formats the time and station for a TV poster card', () => {
