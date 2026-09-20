@@ -1,6 +1,6 @@
 # Movie Hub – Issue-Plan
 
-Stand: 19. September 2026
+Stand: 20. September 2026
 
 ## Arbeitsprinzip
 
@@ -48,14 +48,37 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
   Tagesreihen aus den senderweisen 14-Tage-Dateien; keine Senderauswahl auf der
   TV-Seite. Alle veröffentlichten Sender sind standardmäßig aktiv und können
   ausschließlich in den kontoweiten Einstellungen einzeln ausgeblendet werden
-- **#4H erweitert:** Die ersten 50 Sender der offiziellen Waipu-Reihenfolge sind
-  mit stabilen IDs freigegeben. Der tägliche gemeinsame TMDB-/Waipu-/Firebase-
-  Lauf, kontoweites Ein-/Ausschalten und die persönliche Pfeilsortierung sind
-  umgesetzt. Die vollständige 337er-Reihenfolge ist in
-  `docs/WAIPU_STATION_ORDER.md` dokumentiert. Der erste produktive 50er-
-  End-to-End-Lauf und seine Live-Abnahme bleiben als Abschlussnachweis offen
+- **#4H technisch umgesetzt:** Die ersten 50 Sender der offiziellen
+  Waipu-Reihenfolge sind mit stabilen IDs freigegeben. Der tägliche gemeinsame
+  TMDB-/Waipu-/Firebase-Lauf, kontoweites Ein-/Ausschalten und die persönliche
+  Pfeilsortierung sind umgesetzt. Der vollständige 50er-Lauf vom 19.09.2026
+  lieferte 1.040 Titel, 7.903 Ausstrahlungen und 1.040/1.040 vollständige
+  TMDB-Metadatensätze. Langzeitbeobachtung und Geräteabnahme bleiben offen
+- **#4I technisch umgesetzt:** einzelne Waipu-Terminzeile unter
+  „Wo anschauen?“, einheitliche TV-Posterkarten, zeitgenauer statischer
+  `ON AIR`-Badge und vollständige „Gesehen“-Markierung für alle
+  Anbieter-Aufrufe; gemeinsame Geräteabnahme bleibt offen
 - keine Waiputhek-/VOD-Aussage aus linearen Sendeterminen ableiten
 - keine Waipu-Anmeldung und keine Waipu-Token für die öffentliche Basisintegration
+
+## Triage des Referenzstands APK 0.1.473
+
+Die vollständige Sammlung steht in #254. Die strukturierte
+[Bestandsaufnahme ab APK 0.1.473](APP_REVIEW_0.1.473.md) und das
+Fortsetzungs-/Triage-Issue #255 bündeln sie in fünf vorläufige Pakete:
+
+1. gemeinsame Inhaltsseiten-Grundlage und Fokus;
+2. TV als zeitgesteuerte Videothek;
+3. vollständige TV-Metadaten und schnelle Details;
+4. Trailer und Teaser;
+5. TV-Beobachtungen und Erinnerungen.
+
+Für **Home, Filme, Serien, TV und Meine Inhalte** gilt verbindlich eine
+gemeinsame technische Inhaltsseiten-Grundlage. Vor jedem daraus entstehenden
+Umsetzungspaket werden die zugehörigen offenen Produktfragen Matthias erneut
+einzeln vorgelegt. Die Paketvorschläge ändern die bestätigte Hauptpriorisierung
+nicht automatisch; vor #118 wird gemeinsam entschieden, welche Korrekturen
+zwingend davor liegen.
 
 ## Aktuelle Priorisierung
 
@@ -87,7 +110,7 @@ Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 
 ## Abhängigkeitskette
 
-`#4A → #4B → #4C → #4D → #4E → #4F → #4G → #4H → #118 → #7`
+`#4A → #4B → #4C → #4D → #4E → #4F → #4G → #4H → #4I → Triage #254/#255 → #118 → #7`
 
 #4 ist aktiv. Die 50er-Ausbaustufe wird funktional ausgeliefert und im Betrieb
 weiter beobachtet. Eine spätere Ausweitung über 50 Sender bleibt eine eigene,
