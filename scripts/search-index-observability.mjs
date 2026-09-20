@@ -2,6 +2,12 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
 export const SEARCH_INDEX_RUN_REPORT_VERSION = 1
+export const DEFAULT_SEARCH_INDEX_QUALITY_THRESHOLDS = Object.freeze({
+  minimumScanCount: 155,
+  maximumSkippedResultRatio: 0.001,
+  maximumTotalDropRatio: 0.1,
+  maximumMediaTypeDropRatio: 0.1,
+})
 
 function titleKey(entry) {
   const type = entry?.type === 'series' ? 'series' : 'movie'
@@ -163,6 +169,64 @@ export function buildSearchIndexRunReport({
       changedOffers: diff.changedOffers,
       providerOfferDeltas: diff.providerOfferDeltas,
     },
+  }
+}
+
+function dropRatio(previous, current) {
+  return previous > 0 ? Math.max(0, (previous - current) / previous) : 0
+}
+
+export function evaluateSearchIndexRunReport(
+  report,
+  thresholds = DEFAULT_SEARCH_INDEX_QUALITY_THRESHOLDS,
+) {
+  const applied = { ...DEFAULT_SEARCH_INDEX_QUALITY_THRESHOLDS, ...thresholds }
+  const scans = report?.scans || {}
+  const index = report?.index || {}
+  const previous = index.previous || {}
+  const current = index.current || {}
+  const reasons = []
+  const totalDropRatio = dropRatio(Number(previous.total) || 0, Number(current.total) || 0)
+  const movieDropRatio = dropRatio(Number(previous.movie) || 0, Number(current.movie) || 0)
+  const seriesDropRatio = dropRatio(Number(previous.series) || 0, Number(current.series) || 0)
+  const skippedResultRatio = Number(scans.rawResults) > 0
+    ? (Number(scans.entries?.reduce((sum, scan) => sum + (Number(scan.skippedResults) || 0), 0)) || 0) / Number(scans.rawResults)
+    : 0
+
+  if (!index.baselineAvailable) reasons.push('The previous live search index baseline is unavailable.')
+  if ((Number(scans.expected) || 0) < applied.minimumScanCount) {
+    reasons.push(`Only ${Number(scans.expected) || 0} scans were scheduled; at least ${applied.minimumScanCount} are required.`)
+  }
+  if ((Number(scans.completed) || 0) !== (Number(scans.expected) || 0)) {
+    reasons.push(`${Number(scans.completed) || 0}/${Number(scans.expected) || 0} scans completed.`)
+  }
+  if (skippedResultRatio > applied.maximumSkippedResultRatio) {
+    reasons.push(`Skipped-result ratio ${(skippedResultRatio * 100).toFixed(3)}% exceeds ${(applied.maximumSkippedResultRatio * 100).toFixed(3)}%.`)
+  }
+  if (totalDropRatio > applied.maximumTotalDropRatio) {
+    reasons.push(`Total index drop ${(totalDropRatio * 100).toFixed(2)}% exceeds ${(applied.maximumTotalDropRatio * 100).toFixed(2)}%.`)
+  }
+  if (movieDropRatio > applied.maximumMediaTypeDropRatio) {
+    reasons.push(`Movie index drop ${(movieDropRatio * 100).toFixed(2)}% exceeds ${(applied.maximumMediaTypeDropRatio * 100).toFixed(2)}%.`)
+  }
+  if (seriesDropRatio > applied.maximumMediaTypeDropRatio) {
+    reasons.push(`Series index drop ${(seriesDropRatio * 100).toFixed(2)}% exceeds ${(applied.maximumMediaTypeDropRatio * 100).toFixed(2)}%.`)
+  }
+  if (index.baselineAvailable
+      && (Number(previous.total) || 0) + (Number(index.addedCount) || 0) - (Number(index.removedCount) || 0) !== (Number(current.total) || 0)) {
+    reasons.push('Added and removed title counts do not reconcile with the index totals.')
+  }
+
+  return {
+    passed: reasons.length === 0,
+    thresholds: applied,
+    metrics: {
+      totalDropRatio,
+      movieDropRatio,
+      seriesDropRatio,
+      skippedResultRatio,
+    },
+    reasons,
   }
 }
 
