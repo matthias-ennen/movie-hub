@@ -12,13 +12,13 @@ function title(id, type = 'movie') {
 }
 
 describe('Hero-Auswahl', () => {
-  it('limits every carousel to five unique titles', () => {
+  it('prepares seven unique titles for the largest profile setting', () => {
     const items = [
-      title('a'), title('b'), title('c'), title('d'), title('e'), title('f'), title('a'),
+      title('a'), title('b'), title('c'), title('d'), title('e'), title('f'), title('g'), title('h'), title('a'),
     ]
 
-    expect(HERO_LIMIT).toBe(5)
-    expect(selectHeroItems(items).map((item) => item.id)).toEqual(['a', 'b', 'c', 'd', 'e'])
+    expect(HERO_LIMIT).toBe(7)
+    expect(selectHeroItems(items).map((item) => item.id)).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g'])
   })
 
   it('keeps movie and series category heroes pure', () => {
@@ -30,11 +30,11 @@ describe('Hero-Auswahl', () => {
 
   it('keeps Home mixed when both media types are available', () => {
     const items = [
-      title('m1'), title('m2'), title('m3'), title('m4'), title('m5'), title('s1', 'series'),
+      title('m1'), title('m2'), title('m3'), title('m4'), title('m5'), title('m6'), title('s1', 'series'),
     ]
     const heroes = selectHomeHeroItems(items)
 
-    expect(heroes).toHaveLength(5)
+    expect(heroes).toHaveLength(7)
     expect(heroes.some((item) => item.type === 'movie')).toBe(true)
     expect(heroes.some((item) => item.type === 'series')).toBe(true)
   })
@@ -43,16 +43,29 @@ describe('Hero-Auswahl', () => {
     const shared = title('shared')
     const rows = [
       { id: 'favorites', items: [shared, title('two')] },
-      { id: 'watchlist', items: [shared, title('three'), title('four'), title('five'), title('six')] },
+      { id: 'watchlist', items: [shared, title('three'), title('four'), title('five'), title('six'), title('seven'), title('eight')] },
     ]
 
     expect(selectPersonalHeroItems(rows).map((item) => item.id)).toEqual([
-      'shared', 'two', 'three', 'four', 'five',
+      'shared', 'two', 'three', 'four', 'five', 'six', 'seven',
     ])
   })
 
-  it('returns fewer than five heroes only when fewer real titles exist', () => {
+  it('returns fewer than seven heroes only when fewer valid titles exist', () => {
     expect(selectHeroItems([title('one'), title('two')])).toHaveLength(2)
+  })
+
+  it('does not publish a provisional personal-only selection while the catalog is loading', () => {
+    const provisional = [title('personal-only')]
+
+    expect(selectCoordinatedHeroItems(provisional, { selectionReady: false })).toEqual({
+      home: [],
+      movies: [],
+      series: [],
+    })
+
+    const complete = Array.from({ length: 7 }, (_, index) => title(`movie-${index + 1}`))
+    expect(selectCoordinatedHeroItems(complete, { selectionReady: true }).movies).toHaveLength(7)
   })
 
   it('coordinates different first heroes across Home, movies and series', () => {
