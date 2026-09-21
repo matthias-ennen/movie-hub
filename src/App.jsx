@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import AboutView from './components/AboutView.jsx'
 import DetailLoadingScreen from './components/DetailLoadingScreen.jsx'
@@ -29,11 +29,6 @@ import { useCurationClock } from './hooks/useCurationClock.js'
 import { useProviderSelection } from './settings/useProviderSelection.js'
 import { useWaipuStationSelection } from './settings/useWaipuStationSelection.js'
 import { useLibrary } from './library/LibraryProvider.jsx'
-import {
-  CONTENT_ACTIVATION_STATE,
-  focusContentActivationTarget,
-  resolveContentActivationFocus,
-} from './navigation/contentActivationFocus.js'
 import { buildPersonalRows, buildWatchedHistoryRows, mergeCatalogWithPersonalSnapshots } from './library/personalRows.js'
 import {
   clearSharedMediaLoadCache,
@@ -76,56 +71,6 @@ function NativeStartupSignal() {
       if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
     }
   }, [])
-
-  return null
-}
-
-function ContentActivationFocus({ request }) {
-  useLayoutEffect(() => {
-    if (!request) return
-
-    let cancelled = false
-    let observer = null
-    const observationRoot = document.getElementById('root') ?? document.body
-
-    const stop = () => {
-      if (cancelled) return
-      cancelled = true
-      observer?.disconnect()
-      window.removeEventListener('keydown', cancelForUserIntent, true)
-      window.removeEventListener('pointerdown', cancelForUserIntent, true)
-      window.removeEventListener('touchstart', cancelForUserIntent, true)
-    }
-
-    const focusWhenResolved = () => {
-      if (cancelled) return true
-      const resolution = resolveContentActivationFocus(request.viewId)
-      if (resolution.state === CONTENT_ACTIVATION_STATE.WAITING) return false
-
-      focusContentActivationTarget(request.viewId)
-      stop()
-      return true
-    }
-
-    function cancelForUserIntent() {
-      stop()
-    }
-
-    if (!focusWhenResolved()) {
-      observer = new MutationObserver(focusWhenResolved)
-      observer.observe(observationRoot, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['data-page-load-state'],
-      })
-      window.addEventListener('keydown', cancelForUserIntent, true)
-      window.addEventListener('pointerdown', cancelForUserIntent, true)
-      window.addEventListener('touchstart', cancelForUserIntent, true)
-    }
-
-    return stop
-  }, [request])
 
   return null
 }
@@ -228,7 +173,7 @@ function Header({
       <button
         type="button"
         className="brand brand-button"
-        onClick={() => onContentViewActivate('home')}
+        onClick={() => onContentViewActivate('home', { source: 'logo' })}
         onFocus={() => onViewIntent('home')}
         onPointerEnter={() => onViewIntent('home')}
         data-focusable="true"
@@ -241,7 +186,7 @@ function Header({
             type="button"
             key={id}
             className={currentView === id ? 'nav-link active' : 'nav-link'}
-            onClick={() => onContentViewActivate(id)}
+            onClick={() => onContentViewActivate(id, { source: 'nav' })}
             onFocus={() => onViewIntent(id)}
             onPointerEnter={() => onViewIntent(id)}
             data-content-view={id}
@@ -297,13 +242,27 @@ function Header({
   )
 }
 
-function BrowseView({ viewId, title, subtitle, items, rows = [], heroItems = [], onOpen }) {
+function BrowseView({
+  viewId,
+  title,
+  subtitle,
+  items,
+  rows = [],
+  heroItems = [],
+  readyEnabled = true,
+  activationRequest,
+  onActivationUnavailable,
+  onOpen,
+}) {
   return (
     <HeroFirstPage
       pageId={viewId}
       className="category-page"
       heroItems={heroItems}
       heroEyebrow={title}
+      readyEnabled={readyEnabled}
+      activationRequest={activationRequest}
+      onActivationUnavailable={onActivationUnavailable}
       onOpen={onOpen}
     >
       {({ heroReady }) => (
@@ -329,7 +288,15 @@ function BrowseView({ viewId, title, subtitle, items, rows = [], heroItems = [],
   )
 }
 
-function HomeView({ heroItems, rows, onOpen, liveTmdb, catalogStatus }) {
+function HomeView({
+  heroItems,
+  rows,
+  onOpen,
+  liveTmdb,
+  catalogStatus,
+  activationRequest,
+  onActivationUnavailable,
+}) {
   const startupReadyReportedRef = useRef(false)
   const catalogReady = catalogStatus === 'ready'
   const handleInitialContentReady = useCallback(() => {
@@ -342,7 +309,9 @@ function HomeView({ heroItems, rows, onOpen, liveTmdb, catalogStatus }) {
     <HeroFirstPage
       pageId="home"
       heroItems={heroItems}
-      readyEnabled={catalogReady}
+      readyEnabled={catalogStatus !== 'loading'}
+      activationRequest={activationRequest}
+      onActivationUnavailable={onActivationUnavailable}
       onOpen={onOpen}
     >
       {({ heroReady }) => (
@@ -364,13 +333,25 @@ function HomeView({ heroItems, rows, onOpen, liveTmdb, catalogStatus }) {
   )
 }
 
-function PersonalLibraryView({ rows, heroItems = [], onOpen, profileName, loading, error }) {
+function PersonalLibraryView({
+  rows,
+  heroItems = [],
+  onOpen,
+  profileName,
+  loading,
+  error,
+  activationRequest,
+  onActivationUnavailable,
+}) {
   return (
     <HeroFirstPage
       pageId="library"
       className="personal-library-shell"
       heroItems={heroItems}
       heroEyebrow="Meine Inhalte"
+      readyEnabled={!loading}
+      activationRequest={activationRequest}
+      onActivationUnavailable={onActivationUnavailable}
       onOpen={onOpen}
     >
       {({ heroReady }) => (
@@ -457,6 +438,7 @@ function MovieHub({ user }) {
   })
   const [waipuLiveEntries, setWaipuLiveEntries] = useState([])
   const [waipuLiveStatus, setWaipuLiveStatus] = useState('loading')
+  const [waipuStatusClock, setWaipuStatusClock] = useState(() => Date.now())
   const [waipuStationCatalog, setWaipuStationCatalog] = useState({
     status: 'loading',
     stations: [],
@@ -528,6 +510,7 @@ function MovieHub({ user }) {
       if (!cancelled) {
         setWaipuLiveEntries(entries)
         setWaipuLiveStatus('ready')
+        setWaipuStatusClock(Date.now())
       }
     })
     return () => { cancelled = true }
@@ -551,6 +534,19 @@ function MovieHub({ user }) {
     }, Math.max(0, Math.min(2_147_483_647, nextStopTime - Date.now() + 1_000)))
     return () => window.clearTimeout(timeout)
   }, [waipuLiveEntries])
+
+  useEffect(() => {
+    const airings = waipuLiveEntries.flatMap((entry) => (
+      Array.isArray(entry?.airings) ? entry.airings : [entry?.nextAiring]
+    )).filter(Boolean)
+    const nextTransition = nextTvAiringTransition(airings, waipuStatusClock)
+    if (!Number.isFinite(nextTransition)) return undefined
+    const timeout = window.setTimeout(
+      () => setWaipuStatusClock(Date.now()),
+      Math.max(0, Math.min(2_147_483_647, nextTransition - Date.now() + 1_000)),
+    )
+    return () => window.clearTimeout(timeout)
+  }, [waipuLiveEntries, waipuStatusClock])
 
   const activeWaipuStations = useMemo(() => {
     const disabled = new Set(disabledStationIds)
@@ -629,17 +625,17 @@ function MovieHub({ user }) {
     [baseTitles, rawMovieHubTitles],
   )
   const rawTitles = useMemo(
-    () => mergeWaipuLiveAvailability(preWaipuTitles, waipuLiveEntries),
-    [preWaipuTitles, waipuLiveEntries],
+    () => mergeWaipuLiveAvailability(preWaipuTitles, waipuLiveEntries, { now: waipuStatusClock }),
+    [preWaipuTitles, waipuLiveEntries, waipuStatusClock],
   )
   const titles = useMemo(
     () => rawTitles.map((item) => resolvePresentationArtwork(item, artworkOptions)),
     [rawTitles, artworkOptions],
   )
   const movieHubTitles = useMemo(
-    () => mergeWaipuLiveAvailability(rawMovieHubTitles, waipuLiveEntries)
+    () => mergeWaipuLiveAvailability(rawMovieHubTitles, waipuLiveEntries, { now: waipuStatusClock })
       .map((item) => resolvePresentationArtwork(item, artworkOptions)),
-    [rawMovieHubTitles, waipuLiveEntries, artworkOptions],
+    [rawMovieHubTitles, waipuLiveEntries, waipuStatusClock, artworkOptions],
   )
   const tvViewModel = useMemo(() => buildWaipuTvViewModel({
     airings: tvSchedule.airings,
@@ -673,6 +669,7 @@ function MovieHub({ user }) {
 
   const handleViewChange = useCallback((nextView) => {
     setProfileOpen(false)
+    setContentActivationRequest(null)
     if (nextView === 'tv') {
       if (tvScheduleIntentTimerRef.current !== null) {
         window.clearTimeout(tvScheduleIntentTimerRef.current)
@@ -684,14 +681,25 @@ function MovieHub({ user }) {
     setCurrentView(nextView)
   }, [])
 
-  const handleContentViewActivate = useCallback((nextView) => {
+  const handleContentViewActivate = useCallback((nextView, { source = 'nav' } = {}) => {
     handleViewChange(nextView)
     contentActivationSequenceRef.current += 1
     setContentActivationRequest({
       id: contentActivationSequenceRef.current,
       viewId: nextView,
+      source,
     })
   }, [handleViewChange])
+
+  const handleHeroActivationUnavailable = useCallback((request) => {
+    if (request?.source !== 'logo') return
+    window.requestAnimationFrame(() => {
+      const homeButton = document.querySelector('[data-content-view="home"]')
+      if (homeButton instanceof HTMLElement && homeButton.isConnected) {
+        homeButton.focus({ preventScroll: true })
+      }
+    })
+  }, [])
 
   const handleOpenTitle = useCallback((item, displayedPosterUrl = null) => {
     setProfileOpen(false)
@@ -815,6 +823,14 @@ function MovieHub({ user }) {
     detailSessionActiveRef.current = false
     if (!detailWasMounted) restoreDetailReturnFocus()
   }, [restoreDetailReturnFocus, selectedTitle])
+
+  const cancelDetailLoading = useCallback(() => {
+    if (selectedTitle) {
+      setDetailRequest(null)
+      return
+    }
+    closeDetail()
+  }, [closeDetail, selectedTitle])
 
   const closeInteractiveLayer = useCallback(() => {
     if (detailRequest) {
@@ -1196,7 +1212,6 @@ function MovieHub({ user }) {
         onProfileSelect={selectProfile}
         onViewIntent={handleViewIntent}
       />
-      <ContentActivationFocus request={contentActivationRequest} />
       {currentView === 'home' && (
         <HomeView
           heroItems={homeHeroes}
@@ -1204,6 +1219,8 @@ function MovieHub({ user }) {
           onOpen={handleOpenTitle}
           liveTmdb={liveTmdb}
           catalogStatus={catalog.status}
+          activationRequest={contentActivationRequest?.viewId === 'home' ? contentActivationRequest : null}
+          onActivationUnavailable={handleHeroActivationUnavailable}
         />
       )}
       {currentView === 'movies' && (
@@ -1215,6 +1232,9 @@ function MovieHub({ user }) {
           items={movies}
           rows={movieBrowseRows}
           heroItems={movieHeroes}
+          readyEnabled={catalog.status !== 'loading'}
+          activationRequest={contentActivationRequest?.viewId === 'movies' ? contentActivationRequest : null}
+          onActivationUnavailable={handleHeroActivationUnavailable}
           onOpen={handleOpenTitle}
         />
       )}
@@ -1227,6 +1247,9 @@ function MovieHub({ user }) {
           items={series}
           rows={seriesBrowseRows}
           heroItems={seriesHeroes}
+          readyEnabled={catalog.status !== 'loading'}
+          activationRequest={contentActivationRequest?.viewId === 'series' ? contentActivationRequest : null}
+          onActivationUnavailable={handleHeroActivationUnavailable}
           onOpen={handleOpenTitle}
         />
       )}
@@ -1235,6 +1258,8 @@ function MovieHub({ user }) {
           rows={tvViewModel.rows}
           heroItems={tvHeroItems}
           heroReadyEnabled={tvHeroCatalogReady}
+          activationRequest={contentActivationRequest?.viewId === 'tv' ? contentActivationRequest : null}
+          onActivationUnavailable={handleHeroActivationUnavailable}
           periods={tvViewModel.periods}
           selectedPeriodId={tvViewModel.selectedPeriod.id}
           onPeriodChange={setTvPeriodId}
@@ -1250,6 +1275,8 @@ function MovieHub({ user }) {
           profileName={activeProfile?.displayName}
           loading={libraryLoading}
           error={libraryError}
+          activationRequest={contentActivationRequest?.viewId === 'library' ? contentActivationRequest : null}
+          onActivationUnavailable={handleHeroActivationUnavailable}
         />
       )}
       {currentView === 'search' && (
@@ -1289,7 +1316,9 @@ function MovieHub({ user }) {
           onClose={closeDetail}
         />
       )}
-      {detailRequest && <DetailLoadingScreen />}
+      {detailRequest && (
+        <DetailLoadingScreen item={detailRequest.item} onClose={cancelDetailLoading} />
+      )}
       {exitDialogOpen && <ExitConfirmationDialog onCancel={() => setExitDialogOpen(false)} onClose={closeApp} />}
     </div>
   )

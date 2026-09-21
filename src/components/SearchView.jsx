@@ -7,6 +7,7 @@ import {
   searchIndex,
 } from '../search/searchIndex.js'
 import { loadCompleteTitleMetadata } from '../catalog/loadCompleteTitleMetadata.js'
+import { mergeLiveAiringStatus } from '../search/searchLiveAiringStatus.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import PosterCard from './PosterCard.jsx'
 
@@ -80,11 +81,11 @@ export default function SearchView({ publicTitles, personalTitles, movieHubTitle
     [movieHubTitles],
   )
   const entries = useMemo(
-    () => mergeSearchIndexEntries(
+    () => mergeLiveAiringStatus(mergeSearchIndexEntries(
       mergePublicEntries(publicEntries, movieHubEntries),
       personalEntries,
-    ),
-    [publicEntries, movieHubEntries, personalEntries],
+    ), fullTitles),
+    [publicEntries, movieHubEntries, personalEntries, fullTitles],
   )
   const fullById = useMemo(
     () => new Map((Array.isArray(fullTitles) ? fullTitles : []).map((title) => [title.id, title])),

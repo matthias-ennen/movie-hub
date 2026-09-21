@@ -17,6 +17,7 @@ import {
   shouldPreserveHeroSessionOnBlur,
 } from './heroAutoplay.js'
 import { selectHeroTrailer, selectHeroVideo } from './heroTrailer.js'
+import { focusHeroAfterActivation } from '../navigation/heroActivationFocus.js'
 
 const SWIPE_MIN_DISTANCE = 48
 const HERO_PHASE_MS = 170
@@ -59,7 +60,16 @@ function acknowledgeNativeTrailerResult(requestId) {
   }
 }
 
-export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', onReady }) {
+export default function Hero({
+  item,
+  items,
+  onOpen,
+  eyebrow = 'Heute im Fokus',
+  onReady,
+  activationRequest = null,
+  activationAvailabilitySettled = true,
+  onActivationUnavailable,
+}) {
   const page = visibilityPage(eyebrow)
   const heroCount = getActiveHeroCount()
   const heroTrailerSettings = getActiveHeroTrailerSettings()
@@ -81,6 +91,8 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   const [heroVisit, setHeroVisit] = useState(0)
   const [attemptedVisit, setAttemptedVisit] = useState(null)
   const [heroFocused, setHeroFocused] = useState(false)
+  const [readySignature, setReadySignature] = useState(null)
+  const carouselRef = useRef(null)
   const touchStartRef = useRef(null)
   const transitionTimerRef = useRef([])
   const transitionLockRef = useRef(false)
@@ -90,6 +102,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   const activeImageRef = useRef(null)
   const readyReportedRef = useRef(false)
   const focusedElementRef = useRef(null)
+  const handledActivationRef = useRef(null)
 
   function clearTransitionTimers() {
     transitionTimerRef.current.forEach((timer) => window.clearTimeout(timer))
@@ -222,10 +235,11 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
   }, [heroVisit, safeIndex, signature, slides.length])
 
   const reportReady = useCallback((reason) => {
-    if (!onReady || readyReportedRef.current) return
+    setReadySignature(signature)
+    if (readyReportedRef.current) return
     readyReportedRef.current = true
-    onReady({ item: activeItem, reason })
-  }, [activeItem, onReady])
+    onReady?.({ item: activeItem, reason })
+  }, [activeItem, onReady, signature])
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -243,6 +257,58 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
       window.clearTimeout(timeout)
     }
   }, [activeBackdropUrl, heroVisible, reportReady, slides.length])
+
+  useEffect(() => {
+    const requestId = activationRequest?.id
+    if (!requestId || handledActivationRef.current === requestId) return undefined
+
+    if ((!heroVisible || !slides.length) && activationAvailabilitySettled) {
+      handledActivationRef.current = requestId
+      onActivationUnavailable?.(activationRequest)
+      return undefined
+    }
+
+    if (!slides.length || readySignature !== signature) return undefined
+
+    let cancelledByUser = false
+    const cancelForUserIntent = () => {
+      cancelledByUser = true
+      stopFocus?.()
+      removeIntentListeners()
+      handledActivationRef.current = requestId
+    }
+    const removeIntentListeners = () => {
+      window.removeEventListener('keydown', cancelForUserIntent, true)
+      window.removeEventListener('pointerdown', cancelForUserIntent, true)
+      window.removeEventListener('touchstart', cancelForUserIntent, true)
+    }
+
+    window.addEventListener('keydown', cancelForUserIntent, true)
+    window.addEventListener('pointerdown', cancelForUserIntent, true)
+    window.addEventListener('touchstart', cancelForUserIntent, true)
+
+    const stopFocus = focusHeroAfterActivation(carouselRef.current, {
+      onSettled: ({ focused }) => {
+        removeIntentListeners()
+        if (cancelledByUser) return
+        handledActivationRef.current = requestId
+        if (!focused) onActivationUnavailable?.(activationRequest)
+      },
+    })
+
+    return () => {
+      stopFocus()
+      removeIntentListeners()
+    }
+  }, [
+    activationAvailabilitySettled,
+    activationRequest,
+    heroVisible,
+    onActivationUnavailable,
+    readySignature,
+    signature,
+    slides.length,
+  ])
 
   if (!slides.length) return null
 
@@ -406,6 +472,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
 
   return (
     <section
+      ref={carouselRef}
       className={heroFocused ? 'hero-carousel is-focused' : 'hero-carousel'}
       aria-label={`${eyebrow}: ${activeItem.title}`}
       aria-roledescription="Karussell"

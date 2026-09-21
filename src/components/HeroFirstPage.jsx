@@ -19,6 +19,8 @@ export default function HeroFirstPage({
   heroItems = [],
   heroEyebrow,
   readyEnabled = true,
+  activationRequest = null,
+  onActivationUnavailable,
   onOpen,
   children,
 }) {
@@ -35,6 +37,9 @@ export default function HeroFirstPage({
         onOpen={onOpen}
         eyebrow={heroEyebrow}
         onReady={readyEnabled ? handleHeroReady : undefined}
+        activationRequest={activationRequest}
+        activationAvailabilitySettled={readyEnabled}
+        onActivationUnavailable={onActivationUnavailable}
       />
       {typeof children === 'function' ? children({ heroReady }) : children}
     </main>

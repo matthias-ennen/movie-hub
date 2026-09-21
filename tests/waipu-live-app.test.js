@@ -72,6 +72,29 @@ describe('Waipu live app catalog', () => {
     expect(titles[1]).not.toHaveProperty('waipuLive')
   })
 
+  it('adds global BALD and ON AIR state without a TV-only airing row', () => {
+    const entries = normalizeWaipuLiveTitles(rawCatalog, {
+      now: Date.parse('2026-09-19T12:00:00.000Z'),
+    })
+    const baseTitle = { tmdbId: 667739, type: 'movie', title: 'The Man from Toronto' }
+
+    const [soon] = mergeWaipuLiveAvailability([baseTitle], entries, {
+      now: Date.parse('2026-09-20T16:15:00.000Z'),
+    })
+    expect(soon).toMatchObject({ tvAiringOnAir: false, tvAiringSoon: true })
+    expect(soon).not.toHaveProperty('tvAiring')
+
+    const [onAir] = mergeWaipuLiveAvailability([baseTitle], entries, {
+      now: Date.parse('2026-09-20T18:30:00.000Z'),
+    })
+    expect(onAir).toMatchObject({ tvAiringOnAir: true, tvAiringSoon: false })
+
+    const [later] = mergeWaipuLiveAvailability([baseTitle], entries, {
+      now: Date.parse('2026-09-20T20:30:00.000Z'),
+    })
+    expect(later).toMatchObject({ tvAiringOnAir: false, tvAiringSoon: false })
+  })
+
   it('advances an already loaded catalog without another deploy or network request', () => {
     const entries = normalizeWaipuLiveTitles(rawCatalog, {
       now: Date.parse('2026-09-19T12:00:00.000Z'),

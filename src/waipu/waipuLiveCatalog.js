@@ -1,3 +1,5 @@
+import { isTvAiringOnAir, isTvAiringSoon } from './waipuAiringStatus.js'
+
 export const WAIPU_LIVE_TITLES_URL = '/waipu-live/titles.json'
 export const WAIPU_LIVE_CATALOG_VERSION = 1
 
@@ -116,7 +118,8 @@ export function advanceWaipuLiveTitles(entries = [], { now = Date.now() } = {}) 
   }).filter(Boolean)
 }
 
-export function mergeWaipuLiveAvailability(titles = [], entries = []) {
+export function mergeWaipuLiveAvailability(titles = [], entries = [], { now = Date.now() } = {}) {
+  const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
   const byKey = new Map((Array.isArray(entries) ? entries : []).map((entry) => [entry.key || titleKey(entry), entry]))
   return (Array.isArray(titles) ? titles : []).map((title) => {
     const entry = byKey.get(titleKey(title))
@@ -124,6 +127,8 @@ export function mergeWaipuLiveAvailability(titles = [], entries = []) {
     return {
       ...title,
       providerIds: [...new Set([...(Array.isArray(title.providerIds) ? title.providerIds : []), 'waipu'])],
+      tvAiringOnAir: isTvAiringOnAir(entry.nextAiring, timestamp),
+      tvAiringSoon: isTvAiringSoon(entry.nextAiring, timestamp),
       waipuLive: {
         airings: entry.airings,
         nextAiring: entry.nextAiring,

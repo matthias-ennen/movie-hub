@@ -31,6 +31,8 @@ export default function TvView({
   rows,
   heroItems,
   heroReadyEnabled,
+  activationRequest,
+  onActivationUnavailable,
   periods,
   selectedPeriodId,
   onPeriodChange,
@@ -46,6 +48,8 @@ export default function TvView({
       heroItems={heroItems}
       heroEyebrow="TV"
       readyEnabled={heroReadyEnabled}
+      activationRequest={activationRequest}
+      onActivationUnavailable={onActivationUnavailable}
       onOpen={onOpen}
     >
       {({ heroReady }) => (
