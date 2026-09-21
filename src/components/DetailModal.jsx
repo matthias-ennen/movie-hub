@@ -21,7 +21,17 @@ import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDe
 import { loadSeriesSeasonDetail, normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
 import { formatWaipuLiveAiring } from '../waipu/waipuLiveCatalog.js'
 
-export default function DetailModal({ item, collections = {}, titles = [], onSelectTitle, onClose }) {
+export default function DetailModal({
+  item,
+  collections = {},
+  titles = [],
+  initialSharedMedia = null,
+  sharedMediaPreloaded = false,
+  sharedMediaLoadError = '',
+  returnFocusTarget = null,
+  onSelectTitle,
+  onClose,
+}) {
   const { activeProfile } = useProfiles()
   const { user } = useAuth()
   const { getTitleState, updateTitleState, loading: libraryLoading } = useLibrary()
@@ -29,7 +39,9 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
   const [personalMessage, setPersonalMessage] = useState('')
   const [personalBusy, setPersonalBusy] = useState(false)
   const [noteDraft, setNoteDraft] = useState('')
-  const [sharedMedia, setSharedMedia] = useState([])
+  const [sharedMedia, setSharedMedia] = useState(() => (
+    Array.isArray(initialSharedMedia) ? initialSharedMedia : []
+  ))
   const [mediaDraft, setMediaDraft] = useState({ label: '', url: '', type: '' })
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false)
   const [mediaEditorOpen, setMediaEditorOpen] = useState(false)
@@ -85,7 +97,7 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
   const waipuAiringLabel = formatWaipuLiveAiring(item?.waipuLive?.nextAiring)
 
   useEffect(() => {
-    const active = document.activeElement
+    const active = returnFocusTarget || document.activeElement
     returnFocusRef.current = active instanceof HTMLElement ? active : null
 
     return () => {
@@ -94,7 +106,7 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
         window.requestAnimationFrame(() => returnTarget.focus({ preventScroll: true }))
       }
     }
-  }, [])
+  }, [returnFocusTarget])
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -121,8 +133,8 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
 
   useEffect(() => {
     let cancelled = false
-    setSharedMedia([])
-    setMediaMessage('')
+    setSharedMedia(Array.isArray(initialSharedMedia) ? initialSharedMedia : [])
+    setMediaMessage(sharedMediaLoadError)
     setMediaEditorOpen(false)
     setMediaPickerOpen(false)
     setCollectionPickerOpen(false)
@@ -131,7 +143,7 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
     setEpisodeContext(null)
     setPlaying(null)
     setPendingDeleteId(null)
-    if (user) {
+    if (user && !sharedMediaPreloaded) {
       loadSharedMedia(user.uid, item)
         .then((entries) => { if (!cancelled) setSharedMedia(entries) })
         .catch((error) => {
@@ -148,6 +160,9 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
     item.collectionChecked,
     item.collectionId,
     item.collectionDetails,
+    initialSharedMedia,
+    sharedMediaLoadError,
+    sharedMediaPreloaded,
   ])
 
   useEffect(() => {
@@ -484,10 +499,19 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
   }
 
   return (
-    <div className="detail-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="detail-backdrop primary-detail-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="detail-modal" role="dialog" aria-modal="true" aria-label={`Details zu ${item.title}`}>
         <div className={detailPosterUrl ? 'detail-art has-image' : 'detail-art'} style={{ '--poster-accent': item.accent, '--poster-accent-2': item.accent2 }}>
-          {detailPosterUrl && <img className="detail-art-image" src={detailPosterUrl} alt={`Poster zu ${item.title}`} />}
+          {detailPosterUrl && (
+            <img
+              className="detail-art-image"
+              src={detailPosterUrl}
+              alt={`Poster zu ${item.title}`}
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+            />
+          )}
           <span className="detail-type">{item.type === 'series' ? 'SERIE' : 'FILM'}</span>
         </div>
         <div className="detail-copy">
