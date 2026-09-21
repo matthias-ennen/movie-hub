@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import AboutView from './components/AboutView.jsx'
 import DetailModal from './components/DetailModal.jsx'
-import Hero from './components/Hero.jsx'
+import HeroFirstPage from './components/HeroFirstPage.jsx'
 import { ProgressivePosterGrid, ProgressiveRows } from './components/ProgressiveContent.jsx'
 import ProfileView from './components/ProfileView.jsx'
 import SearchView from './components/SearchView.jsx'
@@ -23,7 +23,6 @@ import { mergeEnrichedTitle, sameTmdbTitle, titleNeedsMetadataEnrichment } from 
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
-import { useHeroFirstPage } from './hooks/useHeroFirstPage.js'
 import { useCurationClock } from './hooks/useCurationClock.js'
 import { useProviderSelection } from './settings/useProviderSelection.js'
 import { useWaipuStationSelection } from './settings/useWaipuStationSelection.js'
@@ -33,7 +32,7 @@ import { refreshSharedMediaCatalogMetadata } from './library/sharedMedia.js'
 import { useSharedMediaCatalog } from './library/useSharedMediaCatalog.js'
 import { mergeSharedMediaCatalogTitles, mergeTitlesWithSharedMediaCatalog } from './library/sharedMediaCatalogModel.js'
 import { firebaseReady } from './lib/firebase.js'
-import { preloadHeroImage } from './performance/progressiveRendering.js'
+import { HERO_PRELOAD_INTENT_DELAY_MS, preloadHeroImage } from './performance/progressiveRendering.js'
 import { loadCatalogWithRetry } from './performance/catalogStartup.js'
 import { notifyNativeStartupReady } from './performance/nativeStartup.js'
 import { ProfileProvider, useProfiles } from './profiles/ProfileProvider.jsx'
@@ -47,6 +46,7 @@ import {
 } from './waipu/waipuLiveCatalog.js'
 import {
   buildWaipuTvViewModel,
+  buildWaipuTvHeroItems,
   loadWaipuLiveStationCatalog,
   loadWaipuTvAirings,
   nextTvAiringTransition,
@@ -235,34 +235,38 @@ function Header({
 }
 
 function BrowseView({ viewId, title, subtitle, items, rows = [], heroItems = [], onOpen }) {
-  const { heroReady, handleHeroReady } = useHeroFirstPage(viewId)
-
   return (
-    <main className="category-page" data-page-load-state={heroReady ? 'rows' : 'hero'}>
-      <Hero items={heroItems} onOpen={onOpen} eyebrow={title} onReady={handleHeroReady} />
-      <section className="browse-page">
-        <div className="page-heading">
-          <p className="eyebrow">Movie Hub</p>
-          <h1>{title}</h1>
-          <p>{subtitle}</p>
-        </div>
-        {rows.length > 0 ? (
-          <ProgressiveRows
-            rows={rows}
-            heroReady={heroReady}
-            onOpen={onOpen}
-            className="rows-wrap browse-provider-rows"
-          />
-        ) : (
-          <ProgressivePosterGrid items={items} heroReady={heroReady} onOpen={onOpen} />
-        )}
-      </section>
-    </main>
+    <HeroFirstPage
+      pageId={viewId}
+      className="category-page"
+      heroItems={heroItems}
+      heroEyebrow={title}
+      onOpen={onOpen}
+    >
+      {({ heroReady }) => (
+        <section className="browse-page">
+          <div className="page-heading">
+            <p className="eyebrow">Movie Hub</p>
+            <h1>{title}</h1>
+            <p>{subtitle}</p>
+          </div>
+          {rows.length > 0 ? (
+            <ProgressiveRows
+              rows={rows}
+              heroReady={heroReady}
+              onOpen={onOpen}
+              className="rows-wrap browse-provider-rows"
+            />
+          ) : (
+            <ProgressivePosterGrid items={items} heroReady={heroReady} onOpen={onOpen} />
+          )}
+        </section>
+      )}
+    </HeroFirstPage>
   )
 }
 
 function HomeView({ heroItems, rows, onOpen, liveTmdb, catalogStatus }) {
-  const { heroReady, handleHeroReady } = useHeroFirstPage('home')
   const startupReadyReportedRef = useRef(false)
   const catalogReady = catalogStatus === 'ready'
   const handleInitialContentReady = useCallback(() => {
@@ -272,63 +276,70 @@ function HomeView({ heroItems, rows, onOpen, liveTmdb, catalogStatus }) {
   }, [catalogReady])
 
   return (
-    <main data-page-load-state={heroReady ? 'rows' : 'hero'}>
-      <Hero
-        items={heroItems}
-        onOpen={onOpen}
-        onReady={catalogReady ? handleHeroReady : undefined}
-      />
-      <div className="rows-wrap">
-        <div className="prototype-strip">
-          <strong>{liveTmdb ? 'Echte TMDB-Daten' : 'Entwicklungsfallback'}</strong>
-          <span>{liveTmdb ? 'Filme & Serien · deutsche Metadaten · Poster & Backdrops' : 'Der Live-TMDB-Katalog konnte noch nicht geladen werden.'}</span>
-        </div>
-        <ProgressiveRows
-          rows={rows}
-          heroReady={heroReady}
-          onOpen={onOpen}
-          className="progressive-home-rows"
-          onInitialContentReady={handleInitialContentReady}
-        />
-      </div>
-    </main>
-  )
-}
-
-function PersonalLibraryView({ rows, heroItems = [], onOpen, profileName, loading, error }) {
-  const { heroReady, handleHeroReady } = useHeroFirstPage('library')
-
-  return (
-    <main className="personal-library-shell" data-page-load-state={heroReady ? 'rows' : 'hero'}>
-      <Hero items={heroItems} onOpen={onOpen} eyebrow="Meine Inhalte" onReady={handleHeroReady} />
-      <section className="browse-page personal-library-page">
-        <div className="page-heading">
-          <p className="eyebrow">{profileName ?? 'Movie Hub'}</p>
-          <h1>Meine Inhalte</h1>
-          <p>Deine Movie-Hub-Watchlist, Favoriten und Bewertungen sowie deine synchronisierten persönlichen TMDB-Listen.</p>
-        </div>
-
-        {loading && <p className="loading-copy">Persönliche Inhalte werden geladen …</p>}
-        {error && <p className="error">Persönliche Inhalte konnten nicht geladen werden: {error.message}</p>}
-
-        {!loading && !error && rows.length === 0 && (
-          <section className="library-empty-state">
-            <p className="settings-kicker">Noch leer</p>
-            <h2>Deine persönlichen Reihen entstehen hier automatisch.</h2>
-            <p>Öffne einen Film oder eine Serie und markiere ihn für die Watchlist, als Favorit oder gib eine Bewertung ab.</p>
-          </section>
-        )}
-
-        {rows.length > 0 && (
+    <HeroFirstPage
+      pageId="home"
+      heroItems={heroItems}
+      readyEnabled={catalogReady}
+      onOpen={onOpen}
+    >
+      {({ heroReady }) => (
+        <div className="rows-wrap">
+          <div className="prototype-strip">
+            <strong>{liveTmdb ? 'Echte TMDB-Daten' : 'Entwicklungsfallback'}</strong>
+            <span>{liveTmdb ? 'Filme & Serien · deutsche Metadaten · Poster & Backdrops' : 'Der Live-TMDB-Katalog konnte noch nicht geladen werden.'}</span>
+          </div>
           <ProgressiveRows
             rows={rows}
             heroReady={heroReady}
             onOpen={onOpen}
-            className="rows-wrap personal-library-rows"
+            className="progressive-home-rows"
+            onInitialContentReady={handleInitialContentReady}
           />
-        )}
-      </section>
-    </main>
+        </div>
+      )}
+    </HeroFirstPage>
+  )
+}
+
+function PersonalLibraryView({ rows, heroItems = [], onOpen, profileName, loading, error }) {
+  return (
+    <HeroFirstPage
+      pageId="library"
+      className="personal-library-shell"
+      heroItems={heroItems}
+      heroEyebrow="Meine Inhalte"
+      onOpen={onOpen}
+    >
+      {({ heroReady }) => (
+        <section className="browse-page personal-library-page">
+          <div className="page-heading">
+            <p className="eyebrow">{profileName ?? 'Movie Hub'}</p>
+            <h1>Meine Inhalte</h1>
+            <p>Deine Movie-Hub-Watchlist, Favoriten und Bewertungen sowie deine synchronisierten persönlichen TMDB-Listen.</p>
+          </div>
+
+          {loading && <p className="loading-copy">Persönliche Inhalte werden geladen …</p>}
+          {error && <p className="error">Persönliche Inhalte konnten nicht geladen werden: {error.message}</p>}
+
+          {!loading && !error && rows.length === 0 && (
+            <section className="library-empty-state">
+              <p className="settings-kicker">Noch leer</p>
+              <h2>Deine persönlichen Reihen entstehen hier automatisch.</h2>
+              <p>Öffne einen Film oder eine Serie und markiere ihn für die Watchlist, als Favorit oder gib eine Bewertung ab.</p>
+            </section>
+          )}
+
+          {rows.length > 0 && (
+            <ProgressiveRows
+              rows={rows}
+              heroReady={heroReady}
+              onOpen={onOpen}
+              className="rows-wrap personal-library-rows"
+            />
+          )}
+        </section>
+      )}
+    </HeroFirstPage>
   )
 }
 
@@ -378,6 +389,7 @@ function MovieHub({ user }) {
     smartFilterOptions: normalizeSmartFilterOptions(),
   })
   const [waipuLiveEntries, setWaipuLiveEntries] = useState([])
+  const [waipuLiveStatus, setWaipuLiveStatus] = useState('loading')
   const [waipuStationCatalog, setWaipuStationCatalog] = useState({
     status: 'loading',
     stations: [],
@@ -385,8 +397,16 @@ function MovieHub({ user }) {
     horizon: null,
   })
   const [tvSchedule, setTvSchedule] = useState({ status: 'idle', airings: [] })
+  const [tvScheduleRequested, setTvScheduleRequested] = useState(false)
   const [tvClock, setTvClock] = useState(() => Date.now())
   const [tvPeriodId, setTvPeriodId] = useState(() => `day:${tvDayKey(Date.now())}`)
+  const tvScheduleIntentTimerRef = useRef(null)
+
+  useEffect(() => () => {
+    if (tvScheduleIntentTimerRef.current !== null) {
+      window.clearTimeout(tvScheduleIntentTimerRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -434,7 +454,10 @@ function MovieHub({ user }) {
   useEffect(() => {
     let cancelled = false
     loadWaipuLiveTitles().then((entries) => {
-      if (!cancelled) setWaipuLiveEntries(entries)
+      if (!cancelled) {
+        setWaipuLiveEntries(entries)
+        setWaipuLiveStatus('ready')
+      }
     })
     return () => { cancelled = true }
   }, [])
@@ -466,7 +489,7 @@ function MovieHub({ user }) {
   const activeWaipuStationKey = activeWaipuStations.map((station) => station.id).join('|')
 
   useEffect(() => {
-    if (currentView !== 'tv') return undefined
+    if (!tvScheduleRequested) return undefined
     if (waipuStationCatalog.status === 'loading' || stationSelectionLoading) {
       setTvSchedule({ status: 'loading', airings: [] })
       return undefined
@@ -493,7 +516,7 @@ function MovieHub({ user }) {
         if (!cancelled) setTvSchedule({ status: 'unavailable', airings: [] })
       })
     return () => { cancelled = true }
-  }, [activeWaipuStationKey, currentView, stationSelectionLoading, waipuStationCatalog.status])
+  }, [activeWaipuStationKey, stationSelectionLoading, tvScheduleRequested, waipuStationCatalog.status])
 
   useEffect(() => {
     if (tvSchedule.status !== 'ready') return undefined
@@ -555,6 +578,18 @@ function MovieHub({ user }) {
     selectedPeriodId: tvPeriodId,
     now: tvClock,
   }), [activeWaipuStations, titles, tvClock, tvPeriodId, tvSchedule.airings, waipuLiveEntries])
+  const compactTvHeroItems = useMemo(() => buildWaipuTvHeroItems({
+    titles,
+    titleEntries: waipuLiveEntries,
+    stationOrder: activeWaipuStations.map((station) => station.id),
+    now: tvClock,
+  }), [activeWaipuStations, titles, tvClock, waipuLiveEntries])
+  const tvHeroItems = compactTvHeroItems.length ? compactTvHeroItems : tvViewModel.heroItems
+  const tvScheduleSettled = tvSchedule.status !== 'idle' && tvSchedule.status !== 'loading'
+  const tvHeroCatalogReady = waipuLiveStatus === 'ready'
+    && waipuStationCatalog.status !== 'loading'
+    && !stationSelectionLoading
+    && (compactTvHeroItems.length > 0 || tvScheduleSettled)
   const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
   const activeSortMode = useMemo(
     () => resolveContentSortMode(contentDisplaySettings, activeProfile?.id, new Date()),
@@ -567,7 +602,14 @@ function MovieHub({ user }) {
 
   const handleViewChange = useCallback((nextView) => {
     setProfileOpen(false)
-    if (nextView === 'tv') setTvPeriodId(`day:${tvDayKey(Date.now())}`)
+    if (nextView === 'tv') {
+      if (tvScheduleIntentTimerRef.current !== null) {
+        window.clearTimeout(tvScheduleIntentTimerRef.current)
+        tvScheduleIntentTimerRef.current = null
+      }
+      setTvPeriodId(`day:${tvDayKey(Date.now())}`)
+      setTvScheduleRequested(true)
+    }
     setCurrentView(nextView)
   }, [])
 
@@ -947,12 +989,22 @@ function MovieHub({ user }) {
     home: homeHeroes,
     movies: movieHeroes,
     series: seriesHeroes,
-    tv: tvViewModel.heroItems,
+    tv: tvHeroItems,
     library: personalHeroes,
-  }), [homeHeroes, movieHeroes, personalHeroes, seriesHeroes, tvViewModel.heroItems])
+  }), [homeHeroes, movieHeroes, personalHeroes, seriesHeroes, tvHeroItems])
   const handleViewIntent = useCallback((nextView) => {
+    if (tvScheduleIntentTimerRef.current !== null) {
+      window.clearTimeout(tvScheduleIntentTimerRef.current)
+      tvScheduleIntentTimerRef.current = null
+    }
+    if (nextView === 'tv' && !tvScheduleRequested) {
+      tvScheduleIntentTimerRef.current = window.setTimeout(() => {
+        tvScheduleIntentTimerRef.current = null
+        setTvScheduleRequested(true)
+      }, HERO_PRELOAD_INTENT_DELAY_MS)
+    }
     preloadHeroImage(heroItemsByView[nextView])
-  }, [heroItemsByView])
+  }, [heroItemsByView, tvScheduleRequested])
   const liveTmdb = catalog.source === 'tmdb'
 
   return (
@@ -1006,7 +1058,8 @@ function MovieHub({ user }) {
       {currentView === 'tv' && (
         <TvView
           rows={tvViewModel.rows}
-          heroItems={tvViewModel.heroItems}
+          heroItems={tvHeroItems}
+          heroReadyEnabled={tvHeroCatalogReady}
           periods={tvViewModel.periods}
           selectedPeriodId={tvViewModel.selectedPeriod.id}
           onPeriodChange={setTvPeriodId}
