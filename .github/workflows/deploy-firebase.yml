@@ -4,9 +4,10 @@ on:
   push:
     branches: [main]
   schedule:
-    # Daily at 03:17 UTC (04:17 CET / 05:17 CEST). TMDB and Waipu are refreshed
+    # Daily at 03:17 Europe/Berlin. TMDB and Waipu are refreshed
     # sequentially and published together; no second import job runs in parallel.
     - cron: '17 03 * * *'
+      timezone: 'Europe/Berlin'
   workflow_dispatch:
     inputs:
       data_mode:
@@ -37,6 +38,14 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 22
+
+      - name: Capture scheduled start timing
+        env:
+          DATA_WORKFLOW_TIMEZONE: Europe/Berlin
+          DATA_WORKFLOW_HOUR: '3'
+          DATA_WORKFLOW_MINUTE: '17'
+          DATA_WORKFLOW_MAX_DELAY_MINUTES: '60'
+        run: node scripts/check-data-workflow-schedule.mjs --capture
 
       - name: Install dependencies
         run: npm ci
