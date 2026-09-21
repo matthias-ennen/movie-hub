@@ -45,6 +45,19 @@ function rejectedMatches(metrics = {}) {
   return Object.values(metrics.matchRejected || {}).reduce((sum, value) => sum + integer(value), 0)
 }
 
+function timestamp(value) {
+  if (!value) return '–'
+  return new Date(value).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })
+}
+
+function age(value, comparedAt) {
+  const start = Date.parse(value)
+  const end = Date.parse(comparedAt)
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return 'unbekannt'
+  const hours = Math.floor((end - start) / 3_600_000)
+  return hours < 24 ? `${hours} Stunden` : `${Math.floor(hours / 24)} Tage ${hours % 24} Stunden`
+}
+
 export function buildWorkflowSummary({
   dataStatus = {},
   catalog = {},
@@ -63,6 +76,7 @@ export function buildWorkflowSummary({
   tmdbChangeRun = {},
   baselineData = null,
   baselineWaipu = null,
+  workflowTiming = {},
   steps = {},
   run = {},
 } = {}) {
@@ -89,6 +103,23 @@ export function buildWorkflowSummary({
       reportedAt: run.reportedAt || new Date().toISOString(),
     },
     rows: [
+      {
+        area: 'Laufüberwachung',
+        status: workflowTiming.status === 'delayed'
+          ? '🟡 verspätet'
+          : workflowTiming.status === 'on-time'
+            ? '✅ pünktlich gestartet'
+            : 'ℹ️ manueller/Code-Lauf',
+        stock: workflowTiming.scheduledAt
+          ? `geplant ${timestamp(workflowTiming.scheduledAt)}`
+          : `Start ${timestamp(workflowTiming.actualStartAt)}`,
+        activity: Number.isFinite(workflowTiming.delayMinutes)
+          ? `tatsächlich ${timestamp(workflowTiming.actualStartAt)} · ${workflowTiming.delayMinutes} Minuten Verzögerung`
+          : 'keine planmäßige Startzeit',
+        open: baselineData?.generatedAt
+          ? `vorheriger Datenstand beim Start ${age(baselineData.generatedAt, workflowTiming.actualStartAt || run.reportedAt)} alt`
+          : 'Alter des vorherigen Datenstands unbekannt',
+      },
       {
         area: 'TMDB-Änderungen',
         status: outcome(combinedOutcome(steps.tmdbChanges, steps.tmdbCheckpoint)),
@@ -214,7 +245,7 @@ async function readJson(path, fallback = {}) {
 }
 
 async function main() {
-  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu] = await Promise.all([
+  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu, workflowTiming] = await Promise.all([
     readJson('public/data-status.json'),
     readJson('public/catalog.json'),
     readJson('public/search-index.json'),
@@ -233,10 +264,11 @@ async function main() {
     readJson('artifacts/tmdb-data/last-run.json', null),
     readJson('artifacts/workflow-baseline/data-status.json', null),
     readJson('artifacts/workflow-baseline/waipu-index.json', null),
+    readJson('artifacts/workflow-schedule-timing.json'),
   ])
   const summary = buildWorkflowSummary({
     dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges,
-    tmdbChangeRun: activeTmdbChangeRun || lastTmdbChangeRun || {}, baselineData, baselineWaipu,
+    tmdbChangeRun: activeTmdbChangeRun || lastTmdbChangeRun || {}, baselineData, baselineWaipu, workflowTiming,
     steps: {
       tmdbChanges: process.env.SUMMARY_TMDB_CHANGES,
       tmdbCheckpoint: process.env.SUMMARY_TMDB_CHECKPOINT,

@@ -79,11 +79,18 @@ describe('kompakter Workflow-Datenbericht', () => {
       tmdbChangeRun: { requiredConsumers: ['catalog', 'publication'] },
       presence: { parentGroups: 145, created: 2, repaired: 3, unresolved: 0 },
       baselineData: {
+        generatedAt: '2026-09-14T08:00:00.000Z',
         catalog: { total: 1180 },
         searchIndex: { total: 19800 },
         completeSearchDetails: { total: 14500 },
       },
       baselineWaipu: { counts: { titles: 144 } },
+      workflowTiming: {
+        status: 'on-time',
+        scheduledAt: '2026-09-19T01:17:00.000Z',
+        actualStartAt: '2026-09-19T01:22:00.000Z',
+        delayMinutes: 5,
+      },
       steps: {
         tmdbChanges: 'success',
         tmdbCheckpoint: 'success',
@@ -103,7 +110,7 @@ describe('kompakter Workflow-Datenbericht', () => {
     })
 
     const markdown = workflowSummaryMarkdown(summary)
-    expect(summary.rows).toHaveLength(13)
+    expect(summary.rows).toHaveLength(14)
     expect(markdown).toContain('Lauf #321')
     expect(markdown).toContain('| Waipu EPG | ✅ erfolgreich | 50 Sender')
     expect(markdown).toContain('3.600 zugeordnet · 830/830 Metadaten vollständig')
@@ -114,7 +121,8 @@ describe('kompakter Workflow-Datenbericht', () => {
     expect(markdown).toContain('| Kanonischer Executor | ✅ erfolgreich | 800/800 kanonisch verarbeitet | 700 TMDB geladen · 100 wiederverwendet · 720 Requests | 450 Browse · 620 Suche · 210 Waipu · 32 persönlich verteilt |')
     expect(markdown).toContain('| Kanonische Titelkandidaten | ✅ erfolgreich | 1.500 Titel aus 1.900 Referenzen | 400 Dubletten entfernt · 300 Mehrfachzuordnungen | 16.308 nur Suche · 17 Waipu ungeklärt |')
     expect(markdown).toContain('| Prioritätsvorschau | ✅ erfolgreich | 900/1.500 eingeplant · 800 in Tageskapazität | 700 TMDB-Abrufe · 200 Wiederverwendungen | 100 Rückstand · 0 Queue-Dubletten |')
-    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(15)
+    expect(markdown).toContain('| Laufüberwachung | ✅ pünktlich gestartet | geplant 19.9.2026, 03:17:00 | tatsächlich 19.9.2026, 03:22:00 · 5 Minuten Verzögerung | vorheriger Datenstand beim Start 4 Tage 17 Stunden alt |')
+    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(16)
   })
 
   it('bleibt bei fehlenden optionalen Artefakten lesbar', () => {
