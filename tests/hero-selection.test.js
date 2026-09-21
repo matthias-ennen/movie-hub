@@ -77,4 +77,20 @@ describe('Hero-Auswahl', () => {
     expect(heroes.home.some((item) => item.type === 'movie')).toBe(true)
     expect(heroes.home.some((item) => item.type === 'series')).toBe(true)
   })
+
+  it('uses separately ranked category pools when the mixed Home ranking is one-sided', () => {
+    const mixedHomeRanking = [
+      ...Array.from({ length: 50 }, (_, index) => title(`s${index + 1}`, 'series')),
+      title('m1'),
+    ]
+    const movieItems = Array.from({ length: 7 }, (_, index) => title(`m${index + 1}`))
+    const seriesItems = Array.from({ length: 7 }, (_, index) => title(`s${index + 1}`, 'series'))
+
+    const heroes = selectCoordinatedHeroItems(mixedHomeRanking, { movieItems, seriesItems })
+
+    expect(heroes.movies).toHaveLength(7)
+    expect(heroes.movies.every((item) => item.type === 'movie')).toBe(true)
+    expect(heroes.series).toHaveLength(7)
+    expect(heroes.series.every((item) => item.type === 'series')).toBe(true)
+  })
 })
