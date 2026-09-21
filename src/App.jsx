@@ -1010,17 +1010,37 @@ function MovieHub({ user }) {
     }),
     [eligiblePublicTitles, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey],
   )
+  const curatedMovieTitles = useMemo(
+    () => curateTitles(eligiblePublicTitles.filter((item) => item.type === 'movie'), {
+      mode: activeSortMode,
+      seed: `${curationSeed}:heroes:movies`,
+      watchedMode: contentDisplaySettings.watchedMode,
+      getTitleState,
+    }),
+    [eligiblePublicTitles, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey],
+  )
+  const curatedSeriesTitles = useMemo(
+    () => curateTitles(eligiblePublicTitles.filter((item) => item.type === 'series'), {
+      mode: activeSortMode,
+      seed: `${curationSeed}:heroes:series`,
+      watchedMode: contentDisplaySettings.watchedMode,
+      getTitleState,
+    }),
+    [eligiblePublicTitles, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey],
+  )
   const coordinatedHeroes = useMemo(
     () => selectCoordinatedHeroItems(curatedPublicTitles, {
+      movieItems: curatedMovieTitles,
+      seriesItems: curatedSeriesTitles,
       selectionReady: catalog.status !== 'loading',
     }),
-    [catalog.status, curatedPublicTitles],
+    [catalog.status, curatedMovieTitles, curatedPublicTitles, curatedSeriesTitles],
   )
   const homeHeroes = coordinatedHeroes.home
   const movieHeroes = coordinatedHeroes.movies
   const seriesHeroes = coordinatedHeroes.series
-  const movies = useMemo(() => curatedPublicTitles.filter((item) => item.type === 'movie'), [curatedPublicTitles])
-  const series = useMemo(() => curatedPublicTitles.filter((item) => item.type === 'series'), [curatedPublicTitles])
+  const movies = curatedMovieTitles
+  const series = curatedSeriesTitles
   const personalHeroes = useMemo(() => selectPersonalHeroItems(combinedPersonalRows), [combinedPersonalRows])
   const curatedHomeRows = useMemo(
     () => curateCatalogRows(
