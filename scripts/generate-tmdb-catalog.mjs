@@ -349,6 +349,23 @@ export async function resolveFilmCollections(titles) {
   return buildFilmCollectionIndex(payloads, titles)
 }
 
+export function attachFilmCollectionDetails(titles, collections = {}) {
+  return (Array.isArray(titles) ? titles : []).map((title) => {
+    const collectionId = collectionIdForTitle(title)
+    if (!collectionId) return title
+
+    const collection = collections?.[String(collectionId)] || {
+      id: collectionId,
+      name: title?.collectionName || title?.smartFacets?.collection?.name || 'Filmreihe',
+      overview: '',
+      posterUrl: null,
+      backdropUrl: null,
+      parts: [],
+    }
+    return { ...title, collectionDetails: collection }
+  })
+}
+
 export async function generateCatalog() {
   if (!token) {
     throw new Error('TMDB_API_READ_TOKEN is missing. Catalog generation must run only in a trusted server/CI context.')
@@ -392,7 +409,8 @@ export async function generateCatalog() {
   }))
 
   const collections = await resolveFilmCollections(versionedTitles)
-  const smartCatalog = finalizePersonalSmartCatalog(versionedTitles)
+  const collectionReadyTitles = attachFilmCollectionDetails(versionedTitles, collections)
+  const smartCatalog = finalizePersonalSmartCatalog(collectionReadyTitles)
 
   return {
     source: 'tmdb',

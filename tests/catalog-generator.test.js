@@ -3,6 +3,7 @@ import {
   CATALOG_ROWS,
   PROVIDER_TEST_REFERENCES,
   applyProviderTestReference,
+  attachFilmCollectionDetails,
   buildProviderTestRows,
   buildRowDefinitions,
   resolveFilmCollections,
@@ -176,5 +177,45 @@ describe('automatischer TMDB-Katalog', () => {
     } finally {
       fetchMock.mockRestore()
     }
+  })
+
+  it('attaches resolved collection details so the next priority run does not requeue the movie', () => {
+    const collection = {
+      id: 40,
+      name: 'Sternensaga',
+      parts: [{ tmdbId: 1 }, { tmdbId: 2 }],
+    }
+    const [movie, standalone, series] = attachFilmCollectionDetails([
+      {
+        tmdbId: 1,
+        type: 'movie',
+        collectionId: 40,
+        collectionName: 'Sternensaga',
+      },
+      { tmdbId: 3, type: 'movie', collectionId: null },
+      { tmdbId: 4, type: 'series', collectionId: 40 },
+    ], { 40: collection })
+
+    expect(movie.collectionDetails).toBe(collection)
+    expect(standalone).not.toHaveProperty('collectionDetails')
+    expect(series).not.toHaveProperty('collectionDetails')
+  })
+
+  it('records a checked collection fallback when the collection request has no usable index entry', () => {
+    const [movie] = attachFilmCollectionDetails([{
+      tmdbId: 1,
+      type: 'movie',
+      collectionId: 40,
+      collectionName: 'Sternensaga',
+    }])
+
+    expect(movie.collectionDetails).toEqual({
+      id: 40,
+      name: 'Sternensaga',
+      overview: '',
+      posterUrl: null,
+      backdropUrl: null,
+      parts: [],
+    })
   })
 })
