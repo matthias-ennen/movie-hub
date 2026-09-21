@@ -1,15 +1,20 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  CONTENT_ACTIVATION_STATE,
   focusContentActivationTarget,
   getContentActivationFocusTarget,
+  resolveContentActivationFocus,
 } from '../src/navigation/contentActivationFocus.js'
 
 function focusTarget(name) {
   return { name, focus: vi.fn() }
 }
 
-function rootWith({ hero = null, nav = null } = {}) {
-  const page = hero ? { querySelector: vi.fn(() => hero) } : null
+function rootWith({ hero = null, nav = null, pageState = 'rows', pageMounted = true } = {}) {
+  const page = pageMounted ? {
+    querySelector: vi.fn(() => hero),
+    getAttribute: vi.fn(() => pageState),
+  } : null
   return {
     querySelector: vi.fn((selector) => (
       selector.startsWith('[data-content-page=') ? page : nav
@@ -35,6 +40,26 @@ describe('Fokus nach bewusster Inhaltsseiten-Aktivierung', () => {
 
     expect(focusContentActivationTarget('tv', root)).toBe(nav)
     expect(nav.focus).toHaveBeenCalledWith({ preventScroll: true })
+  })
+
+  it('wartet auf einen Hero, solange die Zielseite noch aufgebaut wird', () => {
+    const nav = focusTarget('tv-nav')
+    const root = rootWith({ nav, pageState: 'hero' })
+
+    expect(resolveContentActivationFocus('tv', root)).toEqual({
+      state: CONTENT_ACTIVATION_STATE.WAITING,
+      target: null,
+    })
+    expect(focusContentActivationTarget('tv', root)).toBeNull()
+    expect(nav.focus).not.toHaveBeenCalled()
+  })
+
+  it('wartet, bis die Zielseite überhaupt montiert wurde', () => {
+    const nav = focusTarget('movies-nav')
+    const root = rootWith({ nav, pageMounted: false })
+
+    expect(getContentActivationFocusTarget('movies', root)).toBeNull()
+    expect(nav.focus).not.toHaveBeenCalled()
   })
 
   it('verwendet beim Logo-Aufruf dieselbe Home-Zielkette', () => {

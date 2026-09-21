@@ -1,14 +1,7 @@
-import { useEffect, useRef } from 'react'
 import HeroFirstPage from './HeroFirstPage.jsx'
 import { ProgressiveRows } from './ProgressiveContent.jsx'
 
 function PeriodSelector({ periods, selectedPeriodId, onPeriodChange }) {
-  const selectedRef = useRef(null)
-
-  useEffect(() => {
-    selectedRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'center' })
-  }, [selectedPeriodId])
-
   return (
     <section className="tv-period-shell" aria-label="TV-Zeitraum">
       <div className="tv-period-track" role="tablist" aria-label="Zeitraum der TV-Posterreihen">
@@ -18,7 +11,6 @@ function PeriodSelector({ periods, selectedPeriodId, onPeriodChange }) {
             <button
               type="button"
               key={period.id}
-              ref={selected ? selectedRef : null}
               className={selected ? 'tv-period-button active' : 'tv-period-button'}
               role="tab"
               aria-selected={selected}

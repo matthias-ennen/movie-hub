@@ -18,6 +18,7 @@ import './styles/film-collections.css'
 import './styles/series-navigation.css'
 import './styles/issue218.css'
 import './styles/waipu-tv.css'
+import './styles/issue287-focus-detail.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

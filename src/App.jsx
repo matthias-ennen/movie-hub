@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import AboutView from './components/AboutView.jsx'
+import DetailLoadingScreen from './components/DetailLoadingScreen.jsx'
 import DetailModal from './components/DetailModal.jsx'
 import HeroFirstPage from './components/HeroFirstPage.jsx'
 import { ProgressivePosterGrid, ProgressiveRows } from './components/ProgressiveContent.jsx'
@@ -8,6 +9,7 @@ import ProfileView from './components/ProfileView.jsx'
 import SearchView from './components/SearchView.jsx'
 import SettingsView from './components/SettingsView.jsx'
 import TvView from './components/TvView.jsx'
+import { preloadDetailImage, waitForDetailLoadingPaint } from './components/detailPresentation.js'
 import { buildCategoryRows } from './catalog/categoryRows.js'
 import { buildPersonalSmartRows, normalizeSmartFilterOptions } from './catalog/personalSmartRows.js'
 import { buildProviderBrowseRows, buildProviderHomeRows } from './catalog/providerCatalogRows.js'
@@ -27,9 +29,17 @@ import { useCurationClock } from './hooks/useCurationClock.js'
 import { useProviderSelection } from './settings/useProviderSelection.js'
 import { useWaipuStationSelection } from './settings/useWaipuStationSelection.js'
 import { useLibrary } from './library/LibraryProvider.jsx'
-import { focusContentActivationTarget } from './navigation/contentActivationFocus.js'
+import {
+  CONTENT_ACTIVATION_STATE,
+  focusContentActivationTarget,
+  resolveContentActivationFocus,
+} from './navigation/contentActivationFocus.js'
 import { buildPersonalRows, buildWatchedHistoryRows, mergeCatalogWithPersonalSnapshots } from './library/personalRows.js'
-import { refreshSharedMediaCatalogMetadata } from './library/sharedMedia.js'
+import {
+  clearSharedMediaLoadCache,
+  loadSharedMediaCached,
+  refreshSharedMediaCatalogMetadata,
+} from './library/sharedMedia.js'
 import { useSharedMediaCatalog } from './library/useSharedMediaCatalog.js'
 import { mergeSharedMediaCatalogTitles, mergeTitlesWithSharedMediaCatalog } from './library/sharedMediaCatalogModel.js'
 import { firebaseReady } from './lib/firebase.js'
@@ -73,7 +83,48 @@ function NativeStartupSignal() {
 function ContentActivationFocus({ request }) {
   useLayoutEffect(() => {
     if (!request) return
-    focusContentActivationTarget(request.viewId)
+
+    let cancelled = false
+    let observer = null
+    const observationRoot = document.getElementById('root') ?? document.body
+
+    const stop = () => {
+      if (cancelled) return
+      cancelled = true
+      observer?.disconnect()
+      window.removeEventListener('keydown', cancelForUserIntent, true)
+      window.removeEventListener('pointerdown', cancelForUserIntent, true)
+      window.removeEventListener('touchstart', cancelForUserIntent, true)
+    }
+
+    const focusWhenResolved = () => {
+      if (cancelled) return true
+      const resolution = resolveContentActivationFocus(request.viewId)
+      if (resolution.state === CONTENT_ACTIVATION_STATE.WAITING) return false
+
+      focusContentActivationTarget(request.viewId)
+      stop()
+      return true
+    }
+
+    function cancelForUserIntent() {
+      stop()
+    }
+
+    if (!focusWhenResolved()) {
+      observer = new MutationObserver(focusWhenResolved)
+      observer.observe(observationRoot, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['data-page-load-state'],
+      })
+      window.addEventListener('keydown', cancelForUserIntent, true)
+      window.addEventListener('pointerdown', cancelForUserIntent, true)
+      window.addEventListener('touchstart', cancelForUserIntent, true)
+    }
+
+    return stop
   }, [request])
 
   return null
@@ -390,6 +441,9 @@ function MovieHub({ user }) {
   const [currentView, setCurrentView] = useState('home')
   const [contentActivationRequest, setContentActivationRequest] = useState(null)
   const [selectedTitle, setSelectedTitle] = useState(null)
+  const [detailRequest, setDetailRequest] = useState(null)
+  const [detailSharedMedia, setDetailSharedMedia] = useState([])
+  const [detailSharedMediaLoadError, setDetailSharedMediaLoadError] = useState('')
   const [profileOpen, setProfileOpen] = useState(false)
   const [exitDialogOpen, setExitDialogOpen] = useState(false)
   const [catalog, setCatalog] = useState({
@@ -415,6 +469,9 @@ function MovieHub({ user }) {
   const [tvPeriodId, setTvPeriodId] = useState(() => `day:${tvDayKey(Date.now())}`)
   const tvScheduleIntentTimerRef = useRef(null)
   const contentActivationSequenceRef = useRef(0)
+  const detailRequestSequenceRef = useRef(0)
+  const detailReturnFocusRef = useRef(null)
+  const detailSessionActiveRef = useRef(false)
 
   useEffect(() => () => {
     if (tvScheduleIntentTimerRef.current !== null) {
@@ -638,12 +695,19 @@ function MovieHub({ user }) {
 
   const handleOpenTitle = useCallback((item, displayedPosterUrl = null) => {
     setProfileOpen(false)
+    if (!detailSessionActiveRef.current) {
+      const active = document.activeElement
+      detailReturnFocusRef.current = active instanceof HTMLElement ? active : null
+      detailSessionActiveRef.current = true
+    }
     const presented = resolvePresentationArtwork(item, artworkOptions)
     const initiallySelected = {
       ...presented,
       displayPosterUrl: displayedPosterUrl || item?.displayPosterUrl || presented.displayPosterUrl,
     }
-    setSelectedTitle(initiallySelected)
+    detailRequestSequenceRef.current += 1
+    const requestId = detailRequestSequenceRef.current
+    setDetailRequest({ id: requestId, item: initiallySelected })
 
     if (titleNeedsMetadataEnrichment(item)) {
       loadCompleteTitleMetadata(item)
@@ -671,15 +735,100 @@ function MovieHub({ user }) {
               displayPosterUrl: current.displayPosterUrl || hydrated.displayPosterUrl,
             }
           })
+          setDetailRequest((current) => {
+            if (!current || current.id !== requestId || !sameTmdbTitle(current.item, item)) return current
+            const hydrated = resolvePresentationArtwork(mergeEnrichedTitle(current.item, detail), artworkOptions)
+            return {
+              ...current,
+              item: {
+                ...hydrated,
+                displayPosterUrl: current.item.displayPosterUrl || hydrated.displayPosterUrl,
+              },
+            }
+          })
         })
         .catch((error) => console.warn('Movie-Hub-Titelmetadaten konnten nicht progressiv ergänzt werden.', error))
     }
   }, [artworkOptions])
 
+  useEffect(() => {
+    if (!detailRequest) return undefined
+
+    let cancelled = false
+    const { id: requestId, item } = detailRequest
+
+    async function prepareDetail() {
+      await waitForDetailLoadingPaint()
+      if (cancelled) return
+
+      let sharedMedia = []
+      let sharedMediaLoadError = ''
+      const shouldLoadSharedMedia = Boolean(user?.uid)
+        && (sharedMediaCatalogLoading || hasMovieHubTitle(item))
+      const mediaLoad = shouldLoadSharedMedia
+        ? loadSharedMediaCached(user.uid, item)
+          .then((entries) => { sharedMedia = entries })
+          .catch((error) => {
+            console.error(error)
+            sharedMediaLoadError = 'Eigene Links und Videos konnten nicht geladen werden.'
+          })
+        : Promise.resolve()
+
+      await Promise.all([
+        preloadDetailImage(item.displayPosterUrl || item.posterUrl || null),
+        mediaLoad,
+      ])
+      if (cancelled) return
+
+      setDetailSharedMedia(sharedMedia)
+      setDetailSharedMediaLoadError(sharedMediaLoadError)
+      setSelectedTitle(item)
+      setDetailRequest((current) => current?.id === requestId ? null : current)
+    }
+
+    prepareDetail().catch((error) => {
+      console.warn('Movie-Hub-Detailansicht konnte nicht vollständig vorbereitet werden.', error)
+      if (cancelled) return
+      setDetailSharedMedia([])
+      setDetailSharedMediaLoadError('Zusätzliche Detailinformationen konnten nicht geladen werden.')
+      setSelectedTitle(item)
+      setDetailRequest((current) => current?.id === requestId ? null : current)
+    })
+
+    return () => { cancelled = true }
+  }, [detailRequest, hasMovieHubTitle, sharedMediaCatalogLoading, user?.uid])
+
+  const restoreDetailReturnFocus = useCallback(() => {
+    const target = detailReturnFocusRef.current
+    if (!target?.isConnected) return
+    window.requestAnimationFrame(() => {
+      if (target.isConnected) target.focus({ preventScroll: true })
+    })
+  }, [])
+
+  const closeDetail = useCallback(() => {
+    const detailWasMounted = Boolean(selectedTitle)
+    setDetailRequest(null)
+    setSelectedTitle(null)
+    setDetailSharedMedia([])
+    setDetailSharedMediaLoadError('')
+    detailSessionActiveRef.current = false
+    if (!detailWasMounted) restoreDetailReturnFocus()
+  }, [restoreDetailReturnFocus, selectedTitle])
+
   const closeInteractiveLayer = useCallback(() => {
+    if (detailRequest) {
+      setDetailRequest(null)
+      if (!selectedTitle) {
+        detailSessionActiveRef.current = false
+        restoreDetailReturnFocus()
+      }
+      return true
+    }
+
     if (selectedTitle) {
       if (window.__movieHubDetailBack?.()) return true
-      setSelectedTitle(null)
+      closeDetail()
       return true
     }
 
@@ -694,7 +843,7 @@ function MovieHub({ user }) {
     }
 
     return false
-  }, [currentView, profileOpen, selectedTitle])
+  }, [closeDetail, currentView, detailRequest, profileOpen, restoreDetailReturnFocus, selectedTitle])
 
   const handleBack = useCallback(() => {
     if (closeInteractiveLayer()) return true
@@ -736,13 +885,14 @@ function MovieHub({ user }) {
   }, [handleNativeBack])
 
   useDpadNavigation({
-    detailOpen: Boolean(selectedTitle),
+    detailOpen: Boolean(selectedTitle || detailRequest),
     profileMenuOpen: profileOpen,
     exitDialogOpen,
     onBack: handleBack,
   })
 
   async function handleSignOut() {
+    clearSharedMediaLoadCache()
     if (typeof window.MovieHubNative?.clearSessionSmbCredentials === 'function') {
       window.MovieHubNative.clearSessionSmbCredentials()
     }
@@ -1131,10 +1281,15 @@ function MovieHub({ user }) {
           item={selectedTitle}
           collections={catalog.collections}
           titles={titles}
+          initialSharedMedia={detailSharedMedia}
+          sharedMediaPreloaded
+          sharedMediaLoadError={detailSharedMediaLoadError}
+          returnFocusTarget={detailReturnFocusRef.current}
           onSelectTitle={handleOpenTitle}
-          onClose={() => setSelectedTitle(null)}
+          onClose={closeDetail}
         />
       )}
+      {detailRequest && <DetailLoadingScreen />}
       {exitDialogOpen && <ExitConfirmationDialog onCancel={() => setExitDialogOpen(false)} onClose={closeApp} />}
     </div>
   )

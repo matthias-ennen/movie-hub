@@ -13,8 +13,18 @@ import { normaliseMedia, titleMediaKey } from './sharedMediaModel.js'
 export const SHARED_MEDIA_CHANGED_EVENT = 'moviehub:shared-media-changed'
 
 const catalogMetadataRefreshes = new Map()
+const sharedMediaLoads = new Map()
 const LABEL_PURPOSE = 'sharedMedia.label'
 const URL_PURPOSE = 'sharedMedia.url'
+
+function sharedMediaLoadKey(userId, item) {
+  return userId ? `${userId}:${titleMediaKey(item)}` : null
+}
+
+function clearSharedMediaLoad(userId, item) {
+  const key = sharedMediaLoadKey(userId, item)
+  if (key) sharedMediaLoads.delete(key)
+}
 
 function decodeField(purpose, encryptedValue) {
   return readPersonalValue(purpose, encryptedValue).value
@@ -155,6 +165,24 @@ export async function loadSharedMedia(userId, item) {
   return entries.sort((a, b) => a.label.localeCompare(b.label, 'de'))
 }
 
+/**
+ * Verhindert wiederholte Firestore-Lesevorgänge, wenn dieselbe Detailseite in
+ * einer App-Sitzung mehrfach geöffnet wird. Fehlgeschlagene Abfragen werden
+ * bewusst nicht gecacht, damit ein erneuter Versuch möglich bleibt.
+ */
+export function loadSharedMediaCached(userId, item, { load = loadSharedMedia } = {}) {
+  const key = sharedMediaLoadKey(userId, item)
+  if (!key) return Promise.resolve([])
+  if (!sharedMediaLoads.has(key)) {
+    sharedMediaLoads.set(key, load(userId, item)
+      .catch((error) => {
+        sharedMediaLoads.delete(key)
+        throw error
+      }))
+  }
+  return sharedMediaLoads.get(key)
+}
+
 export async function saveSharedMedia(userId, item, entry) {
   const { db } = await firebaseReady
   const normalized = normaliseMedia(entry)
@@ -179,6 +207,7 @@ export async function saveSharedMedia(userId, item, entry) {
     updatedAt: serverTimestamp(),
   }, { merge: true })
   await batch.commit()
+  clearSharedMediaLoad(userId, item)
   setSharedMediaCatalogPresence(userId, item, true)
   notifySharedMediaChanged(userId, item, true)
   return id
@@ -210,6 +239,11 @@ export async function removeSharedMedia(userId, item, id) {
     batch.delete(parentRef)
   }
   await batch.commit()
+  clearSharedMediaLoad(userId, item)
   setSharedMediaCatalogPresence(userId, item, hasMedia)
   notifySharedMediaChanged(userId, item, hasMedia)
+}
+
+export function clearSharedMediaLoadCache() {
+  sharedMediaLoads.clear()
 }
