@@ -2,6 +2,10 @@
   padding-bottom: 5rem;
 }
 
+.tv-program-content {
+  padding-bottom: 0;
+}
+
 .tv-period-shell {
   position: relative;
   z-index: 5;
@@ -10,7 +14,7 @@
   justify-content: space-between;
   gap: var(--space-5);
   width: 100%;
-  padding: clamp(0.75rem, 1.4vw, 1.15rem) var(--page-inline) clamp(1.2rem, 2vw, 1.8rem);
+  padding: clamp(0.75rem, 1.4vw, 1.15rem) 0 clamp(1.2rem, 2vw, 1.8rem);
 }
 
 .tv-period-track {
@@ -174,7 +178,7 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 0.55rem;
-    padding-inline: 1.2rem;
+    padding-inline: 0;
   }
 
   .tv-period-track {

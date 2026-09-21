@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   TV_GENRE_CATEGORIES,
   buildTvPeriodOptions,
+  buildWaipuTvHeroItems,
   buildWaipuTvViewModel,
   isTvAiringSoon,
   tvDayKey,
@@ -97,6 +98,42 @@ describe('TV-Videothek-Ansichtsmodell', () => {
     title(4, 'movie', { popularity: 30, genres: [{ id: 35 }] }),
     title(5, 'movie', { popularity: 120, genres: [{ id: 99 }] }),
   ]
+
+  it('bildet den Hero vor dem Laden der Senderdateien aus dem kompakten Titelbestand', () => {
+    const titleEntries = [
+      {
+        ...titles[0],
+        key: 'movie:1',
+        airings: [airings[0]],
+        nextAiring: airings[0],
+      },
+      {
+        ...titles[1],
+        key: 'movie:2',
+        airings: [airings[1]],
+        nextAiring: airings[1],
+      },
+    ]
+
+    const allStations = buildWaipuTvHeroItems({
+      titles,
+      titleEntries,
+      stationOrder: ['zdf'],
+      now: NOW,
+    })
+    const onlyRtl = buildWaipuTvHeroItems({
+      titles,
+      titleEntries: [{
+        ...titleEntries[1],
+        airings: [{ ...airings[1], stationId: 'rtl', stationName: 'RTL' }],
+      }],
+      stationOrder: ['rtl'],
+      now: NOW,
+    })
+
+    expect(allStations.map((item) => item.tmdbId)).toEqual([1, 2])
+    expect(onlyRtl.map((item) => item.tmdbId)).toEqual([2])
+  })
 
   it('startet standardmäßig mit Heute und baut den vereinbarten Tages-Reihensatz', () => {
     const model = buildWaipuTvViewModel({ airings, titles, now: NOW })

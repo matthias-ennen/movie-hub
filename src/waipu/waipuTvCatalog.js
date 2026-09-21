@@ -427,6 +427,38 @@ export function selectWaipuTvHeroItems(items = [], {
     .slice(0, Math.max(0, Number(limit) || 0))
 }
 
+/**
+ * Erstellt den TV-Hero aus dem kompakten Titelbestand. Dafür müssen die
+ * einzelnen Senderdateien noch nicht geladen sein; sie bleiben ausschließlich
+ * für Zeitraumwahl und Posterreihen zuständig.
+ */
+export function buildWaipuTvHeroItems({
+  titles = [],
+  titleEntries = [],
+  stationOrder = [],
+  now = Date.now(),
+} = {}) {
+  const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
+  const stationIds = new Set((Array.isArray(stationOrder) ? stationOrder : []).map(String))
+  if (!stationIds.size) return []
+
+  const airings = (Array.isArray(titleEntries) ? titleEntries : []).flatMap((entry) => (
+    (Array.isArray(entry?.airings) ? entry.airings : [entry?.nextAiring])
+      .filter(Boolean)
+      .filter((airing) => stationIds.has(String(airing?.stationId || '')))
+      .map((airing) => ({
+        ...airing,
+        tmdbId: entry.tmdbId,
+        type: entry.type,
+        title: entry.title,
+      }))
+  ))
+  const stationRank = new Map([...stationIds].map((id, index) => [id, index]))
+  const items = buildAiringItems({ airings, titles, titleEntries, now: timestamp })
+    .sort((left, right) => compareChronological(left, right, stationRank))
+  return selectWaipuTvHeroItems(items, { now: timestamp })
+}
+
 export function buildWaipuTvViewModel({
   airings = [],
   titles = [],
