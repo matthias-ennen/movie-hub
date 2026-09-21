@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import AboutView from './components/AboutView.jsx'
 import DetailModal from './components/DetailModal.jsx'
@@ -27,6 +27,7 @@ import { useCurationClock } from './hooks/useCurationClock.js'
 import { useProviderSelection } from './settings/useProviderSelection.js'
 import { useWaipuStationSelection } from './settings/useWaipuStationSelection.js'
 import { useLibrary } from './library/LibraryProvider.jsx'
+import { focusContentActivationTarget } from './navigation/contentActivationFocus.js'
 import { buildPersonalRows, buildWatchedHistoryRows, mergeCatalogWithPersonalSnapshots } from './library/personalRows.js'
 import { refreshSharedMediaCatalogMetadata } from './library/sharedMedia.js'
 import { useSharedMediaCatalog } from './library/useSharedMediaCatalog.js'
@@ -65,6 +66,15 @@ function NativeStartupSignal() {
       if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
     }
   }, [])
+
+  return null
+}
+
+function ContentActivationFocus({ request }) {
+  useLayoutEffect(() => {
+    if (!request) return
+    focusContentActivationTarget(request.viewId)
+  }, [request])
 
   return null
 }
@@ -120,6 +130,7 @@ function Login() {
 function Header({
   currentView,
   onViewChange,
+  onContentViewActivate,
   user,
   onSignOut,
   profileOpen,
@@ -166,7 +177,7 @@ function Header({
       <button
         type="button"
         className="brand brand-button"
-        onClick={() => onViewChange('home')}
+        onClick={() => onContentViewActivate('home')}
         onFocus={() => onViewIntent('home')}
         onPointerEnter={() => onViewIntent('home')}
         data-focusable="true"
@@ -179,9 +190,10 @@ function Header({
             type="button"
             key={id}
             className={currentView === id ? 'nav-link active' : 'nav-link'}
-            onClick={() => onViewChange(id)}
+            onClick={() => onContentViewActivate(id)}
             onFocus={() => onViewIntent(id)}
             onPointerEnter={() => onViewIntent(id)}
+            data-content-view={id}
             data-focusable="true"
           >
             {label}
@@ -376,6 +388,7 @@ function MovieHub({ user }) {
   } = useSharedMediaCatalog()
   const curationDayKey = useCurationClock()
   const [currentView, setCurrentView] = useState('home')
+  const [contentActivationRequest, setContentActivationRequest] = useState(null)
   const [selectedTitle, setSelectedTitle] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const [exitDialogOpen, setExitDialogOpen] = useState(false)
@@ -401,6 +414,7 @@ function MovieHub({ user }) {
   const [tvClock, setTvClock] = useState(() => Date.now())
   const [tvPeriodId, setTvPeriodId] = useState(() => `day:${tvDayKey(Date.now())}`)
   const tvScheduleIntentTimerRef = useRef(null)
+  const contentActivationSequenceRef = useRef(0)
 
   useEffect(() => () => {
     if (tvScheduleIntentTimerRef.current !== null) {
@@ -612,6 +626,15 @@ function MovieHub({ user }) {
     }
     setCurrentView(nextView)
   }, [])
+
+  const handleContentViewActivate = useCallback((nextView) => {
+    handleViewChange(nextView)
+    contentActivationSequenceRef.current += 1
+    setContentActivationRequest({
+      id: contentActivationSequenceRef.current,
+      viewId: nextView,
+    })
+  }, [handleViewChange])
 
   const handleOpenTitle = useCallback((item, displayedPosterUrl = null) => {
     setProfileOpen(false)
@@ -1012,6 +1035,7 @@ function MovieHub({ user }) {
       <Header
         currentView={currentView}
         onViewChange={handleViewChange}
+        onContentViewActivate={handleContentViewActivate}
         user={user}
         onSignOut={handleSignOut}
         profileOpen={profileOpen}
@@ -1022,6 +1046,7 @@ function MovieHub({ user }) {
         onProfileSelect={selectProfile}
         onViewIntent={handleViewIntent}
       />
+      <ContentActivationFocus request={contentActivationRequest} />
       {currentView === 'home' && (
         <HomeView
           heroItems={homeHeroes}
@@ -1063,10 +1088,7 @@ function MovieHub({ user }) {
           periods={tvViewModel.periods}
           selectedPeriodId={tvViewModel.selectedPeriod.id}
           onPeriodChange={setTvPeriodId}
-          stations={activeWaipuStations}
-          totalStationCount={waipuStationCatalog.stations.length}
           status={tvSchedule.status === 'idle' ? 'loading' : tvSchedule.status}
-          generatedAt={waipuStationCatalog.generatedAt}
           onOpen={handleOpenTitle}
         />
       )}

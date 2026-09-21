@@ -406,7 +406,7 @@ export default function Hero({ item, items, onOpen, eyebrow = 'Heute im Fokus', 
 
   return (
     <section
-      className="hero-carousel"
+      className={heroFocused ? 'hero-carousel is-focused' : 'hero-carousel'}
       aria-label={`${eyebrow}: ${activeItem.title}`}
       aria-roledescription="Karussell"
       aria-busy={Boolean(transition)}

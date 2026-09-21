@@ -2,17 +2,7 @@ import { useEffect, useRef } from 'react'
 import HeroFirstPage from './HeroFirstPage.jsx'
 import { ProgressiveRows } from './ProgressiveContent.jsx'
 
-function formatGeneratedAt(value) {
-  const date = new Date(value)
-  if (!Number.isFinite(date.getTime())) return null
-  return new Intl.DateTimeFormat('de-DE', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-    timeZone: 'Europe/Berlin',
-  }).format(date)
-}
-
-function PeriodSelector({ periods, selectedPeriodId, onPeriodChange, statusText }) {
+function PeriodSelector({ periods, selectedPeriodId, onPeriodChange }) {
   const selectedRef = useRef(null)
 
   useEffect(() => {
@@ -41,7 +31,6 @@ function PeriodSelector({ periods, selectedPeriodId, onPeriodChange, statusText 
           )
         })}
       </div>
-      {statusText && <span className="tv-period-status">{statusText}</span>}
     </section>
   )
 }
@@ -53,18 +42,10 @@ export default function TvView({
   periods,
   selectedPeriodId,
   onPeriodChange,
-  stations,
-  totalStationCount,
   status,
-  generatedAt,
   onOpen,
 }) {
-  const dataTime = formatGeneratedAt(generatedAt)
-  const activeCount = Array.isArray(stations) ? stations.length : 0
   const rowCount = Array.isArray(rows) ? rows.length : 0
-  const statusText = totalStationCount > 0
-    ? `${activeCount} von ${totalStationCount} Sendern · Stand ${dataTime || 'wird geladen'}`
-    : null
 
   return (
     <HeroFirstPage
@@ -107,7 +88,6 @@ export default function TvView({
                 periods={periods}
                 selectedPeriodId={selectedPeriodId}
                 onPeriodChange={onPeriodChange}
-                statusText={statusText}
               />
 
               {rowCount === 0 ? (

@@ -9,10 +9,6 @@
 .tv-period-shell {
   position: relative;
   z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-5);
   width: 100%;
   padding: clamp(0.75rem, 1.4vw, 1.15rem) 0 clamp(1.2rem, 2vw, 1.8rem);
 }
@@ -56,13 +52,6 @@
 .tv-period-button:focus-visible {
   position: relative;
   z-index: 2;
-}
-
-.tv-period-status {
-  flex: 0 0 auto;
-  color: var(--color-muted-strong);
-  font-size: 0.75rem;
-  white-space: nowrap;
 }
 
 .tv-program-rows {
@@ -175,9 +164,6 @@
   }
 
   .tv-period-shell {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.55rem;
     padding-inline: 0;
   }
 
@@ -185,10 +171,6 @@
     width: calc(100% + 2.4rem);
     margin-inline: -1.2rem;
     padding-inline: 1.2rem;
-  }
-
-  .tv-period-status {
-    padding-left: 0.2rem;
   }
 
   .tv-program-rows {
