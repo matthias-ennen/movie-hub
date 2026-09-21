@@ -1011,8 +1011,10 @@ function MovieHub({ user }) {
     [eligiblePublicTitles, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey],
   )
   const coordinatedHeroes = useMemo(
-    () => selectCoordinatedHeroItems(curatedPublicTitles),
-    [curatedPublicTitles],
+    () => selectCoordinatedHeroItems(curatedPublicTitles, {
+      selectionReady: catalog.status !== 'loading',
+    }),
+    [catalog.status, curatedPublicTitles],
   )
   const homeHeroes = coordinatedHeroes.home
   const movieHeroes = coordinatedHeroes.movies

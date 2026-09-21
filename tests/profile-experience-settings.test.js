@@ -96,7 +96,14 @@ describe('profilbezogene Oberflächeneinstellungen', () => {
 
     const items = Array.from({ length: 80 }, (_, index) => title(index + 1))
     expect(limitPosterRowItems(items)).toHaveLength(30)
-    expect(selectCoordinatedHeroItems(items).home).toHaveLength(3)
+    // The data layer always keeps the largest configurable set ready. Hero.jsx
+    // still applies the active profile value (three here) when it renders.
+    const preparedHeroes = selectCoordinatedHeroItems(items).home
+    expect(preparedHeroes).toHaveLength(7)
+    expect(preparedHeroes.slice(0, getActiveHeroCount())).toHaveLength(3)
+
+    setActiveProfileExperienceRuntime({ heroCount: 7 })
+    expect(preparedHeroes.slice(0, getActiveHeroCount())).toHaveLength(7)
   })
 
   it('begrenzt persönliche und Kategorie-Reihen bereits beim Erzeugen', () => {
