@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { markHeroForAutoplayActivation } from './heroAutoplay.js'
 
 export const INITIAL_HOME_FOCUS_EVENT = 'moviehub:startup-focus-ready'
 export const LEGACY_NATIVE_STARTUP_FOCUS_DELAY_MS = 12_000
@@ -43,6 +44,7 @@ export default function InitialHomeFocus() {
       if (!(target instanceof HTMLElement)) return false
       if (!target.isConnected) return false
 
+      markHeroForAutoplayActivation(target)
       target.focus({ preventScroll: true })
       done = true
       return true

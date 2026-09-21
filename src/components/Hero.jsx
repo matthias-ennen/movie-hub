@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import '../styles/issue128.css'
 import '../styles/issue128-hero-boundary.css'
 import { HERO_READY_TIMEOUT_MS } from '../performance/progressiveRendering.js'
@@ -9,10 +9,15 @@ import {
 } from '../profiles/profileExperienceRuntime.js'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import {
+  consumeHeroAutoplayActivation,
   didTrailerComplete,
   getNextAutomaticHeroIndex,
+  HERO_AUTOPLAY_SESSION,
+  HERO_AUTOPLAY_SESSION_EVENT,
   HERO_POST_TRAILER_DELAY_MS,
   HERO_TRAILER_RESULT_EVENT,
+  listenForHeroAutoplayUserIntent,
+  reduceHeroAutoplaySession,
   resolveHeroTimerAction,
   shouldPreserveHeroSessionOnBlur,
 } from './heroAutoplay.js'
@@ -91,17 +96,21 @@ export default function Hero({
   const [heroVisit, setHeroVisit] = useState(0)
   const [attemptedVisit, setAttemptedVisit] = useState(null)
   const [heroFocused, setHeroFocused] = useState(false)
+  const [autoplaySession, updateAutoplaySession] = useReducer(
+    reduceHeroAutoplaySession,
+    HERO_AUTOPLAY_SESSION.DISARMED,
+  )
   const [readySignature, setReadySignature] = useState(null)
   const carouselRef = useRef(null)
   const touchStartRef = useRef(null)
   const transitionTimerRef = useRef([])
   const transitionLockRef = useRef(false)
   const postTrailerTimerRef = useRef(null)
+  const autoplayTimerRef = useRef(null)
   const trailerRequestRef = useRef(null)
   const trailerRequestSequenceRef = useRef(0)
   const activeImageRef = useRef(null)
   const readyReportedRef = useRef(false)
-  const focusedElementRef = useRef(null)
   const handledActivationRef = useRef(null)
 
   function clearTransitionTimers() {
@@ -121,12 +130,27 @@ export default function Hero({
     trailerRequestRef.current = null
   }
 
+  const armAutoplaySession = useCallback(() => {
+    updateAutoplaySession(HERO_AUTOPLAY_SESSION_EVENT.ACTIVATE)
+    setHeroVisit((value) => value + 1)
+    setAttemptedVisit(null)
+  }, [])
+
+  const disarmAutoplaySession = useCallback(() => {
+    if (autoplayTimerRef.current !== null) {
+      window.clearTimeout(autoplayTimerRef.current)
+      autoplayTimerRef.current = null
+    }
+    clearPostTrailerTimer()
+    updateAutoplaySession(HERO_AUTOPLAY_SESSION_EVENT.USER_INTENT)
+    setAttemptedVisit(null)
+  }, [])
+
   useEffect(() => {
     clearTransitionTimers()
     invalidateTrailerRequest()
     transitionLockRef.current = false
     readyReportedRef.current = false
-    focusedElementRef.current = null
     setActiveIndex(0)
     setTransition(null)
     setHeroVisit((value) => value + 1)
@@ -138,6 +162,7 @@ export default function Hero({
     clearTransitionTimers()
     invalidateTrailerRequest()
     transitionLockRef.current = false
+    if (autoplayTimerRef.current !== null) window.clearTimeout(autoplayTimerRef.current)
   }, [])
 
   const safeIndex = Math.min(activeIndex, Math.max(0, slides.length - 1))
@@ -149,13 +174,15 @@ export default function Hero({
   useEffect(() => {
     if (
       !heroFocused
+      || autoplaySession !== HERO_AUTOPLAY_SESSION.ARMED
       || !heroTrailerSettings.enabled
       || !activeItem
       || transition
       || attemptedVisit === heroVisit
     ) return undefined
 
-    const timer = window.setTimeout(() => {
+    autoplayTimerRef.current = window.setTimeout(() => {
+      autoplayTimerRef.current = null
       setAttemptedVisit(heroVisit)
       const action = resolveHeroTimerAction(
         safeIndex,
@@ -189,11 +216,17 @@ export default function Hero({
       }
     }, heroTrailerSettings.delaySeconds * 1000)
 
-    return () => window.clearTimeout(timer)
+    return () => {
+      if (autoplayTimerRef.current !== null) {
+        window.clearTimeout(autoplayTimerRef.current)
+        autoplayTimerRef.current = null
+      }
+    }
   }, [
     activeAutoTrailer,
     activeItem,
     attemptedVisit,
+    autoplaySession,
     heroFocused,
     heroTrailerSettings.delaySeconds,
     heroTrailerSettings.enabled,
@@ -204,6 +237,12 @@ export default function Hero({
     slides.length,
     transition,
   ])
+
+  useEffect(() => {
+    if (autoplaySession !== HERO_AUTOPLAY_SESSION.ARMED) return undefined
+
+    return listenForHeroAutoplayUserIntent(disarmAutoplaySession)
+  }, [autoplaySession, disarmAutoplaySession])
 
   useEffect(() => {
     function handleTrailerResult(event) {
@@ -264,6 +303,7 @@ export default function Hero({
 
     if ((!heroVisible || !slides.length) && activationAvailabilitySettled) {
       handledActivationRef.current = requestId
+      updateAutoplaySession(HERO_AUTOPLAY_SESSION_EVENT.UNAVAILABLE)
       onActivationUnavailable?.(activationRequest)
       return undefined
     }
@@ -292,7 +332,8 @@ export default function Hero({
         removeIntentListeners()
         if (cancelledByUser) return
         handledActivationRef.current = requestId
-        if (!focused) onActivationUnavailable?.(activationRequest)
+        if (focused) armAutoplaySession()
+        else onActivationUnavailable?.(activationRequest)
       },
     })
 
@@ -303,12 +344,20 @@ export default function Hero({
   }, [
     activationAvailabilitySettled,
     activationRequest,
+    armAutoplaySession,
     heroVisible,
     onActivationUnavailable,
     readySignature,
     signature,
     slides.length,
   ])
+
+  useEffect(() => {
+    const carousel = carouselRef.current
+    if (document.activeElement !== carousel) return
+    setHeroFocused(true)
+    if (consumeHeroAutoplayActivation(carousel)) armAutoplaySession()
+  }, [armAutoplaySession, readySignature])
 
   if (!slides.length) return null
 
@@ -319,19 +368,15 @@ export default function Hero({
 
   function handleHeroFocus(event) {
     setHeroFocused(true)
-    if (focusedElementRef.current !== event.target) {
-      focusedElementRef.current = event.target
-      resetTrailerIdleTimer()
-    }
+    if (consumeHeroAutoplayActivation(event.currentTarget)) armAutoplaySession()
   }
 
   function handleHeroBlur(event) {
     if (event.currentTarget.contains(event.relatedTarget)) return
     if (shouldPreserveHeroSessionOnBlur(trailerRequestRef.current)) return
     invalidateTrailerRequest()
-    focusedElementRef.current = null
+    disarmAutoplaySession()
     setHeroFocused(false)
-    setAttemptedVisit(null)
   }
 
   function startTrailerNow() {
@@ -366,6 +411,7 @@ export default function Hero({
   }
 
   function stepHero(direction) {
+    disarmAutoplaySession()
     let nextIndex = safeIndex
 
     if (direction > 0) {
