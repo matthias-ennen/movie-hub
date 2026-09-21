@@ -28,6 +28,7 @@
     "data:status": "node scripts/report-data-status.mjs",
     "workflow:baseline": "node scripts/capture-workflow-baseline.mjs",
     "workflow:summary": "node scripts/report-workflow-summary.mjs",
+    "workflow:schedule:check": "node scripts/check-data-workflow-schedule.mjs",
     "title:candidates:inventory": "node scripts/build-title-candidate-inventory.mjs",
     "title:priority:preview": "node scripts/build-title-priority-preview.mjs",
     "title:priority:execute": "node scripts/execute-title-priority-queue.mjs",
