@@ -17,18 +17,21 @@ const rawCatalog = {
     title: 'The Man from Toronto',
     airings: [
       {
+        programId: 'zdf-expired',
         stationId: 'zdf',
         stationName: 'ZDF',
         startTime: '2026-09-19T08:00:00.000Z',
         stopTime: '2026-09-19T10:00:00.000Z',
       },
       {
+        programId: 'rtl-current',
         stationId: 'rtl',
         stationName: 'RTL',
         startTime: '2026-09-20T18:15:00.000Z',
         stopTime: '2026-09-20T20:00:00.000Z',
       },
       {
+        programId: 'zdf-next',
         stationId: 'zdf',
         stationName: 'ZDF',
         startTime: '2026-09-22T20:15:00.000Z',
@@ -49,6 +52,7 @@ describe('Waipu live app catalog', () => {
       airingCount: 2,
       nextAiring: { stationName: 'RTL', startTime: '2026-09-20T18:15:00.000Z' },
     })
+    expect(entries[0].nextAiring).toMatchObject({ source: 'waipu', programId: 'rtl-current' })
   })
 
   it('adds Waipu only to the exact TMDB id and media type', () => {
@@ -61,6 +65,10 @@ describe('Waipu live app catalog', () => {
     ], entries)
     expect(titles[0].providerIds).toEqual(['netflix', 'waipu'])
     expect(titles[0].waipuLive.airingCount).toBe(2)
+    expect(titles[0].waipuLive.airings.map(({ programId }) => programId)).toEqual([
+      'rtl-current',
+      'zdf-next',
+    ])
     expect(titles[1]).not.toHaveProperty('waipuLive')
   })
 
@@ -86,6 +94,27 @@ describe('Waipu live app catalog', () => {
     expect(label).toContain('20:15 Uhr')
     expect(label).not.toContain('22:00')
     expect(label).toContain('RTL')
+  })
+
+  it('adds Waipu season, episode and episode title to the schedule label', () => {
+    const label = formatWaipuLiveAiring({
+      stationName: 'ZDF',
+      startTime: '2026-09-20T18:15:00.000Z',
+      stopTime: '2026-09-20T20:00:00.000Z',
+      seasonNumber: 2,
+      episodeNumber: 7,
+      episodeTitle: 'Das Leck',
+    })
+    expect(label).toContain('Staffel 2 · Folge 7 · Das Leck')
+  })
+
+  it('keeps a legacy fallback catalog readable when source ids are still missing', () => {
+    const legacyCatalog = structuredClone(rawCatalog)
+    delete legacyCatalog.entries[0].airings[1].programId
+    const [entry] = normalizeWaipuLiveTitles(legacyCatalog, {
+      now: Date.parse('2026-09-19T12:00:00.000Z'),
+    })
+    expect(entry.nextAiring).toMatchObject({ source: 'waipu', programId: null })
   })
 
   it('removes a Waipu-only title immediately after its final broadcast', () => {

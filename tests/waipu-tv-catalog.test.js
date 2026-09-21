@@ -71,6 +71,9 @@ describe('Waipu TV catalog', () => {
     expect(normalizeWaipuStationShard(raw, { id: 'zdf', name: 'ZDF' }, {
       now: Date.parse('2026-09-19T12:00:00.000Z'),
     })).toHaveLength(1)
+    expect(normalizeWaipuStationShard(raw, { id: 'zdf', name: 'ZDF' }, {
+      now: Date.parse('2026-09-19T12:00:00.000Z'),
+    })[0]).toMatchObject({ source: 'waipu', programId: 'zdf-program' })
     expect(normalizeWaipuStationShard(raw, { id: 'rtl', name: 'RTL' })).toEqual([])
   })
 
@@ -131,6 +134,8 @@ describe('Waipu TV catalog', () => {
       providerIds: ['waipu'],
       tvAiringOnAir: false,
     })
+    expect(rows[0].items[1].waipuLive.airings).toHaveLength(1)
+    expect(rows[0].items[1].waipuLive.airings[0].programId).toBe('rtl-program')
   })
 
   it('marks only a currently running broadcast as on air', () => {

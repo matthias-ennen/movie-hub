@@ -193,6 +193,28 @@ Requestbudget verhindern den Verzeichniswechsel vollständig. Der Statusindex
 weist `metadata.complete`, Wiederverwendung und neue TMDB-Detailabrufe separat
 aus.
 
+### Quelldaten pro Ausstrahlung (#274)
+
+TMDB bleibt die kanonische Quelle für den Film beziehungsweise die Serie.
+Waipu ergänzt innerhalb dieses Titels getrennte, zeitlich begrenzte
+Ausstrahlungsdatensätze. Jede neu erzeugte Ausstrahlung in `titles.json` und in
+den Sender-Shards enthält deshalb `source: "waipu"`, die öffentliche
+`programId`, Sender-ID und -name sowie Beginn und Ende. Soweit Waipu sie
+liefert, bleiben außerdem `seriesId`, Staffel, Folge, Episodentitel und die
+quellenspezifische Bild-URL erhalten.
+
+Der Client übernimmt alle noch aktiven Ausstrahlungen nach
+`waipuLive.airings`; `waipuLive.nextAiring` verweist auf deren chronologisch
+ersten Eintrag. Bei einer Serienausstrahlung zeigt der kompakte Sendehinweis
+auch Staffel, Folge und Episodentitel. Diese Felder beschreiben ausschließlich
+die konkrete Waipu-Ausstrahlung und überschreiben keine TMDB-Metadaten.
+
+`index.json.sourceDataVersion` kennzeichnet den verbindlichen Quelldatenvertrag
+für neu erzeugte Generationen. Ältere, bereits veröffentlichte Rückfallkataloge
+ohne diese zusätzlichen Felder bleiben während der Migration lesbar. Der
+direkte Aufbau und die Geräteprüfung des EPG-Links erfolgen getrennt in #259;
+die EPG-`programId` wird nicht als Waiputhek-`contentId` behandelt.
+
 ## App-Integration (#4F)
 
 Die App lädt `/waipu-live/titles.json` unabhängig vom normalen TMDB-Katalog.

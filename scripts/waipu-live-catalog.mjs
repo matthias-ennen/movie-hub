@@ -26,6 +26,7 @@ import {
 import { readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
 
 export const WAIPU_LIVE_CATALOG_VERSION = 1
+export const WAIPU_SOURCE_DATA_VERSION = 1
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -367,7 +368,9 @@ export async function buildWaipuLiveCatalog({
     const key = canonicalTitleKey(match.type, match.tmdbId)
     const airing = {
       id: broadcastKey(broadcast),
+      source: 'waipu',
       programId: broadcast.programId,
+      seriesId: resolved.input.seriesId || null,
       tmdbId: match.tmdbId,
       type: match.type,
       title: match.title,
@@ -395,6 +398,9 @@ export async function buildWaipuLiveCatalog({
       titleMap.set(key, current)
     }
     current.airings.push({
+      source: airing.source,
+      programId: airing.programId,
+      seriesId: airing.seriesId,
       stationId: broadcast.stationId,
       stationName: broadcast.stationName,
       startTime: airing.startTime,
@@ -402,6 +408,7 @@ export async function buildWaipuLiveCatalog({
       episodeTitle: airing.episodeTitle,
       seasonNumber: airing.seasonNumber,
       episodeNumber: airing.episodeNumber,
+      imageUrl: airing.imageUrl,
     })
   }
 
@@ -438,6 +445,7 @@ export async function buildWaipuLiveCatalog({
       releaseChannel,
       horizon: { start, endExclusive },
       matcherVersion: WAIPU_MATCHER_VERSION,
+      sourceDataVersion: WAIPU_SOURCE_DATA_VERSION,
       counts: {
         stations: selectedStations.length,
         titles: titles.length,
@@ -465,6 +473,7 @@ export function validateWaipuLiveCatalog(catalog, { allowLegacyMetadata = false 
   }
   const stations = Array.isArray(catalog?.stations?.stations) ? catalog.stations.stations : []
   const titles = Array.isArray(catalog?.titles?.entries) ? catalog.titles.entries : []
+  const requiresSourceData = Number(catalog?.index?.sourceDataVersion) >= WAIPU_SOURCE_DATA_VERSION
   const stationIds = new Set(stations.map(({ id }) => id))
   if (stationIds.size !== stations.length || [...stationIds].some((id) => !safeStationId(id))) {
     throw new Error('Invalid or duplicate waipu-live station.')
@@ -481,6 +490,9 @@ export function validateWaipuLiveCatalog(catalog, { allowLegacyMetadata = false 
     }
     for (const airing of title.airings) {
       if (!stationIds.has(airing?.stationId)) throw new Error('Unknown title-airing station.')
+      if (requiresSourceData && (airing?.source !== 'waipu' || !String(airing?.programId || '').trim())) {
+        throw new Error('Missing waipu title-airing source data.')
+      }
     }
     titleKeys.add(key)
   }
@@ -490,6 +502,9 @@ export function validateWaipuLiveCatalog(catalog, { allowLegacyMetadata = false 
     if (shard?.station?.id !== stationId || !Array.isArray(shard?.airings)) throw new Error('Missing station shard.')
     for (const airing of shard.airings) {
       if (!titleKeys.has(canonicalTitleKey(airing?.type, airing?.tmdbId))) throw new Error('Station airing references an unknown title.')
+      if (requiresSourceData && (airing?.source !== 'waipu' || !String(airing?.programId || '').trim())) {
+        throw new Error('Missing waipu station-airing source data.')
+      }
       airingCount += 1
     }
   }

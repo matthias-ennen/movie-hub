@@ -14,6 +14,8 @@ function titleKey(value) {
 }
 
 function normalizeAiring(raw) {
+  const programId = String(raw?.programId || '').trim() || null
+  const seriesId = String(raw?.seriesId || '').trim() || null
   const stationId = String(raw?.stationId || '').trim()
   const stationName = String(raw?.stationName || '').trim()
   const startTime = new Date(raw?.startTime)
@@ -30,6 +32,9 @@ function normalizeAiring(raw) {
     : Number(raw.episodeNumber)
 
   return {
+    source: 'waipu',
+    programId,
+    seriesId,
     stationId,
     stationName,
     startTime: startTime.toISOString(),
@@ -37,6 +42,7 @@ function normalizeAiring(raw) {
     episodeTitle: String(raw?.episodeTitle || '').trim() || null,
     seasonNumber: Number.isInteger(seasonNumber) ? seasonNumber : null,
     episodeNumber: Number.isInteger(episodeNumber) ? episodeNumber : null,
+    imageUrl: String(raw?.imageUrl || '').trim() || null,
   }
 }
 
@@ -119,6 +125,7 @@ export function mergeWaipuLiveAvailability(titles = [], entries = []) {
       ...title,
       providerIds: [...new Set([...(Array.isArray(title.providerIds) ? title.providerIds : []), 'waipu'])],
       waipuLive: {
+        airings: entry.airings,
         nextAiring: entry.nextAiring,
         airingCount: entry.airingCount,
       },
@@ -155,5 +162,10 @@ export function formatWaipuLiveAiring(airing, {
     hour12: false,
     timeZone,
   })
-  return `${date} · ${time.format(start)} Uhr · ${airing.stationName}`
+  const episode = [
+    Number.isInteger(airing?.seasonNumber) ? `Staffel ${airing.seasonNumber}` : null,
+    Number.isInteger(airing?.episodeNumber) ? `Folge ${airing.episodeNumber}` : null,
+    String(airing?.episodeTitle || '').trim() || null,
+  ].filter(Boolean)
+  return [date, `${time.format(start)} Uhr`, airing.stationName, ...episode].join(' · ')
 }
