@@ -35,7 +35,7 @@ jobs:
 
       - name: Upload quality report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: free-epg-quality-${{ github.run_number }}
           path: artifacts/free-epg-quality/quality-report.json
