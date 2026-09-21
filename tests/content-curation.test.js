@@ -9,6 +9,7 @@ import {
   withManualContentSortMode,
 } from '../src/catalog/contentDisplaySettings.js'
 import { curateTitles } from '../src/catalog/contentCuration.js'
+import { selectCoordinatedHeroItems } from '../src/catalog/heroSelection.js'
 
 function title(id, overrides = {}) {
   return {
@@ -53,6 +54,26 @@ describe('profilbezogene Inhaltskuratierung', () => {
     const items = [title(1), title(3), title(2)]
     expect(curateTitles(items, { mode: 'popular', limit: 2 }).map((item) => item.tmdbId)).toEqual([3, 2])
     expect(curateTitles(items, { mode: 'newest', limit: 2 }).map((item) => item.tmdbId)).toEqual([3, 2])
+  })
+
+  it('kuratiert Film- und Serien-Heroes vor der gemeinsamen Begrenzung getrennt', () => {
+    const series = Array.from({ length: 55 }, (_, index) => title(1_000 + index, {
+      id: `tmdb-series-${1_000 + index}`,
+      type: 'series',
+      popularity: 10_000 - index,
+    }))
+    const movies = Array.from({ length: 7 }, (_, index) => title(index + 1, {
+      popularity: 100 - index,
+    }))
+    const mixedRanking = curateTitles([...series, ...movies], { mode: 'popular', limit: 50 })
+    const movieRanking = curateTitles(movies, { mode: 'popular' })
+    const seriesRanking = curateTitles(series, { mode: 'popular' })
+
+    expect(mixedRanking.every((item) => item.type === 'series')).toBe(true)
+    expect(selectCoordinatedHeroItems(mixedRanking, {
+      movieItems: movieRanking,
+      seriesItems: seriesRanking,
+    }).movies).toHaveLength(7)
   })
 
   it('stellt gesehene Titel zurück oder blendet sie in öffentlichen Reihen aus', () => {
