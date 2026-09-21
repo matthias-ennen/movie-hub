@@ -21,6 +21,10 @@ import {
   validateWaipuLiveCatalog,
   writeWaipuLiveCatalog,
 } from '../scripts/waipu-live-catalog.mjs'
+import {
+  mergeWaipuLiveAvailability,
+  normalizeWaipuLiveTitles,
+} from '../src/waipu/waipuLiveCatalog.js'
 
 const cleanupPaths = []
 
@@ -320,6 +324,23 @@ describe('Waipu live catalog publication', () => {
     const catalog = await buildWaipuLiveCatalog(buildFixture())
     delete catalog.titles.entries[0].airings[0].programId
     expect(() => validateWaipuLiveCatalog(catalog)).toThrow('Missing waipu title-airing source data')
+  })
+
+  it('keeps one program id from generation through the merged app title', async () => {
+    const catalog = await buildWaipuLiveCatalog(buildFixture())
+    const entries = normalizeWaipuLiveTitles(catalog.titles, {
+      now: Date.parse('2026-09-20T12:00:00.000Z'),
+    })
+    const [title] = mergeWaipuLiveAvailability([
+      { tmdbId: 667739, type: 'movie', title: 'The Man from Toronto', providerIds: [] },
+    ], entries)
+
+    expect(title.waipuLive.nextAiring.programId).toBe('program-1')
+    expect(title.waipuLive.airings[0]).toMatchObject({
+      source: 'waipu',
+      programId: 'program-1',
+      stationId: 'zdf',
+    })
   })
 
   it('requires TMDB search when the local MovieHub index cannot resolve a candidate', async () => {
