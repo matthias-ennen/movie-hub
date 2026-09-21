@@ -3,6 +3,7 @@ import { WAIPU_LIVE_CATALOG_VERSION } from './waipuLiveCatalog.js'
 export const WAIPU_LIVE_INDEX_URL = '/waipu-live/index.json'
 export const WAIPU_LIVE_STATIONS_URL = '/waipu-live/stations.json'
 export const WAIPU_TV_LOAD_CONCURRENCY = 4
+export const TV_AIRING_SOON_WINDOW_MS = 2 * 60 * 60 * 1_000
 
 const stationShardCache = new Map()
 const STATION_SHARD_CACHE_MS = 5 * 60 * 1_000
@@ -154,6 +155,318 @@ function zonedDateKey(value, timeZone) {
   return `${get('year')}-${get('month')}-${get('day')}`
 }
 
+export const TV_TIME_ZONE = 'Europe/Berlin'
+export const TV_DAY_START_HOUR = 6
+export const TV_PERIOD_ALL = '14-days'
+
+export const TV_GENRE_CATEGORIES = Object.freeze([
+  Object.freeze({ id: 'action-adventure', title: 'Action & Abenteuer', genreIds: Object.freeze([12, 28, 10759]) }),
+  Object.freeze({ id: 'comedy', title: 'Komödie', genreIds: Object.freeze([35]) }),
+  Object.freeze({ id: 'crime-thriller', title: 'Krimi & Thriller', genreIds: Object.freeze([53, 80, 9648]) }),
+  Object.freeze({ id: 'science-fiction-fantasy', title: 'Science-Fiction & Fantasy', genreIds: Object.freeze([14, 878, 10765]) }),
+  Object.freeze({ id: 'drama-romance', title: 'Drama & Romantik', genreIds: Object.freeze([18, 10749]) }),
+  Object.freeze({ id: 'family-animation', title: 'Kinder, Familie & Animation', genreIds: Object.freeze([16, 10751, 10762]) }),
+  Object.freeze({ id: 'documentary', title: 'Dokumentation', genreIds: Object.freeze([99]) }),
+])
+
+function zonedParts(value, timeZone = TV_TIME_ZONE) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hourCycle: 'h23', timeZone,
+  }).formatToParts(new Date(value))
+  return Object.fromEntries(parts
+    .filter((part) => part.type !== 'literal')
+    .map((part) => [part.type, Number(part.value)]))
+}
+
+function shiftDateKey(key, days) {
+  const [year, month, day] = String(key).split('-').map(Number)
+  const shifted = new Date(Date.UTC(year, month - 1, day + days, 12))
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`
+}
+
+function zonedDateTimeEpoch(key, hour, timeZone = TV_TIME_ZONE) {
+  const [year, month, day] = String(key).split('-').map(Number)
+  const desiredWallClock = Date.UTC(year, month - 1, day, hour, 0, 0)
+  let candidate = desiredWallClock
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const actual = zonedParts(candidate, timeZone)
+    const actualWallClock = Date.UTC(actual.year, actual.month - 1, actual.day, actual.hour, actual.minute, actual.second)
+    const correction = desiredWallClock - actualWallClock
+    candidate += correction
+    if (correction === 0) break
+  }
+  return candidate
+}
+
+export function tvDayKey(value, timeZone = TV_TIME_ZONE) {
+  const parts = zonedParts(value, timeZone)
+  const key = `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`
+  return parts.hour < TV_DAY_START_HOUR ? shiftDateKey(key, -1) : key
+}
+
+export function tvDayRange(key, timeZone = TV_TIME_ZONE) {
+  return {
+    start: zonedDateTimeEpoch(key, TV_DAY_START_HOUR, timeZone),
+    endExclusive: zonedDateTimeEpoch(shiftDateKey(key, 1), TV_DAY_START_HOUR, timeZone),
+  }
+}
+
+function shortDate(key) {
+  const [year, month, day] = String(key).split('-')
+  return `${day}.${month}.${year.slice(-2)}`
+}
+
+export function buildTvPeriodOptions(airings = [], {
+  now = Date.now(),
+  timeZone = TV_TIME_ZONE,
+} = {}) {
+  const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
+  const todayKey = tvDayKey(timestamp, timeZone)
+  const tomorrowKey = shiftDateKey(todayKey, 1)
+  const keys = new Set([todayKey])
+  for (const airing of Array.isArray(airings) ? airings : []) {
+    const start = Date.parse(airing?.startTime)
+    const stop = Date.parse(airing?.stopTime)
+    if (!Number.isFinite(start) || !Number.isFinite(stop) || stop <= timestamp) continue
+    keys.add(tvDayKey(start, timeZone))
+  }
+  const sortedKeys = [...keys].filter((key) => key >= todayKey).sort()
+  return [
+    { id: TV_PERIOD_ALL, kind: 'all', label: '14 Tage' },
+    ...sortedKeys.map((key) => ({
+      id: `day:${key}`,
+      kind: 'day',
+      key,
+      label: key === todayKey ? 'Heute' : key === tomorrowKey ? 'Morgen' : shortDate(key),
+    })),
+  ]
+}
+
+function finiteNumber(value, fallback = 0) {
+  if (value === null || value === undefined || value === '') return fallback
+  const number = Number(value)
+  return Number.isFinite(number) ? number : fallback
+}
+
+function canonicalKey(item) {
+  return titleKey(item) || String(item?.id || '')
+}
+
+function stableAiringIdentity(airing) {
+  return `${airing?.stationId || ''}|${airing?.programId || airing?.tmdbId || ''}|${airing?.startTime || ''}`
+}
+
+function episodeKey(item) {
+  const airing = item?.tvAiring || {}
+  const season = Number.isInteger(airing.seasonNumber) ? airing.seasonNumber : null
+  const episode = Number.isInteger(airing.episodeNumber) ? airing.episodeNumber : null
+  if (season !== null || episode !== null) return `${canonicalKey(item)}:s${season ?? '-'}e${episode ?? '-'}`
+  if (airing.programId) return `${canonicalKey(item)}:program:${airing.programId}`
+  return `${canonicalKey(item)}:airing:${stableAiringIdentity(airing)}`
+}
+
+function attachAiring(base, airing, entry, timestamp) {
+  const airingKey = stableAiringIdentity(airing)
+  return {
+    ...base,
+    id: `waipu-airing-${airingKey}`,
+    providerIds: [...new Set([...(Array.isArray(base.providerIds) ? base.providerIds : []), 'waipu'])],
+    tvAiring: airing,
+    tvAiringOnAir: isTvAiringOnAir(airing, timestamp),
+    tvAiringSoon: isTvAiringSoon(airing, timestamp),
+    waipuLive: {
+      airings: [airing],
+      nextAiring: airing,
+      airingCount: entry?.airingCount || 1,
+    },
+  }
+}
+
+function buildAiringItems({ airings, titles, titleEntries, now }) {
+  const titleByKey = new Map((Array.isArray(titles) ? titles : [])
+    .map((title) => [titleKey(title), title])
+    .filter(([key]) => key))
+  const entryByKey = new Map((Array.isArray(titleEntries) ? titleEntries : [])
+    .map((entry) => [entry.key || titleKey(entry), entry])
+    .filter(([key]) => key))
+  const seen = new Set()
+  const items = []
+  for (const airing of Array.isArray(airings) ? airings : []) {
+    const key = titleKey(airing)
+    const airingKey = stableAiringIdentity(airing)
+    const stop = Date.parse(airing?.stopTime)
+    if (!key || !airingKey || seen.has(airingKey) || !Number.isFinite(stop) || stop <= now) continue
+    seen.add(airingKey)
+    const entry = entryByKey.get(key)
+    items.push(attachAiring(titleByKey.get(key) || fallbackTitle(airing, entry), airing, entry, now))
+  }
+  return items
+}
+
+function earliestUnique(items, keyForItem = canonicalKey) {
+  const unique = new Map()
+  for (const item of items) {
+    const key = keyForItem(item)
+    if (!key || unique.has(key)) continue
+    unique.set(key, item)
+  }
+  return [...unique.values()]
+}
+
+function compareChronological(left, right, stationRank = new Map()) {
+  return String(left?.tvAiring?.startTime || '').localeCompare(String(right?.tvAiring?.startTime || ''))
+    || (stationRank.get(left?.tvAiring?.stationId) ?? Number.MAX_SAFE_INTEGER)
+      - (stationRank.get(right?.tvAiring?.stationId) ?? Number.MAX_SAFE_INTEGER)
+    || String(left?.title || '').localeCompare(String(right?.title || ''), 'de')
+}
+
+function comparePopularity(left, right) {
+  return finiteNumber(right?.popularity) - finiteNumber(left?.popularity)
+    || String(left?.tvAiring?.startTime || '').localeCompare(String(right?.tvAiring?.startTime || ''))
+    || canonicalKey(left).localeCompare(canonicalKey(right), 'de')
+}
+
+function genreIdSet(item) {
+  return new Set((Array.isArray(item?.genres) ? item.genres : [])
+    .map((genre) => Number(genre?.id ?? genre))
+    .filter(Number.isFinite))
+}
+
+function matchesTvCategory(item, category) {
+  const ids = genreIdSet(item)
+  return category.genreIds.some((id) => ids.has(id))
+}
+
+function startsInLocalWindow(item, startHour, endHour, timeZone) {
+  const parts = zonedParts(item?.tvAiring?.startTime, timeZone)
+  return parts.hour >= startHour && parts.hour < endHour
+}
+
+function normalRow(id, title, items) {
+  return { id, title, variant: 'tv', items }
+}
+
+function insertTvTopTen(rows, items) {
+  if (!items.length) return rows.filter((row) => row.items.length)
+  const visible = rows.filter((row) => row.items.length)
+  const index = Math.min(3, visible.length)
+  return [
+    ...visible.slice(0, index),
+    { id: 'top-ten-tv', title: 'TV Top 10', variant: 'top-ten', items },
+    ...visible.slice(index),
+  ]
+}
+
+function dailyHeading(kind, period) {
+  if (period.label === 'Heute') return `${kind} heute im Fernsehen`
+  if (period.label === 'Morgen') return `${kind} morgen im Fernsehen`
+  return `${kind} am ${shortDate(period.key)} im Fernsehen`
+}
+
+function buildRowsForAll(items, stationRank, timeZone) {
+  const canonical = earliestUnique(items).sort((a, b) => compareChronological(a, b, stationRank))
+  const primeTime = earliestUnique(items.filter((item) => startsInLocalWindow(item, 20, 23, timeZone)))
+    .sort((a, b) => compareChronological(a, b, stationRank))
+  const rows = [
+    normalRow('tv-14-days-movies', 'Filme in den nächsten 14 Tagen', canonical.filter((item) => item.type === 'movie')),
+    normalRow('tv-14-days-series', 'Serien in den nächsten 14 Tagen', canonical.filter((item) => item.type === 'series')),
+    normalRow('tv-14-days-prime-time', 'Prime-Time-Highlights', primeTime),
+    ...TV_GENRE_CATEGORIES.map((category) => normalRow(
+      `tv-14-days-category-${category.id}`,
+      category.title,
+      canonical.filter((item) => matchesTvCategory(item, category)),
+    )),
+  ]
+  const topTen = [...canonical].sort(comparePopularity).slice(0, 10)
+  return insertTvTopTen(rows, topTen)
+}
+
+function buildRowsForDay(items, period, stationRank, timeZone) {
+  const chronological = [...items].sort((a, b) => compareChronological(a, b, stationRank))
+  const dedupeDaily = (candidates) => {
+    const movies = earliestUnique(candidates.filter((item) => item.type === 'movie'))
+    const series = earliestUnique(candidates.filter((item) => item.type === 'series'), episodeKey)
+    return [...movies, ...series].sort((a, b) => compareChronological(a, b, stationRank))
+  }
+  const daily = dedupeDaily(chronological)
+  const rows = [
+    normalRow(`tv-${period.key}-movies`, dailyHeading('Filme', period), daily.filter((item) => item.type === 'movie')),
+    normalRow(`tv-${period.key}-series`, dailyHeading('Serien', period), daily.filter((item) => item.type === 'series')),
+    normalRow(`tv-${period.key}-prime-time`, 'Zur Prime Time', dedupeDaily(chronological.filter((item) => startsInLocalWindow(item, 20, 23, timeZone)))),
+    normalRow(`tv-${period.key}-night`, 'Nachtprogramm', dedupeDaily(chronological.filter((item) => {
+      const hour = zonedParts(item?.tvAiring?.startTime, timeZone).hour
+      return hour >= 23 || hour < TV_DAY_START_HOUR
+    }))),
+    ...TV_GENRE_CATEGORIES.map((category) => normalRow(
+      `tv-${period.key}-category-${category.id}`,
+      category.title,
+      daily.filter((item) => matchesTvCategory(item, category)),
+    )),
+  ]
+  const topTen = earliestUnique(chronological).sort(comparePopularity).slice(0, 10)
+  return insertTvTopTen(rows, topTen)
+}
+
+export function selectWaipuTvHeroItems(items = [], {
+  now = Date.now(),
+  limit = Number.MAX_SAFE_INTEGER,
+} = {}) {
+  const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
+  const nextDay = timestamp + 24 * 60 * 60 * 1_000
+  return earliestUnique((Array.isArray(items) ? items : [])
+    .filter((item) => item?.metadataComplete === true)
+    .filter((item) => item?.displayHeroBackdropUrl || item?.backdropUrl)
+    .sort((left, right) => {
+      const tier = (item) => isTvAiringOnAir(item.tvAiring, timestamp)
+        ? 0
+        : Date.parse(item?.tvAiring?.startTime) < nextDay ? 1 : 2
+      return tier(left) - tier(right) || comparePopularity(left, right)
+    }))
+    .slice(0, Math.max(0, Number(limit) || 0))
+}
+
+export function buildWaipuTvViewModel({
+  airings = [],
+  titles = [],
+  titleEntries = [],
+  stationOrder = [],
+  selectedPeriodId = null,
+  now = Date.now(),
+  timeZone = TV_TIME_ZONE,
+} = {}) {
+  const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
+  const stationRank = new Map((Array.isArray(stationOrder) ? stationOrder : [])
+    .map((id, index) => [id, index]))
+  const items = buildAiringItems({ airings, titles, titleEntries, now: timestamp })
+    .sort((a, b) => compareChronological(a, b, stationRank))
+  const periods = buildTvPeriodOptions(airings, { now: timestamp, timeZone })
+  const todayId = `day:${tvDayKey(timestamp, timeZone)}`
+  const selectedPeriod = periods.find((period) => period.id === selectedPeriodId)
+    || periods.find((period) => period.id === todayId)
+    || periods[0]
+  let periodItems = items
+  if (selectedPeriod.kind === 'day') {
+    const range = tvDayRange(selectedPeriod.key, timeZone)
+    periodItems = items.filter((item) => {
+      const start = Date.parse(item?.tvAiring?.startTime)
+      return start >= range.start && start < range.endExclusive
+    })
+    if (selectedPeriod.id === todayId) {
+      periodItems = periodItems.filter((item) => Date.parse(item?.tvAiring?.stopTime) > timestamp)
+    }
+  }
+  return {
+    periods,
+    selectedPeriod,
+    heroItems: selectWaipuTvHeroItems(items, { now: timestamp }),
+    rows: selectedPeriod.kind === 'all'
+      ? buildRowsForAll(periodItems, stationRank, timeZone)
+      : buildRowsForDay(periodItems, selectedPeriod, stationRank, timeZone),
+  }
+}
+
 function dayTitle(key, now, timeZone) {
   const midday = new Date(`${key}T12:00:00Z`)
   const today = zonedDateKey(now, timeZone)
@@ -238,6 +551,7 @@ export function buildWaipuTvRows({
       providerIds: [...new Set([...(Array.isArray(base.providerIds) ? base.providerIds : []), 'waipu'])],
       tvAiring: airing,
       tvAiringOnAir: isTvAiringOnAir(airing, timestamp),
+      tvAiringSoon: isTvAiringSoon(airing, timestamp),
       waipuLive: {
         airings: [airing],
         nextAiring: airing,
@@ -282,10 +596,22 @@ export function isTvAiringOnAir(airing, now = Date.now()) {
     && timestamp < stopTime
 }
 
+export function isTvAiringSoon(airing, now = Date.now(), windowMs = TV_AIRING_SOON_WINDOW_MS) {
+  const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
+  const startTime = Date.parse(airing?.startTime)
+  return Number.isFinite(timestamp)
+    && Number.isFinite(startTime)
+    && timestamp < startTime
+    && startTime - timestamp <= Math.max(0, Number(windowMs) || 0)
+}
+
 export function nextTvAiringTransition(airings = [], now = Date.now()) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
   const transitions = (Array.isArray(airings) ? airings : [])
-    .flatMap((airing) => [Date.parse(airing?.startTime), Date.parse(airing?.stopTime)])
+    .flatMap((airing) => {
+      const start = Date.parse(airing?.startTime)
+      return [start - TV_AIRING_SOON_WINDOW_MS, start, Date.parse(airing?.stopTime)]
+    })
     .filter((value) => Number.isFinite(value) && value > timestamp)
   return transitions.length ? Math.min(...transitions) : null
 }

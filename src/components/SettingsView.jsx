@@ -44,6 +44,14 @@ const VISIBILITY_GROUPS = [
     ],
   },
   {
+    id: 'tv',
+    title: 'TV',
+    options: [
+      ['hero', 'Hero-Bereich'],
+      ['top10', 'Top 10'],
+    ],
+  },
+  {
     id: 'myContent',
     title: 'Meine Inhalte',
     options: [

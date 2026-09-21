@@ -46,10 +46,11 @@ import {
   mergeWaipuLiveAvailability,
 } from './waipu/waipuLiveCatalog.js'
 import {
-  buildWaipuTvRows,
+  buildWaipuTvViewModel,
   loadWaipuLiveStationCatalog,
   loadWaipuTvAirings,
   nextTvAiringTransition,
+  tvDayKey,
 } from './waipu/waipuTvCatalog.js'
 
 function NativeStartupSignal() {
@@ -385,6 +386,7 @@ function MovieHub({ user }) {
   })
   const [tvSchedule, setTvSchedule] = useState({ status: 'idle', airings: [] })
   const [tvClock, setTvClock] = useState(() => Date.now())
+  const [tvPeriodId, setTvPeriodId] = useState(() => `day:${tvDayKey(Date.now())}`)
 
   useEffect(() => {
     let cancelled = false
@@ -545,13 +547,14 @@ function MovieHub({ user }) {
       .map((item) => resolvePresentationArtwork(item, artworkOptions)),
     [rawMovieHubTitles, waipuLiveEntries, artworkOptions],
   )
-  const tvRows = useMemo(() => buildWaipuTvRows({
+  const tvViewModel = useMemo(() => buildWaipuTvViewModel({
     airings: tvSchedule.airings,
     titles,
     titleEntries: waipuLiveEntries,
     stationOrder: activeWaipuStations.map((station) => station.id),
+    selectedPeriodId: tvPeriodId,
     now: tvClock,
-  }), [activeWaipuStations, titles, tvClock, tvSchedule.airings, waipuLiveEntries])
+  }), [activeWaipuStations, titles, tvClock, tvPeriodId, tvSchedule.airings, waipuLiveEntries])
   const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
   const activeSortMode = useMemo(
     () => resolveContentSortMode(contentDisplaySettings, activeProfile?.id, new Date()),
@@ -564,6 +567,7 @@ function MovieHub({ user }) {
 
   const handleViewChange = useCallback((nextView) => {
     setProfileOpen(false)
+    if (nextView === 'tv') setTvPeriodId(`day:${tvDayKey(Date.now())}`)
     setCurrentView(nextView)
   }, [])
 
@@ -943,8 +947,9 @@ function MovieHub({ user }) {
     home: homeHeroes,
     movies: movieHeroes,
     series: seriesHeroes,
+    tv: tvViewModel.heroItems,
     library: personalHeroes,
-  }), [homeHeroes, movieHeroes, personalHeroes, seriesHeroes])
+  }), [homeHeroes, movieHeroes, personalHeroes, seriesHeroes, tvViewModel.heroItems])
   const handleViewIntent = useCallback((nextView) => {
     preloadHeroImage(heroItemsByView[nextView])
   }, [heroItemsByView])
@@ -1000,7 +1005,11 @@ function MovieHub({ user }) {
       )}
       {currentView === 'tv' && (
         <TvView
-          rows={tvRows}
+          rows={tvViewModel.rows}
+          heroItems={tvViewModel.heroItems}
+          periods={tvViewModel.periods}
+          selectedPeriodId={tvViewModel.selectedPeriod.id}
+          onPeriodChange={setTvPeriodId}
           stations={activeWaipuStations}
           totalStationCount={waipuStationCatalog.stations.length}
           status={tvSchedule.status === 'idle' ? 'loading' : tvSchedule.status}

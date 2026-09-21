@@ -27,6 +27,10 @@ export const DEFAULT_PROFILE_EXPERIENCE_SETTINGS = Object.freeze({
       top10: true,
       providerRows: true,
     }),
+    tv: Object.freeze({
+      hero: true,
+      top10: true,
+    }),
     myContent: Object.freeze({
       hero: true,
       top10: true,
@@ -51,6 +55,7 @@ export function normalizeProfileExperienceSettings(value = {}) {
   const home = visibility.home || {}
   const movies = visibility.movies || {}
   const series = visibility.series || {}
+  const tv = visibility.tv || {}
   const myContent = visibility.myContent || {}
 
   return {
@@ -90,6 +95,10 @@ export function normalizeProfileExperienceSettings(value = {}) {
         top10: bool(series.top10),
         providerRows: bool(series.providerRows),
       },
+      tv: {
+        hero: bool(tv.hero),
+        top10: bool(tv.top10),
+      },
       myContent: {
         hero: bool(myContent.hero),
         top10: bool(myContent.top10),
@@ -109,6 +118,7 @@ function cloneSettings(settings) {
       home: { ...settings.visibility.home },
       movies: { ...settings.visibility.movies },
       series: { ...settings.visibility.series },
+      tv: { ...settings.visibility.tv },
       myContent: { ...settings.visibility.myContent },
     },
   }

@@ -24,6 +24,7 @@ const HERO_PHASE_MS = 170
 function visibilityPage(eyebrow) {
   if (eyebrow === 'Filme') return 'movies'
   if (eyebrow === 'Serien') return 'series'
+  if (eyebrow === 'TV') return 'tv'
   if (eyebrow === 'Meine Inhalte') return 'myContent'
   return 'home'
 }

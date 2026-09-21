@@ -33,6 +33,7 @@ export function isExperienceModuleVisible(page, module) {
 export function inferExperiencePage(rows, className = '') {
   if (String(className).includes('progressive-home-rows')) return 'home'
   if (String(className).includes('personal-library-rows')) return 'myContent'
+  if (String(className).includes('tv-program-rows')) return 'tv'
 
   const ids = (Array.isArray(rows) ? rows : []).map((row) => String(row?.id || ''))
   if (ids.some((id) => id.includes('series'))) return 'series'
