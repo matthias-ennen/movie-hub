@@ -58,7 +58,7 @@ jobs:
       - name: Restore title-candidate baseline
         id: title_candidate_state_cache
         continue-on-error: true
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: artifacts/title-candidate-state.json
           key: title-candidate-state-v1-${{ github.run_id }}-${{ github.run_attempt }}
@@ -67,7 +67,7 @@ jobs:
       - name: Restore persistent TMDB change state
         if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         id: tmdb_change_cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: artifacts/tmdb-data
           key: tmdb-changes-v1-${{ github.run_id }}-${{ github.run_attempt }}
@@ -79,7 +79,7 @@ jobs:
       - name: Restore persistent Waipu import state
         if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         id: waipu_cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             artifacts/waipu-sync
@@ -174,7 +174,7 @@ jobs:
 
       - name: Save persistent Waipu import state
         if: ${{ always() && (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             artifacts/waipu-sync
@@ -259,7 +259,7 @@ jobs:
       - name: Save published title-candidate baseline
         if: ${{ steps.priority_preview.outcome == 'success' && steps.firebase_deploy.outcome == 'success' }}
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: artifacts/title-candidate-state.json
           key: title-candidate-state-v1-${{ github.run_id }}-${{ github.run_attempt }}
@@ -271,7 +271,7 @@ jobs:
 
       - name: Save persistent TMDB change state
         if: ${{ always() && steps.tmdb_changes.outcome == 'success' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: artifacts/tmdb-data
           key: tmdb-changes-v1-${{ github.run_id }}-${{ github.run_attempt }}
@@ -296,7 +296,7 @@ jobs:
 
       - name: Upload search-index diagnostics
         if: ${{ always() && (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: search-index-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/search-index-run-report.json
@@ -305,7 +305,7 @@ jobs:
 
       - name: Upload title-candidate diagnostics
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: title-candidate-inventory-${{ github.run_id }}-${{ github.run_attempt }}
           path: |

@@ -15,6 +15,42 @@ function countTypes(entries) {
   }, { movies: 0, series: 0 })
 }
 
+function hasValue(value) {
+  return value !== null && value !== undefined && String(value).trim() !== ''
+}
+
+function waipuSourceCoverage(titles = {}) {
+  const entriesAvailable = Array.isArray(titles?.entries)
+  const entries = entriesAvailable ? titles.entries : []
+  const types = countTypes(entries)
+  const airings = entries.flatMap((entry) => (
+    Array.isArray(entry?.airings) ? entry.airings.map((airing) => ({ airing, type: entry?.type })) : []
+  ))
+  const seriesAirings = airings.filter(({ type }) => type === 'series')
+  const complete = airings.filter(({ airing }) => (
+    airing?.source === 'waipu'
+    && hasValue(airing?.programId)
+    && hasValue(airing?.stationId)
+    && hasValue(airing?.stationName)
+    && hasValue(airing?.startTime)
+    && hasValue(airing?.stopTime)
+  )).length
+  const withEpisodeData = seriesAirings.filter(({ airing }) => (
+    hasValue(airing?.episodeTitle)
+    || hasValue(airing?.seasonNumber)
+    || hasValue(airing?.episodeNumber)
+  )).length
+
+  return {
+    available: entriesAvailable,
+    types,
+    total: airings.length,
+    complete,
+    seriesTotal: seriesAirings.length,
+    withEpisodeData,
+  }
+}
+
 function number(value) {
   return integer(value).toLocaleString('de-DE')
 }
@@ -65,6 +101,7 @@ export function buildWorkflowSummary({
   searchManifest = {},
   seriesManifest = {},
   waipuIndex = {},
+  waipuTitles = {},
   waipuSync = {},
   waipuDetail = {},
   presence = {},
@@ -86,6 +123,7 @@ export function buildWorkflowSummary({
   const seasons = dataStatus.seriesSeasons || {}
   const waipuMetrics = waipuIndex.metrics || {}
   const waipuCounts = waipuIndex.counts || {}
+  const waipuSources = waipuSourceCoverage(waipuTitles)
   const detailRequests = waipuIndex.runtime?.detailRequests || waipuDetail.metrics || {}
   const tmdbRequests = integer(waipuIndex.runtime?.tmdbRequests)
   const waipuMetadata = waipuIndex.metadata || {}
@@ -174,6 +212,19 @@ export function buildWorkflowSummary({
         open: `${number(matchRejected + detailRejected)} verworfen · ${number(tmdbRequests)} Suchen · ${number(tmdbMetadataRequests)} Detailabrufe · ${number(detailRequests.cacheHits)} Waipu-Cache`,
       },
       {
+        area: 'Waipu-Quelldaten',
+        status: outcome(steps.waipuCatalog),
+        stock: waipuSources.available
+          ? `${number(waipuCounts.titles)} Titel · ${number(waipuSources.types.movies)} Filme · ${number(waipuSources.types.series)} Serien`
+          : `${number(waipuCounts.titles)} Titel · Aufteilung nicht verfügbar`,
+        activity: waipuSources.available
+          ? `${number(waipuSources.complete)}/${number(waipuSources.total)} Ausstrahlungen vollständig · Vertrag v${integer(waipuIndex.sourceDataVersion)}`
+          : `Quelldatenprüfung nicht verfügbar · Vertrag v${integer(waipuIndex.sourceDataVersion)}`,
+        open: waipuSources.available
+          ? `${number(waipuSources.withEpisodeData)}/${number(waipuSources.seriesTotal)} Serienausstrahlungen mit Episodenangabe`
+          : 'Episodenangaben nicht verfügbar',
+      },
+      {
         area: 'Kanonische Titelkandidaten',
         status: outcome(steps.candidateInventory, '⏭️ noch nicht inventarisiert'),
         stock: `${number(candidateInventory.counts?.canonicalCandidates)} Titel aus ${number(candidateInventory.counts?.rawCandidateReferences)} Referenzen`,
@@ -245,13 +296,14 @@ async function readJson(path, fallback = {}) {
 }
 
 async function main() {
-  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu, workflowTiming] = await Promise.all([
+  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu, workflowTiming] = await Promise.all([
     readJson('public/data-status.json'),
     readJson('public/catalog.json'),
     readJson('public/search-index.json'),
     readJson('public/search-details/manifest.json'),
     readJson('public/series-details/manifest.json'),
     readJson('public/waipu-live/index.json'),
+    readJson('public/waipu-live/titles.json'),
     readJson('artifacts/waipu-sync/status.json'),
     readJson('artifacts/waipu-live/detail-status.json'),
     readJson('artifacts/moviehub-presence-status.json'),
@@ -267,7 +319,7 @@ async function main() {
     readJson('artifacts/workflow-schedule-timing.json'),
   ])
   const summary = buildWorkflowSummary({
-    dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges,
+    dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges,
     tmdbChangeRun: activeTmdbChangeRun || lastTmdbChangeRun || {}, baselineData, baselineWaipu, workflowTiming,
     steps: {
       tmdbChanges: process.env.SUMMARY_TMDB_CHANGES,

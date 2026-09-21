@@ -49,3 +49,12 @@ Für die aktuelle `firebase-tools`-Version existiert laut npm-Audit keine sicher
 - CI schlägt bei neuen High- oder Critical-Funden fehl.
 - Moderate Findings bleiben sichtbar und werden bei Dependency-Arbeit erneut bewertet.
 - Automatische `npm audit fix --force`-Änderungen werden nicht eingesetzt.
+
+## GitHub-Actions-Laufzeit
+
+Nach der erfolgreichen Waipu-Datenabnahme in Lauf #360 wurden die verbliebenen
+Node-20-Kompatibilitätswarnungen der Workflow-Actions getrennt von den
+npm-Findings bereinigt. `actions/cache/restore` und `actions/cache/save` laufen
+ab #277 mit Hauptversion 6, `actions/upload-artifact` repositoryweit mit
+Hauptversion 7. Beide Action-Generationen verwenden nativ Node 24; ihre für
+Movie Hub verwendeten Eingaben bleiben unverändert kompatibel.

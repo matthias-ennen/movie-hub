@@ -215,6 +215,13 @@ ohne diese zusätzlichen Felder bleiben während der Migration lesbar. Der
 direkte Aufbau und die Geräteprüfung des EPG-Links erfolgen getrennt in #259;
 die EPG-`programId` wird nicht als Waiputhek-`contentId` behandelt.
 
+Der kompakte Datenlauf-Bericht weist diesen Vertrag als eigene
+`Waipu-Quelldaten`-Zeile aus. Sie zeigt den Titelbestand getrennt nach Filmen
+und Serien, die vollständig erhaltenen Quellenfelder als Verhältnis aller
+Ausstrahlungen, die `sourceDataVersion` sowie informativ den Anteil der
+Serienausstrahlungen mit Staffel, Folge oder Episodentitel. Fehlende optionale
+Episodenangaben gelten dabei nicht als Fehler.
+
 ## App-Integration (#4F)
 
 Die App lädt `/waipu-live/titles.json` unabhängig vom normalen TMDB-Katalog.
