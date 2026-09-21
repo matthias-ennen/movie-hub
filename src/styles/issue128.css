@@ -15,7 +15,8 @@
   outline: none;
 }
 
-.hero-carousel:focus-visible .hero {
+.hero-carousel:focus-visible .hero,
+.hero-carousel.is-focused .hero {
   box-shadow: inset 0 0 0 2px rgba(141, 167, 255, 0.5);
 }
 
@@ -346,6 +347,16 @@
   line-height: 1;
 }
 
+.poster-card .poster-meta-line {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
 .poster-card .provider-badges {
   left: 0.65rem;
   right: 0.65rem;
@@ -450,13 +461,13 @@
   }
 
   .hero-carousel .hero-actions {
-    gap: 0.55rem;
+    gap: clamp(0.32rem, 1vw, 0.55rem);
   }
 
   .hero-carousel .action-button {
     min-height: 44px;
-    padding: 0.7rem 0.9rem;
-    font-size: 0.9rem;
+    padding: 0.7rem clamp(0.3rem, 1.6vw, 0.8rem);
+    font-size: clamp(0.76rem, 2.2vw, 0.9rem);
   }
 
   .hero-carousel .hero-art {

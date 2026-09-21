@@ -25,7 +25,11 @@ export default function HeroFirstPage({
   const { heroReady, handleHeroReady } = useHeroFirstPage(pageId)
 
   return (
-    <main className={pageClassName(className)} data-page-load-state={heroReady ? 'rows' : 'hero'}>
+    <main
+      className={pageClassName(className)}
+      data-content-page={pageId}
+      data-page-load-state={heroReady ? 'rows' : 'hero'}
+    >
       <Hero
         items={heroItems}
         onOpen={onOpen}

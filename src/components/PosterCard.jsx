@@ -33,16 +33,18 @@ export default function PosterCard({ item, onOpen, rank = null, hasMovieHub = fa
         <AgeRatingBadge value={item.ageRating} className="poster-age-rating" />
         <span className="poster-kicker-stack">
           <span className="poster-kicker">{item.type === 'series' ? 'SERIE' : 'FILM'}</span>
-          {item.tvAiringOnAir && (
-            <span className="on-air-badge"><span className="on-air-dot" />ON AIR</span>
-          )}
-          {!item.tvAiringOnAir && item.tvAiringSoon && (
-            <span className="soon-badge">BALD</span>
-          )}
         </span>
         <span className="poster-copy">
           <span className="poster-title">{item.title}</span>
-          <span className="poster-year">{item.year || '–'}</span>
+          <span className="poster-meta-line">
+            <span className="poster-year">{item.year || '–'}</span>
+            {item.tvAiringOnAir && (
+              <span className="on-air-badge"><span className="on-air-dot" />ON AIR</span>
+            )}
+            {!item.tvAiringOnAir && item.tvAiringSoon && (
+              <span className="soon-badge">BALD</span>
+            )}
+          </span>
           {tvAiring && (
             <span className="tv-airing-card-label">
               <strong>{tvAiring.time}</strong>

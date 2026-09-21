@@ -60,5 +60,7 @@ describe('TV Hero-first-Seitenrahmen', () => {
     expect(markup).toContain('class="browse-page tv-program-content"')
     expect(markup).toContain('class="tv-period-shell"')
     expect(markup).toContain('class="rows-wrap tv-program-rows"')
+    expect(markup).not.toContain('50 von 50 Sendern')
+    expect(markup).not.toContain('tv-period-status')
   })
 })
