@@ -76,14 +76,16 @@ function fillHeroList(first, pool, limit) {
 
 export function selectCoordinatedHeroItems(items, {
   limit = HERO_LIMIT,
+  movieItems = null,
+  seriesItems = null,
   selectionReady = true,
 } = {}) {
   if (!selectionReady) return { home: [], movies: [], series: [] }
 
   const safeLimit = Math.max(0, Number(limit) || 0)
   const ranked = uniqueTitles(items)
-  const movies = ranked.filter((item) => item.type === 'movie')
-  const series = ranked.filter((item) => item.type === 'series')
+  const movies = uniqueTitles(movieItems ?? ranked).filter((item) => item.type === 'movie')
+  const series = uniqueTitles(seriesItems ?? ranked).filter((item) => item.type === 'series')
   const movieFirst = movies[0] || null
   const seriesFirst = series[0] || null
   const reservedFirstIds = new Set([movieFirst, seriesFirst].filter(Boolean).map(identity))
