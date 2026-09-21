@@ -245,6 +245,23 @@ describe('Waipu live catalog publication', () => {
       candidatePrograms: 2,
     })
     expect(catalog.shards.zdf.airings.map(({ tmdbId }) => tmdbId)).toEqual([667739, 7263])
+    expect(catalog.shards.zdf.airings[1]).toMatchObject({
+      source: 'waipu',
+      programId: 'series-program',
+      seriesId: 'wallander',
+      seasonNumber: 2,
+      episodeNumber: 7,
+      episodeTitle: 'Das Leck',
+    })
+    expect(catalog.titles.entries.find(({ type }) => type === 'series').nextAiring).toMatchObject({
+      source: 'waipu',
+      programId: 'series-program',
+      seriesId: 'wallander',
+      stationId: 'zdf',
+      seasonNumber: 2,
+      episodeNumber: 7,
+      episodeTitle: 'Das Leck',
+    })
     expect(onProgress).toHaveBeenLastCalledWith(expect.objectContaining({
       phase: 'programs', processed: 2, total: 2, detailsLoaded: 2, matchedPrograms: 2,
     }))
@@ -292,6 +309,17 @@ describe('Waipu live catalog publication', () => {
       '2026-09-20T18:00:00.000Z',
       '2026-09-20T21:00:00.000Z',
     ])
+    expect(catalog.titles.entries[0].airings.map(({ programId }) => programId)).toEqual([
+      'program-1',
+      'program-2',
+    ])
+    expect(catalog.titles.entries[0].airings.every(({ source }) => source === 'waipu')).toBe(true)
+  })
+
+  it('requires source identifiers for every newly generated title and station airing', async () => {
+    const catalog = await buildWaipuLiveCatalog(buildFixture())
+    delete catalog.titles.entries[0].airings[0].programId
+    expect(() => validateWaipuLiveCatalog(catalog)).toThrow('Missing waipu title-airing source data')
   })
 
   it('requires TMDB search when the local MovieHub index cannot resolve a candidate', async () => {

@@ -47,7 +47,9 @@ function normalizeAiring(raw, station, now) {
       || stop <= start || stop.getTime() <= now) return null
   return {
     id: String(raw?.id || `${station.id}|${raw?.programId || tmdbId}|${start.toISOString()}`),
+    source: 'waipu',
     programId: String(raw?.programId || '').trim() || null,
+    seriesId: String(raw?.seriesId || '').trim() || null,
     stationId: station.id,
     stationName: station.name,
     tmdbId,
@@ -237,6 +239,7 @@ export function buildWaipuTvRows({
       tvAiring: airing,
       tvAiringOnAir: isTvAiringOnAir(airing, timestamp),
       waipuLive: {
+        airings: [airing],
         nextAiring: airing,
         airingCount: entry?.airingCount || 1,
       },
