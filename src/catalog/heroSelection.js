@@ -1,6 +1,9 @@
-import { getActiveHeroCount } from '../profiles/profileExperienceRuntime.js'
+import { HERO_COUNT_OPTIONS } from '../profiles/profileExperienceSettings.js'
 
-export const HERO_LIMIT = 5
+// Keep the largest configurable Hero set ready. The Hero component applies the
+// active profile's display count (3–7) afterwards, so increasing that setting
+// at runtime never requires the catalog selection to be rebuilt first.
+export const HERO_LIMIT = Math.max(...HERO_COUNT_OPTIONS)
 
 function uniqueTitles(items) {
   const seen = new Set()
@@ -15,13 +18,13 @@ function uniqueTitles(items) {
   return result
 }
 
-export function selectHeroItems(items, { type = null, limit = getActiveHeroCount() } = {}) {
+export function selectHeroItems(items, { type = null, limit = HERO_LIMIT } = {}) {
   const safeLimit = Math.max(0, Number(limit) || 0)
   const filtered = uniqueTitles(items).filter((item) => !type || item.type === type)
   return filtered.slice(0, safeLimit)
 }
 
-export function selectHomeHeroItems(items, limit = getActiveHeroCount()) {
+export function selectHomeHeroItems(items, limit = HERO_LIMIT) {
   const ranked = uniqueTitles(items)
   const safeLimit = Math.max(0, Number(limit) || 0)
   if (safeLimit === 0 || ranked.length <= 1) return ranked.slice(0, safeLimit)
@@ -46,7 +49,7 @@ export function selectHomeHeroItems(items, limit = getActiveHeroCount()) {
     .slice(0, safeLimit)
 }
 
-export function selectPersonalHeroItems(rows, limit = getActiveHeroCount()) {
+export function selectPersonalHeroItems(rows, limit = HERO_LIMIT) {
   const items = (Array.isArray(rows) ? rows : []).flatMap((row) => (
     Array.isArray(row?.items) ? row.items : []
   ))
@@ -71,7 +74,12 @@ function fillHeroList(first, pool, limit) {
   return result
 }
 
-export function selectCoordinatedHeroItems(items, { limit = getActiveHeroCount() } = {}) {
+export function selectCoordinatedHeroItems(items, {
+  limit = HERO_LIMIT,
+  selectionReady = true,
+} = {}) {
+  if (!selectionReady) return { home: [], movies: [], series: [] }
+
   const safeLimit = Math.max(0, Number(limit) || 0)
   const ranked = uniqueTitles(items)
   const movies = ranked.filter((item) => item.type === 'movie')
