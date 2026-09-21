@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { getProviderDestination, providers } from '../data/catalog.js'
+import {
+  WAIPU_LIVE_URL,
+  getProviderDestination,
+  getWaipuEpgDestination,
+  providers,
+} from '../data/catalog.js'
 import { buildFilmCollection, findFilmCollectionForTitle, resolveFilmCollectionParts } from '../catalog/filmCollections.js'
 import { resolveArtworkUrl } from '../catalog/artworkRotation.js'
 import { useLibrary } from '../library/LibraryProvider.jsx'
@@ -343,8 +348,14 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
   }
 
   function openProvider(providerId) {
+    const providerNow = Date.now()
+    const exactWaipuDestination = providerId === 'waipu'
+      ? getWaipuEpgDestination(item?.waipuLive, { now: providerNow })
+      : null
     const destination = getProviderDestination(providerId, item.title, {
       waipuMode: providerId === 'waipu' && item?.waipuLive ? 'live' : 'vod',
+      waipuLive: item?.waipuLive,
+      now: providerNow,
     })
     if (!destination) return
 
@@ -352,6 +363,16 @@ export default function DetailModal({ item, collections = {}, titles = [], onSel
     // intentionally do not await it: browser fallbacks must keep the original
     // user gesture so popup blockers do not prevent opening the provider.
     markWatchedFromProvider()
+
+    if (exactWaipuDestination && window.MovieHubNative?.openProviderExact) {
+      window.MovieHubNative.openProviderExact(
+        providerId,
+        item.title,
+        exactWaipuDestination,
+        WAIPU_LIVE_URL,
+      )
+      return
+    }
 
     if (window.MovieHubNative?.openProvider) {
       window.MovieHubNative.openProvider(providerId, item.title, destination)

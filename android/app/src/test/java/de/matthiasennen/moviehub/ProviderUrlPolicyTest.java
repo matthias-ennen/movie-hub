@@ -14,6 +14,8 @@ public final class ProviderUrlPolicyTest {
         assertTrue(ProviderUrlPolicy.isAllowed("disney", "https://www.disneyplus.com/browse/entity-example"));
         assertTrue(ProviderUrlPolicy.isAllowed("youtube", "https://youtu.be/KQeEIbN296U"));
         assertTrue(ProviderUrlPolicy.isAllowed("waipu", "https://www.waipu.tv/program/example"));
+        assertTrue(ProviderUrlPolicy.isAllowed("waipu",
+                "https://app.waipu.tv/epgdetails/kinowelt/7c5d8267-439f-5e0f-8fb7-e44349f60746"));
     }
 
     @Test
