@@ -194,6 +194,16 @@ function getHeroActions() {
   return [...document.querySelectorAll('.hero-actions [data-focusable="true"]')].filter(isVisibleFocusable)
 }
 
+function getTvPeriodButtons() {
+  return [...document.querySelectorAll('.tv-period-button[data-focusable="true"]')].filter(isVisibleFocusable)
+}
+
+function getSelectedTvPeriodButton() {
+  return document.querySelector('.tv-period-button.active[data-focusable="true"]')
+    || getTvPeriodButtons()[0]
+    || null
+}
+
 function getPosterTracks() {
   return [...document.querySelectorAll('.poster-track')]
     .filter((track) => track.offsetParent !== null)
@@ -208,6 +218,9 @@ function getPosterCards(track) {
 function getFirstPageTarget() {
   const hero = getHeroTarget()
   if (hero) return hero
+
+  const tvPeriod = getSelectedTvPeriodButton()
+  if (tvPeriod) return tvPeriod
 
   const firstPoster = getPosterCards(getPosterTracks()[0])[0]
   if (firstPoster) return firstPoster
@@ -296,7 +309,7 @@ function handlePageNavigation(event, active) {
 
     if (direction === 'ArrowDown') {
       consume(event)
-      const target = getHeroActions()[0] || getPosterCards(getPosterTracks()[0])[0]
+      const target = getHeroActions()[0] || getSelectedTvPeriodButton() || getPosterCards(getPosterTracks()[0])[0]
       if (target) focusCandidate(target, { scrollBehavior })
       else requestAndFocusPosterRow(active, null, 1, scrollBehavior)
       return true
@@ -314,6 +327,23 @@ function handlePageNavigation(event, active) {
     consume(event)
     if (direction === 'ArrowUp') {
       focusCandidate(getHeroTarget(), { scrollBehavior })
+    } else if (direction === 'ArrowDown') {
+      const target = getSelectedTvPeriodButton() || getPosterCards(getPosterTracks()[0])[0]
+      if (target) focusCandidate(target, { scrollBehavior })
+      else requestAndFocusPosterRow(active, null, 1, scrollBehavior)
+    }
+    return true
+  }
+
+  if (active.matches?.('.tv-period-button')) {
+    const periodButtons = getTvPeriodButtons()
+    if (direction === 'ArrowLeft') return moveWithin(periodButtons, active, -1, event)
+    if (direction === 'ArrowRight') return moveWithin(periodButtons, active, 1, event)
+
+    consume(event)
+    if (direction === 'ArrowUp') {
+      const actions = getHeroActions()
+      focusCandidate(actions[actions.length - 1] || getHeroTarget() || getPreferredTopbarTarget(), { scrollBehavior })
     } else if (direction === 'ArrowDown') {
       const firstPoster = getPosterCards(getPosterTracks()[0])[0]
       if (firstPoster) focusCandidate(firstPoster, { scrollBehavior })
@@ -336,7 +366,7 @@ function handlePageNavigation(event, active) {
     if (direction === 'ArrowUp') {
       if (Number.isInteger(actualRowIndex)) {
         if (actualRowIndex <= 0) {
-          focusCandidate(getHeroActions()[0] || getHeroTarget() || getPreferredTopbarTarget(), { scrollBehavior })
+          focusCandidate(getSelectedTvPeriodButton() || getHeroActions()[0] || getHeroTarget() || getPreferredTopbarTarget(), { scrollBehavior })
           return true
         }
         if (!focusMountedPosterRow(actualRowIndex - 1, active, scrollBehavior)) {

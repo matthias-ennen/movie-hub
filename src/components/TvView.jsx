@@ -1,3 +1,6 @@
+import { useEffect, useRef } from 'react'
+import { useHeroFirstPage } from '../hooks/useHeroFirstPage.js'
+import Hero from './Hero.jsx'
 import { ProgressiveRows } from './ProgressiveContent.jsx'
 
 function formatGeneratedAt(value) {
@@ -10,37 +13,65 @@ function formatGeneratedAt(value) {
   }).format(date)
 }
 
+function PeriodSelector({ periods, selectedPeriodId, onPeriodChange, statusText }) {
+  const selectedRef = useRef(null)
+
+  useEffect(() => {
+    selectedRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  }, [selectedPeriodId])
+
+  return (
+    <section className="tv-period-shell" aria-label="TV-Zeitraum">
+      <div className="tv-period-track" role="tablist" aria-label="Zeitraum der TV-Posterreihen">
+        {periods.map((period) => {
+          const selected = period.id === selectedPeriodId
+          return (
+            <button
+              type="button"
+              key={period.id}
+              ref={selected ? selectedRef : null}
+              className={selected ? 'tv-period-button active' : 'tv-period-button'}
+              role="tab"
+              aria-selected={selected}
+              data-tv-period="true"
+              data-focusable="true"
+              onClick={() => onPeriodChange(period.id)}
+            >
+              {period.label}
+            </button>
+          )
+        })}
+      </div>
+      {statusText && <span className="tv-period-status">{statusText}</span>}
+    </section>
+  )
+}
+
 export default function TvView({
   rows,
+  heroItems,
+  periods,
+  selectedPeriodId,
+  onPeriodChange,
   stations,
   totalStationCount,
   status,
   generatedAt,
   onOpen,
 }) {
+  const { heroReady, handleHeroReady } = useHeroFirstPage('tv')
   const dataTime = formatGeneratedAt(generatedAt)
   const activeCount = Array.isArray(stations) ? stations.length : 0
   const rowCount = Array.isArray(rows) ? rows.length : 0
+  const statusText = totalStationCount > 0
+    ? `${activeCount} von ${totalStationCount} Sendern · Stand ${dataTime || 'wird geladen'}`
+    : null
 
   return (
-    <main className="browse-page tv-program-page">
-      <div className="page-heading tv-program-heading">
-        <div>
-          <p className="eyebrow">Lineares Programm bei waipu.tv</p>
-          <h1>TV</h1>
-          <p>Filme und Serien aller in den Einstellungen aktivierten Sender – chronologisch nach Tag und Startzeit.</p>
-        </div>
-        {status !== 'unavailable' && (
-          <div className="tv-program-status" aria-label="TV-Datenstand">
-            <strong>
-              {totalStationCount > 0
-                ? `${activeCount} von ${totalStationCount} Sendern aktiv`
-                : 'Senderliste wird geladen …'}
-            </strong>
-            {dataTime && <span>Datenstand: {dataTime} Uhr</span>}
-          </div>
-        )}
-      </div>
+    <main className="category-page tv-program-page" data-page-load-state={heroReady ? 'rows' : 'hero'}>
+      {status === 'ready' && (
+        <Hero items={heroItems} onOpen={onOpen} eyebrow="TV" onReady={handleHeroReady} />
+      )}
 
       {status === 'loading' && (
         <section className="library-empty-state tv-program-empty" aria-live="polite">
@@ -66,20 +97,29 @@ export default function TvView({
         </section>
       )}
 
-      {status === 'ready' && rowCount === 0 && (
-        <section className="library-empty-state tv-program-empty">
-          <p className="settings-kicker">Keine Sendetermine</p>
-          <h2>Für die aktivierten Sender wurden aktuell keine zugeordneten Filme oder Serien gefunden.</h2>
-        </section>
-      )}
+      {status === 'ready' && (
+        <>
+          <PeriodSelector
+            periods={periods}
+            selectedPeriodId={selectedPeriodId}
+            onPeriodChange={onPeriodChange}
+            statusText={statusText}
+          />
 
-      {status === 'ready' && rowCount > 0 && (
-        <ProgressiveRows
-          rows={rows}
-          heroReady
-          onOpen={onOpen}
-          className="rows-wrap tv-program-rows"
-        />
+          {rowCount === 0 ? (
+            <section className="library-empty-state tv-program-empty">
+              <p className="settings-kicker">Keine Sendetermine</p>
+              <h2>Für diesen Zeitraum wurden keine zugeordneten Filme oder Serien gefunden.</h2>
+            </section>
+          ) : (
+            <ProgressiveRows
+              rows={rows}
+              heroReady={heroReady}
+              onOpen={onOpen}
+              className="rows-wrap tv-program-rows"
+            />
+          )}
+        </>
       )}
     </main>
   )

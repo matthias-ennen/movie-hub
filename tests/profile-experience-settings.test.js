@@ -47,6 +47,7 @@ describe('profilbezogene Oberflächeneinstellungen', () => {
     expect(settings.heroTrailers).toEqual({ enabled: false, delaySeconds: 15, soundEnabled: true })
     expect(settings.visibility.home.hero).toBe(true)
     expect(settings.visibility.movies.top10).toBe(true)
+    expect(settings.visibility.tv).toEqual({ hero: true, top10: true })
     expect(settings.visibility.myContent.history).toBe(true)
   })
 
@@ -154,6 +155,7 @@ describe('profilbezogene Oberflächeneinstellungen', () => {
     })
     expect(isExperienceModuleVisible('home', 'hero')).toBe(false)
     expect(isExperienceModuleVisible('home', 'top10')).toBe(true)
+    expect(isExperienceModuleVisible('tv', 'hero')).toBe(true)
     expect(isExperienceModuleVisible('myContent', 'history')).toBe(false)
   })
 })

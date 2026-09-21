@@ -7,6 +7,13 @@ export default function PosterCard({ item, onOpen, rank = null, hasMovieHub = fa
   const hasPoster = Boolean(posterUrl)
   const providerIds = Array.isArray(item.providerIds) ? item.providerIds : []
   const tvAiring = formatTvAiringCard(item.tvAiring)
+  const episodeLabel = item.type === 'series' && item.tvAiring
+    ? [
+      Number.isInteger(item.tvAiring.seasonNumber) ? `S${item.tvAiring.seasonNumber}` : null,
+      Number.isInteger(item.tvAiring.episodeNumber) ? `F${item.tvAiring.episodeNumber}` : null,
+      item.tvAiring.episodeTitle || null,
+    ].filter(Boolean).join(' · ')
+    : null
 
   return (
     <button
@@ -29,6 +36,9 @@ export default function PosterCard({ item, onOpen, rank = null, hasMovieHub = fa
           {item.tvAiringOnAir && (
             <span className="on-air-badge"><span className="on-air-dot" />ON AIR</span>
           )}
+          {!item.tvAiringOnAir && item.tvAiringSoon && (
+            <span className="soon-badge">BALD</span>
+          )}
         </span>
         <span className="poster-copy">
           <span className="poster-title">{item.title}</span>
@@ -36,7 +46,7 @@ export default function PosterCard({ item, onOpen, rank = null, hasMovieHub = fa
           {tvAiring && (
             <span className="tv-airing-card-label">
               <strong>{tvAiring.time}</strong>
-              <span>{tvAiring.stationName}</span>
+              <span>{tvAiring.stationName}{episodeLabel ? ` · ${episodeLabel}` : ''}</span>
             </span>
           )}
         </span>

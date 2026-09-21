@@ -2,37 +2,63 @@
   padding-bottom: 5rem;
 }
 
-.tv-program-heading {
-  max-width: none;
+.tv-period-shell {
+  position: relative;
+  z-index: 5;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--space-6);
+  gap: var(--space-5);
+  width: 100%;
+  padding: clamp(0.75rem, 1.4vw, 1.15rem) var(--page-inline) clamp(1.2rem, 2vw, 1.8rem);
 }
 
-.tv-program-heading > div:first-child {
-  max-width: 780px;
+.tv-period-track {
+  display: flex;
+  flex: 1 1 auto;
+  gap: clamp(0.45rem, 0.8vw, 0.7rem);
+  min-width: 0;
+  overflow-x: auto;
+  padding: var(--focus-width-control);
+  scroll-padding-inline: var(--focus-width-control);
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
-.tv-program-status {
+.tv-period-track::-webkit-scrollbar {
+  display: none;
+}
+
+.tv-period-button {
   flex: 0 0 auto;
-  display: grid;
-  gap: 0.25rem;
-  min-width: 230px;
-  padding: var(--space-4) var(--space-5);
+  min-height: var(--control-height-compact);
+  padding: 0.6rem 1rem;
   border: 1px solid var(--color-line);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-pill);
   background: var(--color-bg-elevated);
-  text-align: right;
+  color: var(--color-text-soft);
+  font-weight: 800;
+  white-space: nowrap;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
 }
 
-.tv-program-status strong {
-  color: var(--color-text);
+.tv-period-button.active {
+  border-color: color-mix(in srgb, var(--color-focus) 72%, transparent);
+  background: var(--color-focus);
+  color: var(--color-bg);
 }
 
-.tv-program-status span {
-  color: var(--color-muted);
-  font-size: 0.82rem;
+.tv-period-button:focus-visible {
+  position: relative;
+  z-index: 2;
+}
+
+.tv-period-status {
+  flex: 0 0 auto;
+  color: var(--color-muted-strong);
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .tv-program-rows {
@@ -93,6 +119,22 @@
   box-shadow: 0 0 0 2px rgba(255, 91, 98, 0.18);
 }
 
+.soon-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.25rem;
+  padding: 0.14rem 0.42rem;
+  border: 1px solid color-mix(in srgb, var(--color-focus) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-focus) 22%, rgba(5, 8, 14, 0.92));
+  color: var(--color-focus);
+  font-size: 0.58rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.38);
+}
+
 .station-selection-list {
   max-height: 38rem;
   overflow-y: auto;
@@ -128,14 +170,21 @@
     justify-content: flex-start;
   }
 
-  .tv-program-heading {
-    align-items: stretch;
+  .tv-period-shell {
+    align-items: flex-start;
     flex-direction: column;
+    gap: 0.55rem;
+    padding-inline: 1.2rem;
   }
 
-  .tv-program-status {
-    min-width: 0;
-    text-align: left;
+  .tv-period-track {
+    width: calc(100% + 2.4rem);
+    margin-inline: -1.2rem;
+    padding-inline: 1.2rem;
+  }
+
+  .tv-period-status {
+    padding-left: 0.2rem;
   }
 
   .tv-program-rows {
