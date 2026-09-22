@@ -33,6 +33,7 @@ Zu den zuletzt abgeschlossenen bzw. abgenommenen Paketen gehören insbesondere:
 - #117 – Dependency-Audit und Security-Hygiene
 - #4 – öffentlicher Waipu-Live-Katalog einschließlich 50-Sender-Bestand, TV-Integration und Geräteabnahme
 - #256 – vollständige kanonische Titelmetadaten, gemeinsamer Nachtlauf und atomarer Search-only-Detailpfad
+- #259 – exakter Waipu-Programmlink mit sicherer Fallbackkette und Geräteabnahme auf Smartphone, Tablet und Fire TV
 
 Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zuletzt am 18.09.2026 abgenommen.
 
@@ -65,14 +66,21 @@ Verbindlicher Umfang:
 
 Reine Suchindex-Titel außerhalb aller sichtbaren Kataloge müssen nicht vorangereichert werden. Beim Öffnen dürfen sie vollständig geladen werden, zeigen bis dahin jedoch ausschließlich einen klaren Ladezustand und anschließend die vollständige Detailseite auf einmal.
 
-## Nächstes Arbeitspaket
+## Abgeschlossener Waipu-Deep-Link
 
 ### #259 – Waipu-Live: laufende Sendung direkt in waipu.tv starten
 
-#259 folgt auf das abgeschlossene Datenfundament. Vor der Umsetzung werden die
-im Issue dokumentierten offenen Produkt- und Technikfragen einzeln mit Matthias
-geklärt. Die Verifikation beginnt mit dem vorhandenen 50-Sender-Bestand auf
-Android und realer Fire-TV-Hardware.
+#259 ist technisch umgesetzt und auf Android-Smartphone, Android-Tablet sowie
+Fire TV abgenommen. Aus konkreten Sender- und Programm-IDs entsteht der exakte
+`app.waipu.tv/epgdetails/...`-Link. Die aktuelle Waipu-App öffnet damit
+reproduzierbar die richtige Programmseite; bei laufenden Sendungen startet
+**Play** den richtigen Live-Sender. Ein automatischer Streamstart ohne diesen
+Zwischenschritt wird vom bestätigten Linkvertrag nicht bereitgestellt.
+
+Fehlende oder ungültige Ausstrahlungsdaten, eine fehlende App und nicht
+unterstützte Linkziele werden über die bestehende sichere Waipu-/Web-Fallbackkette
+behandelt. Anmeldung, Tarif, DRM und Wiedergaberechte verbleiben vollständig bei
+waipu.tv und werden in Movie Hub weder geprüft noch umgangen.
 
 ## Bestandsaufnahme und Triage vor den weiteren Umsetzungspaketen
 
@@ -90,7 +98,8 @@ Ausstrahlungszustände.
 Die dort vorgeschlagenen Pakete sind noch keine automatischen
 Programmieraufträge. #256 wurde daraus als eigenständiges nächstes
 Datenfundament-Paket ausgearbeitet. Die übrigen UI-, TV-, Trailer- und
-Erinnerungspakete sowie die getrennten Waipu-Folgepakete #259 und #260 werden nach #256 weiter priorisiert. #259 kann zunächst mit dem bestehenden 50-Sender-Bestand verifiziert werden; #260 benötigt zusätzlich eine skalierbare TV-Datenladung. Jedes gewählte
+Erinnerungspakete sowie #260 werden nach #256 und #259 weiter priorisiert. #260
+benötigt zusätzlich eine skalierbare TV-Datenladung. Jedes gewählte
 Paket beginnt mit einem kurzen Klärungsblock zu seinen ausdrücklich
 registrierten offenen Fragen.
 
@@ -98,11 +107,11 @@ registrierten offenen Fragen.
 
 ### #259 – Waipu-Live: laufende Sendung direkt in waipu.tv starten
 
-- vorhandene EPG-Deep-Link-Vorarbeit aus #75 auf den aktuellen Waipu-Ausstrahlungsbestand anwenden;
-- verifizieren, ob Waipu-Sender-ID und öffentliche Programm-ID das offizielle `app.waipu.tv/epgdetails/...`-Ziel eindeutig bilden;
-- zunächst mit den vorhandenen 50 Sendern auf Android und realer Fire-TV-Hardware prüfen;
-- nur der tatsächliche Start des richtigen laufenden Senders gilt als Produkterfolg;
-- allgemeiner Waipu-Live-Einstieg bleibt Fallback; Waiputhek, Aufnahmen, Zugangsdaten und DRM bleiben getrennt.
+- abgeschlossen und auf Smartphone, Tablet sowie Fire TV abgenommen;
+- bestätigter Vertrag: exakte Programmseite aus konkreter Sender- und Programm-ID;
+- **Play** startet bei einer laufenden Sendung den richtigen Live-Sender;
+- allgemeiner Waipu-/Web-Einstieg bleibt sicherer Fallback;
+- Waiputhek, Aufnahmen, Zugangsdaten, Tarifprüfung und DRM bleiben getrennt.
 
 ### #260 – Waipu-Live: Senderbestand über 50 hinaus vollständig ausbauen
 
@@ -143,10 +152,10 @@ registrierten offenen Fragen.
 
 ## Aktuelle Abhängigkeitskette
 
-`#4 abgeschlossen → #256 abgeschlossen → #259 Deep-Link-Verifikation → Triage der gemeinsamen TV-Grundlage → #260 Senderausbau in Wellen → #118 → #7`
+`#4 abgeschlossen → #256 abgeschlossen → #259 abgeschlossen → Triage der gemeinsamen TV-Grundlage → #260 Senderausbau in Wellen → #118 → #7`
 
-#4 und #256 sind vollständig abgenommen und geschlossen. Der veröffentlichte
-50-Sender-Bestand bleibt der gültige Ausgangsstand. Der direkte Live-Absprung
-wird als nächstes in #259 getrennt verifiziert; die spätere Erweiterung ist in
-#260 dokumentiert. Öffentliche Verteilung bleibt von der Compliance-Prüfung
-#112 abhängig.
+#4, #256 und #259 sind vollständig abgenommen und geschlossen. Der veröffentlichte
+50-Sender-Bestand bleibt der gültige Ausgangsstand. Als nächstes wird aus #254
+und #255 die gemeinsame TV-Grundlage vor dem in #260 dokumentierten Senderausbau
+verbindlich zugeschnitten. Öffentliche Verteilung bleibt von der
+Compliance-Prüfung #112 abhängig.

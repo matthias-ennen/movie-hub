@@ -66,8 +66,16 @@ als geprüfte V3-Kopie an alle betroffenen Quellen verteilt. Reine Search-only-
 Titel bleiben getrennt und verwenden den abgenommenen atomaren Lade-, Fehler-
 und Wiederholen-Pfad im Detailfenster.
 
-Das nächste Arbeitspaket ist
-[#259 – laufende Waipu-Sendung direkt in waipu.tv starten](https://github.com/matthias-ennen/movie-hub/issues/259).
+[#259 – laufende Waipu-Sendung direkt in waipu.tv starten](https://github.com/matthias-ennen/movie-hub/issues/259)
+ist ebenfalls umgesetzt und auf Android-Smartphone, Android-Tablet und Fire TV
+abgenommen. Movie Hub öffnet aus einer konkreten Waipu-Ausstrahlung die exakte
+Programmseite; bei laufenden Sendungen startet **Play** dort den richtigen
+Live-Sender. Ungültige oder fehlende Ausstrahlungsdaten fallen sicher auf den
+allgemeinen Waipu-Einstieg zurück. Anmeldung, Tarif und Wiedergaberechte bleiben
+vollständig in der Verantwortung von waipu.tv.
+
+Als nächster Schritt werden #254 und #255 triagiert und daraus die gemeinsame
+TV-Grundlage vor dem großen Senderausbau verbindlich zugeschnitten.
 
 Das Waipu-Arbeitspaket #4 ist abgeschlossen und abgenommen. Dazu gehören TV-Reiter,
 kontoweite Senderauswahl und -sortierung, Waipu-Badges und Sendetermine,
@@ -89,7 +97,7 @@ seitenspezifisch bleiben nur fachlich notwendige Unterschiede.
 
 Die bestätigte Hauptreihenfolge bleibt zunächst:
 
-`#259 → Triage #254/#255 → #260 → #118 → #7`
+`Triage #254/#255 → gemeinsame TV-Grundlage → #260 → #118 → #7`
 
 Vor jedem Umsetzungspaket werden offene Produktfragen mit Matthias einzeln
 geklärt und anschließend im betreffenden Issue verbindlich dokumentiert.
