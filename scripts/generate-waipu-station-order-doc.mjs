@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import {
   WAIPU_OFFICIAL_FIRST_50_STATIONS,
   WAIPU_STATION_ORDER_SOURCE,
@@ -16,7 +17,7 @@ function decodeHtml(value) {
     .trim()
 }
 
-function extractAllStations(html) {
+export function extractAllStations(html) {
   const activeStart = html.indexOf('<div role="tabpanel" class="tab-pane fade active in "')
   if (activeStart < 0) throw new Error('Der aktive Reiter „Alle Sender“ wurde nicht gefunden.')
   const nextPanel = html.indexOf('<div role="tabpanel"', activeStart + 1)
@@ -73,7 +74,9 @@ async function main() {
   process.stdout.write(`Dokumentiert: ${stations.length} Sender in ${outputPath}\n`)
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error.message}\n`)
-  process.exitCode = 1
-})
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main().catch((error) => {
+    process.stderr.write(`${error.message}\n`)
+    process.exitCode = 1
+  })
+}
