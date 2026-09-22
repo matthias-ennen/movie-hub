@@ -7,8 +7,7 @@ import {
 } from '../lib/personalDataCrypto.js'
 import {
   EMPTY_TITLE_STATE,
-  applyTitleStatePatch,
-  createTitleSnapshot,
+  applyTitleStateUpdate,
   getTitleStateKey,
   hasPersonalTitleState,
   normalizeTitleState,
@@ -96,7 +95,7 @@ export function LibraryProvider({ user, activeProfile, children }) {
     if (!key) throw new Error('Titel hat keine stabile Referenz.')
 
     const previous = statesByKey[key] ?? EMPTY_TITLE_STATE
-    const next = applyTitleStatePatch(previous, patch)
+    const next = applyTitleStateUpdate(item, previous, patch)
 
     setStatesByKey((current) => ({ ...current, [key]: next }))
 
@@ -118,7 +117,7 @@ export function LibraryProvider({ user, activeProfile, children }) {
           tmdbId: item.tmdbId ?? null,
           type: item.type === 'series' ? 'series' : 'movie',
         },
-        titleSnapshot: createTitleSnapshot(item),
+        titleSnapshot: next.titleSnapshot,
         updatedAt: serverTimestamp(),
       }
 

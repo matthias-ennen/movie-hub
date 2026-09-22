@@ -160,6 +160,13 @@ export function applyTitleStatePatch(currentValue, patch, date = new Date()) {
   return next
 }
 
+export function applyTitleStateUpdate(item, currentValue, patch, date = new Date()) {
+  const titleSnapshot = createTitleSnapshot(item)
+  return applyTitleStatePatch(currentValue, {
+    ...patch,
+    titleSnapshot: titleSnapshot ?? currentValue?.titleSnapshot ?? null,
+  }, date)
+}
 export function hasPersonalTitleState(value) {
   const state = normalizeTitleState(value)
   return state.favorite || state.watchlist || state.watched || state.rating !== null || Boolean(state.note.trim())
