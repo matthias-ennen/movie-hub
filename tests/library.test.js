@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyTitleStatePatch,
+  applyTitleStateUpdate,
   createTitleSnapshot,
   getTitleStateKey,
   hasPersonalTitleState,
@@ -60,6 +61,50 @@ describe('persönlicher Film-/Serienzustand', () => {
     expect(merged).toMatchObject([{ tmdbId: 11, title: 'Krieg der Sterne', providerIds: ['prime'] }])
   })
 
+  it('übernimmt einen neuen Watchlist-Titel sofort mit Poster und Hero-Bild in den lokalen Katalog', () => {
+    const detail = {
+      id: 'tmdb-movie-762441',
+      tmdbId: 762441,
+      type: 'movie',
+      source: 'tmdb',
+      title: 'A Quiet Place: Tag Eins',
+      description: 'Die Welt verstummt.',
+      year: 2024,
+      posterUrl: 'https://image.tmdb.org/t/p/w500/poster.jpg',
+      backdropUrl: 'https://image.tmdb.org/t/p/original/backdrop.jpg',
+      artwork: {
+        posterPaths: ['/poster.jpg'],
+        heroBackdropPaths: ['/backdrop.jpg'],
+      },
+      metadataVersion: 3,
+      metadataComplete: true,
+    }
+    const key = getTitleStateKey(detail)
+    const next = applyTitleStateUpdate(detail, {}, { watchlist: true })
+    const states = { [key]: next }
+    const catalog = mergeCatalogWithPersonalSnapshots([], states)
+    const rows = buildPersonalRows(catalog, (item) => states[getTitleStateKey(item)] ?? {})
+
+    expect(next.titleSnapshot).toMatchObject({
+      posterUrl: detail.posterUrl,
+      backdropUrl: detail.backdropUrl,
+      artwork: {
+        posterPaths: ['/poster.jpg'],
+        heroBackdropPaths: ['/backdrop.jpg'],
+      },
+    })
+    expect(catalog).toEqual([next.titleSnapshot])
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      id: 'my-watchlist',
+      title: 'Meine Watchlist',
+      items: [{
+        title: 'A Quiet Place: Tag Eins',
+        posterUrl: detail.posterUrl,
+        backdropUrl: detail.backdropUrl,
+      }],
+    })
+  })
   it('erzeugt genau die drei persönlichen Reihen und sortiert sie fest', () => {
     const titles = [
       { id: 'b', title: 'Beta' },
