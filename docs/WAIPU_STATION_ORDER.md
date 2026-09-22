@@ -2,11 +2,11 @@
 
 Quelle: https://www.waipu.tv/sender/
 
-Stand: 2026-09-19 · 337 Einträge im Reiter „Alle Sender“.
+Stand: 2026-09-22 · 338 Einträge im Reiter „Alle Sender“.
 
-Die ersten 50 Einträge sind die in Movie Hub aktivierte Ausbaustufe. Der Import verwendet feste Waipu-IDs; die öffentliche Webseite wird weder von der App noch vom Nachtjob zur Laufzeit abgefragt.
+Die ersten 100 Einträge sind die in Movie Hub konfigurierte Ausbaustufe. Der Import verwendet feste Waipu-IDs; die öffentliche Webseite wird weder von der App noch vom Nachtjob zur Laufzeit abgefragt.
 
-## In Movie Hub aktivierte Sender 1–50
+## In Movie Hub konfigurierte Sender 1–100
 
 | Nr. | Waipu-ID | Name in Movie Hub | Name auf waipu.tv |
 | ---: | --- | --- | --- |
@@ -60,6 +60,56 @@ Die ersten 50 Einträge sind die in Movie Hub aktivierte Ausbaustufe. Der Import
 | 48 | `axnblackcatchup` | AXN Black Catch-Up | AXN Black Catch-Up HD |
 | 49 | `axnwhitecatchup` | AXN White Catch-Up | AXN White Catch-Up HD |
 | 50 | `retroserien` | Retro Serien | Retro Serien HD |
+| 51 | `beverlyhills90210` | Beverly Hills, 90210 | Beverly Hills 90210 HD |
+| 52 | `retrotv` | Retro TV | Retro TV HD |
+| 53 | `retroflix` | Retroflix | Retroflix HD |
+| 54 | `fernsehschaetze` | Fernsehschätze | Fernsehschätze HD |
+| 55 | `lindenstrasse` | Lindenstraße | Lindenstraße SD |
+| 56 | `natgeo` | National Geographic | National Geographic HD |
+| 57 | `natgeowild` | National Geographic WILD | National Geographic WILD HD |
+| 58 | `animalplanet` | Animal Planet | Animal Planet HD |
+| 59 | `geo` | GEO Television | GEO HD |
+| 60 | `discovery` | Discovery Channel | Discovery Channel HD |
+| 61 | `thehistorychannel` | HISTORY | HISTORY HD |
+| 62 | `kultkrimi` | KultKrimi | KultKrimi HD |
+| 63 | `krimikollegen` | Crimify | Crimify HD |
+| 64 | `crimetime` | CRIME TIME | Crime Time HD |
+| 65 | `tlccrime` | TLC Crime | TLC Crime HD |
+| 66 | `wedotruestories` | wedo true stories | wedo true stories HD |
+| 67 | `crimeinvestigation` | Crime + Investigation | Crime + Investigation HD |
+| 68 | `realcrime` | Real Crime Deutschland | Real Crime Deutschland HD |
+| 69 | `toptruecrime` | TOP TRUE CRIME | Top True Crime HD |
+| 70 | `pridetv` | PRIDEtv | prideTV HD |
+| 71 | `cirkus` | Cirkus Krimi | Cirkus Krimi HD |
+| 72 | `rtlliving` | RTL Living | RTL Living HD |
+| 73 | `sat1emotions` | SAT.1 emotions | SAT.1 emotions HD |
+| 74 | `sat1gold` | SAT.1 GOLD | SAT.1 Gold HD |
+| 75 | `rtlplus` | RTLup | RTLup HD |
+| 76 | `rtlcomedy` | RTL Comedy | RTL Comedy SD |
+| 77 | `sixx` | sixx | SIXX HD |
+| 78 | `serienhits` | Serien Hits | Serienhits HD |
+| 79 | `romance` | Romance TV | Romance TV HD |
+| 80 | `romancecatchup` | Romance TV Catch-Up | Romance TV Catch-Up HD |
+| 81 | `fernsehenmitherz` | Fernsehen mit Herz | Fernsehen mit Herz HD |
+| 82 | `herzfrequenztv` | Herzfrequenz | Herzfrequenz HD |
+| 83 | `buntetv` | BUNTE | BUNTE HD |
+| 84 | `shoppingqueen` | Shopping Queen | Shopping Queen SD |
+| 85 | `tlc` | TLC | TLC HD |
+| 86 | `zdftelenovela` | ZDF Telenovela | ZDF Telenovela HD |
+| 87 | `alleswaszaehlt` | Alles was zählt Classics | Alles was zählt SD |
+| 88 | `rtlzweiclips` | RTLZWEI Clips | RTLZWEI Clips HD |
+| 89 | `rtlzweifamilies` | RTLZWEI Families | RTLZWEI Families HD |
+| 90 | `mystory` | mySTORY | mySTORY HD |
+| 91 | `dmaxblaulicht` | DMAX Blaulicht | DMAX Blaulicht HD |
+| 92 | `rechtgerechtigkeit` | Recht & Gerechtigkeit | Recht & Gerechtigkeit HD |
+| 93 | `rechtordnung` | Einsatz & Ordnung | Einsatz & Ordnung HD |
+| 94 | `bestofcomedy` | Best of Comedy | Best of Comedy HD |
+| 95 | `comedycorner` | Comedy Corner | Comedy Corner HD |
+| 96 | `stromberg` | Stromberg | Stromberg HD |
+| 97 | `pastewka` | Pastewka | Pastewka HD |
+| 98 | `ladykracher` | Ladykracher | Ladykracher HD |
+| 99 | `comedy_central` | Comedy Central | Comedy Central / VIVA HD |
+| 100 | `comedyshows` | Comedy & Shows | Comedy & Shows HD |
 
 ## Vollständige Reihenfolge im Reiter „Alle Sender“
 
@@ -319,87 +369,88 @@ Die ersten 50 Einträge sind die in Movie Hub aktivierte Ausbaustufe. Der Import
 | 252 | PHOENIX HD |
 | 253 | ARTE HD |
 | 254 | ONE (aka EINS Festival) HD |
-| 255 | GRJNGO HD |
-| 256 | DDR TV-Archiv HD |
-| 257 | DEFA TV SD |
-| 258 | Zombieworld HD |
-| 259 | Artflix - Filmklassiker HD |
-| 260 | BRONCO HD |
-| 261 | FilmRise Serien HD |
-| 262 | Netzkino HD |
-| 263 | Deutsche Filme HD |
-| 264 | myMOVIE HD |
-| 265 | Happy Entertainment HD |
-| 266 | Himmlisches Kino HD |
-| 267 | Fabella HD |
-| 268 | Moviedome HD |
-| 269 | Extreme Jobs HD |
-| 270 | DMAX Schatzsucher HD |
-| 271 | Einsatz am Limit HD |
-| 272 | Galileo HD |
-| 273 | WatchMoviesNow HD |
-| 274 | Top Filme HD |
-| 275 | Bigtime HD |
-| 276 | X-Factor by Filmrise HD |
-| 277 | TLC Mystery HD |
-| 278 | TOP SCI-FI |
-| 279 | Utopja HD |
-| 280 | Movie Universe HD |
-| 281 | Tagesschau24 HD |
-| 282 | ARD-alpha HD |
-| 283 | CNN International Europe HD |
-| 284 | BBC News, Europe HD |
-| 285 | N24 Doku HD |
-| 286 | CNBC HD |
-| 287 | Al Jazeera English HD |
-| 288 | EuroNews HD |
-| 289 | France 24 (en) HD |
-| 290 | NHK WORLD-JAPAN HD |
-| 291 | waipu.tv Highlights HD |
-| 292 | WDR Köln HD |
-| 293 | WDR Bielefeld HD |
-| 294 | WDR Bonn HD |
-| 295 | WDR Düsseldorf HD |
-| 296 | WDR Dortmund HD |
-| 297 | WDR Duisburg HD |
-| 298 | WDR Essen HD |
-| 299 | WDR Münster HD |
-| 300 | WDR Siegen HD |
-| 301 | WDR Wuppertal HD |
-| 302 | WDR Aachen HD |
-| 303 | NDR Hamburg HD |
-| 304 | NDR Mecklenburg-Vorpommern HD |
-| 305 | NDR Niedersachsen HD |
-| 306 | NDR Schleswig-Holstein HD |
-| 307 | Radio Bremen HD |
-| 308 | MDR Sachsen-Anhalt HD |
-| 309 | MDR Thüringen HD |
-| 310 | MDR Sachsen HD |
-| 311 | RBB Berlin HD |
-| 312 | SWR Baden-Württemberg HD |
-| 313 | BR Süd HD |
-| 314 | TV Bayern Regional HD |
-| 315 | HR Fernsehen HD |
-| 316 | SR Fernsehen HD |
-| 317 | HSE 24 HD |
-| 318 | QVC HD |
-| 319 | Handystar.tv |
-| 320 | Zender HD |
-| 321 | Gymondo HD |
-| 322 | Royalworld HD |
-| 323 | Aquarium HD |
-| 324 | Time2Rlx HD |
-| 325 | Kaminfeuer HD |
-| 326 | Gronkh HD |
-| 327 | Rocket Beans TV HD |
-| 328 | AlexiBexi HD |
-| 329 | Hey Aaron HD |
-| 330 | Best of The Voice HD |
-| 331 | Big Brother HD |
-| 332 | Bauer sucht Frau SD |
-| 333 | Stand-Up Comedy HD |
-| 334 | MySpass TV SD |
-| 335 | RBB Brandenburg HD |
-| 336 | SWR Rheinland-Pfalz HD |
-| 337 | BR Nord HD |
+| 255 | GRJNGO |
+| 256 | Rauchende Colts |
+| 257 | DDR TV-Archiv HD |
+| 258 | DEFA TV SD |
+| 259 | Zombieworld HD |
+| 260 | Artflix - Filmklassiker HD |
+| 261 | BRONCO |
+| 262 | FilmRise Serien HD |
+| 263 | Netzkino HD |
+| 264 | Deutsche Filme HD |
+| 265 | myMOVIE HD |
+| 266 | Happy Entertainment HD |
+| 267 | Himmlisches Kino HD |
+| 268 | Fabella HD |
+| 269 | Moviedome HD |
+| 270 | Extreme Jobs HD |
+| 271 | DMAX Schatzsucher HD |
+| 272 | Einsatz am Limit HD |
+| 273 | Galileo HD |
+| 274 | WatchMoviesNow HD |
+| 275 | Top Filme HD |
+| 276 | Bigtime HD |
+| 277 | X-Factor by Filmrise HD |
+| 278 | TLC Mystery HD |
+| 279 | TOP SCI-FI |
+| 280 | Utopja HD |
+| 281 | Movie Universe HD |
+| 282 | Tagesschau24 HD |
+| 283 | ARD-alpha HD |
+| 284 | CNN International Europe HD |
+| 285 | BBC News, Europe HD |
+| 286 | N24 Doku HD |
+| 287 | CNBC HD |
+| 288 | Al Jazeera English HD |
+| 289 | EuroNews HD |
+| 290 | France 24 (en) HD |
+| 291 | NHK WORLD-JAPAN HD |
+| 292 | waipu.tv Highlights HD |
+| 293 | WDR Köln HD |
+| 294 | WDR Bielefeld HD |
+| 295 | WDR Bonn HD |
+| 296 | WDR Düsseldorf HD |
+| 297 | WDR Dortmund HD |
+| 298 | WDR Duisburg HD |
+| 299 | WDR Essen HD |
+| 300 | WDR Münster HD |
+| 301 | WDR Siegen HD |
+| 302 | WDR Wuppertal HD |
+| 303 | WDR Aachen HD |
+| 304 | NDR Hamburg HD |
+| 305 | NDR Mecklenburg-Vorpommern HD |
+| 306 | NDR Niedersachsen HD |
+| 307 | NDR Schleswig-Holstein HD |
+| 308 | Radio Bremen HD |
+| 309 | MDR Sachsen-Anhalt HD |
+| 310 | MDR Thüringen HD |
+| 311 | MDR Sachsen HD |
+| 312 | RBB Berlin HD |
+| 313 | SWR Baden-Württemberg HD |
+| 314 | BR Süd HD |
+| 315 | TV Bayern Regional HD |
+| 316 | HR Fernsehen HD |
+| 317 | SR Fernsehen HD |
+| 318 | HSE 24 HD |
+| 319 | QVC HD |
+| 320 | Handystar.tv |
+| 321 | Zender HD |
+| 322 | Gymondo HD |
+| 323 | Royalworld HD |
+| 324 | Aquarium HD |
+| 325 | Time2Rlx HD |
+| 326 | Kaminfeuer HD |
+| 327 | Gronkh HD |
+| 328 | Rocket Beans TV HD |
+| 329 | AlexiBexi HD |
+| 330 | Hey Aaron HD |
+| 331 | Best of The Voice HD |
+| 332 | Big Brother HD |
+| 333 | Bauer sucht Frau SD |
+| 334 | Stand-Up Comedy HD |
+| 335 | MySpass TV SD |
+| 336 | RBB Brandenburg HD |
+| 337 | SWR Rheinland-Pfalz HD |
+| 338 | BR Nord HD |
 

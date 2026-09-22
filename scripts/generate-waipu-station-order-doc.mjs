@@ -2,7 +2,7 @@ import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
-  WAIPU_OFFICIAL_FIRST_50_STATIONS,
+  WAIPU_OFFICIAL_FIRST_100_STATIONS,
   WAIPU_STATION_ORDER_SOURCE,
 } from './waipu-station-order.mjs'
 
@@ -38,9 +38,9 @@ async function main() {
   })
   if (!response.ok) throw new Error(`Waipu-Senderseite antwortete mit HTTP ${response.status}.`)
   const stations = extractAllStations(await response.text())
-  if (stations.length < 50) throw new Error(`Senderliste ist unerwartet kurz (${stations.length}).`)
+  if (stations.length < 100) throw new Error(`Senderliste ist unerwartet kurz (${stations.length}).`)
 
-  WAIPU_OFFICIAL_FIRST_50_STATIONS.forEach((station, index) => {
+  WAIPU_OFFICIAL_FIRST_100_STATIONS.forEach((station, index) => {
     if (stations[index] !== station.websiteName) {
       throw new Error(`Reihenfolge weicht an Position ${index + 1} ab: ${stations[index]} statt ${station.websiteName}.`)
     }
@@ -53,13 +53,13 @@ async function main() {
     '',
     `Stand: ${new Date().toISOString().slice(0, 10)} · ${stations.length} Einträge im Reiter „Alle Sender“.`,
     '',
-    'Die ersten 50 Einträge sind die in Movie Hub aktivierte Ausbaustufe. Der Import verwendet feste Waipu-IDs; die öffentliche Webseite wird weder von der App noch vom Nachtjob zur Laufzeit abgefragt.',
+    'Die ersten 100 Einträge sind die in Movie Hub konfigurierte Ausbaustufe. Der Import verwendet feste Waipu-IDs; die öffentliche Webseite wird weder von der App noch vom Nachtjob zur Laufzeit abgefragt.',
     '',
-    '## In Movie Hub aktivierte Sender 1–50',
+    '## In Movie Hub konfigurierte Sender 1–100',
     '',
     '| Nr. | Waipu-ID | Name in Movie Hub | Name auf waipu.tv |',
     '| ---: | --- | --- | --- |',
-    ...WAIPU_OFFICIAL_FIRST_50_STATIONS.map((station, index) => (
+    ...WAIPU_OFFICIAL_FIRST_100_STATIONS.map((station, index) => (
       `| ${index + 1} | \`${station.id}\` | ${escapeCell(station.name)} | ${escapeCell(station.websiteName)} |`
     )),
     '',

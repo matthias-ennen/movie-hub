@@ -86,8 +86,9 @@ jobs:
             artifacts/waipu-live/match-decisions.json
             artifacts/waipu-live/detail-status.json
             artifacts/waipu-live/unresolved.json
-          key: waipu-fifty-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          key: waipu-hundred-v1-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
+            waipu-hundred-v1-
             waipu-fifty-v1-
             waipu-seven-v1-
 
@@ -136,19 +137,19 @@ jobs:
         if: ${{ steps.tmdb_catalog_strict.outcome == 'success' }}
         run: npm run tmdb:changes:ack -- tmdb-catalog
 
-      - name: Refresh 50-station Waipu grid
+      - name: Refresh 100-station Waipu grid
         id: waipu_sync
         if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         continue-on-error: true
         env:
           WAIPU_SYNC_LIVE: '1'
-          WAIPU_SYNC_APPROVED_STAGE: '50'
+          WAIPU_SYNC_APPROVED_STAGE: '100'
           WAIPU_SYNC_REQUEST_BUDGET: '5000'
           WAIPU_SYNC_PACE_MS: '400'
           WAIPU_SYNC_JITTER_MS: '75'
-        run: npm run waipu:sync -- --live --stage=50
+        run: npm run waipu:sync -- --live --stage=100
 
-      - name: Match and publish 50-station Waipu catalog
+      - name: Match and publish 100-station Waipu catalog
         id: waipu_catalog
         if: ${{ (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && steps.waipu_sync.outcome == 'success' }}
         continue-on-error: true
@@ -181,7 +182,7 @@ jobs:
             artifacts/waipu-live/match-decisions.json
             artifacts/waipu-live/detail-status.json
             artifacts/waipu-live/unresolved.json
-          key: waipu-fifty-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          key: waipu-hundred-v1-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Authenticate to Google Cloud
         id: gcp_auth
