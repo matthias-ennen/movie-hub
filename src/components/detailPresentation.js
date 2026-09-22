@@ -1,4 +1,22 @@
+import { resolvePresentationArtwork } from '../catalog/artworkRotation.js'
+import { loadCompleteTitleMetadata } from '../catalog/loadCompleteTitleMetadata.js'
+
 const DETAIL_IMAGE_WAIT_MS = 1_500
+
+export async function prepareDetailRequestItem(item, {
+  requireComplete = false,
+  artworkOptions = {},
+  loadComplete = loadCompleteTitleMetadata,
+  presentArtwork = resolvePresentationArtwork,
+} = {}) {
+  const detail = requireComplete
+    ? await loadComplete(item, {
+        requireContract: true,
+        requireComplete: true,
+      })
+    : item
+  return presentArtwork(detail, artworkOptions)
+}
 
 export function waitForDetailLoadingPaint({
   requestFrame = globalThis.requestAnimationFrame,

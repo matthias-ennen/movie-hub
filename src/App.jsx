@@ -9,7 +9,7 @@ import ProfileView from './components/ProfileView.jsx'
 import SearchView from './components/SearchView.jsx'
 import SettingsView from './components/SettingsView.jsx'
 import TvView from './components/TvView.jsx'
-import { preloadDetailImage, waitForDetailLoadingPaint } from './components/detailPresentation.js'
+import { prepareDetailRequestItem, preloadDetailImage, waitForDetailLoadingPaint } from './components/detailPresentation.js'
 import { buildCategoryRows } from './catalog/categoryRows.js'
 import { buildPersonalSmartRows, normalizeSmartFilterOptions } from './catalog/personalSmartRows.js'
 import { buildProviderBrowseRows, buildProviderHomeRows } from './catalog/providerCatalogRows.js'
@@ -701,7 +701,7 @@ function MovieHub({ user }) {
     })
   }, [])
 
-  const handleOpenTitle = useCallback((item, displayedPosterUrl = null) => {
+  const handleOpenTitle = useCallback((item, displayedPosterUrl = null, { requireComplete = false } = {}) => {
     setProfileOpen(false)
     if (!detailSessionActiveRef.current) {
       const active = document.activeElement
@@ -715,9 +715,9 @@ function MovieHub({ user }) {
     }
     detailRequestSequenceRef.current += 1
     const requestId = detailRequestSequenceRef.current
-    setDetailRequest({ id: requestId, item: initiallySelected })
+    setDetailRequest({ id: requestId, item: initiallySelected, requireComplete, error: null })
 
-    if (titleNeedsMetadataEnrichment(item)) {
+    if (!requireComplete && titleNeedsMetadataEnrichment(item)) {
       loadCompleteTitleMetadata(item)
         .then((detail) => {
           if (titleNeedsMetadataEnrichment(detail)) return
@@ -763,18 +763,30 @@ function MovieHub({ user }) {
     if (!detailRequest) return undefined
 
     let cancelled = false
-    const { id: requestId, item } = detailRequest
+    if (detailRequest.error) return undefined
+
+    const { id: requestId, item, requireComplete } = detailRequest
 
     async function prepareDetail() {
       await waitForDetailLoadingPaint()
       if (cancelled) return
 
+      const preparedItem = await prepareDetailRequestItem(item, {
+        requireComplete,
+        artworkOptions,
+      })
+      if (cancelled) return
+      const displayedItem = {
+        ...preparedItem,
+        displayPosterUrl: item.displayPosterUrl || preparedItem.displayPosterUrl,
+      }
+
       let sharedMedia = []
       let sharedMediaLoadError = ''
       const shouldLoadSharedMedia = Boolean(user?.uid)
-        && (sharedMediaCatalogLoading || hasMovieHubTitle(item))
+        && (sharedMediaCatalogLoading || hasMovieHubTitle(displayedItem))
       const mediaLoad = shouldLoadSharedMedia
-        ? loadSharedMediaCached(user.uid, item)
+        ? loadSharedMediaCached(user.uid, displayedItem)
           .then((entries) => { sharedMedia = entries })
           .catch((error) => {
             console.error(error)
@@ -783,20 +795,26 @@ function MovieHub({ user }) {
         : Promise.resolve()
 
       await Promise.all([
-        preloadDetailImage(item.displayPosterUrl || item.posterUrl || null),
+        preloadDetailImage(displayedItem.displayPosterUrl || displayedItem.posterUrl || null),
         mediaLoad,
       ])
       if (cancelled) return
 
       setDetailSharedMedia(sharedMedia)
       setDetailSharedMediaLoadError(sharedMediaLoadError)
-      setSelectedTitle(item)
+      setSelectedTitle(displayedItem)
       setDetailRequest((current) => current?.id === requestId ? null : current)
     }
 
     prepareDetail().catch((error) => {
       console.warn('Movie-Hub-Detailansicht konnte nicht vollständig vorbereitet werden.', error)
       if (cancelled) return
+      if (requireComplete) {
+        setDetailRequest((current) => current?.id === requestId
+          ? { ...current, error }
+          : current)
+        return
+      }
       setDetailSharedMedia([])
       setDetailSharedMediaLoadError('Zusätzliche Detailinformationen konnten nicht geladen werden.')
       setSelectedTitle(item)
@@ -804,7 +822,7 @@ function MovieHub({ user }) {
     })
 
     return () => { cancelled = true }
-  }, [detailRequest, hasMovieHubTitle, sharedMediaCatalogLoading, user?.uid])
+  }, [artworkOptions, detailRequest, hasMovieHubTitle, sharedMediaCatalogLoading, user?.uid])
 
   const restoreDetailReturnFocus = useCallback(() => {
     const target = detailReturnFocusRef.current
@@ -831,6 +849,14 @@ function MovieHub({ user }) {
     }
     closeDetail()
   }, [closeDetail, selectedTitle])
+
+  const retryDetailLoading = useCallback(() => {
+    detailRequestSequenceRef.current += 1
+    const requestId = detailRequestSequenceRef.current
+    setDetailRequest((current) => current
+      ? { ...current, id: requestId, error: null }
+      : current)
+  }, [])
 
   const closeInteractiveLayer = useCallback(() => {
     if (detailRequest) {
@@ -1340,7 +1366,12 @@ function MovieHub({ user }) {
         />
       )}
       {detailRequest && (
-        <DetailLoadingScreen item={detailRequest.item} onClose={cancelDetailLoading} />
+        <DetailLoadingScreen
+          item={detailRequest.item}
+          error={detailRequest.error}
+          onRetry={retryDetailLoading}
+          onClose={cancelDetailLoading}
+        />
       )}
       {exitDialogOpen && <ExitConfirmationDialog onCancel={() => setExitDialogOpen(false)} onClose={closeApp} />}
     </div>

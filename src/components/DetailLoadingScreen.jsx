@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react'
 
-export default function DetailLoadingScreen({ item, onClose }) {
+export default function DetailLoadingScreen({ item, error = null, onRetry, onClose }) {
   const closeRef = useRef(null)
+  const retryRef = useRef(null)
 
   useEffect(() => {
-    closeRef.current?.focus({ preventScroll: true })
-  }, [])
+    const target = error ? retryRef.current : closeRef.current
+    target?.focus({ preventScroll: true })
+  }, [error])
 
   return (
     <div
@@ -20,7 +22,7 @@ export default function DetailLoadingScreen({ item, onClose }) {
         >
           <span className="detail-type">{item?.type === 'series' ? 'SERIE' : 'FILM'}</span>
         </div>
-        <div className="detail-copy detail-loading-copy">
+        <div className={`detail-copy detail-loading-copy${error ? ' detail-loading-error-copy' : ''}`}>
           <button
             ref={closeRef}
             className="icon-button detail-close"
@@ -29,7 +31,34 @@ export default function DetailLoadingScreen({ item, onClose }) {
             data-focusable="true"
             aria-label="Details schließen"
           >×</button>
-          <p className="loading-copy" role="status" aria-live="polite">Details werden geladen …</p>
+          {error ? (
+            <section className="library-empty-state detail-loading-error" role="alert">
+              <p className="settings-kicker">Details nicht erreichbar</p>
+              <h2>Die vollständigen Titeldetails konnten nicht geladen werden.</h2>
+              <p>Prüfe deine Verbindung und den TMDB API Read Access Token in den Einstellungen.</p>
+              <div className="detail-loading-actions">
+                <button
+                  ref={retryRef}
+                  type="button"
+                  className="action-button action-button-primary"
+                  data-focusable="true"
+                  onClick={onRetry}
+                >
+                  Erneut versuchen
+                </button>
+                <button
+                  type="button"
+                  className="action-button action-button-secondary"
+                  data-focusable="true"
+                  onClick={onClose}
+                >
+                  Zurück zur Suche
+                </button>
+              </div>
+            </section>
+          ) : (
+            <p className="loading-copy" role="status" aria-live="polite">Details werden geladen …</p>
+          )}
         </div>
       </section>
     </div>
