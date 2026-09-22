@@ -20,6 +20,22 @@ Dieses Dokument hält den gemeinsam erreichten Stand fest, ohne die noch offenen
 - Aus diesem Dokument entsteht **kein automatischer Programmierauftrag**.
 - Vor jedem Umsetzungspaket werden Scope, offene Fragen und Abnahme gemeinsam bestätigt.
 
+## Fortschreibung vom 22. September 2026
+
+Die aus dieser Bestandsaufnahme hervorgegangene gemeinsame TV-/Inhaltsseiten-
+Grundlage ist umgesetzt und auf Smartphone, Android-Tablet sowie Fire TV
+abgenommen:
+
+- #281 – TV-Hero, Zeitraumwahl und Videothek-Posterreihen;
+- #283 – gemeinsamer Hero-first-Seitenrahmen für TV;
+- #285/#289 – TV-/Hero-UI-Finish, Aktivierungsfokus und Folgekorrekturen;
+- #256 – katalogübergreifendes Datenfundament;
+- #259 – exakter Waipu-Programmlink mit sicherer Fallbackkette.
+
+Die historischen Paketvorschläge und Fragenregister bleiben nachfolgend als
+Quellnachweis erhalten. Nächster Wiedereinstieg ist #260, der kontrollierte
+Senderausbau über den derzeit veröffentlichten 50-Sender-Bestand hinaus.
+
 ## Verbindliches gemeinsames Architekturprinzip
 
 **Home, Filme, Serien, TV und Meine Inhalte sollen technisch auf derselben stabilen Inhaltsseiten-Grundlage aufbauen.**

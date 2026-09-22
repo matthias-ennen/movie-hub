@@ -25,8 +25,11 @@ Zuletzt abgeschlossen bzw. abgenommen:
 - #4 – öffentlicher Waipu-Live-Katalog einschließlich 50-Sender-Bestand, TV-Integration und Geräteabnahme
 - #256 – vollständige kanonische Titelmetadaten, gemeinsamer Nachtlauf und atomarer Search-only-Detailpfad
 - #259 – exakter Waipu-Programmlink mit sicherer Fallbackkette und Geräteabnahme auf Smartphone, Tablet und Fire TV
+- #281 – TV-Hero, Zeitraumwahl und Videothek-Posterreihen
+- #283 – gemeinsamer Hero-first-Seitenrahmen für TV
+- #285/#289 – TV-/Hero-UI-Finish, Aktivierungsfokus und Folgekorrekturen
 
-Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
+Die Fire-TV-App wurde mit diesem Stand zuletzt am 22.09.2026 abgenommen.
 
 ## Abgeschlossenes Datenfundament
 
@@ -71,13 +74,7 @@ zwingend davor liegen.
 
 ## Aktuelle Priorisierung
 
-### 1. Triage #254/#255 und gemeinsame TV-Grundlage
-
-- Beobachtungen des Referenzstands fachlich und technisch bündeln
-- den Scope eines gemeinsamen TV-Grundlagenpakets verbindlich festlegen
-- Zeit-/Sichtbereich, Fokus, Scrollposition und Speicherbudget vor #260 klären
-
-### 2. #260 – Waipu-Senderbestand über 50 hinaus ausbauen
+### 1. #260 – Waipu-Senderbestand über 50 hinaus ausbauen
 
 - offizielle Liste, technischen Stamm und tatsächlich lineare Movie-Hub-Sender abgleichen
 - 337 dokumentierte offizielle Listeneinträge und zuletzt 398 technische Einträge klassifizieren
@@ -86,7 +83,7 @@ zwingend davor liegen.
 - neue Sender standardmäßig aktivieren und bestehende persönliche Einstellungen erhalten
 - Compliance-Gate #112 vor öffentlicher Verteilung beachten
 
-### 3. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
+### 2. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
 
 - einfache Beobachten-Aktion direkt am Titel
 - rent/buy-only bzw. aktuell nicht inklusive Titel beobachten
@@ -94,7 +91,7 @@ zwingend davor liegen.
 - Benachrichtigungen nur bei echten Änderungen
 - Beobachtung einfach wieder entfernen
 
-### 4. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
+### 3. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
 
 - persönliche Signale aus Bewertungen, gesehen/ungesehen, Favoriten und Watchlist nutzen
 - persönliche Top-100- und Empfehlungsreihen erzeugen
@@ -114,12 +111,12 @@ zwingend davor liegen.
 
 ## Abhängigkeitskette
 
-`#4 abgeschlossen → #256 abgeschlossen → #259 abgeschlossen → Triage #254/#255 → gemeinsame TV-Grundlage → #260 Senderausbau in Wellen → #118 → #7`
+`#4 abgeschlossen → #256 abgeschlossen → #259 abgeschlossen → TV-Grundlage abgeschlossen → #260 Senderausbau in Wellen → #118 → #7`
 
-#4, #256 und #259 sind vollständig abgenommen und geschlossen. Der
-50-Sender-Bestand bleibt der gültige Ausgangsstand. Als nächstes werden #254 und
-#255 triagiert und die gemeinsame TV-Grundlage vor der ausdrücklich
-freizugebenden, stufenweisen Senderausweitung aus #260 zugeschnitten.
+#4, #256, #259 sowie die TV-Grundlage aus #281, #283, #285 und #289 sind
+vollständig abgenommen und geschlossen. Der 50-Sender-Bestand bleibt der gültige
+Ausgangsstand. Als nächstes wird #260 nochmals technisch eingegrenzt und danach
+in ausdrücklich freizugebenden, kontrollierten Senderwellen umgesetzt.
 
 ## Leitentscheidung
 

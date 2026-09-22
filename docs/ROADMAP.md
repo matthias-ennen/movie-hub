@@ -34,8 +34,11 @@ Zu den zuletzt abgeschlossenen bzw. abgenommenen Paketen gehören insbesondere:
 - #4 – öffentlicher Waipu-Live-Katalog einschließlich 50-Sender-Bestand, TV-Integration und Geräteabnahme
 - #256 – vollständige kanonische Titelmetadaten, gemeinsamer Nachtlauf und atomarer Search-only-Detailpfad
 - #259 – exakter Waipu-Programmlink mit sicherer Fallbackkette und Geräteabnahme auf Smartphone, Tablet und Fire TV
+- #281 – TV-Hero, Zeitraumwahl und Videothek-Posterreihen
+- #283 – gemeinsamer Hero-first-Seitenrahmen für TV
+- #285/#289 – TV-/Hero-UI-Finish, Aktivierungsfokus und Folgekorrekturen
 
-Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zuletzt am 18.09.2026 abgenommen.
+Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zuletzt am 22.09.2026 abgenommen.
 
 ## Abgeschlossenes Datenfundament
 
@@ -82,12 +85,11 @@ unterstützte Linkziele werden über die bestehende sichere Waipu-/Web-Fallbackk
 behandelt. Anmeldung, Tarif, DRM und Wiedergaberechte verbleiben vollständig bei
 waipu.tv und werden in Movie Hub weder geprüft noch umgangen.
 
-## Bestandsaufnahme und Triage vor den weiteren Umsetzungspaketen
+## Abgeschlossene TV-/Inhaltsseiten-Grundlage
 
-Die Beobachtungen zum Referenzstand APK 0.1.473 sind in #254 gesammelt und in
-[Bestandsaufnahme ab APK 0.1.473](APP_REVIEW_0.1.473.md) strukturiert. Wegen der
-Größe von #254 werden weitere Beobachtungen, offene Entscheidungen und die
-Paketbildung in #255 fortgeführt.
+Die Beobachtungen zum Referenzstand APK 0.1.473 wurden in #254 gesammelt und in
+[Bestandsaufnahme ab APK 0.1.473](APP_REVIEW_0.1.473.md) strukturiert. #255 bleibt
+für die weitere Triage und die noch offenen Trailer-/Erinnerungspakete erhalten.
 
 Verbindliches Ziel ist eine gemeinsame technische Inhaltsseiten-Grundlage für
 **Home, Filme, Serien, TV und Meine Inhalte**. Bewährte Seiten-, Hero-,
@@ -95,13 +97,20 @@ Posterreihen-, Fokus-, Lade- und Detailseitenlogik wird gemeinsam genutzt;
 TV ergänzt ausschließlich die fachlich notwendigen Zeit-, Sender- und
 Ausstrahlungszustände.
 
-Die dort vorgeschlagenen Pakete sind noch keine automatischen
-Programmieraufträge. #256 wurde daraus als eigenständiges nächstes
-Datenfundament-Paket ausgearbeitet. Die übrigen UI-, TV-, Trailer- und
-Erinnerungspakete sowie #260 werden nach #256 und #259 weiter priorisiert. #260
-benötigt zusätzlich eine skalierbare TV-Datenladung. Jedes gewählte
-Paket beginnt mit einem kurzen Klärungsblock zu seinen ausdrücklich
-registrierten offenen Fragen.
+Die gemeinsame TV-/Inhaltsseiten-Grundlage wurde über #281, #283, #285 und #289
+umgesetzt. Hero-first-Laden, Zeitraumwahl, Posterreihen, Fokus, Rückkehrzustand,
+Abstände und TV-Statusdarstellung sind auf Smartphone, Android-Tablet und Fire
+TV abgenommen. Die noch offenen Trailer-/Teaser- und Erinnerungspakete bleiben
+in #255 getrennt dokumentiert.
+
+## Nächstes Arbeitspaket
+
+### #260 – Waipu-Live: Senderbestand über 50 hinaus vollständig ausbauen
+
+Vor dem Ausbau werden technischer Senderstamm, offizielle Senderliste,
+Movie-Hub-Eignung, Requestbudgets und der skalierbare TV-Datenlader nochmals
+gegen den aktuellen Stand geprüft. Erst danach beginnt der Ausbau in
+kontrollierten Wellen.
 
 ## Bereits getrennt dokumentierte Waipu-Folgepakete
 
@@ -152,10 +161,10 @@ registrierten offenen Fragen.
 
 ## Aktuelle Abhängigkeitskette
 
-`#4 abgeschlossen → #256 abgeschlossen → #259 abgeschlossen → Triage der gemeinsamen TV-Grundlage → #260 Senderausbau in Wellen → #118 → #7`
+`#4 abgeschlossen → #256 abgeschlossen → #259 abgeschlossen → TV-Grundlage abgeschlossen → #260 Senderausbau in Wellen → #118 → #7`
 
-#4, #256 und #259 sind vollständig abgenommen und geschlossen. Der veröffentlichte
-50-Sender-Bestand bleibt der gültige Ausgangsstand. Als nächstes wird aus #254
-und #255 die gemeinsame TV-Grundlage vor dem in #260 dokumentierten Senderausbau
-verbindlich zugeschnitten. Öffentliche Verteilung bleibt von der
-Compliance-Prüfung #112 abhängig.
+#4, #256, #259 sowie die TV-Grundlage aus #281, #283, #285 und #289 sind
+vollständig abgenommen und geschlossen. Der veröffentlichte 50-Sender-Bestand
+bleibt der gültige Ausgangsstand. Als nächstes folgt #260 in kontrollierten
+Senderwellen. Öffentliche Verteilung bleibt von der Compliance-Prüfung #112
+abhängig.

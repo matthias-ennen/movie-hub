@@ -74,8 +74,9 @@ Live-Sender. Ungültige oder fehlende Ausstrahlungsdaten fallen sicher auf den
 allgemeinen Waipu-Einstieg zurück. Anmeldung, Tarif und Wiedergaberechte bleiben
 vollständig in der Verantwortung von waipu.tv.
 
-Als nächster Schritt werden #254 und #255 triagiert und daraus die gemeinsame
-TV-Grundlage vor dem großen Senderausbau verbindlich zugeschnitten.
+Die gemeinsame TV-/Hero-Grundlage aus #281, #283, #285 und #289 ist technisch
+umgesetzt und auf Smartphone, Android-Tablet sowie Fire TV abgenommen. Als
+nächstes Arbeitspaket folgt der kontrollierte Senderausbau aus #260.
 
 Das Waipu-Arbeitspaket #4 ist abgeschlossen und abgenommen. Dazu gehören TV-Reiter,
 kontoweite Senderauswahl und -sortierung, Waipu-Badges und Sendetermine,
@@ -97,7 +98,7 @@ seitenspezifisch bleiben nur fachlich notwendige Unterschiede.
 
 Die bestätigte Hauptreihenfolge bleibt zunächst:
 
-`Triage #254/#255 → gemeinsame TV-Grundlage → #260 → #118 → #7`
+`#260 → #118 → #7`
 
 Vor jedem Umsetzungspaket werden offene Produktfragen mit Matthias einzeln
 geklärt und anschließend im betreffenden Issue verbindlich dokumentiert.
