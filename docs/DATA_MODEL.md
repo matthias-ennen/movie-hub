@@ -63,8 +63,13 @@ users/{uid}/profiles/{profileId}/titles/{type-tmdbId}
   favorite          boolean
   watchlist         boolean
   rating            number | null
-  note              string
-  titleSnapshot     map | null
+  noteEncrypted     map
+  titleRef          map              # dauerhafte Identität: catalogId, Medientyp, TMDB-ID
+  catalogRelevant   boolean          # steuert die Aufnahme in das Kandidateninventar
+  canonicalReady    boolean          # gemeinsamer Search-Detail-Datensatz veröffentlicht
+  canonicalMetadataVersion number | null
+  canonicalMetadataUpdatedAt string | null
+  bootstrapSnapshot map | null       # nur bis zur nächsten kanonischen Veröffentlichung
 
 users/{uid}/movies/{tmdbId}
   rating            number | null   # 1 bis 10

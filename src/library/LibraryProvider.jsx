@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { collection, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
+import { collection, deleteField, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
 import { firebaseReady } from '../lib/firebase.js'
 import {
   protectPersonalValue,
@@ -10,8 +10,8 @@ import {
   applyTitleStateUpdate,
   getTitleStateKey,
   hasPersonalTitleState,
-  normalizeTitleState,
 } from './libraryState.js'
+import { hydratePersonalTitleState } from './personalTitleMetadata.js'
 
 const LibraryContext = createContext(null)
 const NOTE_PURPOSE = 'profile.note'
@@ -57,17 +57,19 @@ export function LibraryProvider({ user, activeProfile, children }) {
 
         if (cancelled) return
 
-        const nextStates = {}
-        snapshot.forEach((stateDocument) => {
+        const entries = await Promise.all(snapshot.docs.map(async (stateDocument) => {
           const raw = stateDocument.data()
           try {
             const note = readStoredNote(raw)
-            nextStates[stateDocument.id] = normalizeTitleState({ ...raw, note })
+            const state = await hydratePersonalTitleState({ ...raw, note })
+            return [stateDocument.id, state]
           } catch (cryptoError) {
             console.warn(`Persönliche Notiz ${stateDocument.id} konnte nicht entschlüsselt werden.`, cryptoError)
-            nextStates[stateDocument.id] = normalizeTitleState({ ...raw, note: '' })
+            const state = await hydratePersonalTitleState({ ...raw, note: '' })
+            return [stateDocument.id, state]
           }
-        })
+        }))
+        const nextStates = Object.fromEntries(entries)
         if (!cancelled) setStatesByKey(nextStates)
       } catch (loadError) {
         if (!cancelled) {
@@ -108,7 +110,13 @@ export function LibraryProvider({ user, activeProfile, children }) {
         'titles', key,
       )
 
-      const { note, ...publicState } = next
+      const {
+        note,
+        titleRef: _titleRef,
+        titleSnapshot,
+        canonicalReady,
+        ...publicState
+      } = next
       const payload = {
         ...publicState,
         ...encryptedNoteFields(note),
@@ -117,7 +125,10 @@ export function LibraryProvider({ user, activeProfile, children }) {
           tmdbId: item.tmdbId ?? null,
           type: item.type === 'series' ? 'series' : 'movie',
         },
-        titleSnapshot: next.titleSnapshot,
+        catalogRelevant: hasPersonalTitleState(next),
+        canonicalReady,
+        bootstrapSnapshot: canonicalReady ? deleteField() : titleSnapshot,
+        titleSnapshot: deleteField(),
         updatedAt: serverTimestamp(),
       }
 

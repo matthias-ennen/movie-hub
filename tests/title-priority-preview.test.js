@@ -103,6 +103,25 @@ describe('read-only Titelprioritätsvorschau', () => {
     expect(preview.counts.newCandidates).toBeNull()
   })
 
+  it('publishes a complete profile bootstrap even when no previous candidate baseline exists', () => {
+    const inventory = {
+      kind: 'title-candidate-inventory',
+      candidates: [candidate('movie:77', {
+        canonicalPublicationPending: true,
+      }, ['profile-state'])],
+    }
+
+    const preview = buildTitlePriorityPreview({ inventory, previousState: null, capacity: 10 })
+
+    expect(preview.queue[0]).toMatchObject({
+      key: 'movie:77',
+      priority: { rank: 2, id: 'new-catalog-relevant' },
+      reasons: ['new-catalog-relevant'],
+      action: 'reuse-canonical',
+      fetchRequired: false,
+    })
+  })
+
   it('does not interpret a missing changes artifact as an empty verified change set', () => {
     const inventory = { candidates: [candidate('movie:11')] }
     const preview = buildTitlePriorityPreview({ inventory })

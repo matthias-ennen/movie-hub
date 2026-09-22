@@ -126,12 +126,22 @@ describe('kanonischer Titel-Executor', () => {
       ref: { path: 'users/alice/sharedMedia/movie-11', set: movieHubSet },
       data: () => ({ hasMedia: true, titleRef: { tmdbId: 11, type: 'movie', title: 'Alt' } }),
     }
+    const profileDocument = {
+      ref: { path: 'users/alice/profiles/main/titles/movie-11' },
+      data: () => ({
+        titleRef: { tmdbId: 11, type: 'movie' },
+        bootstrapSnapshot: { ...canonical, title: 'Temporär' },
+        watchlist: true,
+        catalogRelevant: true,
+      }),
+    }
     const values = collectCanonicalCandidateValues({
       catalog: { titles: [canonical] },
       personalDocuments: [personalDocument],
+      profileDocuments: [profileDocument],
       movieHubDocuments: [movieHubDocument],
     })
-    expect(values.get('movie:11')).toHaveLength(3)
+    expect(values.get('movie:11')).toHaveLength(4)
 
     const plan = buildCanonicalFanoutPlan({
       updates: new Map([['movie:11', canonical]]),
@@ -140,6 +150,7 @@ describe('kanonischer Titel-Executor', () => {
       searchShards: new Map(),
       waipuTitles: { entries: [{ tmdbId: 11, type: 'movie', title: 'Alt', airings: [{ stationId: 'zdf' }] }] },
       personalDocuments: [personalDocument],
+      profileDocuments: [profileDocument],
       movieHubDocuments: [movieHubDocument],
       generatedAt: '2026-09-20T05:00:00.000Z',
     })
@@ -160,7 +171,15 @@ describe('kanonischer Titel-Executor', () => {
       metadataComplete: true,
       syncedAt: '2026-09-19T00:00:00.000Z',
     })
-    expect(plan.firestoreWrites[1].data.titleRef).toMatchObject({
+    expect(plan.firestoreWrites[1]).toMatchObject({
+      data: {
+        titleRef: { tmdbId: 11, type: 'movie' },
+        canonicalReady: true,
+        canonicalMetadataVersion: 3,
+      },
+      deleteFields: ['bootstrapSnapshot', 'titleSnapshot'],
+    })
+    expect(plan.firestoreWrites[2].data.titleRef).toMatchObject({
       tmdbId: 11,
       metadataComplete: true,
       metadataChecks: movieChecks,
@@ -169,9 +188,49 @@ describe('kanonischer Titel-Executor', () => {
       catalogUpdated: 1,
       waipuUpdated: 1,
       searchDetailsUpdated: 1,
+      searchIndexAdded: 0,
       personalUpdated: 1,
+      profileUpdated: 1,
       movieHubUpdated: 1,
-      firestoreWrites: 2,
+      firestoreWrites: 3,
+    })
+  })
+
+  it('publishes a profile-only title to the shared search detail before discarding its bootstrap', () => {
+    const canonical = completeMovie(77, 'Profilfilm')
+    const profileDocument = {
+      ref: { path: 'users/alice/profiles/main/titles/movie-77' },
+      data: () => ({
+        titleRef: { tmdbId: 77, type: 'movie' },
+        bootstrapSnapshot: canonical,
+        favorite: true,
+        catalogRelevant: true,
+      }),
+    }
+    const plan = buildCanonicalFanoutPlan({
+      updates: new Map([['movie:77', canonical]]),
+      searchIndex: { kind: 'search-index', entries: [] },
+      searchShards: new Map(),
+      profileDocuments: [profileDocument],
+      generatedAt: '2026-09-20T05:00:00.000Z',
+    })
+
+    expect(plan.searchIndex.entries).toMatchObject([{
+      tmdbId: 77,
+      type: 'movie',
+      title: 'Profilfilm',
+      scope: 'public',
+    }])
+    expect(plan.searchShards.get('0d').entries[0]).toMatchObject({
+      tmdbId: 77,
+      title: 'Profilfilm',
+      canonicalPublished: true,
+    })
+    expect(plan.firestoreWrites[0].deleteFields).toEqual(['bootstrapSnapshot', 'titleSnapshot'])
+    expect(plan.counts).toMatchObject({
+      searchIndexAdded: 1,
+      searchDetailsUpdated: 1,
+      profileUpdated: 1,
     })
   })
 })

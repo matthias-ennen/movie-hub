@@ -5,6 +5,7 @@ import { mergeEnrichedTitle, titleNeedsMetadataEnrichment } from '../src/catalog
 import { buildSharedMediaTitleRef } from '../src/library/sharedMediaCatalogModel.js'
 import { mergeSearchDetail, searchDetailBucket } from '../src/search/lazySearchDetails.js'
 import { nativeTitleToFirestore } from '../src/tmdb/tmdbCatalogModel.js'
+import { toSearchIndexEntry } from '../src/search/searchIndex.js'
 import { canonicalTitleIdentity } from './build-title-candidate-inventory.mjs'
 import { WaipuTmdbMetadataClient } from './waipu-title-metadata.mjs'
 
@@ -163,10 +164,29 @@ function validUserDocumentPath(document, collection) {
   return segments.length === 4 && segments[0] === 'users' && segments[2] === collection
 }
 
+function validProfileTitleDocumentPath(document) {
+  const path = String(document?.ref?.path ?? document?.path ?? '')
+  const segments = path.split('/')
+  return segments.length === 6
+    && segments[0] === 'users'
+    && segments[2] === 'profiles'
+    && segments[4] === 'titles'
+}
+
+function hasCatalogRelevantProfileState(value) {
+  if (value?.catalogRelevant === true) return true
+  return value?.favorite === true
+    || value?.watchlist === true
+    || value?.watched === true
+    || (Number.isInteger(value?.rating) && value.rating >= 1 && value.rating <= 10)
+}
+
 export function collectCanonicalCandidateValues({
   catalog = {},
   waipuTitles = {},
+  searchShards = new Map(),
   personalDocuments = [],
+  profileDocuments = [],
   movieHubDocuments = [],
 } = {}) {
   const values = new Map()
@@ -178,8 +198,17 @@ export function collectCanonicalCandidateValues({
   }
   for (const value of Array.isArray(catalog?.titles) ? catalog.titles : []) add(value)
   for (const value of Array.isArray(waipuTitles?.entries) ? waipuTitles.entries : []) add(value)
+  for (const shard of searchShards instanceof Map ? searchShards.values() : []) {
+    for (const value of Array.isArray(shard?.entries) ? shard.entries : []) add(value)
+  }
   for (const document of Array.isArray(personalDocuments) ? personalDocuments : []) {
     if (validUserDocumentPath(document, 'tmdbCatalog')) add(documentValue(document))
+  }
+  for (const document of Array.isArray(profileDocuments) ? profileDocuments : []) {
+    if (!validProfileTitleDocumentPath(document)) continue
+    const data = documentValue(document)
+    if (!hasCatalogRelevantProfileState(data)) continue
+    add(data?.bootstrapSnapshot ?? data?.titleSnapshot ?? data?.titleRef)
   }
   for (const document of Array.isArray(movieHubDocuments) ? movieHubDocuments : []) {
     const data = documentValue(document)
@@ -210,6 +239,7 @@ export function buildCanonicalFanoutPlan({
   searchShards = new Map(),
   waipuTitles = {},
   personalDocuments = [],
+  profileDocuments = [],
   movieHubDocuments = [],
   generatedAt = new Date().toISOString(),
 } = {}) {
@@ -220,12 +250,20 @@ export function buildCanonicalFanoutPlan({
     entries: Array.isArray(shard?.entries) ? [...shard.entries] : [],
   }]))
   let searchDetailsUpdated = 0
-  const searchEntries = new Map((Array.isArray(searchIndex?.entries) ? searchIndex.entries : [])
+  let searchIndexAdded = 0
+  const nextSearchEntries = Array.isArray(searchIndex?.entries) ? [...searchIndex.entries] : []
+  const searchEntries = new Map(nextSearchEntries
     .map((entry) => [canonicalKey(entry), entry]).filter(([key]) => key))
 
   for (const [key, canonical] of updates) {
-    const searchEntry = searchEntries.get(key)
-    if (!searchEntry) continue
+    let searchEntry = searchEntries.get(key)
+    if (!searchEntry) {
+      searchEntry = toSearchIndexEntry(canonical, { scope: 'public' })
+      if (!searchEntry) continue
+      nextSearchEntries.push(searchEntry)
+      searchEntries.set(key, searchEntry)
+      searchIndexAdded += 1
+    }
     const bucket = searchDetailBucket(searchEntry)
     if (!bucket) continue
     const shard = nextSearchShards.get(bucket) || {
@@ -249,6 +287,7 @@ export function buildCanonicalFanoutPlan({
 
   const firestoreWrites = []
   let personalUpdated = 0
+  let profileUpdated = 0
   let movieHubUpdated = 0
   for (const document of Array.isArray(personalDocuments) ? personalDocuments : []) {
     if (!validUserDocumentPath(document, 'tmdbCatalog')) continue
@@ -273,6 +312,28 @@ export function buildCanonicalFanoutPlan({
     })
     personalUpdated += 1
   }
+  for (const document of Array.isArray(profileDocuments) ? profileDocuments : []) {
+    if (!validProfileTitleDocumentPath(document)) continue
+    const data = documentValue(document)
+    if (!hasCatalogRelevantProfileState(data)) continue
+    const canonical = updates.get(canonicalKey(data?.bootstrapSnapshot ?? data?.titleSnapshot ?? data?.titleRef))
+    if (!canonical) continue
+    firestoreWrites.push({
+      ref: document.ref,
+      data: {
+        titleRef: {
+          catalogId: canonical.id,
+          tmdbId: canonical.tmdbId,
+          type: canonical.type,
+        },
+        canonicalReady: true,
+        canonicalMetadataVersion: canonical.metadataVersion,
+        canonicalMetadataUpdatedAt: canonical.metadataUpdatedAt || generatedAt,
+      },
+      deleteFields: ['bootstrapSnapshot', 'titleSnapshot'],
+    })
+    profileUpdated += 1
+  }
   for (const document of Array.isArray(movieHubDocuments) ? movieHubDocuments : []) {
     if (!validUserDocumentPath(document, 'sharedMedia')) continue
     const data = documentValue(document)
@@ -288,6 +349,12 @@ export function buildCanonicalFanoutPlan({
 
   return {
     catalog: { ...catalog, titles: catalogResult.entries },
+    searchIndex: {
+      ...searchIndex,
+      generatedAt,
+      count: nextSearchEntries.length,
+      entries: nextSearchEntries,
+    },
     waipuTitles: { ...waipuTitles, entries: waipuResult.entries, count: waipuResult.entries.length },
     searchShards: nextSearchShards,
     firestoreWrites,
@@ -295,7 +362,9 @@ export function buildCanonicalFanoutPlan({
       catalogUpdated: catalogResult.updated,
       waipuUpdated: waipuResult.updated,
       searchDetailsUpdated,
+      searchIndexAdded,
       personalUpdated,
+      profileUpdated,
       movieHubUpdated,
       firestoreWrites: firestoreWrites.length,
     },
@@ -331,25 +400,31 @@ async function readSearchShards() {
   return { manifest, shards }
 }
 
-async function commitFirestoreWrites(db, writes) {
+async function commitFirestoreWrites(db, writes, deleteFieldValue) {
   const values = Array.isArray(writes) ? writes : []
   if (values.length > 450) {
     throw new Error(`Canonical Firestore fan-out exceeds the atomic batch limit: ${values.length}/450.`)
   }
   if (!values.length) return
   const batch = db.batch()
-  for (const write of values) batch.set(write.ref, write.data, { merge: true })
+  for (const write of values) {
+    const data = { ...write.data }
+    for (const field of Array.isArray(write.deleteFields) ? write.deleteFields : []) {
+      data[field] = deleteFieldValue()
+    }
+    batch.set(write.ref, data, { merge: true })
+  }
   await batch.commit()
 }
 
 async function main() {
-  const [{ applicationDefault, initializeApp }, { getFirestore }] = await Promise.all([
+  const [{ applicationDefault, initializeApp }, { FieldValue, getFirestore }] = await Promise.all([
     import('firebase-admin/app'),
     import('firebase-admin/firestore'),
   ])
   const app = initializeApp({ credential: applicationDefault(), projectId }, 'title-canonical-executor')
   const db = getFirestore(app)
-  const [preview, inventory, catalog, searchIndex, waipuTitles, searchData, personalSnapshot, movieHubSnapshot] = await Promise.all([
+  const [preview, inventory, catalog, searchIndex, waipuTitles, searchData, personalSnapshot, profileSnapshot, movieHubSnapshot] = await Promise.all([
     readJson(previewPath),
     readJson(inventoryPath),
     readJson(catalogPath, { titles: [] }),
@@ -357,6 +432,7 @@ async function main() {
     readJson(waipuTitlesPath, { entries: [] }),
     readSearchShards(),
     db.collectionGroup('tmdbCatalog').get(),
+    db.collectionGroup('titles').get(),
     db.collectionGroup('sharedMedia').get(),
   ])
   if (inventory?.kind !== 'title-candidate-inventory') throw new Error('A valid title candidate inventory is required.')
@@ -364,7 +440,9 @@ async function main() {
   const candidateValues = collectCanonicalCandidateValues({
     catalog,
     waipuTitles,
+    searchShards: searchData.shards,
     personalDocuments: personalSnapshot.docs,
+    profileDocuments: profileSnapshot.docs,
     movieHubDocuments: movieHubSnapshot.docs,
   })
   const selectedEntries = selectedQueueEntries(preview)
@@ -390,6 +468,7 @@ async function main() {
     searchShards: searchData.shards,
     waipuTitles,
     personalDocuments: personalSnapshot.docs,
+    profileDocuments: profileSnapshot.docs,
     movieHubDocuments: movieHubSnapshot.docs,
     generatedAt: execution.summary.generatedAt,
   })
@@ -407,6 +486,7 @@ async function main() {
     }
     await Promise.all([
       writeJsonAtomic(catalogPath, plan.catalog),
+      writeJsonAtomic(searchIndexPath, plan.searchIndex),
       writeJsonAtomic(waipuTitlesPath, plan.waipuTitles),
       writeJsonAtomic(resolve(searchDetailsDirectory, 'manifest.json'), manifest),
       ...[...plan.searchShards].map(([bucket, shard]) => writeJsonAtomic(
@@ -414,7 +494,7 @@ async function main() {
         shard,
       )),
     ])
-    await commitFirestoreWrites(db, plan.firestoreWrites)
+    await commitFirestoreWrites(db, plan.firestoreWrites, () => FieldValue.delete())
   }
 
   const summary = {

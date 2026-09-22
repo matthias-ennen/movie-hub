@@ -70,6 +70,8 @@ Anbieterzugehörigkeit und Titelmetadaten bleiben getrennte Wahrheiten: Mindeste
 
 ### Profilbezogene Inhaltskuratierung
 
+Watchlist, Favoriten, Bewertungen, Gesehen-Markierungen und Notizen speichern dauerhaft nur den persönlichen Zustand sowie die kanonische Referenz `Medientyp + TMDB-ID`. Wird ein bisher reiner Suchtreffer erstmals persönlich gespeichert, überbrückt ein kompakter öffentlicher `bootstrapSnapshot` die Zeit bis zum nächsten Datenlauf. Der profilbezogene Titel wird dabei zur regulären fünften Quelle des kanonischen Kandidateninventars. Der zentrale Executor verwendet einen vorhandenen aktuellen Search-Detail-Datensatz oder lädt die Identität einmal über TMDB, veröffentlicht Search-Index und Detail-Shard und entfernt anschließend den Bootstrap. Persönliche Reihen und Heroes laden danach dieselben kanonischen Metadaten wie alle anderen Ansichten; ein dauerhafter paralleler Watchlist-Metadatenbestand entsteht nicht.
+
 Flexible Anbieter-, Kategorie-, Entdeckungs- und Smart-Reihen trennen Kandidatenmenge, Sortierung und sichtbares Posterlimit. Das aktive Profil wählt zwischen ausgewogen, beliebt, neu, bestbewertet und stärker entdeckungsorientiert. Ein optionaler täglicher oder wöchentlicher Wechsel bleibt innerhalb der Periode stabil. Gesehene Titel können in öffentlichen Reihen normal erscheinen, nach hinten rücken oder ausgeblendet werden.
 
 Home, Filme und Serien koordinieren ihre Hero-Auswahl gemeinsam. Bei ausreichender Kandidatenmenge verwenden die drei Seiten unterschiedliche erste Heroes; weitere Überschneidungen bleiben zulässig. Semantische Neuheiten-/Trendreihen sowie persönliche Watchlist-, Favoriten-, Bewertungs- und TMDB-Reihen behalten ihre fachliche Ordnung.
