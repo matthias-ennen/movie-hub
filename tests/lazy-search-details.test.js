@@ -31,6 +31,24 @@ function storage() {
   }
 }
 
+const MANIFEST_GENERATION = '2026-09-22T09:19:16.559Z'
+
+function jsonResponse(payload) {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => payload,
+  }
+}
+
+function manifestPayload(generatedAt = MANIFEST_GENERATION) {
+  return {
+    kind: 'search-detail-manifest',
+    version: 1,
+    generatedAt,
+  }
+}
+
 beforeEach(() => clearSearchDetailMemoryCache())
 
 describe('lazy search details', () => {
@@ -111,10 +129,9 @@ describe('lazy search details', () => {
 
   it('loads only the matching shard and reuses the persistent cache afterwards', async () => {
     const fakeStorage = storage()
-    const fetchImpl = vi.fn(async (url) => ({
-      ok: true,
-      status: 200,
-      json: async () => ({
+    const fetchImpl = vi.fn(async (url) => {
+      if (url.startsWith('/search-details/manifest.json')) return jsonResponse(manifestPayload())
+      return jsonResponse({
         kind: 'search-detail-shard',
         entries: [{
           id: 'tmdb-movie-65',
@@ -123,20 +140,67 @@ describe('lazy search details', () => {
           genreNames: ['Science-Fiction'],
           completeness: 'discover',
         }],
-      }),
-      url,
-    }))
+      })
+    })
 
     const first = await loadSearchDetail(entry(), { fetchImpl, storage: fakeStorage, now: 1000 })
     expect(first.description).toBe('Aus dem Shard')
-    expect(fetchImpl).toHaveBeenCalledTimes(1)
-    expect(fetchImpl).toHaveBeenCalledWith('/search-details/01.json')
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(fetchImpl).toHaveBeenNthCalledWith(1, '/search-details/manifest.json?t=1000', { cache: 'no-store' })
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      `/search-details/01.json?v=${encodeURIComponent(`1:${MANIFEST_GENERATION}`)}`,
+      { cache: 'no-store' },
+    )
 
     clearSearchDetailMemoryCache()
-    const secondFetch = vi.fn()
+    const secondFetch = vi.fn(async (url) => {
+      if (url.startsWith('/search-details/manifest.json')) return jsonResponse(manifestPayload())
+      throw new Error(`Unerwarteter Shard-Abruf: ${url}`)
+    })
     const second = await loadSearchDetail(entry(), { fetchImpl: secondFetch, storage: fakeStorage, now: 2000 })
     expect(second.description).toBe('Aus dem Shard')
-    expect(secondFetch).not.toHaveBeenCalled()
+    expect(secondFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores an unversioned complete cache entry after a new manifest publication', async () => {
+    const fakeStorage = storage()
+    fakeStorage.setItem('movie-hub-search-detail-cache-v1', JSON.stringify([{
+      id: 'tmdb-movie-65',
+      cachedAt: 1000,
+      value: {
+        id: 'tmdb-movie-65',
+        tmdbId: 65,
+        type: 'movie',
+        metadataVersion: 3,
+        metadataComplete: true,
+        backdropUrl: null,
+        artwork: { posterPaths: ['/poster.jpg'], heroBackdropPaths: [] },
+      },
+    }]))
+    const fetchImpl = vi.fn(async (url) => {
+      if (url.startsWith('/search-details/manifest.json')) return jsonResponse(manifestPayload())
+      return jsonResponse({
+        kind: 'search-detail-shard',
+        entries: [{
+          id: 'tmdb-movie-65',
+          tmdbId: 65,
+          type: 'movie',
+          metadataVersion: 3,
+          metadataComplete: true,
+          metadataUpdatedAt: MANIFEST_GENERATION,
+          backdropUrl: 'https://image.example/current-backdrop.jpg',
+          artwork: { posterPaths: ['/poster.jpg'], heroBackdropPaths: ['/current-backdrop.jpg'] },
+          completeness: 'enriched',
+        }],
+      })
+    })
+
+    const result = await loadSearchDetail(entry(), { fetchImpl, storage: fakeStorage, now: 2000 })
+
+    expect(result.backdropUrl).toBe('https://image.example/current-backdrop.jpg')
+    expect(result.artwork.heroBackdropPaths).toEqual(['/current-backdrop.jpg'])
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 
   it('hydrates an old Movie-Hub id through the same TMDB identity', async () => {

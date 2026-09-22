@@ -928,8 +928,9 @@ function MovieHub({ user }) {
     [catalog.providerCatalogs, rowDefinitions, titles],
   )
   const personalCatalogTitles = useMemo(
-    () => mergeCatalogWithPersonalSnapshots(titles, statesByKey),
-    [titles, statesByKey],
+    () => mergeCatalogWithPersonalSnapshots(titles, statesByKey)
+      .map((item) => resolvePresentationArtwork(item, artworkOptions)),
+    [titles, statesByKey, artworkOptions],
   )
   const personalRows = useMemo(
     () => buildPersonalRows(personalCatalogTitles, getTitleState),

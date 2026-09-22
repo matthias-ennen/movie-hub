@@ -1,4 +1,5 @@
 import { getActivePosterRowLimit } from '../profiles/profileExperienceRuntime.js'
+import { mergeEnrichedTitle } from '../catalog/titleMetadata.js'
 import { getTitleStateKey, hasPersonalTitleState } from './libraryState.js'
 
 export const WATCHED_HISTORY_LIMIT = 70
@@ -80,7 +81,30 @@ export function mergeCatalogWithPersonalSnapshots(titles, statesByKey) {
   for (const state of Object.values(statesByKey || {})) {
     if (!hasPersonalTitleState(state) || !state?.titleSnapshot) continue
     const key = getTitleStateKey(state.titleSnapshot)
-    if (key && !merged.has(key)) merged.set(key, state.titleSnapshot)
+    if (!key) continue
+
+    const existing = merged.get(key)
+    if (!existing) {
+      merged.set(key, state.titleSnapshot)
+      continue
+    }
+
+    const existingVersion = Number(existing.metadataVersion) || 0
+    const snapshotVersion = Number(state.titleSnapshot.metadataVersion) || 0
+    const existingUpdatedAt = Date.parse(existing.metadataUpdatedAt || '') || 0
+    const snapshotUpdatedAt = Date.parse(state.titleSnapshot.metadataUpdatedAt || '') || 0
+    const snapshotIsNewer = snapshotVersion > existingVersion
+      || (snapshotVersion === existingVersion && snapshotUpdatedAt > existingUpdatedAt)
+    const primary = snapshotIsNewer ? state.titleSnapshot : existing
+    const secondary = snapshotIsNewer ? existing : state.titleSnapshot
+    const enriched = mergeEnrichedTitle(primary, secondary)
+
+    merged.set(key, {
+      ...enriched,
+      id: existing.id,
+      source: existing.source || enriched.source,
+      scope: existing.scope ?? enriched.scope,
+    })
   }
 
   return [...merged.values()]
