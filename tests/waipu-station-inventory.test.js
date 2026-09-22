@@ -4,6 +4,7 @@ import {
   renderWaipuStationInventoryMarkdown,
   stationHints,
   stationMatchKey,
+  WAIPU_STATION_INVENTORY_REVIEWED_ALIASES,
 } from '../scripts/waipu-station-inventory.mjs'
 
 describe('Waipu station inventory', () => {
@@ -22,7 +23,7 @@ describe('Waipu station inventory', () => {
         { id: 'film-b', displayName: 'Film Total HD' },
         { id: 'technical-only', displayName: 'Nur technisch' },
       ],
-      { generatedAt: '2026-09-22T12:00:00.000Z' },
+      { generatedAt: '2026-09-22T12:00:00.000Z', reviewedAliases: [] },
     )
 
     expect(inventory.counts).toMatchObject({
@@ -48,11 +49,34 @@ describe('Waipu station inventory', () => {
     const inventory = buildWaipuStationInventory(
       ['Unbekannt HD'],
       [{ id: 'catchup', displayName: 'Beispiel Catch-Up HD' }],
-      { generatedAt: '2026-09-22T12:00:00.000Z' },
+      { generatedAt: '2026-09-22T12:00:00.000Z', reviewedAliases: [] },
     )
     const report = renderWaipuStationInventoryMarkdown(inventory)
     expect(report).toContain('Öffentlich ohne technische Zuordnung | 1')
     expect(report).toContain('Beispiel Catch-Up')
     expect(report).toContain('keine automatische Freigabe')
+  })
+
+  it('uses reviewed marketing-name aliases without publishing stations', () => {
+    const inventory = buildWaipuStationInventory(
+      ['GEO HD'],
+      [{ id: 'geo', displayName: 'GEO Television' }],
+      {
+        generatedAt: '2026-09-22T12:00:00.000Z',
+        reviewedAliases: WAIPU_STATION_INVENTORY_REVIEWED_ALIASES,
+      },
+    )
+
+    expect(inventory.counts).toMatchObject({
+      matchedOfficial: 1,
+      reviewedAliasMatches: 1,
+      unmatchedOfficial: 0,
+      technicalOnly: 0,
+    })
+    expect(inventory.official[0]).toMatchObject({
+      status: 'matched',
+      matchMethod: 'reviewed-alias',
+      candidates: [{ id: 'geo', displayName: 'GEO Television' }],
+    })
   })
 })
