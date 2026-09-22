@@ -1,10 +1,10 @@
 # Waipu-Sync-Koordinator (#4D)
 
-Stand: 19. September 2026
+Stand: 22. September 2026
 
-## Aktueller Produktionsstand: 50 Sender
+## Ausbaustufe: 100 Sender
 
-Der tägliche Produktionsworkflow verwendet die ersten 50 Einträge der
+Der tägliche Produktionsworkflow verwendet die ersten 100 Einträge der
 offiziellen Waipu-Reihenfolge mit festen Waipu-IDs. Er läuft weiterhin seriell
 und checkpoint-basiert. Grid und Programmdetails verwenden 400 ms Mindestabstand
 plus bis zu 75 ms Jitter. Der Bootstrap ist auf 5.000 Grid-, 10.000 Detail- und
@@ -12,14 +12,16 @@ plus bis zu 75 ms Jitter. Der Bootstrap ist auf 5.000 Grid-, 10.000 Detail- und
 Caches und laden im Normalfall nur neue beziehungsweise gezielt zu
 revalidierende Daten.
 
-Die 50er-Stufe wurde am 19. September 2026 ausdrücklich freigegeben. Der
-Workflow protokolliert diese Entscheidung als `WAIPU_SYNC_APPROVED_STAGE=50`;
+Die ersten 50 Sender wurden am 19. September 2026 abgenommen. Die Erweiterung
+um die offiziellen Positionen 51–100 wurde am 22. September 2026 ausdrücklich
+beauftragt. Der Workflow protokolliert diese Entscheidung als
+`WAIPU_SYNC_APPROVED_STAGE=100`;
 sie hebt weder die serielle Ausführung noch die separate Sperre für `full` auf.
 Ein manueller Lauf benötigt weiterhin die doppelte Live-Bestätigung:
 
 ```bash
-WAIPU_SYNC_LIVE=1 WAIPU_SYNC_APPROVED_STAGE=50 \
-npm run waipu:sync -- --live --stage=50
+WAIPU_SYNC_LIVE=1 WAIPU_SYNC_APPROVED_STAGE=100 \
+npm run waipu:sync -- --live --stage=100
 ```
 
 Die versionierte Zuordnung und die vollständige Website-Reihenfolge stehen in
@@ -108,7 +110,8 @@ Die Reihenfolge ist verbindlich:
 1. 7 Sender;
 2. 20 Sender nach sieben vollständig stabilen Läufen der 7er-Stufe;
 3. 50 Sender nach sieben vollständig stabilen Läufen der 20er-Stufe;
-4. vollständiger Senderstamm nach sieben stabilen Läufen der 50er-Stufe und
+4. 100 Sender als ausdrücklich freigegebene Erweiterung der abgenommenen 50er-Stufe;
+5. vollständiger Senderstamm nach sieben stabilen Läufen der 100er-Stufe und
    zusätzlicher ausdrücklicher Freigabe.
 
 Der Koordinator empfiehlt eine höhere Stufe lediglich im Statusartefakt. Er
@@ -182,7 +185,7 @@ Bei einem geplanten oder manuell gestarteten Datenlauf geschieht nacheinander:
 1. persistenten Waipu-Checkpoint, Cache und Matchentscheidungen wiederherstellen;
 2. letzten auf Firebase validierten `waipu-live`-Katalog als Rückfallstand laden;
 3. TMDB-Katalog und Suchindex aktualisieren;
-4. das rollierende 14-Tage-Fenster der 50 freigegebenen Sender ergänzen;
+4. das rollierende 14-Tage-Fenster der 100 freigegebenen Sender ergänzen;
 5. nur fehlende Programmdetails und offene TMDB-Zuordnungen nachladen;
 6. jeden zugeordneten Titel aus Hauptkatalog, letztem validierten Waipu-Bestand
    oder einem vollständigen TMDB-Detailabruf anreichern;
@@ -190,8 +193,11 @@ Bei einem geplanten oder manuell gestarteten Datenlauf geschieht nacheinander:
 8. TMDB und Waipu gemeinsam bauen und einmal auf Firebase veröffentlichen;
 9. aktualisierten Checkpoint und Cache wieder persistent sichern.
 
-Der erste 50er-CI-Lauf darf für den einmaligen Cacheaufbau bis zu 5.000 Grid-
-und 10.000 Detailrequests starten. Danach reduzieren Checkpoint und unveränderlicher
+Die 100er-Erweiterung übernimmt den persistenten Cache der ersten 50 Sender.
+Für die zusätzlichen 50 Sender entstehen höchstens 4.200 neue Vier-Stunden-Slots
+im 14-Tage-Fenster und damit weniger als das bestehende Budget von 5.000 Grid-
+Requests. Der Lauf darf weiterhin höchstens 10.000 Detailrequests starten.
+Danach reduzieren Checkpoint und unveränderlicher
 Detailcache den täglichen Lauf im Normalfall auf das neue äußere Tagesfenster,
 kontrollierte Nahbereichsvalidierungen und neue Programmdetails. Der Grid-Sync
 bleibt bei einer aktiven Anfrage mit 400 ms Mindestabstand plus bis zu 75 ms

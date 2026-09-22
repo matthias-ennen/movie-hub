@@ -4,7 +4,7 @@
 
 Der Inventarlauf ist die rein lesende erste Stufe von #260. Er vergleicht die
 aktuelle öffentliche Senderreihenfolge mit dem öffentlichen technischen
-`station-config`-Stamm, ohne den produktiven 50-Sender-Katalog oder Firebase zu
+`station-config`-Stamm, ohne den produktiven Senderkatalog oder Firebase zu
 verändern.
 
 ## Ergebnis
@@ -39,4 +39,5 @@ npm run waipu:stations:inventory
 
 In GitHub Actions wird der Workflow **Waipu station inventory** ausschließlich
 manuell gestartet. Er benötigt keine Secrets und besitzt nur lesenden
-Repository-Zugriff. Die produktive Ausbaustufe bleibt unverändert bei 50.
+Repository-Zugriff. Eine Änderung der produktiven Ausbaustufe erfolgt nur über
+die separat geprüfte, feste Senderkonfiguration.

@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { extractAllStations } from './generate-waipu-station-order-doc.mjs'
 import { WaipuPublicApiClient } from './waipu-public-data.mjs'
 import {
-  WAIPU_OFFICIAL_FIRST_50_STATIONS,
+  WAIPU_OFFICIAL_FIRST_100_STATIONS,
   WAIPU_STATION_ORDER_SOURCE,
 } from './waipu-station-order.mjs'
 
@@ -15,13 +15,10 @@ const USER_AGENT = 'MovieHub-Waipu-Station-Inventory/1.0 (read-only; contact via
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 // These aliases are reviewed inventory evidence, not runtime publication data.
-// The first 50 retain their already approved stable IDs; later aliases bridge
+// The first 100 retain their reviewed stable IDs; later aliases bridge
 // marketing names on waipu.tv to different display names in station-config.
 export const WAIPU_STATION_INVENTORY_REVIEWED_ALIASES = Object.freeze([
-  ...WAIPU_OFFICIAL_FIRST_50_STATIONS.map(({ websiteName, id }) => [websiteName, id]),
-  ['GEO HD', 'geo'],
-  ['Alles was zahlt SD', 'alleswaszaehlt'],
-  ['Comedy Central / VIVA HD', 'comedy_central'],
+  ...WAIPU_OFFICIAL_FIRST_100_STATIONS.map(({ websiteName, id }) => [websiteName, id]),
   ['Landlust HD', 'landlust'],
   ['EWTN.TV HD', 'ewtn'],
   ['wetter.com SD', 'wettercom'],
@@ -196,7 +193,7 @@ export function renderWaipuStationInventoryMarkdown(inventory) {
     '',
     `Stand: ${inventory.generatedAt}`,
     '',
-    'Dieser Bericht ist rein lesend. Er veröffentlicht keine Sender und ändert die produktive 50er-Stufe nicht.',
+    'Dieser Bericht ist rein lesend. Er veröffentlicht keine Sender und ändert die konfigurierte Ausbaustufe nicht.',
     '',
     '## Zusammenfassung',
     '',

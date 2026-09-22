@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WaipuEpgCache, WaipuPublicDataError } from '../scripts/waipu-public-data.mjs'
-import { WAIPU_OFFICIAL_FIRST_50_STATIONS } from '../scripts/waipu-station-order.mjs'
+import { WAIPU_OFFICIAL_FIRST_100_STATIONS } from '../scripts/waipu-station-order.mjs'
 import {
   assertStageAllowed,
   buildRollingSlots,
@@ -32,8 +32,8 @@ async function temporaryPaths() {
 }
 
 function stations(count = 20) {
-  const configured = WAIPU_OFFICIAL_FIRST_50_STATIONS
-    .slice(0, Math.min(count, WAIPU_OFFICIAL_FIRST_50_STATIONS.length))
+  const configured = WAIPU_OFFICIAL_FIRST_100_STATIONS
+    .slice(0, Math.min(count, WAIPU_OFFICIAL_FIRST_100_STATIONS.length))
     .map(({ id, websiteName: displayName }) => ({
       id,
       displayName,
@@ -89,6 +89,11 @@ function runOptions(paths, client, additions = {}) {
 }
 
 describe('Waipu rolling planner', () => {
+  it('declares exactly 100 unique station IDs for the configured expansion stage', () => {
+    expect(WAIPU_OFFICIAL_FIRST_100_STATIONS).toHaveLength(100)
+    expect(new Set(WAIPU_OFFICIAL_FIRST_100_STATIONS.map(({ id }) => id)).size).toBe(100)
+  })
+
   it('builds exactly six UTC slots per day', () => {
     const slots = buildRollingSlots('2026-09-18T19:15:00+02:00', 14)
     expect(slots).toHaveLength(84)
@@ -101,18 +106,22 @@ describe('Waipu rolling planner', () => {
     expect(selectStageStations(input, 7).map(({ id }) => id))
       .toEqual(['ard', 'zdf', 'rtl', 'pro7', 'sat1', 'vox', 'rtl2'])
     expect(selectStageStations(input, 20).map(({ id }) => id))
-      .toEqual(WAIPU_OFFICIAL_FIRST_50_STATIONS.slice(0, 20).map(({ id }) => id))
+      .toEqual(WAIPU_OFFICIAL_FIRST_100_STATIONS.slice(0, 20).map(({ id }) => id))
     expect(selectStageStations(input, 50).map(({ id }) => id))
-      .toEqual(WAIPU_OFFICIAL_FIRST_50_STATIONS.map(({ id }) => id))
+      .toEqual(WAIPU_OFFICIAL_FIRST_100_STATIONS.slice(0, 50).map(({ id }) => id))
+    expect(selectStageStations([...stations(100)].reverse(), 100).map(({ id }) => id))
+      .toEqual(WAIPU_OFFICIAL_FIRST_100_STATIONS.map(({ id }) => id))
   })
 
   it('requires seven stable runs before a larger stage and explicit full approval', () => {
-    const state = { stableRunsByStage: { 7: 6, 20: 7, 50: 7, full: 0 } }
+    const state = { stableRunsByStage: { 7: 6, 20: 7, 50: 7, 100: 0, full: 0 } }
     expect(() => assertStageAllowed(state, 20)).toThrowError(WaipuSyncError)
     expect(() => assertStageAllowed(state, 50, { approvedStage: 50 })).not.toThrow()
+    expect(() => assertStageAllowed(state, 100, { approvedStage: 100 })).not.toThrow()
     state.stableRunsByStage[7] = 7
     expect(() => assertStageAllowed(state, 20)).not.toThrow()
     expect(() => assertStageAllowed(state, 'full')).toThrowError(WaipuSyncError)
+    state.stableRunsByStage[100] = 7
     expect(() => assertStageAllowed(state, 'full', { fullStageApproved: true })).not.toThrow()
   })
 })
@@ -260,7 +269,7 @@ describe('WaipuSyncCoordinator', () => {
       schemaVersion: 1,
       kind: 'waipu-sync-checkpoint',
       updatedAt: '2026-09-19T10:30:21.570Z',
-      stableRunsByStage: { 7: 2, 20: 0, 50: 0, full: 0 },
+      stableRunsByStage: { 7: 2, 20: 0, 50: 0, 100: 0, full: 0 },
       circuit: {
         automaticRunsDisabled: false,
         reason: null,

@@ -1,9 +1,9 @@
 export const WAIPU_STATION_ORDER_SOURCE = 'https://www.waipu.tv/sender/'
 
-// Versioned snapshot of the first 50 entries in the official "Alle Sender"
+// Versioned snapshot of the first 100 entries in the official "Alle Sender"
 // order. Runtime imports use stable station-config IDs; the public website is
 // documentation input only and is never queried by the app or nightly job.
-export const WAIPU_OFFICIAL_FIRST_50_STATIONS = Object.freeze([
+export const WAIPU_OFFICIAL_FIRST_100_STATIONS = Object.freeze([
   { id: 'ard', name: 'Das Erste', websiteName: 'Das Erste HD' },
   { id: 'zdf', name: 'ZDF', websiteName: 'ZDF HD' },
   { id: 'rtl', name: 'RTL', websiteName: 'RTL HD' },
@@ -54,8 +54,66 @@ export const WAIPU_OFFICIAL_FIRST_50_STATIONS = Object.freeze([
   { id: 'axnblackcatchup', name: 'AXN Black Catch-Up', websiteName: 'AXN Black Catch-Up HD' },
   { id: 'axnwhitecatchup', name: 'AXN White Catch-Up', websiteName: 'AXN White Catch-Up HD' },
   { id: 'retroserien', name: 'Retro Serien', websiteName: 'Retro Serien HD' },
+  { id: 'beverlyhills90210', name: 'Beverly Hills, 90210', websiteName: 'Beverly Hills 90210 HD' },
+  { id: 'retrotv', name: 'Retro TV', websiteName: 'Retro TV HD' },
+  { id: 'retroflix', name: 'Retroflix', websiteName: 'Retroflix HD' },
+  { id: 'fernsehschaetze', name: 'Fernsehschätze', websiteName: 'Fernsehschätze HD' },
+  { id: 'lindenstrasse', name: 'Lindenstraße', websiteName: 'Lindenstraße SD' },
+  { id: 'natgeo', name: 'National Geographic', websiteName: 'National Geographic HD' },
+  { id: 'natgeowild', name: 'National Geographic WILD', websiteName: 'National Geographic WILD HD' },
+  { id: 'animalplanet', name: 'Animal Planet', websiteName: 'Animal Planet HD' },
+  { id: 'geo', name: 'GEO Television', websiteName: 'GEO HD' },
+  { id: 'discovery', name: 'Discovery Channel', websiteName: 'Discovery Channel HD' },
+  { id: 'thehistorychannel', name: 'HISTORY', websiteName: 'HISTORY HD' },
+  { id: 'kultkrimi', name: 'KultKrimi', websiteName: 'KultKrimi HD' },
+  { id: 'krimikollegen', name: 'Crimify', websiteName: 'Crimify HD' },
+  { id: 'crimetime', name: 'CRIME TIME', websiteName: 'Crime Time HD' },
+  { id: 'tlccrime', name: 'TLC Crime', websiteName: 'TLC Crime HD' },
+  { id: 'wedotruestories', name: 'wedo true stories', websiteName: 'wedo true stories HD' },
+  { id: 'crimeinvestigation', name: 'Crime + Investigation', websiteName: 'Crime + Investigation HD' },
+  { id: 'realcrime', name: 'Real Crime Deutschland', websiteName: 'Real Crime Deutschland HD' },
+  { id: 'toptruecrime', name: 'TOP TRUE CRIME', websiteName: 'Top True Crime HD' },
+  { id: 'pridetv', name: 'PRIDEtv', websiteName: 'prideTV HD' },
+  { id: 'cirkus', name: 'Cirkus Krimi', websiteName: 'Cirkus Krimi HD' },
+  { id: 'rtlliving', name: 'RTL Living', websiteName: 'RTL Living HD' },
+  { id: 'sat1emotions', name: 'SAT.1 emotions', websiteName: 'SAT.1 emotions HD' },
+  { id: 'sat1gold', name: 'SAT.1 GOLD', websiteName: 'SAT.1 Gold HD' },
+  { id: 'rtlplus', name: 'RTLup', websiteName: 'RTLup HD' },
+  { id: 'rtlcomedy', name: 'RTL Comedy', websiteName: 'RTL Comedy SD' },
+  { id: 'sixx', name: 'sixx', websiteName: 'SIXX HD' },
+  { id: 'serienhits', name: 'Serien Hits', websiteName: 'Serienhits HD' },
+  { id: 'romance', name: 'Romance TV', websiteName: 'Romance TV HD' },
+  { id: 'romancecatchup', name: 'Romance TV Catch-Up', websiteName: 'Romance TV Catch-Up HD' },
+  { id: 'fernsehenmitherz', name: 'Fernsehen mit Herz', websiteName: 'Fernsehen mit Herz HD' },
+  { id: 'herzfrequenztv', name: 'Herzfrequenz', websiteName: 'Herzfrequenz HD' },
+  { id: 'buntetv', name: 'BUNTE', websiteName: 'BUNTE HD' },
+  { id: 'shoppingqueen', name: 'Shopping Queen', websiteName: 'Shopping Queen SD' },
+  { id: 'tlc', name: 'TLC', websiteName: 'TLC HD' },
+  { id: 'zdftelenovela', name: 'ZDF Telenovela', websiteName: 'ZDF Telenovela HD' },
+  { id: 'alleswaszaehlt', name: 'Alles was zählt Classics', websiteName: 'Alles was zählt SD' },
+  { id: 'rtlzweiclips', name: 'RTLZWEI Clips', websiteName: 'RTLZWEI Clips HD' },
+  { id: 'rtlzweifamilies', name: 'RTLZWEI Families', websiteName: 'RTLZWEI Families HD' },
+  { id: 'mystory', name: 'mySTORY', websiteName: 'mySTORY HD' },
+  { id: 'dmaxblaulicht', name: 'DMAX Blaulicht', websiteName: 'DMAX Blaulicht HD' },
+  { id: 'rechtgerechtigkeit', name: 'Recht & Gerechtigkeit', websiteName: 'Recht & Gerechtigkeit HD' },
+  { id: 'rechtordnung', name: 'Einsatz & Ordnung', websiteName: 'Einsatz & Ordnung HD' },
+  { id: 'bestofcomedy', name: 'Best of Comedy', websiteName: 'Best of Comedy HD' },
+  { id: 'comedycorner', name: 'Comedy Corner', websiteName: 'Comedy Corner HD' },
+  { id: 'stromberg', name: 'Stromberg', websiteName: 'Stromberg HD' },
+  { id: 'pastewka', name: 'Pastewka', websiteName: 'Pastewka HD' },
+  { id: 'ladykracher', name: 'Ladykracher', websiteName: 'Ladykracher HD' },
+  { id: 'comedy_central', name: 'Comedy Central', websiteName: 'Comedy Central / VIVA HD' },
+  { id: 'comedyshows', name: 'Comedy & Shows', websiteName: 'Comedy & Shows HD' },
 ])
+
+export const WAIPU_OFFICIAL_FIRST_50_STATIONS = Object.freeze(
+  WAIPU_OFFICIAL_FIRST_100_STATIONS.slice(0, 50),
+)
 
 export const WAIPU_OFFICIAL_FIRST_50_IDS = Object.freeze(
   WAIPU_OFFICIAL_FIRST_50_STATIONS.map(({ id }) => id),
+)
+
+export const WAIPU_OFFICIAL_FIRST_100_IDS = Object.freeze(
+  WAIPU_OFFICIAL_FIRST_100_STATIONS.map(({ id }) => id),
 )

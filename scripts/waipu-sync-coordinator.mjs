@@ -10,14 +10,14 @@ import {
   WAIPU_SLOT_DURATION_MS,
 } from './waipu-public-data.mjs'
 import {
-  WAIPU_OFFICIAL_FIRST_50_IDS,
-  WAIPU_OFFICIAL_FIRST_50_STATIONS,
+  WAIPU_OFFICIAL_FIRST_100_IDS,
+  WAIPU_OFFICIAL_FIRST_100_STATIONS,
 } from './waipu-station-order.mjs'
 
 export const WAIPU_SYNC_SCHEMA_VERSION = 1
-export const WAIPU_SYNC_STAGES = Object.freeze([7, 20, 50, 'full'])
+export const WAIPU_SYNC_STAGES = Object.freeze([7, 20, 50, 100, 'full'])
 export const WAIPU_PILOT_STATIONS = Object.freeze(
-  WAIPU_OFFICIAL_FIRST_50_STATIONS.slice(0, 7).map(({ name }) => name),
+  WAIPU_OFFICIAL_FIRST_100_STATIONS.slice(0, 7).map(({ name }) => name),
 )
 
 const DEFAULT_REQUEST_BUDGET = 300
@@ -88,7 +88,7 @@ function utcDateKey(value) {
 }
 
 function emptyStableRunDates() {
-  return { 7: [], 20: [], 50: [], full: [] }
+  return { 7: [], 20: [], 50: [], 100: [], full: [] }
 }
 
 function stageIndex(stage) {
@@ -117,8 +117,8 @@ export function selectStageStations(stations, stage = 7) {
   const limit = stage === 'full' ? candidates.length : stage
   const byId = new Map(candidates.map((station) => [station.id, station]))
   const configuredIds = stage === 'full'
-    ? WAIPU_OFFICIAL_FIRST_50_IDS
-    : WAIPU_OFFICIAL_FIRST_50_IDS.slice(0, limit)
+    ? WAIPU_OFFICIAL_FIRST_100_IDS
+    : WAIPU_OFFICIAL_FIRST_100_IDS.slice(0, limit)
   const selected = configuredIds.map((id) => byId.get(id)).filter(Boolean)
   if (selected.length !== configuredIds.length) throw new WaipuSyncError('PILOT_STATIONS_MISSING')
 
@@ -133,7 +133,7 @@ function emptyState(now) {
     schemaVersion: WAIPU_SYNC_SCHEMA_VERSION,
     kind: 'waipu-sync-checkpoint',
     updatedAt: new Date(now).toISOString(),
-    stableRunsByStage: { 7: 0, 20: 0, 50: 0, full: 0 },
+    stableRunsByStage: { 7: 0, 20: 0, 50: 0, 100: 0, full: 0 },
     stableRunDatesByStage: emptyStableRunDates(),
     circuit: {
       automaticRunsDisabled: false,
