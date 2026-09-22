@@ -55,17 +55,19 @@ Details:
 
 Projektstart: 31. August 2026
 
-Stand: **20. September 2026**
+Stand: **22. September 2026**
 
-Das aktuelle Arbeitspaket ist
-[#256 – vollständige kanonische Titelmetadaten vor Veröffentlichung](https://github.com/matthias-ennen/movie-hub/issues/256).
-Der geschützte Datenlauf führt Browse, persönlichen TMDB-Katalog, Movie Hub und
-Waipu über Medientyp plus TMDB-ID zu einer gemeinsamen Prioritätswarteschlange
-zusammen. Nach dem erfolgreichen Kontrolllauf #351 wird diese Warteschlange nun
-durch einen zentralen Executor verarbeitet: pro Identität höchstens ein
-TMDB-Detailabruf, danach Fan-out derselben geprüften V3-Kopie an alle betroffenen
-Quellen. Reine Search-only-Titel bleiben davon getrennt und laden ihre Details
-beim Öffnen atomar nach.
+[#256 – vollständige kanonische Titelmetadaten vor Veröffentlichung](https://github.com/matthias-ennen/movie-hub/issues/256)
+ist technisch und auf Fire TV abgenommen. Der geschützte Datenlauf führt Browse,
+persönlichen TMDB-Katalog, Movie Hub und Waipu über Medientyp plus TMDB-ID zu
+einer gemeinsamen Prioritätswarteschlange zusammen. Pro Identität wird höchstens
+ein vollständiger TMDB-Datensatz geladen oder wiederverwendet und anschließend
+als geprüfte V3-Kopie an alle betroffenen Quellen verteilt. Reine Search-only-
+Titel bleiben getrennt und verwenden den abgenommenen atomaren Lade-, Fehler-
+und Wiederholen-Pfad im Detailfenster.
+
+Das nächste Arbeitspaket ist
+[#259 – laufende Waipu-Sendung direkt in waipu.tv starten](https://github.com/matthias-ennen/movie-hub/issues/259).
 
 Das Waipu-Arbeitspaket #4 ist abgeschlossen und abgenommen. Dazu gehören TV-Reiter,
 kontoweite Senderauswahl und -sortierung, Waipu-Badges und Sendetermine,
@@ -87,7 +89,7 @@ seitenspezifisch bleiben nur fachlich notwendige Unterschiede.
 
 Die bestätigte Hauptreihenfolge bleibt zunächst:
 
-`#256 → #259 → Triage #254/#255 → #260 → #118 → #7`
+`#259 → Triage #254/#255 → #260 → #118 → #7`
 
 Vor jedem Umsetzungspaket werden offene Produktfragen mit Matthias einzeln
 geklärt und anschließend im betreffenden Issue verbindlich dokumentiert.

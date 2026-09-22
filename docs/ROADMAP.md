@@ -1,6 +1,6 @@
 # Movie Hub – Roadmap
 
-Stand: 20. September 2026
+Stand: 22. September 2026
 
 ## Leitprinzip
 
@@ -32,16 +32,23 @@ Zu den zuletzt abgeschlossenen bzw. abgenommenen Paketen gehören insbesondere:
 - #228 – robuster nativer Kaltstart ohne zusätzlichen Tastendruck
 - #117 – Dependency-Audit und Security-Hygiene
 - #4 – öffentlicher Waipu-Live-Katalog einschließlich 50-Sender-Bestand, TV-Integration und Geräteabnahme
+- #256 – vollständige kanonische Titelmetadaten, gemeinsamer Nachtlauf und atomarer Search-only-Detailpfad
 
 Der aktuelle Fire-TV-Stand einschließlich der oben genannten Pakete wurde zuletzt am 18.09.2026 abgenommen.
 
-## Aktuelles Arbeitspaket
+## Abgeschlossenes Datenfundament
 
 ### #256 – Datenfundament: vollständige kanonische Titelmetadaten vor Veröffentlichung
 
-#256 ist nach dem vollständig abgenommenen und geschlossenen #4 das nächste Arbeitspaket. Vor der Programmierung erfolgt nur noch eine kurze technische Scope-Kontrolle.
-
-Aktueller Umsetzungsschritt: Der V3-Vollständigkeitsvertrag, der atomare Search-only-Ladeweg, die Quelleninventur und die Prioritätswarteschlange nach `Medientyp + TMDB-ID` sind umgesetzt. Deploy Firebase #351 bestätigte im zweiten Versuch 3.193 kanonische Kandidaten, 1.212 Queue-Einträge, höchstens 1.063 notwendige TMDB-Abrufe, 149 Wiederverwendungen, 0 Queue-Dubletten und 0 Kapazitätsrückstand. Der zentrale [Titel-Executor](TITLE_PRIORITY_QUEUE.md) ist nun in den geschützten Datenlauf eingebunden; seine erste produktive Ausführung und deren Ergebnisprüfung bleiben der nächste Kontrollpunkt.
+#256 ist technisch und auf Fire TV abgenommen. Der V3-Vollständigkeitsvertrag,
+die gemeinsame Prioritätswarteschlange nach `Medientyp + TMDB-ID`, der zentrale
+[Titel-Executor](TITLE_PRIORITY_QUEUE.md), die atomare Veröffentlichung und der
+Search-only-Lade-/Fehlerpfad sind produktiv verifiziert. Deploy Firebase #372
+bestätigte den ruhigen Steady State mit 3.209 Kandidaten, 23 berechtigten
+Queue-Einträgen, 0 Queue-Dubletten und 0 Rückstand. Der echte Watchdog-Lauf #3
+meldete die 302-minütige Verzögerung sichtbar. „The Equalizer 2“ und „2012“
+sowie der Search-only-Fehler mit **Erneut versuchen** wurden auf Fire TV
+abgenommen.
 
 Verbindlicher Umfang:
 
@@ -58,7 +65,16 @@ Verbindlicher Umfang:
 
 Reine Suchindex-Titel außerhalb aller sichtbaren Kataloge müssen nicht vorangereichert werden. Beim Öffnen dürfen sie vollständig geladen werden, zeigen bis dahin jedoch ausschließlich einen klaren Ladezustand und anschließend die vollständige Detailseite auf einmal.
 
-## Bestandsaufnahme und Triage vor dem nächsten Umsetzungspaket
+## Nächstes Arbeitspaket
+
+### #259 – Waipu-Live: laufende Sendung direkt in waipu.tv starten
+
+#259 folgt auf das abgeschlossene Datenfundament. Vor der Umsetzung werden die
+im Issue dokumentierten offenen Produkt- und Technikfragen einzeln mit Matthias
+geklärt. Die Verifikation beginnt mit dem vorhandenen 50-Sender-Bestand auf
+Android und realer Fire-TV-Hardware.
+
+## Bestandsaufnahme und Triage vor den weiteren Umsetzungspaketen
 
 Die Beobachtungen zum Referenzstand APK 0.1.473 sind in #254 gesammelt und in
 [Bestandsaufnahme ab APK 0.1.473](APP_REVIEW_0.1.473.md) strukturiert. Wegen der
@@ -127,6 +143,10 @@ registrierten offenen Fragen.
 
 ## Aktuelle Abhängigkeitskette
 
-`#4 abgeschlossen → #256 Datenfundament → #259 Deep-Link-Verifikation → Triage der gemeinsamen TV-Grundlage → #260 Senderausbau in Wellen → #118 → #7`
+`#4 abgeschlossen → #256 abgeschlossen → #259 Deep-Link-Verifikation → Triage der gemeinsamen TV-Grundlage → #260 Senderausbau in Wellen → #118 → #7`
 
-#4 ist vollständig abgenommen und geschlossen. Der veröffentlichte 50-Sender-Bestand bleibt der gültige Ausgangsstand. #256 befindet sich in der Executor-Umsetzung und wird vor #259 technisch fertig geprüft. Der direkte Live-Absprung wird in #259 getrennt verifiziert; die spätere Erweiterung ist in #260 dokumentiert. Öffentliche Verteilung bleibt von der Compliance-Prüfung #112 abhängig.
+#4 und #256 sind vollständig abgenommen und geschlossen. Der veröffentlichte
+50-Sender-Bestand bleibt der gültige Ausgangsstand. Der direkte Live-Absprung
+wird als nächstes in #259 getrennt verifiziert; die spätere Erweiterung ist in
+#260 dokumentiert. Öffentliche Verteilung bleibt von der Compliance-Prüfung
+#112 abhängig.

@@ -1,6 +1,6 @@
 # Movie Hub – Issue-Plan
 
-Stand: 20. September 2026
+Stand: 22. September 2026
 
 ## Arbeitsprinzip
 
@@ -23,14 +23,17 @@ Zuletzt abgeschlossen bzw. abgenommen:
 - #228 – robuster nativer Kaltstart
 - #117 – Dependency-Audit und Security-Hygiene
 - #4 – öffentlicher Waipu-Live-Katalog einschließlich 50-Sender-Bestand, TV-Integration und Geräteabnahme
+- #256 – vollständige kanonische Titelmetadaten, gemeinsamer Nachtlauf und atomarer Search-only-Detailpfad
 
 Die Fire-TV-App wurde mit diesem Stand zuletzt am 18.09.2026 abgenommen.
 
-## Aktuelles Arbeitspaket
+## Abgeschlossenes Datenfundament
 
 ### #256 – Datenfundament: vollständige kanonische Titelmetadaten vor Veröffentlichung
 
-#4 ist vollständig abgenommen und geschlossen. #256 ist das nächste eigenständige Arbeitspaket; vor der Umsetzung erfolgt nur noch eine kurze technische Scope-Kontrolle.
+#256 ist technisch und auf Fire TV vollständig abgenommen. Der zentrale
+V3-Titelbestand, der kontrollierte Nachtlauf, der Watchdog sowie der atomare
+Search-only-Lade-, Fehler- und Wiederholen-Pfad sind produktiv verifiziert.
 
 - alle katalogrelevanten Titelquellen in einem kanonischen Bestand nach `Medientyp + TMDB-ID` zusammenführen;
 - vollständige, geprüfte Metadaten zentral wiederverwenden und kontrolliert aktualisieren;
@@ -67,15 +70,7 @@ zwingend davor liegen.
 
 ## Aktuelle Priorisierung
 
-### 1. #256 – Datenfundament und Nachtlauf
-
-- nächstes Arbeitspaket nach #4
-- gemeinsame kanonische Titelmetadaten für alle katalogrelevanten Quellen
-- TMDB-Änderungslisten plus 30-Tage-Sicherheitsumlauf
-- deduplizierte Warteschlange, atomare Veröffentlichung und Laufüberwachung
-- Trennung von Code-Deployment und Datenpflege
-
-### 2. #259 – Waipu-Live-Deep-Link
+### 1. #259 – Waipu-Live-Deep-Link
 
 - aus konkreter Waipu-Ausstrahlung einen verifizierten `epgdetails`-Link bilden
 - mit dem bestehenden 50-Sender-Bestand auf Android und Fire TV testen
@@ -83,13 +78,13 @@ zwingend davor liegen.
 - allgemeiner Waipu-Live-Einstieg als sicherer Fallback
 - keine Aufnahmen, Waiputhek, Zugangsdaten oder DRM in diesem Paket
 
-### 3. Gemeinsame TV-Grundlage vor großer Senderausweitung
+### 2. Gemeinsame TV-Grundlage vor großer Senderausweitung
 
 - TV als begrenzte zeitgesteuerte Videothek statt vollständiger 14-Tage-Listen auf dem Gerät
 - nur den benötigten Zeit-/Sichtbereich laden und rendern
 - Fokus, Scrollposition und Fire-TV-Speicher bei großen Senderzahlen stabil halten
 
-### 4. #260 – Waipu-Senderbestand über 50 hinaus ausbauen
+### 3. #260 – Waipu-Senderbestand über 50 hinaus ausbauen
 
 - offizielle Liste, technischen Stamm und tatsächlich lineare Movie-Hub-Sender abgleichen
 - 337 dokumentierte offizielle Listeneinträge und zuletzt 398 technische Einträge klassifizieren
@@ -98,7 +93,7 @@ zwingend davor liegen.
 - neue Sender standardmäßig aktivieren und bestehende persönliche Einstellungen erhalten
 - Compliance-Gate #112 vor öffentlicher Verteilung beachten
 
-### 5. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
+### 4. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
 
 - einfache Beobachten-Aktion direkt am Titel
 - rent/buy-only bzw. aktuell nicht inklusive Titel beobachten
@@ -106,7 +101,7 @@ zwingend davor liegen.
 - Benachrichtigungen nur bei echten Änderungen
 - Beobachtung einfach wieder entfernen
 
-### 6. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
+### 5. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
 
 - persönliche Signale aus Bewertungen, gesehen/ungesehen, Favoriten und Watchlist nutzen
 - persönliche Top-100- und Empfehlungsreihen erzeugen
@@ -126,7 +121,7 @@ zwingend davor liegen.
 
 ## Abhängigkeitskette
 
-`#4 abgeschlossen → #256 Datenfundament → #259 Deep-Link-Verifikation → gemeinsame TV-Grundlage → #260 Senderausbau in Wellen → #118 → #7`
+`#4 abgeschlossen → #256 abgeschlossen → #259 Deep-Link-Verifikation → gemeinsame TV-Grundlage → #260 Senderausbau in Wellen → #118 → #7`
 
 #4 ist vollständig abgenommen und geschlossen. Der 50-Sender-Bestand bleibt der gültige Ausgangsstand. #259 verifiziert den direkten Live-Absprung zunächst auf diesem Bestand. Die Ausweitung über 50 Sender ist mit #260 als eigene, ausdrücklich freizugebende und stufenweise Aufgabe dokumentiert.
 
