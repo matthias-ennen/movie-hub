@@ -27,8 +27,11 @@ import { readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mj
 
 export const WAIPU_LIVE_CATALOG_VERSION = 1
 export const WAIPU_SOURCE_DATA_VERSION = 1
+export const WAIPU_DAY_DATA_VERSION = 1
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const TV_TIME_ZONE = 'Europe/Berlin'
+const TV_DAY_START_HOUR = 6
 
 function iso(value) {
   const date = value instanceof Date ? new Date(value.getTime()) : new Date(value)
@@ -46,6 +49,23 @@ function broadcastKey(value) {
 
 function canonicalTitleKey(type, tmdbId) {
   return `${type}:${tmdbId}`
+}
+
+function shiftDateKey(key, days) {
+  const [year, month, day] = String(key).split('-').map(Number)
+  const shifted = new Date(Date.UTC(year, month - 1, day + days, 12))
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`
+}
+
+function tvDayKey(value) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit',
+    hourCycle: 'h23', timeZone: TV_TIME_ZONE,
+  }).formatToParts(new Date(value))
+    .filter((part) => part.type !== 'literal')
+    .map((part) => [part.type, Number(part.value)]))
+  const key = `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`
+  return parts.hour < TV_DAY_START_HOUR ? shiftDateKey(key, -1) : key
 }
 
 function emptyMetrics() {
@@ -202,6 +222,16 @@ function shardArtifact(station, airings) {
     schemaVersion: WAIPU_LIVE_CATALOG_VERSION,
     kind: 'waipu-live-station',
     station: { id: station.id, name: station.displayName || station.name || station.id },
+    count: airings.length,
+    airings,
+  }
+}
+
+function dayArtifact(key, airings) {
+  return {
+    schemaVersion: WAIPU_LIVE_CATALOG_VERSION,
+    kind: 'waipu-live-day',
+    key,
     count: airings.length,
     airings,
   }
@@ -433,6 +463,25 @@ export async function buildWaipuLiveCatalog({
       .sort((left, right) => left.startTime.localeCompare(right.startTime) || left.title.localeCompare(right.title, 'de'))
     return [station.id, shardArtifact(station, airings)]
   }))
+  const dayAirings = new Map([[tvDayKey(generatedAt), []]])
+  for (const station of selectedStations) {
+    for (const airing of shards[station.id].airings) {
+      const key = tvDayKey(airing.startTime)
+      if (!dayAirings.has(key)) dayAirings.set(key, [])
+      dayAirings.get(key).push({
+        ...airing,
+        stationId: station.id,
+        stationName: station.displayName || station.name || station.id,
+      })
+    }
+  }
+  const days = Object.fromEntries([...dayAirings.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, airings]) => [key, dayArtifact(key, airings.sort((left, right) => (
+      left.startTime.localeCompare(right.startTime)
+      || left.stationId.localeCompare(right.stationId)
+      || left.title.localeCompare(right.title, 'de')
+    )))]))
   metrics.publishedTitles = titles.length
   metrics.publishedBroadcasts = activeBroadcasts.length
 
@@ -446,16 +495,19 @@ export async function buildWaipuLiveCatalog({
       horizon: { start, endExclusive },
       matcherVersion: WAIPU_MATCHER_VERSION,
       sourceDataVersion: WAIPU_SOURCE_DATA_VERSION,
+      dayDataVersion: WAIPU_DAY_DATA_VERSION,
       counts: {
         stations: selectedStations.length,
         titles: titles.length,
         broadcasts: activeBroadcasts.length,
       },
+      days: Object.values(days).map(({ key, count }) => ({ key, count })),
       metrics,
     },
     stations: stationArtifact(selectedStations),
     titles: titleArtifact(titles),
     shards,
+    days,
     unresolved: {
       schemaVersion: 1,
       kind: 'waipu-unresolved-programs',
@@ -508,6 +560,34 @@ export function validateWaipuLiveCatalog(catalog, { allowLegacyMetadata = false 
       airingCount += 1
     }
   }
+  const dayDescriptors = Array.isArray(catalog.index.days) ? catalog.index.days : []
+  if (Number(catalog.index.dayDataVersion) >= WAIPU_DAY_DATA_VERSION && !dayDescriptors.length) {
+    throw new Error('Missing waipu-live day index.')
+  }
+  if (dayDescriptors.length) {
+    const dayKeys = new Set()
+    let dayAiringCount = 0
+    for (const descriptor of dayDescriptors) {
+      const key = String(descriptor?.key || '')
+      const day = catalog?.days?.[key]
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || dayKeys.has(key)
+          || day?.kind !== 'waipu-live-day' || day?.key !== key || !Array.isArray(day.airings)
+          || day.count !== day.airings.length || descriptor.count !== day.count) {
+        throw new Error('Invalid waipu-live day shard.')
+      }
+      for (const airing of day.airings) {
+        if (!stationIds.has(airing?.stationId)) throw new Error('Day airing references an unknown station.')
+        if (!titleKeys.has(canonicalTitleKey(airing?.type, airing?.tmdbId))) {
+          throw new Error('Day airing references an unknown title.')
+        }
+      }
+      dayKeys.add(key)
+      dayAiringCount += day.airings.length
+    }
+    if (dayAiringCount !== airingCount || Object.keys(catalog.days || {}).length !== dayKeys.size) {
+      throw new Error('waipu-live day counts are inconsistent.')
+    }
+  }
   if (catalog.index.counts.stations !== stations.length
       || catalog.index.counts.titles !== titles.length
       || catalog.index.counts.broadcasts !== airingCount) {
@@ -548,6 +628,9 @@ export async function writeWaipuLiveCatalog(outputPath, catalog, { allowLegacyMe
       writeJson(resolve(staging, 'index.json'), catalog.index),
       writeJson(resolve(staging, 'stations.json'), catalog.stations),
       writeJson(resolve(staging, 'titles.json'), catalog.titles),
+      ...Object.entries(catalog.days || {}).map(([key, day]) => (
+        writeJson(resolve(staging, 'days', `${key}.json`), day)
+      )),
       ...Object.entries(catalog.shards).map(([stationId, shard]) => (
         writeJson(resolve(staging, 'stations', `${stationId}.json`), shard)
       )),

@@ -4,9 +4,9 @@ Quelle: https://www.waipu.tv/sender/
 
 Stand: 2026-09-22 · 338 Einträge im Reiter „Alle Sender“.
 
-Die ersten 100 Einträge sind die in Movie Hub konfigurierte Ausbaustufe. Der Import verwendet feste Waipu-IDs; die öffentliche Webseite wird weder von der App noch vom Nachtjob zur Laufzeit abgefragt.
+Movie Hub verwendet 228 kuratierte Sender: die bereits eingeführten Positionen 1–100 sowie 128 ausgewählte Einträge aus 101–338. Der Import verwendet feste Waipu-IDs; die öffentliche Webseite wird weder von der App noch vom Nachtjob zur Laufzeit abgefragt.
 
-## In Movie Hub konfigurierte Sender 1–100
+## In Movie Hub konfigurierte Sender
 
 | Nr. | Waipu-ID | Name in Movie Hub | Name auf waipu.tv |
 | ---: | --- | --- | --- |
@@ -110,6 +110,134 @@ Die ersten 100 Einträge sind die in Movie Hub konfigurierte Ausbaustufe. Der Im
 | 98 | `ladykracher` | Ladykracher | Ladykracher HD |
 | 99 | `comedy_central` | Comedy Central | Comedy Central / VIVA HD |
 | 100 | `comedyshows` | Comedy & Shows | Comedy & Shows HD |
+| 101 | `doityourself` | Do it yourself | Do It Yourself HD |
+| 102 | `hgtv` | Home & Garden TV | Home & Garden TV HD |
+| 103 | `rtlhausgarten` | RTL Haus & Garten | RTL Haus & Garten SD |
+| 104 | `zdfzuhause` | ZDF zu Hause | ZDF zu Hause HD |
+| 105 | `landlust` | Landlust TV | Landlust HD |
+| 106 | `hundkatzemaus` | Hundkatzemaus | Hundkatzemaus SD |
+| 107 | `voxup` | VOXup | VOXup HD |
+| 113 | `planetmovies` | Planet Movies | Planet Movie HD |
+| 114 | `watch4crime` | wedo movies | wedo movies HD |
+| 115 | `kabeleinsdoku` | Kabel Eins Doku | Kabel eins Doku HD |
+| 116 | `dokusat` | DOKUSAT | DOKUSAT HD |
+| 119 | `heimatkanal` | Heimatkanal | Heimatkanal HD |
+| 120 | `cinenet` | CiNENET | CiNENET HD |
+| 121 | `80s90stv` | 80s90s TV | 80s90s TV HD |
+| 122 | `filmpalast` | Filmpalast | Filmpalast HD |
+| 123 | `moviesphere` | Moviesphere | Moviesphere HD |
+| 124 | `hakunan` | Hakunan | Hakunan HD |
+| 125 | `seriesuniverse` | Series Universe | Series Universe HD |
+| 126 | `craction` | Top Serien | Top Serien HD |
+| 127 | `kika` | KiKA | KiKA HD |
+| 128 | `nickjr` | Nick Jr. | Nick Jr. HD |
+| 129 | `nicktoons` | nicktoons | nicktoons HD |
+| 130 | `kiddinxkids` | Kiddinx Kids | KIDDINX Kids HD |
+| 131 | `nickelodeon` | Nickelodeon | nickelodeon HD |
+| 132 | `naruto` | NARUTO | Naruto HD |
+| 133 | `yugioh` | Yu-Gi-Oh! | Yu-Gi-Oh! |
+| 134 | `kartoon` | Kartoon Channel | Kartoon Channel HD |
+| 135 | `spielmit` | Spiel mit! | Spielmit! HD |
+| 136 | `fixfoxi` | Fix & Foxi | Fix & Foxi HD |
+| 137 | `kixi` | nanoki | nanoki HD |
+| 138 | `ric` | RiC | Ric HD |
+| 139 | `hoppipolla` | HOPPIPOLLA | HOPPIPOLLA HD |
+| 140 | `toggoplus` | TOGGO plus | TOGGO plus HD |
+| 141 | `beyblade` | Beyblade | Beyblade HD |
+| 142 | `amusekids` | Car City & Friends | Car City & Friends HD |
+| 143 | `myanimationkids` | My Animation Kids | My Animation Kids HD |
+| 144 | `looloo` | LooLoo Kids TV | LooLoo Kids TV HD |
+| 145 | `cosmoundwanda` | Cosmo & Wanda | Cosmo & Wanda HD |
+| 146 | `janosch` | Janoschs Traumstunde | Janoschs Traumstunde HD |
+| 147 | `storyzoo` | StoryZoo & Friends | Storyzoo & Friends HD |
+| 162 | `bbctopgear` | BBC Top Gear | BBC TopGear HD |
+| 212 | `tierweltlive` | TIERWELT Live | TIERWELT live HD |
+| 213 | `adventure` | Adventure Channel | Adventure Channel HD |
+| 214 | `abenteuerwissen` | Abenteuer Wissen | Abenteuer Wissen HD |
+| 215 | `planet` | Bergblick | Bergblick HD |
+| 216 | `spiegelwissen` | Curiosity Channel | Curiosity Channel powered by SPIEGEL HD |
+| 217 | `spiegelgeschichte` | SPIEGEL Geschichte | Spiegel Geschichte HD |
+| 218 | `derspiegel` | DER SPIEGEL | Der Spiegel HD |
+| 219 | `spiegelkonflikte` | SPIEGEL TV Konflikte | Spiegel TV Konflikte HD |
+| 220 | `breakinglab` | Breaking Lab | Breaking Lab HD |
+| 221 | `historyclips` | HISTORY CLIPS | History Clips HD |
+| 222 | `bbchistory` | BBC History | BBC History HD |
+| 223 | `timeline` | Timeline Deutschland | Timeline Deutschland HD |
+| 224 | `xplorefree` | XPLORE | XPLORE HD |
+| 225 | `terramater` | Terra Mater WILD | Terra Mater WILD HD |
+| 226 | `earthstories` | Earth Stories | Earth Stories HD |
+| 227 | `marcopolo` | Marco Polo | Marco Polo HD |
+| 228 | `travelxp` | travelxp | Travelxp HD |
+| 229 | `df1` | DF1 | DF1 HD |
+| 230 | `weltderwunder` | Welt der Wunder | Welt der Wunder HD |
+| 231 | `bauforum24` | Bauforum24 | Bauforum24 HD |
+| 232 | `miniaturwunderland` | Miniaturwunderland | Miniatur Wunderland HD |
+| 233 | `waidwerk` | Waidwerk | Waidwerk HD |
+| 234 | `wirangeln` | Wir angeln | Wir angeln! HD |
+| 235 | `zdfinfo` | ZDFinfo | ZDFinfo HD |
+| 236 | `moconomy` | Moconomy | Moconomy HD |
+| 237 | `doku` | DOKU | DOKU HD |
+| 238 | `crimeinvestigationclips` | Crime + Investigation Clips | Crime + Investigation Clips HD |
+| 239 | `focustv` | FOCUS TV Reportage | FOCUS TV HD |
+| 240 | `historama` | Historama | Historama SD |
+| 241 | `tempora` | Tempora | Tempora SD |
+| 242 | `docubox` | DocuBox | DocuBox HD |
+| 243 | `watchdokus` | Watch Dokus | Watch Dokus HD |
+| 244 | `curiositynow` | Curiosity Now | Curiosity Now HD |
+| 245 | `oneterra` | One Terra | One Terra HD |
+| 246 | `sallyswelt` | Sallys Welt | Sallys Welt HD |
+| 247 | `bbclifestyle` | BBC Lifestyle | BBC Lifestyle HD |
+| 248 | `justcooking` | Just Cooking | Just Cooking HD |
+| 249 | `zdfkocht` | ZDF kocht! | ZDF kocht! HD |
+| 250 | `meisterderkueche` | Meister der Küche | Meister der Küche HD |
+| 251 | `3sat` | 3sat | 3sat HD |
+| 252 | `phoenix` | phoenix | PHOENIX HD |
+| 253 | `arte` | ARTE | ARTE HD |
+| 254 | `einsfestival` | ONE | ONE (aka EINS Festival) HD |
+| 255 | `grjngo` | GRJNGO | GRJNGO |
+| 256 | `rauchendecolts` | Rauchende Colts | Rauchende Colts |
+| 257 | `ddrtv` | DDR TV-Archiv | DDR TV-Archiv HD |
+| 258 | `defatv` | DEFA TV | DEFA TV SD |
+| 259 | `zombieworld` | Zombieworld | Zombieworld HD |
+| 260 | `artflix` | ARTFLIX - Filmklassiker | Artflix - Filmklassiker HD |
+| 261 | `bronco` | BRONCO | BRONCO |
+| 262 | `filmrise` | FilmRise Serien | FilmRise Serien HD |
+| 263 | `netzkino` | Netzkino | Netzkino HD |
+| 264 | `alleskino` | Deutsche Filme | Deutsche Filme HD |
+| 265 | `mymovie` | myMOVIE | myMOVIE HD |
+| 266 | `happyentertainment` | Happy Entertainment | Happy Entertainment HD |
+| 267 | `himmlischeskino` | Himmlisches Kino | Himmlisches Kino HD |
+| 268 | `fabella` | Fabella | Fabella HD |
+| 269 | `moviedome` | Moviedome | Moviedome HD |
+| 270 | `realstories` | Extreme Jobs | Extreme Jobs HD |
+| 271 | `dmaxschatzsucher` | DMAX Schatzsucher | DMAX Schatzsucher HD |
+| 272 | `einsatzamlimit` | Einsatz am Limit | Einsatz am Limit HD |
+| 273 | `galileo` | Galileo | Galileo HD |
+| 274 | `watchmoviesnow` | WatchMoviesNow | WatchMoviesNow HD |
+| 275 | `topfilme` | Top Filme | Top Filme HD |
+| 276 | `bigtime` | Bigtime - Spielfilme | Bigtime HD |
+| 277 | `xfactor` | X-Factor by Filmrise | X-Factor by Filmrise HD |
+| 278 | `tlcmystery` | TLC Mystery | TLC Mystery HD |
+| 279 | `topscifi` | TOP SCI-FI | TOP SCI-FI |
+| 280 | `utopja` | Utopja | Utopja HD |
+| 281 | `movieuniverse` | Movie Universe | Movie Universe HD |
+| 283 | `bralpha` | ARD-alpha | ARD-alpha HD |
+| 286 | `n24doku` | N24 Doku | N24 Doku HD |
+| 293 | `wdr_koeln` | WDR Köln | WDR Köln HD |
+| 304 | `n3_hamburg` | NDR Hamburg | NDR Hamburg HD |
+| 308 | `n3_bremen` | Radio Bremen | Radio Bremen HD |
+| 311 | `mdr_sachsen` | MDR Sachsen | MDR Sachsen HD |
+| 312 | `rbb_berlin` | RBB Berlin | RBB Berlin HD |
+| 313 | `swr_bw` | SWR Baden-Württemberg | SWR Baden-Württemberg HD |
+| 314 | `brsued` | BR Süd | BR Süd HD |
+| 316 | `hr` | hr-fernsehen | HR Fernsehen HD |
+| 317 | `sr` | SR | SR Fernsehen HD |
+| 323 | `royalworld` | Royalworld - Adel & Dynastien | Royalworld HD |
+| 331 | `bestofthevoice` | Best of The Voice | Best of The Voice HD |
+| 332 | `bigbrother` | Big Brother Classics | Big Brother HD |
+| 333 | `bauersuchtfrau` | Bauer sucht Frau | Bauer sucht Frau SD |
+| 334 | `standup` | Stand-Up Comedy | Stand-Up Comedy HD |
+| 335 | `myspasstv` | MySpass TV | MySpass TV SD |
 
 ## Vollständige Reihenfolge im Reiter „Alle Sender“
 

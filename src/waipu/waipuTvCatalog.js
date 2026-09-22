@@ -15,7 +15,9 @@ export const WAIPU_LIVE_INDEX_URL = '/waipu-live/index.json'
 export const WAIPU_LIVE_STATIONS_URL = '/waipu-live/stations.json'
 export const WAIPU_TV_LOAD_CONCURRENCY = 4
 const stationShardCache = new Map()
+const dayShardCache = new Map()
 const STATION_SHARD_CACHE_MS = 5 * 60 * 1_000
+const DAY_SHARD_CACHE_MS = 5 * 60 * 1_000
 
 function safeStationId(value) {
   const id = String(value || '').trim()
@@ -84,12 +86,36 @@ export function normalizeWaipuLiveStationCatalog(indexRaw, stationsRaw) {
     .map(normalizeStation)
     .filter(Boolean)
   if (!stations.length) return null
+  const days = (Array.isArray(indexRaw.days) ? indexRaw.days : [])
+    .map((day) => ({ key: String(day?.key || ''), count: Number(day?.count) }))
+    .filter(({ key, count }) => /^\d{4}-\d{2}-\d{2}$/.test(key) && Number.isInteger(count) && count >= 0)
+    .sort((left, right) => left.key.localeCompare(right.key))
   return {
     status: 'ready',
     generatedAt: indexRaw.generatedAt || null,
     horizon: indexRaw.horizon || null,
     stations,
+    days,
   }
+}
+
+export function normalizeWaipuDayShard(raw, expectedKey, stations = [], { now = Date.now() } = {}) {
+  const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
+  const key = String(expectedKey || '')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)
+      || raw?.schemaVersion !== WAIPU_LIVE_CATALOG_VERSION
+      || raw?.kind !== 'waipu-live-day' || raw?.key !== key) return []
+  const stationById = new Map((Array.isArray(stations) ? stations : [])
+    .map(normalizeStation)
+    .filter(Boolean)
+    .map((station) => [station.id, station]))
+  return (Array.isArray(raw.airings) ? raw.airings : [])
+    .map((airing) => {
+      const station = stationById.get(safeStationId(airing?.stationId))
+      return station ? normalizeAiring(airing, station, timestamp) : null
+    })
+    .filter(Boolean)
+    .sort((left, right) => left.startTime.localeCompare(right.startTime))
 }
 
 export async function loadWaipuLiveStationCatalog({ fetchImpl = fetch } = {}) {
@@ -137,23 +163,62 @@ async function loadStationShard(station, fetchImpl, now) {
   return request
 }
 
+async function loadDayShard(key, stations, fetchImpl, now) {
+  const cached = dayShardCache.get(key)
+  if (fetchImpl === fetch && cached && Date.now() - cached.loadedAt < DAY_SHARD_CACHE_MS) return cached.promise
+  const request = (async () => {
+    try {
+      const response = await fetchImpl(`/waipu-live/days/${key}.json`, { cache: 'no-store' })
+      if (!response.ok) return []
+      return normalizeWaipuDayShard(await response.json(), key, stations, { now })
+    } catch {
+      return []
+    }
+  })()
+  if (fetchImpl === fetch) dayShardCache.set(key, { loadedAt: Date.now(), promise: request })
+  return request
+}
+
+async function loadConcurrent(values, concurrency, loader) {
+  const results = new Array(values.length)
+  let cursor = 0
+  const workerCount = Math.max(1, Math.min(values.length || 1, Number(concurrency) || 1))
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (cursor < values.length) {
+      const index = cursor
+      cursor += 1
+      results[index] = await loader(values[index])
+    }
+  }))
+  return results.flat()
+}
+
 export async function loadWaipuTvAirings(stations = [], {
   fetchImpl = fetch,
   now = Date.now,
   concurrency = WAIPU_TV_LOAD_CONCURRENCY,
+  periodId = null,
+  availableDays = [],
 } = {}) {
   const queue = (Array.isArray(stations) ? stations : []).map(normalizeStation).filter(Boolean)
-  const results = new Array(queue.length)
-  let cursor = 0
-  const workerCount = Math.max(1, Math.min(queue.length || 1, Number(concurrency) || 1))
-  await Promise.all(Array.from({ length: workerCount }, async () => {
-    while (cursor < queue.length) {
-      const index = cursor
-      cursor += 1
-      results[index] = await loadStationShard(queue[index], fetchImpl, now)
-    }
-  }))
-  return results.flat().sort((left, right) => left.startTime.localeCompare(right.startTime))
+  const dayKeys = [...new Set((Array.isArray(availableDays) ? availableDays : [])
+    .map((day) => typeof day === 'string' ? day : day?.key)
+    .map(String)
+    .filter((key) => /^\d{4}-\d{2}-\d{2}$/.test(key)))]
+    .sort()
+  if (dayKeys.length && (periodId === TV_PERIOD_ALL || String(periodId || '').startsWith('day:'))) {
+    const requestedKeys = periodId === TV_PERIOD_ALL
+      ? dayKeys
+      : dayKeys.filter((key) => `day:${key}` === periodId)
+    const airings = await loadConcurrent(requestedKeys, concurrency, (key) => (
+      loadDayShard(key, queue, fetchImpl, now)
+    ))
+    return airings.sort((left, right) => left.startTime.localeCompare(right.startTime))
+  }
+  const airings = await loadConcurrent(queue, concurrency, (station) => (
+    loadStationShard(station, fetchImpl, now)
+  ))
+  return airings.sort((left, right) => left.startTime.localeCompare(right.startTime))
 }
 
 function zonedDateKey(value, timeZone) {
@@ -230,11 +295,16 @@ function shortDate(key) {
 export function buildTvPeriodOptions(airings = [], {
   now = Date.now(),
   timeZone = TV_TIME_ZONE,
+  availableDays = [],
 } = {}) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
   const todayKey = tvDayKey(timestamp, timeZone)
   const tomorrowKey = shiftDateKey(todayKey, 1)
   const keys = new Set([todayKey])
+  for (const day of Array.isArray(availableDays) ? availableDays : []) {
+    const key = String(typeof day === 'string' ? day : day?.key || '')
+    if (/^\d{4}-\d{2}-\d{2}$/.test(key)) keys.add(key)
+  }
   for (const airing of Array.isArray(airings) ? airings : []) {
     const start = Date.parse(airing?.startTime)
     const stop = Date.parse(airing?.stopTime)
@@ -474,6 +544,7 @@ export function buildWaipuTvViewModel({
   titleEntries = [],
   stationOrder = [],
   selectedPeriodId = null,
+  availableDays = [],
   now = Date.now(),
   timeZone = TV_TIME_ZONE,
 } = {}) {
@@ -482,7 +553,7 @@ export function buildWaipuTvViewModel({
     .map((id, index) => [id, index]))
   const items = buildAiringItems({ airings, titles, titleEntries, now: timestamp })
     .sort((a, b) => compareChronological(a, b, stationRank))
-  const periods = buildTvPeriodOptions(airings, { now: timestamp, timeZone })
+  const periods = buildTvPeriodOptions(airings, { now: timestamp, timeZone, availableDays })
   const todayId = `day:${tvDayKey(timestamp, timeZone)}`
   const selectedPeriod = periods.find((period) => period.id === selectedPeriodId)
     || periods.find((period) => period.id === todayId)

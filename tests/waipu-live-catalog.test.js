@@ -326,6 +326,12 @@ describe('Waipu live catalog publication', () => {
     expect(() => validateWaipuLiveCatalog(catalog)).toThrow('Missing waipu title-airing source data')
   })
 
+  it('requires every indexed TV day in a new day-sharded generation', async () => {
+    const catalog = await buildWaipuLiveCatalog(buildFixture())
+    delete catalog.days[catalog.index.days[0].key]
+    expect(() => validateWaipuLiveCatalog(catalog)).toThrow('Invalid waipu-live day shard')
+  })
+
   it('keeps one program id from generation through the merged app title', async () => {
     const catalog = await buildWaipuLiveCatalog(buildFixture())
     const entries = normalizeWaipuLiveTitles(catalog.titles, {
@@ -379,16 +385,19 @@ describe('Waipu live catalog publication', () => {
     const catalog = await buildWaipuLiveCatalog(buildFixture())
     await writeWaipuLiveCatalog(output, catalog)
 
-    const [index, stations, titles, shard] = await Promise.all([
+    const dayKey = catalog.index.days[0].key
+    const [index, stations, titles, shard, day] = await Promise.all([
       readFile(resolve(output, 'index.json'), 'utf8').then(JSON.parse),
       readFile(resolve(output, 'stations.json'), 'utf8').then(JSON.parse),
       readFile(resolve(output, 'titles.json'), 'utf8').then(JSON.parse),
       readFile(resolve(output, 'stations', 'zdf.json'), 'utf8').then(JSON.parse),
+      readFile(resolve(output, 'days', `${dayKey}.json`), 'utf8').then(JSON.parse),
     ])
     expect(index.status).toBe('complete')
     expect(stations.stations).toHaveLength(1)
     expect(titles.entries[0].tmdbId).toBe(667739)
     expect(shard.airings).toHaveLength(1)
+    expect(day).toMatchObject({ kind: 'waipu-live-day', key: dayKey, count: 1 })
   })
 
   it('restores and validates the last deployed generation before a refresh', async () => {
@@ -400,6 +409,7 @@ describe('Waipu live catalog publication', () => {
       ['/waipu-live/stations.json', source.stations],
       ['/waipu-live/titles.json', source.titles],
       ['/waipu-live/stations/zdf.json', source.shards.zdf],
+      ...Object.entries(source.days).map(([key, day]) => [`/waipu-live/days/${key}.json`, day]),
     ])
     const fetchImpl = vi.fn(async (url) => {
       const payload = payloads.get(new URL(url).pathname)
@@ -420,8 +430,10 @@ describe('Waipu live catalog publication', () => {
 
     const restoredIndex = JSON.parse(await readFile(resolve(output, 'index.json'), 'utf8'))
     const restoredShard = JSON.parse(await readFile(resolve(output, 'stations', 'zdf.json'), 'utf8'))
+    const restoredDay = JSON.parse(await readFile(resolve(output, 'days', `${source.index.days[0].key}.json`), 'utf8'))
     expect(restoredIndex.counts).toEqual({ stations: 1, titles: 1, broadcasts: 1 })
     expect(restoredShard.airings).toHaveLength(1)
+    expect(restoredDay.airings).toHaveLength(1)
 
     payloads.set('/waipu-live/index.json', {
       ...source.index,
@@ -446,6 +458,7 @@ describe('Waipu live catalog publication', () => {
       ['/waipu-live/stations.json', source.stations],
       ['/waipu-live/titles.json', source.titles],
       ['/waipu-live/stations/zdf.json', source.shards.zdf],
+      ...Object.entries(source.days).map(([key, day]) => [`/waipu-live/days/${key}.json`, day]),
     ])
     const fetchImpl = vi.fn(async (url) => {
       const payload = payloads.get(new URL(url).pathname)
@@ -486,6 +499,7 @@ describe('Waipu live catalog publication', () => {
       ['/waipu-live/stations.json', source.stations],
       ['/waipu-live/titles.json', source.titles],
       ['/waipu-live/stations/zdf.json', source.shards.zdf],
+      ...Object.entries(source.days).map(([key, day]) => [`/waipu-live/days/${key}.json`, day]),
     ])
     const fetchImpl = vi.fn(async (url) => {
       const payload = payloads.get(new URL(url).pathname)

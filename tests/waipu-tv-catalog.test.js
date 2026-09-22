@@ -7,6 +7,7 @@ import {
   isTvAiringOnAir,
   loadWaipuLiveStationCatalog,
   loadWaipuTvAirings,
+  normalizeWaipuDayShard,
   normalizeWaipuLiveStationCatalog,
   normalizeWaipuStationShard,
   nextTvAiringTransition,
@@ -91,6 +92,54 @@ describe('Waipu TV catalog', () => {
     expect(fetchImpl).toHaveBeenCalledOnce()
     expect(fetchImpl.mock.calls[0][0]).toBe('/waipu-live/stations/zdf.json')
     expect(result.map(({ stationId }) => stationId)).toEqual(['zdf'])
+  })
+
+  it('loads one selected TV day and filters it to active stations', async () => {
+    const day = {
+      schemaVersion: 1,
+      kind: 'waipu-live-day',
+      key: '2026-09-20',
+      airings: [
+        { ...shard('zdf', 'Film A', '2026-09-20T18:15:00.000Z', 11).airings[0], stationId: 'zdf' },
+        { ...shard('rtl', 'Film B', '2026-09-20T19:15:00.000Z', 22).airings[0], stationId: 'rtl' },
+      ],
+    }
+    expect(normalizeWaipuDayShard(day, day.key, stations.stations, {
+      now: Date.parse('2026-09-19T12:00:00.000Z'),
+    })).toHaveLength(2)
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => day }))
+    const result = await loadWaipuTvAirings([{ id: 'zdf', name: 'ZDF' }], {
+      fetchImpl,
+      now: () => Date.parse('2026-09-19T12:00:00.000Z'),
+      periodId: 'day:2026-09-20',
+      availableDays: [{ key: '2026-09-20', count: 2 }],
+    })
+    expect(fetchImpl).toHaveBeenCalledOnce()
+    expect(fetchImpl.mock.calls[0][0]).toBe('/waipu-live/days/2026-09-20.json')
+    expect(result.map(({ stationId }) => stationId)).toEqual(['zdf'])
+  })
+
+  it('loads every published day only when the 14-day period is selected', async () => {
+    const fetchImpl = vi.fn(async (url) => {
+      const key = url.includes('2026-09-20') ? '2026-09-20' : '2026-09-21'
+      return {
+        ok: true,
+        json: async () => ({
+          schemaVersion: 1,
+          kind: 'waipu-live-day',
+          key,
+          airings: [{ ...shard('zdf', key, `${key}T18:15:00.000Z`, 11).airings[0], stationId: 'zdf' }],
+        }),
+      }
+    })
+    const result = await loadWaipuTvAirings([{ id: 'zdf', name: 'ZDF' }], {
+      fetchImpl,
+      now: () => Date.parse('2026-09-19T12:00:00.000Z'),
+      periodId: '14-days',
+      availableDays: ['2026-09-20', '2026-09-21'],
+    })
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(result).toHaveLength(2)
   })
 
   it('groups all active stations by German calendar day and sorts by start time', () => {

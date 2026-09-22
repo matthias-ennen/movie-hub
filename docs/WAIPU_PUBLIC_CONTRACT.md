@@ -281,13 +281,16 @@ Live-Retry; ihre Fehlerpfade werden mit lokalen Fixtures geprüft.
 - `waipu-live/stations.json`: bereinigte Sender-IDs, Namen und Logos;
 - `waipu-live/titles.json`: TMDB-Zuordnung und nächste Ausstrahlung für Badge
   und Detailansicht;
+- `waipu-live/days/{YYYY-MM-DD}.json`: Film-/Serienausstrahlungen genau eines
+  TV-Tages von 06:00 bis 06:00 Uhr;
 - `waipu-live/stations/{stationId}.json`: chronologische Film-/Serien-
-  ausstrahlungen für die TV-Registerkarte.
+  ausstrahlungen als abwärtskompatibler Rückfallvertrag.
 
 Die App lädt für Badge und Detailansicht nur die kompakte Titelübersicht. Im
-TV-Reiter lädt sie zusätzlich Index, Senderverzeichnis und ausschließlich die
-Dateien der in den kontoweiten Einstellungen aktiven Sender; diese Dateien
-werden clientseitig gecacht. Alle Sender sind standardmäßig aktiv, die
+TV-Reiter lädt sie zusätzlich Index, Senderverzeichnis und standardmäßig nur
+den gewählten TV-Tag. Die 14-Tage-Auswahl lädt alle Tagesdateien ausdrücklich;
+Kataloggenerationen ohne Tagesdateien fallen auf aktive Sendershards zurück.
+Diese Dateien werden clientseitig gecacht. Alle Sender sind standardmäßig aktiv, die
 TV-Seite selbst enthält keine Senderauswahl. Abgelaufene Ausstrahlungen werden
 zusätzlich beim Lesen über `stopTime <= now` ausgeblendet.
 

@@ -444,6 +444,7 @@ function MovieHub({ user }) {
     stations: [],
     generatedAt: null,
     horizon: null,
+    days: [],
   })
   const [tvSchedule, setTvSchedule] = useState({ status: 'idle', airings: [] })
   const [tvScheduleRequested, setTvScheduleRequested] = useState(false)
@@ -554,6 +555,7 @@ function MovieHub({ user }) {
       .filter((station) => !disabled.has(station.id))
   }, [disabledStationIds, orderStations, waipuStationCatalog.stations])
   const activeWaipuStationKey = activeWaipuStations.map((station) => station.id).join('|')
+  const availableWaipuDayKey = (waipuStationCatalog.days || []).map(({ key }) => key).join('|')
 
   useEffect(() => {
     if (!tvScheduleRequested) return undefined
@@ -572,7 +574,10 @@ function MovieHub({ user }) {
 
     let cancelled = false
     setTvSchedule((current) => ({ ...current, status: 'loading' }))
-    loadWaipuTvAirings(activeWaipuStations)
+    loadWaipuTvAirings(activeWaipuStations, {
+      periodId: tvPeriodId,
+      availableDays: waipuStationCatalog.days,
+    })
       .then((airings) => {
         if (!cancelled) {
           setTvClock(Date.now())
@@ -583,7 +588,7 @@ function MovieHub({ user }) {
         if (!cancelled) setTvSchedule({ status: 'unavailable', airings: [] })
       })
     return () => { cancelled = true }
-  }, [activeWaipuStationKey, stationSelectionLoading, tvScheduleRequested, waipuStationCatalog.status])
+  }, [activeWaipuStationKey, availableWaipuDayKey, stationSelectionLoading, tvPeriodId, tvScheduleRequested, waipuStationCatalog.days, waipuStationCatalog.status])
 
   useEffect(() => {
     if (tvSchedule.status !== 'ready') return undefined
@@ -643,8 +648,9 @@ function MovieHub({ user }) {
     titleEntries: waipuLiveEntries,
     stationOrder: activeWaipuStations.map((station) => station.id),
     selectedPeriodId: tvPeriodId,
+    availableDays: waipuStationCatalog.days,
     now: tvClock,
-  }), [activeWaipuStations, titles, tvClock, tvPeriodId, tvSchedule.airings, waipuLiveEntries])
+  }), [activeWaipuStations, titles, tvClock, tvPeriodId, tvSchedule.airings, waipuLiveEntries, waipuStationCatalog.days])
   const compactTvHeroItems = useMemo(() => buildWaipuTvHeroItems({
     titles,
     titleEntries: waipuLiveEntries,

@@ -7,6 +7,7 @@ const DEFAULT_ARTIFACT_LIMITS = Object.freeze({
   manifest: 4 * 1024 * 1024,
   titles: 256 * 1024 * 1024,
   stationShard: 16 * 1024 * 1024,
+  dayShard: 64 * 1024 * 1024,
 })
 
 function sourceUrl(value) {
@@ -71,7 +72,18 @@ export async function restoreLiveWaipuCatalog({
       maxBytes: limits.stationShard,
     }),
   ]))))
-  const catalog = { index, stations, titles, shards }
+  const dayKeys = (Array.isArray(index?.days) ? index.days : []).map(({ key }) => String(key || ''))
+  if (dayKeys.some((key) => !/^\d{4}-\d{2}-\d{2}$/.test(key)) || new Set(dayKeys).size !== dayKeys.length) {
+    throw new Error('Waipu restore day index is invalid.')
+  }
+  const days = Object.fromEntries(await Promise.all(dayKeys.map(async (key) => ([
+    key,
+    await fetchJson(`${base}/days/${key}.json`, {
+      fetchImpl,
+      maxBytes: limits.dayShard,
+    }),
+  ]))))
+  const catalog = { index, stations, titles, shards, days }
   // A code deploy may have to carry the last valid V2 generation until the
   // scheduled refresh migrates it to the strict V3 contract. Only this restore
   // path accepts that legacy contract; newly generated publications remain V3.
