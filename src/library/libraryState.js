@@ -6,7 +6,11 @@ export const EMPTY_TITLE_STATE = {
   watchedAt: null,
   watchedMarkedAt: null,
   note: '',
+  titleRef: null,
   titleSnapshot: null,
+  canonicalReady: false,
+  canonicalMetadataVersion: null,
+  canonicalMetadataUpdatedAt: null,
 }
 
 const SUPPORTED_AGE_RATINGS = new Set([0, 6, 12, 16, 18])
@@ -40,10 +44,9 @@ function compactCollectionDetails(value) {
 }
 
 /**
- * The public catalog is deliberately refreshed over time. A compact copy of
- * the title is kept with a personal state so a watchlist or rating never
- * disappears merely because that title is no longer in today's discovery
- * rows. It contains public TMDB metadata only, never authentication data.
+ * A compact public metadata copy bridges the time between a personal action
+ * and the next canonical publication. It is not a second source of truth and
+ * can be discarded as soon as the shared title detail is published.
  */
 export function createTitleSnapshot(item) {
   if (!item || typeof item !== 'object' || !item.title) return null
@@ -99,6 +102,22 @@ export function normalizeTitleSnapshot(value) {
   return createTitleSnapshot(value)
 }
 
+export function normalizeTitleRef(value, fallback = null) {
+  const source = value && typeof value === 'object' ? value : {}
+  const fallbackValue = fallback && typeof fallback === 'object' ? fallback : {}
+  const tmdbId = finiteNumber(source.tmdbId ?? fallbackValue.tmdbId)
+  if (!tmdbId || tmdbId <= 0) return null
+  const type = source.type === 'series' || source.mediaType === 'tv'
+    || fallbackValue.type === 'series' || fallbackValue.mediaType === 'tv'
+    ? 'series'
+    : 'movie'
+  return {
+    catalogId: String(source.catalogId || fallbackValue.id || `tmdb-${type}-${tmdbId}`),
+    tmdbId,
+    type,
+  }
+}
+
 export function getTitleStateKey(item) {
   if (!item) return ''
 
@@ -118,6 +137,13 @@ export function normalizeTitleState(value) {
     ? value.rating
     : null
 
+  const titleSnapshot = normalizeTitleSnapshot(value?.titleSnapshot)
+  const canonicalMetadataVersion = finiteNumber(value?.canonicalMetadataVersion)
+  const canonicalMetadataUpdatedAt = typeof value?.canonicalMetadataUpdatedAt === 'string'
+    && Number.isFinite(Date.parse(value.canonicalMetadataUpdatedAt))
+    ? value.canonicalMetadataUpdatedAt
+    : null
+
   return {
     favorite: Boolean(value?.favorite),
     watchlist: Boolean(value?.watchlist),
@@ -130,7 +156,11 @@ export function normalizeTitleState(value) {
       ? value.watchedMarkedAt
       : null,
     note: typeof value?.note === 'string' ? value.note.slice(0, 500) : '',
-    titleSnapshot: normalizeTitleSnapshot(value?.titleSnapshot),
+    titleRef: normalizeTitleRef(value?.titleRef, titleSnapshot),
+    titleSnapshot,
+    canonicalReady: value?.canonicalReady === true,
+    canonicalMetadataVersion: canonicalMetadataVersion === null ? null : Math.max(1, canonicalMetadataVersion),
+    canonicalMetadataUpdatedAt,
   }
 }
 
@@ -162,11 +192,21 @@ export function applyTitleStatePatch(currentValue, patch, date = new Date()) {
 
 export function applyTitleStateUpdate(item, currentValue, patch, date = new Date()) {
   const titleSnapshot = createTitleSnapshot(item)
+  const canonicalPublished = item?.canonicalPublished === true
   return applyTitleStatePatch(currentValue, {
     ...patch,
+    titleRef: normalizeTitleRef(item, currentValue?.titleRef),
     titleSnapshot: titleSnapshot ?? currentValue?.titleSnapshot ?? null,
+    canonicalReady: currentValue?.canonicalReady === true || canonicalPublished,
+    canonicalMetadataVersion: canonicalPublished
+      ? Math.max(1, Number(item?.metadataVersion) || 1)
+      : currentValue?.canonicalMetadataVersion ?? null,
+    canonicalMetadataUpdatedAt: canonicalPublished
+      ? item?.metadataUpdatedAt || date.toISOString()
+      : currentValue?.canonicalMetadataUpdatedAt ?? null,
   }, date)
 }
+
 export function hasPersonalTitleState(value) {
   const state = normalizeTitleState(value)
   return state.favorite || state.watchlist || state.watched || state.rating !== null || Boolean(state.note.trim())

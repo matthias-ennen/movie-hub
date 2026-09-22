@@ -89,6 +89,7 @@ export function buildTitlePriorityPreview({
     const incomplete = failed || Number(metadata.incompleteReferences) > structuralOnlyGapReferences
     const stale = Number(metadata.staleReferences) > 0
     const isNew = Boolean(baseline) && !previousKeys.has(candidate.key)
+    const canonicalPublicationPending = metadata.canonicalPublicationPending === true
     const changed = isTmdbTitleChangePending(
       changedTitles,
       candidate.key,
@@ -96,7 +97,13 @@ export function buildTitlePriorityPreview({
     )
     const changeCoveredByCanonical = changedTitles.has(candidate.key)
       && !isTmdbTitleChangePending(changedTitles, candidate.key, metadata.latestUpdatedAt)
-    const priority = priorityFor({ incomplete, isNew, changed, structuralGap, stale })
+    const priority = priorityFor({
+      incomplete,
+      isNew: isNew || canonicalPublicationPending,
+      changed,
+      structuralGap,
+      stale,
+    })
     if (!priority) {
       upToDate += 1
       continue
@@ -108,7 +115,14 @@ export function buildTitlePriorityPreview({
       tmdbId: candidate.tmdbId,
       sources: candidate.sources,
       priority,
-      reasons: reasonsFor({ incomplete, failed, isNew, changed, structuralGap, stale }),
+      reasons: reasonsFor({
+        incomplete,
+        failed,
+        isNew: isNew || canonicalPublicationPending,
+        changed,
+        structuralGap,
+        stale,
+      }),
       action: fetchRequired ? 'fetch-tmdb' : 'reuse-canonical',
       fetchRequired,
       metadata,

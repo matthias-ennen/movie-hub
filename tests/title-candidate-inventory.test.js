@@ -40,6 +40,20 @@ describe('kanonischer Titelkandidatenbestand', () => {
         document('users/u2/tmdbCatalog/movie:33', { mediaType: 'movie', tmdbId: 33 }),
         document('not-users/u3/tmdbCatalog/movie:99', { mediaType: 'movie', tmdbId: 99 }),
       ],
+      profileDocuments: [
+        document('users/u1/profiles/main/titles/movie-88', {
+          titleRef: { type: 'movie', tmdbId: 88 },
+          watchlist: true,
+          catalogRelevant: true,
+          canonicalReady: true,
+          canonicalMetadataVersion: 3,
+          canonicalMetadataUpdatedAt: '2026-09-20T11:00:00.000Z',
+        }),
+        document('users/u1/profiles/main/not-titles/movie-99', {
+          titleRef: { type: 'movie', tmdbId: 99 },
+          watchlist: true,
+        }),
+      ],
       movieHubDocuments: [
         document('users/u1/sharedMedia/series-22', { hasMedia: true, titleRef: { type: 'series', tmdbId: 22 } }),
         document('users/u1/sharedMedia/movie-77', { hasMedia: false, titleRef: { type: 'movie', tmdbId: 77 } }),
@@ -55,19 +69,20 @@ describe('kanonischer Titelkandidatenbestand', () => {
     })
 
     expect(inventory.counts).toMatchObject({
-      rawCandidateReferences: 7,
-      canonicalCandidates: 4,
+      rawCandidateReferences: 8,
+      canonicalCandidates: 5,
       deduplicatedReferences: 3,
       overlappingCandidates: 2,
       searchTitles: 3,
       searchOnlyTitles: 1,
       catalogRelevantSearchTitles: 2,
       invalidSearchReferences: 1,
-      byMediaType: { movie: 2, series: 2 },
+      byMediaType: { movie: 3, series: 2 },
     })
     expect(inventory.candidates.map(({ metadata: _metadata, ...candidate }) => candidate)).toEqual([
       { key: 'movie:11', type: 'movie', tmdbId: 11, sources: ['browse', 'personal-tmdb'] },
       { key: 'movie:33', type: 'movie', tmdbId: 33, sources: ['personal-tmdb'] },
+      { key: 'movie:88', type: 'movie', tmdbId: 88, sources: ['profile-state'] },
       { key: 'series:22', type: 'series', tmdbId: 22, sources: ['browse', 'movie-hub'] },
       { key: 'series:66', type: 'series', tmdbId: 66, sources: ['waipu'] },
     ])
@@ -80,10 +95,58 @@ describe('kanonischer Titelkandidatenbestand', () => {
       strictCompleteReferences: 0,
       freshCompleteReferences: 0,
     })
+    expect(inventory.sourceStats['profile-state']).toMatchObject({
+      rawReferences: 2,
+      eligibleReferences: 1,
+      rejectedReferences: 1,
+      uniqueTitles: 1,
+      strictCompleteReferences: 1,
+      freshCompleteReferences: 1,
+    })
+    expect(inventory.candidates.find(({ key }) => key === 'movie:88')?.metadata)
+      .toMatchObject({ canonicalPublicationPending: false })
     expect(inventory.unresolvedWaipu).toMatchObject({
       detailsAvailable: true,
       programs: 2,
       reasons: { no_candidate: 1, ambiguous_margin: 1 },
+    })
+  })
+
+  it('marks an unpublished profile bootstrap for canonical publication even when metadata is complete', () => {
+    const inventory = buildTitleCandidateInventory({
+      profileDocuments: [
+        document('users/u1/profiles/main/titles/movie-77', {
+          titleRef: { type: 'movie', tmdbId: 77 },
+          bootstrapSnapshot: {
+            type: 'movie',
+            tmdbId: 77,
+            title: 'Profilfilm',
+            collectionChecked: true,
+            metadataVersion: 3,
+            metadataComplete: true,
+            metadataUpdatedAt: '2026-09-20T11:00:00.000Z',
+            metadataChecks: {
+              details: 'present',
+              artwork: 'present',
+              ageRating: 'absent',
+              credits: 'present',
+              keywords: 'absent',
+              videos: 'absent',
+              providers: 'present',
+              collection: 'absent',
+            },
+          },
+          watchlist: true,
+          catalogRelevant: true,
+          canonicalReady: false,
+        }),
+      ],
+    })
+
+    expect(inventory.candidates[0].metadata).toMatchObject({
+      canonicalPublicationPending: true,
+      strictCompleteAvailable: true,
+      freshCompleteAvailable: true,
     })
   })
 

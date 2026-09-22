@@ -43,7 +43,7 @@ describe('persönlicher Film-/Serienzustand', () => {
     expect(hasPersonalTitleState({ note: 'Merken' })).toBe(true)
   })
 
-  it('keeps a public title snapshot with a personal state for later catalog refreshes', () => {
+  it('uses a public title snapshot as a temporary bridge before canonical publication', () => {
     const snapshot = createTitleSnapshot({
       id: 'tmdb-movie-11',
       tmdbId: 11,

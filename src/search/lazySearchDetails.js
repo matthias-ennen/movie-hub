@@ -112,6 +112,7 @@ export function mergeSearchDetail(entry, detail) {
     voteAverage,
     score: formatScore(voteAverage),
     detailSource: detail.completeness || 'discover',
+    canonicalPublished: true,
   }
 }
 

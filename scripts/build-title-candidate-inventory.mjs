@@ -3,8 +3,8 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { titleNeedsMetadataEnrichment } from '../src/catalog/titleMetadata.js'
 
-export const TITLE_CANDIDATE_INVENTORY_VERSION = 1
-export const CANDIDATE_SOURCES = Object.freeze(['browse', 'personal-tmdb', 'movie-hub', 'waipu'])
+export const TITLE_CANDIDATE_INVENTORY_VERSION = 2
+export const CANDIDATE_SOURCES = Object.freeze(['browse', 'personal-tmdb', 'profile-state', 'movie-hub', 'waipu'])
 
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || 'movie-hub-62459'
 const inventoryPath = resolve(process.env.TITLE_CANDIDATE_INVENTORY || 'artifacts/title-candidate-inventory.json')
@@ -37,7 +37,23 @@ function validUserDocumentPath(path, collection) {
   return segments.length === 4 && segments[0] === 'users' && segments[2] === collection
 }
 
-function sourceValues({ catalog, personalDocuments, movieHubDocuments, waipuTitles }) {
+function validProfileTitleDocumentPath(path) {
+  const segments = String(path).split('/')
+  return segments.length === 6
+    && segments[0] === 'users'
+    && segments[2] === 'profiles'
+    && segments[4] === 'titles'
+}
+
+function hasCatalogRelevantProfileState(value) {
+  if (value?.catalogRelevant === true) return true
+  return value?.favorite === true
+    || value?.watchlist === true
+    || value?.watched === true
+    || (Number.isInteger(value?.rating) && value.rating >= 1 && value.rating <= 10)
+}
+
+function sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles }) {
   return {
     browse: (Array.isArray(catalog?.titles) ? catalog.titles : []).map((value) => ({ value, eligible: true })),
     'personal-tmdb': (Array.isArray(personalDocuments) ? personalDocuments : []).map((document) => {
@@ -45,6 +61,16 @@ function sourceValues({ catalog, personalDocuments, movieHubDocuments, waipuTitl
       return {
         value,
         eligible: validUserDocumentPath(documentPath(document), 'tmdbCatalog'),
+      }
+    }),
+    'profile-state': (Array.isArray(profileDocuments) ? profileDocuments : []).map((document) => {
+      const data = documentValue(document)
+      return {
+        value: data?.bootstrapSnapshot ?? data?.titleSnapshot ?? data?.titleRef,
+        eligible: validProfileTitleDocumentPath(documentPath(document)) && hasCatalogRelevantProfileState(data),
+        canonicalReady: data?.canonicalReady === true,
+        canonicalMetadataUpdatedAt: data?.canonicalMetadataUpdatedAt,
+        canonicalMetadataVersion: data?.canonicalMetadataVersion,
       }
     }),
     'movie-hub': (Array.isArray(movieHubDocuments) ? movieHubDocuments : []).map((document) => {
@@ -66,7 +92,24 @@ function timestampIso(value) {
   return Number.isFinite(milliseconds) ? new Date(milliseconds).toISOString() : null
 }
 
-function metadataObservation(source, value, { now, maxAgeDays }) {
+function metadataObservation(source, value, { now, maxAgeDays }, reference = {}) {
+  if (reference.canonicalReady) {
+    const metadataUpdatedAt = timestampIso(reference.canonicalMetadataUpdatedAt)
+    const updatedAt = metadataUpdatedAt ? Date.parse(metadataUpdatedAt) : Number.NaN
+    const freshComplete = Number.isFinite(updatedAt)
+      && now - updatedAt <= maxAgeDays * 86400000
+    return {
+      source,
+      canonicalPublicationPending: false,
+      strictComplete: true,
+      freshComplete,
+      failed: false,
+      structuralGap: false,
+      structuralOnlyGap: false,
+      metadataVersion: Math.max(1, Number(reference.canonicalMetadataVersion) || 1),
+      metadataUpdatedAt,
+    }
+  }
   const strictComplete = !titleNeedsMetadataEnrichment(value, { requireContract: true })
   const freshComplete = !titleNeedsMetadataEnrichment(value, {
     now,
@@ -83,6 +126,7 @@ function metadataObservation(source, value, { now, maxAgeDays }) {
   const structuralGap = !checked(structuralCheck)
   return {
     source,
+    canonicalPublicationPending: source === 'profile-state' && reference.canonicalReady !== true,
     strictComplete,
     freshComplete,
     failed: Object.values(checks).includes('failed'),
@@ -114,6 +158,7 @@ function summarizeCandidateMetadata(observations) {
     .filter(Boolean))
   const updated = values.map(({ metadataUpdatedAt }) => metadataUpdatedAt).filter(Boolean).sort()
   return {
+    canonicalPublicationPending: values.some(({ canonicalPublicationPending }) => canonicalPublicationPending),
     strictCompleteAvailable: values.some(({ strictComplete }) => strictComplete),
     freshCompleteAvailable: values.some(({ freshComplete }) => freshComplete),
     incompleteReferences: values.filter(({ strictComplete }) => !strictComplete).length,
@@ -147,7 +192,7 @@ function collectSource(source, references, candidates, options) {
     }
     eligibleReferences += 1
     unique.add(identity.key)
-    const observation = metadataObservation(source, reference.value, options)
+    const observation = metadataObservation(source, reference.value, options, reference)
     if (observation.strictComplete) strictCompleteReferences += 1
     if (observation.freshComplete) freshCompleteReferences += 1
     const candidate = candidates.get(identity.key) || { ...identity, sources: [], observations: [] }
@@ -199,6 +244,7 @@ export function buildTitleCandidateInventory({
   waipuIndex = {},
   waipuUnresolved = {},
   personalDocuments = [],
+  profileDocuments = [],
   movieHubDocuments = [],
   generatedAt = new Date().toISOString(),
   maxAgeDays = 30,
@@ -209,7 +255,7 @@ export function buildTitleCandidateInventory({
     maxAgeDays: Math.max(1, Number(maxAgeDays) || 30),
   }
   const candidates = new Map()
-  const sources = sourceValues({ catalog, personalDocuments, movieHubDocuments, waipuTitles })
+  const sources = sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles })
   const sourceStats = Object.fromEntries(CANDIDATE_SOURCES.map((source) => [
     source,
     collectSource(source, sources[source], candidates, metadataOptions),
@@ -312,13 +358,14 @@ async function main() {
   ])
   const app = initializeApp({ credential: applicationDefault(), projectId }, 'title-candidate-inventory')
   const db = getFirestore(app)
-  const [catalog, searchIndex, waipuTitles, waipuIndex, waipuUnresolved, personalSnapshot, movieHubSnapshot] = await Promise.all([
+  const [catalog, searchIndex, waipuTitles, waipuIndex, waipuUnresolved, personalSnapshot, profileSnapshot, movieHubSnapshot] = await Promise.all([
     readJson('public/catalog.json', { titles: [] }),
     readJson('public/search-index.json', { entries: [] }),
     readJson('public/waipu-live/titles.json', { entries: [] }),
     readJson('public/waipu-live/index.json'),
     readJson('artifacts/waipu-live/unresolved.json'),
     db.collectionGroup('tmdbCatalog').get(),
+    db.collectionGroup('titles').get(),
     db.collectionGroup('sharedMedia').get(),
   ])
   const inventory = buildTitleCandidateInventory({
@@ -328,6 +375,7 @@ async function main() {
     waipuIndex,
     waipuUnresolved,
     personalDocuments: personalSnapshot.docs,
+    profileDocuments: profileSnapshot.docs,
     movieHubDocuments: movieHubSnapshot.docs,
   })
   await Promise.all([

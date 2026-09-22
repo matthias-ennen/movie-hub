@@ -1,6 +1,6 @@
 # Movie Hub – kanonischer Titelkandidatenbestand
 
-Stand: 20. September 2026
+Stand: 22. September 2026
 
 ## Zweck und Abgrenzung
 
@@ -14,6 +14,7 @@ Dieser Schritt startet noch keine TMDB-Abrufe, verändert keine Firestore-Dokume
 | --- | --- | --- |
 | Browse-/Anbieterkatalog (`public/catalog.json`) | ja | jeder gültige Film oder jede gültige Serie |
 | persönlicher TMDB-Katalog (`users/*/tmdbCatalog/*`) | ja | nur gültige Benutzerdokumente; Favorit, Watchlist und Bewertung bleiben privat und werden nicht inventarisiert |
+| profilbezogener Movie-Hub-Zustand (`users/*/profiles/*/titles/*`) | ja | nur Dokumente mit tatsächlichem persönlichem Zustand; inventarisiert werden ausschließlich Medientyp und TMDB-ID, nie Profil-, Notiz- oder Benutzerzuordnung |
 | Movie Hub (`users/*/sharedMedia/*`) | ja | nur gültige Eltern mit `hasMedia: true`; Links und Benutzerzuordnung werden nicht ausgegeben |
 | Waipu-Live-Titel (`public/waipu-live/titles.json`) | ja | nur bereits eindeutig nach TMDB aufgelöste Titel |
 | großer Suchindex (`public/search-index.json`) | nein, sofern keine andere Quelle denselben Titel enthält | dient nur zur Abgrenzung von Search-only-Titeln |
@@ -29,9 +30,11 @@ Das vollständige Inventar enthält keine Benutzer-ID, keinen Firestore-Pfad, ke
 
 ## Zählersemantik
 
-`rawCandidateReferences` zählt alle gültigen Referenzen der vier Kandidatenquellen. `canonicalCandidates` ist deren Vereinigungsmenge. Die Differenz ist `deduplicatedReferences`. `overlappingCandidates` zählt Titel, die in mehr als einer Quelle vorkommen.
+`rawCandidateReferences` zählt alle gültigen Referenzen der fünf Kandidatenquellen. `canonicalCandidates` ist deren Vereinigungsmenge. Die Differenz ist `deduplicatedReferences`. `overlappingCandidates` zählt Titel, die in mehr als einer Quelle vorkommen.
 
 `searchOnlyTitles` zählt gültige Suchindex-Titel, deren kanonische Identität in keiner Kandidatenquelle vorkommt. Sie werden weiterhin erst beim Öffnen vollständig geladen. `unresolvedWaipu.programs` zählt aktuelle Waipu-Programme ohne belastbare TMDB-Zuordnung; dieser Wert ist kein Titelbestand und wird ausdrücklich getrennt ausgewiesen.
+
+Ein beim ersten persönlichen Speichern benötigter `bootstrapSnapshot` ist nur eine Sofort- und Neustartbrücke bis zur nächsten kanonischen Veröffentlichung. Sobald der zentrale Executor den Titel in Search-Index und Detail-Shard veröffentlicht hat, markiert er die Referenz als kanonisch verfügbar und entfernt sowohl den Bootstrap als auch das frühere Feld `titleSnapshot`. Die App lädt danach die gemeinsamen öffentlichen Metadaten über die Titelreferenz.
 
 ## Folgeschritt
 
