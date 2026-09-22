@@ -1,10 +1,58 @@
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
+import DetailLoadingScreen from '../src/components/DetailLoadingScreen.jsx'
 import {
+  prepareDetailRequestItem,
   preloadDetailImage,
   waitForDetailLoadingPaint,
 } from '../src/components/detailPresentation.js'
 
 describe('stabiler Detail-Ladezustand', () => {
+  it('lädt einen Search-only-Titel streng vollständig, bevor er präsentiert wird', async () => {
+    const complete = { id: 'tmdb-movie-14161', title: '2012', metadataComplete: true }
+    const loadComplete = vi.fn(async () => complete)
+    const presentArtwork = vi.fn((item) => ({ ...item, displayPosterUrl: '/poster.jpg' }))
+
+    const result = await prepareDetailRequestItem({ id: 'tmdb-movie-14161', title: '2012' }, {
+      requireComplete: true,
+      artworkOptions: { profileId: 'main' },
+      loadComplete,
+      presentArtwork,
+    })
+
+    expect(loadComplete).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'tmdb-movie-14161' }),
+      { requireContract: true, requireComplete: true },
+    )
+    expect(presentArtwork).toHaveBeenCalledWith(complete, { profileId: 'main' })
+    expect(result).toMatchObject({ metadataComplete: true, displayPosterUrl: '/poster.jpg' })
+  })
+
+  it('startet für einen normalen Titel keinen zweiten strengen Metadatenabruf', async () => {
+    const item = { id: 'tmdb-movie-345887', title: 'The Equalizer 2' }
+    const loadComplete = vi.fn()
+    const presentArtwork = vi.fn((value) => value)
+
+    await expect(prepareDetailRequestItem(item, { loadComplete, presentArtwork })).resolves.toBe(item)
+    expect(loadComplete).not.toHaveBeenCalled()
+  })
+
+  it('zeigt einen Search-only-Fehler mit Wiederholen innerhalb des Detaildialogs', () => {
+    const markup = renderToStaticMarkup(createElement(DetailLoadingScreen, {
+      item: { title: '2012', type: 'movie' },
+      error: new Error('offline'),
+      onRetry: vi.fn(),
+      onClose: vi.fn(),
+    }))
+
+    expect(markup).toContain('role="dialog"')
+    expect(markup).toContain('Details nicht erreichbar')
+    expect(markup).toContain('Erneut versuchen')
+    expect(markup).toContain('Zurück zur Suche')
+    expect(markup).not.toContain('class="browse-page search-page search-detail-state"')
+  })
+
   it('wartet bis nach dem nächsten Browser-Frame, bevor die Vorbereitung weiterläuft', async () => {
     let frameCallback = null
     let taskCallback = null
