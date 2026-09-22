@@ -14,5 +14,6 @@ artifacts/free-epg-quality/
 artifacts/waipu-account-probe/
 artifacts/waipu-sync/
 artifacts/waipu-live/
+artifacts/waipu-station-inventory/
 .DS_Store
 gha-creds-*.json

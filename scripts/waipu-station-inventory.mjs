@@ -3,13 +3,50 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { extractAllStations } from './generate-waipu-station-order-doc.mjs'
 import { WaipuPublicApiClient } from './waipu-public-data.mjs'
-import { WAIPU_STATION_ORDER_SOURCE } from './waipu-station-order.mjs'
+import {
+  WAIPU_OFFICIAL_FIRST_50_STATIONS,
+  WAIPU_STATION_ORDER_SOURCE,
+} from './waipu-station-order.mjs'
 
 export const WAIPU_STATION_INVENTORY_VERSION = 1
 const TECHNICAL_SOURCE = 'https://web-proxy.waipu.tv/station-config'
 const DEFAULT_OUTPUT = 'artifacts/waipu-station-inventory'
 const USER_AGENT = 'MovieHub-Waipu-Station-Inventory/1.0 (read-only; contact via repository)'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+
+// These aliases are reviewed inventory evidence, not runtime publication data.
+// The first 50 retain their already approved stable IDs; later aliases bridge
+// marketing names on waipu.tv to different display names in station-config.
+export const WAIPU_STATION_INVENTORY_REVIEWED_ALIASES = Object.freeze([
+  ...WAIPU_OFFICIAL_FIRST_50_STATIONS.map(({ websiteName, id }) => [websiteName, id]),
+  ['GEO HD', 'geo'],
+  ['Alles was zahlt SD', 'alleswaszaehlt'],
+  ['Comedy Central / VIVA HD', 'comedy_central'],
+  ['Landlust HD', 'landlust'],
+  ['EWTN.TV HD', 'ewtn'],
+  ['wetter.com SD', 'wettercom'],
+  ['Planet Movie HD', 'planetmovies'],
+  ['More Than Sports TV (eoTV) HD', 'eotv'],
+  ['auto motor und sport channel HD', 'amsc'],
+  ['auto motor und sport tv HD', 'automotorsporttv'],
+  ['DELUXE MUSIC TV HD', 'deluxetv'],
+  ['Quello Concerts by Stingray HD', 'quello'],
+  ['xite R&B HD', 'xiterb'],
+  ['Goldstar SD', 'goldstar'],
+  ['Deutsches Musik Fernsehen HD', 'deutschesmusikfernsehen'],
+  ['Curiosity Channel powered by SPIEGEL HD', 'spiegelwissen'],
+  ['FOCUS TV HD', 'focustv'],
+  ['ONE (aka EINS Festival) HD', 'einsfestival'],
+  ['Bigtime HD', 'bigtime'],
+  ['CNN International Europe HD', 'cnn_europe'],
+  ['BBC News, Europe HD', 'bbc_world_news_europe'],
+  ['CNBC HD', 'cnbc_europe'],
+  ['France 24 (en) HD', 'france24_en'],
+  ['SR Fernsehen HD', 'sr'],
+  ['HSE 24 HD', 'home_shopping_europe'],
+  ['Royalworld HD', 'royalworld'],
+  ['Big Brother HD', 'bigbrother'],
+])
 
 function cleanText(value) {
   return String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').trim()
@@ -61,6 +98,7 @@ function groupBy(values, keyOf) {
 
 export function buildWaipuStationInventory(officialNames, technicalStations, {
   generatedAt = new Date().toISOString(),
+  reviewedAliases = WAIPU_STATION_INVENTORY_REVIEWED_ALIASES,
 } = {}) {
   const official = (Array.isArray(officialNames) ? officialNames : [])
     .map((name, index) => ({ position: index + 1, name: cleanText(name), matchKey: stationMatchKey(name) }))
@@ -70,25 +108,48 @@ export function buildWaipuStationInventory(officialNames, technicalStations, {
     .filter(Boolean)
   const officialByKey = groupBy(official, ({ matchKey }) => matchKey)
   const technicalByKey = groupBy(technical, ({ matchKey }) => matchKey)
+  const technicalById = new Map(technical.map((entry) => [entry.id, entry]))
+  const reviewedIdByKey = new Map(
+    reviewedAliases.map(([name, id]) => [stationMatchKey(name), id]),
+  )
 
   const officialEntries = official.map((entry) => {
     const candidates = technicalByKey.get(entry.matchKey) || []
     const duplicateOfficial = (officialByKey.get(entry.matchKey) || []).length > 1
-    const status = candidates.length === 1 && !duplicateOfficial
+    const reviewedId = reviewedIdByKey.get(entry.matchKey)
+    const reviewedCandidate = reviewedId ? technicalById.get(reviewedId) : null
+    const resolvedCandidates = reviewedCandidate ? [reviewedCandidate] : candidates
+    const status = reviewedCandidate || (candidates.length === 1 && !duplicateOfficial)
       ? 'matched'
       : candidates.length === 0 ? 'unmatched' : 'ambiguous'
     return {
       ...entry,
       status,
-      candidates: candidates.map(({ id, displayName, hints }) => ({ id, displayName, hints })),
+      matchMethod: reviewedCandidate
+        ? 'reviewed-alias'
+        : status === 'matched' ? 'normalized-name' : null,
+      candidates: resolvedCandidates.map(({ id, displayName, hints }) => ({ id, displayName, hints })),
     }
   })
 
+  const officialByTechnicalId = groupBy(
+    officialEntries.filter(({ status, candidates }) => status === 'matched' && candidates.length === 1),
+    ({ candidates }) => candidates[0].id,
+  )
+  const matchedOfficialPositions = new Set(
+    officialEntries.filter(({ status }) => status === 'matched').map(({ position }) => position),
+  )
+
   const technicalEntries = technical.map((entry) => {
-    const matches = officialByKey.get(entry.matchKey) || []
+    const assignedMatches = officialByTechnicalId.get(entry.id) || []
+    const unresolvedNameMatches = (officialByKey.get(entry.matchKey) || [])
+      .filter(({ position }) => !matchedOfficialPositions.has(position))
+    const matches = assignedMatches.length ? assignedMatches : unresolvedNameMatches
     return {
       ...entry,
-      status: matches.length === 1 ? 'matched' : matches.length === 0 ? 'technical-only' : 'ambiguous',
+      status: assignedMatches.length === 1
+        ? 'matched'
+        : matches.length === 0 ? 'technical-only' : 'ambiguous',
       officialPositions: matches.map(({ position }) => position),
     }
   }).sort((left, right) => left.displayName.localeCompare(right.displayName, 'de'))
@@ -97,6 +158,7 @@ export function buildWaipuStationInventory(officialNames, technicalStations, {
     official: officialEntries.length,
     technical: technicalEntries.length,
     matchedOfficial: officialEntries.filter(({ status }) => status === 'matched').length,
+    reviewedAliasMatches: officialEntries.filter(({ matchMethod }) => matchMethod === 'reviewed-alias').length,
     ambiguousOfficial: officialEntries.filter(({ status }) => status === 'ambiguous').length,
     unmatchedOfficial: officialEntries.filter(({ status }) => status === 'unmatched').length,
     technicalOnly: technicalEntries.filter(({ status }) => status === 'technical-only').length,
@@ -143,6 +205,7 @@ export function renderWaipuStationInventoryMarkdown(inventory) {
     `| Öffentlich gelistet | ${inventory.counts.official} |`,
     `| Technischer Senderstamm | ${inventory.counts.technical} |`,
     `| Eindeutig zugeordnet | ${inventory.counts.matchedOfficial} |`,
+    `| Davon über geprüfte Alias-Zuordnung | ${inventory.counts.reviewedAliasMatches} |`,
     `| Mehrdeutig | ${inventory.counts.ambiguousOfficial} |`,
     `| Öffentlich ohne technische Zuordnung | ${inventory.counts.unmatchedOfficial} |`,
     `| Nur technisch vorhanden | ${inventory.counts.technicalOnly} |`,

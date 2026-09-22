@@ -17,12 +17,15 @@ Der Lauf erzeugt unter `artifacts/waipu-station-inventory/`:
 Der Bericht unterscheidet:
 
 - eindeutig über normalisierte Namen zugeordnete Sender;
+- über eine geprüfte Alias-Tabelle zugeordnete Marketing- und Altbezeichnungen;
 - mehrdeutige Zuordnungen;
 - öffentlich gelistete Sender ohne technische Zuordnung;
 - ausschließlich technisch vorhandene Einträge;
 - vorsichtige Prüfhinweise für Catch-up, VOD und regionale Einträge.
 
 Namenshinweise sind keine automatische Freigabe oder Ausschlussentscheidung.
+Auch geprüfte Alias-Zuordnungen dienen nur dem Inventar und werden nicht als
+produktive Senderfreigabe verwendet.
 EPG-Abdeckung, Varianten, Dubletten und Movie-Hub-Eignung werden anschließend
 auf Basis dieses Inventars kontrolliert bewertet.
 
