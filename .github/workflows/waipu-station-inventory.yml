@@ -1,0 +1,41 @@
+name: Waipu station inventory
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: waipu-station-inventory
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Compare public and technical station inventories
+        run: npm run waipu:stations:inventory
+
+      - name: Add inventory report to job summary
+        if: ${{ always() && hashFiles('artifacts/waipu-station-inventory/report.md') != '' }}
+        run: cat artifacts/waipu-station-inventory/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload inventory artifacts
+        if: ${{ always() && hashFiles('artifacts/waipu-station-inventory/**') != '' }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: waipu-station-inventory
+          path: artifacts/waipu-station-inventory
+          if-no-files-found: error
+          retention-days: 30
