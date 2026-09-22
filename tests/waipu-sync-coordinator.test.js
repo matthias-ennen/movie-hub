@@ -3,7 +3,10 @@ import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WaipuEpgCache, WaipuPublicDataError } from '../scripts/waipu-public-data.mjs'
-import { WAIPU_OFFICIAL_FIRST_100_STATIONS } from '../scripts/waipu-station-order.mjs'
+import {
+  WAIPU_MOVIE_HUB_STATIONS,
+  WAIPU_OFFICIAL_FIRST_100_STATIONS,
+} from '../scripts/waipu-station-order.mjs'
 import {
   assertStageAllowed,
   buildRollingSlots,
@@ -32,8 +35,8 @@ async function temporaryPaths() {
 }
 
 function stations(count = 20) {
-  const configured = WAIPU_OFFICIAL_FIRST_100_STATIONS
-    .slice(0, Math.min(count, WAIPU_OFFICIAL_FIRST_100_STATIONS.length))
+  const configured = WAIPU_MOVIE_HUB_STATIONS
+    .slice(0, Math.min(count, WAIPU_MOVIE_HUB_STATIONS.length))
     .map(({ id, websiteName: displayName }) => ({
       id,
       displayName,
@@ -94,6 +97,13 @@ describe('Waipu rolling planner', () => {
     expect(new Set(WAIPU_OFFICIAL_FIRST_100_STATIONS.map(({ id }) => id)).size).toBe(100)
   })
 
+  it('declares exactly 228 unique stations for the curated Movie Hub target', () => {
+    expect(WAIPU_MOVIE_HUB_STATIONS).toHaveLength(228)
+    expect(new Set(WAIPU_MOVIE_HUB_STATIONS.map(({ id }) => id)).size).toBe(228)
+    expect(WAIPU_MOVIE_HUB_STATIONS.slice(0, 100).map(({ id }) => id))
+      .toEqual(WAIPU_OFFICIAL_FIRST_100_STATIONS.map(({ id }) => id))
+  })
+
   it('builds exactly six UTC slots per day', () => {
     const slots = buildRollingSlots('2026-09-18T19:15:00+02:00', 14)
     expect(slots).toHaveLength(84)
@@ -111,18 +121,19 @@ describe('Waipu rolling planner', () => {
       .toEqual(WAIPU_OFFICIAL_FIRST_100_STATIONS.slice(0, 50).map(({ id }) => id))
     expect(selectStageStations([...stations(100)].reverse(), 100).map(({ id }) => id))
       .toEqual(WAIPU_OFFICIAL_FIRST_100_STATIONS.map(({ id }) => id))
+    expect(selectStageStations([...stations(228)].reverse(), 228).map(({ id }) => id))
+      .toEqual(WAIPU_MOVIE_HUB_STATIONS.map(({ id }) => id))
   })
 
-  it('requires seven stable runs before a larger stage and explicit full approval', () => {
-    const state = { stableRunsByStage: { 7: 6, 20: 7, 50: 7, 100: 0, full: 0 } }
+  it('requires seven stable runs before a larger stage unless that stage was explicitly approved', () => {
+    const state = { stableRunsByStage: { 7: 6, 20: 7, 50: 7, 100: 0, 228: 0 } }
     expect(() => assertStageAllowed(state, 20)).toThrowError(WaipuSyncError)
     expect(() => assertStageAllowed(state, 50, { approvedStage: 50 })).not.toThrow()
     expect(() => assertStageAllowed(state, 100, { approvedStage: 100 })).not.toThrow()
+    expect(() => assertStageAllowed(state, 228, { approvedStage: 228 })).not.toThrow()
     state.stableRunsByStage[7] = 7
     expect(() => assertStageAllowed(state, 20)).not.toThrow()
     expect(() => assertStageAllowed(state, 'full')).toThrowError(WaipuSyncError)
-    state.stableRunsByStage[100] = 7
-    expect(() => assertStageAllowed(state, 'full', { fullStageApproved: true })).not.toThrow()
   })
 })
 
@@ -269,7 +280,7 @@ describe('WaipuSyncCoordinator', () => {
       schemaVersion: 1,
       kind: 'waipu-sync-checkpoint',
       updatedAt: '2026-09-19T10:30:21.570Z',
-      stableRunsByStage: { 7: 2, 20: 0, 50: 0, 100: 0, full: 0 },
+      stableRunsByStage: { 7: 2, 20: 0, 50: 0, 100: 0, 228: 0 },
       circuit: {
         automaticRunsDisabled: false,
         reason: null,

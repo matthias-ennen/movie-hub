@@ -178,6 +178,9 @@ Generation. Die Ausgabe besteht aus:
 - `titles.json`: eindeutige TMDB-Titel mit allen Ausstrahlungen des aktuellen
   14-Tage-Fensters, der zum Erzeugungszeitpunkt nächsten Ausstrahlung und den
   vollständigen, für Poster und Detailseite benötigten TMDB-Metadaten;
+- `days/<YYYY-MM-DD>.json`: alle zugeordneten Ausstrahlungen eines TV-Tages
+  von 06:00 bis 06:00 Uhr, inklusive Senderreferenz, für die bedarfsgerechte
+  TV-Ansicht;
 - `stations/<stationId>.json`: zeitlich sortierte Ausstrahlungen je Sender.
 
 Nach dem Matching werden vollständige Titelmetadaten zuerst aus dem frisch
@@ -214,6 +217,12 @@ für neu erzeugte Generationen. Ältere, bereits veröffentlichte Rückfallkatal
 ohne diese zusätzlichen Felder bleiben während der Migration lesbar. Der
 direkte Aufbau und die Geräteprüfung des EPG-Links erfolgen getrennt in #259;
 die EPG-`programId` wird nicht als Waiputhek-`contentId` behandelt.
+
+`index.json.dayDataVersion` kennzeichnet ergänzend den tageweise ladbaren
+TV-Vertrag. Ab Version 1 muss jede im Index genannte Tagesdatei vorhanden und
+vollständig sein; ihre Summe muss exakt der Zahl der Sendershard-
+Ausstrahlungen entsprechen. Ältere Rückfallgenerationen ohne dieses Feld
+bleiben während der Migration lesbar.
 
 Der kompakte Datenlauf-Bericht weist diesen Vertrag als eigene
 `Waipu-Quelldaten`-Zeile aus. Sie zeigt den Titelbestand getrennt nach Filmen
@@ -261,18 +270,22 @@ Vite-Public-Bestand schreiben:
 WAIPU_LIVE_OUTPUT=public/waipu-live npm run waipu:catalog
 ```
 
-Die veröffentlichte Ausbaustufe umfasst die ersten 50 Einträge der offiziellen
-Waipu-Senderreihenfolge. Der tägliche Workflow aktualisiert sie automatisiert;
-ein fehlerhafter Teilbestand ersetzt niemals den letzten gültigen Katalog.
+Die freigegebene Ausbaustufe umfasst 228 kuratierte Einträge der offiziellen
+Waipu-Senderreihenfolge. Der tägliche Workflow baut sie checkpoint-gestützt
+auf und aktualisiert sie anschließend automatisiert; ein unvollständiger oder
+fehlerhafter Teilbestand ersetzt niemals den letzten gültigen Katalog.
 
 ## TV-Registerkarte und Senderfilter (#4G)
 
-Die Hauptnavigation enthält einen eigenen Reiter **TV**. Er lädt nach dem
-kompakten Senderindex ausschließlich die Dateien der aktuell sichtbaren
-Sender. Die Ladevorgänge sind auf vier gleichzeitige lokale Dateianfragen
-begrenzt; geladene Senderdateien werden fünf Minuten im Client
-zwischengespeichert. Das erzeugt keine zusätzlichen Waipu-Anfragen, weil die
-App nur die bereits veröffentlichten Movie-Hub-Artefakte liest.
+Die Hauptnavigation enthält einen eigenen Reiter **TV**. Nach dem kompakten
+Senderindex lädt der Standardaufruf genau die Datei des gewählten TV-Tages und
+filtert sie lokal auf die aktiven Sender. Nur die ausdrücklich gewählte Ansicht
+**14 Tage** lädt alle veröffentlichten Tagesdateien. Höchstens vier lokale
+Dateianfragen laufen gleichzeitig; Tagesdateien werden fünf Minuten im Client
+zwischengespeichert. Alte Kataloggenerationen ohne Tagesdateien bleiben über
+die bisherigen Sendershards lesbar. Das erzeugt keine zusätzlichen
+Waipu-Anfragen, weil die App ausschließlich veröffentlichte Movie-Hub-
+Artefakte liest.
 
 Ausstrahlungen werden in deutscher Ortszeit je Kalendertag gruppiert und
 innerhalb eines Tages nach Startzeit und Sender sortiert. Jede Posterkarte

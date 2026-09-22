@@ -10,12 +10,13 @@ import {
   WAIPU_SLOT_DURATION_MS,
 } from './waipu-public-data.mjs'
 import {
+  WAIPU_MOVIE_HUB_STATION_IDS,
   WAIPU_OFFICIAL_FIRST_100_IDS,
   WAIPU_OFFICIAL_FIRST_100_STATIONS,
 } from './waipu-station-order.mjs'
 
 export const WAIPU_SYNC_SCHEMA_VERSION = 1
-export const WAIPU_SYNC_STAGES = Object.freeze([7, 20, 50, 100, 'full'])
+export const WAIPU_SYNC_STAGES = Object.freeze([7, 20, 50, 100, 228])
 export const WAIPU_PILOT_STATIONS = Object.freeze(
   WAIPU_OFFICIAL_FIRST_100_STATIONS.slice(0, 7).map(({ name }) => name),
 )
@@ -88,7 +89,7 @@ function utcDateKey(value) {
 }
 
 function emptyStableRunDates() {
-  return { 7: [], 20: [], 50: [], 100: [], full: [] }
+  return { 7: [], 20: [], 50: [], 100: [], 228: [] }
 }
 
 function stageIndex(stage) {
@@ -114,18 +115,13 @@ export function selectStageStations(stations, stage = 7) {
   }
   const candidates = stations
     .filter((station) => station && typeof station.id === 'string' && typeof station.displayName === 'string')
-  const limit = stage === 'full' ? candidates.length : stage
   const byId = new Map(candidates.map((station) => [station.id, station]))
-  const configuredIds = stage === 'full'
-    ? WAIPU_OFFICIAL_FIRST_100_IDS
-    : WAIPU_OFFICIAL_FIRST_100_IDS.slice(0, limit)
+  const configuredIds = stage > 100
+    ? WAIPU_MOVIE_HUB_STATION_IDS.slice(0, stage)
+    : WAIPU_OFFICIAL_FIRST_100_IDS.slice(0, stage)
   const selected = configuredIds.map((id) => byId.get(id)).filter(Boolean)
   if (selected.length !== configuredIds.length) throw new WaipuSyncError('PILOT_STATIONS_MISSING')
-
-  if (stage !== 'full') return selected
-  const selectedIds = new Set(configuredIds)
-  const remainder = candidates.filter(({ id }) => !selectedIds.has(id))
-  return [...selected, ...remainder]
+  return selected
 }
 
 function emptyState(now) {
@@ -133,7 +129,7 @@ function emptyState(now) {
     schemaVersion: WAIPU_SYNC_SCHEMA_VERSION,
     kind: 'waipu-sync-checkpoint',
     updatedAt: new Date(now).toISOString(),
-    stableRunsByStage: { 7: 0, 20: 0, 50: 0, 100: 0, full: 0 },
+    stableRunsByStage: { 7: 0, 20: 0, 50: 0, 100: 0, 228: 0 },
     stableRunDatesByStage: emptyStableRunDates(),
     circuit: {
       automaticRunsDisabled: false,
@@ -197,15 +193,14 @@ async function loadState(path, now) {
   return state
 }
 
-export function assertStageAllowed(state, stage, { fullStageApproved = false, approvedStage = null } = {}) {
+export function assertStageAllowed(state, stage, { approvedStage = null } = {}) {
   if (!WAIPU_SYNC_STAGES.includes(stage)) throw new WaipuSyncError('INVALID_STAGE')
   const numericApproval = Number(approvedStage)
-  if (stage !== 'full' && Number.isInteger(numericApproval) && stage <= numericApproval) return
+  if (Number.isInteger(numericApproval) && stage <= numericApproval) return
   const required = previousStage(stage)
   if (required !== null && Number(state.stableRunsByStage?.[stageKey(required)] || 0) < 7) {
     throw new WaipuSyncError('INVALID_STAGE')
   }
-  if (stage === 'full' && !fullStageApproved) throw new WaipuSyncError('INVALID_STAGE')
 }
 
 async function acquireLock(lockPath, { now, staleAfterMs }) {
@@ -391,7 +386,6 @@ export async function runWaipuSync(options = {}) {
     }
     if (circuitBlocksRun(state, runStartedAt)) throw new WaipuSyncError('CIRCUIT_OPEN')
     assertStageAllowed(state, stage, {
-      fullStageApproved: options.fullStageApproved === true,
       approvedStage: options.approvedStage,
     })
 
@@ -510,7 +504,8 @@ export async function runWaipuSync(options = {}) {
       const stableRuns = Number(state.stableRunsByStage[stageKey(stage)] || 0)
       status.promotion = {
         stableRuns,
-        eligibleForNextStage: status.status === 'complete' && stableRuns >= 7 && stage !== 'full',
+        eligibleForNextStage: status.status === 'complete' && stableRuns >= 7
+          && stageIndex(stage) < WAIPU_SYNC_STAGES.length - 1,
         eligibleForConcurrencyTwo: status.status === 'complete' && stableRuns >= 7,
         automaticPromotion: false,
       }
@@ -560,7 +555,7 @@ function cliOptions(argv) {
   const live = argv.includes('--live')
   const resetCircuit = argv.includes('--reset-circuit')
   const stageArgument = argv.find((value) => value.startsWith('--stage='))?.split('=')[1]
-  const stage = stageArgument === 'full' ? 'full' : Number(stageArgument || 7)
+  const stage = Number(stageArgument || 7)
   return { live, resetCircuit, stage }
 }
 
@@ -572,7 +567,6 @@ async function main() {
   const status = await runWaipuSync({
     stage: options.stage,
     resetCircuit: options.resetCircuit,
-    fullStageApproved: process.env.WAIPU_SYNC_FULL_APPROVED === '1',
     approvedStage: process.env.WAIPU_SYNC_APPROVED_STAGE,
     requestBudget: process.env.WAIPU_SYNC_REQUEST_BUDGET,
     paceMs: process.env.WAIPU_SYNC_PACE_MS,

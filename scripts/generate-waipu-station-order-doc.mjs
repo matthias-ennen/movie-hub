@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
+  WAIPU_MOVIE_HUB_STATIONS,
   WAIPU_OFFICIAL_FIRST_100_STATIONS,
   WAIPU_STATION_ORDER_SOURCE,
 } from './waipu-station-order.mjs'
@@ -53,14 +54,14 @@ async function main() {
     '',
     `Stand: ${new Date().toISOString().slice(0, 10)} · ${stations.length} Einträge im Reiter „Alle Sender“.`,
     '',
-    'Die ersten 100 Einträge sind die in Movie Hub konfigurierte Ausbaustufe. Der Import verwendet feste Waipu-IDs; die öffentliche Webseite wird weder von der App noch vom Nachtjob zur Laufzeit abgefragt.',
+    'Movie Hub verwendet 228 kuratierte Sender: die bereits eingeführten Positionen 1–100 sowie 128 ausgewählte Einträge aus 101–338. Der Import verwendet feste Waipu-IDs; die öffentliche Webseite wird weder von der App noch vom Nachtjob zur Laufzeit abgefragt.',
     '',
-    '## In Movie Hub konfigurierte Sender 1–100',
+    '## In Movie Hub konfigurierte Sender',
     '',
     '| Nr. | Waipu-ID | Name in Movie Hub | Name auf waipu.tv |',
     '| ---: | --- | --- | --- |',
-    ...WAIPU_OFFICIAL_FIRST_100_STATIONS.map((station, index) => (
-      `| ${index + 1} | \`${station.id}\` | ${escapeCell(station.name)} | ${escapeCell(station.websiteName)} |`
+    ...WAIPU_MOVIE_HUB_STATIONS.map((station) => (
+      `| ${station.officialPosition} | \`${station.id}\` | ${escapeCell(station.name)} | ${escapeCell(station.websiteName)} |`
     )),
     '',
     '## Vollständige Reihenfolge im Reiter „Alle Sender“',

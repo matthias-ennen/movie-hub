@@ -125,9 +125,9 @@ kontrollierten Wellen.
 ### #260 – Waipu-Live: Senderbestand über 50 hinaus vollständig ausbauen
 
 - offiziellen Senderbestand, technischen Senderstamm und tatsächlich Movie-Hub-fähige lineare Sender nachvollziehbar abgleichen;
-- 50 Sender bleiben der gültige Ausgangsstand; 337 offiziell dokumentierte Listeneinträge und zuletzt 398 technische Einträge sind zu klassifizieren, nicht blind gleichzusetzen;
+- 100 Sender bilden den bereits eingeführten Ausgangsstand; von aktuell 338 offiziellen Listeneinträgen sind 128 weitere für Movie Hub ausgewählt, sodass die Zielmenge 228 Sender umfasst;
 - Catch-up, VOD, Dubletten, regionale Varianten, fehlendes EPG und andere Ausschlussgründe dokumentieren;
-- Ausbau nach #256, #259 und skalierbarer TV-Datenladung in kontrollierten Wellen;
+- Ausbau auf 228 feste Waipu-IDs nach #256 und #259 checkpoint-gestützt über mehrere kontrollierte Läufe;
 - mehrere hundert Sender dürfen auf den Geräten nur als benötigter Zeit-/Sichtausschnitt geladen und gerendert werden;
 - öffentliche Verteilung bleibt vom Compliance-Gate #112 abhängig.
 
