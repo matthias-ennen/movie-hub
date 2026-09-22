@@ -1,12 +1,12 @@
 import { resolvePresentationArtwork } from '../catalog/artworkRotation.js'
-import { loadCompleteTitleMetadata } from '../catalog/loadCompleteTitleMetadata.js'
+import { loadRuntimeTitleMetadata } from '../catalog/runtimeTitleMetadata.js'
 
 const DETAIL_IMAGE_WAIT_MS = 1_500
 
 export async function prepareDetailRequestItem(item, {
   requireComplete = false,
   artworkOptions = {},
-  loadComplete = loadCompleteTitleMetadata,
+  loadComplete = loadRuntimeTitleMetadata,
   presentArtwork = resolvePresentationArtwork,
 } = {}) {
   const detail = requireComplete

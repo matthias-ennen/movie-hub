@@ -22,6 +22,7 @@ import {
   shouldPreserveHeroSessionOnBlur,
 } from './heroAutoplay.js'
 import { selectHeroTrailer, selectHeroVideo } from './heroTrailer.js'
+import { heroNeedsCanonicalMetadata, resolveHeroMetadata } from './heroMetadata.js'
 import { focusHeroAfterActivation } from '../navigation/heroActivationFocus.js'
 
 const SWIPE_MIN_DISTANCE = 48
@@ -101,6 +102,8 @@ export default function Hero({
     HERO_AUTOPLAY_SESSION.DISARMED,
   )
   const [readySignature, setReadySignature] = useState(null)
+  const [resolvedMetadataById, setResolvedMetadataById] = useState({})
+  const [settledMetadataIds, setSettledMetadataIds] = useState(() => new Set())
   const carouselRef = useRef(null)
   const touchStartRef = useRef(null)
   const transitionTimerRef = useRef([])
@@ -166,10 +169,43 @@ export default function Hero({
   }, [])
 
   const safeIndex = Math.min(activeIndex, Math.max(0, slides.length - 1))
-  const activeItem = slides[safeIndex] || null
+  const activeBaseItem = slides[safeIndex] || null
+  const activeItem = activeBaseItem
+    ? resolvedMetadataById[activeBaseItem.id] || activeBaseItem
+    : null
+  const activeMetadataSettled = !heroNeedsCanonicalMetadata(activeBaseItem)
+    || settledMetadataIds.has(activeBaseItem?.id)
   const activeBackdropUrl = activeItem?.displayHeroBackdropUrl || activeItem?.backdropUrl || null
   const activeHeroVideo = useMemo(() => selectHeroVideo(activeItem?.videos), [activeItem?.videos])
   const activeAutoTrailer = useMemo(() => selectHeroTrailer(activeItem?.videos), [activeItem?.videos])
+
+  useEffect(() => {
+    if (!activeBaseItem || !heroNeedsCanonicalMetadata(activeBaseItem)) return undefined
+
+    let cancelled = false
+    resolveHeroMetadata(activeBaseItem)
+      .then((resolved) => {
+        if (cancelled) return
+        setResolvedMetadataById((current) => ({ ...current, [activeBaseItem.id]: resolved }))
+      })
+      .catch((error) => {
+        console.warn(`Hero-Metadaten für ${activeBaseItem.id} konnten nicht vollständig geladen werden.`, error)
+      })
+      .finally(() => {
+        if (cancelled) return
+        setSettledMetadataIds((current) => {
+          const next = new Set(current)
+          next.add(activeBaseItem.id)
+          return next
+        })
+      })
+
+    return () => { cancelled = true }
+  }, [
+    activeBaseItem?.id,
+    activeBaseItem?.metadataUpdatedAt,
+    activeBaseItem?.metadataVersion,
+  ])
 
   useEffect(() => {
     if (
@@ -177,6 +213,7 @@ export default function Hero({
       || autoplaySession !== HERO_AUTOPLAY_SESSION.ARMED
       || !heroTrailerSettings.enabled
       || !activeItem
+      || !activeMetadataSettled
       || transition
       || attemptedVisit === heroVisit
     ) return undefined
@@ -225,6 +262,7 @@ export default function Hero({
   }, [
     activeAutoTrailer,
     activeItem,
+    activeMetadataSettled,
     attemptedVisit,
     autoplaySession,
     heroFocused,
