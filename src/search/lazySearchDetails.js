@@ -5,10 +5,14 @@ export const SEARCH_DETAIL_VERSION = 1
 export const SEARCH_DETAIL_BUCKET_COUNT = 64
 export const SEARCH_DETAIL_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 export const SEARCH_DETAIL_CACHE_LIMIT = 100
+export const SEARCH_DETAIL_MANIFEST_TTL_MS = 5 * 60 * 1000
 
 const STORAGE_KEY = 'movie-hub-search-detail-cache-v1'
 const memoryDetails = new Map()
 const shardPromises = new Map()
+let manifestState = null
+let manifestPromise = null
+let manifestFetchImpl = null
 
 function numericTmdbId(entry) {
   const value = Number(entry?.tmdbId)
@@ -132,11 +136,11 @@ function readPersistentCache(storage, now) {
   }
 }
 
-function writePersistentCache(storage, id, value, now) {
+function writePersistentCache(storage, id, value, now, generation) {
   if (!storage?.setItem) return
   try {
     const existing = readPersistentCache(storage, now).filter((entry) => entry.id !== id)
-    const next = [{ id, value, cachedAt: now }, ...existing].slice(0, SEARCH_DETAIL_CACHE_LIMIT)
+    const next = [{ id, value, cachedAt: now, generation }, ...existing].slice(0, SEARCH_DETAIL_CACHE_LIMIT)
     storage.setItem(STORAGE_KEY, JSON.stringify(next))
   } catch {
     // Public TMDB metadata may be cached, but storage quota/private-mode failures
@@ -144,15 +148,56 @@ function writePersistentCache(storage, id, value, now) {
   }
 }
 
-function getPersistentDetail(storage, id, now) {
-  const cached = readPersistentCache(storage, now).find((entry) => entry.id === id)
-  return cached?.value || null
+function cacheMatchesGeneration(cached, generation) {
+  return !generation || cached?.generation === generation
 }
 
-async function loadShard(bucket, fetchImpl) {
+function getPersistentDetail(storage, id, now, generation) {
+  const cached = readPersistentCache(storage, now).find((entry) => entry.id === id)
+  return cacheMatchesGeneration(cached, generation) ? cached?.value || null : null
+}
+
+function publishedGeneration(payload) {
+  if (payload?.kind !== 'search-detail-manifest' || !payload?.generatedAt) return null
+  return `${Number(payload.version) || 1}:${String(payload.generatedAt)}`
+}
+
+async function loadPublishedGeneration(fetchImpl, now) {
+  if (manifestState
+    && manifestFetchImpl === fetchImpl
+    && now - manifestState.loadedAt < SEARCH_DETAIL_MANIFEST_TTL_MS) {
+    return manifestState.generation
+  }
+
+  if (manifestPromise && manifestFetchImpl === fetchImpl) return manifestPromise
+
+  manifestFetchImpl = fetchImpl
+  manifestPromise = Promise.resolve(fetchImpl(`/search-details/manifest.json?t=${encodeURIComponent(now)}`, {
+    cache: 'no-store',
+  }))
+    .then((response) => {
+      if (!response?.ok) throw new Error(`Detail-Manifest konnte nicht geladen werden (${response?.status ?? 'unbekannt'})`)
+      return response.json()
+    })
+    .then((payload) => publishedGeneration(payload))
+    .catch(() => null)
+    .then((generation) => {
+      manifestState = { generation, loadedAt: now }
+      manifestPromise = null
+      return generation
+    })
+
+  return manifestPromise
+}
+
+async function loadShard(bucket, fetchImpl, generation) {
   if (!bucket) return null
-  if (!shardPromises.has(bucket)) {
-    shardPromises.set(bucket, Promise.resolve(fetchImpl(`/search-details/${bucket}.json`))
+  const shardKey = `${generation || 'unversioned'}:${bucket}`
+  if (!shardPromises.has(shardKey)) {
+    const generationQuery = generation ? `?v=${encodeURIComponent(generation)}` : ''
+    shardPromises.set(shardKey, Promise.resolve(fetchImpl(`/search-details/${bucket}.json${generationQuery}`, {
+      cache: 'no-store',
+    }))
       .then((response) => {
         if (!response?.ok) throw new Error(`Detail-Shard konnte nicht geladen werden (${response?.status ?? 'unbekannt'})`)
         return response.json()
@@ -164,11 +209,11 @@ async function loadShard(bucket, fetchImpl) {
         return payload
       })
       .catch((error) => {
-        shardPromises.delete(bucket)
+        shardPromises.delete(shardKey)
         throw error
       }))
   }
-  return shardPromises.get(bucket)
+  return shardPromises.get(shardKey)
 }
 
 export async function loadSearchDetail(entry, {
@@ -177,21 +222,25 @@ export async function loadSearchDetail(entry, {
   now = Date.now(),
 } = {}) {
   if (!entry?.id) return toSearchDetailFallback(entry)
+  const canFetch = typeof fetchImpl === 'function'
+  const generation = canFetch ? await loadPublishedGeneration(fetchImpl, now) : null
 
   const inMemory = memoryDetails.get(entry.id)
-  if (inMemory) return mergeSearchDetail(entry, inMemory)
+  if (inMemory && cacheMatchesGeneration(inMemory, generation)) {
+    return mergeSearchDetail(entry, inMemory.value)
+  }
 
-  const persistent = getPersistentDetail(storage, entry.id, now)
+  const persistent = getPersistentDetail(storage, entry.id, now, generation)
   if (persistent) {
-    memoryDetails.set(entry.id, persistent)
+    memoryDetails.set(entry.id, { value: persistent, generation })
     return mergeSearchDetail(entry, persistent)
   }
 
-  if (typeof fetchImpl !== 'function') return toSearchDetailFallback(entry)
+  if (!canFetch) return toSearchDetailFallback(entry)
   const bucket = searchDetailBucket(entry)
   if (!bucket) return toSearchDetailFallback(entry)
 
-  const shard = await loadShard(bucket, fetchImpl)
+  const shard = await loadShard(bucket, fetchImpl, generation)
   const entryType = entry.type === 'series' ? 'series' : 'movie'
   const detail = shard.entries.find((candidate) => candidate?.id === entry.id)
     || shard.entries.find((candidate) => (
@@ -200,12 +249,15 @@ export async function loadSearchDetail(entry, {
     ))
   if (!detail) return toSearchDetailFallback(entry)
 
-  memoryDetails.set(entry.id, detail)
-  writePersistentCache(storage, entry.id, detail, now)
+  memoryDetails.set(entry.id, { value: detail, generation })
+  writePersistentCache(storage, entry.id, detail, now, generation)
   return mergeSearchDetail(entry, detail)
 }
 
 export function clearSearchDetailMemoryCache() {
   memoryDetails.clear()
   shardPromises.clear()
+  manifestState = null
+  manifestPromise = null
+  manifestFetchImpl = null
 }

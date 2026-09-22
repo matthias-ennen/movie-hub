@@ -105,6 +105,47 @@ describe('persönlicher Film-/Serienzustand', () => {
       }],
     })
   })
+
+  it('führt einen frischeren persönlichen Snapshot mit einem bildarmen Katalogtitel zusammen', () => {
+    const existing = {
+      id: 'tmdb-movie-762441',
+      tmdbId: 762441,
+      type: 'movie',
+      source: 'tmdb',
+      scope: 'public',
+      title: 'A Quiet Place: Tag Eins',
+      providerIds: ['prime'],
+      metadataVersion: 3,
+      metadataUpdatedAt: '2026-09-21T06:00:00.000Z',
+      backdropUrl: null,
+      artwork: { posterPaths: ['/poster.jpg'], heroBackdropPaths: [] },
+    }
+    const snapshot = createTitleSnapshot({
+      ...existing,
+      metadataUpdatedAt: '2026-09-22T06:36:20.991Z',
+      backdropUrl: 'https://image.tmdb.org/t/p/w1280/current-backdrop.jpg',
+      artwork: {
+        posterPaths: ['/poster.jpg'],
+        heroBackdropPaths: ['/current-backdrop.jpg'],
+      },
+    })
+
+    const [merged] = mergeCatalogWithPersonalSnapshots([existing], {
+      'movie-762441': { watchlist: true, titleSnapshot: snapshot },
+    })
+
+    expect(merged).toMatchObject({
+      id: existing.id,
+      scope: 'public',
+      providerIds: ['prime'],
+      backdropUrl: snapshot.backdropUrl,
+      artwork: {
+        posterPaths: ['/poster.jpg'],
+        heroBackdropPaths: ['/current-backdrop.jpg'],
+      },
+    })
+  })
+
   it('erzeugt genau die drei persönlichen Reihen und sortiert sie fest', () => {
     const titles = [
       { id: 'b', title: 'Beta' },
