@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
   schedule:
-    # Daily at 03:17 Europe/Berlin. TMDB and Waipu are refreshed
-    # sequentially and published together; no second import job runs in parallel.
-    - cron: '17 03 * * *'
-      timezone: 'Europe/Berlin'
+    # GitHub evaluates cron in UTC. These summer/winter triggers bracket 03:17
+    # Europe/Berlin; the gate below starts at most one full data run per local day.
+    - cron: '17 01 * * *'
+    - cron: '17 02 * * *'
   workflow_dispatch:
     inputs:
       data_mode:
@@ -20,6 +20,7 @@ on:
           - accelerated
 
 permissions:
+  actions: read
   contents: read
   id-token: write
 
@@ -28,7 +29,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  schedule-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.gate.outputs.should_run }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Select the daily 03:17 Europe/Berlin run
+        id: gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DATA_WORKFLOW_TIMEZONE: Europe/Berlin
+          DATA_WORKFLOW_HOUR: '3'
+          DATA_WORKFLOW_MINUTE: '17'
+          DATA_WORKFLOW_NAME: Deploy Firebase
+        run: node scripts/check-data-workflow-schedule.mjs --gate
+
   deploy:
+    needs: schedule-gate
+    if: ${{ needs.schedule-gate.outputs.should_run == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

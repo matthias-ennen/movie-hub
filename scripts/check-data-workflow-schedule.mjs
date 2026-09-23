@@ -64,6 +64,78 @@ export function expectedScheduleAt(now = new Date(), options = {}) {
   return expected
 }
 
+export function scheduledAtForLocalDate(now = new Date(), options = {}) {
+  const settings = { ...defaultOptions, ...options }
+  const local = zonedParts(now, settings.timeZone)
+  return localTimeToUtc({
+    year: local.year,
+    month: local.month,
+    day: local.day,
+    hour: settings.hour,
+    minute: settings.minute,
+  }, settings.timeZone)
+}
+
+export function evaluateScheduleGate(runs, {
+  now = new Date(),
+  currentRunId,
+  eventName = '',
+  options = {},
+} = {}) {
+  const settings = { ...defaultOptions, ...options }
+  if (eventName !== 'schedule') {
+    return {
+      shouldRun: true,
+      reason: 'not-scheduled',
+      event: eventName || 'unknown',
+    }
+  }
+
+  const scheduledAt = scheduledAtForLocalDate(now, settings)
+  const earliestAccepted = scheduledAt.getTime() - 5 * 60_000
+  if (now.getTime() < earliestAccepted) {
+    return {
+      shouldRun: false,
+      reason: 'before-daily-window',
+      scheduledAt: scheduledAt.toISOString(),
+      checkedAt: now.toISOString(),
+    }
+  }
+
+  const priorRun = (Array.isArray(runs) ? runs : [])
+    .filter((entry) => entry?.name === settings.workflowName && entry?.event === 'schedule')
+    .filter((entry) => String(entry?.id) !== String(currentRunId || ''))
+    .filter((entry) => {
+      const createdAt = Date.parse(entry?.created_at)
+      return Number.isFinite(createdAt) && createdAt >= earliestAccepted && createdAt <= now.getTime()
+    })
+    .filter((entry) => entry.status !== 'completed' || entry.conclusion === 'success')
+    .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))[0]
+
+  if (priorRun) {
+    return {
+      shouldRun: false,
+      reason: 'daily-run-already-started',
+      scheduledAt: scheduledAt.toISOString(),
+      checkedAt: now.toISOString(),
+      run: {
+        id: priorRun.id,
+        number: priorRun.run_number,
+        status: priorRun.status,
+        conclusion: priorRun.conclusion,
+        url: priorRun.html_url,
+      },
+    }
+  }
+
+  return {
+    shouldRun: true,
+    reason: 'daily-run-due',
+    scheduledAt: scheduledAt.toISOString(),
+    checkedAt: now.toISOString(),
+  }
+}
+
 export function captureWorkflowTiming({ now = new Date(), eventName = '', options = {} } = {}) {
   const settings = { ...defaultOptions, ...options }
   if (eventName !== 'schedule') {
@@ -194,9 +266,57 @@ async function watchdogMain({ fetchImpl = fetch } = {}) {
   }
 }
 
+async function scheduleGateMain({ fetchImpl = fetch } = {}) {
+  const eventName = process.env.GITHUB_EVENT_NAME || ''
+  const output = process.env.GITHUB_OUTPUT
+  const settings = {
+    timeZone: process.env.DATA_WORKFLOW_TIMEZONE || defaultOptions.timeZone,
+    hour: integer(process.env.DATA_WORKFLOW_HOUR, defaultOptions.hour),
+    minute: integer(process.env.DATA_WORKFLOW_MINUTE, defaultOptions.minute),
+    workflowName: process.env.DATA_WORKFLOW_NAME || defaultOptions.workflowName,
+  }
+
+  let result
+  if (eventName !== 'schedule') {
+    result = evaluateScheduleGate([], { eventName, options: settings })
+  } else {
+    const repository = process.env.GITHUB_REPOSITORY
+    const token = process.env.GITHUB_TOKEN
+    if (!repository || !token) throw new Error('GITHUB_REPOSITORY und GITHUB_TOKEN werden für die Nachtlauf-Sperre benötigt.')
+    try {
+      const response = await fetchImpl(`https://api.github.com/repos/${repository}/actions/runs?event=schedule&per_page=100`, {
+        headers: {
+          accept: 'application/vnd.github+json',
+          authorization: `Bearer ${token}`,
+          'x-github-api-version': '2022-11-28',
+        },
+        signal: AbortSignal.timeout(20_000),
+      })
+      if (!response.ok) throw new Error(`GitHub Actions API: HTTP ${response.status}`)
+      const payload = await response.json()
+      result = evaluateScheduleGate(payload.workflow_runs, {
+        currentRunId: process.env.GITHUB_RUN_ID,
+        eventName,
+        options: settings,
+      })
+    } catch (error) {
+      console.warn(`::warning::Nachtlauf-Sperre nicht prüfbar; der Datenlauf startet sicherheitshalber: ${error instanceof Error ? error.message : String(error)}`)
+      result = {
+        shouldRun: true,
+        reason: 'gate-check-failed-open',
+      }
+    }
+  }
+
+  if (output) {
+    await appendFile(output, `should_run=${result.shouldRun ? 'true' : 'false'}\nreason=${result.reason}\n`, 'utf8')
+  }
+  console.log(`Schedule gate: ${result.shouldRun ? 'run' : 'skip'} (${result.reason})`)
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  const mode = process.argv.includes('--capture') ? 'capture' : 'watchdog'
-  const main = mode === 'capture' ? captureMain : watchdogMain
+  const mode = process.argv.includes('--capture') ? 'capture' : process.argv.includes('--gate') ? 'gate' : 'watchdog'
+  const main = mode === 'capture' ? captureMain : mode === 'gate' ? scheduleGateMain : watchdogMain
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error))
     process.exitCode = 1
