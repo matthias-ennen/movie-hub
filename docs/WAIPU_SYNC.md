@@ -175,9 +175,13 @@ dass ein neuer Worktree versehentlich einen zweiten, leeren Checkpoint beginnt.
 ## Gemeinsamer täglicher Datenlauf
 
 Der vorhandene Workflow `Deploy Firebase` bleibt der einzige zentrale
-Produktionslauf. Sein Cron-Ausdruck `17 03 * * *` bedeutet 03:17 UTC und damit
-04:17 Uhr deutscher Winterzeit beziehungsweise 05:17 Uhr deutscher Sommerzeit.
-Es gibt keinen zweiten parallel laufenden Waipu-Job.
+Produktionslauf. Die UTC-Cron-Ausdrücke `17 01 * * *` und `17 02 * * *`
+decken gemeinsam 03:17 Uhr in `Europe/Berlin` während Sommer- und Winterzeit
+ab. Eine vorgeschaltete Sperre lässt pro deutschem Kalendertag höchstens einen
+vollständigen Datenlauf zu. Der jeweils andere Zeittrigger bleibt als
+Ausweichfenster erhalten, falls GitHub einen Cron-Lauf auslässt oder der erste
+Versuch fehlschlägt. Die Workflow-Concurrency verhindert Parallelbetrieb. Es
+gibt keinen zweiten parallel laufenden Waipu-Job.
 
 Bei einem geplanten oder manuell gestarteten Datenlauf geschieht nacheinander:
 

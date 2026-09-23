@@ -1,14 +1,82 @@
 import { describe, expect, it } from 'vitest'
 import {
   captureWorkflowTiming,
+  evaluateScheduleGate,
   evaluateScheduledRuns,
   expectedScheduleAt,
+  scheduledAtForLocalDate,
 } from '../scripts/check-data-workflow-schedule.mjs'
 
 describe('Nachtlauf-Zeitplanung', () => {
   it('plant 03:17 Europe/Berlin korrekt durch Sommer- und Winterzeit', () => {
     expect(expectedScheduleAt(new Date('2026-09-21T04:00:00.000Z')).toISOString()).toBe('2026-09-21T01:17:00.000Z')
     expect(expectedScheduleAt(new Date('2026-12-21T05:00:00.000Z')).toISOString()).toBe('2026-12-21T02:17:00.000Z')
+  })
+
+  it('berechnet das heutige lokale Zeitfenster auch vor 03:17 Uhr', () => {
+    expect(scheduledAtForLocalDate(new Date('2026-12-21T01:17:00.000Z')).toISOString()).toBe('2026-12-21T02:17:00.000Z')
+  })
+
+  it('überspringt den verfrühten UTC-Sommerzeit-Ersatztrigger im Winter', () => {
+    const result = evaluateScheduleGate([], {
+      now: new Date('2026-12-21T01:17:00.000Z'),
+      currentRunId: 101,
+      eventName: 'schedule',
+    })
+    expect(result.shouldRun).toBe(false)
+    expect(result.reason).toBe('before-daily-window')
+  })
+
+  it('startet den ersten fälligen Nachtlauf nach 03:17 Uhr', () => {
+    const result = evaluateScheduleGate([], {
+      now: new Date('2026-09-21T01:18:00.000Z'),
+      currentRunId: 102,
+      eventName: 'schedule',
+    })
+    expect(result.shouldRun).toBe(true)
+    expect(result.reason).toBe('daily-run-due')
+  })
+
+  it('überspringt einen Ersatztrigger nach einem bereits gestarteten Tageslauf', () => {
+    const result = evaluateScheduleGate([
+      {
+        id: 201,
+        run_number: 390,
+        name: 'Deploy Firebase',
+        event: 'schedule',
+        status: 'completed',
+        conclusion: 'success',
+        created_at: '2026-09-21T01:24:00.000Z',
+        html_url: 'https://github.com/example/repo/actions/runs/201',
+      },
+    ], {
+      now: new Date('2026-09-21T02:17:00.000Z'),
+      currentRunId: 202,
+      eventName: 'schedule',
+    })
+    expect(result.shouldRun).toBe(false)
+    expect(result.reason).toBe('daily-run-already-started')
+    expect(result.run.number).toBe(390)
+  })
+
+  it('startet den Ersatztrigger erneut, wenn der frühere Tageslauf fehlgeschlagen ist', () => {
+    const result = evaluateScheduleGate([
+      {
+        id: 301,
+        run_number: 391,
+        name: 'Deploy Firebase',
+        event: 'schedule',
+        status: 'completed',
+        conclusion: 'failure',
+        created_at: '2026-09-21T01:24:00.000Z',
+      },
+    ], {
+      now: new Date('2026-09-21T02:17:00.000Z'),
+      currentRunId: 302,
+      eventName: 'schedule',
+    })
+    expect(result.shouldRun).toBe(true)
+    expect(result.reason).toBe('daily-run-due')
   })
 
   it('meldet einen planmäßigen Start nach mehr als 60 Minuten als verspätet', () => {

@@ -2,13 +2,10 @@ name: Data Workflow Watchdog
 
 on:
   schedule:
-    # Primary check after the 03:17 Europe/Berlin data run has had two and a half
-    # hours to start and finish. A second check reduces the chance that a dropped
-    # GitHub schedule event also hides a missing data run.
-    - cron: '47 05 * * *'
-      timezone: 'Europe/Berlin'
-    - cron: '47 06 * * *'
-      timezone: 'Europe/Berlin'
+    # UTC checks covering summer and winter time after the 03:17 Europe/Berlin
+    # run. Repeated read-only checks also expose a dropped GitHub schedule event.
+    - cron: '47 03 * * *'
+    - cron: '47 04 * * *'
   # When the scheduled data workflow does run, validate it again immediately
   # after completion. Code-push and manual Deploy Firebase runs are ignored.
   workflow_run:
