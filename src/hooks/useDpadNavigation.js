@@ -140,7 +140,7 @@ function scrollPageToPosterCandidate(candidate, behavior = 'smooth') {
 function focusCandidate(candidate, { posterHorizontal = 'center', scrollBehavior = 'smooth' } = {}) {
   if (!candidate) return
   candidate.focus({ preventScroll: true })
-  const isInsideDialog = candidate.closest('.detail-modal, .media-panel, .exit-dialog, .profile-menu')
+  const isInsideDialog = candidate.closest('.detail-modal, .media-panel, .exit-dialog, .notification-dialog, .profile-menu')
   const isPoster = candidate.matches?.('.poster-card')
 
   if (isPoster && !isInsideDialog) {
@@ -457,7 +457,7 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
       lastArrowKey = event.key
       lastArrowAt = now
 
-      const scope = getTopMediaPanel()
+      const scope = document.querySelector('.notification-dialog') || getTopMediaPanel()
         || (exitDialogOpen
           ? document.querySelector('.exit-dialog')
           : detailOpen

@@ -19,6 +19,7 @@ import './styles/series-navigation.css'
 import './styles/issue218.css'
 import './styles/waipu-tv.css'
 import './styles/issue287-focus-detail.css'
+import './styles/notifications.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -38,9 +38,12 @@ import {
 import { useSharedMediaCatalog } from './library/useSharedMediaCatalog.js'
 import { mergeSharedMediaCatalogTitles, mergeTitlesWithSharedMediaCatalog } from './library/sharedMediaCatalogModel.js'
 import { firebaseReady } from './lib/firebase.js'
+import { useAnnouncements } from './notifications/useAnnouncements.js'
+import { AnnouncementsView, BellButton, StartupAnnouncement } from './notifications/AnnouncementsView.jsx'
 import { HERO_PRELOAD_INTENT_DELAY_MS, preloadHeroImage } from './performance/progressiveRendering.js'
 import { loadCatalogWithRetry } from './performance/catalogStartup.js'
 import { notifyNativeStartupReady } from './performance/nativeStartup.js'
+import { INITIAL_HOME_FOCUS_EVENT } from './components/InitialHomeFocus.jsx'
 import { ProfileProvider, useProfiles } from './profiles/ProfileProvider.jsx'
 import { ThemeProvider } from './theme/ThemeProvider.jsx'
 import { TmdbCatalogProvider, useTmdbCatalog } from './tmdb/TmdbCatalogProvider.jsx'
@@ -126,6 +129,7 @@ function Login() {
 function Header({
   currentView,
   onViewChange,
+  unreadCount,
   onContentViewActivate,
   user,
   onSignOut,
@@ -198,6 +202,7 @@ function Header({
       </nav>
       <div className="top-actions">
         <button type="button" className={currentView === 'search' ? 'icon-button active' : 'icon-button'} onClick={() => onViewChange('search')} data-focusable="true" aria-label="Suche">⌕</button>
+        <BellButton unreadCount={unreadCount} active={currentView === 'notifications'} onClick={() => onViewChange('notifications')} />
         <div className="profile-wrap">
           <button
             type="button"
@@ -404,6 +409,10 @@ function ExitConfirmationDialog({ onCancel, onClose }) {
 }
 
 function MovieHub({ user }) {
+  const { items: announcements, readIds, unreadCount, ready: announcementsReady, error: announcementsError, markRead } = useAnnouncements(user.uid)
+  const [dismissedStartupIds, setDismissedStartupIds] = useState(() => new Set())
+  const [startupNoticeError, setStartupNoticeError] = useState('')
+  const [startupFocusReady, setStartupFocusReady] = useState(() => !window.MovieHubNative || Boolean(window.__movieHubStartupFocusReady))
   const { profiles, activeProfile, selectProfile } = useProfiles()
   const { getTitleState, statesByKey, loading: libraryLoading, error: libraryError } = useLibrary()
   const { personalTitles: tmdbPersonalTitles } = useTmdbCatalog()
@@ -455,6 +464,14 @@ function MovieHub({ user }) {
   const detailRequestSequenceRef = useRef(0)
   const detailReturnFocusRef = useRef(null)
   const detailSessionActiveRef = useRef(false)
+
+  useEffect(() => {
+    if (startupFocusReady) return undefined
+    const ready = () => setStartupFocusReady(true)
+    window.addEventListener(INITIAL_HOME_FOCUS_EVENT, ready)
+    const fallback = window.setTimeout(ready, 12_000)
+    return () => { window.removeEventListener(INITIAL_HOME_FOCUS_EVENT, ready); window.clearTimeout(fallback) }
+  }, [startupFocusReady])
 
   useEffect(() => () => {
     if (tvScheduleIntentTimerRef.current !== null) {
@@ -865,6 +882,12 @@ function MovieHub({ user }) {
   }, [])
 
   const closeInteractiveLayer = useCallback(() => {
+    const startup = document.querySelector('.notification-dialog')
+    if (startup) {
+      const id = startup.getAttribute('data-announcement-id')
+      if (id) setDismissedStartupIds((previous) => new Set(previous).add(id))
+      return true
+    }
     if (detailRequest) {
       setDetailRequest(null)
       if (!selectedTitle) {
@@ -1250,12 +1273,16 @@ function MovieHub({ user }) {
     preloadHeroImage(heroItemsByView[nextView])
   }, [heroItemsByView, tvScheduleRequested])
   const liveTmdb = catalog.source === 'tmdb'
+  const startupAnnouncement = startupFocusReady && announcementsReady && currentView === 'home' && !selectedTitle && !detailRequest && !exitDialogOpen
+    ? announcements.find((item) => item.mode === 'startup' && !readIds.has(item.id) && !dismissedStartupIds.has(item.id))
+    : null
 
   return (
     <div className="app-shell">
       <Header
         currentView={currentView}
         onViewChange={handleViewChange}
+        unreadCount={unreadCount}
         onContentViewActivate={handleContentViewActivate}
         user={user}
         onSignOut={handleSignOut}
@@ -1343,6 +1370,7 @@ function MovieHub({ user }) {
           onOpen={handleOpenTitle}
         />
       )}
+      {currentView === 'notifications' && <AnnouncementsView items={announcements} readIds={readIds} ready={announcementsReady} error={announcementsError} onRead={markRead} />}
       {currentView === 'profile' && (
         <ProfileView
           user={user}
@@ -1380,6 +1408,18 @@ function MovieHub({ user }) {
         />
       )}
       {exitDialogOpen && <ExitConfirmationDialog onCancel={() => setExitDialogOpen(false)} onClose={closeApp} />}
+      {startupAnnouncement && <StartupAnnouncement key={startupAnnouncement.id} item={startupAnnouncement} error={startupNoticeError} onConfirm={async (id) => {
+        try {
+          await markRead(id)
+          setStartupNoticeError('')
+          setDismissedStartupIds((previous) => new Set(previous).add(id))
+        } catch {
+          setStartupNoticeError('Lesestatus konnte nicht gespeichert werden. Bitte erneut versuchen.')
+        }
+      }} onDismiss={() => {
+        setStartupNoticeError('')
+        setDismissedStartupIds((previous) => new Set(previous).add(startupAnnouncement.id))
+      }} />}
     </div>
   )
 }

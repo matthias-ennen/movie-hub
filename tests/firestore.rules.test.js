@@ -5,7 +5,7 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from 'firebase/firestore'
 
 let testEnv
 
@@ -32,6 +32,29 @@ afterAll(async () => {
 })
 
 describe('Firestore Security Rules', () => {
+  it('liefert veröffentlichte Ankündigungen nur an angemeldete Nutzer und schützt Schreibzugriffe', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'announcements', 'public'), { status: 'published', title: 'Hallo' })
+      await setDoc(doc(context.firestore(), 'announcements', 'draft'), { status: 'draft', title: 'Entwurf' })
+    })
+    const alice = testEnv.authenticatedContext('alice').firestore()
+    const anonymous = testEnv.unauthenticatedContext().firestore()
+    await assertSucceeds(getDoc(doc(alice, 'announcements', 'public')))
+    await assertFails(getDoc(doc(alice, 'announcements', 'draft')))
+    await assertFails(getDoc(doc(anonymous, 'announcements', 'public')))
+    await assertFails(setDoc(doc(alice, 'announcements', 'public'), { status: 'published' }))
+    const visible = await assertSucceeds(getDocs(query(collection(alice, 'announcements'), where('status', '==', 'published'))))
+    expect(visible.docs.map((entry) => entry.id)).toContain('public')
+  })
+
+  it('erlaubt den Lesestatus nur im eigenen Konto und ausschließlich mit Serverzeit', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore()
+    const own = doc(alice, 'users', 'alice', 'announcementReads', 'public')
+    await assertSucceeds(setDoc(own, { readAt: serverTimestamp() }))
+    await assertSucceeds(getDoc(own))
+    await assertFails(setDoc(own, { readAt: 'manuell' }))
+    await assertFails(setDoc(doc(alice, 'users', 'bob', 'announcementReads', 'public'), { readAt: serverTimestamp() }))
+  })
   it('weist unauthentifizierte Zugriffe auf persönliche Daten ab', async () => {
     const db = testEnv.unauthenticatedContext().firestore()
     await assertFails(getDoc(doc(db, 'users', 'alice', 'diagnostics', 'phase0')))
