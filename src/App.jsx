@@ -43,6 +43,7 @@ import { AnnouncementsView, BellButton, StartupAnnouncement } from './notificati
 import { HERO_PRELOAD_INTENT_DELAY_MS, preloadHeroImage } from './performance/progressiveRendering.js'
 import { loadCatalogWithRetry } from './performance/catalogStartup.js'
 import { notifyNativeStartupReady } from './performance/nativeStartup.js'
+import { INITIAL_HOME_FOCUS_EVENT } from './components/InitialHomeFocus.jsx'
 import { ProfileProvider, useProfiles } from './profiles/ProfileProvider.jsx'
 import { ThemeProvider } from './theme/ThemeProvider.jsx'
 import { TmdbCatalogProvider, useTmdbCatalog } from './tmdb/TmdbCatalogProvider.jsx'
@@ -411,6 +412,7 @@ function MovieHub({ user }) {
   const { items: announcements, readIds, unreadCount, ready: announcementsReady, error: announcementsError, markRead } = useAnnouncements(user.uid)
   const [dismissedStartupIds, setDismissedStartupIds] = useState(() => new Set())
   const [startupNoticeError, setStartupNoticeError] = useState('')
+  const [startupFocusReady, setStartupFocusReady] = useState(() => !window.MovieHubNative || Boolean(window.__movieHubStartupFocusReady))
   const { profiles, activeProfile, selectProfile } = useProfiles()
   const { getTitleState, statesByKey, loading: libraryLoading, error: libraryError } = useLibrary()
   const { personalTitles: tmdbPersonalTitles } = useTmdbCatalog()
@@ -462,6 +464,14 @@ function MovieHub({ user }) {
   const detailRequestSequenceRef = useRef(0)
   const detailReturnFocusRef = useRef(null)
   const detailSessionActiveRef = useRef(false)
+
+  useEffect(() => {
+    if (startupFocusReady) return undefined
+    const ready = () => setStartupFocusReady(true)
+    window.addEventListener(INITIAL_HOME_FOCUS_EVENT, ready)
+    const fallback = window.setTimeout(ready, 12_000)
+    return () => { window.removeEventListener(INITIAL_HOME_FOCUS_EVENT, ready); window.clearTimeout(fallback) }
+  }, [startupFocusReady])
 
   useEffect(() => () => {
     if (tvScheduleIntentTimerRef.current !== null) {
@@ -872,6 +882,12 @@ function MovieHub({ user }) {
   }, [])
 
   const closeInteractiveLayer = useCallback(() => {
+    const startup = document.querySelector('.notification-dialog')
+    if (startup) {
+      const id = startup.getAttribute('data-announcement-id')
+      if (id) setDismissedStartupIds((previous) => new Set(previous).add(id))
+      return true
+    }
     if (detailRequest) {
       setDetailRequest(null)
       if (!selectedTitle) {
@@ -1257,7 +1273,7 @@ function MovieHub({ user }) {
     preloadHeroImage(heroItemsByView[nextView])
   }, [heroItemsByView, tvScheduleRequested])
   const liveTmdb = catalog.source === 'tmdb'
-  const startupAnnouncement = announcementsReady && currentView === 'home' && !selectedTitle && !detailRequest && !exitDialogOpen
+  const startupAnnouncement = startupFocusReady && announcementsReady && currentView === 'home' && !selectedTitle && !detailRequest && !exitDialogOpen
     ? announcements.find((item) => item.mode === 'startup' && !readIds.has(item.id) && !dismissedStartupIds.has(item.id))
     : null
 

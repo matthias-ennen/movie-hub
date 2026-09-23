@@ -51,7 +51,7 @@ export function StartupAnnouncement({ item, error, onConfirm, onDismiss }) {
   }
   return (
     <div className="notification-overlay" role="presentation">
-      <section className="notification-dialog" role="dialog" aria-modal="true" aria-labelledby="startup-announcement-title">
+      <section className="notification-dialog" data-announcement-id={item.id} role="dialog" aria-modal="true" aria-labelledby="startup-announcement-title">
         <h2 id="startup-announcement-title">{item.title}</h2>
         <p>{item.body}</p>
         {error && <p role="alert">{error}</p>}
