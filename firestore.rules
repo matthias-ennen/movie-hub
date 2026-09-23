@@ -25,6 +25,14 @@ service cloud.firestore {
       // Das Kontodokument selbst bleibt ausschließlich für die eigene UID.
       allow read, write: if ownsUserData(userId);
 
+      match /announcementReads/{announcementId} {
+        allow read: if ownsUserData(userId);
+        allow create, update: if ownsUserData(userId)
+          && request.resource.data.keys().hasOnly(['readAt'])
+          && request.resource.data.readAt == request.time;
+        allow delete: if false;
+      }
+
       // Interne Movie-Hub-Profile und alle später darunter liegenden
       // persönlichen Zustände (Watchlist, Bewertungen usw.) sind strikt an
       // die authentifizierte Firebase-UID gebunden.
@@ -99,6 +107,12 @@ service cloud.firestore {
     // vertrauenswürdige Build-/Backend-Prozesse.
     match /catalog/{document=**} {
       allow read: if true;
+      allow write: if false;
+    }
+
+    // Veröffentlichung erfolgt ausschließlich über einen vertrauenswürdigen Admin-Prozess.
+    match /announcements/{announcementId} {
+      allow read: if signedIn() && resource.data.status == 'published';
       allow write: if false;
     }
 

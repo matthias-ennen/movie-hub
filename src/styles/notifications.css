@@ -1,0 +1,19 @@
+.notification-bell { position: relative; flex: none; }
+.notification-count { position: absolute; top: -4px; right: -8px; min-width: 19px; height: 19px; padding: 0 4px; display: grid; place-items: center; border-radius: 20px; background: #e54853; color: white; font-size: 11px; font-weight: 800; line-height: 1; }
+.notification-page { width: min(850px, calc(100% - 2 * var(--page-inline))); margin: 2rem auto 6rem; }
+.notification-page h1 { margin-bottom: 1.5rem; }
+.notification-list { display: grid; gap: 0.8rem; }
+.notification-item { display: grid; gap: 0.7rem; width: 100%; padding: 1.2rem; text-align: left; color: var(--color-text); background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.12); border-radius: .8rem; white-space: pre-wrap; }
+.notification-item:hover, .notification-item:focus-visible { border-color: var(--color-focus); }
+.notification-item.unread { background: rgba(255,255,255,.1); }
+.notification-item-heading { display: flex; align-items: center; gap: .6rem; font-size: 1.1rem; font-weight: 750; }
+.notification-dot { width: 8px; height: 8px; border-radius: 50%; background: #e54853; }
+.notification-body { line-height: 1.5; overflow-wrap: anywhere; }
+.notification-date { color: #b5bbc7; font-size: .85rem; }
+.notification-overlay { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(0,0,0,.82); }
+.notification-dialog { width: min(560px, 100%); max-height: 90vh; overflow: auto; padding: 2rem; border: 1px solid rgba(255,255,255,.2); border-radius: 1rem; background: #1c2029; box-shadow: 0 20px 70px #000a; }
+.notification-dialog p { white-space: pre-wrap; line-height: 1.6; overflow-wrap: anywhere; }
+.notification-dialog-actions { display: flex; justify-content: flex-end; gap: .8rem; margin-top: 2rem; }
+.notification-dialog-actions button { padding: .8rem 1rem; border-radius: .5rem; color: white; background: #454b58; }
+.notification-dialog-actions button:last-child { background: #ab2532; }
+.notification-dialog-actions button:focus-visible { outline: 3px solid var(--color-focus); }
