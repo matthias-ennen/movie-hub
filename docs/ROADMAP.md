@@ -1,6 +1,6 @@
 # Movie Hub – Roadmap
 
-Stand: 22. September 2026
+Stand: 23. September 2026
 
 ## Leitprinzip
 
@@ -103,14 +103,22 @@ Abstände und TV-Statusdarstellung sind auf Smartphone, Android-Tablet und Fire
 TV abgenommen. Die noch offenen Trailer-/Teaser- und Erinnerungspakete bleiben
 in #255 getrennt dokumentiert.
 
-## Nächstes Arbeitspaket
+## Aktuelles Arbeitspaket
 
 ### #260 – Waipu-Live: Senderbestand über 50 hinaus vollständig ausbauen
 
-Vor dem Ausbau werden technischer Senderstamm, offizielle Senderliste,
-Movie-Hub-Eignung, Requestbudgets und der skalierbare TV-Datenlader nochmals
-gegen den aktuellen Stand geprüft. Erst danach beginnt der Ausbau in
-kontrollierten Wellen.
+Die offizielle Liste mit 338 Einträgen wurde inventarisiert. Die ersten 100
+Sender bleiben erhalten; 128 weitere fachlich geeignete Sender wurden
+ausgewählt. PR #309 hat die 228 festen Waipu-IDs, den checkpoint-gestützten
+Import und die bedarfsbezogene TV-Tagesladung umgesetzt. Der planmäßige
+Datenlauf #390 hat am 23.09.2026 die vollständige 228er-Generation mit 1.617
+Titeln und 15.520 Ausstrahlungen veröffentlicht. Der Produktionsindex meldet
+`status=complete`, 228 Sender und 14 Tagesdateien.
+
+Smartphone und Tablet sind nach Matthias' Rückmeldung geprüft. Die manuelle
+Fire-TV-Abnahme bleibt offen; #260 wird bis dahin nicht geschlossen. PR #310
+hat die Cron-Auslösung auf 03:17 Uhr deutscher Zeit korrigiert. Der tatsächliche
+Start des nächsten planmäßigen Nachtlaufs wird separat kontrolliert.
 
 ## Bereits getrennt dokumentierte Waipu-Folgepakete
 
@@ -132,6 +140,8 @@ kontrollierten Wellen.
 - öffentliche Verteilung bleibt vom Compliance-Gate #112 abhängig.
 
 ## Danach geplante Arbeitspakete
+
+Vor der Umsetzung von #118 erfolgt die in #255 vereinbarte kurze Scope-Klärung.
 
 ### 1. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
 
@@ -161,10 +171,10 @@ kontrollierten Wellen.
 
 ## Aktuelle Abhängigkeitskette
 
-`#4 abgeschlossen → #256 abgeschlossen → #259 abgeschlossen → TV-Grundlage abgeschlossen → #260 Senderausbau in Wellen → #118 → #7`
+`#4 abgeschlossen → #256 abgeschlossen → #259 abgeschlossen → TV-Grundlage abgeschlossen → #260 technisch veröffentlicht, Fire TV offen → #118 nach Scope-Klärung → #7`
 
 #4, #256, #259 sowie die TV-Grundlage aus #281, #283, #285 und #289 sind
-vollständig abgenommen und geschlossen. Der veröffentlichte 50-Sender-Bestand
-bleibt der gültige Ausgangsstand. Als nächstes folgt #260 in kontrollierten
-Senderwellen. Öffentliche Verteilung bleibt von der Compliance-Prüfung #112
-abhängig.
+vollständig abgenommen und geschlossen. Der 228-Sender-Bestand ist veröffentlicht;
+die Fire-TV-Abnahme von #260 und die Kontrolle der korrigierten Nachtlaufzeit
+bleiben offen. Danach folgt #118 nach eigener Scope-Klärung. Öffentliche
+Verteilung bleibt von der Compliance-Prüfung #112 abhängig.
