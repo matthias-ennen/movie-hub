@@ -111,6 +111,10 @@ export async function inspectArchive({ archive, sha256, group }) {
   for (const entry of stdout.split('\n').filter(Boolean)) {
     if (!allowedEntry(group, entry)) throw new Error(`Unexpected checkpoint path: ${entry}`)
   }
+  const { stdout: details } = await exec('tar', ['-tvzf', archive], { maxBuffer: 30 * 1024 * 1024 })
+  for (const entry of details.split('\n').filter(Boolean)) {
+    if (!['-', 'd'].includes(entry[0])) throw new Error('Checkpoint archive contains a link or special file.')
+  }
   const directory = await mkdtemp(join(tmpdir(), 'movie-hub-restore-'))
   try {
     await exec('tar', ['-xzf', archive, '-C', directory, '--no-same-owner'])
