@@ -172,7 +172,8 @@ export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jo
     .filter((entry) => Date.parse(entry.created_at) >= earliestAccepted)
     .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at))
   const gateOnly = candidates.filter((entry) => jobsByRunId[entry.id]?.some((job) => job.name === 'deploy' && job.conclusion === 'skipped'))
-  const run = candidates.find((entry) => jobsByRunId[entry.id]?.some((job) => job.name === 'deploy' && job.conclusion !== 'skipped'))
+  const deployRuns = candidates.filter((entry) => jobsByRunId[entry.id]?.some((job) => job.name === 'deploy' && job.conclusion !== 'skipped'))
+  const run = deployRuns[0]
   const pendingGate = candidates.find((entry) => entry.status !== 'completed' && !jobsByRunId[entry.id]?.some((job) => job.name === 'deploy'))
 
   if (!run) {
@@ -188,8 +189,11 @@ export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jo
   const deploy = jobsByRunId[run.id].find((job) => job.name === 'deploy')
   const delayMinutes = Math.max(0, Math.floor((Date.parse(run.created_at) - scheduledAt.getTime()) / 60_000))
   const failed = run.status === 'completed' && (run.conclusion !== 'success' || deploy.conclusion !== 'success')
+  const recovery = failed && deployRuns.slice(1).findLast((entry) => entry.status === 'completed'
+    && entry.conclusion === 'success'
+    && jobsByRunId[entry.id]?.some((job) => job.name === 'deploy' && job.conclusion === 'success'))
   return {
-    status: failed ? 'failed' : run.status !== 'completed' ? 'running' : delayMinutes > settings.maximumDelayMinutes ? 'delayed' : 'healthy',
+    status: failed && !recovery ? 'failed' : run.status !== 'completed' ? 'running' : delayMinutes > settings.maximumDelayMinutes ? 'delayed' : failed ? 'recovered' : 'healthy',
     scheduledAt: scheduledAt.toISOString(),
     checkedAt: now.toISOString(),
     actualStartAt: run.created_at,
@@ -205,6 +209,7 @@ export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jo
       conclusion: run.conclusion,
       url: run.html_url,
     },
+    ...(recovery ? { recovery: { number: recovery.run_number, url: recovery.html_url, completedAt: jobsByRunId[recovery.id].find((job) => job.name === 'deploy').completed_at } } : {}),
   }
 }
 
@@ -224,6 +229,7 @@ export function scheduleHealthMarkdown(result, publication = null) {
     ...(result.deployCompletedAt ? [`- Deploy-Job beendet: **${formatBerlin(result.deployCompletedAt)}**`] : []),
     `- Startverzögerung: **${delay}** (Grenze ${result.maximumDelayMinutes} Minuten)`,
     `- Ergebnis: **${result.status}**${result.run?.url ? ` · [Lauf #${result.run.number}](${result.run.url})` : ''}`,
+    ...(result.recovery ? [`- Wiederherstellung: [Lauf #${result.recovery.number}](${result.recovery.url})${result.recovery.completedAt ? ` · Deploy beendet: **${formatBerlin(result.recovery.completedAt)}**` : ''}`] : []),
     ...(result.gateOnlyRuns?.length ? [`- Übersprungene Ersatztrigger: ${result.gateOnlyRuns.map((entry) => `[Lauf #${entry.number}](${entry.url})`).join(', ')}`] : []),
     ...(publication ? [
       '',
@@ -316,7 +322,7 @@ async function watchdogMain({ fetchImpl = fetch } = {}) {
   }
 }
 
-async function scheduleGateMain({ fetchImpl = fetch } = {}) {
+export async function scheduleGateMain({ fetchImpl = fetch } = {}) {
   const eventName = process.env.GITHUB_EVENT_NAME || ''
   const output = process.env.GITHUB_OUTPUT
   const settings = {
@@ -350,11 +356,7 @@ async function scheduleGateMain({ fetchImpl = fetch } = {}) {
         options: settings,
       })
     } catch (error) {
-      console.warn(`::warning::Nachtlauf-Sperre nicht prüfbar; der Datenlauf startet sicherheitshalber: ${error instanceof Error ? error.message : String(error)}`)
-      result = {
-        shouldRun: true,
-        reason: 'gate-check-failed-open',
-      }
+      throw new Error(`Nachtlauf-Sperre nicht prüfbar; Datenlauf gesperrt: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
