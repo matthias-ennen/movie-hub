@@ -38,4 +38,5 @@ jobs:
           DATA_WORKFLOW_MINUTE: '17'
           DATA_WORKFLOW_MAX_DELAY_MINUTES: '60'
           DATA_WORKFLOW_NAME: Deploy Firebase
+          DATA_WORKFLOW_EXPECTED_STATIONS: '228'
         run: npm run workflow:schedule:check
