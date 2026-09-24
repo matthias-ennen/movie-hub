@@ -9,6 +9,7 @@
 - [Anbieterkataloge](PROVIDER_CATALOGS.md)
 - [Security-Konzept](SECURITY.md)
 - [Dependency-Audit](DEPENDENCY_AUDIT.md)
+- [Nachtlauf und privater Checkpoint](DATA_WORKFLOW_RELIABILITY.md)
 - [FreeEPG-Qualitätsprüfung](FREE_EPG_QUALITY.md)
 - [Öffentlicher Waipu-Datenvertrag](WAIPU_PUBLIC_CONTRACT.md)
 - [Waipu-#4H-Abnahme](WAIPU_4H_ACCEPTANCE.md)
