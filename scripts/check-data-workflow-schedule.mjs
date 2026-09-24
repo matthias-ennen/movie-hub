@@ -1,6 +1,7 @@
 import { appendFile, mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { evaluatePublishedData, fetchPublishedData } from './validate-publication-health.mjs'
 
 const defaultOptions = Object.freeze({
   timeZone: 'Europe/Berlin',
@@ -211,7 +212,7 @@ function formatBerlin(value) {
   return new Date(value).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })
 }
 
-export function scheduleHealthMarkdown(result) {
+export function scheduleHealthMarkdown(result, publication = null) {
   const actual = result.actualStartAt ? formatBerlin(result.actualStartAt) : 'kein Lauf gefunden'
   const delay = Number.isFinite(result.delayMinutes) ? `${result.delayMinutes} Minuten` : 'nicht messbar'
   return [
@@ -224,6 +225,12 @@ export function scheduleHealthMarkdown(result) {
     `- Startverzögerung: **${delay}** (Grenze ${result.maximumDelayMinutes} Minuten)`,
     `- Ergebnis: **${result.status}**${result.run?.url ? ` · [Lauf #${result.run.number}](${result.run.url})` : ''}`,
     ...(result.gateOnlyRuns?.length ? [`- Übersprungene Ersatztrigger: ${result.gateOnlyRuns.map((entry) => `[Lauf #${entry.number}](${entry.url})`).join(', ')}`] : []),
+    ...(publication ? [
+      '',
+      `- Öffentlicher Datenstand: **${publication.status}**${publication.reasons?.length ? ` (${publication.reasons.join('; ')})` : ''}`,
+      ...(publication.dataStatusAt ? [`- Allgemeiner Datenstatus: **${formatBerlin(publication.dataStatusAt)}** · ${publication.catalogTitles} Katalogtitel, ${publication.searchTitles} Sucheinträge`] : []),
+      ...(publication.waipuAt ? [`- Waipu-Index: **${formatBerlin(publication.waipuAt)}** · ${publication.stations} Sender, ${publication.waipuTitles} Titel, ${publication.broadcasts} Ausstrahlungen`] : []),
+    ] : []),
     '',
   ].join('\n')
 }
@@ -289,11 +296,22 @@ async function watchdogMain({ fetchImpl = fetch } = {}) {
       workflowName: process.env.DATA_WORKFLOW_NAME || defaultOptions.workflowName,
     },
   })
-  const markdown = scheduleHealthMarkdown(result)
+  let publication
+  try {
+    const [dataStatus, waipuIndex] = await fetchPublishedData({ fetchImpl })
+    publication = evaluatePublishedData(dataStatus, waipuIndex, {
+      scheduledAt: result.scheduledAt,
+      expectedStations: integer(process.env.DATA_WORKFLOW_EXPECTED_STATIONS, 228),
+    })
+    if (result.status === 'running' && publication.status === 'stale') publication.status = 'pending'
+  } catch (error) {
+    publication = { status: 'unreachable', reasons: [error instanceof Error ? error.message : String(error)] }
+  }
+  const markdown = scheduleHealthMarkdown(result, publication)
   console.log(markdown)
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, markdown, 'utf8')
-  if (['missing', 'failed', 'delayed'].includes(result.status)) {
-    console.error(`::error::Nachtlauf-Überwachung: ${result.status}.`)
+  if (['missing', 'failed', 'delayed'].includes(result.status) || ['invalid', 'stale', 'unreachable'].includes(publication.status)) {
+    console.error(`::error::Nachtlauf-Überwachung: ${result.status}; öffentlicher Datenstand: ${publication.status}.`)
     process.exitCode = 1
   }
 }
