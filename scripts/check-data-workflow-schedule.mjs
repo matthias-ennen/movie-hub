@@ -184,7 +184,7 @@ export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jo
 
   if (!run) {
     return {
-      status: pendingGate ? 'running' : manualRecovery ? 'recovered' : 'missing',
+      status: manualRecovery ? 'recovered' : pendingGate ? 'running' : 'missing',
       ...(manualRecovery ? { scheduledIncident: 'missing', recovery: { number: manualRecovery.run_number, url: manualRecovery.html_url, source: 'manual', completedAt: jobsByRunId[manualRecovery.id].find((job) => job.name === 'deploy').completed_at } } : {}),
       scheduledAt: scheduledAt.toISOString(),
       checkedAt: now.toISOString(),
