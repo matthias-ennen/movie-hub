@@ -56,6 +56,9 @@ jobs:
     needs: schedule-gate
     if: ${{ needs.schedule-gate.outputs.should_run == 'true' }}
     runs-on: ubuntu-latest
+    env:
+      DATA_CHECKPOINT_BUCKET: ${{ vars.MOVIE_HUB_CHECKPOINT_BUCKET }}
+      DATA_CHECKPOINT_ENABLED: ${{ vars.MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -118,6 +121,22 @@ jobs:
             waipu-hundred-v1-
             waipu-fifty-v1-
             waipu-seven-v1-
+
+      - name: Authenticate for private checkpoint restore
+        if: ${{ (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+
+      - name: Restore verified private TMDB checkpoint
+        if: ${{ (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
+        run: node scripts/durable-data-checkpoint.mjs restore tmdb
+
+      - name: Restore verified private Waipu checkpoint and cache
+        if: ${{ (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
+        run: node scripts/durable-data-checkpoint.mjs restore waipu
 
       - name: Seed verified Waipu stability history
         if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
@@ -211,6 +230,10 @@ jobs:
             artifacts/waipu-live/unresolved.json
           key: waipu-curated-228-v1-${{ github.run_id }}-${{ github.run_attempt }}
 
+      - name: Save verified private Waipu checkpoint and cache
+        if: ${{ always() && (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' && steps.waipu_sync.outcome != 'skipped' }}
+        run: node scripts/durable-data-checkpoint.mjs upload waipu
+
       - name: Authenticate to Google Cloud
         id: gcp_auth
         uses: google-github-actions/auth@v3
@@ -303,6 +326,10 @@ jobs:
         with:
           path: artifacts/tmdb-data
           key: tmdb-changes-v1-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Save verified private TMDB checkpoint
+        if: ${{ always() && steps.tmdb_change_commit.outcome == 'success' && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
+        run: node scripts/durable-data-checkpoint.mjs upload tmdb
 
       - name: Publish compact data workflow report
         if: ${{ always() }}
