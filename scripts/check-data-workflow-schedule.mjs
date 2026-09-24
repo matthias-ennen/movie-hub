@@ -162,33 +162,41 @@ export function captureWorkflowTiming({ now = new Date(), eventName = '', option
   }
 }
 
-export function evaluateScheduledRuns(runs, { now = new Date(), options = {} } = {}) {
+export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jobsByRunId = {} } = {}) {
   const settings = { ...defaultOptions, ...options }
   const scheduledAt = expectedScheduleAt(now, settings)
   const earliestAccepted = scheduledAt.getTime() - 5 * 60_000
-  const run = (Array.isArray(runs) ? runs : [])
+  const candidates = (Array.isArray(runs) ? runs : [])
     .filter((entry) => entry?.name === settings.workflowName && entry?.event === 'schedule')
     .filter((entry) => Date.parse(entry.created_at) >= earliestAccepted)
-    .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))[0]
+    .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at))
+  const gateOnly = candidates.filter((entry) => jobsByRunId[entry.id]?.some((job) => job.name === 'deploy' && job.conclusion === 'skipped'))
+  const run = candidates.find((entry) => jobsByRunId[entry.id]?.some((job) => job.name === 'deploy' && job.conclusion !== 'skipped'))
+  const pendingGate = candidates.find((entry) => entry.status !== 'completed' && !jobsByRunId[entry.id]?.some((job) => job.name === 'deploy'))
 
   if (!run) {
     return {
-      status: 'missing',
+      status: pendingGate ? 'running' : 'missing',
       scheduledAt: scheduledAt.toISOString(),
       checkedAt: now.toISOString(),
       maximumDelayMinutes: settings.maximumDelayMinutes,
+      gateOnlyRuns: gateOnly.map((entry) => ({ number: entry.run_number, url: entry.html_url })),
     }
   }
 
+  const deploy = jobsByRunId[run.id].find((job) => job.name === 'deploy')
   const delayMinutes = Math.max(0, Math.floor((Date.parse(run.created_at) - scheduledAt.getTime()) / 60_000))
-  const failed = run.status === 'completed' && run.conclusion !== 'success'
+  const failed = run.status === 'completed' && (run.conclusion !== 'success' || deploy.conclusion !== 'success')
   return {
-    status: failed ? 'failed' : delayMinutes > settings.maximumDelayMinutes ? 'delayed' : 'healthy',
+    status: failed ? 'failed' : run.status !== 'completed' ? 'running' : delayMinutes > settings.maximumDelayMinutes ? 'delayed' : 'healthy',
     scheduledAt: scheduledAt.toISOString(),
     checkedAt: now.toISOString(),
     actualStartAt: run.created_at,
+    deployStartAt: deploy.started_at,
+    deployCompletedAt: deploy.completed_at,
     delayMinutes,
     maximumDelayMinutes: settings.maximumDelayMinutes,
+    gateOnlyRuns: gateOnly.map((entry) => ({ number: entry.run_number, url: entry.html_url })),
     run: {
       id: run.id,
       number: run.run_number,
@@ -210,9 +218,12 @@ export function scheduleHealthMarkdown(result) {
     '## Movie Hub · Nachtlauf-Überwachung',
     '',
     `- Geplanter Start: **${formatBerlin(result.scheduledAt)}**`,
-    `- Tatsächlicher Start: **${actual}**`,
+    `- Workflow erstellt: **${actual}**`,
+    ...(result.deployStartAt ? [`- Deploy-Job gestartet: **${formatBerlin(result.deployStartAt)}**`] : []),
+    ...(result.deployCompletedAt ? [`- Deploy-Job beendet: **${formatBerlin(result.deployCompletedAt)}**`] : []),
     `- Startverzögerung: **${delay}** (Grenze ${result.maximumDelayMinutes} Minuten)`,
     `- Ergebnis: **${result.status}**${result.run?.url ? ` · [Lauf #${result.run.number}](${result.run.url})` : ''}`,
+    ...(result.gateOnlyRuns?.length ? [`- Übersprungene Ersatztrigger: ${result.gateOnlyRuns.map((entry) => `[Lauf #${entry.number}](${entry.url})`).join(', ')}`] : []),
     '',
   ].join('\n')
 }
@@ -248,7 +259,28 @@ async function watchdogMain({ fetchImpl = fetch } = {}) {
   })
   if (!response.ok) throw new Error(`GitHub Actions API: HTTP ${response.status}`)
   const payload = await response.json()
+  const candidates = (payload.workflow_runs || []).filter((entry) => entry?.name === (process.env.DATA_WORKFLOW_NAME || defaultOptions.workflowName))
+    .filter((entry) => entry?.event === 'schedule')
+    .filter((entry) => Date.parse(entry.created_at) >= expectedScheduleAt(new Date(), {
+      timeZone: process.env.DATA_WORKFLOW_TIMEZONE || defaultOptions.timeZone,
+      hour: integer(process.env.DATA_WORKFLOW_HOUR, defaultOptions.hour),
+      minute: integer(process.env.DATA_WORKFLOW_MINUTE, defaultOptions.minute),
+    }).getTime() - 5 * 60_000)
+  const jobsByRunId = Object.fromEntries(await Promise.all(candidates.map(async (entry) => {
+    const jobsResponse = await fetchImpl(`${entry.jobs_url}?per_page=100`, {
+      headers: {
+        accept: 'application/vnd.github+json',
+        authorization: `Bearer ${token}`,
+        'x-github-api-version': '2022-11-28',
+      },
+      signal: AbortSignal.timeout(20_000),
+    })
+    if (!jobsResponse.ok) throw new Error(`GitHub Actions Jobs API: HTTP ${jobsResponse.status}`)
+    const jobsPayload = await jobsResponse.json()
+    return [entry.id, jobsPayload.jobs || []]
+  })))
   const result = evaluateScheduledRuns(payload.workflow_runs, {
+    jobsByRunId,
     options: {
       timeZone: process.env.DATA_WORKFLOW_TIMEZONE || defaultOptions.timeZone,
       hour: integer(process.env.DATA_WORKFLOW_HOUR, defaultOptions.hour),
@@ -260,7 +292,7 @@ async function watchdogMain({ fetchImpl = fetch } = {}) {
   const markdown = scheduleHealthMarkdown(result)
   console.log(markdown)
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, markdown, 'utf8')
-  if (result.status !== 'healthy') {
+  if (['missing', 'failed', 'delayed'].includes(result.status)) {
     console.error(`::error::Nachtlauf-Überwachung: ${result.status}.`)
     process.exitCode = 1
   }

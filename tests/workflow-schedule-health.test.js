@@ -106,9 +106,41 @@ describe('Nachtlauf-Zeitplanung', () => {
         created_at: '2026-09-21T01:29:00.000Z',
         html_url: 'https://github.com/example/repo/actions/runs/42',
       },
-    ], { now: new Date('2026-09-21T04:00:00.000Z') })
+    ], {
+      now: new Date('2026-09-21T04:00:00.000Z'),
+      jobsByRunId: { 42: [{ name: 'deploy', status: 'completed', conclusion: 'success', started_at: '2026-09-21T01:30:00.000Z' }] },
+    })
     expect(result.status).toBe('healthy')
     expect(result.delayMinutes).toBe(12)
     expect(result.run.number).toBe(354)
+  })
+
+  it('ordnet den verspäteten 24.09.-Deploy dem echten Lauf zu und benennt den Gate-only-Ersatz', () => {
+    const result = evaluateScheduledRuns([
+      { id: 1, run_number: 550, name: 'Deploy Firebase', event: 'schedule', status: 'completed', conclusion: 'success', created_at: '2026-09-24T06:10:42Z', html_url: 'https://github.com/example/runs/1' },
+      { id: 2, run_number: 551, name: 'Deploy Firebase', event: 'schedule', status: 'completed', conclusion: 'success', created_at: '2026-09-24T07:37:56Z', html_url: 'https://github.com/example/runs/2' },
+    ], {
+      now: new Date('2026-09-24T09:32:21Z'),
+      jobsByRunId: {
+        1: [{ name: 'deploy', status: 'completed', conclusion: 'success', started_at: '2026-09-24T06:11:13Z', completed_at: '2026-09-24T06:55:20Z' }],
+        2: [{ name: 'deploy', status: 'completed', conclusion: 'skipped' }],
+      },
+    })
+    expect(result.status).toBe('delayed')
+    expect(result.delayMinutes).toBe(293)
+    expect(result.run.number).toBe(550)
+    expect(result.deployStartAt).toBe('2026-09-24T06:11:13Z')
+    expect(result.gateOnlyRuns).toEqual([{ number: 551, url: 'https://github.com/example/runs/2' }])
+  })
+
+  it('hält einen ausschließlich übersprungenen Ersatztrigger nicht für einen Datenlauf', () => {
+    const result = evaluateScheduledRuns([
+      { id: 2, run_number: 551, name: 'Deploy Firebase', event: 'schedule', status: 'completed', conclusion: 'success', created_at: '2026-09-24T07:37:56Z', html_url: 'https://github.com/example/runs/2' },
+    ], {
+      now: new Date('2026-09-24T09:32:21Z'),
+      jobsByRunId: { 2: [{ name: 'deploy', status: 'completed', conclusion: 'skipped' }] },
+    })
+    expect(result.status).toBe('missing')
+    expect(result.gateOnlyRuns).toHaveLength(1)
   })
 })
