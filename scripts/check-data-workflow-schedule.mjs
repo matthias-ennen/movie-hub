@@ -163,7 +163,7 @@ export function captureWorkflowTiming({ now = new Date(), eventName = '', option
   }
 }
 
-export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jobsByRunId = {} } = {}) {
+export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jobsByRunId = {}, manualRuns = [] } = {}) {
   const settings = { ...defaultOptions, ...options }
   const scheduledAt = expectedScheduleAt(now, settings)
   const earliestAccepted = scheduledAt.getTime() - 5 * 60_000
@@ -175,10 +175,17 @@ export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jo
   const deployRuns = candidates.filter((entry) => jobsByRunId[entry.id]?.some((job) => job.name === 'deploy' && job.conclusion !== 'skipped'))
   const run = deployRuns[0]
   const pendingGate = candidates.find((entry) => entry.status !== 'completed' && !jobsByRunId[entry.id]?.some((job) => job.name === 'deploy'))
+  const manualRecovery = (Array.isArray(manualRuns) ? manualRuns : [])
+    .filter((entry) => entry?.name === settings.workflowName && entry?.event === 'workflow_dispatch')
+    .filter((entry) => Date.parse(entry.created_at) >= earliestAccepted)
+    .filter((entry) => entry.status === 'completed' && entry.conclusion === 'success')
+    .filter((entry) => jobsByRunId[entry.id]?.some((job) => job.name === 'deploy' && job.conclusion === 'success'))
+    .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))[0]
 
   if (!run) {
     return {
-      status: pendingGate ? 'running' : 'missing',
+      status: pendingGate ? 'running' : manualRecovery ? 'recovered' : 'missing',
+      ...(manualRecovery ? { scheduledIncident: 'missing', recovery: { number: manualRecovery.run_number, url: manualRecovery.html_url, source: 'manual', completedAt: jobsByRunId[manualRecovery.id].find((job) => job.name === 'deploy').completed_at } } : {}),
       scheduledAt: scheduledAt.toISOString(),
       checkedAt: now.toISOString(),
       maximumDelayMinutes: settings.maximumDelayMinutes,
@@ -189,9 +196,10 @@ export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jo
   const deploy = jobsByRunId[run.id].find((job) => job.name === 'deploy')
   const delayMinutes = Math.max(0, Math.floor((Date.parse(run.created_at) - scheduledAt.getTime()) / 60_000))
   const failed = run.status === 'completed' && (run.conclusion !== 'success' || deploy.conclusion !== 'success')
-  const recovery = failed && deployRuns.slice(1).findLast((entry) => entry.status === 'completed'
+  const scheduledRecovery = failed && deployRuns.slice(1).findLast((entry) => entry.status === 'completed'
     && entry.conclusion === 'success'
     && jobsByRunId[entry.id]?.some((job) => job.name === 'deploy' && job.conclusion === 'success'))
+  const recovery = scheduledRecovery || (failed && manualRecovery && Date.parse(manualRecovery.created_at) > Date.parse(run.created_at) ? manualRecovery : null)
   return {
     status: failed && !recovery ? 'failed' : run.status !== 'completed' ? 'running' : delayMinutes > settings.maximumDelayMinutes ? 'delayed' : failed ? 'recovered' : 'healthy',
     scheduledAt: scheduledAt.toISOString(),
@@ -201,6 +209,7 @@ export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jo
     deployCompletedAt: deploy.completed_at,
     delayMinutes,
     maximumDelayMinutes: settings.maximumDelayMinutes,
+    ...(failed ? { scheduledIncident: 'failed' } : {}),
     gateOnlyRuns: gateOnly.map((entry) => ({ number: entry.run_number, url: entry.html_url })),
     run: {
       id: run.id,
@@ -209,7 +218,7 @@ export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jo
       conclusion: run.conclusion,
       url: run.html_url,
     },
-    ...(recovery ? { recovery: { number: recovery.run_number, url: recovery.html_url, completedAt: jobsByRunId[recovery.id].find((job) => job.name === 'deploy').completed_at } } : {}),
+    ...(recovery ? { recovery: { number: recovery.run_number, url: recovery.html_url, source: recovery.event === 'workflow_dispatch' ? 'manual' : 'scheduled', completedAt: jobsByRunId[recovery.id].find((job) => job.name === 'deploy').completed_at } } : {}),
   }
 }
 
@@ -229,7 +238,8 @@ export function scheduleHealthMarkdown(result, publication = null) {
     ...(result.deployCompletedAt ? [`- Deploy-Job beendet: **${formatBerlin(result.deployCompletedAt)}**`] : []),
     `- Startverzögerung: **${delay}** (Grenze ${result.maximumDelayMinutes} Minuten)`,
     `- Ergebnis: **${result.status}**${result.run?.url ? ` · [Lauf #${result.run.number}](${result.run.url})` : ''}`,
-    ...(result.recovery ? [`- Wiederherstellung: [Lauf #${result.recovery.number}](${result.recovery.url})${result.recovery.completedAt ? ` · Deploy beendet: **${formatBerlin(result.recovery.completedAt)}**` : ''}`] : []),
+    ...(result.scheduledIncident ? [`- Ursprünglicher Zeitplan-Vorfall: **${result.scheduledIncident}**`] : []),
+    ...(result.recovery ? [`- ${result.recovery.source === 'manual' ? 'Manuelle Nachholung' : 'Wiederholung'}: [Lauf #${result.recovery.number}](${result.recovery.url})${result.recovery.completedAt ? ` · Deploy beendet: **${formatBerlin(result.recovery.completedAt)}**` : ''}`] : []),
     ...(result.gateOnlyRuns?.length ? [`- Übersprungene Ersatztrigger: ${result.gateOnlyRuns.map((entry) => `[Lauf #${entry.number}](${entry.url})`).join(', ')}`] : []),
     ...(publication ? [
       '',
@@ -262,38 +272,39 @@ async function watchdogMain({ fetchImpl = fetch } = {}) {
   const repository = process.env.GITHUB_REPOSITORY
   const token = process.env.GITHUB_TOKEN
   if (!repository || !token) throw new Error('GITHUB_REPOSITORY und GITHUB_TOKEN werden für die Nachtlauf-Überwachung benötigt.')
-  const response = await fetchImpl(`https://api.github.com/repos/${repository}/actions/runs?event=schedule&per_page=100`, {
-    headers: {
-      accept: 'application/vnd.github+json',
-      authorization: `Bearer ${token}`,
-      'x-github-api-version': '2022-11-28',
-    },
-    signal: AbortSignal.timeout(20_000),
-  })
-  if (!response.ok) throw new Error(`GitHub Actions API: HTTP ${response.status}`)
-  const payload = await response.json()
-  const candidates = (payload.workflow_runs || []).filter((entry) => entry?.name === (process.env.DATA_WORKFLOW_NAME || defaultOptions.workflowName))
-    .filter((entry) => entry?.event === 'schedule')
+  const headers = {
+    accept: 'application/vnd.github+json',
+    authorization: `Bearer ${token}`,
+    'x-github-api-version': '2022-11-28',
+  }
+  const fetchRuns = async (event) => {
+    const response = await fetchImpl(`https://api.github.com/repos/${repository}/actions/runs?event=${event}&per_page=100`, {
+      headers,
+      signal: AbortSignal.timeout(20_000),
+    })
+    if (!response.ok) throw new Error(`GitHub Actions API (${event}): HTTP ${response.status}`)
+    return (await response.json()).workflow_runs || []
+  }
+  const [scheduledRuns, manualRuns] = await Promise.all([fetchRuns('schedule'), fetchRuns('workflow_dispatch')])
+  const recentRuns = (runs) => runs.filter((entry) => entry?.name === (process.env.DATA_WORKFLOW_NAME || defaultOptions.workflowName))
     .filter((entry) => Date.parse(entry.created_at) >= expectedScheduleAt(new Date(), {
       timeZone: process.env.DATA_WORKFLOW_TIMEZONE || defaultOptions.timeZone,
       hour: integer(process.env.DATA_WORKFLOW_HOUR, defaultOptions.hour),
       minute: integer(process.env.DATA_WORKFLOW_MINUTE, defaultOptions.minute),
     }).getTime() - 5 * 60_000)
+  const candidates = [...recentRuns(scheduledRuns), ...recentRuns(manualRuns)]
   const jobsByRunId = Object.fromEntries(await Promise.all(candidates.map(async (entry) => {
     const jobsResponse = await fetchImpl(`${entry.jobs_url}?per_page=100`, {
-      headers: {
-        accept: 'application/vnd.github+json',
-        authorization: `Bearer ${token}`,
-        'x-github-api-version': '2022-11-28',
-      },
+      headers,
       signal: AbortSignal.timeout(20_000),
     })
     if (!jobsResponse.ok) throw new Error(`GitHub Actions Jobs API: HTTP ${jobsResponse.status}`)
     const jobsPayload = await jobsResponse.json()
     return [entry.id, jobsPayload.jobs || []]
   })))
-  const result = evaluateScheduledRuns(payload.workflow_runs, {
+  const result = evaluateScheduledRuns(scheduledRuns, {
     jobsByRunId,
+    manualRuns,
     options: {
       timeZone: process.env.DATA_WORKFLOW_TIMEZONE || defaultOptions.timeZone,
       hour: integer(process.env.DATA_WORKFLOW_HOUR, defaultOptions.hour),
