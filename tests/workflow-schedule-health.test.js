@@ -5,6 +5,7 @@ import {
   evaluateScheduledRuns,
   expectedScheduleAt,
   scheduleGateMain,
+  scheduleHealthMarkdown,
   scheduledAtForLocalDate,
 } from '../scripts/check-data-workflow-schedule.mjs'
 
@@ -185,5 +186,32 @@ describe('Nachtlauf-Zeitplanung', () => {
     expect(result.status).toBe('delayed')
     expect(result.recovery.number).toBe(551)
     expect(result.delayMinutes).toBe(104)
+  })
+
+  it('zeigt eine manuelle Nachholung nach ausgebliebenem Zeittrigger mit dem ursprünglichen Vorfall', () => {
+    const result = evaluateScheduledRuns([], {
+      now: new Date('2026-09-24T05:00:00Z'),
+      manualRuns: [{ id: 3, run_number: 552, name: 'Deploy Firebase', event: 'workflow_dispatch', status: 'completed', conclusion: 'success', created_at: '2026-09-24T03:21:00Z', html_url: 'https://github.com/example/runs/3' }],
+      jobsByRunId: { 3: [{ name: 'deploy', conclusion: 'success', completed_at: '2026-09-24T04:01:00Z' }] },
+    })
+    expect(result.status).toBe('recovered')
+    expect(result.scheduledIncident).toBe('missing')
+    expect(result.recovery.source).toBe('manual')
+    expect(scheduleHealthMarkdown(result)).toContain('Ursprünglicher Zeitplan-Vorfall: **missing**')
+    expect(scheduleHealthMarkdown(result)).toContain('Manuelle Nachholung: [Lauf #552]')
+  })
+
+  it('zeigt die manuelle Nachholung nach einem fehlgeschlagenen planmäßigen Lauf', () => {
+    const result = evaluateScheduledRuns([
+      { id: 1, run_number: 550, name: 'Deploy Firebase', event: 'schedule', status: 'completed', conclusion: 'failure', created_at: '2026-09-24T01:21:00Z' },
+    ], {
+      now: new Date('2026-09-24T05:00:00Z'),
+      manualRuns: [{ id: 3, run_number: 552, name: 'Deploy Firebase', event: 'workflow_dispatch', status: 'completed', conclusion: 'success', created_at: '2026-09-24T03:21:00Z' }],
+      jobsByRunId: { 1: [{ name: 'deploy', conclusion: 'failure' }], 3: [{ name: 'deploy', conclusion: 'success' }] },
+    })
+    expect(result.status).toBe('recovered')
+    expect(result.scheduledIncident).toBe('failed')
+    expect(result.run.number).toBe(550)
+    expect(result.recovery.number).toBe(552)
   })
 })
