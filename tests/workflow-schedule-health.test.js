@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   captureWorkflowTiming,
   evaluateScheduleGate,
   evaluateScheduledRuns,
   expectedScheduleAt,
+  scheduleGateMain,
+  scheduleHealthMarkdown,
   scheduledAtForLocalDate,
 } from '../scripts/check-data-workflow-schedule.mjs'
 
@@ -79,6 +81,18 @@ describe('Nachtlauf-Zeitplanung', () => {
     expect(result.reason).toBe('daily-run-due')
   })
 
+  it('stoppt den Import, wenn die Tages-Sperre GitHub nicht prüfen kann', async () => {
+    vi.stubEnv('GITHUB_EVENT_NAME', 'schedule')
+    vi.stubEnv('GITHUB_REPOSITORY', 'example/repo')
+    vi.stubEnv('GITHUB_TOKEN', 'test-token')
+    try {
+      await expect(scheduleGateMain({ fetchImpl: async () => { throw new Error('API unavailable') } }))
+        .rejects.toThrow('Datenlauf gesperrt: API unavailable')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it('meldet einen planmäßigen Start nach mehr als 60 Minuten als verspätet', () => {
     const result = captureWorkflowTiming({
       now: new Date('2026-09-21T02:30:00.000Z'),
@@ -142,5 +156,62 @@ describe('Nachtlauf-Zeitplanung', () => {
     })
     expect(result.status).toBe('missing')
     expect(result.gateOnlyRuns).toHaveLength(1)
+  })
+
+  it('meldet einen fehlgeschlagenen Import nach erfolgreichem Ersatztrigger als wiederhergestellt', () => {
+    const result = evaluateScheduledRuns([
+      { id: 1, run_number: 550, name: 'Deploy Firebase', event: 'schedule', status: 'completed', conclusion: 'failure', created_at: '2026-09-24T01:21:00Z', html_url: 'https://github.com/example/runs/1' },
+      { id: 2, run_number: 551, name: 'Deploy Firebase', event: 'schedule', status: 'completed', conclusion: 'success', created_at: '2026-09-24T02:19:00Z', html_url: 'https://github.com/example/runs/2' },
+    ], {
+      now: new Date('2026-09-24T05:00:00Z'),
+      jobsByRunId: {
+        1: [{ name: 'deploy', conclusion: 'failure', completed_at: '2026-09-24T01:45:00Z' }],
+        2: [{ name: 'deploy', conclusion: 'success', completed_at: '2026-09-24T03:01:00Z' }],
+      },
+    })
+    expect(result.status).toBe('recovered')
+    expect(result.run.number).toBe(550)
+    expect(result.recovery.number).toBe(551)
+    expect(result.delayMinutes).toBe(4)
+  })
+
+  it('behält eine echte Startverzögerung auch nach erfolgreichem Ersatzlauf sichtbar', () => {
+    const result = evaluateScheduledRuns([
+      { id: 1, run_number: 550, name: 'Deploy Firebase', event: 'schedule', status: 'completed', conclusion: 'failure', created_at: '2026-09-24T03:01:00Z' },
+      { id: 2, run_number: 551, name: 'Deploy Firebase', event: 'schedule', status: 'completed', conclusion: 'success', created_at: '2026-09-24T03:03:00Z' },
+    ], {
+      now: new Date('2026-09-24T05:00:00Z'),
+      jobsByRunId: { 1: [{ name: 'deploy', conclusion: 'failure' }], 2: [{ name: 'deploy', conclusion: 'success' }] },
+    })
+    expect(result.status).toBe('delayed')
+    expect(result.recovery.number).toBe(551)
+    expect(result.delayMinutes).toBe(104)
+  })
+
+  it('zeigt eine manuelle Nachholung nach ausgebliebenem Zeittrigger mit dem ursprünglichen Vorfall', () => {
+    const result = evaluateScheduledRuns([], {
+      now: new Date('2026-09-24T05:00:00Z'),
+      manualRuns: [{ id: 3, run_number: 552, name: 'Deploy Firebase', event: 'workflow_dispatch', status: 'completed', conclusion: 'success', created_at: '2026-09-24T03:21:00Z', html_url: 'https://github.com/example/runs/3' }],
+      jobsByRunId: { 3: [{ name: 'deploy', conclusion: 'success', completed_at: '2026-09-24T04:01:00Z' }] },
+    })
+    expect(result.status).toBe('recovered')
+    expect(result.scheduledIncident).toBe('missing')
+    expect(result.recovery.source).toBe('manual')
+    expect(scheduleHealthMarkdown(result)).toContain('Ursprünglicher Zeitplan-Vorfall: **missing**')
+    expect(scheduleHealthMarkdown(result)).toContain('Manuelle Nachholung: [Lauf #552]')
+  })
+
+  it('zeigt die manuelle Nachholung nach einem fehlgeschlagenen planmäßigen Lauf', () => {
+    const result = evaluateScheduledRuns([
+      { id: 1, run_number: 550, name: 'Deploy Firebase', event: 'schedule', status: 'completed', conclusion: 'failure', created_at: '2026-09-24T01:21:00Z' },
+    ], {
+      now: new Date('2026-09-24T05:00:00Z'),
+      manualRuns: [{ id: 3, run_number: 552, name: 'Deploy Firebase', event: 'workflow_dispatch', status: 'completed', conclusion: 'success', created_at: '2026-09-24T03:21:00Z' }],
+      jobsByRunId: { 1: [{ name: 'deploy', conclusion: 'failure' }], 3: [{ name: 'deploy', conclusion: 'success' }] },
+    })
+    expect(result.status).toBe('recovered')
+    expect(result.scheduledIncident).toBe('failed')
+    expect(result.run.number).toBe(550)
+    expect(result.recovery.number).toBe(552)
   })
 })
