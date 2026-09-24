@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -103,6 +103,18 @@ describe('durable checkpoint', () => {
     } finally {
       await rm(value.directory, { recursive: true, force: true })
     }
+  })
+
+  it('rejects links in a checkpoint archive before storing it remotely', async () => {
+    const root = await workspace()
+    const bucket = fakeBucket()
+    await put(root, 'artifacts/waipu-sync/checkpoint.json', {
+      kind: 'waipu-sync-checkpoint', schemaVersion: 1, slots: {}, circuit: {},
+    })
+    await mkdir(join(root, 'artifacts/waipu-sync/cache'), { recursive: true })
+    await symlink('/etc/passwd', join(root, 'artifacts/waipu-sync/cache/unsafe'))
+    await expect(uploadCheckpoint({ root, group: 'waipu', bucket })).rejects.toThrow('link or special file')
+    expect(bucket.objects.size).toBe(0)
   })
 
   it('leaves a valid local cache in place before the first remote backup', async () => {
