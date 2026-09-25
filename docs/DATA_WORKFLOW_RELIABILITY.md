@@ -16,10 +16,12 @@ noch zur Beobachtung aus.
 
 Der Code für einen separaten Cloud-Storage-Checkpoint wird nur aktiv, wenn die
 GitHub-Repository-Variablen `MOVIE_HUB_CHECKPOINT_BUCKET` und
-`MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED=true` gesetzt sind. Ohne Freischaltung
-bleiben Ablauf und GitHub-Cache unverändert. Bucket, Berechtigung und
-ein isolierter GitHub-Schreib-/Lesetest sind geprüft. Die produktive
-Cloud-Sicherung ist weiterhin **nicht aktiviert oder nachgewiesen**.
+`MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED=true` gesetzt sind. Matthias hat am
+25.09. bestätigt, beide Variablen angelegt zu haben; die GitHub-Anbindung
+kann ihre Werte nicht selbst lesen. Bucket, Berechtigung und ein isolierter
+GitHub-Schreib-/Lesetest sind geprüft. Ob der nächste reguläre Datenlauf
+tatsächlich produktive Cloud-Snapshots schreibt, ist **noch nicht
+nachgewiesen**. Der GitHub-Cache bleibt erhalten.
 
 Der Waipu-Snapshot enthält das ganze `artifacts/waipu-sync/` einschließlich
 `checkpoint.json` und Grid-/Programmdetailcache sowie die drei kuratierten
@@ -84,16 +86,17 @@ Schritte. Der Test beweist noch keinen echten Waipu-/TMDB-Restore.
    Schreibrechte nur auf diesem Bucket geben; keine Schlüsseldatei ablegen.
 3. **Erledigt:** Konfiguration und IAM lesen sowie isolierten Upload,
    Download und Wiederherstellungstest ohne Datenimport bestehen.
-   **Offen:** GitHub-Repository-Variablen `MOVIE_HUB_CHECKPOINT_BUCKET`
-   mit dem Bucketnamen und `MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED=true`
-   setzen. Vor der Freischaltung prüfen, dass nur ein regulärer Datenlauf
-   die ersten echten Snapshots schreibt.
-4. Beim ersten regulären Datenlauf den Bootstrap aus dem GitHub-Cache
-   beobachten. Nach dessen Backup die beiden Cloud-Snapshots separat mit
-   `node scripts/durable-data-checkpoint.mjs probe waipu` und
-   `node scripts/durable-data-checkpoint.mjs probe tmdb` in einem
-   authentifizierten, temporären Arbeitsverzeichnis prüfen. `probe` liest
-   und entpackt nur in temporäre Dateien, ohne einen Datenlauf zu starten.
+   **Laut Matthias erledigt:** GitHub-Repository-Variablen
+   `MOVIE_HUB_CHECKPOINT_BUCKET=movie-hub-62459-nightly-checkpoints` und
+   `MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED=true` anlegen. Die Werte sind
+   über die aktuelle GitHub-Anbindung nicht unabhängig lesbar.
+4. **Offen:** beim ersten regulären Datenlauf den Bootstrap aus dem GitHub-Cache
+   und die beiden echten Cloud-Snapshots beobachten. Direkt nach jedem
+   erfolgreichen Upload ruft der Workflow automatisch
+   `node scripts/durable-data-checkpoint.mjs probe waipu` beziehungsweise
+   `node scripts/durable-data-checkpoint.mjs probe tmdb` auf. `probe`
+   liest und prüft das Archiv in temporären Dateien, ohne den lokalen
+   Datenbestand zu ersetzen. Beide Proben müssen erfolgreich sein.
 5. Einen Wiederherstellungstest mit absichtlich leerem lokalen Cache
    durchführen und die nächste reguläre Veröffentlichung überwachen.
    Bis dahin den GitHub-Cache behalten.
