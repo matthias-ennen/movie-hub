@@ -6,10 +6,33 @@ const PREFERRED_IMAGE_LANGUAGES = new Map([
   ['en', 2],
 ])
 
+const ALLOWED_ARTWORK_EXTENSIONS = new Set(['jpg', 'jpeg'])
+
+const POSTER_MIN_WIDTH = 500
+const POSTER_MIN_HEIGHT = 750
+const POSTER_MIN_ASPECT_RATIO = 0.55
+const POSTER_MAX_ASPECT_RATIO = 0.8
+
+const BACKDROP_MIN_WIDTH = 1280
+const BACKDROP_MIN_HEIGHT = 720
+const BACKDROP_MIN_ASPECT_RATIO = 1.6
+const BACKDROP_MAX_ASPECT_RATIO = 2.0
+
 function normalizedPath(value) {
   if (typeof value !== 'string' || !value.trim()) return null
   const path = value.trim()
   return path.startsWith('/') ? path : `/${path}`
+}
+
+function artworkExtension(path) {
+  const normalized = normalizedPath(path)
+  const match = normalized?.match(/\.([a-z0-9]+)(?:\?.*)?$/i)
+  return match ? match[1].toLowerCase() : null
+}
+
+function supportedArtworkPath(path) {
+  const extension = artworkExtension(path)
+  return Boolean(extension && ALLOWED_ARTWORK_EXTENSIONS.has(extension))
 }
 
 function imageScore(image) {
@@ -30,18 +53,33 @@ function imageList(payload, key) {
   return []
 }
 
-function suitablePoster(image) {
+function imageDimensions(image) {
   const width = Number(image?.width)
   const height = Number(image?.height)
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return true
-  return height > width && width / height <= 0.8
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null
+  return { width, height, ratio: width / height }
+}
+
+function suitablePoster(image) {
+  if (!supportedArtworkPath(image?.file_path)) return false
+  const dimensions = imageDimensions(image)
+  if (!dimensions) return false
+  return dimensions.width >= POSTER_MIN_WIDTH
+    && dimensions.height >= POSTER_MIN_HEIGHT
+    && dimensions.height > dimensions.width
+    && dimensions.ratio >= POSTER_MIN_ASPECT_RATIO
+    && dimensions.ratio <= POSTER_MAX_ASPECT_RATIO
 }
 
 function suitableBackdrop(image) {
-  const width = Number(image?.width)
-  const height = Number(image?.height)
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return true
-  return width > height && width / height >= 1.3
+  if (!supportedArtworkPath(image?.file_path)) return false
+  const dimensions = imageDimensions(image)
+  if (!dimensions) return false
+  return dimensions.width >= BACKDROP_MIN_WIDTH
+    && dimensions.height >= BACKDROP_MIN_HEIGHT
+    && dimensions.width > dimensions.height
+    && dimensions.ratio >= BACKDROP_MIN_ASPECT_RATIO
+    && dimensions.ratio <= BACKDROP_MAX_ASPECT_RATIO
 }
 
 function rankedPaths(images, { limit, suitable }) {
@@ -55,9 +93,10 @@ function rankedPaths(images, { limit, suitable }) {
 }
 
 function withPrimaryFallback(paths, primaryPath, limit) {
+  if (paths.length) return paths.slice(0, limit)
   const primary = normalizedPath(primaryPath)
-  if (!primary || paths.includes(primary)) return paths.slice(0, limit)
-  return [...paths, primary].slice(0, limit)
+  if (!primary || !supportedArtworkPath(primary)) return []
+  return [primary].slice(0, limit)
 }
 
 export function selectTmdbPosterPaths(payload, { primaryPath = null, limit = 3 } = {}) {
