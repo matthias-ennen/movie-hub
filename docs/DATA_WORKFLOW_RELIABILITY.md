@@ -18,10 +18,12 @@ Der Code für einen separaten Cloud-Storage-Checkpoint wird nur aktiv, wenn die
 GitHub-Repository-Variablen `MOVIE_HUB_CHECKPOINT_BUCKET` und
 `MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED=true` gesetzt sind. Matthias hat am
 25.09. bestätigt, beide Variablen angelegt zu haben; die GitHub-Anbindung
-kann ihre Werte nicht selbst lesen. Bucket, Berechtigung und ein isolierter
-GitHub-Schreib-/Lesetest sind geprüft. Ob der nächste reguläre Datenlauf
-tatsächlich produktive Cloud-Snapshots schreibt, ist **noch nicht
-nachgewiesen**. Der GitHub-Cache bleibt erhalten.
+kann ihre Werte nicht selbst lesen. Die Werte wurden im [echten Cache-Backfill vom 25.09.](https://github.com/matthias-ennen/movie-hub/actions/runs/36107543301)
+als gesetzte Runner-Umgebung bestätigt. Beide echten Snapshots wurden
+hochgeladen, geprüft und in einem geleerten Runner bitgenau wiederhergestellt.
+Ob der nächste **reguläre** Datenlauf selbst neue Snapshots schreibt und vor
+dem Import aus Cloud wiederherstellt, ist weiterhin zu beobachten. Der
+GitHub-Cache bleibt erhalten.
 
 Der Waipu-Snapshot enthält das ganze `artifacts/waipu-sync/` einschließlich
 `checkpoint.json` und Grid-/Programmdetailcache sowie die drei kuratierten
@@ -78,6 +80,30 @@ diese Schutzregel wurde nicht gelockert. Der begleitende
 übersprang TMDB- und Waipu-Import sowie alle produktiven Cloud-Checkpoint-
 Schritte. Der Test beweist noch keinen echten Waipu-/TMDB-Restore.
 
+## Erster echter Cloud-Snapshot und Restore (25.09.2026)
+
+[PR #322](https://github.com/matthias-ennen/movie-hub/pull/322) ergänzt einen
+separaten, auf `main` ausgeführten [Backfill-Lauf](https://github.com/matthias-ennen/movie-hub/actions/runs/36107543301).
+Er stellte exakt die GitHub-Caches des erfolgreichen
+[Nachtlaufs #402](https://github.com/matthias-ennen/movie-hub/actions/runs/36101645871)
+wieder her (`waipu-curated-228-v1-36101645871-1` und
+`tmdb-changes-v1-36101645871-1`). Der Lauf prüfte beide Repository-Variablen,
+die Cache-Treffer und erforderlichen JSON-Zustände, authentifizierte sich mit
+dem bestehenden WIF-Dienstkonto und lud beide vollständigen Gruppen hoch.
+Die Archive hatten 32.802.779 Byte (Waipu) und 193.226 Byte (TMDB). `probe`
+lud beide realen Cloud-Objekte zurück und prüfte Prüfsumme und Schema.
+Anschließend löschte der Lauf ausschließlich seine lokalen Runner-Kopien,
+lud beide Cloud-Snapshots erneut per `restore` und prüfte die SHA-256-Werte
+der erforderlichen und vorhandenen optionalen Quelldateien: bytegleich.
+
+Der isolierte Lauf hat keinen Waipu-/TMDB-Import und keine Firebase-Publikation
+ausgelöst. Der zugehörige
+[Code-Deploy #405](https://github.com/matthias-ennen/movie-hub/actions/runs/36107543258)
+war erfolgreich und übersprang wie vorgesehen den Datenimport. Die Proben
+belegen echte, private Cloud-Archive und technischen Restore. Der nächste
+reguläre Nachtlauf soll nun zeigen, dass die Produktionsschritte mit diesen
+Archiven arbeiten und frische Snapshots ohne manuelle Hilfe schreiben.
+
 ## Freigabe zur Aktivierung
 
 1. **Erledigt:** eigenen privaten Bucket mit Schutz, Standort,
@@ -86,20 +112,14 @@ Schritte. Der Test beweist noch keinen echten Waipu-/TMDB-Restore.
    Schreibrechte nur auf diesem Bucket geben; keine Schlüsseldatei ablegen.
 3. **Erledigt:** Konfiguration und IAM lesen sowie isolierten Upload,
    Download und Wiederherstellungstest ohne Datenimport bestehen.
-   **Laut Matthias erledigt:** GitHub-Repository-Variablen
-   `MOVIE_HUB_CHECKPOINT_BUCKET=movie-hub-62459-nightly-checkpoints` und
-   `MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED=true` anlegen. Die Werte sind
-   über die aktuelle GitHub-Anbindung nicht unabhängig lesbar.
-4. **Offen:** beim ersten regulären Datenlauf den Bootstrap aus dem GitHub-Cache
-   und die beiden echten Cloud-Snapshots beobachten. Direkt nach jedem
-   erfolgreichen Upload ruft der Workflow automatisch
-   `node scripts/durable-data-checkpoint.mjs probe waipu` beziehungsweise
-   `node scripts/durable-data-checkpoint.mjs probe tmdb` auf. `probe`
-   liest und prüft das Archiv in temporären Dateien, ohne den lokalen
-   Datenbestand zu ersetzen. Beide Proben müssen erfolgreich sein.
-5. Einen Wiederherstellungstest mit absichtlich leerem lokalen Cache
-   durchführen und die nächste reguläre Veröffentlichung überwachen.
-   Bis dahin den GitHub-Cache behalten.
+4. **Erledigt:** Repository-Variablen im echten Runner nachweisen;
+   beide gespeicherten Caches aus dem Nachtlauf exakt laden, echte
+   Cloud-Snapshots hochladen und per `probe` herunterladen und prüfen.
+5. **Erledigt:** beide Archive nach Löschung des lokalen Runner-Caches
+   wiederherstellen und Ausgangsdateien bytegleich vergleichen.
+6. **Offen:** beim nächsten regulären Datenlauf automatischen Cloud-Restore,
+   frische Waipu-/TMDB-Uploads und beide anschließenden `probe`-Schritte
+   beobachten; veröffentlichte Datenfrische getrennt kontrollieren.
 
 Ein Wechsel des eigentlichen Imports auf Cloud Run Jobs/Cloud Scheduler ist
 erst nach Messung von GitHub-Verzögerungen, Laufzeiten, IAM-Aufwand und
