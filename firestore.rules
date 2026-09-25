@@ -39,6 +39,57 @@ service cloud.firestore {
       match /profiles/{profileId} {
         allow read, write: if ownsUserData(userId);
 
+        match /titleAlerts/{alertId} {
+          allow read, delete: if ownsUserData(userId);
+          allow create: if ownsUserData(userId)
+            && alertId.matches('^(movie|series)-[0-9]+-(included|tv)$')
+            && request.resource.data.keys().hasOnly([
+              'schemaVersion', 'type', 'tmdbId', 'title', 'kind', 'activationId', 'createdAt'
+            ])
+            && request.resource.data.schemaVersion == 1
+            && request.resource.data.type in ['movie', 'series']
+            && request.resource.data.kind in ['included', 'tv']
+            && request.resource.data.tmdbId is int && request.resource.data.tmdbId > 0
+            && request.resource.data.title is string && request.resource.data.title.size() > 0
+            && request.resource.data.title.size() <= 160
+            && request.resource.data.activationId is string
+            && request.resource.data.activationId.matches('^[a-zA-Z0-9-]{1,80}$')
+            && request.resource.data.createdAt == request.time;
+          allow update: if false;
+        }
+
+        match /notifications/{notificationId} {
+          allow read: if ownsUserData(userId);
+          // Nur der eigene Soforttreffer darf vom Client angelegt werden.
+          // Spätere Änderungen erfordern den vertrauenswürdigen Prüflauf.
+          allow create: if ownsUserData(userId)
+            && notificationId.matches('^(movie|series)-[0-9]+-(included|tv)-[a-zA-Z0-9-]+-(initial|airing-[0-9]+)$')
+            && request.resource.data.keys().hasOnly([
+              'schemaVersion', 'kind', 'titleType', 'tmdbId', 'title', 'mediaTitle',
+              'body', 'startsAt', 'expiresAt'
+            ])
+            && request.resource.data.schemaVersion == 1
+            && request.resource.data.kind in ['included', 'tv']
+            && request.resource.data.titleType in ['movie', 'series']
+            && request.resource.data.tmdbId is int && request.resource.data.tmdbId > 0
+            && request.resource.data.title is string && request.resource.data.title.size() <= 80
+            && request.resource.data.mediaTitle is string && request.resource.data.mediaTitle.size() <= 160
+            && request.resource.data.body is string && request.resource.data.body.size() <= 500
+            && request.resource.data.startsAt == request.time
+            && request.resource.data.expiresAt is timestamp
+            && request.resource.data.expiresAt > request.time
+            && request.resource.data.expiresAt <= request.time + duration.value(30, 'd');
+          allow update, delete: if false;
+        }
+
+        match /notificationReads/{notificationId} {
+          allow read: if ownsUserData(userId);
+          allow create, update: if ownsUserData(userId)
+            && request.resource.data.keys().hasOnly(['readAt'])
+            && request.resource.data.readAt == request.time;
+          allow delete: if false;
+        }
+
         match /titles/{titleId} {
           allow read, delete: if ownsUserData(userId);
           allow create, update: if ownsUserData(userId)

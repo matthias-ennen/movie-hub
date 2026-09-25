@@ -20,6 +20,7 @@ import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { loadSeriesSeasonDetail, normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
 import { formatWaipuLiveAiring } from '../waipu/waipuLiveCatalog.js'
+import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 
 export default function DetailModal({
   item,
@@ -35,9 +36,13 @@ export default function DetailModal({
   const { activeProfile } = useProfiles()
   const { user } = useAuth()
   const { getTitleState, updateTitleState, loading: libraryLoading } = useLibrary()
+  const titleAlerts = useTitleAlerts(user?.uid, activeProfile?.id)
   const { isProviderEnabled } = useProviderSelection()
   const [personalMessage, setPersonalMessage] = useState('')
   const [personalBusy, setPersonalBusy] = useState(false)
+  const [alertMenuOpen, setAlertMenuOpen] = useState(false)
+  const [alertBusy, setAlertBusy] = useState(false)
+  const [alertMessage, setAlertMessage] = useState('')
   const [noteDraft, setNoteDraft] = useState('')
   const [sharedMedia, setSharedMedia] = useState(() => (
     Array.isArray(initialSharedMedia) ? initialSharedMedia : []
@@ -119,6 +124,8 @@ export default function DetailModal({
   useEffect(() => {
     setNoteDraft(personalState.note)
     setPersonalMessage('')
+    setAlertMenuOpen(false)
+    setAlertMessage('')
   }, [activeProfile?.id, item.id, personalState.note])
 
   useEffect(() => {
@@ -191,13 +198,17 @@ export default function DetailModal({
         setMediaEditorOpen(false)
         return true
       }
+      if (alertMenuOpen) {
+        setAlertMenuOpen(false)
+        return true
+      }
       return false
     }
     window.__movieHubDetailBack = closeTopMediaLayer
     return () => {
       if (window.__movieHubDetailBack === closeTopMediaLayer) delete window.__movieHubDetailBack
     }
-  }, [collectionPickerOpen, episodeContext, episodesPickerOpen, mediaEditorOpen, mediaPickerOpen, playing])
+  }, [alertMenuOpen, collectionPickerOpen, episodeContext, episodesPickerOpen, mediaEditorOpen, mediaPickerOpen, playing])
 
   useEffect(() => {
     if (!collectionPickerOpen && !episodesPickerOpen && !mediaEditorOpen && !mediaPickerOpen && !playing) return undefined
@@ -225,6 +236,20 @@ export default function DetailModal({
   }, [episodeContext?.id])
 
   if (!item) return null
+
+  async function toggleAlert(kind) {
+    if (alertBusy) return
+    setAlertBusy(true)
+    setAlertMessage('')
+    try {
+      const enabled = await titleAlerts.toggle(item, kind)
+      setAlertMessage(enabled ? 'Benachrichtigung eingeschaltet.' : 'Benachrichtigung ausgeschaltet.')
+    } catch (error) {
+      setAlertMessage(error?.message || 'Benachrichtigung konnte nicht gespeichert werden. Bitte erneut versuchen.')
+    } finally {
+      setAlertBusy(false)
+    }
+  }
 
   function openCollectionPicker(event) {
     collectionTriggerRef.current = event?.currentTarget || null
@@ -719,6 +744,30 @@ export default function DetailModal({
                 <span>{personalState.watched ? 'Gesehen' : 'Als gesehen'}</span>
               </button>
             </div>
+
+            {titleAlerts.canWatch(item) && (
+              <div className="title-alert-settings">
+                <button type="button" className="personal-action alert-menu-toggle"
+                  data-focusable="true" aria-expanded={alertMenuOpen}
+                  onClick={() => setAlertMenuOpen((open) => !open)}>
+                  Benachrichtigen{titleAlerts.isEnabled(item, 'included') || titleAlerts.isEnabled(item, 'tv') ? ' · aktiv' : ''}
+                </button>
+                {alertMenuOpen && (
+                  <div className="title-alert-options" aria-label="Benachrichtigungen für diesen Titel">
+                    <button type="button" data-focusable="true" aria-pressed={titleAlerts.isEnabled(item, 'included')}
+                      disabled={alertBusy || !titleAlerts.ready} onClick={() => toggleAlert('included')}>
+                      <strong>Wenn inklusive</strong><span>{titleAlerts.isEnabled(item, 'included') ? 'Ein' : 'Aus'}</span>
+                    </button>
+                    <button type="button" data-focusable="true" aria-pressed={titleAlerts.isEnabled(item, 'tv')}
+                      disabled={alertBusy || !titleAlerts.ready} onClick={() => toggleAlert('tv')}>
+                      <strong>Wenn im TV</strong><span>{titleAlerts.isEnabled(item, 'tv') ? 'Ein' : 'Aus'}</span>
+                    </button>
+                    <p>Mitteilungen erscheinen in der Glocke. TV-Erinnerungen richten sich nach deinen aktivierten Sendern.</p>
+                  </div>
+                )}
+                {alertMessage && <p role="status" className="personal-state-message">{alertMessage}</p>}
+              </div>
+            )}
 
             <div className="personal-rating-block">
               <span>Meine Bewertung</span>
