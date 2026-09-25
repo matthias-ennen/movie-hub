@@ -1,6 +1,6 @@
 # Nachtlauf: Alarm und dauerhaftes Import-Checkpoint
 
-Stand: 24.09.2026. Arbeitspaket: [#315](https://github.com/matthias-ennen/movie-hub/issues/315).
+Stand: 25.09.2026. Arbeitspaket: [#315](https://github.com/matthias-ennen/movie-hub/issues/315).
 
 ## Aktueller Betrieb
 
@@ -17,9 +17,9 @@ noch zur Beobachtung aus.
 Der Code für einen separaten Cloud-Storage-Checkpoint wird nur aktiv, wenn die
 GitHub-Repository-Variablen `MOVIE_HUB_CHECKPOINT_BUCKET` und
 `MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED=true` gesetzt sind. Ohne Freischaltung
-bleiben Ablauf und GitHub-Cache unverändert. Bucket-Rechte und Bucket-Schutz
-sind noch nicht geprüft; eine produktive Cloud-Sicherung ist noch **nicht
-nachgewiesen**.
+bleiben Ablauf und GitHub-Cache unverändert. Bucket, Berechtigung und
+ein isolierter GitHub-Schreib-/Lesetest sind geprüft. Die produktive
+Cloud-Sicherung ist weiterhin **nicht aktiviert oder nachgewiesen**.
 
 Der Waipu-Snapshot enthält das ganze `artifacts/waipu-sync/` einschließlich
 `checkpoint.json` und Grid-/Programmdetailcache sowie die drei kuratierten
@@ -42,18 +42,52 @@ Der [vollständige Lauf vom 24.09.](https://github.com/matthias-ennen/movie-hub/
 speicherte 28.221.837 Byte komprimierte Waipu-Daten und 370.098 Byte
 TMDB-Daten. Diese Größen sind ein Messwert, keine zugesicherte Obergrenze.
 
+## Bucket, Rechte und Aufbewahrung (25.09.2026)
+
+Der eigene Bucket `movie-hub-62459-nightly-checkpoints` liegt in
+`europe-west1`, verwendet `STANDARD`, einheitlichen Bucket-Zugriff und
+`public_access_prevention: enforced`. Das GitHub-WIF-Dienstkonto
+`github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com`
+hat `roles/storage.objectUser` direkt auf diesem Bucket. Die bei Erstellung
+vorhandenen Standardbindungen für Projekt-Viewer, -Editoren und -Owner
+bestehen ebenfalls; sie sind keine öffentliche Freigabe.
+
+Soft Delete schützt gelöschte Objekte sieben Tage (`604800` Sekunden).
+Eine Lifecycle-Löschregel ist bewusst noch nicht gesetzt: Eine pauschale
+Altersregel würde auch den aktuellen `latest.json`-Zeiger löschen, wenn
+der Datenlauf längere Zeit pausiert. Solange alte unveränderliche Archive
+nicht gezielt bereinigt werden, wächst die Speicherung täglich. Nach den
+Messwerten vom 24.09. wären 30 tägliche Snapshots ungefähr 0,86 GB
+komprimierte Nutzdaten; dieser Wert kann steigen. Reiner Standardspeicher
+liegt in dieser Größenordnung voraussichtlich im Centbereich pro Monat,
+zuzüglich Operationen, Downloads und Soft-Delete-Daten (siehe
+[Google Cloud Storage Pricing](https://cloud.google.com/storage/pricing)).
+Die Objektanzahl und Kosten nach dem ersten Monat prüfen. Eine spätere
+Bereinigung muss den aktuellen Zeiger **und das von ihm referenzierte Archiv**
+sicher erhalten.
+
+Der isolierte [GitHub-Test vom 25.09.](https://github.com/matthias-ennen/movie-hub/actions/runs/36105491904)
+hat mit genau diesem WIF-Dienstkonto zwei kleine Objekte unter
+`checkpoint-probe/` geschrieben, gelesen, in eine neue lokale Datei
+wiederhergestellt, bytegleich verglichen und gelöscht. Der WIF-Provider
+lehnte den früheren Pull-Request-Test wegen seiner Attribute-Bedingung ab;
+diese Schutzregel wurde nicht gelockert. Der begleitende
+[Code-Deploy](https://github.com/matthias-ennen/movie-hub/actions/runs/36105491862)
+übersprang TMDB- und Waipu-Import sowie alle produktiven Cloud-Checkpoint-
+Schritte. Der Test beweist noch keinen echten Waipu-/TMDB-Restore.
+
 ## Freigabe zur Aktivierung
 
-1. Eigenen privaten Cloud-Storage-Bucket im Projekt `movie-hub-62459`
-   bereitstellen. Gleichförmigen Bucket-Zugriff und Public-Access-Prevention
-   einschalten; Aufbewahrung/Lifecycle und erwartete Kosten festlegen.
-2. Dem vorhandenen GitHub-WIF-Dienstkonto
-   `github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com`
-   ausschließlich auf diesem Bucket die benötigten Objekt-Lese- und
-   Schreibrechte geben. Keine Schlüsseldatei oder Zugangsdaten ins Repository.
-3. Bucket-Konfiguration/IAM lesen und mit einem kleinen synthetischen Objekt
-   Schreib-, Lese- und Wiederherstellungsrechte prüfen, ohne einen Datenimport
-   zu starten. Danach erst Bucket-Variable und Freischalter setzen.
+1. **Erledigt:** eigenen privaten Bucket mit Schutz, Standort,
+   Aufbewahrungs- und Kostenentscheidung bereitstellen.
+2. **Erledigt:** dem bestehenden GitHub-WIF-Dienstkonto Objekt-Lese- und
+   Schreibrechte nur auf diesem Bucket geben; keine Schlüsseldatei ablegen.
+3. **Erledigt:** Konfiguration und IAM lesen sowie isolierten Upload,
+   Download und Wiederherstellungstest ohne Datenimport bestehen.
+   **Offen:** GitHub-Repository-Variablen `MOVIE_HUB_CHECKPOINT_BUCKET`
+   mit dem Bucketnamen und `MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED=true`
+   setzen. Vor der Freischaltung prüfen, dass nur ein regulärer Datenlauf
+   die ersten echten Snapshots schreibt.
 4. Beim ersten regulären Datenlauf den Bootstrap aus dem GitHub-Cache
    beobachten. Nach dessen Backup die beiden Cloud-Snapshots separat mit
    `node scripts/durable-data-checkpoint.mjs probe waipu` und
