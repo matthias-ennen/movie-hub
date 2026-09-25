@@ -1,9 +1,9 @@
 name: Verify private checkpoint bucket
 
 on:
-  push:
+  pull_request:
     branches:
-      - checkpoint-bucket-probe-20260925
+      - main
 
 permissions:
   contents: read
