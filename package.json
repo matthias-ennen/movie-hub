@@ -26,6 +26,7 @@
     "series:details": "node scripts/generate-series-details.mjs",
     "series:details:restore": "node scripts/restore-live-series-details.mjs",
     "data:status": "node scripts/report-data-status.mjs",
+    "alerts:check": "node scripts/check-title-alerts.mjs",
     "workflow:baseline": "node scripts/capture-workflow-baseline.mjs",
     "workflow:summary": "node scripts/report-workflow-summary.mjs",
     "workflow:schedule:check": "node scripts/check-data-workflow-schedule.mjs",

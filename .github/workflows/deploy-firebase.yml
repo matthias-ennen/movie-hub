@@ -308,6 +308,14 @@ jobs:
         id: firebase_deploy
         run: npx firebase-tools deploy --only hosting,firestore:rules --project movie-hub-62459 --non-interactive
 
+      - name: Check observed titles for personal in-app notifications
+        id: title_alerts
+        if: ${{ github.event_name != 'push' && steps.firebase_deploy.outcome == 'success' }}
+        env:
+          GOOGLE_CLOUD_PROJECT: movie-hub-62459
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+        run: npm run alerts:check
+
       - name: Acknowledge published TMDB change generation
         if: ${{ steps.tmdb_changes.outcome == 'success' && steps.firebase_deploy.outcome == 'success' }}
         run: npm run tmdb:changes:ack -- firebase-publication

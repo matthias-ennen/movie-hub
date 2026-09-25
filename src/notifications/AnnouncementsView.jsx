@@ -12,13 +12,17 @@ export function BellButton({ unreadCount, active, onClick }) {
   )
 }
 
-export function AnnouncementsView({ items, readIds, ready, error, onRead }) {
+export function AnnouncementsView({ items, readIds, ready, error, onRead, onOpenTitle }) {
   const [pending, setPending] = useState(null)
   const [readError, setReadError] = useState('')
   async function open(item) {
-    if (readIds.has(item.id) || pending === item.id) return
+    if (pending === item.id) return
     setPending(item.id)
-    try { await onRead(item.id); setReadError('') }
+    try {
+      if (!readIds.has(item.id)) await onRead(item.id)
+      setReadError('')
+      if (item.id.startsWith('profile:')) onOpenTitle?.(item)
+    }
     catch { setReadError('Lesestatus konnte nicht gespeichert werden. Bitte erneut versuchen.') }
     finally { setPending(null) }
   }

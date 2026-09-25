@@ -5,7 +5,7 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing'
-import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, Timestamp, where } from 'firebase/firestore'
 
 let testEnv
 
@@ -32,6 +32,30 @@ afterAll(async () => {
 })
 
 describe('Firestore Security Rules', () => {
+  it('schützt persönliche Beobachtungen und Mitteilungen pro Konto', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore()
+    const bob = testEnv.authenticatedContext('bob').firestore()
+    const prefix = ['users', 'alice', 'profiles', 'main']
+    const watch = doc(alice, ...prefix, 'titleAlerts', 'movie-11-included')
+    await assertSucceeds(setDoc(watch, {
+      schemaVersion: 1, type: 'movie', tmdbId: 11, title: 'Film',
+      kind: 'included', activationId: 'session-1', createdAt: serverTimestamp(),
+    }))
+    await assertFails(setDoc(watch, { title: 'Fremde Änderung' }, { merge: true }))
+    await assertFails(getDoc(doc(bob, ...prefix, 'titleAlerts', 'movie-11-included')))
+
+    const message = doc(alice, ...prefix, 'notifications', 'movie-11-included-session-1-initial')
+    await assertSucceeds(setDoc(message, {
+      schemaVersion: 1, kind: 'included', titleType: 'movie', tmdbId: 11,
+      title: 'Jetzt inklusive', mediaTitle: 'Film', body: 'Film ist verfügbar.',
+      startsAt: serverTimestamp(), expiresAt: Timestamp.fromMillis(Date.now() + 86400000),
+    }))
+    await assertFails(getDoc(doc(bob, ...prefix, 'notifications', message.id)))
+    await assertFails(setDoc(message, { body: 'Manipuliert' }, { merge: true }))
+    await assertSucceeds(setDoc(doc(alice, ...prefix, 'notificationReads', message.id), { readAt: serverTimestamp() }))
+    await assertFails(setDoc(doc(bob, ...prefix, 'notificationReads', message.id), { readAt: serverTimestamp() }))
+  })
+
   it('liefert veröffentlichte Ankündigungen nur an angemeldete Nutzer und schützt Schreibzugriffe', async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await setDoc(doc(context.firestore(), 'announcements', 'public'), { status: 'published', title: 'Hallo' })

@@ -409,11 +409,11 @@ function ExitConfirmationDialog({ onCancel, onClose }) {
 }
 
 function MovieHub({ user }) {
-  const { items: announcements, readIds, unreadCount, ready: announcementsReady, error: announcementsError, markRead } = useAnnouncements(user.uid)
+  const { profiles, activeProfile, selectProfile } = useProfiles()
+  const { items: announcements, readIds, unreadCount, ready: announcementsReady, error: announcementsError, markRead } = useAnnouncements(user.uid, activeProfile?.id)
   const [dismissedStartupIds, setDismissedStartupIds] = useState(() => new Set())
   const [startupNoticeError, setStartupNoticeError] = useState('')
   const [startupFocusReady, setStartupFocusReady] = useState(() => !window.MovieHubNative || Boolean(window.__movieHubStartupFocusReady))
-  const { profiles, activeProfile, selectProfile } = useProfiles()
   const { getTitleState, statesByKey, loading: libraryLoading, error: libraryError } = useLibrary()
   const { personalTitles: tmdbPersonalTitles } = useTmdbCatalog()
   const { enabledProviderIds } = useProviderSelection()
@@ -1370,7 +1370,16 @@ function MovieHub({ user }) {
           onOpen={handleOpenTitle}
         />
       )}
-      {currentView === 'notifications' && <AnnouncementsView items={announcements} readIds={readIds} ready={announcementsReady} error={announcementsError} onRead={markRead} />}
+      {currentView === 'notifications' && <AnnouncementsView items={announcements} readIds={readIds} ready={announcementsReady} error={announcementsError} onRead={markRead} onOpenTitle={(message) => {
+        const match = titles.find((title) => title.type === message.titleType && Number(title.tmdbId) === Number(message.tmdbId))
+        handleOpenTitle(match || {
+          id: `tmdb-${message.titleType}-${message.tmdbId}`,
+          tmdbId: message.tmdbId,
+          type: message.titleType,
+          title: message.mediaTitle || 'Titel',
+          source: 'tmdb',
+        }, null, { requireComplete: true })
+      }} />}
       {currentView === 'profile' && (
         <ProfileView
           user={user}
