@@ -30,6 +30,10 @@ beiden Anlässe.
   und gegebenenfalls Staffel/Folge. Derselbe Termin und weitere Termine
   derselben Serie innerhalb von sieben Tagen erzeugen keine zweite Meldung.
   Die Serienbeobachtung gilt im ersten Umfang für die Serie als Ganzes.
+  Beim Einschalten prüft die App den aktuellen veröffentlichten TV-Stand auch
+  sofort, damit ein Termin am selben Abend nicht bis zum nächsten Nachtlauf
+  übersehen wird. Der Nachtlauf teilt dieselbe Termin-ID und meldet ihn nicht
+  ein zweites Mal.
 - Der Server speichert Übergangszustände unter `titleAlertState` und Meldungen
   unter `notifications`; das Gerät speichert seinen Lesestatus getrennt unter
   `notificationReads`. Firestore Rules begrenzen Clients auf das eigene Konto;

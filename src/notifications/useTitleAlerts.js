@@ -3,7 +3,8 @@ import { collection, deleteDoc, doc, getDoc, onSnapshot, serverTimestamp, setDoc
 import { providers } from '../data/catalog.js'
 import { db } from '../lib/firebase.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
-import { alertTitleKey, includedProviderIds, alertNotificationId, watchId } from './titleAlertModel.js'
+import { alertTitleKey, includedProviderIds, dueTvAiring, alertNotificationId, tvAiringId, tvMessage, watchId } from './titleAlertModel.js'
+import { loadFreshTvAirings } from './loadFreshTvAirings.js'
 
 export function useTitleAlerts(userId, profileId) {
   const [watches, setWatches] = useState({})
@@ -58,13 +59,35 @@ export function useTitleAlerts(userId, profileId) {
         notificationId = alertNotificationId(watch)
         notification = { title: 'Jetzt inklusive', body: `${watch.title} ist ohne Aufpreis bei ${names} verfügbar.`, expiresAt: Timestamp.fromMillis(now + 30 * 86400000) }
       }
+    } else if (kind === 'tv') {
+      try {
+        const [airings, account] = await Promise.all([
+          loadFreshTvAirings(item, now),
+          getDoc(doc(db, 'users', userId)),
+        ])
+        const airing = dueTvAiring(airings, account.data()?.waipuStationSettings?.disabledStationIds, now)
+        if (airing) {
+          notificationId = tvAiringId(watch, airing)
+          notification = {
+            title: 'Bald im TV', body: tvMessage(airing, watch.title),
+            expiresAt: Timestamp.fromMillis(Date.parse(airing.stopTime)),
+          }
+        }
+      } catch (error) {
+        // The observation remains active. The next trusted check will retry.
+        console.warn('TV-Erstprüfung konnte nicht geladen werden.', error)
+      }
     }
     if (notification && notificationId) {
-      await setDoc(doc(db, ...path, 'notifications', notificationId), {
-        schemaVersion: 1, kind, titleType: watch.type, tmdbId: watch.tmdbId,
-        title: notification.title, mediaTitle: watch.title, body: notification.body,
-        startsAt: serverTimestamp(), expiresAt: notification.expiresAt,
-      })
+      try {
+        await setDoc(doc(db, ...path, 'notifications', notificationId), {
+          schemaVersion: 1, kind, titleType: watch.type, tmdbId: watch.tmdbId,
+          title: notification.title, mediaTitle: watch.title, body: notification.body,
+          startsAt: serverTimestamp(), expiresAt: notification.expiresAt,
+        })
+      } catch {
+        throw new Error('Beobachtung ist aktiv. Die Sofortmeldung konnte noch nicht gespeichert werden; der nächste Datenlauf prüft erneut.')
+      }
     }
     return true
   }
