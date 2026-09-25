@@ -231,8 +231,13 @@ jobs:
           key: waipu-curated-228-v1-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Save verified private Waipu checkpoint and cache
+        id: waipu_checkpoint_upload
         if: ${{ always() && (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' && steps.waipu_sync.outcome != 'skipped' }}
         run: node scripts/durable-data-checkpoint.mjs upload waipu
+
+      - name: Probe uploaded private Waipu checkpoint and cache
+        if: ${{ always() && steps.waipu_checkpoint_upload.outcome == 'success' }}
+        run: node scripts/durable-data-checkpoint.mjs probe waipu
 
       - name: Authenticate to Google Cloud
         id: gcp_auth
@@ -328,8 +333,13 @@ jobs:
           key: tmdb-changes-v1-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Save verified private TMDB checkpoint
+        id: tmdb_checkpoint_upload
         if: ${{ always() && steps.tmdb_change_commit.outcome == 'success' && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
         run: node scripts/durable-data-checkpoint.mjs upload tmdb
+
+      - name: Probe uploaded private TMDB checkpoint
+        if: ${{ always() && steps.tmdb_checkpoint_upload.outcome == 'success' }}
+        run: node scripts/durable-data-checkpoint.mjs probe tmdb
 
       - name: Publish compact data workflow report
         if: ${{ always() }}
