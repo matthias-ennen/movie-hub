@@ -55,7 +55,7 @@ Details:
 
 Projektstart: 31. August 2026
 
-Stand: **22. September 2026**
+Stand: **25. September 2026**
 
 [#256 – vollständige kanonische Titelmetadaten vor Veröffentlichung](https://github.com/matthias-ennen/movie-hub/issues/256)
 ist technisch und auf Fire TV abgenommen. Der geschützte Datenlauf führt Browse,
@@ -75,8 +75,9 @@ allgemeinen Waipu-Einstieg zurück. Anmeldung, Tarif und Wiedergaberechte bleibe
 vollständig in der Verantwortung von waipu.tv.
 
 Die gemeinsame TV-/Hero-Grundlage aus #281, #283, #285 und #289 ist technisch
-umgesetzt und auf Smartphone, Android-Tablet sowie Fire TV abgenommen. Als
-nächstes Arbeitspaket folgt der kontrollierte Senderausbau aus #260.
+umgesetzt und auf Smartphone, Android-Tablet sowie Fire TV abgenommen. Die
+228-Sender-Stufe aus #260 ist inzwischen veröffentlicht und auf diesen Geräten
+abgenommen; verbleibende Klassifizierung und Betriebskontrolle laufen separat.
 
 Das Waipu-Arbeitspaket #4 ist abgeschlossen und abgenommen. Dazu gehören TV-Reiter,
 kontoweite Senderauswahl und -sortierung, Waipu-Badges und Sendetermine,
@@ -96,9 +97,12 @@ einheitliche, stabile technische Inhaltsseiten-Grundlage. Bewährte Hero-,
 Posterreihen-, Fokus-, Lade- und Detailseitenlogik wird wiederverwendet;
 seitenspezifisch bleiben nur fachlich notwendige Unterschiede.
 
-Die bestätigte Hauptreihenfolge bleibt zunächst:
+Die aktuelle Hauptreihenfolge lautet:
 
-`#260 → #118 → #7`
+`#271 gemeinsame Quellenplattform → #280 Joyn-Pilot → #118/#314 und #7 später weiterentwickeln`
+
+#315 (Nachtlaufbeobachtung) und die Restarbeiten aus #260 bleiben offen.
+Für eine öffentliche Verteilung gilt weiterhin das Compliance-Gate #112.
 
 Vor jedem Umsetzungspaket werden offene Produktfragen mit Matthias einzeln
 geklärt und anschließend im betreffenden Issue verbindlich dokumentiert.

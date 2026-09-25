@@ -1,6 +1,6 @@
 # Movie Hub – Issue-Plan
 
-Stand: 22. September 2026
+Stand: 25. September 2026
 
 ## Arbeitsprinzip
 
@@ -69,35 +69,33 @@ Für **Home, Filme, Serien, TV und Meine Inhalte** gilt verbindlich eine
 gemeinsame technische Inhaltsseiten-Grundlage. Vor jedem daraus entstehenden
 Umsetzungspaket werden die zugehörigen offenen Produktfragen Matthias erneut
 einzeln vorgelegt. Die Paketvorschläge ändern die bestätigte Hauptpriorisierung
-nicht automatisch; vor #118 wird gemeinsam entschieden, welche Korrekturen
-zwingend davor liegen.
+nicht automatisch. Am 25.09.2026 wurden #271 und danach #280 als nächste
+Hauptpakete festgelegt.
 
 ## Aktuelle Priorisierung
 
-### 1. #260 – Waipu-Senderbestand über 50 hinaus ausbauen
+### 1. #271 – gemeinsame Quellenplattform
 
-- offizielle Liste, technischen Stamm und tatsächlich lineare Movie-Hub-Sender abgleichen
-- 337 dokumentierte offizielle Listeneinträge und zuletzt 398 technische Einträge klassifizieren
-- Catch-up, VOD, Dubletten, regionale Varianten und fehlendes EPG ausweisen
-- Ausbau mit Checkpoints, Budgets und Stabilitätsgates in kontrollierten Wellen
-- neue Sender standardmäßig aktivieren und bestehende persönliche Einstellungen erhalten
-- Compliance-Gate #112 vor öffentlicher Verteilung beachten
+- vorhandenen Waipu-/TV-Pfad inventarisieren und den versionierten Adaptervertrag festlegen;
+- Titelidentität, neutrales Senderereignis, Anbieterziele und Quellenzustand sauber trennen;
+- Normalisierung, Zeitfenster, Deduplizierung und Fehlerisolation mit dem vorhandenen Pfad prüfen;
+- Dokumentation und überprüfbare Kriterien für die erste nutzbare Plattformstufe liefern;
+- DVB-I und Direktstreams als weitere offene Teilziele von #271 getrennt bewerten.
 
-### 2. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
+### 2. #280 – Joyn als erster Pilot auf der gemeinsamen Plattform
 
-- einfache Beobachten-Aktion direkt am Titel
-- rent/buy-only bzw. aktuell nicht inklusive Titel beobachten
-- Zustandswechsel zu `flatrate`, `free` oder `ads` erkennen
-- Benachrichtigungen nur bei echten Änderungen
-- Beobachtung einfach wieder entfernen
+- nach dem tragfähigen Vertrag aus #271 eine begrenzte Senderinventur durchführen;
+- stabile, strukturierte EPG-Quelle und zulässige Nutzung prüfen;
+- TMDB-Zuordnung und neutrales TV-Ereignis mit getrennten Joyn-/Waipu-Zielen prüfen;
+- konkrete Senderlinks auf Smartphone, Tablet und Fire TV testen;
+- vor einer Veröffentlichung Datenqualität und Compliance-Gate #112 beachten.
 
-### 3. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
+### Gesondert offen, nicht vor #271 geschaltet
 
-- persönliche Signale aus Bewertungen, gesehen/ungesehen, Favoriten und Watchlist nutzen
-- persönliche Top-100- und Empfehlungsreihen erzeugen
-- automatisierten, reproduzierbaren Job einrichten
-- strukturierte Verfügbarkeitsdaten als Faktenbasis verwenden
-- Ergebnisse ohne APK-Update aktualisieren
+- #260: 228-Sender-Stufe einschließlich Fire TV am 25.09.2026 abgenommen; die 61 nur technisch gelisteten Einträge bleiben zu klassifizieren.
+- #315: tatsächlichen automatischen Nachtlauf und unabhängigen Alarm weiter beobachten.
+- #118/#314: erste Anlässe „Wenn inklusive“ und „Wenn im TV“ veröffentlicht; echter Nachtlauf, Geräteabnahme und weitere Produktentscheidungen offen.
+- #7: erste Top-100-Stufe veröffentlicht; Empfehlungen und Automatisierung bleiben offen und sind vorerst zurückgestellt.
 
 ## Weitere spätere Themen
 
@@ -111,12 +109,13 @@ zwingend davor liegen.
 
 ## Abhängigkeitskette
 
-`#4 abgeschlossen → #256 abgeschlossen → #259 abgeschlossen → TV-Grundlage abgeschlossen → #260 Senderausbau in Wellen → #118 → #7`
+`#4/#256/#259/TV-Grundlage abgenommen → #260: 228er-Stufe abgenommen, Rest offen → #271: Vertrag und Plattformstufe → #280: Joyn-Pilot → #118/#314 und #7: spätere Weiterentwicklung`
 
 #4, #256, #259 sowie die TV-Grundlage aus #281, #283, #285 und #289 sind
-vollständig abgenommen und geschlossen. Der 50-Sender-Bestand bleibt der gültige
-Ausgangsstand. Als nächstes wird #260 nochmals technisch eingegrenzt und danach
-in ausdrücklich freizugebenden, kontrollierten Senderwellen umgesetzt.
+vollständig abgenommen und geschlossen. Die 228-Sender-Stufe aus #260 ist
+veröffentlicht und auf allen drei Gerätetypen abgenommen. Das nächste
+Hauptpaket ist #271; #280 folgt unmittelbar auf einen überprüfbaren gemeinsamen
+Adaptervertrag. #260 und #315 bleiben als eigene Rest- und Betriebspakete offen.
 
 ## Leitentscheidung
 

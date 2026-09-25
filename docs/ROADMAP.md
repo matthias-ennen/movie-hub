@@ -1,6 +1,6 @@
 # Movie Hub – Roadmap
 
-Stand: 23. September 2026
+Stand: 25. September 2026
 
 ## Leitprinzip
 
@@ -103,7 +103,39 @@ Abstände und TV-Statusdarstellung sind auf Smartphone, Android-Tablet und Fire
 TV abgenommen. Die noch offenen Trailer-/Teaser- und Erinnerungspakete bleiben
 in #255 getrennt dokumentiert.
 
-## Aktuelles Arbeitspaket
+## Nächstes Arbeitspaket: #271 – modulare Quellenplattform
+
+Die 228-Sender-Stufe aus #260 ist veröffentlicht und auf Smartphone, Tablet und
+Fire TV abgenommen. Als Nächstes wird #271 in Angriff genommen. Zuerst werden
+die bestehenden Waipu-, Titel- und TV-Datenwege inventarisiert und ein
+versionierter gemeinsamer Vertrag für Quellenadapter festgelegt: kanonische
+Titelidentität (`Medientyp + TMDB-ID`), neutrales Senderereignis, getrennte
+Anbieter- und Wiedergabeziele, Zeitfenster, Datenalter, Qualität und Fehler.
+Ein Ausfall oder eine partielle Generation einer Quelle darf keinen gültigen
+Bestand einer anderen Quelle ersetzen. TMDB bleibt für öffentliche
+Titelmetadaten maßgeblich.
+
+Die erste abgrenzbare Stufe von #271 liefert dokumentiertes Datenmodell,
+Adapter- und Veröffentlichungsvertrag sowie überprüfbare Normalisierungs-,
+Zeitfenster- und Fehlerfalltests anhand des vorhandenen Waipu-Pfads. Vor dem
+Joyn-Piloten müssen die Eingangs- und Ausgabeformate sowie die Behandlung
+mehrerer Anbieter am selben Ereignis geklärt sein. Weitergehende Direktstreams,
+DVB-I und zusätzliche Quellen bleiben im offenen #271 gesonderte Prüfpunkte;
+ihre Verfügbarkeit oder Zulässigkeit wird damit nicht vorausgesetzt.
+
+## Direkt danach: #280 – Joyn-Adapter als erster zweiter Quellenpilot
+
+Nach der belastbaren ersten Plattformstufe beginnt #280 mit einer begrenzten
+Joyn-Senderinventur, Prüfung eines stabilen und zulässig nutzbaren strukturierten
+EPG-Wegs und verifizierbaren sendergenauen Absprungzielen. Nur bestätigte Daten
+werden über den Vertrag aus #271 normalisiert und dem vorhandenen kanonischen
+Titelbestand zugeordnet. Waipu und Joyn bleiben als Wiedergabewege getrennt,
+auch wenn sie dasselbe Senderereignis abdecken. Die geplante Pilotveröffentlichung
+und Geräteabnahme hängen von Datenqualität, erlaubter Nutzung und echten
+Linktests auf Smartphone, Tablet und Fire TV ab; ein offenes Prüfergebnis wird
+als solches dokumentiert.
+
+## Bereits abgenommene Waipu-Stufe, Restarbeiten in #260
 
 ### #260 – Waipu-Live: Senderbestand über 50 hinaus vollständig ausbauen
 
@@ -115,10 +147,11 @@ Datenlauf #390 hat am 23.09.2026 die vollständige 228er-Generation mit 1.617
 Titeln und 15.520 Ausstrahlungen veröffentlicht. Der Produktionsindex meldet
 `status=complete`, 228 Sender und 14 Tagesdateien.
 
-Smartphone und Tablet sind nach Matthias' Rückmeldung geprüft. Die manuelle
-Fire-TV-Abnahme bleibt offen; #260 wird bis dahin nicht geschlossen. PR #310
-hat die Cron-Auslösung auf 03:17 Uhr deutscher Zeit korrigiert. Der tatsächliche
-Start des nächsten planmäßigen Nachtlaufs wird separat kontrolliert.
+Die 228er-Stufe ist auf Smartphone, Tablet und seit dem 25.09.2026 auch auf
+Fire TV von Matthias abgenommen. #260 bleibt offen für die nachvollziehbare
+Klassifizierung der 61 nur technisch gelisteten Einträge und die noch offenen
+Gesamtkriterien. Die Betriebsüberwachung des Nachtlaufs wird in #315 verfolgt;
+beide Restarbeiten blockieren die Vertragsarbeit von #271 nicht.
 
 ## Bereits getrennt dokumentierte Waipu-Folgepakete
 
@@ -139,7 +172,7 @@ Start des nächsten planmäßigen Nachtlaufs wird separat kontrolliert.
 - mehrere hundert Sender dürfen auf den Geräten nur als benötigter Zeit-/Sichtausschnitt geladen und gerendert werden;
 - öffentliche Verteilung bleibt vom Compliance-Gate #112 abhängig.
 
-## Weitere aktive Arbeitspakete
+## Bewusst offen gehaltene Produktpakete
 
 ### 1. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
 
@@ -147,7 +180,8 @@ Die zwei ersten profilbezogenen Anlässe „Wenn inklusive“ und „Wenn im TV�
 seit #323/#324 veröffentlicht. Ein bereits inklusiver Titel darf beim Einschalten
 einen einmaligen Ersttreffer erzeugen; ein TV-Termin am selben Abend ebenfalls.
 #118 und #314 bleiben für den echten Nachtlauf, die Geräteabnahme und spätere
-Entscheidungen über Texte und zusätzliche Anlässe offen.
+Entscheidungen über Texte und zusätzliche Anlässe offen. Die Weiterentwicklung
+folgt nach dem Quellenpilot und wird nicht durch die Umpriorisierung abgenommen.
 
 ### 2. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
 
@@ -155,10 +189,11 @@ Erste Stufe: „Meine Top 100“ ausschließlich aus den eigenen 1–10-Bewertun
 des aktiven Profils ableiten. Weniger als 100 Bewertungen ergeben eine kürzere
 Liste; mehrfach vorhandene Titel werden nur einmal gezählt. Die Anzeige nutzt
 mehrere begrenzte Posterreihen und lädt keine weiteren persönlichen Daten.
-Persönliche Vorschläge, Auswahlregeln für gesehen/ungesehen, ein täglich
+Die erste Top-100-Stufe ist veröffentlicht. Persönliche Vorschläge,
+Auswahlregeln für gesehen/ungesehen, ein täglich
 überwachbarer Job und die zugehörige Geräteabnahme bleiben in #7 offen.
 Verfügbarkeitsfakten kommen dabei weiterhin ausschließlich aus strukturierten
-Quellen.
+Quellen. Auch #7 bleibt offen und ist vorerst zurückgestellt.
 
 ## Weitere spätere Pakete
 
@@ -172,10 +207,12 @@ Quellen.
 
 ## Aktuelle Abhängigkeitskette
 
-`#4 abgeschlossen → #256 abgeschlossen → #259 abgeschlossen → TV-Grundlage abgeschlossen → #260 technisch veröffentlicht, Fire TV offen → #118/#314 erste Stufe veröffentlicht, offen → #7 erste Stufe`
+`#4/#256/#259/TV-Grundlage abgenommen → #260: 228er-Stufe abgenommen, Reste offen → #271: gemeinsame Quellenbasis → #280: Joyn-Pilot → #118/#314 und #7: spätere Weiterentwicklung`
 
 #4, #256, #259 sowie die TV-Grundlage aus #281, #283, #285 und #289 sind
 vollständig abgenommen und geschlossen. Der 228-Sender-Bestand ist veröffentlicht;
-die Fire-TV-Abnahme von #260 und die Kontrolle der korrigierten Nachtlaufzeit
-bleiben offen. #118/#314 und #7 werden in getrennten Stufen weitergeführt. Öffentliche
-Verteilung bleibt von der Compliance-Prüfung #112 abhängig.
+die noch ausstehende Klassifizierung in #260 und die Betriebsbeobachtung in
+#315 laufen als gesonderte Restarbeiten. #271 ist das nächste Hauptpaket;
+#280 folgt nach seinem ersten tragfähigen Vertrag. #118/#314 und #7 werden
+später in getrennten Stufen weitergeführt. Öffentliche Verteilung bleibt von
+der Compliance-Prüfung #112 abhängig.
