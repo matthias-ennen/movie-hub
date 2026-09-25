@@ -139,25 +139,26 @@ Start des nächsten planmäßigen Nachtlaufs wird separat kontrolliert.
 - mehrere hundert Sender dürfen auf den Geräten nur als benötigter Zeit-/Sichtausschnitt geladen und gerendert werden;
 - öffentliche Verteilung bleibt vom Compliance-Gate #112 abhängig.
 
-## Danach geplante Arbeitspakete
-
-Vor der Umsetzung von #118 erfolgt die in #255 vereinbarte kurze Scope-Klärung.
+## Weitere aktive Arbeitspakete
 
 ### 1. #118 – Benachrichtigen, wenn ein Titel ohne Aufpreis verfügbar wird
 
-- einfache Aktion direkt am Titel
-- rent/buy-only oder derzeit nicht enthaltene Titel beobachten
-- Wechsel zu `flatrate`, `free` oder `ads` bei aktivierten Anbietern erkennen
-- nur bei echter Zustandsänderung benachrichtigen
-- keine unnötige Regelverwaltung im normalen UI
+Die zwei ersten profilbezogenen Anlässe „Wenn inklusive“ und „Wenn im TV“ sind
+seit #323/#324 veröffentlicht. Ein bereits inklusiver Titel darf beim Einschalten
+einen einmaligen Ersttreffer erzeugen; ein TV-Termin am selben Abend ebenfalls.
+#118 und #314 bleiben für den echten Nachtlauf, die Geräteabnahme und spätere
+Entscheidungen über Texte und zusätzliche Anlässe offen.
 
 ### 2. #7 – Persönliche Empfehlungen, Top 100 und Automatisierung
 
-- Bewertungen, gesehen/ungesehen, Favoriten, Watchlist und Katalogdaten als Signale verwenden
-- persönliche Top-100- und Empfehlungsreihen erzeugen
-- wiederholbaren automatisierten Job etablieren
-- objektive Verfügbarkeitsdaten weiterhin ausschließlich aus strukturierten Quellen ableiten
-- Empfehlungen ohne APK-Update aktualisierbar machen
+Erste Stufe: „Meine Top 100“ ausschließlich aus den eigenen 1–10-Bewertungen
+des aktiven Profils ableiten. Weniger als 100 Bewertungen ergeben eine kürzere
+Liste; mehrfach vorhandene Titel werden nur einmal gezählt. Die Anzeige nutzt
+mehrere begrenzte Posterreihen und lädt keine weiteren persönlichen Daten.
+Persönliche Vorschläge, Auswahlregeln für gesehen/ungesehen, ein täglich
+überwachbarer Job und die zugehörige Geräteabnahme bleiben in #7 offen.
+Verfügbarkeitsfakten kommen dabei weiterhin ausschließlich aus strukturierten
+Quellen.
 
 ## Weitere spätere Pakete
 
@@ -171,10 +172,10 @@ Vor der Umsetzung von #118 erfolgt die in #255 vereinbarte kurze Scope-Klärung.
 
 ## Aktuelle Abhängigkeitskette
 
-`#4 abgeschlossen → #256 abgeschlossen → #259 abgeschlossen → TV-Grundlage abgeschlossen → #260 technisch veröffentlicht, Fire TV offen → #118 nach Scope-Klärung → #7`
+`#4 abgeschlossen → #256 abgeschlossen → #259 abgeschlossen → TV-Grundlage abgeschlossen → #260 technisch veröffentlicht, Fire TV offen → #118/#314 erste Stufe veröffentlicht, offen → #7 erste Stufe`
 
 #4, #256, #259 sowie die TV-Grundlage aus #281, #283, #285 und #289 sind
 vollständig abgenommen und geschlossen. Der 228-Sender-Bestand ist veröffentlicht;
 die Fire-TV-Abnahme von #260 und die Kontrolle der korrigierten Nachtlaufzeit
-bleiben offen. Danach folgt #118 nach eigener Scope-Klärung. Öffentliche
+bleiben offen. #118/#314 und #7 werden in getrennten Stufen weitergeführt. Öffentliche
 Verteilung bleibt von der Compliance-Prüfung #112 abhängig.
