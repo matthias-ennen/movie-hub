@@ -1,0 +1,76 @@
+name: Verify private checkpoint bucket
+
+on:
+  push:
+    branches:
+      - checkpoint-bucket-probe-20260925
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Verify isolated upload, read, restore, and cleanup
+        env:
+          DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
+        run: |
+          node --input-type=module <<'NODE'
+          import { randomUUID } from 'node:crypto'
+          import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+          import { tmpdir } from 'node:os'
+          import { join } from 'node:path'
+          import { applicationDefault, deleteApp, initializeApp } from 'firebase-admin/app'
+          import { getStorage } from 'firebase-admin/storage'
+
+          const app = initializeApp({
+            credential: applicationDefault(),
+            projectId: 'movie-hub-62459',
+          }, 'checkpoint-probe')
+          const bucket = getStorage(app).bucket(process.env.DATA_CHECKPOINT_BUCKET)
+          const prefix = 'checkpoint-probe/' + process.env.GITHUB_RUN_ID + '-' + randomUUID()
+          const archive = bucket.file(prefix + '/archive.txt')
+          const pointer = bucket.file(prefix + '/latest.json')
+          const directory = await mkdtemp(join(tmpdir(), 'checkpoint-probe-'))
+          const source = join(directory, 'source.txt')
+          const restored = join(directory, 'restored.txt')
+          const payload = Buffer.from('movie-hub-checkpoint-probe-' + process.env.GITHUB_RUN_ID)
+          try {
+            await writeFile(source, payload)
+            await bucket.upload(source, {
+              destination: archive.name,
+              preconditionOpts: { ifGenerationMatch: 0 },
+            })
+            await pointer.save(JSON.stringify({ object: archive.name }), {
+              resumable: false,
+              contentType: 'application/json',
+            })
+            await rm(source)
+            const [pointerBytes] = await pointer.download()
+            if (JSON.parse(pointerBytes.toString()).object !== archive.name) {
+              throw new Error('Pointer readback failed')
+            }
+            await archive.download({ destination: restored })
+            if (!(await readFile(restored)).equals(payload)) {
+              throw new Error('Restored data differs from uploaded data')
+            }
+            console.log('Synthetic checkpoint upload, read, and restore passed')
+          } finally {
+            await pointer.delete({ ignoreNotFound: true })
+            await archive.delete({ ignoreNotFound: true })
+            await rm(directory, { recursive: true, force: true })
+            await deleteApp(app)
+          }
+          NODE
