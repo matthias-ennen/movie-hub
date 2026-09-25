@@ -1,0 +1,103 @@
+name: Backfill verified data checkpoints from Actions cache
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/checkpoint-cache-bootstrap.yml
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful full data run to restore from cache
+        required: true
+        default: '36101645871'
+      source_run_attempt:
+        description: Attempt number of the successful data run
+        required: true
+        default: '1'
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+concurrency:
+  group: data-checkpoint-backfill
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    env:
+      DATA_CHECKPOINT_BUCKET: ${{ vars.MOVIE_HUB_CHECKPOINT_BUCKET }}
+      DATA_CHECKPOINT_ENABLED: ${{ vars.MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id || '36101645871' }}
+      SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt || '1' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Verify explicit opt-in and source run
+        run: |
+          test "$DATA_CHECKPOINT_ENABLED" = true
+          test "$DATA_CHECKPOINT_BUCKET" = movie-hub-62459-nightly-checkpoints
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$SOURCE_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
+      - name: Install dependencies
+        run: npm ci
+      - name: Restore exact Waipu cache from the completed data run
+        id: waipu_cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            artifacts/waipu-sync
+            artifacts/waipu-live/match-decisions.json
+            artifacts/waipu-live/detail-status.json
+            artifacts/waipu-live/unresolved.json
+          key: waipu-curated-228-v1-${{ env.SOURCE_RUN_ID }}-${{ env.SOURCE_RUN_ATTEMPT }}
+          fail-on-cache-miss: true
+      - name: Restore exact TMDB cache from the completed data run
+        id: tmdb_cache
+        uses: actions/cache/restore@v6
+        with:
+          path: artifacts/tmdb-data
+          key: tmdb-changes-v1-${{ env.SOURCE_RUN_ID }}-${{ env.SOURCE_RUN_ATTEMPT }}
+          fail-on-cache-miss: true
+      - name: Check cached source data and record checksums
+        env:
+          WAIPU_CACHE_HIT: ${{ steps.waipu_cache.outputs.cache-hit }}
+          TMDB_CACHE_HIT: ${{ steps.tmdb_cache.outputs.cache-hit }}
+        run: |
+          test "$WAIPU_CACHE_HIT" = true
+          test "$TMDB_CACHE_HIT" = true
+          test -s artifacts/waipu-sync/checkpoint.json
+          test -s artifacts/tmdb-data/state.json
+          sha256sum artifacts/waipu-sync/checkpoint.json artifacts/tmdb-data/state.json > "$RUNNER_TEMP/source-checksums"
+          for path in artifacts/waipu-live/match-decisions.json artifacts/waipu-live/detail-status.json artifacts/waipu-live/unresolved.json artifacts/tmdb-data/last-run.json; do
+            if [ -f "$path" ]; then sha256sum "$path" >> "$RUNNER_TEMP/source-checksums"; fi
+          done
+      - name: Authenticate with bucket-scoped deploy account
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Upload and probe real Waipu checkpoint
+        run: |
+          node scripts/durable-data-checkpoint.mjs upload waipu
+          node scripts/durable-data-checkpoint.mjs probe waipu
+      - name: Upload and probe real TMDB checkpoint
+        run: |
+          node scripts/durable-data-checkpoint.mjs upload tmdb
+          node scripts/durable-data-checkpoint.mjs probe tmdb
+      - name: Restore both snapshots into the emptied runner
+        run: |
+          rm -rf artifacts/waipu-sync artifacts/tmdb-data
+          rm -f artifacts/waipu-live/match-decisions.json artifacts/waipu-live/detail-status.json artifacts/waipu-live/unresolved.json
+          test ! -e artifacts/waipu-sync/checkpoint.json
+          test ! -e artifacts/tmdb-data/state.json
+          node scripts/durable-data-checkpoint.mjs restore waipu
+          node scripts/durable-data-checkpoint.mjs restore tmdb
+          sha256sum -c "$RUNNER_TEMP/source-checksums"
+          echo "Real Waipu and TMDB checkpoints restored byte-for-byte from private Cloud Storage."
