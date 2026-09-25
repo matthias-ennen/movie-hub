@@ -7,7 +7,7 @@ import {
   hasPersonalTitleState,
   normalizeTitleState,
 } from '../src/library/libraryState.js'
-import { buildPersonalRows, buildWatchedHistoryRows, mergeCatalogWithPersonalSnapshots } from '../src/library/personalRows.js'
+import { buildPersonalRows, buildPersonalTopHundredRows, buildWatchedHistoryRows, mergeCatalogWithPersonalSnapshots } from '../src/library/personalRows.js'
 
 describe('persönlicher Film-/Serienzustand', () => {
   it('verwendet TMDB-Typ und TMDB-ID als stabile Referenz', () => {
@@ -178,6 +178,22 @@ describe('persönlicher Film-/Serienzustand', () => {
   it('liefert bei einem leeren Profil keine toten persönlichen Reihen', () => {
     const rows = buildPersonalRows([{ id: 'a', title: 'Alpha' }], () => ({}))
     expect(rows).toEqual([])
+  })
+
+  it('zeigt höchstens 100 selbst bewertete Titel vollständig in begrenzten Reihen', () => {
+    const titles = Array.from({ length: 110 }, (_, index) => ({
+      id: `movie-${index + 1}`,
+      title: `Titel ${String(index + 1).padStart(3, '0')}`,
+    }))
+    const rated = (item) => ({ rating: item.id === 'movie-110' ? 10 : 8 })
+    const rows = buildPersonalTopHundredRows([...titles, { ...titles[0] }], rated, 30)
+
+    expect(rows.map((row) => row.items.length)).toEqual([30, 30, 30, 10])
+    expect(rows.at(-1).title).toBe('Meine Top 100 · Plätze 91–100')
+    expect(rows.flatMap((row) => row.items).map((item) => item.id)).toEqual([
+      'movie-110', ...Array.from({ length: 99 }, (_, index) => `movie-${index + 1}`),
+    ])
+    expect(buildPersonalTopHundredRows(titles, () => ({ favorite: true }), 30)).toEqual([])
   })
 
   it('liefert die 50 zuletzt als gesehen markierten Titel als eigenen Verlauf', () => {

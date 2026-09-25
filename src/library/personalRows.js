@@ -3,6 +3,7 @@ import { mergeEnrichedTitle } from '../catalog/titleMetadata.js'
 import { getTitleStateKey, hasPersonalTitleState } from './libraryState.js'
 
 export const WATCHED_HISTORY_LIMIT = 70
+export const PERSONAL_TOP_HUNDRED_LIMIT = 100
 
 function byTitle(a, b) {
   return String(a.title ?? '').localeCompare(String(b.title ?? ''), 'de')
@@ -51,6 +52,36 @@ export function buildPersonalRows(titles, getTitleState, limit = getActivePoster
         .slice(0, safeLimit),
     }))
     .filter((row) => row.items.length > 0)
+}
+
+/** Keep personal ratings distinct from unreviewed recommendation candidates. */
+export function buildPersonalTopHundredRows(titles, getTitleState, rowLimit = getActivePosterRowLimit()) {
+  if (!Array.isArray(titles) || typeof getTitleState !== 'function') return []
+  const pageSize = Math.min(50, Math.max(0, Number(rowLimit) || 0), getActivePosterRowLimit())
+  if (!pageSize) return []
+
+  const unique = new Map()
+  for (const item of titles) {
+    const key = getTitleStateKey(item)
+    if (!key || unique.has(key)) continue
+    const rating = getTitleState(item)?.rating
+    if (Number.isInteger(rating) && rating >= 1 && rating <= 10) unique.set(key, { item, rating })
+  }
+  const ranked = [...unique.values()]
+    .sort((a, b) => b.rating - a.rating || byTitle(a.item, b.item)
+      || getTitleStateKey(a.item).localeCompare(getTitleStateKey(b.item)))
+    .slice(0, PERSONAL_TOP_HUNDRED_LIMIT)
+
+  const rows = []
+  for (let start = 0; start < ranked.length; start += pageSize) {
+    const end = Math.min(start + pageSize, ranked.length)
+    rows.push({
+      id: `my-top-100-${start + 1}`,
+      title: `Meine Top 100 · Plätze ${start + 1}–${end}`,
+      items: ranked.slice(start, end).map(({ item }) => item),
+    })
+  }
+  return rows
 }
 
 function watchedHistoryTime(state) {
