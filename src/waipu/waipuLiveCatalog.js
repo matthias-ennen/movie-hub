@@ -1,5 +1,6 @@
 import { isTvAiringOnAir, isTvAiringSoon } from './waipuAiringStatus.js'
 import {
+  dedupeWaipuBroadcastEvents,
   mapWaipuAiringToBroadcastEvent,
   projectBroadcastEventToWaipuAiring,
 } from '../sources/adapters/waipuContractMapper.js'
@@ -34,8 +35,15 @@ function normalizeEntry(raw, now) {
   const sourceAirings = Array.isArray(raw?.airings) && raw.airings.length
     ? raw.airings
     : [raw?.nextAiring]
-  const airings = sourceAirings
-    .map((airing) => normalizeAiring(airing, raw))
+  const events = dedupeWaipuBroadcastEvents(sourceAirings
+    .map((airing) => mapWaipuAiringToBroadcastEvent(raw, airing, {
+      observedAt: airing?.observedAt || new Date().toISOString(),
+      playbackTarget: airing?.playbackTarget || airing?.deepLink || null,
+      verifiedAt: airing?.verifiedAt || null,
+    }))
+    .filter(Boolean))
+  const airings = events
+    .map(projectBroadcastEventToWaipuAiring)
     .filter(Boolean)
     .filter((airing) => Date.parse(airing.stopTime) > now)
     .sort((left, right) => left.startTime.localeCompare(right.startTime))
