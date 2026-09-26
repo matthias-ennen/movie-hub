@@ -28,6 +28,11 @@ describe('Joyn live restore', () => {
       kind: 'joyn-live-stations',
       stations: [{ id: 'prosieben-de', name: 'ProSieben' }],
     }
+    const titles = {
+      schemaVersion: 1,
+      kind: 'joyn-live-titles',
+      entries: [],
+    }
     const day = {
       schemaVersion: 1,
       kind: 'joyn-live-day',
@@ -38,6 +43,7 @@ describe('Joyn live restore', () => {
     const fetchImpl = async (url) => {
       if (url.endsWith('/index.json')) return response(index)
       if (url.endsWith('/stations.json')) return response(stations)
+      if (url.endsWith('/titles.json')) return response(titles)
       if (url.endsWith('/days/2026-09-26.json')) return response(day)
       throw new Error('unexpected url')
     }
