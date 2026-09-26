@@ -149,10 +149,23 @@ function mergeUnique(values, keyForValue) {
 }
 
 export function dedupeWaipuBroadcastEvents(events = []) {
+  const normalizedEvents = (Array.isArray(events) ? events : [])
+    .filter(Boolean)
+    .map((event) => normalizeBroadcastEvent(event))
+    .sort((left, right) => {
+      const byEvent = exactBroadcastEventKey(left).localeCompare(exactBroadcastEventKey(right))
+      if (byEvent) return byEvent
+      const leftSource = left.sourceRefs.map(sourceRefKey).sort().join(',')
+      const rightSource = right.sourceRefs.map(sourceRefKey).sort().join(',')
+      const bySource = leftSource.localeCompare(rightSource)
+      if (bySource) return bySource
+      return left.playbackRoutes.map(routeKey).sort().join(',').localeCompare(
+        right.playbackRoutes.map(routeKey).sort().join(','),
+      )
+    })
+
   const byEvent = new Map()
-  for (const raw of Array.isArray(events) ? events : []) {
-    if (!raw) continue
-    const event = normalizeBroadcastEvent(raw)
+  for (const event of normalizedEvents) {
     const key = exactBroadcastEventKey(event)
     const existing = byEvent.get(key)
     if (!existing) {
@@ -171,15 +184,15 @@ export function dedupeWaipuBroadcastEvents(events = []) {
         sourceRefKey,
       ),
       capabilities: {
-        ...existing.capabilities,
         ...event.capabilities,
+        ...existing.capabilities,
       },
       extensions: {
-        ...existing.extensions,
         ...event.extensions,
+        ...existing.extensions,
         waipu: {
-          ...(existing.extensions?.waipu || {}),
           ...(event.extensions?.waipu || {}),
+          ...(existing.extensions?.waipu || {}),
         },
       },
     }))
