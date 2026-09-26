@@ -1,0 +1,40 @@
+name: Joyn Adapter Diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/joyn-adapter-diagnostic.mjs'
+      - 'scripts/joyn-tmdb-matcher.mjs'
+      - 'src/sources/joyn/**'
+      - 'src/sources/adapters/joynContractMapper.js'
+      - 'src/sources/policies/joynUpstreamFieldPolicy.js'
+      - '.github/workflows/joyn-adapter-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build independent Joyn diagnostic SourceEnvelope
+        run: node scripts/joyn-adapter-diagnostic.mjs
+      - name: Upload Joyn diagnostic artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: joyn-adapter-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/joyn-adapter/*.json
+            artifacts/source-adapters/joyn-v1-diagnostic.json
+            artifacts/source-schema/joyn-epg-upstream.*
+          if-no-files-found: warn
+          retention-days: 30
