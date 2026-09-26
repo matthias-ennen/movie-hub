@@ -386,3 +386,60 @@ Bei jeder neuen Quelle wird zusätzlich zur Kompatibilitätsanalyse eine Mehrwer
 - Welche neuen Produktideen könnten daraus entstehen?
 
 Damit wird jede neue Quelle nicht nur als Datenlieferant, sondern auch als möglicher Funktionsgeber für Movie Hub betrachtet.
+
+
+## 12. Regel zur Hochstufung von Extensions zu Capabilities
+
+Ein quellspezifisches Feld wird nicht sofort Teil des gemeinsamen Vertrags. Die
+Hochstufung erfolgt erst, wenn mindestens eine der folgenden Bedingungen erfüllt
+ist:
+
+1. **Quellenübergreifende Wiederholung**
+   - mindestens zwei unabhängige Quellen liefern fachlich dieselbe Information.
+
+2. **Eigenständiger Produktmehrwert**
+   - Movie Hub kann daraus eine verständliche, quellenunabhängige Funktion bauen,
+     z. B. „Replay verfügbar“, „Untertitel“, „läuft in 4K“, „noch 5 Tage verfügbar“.
+
+3. **Stabile Semantik**
+   - Bedeutung und Lebenszyklus des Feldes sind klar genug, dass es nicht nur
+     eine technische Eigenheit einer Quelle beschreibt.
+
+4. **Belastbare Qualität**
+   - die Quelle liefert die Information reproduzierbar und nicht nur zufällig
+     oder in einzelnen Sonderfällen.
+
+5. **Sichere Speicherung und Nutzung**
+   - Datenschutz, Rechte, Datenmenge und Aktualisierungsstrategie sind geklärt.
+
+Bis dahin bleibt die Information unter einem namespacierten `extensions`-
+Bereich erhalten.
+
+### Beispiel Waipu
+
+Bereits heute vorhandene Rohinformationen können unter `extensions.waipu`
+erhalten werden, z. B.:
+
+- `programId`
+- `seriesId`
+- rohe Wiedergabe-/Aufnahmeeinschränkungen aus Programmdetails
+
+Staffel, Folge und Episodentitel sind dagegen bereits allgemein genug und werden
+im Core/Capability-Modell normalisiert.
+
+### Beispiel zweite Quelle
+
+Liefert etwa Joyn oder ein offizieller Sender zusätzlich eine belastbare
+Catch-up-/Mediathek-Gültigkeit, kann diese Information zunächst unter der
+jeweiligen Extension erhalten werden. Sobald sich daraus eine stabile
+quellenübergreifende Bedeutung ergibt, wird sie als `replay`,
+`catchupWindow` oder `availabilityExpiry` normalisiert.
+
+### Migrationsregel
+
+Eine Hochstufung darf alte Daten nicht unlesbar machen:
+
+- neue Contract-Version kann die Capability ergänzen;
+- der Adapter normalisiert neue Generationen in die Capability;
+- bestehende Extension-Daten bleiben während einer Übergangsphase lesbar;
+- UI konsumiert nur die normalisierte Capability, sobald diese als stabil gilt.
