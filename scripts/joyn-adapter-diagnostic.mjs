@@ -15,8 +15,55 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const JOYN_BASE = 'https://www.joyn.de'
 const AUTH_URL = 'https://auth.joyn.de/auth/anonymous'
 const GRAPHQL_URL = 'https://api.joyn.de/graphql'
-const OPERATION = 'LiveChannelsAndEpg'
-const HASH = 'b7703103ddd0516be6b49ed66186092a6c6f6d815ccc502a9f50800a8cc18dd2'
+const OPERATION = 'LiveChannelsAndEPG'
+const SEARCH_OPERATION = 'SearchQ'
+const SEARCH_HASH = 'bb2bab6cbe17321d7eddd5006e7f40765faedd79790b193a59d83f4640694856'
+const FULL_EPG_QUERY = `query LiveChannelsAndEPG {
+  liveStreams(filterLivestreamsTypes: [LINEAR], first: 5000, offset: 0, liveStreamGroupFilter: DEFAULT) {
+    id
+    title
+    type
+    quality
+    logo { url }
+    brand {
+      title
+      brandCode
+      livestream { logo { url(profile: "nextgen-web-artlogo-183x75") } }
+    }
+    epgEvents {
+      startDate
+      endDate
+      program {
+        __typename
+        ... on EpgEntry {
+          id
+          title
+          secondaryTitle
+          startDate
+          endDate
+          images { id type url }
+        }
+        ... on Movie {
+          id
+          title
+          path
+          licenseTypes
+          video { id }
+        }
+        ... on Episode {
+          id
+          title
+          path
+          licenseTypes
+          number
+          season { number }
+          series { id title }
+          video { id }
+        }
+      }
+    }
+  }
+}`
 const OBSERVED_PUBLIC_WEBCLIENT_KEY = '4f0fd9f18abbe3cf0e87fdb556bc39c8'
 
 function headers() {
@@ -54,24 +101,24 @@ async function loadJoynEpg(fetchImpl = fetch, {
   maxAttempts = 3,
   sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms)),
 } = {}) {
-  const params = new URLSearchParams()
-  params.set('operationName', OPERATION)
-  params.set('enable_user_location', 'true')
-  params.set('watch_assistant_variant', 'true')
-  params.set('variables', JSON.stringify({}))
-  params.set('extensions', JSON.stringify({ persistedQuery: { version: 1, sha256Hash: HASH } }))
-
   let lastError = null
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       const token = await anonymousToken(fetchImpl)
+      const apiKey = process.env.JOYN_GRAPHQL_API_KEY || OBSERVED_PUBLIC_WEBCLIENT_KEY
+      const params = new URLSearchParams()
+      params.set('operationName', OPERATION)
+      params.set('enable_user_location', 'true')
+      params.set('watch_assistant_variant', 'true')
+      params.set('query', FULL_EPG_QUERY)
+
       const response = await fetchImpl(GRAPHQL_URL + '?' + params.toString(), {
         headers: {
           ...headers(),
           authorization: 'Bearer ' + token,
           accept: 'application/json',
           'content-type': 'application/json',
-          'x-api-key': process.env.JOYN_GRAPHQL_API_KEY || OBSERVED_PUBLIC_WEBCLIENT_KEY,
+          'x-api-key': apiKey,
           'joyn-platform': 'web',
           'joyn-country': 'DE',
           'joyn-distribution-tenant': 'JOYN',
@@ -84,13 +131,57 @@ async function loadJoynEpg(fetchImpl = fetch, {
         throw new Error(`Joyn GraphQL returned errors: ${body.errors.map((e) => e?.message).join('; ')}`)
       }
       if (!body?.data) throw new Error('Joyn GraphQL returned no data.')
-      return body.data
+      return { data: body.data, token, apiKey }
     } catch (error) {
       lastError = error
       if (attempt < maxAttempts) await sleep(500 * (2 ** (attempt - 1)))
     }
   }
   throw lastError || new Error('Joyn GraphQL failed after retries.')
+}
+
+async function searchJoynTitle(title, {
+  fetchImpl = fetch,
+  token,
+  apiKey,
+} = {}) {
+  const params = new URLSearchParams()
+  params.set('operationName', SEARCH_OPERATION)
+  params.set('enable_user_location', 'true')
+  params.set('watch_assistant_variant', 'true')
+  params.set('variables', JSON.stringify({ text: title, first: 10, offset: 0 }))
+  params.set('extensions', JSON.stringify({
+    persistedQuery: { version: 1, sha256Hash: SEARCH_HASH },
+  }))
+  const response = await fetchImpl(GRAPHQL_URL + '?' + params.toString(), {
+    headers: {
+      ...headers(),
+      authorization: 'Bearer ' + token,
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'joyn-platform': 'web',
+      'joyn-country': 'DE',
+      'joyn-distribution-tenant': 'JOYN',
+      'joyn-client-version': '5.1370.0',
+    },
+  })
+  if (!response.ok) return { type: null, reason: 'http_error' }
+  const body = await response.json().catch(() => null)
+  if (!body?.data || body?.errors?.length) return { type: null, reason: 'graphql_error' }
+  const input = normalizeWaipuText(title)
+  const exact = (Array.isArray(body?.data?.search?.results) ? body.data.search.results : [])
+    .filter((result) => normalizeWaipuText(result?.title) === input)
+    .map((result) => {
+      if (result?.__typename === 'Movie') return 'movie'
+      if (result?.__typename === 'Series' || result?.__typename === 'Episode') return 'series'
+      return null
+    })
+    .filter(Boolean)
+  const unique = [...new Set(exact)]
+  return unique.length === 1
+    ? { type: unique[0], reason: 'exact_joyn_search' }
+    : { type: null, reason: unique.length > 1 ? 'ambiguous_joyn_search' : 'no_joyn_type' }
 }
 
 function titleLookup(candidates) {
@@ -124,7 +215,8 @@ export async function runJoynAdapterDiagnostic({
   now = Date.now(),
 } = {}) {
   const generatedAt = new Date(now).toISOString()
-  const raw = await loadJoynEpg(fetchImpl)
+  const loaded = await loadJoynEpg(fetchImpl)
+  const raw = loaded.data
 
   const observer = new SourceSchemaObserver({
     sourceId: 'joyn-epg-upstream',
@@ -162,14 +254,36 @@ export async function runJoynAdapterDiagnostic({
 
   const decisions = new Map()
   const rejected = {}
+  const joynClassification = { movie: 0, series: 0, unknown: 0 }
+  let joynSearchRequests = 0
   for (const [programId, entry] of uniquePrograms) {
-    const decision = await matchJoynProgram(
+    const localCandidates = candidatesFor(entry.candidate.title)
+    let decision = await matchJoynProgram(
       { title: entry.candidate.title },
-      {
-        localCandidates: candidatesFor(entry.candidate.title),
-        searchTmdb: tmdbSearch ? (input) => tmdbSearch.search(input) : null,
-      },
+      { localCandidates, searchTmdb: null },
     )
+
+    let joynType = null
+    if (decision.status !== 'matched') {
+      const classified = await searchJoynTitle(entry.candidate.title, {
+        fetchImpl,
+        token: loaded.token,
+        apiKey: loaded.apiKey,
+      })
+      joynSearchRequests += 1
+      joynType = classified.type
+      if (joynType) joynClassification[joynType] += 1
+      else joynClassification.unknown += 1
+
+      decision = await matchJoynProgram(
+        { title: entry.candidate.title, type: joynType },
+        {
+          localCandidates,
+          searchTmdb: tmdbSearch ? (input) => tmdbSearch.search(input) : null,
+        },
+      )
+    }
+
     decisions.set(programId, decision)
     if (decision.status !== 'matched') {
       rejected[decision.reason || 'unmatched'] = Number(rejected[decision.reason || 'unmatched'] || 0) + 1
@@ -221,6 +335,8 @@ export async function runJoynAdapterDiagnostic({
       localOnlyMatches: [...decisions.values()].filter((d) => d.status === 'matched' && d.source === 'local').length,
       searchAssistedMatches: [...decisions.values()].filter((d) => d.status === 'matched' && d.source === 'local+tmdb-search').length,
       tmdbRequests: tmdbSearch?.requestsStarted || 0,
+      joynSearchRequests,
+      joynClassification,
       rejected,
     },
     output: {
