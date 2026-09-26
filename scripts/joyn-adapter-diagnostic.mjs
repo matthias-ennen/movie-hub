@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 import { localTmdbCandidates } from './waipu-live-catalog.mjs'
-import { chooseJoynTmdbMatch } from './joyn-tmdb-matcher.mjs'
+import { JoynTmdbSearchClient, matchJoynProgram } from './joyn-tmdb-matcher.mjs'
 import { normalizeJoynLiveChannelsAndEpg } from '../src/sources/joyn/joynEpgNormalizer.js'
 import { JOYN_PILOT_STATIONS } from '../src/sources/joyn/joynPilotStations.js'
 import { mapJoynCandidateToBroadcastEvent, buildJoynSourceEnvelope } from '../src/sources/adapters/joynContractMapper.js'
@@ -151,12 +151,24 @@ export async function runJoynAdapterDiagnostic({
     if (!uniquePrograms.has(entry.candidate.joynProgramId)) uniquePrograms.set(entry.candidate.joynProgramId, entry)
   }
 
+  const tmdbSearch = process.env.TMDB_API_READ_TOKEN
+    ? new JoynTmdbSearchClient({
+      token: process.env.TMDB_API_READ_TOKEN,
+      language: process.env.TMDB_LANGUAGE || 'de-DE',
+      maxRequests: Number(process.env.JOYN_TMDB_REQUEST_BUDGET || 120),
+      paceMs: Number(process.env.JOYN_TMDB_PACE_MS || 200),
+    })
+    : null
+
   const decisions = new Map()
   const rejected = {}
   for (const [programId, entry] of uniquePrograms) {
-    const decision = chooseJoynTmdbMatch(
+    const decision = await matchJoynProgram(
       { title: entry.candidate.title },
-      candidatesFor(entry.candidate.title),
+      {
+        localCandidates: candidatesFor(entry.candidate.title),
+        searchTmdb: tmdbSearch ? (input) => tmdbSearch.search(input) : null,
+      },
     )
     decisions.set(programId, decision)
     if (decision.status !== 'matched') {
@@ -206,6 +218,9 @@ export async function runJoynAdapterDiagnostic({
     matching: {
       localTmdbCandidates: tmdbCandidates.length,
       matchedPrograms: [...decisions.values()].filter((d) => d.status === 'matched').length,
+      localOnlyMatches: [...decisions.values()].filter((d) => d.status === 'matched' && d.source === 'local').length,
+      searchAssistedMatches: [...decisions.values()].filter((d) => d.status === 'matched' && d.source === 'local+tmdb-search').length,
+      tmdbRequests: tmdbSearch?.requestsStarted || 0,
       rejected,
     },
     output: {
