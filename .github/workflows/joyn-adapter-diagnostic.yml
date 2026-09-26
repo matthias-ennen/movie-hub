@@ -43,6 +43,7 @@ jobs:
           name: joyn-adapter-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             artifacts/joyn-adapter/*.json
+            artifacts/joyn-live/**/*.json
             artifacts/source-adapters/joyn-v1-diagnostic.json
             artifacts/source-schema/joyn-epg-upstream.*
           if-no-files-found: warn
