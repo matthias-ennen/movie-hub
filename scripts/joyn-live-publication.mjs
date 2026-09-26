@@ -37,7 +37,8 @@ function stationCatalog(rawStreams, stationMapping) {
         mappingStatus: mapping?.status || 'unmatched',
         mappingMethod: mapping?.method || null,
         logoUrl: text(stream?.brand?.livestream?.logo?.url) || text(stream?.logo?.url),
-        brandId: text(stream?.brand?.brandCode) || text(stream?.brand?.brand_id),
+        brandId: text(stream?.brand?.id) || text(stream?.brand?.brand_id),
+        brandCode: text(stream?.brand?.brandCode),
         quality: text(stream?.quality),
         streamType: text(stream?.type),
       }
