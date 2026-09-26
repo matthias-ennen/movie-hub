@@ -181,8 +181,8 @@ export async function runJoynAdapterDiagnostic({
     const decision = decisions.get(entry.candidate.joynProgramId)
     if (decision?.status !== 'matched') continue
     const event = mapJoynCandidateToBroadcastEvent(entry.candidate, {
-      tmdbId: decision.best.candidate.tmdbId,
-      type: decision.best.candidate.type,
+      tmdbId: decision.match.tmdbId,
+      type: decision.match.type,
     }, {
       channelId: entry.station.waipuStationId,
       observedAt: generatedAt,
