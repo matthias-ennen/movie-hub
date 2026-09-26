@@ -641,3 +641,6 @@ und Rohquellendaten getrennt.
 
 
 > Zweiter Live-Validierungslauf nach 404-Robustheitsfix und verschachtelter Extension-Policy gestartet.
+
+
+> #331 Live-Abnahme gestartet: Waipu-Generator und Clientpfade laufen über BroadcastEvent V1; Legacy-Projektion und interner SourceEnvelope werden im 228-Sender-Lauf gemeinsam validiert.
