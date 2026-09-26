@@ -52,10 +52,12 @@ export function normalizeJoynLiveChannelsAndEpg(data) {
         quality: text(stream?.quality),
         joynProgramId,
         title,
+        secondaryTitle: text(program?.secondaryTitle),
         startTime,
         endTime,
         programType: text(program?.__typename),
-        programImageUrl: text(program?.image?.url),
+        programImageUrl: text(program?.image?.url)
+          || text((Array.isArray(program?.images) ? program.images : []).find((image) => image?.url)?.url),
       })
     }
   }
