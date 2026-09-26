@@ -118,10 +118,27 @@ export function inspectSourceFieldSnapshot(snapshot, {
       .map((field) => [field.path, field]),
   )
 
+  const inheritedPolicy = (path) => {
+    const segments = String(path).split('.')
+    while (segments.length > 1) {
+      segments.pop()
+      const parent = normalizedPolicy[segments.join('.')]
+      if (!parent) continue
+      if ([FIELD_DECISIONS.EXTENSION, FIELD_DECISIONS.REJECT, FIELD_DECISIONS.DEPRECATED].includes(parent.decision)) {
+        return {
+          ...parent,
+          reason: parent.reason || `Inherited from parent ${parent.decision} policy.`,
+        }
+      }
+      return null
+    }
+    return null
+  }
+
   const report = []
   for (const field of [...fields.values()].sort((a, b) => a.path.localeCompare(b.path))) {
     const types = [...field.types].sort()
-    const policyEntry = normalizedPolicy[field.path]
+    const policyEntry = normalizedPolicy[field.path] || inheritedPolicy(field.path)
     const previousField = previous.get(field.path)
     const typeChanged = Boolean(previousField)
       && JSON.stringify([...(previousField.types || [])].sort()) !== JSON.stringify(types)
