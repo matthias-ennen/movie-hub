@@ -27,6 +27,21 @@ const SOURCE_STATUS_SET = new Set(SOURCE_STATUS)
 const ACCESS_TYPE_SET = new Set(ACCESS_TYPES)
 const PLAYBACK_MODE_SET = new Set(PLAYBACK_MODES)
 
+export const CAPABILITY_NAMES = Object.freeze([
+  'replay',
+  'recording',
+  'subtitles',
+  'audioDescription',
+  'videoQuality',
+  'availabilityExpiry',
+  'onDemandRelation',
+  'episodeRelation',
+  'regionalRestriction',
+  'catchupWindow',
+])
+
+const CAPABILITY_NAME_SET = new Set(CAPABILITY_NAMES)
+
 function text(value) {
   const normalized = String(value ?? '').trim()
   return normalized || null
@@ -109,6 +124,56 @@ function normalizePlaybackRoutes(values) {
   return [...unique.values()]
 }
 
+function normalizeJsonValue(value, field) {
+  if (value === null || value === undefined) return null
+  try {
+    return JSON.parse(JSON.stringify(value))
+  } catch {
+    throw new TypeError(`${field} must be JSON-serializable.`)
+  }
+}
+
+export function normalizeCapabilities(raw) {
+  if (raw === null || raw === undefined) return {}
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new TypeError('capabilities must be an object.')
+  }
+
+  const normalized = {}
+  for (const [name, value] of Object.entries(raw)) {
+    if (!CAPABILITY_NAME_SET.has(name)) {
+      throw new TypeError(`Unknown capability: ${name}`)
+    }
+    if (value === null || value === undefined) continue
+    if (typeof value === 'boolean') {
+      normalized[name] = { available: value }
+      continue
+    }
+    if (typeof value !== 'object' || Array.isArray(value)) {
+      throw new TypeError(`Capability ${name} must be boolean or object.`)
+    }
+    normalized[name] = normalizeJsonValue(value, `capability ${name}`)
+  }
+  return normalized
+}
+
+export function normalizeExtensions(raw) {
+  if (raw === null || raw === undefined) return {}
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new TypeError('extensions must be an object.')
+  }
+
+  const normalized = {}
+  for (const [namespace, value] of Object.entries(raw)) {
+    const key = text(namespace)
+    if (!key || !/^[a-z0-9][a-z0-9._-]{0,63}$/i.test(key)) {
+      throw new TypeError('Extension namespace is invalid.')
+    }
+    normalized[key] = normalizeJsonValue(value, `extension ${key}`)
+  }
+  return normalized
+}
+
 function optionalConfidence(value) {
   if (value === null || value === undefined || value === '') return null
   const number = Number(value)
@@ -146,6 +211,8 @@ export function normalizeAvailability(raw) {
     sourceRefs: normalizeSourceRefs(raw?.sourceRefs),
     matchConfidence: optionalConfidence(raw?.matchConfidence),
     matchReason: text(raw?.matchReason),
+    capabilities: normalizeCapabilities(raw?.capabilities),
+    extensions: normalizeExtensions(raw?.extensions),
   }
 }
 
@@ -189,6 +256,8 @@ export function normalizeBroadcastEvent(raw) {
     sourceRefs: normalizeSourceRefs(raw?.sourceRefs),
     matchConfidence: optionalConfidence(raw?.matchConfidence),
     matchReason: text(raw?.matchReason),
+    capabilities: normalizeCapabilities(raw?.capabilities),
+    extensions: normalizeExtensions(raw?.extensions),
   }
 }
 
@@ -223,6 +292,8 @@ export function normalizeSourceEnvelope(raw) {
     expiresAt: iso(raw?.expiresAt, 'expiresAt', { optional: true }),
     sourceStatus,
     sourceCoverage: raw?.sourceCoverage ?? null,
+    capabilities: normalizeCapabilities(raw?.capabilities),
+    extensions: normalizeExtensions(raw?.extensions),
     records: (Array.isArray(raw?.records) ? raw.records : []).map((record) => {
       if (record?.kind === 'availability') return normalizeAvailability(record)
       if (record?.kind === 'broadcast') return normalizeBroadcastEvent(record)
