@@ -28,6 +28,7 @@ import { useDpadNavigation } from './hooks/useDpadNavigation.js'
 import { useCurationClock } from './hooks/useCurationClock.js'
 import { useProviderSelection } from './settings/useProviderSelection.js'
 import { useWaipuStationSelection } from './settings/useWaipuStationSelection.js'
+import { useJoynStationSelection } from './settings/useJoynStationSelection.js'
 import { useLibrary } from './library/LibraryProvider.jsx'
 import { buildPersonalRows, buildPersonalTopHundredRows, buildWatchedHistoryRows, mergeCatalogWithPersonalSnapshots } from './library/personalRows.js'
 import {
@@ -61,7 +62,8 @@ import {
   nextTvAiringTransition,
   tvDayKey,
 } from './waipu/waipuTvCatalog.js'
-import { loadJoynLiveStationCatalog } from './joyn/joynTvCatalog.js'
+import { loadJoynLiveStationCatalog, loadJoynTvAirings } from './joyn/joynTvCatalog.js'
+import { mergeTvAirings } from './sources/mergeTvAirings.js'
 
 function NativeStartupSignal() {
   useEffect(() => {
@@ -424,6 +426,11 @@ function MovieHub({ user }) {
     loading: stationSelectionLoading,
   } = useWaipuStationSelection()
   const {
+    disabledStationIds: disabledJoynStationIds,
+    orderStations: orderJoynStations,
+    loading: joynStationSelectionLoading,
+  } = useJoynStationSelection()
+  const {
     entries: sharedMediaCatalogEntries,
     hasTitle: hasMovieHubTitle,
     loading: sharedMediaCatalogLoading,
@@ -589,39 +596,94 @@ function MovieHub({ user }) {
   }, [disabledStationIds, orderStations, waipuStationCatalog.stations])
   const activeWaipuStationKey = activeWaipuStations.map((station) => station.id).join('|')
   const availableWaipuDayKey = (waipuStationCatalog.days || []).map(({ key }) => key).join('|')
+  const activeJoynStations = useMemo(() => {
+    const disabled = new Set(disabledJoynStationIds)
+    return orderJoynStations(joynStationCatalog.stations)
+      .filter((station) => !disabled.has(station.id))
+  }, [disabledJoynStationIds, joynStationCatalog.stations, orderJoynStations])
+  const activeJoynStationKey = activeJoynStations.map((station) => station.id).join('|')
+  const availableJoynDayKey = (joynStationCatalog.days || []).map(({ key }) => key).join('|')
+  const combinedTvDays = useMemo(() => {
+    const days = new Map()
+    for (const day of [...(waipuStationCatalog.days || []), ...(joynStationCatalog.days || [])]) {
+      if (!day?.key) continue
+      days.set(day.key, {
+        key: day.key,
+        count: Number(days.get(day.key)?.count || 0) + Number(day.count || 0),
+      })
+    }
+    return [...days.values()].sort((left, right) => left.key.localeCompare(right.key))
+  }, [joynStationCatalog.days, waipuStationCatalog.days])
+  const combinedTvStationOrder = useMemo(() => [...new Set([
+    ...activeWaipuStations.map((station) => station.id),
+    ...activeJoynStations.map((station) => station.canonicalId || `joyn.${station.id}`),
+  ])], [activeJoynStations, activeWaipuStations])
 
   useEffect(() => {
     if (!tvScheduleRequested) return undefined
-    if (waipuStationCatalog.status === 'loading' || stationSelectionLoading) {
+    const waipuLoading = waipuStationCatalog.status === 'loading' || stationSelectionLoading
+    const joynLoading = joynStationCatalog.status === 'loading' || joynStationSelectionLoading
+    const waipuReady = waipuStationCatalog.status === 'ready'
+    const joynReady = joynStationCatalog.status === 'ready'
+
+    if ((waipuLoading || joynLoading) && !waipuReady && !joynReady) {
       setTvSchedule({ status: 'loading', airings: [] })
       return undefined
     }
-    if (waipuStationCatalog.status !== 'ready') {
+    if (!waipuReady && !joynReady) {
       setTvSchedule({ status: 'unavailable', airings: [] })
       return undefined
     }
-    if (!activeWaipuStations.length) {
+    if ((!waipuReady || !activeWaipuStations.length) && (!joynReady || !activeJoynStations.length)) {
       setTvSchedule({ status: 'no-stations', airings: [] })
       return undefined
     }
 
     let cancelled = false
     setTvSchedule((current) => ({ ...current, status: 'loading' }))
-    loadWaipuTvAirings(activeWaipuStations, {
-      periodId: tvPeriodId,
-      availableDays: waipuStationCatalog.days,
-    })
-      .then((airings) => {
+    Promise.all([
+      waipuReady && activeWaipuStations.length
+        ? loadWaipuTvAirings(activeWaipuStations, {
+          periodId: tvPeriodId,
+          availableDays: waipuStationCatalog.days,
+        })
+        : Promise.resolve([]),
+      joynReady && activeJoynStations.length
+        ? loadJoynTvAirings(activeJoynStations, {
+          periodId: tvPeriodId,
+          availableDays: joynStationCatalog.days,
+        })
+        : Promise.resolve([]),
+    ])
+      .then(([waipuAirings, joynAirings]) => {
         if (!cancelled) {
           setTvClock(Date.now())
-          setTvSchedule({ status: 'ready', airings })
+          setTvSchedule({
+            status: 'ready',
+            airings: mergeTvAirings(waipuAirings, joynAirings),
+          })
         }
       })
       .catch(() => {
         if (!cancelled) setTvSchedule({ status: 'unavailable', airings: [] })
       })
     return () => { cancelled = true }
-  }, [activeWaipuStationKey, availableWaipuDayKey, stationSelectionLoading, tvPeriodId, tvScheduleRequested, waipuStationCatalog.days, waipuStationCatalog.status])
+  }, [
+    activeJoynStationKey,
+    activeJoynStations,
+    activeWaipuStationKey,
+    activeWaipuStations,
+    availableJoynDayKey,
+    availableWaipuDayKey,
+    joynStationCatalog.days,
+    joynStationCatalog.status,
+    joynStationSelectionLoading,
+    stationSelectionLoading,
+    tvPeriodId,
+    tvScheduleRequested,
+    waipuStationCatalog.days,
+    waipuStationCatalog.status,
+  ])
 
   useEffect(() => {
     if (tvSchedule.status !== 'ready') return undefined
@@ -679,11 +741,11 @@ function MovieHub({ user }) {
     airings: tvSchedule.airings,
     titles,
     titleEntries: waipuLiveEntries,
-    stationOrder: activeWaipuStations.map((station) => station.id),
+    stationOrder: combinedTvStationOrder,
     selectedPeriodId: tvPeriodId,
-    availableDays: waipuStationCatalog.days,
+    availableDays: combinedTvDays,
     now: tvClock,
-  }), [activeWaipuStations, titles, tvClock, tvPeriodId, tvSchedule.airings, waipuLiveEntries, waipuStationCatalog.days])
+  }), [combinedTvDays, combinedTvStationOrder, titles, tvClock, tvPeriodId, tvSchedule.airings, waipuLiveEntries])
   const compactTvHeroItems = useMemo(() => buildWaipuTvHeroItems({
     titles,
     titleEntries: waipuLiveEntries,
@@ -694,7 +756,9 @@ function MovieHub({ user }) {
   const tvScheduleSettled = tvSchedule.status !== 'idle' && tvSchedule.status !== 'loading'
   const tvHeroCatalogReady = waipuLiveStatus === 'ready'
     && waipuStationCatalog.status !== 'loading'
+    && joynStationCatalog.status !== 'loading'
     && !stationSelectionLoading
+    && !joynStationSelectionLoading
     && (compactTvHeroItems.length > 0 || tvScheduleSettled)
   const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
   const activeSortMode = useMemo(
