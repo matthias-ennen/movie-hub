@@ -100,8 +100,10 @@ export default function DetailModal({
   const cast = Array.isArray(item.cast) ? item.cast.slice(0, 5) : []
   const automaticVideos = Array.isArray(item.videos) ? item.videos : []
   const personalState = getTitleState(item)
-  const waipuAiringLabel = formatWaipuLiveAiring(item?.waipuLive?.nextAiring)
-  const joynAiringLabel = formatJoynLiveAiring(item?.joynLive?.nextAiring)
+  const tvAiringLabels = [...new Set([
+    formatWaipuLiveAiring(item?.waipuLive?.nextAiring),
+    formatJoynLiveAiring(item?.joynLive?.nextAiring),
+  ].filter(Boolean))]
 
   useEffect(() => {
     const active = returnFocusTarget || document.activeElement
@@ -699,17 +701,13 @@ export default function DetailModal({
           ) : (
             <p className="prototype-note">Für diesen Titel ist derzeit kein unterstützter Anbieter in Deutschland hinterlegt.</p>
           )}
-          {waipuAiringLabel && (
-            <p className="waipu-provider-airing" aria-label="Nächster Sendetermin bei waipu.tv">
-              <strong>Bei waipu.tv:</strong> {waipuAiringLabel}
+          {tvAiringLabels.map((label) => (
+            <p className="waipu-provider-airing" aria-label="Nächster TV-Sendetermin" key={label}>
+              <strong>Im TV:</strong> {label}
             </p>
+          ))}
           )}
-          {joynAiringLabel && (
-            <p className="waipu-provider-airing" aria-label="Nächster Sendetermin bei Joyn">
-              <strong>Bei Joyn:</strong> {joynAiringLabel}
-            </p>
-          )}
-          {hasProviders && <p className="prototype-note">Anbieter werden automatisch aus TMDB bestimmt und in der passenden App beziehungsweise Suchseite geöffnet.</p>}
+          {hasProviders && <p className="prototype-note">Verfügbarkeiten kommen aus TMDB sowie aus angebundenen Live-TV-Quellen und werden in der passenden App beziehungsweise Suchseite geöffnet.</p>}
           {item.tmdbId && <p className="tmdb-credit">Datenquelle: TMDB · ID {item.tmdbId}</p>}
 
           <section className="personal-title-state" aria-labelledby="personal-title-state-heading" aria-busy={personalBusy}>
