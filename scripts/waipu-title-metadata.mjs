@@ -111,7 +111,7 @@ export class WaipuTmdbMetadataClient {
     if (!response.ok) {
       const body = typeof response.text === 'function' ? await response.text() : ''
       const error = new Error(`TMDB metadata request failed with HTTP ${response.status}: ${body.slice(0, 300)}`)
-      error.code = 'TMDB_METADATA_REQUEST_FAILED'
+      error.code = response.status === 404 ? 'TMDB_METADATA_NOT_FOUND' : 'TMDB_METADATA_REQUEST_FAILED'
       error.status = response.status
       throw error
     }
@@ -171,6 +171,9 @@ export async function enrichWaipuTitleMetadata(entries, {
   const catalogByKey = new Map((Array.isArray(catalogTitles) ? catalogTitles : [])
     .filter((title) => completeMetadata(title))
     .map((title) => [canonicalTitleKey(title), title]))
+  const allCachedByKey = new Map((Array.isArray(cachedTitles) ? cachedTitles : [])
+    .filter((title) => completeMetadata(title))
+    .map((title) => [canonicalTitleKey(title), title]))
   const cachedByKey = new Map((Array.isArray(cachedTitles) ? cachedTitles : [])
     .filter((title) => !isTmdbTitleChangePending(
       changedTitleKeys,
@@ -187,6 +190,7 @@ export async function enrichWaipuTitleMetadata(entries, {
     fromCatalog: 0,
     fromCache: 0,
     fetched: 0,
+    notFoundFallback: 0,
     complete: 0,
   }
 
@@ -204,8 +208,15 @@ export async function enrichWaipuTitleMetadata(entries, {
         error.code = 'WAIPU_TITLE_METADATA_MISSING'
         throw error
       }
-      metadata = await loadTitleMetadata(entry, generatedAt)
-      metrics.fetched += 1
+      try {
+        metadata = await loadTitleMetadata(entry, generatedAt)
+        metrics.fetched += 1
+      } catch (error) {
+        if (error?.code !== 'TMDB_METADATA_NOT_FOUND') throw error
+        metadata = allCachedByKey.get(key)
+        if (!metadata) throw error
+        metrics.notFoundFallback += 1
+      }
     }
     const result = mergeAiringMetadata(entry, metadata)
     if (!completeMetadata(result)) {
