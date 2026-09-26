@@ -10,7 +10,7 @@ const fixture = {
     type: 'LIVE',
     quality: 'HD',
     logo: { url: 'https://img.joyn.de/logo.webp' },
-    brand: { brandCode: 'brand-1', title: 'ProSieben', livestream: { logo: { url: 'https://img.joyn.de/brand-logo.webp' } } },
+    brand: { id: 'brand-id-1', brandCode: 'brand-1', title: 'ProSieben', livestream: { logo: { url: 'https://img.joyn.de/brand-logo.webp' } } },
     epgEvents: [{
       startDate: 1790446500,
       endDate: 1790452800,
@@ -32,7 +32,8 @@ describe('Joyn EPG upstream', () => {
       source: 'joyn-epg',
       joynChannelId: 'channel-1',
       channelTitle: 'ProSieben',
-      brandId: 'brand-1',
+      brandId: 'brand-id-1',
+      brandCode: 'brand-1',
       brandTitle: 'ProSieben',
       channelLogoUrl: 'https://img.joyn.de/brand-logo.webp',
       streamType: 'LIVE',
