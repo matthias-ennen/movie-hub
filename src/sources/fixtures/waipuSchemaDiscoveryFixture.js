@@ -1,0 +1,25 @@
+export const WAIPU_SCHEMA_DISCOVERY_FIXTURE = {
+  id: 'program-1',
+  title: 'Beispieltitel',
+  originalTitle: 'Example Title',
+  genre: 'Filme',
+  mainGenre: 'Filme',
+  subGenres: ['Action', 'Komödie'],
+  startTime: '2026-09-26T18:15:00Z',
+  stopTime: '2026-09-26T20:15:00Z',
+  seriesId: null,
+  seasonNumber: null,
+  episodeNumber: null,
+  episodeTitle: null,
+  imageUrl: 'https://example.invalid/grid.jpg',
+  imageUrls: ['https://example.invalid/detail.jpg'],
+  productionYear: 2022,
+  productionCountries: ['DE'],
+  recordingRestrictions: {
+    recordable: true,
+    fastForward: false,
+  },
+  playbackRestrictions: {
+    replay: true,
+  },
+}
