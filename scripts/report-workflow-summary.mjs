@@ -81,6 +81,16 @@ function rejectedMatches(metrics = {}) {
   return Object.values(metrics.matchRejected || {}).reduce((sum, value) => sum + integer(value), 0)
 }
 
+function sourceSchemaSummary(reports = []) {
+  const valid = (Array.isArray(reports) ? reports : []).filter((report) => report && report.summary)
+  return {
+    sources: valid.length,
+    breaking: valid.reduce((sum, report) => sum + integer(report.summary?.breaking), 0),
+    review: valid.reduce((sum, report) => sum + integer(report.summary?.review), 0),
+    info: valid.reduce((sum, report) => sum + integer(report.summary?.info), 0),
+  }
+}
+
 function timestamp(value) {
   if (!value) return '–'
   return new Date(value).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })
@@ -114,6 +124,7 @@ export function buildWorkflowSummary({
   baselineData = null,
   baselineWaipu = null,
   workflowTiming = {},
+  sourceSchemaReports = [],
   steps = {},
   run = {},
 } = {}) {
@@ -131,6 +142,7 @@ export function buildWorkflowSummary({
   const matchRejected = rejectedMatches(waipuMetrics)
   const detailRejected = integer(waipuMetrics.detailsUnavailable) + integer(waipuMetrics.detailsMissing)
   const tmdbOutcome = combinedOutcome(steps.tmdbStrict, steps.tmdbPush)
+  const schemaSummary = sourceSchemaSummary(sourceSchemaReports)
 
   return {
     run: {
@@ -225,6 +237,23 @@ export function buildWorkflowSummary({
           : 'Episodenangaben nicht verfügbar',
       },
       {
+        area: 'Quellen-Schema',
+        status: schemaSummary.breaking > 0
+          ? '🔴 BREAKING erkannt'
+          : schemaSummary.review > 0
+            ? '🟡 REVIEW erforderlich'
+            : schemaSummary.sources > 0
+              ? '✅ keine offenen Schemaänderungen'
+              : '⏭️ kein Bericht',
+        stock: `${number(schemaSummary.sources)} Berichte · ${number(schemaSummary.info)} bekannte/Info-Felder`,
+        activity: `${number(schemaSummary.review)} Review · ${number(schemaSummary.breaking)} Breaking`,
+        open: schemaSummary.breaking > 0
+          ? 'Schemaänderung prüfen; produktiver Datenpfad bleibt separat geschützt'
+          : schemaSummary.review > 0
+            ? 'neue/unentschiedene Felder fachlich bewerten'
+            : '–',
+      },
+      {
         area: 'Kanonische Titelkandidaten',
         status: outcome(steps.candidateInventory, '⏭️ noch nicht inventarisiert'),
         stock: `${number(candidateInventory.counts?.canonicalCandidates)} Titel aus ${number(candidateInventory.counts?.rawCandidateReferences)} Referenzen`,
@@ -296,7 +325,7 @@ async function readJson(path, fallback = {}) {
 }
 
 async function main() {
-  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu, workflowTiming] = await Promise.all([
+  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu, workflowTiming, schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive] = await Promise.all([
     readJson('public/data-status.json'),
     readJson('public/catalog.json'),
     readJson('public/search-index.json'),
@@ -317,10 +346,16 @@ async function main() {
     readJson('artifacts/workflow-baseline/data-status.json', null),
     readJson('artifacts/workflow-baseline/waipu-index.json', null),
     readJson('artifacts/workflow-schedule-timing.json'),
+    readJson('artifacts/source-schema/waipu.json', null),
+    readJson('artifacts/source-schema/tmdb-watch-providers.json', null),
+    readJson('artifacts/source-schema/waipu-sync-upstream.json', null),
+    readJson('artifacts/source-schema/waipu-program-upstream.json', null),
+    readJson('artifacts/source-schema/tmdb-watch-providers-live.json', null),
   ])
   const summary = buildWorkflowSummary({
     dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges,
     tmdbChangeRun: activeTmdbChangeRun || lastTmdbChangeRun || {}, baselineData, baselineWaipu, workflowTiming,
+    sourceSchemaReports: [schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive].filter(Boolean),
     steps: {
       tmdbChanges: process.env.SUMMARY_TMDB_CHANGES,
       tmdbCheckpoint: process.env.SUMMARY_TMDB_CHECKPOINT,
