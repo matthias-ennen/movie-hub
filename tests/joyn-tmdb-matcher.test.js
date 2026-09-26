@@ -78,3 +78,21 @@ describe('Joyn contract mapper', () => {
     expect(envelope.records).toHaveLength(1)
   })
 })
+
+
+describe('Joyn diagnostic resilience contract', () => {
+  it('treats TMDB request budget exhaustion as an unresolved match, not a source failure', () => {
+    const decision = {
+      matcherVersion: 1,
+      status: 'unmatched',
+      reason: 'tmdb_budget_exhausted',
+      source: 'local',
+      match: null,
+    }
+    expect(decision).toMatchObject({
+      status: 'unmatched',
+      reason: 'tmdb_budget_exhausted',
+      match: null,
+    })
+  })
+})
