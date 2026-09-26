@@ -136,3 +136,60 @@ Konsequenz für #280:
 
 
 > Zweiter Live-Pilot nach Korrektur der waipu-epg-Provenienzprüfung gestartet.
+
+
+## Reale Pilotabdeckung – Live-Lauf #532
+
+Der zweite Live-Pilot ist erfolgreich durchgelaufen.
+
+Eingang:
+- 14.963 neutrale Waipu-BroadcastEvents im SourceEnvelope;
+- sechs freigegebene Joyn-Pilotsender.
+
+Ergebnis:
+- 870 Ereignisse lagen auf den sechs Pilot-Sendern;
+- 870/870 Ereignisse erhielten erfolgreich eine zusätzliche Joyn-PlaybackRoute;
+- alle sechs Pilot-Sender waren im realen Bestand vertreten;
+- kein Titel und kein Senderereignis wurde dupliziert;
+- Eventzeiten und EPG-IDs blieben vollständig Waipu-Provenienz;
+- Joyn ergänzte ausschließlich den zusätzlichen Anbieterweg.
+
+Abdeckung je Sender:
+
+| Sender | Waipu-ID | Ereignisse mit Joyn-Route |
+| --- | --- | ---: |
+| ProSieben | `pro7` | 279 |
+| SAT.1 | `sat1` | 103 |
+| Kabel Eins | `kabeleins` | 191 |
+| ZDF | `zdf` | 122 |
+| DMAX | `dmax` | 55 |
+| Tele 5 | `tele5` | 120 |
+| **Gesamt** |  | **870** |
+
+### Welche Daten kommen in dieser Pilotstufe wirklich von Joyn?
+
+**Neu durch Joyn:**
+- Provideridentität `joyn`;
+- offizieller senderbezogener HTTPS-Zielpunkt;
+- Joyn-Sender-Slug;
+- Zuordnung dieses Zielpunkts zu einem bekannten neutralen Sender;
+- aktuelle Qualitätsstufe des Ziels: `web-fallback`;
+- öffentlich bestätigte Tatsache, dass der jeweilige Sender über Joyn Live-TV anbietet.
+
+**Nicht von Joyn in dieser Pilotstufe:**
+- Sendungsstart;
+- Sendungsende;
+- EPG-/Programm-ID;
+- Film-/Serienklassifikation;
+- TMDB-ID;
+- Staffel/Folge;
+- Titelmetadaten;
+- Altersfreigabe;
+- Bilddaten;
+- exakter sendungsbezogener Joyn-Deep-Link.
+
+Diese Werte stammen weiterhin aus Waipu beziehungsweise TMDB.
+
+Damit ist der aktuelle Joyn-Baustein **ein Playback-Route-Adapter**, noch kein
+unabhängiger Joyn-EPG-Adapter. Diese Unterscheidung ist verbindlich und wird im
+UI/Reporting nicht verwischt.
