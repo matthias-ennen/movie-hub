@@ -77,6 +77,31 @@ describe('multi-source merge', () => {
     })
   })
 
+  it('rejects a current envelope that marks itself failed and retains last-valid data', () => {
+    const currentFailed = normalizeSourceEnvelope({
+      ...envelope('fixture-joyn', 'joyn'),
+      sourceGenerationId: 'fixture-joyn:failed',
+      sourceStatus: 'failed',
+    })
+    const previous = envelope('fixture-joyn', 'joyn', {
+      generatedAt: '2026-09-26T09:00:00Z',
+    })
+
+    const merged = mergeSourceGenerations({
+      generations: [currentFailed],
+      previousEnvelopes: [previous],
+    }, { now: Date.parse('2026-09-26T12:00:00Z') })
+
+    expect(merged.broadcastEvents).toHaveLength(1)
+    expect(merged.sourceStatuses[0]).toMatchObject({
+      sourceId: 'fixture-joyn',
+      status: 'failed',
+      retainedPrevious: true,
+      generationId: previous.sourceGenerationId,
+      failure: { code: 'SOURCE_GENERATION_FAILED' },
+    })
+  })
+
   it('retains the last valid generation for a failed source but drops expired broadcasts', () => {
     const previous = normalizeSourceEnvelope({
       ...envelope('fixture-joyn', 'joyn'),
