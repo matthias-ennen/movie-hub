@@ -154,6 +154,10 @@ jobs:
       - name: Restore last deployed Waipu catalog
         run: npm run waipu:restore
 
+      - name: Restore last deployed Joyn catalog
+        continue-on-error: true
+        run: npm run joyn:restore
+
       - name: Restore validated live TMDB data for code deploy
         if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') }}
         run: npm run tmdb:restore
@@ -219,6 +223,18 @@ jobs:
           TMDB_LANGUAGE: de-DE
           TMDB_COUNTRY: DE
         run: npm run waipu:catalog -- --live
+
+      - name: Build independent Joyn live catalog
+        id: joyn_catalog
+        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
+        continue-on-error: true
+        env:
+          JOYN_LIVE_OUTPUT: public/joyn-live
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+          TMDB_LANGUAGE: de-DE
+          JOYN_TMDB_REQUEST_BUDGET: '1200'
+          JOYN_TMDB_PACE_MS: '200'
+        run: npm run joyn:diagnostic
 
       - name: Build Joyn pilot playback overlay from Waipu events
         id: joyn_pilot_overlay
