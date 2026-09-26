@@ -5,6 +5,13 @@ function safeText(value) {
   return text || null
 }
 
+function waipuEpgPlaybackTarget(stationId, programId) {
+  const station = safeText(stationId)
+  const program = safeText(programId)
+  if (!station || !program) return null
+  return `https://app.waipu.tv/epgdetails/${encodeURIComponent(station)}/${encodeURIComponent(program)}`
+}
+
 export function mapWaipuAiringToBroadcastEvent(title, airing, {
   observedAt = new Date().toISOString(),
   playbackTarget = null,
@@ -28,10 +35,11 @@ export function mapWaipuAiringToBroadcastEvent(title, airing, {
     tmdbId,
   ].join('|')
 
-  const playbackRoutes = safeText(playbackTarget) ? [{
+  const exactPlaybackTarget = safeText(playbackTarget) || waipuEpgPlaybackTarget(stationId, programId)
+  const playbackRoutes = exactPlaybackTarget ? [{
     providerId: 'waipu',
     mode: 'APP_DEEP_LINK',
-    target: safeText(playbackTarget),
+    target: exactPlaybackTarget,
     requiresSubscription: true,
     verifiedAt,
   }] : []
