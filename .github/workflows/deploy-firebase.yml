@@ -381,6 +381,15 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+      - name: Upload source adapter artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: source-adapter-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/source-adapters/*.json
+          if-no-files-found: ignore
+          retention-days: 30
+
       - name: Upload source schema diagnostics
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
