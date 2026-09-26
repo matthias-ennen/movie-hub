@@ -101,6 +101,27 @@ describe('source field discovery', () => {
     })
   })
 
+  it('classifies technical schema metadata and leaves trackingContentId for review', () => {
+    const report = inspectSourceSchema([{
+      $schema: 'https://example.invalid/schema',
+      trackingContentId: 'tracking-123',
+    }], {
+      sourceId: 'waipu',
+      policy: {
+        '$schema': { decision: FIELD_DECISIONS.REJECT },
+        trackingContentId: { decision: FIELD_DECISIONS.REVIEW },
+      },
+    })
+    expect(report.fields.find((field) => field.path === '$schema')).toMatchObject({
+      severity: 'INFO',
+      status: 'reject',
+    })
+    expect(report.fields.find((field) => field.path === 'trackingContentId')).toMatchObject({
+      severity: 'REVIEW',
+      status: 'review',
+    })
+  })
+
   it('keeps approved Waipu restrictions as extensions', () => {
     const report = inspectSourceSchema([{
       recordingRestrictions: { fastForward: false },
