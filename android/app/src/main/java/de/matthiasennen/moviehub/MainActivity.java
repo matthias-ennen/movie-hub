@@ -820,6 +820,7 @@ public final class MainActivity extends ComponentActivity {
                 || isDomainOrSubdomain(normalizedHost, "disneyplus.com")
                 || isDomainOrSubdomain(normalizedHost, "youtube.com")
                 || isDomainOrSubdomain(normalizedHost, "youtu.be")
+                || isDomainOrSubdomain(normalizedHost, "joyn.de")
                 || isDomainOrSubdomain(normalizedHost, "waipu.tv");
     }
 
@@ -846,6 +847,8 @@ public final class MainActivity extends ComponentActivity {
                         "com.google.android.youtube.tv",
                         "com.google.android.youtube"
                 };
+            case "joyn":
+                return new String[] { "de.prosiebensat1digital.seventv" };
             case "waipu":
                 return new String[] {
                         "de.exaring.waipu.firetv.live",
