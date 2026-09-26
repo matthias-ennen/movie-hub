@@ -22,13 +22,28 @@ const FULL_EPG_QUERY = `query LiveChannelsAndEPG {
       startDate
       endDate
       program {
+        __typename
         ... on EpgEntry {
-          __typename
+          title
+          secondaryTitle
+          images { id type url }
+        }
+        ... on Movie {
           id
           title
-          startDate
-          endDate
-          image { url(profile: "nextgen-web-livestill-503x283") }
+          path
+          licenseTypes
+          video { id }
+        }
+        ... on Episode {
+          id
+          title
+          path
+          licenseTypes
+          number
+          season { number }
+          series { id title }
+          video { id }
         }
       }
     }
