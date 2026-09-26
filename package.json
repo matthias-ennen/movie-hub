@@ -48,7 +48,8 @@
     "moviehub:metadata:backfill": "node scripts/enrich-shared-media-metadata.mjs",
     "personal-tmdb:metadata:backfill": "node scripts/enrich-personal-tmdb-metadata.mjs",
     "personal-data:encryption:audit": "node scripts/audit-personal-data-encryption.mjs",
-    "source:schema:report": "node scripts/report-source-schema.mjs"
+    "source:schema:report": "node scripts/report-source-schema.mjs",
+    "source:merge:smoke": "node scripts/source-merge-smoke.mjs"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.13",
