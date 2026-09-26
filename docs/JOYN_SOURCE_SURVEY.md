@@ -130,3 +130,6 @@ Konsequenz für #280:
 - EPG-Zugang getrennt weiter untersuchen;
 - ein Joyn-SourceEnvelope mit echten Sendeterminen entsteht erst nach
   belastbarer Struktur- und Nutzungsbewertung.
+
+
+> Live-Pilot gestartet: Der nächste mit `[waipu-refresh]` markierte Lauf erzeugt aus dem echten Waipu-SourceEnvelope einen diagnostischen Joyn-Playback-Overlay für die sechs Pilot-Sender. Es werden keine Joyn-EPG-Zeiten erfunden und keine Overlay-Daten an die App veröffentlicht.
