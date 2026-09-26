@@ -9,6 +9,9 @@ import {
   WaipuPublicDataError,
   WAIPU_SLOT_DURATION_MS,
 } from './waipu-public-data.mjs'
+import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
+import { WAIPU_SYNC_UPSTREAM_FIELD_POLICY } from '../src/sources/policies/waipuUpstreamFieldPolicy.js'
+import { writeFieldDiscoveryReport } from '../src/sources/fieldDiscoveryReport.js'
 import {
   WAIPU_MOVIE_HUB_STATION_IDS,
   WAIPU_OFFICIAL_FIRST_100_IDS,
@@ -376,7 +379,14 @@ export async function runWaipuSync(options = {}) {
     root: options.cacheRoot || resolve(root, 'artifacts/waipu-sync/cache'),
     now,
   })
-  const client = options.client || new WaipuPublicApiClient({ now })
+  const schemaObserver = options.schemaObserver || new SourceSchemaObserver({
+    sourceId: 'waipu-sync-upstream',
+    policy: WAIPU_SYNC_UPSTREAM_FIELD_POLICY,
+  })
+  const client = options.client || new WaipuPublicApiClient({
+    now,
+    observeRawSchema: (body, context) => schemaObserver.observe(body, context),
+  })
 
   return withWaipuSingleFlight(lockPath, async () => {
     const state = await loadState(statePath, runStartedAt)
@@ -512,6 +522,13 @@ export async function runWaipuSync(options = {}) {
       status.circuit = state.circuit
       await writeJsonAtomic(statePath, state)
       await writeJsonAtomic(statusPath, status)
+      const schemaReport = schemaObserver.observe([], { phase: 'final' })
+      if (schemaReport) {
+        await writeFieldDiscoveryReport(schemaReport, {
+          jsonPath: resolve(root, 'artifacts/source-schema/waipu-sync-upstream.json'),
+          markdownPath: resolve(root, 'artifacts/source-schema/waipu-sync-upstream.md'),
+        })
+      }
       return status
     } catch (error) {
       if (error?.code === 'FORBIDDEN_STOP') {
@@ -546,6 +563,13 @@ export async function runWaipuSync(options = {}) {
         : sanitizedFailure(error)
       await writeJsonAtomic(statePath, state)
       await writeJsonAtomic(statusPath, status)
+      const schemaReport = schemaObserver.observe([], { phase: 'failure' })
+      if (schemaReport) {
+        await writeFieldDiscoveryReport(schemaReport, {
+          jsonPath: resolve(root, 'artifacts/source-schema/waipu-sync-upstream.json'),
+          markdownPath: resolve(root, 'artifacts/source-schema/waipu-sync-upstream.md'),
+        })
+      }
       return status
     }
   }, { now, staleAfterMs: options.lockStaleMs })
