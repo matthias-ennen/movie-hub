@@ -62,7 +62,7 @@ describe('kontoweite Streaminganbieter-Auswahl', () => {
     expect(providerDirectory.moviehub?.label).toBe('Movie Hub')
     expect(providerDirectory.joyn?.label).toBe('Joyn')
     expect(providers.netflix?.label).toBe('Netflix')
-    expect(providers.joyn).toBeUndefined()
+    expect(providers.joyn?.label).toBe('Joyn')
 
     updateProviderSelectionSnapshot({ enabledProviderIds: ['moviehub', 'prime', 'joyn'] })
 
