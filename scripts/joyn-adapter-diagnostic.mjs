@@ -68,6 +68,54 @@ const FULL_EPG_QUERY = `query LiveChannelsAndEPG {
 }`
 const OBSERVED_PUBLIC_WEBCLIENT_KEY = '4f0fd9f18abbe3cf0e87fdb556bc39c8'
 
+const GRAPHQL_KEY_PATTERNS = [
+  /["']x-api-key["']\s*[:=]\s*["']([a-f0-9]{32})["']/gi,
+  /["']xApiKey["']\s*[:=]\s*["']([a-f0-9]{32})["']/gi,
+  /["']graphqlApiKey["']\s*[:=]\s*["']([a-f0-9]{32})["']/gi,
+]
+
+export function extractJoynGraphqlApiKey(text = '') {
+  const source = String(text || '')
+  for (const pattern of GRAPHQL_KEY_PATTERNS) {
+    pattern.lastIndex = 0
+    const match = pattern.exec(source)
+    if (match?.[1]) return match[1]
+  }
+  return null
+}
+
+async function discoverJoynGraphqlApiKey(fetchImpl = fetch) {
+  const page = await fetchImpl(JOYN_BASE, { headers: headers() })
+  if (!page.ok) throw new Error(`Joyn webclient page failed: HTTP ${page.status}`)
+  const html = await page.text()
+  const direct = extractJoynGraphqlApiKey(html)
+  if (direct) return direct
+
+  const scriptUrls = [...html.matchAll(/<script[^>]+src=["']([^"']+)["'][^>]*>/gi)]
+    .map((match) => {
+      try {
+        return new URL(match[1], JOYN_BASE).href
+      } catch {
+        return null
+      }
+    })
+    .filter((url) => url && url.startsWith('https://www.joyn.de/'))
+    .slice(0, 30)
+
+  for (const url of scriptUrls) {
+    try {
+      const response = await fetchImpl(url, { headers: headers() })
+      if (!response.ok) continue
+      const key = extractJoynGraphqlApiKey(await response.text())
+      if (key) return key
+    } catch {
+      // A single chunk must never block discovery of the remaining public chunks.
+    }
+  }
+
+  return null
+}
+
 function headers() {
   return {
     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
@@ -107,7 +155,10 @@ async function loadJoynEpg(fetchImpl = fetch, {
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       const token = await anonymousToken(fetchImpl)
-      const apiKey = process.env.JOYN_GRAPHQL_API_KEY || OBSERVED_PUBLIC_WEBCLIENT_KEY
+      const discoveredApiKey = await discoverJoynGraphqlApiKey(fetchImpl).catch(() => null)
+      const apiKey = process.env.JOYN_GRAPHQL_API_KEY
+        || discoveredApiKey
+        || OBSERVED_PUBLIC_WEBCLIENT_KEY
       const params = new URLSearchParams()
       params.set('operationName', OPERATION)
       params.set('enable_user_location', 'true')
@@ -133,7 +184,16 @@ async function loadJoynEpg(fetchImpl = fetch, {
         throw new Error(`Joyn GraphQL returned errors: ${body.errors.map((e) => e?.message).join('; ')}`)
       }
       if (!body?.data) throw new Error('Joyn GraphQL returned no data.')
-      return { data: body.data, token, apiKey }
+      return {
+        data: body.data,
+        token,
+        apiKey,
+        apiKeySource: process.env.JOYN_GRAPHQL_API_KEY
+          ? 'environment'
+          : discoveredApiKey
+            ? 'public-webclient'
+            : 'observed-fallback',
+      }
     } catch (error) {
       lastError = error
       if (attempt < maxAttempts) await sleep(500 * (2 ** (attempt - 1)))
@@ -376,6 +436,7 @@ export async function runJoynAdapterDiagnostic({
     upstream: {
       streams: Array.isArray(raw?.liveStreams) ? raw.liveStreams.length : 0,
       programs: allCandidates.length,
+      graphqlApiKeySource: loaded.apiKeySource || 'unknown',
     },
     stationMapping: {
       ...stationMapping.counts,
