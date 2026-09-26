@@ -3,7 +3,7 @@ import {
   normalizeBroadcastEvent,
   normalizeSourceEnvelope,
 } from '../sourceAdapterContract.js'
-import { joynPilotStationByWaipuId } from '../joyn/joynPilotStations.js'
+import { joynPlaybackRouteForStation } from '../joyn/joynPlaybackRoute.js'
 
 function text(value) {
   const result = String(value ?? '').trim()
@@ -24,16 +24,11 @@ export function mapJoynCandidateToBroadcastEvent(candidate, match, {
   const endAt = new Date(candidate.endTime)
   if (!Number.isFinite(startAt.getTime()) || !Number.isFinite(endAt.getTime()) || endAt <= startAt) return null
 
-  const station = joynPilotStationByWaipuId(canonicalChannelId)
-  const playbackRoutes = station ? [{
-    providerId: 'joyn',
-    mode: 'WEB_LINK',
-    target: station.joynUrl,
-    requiresAuth: false,
-    requiresSubscription: false,
-    geoRegion: 'DE',
+  const joynRoute = joynPlaybackRouteForStation(canonicalChannelId, {
+    brandId: candidate.brandId,
     verifiedAt,
-  }] : []
+  })
+  const playbackRoutes = joynRoute ? [joynRoute] : []
 
   return normalizeBroadcastEvent({
     eventId: ['broadcast', canonicalChannelId, startAt.toISOString(), mediaType, tmdbId].join(':'),
@@ -54,6 +49,7 @@ export function mapJoynCandidateToBroadcastEvent(candidate, match, {
         channelId: text(candidate.joynChannelId),
         programId: text(candidate.joynProgramId),
         brandId: text(candidate.brandId),
+        brandCode: text(candidate.brandCode),
         channelLogoUrl: text(candidate.channelLogoUrl),
         streamType: text(candidate.streamType),
         quality: text(candidate.quality),
