@@ -10,6 +10,7 @@ import { mapJoynCandidateToBroadcastEvent, buildJoynSourceEnvelope } from '../sr
 import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
 import { JOYN_EPG_UPSTREAM_FIELD_POLICY } from '../src/sources/policies/joynUpstreamFieldPolicy.js'
 import { writeFieldDiscoveryReport } from '../src/sources/fieldDiscoveryReport.js'
+import { buildJoynLivePublication, writeJoynLivePublication } from './joyn-live-publication.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const JOYN_BASE = 'https://www.joyn.de'
@@ -337,6 +338,13 @@ export async function runJoynAdapterDiagnostic({
     },
   })
 
+  const publication = buildJoynLivePublication({
+    rawStreams: raw?.liveStreams,
+    stationMapping,
+    envelope,
+    generatedAt,
+  })
+
   const summary = {
     schemaVersion: 1,
     kind: 'joyn-adapter-diagnostic',
@@ -373,6 +381,9 @@ export async function runJoynAdapterDiagnostic({
     },
     output: {
       broadcastEvents: envelope.records.length,
+      publishedStations: publication.index.stationCount,
+      publishedAirings: publication.index.airingCount,
+      publishedDays: publication.index.days.length,
       sourceId: envelope.sourceId,
       contractVersion: envelope.contractVersion,
     },
@@ -382,6 +393,7 @@ export async function runJoynAdapterDiagnostic({
   await writeJson(resolve(root, 'artifacts/joyn-adapter/diagnostic.json'), summary)
   await writeJson(resolve(root, 'artifacts/joyn-adapter/station-mapping.json'), stationMapping)
   await writeJson(resolve(root, 'artifacts/source-adapters/joyn-v1-diagnostic.json'), envelope)
+  await writeJoynLivePublication(publication, resolve(root, 'artifacts/joyn-live'))
   await writeFieldDiscoveryReport(schemaReport, {
     jsonPath: resolve(root, 'artifacts/source-schema/joyn-epg-upstream.json'),
     markdownPath: resolve(root, 'artifacts/source-schema/joyn-epg-upstream.md'),
