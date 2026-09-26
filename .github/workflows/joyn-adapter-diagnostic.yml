@@ -9,6 +9,7 @@ on:
       - 'src/sources/joyn/**'
       - 'src/sources/adapters/joynContractMapper.js'
       - 'src/sources/policies/joynUpstreamFieldPolicy.js'
+      - 'tests/joyn-tmdb-matcher.test.js'
       - '.github/workflows/joyn-adapter-diagnostic.yml'
 
 permissions:
