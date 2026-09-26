@@ -155,7 +155,6 @@ jobs:
         run: npm run waipu:restore
 
       - name: Restore last deployed Joyn catalog
-        continue-on-error: true
         run: npm run joyn:restore
 
       - name: Restore validated live TMDB data for code deploy
