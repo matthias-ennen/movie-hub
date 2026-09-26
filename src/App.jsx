@@ -478,10 +478,12 @@ function MovieHub({ user }) {
     days: [],
   })
   const [tvSchedule, setTvSchedule] = useState({ status: 'idle', airings: [] })
+  const [tvHydratedTitles, setTvHydratedTitles] = useState([])
   const [tvScheduleRequested, setTvScheduleRequested] = useState(false)
   const [tvClock, setTvClock] = useState(() => Date.now())
   const [tvPeriodId, setTvPeriodId] = useState(() => `day:${tvDayKey(Date.now())}`)
   const tvScheduleIntentTimerRef = useRef(null)
+  const tvMetadataHydrationInFlightRef = useRef(new Set())
   const contentActivationSequenceRef = useRef(0)
   const detailRequestSequenceRef = useRef(0)
   const detailReturnFocusRef = useRef(null)
@@ -800,21 +802,113 @@ function MovieHub({ user }) {
     return [...byKey.values()]
   }, [joynLiveEntries, waipuLiveEntries])
 
+  const tvPresentationTitles = useMemo(() => {
+    const byKey = new Map(titles.map((title) => [`${title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'}:${Number(title?.tmdbId) || ''}`, title]))
+    for (const hydrated of tvHydratedTitles) {
+      const type = hydrated?.type === 'series' || hydrated?.mediaType === 'tv' ? 'series' : 'movie'
+      const tmdbId = Number(hydrated?.tmdbId)
+      if (!Number.isInteger(tmdbId) || tmdbId <= 0) continue
+      const key = `${type}:${tmdbId}`
+      const current = byKey.get(key)
+      byKey.set(key, current ? mergeEnrichedTitle(current, hydrated) : hydrated)
+    }
+    return [...byKey.values()]
+  }, [titles, tvHydratedTitles])
+
+  useEffect(() => {
+    if (!Array.isArray(tvSchedule.airings) || !tvSchedule.airings.length) return undefined
+    let cancelled = false
+    const knownByKey = new Map(tvPresentationTitles.map((title) => {
+      const type = title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'
+      return [`${type}:${Number(title?.tmdbId) || ''}`, title]
+    }))
+    const entryByKey = new Map(compactTvTitleEntries.map((entry) => [entry?.key || `${entry?.type || ''}:${entry?.tmdbId || ''}`, entry]))
+    const candidates = new Map()
+
+    for (const airing of tvSchedule.airings) {
+      const type = airing?.type === 'series' ? 'series' : airing?.type === 'movie' ? 'movie' : null
+      const tmdbId = Number(airing?.tmdbId)
+      if (!type || !Number.isInteger(tmdbId) || tmdbId <= 0) continue
+      const key = `${type}:${tmdbId}`
+      const current = knownByKey.get(key)
+      if (current && !titleNeedsMetadataEnrichment(current)) continue
+      if (tvMetadataHydrationInFlightRef.current.has(key)) continue
+      const entry = entryByKey.get(key)
+      candidates.set(key, current || {
+        id: `tv-metadata-${type}-${tmdbId}`,
+        source: 'tmdb',
+        tmdbId,
+        type,
+        mediaType: type === 'series' ? 'tv' : 'movie',
+        title: String(airing?.title || entry?.nextAiring?.title || `TMDB #${tmdbId}`).trim(),
+        originalTitle: String(airing?.title || entry?.nextAiring?.title || '').trim(),
+        providerIds: [...new Set([
+          ...(Array.isArray(entry?.providerIds) ? entry.providerIds : []),
+          ...(Array.isArray(airing?.providerIds) ? airing.providerIds : []),
+        ])],
+        metadataComplete: false,
+      })
+    }
+
+    const queue = [...candidates.entries()]
+    if (!queue.length) return undefined
+    for (const [key] of queue) tvMetadataHydrationInFlightRef.current.add(key)
+
+    const workerCount = Math.min(4, queue.length)
+    let cursor = 0
+    const loaded = []
+
+    async function worker() {
+      while (cursor < queue.length) {
+        const index = cursor
+        cursor += 1
+        const [key, candidate] = queue[index]
+        try {
+          const detail = await loadRuntimeTitleMetadata(candidate)
+          if (detail?.tmdbId) loaded.push(detail)
+        } catch (error) {
+          console.warn('TV-TMDB-Metadaten konnten nicht ergänzt werden.', { key, error })
+        } finally {
+          tvMetadataHydrationInFlightRef.current.delete(key)
+        }
+      }
+    }
+
+    Promise.all(Array.from({ length: workerCount }, () => worker())).then(() => {
+      if (cancelled || !loaded.length) return
+      setTvHydratedTitles((current) => {
+        const byKey = new Map(current.map((title) => {
+          const type = title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'
+          return [`${type}:${Number(title?.tmdbId) || ''}`, title]
+        }))
+        for (const detail of loaded) {
+          const type = detail?.type === 'series' || detail?.mediaType === 'tv' ? 'series' : 'movie'
+          const key = `${type}:${Number(detail?.tmdbId) || ''}`
+          const existing = byKey.get(key)
+          byKey.set(key, existing ? mergeEnrichedTitle(existing, detail) : detail)
+        }
+        return [...byKey.values()]
+      })
+    })
+
+    return () => { cancelled = true }
+  }, [compactTvTitleEntries, tvPresentationTitles, tvSchedule.airings])
+
   const tvViewModel = useMemo(() => buildWaipuTvViewModel({
     airings: tvSchedule.airings,
-    titles,
-    titleEntries: waipuLiveEntries,
+    titles: tvPresentationTitles,
+    titleEntries: compactTvTitleEntries,
     stationOrder: combinedTvStationOrder,
     selectedPeriodId: tvPeriodId,
     availableDays: combinedTvDays,
     now: tvClock,
-  }), [combinedTvDays, combinedTvStationOrder, titles, tvClock, tvPeriodId, tvSchedule.airings, waipuLiveEntries])
+  }), [combinedTvDays, combinedTvStationOrder, compactTvTitleEntries, tvClock, tvPeriodId, tvPresentationTitles, tvSchedule.airings])
   const compactTvHeroItems = useMemo(() => buildWaipuTvHeroItems({
-    titles,
+    titles: tvPresentationTitles,
     titleEntries: compactTvTitleEntries,
     stationOrder: combinedTvStationOrder,
     now: tvClock,
-  }), [combinedTvStationOrder, compactTvTitleEntries, titles, tvClock])
+  }), [combinedTvStationOrder, compactTvTitleEntries, tvClock, tvPresentationTitles])
   const tvHeroItems = compactTvHeroItems.length ? compactTvHeroItems : tvViewModel.heroItems
   const tvScheduleSettled = tvSchedule.status !== 'idle' && tvSchedule.status !== 'loading'
   const tvHeroCatalogReady = waipuLiveStatus === 'ready'
