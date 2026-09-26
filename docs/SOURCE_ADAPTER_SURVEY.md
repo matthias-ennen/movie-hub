@@ -477,3 +477,56 @@ Programm-/Gridinformationen erneut gegen diesen Katalog geprüft. Aufnahme-,
 Replay- oder Wiedergabeeinschränkungen werden nur dann als allgemeine Capability
 veröffentlicht, wenn ihre Semantik belastbar ist; andernfalls bleiben sie
 zunächst unter `extensions.waipu`.
+
+
+## 14. Field Discovery und Schema-Drift
+
+Neben Core/Capabilities/Extensions erhält die Plattform eine kontrollierte
+Feldbeobachtung.
+
+### Warum
+
+Eine externe Quelle kann:
+
+- neue Felder ergänzen;
+- bekannte Felder entfernen;
+- Datentypen ändern;
+- bisher uninteressante Felder plötzlich fachlich relevant machen.
+
+Movie Hub soll solche Änderungen erkennen, ohne automatisch sämtliche Rohdaten
+zu speichern oder jedes unbekannte Feld produktiv durchzureichen.
+
+### Policy-Zustände
+
+- `core`
+- `capability`
+- `extension`
+- `review`
+- `reject`
+- `deprecated`
+
+Neue Felder starten grundsätzlich als `review`.
+
+### Bericht
+
+Der gemeinsame Reporter unterscheidet:
+
+- **INFO** – bekannte oder bewusst abgelehnte Felder;
+- **REVIEW** – neue/unentschiedene Felder;
+- **BREAKING** – bekannte relevante Felder fehlen oder ändern ihre Struktur.
+
+Schema-Snapshots enthalten standardmäßig nur Feldpfad und beobachtete
+Datentypen. Damit bleibt die Beobachtung klein und unabhängig vom
+Client-Datenmodell.
+
+### Erste Waipu-Policy
+
+`src/sources/policies/waipuFieldPolicy.js` klassifiziert bereits bekannte
+Waipu-Felder. Aufnahme- und Wiedergabeeinschränkungen bleiben zunächst
+`review`; sie werden erst nach fachlicher Prüfung Capability oder Extension.
+
+### Spätere Admin-App
+
+Der Bericht ist absichtlich maschinenlesbar aufgebaut. Eine spätere
+Movie-Hub-Admin-App kann daraus ohne Änderung des Adaptervertrags eine Ansicht
+für neue Felder, Entscheidungen, Schemaänderungen und Quellgesundheit bauen.
