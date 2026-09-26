@@ -205,6 +205,7 @@ export class WaipuPublicApiClient {
     requestTimeoutMs = 15_000,
     userAgent = DEFAULT_USER_AGENT,
     now = Date.now,
+    observeRawSchema = null,
   } = {}) {
     if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function.')
     this.fetchImpl = fetchImpl
@@ -212,6 +213,7 @@ export class WaipuPublicApiClient {
     this.requestTimeoutMs = Math.max(1_000, Number(requestTimeoutMs) || 0)
     this.userAgent = stringValue(userAgent) || DEFAULT_USER_AGENT
     this.now = now
+    this.observeRawSchema = typeof observeRawSchema === 'function' ? observeRawSchema : null
   }
 
   async getStations(validators = {}) {
@@ -293,6 +295,13 @@ export class WaipuPublicApiClient {
       body = JSON.parse(bytes.toString('utf8'))
     } catch (cause) {
       throw new WaipuPublicDataError('INVALID_JSON', { status: response.status, cause })
+    }
+    if (this.observeRawSchema) {
+      try {
+        this.observeRawSchema(body, { url: url.toString() })
+      } catch {
+        // Schema observation is diagnostic only and must never break the data path.
+      }
     }
     result.value = normalize(body)
     return result
