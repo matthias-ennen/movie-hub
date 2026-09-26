@@ -11,6 +11,8 @@ import { PROVIDER_OPTIONS } from '../settings/providerSelectionModel.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { useWaipuStationSelection } from '../settings/useWaipuStationSelection.js'
 import { moveWaipuStation } from '../settings/waipuStationSelectionModel.js'
+import { useJoynStationSelection } from '../settings/useJoynStationSelection.js'
+import { moveJoynStation } from '../settings/joynStationSelectionModel.js'
 import { useTmdbCatalog } from '../tmdb/TmdbCatalogProvider.jsx'
 import { ProviderBadge } from './ProviderBadges.jsx'
 
@@ -90,7 +92,7 @@ function visibleProviderOptions(availableTmdbProviderIds) {
 
   return PROVIDER_OPTIONS.filter((provider) => {
     if (provider.source === 'moviehub') return true
-    if (provider.source === 'special') return provider.id === 'waipu'
+    if (provider.source === 'special') return provider.id === 'waipu' || provider.id === 'joyn'
     if (!available) return provider.defaultEnabled
     return available.has(provider.id)
   })
@@ -100,6 +102,8 @@ export default function SettingsView({
   availableTmdbProviderIds = null,
   waipuStations = [],
   waipuStationStatus = 'loading',
+  joynStations = [],
+  joynStationStatus = 'loading',
 }) {
   const nativeNetworkSettings = typeof window.MovieHubNative?.openNetworkSettings === 'function'
   const nativeTmdbSettings = typeof window.MovieHubNative?.openTmdbSettings === 'function'
@@ -127,6 +131,16 @@ export default function SettingsView({
     setStationEnabled,
     setStationOrder,
   } = useWaipuStationSelection()
+  const {
+    disabledStationIds: disabledJoynStationIds,
+    loading: joynStationSelectionLoading,
+    error: joynStationSelectionError,
+    savingStationId: savingJoynStationId,
+    isStationEnabled: isJoynStationEnabled,
+    orderStations: orderJoynStations,
+    setStationEnabled: setJoynStationEnabled,
+    setStationOrder: setJoynStationOrder,
+  } = useJoynStationSelection()
   const {
     syncState,
     syncBusy,
@@ -182,6 +196,17 @@ export default function SettingsView({
     setStationOrder(next, `order:${stationId}`).catch(() => {})
   }
 
+  function toggleJoynStation(stationId) {
+    if (joynStationBusy) return
+    setJoynStationEnabled(stationId, !isJoynStationEnabled(stationId)).catch(() => {})
+  }
+
+  function moveJoynStationRow(stationId, direction) {
+    if (joynStationBusy) return
+    const next = moveJoynStation(joynStationOptions, stationId, direction)
+    setJoynStationOrder(next, `order:${stationId}`).catch(() => {})
+  }
+
   async function saveExperienceSetting(path, value, focusTarget = null) {
     if (experienceSaving) return
     experienceFocusRef.current = focusTarget instanceof HTMLElement
@@ -213,6 +238,9 @@ export default function SettingsView({
   const stationOptions = orderStations(Array.isArray(waipuStations) ? waipuStations : [])
   const activeStationCount = stationOptions.filter((station) => !disabledStationIds.includes(station.id)).length
   const stationBusy = stationSelectionLoading || Boolean(savingStationId)
+  const joynStationOptions = orderJoynStations(Array.isArray(joynStations) ? joynStations : [])
+  const activeJoynStationCount = joynStationOptions.filter((station) => !disabledJoynStationIds.includes(station.id)).length
+  const joynStationBusy = joynStationSelectionLoading || Boolean(savingJoynStationId)
 
   return (
     <main className="browse-page profile-page app-settings-page">
@@ -423,7 +451,7 @@ export default function SettingsView({
         </div>
 
         <p className="settings-hint">
-          Movie Hub bildet seinen Katalog automatisch aus deinen persönlichen Links und Videos. Zusätzliche externe Dienste erscheinen hier nur, wenn der aktuelle TMDB/JustWatch-Katalog sie für Deutschland tatsächlich als Watch Provider liefert. Neue externe Anbieter sind standardmäßig aus, bis du sie aktivierst. waipu.tv bleibt als bestehende Sonderintegration sichtbar.
+          Movie Hub bildet seinen Katalog automatisch aus deinen persönlichen Links und Videos. Klassische Streamingdienste erscheinen hier anhand des aktuellen TMDB/JustWatch-Katalogs. waipu.tv und Joyn sind eigenständige Live-TV-Integrationen und bleiben unabhängig davon sichtbar.
         </p>
         {providerError && <p className="error" role="status">Streaminganbieter konnten nicht gespeichert oder synchronisiert werden: {providerError.message}</p>}
       </section>
@@ -513,6 +541,93 @@ export default function SettingsView({
           Neu hinzukommende Sender sind automatisch eingeschaltet. Die TV-Seite selbst enthält bewusst keine zusätzliche Senderauswahl.
         </p>
         {stationSelectionError && <p className="error" role="status">TV-Sendereinstellungen konnten nicht gespeichert oder synchronisiert werden: {stationSelectionError.message}</p>}
+      </section>
+
+      <section className="settings-panel provider-selection-panel" aria-labelledby="joyn-station-selection-heading">
+        <div className="settings-heading">
+          <div>
+            <p className="settings-kicker">Konto · TV · Joyn</p>
+            <h2 id="joyn-station-selection-heading">Joyn-Sender</h2>
+          </div>
+          <span className="settings-status">
+            {joynStationStatus === 'loading' || joynStationSelectionLoading
+              ? 'Wird geladen …'
+              : joynStationStatus === 'ready'
+                ? `${activeJoynStationCount} von ${joynStationOptions.length} aktiv`
+                : 'Noch nicht veröffentlicht'}
+          </span>
+        </div>
+
+        <p className="settings-description">
+          Joyn wird als eigenständige TV-Quelle neben waipu.tv geführt. Alle veröffentlichten Joyn-Sender sind standardmäßig aktiviert und können unabhängig von der Waipu-Auswahl ein- oder ausgeschaltet sowie sortiert werden.
+        </p>
+
+        {joynStationStatus === 'ready' && joynStationOptions.length > 0 ? (
+          <div className="personal-row-settings-list station-selection-list" aria-label="Joyn-Sender ein- oder ausblenden">
+            {joynStationOptions.map((station, index) => {
+              const enabled = isJoynStationEnabled(station.id)
+              const saving = savingJoynStationId === station.id
+              const moving = savingJoynStationId === `order:${station.id}`
+              return (
+                <article
+                  key={station.id}
+                  className={enabled ? 'personal-row-setting station-selection-row active' : 'personal-row-setting station-selection-row'}
+                  data-joyn-station-id={station.id}
+                >
+                  <div className="personal-row-setting-copy station-selection-copy">
+                    <strong>{station.name}</strong>
+                    <span>{enabled ? 'Wird aus der Joyn-Quelle berücksichtigt' : 'Joyn-Quelle für diesen Sender deaktiviert'}</span>
+                  </div>
+                  <div className="personal-row-setting-actions station-selection-actions">
+                    <button
+                      type="button"
+                      className={enabled ? 'personal-row-toggle active' : 'personal-row-toggle'}
+                      onClick={() => toggleJoynStation(station.id)}
+                      role="switch"
+                      aria-checked={enabled}
+                      aria-disabled={joynStationBusy}
+                      aria-busy={saving}
+                      aria-label={`${station.name}: ${enabled ? 'An' : 'Aus'}`}
+                      data-joyn-station-action="toggle"
+                      data-focusable="true"
+                    >
+                      <span>{saving ? 'Speichert …' : enabled ? 'An' : 'Aus'}</span>
+                      <span className={enabled ? 'category-choice-switch active' : 'category-choice-switch'} aria-hidden="true"><span /></span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveJoynStationRow(station.id, -1)}
+                      disabled={index === 0}
+                      aria-disabled={joynStationBusy || index === 0}
+                      aria-label={`${station.name} nach oben`}
+                      aria-busy={moving}
+                      data-joyn-station-action="up"
+                      data-focusable="true"
+                    >↑</button>
+                    <button
+                      type="button"
+                      onClick={() => moveJoynStationRow(station.id, 1)}
+                      disabled={index === joynStationOptions.length - 1}
+                      aria-disabled={joynStationBusy || index === joynStationOptions.length - 1}
+                      aria-label={`${station.name} nach unten`}
+                      aria-busy={moving}
+                      data-joyn-station-action="down"
+                      data-focusable="true"
+                    >↓</button>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        ) : (
+          <p className="settings-hint">
+            Die Joyn-Senderliste erscheint hier, sobald der vollständige geprüfte Joyn-Live-Katalog veröffentlicht ist.
+          </p>
+        )}
+        <p className="settings-hint">
+          Waipu- und Joyn-Auswahl bleiben bewusst getrennt. Derselbe lineare Sender kann über beide Quellen aktiv sein; Movie Hub führt die Ausstrahlung später neutral zusammen und behält beide Wiedergabeziele getrennt.
+        </p>
+        {joynStationSelectionError && <p className="error" role="status">Joyn-Sendereinstellungen konnten nicht gespeichert oder synchronisiert werden: {joynStationSelectionError.message}</p>}
       </section>
 
       <section className="settings-panel network-settings-panel" aria-labelledby="network-settings-heading">
