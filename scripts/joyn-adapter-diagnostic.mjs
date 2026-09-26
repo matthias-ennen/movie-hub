@@ -393,7 +393,10 @@ export async function runJoynAdapterDiagnostic({
   await writeJson(resolve(root, 'artifacts/joyn-adapter/diagnostic.json'), summary)
   await writeJson(resolve(root, 'artifacts/joyn-adapter/station-mapping.json'), stationMapping)
   await writeJson(resolve(root, 'artifacts/source-adapters/joyn-v1-diagnostic.json'), envelope)
-  await writeJoynLivePublication(publication, resolve(root, 'artifacts/joyn-live'))
+  await writeJoynLivePublication(
+    publication,
+    resolve(root, process.env.JOYN_LIVE_OUTPUT || 'artifacts/joyn-live'),
+  )
   await writeFieldDiscoveryReport(schemaReport, {
     jsonPath: resolve(root, 'artifacts/source-schema/joyn-epg-upstream.json'),
     markdownPath: resolve(root, 'artifacts/source-schema/joyn-epg-upstream.md'),
