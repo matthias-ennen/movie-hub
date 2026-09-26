@@ -28,6 +28,11 @@ jobs:
       - name: Restore validated live TMDB catalog and search index
         run: npm run tmdb:restore
       - name: Build independent Joyn diagnostic SourceEnvelope
+        env:
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+          TMDB_LANGUAGE: de-DE
+          JOYN_TMDB_REQUEST_BUDGET: '120'
+          JOYN_TMDB_PACE_MS: '200'
         run: node scripts/joyn-adapter-diagnostic.mjs
       - name: Upload Joyn diagnostic artifacts
         if: ${{ always() }}
