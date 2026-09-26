@@ -354,19 +354,42 @@ function episodeKey(item) {
 
 function attachAiring(base, airing, entry, timestamp) {
   const airingKey = stableAiringIdentity(airing)
-  return {
+  const airingProviderIds = Array.isArray(airing?.providerIds) && airing.providerIds.length
+    ? airing.providerIds
+    : ['waipu']
+  const providerIds = [...new Set([
+    ...(Array.isArray(base.providerIds) ? base.providerIds : []),
+    ...airingProviderIds,
+  ])]
+  const result = {
     ...base,
-    id: `waipu-airing-${airingKey}`,
-    providerIds: [...new Set([...(Array.isArray(base.providerIds) ? base.providerIds : []), 'waipu'])],
+    id: `tv-airing-${airingKey}`,
+    providerIds,
     tvAiring: airing,
     tvAiringOnAir: isTvAiringOnAir(airing, timestamp),
     tvAiringSoon: isTvAiringSoon(airing, timestamp),
-    waipuLive: {
+    tvLive: {
       airings: [airing],
       nextAiring: airing,
       airingCount: entry?.airingCount || 1,
+      providerIds: airingProviderIds,
     },
   }
+  if (airingProviderIds.includes('waipu')) {
+    result.waipuLive = {
+      airings: [airing],
+      nextAiring: airing,
+      airingCount: entry?.airingCount || 1,
+    }
+  }
+  if (airingProviderIds.includes('joyn')) {
+    result.joynLive = {
+      airings: [airing],
+      nextAiring: airing,
+      airingCount: entry?.airingCount || 1,
+    }
+  }
+  return result
 }
 
 function buildAiringItems({ airings, titles, titleEntries, now }) {
