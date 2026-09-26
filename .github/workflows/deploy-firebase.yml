@@ -389,6 +389,7 @@ jobs:
           SUMMARY_TMDB_STRICT: ${{ steps.tmdb_catalog_strict.outcome }}
           SUMMARY_WAIPU_SYNC: ${{ steps.waipu_sync.outcome }}
           SUMMARY_WAIPU_CATALOG: ${{ steps.waipu_catalog.outcome }}
+          SUMMARY_JOYN_CATALOG: ${{ steps.joyn_catalog.outcome }}
           SUMMARY_SOURCE_MERGE: ${{ steps.source_merge_smoke.outcome }}
           SUMMARY_PRESENCE: ${{ steps.presence_migration.outcome }}
           SUMMARY_CANONICAL_EXECUTOR: ${{ steps.canonical_executor.outcome }}
