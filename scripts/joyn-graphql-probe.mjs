@@ -105,6 +105,45 @@ function walk(value, path = '$', fields = new Map()) {
   return fields
 }
 
+function summarizeEpg(data) {
+  const streams = Array.isArray(data?.liveStreams) ? data.liveStreams : []
+  const typenameCounts = {}
+  const channelSummaries = []
+  let earliest = null
+  let latest = null
+  let totalEvents = 0
+
+  for (const stream of streams) {
+    const events = Array.isArray(stream?.epgEvents) ? stream.epgEvents : []
+    totalEvents += events.length
+    for (const event of events) {
+      const program = event?.program || {}
+      const typename = String(program?.__typename || 'unknown')
+      typenameCounts[typename] = Number(typenameCounts[typename] || 0) + 1
+      const start = Date.parse(program?.startDate || event?.startDate)
+      const end = Date.parse(program?.endDate || event?.endDate)
+      if (Number.isFinite(start)) earliest = earliest === null ? start : Math.min(earliest, start)
+      if (Number.isFinite(end)) latest = latest === null ? end : Math.max(latest, end)
+    }
+    channelSummaries.push({
+      id: String(stream?.id || ''),
+      title: String(stream?.title || ''),
+      eventCount: events.length,
+      firstStart: events.length ? (events[0]?.program?.startDate || events[0]?.startDate || null) : null,
+      lastEnd: events.length ? (events.at(-1)?.program?.endDate || events.at(-1)?.endDate || null) : null,
+    })
+  }
+
+  return {
+    liveStreamCount: streams.length,
+    epgEventCount: totalEvents,
+    programTypenames: Object.fromEntries(Object.entries(typenameCounts).sort(([a], [b]) => a.localeCompare(b))),
+    earliestStart: earliest === null ? null : new Date(earliest).toISOString(),
+    latestEnd: latest === null ? null : new Date(latest).toISOString(),
+    channels: channelSummaries,
+  }
+}
+
 function countLikelyPrograms(value) {
   let count = 0
   const visit = (node) => {
@@ -184,6 +223,7 @@ async function run() {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([path, meta]) => ({ path, ...meta }))
       report.schema.likelyProgramObjects = countLikelyPrograms(body.data)
+      report.epg = summarizeEpg(body.data)
     }
   } catch (error) {
     report.failure = {
