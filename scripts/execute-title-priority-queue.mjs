@@ -112,6 +112,7 @@ export async function executeTitlePriorityQueue({
   const generatedAt = (now instanceof Date ? now : new Date(now)).toISOString()
   let fetched = 0
   let reused = 0
+  let notFound = 0
 
   // Resolve and validate the complete selected generation before any caller is
   // allowed to fan it out to files or Firestore.
@@ -123,8 +124,14 @@ export async function executeTitlePriorityQueue({
       reused += 1
     } else if (entry.action === 'fetch-tmdb') {
       if (typeof loadTitle !== 'function') throw new Error(`TMDB loader is unavailable for ${entry.key}.`)
-      canonical = await loadTitle(entry, generatedAt)
-      fetched += 1
+      try {
+        canonical = await loadTitle(entry, generatedAt)
+        fetched += 1
+      } catch (error) {
+        if (error?.code !== 'TMDB_METADATA_NOT_FOUND') throw error
+        notFound += 1
+        return null
+      }
     } else {
       throw new Error(`Unsupported title priority action for ${entry.key}: ${entry.action}`)
     }
@@ -135,7 +142,7 @@ export async function executeTitlePriorityQueue({
     return [entry.key, normalized]
   })
 
-  const updates = new Map(resolved)
+  const updates = new Map(resolved.filter(Boolean))
   return {
     updates,
     summary: {
@@ -148,6 +155,7 @@ export async function executeTitlePriorityQueue({
         selected: selected.length,
         fetched,
         reused,
+        notFound,
         canonicalReady: updates.size,
       },
     },
