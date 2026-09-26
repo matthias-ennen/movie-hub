@@ -17,6 +17,6 @@ export const WAIPU_FIELD_POLICY = Object.freeze({
   'imageUrls': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu' },
   'productionYear': { decision: FIELD_DECISIONS.CORE, reason: 'Matching signal.' },
   'productionCountries': { decision: FIELD_DECISIONS.CORE, reason: 'Matching signal.' },
-  'recordingRestrictions': { decision: FIELD_DECISIONS.REVIEW, reason: 'Potential recording capability.' },
-  'playbackRestrictions': { decision: FIELD_DECISIONS.REVIEW, reason: 'Potential playback/replay capability.' },
+  'recordingRestrictions': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu', reason: 'Potentially useful recording metadata; retained without promoting unstable semantics to a shared capability.' },
+  'playbackRestrictions': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu', reason: 'Potentially useful playback/replay metadata; retained until stable cross-source semantics are proven.' },
 })
