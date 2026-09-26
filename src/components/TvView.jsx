@@ -66,7 +66,7 @@ export default function TvView({
             <section className="library-empty-state tv-program-empty">
               <p className="settings-kicker">Noch nicht veröffentlicht</p>
               <h2>Das TV-Programm ist derzeit nicht verfügbar.</h2>
-              <p>Der TV-Reiter bleibt leer, bis ein vollständig geprüfter Waipu-Live-Katalog freigegeben wurde.</p>
+              <p>Der TV-Reiter bleibt leer, bis mindestens ein vollständig geprüfter Live-TV-Katalog freigegeben wurde.</p>
             </section>
           )}
 
