@@ -418,6 +418,7 @@ jobs:
             artifacts/source-adapters/*.json
             artifacts/source-merge/*.json
             artifacts/joyn-pilot/*.json
+            artifacts/joyn-adapter/*.json
           if-no-files-found: ignore
           retention-days: 30
 
