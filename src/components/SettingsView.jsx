@@ -92,7 +92,8 @@ function visibleProviderOptions(availableTmdbProviderIds) {
 
   return PROVIDER_OPTIONS.filter((provider) => {
     if (provider.source === 'moviehub') return true
-    if (provider.source === 'special') return provider.id === 'waipu' || provider.id === 'joyn'
+    if (provider.source === 'special') return provider.id === 'waipu'
+    if (provider.liveTvSource) return true
     if (!available) return provider.defaultEnabled
     return available.has(provider.id)
   })
