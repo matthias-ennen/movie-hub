@@ -644,3 +644,6 @@ und Rohquellendaten getrennt.
 
 
 > #331 Live-Abnahme gestartet: Waipu-Generator und Clientpfade laufen über BroadcastEvent V1; Legacy-Projektion und interner SourceEnvelope werden im 228-Sender-Lauf gemeinsam validiert.
+
+
+> #332 Live-Smoke gestartet: echter Waipu SourceEnvelope + simulierte Zweitquelle werden im Workflow gemeinsam gemergt; zusätzlich wird ein Quellenausfall mit Last-Valid-State und Expiry geprüft.
