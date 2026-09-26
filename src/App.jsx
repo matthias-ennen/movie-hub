@@ -484,6 +484,7 @@ function MovieHub({ user }) {
   const [tvPeriodId, setTvPeriodId] = useState(() => `day:${tvDayKey(Date.now())}`)
   const tvScheduleIntentTimerRef = useRef(null)
   const tvMetadataHydrationInFlightRef = useRef(new Set())
+  const tvMetadataHydrationAttemptedRef = useRef(new Set())
   const contentActivationSequenceRef = useRef(0)
   const detailRequestSequenceRef = useRef(0)
   const detailReturnFocusRef = useRef(null)
@@ -832,6 +833,7 @@ function MovieHub({ user }) {
       const key = `${type}:${tmdbId}`
       const current = knownByKey.get(key)
       if (current && !titleNeedsMetadataEnrichment(current)) continue
+      if (tvMetadataHydrationAttemptedRef.current.has(key)) continue
       if (tvMetadataHydrationInFlightRef.current.has(key)) continue
       const entry = entryByKey.get(key)
       candidates.set(key, current || {
@@ -852,7 +854,10 @@ function MovieHub({ user }) {
 
     const queue = [...candidates.entries()]
     if (!queue.length) return undefined
-    for (const [key] of queue) tvMetadataHydrationInFlightRef.current.add(key)
+    for (const [key] of queue) {
+      tvMetadataHydrationAttemptedRef.current.add(key)
+      tvMetadataHydrationInFlightRef.current.add(key)
+    }
 
     const workerCount = Math.min(4, queue.length)
     let cursor = 0
