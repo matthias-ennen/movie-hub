@@ -530,3 +530,46 @@ Waipu-Felder. Aufnahme- und Wiedergabeeinschränkungen bleiben zunächst
 Der Bericht ist absichtlich maschinenlesbar aufgebaut. Eine spätere
 Movie-Hub-Admin-App kann daraus ohne Änderung des Adaptervertrags eine Ansicht
 für neue Felder, Entscheidungen, Schemaänderungen und Quellgesundheit bauen.
+
+
+## 15. Upstream-Schema vs. interner Cache-Vertrag
+
+Die reale Waipu-Implementierung zeigt eine wichtige technische Grenze:
+
+- `WaipuPublicApiClient` liest die externe JSON-Antwort;
+- anschließend wird sie sofort durch `normalizeStations`, `normalizeGrid`,
+  `normalizeProgram` usw. auf den heutigen internen Mindestvertrag reduziert;
+- erst dieser normalisierte Wert wird im `WaipuEpgCache` gespeichert.
+
+Ein Field-Discovery-Bericht, der nur den Cache betrachtet, kann deshalb **keine
+neuen externen Felder erkennen**, die der bestehende Normalizer bereits entfernt.
+
+### Entscheidung
+
+Die Schema-Beobachtung erfolgt zusätzlich **vor der Normalisierung**:
+
+`HTTP JSON → diagnostische Schema-Beobachtung → bestehende Normalisierung → Cache`
+
+Dabei gelten harte Grenzen:
+
+- Rohantworten werden nicht pauschal persistiert;
+- die Beobachtung darf nur Schema-/Feldinformationen ableiten;
+- ein Fehler im Reporter darf den produktiven Datenpfad niemals abbrechen;
+- Normalisierung und bestehende Sicherheitsprüfungen bleiben unverändert;
+- Cache-Schema und Upstream-Schema werden getrennt berichtet.
+
+### Erste technische Umsetzung
+
+`WaipuPublicApiClient` unterstützt jetzt einen optionalen
+`observeRawSchema(body, context)`-Hook. Der Hook wird nach sicherem JSON-Parsing,
+aber vor dem bestehenden Normalizer ausgeführt. Fehler des Hooks werden
+absichtlich abgefangen.
+
+Damit können spätere Läufe melden:
+
+- neues Upstream-Feld, obwohl der bestehende Cache es noch nicht kennt;
+- geänderte Struktur eines bekannten Quellfeldes;
+- gleichzeitig Änderungen am bereits normalisierten internen Cache-Vertrag.
+
+Diese Trennung ist notwendig, damit Movie Hub sowohl externe Chancen als auch
+interne Breaking Changes erkennen kann.
