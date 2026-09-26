@@ -193,3 +193,37 @@ Diese Werte stammen weiterhin aus Waipu beziehungsweise TMDB.
 Damit ist der aktuelle Joyn-Baustein **ein Playback-Route-Adapter**, noch kein
 unabhängiger Joyn-EPG-Adapter. Diese Unterscheidung ist verbindlich und wird im
 UI/Reporting nicht verwischt.
+
+
+## Optionaler Joyn-Benutzerlogin – Bewertung
+
+Ein persönlicher Joyn-Login ist **nicht** Voraussetzung für den Basisadapter.
+Der reproduzierte EPG-Datenweg funktioniert bereits mit Joyns anonymer
+Webclient-Authentifizierung.
+
+Ein echter Benutzerlogin könnte später jedoch zusätzliche, nutzerbezogene
+Funktionen erschließen:
+
+- Merkliste / Watchlist;
+- „Jetzt weiterschauen“;
+- Wiedergabefortschritt bzw. Resume-Positionen;
+- personalisierte Empfehlungen / Lanes;
+- möglicherweise gefolgte Marken/Sender;
+- Inhalte, die Joyn erst nach Anmeldung freischaltet;
+- bei Joyn PLUS+ accountgebundene Premium-Verfügbarkeiten.
+
+Technische Hinweise dafür existieren bereits im Joyn-Webclient-/GraphQL-Umfeld,
+u. a. über Operationen wie `GetMeState`,
+`ResumePositionsWithToken`, `ResumeLaneWithToken` und `WatchNext`.
+
+### Architekturentscheidung
+
+- Basisadapter: anonym, read-only, EPG/Katalog/Metadaten.
+- Benutzerkonto: optionaler späterer Zusatzadapter für persönliche Daten.
+- Keine Speicherung von Joyn-Passwörtern in MovieHub.
+- Falls Kontoverknüpfung später umgesetzt wird, ausschließlich über einen
+  geeigneten offiziellen/Browser-basierten Login-/Token-Flow.
+- Benutzerbezogene Daten werden strikt vom öffentlichen Quellenkatalog getrennt.
+
+Damit bleibt #280 auf den unabhängigen Joyn-Datenstrom fokussiert; Login ist
+ein späteres Erweiterungspaket und blockiert den EPG-Adapter nicht.
