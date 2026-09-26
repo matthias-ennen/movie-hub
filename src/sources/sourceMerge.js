@@ -116,7 +116,14 @@ export function mergeSourceGenerations({
   for (const sourceId of sourceIds) {
     const current = currentBySource.get(sourceId)
     const previous = previousBySource.get(sourceId)
-    const failure = failureBySource.get(sourceId)
+    const explicitFailure = failureBySource.get(sourceId)
+    const currentRejected = current?.sourceStatus === 'failed'
+    const failure = explicitFailure || (currentRejected ? {
+      sourceId,
+      code: 'SOURCE_GENERATION_FAILED',
+      message: 'Current source generation reported failed status.',
+      occurredAt: current.generatedAt,
+    } : null)
 
     if (current && !failure) {
       const active = current.records.filter((record) => activeRecord(record, nowMs))
