@@ -77,7 +77,7 @@ describe('Waipu title metadata enrichment', () => {
     })
 
     expect(loadTitleMetadata).not.toHaveBeenCalled()
-    expect(result.metrics).toEqual({ total: 1, fromCatalog: 1, fromCache: 0, fetched: 0, complete: 1 })
+    expect(result.metrics).toEqual({ total: 1, fromCatalog: 1, fromCache: 0, fetched: 0, notFoundFallback: 0, complete: 1 })
     expect(result.entries[0]).toMatchObject({
       title: 'Spiel auf Zeit',
       ageRating: 16,
@@ -123,6 +123,36 @@ describe('Waipu title metadata enrichment', () => {
     expect(loadTitleMetadata).toHaveBeenCalledOnce()
     expect(result.metrics).toMatchObject({ fromCache: 0, fetched: 1 })
     expect(result.entries[0].description).toBe('Aktualisierte Beschreibung')
+  })
+
+  it('falls back to the last complete cached copy when TMDB permanently returns 404', async () => {
+    const notFound = Object.assign(new Error('not found'), {
+      code: 'TMDB_METADATA_NOT_FOUND',
+      status: 404,
+    })
+    const loadTitleMetadata = vi.fn(async () => { throw notFound })
+    const cached = completeMetadata({ metadataUpdatedAt: '2026-07-01T00:00:00.000Z' })
+
+    const result = await enrichWaipuTitleMetadata([airingEntry()], {
+      cachedTitles: [cached],
+      loadTitleMetadata,
+      changedTitleKeys: new Set(['movie:8688']),
+      now: new Date('2026-09-20T03:17:00.000Z'),
+    })
+
+    expect(loadTitleMetadata).toHaveBeenCalledOnce()
+    expect(result.metrics).toMatchObject({ notFoundFallback: 1, fetched: 0, complete: 1 })
+    expect(result.entries[0]).toMatchObject({ tmdbId: 8688, metadataComplete: true })
+  })
+
+  it('still fails closed on TMDB 404 when no complete fallback exists', async () => {
+    const notFound = Object.assign(new Error('not found'), {
+      code: 'TMDB_METADATA_NOT_FOUND',
+      status: 404,
+    })
+    await expect(enrichWaipuTitleMetadata([airingEntry()], {
+      loadTitleMetadata: async () => { throw notFound },
+    })).rejects.toMatchObject({ code: 'TMDB_METADATA_NOT_FOUND' })
   })
 
   it('loads German certification together with the TMDB details', async () => {
