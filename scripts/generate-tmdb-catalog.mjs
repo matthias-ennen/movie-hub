@@ -253,7 +253,7 @@ async function resolveCandidate(candidate, observeWatchProviders = null) {
     tmdbFetch(videoPath, { language: 'en-US' }),
   ])
   const normalized = normalizeTmdbTitle(payload, candidate.mediaType)
-  if (typeof observeWatchProviders === 'function') observeWatchProviders(providerPayload, { mediaType: candidate.mediaType, tmdbId: candidate.id })
+  if (typeof observeWatchProviders === 'function') observeWatchProviders({ results: { [country]: providerPayload?.results?.[country] || {} } }, { mediaType: candidate.mediaType, tmdbId: candidate.id })
   const providerData = normalizeTmdbWatchProviders(providerPayload, country)
   const videos = normalizeTmdbVideos([germanVideos, fallbackVideos], normalized.originalLanguage)
   const [accent, accent2] = accentFor(normalized.tmdbId)
