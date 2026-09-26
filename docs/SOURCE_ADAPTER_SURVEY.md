@@ -635,3 +635,6 @@ Für die erste produktive Stufe gilt:
 
 Diese Regel hält den produktiven Fire-TV-/Clientpfad vollständig von Diagnose-
 und Rohquellendaten getrennt.
+
+
+> Live-Validierung gestartet: Der nächste ausdrücklich mit `[waipu-refresh]` markierte Main-Lauf dient der realen V1-Validierung von #330 (Waipu/TMDB-Schemaberichte, Build und Deployment).
