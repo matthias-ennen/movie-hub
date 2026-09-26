@@ -1,4 +1,8 @@
 import { isTvAiringOnAir, isTvAiringSoon } from './waipuAiringStatus.js'
+import {
+  mapWaipuAiringToBroadcastEvent,
+  projectBroadcastEventToWaipuAiring,
+} from '../sources/adapters/waipuContractMapper.js'
 
 export const WAIPU_LIVE_TITLES_URL = '/waipu-live/titles.json'
 export const WAIPU_LIVE_CATALOG_VERSION = 1
@@ -15,37 +19,13 @@ function titleKey(value) {
   return type && Number.isInteger(tmdbId) && tmdbId > 0 ? `${type}:${tmdbId}` : null
 }
 
-function normalizeAiring(raw) {
-  const programId = String(raw?.programId || '').trim() || null
-  const seriesId = String(raw?.seriesId || '').trim() || null
-  const stationId = String(raw?.stationId || '').trim()
-  const stationName = String(raw?.stationName || '').trim()
-  const startTime = new Date(raw?.startTime)
-  const stopTime = new Date(raw?.stopTime)
-  if (!stationId || !stationName || !Number.isFinite(startTime.getTime()) || !Number.isFinite(stopTime.getTime())) {
-    return null
-  }
-  if (stopTime <= startTime) return null
-  const seasonNumber = raw?.seasonNumber === null || raw?.seasonNumber === undefined
-    ? null
-    : Number(raw.seasonNumber)
-  const episodeNumber = raw?.episodeNumber === null || raw?.episodeNumber === undefined
-    ? null
-    : Number(raw.episodeNumber)
-
-  return {
-    source: 'waipu',
-    programId,
-    seriesId,
-    stationId,
-    stationName,
-    startTime: startTime.toISOString(),
-    stopTime: stopTime.toISOString(),
-    episodeTitle: String(raw?.episodeTitle || '').trim() || null,
-    seasonNumber: Number.isInteger(seasonNumber) ? seasonNumber : null,
-    episodeNumber: Number.isInteger(episodeNumber) ? episodeNumber : null,
-    imageUrl: String(raw?.imageUrl || '').trim() || null,
-  }
+function normalizeAiring(raw, title) {
+  const event = mapWaipuAiringToBroadcastEvent(title, raw, {
+    observedAt: raw?.observedAt || new Date().toISOString(),
+    playbackTarget: raw?.playbackTarget || raw?.deepLink || null,
+    verifiedAt: raw?.verifiedAt || null,
+  })
+  return projectBroadcastEventToWaipuAiring(event)
 }
 
 function normalizeEntry(raw, now) {
@@ -55,7 +35,7 @@ function normalizeEntry(raw, now) {
     ? raw.airings
     : [raw?.nextAiring]
   const airings = sourceAirings
-    .map(normalizeAiring)
+    .map((airing) => normalizeAiring(airing, raw))
     .filter(Boolean)
     .filter((airing) => Date.parse(airing.stopTime) > now)
     .sort((left, right) => left.startTime.localeCompare(right.startTime))
