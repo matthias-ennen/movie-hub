@@ -73,9 +73,10 @@ export async function restoreLiveJoynCatalog({
   limits = DEFAULT_LIMITS,
 } = {}) {
   const base = sourceUrl(baseUrl)
-  const [index, stations] = await Promise.all([
+  const [index, stations, titles] = await Promise.all([
     fetchJson(`${base}/index.json`, { fetchImpl, maxBytes: limits.manifest }),
     fetchJson(`${base}/stations.json`, { fetchImpl, maxBytes: limits.manifest }),
+    fetchJson(`${base}/titles.json`, { fetchImpl, maxBytes: limits.dayShard }),
   ])
   const dayKeys = (Array.isArray(index?.days) ? index.days : []).map(({ key }) => String(key || ''))
   const days = Object.fromEntries(await Promise.all(dayKeys.map(async (key) => ([
@@ -83,7 +84,12 @@ export async function restoreLiveJoynCatalog({
     await fetchJson(`${base}/days/${key}.json`, { fetchImpl, maxBytes: limits.dayShard }),
   ]))))
   validate(index, stations, days)
-  await writeJoynLivePublication({ index, stations, days }, outputPath)
+  if (titles?.schemaVersion !== JOYN_LIVE_PUBLICATION_VERSION
+      || titles?.kind !== 'joyn-live-titles'
+      || !Array.isArray(titles?.entries)) {
+    throw new Error('Joyn restore title index is invalid.')
+  }
+  await writeJoynLivePublication({ index, stations, titles, days }, outputPath)
   return index
 }
 
