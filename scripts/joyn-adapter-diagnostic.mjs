@@ -70,8 +70,8 @@ const OBSERVED_PUBLIC_WEBCLIENT_KEY = '4f0fd9f18abbe3cf0e87fdb556bc39c8'
 
 const GRAPHQL_KEY_PATTERNS = [
   /["']x-api-key["']\s*[:=]\s*["']([a-f0-9]{32})["']/gi,
-  /["']xApiKey["']\s*[:=]\s*["']([a-f0-9]{32})["']/gi,
-  /["']graphqlApiKey["']\s*[:=]\s*["']([a-f0-9]{32})["']/gi,
+  /(?:["'])?xApiKey(?:["'])?\s*[:=]\s*["']([a-f0-9]{32})["']/gi,
+  /(?:["'])?graphqlApiKey(?:["'])?\s*[:=]\s*["']([a-f0-9]{32})["']/gi,
 ]
 
 export function extractJoynGraphqlApiKey(text = '') {
