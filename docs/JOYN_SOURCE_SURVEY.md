@@ -74,3 +74,59 @@ Für den Pilot gilt deshalb:
 6. Erst danach Joyn-Providerziele sichtbar in Movie Hub freigeben.
 
 Der App-Kern wird für diese Untersuchung nicht geändert.
+
+
+## Playback-Zielqualität
+
+Transportmodus und Produktqualität werden getrennt bewertet.
+
+### Qualitätsstufen
+
+1. `exact`
+   - ein praktisch bestätigtes Ziel öffnet genau den vorgesehenen Sender,
+     die Sendung oder den Inhalt;
+   - dies ist die höchste Qualitätsstufe.
+
+2. `provider-fallback`
+   - die richtige Anbieter-App beziehungsweise ein sinnvoller Anbieterkontext
+     wird geöffnet;
+   - der exakte Sender oder Inhalt ist jedoch nicht garantiert.
+
+3. `web-fallback`
+   - stabiler offizieller HTTPS-Zielpunkt im Browser/WebView;
+   - keine Behauptung eines bestätigten App-Deep-Links.
+
+Der technische `PlaybackRoute.mode` (`APP_DEEP_LINK`, `WEB_LINK`,
+`DIRECT_STREAM`, `RESOLVER`) ist davon unabhängig.
+
+Für Joyn stehen die sechs Pilotziele derzeit auf `web-fallback`. Eine
+Hochstufung erfolgt ausschließlich nach Geräteabnahme.
+
+## EPG-Untersuchung – aktueller Stand
+
+Die öffentliche Joyn-Seite für ProSieben bestätigt:
+
+- senderbezogene Seite `/live-tv/prosieben`;
+- Live-TV-Einstieg;
+- sichtbaren Bereich „ProSieben Programm von heute“.
+
+Im serverseitig öffentlich lesbaren HTML sind jedoch keine belastbaren
+strukturierten Felder wie `startTime`, `endTime` oder ein Schedule-Objekt
+sichtbar. Daraus folgt als Arbeitshypothese, dass die eigentlichen
+Programmdaten clientseitig beziehungsweise über einen nachgelagerten
+Datenservice geladen werden.
+
+Bislang nicht bestätigt:
+
+- dokumentierter öffentlicher EPG-Endpunkt;
+- stabiler Vertrag für Sender-/Programm-IDs und Zeitfenster;
+- Nutzung ohne interne/private Tokens;
+- langfristige Stabilitäts- oder Weiterverwendungszusage.
+
+Konsequenz für #280:
+
+- keine interne oder nur vermutete Joyn-API fest verdrahten;
+- öffentlich bestätigte Senderlinks weiterverwenden;
+- EPG-Zugang getrennt weiter untersuchen;
+- ein Joyn-SourceEnvelope mit echten Sendeterminen entsteht erst nach
+  belastbarer Struktur- und Nutzungsbewertung.
