@@ -114,6 +114,7 @@ export function buildWorkflowSummary({
   waipuTitles = {},
   joynIndex = {},
   joynTitles = {},
+  joynDiagnostic = {},
   waipuSync = {},
   waipuDetail = {},
   presence = {},
@@ -144,6 +145,8 @@ export function buildWorkflowSummary({
   ), 0)
   const joynMovies = joynEntries.filter((entry) => entry?.type === 'movie').length
   const joynSeries = joynEntries.filter((entry) => entry?.type === 'series').length
+  const joynMatching = joynDiagnostic.matching || {}
+  const joynPlayback = joynDiagnostic.playback || {}
   const detailRequests = waipuIndex.runtime?.detailRequests || waipuDetail.metrics || {}
   const tmdbRequests = integer(waipuIndex.runtime?.tmdbRequests)
   const waipuMetadata = waipuIndex.metadata || {}
@@ -249,10 +252,8 @@ export function buildWorkflowSummary({
         area: 'Joyn EPG',
         status: outcome(steps.joynCatalog),
         stock: `${number(joynIndex.stationCount)} Sender · ${number(joynEntries.length)} Titel · ${number(joynBroadcasts)} Ausstrahlungen`,
-        activity: `${number(joynMovies)} Filme · ${number(joynSeries)} Serien · Stand ${timestamp(joynIndex.generatedAt)}`,
-        open: joynIndex.horizon
-          ? `${String(joynIndex.horizon.from || '–').slice(0, 10)} bis ${String(joynIndex.horizon.to || '–').slice(0, 10)}`
-          : 'kein veröffentlichter Joyn-Horizont',
+        activity: `${number(joynMovies)} Filme · ${number(joynSeries)} Serien · ${number(joynMatching.matchedPrograms)} Programme TMDB-zugeordnet`,
+        open: `${number(joynPlayback.withRoute)} mit Ziel · ${number(joynPlayback.confirmedChannelSlug)} Sender-Slug · ${number(joynPlayback.channelIdFallback)} channel_id-Fallback · ${number(joynPlayback.withoutRoute)} ohne Ziel`,
       },
       {
         area: 'Quellen-Schema',
@@ -362,7 +363,7 @@ async function readJson(path, fallback = {}) {
 }
 
 async function main() {
-  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, joynIndex, joynTitles, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu, workflowTiming, schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive, sourceMerge] = await Promise.all([
+  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, joynIndex, joynTitles, joynDiagnostic, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu, workflowTiming, schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive, sourceMerge] = await Promise.all([
     readJson('public/data-status.json'),
     readJson('public/catalog.json'),
     readJson('public/search-index.json'),
@@ -372,6 +373,7 @@ async function main() {
     readJson('public/waipu-live/titles.json'),
     readJson('public/joyn-live/index.json'),
     readJson('public/joyn-live/titles.json'),
+    readJson('artifacts/joyn-adapter/diagnostic.json'),
     readJson('artifacts/waipu-sync/status.json'),
     readJson('artifacts/waipu-live/detail-status.json'),
     readJson('artifacts/moviehub-presence-status.json'),
@@ -393,7 +395,7 @@ async function main() {
     readJson('artifacts/source-merge/summary.json', null),
   ])
   const summary = buildWorkflowSummary({
-    dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, joynIndex, joynTitles, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges,
+    dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, joynIndex, joynTitles, joynDiagnostic, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges,
     tmdbChangeRun: activeTmdbChangeRun || lastTmdbChangeRun || {}, baselineData, baselineWaipu, workflowTiming,
     sourceSchemaReports: [schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive].filter(Boolean),
     sourceMerge,
