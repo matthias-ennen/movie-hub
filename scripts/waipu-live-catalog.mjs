@@ -24,6 +24,9 @@ import {
   requireCompleteWaipuTitleMetadata,
 } from './waipu-title-metadata.mjs'
 import { readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
+import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
+import { WAIPU_PROGRAM_UPSTREAM_FIELD_POLICY } from '../src/sources/policies/waipuUpstreamFieldPolicy.js'
+import { writeFieldDiscoveryReport } from '../src/sources/fieldDiscoveryReport.js'
 
 export const WAIPU_LIVE_CATALOG_VERSION = 1
 export const WAIPU_SOURCE_DATA_VERSION = 1
@@ -723,10 +726,16 @@ async function main() {
       maxRequests: Number(process.env.WAIPU_TMDB_METADATA_REQUEST_BUDGET || 4000),
     })
     : null
+  const programSchemaObserver = new SourceSchemaObserver({
+    sourceId: 'waipu-program-upstream',
+    policy: WAIPU_PROGRAM_UPSTREAM_FIELD_POLICY,
+  })
   const detailLoader = live
     ? new WaipuProgramDetailLoader({
       cache: new WaipuEpgCache({ root: cacheRoot }),
-      client: new WaipuPublicApiClient(),
+      client: new WaipuPublicApiClient({
+        observeRawSchema: (body, context) => programSchemaObserver.observe(body, context),
+      }),
       requestBudget: process.env.WAIPU_DETAIL_REQUEST_BUDGET,
       paceMs: process.env.WAIPU_DETAIL_PACE_MS,
       jitterMs: process.env.WAIPU_DETAIL_JITTER_MS,
@@ -808,6 +817,13 @@ async function main() {
           circuit: { automaticRunsDisabled: false, reason: null, blockedUntil: null },
         })
       }
+      const programSchemaReport = programSchemaObserver.report({ phase: 'catalog-complete' })
+      if (programSchemaReport.context.sampleCount > 0) {
+        await writeFieldDiscoveryReport(programSchemaReport, {
+          jsonPath: resolve(projectRoot, 'artifacts/source-schema/waipu-program-upstream.json'),
+          markdownPath: resolve(projectRoot, 'artifacts/source-schema/waipu-program-upstream.md'),
+        })
+      }
       process.stdout.write(`${JSON.stringify({
         ...liveCatalog.index,
         detailRequests: detailLoader?.metrics || null,
@@ -842,6 +858,13 @@ async function main() {
             reason: forbidden || rateLimited ? error.code : null,
             blockedUntil: rateLimited ? new Date(Date.now() + rateLimitDelay).toISOString() : null,
           },
+        })
+      }
+      const programSchemaReport = programSchemaObserver.report({ phase: 'catalog-failure' })
+      if (programSchemaReport.context.sampleCount > 0) {
+        await writeFieldDiscoveryReport(programSchemaReport, {
+          jsonPath: resolve(projectRoot, 'artifacts/source-schema/waipu-program-upstream.json'),
+          markdownPath: resolve(projectRoot, 'artifacts/source-schema/waipu-program-upstream.md'),
         })
       }
       throw error
