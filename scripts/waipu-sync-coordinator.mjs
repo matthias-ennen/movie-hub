@@ -522,7 +522,7 @@ export async function runWaipuSync(options = {}) {
       status.circuit = state.circuit
       await writeJsonAtomic(statePath, state)
       await writeJsonAtomic(statusPath, status)
-      const schemaReport = schemaObserver.observe([], { phase: 'final' })
+      const schemaReport = schemaObserver.report({ phase: 'final' })
       if (schemaReport) {
         await writeFieldDiscoveryReport(schemaReport, {
           jsonPath: resolve(root, 'artifacts/source-schema/waipu-sync-upstream.json'),
@@ -563,7 +563,7 @@ export async function runWaipuSync(options = {}) {
         : sanitizedFailure(error)
       await writeJsonAtomic(statePath, state)
       await writeJsonAtomic(statusPath, status)
-      const schemaReport = schemaObserver.observe([], { phase: 'failure' })
+      const schemaReport = schemaObserver.report({ phase: 'failure' })
       if (schemaReport) {
         await writeFieldDiscoveryReport(schemaReport, {
           jsonPath: resolve(root, 'artifacts/source-schema/waipu-sync-upstream.json'),
