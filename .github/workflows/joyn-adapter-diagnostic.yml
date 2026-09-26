@@ -6,6 +6,7 @@ on:
     paths:
       - 'scripts/joyn-adapter-diagnostic.mjs'
       - 'scripts/joyn-tmdb-matcher.mjs'
+      - 'scripts/joyn-station-mapping.mjs'
       - 'src/sources/joyn/**'
       - 'src/sources/adapters/joynContractMapper.js'
       - 'src/sources/policies/joynUpstreamFieldPolicy.js'
