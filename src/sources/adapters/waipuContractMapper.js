@@ -1,4 +1,4 @@
-import { exactBroadcastEventKey, normalizeBroadcastEvent } from '../sourceAdapterContract.js'
+import { SOURCE_ADAPTER_CONTRACT_VERSION, exactBroadcastEventKey, normalizeBroadcastEvent, normalizeSourceEnvelope } from '../sourceAdapterContract.js'
 
 function safeText(value) {
   const text = String(value ?? '').trim()
@@ -201,4 +201,38 @@ export function dedupeWaipuBroadcastEvents(events = []) {
   return [...byEvent.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([, event]) => event)
+}
+
+
+export function buildWaipuSourceEnvelope(events = [], {
+  generatedAt = new Date().toISOString(),
+  fetchedAt = generatedAt,
+  sourceGenerationId = null,
+  sourceCoverage = null,
+  extensions = {},
+} = {}) {
+  const records = dedupeWaipuBroadcastEvents(events)
+  const latestEnd = records
+    .map((event) => Date.parse(event.endAt))
+    .filter(Number.isFinite)
+    .sort((left, right) => right - left)[0]
+
+  return normalizeSourceEnvelope({
+    contractVersion: SOURCE_ADAPTER_CONTRACT_VERSION,
+    sourceId: 'waipu',
+    sourceGenerationId: sourceGenerationId || `waipu:${generatedAt}`,
+    generatedAt,
+    fetchedAt,
+    expiresAt: Number.isFinite(latestEnd) ? new Date(latestEnd).toISOString() : null,
+    sourceStatus: 'healthy',
+    sourceCoverage,
+    capabilities: {},
+    extensions: {
+      waipu: {
+        eventCount: records.length,
+        ...extensions,
+      },
+    },
+    records,
+  })
 }
