@@ -363,7 +363,7 @@ async function readJson(path, fallback = {}) {
 }
 
 async function main() {
-  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, joynIndex, joynTitles, joynDiagnostic, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu, workflowTiming, schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive, sourceMerge] = await Promise.all([
+  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, joynIndex, joynTitles, joynDiagnostic, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu, workflowTiming, schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive, schemaJoynLive, sourceMerge] = await Promise.all([
     readJson('public/data-status.json'),
     readJson('public/catalog.json'),
     readJson('public/search-index.json'),
@@ -392,12 +392,13 @@ async function main() {
     readJson('artifacts/source-schema/waipu-sync-upstream.json', null),
     readJson('artifacts/source-schema/waipu-program-upstream.json', null),
     readJson('artifacts/source-schema/tmdb-watch-providers-live.json', null),
+    readJson('artifacts/source-schema/joyn-epg-upstream.json', null),
     readJson('artifacts/source-merge/summary.json', null),
   ])
   const summary = buildWorkflowSummary({
     dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, joynIndex, joynTitles, joynDiagnostic, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges,
     tmdbChangeRun: activeTmdbChangeRun || lastTmdbChangeRun || {}, baselineData, baselineWaipu, workflowTiming,
-    sourceSchemaReports: [schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive].filter(Boolean),
+    sourceSchemaReports: [schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive, schemaJoynLive].filter(Boolean),
     sourceMerge,
     steps: {
       tmdbChanges: process.env.SUMMARY_TMDB_CHANGES,
