@@ -85,7 +85,7 @@ describe('source field discovery', () => {
     })
   })
 
-  it('treats reviewed Waipu restrictions as review-worthy rather than breaking', () => {
+  it('keeps approved Waipu restrictions as extensions', () => {
     const report = inspectSourceSchema([{
       recordingRestrictions: { fastForward: false },
       playbackRestrictions: { replay: true },
@@ -94,7 +94,15 @@ describe('source field discovery', () => {
       policy: WAIPU_FIELD_POLICY,
     })
 
-    expect(report.fields.filter((field) => field.severity === 'REVIEW').map((field) => field.path))
-      .toEqual(expect.arrayContaining(['recordingRestrictions', 'playbackRestrictions']))
+    expect(report.fields.find((field) => field.path === 'recordingRestrictions')).toMatchObject({
+      severity: 'INFO',
+      status: 'extension',
+      extensionNamespace: 'waipu',
+    })
+    expect(report.fields.find((field) => field.path === 'playbackRestrictions')).toMatchObject({
+      severity: 'INFO',
+      status: 'extension',
+      extensionNamespace: 'waipu',
+    })
   })
 })
