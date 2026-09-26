@@ -150,13 +150,18 @@ describe('source adapter contract mappers', () => {
       playbackTarget: 'waipu://second',
     })
 
-    const [merged] = dedupeWaipuBroadcastEvents([duplicate, base])
-    expect(dedupeWaipuBroadcastEvents([duplicate, base])).toHaveLength(1)
+    const forward = dedupeWaipuBroadcastEvents([duplicate, base])
+    const reversed = dedupeWaipuBroadcastEvents([base, duplicate])
+    expect(forward).toHaveLength(1)
+    expect(reversed).toEqual(forward)
+
+    const [merged] = forward
     expect(merged.playbackRoutes.map((route) => route.target)).toEqual([
       'waipu://first',
       'waipu://second',
     ])
     expect(merged.sourceRefs).toHaveLength(2)
+    expect(projectBroadcastEventToWaipuAiring(merged).programId).toBe('program-4')
   })
 
   it('encodes the verified Waipu EPG target directly in the canonical PlaybackRoute', () => {
