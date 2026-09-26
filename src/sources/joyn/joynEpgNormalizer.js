@@ -4,7 +4,12 @@ function text(value) {
 }
 
 function iso(value) {
-  const date = new Date(value)
+  if (value === null || value === undefined || value === '') return null
+  const numeric = typeof value === 'number' ? value : Number(value)
+  const raw = Number.isFinite(numeric)
+    ? (Math.abs(numeric) < 100_000_000_000 ? numeric * 1000 : numeric)
+    : value
+  const date = new Date(raw)
   return Number.isFinite(date.getTime()) ? date.toISOString() : null
 }
 
