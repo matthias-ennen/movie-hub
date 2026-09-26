@@ -28,6 +28,7 @@ import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
 import { WAIPU_PROGRAM_UPSTREAM_FIELD_POLICY } from '../src/sources/policies/waipuUpstreamFieldPolicy.js'
 import { writeFieldDiscoveryReport } from '../src/sources/fieldDiscoveryReport.js'
 import {
+  buildWaipuSourceEnvelope,
   dedupeWaipuBroadcastEvents,
   mapWaipuAiringToBroadcastEvent,
   projectBroadcastEventToWaipuAiring,
@@ -504,7 +505,22 @@ export async function buildWaipuLiveCatalog({
   metrics.publishedTitles = titles.length
   metrics.publishedBroadcasts = canonicalEvents.length
 
+  const adapterEnvelope = buildWaipuSourceEnvelope(canonicalEvents, {
+    generatedAt,
+    fetchedAt: generatedAt,
+    sourceGenerationId: `waipu:${generatedAt}`,
+    sourceCoverage: {
+      horizon: { start, endExclusive },
+      stations: selectedStations.length,
+    },
+    extensions: {
+      matcherVersion: WAIPU_MATCHER_VERSION,
+      releaseChannel,
+    },
+  })
+
   return {
+    adapterEnvelope,
     index: {
       schemaVersion: WAIPU_LIVE_CATALOG_VERSION,
       kind: 'waipu-live-index',
@@ -822,6 +838,10 @@ async function main() {
         tmdbMetadataRequests: tmdbMetadataClient?.requestsStarted || 0,
       }
       await writeWaipuLiveCatalog(output, liveCatalog)
+      await writeJsonAtomic(
+        resolve(projectRoot, 'artifacts/source-adapters/waipu-v1.json'),
+        liveCatalog.adapterEnvelope,
+      )
       await writeJsonAtomic(unresolvedPath, liveCatalog.unresolved)
       if (live) {
         await writeJsonAtomic(detailStatusPath, {
