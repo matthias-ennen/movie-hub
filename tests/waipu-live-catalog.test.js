@@ -271,6 +271,25 @@ describe('Waipu live catalog publication', () => {
     }))
   })
 
+  it('deduplicates different Waipu program ids that resolve to the same neutral broadcast', async () => {
+    const programs = [
+      gridProgram({ id: 'program-a' }),
+      gridProgram({ id: 'program-b' }),
+    ]
+    const catalog = await buildWaipuLiveCatalog(buildFixture({
+      programs,
+      loadProgramDetail: vi.fn(async (programId) => detail({ id: programId })),
+    }))
+
+    expect(catalog.index.counts).toMatchObject({
+      titles: 1,
+      broadcasts: 1,
+    })
+    expect(catalog.shards.zdf.airings).toHaveLength(1)
+    expect(catalog.titles.entries[0].airings).toHaveLength(1)
+    expect(catalog.titles.entries[0].airingCount).toBe(1)
+  })
+
   it('fails closed when a candidate program detail is missing', async () => {
     await expect(buildWaipuLiveCatalog(buildFixture({
       loadProgramDetail: async () => null,
