@@ -6,6 +6,35 @@ const AUTH_URL = 'https://auth.joyn.de/auth/anonymous'
 const GRAPHQL_URL = 'https://api.joyn.de/graphql'
 const OPERATION = 'LiveChannelsAndEpg'
 const HASH = 'b7703103ddd0516be6b49ed66186092a6c6f6d815ccc502a9f50800a8cc18dd2'
+const FULL_EPG_QUERY = `query LiveChannelsAndEPG {
+  liveStreams(filterLivestreamsTypes: [LINEAR], first: 5000, offset: 0, liveStreamGroupFilter: DEFAULT) {
+    id
+    title
+    type
+    quality
+    logo { url }
+    brand {
+      brand_id
+      title
+      brandCode
+      livestream { logo { url(profile: "nextgen-web-artlogo-183x75") } }
+    }
+    epgEvents {
+      startDate
+      endDate
+      program {
+        ... on EpgEntry {
+          __typename
+          id
+          title
+          startDate
+          endDate
+          image { url(profile: "nextgen-web-livestill-503x283") }
+        }
+      }
+    }
+  }
+}`
 // Public Joyn web-client key observed in the open-source GrayJay Joyn adapter.
 // Diagnostic fallback only: never persist it to artifacts and do not treat it as a secret or stable contract.
 const OBSERVED_PUBLIC_WEBCLIENT_KEY = '4f0fd9f18abbe3cf0e87fdb556bc39c8'
@@ -120,8 +149,16 @@ function summarizeEpg(data) {
       const program = event?.program || {}
       const typename = String(program?.__typename || 'unknown')
       typenameCounts[typename] = Number(typenameCounts[typename] || 0) + 1
-      const start = Date.parse(program?.startDate || event?.startDate)
-      const end = Date.parse(program?.endDate || event?.endDate)
+      const rawStart = program?.startDate ?? event?.startDate
+      const rawEnd = program?.endDate ?? event?.endDate
+      const startNumber = Number(rawStart)
+      const endNumber = Number(rawEnd)
+      const start = Number.isFinite(startNumber)
+        ? (Math.abs(startNumber) < 100_000_000_000 ? startNumber * 1000 : startNumber)
+        : Date.parse(rawStart)
+      const end = Number.isFinite(endNumber)
+        ? (Math.abs(endNumber) < 100_000_000_000 ? endNumber * 1000 : endNumber)
+        : Date.parse(rawEnd)
       if (Number.isFinite(start)) earliest = earliest === null ? start : Math.min(earliest, start)
       if (Number.isFinite(end)) latest = latest === null ? end : Math.max(latest, end)
     }
@@ -169,7 +206,7 @@ async function run() {
     generatedAt: new Date().toISOString(),
     auth: { anonymous: false, userIdPresent: false },
     apiKey: { discovered: false, source: null },
-    graphql: { operation: OPERATION, httpStatus: null, hasData: false, errorCount: 0 },
+    graphql: { operation: 'LiveChannelsAndEPG', mode: 'explicit-query', httpStatus: null, hasData: false, errorCount: 0 },
     schema: { fields: [], likelyProgramObjects: 0 },
   }
 
@@ -181,13 +218,10 @@ async function run() {
     report.apiKey = { discovered: key.source !== 'observed-public-webclient-fallback', source: key.source }
 
     const params = new URLSearchParams()
-    params.set('operationName', OPERATION)
+    params.set('operationName', 'LiveChannelsAndEPG')
     params.set('enable_user_location', 'true')
     params.set('watch_assistant_variant', 'true')
-    params.set('variables', JSON.stringify({}))
-    params.set('extensions', JSON.stringify({
-      persistedQuery: { version: 1, sha256Hash: HASH },
-    }))
+    params.set('query', FULL_EPG_QUERY)
 
     const response = await fetch(GRAPHQL_URL + '?' + params.toString(), {
       headers: {
