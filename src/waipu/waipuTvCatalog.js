@@ -3,6 +3,10 @@ import {
   isTvAiringOnAir,
   isTvAiringSoon,
 } from './waipuAiringStatus.js'
+import {
+  mapWaipuAiringToBroadcastEvent,
+  projectBroadcastEventToWaipuAiring,
+} from '../sources/adapters/waipuContractMapper.js'
 
 export {
   TV_AIRING_SOON_WINDOW_MS,
@@ -50,29 +54,31 @@ function normalizeStation(raw) {
 function normalizeAiring(raw, station, now) {
   const type = mediaType(raw?.type)
   const tmdbId = Number(raw?.tmdbId)
-  const start = new Date(raw?.startTime)
-  const stop = new Date(raw?.stopTime)
-  const seasonNumber = Number(raw?.seasonNumber)
-  const episodeNumber = Number(raw?.episodeNumber)
-  if (!type || !Number.isInteger(tmdbId) || tmdbId <= 0
-      || !Number.isFinite(start.getTime()) || !Number.isFinite(stop.getTime())
-      || stop <= start || stop.getTime() <= now) return null
-  return {
-    id: String(raw?.id || `${station.id}|${raw?.programId || tmdbId}|${start.toISOString()}`),
-    source: 'waipu',
-    programId: String(raw?.programId || '').trim() || null,
-    seriesId: String(raw?.seriesId || '').trim() || null,
+  if (!type || !Number.isInteger(tmdbId) || tmdbId <= 0) return null
+
+  const event = mapWaipuAiringToBroadcastEvent({
+    tmdbId,
+    type,
+  }, {
+    ...raw,
     stationId: station.id,
     stationName: station.name,
+  }, {
+    observedAt: raw?.observedAt || new Date().toISOString(),
+    playbackTarget: raw?.playbackTarget || raw?.deepLink || null,
+    verifiedAt: raw?.verifiedAt || null,
+  })
+  if (!event || Date.parse(event.endAt) <= now) return null
+
+  const airing = projectBroadcastEventToWaipuAiring(event)
+  if (!airing) return null
+
+  return {
+    id: String(raw?.id || `${station.id}|${airing.programId || tmdbId}|${airing.startTime}`),
+    ...airing,
     tmdbId,
     type,
     title: String(raw?.title || '').trim(),
-    episodeTitle: String(raw?.episodeTitle || '').trim() || null,
-    seasonNumber: Number.isInteger(seasonNumber) && seasonNumber >= 0 ? seasonNumber : null,
-    episodeNumber: Number.isInteger(episodeNumber) && episodeNumber >= 0 ? episodeNumber : null,
-    startTime: start.toISOString(),
-    stopTime: stop.toISOString(),
-    imageUrl: String(raw?.imageUrl || '').trim() || null,
   }
 }
 
