@@ -5,6 +5,8 @@ import {
   exactBroadcastEventKey,
   normalizeAvailability,
   normalizeBroadcastEvent,
+  normalizeCapabilities,
+  normalizeExtensions,
   normalizeSourceEnvelope,
 } from '../src/sources/sourceAdapterContract.js'
 
@@ -100,6 +102,55 @@ describe('source adapter contract', () => {
       availabilities: [availability],
       broadcastEvents: [broadcast],
     })).toEqual(['pluto', 'zdf'])
+  })
+
+  it('keeps optional capabilities and source-specific extensions without making them mandatory', () => {
+    const event = normalizeBroadcastEvent({
+      eventId: 'waipu:program-1',
+      titleRef: { mediaType: 'series', tmdbId: 123 },
+      channelId: 'zdf',
+      channelName: 'ZDF',
+      startAt: '2026-09-27T18:00:00Z',
+      endAt: '2026-09-27T19:00:00Z',
+      capabilities: {
+        recording: true,
+        replay: { available: true, availableUntil: '2026-09-30T19:00:00Z' },
+      },
+      extensions: {
+        waipu: {
+          programId: 'program-1',
+          seriesId: 'series-7',
+          recordingRestrictions: { fastForward: false },
+        },
+      },
+    })
+
+    expect(event.capabilities.recording).toEqual({ available: true })
+    expect(event.capabilities.replay.available).toBe(true)
+    expect(event.extensions.waipu.programId).toBe('program-1')
+
+    const minimal = normalizeBroadcastEvent({
+      eventId: 'minimal',
+      titleRef: { mediaType: 'movie', tmdbId: 11 },
+      channelId: 'zdf',
+      channelName: 'ZDF',
+      startAt: '2026-09-27T18:00:00Z',
+      endAt: '2026-09-27T19:00:00Z',
+    })
+    expect(minimal.capabilities).toEqual({})
+    expect(minimal.extensions).toEqual({})
+  })
+
+  it('validates capability names and extension namespaces', () => {
+    expect(normalizeCapabilities({ subtitles: { available: true, languages: ['de'] } }))
+      .toEqual({ subtitles: { available: true, languages: ['de'] } })
+    expect(normalizeExtensions({ joyn: { channelSlug: 'prosieben' } }))
+      .toEqual({ joyn: { channelSlug: 'prosieben' } })
+
+    expect(() => normalizeCapabilities({ madeUpCapability: true }))
+      .toThrow(/Unknown capability/)
+    expect(() => normalizeExtensions({ 'bad namespace': { value: 1 } }))
+      .toThrow(/Extension namespace is invalid/)
   })
 
   it('validates a versioned source envelope and rejects an unknown version', () => {
