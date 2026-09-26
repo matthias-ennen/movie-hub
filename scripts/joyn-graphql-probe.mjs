@@ -241,24 +241,49 @@ async function gqlPersisted({ operationName, hash, variables, token, apiKey }) {
   return { status: response.status, body }
 }
 
-function sampleEpgTitles(data, limit = 3) {
-  const titles = []
+function berlinHour(epochSeconds) {
+  const date = new Date(Number(epochSeconds) * 1000)
+  const part = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    hourCycle: 'h23',
+    timeZone: 'Europe/Berlin',
+  }).formatToParts(date).find((item) => item.type === 'hour')
+  return Number(part?.value)
+}
+
+function sampleEpgTitles(data, limit = 6) {
+  const preferred = new Set(['prosieben-de', 'sat1-de', 'kabeleins-de', 'tele5-de', 'dmax-de'])
+  const ranked = []
   const seen = new Set()
+
   for (const stream of Array.isArray(data?.liveStreams) ? data.liveStreams : []) {
     for (const event of Array.isArray(stream?.epgEvents) ? stream.epgEvents : []) {
       const title = String(event?.program?.title || '').trim()
       if (!title || seen.has(title)) continue
+      const start = event?.program?.startDate ?? event?.startDate
+      const hour = Number.isFinite(Number(start)) ? berlinHour(start) : null
+      const preferredStation = preferred.has(String(stream?.id || ''))
+      const evening = Number.isFinite(hour) && hour >= 18 && hour <= 23
+      ranked.push({
+        title,
+        stationId: String(stream?.id || ''),
+        stationTitle: String(stream?.title || ''),
+        start,
+        rank: (preferredStation ? 10 : 0) + (evening ? 5 : 0),
+      })
       seen.add(title)
-      titles.push(title)
-      if (titles.length >= limit) return titles
     }
   }
-  return titles
+
+  return ranked
+    .sort((a, b) => b.rank - a.rank || Number(a.start || 0) - Number(b.start || 0) || a.title.localeCompare(b.title))
+    .slice(0, limit)
 }
 
 async function probeJoynSearch(data, { token, apiKey }) {
   const samples = []
-  for (const title of sampleEpgTitles(data, 3)) {
+  for (const sample of sampleEpgTitles(data, 6)) {
+    const title = sample.title
     const result = await gqlPersisted({
       operationName: 'SearchQ',
       hash: SEARCH_HASH,
@@ -269,6 +294,9 @@ async function probeJoynSearch(data, { token, apiKey }) {
     const fields = result.body?.data ? walk(result.body.data) : new Map()
     samples.push({
       query: title,
+      stationId: sample.stationId,
+      stationTitle: sample.stationTitle,
+      start: sample.start,
       httpStatus: result.status,
       hasData: Boolean(result.body?.data),
       errorCount: Array.isArray(result.body?.errors) ? result.body.errors.length : 0,
