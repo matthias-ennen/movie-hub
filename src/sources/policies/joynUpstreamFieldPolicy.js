@@ -24,6 +24,8 @@ export const JOYN_EPG_UPSTREAM_FIELD_POLICY = Object.freeze({
   'liveStreams.epgEvents.program': { decision: FIELD_DECISIONS.CORE },
   'liveStreams.epgEvents.program.id': { decision: FIELD_DECISIONS.CORE },
   'liveStreams.epgEvents.program.title': { decision: FIELD_DECISIONS.CORE },
+  'liveStreams.epgEvents.program.secondaryTitle': { decision: FIELD_DECISIONS.CORE, reason: 'Useful episode/subtitle signal for later media classification.' },
+  'liveStreams.epgEvents.program.images': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'joyn' },
   'liveStreams.epgEvents.program.startDate': { decision: FIELD_DECISIONS.CORE },
   'liveStreams.epgEvents.program.endDate': { decision: FIELD_DECISIONS.CORE },
   'liveStreams.epgEvents.program.__typename': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'joyn' },
