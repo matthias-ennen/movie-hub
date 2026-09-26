@@ -85,4 +85,16 @@ describe('trusted title alert data sources', () => {
     expect((await runTitleAlertCheck(options)).includedCreated).toBe(1)
     expect([...db.data.keys()].filter((key) => key.includes('/notifications/'))).toHaveLength(2)
   })
+  it('merges recent Waipu and Joyn TV title publications', async () => {
+    const files = new Map([
+      ['public/waipu-live/index.json', JSON.stringify({ kind: 'waipu-live-index', status: 'complete', generatedAt: '2026-09-26T12:00:00.000Z' })],
+      ['public/waipu-live/titles.json', JSON.stringify({ kind: 'waipu-live-titles', entries: [{ tmdbId: 11, type: 'movie', airings: [{ stationId: 'pro7', source: 'waipu', startTime: '2026-09-27T18:15:00.000Z', stopTime: '2026-09-27T20:15:00.000Z' }] }] })],
+      ['public/joyn-live/index.json', JSON.stringify({ kind: 'joyn-live-index', status: 'complete', generatedAt: '2026-09-26T12:00:00.000Z' })],
+      ['public/joyn-live/titles.json', JSON.stringify({ kind: 'joyn-live-titles', entries: [{ tmdbId: 11, type: 'movie', airings: [{ stationId: 'prosieben-de', providerIds: ['joyn'], startTime: '2026-09-28T18:15:00.000Z', stopTime: '2026-09-28T20:15:00.000Z' }] }] })],
+    ])
+    const read = async (path) => files.get(path)
+    const entries = await readPublishedTvEntries({ read, now: Date.parse('2026-09-26T13:00:00.000Z') })
+    expect(entries.get('movie-11').airings).toHaveLength(2)
+  })
+
 })
