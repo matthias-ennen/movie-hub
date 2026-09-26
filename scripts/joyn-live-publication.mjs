@@ -101,6 +101,30 @@ export function buildJoynLivePublication({
   const starts = airings.map(({ startTime }) => Date.parse(startTime)).filter(Number.isFinite)
   const stops = airings.map(({ stopTime }) => Date.parse(stopTime)).filter(Number.isFinite)
 
+
+  const titleGroups = new Map()
+  for (const airing of airings) {
+    const key = `${airing.type}:${airing.tmdbId}`
+    if (!titleGroups.has(key)) {
+      titleGroups.set(key, {
+        key,
+        tmdbId: airing.tmdbId,
+        type: airing.type,
+        providerIds: ['joyn'],
+        airings: [],
+      })
+    }
+    titleGroups.get(key).airings.push(airing)
+  }
+  const titleEntries = [...titleGroups.values()]
+    .map((entry) => ({
+      ...entry,
+      airings: entry.airings.sort((left, right) => left.startTime.localeCompare(right.startTime)),
+      nextAiring: entry.airings[0] || null,
+      airingCount: entry.airings.length,
+    }))
+    .sort((left, right) => left.key.localeCompare(right.key))
+
   return {
     index: {
       schemaVersion: JOYN_LIVE_PUBLICATION_VERSION,
@@ -122,6 +146,12 @@ export function buildJoynLivePublication({
       generatedAt,
       stations,
     },
+    titles: {
+      schemaVersion: JOYN_LIVE_PUBLICATION_VERSION,
+      kind: 'joyn-live-titles',
+      generatedAt,
+      entries: titleEntries,
+    },
     days: Object.fromEntries([...dayGroups.entries()].map(([key, values]) => [key, {
       schemaVersion: JOYN_LIVE_PUBLICATION_VERSION,
       kind: 'joyn-live-day',
@@ -141,6 +171,7 @@ export async function writeJoynLivePublication(publication, outputDirectory) {
   await mkdir(outputDirectory, { recursive: true })
   await writeJson(resolve(outputDirectory, 'index.json'), publication.index)
   await writeJson(resolve(outputDirectory, 'stations.json'), publication.stations)
+  await writeJson(resolve(outputDirectory, 'titles.json'), publication.titles)
   for (const [key, shard] of Object.entries(publication.days || {})) {
     await writeJson(resolve(outputDirectory, 'days', `${key}.json`), shard)
   }
