@@ -227,3 +227,40 @@ u. a. über Operationen wie `GetMeState`,
 
 Damit bleibt #280 auf den unabhängigen Joyn-Datenstrom fokussiert; Login ist
 ein späteres Erweiterungspaket und blockiert den EPG-Adapter nicht.
+
+
+## Vollständiger LiveChannelsAndEPG-Abruf – 26.09.2026
+
+Ein expliziter GraphQL-Abruf mit
+`liveStreams(filterLivestreamsTypes: [LINEAR], first: 5000, offset: 0, liveStreamGroupFilter: DEFAULT)`
+wurde erfolgreich gegen die aktuelle Joyn-API ausgeführt.
+
+Ergebnis:
+- 127 lineare Live-Streams/Sender;
+- 2.461 EPG-Ereignisse;
+- HTTP 200;
+- 0 GraphQL-Fehler;
+- frühester beobachteter Beginn: 26.09.2026 13:00 MESZ;
+- spätestes beobachtetes Ende: 27.09.2026 22:00 MESZ;
+- die meisten Sender liefern 20 Ereignisse im aktuellen Response.
+
+Aktuell belegte Kernfelder:
+- Joyn Stream/Sender-ID;
+- Sendername;
+- Brand-Titel;
+- Brand-Code;
+- Senderlogo;
+- Joyn Programm-ID;
+- Programmtitel;
+- Start-/Endzeit als Unix-Sekunden;
+- Programmbild.
+
+Wichtig:
+`program.__typename` ist im aktuellen EPG durchgehend `EpgEntry` und
+klassifiziert deshalb **nicht** direkt Film vs. Serie. Die Medienklassifikation
+muss in der nächsten Stufe aus zusätzlichen Joyn-Metadaten und/oder dem
+TMDB-Abgleich gewonnen werden.
+
+Damit ist die Mindestanforderung „echte unabhängige zweite EPG-Quelle“
+technisch erfüllt. Joyn liefert einen eigenen 127-Sender-/2.461-Event-Datenstrom
+unabhängig vom Waipu-EPG.
