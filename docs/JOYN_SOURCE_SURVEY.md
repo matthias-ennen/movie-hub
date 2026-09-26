@@ -133,3 +133,6 @@ Konsequenz für #280:
 
 
 > Live-Pilot gestartet: Der nächste mit `[waipu-refresh]` markierte Lauf erzeugt aus dem echten Waipu-SourceEnvelope einen diagnostischen Joyn-Playback-Overlay für die sechs Pilot-Sender. Es werden keine Joyn-EPG-Zeiten erfunden und keine Overlay-Daten an die App veröffentlicht.
+
+
+> Zweiter Live-Pilot nach Korrektur der waipu-epg-Provenienzprüfung gestartet.
