@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mapTmdbProviderOffersToAvailabilities } from '../src/sources/adapters/tmdbWatchProviderContractMapper.js'
-import { mapWaipuAiringToBroadcastEvent, projectBroadcastEventToWaipuAiring } from '../src/sources/adapters/waipuContractMapper.js'
+import { dedupeWaipuBroadcastEvents, mapWaipuAiringToBroadcastEvent, projectBroadcastEventToWaipuAiring } from '../src/sources/adapters/waipuContractMapper.js'
 
 describe('source adapter contract mappers', () => {
   it('maps all real TMDB monetization offer types without reducing them to providerIds', () => {
@@ -120,6 +120,43 @@ describe('source adapter contract mappers', () => {
       newTvMeta: { publicationWindows: [{ from: '2026-09-27' }] },
       trackingContentId: 'tracking-1',
     })
+  })
+
+  it('deduplicates identical neutral broadcasts while preserving unique routes and source refs', () => {
+    const base = mapWaipuAiringToBroadcastEvent({
+      tmdbId: 11,
+      type: 'movie',
+    }, {
+      programId: 'program-4',
+      stationId: 'zdf',
+      stationName: 'ZDF',
+      startTime: '2026-09-27T18:15:00Z',
+      stopTime: '2026-09-27T20:00:00Z',
+    }, {
+      observedAt: '2026-09-26T10:00:00Z',
+      playbackTarget: 'waipu://first',
+    })
+    const duplicate = mapWaipuAiringToBroadcastEvent({
+      tmdbId: 11,
+      type: 'movie',
+    }, {
+      programId: 'program-4b',
+      stationId: 'zdf',
+      stationName: 'ZDF',
+      startTime: '2026-09-27T18:15:00Z',
+      stopTime: '2026-09-27T20:00:00Z',
+    }, {
+      observedAt: '2026-09-26T10:05:00Z',
+      playbackTarget: 'waipu://second',
+    })
+
+    const [merged] = dedupeWaipuBroadcastEvents([duplicate, base])
+    expect(dedupeWaipuBroadcastEvents([duplicate, base])).toHaveLength(1)
+    expect(merged.playbackRoutes.map((route) => route.target)).toEqual([
+      'waipu://first',
+      'waipu://second',
+    ])
+    expect(merged.sourceRefs).toHaveLength(2)
   })
 
   it('does not require optional Waipu capabilities', () => {
