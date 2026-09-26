@@ -61,6 +61,7 @@ import {
   nextTvAiringTransition,
   tvDayKey,
 } from './waipu/waipuTvCatalog.js'
+import { loadJoynLiveStationCatalog } from './joyn/joynTvCatalog.js'
 
 function NativeStartupSignal() {
   useEffect(() => {
@@ -455,6 +456,13 @@ function MovieHub({ user }) {
     horizon: null,
     days: [],
   })
+  const [joynStationCatalog, setJoynStationCatalog] = useState({
+    status: 'loading',
+    stations: [],
+    generatedAt: null,
+    horizon: null,
+    days: [],
+  })
   const [tvSchedule, setTvSchedule] = useState({ status: 'idle', airings: [] })
   const [tvScheduleRequested, setTvScheduleRequested] = useState(false)
   const [tvClock, setTvClock] = useState(() => Date.now())
@@ -538,6 +546,14 @@ function MovieHub({ user }) {
     let cancelled = false
     loadWaipuLiveStationCatalog().then((stationCatalog) => {
       if (!cancelled) setWaipuStationCatalog(stationCatalog)
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    loadJoynLiveStationCatalog().then((stationCatalog) => {
+      if (!cancelled) setJoynStationCatalog(stationCatalog)
     })
     return () => { cancelled = true }
   }, [])
@@ -1399,6 +1415,8 @@ function MovieHub({ user }) {
         <SettingsView
           waipuStations={waipuStationCatalog.stations}
           waipuStationStatus={waipuStationCatalog.status}
+          joynStations={joynStationCatalog.stations}
+          joynStationStatus={joynStationCatalog.status}
         />
       )}
       {currentView === 'about' && <AboutView />}
