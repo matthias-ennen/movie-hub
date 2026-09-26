@@ -226,7 +226,7 @@ async function resolveCatalogTitle(candidate, membershipOffers, observeWatchProv
   })
 
   const normalized = normalizeTmdbTitle(payload, candidate.mediaType)
-  if (typeof observeWatchProviders === 'function') observeWatchProviders(payload?.['watch/providers'], { mediaType: candidate.mediaType, tmdbId: candidate.id, source: 'provider-catalog' })
+  if (typeof observeWatchProviders === 'function') observeWatchProviders({ results: { [country]: payload?.['watch/providers']?.results?.[country] || {} } }, { mediaType: candidate.mediaType, tmdbId: candidate.id, source: 'provider-catalog' })
   const providerData = normalizeTmdbWatchProviders(payload?.['watch/providers'], country)
   const videos = normalizeTmdbVideos([payload?.videos], normalized.originalLanguage)
   const providerOffers = mergeProviderOffers(providerData.providerOffers, membershipOffers)
