@@ -220,6 +220,11 @@ jobs:
           TMDB_COUNTRY: DE
         run: npm run waipu:catalog -- --live
 
+      - name: Build Joyn pilot playback overlay from Waipu events
+        id: joyn_pilot_overlay
+        if: ${{ steps.waipu_catalog.outcome == 'success' }}
+        run: npm run joyn:pilot:overlay
+
       - name: Validate multi-source merge with second-source fixture
         id: source_merge_smoke
         if: ${{ steps.waipu_catalog.outcome == 'success' }}
@@ -395,6 +400,7 @@ jobs:
           path: |
             artifacts/source-adapters/*.json
             artifacts/source-merge/*.json
+            artifacts/joyn-pilot/*.json
           if-no-files-found: ignore
           retention-days: 30
 
