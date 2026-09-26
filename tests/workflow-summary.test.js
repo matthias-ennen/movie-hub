@@ -109,6 +109,10 @@ describe('kompakter Workflow-Datenbericht', () => {
         completeSearchDetails: { total: 14500 },
       },
       baselineWaipu: { counts: { titles: 3 } },
+      sourceSchemaReports: [
+        { summary: { breaking: 0, review: 2, info: 14 } },
+        { summary: { breaking: 1, review: 0, info: 9 } },
+      ],
       workflowTiming: {
         status: 'on-time',
         scheduledAt: '2026-09-19T01:17:00.000Z',
@@ -134,12 +138,13 @@ describe('kompakter Workflow-Datenbericht', () => {
     })
 
     const markdown = workflowSummaryMarkdown(summary)
-    expect(summary.rows).toHaveLength(15)
+    expect(summary.rows).toHaveLength(16)
     expect(markdown).toContain('Lauf #321')
     expect(markdown).toContain('| Waipu EPG | ✅ erfolgreich | 50 Sender')
     expect(markdown).toContain('3.600 zugeordnet · 4/4 Metadaten vollständig')
     expect(markdown).toContain('603 verworfen · 740 Suchen · 640 Detailabrufe · 1.200 Waipu-Cache')
     expect(markdown).toContain('| Waipu-Quelldaten | ✅ erfolgreich | 4 Titel · 2 Filme · 2 Serien | 5/5 Ausstrahlungen vollständig · Vertrag v1 | 2/3 Serienausstrahlungen mit Episodenangabe |')
+    expect(markdown).toContain('| Quellen-Schema | 🔴 BREAKING erkannt | 2 Berichte · 23 bekannte/Info-Felder | 2 Review · 1 Breaking |')
     expect(markdown).toContain('Waipu-Titelbestand: **+1 zum Live-Stand**')
     expect(markdown).toContain('| TMDB-Änderungen | ✅ erfolgreich | 27 Filme · 13 Serien neu gemeldet')
     expect(markdown).toContain('| Suchindex | ✅ erfolgreich | 20.000 · 12.000 Filme · 8.000 Serien | +240 hinzu · -1.167 entfallen · 83 Angebote geändert | 155/155 Scans · 61 begrenzt · 256 Shards |')
@@ -147,7 +152,7 @@ describe('kompakter Workflow-Datenbericht', () => {
     expect(markdown).toContain('| Kanonische Titelkandidaten | ✅ erfolgreich | 1.500 Titel aus 1.900 Referenzen | 400 Dubletten entfernt · 300 Mehrfachzuordnungen | 16.308 nur Suche · 17 Waipu ungeklärt |')
     expect(markdown).toContain('| Prioritätsvorschau | ✅ erfolgreich | 900/1.500 eingeplant · 800 in Tageskapazität | 700 TMDB-Abrufe · 200 Wiederverwendungen | 100 Rückstand · 0 Queue-Dubletten |')
     expect(markdown).toContain('| Laufüberwachung | ✅ pünktlich gestartet | geplant 19.9.2026, 03:17:00 | tatsächlich 19.9.2026, 03:22:00 · 5 Minuten Verzögerung | vorheriger Datenstand beim Start 4 Tage 17 Stunden alt |')
-    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(17)
+    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(18)
   })
 
   it('bleibt bei fehlenden optionalen Artefakten lesbar', () => {
