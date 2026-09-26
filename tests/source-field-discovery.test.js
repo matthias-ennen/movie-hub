@@ -101,7 +101,7 @@ describe('source field discovery', () => {
     })
   })
 
-  it('classifies technical schema metadata and leaves trackingContentId for review', () => {
+  it('classifies technical schema metadata and retains trackingContentId as a server-side extension', () => {
     const report = inspectSourceSchema([{
       $schema: 'https://example.invalid/schema',
       trackingContentId: 'tracking-123',
@@ -109,7 +109,7 @@ describe('source field discovery', () => {
       sourceId: 'waipu',
       policy: {
         '$schema': { decision: FIELD_DECISIONS.REJECT },
-        trackingContentId: { decision: FIELD_DECISIONS.REVIEW },
+        trackingContentId: { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu' },
       },
     })
     expect(report.fields.find((field) => field.path === '$schema')).toMatchObject({
@@ -117,8 +117,9 @@ describe('source field discovery', () => {
       status: 'reject',
     })
     expect(report.fields.find((field) => field.path === 'trackingContentId')).toMatchObject({
-      severity: 'REVIEW',
-      status: 'review',
+      severity: 'INFO',
+      status: 'extension',
+      extensionNamespace: 'waipu',
     })
   })
 
