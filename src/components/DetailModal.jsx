@@ -397,11 +397,13 @@ export default function DetailModal({
     const exactJoynDestination = providerId === 'joyn' && item?.joynLive
       ? getJoynLiveDestination(item.joynLive, { now: providerNow })
       : null
-    const destination = exactJoynDestination || getProviderDestination(providerId, item.title, {
-      waipuMode: providerId === 'waipu' && item?.waipuLive ? 'live' : 'vod',
-      waipuLive: item?.waipuLive,
-      now: providerNow,
-    })
+    const destination = exactJoynDestination
+      || (providerId === 'joyn' && item?.joynLive ? JOYN_LIVE_URL : null)
+      || getProviderDestination(providerId, item.title, {
+        waipuMode: providerId === 'waipu' && item?.waipuLive ? 'live' : 'vod',
+        waipuLive: item?.waipuLive,
+        now: providerNow,
+      })
     if (!destination) return
 
     // State update is optimistic and starts before the provider launch, but we
