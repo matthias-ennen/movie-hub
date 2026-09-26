@@ -220,6 +220,11 @@ jobs:
           TMDB_COUNTRY: DE
         run: npm run waipu:catalog -- --live
 
+      - name: Validate multi-source merge with second-source fixture
+        id: source_merge_smoke
+        if: ${{ steps.waipu_catalog.outcome == 'success' }}
+        run: npm run source:merge:smoke
+
       - name: Acknowledge Waipu change consumer
         if: ${{ steps.waipu_catalog.outcome == 'success' }}
         run: npm run tmdb:changes:ack -- waipu-catalog
@@ -386,7 +391,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: source-adapter-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
-          path: artifacts/source-adapters/*.json
+          path: |
+            artifacts/source-adapters/*.json
+            artifacts/source-merge/*.json
           if-no-files-found: ignore
           retention-days: 30
 
