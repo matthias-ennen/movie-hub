@@ -114,10 +114,8 @@ export class JoynTmdbSearchClient {
   async search(input) {
     const title = String(input?.title || '').trim()
     if (!title) return []
-    const [movies, series] = await Promise.all([
-      this.client.search({ type: 'movie', title }),
-      this.client.search({ type: 'series', title }),
-    ])
+    const movies = await this.client.search({ type: 'movie', title })
+    const series = await this.client.search({ type: 'series', title })
     return [...movies, ...series]
   }
 
