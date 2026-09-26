@@ -573,3 +573,48 @@ Damit können spätere Läufe melden:
 
 Diese Trennung ist notwendig, damit Movie Hub sowohl externe Chancen als auch
 interne Breaking Changes erkennen kann.
+
+
+## 16. Erste bestätigte Feldentscheidungen
+
+Stand 26.09.2026:
+
+| Quelle/Feld | Entscheidung | Begründung |
+|---|---|---|
+| Waipu `recordingRestrictions` | `extension:waipu` | potenziell nützlich, Semantik noch nicht stabil genug für gemeinsame Recording-Capability |
+| Waipu `playbackRestrictions` | `extension:waipu` | potenziell nützlich für Replay/Playback, zunächst quellspezifisch erhalten |
+| TMDB `display_priority` | `extension:tmdb` | Quelle darf ihre Reihenfolgeinformation behalten; Movie Hub übernimmt sie nicht automatisch als Sortierregel |
+| TMDB `logo_path` | `reject` | Movie Hub kontrolliert Providerdarstellung selbst; zusätzlicher Bild-/Abhängigkeitswert derzeit nicht gerechtfertigt |
+| TMDB `flatrate/free/ads/rent/buy` | Availability-Core | unmittelbare fachliche Bedeutung für Verfügbarkeit |
+| unbekannte neue Felder | `review` | niemals automatisch produktiv übernehmen |
+
+Diese Entscheidungen sind in den Field-Policies und zugehörigen Tests umgesetzt.
+
+## 17. V1-Stabilitätsstand von #330
+
+### Bereits stabil genug
+
+- Titelidentität: `mediaType + tmdbId`
+- getrennte Objekte für Availability und BroadcastEvent
+- getrennte Provider-/PlaybackRoute-Modellierung
+- mehrere Provider-Routen je BroadcastEvent
+- SourceRef/Provenienz und Zeitbezug
+- AccessTypes `flatrate/free/ads/rent/buy/own`
+- optionale Capabilities
+- namespacierte Extensions
+- Field-Policy mit `core/capability/extension/review/reject/deprecated`
+- Schema-Drift-Stufen `INFO/REVIEW/BREAKING`
+- Upstream-Beobachtung vor Normalisierung
+- fail-safe Diagnosepfad
+- getrennte Client-Projektion als Architekturprinzip
+
+### Noch offen vor Abschluss #330
+
+- reale Waipu-Rohantworten über mehrere Endpunkttypen gegen die Policy laufen lassen;
+- tatsächliche Feldformen aus Stations-, Grid- und Programmdaten als Snapshot festhalten;
+- TMDB-Watch-Provider-Pfad in einem realen Bericht gegen aktuelle DE-Antwort testen;
+- entscheiden, welche Source-Schema-Berichte dauerhaft als CI-/Nachtlauf-Artefakt aufbewahrt werden;
+- V1-Schema/Testfixture als expliziten Freeze markieren;
+- bestehende Tests/Build im GitHub-CI-Kontext vollständig grün bestätigen.
+
+Erst danach wird #330 abgeschlossen und #331 darf die produktive Waipu-Abbildung auf den gemeinsamen Vertrag beginnen.
