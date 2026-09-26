@@ -706,7 +706,6 @@ export default function DetailModal({
               <strong>Im TV:</strong> {label}
             </p>
           ))}
-          )}
           {hasProviders && <p className="prototype-note">Verfügbarkeiten kommen aus TMDB sowie aus angebundenen Live-TV-Quellen und werden in der passenden App beziehungsweise Suchseite geöffnet.</p>}
           {item.tmdbId && <p className="tmdb-credit">Datenquelle: TMDB · ID {item.tmdbId}</p>}
 
