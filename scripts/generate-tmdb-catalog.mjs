@@ -9,6 +9,9 @@ import {
 import { normalizeTmdbTitle, normalizeTmdbVideos, normalizeTmdbWatchProviders, toMovieHubTitle } from '../src/services/tmdb.js'
 import { finalizePersonalSmartCatalog } from '../src/catalog/personalSmartRows.js'
 import { buildFilmCollectionIndex, collectionIdForTitle } from '../src/catalog/filmCollections.js'
+import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
+import { TMDB_WATCH_PROVIDER_FIELD_POLICY } from '../src/sources/policies/tmdbWatchProviderFieldPolicy.js'
+import { writeFieldDiscoveryReport } from '../src/sources/fieldDiscoveryReport.js'
 
 const token = process.env.TMDB_API_READ_TOKEN
 const language = process.env.TMDB_LANGUAGE || 'de-DE'
@@ -229,7 +232,7 @@ async function getRowCandidates(row) {
   )
 }
 
-async function resolveCandidate(candidate) {
+async function resolveCandidate(candidate, observeWatchProviders = null) {
   const detailPath = candidate.mediaType === 'tv' ? `/tv/${candidate.id}` : `/movie/${candidate.id}`
   const providerPath = candidate.mediaType === 'tv'
     ? `/tv/${candidate.id}/watch/providers`
@@ -250,6 +253,7 @@ async function resolveCandidate(candidate) {
     tmdbFetch(videoPath, { language: 'en-US' }),
   ])
   const normalized = normalizeTmdbTitle(payload, candidate.mediaType)
+  if (typeof observeWatchProviders === 'function') observeWatchProviders(providerPayload, { mediaType: candidate.mediaType, tmdbId: candidate.id })
   const providerData = normalizeTmdbWatchProviders(providerPayload, country)
   const videos = normalizeTmdbVideos([germanVideos, fallbackVideos], normalized.originalLanguage)
   const [accent, accent2] = accentFor(normalized.tmdbId)
@@ -367,6 +371,10 @@ export function attachFilmCollectionDetails(titles, collections = {}) {
 }
 
 export async function generateCatalog() {
+  const watchProviderObserver = new SourceSchemaObserver({
+    sourceId: 'tmdb-watch-providers-live',
+    policy: TMDB_WATCH_PROVIDER_FIELD_POLICY,
+  })
   if (!token) {
     throw new Error('TMDB_API_READ_TOKEN is missing. Catalog generation must run only in a trusted server/CI context.')
   }
@@ -376,12 +384,12 @@ export async function generateCatalog() {
       ...row,
       candidates: await getRowCandidates(row),
     }))),
-    generateProviderCatalogs(),
+    generateProviderCatalogs({ observeWatchProviders: (payload, context) => watchProviderObserver.observe(payload, context) }),
   ])
 
   const candidates = uniqueCandidates(rowsWithCandidates.flatMap((row) => row.candidates))
   console.log(`TMDB catalog: resolving ${candidates.length} current discovery candidates`)
-  const resolvedTitles = await mapWithConcurrency(candidates, REQUEST_CONCURRENCY, resolveCandidate)
+  const resolvedTitles = await mapWithConcurrency(candidates, REQUEST_CONCURRENCY, (candidate) => resolveCandidate(candidate, (payload, context) => watchProviderObserver.observe(payload, context)))
   const titlesByCandidate = new Map(
     resolvedTitles.map((title) => [`${title.type === 'series' ? 'tv' : 'movie'}-${title.tmdbId}`, title]),
   )
@@ -411,6 +419,14 @@ export async function generateCatalog() {
   const collections = await resolveFilmCollections(versionedTitles)
   const collectionReadyTitles = attachFilmCollectionDetails(versionedTitles, collections)
   const smartCatalog = finalizePersonalSmartCatalog(collectionReadyTitles)
+
+  const watchProviderReport = watchProviderObserver.report({ phase: 'catalog-complete' })
+  if (watchProviderReport.context.sampleCount > 0) {
+    await writeFieldDiscoveryReport(watchProviderReport, {
+      jsonPath: resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/source-schema/tmdb-watch-providers-live.json'),
+      markdownPath: resolve(dirname(fileURLToPath(import.meta.url)), '../artifacts/source-schema/tmdb-watch-providers-live.md'),
+    })
+  }
 
   return {
     source: 'tmdb',
