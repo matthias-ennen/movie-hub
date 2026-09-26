@@ -256,6 +256,7 @@ export async function runJoynAdapterDiagnostic({
   const rejected = {}
   const joynClassification = { movie: 0, series: 0, unknown: 0 }
   let joynSearchRequests = 0
+  let tmdbBudgetExhausted = false
   for (const [programId, entry] of uniquePrograms) {
     const localCandidates = candidatesFor(entry.candidate.title)
     let decision = await matchJoynProgram(
@@ -275,13 +276,27 @@ export async function runJoynAdapterDiagnostic({
       if (joynType) joynClassification[joynType] += 1
       else joynClassification.unknown += 1
 
-      decision = await matchJoynProgram(
-        { title: entry.candidate.title, type: joynType },
-        {
-          localCandidates,
-          searchTmdb: tmdbSearch ? (input) => tmdbSearch.search(input) : null,
-        },
-      )
+      try {
+        decision = await matchJoynProgram(
+          { title: entry.candidate.title, type: joynType },
+          {
+            localCandidates,
+            searchTmdb: tmdbSearch && !tmdbBudgetExhausted
+              ? (input) => tmdbSearch.search(input)
+              : null,
+          },
+        )
+      } catch (error) {
+        if (error?.code !== 'TMDB_REQUEST_BUDGET') throw error
+        tmdbBudgetExhausted = true
+        decision = {
+          matcherVersion: 1,
+          status: 'unmatched',
+          reason: 'tmdb_budget_exhausted',
+          source: 'local',
+          match: null,
+        }
+      }
     }
 
     decisions.set(programId, decision)
@@ -338,6 +353,7 @@ export async function runJoynAdapterDiagnostic({
       tmdbRequests: tmdbSearch?.requestsStarted || 0,
       joynSearchRequests,
       joynClassification,
+      tmdbBudgetExhausted,
       rejected,
     },
     output: {
