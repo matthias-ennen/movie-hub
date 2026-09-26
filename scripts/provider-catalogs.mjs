@@ -214,7 +214,7 @@ function mergeProviderOffers(primary = [], membershipOffers = []) {
   return [...merged.values()]
 }
 
-async function resolveCatalogTitle(candidate, membershipOffers) {
+async function resolveCatalogTitle(candidate, membershipOffers, observeWatchProviders = null) {
   const path = candidate.mediaType === 'movie' ? `/movie/${candidate.id}` : `/tv/${candidate.id}`
   const appendToResponse = candidate.mediaType === 'movie'
     ? 'credits,keywords,videos,watch/providers,images,release_dates'
@@ -226,6 +226,7 @@ async function resolveCatalogTitle(candidate, membershipOffers) {
   })
 
   const normalized = normalizeTmdbTitle(payload, candidate.mediaType)
+  if (typeof observeWatchProviders === 'function') observeWatchProviders(payload?.['watch/providers'], { mediaType: candidate.mediaType, tmdbId: candidate.id, source: 'provider-catalog' })
   const providerData = normalizeTmdbWatchProviders(payload?.['watch/providers'], country)
   const videos = normalizeTmdbVideos([payload?.videos], normalized.originalLanguage)
   const providerOffers = mergeProviderOffers(providerData.providerOffers, membershipOffers)
@@ -314,7 +315,7 @@ export function buildProviderHomeRows(providerCatalogs) {
     .filter(Boolean)
 }
 
-export async function generateProviderCatalogs() {
+export async function generateProviderCatalogs({ observeWatchProviders = null } = {}) {
   if (!token) throw new Error('TMDB_API_READ_TOKEN is missing. Provider catalogs run only in trusted CI.')
 
   const [movieDirectory, tvDirectory] = await Promise.all([
@@ -369,7 +370,7 @@ export async function generateProviderCatalogs() {
   console.log(`Provider catalogs: resolving ${uniqueCandidates.length} unique titles`)
   const titles = await mapWithConcurrency(uniqueCandidates, REQUEST_CONCURRENCY, async (candidate) => {
     const offers = [...(memberships.get(providerKey(candidate.mediaType, candidate.id))?.values() || [])]
-    return resolveCatalogTitle(candidate, offers)
+    return resolveCatalogTitle(candidate, offers, observeWatchProviders)
   })
 
   return {
