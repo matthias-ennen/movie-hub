@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { normalizeSourceEnvelope } from '../src/sources/sourceAdapterContract.js'
 import { mergeSourceGenerations } from '../src/sources/sourceMerge.js'
 import { writeMergedSourcePublication } from '../scripts/source-merge-publication.mjs'
+import { runSourceMergeSmoke } from '../scripts/source-merge-smoke.mjs'
 
 const cleanup = []
 afterEach(async () => {
@@ -102,6 +103,32 @@ describe('multi-source merge', () => {
       status: 'failed',
       retainedPrevious: true,
       recordsBeforeExpiry: 2,
+      activeRecords: 1,
+      expiredRecordsDropped: 1,
+    })
+  })
+
+  it('runs the workflow smoke scenario against a real-shaped Waipu envelope', async () => {
+    const root = await mkdtemp(resolve(tmpdir(), 'movie-hub-source-smoke-'))
+    cleanup.push(root)
+    const waipuPath = resolve(root, 'waipu-v1.json')
+    const outputDir = resolve(root, 'merge')
+    await import('node:fs/promises').then(({ writeFile }) => writeFile(
+      waipuPath,
+      `${JSON.stringify(envelope('waipu', 'waipu'), null, 2)}\n`,
+      'utf8',
+    ))
+
+    const summary = await runSourceMergeSmoke({
+      waipuPath,
+      outputDir,
+      now: Date.parse('2026-09-26T12:00:00Z'),
+    })
+
+    expect(summary.healthy.sharedEventRoutes).toEqual(['fixture-provider', 'waipu'])
+    expect(summary.failureFallback).toMatchObject({
+      sourceStatus: 'failed',
+      retainedPrevious: true,
       activeRecords: 1,
       expiredRecordsDropped: 1,
     })
