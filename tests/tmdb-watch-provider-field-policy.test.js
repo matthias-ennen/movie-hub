@@ -3,7 +3,7 @@ import { inspectSourceSchema } from '../src/sources/fieldDiscovery.js'
 import { TMDB_WATCH_PROVIDER_FIELD_POLICY } from '../src/sources/policies/tmdbWatchProviderFieldPolicy.js'
 
 describe('TMDB watch-provider field policy', () => {
-  it('separates monetization fields, rejected presentation data and review candidates', () => {
+  it('separates monetization fields, rejected presentation data and retained source ordering', () => {
     const report = inspectSourceSchema({
       results: {
         DE: {
@@ -24,7 +24,11 @@ describe('TMDB watch-provider field policy', () => {
 
     expect(report.fields.find((field) => field.path === 'results.DE.ads')?.status).toBe('capability')
     expect(report.fields.find((field) => field.path === 'results.DE.ads.logo_path')?.status).toBe('reject')
-    expect(report.fields.find((field) => field.path === 'results.DE.ads.display_priority')?.severity).toBe('REVIEW')
+    expect(report.fields.find((field) => field.path === 'results.DE.ads.display_priority')).toMatchObject({
+      severity: 'INFO',
+      status: 'extension',
+      extensionNamespace: 'tmdb',
+    })
     expect(report.fields.find((field) => field.path === 'results.DE.ads.new_future_field')?.severity).toBe('REVIEW')
   })
 })
