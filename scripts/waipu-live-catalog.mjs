@@ -27,6 +27,11 @@ import { readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mj
 import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
 import { WAIPU_PROGRAM_UPSTREAM_FIELD_POLICY } from '../src/sources/policies/waipuUpstreamFieldPolicy.js'
 import { writeFieldDiscoveryReport } from '../src/sources/fieldDiscoveryReport.js'
+import {
+  dedupeWaipuBroadcastEvents,
+  mapWaipuAiringToBroadcastEvent,
+  projectBroadcastEventToWaipuAiring,
+} from '../src/sources/adapters/waipuContractMapper.js'
 
 export const WAIPU_LIVE_CATALOG_VERSION = 1
 export const WAIPU_SOURCE_DATA_VERSION = 1
@@ -393,56 +398,67 @@ export async function buildWaipuLiveCatalog({
   const activeBroadcasts = candidateBroadcasts.filter((broadcast) => (
     matchesByProgram.has(broadcast.programId) && Date.parse(broadcast.stopTime) > Date.parse(generatedAt)
   ))
-  const titleMap = new Map()
-  const stationAirings = new Map()
-  for (const broadcast of activeBroadcasts) {
+  const titleMetadata = new Map()
+  const canonicalEvents = dedupeWaipuBroadcastEvents(activeBroadcasts.map((broadcast) => {
     const resolved = matchesByProgram.get(broadcast.programId)
     const match = resolved.decision.match
     const key = canonicalTitleKey(match.type, match.tmdbId)
-    const airing = {
-      id: broadcastKey(broadcast),
-      source: 'waipu',
-      programId: broadcast.programId,
-      seriesId: resolved.input.seriesId || null,
-      tmdbId: match.tmdbId,
-      type: match.type,
-      title: match.title,
-      episodeTitle: resolved.input.episodeTitle,
-      seasonNumber: resolved.input.seasonNumber,
-      episodeNumber: resolved.input.episodeNumber,
-      startTime: broadcast.startTime,
-      stopTime: broadcast.stopTime,
-      imageUrl: broadcast.imageUrl || resolved.input.imageUrls[0] || null,
-    }
-    if (!stationAirings.has(broadcast.stationId)) stationAirings.set(broadcast.stationId, [])
-    stationAirings.get(broadcast.stationId).push(airing)
-
-    let current = titleMap.get(key)
-    if (!current) {
-      current = {
+    if (!titleMetadata.has(key)) {
+      titleMetadata.set(key, {
         tmdbId: match.tmdbId,
         type: match.type,
         title: match.title,
         originalTitle: match.originalTitle,
         year: match.year,
         posterUrl: match.posterUrl,
+      })
+    }
+    return mapWaipuAiringToBroadcastEvent({
+      tmdbId: match.tmdbId,
+      type: match.type,
+    }, {
+      programId: broadcast.programId,
+      seriesId: resolved.input.seriesId || null,
+      stationId: broadcast.stationId,
+      stationName: broadcast.stationName,
+      startTime: broadcast.startTime,
+      stopTime: broadcast.stopTime,
+      episodeTitle: resolved.input.episodeTitle,
+      seasonNumber: resolved.input.seasonNumber,
+      episodeNumber: resolved.input.episodeNumber,
+      imageUrl: broadcast.imageUrl || resolved.input.imageUrls[0] || null,
+    }, {
+      observedAt: generatedAt,
+    })
+  }).filter(Boolean))
+
+  const titleMap = new Map()
+  const stationAirings = new Map()
+  for (const event of canonicalEvents) {
+    const key = canonicalTitleKey(event.titleRef.mediaType, event.titleRef.tmdbId)
+    const metadata = titleMetadata.get(key)
+    if (!metadata) continue
+    const projected = projectBroadcastEventToWaipuAiring(event)
+    if (!projected) continue
+    const airing = {
+      id: broadcastKey(projected),
+      ...projected,
+      tmdbId: event.titleRef.tmdbId,
+      type: event.titleRef.mediaType,
+      title: metadata.title,
+    }
+    if (!stationAirings.has(projected.stationId)) stationAirings.set(projected.stationId, [])
+    stationAirings.get(projected.stationId).push(airing)
+
+    let current = titleMap.get(key)
+    if (!current) {
+      current = {
+        ...metadata,
         airings: [],
       }
       titleMap.set(key, current)
     }
-    current.airings.push({
-      source: airing.source,
-      programId: airing.programId,
-      seriesId: airing.seriesId,
-      stationId: broadcast.stationId,
-      stationName: broadcast.stationName,
-      startTime: airing.startTime,
-      stopTime: airing.stopTime,
-      episodeTitle: airing.episodeTitle,
-      seasonNumber: airing.seasonNumber,
-      episodeNumber: airing.episodeNumber,
-      imageUrl: airing.imageUrl,
-    })
+    current.airings.push(projected)
   }
 
   for (const title of titleMap.values()) {
@@ -486,7 +502,7 @@ export async function buildWaipuLiveCatalog({
       || left.title.localeCompare(right.title, 'de')
     )))]))
   metrics.publishedTitles = titles.length
-  metrics.publishedBroadcasts = activeBroadcasts.length
+  metrics.publishedBroadcasts = canonicalEvents.length
 
   return {
     index: {
@@ -502,7 +518,7 @@ export async function buildWaipuLiveCatalog({
       counts: {
         stations: selectedStations.length,
         titles: titles.length,
-        broadcasts: activeBroadcasts.length,
+        broadcasts: canonicalEvents.length,
       },
       days: Object.values(days).map(({ key, count }) => ({ key, count })),
       metrics,
