@@ -35,7 +35,7 @@ jobs:
           TMDB_LANGUAGE: de-DE
           JOYN_TMDB_REQUEST_BUDGET: '120'
           JOYN_TMDB_PACE_MS: '200'
-        run: node scripts/joyn-adapter-diagnostic.mjs
+        run: npm run joyn:diagnostic
       - name: Upload Joyn diagnostic artifacts
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
