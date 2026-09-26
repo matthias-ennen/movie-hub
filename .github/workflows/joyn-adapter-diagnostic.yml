@@ -13,6 +13,10 @@ on:
       - 'tests/joyn-tmdb-matcher.test.js'
       - '.github/workflows/joyn-adapter-diagnostic.yml'
 
+concurrency:
+  group: joyn-adapter-diagnostic-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
