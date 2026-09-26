@@ -25,7 +25,7 @@ function event(channelId, eventId) {
       target: `https://app.waipu.tv/epgdetails/${channelId}/program-1`,
     }],
     sourceRefs: [{
-      sourceId: 'waipu',
+      sourceId: 'waipu-epg',
       externalId: eventId,
       observedAt: '2026-09-26T12:00:00Z',
       expiresAt: '2026-09-26T20:00:00Z',
@@ -42,7 +42,7 @@ describe('Joyn pilot overlay artifact', () => {
 
     const envelope = normalizeSourceEnvelope({
       contractVersion: 1,
-      sourceId: 'waipu',
+      sourceId: 'waipu-epg',
       sourceGenerationId: 'waipu:test',
       generatedAt: '2026-09-26T12:00:00Z',
       fetchedAt: '2026-09-26T12:00:00Z',
@@ -68,7 +68,7 @@ describe('Joyn pilot overlay artifact', () => {
       stationsWithEvents: 2,
     })
     expect(result.records).toHaveLength(2)
-    expect(result.records.every((item) => item.sourceRefs.some((ref) => ref.sourceId === 'waipu'))).toBe(true)
+    expect(result.records.every((item) => item.sourceRefs.some((ref) => ref.sourceId === 'waipu-epg'))).toBe(true)
     expect(result.records.every((item) => item.playbackRoutes.some((route) => route.providerId === 'joyn'))).toBe(true)
 
     const written = JSON.parse(await readFile(outputPath, 'utf8'))
