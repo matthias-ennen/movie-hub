@@ -6,6 +6,7 @@ const AUTH_URL = 'https://auth.joyn.de/auth/anonymous'
 const GRAPHQL_URL = 'https://api.joyn.de/graphql'
 const OPERATION = 'LiveChannelsAndEpg'
 const HASH = 'b7703103ddd0516be6b49ed66186092a6c6f6d815ccc502a9f50800a8cc18dd2'
+const SEARCH_HASH = 'bb2bab6cbe17321d7eddd5006e7f40765faedd79790b193a59d83f4640694856'
 const FULL_EPG_QUERY = `query LiveChannelsAndEPG {
   liveStreams(filterLivestreamsTypes: [LINEAR], first: 5000, offset: 0, liveStreamGroupFilter: DEFAULT) {
     id
@@ -198,6 +199,91 @@ function summarizeEpg(data) {
   }
 }
 
+
+function collectTypenames(value, result = {}) {
+  if (Array.isArray(value)) {
+    for (const item of value) collectTypenames(item, result)
+    return result
+  }
+  if (!value || typeof value !== 'object') return result
+  if (typeof value.__typename === 'string') {
+    result[value.__typename] = Number(result[value.__typename] || 0) + 1
+  }
+  for (const child of Object.values(value)) collectTypenames(child, result)
+  return result
+}
+
+async function gqlPersisted({ operationName, hash, variables, token, apiKey }) {
+  const params = new URLSearchParams()
+  params.set('operationName', operationName)
+  params.set('enable_user_location', 'true')
+  params.set('watch_assistant_variant', 'true')
+  params.set('variables', JSON.stringify(variables || {}))
+  params.set('extensions', JSON.stringify({
+    persistedQuery: { version: 1, sha256Hash: hash },
+  }))
+  const response = await fetch(GRAPHQL_URL + '?' + params.toString(), {
+    headers: {
+      ...baseHeaders(),
+      authorization: 'Bearer ' + token,
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'joyn-platform': 'web',
+      'joyn-country': 'DE',
+      'joyn-distribution-tenant': 'JOYN',
+      'joyn-client-version': '5.1370.0',
+    },
+  })
+  const text = await response.text()
+  let body = null
+  try { body = JSON.parse(text) } catch {}
+  return { status: response.status, body }
+}
+
+function sampleEpgTitles(data, limit = 3) {
+  const titles = []
+  const seen = new Set()
+  for (const stream of Array.isArray(data?.liveStreams) ? data.liveStreams : []) {
+    for (const event of Array.isArray(stream?.epgEvents) ? stream.epgEvents : []) {
+      const title = String(event?.program?.title || '').trim()
+      if (!title || seen.has(title)) continue
+      seen.add(title)
+      titles.push(title)
+      if (titles.length >= limit) return titles
+    }
+  }
+  return titles
+}
+
+async function probeJoynSearch(data, { token, apiKey }) {
+  const samples = []
+  for (const title of sampleEpgTitles(data, 3)) {
+    const result = await gqlPersisted({
+      operationName: 'SearchQ',
+      hash: SEARCH_HASH,
+      variables: { text: title, first: 10, offset: 0 },
+      token,
+      apiKey,
+    })
+    const fields = result.body?.data ? walk(result.body.data) : new Map()
+    samples.push({
+      query: title,
+      httpStatus: result.status,
+      hasData: Boolean(result.body?.data),
+      errorCount: Array.isArray(result.body?.errors) ? result.body.errors.length : 0,
+      typenames: Object.fromEntries(
+        Object.entries(collectTypenames(result.body?.data || {})).sort(([a], [b]) => a.localeCompare(b)),
+      ),
+      fields: [...fields.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .slice(0, 120)
+        .map(([path, meta]) => ({ path, ...meta })),
+    })
+  }
+  return samples
+}
+
 function countLikelyPrograms(value) {
   let count = 0
   const visit = (node) => {
@@ -275,6 +361,10 @@ async function run() {
         .map(([path, meta]) => ({ path, ...meta }))
       report.schema.likelyProgramObjects = countLikelyPrograms(body.data)
       report.epg = summarizeEpg(body.data)
+      report.searchSamples = await probeJoynSearch(body.data, {
+        token: auth.token,
+        apiKey: key.apiKey,
+      })
     }
   } catch (error) {
     report.failure = {
