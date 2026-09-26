@@ -51,7 +51,8 @@
     "source:schema:report": "node scripts/report-source-schema.mjs",
     "source:merge:smoke": "node scripts/source-merge-smoke.mjs",
     "joyn:pilot:overlay": "node scripts/joyn-pilot-overlay.mjs",
-    "joyn:diagnostic": "node scripts/joyn-adapter-diagnostic.mjs"
+    "joyn:diagnostic": "node scripts/joyn-adapter-diagnostic.mjs",
+    "joyn:restore": "node scripts/restore-live-joyn-catalog.mjs"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.13",
