@@ -79,6 +79,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate source schema baseline report
+        id: source_schema_baseline
+        continue-on-error: true
+        run: npm run source:schema:report
+
       - name: Capture last published data baseline
         id: workflow_baseline
         continue-on-error: true
@@ -373,6 +378,17 @@ jobs:
         with:
           name: search-index-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/search-index-run-report.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Upload source schema diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: source-schema-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/source-schema/*.json
+            artifacts/source-schema/*.md
           if-no-files-found: ignore
           retention-days: 30
 
