@@ -31,6 +31,18 @@ describe('kompakter Workflow-Datenbericht', () => {
         },
         runtime: { detailRequests: { cacheHits: 1200 }, tmdbRequests: 740, tmdbMetadataRequests: 640 },
       },
+      joynIndex: {
+        generatedAt: '2026-09-19T08:30:00.000Z',
+        stationCount: 127,
+        airingCount: 2462,
+        horizon: { from: '2026-09-19T08:00:00.000Z', to: '2026-09-20T08:00:00.000Z' },
+      },
+      joynTitles: {
+        entries: [
+          { type: 'movie', airings: [{ startTime: '2026-09-19T18:15:00.000Z' }] },
+          { type: 'series', airings: [{ startTime: '2026-09-19T19:15:00.000Z' }, { startTime: '2026-09-20T19:15:00.000Z' }] },
+        ],
+      },
       waipuTitles: {
         entries: [
           {
@@ -139,6 +151,7 @@ describe('kompakter Workflow-Datenbericht', () => {
         tmdbPush: 'skipped',
         waipuSync: 'success',
         waipuCatalog: 'success',
+        joynCatalog: 'success',
         sourceMerge: 'success',
         canonicalExecutor: 'success',
         candidateInventory: 'success',
@@ -152,12 +165,13 @@ describe('kompakter Workflow-Datenbericht', () => {
     })
 
     const markdown = workflowSummaryMarkdown(summary)
-    expect(summary.rows).toHaveLength(17)
+    expect(summary.rows).toHaveLength(18)
     expect(markdown).toContain('Lauf #321')
     expect(markdown).toContain('| Waipu EPG | ✅ erfolgreich | 50 Sender')
     expect(markdown).toContain('3.600 zugeordnet · 4/4 Metadaten vollständig')
     expect(markdown).toContain('603 verworfen · 740 Suchen · 640 Detailabrufe · 1.200 Waipu-Cache')
     expect(markdown).toContain('| Waipu-Quelldaten | ✅ erfolgreich | 4 Titel · 2 Filme · 2 Serien | 5/5 Ausstrahlungen vollständig · Vertrag v1 | 2/3 Serienausstrahlungen mit Episodenangabe |')
+    expect(markdown).toContain('| Joyn EPG | ✅ erfolgreich | 127 Sender · 2 Titel · 3 Ausstrahlungen | 1 Filme · 1 Serien · Stand 19.9.2026, 10:30:00 | 2026-09-19 bis 2026-09-20 |')
     expect(markdown).toContain('| Quellen-Schema | 🔴 BREAKING erkannt | 2 Berichte · 23 bekannte/Info-Felder | 2 Review · 1 Breaking |')
     expect(markdown).toContain('| Quellen-Merge | ✅ Merge + Fehlerisolation | 2 Quellen · 15.001 neutrale Events | gemeinsame Routen: fixture-provider + waipu | Fallback: failed · 1 aktiv · 1 abgelaufen entfernt |')
     expect(markdown).toContain('Waipu-Titelbestand: **+1 zum Live-Stand**')
@@ -167,7 +181,7 @@ describe('kompakter Workflow-Datenbericht', () => {
     expect(markdown).toContain('| Kanonische Titelkandidaten | ✅ erfolgreich | 1.500 Titel aus 1.900 Referenzen | 400 Dubletten entfernt · 300 Mehrfachzuordnungen | 16.308 nur Suche · 17 Waipu ungeklärt |')
     expect(markdown).toContain('| Prioritätsvorschau | ✅ erfolgreich | 900/1.500 eingeplant · 800 in Tageskapazität | 700 TMDB-Abrufe · 200 Wiederverwendungen | 100 Rückstand · 0 Queue-Dubletten |')
     expect(markdown).toContain('| Laufüberwachung | ✅ pünktlich gestartet | geplant 19.9.2026, 03:17:00 | tatsächlich 19.9.2026, 03:22:00 · 5 Minuten Verzögerung | vorheriger Datenstand beim Start 4 Tage 17 Stunden alt |')
-    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(19)
+    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(20)
   })
 
   it('bleibt bei fehlenden optionalen Artefakten lesbar', () => {
