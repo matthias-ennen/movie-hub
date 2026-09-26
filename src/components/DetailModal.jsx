@@ -20,6 +20,7 @@ import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { loadSeriesSeasonDetail, normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
 import { formatWaipuLiveAiring } from '../waipu/waipuLiveCatalog.js'
+import { JOYN_LIVE_URL, formatJoynLiveAiring, getJoynLiveDestination } from '../joyn/joynLiveCatalog.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 
 export default function DetailModal({
@@ -100,6 +101,7 @@ export default function DetailModal({
   const automaticVideos = Array.isArray(item.videos) ? item.videos : []
   const personalState = getTitleState(item)
   const waipuAiringLabel = formatWaipuLiveAiring(item?.waipuLive?.nextAiring)
+  const joynAiringLabel = formatJoynLiveAiring(item?.joynLive?.nextAiring)
 
   useEffect(() => {
     const active = returnFocusTarget || document.activeElement
@@ -392,7 +394,10 @@ export default function DetailModal({
     const exactWaipuDestination = providerId === 'waipu'
       ? getWaipuEpgDestination(item?.waipuLive, { now: providerNow })
       : null
-    const destination = getProviderDestination(providerId, item.title, {
+    const exactJoynDestination = providerId === 'joyn' && item?.joynLive
+      ? getJoynLiveDestination(item.joynLive, { now: providerNow })
+      : null
+    const destination = exactJoynDestination || getProviderDestination(providerId, item.title, {
       waipuMode: providerId === 'waipu' && item?.waipuLive ? 'live' : 'vod',
       waipuLive: item?.waipuLive,
       now: providerNow,
@@ -410,6 +415,16 @@ export default function DetailModal({
         item.title,
         exactWaipuDestination,
         WAIPU_LIVE_URL,
+      )
+      return
+    }
+
+    if (exactJoynDestination && window.MovieHubNative?.openProviderExact) {
+      window.MovieHubNative.openProviderExact(
+        providerId,
+        item.title,
+        exactJoynDestination,
+        JOYN_LIVE_URL,
       )
       return
     }
@@ -685,6 +700,11 @@ export default function DetailModal({
           {waipuAiringLabel && (
             <p className="waipu-provider-airing" aria-label="Nächster Sendetermin bei waipu.tv">
               <strong>Bei waipu.tv:</strong> {waipuAiringLabel}
+            </p>
+          )}
+          {joynAiringLabel && (
+            <p className="waipu-provider-airing" aria-label="Nächster Sendetermin bei Joyn">
+              <strong>Bei Joyn:</strong> {joynAiringLabel}
             </p>
           )}
           {hasProviders && <p className="prototype-note">Anbieter werden automatisch aus TMDB bestimmt und in der passenden App beziehungsweise Suchseite geöffnet.</p>}
