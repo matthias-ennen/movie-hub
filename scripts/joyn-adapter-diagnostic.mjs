@@ -50,8 +50,10 @@ async function anonymousToken(fetchImpl = fetch) {
   return token
 }
 
-async function loadJoynEpg(fetchImpl = fetch) {
-  const token = await anonymousToken(fetchImpl)
+async function loadJoynEpg(fetchImpl = fetch, {
+  maxAttempts = 3,
+  sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms)),
+} = {}) {
   const params = new URLSearchParams()
   params.set('operationName', OPERATION)
   params.set('enable_user_location', 'true')
@@ -59,26 +61,36 @@ async function loadJoynEpg(fetchImpl = fetch) {
   params.set('variables', JSON.stringify({}))
   params.set('extensions', JSON.stringify({ persistedQuery: { version: 1, sha256Hash: HASH } }))
 
-  const response = await fetchImpl(GRAPHQL_URL + '?' + params.toString(), {
-    headers: {
-      ...headers(),
-      authorization: 'Bearer ' + token,
-      accept: 'application/json',
-      'content-type': 'application/json',
-      'x-api-key': process.env.JOYN_GRAPHQL_API_KEY || OBSERVED_PUBLIC_WEBCLIENT_KEY,
-      'joyn-platform': 'web',
-      'joyn-country': 'DE',
-      'joyn-distribution-tenant': 'JOYN',
-      'joyn-client-version': '5.1370.0',
-    },
-  })
-  if (!response.ok) throw new Error(`Joyn GraphQL failed: HTTP ${response.status}`)
-  const body = await response.json()
-  if (Array.isArray(body?.errors) && body.errors.length) {
-    throw new Error(`Joyn GraphQL returned errors: ${body.errors.map((e) => e?.message).join('; ')}`)
+  let lastError = null
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const token = await anonymousToken(fetchImpl)
+      const response = await fetchImpl(GRAPHQL_URL + '?' + params.toString(), {
+        headers: {
+          ...headers(),
+          authorization: 'Bearer ' + token,
+          accept: 'application/json',
+          'content-type': 'application/json',
+          'x-api-key': process.env.JOYN_GRAPHQL_API_KEY || OBSERVED_PUBLIC_WEBCLIENT_KEY,
+          'joyn-platform': 'web',
+          'joyn-country': 'DE',
+          'joyn-distribution-tenant': 'JOYN',
+          'joyn-client-version': '5.1370.0',
+        },
+      })
+      if (!response.ok) throw new Error(`Joyn GraphQL failed: HTTP ${response.status}`)
+      const body = await response.json()
+      if (Array.isArray(body?.errors) && body.errors.length) {
+        throw new Error(`Joyn GraphQL returned errors: ${body.errors.map((e) => e?.message).join('; ')}`)
+      }
+      if (!body?.data) throw new Error('Joyn GraphQL returned no data.')
+      return body.data
+    } catch (error) {
+      lastError = error
+      if (attempt < maxAttempts) await sleep(500 * (2 ** (attempt - 1)))
+    }
   }
-  if (!body?.data) throw new Error('Joyn GraphQL returned no data.')
-  return body.data
+  throw lastError || new Error('Joyn GraphQL failed after retries.')
 }
 
 function titleLookup(candidates) {
