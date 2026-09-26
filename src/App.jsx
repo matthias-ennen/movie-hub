@@ -774,6 +774,32 @@ function MovieHub({ user }) {
     ).map((item) => resolvePresentationArtwork(item, artworkOptions)),
     [rawMovieHubTitles, waipuLiveEntries, joynLiveEntries, waipuStatusClock, artworkOptions],
   )
+  const compactTvTitleEntries = useMemo(() => {
+    const byKey = new Map()
+    for (const entry of [...waipuLiveEntries, ...joynLiveEntries]) {
+      const key = entry?.key || `${entry?.type || ''}:${entry?.tmdbId || ''}`
+      if (!key || key === ':') continue
+      const current = byKey.get(key)
+      const airings = [
+        ...(Array.isArray(current?.airings) ? current.airings : []),
+        ...(Array.isArray(entry?.airings) ? entry.airings : [entry?.nextAiring].filter(Boolean)),
+      ].sort((left, right) => String(left?.startTime || '').localeCompare(String(right?.startTime || '')))
+      byKey.set(key, {
+        ...(current || entry),
+        ...entry,
+        key,
+        airings,
+        nextAiring: airings[0] || null,
+        airingCount: airings.length,
+        providerIds: [...new Set([
+          ...(Array.isArray(current?.providerIds) ? current.providerIds : []),
+          ...(Array.isArray(entry?.providerIds) ? entry.providerIds : []),
+        ])],
+      })
+    }
+    return [...byKey.values()]
+  }, [joynLiveEntries, waipuLiveEntries])
+
   const tvViewModel = useMemo(() => buildWaipuTvViewModel({
     airings: tvSchedule.airings,
     titles,
@@ -785,10 +811,10 @@ function MovieHub({ user }) {
   }), [combinedTvDays, combinedTvStationOrder, titles, tvClock, tvPeriodId, tvSchedule.airings, waipuLiveEntries])
   const compactTvHeroItems = useMemo(() => buildWaipuTvHeroItems({
     titles,
-    titleEntries: waipuLiveEntries,
-    stationOrder: activeWaipuStations.map((station) => station.id),
+    titleEntries: compactTvTitleEntries,
+    stationOrder: combinedTvStationOrder,
     now: tvClock,
-  }), [activeWaipuStations, titles, tvClock, waipuLiveEntries])
+  }), [combinedTvStationOrder, compactTvTitleEntries, titles, tvClock])
   const tvHeroItems = compactTvHeroItems.length ? compactTvHeroItems : tvViewModel.heroItems
   const tvScheduleSettled = tvSchedule.status !== 'idle' && tvSchedule.status !== 'loading'
   const tvHeroCatalogReady = waipuLiveStatus === 'ready'
