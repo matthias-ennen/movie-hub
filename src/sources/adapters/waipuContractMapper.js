@@ -82,7 +82,39 @@ export function mapWaipuAiringToBroadcastEvent(title, airing, {
         imageUrl: safeText(airing?.imageUrl),
         recordingRestrictions: airing?.recordingRestrictions ?? null,
         playbackRestrictions: airing?.playbackRestrictions ?? null,
+        restrictions: airing?.restrictions ?? null,
+        rerun: airing?.rerun ?? null,
+        newTvMeta: airing?.newTvMeta ?? null,
+        trackingContentId: safeText(airing?.trackingContentId),
       },
     },
   })
+}
+
+
+export function projectBroadcastEventToWaipuAiring(event) {
+  if (!event || event.kind !== 'broadcast') return null
+  const waipu = event?.extensions?.waipu || {}
+  return {
+    source: 'waipu',
+    programId: safeText(waipu.programId),
+    seriesId: safeText(waipu.seriesId),
+    stationId: safeText(event.channelId),
+    stationName: safeText(event.channelName),
+    startTime: safeText(event.startAt),
+    stopTime: safeText(event.endAt),
+    episodeTitle: safeText(event?.episode?.title),
+    seasonNumber: Number.isInteger(event?.episode?.seasonNumber) ? event.episode.seasonNumber : null,
+    episodeNumber: Number.isInteger(event?.episode?.episodeNumber) ? event.episode.episodeNumber : null,
+    imageUrl: safeText(waipu.imageUrl),
+    ...(waipu.recordingRestrictions !== null && waipu.recordingRestrictions !== undefined
+      ? { recordingRestrictions: waipu.recordingRestrictions } : {}),
+    ...(waipu.playbackRestrictions !== null && waipu.playbackRestrictions !== undefined
+      ? { playbackRestrictions: waipu.playbackRestrictions } : {}),
+    ...(waipu.restrictions !== null && waipu.restrictions !== undefined
+      ? { restrictions: waipu.restrictions } : {}),
+    ...(waipu.rerun !== null && waipu.rerun !== undefined ? { rerun: waipu.rerun } : {}),
+    ...(waipu.newTvMeta !== null && waipu.newTvMeta !== undefined ? { newTvMeta: waipu.newTvMeta } : {}),
+    ...(waipu.trackingContentId ? { trackingContentId: waipu.trackingContentId } : {}),
+  }
 }
