@@ -62,8 +62,8 @@ export async function buildJoynPilotOverlay({
   if (output.counts.routesAdded !== output.counts.pilotCandidateEvents) {
     throw new Error('Joyn pilot overlay did not enrich every candidate event.')
   }
-  if (output.records.some((event) => !event.sourceRefs.some((ref) => ref.sourceId === 'waipu'))) {
-    throw new Error('Joyn pilot overlay lost Waipu event provenance.')
+  if (output.records.some((event) => !event.sourceRefs.some((ref) => ref.sourceId === 'waipu-epg'))) {
+    throw new Error('Joyn pilot overlay lost waipu-epg event provenance.')
   }
   if (output.records.some((event) => !event.playbackRoutes.some((route) => route.providerId === 'joyn'))) {
     throw new Error('Joyn pilot overlay record is missing Joyn playback route.')
