@@ -338,7 +338,7 @@ async function run() {
     auth: { anonymous: false, userIdPresent: false },
     apiKey: { discovered: false, source: null },
     graphql: { operation: 'LiveChannelsAndEPG', mode: 'explicit-query', httpStatus: null, hasData: false, errorCount: 0 },
-    schema: { fields: [], likelyProgramObjects: 0 },
+    schema: { fields: [], likelyProgramObjects: 0, programTypenames: {} },
   }
 
   try {
@@ -388,6 +388,16 @@ async function run() {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([path, meta]) => ({ path, ...meta }))
       report.schema.likelyProgramObjects = countLikelyPrograms(body.data)
+      const typenames = {}
+      for (const stream of Array.isArray(body.data?.liveStreams) ? body.data.liveStreams : []) {
+        for (const event of Array.isArray(stream?.epgEvents) ? stream.epgEvents : []) {
+          const typename = String(event?.program?.__typename || 'unknown')
+          typenames[typename] = Number(typenames[typename] || 0) + 1
+        }
+      }
+      report.schema.programTypenames = Object.fromEntries(
+        Object.entries(typenames).sort(([a], [b]) => a.localeCompare(b)),
+      )
       report.epg = summarizeEpg(body.data)
       report.searchSamples = await probeJoynSearch(body.data, {
         token: auth.token,
