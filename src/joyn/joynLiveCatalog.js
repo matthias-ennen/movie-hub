@@ -20,9 +20,13 @@ function normalizeAiring(raw, now) {
   const startTime = String(raw?.startTime || '').trim()
   const stopTime = String(raw?.stopTime || '').trim()
   if (!startTime || !stopTime || Date.parse(stopTime) <= now) return null
+  const sourceStationId = String(raw?.stationId || '').trim() || null
+  const canonicalStationId = String(raw?.canonicalStationId || '').trim() || null
   return {
     ...raw,
-    stationId: String(raw?.stationId || '').trim() || null,
+    stationId: canonicalStationId || (sourceStationId ? `joyn.${sourceStationId}` : null),
+    sourceStationId,
+    canonicalStationId,
     stationName: String(raw?.stationName || '').trim() || null,
     programId: String(raw?.programId || '').trim() || null,
     startTime,
