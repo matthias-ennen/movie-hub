@@ -12,13 +12,13 @@ const fixture = {
     logo: { url: 'https://img.joyn.de/logo.webp' },
     brand: { brand_id: 'brand-1' },
     epgEvents: [{
-      startDate: '2026-09-26T18:15:00Z',
-      endDate: '2026-09-26T20:00:00Z',
+      startDate: 1790446500,
+      endDate: 1790452800,
       program: {
         id: 'program-1',
         title: 'Beispielfilm',
-        startDate: '2026-09-26T18:15:00Z',
-        endDate: '2026-09-26T20:00:00Z',
+        startDate: 1790446500,
+        endDate: 1790452800,
         __typename: 'MovieProgram',
       },
     }],
