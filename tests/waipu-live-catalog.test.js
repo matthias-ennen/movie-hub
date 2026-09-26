@@ -234,6 +234,16 @@ describe('Waipu live catalog publication', () => {
     }))
 
     expect(validateWaipuLiveCatalog(catalog)).toBe(true)
+    expect(catalog.adapterEnvelope).toMatchObject({
+      contractVersion: 1,
+      sourceId: 'waipu',
+      sourceStatus: 'healthy',
+      sourceCoverage: {
+        stations: 1,
+      },
+    })
+    expect(catalog.adapterEnvelope.records).toHaveLength(2)
+    expect(catalog.adapterEnvelope.records.every((event) => event.kind === 'broadcast')).toBe(true)
     expect(loadProgramDetail).toHaveBeenCalledTimes(2)
     expect(catalog.index.counts).toEqual({ stations: 1, titles: 2, broadcasts: 2 })
     expect(catalog.stations.stations[0]).toMatchObject({
