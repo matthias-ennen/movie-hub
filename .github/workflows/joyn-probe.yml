@@ -1,0 +1,31 @@
+name: Joyn GraphQL Probe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/joyn-graphql-probe.mjs'
+      - '.github/workflows/joyn-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Probe anonymous Joyn GraphQL metadata path
+        run: node scripts/joyn-graphql-probe.mjs
+      - name: Upload sanitized Joyn probe report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: joyn-graphql-probe-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/joyn-probe/report.json
+          if-no-files-found: error
+          retention-days: 30
