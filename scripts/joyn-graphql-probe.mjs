@@ -24,8 +24,11 @@ const FULL_EPG_QUERY = `query LiveChannelsAndEPG {
       program {
         __typename
         ... on EpgEntry {
+          id
           title
           secondaryTitle
+          startDate
+          endDate
           images { id type url }
         }
         ... on Movie {
