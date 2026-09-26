@@ -27,6 +27,7 @@ const FULL_EPG_QUERY = `query LiveChannelsAndEPG {
     quality
     logo { url }
     brand {
+      id
       title
       brandCode
       livestream { logo { url(profile: "nextgen-web-artlogo-183x75") } }
