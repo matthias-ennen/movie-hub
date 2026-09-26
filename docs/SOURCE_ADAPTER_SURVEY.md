@@ -618,3 +618,20 @@ Diese Entscheidungen sind in den Field-Policies und zugehörigen Tests umgesetzt
 - bestehende Tests/Build im GitHub-CI-Kontext vollständig grün bestätigen.
 
 Erst danach wird #330 abgeschlossen und #331 darf die produktive Waipu-Abbildung auf den gemeinsamen Vertrag beginnen.
+
+
+## 18. Diagnose-Retention und Laufzeitkosten
+
+Für die erste produktive Stufe gilt:
+
+- Source-Schema-Berichte werden als GitHub-Actions-Diagnoseartefakte 30 Tage aufbewahrt;
+- gespeichert werden JSON- und Markdown-Zusammenfassungen, keine vollständigen Rohantworten;
+- der SchemaObserver aggregiert inkrementell nur Feldpfade, Typen und Häufigkeiten;
+- Speicherverbrauch wächst damit mit der Zahl unterschiedlicher Felder und nicht mit der Zahl der EPG-/Provider-Antworten;
+- Baseline-Fixtures werden bei jedem Workflowlauf berichtet;
+- echte Waipu-/TMDB-Liveberichte entstehen nur, wenn die jeweiligen Quellen in diesem Lauf tatsächlich abgefragt werden;
+- die Diagnose ist zunächst nicht publish-blockierend; BREAKING wird im kompakten Workflowbericht sichtbar und muss geprüft werden;
+- ob ein bestätigtes BREAKING später den Publikationsschritt automatisch blockieren soll, wird erst nach ersten realen Beobachtungen entschieden.
+
+Diese Regel hält den produktiven Fire-TV-/Clientpfad vollständig von Diagnose-
+und Rohquellendaten getrennt.
