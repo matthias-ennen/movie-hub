@@ -43,6 +43,12 @@ describe('Joyn pilot playback overlay', () => {
         mode: 'WEB_LINK',
         target: 'https://www.joyn.de/live-tv/prosieben',
       })
+    expect(result.event.extensions.joynRouteOverlay).toMatchObject({
+      source: 'joyn-public-link-inventory',
+      stationSlug: 'prosieben',
+      quality: 'web-fallback',
+      eventTimingSource: ['waipu'],
+    })
   })
 
   it('does not fabricate Joyn coverage for an unapproved station', () => {
