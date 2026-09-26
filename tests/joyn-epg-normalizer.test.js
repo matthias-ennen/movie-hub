@@ -17,6 +17,7 @@ const fixture = {
       program: {
         id: 'program-1',
         title: 'Beispielfilm',
+        secondaryTitle: '',
         startDate: 1790446500,
         endDate: 1790452800,
         __typename: 'MovieProgram',
@@ -38,6 +39,7 @@ describe('Joyn EPG upstream', () => {
       quality: 'HD',
       joynProgramId: 'program-1',
       title: 'Beispielfilm',
+      secondaryTitle: null,
       startTime: '2026-09-26T18:15:00.000Z',
       endTime: '2026-09-26T20:00:00.000Z',
       programType: 'MovieProgram',
