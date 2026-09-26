@@ -346,6 +346,29 @@ export async function runJoynAdapterDiagnostic({
     generatedAt,
   })
 
+  const playbackCoverage = envelope.records.reduce((counts, event) => {
+    const joynRoutes = (Array.isArray(event?.playbackRoutes) ? event.playbackRoutes : [])
+      .filter((route) => route?.providerId === 'joyn')
+    if (!joynRoutes.length) {
+      counts.withoutRoute += 1
+      return counts
+    }
+    counts.withRoute += 1
+    for (const route of joynRoutes) {
+      const target = String(route?.target || '')
+      if (/^https:\/\/www\.joyn\.de\/live-tv\//.test(target)) counts.confirmedChannelSlug += 1
+      else if (/^https:\/\/www\.joyn\.de\/play\/live-tv\?channel_id=/.test(target)) counts.channelIdFallback += 1
+      else counts.other += 1
+    }
+    return counts
+  }, {
+    withRoute: 0,
+    withoutRoute: 0,
+    confirmedChannelSlug: 0,
+    channelIdFallback: 0,
+    other: 0,
+  })
+
   const summary = {
     schemaVersion: 1,
     kind: 'joyn-adapter-diagnostic',
@@ -380,6 +403,7 @@ export async function runJoynAdapterDiagnostic({
       tmdbBudgetExhausted,
       rejected,
     },
+    playback: playbackCoverage,
     output: {
       broadcastEvents: envelope.records.length,
       publishedStations: publication.index.stationCount,
