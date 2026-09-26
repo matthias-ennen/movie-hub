@@ -226,7 +226,7 @@ jobs:
 
       - name: Build independent Joyn live catalog
         id: joyn_catalog
-        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
+        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
         continue-on-error: true
         env:
           JOYN_LIVE_OUTPUT: public/joyn-live
