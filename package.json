@@ -49,7 +49,8 @@
     "personal-tmdb:metadata:backfill": "node scripts/enrich-personal-tmdb-metadata.mjs",
     "personal-data:encryption:audit": "node scripts/audit-personal-data-encryption.mjs",
     "source:schema:report": "node scripts/report-source-schema.mjs",
-    "source:merge:smoke": "node scripts/source-merge-smoke.mjs"
+    "source:merge:smoke": "node scripts/source-merge-smoke.mjs",
+    "joyn:pilot:overlay": "node scripts/joyn-pilot-overlay.mjs"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.13",
