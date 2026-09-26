@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chooseJoynTmdbMatch } from '../scripts/joyn-tmdb-matcher.mjs'
+import { chooseJoynTmdbMatch, matchJoynProgram } from '../scripts/joyn-tmdb-matcher.mjs'
 import {
   buildJoynSourceEnvelope,
   mapJoynCandidateToBroadcastEvent,
@@ -13,6 +13,23 @@ describe('Joyn TMDB matching', () => {
     ])
     expect(result.status).toBe('matched')
     expect(result.best.candidate).toMatchObject({ type: 'movie', tmdbId: 329865 })
+  })
+
+  it('returns the same public match shape for search-assisted results', async () => {
+    const result = await matchJoynProgram(
+      { title: 'Arrival' },
+      {
+        localCandidates: [],
+        searchTmdb: async () => [
+          { type: 'movie', tmdbId: 329865, title: 'Arrival', year: 2016 },
+        ],
+      },
+    )
+    expect(result).toMatchObject({
+      status: 'matched',
+      source: 'local+tmdb-search',
+      match: { type: 'movie', tmdbId: 329865, title: 'Arrival' },
+    })
   })
 
   it('does not guess when movie and series have the same exact title', () => {
