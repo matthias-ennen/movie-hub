@@ -20,7 +20,7 @@ function broadcast(channelId = 'pro7') {
       target: 'https://app.waipu.tv/epgdetails/pro7/program-1',
     }],
     sourceRefs: [{
-      sourceId: 'waipu',
+      sourceId: 'waipu-epg',
       externalId: 'program-1',
       observedAt: '2026-09-26T12:00:00Z',
       expiresAt: '2026-09-26T20:00:00Z',
@@ -47,7 +47,7 @@ describe('Joyn pilot playback overlay', () => {
       source: 'joyn-public-link-inventory',
       stationSlug: 'prosieben',
       quality: 'web-fallback',
-      eventTimingSource: ['waipu'],
+      eventTimingSource: ['waipu-epg'],
     })
   })
 
