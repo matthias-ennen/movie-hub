@@ -159,6 +159,28 @@ describe('source adapter contract mappers', () => {
     expect(merged.sourceRefs).toHaveLength(2)
   })
 
+  it('encodes the verified Waipu EPG target directly in the canonical PlaybackRoute', () => {
+    const event = mapWaipuAiringToBroadcastEvent({
+      tmdbId: 11,
+      type: 'movie',
+    }, {
+      programId: 'program id',
+      stationId: 'sender/test',
+      stationName: 'Sender Test',
+      startTime: '2026-09-27T18:15:00Z',
+      stopTime: '2026-09-27T20:00:00Z',
+    }, {
+      observedAt: '2026-09-26T10:00:00Z',
+    })
+
+    expect(event.playbackRoutes[0]).toMatchObject({
+      providerId: 'waipu',
+      mode: 'APP_DEEP_LINK',
+      target: 'https://app.waipu.tv/epgdetails/sender%2Ftest/program%20id',
+      requiresSubscription: true,
+    })
+  })
+
   it('does not require optional Waipu capabilities', () => {
     const event = mapWaipuAiringToBroadcastEvent({
       tmdbId: 11,
@@ -174,6 +196,10 @@ describe('source adapter contract mappers', () => {
     })
 
     expect(event.capabilities).toEqual({})
-    expect(event.playbackRoutes).toEqual([])
+    expect(event.playbackRoutes).toEqual([expect.objectContaining({
+      providerId: 'waipu',
+      mode: 'APP_DEEP_LINK',
+      target: 'https://app.waipu.tv/epgdetails/zdf/program-2',
+    })])
   })
 })
