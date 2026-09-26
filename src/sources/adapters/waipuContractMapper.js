@@ -1,4 +1,4 @@
-import { normalizeBroadcastEvent } from '../sourceAdapterContract.js'
+import { exactBroadcastEventKey, normalizeBroadcastEvent } from '../sourceAdapterContract.js'
 
 function safeText(value) {
   const text = String(value ?? '').trim()
@@ -117,4 +117,67 @@ export function projectBroadcastEventToWaipuAiring(event) {
     ...(waipu.newTvMeta !== null && waipu.newTvMeta !== undefined ? { newTvMeta: waipu.newTvMeta } : {}),
     ...(waipu.trackingContentId ? { trackingContentId: waipu.trackingContentId } : {}),
   }
+}
+
+
+function routeKey(route) {
+  return [route?.providerId || '', route?.mode || '', route?.target || ''].join('|')
+}
+
+function sourceRefKey(ref) {
+  return [ref?.sourceId || '', ref?.externalId || '', ref?.observedAt || ''].join('|')
+}
+
+function mergeUnique(values, keyForValue) {
+  const byKey = new Map()
+  for (const value of Array.isArray(values) ? values : []) {
+    const key = keyForValue(value)
+    if (!key || byKey.has(key)) continue
+    byKey.set(key, value)
+  }
+  return [...byKey.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, value]) => value)
+}
+
+export function dedupeWaipuBroadcastEvents(events = []) {
+  const byEvent = new Map()
+  for (const raw of Array.isArray(events) ? events : []) {
+    if (!raw) continue
+    const event = normalizeBroadcastEvent(raw)
+    const key = exactBroadcastEventKey(event)
+    const existing = byEvent.get(key)
+    if (!existing) {
+      byEvent.set(key, event)
+      continue
+    }
+
+    byEvent.set(key, normalizeBroadcastEvent({
+      ...existing,
+      playbackRoutes: mergeUnique(
+        [...existing.playbackRoutes, ...event.playbackRoutes],
+        routeKey,
+      ),
+      sourceRefs: mergeUnique(
+        [...existing.sourceRefs, ...event.sourceRefs],
+        sourceRefKey,
+      ),
+      capabilities: {
+        ...existing.capabilities,
+        ...event.capabilities,
+      },
+      extensions: {
+        ...existing.extensions,
+        ...event.extensions,
+        waipu: {
+          ...(existing.extensions?.waipu || {}),
+          ...(event.extensions?.waipu || {}),
+        },
+      },
+    }))
+  }
+
+  return [...byEvent.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, event]) => event)
 }
