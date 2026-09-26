@@ -123,7 +123,7 @@ export function getJoynLiveDestination(joynLive, { now = Date.now() } = {}) {
     || null
   const routes = Array.isArray(selected?.playbackRoutes) ? selected.playbackRoutes : []
   const exact = routes.find((route) => route?.providerId === 'joyn' && /^https:\/\//.test(String(route?.target || '')))
-  return exact?.target || JOYN_LIVE_URL
+  return exact?.target || null
 }
 
 export function formatJoynLiveAiring(airing, {
