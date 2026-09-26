@@ -37,6 +37,10 @@ describe('kompakter Workflow-Datenbericht', () => {
         airingCount: 2462,
         horizon: { from: '2026-09-19T08:00:00.000Z', to: '2026-09-20T08:00:00.000Z' },
       },
+      joynDiagnostic: {
+        matching: { matchedPrograms: 91 },
+        playback: { withRoute: 3, confirmedChannelSlug: 1, channelIdFallback: 2, withoutRoute: 0 },
+      },
       joynTitles: {
         entries: [
           { type: 'movie', airings: [{ startTime: '2026-09-19T18:15:00.000Z' }] },
@@ -171,7 +175,7 @@ describe('kompakter Workflow-Datenbericht', () => {
     expect(markdown).toContain('3.600 zugeordnet · 4/4 Metadaten vollständig')
     expect(markdown).toContain('603 verworfen · 740 Suchen · 640 Detailabrufe · 1.200 Waipu-Cache')
     expect(markdown).toContain('| Waipu-Quelldaten | ✅ erfolgreich | 4 Titel · 2 Filme · 2 Serien | 5/5 Ausstrahlungen vollständig · Vertrag v1 | 2/3 Serienausstrahlungen mit Episodenangabe |')
-    expect(markdown).toContain('| Joyn EPG | ✅ erfolgreich | 127 Sender · 2 Titel · 3 Ausstrahlungen | 1 Filme · 1 Serien · Stand 19.9.2026, 10:30:00 | 2026-09-19 bis 2026-09-20 |')
+    expect(markdown).toContain('| Joyn EPG | ✅ erfolgreich | 127 Sender · 2 Titel · 3 Ausstrahlungen | 1 Filme · 1 Serien · 91 Programme TMDB-zugeordnet | 3 mit Ziel · 1 Sender-Slug · 2 channel_id-Fallback · 0 ohne Ziel |')
     expect(markdown).toContain('| Quellen-Schema | 🔴 BREAKING erkannt | 2 Berichte · 23 bekannte/Info-Felder | 2 Review · 1 Breaking |')
     expect(markdown).toContain('| Quellen-Merge | ✅ Merge + Fehlerisolation | 2 Quellen · 15.001 neutrale Events | gemeinsame Routen: fixture-provider + waipu | Fallback: failed · 1 aktiv · 1 abgelaufen entfernt |')
     expect(markdown).toContain('Waipu-Titelbestand: **+1 zum Live-Stand**')
