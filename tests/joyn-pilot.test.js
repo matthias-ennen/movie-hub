@@ -35,5 +35,10 @@ describe('Joyn pilot station inventory', () => {
       geoRegion: 'DE',
     })
     expect(joynPlaybackRouteForStation('unknown')).toBeNull()
+    expect(joynPlaybackRouteForStation('unknown', { brandId: 'brand-123' })).toMatchObject({
+      providerId: 'joyn',
+      mode: 'WEB_LINK',
+      target: 'https://www.joyn.de/play/live-tv?channel_id=brand-123',
+    })
   })
 })
