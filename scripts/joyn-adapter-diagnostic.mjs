@@ -219,16 +219,20 @@ export async function runJoynAdapterDiagnostic({
 
   const allCandidates = normalizeJoynLiveChannelsAndEpg(raw)
   const stationMapping = buildJoynStationMapping(raw?.liveStreams)
-  const canonicalByJoynId = new Map(
-    stationMapping.entries
-      .filter((entry) => entry.status === 'matched')
-      .map((entry) => [entry.joynId, entry]),
+  const stationByJoynId = new Map(
+    stationMapping.entries.map((entry) => [entry.joynId, entry]),
   )
   const mapped = allCandidates
-    .map((candidate) => ({
-      candidate,
-      station: canonicalByJoynId.get(candidate.joynChannelId) || null,
-    }))
+    .map((candidate) => {
+      const station = stationByJoynId.get(candidate.joynChannelId) || null
+      const canonicalChannelId = station?.status === 'matched' ? station.canonicalId : null
+      return {
+        candidate,
+        station,
+        channelId: canonicalChannelId || `joyn.${candidate.joynChannelId}`,
+        canonicalChannelId,
+      }
+    })
     .filter((entry) => entry.station)
 
   const [catalog, searchIndex] = await Promise.all([
@@ -313,7 +317,7 @@ export async function runJoynAdapterDiagnostic({
       tmdbId: decision.match.tmdbId,
       type: decision.match.type,
     }, {
-      channelId: entry.station.canonicalId,
+      channelId: entry.channelId,
       observedAt: generatedAt,
     })
     if (event && Date.parse(event.endAt) > now) events.push(event)
@@ -323,12 +327,13 @@ export async function runJoynAdapterDiagnostic({
     generatedAt,
     sourceGenerationId: `joyn-diagnostic:${generatedAt}`,
     sourceCoverage: {
-      mode: 'mapped-joyn-stations',
+      mode: 'all-joyn-stations',
       upstreamStreams: Array.isArray(raw?.liveStreams) ? raw.liveStreams.length : 0,
       upstreamPrograms: allCandidates.length,
-      mappedStreams: stationMapping.counts.matched,
-      mappedPrograms: mapped.length,
-      uniqueMappedPrograms: uniquePrograms.size,
+      canonicalMappedStreams: stationMapping.counts.matched,
+      joynOnlyStreams: stationMapping.counts.unmatched + stationMapping.counts.ambiguous,
+      candidatePrograms: mapped.length,
+      uniquePrograms: uniquePrograms.size,
     },
   })
 
@@ -352,6 +357,8 @@ export async function runJoynAdapterDiagnostic({
     mapped: {
       broadcastRows: mapped.length,
       uniquePrograms: uniquePrograms.size,
+      canonicalStationRows: mapped.filter((entry) => entry.canonicalChannelId).length,
+      joynOnlyStationRows: mapped.filter((entry) => !entry.canonicalChannelId).length,
     },
     matching: {
       localTmdbCandidates: tmdbCandidates.length,
