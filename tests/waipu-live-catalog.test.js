@@ -332,6 +332,50 @@ describe('Waipu live catalog publication', () => {
     expect(() => validateWaipuLiveCatalog(catalog)).toThrow('Invalid waipu-live day shard')
   })
 
+  it('normalizes legacy title airings through the common BroadcastEvent contract without changing the client shape', () => {
+    const entries = normalizeWaipuLiveTitles({
+      schemaVersion: 1,
+      kind: 'waipu-live-titles',
+      entries: [{
+        tmdbId: 667739,
+        type: 'movie',
+        title: 'The Man from Toronto',
+        airings: [{
+          programId: 'program-1',
+          stationId: 'zdf',
+          stationName: 'ZDF',
+          startTime: '2026-09-20T18:00:00.000Z',
+          stopTime: '2026-09-20T20:00:00.000Z',
+          imageUrl: 'https://example.test/image.jpg',
+          restrictions: { recordingForbidden: true },
+          rerun: false,
+          trackingContentId: 'waipu-content-1',
+        }],
+      }],
+    }, {
+      now: Date.parse('2026-09-20T12:00:00.000Z'),
+    })
+
+    expect(entries).toHaveLength(1)
+    expect(entries[0].airings).toEqual([{
+      source: 'waipu',
+      programId: 'program-1',
+      seriesId: null,
+      stationId: 'zdf',
+      stationName: 'ZDF',
+      startTime: '2026-09-20T18:00:00.000Z',
+      stopTime: '2026-09-20T20:00:00.000Z',
+      episodeTitle: null,
+      seasonNumber: null,
+      episodeNumber: null,
+      imageUrl: 'https://example.test/image.jpg',
+      restrictions: { recordingForbidden: true },
+      rerun: false,
+      trackingContentId: 'waipu-content-1',
+    }])
+    expect(entries[0]).not.toHaveProperty('broadcastEvents')
+  })
+
   it('keeps one program id from generation through the merged app title', async () => {
     const catalog = await buildWaipuLiveCatalog(buildFixture())
     const entries = normalizeWaipuLiveTitles(catalog.titles, {
