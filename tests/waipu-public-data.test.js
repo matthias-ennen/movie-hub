@@ -203,3 +203,47 @@ describe('WaipuEpgCache', () => {
     await expect(cache.read('program', 'movie')).rejects.toMatchObject({ code: 'CACHE_CORRUPT' })
   })
 })
+
+
+describe('Waipu raw schema observation', () => {
+  it('observes the raw JSON before normalization without changing the normalized result', async () => {
+    const observed = []
+    const client = new WaipuPublicApiClient({
+      fetchImpl: async () => new Response(JSON.stringify({
+        stations: [{
+          stationId: 'zdf',
+          name: 'ZDF',
+          experimentalField: { value: 1 },
+        }],
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+      observeRawSchema: (body, context) => observed.push({ body, context }),
+    })
+
+    const result = await client.getStations()
+    expect(result.value).toEqual([{
+      id: 'zdf',
+      displayName: 'ZDF',
+      logoTemplateUrl: null,
+      streamQualities: [],
+    }])
+    expect(observed).toHaveLength(1)
+    expect(observed[0].body.stations[0].experimentalField).toEqual({ value: 1 })
+  })
+
+  it('never lets schema observation break the productive Waipu request path', async () => {
+    const client = new WaipuPublicApiClient({
+      fetchImpl: async () => new Response(JSON.stringify({
+        stations: [{ stationId: 'zdf', name: 'ZDF' }],
+      }), { status: 200 }),
+      observeRawSchema: () => {
+        throw new Error('diagnostic failed')
+      },
+    })
+
+    const result = await client.getStations()
+    expect(result.value[0]).toMatchObject({ id: 'zdf', displayName: 'ZDF' })
+  })
+})
