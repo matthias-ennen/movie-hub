@@ -36,7 +36,9 @@ export function chooseJoynTmdbMatch(input, rawCandidates = []) {
   const byKey = new Map()
   for (const raw of rawCandidates) {
     const candidate = normalizeTmdbMatchCandidate(raw, raw?.source || 'local')
-    if (candidate) byKey.set(`${candidate.type}:${candidate.tmdbId}`, candidate)
+    if (!candidate) continue
+    if (input?.type && candidate.type !== input.type) continue
+    byKey.set(`${candidate.type}:${candidate.tmdbId}`, candidate)
   }
   const ranked = [...byKey.values()]
     .map((candidate) => ({ candidate, score: score(input?.title, candidate) }))
@@ -114,6 +116,9 @@ export class JoynTmdbSearchClient {
   async search(input) {
     const title = String(input?.title || '').trim()
     if (!title) return []
+    if (input?.type === 'movie' || input?.type === 'series') {
+      return this.client.search({ type: input.type, title })
+    }
     const movies = await this.client.search({ type: 'movie', title })
     const series = await this.client.search({ type: 'series', title })
     return [...movies, ...series]
