@@ -82,7 +82,31 @@ describe('kanonischer Titel-Executor', () => {
       selected: 2,
       fetched: 1,
       reused: 1,
+      notFound: 0,
       canonicalReady: 2,
+    })
+  })
+
+  it('skips a permanent TMDB 404 without blocking other selected titles', async () => {
+    const preview = {
+      kind: 'title-priority-preview',
+      queue: [queueEntry('movie:1', 'fetch-tmdb'), queueEntry('movie:2', 'fetch-tmdb')],
+      selectedKeys: ['movie:1', 'movie:2'],
+    }
+    const loadTitle = vi.fn(async (entry) => {
+      if (entry.tmdbId === 1) {
+        throw Object.assign(new Error('not found'), { code: 'TMDB_METADATA_NOT_FOUND', status: 404 })
+      }
+      return completeMovie(2, 'Bleibt verarbeitbar')
+    })
+
+    const result = await executeTitlePriorityQueue({ preview, loadTitle })
+    expect([...result.updates.keys()]).toEqual(['movie:2'])
+    expect(result.summary.counts).toMatchObject({
+      selected: 2,
+      fetched: 1,
+      notFound: 1,
+      canonicalReady: 1,
     })
   })
 
