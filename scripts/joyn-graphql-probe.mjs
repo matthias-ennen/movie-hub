@@ -6,6 +6,10 @@ const AUTH_URL = 'https://auth.joyn.de/auth/anonymous'
 const GRAPHQL_URL = 'https://api.joyn.de/graphql'
 const OPERATION = 'LiveChannelsAndEpg'
 const HASH = 'b7703103ddd0516be6b49ed66186092a6c6f6d815ccc502a9f50800a8cc18dd2'
+const ALGOLIA_KEY_OPERATION = 'AlgoliaApiKey'
+const ALGOLIA_KEY_HASH = '21a962eb1b3f05c32b85cf8d015f1814563af3d4aede35d6e2f211838fdcfb61'
+const ALGOLIA_URL = 'https://ffqrv35svv-dsn.algolia.net/1/indexes/*/queries'
+const ALGOLIA_APP_ID = 'FFQRV35SVV'
 const SEARCH_HASH = 'bb2bab6cbe17321d7eddd5006e7f40765faedd79790b193a59d83f4640694856'
 const FULL_EPG_QUERY = `query LiveChannelsAndEPG {
   liveStreams(filterLivestreamsTypes: [LINEAR], first: 5000, offset: 0, liveStreamGroupFilter: DEFAULT) {
@@ -339,6 +343,14 @@ async function run() {
     apiKey: { discovered: false, source: null },
     graphql: { operation: 'LiveChannelsAndEPG', mode: 'explicit-query', httpStatus: null, hasData: false, errorCount: 0 },
     schema: { fields: [], likelyProgramObjects: 0, programTypenames: {} },
+    catalogEnrichment: {
+      algoliaKeyAvailable: false,
+      sampledPrograms: 0,
+      queriesWithHits: 0,
+      exactTitleHits: 0,
+      contentTypes: {},
+      pathKinds: {},
+    },
   }
 
   try {
