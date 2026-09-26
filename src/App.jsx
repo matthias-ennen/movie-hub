@@ -63,6 +63,11 @@ import {
   tvDayKey,
 } from './waipu/waipuTvCatalog.js'
 import { loadJoynLiveStationCatalog, loadJoynTvAirings } from './joyn/joynTvCatalog.js'
+import {
+  advanceJoynLiveTitles,
+  loadJoynLiveTitles,
+  mergeJoynLiveAvailability,
+} from './joyn/joynLiveCatalog.js'
 import { mergeTvAirings } from './sources/mergeTvAirings.js'
 
 function NativeStartupSignal() {
@@ -455,6 +460,8 @@ function MovieHub({ user }) {
   })
   const [waipuLiveEntries, setWaipuLiveEntries] = useState([])
   const [waipuLiveStatus, setWaipuLiveStatus] = useState('loading')
+  const [joynLiveEntries, setJoynLiveEntries] = useState([])
+  const [joynLiveStatus, setJoynLiveStatus] = useState('loading')
   const [waipuStatusClock, setWaipuStatusClock] = useState(() => Date.now())
   const [waipuStationCatalog, setWaipuStationCatalog] = useState({
     status: 'loading',
@@ -551,6 +558,18 @@ function MovieHub({ user }) {
 
   useEffect(() => {
     let cancelled = false
+    loadJoynLiveTitles().then((entries) => {
+      if (!cancelled) {
+        setJoynLiveEntries(entries)
+        setJoynLiveStatus('ready')
+        setWaipuStatusClock(Date.now())
+      }
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
     loadWaipuLiveStationCatalog().then((stationCatalog) => {
       if (!cancelled) setWaipuStationCatalog(stationCatalog)
     })
@@ -575,6 +594,17 @@ function MovieHub({ user }) {
     }, Math.max(0, Math.min(2_147_483_647, nextStopTime - Date.now() + 1_000)))
     return () => window.clearTimeout(timeout)
   }, [waipuLiveEntries])
+
+  useEffect(() => {
+    const nextStopTime = Math.min(...joynLiveEntries
+      .map((entry) => Date.parse(entry?.nextAiring?.stopTime))
+      .filter(Number.isFinite))
+    if (!Number.isFinite(nextStopTime)) return undefined
+    const timeout = window.setTimeout(() => {
+      setJoynLiveEntries((entries) => advanceJoynLiveTitles(entries))
+    }, Math.max(0, Math.min(2_147_483_647, nextStopTime - Date.now() + 1_000)))
+    return () => window.clearTimeout(timeout)
+  }, [joynLiveEntries])
 
   useEffect(() => {
     const airings = waipuLiveEntries.flatMap((entry) => (
@@ -724,18 +754,25 @@ function MovieHub({ user }) {
     () => mergeTitlesWithSharedMediaCatalog(baseTitles, rawMovieHubTitles),
     [baseTitles, rawMovieHubTitles],
   )
-  const rawTitles = useMemo(
+  const waipuMergedTitles = useMemo(
     () => mergeWaipuLiveAvailability(preWaipuTitles, waipuLiveEntries, { now: waipuStatusClock }),
     [preWaipuTitles, waipuLiveEntries, waipuStatusClock],
+  )
+  const rawTitles = useMemo(
+    () => mergeJoynLiveAvailability(waipuMergedTitles, joynLiveEntries, { now: waipuStatusClock }),
+    [joynLiveEntries, waipuMergedTitles, waipuStatusClock],
   )
   const titles = useMemo(
     () => rawTitles.map((item) => resolvePresentationArtwork(item, artworkOptions)),
     [rawTitles, artworkOptions],
   )
   const movieHubTitles = useMemo(
-    () => mergeWaipuLiveAvailability(rawMovieHubTitles, waipuLiveEntries, { now: waipuStatusClock })
-      .map((item) => resolvePresentationArtwork(item, artworkOptions)),
-    [rawMovieHubTitles, waipuLiveEntries, waipuStatusClock, artworkOptions],
+    () => mergeJoynLiveAvailability(
+      mergeWaipuLiveAvailability(rawMovieHubTitles, waipuLiveEntries, { now: waipuStatusClock }),
+      joynLiveEntries,
+      { now: waipuStatusClock },
+    ).map((item) => resolvePresentationArtwork(item, artworkOptions)),
+    [rawMovieHubTitles, waipuLiveEntries, joynLiveEntries, waipuStatusClock, artworkOptions],
   )
   const tvViewModel = useMemo(() => buildWaipuTvViewModel({
     airings: tvSchedule.airings,
@@ -755,6 +792,7 @@ function MovieHub({ user }) {
   const tvHeroItems = compactTvHeroItems.length ? compactTvHeroItems : tvViewModel.heroItems
   const tvScheduleSettled = tvSchedule.status !== 'idle' && tvSchedule.status !== 'loading'
   const tvHeroCatalogReady = waipuLiveStatus === 'ready'
+    && joynLiveStatus === 'ready'
     && waipuStationCatalog.status !== 'loading'
     && joynStationCatalog.status !== 'loading'
     && !stationSelectionLoading
