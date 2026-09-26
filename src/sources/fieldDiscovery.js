@@ -47,6 +47,34 @@ function collectFields(value, prefix = '', result = new Map()) {
   return result
 }
 
+export function sourceFieldSnapshot(value) {
+  const fields = collectFields(value)
+  return {
+    fields: [...fields.values()].map((field) => ({
+      path: field.path,
+      types: [...field.types].sort(),
+      samples: field.samples,
+    })),
+  }
+}
+
+export function mergeSourceFieldSnapshots(...snapshots) {
+  const merged = new Map()
+  for (const snapshot of snapshots.flat()) {
+    for (const field of Array.isArray(snapshot?.fields) ? snapshot.fields : []) {
+      const current = merged.get(field.path) || { path: field.path, types: new Set(), samples: 0 }
+      for (const type of Array.isArray(field.types) ? field.types : []) current.types.add(String(type))
+      current.samples += Number(field.samples) || 0
+      merged.set(field.path, current)
+    }
+  }
+  return {
+    fields: [...merged.values()]
+      .map((field) => ({ path: field.path, types: [...field.types].sort(), samples: field.samples }))
+      .sort((a, b) => a.path.localeCompare(b.path)),
+  }
+}
+
 export function normalizeFieldPolicy(raw = {}) {
   const normalized = {}
   for (const [path, config] of Object.entries(raw || {})) {
@@ -69,13 +97,22 @@ export function normalizeFieldPolicy(raw = {}) {
   return normalized
 }
 
-export function inspectSourceSchema(records, {
+export function inspectSourceFieldSnapshot(snapshot, {
   sourceId,
   policy = {},
   previousSnapshot = null,
 } = {}) {
   const normalizedPolicy = normalizeFieldPolicy(policy)
-  const fields = collectFields(Array.isArray(records) ? records : [records])
+  const fields = new Map(
+    (Array.isArray(snapshot?.fields) ? snapshot.fields : []).map((field) => [
+      field.path,
+      {
+        path: field.path,
+        types: new Set(Array.isArray(field.types) ? field.types : []),
+        samples: Number(field.samples) || 0,
+      },
+    ]),
+  )
   const previous = new Map(
     (Array.isArray(previousSnapshot?.fields) ? previousSnapshot.fields : [])
       .map((field) => [field.path, field]),
@@ -157,6 +194,13 @@ export function inspectSourceSchema(records, {
     },
     fields: report,
   }
+}
+
+export function inspectSourceSchema(records, options = {}) {
+  const snapshot = mergeSourceFieldSnapshots(
+    ...(Array.isArray(records) ? records : [records]).map((record) => sourceFieldSnapshot(record)),
+  )
+  return inspectSourceFieldSnapshot(snapshot, options)
 }
 
 export function schemaSnapshotFromReport(report) {
