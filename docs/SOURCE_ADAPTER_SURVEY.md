@@ -280,3 +280,109 @@ belegt und der V1-Vertrag als eigenes versioniertes Schema/Testfixture
 festgeschrieben sind. #331 bildet anschließend Waipu vollständig darauf ab.
 #332 beweist Mehrquellen-Merge und Fehlerisolation, bevor #280 Joyn produktiv
 implementiert.
+
+
+## 10. Capability- und Extension-Modell
+
+Der Adaptervertrag wird bewusst dreistufig geführt:
+
+### Core
+
+Der Core enthält nur Begriffe, die Movie Hub quellenübergreifend fachlich verstehen muss:
+
+- TitleRef
+- Availability
+- BroadcastEvent
+- PlaybackRoute
+- SourceRef
+- SourceEnvelope
+
+### Capabilities
+
+Capabilities sind optionale, normalisierte Zusatzfähigkeiten. Sie sind **nicht verpflichtend für jede Quelle**.
+
+Erste Capability-Kandidaten:
+
+- `replay`
+  - available
+  - availableUntil?
+- `recording`
+  - available
+- `subtitles`
+  - available
+  - languages?
+- `audioDescription`
+  - available
+  - languages?
+- `videoQuality`
+  - maxResolution?
+  - hdr?
+- `availabilityExpiry`
+  - expiresAt
+- `onDemandRelation`
+  - providerId
+  - target?
+- `episodeRelation`
+  - seasonNumber?
+  - episodeNumber?
+  - episodeTitle?
+- `regionalRestriction`
+  - regions?
+- `catchupWindow`
+  - startsAt?
+  - endsAt?
+
+Capabilities werden erst dann standardisiert, wenn ihre Bedeutung stabil genug ist.
+Eine Quelle darf nur die Capabilities angeben, die sie tatsächlich belegen kann.
+
+### Extensions
+
+`extensions` ist ein namespacierter Bereich für quellspezifische Zusatzinformationen.
+
+Beispiele:
+
+```json
+{
+  "extensions": {
+    "waipu": {
+      "programId": "123",
+      "seriesId": "456",
+      "recordingRestrictions": {}
+    }
+  }
+}
+```
+
+oder:
+
+```json
+{
+  "extensions": {
+    "joyn": {
+      "contentId": "...",
+      "channelSlug": "..."
+    }
+  }
+}
+```
+
+Regeln:
+
+1. Namespace entspricht der Quelle oder einem klar definierten Integrationsbereich.
+2. Extensions dürfen den Core nicht überschreiben.
+3. App-Kernlogik darf nicht direkt von beliebigen Extension-Feldern abhängen.
+4. Entsteht aus einem Extension-Feld ein allgemeines Produktfeature, wird es in einer späteren Contract-Version als Capability normalisiert.
+5. Rohdaten werden nicht unbegrenzt gespiegelt; nur stabile, nützliche und zulässig speicherbare Zusatzdaten werden erhalten.
+
+## 11. Capability Discovery pro Quelle
+
+Bei jeder neuen Quelle wird zusätzlich zur Kompatibilitätsanalyse eine Mehrwertanalyse durchgeführt:
+
+- Welche Informationen liefert die Quelle zusätzlich zum Core?
+- Welche davon sind fachlich belastbar?
+- Welche davon können unmittelbar als bestehende Capability normalisiert werden?
+- Welche bleiben zunächst als Extension erhalten?
+- Welche sollten aus Datenschutz-, Rechte-, Größen- oder Stabilitätsgründen bewusst verworfen werden?
+- Welche neuen Produktideen könnten daraus entstehen?
+
+Damit wird jede neue Quelle nicht nur als Datenlieferant, sondern auch als möglicher Funktionsgeber für Movie Hub betrachtet.
