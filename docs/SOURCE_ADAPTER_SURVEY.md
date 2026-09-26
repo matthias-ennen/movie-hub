@@ -443,3 +443,37 @@ Eine Hochstufung darf alte Daten nicht unlesbar machen:
 - der Adapter normalisiert neue Generationen in die Capability;
 - bestehende Extension-Daten bleiben während einer Übergangsphase lesbar;
 - UI konsumiert nur die normalisierte Capability, sobald diese als stabil gilt.
+
+
+## 13. Konkreter Informationsverlust im heutigen Waipu-Pfad
+
+Die Bestandsanalyse bestätigt einen realen Fall, der das Capability-/Extension-
+Prinzip rechtfertigt:
+
+- die dokumentierten Waipu-Grid-/Programmdaten enthalten zusätzliche
+  Wiedergabe-/Aufnahmeeinschränkungen;
+- `scripts/waipu-program-classifier.mjs::normalizeWaipuProgram()` übernimmt
+  derzeit nur die für Klassifikation, TMDB-Matching und Episodenbezug
+  benötigten Felder;
+- zusätzliche Restriktions-/Funktionsinformationen werden auf diesem Weg heute
+  nicht in den veröffentlichten Movie-Hub-Datensatz weitergereicht.
+
+Das ist **kein Fehler des bisherigen Waipu-Pakets**, weil diese Informationen
+für dessen damaligen Funktionsumfang nicht benötigt wurden. Für die allgemeine
+Quellenplattform gilt künftig jedoch:
+
+1. bekannte, potenziell nützliche Quellinformationen werden bewusst klassifiziert;
+2. sie werden entweder
+   - in den Core,
+   - in eine standardisierte Capability,
+   - in eine namespacierte Extension
+   - oder bewusst in eine dokumentierte Verwerfung
+   eingeordnet;
+3. ein Feld darf nicht stillschweigend allein deshalb verschwinden, weil das
+   aktuelle UI es noch nicht verwendet.
+
+Für #331 bedeutet das konkret: Beim Waipu-Mapping werden vorhandene zusätzliche
+Programm-/Gridinformationen erneut gegen diesen Katalog geprüft. Aufnahme-,
+Replay- oder Wiedergabeeinschränkungen werden nur dann als allgemeine Capability
+veröffentlicht, wenn ihre Semantik belastbar ist; andernfalls bleiben sie
+zunächst unter `extensions.waipu`.
