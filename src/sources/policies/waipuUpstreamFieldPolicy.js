@@ -58,7 +58,7 @@ export const WAIPU_SYNC_UPSTREAM_FIELD_POLICY = Object.freeze({
   'previewImageUrl': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu' },
   'previewImage': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu', reason: 'Source artwork fallback; TMDB remains canonical artwork source.' },
   'recordingForbidden': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu', reason: 'Source-specific recording restriction; candidate for later recording capability.' },
-  'trackingContentId': { decision: FIELD_DECISIONS.REVIEW, reason: 'Needs product/technical decision: source identity value versus analytics-only tracking metadata.' },
+  'trackingContentId': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu', reason: 'Retained as compact source identity metadata; never used as user tracking and not shipped to clients without an explicit product need.' },
 })
 
 export const WAIPU_PROGRAM_UPSTREAM_FIELD_POLICY = Object.freeze({
@@ -108,5 +108,5 @@ export const WAIPU_PROGRAM_UPSTREAM_FIELD_POLICY = Object.freeze({
   'startTime': { decision: FIELD_DECISIONS.CORE, reason: 'Broadcast correlation/time identity.' },
   'stopTime': { decision: FIELD_DECISIONS.CORE, reason: 'Broadcast correlation/time identity.' },
   'stationId': { decision: FIELD_DECISIONS.CORE, reason: 'Broadcast channel identity.' },
-  'trackingContentId': { decision: FIELD_DECISIONS.REVIEW, reason: 'Needs product/technical decision: source identity value versus analytics-only tracking metadata.' },
+  'trackingContentId': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu', reason: 'Retained as compact source identity metadata; never used as user tracking and not shipped to clients without an explicit product need.' },
 })
