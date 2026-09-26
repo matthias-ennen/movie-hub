@@ -1,6 +1,7 @@
 import { FIELD_DECISIONS } from '../fieldDiscovery.js'
 
 export const WAIPU_SYNC_UPSTREAM_FIELD_POLICY = Object.freeze({
+  '$schema': { decision: FIELD_DECISIONS.REJECT, reason: 'Technical schema metadata; no Movie Hub product value.' },
   'stations': { decision: FIELD_DECISIONS.CORE },
   'channels': { decision: FIELD_DECISIONS.CORE },
   'displayName': { decision: FIELD_DECISIONS.CORE },
@@ -55,9 +56,13 @@ export const WAIPU_SYNC_UPSTREAM_FIELD_POLICY = Object.freeze({
   'seriesId': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu' },
   'imageUrl': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu' },
   'previewImageUrl': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu' },
+  'previewImage': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu', reason: 'Source artwork fallback; TMDB remains canonical artwork source.' },
+  'recordingForbidden': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu', reason: 'Source-specific recording restriction; candidate for later recording capability.' },
+  'trackingContentId': { decision: FIELD_DECISIONS.REVIEW, reason: 'Needs product/technical decision: source identity value versus analytics-only tracking metadata.' },
 })
 
 export const WAIPU_PROGRAM_UPSTREAM_FIELD_POLICY = Object.freeze({
+  '$schema': { decision: FIELD_DECISIONS.REJECT, reason: 'Technical schema metadata; no Movie Hub product value.' },
   'id': { decision: FIELD_DECISIONS.CORE },
   'programId': { decision: FIELD_DECISIONS.CORE },
   'uuid': { decision: FIELD_DECISIONS.CORE },
@@ -97,4 +102,11 @@ export const WAIPU_PROGRAM_UPSTREAM_FIELD_POLICY = Object.freeze({
   'imageUrls': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu' },
   'recordingRestrictions': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu' },
   'playbackRestrictions': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu' },
+  'restrictions': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu', reason: 'Source playback/recording restrictions; retain losslessly until stable capabilities are derived.' },
+  'rerun': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu', reason: 'Potential product value for broadcast context; source-specific for V1.' },
+  'newTvMeta': { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'waipu', reason: 'Contains source content identity/publication-window data with possible later product value.' },
+  'startTime': { decision: FIELD_DECISIONS.CORE, reason: 'Broadcast correlation/time identity.' },
+  'stopTime': { decision: FIELD_DECISIONS.CORE, reason: 'Broadcast correlation/time identity.' },
+  'stationId': { decision: FIELD_DECISIONS.CORE, reason: 'Broadcast channel identity.' },
+  'trackingContentId': { decision: FIELD_DECISIONS.REVIEW, reason: 'Needs product/technical decision: source identity value versus analytics-only tracking metadata.' },
 })
