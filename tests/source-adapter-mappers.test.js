@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mapTmdbProviderOffersToAvailabilities } from '../src/sources/adapters/tmdbWatchProviderContractMapper.js'
-import { mapWaipuAiringToBroadcastEvent } from '../src/sources/adapters/waipuContractMapper.js'
+import { mapWaipuAiringToBroadcastEvent, projectBroadcastEventToWaipuAiring } from '../src/sources/adapters/waipuContractMapper.js'
 
 describe('source adapter contract mappers', () => {
   it('maps all real TMDB monetization offer types without reducing them to providerIds', () => {
@@ -83,6 +83,42 @@ describe('source adapter contract mappers', () => {
     expect(event.playbackRoutes[0]).toMatchObject({
       providerId: 'waipu',
       mode: 'APP_DEEP_LINK',
+    })
+  })
+
+  it('round-trips source-specific Waipu fields through the canonical event without loss', () => {
+    const event = mapWaipuAiringToBroadcastEvent({
+      tmdbId: 11,
+      type: 'series',
+    }, {
+      programId: 'program-3',
+      seriesId: 'series-1',
+      stationId: 'zdf',
+      stationName: 'ZDF',
+      startTime: '2026-09-27T18:15:00Z',
+      stopTime: '2026-09-27T19:00:00Z',
+      seasonNumber: 2,
+      episodeNumber: 7,
+      episodeTitle: 'Das Leck',
+      restrictions: { recordingForbidden: true },
+      rerun: true,
+      newTvMeta: { publicationWindows: [{ from: '2026-09-27' }] },
+      trackingContentId: 'tracking-1',
+    }, {
+      observedAt: '2026-09-26T10:00:00Z',
+    })
+
+    expect(projectBroadcastEventToWaipuAiring(event)).toMatchObject({
+      programId: 'program-3',
+      seriesId: 'series-1',
+      stationId: 'zdf',
+      seasonNumber: 2,
+      episodeNumber: 7,
+      episodeTitle: 'Das Leck',
+      restrictions: { recordingForbidden: true },
+      rerun: true,
+      newTvMeta: { publicationWindows: [{ from: '2026-09-27' }] },
+      trackingContentId: 'tracking-1',
     })
   })
 
