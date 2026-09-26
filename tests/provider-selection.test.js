@@ -19,11 +19,10 @@ afterEach(() => {
 
 describe('kontoweite Streaminganbieter-Auswahl', () => {
   it('adds Movie Hub first while preserving the accepted external defaults', () => {
-    expect(DEFAULT_ENABLED_PROVIDER_IDS).toEqual(['moviehub', 'netflix', 'prime', 'disney', 'youtube', 'waipu'])
+    expect(DEFAULT_ENABLED_PROVIDER_IDS).toEqual(['moviehub', 'netflix', 'prime', 'disney', 'youtube', 'joyn', 'waipu'])
     expect(KNOWN_PROVIDER_IDS[0]).toBe('moviehub')
     expect(KNOWN_PROVIDER_IDS).toContain('joyn')
     expect(KNOWN_PROVIDER_IDS).toContain('ard')
-    expect(DEFAULT_ENABLED_PROVIDER_IDS).not.toContain('joyn')
     expect(DEFAULT_ENABLED_PROVIDER_IDS).not.toContain('ard')
   })
 
