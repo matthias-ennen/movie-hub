@@ -31,18 +31,70 @@ export async function fetchWatchOffers(watch, token, fetchImpl = fetch) {
   return normalizeTmdbWatchProviders(await response.json(), 'DE').providerOffers
 }
 
+async function readPublishedTvSource({
+  indexPath,
+  titlesPath,
+  indexKind,
+  titlesKind,
+  read,
+  now,
+}) {
+  try {
+    const [index, titles] = await Promise.all([
+      read(indexPath, 'utf8').then(JSON.parse),
+      read(titlesPath, 'utf8').then(JSON.parse),
+    ])
+    const generatedAt = Date.parse(index?.generatedAt)
+    if (index?.kind !== indexKind || index?.status !== 'complete'
+      || titles?.kind !== titlesKind || !Array.isArray(titles.entries)
+      || !Number.isFinite(generatedAt) || Math.abs(now - generatedAt) > 48 * 3600000) {
+      return null
+    }
+    return titles.entries
+  } catch {
+    return null
+  }
+}
+
 export async function readPublishedTvEntries({ read = readFile, now = Date.now() } = {}) {
-  const [index, titles] = await Promise.all([
-    read('public/waipu-live/index.json', 'utf8').then(JSON.parse),
-    read('public/waipu-live/titles.json', 'utf8').then(JSON.parse),
+  const [waipuEntries, joynEntries] = await Promise.all([
+    readPublishedTvSource({
+      indexPath: 'public/waipu-live/index.json',
+      titlesPath: 'public/waipu-live/titles.json',
+      indexKind: 'waipu-live-index',
+      titlesKind: 'waipu-live-titles',
+      read,
+      now,
+    }),
+    readPublishedTvSource({
+      indexPath: 'public/joyn-live/index.json',
+      titlesPath: 'public/joyn-live/titles.json',
+      indexKind: 'joyn-live-index',
+      titlesKind: 'joyn-live-titles',
+      read,
+      now,
+    }),
   ])
-  const generatedAt = Date.parse(index?.generatedAt)
-  if (index?.kind !== 'waipu-live-index' || index?.status !== 'complete'
-    || titles?.kind !== 'waipu-live-titles' || !Array.isArray(titles.entries)
-    || !Number.isFinite(generatedAt) || Math.abs(now - generatedAt) > 48 * 3600000) {
+
+  if (!waipuEntries && !joynEntries) {
     throw new Error('No recent, complete TV generation is available; TV alerts were skipped.')
   }
-  return new Map(titles.entries.map((entry) => [alertTitleKey(entry), entry]).filter(([key]) => key))
+
+  const merged = new Map()
+  for (const entry of [...(waipuEntries || []), ...(joynEntries || [])]) {
+    const key = alertTitleKey(entry)
+    if (!key) continue
+    const current = merged.get(key)
+    merged.set(key, {
+      ...(current || entry),
+      ...entry,
+      airings: [
+        ...(Array.isArray(current?.airings) ? current.airings : []),
+        ...(Array.isArray(entry?.airings) ? entry.airings : []),
+      ].sort((a, b) => String(a?.startTime || '').localeCompare(String(b?.startTime || ''))),
+    })
+  }
+  return merged
 }
 
 function notification(watch, kind, body, now, expiresAt) {
@@ -84,10 +136,25 @@ async function storeIncluded(db, entry, account, offers, now) {
   })
 }
 
+function filterEnabledTvAirings(airings, account = {}) {
+  const waipuDisabled = new Set(account.waipuStationSettings?.disabledStationIds || [])
+  const joynDisabled = new Set(account.joynStationSettings?.disabledStationIds || [])
+  return (Array.isArray(airings) ? airings : []).filter((airing) => {
+    const providers = new Set(Array.isArray(airing?.providerIds) ? airing.providerIds : [])
+    const joyn = providers.has('joyn') || airing?.source === 'joyn'
+    const waipu = providers.has('waipu') || airing?.source === 'waipu' || (!joyn && Boolean(airing?.stationId))
+    const stationId = String(airing?.sourceStationId || airing?.stationId || '').trim()
+    if (!stationId) return false
+    if (joyn && joynDisabled.has(stationId)) return false
+    if (waipu && waipuDisabled.has(stationId)) return false
+    return true
+  })
+}
+
 async function storeTv(db, entry, account, tvTitles, now) {
   const { snapshot, watch } = entry
-  const airings = tvTitles.get(alertTitleKey(watch))?.airings
-  const airing = dueTvAiring(airings, account.waipuStationSettings?.disabledStationIds, now)
+  const airings = filterEnabledTvAirings(tvTitles.get(alertTitleKey(watch))?.airings, account)
+  const airing = dueTvAiring(airings, [], now)
   if (!airing) return false
   const stateRef = snapshot.ref.parent.parent.collection('titleAlertState').doc(snapshot.id)
   return db.runTransaction(async (transaction) => {
