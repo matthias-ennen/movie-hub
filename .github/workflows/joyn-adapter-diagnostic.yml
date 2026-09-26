@@ -41,7 +41,7 @@ jobs:
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
-          JOYN_TMDB_REQUEST_BUDGET: '120'
+          JOYN_TMDB_REQUEST_BUDGET: '1200'
           JOYN_TMDB_PACE_MS: '200'
         run: npm run joyn:diagnostic
       - name: Upload Joyn diagnostic artifacts
