@@ -125,6 +125,7 @@ export function buildWorkflowSummary({
   baselineWaipu = null,
   workflowTiming = {},
   sourceSchemaReports = [],
+  sourceMerge = null,
   steps = {},
   run = {},
 } = {}) {
@@ -254,6 +255,25 @@ export function buildWorkflowSummary({
             : '–',
       },
       {
+        area: 'Quellen-Merge',
+        status: steps.sourceMerge === 'failure'
+          ? '❌ fehlgeschlagen'
+          : sourceMerge
+            ? sourceMerge.failureFallback?.retainedPrevious
+              ? '✅ Merge + Fehlerisolation'
+              : '✅ Mehrquellen-Merge'
+            : '⏭️ nicht ausgeführt',
+        stock: sourceMerge
+          ? `${number(sourceMerge.healthy?.sources)} Quellen · ${number(sourceMerge.healthy?.broadcastEvents)} neutrale Events`
+          : 'kein Merge-Artefakt',
+        activity: sourceMerge
+          ? `gemeinsame Routen: ${(sourceMerge.healthy?.sharedEventRoutes || []).join(' + ') || '–'}`
+          : '–',
+        open: sourceMerge?.failureFallback
+          ? `Fallback: ${sourceMerge.failureFallback.sourceStatus || '–'} · ${number(sourceMerge.failureFallback.activeRecords)} aktiv · ${number(sourceMerge.failureFallback.expiredRecordsDropped)} abgelaufen entfernt`
+          : '–',
+      },
+      {
         area: 'Kanonische Titelkandidaten',
         status: outcome(steps.candidateInventory, '⏭️ noch nicht inventarisiert'),
         stock: `${number(candidateInventory.counts?.canonicalCandidates)} Titel aus ${number(candidateInventory.counts?.rawCandidateReferences)} Referenzen`,
@@ -325,7 +345,7 @@ async function readJson(path, fallback = {}) {
 }
 
 async function main() {
-  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu, workflowTiming, schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive] = await Promise.all([
+  const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu, workflowTiming, schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive, sourceMerge] = await Promise.all([
     readJson('public/data-status.json'),
     readJson('public/catalog.json'),
     readJson('public/search-index.json'),
@@ -351,11 +371,13 @@ async function main() {
     readJson('artifacts/source-schema/waipu-sync-upstream.json', null),
     readJson('artifacts/source-schema/waipu-program-upstream.json', null),
     readJson('artifacts/source-schema/tmdb-watch-providers-live.json', null),
+    readJson('artifacts/source-merge/summary.json', null),
   ])
   const summary = buildWorkflowSummary({
     dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges,
     tmdbChangeRun: activeTmdbChangeRun || lastTmdbChangeRun || {}, baselineData, baselineWaipu, workflowTiming,
     sourceSchemaReports: [schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive].filter(Boolean),
+    sourceMerge,
     steps: {
       tmdbChanges: process.env.SUMMARY_TMDB_CHANGES,
       tmdbCheckpoint: process.env.SUMMARY_TMDB_CHECKPOINT,
@@ -363,6 +385,7 @@ async function main() {
       tmdbPush: process.env.SUMMARY_TMDB_PUSH,
       waipuSync: process.env.SUMMARY_WAIPU_SYNC,
       waipuCatalog: process.env.SUMMARY_WAIPU_CATALOG,
+      sourceMerge: process.env.SUMMARY_SOURCE_MERGE,
       canonicalExecutor: process.env.SUMMARY_CANONICAL_EXECUTOR,
       candidateInventory: process.env.SUMMARY_CANDIDATE_INVENTORY,
       priorityPreview: process.env.SUMMARY_PRIORITY_PREVIEW,
