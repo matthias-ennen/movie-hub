@@ -25,6 +25,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Restore validated live TMDB catalog and search index
+        run: npm run tmdb:restore
       - name: Build independent Joyn diagnostic SourceEnvelope
         run: node scripts/joyn-adapter-diagnostic.mjs
       - name: Upload Joyn diagnostic artifacts
