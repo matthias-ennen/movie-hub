@@ -85,6 +85,22 @@ describe('source field discovery', () => {
     })
   })
 
+  it('inherits approved extension policy for nested fields', () => {
+    const report = inspectSourceSchema([{
+      extensionBlock: { newNestedField: true },
+    }], {
+      sourceId: 'fixture',
+      policy: {
+        extensionBlock: { decision: FIELD_DECISIONS.EXTENSION, extensionNamespace: 'fixture' },
+      },
+    })
+    expect(report.fields.find((field) => field.path === 'extensionBlock.newNestedField')).toMatchObject({
+      severity: 'INFO',
+      status: 'extension',
+      extensionNamespace: 'fixture',
+    })
+  })
+
   it('keeps approved Waipu restrictions as extensions', () => {
     const report = inspectSourceSchema([{
       recordingRestrictions: { fastForward: false },
