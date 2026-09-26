@@ -5,7 +5,7 @@ import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 import { localTmdbCandidates } from './waipu-live-catalog.mjs'
 import { JoynTmdbSearchClient, matchJoynProgram } from './joyn-tmdb-matcher.mjs'
 import { normalizeJoynLiveChannelsAndEpg } from '../src/sources/joyn/joynEpgNormalizer.js'
-import { JOYN_PILOT_STATIONS } from '../src/sources/joyn/joynPilotStations.js'
+import { buildJoynStationMapping } from './joyn-station-mapping.mjs'
 import { mapJoynCandidateToBroadcastEvent, buildJoynSourceEnvelope } from '../src/sources/adapters/joynContractMapper.js'
 import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
 import { JOYN_EPG_UPSTREAM_FIELD_POLICY } from '../src/sources/policies/joynUpstreamFieldPolicy.js'
@@ -197,14 +197,6 @@ function titleLookup(candidates) {
   return (title) => [...(map.get(normalizeWaipuText(title))?.values() || [])]
 }
 
-function stationLookup() {
-  const map = new Map()
-  for (const station of JOYN_PILOT_STATIONS) {
-    map.set(normalizeWaipuText(station.name), station)
-  }
-  return (name) => map.get(normalizeWaipuText(name)) || null
-}
-
 async function writeJson(path, value) {
   await mkdir(dirname(path), { recursive: true })
   await writeFile(path, JSON.stringify(value, null, 2) + '\n', 'utf8')
@@ -226,9 +218,17 @@ export async function runJoynAdapterDiagnostic({
   const schemaReport = observer.report({ phase: 'diagnostic-complete' })
 
   const allCandidates = normalizeJoynLiveChannelsAndEpg(raw)
-  const stationFor = stationLookup()
-  const pilot = allCandidates
-    .map((candidate) => ({ candidate, station: stationFor(candidate.channelTitle) }))
+  const stationMapping = buildJoynStationMapping(raw?.liveStreams)
+  const canonicalByJoynId = new Map(
+    stationMapping.entries
+      .filter((entry) => entry.status === 'matched')
+      .map((entry) => [entry.joynId, entry]),
+  )
+  const mapped = allCandidates
+    .map((candidate) => ({
+      candidate,
+      station: canonicalByJoynId.get(candidate.joynChannelId) || null,
+    }))
     .filter((entry) => entry.station)
 
   const [catalog, searchIndex] = await Promise.all([
@@ -239,7 +239,7 @@ export async function runJoynAdapterDiagnostic({
   const candidatesFor = titleLookup(tmdbCandidates)
 
   const uniquePrograms = new Map()
-  for (const entry of pilot) {
+  for (const entry of mapped) {
     if (!uniquePrograms.has(entry.candidate.joynProgramId)) uniquePrograms.set(entry.candidate.joynProgramId, entry)
   }
 
@@ -291,14 +291,14 @@ export async function runJoynAdapterDiagnostic({
   }
 
   const events = []
-  for (const entry of pilot) {
+  for (const entry of mapped) {
     const decision = decisions.get(entry.candidate.joynProgramId)
     if (decision?.status !== 'matched') continue
     const event = mapJoynCandidateToBroadcastEvent(entry.candidate, {
       tmdbId: decision.match.tmdbId,
       type: decision.match.type,
     }, {
-      channelId: entry.station.waipuStationId,
+      channelId: entry.station.canonicalId,
       observedAt: generatedAt,
     })
     if (event && Date.parse(event.endAt) > now) events.push(event)
@@ -308,11 +308,12 @@ export async function runJoynAdapterDiagnostic({
     generatedAt,
     sourceGenerationId: `joyn-diagnostic:${generatedAt}`,
     sourceCoverage: {
-      mode: 'pilot-six-stations',
+      mode: 'mapped-joyn-stations',
       upstreamStreams: Array.isArray(raw?.liveStreams) ? raw.liveStreams.length : 0,
       upstreamPrograms: allCandidates.length,
-      pilotPrograms: pilot.length,
-      uniquePilotPrograms: uniquePrograms.size,
+      mappedStreams: stationMapping.counts.matched,
+      mappedPrograms: mapped.length,
+      uniqueMappedPrograms: uniquePrograms.size,
     },
   })
 
@@ -324,9 +325,9 @@ export async function runJoynAdapterDiagnostic({
       streams: Array.isArray(raw?.liveStreams) ? raw.liveStreams.length : 0,
       programs: allCandidates.length,
     },
-    pilot: {
-      stationsConfigured: JOYN_PILOT_STATIONS.length,
-      broadcastRows: pilot.length,
+    stationMapping: stationMapping.counts,
+    mapped: {
+      broadcastRows: mapped.length,
       uniquePrograms: uniquePrograms.size,
     },
     matching: {
@@ -348,6 +349,7 @@ export async function runJoynAdapterDiagnostic({
   }
 
   await writeJson(resolve(root, 'artifacts/joyn-adapter/diagnostic.json'), summary)
+  await writeJson(resolve(root, 'artifacts/joyn-adapter/station-mapping.json'), stationMapping)
   await writeJson(resolve(root, 'artifacts/source-adapters/joyn-v1-diagnostic.json'), envelope)
   await writeFieldDiscoveryReport(schemaReport, {
     jsonPath: resolve(root, 'artifacts/source-schema/joyn-epg-upstream.json'),
