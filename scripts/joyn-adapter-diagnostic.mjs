@@ -340,7 +340,15 @@ export async function runJoynAdapterDiagnostic({
       streams: Array.isArray(raw?.liveStreams) ? raw.liveStreams.length : 0,
       programs: allCandidates.length,
     },
-    stationMapping: stationMapping.counts,
+    stationMapping: {
+      ...stationMapping.counts,
+      unmatchedStations: stationMapping.entries
+        .filter((entry) => entry.status === 'unmatched')
+        .map(({ joynId, joynTitle }) => ({ joynId, joynTitle })),
+      ambiguousStations: stationMapping.entries
+        .filter((entry) => entry.status === 'ambiguous')
+        .map(({ joynId, joynTitle, candidates }) => ({ joynId, joynTitle, candidates })),
+    },
     mapped: {
       broadcastRows: mapped.length,
       uniquePrograms: uniquePrograms.size,
