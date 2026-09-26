@@ -33,12 +33,21 @@ export class SourceSchemaObserver {
     return enriched
   }
 
+  report(context = {}) {
+    return {
+      ...inspectSourceSchema(this.samples, {
+        sourceId: this.sourceId,
+        policy: this.policy,
+        previousSnapshot: this.previousSnapshot,
+      }),
+      context: {
+        ...context,
+        sampleCount: this.samples.length,
+      },
+    }
+  }
+
   snapshot() {
-    const report = inspectSourceSchema(this.samples, {
-      sourceId: this.sourceId,
-      policy: this.policy,
-      previousSnapshot: this.previousSnapshot,
-    })
-    return schemaSnapshotFromReport(report)
+    return schemaSnapshotFromReport(this.report())
   }
 }
