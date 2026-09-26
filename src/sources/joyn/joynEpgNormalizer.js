@@ -45,8 +45,9 @@ export function normalizeJoynLiveChannelsAndEpg(data) {
         source: 'joyn-epg',
         joynChannelId,
         channelTitle,
-        brandId: text(stream?.brand?.brand_id),
-        channelLogoUrl: text(stream?.logo?.url),
+        brandId: text(stream?.brand?.brandCode) || text(stream?.brand?.brand_id),
+        brandTitle: text(stream?.brand?.title),
+        channelLogoUrl: text(stream?.brand?.livestream?.logo?.url) || text(stream?.logo?.url),
         streamType: text(stream?.type),
         quality: text(stream?.quality),
         joynProgramId,
@@ -54,6 +55,7 @@ export function normalizeJoynLiveChannelsAndEpg(data) {
         startTime,
         endTime,
         programType: text(program?.__typename),
+        programImageUrl: text(program?.image?.url),
       })
     }
   }
