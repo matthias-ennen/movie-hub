@@ -487,6 +487,7 @@ export async function runJoynAdapterDiagnostic({
   const joynClassification = { movie: 0, series: 0, unknown: 0 }
   const algoliaClassification = { movie: 0, series: 0, unknown: 0 }
   const algoliaCache = new Map()
+  const algoliaEpisodeCache = new Map()
   const algoliaRequestBudget = Math.max(0, Number(process.env.JOYN_ALGOLIA_REQUEST_BUDGET || 800))
   let algoliaRequests = 0
   let joynSearchRequests = 0
@@ -543,18 +544,75 @@ export async function runJoynAdapterDiagnostic({
         }
       }
 
-      if (!joynType && algoliaResult.type) {
-        joynType = algoliaResult.type
+      let algoliaEpisodeResult = { type: null, reason: 'not_needed', evidence: [] }
+      const needsEpisodeResolution = Boolean(entry.candidate.secondaryTitle)
+        && algoliaKey.key
+        && (
+          !algoliaResult.type
+          || (
+            algoliaResult.type === 'series'
+            && algoliaResult.seasonNumber === null
+            && algoliaResult.episodeNumber === null
+          )
+        )
+      if (needsEpisodeResolution) {
+        const compoundQuery = [entry.candidate.title, entry.candidate.secondaryTitle]
+          .map((value) => String(value || '').trim())
+          .filter(Boolean)
+          .join(' ')
+        const episodeCacheKey = normalizeWaipuText(compoundQuery)
+        if (algoliaEpisodeCache.has(episodeCacheKey)) {
+          algoliaEpisodeResult = algoliaEpisodeCache.get(episodeCacheKey)
+        } else if (algoliaRequests < algoliaRequestBudget) {
+          const searched = await searchJoynAlgoliaTitle(compoundQuery, {
+            fetchImpl,
+            searchApiKey: algoliaKey.key,
+          }).catch(() => ({ hits: [], status: 'error' }))
+          algoliaRequests += 1
+          algoliaEpisodeResult = searched.status === 'ready'
+            ? classifyJoynAlgoliaHits({
+              title: entry.candidate.title,
+              secondaryTitle: entry.candidate.secondaryTitle,
+            }, searched.hits)
+            : { type: null, reason: 'algolia_' + searched.status, evidence: [] }
+          algoliaEpisodeCache.set(episodeCacheKey, algoliaEpisodeResult)
+        } else {
+          algoliaEpisodeResult = { type: null, reason: 'algolia_budget_exhausted', evidence: [] }
+        }
+      }
+
+      const effectiveAlgolia = (
+        algoliaEpisodeResult.type === 'series'
+        && (
+          algoliaEpisodeResult.seasonNumber !== null
+          || algoliaEpisodeResult.episodeNumber !== null
+          || algoliaEpisodeResult.seriesId
+        )
+      ) ? algoliaEpisodeResult : algoliaResult
+
+      if (!joynType && effectiveAlgolia.type) {
+        joynType = effectiveAlgolia.type
         joynClassificationResult = {
           ...classified,
           type: joynType,
-          reason: algoliaResult.reason,
-          algolia: algoliaResult,
+          reason: effectiveAlgolia.reason,
+          algolia: effectiveAlgolia,
+          algoliaBase: algoliaResult,
+          algoliaEpisode: algoliaEpisodeResult,
+        }
+      } else if (joynType && algoliaEpisodeResult.type === 'series') {
+        joynClassificationResult = {
+          ...classified,
+          algolia: algoliaEpisodeResult,
+          algoliaBase: algoliaResult,
+          algoliaEpisode: algoliaEpisodeResult,
         }
       } else if (!joynType) {
         joynClassificationResult = {
           ...classified,
-          algolia: algoliaResult,
+          algolia: effectiveAlgolia,
+          algoliaBase: algoliaResult,
+          algoliaEpisode: algoliaEpisodeResult,
         }
       }
 
@@ -827,6 +885,7 @@ export async function runJoynAdapterDiagnostic({
         requestBudget: algoliaRequestBudget,
         requests: algoliaRequests,
         cachedTitles: algoliaCache.size,
+        cachedEpisodeQueries: algoliaEpisodeCache.size,
         classification: algoliaClassification,
       },
       joynClassificationReasons,
