@@ -172,6 +172,84 @@ describe('Waipu to TMDB matching', () => {
     expect(searchTmdb).toHaveBeenCalledOnce()
   })
 
+  it('retries an empty movie year search once without the year filter', async () => {
+    const requested = []
+    const fetchImpl = vi.fn(async (url) => {
+      const parsed = new URL(String(url))
+      requested.push(parsed)
+      const strict = parsed.searchParams.get('year') === '1990'
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({
+          results: strict
+            ? []
+            : [{ id: 10495, title: 'Pappa ante Portas', release_date: '1991-02-21' }],
+        }),
+      }
+    })
+    const client = new WaipuTmdbSearchClient({
+      token: 'test-token',
+      fetchImpl,
+      maxRequests: 5,
+      paceMs: 0,
+    })
+
+    const results = await client.search({
+      type: 'movie',
+      title: 'Pappa ante Portas',
+      productionYear: 1990,
+    })
+
+    expect(requested).toHaveLength(2)
+    expect(requested[0].searchParams.get('year')).toBe('1990')
+    expect(requested[1].searchParams.get('year')).toBeNull()
+    expect(results).toEqual([
+      expect.objectContaining({ id: 10495, type: 'movie' }),
+    ])
+  })
+
+  it('keeps a compatible positive matcher-v1 cache entry but re-evaluates a matcher-v1 negative entry', async () => {
+    const positiveStore = new WaipuMatchDecisionStore()
+    const positiveKey = (await import('../scripts/waipu-tmdb-matcher.mjs')).matchCacheKey(input)
+    positiveStore.set(positiveKey, {
+      matcherVersion: 1,
+      checkedAt: new Date().toISOString(),
+      status: 'matched',
+      reason: null,
+      source: 'local+tmdb-search',
+      match: { tmdbId: 351286, type: 'movie', title: input.originalTitle },
+    })
+    const positive = await matchWaipuProgram(input, {
+      decisions: positiveStore,
+      searchTmdb: vi.fn(),
+    })
+    expect(positive).toMatchObject({ status: 'matched', cache: 'hit' })
+
+    const negativeStore = new WaipuMatchDecisionStore()
+    negativeStore.set(positiveKey, {
+      matcherVersion: 1,
+      checkedAt: new Date().toISOString(),
+      status: 'unmatched',
+      reason: 'no_candidate',
+      source: 'local+tmdb-search',
+      match: null,
+    })
+    const searchTmdb = vi.fn(async () => [{
+      id: 351286,
+      media_type: 'movie',
+      title: input.originalTitle,
+      release_date: '2018-06-06',
+    }])
+    const negative = await matchWaipuProgram(input, {
+      decisions: negativeStore,
+      searchTmdb,
+    })
+    expect(negative).toMatchObject({ status: 'matched', cache: 'miss' })
+    expect(searchTmdb).toHaveBeenCalledOnce()
+  })
+
   it('paces TMDB searches and stops at the configured request budget', async () => {
     let clock = 1_000
     const sleeps = []
