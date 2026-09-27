@@ -390,10 +390,23 @@ async function main() {
       })))
       : []
 
+    const epgEventsV2ShapeProbe = await gql({
+      token,
+      apiKey,
+      operationName: 'EpgEventsV2ShapeProbe',
+      query: 'query EpgEventsV2ShapeProbe { epgEventsV2 { __typename } }',
+    })
+
     report.targets.push({
       requestedTitle: target,
       epgMatches,
       resolverProbes,
+      epgEventsV2ShapeProbe: {
+        ok: epgEventsV2ShapeProbe.ok && !epgEventsV2ShapeProbe.body?.errors?.length,
+        httpStatus: epgEventsV2ShapeProbe.status,
+        errors: epgEventsV2ShapeProbe.body?.errors || [],
+        data: epgEventsV2ShapeProbe.body?.data || null,
+      },
       richSearch: {
         ok: search.ok && !search.body?.errors?.length,
         httpStatus: search.status,
