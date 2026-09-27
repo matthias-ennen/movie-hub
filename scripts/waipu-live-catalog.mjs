@@ -92,6 +92,8 @@ function emptyMetrics() {
     matchedPrograms: 0,
     matchRejected: {},
     matchSearchUnavailable: 0,
+    matchCache: { hit: 0, miss: 0 },
+    matchSources: {},
     publishedTitles: 0,
     publishedBroadcasts: 0,
   }
@@ -354,6 +356,8 @@ export async function buildWaipuLiveCatalog({
       decisions,
       now,
     })
+    increment(metrics.matchCache, decision.cache || 'unknown')
+    increment(metrics.matchSources, decision.source || 'unknown')
     if (decision.status !== 'matched') {
       increment(metrics.matchRejected, decision.reason || 'unmatched')
       unresolvedPrograms.push({
@@ -362,8 +366,18 @@ export async function buildWaipuLiveCatalog({
         title: normalized.title,
         originalTitle: normalized.originalTitle || null,
         productionYear: normalized.productionYear || null,
+        productionCountries: normalized.productionCountries || [],
+        seriesId: normalized.seriesId || null,
+        seasonNumber: normalized.seasonNumber ?? null,
+        episodeNumber: normalized.episodeNumber ?? null,
+        episodeTitle: normalized.episodeTitle || null,
+        mainGenre: normalized.mainGenre || null,
+        subGenres: normalized.subGenres || [],
+        classificationConfidence: normalized.classification?.confidence || null,
+        classificationSignals: normalized.classification?.signals || [],
         reason: decision.reason || 'unmatched',
         source: decision.source || null,
+        cache: decision.cache || null,
       })
       if (typeof searchTmdb !== 'function' && decision.source === 'local') {
         metrics.matchSearchUnavailable += 1
