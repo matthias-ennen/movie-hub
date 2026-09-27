@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   WaipuTmdbMetadataClient,
+  enrichLiveTitleMetadata,
   enrichWaipuTitleMetadata,
   requireCompleteWaipuTitleMetadata,
 } from '../scripts/waipu-title-metadata.mjs'
@@ -87,6 +88,24 @@ describe('Waipu title metadata enrichment', () => {
       nextAiring: { stationId: 'tntfilm' },
     })
     expect(requireCompleteWaipuTitleMetadata(result.entries)).toBe(true)
+  })
+
+
+  it('uses the same canonical enrichment for Joyn without losing TMDB providers', async () => {
+    const result = await enrichLiveTitleMetadata([airingEntry()], {
+      providerId: 'joyn',
+      catalogTitles: [completeMetadata({ providerIds: ['netflix'] })],
+      now: new Date('2026-09-19T18:30:00.000Z'),
+    })
+
+    expect(result.entries[0]).toMatchObject({
+      tmdbId: 8688,
+      title: 'Spiel auf Zeit',
+      posterUrl: 'https://image.tmdb.org/t/p/w500/poster.jpg',
+      metadataComplete: true,
+      providerIds: ['netflix', 'joyn'],
+      airingCount: 1,
+    })
   })
 
   it('accepts V2 metadata only when the restore path explicitly enables the migration bridge', () => {
