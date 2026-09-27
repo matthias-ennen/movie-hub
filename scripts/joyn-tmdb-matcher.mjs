@@ -5,7 +5,7 @@ import {
 } from './waipu-tmdb-matcher.mjs'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 
-export const JOYN_MATCHER_VERSION = 4
+export const JOYN_MATCHER_VERSION = 5
 
 const JOYN_MOVIE_RUNTIME_OVERRUN_TOLERANCE_MINUTES = 5
 const JOYN_DESCRIPTION_MIN_OVERLAP = 6
@@ -70,6 +70,12 @@ export function chooseJoynTmdbMatch(input, rawCandidates = []) {
   for (const raw of rawCandidates) {
     const candidate = normalizeTmdbMatchCandidate(raw, raw?.source || 'local')
     if (!candidate) continue
+    if (Array.isArray(raw?.aliases)) candidate.aliases = [...raw.aliases]
+    if (raw?.joynSearchAliasYearVerified === true) {
+      candidate.joynSearchAliasYearVerified = true
+      candidate.joynSearchAlias = raw.joynSearchAlias || null
+      candidate.joynSearchAliasYear = finiteNumber(raw.joynSearchAliasYear)
+    }
     if (input?.type && candidate.type !== input.type) continue
     byKey.set(`${candidate.type}:${candidate.tmdbId}`, candidate)
   }
@@ -302,6 +308,20 @@ export async function matchJoynProgram(input, {
   }
 
   const signals = []
+  const searchAliasResolution = result.status === 'matched' && result.best?.candidate?.joynSearchAliasYearVerified === true
+    ? {
+      alias: result.best.candidate.joynSearchAlias,
+      productionYear: result.best.candidate.joynSearchAliasYear,
+    }
+    : null
+  if (searchAliasResolution) {
+    source += '+search-alias-year'
+    signals.push({
+      kind: 'tmdb_search_alias_year',
+      alias: searchAliasResolution.alias,
+      productionYear: searchAliasResolution.productionYear,
+    })
+  }
   if (yearResolution) {
     signals.push({
       kind: 'production_year',
@@ -347,6 +367,27 @@ export async function matchJoynProgram(input, {
   }
 }
 
+function withVerifiedJoynSearchAlias(input, candidates) {
+  const values = Array.isArray(candidates) ? candidates : []
+  const title = String(input?.title || '').trim()
+  const inputYear = finiteNumber(input?.productionYear)
+  if (!title || !input?.type || inputYear === null || values.length !== 1) return values
+
+  const normalized = normalizeTmdbMatchCandidate(values[0], values[0]?.source || 'tmdb-search')
+  if (!normalized || normalized.type !== input.type || finiteNumber(normalized.year) !== inputYear) return values
+
+  return [{
+    ...values[0],
+    aliases: [...new Set([
+      ...(Array.isArray(values[0]?.aliases) ? values[0].aliases : []),
+      title,
+    ].filter(Boolean))],
+    joynSearchAliasYearVerified: true,
+    joynSearchAlias: title,
+    joynSearchAliasYear: inputYear,
+  }]
+}
+
 export class JoynTmdbSearchClient {
   constructor(options = {}) {
     this.client = new WaipuTmdbSearchClient({
@@ -363,11 +404,13 @@ export class JoynTmdbSearchClient {
     const title = String(input?.title || '').trim()
     if (!title) return []
     if (input?.type === 'movie' || input?.type === 'series') {
-      return this.client.search({
+      const results = await this.client.search({
         type: input.type,
         title,
-        productionYear: input.type === 'movie' ? input.productionYear : null,
+        productionYear: input.productionYear,
+        firstAirDateYear: input.type === 'series' && finiteNumber(input.productionYear) !== null,
       })
+      return withVerifiedJoynSearchAlias(input, results)
     }
     const movies = await this.client.search({ type: 'movie', title })
     const series = await this.client.search({ type: 'series', title })
