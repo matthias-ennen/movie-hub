@@ -209,6 +209,35 @@ function findTitleObjects(value, wanted, path = 'root', out = []) {
   return out
 }
 
+function findAlgoliaKey(value, depth = 0) {
+  if (depth > 5 || value === null || value === undefined) return null
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed.length >= 20) return trimmed
+    return null
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findAlgoliaKey(item, depth + 1)
+      if (found) return found
+    }
+    return null
+  }
+  if (typeof value === 'object') {
+    for (const preferred of ['key', 'apiKey', 'apikey', 'token', 'searchKey', 'value']) {
+      if (Object.prototype.hasOwnProperty.call(value, preferred)) {
+        const found = findAlgoliaKey(value[preferred], depth + 1)
+        if (found) return found
+      }
+    }
+    for (const child of Object.values(value)) {
+      const found = findAlgoliaKey(child, depth + 1)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 function keyShape(value, depth = 0) {
   if (depth > 3 || value === null || value === undefined) return typeof value
   if (Array.isArray(value)) {
@@ -276,7 +305,7 @@ async function main() {
     hash: ALGOLIA_API_KEY_HASH,
     variables: {},
   })
-  const algoliaApiKey = algoliaKeyResult.body?.data?.algoliaApiKey?.key || null
+  const algoliaApiKey = findAlgoliaKey(algoliaKeyResult.body?.data?.algoliaApiKey)
 
   const epg = await gql({ token, apiKey, operationName: 'LiveChannelsAndEPG', query: FULL_EPG_QUERY })
   if (!epg.ok || epg.body?.errors?.length || !epg.body?.data) {
@@ -398,6 +427,7 @@ async function main() {
       keyLookupOk: Boolean(algoliaApiKey),
       keyLookupHttpStatus: algoliaKeyResult.status,
       keyLookupErrors: algoliaKeyResult.body?.errors || [],
+      keyLookupShape: keyShape(algoliaKeyResult.body?.data?.algoliaApiKey || null),
       targets: [],
     },
     targets: [],
