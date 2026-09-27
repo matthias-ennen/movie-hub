@@ -8,9 +8,9 @@ import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 export const JOYN_MATCHER_VERSION = 3
 
 const JOYN_MOVIE_RUNTIME_OVERRUN_TOLERANCE_MINUTES = 5
-const JOYN_DESCRIPTION_MIN_OVERLAP = 5
+const JOYN_DESCRIPTION_MIN_OVERLAP = 6
 const JOYN_DESCRIPTION_MIN_SCORE = 0.22
-const JOYN_DESCRIPTION_MIN_MARGIN = 0.08
+const JOYN_DESCRIPTION_MIN_MARGIN = 0.12
 const DESCRIPTION_STOPWORDS = new Set([
   'aber','alle','allem','allen','aller','alles','also','auch','auf','aus','bei','beim','bis','das','dass','dem','den',
   'der','des','die','dies','diese','diesem','diesen','dieser','durch','eine','einem','einen','einer','eines','für','gegen',
