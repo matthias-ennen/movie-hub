@@ -5,9 +5,22 @@ import {
 } from './waipu-tmdb-matcher.mjs'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 
-export const JOYN_MATCHER_VERSION = 2
+export const JOYN_MATCHER_VERSION = 3
 
 const JOYN_MOVIE_RUNTIME_OVERRUN_TOLERANCE_MINUTES = 5
+const JOYN_DESCRIPTION_MIN_OVERLAP = 5
+const JOYN_DESCRIPTION_MIN_SCORE = 0.22
+const JOYN_DESCRIPTION_MIN_MARGIN = 0.08
+const DESCRIPTION_STOPWORDS = new Set([
+  'aber','alle','allem','allen','aller','alles','also','auch','auf','aus','bei','beim','bis','das','dass','dem','den',
+  'der','des','die','dies','diese','diesem','diesen','dieser','durch','eine','einem','einen','einer','eines','für','gegen',
+  'hat','haben','ihm','ihn','ihnen','ihr','ihre','ihrem','ihren','ihrer','ist','mit','nach','nicht','noch','oder','ohne',
+  'sich','sie','sind','über','und','unter','vom','von','vor','war','werden','wird','wurde','zum','zur','zwischen',
+  'about','after','again','against','also','and','are','because','been','before','being','between','both','but','can',
+  'does','during','each','for','from','have','into','more','most','not','only','other','over','same','some','such',
+  'than','that','the','their','them','then','there','these','they','this','through','under','very','was','were','what',
+  'when','where','which','while','who','with','would',
+])
 
 function aliases(value) {
   return [...new Set([
@@ -24,6 +37,24 @@ function dice(left, right) {
   let overlap = 0
   for (const token of a) if (b.has(token)) overlap += 1
   return (2 * overlap) / (a.size + b.size)
+}
+
+function descriptionTokens(value) {
+  return normalizeWaipuText(value)
+    .split(/\s+/)
+    .filter((token) => token.length >= 4 && !DESCRIPTION_STOPWORDS.has(token))
+}
+
+function descriptionEvidence(left, right) {
+  const a = new Set(descriptionTokens(left))
+  const b = new Set(descriptionTokens(right))
+  if (!a.size || !b.size) return { score: 0, overlap: 0 }
+  let overlap = 0
+  for (const token of a) if (b.has(token)) overlap += 1
+  return {
+    score: (2 * overlap) / (a.size + b.size),
+    overlap,
+  }
 }
 
 function score(inputTitle, candidate) {
@@ -87,6 +118,41 @@ function exactTitleCandidates(input, rawCandidates = []) {
   return [...byKey.values()]
 }
 
+function disambiguateByDescription(input, candidates) {
+  const inputDescription = String(input?.description || '').trim()
+  if (!inputDescription) return null
+
+  const exact = exactTitleCandidates(input, candidates)
+  if (exact.length < 2 || exact.some((candidate) => !String(candidate?.description || '').trim())) return null
+
+  const ranked = exact
+    .map((candidate) => ({
+      candidate,
+      ...descriptionEvidence(inputDescription, candidate.description),
+    }))
+    .sort((left, right) => (
+      right.score - left.score
+      || right.overlap - left.overlap
+      || left.candidate.tmdbId - right.candidate.tmdbId
+    ))
+
+  const best = ranked[0]
+  const runnerUp = ranked[1]
+  const margin = best.score - runnerUp.score
+  if (best.overlap < JOYN_DESCRIPTION_MIN_OVERLAP
+      || best.score < JOYN_DESCRIPTION_MIN_SCORE
+      || margin < JOYN_DESCRIPTION_MIN_MARGIN) return null
+
+  return {
+    candidate: best.candidate,
+    score: best.score,
+    overlap: best.overlap,
+    runnerUpScore: runnerUp.score,
+    runnerUpOverlap: runnerUp.overlap,
+    margin,
+  }
+}
+
 async function disambiguateMovieByBroadcastDuration(input, candidates, loadTmdbDetails) {
   const slotMinutes = finiteNumber(input?.broadcastDurationMinutes)
   if (input?.type !== 'movie'
@@ -135,6 +201,9 @@ export function joynMatchCacheKey(input) {
   return createHash('sha256').update(JSON.stringify({
     version: JOYN_MATCHER_VERSION,
     title: normalizeWaipuText(input?.title),
+    type: input?.type || null,
+    description: normalizeWaipuText(input?.description),
+    broadcastDurationMinutes: finiteNumber(input?.broadcastDurationMinutes),
   })).digest('hex')
 }
 
@@ -152,6 +221,24 @@ export async function matchJoynProgram(input, {
     combinedCandidates = [...localCandidates, ...(Array.isArray(remote) ? remote : [])]
     result = chooseJoynTmdbMatch(input, combinedCandidates)
     source = 'local+tmdb-search'
+  }
+
+  let descriptionResolution = null
+  if (result.status !== 'matched' && result.reason === 'ambiguous_exact_title') {
+    descriptionResolution = disambiguateByDescription(input, combinedCandidates)
+    if (descriptionResolution) {
+      result = {
+        status: 'matched',
+        reason: null,
+        best: {
+          candidate: descriptionResolution.candidate,
+          score: 100,
+        },
+        runnerUp: null,
+        margin: descriptionResolution.margin,
+      }
+      source += '+description'
+    }
   }
 
   let durationResolution = null
@@ -172,6 +259,26 @@ export async function matchJoynProgram(input, {
     }
   }
 
+  const signals = []
+  if (descriptionResolution) {
+    signals.push({
+      kind: 'description',
+      score: Number(descriptionResolution.score.toFixed(3)),
+      overlap: descriptionResolution.overlap,
+      runnerUpScore: Number(descriptionResolution.runnerUpScore.toFixed(3)),
+      runnerUpOverlap: descriptionResolution.runnerUpOverlap,
+      margin: Number(descriptionResolution.margin.toFixed(3)),
+    })
+  }
+  if (durationResolution) {
+    signals.push({
+      kind: 'broadcast_duration',
+      slotMinutes: durationResolution.slotMinutes,
+      runtimeMinutes: durationResolution.runtimeMinutes,
+      excluded: durationResolution.excluded,
+    })
+  }
+
   return {
     matcherVersion: JOYN_MATCHER_VERSION,
     status: result.status,
@@ -186,12 +293,7 @@ export async function matchJoynProgram(input, {
       posterUrl: result.best.candidate.posterUrl,
       score: result.best.score,
       margin: result.margin,
-      signals: durationResolution ? [{
-        kind: 'broadcast_duration',
-        slotMinutes: durationResolution.slotMinutes,
-        runtimeMinutes: durationResolution.runtimeMinutes,
-        excluded: durationResolution.excluded,
-      }] : [],
+      signals,
     } : null,
   }
 }
