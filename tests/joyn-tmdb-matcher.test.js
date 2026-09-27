@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chooseJoynTmdbMatch, matchJoynProgram } from '../scripts/joyn-tmdb-matcher.mjs'
+import { chooseJoynTmdbMatch, JoynTmdbSearchClient, matchJoynProgram } from '../scripts/joyn-tmdb-matcher.mjs'
 import {
   buildJoynSourceEnvelope,
   mapJoynCandidateToBroadcastEvent,
@@ -30,6 +30,105 @@ describe('Joyn TMDB matching', () => {
       source: 'local+tmdb-search',
       match: { type: 'movie', tmdbId: 329865, title: 'Arrival' },
     })
+  })
+
+  it('uses TMDB first-air year and verified search alias for one unique Joyn series result', async () => {
+    let requestedUrl = null
+    const fetchImpl = async (url) => {
+      requestedUrl = new URL(String(url))
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({
+          results: [{
+            id: 80748,
+            name: 'FBI',
+            original_name: 'FBI',
+            first_air_date: '2018-09-25',
+          }],
+        }),
+        text: async () => '',
+      }
+    }
+
+    const client = new JoynTmdbSearchClient({
+      token: 'test-token',
+      fetchImpl,
+      paceMs: 0,
+      maxRequests: 10,
+    })
+    const candidates = await client.search({
+      title: 'FBI: Special Crime Unit',
+      type: 'series',
+      productionYear: 2018,
+    })
+
+    expect(requestedUrl.pathname).toBe('/3/search/tv')
+    expect(requestedUrl.searchParams.get('first_air_date_year')).toBe('2018')
+    expect(candidates).toEqual([
+      expect.objectContaining({
+        id: 80748,
+        aliases: ['FBI: Special Crime Unit'],
+        joynSearchAliasYearVerified: true,
+        joynSearchAliasYear: 2018,
+      }),
+    ])
+
+    const result = await matchJoynProgram(
+      {
+        title: 'FBI: Special Crime Unit',
+        type: 'series',
+        productionYear: 2018,
+      },
+      {
+        searchTmdb: async () => candidates,
+      },
+    )
+
+    expect(result).toMatchObject({
+      status: 'matched',
+      source: 'local+tmdb-search+search-alias-year',
+      match: {
+        tmdbId: 80748,
+        type: 'series',
+        title: 'FBI',
+        signals: [{
+          kind: 'tmdb_search_alias_year',
+          alias: 'FBI: Special Crime Unit',
+          productionYear: 2018,
+        }],
+      },
+    })
+  })
+
+  it('does not verify a Joyn search alias when TMDB returns multiple year-matched results', async () => {
+    const client = new JoynTmdbSearchClient({
+      token: 'test-token',
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({
+          results: [
+            { id: 1, name: 'Example A', first_air_date: '2018-01-01' },
+            { id: 2, name: 'Example B', first_air_date: '2018-02-01' },
+          ],
+        }),
+        text: async () => '',
+      }),
+      paceMs: 0,
+      maxRequests: 10,
+    })
+
+    const candidates = await client.search({
+      title: 'Alternative title',
+      type: 'series',
+      productionYear: 2018,
+    })
+
+    expect(candidates).toHaveLength(2)
+    expect(candidates.some((candidate) => candidate.joynSearchAliasYearVerified)).toBe(false)
   })
 
   it('uses exact production year before softer ambiguity signals', async () => {
