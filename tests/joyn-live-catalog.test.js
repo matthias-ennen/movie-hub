@@ -12,6 +12,16 @@ describe('Joyn live title catalog', () => {
     entries: [{
       tmdbId: 11,
       type: 'movie',
+      title: 'Star Wars',
+      description: 'Vollständige TMDB-Beschreibung.',
+      year: 1977,
+      posterUrl: 'https://image.tmdb.org/t/p/w500/star-wars.jpg',
+      backdropUrl: 'https://image.tmdb.org/t/p/w1280/star-wars.jpg',
+      genre: 'Abenteuer · Science-Fiction',
+      score: '8,2',
+      metadataVersion: 3,
+      metadataComplete: true,
+      providerIds: ['disney'],
       airings: [{
         stationId: 'prosieben-de',
         stationName: 'ProSieben',
@@ -30,7 +40,18 @@ describe('Joyn live title catalog', () => {
   it('normalizes future Joyn airings by TMDB title identity', () => {
     const entries = normalizeJoynLiveTitles(raw, { now: Date.parse('2026-09-26T17:00:00.000Z') })
     expect(entries).toHaveLength(1)
-    expect(entries[0]).toMatchObject({ key: 'movie:11', providerIds: ['joyn'] })
+    expect(entries[0]).toMatchObject({
+      key: 'movie:11',
+      title: 'Star Wars',
+      description: 'Vollständige TMDB-Beschreibung.',
+      year: 1977,
+      posterUrl: 'https://image.tmdb.org/t/p/w500/star-wars.jpg',
+      genre: 'Abenteuer · Science-Fiction',
+      score: '8,2',
+      metadataVersion: 3,
+      metadataComplete: true,
+      providerIds: ['disney', 'joyn'],
+    })
   })
 
   it('merges Joyn TV availability into normal catalog titles', () => {
