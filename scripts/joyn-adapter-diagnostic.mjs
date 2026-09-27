@@ -6,6 +6,7 @@ import { localTmdbCandidates } from './waipu-live-catalog.mjs'
 import { JoynTmdbSearchClient, matchJoynProgram } from './joyn-tmdb-matcher.mjs'
 import { normalizeJoynLiveChannelsAndEpg } from '../src/sources/joyn/joynEpgNormalizer.js'
 import { enrichJoynCandidatesWithV2 } from '../src/sources/joyn/joynEpgV2Enrichment.js'
+import { classifyJoynAlgoliaHits } from '../src/sources/joyn/joynAlgoliaClassifier.js'
 import { buildJoynStationMapping } from './joyn-station-mapping.mjs'
 import { mapJoynCandidateToBroadcastEvent, buildJoynSourceEnvelope } from '../src/sources/adapters/joynContractMapper.js'
 import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
@@ -22,6 +23,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const JOYN_BASE = 'https://www.joyn.de'
 const AUTH_URL = 'https://auth.joyn.de/auth/anonymous'
 const GRAPHQL_URL = 'https://api.joyn.de/graphql'
+const ALGOLIA_URL = 'https://ffqrv35svv-dsn.algolia.net/1/indexes/*/queries'
+const ALGOLIA_APP_ID = 'FFQRV35SVV'
+const ALGOLIA_INDEX = 'indexion_prod_vod'
 const OPERATION = 'LiveChannelsAndEPG'
 const SEARCH_OPERATION = 'SearchQ'
 const SEARCH_HASH = 'bb2bab6cbe17321d7eddd5006e7f40765faedd79790b193a59d83f4640694856'
@@ -282,6 +286,62 @@ async function loadJoynEpgV2({
   }
 }
 
+async function loadJoynAlgoliaSearchKey({
+  fetchImpl = fetch,
+  token,
+  apiKey,
+} = {}) {
+  const params = new URLSearchParams()
+  params.set('operationName', 'AlgoliaApiKey')
+  params.set('enable_user_location', 'true')
+  params.set('watch_assistant_variant', 'true')
+  params.set('query', 'query AlgoliaApiKey { searchApiKey }')
+  const response = await fetchImpl(GRAPHQL_URL + '?' + params.toString(), {
+    headers: {
+      ...headers(),
+      authorization: 'Bearer ' + token,
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'joyn-platform': 'web',
+      'joyn-country': 'DE',
+      'joyn-distribution-tenant': 'JOYN',
+      'joyn-client-version': '5.1370.0',
+    },
+  })
+  if (!response.ok) return { key: null, status: 'http_' + response.status }
+  const body = await response.json().catch(() => null)
+  if (!body?.data || body?.errors?.length || !String(body?.data?.searchApiKey || '').trim()) {
+    return { key: null, status: 'graphql_error' }
+  }
+  return { key: String(body.data.searchApiKey).trim(), status: 'ready' }
+}
+
+async function searchJoynAlgoliaTitle(title, {
+  fetchImpl = fetch,
+  searchApiKey,
+} = {}) {
+  const response = await fetchImpl(ALGOLIA_URL, {
+    method: 'POST',
+    headers: {
+      'x-algolia-application-id': ALGOLIA_APP_ID,
+      'x-algolia-api-key': searchApiKey,
+      'content-type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify({
+      requests: [{
+        indexName: ALGOLIA_INDEX,
+        params: 'query=' + encodeURIComponent(title) + '&hitsPerPage=20&page=0',
+      }],
+    }),
+  })
+  if (!response.ok) return { hits: [], status: 'http_' + response.status }
+  const body = await response.json().catch(() => null)
+  const hits = Array.isArray(body?.results?.[0]?.hits) ? body.results[0].hits : []
+  return { hits, status: 'ready' }
+}
+
 async function searchJoynTitle(title, {
   fetchImpl = fetch,
   token,
@@ -356,6 +416,11 @@ export async function runJoynAdapterDiagnostic({
   const generatedAt = new Date(now).toISOString()
   const loaded = await loadJoynEpg(fetchImpl)
   const raw = loaded.data
+  const algoliaKey = await loadJoynAlgoliaSearchKey({
+    fetchImpl,
+    token: loaded.token,
+    apiKey: loaded.apiKey,
+  }).catch(() => ({ key: null, status: 'error' }))
 
   const observer = new SourceSchemaObserver({
     sourceId: 'joyn-epg-upstream',
@@ -420,6 +485,10 @@ export async function runJoynAdapterDiagnostic({
   const programDiagnostics = new Map()
   const rejected = {}
   const joynClassification = { movie: 0, series: 0, unknown: 0 }
+  const algoliaClassification = { movie: 0, series: 0, unknown: 0 }
+  const algoliaCache = new Map()
+  const algoliaRequestBudget = Math.max(0, Number(process.env.JOYN_ALGOLIA_REQUEST_BUDGET || 800))
+  let algoliaRequests = 0
   let joynSearchRequests = 0
   let tmdbBudgetExhausted = false
   for (const [programId, entry] of uniquePrograms) {
@@ -450,8 +519,52 @@ export async function runJoynAdapterDiagnostic({
       joynSearchRequests += 1
       joynClassificationResult = classified
       joynType = classified.type
+
+      let algoliaResult = { type: null, reason: 'not_needed', evidence: [] }
+      if (!joynType && algoliaKey.key) {
+        const cacheKey = normalizeWaipuText(entry.candidate.title)
+        if (algoliaCache.has(cacheKey)) {
+          algoliaResult = algoliaCache.get(cacheKey)
+        } else if (algoliaRequests < algoliaRequestBudget) {
+          const searched = await searchJoynAlgoliaTitle(entry.candidate.title, {
+            fetchImpl,
+            searchApiKey: algoliaKey.key,
+          }).catch(() => ({ hits: [], status: 'error' }))
+          algoliaRequests += 1
+          algoliaResult = searched.status === 'ready'
+            ? classifyJoynAlgoliaHits({
+              title: entry.candidate.title,
+              secondaryTitle: entry.candidate.secondaryTitle,
+            }, searched.hits)
+            : { type: null, reason: 'algolia_' + searched.status, evidence: [] }
+          algoliaCache.set(cacheKey, algoliaResult)
+        } else {
+          algoliaResult = { type: null, reason: 'algolia_budget_exhausted', evidence: [] }
+        }
+      }
+
+      if (!joynType && algoliaResult.type) {
+        joynType = algoliaResult.type
+        joynClassificationResult = {
+          ...classified,
+          type: joynType,
+          reason: algoliaResult.reason,
+          algolia: algoliaResult,
+        }
+      } else if (!joynType) {
+        joynClassificationResult = {
+          ...classified,
+          algolia: algoliaResult,
+        }
+      }
+
       if (joynType) joynClassification[joynType] += 1
       else joynClassification.unknown += 1
+      if (algoliaResult.reason === 'validated_algolia_search' && algoliaResult.type) {
+        algoliaClassification[algoliaResult.type] += 1
+      } else if (!joynType) {
+        algoliaClassification.unknown += 1
+      }
 
       if (tmdbSearch && tmdbBudgetExhausted && decision.status !== 'matched') {
         decision = {
@@ -468,6 +581,10 @@ export async function runJoynAdapterDiagnostic({
               title: entry.candidate.title,
               description: entry.candidate.description,
               type: joynType,
+              productionYear: joynClassificationResult?.algolia?.productionYear ?? null,
+              seasonNumber: joynClassificationResult?.algolia?.seasonNumber ?? null,
+              episodeNumber: joynClassificationResult?.algolia?.episodeNumber ?? null,
+              seriesId: joynClassificationResult?.algolia?.seriesId ?? null,
               broadcastDurationMinutes,
             },
             {
@@ -696,6 +813,7 @@ export async function runJoynAdapterDiagnostic({
       matchedPrograms: [...decisions.values()].filter((d) => d.status === 'matched').length,
       localOnlyMatches: [...decisions.values()].filter((d) => d.status === 'matched' && d.source === 'local').length,
       searchAssistedMatches: [...decisions.values()].filter((d) => d.status === 'matched' && String(d.source || '').includes('local+tmdb-search')).length,
+      yearAssistedMatches: [...decisions.values()].filter((d) => d.status === 'matched' && String(d.source || '').includes('+year')).length,
       descriptionAssistedMatches: [...decisions.values()].filter((d) => d.status === 'matched' && String(d.source || '').includes('+description')).length,
       durationAssistedMatches: [...decisions.values()].filter((d) => d.status === 'matched' && String(d.source || '').includes('+duration')).length,
       tmdbRequests: tmdbSearch?.requestsStarted || 0,
@@ -704,6 +822,13 @@ export async function runJoynAdapterDiagnostic({
       metadataComplete: metadata.metrics.complete,
       joynSearchRequests,
       joynClassification,
+      algolia: {
+        keyStatus: algoliaKey.status,
+        requestBudget: algoliaRequestBudget,
+        requests: algoliaRequests,
+        cachedTitles: algoliaCache.size,
+        classification: algoliaClassification,
+      },
       joynClassificationReasons,
       tmdbBudgetExhausted,
       rejected,
