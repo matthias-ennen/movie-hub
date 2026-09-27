@@ -271,6 +271,23 @@ export class WaipuTmdbSearchClient {
     }))
   }
 
+  async detail(input) {
+    const type = mediaType(input?.type ?? input?.mediaType)
+    const tmdbId = finiteNumber(input?.tmdbId ?? input?.id)
+    if (!type || !Number.isInteger(tmdbId) || tmdbId <= 0) return null
+    const endpoint = type === 'movie' ? `/movie/${tmdbId}` : `/tv/${tmdbId}`
+    const payload = await this.#request(endpoint, { language: this.language })
+    const runtimeMinutes = type === 'movie'
+      ? finiteNumber(payload?.runtime)
+      : finiteNumber(Array.isArray(payload?.episode_run_time) ? payload.episode_run_time[0] : null)
+    return {
+      tmdbId,
+      type,
+      runtimeMinutes,
+      year: yearFromDate(type === 'movie' ? payload?.release_date : payload?.first_air_date),
+    }
+  }
+
   async #request(path, params, attempt = 0) {
     if (this.requestsStarted >= this.maxRequests) {
       const error = new Error(`TMDB request budget exhausted after ${this.requestsStarted} requests.`)
