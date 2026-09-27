@@ -805,6 +805,14 @@ function MovieHub({ user }) {
 
   const tvPresentationTitles = useMemo(() => {
     const byKey = new Map(titles.map((title) => [`${title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'}:${Number(title?.tmdbId) || ''}`, title]))
+    for (const liveEntry of compactTvTitleEntries) {
+      const type = liveEntry?.type === 'series' || liveEntry?.mediaType === 'tv' ? 'series' : 'movie'
+      const tmdbId = Number(liveEntry?.tmdbId)
+      if (!Number.isInteger(tmdbId) || tmdbId <= 0) continue
+      const key = `${type}:${tmdbId}`
+      const current = byKey.get(key)
+      byKey.set(key, current ? mergeEnrichedTitle(current, liveEntry) : liveEntry)
+    }
     for (const hydrated of tvHydratedTitles) {
       const type = hydrated?.type === 'series' || hydrated?.mediaType === 'tv' ? 'series' : 'movie'
       const tmdbId = Number(hydrated?.tmdbId)
@@ -813,8 +821,8 @@ function MovieHub({ user }) {
       const current = byKey.get(key)
       byKey.set(key, current ? mergeEnrichedTitle(current, hydrated) : hydrated)
     }
-    return [...byKey.values()]
-  }, [titles, tvHydratedTitles])
+    return [...byKey.values()].map((item) => resolvePresentationArtwork(item, artworkOptions))
+  }, [artworkOptions, compactTvTitleEntries, titles, tvHydratedTitles])
 
   useEffect(() => {
     if (!Array.isArray(tvSchedule.airings) || !tvSchedule.airings.length) return undefined
