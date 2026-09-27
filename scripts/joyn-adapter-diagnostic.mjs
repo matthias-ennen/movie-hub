@@ -522,7 +522,13 @@ export async function runJoynAdapterDiagnostic({
       joynType = classified.type
 
       let algoliaResult = { type: null, reason: 'not_needed', evidence: [] }
-      if (!joynType && algoliaKey.key) {
+      const needsAlgoliaTitleResolution = Boolean(algoliaKey.key)
+        && (
+          !joynType
+          || joynType === 'movie'
+          || joynType === 'series'
+        )
+      if (needsAlgoliaTitleResolution) {
         const cacheKey = normalizeWaipuText(entry.candidate.title)
         if (algoliaCache.has(cacheKey)) {
           algoliaResult = algoliaCache.get(cacheKey)
@@ -604,6 +610,13 @@ export async function runJoynAdapterDiagnostic({
         joynClassificationResult = {
           ...classified,
           algolia: algoliaEpisodeResult,
+          algoliaBase: algoliaResult.type === joynType ? algoliaResult : null,
+          algoliaEpisode: algoliaEpisodeResult,
+        }
+      } else if (joynType && algoliaResult.type === joynType) {
+        joynClassificationResult = {
+          ...classified,
+          algolia: algoliaResult,
           algoliaBase: algoliaResult,
           algoliaEpisode: algoliaEpisodeResult,
         }
@@ -639,7 +652,9 @@ export async function runJoynAdapterDiagnostic({
               title: entry.candidate.title,
               description: entry.candidate.description,
               type: joynType,
-              productionYear: joynClassificationResult?.algolia?.productionYear ?? null,
+              productionYear: joynClassificationResult?.algoliaBase?.productionYear
+                ?? joynClassificationResult?.algolia?.productionYear
+                ?? null,
               seasonNumber: joynClassificationResult?.algolia?.seasonNumber ?? null,
               episodeNumber: joynClassificationResult?.algolia?.episodeNumber ?? null,
               seriesId: joynClassificationResult?.algolia?.seriesId ?? null,
