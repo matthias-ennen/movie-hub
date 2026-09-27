@@ -120,7 +120,7 @@ function exactTitleCandidates(input, rawCandidates = []) {
 
 function disambiguateByDescription(input, candidates) {
   const inputDescription = String(input?.description || '').trim()
-  if (!inputDescription) return null
+  if (!input?.type || !inputDescription) return null
 
   const exact = exactTitleCandidates(input, candidates)
   if (exact.length < 2 || exact.some((candidate) => !String(candidate?.description || '').trim())) return null
