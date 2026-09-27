@@ -423,6 +423,9 @@ jobs:
             artifacts/source-merge/*.json
             artifacts/joyn-pilot/*.json
             artifacts/joyn-adapter/*.json
+            artifacts/waipu-live/unresolved.json
+            artifacts/waipu-live/detail-status.json
+            public/waipu-live/index.json
           if-no-files-found: ignore
           retention-days: 30
 
