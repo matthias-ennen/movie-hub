@@ -554,6 +554,42 @@ async function main() {
       }
     }))
 
+
+    const epgEntryV2IdentityProbes = await Promise.all([
+      ['genreNames', 'genres { names }'],
+      ['year', 'year'],
+      ['releaseYear', 'releaseYear'],
+      ['originalTitle', 'originalTitle'],
+      ['programType', 'programType'],
+      ['contentType', 'contentType'],
+      ['category', 'category'],
+      ['categories', 'categories'],
+      ['seasonNumber', 'seasonNumber'],
+      ['episodeNumber', 'episodeNumber'],
+      ['episodeTitle', 'episodeTitle'],
+      ['seriesTitle', 'seriesTitle'],
+      ['countries', 'countries'],
+      ['productionCountries', 'productionCountries'],
+      ['shortDescription', 'shortDescription'],
+      ['longDescription', 'longDescription'],
+      ['subtitle', 'subtitle'],
+    ].map(async ([kind, field]) => {
+      const query = `query EpgEntryV2IdentityProbe { epgEventsV2(from: 1790496180, to: 1790499600) { items { program { __typename ... on EpgEntryV2 { ${field} } } } } }`
+      const result = await gql({
+        token,
+        apiKey,
+        operationName: 'EpgEntryV2IdentityProbe',
+        query,
+      })
+      return {
+        kind,
+        ok: result.ok && !result.body?.errors?.length,
+        httpStatus: result.status,
+        errors: result.body?.errors || [],
+        data: result.body?.data || null,
+      }
+    }))
+
     report.targets.push({
       requestedTitle: target,
       epgMatches,
@@ -569,6 +605,7 @@ async function main() {
       epgEventsV2EventFieldProbes,
       epgEntryV2FieldProbes,
       epgEntryV2FragmentFieldProbes,
+      epgEntryV2IdentityProbes,
       richSearch: {
         ok: search.ok && !search.body?.errors?.length,
         httpStatus: search.status,
