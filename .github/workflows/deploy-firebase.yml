@@ -233,6 +233,10 @@ jobs:
           TMDB_LANGUAGE: de-DE
           JOYN_TMDB_REQUEST_BUDGET: '1200'
           JOYN_TMDB_PACE_MS: '200'
+          JOYN_TMDB_METADATA_REQUEST_BUDGET: '4000'
+          JOYN_TMDB_METADATA_CONCURRENCY: '3'
+          JOYN_TMDB_METADATA_MAX_AGE_DAYS: '30'
+          TMDB_COUNTRY: DE
         run: npm run joyn:diagnostic
 
       - name: Build Joyn pilot playback overlay from Waipu events
