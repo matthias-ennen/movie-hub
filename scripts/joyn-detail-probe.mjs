@@ -305,7 +305,7 @@ async function main() {
     hash: ALGOLIA_API_KEY_HASH,
     variables: {},
   })
-  const algoliaApiKey = findAlgoliaKey(algoliaKeyResult.body?.data?.algoliaApiKey)
+  const algoliaApiKey = findAlgoliaKey(algoliaKeyResult.body?.data)
 
   const epg = await gql({ token, apiKey, operationName: 'LiveChannelsAndEPG', query: FULL_EPG_QUERY })
   if (!epg.ok || epg.body?.errors?.length || !epg.body?.data) {
@@ -427,7 +427,7 @@ async function main() {
       keyLookupOk: Boolean(algoliaApiKey),
       keyLookupHttpStatus: algoliaKeyResult.status,
       keyLookupErrors: algoliaKeyResult.body?.errors || [],
-      keyLookupShape: keyShape(algoliaKeyResult.body?.data?.algoliaApiKey || null),
+      keyLookupShape: keyShape(algoliaKeyResult.body?.data || null),
       targets: [],
     },
     targets: [],
