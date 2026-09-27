@@ -98,6 +98,25 @@ async function anonymousToken() {
   return token
 }
 
+
+async function probeResolver({ token, apiKey, name, programId }) {
+  const query = `query ResolverProbe($id: ID!) { ${name}(id: $id) { __typename ... on EpgEntry { id title secondaryTitle startDate endDate } ... on Movie { id title path productionYear } ... on Series { id title } } }`
+  const result = await gql({
+    token,
+    apiKey,
+    operationName: 'ResolverProbe',
+    query,
+    variables: { id: programId },
+  })
+  return {
+    name,
+    ok: result.ok && !result.body?.errors?.length,
+    httpStatus: result.status,
+    errors: result.body?.errors || [],
+    data: result.body?.data || null,
+  }
+}
+
 async function gql({ token, apiKey, operationName, query, variables = null }) {
   const params = new URLSearchParams()
   params.set('operationName', operationName)
@@ -219,9 +238,19 @@ async function main() {
     })
     const searchResults = Array.isArray(search.body?.data?.search?.results) ? search.body.data.search.results : []
 
+    const resolverProbes = epgMatches[0]?.programId
+      ? await Promise.all(['epgEntry', 'epgEvent', 'program', 'asset', 'node'].map((name) => probeResolver({
+        token,
+        apiKey,
+        name,
+        programId: epgMatches[0].programId,
+      })))
+      : []
+
     report.targets.push({
       requestedTitle: target,
       epgMatches,
+      resolverProbes,
       richSearch: {
         ok: search.ok && !search.body?.errors?.length,
         httpStatus: search.status,
