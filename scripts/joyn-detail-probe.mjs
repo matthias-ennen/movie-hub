@@ -249,6 +249,39 @@ function keyShape(value, depth = 0) {
   )
 }
 
+async function tmdbSearchProbe({ title, type, year }) {
+  const token = String(process.env.TMDB_API_READ_TOKEN || '').trim()
+  if (!token) return { ok: false, reason: 'missing_token', results: [] }
+  const endpoint = type === 'movie' ? '/search/movie' : '/search/tv'
+  const url = new URL('https://api.themoviedb.org/3' + endpoint)
+  url.searchParams.set('language', process.env.TMDB_LANGUAGE || 'de-DE')
+  url.searchParams.set('query', title)
+  url.searchParams.set('include_adult', 'false')
+  if (Number.isInteger(Number(year))) {
+    if (type === 'movie') url.searchParams.set('year', String(year))
+    else url.searchParams.set('first_air_date_year', String(year))
+  }
+  const response = await fetch(url, {
+    headers: {
+      accept: 'application/json',
+      authorization: 'Bearer ' + token,
+    },
+  })
+  const body = await response.json().catch(() => null)
+  return {
+    ok: response.ok,
+    httpStatus: response.status,
+    results: (Array.isArray(body?.results) ? body.results : []).slice(0, 10).map((result) => ({
+      id: result.id,
+      title: result.title || result.name || null,
+      originalTitle: result.original_title || result.original_name || null,
+      date: result.release_date || result.first_air_date || null,
+      overview: result.overview || null,
+      originCountry: result.origin_country || null,
+    })),
+  }
+}
+
 function compactProgram(stream, event) {
   const p = event?.program || {}
   return {
@@ -429,7 +462,21 @@ async function main() {
       keyLookupShape: keyShape(algoliaKeyResult.body?.data || null),
       targets: [],
     },
+    tmdbComparison: [],
     targets: [],
+  }
+
+  const tmdbCases = [
+    { title: 'FBI: Special Crime Unit', type: 'series', year: 2018 },
+    { title: 'Charmed', type: 'series', year: 1998 },
+    { title: 'Charmed', type: 'series', year: 2018 },
+    { title: 'Janette Oke: Das Schweigen danach', type: 'movie', year: 2014 },
+  ]
+  for (const testCase of tmdbCases) {
+    report.tmdbComparison.push({
+      ...testCase,
+      ...(await tmdbSearchProbe(testCase)),
+    })
   }
 
   for (const target of TARGETS) {
