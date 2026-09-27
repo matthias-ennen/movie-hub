@@ -322,8 +322,13 @@ async function searchJoynTitle(title, {
     .filter(Boolean)
   const unique = [...new Set(exact)]
   return unique.length === 1
-    ? { type: unique[0], reason: 'exact_joyn_search' }
-    : { type: null, reason: unique.length > 1 ? 'ambiguous_joyn_search' : 'no_joyn_type' }
+    ? { type: unique[0], reason: 'exact_joyn_search', exactTypes: unique, exactCount: exact.length }
+    : {
+      type: null,
+      reason: unique.length > 1 ? 'ambiguous_joyn_search' : 'no_joyn_type',
+      exactTypes: unique,
+      exactCount: exact.length,
+    }
 }
 
 function titleLookup(candidates) {
@@ -412,6 +417,7 @@ export async function runJoynAdapterDiagnostic({
     : null
 
   const decisions = new Map()
+  const programDiagnostics = new Map()
   const rejected = {}
   const joynClassification = { movie: 0, series: 0, unknown: 0 }
   let joynSearchRequests = 0
@@ -434,6 +440,7 @@ export async function runJoynAdapterDiagnostic({
     )
 
     let joynType = null
+    let joynClassificationResult = { type: null, reason: 'not_needed', exactTypes: [], exactCount: 0 }
     if (decision.status !== 'matched') {
       const classified = await searchJoynTitle(entry.candidate.title, {
         fetchImpl,
@@ -441,6 +448,7 @@ export async function runJoynAdapterDiagnostic({
         apiKey: loaded.apiKey,
       })
       joynSearchRequests += 1
+      joynClassificationResult = classified
       joynType = classified.type
       if (joynType) joynClassification[joynType] += 1
       else joynClassification.unknown += 1
@@ -475,6 +483,30 @@ export async function runJoynAdapterDiagnostic({
         }
       }
     }
+
+    programDiagnostics.set(programId, {
+      joynProgramId: programId,
+      title: entry.candidate.title,
+      secondaryTitle: entry.candidate.secondaryTitle || null,
+      channelId: entry.channelId,
+      channelTitle: entry.candidate.channelTitle,
+      startTime: entry.candidate.startTime,
+      endTime: entry.candidate.endTime,
+      broadcastDurationMinutes,
+      epgV2Enriched: Boolean(entry.candidate.epgV2Enriched),
+      hasDescription: Boolean(entry.candidate.description),
+      description: entry.candidate.description || null,
+      joynClassification: joynClassificationResult,
+      localCandidates: localCandidates.slice(0, 20).map((candidate) => ({
+        tmdbId: candidate.tmdbId,
+        type: candidate.type,
+        title: candidate.title,
+        originalTitle: candidate.originalTitle || null,
+        year: candidate.year ?? null,
+        hasDescription: Boolean(candidate.description),
+      })),
+      decision,
+    })
 
     decisions.set(programId, decision)
     if (decision.status !== 'matched') {
@@ -583,6 +615,42 @@ export async function runJoynAdapterDiagnostic({
     other: 0,
   })
 
+  const unresolvedPrograms = [...programDiagnostics.values()]
+    .filter((entry) => entry.decision?.status !== 'matched')
+    .sort((left, right) => (
+      String(left.decision?.reason || '').localeCompare(String(right.decision?.reason || ''))
+      || String(left.title || '').localeCompare(String(right.title || ''), 'de')
+    ))
+
+  const joynClassificationReasons = [...programDiagnostics.values()].reduce((counts, entry) => {
+    const reason = entry.joynClassification?.reason || 'unknown'
+    counts[reason] = Number(counts[reason] || 0) + 1
+    return counts
+  }, {})
+
+  const unresolvedByReason = unresolvedPrograms.reduce((counts, entry) => {
+    const reason = entry.decision?.reason || 'unmatched'
+    counts[reason] = Number(counts[reason] || 0) + 1
+    return counts
+  }, {})
+
+  const unresolvedSignalCoverage = unresolvedPrograms.reduce((counts, entry) => {
+    counts.total += 1
+    if (entry.epgV2Enriched) counts.epgV2Enriched += 1
+    if (entry.hasDescription) counts.withDescription += 1
+    if (entry.secondaryTitle) counts.withSecondaryTitle += 1
+    if (entry.localCandidates.length) counts.withLocalCandidates += 1
+    if (entry.joynClassification?.type) counts.withJoynType += 1
+    return counts
+  }, {
+    total: 0,
+    epgV2Enriched: 0,
+    withDescription: 0,
+    withSecondaryTitle: 0,
+    withLocalCandidates: 0,
+    withJoynType: 0,
+  })
+
   const summary = {
     schemaVersion: 1,
     kind: 'joyn-adapter-diagnostic',
@@ -626,8 +694,11 @@ export async function runJoynAdapterDiagnostic({
       metadataComplete: metadata.metrics.complete,
       joynSearchRequests,
       joynClassification,
+      joynClassificationReasons,
       tmdbBudgetExhausted,
       rejected,
+      unresolvedByReason,
+      unresolvedSignalCoverage,
     },
     playback: playbackCoverage,
     output: {
@@ -642,6 +713,13 @@ export async function runJoynAdapterDiagnostic({
   }
 
   await writeJson(resolve(root, 'artifacts/joyn-adapter/diagnostic.json'), summary)
+  await writeJson(resolve(root, 'artifacts/joyn-adapter/unresolved-programs.json'), {
+    schemaVersion: 1,
+    kind: 'joyn-unresolved-programs',
+    generatedAt,
+    count: unresolvedPrograms.length,
+    entries: unresolvedPrograms,
+  })
   await writeJson(resolve(root, 'artifacts/joyn-adapter/station-mapping.json'), stationMapping)
   await writeJson(resolve(root, 'artifacts/source-adapters/joyn-v1-diagnostic.json'), envelope)
   await writeJoynLivePublication(
