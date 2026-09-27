@@ -32,6 +32,62 @@ describe('Joyn TMDB matching', () => {
     })
   })
 
+  it('uses a clearly matching EPG V2 description to resolve exact-title candidates', async () => {
+    const result = await matchJoynProgram(
+      {
+        title: 'Das singende, klingende Bäumchen',
+        type: 'movie',
+        description: 'Der König hält die schöne Prinzessin vom wahren Leben fern. Ein Prinz will ihr das singende klingende Bäumchen bringen.',
+      },
+      {
+        localCandidates: [],
+        searchTmdb: async () => [
+          {
+            type: 'movie',
+            tmdbId: 14138,
+            title: 'Das singende, klingende Bäumchen',
+            overview: 'Eine hochmütige Prinzessin begegnet einem Zwerg in einem Zaubergarten und muss ihr Herz ändern.',
+          },
+          {
+            type: 'movie',
+            tmdbId: 1067174,
+            title: 'Das singende, klingende Bäumchen',
+            overview: 'Der König hält seine schöne Prinzessin vom wahren Leben fern. Ein junger Prinz möchte ihr das singende klingende Bäumchen bringen.',
+          },
+        ],
+      },
+    )
+
+    expect(result).toMatchObject({
+      status: 'matched',
+      source: 'local+tmdb-search+description',
+      match: {
+        tmdbId: 1067174,
+        type: 'movie',
+        signals: [expect.objectContaining({ kind: 'description' })],
+      },
+    })
+  })
+
+  it('keeps exact-title candidates ambiguous when descriptions are too similar or incomplete', async () => {
+    const result = await matchJoynProgram(
+      {
+        title: 'Same title',
+        type: 'movie',
+        description: 'Eine Familie erlebt ein großes Abenteuer in einer kleinen Stadt.',
+      },
+      {
+        localCandidates: [],
+        searchTmdb: async () => [
+          { type: 'movie', tmdbId: 1, title: 'Same title', overview: 'Eine Familie erlebt ein Abenteuer in einer Stadt.' },
+          { type: 'movie', tmdbId: 2, title: 'Same title', overview: 'Eine Familie erlebt ein großes Abenteuer in einer kleinen Stadt.' },
+        ],
+      },
+    )
+
+    expect(result).toMatchObject({ status: 'unmatched', reason: 'ambiguous_exact_title' })
+  })
+
   it('uses broadcast duration only to eliminate impossible exact-title movie candidates', async () => {
     const result = await matchJoynProgram(
       {
