@@ -1,6 +1,10 @@
 name: Joyn Detail Probe
 
 on:
+  push:
+    paths:
+      - 'scripts/joyn-detail-probe.mjs'
+      - '.github/workflows/joyn-detail-probe.yml'
   workflow_dispatch:
     inputs:
       titles:
