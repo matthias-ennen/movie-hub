@@ -32,7 +32,7 @@ function completeMetadata(value, { allowLegacyContract = false, ...options } = {
   })
 }
 
-function mergeAiringMetadata(entry, metadata) {
+function mergeAiringMetadata(entry, metadata, providerId) {
   const type = entry.type === 'series' ? 'series' : 'movie'
   const { smartFacets: _smartFacets, ...displayMetadata } = metadata
   return {
@@ -44,7 +44,7 @@ function mergeAiringMetadata(entry, metadata) {
     mediaType: type === 'series' ? 'tv' : 'movie',
     providerIds: [...new Set([
       ...(Array.isArray(metadata.providerIds) ? metadata.providerIds : []),
-      'waipu',
+      ...(providerId ? [providerId] : []),
     ])],
     airings: entry.airings,
     nextAiring: entry.nextAiring,
@@ -156,7 +156,8 @@ export class WaipuTmdbMetadataClient {
   }
 }
 
-export async function enrichWaipuTitleMetadata(entries, {
+export async function enrichLiveTitleMetadata(entries, {
+  providerId = null,
   catalogTitles = [],
   cachedTitles = [],
   loadTitleMetadata = null,
@@ -205,7 +206,7 @@ export async function enrichWaipuTitleMetadata(entries, {
     if (!metadata) {
       if (typeof loadTitleMetadata !== 'function') {
         const error = new Error(`Complete TMDB metadata is unavailable for ${key}.`)
-        error.code = 'WAIPU_TITLE_METADATA_MISSING'
+        error.code = 'LIVE_TITLE_METADATA_MISSING'
         throw error
       }
       try {
@@ -218,10 +219,10 @@ export async function enrichWaipuTitleMetadata(entries, {
         metrics.notFoundFallback += 1
       }
     }
-    const result = mergeAiringMetadata(entry, metadata)
+    const result = mergeAiringMetadata(entry, metadata, providerId)
     if (!completeMetadata(result)) {
       const error = new Error(`TMDB metadata is incomplete for ${key}.`)
-      error.code = 'WAIPU_TITLE_METADATA_INCOMPLETE'
+      error.code = 'LIVE_TITLE_METADATA_INCOMPLETE'
       throw error
     }
     metrics.complete += 1
@@ -234,11 +235,21 @@ export async function enrichWaipuTitleMetadata(entries, {
   return { entries: enriched, metrics, generatedAt }
 }
 
-export function requireCompleteWaipuTitleMetadata(entries, { allowLegacyContract = false } = {}) {
+export async function enrichWaipuTitleMetadata(entries, options = {}) {
+  return enrichLiveTitleMetadata(entries, { ...options, providerId: 'waipu' })
+}
+
+export function requireCompleteLiveTitleMetadata(entries, { allowLegacyContract = false } = {}) {
   for (const entry of Array.isArray(entries) ? entries : []) {
     if (!completeMetadata(entry, { allowLegacyContract })) {
-      throw new Error(`Waipu title metadata is incomplete for ${canonicalTitleKey(entry) || 'unknown title'}.`)
+      throw new Error(`Live title metadata is incomplete for ${canonicalTitleKey(entry) || 'unknown title'}.`)
     }
   }
   return true
 }
+
+export function requireCompleteWaipuTitleMetadata(entries, options = {}) {
+  return requireCompleteLiveTitleMetadata(entries, options)
+}
+
+export const LiveTmdbMetadataClient = WaipuTmdbMetadataClient
