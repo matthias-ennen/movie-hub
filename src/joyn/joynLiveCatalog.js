@@ -44,12 +44,24 @@ function normalizeEntry(raw, now) {
     .filter(Boolean)
     .sort((left, right) => left.startTime.localeCompare(right.startTime))
   if (!airings.length) return null
+  const {
+    airings: _rawAirings,
+    nextAiring: _rawNextAiring,
+    airingCount: _rawAiringCount,
+    key: _rawKey,
+    ...metadata
+  } = raw
+  const type = mediaType(raw.type)
   return {
+    ...metadata,
     key,
     tmdbId: Number(raw.tmdbId),
-    type: mediaType(raw.type),
-    mediaType: mediaType(raw.type) === 'series' ? 'tv' : 'movie',
-    providerIds: ['joyn'],
+    type,
+    mediaType: type === 'series' ? 'tv' : 'movie',
+    providerIds: [...new Set([
+      ...(Array.isArray(raw?.providerIds) ? raw.providerIds.map(String) : []),
+      'joyn',
+    ])],
     airings,
     nextAiring: airings[0],
     airingCount: airings.length,
