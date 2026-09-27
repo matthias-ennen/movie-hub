@@ -215,7 +215,7 @@ async function main() {
     token,
     apiKey,
     operationName: 'EpgEventsV2ShapeProbe',
-    query: 'query EpgEventsV2ShapeProbe { epgEventsV2(from: 1790496180, to: 1790499600) { nodes { __typename } edges { __typename } items { __typename } pageInfo { __typename } records { __typename } totalCount } }',
+    query: 'query EpgEventsV2ShapeProbe { epgEventsV2(from: 1790496180, to: 1790499600) { items { __typename } pageInfo { __typename } } }',
   })
 
   const streams = epg.body.data.liveStreams || []
