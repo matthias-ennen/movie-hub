@@ -321,6 +321,7 @@ export async function runJoynAdapterDiagnostic({
       language: process.env.TMDB_LANGUAGE || 'de-DE',
       maxRequests: Number(process.env.JOYN_TMDB_REQUEST_BUDGET || 120),
       paceMs: Number(process.env.JOYN_TMDB_PACE_MS || 200),
+      detailMaxRequests: Number(process.env.JOYN_TMDB_DETAIL_REQUEST_BUDGET || 300),
     })
     : null
 
@@ -331,8 +332,14 @@ export async function runJoynAdapterDiagnostic({
   let tmdbBudgetExhausted = false
   for (const [programId, entry] of uniquePrograms) {
     const localCandidates = candidatesFor(entry.candidate.title)
+    const startMs = Date.parse(entry.candidate.startTime)
+    const endMs = Date.parse(entry.candidate.endTime)
+    const broadcastDurationMinutes = Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs
+      ? (endMs - startMs) / 60_000
+      : null
+
     let decision = await matchJoynProgram(
-      { title: entry.candidate.title },
+      { title: entry.candidate.title, broadcastDurationMinutes },
       { localCandidates, searchTmdb: null },
     )
 
@@ -350,11 +357,14 @@ export async function runJoynAdapterDiagnostic({
 
       try {
         decision = await matchJoynProgram(
-          { title: entry.candidate.title, type: joynType },
+          { title: entry.candidate.title, type: joynType, broadcastDurationMinutes },
           {
             localCandidates,
             searchTmdb: tmdbSearch && !tmdbBudgetExhausted
               ? (input) => tmdbSearch.search(input)
+              : null,
+            loadTmdbDetails: tmdbSearch
+              ? (candidate) => tmdbSearch.detail(candidate)
               : null,
           },
         )
@@ -502,8 +512,10 @@ export async function runJoynAdapterDiagnostic({
       localTmdbCandidates: tmdbCandidates.length,
       matchedPrograms: [...decisions.values()].filter((d) => d.status === 'matched').length,
       localOnlyMatches: [...decisions.values()].filter((d) => d.status === 'matched' && d.source === 'local').length,
-      searchAssistedMatches: [...decisions.values()].filter((d) => d.status === 'matched' && d.source === 'local+tmdb-search').length,
+      searchAssistedMatches: [...decisions.values()].filter((d) => d.status === 'matched' && String(d.source || '').includes('local+tmdb-search')).length,
+      durationAssistedMatches: [...decisions.values()].filter((d) => d.status === 'matched' && String(d.source || '').includes('+duration')).length,
       tmdbRequests: tmdbSearch?.requestsStarted || 0,
+      tmdbDetailRequests: tmdbSearch?.detailRequestsStarted || 0,
       tmdbMetadataRequests: tmdbMetadataClient?.requestsStarted || 0,
       metadataComplete: metadata.metrics.complete,
       joynSearchRequests,
