@@ -5,7 +5,7 @@ import {
 } from './waipu-tmdb-matcher.mjs'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 
-export const JOYN_MATCHER_VERSION = 3
+export const JOYN_MATCHER_VERSION = 4
 
 const JOYN_MOVIE_RUNTIME_OVERRUN_TOLERANCE_MINUTES = 5
 const JOYN_DESCRIPTION_MIN_OVERLAP = 6
@@ -118,6 +118,25 @@ function exactTitleCandidates(input, rawCandidates = []) {
   return [...byKey.values()]
 }
 
+function disambiguateByProductionYear(input, candidates) {
+  const inputYear = finiteNumber(input?.productionYear)
+  if (!input?.type || inputYear === null) return null
+
+  const exact = exactTitleCandidates(input, candidates)
+  if (exact.length < 2) return null
+
+  const exactYear = exact.filter((candidate) => finiteNumber(candidate?.year) === inputYear)
+  if (exactYear.length !== 1) return null
+
+  return {
+    candidate: exactYear[0],
+    productionYear: inputYear,
+    competingYears: exact
+      .filter((candidate) => candidate.tmdbId !== exactYear[0].tmdbId)
+      .map((candidate) => ({ tmdbId: candidate.tmdbId, year: finiteNumber(candidate?.year) })),
+  }
+}
+
 function disambiguateByDescription(input, candidates) {
   const inputDescription = String(input?.description || '').trim()
   if (!input?.type || !inputDescription) return null
@@ -205,6 +224,9 @@ export function joynMatchCacheKey(input) {
     title: normalizeWaipuText(input?.title),
     type: input?.type || null,
     description: normalizeWaipuText(input?.description),
+    productionYear: finiteNumber(input?.productionYear),
+    seasonNumber: finiteNumber(input?.seasonNumber),
+    episodeNumber: finiteNumber(input?.episodeNumber),
     broadcastDurationMinutes: finiteNumber(input?.broadcastDurationMinutes),
   })).digest('hex')
 }
@@ -223,6 +245,24 @@ export async function matchJoynProgram(input, {
     combinedCandidates = [...localCandidates, ...(Array.isArray(remote) ? remote : [])]
     result = chooseJoynTmdbMatch(input, combinedCandidates)
     source = 'local+tmdb-search'
+  }
+
+  let yearResolution = null
+  if (result.status !== 'matched' && result.reason === 'ambiguous_exact_title') {
+    yearResolution = disambiguateByProductionYear(input, combinedCandidates)
+    if (yearResolution) {
+      result = {
+        status: 'matched',
+        reason: null,
+        best: {
+          candidate: yearResolution.candidate,
+          score: 100,
+        },
+        runnerUp: null,
+        margin: 100,
+      }
+      source += '+year'
+    }
   }
 
   let descriptionResolution = null
@@ -262,6 +302,13 @@ export async function matchJoynProgram(input, {
   }
 
   const signals = []
+  if (yearResolution) {
+    signals.push({
+      kind: 'production_year',
+      productionYear: yearResolution.productionYear,
+      competingYears: yearResolution.competingYears,
+    })
+  }
   if (descriptionResolution) {
     signals.push({
       kind: 'description',
@@ -316,7 +363,11 @@ export class JoynTmdbSearchClient {
     const title = String(input?.title || '').trim()
     if (!title) return []
     if (input?.type === 'movie' || input?.type === 'series') {
-      return this.client.search({ type: input.type, title })
+      return this.client.search({
+        type: input.type,
+        title,
+        productionYear: input.type === 'movie' ? input.productionYear : null,
+      })
     }
     const movies = await this.client.search({ type: 'movie', title })
     const series = await this.client.search({ type: 'series', title })
