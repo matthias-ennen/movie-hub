@@ -32,6 +32,79 @@ describe('Joyn TMDB matching', () => {
     })
   })
 
+  it('uses broadcast duration only to eliminate impossible exact-title movie candidates', async () => {
+    const result = await matchJoynProgram(
+      {
+        title: 'Das singende, klingende Bäumchen',
+        type: 'movie',
+        broadcastDurationMinutes: 57,
+      },
+      {
+        localCandidates: [],
+        searchTmdb: async () => [
+          { type: 'movie', tmdbId: 14138, title: 'Das singende, klingende Bäumchen', year: 1957 },
+          { type: 'movie', tmdbId: 1067174, title: 'Das singende, klingende Bäumchen', year: 2016 },
+        ],
+        loadTmdbDetails: async (candidate) => (
+          candidate.tmdbId === 14138
+            ? { runtimeMinutes: 72 }
+            : { runtimeMinutes: 58 }
+        ),
+      },
+    )
+
+    expect(result).toMatchObject({
+      status: 'matched',
+      source: 'local+tmdb-search+duration',
+      match: {
+        tmdbId: 1067174,
+        type: 'movie',
+        signals: [{
+          kind: 'broadcast_duration',
+          slotMinutes: 57,
+          runtimeMinutes: 58,
+          excluded: [{ tmdbId: 14138, runtimeMinutes: 72 }],
+        }],
+      },
+    })
+  })
+
+  it('keeps an exact-title movie ambiguous when multiple runtimes still fit the broadcast slot', async () => {
+    const result = await matchJoynProgram(
+      { title: 'Same title', type: 'movie', broadcastDurationMinutes: 57 },
+      {
+        localCandidates: [],
+        searchTmdb: async () => [
+          { type: 'movie', tmdbId: 1, title: 'Same title' },
+          { type: 'movie', tmdbId: 2, title: 'Same title' },
+        ],
+        loadTmdbDetails: async (candidate) => ({
+          runtimeMinutes: candidate.tmdbId === 1 ? 55 : 60,
+        }),
+      },
+    )
+
+    expect(result).toMatchObject({ status: 'unmatched', reason: 'ambiguous_exact_title' })
+  })
+
+  it('keeps an exact-title movie ambiguous when any competing runtime is unknown', async () => {
+    const result = await matchJoynProgram(
+      { title: 'Same title', type: 'movie', broadcastDurationMinutes: 57 },
+      {
+        localCandidates: [],
+        searchTmdb: async () => [
+          { type: 'movie', tmdbId: 1, title: 'Same title' },
+          { type: 'movie', tmdbId: 2, title: 'Same title' },
+        ],
+        loadTmdbDetails: async (candidate) => (
+          candidate.tmdbId === 1 ? { runtimeMinutes: 58 } : { runtimeMinutes: null }
+        ),
+      },
+    )
+
+    expect(result).toMatchObject({ status: 'unmatched', reason: 'ambiguous_exact_title' })
+  })
+
   it('does not guess when movie and series have the same exact title', () => {
     const result = chooseJoynTmdbMatch({ title: 'Dark' }, [
       { type: 'movie', tmdbId: 1, title: 'Dark' },
