@@ -26,8 +26,8 @@ const FULL_EPG_QUERY = `query LiveChannelsAndEPG {
   }
 }`
 
-const RICH_SEARCH_QUERY = `query JoynDetailProbe($text: String!) {
-  search(text: $text, first: 20, offset: 0) {
+const RICH_SEARCH_QUERY = `query JoynDetailProbe($term: String!) {
+  search(term: $term, first: 20, offset: 0) {
     results {
       __typename
       ... on Movie {
@@ -41,14 +41,6 @@ const RICH_SEARCH_QUERY = `query JoynDetailProbe($text: String!) {
         id title description numberOfSeasons
         genres { name }
         images { type url }
-        ageRating { minAge description ratingSystem }
-      }
-      ... on Episode {
-        id title path number description
-        season { id number }
-        series { id title description genres { name } }
-        images { type url }
-        video { id duration }
         ageRating { minAge description ratingSystem }
       }
     }
@@ -187,7 +179,7 @@ async function main() {
       apiKey,
       operationName: 'JoynDetailProbe',
       query: RICH_SEARCH_QUERY,
-      variables: { text: target },
+      variables: { term: target },
     })
     const searchResults = Array.isArray(search.body?.data?.search?.results) ? search.body.data.search.results : []
 
