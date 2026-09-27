@@ -1,0 +1,36 @@
+name: Joyn Detail Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      titles:
+        description: Joyn EPG titles separated by |
+        required: false
+        default: Das singende, klingende Bäumchen
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Probe Joyn EPG and rich content fields
+        env:
+          JOYN_DETAIL_PROBE_TITLES: ${{ inputs.titles }}
+        run: node scripts/joyn-detail-probe.mjs
+      - name: Upload probe report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: joyn-detail-probe-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/joyn-detail-probe/report.json
+          if-no-files-found: warn
+          retention-days: 30
