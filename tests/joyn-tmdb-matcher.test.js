@@ -32,6 +32,35 @@ describe('Joyn TMDB matching', () => {
     })
   })
 
+  it('uses exact production year before softer ambiguity signals', async () => {
+    const result = await matchJoynProgram(
+      {
+        title: 'Same title',
+        type: 'movie',
+        productionYear: 2016,
+      },
+      {
+        localCandidates: [],
+        searchTmdb: async () => [
+          { type: 'movie', tmdbId: 1, title: 'Same title', year: 1957 },
+          { type: 'movie', tmdbId: 2, title: 'Same title', year: 2016 },
+        ],
+      },
+    )
+
+    expect(result).toMatchObject({
+      status: 'matched',
+      source: 'local+tmdb-search+year',
+      match: {
+        tmdbId: 2,
+        signals: [expect.objectContaining({
+          kind: 'production_year',
+          productionYear: 2016,
+        })],
+      },
+    })
+  })
+
   it('uses a clearly matching EPG V2 description to resolve exact-title candidates', async () => {
     const result = await matchJoynProgram(
       {
