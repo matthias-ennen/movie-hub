@@ -404,13 +404,20 @@ export class JoynTmdbSearchClient {
     const title = String(input?.title || '').trim()
     if (!title) return []
     if (input?.type === 'movie' || input?.type === 'series') {
+      const hasYear = finiteNumber(input.productionYear) !== null
       const results = await this.client.search({
         type: input.type,
         title,
         productionYear: input.productionYear,
-        firstAirDateYear: input.type === 'series' && finiteNumber(input.productionYear) !== null,
+        firstAirDateYear: input.type === 'series' && hasYear,
       })
-      return withVerifiedJoynSearchAlias(input, results)
+      if (results.length > 0 || !hasYear) return withVerifiedJoynSearchAlias(input, results)
+
+      const fallback = await this.client.search({
+        type: input.type,
+        title,
+      })
+      return fallback
     }
     const movies = await this.client.search({ type: 'movie', title })
     const series = await this.client.search({ type: 'series', title })
