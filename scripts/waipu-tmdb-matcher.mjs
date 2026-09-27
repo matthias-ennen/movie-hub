@@ -264,6 +264,11 @@ export class WaipuTmdbSearchClient {
     if (input.type === 'movie' && Number.isInteger(Number(input.productionYear))) {
       params.year = String(input.productionYear)
     }
+    if (input.type === 'series'
+        && input.firstAirDateYear === true
+        && Number.isInteger(Number(input.productionYear))) {
+      params.first_air_date_year = String(input.productionYear)
+    }
     const payload = await this.#request(endpoint, params)
     return (Array.isArray(payload?.results) ? payload.results : []).map((result) => ({
       ...result,
