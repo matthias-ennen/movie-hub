@@ -416,6 +416,30 @@ async function main() {
       }
     }))
 
+    const epgEventsV2ConnectionProbes = await Promise.all([
+      ['unknown', 'query EpgEventsV2ConnectionUnknown { epgEventsV2(from: 1790496180, to: 1790499600) { totallyUnknownField } }'],
+      ['nodes', 'query EpgEventsV2ConnectionNodes { epgEventsV2(from: 1790496180, to: 1790499600) { nodes { __typename } } }'],
+      ['edges', 'query EpgEventsV2ConnectionEdges { epgEventsV2(from: 1790496180, to: 1790499600) { edges { __typename } } }'],
+      ['items', 'query EpgEventsV2ConnectionItems { epgEventsV2(from: 1790496180, to: 1790499600) { items { __typename } } }'],
+      ['events', 'query EpgEventsV2ConnectionEvents { epgEventsV2(from: 1790496180, to: 1790499600) { events { __typename } } }'],
+      ['totalCount', 'query EpgEventsV2ConnectionCount { epgEventsV2(from: 1790496180, to: 1790499600) { totalCount } }'],
+      ['pageInfo', 'query EpgEventsV2ConnectionPage { epgEventsV2(from: 1790496180, to: 1790499600) { pageInfo { __typename } } }'],
+    ].map(async ([kind, query]) => {
+      const result = await gql({
+        token,
+        apiKey,
+        operationName: 'EpgEventsV2ConnectionProbe',
+        query,
+      })
+      return {
+        kind,
+        ok: result.ok && !result.body?.errors?.length,
+        httpStatus: result.status,
+        errors: result.body?.errors || [],
+        data: result.body?.data || null,
+      }
+    }))
+
     report.targets.push({
       requestedTitle: target,
       epgMatches,
@@ -427,6 +451,7 @@ async function main() {
         data: epgEventsV2ShapeProbe.body?.data || null,
       },
       epgEventsV2ArgumentProbes,
+      epgEventsV2ConnectionProbes,
       richSearch: {
         ok: search.ok && !search.body?.errors?.length,
         httpStatus: search.status,
