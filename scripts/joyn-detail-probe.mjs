@@ -590,6 +590,32 @@ async function main() {
       }
     }))
 
+
+    const epgEntryV2GenreLanguageProbes = await Promise.all([
+      ['typename', 'genres { names { __typename } }'],
+      ['de', 'genres { names { de } }'],
+      ['en', 'genres { names { en } }'],
+      ['value', 'genres { names { value } }'],
+      ['default', 'genres { names { default } }'],
+      ['german', 'genres { names { german } }'],
+      ['unknown', 'genres { names { totallyUnknownField } }'],
+    ].map(async ([kind, field]) => {
+      const query = `query EpgEntryV2GenreLanguageProbe { epgEventsV2(from: 1790496180, to: 1790499600) { items { program { __typename ... on EpgEntryV2 { ${field} } } } } }`
+      const result = await gql({
+        token,
+        apiKey,
+        operationName: 'EpgEntryV2GenreLanguageProbe',
+        query,
+      })
+      return {
+        kind,
+        ok: result.ok && !result.body?.errors?.length,
+        httpStatus: result.status,
+        errors: result.body?.errors || [],
+        data: result.body?.data || null,
+      }
+    }))
+
     report.targets.push({
       requestedTitle: target,
       epgMatches,
@@ -606,6 +632,7 @@ async function main() {
       epgEntryV2FieldProbes,
       epgEntryV2FragmentFieldProbes,
       epgEntryV2IdentityProbes,
+      epgEntryV2GenreLanguageProbes,
       richSearch: {
         ok: search.ok && !search.body?.errors?.length,
         httpStatus: search.status,
