@@ -440,6 +440,42 @@ async function main() {
       }
     }))
 
+
+    const epgEventsV2EventFieldProbes = await Promise.all([
+      ['id', 'items { id }'],
+      ['title', 'items { title }'],
+      ['secondaryTitle', 'items { secondaryTitle }'],
+      ['startDate', 'items { startDate }'],
+      ['endDate', 'items { endDate }'],
+      ['description', 'items { description }'],
+      ['productionYear', 'items { productionYear }'],
+      ['genres', 'items { genres { name } }'],
+      ['livestream', 'items { livestream { id gracenoteId brand { id title } } }'],
+      ['asset', 'items { asset { __typename } }'],
+      ['program', 'items { program { __typename } }'],
+      ['content', 'items { content { __typename } }'],
+      ['movie', 'items { movie { __typename } }'],
+      ['series', 'items { series { __typename } }'],
+      ['episode', 'items { episode { __typename } }'],
+      ['images', 'items { images { id type url } }'],
+      ['unknown', 'items { totallyUnknownField }'],
+    ].map(async ([kind, selection]) => {
+      const query = `query EpgEventsV2EventFieldProbe { epgEventsV2(from: 1790496180, to: 1790499600) { ${selection} } }`
+      const result = await gql({
+        token,
+        apiKey,
+        operationName: 'EpgEventsV2EventFieldProbe',
+        query,
+      })
+      return {
+        kind,
+        ok: result.ok && !result.body?.errors?.length,
+        httpStatus: result.status,
+        errors: result.body?.errors || [],
+        data: result.body?.data || null,
+      }
+    }))
+
     report.targets.push({
       requestedTitle: target,
       epgMatches,
@@ -452,6 +488,7 @@ async function main() {
       },
       epgEventsV2ArgumentProbes,
       epgEventsV2ConnectionProbes,
+      epgEventsV2EventFieldProbes,
       richSearch: {
         ok: search.ok && !search.body?.errors?.length,
         httpStatus: search.status,
