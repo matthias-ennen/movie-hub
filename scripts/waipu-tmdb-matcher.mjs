@@ -3,7 +3,9 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 
-export const WAIPU_MATCHER_VERSION = 1
+export const WAIPU_MATCHER_VERSION = 2
+export const WAIPU_MATCH_CACHE_KEY_VERSION = 1
+const WAIPU_POSITIVE_CACHE_COMPATIBLE_VERSIONS = new Set([1, 2])
 export const WAIPU_MATCH_THRESHOLDS = Object.freeze({ movie: 80, series: 75, minimumMargin: 12 })
 export const WAIPU_NEGATIVE_MATCH_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1_000
 
@@ -157,7 +159,7 @@ export function chooseWaipuTmdbMatch(input, candidates, thresholds = WAIPU_MATCH
 
 export function matchCacheKey(input) {
   const payload = JSON.stringify({
-    version: WAIPU_MATCHER_VERSION,
+    version: WAIPU_MATCH_CACHE_KEY_VERSION,
     type: input?.type || null,
     aliases: aliases(input).sort(),
     year: finiteNumber(input?.productionYear),
@@ -176,7 +178,8 @@ export async function matchWaipuProgram(input, {
 } = {}) {
   const key = matchCacheKey(input)
   const cached = decisions?.get?.(key)
-  if (cached?.matcherVersion === WAIPU_MATCHER_VERSION && cached?.status === 'matched') {
+  if (cached?.status === 'matched'
+      && WAIPU_POSITIVE_CACHE_COMPATIBLE_VERSIONS.has(Number(cached?.matcherVersion))) {
     return { ...cached, cache: 'hit' }
   }
   const cachedAt = Date.parse(cached?.checkedAt)
@@ -270,7 +273,16 @@ export class WaipuTmdbSearchClient {
       params.first_air_date_year = String(input.productionYear)
     }
     const payload = await this.#request(endpoint, params)
-    return (Array.isArray(payload?.results) ? payload.results : []).map((result) => ({
+    let results = Array.isArray(payload?.results) ? payload.results : []
+    if (input.type === 'movie'
+        && Number.isInteger(Number(input.productionYear))
+        && results.length === 0) {
+      const fallbackParams = { ...params }
+      delete fallbackParams.year
+      const fallbackPayload = await this.#request(endpoint, fallbackParams)
+      results = Array.isArray(fallbackPayload?.results) ? fallbackPayload.results : []
+    }
+    return results.map((result) => ({
       ...result,
       type: input.type,
       source: 'tmdb-search',
