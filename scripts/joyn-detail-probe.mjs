@@ -232,6 +232,13 @@ async function main() {
     query: 'query EpgProgramV2FieldProbe { epgEventsV2(from: 1790496180, to: 1790499600) { items { livestream { id title brandId brandCode brand { id title } } program { id title secondaryTitle description productionYear duration genres ageRating images type contentType movieId seriesId episodeId path startDate endDate } } } }',
   })
 
+  const epgProgramV2CandidateProbe = await gql({
+    token,
+    apiKey,
+    operationName: 'EpgProgramV2CandidateProbe',
+    query: 'query EpgProgramV2CandidateProbe { epgEventsV2(from: 1790496180, to: 1790499600) { items { program { metadata content event details asset name headline subtitle label year releaseYear productionDate programId contentId externalId gracenoteId tmsId image imageUrl poster season episode categories classification flags schedule timeslot } } } }',
+  })
+
   const streams = epg.body.data.liveStreams || []
   const report = {
     schemaVersion: 1,
@@ -267,6 +274,12 @@ async function main() {
         httpStatus: epgProgramV2FieldProbe.status,
         errors: epgProgramV2FieldProbe.body?.errors || [],
         data: epgProgramV2FieldProbe.body?.data || null,
+      },
+      epgProgramV2CandidateProbe: {
+        ok: epgProgramV2CandidateProbe.ok && !epgProgramV2CandidateProbe.body?.errors?.length,
+        httpStatus: epgProgramV2CandidateProbe.status,
+        errors: epgProgramV2CandidateProbe.body?.errors || [],
+        data: epgProgramV2CandidateProbe.body?.data || null,
       },
     },
     targets: [],
