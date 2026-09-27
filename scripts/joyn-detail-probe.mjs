@@ -396,6 +396,25 @@ async function main() {
       operationName: 'EpgEventsV2ShapeProbe',
       query: 'query EpgEventsV2ShapeProbe { epgEventsV2 { __typename } }',
     })
+    const epgEventsV2ArgumentProbes = await Promise.all([
+      ['number', 'query EpgEventsV2NumberProbe { epgEventsV2(from: 1790496180, to: 1790499600) { __typename } }'],
+      ['string', 'query EpgEventsV2StringProbe { epgEventsV2(from: "1790496180", to: "1790499600") { __typename } }'],
+      ['object', 'query EpgEventsV2ObjectProbe { epgEventsV2(from: {}, to: {}) { __typename } }'],
+    ].map(async ([kind, query]) => {
+      const result = await gql({
+        token,
+        apiKey,
+        operationName: 'EpgEventsV2ArgumentProbe',
+        query,
+      })
+      return {
+        kind,
+        ok: result.ok && !result.body?.errors?.length,
+        httpStatus: result.status,
+        errors: result.body?.errors || [],
+        data: result.body?.data || null,
+      }
+    }))
 
     report.targets.push({
       requestedTitle: target,
@@ -407,6 +426,7 @@ async function main() {
         errors: epgEventsV2ShapeProbe.body?.errors || [],
         data: epgEventsV2ShapeProbe.body?.data || null,
       },
+      epgEventsV2ArgumentProbes,
       richSearch: {
         ok: search.ok && !search.body?.errors?.length,
         httpStatus: search.status,
