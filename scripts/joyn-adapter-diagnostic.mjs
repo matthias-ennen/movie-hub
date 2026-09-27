@@ -5,6 +5,7 @@ import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 import { localTmdbCandidates } from './waipu-live-catalog.mjs'
 import { JoynTmdbSearchClient, matchJoynProgram } from './joyn-tmdb-matcher.mjs'
 import { normalizeJoynLiveChannelsAndEpg } from '../src/sources/joyn/joynEpgNormalizer.js'
+import { enrichJoynCandidatesWithV2 } from '../src/sources/joyn/joynEpgV2Enrichment.js'
 import { buildJoynStationMapping } from './joyn-station-mapping.mjs'
 import { mapJoynCandidateToBroadcastEvent, buildJoynSourceEnvelope } from '../src/sources/adapters/joynContractMapper.js'
 import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
@@ -71,6 +72,26 @@ const FULL_EPG_QUERY = `query LiveChannelsAndEPG {
     }
   }
 }`
+const JOYN_EPG_V2_CHUNK_MINUTES = 360
+const EPG_V2_QUERY = (from, to) => `query EpgEventsV2Enrichment {
+  epgEventsV2(from: ${from}, to: ${to}) {
+    items {
+      livestream { id }
+      program {
+        __typename
+        ... on EpgEntryV2 {
+          id
+          title
+          secondaryTitle
+          description
+          images { id type url }
+          ageRating { minAge description ratingSystem }
+        }
+      }
+    }
+  }
+}`
+
 const OBSERVED_PUBLIC_WEBCLIENT_KEY = '4f0fd9f18abbe3cf0e87fdb556bc39c8'
 
 const GRAPHQL_KEY_PATTERNS = [
@@ -207,6 +228,60 @@ async function loadJoynEpg(fetchImpl = fetch, {
   throw lastError || new Error('Joyn GraphQL failed after retries.')
 }
 
+async function loadJoynEpgV2({
+  fetchImpl = fetch,
+  token,
+  apiKey,
+  fromMs,
+  toMs,
+} = {}) {
+  if (!token || !apiKey || !Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs <= fromMs) {
+    return { data: { epgEventsV2: { items: [] } }, requests: 0, status: 'not_requested' }
+  }
+
+  const items = []
+  const chunkMs = JOYN_EPG_V2_CHUNK_MINUTES * 60_000
+  let requests = 0
+  for (let start = fromMs; start < toMs; start += chunkMs) {
+    const end = Math.min(toMs, start + chunkMs)
+    const from = Math.floor(start / 1000)
+    const to = Math.ceil(end / 1000)
+    const params = new URLSearchParams()
+    params.set('operationName', 'EpgEventsV2Enrichment')
+    params.set('enable_user_location', 'true')
+    params.set('watch_assistant_variant', 'true')
+    params.set('query', EPG_V2_QUERY(from, to))
+    requests += 1
+    const response = await fetchImpl(GRAPHQL_URL + '?' + params.toString(), {
+      headers: {
+        ...headers(),
+        authorization: 'Bearer ' + token,
+        accept: 'application/json',
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'joyn-platform': 'web',
+        'joyn-country': 'DE',
+        'joyn-distribution-tenant': 'JOYN',
+        'joyn-client-version': '5.1370.0',
+      },
+    })
+    if (!response.ok) {
+      return { data: { epgEventsV2: { items: [] } }, requests, status: `http_${response.status}` }
+    }
+    const body = await response.json().catch(() => null)
+    if (!body?.data || body?.errors?.length) {
+      return { data: { epgEventsV2: { items: [] } }, requests, status: 'graphql_error' }
+    }
+    items.push(...(Array.isArray(body?.data?.epgEventsV2?.items) ? body.data.epgEventsV2.items : []))
+  }
+
+  return {
+    data: { epgEventsV2: { items } },
+    requests,
+    status: 'ready',
+  }
+}
+
 async function searchJoynTitle(title, {
   fetchImpl = fetch,
   token,
@@ -284,7 +359,18 @@ export async function runJoynAdapterDiagnostic({
   observer.observe(raw, { operation: OPERATION })
   const schemaReport = observer.report({ phase: 'diagnostic-complete' })
 
-  const allCandidates = normalizeJoynLiveChannelsAndEpg(raw)
+  const baseCandidates = normalizeJoynLiveChannelsAndEpg(raw)
+  const candidateStarts = baseCandidates.map((candidate) => Date.parse(candidate.startTime)).filter(Number.isFinite)
+  const candidateEnds = baseCandidates.map((candidate) => Date.parse(candidate.endTime)).filter(Number.isFinite)
+  const v2Loaded = await loadJoynEpgV2({
+    fetchImpl,
+    token: loaded.token,
+    apiKey: loaded.apiKey,
+    fromMs: candidateStarts.length ? Math.min(...candidateStarts) : NaN,
+    toMs: candidateEnds.length ? Math.max(...candidateEnds) : NaN,
+  })
+  const v2Enrichment = enrichJoynCandidatesWithV2(baseCandidates, v2Loaded.data)
+  const allCandidates = v2Enrichment.entries
   const stationMapping = buildJoynStationMapping(raw?.liveStreams)
   const stationByJoynId = new Map(
     stationMapping.entries.map((entry) => [entry.joynId, entry]),
@@ -339,7 +425,11 @@ export async function runJoynAdapterDiagnostic({
       : null
 
     let decision = await matchJoynProgram(
-      { title: entry.candidate.title, broadcastDurationMinutes },
+      {
+        title: entry.candidate.title,
+        description: entry.candidate.description,
+        broadcastDurationMinutes,
+      },
       { localCandidates, searchTmdb: null },
     )
 
@@ -357,7 +447,12 @@ export async function runJoynAdapterDiagnostic({
 
       try {
         decision = await matchJoynProgram(
-          { title: entry.candidate.title, type: joynType, broadcastDurationMinutes },
+          {
+            title: entry.candidate.title,
+            description: entry.candidate.description,
+            type: joynType,
+            broadcastDurationMinutes,
+          },
           {
             localCandidates,
             searchTmdb: tmdbSearch && !tmdbBudgetExhausted
@@ -408,6 +503,10 @@ export async function runJoynAdapterDiagnostic({
       mode: 'all-joyn-stations',
       upstreamStreams: Array.isArray(raw?.liveStreams) ? raw.liveStreams.length : 0,
       upstreamPrograms: allCandidates.length,
+      epgV2Status: v2Loaded.status,
+      epgV2Requests: v2Loaded.requests,
+      epgV2EnrichedPrograms: v2Enrichment.metrics.enriched,
+      epgV2Descriptions: v2Enrichment.metrics.descriptions,
       canonicalMappedStreams: stationMapping.counts.matched,
       joynOnlyStreams: stationMapping.counts.unmatched + stationMapping.counts.ambiguous,
       candidatePrograms: mapped.length,
@@ -492,6 +591,12 @@ export async function runJoynAdapterDiagnostic({
       streams: Array.isArray(raw?.liveStreams) ? raw.liveStreams.length : 0,
       programs: allCandidates.length,
       graphqlApiKeySource: loaded.apiKeySource || 'unknown',
+      epgV2Status: v2Loaded.status,
+      epgV2Requests: v2Loaded.requests,
+      epgV2Programs: v2Enrichment.metrics.v2Programs,
+      epgV2Enriched: v2Enrichment.metrics.enriched,
+      epgV2Descriptions: v2Enrichment.metrics.descriptions,
+      epgV2Images: v2Enrichment.metrics.images,
     },
     stationMapping: {
       ...stationMapping.counts,
@@ -513,6 +618,7 @@ export async function runJoynAdapterDiagnostic({
       matchedPrograms: [...decisions.values()].filter((d) => d.status === 'matched').length,
       localOnlyMatches: [...decisions.values()].filter((d) => d.status === 'matched' && d.source === 'local').length,
       searchAssistedMatches: [...decisions.values()].filter((d) => d.status === 'matched' && String(d.source || '').includes('local+tmdb-search')).length,
+      descriptionAssistedMatches: [...decisions.values()].filter((d) => d.status === 'matched' && String(d.source || '').includes('+description')).length,
       durationAssistedMatches: [...decisions.values()].filter((d) => d.status === 'matched' && String(d.source || '').includes('+duration')).length,
       tmdbRequests: tmdbSearch?.requestsStarted || 0,
       tmdbDetailRequests: tmdbSearch?.detailRequestsStarted || 0,
