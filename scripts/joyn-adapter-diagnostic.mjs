@@ -11,6 +11,11 @@ import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
 import { JOYN_EPG_UPSTREAM_FIELD_POLICY } from '../src/sources/policies/joynUpstreamFieldPolicy.js'
 import { writeFieldDiscoveryReport } from '../src/sources/fieldDiscoveryReport.js'
 import { buildJoynLivePublication, writeJoynLivePublication } from './joyn-live-publication.mjs'
+import {
+  LiveTmdbMetadataClient,
+  enrichLiveTitleMetadata,
+  requireCompleteLiveTitleMetadata,
+} from './waipu-title-metadata.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const JOYN_BASE = 'https://www.joyn.de'
@@ -297,9 +302,10 @@ export async function runJoynAdapterDiagnostic({
     })
     .filter((entry) => entry.station)
 
-  const [catalog, searchIndex] = await Promise.all([
+  const [catalog, searchIndex, previousJoynTitles] = await Promise.all([
     readJson(resolve(root, 'public/catalog.json'), { titles: [] }),
     readJson(resolve(root, 'public/search-index.json'), { entries: [] }),
+    readJson(resolve(root, 'public/joyn-live/titles.json'), { entries: [] }),
   ])
   const tmdbCandidates = localTmdbCandidates({ catalog, searchIndex })
   const candidatesFor = titleLookup(tmdbCandidates)
@@ -406,6 +412,45 @@ export async function runJoynAdapterDiagnostic({
     generatedAt,
   })
 
+  const tmdbMetadataClient = process.env.TMDB_API_READ_TOKEN
+    ? new LiveTmdbMetadataClient({
+      token: process.env.TMDB_API_READ_TOKEN,
+      language: process.env.TMDB_LANGUAGE || 'de-DE',
+      country: process.env.TMDB_COUNTRY || 'DE',
+      maxRequests: Number(process.env.JOYN_TMDB_METADATA_REQUEST_BUDGET || 4000),
+    })
+    : null
+
+  const metadata = await enrichLiveTitleMetadata(publication.titles.entries, {
+    providerId: 'joyn',
+    catalogTitles: catalog.titles,
+    cachedTitles: previousJoynTitles.entries,
+    loadTitleMetadata: tmdbMetadataClient
+      ? (entry, updatedAt) => tmdbMetadataClient.loadTitle(entry, updatedAt)
+      : null,
+    concurrency: Number(process.env.JOYN_TMDB_METADATA_CONCURRENCY || 3),
+    cacheMaxAgeDays: Number(process.env.JOYN_TMDB_METADATA_MAX_AGE_DAYS || 30),
+    onProgress: ({ processed, total, fromCatalog, fromCache, fetched }) => {
+      process.stdout.write(
+        `Joyn-TMDB-Metadaten: ${processed}/${total} vollständig`
+        + ` · ${fromCatalog} aus Katalog · ${fromCache} aus Cache · ${fetched} neu geladen\n`,
+      )
+    },
+  })
+  publication.titles.entries = metadata.entries
+  publication.titles.count = metadata.entries.length
+  publication.index.metadata = {
+    required: true,
+    generatedAt: metadata.generatedAt,
+    ...metadata.metrics,
+  }
+  publication.index.runtime = {
+    ...(publication.index.runtime || {}),
+    tmdbSearchRequests: tmdbSearch?.requestsStarted || 0,
+    tmdbMetadataRequests: tmdbMetadataClient?.requestsStarted || 0,
+  }
+  requireCompleteLiveTitleMetadata(publication.titles.entries)
+
   const playbackCoverage = envelope.records.reduce((counts, event) => {
     const joynRoutes = (Array.isArray(event?.playbackRoutes) ? event.playbackRoutes : [])
       .filter((route) => route?.providerId === 'joyn')
@@ -459,6 +504,8 @@ export async function runJoynAdapterDiagnostic({
       localOnlyMatches: [...decisions.values()].filter((d) => d.status === 'matched' && d.source === 'local').length,
       searchAssistedMatches: [...decisions.values()].filter((d) => d.status === 'matched' && d.source === 'local+tmdb-search').length,
       tmdbRequests: tmdbSearch?.requestsStarted || 0,
+      tmdbMetadataRequests: tmdbMetadataClient?.requestsStarted || 0,
+      metadataComplete: metadata.metrics.complete,
       joynSearchRequests,
       joynClassification,
       tmdbBudgetExhausted,
