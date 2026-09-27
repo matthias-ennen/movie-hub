@@ -102,6 +102,49 @@ describe('Joyn TMDB matching', () => {
     })
   })
 
+  it('retries a typed TMDB search without year only when the strict year-filtered search is empty', async () => {
+    const requested = []
+    const fetchImpl = async (url) => {
+      const parsed = new URL(String(url))
+      requested.push(parsed)
+      const strict = parsed.searchParams.has('year') || parsed.searchParams.has('first_air_date_year')
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({
+          results: strict
+            ? []
+            : [{ id: 10495, title: 'Pappa ante Portas', release_date: '1991-02-21' }],
+        }),
+        text: async () => '',
+      }
+    }
+
+    const client = new JoynTmdbSearchClient({
+      token: 'test-token',
+      fetchImpl,
+      paceMs: 0,
+      maxRequests: 10,
+    })
+    const candidates = await client.search({
+      title: 'Pappa ante Portas',
+      type: 'movie',
+      productionYear: 1990,
+    })
+
+    expect(requested).toHaveLength(2)
+    expect(requested[0].searchParams.get('year')).toBe('1990')
+    expect(requested[1].searchParams.get('year')).toBeNull()
+    expect(candidates).toEqual([
+      expect.objectContaining({
+        id: 10495,
+        title: 'Pappa ante Portas',
+      }),
+    ])
+    expect(candidates[0].joynSearchAliasYearVerified).not.toBe(true)
+  })
+
   it('does not verify a Joyn search alias when TMDB returns multiple year-matched results', async () => {
     const client = new JoynTmdbSearchClient({
       token: 'test-token',
