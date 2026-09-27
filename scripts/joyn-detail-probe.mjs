@@ -208,7 +208,7 @@ async function main() {
     token,
     apiKey,
     operationName: 'EpgEventsV2Probe',
-    query: 'query EpgEventsV2Probe { epgEventsV2 { __typename } }',
+    query: 'query EpgEventsV2Probe { epgEventsV2(from: 1790496180, to: 1790499600) { __typename } }',
   })
 
   const streams = epg.body.data.liveStreams || []
