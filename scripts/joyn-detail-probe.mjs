@@ -476,6 +476,45 @@ async function main() {
       }
     }))
 
+
+    const epgEntryV2FieldProbes = await Promise.all([
+      ['id', 'program { id }'],
+      ['title', 'program { title }'],
+      ['secondaryTitle', 'program { secondaryTitle }'],
+      ['startDate', 'program { startDate }'],
+      ['endDate', 'program { endDate }'],
+      ['description', 'program { description }'],
+      ['productionYear', 'program { productionYear }'],
+      ['genres', 'program { genres { name } }'],
+      ['images', 'program { images { id type url } }'],
+      ['ageRating', 'program { ageRating { minAge description ratingSystem } }'],
+      ['duration', 'program { duration }'],
+      ['asset', 'program { asset { __typename } }'],
+      ['content', 'program { content { __typename } }'],
+      ['movie', 'program { movie { __typename } }'],
+      ['series', 'program { series { __typename } }'],
+      ['episode', 'program { episode { __typename } }'],
+      ['externalId', 'program { externalId }'],
+      ['gracenoteId', 'program { gracenoteId }'],
+      ['type', 'program { type }'],
+      ['unknown', 'program { totallyUnknownField }'],
+    ].map(async ([kind, selection]) => {
+      const query = `query EpgEntryV2FieldProbe { epgEventsV2(from: 1790496180, to: 1790499600) { items { ${selection} } } }`
+      const result = await gql({
+        token,
+        apiKey,
+        operationName: 'EpgEntryV2FieldProbe',
+        query,
+      })
+      return {
+        kind,
+        ok: result.ok && !result.body?.errors?.length,
+        httpStatus: result.status,
+        errors: result.body?.errors || [],
+        data: result.body?.data || null,
+      }
+    }))
+
     report.targets.push({
       requestedTitle: target,
       epgMatches,
@@ -489,6 +528,7 @@ async function main() {
       epgEventsV2ArgumentProbes,
       epgEventsV2ConnectionProbes,
       epgEventsV2EventFieldProbes,
+      epgEntryV2FieldProbes,
       richSearch: {
         ok: search.ok && !search.body?.errors?.length,
         httpStatus: search.status,
