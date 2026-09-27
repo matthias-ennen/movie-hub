@@ -6,8 +6,11 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const JOYN_BASE = 'https://www.joyn.de'
 const AUTH_URL = 'https://auth.joyn.de/auth/anonymous'
 const GRAPHQL_URL = 'https://api.joyn.de/graphql'
+const ALGOLIA_URL = 'https://ffqrv35svv-dsn.algolia.net/1/indexes/*/queries'
+const ALGOLIA_APP_ID = 'FFQRV35SVV'
+const ALGOLIA_API_KEY_HASH = '21a962eb1b3f05c32b85cf8d015f1814563af3d4aede35d6e2f211838fdcfb61'
 const OBSERVED_PUBLIC_WEBCLIENT_KEY = '4f0fd9f18abbe3cf0e87fdb556bc39c8'
-const TARGETS = (process.env.JOYN_DETAIL_PROBE_TITLES || 'Das singende, klingende Bäumchen')
+const TARGETS = (process.env.JOYN_DETAIL_PROBE_TITLES || 'Adaptation|Black Dynamite|Doctor Who|Charmed|BBC News|Quarks')
   .split('|').map((value) => value.trim()).filter(Boolean)
 
 const FULL_EPG_QUERY = `query LiveChannelsAndEPG {
@@ -143,6 +146,28 @@ async function gql({ token, apiKey, operationName, query, variables = null }) {
   return { ok: response.ok, status: response.status, body, text: text.slice(0, 2000) }
 }
 
+async function algoliaSearch({ apiKey, query, hitsPerPage = 20 }) {
+  const response = await fetch(ALGOLIA_URL, {
+    method: 'POST',
+    headers: {
+      'x-algolia-application-id': ALGOLIA_APP_ID,
+      'x-algolia-api-key': apiKey,
+      'content-type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify({
+      requests: [{
+        indexName: 'joyn_prod',
+        params: `query=${encodeURIComponent(query)}&hitsPerPage=${hitsPerPage}&page=0`,
+      }],
+    }),
+  })
+  const rawText = await response.text()
+  let body = null
+  try { body = JSON.parse(rawText) } catch {}
+  return { ok: response.ok, status: response.status, body, text: rawText.slice(0, 2000) }
+}
+
 async function gqlPersisted({ token, apiKey, operationName, hash, variables = {} }) {
   const params = new URLSearchParams()
   params.set('operationName', operationName)
@@ -243,6 +268,15 @@ async function main() {
   const token = await anonymousToken()
   const discovered = await discoverApiKey()
   const apiKey = process.env.JOYN_GRAPHQL_API_KEY || discovered || OBSERVED_PUBLIC_WEBCLIENT_KEY
+
+  const algoliaKeyResult = await gqlPersisted({
+    token,
+    apiKey,
+    operationName: 'AlgoliaApiKey',
+    hash: ALGOLIA_API_KEY_HASH,
+    variables: {},
+  })
+  const algoliaApiKey = algoliaKeyResult.body?.data?.algoliaApiKey?.key || null
 
   const epg = await gql({ token, apiKey, operationName: 'LiveChannelsAndEPG', query: FULL_EPG_QUERY })
   if (!epg.ok || epg.body?.errors?.length || !epg.body?.data) {
@@ -360,10 +394,34 @@ async function main() {
         data: epgProgramV2CandidateProbe.body?.data || null,
       },
     },
+    algolia: {
+      keyLookupOk: Boolean(algoliaApiKey),
+      keyLookupHttpStatus: algoliaKeyResult.status,
+      keyLookupErrors: algoliaKeyResult.body?.errors || [],
+      targets: [],
+    },
     targets: [],
   }
 
   for (const target of TARGETS) {
+    if (algoliaApiKey) {
+      const algolia = await algoliaSearch({ apiKey: algoliaApiKey, query: target })
+      const hits = Array.isArray(algolia.body?.results?.[0]?.hits) ? algolia.body.results[0].hits : []
+      report.algolia.targets.push({
+        requestedTitle: target,
+        ok: algolia.ok,
+        httpStatus: algolia.status,
+        hitCount: hits.length,
+        hits: hits.slice(0, 20).map((hit) => ({
+          objectID: hit.objectID || hit.id || null,
+          title: hit.title || hit.name || null,
+          description: hit.description || null,
+          fullPath: hit.fullPath || hit.path || null,
+          contentType: hit.contentType || null,
+          brand: hit.brand || null,
+        })),
+      })
+    }
     const wanted = normalize(target)
     const epgMatches = []
     for (const stream of streams) {
