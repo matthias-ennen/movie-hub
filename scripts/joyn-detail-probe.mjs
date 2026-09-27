@@ -204,6 +204,13 @@ async function main() {
     query: INTROSPECTION_QUERY,
   })
 
+  const epgEventsV2Probe = await gql({
+    token,
+    apiKey,
+    operationName: 'EpgEventsV2Probe',
+    query: 'query EpgEventsV2Probe { epgEventsV2 { __typename } }',
+  })
+
   const streams = epg.body.data.liveStreams || []
   const report = {
     schemaVersion: 1,
@@ -216,6 +223,12 @@ async function main() {
       errors: schema.body?.errors || [],
       epgEntry: schema.body?.data?.epgEntry || null,
       queryType: schema.body?.data?.queryType || null,
+      epgEventsV2Probe: {
+        ok: epgEventsV2Probe.ok && !epgEventsV2Probe.body?.errors?.length,
+        httpStatus: epgEventsV2Probe.status,
+        errors: epgEventsV2Probe.body?.errors || [],
+        data: epgEventsV2Probe.body?.data || null,
+      },
     },
     targets: [],
   }
