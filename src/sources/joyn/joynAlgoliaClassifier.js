@@ -118,12 +118,20 @@ export function classifyJoynAlgoliaHits(input, rawHits = []) {
     || item.matchKind === 'episode_series_and_title'
   ))
   const uniqueHard = hardIdentity.length === 1 ? hardIdentity[0] : null
+  const productionYear = uniqueHard
+    && (uniqueHard.matchKind === 'movie_exact_title' || uniqueHard.matchKind === 'series_exact_title')
+    ? uniqueHard.productionYear
+    : null
+  const episodeProductionYear = uniqueHard?.matchKind === 'episode_series_and_title'
+    ? uniqueHard.productionYear
+    : null
 
   return {
     type,
     reason: 'validated_algolia_search',
     evidence: sameFamily,
-    productionYear: uniqueHard?.productionYear ?? null,
+    productionYear: productionYear ?? null,
+    episodeProductionYear: episodeProductionYear ?? null,
     runtimeSeconds: uniqueHard?.runtimeSeconds ?? null,
     seasonNumber: uniqueHard?.seasonNumber ?? null,
     episodeNumber: uniqueHard?.episodeNumber ?? null,
