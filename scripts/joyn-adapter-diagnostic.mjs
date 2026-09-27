@@ -410,7 +410,7 @@ export async function runJoynAdapterDiagnostic({
     ? new JoynTmdbSearchClient({
       token: process.env.TMDB_API_READ_TOKEN,
       language: process.env.TMDB_LANGUAGE || 'de-DE',
-      maxRequests: Number(process.env.JOYN_TMDB_REQUEST_BUDGET || 120),
+      maxRequests: Number(process.env.JOYN_TMDB_REQUEST_BUDGET || 3600),
       paceMs: Number(process.env.JOYN_TMDB_PACE_MS || 200),
       detailMaxRequests: Number(process.env.JOYN_TMDB_DETAIL_REQUEST_BUDGET || 300),
     })
@@ -453,33 +453,43 @@ export async function runJoynAdapterDiagnostic({
       if (joynType) joynClassification[joynType] += 1
       else joynClassification.unknown += 1
 
-      try {
-        decision = await matchJoynProgram(
-          {
-            title: entry.candidate.title,
-            description: entry.candidate.description,
-            type: joynType,
-            broadcastDurationMinutes,
-          },
-          {
-            localCandidates,
-            searchTmdb: tmdbSearch && !tmdbBudgetExhausted
-              ? (input) => tmdbSearch.search(input)
-              : null,
-            loadTmdbDetails: tmdbSearch
-              ? (candidate) => tmdbSearch.detail(candidate)
-              : null,
-          },
-        )
-      } catch (error) {
-        if (error?.code !== 'TMDB_REQUEST_BUDGET') throw error
-        tmdbBudgetExhausted = true
+      if (tmdbSearch && tmdbBudgetExhausted && decision.status !== 'matched') {
         decision = {
-          matcherVersion: 1,
+          matcherVersion: 3,
           status: 'unmatched',
-          reason: 'tmdb_budget_exhausted',
+          reason: 'tmdb_search_skipped_budget',
           source: 'local',
           match: null,
+        }
+      } else {
+        try {
+          decision = await matchJoynProgram(
+            {
+              title: entry.candidate.title,
+              description: entry.candidate.description,
+              type: joynType,
+              broadcastDurationMinutes,
+            },
+            {
+              localCandidates,
+              searchTmdb: tmdbSearch
+                ? (input) => tmdbSearch.search(input)
+                : null,
+              loadTmdbDetails: tmdbSearch
+                ? (candidate) => tmdbSearch.detail(candidate)
+                : null,
+            },
+          )
+        } catch (error) {
+          if (error?.code !== 'TMDB_REQUEST_BUDGET') throw error
+          tmdbBudgetExhausted = true
+          decision = {
+            matcherVersion: 3,
+            status: 'unmatched',
+            reason: 'tmdb_budget_exhausted',
+            source: 'local',
+            match: null,
+          }
         }
       }
     }
