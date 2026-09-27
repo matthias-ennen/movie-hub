@@ -171,7 +171,31 @@ async function gqlPersisted({ token, apiKey, operationName, hash, variables = {}
   return { ok: response.ok, status: response.status, body, text: rawText.slice(0, 2000) }
 }
 
-function findTitleObjects(value, wanted, path = '
+function findTitleObjects(value, wanted, path = 'root', out = []) {
+  if (!value || typeof value !== 'object' || out.length >= 20) return out
+  if (!Array.isArray(value) && normalize(value.title) === wanted) out.push({ path, value })
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => findTitleObjects(item, wanted, path + '[' + index + ']', out))
+  } else {
+    for (const [key, child] of Object.entries(value)) {
+      findTitleObjects(child, wanted, path + '.' + key, out)
+    }
+  }
+  return out
+}
+
+function keyShape(value, depth = 0) {
+  if (depth > 3 || value === null || value === undefined) return typeof value
+  if (Array.isArray(value)) {
+    return { kind: 'array', length: value.length, first: value.length ? keyShape(value[0], depth + 1) : null }
+  }
+  if (typeof value !== 'object') return typeof value
+  return Object.fromEntries(
+    Object.entries(value).slice(0, 40).map(([key, child]) => [key, keyShape(child, depth + 1)]),
+  )
+}
+
+function compactProgram(stream, event) {
   const p = event?.program || {}
   return {
     channelId: stream?.id || null,
