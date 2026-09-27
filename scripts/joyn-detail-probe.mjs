@@ -218,6 +218,13 @@ async function main() {
     query: 'query EpgEventsV2ShapeProbe { epgEventsV2(from: 1790496180, to: 1790499600) { items { __typename } pageInfo { __typename } } }',
   })
 
+  const epgEventV2FieldProbe = await gql({
+    token,
+    apiKey,
+    operationName: 'EpgEventV2FieldProbe',
+    query: 'query EpgEventV2FieldProbe { epgEventsV2(from: 1790496180, to: 1790499600) { items { id title secondaryTitle startDate endDate description productionYear duration genres ageRating images livestream program asset movie series episode channelId } } }',
+  })
+
   const streams = epg.body.data.liveStreams || []
   const report = {
     schemaVersion: 1,
@@ -241,6 +248,12 @@ async function main() {
         httpStatus: epgEventsV2ShapeProbe.status,
         errors: epgEventsV2ShapeProbe.body?.errors || [],
         data: epgEventsV2ShapeProbe.body?.data || null,
+      },
+      epgEventV2FieldProbe: {
+        ok: epgEventV2FieldProbe.ok && !epgEventV2FieldProbe.body?.errors?.length,
+        httpStatus: epgEventV2FieldProbe.status,
+        errors: epgEventV2FieldProbe.body?.errors || [],
+        data: epgEventV2FieldProbe.body?.data || null,
       },
     },
     targets: [],
