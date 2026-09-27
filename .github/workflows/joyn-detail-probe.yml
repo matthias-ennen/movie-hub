@@ -29,6 +29,8 @@ jobs:
       - name: Probe Joyn EPG and rich content fields
         env:
           JOYN_DETAIL_PROBE_TITLES: ${{ inputs.titles }}
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+          TMDB_LANGUAGE: de-DE
         run: node scripts/joyn-detail-probe.mjs
       - name: Upload probe report
         if: ${{ always() }}
