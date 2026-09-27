@@ -85,7 +85,7 @@ export function normalizeTmdbMatchCandidate(raw, source = 'local') {
     originCountries: Array.isArray(raw?.originCountries ?? raw?.origin_country)
       ? (raw.originCountries ?? raw.origin_country)
       : [],
-    posterUrl: raw?.posterUrl || raw?.poster_path || null,
+    posterUrl: raw?.posterUrl || null,
     description: String(raw?.description ?? raw?.overview ?? '').trim() || null,
     source,
   }
