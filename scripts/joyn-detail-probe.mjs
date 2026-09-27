@@ -211,6 +211,13 @@ async function main() {
     query: 'query EpgEventsV2Probe { epgEventsV2(from: 1790496180, to: 1790499600) { __typename } }',
   })
 
+  const epgEventsV2ShapeProbe = await gql({
+    token,
+    apiKey,
+    operationName: 'EpgEventsV2ShapeProbe',
+    query: 'query EpgEventsV2ShapeProbe { epgEventsV2(from: 1790496180, to: 1790499600) { nodes { __typename } edges { __typename } items { __typename } pageInfo { __typename } records { __typename } totalCount } }',
+  })
+
   const streams = epg.body.data.liveStreams || []
   const report = {
     schemaVersion: 1,
@@ -228,6 +235,12 @@ async function main() {
         httpStatus: epgEventsV2Probe.status,
         errors: epgEventsV2Probe.body?.errors || [],
         data: epgEventsV2Probe.body?.data || null,
+      },
+      epgEventsV2ShapeProbe: {
+        ok: epgEventsV2ShapeProbe.ok && !epgEventsV2ShapeProbe.body?.errors?.length,
+        httpStatus: epgEventsV2ShapeProbe.status,
+        errors: epgEventsV2ShapeProbe.body?.errors || [],
+        data: epgEventsV2ShapeProbe.body?.data || null,
       },
     },
     targets: [],
