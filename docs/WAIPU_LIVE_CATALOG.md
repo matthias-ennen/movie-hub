@@ -309,3 +309,20 @@ ausgeblendet und mit Pfeiltasten umsortiert werden. Firestore speichert unter
 Sender werden aktiviert am Ende der veröffentlichten Reihenfolge ergänzt.
 Fehlen die öffentlichen Artefakte, bleibt die Funktion mit einem erklärenden
 Leerzustand fehlertolerant.
+
+## Härtungs-Baseline #335 (27.09.2026)
+
+Nach Abschluss des Joyn-Adapters (#280) wird der Waipu-Adapter gezielt gegen die dort gewonnenen Matching-/Diagnose-Learnings gespiegelt.
+
+Referenz aus produktivem 228-Sender-Lauf #532:
+- SourceEnvelope V1, sourceId `waipu`, status `healthy`;
+- 228 Sender;
+- 14.963 veröffentlichte BroadcastEvents;
+- 1.599 Filme / 13.364 Serien;
+- 14.963/14.963 mit Playback-Route;
+- Serienstruktur stark belegt: 12.560 Staffelnummern, 13.009 Folgennummern, 13.144 Episodentitel.
+
+Vor jeder Matching-Änderung werden Cache-Hit/Miss, Matchquelle und unresolved Eingangssignale messbar gemacht. Beschreibung und Laufzeit werden aktuell nicht als Waipu-Matching-Evidenz verwendet und deshalb nicht ungeprüft aus dem Joyn-Matcher übernommen.
+
+Siehe Issue #335.
+
