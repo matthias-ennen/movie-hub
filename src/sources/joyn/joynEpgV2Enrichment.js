@@ -14,7 +14,10 @@ function normalizeV2Program(program) {
     description: text(program.description),
     programImageUrl: text((Array.isArray(program.images) ? program.images : [])
       .find((image) => image?.url)?.url),
-    ageRating: Number.isFinite(Number(program?.ageRating?.minAge))
+    ageRating: program?.ageRating?.minAge !== null
+      && program?.ageRating?.minAge !== undefined
+      && String(program.ageRating.minAge).trim() !== ''
+      && Number.isFinite(Number(program.ageRating.minAge))
       ? Number(program.ageRating.minAge)
       : null,
   }
