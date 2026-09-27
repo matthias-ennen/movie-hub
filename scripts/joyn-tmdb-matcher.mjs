@@ -139,9 +139,11 @@ function disambiguateByDescription(input, candidates) {
   const best = ranked[0]
   const runnerUp = ranked[1]
   const margin = best.score - runnerUp.score
+  const overlapMargin = best.overlap - runnerUp.overlap
   if (best.overlap < JOYN_DESCRIPTION_MIN_OVERLAP
       || best.score < JOYN_DESCRIPTION_MIN_SCORE
-      || margin < JOYN_DESCRIPTION_MIN_MARGIN) return null
+      || margin < JOYN_DESCRIPTION_MIN_MARGIN
+      || overlapMargin < 3) return null
 
   return {
     candidate: best.candidate,
