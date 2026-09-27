@@ -117,6 +117,302 @@ async function probeResolver({ token, apiKey, name, programId }) {
   }
 }
 
+async function gqlPersisted({ token, apiKey, operationName, hash, variables = {} }) {
+  const params = new URLSearchParams()
+  params.set('operationName', operationName)
+  params.set('enable_user_location', 'true')
+  params.set('watch_assistant_variant', 'true')
+  params.set('variables', JSON.stringify(variables))
+  params.set('extensions', JSON.stringify({
+    persistedQuery: { version: 1, sha256Hash: hash },
+  }))
+  const response = await fetch(GRAPHQL_URL + '?' + params.toString(), {
+    headers: {
+      ...headers(),
+      authorization: 'Bearer ' + token,
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'joyn-platform': 'web',
+      'joyn-country': 'DE',
+      'joyn-distribution-tenant': 'JOYN',
+      'joyn-client-version': '5.1370.0',
+    },
+  })
+  const rawText = await response.text()
+  let body = null
+  try { body = JSON.parse(rawText) } catch {}
+  return { ok: response.ok, status: response.status, body, text: rawText.slice(0, 2000) }
+}
+
+function findTitleObjects(value, wanted, path = '  const params = new URLSearchParams()
+  params.set('operationName', operationName)
+  params.set('enable_user_location', 'true')
+  params.set('watch_assistant_variant', 'true')
+  if (variables) params.set('variables', JSON.stringify(variables))
+  params.set('query', query)
+  const response = await fetch(GRAPHQL_URL + '?' + params.toString(), {
+    headers: {
+      ...headers(),
+      authorization: 'Bearer ' + token,
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'joyn-platform': 'web',
+      'joyn-country': 'DE',
+      'joyn-distribution-tenant': 'JOYN',
+      'joyn-client-version': '5.1370.0',
+    },
+  })
+  const text = await response.text()
+  let body = null
+  try { body = JSON.parse(text) } catch {}
+  return { ok: response.ok, status: response.status, body, text: text.slice(0, 2000) }
+}
+
+function compactProgram(stream, event) {
+  const p = event?.program || {}
+  return {
+    channelId: stream?.id || null,
+    channelTitle: stream?.title || null,
+    brandId: stream?.brand?.id || null,
+    brandTitle: stream?.brand?.title || null,
+    typename: p?.__typename || null,
+    programId: p?.id || null,
+    title: p?.title || null,
+    secondaryTitle: p?.secondaryTitle || null,
+    startDate: p?.startDate || event?.startDate || null,
+    endDate: p?.endDate || event?.endDate || null,
+    path: p?.path || null,
+    productionYear: p?.productionYear ?? null,
+    description: p?.description || null,
+    genres: Array.isArray(p?.genres) ? p.genres.map((g) => g?.name).filter(Boolean) : [],
+    duration: p?.video?.duration ?? null,
+    ageRating: p?.ageRating?.minAge ?? null,
+    seasonNumber: p?.season?.number ?? null,
+    episodeNumber: p?.number ?? null,
+    seriesId: p?.series?.id || null,
+    seriesTitle: p?.series?.title || null,
+  }
+}
+
+const INTROSPECTION_QUERY = `query JoynSchemaProbe {
+  epgEntry: __type(name: "EpgEntry") {
+    name
+    fields {
+      name
+      type { kind name ofType { kind name ofType { kind name } } }
+    }
+  }
+  queryType: __type(name: "Query") {
+    fields {
+      name
+      args { name type { kind name ofType { kind name } } }
+      type { kind name ofType { kind name } }
+    }
+  }
+}`
+
+async function main() {
+  const generatedAt = new Date().toISOString()
+  const token = await anonymousToken()
+  const discovered = await discoverApiKey()
+  const apiKey = process.env.JOYN_GRAPHQL_API_KEY || discovered || OBSERVED_PUBLIC_WEBCLIENT_KEY
+
+  const epg = await gql({ token, apiKey, operationName: 'LiveChannelsAndEPG', query: FULL_EPG_QUERY })
+  if (!epg.ok || epg.body?.errors?.length || !epg.body?.data) {
+    throw new Error('Joyn EPG probe failed: ' + JSON.stringify({ status: epg.status, errors: epg.body?.errors || epg.text }))
+  }
+
+  const schema = await gql({
+    token,
+    apiKey,
+    operationName: 'JoynSchemaProbe',
+    query: INTROSPECTION_QUERY,
+  })
+
+  const epgEventsV2Probe = await gql({
+    token,
+    apiKey,
+    operationName: 'EpgEventsV2Probe',
+    query: 'query EpgEventsV2Probe { epgEventsV2(from: 1790496180, to: 1790499600) { __typename } }',
+  })
+
+  const epgEventsV2ShapeProbe = await gql({
+    token,
+    apiKey,
+    operationName: 'EpgEventsV2ShapeProbe',
+    query: 'query EpgEventsV2ShapeProbe { epgEventsV2(from: 1790496180, to: 1790499600) { items { __typename } pageInfo { __typename } } }',
+  })
+
+  const epgEventV2FieldProbe = await gql({
+    token,
+    apiKey,
+    operationName: 'EpgEventV2FieldProbe',
+    query: 'query EpgEventV2FieldProbe { epgEventsV2(from: 1790496180, to: 1790499600) { items { id title secondaryTitle startDate endDate description productionYear duration genres ageRating images livestream program asset movie series episode channelId } } }',
+  })
+
+  const epgProgramV2FieldProbe = await gql({
+    token,
+    apiKey,
+    operationName: 'EpgProgramV2FieldProbe',
+    query: 'query EpgProgramV2FieldProbe { epgEventsV2(from: 1790496180, to: 1790499600) { items { livestream { id title brandId brandCode brand { id title } } program { id title secondaryTitle description productionYear duration genres ageRating images type contentType movieId seriesId episodeId path startDate endDate } } } }',
+  })
+
+  const epgProgramV2CandidateProbe = await gql({
+    token,
+    apiKey,
+    operationName: 'EpgProgramV2CandidateProbe',
+    query: 'query EpgProgramV2CandidateProbe { epgEventsV2(from: 1790496180, to: 1790499600) { items { program { metadata content event details asset name headline subtitle label year releaseYear productionDate programId contentId externalId gracenoteId tmsId image imageUrl poster season episode categories classification flags schedule timeslot } } } }',
+  })
+
+  const persistedLive = await gqlPersisted({
+    token,
+    apiKey,
+    operationName: 'LiveChannelsAndEpg',
+    hash: 'b7703103ddd0516be6b49ed66186092a6c6f6d815ccc502a9f50800a8cc18dd2',
+    variables: {
+      liveStreamGroupFilter: 'DEFAULT',
+      first: 5000,
+      offset: 0,
+      livestreamTypes: ['EVENT', 'LINEAR', 'ON_DEMAND'],
+      from: 1790496180,
+      to: 1790499600,
+    },
+  })
+  const persistedTargetMatches = findTitleObjects(
+    persistedLive.body?.data || null,
+    normalize('Das singende, klingende Bäumchen'),
+  )
+
+  const streams = epg.body.data.liveStreams || []
+  const report = {
+    schemaVersion: 1,
+    kind: 'joyn-detail-probe',
+    generatedAt,
+    apiKeySource: process.env.JOYN_GRAPHQL_API_KEY ? 'environment' : discovered ? 'public-webclient' : 'observed-fallback',
+    persistedLiveChannelsAndEpg: {
+      ok: persistedLive.ok && !persistedLive.body?.errors?.length,
+      httpStatus: persistedLive.status,
+      errors: persistedLive.body?.errors || [],
+      shape: keyShape(persistedLive.body?.data || null),
+      targetMatches: persistedTargetMatches,
+    },
+    schemaProbe: {
+      ok: schema.ok && !schema.body?.errors?.length,
+      httpStatus: schema.status,
+      errors: schema.body?.errors || [],
+      epgEntry: schema.body?.data?.epgEntry || null,
+      queryType: schema.body?.data?.queryType || null,
+      epgEventsV2Probe: {
+        ok: epgEventsV2Probe.ok && !epgEventsV2Probe.body?.errors?.length,
+        httpStatus: epgEventsV2Probe.status,
+        errors: epgEventsV2Probe.body?.errors || [],
+        data: epgEventsV2Probe.body?.data || null,
+      },
+      epgEventsV2ShapeProbe: {
+        ok: epgEventsV2ShapeProbe.ok && !epgEventsV2ShapeProbe.body?.errors?.length,
+        httpStatus: epgEventsV2ShapeProbe.status,
+        errors: epgEventsV2ShapeProbe.body?.errors || [],
+        data: epgEventsV2ShapeProbe.body?.data || null,
+      },
+      epgEventV2FieldProbe: {
+        ok: epgEventV2FieldProbe.ok && !epgEventV2FieldProbe.body?.errors?.length,
+        httpStatus: epgEventV2FieldProbe.status,
+        errors: epgEventV2FieldProbe.body?.errors || [],
+        data: epgEventV2FieldProbe.body?.data || null,
+      },
+      epgProgramV2FieldProbe: {
+        ok: epgProgramV2FieldProbe.ok && !epgProgramV2FieldProbe.body?.errors?.length,
+        httpStatus: epgProgramV2FieldProbe.status,
+        errors: epgProgramV2FieldProbe.body?.errors || [],
+        data: epgProgramV2FieldProbe.body?.data || null,
+      },
+      epgProgramV2CandidateProbe: {
+        ok: epgProgramV2CandidateProbe.ok && !epgProgramV2CandidateProbe.body?.errors?.length,
+        httpStatus: epgProgramV2CandidateProbe.status,
+        errors: epgProgramV2CandidateProbe.body?.errors || [],
+        data: epgProgramV2CandidateProbe.body?.data || null,
+      },
+    },
+    targets: [],
+  }
+
+  for (const target of TARGETS) {
+    const wanted = normalize(target)
+    const epgMatches = []
+    for (const stream of streams) {
+      for (const event of stream?.epgEvents || []) {
+        if (normalize(event?.program?.title) === wanted) epgMatches.push(compactProgram(stream, event))
+      }
+    }
+
+    const search = await gql({
+      token,
+      apiKey,
+      operationName: 'JoynDetailProbe',
+      query: RICH_SEARCH_QUERY,
+      variables: { term: target },
+    })
+    const searchResults = Array.isArray(search.body?.data?.search?.results) ? search.body.data.search.results : []
+
+    const resolverProbes = epgMatches[0]?.programId
+      ? await Promise.all(['epgEntry', 'epgEvent', 'program', 'asset', 'node'].map((name) => probeResolver({
+        token,
+        apiKey,
+        name,
+        programId: epgMatches[0].programId,
+      })))
+      : []
+
+    report.targets.push({
+      requestedTitle: target,
+      epgMatches,
+      resolverProbes,
+      richSearch: {
+        ok: search.ok && !search.body?.errors?.length,
+        httpStatus: search.status,
+        errors: search.body?.errors || [],
+        resultCount: searchResults.length,
+        results: searchResults.slice(0, 20),
+      },
+    })
+  }
+
+  const out = resolve(root, 'artifacts/joyn-detail-probe/report.json')
+  await mkdir(dirname(out), { recursive: true })
+  await writeFile(out, JSON.stringify(report, null, 2) + '\n', 'utf8')
+  process.stdout.write(JSON.stringify(report, null, 2) + '\n')
+}
+
+main().catch((error) => {
+  process.stderr.write((error?.stack || String(error)) + '\n')
+  process.exitCode = 1
+})
+, out = []) {
+  if (!value || typeof value !== 'object' || out.length >= 20) return out
+  if (!Array.isArray(value) && normalize(value.title) === wanted) {
+    out.push({ path, value })
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => findTitleObjects(item, wanted, `${path}[${index}]`, out))
+  } else {
+    for (const [key, child] of Object.entries(value)) {
+      findTitleObjects(child, wanted, `${path}.${key}`, out)
+    }
+  }
+  return out
+}
+
+function keyShape(value, depth = 0) {
+  if (depth > 3 || value === null || value === undefined) return typeof value
+  if (Array.isArray(value)) {
+    return { kind: 'array', length: value.length, first: value.length ? keyShape(value[0], depth + 1) : null }
+  }
+  if (typeof value !== 'object') return typeof value
+  return Object.fromEntries(Object.entries(value).slice(0, 40).map(([key, child]) => [key, keyShape(child, depth + 1)]))
+}
+
 async function gql({ token, apiKey, operationName, query, variables = null }) {
   const params = new URLSearchParams()
   params.set('operationName', operationName)
