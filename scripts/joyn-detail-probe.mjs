@@ -30,6 +30,11 @@ const RICH_SEARCH_QUERY = `query JoynDetailProbe($term: String!) {
   search(term: $term, first: 20, offset: 0) {
     results {
       __typename
+      ... on EpgEntry {
+        id title secondaryTitle startDate endDate
+        images { id type url }
+        livestream { id gracenoteId brand { id title } }
+      }
       ... on Movie {
         id title path productionYear description
         genres { name }
@@ -145,6 +150,23 @@ function compactProgram(stream, event) {
   }
 }
 
+const INTROSPECTION_QUERY = `query JoynSchemaProbe {
+  epgEntry: __type(name: "EpgEntry") {
+    name
+    fields {
+      name
+      type { kind name ofType { kind name ofType { kind name } } }
+    }
+  }
+  queryType: __type(name: "Query") {
+    fields {
+      name
+      args { name type { kind name ofType { kind name } } }
+      type { kind name ofType { kind name } }
+    }
+  }
+}`
+
 async function main() {
   const generatedAt = new Date().toISOString()
   const token = await anonymousToken()
@@ -156,12 +178,26 @@ async function main() {
     throw new Error('Joyn EPG probe failed: ' + JSON.stringify({ status: epg.status, errors: epg.body?.errors || epg.text }))
   }
 
+  const schema = await gql({
+    token,
+    apiKey,
+    operationName: 'JoynSchemaProbe',
+    query: INTROSPECTION_QUERY,
+  })
+
   const streams = epg.body.data.liveStreams || []
   const report = {
     schemaVersion: 1,
     kind: 'joyn-detail-probe',
     generatedAt,
     apiKeySource: process.env.JOYN_GRAPHQL_API_KEY ? 'environment' : discovered ? 'public-webclient' : 'observed-fallback',
+    schemaProbe: {
+      ok: schema.ok && !schema.body?.errors?.length,
+      httpStatus: schema.status,
+      errors: schema.body?.errors || [],
+      epgEntry: schema.body?.data?.epgEntry || null,
+      queryType: schema.body?.data?.queryType || null,
+    },
     targets: [],
   }
 
