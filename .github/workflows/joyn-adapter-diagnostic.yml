@@ -41,7 +41,7 @@ jobs:
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
-          JOYN_TMDB_REQUEST_BUDGET: '1200'
+          JOYN_TMDB_REQUEST_BUDGET: '3600'
           JOYN_TMDB_PACE_MS: '200'
           JOYN_TMDB_DETAIL_REQUEST_BUDGET: '300'
           JOYN_TMDB_METADATA_REQUEST_BUDGET: '4000'
