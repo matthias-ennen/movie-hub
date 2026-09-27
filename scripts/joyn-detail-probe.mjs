@@ -117,6 +117,32 @@ async function probeResolver({ token, apiKey, name, programId }) {
   }
 }
 
+async function gql({ token, apiKey, operationName, query, variables = null }) {
+  const params = new URLSearchParams()
+  params.set('operationName', operationName)
+  params.set('enable_user_location', 'true')
+  params.set('watch_assistant_variant', 'true')
+  if (variables) params.set('variables', JSON.stringify(variables))
+  params.set('query', query)
+  const response = await fetch(GRAPHQL_URL + '?' + params.toString(), {
+    headers: {
+      ...headers(),
+      authorization: 'Bearer ' + token,
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'joyn-platform': 'web',
+      'joyn-country': 'DE',
+      'joyn-distribution-tenant': 'JOYN',
+      'joyn-client-version': '5.1370.0',
+    },
+  })
+  const text = await response.text()
+  let body = null
+  try { body = JSON.parse(text) } catch {}
+  return { ok: response.ok, status: response.status, body, text: text.slice(0, 2000) }
+}
+
 async function gqlPersisted({ token, apiKey, operationName, hash, variables = {} }) {
   const params = new URLSearchParams()
   params.set('operationName', operationName)
@@ -145,32 +171,7 @@ async function gqlPersisted({ token, apiKey, operationName, hash, variables = {}
   return { ok: response.ok, status: response.status, body, text: rawText.slice(0, 2000) }
 }
 
-function findTitleObjects(value, wanted, path = '  const params = new URLSearchParams()
-  params.set('operationName', operationName)
-  params.set('enable_user_location', 'true')
-  params.set('watch_assistant_variant', 'true')
-  if (variables) params.set('variables', JSON.stringify(variables))
-  params.set('query', query)
-  const response = await fetch(GRAPHQL_URL + '?' + params.toString(), {
-    headers: {
-      ...headers(),
-      authorization: 'Bearer ' + token,
-      accept: 'application/json',
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'joyn-platform': 'web',
-      'joyn-country': 'DE',
-      'joyn-distribution-tenant': 'JOYN',
-      'joyn-client-version': '5.1370.0',
-    },
-  })
-  const text = await response.text()
-  let body = null
-  try { body = JSON.parse(text) } catch {}
-  return { ok: response.ok, status: response.status, body, text: text.slice(0, 2000) }
-}
-
-function compactProgram(stream, event) {
+function findTitleObjects(value, wanted, path = '
   const p = event?.program || {}
   return {
     channelId: stream?.id || null,
@@ -391,9 +392,7 @@ main().catch((error) => {
 })
 , out = []) {
   if (!value || typeof value !== 'object' || out.length >= 20) return out
-  if (!Array.isArray(value) && normalize(value.title) === wanted) {
-    out.push({ path, value })
-  }
+  if (!Array.isArray(value) && normalize(value.title) === wanted) out.push({ path, value })
   if (Array.isArray(value)) {
     value.forEach((item, index) => findTitleObjects(item, wanted, `${path}[${index}]`, out))
   } else {
@@ -410,33 +409,9 @@ function keyShape(value, depth = 0) {
     return { kind: 'array', length: value.length, first: value.length ? keyShape(value[0], depth + 1) : null }
   }
   if (typeof value !== 'object') return typeof value
-  return Object.fromEntries(Object.entries(value).slice(0, 40).map(([key, child]) => [key, keyShape(child, depth + 1)]))
-}
-
-async function gql({ token, apiKey, operationName, query, variables = null }) {
-  const params = new URLSearchParams()
-  params.set('operationName', operationName)
-  params.set('enable_user_location', 'true')
-  params.set('watch_assistant_variant', 'true')
-  if (variables) params.set('variables', JSON.stringify(variables))
-  params.set('query', query)
-  const response = await fetch(GRAPHQL_URL + '?' + params.toString(), {
-    headers: {
-      ...headers(),
-      authorization: 'Bearer ' + token,
-      accept: 'application/json',
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'joyn-platform': 'web',
-      'joyn-country': 'DE',
-      'joyn-distribution-tenant': 'JOYN',
-      'joyn-client-version': '5.1370.0',
-    },
-  })
-  const text = await response.text()
-  let body = null
-  try { body = JSON.parse(text) } catch {}
-  return { ok: response.ok, status: response.status, body, text: text.slice(0, 2000) }
+  return Object.fromEntries(
+    Object.entries(value).slice(0, 40).map(([key, child]) => [key, keyShape(child, depth + 1)]),
+  )
 }
 
 function compactProgram(stream, event) {
