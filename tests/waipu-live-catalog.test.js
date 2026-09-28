@@ -250,6 +250,44 @@ describe('Waipu to TMDB matching', () => {
     expect(searchTmdb).toHaveBeenCalledOnce()
   })
 
+  it('re-evaluates cached ambiguous decisions and exposes best/runner-up diagnostics', async () => {
+    const ambiguousInput = {
+      ...input,
+      title: 'Charmed',
+      originalTitle: 'Charmed',
+      aliases: ['Charmed'],
+      productionYear: 2001,
+    }
+    const decisions = new WaipuMatchDecisionStore()
+    const key = (await import('../scripts/waipu-tmdb-matcher.mjs')).matchCacheKey(ambiguousInput)
+    decisions.set(key, {
+      matcherVersion: 2,
+      checkedAt: new Date().toISOString(),
+      status: 'unmatched',
+      reason: 'ambiguous_margin',
+      source: 'local+tmdb-search',
+      match: null,
+    })
+    const searchTmdb = vi.fn(async () => [
+      { id: 1981, media_type: 'tv', name: 'Charmed', first_air_date: '1998-10-07' },
+      { id: 79611, media_type: 'tv', name: 'Charmed', first_air_date: '2018-10-14' },
+    ])
+    const result = await matchWaipuProgram({ ...ambiguousInput, type: 'series' }, {
+      decisions,
+      searchTmdb,
+    })
+    expect(searchTmdb).toHaveBeenCalledOnce()
+    expect(result).toMatchObject({
+      status: 'unmatched',
+      reason: 'ambiguous_margin',
+      cache: 'miss',
+      diagnostic: {
+        best: expect.objectContaining({ title: 'Charmed' }),
+        runnerUp: expect.objectContaining({ title: 'Charmed' }),
+      },
+    })
+  })
+
   it('paces TMDB searches and stops at the configured request budget', async () => {
     let clock = 1_000
     const sleeps = []
