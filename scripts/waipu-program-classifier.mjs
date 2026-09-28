@@ -65,8 +65,9 @@ export function classifyWaipuGridProgram(program) {
   const hasSeriesId = Boolean(text(program.seriesId))
   const hasEpisodeTitle = Boolean(text(program.episodeTitle))
   const hintedType = program.typeHint === 'movie' || program.typeHint === 'series' ? program.typeHint : null
+  const allowContentGenreFallback = program.allowContentGenreFallback === true
   const hasSeriesShape = hasSeriesId && hasEpisodeTitle
-  if (!type && !hasSeriesShape && !(isContentGenre(program.genre) && hintedType)) {
+  if (!type && !hasSeriesShape && !(allowContentGenreFallback && isContentGenre(program.genre) && hintedType)) {
     return { type: null, status: 'excluded', reason: 'unsupported_grid_genre', signals: [] }
   }
   const signals = []
