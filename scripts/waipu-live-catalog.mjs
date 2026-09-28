@@ -317,6 +317,17 @@ export async function buildWaipuLiveCatalog({
   }
   metrics.candidatePrograms = byProgram.size
 
+  if (typeof onProgress === 'function') {
+    onProgress({
+      phase: 'prefilter',
+      processed: 0,
+      total: byProgram.size,
+      broadcasts: candidateBroadcasts.length,
+      detailsLoaded: 0,
+      matchedPrograms: 0,
+    })
+  }
+
   if (byProgram.size > 0 && !candidates.length && typeof searchTmdb !== 'function') {
     const error = new Error('No MovieHub/TMDB candidate source is available for Waipu matching.')
     error.code = 'TMDB_CANDIDATES_MISSING'
