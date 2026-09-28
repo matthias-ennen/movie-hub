@@ -89,6 +89,7 @@ function emptyMetrics() {
     gridCandidates: 0,
     candidatePrograms: 0,
     detailsLoaded: 0,
+    detailsInferredFromLocalIndex: 0,
     detailsUnavailable: 0,
     detailsMissing: 0,
     classifiedPrograms: 0,
@@ -372,7 +373,28 @@ export async function buildWaipuLiveCatalog({
       typeHint: typeHintForTitle(first.title),
       allowContentGenreFallback: CONTENT_GENRE_FALLBACK_STATIONS.has(first.stationId),
     }
-    const detail = await loadProgramDetail(programId)
+    const gridClassification = classifyWaipuGridProgram(gridProgram)
+    const exactLocalCandidates = gridClassification.type
+      ? candidatesFor({ type: gridClassification.type, aliases: [first.title] })
+      : []
+    const inferredMovieDetail = gridClassification.type === 'movie' && exactLocalCandidates.length === 1
+      ? {
+          id: programId,
+          title: first.title,
+          originalTitle: exactLocalCandidates[0].originalTitle || null,
+          productionYear: exactLocalCandidates[0].year || null,
+          productionCountries: exactLocalCandidates[0].productionCountries || [],
+          mainGenre: 'Filme',
+          subGenres: [],
+          seriesId: null,
+          seasonNumber: null,
+          episodeNumber: null,
+          episodeTitle: null,
+          imageUrls: [],
+        }
+      : null
+    const detail = inferredMovieDetail || await loadProgramDetail(programId)
+    if (inferredMovieDetail) metrics.detailsInferredFromLocalIndex += 1
     if (detail?.unavailable === true && [404, 410].includes(detail.status)) {
       metrics.detailsUnavailable += 1
       increment(metrics.classificationRejected, 'detail_unavailable')
