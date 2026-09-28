@@ -591,7 +591,12 @@ describe('Waipu live catalog publication', () => {
       subGenres: ['Romantik', 'Drama', 'Fantasy'],
     }))
     const catalog = await buildWaipuLiveCatalog(buildFixture({
-      programs: [breakingDawn],
+      gridRecords: [{
+        kind: 'grid',
+        key: 'cinemaofhearts|2026-09-20T16:00:00.000Z',
+        value: [breakingDawn],
+      }],
+      stations: [{ id: 'cinemaofhearts', displayName: 'Cinema of Hearts', logoTemplateUrl: null }],
       loadProgramDetail,
       candidates: [{
         tmdbId: 50620,
