@@ -400,3 +400,15 @@ Spätere Staffeln, fehlende Staffel-/Episodenstruktur und gleichjährige Kandida
 
 Ziel: die in #754 identifizierten 158 Staffel-1-Ambiguitäten kontrolliert reduzieren.
 
+### Matcher V5 Cache-Scope Vergleich
+
+Nach grünem CI #1021 wird der kontrollierte 228-Sender-Refresh mit Matcher V5 gestartet.
+
+V5 verändert keine neue Matchregel. Es isoliert ausschließlich den positiven Cache für Staffel-1-Evidenz:
+- Staffel-1-Episode erhält eigenen Cache-Scope;
+- alte Matcher-V4-Serien-Positivtreffer werden außerhalb dieses Scopes einmal neu bewertet.
+
+Abnahmekriterium:
+- die sauberen Staffel-1-Gewinne aus #757 bleiben erhalten;
+- die 27 außerhalb der Zielgruppe mitgezogenen Serienfälle werden nicht mehr blind aus dem Cache übernommen.
+
