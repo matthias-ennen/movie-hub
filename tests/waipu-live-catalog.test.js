@@ -150,6 +150,40 @@ describe('Waipu to TMDB matching', () => {
     expect(result.best.score).toBeGreaterThanOrEqual(80)
   })
 
+  it('accepts only a movie near-tie when the best candidate has the exact year and the runner-up does not', () => {
+    const result = chooseWaipuTmdbMatch({
+      type: 'movie',
+      title: 'Fitting In',
+      originalTitle: 'Fitting In',
+      aliases: ['Fitting In'],
+      productionYear: 2023,
+      productionCountries: [],
+    }, [
+      { tmdbId: 1030237, type: 'movie', title: 'Fitting In', year: 2023 },
+      { tmdbId: 986175, type: 'movie', title: 'Fitting In', year: 2024 },
+    ])
+    expect(result).toMatchObject({
+      status: 'matched',
+      best: { candidate: { tmdbId: 1030237 } },
+      margin: 10,
+    })
+  })
+
+  it('keeps equal-year movie duplicates unresolved', () => {
+    const result = chooseWaipuTmdbMatch({
+      type: 'movie',
+      title: 'Moving On',
+      originalTitle: 'Moving On',
+      aliases: ['Moving On'],
+      productionYear: 2022,
+      productionCountries: [],
+    }, [
+      { tmdbId: 954220, type: 'movie', title: 'Moving On', year: 2022 },
+      { tmdbId: 964835, type: 'movie', title: 'Moving On', year: 2022 },
+    ])
+    expect(result).toMatchObject({ status: 'unmatched', reason: 'ambiguous_margin', margin: 0 })
+  })
+
   it('rejects close duplicate candidates when the minimum margin is not met', () => {
     const result = chooseWaipuTmdbMatch(input, [
       { tmdbId: 351286, type: 'movie', title: input.originalTitle, year: 2018 },
