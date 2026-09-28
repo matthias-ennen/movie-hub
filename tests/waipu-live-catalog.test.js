@@ -169,6 +169,46 @@ describe('Waipu to TMDB matching', () => {
     })
   })
 
+  it('accepts a season-one series near-tie when only the best candidate matches the source year', () => {
+    const result = chooseWaipuTmdbMatch({
+      type: 'series',
+      title: 'Charmed',
+      originalTitle: 'Charmed',
+      aliases: ['Charmed'],
+      productionYear: 1998,
+      productionCountries: [],
+      seriesId: 'charmed-series',
+      seasonNumber: 1,
+      episodeNumber: 12,
+    }, [
+      { tmdbId: 1981, type: 'series', title: 'Charmed - Zauberhafte Hexen', originalTitle: 'Charmed', year: 1998 },
+      { tmdbId: 79611, type: 'series', title: 'Charmed', originalTitle: 'Charmed', year: 2018 },
+    ])
+    expect(result).toMatchObject({
+      status: 'matched',
+      best: { candidate: { tmdbId: 1981 } },
+      margin: 5,
+    })
+  })
+
+  it('keeps later-season series near-ties unresolved even when the source year matches one candidate', () => {
+    const result = chooseWaipuTmdbMatch({
+      type: 'series',
+      title: 'MacGyver',
+      originalTitle: 'MacGyver',
+      aliases: ['MacGyver'],
+      productionYear: 2016,
+      productionCountries: [],
+      seriesId: 'macgyver-series',
+      seasonNumber: 3,
+      episodeNumber: 22,
+    }, [
+      { tmdbId: 67133, type: 'series', title: 'MacGyver', originalTitle: 'MacGyver', year: 2016 },
+      { tmdbId: 2875, type: 'series', title: 'MacGyver', originalTitle: 'MacGyver', year: 1985 },
+    ])
+    expect(result).toMatchObject({ status: 'unmatched', reason: 'ambiguous_margin', margin: 5 })
+  })
+
   it('keeps equal-year movie duplicates unresolved', () => {
     const result = chooseWaipuTmdbMatch({
       type: 'movie',
