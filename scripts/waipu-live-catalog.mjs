@@ -324,9 +324,33 @@ export async function buildWaipuLiveCatalog({
   }
   metrics.candidatePrograms = byProgram.size
 
+  let detailRequiredPrograms = 0
+  for (const programBroadcasts of byProgram.values()) {
+    const first = programBroadcasts[0]
+    const gridProgram = {
+      id: first.programId,
+      title: first.title,
+      episodeTitle: first.episodeTitle,
+      genre: first.gridGenre,
+      seriesId: first.seriesId,
+      typeHint: typeHintForTitle(first.title),
+      allowContentGenreFallback: CONTENT_GENRE_FALLBACK_STATIONS.has(first.stationId),
+    }
+    const gridClassification = classifyWaipuGridProgram(gridProgram)
+    const exactLocalCandidates = gridClassification.type
+      ? createCandidateLookup(candidates)({ type: gridClassification.type, aliases: [first.title] })
+      : []
+    const canInferMovieDetail = reuseExactLocalMovieDetails
+      && gridClassification.type === 'movie'
+      && gridClassification.signals.includes('grid_genre:movie')
+      && exactLocalCandidates.length === 1
+    if (!canInferMovieDetail) detailRequiredPrograms += 1
+  }
+  metrics.detailRequiredPrograms = detailRequiredPrograms
+
   const maxCandidatePrograms = Number(process.env.WAIPU_MAX_CANDIDATE_PROGRAMS || DEFAULT_MAX_WAIPU_CANDIDATE_PROGRAMS)
-  if (Number.isFinite(maxCandidatePrograms) && maxCandidatePrograms > 0 && byProgram.size > maxCandidatePrograms) {
-    const error = new Error(`Waipu candidate prefilter is too broad: ${byProgram.size} programs exceeds limit ${maxCandidatePrograms}.`)
+  if (Number.isFinite(maxCandidatePrograms) && maxCandidatePrograms > 0 && detailRequiredPrograms > maxCandidatePrograms) {
+    const error = new Error(`Waipu detail prefilter is too broad: ${detailRequiredPrograms} programs still require detail loading (from ${byProgram.size} candidates), limit ${maxCandidatePrograms}.`)
     error.code = 'WAIPU_CANDIDATE_PREFILTER_TOO_BROAD'
     error.metrics = metrics
     throw error
