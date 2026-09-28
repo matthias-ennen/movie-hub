@@ -64,16 +64,18 @@ export function classifyWaipuGridProgram(program) {
   const type = genreType(program.genre)
   const hasSeriesId = Boolean(text(program.seriesId))
   const hasEpisodeTitle = Boolean(text(program.episodeTitle))
-  if (!type && !isContentGenre(program.genre) && !hasSeriesId) {
+  const hintedType = program.typeHint === 'movie' || program.typeHint === 'series' ? program.typeHint : null
+  if (!type && !hasSeriesId && !(isContentGenre(program.genre) && hintedType)) {
     return { type: null, status: 'excluded', reason: 'unsupported_grid_genre', signals: [] }
   }
   const signals = []
   if (type) signals.push(`grid_genre:${type}`)
   else if (isContentGenre(program.genre)) signals.push('grid_genre:content')
+  if (hintedType) signals.push(`title_hint:${hintedType}`)
   if (hasSeriesId) signals.push('grid_series_id')
   if (hasEpisodeTitle) signals.push('grid_episode_title')
   return {
-    type: type || (hasSeriesId ? 'series' : null),
+    type: type || (hasSeriesId ? 'series' : hintedType),
     status: 'candidate',
     reason: null,
     signals,
