@@ -378,6 +378,7 @@ export async function buildWaipuLiveCatalog({
         reason: decision.reason || 'unmatched',
         source: decision.source || null,
         cache: decision.cache || null,
+        diagnostic: decision.diagnostic || null,
       })
       if (typeof searchTmdb !== 'function' && decision.source === 'local') {
         metrics.matchSearchUnavailable += 1
@@ -703,7 +704,7 @@ export async function writeWaipuLiveCatalog(outputPath, catalog, { allowLegacyMe
   }
 }
 
-export async function readWaipuCacheRecords(cacheRoot, kind) {
+export async function readWaipuCacheRecords(cacheRoot, kind, { concurrency = 32 } = {}) {
   const directory = resolve(cacheRoot, kind)
   let names
   try {
@@ -712,9 +713,18 @@ export async function readWaipuCacheRecords(cacheRoot, kind) {
     if (error?.code === 'ENOENT') return []
     throw error
   }
-  const records = await Promise.all(names.filter((name) => name.endsWith('.json')).map(async (name) => {
-    const payload = JSON.parse(await readFile(resolve(directory, name), 'utf8'))
-    return payload?.kind === kind ? payload : null
+  const files = names.filter((name) => name.endsWith('.json'))
+  const records = new Array(files.length)
+  const limit = Math.max(1, Math.min(files.length || 1, Math.floor(Number(concurrency) || 32)))
+  let nextIndex = 0
+  await Promise.all(Array.from({ length: limit }, async () => {
+    while (true) {
+      const index = nextIndex
+      nextIndex += 1
+      if (index >= files.length) return
+      const payload = JSON.parse(await readFile(resolve(directory, files[index]), 'utf8'))
+      records[index] = payload?.kind === kind ? payload : null
+    }
   }))
   return records.filter(Boolean)
 }
