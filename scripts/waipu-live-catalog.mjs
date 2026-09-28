@@ -281,6 +281,7 @@ export async function buildWaipuLiveCatalog({
   allowIncompleteDetails = false,
   allowUnresolvedMatches = false,
   releaseChannel = 'production',
+  reuseExactLocalMovieDetails = false,
   now = Date.now,
   onProgress = null,
 } = {}) {
@@ -377,7 +378,10 @@ export async function buildWaipuLiveCatalog({
     const exactLocalCandidates = gridClassification.type
       ? candidatesFor({ type: gridClassification.type, aliases: [first.title] })
       : []
-    const inferredMovieDetail = gridClassification.type === 'movie' && exactLocalCandidates.length === 1
+    const inferredMovieDetail = reuseExactLocalMovieDetails
+      && gridClassification.type === 'movie'
+      && gridClassification.signals.includes('grid_genre:movie')
+      && exactLocalCandidates.length === 1
       ? {
           id: programId,
           title: first.title,
@@ -892,6 +896,7 @@ async function main() {
         decisions,
         allowUnresolvedMatches: testMode,
         releaseChannel: testMode ? 'test' : 'production',
+        reuseExactLocalMovieDetails: live,
         onProgress: ({ processed, total, detailsLoaded, matchedPrograms }) => {
           process.stdout.write(
             `Waipu-Details: ${processed}/${total} · ${detailsLoaded} geladen · ${matchedPrograms} TMDB-zugeordnet`
