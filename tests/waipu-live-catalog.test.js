@@ -115,9 +115,32 @@ describe('Waipu film and series classification', () => {
     expect(normalized).toMatchObject({ seasonNumber: null, episodeNumber: null })
   })
 
-  it('keeps unsupported genres and film/series conflicts out of the catalog', () => {
-    expect(classifyWaipuGridProgram(gridProgram({ genre: 'Unterhaltung' })))
+  it('defers plausible content genres to program details without opening the gate for unrelated programming', () => {
+    expect(classifyWaipuGridProgram(gridProgram({ genre: 'Romantik' })))
+      .toMatchObject({ status: 'candidate', type: null, signals: ['grid_genre:content'] })
+    expect(classifyWaipuProgram(
+      gridProgram({ genre: 'Romantik' }),
+      detail({ mainGenre: 'Filme' }),
+    )).toMatchObject({ status: 'accepted', type: 'movie', confidence: 'medium' })
+
+    const seriesGrid = gridProgram({ genre: 'Drama', seriesId: 'series-1', episodeTitle: 'Folge 3' })
+    expect(classifyWaipuGridProgram(seriesGrid))
+      .toMatchObject({ status: 'candidate', type: 'series' })
+    expect(classifyWaipuProgram(seriesGrid, detail({
+      mainGenre: 'Drama',
+      seriesId: 'series-1',
+      seasonNumber: 1,
+      episodeNumber: 3,
+      episodeTitle: 'Folge 3',
+    }))).toMatchObject({ status: 'accepted', type: 'series' })
+
+    expect(classifyWaipuGridProgram(gridProgram({ genre: 'Aktuelles' })))
       .toMatchObject({ status: 'excluded', reason: 'unsupported_grid_genre' })
+    expect(classifyWaipuGridProgram(gridProgram({ genre: 'Sport' })))
+      .toMatchObject({ status: 'excluded', reason: 'unsupported_grid_genre' })
+  })
+
+  it('keeps film/series conflicts out of the catalog', () => {
     expect(classifyWaipuProgram(gridProgram(), detail({
       mainGenre: 'Serien',
       seriesId: 'series-1',
@@ -546,6 +569,51 @@ describe('Waipu live catalog publication', () => {
     expect(onProgress).toHaveBeenLastCalledWith(expect.objectContaining({
       phase: 'programs', processed: 2, total: 2, detailsLoaded: 2, matchedPrograms: 2,
     }))
+  })
+
+  it('keeps a movie with a content-style grid genre when program details confirm it as a film', async () => {
+    const breakingDawn = gridProgram({
+      id: 'breaking-dawn-2',
+      title: 'Breaking Dawn - Bis(s) zum Ende der Nacht - Teil 2',
+      genre: 'Romantik',
+      startTime: '2026-09-20T18:00:00.000Z',
+      stopTime: '2026-09-20T20:00:00.000Z',
+    })
+    const loadProgramDetail = vi.fn(async () => detail({
+      id: 'breaking-dawn-2',
+      title: 'Breaking Dawn - Bis(s) zum Ende der Nacht - Teil 2',
+      originalTitle: 'The Twilight Saga: Breaking Dawn - Part 2',
+      productionYear: 2012,
+      productionCountries: ['Vereinigte Staaten'],
+      mainGenre: 'Filme',
+      subGenres: ['Romantik', 'Drama', 'Fantasy'],
+    }))
+    const catalog = await buildWaipuLiveCatalog(buildFixture({
+      programs: [breakingDawn],
+      loadProgramDetail,
+      candidates: [{
+        tmdbId: 50620,
+        type: 'movie',
+        title: 'Breaking Dawn - Bis(s) zum Ende der Nacht - Teil 2',
+        originalTitle: 'The Twilight Saga: Breaking Dawn - Part 2',
+        year: 2012,
+      }],
+    }))
+
+    expect(loadProgramDetail).toHaveBeenCalledOnce()
+    expect(catalog.index.metrics).toMatchObject({
+      gridCandidates: 1,
+      candidatePrograms: 1,
+      classifiedPrograms: 1,
+      matchedPrograms: 1,
+    })
+    expect(catalog.titles.entries).toEqual([
+      expect.objectContaining({
+        tmdbId: 50620,
+        type: 'movie',
+        title: expect.stringContaining('Breaking Dawn'),
+      }),
+    ])
   })
 
   it('deduplicates different Waipu program ids that resolve to the same neutral broadcast', async () => {
