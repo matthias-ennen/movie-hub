@@ -359,3 +359,14 @@ Wichtig:
 
 Ziel: belastbar entscheiden, welche Ambiguitäten durch harte Zusatzsignale sicher auflösbar sind.
 
+### Ambiguitäts-Diagnose Retry nach EMFILE-Fix
+
+CI #1012, APK #937 und Deploy #749 sind grün. Der Cache-Reader liest Waipu-JSON-Dateien jetzt mit begrenzter Parallelität und `unresolved.json` übernimmt `decision.diagnostic`.
+
+Dieser Lauf wiederholt den kontrollierten 228-Sender-Diagnose-Refresh aus #335 nach dem EMFILE-Fix.
+
+Ziel:
+- `ambiguous_margin`-Fälle erneut bewerten;
+- Best-/Runner-up-Kandidaten samt Scores, Jahren und Signalen persistieren;
+- noch keine Margin-/Threshold-Regel ändern.
+
