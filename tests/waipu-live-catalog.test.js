@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -18,6 +18,7 @@ import {
 } from '../scripts/waipu-tmdb-matcher.mjs'
 import {
   buildWaipuLiveCatalog,
+  readWaipuCacheRecords,
   validateWaipuLiveCatalog,
   writeWaipuLiveCatalog,
 } from '../scripts/waipu-live-catalog.mjs'
@@ -315,6 +316,24 @@ describe('Waipu to TMDB matching', () => {
   })
 })
 
+describe('Waipu cache record loading', () => {
+  it('reads large cache directories with bounded file concurrency', async () => {
+    const root = await mkdtemp(resolve(tmpdir(), 'movie-hub-waipu-cache-read-'))
+    cleanupPaths.push(root)
+    const directory = resolve(root, 'program')
+    await mkdir(directory, { recursive: true })
+    await Promise.all(Array.from({ length: 120 }, (_, index) => writeFile(
+      resolve(directory, `program-${index}.json`),
+      JSON.stringify({ kind: 'program', key: `program-${index}`, value: { id: index } }),
+      'utf8',
+    )))
+
+    const records = await readWaipuCacheRecords(root, 'program', { concurrency: 7 })
+    expect(records).toHaveLength(120)
+    expect(records[0]).toMatchObject({ kind: 'program' })
+  })
+})
+
 describe('Waipu live catalog publication', () => {
   it('deduplicates grid rows, loads each detail once and publishes canonical station shards', async () => {
     const first = gridProgram()
@@ -565,6 +584,11 @@ describe('Waipu live catalog publication', () => {
         title: 'The Man from Toronto',
         reason: 'no_candidate',
         source: 'local',
+        diagnostic: {
+          best: null,
+          runnerUp: null,
+          margin: 0,
+        },
       }],
     })
   })
