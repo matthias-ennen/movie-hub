@@ -185,6 +185,7 @@ export async function matchWaipuProgram(input, {
   const cachedAt = Date.parse(cached?.checkedAt)
   if (cached?.matcherVersion === WAIPU_MATCHER_VERSION
       && cached?.status === 'unmatched'
+      && cached?.reason !== 'ambiguous_margin'
       && cached?.source === 'local+tmdb-search'
       && Number.isFinite(cachedAt)
       && now() - cachedAt < negativeCacheMaxAgeMs) {
@@ -221,6 +222,27 @@ export async function matchWaipuProgram(input, {
       margin: result.margin,
       signals: result.best.signals,
     } : null,
+    diagnostic: result.status === 'matched' ? null : {
+      best: result.best ? {
+        tmdbId: result.best.candidate.tmdbId,
+        type: result.best.candidate.type,
+        title: result.best.candidate.title,
+        originalTitle: result.best.candidate.originalTitle,
+        year: result.best.candidate.year,
+        score: result.best.score,
+        signals: result.best.signals,
+      } : null,
+      runnerUp: result.runnerUp ? {
+        tmdbId: result.runnerUp.candidate.tmdbId,
+        type: result.runnerUp.candidate.type,
+        title: result.runnerUp.candidate.title,
+        originalTitle: result.runnerUp.candidate.originalTitle,
+        year: result.runnerUp.candidate.year,
+        score: result.runnerUp.score,
+        signals: result.runnerUp.signals,
+      } : null,
+      margin: result.margin,
+    },
   }
   decisions?.set?.(key, decision)
   return { ...decision, cache: 'miss' }
