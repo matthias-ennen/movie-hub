@@ -370,3 +370,17 @@ Ziel:
 - Best-/Runner-up-Kandidaten samt Scores, Jahren und Signalen persistieren;
 - noch keine Margin-/Threshold-Regel ändern.
 
+### Matcher V3 Vergleichslauf
+
+Nach grünem CI #1015 wird der kontrollierte 228-Sender-Refresh mit Matcher V3 gestartet.
+
+V3 ändert ausschließlich eine enge Film-Disambiguierung:
+- Film;
+- bester Kandidat trifft das Waipu-Produktionsjahr exakt;
+- Runner-up trifft das Jahr nicht exakt;
+- Score-Margin mindestens 10.
+
+Die allgemeine Mindest-Margin 12 bleibt unverändert. Serienlogik bleibt unverändert.
+
+Ziel: die in der #750-Diagnose identifizierten sicheren Film-Near-Ties auflösen, ohne echte Gleichstände anzutasten.
+
