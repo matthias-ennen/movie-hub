@@ -323,6 +323,7 @@ export async function buildWaipuLiveCatalog({
     byProgram.get(broadcast.programId).push(broadcast)
   }
   metrics.candidatePrograms = byProgram.size
+  const candidatesFor = createCandidateLookup(candidates)
 
   let detailRequiredPrograms = 0
   for (const programBroadcasts of byProgram.values()) {
@@ -338,7 +339,7 @@ export async function buildWaipuLiveCatalog({
     }
     const gridClassification = classifyWaipuGridProgram(gridProgram)
     const exactLocalCandidates = gridClassification.type
-      ? createCandidateLookup(candidates)({ type: gridClassification.type, aliases: [first.title] })
+      ? candidatesFor({ type: gridClassification.type, aliases: [first.title] })
       : []
     const canInferMovieDetail = reuseExactLocalMovieDetails
       && gridClassification.type === 'movie'
@@ -375,7 +376,6 @@ export async function buildWaipuLiveCatalog({
 
   const matchesByProgram = new Map()
   const unresolvedPrograms = []
-  const candidatesFor = createCandidateLookup(candidates)
   let programIndex = 0
   for (const [programId, programBroadcasts] of byProgram) {
     programIndex += 1
