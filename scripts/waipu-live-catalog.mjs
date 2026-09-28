@@ -41,6 +41,10 @@ export const WAIPU_DAY_DATA_VERSION = 1
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const TV_TIME_ZONE = 'Europe/Berlin'
 const TV_DAY_START_HOUR = 6
+const CONTENT_GENRE_FALLBACK_STATIONS = new Set([
+  'cinemaofhearts',
+])
+const DEFAULT_MAX_WAIPU_CANDIDATE_PROGRAMS = 30000
 
 function iso(value) {
   const date = value instanceof Date ? new Date(value.getTime()) : new Date(value)
@@ -305,6 +309,7 @@ export async function buildWaipuLiveCatalog({
       genre: broadcast.gridGenre,
       seriesId: broadcast.seriesId,
       typeHint: typeHintForTitle(broadcast.title),
+      allowContentGenreFallback: CONTENT_GENRE_FALLBACK_STATIONS.has(broadcast.stationId),
     })
     return classification.status === 'candidate'
   })
@@ -316,6 +321,14 @@ export async function buildWaipuLiveCatalog({
     byProgram.get(broadcast.programId).push(broadcast)
   }
   metrics.candidatePrograms = byProgram.size
+
+  const maxCandidatePrograms = Number(process.env.WAIPU_MAX_CANDIDATE_PROGRAMS || DEFAULT_MAX_WAIPU_CANDIDATE_PROGRAMS)
+  if (Number.isFinite(maxCandidatePrograms) && maxCandidatePrograms > 0 && byProgram.size > maxCandidatePrograms) {
+    const error = new Error(`Waipu candidate prefilter is too broad: ${byProgram.size} programs exceeds limit ${maxCandidatePrograms}.`)
+    error.code = 'WAIPU_CANDIDATE_PREFILTER_TOO_BROAD'
+    error.metrics = metrics
+    throw error
+  }
 
   if (typeof onProgress === 'function') {
     onProgress({
@@ -357,6 +370,7 @@ export async function buildWaipuLiveCatalog({
       genre: first.gridGenre,
       seriesId: first.seriesId,
       typeHint: typeHintForTitle(first.title),
+      allowContentGenreFallback: CONTENT_GENRE_FALLBACK_STATIONS.has(first.stationId),
     }
     const detail = await loadProgramDetail(programId)
     if (detail?.unavailable === true && [404, 410].includes(detail.status)) {
