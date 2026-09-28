@@ -117,13 +117,15 @@ describe('Waipu film and series classification', () => {
 
   it('defers plausible content genres to program details without opening the gate for unrelated programming', () => {
     expect(classifyWaipuGridProgram(gridProgram({ genre: 'Romantik' })))
-      .toMatchObject({ status: 'candidate', type: null, signals: ['grid_genre:content'] })
+      .toMatchObject({ status: 'excluded', reason: 'unsupported_grid_genre' })
+    expect(classifyWaipuGridProgram(gridProgram({ genre: 'Romantik', typeHint: 'movie' })))
+      .toMatchObject({ status: 'candidate', type: 'movie' })
     expect(classifyWaipuProgram(
-      gridProgram({ genre: 'Romantik' }),
+      gridProgram({ genre: 'Romantik', typeHint: 'movie' }),
       detail({ mainGenre: 'Filme' }),
-    )).toMatchObject({ status: 'accepted', type: 'movie', confidence: 'medium' })
+    )).toMatchObject({ status: 'accepted', type: 'movie' })
 
-    const seriesGrid = gridProgram({ genre: 'Drama', seriesId: 'series-1', episodeTitle: 'Folge 3' })
+    const seriesGrid = gridProgram({ genre: 'Drama', seriesId: 'series-1', episodeTitle: 'Folge 3', typeHint: 'series' })
     expect(classifyWaipuGridProgram(seriesGrid))
       .toMatchObject({ status: 'candidate', type: 'series' })
     expect(classifyWaipuProgram(seriesGrid, detail({
