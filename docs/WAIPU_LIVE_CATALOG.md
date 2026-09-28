@@ -326,3 +326,23 @@ Vor jeder Matching-Änderung werden Cache-Hit/Miss, Matchquelle und unresolved E
 
 Siehe Issue #335.
 
+### Matcher V2 Vergleichslauf
+
+Nach erfolgreichem CI #1006 wird der erste kontrollierte 228-Sender-Vergleichslauf mit Waipu Matcher V2 gestartet.
+
+Baseline vor V2:
+- 21.836 klassifizierte Programme
+- 15.468 sichere TMDB-Matches
+- 6.368 unresolved
+  - 2.296 no_candidate
+  - 3.570 below_threshold
+  - 502 ambiguous_margin
+
+Matcher V2:
+- positive Matcher-V1-Cachetreffer bleiben kompatibel;
+- negative Matcher-V1-Entscheidungen werden neu bewertet;
+- Film-Suchen mit Produktionsjahr erhalten nur bei 0 Treffern einen zweiten TMDB-Versuch ohne Jahr;
+- Serienlogik bleibt unverändert.
+
+Ziel: zusätzliche sichere Filmzuordnungen ohne Lockerung der bestehenden Score-/Margin-Regeln.
+
