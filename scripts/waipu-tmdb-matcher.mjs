@@ -3,9 +3,9 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 
-export const WAIPU_MATCHER_VERSION = 3
+export const WAIPU_MATCHER_VERSION = 4
 export const WAIPU_MATCH_CACHE_KEY_VERSION = 1
-const WAIPU_POSITIVE_CACHE_COMPATIBLE_VERSIONS = new Set([1, 2, 3])
+const WAIPU_POSITIVE_CACHE_COMPATIBLE_VERSIONS = new Set([1, 2, 3, 4])
 export const WAIPU_MATCH_THRESHOLDS = Object.freeze({ movie: 80, series: 75, minimumMargin: 12 })
 export const WAIPU_NEGATIVE_MATCH_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1_000
 
@@ -156,7 +156,13 @@ export function chooseWaipuTmdbMatch(input, candidates, thresholds = WAIPU_MATCH
       && margin >= 10
       && best.signals.includes('movie_year_exact:+20')
       && !runnerUp.signals.includes('movie_year_exact:+20')
-    if (!movieExactYearDisambiguation) {
+    const seasonOneExactYearDisambiguation = input?.type === 'series'
+      && Number(input?.seasonNumber) === 1
+      && Number.isInteger(Number(input?.episodeNumber))
+      && margin >= 5
+      && best.signals.includes('series_year_exact:+5')
+      && !runnerUp.signals.includes('series_year_exact:+5')
+    if (!movieExactYearDisambiguation && !seasonOneExactYearDisambiguation) {
       return { status: 'unmatched', reason: 'ambiguous_margin', best, runnerUp, margin }
     }
   }
