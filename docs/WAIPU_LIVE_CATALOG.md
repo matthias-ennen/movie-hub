@@ -384,3 +384,19 @@ Die allgemeine Mindest-Margin 12 bleibt unverändert. Serienlogik bleibt unverä
 
 Ziel: die in der #750-Diagnose identifizierten sicheren Film-Near-Ties auflösen, ohne echte Gleichstände anzutasten.
 
+### Matcher V4 Vergleichslauf
+
+Nach grünem CI #1018 wird der kontrollierte 228-Sender-Refresh mit Matcher V4 gestartet.
+
+V4 erweitert ausschließlich Serien-Disambiguierung unter engen Bedingungen:
+- Serie;
+- Staffel 1;
+- konkrete Episodennummer vorhanden;
+- bester Kandidat trifft das Waipu-Produktionsjahr exakt;
+- Runner-up trifft das Jahr nicht exakt;
+- Score-Margin mindestens 5.
+
+Spätere Staffeln, fehlende Staffel-/Episodenstruktur und gleichjährige Kandidaten bleiben unverändert unresolved.
+
+Ziel: die in #754 identifizierten 158 Staffel-1-Ambiguitäten kontrolliert reduzieren.
+
