@@ -1034,6 +1034,7 @@ describe('Waipu local movie detail reuse', () => {
       programs: [knownMovie],
       loadProgramDetail,
       candidates: [movieCandidate()],
+      reuseExactLocalMovieDetails: true,
     }))
 
     expect(loadProgramDetail).not.toHaveBeenCalled()
