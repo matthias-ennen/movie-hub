@@ -184,6 +184,23 @@ export function localTmdbCandidates({ catalog = null, searchIndex = null } = {})
   return [...unique.values()]
 }
 
+function createGridTitleTypeHints(candidates) {
+  const lookup = new Map()
+  for (const candidate of candidates) {
+    const values = [candidate.title, candidate.originalTitle, ...(Array.isArray(candidate.aliases) ? candidate.aliases : [])]
+    for (const value of values) {
+      const normalized = normalizeWaipuText(value)
+      if (!normalized) continue
+      if (!lookup.has(normalized)) lookup.set(normalized, new Set())
+      lookup.get(normalized).add(candidate.type)
+    }
+  }
+  return (title) => {
+    const types = lookup.get(normalizeWaipuText(title))
+    return types?.size === 1 ? [...types][0] : null
+  }
+}
+
 function createCandidateLookup(candidates) {
   const lookup = new Map()
   for (const candidate of candidates) {
@@ -279,6 +296,7 @@ export async function buildWaipuLiveCatalog({
     countEligibleBroadcastRows(gridRecords, stationIds, start, endExclusive) - broadcasts.length,
   )
 
+  const typeHintForTitle = createGridTitleTypeHints(candidates)
   const candidateBroadcasts = broadcasts.filter((broadcast) => {
     const classification = classifyWaipuGridProgram({
       id: broadcast.programId,
@@ -286,6 +304,7 @@ export async function buildWaipuLiveCatalog({
       episodeTitle: broadcast.episodeTitle,
       genre: broadcast.gridGenre,
       seriesId: broadcast.seriesId,
+      typeHint: typeHintForTitle(broadcast.title),
     })
     return classification.status === 'candidate'
   })
@@ -326,6 +345,7 @@ export async function buildWaipuLiveCatalog({
       episodeTitle: first.episodeTitle,
       genre: first.gridGenre,
       seriesId: first.seriesId,
+      typeHint: typeHintForTitle(first.title),
     }
     const detail = await loadProgramDetail(programId)
     if (detail?.unavailable === true && [404, 410].includes(detail.status)) {
