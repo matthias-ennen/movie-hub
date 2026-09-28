@@ -346,3 +346,16 @@ Matcher V2:
 
 Ziel: zusätzliche sichere Filmzuordnungen ohne Lockerung der bestehenden Score-/Margin-Regeln.
 
+### Ambiguitäts-Diagnose #335
+
+Nach grünem CI #1009 wird ein kontrollierter 228-Sender-Waipu-Refresh gestartet, der `ambiguous_margin`-Fälle einmal neu bewertet und dabei Best-/Runner-up-Kandidaten samt Score, Jahr und Match-Signalen in der Diagnose ausweist.
+
+Wichtig:
+- keine Margin-Lockerung;
+- keine neue Matchregel;
+- nur Diagnose;
+- positive Cachetreffer bleiben unangetastet;
+- gecachte `ambiguous_margin`-Entscheidungen werden einmal neu berechnet, damit die Kandidatenvergleichsdaten vollständig vorliegen.
+
+Ziel: belastbar entscheiden, welche Ambiguitäten durch harte Zusatzsignale sicher auflösbar sind.
+
