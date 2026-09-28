@@ -1018,3 +1018,30 @@ describe('Waipu content-genre station policy', () => {
     }))).toMatchObject({ status: 'candidate', type: 'movie' })
   })
 })
+
+
+describe('Waipu local movie detail reuse', () => {
+  it('reuses an exact local movie match without loading Waipu details', async () => {
+    const knownMovie = gridProgram({
+      id: 'known-movie',
+      title: 'The Man from Toronto',
+      genre: 'Filme',
+    })
+    const loadProgramDetail = vi.fn(async () => {
+      throw new Error('detail loader should not be called for an exact local movie match')
+    })
+    const catalog = await buildWaipuLiveCatalog(buildFixture({
+      programs: [knownMovie],
+      loadProgramDetail,
+      candidates: [movieCandidate()],
+    }))
+
+    expect(loadProgramDetail).not.toHaveBeenCalled()
+    expect(catalog.index.metrics).toMatchObject({
+      gridCandidates: 1,
+      candidatePrograms: 1,
+      detailsInferredFromLocalIndex: 1,
+      matchedPrograms: 1,
+    })
+  })
+})
