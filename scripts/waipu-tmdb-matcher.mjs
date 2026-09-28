@@ -3,9 +3,9 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 
-export const WAIPU_MATCHER_VERSION = 4
+export const WAIPU_MATCHER_VERSION = 5
 export const WAIPU_MATCH_CACHE_KEY_VERSION = 1
-const WAIPU_POSITIVE_CACHE_COMPATIBLE_VERSIONS = new Set([1, 2, 3, 4])
+const WAIPU_POSITIVE_CACHE_COMPATIBLE_VERSIONS = new Set([1, 2, 3, 4, 5])
 export const WAIPU_MATCH_THRESHOLDS = Object.freeze({ movie: 80, series: 75, minimumMargin: 12 })
 export const WAIPU_NEGATIVE_MATCH_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1_000
 
@@ -170,12 +170,16 @@ export function chooseWaipuTmdbMatch(input, candidates, thresholds = WAIPU_MATCH
 }
 
 export function matchCacheKey(input) {
+  const seasonOneEvidenceScope = input?.type === 'series'
+    && Number(input?.seasonNumber) === 1
+    && Number.isInteger(Number(input?.episodeNumber))
   const payload = JSON.stringify({
     version: WAIPU_MATCH_CACHE_KEY_VERSION,
     type: input?.type || null,
     aliases: aliases(input).sort(),
     year: finiteNumber(input?.productionYear),
     countries: [...normalizedCountries(input?.productionCountries)].sort(),
+    seriesEvidenceScope: seasonOneEvidenceScope ? 'season_one_episode' : null,
   })
   return createHash('sha256').update(payload).digest('hex')
 }
@@ -190,8 +194,13 @@ export async function matchWaipuProgram(input, {
 } = {}) {
   const key = matchCacheKey(input)
   const cached = decisions?.get?.(key)
+  const cachedMatcherVersion = Number(cached?.matcherVersion)
+  const staleV4SeriesPositive = cached?.status === 'matched'
+    && cachedMatcherVersion === 4
+    && input?.type === 'series'
   if (cached?.status === 'matched'
-      && WAIPU_POSITIVE_CACHE_COMPATIBLE_VERSIONS.has(Number(cached?.matcherVersion))) {
+      && WAIPU_POSITIVE_CACHE_COMPATIBLE_VERSIONS.has(cachedMatcherVersion)
+      && !staleV4SeriesPositive) {
     return { ...cached, cache: 'hit' }
   }
   const cachedAt = Date.parse(cached?.checkedAt)
