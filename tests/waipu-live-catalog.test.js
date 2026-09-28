@@ -990,3 +990,13 @@ describe('Waipu program detail loading', () => {
     })
   })
 })
+
+
+describe('Waipu grid fallback guards', () => {
+  it('requires episode evidence for series-id fallback', () => {
+    expect(classifyWaipuGridProgram(gridProgram({ genre: 'Magazin', seriesId: 'broad-series-id' })))
+      .toMatchObject({ status: 'excluded', reason: 'unsupported_grid_genre' })
+    expect(classifyWaipuGridProgram(gridProgram({ genre: 'Drama', seriesId: 'series-1', episodeTitle: 'Folge 3' })))
+      .toMatchObject({ status: 'candidate', type: 'series' })
+  })
+})
