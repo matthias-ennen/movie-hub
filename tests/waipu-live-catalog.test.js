@@ -191,6 +191,62 @@ describe('Waipu to TMDB matching', () => {
     })
   })
 
+  it('uses a separate cache key for season-one episode evidence', async () => {
+    const { matchCacheKey } = await import('../scripts/waipu-tmdb-matcher.mjs')
+    const base = {
+      type: 'series',
+      title: 'Alles oder Nichts',
+      originalTitle: 'Alles oder Nichts',
+      aliases: ['Alles oder Nichts'],
+      productionYear: 2018,
+      productionCountries: ['DE'],
+    }
+    const seasonOneKey = matchCacheKey({ ...base, seasonNumber: 1, episodeNumber: 12 })
+    const unscopedKey = matchCacheKey({ ...base, seasonNumber: null, episodeNumber: 52 })
+    expect(seasonOneKey).not.toBe(unscopedKey)
+  })
+
+  it('does not reuse matcher-v4 series positives outside the new evidence scope', async () => {
+    const decisions = new WaipuMatchDecisionStore()
+    const { matchCacheKey } = await import('../scripts/waipu-tmdb-matcher.mjs')
+    const input = {
+      type: 'series',
+      title: 'Alles oder Nichts',
+      originalTitle: 'Alles oder Nichts',
+      aliases: ['Alles oder Nichts'],
+      productionYear: 2018,
+      productionCountries: ['DE'],
+      seriesId: 'alles-oder-nichts',
+      seasonNumber: null,
+      episodeNumber: 52,
+    }
+    decisions.set(matchCacheKey(input), {
+      matcherVersion: 4,
+      checkedAt: new Date().toISOString(),
+      status: 'matched',
+      reason: null,
+      source: 'local+tmdb-search',
+      match: {
+        tmdbId: 83736,
+        type: 'series',
+        title: 'Alles oder Nichts',
+        originalTitle: 'Alles oder Nichts',
+        year: 2018,
+        posterUrl: null,
+        score: 93,
+        margin: 5,
+        signals: ['series_year_exact:+5'],
+      },
+    })
+    const searchTmdb = vi.fn(async () => [
+      { id: 83736, media_type: 'tv', name: 'Alles oder Nichts', first_air_date: '2018-01-01' },
+      { id: 999999, media_type: 'tv', name: 'Alles oder Nichts', first_air_date: '2010-01-01' },
+    ])
+    const result = await matchWaipuProgram(input, { decisions, searchTmdb })
+    expect(searchTmdb).toHaveBeenCalledOnce()
+    expect(result.cache).toBe('miss')
+  })
+
   it('keeps later-season series near-ties unresolved even when the source year matches one candidate', () => {
     const result = chooseWaipuTmdbMatch({
       type: 'series',
