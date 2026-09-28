@@ -257,7 +257,9 @@ describe('Waipu to TMDB matching', () => {
       ok: true,
       status: 200,
       headers: new Headers(),
-      json: async () => ({ results: [] }),
+      json: async () => ({
+        results: [{ id: 351286, title: input.originalTitle, release_date: '2018-06-06' }],
+      }),
     }))
     const client = new WaipuTmdbSearchClient({
       token: 'test-token',
