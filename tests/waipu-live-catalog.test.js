@@ -118,10 +118,10 @@ describe('Waipu film and series classification', () => {
   it('defers plausible content genres to program details without opening the gate for unrelated programming', () => {
     expect(classifyWaipuGridProgram(gridProgram({ genre: 'Romantik' })))
       .toMatchObject({ status: 'excluded', reason: 'unsupported_grid_genre' })
-    expect(classifyWaipuGridProgram(gridProgram({ genre: 'Romantik', typeHint: 'movie' })))
+    expect(classifyWaipuGridProgram(gridProgram({ genre: 'Romantik', typeHint: 'movie', allowContentGenreFallback: true })))
       .toMatchObject({ status: 'candidate', type: 'movie' })
     expect(classifyWaipuProgram(
-      gridProgram({ genre: 'Romantik', typeHint: 'movie' }),
+      gridProgram({ genre: 'Romantik', typeHint: 'movie', allowContentGenreFallback: true }),
       detail({ mainGenre: 'Filme' }),
     )).toMatchObject({ status: 'accepted', type: 'movie' })
 
@@ -998,5 +998,18 @@ describe('Waipu grid fallback guards', () => {
       .toMatchObject({ status: 'excluded', reason: 'unsupported_grid_genre' })
     expect(classifyWaipuGridProgram(gridProgram({ genre: 'Drama', seriesId: 'series-1', episodeTitle: 'Folge 3' })))
       .toMatchObject({ status: 'candidate', type: 'series' })
+  })
+})
+
+
+describe('Waipu content-genre station policy', () => {
+  it('blocks content genres without explicit station fallback policy', () => {
+    expect(classifyWaipuGridProgram(gridProgram({ genre: 'Romantik', typeHint: 'movie' })))
+      .toMatchObject({ status: 'excluded', reason: 'unsupported_grid_genre' })
+    expect(classifyWaipuGridProgram(gridProgram({
+      genre: 'Romantik',
+      typeHint: 'movie',
+      allowContentGenreFallback: true,
+    }))).toMatchObject({ status: 'candidate', type: 'movie' })
   })
 })
