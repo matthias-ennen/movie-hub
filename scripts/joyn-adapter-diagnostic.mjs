@@ -404,7 +404,7 @@ function titleLookup(candidates) {
   return (title) => [...(map.get(normalizeWaipuText(title))?.values() || [])]
 }
 
-function trustedJoynTitleAliases(classification, primaryTitle) {
+export function trustedJoynTitleAliases(classification, primaryTitle) {
   if (!['movie', 'series'].includes(classification?.type)) return []
   const algolia = [
     classification?.algolia,
