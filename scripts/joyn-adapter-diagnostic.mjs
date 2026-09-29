@@ -445,6 +445,7 @@ export async function runJoynAdapterDiagnostic({
   fetchImpl = fetch,
   now = Date.now(),
   publicationOutput = resolve(root, 'artifacts/joyn-live'),
+  sourceGenerationPrefix = 'joyn-diagnostic',
 } = {}) {
   const generatedAt = new Date(now).toISOString()
   const loaded = await loadJoynEpg(fetchImpl)
@@ -766,7 +767,7 @@ export async function runJoynAdapterDiagnostic({
 
   const envelope = buildJoynSourceEnvelope(events, {
     generatedAt,
-    sourceGenerationId: `joyn-diagnostic:${generatedAt}`,
+    sourceGenerationId: `${sourceGenerationPrefix}:${generatedAt}`,
     sourceCoverage: {
       mode: 'all-joyn-stations',
       upstreamStreams: Array.isArray(raw?.liveStreams) ? raw.liveStreams.length : 0,
