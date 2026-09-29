@@ -404,6 +404,28 @@ function titleLookup(candidates) {
   return (title) => [...(map.get(normalizeWaipuText(title))?.values() || [])]
 }
 
+function trustedJoynTitleAliases(classification, primaryTitle) {
+  if (!['movie', 'series'].includes(classification?.type)) return []
+  const algolia = [
+    classification?.algolia,
+    classification?.algoliaBase,
+    classification?.algoliaEpisode,
+  ].filter(Boolean)
+  const values = []
+  for (const result of algolia) {
+    if (result?.type !== classification.type || result?.reason !== 'validated_algolia_search') continue
+    for (const evidence of Array.isArray(result?.evidence) ? result.evidence : []) {
+      if (evidence?.type !== classification.type) continue
+      values.push(evidence?.topLevelTitle, evidence?.title)
+    }
+  }
+  const primary = normalizeWaipuText(primaryTitle)
+  return [...new Set(values
+    .map((value) => String(value ?? '').trim())
+    .filter(Boolean)
+    .filter((value) => normalizeWaipuText(value) !== primary))]
+}
+
 async function writeJson(path, value) {
   await mkdir(dirname(path), { recursive: true })
   await writeFile(path, JSON.stringify(value, null, 2) + '\n', 'utf8')
@@ -648,9 +670,11 @@ export async function runJoynAdapterDiagnostic({
         }
       } else {
         try {
+          const trustedAliases = trustedJoynTitleAliases(joynClassificationResult, entry.candidate.title)
           decision = await matchJoynProgram(
             {
               title: entry.candidate.title,
+              aliases: trustedAliases,
               description: entry.candidate.description,
               type: joynType,
               productionYear: joynClassificationResult?.algoliaBase?.productionYear
@@ -698,6 +722,7 @@ export async function runJoynAdapterDiagnostic({
       hasDescription: Boolean(entry.candidate.description),
       description: entry.candidate.description || null,
       joynClassification: joynClassificationResult,
+      trustedTitleAliases: trustedJoynTitleAliases(joynClassificationResult, entry.candidate.title),
       localCandidates: localCandidates.slice(0, 20).map((candidate) => ({
         tmdbId: candidate.tmdbId,
         type: candidate.type,
