@@ -451,9 +451,9 @@ describe('Joyn TMDB matching', () => {
       reason: 'below_threshold',
       diagnosticCandidates: {
         best: {
-          tmdbId: 1,
-          title: 'Most Wanted: Wer entkommt?',
-          year: 2025,
+          tmdbId: 2,
+          title: 'FBI: Most Wanted',
+          year: 2020,
         },
       },
     })
