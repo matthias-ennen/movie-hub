@@ -44,6 +44,38 @@ describe('Joyn Algolia classifier', () => {
     })
   })
 
+  it('keeps the validated series year when matching episode evidence is also present', () => {
+    expect(classifyJoynAlgoliaHits({
+      title: 'Navy CIS: Origins',
+      secondaryTitle: 'Doc Tango und Ducky',
+    }, [
+      {
+        type: 'SERIES',
+        titles: { DE: 'Navy CIS: Origins' },
+        productionYear: 2024,
+      },
+      {
+        type: 'EPISODE',
+        titles: { DE: 'Doc Tango und Ducky' },
+        topLevelTitles: { DE: 'Navy CIS: Origins' },
+        productionYear: 2026,
+        season: { number: 2 },
+        number: 13,
+        series: { id: 'd_p7a4dv90u57' },
+        video: { duration: 2492 },
+      },
+    ])).toMatchObject({
+      type: 'series',
+      reason: 'validated_algolia_search',
+      productionYear: 2024,
+      episodeProductionYear: 2026,
+      seasonNumber: 2,
+      episodeNumber: 13,
+      seriesId: 'd_p7a4dv90u57',
+      runtimeSeconds: 2492,
+    })
+  })
+
   it('rejects unrelated search hits and non-title content', () => {
     expect(classifyJoynAlgoliaHits({ title: 'Doctor Who' }, [{
       type: 'MOVIE',

@@ -120,29 +120,23 @@ export function classifyJoynAlgoliaHits(input, rawHits = []) {
 
   const type = families[0]
   const sameFamily = evidence.filter((item) => item.type === type)
-  const hardIdentity = sameFamily.filter((item) => (
+  const exactTitleEvidence = sameFamily.filter((item) => (
     item.matchKind === 'movie_exact_title'
     || item.matchKind === 'series_exact_title'
-    || item.matchKind === 'episode_series_and_title'
   ))
-  const uniqueHard = hardIdentity.length === 1 ? hardIdentity[0] : null
-  const productionYear = uniqueHard
-    && (uniqueHard.matchKind === 'movie_exact_title' || uniqueHard.matchKind === 'series_exact_title')
-    ? uniqueHard.productionYear
-    : null
-  const episodeProductionYear = uniqueHard?.matchKind === 'episode_series_and_title'
-    ? uniqueHard.productionYear
-    : null
+  const episodeIdentity = sameFamily.filter((item) => item.matchKind === 'episode_series_and_title')
+  const uniqueExactTitle = exactTitleEvidence.length === 1 ? exactTitleEvidence[0] : null
+  const uniqueEpisode = episodeIdentity.length === 1 ? episodeIdentity[0] : null
 
   return {
     type,
     reason: 'validated_algolia_search',
     evidence: sameFamily,
-    productionYear: productionYear ?? null,
-    episodeProductionYear: episodeProductionYear ?? null,
-    runtimeSeconds: uniqueHard?.runtimeSeconds ?? null,
-    seasonNumber: uniqueHard?.seasonNumber ?? null,
-    episodeNumber: uniqueHard?.episodeNumber ?? null,
-    seriesId: uniqueHard?.seriesId ?? null,
+    productionYear: uniqueExactTitle?.productionYear ?? null,
+    episodeProductionYear: uniqueEpisode?.productionYear ?? null,
+    runtimeSeconds: uniqueEpisode?.runtimeSeconds ?? uniqueExactTitle?.runtimeSeconds ?? null,
+    seasonNumber: uniqueEpisode?.seasonNumber ?? null,
+    episodeNumber: uniqueEpisode?.episodeNumber ?? null,
+    seriesId: uniqueEpisode?.seriesId ?? null,
   }
 }
