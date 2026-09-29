@@ -374,22 +374,39 @@ async function searchJoynTitle(title, {
   const body = await response.json().catch(() => null)
   if (!body?.data || body?.errors?.length) return { type: null, reason: 'graphql_error' }
   const input = normalizeWaipuText(title)
-  const exact = (Array.isArray(body?.data?.search?.results) ? body.data.search.results : [])
+  const exactResults = (Array.isArray(body?.data?.search?.results) ? body.data.search.results : [])
     .filter((result) => normalizeWaipuText(result?.title) === input)
     .map((result) => {
-      if (result?.__typename === 'Movie') return 'movie'
-      if (result?.__typename === 'Series' || result?.__typename === 'Episode') return 'series'
-      return null
+      let type = null
+      if (result?.__typename === 'Movie') type = 'movie'
+      if (result?.__typename === 'Series' || result?.__typename === 'Episode') type = 'series'
+      if (!type) return null
+      return {
+        type,
+        joynType: result?.__typename || null,
+        id: joynText(result?.id),
+        title: joynText(result?.title),
+        path: joynText(result?.path),
+        fullPath: joynText(result?.fullPath),
+      }
     })
     .filter(Boolean)
+  const exact = exactResults.map((result) => result.type)
   const unique = [...new Set(exact)]
   return unique.length === 1
-    ? { type: unique[0], reason: 'exact_joyn_search', exactTypes: unique, exactCount: exact.length }
+    ? {
+        type: unique[0],
+        reason: 'exact_joyn_search',
+        exactTypes: unique,
+        exactCount: exact.length,
+        exactResults,
+      }
     : {
       type: null,
       reason: unique.length > 1 ? 'ambiguous_joyn_search' : 'no_joyn_type',
       exactTypes: unique,
       exactCount: exact.length,
+      exactResults,
     }
 }
 
