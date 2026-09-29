@@ -1,4 +1,5 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, rename, rm, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
 
 export const JOYN_LIVE_PUBLICATION_VERSION = 1
@@ -175,5 +176,78 @@ export async function writeJoynLivePublication(publication, outputDirectory) {
   await writeJson(resolve(outputDirectory, 'titles.json'), publication.titles)
   for (const [key, shard] of Object.entries(publication.days || {})) {
     await writeJson(resolve(outputDirectory, 'days', `${key}.json`), shard)
+  }
+}
+
+
+export function validateJoynLivePublication(publication) {
+  const errors = []
+  const index = publication?.index
+  const stations = publication?.stations?.stations
+  const titles = publication?.titles?.entries
+  const days = publication?.days
+
+  if (index?.kind !== 'joyn-live-index' || index?.status !== 'complete') errors.push('Joyn index is not complete.')
+  if (!index?.sourceGenerationId) errors.push('Joyn source generation id is missing.')
+  if (!Array.isArray(stations) || stations.length === 0 || index?.stationCount !== stations.length) {
+    errors.push('Joyn station count is inconsistent.')
+  }
+  if (!Array.isArray(titles) || titles.length === 0 || publication?.titles?.count !== titles.length) {
+    errors.push('Joyn title count is inconsistent.')
+  }
+  if (!Number.isSafeInteger(index?.airingCount) || index.airingCount <= 0) errors.push('Joyn airings are missing.')
+  const dayEntries = days && typeof days === 'object' ? Object.entries(days) : []
+  const dayAirings = dayEntries.reduce((total, [, shard]) => total + (Array.isArray(shard?.airings) ? shard.airings.length : 0), 0)
+  if (!dayEntries.length || dayAirings !== index?.airingCount) errors.push('Joyn day shards are inconsistent.')
+  if (index?.metadata?.required === true && index.metadata.complete !== titles?.length) {
+    errors.push('Joyn title metadata is incomplete.')
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    counts: {
+      stations: Array.isArray(stations) ? stations.length : 0,
+      titles: Array.isArray(titles) ? titles.length : 0,
+      airings: Number(index?.airingCount || 0),
+      dayAirings,
+    },
+  }
+}
+
+export async function writeJoynLivePublicationAtomic(publication, outputDirectory) {
+  const validation = validateJoynLivePublication(publication)
+  if (!validation.valid) {
+    const error = new Error(`Joyn publication rejected: ${validation.errors.join(' ')}`)
+    error.code = 'JOYN_PUBLICATION_INVALID'
+    error.validation = validation
+    throw error
+  }
+
+  const target = resolve(outputDirectory)
+  const staging = `${target}.staging.${process.pid}.${randomUUID()}`
+  const backup = `${target}.backup.${process.pid}.${randomUUID()}`
+  let hasBackup = false
+
+  try {
+    await writeJoynLivePublication(publication, staging)
+    try {
+      await rename(target, backup)
+      hasBackup = true
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error
+    }
+
+    try {
+      await rename(staging, target)
+    } catch (error) {
+      if (hasBackup) await rename(backup, target)
+      throw error
+    }
+
+    if (hasBackup) await rm(backup, { recursive: true, force: true })
+    return validation
+  } finally {
+    await rm(staging, { recursive: true, force: true })
   }
 }
