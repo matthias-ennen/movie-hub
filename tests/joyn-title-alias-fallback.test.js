@@ -46,6 +46,41 @@ describe('Joyn bounded typed title aliases', () => {
     })
   })
 
+  it('drops episode titles while keeping the validated series top-level title', () => {
+    const aliases = trustedJoynTitleAliases({
+      type: 'series',
+      algoliaEpisode: {
+        type: 'series',
+        reason: 'validated_algolia_search',
+        evidence: [
+          {
+            type: 'series',
+            joynType: 'EPISODE',
+            title: 'Doc Tango und Ducky',
+            topLevelTitle: 'NCIS: Origins',
+          },
+          {
+            type: 'series',
+            joynType: 'EPISODE',
+            title: 'Las Vegas',
+            topLevelTitle: 'NCIS: Origins',
+          },
+          {
+            type: 'series',
+            joynType: 'EPISODE',
+            title: 'Fremde Federn',
+            topLevelTitle: 'NCIS: Origins',
+          },
+        ],
+      },
+    }, 'Navy CIS: Origins')
+
+    expect(aliases).toEqual(['NCIS: Origins'])
+    expect(aliases).not.toContain('Doc Tango und Ducky')
+    expect(aliases).not.toContain('Las Vegas')
+    expect(aliases).not.toContain('Fremde Federn')
+  })
+
   it('does not expose alias fallback for an untyped Joyn programme', () => {
     expect(trustedJoynTitleAliases({
       type: null,
