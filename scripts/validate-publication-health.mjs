@@ -37,10 +37,16 @@ export function evaluatePublishedData(dataStatus, waipuIndex, {
   if (!Number.isFinite(waipuAt) || waipuAt > latestAllowed) errors.push('Waipu-Zeitstempel ungültig')
   if (waipuIndex?.counts?.stations !== expectedStations) errors.push(`Waipu-Senderzahl ungleich ${expectedStations}`)
   if (!positiveInteger(waipuIndex?.counts?.titles) || !positiveInteger(waipuIndex?.counts?.broadcasts)) errors.push('Waipu-Titel oder Ausstrahlungen fehlen')
+  const expectedDayKeys = Number.isFinite(horizonStart)
+    ? [
+        new Date(horizonStart - 86400000).toISOString().slice(0, 10),
+        ...Array.from({ length: 14 }, (_, index) => new Date(horizonStart + index * 86400000).toISOString().slice(0, 10)),
+      ]
+    : []
   if (!Number.isFinite(horizonStart) || horizonEnd - horizonStart !== 14 * 86400000
-    || !Array.isArray(waipuIndex?.days) || waipuIndex.days.length !== 14
+    || !Array.isArray(waipuIndex?.days) || waipuIndex.days.length !== expectedDayKeys.length
     || waipuIndex.days.some((day, index) => !nonNegativeInteger(day.count)
-      || day.key !== new Date(horizonStart + index * 86400000).toISOString().slice(0, 10))
+      || day.key !== expectedDayKeys[index])
     || waipuIndex.days.reduce((total, day) => total + day.count, 0) !== waipuIndex?.counts?.broadcasts) {
     errors.push('Waipu-Tagesbestand inkonsistent')
   }
