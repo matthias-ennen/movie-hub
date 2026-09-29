@@ -72,4 +72,24 @@ describe('Joyn Algolia classifier', () => {
       reason: 'algolia_conflicting_types',
     })
   })
+  it('preserves localized and original Joyn titles for validated series evidence', () => {
+    const result = classifyJoynAlgoliaHits({ title: 'Navy CIS: Origins' }, [{
+      type: 'SERIES',
+      titles: { DE: 'Navy CIS: Origins', OV: 'NCIS: Origins' },
+      topLevelTitles: { DE: 'Navy CIS: Origins', OV: 'NCIS: Origins' },
+      productionYear: 2024,
+    }])
+
+    expect(result).toMatchObject({
+      type: 'series',
+      reason: 'validated_algolia_search',
+      evidence: [expect.objectContaining({
+        titleDe: 'Navy CIS: Origins',
+        titleOv: 'NCIS: Origins',
+        topLevelTitleDe: 'Navy CIS: Origins',
+        topLevelTitleOv: 'NCIS: Origins',
+      })],
+    })
+  })
+
 })
