@@ -11,3 +11,22 @@ export function shouldLoadLiveStations({
 } = {}) {
   return Boolean(tvRequested || settingsOpen)
 }
+
+export function isTvPresentationReady({
+  waipuStationStatus = 'loading',
+  joynStationStatus = 'loading',
+  stationSelectionLoading = true,
+  joynStationSelectionLoading = true,
+  scheduleStatus = 'idle',
+  hasHeroItems = false,
+} = {}) {
+  const stationCatalogsSettled = waipuStationStatus !== 'loading'
+    && joynStationStatus !== 'loading'
+  const stationSelectionsSettled = !stationSelectionLoading
+    && !joynStationSelectionLoading
+  const scheduleSettled = scheduleStatus !== 'idle' && scheduleStatus !== 'loading'
+
+  return stationCatalogsSettled
+    && stationSelectionsSettled
+    && (hasHeroItems || scheduleSettled)
+}

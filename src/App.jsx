@@ -44,7 +44,11 @@ import { AnnouncementsView, BellButton, StartupAnnouncement } from './notificati
 import { HERO_PRELOAD_INTENT_DELAY_MS, preloadHeroImage } from './performance/progressiveRendering.js'
 import { loadCatalogWithRetry } from './performance/catalogStartup.js'
 import { notifyNativeStartupReady } from './performance/nativeStartup.js'
-import { shouldLoadLiveStations, shouldLoadLiveTitles } from './performance/liveCatalogStartup.js'
+import {
+  isTvPresentationReady,
+  shouldLoadLiveStations,
+  shouldLoadLiveTitles,
+} from './performance/liveCatalogStartup.js'
 import { INITIAL_HOME_FOCUS_EVENT } from './components/InitialHomeFocus.jsx'
 import { ProfileProvider, useProfiles } from './profiles/ProfileProvider.jsx'
 import { ThemeProvider } from './theme/ThemeProvider.jsx'
@@ -462,9 +466,7 @@ function MovieHub({ user }) {
     smartFilterOptions: normalizeSmartFilterOptions(),
   })
   const [waipuLiveEntries, setWaipuLiveEntries] = useState([])
-  const [waipuLiveStatus, setWaipuLiveStatus] = useState('loading')
   const [joynLiveEntries, setJoynLiveEntries] = useState([])
-  const [joynLiveStatus, setJoynLiveStatus] = useState('loading')
   const [waipuStatusClock, setWaipuStatusClock] = useState(() => Date.now())
   const [waipuStationCatalog, setWaipuStationCatalog] = useState({
     status: 'loading',
@@ -566,7 +568,6 @@ function MovieHub({ user }) {
     loadWaipuLiveTitles().then((entries) => {
       if (!cancelled) {
         setWaipuLiveEntries(entries)
-        setWaipuLiveStatus('ready')
         setWaipuStatusClock(Date.now())
       }
     })
@@ -579,7 +580,6 @@ function MovieHub({ user }) {
     loadJoynLiveTitles().then((entries) => {
       if (!cancelled) {
         setJoynLiveEntries(entries)
-        setJoynLiveStatus('ready')
         setWaipuStatusClock(Date.now())
       }
     })
@@ -940,14 +940,14 @@ function MovieHub({ user }) {
     now: tvClock,
   }), [combinedTvStationOrder, compactTvTitleEntries, tvClock, tvPresentationTitles])
   const tvHeroItems = compactTvHeroItems.length ? compactTvHeroItems : tvViewModel.heroItems
-  const tvScheduleSettled = tvSchedule.status !== 'idle' && tvSchedule.status !== 'loading'
-  const tvHeroCatalogReady = waipuLiveStatus === 'ready'
-    && joynLiveStatus === 'ready'
-    && waipuStationCatalog.status !== 'loading'
-    && joynStationCatalog.status !== 'loading'
-    && !stationSelectionLoading
-    && !joynStationSelectionLoading
-    && (compactTvHeroItems.length > 0 || tvScheduleSettled)
+  const tvHeroCatalogReady = isTvPresentationReady({
+    waipuStationStatus: waipuStationCatalog.status,
+    joynStationStatus: joynStationCatalog.status,
+    stationSelectionLoading,
+    joynStationSelectionLoading,
+    scheduleStatus: tvSchedule.status,
+    hasHeroItems: tvHeroItems.length > 0,
+  })
   const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
   const activeSortMode = useMemo(
     () => resolveContentSortMode(contentDisplaySettings, activeProfile?.id, new Date()),
