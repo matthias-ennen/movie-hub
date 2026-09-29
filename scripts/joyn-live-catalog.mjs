@@ -13,6 +13,7 @@ export async function runJoynLiveCatalog({
   const { summary, envelope, publication } = await runJoynAdapterDiagnostic({
     now,
     publicationOutput: candidateOutput,
+    sourceGenerationPrefix: 'joyn-catalog',
   })
 
   const validation = await writeJoynLivePublicationAtomic(publication, outputDirectory)
