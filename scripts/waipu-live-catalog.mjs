@@ -282,6 +282,7 @@ export async function buildWaipuLiveCatalog({
   allowUnresolvedMatches = false,
   releaseChannel = 'production',
   reuseExactLocalMovieDetails = false,
+  cachedProgramIds = null,
   now = Date.now,
   onProgress = null,
 } = {}) {
@@ -325,8 +326,10 @@ export async function buildWaipuLiveCatalog({
   metrics.candidatePrograms = byProgram.size
   const candidatesFor = createCandidateLookup(candidates)
 
+  const cachedProgramIdSet = cachedProgramIds instanceof Set ? cachedProgramIds : null
   let detailRequiredPrograms = 0
-  for (const programBroadcasts of byProgram.values()) {
+  let uncachedDetailPrograms = 0
+  for (const [programId, programBroadcasts] of byProgram) {
     const first = programBroadcasts[0]
     const gridProgram = {
       id: first.programId,
@@ -345,13 +348,17 @@ export async function buildWaipuLiveCatalog({
       && gridClassification.type === 'movie'
       && gridClassification.signals.includes('grid_genre:movie')
       && exactLocalCandidates.length === 1
-    if (!canInferMovieDetail) detailRequiredPrograms += 1
+    if (!canInferMovieDetail) {
+      detailRequiredPrograms += 1
+      if (!cachedProgramIdSet || !cachedProgramIdSet.has(programId)) uncachedDetailPrograms += 1
+    }
   }
   metrics.detailRequiredPrograms = detailRequiredPrograms
+  metrics.uncachedDetailPrograms = uncachedDetailPrograms
 
   const maxCandidatePrograms = Number(process.env.WAIPU_MAX_CANDIDATE_PROGRAMS || DEFAULT_MAX_WAIPU_CANDIDATE_PROGRAMS)
-  if (Number.isFinite(maxCandidatePrograms) && maxCandidatePrograms > 0 && detailRequiredPrograms > maxCandidatePrograms) {
-    const error = new Error(`Waipu detail prefilter is too broad: ${detailRequiredPrograms} programs still require detail loading (from ${byProgram.size} candidates), limit ${maxCandidatePrograms}.`)
+  if (Number.isFinite(maxCandidatePrograms) && maxCandidatePrograms > 0 && uncachedDetailPrograms > maxCandidatePrograms) {
+    const error = new Error(`Waipu detail prefilter is too broad: ${uncachedDetailPrograms} uncached programs may require network detail loading (${detailRequiredPrograms} total detail programs from ${byProgram.size} candidates), limit ${maxCandidatePrograms}.`)
     error.code = 'WAIPU_CANDIDATE_PREFILTER_TOO_BROAD'
     error.metrics = metrics
     throw error
@@ -921,6 +928,7 @@ async function main() {
         allowUnresolvedMatches: testMode,
         releaseChannel: testMode ? 'test' : 'production',
         reuseExactLocalMovieDetails: live,
+        cachedProgramIds: new Set(programRecords.map((record) => record.key)),
         onProgress: ({ processed, total, detailsLoaded, matchedPrograms }) => {
           process.stdout.write(
             `Waipu-Details: ${processed}/${total} · ${detailsLoaded} geladen · ${matchedPrograms} TMDB-zugeordnet`
