@@ -30,6 +30,22 @@ function aliases(value) {
   ].map(normalizeWaipuText).filter(Boolean))]
 }
 
+function inputTitles(input) {
+  return [...new Set([
+    input?.title,
+    ...(Array.isArray(input?.aliases) ? input.aliases : []),
+  ].map((value) => String(value ?? '').trim()).filter(Boolean))]
+}
+
+function bestInputTitleScore(input, candidate) {
+  const scores = inputTitles(input).map((value) => ({
+    value,
+    score: score(value, candidate),
+  }))
+  return scores.sort((left, right) => right.score - left.score || left.value.localeCompare(right.value, 'de'))[0]
+    || { value: null, score: 0 }
+}
+
 function dice(left, right) {
   const a = new Set(String(left).split(/\s+/).filter(Boolean))
   const b = new Set(String(right).split(/\s+/).filter(Boolean))
@@ -80,7 +96,10 @@ export function chooseJoynTmdbMatch(input, rawCandidates = []) {
     byKey.set(`${candidate.type}:${candidate.tmdbId}`, candidate)
   }
   const ranked = [...byKey.values()]
-    .map((candidate) => ({ candidate, score: score(input?.title, candidate) }))
+    .map((candidate) => {
+      const matchedInput = bestInputTitleScore(input, candidate)
+      return { candidate, score: matchedInput.score, matchedInputTitle: matchedInput.value }
+    })
     .filter((item) => item.score >= 70)
     .sort((a, b) => b.score - a.score || a.candidate.type.localeCompare(b.candidate.type) || a.candidate.tmdbId - b.candidate.tmdbId)
 
@@ -118,7 +137,7 @@ function exactTitleCandidates(input, rawCandidates = []) {
     const candidate = normalizeTmdbMatchCandidate(raw, raw?.source || 'local')
     if (!candidate) continue
     if (input?.type && candidate.type !== input.type) continue
-    if (score(input?.title, candidate) !== 100) continue
+    if (bestInputTitleScore(input, candidate).score !== 100) continue
     byKey.set(`${candidate.type}:${candidate.tmdbId}`, candidate)
   }
   return [...byKey.values()]
@@ -263,6 +282,7 @@ export async function matchJoynProgram(input, {
         best: {
           candidate: yearResolution.candidate,
           score: 100,
+          matchedInputTitle: bestInputTitleScore(input, yearResolution.candidate).value,
         },
         runnerUp: null,
         margin: 100,
@@ -281,6 +301,7 @@ export async function matchJoynProgram(input, {
         best: {
           candidate: descriptionResolution.candidate,
           score: 100,
+          matchedInputTitle: bestInputTitleScore(input, descriptionResolution.candidate).value,
         },
         runnerUp: null,
         margin: descriptionResolution.margin,
@@ -299,6 +320,7 @@ export async function matchJoynProgram(input, {
         best: {
           candidate: durationResolution.candidate,
           score: 100,
+          matchedInputTitle: bestInputTitleScore(input, durationResolution.candidate).value,
         },
         runnerUp: null,
         margin: 100,
@@ -308,6 +330,14 @@ export async function matchJoynProgram(input, {
   }
 
   const signals = []
+  const matchedInputTitle = result.status === 'matched' ? result.best?.matchedInputTitle : null
+  if (matchedInputTitle
+      && normalizeWaipuText(matchedInputTitle) !== normalizeWaipuText(input?.title)) {
+    signals.push({
+      kind: 'joyn_title_alias',
+      alias: matchedInputTitle,
+    })
+  }
   const searchAliasResolution = result.status === 'matched' && result.best?.candidate?.joynSearchAliasYearVerified === true
     ? {
       alias: result.best.candidate.joynSearchAlias,
@@ -401,24 +431,32 @@ export class JoynTmdbSearchClient {
   }
 
   async search(input) {
-    const title = String(input?.title || '').trim()
-    if (!title) return []
+    const titles = inputTitles(input)
+    if (!titles.length) return []
+
     if (input?.type === 'movie' || input?.type === 'series') {
       const hasYear = finiteNumber(input.productionYear) !== null
-      const results = await this.client.search({
-        type: input.type,
-        title,
-        productionYear: input.productionYear,
-        firstAirDateYear: input.type === 'series' && hasYear,
-      })
-      if (results.length > 0 || !hasYear) return withVerifiedJoynSearchAlias(input, results)
+      for (const title of titles) {
+        const queryInput = { ...input, title }
+        const results = await this.client.search({
+          type: input.type,
+          title,
+          productionYear: input.productionYear,
+          firstAirDateYear: input.type === 'series' && hasYear,
+        })
+        if (results.length > 0) return withVerifiedJoynSearchAlias(queryInput, results)
+        if (!hasYear) continue
 
-      const fallback = await this.client.search({
-        type: input.type,
-        title,
-      })
-      return fallback
+        const fallback = await this.client.search({
+          type: input.type,
+          title,
+        })
+        if (fallback.length > 0) return fallback
+      }
+      return []
     }
+
+    const title = titles[0]
     const movies = await this.client.search({ type: 'movie', title })
     const series = await this.client.search({ type: 'series', title })
     return [...movies, ...series]
