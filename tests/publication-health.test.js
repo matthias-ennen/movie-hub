@@ -13,15 +13,18 @@ const waipuIndex = {
   kind: 'waipu-live-index', schemaVersion: 1, status: 'complete', generatedAt: '2026-09-24T09:02:00Z',
   horizon: { start: '2026-09-24T00:00:00Z', endExclusive: '2026-10-08T00:00:00Z' },
   counts: { stations: 228, titles: 1595, broadcasts: 15294 },
-  days: Array.from({ length: 14 }, (_, index) => ({
-    key: new Date(Date.parse('2026-09-24T00:00:00Z') + index * 86400000).toISOString().slice(0, 10),
-    count: index === 0 ? 15294 : 0,
-  })),
+  days: [
+    { key: '2026-09-23', count: 1 },
+    ...Array.from({ length: 14 }, (_, index) => ({
+      key: new Date(Date.parse('2026-09-24T00:00:00Z') + index * 86400000).toISOString().slice(0, 10),
+      count: index === 0 ? 15293 : 0,
+    })),
+  ],
   metadata: { required: true, complete: 1595 },
 }
 
 describe('öffentliche Daten nach dem Nachtlauf', () => {
-  it('akzeptiert die komplette aktuelle 228er-Generation trotz rollierend kleinerer Titel- und Ausstrahlungszahl', () => {
+  it('akzeptiert die komplette aktuelle 228er-Generation mit 06:00-TV-Tagesgrenze', () => {
     const result = evaluatePublishedData(dataStatus, waipuIndex, { scheduledAt, now })
     expect(result.status).toBe('fresh')
     expect(result.waipuTitles).toBe(1595)
@@ -40,6 +43,15 @@ describe('öffentliche Daten nach dem Nachtlauf', () => {
     }, { scheduledAt, now })
     expect(result.status).toBe('invalid')
     expect(result.reasons).toContain('Waipu-Index nicht vollständig')
+  })
+
+  it('erkennt eine falsche Tagesbucket-Summe weiterhin als inkonsistent', () => {
+    const result = evaluatePublishedData(dataStatus, {
+      ...waipuIndex,
+      days: waipuIndex.days.map((day, index) => index === 1 ? { ...day, count: day.count - 1 } : day),
+    }, { scheduledAt, now })
+    expect(result.status).toBe('invalid')
+    expect(result.reasons).toContain('Waipu-Tagesbestand inkonsistent')
   })
 
   it('fragt beide produktiven Dateien mit Cache-Umgehung ab', async () => {
