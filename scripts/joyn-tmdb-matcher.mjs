@@ -401,21 +401,37 @@ function withVerifiedJoynSearchAlias(input, candidates) {
   const values = Array.isArray(candidates) ? candidates : []
   const title = String(input?.title || '').trim()
   const inputYear = finiteNumber(input?.productionYear)
-  if (!title || !input?.type || inputYear === null || values.length !== 1) return values
+  if (!title || !input?.type || inputYear === null || values.length === 0) return values
 
-  const normalized = normalizeTmdbMatchCandidate(values[0], values[0]?.source || 'tmdb-search')
-  if (!normalized || normalized.type !== input.type || finiteNumber(normalized.year) !== inputYear) return values
+  const matchingIndexes = values
+    .map((candidate, index) => ({
+      index,
+      normalized: normalizeTmdbMatchCandidate(candidate, candidate?.source || 'tmdb-search'),
+    }))
+    .filter(({ normalized }) => (
+      normalized
+      && normalized.type === input.type
+      && finiteNumber(normalized.year) === inputYear
+    ))
+    .map(({ index }) => index)
 
-  return [{
-    ...values[0],
-    aliases: [...new Set([
-      ...(Array.isArray(values[0]?.aliases) ? values[0].aliases : []),
-      title,
-    ].filter(Boolean))],
-    joynSearchAliasYearVerified: true,
-    joynSearchAlias: title,
-    joynSearchAliasYear: inputYear,
-  }]
+  if (matchingIndexes.length !== 1) return values
+  const verifiedIndex = matchingIndexes[0]
+
+  return values.map((candidate, index) => (
+    index === verifiedIndex
+      ? {
+          ...candidate,
+          aliases: [...new Set([
+            ...(Array.isArray(candidate?.aliases) ? candidate.aliases : []),
+            title,
+          ].filter(Boolean))],
+          joynSearchAliasYearVerified: true,
+          joynSearchAlias: title,
+          joynSearchAliasYear: inputYear,
+        }
+      : candidate
+  ))
 }
 
 export class JoynTmdbSearchClient {

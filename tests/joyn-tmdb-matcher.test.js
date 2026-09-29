@@ -187,6 +187,67 @@ describe('Joyn TMDB matching', () => {
     expect(candidates[0].joynSearchAliasYearVerified).not.toBe(true)
   })
 
+  it('verifies a Joyn search alias when exactly one of multiple TMDB results matches the trusted year', async () => {
+    const client = new JoynTmdbSearchClient({
+      token: 'test-token',
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({
+          results: [
+            { id: 243006, name: 'NCIS: Origins', first_air_date: '2024-10-14' },
+            { id: 999001, name: 'Origins', first_air_date: '2022-01-01' },
+          ],
+        }),
+        text: async () => '',
+      }),
+      paceMs: 0,
+      maxRequests: 10,
+    })
+
+    const candidates = await client.search({
+      title: 'Navy CIS: Origins',
+      type: 'series',
+      productionYear: 2024,
+    })
+
+    expect(candidates).toHaveLength(2)
+    expect(candidates[0]).toMatchObject({
+      id: 243006,
+      aliases: ['Navy CIS: Origins'],
+      joynSearchAliasYearVerified: true,
+      joynSearchAliasYear: 2024,
+    })
+    expect(candidates[1].joynSearchAliasYearVerified).not.toBe(true)
+
+    const result = await matchJoynProgram(
+      {
+        title: 'Navy CIS: Origins',
+        type: 'series',
+        productionYear: 2024,
+      },
+      {
+        searchTmdb: async () => candidates,
+      },
+    )
+
+    expect(result).toMatchObject({
+      status: 'matched',
+      source: 'local+tmdb-search+search-alias-year',
+      match: {
+        tmdbId: 243006,
+        type: 'series',
+        title: 'NCIS: Origins',
+        signals: [{
+          kind: 'tmdb_search_alias_year',
+          alias: 'Navy CIS: Origins',
+          productionYear: 2024,
+        }],
+      },
+    })
+  })
+
   it('does not verify a Joyn search alias when TMDB returns multiple year-matched results', async () => {
     const client = new JoynTmdbSearchClient({
       token: 'test-token',
