@@ -416,7 +416,16 @@ export function trustedJoynTitleAliases(classification, primaryTitle) {
     if (result?.type !== classification.type || result?.reason !== 'validated_algolia_search') continue
     for (const evidence of Array.isArray(result?.evidence) ? result.evidence : []) {
       if (evidence?.type !== classification.type) continue
-      values.push(evidence?.topLevelTitle, evidence?.title)
+      const joynType = String(evidence?.joynType || '').toUpperCase()
+      if (classification.type === 'series') {
+        if (joynType === 'EPISODE') {
+          values.push(evidence?.topLevelTitle)
+        } else if (joynType === 'SERIES') {
+          values.push(evidence?.topLevelTitle, evidence?.title)
+        }
+      } else if (classification.type === 'movie' && joynType === 'MOVIE') {
+        values.push(evidence?.title)
+      }
     }
   }
   const primary = normalizeWaipuText(primaryTitle)
@@ -424,6 +433,7 @@ export function trustedJoynTitleAliases(classification, primaryTitle) {
     .map((value) => String(value ?? '').trim())
     .filter(Boolean)
     .filter((value) => normalizeWaipuText(value) !== primary))]
+    .slice(0, 3)
 }
 
 async function writeJson(path, value) {
