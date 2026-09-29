@@ -277,3 +277,8 @@ Der Joyn-Adapter trennt jetzt Diagnose und Produktion:
 - Bei einer ungültigen oder unvollständigen Joyn-Generation bleibt der letzte gültige Live-Bestand erhalten.
 
 Der erste reale Produktionslauf wird gezielt über einen `[joyn-refresh]`-Commit ausgelöst, ohne den Waipu-Vollimport erneut zu starten.
+
+
+## Produktivtest Alias-Filter 29.09.2026
+
+Nach erfolgreichem CI- und Diagnostic-Abschluss wird der begrenzte Joyn-Alias-Fallback produktiv verifiziert. Serien-Aliase dürfen nur aus validierten Serien-/Top-Level-Titeln stammen; Episodentitel werden nicht als Serienalias verwendet. Der Test wird gezielt über `[joyn-refresh]` ausgelöst, ohne einen Waipu-Vollimport zu starten.
