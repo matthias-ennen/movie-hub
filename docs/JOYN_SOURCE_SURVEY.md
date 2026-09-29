@@ -264,3 +264,16 @@ TMDB-Abgleich gewonnen werden.
 Damit ist die Mindestanforderung „echte unabhängige zweite EPG-Quelle“
 technisch erfüllt. Joyn liefert einen eigenen 127-Sender-/2.461-Event-Datenstrom
 unabhängig vom Waipu-EPG.
+
+
+## Produktivpfad 29.09.2026
+
+Der Joyn-Adapter trennt jetzt Diagnose und Produktion:
+
+- `joyn:diagnostic` schreibt ausschließlich Diagnoseartefakte.
+- `joyn:catalog` ist der produktive Pfad.
+- Die produktive Generation wird vor Veröffentlichung validiert.
+- `public/joyn-live` wird nur atomar als vollständig geprüfte Generation ersetzt.
+- Bei einer ungültigen oder unvollständigen Joyn-Generation bleibt der letzte gültige Live-Bestand erhalten.
+
+Der erste reale Produktionslauf wird gezielt über einen `[joyn-refresh]`-Commit ausgelöst, ohne den Waipu-Vollimport erneut zu starten.
