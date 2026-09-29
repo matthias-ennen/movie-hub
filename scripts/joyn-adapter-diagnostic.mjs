@@ -412,6 +412,7 @@ async function writeJson(path, value) {
 export async function runJoynAdapterDiagnostic({
   fetchImpl = fetch,
   now = Date.now(),
+  publicationOutput = resolve(root, 'artifacts/joyn-live'),
 } = {}) {
   const generatedAt = new Date(now).toISOString()
   const loaded = await loadJoynEpg(fetchImpl)
@@ -931,17 +932,14 @@ export async function runJoynAdapterDiagnostic({
   })
   await writeJson(resolve(root, 'artifacts/joyn-adapter/station-mapping.json'), stationMapping)
   await writeJson(resolve(root, 'artifacts/source-adapters/joyn-v1-diagnostic.json'), envelope)
-  await writeJoynLivePublication(
-    publication,
-    resolve(root, process.env.JOYN_LIVE_OUTPUT || 'artifacts/joyn-live'),
-  )
+  await writeJoynLivePublication(publication, publicationOutput)
   await writeFieldDiscoveryReport(schemaReport, {
     jsonPath: resolve(root, 'artifacts/source-schema/joyn-epg-upstream.json'),
     markdownPath: resolve(root, 'artifacts/source-schema/joyn-epg-upstream.md'),
   })
 
   process.stdout.write(JSON.stringify(summary, null, 2) + '\n')
-  return { summary, envelope }
+  return { summary, envelope, publication }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
