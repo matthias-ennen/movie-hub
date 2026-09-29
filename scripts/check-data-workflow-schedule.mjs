@@ -226,6 +226,11 @@ function formatBerlin(value) {
   return new Date(value).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })
 }
 
+export function watchdogShouldFail(result, publication) {
+  return ['missing', 'failed'].includes(result?.status)
+    || ['invalid', 'stale', 'unreachable'].includes(publication?.status)
+}
+
 export function scheduleHealthMarkdown(result, publication = null) {
   const actual = result.actualStartAt ? formatBerlin(result.actualStartAt) : 'kein Lauf gefunden'
   const delay = Number.isFinite(result.delayMinutes) ? `${result.delayMinutes} Minuten` : 'nicht messbar'
@@ -330,7 +335,7 @@ async function watchdogMain({ fetchImpl = fetch } = {}) {
   if (result.status === 'delayed' && publication.status === 'fresh') {
     console.warn(`::warning::Nachtlauf verspätet gestartet (${result.delayMinutes} Minuten), Datenstand aber frisch und vollständig.`)
   }
-  if (['missing', 'failed'].includes(result.status) || ['invalid', 'stale', 'unreachable'].includes(publication.status)) {
+  if (watchdogShouldFail(result, publication)) {
     console.error(`::error::Nachtlauf-Überwachung: ${result.status}; öffentlicher Datenstand: ${publication.status}.`)
     process.exitCode = 1
   }
