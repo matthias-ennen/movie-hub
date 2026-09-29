@@ -27,9 +27,9 @@ describe('Joyn bounded typed title aliases', () => {
     }, {
       localCandidates: [],
       searchTmdb: async (input) => (
-        input.title === 'Navy CIS: Origins'
-          ? []
-          : [{ type: 'series', tmdbId: 243989, title: 'NCIS: Origins', year: 2024 }]
+        Array.isArray(input.aliases) && input.aliases.includes('NCIS: Origins')
+          ? [{ type: 'series', tmdbId: 243989, title: 'NCIS: Origins', year: 2024 }]
+          : []
       ),
     })
 
