@@ -7,6 +7,7 @@ import {
   scheduleGateMain,
   scheduleHealthMarkdown,
   scheduledAtForLocalDate,
+  watchdogShouldFail,
 } from '../scripts/check-data-workflow-schedule.mjs'
 
 describe('Nachtlauf-Zeitplanung', () => {
@@ -100,6 +101,12 @@ describe('Nachtlauf-Zeitplanung', () => {
     })
     expect(result.status).toBe('delayed')
     expect(result.delayMinutes).toBe(73)
+  })
+
+  it('wertet einen verspäteten aber frischen Lauf nur als Warnung', () => {
+    expect(watchdogShouldFail({ status: 'delayed' }, { status: 'fresh' })).toBe(false)
+    expect(watchdogShouldFail({ status: 'delayed' }, { status: 'stale' })).toBe(true)
+    expect(watchdogShouldFail({ status: 'failed' }, { status: 'fresh' })).toBe(true)
   })
 
   it('erkennt einen ausgebliebenen Lauf unabhängig vom Datenworkflow', () => {
