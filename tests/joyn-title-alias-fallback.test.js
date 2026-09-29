@@ -11,6 +11,7 @@ describe('Joyn bounded typed title aliases', () => {
         reason: 'validated_algolia_search',
         evidence: [{
           type: 'series',
+          joynType: 'SERIES',
           title: 'Navy CIS: Origins - Staffel 1',
           topLevelTitle: 'NCIS: Origins',
         }],
