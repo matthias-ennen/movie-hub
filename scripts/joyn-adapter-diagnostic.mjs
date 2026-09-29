@@ -479,12 +479,20 @@ async function loadJoynSeriesDetail(path, {
 
 export function trustedJoynSeriesDetailPaths(classification) {
   if (classification?.type !== 'series') return []
+  const values = []
+
+  if (classification?.reason === 'exact_joyn_search') {
+    for (const result of Array.isArray(classification?.exactResults) ? classification.exactResults : []) {
+      if (result?.type !== 'series' || String(result?.joynType || '').toUpperCase() !== 'SERIES') continue
+      values.push(result?.fullPath, result?.path)
+    }
+  }
+
   const algolia = [
     classification?.algolia,
     classification?.algoliaBase,
     classification?.algoliaEpisode,
   ].filter(Boolean)
-  const values = []
   for (const result of algolia) {
     if (result?.type !== 'series' || result?.reason !== 'validated_algolia_search') continue
     for (const evidence of Array.isArray(result?.evidence) ? result.evidence : []) {
@@ -836,7 +844,7 @@ export async function runJoynAdapterDiagnostic({
       let seriesDetail = null
       if (
         decision.status !== 'matched'
-        && decision.reason === 'no_candidate'
+        && ['no_candidate', 'below_threshold'].includes(decision.reason)
         && joynType === 'series'
         && tmdbSearch
         && !tmdbBudgetExhausted

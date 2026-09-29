@@ -118,6 +118,32 @@ describe('Joyn bounded typed title aliases', () => {
     expect(paths).toEqual(['/serien/navy-cis-origins'])
   })
 
+  it('uses an exact Joyn series search path as a trusted detail path', () => {
+    expect(trustedJoynSeriesDetailPaths({
+      type: 'series',
+      reason: 'exact_joyn_search',
+      exactResults: [{
+        type: 'series',
+        joynType: 'Series',
+        id: 'd_example',
+        title: 'Cold Case',
+        path: '/serien/cold-case',
+      }],
+    })).toEqual(['/serien/cold-case'])
+  })
+
+  it('does not use exact Joyn episode search paths as series detail paths', () => {
+    expect(trustedJoynSeriesDetailPaths({
+      type: 'series',
+      reason: 'exact_joyn_search',
+      exactResults: [{
+        type: 'series',
+        joynType: 'Episode',
+        path: '/serien/example/folgen/episode-1',
+      }],
+    })).toEqual([])
+  })
+
   it('does not use episode content paths as series detail paths', () => {
     expect(trustedJoynSeriesDetailPaths({
       type: 'series',
