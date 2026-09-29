@@ -1,8 +1,8 @@
 export function shouldLoadLiveTitles({
-  homeReady = false,
+  homeReady: _homeReady = false,
   tvRequested = false,
 } = {}) {
-  return Boolean(homeReady || tvRequested)
+  return Boolean(tvRequested)
 }
 
 export function shouldLoadLiveStations({
