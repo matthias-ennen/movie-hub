@@ -1046,3 +1046,21 @@ describe('Waipu local movie detail reuse', () => {
     })
   })
 })
+
+
+describe('Waipu detail prefilter cache awareness', () => {
+  it('counts only uncached detail programs in the prefilter guard', async () => {
+    const knownMovie = gridProgram({ id: 'cached-program', title: 'The Man from Toronto', genre: 'Filme' })
+    const loadProgramDetail = vi.fn(async () => detail({ id: 'cached-program' }))
+    const catalog = await buildWaipuLiveCatalog(buildFixture({
+      programs: [knownMovie],
+      loadProgramDetail,
+      cachedProgramIds: new Set(['cached-program']),
+    }))
+
+    expect(catalog.index.metrics).toMatchObject({
+      detailRequiredPrograms: 1,
+      uncachedDetailPrograms: 0,
+    })
+  })
+})
