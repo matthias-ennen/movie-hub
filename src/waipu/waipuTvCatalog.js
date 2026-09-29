@@ -358,7 +358,9 @@ function attachAiring(base, airing, entry, timestamp) {
     ? airing.providerIds
     : ['waipu']
   const providerIds = [...new Set([
-    ...(Array.isArray(base.providerIds) ? base.providerIds : []),
+    ...(Array.isArray(base.providerIds)
+      ? base.providerIds.filter((providerId) => providerId !== 'waipu' && providerId !== 'joyn')
+      : []),
     ...airingProviderIds,
   ])]
   const result = {

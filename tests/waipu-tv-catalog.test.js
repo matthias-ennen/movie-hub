@@ -3,6 +3,7 @@ import {
   WAIPU_LIVE_INDEX_URL,
   WAIPU_LIVE_STATIONS_URL,
   buildWaipuTvRows,
+  buildWaipuTvViewModel,
   formatTvAiringCard,
   isTvAiringOnAir,
   loadWaipuLiveStationCatalog,
@@ -185,6 +186,41 @@ describe('Waipu TV catalog', () => {
     })
     expect(rows[0].items[1].waipuLive.airings).toHaveLength(1)
     expect(rows[0].items[1].waipuLive.airings[0].programId).toBe('rtl-program')
+  })
+
+  it('keeps live provider badges scoped to the concrete TV airing', () => {
+    const model = buildWaipuTvViewModel({
+      airings: [{
+        id: 'joyn-airing',
+        tmdbId: 767852,
+        type: 'movie',
+        title: 'Benji und das Geheimnis des Kartografen',
+        stationId: 'moviedome-family',
+        stationName: 'Moviedome Family',
+        programId: 'p1',
+        startTime: '2026-09-20T18:10:00.000Z',
+        stopTime: '2026-09-20T20:10:00.000Z',
+        providerIds: ['joyn'],
+        playbackRoutes: [{ providerId: 'joyn', mode: 'WEB_LINK', target: 'https://www.joyn.de/' }],
+      }],
+      titles: [{
+        id: 'movie-767852',
+        tmdbId: 767852,
+        type: 'movie',
+        title: 'Benji und das Geheimnis des Kartografen',
+        providerIds: ['waipu', 'disney'],
+        metadataComplete: true,
+      }],
+      stationOrder: ['moviedome-family'],
+      selectedPeriodId: 'day:2026-09-20',
+      availableDays: [{ key: '2026-09-20', count: 1 }],
+      now: Date.parse('2026-09-20T17:00:00.000Z'),
+    })
+
+    const item = model.rows.flatMap((row) => row.items).find((entry) => entry.tmdbId === 767852)
+    expect(item.providerIds).toEqual(['disney', 'joyn'])
+    expect(item.joynLive).toBeTruthy()
+    expect(item.waipuLive).toBeUndefined()
   })
 
   it('marks only a currently running broadcast as on air', () => {

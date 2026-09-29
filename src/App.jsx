@@ -886,7 +886,22 @@ function MovieHub({ user }) {
 
     const workerCount = Math.min(4, queue.length)
     let cursor = 0
-    const loaded = []
+
+    function publishHydratedTitle(detail) {
+      if (cancelled || !detail?.tmdbId) return
+      setTvHydratedTitles((current) => {
+        const type = detail?.type === 'series' || detail?.mediaType === 'tv' ? 'series' : 'movie'
+        const detailKey = `${type}:${Number(detail.tmdbId) || ''}`
+        const index = current.findIndex((title) => {
+          const currentType = title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'
+          return `${currentType}:${Number(title?.tmdbId) || ''}` === detailKey
+        })
+        if (index < 0) return [...current, detail]
+        const next = [...current]
+        next[index] = mergeEnrichedTitle(current[index], detail)
+        return next
+      })
+    }
 
     async function worker() {
       while (cursor < queue.length) {
@@ -895,7 +910,7 @@ function MovieHub({ user }) {
         const [key, candidate] = queue[index]
         try {
           const detail = await loadRuntimeTitleMetadata(candidate)
-          if (detail?.tmdbId) loaded.push(detail)
+          publishHydratedTitle(detail)
         } catch (error) {
           console.warn('TV-TMDB-Metadaten konnten nicht ergänzt werden.', { key, error })
         } finally {
@@ -904,22 +919,8 @@ function MovieHub({ user }) {
       }
     }
 
-    Promise.all(Array.from({ length: workerCount }, () => worker())).then(() => {
-      if (cancelled || !loaded.length) return
-      setTvHydratedTitles((current) => {
-        const byKey = new Map(current.map((title) => {
-          const type = title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'
-          return [`${type}:${Number(title?.tmdbId) || ''}`, title]
-        }))
-        for (const detail of loaded) {
-          const type = detail?.type === 'series' || detail?.mediaType === 'tv' ? 'series' : 'movie'
-          const key = `${type}:${Number(detail?.tmdbId) || ''}`
-          const existing = byKey.get(key)
-          byKey.set(key, existing ? mergeEnrichedTitle(existing, detail) : detail)
-        }
-        return [...byKey.values()]
-      })
-    })
+    Promise.all(Array.from({ length: workerCount }, () => worker()))
+      .catch((error) => console.warn('TV-Metadatenwarteschlange konnte nicht vollständig verarbeitet werden.', error))
 
     return () => { cancelled = true }
   }, [compactTvTitleEntries, tvPresentationTitles, tvSchedule.airings])
