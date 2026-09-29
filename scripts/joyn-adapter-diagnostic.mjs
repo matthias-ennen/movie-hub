@@ -419,12 +419,12 @@ export function trustedJoynTitleAliases(classification, primaryTitle) {
       const joynType = String(evidence?.joynType || '').toUpperCase()
       if (classification.type === 'series') {
         if (joynType === 'EPISODE') {
-          values.push(evidence?.topLevelTitle)
+          values.push(evidence?.topLevelTitleOv)
         } else if (joynType === 'SERIES') {
-          values.push(evidence?.topLevelTitle, evidence?.title)
+          values.push(evidence?.topLevelTitleOv, evidence?.titleOv)
         }
       } else if (classification.type === 'movie' && joynType === 'MOVIE') {
-        values.push(evidence?.title)
+        values.push(evidence?.titleOv)
       }
     }
   }
