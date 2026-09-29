@@ -44,6 +44,7 @@ import { AnnouncementsView, BellButton, StartupAnnouncement } from './notificati
 import { HERO_PRELOAD_INTENT_DELAY_MS, preloadHeroImage } from './performance/progressiveRendering.js'
 import { loadCatalogWithRetry } from './performance/catalogStartup.js'
 import { notifyNativeStartupReady } from './performance/nativeStartup.js'
+import { shouldLoadLiveStations, shouldLoadLiveTitles } from './performance/liveCatalogStartup.js'
 import { INITIAL_HOME_FOCUS_EVENT } from './components/InitialHomeFocus.jsx'
 import { ProfileProvider, useProfiles } from './profiles/ProfileProvider.jsx'
 import { ThemeProvider } from './theme/ThemeProvider.jsx'
@@ -307,6 +308,7 @@ function HomeView({
   onOpen,
   liveTmdb,
   catalogStatus,
+  onStartupReady,
   activationRequest,
   onActivationUnavailable,
 }) {
@@ -316,7 +318,8 @@ function HomeView({
     if (!catalogReady || startupReadyReportedRef.current) return
     startupReadyReportedRef.current = true
     notifyNativeStartupReady()
-  }, [catalogReady])
+    onStartupReady?.()
+  }, [catalogReady, onStartupReady])
 
   return (
     <HeroFirstPage
@@ -477,6 +480,7 @@ function MovieHub({ user }) {
     horizon: null,
     days: [],
   })
+  const [homeStartupReady, setHomeStartupReady] = useState(false)
   const [tvSchedule, setTvSchedule] = useState({ status: 'idle', airings: [] })
   const [tvHydratedTitles, setTvHydratedTitles] = useState([])
   const [tvScheduleRequested, setTvScheduleRequested] = useState(false)
@@ -503,6 +507,15 @@ function MovieHub({ user }) {
       window.clearTimeout(tvScheduleIntentTimerRef.current)
     }
   }, [])
+
+  const liveTitlesRequested = shouldLoadLiveTitles({
+    homeReady: homeStartupReady,
+    tvRequested: tvScheduleRequested,
+  })
+  const liveStationsRequested = shouldLoadLiveStations({
+    tvRequested: tvScheduleRequested,
+    settingsOpen: currentView === 'settings',
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -548,6 +561,7 @@ function MovieHub({ user }) {
   }, [])
 
   useEffect(() => {
+    if (!liveTitlesRequested) return undefined
     let cancelled = false
     loadWaipuLiveTitles().then((entries) => {
       if (!cancelled) {
@@ -557,9 +571,10 @@ function MovieHub({ user }) {
       }
     })
     return () => { cancelled = true }
-  }, [])
+  }, [liveTitlesRequested])
 
   useEffect(() => {
+    if (!liveTitlesRequested) return undefined
     let cancelled = false
     loadJoynLiveTitles().then((entries) => {
       if (!cancelled) {
@@ -569,23 +584,25 @@ function MovieHub({ user }) {
       }
     })
     return () => { cancelled = true }
-  }, [])
+  }, [liveTitlesRequested])
 
   useEffect(() => {
+    if (!liveStationsRequested) return undefined
     let cancelled = false
     loadWaipuLiveStationCatalog().then((stationCatalog) => {
       if (!cancelled) setWaipuStationCatalog(stationCatalog)
     })
     return () => { cancelled = true }
-  }, [])
+  }, [liveStationsRequested])
 
   useEffect(() => {
+    if (!liveStationsRequested) return undefined
     let cancelled = false
     loadJoynLiveStationCatalog().then((stationCatalog) => {
       if (!cancelled) setJoynStationCatalog(stationCatalog)
     })
     return () => { cancelled = true }
-  }, [])
+  }, [liveStationsRequested])
 
   useEffect(() => {
     const nextStopTime = Math.min(...waipuLiveEntries
@@ -1559,6 +1576,7 @@ function MovieHub({ user }) {
           onOpen={handleOpenTitle}
           liveTmdb={liveTmdb}
           catalogStatus={catalog.status}
+          onStartupReady={() => setHomeStartupReady(true)}
           activationRequest={contentActivationRequest?.viewId === 'home' ? contentActivationRequest : null}
           onActivationUnavailable={handleHeroActivationUnavailable}
         />
