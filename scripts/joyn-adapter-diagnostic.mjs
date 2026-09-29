@@ -615,7 +615,12 @@ export async function runJoynAdapterDiagnostic({
   const algoliaCache = new Map()
   const algoliaEpisodeCache = new Map()
   const algoliaRequestBudget = Math.max(0, Number(process.env.JOYN_ALGOLIA_REQUEST_BUDGET || 800))
+  const seriesDetailCache = new Map()
+  const seriesDetailRequestBudget = Math.max(0, Number(process.env.JOYN_SERIES_DETAIL_REQUEST_BUDGET || 50))
   let algoliaRequests = 0
+  let seriesDetailRequests = 0
+  let seriesDetailAliasRetries = 0
+  let seriesDetailMatches = 0
   let joynSearchRequests = 0
   let tmdbBudgetExhausted = false
   for (const [programId, entry] of uniquePrograms) {
@@ -810,6 +815,84 @@ export async function runJoynAdapterDiagnostic({
           }
         }
       }
+
+      let seriesDetail = null
+      if (
+        decision.status !== 'matched'
+        && decision.reason === 'no_candidate'
+        && joynType === 'series'
+        && tmdbSearch
+        && !tmdbBudgetExhausted
+      ) {
+        const detailPaths = trustedJoynSeriesDetailPaths(joynClassificationResult)
+        const detailPath = detailPaths[0] || null
+        if (detailPath) {
+          if (seriesDetailCache.has(detailPath)) {
+            seriesDetail = seriesDetailCache.get(detailPath)
+          } else if (seriesDetailRequests < seriesDetailRequestBudget) {
+            seriesDetail = await loadJoynSeriesDetail(detailPath, {
+              fetchImpl,
+              token: loaded.token,
+              apiKey: loaded.apiKey,
+            }).catch(() => ({ status: 'error', path: detailPath, aliases: [] }))
+            seriesDetailRequests += 1
+            seriesDetailCache.set(detailPath, seriesDetail)
+          } else {
+            seriesDetail = { status: 'budget_exhausted', path: detailPath, aliases: [] }
+          }
+
+          const primary = normalizeWaipuText(entry.candidate.title)
+          const detailAliases = [...new Set((seriesDetail?.aliases || [])
+            .map((value) => String(value || '').trim())
+            .filter(Boolean)
+            .filter((value) => normalizeWaipuText(value) !== primary))]
+            .slice(0, 3)
+
+          if (detailAliases.length) {
+            const baseAliases = trustedJoynTitleAliases(joynClassificationResult, entry.candidate.title)
+            const aliases = [...new Set([...baseAliases, ...detailAliases])].slice(0, 3)
+            seriesDetailAliasRetries += 1
+            try {
+              decision = await matchJoynProgram(
+                {
+                  title: entry.candidate.title,
+                  aliases,
+                  description: entry.candidate.description,
+                  type: joynType,
+                  productionYear: joynClassificationResult?.algoliaBase?.productionYear
+                    ?? joynClassificationResult?.algolia?.productionYear
+                    ?? null,
+                  seasonNumber: joynClassificationResult?.algolia?.seasonNumber ?? null,
+                  episodeNumber: joynClassificationResult?.algolia?.episodeNumber ?? null,
+                  seriesId: joynClassificationResult?.algolia?.seriesId ?? null,
+                  broadcastDurationMinutes,
+                },
+                {
+                  localCandidates,
+                  searchTmdb: (input) => tmdbSearch.search(input),
+                  loadTmdbDetails: (candidate) => tmdbSearch.detail(candidate),
+                },
+              )
+              if (decision.status === 'matched') seriesDetailMatches += 1
+            } catch (error) {
+              if (error?.code !== 'TMDB_REQUEST_BUDGET') throw error
+              tmdbBudgetExhausted = true
+              decision = {
+                matcherVersion: 3,
+                status: 'unmatched',
+                reason: 'tmdb_budget_exhausted',
+                source: 'local',
+                match: null,
+              }
+            }
+          }
+        }
+      }
+
+      joynClassificationResult = {
+        ...joynClassificationResult,
+        seriesDetail,
+      }
     }
 
     programDiagnostics.set(programId, {
@@ -826,6 +909,7 @@ export async function runJoynAdapterDiagnostic({
       description: entry.candidate.description || null,
       joynClassification: joynClassificationResult,
       trustedTitleAliases: trustedJoynTitleAliases(joynClassificationResult, entry.candidate.title),
+      trustedSeriesDetailPaths: trustedJoynSeriesDetailPaths(joynClassificationResult),
       localCandidates: localCandidates.slice(0, 20).map((candidate) => ({
         tmdbId: candidate.tmdbId,
         type: candidate.type,
@@ -1031,6 +1115,13 @@ export async function runJoynAdapterDiagnostic({
         cachedTitles: algoliaCache.size,
         cachedEpisodeQueries: algoliaEpisodeCache.size,
         classification: algoliaClassification,
+      },
+      seriesDetail: {
+        requestBudget: seriesDetailRequestBudget,
+        requests: seriesDetailRequests,
+        cachedPaths: seriesDetailCache.size,
+        aliasRetries: seriesDetailAliasRetries,
+        matches: seriesDetailMatches,
       },
       joynClassificationReasons,
       tmdbBudgetExhausted,
