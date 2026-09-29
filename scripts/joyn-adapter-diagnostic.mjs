@@ -29,6 +29,8 @@ const ALGOLIA_INDEX = 'indexion_prod_vod'
 const OPERATION = 'LiveChannelsAndEPG'
 const SEARCH_OPERATION = 'SearchQ'
 const SEARCH_HASH = 'bb2bab6cbe17321d7eddd5006e7f40765faedd79790b193a59d83f4640694856'
+const LANDING_PAGE_OPERATION = 'LandingPageClient'
+const LANDING_PAGE_HASH = 'd126aa8da9aae9a7abdabe014e8641ce54c17fd0a39c37f8a7bbcab258821508'
 const FULL_EPG_QUERY = `query LiveChannelsAndEPG {
   liveStreams(filterLivestreamsTypes: [LINEAR], first: 5000, offset: 0, liveStreamGroupFilter: DEFAULT) {
     id
@@ -389,6 +391,96 @@ async function searchJoynTitle(title, {
       exactTypes: unique,
       exactCount: exact.length,
     }
+}
+
+function joynText(value) {
+  const normalized = String(value ?? '').trim()
+  return normalized || null
+}
+
+function collectJoynDetailAliases(data, primaryTitle) {
+  const page = data?.page || data?.asset || null
+  const asset = page?.asset || data?.asset || page || null
+  const series = asset?.series || page?.series || data?.series || asset || null
+  const values = [
+    series?.originalTitle,
+    series?.titleOriginal,
+    series?.originalName,
+    series?.titles?.OV,
+    series?.title,
+    asset?.originalTitle,
+    asset?.titleOriginal,
+    asset?.originalName,
+    asset?.titles?.OV,
+  ].map(joynText).filter(Boolean)
+  const primary = normalizeWaipuText(primaryTitle)
+  return [...new Set(values)]
+    .filter((value) => normalizeWaipuText(value) !== primary)
+    .slice(0, 3)
+}
+
+async function loadJoynSeriesDetail(path, {
+  fetchImpl = fetch,
+  token,
+  apiKey,
+} = {}) {
+  const normalizedPath = joynText(path)
+  if (!normalizedPath || !token || !apiKey) {
+    return { status: 'not_requested', path: normalizedPath, aliases: [] }
+  }
+  const params = new URLSearchParams()
+  params.set('operationName', LANDING_PAGE_OPERATION)
+  params.set('variables', JSON.stringify({ path: normalizedPath, variation: 'Default' }))
+  params.set('extensions', JSON.stringify({
+    persistedQuery: { version: 1, sha256Hash: LANDING_PAGE_HASH },
+  }))
+  const response = await fetchImpl(GRAPHQL_URL + '?' + params.toString(), {
+    headers: {
+      ...headers(),
+      authorization: 'Bearer ' + token,
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'joyn-platform': 'web',
+      'joyn-country': 'DE',
+      'joyn-distribution-tenant': 'JOYN',
+      'joyn-client-version': '5.1370.0',
+    },
+  })
+  if (!response.ok) return { status: 'http_' + response.status, path: normalizedPath, aliases: [] }
+  const body = await response.json().catch(() => null)
+  if (!body?.data || body?.errors?.length) {
+    return { status: 'graphql_error', path: normalizedPath, aliases: [] }
+  }
+  return {
+    status: 'ready',
+    path: normalizedPath,
+    aliases: collectJoynDetailAliases(body.data, null),
+    data: body.data,
+  }
+}
+
+export function trustedJoynSeriesDetailPaths(classification) {
+  if (classification?.type !== 'series') return []
+  const algolia = [
+    classification?.algolia,
+    classification?.algoliaBase,
+    classification?.algoliaEpisode,
+  ].filter(Boolean)
+  const values = []
+  for (const result of algolia) {
+    if (result?.type !== 'series' || result?.reason !== 'validated_algolia_search') continue
+    for (const evidence of Array.isArray(result?.evidence) ? result.evidence : []) {
+      if (evidence?.type !== 'series') continue
+      const joynType = String(evidence?.joynType || '').toUpperCase()
+      if (joynType === 'SERIES') {
+        values.push(evidence?.fullPath, evidence?.path, evidence?.seriesPath, evidence?.topLevelPath)
+      } else if (joynType === 'EPISODE') {
+        values.push(evidence?.seriesPath, evidence?.topLevelPath)
+      }
+    }
+  }
+  return [...new Set(values.map(joynText).filter(Boolean))].slice(0, 2)
 }
 
 function titleLookup(candidates) {
