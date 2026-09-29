@@ -108,3 +108,11 @@ describe('Joyn production publication', () => {
     expect(await readFile(resolve(target, 'old-generation.txt'), 'utf8')).toBe('keep-me\n')
   })
 })
+
+
+describe('Joyn production generation identity', () => {
+  it('uses joyn-catalog as the production generation prefix', async () => {
+    const source = await import('../scripts/joyn-live-catalog.mjs')
+    expect(String(source.runJoynLiveCatalog)).toContain("sourceGenerationPrefix: 'joyn-catalog'")
+  })
+})
