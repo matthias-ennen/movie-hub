@@ -199,6 +199,66 @@ function disambiguateByDescription(input, candidates) {
   }
 }
 
+function belowThresholdCandidates(input, rawCandidates = []) {
+  const inputYear = finiteNumber(input?.productionYear)
+  if (!input?.type || inputYear === null) return []
+
+  const byKey = new Map()
+  for (const raw of rawCandidates) {
+    const candidate = normalizeTmdbMatchCandidate(raw, raw?.source || 'local')
+    if (!candidate || candidate.type !== input.type || finiteNumber(candidate?.year) !== inputYear) continue
+    const matchedInput = bestInputTitleScore(input, candidate)
+    if (matchedInput.score < 70 || matchedInput.score >= 86) continue
+    byKey.set(`${candidate.type}:${candidate.tmdbId}`, {
+      candidate,
+      score: matchedInput.score,
+      matchedInputTitle: matchedInput.value,
+    })
+  }
+  return [...byKey.values()]
+}
+
+function disambiguateBelowThresholdByDescription(input, candidates) {
+  const inputDescription = String(input?.description || '').trim()
+  if (!inputDescription) return null
+
+  const ranked = belowThresholdCandidates(input, candidates)
+  if (ranked.length < 2 || ranked.some(({ candidate }) => !String(candidate?.description || '').trim())) return null
+
+  const byDescription = ranked
+    .map((item) => ({
+      ...item,
+      titleScore: item.score,
+      ...descriptionEvidence(inputDescription, item.candidate.description),
+    }))
+    .sort((left, right) => (
+      right.score - left.score
+      || right.overlap - left.overlap
+      || right.titleScore - left.titleScore
+      || left.candidate.tmdbId - right.candidate.tmdbId
+    ))
+
+  const best = byDescription[0]
+  const runnerUp = byDescription[1]
+  const margin = best.score - runnerUp.score
+  const overlapMargin = best.overlap - runnerUp.overlap
+  if (best.overlap < JOYN_DESCRIPTION_MIN_OVERLAP
+      || best.score < JOYN_DESCRIPTION_MIN_SCORE
+      || margin < JOYN_DESCRIPTION_MIN_MARGIN
+      || overlapMargin < 3) return null
+
+  return {
+    candidate: best.candidate,
+    titleScore: best.titleScore,
+    matchedInputTitle: best.matchedInputTitle,
+    descriptionScore: best.score,
+    overlap: best.overlap,
+    runnerUpDescriptionScore: runnerUp.score,
+    runnerUpOverlap: runnerUp.overlap,
+    margin,
+  }
+}
+
 async function disambiguateMovieByBroadcastDuration(input, candidates, loadTmdbDetails) {
   const slotMinutes = finiteNumber(input?.broadcastDurationMinutes)
   if (input?.type !== 'movie'
@@ -310,6 +370,25 @@ export async function matchJoynProgram(input, {
     }
   }
 
+  let belowThresholdDescriptionResolution = null
+  if (result.status !== 'matched' && result.reason === 'below_threshold') {
+    belowThresholdDescriptionResolution = disambiguateBelowThresholdByDescription(input, combinedCandidates)
+    if (belowThresholdDescriptionResolution) {
+      result = {
+        status: 'matched',
+        reason: null,
+        best: {
+          candidate: belowThresholdDescriptionResolution.candidate,
+          score: belowThresholdDescriptionResolution.titleScore,
+          matchedInputTitle: belowThresholdDescriptionResolution.matchedInputTitle,
+        },
+        runnerUp: null,
+        margin: belowThresholdDescriptionResolution.margin,
+      }
+      source += '+description'
+    }
+  }
+
   let durationResolution = null
   if (result.status !== 'matched' && result.reason === 'ambiguous_exact_title') {
     durationResolution = await disambiguateMovieByBroadcastDuration(input, combinedCandidates, loadTmdbDetails)
@@ -367,6 +446,16 @@ export async function matchJoynProgram(input, {
       runnerUpScore: Number(descriptionResolution.runnerUpScore.toFixed(3)),
       runnerUpOverlap: descriptionResolution.runnerUpOverlap,
       margin: Number(descriptionResolution.margin.toFixed(3)),
+    })
+  }
+  if (belowThresholdDescriptionResolution) {
+    signals.push({
+      kind: 'description',
+      score: Number(belowThresholdDescriptionResolution.descriptionScore.toFixed(3)),
+      overlap: belowThresholdDescriptionResolution.overlap,
+      runnerUpScore: Number(belowThresholdDescriptionResolution.runnerUpDescriptionScore.toFixed(3)),
+      runnerUpOverlap: belowThresholdDescriptionResolution.runnerUpOverlap,
+      margin: Number(belowThresholdDescriptionResolution.margin.toFixed(3)),
     })
   }
   if (durationResolution) {

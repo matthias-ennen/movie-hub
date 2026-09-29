@@ -399,6 +399,72 @@ describe('Joyn TMDB matching', () => {
     })
   })
 
+  it('uses description to resolve typed same-year below-threshold series candidates', async () => {
+    const result = await matchJoynProgram(
+      {
+        title: 'Cold Case',
+        type: 'series',
+        productionYear: 2021,
+        description: 'Im Jahr 1962 starb Marilyn Monroe unter mysteriösen Umständen. Die Polizei vermutet Suizid, doch Hinweise sprechen auch für Mord und die Kennedy-Brüder spielen eine Rolle.',
+      },
+      {
+        searchTmdb: async () => [
+          {
+            type: 'series',
+            tmdbId: 138521,
+            title: 'Cold Case Killers',
+            year: 2021,
+            overview: 'Ermittler rollen ungeklärte Mordfälle aus Großbritannien neu auf und suchen nach Tätern.',
+          },
+          {
+            type: 'series',
+            tmdbId: 211869,
+            title: 'Cold Case Geschichte',
+            year: 2021,
+            overview: 'Historische Kriminalfälle werden mit modernen Methoden untersucht, darunter der rätselhafte Tod von Marilyn Monroe und mögliche Verbindungen zu den Kennedy-Brüdern.',
+          },
+        ],
+      },
+    )
+
+    expect(result).toMatchObject({
+      status: 'matched',
+      source: 'local+tmdb-search+description',
+      match: {
+        tmdbId: 211869,
+        type: 'series',
+        signals: [expect.objectContaining({ kind: 'description' })],
+      },
+    })
+  })
+
+  it('does not use below-threshold description resolution when only one same-year candidate exists', async () => {
+    const result = await matchJoynProgram(
+      {
+        title: 'Most Wanted',
+        type: 'series',
+        productionYear: 2025,
+        description: 'Fünfzehn Prominente brechen aus einem Gefängnis aus und wollen fünf Tage auf freiem Fuß bleiben.',
+      },
+      {
+        searchTmdb: async () => [
+          {
+            type: 'series',
+            tmdbId: 285970,
+            title: 'Mafia: Most Wanted',
+            year: 2025,
+            overview: 'Eine Dokumentarserie über internationale organisierte Kriminalität.',
+          },
+        ],
+      },
+    )
+
+    expect(result).toMatchObject({
+      status: 'unmatched',
+      reason: 'below_threshold',
+    })
+  })
+
   it('keeps an exact-title movie ambiguous when multiple runtimes still fit the broadcast slot', async () => {
     const result = await matchJoynProgram(
       { title: 'Same title', type: 'movie', broadcastDurationMinutes: 57 },
