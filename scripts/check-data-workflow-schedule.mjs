@@ -327,7 +327,10 @@ async function watchdogMain({ fetchImpl = fetch } = {}) {
   const markdown = scheduleHealthMarkdown(result, publication)
   console.log(markdown)
   if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, markdown, 'utf8')
-  if (['missing', 'failed', 'delayed'].includes(result.status) || ['invalid', 'stale', 'unreachable'].includes(publication.status)) {
+  if (result.status === 'delayed' && publication.status === 'fresh') {
+    console.warn(`::warning::Nachtlauf verspätet gestartet (${result.delayMinutes} Minuten), Datenstand aber frisch und vollständig.`)
+  }
+  if (['missing', 'failed'].includes(result.status) || ['invalid', 'stale', 'unreachable'].includes(publication.status)) {
     console.error(`::error::Nachtlauf-Überwachung: ${result.status}; öffentlicher Datenstand: ${publication.status}.`)
     process.exitCode = 1
   }
