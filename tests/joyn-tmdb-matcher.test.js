@@ -102,6 +102,48 @@ describe('Joyn TMDB matching', () => {
     })
   })
 
+  it('tries a trusted typed alias when the primary Joyn title returns no TMDB results', async () => {
+    const requested = []
+    const client = new JoynTmdbSearchClient({
+      token: 'test-token',
+      fetchImpl: async (url) => {
+        const parsed = new URL(String(url))
+        requested.push(parsed.searchParams.get('query'))
+        const query = parsed.searchParams.get('query')
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          json: async () => ({
+            results: query === 'NCIS: Origins'
+              ? [{ id: 243989, name: 'NCIS: Origins', first_air_date: '2024-10-14' }]
+              : [],
+          }),
+          text: async () => '',
+        }
+      },
+      paceMs: 0,
+      maxRequests: 10,
+    })
+
+    const candidates = await client.search({
+      title: 'Navy CIS: Origins',
+      aliases: ['NCIS: Origins'],
+      type: 'series',
+      productionYear: 2024,
+    })
+
+    expect(requested).toContain('Navy CIS: Origins')
+    expect(requested).toContain('NCIS: Origins')
+    expect(candidates).toEqual([
+      expect.objectContaining({
+        id: 243989,
+        joynSearchAliasYearVerified: true,
+        joynSearchAlias: 'NCIS: Origins',
+      }),
+    ])
+  })
+
   it('retries a typed TMDB search without year only when the strict year-filtered search is empty', async () => {
     const requested = []
     const fetchImpl = async (url) => {
