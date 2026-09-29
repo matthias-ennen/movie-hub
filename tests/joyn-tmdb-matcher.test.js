@@ -435,6 +435,30 @@ describe('Joyn TMDB matching', () => {
     expect(result).toMatchObject({ status: 'unmatched', reason: 'ambiguous_exact_title' })
   })
 
+  it('exposes ranked candidates for unmatched diagnostics without changing the decision', async () => {
+    const result = await matchJoynProgram(
+      { title: 'Most Wanted', type: 'series', productionYear: 2025 },
+      {
+        searchTmdb: async () => [
+          { type: 'series', tmdbId: 1, title: 'Most Wanted: Wer entkommt?', year: 2025 },
+          { type: 'series', tmdbId: 2, title: 'FBI: Most Wanted', year: 2020 },
+        ],
+      },
+    )
+
+    expect(result).toMatchObject({
+      status: 'unmatched',
+      reason: 'below_threshold',
+      diagnosticCandidates: {
+        best: {
+          tmdbId: 1,
+          title: 'Most Wanted: Wer entkommt?',
+          year: 2025,
+        },
+      },
+    })
+  })
+
   it('does not guess when movie and series have the same exact title', () => {
     const result = chooseJoynTmdbMatch({ title: 'Dark' }, [
       { type: 'movie', tmdbId: 1, title: 'Dark' },

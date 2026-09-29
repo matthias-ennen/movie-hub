@@ -378,6 +378,16 @@ export async function matchJoynProgram(input, {
     })
   }
 
+  const diagnosticCandidate = (ranked) => ranked ? {
+    tmdbId: ranked.candidate.tmdbId,
+    type: ranked.candidate.type,
+    title: ranked.candidate.title,
+    originalTitle: ranked.candidate.originalTitle,
+    year: ranked.candidate.year,
+    score: ranked.score,
+    matchedInputTitle: ranked.matchedInputTitle,
+  } : null
+
   return {
     matcherVersion: JOYN_MATCHER_VERSION,
     status: result.status,
@@ -394,6 +404,11 @@ export async function matchJoynProgram(input, {
       margin: result.margin,
       signals,
     } : null,
+    diagnosticCandidates: result.status === 'matched' ? null : {
+      best: diagnosticCandidate(result.best),
+      runnerUp: diagnosticCandidate(result.runnerUp),
+      margin: result.margin,
+    },
   }
 }
 
