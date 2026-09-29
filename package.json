@@ -52,6 +52,7 @@
     "source:merge:smoke": "node scripts/source-merge-smoke.mjs",
     "joyn:pilot:overlay": "node scripts/joyn-pilot-overlay.mjs",
     "joyn:diagnostic": "node scripts/joyn-adapter-diagnostic.mjs",
+    "joyn:catalog": "node scripts/joyn-live-catalog.mjs",
     "joyn:restore": "node scripts/restore-live-joyn-catalog.mjs"
   },
   "dependencies": {
