@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { trustedJoynTitleAliases } from '../scripts/joyn-adapter-diagnostic.mjs'
+import { trustedJoynSeriesDetailPaths, trustedJoynTitleAliases } from '../scripts/joyn-adapter-diagnostic.mjs'
 import { matchJoynProgram } from '../scripts/joyn-tmdb-matcher.mjs'
 
 describe('Joyn bounded typed title aliases', () => {
@@ -88,6 +88,49 @@ describe('Joyn bounded typed title aliases', () => {
     expect(aliases).not.toContain('Doc Tango und Ducky')
     expect(aliases).not.toContain('Las Vegas')
     expect(aliases).not.toContain('Fremde Federn')
+  })
+
+  it('selects only validated series detail paths', () => {
+    const paths = trustedJoynSeriesDetailPaths({
+      type: 'series',
+      algoliaBase: {
+        type: 'series',
+        reason: 'validated_algolia_search',
+        evidence: [{
+          type: 'series',
+          joynType: 'SERIES',
+          fullPath: '/serien/navy-cis-origins',
+          path: '/serien/navy-cis-origins',
+        }],
+      },
+      algoliaEpisode: {
+        type: 'series',
+        reason: 'validated_algolia_search',
+        evidence: [{
+          type: 'series',
+          joynType: 'EPISODE',
+          path: '/serien/navy-cis-origins/folgen/doc-tango-und-ducky',
+          seriesPath: '/serien/navy-cis-origins',
+        }],
+      },
+    })
+
+    expect(paths).toEqual(['/serien/navy-cis-origins'])
+  })
+
+  it('does not use episode content paths as series detail paths', () => {
+    expect(trustedJoynSeriesDetailPaths({
+      type: 'series',
+      algoliaEpisode: {
+        type: 'series',
+        reason: 'validated_algolia_search',
+        evidence: [{
+          type: 'series',
+          joynType: 'EPISODE',
+          path: '/serien/example/folgen/episode-1',
+        }],
+      },
+    })).toEqual([])
   })
 
   it('does not expose alias fallback for an untyped Joyn programme', () => {
