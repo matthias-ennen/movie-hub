@@ -102,6 +102,10 @@ export function classifyJoynAlgoliaHits(input, rawHits = []) {
       seasonNumber: finite(hit?.season?.number),
       episodeNumber: finite(hit?.number ?? hit?.episode?.number),
       seriesId: text(hit?.series?.id),
+      path: text(hit?.path),
+      fullPath: text(hit?.fullPath),
+      seriesPath: text(hit?.series?.path),
+      topLevelPath: text(hit?.topLevelPath ?? hit?.topLevelPaths?.DE ?? hit?.topLevelPaths?.OV),
     })
   }
 
