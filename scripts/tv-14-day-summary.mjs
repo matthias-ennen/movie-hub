@@ -86,6 +86,7 @@ function normalizeAiring(airing, providerId) {
   return {
     providerId,
     stationId: usefulText(airing?.stationId),
+    canonicalStationId: usefulText(airing?.canonicalStationId),
     sourceStationId: usefulText(airing?.sourceStationId),
     stationName: usefulText(airing?.stationName),
     programId: usefulText(airing?.programId),
@@ -148,8 +149,22 @@ export function buildTv14DaySummary({
     const sourceEntryMetadata = group.sources.map(({ entry }) => entry)
     const metadata = rankingMetadata(bestMetadata(metadataByKey.get(key), ...sourceEntryMetadata))
     const airings = group.airings.sort((left, right) => left.startTime.localeCompare(right.startTime))
-    const nextAiring = airings[0] || null
-    const nextPrimeTimeAiring = airings.find(isPrimeTimeAiring) || null
+    const firstByProviderStation = new Map()
+    const firstPrimeByProviderStation = new Map()
+    for (const airing of airings) {
+      const stationIdentity = airing.canonicalStationId || airing.stationId || airing.sourceStationId || ''
+      const airingKey = `${airing.providerId}|${stationIdentity}`
+      if (!firstByProviderStation.has(airingKey)) firstByProviderStation.set(airingKey, airing)
+      if (isPrimeTimeAiring(airing) && !firstPrimeByProviderStation.has(airingKey)) {
+        firstPrimeByProviderStation.set(airingKey, airing)
+      }
+    }
+    const airingOptions = [...firstByProviderStation.values()]
+      .sort((left, right) => left.startTime.localeCompare(right.startTime))
+    const primeTimeOptions = [...firstPrimeByProviderStation.values()]
+      .sort((left, right) => left.startTime.localeCompare(right.startTime))
+    const nextAiring = airingOptions[0] || null
+    const nextPrimeTimeAiring = primeTimeOptions[0] || null
     const [type, tmdbIdText] = key.split(':')
     return {
       key,
@@ -158,6 +173,8 @@ export function buildTv14DaySummary({
       ...metadata,
       providerIds: [...new Set(group.sources.map(({ providerId }) => providerId))].sort(),
       airingCount: airings.length,
+      airingOptions,
+      primeTimeOptions,
       nextAiring,
       nextPrimeTimeAiring,
       hasPrimeTime: Boolean(nextPrimeTimeAiring),
@@ -207,8 +224,9 @@ export async function writeTv14DaySummary({
     generatedAt: new Date(now).toISOString(),
   })
   await mkdir(dirname(outputPath), { recursive: true })
-  await writeFile(outputPath, JSON.stringify(summary) + '\n', 'utf8')
-  return summary
+  const payload = JSON.stringify(summary) + '\n'
+  await writeFile(outputPath, payload, 'utf8')
+  return { ...summary, byteSize: Buffer.byteLength(payload, 'utf8') }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -224,6 +242,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
           || Number.isFinite(entry.popularity)
           || Number.isFinite(entry.voteCount)
         )).length,
+        byteSize: summary.byteSize,
       }, null, 2) + '\n')
     })
     .catch((error) => {

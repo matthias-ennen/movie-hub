@@ -20,13 +20,22 @@ describe('TV 14-day summary', () => {
         entries: [{
           tmdbId: 11,
           type: 'movie',
-          airings: [{
-            stationId: 'tele5',
-            stationName: 'TELE 5',
-            programId: 'w1',
-            startTime: '2026-10-01T18:15:00.000Z',
-            stopTime: '2026-10-01T20:00:00.000Z',
-          }],
+          airings: [
+            {
+              stationId: 'tele5',
+              stationName: 'TELE 5',
+              programId: 'w1',
+              startTime: '2026-10-01T18:15:00.000Z',
+              stopTime: '2026-10-01T20:00:00.000Z',
+            },
+            {
+              stationId: 'rtl2',
+              stationName: 'RTLZWEI',
+              programId: 'w2',
+              startTime: '2026-10-03T18:15:00.000Z',
+              stopTime: '2026-10-03T20:00:00.000Z',
+            },
+          ],
         }],
       },
       joynTitles: {
@@ -53,9 +62,15 @@ describe('TV 14-day summary', () => {
       voteCount: 1000,
       popularity: 22,
       providerIds: ['joyn', 'waipu'],
-      airingCount: 2,
+      airingCount: 3,
     })
     expect(summary.entries[0].nextAiring.providerId).toBe('waipu')
+    expect(summary.entries[0].airingOptions).toHaveLength(3)
+    expect(summary.entries[0].airingOptions.map(({ providerId, stationId }) => `${providerId}:${stationId}`)).toEqual([
+      'waipu:tele5',
+      'joyn:tele5-de',
+      'waipu:rtl2',
+    ])
   })
 
   it('marks a title when any airing starts during prime time', () => {
