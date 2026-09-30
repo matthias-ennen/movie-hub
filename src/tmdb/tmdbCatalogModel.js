@@ -70,6 +70,10 @@ export function normalizePersonalTmdbTitle(raw) {
   const providerIds = Array.isArray(raw.providerIds)
     ? [...new Set(raw.providerIds.map((value) => String(value || '').trim()).filter(Boolean))]
     : []
+  const tmdbProviderIds = Array.isArray(raw.tmdbProviderIds)
+    ? [...new Set(raw.tmdbProviderIds.map((value) => String(value || '').trim()).filter(Boolean))]
+    : providerIds
+  const tmdbProviderOffers = Array.isArray(raw.tmdbProviderOffers) ? raw.tmdbProviderOffers : []
   const tmdbRating = finiteNumber(raw.ratingValue ?? raw.tmdbRating)
   const artwork = normalizeArtwork(raw)
   const collectionId = type === 'movie' ? finiteNumber(raw.collectionId) : null
@@ -116,7 +120,10 @@ export function normalizePersonalTmdbTitle(raw) {
     meta: type === 'series' ? 'Serie' : 'Film',
     score: score(raw.voteAverage),
     providerIds,
-    providerOffers: [],
+    providerOffers: tmdbProviderOffers,
+    tmdbProviderIds,
+    tmdbProviderOffers,
+    providerMetadataUpdatedAt: raw.providerMetadataUpdatedAt || raw.metadataUpdatedAt || raw.syncedAt || null,
     cast: Array.isArray(raw.cast) ? raw.cast : [],
     videos: Array.isArray(raw.videos) ? raw.videos : [],
     smartFacets: raw.smartFacets && typeof raw.smartFacets === 'object' ? raw.smartFacets : {},
@@ -243,6 +250,9 @@ export function nativeTitleToFirestore(raw, syncedAt) {
     voteCount: normalized.voteCount,
     genreNames: normalized.genreNames,
     providerIds: normalized.providerIds,
+    tmdbProviderIds: normalized.tmdbProviderIds,
+    tmdbProviderOffers: normalized.tmdbProviderOffers,
+    providerMetadataUpdatedAt: normalized.providerMetadataUpdatedAt,
     ageRating: normalized.ageRating,
     cast: normalized.cast,
     videos: normalized.videos,

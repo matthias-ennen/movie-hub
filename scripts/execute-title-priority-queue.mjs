@@ -28,7 +28,8 @@ const PUBLIC_TITLE_FIELDS = Object.freeze([
   'metadataUpdatedAt', 'voteAverage', 'voteCount', 'popularity', 'posterPath',
   'backdropPath', 'neutralPosterPath', 'neutralPosterUrl', 'artwork', 'posterUrl',
   'backdropUrl', 'originalLanguage', 'status', 'ageRating', 'meta', 'score',
-  'providerIds', 'providerOffers', 'watchProviderLink', 'videos', 'accent', 'accent2',
+  'providerIds', 'providerOffers', 'tmdbProviderIds', 'tmdbProviderOffers',
+  'providerMetadataUpdatedAt', 'watchProviderLink', 'videos', 'accent', 'accent2',
 ])
 
 function timestampMilliseconds(value) {

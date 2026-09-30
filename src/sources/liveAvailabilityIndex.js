@@ -204,6 +204,48 @@ export function advanceLiveAvailabilityEntries(entries = [], { now = Date.now() 
     .filter(Boolean)
 }
 
+function tmdbProviderIds(item) {
+  if (Array.isArray(item?.tmdbProviderIds)) {
+    return [...new Set(item.tmdbProviderIds.map(String).filter(Boolean))]
+  }
+  const offers = Array.isArray(item?.tmdbProviderOffers)
+    ? item.tmdbProviderOffers
+    : Array.isArray(item?.providerOffers)
+      ? item.providerOffers
+      : []
+  const fromOffers = offers
+    .filter((offer) => Number.isFinite(Number(offer?.tmdbProviderId)))
+    .map((offer) => text(offer?.id))
+    .filter(Boolean)
+  if (fromOffers.length) return [...new Set(fromOffers)]
+  if (item?.source === 'tmdb'
+      && ['present', 'absent'].includes(item?.metadataChecks?.providers)
+      && Array.isArray(item?.providerIds)) {
+    return [...new Set(item.providerIds
+      .map(String)
+      .filter((providerId) => providerId && providerId !== 'moviehub' && providerId !== 'waipu'))]
+  }
+  return []
+}
+
+function buildProviderEvidence(title, liveAvailability) {
+  const evidence = {}
+  const observedAt = text(title?.providerMetadataUpdatedAt || title?.metadataUpdatedAt)
+  for (const providerId of tmdbProviderIds(title)) {
+    evidence[providerId] = [{ source: 'tmdb', region: 'DE', observedAt }]
+  }
+  if (title?.movieHubCatalog === true) {
+    evidence.moviehub = [{ source: 'moviehub', observedAt: null }]
+  }
+  for (const [providerId, availability] of Object.entries(liveAvailability || {})) {
+    evidence[providerId] = [
+      ...(evidence[providerId] || []),
+      { source: `live:${providerId}`, observedAt: null, nextAiring: availability?.nextAiring || null },
+    ]
+  }
+  return evidence
+}
+
 export function mergeLiveAvailability(titles = [], entries = [], { now = Date.now() } = {}) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
   const byKey = new Map((Array.isArray(entries) ? entries : [])
@@ -218,10 +260,8 @@ export function mergeLiveAvailability(titles = [], entries = [], { now = Date.no
     for (const provider of Array.isArray(entry?.providers) ? entry.providers : []) {
       liveAvailability[provider.providerId] = provider
     }
-    const providerIds = [...new Set([
-      ...(Array.isArray(title?.providerIds) ? title.providerIds : []),
-      ...Object.keys(liveAvailability),
-    ])]
+    const providerEvidence = buildProviderEvidence(title, liveAvailability)
+    const providerIds = Object.keys(providerEvidence)
     const nextAirings = Object.values(liveAvailability)
       .map((provider) => provider?.nextAiring)
       .filter(Boolean)
@@ -229,6 +269,7 @@ export function mergeLiveAvailability(titles = [], entries = [], { now = Date.no
     const merged = {
       ...title,
       providerIds,
+      providerEvidence,
       liveAvailability,
       tvAiringOnAir: Boolean(title?.tvAiringOnAir)
         || nextAirings.some((airing) => isTvAiringOnAir(airing, timestamp)),

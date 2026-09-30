@@ -129,6 +129,55 @@ function mergeArtwork(base, enriched) {
   }
 }
 
+function explicitTmdbProviderIds(item) {
+  if (Array.isArray(item?.tmdbProviderIds)) {
+    return [...new Set(item.tmdbProviderIds.map(String).filter(Boolean))]
+  }
+  const offers = Array.isArray(item?.tmdbProviderOffers)
+    ? item.tmdbProviderOffers
+    : Array.isArray(item?.providerOffers)
+      ? item.providerOffers
+      : []
+  const ids = offers
+    .filter((offer) => Number.isFinite(Number(offer?.tmdbProviderId)))
+    .map((offer) => String(offer?.id || '').trim())
+    .filter(Boolean)
+  if (ids.length) return [...new Set(ids)]
+  if (item?.source === 'tmdb'
+      && ['present', 'absent'].includes(item?.metadataChecks?.providers)
+      && Array.isArray(item?.providerIds)) {
+    return [...new Set(item.providerIds
+      .map(String)
+      .filter((providerId) => providerId && providerId !== 'moviehub' && providerId !== 'waipu'))]
+  }
+  return []
+}
+
+function explicitTmdbProviderOffers(item) {
+  if (Array.isArray(item?.tmdbProviderOffers)) return item.tmdbProviderOffers
+  return (Array.isArray(item?.providerOffers) ? item.providerOffers : [])
+    .filter((offer) => Number.isFinite(Number(offer?.tmdbProviderId)))
+}
+
+function externalProviderIds(item, tmdbIds = explicitTmdbProviderIds(item)) {
+  const external = new Set()
+  if (item?.movieHubCatalog === true) external.add('moviehub')
+  for (const providerId of Object.keys(item?.liveAvailability || {})) external.add(providerId)
+  if (Array.isArray(item?.airings) && item.airings.length) {
+    for (const providerId of Array.isArray(item?.providerIds) ? item.providerIds : []) {
+      if (!tmdbIds.includes(providerId)) external.add(providerId)
+    }
+  }
+  return [...external]
+}
+
+function hasAuthoritativeProviderSnapshot(item) {
+  return ['present', 'absent'].includes(item?.metadataChecks?.providers)
+    && (Array.isArray(item?.tmdbProviderIds)
+      || Array.isArray(item?.tmdbProviderOffers)
+      || item?.source === 'tmdb')
+}
+
 function mergeProviderOffers(base, enriched) {
   const candidates = [...(Array.isArray(base) ? base : []), ...(Array.isArray(enriched) ? enriched : [])]
   const keys = [...new Set(candidates.map(stableKey).filter(Boolean))]
@@ -215,7 +264,20 @@ export function sameTmdbTitle(left, right) {
 export function mergeEnrichedTitle(base, enriched) {
   if (!sameTmdbTitle(base, enriched)) return base
   const merged = mergeMeaningfulObject(base, enriched)
-  const providerIds = mergeUnique(base.providerIds, enriched.providerIds)
+  const baseTmdbProviderIds = explicitTmdbProviderIds(base)
+  const enrichedTmdbProviderIds = explicitTmdbProviderIds(enriched)
+  const authoritativeProviderSnapshot = hasAuthoritativeProviderSnapshot(enriched)
+  const tmdbProviderIds = authoritativeProviderSnapshot
+    ? enrichedTmdbProviderIds
+    : mergeUnique(baseTmdbProviderIds, enrichedTmdbProviderIds)
+  const tmdbProviderOffers = authoritativeProviderSnapshot
+    ? explicitTmdbProviderOffers(enriched)
+    : mergeProviderOffers(explicitTmdbProviderOffers(base), explicitTmdbProviderOffers(enriched))
+  const providerIds = [...new Set([
+    ...tmdbProviderIds,
+    ...externalProviderIds(base, baseTmdbProviderIds),
+    ...externalProviderIds(enriched, enrichedTmdbProviderIds),
+  ])]
   const enrichedCollectionChecked = enriched.type !== 'series' && enriched.collectionChecked === true
   const title = isUsableTitle(base.title)
     ? base.title
@@ -291,7 +353,12 @@ export function mergeEnrichedTitle(base, enriched) {
     numberOfSeasons: Math.max(Number(base.numberOfSeasons) || 0, Number(enriched.numberOfSeasons) || 0) || null,
     numberOfEpisodes: Math.max(Number(base.numberOfEpisodes) || 0, Number(enriched.numberOfEpisodes) || 0) || null,
     providerIds,
-    providerOffers: mergeProviderOffers(base.providerOffers, enriched.providerOffers),
+    providerOffers: tmdbProviderOffers,
+    tmdbProviderIds,
+    tmdbProviderOffers,
+    providerMetadataUpdatedAt: authoritativeProviderSnapshot
+      ? enriched.providerMetadataUpdatedAt || enriched.metadataUpdatedAt || null
+      : latestTimestamp(base.providerMetadataUpdatedAt, enriched.providerMetadataUpdatedAt),
     movieHubCatalog: base.movieHubCatalog === true || enriched.movieHubCatalog === true,
     smartFacets,
     collectionId,

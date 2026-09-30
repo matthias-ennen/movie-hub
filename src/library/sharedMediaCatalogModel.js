@@ -111,6 +111,12 @@ export function buildSharedMediaTitleRef(item) {
     providerIds: [...new Set((Array.isArray(item?.providerIds) ? item.providerIds : [])
       .filter((providerId) => providerId && providerId !== 'moviehub')
       .map(String))].slice(0, 30),
+    tmdbProviderIds: [...new Set((Array.isArray(item?.tmdbProviderIds) ? item.tmdbProviderIds : [])
+      .map(String).filter(Boolean))].slice(0, 30),
+    tmdbProviderOffers: (Array.isArray(item?.tmdbProviderOffers) ? item.tmdbProviderOffers : []).slice(0, 30),
+    providerMetadataUpdatedAt: typeof item?.providerMetadataUpdatedAt === 'string'
+      ? item.providerMetadataUpdatedAt
+      : null,
     artwork: {
       posterPaths: imagePaths(artwork.posterPaths),
       heroBackdropPaths: imagePaths(artwork.heroBackdropPaths),
