@@ -101,7 +101,7 @@ describe('TV 14-day summary candidate pool', () => {
       voteAverage: 9 - (index / 100),
       voteCount: 1000 - index,
       popularity: 500 - index,
-      genres: [{ id: index % 2 === 0 ? 28 : 35 }],
+      genres: [{ id: 28 }],
     }))
     const waipuEntries = movies.map((movie) => ({
       tmdbId: movie.tmdbId,
