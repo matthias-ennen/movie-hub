@@ -49,4 +49,17 @@ describe('Joyn station mapping', () => {
       unmatched: 1,
     })
   })
+  it('maps reviewed regional aliases only when they are exact feed equivalents', () => {
+    expect(mapJoynStationToCanonical({ id: 'br-sued-de-hd', title: 'BR Fernsehen Süd' })).toMatchObject({
+      status: 'matched',
+      canonicalId: 'brsued',
+      method: 'reviewed-alias',
+    })
+    expect(mapJoynStationToCanonical({ id: 'hr-de-hd', title: 'Hessischer Rundfunk' })).toMatchObject({
+      status: 'matched',
+      canonicalId: 'hr',
+      method: 'reviewed-alias',
+    })
+  })
+
 })

@@ -11,6 +11,8 @@ export const JOYN_STATION_REVIEWED_ALIASES = Object.freeze([
   ['ARD Plus Lindenstraße', 'lindenstrasse'],
   ['DEFA TV', 'defatv'],
   ['Top Sci-Fi', 'topscifi'],
+  ['BR Fernsehen Süd', 'brsued'],
+  ['Hessischer Rundfunk', 'hr'],
 ])
 
 function canonicalByKey() {
