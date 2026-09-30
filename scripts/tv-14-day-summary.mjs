@@ -302,6 +302,15 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
           || Number.isFinite(entry.popularity)
           || Number.isFinite(entry.voteCount)
         )).length,
+        withMultiProviderAirings: summary.entries.filter((entry) => (
+          (Array.isArray(entry.airingOptions) ? entry.airingOptions : [])
+            .some((airing) => (Array.isArray(airing.providerIds) ? airing.providerIds : []).length > 1)
+        )).length,
+        multiProviderAiringOptions: summary.entries.reduce((total, entry) => (
+          total + (Array.isArray(entry.airingOptions) ? entry.airingOptions : [])
+            .filter((airing) => (Array.isArray(airing.providerIds) ? airing.providerIds : []).length > 1)
+            .length
+        ), 0),
         byteSize: summary.byteSize,
       }, null, 2) + '\n')
     })
