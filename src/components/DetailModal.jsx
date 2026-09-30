@@ -22,6 +22,7 @@ import { loadSeriesSeasonDetail, normalizeSeriesSeasons } from '../catalog/serie
 import { JOYN_LIVE_URL } from '../joyn/joynLiveCatalog.js'
 import { formatLiveAiring, getLiveProviderDestination } from '../sources/liveAvailabilityIndex.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
+import { resolveProviderPresentation } from '../providers/providerPresentation.js'
 
 export default function DetailModal({
   item,
@@ -93,8 +94,9 @@ export default function DetailModal({
   )
   const currentCollectionIndex = collectionParts.findIndex((part) => Number(part.tmdbId) === Number(item.tmdbId))
   const hasFilmCollection = item.type === 'movie' && collectionParts.length > 1
-  const providerIds = (Array.isArray(item.providerIds) ? item.providerIds : [])
-    .filter((providerId) => providerId !== 'moviehub' && Boolean(providers[providerId]))
+  const providerPresentation = resolveProviderPresentation(item, { context: 'title' })
+  const providerIds = providerPresentation.providerIds
+    .filter((providerId) => Boolean(providers[providerId]))
   const hasProviders = providerIds.length > 0
   const showMovieHubProvider = sharedMedia.length > 0 && isProviderEnabled('moviehub')
   const cast = Array.isArray(item.cast) ? item.cast.slice(0, 5) : []
@@ -868,9 +870,13 @@ export default function DetailModal({
                 const isCurrent = Number(part.tmdbId) === Number(item.tmdbId)
                 const watched = getTitleState(part).watched
                 const partPosterUrl = resolveArtworkUrl(part, artworkOptions)
-                const movieHubAvailable = part.providerIds?.includes('moviehub') && isProviderEnabled('moviehub')
-                const automaticProviderIds = (part.providerIds || [])
-                  .filter((providerId) => providerId !== 'moviehub' && Boolean(providers[providerId]))
+                const partProviderPresentation = resolveProviderPresentation(part, {
+                  context: 'title',
+                  hasMovieHub: part.movieHubCatalog === true || part.providerIds?.includes('moviehub'),
+                })
+                const movieHubAvailable = partProviderPresentation.includeMovieHub && isProviderEnabled('moviehub')
+                const automaticProviderIds = partProviderPresentation.providerIds
+                  .filter((providerId) => Boolean(providers[providerId]))
                 const hasAvailability = movieHubAvailable || automaticProviderIds.length > 0
                 return (
                   <button
