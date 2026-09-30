@@ -27,6 +27,7 @@ import { readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mj
 import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
 import { WAIPU_PROGRAM_UPSTREAM_FIELD_POLICY } from '../src/sources/policies/waipuUpstreamFieldPolicy.js'
 import { writeFieldDiscoveryReport } from '../src/sources/fieldDiscoveryReport.js'
+import { attachTvDayTitleMetadata } from '../src/sources/tvDayTitleMetadata.js'
 import {
   buildWaipuSourceEnvelope,
   dedupeWaipuBroadcastEvents,
@@ -955,6 +956,7 @@ async function main() {
         },
       })
       liveCatalog.titles = titleArtifact(metadata.entries)
+      liveCatalog.days = attachTvDayTitleMetadata(liveCatalog.days, metadata.entries)
       liveCatalog.index.metadata = {
         required: true,
         generatedAt: metadata.generatedAt,

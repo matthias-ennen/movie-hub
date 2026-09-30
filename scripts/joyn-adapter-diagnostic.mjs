@@ -1018,6 +1018,7 @@ export async function runJoynAdapterDiagnostic({
   })
   publication.titles.entries = metadata.entries
   publication.titles.count = metadata.entries.length
+  publication.days = enrichJoynDayTitleMetadata(publication).days
   publication.index.metadata = {
     required: true,
     generatedAt: metadata.generatedAt,

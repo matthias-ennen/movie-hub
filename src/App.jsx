@@ -484,7 +484,7 @@ function MovieHub({ user }) {
     days: [],
   })
   const [homeStartupReady, setHomeStartupReady] = useState(false)
-  const [tvSchedule, setTvSchedule] = useState({ status: 'idle', airings: [] })
+  const [tvSchedule, setTvSchedule] = useState({ status: 'idle', airings: [], titles: [] })
   const [tv14DaySummary, setTv14DaySummary] = useState({ status: 'idle', entries: [] })
   const [tvHydratedTitles, setTvHydratedTitles] = useState([])
   const [tvScheduleRequested, setTvScheduleRequested] = useState(false)
@@ -705,15 +705,15 @@ function MovieHub({ user }) {
     const joynReady = joynStationCatalog.status === 'ready'
 
     if ((waipuLoading || joynLoading) && !waipuReady && !joynReady) {
-      setTvSchedule({ status: 'loading', airings: [] })
+      setTvSchedule({ status: 'loading', airings: [], titles: [] })
       return undefined
     }
     if (!waipuReady && !joynReady) {
-      setTvSchedule({ status: 'unavailable', airings: [] })
+      setTvSchedule({ status: 'unavailable', airings: [], titles: [] })
       return undefined
     }
     if ((!waipuReady || !activeWaipuStations.length) && (!joynReady || !activeJoynStations.length)) {
-      setTvSchedule({ status: 'no-stations', airings: [] })
+      setTvSchedule({ status: 'no-stations', airings: [], titles: [] })
       return undefined
     }
 
@@ -733,17 +733,24 @@ function MovieHub({ user }) {
         })
         : Promise.resolve([]),
     ])
-      .then(([waipuAirings, joynAirings]) => {
+      .then(([waipuResult, joynResult]) => {
         if (!cancelled) {
+          const waipuAirings = Array.isArray(waipuResult) ? waipuResult : waipuResult?.airings || []
+          const joynAirings = Array.isArray(joynResult) ? joynResult : joynResult?.airings || []
+          const dayTitles = [
+            ...(Array.isArray(waipuResult?.titles) ? waipuResult.titles : []),
+            ...(Array.isArray(joynResult?.titles) ? joynResult.titles : []),
+          ]
           setTvClock(Date.now())
           setTvSchedule({
             status: 'ready',
             airings: mergeTvAirings(waipuAirings, joynAirings),
+            titles: dayTitles,
           })
         }
       })
       .catch(() => {
-        if (!cancelled) setTvSchedule({ status: 'unavailable', airings: [] })
+        if (!cancelled) setTvSchedule({ status: 'unavailable', airings: [], titles: [] })
       })
     return () => { cancelled = true }
   }, [
@@ -851,6 +858,14 @@ function MovieHub({ user }) {
 
   const tvPresentationTitles = useMemo(() => {
     const byKey = new Map(titles.map((title) => [`${title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'}:${Number(title?.tmdbId) || ''}`, title]))
+    for (const dayTitle of Array.isArray(tvSchedule.titles) ? tvSchedule.titles : []) {
+      const type = dayTitle?.type === 'series' || dayTitle?.mediaType === 'tv' ? 'series' : 'movie'
+      const tmdbId = Number(dayTitle?.tmdbId)
+      if (!Number.isInteger(tmdbId) || tmdbId <= 0) continue
+      const key = `${type}:${tmdbId}`
+      const current = byKey.get(key)
+      byKey.set(key, current ? mergeEnrichedTitle(current, dayTitle) : dayTitle)
+    }
     for (const liveEntry of compactTvTitleEntries) {
       const type = liveEntry?.type === 'series' || liveEntry?.mediaType === 'tv' ? 'series' : 'movie'
       const tmdbId = Number(liveEntry?.tmdbId)
@@ -868,7 +883,7 @@ function MovieHub({ user }) {
       byKey.set(key, current ? mergeEnrichedTitle(current, hydrated) : hydrated)
     }
     return [...byKey.values()].map((item) => resolvePresentationArtwork(item, artworkOptions))
-  }, [artworkOptions, compactTvTitleEntries, titles, tvHydratedTitles])
+  }, [artworkOptions, compactTvTitleEntries, titles, tvHydratedTitles, tvSchedule.titles])
 
   useEffect(() => {
     if (!Array.isArray(tvSchedule.airings) || !tvSchedule.airings.length) return undefined

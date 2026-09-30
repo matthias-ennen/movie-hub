@@ -1,6 +1,7 @@
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
+import { attachTvDayTitleMetadata } from '../src/sources/tvDayTitleMetadata.js'
 
 export const JOYN_LIVE_PUBLICATION_VERSION = 1
 
@@ -262,5 +263,12 @@ export async function writeJoynLivePublicationAtomic(publication, outputDirector
     return validation
   } finally {
     await rm(staging, { recursive: true, force: true })
+  }
+}
+
+export function enrichJoynDayTitleMetadata(publication) {
+  return {
+    ...publication,
+    days: attachTvDayTitleMetadata(publication?.days || {}, publication?.titles?.entries || []),
   }
 }

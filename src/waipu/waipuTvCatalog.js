@@ -3,6 +3,7 @@ import {
   isTvAiringOnAir,
   isTvAiringSoon,
 } from './waipuAiringStatus.js'
+import { normalizeTvDayTitles } from '../sources/tvDayTitleMetadata.js'
 import {
   mapWaipuAiringToBroadcastEvent,
   projectBroadcastEventToWaipuAiring,
@@ -115,13 +116,14 @@ export function normalizeWaipuDayShard(raw, expectedKey, stations = [], { now = 
     .map(normalizeStation)
     .filter(Boolean)
     .map((station) => [station.id, station]))
-  return (Array.isArray(raw.airings) ? raw.airings : [])
+  const airings = (Array.isArray(raw.airings) ? raw.airings : [])
     .map((airing) => {
       const station = stationById.get(safeStationId(airing?.stationId))
       return station ? normalizeAiring(airing, station, timestamp) : null
     })
     .filter(Boolean)
     .sort((left, right) => left.startTime.localeCompare(right.startTime))
+  return { airings, titles: normalizeTvDayTitles(raw?.titles) }
 }
 
 export async function loadWaipuLiveStationCatalog({ fetchImpl = fetch } = {}) {
@@ -175,10 +177,10 @@ async function loadDayShard(key, stations, fetchImpl, now) {
   const request = (async () => {
     try {
       const response = await fetchImpl(`/waipu-live/days/${key}.json`, { cache: 'no-store' })
-      if (!response.ok) return []
+      if (!response.ok) return { airings: [], titles: [] }
       return normalizeWaipuDayShard(await response.json(), key, stations, { now })
     } catch {
-      return []
+      return { airings: [], titles: [] }
     }
   })()
   if (fetchImpl === fetch) dayShardCache.set(key, { loadedAt: Date.now(), promise: request })

@@ -1,3 +1,4 @@
+import { normalizeTvDayTitles } from '../sources/tvDayTitleMetadata.js'
 export const JOYN_LIVE_CATALOG_VERSION = 1
 export const JOYN_LIVE_INDEX_URL = '/joyn-live/index.json'
 export const JOYN_LIVE_STATIONS_URL = '/joyn-live/stations.json'
@@ -118,10 +119,11 @@ export function normalizeJoynDayShard(raw, expectedKey, stations = [], { now = D
     .filter(Boolean)
     .map((station) => [station.id, station]))
 
-  return (Array.isArray(raw.airings) ? raw.airings : [])
+  const airings = (Array.isArray(raw.airings) ? raw.airings : [])
     .map((airing) => normalizeJoynAiring(airing, stationById, timestamp))
     .filter(Boolean)
     .sort((left, right) => left.startTime.localeCompare(right.startTime))
+  return { airings, titles: normalizeTvDayTitles(raw?.titles) }
 }
 
 async function loadDayShard(key, stations, fetchImpl, now) {
@@ -130,10 +132,10 @@ async function loadDayShard(key, stations, fetchImpl, now) {
   const request = (async () => {
     try {
       const response = await fetchImpl(`/joyn-live/days/${key}.json`, { cache: 'no-store' })
-      if (!response.ok) return []
+      if (!response.ok) return { airings: [], titles: [] }
       return normalizeJoynDayShard(await response.json(), key, stations, { now })
     } catch {
-      return []
+      return { airings: [], titles: [] }
     }
   })()
   if (fetchImpl === fetch) dayShardCache.set(key, { loadedAt: Date.now(), promise: request })
@@ -175,10 +177,12 @@ export async function loadJoynTvAirings(stations = [], {
       ? dayKeys.filter((key) => `day:${key}` === periodId)
       : dayKeys
 
-  const airings = await loadConcurrent(requestedKeys, concurrency, (key) => (
+  const shards = await loadConcurrent(requestedKeys, concurrency, (key) => (
     loadDayShard(key, queue, fetchImpl, now)
   ))
-  return airings
+  const airings = shards.flatMap((shard) => Array.isArray(shard?.airings) ? shard.airings : [])
     .filter((airing) => enabledIds.has(String(airing?.sourceStationId || '')))
     .sort((left, right) => left.startTime.localeCompare(right.startTime))
+  const titles = shards.flatMap((shard) => Array.isArray(shard?.titles) ? shard.titles : [])
+  return { airings, titles }
 }
