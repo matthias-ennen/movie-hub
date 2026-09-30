@@ -218,12 +218,14 @@ function tmdbProviderIds(item) {
     .map((offer) => text(offer?.id))
     .filter(Boolean)
   if (fromOffers.length) return [...new Set(fromOffers)]
-  if (item?.source === 'tmdb'
-      && ['present', 'absent'].includes(item?.metadataChecks?.providers)
-      && Array.isArray(item?.providerIds)) {
+  if (Array.isArray(item?.providerIds)) {
+    const liveIds = new Set(Object.keys(item?.liveAvailability || {}))
     return [...new Set(item.providerIds
       .map(String)
-      .filter((providerId) => providerId && providerId !== 'moviehub' && providerId !== 'waipu'))]
+      .filter((providerId) => providerId
+        && providerId !== 'moviehub'
+        && providerId !== 'waipu'
+        && !liveIds.has(providerId)))]
   }
   return []
 }

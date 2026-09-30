@@ -273,11 +273,16 @@ export function mergeEnrichedTitle(base, enriched) {
   const tmdbProviderOffers = authoritativeProviderSnapshot
     ? explicitTmdbProviderOffers(enriched)
     : mergeProviderOffers(explicitTmdbProviderOffers(base), explicitTmdbProviderOffers(enriched))
-  const providerIds = [...new Set([
-    ...tmdbProviderIds,
-    ...externalProviderIds(base, baseTmdbProviderIds),
-    ...externalProviderIds(enriched, enrichedTmdbProviderIds),
-  ])]
+  const providerIds = authoritativeProviderSnapshot
+    ? [...new Set([
+        ...tmdbProviderIds,
+        ...externalProviderIds(base, baseTmdbProviderIds),
+        ...externalProviderIds(enriched, enrichedTmdbProviderIds),
+      ])]
+    : mergeUnique(base.providerIds, enriched.providerIds)
+  const providerOffers = authoritativeProviderSnapshot
+    ? tmdbProviderOffers
+    : mergeProviderOffers(base.providerOffers, enriched.providerOffers)
   const enrichedCollectionChecked = enriched.type !== 'series' && enriched.collectionChecked === true
   const title = isUsableTitle(base.title)
     ? base.title
@@ -353,7 +358,7 @@ export function mergeEnrichedTitle(base, enriched) {
     numberOfSeasons: Math.max(Number(base.numberOfSeasons) || 0, Number(enriched.numberOfSeasons) || 0) || null,
     numberOfEpisodes: Math.max(Number(base.numberOfEpisodes) || 0, Number(enriched.numberOfEpisodes) || 0) || null,
     providerIds,
-    providerOffers: tmdbProviderOffers,
+    providerOffers,
     tmdbProviderIds,
     tmdbProviderOffers,
     providerMetadataUpdatedAt: authoritativeProviderSnapshot
