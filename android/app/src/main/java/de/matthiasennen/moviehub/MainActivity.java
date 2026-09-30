@@ -18,6 +18,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -63,6 +64,7 @@ public final class MainActivity extends ComponentActivity {
     private boolean startupTimeoutRetryAttempted;
     private int startupErrorRetryAttempts;
     private boolean activityResumed;
+    private boolean webRendererGone;
     private String pendingHeroTrailerRequestId;
     private String pendingHeroTrailerOutcome;
     private int heroTrailerResultAttempts;
@@ -260,7 +262,13 @@ public final class MainActivity extends ComponentActivity {
         retryButton = new Button(this);
         retryButton.setText("Erneut versuchen");
         retryButton.setAllCaps(false);
-        retryButton.setOnClickListener(view -> loadMovieHub());
+        retryButton.setOnClickListener(view -> {
+            if (webRendererGone) {
+                recreate();
+            } else {
+                loadMovieHub();
+            }
+        });
         LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -379,6 +387,20 @@ public final class MainActivity extends ComponentActivity {
             startupErrorRetryAttempts += 1;
             scheduleAutomaticStartupRetry(delayMs);
             return;
+        }
+
+        showFinalStartupFailure();
+    }
+
+    private void handleWebRendererGone(WebView deadView) {
+        cancelStartupTimeout();
+        cancelStartupRetry();
+        clearPendingHeroTrailerResult();
+        hostedUiReady = false;
+        webRendererGone = true;
+
+        if (deadView != null) {
+            deadView.setVisibility(View.GONE);
         }
 
         showFinalStartupFailure();
@@ -787,6 +809,12 @@ public final class MainActivity extends ComponentActivity {
             if (request.isForMainFrame()) {
                 handleMainFrameStartupError();
             }
+        }
+
+        @Override
+        public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+            handleWebRendererGone(view);
+            return true;
         }
     }
 
