@@ -881,6 +881,9 @@ function MovieHub({ user }) {
           const detail = await loadRuntimeTitleMetadata(candidate)
           publishHydratedTitle(detail)
         } catch (error) {
+          // Temporary TMDB/native bridge failures must not blacklist this title
+          // for the rest of the app session. A later schedule/render pass may retry.
+          tvMetadataHydrationAttemptedRef.current.delete(key)
           console.warn('TV-TMDB-Metadaten konnten nicht ergänzt werden.', { key, error })
         } finally {
           tvMetadataHydrationInFlightRef.current.delete(key)
@@ -1008,18 +1011,12 @@ function MovieHub({ user }) {
       loadRuntimeTitleMetadata(item)
         .then((detail) => {
           if (titleNeedsMetadataEnrichment(detail)) return
-          setWaipuLiveEntries((entries) => entries.map((entry) => {
+          setLiveAvailabilityEntries((entries) => entries.map((entry) => {
             if (!sameTmdbTitle(entry, item)) return entry
-            const hydrated = mergeEnrichedTitle({
-              ...entry,
-              id: entry.id || `tmdb-${entry.type}-${entry.tmdbId}`,
-            }, detail)
             return {
-              ...hydrated,
-              key: entry.key,
-              airings: entry.airings,
-              nextAiring: entry.nextAiring,
-              airingCount: entry.airingCount,
+              ...entry,
+              title: detail?.title || entry.title,
+              originalTitle: detail?.originalTitle || entry.originalTitle,
             }
           }))
           setSelectedTitle((current) => {
