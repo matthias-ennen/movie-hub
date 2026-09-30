@@ -27,7 +27,7 @@ export function tvAiringOverlapRatio(left, right) {
   const b = interval(right)
   if (!a || !b) return 0
   const overlap = Math.max(0, Math.min(a.stop, b.stop) - Math.max(a.start, b.start))
-  return overlap / Math.min(a.duration, b.duration)
+  return overlap / Math.max(a.duration, b.duration)
 }
 
 export function areEquivalentTvAirings(left, right, {
