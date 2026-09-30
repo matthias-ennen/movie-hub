@@ -331,6 +331,10 @@ jobs:
           DATA_STATUS_APPEND_SUMMARY: '0'
         run: npm run data:status
 
+      - name: Build compact 14-day TV summary
+        id: tv_14_day_summary
+        run: npm run tv:14-day:summary
+
       - name: Build
         id: app_build
         run: npm run build
