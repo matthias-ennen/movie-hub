@@ -20,7 +20,7 @@ import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { loadSeriesSeasonDetail, normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
 import { JOYN_LIVE_URL } from '../joyn/joynLiveCatalog.js'
-import { formatLiveAiring, getLiveProviderDestination } from '../sources/liveAvailabilityIndex.js'
+import { formatLiveAiring, getItemLiveProviderDestination } from '../sources/liveAvailabilityIndex.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { resolveProviderPresentation } from '../providers/providerPresentation.js'
 
@@ -394,8 +394,7 @@ export default function DetailModal({
 
   function openProvider(providerId) {
     const providerNow = Date.now()
-    const liveAvailability = item?.liveAvailability?.[providerId] || null
-    const genericLiveDestination = getLiveProviderDestination(liveAvailability, { now: providerNow })
+    const genericLiveDestination = getItemLiveProviderDestination(item, providerId, { now: providerNow })
     const exactWaipuDestination = providerId === 'waipu' && !genericLiveDestination
       ? getWaipuEpgDestination(item?.waipuLive, { now: providerNow })
       : null

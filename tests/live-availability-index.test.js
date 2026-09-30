@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   advanceLiveAvailabilityEntries,
   buildLiveAvailabilityIndex,
+  getItemLiveProviderDestination,
   getLiveProviderDestination,
   mergeLiveAvailability,
   normalizeLiveAvailabilityIndex,
@@ -73,6 +74,27 @@ describe('generic live availability index', () => {
     expect(merged[0].liveAvailability.joyn.airings).toHaveLength(3)
     expect(merged[0].joynLive).toBeTruthy()
     expect(getLiveProviderDestination(merged[0].liveAvailability.joyn, { now })).toBe('https://www.joyn.de/1')
+  })
+
+  it('selects the playback route for the requested provider on a merged airing', () => {
+    const mergedAiring = {
+      stationId: 'prosieben',
+      startTime: '2026-09-30T13:00:00.000Z',
+      stopTime: '2026-09-30T15:00:00.000Z',
+      providerIds: ['waipu', 'joyn'],
+      playbackRoutes: [
+        { providerId: 'waipu', mode: 'APP_DEEP_LINK', target: 'waipu://program/11' },
+        { providerId: 'joyn', mode: 'WEB_LINK', target: 'https://www.joyn.de/program/11' },
+      ],
+    }
+    const availability = { airings: [mergedAiring] }
+
+    expect(getLiveProviderDestination(availability, { now, providerId: 'joyn' }))
+      .toBe('https://www.joyn.de/program/11')
+    expect(getLiveProviderDestination(availability, { now, providerId: 'waipu' }))
+      .toBe('waipu://program/11')
+    expect(getItemLiveProviderDestination({ tvAiring: mergedAiring }, 'joyn', { now }))
+      .toBe('https://www.joyn.de/program/11')
   })
 
   it('drops expired airings without provider-specific code', () => {

@@ -290,8 +290,12 @@ export function mergeLiveAvailability(titles = [], entries = [], { now = Date.no
   })
 }
 
-export function getLiveProviderDestination(providerAvailability, { now = Date.now() } = {}) {
+export function getLiveProviderDestination(providerAvailability, {
+  now = Date.now(),
+  providerId = null,
+} = {}) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
+  const requestedProviderId = text(providerId)
   const airings = (Array.isArray(providerAvailability?.airings) && providerAvailability.airings.length
     ? providerAvailability.airings
     : [providerAvailability?.nextAiring])
@@ -303,8 +307,35 @@ export function getLiveProviderDestination(providerAvailability, { now = Date.no
     || null
   if (!selected) return null
   const routes = Array.isArray(selected?.playbackRoutes) ? selected.playbackRoutes : []
-  const exact = routes.find((route) => text(route?.target))
+  const exact = routes.find((route) => (
+    (!requestedProviderId || text(route?.providerId) === requestedProviderId)
+    && text(route?.target)
+  ))
   return exact?.target || null
+}
+
+export function getItemLiveProviderDestination(item, providerId, { now = Date.now() } = {}) {
+  const requestedProviderId = text(providerId)
+  if (!requestedProviderId) return null
+
+  const titleDestination = getLiveProviderDestination(item?.liveAvailability?.[requestedProviderId], {
+    now,
+    providerId: requestedProviderId,
+  })
+  if (titleDestination) return titleDestination
+
+  const airing = item?.tvAiring
+  if (!airing) return null
+  const airingProviderIds = new Set([
+    ...(Array.isArray(airing?.providerIds) ? airing.providerIds : []),
+    ...(Array.isArray(airing?.playbackRoutes) ? airing.playbackRoutes.map((route) => route?.providerId) : []),
+  ].map(text).filter(Boolean))
+  if (!airingProviderIds.has(requestedProviderId)) return null
+
+  return getLiveProviderDestination({ airings: [airing] }, {
+    now,
+    providerId: requestedProviderId,
+  })
 }
 
 export function formatLiveAiring(providerAvailability, {
