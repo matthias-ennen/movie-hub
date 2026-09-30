@@ -2,6 +2,58 @@ import { describe, expect, it } from 'vitest'
 import { buildJoynLivePublication } from '../scripts/joyn-live-publication.mjs'
 
 describe('Joyn live publication', () => {
+  it('groups early-morning Joyn airings into the previous 06:00-to-06:00 TV day', () => {
+    const publication = buildJoynLivePublication({
+      generatedAt: '2026-09-30T00:30:00.000Z',
+      rawStreams: [{ id: 'tele5-de', title: 'TELE 5' }],
+      stationMapping: {
+        entries: [{
+          joynId: 'tele5-de',
+          status: 'matched',
+          canonicalId: 'tele5',
+          canonicalName: 'TELE 5',
+          method: 'normalized-name',
+        }],
+      },
+      envelope: {
+        sourceGenerationId: 'joyn:test-0600',
+        records: [
+          {
+            kind: 'broadcast',
+            eventId: 'late-night',
+            titleRef: { mediaType: 'movie', tmdbId: 11 },
+            channelId: 'tele5',
+            channelName: 'TELE 5',
+            startAt: '2026-09-30T00:30:00.000Z',
+            endAt: '2026-09-30T02:00:00.000Z',
+            playbackRoutes: [],
+            sourceRefs: [],
+            extensions: { joyn: { channelId: 'tele5-de', programId: 'p-night', rawTitle: 'Nachtfilm' } },
+          },
+          {
+            kind: 'broadcast',
+            eventId: 'morning',
+            titleRef: { mediaType: 'movie', tmdbId: 12 },
+            channelId: 'tele5',
+            channelName: 'TELE 5',
+            startAt: '2026-09-30T04:30:00.000Z',
+            endAt: '2026-09-30T06:00:00.000Z',
+            playbackRoutes: [],
+            sourceRefs: [],
+            extensions: { joyn: { channelId: 'tele5-de', programId: 'p-morning', rawTitle: 'Morgenfilm' } },
+          },
+        ],
+      },
+    })
+
+    expect(publication.index.days).toEqual([
+      { key: '2026-09-29', count: 1 },
+      { key: '2026-09-30', count: 1 },
+    ])
+    expect(publication.days['2026-09-29'].airings.map(({ id }) => id)).toEqual(['late-night'])
+    expect(publication.days['2026-09-30'].airings.map(({ id }) => id)).toEqual(['morning'])
+  })
+
   it('keeps all Joyn stations while publishing only matched title events', () => {
     const publication = buildJoynLivePublication({
       generatedAt: '2026-09-26T15:00:00.000Z',

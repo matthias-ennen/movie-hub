@@ -287,7 +287,7 @@ die bisherigen Sendershards lesbar. Das erzeugt keine zusätzlichen
 Waipu-Anfragen, weil die App ausschließlich veröffentlichte Movie-Hub-
 Artefakte liest.
 
-Ausstrahlungen werden in deutscher Ortszeit je Kalendertag gruppiert und
+Ausstrahlungen werden in deutscher Ortszeit je MovieHub-TV-Tag von 06:00 Uhr bis 06:00 Uhr des Folgetags gruppiert und
 innerhalb eines Tages nach Startzeit und Sender sortiert. Jede Posterkarte
 verwendet dieselbe Titel-, Jahr-, Altersfreigabe- und Anbieter-Darstellung wie
 Home, Filme und Serien. Startzeit und Sender ergänzen diese Standarddarstellung

@@ -9,17 +9,30 @@ function text(value) {
   return normalized || null
 }
 
+const TV_TIME_ZONE = 'Europe/Berlin'
+const TV_DAY_START_HOUR = 6
+
+function shiftDateKey(key, days) {
+  const [year, month, day] = String(key).split('-').map(Number)
+  const shifted = new Date(Date.UTC(year, month - 1, day + days, 12))
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`
+}
+
 function dayKey(value) {
   const date = new Date(value)
   if (!Number.isFinite(date.getTime())) return null
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Berlin',
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: TV_TIME_ZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23',
   }).formatToParts(date)
-  const byType = Object.fromEntries(parts.map(({ type, value: part }) => [type, part]))
-  return `${byType.year}-${byType.month}-${byType.day}`
+    .filter((part) => part.type !== 'literal')
+    .map((part) => [part.type, Number(part.value)]))
+  const key = `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`
+  return parts.hour < TV_DAY_START_HOUR ? shiftDateKey(key, -1) : key
 }
 
 function stationCatalog(rawStreams, stationMapping) {
