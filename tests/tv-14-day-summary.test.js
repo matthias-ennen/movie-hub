@@ -91,3 +91,35 @@ describe('TV 14-day summary', () => {
     expect(summary.entries[0].nextPrimeTimeAiring).toBeTruthy()
   })
 })
+
+describe('TV 14-day summary candidate pool', () => {
+  it('caps each semantic row bucket while preserving multiple categories in one compact union', () => {
+    const movies = Array.from({ length: 150 }, (_, index) => ({
+      tmdbId: index + 1,
+      type: 'movie',
+      title: `Movie ${index + 1}`,
+      voteAverage: 9 - (index / 100),
+      voteCount: 1000 - index,
+      popularity: 500 - index,
+      genres: [{ id: index % 2 === 0 ? 28 : 35 }],
+    }))
+    const waipuEntries = movies.map((movie) => ({
+      tmdbId: movie.tmdbId,
+      type: movie.type,
+      airings: [{
+        stationId: 'tele5',
+        startTime: '2026-10-01T18:15:00.000Z',
+        stopTime: '2026-10-01T20:00:00.000Z',
+      }],
+    }))
+    const summary = buildTv14DaySummary({
+      catalog: { titles: movies },
+      waipuTitles: { entries: waipuEntries },
+    })
+
+    expect(summary.sourceCount).toBe(150)
+    expect(summary.count).toBeLessThanOrEqual(150)
+    expect(summary.candidateLimitPerRow).toBe(120)
+    expect(summary.entries.filter((entry) => entry.type === 'movie').length).toBeLessThanOrEqual(120)
+  })
+})

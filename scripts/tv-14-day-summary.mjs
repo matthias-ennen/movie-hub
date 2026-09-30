@@ -3,8 +3,19 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const TV_14_DAY_SUMMARY_VERSION = 1
+export const TV_14_DAY_ROW_CANDIDATE_LIMIT = 120
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const TV_TIME_ZONE = 'Europe/Berlin'
+const TOP_RATED_MINIMUM_VOTES = 50
+const TV_GENRE_BUCKETS = Object.freeze([
+  { id: 'action-adventure', genreIds: [12, 28, 10759] },
+  { id: 'comedy', genreIds: [35] },
+  { id: 'crime-thriller', genreIds: [53, 80, 9648] },
+  { id: 'science-fiction-fantasy', genreIds: [14, 878, 10765] },
+  { id: 'drama-romance', genreIds: [18, 10749] },
+  { id: 'family-animation', genreIds: [16, 10751, 10762] },
+  { id: 'documentary', genreIds: [99] },
+])
 
 function finite(value) {
   const number = Number(value)
@@ -97,6 +108,40 @@ function normalizeAiring(airing, providerId) {
   }
 }
 
+function compareSummaryQuality(left, right) {
+  const leftVotes = finite(left?.voteCount) || 0
+  const rightVotes = finite(right?.voteCount) || 0
+  const leftQualified = leftVotes >= TOP_RATED_MINIMUM_VOTES
+  const rightQualified = rightVotes >= TOP_RATED_MINIMUM_VOTES
+  return Number(rightQualified) - Number(leftQualified)
+    || (finite(right?.voteAverage) || 0) - (finite(left?.voteAverage) || 0)
+    || rightVotes - leftVotes
+    || (finite(right?.popularity) || 0) - (finite(left?.popularity) || 0)
+    || String(left?.nextAiring?.startTime || '').localeCompare(String(right?.nextAiring?.startTime || ''))
+    || String(left?.key || '').localeCompare(String(right?.key || ''))
+}
+
+function hasAnyGenre(entry, genreIds) {
+  const ids = new Set(Array.isArray(entry?.genreIds) ? entry.genreIds.map(Number).filter(Number.isFinite) : [])
+  return genreIds.some((id) => ids.has(id))
+}
+
+function selectCandidatePool(entries, limit = TV_14_DAY_ROW_CANDIDATE_LIMIT) {
+  const buckets = [
+    entries.filter((entry) => entry.type === 'movie'),
+    entries.filter((entry) => entry.type === 'series'),
+    entries.filter((entry) => entry.hasPrimeTime),
+    ...TV_GENRE_BUCKETS.map((bucket) => entries.filter((entry) => hasAnyGenre(entry, bucket.genreIds))),
+  ]
+  const selected = new Map()
+  for (const bucket of buckets) {
+    for (const entry of [...bucket].sort(compareSummaryQuality).slice(0, limit)) {
+      selected.set(entry.key, entry)
+    }
+  }
+  return [...selected.values()].sort(compareSummaryQuality)
+}
+
 function providerEntries(payload, providerId) {
   return (Array.isArray(payload?.entries) ? payload.entries : [])
     .map((entry) => {
@@ -184,12 +229,15 @@ export function buildTv14DaySummary({
     || left.key.localeCompare(right.key)
   ))
 
+  const candidateEntries = selectCandidatePool(entries)
   return {
     schemaVersion: TV_14_DAY_SUMMARY_VERSION,
     kind: 'moviehub-tv-14-day-summary',
     generatedAt,
-    count: entries.length,
-    entries,
+    sourceCount: entries.length,
+    candidateLimitPerRow: TV_14_DAY_ROW_CANDIDATE_LIMIT,
+    count: candidateEntries.length,
+    entries: candidateEntries,
   }
 }
 
@@ -235,7 +283,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       process.stdout.write(JSON.stringify({
         kind: summary.kind,
         generatedAt: summary.generatedAt,
+        sourceCount: summary.sourceCount,
         count: summary.count,
+        candidateLimitPerRow: summary.candidateLimitPerRow,
         withPrimeTime: summary.entries.filter((entry) => entry.hasPrimeTime).length,
         withRankingMetadata: summary.entries.filter((entry) => (
           Number.isFinite(entry.voteAverage)
