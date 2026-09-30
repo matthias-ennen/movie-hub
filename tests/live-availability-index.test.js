@@ -93,3 +93,22 @@ describe('generic live availability index', () => {
     expect(advanced[0].providers[0].nextAiring.startTime).toBe('2026-09-30T14:00:00.000Z')
   })
 })
+
+describe('compact live availability defaults', () => {
+  it('keeps only the next airing per provider by default', () => {
+    const publication = buildLiveAvailabilityIndex([{
+      providerId: 'waipu',
+      entries: [{
+        type: 'movie',
+        tmdbId: 42,
+        airings: [
+          airing('ZDF', '2026-09-30T13:00:00.000Z', '2026-09-30T14:00:00.000Z', 'waipu', 'https://example.invalid/1'),
+          airing('ZDF', '2026-09-30T15:00:00.000Z', '2026-09-30T16:00:00.000Z', 'waipu', 'https://example.invalid/2'),
+        ],
+      }],
+    }], { now })
+
+    expect(publication.maxAiringsPerProvider).toBe(1)
+    expect(publication.entries[0].providers[0].airings).toHaveLength(1)
+  })
+})

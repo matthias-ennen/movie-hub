@@ -2,7 +2,7 @@ import { isTvAiringOnAir, isTvAiringSoon } from '../waipu/waipuAiringStatus.js'
 
 export const LIVE_AVAILABILITY_INDEX_VERSION = 1
 export const LIVE_AVAILABILITY_INDEX_URL = '/live-availability-index.json'
-export const DEFAULT_AIRINGS_PER_PROVIDER = 3
+export const DEFAULT_AIRINGS_PER_PROVIDER = 1
 
 function text(value) {
   const normalized = String(value ?? '').trim()
@@ -33,10 +33,6 @@ function compactRoute(route, providerId) {
     providerId: text(route?.providerId) || providerId,
     mode,
     target,
-    requiresAuth: route?.requiresAuth === true,
-    requiresSubscription: route?.requiresSubscription === true,
-    adSupported: route?.adSupported === true,
-    verifiedAt: text(route?.verifiedAt),
   }
 }
 
@@ -59,29 +55,16 @@ function compactAiring(raw, providerId) {
       providerId,
       mode: 'APP_DEEP_LINK',
       target: playbackTarget,
-      requiresAuth: false,
-      requiresSubscription: true,
-      adSupported: false,
-      verifiedAt: text(raw?.verifiedAt),
     }
     routes.set(routeKey(route), route)
   }
 
   return {
     stationId: text(raw?.stationId),
-    sourceStationId: text(raw?.sourceStationId),
-    canonicalStationId: text(raw?.canonicalStationId),
     stationName: text(raw?.stationName),
     programId: text(raw?.programId),
     startTime,
     stopTime,
-    episodeTitle: text(raw?.episodeTitle ?? raw?.episode?.title),
-    seasonNumber: Number.isInteger(Number(raw?.seasonNumber ?? raw?.episode?.seasonNumber))
-      ? Number(raw?.seasonNumber ?? raw?.episode?.seasonNumber)
-      : null,
-    episodeNumber: Number.isInteger(Number(raw?.episodeNumber ?? raw?.episode?.episodeNumber))
-      ? Number(raw?.episodeNumber ?? raw?.episode?.episodeNumber)
-      : null,
     playbackRoutes: [...routes.values()],
   }
 }
