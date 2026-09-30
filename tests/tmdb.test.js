@@ -104,6 +104,8 @@ describe('TMDB adapter', () => {
       score: '8,5',
       ageRating: 16,
       providerIds: [],
+      tmdbProviderIds: [],
+      tmdbProviderOffers: [],
     })
   })
 

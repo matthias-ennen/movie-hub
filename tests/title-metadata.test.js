@@ -306,4 +306,69 @@ describe('kanonische Titelmetadaten', () => {
     expect(merged.seasons.map((season) => season.seasonNumber)).toEqual([1, 2])
     expect(merged.collectionChecked).toBeNull()
   })
+  it('ersetzt einen alten TMDB-Anbietersatz durch einen neu geprüften Snapshot', () => {
+    const merged = mergeEnrichedTitle({
+      id: 'tmdb-movie-11',
+      tmdbId: 11,
+      type: 'movie',
+      source: 'tmdb',
+      title: 'Krieg der Sterne',
+      providerIds: ['netflix', 'prime', 'moviehub'],
+      tmdbProviderIds: ['netflix', 'prime'],
+      tmdbProviderOffers: [
+        { id: 'netflix', tmdbProviderId: 8, offerTypes: ['flatrate'] },
+        { id: 'prime', tmdbProviderId: 119, offerTypes: ['flatrate'] },
+      ],
+      movieHubCatalog: true,
+      metadataChecks: { providers: 'present' },
+      metadataUpdatedAt: '2026-09-20T00:00:00.000Z',
+    }, {
+      id: 'tmdb-movie-11',
+      tmdbId: 11,
+      type: 'movie',
+      source: 'tmdb',
+      title: 'Krieg der Sterne',
+      providerIds: ['prime'],
+      tmdbProviderIds: ['prime'],
+      tmdbProviderOffers: [
+        { id: 'prime', tmdbProviderId: 119, offerTypes: ['flatrate'] },
+      ],
+      metadataChecks: { providers: 'present' },
+      providerMetadataUpdatedAt: '2026-09-30T00:00:00.000Z',
+      metadataUpdatedAt: '2026-09-30T00:00:00.000Z',
+    })
+
+    expect(merged.providerIds).toEqual(['prime', 'moviehub'])
+    expect(merged.tmdbProviderIds).toEqual(['prime'])
+  })
+
+  it('kann einen geprüften TMDB-Anbietersatz vollständig leeren ohne Live-Nachweise zu verlieren', () => {
+    const merged = mergeEnrichedTitle({
+      id: 'tmdb-movie-11',
+      tmdbId: 11,
+      type: 'movie',
+      source: 'tmdb',
+      title: 'Krieg der Sterne',
+      providerIds: ['netflix', 'waipu'],
+      tmdbProviderIds: ['netflix'],
+      tmdbProviderOffers: [{ id: 'netflix', tmdbProviderId: 8, offerTypes: ['flatrate'] }],
+      airings: [{ startTime: '2026-09-30T18:00:00Z' }],
+      metadataChecks: { providers: 'present' },
+    }, {
+      id: 'tmdb-movie-11',
+      tmdbId: 11,
+      type: 'movie',
+      source: 'tmdb',
+      title: 'Krieg der Sterne',
+      providerIds: [],
+      tmdbProviderIds: [],
+      tmdbProviderOffers: [],
+      metadataChecks: { providers: 'absent' },
+      providerMetadataUpdatedAt: '2026-09-30T00:00:00Z',
+    })
+
+    expect(merged.tmdbProviderIds).toEqual([])
+    expect(merged.providerIds).toEqual(['waipu'])
+  })
+
 })

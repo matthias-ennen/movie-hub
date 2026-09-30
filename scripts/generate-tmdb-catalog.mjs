@@ -263,6 +263,7 @@ async function resolveCandidate(candidate, observeWatchProviders = null) {
     accent,
     accent2,
     videos,
+    providerMetadataUpdatedAt: new Date().toISOString(),
     ...providerData,
   })
 }

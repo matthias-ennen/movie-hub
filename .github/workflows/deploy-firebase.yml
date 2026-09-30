@@ -217,7 +217,7 @@ jobs:
           WAIPU_TMDB_PACE_MS: '250'
           WAIPU_TMDB_METADATA_REQUEST_BUDGET: '4000'
           WAIPU_TMDB_METADATA_CONCURRENCY: '3'
-          WAIPU_TMDB_METADATA_MAX_AGE_DAYS: '30'
+          WAIPU_TMDB_METADATA_MAX_AGE_DAYS: '7'
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
           TMDB_COUNTRY: DE
@@ -236,7 +236,7 @@ jobs:
           JOYN_TMDB_DETAIL_REQUEST_BUDGET: '300'
           JOYN_TMDB_METADATA_REQUEST_BUDGET: '4000'
           JOYN_TMDB_METADATA_CONCURRENCY: '3'
-          JOYN_TMDB_METADATA_MAX_AGE_DAYS: '30'
+          JOYN_TMDB_METADATA_MAX_AGE_DAYS: '7'
           TMDB_COUNTRY: DE
         run: npm run joyn:catalog
 
@@ -314,7 +314,7 @@ jobs:
           GOOGLE_CLOUD_PROJECT: movie-hub-62459
           TITLE_CANONICAL_TMDB_REQUEST_BUDGET: 5000
           TITLE_CANONICAL_CONCURRENCY: 3
-          TITLE_CANONICAL_MAX_AGE_DAYS: 30
+          TITLE_CANONICAL_MAX_AGE_DAYS: 7
         run: npm run title:priority:execute
 
       - name: Acknowledge Movie-Hub metadata change consumer

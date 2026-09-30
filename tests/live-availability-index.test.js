@@ -111,4 +111,31 @@ describe('compact live availability defaults', () => {
     expect(publication.maxAiringsPerProvider).toBe(2)
     expect(publication.entries[0].providers[0].airings).toHaveLength(2)
   })
+  it('derives visible badges only from TMDB, live and MovieHub evidence', () => {
+    const raw = buildLiveAvailabilityIndex([{
+      providerId: 'waipu',
+      entries: [{
+        type: 'movie',
+        tmdbId: 11,
+        airings: [airing('ProSieben', '2026-09-30T18:00:00.000Z', '2026-09-30T20:00:00.000Z', 'waipu', 'https://app.waipu.tv/11')],
+      }],
+    }], { now })
+    const live = normalizeLiveAvailabilityIndex(raw, { now })
+    const [merged] = mergeLiveAvailability([{
+      type: 'movie',
+      tmdbId: 11,
+      source: 'tmdb',
+      providerIds: ['netflix', 'stale-provider'],
+      tmdbProviderIds: ['netflix'],
+      providerMetadataUpdatedAt: '2026-09-30T10:00:00Z',
+      movieHubCatalog: true,
+    }], live, { now })
+
+    expect(merged.providerIds).toEqual(['netflix', 'moviehub', 'waipu'])
+    expect(merged.providerEvidence.netflix[0].source).toBe('tmdb')
+    expect(merged.providerEvidence.moviehub[0].source).toBe('moviehub')
+    expect(merged.providerEvidence.waipu[0].source).toBe('live:waipu')
+    expect(merged.providerEvidence['stale-provider']).toBeUndefined()
+  })
+
 })
