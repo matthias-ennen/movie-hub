@@ -1,12 +1,17 @@
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import ProviderBadges from './ProviderBadges.jsx'
 import { formatTvAiringCard } from '../waipu/waipuTvCatalog.js'
+import { resolveProviderPresentation } from '../providers/providerPresentation.js'
 
 export default function PosterCard({ item, onOpen, rank = null, hasMovieHub = false, onFocus = null, posterIndex = null }) {
   const posterUrl = item.displayPosterUrl || item.neutralPosterUrl || item.posterUrl || null
   const hasPoster = Boolean(posterUrl)
-  const providerIds = Array.isArray(item.providerIds) ? item.providerIds : []
   const tvAiring = formatTvAiringCard(item.tvAiring)
+  const providerPresentation = resolveProviderPresentation(item, {
+    context: item?.tvAiring ? 'airing' : 'title',
+    hasMovieHub,
+  })
+  const providerIds = providerPresentation.providerIds
   const episodeLabel = item.type === 'series' && item.tvAiring
     ? [
       Number.isInteger(item.tvAiring.seasonNumber) ? `S${item.tvAiring.seasonNumber}` : null,
@@ -53,8 +58,12 @@ export default function PosterCard({ item, onOpen, rank = null, hasMovieHub = fa
           )}
         </span>
       </span>
-      {(hasMovieHub || providerIds.length > 0) && (
-        <ProviderBadges providerIds={providerIds} maxVisible={3} includeMovieHub={hasMovieHub} />
+      {(providerPresentation.includeMovieHub || providerIds.length > 0) && (
+        <ProviderBadges
+          providerIds={providerIds}
+          maxVisible={3}
+          includeMovieHub={providerPresentation.includeMovieHub}
+        />
       )}
     </button>
   )

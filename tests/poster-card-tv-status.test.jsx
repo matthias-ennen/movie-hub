@@ -44,3 +44,45 @@ describe('TV-Zustand in der Poster-Metadatenzeile', () => {
     expect(statusIndex).toBeLessThan(metaEnd)
   })
 })
+
+
+describe('zentrale Provider-Darstellung auf Postern', () => {
+  it('zeigt bei einem zusammengeführten TV-Airing sowohl Joyn als auch Waipu', () => {
+    const markup = renderCard(tvItem({
+      tmdbProviderIds: [],
+      providerIds: ['joyn'],
+      liveAvailability: {
+        joyn: { providerId: 'joyn' },
+        waipu: { providerId: 'waipu' },
+      },
+      tvAiring: {
+        startTime: '2026-09-21T18:15:00.000Z',
+        stopTime: '2026-09-21T20:15:00.000Z',
+        stationName: 'TELE 5',
+        providerIds: ['joyn', 'waipu'],
+      },
+    }))
+
+    expect(markup).toContain('provider-joyn')
+    expect(markup).toContain('provider-waipu')
+  })
+
+  it('zeigt bei einer konkreten Joyn-Ausstrahlung kein titelweites Waipu-Badge', () => {
+    const markup = renderCard(tvItem({
+      tmdbProviderIds: [],
+      liveAvailability: {
+        joyn: { providerId: 'joyn' },
+        waipu: { providerId: 'waipu' },
+      },
+      tvAiring: {
+        startTime: '2026-09-21T18:15:00.000Z',
+        stopTime: '2026-09-21T20:15:00.000Z',
+        stationName: 'TELE 5',
+        providerIds: ['joyn'],
+      },
+    }))
+
+    expect(markup).toContain('provider-joyn')
+    expect(markup).not.toContain('provider-waipu')
+  })
+})
