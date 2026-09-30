@@ -92,7 +92,7 @@ describe('Waipu TV catalog', () => {
     })
     expect(fetchImpl).toHaveBeenCalledOnce()
     expect(fetchImpl.mock.calls[0][0]).toBe('/waipu-live/stations/zdf.json')
-    expect(result.airings.map(({ stationId }) => stationId)).toEqual(['zdf'])
+    expect(result.map(({ stationId }) => stationId)).toEqual(['zdf'])
   })
 
   it('loads one selected TV day and filters it to active stations', async () => {
@@ -117,7 +117,7 @@ describe('Waipu TV catalog', () => {
     })
     expect(fetchImpl).toHaveBeenCalledOnce()
     expect(fetchImpl.mock.calls[0][0]).toBe('/waipu-live/days/2026-09-20.json')
-    expect(result.map(({ stationId }) => stationId)).toEqual(['zdf'])
+    expect(result.airings.map(({ stationId }) => stationId)).toEqual(['zdf'])
   })
 
   it('loads every published day only when the 14-day period is selected', async () => {
