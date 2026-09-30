@@ -77,6 +77,7 @@ export const PROVIDER_REGISTRY = [
     movieTitle: 'Filme auf Joyn',
     seriesTitle: 'Serien auf Joyn',
     searchUrl: () => 'https://www.joyn.de/',
+    liveFallbackUrl: 'https://www.joyn.de/live-tv',
   },
   {
     id: 'wow',
@@ -219,6 +220,7 @@ export const PROVIDER_REGISTRY = [
     aliases: ['waiputv'],
     description: 'Filme und Serien aus dem linearen waipu.tv-Programm samt nächstem Sendetermin berücksichtigen.',
     searchUrl: () => 'https://app.waipu.tv/waiputhek',
+    liveFallbackUrl: 'https://www.waipu.tv/fernsehen/',
   },
 ]
 

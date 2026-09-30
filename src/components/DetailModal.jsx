@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  WAIPU_LIVE_URL,
   getProviderDestination,
   getWaipuEpgDestination,
   providers,
@@ -19,7 +18,6 @@ import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { loadSeriesSeasonDetail, normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
-import { JOYN_LIVE_URL } from '../joyn/joynLiveCatalog.js'
 import { formatLiveAiring, getItemLiveProviderDestination } from '../sources/liveAvailabilityIndex.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { resolveProviderPresentation } from '../providers/providerPresentation.js'
@@ -399,11 +397,7 @@ export default function DetailModal({
       ? getWaipuEpgDestination(item?.waipuLive, { now: providerNow })
       : null
     const exactLiveDestination = genericLiveDestination || exactWaipuDestination
-    const liveFallback = providerId === 'waipu'
-      ? WAIPU_LIVE_URL
-      : providerId === 'joyn'
-        ? JOYN_LIVE_URL
-        : null
+    const liveFallback = providers[providerId]?.liveFallbackUrl || null
     const destination = exactLiveDestination
       || liveFallback
       || getProviderDestination(providerId, item.title, {

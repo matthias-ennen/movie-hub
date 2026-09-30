@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   getProviderDestination,
   getWaipuEpgDestination,
+  providerDirectory,
   selectWaipuAiring,
 } from '../src/data/catalog.js'
 
@@ -20,6 +21,12 @@ describe('provider destinations', () => {
     expect(getProviderDestination('waipu', 'Machete Kills')).toBe('https://app.waipu.tv/waiputhek')
     expect(getProviderDestination('waipu', 'Live TV', { waipuMode: 'live' }))
       .toBe('https://www.waipu.tv/fernsehen/')
+  })
+
+  it('keeps live fallback destinations in the central provider directory', () => {
+    expect(providerDirectory.waipu.liveFallbackUrl).toBe('https://www.waipu.tv/fernsehen/')
+    expect(providerDirectory.joyn.liveFallbackUrl).toBe('https://www.joyn.de/live-tv')
+    expect(providerDirectory.netflix.liveFallbackUrl).toBeNull()
   })
 
   it('builds the verified Waipu EPG link from a currently running airing', () => {

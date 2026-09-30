@@ -12,6 +12,7 @@ export const providerDirectory = Object.fromEntries(PROVIDER_REGISTRY.map((provi
     short: provider.short,
     source: provider.source,
     searchUrl: provider.searchUrl,
+    liveFallbackUrl: provider.liveFallbackUrl || null,
   },
 ]))
 
@@ -79,8 +80,9 @@ export function getWaipuEpgDestination(waipuLive, options = {}) {
  */
 export function getProviderDestination(providerId, title, options = {}) {
   if (providerId === 'waipu' && options?.waipuMode === 'live') {
-    if (!isProviderEnabledSnapshot('waipu')) return null
-    return getWaipuEpgDestination(options.waipuLive, options) || WAIPU_LIVE_URL
+    const provider = providers[providerId]
+    if (!provider) return null
+    return getWaipuEpgDestination(options.waipuLive, options) || provider.liveFallbackUrl || WAIPU_LIVE_URL
   }
 
   const provider = providers[providerId]
