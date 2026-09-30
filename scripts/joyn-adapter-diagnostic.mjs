@@ -12,7 +12,11 @@ import { mapJoynCandidateToBroadcastEvent, buildJoynSourceEnvelope } from '../sr
 import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
 import { JOYN_EPG_UPSTREAM_FIELD_POLICY } from '../src/sources/policies/joynUpstreamFieldPolicy.js'
 import { writeFieldDiscoveryReport } from '../src/sources/fieldDiscoveryReport.js'
-import { buildJoynLivePublication, writeJoynLivePublication } from './joyn-live-publication.mjs'
+import {
+  buildJoynLivePublication,
+  enrichJoynDayTitleMetadata,
+  writeJoynLivePublication,
+} from './joyn-live-publication.mjs'
 import {
   LiveTmdbMetadataClient,
   enrichLiveTitleMetadata,
