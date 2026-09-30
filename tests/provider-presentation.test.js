@@ -30,8 +30,8 @@ describe('provider presentation policy', () => {
       waipuLive: { providerId: 'waipu' },
     }, { context: 'title' })
 
-    expect(result.liveProviderIds).toEqual(['joyn', 'waipu'])
-    expect(result.providerIds).toEqual(['joyn', 'waipu'])
+    expect(result.liveProviderIds).toEqual(['waipu', 'joyn'])
+    expect(result.providerIds).toEqual(['waipu', 'joyn'])
   })
 
   it('uses only the concrete airing live providers for TV-airing surfaces', () => {
