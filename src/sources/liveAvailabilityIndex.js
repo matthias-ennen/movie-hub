@@ -2,7 +2,7 @@ import { isTvAiringOnAir, isTvAiringSoon } from '../waipu/waipuAiringStatus.js'
 
 export const LIVE_AVAILABILITY_INDEX_VERSION = 1
 export const LIVE_AVAILABILITY_INDEX_URL = '/live-availability-index.json'
-export const DEFAULT_AIRINGS_PER_PROVIDER = 1
+export const DEFAULT_AIRINGS_PER_PROVIDER = 2
 
 function text(value) {
   const normalized = String(value ?? '').trim()

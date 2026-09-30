@@ -95,7 +95,7 @@ describe('generic live availability index', () => {
 })
 
 describe('compact live availability defaults', () => {
-  it('keeps only the next airing per provider by default', () => {
+  it('keeps the next two airings per provider by default for seamless rollover', () => {
     const publication = buildLiveAvailabilityIndex([{
       providerId: 'waipu',
       entries: [{
@@ -108,7 +108,7 @@ describe('compact live availability defaults', () => {
       }],
     }], { now })
 
-    expect(publication.maxAiringsPerProvider).toBe(1)
-    expect(publication.entries[0].providers[0].airings).toHaveLength(1)
+    expect(publication.maxAiringsPerProvider).toBe(2)
+    expect(publication.entries[0].providers[0].airings).toHaveLength(2)
   })
 })
