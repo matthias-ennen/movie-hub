@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mergeTvAirings } from '../src/sources/mergeTvAirings.js'
 
 export const TV_14_DAY_SUMMARY_VERSION = 1
 export const TV_14_DAY_ROW_CANDIDATE_LIMIT = 120
@@ -90,15 +91,25 @@ function bestMetadata(...values) {
   return values.filter(Boolean).sort((left, right) => metadataScore(right) - metadataScore(left))[0] || {}
 }
 
-function normalizeAiring(airing, providerId) {
+function normalizeAiring(airing, providerId, type, tmdbId) {
   const startTime = usefulText(airing?.startTime)
   const stopTime = usefulText(airing?.stopTime)
   if (!startTime || !stopTime) return null
+  const stationId = usefulText(airing?.stationId)
+  const canonicalStationId = usefulText(airing?.canonicalStationId)
+  const sourceStationId = usefulText(airing?.sourceStationId)
+  const providerStationId = providerId === 'joyn'
+    ? sourceStationId || stationId
+    : stationId || canonicalStationId
   return {
     providerId,
-    stationId: usefulText(airing?.stationId),
-    canonicalStationId: usefulText(airing?.canonicalStationId),
-    sourceStationId: usefulText(airing?.sourceStationId),
+    providerIds: [providerId],
+    type,
+    tmdbId,
+    stationId,
+    canonicalStationId,
+    sourceStationId,
+    providerStationIds: providerStationId ? { [providerId]: providerStationId } : {},
     stationName: usefulText(airing?.stationName),
     programId: usefulText(airing?.programId),
     startTime,
@@ -148,7 +159,7 @@ function providerEntries(payload, providerId) {
       const key = canonicalKey(entry)
       if (!key) return null
       const airings = (Array.isArray(entry.airings) ? entry.airings : [entry.nextAiring].filter(Boolean))
-        .map((airing) => normalizeAiring(airing, providerId))
+        .map((airing) => normalizeAiring(airing, providerId, canonicalType(entry?.type ?? entry?.mediaType), Number(entry?.tmdbId)))
         .filter(Boolean)
         .sort((left, right) => left.startTime.localeCompare(right.startTime))
       if (!airings.length) return null
@@ -193,20 +204,19 @@ export function buildTv14DaySummary({
   const entries = [...grouped.entries()].map(([key, group]) => {
     const sourceEntryMetadata = group.sources.map(({ entry }) => entry)
     const metadata = rankingMetadata(bestMetadata(metadataByKey.get(key), ...sourceEntryMetadata))
-    const airings = group.airings.sort((left, right) => left.startTime.localeCompare(right.startTime))
-    const firstByProviderStation = new Map()
-    const firstPrimeByProviderStation = new Map()
-    for (const airing of airings) {
+    const mergedAirings = mergeTvAirings(group.airings)
+    const firstByStation = new Map()
+    const firstPrimeByStation = new Map()
+    for (const airing of mergedAirings) {
       const stationIdentity = airing.canonicalStationId || airing.stationId || airing.sourceStationId || ''
-      const airingKey = `${airing.providerId}|${stationIdentity}`
-      if (!firstByProviderStation.has(airingKey)) firstByProviderStation.set(airingKey, airing)
-      if (isPrimeTimeAiring(airing) && !firstPrimeByProviderStation.has(airingKey)) {
-        firstPrimeByProviderStation.set(airingKey, airing)
+      if (!firstByStation.has(stationIdentity)) firstByStation.set(stationIdentity, airing)
+      if (isPrimeTimeAiring(airing) && !firstPrimeByStation.has(stationIdentity)) {
+        firstPrimeByStation.set(stationIdentity, airing)
       }
     }
-    const airingOptions = [...firstByProviderStation.values()]
+    const airingOptions = [...firstByStation.values()]
       .sort((left, right) => left.startTime.localeCompare(right.startTime))
-    const primeTimeOptions = [...firstPrimeByProviderStation.values()]
+    const primeTimeOptions = [...firstPrimeByStation.values()]
       .sort((left, right) => left.startTime.localeCompare(right.startTime))
     const nextAiring = airingOptions[0] || null
     const nextPrimeTimeAiring = primeTimeOptions[0] || null
@@ -217,7 +227,7 @@ export function buildTv14DaySummary({
       type,
       ...metadata,
       providerIds: [...new Set(group.sources.map(({ providerId }) => providerId))].sort(),
-      airingCount: airings.length,
+      airingCount: mergedAirings.length,
       airingOptions,
       primeTimeOptions,
       nextAiring,

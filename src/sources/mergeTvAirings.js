@@ -72,6 +72,10 @@ function mergePair(previous, airing) {
       ...(Array.isArray(previous.sourceStationIds) ? previous.sourceStationIds : [previous.sourceStationId].filter(Boolean)),
       ...(Array.isArray(airing.sourceStationIds) ? airing.sourceStationIds : [airing.sourceStationId].filter(Boolean)),
     ])],
+    providerStationIds: {
+      ...(previous.providerStationIds || {}),
+      ...(airing.providerStationIds || {}),
+    },
   }
 }
 

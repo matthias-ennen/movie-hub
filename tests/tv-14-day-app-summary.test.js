@@ -71,4 +71,42 @@ describe('TV 14-day app summary', () => {
     })
     expect(rows.find((row) => row.id === 'tv-14-days-movies').items).toHaveLength(TV_14_DAY_ROW_LIMIT)
   })
+  it('keeps both live badges when a merged airing is enabled for Waipu and Joyn', () => {
+    const rows = buildTv14DayRows({
+      entries: [{
+        key: 'movie:11',
+        tmdbId: 11,
+        type: 'movie',
+        title: 'Film',
+        voteAverage: 8,
+        voteCount: 500,
+        genreIds: [28],
+        airingCount: 1,
+        airingOptions: [{
+          providerIds: ['joyn', 'waipu'],
+          providerStationIds: { joyn: 'tele5-de', waipu: 'tele5' },
+          stationId: 'tele5',
+          sourceStationId: 'tele5-de',
+          stationName: 'TELE 5',
+          startTime: '2026-10-01T18:00:00Z',
+          stopTime: '2026-10-01T20:00:00Z',
+          playbackRoutes: [
+            { providerId: 'waipu', target: 'waipu://11' },
+            { providerId: 'joyn', target: 'https://joyn.de/11' },
+          ],
+        }],
+        primeTimeOptions: [],
+      }],
+      activeWaipuStationIds: ['tele5'],
+      activeJoynStationIds: ['tele5-de'],
+      now: Date.parse('2026-10-01T10:00:00Z'),
+    })
+
+    const movie = rows.find((row) => row.id === 'tv-14-days-movies').items[0]
+    expect(movie.providerIds).toEqual(expect.arrayContaining(['joyn', 'waipu']))
+    expect(movie.tvAiring.providerIds).toEqual(['joyn', 'waipu'])
+    expect(movie.waipuLive).toBeTruthy()
+    expect(movie.joynLive).toBeTruthy()
+  })
+
 })

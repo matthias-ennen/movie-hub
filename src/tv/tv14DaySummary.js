@@ -49,19 +49,34 @@ function normalRow(id, title, items) {
   return { id, title, variant: 'tv', items: items.slice(0, TV_14_DAY_ROW_LIMIT) }
 }
 
-function providerStationEnabled(option, activeWaipuIds, activeJoynIds) {
-  if (option?.providerId === 'waipu') {
-    return activeWaipuIds.has(String(option?.stationId || option?.canonicalStationId || ''))
-  }
-  if (option?.providerId === 'joyn') {
-    return activeJoynIds.has(String(option?.sourceStationId || option?.stationId || ''))
-  }
-  return false
+function enabledProviderIds(option, activeWaipuIds, activeJoynIds) {
+  const stationIds = option?.providerStationIds || {}
+  return (Array.isArray(option?.providerIds) ? option.providerIds : [option?.providerId].filter(Boolean))
+    .filter((providerId) => {
+      const providerStationId = String(stationIds?.[providerId] || '')
+      if (providerId === 'waipu') {
+        return activeWaipuIds.has(providerStationId || String(option?.stationId || option?.canonicalStationId || ''))
+      }
+      if (providerId === 'joyn') {
+        return activeJoynIds.has(providerStationId || String(option?.sourceStationId || option?.stationId || ''))
+      }
+      return false
+    })
 }
 
 function nextEnabledOption(options, activeWaipuIds, activeJoynIds, now) {
   return (Array.isArray(options) ? options : [])
-    .filter((option) => providerStationEnabled(option, activeWaipuIds, activeJoynIds))
+    .map((option) => {
+      const providerIds = enabledProviderIds(option, activeWaipuIds, activeJoynIds)
+      if (!providerIds.length) return null
+      return {
+        ...option,
+        providerIds,
+        playbackRoutes: (Array.isArray(option?.playbackRoutes) ? option.playbackRoutes : [])
+          .filter((route) => providerIds.includes(route?.providerId)),
+      }
+    })
+    .filter(Boolean)
     .filter((option) => Date.parse(option?.stopTime) > now)
     .sort((left, right) => String(left?.startTime || '').localeCompare(String(right?.startTime || '')))[0] || null
 }
@@ -92,23 +107,25 @@ function itemFromSummary(entry, airing, titleByKey, artworkOptions, now) {
     popularity: entry?.popularity ?? null,
     metadataComplete: false,
   }
-  const providerId = airing.providerId
+  const liveProviderIds = Array.isArray(airing?.providerIds)
+    ? [...new Set(airing.providerIds)]
+    : [airing?.providerId].filter(Boolean)
   const normalizedAiring = {
     ...airing,
     tmdbId,
     type,
     title: entry?.title || base.title,
     stationId: airing.canonicalStationId || airing.stationId,
-    providerIds: providerId ? [providerId] : [],
+    providerIds: liveProviderIds,
   }
   const item = {
     ...base,
-    id: `tv-14-days-${key}-${providerId || 'provider'}-${airing.stationId || 'station'}`,
+    id: `tv-14-days-${key}-${liveProviderIds.join('-') || 'provider'}-${airing.stationId || 'station'}`,
     providerIds: [
       ...(Array.isArray(base.providerIds)
         ? base.providerIds.filter((id) => id !== 'waipu' && id !== 'joyn')
         : []),
-      ...(providerId ? [providerId] : []),
+      ...liveProviderIds,
     ],
     tvAiring: normalizedAiring,
     tvAiringOnAir: Date.parse(normalizedAiring.startTime) <= now && Date.parse(normalizedAiring.stopTime) > now,
@@ -117,13 +134,13 @@ function itemFromSummary(entry, airing, titleByKey, artworkOptions, now) {
       airings: [normalizedAiring],
       nextAiring: normalizedAiring,
       airingCount: Number(entry?.airingCount) || 1,
-      providerIds: providerId ? [providerId] : [],
+      providerIds: liveProviderIds,
     },
   }
-  if (providerId === 'waipu') {
+  if (liveProviderIds.includes('waipu')) {
     item.waipuLive = { airings: [normalizedAiring], nextAiring: normalizedAiring, airingCount: Number(entry?.airingCount) || 1 }
   }
-  if (providerId === 'joyn') {
+  if (liveProviderIds.includes('joyn')) {
     item.joynLive = { airings: [normalizedAiring], nextAiring: normalizedAiring, airingCount: Number(entry?.airingCount) || 1 }
   }
   return resolvePresentationArtwork(item, artworkOptions)

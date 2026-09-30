@@ -44,6 +44,8 @@ describe('TV 14-day summary', () => {
           type: 'movie',
           airings: [{
             stationId: 'tele5-de',
+            canonicalStationId: 'tele5',
+            sourceStationId: 'tele5-de',
             stationName: 'TELE 5',
             programId: 'j1',
             startTime: '2026-10-01T18:15:30.000Z',
@@ -62,15 +64,16 @@ describe('TV 14-day summary', () => {
       voteCount: 1000,
       popularity: 22,
       providerIds: ['joyn', 'waipu'],
-      airingCount: 3,
+      airingCount: 2,
     })
-    expect(summary.entries[0].nextAiring.providerId).toBe('waipu')
-    expect(summary.entries[0].airingOptions).toHaveLength(3)
-    expect(summary.entries[0].airingOptions.map(({ providerId, stationId }) => `${providerId}:${stationId}`)).toEqual([
-      'waipu:tele5',
-      'joyn:tele5-de',
-      'waipu:rtl2',
-    ])
+    expect(summary.entries[0].nextAiring.providerIds).toEqual(['joyn', 'waipu'])
+    expect(summary.entries[0].airingOptions).toHaveLength(2)
+    expect(summary.entries[0].airingOptions[0].stationId).toBe('tele5')
+    expect(summary.entries[0].airingOptions[0].providerIds).toEqual(['joyn', 'waipu'])
+    expect(summary.entries[0].airingOptions[0].providerStationIds).toEqual({
+      waipu: 'tele5',
+      joyn: 'tele5-de',
+    })
   })
 
   it('marks a title when any airing starts during prime time', () => {
