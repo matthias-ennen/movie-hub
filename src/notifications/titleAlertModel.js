@@ -31,6 +31,22 @@ export function dueTvAiring(airings, disabledStationIds = [], now = Date.now()) 
     .sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime))[0] || null
 }
 
+export function filterEnabledTvAirings(airings, account = {}) {
+  const waipuDisabled = new Set(account?.waipuStationSettings?.disabledStationIds || [])
+  const joynDisabled = new Set(account?.joynStationSettings?.disabledStationIds || [])
+  return (Array.isArray(airings) ? airings : []).filter((airing) => {
+    const providerIds = new Set((Array.isArray(airing?.providerIds) ? airing.providerIds : []).map(String))
+    const source = String(airing?.source || '')
+    const joyn = providerIds.has('joyn') || source === 'joyn'
+    const waipu = providerIds.has('waipu') || source === 'waipu' || (!joyn && Boolean(airing?.stationId))
+    const stationId = String(airing?.sourceStationId || airing?.stationId || '').trim()
+    if (!stationId) return false
+    if (joyn && joynDisabled.has(stationId)) return false
+    if (waipu && waipuDisabled.has(stationId)) return false
+    return true
+  })
+}
+
 export function alertNotificationId(watch, suffix = 'initial') {
   const key = watchId(watch, watch.kind)
   if (!key || !/^[a-zA-Z0-9-]{1,80}$/.test(watch.activationId || '')) return null

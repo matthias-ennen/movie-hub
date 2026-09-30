@@ -4,7 +4,7 @@ import { normalizeTmdbWatchProviders } from '../src/services/tmdb.js'
 import { PROVIDER_REGISTRY } from '../src/providers/providerRegistry.js'
 import { normalizeStoredProviderSelection } from '../src/settings/providerSelectionModel.js'
 import {
-  alertNotificationId, alertTitleKey, dueTvAiring, includedProviderIds,
+  alertNotificationId, alertTitleKey, dueTvAiring, filterEnabledTvAirings, includedProviderIds,
   includedTransition, tvAiringId, tvMessage, tvTransition, watchId,
 } from '../src/notifications/titleAlertModel.js'
 
@@ -133,21 +133,6 @@ async function storeIncluded(db, entry, account, offers, now) {
     }
     transaction.set(stateRef, { ...next, updatedAt: new Date(now) })
     return Boolean(eventRef && !existingEvent.exists)
-  })
-}
-
-function filterEnabledTvAirings(airings, account = {}) {
-  const waipuDisabled = new Set(account.waipuStationSettings?.disabledStationIds || [])
-  const joynDisabled = new Set(account.joynStationSettings?.disabledStationIds || [])
-  return (Array.isArray(airings) ? airings : []).filter((airing) => {
-    const providers = new Set(Array.isArray(airing?.providerIds) ? airing.providerIds : [])
-    const joyn = providers.has('joyn') || airing?.source === 'joyn'
-    const waipu = providers.has('waipu') || airing?.source === 'waipu' || (!joyn && Boolean(airing?.stationId))
-    const stationId = String(airing?.sourceStationId || airing?.stationId || '').trim()
-    if (!stationId) return false
-    if (joyn && joynDisabled.has(stationId)) return false
-    if (waipu && waipuDisabled.has(stationId)) return false
-    return true
   })
 }
 

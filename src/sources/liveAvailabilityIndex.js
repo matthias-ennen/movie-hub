@@ -61,10 +61,14 @@ function compactAiring(raw, providerId) {
 
   return {
     stationId: text(raw?.stationId),
+    sourceStationId: text(raw?.sourceStationId),
+    canonicalStationId: text(raw?.canonicalStationId),
     stationName: text(raw?.stationName),
     programId: text(raw?.programId),
     startTime,
     stopTime,
+    providerIds: [providerId],
+    source: providerId,
     playbackRoutes: [...routes.values()],
   }
 }

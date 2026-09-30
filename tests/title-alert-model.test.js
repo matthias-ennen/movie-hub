@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  dueTvAiring, includedProviderIds, includedTransition, tvAiringId, tvTransition,
+  dueTvAiring, filterEnabledTvAirings, includedProviderIds, includedTransition, tvAiringId, tvTransition,
 } from '../src/notifications/titleAlertModel.js'
 
 describe('personal title alerts', () => {
@@ -31,6 +31,21 @@ describe('personal title alerts', () => {
     const changed = includedTransition(missing, 'session', true, 'netflix,prime')
     expect(changed.send).toBe(false)
     expect(includedTransition(changed, 'new-session', true, 'netflix,prime').send).toBe(true)
+  })
+
+  it('filters disabled stations independently for Waipu and Joyn', () => {
+    const airings = [
+      { stationId: 'zdf', source: 'waipu', providerIds: ['waipu'] },
+      { stationId: 'joyn.prosieben', sourceStationId: 'prosieben', source: 'joyn', providerIds: ['joyn'] },
+    ]
+    expect(filterEnabledTvAirings(airings, {
+      waipuStationSettings: { disabledStationIds: ['zdf'] },
+      joynStationSettings: { disabledStationIds: [] },
+    })).toEqual([airings[1]])
+    expect(filterEnabledTvAirings(airings, {
+      waipuStationSettings: { disabledStationIds: [] },
+      joynStationSettings: { disabledStationIds: ['prosieben'] },
+    })).toEqual([airings[0]])
   })
 
   it('reminds before an enabled TV airing and limits repeated series airings', () => {

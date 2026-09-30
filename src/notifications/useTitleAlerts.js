@@ -3,7 +3,7 @@ import { collection, deleteDoc, doc, getDoc, onSnapshot, serverTimestamp, setDoc
 import { providers } from '../data/catalog.js'
 import { db } from '../lib/firebase.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
-import { alertTitleKey, includedProviderIds, dueTvAiring, alertNotificationId, tvAiringId, tvMessage, watchId } from './titleAlertModel.js'
+import { alertTitleKey, includedProviderIds, dueTvAiring, filterEnabledTvAirings, alertNotificationId, tvAiringId, tvMessage, watchId } from './titleAlertModel.js'
 import { loadFreshTvAirings } from './loadFreshTvAirings.js'
 
 export function useTitleAlerts(userId, profileId) {
@@ -65,7 +65,7 @@ export function useTitleAlerts(userId, profileId) {
           loadFreshTvAirings(item, now),
           getDoc(doc(db, 'users', userId)),
         ])
-        const airing = dueTvAiring(airings, account.data()?.waipuStationSettings?.disabledStationIds, now)
+        const airing = dueTvAiring(filterEnabledTvAirings(airings, account.data() || {}), [], now)
         if (airing) {
           notificationId = tvAiringId(watch, airing)
           notification = {
