@@ -25,7 +25,10 @@ function tmdbProviderIds(item) {
 function liveProviderIds(item) {
   const fromAvailability = Object.keys(item?.liveAvailability || {})
   const fromTvLive = unique(item?.tvLive?.providerIds)
-  return unique([...fromAvailability, ...fromTvLive])
+  const legacy = []
+  if (item?.waipuLive) legacy.push('waipu')
+  if (item?.joynLive) legacy.push('joyn')
+  return unique([...fromAvailability, ...fromTvLive, ...legacy])
 }
 
 function airingProviderIds(item) {

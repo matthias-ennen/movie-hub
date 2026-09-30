@@ -397,7 +397,9 @@ export default function DetailModal({
       ? getWaipuEpgDestination(item?.waipuLive, { now: providerNow })
       : null
     const exactLiveDestination = genericLiveDestination || exactWaipuDestination
-    const liveFallback = providers[providerId]?.liveFallbackUrl || null
+    const liveFallback = providerPresentation.liveProviderIds.includes(providerId)
+      ? providers[providerId]?.liveFallbackUrl || null
+      : null
     const destination = exactLiveDestination
       || liveFallback
       || getProviderDestination(providerId, item.title, {

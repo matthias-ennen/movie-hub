@@ -15,6 +15,25 @@ describe('provider presentation policy', () => {
     expect(result.includeMovieHub).toBe(true)
   })
 
+  it('does not treat a TMDB-only provider as a live provider', () => {
+    const result = resolveProviderPresentation({
+      tmdbProviderIds: ['joyn'],
+    }, { context: 'title' })
+
+    expect(result.providerIds).toEqual(['joyn'])
+    expect(result.liveProviderIds).toEqual([])
+  })
+
+  it('keeps legacy live evidence visible until old title data has refreshed', () => {
+    const result = resolveProviderPresentation({
+      joynLive: { providerId: 'joyn' },
+      waipuLive: { providerId: 'waipu' },
+    }, { context: 'title' })
+
+    expect(result.liveProviderIds).toEqual(['joyn', 'waipu'])
+    expect(result.providerIds).toEqual(['joyn', 'waipu'])
+  })
+
   it('uses only the concrete airing live providers for TV-airing surfaces', () => {
     const result = resolveProviderPresentation({
       tmdbProviderIds: ['netflix'],
