@@ -19,8 +19,8 @@ import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { loadSeriesSeasonDetail, normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
-import { formatWaipuLiveAiring } from '../waipu/waipuLiveCatalog.js'
-import { JOYN_LIVE_URL, formatJoynLiveAiring, getJoynLiveDestination } from '../joyn/joynLiveCatalog.js'
+import { JOYN_LIVE_URL } from '../joyn/joynLiveCatalog.js'
+import { formatLiveAiring, getLiveProviderDestination } from '../sources/liveAvailabilityIndex.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 
 export default function DetailModal({
@@ -100,10 +100,9 @@ export default function DetailModal({
   const cast = Array.isArray(item.cast) ? item.cast.slice(0, 5) : []
   const automaticVideos = Array.isArray(item.videos) ? item.videos : []
   const personalState = getTitleState(item)
-  const tvAiringLabels = [...new Set([
-    formatWaipuLiveAiring(item?.waipuLive?.nextAiring),
-    formatJoynLiveAiring(item?.joynLive?.nextAiring),
-  ].filter(Boolean))]
+  const tvAiringLabels = [...new Set(
+    Object.values(item?.liveAvailability || {}).map((availability) => formatLiveAiring(availability)).filter(Boolean),
+  )]
 
   useEffect(() => {
     const active = returnFocusTarget || document.activeElement
@@ -393,14 +392,19 @@ export default function DetailModal({
 
   function openProvider(providerId) {
     const providerNow = Date.now()
-    const exactWaipuDestination = providerId === 'waipu'
+    const liveAvailability = item?.liveAvailability?.[providerId] || null
+    const genericLiveDestination = getLiveProviderDestination(liveAvailability, { now: providerNow })
+    const exactWaipuDestination = providerId === 'waipu' && !genericLiveDestination
       ? getWaipuEpgDestination(item?.waipuLive, { now: providerNow })
       : null
-    const exactJoynDestination = providerId === 'joyn' && item?.joynLive
-      ? getJoynLiveDestination(item.joynLive, { now: providerNow })
-      : null
-    const destination = exactJoynDestination
-      || (providerId === 'joyn' && item?.joynLive ? JOYN_LIVE_URL : null)
+    const exactLiveDestination = genericLiveDestination || exactWaipuDestination
+    const liveFallback = providerId === 'waipu'
+      ? WAIPU_LIVE_URL
+      : providerId === 'joyn'
+        ? JOYN_LIVE_URL
+        : null
+    const destination = exactLiveDestination
+      || liveFallback
       || getProviderDestination(providerId, item.title, {
         waipuMode: providerId === 'waipu' && item?.waipuLive ? 'live' : 'vod',
         waipuLive: item?.waipuLive,
@@ -413,22 +417,12 @@ export default function DetailModal({
     // user gesture so popup blockers do not prevent opening the provider.
     markWatchedFromProvider()
 
-    if (exactWaipuDestination && window.MovieHubNative?.openProviderExact) {
+    if (exactLiveDestination && liveFallback && window.MovieHubNative?.openProviderExact) {
       window.MovieHubNative.openProviderExact(
         providerId,
         item.title,
-        exactWaipuDestination,
-        WAIPU_LIVE_URL,
-      )
-      return
-    }
-
-    if (exactJoynDestination && window.MovieHubNative?.openProviderExact) {
-      window.MovieHubNative.openProviderExact(
-        providerId,
-        item.title,
-        exactJoynDestination,
-        JOYN_LIVE_URL,
+        exactLiveDestination,
+        liveFallback,
       )
       return
     }

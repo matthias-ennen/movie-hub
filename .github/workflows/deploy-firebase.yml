@@ -335,6 +335,10 @@ jobs:
         id: tv_14_day_summary
         run: npm run tv:14-day:summary
 
+      - name: Build generic live availability index
+        id: live_availability_index
+        run: npm run tv:availability:index
+
       - name: Build
         id: app_build
         run: npm run build

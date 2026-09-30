@@ -47,18 +47,12 @@ import { notifyNativeStartupReady } from './performance/nativeStartup.js'
 import {
   isTvPresentationReady,
   shouldLoadLiveStations,
-  shouldLoadLiveTitles,
 } from './performance/liveCatalogStartup.js'
 import { INITIAL_HOME_FOCUS_EVENT } from './components/InitialHomeFocus.jsx'
 import { ProfileProvider, useProfiles } from './profiles/ProfileProvider.jsx'
 import { ThemeProvider } from './theme/ThemeProvider.jsx'
 import { TmdbCatalogProvider, useTmdbCatalog } from './tmdb/TmdbCatalogProvider.jsx'
 import { buildTmdbCatalogRows, mergePublicAndPersonalCatalog } from './tmdb/tmdbCatalogModel.js'
-import {
-  advanceWaipuLiveTitles,
-  loadWaipuLiveTitles,
-  mergeWaipuLiveAvailability,
-} from './waipu/waipuLiveCatalog.js'
 import {
   buildWaipuTvViewModel,
   buildWaipuTvHeroItems,
@@ -69,10 +63,10 @@ import {
 } from './waipu/waipuTvCatalog.js'
 import { loadJoynLiveStationCatalog, loadJoynTvAirings } from './joyn/joynTvCatalog.js'
 import {
-  advanceJoynLiveTitles,
-  loadJoynLiveTitles,
-  mergeJoynLiveAvailability,
-} from './joyn/joynLiveCatalog.js'
+  advanceLiveAvailabilityEntries,
+  loadLiveAvailabilityIndex,
+  mergeLiveAvailability,
+} from './sources/liveAvailabilityIndex.js'
 import { mergeTvAirings } from './sources/mergeTvAirings.js'
 import { buildTv14DayRows, loadTv14DaySummary } from './tv/tv14DaySummary.js'
 
@@ -466,9 +460,8 @@ function MovieHub({ user }) {
     collections: {},
     smartFilterOptions: normalizeSmartFilterOptions(),
   })
-  const [waipuLiveEntries, setWaipuLiveEntries] = useState([])
-  const [joynLiveEntries, setJoynLiveEntries] = useState([])
-  const [waipuStatusClock, setWaipuStatusClock] = useState(() => Date.now())
+  const [liveAvailabilityEntries, setLiveAvailabilityEntries] = useState([])
+  const [liveAvailabilityClock, setLiveAvailabilityClock] = useState(() => Date.now())
   const [waipuStationCatalog, setWaipuStationCatalog] = useState({
     status: 'loading',
     stations: [],
@@ -512,10 +505,6 @@ function MovieHub({ user }) {
     }
   }, [])
 
-  const liveTitlesRequested = shouldLoadLiveTitles({
-    homeReady: homeStartupReady,
-    tvRequested: tvScheduleRequested,
-  })
   const liveStationsRequested = shouldLoadLiveStations({
     tvRequested: tvScheduleRequested,
     settingsOpen: currentView === 'settings',
@@ -565,28 +554,16 @@ function MovieHub({ user }) {
   }, [])
 
   useEffect(() => {
-    if (!liveTitlesRequested) return undefined
+    if (!homeStartupReady) return undefined
     let cancelled = false
-    loadWaipuLiveTitles().then((entries) => {
+    loadLiveAvailabilityIndex().then((entries) => {
       if (!cancelled) {
-        setWaipuLiveEntries(entries)
-        setWaipuStatusClock(Date.now())
+        setLiveAvailabilityEntries(entries)
+        setLiveAvailabilityClock(Date.now())
       }
     })
     return () => { cancelled = true }
-  }, [liveTitlesRequested])
-
-  useEffect(() => {
-    if (!liveTitlesRequested) return undefined
-    let cancelled = false
-    loadJoynLiveTitles().then((entries) => {
-      if (!cancelled) {
-        setJoynLiveEntries(entries)
-        setWaipuStatusClock(Date.now())
-      }
-    })
-    return () => { cancelled = true }
-  }, [liveTitlesRequested])
+  }, [homeStartupReady])
 
   useEffect(() => {
     if (!liveStationsRequested) return undefined
@@ -607,39 +584,18 @@ function MovieHub({ user }) {
   }, [liveStationsRequested])
 
   useEffect(() => {
-    const nextStopTime = Math.min(...waipuLiveEntries
-      .map((entry) => Date.parse(entry?.nextAiring?.stopTime))
-      .filter(Number.isFinite))
-    if (!Number.isFinite(nextStopTime)) return undefined
-    const timeout = window.setTimeout(() => {
-      setWaipuLiveEntries((entries) => advanceWaipuLiveTitles(entries))
-    }, Math.max(0, Math.min(2_147_483_647, nextStopTime - Date.now() + 1_000)))
-    return () => window.clearTimeout(timeout)
-  }, [waipuLiveEntries])
-
-  useEffect(() => {
-    const nextStopTime = Math.min(...joynLiveEntries
-      .map((entry) => Date.parse(entry?.nextAiring?.stopTime))
-      .filter(Number.isFinite))
-    if (!Number.isFinite(nextStopTime)) return undefined
-    const timeout = window.setTimeout(() => {
-      setJoynLiveEntries((entries) => advanceJoynLiveTitles(entries))
-    }, Math.max(0, Math.min(2_147_483_647, nextStopTime - Date.now() + 1_000)))
-    return () => window.clearTimeout(timeout)
-  }, [joynLiveEntries])
-
-  useEffect(() => {
-    const airings = waipuLiveEntries.flatMap((entry) => (
+    const airings = liveAvailabilityEntries.flatMap((entry) => (
       Array.isArray(entry?.airings) ? entry.airings : [entry?.nextAiring]
     )).filter(Boolean)
-    const nextTransition = nextTvAiringTransition(airings, waipuStatusClock)
+    const nextTransition = nextTvAiringTransition(airings, liveAvailabilityClock)
     if (!Number.isFinite(nextTransition)) return undefined
-    const timeout = window.setTimeout(
-      () => setWaipuStatusClock(Date.now()),
-      Math.max(0, Math.min(2_147_483_647, nextTransition - Date.now() + 1_000)),
-    )
+    const timeout = window.setTimeout(() => {
+      const now = Date.now()
+      setLiveAvailabilityEntries((entries) => advanceLiveAvailabilityEntries(entries, { now }))
+      setLiveAvailabilityClock(now)
+    }, Math.max(0, Math.min(2_147_483_647, nextTransition - Date.now() + 1_000)))
     return () => window.clearTimeout(timeout)
-  }, [waipuLiveEntries, waipuStatusClock])
+  }, [liveAvailabilityClock, liveAvailabilityEntries])
 
   const activeWaipuStations = useMemo(() => {
     const disabled = new Set(disabledStationIds)
@@ -806,55 +762,24 @@ function MovieHub({ user }) {
     () => mergeSharedMediaCatalogTitles(sharedMediaCatalogEntries, baseTitles),
     [sharedMediaCatalogEntries, baseTitles],
   )
-  const preWaipuTitles = useMemo(
+  const preLiveTitles = useMemo(
     () => mergeTitlesWithSharedMediaCatalog(baseTitles, rawMovieHubTitles),
     [baseTitles, rawMovieHubTitles],
   )
-  const waipuMergedTitles = useMemo(
-    () => mergeWaipuLiveAvailability(preWaipuTitles, waipuLiveEntries, { now: waipuStatusClock }),
-    [preWaipuTitles, waipuLiveEntries, waipuStatusClock],
-  )
   const rawTitles = useMemo(
-    () => mergeJoynLiveAvailability(waipuMergedTitles, joynLiveEntries, { now: waipuStatusClock }),
-    [joynLiveEntries, waipuMergedTitles, waipuStatusClock],
+    () => mergeLiveAvailability(preLiveTitles, liveAvailabilityEntries, { now: liveAvailabilityClock }),
+    [liveAvailabilityClock, liveAvailabilityEntries, preLiveTitles],
   )
   const titles = useMemo(
     () => rawTitles.map((item) => resolvePresentationArtwork(item, artworkOptions)),
     [rawTitles, artworkOptions],
   )
   const movieHubTitles = useMemo(
-    () => mergeJoynLiveAvailability(
-      mergeWaipuLiveAvailability(rawMovieHubTitles, waipuLiveEntries, { now: waipuStatusClock }),
-      joynLiveEntries,
-      { now: waipuStatusClock },
-    ).map((item) => resolvePresentationArtwork(item, artworkOptions)),
-    [rawMovieHubTitles, waipuLiveEntries, joynLiveEntries, waipuStatusClock, artworkOptions],
+    () => mergeLiveAvailability(rawMovieHubTitles, liveAvailabilityEntries, { now: liveAvailabilityClock })
+      .map((item) => resolvePresentationArtwork(item, artworkOptions)),
+    [artworkOptions, liveAvailabilityClock, liveAvailabilityEntries, rawMovieHubTitles],
   )
-  const compactTvTitleEntries = useMemo(() => {
-    const byKey = new Map()
-    for (const entry of [...waipuLiveEntries, ...joynLiveEntries]) {
-      const key = entry?.key || `${entry?.type || ''}:${entry?.tmdbId || ''}`
-      if (!key || key === ':') continue
-      const current = byKey.get(key)
-      const airings = [
-        ...(Array.isArray(current?.airings) ? current.airings : []),
-        ...(Array.isArray(entry?.airings) ? entry.airings : [entry?.nextAiring].filter(Boolean)),
-      ].sort((left, right) => String(left?.startTime || '').localeCompare(String(right?.startTime || '')))
-      byKey.set(key, {
-        ...(current || entry),
-        ...entry,
-        key,
-        airings,
-        nextAiring: airings[0] || null,
-        airingCount: airings.length,
-        providerIds: [...new Set([
-          ...(Array.isArray(current?.providerIds) ? current.providerIds : []),
-          ...(Array.isArray(entry?.providerIds) ? entry.providerIds : []),
-        ])],
-      })
-    }
-    return [...byKey.values()]
-  }, [joynLiveEntries, waipuLiveEntries])
+  const compactTvTitleEntries = liveAvailabilityEntries
 
   const tvPresentationTitles = useMemo(() => {
     const byKey = new Map(titles.map((title) => [`${title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'}:${Number(title?.tmdbId) || ''}`, title]))
