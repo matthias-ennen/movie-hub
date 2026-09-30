@@ -2,20 +2,6 @@ name: Joyn Adapter Diagnostic
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'scripts/joyn-adapter-diagnostic.mjs'
-      - 'scripts/joyn-tmdb-matcher.mjs'
-      - 'scripts/joyn-station-mapping.mjs'
-      - 'scripts/joyn-live-publication.mjs'
-      - 'scripts/restore-live-joyn-catalog.mjs'
-      - 'src/joyn/**'
-      - 'src/sources/joyn/**'
-      - 'src/sources/adapters/joynContractMapper.js'
-      - 'src/sources/policies/joynUpstreamFieldPolicy.js'
-      - 'tests/joyn-*.test.js'
-      - 'tests/restore-live-joyn-catalog.test.js'
-      - '.github/workflows/joyn-adapter-diagnostic.yml'
 
 concurrency:
   group: joyn-adapter-diagnostic-${{ github.ref }}

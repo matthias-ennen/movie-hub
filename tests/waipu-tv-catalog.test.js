@@ -92,7 +92,7 @@ describe('Waipu TV catalog', () => {
     })
     expect(fetchImpl).toHaveBeenCalledOnce()
     expect(fetchImpl.mock.calls[0][0]).toBe('/waipu-live/stations/zdf.json')
-    expect(result.map(({ stationId }) => stationId)).toEqual(['zdf'])
+    expect(result.airings.map(({ stationId }) => stationId)).toEqual(['zdf'])
   })
 
   it('loads one selected TV day and filters it to active stations', async () => {
@@ -107,7 +107,7 @@ describe('Waipu TV catalog', () => {
     }
     expect(normalizeWaipuDayShard(day, day.key, stations.stations, {
       now: Date.parse('2026-09-19T12:00:00.000Z'),
-    })).toHaveLength(2)
+    }).airings).toHaveLength(2)
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => day }))
     const result = await loadWaipuTvAirings([{ id: 'zdf', name: 'ZDF' }], {
       fetchImpl,
@@ -140,7 +140,7 @@ describe('Waipu TV catalog', () => {
       availableDays: ['2026-09-20', '2026-09-21'],
     })
     expect(fetchImpl).toHaveBeenCalledTimes(2)
-    expect(result).toHaveLength(2)
+    expect(result.airings).toHaveLength(2)
   })
 
   it('groups all active stations by German calendar day and sorts by start time', () => {

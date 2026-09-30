@@ -218,10 +218,15 @@ export async function loadWaipuTvAirings(stations = [], {
     const requestedKeys = periodId === TV_PERIOD_ALL
       ? dayKeys
       : dayKeys.filter((key) => `day:${key}` === periodId)
-    const airings = await loadConcurrent(requestedKeys, concurrency, (key) => (
+    const shards = await loadConcurrent(requestedKeys, concurrency, (key) => (
       loadDayShard(key, queue, fetchImpl, now)
     ))
-    return airings.sort((left, right) => left.startTime.localeCompare(right.startTime))
+    const enabledIds = new Set(queue.map(({ id }) => id))
+    const airings = shards.flatMap((shard) => Array.isArray(shard?.airings) ? shard.airings : [])
+      .filter((airing) => enabledIds.has(String(airing?.stationId || '')))
+      .sort((left, right) => left.startTime.localeCompare(right.startTime))
+    const titles = shards.flatMap((shard) => Array.isArray(shard?.titles) ? shard.titles : [])
+    return { airings, titles }
   }
   const airings = await loadConcurrent(queue, concurrency, (station) => (
     loadStationShard(station, fetchImpl, now)
