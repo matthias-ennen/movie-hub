@@ -74,6 +74,7 @@ import {
   mergeJoynLiveAvailability,
 } from './joyn/joynLiveCatalog.js'
 import { mergeTvAirings } from './sources/mergeTvAirings.js'
+import { buildTv14DayRows, loadTv14DaySummary } from './tv/tv14DaySummary.js'
 
 function NativeStartupSignal() {
   useEffect(() => {
@@ -484,6 +485,7 @@ function MovieHub({ user }) {
   })
   const [homeStartupReady, setHomeStartupReady] = useState(false)
   const [tvSchedule, setTvSchedule] = useState({ status: 'idle', airings: [] })
+  const [tv14DaySummary, setTv14DaySummary] = useState({ status: 'idle', entries: [] })
   const [tvHydratedTitles, setTvHydratedTitles] = useState([])
   const [tvScheduleRequested, setTvScheduleRequested] = useState(false)
   const [tvClock, setTvClock] = useState(() => Date.now())
@@ -670,7 +672,33 @@ function MovieHub({ user }) {
   ])], [activeJoynStations, activeWaipuStations])
 
   useEffect(() => {
+    if (!tvScheduleRequested || tvPeriodId !== '14-days') return undefined
+    if (tv14DaySummary.status === 'ready') return undefined
+    let cancelled = false
+    setTv14DaySummary((current) => ({ ...current, status: 'loading' }))
+    loadTv14DaySummary()
+      .then((summary) => {
+        if (!cancelled) setTv14DaySummary({ status: 'ready', entries: summary.entries })
+      })
+      .catch((error) => {
+        console.warn('14-Tage-TV-Summary konnte nicht geladen werden.', error)
+        if (!cancelled) setTv14DaySummary({ status: 'unavailable', entries: [] })
+      })
+    return () => { cancelled = true }
+  }, [tv14DaySummary.status, tvPeriodId, tvScheduleRequested])
+
+  useEffect(() => {
     if (!tvScheduleRequested) return undefined
+    if (tvPeriodId === '14-days') {
+      if (tv14DaySummary.status === 'idle' || tv14DaySummary.status === 'loading') {
+        setTvSchedule((current) => ({ ...current, status: 'loading' }))
+      } else if (tv14DaySummary.status === 'ready') {
+        setTvSchedule((current) => ({ ...current, status: 'ready' }))
+      } else {
+        setTvSchedule((current) => ({ ...current, status: 'unavailable' }))
+      }
+      return undefined
+    }
     const waipuLoading = waipuStationCatalog.status === 'loading' || stationSelectionLoading
     const joynLoading = joynStationCatalog.status === 'loading' || joynStationSelectionLoading
     const waipuReady = waipuStationCatalog.status === 'ready'
@@ -729,6 +757,7 @@ function MovieHub({ user }) {
     joynStationCatalog.status,
     joynStationSelectionLoading,
     stationSelectionLoading,
+    tv14DaySummary.status,
     tvPeriodId,
     tvScheduleRequested,
     waipuStationCatalog.days,
@@ -925,7 +954,7 @@ function MovieHub({ user }) {
     return () => { cancelled = true }
   }, [compactTvTitleEntries, tvPresentationTitles, tvSchedule.airings])
 
-  const tvViewModel = useMemo(() => buildWaipuTvViewModel({
+  const baseTvViewModel = useMemo(() => buildWaipuTvViewModel({
     airings: tvSchedule.airings,
     titles: tvPresentationTitles,
     titleEntries: compactTvTitleEntries,
@@ -934,6 +963,32 @@ function MovieHub({ user }) {
     availableDays: combinedTvDays,
     now: tvClock,
   }), [combinedTvDays, combinedTvStationOrder, compactTvTitleEntries, tvClock, tvPeriodId, tvPresentationTitles, tvSchedule.airings])
+  const tv14DayRows = useMemo(() => (
+    tvPeriodId === '14-days' && tv14DaySummary.status === 'ready'
+      ? buildTv14DayRows({
+          entries: tv14DaySummary.entries,
+          titles: tvPresentationTitles,
+          activeWaipuStationIds: activeWaipuStations.map((station) => station.id),
+          activeJoynStationIds: activeJoynStations.map((station) => station.id),
+          artworkOptions,
+          now: tvClock,
+        })
+      : []
+  ), [
+    activeJoynStationKey,
+    activeWaipuStationKey,
+    artworkOptions,
+    tv14DaySummary.entries,
+    tv14DaySummary.status,
+    tvClock,
+    tvPeriodId,
+    tvPresentationTitles,
+  ])
+  const tvViewModel = useMemo(() => (
+    tvPeriodId === '14-days'
+      ? { ...baseTvViewModel, rows: tv14DayRows }
+      : baseTvViewModel
+  ), [baseTvViewModel, tv14DayRows, tvPeriodId])
   const compactTvHeroItems = useMemo(() => buildWaipuTvHeroItems({
     titles: tvPresentationTitles,
     titleEntries: compactTvTitleEntries,
