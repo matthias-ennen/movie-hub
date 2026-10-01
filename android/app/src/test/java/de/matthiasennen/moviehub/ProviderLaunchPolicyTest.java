@@ -28,6 +28,16 @@ public final class ProviderLaunchPolicyTest {
     }
 
     @Test
+    public void preservesConcreteProgramAndChannelTargets() {
+        assertTrue(ProviderLaunchPolicy.preservesExactTarget("program"));
+        assertTrue(ProviderLaunchPolicy.preservesExactTarget("channel"));
+        assertFalse(ProviderLaunchPolicy.preservesExactTarget("title"));
+        assertFalse(ProviderLaunchPolicy.preservesExactTarget("provider"));
+        assertFalse(ProviderLaunchPolicy.preservesExactTarget(""));
+        assertFalse(ProviderLaunchPolicy.preservesExactTarget(null));
+    }
+
+    @Test
     public void searchesTextFirstForEverySupportedProvider() {
         assertTrue(ProviderLaunchPolicy.triesTextSearchFirst("netflix"));
         assertTrue(ProviderLaunchPolicy.triesTextSearchFirst("prime"));

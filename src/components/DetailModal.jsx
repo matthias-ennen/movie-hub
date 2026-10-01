@@ -18,7 +18,7 @@ import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { loadSeriesSeasonDetail, normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
-import { formatLiveAiring, getItemLiveProviderRoute } from '../sources/liveAvailabilityIndex.js'
+import { buildItemLiveProviderRouteSnapshot, formatLiveAiring } from '../sources/liveAvailabilityIndex.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { resolveProviderPresentation } from '../providers/providerPresentation.js'
@@ -96,8 +96,32 @@ export default function DetailModal({
   const providerPresentation = resolveProviderPresentation(item, {
     context: item?.tvAiring ? 'airing' : 'title',
   })
+  const [liveRouteSnapshot] = useState(() => {
+    const providerIds = providerPresentation.liveProviderIds
+      .filter((providerId) => Boolean(providers[providerId]))
+    const providerNow = Date.now()
+    const snapshot = {
+      ...buildItemLiveProviderRouteSnapshot(item, providerIds, { now: providerNow }),
+    }
+
+    // Compatibility for older Waipu title snapshots that still carry
+    // stationId/programId but no normalized playbackRoutes.
+    if (!item?.tvAiring && providerIds.includes('waipu') && !snapshot.waipu) {
+      const exactWaipuDestination = getWaipuEpgDestination(item?.waipuLive, { now: providerNow })
+      if (exactWaipuDestination) {
+        snapshot.waipu = Object.freeze({
+          providerId: 'waipu',
+          mode: 'APP_DEEP_LINK',
+          scope: 'program',
+          target: exactWaipuDestination,
+        })
+      }
+    }
+    return Object.freeze(snapshot)
+  })
   const liveProviderIds = providerPresentation.liveProviderIds
     .filter((providerId) => Boolean(providers[providerId]))
+    .filter((providerId) => Boolean(liveRouteSnapshot[providerId]))
   const streamingProviderIds = providerPresentation.tmdbProviderIds
     .filter((providerId) => Boolean(providers[providerId]))
   const hasLiveProviders = liveProviderIds.length > 0
@@ -402,29 +426,7 @@ export default function DetailModal({
   }
 
   function openLiveProvider(providerId) {
-    const providerNow = Date.now()
-    const liveRoute = getItemLiveProviderRoute(item, providerId, { now: providerNow })
-    const exactWaipuDestination = providerId === 'waipu' && !liveRoute
-      ? getWaipuEpgDestination(item?.waipuLive, { now: providerNow })
-      : null
-    const route = liveRoute || (exactWaipuDestination
-      ? {
-          providerId: 'waipu',
-          mode: 'APP_DEEP_LINK',
-          scope: 'program',
-          target: exactWaipuDestination,
-        }
-      : null)
-    const liveFallback = providers[providerId]?.liveFallbackUrl || null
-    const fallbackRoute = !route && liveFallback
-      ? {
-          providerId,
-          mode: 'WEB_LINK',
-          scope: 'provider',
-          target: liveFallback,
-        }
-      : null
-    const launchRoute = route || fallbackRoute
+    const launchRoute = liveRouteSnapshot[providerId]
     if (!launchRoute) return
 
     markWatchedFromProvider()
@@ -432,7 +434,8 @@ export default function DetailModal({
       providerId,
       title: item.title,
       route: launchRoute,
-      fallbackUrl: liveFallback || launchRoute.target,
+      // A concrete live badge keeps the exact route all the way into Android.
+      fallbackUrl: launchRoute.target,
     })) return
 
     if (window.MovieHubNative?.openExternalUrl) {

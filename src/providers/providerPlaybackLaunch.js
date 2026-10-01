@@ -14,7 +14,8 @@ export function launchProviderPlaybackRoute({
   const target = text(route?.target)
   const mode = text(route?.mode)
   const scope = text(route?.scope)
-  const fallback = text(fallbackUrl) || target
+  const boundLiveRoute = scope === 'program' || scope === 'channel'
+  const fallback = boundLiveRoute ? target : text(fallbackUrl) || target
   if (!id || !target || !mode) return false
 
   if (nativeBridge?.openProviderRoute) {

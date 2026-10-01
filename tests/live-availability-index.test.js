@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   advanceLiveAvailabilityEntries,
+  buildItemLiveProviderRouteSnapshot,
   buildLiveAvailabilityIndex,
   getItemLiveProviderDestination,
   getItemLiveProviderRoute,
@@ -152,6 +153,70 @@ describe('generic live availability index', () => {
       mode: 'WEB_LINK',
       scope: 'channel',
     })
+  })
+
+  it('preserves route scope when compacting a legacy playbackTarget duplicate', () => {
+    const raw = buildLiveAvailabilityIndex([{
+      providerId: 'waipu',
+      entries: [{
+        type: 'movie',
+        tmdbId: 99,
+        airings: [{
+          stationId: 'zdf',
+          stationName: 'ZDF',
+          programId: 'program-99',
+          startTime: '2026-09-30T13:00:00.000Z',
+          stopTime: '2026-09-30T15:00:00.000Z',
+          playbackTarget: 'https://app.waipu.tv/epgdetails/zdf/program-99',
+          playbackRoutes: [{
+            providerId: 'waipu',
+            mode: 'APP_DEEP_LINK',
+            scope: 'program',
+            target: 'https://app.waipu.tv/epgdetails/zdf/program-99',
+          }],
+        }],
+      }],
+    }], { now })
+
+    const [entry] = normalizeLiveAvailabilityIndex(raw, { now })
+    expect(entry.providers[0].airings[0].playbackRoutes).toEqual([
+      expect.objectContaining({
+        providerId: 'waipu',
+        mode: 'APP_DEEP_LINK',
+        scope: 'program',
+        target: 'https://app.waipu.tv/epgdetails/zdf/program-99',
+      }),
+    ])
+  })
+
+  it('never substitutes a title-wide route for a concrete airing that lacks its own route', () => {
+    const item = {
+      tvAiring: {
+        stationId: 'zdf',
+        startTime: '2026-09-30T13:00:00.000Z',
+        stopTime: '2026-09-30T15:00:00.000Z',
+        providerIds: ['waipu'],
+        playbackRoutes: [],
+      },
+      liveAvailability: {
+        waipu: {
+          airings: [{
+            stationId: 'other',
+            startTime: '2026-09-30T14:00:00.000Z',
+            stopTime: '2026-09-30T16:00:00.000Z',
+            playbackRoutes: [{
+              providerId: 'waipu',
+              mode: 'APP_DEEP_LINK',
+              scope: 'program',
+              target: 'https://app.waipu.tv/epgdetails/other/other-program',
+            }],
+          }],
+        },
+      },
+    }
+
+    expect(getItemLiveProviderRoute(item, 'waipu', { now })).toBeNull()
+    expect(buildItemLiveProviderRouteSnapshot(item, ['waipu'], { now })).toEqual({})
   })
 
   it('drops expired airings without provider-specific code', () => {
