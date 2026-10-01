@@ -1,5 +1,4 @@
-import { normalizeBroadcastEvent } from '../sourceAdapterContract.js'
-import { joynPlaybackRouteForStation } from './joynPlaybackRoute.js'
+import { normalizeBroadcastEvent, normalizePlaybackRoute } from '../sourceAdapterContract.js'
 import { joynPilotStationByWaipuId } from './joynPilotStations.js'
 import { PLAYBACK_ROUTE_QUALITY } from '../playbackRouteQuality.js'
 
@@ -12,7 +11,19 @@ export function addJoynPilotRouteToBroadcastEvent(event, {
 } = {}) {
   const normalized = normalizeBroadcastEvent(event)
   const station = joynPilotStationByWaipuId(normalized.channelId)
-  const route = joynPlaybackRouteForStation(normalized.channelId, { verifiedAt })
+  const route = station?.joynUrl
+    ? normalizePlaybackRoute({
+        providerId: 'joyn',
+        mode: 'WEB_LINK',
+        scope: 'channel',
+        target: station.joynUrl,
+        requiresAuth: false,
+        requiresSubscription: false,
+        adSupported: false,
+        geoRegion: 'DE',
+        verifiedAt,
+      })
+    : null
   if (!route) {
     return {
       event: normalized,

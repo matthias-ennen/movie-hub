@@ -1045,16 +1045,16 @@ export async function runJoynAdapterDiagnostic({
     counts.withRoute += 1
     for (const route of joynRoutes) {
       const target = String(route?.target || '')
-      if (/^https:\/\/www\.joyn\.de\/live-tv\//.test(target)) counts.confirmedChannelSlug += 1
-      else if (/^https:\/\/www\.joyn\.de\/play\/live-tv\?channel_id=/.test(target)) counts.channelIdFallback += 1
+      if (/^https:\/\/www\.joyn\.de\/play\/live-tv\?channel_id=/.test(target)) counts.channelIdRoute += 1
+      else if (/^https:\/\/www\.joyn\.de\/live-tv\//.test(target)) counts.legacyChannelSlug += 1
       else counts.other += 1
     }
     return counts
   }, {
     withRoute: 0,
     withoutRoute: 0,
-    confirmedChannelSlug: 0,
-    channelIdFallback: 0,
+    channelIdRoute: 0,
+    legacyChannelSlug: 0,
     other: 0,
   })
 

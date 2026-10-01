@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mapTmdbProviderOffersToAvailabilities } from '../src/sources/adapters/tmdbWatchProviderContractMapper.js'
+import { mapJoynCandidateToBroadcastEvent } from '../src/sources/adapters/joynContractMapper.js'
 import { dedupeWaipuBroadcastEvents, mapWaipuAiringToBroadcastEvent, projectBroadcastEventToWaipuAiring } from '../src/sources/adapters/waipuContractMapper.js'
 
 describe('source adapter contract mappers', () => {
@@ -44,6 +45,42 @@ describe('source adapter contract mappers', () => {
     })
 
     expect(values).toEqual([])
+  })
+
+  it('uses Joyn livestream.id as the canonical live channel route', () => {
+    const event = mapJoynCandidateToBroadcastEvent({
+      joynChannelId: 'one-de-hd',
+      joynProgramId: 'program-being-the-ricardos',
+      brandId: '168',
+      brandCode: 'onehd',
+      channelTitle: 'ONE',
+      title: 'Being the Ricardos',
+      startTime: '2026-10-01T21:30:00.000Z',
+      endTime: '2026-10-01T23:35:00.000Z',
+      streamType: 'LINEAR',
+      quality: 'HD',
+      programType: 'EpgEntry',
+    }, {
+      tmdbId: 517088,
+      type: 'movie',
+    }, {
+      channelId: 'einsfestival',
+      observedAt: '2026-10-01T14:00:00.000Z',
+    })
+
+    expect(event.playbackRoutes).toEqual([expect.objectContaining({
+      providerId: 'joyn',
+      mode: 'WEB_LINK',
+      scope: 'channel',
+      target: 'https://www.joyn.de/play/live-tv?channel_id=one-de-hd',
+    })])
+    expect(event.playbackRoutes[0].target).not.toContain('168')
+    expect(event.playbackRoutes[0].target).not.toContain('program-being-the-ricardos')
+    expect(event.extensions.joyn).toMatchObject({
+      channelId: 'one-de-hd',
+      programId: 'program-being-the-ricardos',
+      brandId: '168',
+    })
   })
 
   it('maps a current Waipu airing into core, capability and extension layers', () => {

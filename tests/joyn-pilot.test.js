@@ -4,7 +4,6 @@ import {
   joynPilotStationByWaipuId,
   joynPilotStationBySlug,
 } from '../src/sources/joyn/joynPilotStations.js'
-import { joynPlaybackRouteForStation } from '../src/sources/joyn/joynPlaybackRoute.js'
 
 describe('Joyn pilot station inventory', () => {
   it('contains six unique confirmed pilot stations with Waipu mappings', () => {
@@ -25,20 +24,8 @@ describe('Joyn pilot station inventory', () => {
     })
   })
 
-  it('keeps web-confirmed Joyn targets as WEB_LINK until device verification', () => {
-    expect(joynPlaybackRouteForStation('sat1', {
-      verifiedAt: '2026-09-26T12:00:00Z',
-    })).toMatchObject({
-      providerId: 'joyn',
-      mode: 'WEB_LINK',
-      target: 'https://www.joyn.de/live-tv/sat1',
-      geoRegion: 'DE',
-    })
-    expect(joynPlaybackRouteForStation('unknown')).toBeNull()
-    expect(joynPlaybackRouteForStation('unknown', { brandId: 'brand-123' })).toMatchObject({
-      providerId: 'joyn',
-      mode: 'WEB_LINK',
-      target: 'https://www.joyn.de/play/live-tv?channel_id=brand-123',
-    })
+  it('keeps the legacy public-link inventory separate from productive channel-id routing', () => {
+    expect(JOYN_PILOT_STATIONS.every((station) => station.linkScope === 'channel-live-page')).toBe(true)
+    expect(JOYN_PILOT_STATIONS.every((station) => station.deviceVerification === 'pending')).toBe(true)
   })
 })

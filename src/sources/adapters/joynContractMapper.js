@@ -3,7 +3,7 @@ import {
   normalizeBroadcastEvent,
   normalizeSourceEnvelope,
 } from '../sourceAdapterContract.js'
-import { joynPlaybackRouteForStation } from '../joyn/joynPlaybackRoute.js'
+import { joynPlaybackRouteForChannel } from '../joyn/joynPlaybackRoute.js'
 
 function text(value) {
   const result = String(value ?? '').trim()
@@ -24,8 +24,7 @@ export function mapJoynCandidateToBroadcastEvent(candidate, match, {
   const endAt = new Date(candidate.endTime)
   if (!Number.isFinite(startAt.getTime()) || !Number.isFinite(endAt.getTime()) || endAt <= startAt) return null
 
-  const joynRoute = joynPlaybackRouteForStation(canonicalChannelId, {
-    brandId: candidate.brandId,
+  const joynRoute = joynPlaybackRouteForChannel(candidate.joynChannelId, {
     verifiedAt,
   })
   const playbackRoutes = joynRoute ? [joynRoute] : []
