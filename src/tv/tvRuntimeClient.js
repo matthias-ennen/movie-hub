@@ -1,3 +1,4 @@
+import { selectProviderMap } from '../sources/providerLiveRoute.js'
 import {
   TV_RUNTIME_DAY_KIND,
   TV_RUNTIME_SNAPSHOT_KIND,
@@ -191,6 +192,8 @@ export function buildTvRuntimeSchedule(day, {
         type: title.type,
         title: title.title,
         providerIds,
+        providerStationIds: selectProviderMap(airing?.providerStationIds, providerIds),
+        providerProgramIds: selectProviderMap(airing?.providerProgramIds, providerIds),
         playbackRoutes: (Array.isArray(airing?.playbackRoutes) ? airing.playbackRoutes : [])
           .filter((route) => providerIds.includes(route?.providerId)),
       })

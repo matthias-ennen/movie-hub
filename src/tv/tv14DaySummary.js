@@ -1,3 +1,4 @@
+import { selectProviderMap } from '../sources/providerLiveRoute.js'
 import { resolvePresentationArtwork } from '../catalog/artworkRotation.js'
 
 export const TV_14_DAY_SUMMARY_URL = '/tv-14-days-summary.json'
@@ -72,6 +73,8 @@ function nextEnabledOption(options, activeWaipuIds, activeJoynIds, now) {
       return {
         ...option,
         providerIds,
+        providerStationIds: selectProviderMap(option?.providerStationIds, providerIds),
+        providerProgramIds: selectProviderMap(option?.providerProgramIds, providerIds),
         playbackRoutes: (Array.isArray(option?.playbackRoutes) ? option.playbackRoutes : [])
           .filter((route) => providerIds.includes(route?.providerId)),
       }

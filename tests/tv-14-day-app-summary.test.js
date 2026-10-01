@@ -47,6 +47,41 @@ describe('TV 14-day app summary', () => {
     expect(prime.tvAiring.stationId).toBe('tele5')
   })
 
+  it('removes disabled provider identities from a merged 14-day airing', () => {
+    const rows = buildTv14DayRows({
+      entries: [{
+        key: 'movie:80810',
+        tmdbId: 80810,
+        type: 'movie',
+        title: 'Aaron und der Wolf',
+        genreIds: [],
+        airingOptions: [{
+          providerIds: ['joyn', 'waipu'],
+          providerStationIds: { joyn: 'top-filme-hd', waipu: 'topfilme' },
+          providerProgramIds: { joyn: 'joyn-aaron-program', waipu: 'waipu-aaron-program' },
+          stationId: 'topfilme',
+          programId: 'joyn-aaron-program',
+          startTime: '2026-10-01T16:37:00Z',
+          stopTime: '2026-10-01T18:15:00Z',
+          playbackRoutes: [
+            { providerId: 'waipu', mode: 'APP_DEEP_LINK', target: 'https://app.waipu.tv/epgdetails/topfilme/waipu-aaron-program' },
+            { providerId: 'joyn', mode: 'WEB_LINK', target: 'https://www.joyn.de/play/live-tv?channel_id=top-filme-hd' },
+          ],
+        }],
+        primeTimeOptions: [],
+      }],
+      activeWaipuStationIds: ['topfilme'],
+      activeJoynStationIds: [],
+      now: Date.parse('2026-10-01T10:00:00Z'),
+    })
+
+    const movie = rows.find((row) => row.id === 'tv-14-days-movies').items[0]
+    expect(movie.tvAiring.providerIds).toEqual(['waipu'])
+    expect(movie.tvAiring.providerStationIds).toEqual({ waipu: 'topfilme' })
+    expect(movie.tvAiring.providerProgramIds).toEqual({ waipu: 'waipu-aaron-program' })
+    expect(movie.tvAiring.playbackRoutes.map(({ providerId }) => providerId)).toEqual(['waipu'])
+  })
+
   it('keeps each 14-day TV row bounded', () => {
     const entries = Array.from({ length: 100 }, (_, index) => ({
       key: `movie:${index + 1}`,
@@ -85,7 +120,9 @@ describe('TV 14-day app summary', () => {
         airingOptions: [{
           providerIds: ['joyn', 'waipu'],
           providerStationIds: { joyn: 'tele5-de', waipu: 'tele5' },
+          providerProgramIds: { joyn: 'j1', waipu: 'w1' },
           stationId: 'tele5',
+          programId: 'j1',
           sourceStationId: 'tele5-de',
           stationName: 'TELE 5',
           startTime: '2026-10-01T18:00:00Z',
@@ -105,6 +142,7 @@ describe('TV 14-day app summary', () => {
     const movie = rows.find((row) => row.id === 'tv-14-days-movies').items[0]
     expect(movie.providerIds).toEqual(expect.arrayContaining(['joyn', 'waipu']))
     expect(movie.tvAiring.providerIds).toEqual(['joyn', 'waipu'])
+    expect(movie.tvAiring.providerProgramIds).toEqual({ joyn: 'j1', waipu: 'w1' })
     expect(movie.waipuLive).toBeTruthy()
     expect(movie.joynLive).toBeTruthy()
   })

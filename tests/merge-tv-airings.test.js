@@ -60,6 +60,39 @@ describe('neutral TV airing merge', () => {
     expect(merged[0].playbackRoutes.map(({ providerId }) => providerId).sort()).toEqual(['joyn', 'waipu'])
   })
 
+  it('keeps provider-specific program ids independent of source order', () => {
+    const base = {
+      tmdbId: 80810,
+      type: 'movie',
+      stationId: 'topfilme',
+      stationName: 'Top Filme',
+      startTime: '2026-10-01T16:37:00.000Z',
+      stopTime: '2026-10-01T18:15:00.000Z',
+    }
+
+    const merged = mergeTvAirings(
+      [{
+        ...base,
+        providerId: 'joyn',
+        providerIds: ['joyn'],
+        sourceStationId: 'top-filme-hd',
+        programId: 'joyn-aaron-program',
+      }],
+      [{
+        ...base,
+        providerId: 'waipu',
+        providerIds: ['waipu'],
+        programId: 'c4c79494-1e94-5ccf-b7f2-bb5641d4f14f',
+      }],
+    )
+
+    expect(merged).toHaveLength(1)
+    expect(merged[0].providerProgramIds).toEqual({
+      joyn: 'joyn-aaron-program',
+      waipu: 'c4c79494-1e94-5ccf-b7f2-bb5641d4f14f',
+    })
+  })
+
   it('merges the same Waipu/Joyn broadcast while keeping both providers', () => {
     const base = {
       tmdbId: 11,

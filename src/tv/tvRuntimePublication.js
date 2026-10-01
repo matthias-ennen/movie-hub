@@ -1,4 +1,5 @@
 import { mergeTvAirings } from '../sources/mergeTvAirings.js'
+import { ensureProviderLiveRoute } from '../sources/providerLiveRoute.js'
 import { tvDayKey } from '../waipu/waipuTvCatalog.js'
 
 export const TV_RUNTIME_SNAPSHOT_VERSION = 1
@@ -148,6 +149,7 @@ function normalizeProviderAiring(raw, providerId, type, tmdbId) {
   const canonicalStationId = text(raw?.canonicalStationId)
   const sourceStationId = text(raw?.sourceStationId)
   const providerStationId = sourceStationId || stationId || canonicalStationId
+  const programId = text(raw?.programId)
   return {
     providerId,
     providerIds: [providerId],
@@ -157,11 +159,16 @@ function normalizeProviderAiring(raw, providerId, type, tmdbId) {
     canonicalStationId,
     sourceStationId,
     providerStationIds: providerStationId ? { [providerId]: providerStationId } : {},
+    providerProgramIds: programId ? { [providerId]: programId } : {},
     stationName: text(raw?.stationName),
-    programId: text(raw?.programId),
+    programId,
     startTime,
     stopTime,
-    playbackRoutes: Array.isArray(raw?.playbackRoutes) ? raw.playbackRoutes : [],
+    playbackRoutes: ensureProviderLiveRoute(raw?.playbackRoutes, providerId, {
+      stationId: providerStationId,
+      programId,
+      verifiedAt: raw?.verifiedAt || null,
+    }),
     episode: raw?.episode || (
       type === 'series'
         ? {
@@ -205,6 +212,9 @@ function compactRuntimeAiring(airing) {
     sourceStationIds: Array.isArray(airing?.sourceStationIds) ? airing.sourceStationIds : [],
     providerStationIds: airing?.providerStationIds && typeof airing.providerStationIds === 'object'
       ? airing.providerStationIds
+      : {},
+    providerProgramIds: airing?.providerProgramIds && typeof airing.providerProgramIds === 'object'
+      ? airing.providerProgramIds
       : {},
     stationName: text(airing?.stationName),
     programId: text(airing?.programId),

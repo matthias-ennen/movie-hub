@@ -56,6 +56,21 @@ function routeKey(route) {
   return [text(route?.providerId), text(route?.mode), text(route?.target)].join('|')
 }
 
+function providerValueMap(airing, mapField, fallbackFields = []) {
+  const explicit = airing?.[mapField]
+  if (explicit && typeof explicit === 'object' && !Array.isArray(explicit)) {
+    return Object.fromEntries(Object.entries(explicit)
+      .map(([providerId, value]) => [text(providerId), text(value)])
+      .filter(([providerId, value]) => providerId && value))
+  }
+  const providerIds = [...new Set((Array.isArray(airing?.providerIds) ? airing.providerIds : [])
+    .map(text).filter(Boolean))]
+  const fields = Array.isArray(fallbackFields) ? fallbackFields : [fallbackFields]
+  const fallback = fields.map((field) => text(airing?.[field])).find(Boolean) || null
+  return providerIds.length === 1 && fallback ? { [providerIds[0]]: fallback } : {}
+}
+
+
 function mergePair(previous, airing) {
   const routeMap = new Map(
     [...(previous.playbackRoutes || []), ...(Array.isArray(airing.playbackRoutes) ? airing.playbackRoutes : [])]
@@ -73,8 +88,12 @@ function mergePair(previous, airing) {
       ...(Array.isArray(airing.sourceStationIds) ? airing.sourceStationIds : [airing.sourceStationId].filter(Boolean)),
     ])],
     providerStationIds: {
-      ...(previous.providerStationIds || {}),
-      ...(airing.providerStationIds || {}),
+      ...providerValueMap(previous, 'providerStationIds', ['sourceStationId', 'stationId', 'canonicalStationId']),
+      ...providerValueMap(airing, 'providerStationIds', ['sourceStationId', 'stationId', 'canonicalStationId']),
+    },
+    providerProgramIds: {
+      ...providerValueMap(previous, 'providerProgramIds', ['programId']),
+      ...providerValueMap(airing, 'providerProgramIds', ['programId']),
     },
   }
 }
@@ -93,6 +112,8 @@ export function mergeTvAirings(...groups) {
         ...airing,
         stationId,
         providerIds: [...new Set(Array.isArray(airing.providerIds) ? airing.providerIds : [])],
+        providerStationIds: providerValueMap(airing, 'providerStationIds', ['sourceStationId', 'stationId', 'canonicalStationId']),
+        providerProgramIds: providerValueMap(airing, 'providerProgramIds', ['programId']),
         playbackRoutes: Array.isArray(airing.playbackRoutes) ? [...airing.playbackRoutes] : [],
       })
       continue

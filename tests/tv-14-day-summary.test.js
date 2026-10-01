@@ -50,7 +50,7 @@ describe('TV 14-day summary', () => {
             programId: 'j1',
             startTime: '2026-10-01T18:15:30.000Z',
             stopTime: '2026-10-01T20:00:00.000Z',
-            playbackRoutes: [{ providerId: 'joyn', target: 'https://example.invalid' }],
+            playbackRoutes: [],
           }],
         }],
       },
@@ -74,6 +74,22 @@ describe('TV 14-day summary', () => {
       waipu: 'tele5',
       joyn: 'tele5-de',
     })
+    expect(summary.entries[0].airingOptions[0].providerProgramIds).toEqual({
+      waipu: 'w1',
+      joyn: 'j1',
+    })
+    expect(summary.entries[0].airingOptions[0].playbackRoutes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        providerId: 'waipu',
+        scope: 'program',
+        target: 'https://app.waipu.tv/epgdetails/tele5/w1',
+      }),
+      expect.objectContaining({
+        providerId: 'joyn',
+        scope: 'channel',
+        target: 'https://www.joyn.de/play/live-tv?channel_id=tele5-de',
+      }),
+    ]))
   })
 
   it('marks a title when any airing starts during prime time', () => {

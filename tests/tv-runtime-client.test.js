@@ -37,7 +37,12 @@ const dayPayload = {
         joyn: 'kabeleinsclassics-de-hd',
         waipu: 'kabeleinsclassics',
       },
+      providerProgramIds: {
+        joyn: 'j1',
+        waipu: 'w1',
+      },
       stationId: 'kabeleinsclassics',
+      programId: 'j1',
       sourceStationId: 'kabeleinsclassics-de-hd',
       stationName: 'Kabel Eins CLASSICS',
       startTime: '2026-10-01T09:30:00.000Z',
@@ -87,6 +92,10 @@ describe('TV runtime client', () => {
     expect(schedule.airings[0].providerIds).toEqual(['joyn', 'waipu'])
     expect(schedule.airings[0].playbackRoutes.map(({ providerId }) => providerId).sort())
       .toEqual(['joyn', 'waipu'])
+    expect(schedule.airings[0].providerProgramIds).toEqual({
+      joyn: 'j1',
+      waipu: 'w1',
+    })
   })
 
   it('removes only the disabled provider side from a merged airing', () => {
@@ -97,6 +106,8 @@ describe('TV runtime client', () => {
 
     expect(schedule.airings).toHaveLength(1)
     expect(schedule.airings[0].providerIds).toEqual(['joyn'])
+    expect(schedule.airings[0].providerStationIds).toEqual({ joyn: 'kabeleinsclassics-de-hd' })
+    expect(schedule.airings[0].providerProgramIds).toEqual({ joyn: 'j1' })
     expect(schedule.airings[0].playbackRoutes.map(({ providerId }) => providerId)).toEqual(['joyn'])
   })
 })
