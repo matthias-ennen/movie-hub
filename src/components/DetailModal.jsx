@@ -899,7 +899,7 @@ export default function DetailModal({
                         <ProviderBadges
                           providerIds={automaticProviderIds}
                           includeMovieHub={movieHubAvailable}
-                          maxVisible={4}
+                          maxVisible={3}
                         />
                       )}
                     </span>

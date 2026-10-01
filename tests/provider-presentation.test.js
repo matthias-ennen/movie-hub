@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { resolveProviderPresentation } from '../src/providers/providerPresentation.js'
+import { orderProviderIds, resolveProviderPresentation } from '../src/providers/providerPresentation.js'
 
 describe('provider presentation policy', () => {
+  it('uses one canonical provider order across presentation surfaces', () => {
+    expect(orderProviderIds(['disney', 'joyn', 'prime', 'waipu', 'netflix'], {
+      includeMovieHub: true,
+    })).toEqual(['moviehub', 'waipu', 'joyn', 'netflix', 'prime', 'disney'])
+  })
+
   it('uses title-wide evidence for normal title surfaces', () => {
     const result = resolveProviderPresentation({
       tmdbProviderIds: ['netflix'],
@@ -11,7 +17,7 @@ describe('provider presentation policy', () => {
       },
     }, { context: 'title', hasMovieHub: true })
 
-    expect(result.providerIds).toEqual(['netflix', 'waipu', 'joyn'])
+    expect(result.providerIds).toEqual(['waipu', 'joyn', 'netflix'])
     expect(result.includeMovieHub).toBe(true)
   })
 
@@ -47,7 +53,7 @@ describe('provider presentation policy', () => {
       },
     }, { context: 'airing' })
 
-    expect(result.providerIds).toEqual(['netflix', 'joyn'])
+    expect(result.providerIds).toEqual(['joyn', 'netflix'])
     expect(result.liveProviderIds).toEqual(['joyn'])
     expect(result.playbackRoutes.map((route) => route.providerId)).toEqual(['joyn'])
   })
@@ -64,7 +70,7 @@ describe('provider presentation policy', () => {
       },
     }, { context: 'airing' })
 
-    expect(result.providerIds).toEqual(['netflix', 'joyn', 'waipu'])
+    expect(result.providerIds).toEqual(['waipu', 'joyn', 'netflix'])
     expect(result.liveProviderIds).toEqual(['joyn', 'waipu'])
     expect(result.playbackRoutes.map((route) => route.providerId).sort()).toEqual(['joyn', 'waipu'])
   })

@@ -1,9 +1,37 @@
+import { PROVIDER_REGISTRY } from './providerRegistry.js'
+
 function text(value) {
   return String(value ?? '').trim()
 }
 
 function unique(values = []) {
   return [...new Set((Array.isArray(values) ? values : []).map(text).filter(Boolean))]
+}
+
+const PRIMARY_PROVIDER_ORDER = ['moviehub', 'waipu', 'joyn']
+const PROVIDER_PRESENTATION_ORDER = [
+  ...PRIMARY_PROVIDER_ORDER,
+  ...PROVIDER_REGISTRY
+    .map((provider) => provider.id)
+    .filter((providerId) => !PRIMARY_PROVIDER_ORDER.includes(providerId)),
+]
+const PROVIDER_PRESENTATION_RANK = new Map(
+  PROVIDER_PRESENTATION_ORDER.map((providerId, index) => [providerId, index]),
+)
+
+export function orderProviderIds(providerIds = [], {
+  includeMovieHub = false,
+} = {}) {
+  const ordered = unique([
+    ...(includeMovieHub ? ['moviehub'] : []),
+    ...(Array.isArray(providerIds) ? providerIds : []),
+  ])
+
+  return ordered.sort((left, right) => {
+    const leftRank = PROVIDER_PRESENTATION_RANK.get(left) ?? Number.MAX_SAFE_INTEGER
+    const rightRank = PROVIDER_PRESENTATION_RANK.get(right) ?? Number.MAX_SAFE_INTEGER
+    return leftRank - rightRank
+  })
 }
 
 function tmdbProviderIds(item) {
@@ -52,12 +80,12 @@ export function resolveProviderPresentation(item, {
   const concreteAiringIds = airingProviderIds(item)
   const movieHub = Boolean(hasMovieHub || item?.movieHubCatalog === true)
 
-  const providerIds = context === 'airing'
-    ? unique([
+  const providerIds = orderProviderIds(context === 'airing'
+    ? [
         ...tmdbIds,
         ...concreteAiringIds,
-      ])
-    : unique([
+      ]
+    : [
         ...tmdbIds,
         ...titleLiveIds,
       ])

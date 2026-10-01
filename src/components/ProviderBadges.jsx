@@ -1,4 +1,5 @@
 import { providerDirectory, providers } from '../data/catalog.js'
+import { orderProviderIds } from '../providers/providerPresentation.js'
 
 export const MAX_VISIBLE_PROVIDER_BADGES = 3
 
@@ -24,14 +25,12 @@ export function prioritizeProviderBadges(providerIds = [], {
 } = {}) {
   const requestedLimit = Number.isFinite(maxVisible) ? maxVisible : MAX_VISIBLE_PROVIDER_BADGES
   const totalLimit = Math.max(0, Math.min(MAX_VISIBLE_PROVIDER_BADGES, requestedLimit))
-  const uniqueProviderIds = [...new Set(Array.isArray(providerIds) ? providerIds : [])]
+  const availableProviderIds = (Array.isArray(providerIds) ? providerIds : [])
     .filter((providerId) => providerId !== 'moviehub')
     .filter((providerId) => Boolean(providers[providerId]))
-  const prioritized = [
-    ...(includeMovieHub ? ['moviehub'] : []),
-    ...(uniqueProviderIds.includes('waipu') ? ['waipu'] : []),
-    ...uniqueProviderIds.filter((providerId) => providerId !== 'waipu'),
-  ]
+  const prioritized = orderProviderIds(availableProviderIds, {
+    includeMovieHub: includeMovieHub && Boolean(providers.moviehub),
+  })
   return prioritized.slice(0, totalLimit)
 }
 
