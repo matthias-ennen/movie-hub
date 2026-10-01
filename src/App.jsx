@@ -584,31 +584,30 @@ function MovieHub({ user }) {
         || tvRuntimeIndex.status === 'loading'
         || tvRuntimeIndex.status === 'unavailable') return undefined
 
-    let cancelled = false
+    // The status change to "loading" intentionally re-renders this effect.
+    // Do not cancel the small index request on that render; otherwise the
+    // request can finish without ever being allowed to publish "ready".
     setTvRuntimeIndex((current) => ({ ...current, status: 'loading' }))
     loadTvRuntimeIndex()
       .then((index) => {
-        if (!cancelled) {
-          setTvRuntimeIndex({
-            status: 'ready',
-            generatedAt: index.generatedAt,
-            providers: index.providers,
-            days: index.days,
-          })
-        }
+        setTvRuntimeIndex({
+          status: 'ready',
+          generatedAt: index.generatedAt,
+          providers: index.providers,
+          days: index.days,
+        })
       })
       .catch((error) => {
         console.warn('TV-Runtime-Index konnte nicht geladen werden.', error)
-        if (!cancelled) {
-          setTvRuntimeIndex({
-            status: 'unavailable',
-            generatedAt: null,
-            providers: [],
-            days: [],
-          })
-        }
+        setTvRuntimeIndex({
+          status: 'unavailable',
+          generatedAt: null,
+          providers: [],
+          days: [],
+        })
       })
-    return () => { cancelled = true }
+
+    return undefined
   }, [tvRuntimeIndex.status, tvScheduleRequested])
 
   useEffect(() => {
