@@ -1565,8 +1565,9 @@ function MovieHub({ user }) {
         <DetailModal
           key={[
             selectedTitle.id || `${selectedTitle.type || selectedTitle.mediaType}:${selectedTitle.tmdbId || selectedTitle.title}`,
-            selectedTitle.tvAiring?.stationId || '',
-            selectedTitle.tvAiring?.programId || selectedTitle.tvAiring?.startTime || '',
+            selectedTitle.tvAiring?.canonicalStationId || selectedTitle.tvAiring?.stationId || '',
+            selectedTitle.tvAiring?.startTime || '',
+            selectedTitle.tvAiring?.stopTime || '',
           ].join('|')}
           item={selectedTitle}
           collections={catalog.collections}
