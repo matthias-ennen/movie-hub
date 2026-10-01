@@ -1,7 +1,12 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSharedMediaCatalog } from '../library/useSharedMediaCatalog.js'
 import { prefetchPosterWindow } from '../performance/posterPrefetch.js'
-import { limitPosterRowItems } from '../performance/posterRows.js'
+import {
+  limitPosterRowItems,
+  nextTvPosterRenderCount,
+  shouldExpandTvPosterWindow,
+  tvPosterRenderCountForIndex,
+} from '../performance/posterRows.js'
 import { providerIdForRowTitle } from '../settings/providerSelectionModel.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import PosterCard from './PosterCard.jsx'
@@ -26,6 +31,17 @@ export default function ContentRow({
   const movieHubEnabled = isProviderEnabled('moviehub')
   const trackRef = useRef(null)
   const visibleItems = useMemo(() => limitPosterRowItems(items, variant), [items, variant])
+  const [tvRenderedCount, setTvRenderedCount] = useState(() => (
+    variant === 'tv' ? tvPosterRenderCountForIndex(visibleItems.length, initialFocusIndex) : 0
+  ))
+  const renderedItems = variant === 'tv'
+    ? visibleItems.slice(0, tvRenderedCount)
+    : visibleItems
+
+  useEffect(() => {
+    if (variant !== 'tv') return
+    setTvRenderedCount(tvPosterRenderCountForIndex(visibleItems.length, initialFocusIndex))
+  }, [initialFocusIndex, rowId, variant, visibleItems.length])
 
   useLayoutEffect(() => {
     const track = trackRef.current
@@ -43,13 +59,25 @@ export default function ContentRow({
 
   const topTen = variant === 'top-ten'
 
+  function expandTvPosters() {
+    if (variant !== 'tv') return
+    setTvRenderedCount((current) => nextTvPosterRenderCount(current, visibleItems.length))
+  }
+
   function handleTrackScroll() {
-    onTrackScroll?.(trackRef.current?.scrollLeft || 0)
+    const track = trackRef.current
+    onTrackScroll?.(track?.scrollLeft || 0)
+    if (variant !== 'tv' || !track || tvRenderedCount >= visibleItems.length) return
+    const remaining = track.scrollWidth - (track.scrollLeft + track.clientWidth)
+    if (remaining <= Math.max(track.clientWidth, 1)) expandTvPosters()
   }
 
   function handlePosterFocus(index) {
     onPosterFocus?.(index)
     prefetchPosterWindow(visibleItems, index)
+    if (variant === 'tv' && shouldExpandTvPosterWindow(index, tvRenderedCount, visibleItems.length)) {
+      expandTvPosters()
+    }
   }
 
   return (
@@ -68,7 +96,7 @@ export default function ContentRow({
         className={topTen ? 'poster-track top-ten-track' : 'poster-track'}
         onScroll={handleTrackScroll}
       >
-        {visibleItems.map((item, index) => (
+        {renderedItems.map((item, index) => (
           <PosterCard
             item={item}
             onOpen={onOpen}
