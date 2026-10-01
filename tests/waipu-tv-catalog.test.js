@@ -75,7 +75,14 @@ describe('Waipu TV catalog', () => {
     })).toHaveLength(1)
     expect(normalizeWaipuStationShard(raw, { id: 'zdf', name: 'ZDF' }, {
       now: Date.parse('2026-09-19T12:00:00.000Z'),
-    })[0]).toMatchObject({ source: 'waipu', programId: 'zdf-program' })
+    })[0]).toMatchObject({
+      source: 'waipu',
+      providerIds: ['waipu'],
+      programId: 'zdf-program',
+    })
+    expect(normalizeWaipuStationShard(raw, { id: 'zdf', name: 'ZDF' }, {
+      now: Date.parse('2026-09-19T12:00:00.000Z'),
+    })[0].playbackRoutes.map(({ providerId }) => providerId)).toEqual(['waipu'])
     expect(normalizeWaipuStationShard(raw, { id: 'rtl', name: 'RTL' })).toEqual([])
   })
 

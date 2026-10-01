@@ -1,7 +1,65 @@
 import { describe, expect, it } from 'vitest'
+import { normalizeJoynDayShard } from '../src/joyn/joynTvCatalog.js'
+import { normalizeWaipuDayShard } from '../src/waipu/waipuTvCatalog.js'
 import { mergeTvAirings } from '../src/sources/mergeTvAirings.js'
 
 describe('neutral TV airing merge', () => {
+  it('merges the real Waipu/Joyn normalization path for the same broadcast', () => {
+    const key = '2026-10-01'
+    const waipu = normalizeWaipuDayShard({
+      schemaVersion: 1,
+      kind: 'waipu-live-day',
+      key,
+      airings: [{
+        id: 'waipu-creepshow',
+        programId: 'waipu-program',
+        stationId: 'kabeleinsclassics',
+        tmdbId: 16281,
+        type: 'movie',
+        title: 'Creepshow - Die unheimlich verrückte Geisterstunde',
+        startTime: '2026-10-01T09:30:00.000Z',
+        stopTime: '2026-10-01T11:25:00.000Z',
+      }],
+    }, key, [{ id: 'kabeleinsclassics', name: 'Kabel Eins CLASSICS' }], {
+      now: Date.parse('2026-10-01T08:00:00.000Z'),
+    })
+
+    const joyn = normalizeJoynDayShard({
+      schemaVersion: 1,
+      kind: 'joyn-live-day',
+      key,
+      airings: [{
+        id: 'joyn-creepshow',
+        programId: 'joyn-program',
+        stationId: 'kabeleinsclassics-de-hd',
+        tmdbId: 16281,
+        type: 'movie',
+        title: 'Creepshow - Die unheimlich verrückte Geisterstunde',
+        startTime: '2026-10-01T09:30:00.000Z',
+        stopTime: '2026-10-01T11:25:00.000Z',
+        playbackRoutes: [{
+          providerId: 'joyn',
+          mode: 'WEB_LINK',
+          target: 'https://www.joyn.de/play/live-tv?channel_id=1002',
+        }],
+      }],
+    }, key, [{
+      id: 'kabeleinsclassics-de-hd',
+      name: 'Kabel Eins CLASSICS',
+      canonicalId: 'kabeleinsclassics',
+    }], {
+      now: Date.parse('2026-10-01T08:00:00.000Z'),
+    })
+
+    const merged = mergeTvAirings(waipu.airings, joyn.airings)
+
+    expect(waipu.airings[0].providerIds).toEqual(['waipu'])
+    expect(waipu.airings[0].playbackRoutes.map(({ providerId }) => providerId)).toEqual(['waipu'])
+    expect(merged).toHaveLength(1)
+    expect(merged[0].providerIds).toEqual(['joyn', 'waipu'])
+    expect(merged[0].playbackRoutes.map(({ providerId }) => providerId).sort()).toEqual(['joyn', 'waipu'])
+  })
+
   it('merges the same Waipu/Joyn broadcast while keeping both providers', () => {
     const base = {
       tmdbId: 11,

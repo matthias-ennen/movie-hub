@@ -105,6 +105,8 @@ export function projectBroadcastEventToWaipuAiring(event) {
   const waipu = event?.extensions?.waipu || {}
   return {
     source: 'waipu',
+    providerIds: ['waipu'],
+    playbackRoutes: Array.isArray(event.playbackRoutes) ? [...event.playbackRoutes] : [],
     programId: safeText(waipu.programId),
     seriesId: safeText(waipu.seriesId),
     stationId: safeText(event.channelId),
