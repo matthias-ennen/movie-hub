@@ -261,6 +261,18 @@ export function sameTmdbTitle(left, right) {
   return leftType === rightType && Number(left.tmdbId) === Number(right.tmdbId)
 }
 
+export function upsertEnrichedTitle(titles = [], detail) {
+  const current = Array.isArray(titles) ? titles : []
+  if (!detail?.tmdbId) return current
+
+  const index = current.findIndex((title) => sameTmdbTitle(title, detail))
+  if (index < 0) return [...current, detail]
+
+  const next = [...current]
+  next[index] = mergeEnrichedTitle(current[index], detail)
+  return next
+}
+
 export function mergeEnrichedTitle(base, enriched) {
   if (!sameTmdbTitle(base, enriched)) return base
   const merged = mergeMeaningfulObject(base, enriched)

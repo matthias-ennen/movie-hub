@@ -21,7 +21,7 @@ import { curateCatalogRows, curateTitles, hasEnabledAvailability, PUBLIC_POSTER_
 import { getContentPeriodKey, normalizeContentDisplaySettings, resolveContentSortMode } from './catalog/contentDisplaySettings.js'
 import { resolvePresentationArtwork } from './catalog/artworkRotation.js'
 import { loadRuntimeTitleMetadata } from './catalog/runtimeTitleMetadata.js'
-import { mergeEnrichedTitle, sameTmdbTitle, titleNeedsMetadataEnrichment } from './catalog/titleMetadata.js'
+import { mergeEnrichedTitle, sameTmdbTitle, titleNeedsMetadataEnrichment, upsertEnrichedTitle } from './catalog/titleMetadata.js'
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
@@ -810,6 +810,11 @@ function MovieHub({ user }) {
     return [...byKey.values()].map((item) => resolvePresentationArtwork(item, artworkOptions))
   }, [artworkOptions, compactTvTitleEntries, titles, tvHydratedTitles, tvSchedule.titles])
 
+  const publishTvHydratedTitle = useCallback((detail) => {
+    if (!detail?.tmdbId) return
+    setTvHydratedTitles((current) => upsertEnrichedTitle(current, detail))
+  }, [])
+
   useEffect(() => {
     if (!Array.isArray(tvSchedule.airings) || !tvSchedule.airings.length) return undefined
     let cancelled = false
@@ -856,22 +861,6 @@ function MovieHub({ user }) {
     const workerCount = Math.min(4, queue.length)
     let cursor = 0
 
-    function publishHydratedTitle(detail) {
-      if (cancelled || !detail?.tmdbId) return
-      setTvHydratedTitles((current) => {
-        const type = detail?.type === 'series' || detail?.mediaType === 'tv' ? 'series' : 'movie'
-        const detailKey = `${type}:${Number(detail.tmdbId) || ''}`
-        const index = current.findIndex((title) => {
-          const currentType = title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'
-          return `${currentType}:${Number(title?.tmdbId) || ''}` === detailKey
-        })
-        if (index < 0) return [...current, detail]
-        const next = [...current]
-        next[index] = mergeEnrichedTitle(current[index], detail)
-        return next
-      })
-    }
-
     async function worker() {
       while (cursor < queue.length) {
         const index = cursor
@@ -879,7 +868,7 @@ function MovieHub({ user }) {
         const [key, candidate] = queue[index]
         try {
           const detail = await loadRuntimeTitleMetadata(candidate)
-          publishHydratedTitle(detail)
+          if (!cancelled) publishTvHydratedTitle(detail)
         } catch (error) {
           // Temporary TMDB/native bridge failures must not blacklist this title
           // for the rest of the app session. A later schedule/render pass may retry.
@@ -895,7 +884,7 @@ function MovieHub({ user }) {
       .catch((error) => console.warn('TV-Metadatenwarteschlange konnte nicht vollständig verarbeitet werden.', error))
 
     return () => { cancelled = true }
-  }, [compactTvTitleEntries, tvPresentationTitles, tvSchedule.airings])
+  }, [compactTvTitleEntries, publishTvHydratedTitle, tvPresentationTitles, tvSchedule.airings])
 
   const baseTvViewModel = useMemo(() => buildWaipuTvViewModel({
     airings: tvSchedule.airings,
@@ -1011,6 +1000,7 @@ function MovieHub({ user }) {
       loadRuntimeTitleMetadata(item)
         .then((detail) => {
           if (titleNeedsMetadataEnrichment(detail)) return
+          publishTvHydratedTitle(detail)
           setLiveAvailabilityEntries((entries) => entries.map((entry) => {
             if (!sameTmdbTitle(entry, item)) return entry
             return {
@@ -1041,7 +1031,7 @@ function MovieHub({ user }) {
         })
         .catch((error) => console.warn('Movie-Hub-Titelmetadaten konnten nicht progressiv ergänzt werden.', error))
     }
-  }, [artworkOptions])
+  }, [artworkOptions, publishTvHydratedTitle])
 
   useEffect(() => {
     if (!detailRequest) return undefined

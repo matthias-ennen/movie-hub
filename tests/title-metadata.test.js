@@ -4,6 +4,7 @@ import {
   metadataChecksComplete,
   mergeEnrichedTitle,
   sameTmdbTitle,
+  upsertEnrichedTitle,
   titleNeedsMetadataEnrichment,
 } from '../src/catalog/titleMetadata.js'
 
@@ -369,6 +370,44 @@ describe('kanonische Titelmetadaten', () => {
 
     expect(merged.tmdbProviderIds).toEqual([])
     expect(merged.providerIds).toEqual(['waipu'])
+  })
+
+  it('übernimmt nachgeladene TMDB-Anbieter in den gemeinsamen TV-Titelbestand', () => {
+    const current = [{
+      id: 'tv-movie-26496',
+      tmdbId: 26496,
+      type: 'movie',
+      source: 'tmdb',
+      title: 'Effi Briest',
+      providerIds: ['waipu'],
+      liveAvailability: {
+        waipu: { providerId: 'waipu' },
+      },
+      metadataVersion: 1,
+      metadataComplete: false,
+    }]
+
+    const detail = {
+      id: 'tmdb-movie-26496',
+      tmdbId: 26496,
+      type: 'movie',
+      source: 'tmdb',
+      title: 'Effi Briest',
+      providerIds: ['pluto'],
+      tmdbProviderIds: ['pluto'],
+      tmdbProviderOffers: [{ id: 'pluto', tmdbProviderId: 300, offerTypes: ['ads'] }],
+      metadataChecks: { providers: 'present' },
+      metadataVersion: 3,
+      metadataComplete: true,
+      collectionChecked: true,
+    }
+
+    const next = upsertEnrichedTitle(current, detail)
+
+    expect(next).toHaveLength(1)
+    expect(next[0].providerIds).toEqual(['pluto', 'waipu'])
+    expect(next[0].tmdbProviderIds).toEqual(['pluto'])
+    expect(next[0].liveAvailability.waipu.providerId).toBe('waipu')
   })
 
 })
