@@ -734,6 +734,7 @@ describe('Waipu live catalog publication', () => {
       playbackRoutes: [{
         providerId: 'waipu',
         mode: 'APP_DEEP_LINK',
+        scope: 'program',
         target: 'https://app.waipu.tv/epgdetails/zdf/program-1',
         requiresAuth: false,
         requiresSubscription: true,
