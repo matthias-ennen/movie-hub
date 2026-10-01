@@ -1,5 +1,5 @@
 import { mergeTvAirings } from '../sources/mergeTvAirings.js'
-import { joynPlaybackRouteForChannel } from '../sources/joyn/joynPlaybackRoute.js'
+import { ensureProviderLiveRoute } from '../sources/providerLiveRoute.js'
 import { tvDayKey } from '../waipu/waipuTvCatalog.js'
 
 export const TV_RUNTIME_SNAPSHOT_VERSION = 1
@@ -138,29 +138,6 @@ function buildMetadataLookup(catalog, searchIndex, sourceCatalogs) {
   return byKey
 }
 
-function fallbackPlaybackRoute(providerId, providerStationId, programId) {
-  if (providerId === 'waipu' && providerStationId && programId) {
-    return {
-      providerId: 'waipu',
-      mode: 'APP_DEEP_LINK',
-      scope: 'program',
-      target: `https://app.waipu.tv/epgdetails/${encodeURIComponent(providerStationId)}/${encodeURIComponent(programId)}`,
-      requiresSubscription: true,
-    }
-  }
-  if (providerId === 'joyn' && providerStationId) {
-    return joynPlaybackRouteForChannel(providerStationId)
-  }
-  return null
-}
-
-function providerPlaybackRoutes(raw, providerId, providerStationId, programId) {
-  const routes = Array.isArray(raw?.playbackRoutes) ? [...raw.playbackRoutes] : []
-  if (routes.some((route) => text(route?.providerId) === providerId && text(route?.target))) return routes
-  const fallback = fallbackPlaybackRoute(providerId, providerStationId, programId)
-  return fallback ? [...routes, fallback] : routes
-}
-
 function normalizeProviderAiring(raw, providerId, type, tmdbId) {
   const startTime = text(raw?.startTime ?? raw?.startAt)
   const stopTime = text(raw?.stopTime ?? raw?.endAt)
@@ -187,7 +164,11 @@ function normalizeProviderAiring(raw, providerId, type, tmdbId) {
     programId,
     startTime,
     stopTime,
-    playbackRoutes: providerPlaybackRoutes(raw, providerId, providerStationId, programId),
+    playbackRoutes: ensureProviderLiveRoute(raw?.playbackRoutes, providerId, {
+      stationId: providerStationId,
+      programId,
+      verifiedAt: raw?.verifiedAt || null,
+    }),
     episode: raw?.episode || (
       type === 'series'
         ? {
