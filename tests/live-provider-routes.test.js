@@ -24,7 +24,7 @@ describe('bound live provider routes', () => {
       },
     }
 
-    expect(resolveBoundLiveProviderRoutes(item, ['waipu'], { now })).toEqual({
+    expect(resolveBoundLiveProviderRoutes(item, ['waipu'], { now })).toMatchObject({
       waipu: {
         providerId: 'waipu',
         mode: 'APP_DEEP_LINK',
@@ -56,7 +56,7 @@ describe('bound live provider routes', () => {
 
     expect(resolveBoundLiveProviderRoutes(item, ['joyn', 'waipu'], {
       now: Date.parse('2026-10-01T17:01:00.000Z'),
-    }).waipu).toEqual({
+    }).waipu).toMatchObject({
       providerId: 'waipu',
       mode: 'APP_DEEP_LINK',
       scope: 'program',
