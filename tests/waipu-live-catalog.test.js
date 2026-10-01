@@ -703,7 +703,7 @@ describe('Waipu live catalog publication', () => {
     expect(() => validateWaipuLiveCatalog(catalog)).toThrow('Invalid waipu-live day shard')
   })
 
-  it('normalizes legacy title airings through the common BroadcastEvent contract without changing the client shape', () => {
+  it('normalizes legacy title airings through the common BroadcastEvent contract while preserving provider routing', () => {
     const entries = normalizeWaipuLiveTitles({
       schemaVersion: 1,
       kind: 'waipu-live-titles',
@@ -730,6 +730,18 @@ describe('Waipu live catalog publication', () => {
     expect(entries).toHaveLength(1)
     expect(entries[0].airings).toEqual([{
       source: 'waipu',
+      providerIds: ['waipu'],
+      playbackRoutes: [{
+        providerId: 'waipu',
+        mode: 'APP_DEEP_LINK',
+        target: 'https://app.waipu.tv/epgdetails/zdf/program-1',
+        requiresAuth: false,
+        requiresSubscription: true,
+        adSupported: false,
+        geoRegion: null,
+        drm: null,
+        verifiedAt: null,
+      }],
       programId: 'program-1',
       seriesId: null,
       stationId: 'zdf',
