@@ -28,10 +28,12 @@ function routeKey(route) {
 function compactRoute(route, providerId) {
   const target = text(route?.target)
   const mode = text(route?.mode)
+  const scope = text(route?.scope)
   if (!target || !mode) return null
   return {
     providerId: text(route?.providerId) || providerId,
     mode,
+    ...(scope ? { scope } : {}),
     target,
   }
 }
@@ -54,9 +56,13 @@ function compactAiring(raw, providerId) {
     const route = {
       providerId,
       mode: 'APP_DEEP_LINK',
+      ...(providerId === 'waipu' ? { scope: 'program' } : {}),
       target: playbackTarget,
     }
-    routes.set(routeKey(route), route)
+    const key = routeKey(route)
+    // Preserve the richer adapter PlaybackRoute (especially scope) when the
+    // legacy playbackTarget points at the same destination.
+    if (!routes.has(key)) routes.set(key, route)
   }
 
   return {
@@ -290,6 +296,16 @@ export function mergeLiveAvailability(titles = [], entries = [], { now = Date.no
   })
 }
 
+function getAiringProviderRoute(airing, providerId = null) {
+  const requestedProviderId = text(providerId)
+  const routes = Array.isArray(airing?.playbackRoutes) ? airing.playbackRoutes : []
+  return routes.find((route) => (
+    (!requestedProviderId || text(route?.providerId) === requestedProviderId)
+    && text(route?.target)
+    && text(route?.mode)
+  )) || null
+}
+
 export function getLiveProviderRoute(providerAvailability, {
   now = Date.now(),
   providerId = null,
@@ -306,12 +322,7 @@ export function getLiveProviderRoute(providerAvailability, {
     || airings[0]
     || null
   if (!selected) return null
-  const routes = Array.isArray(selected?.playbackRoutes) ? selected.playbackRoutes : []
-  return routes.find((route) => (
-    (!requestedProviderId || text(route?.providerId) === requestedProviderId)
-    && text(route?.target)
-    && text(route?.mode)
-  )) || null
+  return getAiringProviderRoute(selected, requestedProviderId)
 }
 
 export function getLiveProviderDestination(providerAvailability, options = {}) {
@@ -329,11 +340,9 @@ export function getItemLiveProviderRoute(item, providerId, { now = Date.now() } 
       ...(Array.isArray(airing?.playbackRoutes) ? airing.playbackRoutes.map((route) => route?.providerId) : []),
     ].map(text).filter(Boolean))
     if (airingProviderIds.has(requestedProviderId)) {
-      const airingRoute = getLiveProviderRoute({ airings: [airing] }, {
-        now,
-        providerId: requestedProviderId,
-      })
-      if (airingRoute) return airingRoute
+      // A concrete TV card/detail represents this exact airing. Never replace
+      // its provider route with another airing of the same TMDB title.
+      return getAiringProviderRoute(airing, requestedProviderId)
     }
   }
 
@@ -341,6 +350,17 @@ export function getItemLiveProviderRoute(item, providerId, { now = Date.now() } 
     now,
     providerId: requestedProviderId,
   })
+}
+
+export function buildItemLiveProviderRouteSnapshot(item, providerIds = [], {
+  now = Date.now(),
+} = {}) {
+  const snapshot = {}
+  for (const providerId of [...new Set((Array.isArray(providerIds) ? providerIds : []).map(text).filter(Boolean))]) {
+    const route = getItemLiveProviderRoute(item, providerId, { now })
+    if (route) snapshot[providerId] = Object.freeze({ ...route })
+  }
+  return Object.freeze(snapshot)
 }
 
 export function getItemLiveProviderDestination(item, providerId, options = {}) {
