@@ -18,7 +18,8 @@ import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { loadSeriesSeasonDetail, normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
-import { formatLiveAiring, getItemLiveProviderDestination } from '../sources/liveAvailabilityIndex.js'
+import { formatLiveAiring, getItemLiveProviderRoute } from '../sources/liveAvailabilityIndex.js'
+import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { resolveProviderPresentation } from '../providers/providerPresentation.js'
 
@@ -392,11 +393,19 @@ export default function DetailModal({
 
   function openProvider(providerId) {
     const providerNow = Date.now()
-    const genericLiveDestination = getItemLiveProviderDestination(item, providerId, { now: providerNow })
-    const exactWaipuDestination = providerId === 'waipu' && !genericLiveDestination
+    const genericLiveRoute = getItemLiveProviderRoute(item, providerId, { now: providerNow })
+    const exactWaipuDestination = providerId === 'waipu' && !genericLiveRoute
       ? getWaipuEpgDestination(item?.waipuLive, { now: providerNow })
       : null
-    const exactLiveDestination = genericLiveDestination || exactWaipuDestination
+    const exactLiveRoute = genericLiveRoute || (exactWaipuDestination
+      ? {
+          providerId: 'waipu',
+          mode: 'APP_DEEP_LINK',
+          scope: 'program',
+          target: exactWaipuDestination,
+        }
+      : null)
+    const exactLiveDestination = exactLiveRoute?.target || null
     const liveFallback = providerPresentation.liveProviderIds.includes(providerId)
       ? providers[providerId]?.liveFallbackUrl || null
       : null
@@ -414,13 +423,12 @@ export default function DetailModal({
     // user gesture so popup blockers do not prevent opening the provider.
     markWatchedFromProvider()
 
-    if (exactLiveDestination && liveFallback && window.MovieHubNative?.openProviderExact) {
-      window.MovieHubNative.openProviderExact(
-        providerId,
-        item.title,
-        exactLiveDestination,
-        liveFallback,
-      )
+    if (exactLiveRoute && launchProviderPlaybackRoute({
+      providerId,
+      title: item.title,
+      route: exactLiveRoute,
+      fallbackUrl: liveFallback || exactLiveDestination,
+    })) {
       return
     }
 

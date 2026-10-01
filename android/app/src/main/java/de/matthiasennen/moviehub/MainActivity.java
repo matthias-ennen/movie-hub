@@ -705,6 +705,39 @@ public final class MainActivity extends ComponentActivity {
             runOnUiThread(() -> launchProvider(providerId, safeTitle, fallbackUri));
         }
 
+        /**
+         * Opens one canonical provider PlaybackRoute. APP_DEEP_LINK may target
+         * the provider package directly; WEB_LINK deliberately goes through
+         * Android's normal resolver so an HTTPS page is never misclassified as
+         * an app deep link.
+         */
+        @JavascriptInterface
+        public void openProviderRoute(String providerId, String title, String mode,
+                                      String scope, String rawTargetUrl, String rawFallbackUrl) {
+            if (!ProviderLaunchPolicy.supportsPlaybackMode(mode)
+                    || !ProviderLaunchPolicy.supportsPlaybackScope(scope)) {
+                return;
+            }
+
+            final Uri targetUri;
+            final Uri fallbackUri;
+            try {
+                targetUri = Uri.parse(rawTargetUrl);
+                fallbackUri = Uri.parse(rawFallbackUrl);
+            } catch (Exception ignored) {
+                return;
+            }
+
+            if (!isAllowedProviderDestination(providerId, targetUri)
+                    || !isAllowedProviderDestination(providerId, fallbackUri)) {
+                return;
+            }
+
+            final String safeTitle = title == null ? "" : title.trim();
+            runOnUiThread(() -> launchProviderRoute(
+                    providerId, safeTitle, mode, targetUri, fallbackUri));
+        }
+
         /** Prefer a user-supplied provider-owned title URL and retain the
          * complete generic provider fallback chain when it cannot be opened. */
         @JavascriptInterface
@@ -925,6 +958,22 @@ public final class MainActivity extends ComponentActivity {
             if (tryStartActivity(search)) return true;
         }
         return false;
+    }
+
+    private void launchProviderRoute(String providerId, String title, String mode,
+                                     Uri targetUri, Uri fallbackUri) {
+        if (ProviderLaunchPolicy.forcesProviderPackage(mode)) {
+            launchProviderExact(providerId, title, targetUri, fallbackUri);
+            return;
+        }
+
+        if ("WEB_LINK".equals(mode)) {
+            Intent webLink = new Intent(Intent.ACTION_VIEW, targetUri);
+            webLink.addCategory(Intent.CATEGORY_BROWSABLE);
+            if (tryStartActivity(webLink)) return;
+        }
+
+        launchProvider(providerId, title, fallbackUri);
     }
 
     private void launchProviderExact(String providerId, String title,

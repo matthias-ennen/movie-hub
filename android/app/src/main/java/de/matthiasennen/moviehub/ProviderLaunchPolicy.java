@@ -4,6 +4,22 @@ package de.matthiasennen.moviehub;
 final class ProviderLaunchPolicy {
     private ProviderLaunchPolicy() { }
 
+    static boolean supportsPlaybackMode(String mode) {
+        return "APP_DEEP_LINK".equals(mode) || "WEB_LINK".equals(mode);
+    }
+
+    static boolean supportsPlaybackScope(String scope) {
+        return scope == null || scope.isEmpty()
+                || "program".equals(scope)
+                || "channel".equals(scope)
+                || "title".equals(scope)
+                || "provider".equals(scope);
+    }
+
+    static boolean forcesProviderPackage(String mode) {
+        return "APP_DEEP_LINK".equals(mode);
+    }
+
     static boolean triesTextSearchFirst(String providerId) {
         if (providerId == null) return false;
         switch (providerId) {
