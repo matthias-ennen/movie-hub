@@ -230,6 +230,44 @@ describe('Waipu TV catalog', () => {
     expect(item.waipuLive).toBeUndefined()
   })
 
+  it('keeps merged airing identity stable when the shared programId changes provider', () => {
+    const build = (programId) => buildWaipuTvViewModel({
+      airings: [{
+        tmdbId: 80810,
+        type: 'movie',
+        title: 'Aaron und der Wolf',
+        stationId: 'topfilme',
+        canonicalStationId: 'topfilme',
+        stationName: 'Top Filme',
+        programId,
+        providerProgramIds: {
+          joyn: 'joyn-aaron-program',
+          waipu: 'c4c79494-1e94-5ccf-b7f2-bb5641d4f14f',
+        },
+        startTime: '2026-10-01T16:37:00.000Z',
+        stopTime: '2026-10-01T18:15:00.000Z',
+        providerIds: ['joyn', 'waipu'],
+        playbackRoutes: [],
+      }],
+      titles: [{
+        id: 'movie-80810',
+        tmdbId: 80810,
+        type: 'movie',
+        title: 'Aaron und der Wolf',
+        metadataComplete: true,
+      }],
+      stationOrder: ['topfilme'],
+      selectedPeriodId: 'day:2026-10-01',
+      availableDays: [{ key: '2026-10-01', count: 1 }],
+      now: Date.parse('2026-10-01T17:01:00.000Z'),
+    })
+
+    const first = build('joyn-aaron-program')
+    const second = build('c4c79494-1e94-5ccf-b7f2-bb5641d4f14f')
+    expect(first.rows.flatMap((row) => row.items)[0].id)
+      .toBe(second.rows.flatMap((row) => row.items)[0].id)
+  })
+
   it('marks only a currently running broadcast as on air', () => {
     const airing = {
       startTime: '2026-09-20T18:15:00.000Z',
