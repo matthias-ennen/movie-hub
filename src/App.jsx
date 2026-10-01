@@ -822,7 +822,9 @@ function MovieHub({ user }) {
 
   useEffect(() => {
     if (!Array.isArray(tvSchedule.airings) || !tvSchedule.airings.length) return undefined
-    let cancelled = false
+    // Canonical TMDB metadata remains valid across live-TV clock transitions.
+    // Let an in-flight hydration queue finish instead of cancelling it when
+    // tvBaseTitles changes; the attempted/in-flight sets prevent duplicate work.
     const knownByKey = new Map(tvBaseTitles.map((title) => {
       const type = title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'
       return [`${type}:${Number(title?.tmdbId) || ''}`, title]
@@ -873,7 +875,7 @@ function MovieHub({ user }) {
         const [key, candidate] = queue[index]
         try {
           const detail = await loadRuntimeTitleMetadata(candidate)
-          if (!cancelled) publishTvHydratedTitle(detail)
+          publishTvHydratedTitle(detail)
         } catch (error) {
           // Temporary TMDB/native bridge failures must not blacklist this title
           // for the rest of the app session. A later schedule/render pass may retry.
@@ -888,7 +890,7 @@ function MovieHub({ user }) {
     Promise.all(Array.from({ length: workerCount }, () => worker()))
       .catch((error) => console.warn('TV-Metadatenwarteschlange konnte nicht vollständig verarbeitet werden.', error))
 
-    return () => { cancelled = true }
+    return undefined
   }, [compactTvTitleEntries, publishTvHydratedTitle, tvBaseTitles, tvSchedule.airings])
 
   const baseTvViewModel = useMemo(() => buildWaipuTvViewModel({
