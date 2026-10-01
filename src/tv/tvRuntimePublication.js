@@ -1,4 +1,5 @@
 import { mergeTvAirings } from '../sources/mergeTvAirings.js'
+import { joynPlaybackRouteForChannel } from '../sources/joyn/joynPlaybackRoute.js'
 import { tvDayKey } from '../waipu/waipuTvCatalog.js'
 
 export const TV_RUNTIME_SNAPSHOT_VERSION = 1
@@ -137,6 +138,29 @@ function buildMetadataLookup(catalog, searchIndex, sourceCatalogs) {
   return byKey
 }
 
+function fallbackPlaybackRoute(providerId, providerStationId, programId) {
+  if (providerId === 'waipu' && providerStationId && programId) {
+    return {
+      providerId: 'waipu',
+      mode: 'APP_DEEP_LINK',
+      scope: 'program',
+      target: `https://app.waipu.tv/epgdetails/${encodeURIComponent(providerStationId)}/${encodeURIComponent(programId)}`,
+      requiresSubscription: true,
+    }
+  }
+  if (providerId === 'joyn' && providerStationId) {
+    return joynPlaybackRouteForChannel(providerStationId)
+  }
+  return null
+}
+
+function providerPlaybackRoutes(raw, providerId, providerStationId, programId) {
+  const routes = Array.isArray(raw?.playbackRoutes) ? [...raw.playbackRoutes] : []
+  if (routes.some((route) => text(route?.providerId) === providerId && text(route?.target))) return routes
+  const fallback = fallbackPlaybackRoute(providerId, providerStationId, programId)
+  return fallback ? [...routes, fallback] : routes
+}
+
 function normalizeProviderAiring(raw, providerId, type, tmdbId) {
   const startTime = text(raw?.startTime ?? raw?.startAt)
   const stopTime = text(raw?.stopTime ?? raw?.endAt)
@@ -148,6 +172,7 @@ function normalizeProviderAiring(raw, providerId, type, tmdbId) {
   const canonicalStationId = text(raw?.canonicalStationId)
   const sourceStationId = text(raw?.sourceStationId)
   const providerStationId = sourceStationId || stationId || canonicalStationId
+  const programId = text(raw?.programId)
   return {
     providerId,
     providerIds: [providerId],
@@ -157,11 +182,12 @@ function normalizeProviderAiring(raw, providerId, type, tmdbId) {
     canonicalStationId,
     sourceStationId,
     providerStationIds: providerStationId ? { [providerId]: providerStationId } : {},
+    providerProgramIds: programId ? { [providerId]: programId } : {},
     stationName: text(raw?.stationName),
-    programId: text(raw?.programId),
+    programId,
     startTime,
     stopTime,
-    playbackRoutes: Array.isArray(raw?.playbackRoutes) ? raw.playbackRoutes : [],
+    playbackRoutes: providerPlaybackRoutes(raw, providerId, providerStationId, programId),
     episode: raw?.episode || (
       type === 'series'
         ? {
@@ -205,6 +231,9 @@ function compactRuntimeAiring(airing) {
     sourceStationIds: Array.isArray(airing?.sourceStationIds) ? airing.sourceStationIds : [],
     providerStationIds: airing?.providerStationIds && typeof airing.providerStationIds === 'object'
       ? airing.providerStationIds
+      : {},
+    providerProgramIds: airing?.providerProgramIds && typeof airing.providerProgramIds === 'object'
+      ? airing.providerProgramIds
       : {},
     stationName: text(airing?.stationName),
     programId: text(airing?.programId),
