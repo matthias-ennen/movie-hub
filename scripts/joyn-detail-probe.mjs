@@ -7,6 +7,7 @@ const JOYN_BASE = 'https://www.joyn.de'
 const AUTH_URL = 'https://auth.joyn.de/auth/anonymous'
 const GRAPHQL_URL = 'https://api.joyn.de/graphql'
 const ALGOLIA_URL = 'https://ffqrv35svv-dsn.algolia.net/1/indexes/*/queries'
+const JOYN_SITEMAP_URL = 'https://www.joyn.de/sitemap.xml'
 const ALGOLIA_APP_ID = 'FFQRV35SVV'
 const ALGOLIA_INDICES = ['indexion_prod_vod', 'joyn_prod']
 const OBSERVED_PUBLIC_WEBCLIENT_KEY = '4f0fd9f18abbe3cf0e87fdb556bc39c8'
@@ -61,6 +62,32 @@ function headers() {
     origin: JOYN_BASE,
     referer: JOYN_BASE + '/',
     'accept-language': 'de-DE,de;q=0.9,en;q=0.8',
+  }
+}
+
+async function fetchPublicLiveTvSitemap() {
+  try {
+    const response = await fetch(JOYN_SITEMAP_URL, { headers: headers() })
+    const xml = await response.text()
+    const urls = [...new Set(
+      [...xml.matchAll(/<loc>(https:\/\/www\.joyn\.de\/live-tv\/[^<]+)<\/loc>/g)]
+        .map((match) => match[1].trim())
+        .filter(Boolean),
+    )].sort()
+    return {
+      ok: response.ok,
+      httpStatus: response.status,
+      count: urls.length,
+      urls,
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      httpStatus: null,
+      count: 0,
+      urls: [],
+      error: error instanceof Error ? error.message : String(error),
+    }
   }
 }
 
@@ -386,6 +413,37 @@ async function main() {
     query: 'query EpgProgramV2CandidateProbe { epgEventsV2(from: 1790496180, to: 1790499600) { items { program { metadata content event details asset name headline subtitle label year releaseYear productionDate programId contentId externalId gracenoteId tmsId image imageUrl poster season episode categories classification flags schedule timeslot } } } }',
   })
 
+  const publicLiveTvSitemap = await fetchPublicLiveTvSitemap()
+
+  const brandFieldProbes = await Promise.all([
+    ['id', 'id'],
+    ['title', 'title'],
+    ['brandCode', 'brandCode'],
+    ['path', 'path'],
+    ['slug', 'slug'],
+    ['url', 'url'],
+    ['href', 'href'],
+    ['livestream', 'livestream { id title }'],
+  ].map(async ([kind, field]) => {
+    const result = await gql({
+      token,
+      apiKey,
+      operationName: 'JoynBrandFieldProbe',
+      query: `query JoynBrandFieldProbe {
+        liveStreams(filterLivestreamsTypes: [LINEAR], first: 1, offset: 0, liveStreamGroupFilter: DEFAULT) {
+          brand { ${field} }
+        }
+      }`,
+    })
+    return {
+      kind,
+      ok: result.ok && !result.body?.errors?.length,
+      httpStatus: result.status,
+      errors: result.body?.errors || [],
+      data: result.body?.data || null,
+    }
+  }))
+
   const persistedLive = await gqlPersisted({
     token,
     apiKey,
@@ -418,7 +476,9 @@ async function main() {
       shape: keyShape(persistedLive.body?.data || null),
       targetMatches: persistedTargetMatches,
     },
+    publicLiveTvSitemap,
     schemaProbe: {
+      brandFieldProbes,
       ok: schema.ok && !schema.body?.errors?.length,
       httpStatus: schema.status,
       errors: schema.body?.errors || [],
