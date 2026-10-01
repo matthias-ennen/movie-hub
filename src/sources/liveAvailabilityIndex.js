@@ -290,7 +290,7 @@ export function mergeLiveAvailability(titles = [], entries = [], { now = Date.no
   })
 }
 
-export function getLiveProviderDestination(providerAvailability, {
+export function getLiveProviderRoute(providerAvailability, {
   now = Date.now(),
   providerId = null,
 } = {}) {
@@ -307,22 +307,26 @@ export function getLiveProviderDestination(providerAvailability, {
     || null
   if (!selected) return null
   const routes = Array.isArray(selected?.playbackRoutes) ? selected.playbackRoutes : []
-  const exact = routes.find((route) => (
+  return routes.find((route) => (
     (!requestedProviderId || text(route?.providerId) === requestedProviderId)
     && text(route?.target)
-  ))
-  return exact?.target || null
+    && text(route?.mode)
+  )) || null
 }
 
-export function getItemLiveProviderDestination(item, providerId, { now = Date.now() } = {}) {
+export function getLiveProviderDestination(providerAvailability, options = {}) {
+  return getLiveProviderRoute(providerAvailability, options)?.target || null
+}
+
+export function getItemLiveProviderRoute(item, providerId, { now = Date.now() } = {}) {
   const requestedProviderId = text(providerId)
   if (!requestedProviderId) return null
 
-  const titleDestination = getLiveProviderDestination(item?.liveAvailability?.[requestedProviderId], {
+  const titleRoute = getLiveProviderRoute(item?.liveAvailability?.[requestedProviderId], {
     now,
     providerId: requestedProviderId,
   })
-  if (titleDestination) return titleDestination
+  if (titleRoute) return titleRoute
 
   const airing = item?.tvAiring
   if (!airing) return null
@@ -332,10 +336,14 @@ export function getItemLiveProviderDestination(item, providerId, { now = Date.no
   ].map(text).filter(Boolean))
   if (!airingProviderIds.has(requestedProviderId)) return null
 
-  return getLiveProviderDestination({ airings: [airing] }, {
+  return getLiveProviderRoute({ airings: [airing] }, {
     now,
     providerId: requestedProviderId,
   })
+}
+
+export function getItemLiveProviderDestination(item, providerId, options = {}) {
+  return getItemLiveProviderRoute(item, providerId, options)?.target || null
 }
 
 export function formatLiveAiring(providerAvailability, {

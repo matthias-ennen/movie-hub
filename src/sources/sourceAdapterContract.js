@@ -23,9 +23,17 @@ export const PLAYBACK_MODES = Object.freeze([
   'RESOLVER',
 ])
 
+export const PLAYBACK_SCOPES = Object.freeze([
+  'program',
+  'channel',
+  'title',
+  'provider',
+])
+
 const SOURCE_STATUS_SET = new Set(SOURCE_STATUS)
 const ACCESS_TYPE_SET = new Set(ACCESS_TYPES)
 const PLAYBACK_MODE_SET = new Set(PLAYBACK_MODES)
+const PLAYBACK_SCOPE_SET = new Set(PLAYBACK_SCOPES)
 
 export const CAPABILITY_NAMES = Object.freeze([
   'replay',
@@ -88,14 +96,17 @@ export function normalizeSourceRef(raw) {
 export function normalizePlaybackRoute(raw) {
   const providerId = text(raw?.providerId)
   const mode = text(raw?.mode)
+  const scope = text(raw?.scope)
   const target = text(raw?.target)
   if (!providerId) throw new TypeError('PlaybackRoute.providerId is required.')
   if (!PLAYBACK_MODE_SET.has(mode)) throw new TypeError('PlaybackRoute.mode is invalid.')
+  if (scope && !PLAYBACK_SCOPE_SET.has(scope)) throw new TypeError('PlaybackRoute.scope is invalid.')
   if (!target) throw new TypeError('PlaybackRoute.target is required.')
 
   return {
     providerId,
     mode,
+    ...(scope ? { scope } : {}),
     target,
     requiresAuth: raw?.requiresAuth === true,
     requiresSubscription: raw?.requiresSubscription === true,

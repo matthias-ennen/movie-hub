@@ -3,7 +3,9 @@ import {
   advanceLiveAvailabilityEntries,
   buildLiveAvailabilityIndex,
   getItemLiveProviderDestination,
+  getItemLiveProviderRoute,
   getLiveProviderDestination,
+  getLiveProviderRoute,
   mergeLiveAvailability,
   normalizeLiveAvailabilityIndex,
 } from '../src/sources/liveAvailabilityIndex.js'
@@ -83,12 +85,29 @@ describe('generic live availability index', () => {
       stopTime: '2026-09-30T15:00:00.000Z',
       providerIds: ['waipu', 'joyn'],
       playbackRoutes: [
-        { providerId: 'waipu', mode: 'APP_DEEP_LINK', target: 'waipu://program/11' },
-        { providerId: 'joyn', mode: 'WEB_LINK', target: 'https://www.joyn.de/program/11' },
+        { providerId: 'waipu', mode: 'APP_DEEP_LINK', scope: 'program', target: 'waipu://program/11' },
+        { providerId: 'joyn', mode: 'WEB_LINK', scope: 'channel', target: 'https://www.joyn.de/program/11' },
       ],
     }
     const availability = { airings: [mergedAiring] }
 
+    expect(getLiveProviderRoute(availability, { now, providerId: 'joyn' })).toMatchObject({
+      providerId: 'joyn',
+      mode: 'WEB_LINK',
+      scope: 'channel',
+      target: 'https://www.joyn.de/program/11',
+    })
+    expect(getLiveProviderRoute(availability, { now, providerId: 'waipu' })).toMatchObject({
+      providerId: 'waipu',
+      mode: 'APP_DEEP_LINK',
+      scope: 'program',
+      target: 'waipu://program/11',
+    })
+    expect(getItemLiveProviderRoute({ tvAiring: mergedAiring }, 'joyn', { now })).toMatchObject({
+      providerId: 'joyn',
+      mode: 'WEB_LINK',
+      scope: 'channel',
+    })
     expect(getLiveProviderDestination(availability, { now, providerId: 'joyn' }))
       .toBe('https://www.joyn.de/program/11')
     expect(getLiveProviderDestination(availability, { now, providerId: 'waipu' }))

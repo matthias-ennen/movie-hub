@@ -21,6 +21,7 @@ export function joynPlaybackRouteForStation(stationId, {
   return normalizePlaybackRoute({
     providerId: 'joyn',
     mode: 'WEB_LINK',
+    scope: 'channel',
     target,
     requiresAuth: false,
     requiresSubscription: false,

@@ -52,12 +52,14 @@ describe('source adapter contract', () => {
         {
           providerId: 'waipu',
           mode: 'APP_DEEP_LINK',
+          scope: 'program',
           target: 'https://app.waipu.tv/epgdetails/example',
           requiresSubscription: true,
         },
         {
           providerId: 'joyn',
           mode: 'WEB_LINK',
+          scope: 'channel',
           target: 'https://www.joyn.de/live-tv',
           adSupported: true,
         },
@@ -69,7 +71,10 @@ describe('source adapter contract', () => {
     })
 
     expect(event.kind).toBe('broadcast')
-    expect(event.playbackRoutes.map((route) => route.providerId)).toEqual(['waipu', 'joyn'])
+    expect(event.playbackRoutes.map(({ providerId, mode, scope }) => ({ providerId, mode, scope }))).toEqual([
+      { providerId: 'waipu', mode: 'APP_DEEP_LINK', scope: 'program' },
+      { providerId: 'joyn', mode: 'WEB_LINK', scope: 'channel' },
+    ])
     expect(exactBroadcastEventKey(event))
       .toBe('movie:667739|prosieben|2026-09-26T18:15:00.000Z|2026-09-26T20:15:00.000Z')
   })

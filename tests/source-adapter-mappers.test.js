@@ -181,6 +181,7 @@ describe('source adapter contract mappers', () => {
     expect(event.playbackRoutes[0]).toMatchObject({
       providerId: 'waipu',
       mode: 'APP_DEEP_LINK',
+      scope: 'program',
       target: 'https://app.waipu.tv/epgdetails/sender%2Ftest/program%20id',
       requiresSubscription: true,
     })

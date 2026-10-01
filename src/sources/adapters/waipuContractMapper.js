@@ -39,6 +39,7 @@ export function mapWaipuAiringToBroadcastEvent(title, airing, {
   const playbackRoutes = exactPlaybackTarget ? [{
     providerId: 'waipu',
     mode: 'APP_DEEP_LINK',
+    scope: 'program',
     target: exactPlaybackTarget,
     requiresSubscription: true,
     verifiedAt,
