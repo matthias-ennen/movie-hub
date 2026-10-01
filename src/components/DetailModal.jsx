@@ -106,7 +106,7 @@ export default function DetailModal({
 
     // Compatibility for older Waipu title snapshots that still carry
     // stationId/programId but no normalized playbackRoutes.
-    if (providerIds.includes('waipu') && !snapshot.waipu) {
+    if (!item?.tvAiring && providerIds.includes('waipu') && !snapshot.waipu) {
       const exactWaipuDestination = getWaipuEpgDestination(item?.waipuLive, { now: providerNow })
       if (exactWaipuDestination) {
         snapshot.waipu = Object.freeze({
