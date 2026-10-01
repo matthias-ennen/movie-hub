@@ -1,5 +1,6 @@
 import { getWaipuEpgDestination } from '../data/catalog.js'
 import { buildItemLiveProviderRouteSnapshot } from '../sources/liveAvailabilityIndex.js'
+import { buildProviderLiveRoute } from '../sources/providerLiveRoute.js'
 
 function uniqueProviderIds(values = []) {
   return [...new Set((Array.isArray(values) ? values : [])
@@ -35,19 +36,24 @@ export function resolveBoundLiveProviderRoutes(item, providerIds = [], {
 
   if (ids.includes('waipu') && !snapshot.waipu) {
     const concreteAiring = concreteWaipuAiring(item)
-    const waipuSource = item?.tvAiring
-      ? (concreteAiring ? { airings: [concreteAiring], nextAiring: concreteAiring } : null)
-      : item?.waipuLive
-    const exactWaipuDestination = waipuSource
-      ? getWaipuEpgDestination(waipuSource, { now })
+    const exactWaipuRoute = concreteAiring
+      ? buildProviderLiveRoute('waipu', {
+          stationId: concreteAiring.stationId,
+          programId: concreteAiring.programId,
+        })
       : null
-    if (exactWaipuDestination) {
-      snapshot.waipu = Object.freeze({
-        providerId: 'waipu',
-        mode: 'APP_DEEP_LINK',
-        scope: 'program',
-        target: exactWaipuDestination,
-      })
+    if (exactWaipuRoute) {
+      snapshot.waipu = Object.freeze({ ...exactWaipuRoute })
+    } else if (!item?.tvAiring) {
+      const exactWaipuDestination = getWaipuEpgDestination(item?.waipuLive, { now })
+      if (exactWaipuDestination) {
+        snapshot.waipu = Object.freeze({
+          providerId: 'waipu',
+          mode: 'APP_DEEP_LINK',
+          scope: 'program',
+          target: exactWaipuDestination,
+        })
+      }
     }
   }
 
