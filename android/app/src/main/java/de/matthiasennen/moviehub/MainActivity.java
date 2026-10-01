@@ -735,7 +735,7 @@ public final class MainActivity extends ComponentActivity {
 
             final String safeTitle = title == null ? "" : title.trim();
             runOnUiThread(() -> launchProviderRoute(
-                    providerId, safeTitle, mode, targetUri, fallbackUri));
+                    providerId, safeTitle, mode, scope, targetUri, fallbackUri));
         }
 
         /** Prefer a user-supplied provider-owned title URL and retain the
@@ -961,7 +961,12 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void launchProviderRoute(String providerId, String title, String mode,
-                                     Uri targetUri, Uri fallbackUri) {
+                                     String scope, Uri targetUri, Uri fallbackUri) {
+        if (ProviderLaunchPolicy.preservesExactTarget(scope)) {
+            launchBoundProviderRoute(providerId, mode, targetUri);
+            return;
+        }
+
         if (ProviderLaunchPolicy.forcesProviderPackage(mode)) {
             launchProviderExact(providerId, title, targetUri, fallbackUri);
             return;
@@ -974,6 +979,28 @@ public final class MainActivity extends ComponentActivity {
         }
 
         launchProvider(providerId, title, fallbackUri);
+    }
+
+
+    private void launchBoundProviderRoute(String providerId, String mode, Uri targetUri) {
+        if ("WEB_LINK".equals(mode)) {
+            Intent webLink = new Intent(Intent.ACTION_VIEW, targetUri);
+            webLink.addCategory(Intent.CATEGORY_BROWSABLE);
+            if (tryStartActivity(webLink)) return;
+        }
+
+        for (String packageName : getProviderPackages(providerId)) {
+            Intent deepLink = new Intent(Intent.ACTION_VIEW, targetUri);
+            deepLink.addCategory(Intent.CATEGORY_BROWSABLE);
+            deepLink.setPackage(packageName);
+            if (tryStartActivity(deepLink)) return;
+        }
+
+        if (!"WEB_LINK".equals(mode)) {
+            Intent exactLink = new Intent(Intent.ACTION_VIEW, targetUri);
+            exactLink.addCategory(Intent.CATEGORY_BROWSABLE);
+            tryStartActivity(exactLink);
+        }
     }
 
     private void launchProviderExact(String providerId, String title,
