@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mergeTvAirings } from '../src/sources/mergeTvAirings.js'
+import { ensureProviderLiveRoute } from '../src/sources/providerLiveRoute.js'
 
 export const TV_14_DAY_SUMMARY_VERSION = 1
 export const TV_14_DAY_ROW_CANDIDATE_LIMIT = 120
@@ -101,6 +102,7 @@ function normalizeAiring(airing, providerId, type, tmdbId) {
   const providerStationId = providerId === 'joyn'
     ? sourceStationId || stationId
     : stationId || canonicalStationId
+  const programId = usefulText(airing?.programId)
   return {
     providerId,
     providerIds: [providerId],
@@ -110,11 +112,16 @@ function normalizeAiring(airing, providerId, type, tmdbId) {
     canonicalStationId,
     sourceStationId,
     providerStationIds: providerStationId ? { [providerId]: providerStationId } : {},
+    providerProgramIds: programId ? { [providerId]: programId } : {},
     stationName: usefulText(airing?.stationName),
-    programId: usefulText(airing?.programId),
+    programId,
     startTime,
     stopTime,
-    playbackRoutes: Array.isArray(airing?.playbackRoutes) ? airing.playbackRoutes : [],
+    playbackRoutes: ensureProviderLiveRoute(airing?.playbackRoutes, providerId, {
+      stationId: providerStationId,
+      programId,
+      verifiedAt: airing?.verifiedAt || null,
+    }),
     episode: airing?.episode || null,
   }
 }
