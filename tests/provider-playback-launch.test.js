@@ -24,7 +24,32 @@ describe('provider playback launch', () => {
       'APP_DEEP_LINK',
       'program',
       'https://app.waipu.tv/epgdetails/zdf/program-1',
-      'https://www.waipu.tv/fernsehen/',
+      'https://app.waipu.tv/epgdetails/zdf/program-1',
+    )
+  })
+
+  it('keeps a bound channel route as its own fallback target', () => {
+    const nativeBridge = { openProviderRoute: vi.fn() }
+    launchProviderPlaybackRoute({
+      providerId: 'joyn',
+      title: 'Film',
+      route: {
+        providerId: 'joyn',
+        mode: 'WEB_LINK',
+        scope: 'channel',
+        target: 'https://www.joyn.de/play/live-tv?channel_id=one-de-hd',
+      },
+      fallbackUrl: 'https://www.joyn.de/play/live-tv',
+      nativeBridge,
+    })
+
+    expect(nativeBridge.openProviderRoute).toHaveBeenCalledWith(
+      'joyn',
+      'Film',
+      'WEB_LINK',
+      'channel',
+      'https://www.joyn.de/play/live-tv?channel_id=one-de-hd',
+      'https://www.joyn.de/play/live-tv?channel_id=one-de-hd',
     )
   })
 
