@@ -107,9 +107,13 @@ export default function DetailModal({
   const cast = Array.isArray(item.cast) ? item.cast.slice(0, 5) : []
   const automaticVideos = Array.isArray(item.videos) ? item.videos : []
   const personalState = getTitleState(item)
-  const tvAiringLabels = [...new Set(
-    Object.values(item?.liveAvailability || {}).map((availability) => formatLiveAiring(availability)).filter(Boolean),
-  )]
+  const tvAiringLabels = item?.tvAiring
+    ? [formatLiveAiring({ nextAiring: item.tvAiring })].filter(Boolean)
+    : [...new Set(
+        Object.values(item?.liveAvailability || {})
+          .map((availability) => formatLiveAiring(availability))
+          .filter(Boolean),
+      )]
 
   useEffect(() => {
     const active = returnFocusTarget || document.activeElement
@@ -675,7 +679,7 @@ export default function DetailModal({
 
           <h3>Wo anschauen?</h3>
           {hasLiveProviders && (
-            <section className="provider-availability-group" aria-labelledby="live-provider-heading">
+            <section className="provider-availability-group" aria-label="Diese TV-Ausstrahlung">
               <p className="settings-kicker">Diese TV-Ausstrahlung</p>
               <div className="provider-actions" aria-label="Live-TV-Anbieter für diese Ausstrahlung">
                 {liveProviderIds.map((providerId, index) => {
@@ -700,7 +704,7 @@ export default function DetailModal({
             </section>
           )}
           {(showMovieHubProvider || hasStreamingProviders) && (
-            <section className="provider-availability-group" aria-labelledby="streaming-provider-heading">
+            <section className="provider-availability-group" aria-label="Streaming und Mediathek">
               <p className="settings-kicker">Streaming / Mediathek</p>
               <div className="provider-actions" aria-label="Streaming- und Mediathek-Anbieter">
                 {showMovieHubProvider && (
