@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   getProviderDestination,
-  getWaipuEpgDestination,
   providers,
 } from '../data/catalog.js'
 import { buildFilmCollection, findFilmCollectionForTitle, resolveFilmCollectionParts } from '../catalog/filmCollections.js'
@@ -18,8 +17,9 @@ import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { loadSeriesSeasonDetail, normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
-import { buildItemLiveProviderRouteSnapshot, formatLiveAiring } from '../sources/liveAvailabilityIndex.js'
+import { formatLiveAiring } from '../sources/liveAvailabilityIndex.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
+import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { resolveProviderPresentation } from '../providers/providerPresentation.js'
 
@@ -99,25 +99,7 @@ export default function DetailModal({
   const [liveRouteSnapshot] = useState(() => {
     const providerIds = providerPresentation.liveProviderIds
       .filter((providerId) => Boolean(providers[providerId]))
-    const providerNow = Date.now()
-    const snapshot = {
-      ...buildItemLiveProviderRouteSnapshot(item, providerIds, { now: providerNow }),
-    }
-
-    // Compatibility for older Waipu title snapshots that still carry
-    // stationId/programId but no normalized playbackRoutes.
-    if (!item?.tvAiring && providerIds.includes('waipu') && !snapshot.waipu) {
-      const exactWaipuDestination = getWaipuEpgDestination(item?.waipuLive, { now: providerNow })
-      if (exactWaipuDestination) {
-        snapshot.waipu = Object.freeze({
-          providerId: 'waipu',
-          mode: 'APP_DEEP_LINK',
-          scope: 'program',
-          target: exactWaipuDestination,
-        })
-      }
-    }
-    return Object.freeze(snapshot)
+    return resolveBoundLiveProviderRoutes(item, providerIds, { now: Date.now() })
   })
   const liveProviderIds = providerPresentation.liveProviderIds
     .filter((providerId) => Boolean(providers[providerId]))
