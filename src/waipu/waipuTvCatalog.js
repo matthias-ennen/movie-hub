@@ -347,7 +347,8 @@ function canonicalKey(item) {
 }
 
 function stableAiringIdentity(airing) {
-  return `${airing?.stationId || ''}|${airing?.programId || airing?.tmdbId || ''}|${airing?.startTime || ''}`
+  // Canonical TV identity must not depend on a provider-specific program id.
+  return `${airing?.canonicalStationId || airing?.stationId || ''}|${airing?.tmdbId || ''}|${airing?.startTime || ''}`
 }
 
 function episodeKey(item) {
@@ -355,7 +356,6 @@ function episodeKey(item) {
   const season = Number.isInteger(airing.seasonNumber) ? airing.seasonNumber : null
   const episode = Number.isInteger(airing.episodeNumber) ? airing.episodeNumber : null
   if (season !== null || episode !== null) return `${canonicalKey(item)}:s${season ?? '-'}e${episode ?? '-'}`
-  if (airing.programId) return `${canonicalKey(item)}:program:${airing.programId}`
   return `${canonicalKey(item)}:airing:${stableAiringIdentity(airing)}`
 }
 
