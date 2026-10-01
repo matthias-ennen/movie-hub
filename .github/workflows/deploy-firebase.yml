@@ -339,6 +339,10 @@ jobs:
         id: live_availability_index
         run: npm run tv:availability:index
 
+      - name: Build premerged TV runtime snapshot
+        id: tv_runtime_snapshot
+        run: npm run tv:runtime:snapshot
+
       - name: Build
         id: app_build
         run: npm run build

@@ -55,7 +55,8 @@
     "joyn:catalog": "node scripts/joyn-live-catalog.mjs",
     "joyn:restore": "node scripts/restore-live-joyn-catalog.mjs",
     "tv:14-day:summary": "node scripts/tv-14-day-summary.mjs",
-    "tv:availability:index": "node scripts/live-availability-index.mjs"
+    "tv:availability:index": "node scripts/live-availability-index.mjs",
+    "tv:runtime:snapshot": "node scripts/tv-runtime-snapshot.mjs"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.13",
