@@ -108,6 +108,25 @@ describe('bound live provider routes', () => {
     expect(resolveBoundLiveProviderRoutes(item, ['waipu'], { now })).toEqual({})
   })
 
+  it('does not fall back to shared programId when the provider identity contract exists but Waipu is missing', () => {
+    const item = {
+      tvAiring: {
+        providerIds: ['waipu'],
+        providerStationIds: { waipu: 'topfilme' },
+        providerProgramIds: {},
+        stationId: 'topfilme',
+        programId: 'foreign-or-shared-program',
+        startTime: '2026-10-01T16:37:00.000Z',
+        stopTime: '2026-10-01T18:15:00.000Z',
+        playbackRoutes: [],
+      },
+    }
+
+    expect(resolveBoundLiveProviderRoutes(item, ['waipu'], {
+      now: Date.parse('2026-10-01T17:01:00.000Z'),
+    }).waipu).toBeUndefined()
+  })
+
   it('keeps the legacy Waipu title fallback for non-airing detail pages', () => {
     const item = {
       waipuLive: {
