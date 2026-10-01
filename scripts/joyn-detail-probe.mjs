@@ -10,7 +10,7 @@ const ALGOLIA_URL = 'https://ffqrv35svv-dsn.algolia.net/1/indexes/*/queries'
 const ALGOLIA_APP_ID = 'FFQRV35SVV'
 const ALGOLIA_INDICES = ['indexion_prod_vod', 'joyn_prod']
 const OBSERVED_PUBLIC_WEBCLIENT_KEY = '4f0fd9f18abbe3cf0e87fdb556bc39c8'
-const TARGETS = (process.env.JOYN_DETAIL_PROBE_TITLES || 'Der Fluch|Rat mal, wer zu Besuch kommt|Korrupte Cops')
+const TARGETS = (process.env.JOYN_DETAIL_PROBE_TITLES || 'Being the Ricardos')
   .split('|').map((value) => value.trim()).filter(Boolean)
 
 const FULL_EPG_QUERY = `query LiveChannelsAndEPG {
