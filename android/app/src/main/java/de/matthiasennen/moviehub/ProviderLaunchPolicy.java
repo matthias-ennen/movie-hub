@@ -20,6 +20,10 @@ final class ProviderLaunchPolicy {
         return "APP_DEEP_LINK".equals(mode);
     }
 
+    static boolean preservesExactTarget(String scope) {
+        return "program".equals(scope) || "channel".equals(scope);
+    }
+
     static boolean triesTextSearchFirst(String providerId) {
         if (providerId == null) return false;
         switch (providerId) {
