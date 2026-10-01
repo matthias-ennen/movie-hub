@@ -36,6 +36,14 @@ export function buildProviderLiveRoute(providerId, {
   return null
 }
 
+export function selectProviderMap(values, providerIds = []) {
+  const source = values && typeof values === 'object' && !Array.isArray(values) ? values : {}
+  const allowed = new Set((Array.isArray(providerIds) ? providerIds : []).map(text).filter(Boolean))
+  return Object.fromEntries(Object.entries(source)
+    .map(([providerId, value]) => [text(providerId), text(value)])
+    .filter(([providerId, value]) => providerId && value && allowed.has(providerId)))
+}
+
 export function ensureProviderLiveRoute(routes, providerId, ids = {}) {
   const normalized = Array.isArray(routes) ? [...routes] : []
   const id = text(providerId)
