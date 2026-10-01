@@ -322,21 +322,22 @@ export function getItemLiveProviderRoute(item, providerId, { now = Date.now() } 
   const requestedProviderId = text(providerId)
   if (!requestedProviderId) return null
 
-  const titleRoute = getLiveProviderRoute(item?.liveAvailability?.[requestedProviderId], {
-    now,
-    providerId: requestedProviderId,
-  })
-  if (titleRoute) return titleRoute
-
   const airing = item?.tvAiring
-  if (!airing) return null
-  const airingProviderIds = new Set([
-    ...(Array.isArray(airing?.providerIds) ? airing.providerIds : []),
-    ...(Array.isArray(airing?.playbackRoutes) ? airing.playbackRoutes.map((route) => route?.providerId) : []),
-  ].map(text).filter(Boolean))
-  if (!airingProviderIds.has(requestedProviderId)) return null
+  if (airing) {
+    const airingProviderIds = new Set([
+      ...(Array.isArray(airing?.providerIds) ? airing.providerIds : []),
+      ...(Array.isArray(airing?.playbackRoutes) ? airing.playbackRoutes.map((route) => route?.providerId) : []),
+    ].map(text).filter(Boolean))
+    if (airingProviderIds.has(requestedProviderId)) {
+      const airingRoute = getLiveProviderRoute({ airings: [airing] }, {
+        now,
+        providerId: requestedProviderId,
+      })
+      if (airingRoute) return airingRoute
+    }
+  }
 
-  return getLiveProviderRoute({ airings: [airing] }, {
+  return getLiveProviderRoute(item?.liveAvailability?.[requestedProviderId], {
     now,
     providerId: requestedProviderId,
   })

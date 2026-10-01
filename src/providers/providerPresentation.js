@@ -9,6 +9,11 @@ function unique(values = []) {
 }
 
 const PRIMARY_PROVIDER_ORDER = ['moviehub', 'waipu', 'joyn']
+const LIVE_SOURCE_PROVIDER_IDS = new Set(
+  PROVIDER_REGISTRY
+    .filter((provider) => Boolean(provider.liveTvSource))
+    .map((provider) => provider.id),
+)
 const PROVIDER_PRESENTATION_ORDER = [
   ...PRIMARY_PROVIDER_ORDER,
   ...PROVIDER_REGISTRY
@@ -80,9 +85,10 @@ export function resolveProviderPresentation(item, {
   const concreteAiringIds = airingProviderIds(item)
   const movieHub = Boolean(hasMovieHub || item?.movieHubCatalog === true)
 
+  const airingTmdbIds = tmdbIds.filter((providerId) => !LIVE_SOURCE_PROVIDER_IDS.has(providerId))
   const providerIds = orderProviderIds(context === 'airing'
     ? [
-        ...tmdbIds,
+        ...airingTmdbIds,
         ...concreteAiringIds,
       ]
     : [

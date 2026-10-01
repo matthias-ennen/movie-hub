@@ -116,6 +116,44 @@ describe('generic live availability index', () => {
       .toBe('https://www.joyn.de/program/11')
   })
 
+  it('prefers the concrete TV-airing route over title-wide live availability', () => {
+    const item = {
+      liveAvailability: {
+        joyn: {
+          airings: [{
+            stationId: 'other-channel',
+            startTime: '2026-09-30T12:30:00.000Z',
+            stopTime: '2026-09-30T16:00:00.000Z',
+            playbackRoutes: [{
+              providerId: 'joyn',
+              mode: 'WEB_LINK',
+              scope: 'channel',
+              target: 'https://www.joyn.de/live-tv/other-channel',
+            }],
+          }],
+        },
+      },
+      tvAiring: {
+        stationId: 'prosieben',
+        startTime: '2026-09-30T13:00:00.000Z',
+        stopTime: '2026-09-30T15:00:00.000Z',
+        providerIds: ['joyn'],
+        playbackRoutes: [{
+          providerId: 'joyn',
+          mode: 'WEB_LINK',
+          scope: 'channel',
+          target: 'https://www.joyn.de/live-tv/prosieben',
+        }],
+      },
+    }
+
+    expect(getItemLiveProviderRoute(item, 'joyn', { now })).toMatchObject({
+      target: 'https://www.joyn.de/live-tv/prosieben',
+      mode: 'WEB_LINK',
+      scope: 'channel',
+    })
+  })
+
   it('drops expired airings without provider-specific code', () => {
     const entries = normalizeLiveAvailabilityIndex(buildLiveAvailabilityIndex([{
       providerId: 'future-adapter',
