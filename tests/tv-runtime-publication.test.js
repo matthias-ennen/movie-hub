@@ -91,6 +91,46 @@ describe('TV runtime publication', () => {
       .toEqual(['joyn', 'waipu'])
   })
 
+  it('preserves non-empty metadata when a later source contains gaps', () => {
+    const publication = buildTvRuntimeSnapshot({
+      now: Date.parse('2026-10-01T08:00:00.000Z'),
+      catalog: {
+        titles: [{
+          tmdbId: 44,
+          type: 'movie',
+          title: 'Canonical Film',
+          year: 2024,
+          ageRating: 12,
+          posterUrl: 'https://image.test/canonical.jpg',
+          tmdbProviderIds: ['netflix'],
+          genres: [{ id: 18, name: 'Drama' }],
+        }],
+      },
+      sourceCatalogs: [{
+        providerId: 'waipu',
+        entries: [{
+          tmdbId: 44,
+          type: 'movie',
+          title: 'Canonical Film',
+          ageRating: null,
+          posterUrl: null,
+          airings: [{
+            stationId: 'zdf',
+            stationName: 'ZDF',
+            startTime: '2026-10-01T18:00:00.000Z',
+            stopTime: '2026-10-01T20:00:00.000Z',
+          }],
+        }],
+      }],
+    })
+
+    const entry = publication.days[0].entries[0]
+    expect(entry.ageRating).toBe(12)
+    expect(entry.posterUrl).toBe('https://image.test/canonical.jpg')
+    expect(entry.tmdbProviderIds).toEqual(['netflix'])
+    expect(entry.genreIds).toContain(18)
+  })
+
   it('groups early-morning airings into the previous TV day', () => {
     const publication = buildTvRuntimeSnapshot({
       now: Date.parse('2026-10-01T20:00:00.000Z'),

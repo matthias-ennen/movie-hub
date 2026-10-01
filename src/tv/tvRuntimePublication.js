@@ -100,11 +100,21 @@ function metadataScore(value) {
 function mergeMetadata(left = {}, right = {}) {
   const leftMeta = compactMetadata(left)
   const rightMeta = compactMetadata(right)
-  const preferred = metadataScore(right) >= metadataScore(left) ? rightMeta : leftMeta
+  const rightPreferred = metadataScore(right) >= metadataScore(left)
+  const preferred = rightPreferred ? rightMeta : leftMeta
+  const fallback = rightPreferred ? leftMeta : rightMeta
+  const pickText = (key) => preferred[key] || fallback[key] || null
+  const pickValue = (key) => preferred[key] ?? fallback[key] ?? null
   return {
-    ...leftMeta,
-    ...rightMeta,
-    ...preferred,
+    title: pickText('title'),
+    originalTitle: pickText('originalTitle'),
+    year: pickValue('year'),
+    posterUrl: pickText('posterUrl'),
+    posterPath: pickText('posterPath'),
+    ageRating: pickValue('ageRating'),
+    voteAverage: pickValue('voteAverage'),
+    voteCount: pickValue('voteCount'),
+    popularity: pickValue('popularity'),
     genreIds: [...new Set([...leftMeta.genreIds, ...rightMeta.genreIds])],
     genreNames: [...new Set([...leftMeta.genreNames, ...rightMeta.genreNames])],
     tmdbProviderIds: [...new Set([...leftMeta.tmdbProviderIds, ...rightMeta.tmdbProviderIds])],
