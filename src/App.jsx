@@ -21,7 +21,7 @@ import { curateCatalogRows, curateTitles, hasEnabledAvailability, PUBLIC_POSTER_
 import { getContentPeriodKey, normalizeContentDisplaySettings, resolveContentSortMode } from './catalog/contentDisplaySettings.js'
 import { resolvePresentationArtwork } from './catalog/artworkRotation.js'
 import { loadRuntimeTitleMetadata } from './catalog/runtimeTitleMetadata.js'
-import { mergeEnrichedTitle, sameTmdbTitle, titleNeedsMetadataEnrichment, upsertEnrichedTitle } from './catalog/titleMetadata.js'
+import { mergeEnrichedTitle, sameTmdbTitle, titleNeedsMetadataEnrichment } from './catalog/titleMetadata.js'
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
@@ -41,7 +41,7 @@ import { mergeSharedMediaCatalogTitles, mergeTitlesWithSharedMediaCatalog } from
 import { firebaseReady } from './lib/firebase.js'
 import { useAnnouncements } from './notifications/useAnnouncements.js'
 import { AnnouncementsView, BellButton, StartupAnnouncement } from './notifications/AnnouncementsView.jsx'
-import { HERO_PRELOAD_INTENT_DELAY_MS, preloadHeroImage } from './performance/progressiveRendering.js'
+import { preloadHeroImage } from './performance/progressiveRendering.js'
 import { loadCatalogWithRetry } from './performance/catalogStartup.js'
 import { notifyNativeStartupReady } from './performance/nativeStartup.js'
 import {
@@ -57,18 +57,17 @@ import {
   buildWaipuTvViewModel,
   buildWaipuTvHeroItems,
   loadWaipuLiveStationCatalog,
-  loadWaipuTvAirings,
   nextTvAiringTransition,
   tvDayKey,
 } from './waipu/waipuTvCatalog.js'
-import { loadJoynLiveStationCatalog, loadJoynTvAirings } from './joyn/joynTvCatalog.js'
+import { loadJoynLiveStationCatalog } from './joyn/joynTvCatalog.js'
 import {
   advanceLiveAvailabilityEntries,
   loadLiveAvailabilityIndex,
   mergeLiveAvailability,
 } from './sources/liveAvailabilityIndex.js'
-import { mergeTvAirings } from './sources/mergeTvAirings.js'
 import { buildTv14DayRows, loadTv14DaySummary } from './tv/tv14DaySummary.js'
+import { buildTvRuntimeSchedule, loadTvRuntimeDay, loadTvRuntimeIndex } from './tv/tvRuntimeClient.js'
 
 function NativeStartupSignal() {
   useEffect(() => {
@@ -479,13 +478,15 @@ function MovieHub({ user }) {
   const [homeStartupReady, setHomeStartupReady] = useState(false)
   const [tvSchedule, setTvSchedule] = useState({ status: 'idle', airings: [], titles: [] })
   const [tv14DaySummary, setTv14DaySummary] = useState({ status: 'idle', entries: [] })
-  const [tvHydratedTitles, setTvHydratedTitles] = useState([])
+  const [tvRuntimeIndex, setTvRuntimeIndex] = useState({
+    status: 'idle',
+    generatedAt: null,
+    providers: [],
+    days: [],
+  })
   const [tvScheduleRequested, setTvScheduleRequested] = useState(false)
   const [tvClock, setTvClock] = useState(() => Date.now())
   const [tvPeriodId, setTvPeriodId] = useState(() => `day:${tvDayKey(Date.now())}`)
-  const tvScheduleIntentTimerRef = useRef(null)
-  const tvMetadataHydrationInFlightRef = useRef(new Set())
-  const tvMetadataHydrationAttemptedRef = useRef(new Set())
   const contentActivationSequenceRef = useRef(0)
   const detailRequestSequenceRef = useRef(0)
   const detailReturnFocusRef = useRef(null)
@@ -498,12 +499,6 @@ function MovieHub({ user }) {
     const fallback = window.setTimeout(ready, 12_000)
     return () => { window.removeEventListener(INITIAL_HOME_FOCUS_EVENT, ready); window.clearTimeout(fallback) }
   }, [startupFocusReady])
-
-  useEffect(() => () => {
-    if (tvScheduleIntentTimerRef.current !== null) {
-      window.clearTimeout(tvScheduleIntentTimerRef.current)
-    }
-  }, [])
 
   const liveStationsRequested = shouldLoadLiveStations({
     tvRequested: tvScheduleRequested,
@@ -584,6 +579,39 @@ function MovieHub({ user }) {
   }, [liveStationsRequested])
 
   useEffect(() => {
+    if (!tvScheduleRequested) return undefined
+    if (tvRuntimeIndex.status === 'ready'
+        || tvRuntimeIndex.status === 'loading'
+        || tvRuntimeIndex.status === 'unavailable') return undefined
+
+    let cancelled = false
+    setTvRuntimeIndex((current) => ({ ...current, status: 'loading' }))
+    loadTvRuntimeIndex()
+      .then((index) => {
+        if (!cancelled) {
+          setTvRuntimeIndex({
+            status: 'ready',
+            generatedAt: index.generatedAt,
+            providers: index.providers,
+            days: index.days,
+          })
+        }
+      })
+      .catch((error) => {
+        console.warn('TV-Runtime-Index konnte nicht geladen werden.', error)
+        if (!cancelled) {
+          setTvRuntimeIndex({
+            status: 'unavailable',
+            generatedAt: null,
+            providers: [],
+            days: [],
+          })
+        }
+      })
+    return () => { cancelled = true }
+  }, [tvRuntimeIndex.status, tvScheduleRequested])
+
+  useEffect(() => {
     const airings = liveAvailabilityEntries.flatMap((entry) => (
       Array.isArray(entry?.airings) ? entry.airings : [entry?.nextAiring]
     )).filter(Boolean)
@@ -603,25 +631,16 @@ function MovieHub({ user }) {
       .filter((station) => !disabled.has(station.id))
   }, [disabledStationIds, orderStations, waipuStationCatalog.stations])
   const activeWaipuStationKey = activeWaipuStations.map((station) => station.id).join('|')
-  const availableWaipuDayKey = (waipuStationCatalog.days || []).map(({ key }) => key).join('|')
   const activeJoynStations = useMemo(() => {
     const disabled = new Set(disabledJoynStationIds)
     return orderJoynStations(joynStationCatalog.stations)
       .filter((station) => !disabled.has(station.id))
   }, [disabledJoynStationIds, joynStationCatalog.stations, orderJoynStations])
   const activeJoynStationKey = activeJoynStations.map((station) => station.id).join('|')
-  const availableJoynDayKey = (joynStationCatalog.days || []).map(({ key }) => key).join('|')
-  const combinedTvDays = useMemo(() => {
-    const days = new Map()
-    for (const day of [...(waipuStationCatalog.days || []), ...(joynStationCatalog.days || [])]) {
-      if (!day?.key) continue
-      days.set(day.key, {
-        key: day.key,
-        count: Number(days.get(day.key)?.count || 0) + Number(day.count || 0),
-      })
-    }
-    return [...days.values()].sort((left, right) => left.key.localeCompare(right.key))
-  }, [joynStationCatalog.days, waipuStationCatalog.days])
+  const combinedTvDays = useMemo(
+    () => tvRuntimeIndex.status === 'ready' ? tvRuntimeIndex.days : [],
+    [tvRuntimeIndex.days, tvRuntimeIndex.status],
+  )
   const combinedTvStationOrder = useMemo(() => [...new Set([
     ...activeWaipuStations.map((station) => station.id),
     ...activeJoynStations.map((station) => station.canonicalId || `joyn.${station.id}`),
@@ -645,26 +664,29 @@ function MovieHub({ user }) {
 
   useEffect(() => {
     if (!tvScheduleRequested) return undefined
+
     if (tvPeriodId === '14-days') {
       if (tv14DaySummary.status === 'idle' || tv14DaySummary.status === 'loading') {
-        setTvSchedule((current) => ({ ...current, status: 'loading' }))
+        setTvSchedule({ status: 'loading', airings: [], titles: [] })
       } else if (tv14DaySummary.status === 'ready') {
-        setTvSchedule((current) => ({ ...current, status: 'ready' }))
+        setTvSchedule({ status: 'ready', airings: [], titles: [] })
       } else {
-        setTvSchedule((current) => ({ ...current, status: 'unavailable' }))
+        setTvSchedule({ status: 'unavailable', airings: [], titles: [] })
       }
       return undefined
     }
+
     const waipuLoading = waipuStationCatalog.status === 'loading' || stationSelectionLoading
     const joynLoading = joynStationCatalog.status === 'loading' || joynStationSelectionLoading
     const waipuReady = waipuStationCatalog.status === 'ready'
     const joynReady = joynStationCatalog.status === 'ready'
+    const runtimeLoading = tvRuntimeIndex.status === 'idle' || tvRuntimeIndex.status === 'loading'
 
-    if ((waipuLoading || joynLoading) && !waipuReady && !joynReady) {
+    if (runtimeLoading || ((waipuLoading || joynLoading) && !waipuReady && !joynReady)) {
       setTvSchedule({ status: 'loading', airings: [], titles: [] })
       return undefined
     }
-    if (!waipuReady && !joynReady) {
+    if (tvRuntimeIndex.status !== 'ready' || (!waipuReady && !joynReady)) {
       setTvSchedule({ status: 'unavailable', airings: [], titles: [] })
       return undefined
     }
@@ -673,62 +695,57 @@ function MovieHub({ user }) {
       return undefined
     }
 
+    const dayKey = String(tvPeriodId || '').startsWith('day:') ? String(tvPeriodId).slice(4) : null
+    if (!dayKey) {
+      setTvSchedule({ status: 'unavailable', airings: [], titles: [] })
+      return undefined
+    }
+    if (!tvRuntimeIndex.days.some((day) => day.key === dayKey)) {
+      setTvSchedule({ status: 'ready', airings: [], titles: [] })
+      return undefined
+    }
+
     let cancelled = false
-    setTvSchedule((current) => ({ ...current, status: 'loading' }))
-    Promise.all([
-      waipuReady && activeWaipuStations.length
-        ? loadWaipuTvAirings(activeWaipuStations, {
-          periodId: tvPeriodId,
-          availableDays: waipuStationCatalog.days,
+    setTvSchedule({ status: 'loading', airings: [], titles: [] })
+    loadTvRuntimeDay(dayKey, { generation: tvRuntimeIndex.generatedAt })
+      .then((day) => {
+        if (cancelled) return
+        const schedule = buildTvRuntimeSchedule(day, {
+          activeWaipuStationIds: activeWaipuStations.map((station) => station.id),
+          activeJoynStationIds: activeJoynStations.map((station) => station.id),
         })
-        : Promise.resolve([]),
-      joynReady && activeJoynStations.length
-        ? loadJoynTvAirings(activeJoynStations, {
-          periodId: tvPeriodId,
-          availableDays: joynStationCatalog.days,
+        setTvClock(Date.now())
+        setTvSchedule({
+          status: 'ready',
+          airings: schedule.airings,
+          titles: schedule.titles,
         })
-        : Promise.resolve([]),
-    ])
-      .then(([waipuResult, joynResult]) => {
-        if (!cancelled) {
-          const waipuAirings = Array.isArray(waipuResult) ? waipuResult : waipuResult?.airings || []
-          const joynAirings = Array.isArray(joynResult) ? joynResult : joynResult?.airings || []
-          const dayTitles = [
-            ...(Array.isArray(waipuResult?.titles) ? waipuResult.titles : []),
-            ...(Array.isArray(joynResult?.titles) ? joynResult.titles : []),
-          ]
-          setTvClock(Date.now())
-          setTvSchedule({
-            status: 'ready',
-            airings: mergeTvAirings(waipuAirings, joynAirings),
-            titles: dayTitles,
-          })
-        }
       })
-      .catch(() => {
+      .catch((error) => {
+        console.warn('TV-Runtime-Tag konnte nicht geladen werden.', error)
         if (!cancelled) setTvSchedule({ status: 'unavailable', airings: [], titles: [] })
       })
+
     return () => { cancelled = true }
   }, [
     activeJoynStationKey,
     activeJoynStations,
     activeWaipuStationKey,
     activeWaipuStations,
-    availableJoynDayKey,
-    availableWaipuDayKey,
-    joynStationCatalog.days,
     joynStationCatalog.status,
     joynStationSelectionLoading,
     stationSelectionLoading,
     tv14DaySummary.status,
     tvPeriodId,
+    tvRuntimeIndex.days,
+    tvRuntimeIndex.generatedAt,
+    tvRuntimeIndex.status,
     tvScheduleRequested,
-    waipuStationCatalog.days,
     waipuStationCatalog.status,
   ])
 
   useEffect(() => {
-    if (tvSchedule.status !== 'ready') return undefined
+    if (!tvScheduleRequested || tvSchedule.status !== 'ready') return undefined
     const nextTransition = nextTvAiringTransition(tvSchedule.airings, tvClock)
     if (!Number.isFinite(nextTransition)) return undefined
     const timeout = window.setTimeout(
@@ -736,7 +753,7 @@ function MovieHub({ user }) {
       Math.max(0, Math.min(2_147_483_647, nextTransition - Date.now() + 1_000)),
     )
     return () => window.clearTimeout(timeout)
-  }, [tvClock, tvSchedule.airings, tvSchedule.status])
+  }, [tvClock, tvSchedule.airings, tvSchedule.status, tvScheduleRequested])
 
   useEffect(() => {
     if (sharedMediaCatalogLoading || !user?.uid || !sharedMediaCatalogEntries.length) return
@@ -781,117 +798,11 @@ function MovieHub({ user }) {
   )
   const compactTvTitleEntries = liveAvailabilityEntries
 
-  const tvBaseTitles = useMemo(() => {
-    const byKey = new Map(titles.map((title) => [`${title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'}:${Number(title?.tmdbId) || ''}`, title]))
-    for (const dayTitle of Array.isArray(tvSchedule.titles) ? tvSchedule.titles : []) {
-      const type = dayTitle?.type === 'series' || dayTitle?.mediaType === 'tv' ? 'series' : 'movie'
-      const tmdbId = Number(dayTitle?.tmdbId)
-      if (!Number.isInteger(tmdbId) || tmdbId <= 0) continue
-      const key = `${type}:${tmdbId}`
-      const current = byKey.get(key)
-      byKey.set(key, current ? mergeEnrichedTitle(current, dayTitle) : dayTitle)
-    }
-    for (const liveEntry of compactTvTitleEntries) {
-      const type = liveEntry?.type === 'series' || liveEntry?.mediaType === 'tv' ? 'series' : 'movie'
-      const tmdbId = Number(liveEntry?.tmdbId)
-      if (!Number.isInteger(tmdbId) || tmdbId <= 0) continue
-      const key = `${type}:${tmdbId}`
-      const current = byKey.get(key)
-      byKey.set(key, current ? mergeEnrichedTitle(current, liveEntry) : liveEntry)
-    }
-    return [...byKey.values()]
-  }, [compactTvTitleEntries, titles, tvSchedule.titles])
-
-  const tvPresentationTitles = useMemo(() => {
-    const byKey = new Map(tvBaseTitles.map((title) => [`${title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'}:${Number(title?.tmdbId) || ''}`, title]))
-    for (const hydrated of tvHydratedTitles) {
-      const type = hydrated?.type === 'series' || hydrated?.mediaType === 'tv' ? 'series' : 'movie'
-      const tmdbId = Number(hydrated?.tmdbId)
-      if (!Number.isInteger(tmdbId) || tmdbId <= 0) continue
-      const key = `${type}:${tmdbId}`
-      const current = byKey.get(key)
-      byKey.set(key, current ? mergeEnrichedTitle(current, hydrated) : hydrated)
-    }
-    return [...byKey.values()].map((item) => resolvePresentationArtwork(item, artworkOptions))
-  }, [artworkOptions, tvBaseTitles, tvHydratedTitles])
-
-  const publishTvHydratedTitle = useCallback((detail) => {
-    if (!detail?.tmdbId) return
-    setTvHydratedTitles((current) => upsertEnrichedTitle(current, detail))
-  }, [])
-
-  useEffect(() => {
-    if (!Array.isArray(tvSchedule.airings) || !tvSchedule.airings.length) return undefined
-    // Canonical TMDB metadata remains valid across live-TV clock transitions.
-    // Let an in-flight hydration queue finish instead of cancelling it when
-    // tvBaseTitles changes; the attempted/in-flight sets prevent duplicate work.
-    const knownByKey = new Map(tvBaseTitles.map((title) => {
-      const type = title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'
-      return [`${type}:${Number(title?.tmdbId) || ''}`, title]
-    }))
-    const entryByKey = new Map(compactTvTitleEntries.map((entry) => [entry?.key || `${entry?.type || ''}:${entry?.tmdbId || ''}`, entry]))
-    const candidates = new Map()
-
-    for (const airing of tvSchedule.airings) {
-      const type = airing?.type === 'series' ? 'series' : airing?.type === 'movie' ? 'movie' : null
-      const tmdbId = Number(airing?.tmdbId)
-      if (!type || !Number.isInteger(tmdbId) || tmdbId <= 0) continue
-      const key = `${type}:${tmdbId}`
-      const current = knownByKey.get(key)
-      if (current && !titleNeedsMetadataEnrichment(current)) continue
-      if (tvMetadataHydrationAttemptedRef.current.has(key)) continue
-      if (tvMetadataHydrationInFlightRef.current.has(key)) continue
-      const entry = entryByKey.get(key)
-      candidates.set(key, current || {
-        id: `tv-metadata-${type}-${tmdbId}`,
-        source: 'tmdb',
-        tmdbId,
-        type,
-        mediaType: type === 'series' ? 'tv' : 'movie',
-        title: String(airing?.title || entry?.nextAiring?.title || `TMDB #${tmdbId}`).trim(),
-        originalTitle: String(airing?.title || entry?.nextAiring?.title || '').trim(),
-        providerIds: [...new Set([
-          ...(Array.isArray(entry?.providerIds) ? entry.providerIds : []),
-          ...(Array.isArray(airing?.providerIds) ? airing.providerIds : []),
-        ])],
-        metadataComplete: false,
-      })
-    }
-
-    const queue = [...candidates.entries()]
-    if (!queue.length) return undefined
-    for (const [key] of queue) {
-      tvMetadataHydrationAttemptedRef.current.add(key)
-      tvMetadataHydrationInFlightRef.current.add(key)
-    }
-
-    const workerCount = Math.min(4, queue.length)
-    let cursor = 0
-
-    async function worker() {
-      while (cursor < queue.length) {
-        const index = cursor
-        cursor += 1
-        const [key, candidate] = queue[index]
-        try {
-          const detail = await loadRuntimeTitleMetadata(candidate)
-          publishTvHydratedTitle(detail)
-        } catch (error) {
-          // Temporary TMDB/native bridge failures must not blacklist this title
-          // for the rest of the app session. A later schedule/render pass may retry.
-          tvMetadataHydrationAttemptedRef.current.delete(key)
-          console.warn('TV-TMDB-Metadaten konnten nicht ergänzt werden.', { key, error })
-        } finally {
-          tvMetadataHydrationInFlightRef.current.delete(key)
-        }
-      }
-    }
-
-    Promise.all(Array.from({ length: workerCount }, () => worker()))
-      .catch((error) => console.warn('TV-Metadatenwarteschlange konnte nicht vollständig verarbeitet werden.', error))
-
-    return undefined
-  }, [compactTvTitleEntries, publishTvHydratedTitle, tvBaseTitles, tvSchedule.airings])
+  const tvPresentationTitles = useMemo(
+    () => (Array.isArray(tvSchedule.titles) ? tvSchedule.titles : [])
+      .map((item) => resolvePresentationArtwork(item, artworkOptions)),
+    [artworkOptions, tvSchedule.titles],
+  )
 
   const baseTvViewModel = useMemo(() => buildWaipuTvViewModel({
     airings: tvSchedule.airings,
@@ -929,11 +840,11 @@ function MovieHub({ user }) {
       : baseTvViewModel
   ), [baseTvViewModel, tv14DayRows, tvPeriodId])
   const compactTvHeroItems = useMemo(() => buildWaipuTvHeroItems({
-    titles: tvPresentationTitles,
+    titles,
     titleEntries: compactTvTitleEntries,
     stationOrder: combinedTvStationOrder,
     now: tvClock,
-  }), [combinedTvStationOrder, compactTvTitleEntries, tvClock, tvPresentationTitles])
+  }), [combinedTvStationOrder, compactTvTitleEntries, titles, tvClock])
   const tvHeroItems = compactTvHeroItems.length ? compactTvHeroItems : tvViewModel.heroItems
   const tvHeroCatalogReady = isTvPresentationReady({
     waipuStationStatus: waipuStationCatalog.status,
@@ -957,12 +868,11 @@ function MovieHub({ user }) {
     setProfileOpen(false)
     setContentActivationRequest(null)
     if (nextView === 'tv') {
-      if (tvScheduleIntentTimerRef.current !== null) {
-        window.clearTimeout(tvScheduleIntentTimerRef.current)
-        tvScheduleIntentTimerRef.current = null
-      }
       setTvPeriodId(`day:${tvDayKey(Date.now())}`)
       setTvScheduleRequested(true)
+    } else {
+      setTvScheduleRequested(false)
+      setTvSchedule({ status: 'idle', airings: [], titles: [] })
     }
     setCurrentView(nextView)
   }, [])
@@ -1007,7 +917,6 @@ function MovieHub({ user }) {
       loadRuntimeTitleMetadata(item)
         .then((detail) => {
           if (titleNeedsMetadataEnrichment(detail)) return
-          publishTvHydratedTitle(detail)
           setLiveAvailabilityEntries((entries) => entries.map((entry) => {
             if (!sameTmdbTitle(entry, item)) return entry
             return {
@@ -1038,7 +947,7 @@ function MovieHub({ user }) {
         })
         .catch((error) => console.warn('Movie-Hub-Titelmetadaten konnten nicht progressiv ergänzt werden.', error))
     }
-  }, [artworkOptions, publishTvHydratedTitle])
+  }, [artworkOptions])
 
   useEffect(() => {
     if (!detailRequest) return undefined
@@ -1525,18 +1434,8 @@ function MovieHub({ user }) {
     library: personalHeroes,
   }), [homeHeroes, movieHeroes, personalHeroes, seriesHeroes, tvHeroItems])
   const handleViewIntent = useCallback((nextView) => {
-    if (tvScheduleIntentTimerRef.current !== null) {
-      window.clearTimeout(tvScheduleIntentTimerRef.current)
-      tvScheduleIntentTimerRef.current = null
-    }
-    if (nextView === 'tv' && !tvScheduleRequested) {
-      tvScheduleIntentTimerRef.current = window.setTimeout(() => {
-        tvScheduleIntentTimerRef.current = null
-        setTvScheduleRequested(true)
-      }, HERO_PRELOAD_INTENT_DELAY_MS)
-    }
     preloadHeroImage(heroItemsByView[nextView])
-  }, [heroItemsByView, tvScheduleRequested])
+  }, [heroItemsByView])
   const liveTmdb = catalog.source === 'tmdb'
   const startupAnnouncement = startupFocusReady && announcementsReady && currentView === 'home' && !selectedTitle && !detailRequest && !exitDialogOpen
     ? announcements.find((item) => item.mode === 'startup' && !readIds.has(item.id) && !dismissedStartupIds.has(item.id))
