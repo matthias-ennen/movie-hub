@@ -18,10 +18,16 @@ function concreteWaipuAiring(item) {
   if (!airing) return null
   const providerIds = uniqueProviderIds(airing?.providerIds)
   const isWaipuOnly = providerIds.length === 1 && providerIds[0] === 'waipu'
+  const hasStationMap = airing?.providerStationIds
+    && typeof airing.providerStationIds === 'object'
+    && !Array.isArray(airing.providerStationIds)
+  const hasProgramMap = airing?.providerProgramIds
+    && typeof airing.providerProgramIds === 'object'
+    && !Array.isArray(airing.providerProgramIds)
   const stationId = text(airing?.providerStationIds?.waipu)
-    || (isWaipuOnly ? text(airing?.stationId) : null)
+    || (!hasStationMap && isWaipuOnly ? text(airing?.stationId) : null)
   const programId = text(airing?.providerProgramIds?.waipu)
-    || (isWaipuOnly ? text(airing?.programId) : null)
+    || (!hasProgramMap && isWaipuOnly ? text(airing?.programId) : null)
   return stationId && programId ? { ...airing, stationId, programId } : null
 }
 
