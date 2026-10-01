@@ -781,7 +781,7 @@ function MovieHub({ user }) {
   )
   const compactTvTitleEntries = liveAvailabilityEntries
 
-  const tvPresentationTitles = useMemo(() => {
+  const tvBaseTitles = useMemo(() => {
     const byKey = new Map(titles.map((title) => [`${title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'}:${Number(title?.tmdbId) || ''}`, title]))
     for (const dayTitle of Array.isArray(tvSchedule.titles) ? tvSchedule.titles : []) {
       const type = dayTitle?.type === 'series' || dayTitle?.mediaType === 'tv' ? 'series' : 'movie'
@@ -799,6 +799,11 @@ function MovieHub({ user }) {
       const current = byKey.get(key)
       byKey.set(key, current ? mergeEnrichedTitle(current, liveEntry) : liveEntry)
     }
+    return [...byKey.values()]
+  }, [compactTvTitleEntries, titles, tvSchedule.titles])
+
+  const tvPresentationTitles = useMemo(() => {
+    const byKey = new Map(tvBaseTitles.map((title) => [`${title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'}:${Number(title?.tmdbId) || ''}`, title]))
     for (const hydrated of tvHydratedTitles) {
       const type = hydrated?.type === 'series' || hydrated?.mediaType === 'tv' ? 'series' : 'movie'
       const tmdbId = Number(hydrated?.tmdbId)
@@ -808,7 +813,7 @@ function MovieHub({ user }) {
       byKey.set(key, current ? mergeEnrichedTitle(current, hydrated) : hydrated)
     }
     return [...byKey.values()].map((item) => resolvePresentationArtwork(item, artworkOptions))
-  }, [artworkOptions, compactTvTitleEntries, titles, tvHydratedTitles, tvSchedule.titles])
+  }, [artworkOptions, tvBaseTitles, tvHydratedTitles])
 
   const publishTvHydratedTitle = useCallback((detail) => {
     if (!detail?.tmdbId) return
@@ -818,7 +823,7 @@ function MovieHub({ user }) {
   useEffect(() => {
     if (!Array.isArray(tvSchedule.airings) || !tvSchedule.airings.length) return undefined
     let cancelled = false
-    const knownByKey = new Map(tvPresentationTitles.map((title) => {
+    const knownByKey = new Map(tvBaseTitles.map((title) => {
       const type = title?.type === 'series' || title?.mediaType === 'tv' ? 'series' : 'movie'
       return [`${type}:${Number(title?.tmdbId) || ''}`, title]
     }))
@@ -884,7 +889,7 @@ function MovieHub({ user }) {
       .catch((error) => console.warn('TV-Metadatenwarteschlange konnte nicht vollständig verarbeitet werden.', error))
 
     return () => { cancelled = true }
-  }, [compactTvTitleEntries, publishTvHydratedTitle, tvPresentationTitles, tvSchedule.airings])
+  }, [compactTvTitleEntries, publishTvHydratedTitle, tvBaseTitles, tvSchedule.airings])
 
   const baseTvViewModel = useMemo(() => buildWaipuTvViewModel({
     airings: tvSchedule.airings,
