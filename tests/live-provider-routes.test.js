@@ -34,6 +34,57 @@ describe('bound live provider routes', () => {
     })
   })
 
+  it('uses Waipu provider ids on a merged Joyn/Waipu airing instead of the shared programId', () => {
+    const item = {
+      tvAiring: {
+        providerIds: ['joyn', 'waipu'],
+        stationId: 'topfilme',
+        programId: 'joyn-aaron-program',
+        providerStationIds: {
+          joyn: 'top-filme-hd',
+          waipu: 'topfilme',
+        },
+        providerProgramIds: {
+          joyn: 'joyn-aaron-program',
+          waipu: 'c4c79494-1e94-5ccf-b7f2-bb5641d4f14f',
+        },
+        startTime: '2026-10-01T16:37:00.000Z',
+        stopTime: '2026-10-01T18:15:00.000Z',
+        playbackRoutes: [],
+      },
+    }
+
+    expect(resolveBoundLiveProviderRoutes(item, ['joyn', 'waipu'], {
+      now: Date.parse('2026-10-01T17:01:00.000Z'),
+    }).waipu).toEqual({
+      providerId: 'waipu',
+      mode: 'APP_DEEP_LINK',
+      scope: 'program',
+      target: 'https://app.waipu.tv/epgdetails/topfilme/c4c79494-1e94-5ccf-b7f2-bb5641d4f14f',
+    })
+  })
+
+  it('refuses the shared programId on a multi-provider airing when Waipu identity is missing', () => {
+    const item = {
+      tvAiring: {
+        providerIds: ['joyn', 'waipu'],
+        stationId: 'topfilme',
+        programId: 'joyn-aaron-program',
+        providerStationIds: {
+          joyn: 'top-filme-hd',
+          waipu: 'topfilme',
+        },
+        startTime: '2026-10-01T16:37:00.000Z',
+        stopTime: '2026-10-01T18:15:00.000Z',
+        playbackRoutes: [],
+      },
+    }
+
+    expect(resolveBoundLiveProviderRoutes(item, ['joyn', 'waipu'], {
+      now: Date.parse('2026-10-01T17:01:00.000Z'),
+    }).waipu).toBeUndefined()
+  })
+
   it('does not borrow another Waipu airing when the concrete airing lacks source ids', () => {
     const item = {
       tvAiring: {
