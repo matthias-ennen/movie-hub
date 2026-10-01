@@ -23,7 +23,26 @@ describe('TV runtime publication', () => {
           voteCount: 1200,
         }],
       },
+      // Joyn deliberately comes first because production source discovery is
+      // alphabetical. The merge must still retain Waipu's own program id.
       sourceCatalogs: [
+        {
+          providerId: 'joyn',
+          entries: [{
+            tmdbId: 16281,
+            type: 'movie',
+            airings: [{
+              stationId: 'kabeleinsclassics',
+              canonicalStationId: 'kabeleinsclassics',
+              sourceStationId: 'kabeleinsclassics-de-hd',
+              stationName: 'Kabel Eins CLASSICS',
+              programId: 'j1',
+              startTime: '2026-10-01T09:30:00.000Z',
+              stopTime: '2026-10-01T11:25:00.000Z',
+              playbackRoutes: [],
+            }],
+          }],
+        },
         {
           providerId: 'waipu',
           entries: [{
@@ -35,32 +54,7 @@ describe('TV runtime publication', () => {
               programId: 'w1',
               startTime: '2026-10-01T09:30:00.000Z',
               stopTime: '2026-10-01T11:25:00.000Z',
-              playbackRoutes: [{
-                providerId: 'waipu',
-                mode: 'APP_DEEP_LINK',
-                target: 'https://app.waipu.tv/epgdetails/kabeleinsclassics/w1',
-              }],
-            }],
-          }],
-        },
-        {
-          providerId: 'joyn',
-          entries: [{
-            tmdbId: 16281,
-            type: 'movie',
-            airings: [{
-              stationId: 'kabeleinsclassics-de-hd',
-              canonicalStationId: 'kabeleinsclassics',
-              sourceStationId: 'kabeleinsclassics-de-hd',
-              stationName: 'Kabel Eins CLASSICS',
-              programId: 'j1',
-              startTime: '2026-10-01T09:30:00.000Z',
-              stopTime: '2026-10-01T11:25:00.000Z',
-              playbackRoutes: [{
-                providerId: 'joyn',
-                mode: 'WEB_LINK',
-                target: 'https://www.joyn.de/play/live-tv?channel_id=1002',
-              }],
+              playbackRoutes: [],
             }],
           }],
         },
@@ -87,8 +81,25 @@ describe('TV runtime publication', () => {
       joyn: 'kabeleinsclassics-de-hd',
       waipu: 'kabeleinsclassics',
     })
-    expect(entry.airings[0].playbackRoutes.map(({ providerId }) => providerId).sort())
-      .toEqual(['joyn', 'waipu'])
+    expect(entry.airings[0].providerProgramIds).toEqual({
+      joyn: 'j1',
+      waipu: 'w1',
+    })
+    expect(entry.airings[0].programId).toBe('j1')
+    expect(entry.airings[0].playbackRoutes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        providerId: 'joyn',
+        mode: 'WEB_LINK',
+        scope: 'channel',
+        target: 'https://www.joyn.de/play/live-tv?channel_id=kabeleinsclassics-de-hd',
+      }),
+      expect.objectContaining({
+        providerId: 'waipu',
+        mode: 'APP_DEEP_LINK',
+        scope: 'program',
+        target: 'https://app.waipu.tv/epgdetails/kabeleinsclassics/w1',
+      }),
+    ]))
   })
 
   it('preserves non-empty metadata when a later source contains gaps', () => {
