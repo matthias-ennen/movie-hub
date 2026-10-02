@@ -15,9 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -33,7 +33,7 @@ jobs:
 
       - name: Upload inventory artifacts
         if: ${{ always() && hashFiles('artifacts/waipu-station-inventory/**') != '' }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: waipu-station-inventory
           path: artifacts/waipu-station-inventory
