@@ -13,7 +13,7 @@ import { detailInitialImageUrl, prepareDetailRequestItem, preloadDetailImage, wa
 import { buildCategoryRows } from './catalog/categoryRows.js'
 import { buildPersonalSmartRows, normalizeSmartFilterOptions } from './catalog/personalSmartRows.js'
 import { buildProviderBrowseRows, buildProviderHomeRows } from './catalog/providerCatalogRows.js'
-import { HERO_LIMIT, selectCoordinatedHeroItems, selectPersonalHeroItemsFromSources } from './catalog/heroSelection.js'
+import { selectCoordinatedHeroItems, selectPersonalHeroItemsFromSources } from './catalog/heroSelection.js'
 import { buildMovieHubCatalogRows } from './catalog/movieHubCatalog.js'
 import { normalizeFilmCollectionIndex } from './catalog/filmCollections.js'
 import { buildPersonalTopTen, buildProviderTopTen } from './catalog/topTenRows.js'
@@ -1480,16 +1480,16 @@ function MovieHub({ user }) {
       () => personalRows.filter((row) => row.id !== 'my-ratings'),
       () => currentView === 'library'
         ? personalTopHundredRows
-        : buildPersonalTopHundredRows(personalCatalogTitles, getTitleState, HERO_LIMIT),
+        : buildPersonalTopHundredRows(personalCatalogTitles, getTitleState),
       () => (currentView === 'home' || currentView === 'library')
         ? tmdbRows
-        : buildTmdbCatalogRows(titles, HERO_LIMIT),
+        : buildTmdbCatalogRows(titles),
       () => currentView === 'library'
         ? personalSmartRows
         : buildPersonalSmartRows(
           publicTitles,
           activeProfile?.contentRowSettings,
-          HERO_LIMIT,
+          undefined,
           (items, row) => curateTitles(items, {
             mode: activeSortMode,
             seed: `${curationSeed}:smart:${row.id}`,
