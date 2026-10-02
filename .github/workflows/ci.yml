@@ -36,14 +36,16 @@ jobs:
       - name: Test Firestore rules
         run: npm run test:rules
 
-      - name: Generate compatible dependency lock repair
-        run: npm audit fix --package-lock-only
+      - name: Preview current Firebase CLI dependency tree
+        run: npm install --package-lock-only --save-dev firebase-tools@15.32.1
 
-      - name: Upload repaired dependency lock
+      - name: Upload refreshed dependency manifests
         uses: actions/upload-artifact@v7
         with:
-          name: repaired-package-lock
-          path: package-lock.json
+          name: refreshed-dependency-manifests
+          path: |
+            package.json
+            package-lock.json
           if-no-files-found: error
           retention-days: 1
 
