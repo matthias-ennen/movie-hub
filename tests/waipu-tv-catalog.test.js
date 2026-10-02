@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   WAIPU_LIVE_INDEX_URL,
   WAIPU_LIVE_STATIONS_URL,
+  buildWaipuTvHeroItems,
   buildWaipuTvRows,
   buildWaipuTvViewModel,
   formatTvAiringCard,
@@ -148,6 +149,40 @@ describe('Waipu TV catalog', () => {
     })
     expect(fetchImpl).toHaveBeenCalledTimes(2)
     expect(result.airings).toHaveLength(2)
+  })
+
+  it('builds the compact TV hero without a full station order', () => {
+    const items = buildWaipuTvHeroItems({
+      titles: [{
+        id: 'movie-11',
+        tmdbId: 11,
+        type: 'movie',
+        title: 'Hero Film',
+        metadataComplete: true,
+        backdropUrl: 'https://image.test/hero.jpg',
+        popularity: 55,
+      }],
+      titleEntries: [{
+        key: 'movie:11',
+        tmdbId: 11,
+        type: 'movie',
+        airings: [{
+          stationId: 'zdf',
+          stationName: 'ZDF',
+          startTime: '2026-09-20T18:15:00.000Z',
+          stopTime: '2026-09-20T20:15:00.000Z',
+          providerIds: ['waipu'],
+        }],
+      }],
+      now: Date.parse('2026-09-20T12:00:00.000Z'),
+    })
+
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({
+      tmdbId: 11,
+      title: 'Hero Film',
+      tvAiring: expect.objectContaining({ stationId: 'zdf' }),
+    })
   })
 
   it('groups all active stations by German calendar day and sorts by start time', () => {
