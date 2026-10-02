@@ -1,15 +1,19 @@
 import { selectProviderMap } from '../sources/providerLiveRoute.js'
 import {
   TV_RUNTIME_DAY_KIND,
+  TV_RUNTIME_HERO_KIND,
   TV_RUNTIME_SNAPSHOT_KIND,
   TV_RUNTIME_SNAPSHOT_VERSION,
 } from './tvRuntimePublication.js'
 
 export const TV_RUNTIME_INDEX_URL = '/tv-runtime/index.json'
+export const TV_RUNTIME_HERO_URL = '/tv-runtime/hero.json'
 export const TV_RUNTIME_DAY_CACHE_LIMIT = 3
 
 let cachedIndex = null
 let indexPromise = null
+let cachedHero = null
+let heroPromise = null
 const dayCache = new Map()
 const dayPromises = new Map()
 
@@ -82,6 +86,78 @@ export function normalizeTvRuntimeDay(raw, expectedKey = null) {
   }
 }
 
+export function normalizeTvRuntimeHero(raw) {
+  if (raw?.schemaVersion !== TV_RUNTIME_SNAPSHOT_VERSION
+      || raw?.kind !== TV_RUNTIME_HERO_KIND
+      || !Array.isArray(raw?.entries)) return null
+
+  const entries = raw.entries
+    .map((entry) => {
+      const type = mediaType(entry?.type)
+      const tmdbId = Number(entry?.tmdbId)
+      const airings = (Array.isArray(entry?.airings) ? entry.airings : [])
+        .filter((airing) => (
+          Array.isArray(airing?.providerIds)
+          && airing.providerIds.length > 0
+          && Number.isFinite(Date.parse(airing?.startTime))
+          && Number.isFinite(Date.parse(airing?.stopTime))
+        ))
+        .sort((left, right) => String(left.startTime).localeCompare(String(right.startTime)))
+      if (!type || !Number.isInteger(tmdbId) || tmdbId <= 0 || !airings.length) return null
+      return {
+        ...entry,
+        id: text(entry?.id) || `tv-runtime-hero-${type}-${tmdbId}`,
+        key: text(entry?.key) || `${type}:${tmdbId}`,
+        type,
+        mediaType: type === 'series' ? 'tv' : 'movie',
+        tmdbId,
+        airings,
+        nextAiring: airings[0],
+        airingCount: Number(entry?.airingCount) || airings.length,
+      }
+    })
+    .filter(Boolean)
+
+  return {
+    generatedAt: text(raw.generatedAt),
+    sourceTitleCount: Number(raw.sourceTitleCount) || entries.length,
+    candidateLimit: Number(raw.candidateLimit) || entries.length,
+    airingsPerTitleLimit: Number(raw.airingsPerTitleLimit) || null,
+    count: entries.length,
+    entries,
+  }
+}
+
+export async function loadTvRuntimeHero({
+  fetchImpl = fetch,
+  force = false,
+  signal = null,
+} = {}) {
+  const usesDefaultFetch = fetchImpl === fetch
+  const sharePendingRequest = usesDefaultFetch && !signal
+  if (!force && usesDefaultFetch && cachedHero) return cachedHero
+  if (!force && sharePendingRequest && heroPromise) return heroPromise
+
+  const requestOptions = signal ? { cache: 'no-store', signal } : { cache: 'no-store' }
+  const request = Promise.resolve(fetchImpl(TV_RUNTIME_HERO_URL, requestOptions))
+    .then((response) => {
+      if (!response?.ok) throw new Error(`TV-Runtime-Hero konnte nicht geladen werden (${response?.status ?? 'unbekannt'})`)
+      return response.json()
+    })
+    .then((payload) => {
+      const normalized = normalizeTvRuntimeHero(payload)
+      if (!normalized) throw new Error('TV-Runtime-Hero hat ein ungültiges Format.')
+      if (usesDefaultFetch) cachedHero = normalized
+      return normalized
+    })
+    .finally(() => {
+      if (sharePendingRequest) heroPromise = null
+    })
+
+  if (sharePendingRequest) heroPromise = request
+  return request
+}
+
 export async function loadTvRuntimeIndex({
   fetchImpl = fetch,
   force = false,
@@ -143,6 +219,60 @@ export async function loadTvRuntimeDay(key, {
 
   if (sharePendingRequest) dayPromises.set(cacheKey, request)
   return request
+}
+
+function stationIdForProvider(airing, providerId) {
+  const providerStationIds = airing?.providerStationIds || {}
+  return String(
+    providerStationIds?.[providerId]
+    || (providerId === 'joyn' ? airing?.sourceStationId : null)
+    || airing?.stationId
+    || airing?.canonicalStationId
+    || '',
+  )
+}
+
+function filterAiringByDisabledStations(airing, disabledWaipuIds, disabledJoynIds) {
+  const providerIds = (Array.isArray(airing?.providerIds) ? airing.providerIds : [])
+    .filter((providerId) => {
+      const stationId = stationIdForProvider(airing, providerId)
+      if (providerId === 'waipu') return !stationId || !disabledWaipuIds.has(stationId)
+      if (providerId === 'joyn') return !stationId || !disabledJoynIds.has(stationId)
+      return true
+    })
+  if (!providerIds.length) return null
+  return {
+    ...airing,
+    providerIds,
+    providerStationIds: selectProviderMap(airing?.providerStationIds, providerIds),
+    providerProgramIds: selectProviderMap(airing?.providerProgramIds, providerIds),
+    playbackRoutes: (Array.isArray(airing?.playbackRoutes) ? airing.playbackRoutes : [])
+      .filter((route) => providerIds.includes(route?.providerId)),
+  }
+}
+
+export function filterTvRuntimeHeroEntriesByStationSelection(entries = [], {
+  disabledWaipuStationIds = [],
+  disabledJoynStationIds = [],
+} = {}) {
+  const disabledWaipuIds = new Set((Array.isArray(disabledWaipuStationIds) ? disabledWaipuStationIds : []).map(String))
+  const disabledJoynIds = new Set((Array.isArray(disabledJoynStationIds) ? disabledJoynStationIds : []).map(String))
+
+  return (Array.isArray(entries) ? entries : [])
+    .map((entry) => {
+      const airings = (Array.isArray(entry?.airings) ? entry.airings : [])
+        .map((airing) => filterAiringByDisabledStations(airing, disabledWaipuIds, disabledJoynIds))
+        .filter(Boolean)
+        .sort((left, right) => String(left?.startTime || '').localeCompare(String(right?.startTime || '')))
+      if (!airings.length) return null
+      return {
+        ...entry,
+        airings,
+        nextAiring: airings[0],
+        airingCount: airings.length,
+      }
+    })
+    .filter(Boolean)
 }
 
 function enabledProviderIds(airing, activeWaipuIds, activeJoynIds) {
@@ -250,6 +380,8 @@ export function getTvRuntimeCacheDiagnostics() {
 export function clearTvRuntimeCache() {
   cachedIndex = null
   indexPromise = null
+  cachedHero = null
+  heroPromise = null
   dayCache.clear()
   dayPromises.clear()
 }
