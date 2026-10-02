@@ -275,6 +275,106 @@ export function filterTvRuntimeHeroEntriesByStationSelection(entries = [], {
     .filter(Boolean)
 }
 
+function heroAiringRank(airing, nowMs) {
+  const start = Date.parse(airing?.startTime)
+  const stop = Date.parse(airing?.stopTime)
+  const onAir = Number.isFinite(start) && Number.isFinite(stop) && start <= nowMs && stop > nowMs
+  const within24Hours = Number.isFinite(start) && start > nowMs && start < nowMs + 24 * 60 * 60 * 1000
+  return {
+    tier: onAir ? 0 : within24Hours ? 1 : 2,
+    start: Number.isFinite(start) ? start : Number.MAX_SAFE_INTEGER,
+    onAir,
+  }
+}
+
+function heroLiveProviderIds(airings = []) {
+  return [...new Set((Array.isArray(airings) ? airings : [])
+    .flatMap((airing) => Array.isArray(airing?.providerIds) ? airing.providerIds : [])
+    .map(String)
+    .filter(Boolean))]
+}
+
+function heroProviderLive(airings, providerId) {
+  const providerAirings = (Array.isArray(airings) ? airings : [])
+    .filter((airing) => Array.isArray(airing?.providerIds) && airing.providerIds.includes(providerId))
+  if (!providerAirings.length) return null
+  return {
+    airings: providerAirings,
+    nextAiring: providerAirings[0],
+    airingCount: providerAirings.length,
+  }
+}
+
+export function buildTvRuntimeHeroItems(entries = [], {
+  disabledWaipuStationIds = [],
+  disabledJoynStationIds = [],
+  now = Date.now(),
+} = {}) {
+  const nowMs = typeof now === 'function' ? Number(now()) : Number(now)
+  const filtered = filterTvRuntimeHeroEntriesByStationSelection(entries, {
+    disabledWaipuStationIds,
+    disabledJoynStationIds,
+  })
+
+  return filtered
+    .map((entry) => {
+      const airings = (Array.isArray(entry?.airings) ? entry.airings : [])
+        .filter((airing) => Date.parse(airing?.stopTime) > nowMs)
+        .sort((left, right) => String(left?.startTime || '').localeCompare(String(right?.startTime || '')))
+      if (!airings.length) return null
+
+      const rankedAirings = [...airings].sort((left, right) => {
+        const leftRank = heroAiringRank(left, nowMs)
+        const rightRank = heroAiringRank(right, nowMs)
+        return leftRank.tier - rightRank.tier
+          || leftRank.start - rightRank.start
+          || String(left?.canonicalStationId || left?.stationId || '')
+            .localeCompare(String(right?.canonicalStationId || right?.stationId || ''))
+      })
+      const tvAiring = rankedAirings[0]
+      const liveProviderIds = heroLiveProviderIds(airings)
+      const tmdbProviderIds = [...new Set((Array.isArray(entry?.tmdbProviderIds) ? entry.tmdbProviderIds : [])
+        .map(String)
+        .filter(Boolean))]
+      const item = {
+        ...entry,
+        id: text(entry?.id) || `tv-runtime-hero-${entry?.type}-${entry?.tmdbId}`,
+        source: 'tmdb',
+        mediaType: entry?.type === 'series' ? 'tv' : 'movie',
+        neutralPosterUrl: text(entry?.neutralPosterUrl || entry?.posterUrl),
+        neutralPosterPath: text(entry?.neutralPosterPath || entry?.posterPath),
+        providerIds: [...new Set([
+          ...(Array.isArray(entry?.providerIds) ? entry.providerIds : tmdbProviderIds),
+          ...liveProviderIds,
+        ])],
+        tmdbProviderIds,
+        airings,
+        tvAiring,
+        tvAiringOnAir: heroAiringRank(tvAiring, nowMs).onAir,
+        tvLive: {
+          airings,
+          nextAiring: tvAiring,
+          airingCount: Number(entry?.airingCount) || airings.length,
+          providerIds: liveProviderIds,
+        },
+      }
+      const waipuLive = heroProviderLive(airings, 'waipu')
+      const joynLive = heroProviderLive(airings, 'joyn')
+      if (waipuLive) item.waipuLive = waipuLive
+      if (joynLive) item.joynLive = joynLive
+      return item
+    })
+    .filter(Boolean)
+    .sort((left, right) => {
+      const leftRank = heroAiringRank(left.tvAiring, nowMs)
+      const rightRank = heroAiringRank(right.tvAiring, nowMs)
+      return leftRank.tier - rightRank.tier
+        || Number(right?.popularity || 0) - Number(left?.popularity || 0)
+        || leftRank.start - rightRank.start
+        || String(left?.key || left?.id || '').localeCompare(String(right?.key || right?.id || ''))
+    })
+}
+
 function enabledProviderIds(airing, activeWaipuIds, activeJoynIds) {
   const providerStationIds = airing?.providerStationIds || {}
   return (Array.isArray(airing?.providerIds) ? airing.providerIds : [])
