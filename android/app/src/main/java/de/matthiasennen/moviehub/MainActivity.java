@@ -111,7 +111,7 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void handleHeroTrailerResult(int resultCode, Intent data) {
-        if (resultCode != RESULT_OK || data == null || webView == null) return;
+        if (resultCode != RESULT_OK || data == null || !canUseWebView()) return;
 
         String requestId = data.getStringExtra(TrailerPlayerActivity.EXTRA_REQUEST_ID);
         String outcome = data.getStringExtra(TrailerPlayerActivity.EXTRA_OUTCOME);
@@ -131,7 +131,7 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void schedulePendingHeroTrailerResult(long delayMs) {
-        if (!activityResumed || pendingHeroTrailerRequestId == null || webView == null) return;
+        if (!activityResumed || pendingHeroTrailerRequestId == null || !canUseWebView()) return;
         if (heroTrailerResultRetry != null) {
             heroTrailerResultHandler.removeCallbacks(heroTrailerResultRetry);
         }
@@ -141,7 +141,7 @@ public final class MainActivity extends ComponentActivity {
 
     private void deliverPendingHeroTrailerResult() {
         heroTrailerResultRetry = null;
-        if (!activityResumed || pendingHeroTrailerRequestId == null || webView == null) return;
+        if (!activityResumed || pendingHeroTrailerRequestId == null || !canUseWebView()) return;
 
         if (heroTrailerResultAttempts >= HERO_TRAILER_RESULT_MAX_ATTEMPTS) {
             clearPendingHeroTrailerResult();
@@ -292,6 +292,7 @@ public final class MainActivity extends ComponentActivity {
     private void startMovieHubLoad() {
         cancelStartupTimeout();
         cancelStartupRetry();
+        if (!canUseWebView()) return;
         hostedUiReady = false;
         offlineView.setVisibility(View.GONE);
         loadingView.setVisibility(View.VISIBLE);
@@ -337,6 +338,10 @@ public final class MainActivity extends ComponentActivity {
     private void scheduleAutomaticStartupRetry(long delayMs) {
         cancelStartupTimeout();
         cancelStartupRetry();
+        if (!canUseWebView()) {
+            showFinalStartupFailure();
+            return;
+        }
         offlineView.setVisibility(View.GONE);
         loadingView.setVisibility(View.VISIBLE);
         loadingView.bringToFront();
@@ -359,10 +364,12 @@ public final class MainActivity extends ComponentActivity {
         cancelStartupTimeout();
         cancelStartupRetry();
         hideLoadingView();
-        // Keep the WebView alive behind the opaque error surface. A slow page
-        // can still finish its layout and recover automatically without a
-        // remote-control click.
-        webView.setVisibility(View.VISIBLE);
+        // Keep a healthy WebView alive behind the opaque error surface so a
+        // slow page can still recover automatically. A renderer-gone WebView
+        // must never be touched again before Activity recreation.
+        if (canUseWebView()) {
+            webView.setVisibility(View.VISIBLE);
+        }
         offlineView.setVisibility(View.VISIBLE);
         offlineView.bringToFront();
         retryButton.requestFocus();
@@ -420,7 +427,7 @@ public final class MainActivity extends ComponentActivity {
     void restoreStartupFocus() {
         if (offlineView.getVisibility() == View.VISIBLE) {
             retryButton.requestFocus();
-        } else if (hostedUiReady && webView.getVisibility() == View.VISIBLE) {
+        } else if (hostedUiReady && canUseWebView() && webView.getVisibility() == View.VISIBLE) {
             webView.requestFocus();
             String script = "window.__movieHubStartupFocusReady=true;"
                     + "window.dispatchEvent(new Event('" + STARTUP_FOCUS_READY_EVENT + "'));";
@@ -429,6 +436,7 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void showHostedUiReady() {
+        if (!canUseWebView()) return;
         String currentUrl = webView.getUrl();
         if (currentUrl == null) return;
         Uri currentUri = Uri.parse(currentUrl);
@@ -451,7 +459,7 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void handleBackNavigation() {
-        if (offlineView.getVisibility() == View.VISIBLE) {
+        if (offlineView.getVisibility() == View.VISIBLE || !canUseWebView()) {
             showNativeExitConfirmation();
             return;
         }
@@ -471,6 +479,10 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void requestThemedExitConfirmation() {
+        if (!canUseWebView()) {
+            showNativeExitConfirmation();
+            return;
+        }
         webView.evaluateJavascript(
                 "typeof window.__movieHubShowExitConfirmation === 'function' ? (window.__movieHubShowExitConfirmation(), 'shown') : 'fallback'",
                 result -> {
@@ -501,11 +513,17 @@ public final class MainActivity extends ComponentActivity {
         finishAndRemoveTask();
     }
 
+    private boolean canUseWebView() {
+        return webView != null && !webRendererGone;
+    }
+
     @Override
     protected void onPause() {
         activityResumed = false;
-        webView.onPause();
-        webView.pauseTimers();
+        if (canUseWebView()) {
+            webView.onPause();
+            webView.pauseTimers();
+        }
         super.onPause();
     }
 
@@ -513,15 +531,19 @@ public final class MainActivity extends ComponentActivity {
     protected void onResume() {
         super.onResume();
         activityResumed = true;
-        webView.onResume();
-        webView.resumeTimers();
+        if (canUseWebView()) {
+            webView.onResume();
+            webView.resumeTimers();
+            schedulePendingHeroTrailerResult(HERO_TRAILER_RESULT_RETRY_MS);
+        }
         hideSystemUi();
-        schedulePendingHeroTrailerResult(HERO_TRAILER_RESULT_RETRY_MS);
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
-        webView.saveState(outState);
+        if (canUseWebView()) {
+            webView.saveState(outState);
+        }
         super.onSaveInstanceState(outState);
     }
 
