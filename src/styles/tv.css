@@ -196,7 +196,7 @@
   }
 
   .browse-page {
-    padding-top: clamp(2rem, 4vh, 3rem);
+    padding-top: var(--page-start-gap);
     padding-bottom: 3rem;
   }
 

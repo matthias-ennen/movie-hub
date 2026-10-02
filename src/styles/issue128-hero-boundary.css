@@ -39,7 +39,7 @@ body,
   top: auto;
   left: auto;
   margin: 0;
-  padding: clamp(1.1rem, 2vw, 1.75rem) var(--page-inline) 0.75rem;
+  padding: var(--page-start-gap) var(--page-inline) 0.75rem;
   pointer-events: none;
 }
 
@@ -215,7 +215,7 @@ body,
   }
 
   .hero-carousel-eyebrow {
-    padding-top: 1.25rem;
+    padding-top: var(--page-start-gap);
   }
 
   .hero-carousel .hero {
@@ -268,7 +268,7 @@ body,
   }
 
   .hero-carousel-eyebrow {
-    padding-top: 1.25rem;
+    padding-top: var(--page-start-gap);
   }
 
   .hero-carousel .hero {
@@ -283,7 +283,7 @@ body,
   }
 
   .hero-carousel-eyebrow {
-    padding: 1rem 1rem 0.65rem;
+    padding: var(--page-start-gap) var(--page-inline) 0.65rem;
   }
 
   .hero-dots {

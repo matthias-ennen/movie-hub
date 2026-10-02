@@ -253,7 +253,8 @@ p {
 }
 
 .hero-first-page > .hero-carousel {
-  padding-top: var(--page-start-gap);
+  /* Der Seitenstart wird im statischen Hero-Seitenkopf genau einmal angewendet. */
+  padding-top: 0;
 }
 
 .hero-carousel-eyebrow {

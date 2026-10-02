@@ -5,6 +5,8 @@ const indexCss = readFileSync(new URL('../src/index.css', import.meta.url), 'utf
 const responsiveCss = readFileSync(new URL('../src/styles/issue128.css', import.meta.url), 'utf8')
 const tokensCss = readFileSync(new URL('../src/styles/tokens.css', import.meta.url), 'utf8')
 const notificationsCss = readFileSync(new URL('../src/styles/notifications.css', import.meta.url), 'utf8')
+const heroBoundaryCss = readFileSync(new URL('../src/styles/issue128-hero-boundary.css', import.meta.url), 'utf8')
+const tvCss = readFileSync(new URL('../src/styles/tv.css', import.meta.url), 'utf8')
 
 function cssRule(source, selector) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -39,15 +41,33 @@ describe('einheitlicher Seitenstart unter der Hauptnavigation', () => {
     expect(root).toContain('--page-start-gap: calc(var(--page-block) * 0.2)')
   })
 
-  it('verwendet denselben Seitenstart für Hero-, Such-, Profil- und Über-Seiten', () => {
+  it('wendet den Abstand beim Hero genau einmal am statischen Seitenkopf an', () => {
     expect(cssRule(indexCss, '.hero-first-page > .hero-carousel'))
-      .toContain('padding-top: var(--page-start-gap)')
+      .toContain('padding-top: 0')
+    expect(cssRule(heroBoundaryCss, '.hero-carousel-eyebrow'))
+      .toContain('padding: var(--page-start-gap) var(--page-inline) 0.75rem')
+  })
+
+  it('verwendet denselben Seitenstart für Suche, Profil und Über auch in responsiven Overrides', () => {
     expect(cssRule(indexCss, '.search-page'))
       .toContain('padding-top: var(--page-start-gap)')
     expect(cssRule(indexCss, '.profile-page'))
       .toContain('padding-top: var(--page-start-gap)')
     expect(cssRule(indexCss, '.about-page'))
       .toContain('padding-top: var(--page-start-gap)')
+    expect(cssRule(responsiveCss, '.search-page'))
+      .toContain('padding-top: var(--page-start-gap)')
+
+    const responsiveProfileRules = responsiveCss.match(/\.profile-page,\s*\.about-page\s*\{[^}]*padding-top:\s*var\(--page-start-gap\);[^}]*\}/g) || []
+    expect(responsiveProfileRules).toHaveLength(3)
+    expect(responsiveCss).not.toContain('padding-top: clamp(1.1rem, 2vw, 1.75rem)')
+  })
+
+  it('verhindert zusätzliche harte Hero- und TV-Abstände auf kleineren Viewports', () => {
+    expect(heroBoundaryCss).not.toContain('padding-top: 1.25rem')
+    expect(heroBoundaryCss).not.toContain('padding: 1rem 1rem 0.65rem')
+    expect(tvCss).not.toContain('padding-top: clamp(2rem, 4vh, 3rem)')
+    expect(cssRule(tvCss, '.browse-page')).toContain('padding-top: var(--page-start-gap)')
   })
 
   it('richtet Mitteilungen an derselben linken Seitenkante aus', () => {
