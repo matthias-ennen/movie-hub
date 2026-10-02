@@ -1,13 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import AboutView from './components/AboutView.jsx'
 import DetailLoadingScreen from './components/DetailLoadingScreen.jsx'
-import DetailModal from './components/DetailModal.jsx'
 import HeroFirstPage from './components/HeroFirstPage.jsx'
 import { ProgressivePosterGrid, ProgressiveRows } from './components/ProgressiveContent.jsx'
-import ProfileView from './components/ProfileView.jsx'
-import SearchView from './components/SearchView.jsx'
-import SettingsView from './components/SettingsView.jsx'
 import TvView from './components/TvView.jsx'
 import { detailInitialImageUrl, prepareDetailRequestItem, preloadDetailImage, waitForDetailLoadingPaint } from './components/detailPresentation.js'
 import { buildCategoryRows } from './catalog/categoryRows.js'
@@ -44,6 +40,14 @@ import { preloadHeroImage } from './performance/progressiveRendering.js'
 import { prepareForActiveView, prepareRowsForActiveView } from './performance/contentRowPreparation.js'
 import { loadCatalogWithRetry } from './performance/catalogStartup.js'
 import { notifyNativeStartupReady } from './performance/nativeStartup.js'
+import {
+  LazyDetailModal,
+  LazyProfileView,
+  LazySearchView,
+  LazySettingsView,
+  loadDetailModalModule,
+  preloadSecondaryViewModule,
+} from './performance/lazyViews.jsx'
 import {
   cancelPerformanceSpan,
   finishPerformanceSpan,
@@ -144,6 +148,15 @@ function Login() {
   )
 }
 
+function LazyViewLoading({ label, className = 'browse-page' }) {
+  return (
+    <main className={className} aria-busy="true">
+      <p className="eyebrow page-section-heading">{label}</p>
+      <p className="loading-copy">Ansicht wird geladen …</p>
+    </main>
+  )
+}
+
 function Header({
   currentView,
   onViewChange,
@@ -169,11 +182,13 @@ function Header({
   const profileInitial = activeProfile?.displayName?.trim().charAt(0).toUpperCase() || 'M'
 
   function openProfileSettings() {
+    onViewIntent('profile')
     onProfileClose()
     onViewChange('profile')
   }
 
   function openAppSettings() {
+    onViewIntent('settings')
     onProfileClose()
     onViewChange('settings')
   }
@@ -219,13 +234,23 @@ function Header({
         ))}
       </nav>
       <div className="top-actions">
-        <button type="button" className={currentView === 'search' ? 'icon-button active' : 'icon-button'} onClick={() => onViewChange('search')} data-focusable="true" aria-label="Suche">⌕</button>
+        <button
+          type="button"
+          className={currentView === 'search' ? 'icon-button active' : 'icon-button'}
+          onClick={() => { onViewIntent('search'); onViewChange('search') }}
+          onFocus={() => onViewIntent('search')}
+          onPointerEnter={() => onViewIntent('search')}
+          data-focusable="true"
+          aria-label="Suche"
+        >⌕</button>
         <BellButton unreadCount={unreadCount} active={currentView === 'notifications'} onClick={() => onViewChange('notifications')} />
         <div className="profile-wrap">
           <button
             type="button"
             className={profileAreaActive ? 'profile-button active' : 'profile-button'}
             onClick={onProfileToggle}
+            onFocus={() => onViewIntent('profile')}
+            onPointerEnter={() => onViewIntent('profile')}
             data-focusable="true"
             aria-label={`Profil öffnen: ${activeProfile?.displayName ?? 'Movie Hub'}`}
             aria-expanded={profileOpen}
@@ -253,8 +278,8 @@ function Header({
                   ))}
                 </div>
               )}
-              <button type="button" className="profile-settings-link" onClick={openProfileSettings} data-focusable="true" role="menuitem">Profil & Design</button>
-              <button type="button" className="app-settings-link" onClick={openAppSettings} data-focusable="true" role="menuitem">Einstellungen</button>
+              <button type="button" className="profile-settings-link" onClick={openProfileSettings} onFocus={() => onViewIntent('profile')} onPointerEnter={() => onViewIntent('profile')} data-focusable="true" role="menuitem">Profil & Design</button>
+              <button type="button" className="app-settings-link" onClick={openAppSettings} onFocus={() => onViewIntent('settings')} onPointerEnter={() => onViewIntent('settings')} data-focusable="true" role="menuitem">Einstellungen</button>
               <button type="button" className="about-settings-link" onClick={openAbout} data-focusable="true" role="menuitem">Über Movie Hub</button>
               <button type="button" onClick={onSignOut} data-focusable="true" role="menuitem">Abmelden</button>
             </div>
@@ -1061,6 +1086,7 @@ function MovieHub({ user }) {
     setDetailSharedMedia([])
     setDetailSharedMediaLoadError('')
     setDetailPrimaryImageUrl(undefined)
+    void loadDetailModalModule().catch(() => {})
 
     const presented = resolvePresentationArtwork(item, artworkOptions)
     const initiallySelected = {
@@ -1114,10 +1140,12 @@ function MovieHub({ user }) {
         : Promise.resolve()
 
       const primaryImageUrl = detailInitialImageUrl(displayedItem)
+      const detailModuleLoad = loadDetailModalModule()
       let imageResult = 'no-image'
       await Promise.all([
         preloadDetailImage(primaryImageUrl, { signal: controller.signal }).then((result) => { imageResult = result }),
         mediaLoad,
+        detailModuleLoad,
       ])
       if (cancelled) return
 
@@ -1730,6 +1758,7 @@ function MovieHub({ user }) {
     library: personalHeroes,
   }), [homeHeroes, movieHeroes, personalHeroes, seriesHeroes, tvHeroItems])
   const handleViewIntent = useCallback((nextView) => {
+    if (preloadSecondaryViewModule(nextView)) return
     preloadHeroImage(heroItemsByView[nextView])
   }, [heroItemsByView])
   const liveTmdb = catalog.source === 'tmdb'
@@ -1824,13 +1853,15 @@ function MovieHub({ user }) {
         />
       )}
       {currentView === 'search' && (
-        <SearchView
-          publicTitles={publicTitles}
-          personalTitles={tmdbPersonalTitles}
-          movieHubTitles={movieHubTitles}
-          fullTitles={titles}
-          onOpen={handleOpenTitle}
-        />
+        <Suspense fallback={<LazyViewLoading label="Suchen" className="browse-page search-page" />}>
+          <LazySearchView
+            publicTitles={publicTitles}
+            personalTitles={tmdbPersonalTitles}
+            movieHubTitles={movieHubTitles}
+            fullTitles={titles}
+            onOpen={handleOpenTitle}
+          />
+        </Suspense>
       )}
       {currentView === 'notifications' && <AnnouncementsView items={announcements} readIds={readIds} ready={announcementsReady} error={announcementsError} onRead={markRead} onOpenTitle={(message) => {
         const match = titles.find((title) => title.type === message.titleType && Number(title.tmdbId) === Number(message.tmdbId))
@@ -1843,24 +1874,29 @@ function MovieHub({ user }) {
         }, null, { requireComplete: true })
       }} />}
       {currentView === 'profile' && (
-        <ProfileView
-          user={user}
-          onSignOut={handleSignOut}
-          publicTitles={publicTitles}
-          smartFilterOptions={catalog.smartFilterOptions}
-        />
+        <Suspense fallback={<LazyViewLoading label="Dein Movie Hub" className="browse-page profile-page" />}>
+          <LazyProfileView
+            user={user}
+            onSignOut={handleSignOut}
+            publicTitles={publicTitles}
+            smartFilterOptions={catalog.smartFilterOptions}
+          />
+        </Suspense>
       )}
       {currentView === 'settings' && (
-        <SettingsView
-          waipuStations={waipuStationCatalog.stations}
-          waipuStationStatus={waipuStationCatalog.status}
-          joynStations={joynStationCatalog.stations}
-          joynStationStatus={joynStationCatalog.status}
-        />
+        <Suspense fallback={<LazyViewLoading label="Einstellungen" className="browse-page profile-page" />}>
+          <LazySettingsView
+            waipuStations={waipuStationCatalog.stations}
+            waipuStationStatus={waipuStationCatalog.status}
+            joynStations={joynStationCatalog.stations}
+            joynStationStatus={joynStationCatalog.status}
+          />
+        </Suspense>
       )}
       {currentView === 'about' && <AboutView />}
       {selectedTitle && (
-        <DetailModal
+        <Suspense fallback={<DetailLoadingScreen item={selectedTitle} onClose={closeDetail} />}>
+        <LazyDetailModal
           key={[
             selectedTitle.id || `${selectedTitle.type || selectedTitle.mediaType}:${selectedTitle.tmdbId || selectedTitle.title}`,
             selectedTitle.tvAiring?.canonicalStationId || selectedTitle.tvAiring?.stationId || '',
@@ -1878,6 +1914,7 @@ function MovieHub({ user }) {
           onSelectTitle={handleOpenTitle}
           onClose={closeDetail}
         />
+        </Suspense>
       )}
       {detailRequest && (
         <DetailLoadingScreen
