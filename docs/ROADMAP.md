@@ -98,7 +98,7 @@ Diese Darstellungs-/Priorisierungsarbeit folgt nach den ersten zusätzlichen Ada
 ## Gesondert offene Betriebs- und Restpakete
 
 - #315 – Nachtlauf zuverlässig überwachen; Betriebszuverlässigkeit, blockiert #271 nicht
-- #329 – Waipu-Restklassifizierung der technischen-only Einträge; Wartung, blockiert #271/#280 nicht
+- #329 – Waipu-Restklassifizierung der technischen-only Einträge; Wartung, blockiert #271 nicht
 - #312 – Mitteilungszentrale; Fire-TV-Bedienung am 26.09.2026 abgenommen, Ende-zu-Ende-/Mehrgeräte-Restpunkte offen
 - #118/#314 – „Wenn inklusive“ und „Wenn im TV“ sind veröffentlicht und auf Fire TV bedienbar; produktive Lauf-/Randfallprüfung und spätere Produktentscheidungen offen
 - #7 – erste Top-100-Stufe veröffentlicht und am 26.09.2026 auf Fire TV abgenommen; Empfehlungen und Automatisierung später

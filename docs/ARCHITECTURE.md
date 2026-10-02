@@ -248,15 +248,17 @@ Titel werden zuerst aus dem frisch erzeugten Hauptkatalog und danach bis zu
 alle veröffentlichten Titel `metadataComplete` erfüllen, wird die neue
 Generation atomar freigegeben.
 
-Die erste UI-Stufe liest den Titelindex und verbindet ihn über
-`Medientyp + TMDB-ID` mit vorhandenen MovieHub-Titeln. Poster zeigen
-weiter maximal drei Anbieter-Badges mit der festen Priorität `Movie Hub →
-waipu.tv → übrige Anbieter`. Die Detailseite zeigt nur den nächsten linearen
-Sendetermin als einzelne Zeile direkt unter den Anbieteraktionen. Weitere
-Termine werden dort nicht zusammengefasst. Abgelaufene Termine werden im
-Client ausgeblendet; einen ungeprüften titel- oder senderspezifischen Deep Link
-gibt es nicht. Persönliche Movie-Hub-Links sowie interne HTTP- und native
-SMB-Videos durchlaufen denselben profilbezogenen „Gesehen“-Schritt wie externe
+Die erste UI-Stufe verbindet veröffentlichte Live-TV-Verfügbarkeit über
+`Medientyp + TMDB-ID` mit vorhandenen Movie-Hub-Titeln. Poster zeigen
+maximal drei Anbieter-Badges nach der zentralen Reihenfolge `Movie Hub →
+Waipu → Joyn → übrige Provider`. Auf der Detailseite wird die konkrete
+TV-Ausstrahlung fachlich getrennt von **Streaming / Mediathek** dargestellt;
+eine zweite redundante „Im TV“-Zeile unter den Anbieterbuttons gibt es nicht.
+Abgelaufene Termine werden im Client ausgeblendet. Providerbezogene
+Wiedergabeziele stammen aus den normalisierten PlaybackRoutes; ein geratenes
+oder ungeprüftes titel- oder senderspezifisches Ziel wird nicht erzeugt.
+Persönliche Movie-Hub-Links sowie interne HTTP- und native SMB-Videos
+durchlaufen denselben profilbezogenen „Gesehen“-Schritt wie externe
 Anbieterbuttons.
 
 Falls ein älterer Rückfallbestand dennoch erst beim Öffnen eines Titels
