@@ -5,7 +5,7 @@ const webBuild = (process.env.GITHUB_SHA || 'local').slice(0, 7)
 const webBuiltAt = new Date().toISOString()
 
 export function stableVendorChunk(id) {
-  const normalized = String(id || '').replaceAll('\\\\', '/')
+  const normalized = String(id || '').replace(/\\/g, '/')
   if (!normalized.includes('/node_modules/')) return undefined
 
   if (normalized.includes('/node_modules/react/')
