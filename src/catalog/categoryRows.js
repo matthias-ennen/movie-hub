@@ -105,6 +105,33 @@ function hasEnabledProvider(item, enabledProviderIds) {
     .some((providerId) => enabled.has(providerId))
 }
 
+export function buildProfileCategoryRows({
+  titles = [],
+  mediaType,
+  categorySettings,
+  enabledProviderIds = [],
+  minimumTitles = MIN_CATEGORY_ROW_TITLES,
+  limit = getActivePosterRowLimit(),
+  sortItems = null,
+} = {}) {
+  const normalized = normalizeCategorySettings(categorySettings)
+  const series = mediaType === 'series'
+  return buildCategoryRows({
+    titles,
+    mediaType,
+    enabledCategoryIds: series
+      ? normalized.enabledSeriesCategoryIds
+      : normalized.enabledMovieCategoryIds,
+    categoryOrder: series
+      ? normalized.seriesCategoryOrder
+      : normalized.movieCategoryOrder,
+    enabledProviderIds,
+    minimumTitles,
+    limit,
+    sortItems,
+  })
+}
+
 export function buildCategoryRows({
   titles = [],
   mediaType,
