@@ -60,7 +60,9 @@ describe('einheitlicher Seitenstart unter der Hauptnavigation', () => {
 
     const responsiveProfileRules = responsiveCss.match(/\.profile-page,\s*\.about-page\s*\{[^}]*padding-top:\s*var\(--page-start-gap\);[^}]*\}/g) || []
     expect(responsiveProfileRules).toHaveLength(3)
-    expect(responsiveCss).not.toContain('padding-top: clamp(1.1rem, 2vw, 1.75rem)')
+
+    const responsiveSearchRules = responsiveCss.match(/\.search-page\s*\{[^}]*padding-top:\s*var\(--page-start-gap\);[^}]*\}/g) || []
+    expect(responsiveSearchRules).toHaveLength(2)
   })
 
   it('verhindert zusätzliche harte Hero- und TV-Abstände auf kleineren Viewports', () => {

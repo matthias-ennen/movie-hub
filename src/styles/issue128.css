@@ -486,8 +486,8 @@
 
 @media (max-width: 560px) {
   .hero-carousel-eyebrow {
-    top: 1rem;
-    left: 1rem;
+    top: var(--page-start-gap);
+    left: var(--page-inline);
   }
 
   .hero-carousel .hero {
@@ -523,8 +523,11 @@
   }
 
   .category-page .browse-page,
-  .personal-library-shell .browse-page,
-  .search-page {
+  .personal-library-shell .browse-page {
     padding-top: 1rem;
+  }
+
+  .search-page {
+    padding-top: var(--page-start-gap);
   }
 }
