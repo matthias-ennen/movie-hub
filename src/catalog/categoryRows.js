@@ -43,6 +43,8 @@ export const SERIES_CATEGORY_OPTIONS = [
 export const DEFAULT_CATEGORY_SETTINGS = Object.freeze({
   enabledMovieCategoryIds: Object.freeze(MOVIE_CATEGORY_OPTIONS.map((category) => category.id)),
   enabledSeriesCategoryIds: Object.freeze(SERIES_CATEGORY_OPTIONS.map((category) => category.id)),
+  movieCategoryOrder: Object.freeze(MOVIE_CATEGORY_OPTIONS.map((category) => category.id)),
+  seriesCategoryOrder: Object.freeze(SERIES_CATEGORY_OPTIONS.map((category) => category.id)),
 })
 
 function normalizeIds(value, options, defaults) {
@@ -50,6 +52,36 @@ function normalizeIds(value, options, defaults) {
   const knownIds = new Set(options.map((category) => category.id))
   const requestedIds = new Set(value.filter((id) => knownIds.has(id)))
   return options.map((category) => category.id).filter((id) => requestedIds.has(id))
+}
+
+function normalizeOrder(value, options) {
+  const defaultOrder = options.map((category) => category.id)
+  if (!Array.isArray(value)) return defaultOrder
+
+  const knownIds = new Set(defaultOrder)
+  const seen = new Set()
+  const requested = value.filter((id) => {
+    if (!knownIds.has(id) || seen.has(id)) return false
+    seen.add(id)
+    return true
+  })
+  return [...requested, ...defaultOrder.filter((id) => !seen.has(id))]
+}
+
+export function orderCategoryOptions(options, order) {
+  const byId = new Map(options.map((category) => [category.id, category]))
+  return normalizeOrder(order, options).map((id) => byId.get(id)).filter(Boolean)
+}
+
+export function moveCategoryOrder(order, categoryId, direction, options) {
+  const normalized = normalizeOrder(order, options)
+  const index = normalized.indexOf(categoryId)
+  const targetIndex = index + Number(direction)
+  if (index < 0 || targetIndex < 0 || targetIndex >= normalized.length) return normalized
+
+  const next = [...normalized]
+  ;[next[index], next[targetIndex]] = [next[targetIndex], next[index]]
+  return next
 }
 
 export function normalizeCategorySettings(value) {
@@ -65,6 +97,8 @@ export function normalizeCategorySettings(value) {
       SERIES_CATEGORY_OPTIONS,
       DEFAULT_CATEGORY_SETTINGS.enabledSeriesCategoryIds,
     ),
+    movieCategoryOrder: normalizeOrder(settings.movieCategoryOrder, MOVIE_CATEGORY_OPTIONS),
+    seriesCategoryOrder: normalizeOrder(settings.seriesCategoryOrder, SERIES_CATEGORY_OPTIONS),
   }
 }
 
@@ -110,6 +144,7 @@ export function buildCategoryRows({
   mediaType,
   enabledCategoryIds = [],
   enabledProviderIds = [],
+  categoryOrder = [],
   minimumTitles = MIN_CATEGORY_ROW_TITLES,
   limit = getActivePosterRowLimit(),
   sortItems = null,
@@ -124,7 +159,7 @@ export function buildCategoryRows({
     uniqueTitles.set(item.id, item)
   }
 
-  return options
+  return orderCategoryOptions(options, categoryOrder)
     .filter((category) => activeIds.has(category.id))
     .map((category) => {
       const matches = [...uniqueTitles.values()].filter((item) => matchesCategory(item, category))

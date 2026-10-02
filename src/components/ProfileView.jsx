@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import {
   MOVIE_CATEGORY_OPTIONS,
   SERIES_CATEGORY_OPTIONS,
+  moveCategoryOrder,
   normalizeCategorySettings,
+  orderCategoryOptions,
 } from '../catalog/categoryRows.js'
 import PersonalRowsSettings from './PersonalRowsSettings.jsx'
 import ContentDisplaySettings from './ContentDisplaySettings.jsx'
@@ -38,13 +40,13 @@ export default function ProfileView({ user, onSignOut, publicTitles = [], smartF
     {
       id: 'movie',
       title: 'Filmkategorien',
-      options: MOVIE_CATEGORY_OPTIONS,
+      options: orderCategoryOptions(MOVIE_CATEGORY_OPTIONS, categorySettings.movieCategoryOrder),
       enabledIds: categorySettings.enabledMovieCategoryIds,
     },
     {
       id: 'series',
       title: 'Serienkategorien',
-      options: SERIES_CATEGORY_OPTIONS,
+      options: orderCategoryOptions(SERIES_CATEGORY_OPTIONS, categorySettings.seriesCategoryOrder),
       enabledIds: categorySettings.enabledSeriesCategoryIds,
     },
   ]
@@ -74,6 +76,31 @@ export default function ProfileView({ user, onSignOut, publicTitles = [], smartF
     } catch (error) {
       console.error(error)
       setCategoryMessage('Kategorien konnten nicht gespeichert werden.')
+    } finally {
+      setCategorySavingId(null)
+    }
+  }
+
+  async function moveCategory(mediaType, categoryId, direction) {
+    if (!activeProfile || categorySavingId) return
+    const current = normalizeCategorySettings(activeProfile.categorySettings)
+    const series = mediaType === 'series'
+    const orderKey = series ? 'seriesCategoryOrder' : 'movieCategoryOrder'
+    const options = series ? SERIES_CATEGORY_OPTIONS : MOVIE_CATEGORY_OPTIONS
+    const currentOrder = current[orderKey]
+    const nextOrder = moveCategoryOrder(currentOrder, categoryId, direction, options)
+    if (nextOrder.every((id, index) => id === currentOrder[index])) return
+
+    setCategorySavingId(`${mediaType}:${categoryId}`)
+    setCategoryMessage('')
+    try {
+      await updateActiveProfileCategorySettings({
+        ...current,
+        [orderKey]: nextOrder,
+      })
+    } catch (error) {
+      console.error(error)
+      setCategoryMessage('Kategorien konnten nicht sortiert werden.')
     } finally {
       setCategorySavingId(null)
     }
@@ -278,7 +305,7 @@ export default function ProfileView({ user, onSignOut, publicTitles = [], smartF
         </div>
 
         <p className="settings-description">
-          Deine Auswahl erscheint auf Filme und Serien direkt vor den Anbieterreihen. Home und Meine Inhalte bleiben unverändert.
+          Deine Auswahl erscheint auf Filme und Serien direkt vor den Anbieterreihen. Mit den Pfeilen legst du zusätzlich die Reihenfolge fest. Home und Meine Inhalte bleiben unverändert.
         </p>
 
         {activeProfile && categoryGroups.map((group) => (
@@ -288,26 +315,47 @@ export default function ProfileView({ user, onSignOut, publicTitles = [], smartF
               <span>{group.enabledIds.length} von {group.options.length} aktiv</span>
             </div>
             <div className="category-choice-grid" aria-label={`${group.title} auswählen`}>
-              {group.options.map((category) => {
+              {group.options.map((category, index) => {
                 const enabled = group.enabledIds.includes(category.id)
                 const saving = categorySavingId === `${group.id}:${category.id}`
                 return (
-                  <button
-                    type="button"
-                    key={category.id}
-                    className={enabled ? 'category-choice active' : 'category-choice'}
-                    onClick={() => toggleCategory(group.id, category.id)}
-                    role="switch"
-                    aria-checked={enabled}
-                    aria-busy={saving}
-                    data-focusable="true"
-                  >
-                    <span>{category.title}</span>
-                    <span className={enabled ? 'category-choice-switch active' : 'category-choice-switch'} aria-hidden="true">
-                      <span />
-                    </span>
-                    <small>{saving ? 'Speichert …' : enabled ? 'An' : 'Aus'}</small>
-                  </button>
+                  <div className={enabled ? 'category-choice-item active' : 'category-choice-item'} key={category.id}>
+                    <button
+                      type="button"
+                      className={enabled ? 'category-choice active' : 'category-choice'}
+                      onClick={() => toggleCategory(group.id, category.id)}
+                      role="switch"
+                      aria-checked={enabled}
+                      aria-busy={saving}
+                      data-focusable="true"
+                    >
+                      <span>{category.title}</span>
+                      <span className={enabled ? 'category-choice-switch active' : 'category-choice-switch'} aria-hidden="true">
+                        <span />
+                      </span>
+                      <small>{saving ? 'Speichert …' : enabled ? 'An' : 'Aus'}</small>
+                    </button>
+                    <div className="category-order-actions" aria-label={`${category.title} sortieren`}>
+                      <button
+                        type="button"
+                        onClick={() => moveCategory(group.id, category.id, -1)}
+                        disabled={Boolean(categorySavingId) || index === 0}
+                        data-focusable="true"
+                        aria-label={`${category.title} nach oben verschieben`}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveCategory(group.id, category.id, 1)}
+                        disabled={Boolean(categorySavingId) || index === group.options.length - 1}
+                        data-focusable="true"
+                        aria-label={`${category.title} nach unten verschieben`}
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  </div>
                 )
               })}
             </div>
