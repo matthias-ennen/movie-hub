@@ -21,6 +21,8 @@
         <package android:name="de.exaring.waipu" />
     </queries>
 
+    <!-- User-managed HTTP video URLs may point to arbitrary LAN hosts/IPs,
+         so cleartext cannot be safely restricted to a fixed domain list. -->
     <application
         android:name=".MovieHubApplication"
         android:allowBackup="false"
@@ -31,8 +33,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MovieHub"
         android:enableOnBackInvokedCallback="true"
-        <!-- User-managed HTTP video URLs may point to arbitrary LAN hosts/IPs,
-             so cleartext cannot be safely restricted to a fixed domain list. -->
         android:usesCleartextTraffic="true">
         <activity
             android:name=".NetworkSettingsActivity"
