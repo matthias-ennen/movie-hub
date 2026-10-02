@@ -196,7 +196,7 @@ describe('persönlicher Film-/Serienzustand', () => {
     expect(buildPersonalTopHundredRows(titles, () => ({ favorite: true }), 30)).toEqual([])
   })
 
-  it('liefert die 50 zuletzt als gesehen markierten Titel als eigenen Verlauf', () => {
+  it('liefert die 100 zuletzt als gesehen markierten Titel als eigenen Verlauf', () => {
     const titles = Array.from({ length: 105 }, (_, index) => ({
       id: `title-${index + 1}`,
       title: `Titel ${String(index + 1).padStart(3, '0')}`,
@@ -210,9 +210,9 @@ describe('persönlicher Film-/Serienzustand', () => {
     const rows = buildWatchedHistoryRows(titles, (item) => states[item.id])
     expect(rows).toHaveLength(1)
     expect(rows[0].title).toBe('Als gesehen markiert')
-    expect(rows[0].items).toHaveLength(50)
+    expect(rows[0].items).toHaveLength(100)
     expect(rows[0].items[0].id).toBe('title-105')
-    expect(rows[0].items.at(-1).id).toBe('title-56')
+    expect(rows[0].items.at(-1).id).toBe('title-6')
   })
 
   it('sortiert ältere Gesehen-Markierungen ohne exakten Zeitpunkt stabil nach Datum', () => {
