@@ -18,32 +18,42 @@ describe('live catalog startup policy', () => {
     expect(shouldLoadLiveStations({ tvRequested: true })).toBe(true)
     expect(shouldLoadLiveStations({ settingsOpen: true })).toBe(true)
   })
-  it('releases TV rendering from station catalogs and the selected day schedule only', () => {
+  it('releases the TV hero without waiting for station catalogs or day schedule', () => {
     expect(isTvPresentationReady({
-      waipuStationStatus: 'ready',
-      joynStationStatus: 'ready',
+      catalogStatus: 'ready',
+      liveAvailabilityStatus: 'ready',
       stationSelectionLoading: false,
       joynStationSelectionLoading: false,
-      scheduleStatus: 'ready',
-      hasHeroItems: false,
     })).toBe(true)
 
     expect(isTvPresentationReady({
-      waipuStationStatus: 'ready',
-      joynStationStatus: 'ready',
+      catalogStatus: 'loading',
+      liveAvailabilityStatus: 'ready',
       stationSelectionLoading: false,
       joynStationSelectionLoading: false,
-      scheduleStatus: 'loading',
-      hasHeroItems: false,
     })).toBe(false)
 
     expect(isTvPresentationReady({
-      waipuStationStatus: 'ready',
-      joynStationStatus: 'ready',
+      catalogStatus: 'ready',
+      liveAvailabilityStatus: 'loading',
       stationSelectionLoading: false,
       joynStationSelectionLoading: false,
-      scheduleStatus: 'loading',
-      hasHeroItems: true,
+    })).toBe(false)
+
+    expect(isTvPresentationReady({
+      catalogStatus: 'ready',
+      liveAvailabilityStatus: 'ready',
+      stationSelectionLoading: true,
+      joynStationSelectionLoading: false,
+    })).toBe(false)
+  })
+
+  it('does not deadlock the TV hero when the compact live index is unavailable', () => {
+    expect(isTvPresentationReady({
+      catalogStatus: 'ready',
+      liveAvailabilityStatus: 'unavailable',
+      stationSelectionLoading: false,
+      joynStationSelectionLoading: false,
     })).toBe(true)
   })
 })

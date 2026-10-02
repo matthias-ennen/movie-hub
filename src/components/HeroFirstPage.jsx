@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from 'react'
 import { useHeroFirstPage } from '../hooks/useHeroFirstPage.js'
 import Hero from './Hero.jsx'
 
@@ -25,6 +26,17 @@ export default function HeroFirstPage({
   children,
 }) {
   const { heroReady, handleHeroReady } = useHeroFirstPage(pageId)
+  const pendingHeroReadyRef = useRef(null)
+
+  const handleHeroSignal = useCallback((detail = {}) => {
+    pendingHeroReadyRef.current = detail
+    if (readyEnabled) handleHeroReady(detail)
+  }, [handleHeroReady, readyEnabled])
+
+  useEffect(() => {
+    if (!readyEnabled || !pendingHeroReadyRef.current) return
+    handleHeroReady(pendingHeroReadyRef.current)
+  }, [handleHeroReady, readyEnabled])
 
   return (
     <main
@@ -36,7 +48,7 @@ export default function HeroFirstPage({
         items={heroItems}
         onOpen={onOpen}
         eyebrow={heroEyebrow}
-        onReady={readyEnabled ? handleHeroReady : undefined}
+        onReady={handleHeroSignal}
         activationRequest={activationRequest}
         activationAvailabilitySettled={readyEnabled}
         onActivationUnavailable={onActivationUnavailable}

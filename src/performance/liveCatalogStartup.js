@@ -13,20 +13,18 @@ export function shouldLoadLiveStations({
 }
 
 export function isTvPresentationReady({
-  waipuStationStatus = 'loading',
-  joynStationStatus = 'loading',
+  catalogStatus = 'loading',
+  liveAvailabilityStatus = 'idle',
   stationSelectionLoading = true,
   joynStationSelectionLoading = true,
-  scheduleStatus = 'idle',
-  hasHeroItems = false,
 } = {}) {
-  const stationCatalogsSettled = waipuStationStatus !== 'loading'
-    && joynStationStatus !== 'loading'
+  const catalogSettled = catalogStatus !== 'loading'
+  const liveAvailabilitySettled = liveAvailabilityStatus === 'ready'
+    || liveAvailabilityStatus === 'unavailable'
   const stationSelectionsSettled = !stationSelectionLoading
     && !joynStationSelectionLoading
-  const scheduleSettled = scheduleStatus !== 'idle' && scheduleStatus !== 'loading'
 
-  return stationCatalogsSettled
+  return catalogSettled
+    && liveAvailabilitySettled
     && stationSelectionsSettled
-    && (hasHeroItems || scheduleSettled)
 }

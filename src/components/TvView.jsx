@@ -1,5 +1,77 @@
+import { useEffect } from 'react'
 import HeroFirstPage from './HeroFirstPage.jsx'
 import { ProgressiveRows } from './ProgressiveContent.jsx'
+
+export function TvProgramContent({
+  heroReady,
+  onHeroReady,
+  rows,
+  periods,
+  selectedPeriodId,
+  onPeriodChange,
+  status,
+  onOpen,
+}) {
+  const rowCount = Array.isArray(rows) ? rows.length : 0
+
+  useEffect(() => {
+    if (heroReady) onHeroReady?.()
+  }, [heroReady, onHeroReady])
+
+  if (!heroReady) return null
+
+  return (
+    <section className="browse-page tv-program-content">
+      {status === 'loading' && (
+        <section className="library-empty-state tv-program-empty" aria-live="polite">
+          <p className="settings-kicker">TV-Programm</p>
+          <h2>Sendetermine werden geladen …</h2>
+          <p>Der TV-Hero ist bereit. Die Posterreihen werden jetzt vorbereitet.</p>
+        </section>
+      )}
+
+      {status === 'unavailable' && (
+        <section className="library-empty-state tv-program-empty">
+          <p className="settings-kicker">Noch nicht veröffentlicht</p>
+          <h2>Das TV-Programm ist derzeit nicht verfügbar.</h2>
+          <p>Der TV-Reiter bleibt leer, bis mindestens ein vollständig geprüfter Live-TV-Katalog freigegeben wurde.</p>
+        </section>
+      )}
+
+      {status === 'no-stations' && (
+        <section className="library-empty-state tv-program-empty">
+          <p className="settings-kicker">Alle Sender ausgeblendet</p>
+          <h2>Aktiviere mindestens einen Sender in den Einstellungen.</h2>
+          <p>Die TV-Seite selbst enthält bewusst keine Senderauswahl.</p>
+        </section>
+      )}
+
+      {status === 'ready' && (
+        <>
+          <PeriodSelector
+            periods={periods}
+            selectedPeriodId={selectedPeriodId}
+            onPeriodChange={onPeriodChange}
+          />
+
+          {rowCount === 0 ? (
+            <section className="library-empty-state tv-program-empty">
+              <p className="settings-kicker">Keine Sendetermine</p>
+              <h2>Für diesen Zeitraum wurden keine zugeordneten Filme oder Serien gefunden.</h2>
+            </section>
+          ) : (
+            <ProgressiveRows
+              rows={rows}
+              heroReady
+              onOpen={onOpen}
+              className="rows-wrap tv-program-rows"
+            />
+          )}
+        </>
+      )}
+    </section>
+  )
+}
 
 function PeriodSelector({ periods, selectedPeriodId, onPeriodChange }) {
   return (
@@ -33,14 +105,13 @@ export default function TvView({
   heroReadyEnabled,
   activationRequest,
   onActivationUnavailable,
+  onHeroReady,
   periods,
   selectedPeriodId,
   onPeriodChange,
   status,
   onOpen,
 }) {
-  const rowCount = Array.isArray(rows) ? rows.length : 0
-
   return (
     <HeroFirstPage
       pageId="tv"
@@ -53,55 +124,16 @@ export default function TvView({
       onOpen={onOpen}
     >
       {({ heroReady }) => (
-        <section className="browse-page tv-program-content">
-          {status === 'loading' && (
-            <section className="library-empty-state tv-program-empty" aria-live="polite">
-              <p className="settings-kicker">TV-Programm</p>
-              <h2>Sendetermine werden geladen …</h2>
-              <p>Der TV-Hero ist bereits verfügbar. Die Posterreihen werden im Hintergrund vorbereitet.</p>
-            </section>
-          )}
-
-          {status === 'unavailable' && (
-            <section className="library-empty-state tv-program-empty">
-              <p className="settings-kicker">Noch nicht veröffentlicht</p>
-              <h2>Das TV-Programm ist derzeit nicht verfügbar.</h2>
-              <p>Der TV-Reiter bleibt leer, bis mindestens ein vollständig geprüfter Live-TV-Katalog freigegeben wurde.</p>
-            </section>
-          )}
-
-          {status === 'no-stations' && (
-            <section className="library-empty-state tv-program-empty">
-              <p className="settings-kicker">Alle Sender ausgeblendet</p>
-              <h2>Aktiviere mindestens einen Sender in den Einstellungen.</h2>
-              <p>Die TV-Seite selbst enthält bewusst keine Senderauswahl.</p>
-            </section>
-          )}
-
-          {status === 'ready' && (
-            <>
-              <PeriodSelector
-                periods={periods}
-                selectedPeriodId={selectedPeriodId}
-                onPeriodChange={onPeriodChange}
-              />
-
-              {rowCount === 0 ? (
-                <section className="library-empty-state tv-program-empty">
-                  <p className="settings-kicker">Keine Sendetermine</p>
-                  <h2>Für diesen Zeitraum wurden keine zugeordneten Filme oder Serien gefunden.</h2>
-                </section>
-              ) : (
-                <ProgressiveRows
-                  rows={rows}
-                  heroReady={heroReady}
-                  onOpen={onOpen}
-                  className="rows-wrap tv-program-rows"
-                />
-              )}
-            </>
-          )}
-        </section>
+        <TvProgramContent
+          heroReady={heroReady}
+          onHeroReady={onHeroReady}
+          rows={rows}
+          periods={periods}
+          selectedPeriodId={selectedPeriodId}
+          onPeriodChange={onPeriodChange}
+          status={status}
+          onOpen={onOpen}
+        />
       )}
     </HeroFirstPage>
   )
