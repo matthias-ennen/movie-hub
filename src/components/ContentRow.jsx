@@ -54,8 +54,8 @@ export default function ContentRow({
 
   useEffect(() => {
     if (!visibleItems.length) return
-    prefetchPosterWindow(visibleItems, Math.max(0, Number(initialFocusIndex) || 0))
-  }, [initialFocusIndex, visibleItems])
+    prefetchPosterWindow(visibleItems, Math.max(0, Number(initialFocusIndex) || 0), { variant })
+  }, [initialFocusIndex, variant, visibleItems])
 
   if (resolvedProviderId && !isProviderEnabled(resolvedProviderId)) return null
 
@@ -76,7 +76,7 @@ export default function ContentRow({
 
   function handlePosterFocus(index) {
     onPosterFocus?.(index)
-    prefetchPosterWindow(visibleItems, index)
+    prefetchPosterWindow(visibleItems, index, { variant })
     if (progressive && shouldExpandPosterWindow(index, renderedCount, visibleItems.length, variant)) {
       expandProgressivePosters()
     }
@@ -105,6 +105,7 @@ export default function ContentRow({
             key={item.id}
             rank={topTen ? index + 1 : null}
             posterIndex={index}
+            variant={variant}
             onFocus={() => handlePosterFocus(index)}
             hasMovieHub={movieHubEnabled && hasMovieHubTitle(item)}
           />
