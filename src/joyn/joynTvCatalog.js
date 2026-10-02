@@ -48,11 +48,11 @@ export function normalizeJoynLiveStationCatalog(indexRaw, stationsRaw) {
   }
 }
 
-export async function loadJoynLiveStationCatalog({ fetchImpl = fetch } = {}) {
+export async function loadJoynLiveStationCatalog({ fetchImpl = fetch, signal } = {}) {
   try {
     const [indexResponse, stationsResponse] = await Promise.all([
-      fetchImpl(JOYN_LIVE_INDEX_URL, { cache: 'no-store' }),
-      fetchImpl(JOYN_LIVE_STATIONS_URL, { cache: 'no-store' }),
+      fetchImpl(JOYN_LIVE_INDEX_URL, { cache: 'no-store', signal }),
+      fetchImpl(JOYN_LIVE_STATIONS_URL, { cache: 'no-store', signal }),
     ])
     if (!indexResponse.ok || !stationsResponse.ok) return { status: 'unavailable', stations: [], days: [] }
     return normalizeJoynLiveStationCatalog(

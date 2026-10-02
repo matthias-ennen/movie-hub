@@ -1,6 +1,6 @@
 import { isUsableTitle, mergeEnrichedTitle } from '../catalog/titleMetadata.js'
 import { getActivePosterRowLimit } from '../profiles/profileExperienceRuntime.js'
-import { buildTmdbImageUrl } from '../services/tmdb.js'
+import { buildTmdbImageUrl } from './tmdbImageUrl.js'
 
 const SUPPORTED_AGE_RATINGS = new Set([0, 6, 12, 16, 18])
 const LOADING_TITLE = 'Titel wird geladen …'

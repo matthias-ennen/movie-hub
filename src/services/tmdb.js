@@ -6,8 +6,9 @@ import {
   metadataCheckState,
   metadataChecksComplete,
 } from '../catalog/titleMetadata.js'
+import { buildTmdbImageUrl } from '../tmdb/tmdbImageUrl.js'
 
-const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p'
+export { buildTmdbImageUrl } from '../tmdb/tmdbImageUrl.js'
 
 const TARGET_PROVIDER_IDS = new Map(
   TMDB_PROVIDER_REGISTRY.flatMap((provider) => provider.aliases.map((alias) => [alias, provider.id])),
@@ -96,12 +97,6 @@ export function normalizeGermanAgeRating(payload, mediaType) {
   const ratings = Array.isArray(payload?.content_ratings?.results) ? payload.content_ratings.results : []
   const german = ratings.find((rating) => rating?.iso_3166_1 === 'DE')
   return parseGermanAgeRating(german?.rating)
-}
-
-export function buildTmdbImageUrl(path, size = 'w500') {
-  if (!path) return null
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`
-  return `${TMDB_IMAGE_BASE_URL}/${size}${normalizedPath}`
 }
 
 /**

@@ -1,6 +1,5 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
-import AboutView from './components/AboutView.jsx'
 import DetailLoadingScreen from './components/DetailLoadingScreen.jsx'
 import HeroFirstPage from './components/HeroFirstPage.jsx'
 import { ProgressivePosterGrid, ProgressiveRows } from './components/ProgressiveContent.jsx'
@@ -41,6 +40,7 @@ import { prepareForActiveView, prepareRowsForActiveView } from './performance/co
 import { loadCatalogWithRetry } from './performance/catalogStartup.js'
 import { notifyNativeStartupReady } from './performance/nativeStartup.js'
 import {
+  LazyAboutView,
   LazyDetailModal,
   LazyProfileView,
   LazySearchView,
@@ -194,6 +194,7 @@ function Header({
   }
 
   function openAbout() {
+    onViewIntent('about')
     onProfileClose()
     onViewChange('about')
   }
@@ -683,7 +684,8 @@ function MovieHub({ user }) {
   useEffect(() => {
     if (!liveStationsRequested) return undefined
     let cancelled = false
-    loadWaipuLiveStationCatalog().then((stationCatalog) => {
+    const controller = new AbortController()
+    loadWaipuLiveStationCatalog({ signal: controller.signal }).then((stationCatalog) => {
       if (!cancelled) setWaipuStationCatalog(stationCatalog)
     })
     return () => {
@@ -695,10 +697,14 @@ function MovieHub({ user }) {
   useEffect(() => {
     if (!liveStationsRequested) return undefined
     let cancelled = false
-    loadJoynLiveStationCatalog().then((stationCatalog) => {
+    const controller = new AbortController()
+    loadJoynLiveStationCatalog({ signal: controller.signal }).then((stationCatalog) => {
       if (!cancelled) setJoynStationCatalog(stationCatalog)
     })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
   }, [liveStationsRequested])
 
   useEffect(() => {
@@ -1893,7 +1899,11 @@ function MovieHub({ user }) {
           />
         </Suspense>
       )}
-      {currentView === 'about' && <AboutView />}
+      {currentView === 'about' && (
+        <Suspense fallback={<LazyViewLoading label="Über Movie Hub" />}>
+          <LazyAboutView />
+        </Suspense>
+      )}
       {selectedTitle && (
         <Suspense fallback={<DetailLoadingScreen item={selectedTitle} onClose={closeDetail} />}>
         <LazyDetailModal
