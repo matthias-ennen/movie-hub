@@ -2,9 +2,19 @@ import AgeRatingBadge from './AgeRatingBadge.jsx'
 import ProviderBadges from './ProviderBadges.jsx'
 import { formatTvAiringCard } from '../waipu/waipuTvCatalog.js'
 import { resolveProviderPresentation } from '../providers/providerPresentation.js'
+import { posterImageProps, posterSourceUrl } from '../performance/posterImages.js'
 
-export default function PosterCard({ item, onOpen, rank = null, hasMovieHub = false, onFocus = null, posterIndex = null }) {
-  const posterUrl = item.displayPosterUrl || item.neutralPosterUrl || item.posterUrl || null
+export default function PosterCard({
+  item,
+  onOpen,
+  rank = null,
+  hasMovieHub = false,
+  onFocus = null,
+  posterIndex = null,
+  variant = 'standard',
+}) {
+  const posterUrl = posterSourceUrl(item)
+  const posterImage = posterImageProps(item, { variant: rank ? 'top-ten' : variant })
   const hasPoster = Boolean(posterUrl)
   const tvAiring = formatTvAiringCard(item.tvAiring)
   const providerPresentation = resolveProviderPresentation(item, {
@@ -33,7 +43,18 @@ export default function PosterCard({ item, onOpen, rank = null, hasMovieHub = fa
       style={{ '--poster-accent': item.accent, '--poster-accent-2': item.accent2 }}
     >
       <span className={`${hasPoster ? 'poster-art has-image' : 'poster-art'}${tvAiring ? ' has-tv-airing' : ''}`} aria-hidden="true">
-        {hasPoster && <img className="poster-image" src={posterUrl} alt="" loading="lazy" fetchPriority="low" decoding="async" />}
+        {hasPoster && (
+          <img
+            className="poster-image"
+            src={posterImage.src}
+            srcSet={posterImage.srcSet}
+            sizes={posterImage.sizes}
+            alt=""
+            loading="lazy"
+            fetchPriority="low"
+            decoding="async"
+          />
+        )}
         {rank && <span className="top-ten-rank">{rank}</span>}
         <AgeRatingBadge value={item.ageRating} className="poster-age-rating" />
         <span className="poster-kicker-stack">
