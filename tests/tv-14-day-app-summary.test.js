@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   buildTv14DayRows,
+  loadTv14DaySummary,
   normalizeTv14DaySummary,
   TV_14_DAY_ROW_LIMIT,
 } from '../src/tv/tv14DaySummary.js'
@@ -13,6 +14,27 @@ describe('TV 14-day app summary', () => {
       kind: 'moviehub-tv-14-day-summary',
       entries: [{ tmdbId: 11, type: 'movie', title: 'Film' }],
     })?.count).toBe(1)
+  })
+
+  it('forwards AbortSignal and stops an obsolete 14-day request', async () => {
+    const controller = new AbortController()
+    const fetchImpl = vi.fn((_url, options) => new Promise((_resolve, reject) => {
+      options.signal.addEventListener('abort', () => {
+        reject(new DOMException('Aborted', 'AbortError'))
+      }, { once: true })
+    }))
+
+    const request = loadTv14DaySummary({
+      fetchImpl,
+      signal: controller.signal,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledOnce()
+    expect(fetchImpl.mock.calls[0][1].signal).toBe(controller.signal)
+
+    controller.abort()
+
+    await expect(request).rejects.toMatchObject({ name: 'AbortError' })
   })
 
   it('uses only active provider stations and chooses prime-time independently', () => {
