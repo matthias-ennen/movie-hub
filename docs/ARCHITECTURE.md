@@ -1,6 +1,6 @@
 # Movie Hub – Architektur
 
-Stand: 19. September 2026
+Stand: 2. Oktober 2026
 
 ## Ziel
 
@@ -42,18 +42,38 @@ Movie Hub ist eine persönliche, TV-optimierte Filmzentrale für mehrere Streami
 - Watch-Provider-Daten soweit technisch und lizenzrechtlich geeignet
 
 ### Provider-Layer
-Unterstützte Zielanbieter:
+Unterstützte Zielanbieter umfassen unter anderem:
 - Netflix
 - Prime Video
 - Disney+
 - YouTube
 - waipu.tv / lineares Fernsehen
+- Joyn / lineares Fernsehen
 
-Die Anbieter sind systemseitig und vollständig automatisch. TMDB bestimmt, welche Provider bei einem Titel angezeigt werden. Der Benutzer kann Anbieterbuttons weder bearbeiten noch mit eigenen Ziel-URLs überschreiben.
+VOD-/Watch-Provider aus TMDB und zeitabhängige Live-TV-Provider sind fachlich getrennt. TMDB bestimmt die öffentliche Titelidentität und die regulären Watch-Provider-Daten. Waipu, Joyn und spätere Quellen ergänzen dagegen Senderereignisse, zeitliche Verfügbarkeit und konkrete Wiedergabewege.
 
 Zusätzlich erscheint **Movie Hub** an erster Stelle der kontoweiten Anbieterauswahl. Dieser interne virtuelle Anbieter wird nicht von TMDB erzeugt: Seine Katalogmitgliedschaft entsteht automatisch aus den kontoweiten eigenen Links und Videos. Das Ausschalten blendet Movie-Hub-Reihen, -Badges und den Wiedergabebutton aus, löscht aber keine eigenen Inhalte.
 
-Auf Filmkarten werden nur kompakte Provider-Symbole eingeblendet. In der Detailansicht stehen die automatisch ermittelten Anbieter neben einem optionalen Movie-Hub-Button für eigene Inhalte.
+Die zentrale Darstellungsreihenfolge lautet **Movie Hub → Waipu → Joyn → übrige Provider gemäß Registry**. Poster zeigen nach dieser Sortierung höchstens drei Anbieter; Detailseiten dürfen mehr zeigen, behalten aber dieselbe Reihenfolge.
+
+### Quellenplattform, Senderereignisse und PlaybackRoutes
+
+Die kanonische öffentliche Titelidentität bleibt `Medientyp + TMDB-ID`. Externe Adapter erzeugen deshalb keine eigenen parallelen Titelstämme, sondern liefern zeitabhängige Verfügbarkeiten und Wiedergabewege zu dieser Identität.
+
+Waipu und Joyn bilden den ersten produktiv belegten Mehrquellenpfad. Jeder Adapter normalisiert seine Rohdaten in einen gemeinsamen Vertrag. Wenn beide Quellen dieselbe lineare Ausstrahlung erkennen, entsteht ein gemeinsames neutrales Senderereignis; providerbezogene Informationen bleiben trotzdem getrennt erhalten.
+
+Ein normalisiertes Ereignis kann insbesondere enthalten:
+- kanonische TMDB-Identität;
+- Sender und Zeitfenster;
+- mehrere `providerIds`;
+- providerbezogene Sender- und Programm-IDs;
+- mehrere `playbackRoutes`;
+- providerbezogene Deep Links oder Web-Fallbacks;
+- Quellen-/Generations- und Aktualitätsinformationen.
+
+`PlaybackRoute` trennt den Provider vom eigentlichen Wiedergabeziel. Dadurch darf beispielsweise dieselbe ProSieben-Ausstrahlung gleichzeitig einen Waipu- und einen Joyn-Weg besitzen, ohne dass Movie Hub einen der beiden Anbieter als alleinige Wahrheit behandelt. Badge, Senderereignis und Wiedergabeziel bleiben drei getrennte Ebenen.
+
+Der App-Kern kennt diese normalisierte Struktur und benötigt keine quellenspezifische Sonderlogik für jede Kombination. Ein fehlerhafter Adapter darf weder die anderen Quellen noch den letzten gültigen veröffentlichten Stand beschädigen.
 
 ### Eigene Movie-Hub-Inhalte
 
@@ -112,9 +132,12 @@ Der tägliche vertrauenswürdige TMDB-Job erzeugt Staffelzusammenfassungen und E
 - schlanke Android-/Fire-OS-APK
 - lädt die zentrale Web-App
 - D-Pad-/Fernbedienungsnavigation
-- native Bridge für Android Intents, App-Starts, Web-/YouTube-Links und SMB-Wiedergabe
-- automatische Provider-Fallback-Kette: bestmögliche Titelsuche -> anbietereigene Such-/Startadresse -> App öffnen -> Web-Fallback
+- versionierte native Bridge für Android Intents, App-Starts, Web-/YouTube-Links und SMB-Wiedergabe
+- automatische Provider-Fallback-Kette: exakte PlaybackRoute beziehungsweise bestmöglicher Titelsprung -> anbietereigene Such-/Startadresse -> App öffnen -> Web-Fallback
 - YouTube behält seine auf Fire TV funktionierende HTTPS-Titelsuche als bevorzugten ersten Versuch
+- R8/Minify ist für Release aktiv; Bridge-Klassen besitzen explizite Keep-Regeln
+- Renderer-Gone-, Lifecycle-/Resume- und Back-Verhalten sind abgesichert
+- HTTPS ist Standard für Top-Level-Navigation; notwendige lokale HTTP-Medien bleiben gezielt kompatibel
 
 Die Titelsuche ist Best Effort. Ob eine fremde Anbieter-App externe Suchparameter verarbeitet, entscheidet die jeweilige App; Movie Hub garantiert deshalb nur den bestmöglichen Start, nicht die titelgenaue Zielseite.
 
@@ -129,6 +152,29 @@ Home, Filme, Serien und Meine Inhalte verwenden denselben gestuften Seitenaufbau
 5. Posterbilder bleiben lazy und nachrangig; Movie-Hub-Verfügbarkeit kommt primär aus dem einmal kontoweit geladenen Manifest. Nur die einmalige Nachmigration älterer Einträge verwendet weiterhin die in Viewportnähe verzögerte Presence-Prüfung.
 
 Beim nativen Kaltstart gilt zusätzlich ein expliziter Handshake: Der anfänglich leere Katalog darf keine Hero-Bereitschaft melden. Erst wenn der echte Katalog verarbeitet, das Hero-Bild geladen beziehungsweise kontrolliert fehlgeschlagen und die erste Reihe über zwei Renderframes stabil gemountet ist, meldet die Web-App die Home-Oberfläche an Android. Die native Startfläche bleibt mindestens fünf Sekunden sichtbar und beendet die CRT-Sequenz nach spätestens zwölf Sekunden, ohne diesen visuellen Grenzwert mit einem Ladefehler gleichzusetzen. Ist Home dann noch nicht bereit, bleibt die WebView unter einer neutralen Ladefläche aktiv. Der Katalogabruf und echte Hauptseitenfehler werden automatisch wiederholt; nach 30 Sekunden ohne Bereitschaft erfolgt einmalig ein vollständiger Neuaufruf. Erst wenn auch dieser Versuch scheitert, erscheint die Wiederholen-Aktion. Ein späteres gültiges Bereitschaftssignal wird auch dann noch angenommen, blendet die Fehlerfläche selbstständig aus und gibt anschließend den Startfokus frei.
+
+### TV-Runtime und Lazy-Ladepfad
+
+Der interaktive TV-Reiter liest nicht mehr vollständige Waipu-/Joyn-Titelkataloge in den Client. Der Datenworkflow verdichtet die benötigten Informationen in kleine veröffentlichte Runtime-Artefakte:
+
+- `/tv-runtime/hero.json` für den TV-Hero aus dem vollständigen 14-Tage-Bestand;
+- `/tv-runtime/index.json` als kompakter Tag-/Generationsindex;
+- `/tv-runtime/days/<YYYY-MM-DD>.json` für genau den gewählten TV-Tag;
+- `/tv-14-days-summary.json` ausschließlich für die ausdrücklich gewählte 14-Tage-Ansicht;
+- `/live-availability-index.json` als kleiner globaler Verfügbarkeitsindex für On-Air/Bald-Badges auch außerhalb des TV-Reiters.
+
+Der TV-Ablauf bleibt strikt Hero-first:
+1. Fokus auf den TV-Navigationspunkt darf das lazy TV-Modul vorladen, startet aber keinen schweren Tagesdownload.
+2. Beim tatsächlichen TV-Aufruf lädt der kleine Runtime-Hero.
+3. Erst nach `heroReady` werden Senderkataloge, Runtime-Index und der aktuell benötigte Poster-/Tagespfad freigegeben.
+4. Ein Datumswechsel lässt den Hero stehen und ersetzt nur den Posterbereich.
+5. Überholte Tagesrequests werden per `AbortController` beendet.
+6. Der Tagescache ist auf drei zuletzt verwendete Shards begrenzt.
+7. Beim Verlassen des TV-Reiters werden laufende Feature-Effekte und Timer beendet.
+
+Seit #346 liegt die TV-spezifische Runtime in einem eigenen lazy geladenen `TvFeature`. `App.jsx` behält nur globale, seitenübergreifend notwendige Live-Verfügbarkeit und die Station-Selection-Hooks. Dadurch bleiben Home/Filme/Serien/Meine Inhalte unabhängig von der großen TV-Runtime.
+
+Die zentrale Prime-Time-Grenze ist **20:15 Uhr Europe/Berlin**. TV Top 10 verwendet dieselbe Popularitätslogik für Tages- und 14-Tage-Ansicht.
 
 ### Automatische Hero-Trailer-Sequenz
 
@@ -202,15 +248,17 @@ Titel werden zuerst aus dem frisch erzeugten Hauptkatalog und danach bis zu
 alle veröffentlichten Titel `metadataComplete` erfüllen, wird die neue
 Generation atomar freigegeben.
 
-Die erste UI-Stufe liest den Titelindex und verbindet ihn über
-`Medientyp + TMDB-ID` mit vorhandenen MovieHub-Titeln. Poster zeigen
-weiter maximal drei Anbieter-Badges mit der festen Priorität `Movie Hub →
-waipu.tv → übrige Anbieter`. Die Detailseite zeigt nur den nächsten linearen
-Sendetermin als einzelne Zeile direkt unter den Anbieteraktionen. Weitere
-Termine werden dort nicht zusammengefasst. Abgelaufene Termine werden im
-Client ausgeblendet; einen ungeprüften titel- oder senderspezifischen Deep Link
-gibt es nicht. Persönliche Movie-Hub-Links sowie interne HTTP- und native
-SMB-Videos durchlaufen denselben profilbezogenen „Gesehen“-Schritt wie externe
+Die erste UI-Stufe verbindet veröffentlichte Live-TV-Verfügbarkeit über
+`Medientyp + TMDB-ID` mit vorhandenen Movie-Hub-Titeln. Poster zeigen
+maximal drei Anbieter-Badges nach der zentralen Reihenfolge `Movie Hub →
+Waipu → Joyn → übrige Provider`. Auf der Detailseite wird die konkrete
+TV-Ausstrahlung fachlich getrennt von **Streaming / Mediathek** dargestellt;
+eine zweite redundante „Im TV“-Zeile unter den Anbieterbuttons gibt es nicht.
+Abgelaufene Termine werden im Client ausgeblendet. Providerbezogene
+Wiedergabeziele stammen aus den normalisierten PlaybackRoutes; ein geratenes
+oder ungeprüftes titel- oder senderspezifisches Ziel wird nicht erzeugt.
+Persönliche Movie-Hub-Links sowie interne HTTP- und native SMB-Videos
+durchlaufen denselben profilbezogenen „Gesehen“-Schritt wie externe
 Anbieterbuttons.
 
 Falls ein älterer Rückfallbestand dennoch erst beim Öffnen eines Titels
@@ -219,17 +267,7 @@ in ihren gemeinsamen Waipu-Titelspeicher. Dadurch aktualisiert sich auch die
 Posterkarte in derselben Sitzung. Dieser Laufzeitpfad ist nur eine
 Ausfallsicherung; der Normalfall bleibt die serverseitig vollständige Anzeige.
 
-Die zweite UI-Stufe stellt die senderweisen Dateien im Hauptreiter **TV** als
-chronologische Tagesreihen dar. Die Seite enthält keine eigene Senderauswahl.
-Stattdessen sind alle veröffentlichten Sender standardmäßig aktiv und können
-nur unter den kontoweiten Einstellungen einzeln ausgeblendet werden. Gespeichert
-werden ausschließlich die ausgeschalteten Sender-IDs, sodass neue Sender ohne
-Migration automatisch erscheinen. Der Client lädt und cached nur Dateien der
-aktiven Sender. TV-Karten verwenden dieselbe Posterstruktur wie die übrigen
-Reihen. Zeit und Sender ergänzen sie als kollisionsfreie Textzeile; während
-einer laufenden Ausstrahlung erscheint zusätzlich ein statischer roter
-**ON AIR**-Badge. Eine gemeinsame Zeitsteuerung aktualisiert Start, Ende und
-das Entfernen abgelaufener Karten ohne App-Neustart.
+Die veröffentlichten Waipu-Artefakte speisen heute zusammen mit Joyn die gemeinsame Quellen- und TV-Runtime-Strecke. Der interaktive TV-Reiter arbeitet primär mit den kompakten `tv-runtime`-Artefakten; die separaten Senderkataloge dienen vor allem der kontoweiten Senderauswahl und der providerbezogenen Filterung. Die Seite enthält weiterhin keine eigene Senderauswahl. TV-Karten verwenden dieselbe Posterstruktur wie die übrigen Reihen und zeigen Zeit, Sender sowie On-Air/Bald-Zustände aus dem normalisierten Ereignis.
 
 Der vollständige Vertrag, die Messwerte, Requestmatrix, TMDB-Regeln und
 Abbruchlogik stehen in [WAIPU_PUBLIC_CONTRACT.md](WAIPU_PUBLIC_CONTRACT.md).
@@ -256,6 +294,10 @@ zum Compliance-Gate #112 gesperrt.
 - Firestore: Standard Edition, Region `europe-west3` (Frankfurt), Produktionsmodus
 - Firebase Authentication: E-Mail/Passwort aktiviert
 - TMDB: täglicher Katalog und deutsche Watch-Provider-Daten integriert
+- Live-TV: Waipu und Joyn über gemeinsamen Quellen-/PlaybackRoute-Vertrag integriert
+- TV-Runtime: Hero-/Index-/Tag-/14-Tage-Artefakte werden serverseitig vorbereitet
+- Web-Bundle: Hauptchunk 210,46 kB minifiziert / 63,72 kB gzip; TV und sekundäre Ansichten lazy
+- Android-/Fire-TV-Release: R8-minifiziert, rund 2,51 MiB
 
 ## Noch bewusst offen
 

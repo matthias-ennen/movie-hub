@@ -1,6 +1,6 @@
 # Movie Hub – Roadmap
 
-Stand: 26. September 2026
+Stand: 2. Oktober 2026
 
 ## Leitprinzip
 
@@ -29,45 +29,43 @@ Zu den zuletzt abgeschlossenen beziehungsweise abgenommenen Paketen gehören ins
 - #256 – vollständige kanonische Titelmetadaten und gemeinsamer Nachtlauf
 - #259 – exakter Waipu-Programmlink mit sicherer Fallbackkette
 - #260 – produktiver Ausbau auf 228 Waipu-Sender; auf Smartphone, Tablet und Fire TV abgenommen
+- #280 – Joyn-Adapter; zweiter unabhängiger Live-TV-/EPG-Adapter mit gemeinsamem Waipu/Joyn-Vertrag abgeschlossen
 - #281/#283/#285/#289 – gemeinsame TV-/Hero-/Inhaltsseiten-Grundlage
 
 ## Aktive Hauptstrecke
 
-### 1. #271 – Modulare Quellenplattform
+### 1. #346 – Fundamenthärtung und Performance abschließen
 
-Nächstes Hauptarbeitspaket.
+Die technischen Phasen 1–10 sind umgesetzt. Dazu gehören die zentralen Produktverträge, Page-/Row-Verträge, atomare Detailbeladung, TV Hero-first, progressive Darstellung, React-/State-Härtung, Native-Härtung, Dependency-/CI-Arbeit sowie Hosting-/Cache-/Bundle-Optimierung.
 
-Ziel der ersten Stufe ist ein verbindlicher, versionierter Adapter- und Veröffentlichungsvertrag auf Basis des bestehenden Waipu-Pfads. Er muss mindestens sauber trennen:
+Aktueller technischer Stand:
+- Haupt-JS: 210,46 kB minifiziert / 63,72 kB gzip
+- signierter R8-Release: rund 2,51 MiB
+- TV-Runtime als lazy Feature; Vorwärmung bei TV-Intent, Datenstart weiterhin Hero-first
+- CI, Android und Firebase-Deploy auf aktuellem Main grün
 
-- kanonische Titelidentität: `Medientyp + TMDB-ID`
-- neutrales Sender-/Verfügbarkeitsereignis
-- Quelle und Provider
-- mehrere getrennte Wiedergabeziele
-- Zeitfenster und Live-Status
-- Datenalter und Quellenzustand
-- Match-Sicherheit
-- Qualitäts-, Last- und Fehlergates
-- letzter gültiger Stand bei Adapterfehlern
+Offen für den Abschluss von #346:
+- README, ROADMAP und Architektur konsolidieren;
+- reale Smartphone-Abnahme;
+- reale Fire-TV-Abnahme;
+- Tablet nur als Gegenprobe bei relevanter Abweichung;
+- Abschlussbericht und danach Issue schließen.
 
-Die erste Stufe von #271 endet, sobald Waipu denselben Vertrag wie spätere Adapter nachweisbar bedienen kann und mehrere Providerziele für dasselbe Ereignis ohne Sonderlogik im App-Kern möglich sind.
+### 2. #271 – Modulare Quellenplattform fortführen
 
-DVB-I, Direktstreams und weitere Quellen bleiben spätere Teilziele von #271 und blockieren den Joyn-Pilot nicht.
+#271 bleibt das übergeordnete Quellenpaket. Die erste praktische Mehrquellenstufe ist inzwischen belegt: #280 hat Joyn als zweiten unabhängigen Adapter abgeschlossen. Waipu und Joyn können denselben kanonischen Titel beziehungsweise dasselbe lineare Ereignis bedienen, während ihre Providerkennungen, Programm-IDs und PlaybackRoutes getrennt erhalten bleiben.
 
-### 2. #280 – Joyn-Adapter
+Die nächste Stufe unter #271 ist deshalb kein erneuter Joyn-Grundaufbau, sondern der kontrollierte Ausbau um weitere belastbare Quellen. Dabei bleiben verbindlich:
+- kanonische Titelidentität `Medientyp + TMDB-ID`;
+- neutrales Sender-/Verfügbarkeitsereignis;
+- getrennte Quellen- und Provideridentität;
+- mehrere getrennte Wiedergabeziele;
+- Zeitfenster, Datenalter und Quellenzustand;
+- Match-Sicherheit;
+- Qualitäts-, Last- und Fehlergates;
+- letzter gültiger veröffentlichter Stand bei Adapterfehlern.
 
-Direkt nach der ersten tragfähigen #271-Stufe.
-
-Joyn dient als erster Beweis, dass ein zweiter unabhängiger Adapter ohne Umbau des App-Kerns aufgenommen werden kann:
-
-- begrenzte Senderinventur
-- strukturierte und stabil nutzbare EPG-Quelle prüfen
-- Programme normalisieren und mit TMDB verbinden
-- identische Waipu-/Joyn-Ausstrahlungen als ein neutrales Senderereignis behandeln
-- Joyn- und Waipu-Ziele getrennt erhalten
-- sendergenaue Joyn-Ziele auf Smartphone, Tablet und Fire TV praktisch verifizieren
-- Teilfehler und veraltete Generationen sicher isolieren
-
-### 3. Weitere Adapter nach erfolgreichem Joyn-Pilot
+### 3. Weitere Adapter nach abgeschlossenem Joyn-Pilot
 
 Weitere Quellen werden jeweils als getrennte, kleine Adapterpakete unter #271 bewertet. Bevorzugte Reihenfolge:
 
@@ -100,7 +98,7 @@ Diese Darstellungs-/Priorisierungsarbeit folgt nach den ersten zusätzlichen Ada
 ## Gesondert offene Betriebs- und Restpakete
 
 - #315 – Nachtlauf zuverlässig überwachen; Betriebszuverlässigkeit, blockiert #271 nicht
-- #329 – Waipu-Restklassifizierung der technischen-only Einträge; Wartung, blockiert #271/#280 nicht
+- #329 – Waipu-Restklassifizierung der technischen-only Einträge; Wartung, blockiert #271 nicht
 - #312 – Mitteilungszentrale; Fire-TV-Bedienung am 26.09.2026 abgenommen, Ende-zu-Ende-/Mehrgeräte-Restpunkte offen
 - #118/#314 – „Wenn inklusive“ und „Wenn im TV“ sind veröffentlicht und auf Fire TV bedienbar; produktive Lauf-/Randfallprüfung und spätere Produktentscheidungen offen
 - #7 – erste Top-100-Stufe veröffentlicht und am 26.09.2026 auf Fire TV abgenommen; Empfehlungen und Automatisierung später
@@ -114,7 +112,7 @@ Vor einer öffentlichen Version 1.0 sollen mindestens folgende Blöcke abgeschlo
 
 1. **Quellenfundament**
    - #271 erste Plattformstufe
-   - #280 Joyn-Pilot
+   - #280 Joyn-Pilot – abgeschlossen; dient als Beleg für den zweiten unabhängigen Adapter
    - mindestens weitere belastbare Quellenadapter, sodass Movie Hub nicht funktional von einem einzelnen EPG-/Verfügbarkeitsweg abhängt
 
 2. **Verfügbarkeitsdarstellung**
@@ -144,6 +142,6 @@ Vor einer öffentlichen Version 1.0 sollen mindestens folgende Blöcke abgeschlo
 
 ## Aktuelle Reihenfolge
 
-`#271 Plattformvertrag → #280 Joyn-Pilot → weitere Adapter → Verfügbarkeitsdarstellung schärfen → Betriebs-/Produkt-Finish → #112 Release-Gate → 1.0`
+`#346 Abschlussdoku + Geräteabnahme → #271 weitere Adapter → Verfügbarkeitsdarstellung schärfen → Betriebs-/Produkt-Finish → #112 Release-Gate → 1.0`
 
-#315 und #329 laufen bei Bedarf parallel. #118/#314, #7, #327 und #328 sind bewusst nach hinten gestellt und blockieren den Adapterpfad nicht.
+#315 und #329 laufen bei Bedarf parallel. #280 ist abgeschlossen. #118/#314, #7, #327 und #328 sind bewusst nach hinten gestellt und blockieren den Adapterpfad nicht.
