@@ -2,6 +2,7 @@ import { getActivePosterRowLimit } from '../profiles/profileExperienceRuntime.js
 
 export const STANDARD_POSTER_ROW_LIMIT = 50
 export const TOP_TEN_ROW_LIMIT = 10
+export const HISTORY_POSTER_ROW_LIMIT = 100
 export const TV_POSTER_ROW_LIMIT = 150
 export const TV_INITIAL_RENDERED_POSTERS = 30
 export const TV_RENDER_BATCH_SIZE = 30
@@ -10,7 +11,12 @@ export const ROW_VIRTUAL_OVERSCAN = 2
 
 export function posterRowLimit(variant = 'standard') {
   if (variant === 'tv') return TV_POSTER_ROW_LIMIT
+  if (variant === 'history') return HISTORY_POSTER_ROW_LIMIT
   return variant === 'top-ten' ? TOP_TEN_ROW_LIMIT : getActivePosterRowLimit()
+}
+
+export function isProgressivePosterRow(variant = 'standard') {
+  return variant === 'tv' || variant === 'history'
 }
 
 export function limitPosterRowItems(items, variant = 'standard') {
