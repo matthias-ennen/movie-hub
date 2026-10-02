@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import HeroFirstPage from './HeroFirstPage.jsx'
 import { ProgressiveRows } from './ProgressiveContent.jsx'
 
-function TvProgramContent({
+export function TvProgramContent({
   heroReady,
   onHeroReady,
   rows,
