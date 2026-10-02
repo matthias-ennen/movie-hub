@@ -41,6 +41,7 @@ import { firebaseReady } from './lib/firebase.js'
 import { useAnnouncements } from './notifications/useAnnouncements.js'
 import { AnnouncementsView, BellButton, StartupAnnouncement } from './notifications/AnnouncementsView.jsx'
 import { preloadHeroImage } from './performance/progressiveRendering.js'
+import { prepareRowsForActiveView } from './performance/contentRowPreparation.js'
 import { loadCatalogWithRetry } from './performance/catalogStartup.js'
 import { notifyNativeStartupReady } from './performance/nativeStartup.js'
 import {
@@ -1292,15 +1293,15 @@ function MovieHub({ user }) {
   }
 
   const rawHomeRows = useMemo(
-    () => [
+    () => prepareRowsForActiveView(currentView, 'home', () => [
       ...buildProviderHomeRows(catalog.providerCatalogs, titles),
       ...rowDefinitions.filter((row) => !row.providerId).map((row) => ({
         ...row,
         displayLimit: Array.isArray(row.ids) ? row.ids.length : 0,
         items: (Array.isArray(row.ids) ? row.ids : []).map((id) => titles.find((item) => item.id === id)).filter(Boolean),
       })),
-    ].filter((row) => row.items.length),
-    [catalog.providerCatalogs, rowDefinitions, titles],
+    ].filter((row) => row.items.length)),
+    [catalog.providerCatalogs, currentView, rowDefinitions, titles],
   )
   const personalCatalogTitles = useMemo(
     () => mergeCatalogWithPersonalSnapshots(titles, statesByKey)
@@ -1316,8 +1317,12 @@ function MovieHub({ user }) {
     [personalCatalogTitles, getTitleState, statesByKey],
   )
   const watchedHistoryRows = useMemo(
-    () => buildWatchedHistoryRows(personalCatalogTitles, getTitleState),
-    [personalCatalogTitles, getTitleState, statesByKey],
+    () => prepareRowsForActiveView(
+      currentView,
+      'library',
+      () => buildWatchedHistoryRows(personalCatalogTitles, getTitleState),
+    ),
+    [currentView, personalCatalogTitles, getTitleState, statesByKey],
   )
   const tmdbRows = useMemo(() => buildTmdbCatalogRows(titles), [titles])
   const personalSmartRows = useMemo(
@@ -1340,11 +1345,15 @@ function MovieHub({ user }) {
     [personalRows, personalTopHundredRows, tmdbRows, personalSmartRows],
   )
   const personalTopTen = useMemo(
-    () => buildPersonalTopTen(combinedPersonalRows, getTitleState),
-    [combinedPersonalRows, getTitleState, statesByKey],
+    () => prepareRowsForActiveView(
+      currentView,
+      'library',
+      () => [{ id: 'top-ten-personal-source', items: buildPersonalTopTen(combinedPersonalRows, getTitleState) }],
+    )[0]?.items || [],
+    [combinedPersonalRows, currentView, getTitleState, statesByKey],
   )
   const personalDisplayRows = useMemo(
-    () => {
+    () => prepareRowsForActiveView(currentView, 'library', () => {
       const regularRows = combinedPersonalRows.filter((row) => !row.id.startsWith('my-top-100-'))
       const rowsWithTopTen = assembleTopTenPageRows({
         page: 'myContent',
@@ -1363,10 +1372,11 @@ function MovieHub({ user }) {
         ...personalTopHundredRows,
         ...rowsWithTopTen.slice(insertionIndex),
       ], 'myContent')
-    },
+    }),
     [
       activeProfile?.experienceSettings,
       combinedPersonalRows,
+      currentView,
       personalTopTen,
       watchedHistoryRows,
       personalTopHundredRows,
@@ -1379,16 +1389,28 @@ function MovieHub({ user }) {
     enabledProviderIds,
   }), [catalog.providerCatalogs, titles, movieHubTitles, enabledProviderIds])
   const homeTopTen = useMemo(
-    () => buildProviderTopTen(providerTopTenInput),
-    [providerTopTenInput],
+    () => prepareRowsForActiveView(
+      currentView,
+      'home',
+      () => [{ id: 'top-ten-home-source', items: buildProviderTopTen(providerTopTenInput) }],
+    )[0]?.items || [],
+    [currentView, providerTopTenInput],
   )
   const movieTopTen = useMemo(
-    () => buildProviderTopTen({ ...providerTopTenInput, mediaType: 'movie' }),
-    [providerTopTenInput],
+    () => prepareRowsForActiveView(
+      currentView,
+      'movies',
+      () => [{ id: 'top-ten-movies-source', items: buildProviderTopTen({ ...providerTopTenInput, mediaType: 'movie' }) }],
+    )[0]?.items || [],
+    [currentView, providerTopTenInput],
   )
   const seriesTopTen = useMemo(
-    () => buildProviderTopTen({ ...providerTopTenInput, mediaType: 'series' }),
-    [providerTopTenInput],
+    () => prepareRowsForActiveView(
+      currentView,
+      'series',
+      () => [{ id: 'top-ten-series-source', items: buildProviderTopTen({ ...providerTopTenInput, mediaType: 'series' }) }],
+    )[0]?.items || [],
+    [currentView, providerTopTenInput],
   )
   const eligiblePublicTitles = useMemo(
     () => titles.filter((item) => hasEnabledAvailability(item, enabledProviderIds, hasMovieHubTitle)),
@@ -1436,7 +1458,7 @@ function MovieHub({ user }) {
   const series = curatedSeriesTitles
   const personalHeroes = useMemo(() => selectPersonalHeroItems(combinedPersonalRows), [combinedPersonalRows])
   const curatedHomeRows = useMemo(
-    () => curateCatalogRows(
+    () => prepareRowsForActiveView(currentView, 'home', () => curateCatalogRows(
       rawHomeRows.filter((row) => !row.providerId || enabledProviderIds.includes(row.providerId)).map((row) => ({
         ...row,
         items: row.items.filter((item) => hasEnabledAvailability(item, enabledProviderIds, hasMovieHubTitle)),
@@ -1447,8 +1469,8 @@ function MovieHub({ user }) {
         watchedMode: contentDisplaySettings.watchedMode,
         getTitleState,
       },
-    ),
-    [rawHomeRows, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle],
+    )),
+    [rawHomeRows, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle],
   )
   const curateMovieHubTitles = useCallback((items, seedSuffix) => curateTitles(items, {
     mode: activeSortMode,
@@ -1458,28 +1480,58 @@ function MovieHub({ user }) {
     limit: PUBLIC_POSTER_ROW_LIMIT,
   }), [activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey])
   const curatedMovieHubHomeTitles = useMemo(
-    () => curateMovieHubTitles(movieHubTitles, 'home'),
-    [movieHubTitles, curateMovieHubTitles],
+    () => prepareRowsForActiveView(
+      currentView,
+      'home',
+      () => [{ id: 'moviehub-home-source', items: curateMovieHubTitles(movieHubTitles, 'home') }],
+    )[0]?.items || [],
+    [currentView, movieHubTitles, curateMovieHubTitles],
   )
   const curatedMovieHubMovieTitles = useMemo(
-    () => curateMovieHubTitles(movieHubTitles.filter((item) => item.type === 'movie'), 'movies'),
-    [movieHubTitles, curateMovieHubTitles],
+    () => prepareRowsForActiveView(
+      currentView,
+      'movies',
+      () => [{
+        id: 'moviehub-movies-source',
+        items: curateMovieHubTitles(movieHubTitles.filter((item) => item.type === 'movie'), 'movies'),
+      }],
+    )[0]?.items || [],
+    [currentView, movieHubTitles, curateMovieHubTitles],
   )
   const curatedMovieHubSeriesTitles = useMemo(
-    () => curateMovieHubTitles(movieHubTitles.filter((item) => item.type === 'series'), 'series'),
-    [movieHubTitles, curateMovieHubTitles],
+    () => prepareRowsForActiveView(
+      currentView,
+      'series',
+      () => [{
+        id: 'moviehub-series-source',
+        items: curateMovieHubTitles(movieHubTitles.filter((item) => item.type === 'series'), 'series'),
+      }],
+    )[0]?.items || [],
+    [currentView, movieHubTitles, curateMovieHubTitles],
   )
   const movieHubHomeRows = useMemo(
-    () => enabledProviderIds.includes('moviehub') ? buildMovieHubCatalogRows(curatedMovieHubHomeTitles) : [],
-    [curatedMovieHubHomeTitles, enabledProviderIds],
+    () => prepareRowsForActiveView(
+      currentView,
+      'home',
+      () => enabledProviderIds.includes('moviehub') ? buildMovieHubCatalogRows(curatedMovieHubHomeTitles) : [],
+    ),
+    [currentView, curatedMovieHubHomeTitles, enabledProviderIds],
   )
   const movieHubMovieRows = useMemo(
-    () => enabledProviderIds.includes('moviehub') ? buildMovieHubCatalogRows(curatedMovieHubMovieTitles, 'movie') : [],
-    [curatedMovieHubMovieTitles, enabledProviderIds],
+    () => prepareRowsForActiveView(
+      currentView,
+      'movies',
+      () => enabledProviderIds.includes('moviehub') ? buildMovieHubCatalogRows(curatedMovieHubMovieTitles, 'movie') : [],
+    ),
+    [currentView, curatedMovieHubMovieTitles, enabledProviderIds],
   )
   const movieHubSeriesRows = useMemo(
-    () => enabledProviderIds.includes('moviehub') ? buildMovieHubCatalogRows(curatedMovieHubSeriesTitles, 'series') : [],
-    [curatedMovieHubSeriesTitles, enabledProviderIds],
+    () => prepareRowsForActiveView(
+      currentView,
+      'series',
+      () => enabledProviderIds.includes('moviehub') ? buildMovieHubCatalogRows(curatedMovieHubSeriesTitles, 'series') : [],
+    ),
+    [currentView, curatedMovieHubSeriesTitles, enabledProviderIds],
   )
   const hasProviderCatalogs = Object.keys(catalog.providerCatalogs || {}).length > 0
   const providerMovieRows = useMemo(
