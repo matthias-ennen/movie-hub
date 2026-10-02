@@ -49,11 +49,30 @@ export function selectHomeHeroItems(items, limit = HERO_LIMIT) {
     .slice(0, safeLimit)
 }
 
+export function selectPersonalHeroItemsFromSources(sources, limit = HERO_LIMIT) {
+  const safeLimit = Math.max(0, Number(limit) || 0)
+  if (!safeLimit) return []
+
+  const result = []
+  const seen = new Set()
+
+  for (const source of Array.isArray(sources) ? sources : []) {
+    const rows = typeof source === 'function' ? source() : source
+    for (const row of Array.isArray(rows) ? rows : []) {
+      for (const item of Array.isArray(row?.items) ? row.items : []) {
+        if (!item?.id || !item?.title || seen.has(item.id)) continue
+        seen.add(item.id)
+        result.push(item)
+        if (result.length >= safeLimit) return result
+      }
+    }
+  }
+
+  return result
+}
+
 export function selectPersonalHeroItems(rows, limit = HERO_LIMIT) {
-  const items = (Array.isArray(rows) ? rows : []).flatMap((row) => (
-    Array.isArray(row?.items) ? row.items : []
-  ))
-  return selectHeroItems(items, { limit })
+  return selectPersonalHeroItemsFromSources([rows], limit)
 }
 
 function identity(item) {
