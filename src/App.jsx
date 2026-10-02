@@ -45,6 +45,12 @@ import { preloadHeroImage } from './performance/progressiveRendering.js'
 import { loadCatalogWithRetry } from './performance/catalogStartup.js'
 import { notifyNativeStartupReady } from './performance/nativeStartup.js'
 import {
+  cancelPerformanceSpan,
+  finishPerformanceSpan,
+  recordPerformanceEvent,
+  startPerformanceSpan,
+} from './performance/performanceDiagnostics.js'
+import {
   isTvPresentationReady,
   shouldLoadLiveStations,
 } from './performance/liveCatalogStartup.js'
@@ -489,6 +495,8 @@ function MovieHub({ user }) {
   const [tvPeriodId, setTvPeriodId] = useState(() => `day:${tvDayKey(Date.now())}`)
   const contentActivationSequenceRef = useRef(0)
   const detailRequestSequenceRef = useRef(0)
+  const detailPerformanceRequestRef = useRef(null)
+  const tvPerformanceSequenceRef = useRef(0)
   const detailReturnFocusRef = useRef(null)
   const detailSessionActiveRef = useRef(false)
 
@@ -588,8 +596,13 @@ function MovieHub({ user }) {
     // Do not cancel the small index request on that render; otherwise the
     // request can finish without ever being allowed to publish "ready".
     setTvRuntimeIndex((current) => ({ ...current, status: 'loading' }))
+    startPerformanceSpan('tv:index', 'runtime')
     loadTvRuntimeIndex()
       .then((index) => {
+        finishPerformanceSpan('tv:index', 'runtime', {
+          dayCount: index.days.length,
+          providerCount: index.providers.length,
+        })
         setTvRuntimeIndex({
           status: 'ready',
           generatedAt: index.generatedAt,
@@ -598,6 +611,7 @@ function MovieHub({ user }) {
         })
       })
       .catch((error) => {
+        finishPerformanceSpan('tv:index', 'runtime', { outcome: 'error' })
         console.warn('TV-Runtime-Index konnte nicht geladen werden.', error)
         setTvRuntimeIndex({
           status: 'unavailable',
@@ -650,15 +664,23 @@ function MovieHub({ user }) {
     if (tv14DaySummary.status === 'ready') return undefined
     let cancelled = false
     setTv14DaySummary((current) => ({ ...current, status: 'loading' }))
+    startPerformanceSpan('tv:14-day', 'summary')
     loadTv14DaySummary()
       .then((summary) => {
-        if (!cancelled) setTv14DaySummary({ status: 'ready', entries: summary.entries })
+        if (cancelled) return
+        finishPerformanceSpan('tv:14-day', 'summary', { entryCount: summary.entries.length })
+        setTv14DaySummary({ status: 'ready', entries: summary.entries })
       })
       .catch((error) => {
+        if (cancelled) return
+        finishPerformanceSpan('tv:14-day', 'summary', { outcome: 'error' })
         console.warn('14-Tage-TV-Summary konnte nicht geladen werden.', error)
-        if (!cancelled) setTv14DaySummary({ status: 'unavailable', entries: [] })
+        setTv14DaySummary({ status: 'unavailable', entries: [] })
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      cancelPerformanceSpan('tv:14-day', 'summary', { reason: 'superseded' })
+    }
   }, [tv14DaySummary.status, tvPeriodId, tvScheduleRequested])
 
   useEffect(() => {
@@ -705,13 +727,26 @@ function MovieHub({ user }) {
     }
 
     let cancelled = false
+    tvPerformanceSequenceRef.current += 1
+    const performanceKey = `${dayKey}:${tvPerformanceSequenceRef.current}`
     setTvSchedule({ status: 'loading', airings: [], titles: [] })
+    startPerformanceSpan('tv:day', performanceKey, { dayKey })
     loadTvRuntimeDay(dayKey, { generation: tvRuntimeIndex.generatedAt })
       .then((day) => {
         if (cancelled) return
+        finishPerformanceSpan('tv:day', performanceKey, {
+          dayKey,
+          entryCount: day.entries.length,
+        })
+        startPerformanceSpan('tv:view-model', performanceKey, { dayKey })
         const schedule = buildTvRuntimeSchedule(day, {
           activeWaipuStationIds: activeWaipuStations.map((station) => station.id),
           activeJoynStationIds: activeJoynStations.map((station) => station.id),
+        })
+        finishPerformanceSpan('tv:view-model', performanceKey, {
+          dayKey,
+          airingCount: schedule.airings.length,
+          titleCount: schedule.titles.length,
         })
         setTvClock(Date.now())
         setTvSchedule({
@@ -721,11 +756,17 @@ function MovieHub({ user }) {
         })
       })
       .catch((error) => {
+        if (cancelled) return
+        finishPerformanceSpan('tv:day', performanceKey, { dayKey, outcome: 'error' })
         console.warn('TV-Runtime-Tag konnte nicht geladen werden.', error)
-        if (!cancelled) setTvSchedule({ status: 'unavailable', airings: [], titles: [] })
+        setTvSchedule({ status: 'unavailable', airings: [], titles: [] })
       })
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      cancelPerformanceSpan('tv:day', performanceKey, { dayKey, reason: 'superseded' })
+      cancelPerformanceSpan('tv:view-model', performanceKey, { dayKey, reason: 'superseded' })
+    }
   }, [
     activeJoynStationKey,
     activeJoynStations,
@@ -864,6 +905,7 @@ function MovieHub({ user }) {
   const curationSeed = `${activeProfile?.id || 'profile'}:${curationPeriodKey}:${catalog.generatedAt || 'catalog'}`
 
   const handleViewChange = useCallback((nextView) => {
+    recordPerformanceEvent('view:activate', { viewId: nextView })
     setProfileOpen(false)
     setContentActivationRequest(null)
     if (nextView === 'tv') {
@@ -910,6 +952,14 @@ function MovieHub({ user }) {
     }
     detailRequestSequenceRef.current += 1
     const requestId = detailRequestSequenceRef.current
+    if (detailPerformanceRequestRef.current !== null) {
+      cancelPerformanceSpan('detail', String(detailPerformanceRequestRef.current), { reason: 'replaced' })
+    }
+    detailPerformanceRequestRef.current = requestId
+    startPerformanceSpan('detail', String(requestId), {
+      requireComplete,
+      mediaType: item?.type === 'series' || item?.mediaType === 'tv' ? 'series' : 'movie',
+    })
     setDetailRequest({ id: requestId, item: initiallySelected, requireComplete, error: null })
 
     if (!requireComplete && titleNeedsMetadataEnrichment(item)) {
@@ -989,6 +1039,11 @@ function MovieHub({ user }) {
       ])
       if (cancelled) return
 
+      finishPerformanceSpan('detail', String(requestId), {
+        outcome: 'ready',
+        sharedMediaCount: sharedMedia.length,
+      })
+      if (detailPerformanceRequestRef.current === requestId) detailPerformanceRequestRef.current = null
       setDetailSharedMedia(sharedMedia)
       setDetailSharedMediaLoadError(sharedMediaLoadError)
       setSelectedTitle(displayedItem)
@@ -999,11 +1054,15 @@ function MovieHub({ user }) {
       console.warn('Movie-Hub-Detailansicht konnte nicht vollständig vorbereitet werden.', error)
       if (cancelled) return
       if (requireComplete) {
+        finishPerformanceSpan('detail', String(requestId), { outcome: 'error' })
+        if (detailPerformanceRequestRef.current === requestId) detailPerformanceRequestRef.current = null
         setDetailRequest((current) => current?.id === requestId
           ? { ...current, error }
           : current)
         return
       }
+      finishPerformanceSpan('detail', String(requestId), { outcome: 'fallback' })
+      if (detailPerformanceRequestRef.current === requestId) detailPerformanceRequestRef.current = null
       setDetailSharedMedia([])
       setDetailSharedMediaLoadError('Zusätzliche Detailinformationen konnten nicht geladen werden.')
       setSelectedTitle(item)
@@ -1023,6 +1082,10 @@ function MovieHub({ user }) {
 
   const closeDetail = useCallback(() => {
     const detailWasMounted = Boolean(selectedTitle)
+    if (detailPerformanceRequestRef.current !== null) {
+      cancelPerformanceSpan('detail', String(detailPerformanceRequestRef.current), { reason: 'closed' })
+      detailPerformanceRequestRef.current = null
+    }
     setDetailRequest(null)
     setSelectedTitle(null)
     setDetailSharedMedia([])
@@ -1032,6 +1095,10 @@ function MovieHub({ user }) {
   }, [restoreDetailReturnFocus, selectedTitle])
 
   const cancelDetailLoading = useCallback(() => {
+    if (detailPerformanceRequestRef.current !== null) {
+      cancelPerformanceSpan('detail', String(detailPerformanceRequestRef.current), { reason: 'cancelled' })
+      detailPerformanceRequestRef.current = null
+    }
     if (selectedTitle) {
       setDetailRequest(null)
       return
@@ -1040,8 +1107,13 @@ function MovieHub({ user }) {
   }, [closeDetail, selectedTitle])
 
   const retryDetailLoading = useCallback(() => {
+    if (detailPerformanceRequestRef.current !== null) {
+      cancelPerformanceSpan('detail', String(detailPerformanceRequestRef.current), { reason: 'retry' })
+    }
     detailRequestSequenceRef.current += 1
     const requestId = detailRequestSequenceRef.current
+    detailPerformanceRequestRef.current = requestId
+    startPerformanceSpan('detail', String(requestId), { retry: true })
     setDetailRequest((current) => current
       ? { ...current, id: requestId, error: null }
       : current)
@@ -1055,6 +1127,10 @@ function MovieHub({ user }) {
       return true
     }
     if (detailRequest) {
+      if (detailPerformanceRequestRef.current !== null) {
+        cancelPerformanceSpan('detail', String(detailPerformanceRequestRef.current), { reason: 'back' })
+        detailPerformanceRequestRef.current = null
+      }
       setDetailRequest(null)
       if (!selectedTitle) {
         detailSessionActiveRef.current = false
