@@ -27,6 +27,7 @@ export default function DetailModal({
   collections = {},
   titles = [],
   initialSharedMedia = null,
+  initialPrimaryImageUrl = undefined,
   sharedMediaPreloaded = false,
   sharedMediaLoadError = '',
   returnFocusTarget = null,
@@ -81,9 +82,14 @@ export default function DetailModal({
     || seriesSeasons[0]
     || null
   const hasSeriesNavigation = item?.type === 'series' && seriesSeasons.length > 0
-  const detailPosterUrl = hasSeriesNavigation && selectedSeason?.posterUrl
-    ? selectedSeason.posterUrl
-    : item?.displayPosterUrl || resolveArtworkUrl(item, artworkOptions)
+  const initialSeasonNumber = seriesSeasons[0]?.seasonNumber ?? null
+  const usesInitialDetailImage = item?.type !== 'series'
+    || selectedSeason?.seasonNumber === initialSeasonNumber
+  const detailPosterUrl = usesInitialDetailImage && initialPrimaryImageUrl !== undefined
+    ? initialPrimaryImageUrl
+    : hasSeriesNavigation && selectedSeason?.posterUrl
+      ? selectedSeason.posterUrl
+      : item?.displayPosterUrl || resolveArtworkUrl(item, artworkOptions)
   const filmCollection = findFilmCollectionForTitle(item, collections)
     || buildFilmCollection(item?.collectionDetails, titles)
   const collectionParts = useMemo(

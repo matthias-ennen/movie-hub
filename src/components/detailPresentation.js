@@ -1,21 +1,31 @@
 import { resolvePresentationArtwork } from '../catalog/artworkRotation.js'
 import { loadRuntimeTitleMetadata } from '../catalog/runtimeTitleMetadata.js'
+import { normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
 
 const DETAIL_IMAGE_WAIT_MS = 1_500
 
 export async function prepareDetailRequestItem(item, {
-  requireComplete = false,
   artworkOptions = {},
   loadComplete = loadRuntimeTitleMetadata,
   presentArtwork = resolvePresentationArtwork,
 } = {}) {
-  const detail = requireComplete
-    ? await loadComplete(item, {
-        requireContract: true,
-        requireComplete: true,
-      })
-    : item
+  const detail = await loadComplete(item, {
+    requireContract: true,
+    requireComplete: true,
+  })
   return presentArtwork(detail, artworkOptions)
+}
+
+export function detailInitialImageUrl(item) {
+  if (!item) return null
+  if (item.type === 'series' || item.mediaType === 'tv') {
+    const seasons = normalizeSeriesSeasons(item.seasons, {
+      seriesTmdbId: item.tmdbId,
+      numberOfSeasons: item.numberOfSeasons,
+    })
+    if (seasons[0]?.posterUrl) return seasons[0].posterUrl
+  }
+  return item.displayPosterUrl || item.posterUrl || null
 }
 
 export function waitForDetailLoadingPaint({
