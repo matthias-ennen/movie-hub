@@ -52,7 +52,7 @@ export default function DetailLoadingScreen({ item, error = null, onRetry, onClo
                   data-focusable="true"
                   onClick={onClose}
                 >
-                  Zurück zur Suche
+                  Zurück
                 </button>
               </div>
             </section>
