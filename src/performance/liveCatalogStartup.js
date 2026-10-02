@@ -13,18 +13,13 @@ export function shouldLoadLiveStations({
 }
 
 export function isTvPresentationReady({
-  catalogStatus = 'loading',
-  liveAvailabilityStatus = 'idle',
+  heroStatus = 'idle',
   stationSelectionLoading = true,
   joynStationSelectionLoading = true,
 } = {}) {
-  const catalogSettled = catalogStatus !== 'loading'
-  const liveAvailabilitySettled = liveAvailabilityStatus === 'ready'
-    || liveAvailabilityStatus === 'unavailable'
+  const heroSettled = heroStatus === 'ready' || heroStatus === 'unavailable'
   const stationSelectionsSettled = !stationSelectionLoading
     && !joynStationSelectionLoading
 
-  return catalogSettled
-    && liveAvailabilitySettled
-    && stationSelectionsSettled
+  return heroSettled && stationSelectionsSettled
 }

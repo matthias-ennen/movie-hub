@@ -192,61 +192,6 @@ export function normalizeLiveAvailabilityIndex(raw, { now = Date.now() } = {}) {
     .filter(Boolean)
 }
 
-function liveSelectionStationId(airing, providerId) {
-  if (providerId === 'joyn') {
-    return text(airing?.sourceStationId) || text(airing?.stationId)
-  }
-  return text(airing?.stationId)
-}
-
-export function filterLiveAvailabilityEntriesByStationSelection(entries = [], {
-  disabledWaipuStationIds = [],
-  disabledJoynStationIds = [],
-} = {}) {
-  const disabledByProvider = {
-    waipu: new Set((Array.isArray(disabledWaipuStationIds) ? disabledWaipuStationIds : []).map(String)),
-    joyn: new Set((Array.isArray(disabledJoynStationIds) ? disabledJoynStationIds : []).map(String)),
-  }
-
-  return (Array.isArray(entries) ? entries : [])
-    .map((entry) => {
-      const providers = (Array.isArray(entry?.providers) ? entry.providers : [])
-        .map((provider) => {
-          const providerId = text(provider?.providerId)
-          if (!providerId) return null
-          const disabled = disabledByProvider[providerId]
-          const airings = (Array.isArray(provider?.airings) ? provider.airings : [])
-            .filter((airing) => {
-              if (!disabled) return true
-              const stationId = liveSelectionStationId(airing, providerId)
-              return !stationId || !disabled.has(stationId)
-            })
-            .sort((left, right) => String(left?.startTime || '').localeCompare(String(right?.startTime || '')))
-          if (!airings.length) return null
-          return {
-            ...provider,
-            airings,
-            nextAiring: airings[0],
-            airingCount: airings.length,
-          }
-        })
-        .filter(Boolean)
-
-      if (!providers.length) return null
-      const airings = providers.flatMap((provider) => provider.airings)
-        .sort((left, right) => String(left?.startTime || '').localeCompare(String(right?.startTime || '')))
-      return {
-        ...entry,
-        providerIds: providers.map(({ providerId }) => providerId),
-        providers,
-        airings,
-        nextAiring: airings[0] || null,
-        airingCount: airings.length,
-      }
-    })
-    .filter(Boolean)
-}
-
 export function advanceLiveAvailabilityEntries(entries = [], { now = Date.now() } = {}) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
   return (Array.isArray(entries) ? entries : [])
