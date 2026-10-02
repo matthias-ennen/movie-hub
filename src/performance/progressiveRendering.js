@@ -1,3 +1,5 @@
+import { heroBackdropSourceUrl, heroImageProps } from './heroImages.js'
+
 export const HERO_READY_TIMEOUT_MS = 1600
 export const INITIAL_VISIBLE_ROWS = 1
 export const ROW_REVEAL_BATCH_SIZE = 1
@@ -20,18 +22,25 @@ const preloadedHeroImages = new Set()
 let pendingHeroPreloadTimer = null
 let pendingHeroPreloadUrl = null
 
-function heroImageUrl(items) {
+function heroImageCandidate(items) {
   const firstItem = Array.isArray(items) ? items[0] : items
-  return firstItem?.displayHeroBackdropUrl || firstItem?.backdropUrl || null
+  const sourceUrl = heroBackdropSourceUrl(firstItem)
+  if (!sourceUrl) return null
+  return {
+    sourceUrl,
+    imageProps: heroImageProps(firstItem),
+  }
 }
 
-function startHeroImagePreload(url) {
-  if (!url || preloadedHeroImages.has(url)) return false
-  preloadedHeroImages.add(url)
+function startHeroImagePreload(candidate) {
+  if (!candidate?.sourceUrl || preloadedHeroImages.has(candidate.sourceUrl)) return false
+  preloadedHeroImages.add(candidate.sourceUrl)
   const image = new Image()
   image.decoding = 'async'
   image.fetchPriority = 'high'
-  image.src = url
+  if (candidate.imageProps?.sizes) image.sizes = candidate.imageProps.sizes
+  if (candidate.imageProps?.srcSet) image.srcset = candidate.imageProps.srcSet
+  image.src = candidate.imageProps?.src || candidate.sourceUrl
   return true
 }
 
@@ -52,16 +61,16 @@ export function cancelHeroImagePreload() {
 export function preloadHeroImage(items, { delayMs = HERO_PRELOAD_INTENT_DELAY_MS } = {}) {
   if (typeof Image === 'undefined' || typeof setTimeout !== 'function') return false
 
-  const url = heroImageUrl(items)
-  if (!url || preloadedHeroImages.has(url)) return false
-  if (pendingHeroPreloadUrl === url && pendingHeroPreloadTimer !== null) return true
+  const candidate = heroImageCandidate(items)
+  if (!candidate?.sourceUrl || preloadedHeroImages.has(candidate.sourceUrl)) return false
+  if (pendingHeroPreloadUrl === candidate.sourceUrl && pendingHeroPreloadTimer !== null) return true
 
   cancelHeroImagePreload()
-  pendingHeroPreloadUrl = url
+  pendingHeroPreloadUrl = candidate.sourceUrl
   pendingHeroPreloadTimer = setTimeout(() => {
     pendingHeroPreloadTimer = null
     pendingHeroPreloadUrl = null
-    startHeroImagePreload(url)
+    startHeroImagePreload(candidate)
   }, Math.max(0, Number(delayMs) || 0))
   return true
 }
