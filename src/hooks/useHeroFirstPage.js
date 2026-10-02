@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import { recordPerformanceEvent } from '../performance/performanceDiagnostics.js'
 
 function now() {
   return typeof performance !== 'undefined' ? performance.now() : Date.now()
@@ -23,6 +24,11 @@ export function useHeroFirstPage(pageId) {
       titleId: detail.item?.id || null,
     }
 
+    recordPerformanceEvent('hero:ready', {
+      pageId,
+      durationMs,
+      reason: measurement.reason,
+    })
     console.info(`[Movie Hub] Hero ${pageId} nach ${durationMs} ms bereit.`, measurement)
     window.dispatchEvent(new CustomEvent('moviehub:hero-ready', { detail: measurement }))
   }, [pageId])

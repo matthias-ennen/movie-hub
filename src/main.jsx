@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import InitialHomeFocus from './components/InitialHomeFocus.jsx'
+import { installPerformanceDiagnostics, recordPerformanceEvent } from './performance/performanceDiagnostics.js'
 import './index.css'
 import './styles/themes.css'
 import './styles/profile.css'
@@ -20,6 +21,9 @@ import './styles/issue218.css'
 import './styles/waipu-tv.css'
 import './styles/issue287-focus-detail.css'
 import './styles/notifications.css'
+
+installPerformanceDiagnostics()
+recordPerformanceEvent('app:render-start')
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
