@@ -1,10 +1,13 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   buildTvRuntimeSchedule,
+  clearTvRuntimeCache,
+  getTvRuntimeCacheDiagnostics,
   loadTvRuntimeDay,
   loadTvRuntimeIndex,
   normalizeTvRuntimeDay,
   normalizeTvRuntimeIndex,
+  TV_RUNTIME_DAY_CACHE_LIMIT,
 } from '../src/tv/tvRuntimeClient.js'
 
 const indexPayload = {
@@ -55,6 +58,21 @@ const dayPayload = {
   }],
 }
 
+function emptyDayPayload(key) {
+  return {
+    schemaVersion: 1,
+    kind: 'moviehub-tv-runtime-day',
+    generatedAt: '2026-10-01T09:00:00.000Z',
+    key,
+    entries: [],
+  }
+}
+
+afterEach(() => {
+  clearTvRuntimeCache()
+  vi.unstubAllGlobals()
+})
+
 describe('TV runtime client', () => {
   it('validates the published index and day contracts', () => {
     expect(normalizeTvRuntimeIndex(indexPayload)?.days[0].key).toBe('2026-10-01')
@@ -78,6 +96,59 @@ describe('TV runtime client', () => {
     expect(fetchImpl.mock.calls[0][0]).toBe('/tv-runtime/index.json')
     expect(String(fetchImpl.mock.calls[1][0])).toContain('/tv-runtime/days/2026-10-01.json')
     expect(day.entries).toHaveLength(1)
+  })
+
+  it('forwards AbortSignal and stops an obsolete day request', async () => {
+    const controller = new AbortController()
+    const fetchImpl = vi.fn((_url, options) => new Promise((_resolve, reject) => {
+      options.signal.addEventListener('abort', () => {
+        reject(new DOMException('Aborted', 'AbortError'))
+      }, { once: true })
+    }))
+
+    const request = loadTvRuntimeDay('2026-10-01', {
+      fetchImpl,
+      generation: 'generation-a',
+      signal: controller.signal,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledOnce()
+    expect(fetchImpl.mock.calls[0][1].signal).toBe(controller.signal)
+
+    controller.abort()
+
+    await expect(request).rejects.toMatchObject({ name: 'AbortError' })
+  })
+
+  it('keeps only the three most recently used day shards in the runtime cache', async () => {
+    const fetchImpl = vi.fn(async (url) => {
+      const key = String(url).match(/days\/(\d{4}-\d{2}-\d{2})\.json/)?.[1]
+      return { ok: true, json: async () => emptyDayPayload(key) }
+    })
+    vi.stubGlobal('fetch', fetchImpl)
+
+    for (const key of ['2026-10-01', '2026-10-02', '2026-10-03']) {
+      await loadTvRuntimeDay(key, { generation: 'generation-a' })
+    }
+
+    // Cache hit also refreshes the LRU position.
+    await loadTvRuntimeDay('2026-10-01', { generation: 'generation-a' })
+    await loadTvRuntimeDay('2026-10-04', { generation: 'generation-a' })
+
+    expect(fetchImpl).toHaveBeenCalledTimes(4)
+    expect(getTvRuntimeCacheDiagnostics()).toMatchObject({
+      dayCacheLimit: TV_RUNTIME_DAY_CACHE_LIMIT,
+      dayCacheKeys: [
+        'generation-a:2026-10-03',
+        'generation-a:2026-10-01',
+        'generation-a:2026-10-04',
+      ],
+    })
+
+    // 02 was the least recently used day and must be fetched again.
+    await loadTvRuntimeDay('2026-10-02', { generation: 'generation-a' })
+    expect(fetchImpl).toHaveBeenCalledTimes(5)
+    expect(getTvRuntimeCacheDiagnostics().dayCacheKeys).toHaveLength(TV_RUNTIME_DAY_CACHE_LIMIT)
   })
 
   it('keeps both providers when both source stations are active', () => {
