@@ -110,7 +110,7 @@ export const PROVIDER_REGISTRY = [
     source: 'tmdb',
     aliases: ['paramountplus', 'paramount'],
     description: 'Paramount+-Filme und -Serien berücksichtigen.',
-    homeTitle: 'Neu bei Paramount+',
+    homeTitle: 'Beliebt bei Paramount+',
     movieTitle: 'Filme auf Paramount+',
     seriesTitle: 'Serien auf Paramount+',
     searchUrl: (title) => `https://www.paramountplus.com/de/search/?query=${encodeURIComponent(title)}`,
