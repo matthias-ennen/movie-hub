@@ -68,6 +68,19 @@ jobs:
         if: steps.signing.outputs.configured == 'true'
         run: gradle --no-daemon :app:assembleRelease
 
+      - name: Report APK sizes
+        if: steps.signing.outputs.configured == 'true'
+        run: |
+          debug_bytes=$(stat -c%s app/build/outputs/apk/debug/app-debug.apk)
+          release_bytes=$(stat -c%s app/build/outputs/apk/release/app-release.apk)
+          echo "Debug APK: $debug_bytes bytes"
+          echo "Release APK: $release_bytes bytes"
+          {
+            echo "### Android APK sizes"
+            echo "- Debug APK: $debug_bytes bytes"
+            echo "- Release APK: $release_bytes bytes"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v7
         with:
@@ -82,5 +95,14 @@ jobs:
         with:
           name: movie-hub-fire-tv-release-apk
           path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload release R8 mapping
+        if: steps.signing.outputs.configured == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: movie-hub-fire-tv-release-r8-mapping
+          path: android/app/build/outputs/mapping/release/mapping.txt
           if-no-files-found: error
           retention-days: 30

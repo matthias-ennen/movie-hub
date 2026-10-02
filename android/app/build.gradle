@@ -141,7 +141,12 @@ android {
             if (signingPropertiesFile.exists()) {
                 signingConfig signingConfigs.release
             }
-            minifyEnabled false
+            // Isolierter #346-Releaseversuch: R8 aktivieren, Ressourcen-Shrinking
+            // bewusst noch nicht einschalten. WebView-Bridge-Namen werden in
+            // proguard-rules.pro explizit geschützt.
+            minifyEnabled true
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
