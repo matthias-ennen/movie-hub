@@ -5,6 +5,9 @@ import { tvDayKey } from '../waipu/waipuTvCatalog.js'
 export const TV_RUNTIME_SNAPSHOT_VERSION = 1
 export const TV_RUNTIME_SNAPSHOT_KIND = 'moviehub-tv-runtime-index'
 export const TV_RUNTIME_DAY_KIND = 'moviehub-tv-runtime-day'
+export const TV_RUNTIME_HERO_KIND = 'moviehub-tv-runtime-hero'
+export const TV_RUNTIME_HERO_CANDIDATE_LIMIT = 50
+export const TV_RUNTIME_HERO_AIRINGS_PER_TITLE_LIMIT = 12
 
 function text(value) {
   const result = String(value ?? '').trim()
@@ -80,6 +83,281 @@ function compactMetadata(value = {}) {
     genreIds: genreIds(value),
     genreNames: genreNames(value),
     tmdbProviderIds: tmdbProviderIds(value),
+  }
+}
+
+function stringArray(values = []) {
+  return [...new Set((Array.isArray(values) ? values : [])
+    .map(text)
+    .filter(Boolean))]
+}
+
+function compactHeroArtwork(value = {}) {
+  const artwork = value?.artwork && typeof value.artwork === 'object' ? value.artwork : {}
+  return {
+    posterPaths: stringArray([
+      ...(Array.isArray(artwork.posterPaths) ? artwork.posterPaths : []),
+      value?.neutralPosterPath,
+      value?.posterPath,
+    ]),
+    heroBackdropPaths: stringArray([
+      ...(Array.isArray(artwork.heroBackdropPaths) ? artwork.heroBackdropPaths : []),
+      value?.backdropPath,
+    ]),
+  }
+}
+
+function compactHeroVideos(value = {}) {
+  return (Array.isArray(value?.videos) ? value.videos : [])
+    .map((video) => ({
+      id: text(video?.id),
+      site: text(video?.site),
+      key: text(video?.key),
+      type: text(video?.type),
+      name: text(video?.name),
+      official: video?.official === true,
+      publishedAt: text(video?.publishedAt ?? video?.published_at),
+    }))
+    .filter((video) => video.site && video.key)
+    .slice(0, 12)
+}
+
+function heroMetadata(value = {}) {
+  const type = mediaType(value?.type ?? value?.mediaType)
+  const base = compactMetadata(value)
+  const artwork = compactHeroArtwork(value)
+  const metadataChecks = value?.metadataChecks && typeof value.metadataChecks === 'object'
+    ? { ...value.metadataChecks }
+    : {}
+  const voteAverage = finite(value?.voteAverage)
+  return {
+    ...base,
+    description: text(value?.description ?? value?.overview) || '',
+    backdropUrl: text(value?.displayHeroBackdropUrl || value?.backdropUrl),
+    backdropPath: text(value?.backdropPath),
+    artwork,
+    videos: compactHeroVideos(value),
+    metadataVersion: finite(value?.metadataVersion),
+    metadataChecks,
+    metadataComplete: value?.metadataComplete === true,
+    metadataUpdatedAt: value?.metadataUpdatedAt || null,
+    collectionChecked: value?.collectionChecked === true,
+    collectionId: finite(value?.collectionId),
+    collectionDetails: value?.collectionDetails && typeof value.collectionDetails === 'object'
+      ? value.collectionDetails
+      : null,
+    score: text(value?.score) || (voteAverage !== null ? voteAverage.toFixed(1) : '–'),
+    meta: text(value?.meta) || (type === 'series' ? 'Serie' : 'Film'),
+    providerIds: tmdbProviderIds(value),
+  }
+}
+
+function heroMetadataScore(value = {}) {
+  const meta = heroMetadata(value)
+  return metadataScore(meta)
+    + (meta.metadataComplete ? 20 : 0)
+    + (Number(meta.metadataVersion || 0) >= 3 ? 8 : 0)
+    + (meta.backdropUrl || meta.backdropPath || meta.artwork.heroBackdropPaths.length ? 10 : 0)
+    + (meta.description ? 3 : 0)
+    + (meta.videos.length ? 2 : 0)
+}
+
+function mergeHeroMetadata(left = {}, right = {}) {
+  const leftMeta = heroMetadata(left)
+  const rightMeta = heroMetadata(right)
+  const rightPreferred = heroMetadataScore(rightMeta) >= heroMetadataScore(leftMeta)
+  const preferred = rightPreferred ? rightMeta : leftMeta
+  const fallback = rightPreferred ? leftMeta : rightMeta
+  const base = mergeMetadata(leftMeta, rightMeta)
+  return {
+    ...base,
+    description: preferred.description || fallback.description || '',
+    backdropUrl: preferred.backdropUrl || fallback.backdropUrl || null,
+    backdropPath: preferred.backdropPath || fallback.backdropPath || null,
+    artwork: {
+      posterPaths: stringArray([
+        ...preferred.artwork.posterPaths,
+        ...fallback.artwork.posterPaths,
+      ]),
+      heroBackdropPaths: stringArray([
+        ...preferred.artwork.heroBackdropPaths,
+        ...fallback.artwork.heroBackdropPaths,
+      ]),
+    },
+    videos: preferred.videos.length ? preferred.videos : fallback.videos,
+    metadataVersion: Math.max(Number(leftMeta.metadataVersion || 0), Number(rightMeta.metadataVersion || 0)) || null,
+    metadataChecks: Object.keys(preferred.metadataChecks).length
+      ? preferred.metadataChecks
+      : fallback.metadataChecks,
+    metadataComplete: leftMeta.metadataComplete || rightMeta.metadataComplete,
+    metadataUpdatedAt: preferred.metadataUpdatedAt || fallback.metadataUpdatedAt || null,
+    collectionChecked: leftMeta.collectionChecked || rightMeta.collectionChecked,
+    collectionId: preferred.collectionId ?? fallback.collectionId ?? null,
+    collectionDetails: preferred.collectionDetails || fallback.collectionDetails || null,
+    score: preferred.score || fallback.score || '–',
+    meta: preferred.meta || fallback.meta || null,
+    providerIds: [...new Set([...leftMeta.providerIds, ...rightMeta.providerIds])],
+  }
+}
+
+function buildHeroMetadataLookup(catalog, searchIndex, sourceCatalogs) {
+  const byKey = new Map()
+  const values = [
+    ...(Array.isArray(sourceCatalogs) ? sourceCatalogs.flatMap((source) => (
+      Array.isArray(source?.entries) ? source.entries : []
+    )) : []),
+    ...(Array.isArray(searchIndex?.entries) ? searchIndex.entries : []),
+    ...(Array.isArray(catalog?.titles) ? catalog.titles : []),
+  ]
+  for (const value of values) {
+    const key = tvRuntimeTitleKey(value)
+    if (!key) continue
+    byKey.set(key, mergeHeroMetadata(byKey.get(key), value))
+  }
+  return byKey
+}
+
+function hasHeroBackdrop(value) {
+  const meta = heroMetadata(value)
+  return Boolean(meta.backdropUrl || meta.backdropPath || meta.artwork.heroBackdropPaths.length)
+}
+
+function heroAiringIdentity(airing) {
+  return [
+    text(airing?.canonicalStationId || airing?.stationId),
+    text(airing?.startTime),
+    text(airing?.stopTime),
+    ...(Array.isArray(airing?.providerIds) ? airing.providerIds.map(String).sort() : []),
+  ].join('|')
+}
+
+function providerStationKeys(airing) {
+  const map = airing?.providerStationIds && typeof airing.providerStationIds === 'object'
+    ? airing.providerStationIds
+    : {}
+  return (Array.isArray(airing?.providerIds) ? airing.providerIds : [])
+    .map((providerId) => {
+      const stationId = text(map?.[providerId])
+        || (providerId === 'joyn' ? text(airing?.sourceStationId) : null)
+        || text(airing?.stationId)
+        || text(airing?.canonicalStationId)
+      return stationId ? `${providerId}:${stationId}` : null
+    })
+    .filter(Boolean)
+}
+
+function selectHeroAirings(airings = [], limit = TV_RUNTIME_HERO_AIRINGS_PER_TITLE_LIMIT) {
+  const chronological = [...new Map((Array.isArray(airings) ? airings : [])
+    .map((airing) => [heroAiringIdentity(airing), airing])
+    .filter(([key]) => key)).values()]
+    .sort((left, right) => String(left?.startTime || '').localeCompare(String(right?.startTime || '')))
+  const selected = []
+  const selectedKeys = new Set()
+  const seenStations = new Set()
+
+  for (const airing of chronological) {
+    if (selected.length >= limit) break
+    const stationKeys = providerStationKeys(airing)
+    if (!stationKeys.some((key) => !seenStations.has(key))) continue
+    selected.push(airing)
+    selectedKeys.add(heroAiringIdentity(airing))
+    stationKeys.forEach((key) => seenStations.add(key))
+  }
+
+  for (const airing of chronological) {
+    if (selected.length >= limit) break
+    const key = heroAiringIdentity(airing)
+    if (selectedKeys.has(key)) continue
+    selected.push(airing)
+    selectedKeys.add(key)
+  }
+
+  return selected.sort((left, right) => String(left?.startTime || '').localeCompare(String(right?.startTime || '')))
+}
+
+function heroRank(candidate, nowMs) {
+  const airings = (Array.isArray(candidate?.airings) ? candidate.airings : [])
+    .filter((airing) => Date.parse(airing?.stopTime) > nowMs)
+    .sort((left, right) => String(left?.startTime || '').localeCompare(String(right?.startTime || '')))
+  const onAir = airings.find((airing) => {
+    const start = Date.parse(airing?.startTime)
+    const stop = Date.parse(airing?.stopTime)
+    return start <= nowMs && stop > nowMs
+  })
+  const representative = onAir || airings.find((airing) => Date.parse(airing?.startTime) > nowMs) || airings[0] || null
+  const start = Date.parse(representative?.startTime)
+  const tier = onAir ? 0 : Number.isFinite(start) && start < nowMs + 24 * 60 * 60 * 1000 ? 1 : 2
+  return { tier, start: Number.isFinite(start) ? start : Number.MAX_SAFE_INTEGER }
+}
+
+export function buildTvRuntimeHeroSnapshot({
+  days = [],
+  heroMetadataByKey = new Map(),
+  now = Date.now(),
+  limit = TV_RUNTIME_HERO_CANDIDATE_LIMIT,
+} = {}) {
+  const nowMs = typeof now === 'function' ? Number(now()) : Number(now)
+  const candidates = new Map()
+
+  for (const day of Array.isArray(days) ? days : []) {
+    for (const entry of Array.isArray(day?.entries) ? day.entries : []) {
+      const key = tvRuntimeTitleKey(entry)
+      if (!key) continue
+      const metadata = mergeHeroMetadata(entry, heroMetadataByKey.get(key))
+      if (metadata.metadataComplete !== true || !metadata.title || !hasHeroBackdrop(metadata)) continue
+      if (!candidates.has(key)) {
+        candidates.set(key, {
+          key,
+          type: mediaType(entry?.type),
+          tmdbId: Number(entry?.tmdbId),
+          ...metadata,
+          airings: [],
+        })
+      }
+      candidates.get(key).airings.push(...(Array.isArray(entry?.airings) ? entry.airings : []))
+    }
+  }
+
+  const ranked = [...candidates.values()]
+    .map((candidate) => {
+      const airings = selectHeroAirings(candidate.airings)
+      return {
+        ...candidate,
+        id: `tv-runtime-hero-${candidate.type}-${candidate.tmdbId}`,
+        mediaType: candidate.type === 'series' ? 'tv' : 'movie',
+        neutralPosterUrl: candidate.posterUrl,
+        neutralPosterPath: candidate.posterPath,
+        genres: candidate.genreIds.map((id, index) => ({
+          id,
+          name: candidate.genreNames[index] || null,
+        })),
+        genre: candidate.genreNames.length ? candidate.genreNames.join(' · ') : 'TV-Programm',
+        airingCount: candidate.airings.length,
+        airings,
+        nextAiring: airings.find((airing) => Date.parse(airing?.stopTime) > nowMs) || null,
+      }
+    })
+    .filter((candidate) => candidate.airings.length)
+    .sort((left, right) => {
+      const leftRank = heroRank(left, nowMs)
+      const rightRank = heroRank(right, nowMs)
+      return leftRank.tier - rightRank.tier
+        || Number(right.popularity || 0) - Number(left.popularity || 0)
+        || leftRank.start - rightRank.start
+        || left.key.localeCompare(right.key)
+    })
+
+  const entries = ranked.slice(0, Math.max(0, Number(limit) || 0))
+  const generatedAt = new Date(nowMs).toISOString()
+  return {
+    schemaVersion: TV_RUNTIME_SNAPSHOT_VERSION,
+    kind: TV_RUNTIME_HERO_KIND,
+    generatedAt,
+    sourceTitleCount: ranked.length,
+    candidateLimit: Math.max(0, Number(limit) || 0),
+    airingsPerTitleLimit: TV_RUNTIME_HERO_AIRINGS_PER_TITLE_LIMIT,
+    count: entries.length,
+    entries,
   }
 }
 
@@ -235,6 +513,7 @@ export function buildTvRuntimeSnapshot({
   if (!Number.isFinite(nowMs)) throw new TypeError('now must be a finite timestamp.')
 
   const metadataByKey = buildMetadataLookup(catalog, searchIndex, sourceCatalogs)
+  const heroMetadataByKey = buildHeroMetadataLookup(catalog, searchIndex, sourceCatalogs)
   const airingsByTitle = sourceAirings(sourceCatalogs, nowMs)
   const days = new Map()
 
@@ -287,6 +566,12 @@ export function buildTvRuntimeSnapshot({
     .filter(Boolean)
     .sort()
 
+  const hero = buildTvRuntimeHeroSnapshot({
+    days: dayPayloads,
+    heroMetadataByKey,
+    now: nowMs,
+  })
+
   return {
     index: {
       schemaVersion: TV_RUNTIME_SNAPSHOT_VERSION,
@@ -296,12 +581,14 @@ export function buildTvRuntimeSnapshot({
       dayCount: dayPayloads.length,
       titleCount: dayPayloads.reduce((total, day) => total + day.count, 0),
       airingCount: dayPayloads.reduce((total, day) => total + day.airingCount, 0),
+      heroCount: hero.count,
       days: dayPayloads.map((day) => ({
         key: day.key,
         count: day.count,
         airingCount: day.airingCount,
       })),
     },
+    hero,
     days: dayPayloads,
   }
 }
