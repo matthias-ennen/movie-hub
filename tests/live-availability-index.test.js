@@ -3,6 +3,7 @@ import {
   advanceLiveAvailabilityEntries,
   buildItemLiveProviderRouteSnapshot,
   buildLiveAvailabilityIndex,
+  filterLiveAvailabilityEntriesByStationSelection,
   getItemLiveProviderDestination,
   getItemLiveProviderRoute,
   getLiveProviderDestination,
@@ -217,6 +218,64 @@ describe('generic live availability index', () => {
 
     expect(getItemLiveProviderRoute(item, 'waipu', { now })).toBeNull()
     expect(buildItemLiveProviderRouteSnapshot(item, ['waipu'], { now })).toEqual({})
+  })
+
+  it('filters compact TV hero airings by saved Waipu and Joyn station settings', () => {
+    const entries = [{
+      key: 'movie:11',
+      type: 'movie',
+      tmdbId: 11,
+      providerIds: ['waipu', 'joyn'],
+      providers: [
+        {
+          providerId: 'waipu',
+          airings: [
+            { stationId: 'zdf', startTime: '2026-09-30T18:00:00.000Z', stopTime: '2026-09-30T20:00:00.000Z' },
+            { stationId: 'rtl', startTime: '2026-09-30T20:00:00.000Z', stopTime: '2026-09-30T22:00:00.000Z' },
+          ],
+        },
+        {
+          providerId: 'joyn',
+          airings: [
+            { stationId: 'canonical-pro7', sourceStationId: 'prosieben', startTime: '2026-09-30T18:00:00.000Z', stopTime: '2026-09-30T20:00:00.000Z' },
+            { stationId: 'canonical-sat1', sourceStationId: 'sat1', startTime: '2026-09-30T20:00:00.000Z', stopTime: '2026-09-30T22:00:00.000Z' },
+          ],
+        },
+      ],
+    }]
+
+    const [filtered] = filterLiveAvailabilityEntriesByStationSelection(entries, {
+      disabledWaipuStationIds: ['zdf'],
+      disabledJoynStationIds: ['prosieben'],
+    })
+
+    expect(filtered.providerIds).toEqual(['waipu', 'joyn'])
+    expect(filtered.providers.find((provider) => provider.providerId === 'waipu').airings)
+      .toEqual([expect.objectContaining({ stationId: 'rtl' })])
+    expect(filtered.providers.find((provider) => provider.providerId === 'joyn').airings)
+      .toEqual([expect.objectContaining({ sourceStationId: 'sat1' })])
+    expect(filtered.airingCount).toBe(2)
+  })
+
+  it('drops a compact live title when every airing is disabled', () => {
+    const entries = [{
+      key: 'movie:22',
+      type: 'movie',
+      tmdbId: 22,
+      providerIds: ['waipu'],
+      providers: [{
+        providerId: 'waipu',
+        airings: [{
+          stationId: 'zdf',
+          startTime: '2026-09-30T18:00:00.000Z',
+          stopTime: '2026-09-30T20:00:00.000Z',
+        }],
+      }],
+    }]
+
+    expect(filterLiveAvailabilityEntriesByStationSelection(entries, {
+      disabledWaipuStationIds: ['zdf'],
+    })).toEqual([])
   })
 
   it('drops expired airings without provider-specific code', () => {
