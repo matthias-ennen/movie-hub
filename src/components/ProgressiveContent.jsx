@@ -9,6 +9,7 @@ import {
   nextVisibleCount,
 } from '../performance/progressiveRendering.js'
 import { estimatePosterRowHeight, ROW_VIRTUAL_OVERSCAN } from '../performance/posterRows.js'
+import { recordPerformanceEvent } from '../performance/performanceDiagnostics.js'
 import {
   filterRowsByExperienceVisibility,
   inferExperiencePage,
@@ -132,11 +133,20 @@ export function ProgressiveRows({
   }, [activeRows.length, heroReady, rowVirtualizer])
 
   useEffect(() => {
-    if (!heroReady || initialReadyReportedRef.current || !onInitialContentReady) return undefined
+    if (!heroReady || initialReadyReportedRef.current) return undefined
+
+    const reportReady = (visibleRowCount) => {
+      initialReadyReportedRef.current = true
+      const detail = { visibleRowCount }
+      recordPerformanceEvent('rows:first-ready', {
+        pageId: experiencePage,
+        visibleRowCount,
+      })
+      onInitialContentReady?.(detail)
+    }
 
     if (!virtualItems.length && activeRows.length === 0) {
-      initialReadyReportedRef.current = true
-      onInitialContentReady({ visibleRowCount: 0 })
+      reportReady(0)
       return undefined
     }
     if (!virtualItems.length) return undefined
@@ -144,8 +154,7 @@ export function ProgressiveRows({
     let secondFrame = null
     const firstFrame = window.requestAnimationFrame(() => {
       secondFrame = window.requestAnimationFrame(() => {
-        initialReadyReportedRef.current = true
-        onInitialContentReady({ visibleRowCount: virtualItems.length })
+        reportReady(virtualItems.length)
       })
     })
 
@@ -153,7 +162,7 @@ export function ProgressiveRows({
       window.cancelAnimationFrame(firstFrame)
       if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
     }
-  }, [activeRows.length, heroReady, onInitialContentReady, virtualItems.length])
+  }, [activeRows.length, experiencePage, heroReady, onInitialContentReady, virtualItems.length])
 
   return (
     <div
