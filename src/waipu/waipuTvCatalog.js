@@ -553,12 +553,12 @@ export function buildWaipuTvHeroItems({
 } = {}) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
   const stationIds = new Set((Array.isArray(stationOrder) ? stationOrder : []).map(String))
-  if (!stationIds.size) return []
+  const restrictStations = stationIds.size > 0
 
   const airings = (Array.isArray(titleEntries) ? titleEntries : []).flatMap((entry) => (
     (Array.isArray(entry?.airings) ? entry.airings : [entry?.nextAiring])
       .filter(Boolean)
-      .filter((airing) => stationIds.has(String(airing?.stationId || '')))
+      .filter((airing) => !restrictStations || stationIds.has(String(airing?.stationId || '')))
       .map((airing) => ({
         ...airing,
         tmdbId: entry.tmdbId,
