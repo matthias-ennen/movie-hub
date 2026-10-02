@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSharedMediaCatalog } from '../library/useSharedMediaCatalog.js'
 import { prefetchPosterWindow } from '../performance/posterPrefetch.js'
 import {
+  isProgressivePosterRow,
   limitPosterRowItems,
   nextTvPosterRenderCount,
   shouldExpandTvPosterWindow,
@@ -31,17 +32,18 @@ export default function ContentRow({
   const movieHubEnabled = isProviderEnabled('moviehub')
   const trackRef = useRef(null)
   const visibleItems = useMemo(() => limitPosterRowItems(items, variant), [items, variant])
-  const [tvRenderedCount, setTvRenderedCount] = useState(() => (
-    variant === 'tv' ? tvPosterRenderCountForIndex(visibleItems.length, initialFocusIndex) : 0
+  const progressive = isProgressivePosterRow(variant)
+  const [renderedCount, setRenderedCount] = useState(() => (
+    progressive ? tvPosterRenderCountForIndex(visibleItems.length, initialFocusIndex) : 0
   ))
-  const renderedItems = variant === 'tv'
-    ? visibleItems.slice(0, tvRenderedCount)
+  const renderedItems = progressive
+    ? visibleItems.slice(0, renderedCount)
     : visibleItems
 
   useEffect(() => {
-    if (variant !== 'tv') return
-    setTvRenderedCount(tvPosterRenderCountForIndex(visibleItems.length, initialFocusIndex))
-  }, [initialFocusIndex, rowId, variant, visibleItems.length])
+    if (!progressive) return
+    setRenderedCount(tvPosterRenderCountForIndex(visibleItems.length, initialFocusIndex))
+  }, [initialFocusIndex, progressive, rowId, visibleItems.length])
 
   useLayoutEffect(() => {
     const track = trackRef.current
@@ -59,24 +61,24 @@ export default function ContentRow({
 
   const topTen = variant === 'top-ten'
 
-  function expandTvPosters() {
-    if (variant !== 'tv') return
-    setTvRenderedCount((current) => nextTvPosterRenderCount(current, visibleItems.length))
+  function expandProgressivePosters() {
+    if (!progressive) return
+    setRenderedCount((current) => nextTvPosterRenderCount(current, visibleItems.length))
   }
 
   function handleTrackScroll() {
     const track = trackRef.current
     onTrackScroll?.(track?.scrollLeft || 0)
-    if (variant !== 'tv' || !track || tvRenderedCount >= visibleItems.length) return
+    if (!progressive || !track || renderedCount >= visibleItems.length) return
     const remaining = track.scrollWidth - (track.scrollLeft + track.clientWidth)
-    if (remaining <= Math.max(track.clientWidth, 1)) expandTvPosters()
+    if (remaining <= Math.max(track.clientWidth, 1)) expandProgressivePosters()
   }
 
   function handlePosterFocus(index) {
     onPosterFocus?.(index)
     prefetchPosterWindow(visibleItems, index)
-    if (variant === 'tv' && shouldExpandTvPosterWindow(index, tvRenderedCount, visibleItems.length)) {
-      expandTvPosters()
+    if (progressive && shouldExpandTvPosterWindow(index, renderedCount, visibleItems.length)) {
+      expandProgressivePosters()
     }
   }
 
