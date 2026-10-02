@@ -10,7 +10,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.net.Uri;
+import android.util.Log;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.view.Gravity;
@@ -48,6 +50,7 @@ public final class MainActivity extends ComponentActivity {
     private static final String STARTUP_FOCUS_READY_EVENT = "moviehub:startup-focus-ready";
     private static final long HERO_TRAILER_RESULT_RETRY_MS = 400L;
     private static final int HERO_TRAILER_RESULT_MAX_ATTEMPTS = 20;
+    private static final String PERFORMANCE_LOG_TAG = "MovieHubPerf";
 
     private FrameLayout container;
     private WebView webView;
@@ -68,6 +71,7 @@ public final class MainActivity extends ComponentActivity {
     private String pendingHeroTrailerRequestId;
     private String pendingHeroTrailerOutcome;
     private int heroTrailerResultAttempts;
+    private long startupSessionStartedElapsedRealtime;
     private ActivityResultLauncher<Intent> heroTrailerLauncher;
 
     @Override
@@ -278,6 +282,7 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void loadMovieHub() {
+        startupSessionStartedElapsedRealtime = SystemClock.elapsedRealtime();
         resetStartupRecovery();
         startMovieHubLoad();
     }
@@ -435,6 +440,11 @@ public final class MainActivity extends ComponentActivity {
         offlineView.setVisibility(View.GONE);
         hideLoadingView();
         webView.setVisibility(View.VISIBLE);
+        if (startupSessionStartedElapsedRealtime > 0L) {
+            long durationMs = SystemClock.elapsedRealtime() - startupSessionStartedElapsedRealtime;
+            Log.i(PERFORMANCE_LOG_TAG, "startup_ready_ms=" + durationMs);
+            startupSessionStartedElapsedRealtime = 0L;
+        }
         StartupIntroOverlay.notifyStartupReady(this);
     }
 
