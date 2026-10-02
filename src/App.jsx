@@ -318,9 +318,10 @@ function HomeView({
 }) {
   const startupReadyReportedRef = useRef(false)
   const catalogReady = catalogStatus === 'ready'
-  const handleInitialContentReady = useCallback(() => {
+  const handleInitialContentReady = useCallback(({ visibleRowCount = 0 } = {}) => {
     if (!catalogReady || startupReadyReportedRef.current) return
     startupReadyReportedRef.current = true
+    recordPerformanceEvent('startup:home-ready', { visibleRowCount })
     notifyNativeStartupReady()
     onStartupReady?.()
   }, [catalogReady, onStartupReady])
@@ -502,9 +503,15 @@ function MovieHub({ user }) {
 
   useEffect(() => {
     if (startupFocusReady) return undefined
-    const ready = () => setStartupFocusReady(true)
+    const ready = () => {
+      recordPerformanceEvent('startup:focus-ready')
+      setStartupFocusReady(true)
+    }
     window.addEventListener(INITIAL_HOME_FOCUS_EVENT, ready)
-    const fallback = window.setTimeout(ready, 12_000)
+    const fallback = window.setTimeout(() => {
+      recordPerformanceEvent('startup:focus-ready', { reason: 'fallback-timeout' })
+      setStartupFocusReady(true)
+    }, 12_000)
     return () => { window.removeEventListener(INITIAL_HOME_FOCUS_EVENT, ready); window.clearTimeout(fallback) }
   }, [startupFocusReady])
 
@@ -515,6 +522,7 @@ function MovieHub({ user }) {
 
   useEffect(() => {
     let cancelled = false
+    startPerformanceSpan('catalog', 'startup')
 
     async function loadCatalog() {
       try {
@@ -532,6 +540,11 @@ function MovieHub({ user }) {
         }, { shouldCancel: () => cancelled })
 
         if (!cancelled) {
+          finishPerformanceSpan('catalog', 'startup', {
+            outcome: 'ready',
+            source: data.source === 'tmdb' ? 'tmdb' : 'fallback',
+            titleCount: Array.isArray(data.titles) ? data.titles.length : 0,
+          })
           setCatalog({
             status: 'ready',
             source: data.source === 'tmdb' ? 'tmdb' : 'fallback',
@@ -547,13 +560,17 @@ function MovieHub({ user }) {
         if (error?.name === 'AbortError') return
         console.warn('Movie Hub verwendet den lokalen Katalog-Fallback.', error)
         if (!cancelled) {
+          finishPerformanceSpan('catalog', 'startup', { outcome: 'error' })
           setCatalog((current) => ({ ...current, status: 'error' }))
         }
       }
     }
 
     loadCatalog()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      cancelPerformanceSpan('catalog', 'startup', { reason: 'unmounted' })
+    }
   }, [])
 
   useEffect(() => {
