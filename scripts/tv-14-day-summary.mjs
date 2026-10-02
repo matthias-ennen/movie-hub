@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mergeTvAirings } from '../src/sources/mergeTvAirings.js'
 import { ensureProviderLiveRoute } from '../src/sources/providerLiveRoute.js'
+import { isPrimeTimeStart } from '../src/tv/tvPrimeTime.js'
 
 export const TV_14_DAY_SUMMARY_VERSION = 1
 export const TV_14_DAY_ROW_CANDIDATE_LIMIT = 120
@@ -37,22 +38,6 @@ function canonicalKey(value) {
 function usefulText(value) {
   const text = String(value ?? '').trim()
   return text || null
-}
-
-function localHour(value) {
-  const date = new Date(value)
-  if (!Number.isFinite(date.getTime())) return null
-  const hour = new Intl.DateTimeFormat('en-GB', {
-    timeZone: TV_TIME_ZONE,
-    hour: '2-digit',
-    hourCycle: 'h23',
-  }).format(date)
-  return Number(hour)
-}
-
-function isPrimeTimeAiring(airing) {
-  const hour = localHour(airing?.startTime)
-  return Number.isInteger(hour) && hour >= 20 && hour < 23
 }
 
 function rankingMetadata(value = {}) {
@@ -217,7 +202,7 @@ export function buildTv14DaySummary({
     for (const airing of mergedAirings) {
       const stationIdentity = airing.canonicalStationId || airing.stationId || airing.sourceStationId || ''
       if (!firstByStation.has(stationIdentity)) firstByStation.set(stationIdentity, airing)
-      if (isPrimeTimeAiring(airing) && !firstPrimeByStation.has(stationIdentity)) {
+      if (isPrimeTimeStart(airing?.startTime, TV_TIME_ZONE) && !firstPrimeByStation.has(stationIdentity)) {
         firstPrimeByStation.set(stationIdentity, airing)
       }
     }
