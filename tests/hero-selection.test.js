@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   HERO_LIMIT,
   selectCoordinatedHeroItems,
   selectHeroItems,
   selectHomeHeroItems,
   selectPersonalHeroItems,
+  selectPersonalHeroItemsFromSources,
 } from '../src/catalog/heroSelection.js'
 
 function title(id, type = 'movie') {
@@ -49,6 +50,51 @@ describe('Hero-Auswahl', () => {
     expect(selectPersonalHeroItems(rows).map((item) => item.id)).toEqual([
       'shared', 'two', 'three', 'four', 'five', 'six', 'seven',
     ])
+  })
+
+  it('produces the same personal hero order from ordered lazy sources', () => {
+    const shared = title('shared')
+    const firstRows = [
+      { id: 'watchlist', items: [shared, title('two')] },
+    ]
+    const secondRows = [
+      { id: 'top100', items: [shared, title('three'), title('four')] },
+    ]
+    const thirdRows = [
+      { id: 'tmdb', items: [title('five'), title('six'), title('seven'), title('eight')] },
+    ]
+
+    const eager = selectPersonalHeroItems([...firstRows, ...secondRows, ...thirdRows])
+    const lazy = selectPersonalHeroItemsFromSources([
+      () => firstRows,
+      () => secondRows,
+      () => thirdRows,
+    ])
+
+    expect(lazy).toEqual(eager)
+    expect(lazy.map((item) => item.id)).toEqual([
+      'shared', 'two', 'three', 'four', 'five', 'six', 'seven',
+    ])
+  })
+
+  it('does not execute later personal hero sources after seven unique titles are ready', () => {
+    const firstSource = vi.fn(() => [{
+      id: 'watchlist',
+      items: Array.from({ length: 7 }, (_, index) => title(`personal-${index + 1}`)),
+    }])
+    const expensiveTopHundred = vi.fn(() => [{ id: 'top100', items: [title('late')] }])
+    const expensiveSmartRows = vi.fn(() => [{ id: 'smart', items: [title('later')] }])
+
+    const result = selectPersonalHeroItemsFromSources([
+      firstSource,
+      expensiveTopHundred,
+      expensiveSmartRows,
+    ])
+
+    expect(result).toHaveLength(7)
+    expect(firstSource).toHaveBeenCalledOnce()
+    expect(expensiveTopHundred).not.toHaveBeenCalled()
+    expect(expensiveSmartRows).not.toHaveBeenCalled()
   })
 
   it('returns fewer than seven heroes only when fewer valid titles exist', () => {
