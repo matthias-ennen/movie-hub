@@ -10,7 +10,7 @@ import SearchView from './components/SearchView.jsx'
 import SettingsView from './components/SettingsView.jsx'
 import TvView from './components/TvView.jsx'
 import { prepareDetailRequestItem, preloadDetailImage, waitForDetailLoadingPaint } from './components/detailPresentation.js'
-import { buildCategoryRows } from './catalog/categoryRows.js'
+import { buildProfileCategoryRows } from './catalog/categoryRows.js'
 import { buildPersonalSmartRows, normalizeSmartFilterOptions } from './catalog/personalSmartRows.js'
 import { buildProviderBrowseRows, buildProviderHomeRows } from './catalog/providerCatalogRows.js'
 import { selectCoordinatedHeroItems, selectPersonalHeroItems } from './catalog/heroSelection.js'
@@ -1459,10 +1459,10 @@ function MovieHub({ user }) {
     [catalog.providerCatalogs, titles, hasProviderCatalogs, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle],
   )
   const movieCategoryRows = useMemo(
-    () => buildCategoryRows({
+    () => buildProfileCategoryRows({
       titles,
       mediaType: 'movie',
-      enabledCategoryIds: activeProfile?.categorySettings?.enabledMovieCategoryIds,
+      categorySettings: activeProfile?.categorySettings,
       enabledProviderIds,
       sortItems: (items, category) => curateTitles(items, {
         mode: activeSortMode,
@@ -1471,13 +1471,13 @@ function MovieHub({ user }) {
         getTitleState,
       }),
     }),
-    [titles, activeProfile?.categorySettings?.enabledMovieCategoryIds, enabledProviderIds, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey],
+    [titles, activeProfile?.categorySettings, enabledProviderIds, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey],
   )
   const seriesCategoryRows = useMemo(
-    () => buildCategoryRows({
+    () => buildProfileCategoryRows({
       titles,
       mediaType: 'series',
-      enabledCategoryIds: activeProfile?.categorySettings?.enabledSeriesCategoryIds,
+      categorySettings: activeProfile?.categorySettings,
       enabledProviderIds,
       sortItems: (items, category) => curateTitles(items, {
         mode: activeSortMode,
@@ -1486,7 +1486,7 @@ function MovieHub({ user }) {
         getTitleState,
       }),
     }),
-    [titles, activeProfile?.categorySettings?.enabledSeriesCategoryIds, enabledProviderIds, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey],
+    [titles, activeProfile?.categorySettings, enabledProviderIds, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey],
   )
   const movieBrowseBaseRows = useMemo(
     () => [...movieCategoryRows, ...movieHubMovieRows, ...providerMovieRows],
