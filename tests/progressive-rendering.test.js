@@ -36,6 +36,33 @@ describe('Hero-first und progressives Rendering', () => {
     expect(preloadHeroImage([{ backdropUrl: 'https://example.test/hero.jpg' }])).toBe(false)
   })
 
+  it('verwendet beim TMDB-Hero-Preload denselben responsiven w780/w1280-Vertrag', () => {
+    vi.useFakeTimers()
+    const requested = []
+    const srcsets = []
+    const sizes = []
+    class FakeImage {
+      set src(value) { requested.push(value) }
+      set srcset(value) { srcsets.push(value) }
+      set sizes(value) { sizes.push(value) }
+      set decoding(_value) {}
+      set fetchPriority(_value) {}
+    }
+    vi.stubGlobal('Image', FakeImage)
+
+    expect(preloadHeroImage([{
+      displayHeroBackdropUrl: 'https://image.tmdb.org/t/p/w1280/hero.jpg',
+    }], { delayMs: 0 })).toBe(true)
+
+    vi.runAllTimers()
+
+    expect(requested).toEqual(['https://image.tmdb.org/t/p/w780/hero.jpg'])
+    expect(srcsets).toEqual([
+      'https://image.tmdb.org/t/p/w780/hero.jpg 780w, https://image.tmdb.org/t/p/w1280/hero.jpg 1280w',
+    ])
+    expect(sizes).toEqual(['(max-width: 760px) 100vw, 780px'])
+  })
+
   it('lädt bei schnellem Navigationsfokus nur das zuletzt gemeinte Hero vor', () => {
     vi.useFakeTimers()
     const requests = []
