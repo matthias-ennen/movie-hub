@@ -63,8 +63,6 @@ export default function TvFeature({
   }, [onStationCatalogsRequested])
 
   useEffect(() => {
-    if (tvRuntimeHero.status === 'ready' || tvRuntimeHeroRequestRef.current) return undefined
-
     const controller = new AbortController()
     tvRuntimeHeroRequestRef.current = controller
     setTvRuntimeHero((current) => ({ ...current, status: 'loading' }))
@@ -96,17 +94,13 @@ export default function TvFeature({
       })
 
     return () => {
-      if (tvRuntimeHeroRequestRef.current !== controller) return
-      controller.abort()
-      tvRuntimeHeroRequestRef.current = null
-      setTvRuntimeHero((current) => (
-        current.status === 'loading'
-          ? { ...current, status: 'idle' }
-          : current
-      ))
+      if (tvRuntimeHeroRequestRef.current === controller) {
+        controller.abort()
+        tvRuntimeHeroRequestRef.current = null
+      }
       cancelPerformanceSpan('tv:hero-snapshot', 'runtime', { reason: 'view-left' })
     }
-  }, [tvRuntimeHero.status])
+  }, [])
 
   useEffect(() => {
     if (!tvScheduleRequested) return undefined
