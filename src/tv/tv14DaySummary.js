@@ -179,10 +179,18 @@ export function normalizeTv14DaySummary(raw) {
   }
 }
 
-export async function loadTv14DaySummary({ fetchImpl = fetch, force = false } = {}) {
-  if (!force && fetchImpl === fetch && cachedSummary) return cachedSummary
-  if (!force && fetchImpl === fetch && cachedPromise) return cachedPromise
-  const request = Promise.resolve(fetchImpl(TV_14_DAY_SUMMARY_URL, { cache: 'no-store' }))
+export async function loadTv14DaySummary({
+  fetchImpl = fetch,
+  force = false,
+  signal = null,
+} = {}) {
+  const usesDefaultFetch = fetchImpl === fetch
+  const sharePendingRequest = usesDefaultFetch && !signal
+  if (!force && usesDefaultFetch && cachedSummary) return cachedSummary
+  if (!force && sharePendingRequest && cachedPromise) return cachedPromise
+
+  const requestOptions = signal ? { cache: 'no-store', signal } : { cache: 'no-store' }
+  const request = Promise.resolve(fetchImpl(TV_14_DAY_SUMMARY_URL, requestOptions))
     .then((response) => {
       if (!response?.ok) throw new Error(`14-Tage-TV-Summary konnte nicht geladen werden (${response?.status ?? 'unbekannt'})`)
       return response.json()
@@ -190,13 +198,14 @@ export async function loadTv14DaySummary({ fetchImpl = fetch, force = false } = 
     .then((payload) => {
       const normalized = normalizeTv14DaySummary(payload)
       if (!normalized) throw new Error('14-Tage-TV-Summary hat ein ungültiges Format.')
-      if (fetchImpl === fetch) cachedSummary = normalized
+      if (usesDefaultFetch) cachedSummary = normalized
       return normalized
     })
     .finally(() => {
-      if (fetchImpl === fetch) cachedPromise = null
+      if (sharePendingRequest) cachedPromise = null
     })
-  if (fetchImpl === fetch) cachedPromise = request
+
+  if (sharePendingRequest) cachedPromise = request
   return request
 }
 
