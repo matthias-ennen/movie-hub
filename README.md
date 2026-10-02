@@ -1,6 +1,6 @@
 # Movie Hub
 
-Movie Hub ist eine persönliche, TV-optimierte Filmzentrale für Fire TV, Android-Smartphones und Tablets. Die Anwendung bündelt Filme und Serien aus Netflix, Prime Video, Disney+, YouTube und waipu.tv in einer gemeinsamen Oberfläche und verbindet Streaming-Verfügbarkeit mit persönlichen Bewertungen, Listen, eigenen Medien und TMDB-Daten.
+Movie Hub ist eine persönliche, TV-optimierte Filmzentrale für Fire TV, Android-Smartphones und Tablets. Die Anwendung bündelt Filme und Serien aus Streaming-Diensten sowie linearem Fernsehen über Waipu und Joyn in einer gemeinsamen Oberfläche und verbindet Streaming-Verfügbarkeit mit persönlichen Bewertungen, Listen, eigenen Medien und TMDB-Daten.
 
 ## Zielbild
 
@@ -49,60 +49,32 @@ Details:
 - Firestore: Standard Edition, `europe-west3` (Frankfurt)
 - Firebase Authentication: E-Mail/Passwort
 - Firebase Hosting: `https://movie-hub-62459.web.app`
-- Android-/Fire-TV-App: signierte GitHub-Actions-APK mit fortlaufendem `versionCode`
+- Android-/Fire-TV-App: signierte, R8-minifizierte GitHub-Actions-APK mit fortlaufendem `versionCode`
+- aktueller Release-Build: rund **2,51 MiB**
+- Web-Bundle: stabile Vendor-Chunks für React, Firebase und TanStack; TV und sekundäre Ansichten werden bedarfsgerecht lazy geladen
 
 ## Status
 
 Projektstart: 31. August 2026
 
-Stand: **25. September 2026**
+Stand: **2. Oktober 2026**
 
-[#256 – vollständige kanonische Titelmetadaten vor Veröffentlichung](https://github.com/matthias-ennen/movie-hub/issues/256)
-ist technisch und auf Fire TV abgenommen. Der geschützte Datenlauf führt Browse,
-persönlichen TMDB-Katalog, Movie Hub und Waipu über Medientyp plus TMDB-ID zu
-einer gemeinsamen Prioritätswarteschlange zusammen. Pro Identität wird höchstens
-ein vollständiger TMDB-Datensatz geladen oder wiederverwendet und anschließend
-als geprüfte V3-Kopie an alle betroffenen Quellen verteilt. Reine Search-only-
-Titel bleiben getrennt und verwenden den abgenommenen atomaren Lade-, Fehler-
-und Wiederholen-Pfad im Detailfenster.
+Die kanonische Titelbasis aus #256 sowie die Waipu-Pakete #4, #259 und #260 sind technisch umgesetzt und auf den vorgesehenen Geräten abgenommen. TMDB bleibt die kanonische Quelle für öffentliche Film- und Serienmetadaten; externe Quellen ergänzen Verfügbarkeiten, Senderereignisse und Wiedergabeziele.
 
-[#259 – laufende Waipu-Sendung direkt in waipu.tv starten](https://github.com/matthias-ennen/movie-hub/issues/259)
-ist ebenfalls umgesetzt und auf Android-Smartphone, Android-Tablet und Fire TV
-abgenommen. Movie Hub öffnet aus einer konkreten Waipu-Ausstrahlung die exakte
-Programmseite; bei laufenden Sendungen startet **Play** dort den richtigen
-Live-Sender. Ungültige oder fehlende Ausstrahlungsdaten fallen sicher auf den
-allgemeinen Waipu-Einstieg zurück. Anmeldung, Tarif und Wiedergaberechte bleiben
-vollständig in der Verantwortung von waipu.tv.
+[#280 – Joyn-Adapter](https://github.com/matthias-ennen/movie-hub/issues/280) ist abgeschlossen. Joyn und Waipu liefern ihre Ausstrahlungen in denselben neutralen Quellen-/TV-Vertrag. Derselbe kanonische Titel kann dadurch mehrere getrennte Providerwege tragen, ohne als doppelter Movie-Hub-Titel zu erscheinen. Wiedergabeziele bleiben providerbezogen als PlaybackRoutes erhalten.
 
-Die gemeinsame TV-/Hero-Grundlage aus #281, #283, #285 und #289 ist technisch
-umgesetzt und auf Smartphone, Android-Tablet sowie Fire TV abgenommen. Die
-228-Sender-Stufe aus #260 ist inzwischen veröffentlicht und auf diesen Geräten
-abgenommen; verbleibende Klassifizierung und Betriebskontrolle laufen separat.
+Der interaktive TV-Pfad liest vorbereitete Runtime-Artefakte statt vollständige Providerkataloge in die Oberfläche zu ziehen. Der TV-Hero kommt aus einem kleinen 14-Tage-Snapshot; Tagesdaten werden erst nach Hero-Bereitschaft geladen. Veraltete Tagesrequests werden abgebrochen und der Tagescache ist begrenzt. Seit #346 liegt die komplette TV-Runtime zusätzlich in einem lazy geladenen Feature und wird beim TV-Intent nur vorgewärmt.
 
-Das Waipu-Arbeitspaket #4 ist abgeschlossen und abgenommen. Dazu gehören TV-Reiter,
-kontoweite Senderauswahl und -sortierung, Waipu-Badges und Sendetermine,
-einheitliche TV-Posterkarten, zeitgenauer statischer `ON AIR`-Status sowie die
-vollständige „Gesehen“-Markierung bei Anbieter-Aufrufen. Die gemeinsame
-Geräteabnahme auf Fire TV, Smartphone und Tablet ist erfolgt; Langzeitbeobachtung
-bleibt dauerhafte Wartungsaufgabe.
+[#346 – Fundamenthärtung und Performance](https://github.com/matthias-ennen/movie-hub/issues/346) befindet sich in der Abschlussphase. Die technischen Phasen sind umgesetzt: zentrale Produktverträge, Page-/Row-Logik, atomare Detailbeladung, TV Hero-first, progressive Poster-/Bildlogik, React-/State-Härtung, native Android-/Fire-TV-Härtung, Dependency-/CI-Bereinigung sowie Hosting-/Cache-/Bundle-Optimierung.
 
-Der aktuelle Produkt-Referenzstand ist **APK 0.1.473**. Beobachtungen dazu sind
-in [#254](https://github.com/matthias-ennen/movie-hub/issues/254) gesammelt und
-in der [Bestandsaufnahme ab APK 0.1.473](docs/APP_REVIEW_0.1.473.md)
-strukturiert. Die Fortsetzung, Paketbildung und offenen Entscheidungen werden
-in [#255](https://github.com/matthias-ennen/movie-hub/issues/255) geführt.
+Der Vite-Hauptchunk wurde im Verlauf von #346 auf **210,46 kB minifiziert / 63,72 kB gzip** reduziert. Der signierte R8-Release liegt bei rund **2,51 MiB**. CI, Android-Build und Firebase-Deploy sind auf dem aktuellen Main-Stand grün. Die reale Abschlussabnahme von #346 auf Smartphone und Fire TV bleibt bewusst ein eigener letzter Schritt und wird nicht durch technische CI-Prüfungen ersetzt.
 
-Für **Home, Filme, Serien, TV und Meine Inhalte** gilt als gemeinsames Ziel eine
-einheitliche, stabile technische Inhaltsseiten-Grundlage. Bewährte Hero-,
-Posterreihen-, Fokus-, Lade- und Detailseitenlogik wird wiederverwendet;
-seitenspezifisch bleiben nur fachlich notwendige Unterschiede.
+Für Home, Filme, Serien, TV und Meine Inhalte gelten gemeinsame Seiten-, Hero-, Fokus-, Row- und Ladeverträge. Top 10 wird relativ zu den tatsächlich sichtbaren Reihen eingesetzt, „Als gesehen markiert“ behält sein Fachlimit von bis zu 100 Titeln, Prime Time ist zentral auf 20:15 Uhr Europe/Berlin festgelegt und Anbieter werden zentral in der Reihenfolge Movie Hub → Waipu → Joyn → übrige Provider präsentiert.
 
 Die aktuelle Hauptreihenfolge lautet:
 
-`#271 gemeinsame Quellenplattform → #280 Joyn-Pilot → #118/#314 und #7 später weiterentwickeln`
+`#346 Abschlussdoku + reale Geräteabnahme → #271 Quellenplattform weiterführen → weitere belastbare Adapter → Verfügbarkeitsdarstellung und Betriebs-/Produkt-Finish → #112 Release-Gate → 1.0`
 
-#315 (Nachtlaufbeobachtung) und die Restarbeiten aus #260 bleiben offen.
-Für eine öffentliche Verteilung gilt weiterhin das Compliance-Gate #112.
+#315 (Nachtlaufbeobachtung) und #329 (Waipu-Restklassifizierung) bleiben als gesonderte Betriebs-/Wartungspakete offen. Für eine öffentliche Verteilung gilt weiterhin das Compliance-Gate #112.
 
-Vor jedem Umsetzungspaket werden offene Produktfragen mit Matthias einzeln
-geklärt und anschließend im betreffenden Issue verbindlich dokumentiert.
+Vor jedem Umsetzungspaket werden offene Produktfragen mit Matthias einzeln geklärt und anschließend im betreffenden Issue verbindlich dokumentiert.
