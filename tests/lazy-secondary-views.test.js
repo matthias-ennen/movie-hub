@@ -20,6 +20,7 @@ describe('sekundäre Ansichten werden aus dem Kaltstart ausgelagert', () => {
     expect(lazySource).toContain("import('../components/ProfileView.jsx')")
     expect(lazySource).toContain("import('../components/SettingsView.jsx')")
     expect(lazySource).toContain("import('../components/AboutView.jsx')")
+    expect(lazySource).toContain("import('../tv/TvFeature.jsx')")
   })
 
   it('ordnet nur sekundäre Views einem Preload-Loader zu', () => {
@@ -27,14 +28,15 @@ describe('sekundäre Ansichten werden aus dem Kaltstart ausgelagert', () => {
     const profile = vi.fn()
     const settings = vi.fn()
     const about = vi.fn()
-    const loaders = { search, profile, settings, about }
+    const tv = vi.fn()
+    const loaders = { search, profile, settings, about, tv }
 
     expect(resolveSecondaryViewLoader('search', loaders)).toBe(search)
     expect(resolveSecondaryViewLoader('profile', loaders)).toBe(profile)
     expect(resolveSecondaryViewLoader('settings', loaders)).toBe(settings)
     expect(resolveSecondaryViewLoader('about', loaders)).toBe(about)
+    expect(resolveSecondaryViewLoader('tv', loaders)).toBe(tv)
     expect(resolveSecondaryViewLoader('home', loaders)).toBeNull()
-    expect(resolveSecondaryViewLoader('tv', loaders)).toBeNull()
   })
 
   it('wartet beim atomaren Detailaufbau zusätzlich auf das Detailmodul', () => {

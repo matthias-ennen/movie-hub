@@ -16,6 +16,7 @@ export {
   isTvAiringSoon,
   nextTvAiringTransition,
 } from './waipuAiringStatus.js'
+export { formatTvAiringCard } from '../tv/tvAiringPresentation.js'
 
 export const WAIPU_LIVE_INDEX_URL = '/waipu-live/index.json'
 export const WAIPU_LIVE_STATIONS_URL = '/waipu-live/stations.json'
@@ -717,18 +718,6 @@ export function buildWaipuTvRows({
           - (stationRank.get(right.tvAiring.stationId) ?? Number.MAX_SAFE_INTEGER)
         || left.tvAiring.stationName.localeCompare(right.tvAiring.stationName, 'de')),
     }))
-}
-
-export function formatTvAiringCard(airing, {
-  locale = 'de-DE',
-  timeZone = 'Europe/Berlin',
-} = {}) {
-  const start = new Date(airing?.startTime)
-  if (!Number.isFinite(start.getTime())) return null
-  const time = new Intl.DateTimeFormat(locale, {
-    hour: '2-digit', minute: '2-digit', hour12: false, timeZone,
-  }).format(start)
-  return { time, stationName: String(airing?.stationName || '').trim() }
 }
 
 export function resetWaipuTvCacheForTests() {
