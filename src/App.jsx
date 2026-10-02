@@ -696,22 +696,24 @@ function MovieHub({ user }) {
     if (!tvScheduleRequested || tvPeriodId !== '14-days') return undefined
     if (tv14DaySummary.status === 'ready') return undefined
     let cancelled = false
+    const controller = new AbortController()
     setTv14DaySummary((current) => ({ ...current, status: 'loading' }))
     startPerformanceSpan('tv:14-day', 'summary')
-    loadTv14DaySummary()
+    loadTv14DaySummary({ signal: controller.signal })
       .then((summary) => {
         if (cancelled) return
         finishPerformanceSpan('tv:14-day', 'summary', { entryCount: summary.entries.length })
         setTv14DaySummary({ status: 'ready', entries: summary.entries })
       })
       .catch((error) => {
-        if (cancelled) return
+        if (cancelled || error?.name === 'AbortError') return
         finishPerformanceSpan('tv:14-day', 'summary', { outcome: 'error' })
         console.warn('14-Tage-TV-Summary konnte nicht geladen werden.', error)
         setTv14DaySummary({ status: 'unavailable', entries: [] })
       })
     return () => {
       cancelled = true
+      controller.abort()
       cancelPerformanceSpan('tv:14-day', 'summary', { reason: 'superseded' })
     }
   }, [tv14DaySummary.status, tvPeriodId, tvScheduleRequested])
@@ -760,11 +762,15 @@ function MovieHub({ user }) {
     }
 
     let cancelled = false
+    const controller = new AbortController()
     tvPerformanceSequenceRef.current += 1
     const performanceKey = `${dayKey}:${tvPerformanceSequenceRef.current}`
     setTvSchedule({ status: 'loading', airings: [], titles: [] })
     startPerformanceSpan('tv:day', performanceKey, { dayKey })
-    loadTvRuntimeDay(dayKey, { generation: tvRuntimeIndex.generatedAt })
+    loadTvRuntimeDay(dayKey, {
+      generation: tvRuntimeIndex.generatedAt,
+      signal: controller.signal,
+    })
       .then((day) => {
         if (cancelled) return
         finishPerformanceSpan('tv:day', performanceKey, {
@@ -789,7 +795,7 @@ function MovieHub({ user }) {
         })
       })
       .catch((error) => {
-        if (cancelled) return
+        if (cancelled || error?.name === 'AbortError') return
         finishPerformanceSpan('tv:day', performanceKey, { dayKey, outcome: 'error' })
         console.warn('TV-Runtime-Tag konnte nicht geladen werden.', error)
         setTvSchedule({ status: 'unavailable', airings: [], titles: [] })
@@ -797,6 +803,7 @@ function MovieHub({ user }) {
 
     return () => {
       cancelled = true
+      controller.abort()
       cancelPerformanceSpan('tv:day', performanceKey, { dayKey, reason: 'superseded' })
       cancelPerformanceSpan('tv:view-model', performanceKey, { dayKey, reason: 'superseded' })
     }

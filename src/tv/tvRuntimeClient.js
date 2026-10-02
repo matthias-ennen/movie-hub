@@ -6,11 +6,29 @@ import {
 } from './tvRuntimePublication.js'
 
 export const TV_RUNTIME_INDEX_URL = '/tv-runtime/index.json'
+export const TV_RUNTIME_DAY_CACHE_LIMIT = 3
 
 let cachedIndex = null
 let indexPromise = null
 const dayCache = new Map()
 const dayPromises = new Map()
+
+function getCachedDay(cacheKey) {
+  if (!dayCache.has(cacheKey)) return null
+  const value = dayCache.get(cacheKey)
+  dayCache.delete(cacheKey)
+  dayCache.set(cacheKey, value)
+  return value
+}
+
+function cacheDay(cacheKey, value) {
+  dayCache.delete(cacheKey)
+  dayCache.set(cacheKey, value)
+  while (dayCache.size > TV_RUNTIME_DAY_CACHE_LIMIT) {
+    const oldestKey = dayCache.keys().next().value
+    dayCache.delete(oldestKey)
+  }
+}
 
 function text(value) {
   const result = String(value ?? '').trim()
@@ -92,15 +110,23 @@ export async function loadTvRuntimeDay(key, {
   fetchImpl = fetch,
   generation = null,
   force = false,
+  signal = null,
 } = {}) {
   const dayKey = validDayKey(key)
   if (!dayKey) throw new Error('Ungültiger TV-Runtime-Tag.')
   const cacheKey = `${generation || 'unversioned'}:${dayKey}`
-  if (!force && fetchImpl === fetch && dayCache.has(cacheKey)) return dayCache.get(cacheKey)
-  if (!force && fetchImpl === fetch && dayPromises.has(cacheKey)) return dayPromises.get(cacheKey)
+  const usesDefaultFetch = fetchImpl === fetch
+  const sharePendingRequest = usesDefaultFetch && !signal
+
+  if (!force && usesDefaultFetch) {
+    const cached = getCachedDay(cacheKey)
+    if (cached) return cached
+  }
+  if (!force && sharePendingRequest && dayPromises.has(cacheKey)) return dayPromises.get(cacheKey)
 
   const query = generation ? `?v=${encodeURIComponent(generation)}` : ''
-  const request = Promise.resolve(fetchImpl(`/tv-runtime/days/${dayKey}.json${query}`, { cache: 'no-store' }))
+  const requestOptions = signal ? { cache: 'no-store', signal } : { cache: 'no-store' }
+  const request = Promise.resolve(fetchImpl(`/tv-runtime/days/${dayKey}.json${query}`, requestOptions))
     .then((response) => {
       if (!response?.ok) throw new Error(`TV-Runtime-Tag konnte nicht geladen werden (${response?.status ?? 'unbekannt'})`)
       return response.json()
@@ -108,13 +134,14 @@ export async function loadTvRuntimeDay(key, {
     .then((payload) => {
       const normalized = normalizeTvRuntimeDay(payload, dayKey)
       if (!normalized) throw new Error('TV-Runtime-Tag hat ein ungültiges Format.')
-      if (fetchImpl === fetch) dayCache.set(cacheKey, normalized)
+      if (usesDefaultFetch) cacheDay(cacheKey, normalized)
       return normalized
     })
     .finally(() => {
-      if (fetchImpl === fetch) dayPromises.delete(cacheKey)
+      if (sharePendingRequest) dayPromises.delete(cacheKey)
     })
-  if (fetchImpl === fetch) dayPromises.set(cacheKey, request)
+
+  if (sharePendingRequest) dayPromises.set(cacheKey, request)
   return request
 }
 
@@ -210,6 +237,14 @@ export function buildTvRuntimeSchedule(day, {
   ))
 
   return { airings, titles }
+}
+
+export function getTvRuntimeCacheDiagnostics() {
+  return {
+    dayCacheLimit: TV_RUNTIME_DAY_CACHE_LIMIT,
+    dayCacheKeys: [...dayCache.keys()],
+    pendingDayKeys: [...dayPromises.keys()],
+  }
 }
 
 export function clearTvRuntimeCache() {
