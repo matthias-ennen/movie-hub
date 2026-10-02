@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  buildTvRuntimeHeroItems,
   buildTvRuntimeSchedule,
   clearTvRuntimeCache,
   getTvRuntimeCacheDiagnostics,
   loadTvRuntimeDay,
+  loadTvRuntimeHero,
   loadTvRuntimeIndex,
   normalizeTvRuntimeDay,
+  normalizeTvRuntimeHero,
   normalizeTvRuntimeIndex,
   TV_RUNTIME_DAY_CACHE_LIMIT,
 } from '../src/tv/tvRuntimeClient.js'
@@ -16,6 +19,99 @@ const indexPayload = {
   generatedAt: '2026-10-01T09:00:00.000Z',
   providers: ['joyn', 'waipu'],
   days: [{ key: '2026-10-01', count: 1, airingCount: 1 }],
+}
+
+const heroPayload = {
+  schemaVersion: 1,
+  kind: 'moviehub-tv-runtime-hero',
+  generatedAt: '2026-10-01T09:00:00.000Z',
+  sourceTitleCount: 2,
+  candidateLimit: 50,
+  airingsPerTitleLimit: 12,
+  entries: [
+    {
+      id: 'tv-runtime-hero-movie-10',
+      key: 'movie:10',
+      tmdbId: 10,
+      type: 'movie',
+      title: 'Später beliebt',
+      description: 'Später am Tag',
+      backdropUrl: 'https://image.test/10-backdrop.jpg',
+      posterUrl: 'https://image.test/10.jpg',
+      popularity: 100,
+      metadataVersion: 3,
+      metadataChecks: {
+        details: 'present',
+        artwork: 'present',
+        ageRating: 'present',
+        credits: 'present',
+        keywords: 'present',
+        videos: 'present',
+        providers: 'present',
+        collection: 'absent',
+      },
+      metadataComplete: true,
+      collectionChecked: true,
+      providerIds: ['netflix'],
+      tmdbProviderIds: ['netflix'],
+      airings: [{
+        providerIds: ['waipu'],
+        providerStationIds: { waipu: 'rtl' },
+        providerProgramIds: { waipu: 'w10' },
+        stationId: 'rtl',
+        stationName: 'RTL',
+        startTime: '2026-10-01T18:00:00.000Z',
+        stopTime: '2026-10-01T20:00:00.000Z',
+        playbackRoutes: [{ providerId: 'waipu', target: 'waipu://10' }],
+      }],
+    },
+    {
+      id: 'tv-runtime-hero-movie-11',
+      key: 'movie:11',
+      tmdbId: 11,
+      type: 'movie',
+      title: 'Jetzt im TV',
+      description: 'Läuft gerade',
+      backdropUrl: 'https://image.test/11-backdrop.jpg',
+      posterUrl: 'https://image.test/11.jpg',
+      popularity: 1,
+      metadataVersion: 3,
+      metadataChecks: {
+        details: 'present',
+        artwork: 'present',
+        ageRating: 'present',
+        credits: 'present',
+        keywords: 'present',
+        videos: 'present',
+        providers: 'present',
+        collection: 'absent',
+      },
+      metadataComplete: true,
+      collectionChecked: true,
+      providerIds: [],
+      tmdbProviderIds: [],
+      airings: [{
+        providerIds: ['joyn', 'waipu'],
+        providerStationIds: {
+          joyn: 'prosieben',
+          waipu: 'pro7',
+        },
+        providerProgramIds: {
+          joyn: 'j11',
+          waipu: 'w11',
+        },
+        stationId: 'pro7',
+        sourceStationId: 'prosieben',
+        stationName: 'ProSieben',
+        startTime: '2026-10-01T09:30:00.000Z',
+        stopTime: '2026-10-01T11:30:00.000Z',
+        playbackRoutes: [
+          { providerId: 'joyn', target: 'https://joyn.de/11' },
+          { providerId: 'waipu', target: 'waipu://11' },
+        ],
+      }],
+    },
+  ],
 }
 
 const dayPayload = {
@@ -78,6 +174,52 @@ describe('TV runtime client', () => {
     expect(normalizeTvRuntimeIndex(indexPayload)?.days[0].key).toBe('2026-10-01')
     expect(normalizeTvRuntimeDay(dayPayload, '2026-10-01')?.entries).toHaveLength(1)
     expect(normalizeTvRuntimeDay(dayPayload, '2026-10-02')).toBeNull()
+  })
+
+  it('validates and loads the dedicated TV hero snapshot only', async () => {
+    expect(normalizeTvRuntimeHero(heroPayload)?.entries).toHaveLength(2)
+
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      json: async () => heroPayload,
+    }))
+    const hero = await loadTvRuntimeHero({ fetchImpl })
+
+    expect(fetchImpl).toHaveBeenCalledOnce()
+    expect(fetchImpl.mock.calls[0][0]).toBe('/tv-runtime/hero.json')
+    expect(hero.count).toBe(2)
+  })
+
+  it('re-ranks hero candidates with the current clock and removes only a disabled provider side', () => {
+    const items = buildTvRuntimeHeroItems(normalizeTvRuntimeHero(heroPayload).entries, {
+      disabledWaipuStationIds: ['pro7'],
+      disabledJoynStationIds: [],
+      now: Date.parse('2026-10-01T10:00:00.000Z'),
+    })
+
+    expect(items.map((item) => item.tmdbId)).toEqual([11, 10])
+    expect(items[0]).toMatchObject({
+      title: 'Jetzt im TV',
+      tvAiringOnAir: true,
+      providerIds: ['joyn'],
+      tvLive: {
+        providerIds: ['joyn'],
+      },
+    })
+    expect(items[0].tvAiring.providerIds).toEqual(['joyn'])
+    expect(items[0].tvAiring.providerStationIds).toEqual({ joyn: 'prosieben' })
+    expect(items[0].tvAiring.providerProgramIds).toEqual({ joyn: 'j11' })
+    expect(items[0].tvAiring.playbackRoutes.map(({ providerId }) => providerId)).toEqual(['joyn'])
+    expect(items[0]).not.toHaveProperty('waipuLive')
+    expect(items[0].joynLive).toBeTruthy()
+  })
+
+  it('drops expired hero airings before choosing the current candidates', () => {
+    const items = buildTvRuntimeHeroItems(normalizeTvRuntimeHero(heroPayload).entries, {
+      now: Date.parse('2026-10-01T21:00:00.000Z'),
+    })
+
+    expect(items).toEqual([])
   })
 
   it('loads only the compact index and requested day shard', async () => {
