@@ -1,6 +1,5 @@
 package de.matthiasennen.moviehub;
 
-import android.annotation.SuppressLint;
 import android.content.ActivityNotFoundException;
 import android.app.AlertDialog;
 import android.app.SearchManager;
@@ -13,7 +12,6 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.net.Uri;
 import android.util.Log;
-import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.view.Gravity;
 import android.view.View;
@@ -21,7 +19,6 @@ import android.view.WindowManager;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.RenderProcessGoneDetail;
-import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
@@ -42,8 +39,6 @@ import org.json.JSONObject;
  */
 public final class MainActivity extends ComponentActivity {
     private static final String APP_URL = "https://movie-hub-62459.web.app/";
-    private static final String MOVIE_HUB_HOST = "movie-hub-62459.web.app";
-    private static final String FIREBASE_AUTH_HOST = "movie-hub-62459.firebaseapp.com";
     private static final long STARTUP_READY_TIMEOUT_MS = 30_000L;
     private static final long STARTUP_TIMEOUT_RETRY_DELAY_MS = 2_000L;
     private static final long[] STARTUP_ERROR_RETRY_DELAYS_MS = {2_000L, 5_000L};
@@ -171,25 +166,13 @@ public final class MainActivity extends ComponentActivity {
         heroTrailerResultAttempts = 0;
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
     private void createContent() {
         container = new FrameLayout(this);
         container.setBackgroundColor(Color.rgb(9, 10, 16));
 
         webView = new WebView(this);
         webView.setBackgroundColor(Color.rgb(9, 10, 16));
-        webView.getSettings().setJavaScriptEnabled(true);
-        webView.getSettings().setDomStorageEnabled(true);
-        webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(false);
-        webView.getSettings().setSupportMultipleWindows(false);
-        webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
-        webView.getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
-        // User-managed home-network video URLs may use plain HTTP. The top-level
-        // WebView remains locked to Movie Hub's HTTPS hosts below.
-        webView.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
-        CookieManager cookies = CookieManager.getInstance();
-        cookies.setAcceptCookie(true);
-        cookies.setAcceptThirdPartyCookies(webView, true);
+        MovieHubWebViewPolicy.configure(webView);
         webView.addJavascriptInterface(new NativeBridge(), "MovieHubNative");
         webView.addJavascriptInterface(new PersonalDataCryptoBridge(), "MovieHubCrypto");
         webView.addJavascriptInterface(new HeroTrailerLaunchBridge(this), "MovieHubTrailer");
@@ -440,7 +423,7 @@ public final class MainActivity extends ComponentActivity {
         String currentUrl = webView.getUrl();
         if (currentUrl == null) return;
         Uri currentUri = Uri.parse(currentUrl);
-        if (!MOVIE_HUB_HOST.equalsIgnoreCase(currentUri.getHost())
+        if (!MovieHubWebViewPolicy.isPrimaryHost(currentUri.getHost())
                 || !"https".equalsIgnoreCase(currentUri.getScheme())) {
             return;
         }
@@ -863,7 +846,7 @@ public final class MainActivity extends ComponentActivity {
                 return;
             }
 
-            if (MOVIE_HUB_HOST.equalsIgnoreCase(uri.getHost())) {
+            if (MovieHubWebViewPolicy.isPrimaryHost(uri.getHost())) {
                 // The page itself reports presentation readiness only after
                 // the real Home Hero and the initial row layout are mounted.
                 return;
@@ -891,8 +874,7 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private boolean isTrustedMovieHubUrl(String scheme, String host) {
-        return "https".equalsIgnoreCase(scheme)
-                && (MOVIE_HUB_HOST.equalsIgnoreCase(host) || FIREBASE_AUTH_HOST.equalsIgnoreCase(host));
+        return MovieHubWebViewPolicy.isTrustedTopLevelUrl(scheme, host);
     }
 
     private boolean isAllowedProjectUrl(Uri uri) {
