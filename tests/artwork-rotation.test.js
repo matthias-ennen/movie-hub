@@ -4,6 +4,10 @@ import {
   resolveArtworkUrl,
   resolvePresentationArtwork,
 } from '../src/catalog/artworkRotation.js'
+import {
+  resizeTmdbImageUrl,
+  responsiveTmdbImageProps,
+} from '../src/services/tmdbImages.js'
 
 const title = {
   id: 'tmdb-movie-11',
@@ -41,6 +45,33 @@ describe('profilbezogene Bildrotation', () => {
     })
     expect(presented.displayPosterUrl).toContain('/w500/one.jpg')
     expect(presented.displayHeroBackdropUrl).toContain('/w1280/wide-one.jpg')
+  })
+
+  it('kann eine vorhandene TMDB-URL oberflächenbezogen skalieren', () => {
+    expect(resizeTmdbImageUrl(
+      'https://image.tmdb.org/t/p/w500/example.jpg',
+      'w342',
+    )).toBe('https://image.tmdb.org/t/p/w342/example.jpg')
+
+    expect(responsiveTmdbImageProps(
+      'https://image.tmdb.org/t/p/w500/example.jpg',
+      {
+        candidates: ['w342', 'w500'],
+        fallbackSize: 'w342',
+        sizes: '280px',
+      },
+    )).toEqual({
+      src: 'https://image.tmdb.org/t/p/w342/example.jpg',
+      srcSet: 'https://image.tmdb.org/t/p/w342/example.jpg 342w, https://image.tmdb.org/t/p/w500/example.jpg 500w',
+      sizes: '280px',
+    })
+  })
+
+  it('lässt Nicht-TMDB-Bildadressen unverändert', () => {
+    expect(resizeTmdbImageUrl('https://example.test/poster.jpg', 'w342'))
+      .toBe('https://example.test/poster.jpg')
+    expect(responsiveTmdbImageProps('https://example.test/poster.jpg'))
+      .toEqual({ src: 'https://example.test/poster.jpg' })
   })
 
   it('zählt dieselbe Datei als Pfad und URL nicht als zwei Bildvarianten', () => {

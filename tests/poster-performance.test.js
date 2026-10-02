@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { buildPersonalRows, buildWatchedHistoryRows } from '../src/library/personalRows.js'
+import { posterImageProps } from '../src/performance/posterImages.js'
 import {
   getPosterPrefetchWindow,
   POSTER_PREFETCH_AHEAD,
@@ -114,6 +115,55 @@ describe('Fire-TV Posterreihen-Last', () => {
     const rows = buildTmdbCatalogRows(items)
     expect(rows).toHaveLength(3)
     expect(rows.every((row) => row.items.length === STANDARD_POSTER_ROW_LIMIT)).toBe(true)
+  })
+
+  it('verwendet für normale TMDB-Poster responsive w342/w500 Quellen', () => {
+    const item = {
+      ...title(1),
+      displayPosterUrl: 'https://image.tmdb.org/t/p/w500/poster.jpg',
+    }
+
+    expect(posterImageProps(item)).toEqual({
+      src: 'https://image.tmdb.org/t/p/w342/poster.jpg',
+      srcSet: 'https://image.tmdb.org/t/p/w342/poster.jpg 342w, https://image.tmdb.org/t/p/w500/poster.jpg 500w',
+      sizes: '280px',
+    })
+    expect(posterImageProps(item, { variant: 'top-ten' })).toEqual({
+      src: 'https://image.tmdb.org/t/p/w500/poster.jpg',
+    })
+  })
+
+  it('verändert externe Posterquellen nicht', () => {
+    expect(posterImageProps({
+      posterUrl: 'https://images.example.test/custom-poster.jpg',
+    })).toEqual({
+      src: 'https://images.example.test/custom-poster.jpg',
+    })
+  })
+
+  it('prefetcht für normale TMDB-Karten denselben responsiven Kandidatensatz wie das Rendering', () => {
+    const requested = []
+    const srcsets = []
+    const sizes = []
+    globalThis.Image = class MockImage {
+      set src(value) { requested.push(value) }
+      set srcset(value) { srcsets.push(value) }
+      set sizes(value) { sizes.push(value) }
+      set decoding(_value) {}
+      set fetchPriority(_value) {}
+    }
+
+    const items = [{
+      ...title(1),
+      displayPosterUrl: 'https://image.tmdb.org/t/p/w500/poster.jpg',
+    }]
+    const result = prefetchPosterWindow(items, 0, { variant: 'standard' })
+
+    expect(result).toEqual(['https://image.tmdb.org/t/p/w342/poster.jpg'])
+    expect(srcsets).toEqual([
+      'https://image.tmdb.org/t/p/w342/poster.jpg 342w, https://image.tmdb.org/t/p/w500/poster.jpg 500w',
+    ])
+    expect(sizes).toEqual(['280px'])
   })
 
   it('hält beim Fokus mindestens fünf kommende Poster im Prefetch-Fenster', () => {

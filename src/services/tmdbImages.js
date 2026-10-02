@@ -131,6 +131,57 @@ export function tmdbImageUrl(path, size) {
   return normalized ? `${TMDB_IMAGE_BASE_URL}/${size}${normalized}` : null
 }
 
+function tmdbImagePathFromUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return null
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'https:' || url.hostname !== 'image.tmdb.org') return null
+    const match = url.pathname.match(/^\/t\/p\/[^/]+(\/.*)$/)
+    if (!match?.[1]) return null
+    return {
+      path: match[1],
+      search: url.search || '',
+    }
+  } catch {
+    return null
+  }
+}
+
+export function resizeTmdbImageUrl(value, size) {
+  const parsed = tmdbImagePathFromUrl(value)
+  if (!parsed || typeof size !== 'string' || !size.trim()) return value || null
+  return `${TMDB_IMAGE_BASE_URL}/${size.trim()}${parsed.path}${parsed.search}`
+}
+
+export function responsiveTmdbImageProps(value, {
+  candidates = ['w342', 'w500'],
+  fallbackSize = candidates[0] || 'w500',
+  sizes = null,
+} = {}) {
+  const parsed = tmdbImagePathFromUrl(value)
+  if (!parsed) return { src: value || null }
+
+  const normalizedCandidates = [...new Set((Array.isArray(candidates) ? candidates : [])
+    .map((candidate) => String(candidate || '').trim())
+    .filter((candidate) => /^w\d+$/.test(candidate)))]
+  const fallback = /^w\d+$/.test(String(fallbackSize || ''))
+    ? String(fallbackSize)
+    : normalizedCandidates[0] || 'w500'
+  const src = resizeTmdbImageUrl(value, fallback)
+  const srcSet = normalizedCandidates
+    .map((candidate) => {
+      const width = Number(candidate.slice(1))
+      return `${resizeTmdbImageUrl(value, candidate)} ${width}w`
+    })
+    .join(', ')
+
+  return {
+    src,
+    ...(srcSet ? { srcSet } : {}),
+    ...(srcSet && sizes ? { sizes } : {}),
+  }
+}
+
 export function selectNeutralTmdbPosterPath(payload) {
   const neutral = imageList(payload, 'posters')
     .filter((image) => image?.iso_639_1 == null)
