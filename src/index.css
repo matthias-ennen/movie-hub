@@ -253,7 +253,7 @@ p {
 }
 
 .hero-first-page > .hero-carousel {
-  padding-top: calc(var(--page-block) * 0.5);
+  padding-top: var(--page-start-gap);
 }
 
 .hero-carousel-eyebrow {
@@ -553,7 +553,15 @@ p {
 }
 
 .search-page {
-  padding-top: calc(var(--page-block) * 0.5);
+  padding-top: var(--page-start-gap);
+}
+
+.profile-page {
+  padding-top: var(--page-start-gap);
+}
+
+.about-page {
+  padding-top: var(--page-start-gap);
 }
 
 .page-heading {
