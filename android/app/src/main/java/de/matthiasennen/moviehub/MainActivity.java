@@ -51,6 +51,7 @@ public final class MainActivity extends ComponentActivity {
     private static final long HERO_TRAILER_RESULT_RETRY_MS = 400L;
     private static final int HERO_TRAILER_RESULT_MAX_ATTEMPTS = 20;
     private static final String PERFORMANCE_LOG_TAG = "MovieHubPerf";
+    private static final int NATIVE_BRIDGE_CONTRACT_VERSION = 1;
 
     private FrameLayout container;
     private WebView webView;
@@ -191,6 +192,7 @@ public final class MainActivity extends ComponentActivity {
         cookies.setAcceptThirdPartyCookies(webView, true);
         webView.addJavascriptInterface(new NativeBridge(), "MovieHubNative");
         webView.addJavascriptInterface(new PersonalDataCryptoBridge(), "MovieHubCrypto");
+        webView.addJavascriptInterface(new HeroTrailerLaunchBridge(this), "MovieHubTrailer");
         webView.setWebViewClient(new MovieHubWebViewClient());
         container.addView(webView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -602,6 +604,11 @@ public final class MainActivity extends ComponentActivity {
         @JavascriptInterface
         public String getAppBuild() {
             return Integer.toString(getInstalledVersionCode());
+        }
+
+        @JavascriptInterface
+        public int getBridgeContractVersion() {
+            return NATIVE_BRIDGE_CONTRACT_VERSION;
         }
 
         @JavascriptInterface
