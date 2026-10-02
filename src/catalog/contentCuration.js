@@ -164,7 +164,7 @@ export function curateCatalogRows(rows, options = {}) {
       items: curateTitles(row?.items, {
         ...options,
         seed: `${options.seed || 'movie-hub'}:${row?.id || row?.title || 'row'}`,
-        preserveOrder: semanticRowIds.has(row?.id),
+        preserveOrder: row?.preserveOrder === true || semanticRowIds.has(row?.id),
         limit: options.limit ?? row?.displayLimit ?? row?.items?.length ?? PUBLIC_POSTER_ROW_LIMIT,
       }),
     }))
