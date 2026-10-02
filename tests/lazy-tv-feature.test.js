@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8')
 const lazySource = readFileSync(new URL('../src/performance/lazyViews.jsx', import.meta.url), 'utf8')
 const featureSource = readFileSync(new URL('../src/tv/TvFeature.jsx', import.meta.url), 'utf8')
+const posterSource = readFileSync(new URL('../src/components/PosterCard.jsx', import.meta.url), 'utf8')
 
 describe('TV-Feature wird aus dem Kaltstart ausgelagert', () => {
   it('zieht die schweren TV-Module nicht mehr statisch in App.jsx', () => {
@@ -30,6 +31,11 @@ describe('TV-Feature wird aus dem Kaltstart ausgelagert', () => {
   it('behält Hero-first: Posterphase und Senderkataloge starten erst nach Hero-Bereitschaft', () => {
     expect(featureSource).toMatch(/handleTvHeroReady[\s\S]*recordPerformanceEvent\('tv:poster-phase:start'\)[\s\S]*setTvScheduleRequested\(true\)[\s\S]*onStationCatalogsRequested\?\.\(true\)/)
     expect(featureSource).toContain("loadTvRuntimeHero({ signal: controller.signal })")
+  })
+
+  it('hält PosterCard vom großen Waipu-TV-Modul getrennt', () => {
+    expect(posterSource).toContain("from '../tv/tvAiringPresentation.js'")
+    expect(posterSource).not.toContain("from '../waipu/waipuTvCatalog.js'")
   })
 
   it('hält den globalen Live-Availability-Pfad außerhalb des TV-Features', () => {

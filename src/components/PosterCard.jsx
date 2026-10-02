@@ -1,6 +1,6 @@
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import ProviderBadges from './ProviderBadges.jsx'
-import { formatTvAiringCard } from '../waipu/waipuTvCatalog.js'
+import { formatTvAiringCard } from '../tv/tvAiringPresentation.js'
 import { resolveProviderPresentation } from '../providers/providerPresentation.js'
 import { posterImageProps, posterSourceUrl } from '../performance/posterImages.js'
 
