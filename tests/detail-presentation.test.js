@@ -3,13 +3,14 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import DetailLoadingScreen from '../src/components/DetailLoadingScreen.jsx'
 import {
+  detailInitialImageUrl,
   prepareDetailRequestItem,
   preloadDetailImage,
   waitForDetailLoadingPaint,
 } from '../src/components/detailPresentation.js'
 
 describe('stabiler Detail-Ladezustand', () => {
-  it('lädt einen Search-only-Titel streng vollständig, bevor er präsentiert wird', async () => {
+  it('lädt jeden Titel streng vollständig, bevor er präsentiert wird', async () => {
     const complete = { id: 'tmdb-movie-14161', title: '2012', metadataComplete: true }
     const loadComplete = vi.fn(async () => complete)
     const presentArtwork = vi.fn((item) => ({ ...item, displayPosterUrl: '/poster.jpg' }))
@@ -29,13 +30,42 @@ describe('stabiler Detail-Ladezustand', () => {
     expect(result).toMatchObject({ metadataComplete: true, displayPosterUrl: '/poster.jpg' })
   })
 
-  it('startet für einen normalen Titel keinen zweiten strengen Metadatenabruf', async () => {
-    const item = { id: 'tmdb-movie-345887', title: 'The Equalizer 2' }
-    const loadComplete = vi.fn()
+  it('verwendet auch für normale Titel denselben vollständigen Metadatenvertrag', async () => {
+    const item = { id: 'tmdb-movie-345887', tmdbId: 345887, type: 'movie', title: 'The Equalizer 2' }
+    const complete = {
+      ...item,
+      metadataVersion: 3,
+      metadataComplete: true,
+      collectionChecked: true,
+    }
+    const loadComplete = vi.fn(async () => complete)
     const presentArtwork = vi.fn((value) => value)
 
-    await expect(prepareDetailRequestItem(item, { loadComplete, presentArtwork })).resolves.toBe(item)
-    expect(loadComplete).not.toHaveBeenCalled()
+    await expect(prepareDetailRequestItem(item, { loadComplete, presentArtwork })).resolves.toBe(complete)
+    expect(loadComplete).toHaveBeenCalledWith(item, {
+      requireContract: true,
+      requireComplete: true,
+    })
+  })
+
+  it('preloads for a series the poster that is actually visible first', () => {
+    const series = {
+      id: 'tmdb-series-1',
+      tmdbId: 1,
+      type: 'series',
+      displayPosterUrl: '/series.jpg',
+      seasons: [
+        { seasonNumber: 2, posterUrl: '/season-2.jpg' },
+        { seasonNumber: 1, posterUrl: '/season-1.jpg' },
+      ],
+    }
+
+    expect(detailInitialImageUrl(series)).toBe('/season-1.jpg')
+    expect(detailInitialImageUrl({
+      id: 'tmdb-movie-2',
+      type: 'movie',
+      displayPosterUrl: '/movie.jpg',
+    })).toBe('/movie.jpg')
   })
 
   it('zeigt einen Search-only-Fehler mit Wiederholen innerhalb des Detaildialogs', () => {
@@ -49,7 +79,8 @@ describe('stabiler Detail-Ladezustand', () => {
     expect(markup).toContain('role="dialog"')
     expect(markup).toContain('Details nicht erreichbar')
     expect(markup).toContain('Erneut versuchen')
-    expect(markup).toContain('Zurück zur Suche')
+    expect(markup).toContain('Zurück')
+    expect(markup).not.toContain('Zurück zur Suche')
     expect(markup).not.toContain('class="browse-page search-page search-detail-state"')
   })
 
