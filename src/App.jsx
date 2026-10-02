@@ -16,7 +16,8 @@ import { buildProviderBrowseRows, buildProviderHomeRows } from './catalog/provid
 import { selectCoordinatedHeroItems, selectPersonalHeroItems } from './catalog/heroSelection.js'
 import { buildMovieHubCatalogRows } from './catalog/movieHubCatalog.js'
 import { normalizeFilmCollectionIndex } from './catalog/filmCollections.js'
-import { buildPersonalTopTen, buildProviderTopTen, insertTopTenRow } from './catalog/topTenRows.js'
+import { buildPersonalTopTen, buildProviderTopTen } from './catalog/topTenRows.js'
+import { assembleTopTenPageRows, visiblePageRows } from './catalog/pageRowContract.js'
 import { curateCatalogRows, curateTitles, hasEnabledAvailability, PUBLIC_POSTER_ROW_LIMIT } from './catalog/contentCuration.js'
 import { getContentPeriodKey, normalizeContentDisplaySettings, resolveContentSortMode } from './catalog/contentDisplaySettings.js'
 import { resolvePresentationArtwork } from './catalog/artworkRotation.js'
@@ -1285,21 +1286,31 @@ function MovieHub({ user }) {
   const personalDisplayRows = useMemo(
     () => {
       const regularRows = combinedPersonalRows.filter((row) => !row.id.startsWith('my-top-100-'))
-      const rowsWithTopTen = insertTopTenRow(regularRows, {
-        id: 'top-ten-personal',
-        title: 'Deine persönliche Top 10',
-        items: personalTopTen,
+      const rowsWithTopTen = assembleTopTenPageRows({
+        page: 'myContent',
+        rows: regularRows,
+        topTen: {
+          id: 'top-ten-personal',
+          title: 'Deine persönliche Top 10',
+          items: personalTopTen,
+        },
       })
       const topTenIndex = rowsWithTopTen.findIndex((row) => row.id === 'top-ten-personal')
       const insertionIndex = topTenIndex >= 0 ? topTenIndex + 1 : rowsWithTopTen.length
-      return [
+      return visiblePageRows([
         ...rowsWithTopTen.slice(0, insertionIndex),
         ...watchedHistoryRows,
         ...personalTopHundredRows,
         ...rowsWithTopTen.slice(insertionIndex),
-      ]
+      ], 'myContent')
     },
-    [combinedPersonalRows, personalTopTen, watchedHistoryRows, personalTopHundredRows],
+    [
+      activeProfile?.experienceSettings,
+      combinedPersonalRows,
+      personalTopTen,
+      watchedHistoryRows,
+      personalTopHundredRows,
+    ],
   )
   const providerTopTenInput = useMemo(() => ({
     providerCatalogs: catalog.providerCatalogs,
@@ -1482,24 +1493,32 @@ function MovieHub({ user }) {
     [movieCategoryRows, movieHubMovieRows, providerMovieRows],
   )
   const movieBrowseRows = useMemo(
-    () => insertTopTenRow(movieBrowseBaseRows, {
-      id: 'top-ten-movies',
-      title: 'Top 10 Filme bei deinen Anbietern',
-      items: movieTopTen,
+    () => assembleTopTenPageRows({
+      page: 'movies',
+      rows: movieBrowseBaseRows,
+      topTen: {
+        id: 'top-ten-movies',
+        title: 'Top 10 Filme bei deinen Anbietern',
+        items: movieTopTen,
+      },
     }),
-    [movieBrowseBaseRows, movieTopTen],
+    [activeProfile?.experienceSettings, movieBrowseBaseRows, movieTopTen],
   )
   const seriesBrowseBaseRows = useMemo(
     () => [...seriesCategoryRows, ...movieHubSeriesRows, ...providerSeriesRows],
     [seriesCategoryRows, movieHubSeriesRows, providerSeriesRows],
   )
   const seriesBrowseRows = useMemo(
-    () => insertTopTenRow(seriesBrowseBaseRows, {
-      id: 'top-ten-series',
-      title: 'Top 10 Serien bei deinen Anbietern',
-      items: seriesTopTen,
+    () => assembleTopTenPageRows({
+      page: 'series',
+      rows: seriesBrowseBaseRows,
+      topTen: {
+        id: 'top-ten-series',
+        title: 'Top 10 Serien bei deinen Anbietern',
+        items: seriesTopTen,
+      },
     }),
-    [seriesBrowseBaseRows, seriesTopTen],
+    [activeProfile?.experienceSettings, seriesBrowseBaseRows, seriesTopTen],
   )
   const homeBaseRows = useMemo(
     () => [
@@ -1511,12 +1530,16 @@ function MovieHub({ user }) {
     [movieHubHomeRows, curatedHomeRows, libraryLoading, libraryError, personalRows, tmdbRows],
   )
   const homeRows = useMemo(
-    () => insertTopTenRow(homeBaseRows, {
-      id: 'top-ten-home',
-      title: 'Top 10 bei deinen Anbietern',
-      items: homeTopTen,
+    () => assembleTopTenPageRows({
+      page: 'home',
+      rows: homeBaseRows,
+      topTen: {
+        id: 'top-ten-home',
+        title: 'Top 10 bei deinen Anbietern',
+        items: homeTopTen,
+      },
     }),
-    [homeBaseRows, homeTopTen],
+    [activeProfile?.experienceSettings, homeBaseRows, homeTopTen],
   )
   const heroItemsByView = useMemo(() => ({
     home: homeHeroes,
