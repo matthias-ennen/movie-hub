@@ -127,11 +127,11 @@ export function normalizeWaipuDayShard(raw, expectedKey, stations = [], { now = 
   return { airings, titles: normalizeTvDayTitles(raw?.titles) }
 }
 
-export async function loadWaipuLiveStationCatalog({ fetchImpl = fetch } = {}) {
+export async function loadWaipuLiveStationCatalog({ fetchImpl = fetch, signal } = {}) {
   try {
     const [indexResponse, stationsResponse] = await Promise.all([
-      fetchImpl(WAIPU_LIVE_INDEX_URL, { cache: 'no-store' }),
-      fetchImpl(WAIPU_LIVE_STATIONS_URL, { cache: 'no-store' }),
+      fetchImpl(WAIPU_LIVE_INDEX_URL, { cache: 'no-store', signal }),
+      fetchImpl(WAIPU_LIVE_STATIONS_URL, { cache: 'no-store', signal }),
     ])
     if (!indexResponse.ok || !stationsResponse.ok) return { status: 'unavailable', stations: [] }
     return normalizeWaipuLiveStationCatalog(
