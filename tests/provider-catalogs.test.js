@@ -75,12 +75,14 @@ describe('provider catalog architecture', () => {
         id: 'provider-netflix-home',
         providerId: 'netflix',
         title: 'Beliebt auf Netflix',
+        preserveOrder: true,
         ids: ['tmdb-movie-1', 'tmdb-series-2'],
       },
       {
         id: 'provider-ard-home',
         providerId: 'ard',
         title: 'Aus der ARD Mediathek',
+        preserveOrder: true,
         ids: ['tmdb-movie-3'],
       },
     ])
@@ -166,5 +168,12 @@ describe('provider catalog architecture', () => {
 
     expect(rows[0].items).toHaveLength(3)
     expect(rows[0].displayLimit).toBe(2)
+    expect(rows[0].preserveOrder).toBe(true)
+  })
+
+  it('benennt Paramount Home passend zur popularity-basierten Quelle', () => {
+    const paramount = PROVIDER_CATALOG_DEFINITIONS.find((provider) => provider.id === 'paramount')
+    expect(paramount?.homeTitle).toBe('Beliebt bei Paramount+')
+    expect(paramount?.homeTitle).not.toContain('Neu')
   })
 })
