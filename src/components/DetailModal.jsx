@@ -17,7 +17,6 @@ import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { loadSeriesSeasonDetail, normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
-import { formatLiveAiring } from '../sources/liveAvailabilityIndex.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
@@ -101,11 +100,13 @@ export default function DetailModal({
       .filter((providerId) => Boolean(providers[providerId]))
     return resolveBoundLiveProviderRoutes(item, providerIds, { now: Date.now() })
   })
-  const liveProviderIds = providerPresentation.liveProviderIds
+  const orderedProviderIds = providerPresentation.providerIds
     .filter((providerId) => Boolean(providers[providerId]))
+  const liveProviderIds = orderedProviderIds
+    .filter((providerId) => providerPresentation.liveProviderIds.includes(providerId))
     .filter((providerId) => Boolean(liveRouteSnapshot[providerId]))
-  const streamingProviderIds = providerPresentation.tmdbProviderIds
-    .filter((providerId) => Boolean(providers[providerId]))
+  const streamingProviderIds = orderedProviderIds
+    .filter((providerId) => providerPresentation.tmdbProviderIds.includes(providerId))
   const hasLiveProviders = liveProviderIds.length > 0
   const hasStreamingProviders = streamingProviderIds.length > 0
   const hasProviders = hasLiveProviders || hasStreamingProviders
@@ -113,14 +114,6 @@ export default function DetailModal({
   const cast = Array.isArray(item.cast) ? item.cast.slice(0, 5) : []
   const automaticVideos = Array.isArray(item.videos) ? item.videos : []
   const personalState = getTitleState(item)
-  const tvAiringLabels = item?.tvAiring
-    ? [formatLiveAiring({ nextAiring: item.tvAiring })].filter(Boolean)
-    : [...new Set(
-        Object.values(item?.liveAvailability || {})
-          .map((availability) => formatLiveAiring(availability))
-          .filter(Boolean),
-      )]
-
   useEffect(() => {
     const active = returnFocusTarget || document.activeElement
     returnFocusRef.current = active instanceof HTMLElement ? active : null
@@ -689,7 +682,7 @@ export default function DetailModal({
             </section>
           )}
           {(showMovieHubProvider || hasStreamingProviders) && (
-            <section className="provider-availability-group" aria-label="Streaming und Mediathek">
+            <section className={hasLiveProviders ? 'provider-availability-group provider-availability-streaming' : 'provider-availability-group'} aria-label="Streaming und Mediathek">
               <p className="settings-kicker">Streaming / Mediathek</p>
               <div className="provider-actions" aria-label="Streaming- und Mediathek-Anbieter">
                 {showMovieHubProvider && (
@@ -729,11 +722,6 @@ export default function DetailModal({
           {!showMovieHubProvider && !hasProviders && (
             <p className="prototype-note">Für diesen Titel ist derzeit kein unterstützter Anbieter in Deutschland hinterlegt.</p>
           )}
-          {tvAiringLabels.map((label) => (
-            <p className="waipu-provider-airing" aria-label="Nächster TV-Sendetermin" key={label}>
-              <strong>Im TV:</strong> {label}
-            </p>
-          ))}
           {hasProviders && <p className="prototype-note">Live-TV-Ausstrahlungen und Streaming-/Mediathek-Verfügbarkeiten werden getrennt aus ihren jeweiligen Quellen dargestellt.</p>}
           {item.tmdbId && <p className="tmdb-credit">Datenquelle: TMDB · ID {item.tmdbId}</p>}
 

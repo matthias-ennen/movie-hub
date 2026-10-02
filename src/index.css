@@ -247,6 +247,19 @@ p {
   text-transform: uppercase;
 }
 
+.page-section-heading {
+  margin-top: 0;
+  margin-bottom: 0.55rem;
+}
+
+.hero-first-page > .hero-carousel {
+  padding-top: calc(var(--page-block) * 0.5);
+}
+
+.hero-carousel-eyebrow {
+  padding-inline: var(--page-inline);
+}
+
 .hero h1,
 .page-heading h1,
 .auth-panel h1 {
@@ -539,6 +552,10 @@ p {
   padding: var(--page-block) var(--page-inline) 5rem;
 }
 
+.search-page {
+  padding-top: calc(var(--page-block) * 0.5);
+}
+
 .page-heading {
   max-width: 850px;
   margin-bottom: 2.4rem;
@@ -751,6 +768,10 @@ p {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
+}
+
+.provider-availability-streaming {
+  margin-top: var(--space-4);
 }
 
 .waipu-provider-airing {

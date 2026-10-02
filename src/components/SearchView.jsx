@@ -106,11 +106,7 @@ export default function SearchView({ publicTitles, personalTitles, movieHubTitle
 
   return (
     <main className="browse-page search-page">
-      <div className="page-heading">
-        <p className="eyebrow">Schnell finden</p>
-        <h1>Suche</h1>
-        <p>Durchsuche den separaten Movie-Hub-Suchindex. Angezeigt werden nur Anbieter, die du in den Einstellungen aktiviert hast; persönliche TMDB-Titel bleiben unabhängig davon auffindbar.</p>
-      </div>
+      <h1 className="eyebrow page-section-heading">Suchen</h1>
       <label className="search-box">
         <span>⌕</span>
         <input
@@ -123,9 +119,7 @@ export default function SearchView({ publicTitles, personalTitles, movieHubTitle
         />
       </label>
 
-      {normalizedLength < SEARCH_MIN_QUERY_LENGTH ? (
-        <p className="result-count">Mindestens {SEARCH_MIN_QUERY_LENGTH} Zeichen eingeben.</p>
-      ) : (
+      {normalizedLength >= SEARCH_MIN_QUERY_LENGTH && (
         <p className="result-count">
           {searchResult.hasMore ? `${searchResult.results.length} von ${searchResult.total} Treffern` : `${searchResult.total} Treffer`}
         </p>

@@ -567,7 +567,7 @@ export default function Hero({
       onFocusCapture={handleHeroFocus}
       onBlurCapture={handleHeroBlur}
     >
-      <p className="eyebrow hero-carousel-eyebrow">{eyebrow}</p>
+      <p className="eyebrow page-section-heading hero-carousel-eyebrow">{eyebrow}</p>
 
       <div
         className="hero-viewport"

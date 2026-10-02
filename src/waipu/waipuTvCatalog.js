@@ -4,6 +4,7 @@ import {
   isTvAiringSoon,
 } from './waipuAiringStatus.js'
 import { normalizeTvDayTitles } from '../sources/tvDayTitleMetadata.js'
+import { isPrimeTimeStart } from '../tv/tvPrimeTime.js'
 import {
   mapWaipuAiringToBroadcastEvent,
   projectBroadcastEventToWaipuAiring,
@@ -456,11 +457,6 @@ function matchesTvCategory(item, category) {
   return category.genreIds.some((id) => ids.has(id))
 }
 
-function startsInLocalWindow(item, startHour, endHour, timeZone) {
-  const parts = zonedParts(item?.tvAiring?.startTime, timeZone)
-  return parts.hour >= startHour && parts.hour < endHour
-}
-
 function normalRow(id, title, items) {
   return { id, title, variant: 'tv', items }
 }
@@ -484,7 +480,7 @@ function dailyHeading(kind, period) {
 
 function buildRowsForAll(items, stationRank, timeZone) {
   const canonical = earliestUnique(items).sort((a, b) => compareChronological(a, b, stationRank))
-  const primeTime = earliestUnique(items.filter((item) => startsInLocalWindow(item, 20, 23, timeZone)))
+  const primeTime = earliestUnique(items.filter((item) => isPrimeTimeStart(item?.tvAiring?.startTime, timeZone)))
     .sort((a, b) => compareChronological(a, b, stationRank))
   const rows = [
     normalRow('tv-14-days-movies', 'Filme in den nächsten 14 Tagen', canonical.filter((item) => item.type === 'movie')),
@@ -511,7 +507,7 @@ function buildRowsForDay(items, period, stationRank, timeZone) {
   const rows = [
     normalRow(`tv-${period.key}-movies`, dailyHeading('Filme', period), daily.filter((item) => item.type === 'movie')),
     normalRow(`tv-${period.key}-series`, dailyHeading('Serien', period), daily.filter((item) => item.type === 'series')),
-    normalRow(`tv-${period.key}-prime-time`, 'Zur Prime Time', dedupeDaily(chronological.filter((item) => startsInLocalWindow(item, 20, 23, timeZone)))),
+    normalRow(`tv-${period.key}-prime-time`, 'Zur Prime Time', dedupeDaily(chronological.filter((item) => isPrimeTimeStart(item?.tvAiring?.startTime, timeZone)))),
     normalRow(`tv-${period.key}-night`, 'Nachtprogramm', dedupeDaily(chronological.filter((item) => {
       const hour = zonedParts(item?.tvAiring?.startTime, timeZone).hour
       return hour >= 23 || hour < TV_DAY_START_HOUR

@@ -2,7 +2,7 @@ import { getActivePosterRowLimit } from '../profiles/profileExperienceRuntime.js
 import { mergeEnrichedTitle } from '../catalog/titleMetadata.js'
 import { getTitleStateKey, hasPersonalTitleState } from './libraryState.js'
 
-export const WATCHED_HISTORY_LIMIT = 70
+export const WATCHED_HISTORY_LIMIT = 100
 export const PERSONAL_TOP_HUNDRED_LIMIT = 100
 
 function byTitle(a, b) {
@@ -91,16 +91,16 @@ function watchedHistoryTime(state) {
   return Number.isFinite(watchedDate) ? watchedDate : 0
 }
 
-export function buildWatchedHistoryRows(titles, getTitleState, limit = getActivePosterRowLimit()) {
+export function buildWatchedHistoryRows(titles, getTitleState, limit = WATCHED_HISTORY_LIMIT) {
   if (!Array.isArray(titles) || typeof getTitleState !== 'function') return []
-  const safeLimit = Math.min(Math.max(0, Number(limit) || 0), getActivePosterRowLimit())
+  const safeLimit = Math.min(Math.max(0, Number(limit) || 0), WATCHED_HISTORY_LIMIT)
 
   const items = titles
     .filter((item) => getTitleState(item).watched)
     .sort((a, b) => watchedHistoryTime(getTitleState(b)) - watchedHistoryTime(getTitleState(a)) || byTitle(a, b))
     .slice(0, safeLimit)
 
-  return items.length ? [{ id: 'my-watched-history', title: 'Als gesehen markiert', items }] : []
+  return items.length ? [{ id: 'my-watched-history', title: 'Als gesehen markiert', variant: 'history', items }] : []
 }
 
 export function mergeCatalogWithPersonalSnapshots(titles, statesByKey) {
