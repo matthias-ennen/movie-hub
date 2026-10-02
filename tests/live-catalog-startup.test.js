@@ -18,40 +18,29 @@ describe('live catalog startup policy', () => {
     expect(shouldLoadLiveStations({ tvRequested: true })).toBe(true)
     expect(shouldLoadLiveStations({ settingsOpen: true })).toBe(true)
   })
-  it('releases the TV hero without waiting for station catalogs or day schedule', () => {
+  it('releases the TV hero from the dedicated snapshot without catalog or day dependencies', () => {
     expect(isTvPresentationReady({
-      catalogStatus: 'ready',
-      liveAvailabilityStatus: 'ready',
+      heroStatus: 'ready',
       stationSelectionLoading: false,
       joynStationSelectionLoading: false,
     })).toBe(true)
 
     expect(isTvPresentationReady({
-      catalogStatus: 'loading',
-      liveAvailabilityStatus: 'ready',
+      heroStatus: 'loading',
       stationSelectionLoading: false,
       joynStationSelectionLoading: false,
     })).toBe(false)
 
     expect(isTvPresentationReady({
-      catalogStatus: 'ready',
-      liveAvailabilityStatus: 'loading',
-      stationSelectionLoading: false,
-      joynStationSelectionLoading: false,
-    })).toBe(false)
-
-    expect(isTvPresentationReady({
-      catalogStatus: 'ready',
-      liveAvailabilityStatus: 'ready',
+      heroStatus: 'ready',
       stationSelectionLoading: true,
       joynStationSelectionLoading: false,
     })).toBe(false)
   })
 
-  it('does not deadlock the TV hero when the compact live index is unavailable', () => {
+  it('does not deadlock TV when the dedicated hero snapshot is unavailable', () => {
     expect(isTvPresentationReady({
-      catalogStatus: 'ready',
-      liveAvailabilityStatus: 'unavailable',
+      heroStatus: 'unavailable',
       stationSelectionLoading: false,
       joynStationSelectionLoading: false,
     })).toBe(true)
