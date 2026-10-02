@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { prepareRowsForActiveView } from '../src/performance/contentRowPreparation.js'
+import { prepareForActiveView, prepareRowsForActiveView } from '../src/performance/contentRowPreparation.js'
 
 describe('active content row preparation', () => {
   it('does not execute an inactive page row builder', () => {
@@ -19,5 +19,14 @@ describe('active content row preparation', () => {
 
   it('normalizes an invalid builder result to an empty row list', () => {
     expect(prepareRowsForActiveView('series', 'series', () => null)).toEqual([])
+  })
+
+  it('can defer non-row calculations without pseudo rows', () => {
+    const buildValue = vi.fn(() => ['a', 'b'])
+
+    expect(prepareForActiveView('home', 'movies', buildValue, [])).toEqual([])
+    expect(buildValue).not.toHaveBeenCalled()
+    expect(prepareForActiveView('movies', 'movies', buildValue, [])).toEqual(['a', 'b'])
+    expect(buildValue).toHaveBeenCalledOnce()
   })
 })
