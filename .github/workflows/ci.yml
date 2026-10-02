@@ -27,9 +27,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Reject high and critical dependency findings
-        run: npm audit --audit-level=high
-
       - name: Build
         run: npm run build
 
@@ -38,3 +35,6 @@ jobs:
 
       - name: Test Firestore rules
         run: npm run test:rules
+
+      - name: Reject high and critical dependency findings
+        run: npm audit --audit-level=high
