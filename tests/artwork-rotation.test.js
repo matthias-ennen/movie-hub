@@ -8,6 +8,7 @@ import {
   resizeTmdbImageUrl,
   responsiveTmdbImageProps,
 } from '../src/services/tmdbImages.js'
+import { heroImageProps } from '../src/performance/heroImages.js'
 
 const title = {
   id: 'tmdb-movie-11',
@@ -64,6 +65,24 @@ describe('profilbezogene Bildrotation', () => {
       src: 'https://image.tmdb.org/t/p/w342/example.jpg',
       srcSet: 'https://image.tmdb.org/t/p/w342/example.jpg 342w, https://image.tmdb.org/t/p/w500/example.jpg 500w',
       sizes: '280px',
+    })
+  })
+
+  it('verwendet für TMDB-Heroes responsive w780/w1280 Quellen', () => {
+    expect(heroImageProps({
+      displayHeroBackdropUrl: 'https://image.tmdb.org/t/p/w1280/backdrop.jpg',
+    })).toEqual({
+      src: 'https://image.tmdb.org/t/p/w780/backdrop.jpg',
+      srcSet: 'https://image.tmdb.org/t/p/w780/backdrop.jpg 780w, https://image.tmdb.org/t/p/w1280/backdrop.jpg 1280w',
+      sizes: '(max-width: 760px) 100vw, 780px',
+    })
+  })
+
+  it('verändert externe Hero-Backdrops nicht', () => {
+    expect(heroImageProps({
+      backdropUrl: 'https://images.example.test/hero.jpg',
+    })).toEqual({
+      src: 'https://images.example.test/hero.jpg',
     })
   })
 
