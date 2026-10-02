@@ -8,6 +8,7 @@ import {
 } from '../src/performance/posterPrefetch.js'
 import {
   estimatePosterRowHeight,
+  HISTORY_POSTER_ROW_LIMIT,
   limitPosterRowItems,
   ROW_VIRTUAL_OVERSCAN,
   STANDARD_POSTER_ROW_LIMIT,
@@ -41,6 +42,8 @@ describe('Fire-TV Posterreihen-Last', () => {
     const items = Array.from({ length: 80 }, (_, index) => title(index + 1))
     expect(limitPosterRowItems(items)).toHaveLength(STANDARD_POSTER_ROW_LIMIT)
     expect(limitPosterRowItems(items, 'top-ten')).toHaveLength(TOP_TEN_ROW_LIMIT)
+    expect(limitPosterRowItems(Array.from({ length: 120 }, (_, index) => title(index + 1)), 'history'))
+      .toHaveLength(HISTORY_POSTER_ROW_LIMIT)
     expect(limitPosterRowItems(Array.from({ length: 200 }, (_, index) => title(index + 1)), 'tv'))
       .toHaveLength(TV_POSTER_ROW_LIMIT)
     expect(ROW_VIRTUAL_OVERSCAN).toBe(2)
@@ -57,7 +60,7 @@ describe('Fire-TV Posterreihen-Last', () => {
     expect(shouldExpandTvPosterWindow(149, 150, 150)).toBe(false)
   })
 
-  it('begrenzt persönliche und Verlauf-Reihen bereits vor dem Rendern', () => {
+  it('begrenzt persönliche Reihen früh und hält den 100er Verlauf separat progressiv', () => {
     const items = Array.from({ length: 80 }, (_, index) => title(index + 1))
     const stateById = new Map(items.map((item, index) => [item.id, {
       watchlist: true,
@@ -70,7 +73,11 @@ describe('Fire-TV Posterreihen-Last', () => {
 
     const rows = buildPersonalRows(items, getTitleState)
     expect(rows.every((row) => row.items.length === STANDARD_POSTER_ROW_LIMIT)).toBe(true)
-    expect(buildWatchedHistoryRows(items, getTitleState)[0].items).toHaveLength(STANDARD_POSTER_ROW_LIMIT)
+    const history = buildWatchedHistoryRows(items, getTitleState)[0]
+    expect(history.variant).toBe('history')
+    expect(history.items).toHaveLength(80)
+    expect(limitPosterRowItems(history.items, history.variant)).toHaveLength(80)
+    expect(tvPosterRenderCountForIndex(history.items.length, 0)).toBe(TV_INITIAL_RENDERED_POSTERS)
   })
 
   it('begrenzt synchronisierte TMDB-Reihen vor der Darstellung', () => {
