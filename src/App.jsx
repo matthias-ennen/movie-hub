@@ -9,7 +9,7 @@ import ProfileView from './components/ProfileView.jsx'
 import SearchView from './components/SearchView.jsx'
 import SettingsView from './components/SettingsView.jsx'
 import TvView from './components/TvView.jsx'
-import { prepareDetailRequestItem, preloadDetailImage, waitForDetailLoadingPaint } from './components/detailPresentation.js'
+import { detailInitialImageUrl, prepareDetailRequestItem, preloadDetailImage, waitForDetailLoadingPaint } from './components/detailPresentation.js'
 import { buildCategoryRows } from './catalog/categoryRows.js'
 import { buildPersonalSmartRows, normalizeSmartFilterOptions } from './catalog/personalSmartRows.js'
 import { buildProviderBrowseRows, buildProviderHomeRows } from './catalog/providerCatalogRows.js'
@@ -21,8 +21,6 @@ import { assembleTopTenPageRows, visiblePageRows } from './catalog/pageRowContra
 import { curateCatalogRows, curateTitles, hasEnabledAvailability, PUBLIC_POSTER_ROW_LIMIT } from './catalog/contentCuration.js'
 import { getContentPeriodKey, normalizeContentDisplaySettings, resolveContentSortMode } from './catalog/contentDisplaySettings.js'
 import { resolvePresentationArtwork } from './catalog/artworkRotation.js'
-import { loadRuntimeTitleMetadata } from './catalog/runtimeTitleMetadata.js'
-import { mergeEnrichedTitle, sameTmdbTitle, titleNeedsMetadataEnrichment } from './catalog/titleMetadata.js'
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
@@ -456,6 +454,7 @@ function MovieHub({ user }) {
   const [detailRequest, setDetailRequest] = useState(null)
   const [detailSharedMedia, setDetailSharedMedia] = useState([])
   const [detailSharedMediaLoadError, setDetailSharedMediaLoadError] = useState('')
+  const [detailPrimaryImageUrl, setDetailPrimaryImageUrl] = useState(undefined)
   const [profileOpen, setProfileOpen] = useState(false)
   const [exitDialogOpen, setExitDialogOpen] = useState(false)
   const [catalog, setCatalog] = useState({
@@ -956,13 +955,19 @@ function MovieHub({ user }) {
     })
   }, [])
 
-  const handleOpenTitle = useCallback((item, displayedPosterUrl = null, { requireComplete = false } = {}) => {
+  const handleOpenTitle = useCallback((item, displayedPosterUrl = null) => {
     setProfileOpen(false)
     if (!detailSessionActiveRef.current) {
       const active = document.activeElement
       detailReturnFocusRef.current = active instanceof HTMLElement ? active : null
       detailSessionActiveRef.current = true
     }
+
+    setSelectedTitle(null)
+    setDetailSharedMedia([])
+    setDetailSharedMediaLoadError('')
+    setDetailPrimaryImageUrl(undefined)
+
     const presented = resolvePresentationArtwork(item, artworkOptions)
     const initiallySelected = {
       ...presented,
@@ -975,63 +980,25 @@ function MovieHub({ user }) {
     }
     detailPerformanceRequestRef.current = requestId
     startPerformanceSpan('detail', String(requestId), {
-      requireComplete,
+      requireComplete: true,
       mediaType: item?.type === 'series' || item?.mediaType === 'tv' ? 'series' : 'movie',
     })
-    setDetailRequest({ id: requestId, item: initiallySelected, requireComplete, error: null })
-
-    if (!requireComplete && titleNeedsMetadataEnrichment(item)) {
-      loadRuntimeTitleMetadata(item)
-        .then((detail) => {
-          if (titleNeedsMetadataEnrichment(detail)) return
-          setLiveAvailabilityEntries((entries) => entries.map((entry) => {
-            if (!sameTmdbTitle(entry, item)) return entry
-            return {
-              ...entry,
-              title: detail?.title || entry.title,
-              originalTitle: detail?.originalTitle || entry.originalTitle,
-            }
-          }))
-          setSelectedTitle((current) => {
-            if (!current || !sameTmdbTitle(current, item)) return current
-            const hydrated = resolvePresentationArtwork(mergeEnrichedTitle(current, detail), artworkOptions)
-            return {
-              ...hydrated,
-              displayPosterUrl: current.displayPosterUrl || hydrated.displayPosterUrl,
-            }
-          })
-          setDetailRequest((current) => {
-            if (!current || current.id !== requestId || !sameTmdbTitle(current.item, item)) return current
-            const hydrated = resolvePresentationArtwork(mergeEnrichedTitle(current.item, detail), artworkOptions)
-            return {
-              ...current,
-              item: {
-                ...hydrated,
-                displayPosterUrl: current.item.displayPosterUrl || hydrated.displayPosterUrl,
-              },
-            }
-          })
-        })
-        .catch((error) => console.warn('Movie-Hub-Titelmetadaten konnten nicht progressiv ergänzt werden.', error))
-    }
+    setDetailRequest({ id: requestId, item: initiallySelected, error: null })
   }, [artworkOptions])
 
   useEffect(() => {
-    if (!detailRequest) return undefined
+    if (!detailRequest || libraryLoading) return undefined
 
     let cancelled = false
     if (detailRequest.error) return undefined
 
-    const { id: requestId, item, requireComplete } = detailRequest
+    const { id: requestId, item } = detailRequest
 
     async function prepareDetail() {
       await waitForDetailLoadingPaint()
       if (cancelled) return
 
-      const preparedItem = await prepareDetailRequestItem(item, {
-        requireComplete,
-        artworkOptions,
-      })
+      const preparedItem = await prepareDetailRequestItem(item, { artworkOptions })
       if (cancelled) return
       const displayedItem = {
         ...preparedItem,
@@ -1051,8 +1018,10 @@ function MovieHub({ user }) {
           })
         : Promise.resolve()
 
+      const primaryImageUrl = detailInitialImageUrl(displayedItem)
+      let imageResult = 'no-image'
       await Promise.all([
-        preloadDetailImage(displayedItem.displayPosterUrl || displayedItem.posterUrl || null),
+        preloadDetailImage(primaryImageUrl).then((result) => { imageResult = result }),
         mediaLoad,
       ])
       if (cancelled) return
@@ -1060,10 +1029,12 @@ function MovieHub({ user }) {
       finishPerformanceSpan('detail', String(requestId), {
         outcome: 'ready',
         sharedMediaCount: sharedMedia.length,
+        imageState: imageResult,
       })
       if (detailPerformanceRequestRef.current === requestId) detailPerformanceRequestRef.current = null
       setDetailSharedMedia(sharedMedia)
       setDetailSharedMediaLoadError(sharedMediaLoadError)
+      setDetailPrimaryImageUrl(imageResult === 'loaded' ? primaryImageUrl : null)
       setSelectedTitle(displayedItem)
       setDetailRequest((current) => current?.id === requestId ? null : current)
     }
@@ -1071,24 +1042,22 @@ function MovieHub({ user }) {
     prepareDetail().catch((error) => {
       console.warn('Movie-Hub-Detailansicht konnte nicht vollständig vorbereitet werden.', error)
       if (cancelled) return
-      if (requireComplete) {
-        finishPerformanceSpan('detail', String(requestId), { outcome: 'error' })
-        if (detailPerformanceRequestRef.current === requestId) detailPerformanceRequestRef.current = null
-        setDetailRequest((current) => current?.id === requestId
-          ? { ...current, error }
-          : current)
-        return
-      }
-      finishPerformanceSpan('detail', String(requestId), { outcome: 'fallback' })
+      finishPerformanceSpan('detail', String(requestId), { outcome: 'error' })
       if (detailPerformanceRequestRef.current === requestId) detailPerformanceRequestRef.current = null
-      setDetailSharedMedia([])
-      setDetailSharedMediaLoadError('Zusätzliche Detailinformationen konnten nicht geladen werden.')
-      setSelectedTitle(item)
-      setDetailRequest((current) => current?.id === requestId ? null : current)
+      setDetailRequest((current) => current?.id === requestId
+        ? { ...current, error }
+        : current)
     })
 
     return () => { cancelled = true }
-  }, [artworkOptions, detailRequest, hasMovieHubTitle, sharedMediaCatalogLoading, user?.uid])
+  }, [
+    artworkOptions,
+    detailRequest,
+    hasMovieHubTitle,
+    libraryLoading,
+    sharedMediaCatalogLoading,
+    user?.uid,
+  ])
 
   const restoreDetailReturnFocus = useCallback(() => {
     const target = detailReturnFocusRef.current
@@ -1108,6 +1077,7 @@ function MovieHub({ user }) {
     setSelectedTitle(null)
     setDetailSharedMedia([])
     setDetailSharedMediaLoadError('')
+    setDetailPrimaryImageUrl(undefined)
     detailSessionActiveRef.current = false
     if (!detailWasMounted) restoreDetailReturnFocus()
   }, [restoreDetailReturnFocus, selectedTitle])
@@ -1691,6 +1661,7 @@ function MovieHub({ user }) {
           collections={catalog.collections}
           titles={titles}
           initialSharedMedia={detailSharedMedia}
+          initialPrimaryImageUrl={detailPrimaryImageUrl}
           sharedMediaPreloaded
           sharedMediaLoadError={detailSharedMediaLoadError}
           returnFocusTarget={detailReturnFocusRef.current}
