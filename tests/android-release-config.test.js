@@ -16,6 +16,8 @@ describe('Android Release R8-Vertrag', () => {
     expect(proguardRules).toContain('-keepattributes RuntimeVisibleAnnotations,RuntimeInvisibleAnnotations,AnnotationDefault')
     expect(proguardRules).toContain('@android.webkit.JavascriptInterface <methods>;')
     expect(proguardRules).toContain('-keepclassmembers,allowoptimization class *')
+    expect(proguardRules).toContain('-dontwarn org.ietf.jgss.**')
+    expect(proguardRules).toContain('-dontwarn javax.el.**')
   })
 
   it('misst Releasegröße und archiviert die R8-Mappingdatei', () => {
