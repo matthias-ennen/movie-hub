@@ -36,6 +36,7 @@
   --page-inline: clamp(1.3rem, 5vw, 5.5rem);
   --page-gutter-total: clamp(2.6rem, 10vw, 11rem);
   --page-block: clamp(4rem, 7vw, 6.5rem);
+  --page-start-gap: calc(var(--page-block) * 0.2);
   --topbar-height: 78px;
   --content-max-width: 1500px;
 
