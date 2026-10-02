@@ -4,6 +4,7 @@ import {
   MOVIE_CATEGORY_OPTIONS,
   SERIES_CATEGORY_OPTIONS,
   buildCategoryRows,
+  moveCategoryOrder,
   normalizeCategorySettings,
 } from '../src/catalog/categoryRows.js'
 
@@ -35,6 +36,10 @@ describe('profilbezogene Videothek-Kategorien', () => {
       .toEqual(MOVIE_CATEGORY_OPTIONS.map((category) => category.id))
     expect(DEFAULT_CATEGORY_SETTINGS.enabledSeriesCategoryIds)
       .toEqual(SERIES_CATEGORY_OPTIONS.map((category) => category.id))
+    expect(DEFAULT_CATEGORY_SETTINGS.movieCategoryOrder)
+      .toEqual(MOVIE_CATEGORY_OPTIONS.map((category) => category.id))
+    expect(DEFAULT_CATEGORY_SETTINGS.seriesCategoryOrder)
+      .toEqual(SERIES_CATEGORY_OPTIONS.map((category) => category.id))
   })
 
   it('normalizes legacy, empty and unknown profile settings', () => {
@@ -45,7 +50,31 @@ describe('profilbezogene Videothek-Kategorien', () => {
     })).toEqual({
       enabledMovieCategoryIds: ['action', 'horror'],
       enabledSeriesCategoryIds: [],
+      movieCategoryOrder: MOVIE_CATEGORY_OPTIONS.map((category) => category.id),
+      seriesCategoryOrder: SERIES_CATEGORY_OPTIONS.map((category) => category.id),
     })
+  })
+
+  it('preserves custom order, ignores unknown ids and appends new categories safely', () => {
+    const normalized = normalizeCategorySettings({
+      enabledMovieCategoryIds: ['action', 'horror'],
+      movieCategoryOrder: ['horror', 'unknown', 'action', 'horror'],
+      seriesCategoryOrder: ['drama', 'crime'],
+    })
+
+    expect(normalized.movieCategoryOrder.slice(0, 2)).toEqual(['horror', 'action'])
+    expect(normalized.movieCategoryOrder).toHaveLength(MOVIE_CATEGORY_OPTIONS.length)
+    expect(new Set(normalized.movieCategoryOrder).size).toBe(MOVIE_CATEGORY_OPTIONS.length)
+    expect(normalized.seriesCategoryOrder.slice(0, 2)).toEqual(['drama', 'crime'])
+    expect(normalized.seriesCategoryOrder).toHaveLength(SERIES_CATEGORY_OPTIONS.length)
+  })
+
+  it('moves category order one position while keeping disabled categories positioned', () => {
+    const initial = MOVIE_CATEGORY_OPTIONS.map((category) => category.id)
+    const moved = moveCategoryOrder(initial, 'horror', -1, MOVIE_CATEGORY_OPTIONS)
+    expect(moved.indexOf('horror')).toBe(initial.indexOf('horror') - 1)
+    expect(moved).toHaveLength(initial.length)
+    expect(new Set(moved).size).toBe(initial.length)
   })
 
   it('keeps movie and series rows strictly separated', () => {
@@ -69,6 +98,26 @@ describe('profilbezogene Videothek-Kategorien', () => {
 
     expect(movieRows[0].items.every((item) => item.type === 'movie')).toBe(true)
     expect(seriesRows[0].items.every((item) => item.type === 'series')).toBe(true)
+  })
+
+  it('renders active category rows in the stored profile order', () => {
+    const titles = [
+      ...Array.from({ length: 6 }, (_, index) => title(`action-${index}`, { genreId: 28 })),
+      ...Array.from({ length: 6 }, (_, index) => title(`horror-${index}`, { genreId: 27 })),
+    ]
+
+    const rows = buildCategoryRows({
+      titles,
+      mediaType: 'movie',
+      enabledCategoryIds: ['action', 'horror'],
+      categoryOrder: ['horror', 'action'],
+      enabledProviderIds: ['netflix'],
+    })
+
+    expect(rows.map((row) => row.id)).toEqual([
+      'category-movie-horror',
+      'category-movie-action',
+    ])
   })
 
   it('filters disabled providers, deduplicates and hides thin rows', () => {
