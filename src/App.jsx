@@ -13,7 +13,7 @@ import { detailInitialImageUrl, prepareDetailRequestItem, preloadDetailImage, wa
 import { buildCategoryRows } from './catalog/categoryRows.js'
 import { buildPersonalSmartRows, normalizeSmartFilterOptions } from './catalog/personalSmartRows.js'
 import { buildProviderBrowseRows, buildProviderHomeRows } from './catalog/providerCatalogRows.js'
-import { selectCoordinatedHeroItems, selectPersonalHeroItems } from './catalog/heroSelection.js'
+import { HERO_LIMIT, selectCoordinatedHeroItems, selectPersonalHeroItemsFromSources } from './catalog/heroSelection.js'
 import { buildMovieHubCatalogRows } from './catalog/movieHubCatalog.js'
 import { normalizeFilmCollectionIndex } from './catalog/filmCollections.js'
 import { buildPersonalTopTen, buildProviderTopTen } from './catalog/topTenRows.js'
@@ -1313,8 +1313,12 @@ function MovieHub({ user }) {
     [personalCatalogTitles, getTitleState, statesByKey],
   )
   const personalTopHundredRows = useMemo(
-    () => buildPersonalTopHundredRows(personalCatalogTitles, getTitleState),
-    [personalCatalogTitles, getTitleState, statesByKey],
+    () => prepareRowsForActiveView(
+      currentView,
+      'library',
+      () => buildPersonalTopHundredRows(personalCatalogTitles, getTitleState),
+    ),
+    [currentView, personalCatalogTitles, getTitleState, statesByKey],
   )
   const watchedHistoryRows = useMemo(
     () => prepareRowsForActiveView(
@@ -1324,25 +1328,36 @@ function MovieHub({ user }) {
     ),
     [currentView, personalCatalogTitles, getTitleState, statesByKey],
   )
-  const tmdbRows = useMemo(() => buildTmdbCatalogRows(titles), [titles])
+  const tmdbRows = useMemo(
+    () => (currentView === 'home' || currentView === 'library')
+      ? buildTmdbCatalogRows(titles)
+      : [],
+    [currentView, titles],
+  )
   const personalSmartRows = useMemo(
-    () => buildPersonalSmartRows(
-      publicTitles,
-      activeProfile?.contentRowSettings,
-      undefined,
-      (items, row) => curateTitles(items, {
-        mode: activeSortMode,
-        seed: `${curationSeed}:smart:${row.id}`,
-      }),
+    () => prepareRowsForActiveView(
+      currentView,
+      'library',
+      () => buildPersonalSmartRows(
+        publicTitles,
+        activeProfile?.contentRowSettings,
+        undefined,
+        (items, row) => curateTitles(items, {
+          mode: activeSortMode,
+          seed: `${curationSeed}:smart:${row.id}`,
+        }),
+      ),
     ),
-    [publicTitles, activeProfile?.contentRowSettings, activeSortMode, curationSeed],
+    [currentView, publicTitles, activeProfile?.contentRowSettings, activeSortMode, curationSeed],
   )
   const combinedPersonalRows = useMemo(
-    () => [
+    () => prepareRowsForActiveView(currentView, 'library', () => [
       ...personalRows.filter((row) => row.id !== 'my-ratings'),
-      ...personalTopHundredRows, ...tmdbRows, ...personalSmartRows,
-    ],
-    [personalRows, personalTopHundredRows, tmdbRows, personalSmartRows],
+      ...personalTopHundredRows,
+      ...tmdbRows,
+      ...personalSmartRows,
+    ]),
+    [currentView, personalRows, personalTopHundredRows, tmdbRows, personalSmartRows],
   )
   const personalTopTen = useMemo(
     () => prepareForActiveView(
@@ -1460,7 +1475,42 @@ function MovieHub({ user }) {
   const seriesHeroes = coordinatedHeroes.series
   const movies = curatedMovieTitles
   const series = curatedSeriesTitles
-  const personalHeroes = useMemo(() => selectPersonalHeroItems(combinedPersonalRows), [combinedPersonalRows])
+  const personalHeroes = useMemo(
+    () => selectPersonalHeroItemsFromSources([
+      () => personalRows.filter((row) => row.id !== 'my-ratings'),
+      () => currentView === 'library'
+        ? personalTopHundredRows
+        : buildPersonalTopHundredRows(personalCatalogTitles, getTitleState, HERO_LIMIT),
+      () => (currentView === 'home' || currentView === 'library')
+        ? tmdbRows
+        : buildTmdbCatalogRows(titles, HERO_LIMIT),
+      () => currentView === 'library'
+        ? personalSmartRows
+        : buildPersonalSmartRows(
+          publicTitles,
+          activeProfile?.contentRowSettings,
+          HERO_LIMIT,
+          (items, row) => curateTitles(items, {
+            mode: activeSortMode,
+            seed: `${curationSeed}:smart:${row.id}`,
+          }),
+        ),
+    ]),
+    [
+      activeProfile?.contentRowSettings,
+      activeSortMode,
+      curationSeed,
+      currentView,
+      getTitleState,
+      personalCatalogTitles,
+      personalRows,
+      personalSmartRows,
+      personalTopHundredRows,
+      publicTitles,
+      titles,
+      tmdbRows,
+    ],
+  )
   const curatedHomeRows = useMemo(
     () => prepareRowsForActiveView(currentView, 'home', () => curateCatalogRows(
       rawHomeRows.filter((row) => !row.providerId || enabledProviderIds.includes(row.providerId)).map((row) => ({
