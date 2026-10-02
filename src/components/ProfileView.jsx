@@ -42,16 +42,12 @@ export default function ProfileView({ user, onSignOut, publicTitles = [], smartF
       title: 'Filmkategorien',
       options: orderCategoryOptions(MOVIE_CATEGORY_OPTIONS, categorySettings.movieCategoryOrder),
       enabledIds: categorySettings.enabledMovieCategoryIds,
-      orderKey: 'movieCategoryOrder',
-      baseOptions: MOVIE_CATEGORY_OPTIONS,
     },
     {
       id: 'series',
       title: 'Serienkategorien',
       options: orderCategoryOptions(SERIES_CATEGORY_OPTIONS, categorySettings.seriesCategoryOrder),
       enabledIds: categorySettings.enabledSeriesCategoryIds,
-      orderKey: 'seriesCategoryOrder',
-      baseOptions: SERIES_CATEGORY_OPTIONS,
     },
   ]
 
