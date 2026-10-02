@@ -1,10 +1,12 @@
+import { posterImageProps, posterSourceUrl } from './posterImages.js'
+
 export const POSTER_PREFETCH_AHEAD = 5
 export const POSTER_PREFETCH_BEHIND = 1
 
 const prefetchedPosterUrls = new Set()
 
 export function posterUrlForItem(item) {
-  return item?.displayPosterUrl || item?.neutralPosterUrl || item?.posterUrl || null
+  return posterSourceUrl(item)
 }
 
 export function getPosterPrefetchWindow(items, focusIndex, {
@@ -23,15 +25,18 @@ export function prefetchPosterWindow(items, focusIndex, options = {}) {
 
   const requested = []
   for (const item of getPosterPrefetchWindow(items, focusIndex, options)) {
-    const url = posterUrlForItem(item)
-    if (!url || prefetchedPosterUrls.has(url)) continue
+    const sourceUrl = posterUrlForItem(item)
+    if (!sourceUrl || prefetchedPosterUrls.has(sourceUrl)) continue
 
-    prefetchedPosterUrls.add(url)
+    prefetchedPosterUrls.add(sourceUrl)
+    const imageProps = posterImageProps(item, { variant: options.variant || 'standard' })
     const image = new Image()
     image.decoding = 'async'
     image.fetchPriority = 'auto'
-    image.src = url
-    requested.push(url)
+    if (imageProps.sizes) image.sizes = imageProps.sizes
+    if (imageProps.srcSet) image.srcset = imageProps.srcSet
+    image.src = imageProps.src
+    requested.push(imageProps.src)
   }
   return requested
 }
