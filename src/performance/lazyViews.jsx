@@ -18,12 +18,14 @@ export const loadAboutViewModule = createResettableModuleLoader(() => import('..
 export const loadSearchViewModule = createResettableModuleLoader(() => import('../components/SearchView.jsx'))
 export const loadProfileViewModule = createResettableModuleLoader(() => import('../components/ProfileView.jsx'))
 export const loadSettingsViewModule = createResettableModuleLoader(() => import('../components/SettingsView.jsx'))
+export const loadTvFeatureModule = createResettableModuleLoader(() => import('../tv/TvFeature.jsx'))
 
 const secondaryViewLoaders = Object.freeze({
   search: loadSearchViewModule,
   profile: loadProfileViewModule,
   settings: loadSettingsViewModule,
   about: loadAboutViewModule,
+  tv: loadTvFeatureModule,
 })
 
 export function resolveSecondaryViewLoader(viewId, loaders = secondaryViewLoaders) {
@@ -41,3 +43,4 @@ export const LazyAboutView = lazy(loadAboutViewModule)
 export const LazySearchView = lazy(loadSearchViewModule)
 export const LazyProfileView = lazy(loadProfileViewModule)
 export const LazySettingsView = lazy(loadSettingsViewModule)
+export const LazyTvFeature = lazy(loadTvFeatureModule)
