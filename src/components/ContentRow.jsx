@@ -4,9 +4,9 @@ import { prefetchPosterWindow } from '../performance/posterPrefetch.js'
 import {
   isProgressivePosterRow,
   limitPosterRowItems,
-  nextTvPosterRenderCount,
-  shouldExpandTvPosterWindow,
-  tvPosterRenderCountForIndex,
+  nextPosterRenderCount,
+  posterRenderCountForIndex,
+  shouldExpandPosterWindow,
 } from '../performance/posterRows.js'
 import { providerIdForRowTitle } from '../settings/providerSelectionModel.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
@@ -34,7 +34,7 @@ export default function ContentRow({
   const visibleItems = useMemo(() => limitPosterRowItems(items, variant), [items, variant])
   const progressive = isProgressivePosterRow(variant)
   const [renderedCount, setRenderedCount] = useState(() => (
-    progressive ? tvPosterRenderCountForIndex(visibleItems.length, initialFocusIndex) : 0
+    progressive ? posterRenderCountForIndex(visibleItems.length, initialFocusIndex, variant) : 0
   ))
   const renderedItems = progressive
     ? visibleItems.slice(0, renderedCount)
@@ -42,8 +42,8 @@ export default function ContentRow({
 
   useEffect(() => {
     if (!progressive) return
-    setRenderedCount(tvPosterRenderCountForIndex(visibleItems.length, initialFocusIndex))
-  }, [initialFocusIndex, progressive, rowId, visibleItems.length])
+    setRenderedCount(posterRenderCountForIndex(visibleItems.length, initialFocusIndex, variant))
+  }, [initialFocusIndex, progressive, rowId, variant, visibleItems.length])
 
   useLayoutEffect(() => {
     const track = trackRef.current
@@ -63,7 +63,7 @@ export default function ContentRow({
 
   function expandProgressivePosters() {
     if (!progressive) return
-    setRenderedCount((current) => nextTvPosterRenderCount(current, visibleItems.length))
+    setRenderedCount((current) => nextPosterRenderCount(current, visibleItems.length, variant))
   }
 
   function handleTrackScroll() {
@@ -77,7 +77,7 @@ export default function ContentRow({
   function handlePosterFocus(index) {
     onPosterFocus?.(index)
     prefetchPosterWindow(visibleItems, index)
-    if (progressive && shouldExpandTvPosterWindow(index, renderedCount, visibleItems.length)) {
+    if (progressive && shouldExpandPosterWindow(index, renderedCount, visibleItems.length, variant)) {
       expandProgressivePosters()
     }
   }
