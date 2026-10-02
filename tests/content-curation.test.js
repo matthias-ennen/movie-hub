@@ -8,7 +8,7 @@ import {
   withContentAutoSwitch,
   withManualContentSortMode,
 } from '../src/catalog/contentDisplaySettings.js'
-import { curateTitles } from '../src/catalog/contentCuration.js'
+import { curateCatalogRows, curateTitles } from '../src/catalog/contentCuration.js'
 import { selectCoordinatedHeroItems } from '../src/catalog/heroSelection.js'
 
 function title(id, overrides = {}) {
@@ -83,6 +83,25 @@ describe('profilbezogene Inhaltskuratierung', () => {
       .map((item) => item.tmdbId)).toEqual([2, 1, 3])
     expect(curateTitles(items, { mode: 'popular', watchedMode: 'hide', getTitleState })
       .map((item) => item.tmdbId)).toEqual([2, 1])
+  })
+
+  it('bewahrt semantische Reihenfolge auch bei abweichendem Profil-Sortiermodus', () => {
+    const items = [
+      title(1, { year: 2026, popularity: 10 }),
+      title(2, { year: 2020, popularity: 20 }),
+      title(3, { year: 2024, popularity: 30 }),
+    ]
+
+    const [semantic, flexible] = curateCatalogRows([
+      { id: 'provider-netflix-home', preserveOrder: true, items },
+      { id: 'provider-netflix-movie', items },
+    ], {
+      mode: 'newest',
+      watchedMode: 'normal',
+    })
+
+    expect(semantic.items.map((item) => item.tmdbId)).toEqual([1, 2, 3])
+    expect(flexible.items.map((item) => item.tmdbId)).toEqual([1, 3, 2])
   })
 
   it('liefert bei gleichem Seed reproduzierbare Abwechslung', () => {
