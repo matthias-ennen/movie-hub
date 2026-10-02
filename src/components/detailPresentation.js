@@ -46,8 +46,10 @@ export function preloadDetailImage(url, {
   scheduleTask = globalThis.setTimeout,
   clearTask = globalThis.clearTimeout,
   timeoutMs = DETAIL_IMAGE_WAIT_MS,
+  signal = null,
 } = {}) {
   if (!url || typeof createImage !== 'function') return Promise.resolve('no-image')
+  if (signal?.aborted) return Promise.resolve('aborted')
 
   return new Promise((resolve) => {
     let settled = false
@@ -58,10 +60,22 @@ export function preloadDetailImage(url, {
       if (settled) return
       settled = true
       if (timeout !== null && typeof clearTask === 'function') clearTask(timeout)
+      signal?.removeEventListener?.('abort', handleAbort)
       image.onload = null
       image.onerror = null
       resolve(result)
     }
+
+    const handleAbort = () => {
+      try {
+        image.removeAttribute?.('src')
+      } catch {
+        // Best effort only. The session result is still discarded safely.
+      }
+      finish('aborted')
+    }
+
+    signal?.addEventListener?.('abort', handleAbort, { once: true })
 
     image.onload = async () => {
       if (typeof image.decode === 'function') {

@@ -119,6 +119,42 @@ describe('stabiler Detail-Ladezustand', () => {
     expect(clearTask).toHaveBeenCalledWith(17)
   })
 
+  it('bricht nur den privaten Detailbild-Preload beim Session-Abbruch sauber ab', async () => {
+    const controller = new AbortController()
+    const removeAttribute = vi.fn()
+    const image = {
+      complete: false,
+      removeAttribute,
+    }
+    const clearTask = vi.fn()
+    const promise = preloadDetailImage('https://example.test/poster.jpg', {
+      createImage: () => image,
+      scheduleTask: vi.fn(() => 31),
+      clearTask,
+      signal: controller.signal,
+    })
+
+    controller.abort()
+
+    await expect(promise).resolves.toBe('aborted')
+    expect(removeAttribute).toHaveBeenCalledWith('src')
+    expect(clearTask).toHaveBeenCalledWith(31)
+    expect(image.onload).toBeNull()
+    expect(image.onerror).toBeNull()
+  })
+
+  it('startet bei bereits abgebrochener Session gar keinen Bildrequest', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    const createImage = vi.fn()
+
+    await expect(preloadDetailImage('https://example.test/poster.jpg', {
+      createImage,
+      signal: controller.signal,
+    })).resolves.toBe('aborted')
+    expect(createImage).not.toHaveBeenCalled()
+  })
+
   it('blockiert die Detailseite bei einem langsamen Bild nicht unbegrenzt', async () => {
     const image = { complete: false }
     let timeoutCallback = null

@@ -661,7 +661,10 @@ function MovieHub({ user }) {
     loadWaipuLiveStationCatalog().then((stationCatalog) => {
       if (!cancelled) setWaipuStationCatalog(stationCatalog)
     })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
   }, [liveStationsRequested])
 
   useEffect(() => {
@@ -1081,6 +1084,7 @@ function MovieHub({ user }) {
     if (!detailRequest || libraryLoading) return undefined
 
     let cancelled = false
+    const controller = new AbortController()
     if (detailRequest.error) return undefined
 
     const { id: requestId, item } = detailRequest
@@ -1112,7 +1116,7 @@ function MovieHub({ user }) {
       const primaryImageUrl = detailInitialImageUrl(displayedItem)
       let imageResult = 'no-image'
       await Promise.all([
-        preloadDetailImage(primaryImageUrl).then((result) => { imageResult = result }),
+        preloadDetailImage(primaryImageUrl, { signal: controller.signal }).then((result) => { imageResult = result }),
         mediaLoad,
       ])
       if (cancelled) return
