@@ -100,7 +100,7 @@ export function buildWatchedHistoryRows(titles, getTitleState, limit = WATCHED_H
     .sort((a, b) => watchedHistoryTime(getTitleState(b)) - watchedHistoryTime(getTitleState(a)) || byTitle(a, b))
     .slice(0, safeLimit)
 
-  return items.length ? [{ id: 'my-watched-history', title: 'Als gesehen markiert', items }] : []
+  return items.length ? [{ id: 'my-watched-history', title: 'Als gesehen markiert', variant: 'history', items }] : []
 }
 
 export function mergeCatalogWithPersonalSnapshots(titles, statesByKey) {
