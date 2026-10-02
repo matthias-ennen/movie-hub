@@ -24,6 +24,7 @@ import {
 import { selectHeroTrailer, selectHeroVideo } from './heroTrailer.js'
 import { heroNeedsCanonicalMetadata, resolveHeroMetadata } from './heroMetadata.js'
 import { focusHeroAfterActivation } from '../navigation/heroActivationFocus.js'
+import { heroImageProps } from '../performance/heroImages.js'
 
 const SWIPE_MIN_DISTANCE = 48
 const HERO_PHASE_MS = 170
@@ -495,6 +496,7 @@ export default function Hero({
 
   function renderHeroPanel(entry, className = '') {
     const heroBackdropUrl = entry.displayHeroBackdropUrl || entry.backdropUrl || null
+    const heroImage = heroImageProps(entry)
 
     return (
       <div
@@ -535,7 +537,9 @@ export default function Hero({
             <img
               ref={entry.id === activeItem.id ? activeImageRef : null}
               className="hero-art-image"
-              src={heroBackdropUrl}
+              src={heroImage.src}
+              srcSet={heroImage.srcSet}
+              sizes={heroImage.sizes}
               alt=""
               loading="eager"
               fetchPriority="high"
