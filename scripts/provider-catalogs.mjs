@@ -309,6 +309,7 @@ export function buildProviderHomeRows(providerCatalogs) {
         id: `provider-${definition.id}-home`,
         providerId: definition.id,
         title: catalog.homeTitle || definition.homeTitle,
+        preserveOrder: true,
         ids: catalog.homeIds,
       }
     })
