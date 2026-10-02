@@ -1463,6 +1463,7 @@ function MovieHub({ user }) {
       titles,
       mediaType: 'movie',
       enabledCategoryIds: activeProfile?.categorySettings?.enabledMovieCategoryIds,
+      categoryOrder: activeProfile?.categorySettings?.movieCategoryOrder,
       enabledProviderIds,
       sortItems: (items, category) => curateTitles(items, {
         mode: activeSortMode,
@@ -1471,13 +1472,14 @@ function MovieHub({ user }) {
         getTitleState,
       }),
     }),
-    [titles, activeProfile?.categorySettings?.enabledMovieCategoryIds, enabledProviderIds, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey],
+    [titles, activeProfile?.categorySettings?.enabledMovieCategoryIds, activeProfile?.categorySettings?.movieCategoryOrder, enabledProviderIds, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey],
   )
   const seriesCategoryRows = useMemo(
     () => buildCategoryRows({
       titles,
       mediaType: 'series',
       enabledCategoryIds: activeProfile?.categorySettings?.enabledSeriesCategoryIds,
+      categoryOrder: activeProfile?.categorySettings?.seriesCategoryOrder,
       enabledProviderIds,
       sortItems: (items, category) => curateTitles(items, {
         mode: activeSortMode,
@@ -1486,7 +1488,7 @@ function MovieHub({ user }) {
         getTitleState,
       }),
     }),
-    [titles, activeProfile?.categorySettings?.enabledSeriesCategoryIds, enabledProviderIds, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey],
+    [titles, activeProfile?.categorySettings?.enabledSeriesCategoryIds, activeProfile?.categorySettings?.seriesCategoryOrder, enabledProviderIds, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey],
   )
   const movieBrowseBaseRows = useMemo(
     () => [...movieCategoryRows, ...movieHubMovieRows, ...providerMovieRows],
