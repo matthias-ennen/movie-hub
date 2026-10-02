@@ -60,6 +60,7 @@ export function buildProviderHomeRows(providerCatalogs, titles, limit = getActiv
       id: `provider-${catalog.id}-home`,
       providerId: catalog.id,
       title: catalog.homeTitle || `${catalog.label || catalog.id} entdecken`,
+      preserveOrder: true,
       displayLimit: safeLimit,
       items,
     }
