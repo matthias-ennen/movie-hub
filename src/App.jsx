@@ -68,6 +68,7 @@ import {
 import { loadJoynLiveStationCatalog } from './joyn/joynTvCatalog.js'
 import {
   advanceLiveAvailabilityEntries,
+  filterLiveAvailabilityEntriesByStationSelection,
   loadLiveAvailabilityIndex,
   mergeLiveAvailability,
 } from './sources/liveAvailabilityIndex.js'
@@ -467,6 +468,7 @@ function MovieHub({ user }) {
     smartFilterOptions: normalizeSmartFilterOptions(),
   })
   const [liveAvailabilityEntries, setLiveAvailabilityEntries] = useState([])
+  const [liveAvailabilityStatus, setLiveAvailabilityStatus] = useState('idle')
   const [liveAvailabilityClock, setLiveAvailabilityClock] = useState(() => Date.now())
   const [waipuStationCatalog, setWaipuStationCatalog] = useState({
     status: 'loading',
@@ -498,6 +500,8 @@ function MovieHub({ user }) {
   const detailRequestSequenceRef = useRef(0)
   const detailPerformanceRequestRef = useRef(null)
   const tvPerformanceSequenceRef = useRef(0)
+  const liveAvailabilityRequestedRef = useRef(false)
+  const tvPosterPhaseStartedRef = useRef(false)
   const detailReturnFocusRef = useRef(null)
   const detailSessionActiveRef = useRef(false)
 
@@ -574,16 +578,28 @@ function MovieHub({ user }) {
   }, [])
 
   useEffect(() => {
-    if (!homeStartupReady) return undefined
-    let cancelled = false
-    loadLiveAvailabilityIndex().then((entries) => {
-      if (!cancelled) {
+    if ((!homeStartupReady && currentView !== 'tv') || liveAvailabilityRequestedRef.current) return
+    liveAvailabilityRequestedRef.current = true
+    setLiveAvailabilityStatus('loading')
+    startPerformanceSpan('live:index', 'availability')
+    loadLiveAvailabilityIndex()
+      .then((entries) => {
+        const loadedAt = Date.now()
         setLiveAvailabilityEntries(entries)
-        setLiveAvailabilityClock(Date.now())
-      }
-    })
-    return () => { cancelled = true }
-  }, [homeStartupReady])
+        setLiveAvailabilityClock(loadedAt)
+        setLiveAvailabilityStatus('ready')
+        finishPerformanceSpan('live:index', 'availability', {
+          outcome: 'ready',
+          entryCount: entries.length,
+        })
+      })
+      .catch((error) => {
+        console.warn('Live-Verfügbarkeitsindex konnte nicht geladen werden.', error)
+        setLiveAvailabilityEntries([])
+        setLiveAvailabilityStatus('unavailable')
+        finishPerformanceSpan('live:index', 'availability', { outcome: 'error' })
+      })
+  }, [currentView, homeStartupReady])
 
   useEffect(() => {
     if (!liveStationsRequested) return undefined
@@ -854,6 +870,13 @@ function MovieHub({ user }) {
     [artworkOptions, liveAvailabilityClock, liveAvailabilityEntries, rawMovieHubTitles],
   )
   const compactTvTitleEntries = liveAvailabilityEntries
+  const compactTvHeroEntries = useMemo(
+    () => filterLiveAvailabilityEntriesByStationSelection(liveAvailabilityEntries, {
+      disabledWaipuStationIds: disabledStationIds,
+      disabledJoynStationIds,
+    }),
+    [disabledJoynStationIds, disabledStationIds, liveAvailabilityEntries],
+  )
 
   const tvPresentationTitles = useMemo(
     () => (Array.isArray(tvSchedule.titles) ? tvSchedule.titles : [])
@@ -896,20 +919,16 @@ function MovieHub({ user }) {
       ? { ...baseTvViewModel, rows: tv14DayRows }
       : baseTvViewModel
   ), [baseTvViewModel, tv14DayRows, tvPeriodId])
-  const compactTvHeroItems = useMemo(() => buildWaipuTvHeroItems({
+  const tvHeroItems = useMemo(() => buildWaipuTvHeroItems({
     titles,
-    titleEntries: compactTvTitleEntries,
-    stationOrder: combinedTvStationOrder,
+    titleEntries: compactTvHeroEntries,
     now: tvClock,
-  }), [combinedTvStationOrder, compactTvTitleEntries, titles, tvClock])
-  const tvHeroItems = compactTvHeroItems.length ? compactTvHeroItems : tvViewModel.heroItems
+  }), [compactTvHeroEntries, titles, tvClock])
   const tvHeroCatalogReady = isTvPresentationReady({
-    waipuStationStatus: waipuStationCatalog.status,
-    joynStationStatus: joynStationCatalog.status,
+    catalogStatus: catalog.status,
+    liveAvailabilityStatus,
     stationSelectionLoading,
     joynStationSelectionLoading,
-    scheduleStatus: tvSchedule.status,
-    hasHeroItems: tvHeroItems.length > 0,
   })
   const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
   const activeSortMode = useMemo(
@@ -926,13 +945,23 @@ function MovieHub({ user }) {
     setProfileOpen(false)
     setContentActivationRequest(null)
     if (nextView === 'tv') {
+      tvPosterPhaseStartedRef.current = false
       setTvPeriodId(`day:${tvDayKey(Date.now())}`)
-      setTvScheduleRequested(true)
+      setTvScheduleRequested(false)
+      setTvSchedule({ status: 'idle', airings: [], titles: [] })
     } else {
+      tvPosterPhaseStartedRef.current = false
       setTvScheduleRequested(false)
       setTvSchedule({ status: 'idle', airings: [], titles: [] })
     }
     setCurrentView(nextView)
+  }, [])
+
+  const handleTvHeroReady = useCallback(() => {
+    if (tvPosterPhaseStartedRef.current) return
+    tvPosterPhaseStartedRef.current = true
+    recordPerformanceEvent('tv:poster-phase:start')
+    setTvScheduleRequested(true)
   }, [])
 
   const handleContentViewActivate = useCallback((nextView, { source = 'nav' } = {}) => {
@@ -1594,10 +1623,11 @@ function MovieHub({ user }) {
           heroReadyEnabled={tvHeroCatalogReady}
           activationRequest={contentActivationRequest?.viewId === 'tv' ? contentActivationRequest : null}
           onActivationUnavailable={handleHeroActivationUnavailable}
+          onHeroReady={handleTvHeroReady}
           periods={tvViewModel.periods}
           selectedPeriodId={tvViewModel.selectedPeriod.id}
           onPeriodChange={setTvPeriodId}
-          status={tvSchedule.status === 'idle' ? 'loading' : tvSchedule.status}
+          status={tvScheduleRequested && tvSchedule.status === 'idle' ? 'loading' : tvSchedule.status}
           onOpen={handleOpenTitle}
         />
       )}
