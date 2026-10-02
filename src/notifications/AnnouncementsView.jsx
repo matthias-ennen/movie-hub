@@ -28,7 +28,7 @@ export function AnnouncementsView({ items, readIds, ready, error, onRead, onOpen
   }
   return (
     <main className="notification-page">
-      <h1>Mitteilungen</h1>
+      <h1 className="eyebrow page-section-heading">Mitteilungen</h1>
       {error && <p role="alert">{error}</p>}
       {readError && <p role="alert">{readError}</p>}
       {!ready && !error && <p>Mitteilungen werden geladen …</p>}
