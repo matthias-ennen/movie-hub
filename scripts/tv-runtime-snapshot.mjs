@@ -39,11 +39,14 @@ export async function writeTvRuntimeSnapshot({
   await rm(output, { recursive: true, force: true })
   await mkdir(resolve(output, 'days'), { recursive: true })
   await writeFile(resolve(output, 'index.json'), `${JSON.stringify(publication.index)}\n`, 'utf8')
+  await writeFile(resolve(output, 'hero.json'), `${JSON.stringify(publication.hero)}\n`, 'utf8')
   for (const day of publication.days) {
     await writeFile(resolve(output, 'days', `${day.key}.json`), `${JSON.stringify(day)}\n`, 'utf8')
   }
 
+  const heroByteSize = Buffer.byteLength(JSON.stringify(publication.hero))
   const byteSize = Buffer.byteLength(JSON.stringify(publication.index))
+    + heroByteSize
     + publication.days.reduce((total, day) => total + Buffer.byteLength(JSON.stringify(day)), 0)
   const mergedAirings = publication.days.reduce((total, day) => (
     total + day.entries.reduce((sum, entry) => (
@@ -59,6 +62,8 @@ export async function writeTvRuntimeSnapshot({
     titles: publication.index.titleCount,
     airings: publication.index.airingCount,
     multiProviderAirings: mergedAirings,
+    heroTitles: publication.hero.count,
+    heroByteSize,
     byteSize,
   }, null, 2) + '\n')
   return publication
