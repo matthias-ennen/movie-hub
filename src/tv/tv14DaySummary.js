@@ -46,6 +46,12 @@ function compareQuality(left, right) {
     || String(left?.title || '').localeCompare(String(right?.title || ''), 'de')
 }
 
+function comparePopularity(left, right) {
+  return finite(right?.popularity) - finite(left?.popularity)
+    || String(left?.tvAiring?.startTime || '').localeCompare(String(right?.tvAiring?.startTime || ''))
+    || String(titleKey(left) || '').localeCompare(String(titleKey(right) || ''))
+}
+
 function normalRow(id, title, items) {
   return { id, title, variant: 'tv', items: items.slice(0, TV_14_DAY_ROW_LIMIT) }
 }
@@ -244,7 +250,7 @@ export function buildTv14DayRows({
     )),
   ].filter((row) => row.items.length)
 
-  const topTen = normalItems.slice(0, 10)
+  const topTen = [...normalItems].sort(comparePopularity).slice(0, 10)
   const index = Math.min(3, rows.length)
   return [
     ...rows.slice(0, index),
