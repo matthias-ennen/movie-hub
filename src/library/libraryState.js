@@ -62,6 +62,35 @@ export function createTitleSnapshot(item) {
       ? Number(item.collectionId ?? item.facets?.collectionId ?? item.smartFacets?.collection?.id)
       : null
   const collectionDetails = compactCollectionDetails(item.collectionDetails)
+  const providerIds = [...new Set((Array.isArray(item.providerIds) ? item.providerIds : [])
+    .filter(Boolean)
+    .map(String))].slice(0, 10)
+  const tmdbProviderOffers = (Array.isArray(item.tmdbProviderOffers)
+    ? item.tmdbProviderOffers
+    : Array.isArray(item.providerOffers)
+      ? item.providerOffers
+      : [])
+    .map((offer) => {
+      const tmdbProviderId = finiteNumber(offer?.tmdbProviderId)
+      const id = String(offer?.id || '').trim()
+      if (!id || !tmdbProviderId) return null
+      return {
+        id,
+        tmdbProviderId,
+        offerTypes: [...new Set((Array.isArray(offer?.offerTypes) ? offer.offerTypes : [])
+          .filter(Boolean)
+          .map(String))].slice(0, 8),
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 10)
+  const tmdbProviderIds = [...new Set((Array.isArray(item.tmdbProviderIds)
+    ? item.tmdbProviderIds
+    : tmdbProviderOffers.length
+      ? tmdbProviderOffers.map((offer) => offer.id)
+      : providerIds.filter((providerId) => !['moviehub', 'waipu', 'joyn'].includes(providerId)))
+    .filter(Boolean)
+    .map(String))].slice(0, 10)
   return {
     id: String(item.id ?? ''),
     tmdbId: Number.isFinite(Number(item.tmdbId)) ? Number(item.tmdbId) : null,
@@ -92,7 +121,14 @@ export function createTitleSnapshot(item) {
     ageRating: SUPPORTED_AGE_RATINGS.has(ageRating) ? ageRating : null,
     accent: item.accent ? String(item.accent).slice(0, 32) : '#657184',
     accent2: item.accent2 ? String(item.accent2).slice(0, 32) : '#1c2531',
-    providerIds: Array.isArray(item.providerIds) ? item.providerIds.filter(Boolean).map(String).slice(0, 10) : [],
+    providerIds,
+    tmdbProviderIds,
+    tmdbProviderOffers,
+    providerMetadataUpdatedAt: item.providerMetadataUpdatedAt
+      ? String(item.providerMetadataUpdatedAt)
+      : item.metadataUpdatedAt
+        ? String(item.metadataUpdatedAt)
+        : null,
   }
 }
 

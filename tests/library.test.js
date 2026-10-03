@@ -8,6 +8,7 @@ import {
   normalizeTitleState,
 } from '../src/library/libraryState.js'
 import { buildPersonalRows, buildPersonalTopHundredRows, buildWatchedHistoryRows, mergeCatalogWithPersonalSnapshots } from '../src/library/personalRows.js'
+import { resolveProviderPresentation } from '../src/providers/providerPresentation.js'
 
 describe('persönlicher Film-/Serienzustand', () => {
   it('verwendet TMDB-Typ und TMDB-ID als stabile Referenz', () => {
@@ -59,6 +60,34 @@ describe('persönlicher Film-/Serienzustand', () => {
     })
 
     expect(merged).toMatchObject([{ tmdbId: 11, title: 'Krieg der Sterne', providerIds: ['prime'] }])
+  })
+
+  it('behält TMDB-Anbieterbelege im persönlichen Snapshot für Poster-Badges', () => {
+    const snapshot = createTitleSnapshot({
+      id: 'tmdb-movie-11687',
+      tmdbId: 11687,
+      type: 'movie',
+      source: 'tmdb',
+      title: 'Buddy haut den Lukas',
+      providerIds: [],
+      tmdbProviderIds: ['disney', 'wow'],
+      tmdbProviderOffers: [
+        { id: 'disney', tmdbProviderId: 337, offerTypes: ['flatrate'] },
+        { id: 'wow', tmdbProviderId: 30, offerTypes: ['flatrate'] },
+      ],
+      providerMetadataUpdatedAt: '2026-10-03T08:00:00.000Z',
+    })
+
+    expect(snapshot).toMatchObject({
+      providerIds: [],
+      tmdbProviderIds: ['disney', 'wow'],
+      tmdbProviderOffers: [
+        { id: 'disney', tmdbProviderId: 337, offerTypes: ['flatrate'] },
+        { id: 'wow', tmdbProviderId: 30, offerTypes: ['flatrate'] },
+      ],
+      providerMetadataUpdatedAt: '2026-10-03T08:00:00.000Z',
+    })
+    expect(resolveProviderPresentation(snapshot).providerIds).toEqual(['disney', 'wow'])
   })
 
   it('übernimmt einen neuen Watchlist-Titel sofort mit Poster und Hero-Bild in den lokalen Katalog', () => {
