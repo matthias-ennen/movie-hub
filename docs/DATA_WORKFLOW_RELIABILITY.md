@@ -1,6 +1,6 @@
 # Nachtlauf: Alarm und dauerhaftes Import-Checkpoint
 
-Stand: 25.09.2026. Arbeitspaket: [#315](https://github.com/matthias-ennen/movie-hub/issues/315).
+Stand: 03.10.2026. Arbeitspaket: [#315](https://github.com/matthias-ennen/movie-hub/issues/315).
 
 ## Aktueller Betrieb
 
@@ -8,9 +8,10 @@ Der geplante `Deploy Firebase`-Datenlauf beginnt nominal um 03:17 Uhr
 `Europe/Berlin`. Der GitHub-Watchdog prüft einen echten Deploy und die beiden
 veröffentlichten JSON-Endpunkte. Zusätzlich prüft eine tägliche, nur lesende
 Chat-Überwachung um 06:00 Uhr unabhängig vom GitHub-Zeittrigger auf
-Auffälligkeiten und meldet sie Matthias hier im Chat. Dies ist kein
-garantierter Rufbereitschaftskanal; ein realer Alarm nach Aktivierung steht
-noch zur Beobachtung aus.
+Auffälligkeiten und meldet sie Matthias hier im Chat. Diese Prüfung läuft
+außerhalb des GitHub-`schedule`-Triggers und kann deshalb auch einen vollständig
+ausgebliebenen GitHub-Cron-Lauf erkennen. Sie ist bewusst ein zusätzlicher
+Meldeweg und kein garantierter 24/7-Rufbereitschaftskanal.
 
 ## Privater Checkpoint
 
@@ -21,9 +22,11 @@ GitHub-Repository-Variablen `MOVIE_HUB_CHECKPOINT_BUCKET` und
 kann ihre Werte nicht selbst lesen. Die Werte wurden im [echten Cache-Backfill vom 25.09.](https://github.com/matthias-ennen/movie-hub/actions/runs/36107543301)
 als gesetzte Runner-Umgebung bestätigt. Beide echten Snapshots wurden
 hochgeladen, geprüft und in einem geleerten Runner bitgenau wiederhergestellt.
-Ob der nächste **reguläre** Datenlauf selbst neue Snapshots schreibt und vor
-dem Import aus Cloud wiederherstellt, ist weiterhin zu beobachten. Der
-GitHub-Cache bleibt erhalten.
+Der reguläre Datenlauf #936 vom 03.10.2026 hat den produktiven Einsatz
+inzwischen bestätigt: TMDB- und Waipu-Cloud-Checkpoint wurden vor dem Import
+wiederhergestellt, der neue Waipu-Stand hochgeladen und geprüft, anschließend
+auch der neue TMDB-Stand gespeichert und per `probe` validiert. Der
+GitHub-Cache bleibt zusätzlich als Beschleuniger erhalten.
 
 Der Waipu-Snapshot enthält das ganze `artifacts/waipu-sync/` einschließlich
 `checkpoint.json` und Grid-/Programmdetailcache sowie die drei kuratierten
@@ -117,11 +120,34 @@ Archiven arbeiten und frische Snapshots ohne manuelle Hilfe schreiben.
    Cloud-Snapshots hochladen und per `probe` herunterladen und prüfen.
 5. **Erledigt:** beide Archive nach Löschung des lokalen Runner-Caches
    wiederherstellen und Ausgangsdateien bytegleich vergleichen.
-6. **Offen:** beim nächsten regulären Datenlauf automatischen Cloud-Restore,
+6. **Erledigt:** regulärer Lauf #936 hat automatischen Cloud-Restore,
    frische Waipu-/TMDB-Uploads und beide anschließenden `probe`-Schritte
-   beobachten; veröffentlichte Datenfrische getrennt kontrollieren.
+   erfolgreich ausgeführt; veröffentlichte Datenfrische wird weiterhin
+   getrennt vom Workflowstatus kontrolliert.
 
 Ein Wechsel des eigentlichen Imports auf Cloud Run Jobs/Cloud Scheduler ist
 erst nach Messung von GitHub-Verzögerungen, Laufzeiten, IAM-Aufwand und
 laufenden Kosten zu entscheiden. Der Datenaufbereitungscode bleibt im
 Repository; GitHub übernimmt weiter Versionsverwaltung und CI/CD.
+
+## Watchdog-Korrektur 03.10.2026
+
+Der reguläre Lauf #936 veröffentlichte einen intern vollständig validierten
+Waipu-Bestand mit 228 Sendern, 3.441 Titeln und 45.790 Ausstrahlungen. Die
+14 veröffentlichten Tagesdeskriptoren summierten sich exakt auf 45.790.
+Der Watchdog meldete trotzdem fälschlich
+`Waipu-Tagesbestand inkonsistent`, weil seine externe Prüfung starr einen
+zusätzlichen leeren Vortags-Descriptor erwartete.
+
+Die 06:00-TV-Tageslogik erzeugt einen Vortags-Descriptor aber nur dann, wenn
+im veröffentlichten Horizont tatsächlich eine passende Ausstrahlung diesem
+TV-Tag zugeordnet wird. Die externe Gesundheitsprüfung akzeptiert deshalb
+jetzt die tatsächlich veröffentlichten, sortierten und eindeutigen
+Tagesdeskriptoren innerhalb des zulässigen Horizonts und verlangt weiterhin,
+dass deren Summe exakt dem veröffentlichten Broadcast-Zähler entspricht.
+Dubletten, unsortierte Schlüssel, ungültige Zähler oder eine abweichende Summe
+bleiben Fehler.
+
+Die starke GitHub-Schedule-Verzögerung wird weiterhin separat als
+`delayed` ausgewiesen. Ein verspäteter, aber vollständig veröffentlichter
+Datenstand ist damit Warnung statt fälschlicher Datenintegritätsfehler.
