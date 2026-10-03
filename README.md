@@ -57,7 +57,7 @@ Details:
 
 Projektstart: 31. August 2026
 
-Stand: **2. Oktober 2026**
+Stand: **3. Oktober 2026**
 
 Die kanonische Titelbasis aus #256 sowie die Waipu-Pakete #4, #259 und #260 sind technisch umgesetzt und auf den vorgesehenen Geräten abgenommen. TMDB bleibt die kanonische Quelle für öffentliche Film- und Serienmetadaten; externe Quellen ergänzen Verfügbarkeiten, Senderereignisse und Wiedergabeziele.
 
@@ -65,16 +65,16 @@ Die kanonische Titelbasis aus #256 sowie die Waipu-Pakete #4, #259 und #260 sind
 
 Der interaktive TV-Pfad liest vorbereitete Runtime-Artefakte statt vollständige Providerkataloge in die Oberfläche zu ziehen. Der TV-Hero kommt aus einem kleinen 14-Tage-Snapshot; Tagesdaten werden erst nach Hero-Bereitschaft geladen. Veraltete Tagesrequests werden abgebrochen und der Tagescache ist begrenzt. Seit #346 liegt die komplette TV-Runtime zusätzlich in einem lazy geladenen Feature und wird beim TV-Intent nur vorgewärmt.
 
-[#346 – Fundamenthärtung und Performance](https://github.com/matthias-ennen/movie-hub/issues/346) befindet sich in der Abschlussphase. Die technischen Phasen sind umgesetzt: zentrale Produktverträge, Page-/Row-Logik, atomare Detailbeladung, TV Hero-first, progressive Poster-/Bildlogik, React-/State-Härtung, native Android-/Fire-TV-Härtung, Dependency-/CI-Bereinigung sowie Hosting-/Cache-/Bundle-Optimierung.
+[#346 – Fundamenthärtung und Performance](https://github.com/matthias-ennen/movie-hub/issues/346) ist abgeschlossen und von Matthias auf Smartphone und Fire TV abgenommen. Umgesetzt sind zentrale Produktverträge, Page-/Row-Logik, atomare Detailbeladung, TV Hero-first, progressive Poster-/Bildlogik, React-/State-Härtung, native Android-/Fire-TV-Härtung, Dependency-/CI-Bereinigung sowie Hosting-/Cache-/Bundle-Optimierung.
 
-Der Vite-Hauptchunk wurde im Verlauf von #346 auf **210,46 kB minifiziert / 63,72 kB gzip** reduziert. Der signierte R8-Release liegt bei rund **2,51 MiB**. CI, Android-Build und Firebase-Deploy sind auf dem aktuellen Main-Stand grün. Die reale Abschlussabnahme von #346 auf Smartphone und Fire TV bleibt bewusst ein eigener letzter Schritt und wird nicht durch technische CI-Prüfungen ersetzt.
+Der Vite-Hauptchunk wurde im Verlauf von #346 auf **210,46 kB minifiziert / 63,72 kB gzip** reduziert. Der signierte R8-Release liegt bei rund **2,51 MiB**. Das verbleibende leichte Fire-TV-Ruckeln ist kein Blocker des abgeschlossenen Pakets und kann später als eigenes Performance-Folgepaket untersucht werden. [#315 – Nachtlauf/Betriebszuverlässigkeit](https://github.com/matthias-ennen/movie-hub/issues/315) ist ebenfalls abgeschlossen; der reguläre Datenlauf nutzt geprüfte private Cloud-Checkpoints und ein unabhängiger Meldeweg überwacht Datenfrische und ausgebliebene Zeittrigger.
 
 Für Home, Filme, Serien, TV und Meine Inhalte gelten gemeinsame Seiten-, Hero-, Fokus-, Row- und Ladeverträge. Top 10 wird relativ zu den tatsächlich sichtbaren Reihen eingesetzt, „Als gesehen markiert“ behält sein Fachlimit von bis zu 100 Titeln, Prime Time ist zentral auf 20:15 Uhr Europe/Berlin festgelegt und Anbieter werden zentral in der Reihenfolge Movie Hub → Waipu → Joyn → übrige Provider präsentiert.
 
 Die aktuelle Hauptreihenfolge lautet:
 
-`#346 Abschlussdoku + reale Geräteabnahme → #271 Quellenplattform weiterführen → weitere belastbare Adapter → Verfügbarkeitsdarstellung und Betriebs-/Produkt-Finish → #112 Release-Gate → 1.0`
+`#314 Mitteilungen/Benachrichtigungen → #271/#336 Quellenplattform und weitere belastbare Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
 
-#315 (Nachtlaufbeobachtung) und #329 (Waipu-Restklassifizierung) bleiben als gesonderte Betriebs-/Wartungspakete offen. Für eine öffentliche Verteilung gilt weiterhin das Compliance-Gate #112.
+Das aktuell aktive große Arbeitspaket ist [#314 – Mitteilungen](https://github.com/matthias-ennen/movie-hub/issues/314). Es führt die noch offenen Punkte aus #312 und #118 zusammen: Ende-zu-Ende-Verhalten, persönliche Auslöser „Wenn inklusive“/„Wenn im TV“, Darstellung, Häufigkeit, Gültigkeit, Deduplizierung und Profilregeln. Der in Deploy #939 beobachtete serverseitige Firestore/IAM-Fehler des TV-Prüflaufs gehört ausdrücklich in dieses Paket. #329 bleibt als Wartungspaket offen. Für eine öffentliche Verteilung gilt weiterhin das Compliance-Gate #112.
 
 Vor jedem Umsetzungspaket werden offene Produktfragen mit Matthias einzeln geklärt und anschließend im betreffenden Issue verbindlich dokumentiert.
