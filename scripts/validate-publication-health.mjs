@@ -37,17 +37,22 @@ export function evaluatePublishedData(dataStatus, waipuIndex, {
   if (!Number.isFinite(waipuAt) || waipuAt > latestAllowed) errors.push('Waipu-Zeitstempel ungültig')
   if (waipuIndex?.counts?.stations !== expectedStations) errors.push(`Waipu-Senderzahl ungleich ${expectedStations}`)
   if (!positiveInteger(waipuIndex?.counts?.titles) || !positiveInteger(waipuIndex?.counts?.broadcasts)) errors.push('Waipu-Titel oder Ausstrahlungen fehlen')
-  const expectedDayKeys = Number.isFinite(horizonStart)
-    ? [
-        new Date(horizonStart - 86400000).toISOString().slice(0, 10),
-        ...Array.from({ length: 14 }, (_, index) => new Date(horizonStart + index * 86400000).toISOString().slice(0, 10)),
-      ]
-    : []
+  const dayDescriptors = Array.isArray(waipuIndex?.days) ? waipuIndex.days : []
+  const dayKeys = dayDescriptors.map((day) => String(day?.key || ''))
+  const minimumDayKey = Number.isFinite(horizonStart)
+    ? new Date(horizonStart - 86400000).toISOString().slice(0, 10)
+    : null
+  const maximumDayKey = Number.isFinite(horizonEnd)
+    ? new Date(horizonEnd).toISOString().slice(0, 10)
+    : null
   if (!Number.isFinite(horizonStart) || horizonEnd - horizonStart !== 14 * 86400000
-    || !Array.isArray(waipuIndex?.days) || waipuIndex.days.length !== expectedDayKeys.length
-    || waipuIndex.days.some((day, index) => !nonNegativeInteger(day.count)
-      || day.key !== expectedDayKeys[index])
-    || waipuIndex.days.reduce((total, day) => total + day.count, 0) !== waipuIndex?.counts?.broadcasts) {
+    || !dayDescriptors.length
+    || dayDescriptors.some((day) => !nonNegativeInteger(day.count)
+      || !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(day?.key || '')))
+    || new Set(dayKeys).size !== dayKeys.length
+    || dayKeys.some((key, index) => index > 0 && key <= dayKeys[index - 1])
+    || dayKeys.some((key) => key < minimumDayKey || key > maximumDayKey)
+    || dayDescriptors.reduce((total, day) => total + day.count, 0) !== waipuIndex?.counts?.broadcasts) {
     errors.push('Waipu-Tagesbestand inkonsistent')
   }
   if (waipuIndex?.metadata?.required === true && waipuIndex.metadata.complete !== waipuIndex?.counts?.titles) {
