@@ -133,7 +133,8 @@ service cloud.firestore {
             'metadataChecks', 'runtimeMinutes',
             'numberOfSeasons', 'numberOfEpisodes', 'seasons',
             'cast', 'videos', 'smartFacets',
-            'voteAverage', 'voteCount', 'genreNames', 'providerIds', 'ageRating',
+            'voteAverage', 'voteCount', 'genreNames', 'providerIds',
+            'tmdbProviderIds', 'tmdbProviderOffers', 'providerMetadataUpdatedAt', 'ageRating',
             'favorite', 'watchlist', 'rated', 'ratingValue',
             'favoriteOrder', 'watchlistOrder', 'ratingOrder', 'syncedAt'
           ]);
