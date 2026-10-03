@@ -48,7 +48,7 @@ export function evaluatePublishedData(dataStatus, waipuIndex, {
   if (!Number.isFinite(horizonStart) || horizonEnd - horizonStart !== 14 * 86400000
     || !dayDescriptors.length
     || dayDescriptors.some((day) => !nonNegativeInteger(day.count)
-      || !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(day?.key || '')))
+      || !/^\d{4}-\d{2}-\d{2}$/.test(String(day?.key || '')))
     || new Set(dayKeys).size !== dayKeys.length
     || dayKeys.some((key, index) => index > 0 && key <= dayKeys[index - 1])
     || dayKeys.some((key) => key < minimumDayKey || key > maximumDayKey)
