@@ -16,6 +16,12 @@ const completeMovie = {
   metadataVersion: 3,
   metadataComplete: true,
   metadataUpdatedAt: '2026-09-22T06:36:20.991Z',
+  tmdbProviderIds: ['disney', 'wow'],
+  tmdbProviderOffers: [
+    { id: 'disney', tmdbProviderId: 337, offerTypes: ['flatrate'] },
+    { id: 'wow', tmdbProviderId: 30, offerTypes: ['flatrate'] },
+  ],
+  providerMetadataUpdatedAt: '2026-09-22T06:36:20.991Z',
   metadataChecks: {
     details: 'present',
     artwork: 'present',
@@ -54,6 +60,12 @@ describe('kanonische Metadaten für persönliche Titel', () => {
       titleSnapshot: {
         backdropUrl: completeMovie.backdropUrl,
         artwork: { heroBackdropPaths: ['/backdrop.jpg'] },
+        tmdbProviderIds: ['disney', 'wow'],
+        tmdbProviderOffers: [
+          { id: 'disney', tmdbProviderId: 337, offerTypes: ['flatrate'] },
+          { id: 'wow', tmdbProviderId: 30, offerTypes: ['flatrate'] },
+        ],
+        providerMetadataUpdatedAt: '2026-09-22T06:36:20.991Z',
       },
     })
   })
