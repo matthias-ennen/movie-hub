@@ -103,9 +103,11 @@ Der isolierte Lauf hat keinen Waipu-/TMDB-Import und keine Firebase-Publikation
 ausgelöst. Der zugehörige
 [Code-Deploy #405](https://github.com/matthias-ennen/movie-hub/actions/runs/36107543258)
 war erfolgreich und übersprang wie vorgesehen den Datenimport. Die Proben
-belegen echte, private Cloud-Archive und technischen Restore. Der nächste
-reguläre Nachtlauf soll nun zeigen, dass die Produktionsschritte mit diesen
-Archiven arbeiten und frische Snapshots ohne manuelle Hilfe schreiben.
+belegen echte, private Cloud-Archive und technischen Restore.
+
+Der reguläre [Nachtlauf #936 vom 03.10.2026](https://github.com/matthias-ennen/movie-hub/actions/runs/37103439823)
+hat diesen Pfad inzwischen auch produktiv bestätigt: Restore, neue
+Waipu-/TMDB-Snapshots und die anschließenden Prüfdownloads liefen erfolgreich.
 
 ## Freigabe zur Aktivierung
 
