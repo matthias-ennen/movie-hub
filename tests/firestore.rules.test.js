@@ -6,6 +6,7 @@ import {
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing'
 import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, Timestamp, where } from 'firebase/firestore'
+import { nativeTitleToFirestore } from '../src/tmdb/tmdbCatalogModel.js'
 
 let testEnv
 
@@ -225,12 +226,12 @@ describe('Firestore Security Rules', () => {
     }))
   })
 
-  it('erlaubt Bewertungen, Altersfreigabe und den neuen Teil-Sync-Status im persönlichen TMDB-Katalog', async () => {
+  it('erlaubt den produktiven TMDB-Serializer einschließlich Anbieterquellen und Teil-Sync-Status', async () => {
     const db = testEnv.authenticatedContext('alice').firestore()
     const catalogRef = doc(db, 'users', 'alice', 'tmdbCatalog', 'movie:11')
     const syncRef = doc(db, 'users', 'alice', 'tmdbSync', 'state')
 
-    await assertSucceeds(setDoc(catalogRef, {
+    const catalogData = nativeTitleToFirestore({
       tmdbId: 11,
       mediaType: 'movie',
       title: 'Star Wars',
@@ -249,7 +250,7 @@ describe('Firestore Security Rules', () => {
         details: 'present', artwork: 'present', ageRating: 'present', credits: 'present',
         keywords: 'absent', videos: 'absent', providers: 'present', collection: 'present',
       },
-      metadataUpdatedAt: '2026-09-13T07:00:00Z',
+      metadataUpdatedAt: '2026-09-30T15:54:39Z',
       runtimeMinutes: 121,
       numberOfSeasons: null,
       numberOfEpisodes: null,
@@ -262,6 +263,9 @@ describe('Firestore Security Rules', () => {
       voteCount: 1000,
       genreNames: ['Abenteuer'],
       providerIds: ['disney'],
+      tmdbProviderIds: ['disney'],
+      tmdbProviderOffers: [{ id: 'disney', tmdbProviderId: 337, offerTypes: ['flatrate'] }],
+      providerMetadataUpdatedAt: '2026-09-30T15:54:39Z',
       ageRating: 12,
       favorite: true,
       watchlist: false,
@@ -270,8 +274,9 @@ describe('Firestore Security Rules', () => {
       favoriteOrder: 1,
       watchlistOrder: null,
       ratingOrder: 1,
-      syncedAt: '2026-09-09T12:00:00Z',
-    }))
+    }, '2026-09-30T15:54:39Z')
+
+    await assertSucceeds(setDoc(catalogRef, catalogData))
     await assertSucceeds(setDoc(syncRef, {
       syncedAt: '2026-09-16T11:35:00Z',
       accountId: 123,
@@ -295,6 +300,9 @@ describe('Firestore Security Rules', () => {
     expect(stored.rated).toBe(true)
     expect(stored.ratingValue).toBe(9)
     expect(stored.ageRating).toBe(12)
+    expect(stored.tmdbProviderIds).toEqual(['disney'])
+    expect(stored.tmdbProviderOffers).toEqual([{ id: 'disney', tmdbProviderId: 337, offerTypes: ['flatrate'] }])
+    expect(stored.providerMetadataUpdatedAt).toBe('2026-09-30T15:54:39Z')
     expect(syncState.partial).toBe(true)
     expect(syncState.successfulSections).toBe(5)
     expect(syncState.sections[1].preserved).toBe(true)
