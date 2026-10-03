@@ -31,6 +31,45 @@ describe('öffentliche Daten nach dem Nachtlauf', () => {
     expect(result.broadcasts).toBe(15294)
   })
 
+  it('akzeptiert eine vollständige 14-Tage-Generation ohne leeren Vortags-Descriptor', () => {
+    const productionShape = {
+      ...waipuIndex,
+      counts: { ...waipuIndex.counts, broadcasts: 45790 },
+      days: [
+        { key: '2026-09-24', count: 2864 },
+        { key: '2026-09-25', count: 3264 },
+        { key: '2026-09-26', count: 3339 },
+        { key: '2026-09-27', count: 3289 },
+        { key: '2026-09-28', count: 3396 },
+        { key: '2026-09-29', count: 3401 },
+        { key: '2026-09-30', count: 3436 },
+        { key: '2026-10-01', count: 3243 },
+        { key: '2026-10-02', count: 3077 },
+        { key: '2026-10-03', count: 3401 },
+        { key: '2026-10-04', count: 3421 },
+        { key: '2026-10-05', count: 3424 },
+        { key: '2026-10-06', count: 3415 },
+        { key: '2026-10-07', count: 2820 },
+      ],
+    }
+    const result = evaluatePublishedData(dataStatus, productionShape, { scheduledAt, now })
+    expect(result.status).toBe('fresh')
+    expect(result.broadcasts).toBe(45790)
+  })
+
+  it('weist doppelte oder unsortierte Tagesdeskriptoren weiterhin ab', () => {
+    const result = evaluatePublishedData(dataStatus, {
+      ...waipuIndex,
+      days: [
+        ...waipuIndex.days.slice(0, 2),
+        { ...waipuIndex.days[1] },
+        ...waipuIndex.days.slice(3),
+      ],
+    }, { scheduledAt, now })
+    expect(result.status).toBe('invalid')
+    expect(result.reasons).toContain('Waipu-Tagesbestand inkonsistent')
+  })
+
   it('erkennt einen alten Waipu-Import, auch wenn ein späterer Code-Deploy den Datenstatus erneuert', () => {
     const result = evaluatePublishedData(dataStatus, { ...waipuIndex, generatedAt: '2026-09-23T06:21:48Z' }, { scheduledAt, now })
     expect(result.status).toBe('stale')
