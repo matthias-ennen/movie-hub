@@ -1,12 +1,12 @@
 # Movie Hub – Roadmap
 
-Stand: 2. Oktober 2026
+Stand: 3. Oktober 2026
 
 ## Leitprinzip
 
 Movie Hub wird in klar abgegrenzeten Arbeitspaketen weiterentwickelt. TMDB bleibt die kanonische Quelle für öffentliche Film- und Serienmetadaten. Zusätzliche Quellen liefern Verfügbarkeiten, Senderereignisse und Wiedergabeziele. Ein Adapterfehler darf weder andere Quellen noch den letzten gültigen veröffentlichten Datenstand beschädigen.
 
-Die nächste Entwicklungsstrecke konzentriert sich auf ein breites, modulares Quellenfundament und danach auf eine klarere Darstellung der tatsächlichen Verfügbarkeit eines Titels: im Abo enthalten, kostenlos, werbefinanziert, Rent/Buy, bald im TV oder jetzt live.
+Nach Abschluss der Fundamenthärtung und der Nachtlauf-Betriebsabsicherung beginnt als nächstes großes Produktpaket die Konsolidierung der Mitteilungen und Benachrichtigungen. Danach wird die modulare Quellenplattform mit weiteren belastbaren Quellen fortgeführt.
 
 ## Bereinigter abgeschlossener Stand
 
@@ -31,31 +31,35 @@ Zu den zuletzt abgeschlossenen beziehungsweise abgenommenen Paketen gehören ins
 - #260 – produktiver Ausbau auf 228 Waipu-Sender; auf Smartphone, Tablet und Fire TV abgenommen
 - #280 – Joyn-Adapter; zweiter unabhängiger Live-TV-/EPG-Adapter mit gemeinsamem Waipu/Joyn-Vertrag abgeschlossen
 - #281/#283/#285/#289 – gemeinsame TV-/Hero-/Inhaltsseiten-Grundlage
+- #315 – Nachtlauf-Überwachung, Datenfrische, unabhängiger Alarm und dauerhafte Cloud-Checkpoints; am 03.10.2026 abgeschlossen
+- #346 – Fundamenthärtung und Performance; technische Phasen, Dokumentation und reale Smartphone-/Fire-TV-Abnahme am 03.10.2026 abgeschlossen
 
 ## Aktive Hauptstrecke
 
-### 1. #346 – Fundamenthärtung und Performance abschließen
+### 1. #314 – Mitteilungen und Benachrichtigungen konsolidieren
 
-Die technischen Phasen 1–10 sind umgesetzt. Dazu gehören die zentralen Produktverträge, Page-/Row-Verträge, atomare Detailbeladung, TV Hero-first, progressive Darstellung, React-/State-Härtung, Native-Härtung, Dependency-/CI-Arbeit sowie Hosting-/Cache-/Bundle-Optimierung.
+#314 ist ab 03.10.2026 das **aktuelle große Arbeitspaket**. Es bündelt die noch offenen Produktentscheidungen und Randfälle der bereits vorhandenen Mitteilungsbasis, ohne die bestehende App-Architektur unnötig umzubauen.
 
-Aktueller technischer Stand:
-- Haupt-JS: 210,46 kB minifiziert / 63,72 kB gzip
-- signierter R8-Release: rund 2,51 MiB
-- TV-Runtime als lazy Feature; Vorwärmung bei TV-Intent, Datenstart weiterhin Hero-first
-- CI, Android und Firebase-Deploy auf aktuellem Main grün
+Ausgangsstand:
+- #312 stellt Glocke, Posteingang und globale Admin-Mitteilungen bereit; Smartphone-Grundstrecke und Fire-TV-D-Pad-Bedienung sind bestätigt;
+- #118 stellt „Wenn inklusive“ bereit;
+- die Detailseite bietet zusätzlich „Wenn im TV“ als getrennten persönlichen Auslöser;
+- persönliche Meldungen bleiben zunächst innerhalb von Movie Hub; Betriebssystem-Push und E-Mail gehören nicht automatisch zum aktuellen Umfang;
+- Deploy #939 hat als konkreten Betriebsbefund gezeigt, dass der vertrauenswürdige serverseitige TV-Prüflauf beim transaktionalen Schreiben von `titleAlertState`/Meldungen mit `PERMISSION_DENIED` scheitern kann. Dieser IAM-/Serverpfad ist vor fachlicher Abnahme gezielt zu klären.
 
-Offen für den Abschluss von #346:
-- README, ROADMAP und Architektur konsolidieren;
-- reale Smartphone-Abnahme;
-- reale Fire-TV-Abnahme;
-- Tablet nur als Gegenprobe bei relevanter Abweichung;
-- Abschlussbericht und danach Issue schließen.
+Der erste Block von #314 ist bewusst **Bestandsaufnahme und Produktklärung vor neuen Codeänderungen**:
+1. vorhandene Ende-zu-Ende-Strecke aus #312 vollständig gegen Gültigkeit, Rücknahme, Lesestatus und Mehrgeräteverhalten prüfen;
+2. serverseitigen Prüflauf für „Wenn inklusive“/„Wenn im TV“ zuverlässig machen und den IAM-Befund aus #939 schließen;
+3. Meldeanlässe, Darstellung, Ziel beim Öffnen, Häufigkeit, Deduplizierung, Gültigkeit und Profilregeln gemeinsam festlegen;
+4. erst danach einzelne Umsetzungen als kleine, abnehmbare Folgepakete schneiden.
 
-### 2. #271 – Modulare Quellenplattform fortführen
+#312 und #118 bleiben bis zu ihrer fachlichen beziehungsweise Ende-zu-Ende-Abnahme als verknüpfte Teilpakete offen. Sie werden nicht künstlich geschlossen, nur weil #314 nun die gemeinsame Klammer bildet.
 
-#271 bleibt das übergeordnete Quellenpaket. Die erste praktische Mehrquellenstufe ist inzwischen belegt: #280 hat Joyn als zweiten unabhängigen Adapter abgeschlossen. Waipu und Joyn können denselben kanonischen Titel beziehungsweise dasselbe lineare Ereignis bedienen, während ihre Providerkennungen, Programm-IDs und PlaybackRoutes getrennt erhalten bleiben.
+### 2. #271 – Modulare Quellenplattform danach fortführen
 
-Die nächste Stufe unter #271 ist deshalb kein erneuter Joyn-Grundaufbau, sondern der kontrollierte Ausbau um weitere belastbare Quellen. Dabei bleiben verbindlich:
+#271 bleibt das übergeordnete Quellenpaket. Die erste praktische Mehrquellenstufe ist belegt: #280 hat Joyn als zweiten unabhängigen Adapter abgeschlossen. Waipu und Joyn können denselben kanonischen Titel beziehungsweise dasselbe lineare Ereignis bedienen, während Providerkennungen, Programm-IDs und PlaybackRoutes getrennt erhalten bleiben.
+
+Nach dem Mitteilungspaket wird der kontrollierte Ausbau um weitere belastbare Quellen wieder aufgenommen. Verbindlich bleiben:
 - kanonische Titelidentität `Medientyp + TMDB-ID`;
 - neutrales Sender-/Verfügbarkeitsereignis;
 - getrennte Quellen- und Provideridentität;
@@ -65,14 +69,9 @@ Die nächste Stufe unter #271 ist deshalb kein erneuter Joyn-Grundaufbau, sonder
 - Qualitäts-, Last- und Fehlergates;
 - letzter gültiger veröffentlichter Stand bei Adapterfehlern.
 
-### 3. Weitere Adapter nach abgeschlossenem Joyn-Pilot
+### 3. Weitere Adapter
 
-Weitere Quellen werden jeweils als getrennte, kleine Adapterpakete unter #271 bewertet. Bevorzugte Reihenfolge:
-
-1. offizielle ARD-/ZDF-/Free-TV-Quellen und zulässige Live-/Deep-Link-Ziele
-2. FAST-/Free-TV-Quellen wie Pluto TV, sofern technisch und rechtlich belastbar
-3. weitere Anbieter mit stabilen strukturierten Daten und verifizierbaren Zielen
-4. DVB-I, sobald Zugang, Marktstatus und Nutzbarkeit belastbar geklärt sind
+Weitere Quellen werden jeweils als getrennte, kleine Adapterpakete unter #271 bewertet. #336 bleibt als isolierter DVB-I-Diagnosepilot offen; ein Produktivadapter entsteht daraus nur bei belastbarem Zugang und sauberem Datenvertrag. Weitere offizielle Free-TV-/FAST-Quellen werden ebenfalls nur nach technischer und rechtlicher Prüfung eingebunden.
 
 Keine Quelle wird allein wegen technischer Erreichbarkeit produktiv eingebunden.
 
@@ -97,10 +96,8 @@ Diese Darstellungs-/Priorisierungsarbeit folgt nach den ersten zusätzlichen Ada
 
 ## Gesondert offene Betriebs- und Restpakete
 
-- #315 – Nachtlauf zuverlässig überwachen; Betriebszuverlässigkeit, blockiert #271 nicht
-- #329 – Waipu-Restklassifizierung der technischen-only Einträge; Wartung, blockiert #271 nicht
-- #312 – Mitteilungszentrale; Fire-TV-Bedienung am 26.09.2026 abgenommen, Ende-zu-Ende-/Mehrgeräte-Restpunkte offen
-- #118/#314 – „Wenn inklusive“ und „Wenn im TV“ sind veröffentlicht und auf Fire TV bedienbar; produktive Lauf-/Randfallprüfung und spätere Produktentscheidungen offen
+- #329 – Waipu-Restklassifizierung der technischen-only Einträge; Wartung, blockiert die aktuelle Hauptstrecke nicht
+- #312/#118 – bleiben als Teilpakete des aktiven #314 offen, bis Ende-zu-Ende- und fachliche Abnahme vollständig sind
 - #7 – erste Top-100-Stufe veröffentlicht und am 26.09.2026 auf Fire TV abgenommen; Empfehlungen und Automatisierung später
 - #328 – Trailer/Teaser-Finish: Sprachwahl und Wiedergabestabilität; späteres UI-/Player-Finish
 - #327 – TMDB-Kontosynchronisation; bewusst für später zurückgestellt
@@ -121,7 +118,7 @@ Vor einer öffentlichen Version 1.0 sollen mindestens folgende Blöcke abgeschlo
    - keine irreführende Gleichsetzung von Sender, Provider und Wiedergabeweg
 
 3. **Betrieb**
-   - #315 für Datenfrische, Wiederanlauf und unabhängige Alarmierung
+   - #315 – Datenfrische, Wiederanlauf, unabhängige Alarmierung und Cloud-Checkpoints – abgeschlossen
    - Adapterzustand, Datenalter und letzter gültiger Stand nachvollziehbar
    - partielle Datenläufe veröffentlichen keinen schlechteren Stand
 
@@ -142,6 +139,6 @@ Vor einer öffentlichen Version 1.0 sollen mindestens folgende Blöcke abgeschlo
 
 ## Aktuelle Reihenfolge
 
-`#346 Abschlussdoku + Geräteabnahme → #271 weitere Adapter → Verfügbarkeitsdarstellung schärfen → Betriebs-/Produkt-Finish → #112 Release-Gate → 1.0`
+`#314 Mitteilungen/Benachrichtigungen (#312 + #118 + TV-Auslöser/IAM) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
 
-#315 und #329 laufen bei Bedarf parallel. #280 ist abgeschlossen. #118/#314, #7, #327 und #328 sind bewusst nach hinten gestellt und blockieren den Adapterpfad nicht.
+#346 und #315 sind abgeschlossen. #329 bleibt Wartung. Das leichte verbleibende Fire-TV-Ruckeln ist kein offener Abnahmepunkt von #346 und kann bei Bedarf als eigenes eng begrenztes Performance-Folgepaket behandelt werden.
