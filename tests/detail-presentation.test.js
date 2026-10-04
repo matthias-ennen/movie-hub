@@ -30,6 +30,52 @@ describe('stabiler Detail-Ladezustand', () => {
     expect(result).toMatchObject({ metadataComplete: true, displayPosterUrl: '/poster.jpg' })
   })
 
+  it('ergänzt die zentrale Live-Verfügbarkeit unabhängig vom Einstiegspunkt', async () => {
+    const nextAiring = {
+      stationId: 'tele5',
+      stationName: 'TELE 5',
+      startTime: '2026-10-04T18:15:00.000Z',
+      stopTime: '2026-10-04T20:15:00.000Z',
+      providerIds: ['waipu'],
+      playbackRoutes: [{ providerId: 'waipu', mode: 'APP_DEEP_LINK', target: 'waipu://tele5/11' }],
+    }
+    const item = {
+      id: 'tv-airing-old-context',
+      tmdbId: 11,
+      type: 'movie',
+      title: 'Testfilm',
+      tvAiring: {
+        ...nextAiring,
+        stationId: 'old-station',
+        stationName: 'Alter Sender',
+        startTime: '2026-10-03T18:15:00.000Z',
+        stopTime: '2026-10-03T20:15:00.000Z',
+      },
+    }
+    const loadComplete = vi.fn(async () => ({ ...item, metadataComplete: true }))
+    const presentArtwork = vi.fn((value) => value)
+
+    const result = await prepareDetailRequestItem(item, {
+      liveAvailabilityEntries: [{
+        key: 'movie:11',
+        type: 'movie',
+        tmdbId: 11,
+        providers: [{
+          providerId: 'waipu',
+          airings: [nextAiring],
+          nextAiring,
+          airingCount: 1,
+        }],
+      }],
+      liveAvailabilityNow: Date.parse('2026-10-04T17:00:00.000Z'),
+      loadComplete,
+      presentArtwork,
+    })
+
+    expect(result.liveAvailability.waipu.nextAiring.stationName).toBe('TELE 5')
+    expect(result.providerIds).toContain('waipu')
+  })
+
   it('verwendet auch für normale Titel denselben vollständigen Metadatenvertrag', async () => {
     const item = { id: 'tmdb-movie-345887', tmdbId: 345887, type: 'movie', title: 'The Equalizer 2' }
     const complete = {

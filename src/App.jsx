@@ -776,7 +776,11 @@ function MovieHub({ user }) {
       await waitForDetailLoadingPaint()
       if (cancelled) return
 
-      const preparedItem = await prepareDetailRequestItem(item, { artworkOptions })
+      const preparedItem = await prepareDetailRequestItem(item, {
+        artworkOptions,
+        liveAvailabilityEntries,
+        liveAvailabilityNow: liveAvailabilityClock,
+      })
       if (cancelled) return
       const displayedItem = {
         ...preparedItem,
@@ -835,6 +839,8 @@ function MovieHub({ user }) {
     detailRequest,
     hasMovieHubTitle,
     libraryLoading,
+    liveAvailabilityClock,
+    liveAvailabilityEntries,
     sharedMediaCatalogLoading,
     user?.uid,
   ])
@@ -1575,6 +1581,7 @@ function MovieHub({ user }) {
           initialPrimaryImageUrl={detailPrimaryImageUrl}
           sharedMediaPreloaded
           sharedMediaLoadError={detailSharedMediaLoadError}
+          liveAvailabilityNow={liveAvailabilityClock}
           returnFocusTarget={detailReturnFocusRef.current}
           onSelectTitle={handleOpenTitle}
           onClose={closeDetail}

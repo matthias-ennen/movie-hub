@@ -21,6 +21,7 @@ import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { resolveProviderPresentation } from '../providers/providerPresentation.js'
+import { formatDetailTvAiring, resolveDetailTvAiring } from '../tv/detailTvAiring.js'
 
 export default function DetailModal({
   item,
@@ -30,6 +31,7 @@ export default function DetailModal({
   initialPrimaryImageUrl = undefined,
   sharedMediaPreloaded = false,
   sharedMediaLoadError = '',
+  liveAvailabilityNow = Date.now(),
   returnFocusTarget = null,
   onSelectTitle,
   onClose,
@@ -98,14 +100,27 @@ export default function DetailModal({
   )
   const currentCollectionIndex = collectionParts.findIndex((part) => Number(part.tmdbId) === Number(item.tmdbId))
   const hasFilmCollection = item.type === 'movie' && collectionParts.length > 1
-  const providerPresentation = resolveProviderPresentation(item, {
-    context: item?.tvAiring ? 'airing' : 'title',
-  })
-  const [liveRouteSnapshot] = useState(() => {
+  const detailTvAiring = useMemo(
+    () => resolveDetailTvAiring(item, { now: liveAvailabilityNow }),
+    [item, liveAvailabilityNow],
+  )
+  const detailTvAiringLabel = useMemo(
+    () => formatDetailTvAiring(detailTvAiring),
+    [detailTvAiring],
+  )
+  const detailProviderItem = useMemo(
+    () => ({ ...item, tvAiring: detailTvAiring }),
+    [detailTvAiring, item],
+  )
+  const providerPresentation = useMemo(
+    () => resolveProviderPresentation(detailProviderItem, { context: 'airing' }),
+    [detailProviderItem],
+  )
+  const liveRouteSnapshot = useMemo(() => {
     const providerIds = providerPresentation.liveProviderIds
       .filter((providerId) => Boolean(providers[providerId]))
-    return resolveBoundLiveProviderRoutes(item, providerIds, { now: Date.now() })
-  })
+    return resolveBoundLiveProviderRoutes(detailProviderItem, providerIds, { now: liveAvailabilityNow })
+  }, [detailProviderItem, liveAvailabilityNow, providerPresentation])
   const orderedProviderIds = providerPresentation.providerIds
     .filter((providerId) => Boolean(providers[providerId]))
   const liveProviderIds = orderedProviderIds
@@ -115,6 +130,7 @@ export default function DetailModal({
     .filter((providerId) => providerPresentation.tmdbProviderIds.includes(providerId))
   const hasLiveProviders = liveProviderIds.length > 0
   const hasStreamingProviders = streamingProviderIds.length > 0
+  const hasTvAiring = Boolean(detailTvAiringLabel)
   const hasProviders = hasLiveProviders || hasStreamingProviders
   const showMovieHubProvider = sharedMedia.length > 0 && isProviderEnabled('moviehub')
   const cast = Array.isArray(item.cast) ? item.cast.slice(0, 5) : []
@@ -662,33 +678,36 @@ export default function DetailModal({
           )}
 
           <h3>Wo anschauen?</h3>
-          {hasLiveProviders && (
-            <section className="provider-availability-group" aria-label="Diese TV-Ausstrahlung">
-              <p className="settings-kicker">Diese TV-Ausstrahlung</p>
-              <div className="provider-actions" aria-label="Live-TV-Anbieter für diese Ausstrahlung">
-                {liveProviderIds.map((providerId, index) => {
-                  const provider = providers[providerId]
-                  if (!provider) return null
-                  return (
-                    <button
-                      type="button"
-                      key={providerId}
-                      className="action-button provider-action"
-                      data-focusable="true"
-                      data-detail-autofocus={!hasFilmCollection && !hasSeriesNavigation && automaticVideos.length === 0 && index === 0 ? 'true' : undefined}
-                      onClick={() => openLiveProvider(providerId)}
-                      aria-label={`${provider.label} für diese TV-Ausstrahlung öffnen`}
-                    >
-                      <ProviderBadge providerId={providerId} />
-                      {provider.label}
-                    </button>
-                  )
-                })}
-              </div>
+          {hasTvAiring && (
+            <section className="provider-availability-group" aria-label="TV-Ausstrahlung">
+              <p className="settings-kicker">TV-Ausstrahlung</p>
+              <p className="detail-tv-airing">{detailTvAiringLabel}</p>
+              {hasLiveProviders && (
+                <div className="provider-actions" aria-label="Live-TV-Anbieter für diese Ausstrahlung">
+                  {liveProviderIds.map((providerId, index) => {
+                    const provider = providers[providerId]
+                    if (!provider) return null
+                    return (
+                      <button
+                        type="button"
+                        key={providerId}
+                        className="action-button provider-action"
+                        data-focusable="true"
+                        data-detail-autofocus={!hasFilmCollection && !hasSeriesNavigation && automaticVideos.length === 0 && index === 0 ? 'true' : undefined}
+                        onClick={() => openLiveProvider(providerId)}
+                        aria-label={`${provider.label} für diese TV-Ausstrahlung öffnen`}
+                      >
+                        <ProviderBadge providerId={providerId} />
+                        {provider.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </section>
           )}
           {(showMovieHubProvider || hasStreamingProviders) && (
-            <section className={hasLiveProviders ? 'provider-availability-group provider-availability-streaming' : 'provider-availability-group'} aria-label="Streaming und Mediathek">
+            <section className={hasTvAiring ? 'provider-availability-group provider-availability-streaming' : 'provider-availability-group'} aria-label="Streaming und Mediathek">
               <p className="settings-kicker">Streaming / Mediathek</p>
               <div className="provider-actions" aria-label="Streaming- und Mediathek-Anbieter">
                 {showMovieHubProvider && (
@@ -725,10 +744,10 @@ export default function DetailModal({
               </div>
             </section>
           )}
-          {!showMovieHubProvider && !hasProviders && (
+          {!showMovieHubProvider && !hasProviders && !hasTvAiring && (
             <p className="prototype-note">Für diesen Titel ist derzeit kein unterstützter Anbieter in Deutschland hinterlegt.</p>
           )}
-          {hasProviders && <p className="prototype-note">Live-TV-Ausstrahlungen und Streaming-/Mediathek-Verfügbarkeiten werden getrennt aus ihren jeweiligen Quellen dargestellt.</p>}
+          {(hasTvAiring || hasProviders) && <p className="prototype-note">Live-TV-Ausstrahlungen und Streaming-/Mediathek-Verfügbarkeiten werden getrennt aus ihren jeweiligen Quellen dargestellt.</p>}
           {item.tmdbId && <p className="tmdb-credit">Datenquelle: TMDB · ID {item.tmdbId}</p>}
 
           <section className="personal-title-state" aria-labelledby="personal-title-state-heading" aria-busy={personalBusy}>

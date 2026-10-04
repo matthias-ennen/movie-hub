@@ -783,16 +783,12 @@ p {
   margin-top: var(--space-4);
 }
 
-.waipu-provider-airing {
+.detail-tv-airing {
   max-width: 660px;
-  margin: var(--space-3) 0 0;
+  margin: var(--space-2) 0 var(--space-3);
   color: #c9cfda;
   font-size: 0.88rem;
   line-height: 1.45;
-}
-
-.waipu-provider-airing strong {
-  color: var(--color-text);
 }
 
 .provider-action {
