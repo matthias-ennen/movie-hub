@@ -1,11 +1,14 @@
 import { resolvePresentationArtwork } from '../catalog/artworkRotation.js'
 import { loadRuntimeTitleMetadata } from '../catalog/runtimeTitleMetadata.js'
 import { normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
+import { mergeLiveAvailability } from '../sources/liveAvailabilityIndex.js'
 
 const DETAIL_IMAGE_WAIT_MS = 1_500
 
 export async function prepareDetailRequestItem(item, {
   artworkOptions = {},
+  liveAvailabilityEntries = [],
+  liveAvailabilityNow = Date.now(),
   loadComplete = loadRuntimeTitleMetadata,
   presentArtwork = resolvePresentationArtwork,
 } = {}) {
@@ -13,7 +16,12 @@ export async function prepareDetailRequestItem(item, {
     requireContract: true,
     requireComplete: true,
   })
-  return presentArtwork(detail, artworkOptions)
+  const [liveDetail = detail] = mergeLiveAvailability(
+    [detail],
+    liveAvailabilityEntries,
+    { now: liveAvailabilityNow },
+  )
+  return presentArtwork(liveDetail, artworkOptions)
 }
 
 export function detailInitialImageUrl(item) {
