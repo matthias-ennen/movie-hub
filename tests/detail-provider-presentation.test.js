@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDetailLiveProviderEntries } from '../src/components/detailProviderPresentation.js'
+import { buildDetailLiveProviderEntries, buildDetailStreamingProviderIds } from '../src/components/detailProviderPresentation.js'
 
 describe('detail live provider presentation', () => {
   it('keeps a live provider visible even when no exact playback route exists', () => {
@@ -34,5 +34,34 @@ describe('detail live provider presentation', () => {
     expect(entries).toEqual([
       { providerId: 'joyn', canLaunch: true },
     ])
+  })
+  it('keeps TMDB Joyn visible as streaming when Joyn is not part of the concrete TV airing', () => {
+    const streamingProviderIds = buildDetailStreamingProviderIds({
+      providerIds: ['joyn', 'prime', 'netzkino'],
+      tmdbProviderIds: ['joyn', 'prime', 'netzkino'],
+      liveProviderIds: [],
+    }, {
+      joyn: { id: 'joyn' },
+      prime: { id: 'prime' },
+      netzkino: { id: 'netzkino' },
+    }, [
+      { providerId: 'waipu', canLaunch: true },
+    ])
+
+    expect(streamingProviderIds).toEqual(['joyn', 'prime', 'netzkino'])
+  })
+
+  it('does not show Joyn twice when the concrete TV airing already uses Joyn', () => {
+    const streamingProviderIds = buildDetailStreamingProviderIds({
+      providerIds: ['joyn', 'prime'],
+      tmdbProviderIds: ['joyn', 'prime'],
+    }, {
+      joyn: { id: 'joyn' },
+      prime: { id: 'prime' },
+    }, [
+      { providerId: 'joyn', canLaunch: true },
+    ])
+
+    expect(streamingProviderIds).toEqual(['prime'])
   })
 })
