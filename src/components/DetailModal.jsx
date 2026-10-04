@@ -22,7 +22,7 @@ import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { resolveProviderPresentation } from '../providers/providerPresentation.js'
 import { formatDetailTvAiring, resolveDetailTvAiring } from '../tv/detailTvAiring.js'
-import { buildDetailLiveProviderEntries } from './detailProviderPresentation.js'
+import { buildDetailLiveProviderEntries, buildDetailStreamingProviderIds } from './detailProviderPresentation.js'
 
 export default function DetailModal({
   item,
@@ -113,24 +113,29 @@ export default function DetailModal({
     () => ({ ...item, tvAiring: detailTvAiring }),
     [detailTvAiring, item],
   )
-  const providerPresentation = useMemo(
+  const liveProviderPresentation = useMemo(
     () => resolveProviderPresentation(detailProviderItem, { context: 'airing' }),
     [detailProviderItem],
   )
+  const titleProviderPresentation = useMemo(
+    () => resolveProviderPresentation(item, { context: 'title' }),
+    [item],
+  )
   const liveRouteSnapshot = useMemo(() => {
-    const providerIds = providerPresentation.liveProviderIds
+    const providerIds = liveProviderPresentation.liveProviderIds
       .filter((providerId) => Boolean(providers[providerId]))
     return resolveBoundLiveProviderRoutes(detailProviderItem, providerIds, { now: liveAvailabilityNow })
-  }, [detailProviderItem, liveAvailabilityNow, providerPresentation])
-  const orderedProviderIds = providerPresentation.providerIds
-    .filter((providerId) => Boolean(providers[providerId]))
+  }, [detailProviderItem, liveAvailabilityNow, liveProviderPresentation])
   const liveProviderEntries = buildDetailLiveProviderEntries(
-    providerPresentation,
+    liveProviderPresentation,
     providers,
     liveRouteSnapshot,
   )
-  const streamingProviderIds = orderedProviderIds
-    .filter((providerId) => providerPresentation.tmdbProviderIds.includes(providerId))
+  const streamingProviderIds = buildDetailStreamingProviderIds(
+    titleProviderPresentation,
+    providers,
+    liveProviderEntries,
+  )
   const hasLiveProviders = liveProviderEntries.length > 0
   const hasStreamingProviders = streamingProviderIds.length > 0
   const hasTvAiring = Boolean(detailTvAiringLabel)
