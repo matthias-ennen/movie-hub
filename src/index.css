@@ -804,6 +804,13 @@ p {
   background: #141923;
 }
 
+.provider-action-static {
+  min-height: var(--control-height);
+  border-radius: var(--radius-control);
+  font-weight: 850;
+  cursor: default;
+}
+
 .prototype-note {
   margin: var(--space-4) 0 0;
   color: #9ba8c3;
