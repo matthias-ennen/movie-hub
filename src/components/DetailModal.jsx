@@ -22,6 +22,7 @@ import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { resolveProviderPresentation } from '../providers/providerPresentation.js'
 import { formatDetailTvAiring, resolveDetailTvAiring } from '../tv/detailTvAiring.js'
+import { buildDetailLiveProviderEntries } from './detailProviderPresentation.js'
 
 export default function DetailModal({
   item,
@@ -123,12 +124,14 @@ export default function DetailModal({
   }, [detailProviderItem, liveAvailabilityNow, providerPresentation])
   const orderedProviderIds = providerPresentation.providerIds
     .filter((providerId) => Boolean(providers[providerId]))
-  const liveProviderIds = orderedProviderIds
-    .filter((providerId) => providerPresentation.liveProviderIds.includes(providerId))
-    .filter((providerId) => Boolean(liveRouteSnapshot[providerId]))
+  const liveProviderEntries = buildDetailLiveProviderEntries(
+    providerPresentation,
+    providers,
+    liveRouteSnapshot,
+  )
   const streamingProviderIds = orderedProviderIds
     .filter((providerId) => providerPresentation.tmdbProviderIds.includes(providerId))
-  const hasLiveProviders = liveProviderIds.length > 0
+  const hasLiveProviders = liveProviderEntries.length > 0
   const hasStreamingProviders = streamingProviderIds.length > 0
   const hasTvAiring = Boolean(detailTvAiringLabel)
   const hasProviders = hasLiveProviders || hasStreamingProviders
@@ -684,9 +687,21 @@ export default function DetailModal({
               <p className="detail-tv-airing">{detailTvAiringLabel}</p>
               {hasLiveProviders && (
                 <div className="provider-actions" aria-label="Live-TV-Anbieter für diese Ausstrahlung">
-                  {liveProviderIds.map((providerId, index) => {
+                  {liveProviderEntries.map(({ providerId, canLaunch }, index) => {
                     const provider = providers[providerId]
                     if (!provider) return null
+                    if (!canLaunch) {
+                      return (
+                        <span
+                          key={providerId}
+                          className="provider-action provider-action-static"
+                          aria-label={`${provider.label} für diese TV-Ausstrahlung verfügbar`}
+                        >
+                          <ProviderBadge providerId={providerId} />
+                          {provider.label}
+                        </span>
+                      )
+                    }
                     return (
                       <button
                         type="button"
