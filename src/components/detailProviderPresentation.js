@@ -20,3 +20,28 @@ export function buildDetailLiveProviderEntries(
       canLaunch: Boolean(liveRouteSnapshot?.[providerId]),
     }))
 }
+
+export function buildDetailStreamingProviderIds(
+  titleProviderPresentation,
+  providers = {},
+  liveProviderEntries = [],
+) {
+  const orderedProviderIds = Array.isArray(titleProviderPresentation?.providerIds)
+    ? titleProviderPresentation.providerIds
+    : []
+  const tmdbProviderIds = new Set(
+    Array.isArray(titleProviderPresentation?.tmdbProviderIds)
+      ? titleProviderPresentation.tmdbProviderIds
+      : [],
+  )
+  const concreteLiveProviderIds = new Set(
+    (Array.isArray(liveProviderEntries) ? liveProviderEntries : [])
+      .map((entry) => entry?.providerId)
+      .filter(Boolean),
+  )
+
+  return orderedProviderIds
+    .filter((providerId) => tmdbProviderIds.has(providerId))
+    .filter((providerId) => !concreteLiveProviderIds.has(providerId))
+    .filter((providerId) => Boolean(providers?.[providerId]))
+}
