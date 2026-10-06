@@ -11,18 +11,18 @@ import {
 } from '../scripts/check-data-workflow-schedule.mjs'
 
 describe('Nachtlauf-Zeitplanung', () => {
-  it('plant 03:17 Europe/Berlin korrekt durch Sommer- und Winterzeit', () => {
-    expect(expectedScheduleAt(new Date('2026-09-21T04:00:00.000Z')).toISOString()).toBe('2026-09-21T01:17:00.000Z')
-    expect(expectedScheduleAt(new Date('2026-12-21T05:00:00.000Z')).toISOString()).toBe('2026-12-21T02:17:00.000Z')
+  it('plant 00:17 Europe/Berlin korrekt am UTC-Vortag durch Sommer- und Winterzeit', () => {
+    expect(expectedScheduleAt(new Date('2026-09-21T04:00:00.000Z')).toISOString()).toBe('2026-09-20T22:17:00.000Z')
+    expect(expectedScheduleAt(new Date('2026-12-21T05:00:00.000Z')).toISOString()).toBe('2026-12-20T23:17:00.000Z')
   })
 
-  it('berechnet das heutige lokale Zeitfenster auch vor 03:17 Uhr', () => {
-    expect(scheduledAtForLocalDate(new Date('2026-12-21T01:17:00.000Z')).toISOString()).toBe('2026-12-21T02:17:00.000Z')
+  it('berechnet das heutige lokale Zeitfenster auch vor 00:17 Uhr', () => {
+    expect(scheduledAtForLocalDate(new Date('2026-12-20T23:10:00.000Z')).toISOString()).toBe('2026-12-20T23:17:00.000Z')
   })
 
-  it('überspringt den verfrühten UTC-Sommerzeit-Ersatztrigger im Winter', () => {
+  it('überspringt einen verfrühten Start vor dem täglichen Fenster', () => {
     const result = evaluateScheduleGate([], {
-      now: new Date('2026-12-21T01:17:00.000Z'),
+      now: new Date('2026-12-20T23:00:00.000Z'),
       currentRunId: 101,
       eventName: 'schedule',
     })
@@ -30,9 +30,9 @@ describe('Nachtlauf-Zeitplanung', () => {
     expect(result.reason).toBe('before-daily-window')
   })
 
-  it('startet den ersten fälligen Nachtlauf nach 03:17 Uhr', () => {
+  it('startet den ersten fälligen Nachtlauf nach 00:17 Uhr trotz UTC-Vortag', () => {
     const result = evaluateScheduleGate([], {
-      now: new Date('2026-09-21T01:18:00.000Z'),
+      now: new Date('2026-09-20T22:18:00.000Z'),
       currentRunId: 102,
       eventName: 'schedule',
     })
@@ -49,11 +49,11 @@ describe('Nachtlauf-Zeitplanung', () => {
         event: 'schedule',
         status: 'completed',
         conclusion: 'success',
-        created_at: '2026-09-21T01:24:00.000Z',
+        created_at: '2026-09-20T22:24:00.000Z',
         html_url: 'https://github.com/example/repo/actions/runs/201',
       },
     ], {
-      now: new Date('2026-09-21T02:17:00.000Z'),
+      now: new Date('2026-09-20T23:17:00.000Z'),
       currentRunId: 202,
       eventName: 'schedule',
     })
@@ -71,15 +71,30 @@ describe('Nachtlauf-Zeitplanung', () => {
         event: 'schedule',
         status: 'completed',
         conclusion: 'failure',
-        created_at: '2026-09-21T01:24:00.000Z',
+        created_at: '2026-09-20T22:24:00.000Z',
       },
     ], {
-      now: new Date('2026-09-21T02:17:00.000Z'),
+      now: new Date('2026-09-20T23:17:00.000Z'),
       currentRunId: 302,
       eventName: 'schedule',
     })
     expect(result.shouldRun).toBe(true)
     expect(result.reason).toBe('daily-run-due')
+  })
+
+  it('trennt den Winterzeit-Trigger vor Mitternacht vom nächsten lokalen Tageslauf', () => {
+    const prior = [{
+      id: 301, name: 'Deploy Firebase', event: 'schedule',
+      status: 'completed', conclusion: 'success', created_at: '2026-12-19T23:24:00Z',
+    }]
+    expect(evaluateScheduleGate(prior, {
+      now: new Date('2026-12-20T22:17:00Z'), eventName: 'schedule',
+    }).shouldRun).toBe(false)
+    const next = evaluateScheduleGate(prior, {
+      now: new Date('2026-12-20T23:17:00Z'), eventName: 'schedule',
+    })
+    expect(next.shouldRun).toBe(true)
+    expect(next.scheduledAt).toBe('2026-12-20T23:17:00.000Z')
   })
 
   it('stoppt den Import, wenn die Tages-Sperre GitHub nicht prüfen kann', async () => {
@@ -96,7 +111,7 @@ describe('Nachtlauf-Zeitplanung', () => {
 
   it('meldet einen planmäßigen Start nach mehr als 60 Minuten als verspätet', () => {
     const result = captureWorkflowTiming({
-      now: new Date('2026-09-21T02:30:00.000Z'),
+      now: new Date('2026-09-20T23:30:00.000Z'),
       eventName: 'schedule',
     })
     expect(result.status).toBe('delayed')
@@ -112,7 +127,7 @@ describe('Nachtlauf-Zeitplanung', () => {
   it('erkennt einen ausgebliebenen Lauf unabhängig vom Datenworkflow', () => {
     const result = evaluateScheduledRuns([], { now: new Date('2026-09-21T04:00:00.000Z') })
     expect(result.status).toBe('missing')
-    expect(result.scheduledAt).toBe('2026-09-21T01:17:00.000Z')
+    expect(result.scheduledAt).toBe('2026-09-20T22:17:00.000Z')
   })
 
   it('akzeptiert den richtigen heutigen Deploy-Firebase-Lauf', () => {
@@ -124,12 +139,12 @@ describe('Nachtlauf-Zeitplanung', () => {
         event: 'schedule',
         status: 'completed',
         conclusion: 'success',
-        created_at: '2026-09-21T01:29:00.000Z',
+        created_at: '2026-09-20T22:29:00.000Z',
         html_url: 'https://github.com/example/repo/actions/runs/42',
       },
     ], {
       now: new Date('2026-09-21T04:00:00.000Z'),
-      jobsByRunId: { 42: [{ name: 'deploy', status: 'completed', conclusion: 'success', started_at: '2026-09-21T01:30:00.000Z' }] },
+      jobsByRunId: { 42: [{ name: 'deploy', status: 'completed', conclusion: 'success', started_at: '2026-09-20T22:30:00.000Z' }] },
     })
     expect(result.status).toBe('healthy')
     expect(result.delayMinutes).toBe(12)
@@ -142,6 +157,7 @@ describe('Nachtlauf-Zeitplanung', () => {
       { id: 2, run_number: 551, name: 'Deploy Firebase', event: 'schedule', status: 'completed', conclusion: 'success', created_at: '2026-09-24T07:37:56Z', html_url: 'https://github.com/example/runs/2' },
     ], {
       now: new Date('2026-09-24T09:32:21Z'),
+      options: { hour: 3 }, // Historical incident under the former 03:17 schedule.
       jobsByRunId: {
         1: [{ name: 'deploy', status: 'completed', conclusion: 'success', started_at: '2026-09-24T06:11:13Z', completed_at: '2026-09-24T06:55:20Z' }],
         2: [{ name: 'deploy', status: 'completed', conclusion: 'skipped' }],
@@ -159,6 +175,7 @@ describe('Nachtlauf-Zeitplanung', () => {
       { id: 2, run_number: 551, name: 'Deploy Firebase', event: 'schedule', status: 'completed', conclusion: 'success', created_at: '2026-09-24T07:37:56Z', html_url: 'https://github.com/example/runs/2' },
     ], {
       now: new Date('2026-09-24T09:32:21Z'),
+      options: { hour: 3 },
       jobsByRunId: { 2: [{ name: 'deploy', status: 'completed', conclusion: 'skipped' }] },
     })
     expect(result.status).toBe('missing')
@@ -171,6 +188,7 @@ describe('Nachtlauf-Zeitplanung', () => {
       { id: 2, run_number: 551, name: 'Deploy Firebase', event: 'schedule', status: 'completed', conclusion: 'success', created_at: '2026-09-24T02:19:00Z', html_url: 'https://github.com/example/runs/2' },
     ], {
       now: new Date('2026-09-24T05:00:00Z'),
+      options: { hour: 3 },
       jobsByRunId: {
         1: [{ name: 'deploy', conclusion: 'failure', completed_at: '2026-09-24T01:45:00Z' }],
         2: [{ name: 'deploy', conclusion: 'success', completed_at: '2026-09-24T03:01:00Z' }],
@@ -188,6 +206,7 @@ describe('Nachtlauf-Zeitplanung', () => {
       { id: 2, run_number: 551, name: 'Deploy Firebase', event: 'schedule', status: 'completed', conclusion: 'success', created_at: '2026-09-24T03:03:00Z' },
     ], {
       now: new Date('2026-09-24T05:00:00Z'),
+      options: { hour: 3 },
       jobsByRunId: { 1: [{ name: 'deploy', conclusion: 'failure' }], 2: [{ name: 'deploy', conclusion: 'success' }] },
     })
     expect(result.status).toBe('delayed')
@@ -198,6 +217,7 @@ describe('Nachtlauf-Zeitplanung', () => {
   it('zeigt eine manuelle Nachholung nach ausgebliebenem Zeittrigger mit dem ursprünglichen Vorfall', () => {
     const result = evaluateScheduledRuns([], {
       now: new Date('2026-09-24T05:00:00Z'),
+      options: { hour: 3 },
       manualRuns: [{ id: 3, run_number: 552, name: 'Deploy Firebase', event: 'workflow_dispatch', status: 'completed', conclusion: 'success', created_at: '2026-09-24T03:21:00Z', html_url: 'https://github.com/example/runs/3' }],
       jobsByRunId: { 3: [{ name: 'deploy', conclusion: 'success', completed_at: '2026-09-24T04:01:00Z' }] },
     })
@@ -213,6 +233,7 @@ describe('Nachtlauf-Zeitplanung', () => {
       { id: 1, run_number: 550, name: 'Deploy Firebase', event: 'schedule', status: 'completed', conclusion: 'failure', created_at: '2026-09-24T01:21:00Z' },
     ], {
       now: new Date('2026-09-24T05:00:00Z'),
+      options: { hour: 3 },
       manualRuns: [{ id: 3, run_number: 552, name: 'Deploy Firebase', event: 'workflow_dispatch', status: 'completed', conclusion: 'success', created_at: '2026-09-24T03:21:00Z' }],
       jobsByRunId: { 1: [{ name: 'deploy', conclusion: 'failure' }], 3: [{ name: 'deploy', conclusion: 'success' }] },
     })

@@ -5,7 +5,7 @@ import { evaluatePublishedData, fetchPublishedData } from './validate-publicatio
 
 const defaultOptions = Object.freeze({
   timeZone: 'Europe/Berlin',
-  hour: 3,
+  hour: 0,
   minute: 17,
   maximumDelayMinutes: 60,
   workflowName: 'Deploy Firebase',

@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
   schedule:
-    # GitHub evaluates cron in UTC. These summer/winter triggers bracket 03:17
+    # GitHub evaluates cron in UTC. These summer/winter triggers bracket 00:17
     # Europe/Berlin; the gate below starts at most one full data run per local day.
-    - cron: '17 01 * * *'
-    - cron: '17 02 * * *'
+    - cron: '17 22 * * *'
+    - cron: '17 23 * * *'
   workflow_dispatch:
     inputs:
       data_mode:
@@ -42,12 +42,12 @@ jobs:
         with:
           node-version: 22
 
-      - name: Select the daily 03:17 Europe/Berlin run
+      - name: Select the daily 00:17 Europe/Berlin run
         id: gate
         env:
           GITHUB_TOKEN: ${{ github.token }}
           DATA_WORKFLOW_TIMEZONE: Europe/Berlin
-          DATA_WORKFLOW_HOUR: '3'
+          DATA_WORKFLOW_HOUR: '0'
           DATA_WORKFLOW_MINUTE: '17'
           DATA_WORKFLOW_NAME: Deploy Firebase
         run: node scripts/check-data-workflow-schedule.mjs --gate
@@ -71,7 +71,7 @@ jobs:
       - name: Capture scheduled start timing
         env:
           DATA_WORKFLOW_TIMEZONE: Europe/Berlin
-          DATA_WORKFLOW_HOUR: '3'
+          DATA_WORKFLOW_HOUR: '0'
           DATA_WORKFLOW_MINUTE: '17'
           DATA_WORKFLOW_MAX_DELAY_MINUTES: '60'
         run: node scripts/check-data-workflow-schedule.mjs --capture

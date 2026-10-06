@@ -175,8 +175,8 @@ dass ein neuer Worktree versehentlich einen zweiten, leeren Checkpoint beginnt.
 ## Gemeinsamer täglicher Datenlauf
 
 Der vorhandene Workflow `Deploy Firebase` bleibt der einzige zentrale
-Produktionslauf. Die UTC-Cron-Ausdrücke `17 01 * * *` und `17 02 * * *`
-decken gemeinsam 03:17 Uhr in `Europe/Berlin` während Sommer- und Winterzeit
+Produktionslauf. Die UTC-Cron-Ausdrücke `17 22 * * *` und `17 23 * * *`
+decken gemeinsam 00:17 Uhr in `Europe/Berlin` während Sommer- und Winterzeit
 ab. Eine vorgeschaltete Sperre lässt pro deutschem Kalendertag höchstens einen
 vollständigen Datenlauf zu. Der jeweils andere Zeittrigger bleibt als
 Ausweichfenster erhalten, falls GitHub einen Cron-Lauf auslässt oder der erste

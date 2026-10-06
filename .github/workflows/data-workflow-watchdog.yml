@@ -2,7 +2,7 @@ name: Data Workflow Watchdog
 
 on:
   schedule:
-    # UTC checks covering summer and winter time after the 03:17 Europe/Berlin
+    # UTC checks covering summer and winter time after the 00:17 Europe/Berlin
     # run. Repeated read-only checks also expose a dropped GitHub schedule event.
     - cron: '47 03 * * *'
     - cron: '47 04 * * *'
@@ -34,7 +34,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           DATA_WORKFLOW_TIMEZONE: Europe/Berlin
-          DATA_WORKFLOW_HOUR: '3'
+          DATA_WORKFLOW_HOUR: '0'
           DATA_WORKFLOW_MINUTE: '17'
           DATA_WORKFLOW_MAX_DELAY_MINUTES: '60'
           DATA_WORKFLOW_NAME: Deploy Firebase

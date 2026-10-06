@@ -1,10 +1,10 @@
 # Nachtlauf: Alarm und dauerhaftes Import-Checkpoint
 
-Stand: 03.10.2026. Arbeitspaket: [#315](https://github.com/matthias-ennen/movie-hub/issues/315).
+Stand: 06.10.2026. Arbeitspaket: [#315](https://github.com/matthias-ennen/movie-hub/issues/315).
 
 ## Aktueller Betrieb
 
-Der geplante `Deploy Firebase`-Datenlauf beginnt nominal um 03:17 Uhr
+Der geplante `Deploy Firebase`-Datenlauf beginnt nominal um 00:17 Uhr
 `Europe/Berlin`. Der GitHub-Watchdog prüft einen echten Deploy und die beiden
 veröffentlichten JSON-Endpunkte. Zusätzlich prüft eine tägliche, nur lesende
 Chat-Überwachung um 06:00 Uhr unabhängig vom GitHub-Zeittrigger auf
@@ -12,6 +12,12 @@ Auffälligkeiten und meldet sie Matthias hier im Chat. Diese Prüfung läuft
 außerhalb des GitHub-`schedule`-Triggers und kann deshalb auch einen vollständig
 ausgebliebenen GitHub-Cron-Lauf erkennen. Sie ist bewusst ein zusätzlicher
 Meldeweg und kein garantierter 24/7-Rufbereitschaftskanal.
+
+Am 06.10.2026 wurde der Sollstart auf Wunsch von Matthias um drei Stunden
+vorgezogen, um die tatsächliche GitHub-Startzeit zu vergleichen. Die UTC-Trigger
+liegen nun bei 22:17 und 23:17 Uhr des UTC-Vortags; Gate, Zeitmessung und
+Überwachung verwenden 00:17 Uhr Europe/Berlin. Die morgendlichen Prüfzeiten
+und die übrige Datenaufbereitung bleiben unverändert.
 
 ## Privater Checkpoint
 
