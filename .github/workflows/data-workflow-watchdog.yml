@@ -2,15 +2,9 @@ name: Data Workflow Watchdog
 
 on:
   schedule:
-    # UTC checks covering summer and winter time after the 00:17 Europe/Berlin
-    # run. Repeated read-only checks also expose a dropped GitHub schedule event.
-    - cron: '47 03 * * *'
-    - cron: '47 04 * * *'
-  # When the scheduled data workflow does run, validate it again immediately
-  # after completion. Code-push and manual Deploy Firebase runs are ignored.
-  workflow_run:
-    workflows: ['Deploy Firebase']
-    types: [completed]
+    # One daily read-only check; timezone keeps 05:00 local through DST.
+    - cron: '0 5 * * *'
+      timezone: Europe/Berlin
   workflow_dispatch:
 
 permissions:
@@ -19,7 +13,6 @@ permissions:
 
 jobs:
   check:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.event == 'schedule' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

@@ -5,8 +5,12 @@ Stand: 06.10.2026. Arbeitspaket: [#315](https://github.com/matthias-ennen/movie-
 ## Aktueller Betrieb
 
 Der geplante `Deploy Firebase`-Datenlauf beginnt nominal um 00:17 Uhr
-`Europe/Berlin`. Der GitHub-Watchdog prüft einen echten Deploy und die beiden
-veröffentlichten JSON-Endpunkte. Zusätzlich prüft eine tägliche, nur lesende
+`Europe/Berlin`. Der GitHub-Watchdog prüft einmal täglich um 05:00 Uhr
+`Europe/Berlin` einen echten Deploy und die beiden veröffentlichten JSON-Endpunkte.
+Der einzelne Zeittrigger berücksichtigt Sommer- und Winterzeit direkt über
+`timezone: Europe/Berlin`. Zusätzliche Prüfungen bei Deploy-Abschluss entfallen;
+der Watchdog kann weiterhin bei Bedarf manuell gestartet werden.
+Zusätzlich prüft eine tägliche, nur lesende
 Chat-Überwachung um 06:00 Uhr unabhängig vom GitHub-Zeittrigger auf
 Auffälligkeiten und meldet sie Matthias hier im Chat. Diese Prüfung läuft
 außerhalb des GitHub-`schedule`-Triggers und kann deshalb auch einen vollständig
@@ -16,8 +20,9 @@ Meldeweg und kein garantierter 24/7-Rufbereitschaftskanal.
 Am 06.10.2026 wurde der Sollstart auf Wunsch von Matthias um drei Stunden
 vorgezogen, um die tatsächliche GitHub-Startzeit zu vergleichen. Die UTC-Trigger
 liegen nun bei 22:17 und 23:17 Uhr des UTC-Vortags; Gate, Zeitmessung und
-Überwachung verwenden 00:17 Uhr Europe/Berlin. Die morgendlichen Prüfzeiten
-und die übrige Datenaufbereitung bleiben unverändert.
+Überwachung verwenden 00:17 Uhr Europe/Berlin. Anschließend wurde der
+GitHub-Watchdog auf eine tägliche Prüfung um 05:00 Uhr vereinfacht. Die
+Chat-Kontrolle um 06:00 Uhr und die übrige Datenaufbereitung bleiben unverändert.
 
 ## Privater Checkpoint
 
