@@ -246,8 +246,8 @@ jobs:
         env:
           JOYN_LIVE_OUTPUT: public/joyn-live
           JOYN_EPG_REQUEST_BUDGET: '500'
-          JOYN_ALGOLIA_REQUEST_BUDGET: '3600'
-          JOYN_SERIES_DETAIL_REQUEST_BUDGET: '100'
+          JOYN_ALGOLIA_REQUEST_BUDGET: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[joyn-bootstrap]') && '18000' || '3600' }}
+          JOYN_SERIES_DETAIL_REQUEST_BUDGET: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[joyn-bootstrap]') && '500' || '100' }}
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
           JOYN_TMDB_REQUEST_BUDGET: '6000'

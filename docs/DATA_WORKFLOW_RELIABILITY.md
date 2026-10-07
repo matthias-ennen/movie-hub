@@ -73,6 +73,23 @@ und Suchanfragen bleiben getaktet. Im ersten Vollaufbau zeigt der Bericht
 gegebenenfalls die gespeicherte Zwischenarbeit statt eines vorgetäuschten
 vollständigen Ergebnisses.
 
+Der [erste produktive Vollaufbau](https://github.com/matthias-ennen/movie-hub/actions/runs/37585989300)
+hat alle 56 Fenster mit 216 Abrufen eingelesen, die Zuordnung aber nach
+12.341 von 64.094 Programmen wegen der lokalen Klassifizierungsgrenze angehalten.
+Der 25.212.457-Byte-Checkpoint wurde privat hochgeladen und per Prüfdownload
+validiert. Der [Folgelauf](https://github.com/matthias-ennen/movie-hub/actions/runs/37589373824)
+hat ihn erfolgreich wiederhergestellt. Die bisher veröffentlichten 399 Titel
+und 1.265 Ausstrahlungen blieben erhalten; der 14-Tage-Aufbau war damit noch
+nicht veröffentlicht. Fehlerberichte zeigen aktuelle Abrufzähler getrennt vom
+letzten gültigen veröffentlichten Bestand.
+
+Für den einmaligen Erstaufbau darf ein gezielter Push mit `[joyn-refresh]`
+und `[joyn-bootstrap]` die Joyn-Klassifizierung auf maximal 18.000
+Algolia-Abrufe und 500 Seriendetail-Abrufe begrenzen. Taktung, TMDB-Budgets,
+Checkpoint und Veröffentlichungssperren ändern sich dabei nicht. Diese
+Reserve gilt ausschließlich für diesen ausdrücklich markierten Push;
+Zeitplanläufe verwenden auch bei unverändertem Commit wieder 3.600/100.
+
 Joyn ist nun eigener Verbraucher des zentralen TMDB-Änderungslaufs und Teil
 der deduplizierten kanonischen Titelqueue. Der Fan-out erhält Joyn-Sender,
 Programm-ID, Ausstrahlungen und Wiedergaberouten. Vorhandene Folgentitel sowie

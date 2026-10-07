@@ -2,6 +2,23 @@ import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 
 describe('Firebase workflow data separation', () => {
+  it('keeps the Joyn first-build reserve limited to explicitly marked pushes', async () => {
+    const workflow = await readFile('.github/workflows/deploy-firebase.yml', 'utf8')
+    const expressions = [...workflow.matchAll(/JOYN_(ALGOLIA|SERIES_DETAIL)_REQUEST_BUDGET:\s*\$\{\{\s*([^\n]+?)\s*\}\}/g)]
+    expect(expressions).toHaveLength(2)
+    for (const [, kind, expression] of expressions) {
+      const evaluate = (event, message) => Function('github', 'contains', 'return ' + expression)(
+        { event_name: event, event: { head_commit: { message } } },
+        (text, value) => text.includes(value),
+      )
+      const regular = kind === 'ALGOLIA' ? '3600' : '100'
+      const bootstrap = kind === 'ALGOLIA' ? '18000' : '500'
+      expect(evaluate('schedule', '[joyn-refresh] [joyn-bootstrap]')).toBe(regular)
+      expect(evaluate('push', '[joyn-refresh]')).toBe(regular)
+      expect(evaluate('push', '[joyn-refresh] [joyn-bootstrap]')).toBe(bootstrap)
+    }
+  })
+
   it('reuses validated live TMDB data on ordinary pushes', async () => {
     const workflow = await readFile('.github/workflows/deploy-firebase.yml', 'utf8')
 
