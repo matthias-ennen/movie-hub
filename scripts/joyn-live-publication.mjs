@@ -85,7 +85,13 @@ function publishedAiring(event) {
     stopTime,
     playbackRoutes: Array.isArray(event.playbackRoutes) ? event.playbackRoutes : [],
     sourceRefs: Array.isArray(event.sourceRefs) ? event.sourceRefs : [],
+    source: 'joyn',
     episode: event.episode || null,
+    episodeTitle: text(event.episode?.title),
+    seasonNumber: event.episode?.seasonNumber ?? null,
+    episodeNumber: event.episode?.episodeNumber ?? null,
+    sourceDescription: text(event.extensions?.joyn?.description),
+    sourceAgeRating: event.extensions?.joyn?.ageRating ?? null,
   }
 }
 

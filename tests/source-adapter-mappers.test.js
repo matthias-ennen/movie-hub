@@ -4,6 +4,16 @@ import { mapJoynCandidateToBroadcastEvent } from '../src/sources/adapters/joynCo
 import { dedupeWaipuBroadcastEvents, mapWaipuAiringToBroadcastEvent, projectBroadcastEventToWaipuAiring } from '../src/sources/adapters/waipuContractMapper.js'
 
 describe('source adapter contract mappers', () => {
+  it('keeps Joyn episode evidence and source description without inventing episode numbers', () => {
+    const candidate = { joynChannelId: 'zdf', joynProgramId: 'p1', channelTitle: 'ZDF', title: 'Serie', secondaryTitle: 'Folge', description: 'Quellbeschreibung', ageRating: 12, startTime: '2026-10-07T18:00:00Z', endTime: '2026-10-07T19:00:00Z' }
+    const partial = mapJoynCandidateToBroadcastEvent(candidate, { type: 'series', tmdbId: 22 }, { channelId: 'zdf' })
+    expect(partial.episode).toEqual({ title: 'Folge', seasonNumber: null, episodeNumber: null })
+    expect(partial.extensions.joyn).toMatchObject({ description: 'Quellbeschreibung', ageRating: 12 })
+    const known = mapJoynCandidateToBroadcastEvent(candidate, { type: 'series', tmdbId: 22, seasonNumber: 3, episodeNumber: 4 }, { channelId: 'zdf' })
+    expect(known.episode).toEqual({ title: 'Folge', seasonNumber: 3, episodeNumber: 4 })
+    expect(mapJoynCandidateToBroadcastEvent(candidate, { type: 'movie', tmdbId: 22 }, { channelId: 'zdf' }).episode).toBeNull()
+  })
+
   it('maps all real TMDB monetization offer types without reducing them to providerIds', () => {
     const values = mapTmdbProviderOffersToAvailabilities({
       tmdbId: 11,

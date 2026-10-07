@@ -1047,9 +1047,12 @@ export async function runJoynAdapterDiagnostic({
   for (const entry of mapped) {
     const decision = decisions.get(entry.candidate.joynProgramId)
     if (decision?.status !== 'matched') continue
+    const episodeEvidence = programDiagnostics.get(entry.candidate.joynProgramId)?.joynClassification?.algolia
     const event = mapJoynCandidateToBroadcastEvent(entry.candidate, {
       tmdbId: decision.match.tmdbId,
       type: decision.match.type,
+      seasonNumber: episodeEvidence?.seasonNumber ?? null,
+      episodeNumber: episodeEvidence?.episodeNumber ?? null,
     }, {
       channelId: entry.channelId,
       observedAt: generatedAt,

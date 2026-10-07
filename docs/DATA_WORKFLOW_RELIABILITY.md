@@ -65,7 +65,10 @@ vollständigen Ergebnisses.
 
 Joyn ist nun eigener Verbraucher des zentralen TMDB-Änderungslaufs und Teil
 der deduplizierten kanonischen Titelqueue. Der Fan-out erhält Joyn-Sender,
-Programm-ID, Ausstrahlungen und Wiedergaberouten. Die echten gemeinsamen
+Programm-ID, Ausstrahlungen und Wiedergaberouten. Vorhandene Folgentitel sowie
+belegte Staffel-/Folgennummern werden im gemeinsamen Ereignis und den
+Joyn-Ausstrahlungen erhalten; fehlende Nummern werden nicht erfunden. Die
+Quelldaten-Vollständigkeit und Episodenabdeckung stehen für beide Anbieter im Bericht. Die echten gemeinsamen
 App-Daten zeigen Quellenzeitstempel und Generationen; der Fixture-Merge-Test
 wird separat gekennzeichnet. Vor dem Hosting-Deploy werden beide Quellen und
 App-Indizes geprüft, anschließend wird die tatsächlich veröffentlichte

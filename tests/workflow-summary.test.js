@@ -187,7 +187,7 @@ describe('kompakter Workflow-Datenbericht', () => {
     expect(markdown).toContain('| Waipu-Quelldaten | ✅ erfolgreich | 4 Titel · 2 Filme · 2 Serien | 5/5 Ausstrahlungen vollständig · Vertrag v1 | 2/3 Serienausstrahlungen mit Episodenangabe |')
     expect(markdown).toContain('| Joyn EPG | ✅ erfolgreich | 127 Sender · 2 Titel · 3 Ausstrahlungen |')
     expect(markdown).toContain('| Joyn → TMDB | ✅ erfolgreich | 2 Titel · 3 Ausstrahlungen | 91 zugeordnet')
-    expect(markdown).toContain('| Joyn-Quelldaten | ✅ erfolgreich | 1 Filme · 1 Serien | 3 mit Ziel · 0 ohne Ziel |')
+    expect(markdown).toContain('| Joyn-Quelldaten | ✅ erfolgreich | 1 Filme · 1 Serien | 0/3 Quelldaten vollständig · 3 mit Ziel · 0 ohne Ziel |')
     expect(markdown).toContain('| Gemeinsame App-Daten |')
     expect(markdown).toContain('nicht verfügbar/56 Fenster')
     expect(markdown).toContain('| Quellen-Schema | 🔴 BREAKING erkannt | 2 Berichte · 23 bekannte/Info-Felder | 2 Review · 1 Breaking |')

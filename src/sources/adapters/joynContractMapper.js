@@ -36,6 +36,11 @@ export function mapJoynCandidateToBroadcastEvent(candidate, match, {
     channelName: text(candidate.channelTitle) || canonicalChannelId,
     startAt: startAt.toISOString(),
     endAt: endAt.toISOString(),
+    episode: mediaType === 'series' ? {
+      seasonNumber: match?.seasonNumber ?? null,
+      episodeNumber: match?.episodeNumber ?? null,
+      title: text(candidate.secondaryTitle),
+    } : null,
     playbackRoutes,
     sourceRefs: [{
       sourceId: 'joyn-epg',
@@ -54,6 +59,9 @@ export function mapJoynCandidateToBroadcastEvent(candidate, match, {
         quality: text(candidate.quality),
         programType: text(candidate.programType),
         rawTitle: text(candidate.title),
+        secondaryTitle: text(candidate.secondaryTitle),
+        description: text(candidate.description),
+        ageRating: candidate.ageRating ?? null,
       },
     },
   })

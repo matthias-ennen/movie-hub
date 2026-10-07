@@ -19,7 +19,7 @@ function hasValue(value) {
   return value !== null && value !== undefined && String(value).trim() !== ''
 }
 
-function waipuSourceCoverage(titles = {}) {
+function waipuSourceCoverage(titles = {}, providerId = 'waipu') {
   const entriesAvailable = Array.isArray(titles?.entries)
   const entries = entriesAvailable ? titles.entries : []
   const types = countTypes(entries)
@@ -28,7 +28,7 @@ function waipuSourceCoverage(titles = {}) {
   ))
   const seriesAirings = airings.filter(({ type }) => type === 'series')
   const complete = airings.filter(({ airing }) => (
-    airing?.source === 'waipu'
+    (airing?.source === providerId || (providerId === 'joyn' && airing?.sourceRefs?.some(ref => ref.sourceId === 'joyn-epg')))
     && hasValue(airing?.programId)
     && hasValue(airing?.stationId)
     && hasValue(airing?.stationName)
@@ -39,6 +39,7 @@ function waipuSourceCoverage(titles = {}) {
     hasValue(airing?.episodeTitle)
     || hasValue(airing?.seasonNumber)
     || hasValue(airing?.episodeNumber)
+    || hasValue(airing?.episode?.title) || hasValue(airing?.episode?.seasonNumber) || hasValue(airing?.episode?.episodeNumber)
   )).length
 
   return {
@@ -154,6 +155,7 @@ export function buildWorkflowSummary({
   ), 0)
   const joynMovies = joynEntries.filter((entry) => entry?.type === 'movie').length
   const joynSeries = joynEntries.filter((entry) => entry?.type === 'series').length
+  const joynSources = waipuSourceCoverage(joynTitles, 'joyn')
   const joynMatching = joynDiagnostic.matching || {}
   const joynPlayback = joynDiagnostic.playback || {}
   const detailRequests = waipuIndex.runtime?.detailRequests || waipuDetail.metrics || {}
@@ -277,8 +279,8 @@ export function buildWorkflowSummary({
         area: 'Joyn-Quelldaten',
         status: outcome(steps.joynCatalog),
         stock: `${number(joynMovies)} Filme · ${number(joynSeries)} Serien`,
-        activity: `${measured(joynPlayback.withRoute)} mit Ziel · ${measured(joynPlayback.withoutRoute)} ohne Ziel`,
-        open: `${measured(joynPlayback.confirmedChannelSlug)} Sender-Slug · ${measured(joynPlayback.channelIdFallback)} channel_id-Fallback · Erzeugung ${timestamp(joynIndex.generatedAt)}`,
+        activity: `${number(joynSources.complete)}/${number(joynSources.total)} Quelldaten vollständig · ${measured(joynPlayback.withRoute)} mit Ziel · ${measured(joynPlayback.withoutRoute)} ohne Ziel`,
+        open: `${number(joynSources.withEpisodeData)}/${number(joynSources.seriesTotal)} Serienausstrahlungen mit Episodenangabe · ${measured(joynPlayback.channelIdRoute ?? joynPlayback.channelIdFallback)} channel_id-Ziele · Erzeugung ${timestamp(joynIndex.generatedAt)}`,
       },
       {
         area: 'Quellen-Schema',
