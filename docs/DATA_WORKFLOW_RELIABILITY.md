@@ -147,6 +147,13 @@ bei einem Fehler vor dem neuen EPG-Abruf sind als letzter Import gekennzeichnet.
 Ein verworfenes Programm wird weiterhin nicht pauschal als verlorener Film
 oder verlorene Serie bezeichnet. Die Matching-Schwellen bleiben unverändert.
 
+Beim ersten folgenden Code-Deploy wurde eine bisherige Restore-Grenze sichtbar:
+Joyns vollständiger 14-Tage-Titelbestand überschritt die für einzelne
+Tagesdateien vorgesehenen 64 MiB. Die Titeldatei hat jetzt wie bei Waipu eine
+eigene Grenze von 256 MiB; einzelne Tage behalten 64 MiB und Manifeste 8 MiB.
+Die tatsächliche entpackte Größe wird beim Einlesen des Streams begrenzt.
+Der abgebrochene Restore hatte keine neuen Daten veröffentlicht.
+
 ## Aktueller Betrieb
 
 Der geplante `Deploy Firebase`-Datenlauf beginnt nominal um 00:17 Uhr

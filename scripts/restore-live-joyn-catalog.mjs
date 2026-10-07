@@ -8,6 +8,7 @@ import {
 const DEFAULT_SOURCE = 'https://movie-hub-62459.web.app/joyn-live'
 const DEFAULT_LIMITS = Object.freeze({
   manifest: 8 * 1024 * 1024,
+  titles: 256 * 1024 * 1024,
   dayShard: 64 * 1024 * 1024,
 })
 
@@ -31,7 +32,17 @@ async function fetchJson(url, { fetchImpl, maxBytes }) {
   if (Number.isFinite(contentLength) && contentLength > maxBytes) {
     throw new Error(`Joyn restore artifact exceeds its ${maxBytes}-byte size limit.`)
   }
-  const bytes = Buffer.from(await response.arrayBuffer())
+  let bytes
+  if (response.body) {
+    const chunks = []
+    let size = 0
+    for await (const chunk of response.body) {
+      size += chunk.byteLength
+      if (size > maxBytes) throw new Error(`Joyn restore artifact exceeds its ${maxBytes}-byte size limit.`)
+      chunks.push(chunk)
+    }
+    bytes = Buffer.concat(chunks, size)
+  } else bytes = Buffer.from(await response.arrayBuffer())
   if (bytes.byteLength > maxBytes) {
     throw new Error(`Joyn restore artifact exceeds its ${maxBytes}-byte size limit.`)
   }
@@ -70,13 +81,14 @@ export async function restoreLiveJoynCatalog({
   baseUrl = DEFAULT_SOURCE,
   outputPath = resolve('public/joyn-live'),
   fetchImpl = globalThis.fetch,
-  limits = DEFAULT_LIMITS,
+  limits: limitOverrides = {},
 } = {}) {
   const base = sourceUrl(baseUrl)
+  const limits = { ...DEFAULT_LIMITS, ...limitOverrides }
   const [index, stations, titles] = await Promise.all([
     fetchJson(`${base}/index.json`, { fetchImpl, maxBytes: limits.manifest }),
     fetchJson(`${base}/stations.json`, { fetchImpl, maxBytes: limits.manifest }),
-    fetchJson(`${base}/titles.json`, { fetchImpl, maxBytes: limits.dayShard }),
+    fetchJson(`${base}/titles.json`, { fetchImpl, maxBytes: limits.titles }),
   ])
   const dayKeys = (Array.isArray(index?.days) ? index.days : []).map(({ key }) => String(key || ''))
   const days = Object.fromEntries(await Promise.all(dayKeys.map(async (key) => ([
