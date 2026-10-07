@@ -296,6 +296,8 @@ export class WaipuTmdbSearchClient {
     this.sleep = sleep
     this.lastStartedAt = null
     this.requestsStarted = 0
+    this.searchResponses = new Map()
+    this.searchCacheHits = 0
   }
 
   async search(input) {
@@ -315,14 +317,14 @@ export class WaipuTmdbSearchClient {
         && Number.isInteger(Number(input.productionYear))) {
       params.first_air_date_year = String(input.productionYear)
     }
-    const payload = await this.#request(endpoint, params)
+    const payload = await this.#searchRequest(endpoint, params)
     let results = Array.isArray(payload?.results) ? payload.results : []
     if (input.type === 'movie'
         && Number.isInteger(Number(input.productionYear))
         && results.length === 0) {
       const fallbackParams = { ...params }
       delete fallbackParams.year
-      const fallbackPayload = await this.#request(endpoint, fallbackParams)
+      const fallbackPayload = await this.#searchRequest(endpoint, fallbackParams)
       results = Array.isArray(fallbackPayload?.results) ? fallbackPayload.results : []
     }
     return results.map((result) => ({
@@ -346,6 +348,25 @@ export class WaipuTmdbSearchClient {
       type,
       runtimeMinutes,
       year: yearFromDate(type === 'movie' ? payload?.release_date : payload?.first_air_date),
+    }
+  }
+
+  async #searchRequest(path, params) {
+    // Cache raw responses only for this run. Matching still evaluates each
+    // program's year/country/episode evidence independently, including ties.
+    const key = JSON.stringify([path, params])
+    if (this.searchResponses.has(key)) {
+      this.searchCacheHits += 1
+      return this.searchResponses.get(key)
+    }
+    const pending = this.#request(path, params)
+    this.searchResponses.set(key, pending)
+    try {
+      return await pending
+    } catch (error) {
+      // A failed request is not an empty search result and must remain retryable.
+      this.searchResponses.delete(key)
+      throw error
     }
   }
 

@@ -965,6 +965,7 @@ async function main() {
       liveCatalog.index.runtime = {
         detailRequests: detailLoader?.metrics || null,
         tmdbRequests: tmdbSearchClient?.requestsStarted || 0,
+        tmdbSearchCacheHits: tmdbSearchClient?.searchCacheHits || 0,
         tmdbMetadataRequests: tmdbMetadataClient?.requestsStarted || 0,
       }
       await writeWaipuLiveCatalog(output, liveCatalog)

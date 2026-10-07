@@ -1,6 +1,23 @@
 # Nachtlauf: Alarm und dauerhaftes Import-Checkpoint
 
-Stand: 06.10.2026. Arbeitspaket: [#315](https://github.com/matthias-ennen/movie-hub/issues/315).
+Stand: 07.10.2026. Arbeitspaket: [#315](https://github.com/matthias-ennen/movie-hub/issues/315).
+
+## TMDB-Suchbudget 07.10.2026
+
+Der erste Nachtlauf [37557495450](https://github.com/matthias-ennen/movie-hub/actions/runs/37557495450)
+erreichte bei der Waipu-Titelzuordnung die interne Grenze von 4.000
+TMDB-Suchrequests. Das war keine gemeldete TMDB-Quota oder HTTP-429-Sperre.
+Die fehlende Waipu-Verbraucherbestätigung blockierte die Veröffentlichung.
+Der Ersatzlauf [37561909988](https://github.com/matthias-ennen/movie-hub/actions/runs/37561909988)
+nutzte den gesicherten Zwischenstand und veröffentlichte um 06:30 Uhr
+Europe/Berlin erfolgreich 228 Sender, 3.446 Titel und 46.698 Ausstrahlungen.
+
+Der Suchclient verwendet nun identische TMDB-Suchantworten innerhalb eines
+Laufs wieder, ohne die programmspezifische Zuordnungsprüfung zu überspringen.
+Die begrenzte Suchreserve steigt auf 6.000 Requests; Taktung, Backoff,
+Detailbudget und Veröffentlichungssperren bleiben bestehen. Ein leerer oder
+mehrdeutiger Suchtreffer wird wiederverwendet, ein fehlgeschlagener Abruf nicht.
+Der nächste reguläre Nachtlauf muss die Wirkung unter realer Last bestätigen.
 
 ## Aktueller Betrieb
 

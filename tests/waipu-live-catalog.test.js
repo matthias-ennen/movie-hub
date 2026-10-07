@@ -464,10 +464,67 @@ describe('Waipu to TMDB matching', () => {
       sleep: async (milliseconds) => { sleeps.push(milliseconds); clock += milliseconds },
     })
     await client.search(input)
+    await client.search({ ...input, title: 'Another film' })
+    await expect(client.search({ ...input, title: 'Third film' })).rejects.toMatchObject({ code: 'TMDB_REQUEST_BUDGET' })
     await client.search(input)
-    await expect(client.search(input)).rejects.toMatchObject({ code: 'TMDB_REQUEST_BUDGET' })
     expect(sleeps).toEqual([250])
     expect(fetchImpl).toHaveBeenCalledTimes(2)
+  })
+
+  it('shares concurrent and repeated searches without spending budget for different episode evidence', async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ results: [] }) }))
+    const client = new WaipuTmdbSearchClient({ token: 'test', fetchImpl, maxRequests: 1 })
+    const series = { type: 'series', title: 'Unresolved series', productionYear: 1998 }
+    await Promise.all([
+      client.search({ ...series, seasonNumber: 1, episodeNumber: 1 }),
+      client.search({ ...series, productionYear: 2018, seasonNumber: 2, episodeNumber: 5 }),
+    ])
+    await client.search(series)
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(client.requestsStarted).toBe(1)
+    expect(client.searchCacheHits).toBe(2)
+  })
+
+  it('keeps year-filtered and unfiltered searches separate and reuses a shared fallback', async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ results: [] }) }))
+    const client = new WaipuTmdbSearchClient({ token: 'test', fetchImpl, maxRequests: 3, paceMs: 0 })
+    await client.search({ type: 'movie', title: 'Unknown film', productionYear: 2020 })
+    await client.search({ type: 'movie', title: 'Unknown film', productionYear: 2021 })
+    await client.search({ type: 'movie', title: 'Unknown film', productionYear: 2020 })
+    expect(fetchImpl.mock.calls.map(([url]) => url.searchParams.get('year'))).toEqual(['2020', null, '2021'])
+    await expect(client.search({ type: 'series', title: 'Unknown film' }))
+      .rejects.toMatchObject({ code: 'TMDB_REQUEST_BUDGET' })
+  })
+
+  it('retries a failed search instead of retaining it as an empty result', async () => {
+    const fetchImpl = vi.fn()
+      .mockRejectedValueOnce(new Error('connection lost'))
+      .mockResolvedValue({ ok: true, json: async () => ({ results: [] }) })
+    const client = new WaipuTmdbSearchClient({ token: 'test', fetchImpl, maxRequests: 2, paceMs: 0 })
+    const series = { type: 'series', title: 'Unknown series' }
+    await expect(client.search(series)).rejects.toThrow('connection lost')
+    await expect(client.search(series)).resolves.toEqual([])
+    await expect(client.search(series)).resolves.toEqual([])
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+  })
+
+  it('re-evaluates ambiguous series matches using each program evidence with one raw search', async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ results: [
+      { id: 1981, name: 'Charmed', first_air_date: '1998-10-07' },
+      { id: 79611, name: 'Charmed', first_air_date: '2018-10-14' },
+    ] }) }))
+    const client = new WaipuTmdbSearchClient({ token: 'test', fetchImpl, maxRequests: 1 })
+    const decisions = new WaipuMatchDecisionStore()
+    const series = {
+      type: 'series', title: 'Charmed', originalTitle: 'Charmed', productionYear: 1998,
+      productionCountries: [], seriesId: 'charmed', seasonNumber: 2, episodeNumber: 5,
+    }
+    const options = { decisions, searchTmdb: (value) => client.search(value) }
+    expect(await matchWaipuProgram(series, options)).toMatchObject({ status: 'unmatched', reason: 'ambiguous_margin' })
+    expect(await matchWaipuProgram(series, options)).toMatchObject({ status: 'unmatched', reason: 'ambiguous_margin' })
+    expect(await matchWaipuProgram({ ...series, seasonNumber: 1 }, options))
+      .toMatchObject({ status: 'matched', match: { tmdbId: 1981 } })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
 })
 

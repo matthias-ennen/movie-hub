@@ -208,8 +208,14 @@ Detailcache den täglichen Lauf im Normalfall auf das neue äußere Tagesfenster
 kontrollierte Nahbereichsvalidierungen und neue Programmdetails. Der Grid-Sync
 bleibt bei einer aktiven Anfrage mit 400 ms Mindestabstand plus bis zu 75 ms
 Jitter. Das nachgelagerte Laden einzelner Programmdetails nutzt dieselbe
-Taktung; TMDB bleibt seriell bei 250 ms und höchstens 4.000 Suchrequests im
-Bootstrap.
+Taktung; TMDB bleibt seriell bei 250 ms und höchstens 6.000 Suchrequests
+einschließlich Retries je Lauf. Identische Suchanfragen (Medientyp, Titel,
+Sprache und tatsächlich gesendeter Jahresfilter) teilen sich innerhalb eines
+Laufs eine Antwort, auch bei leeren oder mehrdeutigen Ergebnissen. Die
+Zuordnung prüft weiterhin für jedes Programm dessen eigene Evidenz; eine
+mehrdeutige Antwort wird nicht zu einem bestätigten Treffer. Fehlerantworten
+werden nicht zwischengespeichert, und jeder neue Lauf sucht wieder frisch.
+`runtime.tmdbSearchCacheHits` im Waipu-Index zählt wiederverwendete Suchantworten.
 
 Die anschließende TMDB-Detailanreicherung arbeitet wie der vorhandene
 Suchdetailaufbau mit höchstens drei parallelen Abrufen, einem eigenen Budget
