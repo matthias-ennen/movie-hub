@@ -89,6 +89,7 @@ export async function syncJoynEpg({
         items = await requestWindow(Math.floor(from / 1000), Math.ceil(to / 1000))
         break
       } catch (error) {
+        if (error.code?.startsWith('JOYN_SOURCE_')) throw error
         if (attempt === 3 || !(error.status === 429 || error.status >= 500)) throw error
         metrics.retries += 1
         await sleepImpl(error.retryAfter > 0 ? error.retryAfter * 1000 : 500 * (2 ** attempt))
@@ -133,7 +134,7 @@ export async function syncJoynEpg({
     const converted = joynV2Streams(streams, allItems.filter((item) => stationIds.has(item.livestream.id)
       && item.start * 1000 < end && item.end * 1000 > start))
     const coverage = converted.map((stream) => ({
-      id: stream.id, programs: stream.epgEvents.length,
+      id: stream.id, title: stream.title || stream.id, programs: stream.epgEvents.length,
       days: [...new Set(stream.epgEvents.filter((event) => event.startDate * 1000 >= start)
         .map((event) => new Date(event.startDate * 1000).toISOString().slice(0, 10)))].sort(),
     }))

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { JOYN_MATCHER_VERSION } from './joyn-tmdb-matcher.mjs'
 import { canonicalForIdentity } from './execute-title-priority-queue.mjs'
 import { writeJoynJson } from './joyn-epg-sync.mjs'
+import { joynTechnicalFailure } from './joyn-source-guard.mjs'
 
 function key(candidate) {
   return createHash('sha256').update(JSON.stringify({
@@ -34,6 +35,7 @@ export class JoynMatchCache {
     const days = entry?.diagnostic?.decision?.status === 'matched' ? 30 : 7
     const age = this.now - Date.parse(entry?.checkedAt)
     if (!entry || !Number.isFinite(age) || age < 0 || age >= days * 86400000) return null
+    if (joynTechnicalFailure(entry.diagnostic?.joynClassification)) return null
     if (entry.diagnostic?.decision?.status !== 'matched' && localCandidates !== null) {
       if ((entry.localCandidatesContext || candidateContext(entry.diagnostic.localCandidates)) !== candidateContext(localCandidates)) return null
     }
@@ -42,6 +44,7 @@ export class JoynMatchCache {
   }
   set(candidate, diagnostic, localCandidates = diagnostic.localCandidates || []) {
     if (diagnostic?.decision?.reason?.includes('ambiguous') || diagnostic?.decision?.status === 'ambiguous' || diagnostic?.decision?.reason?.includes('budget')
+        || joynTechnicalFailure(diagnostic.joynClassification)
         || JSON.stringify(diagnostic.joynClassification || {}).match(/budget_exhausted|_error|"error"/)) return
     this.values[key(candidate)] = { checkedAt: new Date(this.now).toISOString(), diagnostic, localCandidatesContext: candidateContext(localCandidates) }
   }
@@ -68,11 +71,11 @@ export class JoynLookupCache {
   get(namespace, query) {
     const entry = this.entries[this.cacheKey(namespace, query)]
     const age = this.now - Date.parse(entry?.checkedAt)
-    if (entry && age >= 0 && age < 7 * 86400000) { this.hits += 1; return entry.value }
+    if (entry && age >= 0 && age < 7 * 86400000 && !joynTechnicalFailure(entry.value)) { this.hits += 1; return entry.value }
     return null
   }
   set(namespace, query, value) {
-    if (value && !JSON.stringify(value).match(/budget_exhausted|_error|"error"/)) {
+    if (value && !joynTechnicalFailure(value) && !JSON.stringify(value).match(/budget_exhausted|_error|"error"/)) {
       this.entries[this.cacheKey(namespace, query)] = { checkedAt: new Date(this.now).toISOString(), value }
     }
   }

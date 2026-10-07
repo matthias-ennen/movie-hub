@@ -34,6 +34,20 @@ describe('persistent Joyn matching evidence', () => {
       const cache = new JoynMatchCache({}, now); cache.set(candidate, value); expect(cache.get(candidate)).toBeNull()
     }
   })
+  it('invalidates legacy cached HTTP failures and never caches new ones', () => {
+    const lookup = new JoynLookupCache({}, now)
+    const cacheKey = lookup.cacheKey('algolia', 'Titel')
+    lookup.entries[cacheKey] = { checkedAt: new Date(now).toISOString(), value: { status: 'http_503', hits: [] } }
+    expect(lookup.get('algolia', 'Titel')).toBeNull()
+    for (const status of ['http_429', 'http_500', 'graphql_error']) {
+      lookup.set('algolia', status, { status, hits: [] })
+      expect(lookup.get('algolia', status)).toBeNull()
+      const matches = new JoynMatchCache({}, now)
+      matches.set(candidate, { decision: { status: 'unmatched', reason: 'no_candidate' }, joynClassification: { algolia: { reason: 'algolia_' + status } } })
+      expect(matches.get(candidate)).toBeNull()
+    }
+  })
+
   it('caches raw lookup responses and expires them after seven days', async () => {
     const cache = new JoynLookupCache({}, now)
     const load = vi.fn(async () => ({ status: 'ready', hits: [1] }))

@@ -498,6 +498,7 @@ jobs:
             artifacts/joyn-pilot/*.json
             artifacts/joyn-adapter/*.json
             artifacts/joyn-sync/status.json
+            artifacts/joyn-sync/source-health.json
             artifacts/joyn-live/matching-progress.json
             artifacts/waipu-live/unresolved.json
             artifacts/waipu-live/detail-status.json

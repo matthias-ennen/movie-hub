@@ -24,6 +24,35 @@ describe('kompakter Workflow-Datenbericht', () => {
     expect(matching.open).not.toContain('187 Detailabrufe')
   })
 
+  it('reports successful budgets, technical errors and actual short source coverage separately', () => {
+    const summary = buildWorkflowSummary({
+      steps: { joynCatalog: 'success' },
+      joynIndex: { runtime: { tmdbMetadataRequests: 4, tmdbMetadataBudget: 4000, tmdbDetailRequests: 7, tmdbDetailBudget: 300, algoliaRequests: 15,
+        algoliaRequestBudget: 3600, seriesDetailRequests: 2, seriesDetailRequestBudget: 100 } },
+      joynDiagnostic: { matching: { matchedPrograms: 100, rejected: { no_candidate: 20, ambiguous_exact_title: 3, below_threshold: 2 } } },
+      joynHealth: { run: { status: 'complete', retries: 1, errors: { http_503: 1 }, requests: { epg: 2 }, budgets: { epg: 3 } }, circuit: {} },
+      joynSync: { coverage: [{ id: 'short', title: 'Kurzer Sender', days: ['2026-10-07', '2026-10-08'] }] },
+    })
+    const markdown = workflowSummaryMarkdown(summary)
+    expect(markdown).toContain('15/3.600 Algolia · 2/100 Serienseiten')
+    expect(markdown).toContain('7/300 TMDB-Klärungsdetails')
+    expect(markdown).toContain('2/3 tatsächliche EPG-Abrufe')
+    expect(markdown).toContain('20 ohne Kandidat · 3 mehrdeutig · 2 unter Vertrauensschwelle')
+    expect(markdown).toContain('http_503: 1 · 1 Retries')
+    expect(markdown).toContain('Kurzer Sender: 2/14 Tage, zuletzt 2026-10-08')
+    expect(markdown).toContain('nicht automatisch verlorene Filme')
+  })
+  it('reports a failure before matching without presenting the previous sync as current work', () => {
+    const summary = buildWorkflowSummary({ steps: { joynCatalog: 'failure' },
+      joynHealth: { run: { status: 'failed', startedAt: '2026-10-07T10:00:00Z', retries: 0,
+        failure: { code: 'JOYN_SOURCE_FORBIDDEN' }, errors: { http_403: 1 } }, circuit: { automaticRunsDisabled: true } },
+      joynSync: { generatedAt: '2026-10-06T10:00:00Z', metrics: { windowsProcessed: 56 } },
+    })
+    expect(summary.rows.find(row => row.area === 'Joyn EPG').open).toContain('letzter Import')
+    expect(summary.rows.find(row => row.area === 'Joyn-Suchqualität').open).toContain('JOYN_SOURCE_FORBIDDEN')
+    expect(summary.rows.find(row => row.area === 'Joyn-Suchqualität').open).toContain('manuelle Prüfung erforderlich')
+  })
+
   it('fasst die vollständige Datenpipeline in einer Tabelle zusammen', () => {
     const summary = buildWorkflowSummary({
       dataStatus: {
@@ -188,7 +217,7 @@ describe('kompakter Workflow-Datenbericht', () => {
     })
 
     const markdown = workflowSummaryMarkdown(summary)
-    expect(summary.rows).toHaveLength(21)
+    expect(summary.rows).toHaveLength(22)
     expect(markdown).toContain('Lauf #321')
     expect(markdown).toContain('| Waipu EPG | ✅ erfolgreich | 50 Sender')
     expect(markdown).toContain('3.600 zugeordnet · 4/4 Metadaten vollständig')
@@ -208,7 +237,7 @@ describe('kompakter Workflow-Datenbericht', () => {
     expect(markdown).toContain('| Kanonische Titelkandidaten | ✅ erfolgreich | 1.500 Titel aus 1.900 Referenzen | 400 Dubletten entfernt · 300 Mehrfachzuordnungen | 16.308 nur Suche · 17 Waipu ungeklärt |')
     expect(markdown).toContain('| Prioritätsvorschau | ✅ erfolgreich | 900/1.500 eingeplant · 800 in Tageskapazität | 700 TMDB-Abrufe · 200 Wiederverwendungen | 100 Rückstand · 0 Queue-Dubletten |')
     expect(markdown).toContain('| Laufüberwachung | ✅ pünktlich gestartet | geplant 19.9.2026, 03:17:00 | tatsächlich 19.9.2026, 03:22:00 · 5 Minuten Verzögerung | vorheriger Datenstand beim Start 4 Tage 17 Stunden alt |')
-    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(23)
+    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(24)
   })
 
   it('bleibt bei fehlenden optionalen Artefakten lesbar', () => {

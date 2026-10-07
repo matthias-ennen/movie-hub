@@ -104,6 +104,49 @@ TMDB-Veröffentlichungsverbraucher bestätigen. Code-Deploys dürfen den vorheri
 vollständigen Quellenstand behalten; Datenläufe müssen den geprüften
 14-Tage-Horizont nachweisen. Rollierende Bestandsrückgänge sind allein kein Alarm.
 
+## Joyn-Veröffentlichung und Fehlerschutz (07.10.2026)
+
+Der [abgeschlossene Aufbau](https://github.com/matthias-ennen/movie-hub/actions/runs/37593055944)
+hat um 11:13 Uhr Europe/Berlin 127 Joyn-Sender, 2.308 Titel und 28.419
+Ausstrahlungen veröffentlicht. Alle 2.308 Titel hatten vollständige
+TMDB-Metadaten. Beide Quellen und die gemeinsamen App-Indizes wurden vor
+und nach dem Hosting-Deploy geprüft. Der gemeinsame aktive Bestand betrug
+4.365 Titel, davon 1.369 mit Waipu und Joyn. Sieben Sender hatten im
+verwendeten Quellenstand weniger als 14 angefragte Kalendertage.
+
+Der letzte Aufbau benötigte 2.982 Algolia-Abrufe und zwölf Seriendetailabrufe;
+damit lag er bereits unter den normalen Reserven von 3.600/100. Die normale
+nächtliche Aktualisierung bleibt begrenzt und muss mit dem jetzt gefüllten
+Cache unter realer Last bestätigt werden. Die einmalige größere Reserve
+wird nicht zum täglichen Standard.
+
+Der produktive Joyn-Adapter schützt jetzt Authentifizierung, GraphQL-EPG,
+Titel- und Episodensuche sowie Seriendetails gemeinsam. HTTP 403 sperrt
+weitere automatische Abrufe bis zur manuellen Ursachenprüfung und einem
+bewussten `npm run joyn:catalog -- --reset-circuit`. HTTP 429 speichert
+`Retry-After` (Sekunden oder HTTP-Datum) als Pause; 401 und Schemafehler
+pausieren mindestens 15 Minuten. Netzwerkfehler und HTTP 5xx werden maximal
+dreimal versucht; danach wird ebenfalls eine Pause gespeichert. Jeder
+Versuch zählt gegen das jeweilige HTTP-Budget. Quellenanfragen haben einen
+30-Sekunden-Timeout. Eine Pause wird beim nächsten Lauf vor dem ersten
+Quellenabruf geprüft und nach Ablauf automatisch aufgehoben.
+
+`artifacts/joyn-sync/source-health.json` enthält ausschließlich Zähler,
+Fehlercodes und Schutzstatus, keine Tokens, Schlüssel, Suchtexte oder
+Antwortinhalte. Es wird mit dem bestehenden privaten Joyn-Checkpoint
+gesichert; auch ein Fehler vor dem ersten EPG-Fenster hat dafür einen
+leeren, gültigen Fenster-Checkpoint. Alte und neue HTTP-/GraphQL-Fehler
+werden weder als Suchantwort noch als negative Zuordnung wiederverwendet.
+Gültige leere Suchergebnisse bleiben von technischen Fehlern getrennt.
+
+Der Bericht nennt erfolgreiche wie fehlgeschlagene Budgets, technische
+Fehler und Wiederholungen sowie Kandidatenmangel, Mehrdeutigkeit und
+Vertrauensschwelle getrennt. Kürzere Vorschauen werden je Sender mit
+Anzahl und letztem angefragtem UTC-Kalendertag aufgelistet. Alte Importwerte
+bei einem Fehler vor dem neuen EPG-Abruf sind als letzter Import gekennzeichnet.
+Ein verworfenes Programm wird weiterhin nicht pauschal als verlorener Film
+oder verlorene Serie bezeichnet. Die Matching-Schwellen bleiben unverändert.
+
 ## Aktueller Betrieb
 
 Der geplante `Deploy Firebase`-Datenlauf beginnt nominal um 00:17 Uhr

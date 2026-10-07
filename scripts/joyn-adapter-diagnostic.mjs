@@ -13,6 +13,7 @@ import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
 import { syncJoynEpg, joynImportHorizon, writeJoynJson } from './joyn-epg-sync.mjs'
 import { JoynMatchCache, JoynLookupCache, sharedJoynTmdbMetadata } from './joyn-match-cache.mjs'
 import { readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
+import { joynTechnicalFailure } from './joyn-source-guard.mjs'
 import { JOYN_EPG_UPSTREAM_FIELD_POLICY } from '../src/sources/policies/joynUpstreamFieldPolicy.js'
 import { writeFieldDiscoveryReport } from '../src/sources/fieldDiscoveryReport.js'
 import {
@@ -236,6 +237,7 @@ export async function loadJoynEpg(fetchImpl = fetch, {
             : 'observed-fallback',
       }
     } catch (error) {
+      if (error.code?.startsWith('JOYN_SOURCE_')) throw error
       lastError = error
       if (attempt < maxAttempts) await sleep(500 * (2 ** (attempt - 1)))
     }
@@ -316,7 +318,7 @@ export async function requestJoynEpgWindow({ fetchImpl = fetch, token, apiKey, f
   return body.data.epgEventsV2.items
 }
 
-async function loadJoynAlgoliaSearchKey({
+export async function loadJoynAlgoliaSearchKey({
   fetchImpl = fetch,
   token,
   apiKey,
@@ -347,7 +349,7 @@ async function loadJoynAlgoliaSearchKey({
   return { key: String(body.data.searchApiKey).trim(), status: 'ready' }
 }
 
-async function searchJoynAlgoliaTitle(title, {
+export async function searchJoynAlgoliaTitle(title, {
   fetchImpl = fetch,
   searchApiKey,
 } = {}) {
@@ -372,7 +374,7 @@ async function searchJoynAlgoliaTitle(title, {
   return { hits, status: 'ready' }
 }
 
-async function searchJoynTitle(title, {
+export async function searchJoynTitle(title, {
   fetchImpl = fetch,
   token,
   apiKey,
@@ -464,7 +466,7 @@ function collectJoynDetailAliases(data, primaryTitle) {
     .slice(0, 3)
 }
 
-async function loadJoynSeriesDetail(path, {
+export async function loadJoynSeriesDetail(path, {
   fetchImpl = fetch,
   token,
   apiKey,
@@ -492,7 +494,7 @@ async function loadJoynSeriesDetail(path, {
       'joyn-client-version': '5.1370.0',
     },
   })
-  if (!response.ok) return { status: 'http_' + response.status, path: normalizedPath, aliases: [] }
+  if (!response.ok) return { status: [404, 410].includes(response.status) ? 'unavailable' : 'http_' + response.status, path: normalizedPath, aliases: [] }
   const body = await response.json().catch(() => null)
   if (!body?.data || body?.errors?.length) {
     return { status: 'graphql_error', path: normalizedPath, aliases: [] }
@@ -592,6 +594,7 @@ export async function runJoynAdapterDiagnostic({
   publicationOutput = resolve(root, 'artifacts/joyn-live'),
   sourceGenerationPrefix = 'joyn-diagnostic',
   fullHorizon = sourceGenerationPrefix === 'joyn-catalog',
+  sourceHealth = () => null,
 } = {}) {
   const generatedAt = new Date(now).toISOString()
   const loaded = await loadJoynEpg(fetchImpl)
@@ -616,7 +619,7 @@ export async function runJoynAdapterDiagnostic({
     fetchImpl,
     token: loaded.token,
     apiKey: loaded.apiKey,
-  }).catch(() => ({ key: null, status: 'error' }))
+  }).catch(error => { if (fullHorizon) throw error; return { key: null, status: 'error' } })
 
   const observer = new SourceSchemaObserver({
     sourceId: 'joyn-epg-upstream',
@@ -706,8 +709,11 @@ export async function runJoynAdapterDiagnostic({
       matchCacheHits: matchCache.hits, lookupCacheHits: lookupCache.hits,
       tmdbRequests: tmdbSearch?.requestsStarted || 0,
       tmdbRequestBudget: Number(process.env.JOYN_TMDB_REQUEST_BUDGET || 6000),
-      joynSearchRequests, algoliaRequests, algoliaRequestBudget,
-      seriesDetailRequests, seriesDetailRequestBudget,
+      tmdbDetailRequests: tmdbSearch?.detailRequestsStarted || 0,
+      tmdbDetailBudget: Number(process.env.JOYN_TMDB_DETAIL_REQUEST_BUDGET || 300),
+      joynSearchRequests: sourceHealth()?.run?.requests?.titleSearch ?? joynSearchRequests,
+      algoliaRequests: sourceHealth()?.run?.requests?.algolia ?? algoliaRequests, algoliaRequestBudget,
+      seriesDetailRequests: sourceHealth()?.run?.requests?.seriesDetail ?? seriesDetailRequests, seriesDetailRequestBudget,
     }
   }
   async function matchingProgress() {
@@ -777,7 +783,7 @@ export async function runJoynAdapterDiagnostic({
               algoliaRequests += 1
               await new Promise(done => setTimeout(done, 100))
               return searchJoynAlgoliaTitle(entry.candidate.title, { fetchImpl, searchApiKey: algoliaKey.key })
-                .catch(() => ({ hits: [], status: 'error' }))
+                .catch(error => { if (fullHorizon) throw error; return { hits: [], status: 'error' } })
             })
             algoliaResult = searched.status === 'ready'
               ? classifyJoynAlgoliaHits({
@@ -814,7 +820,7 @@ export async function runJoynAdapterDiagnostic({
               algoliaRequests += 1
               await new Promise(done => setTimeout(done, 100))
               return searchJoynAlgoliaTitle(compoundQuery, { fetchImpl, searchApiKey: algoliaKey.key })
-                .catch(() => ({ hits: [], status: 'error' }))
+                .catch(error => { if (fullHorizon) throw error; return { hits: [], status: 'error' } })
             })
             algoliaEpisodeResult = searched.status === 'ready'
               ? classifyJoynAlgoliaHits({
@@ -943,7 +949,7 @@ export async function runJoynAdapterDiagnostic({
                 seriesDetailRequests += 1
                 await new Promise(done => setTimeout(done, 100))
                 return loadJoynSeriesDetail(detailPath, { fetchImpl, token: loaded.token, apiKey: loaded.apiKey })
-                  .catch(() => ({ status: 'error', path: detailPath, aliases: [] }))
+                  .catch(error => { if (fullHorizon) throw error; return { status: 'error', path: detailPath, aliases: [] } })
               })
               seriesDetailCache.set(detailPath, seriesDetail)
             }
@@ -1035,6 +1041,11 @@ export async function runJoynAdapterDiagnostic({
           && JSON.stringify(joynClassificationResult).includes('budget_exhausted')))) {
         const error = new Error(`Joyn matching budget reached (TMDB ${tmdbSearch?.requestsStarted || 0}/${Number(process.env.JOYN_TMDB_REQUEST_BUDGET || 6000)}, Algolia ${algoliaRequests}/${algoliaRequestBudget}, series details ${seriesDetailRequests}/${seriesDetailRequestBudget}); progress saved, retaining the last complete publication.`)
         error.code = tmdbBudgetExhausted ? 'JOYN_TMDB_REQUEST_BUDGET' : 'JOYN_CLASSIFICATION_BUDGET'
+        throw error
+      }
+      if (fullHorizon && decision.status !== 'matched' && joynTechnicalFailure(joynClassificationResult)) {
+        const error = new Error('Joyn classification failed technically; retaining the last complete publication.')
+        error.code = 'JOYN_CLASSIFICATION_UNAVAILABLE'
         throw error
       }
       if (decisions.size % 100 === 0) {
@@ -1166,6 +1177,10 @@ export async function runJoynAdapterDiagnostic({
     matchCacheHits: matchCache.hits,
     lookupCacheHits: lookupCache.hits,
     tmdbMetadataRequests: tmdbMetadataClient?.requestsStarted || 0,
+    tmdbMetadataBudget: Number(process.env.JOYN_TMDB_METADATA_REQUEST_BUDGET || 4000),
+    tmdbDetailRequests: tmdbSearch?.detailRequestsStarted || 0,
+    tmdbDetailBudget: Number(process.env.JOYN_TMDB_DETAIL_REQUEST_BUDGET || 300),
+    ...matchingCounters(),
   }
   requireCompleteLiveTitleMetadata(publication.titles.entries)
 
@@ -1230,6 +1245,7 @@ export async function runJoynAdapterDiagnostic({
 
   const summary = {
     schemaVersion: 1,
+    sourceHealth: sourceHealth(),
     kind: 'joyn-adapter-diagnostic',
     generatedAt,
     upstream: {
@@ -1271,19 +1287,19 @@ export async function runJoynAdapterDiagnostic({
       tmdbDetailRequests: tmdbSearch?.detailRequestsStarted || 0,
       tmdbMetadataRequests: tmdbMetadataClient?.requestsStarted || 0,
       metadataComplete: metadata.metrics.complete,
-      joynSearchRequests,
+      joynSearchRequests: sourceHealth()?.run?.requests?.titleSearch ?? joynSearchRequests,
       joynClassification,
       algolia: {
         keyStatus: algoliaKey.status,
         requestBudget: algoliaRequestBudget,
-        requests: algoliaRequests,
+        requests: sourceHealth()?.run?.requests?.algolia ?? algoliaRequests,
         cachedTitles: algoliaCache.size,
         cachedEpisodeQueries: algoliaEpisodeCache.size,
         classification: algoliaClassification,
       },
       seriesDetail: {
         requestBudget: seriesDetailRequestBudget,
-        requests: seriesDetailRequests,
+        requests: sourceHealth()?.run?.requests?.seriesDetail ?? seriesDetailRequests,
         cachedPaths: seriesDetailCache.size,
         aliasRetries: seriesDetailAliasRetries,
         matches: seriesDetailMatches,
