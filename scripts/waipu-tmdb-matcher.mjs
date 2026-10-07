@@ -283,6 +283,7 @@ export class WaipuTmdbSearchClient {
     maxRetries = 3,
     now = Date.now,
     sleep = delay,
+    responseCache = null,
   } = {}) {
     if (!String(token || '').trim()) throw new TypeError('TMDB token is required.')
     if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function.')
@@ -296,6 +297,7 @@ export class WaipuTmdbSearchClient {
     this.sleep = sleep
     this.lastStartedAt = null
     this.requestsStarted = 0
+    this.responseCache = responseCache
     this.searchResponses = new Map()
     this.searchCacheHits = 0
   }
@@ -339,7 +341,7 @@ export class WaipuTmdbSearchClient {
     const tmdbId = finiteNumber(input?.tmdbId ?? input?.id)
     if (!type || !Number.isInteger(tmdbId) || tmdbId <= 0) return null
     const endpoint = type === 'movie' ? `/movie/${tmdbId}` : `/tv/${tmdbId}`
-    const payload = await this.#request(endpoint, { language: this.language })
+    const payload = await this.#searchRequest(endpoint, { language: this.language })
     const runtimeMinutes = type === 'movie'
       ? finiteNumber(payload?.runtime)
       : finiteNumber(Array.isArray(payload?.episode_run_time) ? payload.episode_run_time[0] : null)
@@ -352,17 +354,26 @@ export class WaipuTmdbSearchClient {
   }
 
   async #searchRequest(path, params) {
-    // Cache raw responses only for this run. Matching still evaluates each
+    // Cache raw responses in this run and, when supplied, a bounded durable cache.
+    // Matching still evaluates each
     // program's year/country/episode evidence independently, including ties.
     const key = JSON.stringify([path, params])
     if (this.searchResponses.has(key)) {
       this.searchCacheHits += 1
       return this.searchResponses.get(key)
     }
+    const persisted = this.responseCache?.get(key)
+    if (persisted != null) {
+      this.searchCacheHits += 1
+      this.searchResponses.set(key, Promise.resolve(persisted))
+      return persisted
+    }
     const pending = this.#request(path, params)
     this.searchResponses.set(key, pending)
     try {
-      return await pending
+      const payload = await pending
+      this.responseCache?.set(key, payload)
+      return payload
     } catch (error) {
       // A failed request is not an empty search result and must remain retryable.
       this.searchResponses.delete(key)

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { titleNeedsMetadataEnrichment } from '../src/catalog/titleMetadata.js'
 
 export const TITLE_CANDIDATE_INVENTORY_VERSION = 2
-export const CANDIDATE_SOURCES = Object.freeze(['browse', 'personal-tmdb', 'profile-state', 'movie-hub', 'waipu'])
+export const CANDIDATE_SOURCES = Object.freeze(['browse', 'personal-tmdb', 'profile-state', 'movie-hub', 'waipu', 'joyn'])
 
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || 'movie-hub-62459'
 const inventoryPath = resolve(process.env.TITLE_CANDIDATE_INVENTORY || 'artifacts/title-candidate-inventory.json')
@@ -53,7 +53,7 @@ function hasCatalogRelevantProfileState(value) {
     || (Number.isInteger(value?.rating) && value.rating >= 1 && value.rating <= 10)
 }
 
-function sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles }) {
+function sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles, joynTitles }) {
   return {
     browse: (Array.isArray(catalog?.titles) ? catalog.titles : []).map((value) => ({ value, eligible: true })),
     'personal-tmdb': (Array.isArray(personalDocuments) ? personalDocuments : []).map((document) => {
@@ -81,6 +81,7 @@ function sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDo
       }
     }),
     waipu: (Array.isArray(waipuTitles?.entries) ? waipuTitles.entries : []).map((value) => ({ value, eligible: true })),
+    joyn: (Array.isArray(joynTitles?.entries) ? joynTitles.entries : []).map((value) => ({ value, eligible: true })),
   }
 }
 
@@ -241,6 +242,7 @@ export function buildTitleCandidateInventory({
   catalog = {},
   searchIndex = {},
   waipuTitles = {},
+  joynTitles = {},
   waipuIndex = {},
   waipuUnresolved = {},
   personalDocuments = [],
@@ -255,7 +257,7 @@ export function buildTitleCandidateInventory({
     maxAgeDays: Math.max(1, Number(maxAgeDays) || 30),
   }
   const candidates = new Map()
-  const sources = sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles })
+  const sources = sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles, joynTitles })
   const sourceStats = Object.fromEntries(CANDIDATE_SOURCES.map((source) => [
     source,
     collectSource(source, sources[source], candidates, metadataOptions),
@@ -358,10 +360,11 @@ async function main() {
   ])
   const app = initializeApp({ credential: applicationDefault(), projectId }, 'title-candidate-inventory')
   const db = getFirestore(app)
-  const [catalog, searchIndex, waipuTitles, waipuIndex, waipuUnresolved, personalSnapshot, profileSnapshot, movieHubSnapshot] = await Promise.all([
+  const [catalog, searchIndex, waipuTitles, joynTitles, waipuIndex, waipuUnresolved, personalSnapshot, profileSnapshot, movieHubSnapshot] = await Promise.all([
     readJson('public/catalog.json', { titles: [] }),
     readJson('public/search-index.json', { entries: [] }),
     readJson('public/waipu-live/titles.json', { entries: [] }),
+    readJson('public/joyn-live/titles.json', { entries: [] }),
     readJson('public/waipu-live/index.json'),
     readJson('artifacts/waipu-live/unresolved.json'),
     db.collectionGroup('tmdbCatalog').get(),
@@ -372,6 +375,7 @@ async function main() {
     catalog,
     searchIndex,
     waipuTitles,
+    joynTitles,
     waipuIndex,
     waipuUnresolved,
     personalDocuments: personalSnapshot.docs,

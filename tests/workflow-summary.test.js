@@ -5,6 +5,16 @@ import {
 } from '../scripts/report-workflow-summary.mjs'
 
 describe('kompakter Workflow-Datenbericht', () => {
+  it('reports saved matching progress and a retained publication independently', () => {
+    const summary = buildWorkflowSummary({
+      steps: { joynCatalog: 'failure' }, joynTitles: { entries: [{ type: 'movie' }] },
+      joynProgress: { status: 'failed', processed: 800, total: 5000, failure: { code: 'JOYN_CLASSIFICATION_BUDGET' } },
+      joynSync: { coverage: [{ id: 'long', days: Array(14).fill('day') }, { id: 'short', days: ['day'] }] },
+    })
+    expect(summary.rows.find(row => row.area === 'Joyn → TMDB')).toMatchObject({ stock: 'letzter gültiger Stand · 1 Titel · 0 Ausstrahlungen', activity: '800/5.000 Programme geprüft · JOYN_CLASSIFICATION_BUDGET · Fortschritt gesichert' })
+    expect(summary.rows.find(row => row.area === 'Joyn EPG').open).toContain('1 Sender mit kürzerem Quellenhorizont')
+  })
+
   it('fasst die vollständige Datenpipeline in einer Tabelle zusammen', () => {
     const summary = buildWorkflowSummary({
       dataStatus: {
@@ -169,23 +179,27 @@ describe('kompakter Workflow-Datenbericht', () => {
     })
 
     const markdown = workflowSummaryMarkdown(summary)
-    expect(summary.rows).toHaveLength(18)
+    expect(summary.rows).toHaveLength(21)
     expect(markdown).toContain('Lauf #321')
     expect(markdown).toContain('| Waipu EPG | ✅ erfolgreich | 50 Sender')
     expect(markdown).toContain('3.600 zugeordnet · 4/4 Metadaten vollständig')
     expect(markdown).toContain('603 verworfen · 740 Suchen · 640 Detailabrufe · 1.200 Waipu-Cache')
     expect(markdown).toContain('| Waipu-Quelldaten | ✅ erfolgreich | 4 Titel · 2 Filme · 2 Serien | 5/5 Ausstrahlungen vollständig · Vertrag v1 | 2/3 Serienausstrahlungen mit Episodenangabe |')
-    expect(markdown).toContain('| Joyn EPG | ✅ erfolgreich | 127 Sender · 2 Titel · 3 Ausstrahlungen | 1 Filme · 1 Serien · 91 Programme TMDB-zugeordnet | 3 mit Ziel · 1 Sender-Slug · 2 channel_id-Fallback · 0 ohne Ziel |')
+    expect(markdown).toContain('| Joyn EPG | ✅ erfolgreich | 127 Sender · 2 Titel · 3 Ausstrahlungen |')
+    expect(markdown).toContain('| Joyn → TMDB | ✅ erfolgreich | 2 Titel · 3 Ausstrahlungen | 91 zugeordnet')
+    expect(markdown).toContain('| Joyn-Quelldaten | ✅ erfolgreich | 1 Filme · 1 Serien | 3 mit Ziel · 0 ohne Ziel |')
+    expect(markdown).toContain('| Gemeinsame App-Daten |')
+    expect(markdown).toContain('nicht verfügbar/56 Fenster')
     expect(markdown).toContain('| Quellen-Schema | 🔴 BREAKING erkannt | 2 Berichte · 23 bekannte/Info-Felder | 2 Review · 1 Breaking |')
-    expect(markdown).toContain('| Quellen-Merge | ✅ Merge + Fehlerisolation | 2 Quellen · 15.001 neutrale Events | gemeinsame Routen: fixture-provider + waipu | Fallback: failed · 1 aktiv · 1 abgelaufen entfernt |')
+    expect(markdown).toContain('| Quellen-Merge-Test | ✅ Merge + Fehlerisolation | 2 Quellen · 15.001 neutrale Events | gemeinsame Routen: fixture-provider + waipu | Fallback: failed · 1 aktiv · 1 abgelaufen entfernt |')
     expect(markdown).toContain('Waipu-Titelbestand: **+1 zum Live-Stand**')
     expect(markdown).toContain('| TMDB-Änderungen | ✅ erfolgreich | 27 Filme · 13 Serien neu gemeldet')
     expect(markdown).toContain('| Suchindex | ✅ erfolgreich | 20.000 · 12.000 Filme · 8.000 Serien | +240 hinzu · -1.167 entfallen · 83 Angebote geändert | 155/155 Scans · 61 begrenzt · 256 Shards |')
-    expect(markdown).toContain('| Kanonischer Executor | ✅ erfolgreich | 800/800 kanonisch verarbeitet | 700 TMDB geladen · 100 wiederverwendet · 720 Requests | 450 Browse · 620 Suche · 210 Waipu · 32 persönlich verteilt |')
+    expect(markdown).toContain('| Kanonischer Executor | ✅ erfolgreich | 800/800 kanonisch verarbeitet | 700 TMDB geladen · 100 wiederverwendet · 720 Requests | 450 Browse · 620 Suche · 210 Waipu · nicht verfügbar Joyn · 32 persönlich verteilt |')
     expect(markdown).toContain('| Kanonische Titelkandidaten | ✅ erfolgreich | 1.500 Titel aus 1.900 Referenzen | 400 Dubletten entfernt · 300 Mehrfachzuordnungen | 16.308 nur Suche · 17 Waipu ungeklärt |')
     expect(markdown).toContain('| Prioritätsvorschau | ✅ erfolgreich | 900/1.500 eingeplant · 800 in Tageskapazität | 700 TMDB-Abrufe · 200 Wiederverwendungen | 100 Rückstand · 0 Queue-Dubletten |')
     expect(markdown).toContain('| Laufüberwachung | ✅ pünktlich gestartet | geplant 19.9.2026, 03:17:00 | tatsächlich 19.9.2026, 03:22:00 · 5 Minuten Verzögerung | vorheriger Datenstand beim Start 4 Tage 17 Stunden alt |')
-    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(20)
+    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(23)
   })
 
   it('bleibt bei fehlenden optionalen Artefakten lesbar', () => {

@@ -7,6 +7,7 @@ export const TMDB_CHANGE_RETENTION_DAYS = 30
 export const TMDB_CHANGE_REQUIRED_CONSUMERS = Object.freeze([
   'tmdb-catalog',
   'waipu-catalog',
+  'joyn-catalog',
   'moviehub-metadata',
   'personal-tmdb-metadata',
   'firebase-publication',

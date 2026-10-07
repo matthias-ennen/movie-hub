@@ -55,6 +55,10 @@ function number(value) {
   return integer(value).toLocaleString('de-DE')
 }
 
+function measured(value) {
+  return value === undefined || value === null ? 'nicht verfügbar' : number(value)
+}
+
 function difference(current, previous) {
   if (previous === null || previous === undefined) return 'kein Vergleich'
   const delta = integer(current) - integer(previous)
@@ -126,6 +130,11 @@ export function buildWorkflowSummary({
   tmdbChangeRun = {},
   baselineData = null,
   baselineWaipu = null,
+  baselineJoyn = null,
+  joynSync = {},
+  joynProgress = {},
+  availabilityIndex = {},
+  tvRuntimeIndex = {},
   workflowTiming = {},
   sourceSchemaReports = [],
   sourceMerge = null,
@@ -252,8 +261,24 @@ export function buildWorkflowSummary({
         area: 'Joyn EPG',
         status: outcome(steps.joynCatalog),
         stock: `${number(joynIndex.stationCount)} Sender · ${number(joynEntries.length)} Titel · ${number(joynBroadcasts)} Ausstrahlungen`,
-        activity: `${number(joynMovies)} Filme · ${number(joynSeries)} Serien · ${number(joynMatching.matchedPrograms)} Programme TMDB-zugeordnet`,
-        open: `${number(joynPlayback.withRoute)} mit Ziel · ${number(joynPlayback.confirmedChannelSlug)} Sender-Slug · ${number(joynPlayback.channelIdFallback)} channel_id-Fallback · ${number(joynPlayback.withoutRoute)} ohne Ziel`,
+        activity: `${timestamp(joynSync.horizon?.start || joynIndex.horizon?.from)} bis ${timestamp(joynSync.horizon?.endExclusive || joynIndex.horizon?.to)}`,
+        open: `${measured(joynSync.metrics?.windowsProcessed)}/56 Fenster · ${measured(joynSync.metrics?.requestsStarted)} Requests · ${measured(joynSync.metrics?.cacheHits)} aus Cache · ${measured(joynSync.metrics?.outsideInventory)} außerhalb linearer Senderliste · ${Array.isArray(joynSync.coverage) ? number(joynSync.coverage.filter((station) => station.days?.length < 14).length) : 'nicht verfügbar'} Sender mit kürzerem Quellenhorizont`,
+      },
+      {
+        area: 'Joyn → TMDB',
+        status: outcome(steps.joynCatalog),
+        stock: `${steps.joynCatalog === 'failure' ? 'letzter gültiger Stand · ' : ''}${number(joynEntries.length)} Titel · ${number(joynBroadcasts)} Ausstrahlungen`,
+        activity: steps.joynCatalog === 'failure' && joynProgress.status === 'failed'
+          ? `${number(joynProgress.processed)}/${number(joynProgress.total)} Programme geprüft · ${joynProgress.failure?.code || 'Fehler'} · Fortschritt gesichert`
+          : `${measured(joynMatching.matchedPrograms)} zugeordnet · ${measured(joynIndex.metadata?.complete)}/${number(joynEntries.length)} Metadaten vollständig · ${difference(joynEntries.length, baselineJoyn?.metadata?.total)}`,
+        open: `${measured(joynIndex.runtime?.tmdbSearchRequests)}/${measured(joynIndex.runtime?.tmdbSearchBudget)} Suchen · ${measured(joynIndex.runtime?.tmdbMetadataRequests)} Detailabrufe · ${measured(joynIndex.runtime?.matchCacheHits)} Zuordnungen aus Cache · ${joynDiagnostic.matching ? number(Object.values(joynMatching.rejected || {}).reduce((sum, count) => sum + integer(count), 0)) : 'nicht verfügbar'} ungeklärt/verworfen`,
+      },
+      {
+        area: 'Joyn-Quelldaten',
+        status: outcome(steps.joynCatalog),
+        stock: `${number(joynMovies)} Filme · ${number(joynSeries)} Serien`,
+        activity: `${measured(joynPlayback.withRoute)} mit Ziel · ${measured(joynPlayback.withoutRoute)} ohne Ziel`,
+        open: `${measured(joynPlayback.confirmedChannelSlug)} Sender-Slug · ${measured(joynPlayback.channelIdFallback)} channel_id-Fallback · Erzeugung ${timestamp(joynIndex.generatedAt)}`,
       },
       {
         area: 'Quellen-Schema',
@@ -273,7 +298,7 @@ export function buildWorkflowSummary({
             : '–',
       },
       {
-        area: 'Quellen-Merge',
+        area: 'Quellen-Merge-Test',
         status: steps.sourceMerge === 'failure'
           ? '❌ fehlgeschlagen'
           : sourceMerge
@@ -290,6 +315,13 @@ export function buildWorkflowSummary({
         open: sourceMerge?.failureFallback
           ? `Fallback: ${sourceMerge.failureFallback.sourceStatus || '–'} · ${number(sourceMerge.failureFallback.activeRecords)} aktiv · ${number(sourceMerge.failureFallback.expiredRecordsDropped)} abgelaufen entfernt`
           : '–',
+      },
+      {
+        area: 'Gemeinsame App-Daten',
+        status: outcome(combinedOutcome(steps.availability, steps.tvRuntime)),
+        stock: `${measured(availabilityIndex.count)} eindeutige aktive Titel · Quellen: ${(availabilityIndex.sources || []).map(({ providerId }) => providerId).join(' + ') || 'nicht verfügbar'}`,
+        activity: `${Array.isArray(availabilityIndex.entries) ? number(availabilityIndex.entries.filter((entry) => entry.providerIds?.includes('joyn') && entry.providerIds?.includes('waipu')).length) : 'nicht verfügbar'} Titel mit Waipu + Joyn · ${measured(tvRuntimeIndex.multiProviderAirings)} gemeinsame Ausstrahlungen`,
+        open: `${measured(tvRuntimeIndex.dayCount)} TV-Tage · ${measured(tvRuntimeIndex.airingCount)} Ausstrahlungen · ${steps.publication === 'success' ? 'öffentlicher Stand zurückgelesen und geprüft' : outcome(steps.publication, 'öffentlicher Stand nicht geprüft')}`,
       },
       {
         area: 'Kanonische Titelkandidaten',
@@ -310,7 +342,7 @@ export function buildWorkflowSummary({
         status: outcome(steps.canonicalExecutor, '⏭️ bei Code-Deploy unverändert'),
         stock: `${number(canonicalExecutor.counts?.canonicalReady)}/${number(canonicalExecutor.counts?.selected)} kanonisch verarbeitet`,
         activity: `${number(canonicalExecutor.counts?.fetched)} TMDB geladen · ${number(canonicalExecutor.counts?.reused)} wiederverwendet · ${number(canonicalExecutor.counts?.tmdbRequests)} Requests`,
-        open: `${number(canonicalExecutor.counts?.catalogUpdated)} Browse · ${number(canonicalExecutor.counts?.searchDetailsUpdated)} Suche · ${number(canonicalExecutor.counts?.waipuUpdated)} Waipu · ${number(canonicalExecutor.counts?.firestoreWrites)} persönlich verteilt`,
+        open: `${number(canonicalExecutor.counts?.catalogUpdated)} Browse · ${number(canonicalExecutor.counts?.searchDetailsUpdated)} Suche · ${number(canonicalExecutor.counts?.waipuUpdated)} Waipu · ${measured(canonicalExecutor.counts?.joynUpdated)} Joyn · ${number(canonicalExecutor.counts?.firestoreWrites)} persönlich verteilt`,
       },
       {
         area: 'Bestandsmigration',
@@ -349,7 +381,7 @@ export function workflowSummaryMarkdown(summary) {
     '| --- | --- | --- | --- | --- |',
     ...summary.rows.map((row) => `| ${row.area} | ${row.status} | ${row.stock} | ${row.activity} | ${row.open} |`),
     '',
-    `Waipu-Titelbestand: **${summary.waipuDelta}**. TMDB bleibt Metadatenquelle; Waipu ergänzt Sender und Ausstrahlungszeiten.`,
+    `Waipu-Titelbestand: **${summary.waipuDelta}**. TMDB bleibt Metadatenquelle; Waipu und Joyn liefern unabhängig Sender, Ausstrahlungen und Wiedergabeziele. Rollierende Rückgänge allein sind kein Datenverlust.`,
     '',
   ].join('\n')
 }
@@ -363,6 +395,13 @@ async function readJson(path, fallback = {}) {
 }
 
 async function main() {
+  const [baselineJoyn, joynSync, joynProgress, availabilityIndex, tvRuntimeIndex] = await Promise.all([
+    readJson('artifacts/workflow-baseline/joyn-index.json', null),
+    readJson('artifacts/joyn-sync/status.json'),
+    readJson('artifacts/joyn-live/matching-progress.json'),
+    readJson('public/live-availability-index.json'),
+    readJson('public/tv-runtime/index.json'),
+  ])
   const [dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, joynIndex, joynTitles, joynDiagnostic, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges, activeTmdbChangeRun, lastTmdbChangeRun, baselineData, baselineWaipu, workflowTiming, schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive, schemaJoynLive, sourceMerge] = await Promise.all([
     readJson('public/data-status.json'),
     readJson('public/catalog.json'),
@@ -396,6 +435,7 @@ async function main() {
     readJson('artifacts/source-merge/summary.json', null),
   ])
   const summary = buildWorkflowSummary({
+    baselineJoyn, joynSync, joynProgress, availabilityIndex, tvRuntimeIndex,
     dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, joynIndex, joynTitles, joynDiagnostic, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges,
     tmdbChangeRun: activeTmdbChangeRun || lastTmdbChangeRun || {}, baselineData, baselineWaipu, workflowTiming,
     sourceSchemaReports: [schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive, schemaJoynLive].filter(Boolean),
@@ -408,6 +448,9 @@ async function main() {
       waipuSync: process.env.SUMMARY_WAIPU_SYNC,
       waipuCatalog: process.env.SUMMARY_WAIPU_CATALOG,
       joynCatalog: process.env.SUMMARY_JOYN_CATALOG,
+      availability: process.env.SUMMARY_AVAILABILITY,
+      tvRuntime: process.env.SUMMARY_TV_RUNTIME,
+      publication: process.env.SUMMARY_PUBLICATION,
       sourceMerge: process.env.SUMMARY_SOURCE_MERGE,
       canonicalExecutor: process.env.SUMMARY_CANONICAL_EXECUTOR,
       candidateInventory: process.env.SUMMARY_CANDIDATE_INVENTORY,

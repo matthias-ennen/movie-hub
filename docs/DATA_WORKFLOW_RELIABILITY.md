@@ -19,11 +19,66 @@ Detailbudget und Veröffentlichungssperren bleiben bestehen. Ein leerer oder
 mehrdeutiger Suchtreffer wird wiederverwendet, ein fehlgeschlagener Abruf nicht.
 Der nächste reguläre Nachtlauf muss die Wirkung unter realer Last bestätigen.
 
+## Joyn auf 14 Tage erweitern (07.10.2026)
+
+Matthias hat den gezielten Ausbau von Joyn auf die Waipu-Betriebsstufe beauftragt.
+Die Quellenprüfung vom 07.10.2026 unterscheidet den realen 14-Tage-Abruf von
+bereits veröffentlichten kanonischen Titeln. Der vorherige produktive Joyn-Stand
+enthält 127 Sender, 399 Titel und 1.265 Ausstrahlungen mit etwa 31 Stunden
+Vorschau. Die Erweiterung gilt erst nach erfolgreicher Datenaufbereitung und
+öffentlichem Rücklesen als produktiv abgenommen.
+
+Der neue Abruf verwendet `epgEventsV2(from, to)` mit Unix-Sekunden sowie
+`start`/`end` und stabilen Programm-IDs. 56 Zeitfenster von je sechs Stunden
+werden bei der beobachteten 1.000-Einträge-Grenze rekursiv geteilt. Ein voller
+Antwortblock wird niemals als vollständig akzeptiert. Doppelte Grenzereignisse
+werden anhand Sender, Programm-ID und Zeit entfernt. Die 127 LINEAR-Sender
+bleiben die maßgebliche Liste; zusätzlich gelieferte Event-/On-Demand-Sender
+werden ausdrücklich ausgeschlossen und gezählt.
+
+Der Quellenbeleg für 07.–20.10.2026: 216 Anfragen, 80 Teilungen, 64.634
+lineare Programme. 121 Sender liefern Daten bis zum letzten Tag. Sechs
+Quellen haben kürzere Vorschauen: `spiegel-tv-action-crime-hd` und
+`spiegel-tv-hd` je neun Tage, `defa-hd` und `himmlisches-kino-hd` je sechs,
+`talk-now-hd` 13 sowie `moviedome-family-hd` neun Tage. Diese Quellenlücken
+werden im Bericht ausgewiesen; sie sind kein Beleg für Verlust durch Movie Hub.
+Die Rohprogramme sind kein Bestand TMDB-zugeordneter Filme/Serien.
+
+Joyn erhält einen separaten privaten Checkpoint mit allen Rohfenstern sowie
+Zuordnungs-, Suchantwort- und Metadaten-Cache. Nahe Fenster werden nach sechs
+Stunden, entfernte nach drei Tagen aktualisiert. Geänderte Senderlisten
+invalidieren die Fenster. Ein beschädigtes Cache-/Checkpoint-Paar wird nicht
+übernommen. Fortschritt wird auch bei ausgeschöpften Budgets gespeichert;
+ein unvollständiger erster Aufbau kann mehrere Läufe brauchen. Er ersetzt
+niemals den letzten vollständigen veröffentlichten Katalog. Matching-Antworten
+werden sieben Tage, bestätigte Zuordnungen maximal 30 Tage wiederverwendet;
+Titel, Untertitel, Beschreibung, Dauer und Matcher-Version bleiben Teil der
+Zuordnungsevidenz. Mehrdeutige Entscheidungen und Fehler werden nicht als
+bestätigte Zuordnung gespeichert.
+
+Die begrenzten Reserven betragen 500 EPG-Anfragen, 6.000 TMDB-Suchanfragen,
+3.600 Algolia-Anfragen, 100 Joyn-Seriendetails und 4.000 TMDB-Metadatenanfragen.
+Das sind lokale Arbeitsgrenzen, keine behaupteten Anbieterquoten. Quellenabruf
+und Suchanfragen bleiben getaktet. Im ersten Vollaufbau zeigt der Bericht
+gegebenenfalls die gespeicherte Zwischenarbeit statt eines vorgetäuschten
+vollständigen Ergebnisses.
+
+Joyn ist nun eigener Verbraucher des zentralen TMDB-Änderungslaufs und Teil
+der deduplizierten kanonischen Titelqueue. Der Fan-out erhält Joyn-Sender,
+Programm-ID, Ausstrahlungen und Wiedergaberouten. Die echten gemeinsamen
+App-Daten zeigen Quellenzeitstempel und Generationen; der Fixture-Merge-Test
+wird separat gekennzeichnet. Vor dem Hosting-Deploy werden beide Quellen und
+App-Indizes geprüft, anschließend wird die tatsächlich veröffentlichte
+Generation aus allen fünf Endpunkten rückgelesen. Erst dann darf der zentrale
+TMDB-Veröffentlichungsverbraucher bestätigen. Code-Deploys dürfen den vorherigen
+vollständigen Quellenstand behalten; Datenläufe müssen den geprüften
+14-Tage-Horizont nachweisen. Rollierende Bestandsrückgänge sind allein kein Alarm.
+
 ## Aktueller Betrieb
 
 Der geplante `Deploy Firebase`-Datenlauf beginnt nominal um 00:17 Uhr
 `Europe/Berlin`. Der GitHub-Watchdog prüft einmal täglich um 05:00 Uhr
-`Europe/Berlin` einen echten Deploy und die beiden veröffentlichten JSON-Endpunkte.
+`Europe/Berlin` einen echten Deploy und fünf veröffentlichte JSON-Endpunkte (Datenstatus, Waipu, Joyn, gemeinsamer Verfügbarkeitsindex und TV-Runtime).
 Der einzelne Zeittrigger berücksichtigt Sommer- und Winterzeit direkt über
 `timezone: Europe/Berlin`. Zusätzliche Prüfungen bei Deploy-Abschluss entfallen;
 der Watchdog kann weiterhin bei Bedarf manuell gestartet werden.

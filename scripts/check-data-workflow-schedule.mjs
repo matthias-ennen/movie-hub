@@ -251,6 +251,8 @@ export function scheduleHealthMarkdown(result, publication = null) {
       `- Öffentlicher Datenstand: **${publication.status}**${publication.reasons?.length ? ` (${publication.reasons.join('; ')})` : ''}`,
       ...(publication.dataStatusAt ? [`- Allgemeiner Datenstatus: **${formatBerlin(publication.dataStatusAt)}** · ${publication.catalogTitles} Katalogtitel, ${publication.searchTitles} Sucheinträge`] : []),
       ...(publication.waipuAt ? [`- Waipu-Index: **${formatBerlin(publication.waipuAt)}** · ${publication.stations} Sender, ${publication.waipuTitles} Titel, ${publication.broadcasts} Ausstrahlungen`] : []),
+      ...(publication.joynAt ? [`- Joyn-Index: **${formatBerlin(publication.joynAt)}** · ${publication.joynStations} Sender, ${publication.joynTitles} Titel, ${publication.joynBroadcasts} Ausstrahlungen`] : []),
+      ...(publication.activeTitles ? [`- Gemeinsame App-Daten: ${publication.activeTitles} eindeutige aktive Titel · ${publication.tvAirings} TV-Ausstrahlungen`] : []),
     ] : []),
     '',
   ].join('\n')
@@ -320,10 +322,11 @@ async function watchdogMain({ fetchImpl = fetch } = {}) {
   })
   let publication
   try {
-    const [dataStatus, waipuIndex] = await fetchPublishedData({ fetchImpl })
+    const [dataStatus, waipuIndex, joynIndex, availabilityIndex, tvRuntimeIndex] = await fetchPublishedData({ fetchImpl })
     publication = evaluatePublishedData(dataStatus, waipuIndex, {
       scheduledAt: result.scheduledAt,
       expectedStations: integer(process.env.DATA_WORKFLOW_EXPECTED_STATIONS, 228),
+      requireMultiSource: true, joynIndex, availabilityIndex, tvRuntimeIndex,
     })
     if (result.status === 'running' && publication.status === 'stale') publication.status = 'pending'
   } catch (error) {

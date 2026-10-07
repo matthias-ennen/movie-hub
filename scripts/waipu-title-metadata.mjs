@@ -55,13 +55,16 @@ function mergeAiringMetadata(entry, metadata, providerId) {
 async function mapWithConcurrency(values, limit, callback) {
   let nextIndex = 0
   const results = new Array(values.length)
+  let failure = null
   async function worker() {
-    while (nextIndex < values.length) {
+    while (!failure && nextIndex < values.length) {
       const index = nextIndex++
-      results[index] = await callback(values[index], index)
+      try { results[index] = await callback(values[index], index) }
+      catch (error) { failure ||= error }
     }
   }
   await Promise.all(Array.from({ length: Math.min(values.length, limit) }, worker))
+  if (failure) throw failure
   return results
 }
 

@@ -19,6 +19,7 @@ const catalogPath = resolve('public/catalog.json')
 const searchIndexPath = resolve('public/search-index.json')
 const searchDetailsDirectory = resolve('public/search-details')
 const waipuTitlesPath = resolve('public/waipu-live/titles.json')
+const joynTitlesPath = resolve('public/joyn-live/titles.json')
 const PUBLIC_TITLE_FIELDS = Object.freeze([
   'id', 'source', 'tmdbId', 'type', 'mediaType', 'title', 'originalTitle',
   'description', 'year', 'releaseDate', 'runtimeMinutes', 'numberOfSeasons',
@@ -193,6 +194,7 @@ function hasCatalogRelevantProfileState(value) {
 export function collectCanonicalCandidateValues({
   catalog = {},
   waipuTitles = {},
+  joynTitles = {},
   searchShards = new Map(),
   personalDocuments = [],
   profileDocuments = [],
@@ -207,6 +209,7 @@ export function collectCanonicalCandidateValues({
   }
   for (const value of Array.isArray(catalog?.titles) ? catalog.titles : []) add(value)
   for (const value of Array.isArray(waipuTitles?.entries) ? waipuTitles.entries : []) add(value)
+  for (const value of Array.isArray(joynTitles?.entries) ? joynTitles.entries : []) add(value)
   for (const shard of searchShards instanceof Map ? searchShards.values() : []) {
     for (const value of Array.isArray(shard?.entries) ? shard.entries : []) add(value)
   }
@@ -247,6 +250,7 @@ export function buildCanonicalFanoutPlan({
   searchIndex = {},
   searchShards = new Map(),
   waipuTitles = {},
+  joynTitles = {},
   personalDocuments = [],
   profileDocuments = [],
   movieHubDocuments = [],
@@ -254,6 +258,7 @@ export function buildCanonicalFanoutPlan({
 } = {}) {
   const catalogResult = updateMatchingEntries(catalog.titles, updates)
   const waipuResult = updateMatchingEntries(waipuTitles.entries, updates)
+  const joynResult = updateMatchingEntries(joynTitles.entries, updates)
   const nextSearchShards = new Map([...searchShards].map(([bucket, shard]) => [bucket, {
     ...shard,
     entries: Array.isArray(shard?.entries) ? [...shard.entries] : [],
@@ -365,11 +370,13 @@ export function buildCanonicalFanoutPlan({
       entries: nextSearchEntries,
     },
     waipuTitles: { ...waipuTitles, entries: waipuResult.entries, count: waipuResult.entries.length },
+    joynTitles: { ...joynTitles, entries: joynResult.entries, count: joynResult.entries.length },
     searchShards: nextSearchShards,
     firestoreWrites,
     counts: {
       catalogUpdated: catalogResult.updated,
       waipuUpdated: waipuResult.updated,
+      joynUpdated: joynResult.updated,
       searchDetailsUpdated,
       searchIndexAdded,
       personalUpdated,
@@ -433,12 +440,13 @@ async function main() {
   ])
   const app = initializeApp({ credential: applicationDefault(), projectId }, 'title-canonical-executor')
   const db = getFirestore(app)
-  const [preview, inventory, catalog, searchIndex, waipuTitles, searchData, personalSnapshot, profileSnapshot, movieHubSnapshot] = await Promise.all([
+  const [preview, inventory, catalog, searchIndex, waipuTitles, joynTitles, searchData, personalSnapshot, profileSnapshot, movieHubSnapshot] = await Promise.all([
     readJson(previewPath),
     readJson(inventoryPath),
     readJson(catalogPath, { titles: [] }),
     readJson(searchIndexPath, { entries: [] }),
     readJson(waipuTitlesPath, { entries: [] }),
+    readJson(joynTitlesPath, { entries: [] }),
     readSearchShards(),
     db.collectionGroup('tmdbCatalog').get(),
     db.collectionGroup('titles').get(),
@@ -449,6 +457,7 @@ async function main() {
   const candidateValues = collectCanonicalCandidateValues({
     catalog,
     waipuTitles,
+    joynTitles,
     searchShards: searchData.shards,
     personalDocuments: personalSnapshot.docs,
     profileDocuments: profileSnapshot.docs,
@@ -476,6 +485,7 @@ async function main() {
     searchIndex,
     searchShards: searchData.shards,
     waipuTitles,
+    joynTitles,
     personalDocuments: personalSnapshot.docs,
     profileDocuments: profileSnapshot.docs,
     movieHubDocuments: movieHubSnapshot.docs,
@@ -497,6 +507,7 @@ async function main() {
       writeJsonAtomic(catalogPath, plan.catalog),
       writeJsonAtomic(searchIndexPath, plan.searchIndex),
       writeJsonAtomic(waipuTitlesPath, plan.waipuTitles),
+      writeJsonAtomic(joynTitlesPath, plan.joynTitles),
       writeJsonAtomic(resolve(searchDetailsDirectory, 'manifest.json'), manifest),
       ...[...plan.searchShards].map(([bucket, shard]) => writeJsonAtomic(
         resolve(searchDetailsDirectory, `${bucket}.json`),

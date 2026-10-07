@@ -54,6 +54,8 @@ export function normalizeJoynLiveChannelsAndEpg(data) {
         joynProgramId,
         title,
         secondaryTitle: text(program?.secondaryTitle),
+        description: text(program?.description),
+        ageRating: program?.ageRating?.minAge ?? null,
         startTime,
         endTime,
         programType: text(program?.__typename),

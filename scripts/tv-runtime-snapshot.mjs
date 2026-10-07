@@ -35,6 +35,14 @@ export async function writeTvRuntimeSnapshot({
     searchIndex,
     now,
   })
+  publication.index.sources = sourceCatalogs.map(({ providerId, generatedAt, sourceGenerationId }) => ({ providerId, generatedAt, sourceGenerationId }))
+
+  const mergedAirings = publication.days.reduce((total, day) => (
+    total + day.entries.reduce((sum, entry) => (
+      sum + entry.airings.filter((airing) => airing.providerIds.length > 1).length
+    ), 0)
+  ), 0)
+  publication.index.multiProviderAirings = mergedAirings
 
   await rm(output, { recursive: true, force: true })
   await mkdir(resolve(output, 'days'), { recursive: true })
@@ -48,11 +56,7 @@ export async function writeTvRuntimeSnapshot({
   const byteSize = Buffer.byteLength(JSON.stringify(publication.index))
     + heroByteSize
     + publication.days.reduce((total, day) => total + Buffer.byteLength(JSON.stringify(day)), 0)
-  const mergedAirings = publication.days.reduce((total, day) => (
-    total + day.entries.reduce((sum, entry) => (
-      sum + entry.airings.filter((airing) => airing.providerIds.length > 1).length
-    ), 0)
-  ), 0)
+
 
   process.stdout.write(JSON.stringify({
     kind: publication.index.kind,

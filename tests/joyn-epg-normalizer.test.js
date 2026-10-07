@@ -41,6 +41,8 @@ describe('Joyn EPG upstream', () => {
       joynProgramId: 'program-1',
       title: 'Beispielfilm',
       secondaryTitle: null,
+      description: null,
+      ageRating: null,
       startTime: '2026-09-26T18:15:00.000Z',
       endTime: '2026-09-26T20:00:00.000Z',
       programType: 'MovieProgram',

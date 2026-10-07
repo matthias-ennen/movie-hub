@@ -48,6 +48,26 @@ afterEach(async () => {
 })
 
 describe('durable checkpoint', () => {
+  it('restores Joyn windows together with matching, lookup and metadata caches', async () => {
+    const root = await workspace(), bucket = fakeBucket()
+    await put(root, 'artifacts/joyn-sync/checkpoint.json', { kind: 'joyn-sync-checkpoint', schemaVersion: 1, windows: { '1000_2000': { count: 1 } } })
+    await put(root, 'artifacts/joyn-sync/cache/1000_2000.json', { from: 1000, to: 2000, items: [{ id: 1 }] })
+    for (const name of ['match-cache', 'lookup-cache', 'metadata-cache']) await put(root, `artifacts/joyn-live/${name}.json`, { kind: name, entries: [1] })
+    await uploadCheckpoint({ root, group: 'joyn', bucket })
+    await rm(join(root, 'artifacts'), { recursive: true })
+    await downloadCheckpoint({ root, group: 'joyn', bucket })
+    expect(JSON.parse(await readFile(join(root, 'artifacts/joyn-sync/cache/1000_2000.json'))).items).toHaveLength(1)
+    expect(JSON.parse(await readFile(join(root, 'artifacts/joyn-live/metadata-cache.json'))).entries).toEqual([1])
+  })
+
+  it('rejects a Joyn checkpoint without its matching raw window', async () => {
+    const root = await workspace()
+    await put(root, 'artifacts/joyn-sync/checkpoint.json', { kind: 'joyn-sync-checkpoint', schemaVersion: 1, windows: { '1000_2000': {} } })
+    const value = await makeArchive({ root, group: 'joyn' })
+    try { await expect(applyArchive({ root, group: 'joyn', archive: value.archive, sha256: value.sha256 })).rejects.toThrow() }
+    finally { await rm(value.directory, { recursive: true, force: true }) }
+  })
+
   it('restores a Waipu checkpoint with the matching cache and curated decisions', async () => {
     const root = await workspace()
     const bucket = fakeBucket()

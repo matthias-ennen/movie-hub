@@ -16,10 +16,12 @@ const files = {
     'artifacts/waipu-live/unresolved.json',
   ],
   tmdb: ['artifacts/tmdb-data/state.json', 'artifacts/tmdb-data/last-run.json'],
+  joyn: ['artifacts/joyn-sync', 'artifacts/joyn-live/match-cache.json', 'artifacts/joyn-live/lookup-cache.json', 'artifacts/joyn-live/metadata-cache.json'],
 }
 const required = {
   waipu: 'artifacts/waipu-sync/checkpoint.json',
   tmdb: 'artifacts/tmdb-data/state.json',
+  joyn: 'artifacts/joyn-sync/checkpoint.json',
 }
 const prefix = 'data-checkpoints/v1'
 
@@ -45,7 +47,7 @@ async function optionalPaths(root, group) {
     }
   }
   if (!present.includes(required[group]) && group === 'tmdb') throw new Error('Committed TMDB checkpoint missing.')
-  if (group === 'waipu' && !await exists(resolve(root, required[group]))) throw new Error('Waipu checkpoint missing.')
+  if (['waipu', 'joyn'].includes(group) && !await exists(resolve(root, required[group]))) throw new Error(`${group} checkpoint missing.`)
   return present
 }
 
@@ -63,7 +65,7 @@ function allowedEntry(group, path) {
   if (!path || path.startsWith('/') || path.includes('\\') || path.split('/').includes('..')) return false
   const normalized = path.replace(/\/$/, '')
   return paths(group).some((entry) => normalized === entry || (
-    entry === 'artifacts/waipu-sync' && normalized.startsWith(`${entry}/`)
+    ['artifacts/waipu-sync', 'artifacts/joyn-sync'].includes(entry) && normalized.startsWith(`${entry}/`)
   ))
 }
 
@@ -85,6 +87,13 @@ async function validateExtracted(root, group) {
     if (Object.keys(value.slots).length && !await exists(resolve(root, 'artifacts/waipu-sync/cache'))) {
       throw new Error('Waipu slots cannot be restored without their cache.')
     }
+  } else if (group === 'joyn') {
+    if (value?.kind !== 'joyn-sync-checkpoint' || value?.schemaVersion !== 1 || !value.windows) throw new Error('Invalid Joyn checkpoint.')
+    for (const key of Object.keys(value.windows)) {
+      if (!/^\d+_\d+$/.test(key)) throw new Error('Invalid Joyn window key.')
+      const raw = JSON.parse(await readFile(resolve(root, 'artifacts/joyn-sync/cache', `${key}.json`), 'utf8'))
+      if (!Array.isArray(raw.items) || `${raw.from}_${raw.to}` !== key) throw new Error('Joyn checkpoint is missing its matching raw cache.')
+    }
   } else if (value?.kind !== 'tmdb-change-state' || value?.version !== 1 || !value.pending) {
     throw new Error('Invalid TMDB checkpoint.')
   }
@@ -96,7 +105,7 @@ export async function makeArchive({ root, group }) {
   const directory = await mkdtemp(join(tmpdir(), 'movie-hub-checkpoint-'))
   const archive = resolve(directory, 'checkpoint.tar.gz')
   try {
-    await exec('tar', ['--exclude=artifacts/waipu-sync/active.lock', '-czf', archive, '-C', root, ...present])
+    await exec('tar', ['--exclude=artifacts/waipu-sync/active.lock', '--exclude=artifacts/joyn-sync/active.lock', '-czf', archive, '-C', root, ...present])
     return { directory, archive, sha256: await hashFile(archive), size: (await stat(archive)).size }
   } catch (error) {
     await rm(directory, { recursive: true, force: true })

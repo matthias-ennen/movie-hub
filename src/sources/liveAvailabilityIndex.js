@@ -135,7 +135,10 @@ export function buildLiveAvailabilityIndex(sourceCatalogs = [], {
       })
       accepted += 1
     }
-    sources.push({ providerId, titleCount: accepted })
+    sources.push({ providerId, titleCount: accepted,
+      ...(source.generatedAt ? { generatedAt: source.generatedAt } : {}),
+      ...(source.sourceGenerationId ? { sourceGenerationId: source.sourceGenerationId } : {}),
+    })
   }
 
   const entries = [...byTitle.values()]

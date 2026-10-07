@@ -1,6 +1,6 @@
 # Movie Hub – Roadmap
 
-Stand: 3. Oktober 2026
+Stand: 7. Oktober 2026
 
 ## Leitprinzip
 
@@ -33,6 +33,17 @@ Zu den zuletzt abgeschlossenen beziehungsweise abgenommenen Paketen gehören ins
 - #281/#283/#285/#289 – gemeinsame TV-/Hero-/Inhaltsseiten-Grundlage
 - #315 – Nachtlauf-Überwachung, Datenfrische, unabhängiger Alarm und dauerhafte Cloud-Checkpoints; am 03.10.2026 abgeschlossen
 - #346 – Fundamenthärtung und Performance; technische Phasen, Dokumentation und reale Smartphone-/Fire-TV-Abnahme am 03.10.2026 abgeschlossen
+
+## Gezielter aktueller Betriebsauftrag (07.10.2026)
+
+Matthias hat nach der Nachtlauf-Prüfung ausdrücklich Joyn auf 14 Tage EPG und
+auf die Waipu-Betriebsstufe priorisiert: dauerhafte Cache-/Checkpoint-Nutzung,
+inkrementelle TMDB-Verarbeitung, gleichwertiger Bericht und Überwachung der
+tatsächlich veröffentlichten gemeinsamen App-Daten. Dies erweitert den
+abgeschlossenen Adapter #280; der vorherige Stand hatte nur rund 31 Stunden
+Joyn-Vorschau. Quellenprüfung, Umsetzung und produktive Datenabnahme sind
+getrennte Nachweise; Details stehen in [DATA_WORKFLOW_RELIABILITY.md](DATA_WORKFLOW_RELIABILITY.md).
+Movie Hub Admin bleibt ein eigenes späteres Arbeitspaket.
 
 ## Aktive Hauptstrecke
 

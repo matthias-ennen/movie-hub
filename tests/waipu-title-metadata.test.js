@@ -69,6 +69,22 @@ function completeMetadata(overrides = {}) {
 }
 
 describe('Waipu title metadata enrichment', () => {
+  it('stops new work after an error and drains in-flight metadata before rejecting', async () => {
+    let release
+    const gate = new Promise(done => { release = done })
+    let finished = false
+    const loadTitleMetadata = vi.fn(async entry => {
+      if (entry.tmdbId === 1) throw new Error('budget')
+      await gate; finished = true
+      return completeMetadata({ tmdbId: entry.tmdbId })
+    })
+    const task = enrichLiveTitleMetadata([1, 2, 3, 4].map(tmdbId => airingEntry({ tmdbId })), { concurrency: 2, loadTitleMetadata })
+    const assertion = expect(task).rejects.toThrow('budget')
+    await Promise.resolve(); release(); await assertion
+    expect(finished).toBe(true)
+    expect(loadTitleMetadata).toHaveBeenCalledTimes(2)
+  })
+
   it('reuses complete canonical metadata and keeps current airing data', async () => {
     const loadTitleMetadata = vi.fn()
     const result = await enrichWaipuTitleMetadata([airingEntry()], {

@@ -21,9 +21,13 @@ export async function discoverLiveSourceCatalogs(directory = publicDir) {
     if (!providerId) continue
     try {
       const raw = await readJson(resolve(directory, dirent.name, 'titles.json'))
+      const index = await readJson(resolve(directory, dirent.name, 'index.json')).catch((error) => {
+        if (error.code === 'ENOENT') return {}
+        throw error
+      })
       const entries = Array.isArray(raw?.entries) ? raw.entries : []
       if (!entries.length) continue
-      sources.push({ providerId, entries })
+      sources.push({ providerId, entries, generatedAt: index.generatedAt, sourceGenerationId: index.sourceGenerationId })
     } catch (error) {
       if (error?.code !== 'ENOENT') {
         process.stderr.write(`Availability source ${providerId} skipped: ${error.message}\n`)

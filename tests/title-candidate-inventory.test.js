@@ -10,6 +10,17 @@ function document(path, data) {
 }
 
 describe('kanonischer Titelkandidatenbestand', () => {
+  it('deduplicates Joyn and Waipu identities while preserving both consumer memberships', () => {
+    const inventory = buildTitleCandidateInventory({
+      waipuTitles: { entries: [{ type: 'movie', tmdbId: 11 }] },
+      joynTitles: { entries: [{ type: 'movie', tmdbId: 11 }, { type: 'series', tmdbId: 22 }] },
+    })
+    expect(inventory.candidates).toMatchObject([
+      { key: 'movie:11', sources: ['waipu', 'joyn'] }, { key: 'series:22', sources: ['joyn'] },
+    ])
+    expect(inventory.counts).toMatchObject({ rawCandidateReferences: 3, canonicalCandidates: 2, deduplicatedReferences: 1 })
+  })
+
   it('normalisiert die Identität ausschließlich aus Medientyp und TMDB-ID', () => {
     expect(canonicalTitleIdentity({ type: 'movie', tmdbId: 11 })).toEqual({ key: 'movie:11', type: 'movie', tmdbId: 11 })
     expect(canonicalTitleIdentity({ mediaType: 'tv', tmdbId: '22' })).toEqual({ key: 'series:22', type: 'series', tmdbId: 22 })

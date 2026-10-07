@@ -173,6 +173,7 @@ describe('kanonischer Titel-Executor', () => {
       searchIndex: { entries: [{ id: 'tmdb-movie-11', tmdbId: 11, type: 'movie', title: 'Star Wars', providerIds: ['prime'] }] },
       searchShards: new Map(),
       waipuTitles: { entries: [{ tmdbId: 11, type: 'movie', title: 'Alt', airings: [{ stationId: 'zdf' }] }] },
+      joynTitles: { entries: [{ tmdbId: 11, type: 'movie', title: 'Alt', airings: [{ stationId: 'joyn.zdf', playbackRoutes: [{ providerId: 'joyn', target: 'joyn-route' }] }] }] },
       personalDocuments: [personalDocument],
       profileDocuments: [profileDocument],
       movieHubDocuments: [movieHubDocument],
@@ -184,6 +185,7 @@ describe('kanonischer Titel-Executor', () => {
       metadataComplete: true,
       airings: [{ stationId: 'zdf' }],
     })
+    expect(plan.joynTitles.entries[0]).toMatchObject({ metadataComplete: true, airings: [{ stationId: 'joyn.zdf', playbackRoutes: [{ providerId: 'joyn', target: 'joyn-route' }] }] })
     expect(plan.searchShards.get('0b').entries[0]).toMatchObject({
       id: 'tmdb-movie-11',
       metadataComplete: true,
@@ -211,6 +213,7 @@ describe('kanonischer Titel-Executor', () => {
     expect(plan.counts).toEqual({
       catalogUpdated: 1,
       waipuUpdated: 1,
+      joynUpdated: 1,
       searchDetailsUpdated: 1,
       searchIndexAdded: 0,
       personalUpdated: 1,

@@ -9,6 +9,7 @@ const sources = Object.freeze([
   ['data-status.json', '/data-status.json'],
   ['search-index.json', '/search-index.json'],
   ['waipu-index.json', '/waipu-live/index.json'],
+  ['joyn-index.json', '/joyn-live/index.json'],
 ])
 
 export async function captureWorkflowBaseline({ fetchImpl = fetch } = {}) {

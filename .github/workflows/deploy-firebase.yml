@@ -128,7 +128,7 @@ jobs:
             waipu-seven-v1-
 
       - name: Authenticate for private checkpoint restore
-        if: ${{ (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
+        if: ${{ (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
         uses: google-github-actions/auth@v3
         with:
           project_id: movie-hub-62459
@@ -156,6 +156,22 @@ jobs:
 
       - name: Restore last deployed Joyn catalog
         run: npm run joyn:restore
+
+      - name: Restore persistent Joyn import state
+        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            artifacts/joyn-sync
+            artifacts/joyn-live/match-cache.json
+            artifacts/joyn-live/lookup-cache.json
+            artifacts/joyn-live/metadata-cache.json
+          key: joyn-14-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: joyn-14-v1-
+
+      - name: Restore verified private Joyn checkpoint and cache
+        if: ${{ (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
+        run: node scripts/durable-data-checkpoint.mjs restore joyn
 
       - name: Restore validated live TMDB data for code deploy
         if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') }}
@@ -229,9 +245,12 @@ jobs:
         continue-on-error: true
         env:
           JOYN_LIVE_OUTPUT: public/joyn-live
+          JOYN_EPG_REQUEST_BUDGET: '500'
+          JOYN_ALGOLIA_REQUEST_BUDGET: '3600'
+          JOYN_SERIES_DETAIL_REQUEST_BUDGET: '100'
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
-          JOYN_TMDB_REQUEST_BUDGET: '3600'
+          JOYN_TMDB_REQUEST_BUDGET: '6000'
           JOYN_TMDB_PACE_MS: '200'
           JOYN_TMDB_DETAIL_REQUEST_BUDGET: '300'
           JOYN_TMDB_METADATA_REQUEST_BUDGET: '4000'
@@ -239,6 +258,35 @@ jobs:
           JOYN_TMDB_METADATA_MAX_AGE_DAYS: '7'
           TMDB_COUNTRY: DE
         run: npm run joyn:catalog
+
+      - name: Acknowledge Joyn change consumer
+        if: ${{ steps.joyn_catalog.outcome == 'success' && steps.tmdb_changes.outcome == 'success' }}
+        run: npm run tmdb:changes:ack -- joyn-catalog
+
+      - name: Save persistent Joyn import state
+        if: ${{ always() && (steps.joyn_catalog.outcome == 'success' || steps.joyn_catalog.outcome == 'failure') }}
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            artifacts/joyn-sync
+            artifacts/joyn-live/match-cache.json
+            artifacts/joyn-live/lookup-cache.json
+            artifacts/joyn-live/metadata-cache.json
+          key: joyn-14-v1-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Save verified private Joyn checkpoint and cache
+        id: joyn_checkpoint_upload
+        if: ${{ always() && (steps.joyn_catalog.outcome == 'success' || steps.joyn_catalog.outcome == 'failure') && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
+        run: |
+          if [ -f artifacts/joyn-sync/checkpoint.json ]; then
+            node scripts/durable-data-checkpoint.mjs upload joyn
+          else
+            echo 'No Joyn import checkpoint exists yet; no private snapshot uploaded.'
+          fi
+
+      - name: Probe uploaded private Joyn checkpoint and cache
+        if: ${{ always() && steps.joyn_checkpoint_upload.outcome == 'success' && hashFiles('artifacts/joyn-sync/checkpoint.json') != '' }}
+        run: node scripts/durable-data-checkpoint.mjs probe joyn
 
       - name: Build Joyn pilot playback overlay from Waipu events
         id: joyn_pilot_overlay
@@ -351,9 +399,20 @@ jobs:
         if: ${{ steps.tmdb_changes.outcome == 'success' }}
         run: npm run tmdb:changes:verify -- --exclude firebase-publication
 
+      - name: Validate prepared source generations and app data
+        env:
+          REQUIRE_JOYN_14_DAYS: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
+        run: node scripts/verify-published-data.mjs --prepared
+
       - name: Deploy Hosting and Firestore Rules
         id: firebase_deploy
         run: npx firebase-tools deploy --only hosting,firestore:rules --project movie-hub-62459 --non-interactive
+
+      - name: Verify actually published source generations and app data
+        id: publication_verify
+        env:
+          REQUIRE_JOYN_14_DAYS: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
+        run: node scripts/verify-published-data.mjs
 
       - name: Check observed titles for personal in-app notifications
         id: title_alerts
@@ -364,7 +423,7 @@ jobs:
         run: npm run alerts:check
 
       - name: Acknowledge published TMDB change generation
-        if: ${{ steps.tmdb_changes.outcome == 'success' && steps.firebase_deploy.outcome == 'success' }}
+        if: ${{ steps.tmdb_changes.outcome == 'success' && steps.firebase_deploy.outcome == 'success' && steps.publication_verify.outcome == 'success' }}
         run: npm run tmdb:changes:ack -- firebase-publication
 
       - name: Save published title-candidate baseline
@@ -406,6 +465,9 @@ jobs:
           SUMMARY_WAIPU_SYNC: ${{ steps.waipu_sync.outcome }}
           SUMMARY_WAIPU_CATALOG: ${{ steps.waipu_catalog.outcome }}
           SUMMARY_JOYN_CATALOG: ${{ steps.joyn_catalog.outcome }}
+          SUMMARY_AVAILABILITY: ${{ steps.live_availability_index.outcome }}
+          SUMMARY_TV_RUNTIME: ${{ steps.tv_runtime_snapshot.outcome }}
+          SUMMARY_PUBLICATION: ${{ steps.publication_verify.outcome }}
           SUMMARY_SOURCE_MERGE: ${{ steps.source_merge_smoke.outcome }}
           SUMMARY_PRESENCE: ${{ steps.presence_migration.outcome }}
           SUMMARY_CANONICAL_EXECUTOR: ${{ steps.canonical_executor.outcome }}
@@ -435,9 +497,13 @@ jobs:
             artifacts/source-merge/*.json
             artifacts/joyn-pilot/*.json
             artifacts/joyn-adapter/*.json
+            artifacts/joyn-sync/status.json
+            artifacts/joyn-live/matching-progress.json
             artifacts/waipu-live/unresolved.json
             artifacts/waipu-live/detail-status.json
             public/waipu-live/index.json
+            public/joyn-live/index.json
+            public/tv-runtime/index.json
           if-no-files-found: ignore
           retention-days: 30
 
@@ -468,4 +534,10 @@ jobs:
         if: ${{ always() && (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && (steps.waipu_sync.outcome != 'success' || steps.waipu_catalog.outcome != 'success') }}
         run: |
           echo "::error::Waipu refresh failed; the last validated catalog remained in public/waipu-live."
+          exit 1
+
+      - name: Report failed Joyn refresh
+        if: ${{ always() && steps.joyn_catalog.outcome == 'failure' }}
+        run: |
+          echo "::error::Joyn refresh failed; the last validated catalog remained in public/joyn-live."
           exit 1

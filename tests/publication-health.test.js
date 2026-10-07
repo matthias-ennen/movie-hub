@@ -93,7 +93,7 @@ describe('öffentliche Daten nach dem Nachtlauf', () => {
     expect(result.reasons).toContain('Waipu-Tagesbestand inkonsistent')
   })
 
-  it('fragt beide produktiven Dateien mit Cache-Umgehung ab', async () => {
+  it('fragt alle fünf produktiven Dateien mit Cache-Umgehung ab', async () => {
     const urls = []
     const fetchImpl = async (url, options) => {
       urls.push([url.toString(), options.cache])
@@ -103,6 +103,9 @@ describe('öffentliche Daten nach dem Nachtlauf', () => {
     expect(urls).toEqual([
       ['https://movie-hub-62459.web.app/data-status.json?watchdog=1790258400000', 'no-store'],
       ['https://movie-hub-62459.web.app/waipu-live/index.json?watchdog=1790258400000', 'no-store'],
+      ['https://movie-hub-62459.web.app/joyn-live/index.json?watchdog=1790258400000', 'no-store'],
+      ['https://movie-hub-62459.web.app/live-availability-index.json?watchdog=1790258400000', 'no-store'],
+      ['https://movie-hub-62459.web.app/tv-runtime/index.json?watchdog=1790258400000', 'no-store'],
     ])
   })
 })
