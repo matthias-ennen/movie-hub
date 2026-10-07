@@ -701,12 +701,20 @@ export async function runJoynAdapterDiagnostic({
   let seriesDetailMatches = 0
   let joynSearchRequests = 0
   let tmdbBudgetExhausted = false
+  function matchingCounters() {
+    return {
+      matchCacheHits: matchCache.hits, lookupCacheHits: lookupCache.hits,
+      tmdbRequests: tmdbSearch?.requestsStarted || 0,
+      tmdbRequestBudget: Number(process.env.JOYN_TMDB_REQUEST_BUDGET || 6000),
+      joynSearchRequests, algoliaRequests, algoliaRequestBudget,
+      seriesDetailRequests, seriesDetailRequestBudget,
+    }
+  }
   async function matchingProgress() {
     if (decisions.size % 100 !== 0 && decisions.size !== uniquePrograms.size) return
     const progress = { kind: 'joyn-matching-progress', generatedAt, updatedAt: new Date().toISOString(), status: 'running',
-      processed: decisions.size, total: uniquePrograms.size, matchCacheHits: matchCache.hits,
-      lookupCacheHits: lookupCache.hits, tmdbRequests: tmdbSearch?.requestsStarted || 0, algoliaRequests }
-    console.log(`Joyn-Zuordnung: ${progress.processed}/${progress.total} Programme · ${progress.matchCacheHits} aus Cache · ${progress.tmdbRequests}/${tmdbSearch?.client?.maxRequests ?? 'nicht verfügbar'} TMDB · ${algoliaRequests}/${algoliaRequestBudget} Algolia`)
+      processed: decisions.size, total: uniquePrograms.size, ...matchingCounters() }
+    console.log(`Joyn-Zuordnung: ${progress.processed}/${progress.total} Programme · ${progress.matchCacheHits} aus Cache · ${progress.tmdbRequests}/${progress.tmdbRequestBudget} TMDB · ${algoliaRequests}/${algoliaRequestBudget} Algolia · ${seriesDetailRequests}/${seriesDetailRequestBudget} Serienseiten`)
     await writeJson(resolve(root, 'artifacts/joyn-live/matching-progress.json'), progress)
   }
   try {
@@ -1025,7 +1033,7 @@ export async function runJoynAdapterDiagnostic({
       matchCache.set(entry.candidate, programDiagnostics.get(programId), localCandidates)
       if (fullHorizon && (tmdbBudgetExhausted || (decision.status !== 'matched'
           && JSON.stringify(joynClassificationResult).includes('budget_exhausted')))) {
-        const error = new Error('Joyn matching budget reached; progress saved, retaining the last complete publication.')
+        const error = new Error(`Joyn matching budget reached (TMDB ${tmdbSearch?.requestsStarted || 0}/${Number(process.env.JOYN_TMDB_REQUEST_BUDGET || 6000)}, Algolia ${algoliaRequests}/${algoliaRequestBudget}, series details ${seriesDetailRequests}/${seriesDetailRequestBudget}); progress saved, retaining the last complete publication.`)
         error.code = tmdbBudgetExhausted ? 'JOYN_TMDB_REQUEST_BUDGET' : 'JOYN_CLASSIFICATION_BUDGET'
         throw error
       }
@@ -1040,9 +1048,8 @@ export async function runJoynAdapterDiagnostic({
   } catch (error) {
     await writeJson(resolve(root, 'artifacts/joyn-live/matching-progress.json'), {
       kind: 'joyn-matching-progress', generatedAt, status: 'failed',
-      processed: decisions.size, total: uniquePrograms.size, matchCacheHits: matchCache.hits,
-      lookupCacheHits: lookupCache.hits, tmdbRequests: tmdbSearch?.requestsStarted || 0,
-      algoliaRequests, failure: { code: error.code || 'JOYN_MATCH_FAILED', message: error.message },
+      processed: decisions.size, total: uniquePrograms.size, ...matchingCounters(),
+      failure: { code: error.code || 'JOYN_MATCH_FAILED', message: error.message },
     })
     throw error
   } finally {
@@ -1052,7 +1059,7 @@ export async function runJoynAdapterDiagnostic({
 
   await writeJson(resolve(root, 'artifacts/joyn-live/matching-progress.json'), {
     kind: 'joyn-matching-progress', generatedAt, status: 'complete', processed: decisions.size, total: uniquePrograms.size,
-    matchCacheHits: matchCache.hits, lookupCacheHits: lookupCache.hits, tmdbRequests: tmdbSearch?.requestsStarted || 0, algoliaRequests,
+    ...matchingCounters(),
   })
 
   const events = []

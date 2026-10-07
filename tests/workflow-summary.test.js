@@ -8,11 +8,20 @@ describe('kompakter Workflow-Datenbericht', () => {
   it('reports saved matching progress and a retained publication independently', () => {
     const summary = buildWorkflowSummary({
       steps: { joynCatalog: 'failure' }, joynTitles: { entries: [{ type: 'movie' }] },
-      joynProgress: { status: 'failed', processed: 800, total: 5000, failure: { code: 'JOYN_CLASSIFICATION_BUDGET' } },
+      joynIndex: { runtime: { tmdbSearchRequests: 3504, tmdbSearchBudget: 6000, tmdbMetadataRequests: 187 } },
+      joynProgress: { status: 'failed', processed: 800, total: 5000,
+        tmdbRequests: 250, tmdbRequestBudget: 6000, algoliaRequests: 3600, algoliaRequestBudget: 3600,
+        seriesDetailRequests: 10, seriesDetailRequestBudget: 100, matchCacheHits: 500, lookupCacheHits: 100,
+        failure: { code: 'JOYN_CLASSIFICATION_BUDGET' } },
       joynSync: { coverage: [{ id: 'long', days: Array(14).fill('day') }, { id: 'short', days: ['day'] }] },
     })
     expect(summary.rows.find(row => row.area === 'Joyn → TMDB')).toMatchObject({ stock: 'letzter gültiger Stand · 1 Titel · 0 Ausstrahlungen', activity: '800/5.000 Programme geprüft · JOYN_CLASSIFICATION_BUDGET · Fortschritt gesichert' })
     expect(summary.rows.find(row => row.area === 'Joyn EPG').open).toContain('1 Sender mit kürzerem Quellenhorizont')
+    expect(summary.rows.find(row => row.area === 'Joyn EPG').stock).toContain('letzter gültiger Stand')
+    const matching = summary.rows.find(row => row.area === 'Joyn → TMDB')
+    expect(matching.open).toContain('aktueller Lauf · 250/6.000 TMDB-Abrufe · 3.600/3.600 Algolia · 10/100 Serienseiten')
+    expect(matching.open).not.toContain('3.504')
+    expect(matching.open).not.toContain('187 Detailabrufe')
   })
 
   it('fasst die vollständige Datenpipeline in einer Tabelle zusammen', () => {

@@ -262,7 +262,7 @@ export function buildWorkflowSummary({
       {
         area: 'Joyn EPG',
         status: outcome(steps.joynCatalog),
-        stock: `${number(joynIndex.stationCount)} Sender · ${number(joynEntries.length)} Titel · ${number(joynBroadcasts)} Ausstrahlungen`,
+        stock: `${steps.joynCatalog === 'failure' ? 'letzter gültiger Stand · ' : ''}${number(joynIndex.stationCount)} Sender · ${number(joynEntries.length)} Titel · ${number(joynBroadcasts)} Ausstrahlungen`,
         activity: `${timestamp(joynSync.horizon?.start || joynIndex.horizon?.from)} bis ${timestamp(joynSync.horizon?.endExclusive || joynIndex.horizon?.to)}`,
         open: `${measured(joynSync.metrics?.windowsProcessed)}/56 Fenster · ${measured(joynSync.metrics?.requestsStarted)} Requests · ${measured(joynSync.metrics?.cacheHits)} aus Cache · ${measured(joynSync.metrics?.outsideInventory)} außerhalb linearer Senderliste · ${Array.isArray(joynSync.coverage) ? number(joynSync.coverage.filter((station) => station.days?.length < 14).length) : 'nicht verfügbar'} Sender mit kürzerem Quellenhorizont`,
       },
@@ -273,12 +273,14 @@ export function buildWorkflowSummary({
         activity: steps.joynCatalog === 'failure' && joynProgress.status === 'failed'
           ? `${number(joynProgress.processed)}/${number(joynProgress.total)} Programme geprüft · ${joynProgress.failure?.code || 'Fehler'} · Fortschritt gesichert`
           : `${measured(joynMatching.matchedPrograms)} zugeordnet · ${measured(joynIndex.metadata?.complete)}/${number(joynEntries.length)} Metadaten vollständig · ${difference(joynEntries.length, baselineJoyn?.metadata?.total)}`,
-        open: `${measured(joynIndex.runtime?.tmdbSearchRequests)}/${measured(joynIndex.runtime?.tmdbSearchBudget)} Suchen · ${measured(joynIndex.runtime?.tmdbMetadataRequests)} Detailabrufe · ${measured(joynIndex.runtime?.matchCacheHits)} Zuordnungen aus Cache · ${joynDiagnostic.matching ? number(Object.values(joynMatching.rejected || {}).reduce((sum, count) => sum + integer(count), 0)) : 'nicht verfügbar'} ungeklärt/verworfen`,
+        open: steps.joynCatalog === 'failure'
+          ? `aktueller Lauf · ${measured(joynProgress.tmdbRequests)}/${measured(joynProgress.tmdbRequestBudget)} TMDB-Abrufe · ${measured(joynProgress.algoliaRequests)}/${measured(joynProgress.algoliaRequestBudget)} Algolia · ${measured(joynProgress.seriesDetailRequests)}/${measured(joynProgress.seriesDetailRequestBudget)} Serienseiten · ${measured(joynProgress.matchCacheHits)} Zuordnungen aus Cache · ${measured(joynProgress.lookupCacheHits)} Abrufe aus Cache`
+          : `${measured(joynIndex.runtime?.tmdbSearchRequests)}/${measured(joynIndex.runtime?.tmdbSearchBudget)} Suchen · ${measured(joynIndex.runtime?.tmdbMetadataRequests)} Detailabrufe · ${measured(joynIndex.runtime?.matchCacheHits)} Zuordnungen aus Cache · ${joynDiagnostic.matching ? number(Object.values(joynMatching.rejected || {}).reduce((sum, count) => sum + integer(count), 0)) : 'nicht verfügbar'} ungeklärt/verworfen`,
       },
       {
         area: 'Joyn-Quelldaten',
         status: outcome(steps.joynCatalog),
-        stock: `${number(joynMovies)} Filme · ${number(joynSeries)} Serien`,
+        stock: `${steps.joynCatalog === 'failure' ? 'letzter gültiger Stand · ' : ''}${number(joynMovies)} Filme · ${number(joynSeries)} Serien`,
         activity: `${number(joynSources.complete)}/${number(joynSources.total)} Quelldaten vollständig · ${measured(joynPlayback.withRoute)} mit Ziel · ${measured(joynPlayback.withoutRoute)} ohne Ziel`,
         open: `${number(joynSources.withEpisodeData)}/${number(joynSources.seriesTotal)} Serienausstrahlungen mit Episodenangabe · ${measured(joynPlayback.channelIdRoute ?? joynPlayback.channelIdFallback)} channel_id-Ziele · Erzeugung ${timestamp(joynIndex.generatedAt)}`,
       },
