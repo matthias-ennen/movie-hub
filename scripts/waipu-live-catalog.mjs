@@ -177,10 +177,11 @@ function countEligibleBroadcastRows(gridRecords, stationIds, start, endExclusive
   return count
 }
 
-export function localTmdbCandidates({ catalog = null, searchIndex = null } = {}) {
+export function localTmdbCandidates({ catalog = null, searchIndex = null, liveTitles = [] } = {}) {
   const values = [
     ...(Array.isArray(catalog?.titles) ? catalog.titles : []),
     ...(Array.isArray(searchIndex?.entries) ? searchIndex.entries : []),
+    ...(Array.isArray(liveTitles) ? liveTitles : []),
   ]
   const unique = new Map()
   for (const value of values) {

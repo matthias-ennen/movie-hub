@@ -39,8 +39,11 @@ werden ausdrücklich ausgeschlossen und gezählt.
 Der Quellenbeleg für 07.–20.10.2026: 216 Anfragen, 80 Teilungen, 64.634
 lineare Programme. 121 Sender liefern Daten bis zum letzten Tag. Sechs
 Quellen haben kürzere Vorschauen: `spiegel-tv-action-crime-hd` und
-`spiegel-tv-hd` je neun Tage, `defa-hd` und `himmlisches-kino-hd` je sechs,
-`talk-now-hd` 13 sowie `moviedome-family-hd` neun Tage. Diese Quellenlücken
+`spiegel-tv-hd` je acht angefragte UTC-Kalendertage (bis 14.10.), `defa-hd` und
+`himmlisches-kino-hd` je fünf (bis 11.10.),
+`talk-now-hd` 13 (bis 19.10.) sowie `moviedome-family-hd` acht (bis 14.10.).
+Über Mitternacht laufende Vortagsprogramme zählen dabei nicht als zusätzlicher
+Tag des angefragten 14-Tage-Zeitraums. Diese Quellenlücken
 werden im Bericht ausgewiesen; sie sind kein Beleg für Verlust durch Movie Hub.
 Die Rohprogramme sind kein Bestand TMDB-zugeordneter Filme/Serien.
 
@@ -55,6 +58,13 @@ werden sieben Tage, bestätigte Zuordnungen maximal 30 Tage wiederverwendet;
 Titel, Untertitel, Beschreibung, Dauer und Matcher-Version bleiben Teil der
 Zuordnungsevidenz. Mehrdeutige Entscheidungen und Fehler werden nicht als
 bestätigte Zuordnung gespeichert.
+
+Die bereits vollständigen kanonischen TMDB-Metadaten beider Live-Kataloge
+werden gemeinsam genutzt. Ein öffentlicher Metadaten-Filter entfernt dabei
+Ausstrahlungen, Senderdaten, Live-Providerkennungen und privaten Zustand; Joyns
+EPG stammt unverändert nur aus Joyn. Neue kanonische Kandidaten invalidieren
+negative Zuordnungen. Der Zuordnungslauf protokolliert jeweils nach 100
+Programmen seinen Fortschritt und die tatsächliche Budgetnutzung.
 
 Die begrenzten Reserven betragen 500 EPG-Anfragen, 6.000 TMDB-Suchanfragen,
 3.600 Algolia-Anfragen, 100 Joyn-Seriendetails und 4.000 TMDB-Metadatenanfragen.

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { JOYN_MATCHER_VERSION } from './joyn-tmdb-matcher.mjs'
+import { canonicalForIdentity } from './execute-title-priority-queue.mjs'
 import { writeJoynJson } from './joyn-epg-sync.mjs'
 
 function key(candidate) {
@@ -12,6 +13,13 @@ function key(candidate) {
   })).digest('hex')
 }
 
+function candidateContext(values = []) {
+  return createHash('sha256').update(JSON.stringify(values.slice(0, 20).map(value => ({
+    type: value.type, tmdbId: value.tmdbId, title: value.title, originalTitle: value.originalTitle ?? null,
+    year: value.year ?? null, description: value.description ?? null, runtimeMinutes: value.runtimeMinutes ?? null,
+  })).sort((a, b) => `${a.type}:${a.tmdbId}`.localeCompare(`${b.type}:${b.tmdbId}`)))).digest('hex')
+}
+
 export class JoynMatchCache {
   constructor(values = {}, now = Date.now()) { this.values = values; this.now = now; this.hits = 0 }
   static async load(path, now) {
@@ -21,18 +29,21 @@ export class JoynMatchCache {
       return new JoynMatchCache(data.entries, now)
     } catch (error) { if (error.code === 'ENOENT') return new JoynMatchCache({}, now); throw error }
   }
-  get(candidate) {
+  get(candidate, localCandidates = null) {
     const entry = this.values[key(candidate)]
     const days = entry?.diagnostic?.decision?.status === 'matched' ? 30 : 7
     const age = this.now - Date.parse(entry?.checkedAt)
     if (!entry || !Number.isFinite(age) || age < 0 || age >= days * 86400000) return null
+    if (entry.diagnostic?.decision?.status !== 'matched' && localCandidates !== null) {
+      if ((entry.localCandidatesContext || candidateContext(entry.diagnostic.localCandidates)) !== candidateContext(localCandidates)) return null
+    }
     this.hits += 1
     return entry.diagnostic
   }
-  set(candidate, diagnostic) {
+  set(candidate, diagnostic, localCandidates = diagnostic.localCandidates || []) {
     if (diagnostic?.decision?.reason?.includes('ambiguous') || diagnostic?.decision?.status === 'ambiguous' || diagnostic?.decision?.reason?.includes('budget')
         || JSON.stringify(diagnostic.joynClassification || {}).match(/budget_exhausted|_error|"error"/)) return
-    this.values[key(candidate)] = { checkedAt: new Date(this.now).toISOString(), diagnostic }
+    this.values[key(candidate)] = { checkedAt: new Date(this.now).toISOString(), diagnostic, localCandidatesContext: candidateContext(localCandidates) }
   }
   async save(path) {
     for (const [key, entry] of Object.entries(this.values)) {
@@ -79,4 +90,12 @@ export class JoynLookupCache {
     }
     await writeJoynJson(path, { kind: 'joyn-lookup-cache', schemaVersion: 1, entries: this.entries })
   }
+}
+
+export function sharedJoynTmdbMetadata(entries = []) {
+  return entries.map(entry => {
+    const metadata = canonicalForIdentity(entry, entry)
+    metadata.providerIds = (metadata.providerIds || []).filter(id => !['waipu', 'joyn'].includes(id))
+    return metadata
+  })
 }

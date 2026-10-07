@@ -1,9 +1,25 @@
 import { describe, expect, it, vi } from 'vitest'
-import { JoynMatchCache, JoynLookupCache } from '../scripts/joyn-match-cache.mjs'
+import { JoynMatchCache, JoynLookupCache, sharedJoynTmdbMetadata } from '../scripts/joyn-match-cache.mjs'
 import { WaipuTmdbSearchClient } from '../scripts/waipu-tmdb-matcher.mjs'
 const now = Date.parse('2026-10-07T00:00:00Z')
 const candidate = { title: 'Serie', secondaryTitle: 'Folge 1', description: 'Inhalt', startTime: '2026-10-07T01:00:00Z', endTime: '2026-10-07T02:00:00Z' }
 describe('persistent Joyn matching evidence', () => {
+  it('shares canonical TMDB metadata without copying Waipu availability or private state', () => {
+    const [metadata] = sharedJoynTmdbMetadata([{ type: 'movie', tmdbId: 11, title: 'Film', description: 'TMDB', providerIds: ['netflix', 'waipu'], airings: [{ stationId: 'waipu-zdf' }], nextAiring: {}, favorite: true }])
+    expect(metadata).toMatchObject({ type: 'movie', tmdbId: 11, description: 'TMDB', providerIds: ['netflix'] })
+    expect(metadata).not.toHaveProperty('airings'); expect(metadata).not.toHaveProperty('nextAiring'); expect(metadata).not.toHaveProperty('favorite')
+  })
+  it('rechecks a negative decision when newly available canonical candidates can resolve it', () => {
+    const cache = new JoynMatchCache({}, now)
+    cache.set(candidate, { decision: { status: 'unmatched', reason: 'no_candidate' }, localCandidates: [] })
+    expect(cache.get(candidate, [])).not.toBeNull()
+    expect(cache.get(candidate, [{ type: 'series', tmdbId: 11 }])).toBeNull()
+    const locals = [{ type: 'series', tmdbId: 11, description: 'Alt' }]
+    cache.set(candidate, { decision: { status: 'unmatched', reason: 'below_threshold' } }, locals)
+    expect(cache.get(candidate, locals)).not.toBeNull()
+    expect(cache.get(candidate, [{ ...locals[0], description: 'Neue TMDB-Evidenz' }])).toBeNull()
+  })
+
   it('reuses identical evidence at another broadcast time, but rechecks different episodes', () => {
     const cache = new JoynMatchCache({}, now)
     const value = { decision: { status: 'matched', match: { tmdbId: 1 } } }

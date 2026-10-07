@@ -45,7 +45,7 @@ function canonicalKey(value) {
   return canonicalTitleIdentity(value)?.key || null
 }
 
-function canonicalForIdentity(value, entry) {
+export function canonicalForIdentity(value, entry) {
   const type = entry.type === 'series' ? 'series' : 'movie'
   const publicMetadata = Object.fromEntries(PUBLIC_TITLE_FIELDS
     .filter((key) => Object.prototype.hasOwnProperty.call(value || {}, key))

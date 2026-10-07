@@ -11,7 +11,7 @@ import { buildJoynStationMapping } from './joyn-station-mapping.mjs'
 import { mapJoynCandidateToBroadcastEvent, buildJoynSourceEnvelope } from '../src/sources/adapters/joynContractMapper.js'
 import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
 import { syncJoynEpg, joynImportHorizon, writeJoynJson } from './joyn-epg-sync.mjs'
-import { JoynMatchCache, JoynLookupCache } from './joyn-match-cache.mjs'
+import { JoynMatchCache, JoynLookupCache, sharedJoynTmdbMetadata } from './joyn-match-cache.mjs'
 import { readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
 import { JOYN_EPG_UPSTREAM_FIELD_POLICY } from '../src/sources/policies/joynUpstreamFieldPolicy.js'
 import { writeFieldDiscoveryReport } from '../src/sources/fieldDiscoveryReport.js'
@@ -652,14 +652,16 @@ export async function runJoynAdapterDiagnostic({
         canonicalChannelId,
       }
     })
-    .filter((entry) => entry.station)
+    .filter((entry) => entry.station && Date.parse(entry.candidate.endTime) > now)
 
-  const [catalog, searchIndex, previousJoynTitles] = await Promise.all([
+  const [catalog, searchIndex, previousJoynTitles, waipuTitles] = await Promise.all([
     readJson(resolve(root, 'public/catalog.json'), { titles: [] }),
     readJson(resolve(root, 'public/search-index.json'), { entries: [] }),
     readJson(resolve(root, 'public/joyn-live/titles.json'), { entries: [] }),
+    readJson(resolve(root, 'public/waipu-live/titles.json'), { entries: [] }),
   ])
-  const tmdbCandidates = localTmdbCandidates({ catalog, searchIndex })
+  const sharedMetadata = sharedJoynTmdbMetadata([...waipuTitles.entries, ...previousJoynTitles.entries])
+  const tmdbCandidates = localTmdbCandidates({ catalog, searchIndex, liveTitles: sharedMetadata })
   const candidatesFor = titleLookup(tmdbCandidates)
 
   const uniquePrograms = new Map()
@@ -699,18 +701,27 @@ export async function runJoynAdapterDiagnostic({
   let seriesDetailMatches = 0
   let joynSearchRequests = 0
   let tmdbBudgetExhausted = false
+  async function matchingProgress() {
+    if (decisions.size % 100 !== 0 && decisions.size !== uniquePrograms.size) return
+    const progress = { kind: 'joyn-matching-progress', generatedAt, updatedAt: new Date().toISOString(), status: 'running',
+      processed: decisions.size, total: uniquePrograms.size, matchCacheHits: matchCache.hits,
+      lookupCacheHits: lookupCache.hits, tmdbRequests: tmdbSearch?.requestsStarted || 0, algoliaRequests }
+    console.log(`Joyn-Zuordnung: ${progress.processed}/${progress.total} Programme · ${progress.matchCacheHits} aus Cache · ${progress.tmdbRequests}/${tmdbSearch?.client?.maxRequests ?? 'nicht verfügbar'} TMDB · ${algoliaRequests}/${algoliaRequestBudget} Algolia`)
+    await writeJson(resolve(root, 'artifacts/joyn-live/matching-progress.json'), progress)
+  }
   try {
     for (const [programId, entry] of uniquePrograms) {
-      const cached = matchCache.get(entry.candidate)
+      const localCandidates = candidatesFor(entry.candidate.title)
+      const cached = matchCache.get(entry.candidate, localCandidates)
       if (cached) {
         const diagnostic = { ...cached, joynProgramId: programId, channelId: entry.channelId,
           channelTitle: entry.candidate.channelTitle, startTime: entry.candidate.startTime, endTime: entry.candidate.endTime }
         decisions.set(programId, diagnostic.decision)
         programDiagnostics.set(programId, diagnostic)
         if (diagnostic.decision.status !== 'matched') rejected[diagnostic.decision.reason || 'unmatched'] = (rejected[diagnostic.decision.reason || 'unmatched'] || 0) + 1
+        await matchingProgress()
         continue
       }
-      const localCandidates = candidatesFor(entry.candidate.title)
       const startMs = Date.parse(entry.candidate.startTime)
       const endMs = Date.parse(entry.candidate.endTime)
       const broadcastDurationMinutes = Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs
@@ -1010,7 +1021,8 @@ export async function runJoynAdapterDiagnostic({
       })
 
       decisions.set(programId, decision)
-      matchCache.set(entry.candidate, programDiagnostics.get(programId))
+      await matchingProgress()
+      matchCache.set(entry.candidate, programDiagnostics.get(programId), localCandidates)
       if (fullHorizon && (tmdbBudgetExhausted || (decision.status !== 'matched'
           && JSON.stringify(joynClassificationResult).includes('budget_exhausted')))) {
         const error = new Error('Joyn matching budget reached; progress saved, retaining the last complete publication.')
@@ -1106,7 +1118,7 @@ export async function runJoynAdapterDiagnostic({
     metadata = await enrichLiveTitleMetadata(publication.titles.entries, {
       providerId: 'joyn',
       catalogTitles: catalog.titles,
-      cachedTitles: [...previousJoynTitles.entries, ...metadataCache.values()],
+      cachedTitles: [...sharedMetadata, ...metadataCache.values()],
       loadTitleMetadata: tmdbMetadataClient
         ? async (entry, updatedAt) => {
           const value = await tmdbMetadataClient.loadTitle(entry, updatedAt)
