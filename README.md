@@ -57,11 +57,20 @@ Details:
 
 Projektstart: 31. August 2026
 
-Stand: **3. Oktober 2026**
+Stand: **7. Oktober 2026**
 
 Die kanonische Titelbasis aus #256 sowie die Waipu-Pakete #4, #259 und #260 sind technisch umgesetzt und auf den vorgesehenen Geräten abgenommen. TMDB bleibt die kanonische Quelle für öffentliche Film- und Serienmetadaten; externe Quellen ergänzen Verfügbarkeiten, Senderereignisse und Wiedergabeziele.
 
 [#280 – Joyn-Adapter](https://github.com/matthias-ennen/movie-hub/issues/280) ist abgeschlossen. Joyn und Waipu liefern ihre Ausstrahlungen in denselben neutralen Quellen-/TV-Vertrag. Derselbe kanonische Titel kann dadurch mehrere getrennte Providerwege tragen, ohne als doppelter Movie-Hub-Titel zu erscheinen. Wiedergabeziele bleiben providerbezogen als PlaybackRoutes erhalten.
+
+Der gezielt vorgezogene Betriebsnachtrag vom 07.10.2026 unter #271 erweitert
+Joyn auf den geprüften 14-Tage-Import, dauerhafte Checkpoints, Quellenfehlerschutz
+und den gemeinsamen Nachtlaufbericht. Er wurde ohne neues eigenes Issue als
+Ergänzung zu #280/#315 bearbeitet. Aufbau, Code-Deploy und öffentliche Rückprüfung
+sind erfolgreich; die tägliche Fortschreibung mit normalen Budgets muss der
+reguläre Lauf am 08.10.2026 (Sollstart 00:17 Uhr Europe/Berlin) noch bestätigen.
+Nachweise und offener Betriebspunkt: [Nachtlauf-Dokumentation](docs/DATA_WORKFLOW_RELIABILITY.md).
+Die Produkt-Hauptstrecke bleibt #314; Movie Hub Admin wird separat behandelt.
 
 Der interaktive TV-Pfad liest vorbereitete Runtime-Artefakte statt vollständige Providerkataloge in die Oberfläche zu ziehen. Der TV-Hero kommt aus einem kleinen 14-Tage-Snapshot; Tagesdaten werden erst nach Hero-Bereitschaft geladen. Veraltete Tagesrequests werden abgebrochen und der Tagescache ist begrenzt. Seit #346 liegt die komplette TV-Runtime zusätzlich in einem lazy geladenen Feature und wird beim TV-Intent nur vorgewärmt.
 
