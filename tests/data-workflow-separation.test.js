@@ -19,6 +19,23 @@ describe('Firebase workflow data separation', () => {
     }
   })
 
+  it('isolates personal alert failures from confirmed publication and saved checkpoints', async () => {
+    const workflow = await readFile('.github/workflows/deploy-firebase.yml', 'utf8')
+    const checkpoint = workflow.indexOf('name: Commit successful TMDB change checkpoint')
+    const alerts = workflow.indexOf('name: Check observed titles for personal in-app notifications')
+    const iamProbe = workflow.indexOf('name: Probe title-alert Firestore IAM transaction')
+    const report = workflow.indexOf('name: Report independent alert failure')
+    expect(checkpoint).toBeGreaterThan(0)
+    expect(alerts).toBeGreaterThan(checkpoint)
+    expect(iamProbe).toBeGreaterThan(alerts)
+    expect(report).toBeGreaterThan(iamProbe)
+    expect(workflow.slice(alerts, iamProbe)).toContain('continue-on-error: true')
+    expect(workflow.slice(iamProbe, report)).toContain('continue-on-error: true')
+    expect(workflow.slice(iamProbe, report)).toContain("[alert-iam-probe]")
+    expect(workflow).toContain('SUMMARY_TITLE_ALERTS: ${{ steps.title_alerts.outcome }}')
+    expect(workflow).toContain('SUMMARY_ALERT_IAM_PROBE: ${{ steps.title_alert_iam_probe.outcome }}')
+  })
+
   it('reuses validated live TMDB data on ordinary pushes', async () => {
     const workflow = await readFile('.github/workflows/deploy-firebase.yml', 'utf8')
 

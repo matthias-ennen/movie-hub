@@ -414,14 +414,6 @@ jobs:
           REQUIRE_JOYN_14_DAYS: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
         run: node scripts/verify-published-data.mjs
 
-      - name: Check observed titles for personal in-app notifications
-        id: title_alerts
-        if: ${{ github.event_name != 'push' && steps.firebase_deploy.outcome == 'success' }}
-        env:
-          GOOGLE_CLOUD_PROJECT: movie-hub-62459
-          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
-        run: npm run alerts:check
-
       - name: Acknowledge published TMDB change generation
         if: ${{ steps.tmdb_changes.outcome == 'success' && steps.firebase_deploy.outcome == 'success' && steps.publication_verify.outcome == 'success' }}
         run: npm run tmdb:changes:ack -- firebase-publication
@@ -455,6 +447,35 @@ jobs:
         if: ${{ always() && steps.tmdb_checkpoint_upload.outcome == 'success' }}
         run: node scripts/durable-data-checkpoint.mjs probe tmdb
 
+      # The published TMDB generation has already been acknowledged and committed.
+      # A personal-alert failure must not turn a valid catalog into a failed
+      # publication checkpoint (the regression previously seen in deploy #939).
+      - name: Check observed titles for personal in-app notifications
+        id: title_alerts
+        if: ${{ github.event_name != 'push' && steps.publication_verify.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          GOOGLE_CLOUD_PROJECT: movie-hub-62459
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+        run: npm run alerts:check
+
+      # Explicit one-shot probe on the audited main merge commit. No personal
+      # watches are fabricated; the diagnostic creates and deletes its own doc.
+      - name: Probe title-alert Firestore IAM transaction
+        id: title_alert_iam_probe
+        if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[alert-iam-probe]') && steps.publication_verify.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          GOOGLE_CLOUD_PROJECT: movie-hub-62459
+        run: npm run alerts:probe
+
+      - name: Report independent alert failure
+        if: ${{ always() && (steps.title_alerts.outcome == 'failure' || steps.title_alert_iam_probe.outcome == 'failure') }}
+        run: |
+          echo "::warning::Personal alert/IAM check failed independently of the already published catalog. See title_alerts / title_alert_iam_probe."
+          echo "### ⚠️ Persönliche Mitteilungen: unabhängiger Server-/IAM-Fehler" >> "$GITHUB_STEP_SUMMARY"
+          echo "Der Katalog wurde bereits bestätigt; persönliche Benachrichtigungen benötigen eine getrennte Fehlerprüfung." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Publish compact data workflow report
         if: ${{ always() }}
         env:
@@ -476,6 +497,8 @@ jobs:
           SUMMARY_BUILD: ${{ steps.app_build.outcome }}
           SUMMARY_AUTH: ${{ steps.gcp_auth.outcome }}
           SUMMARY_DEPLOY: ${{ steps.firebase_deploy.outcome }}
+          SUMMARY_TITLE_ALERTS: ${{ steps.title_alerts.outcome }}
+          SUMMARY_ALERT_IAM_PROBE: ${{ steps.title_alert_iam_probe.outcome }}
         run: npm run workflow:summary
 
       - name: Upload search-index diagnostics
