@@ -40,9 +40,6 @@ service cloud.firestore {
         allow read, write: if ownsUserData(userId);
 
         match /titleAlerts/{alertId} {
-          function watchFields() {
-            return ['schemaVersion', 'type', 'tmdbId', 'title', 'kind', 'activationId', 'createdAt'];
-          }
           function validActiveWatch() {
             return alertId.matches('^(movie|series)-[0-9]+-(included|tv)
 
@@ -162,7 +159,10 @@ service cloud.firestore {
   }
 }
 )
-              && request.resource.data.keys().hasOnly(watchFields().concat(['status']))
+              && request.resource.data.keys().hasOnly([
+                'schemaVersion', 'type', 'tmdbId', 'title', 'kind',
+                'activationId', 'createdAt', 'status'
+              ])
               && request.resource.data.type in ['movie', 'series']
               && request.resource.data.kind in ['included', 'tv']
               && request.resource.data.tmdbId is int && request.resource.data.tmdbId > 0
@@ -312,7 +312,10 @@ service cloud.firestore {
               && resource.data.status == 'completed'
               && request.resource.data.schemaVersion == 2
               && request.resource.data.status == 'active'
-              && request.resource.data.keys().hasOnly(watchFields().concat(['status']))
+              && request.resource.data.keys().hasOnly([
+                'schemaVersion', 'type', 'tmdbId', 'title', 'kind',
+                'activationId', 'createdAt', 'status'
+              ])
               && request.resource.data.activationId is string
               && request.resource.data.activationId.matches('^[a-zA-Z0-9-]{1,80}
 
