@@ -5,6 +5,17 @@ import {
 } from '../scripts/report-workflow-summary.mjs'
 
 describe('kompakter Workflow-Datenbericht', () => {
+  it('keeps personal notification failures separate from successful Firebase publication', () => {
+    const result = buildWorkflowSummary({ steps: {
+      deploy: 'success', auth: 'success', titleAlerts: 'failure', alertIamProbe: 'success',
+    } })
+    const markdown = workflowSummaryMarkdown(result)
+    expect(result.rows.find((row) => row.area === 'Firebase').status).toBe('✅ erfolgreich')
+    expect(markdown).toContain('Titelbeobachtungen: ❌ fehlgeschlagen')
+    expect(markdown).toContain('Firestore-IAM-Transaktionsprobe: ✅ erfolgreich')
+    expect(markdown).toContain('ohne aktive Beobachtungen')
+  })
+
   it('reports saved matching progress and a retained publication independently', () => {
     const summary = buildWorkflowSummary({
       steps: { joynCatalog: 'failure' }, joynTitles: { entries: [{ type: 'movie' }] },
