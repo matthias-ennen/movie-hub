@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeAnnouncement, visibleProfileAnnouncements } from '../src/notifications/announcementVisibility.js'
+import { activeAnnouncement, visibleProfileAnnouncements, visiblePersonalReadStates } from '../src/notifications/announcementVisibility.js'
 
 const DAY = 86400000
 const T0 = Date.parse('2026-10-08T10:00:00Z')
@@ -51,6 +51,16 @@ describe('#381 inbox visibility, legacy and global separation', () => {
     expect(visibleProfileAnnouncements(notices, 'alice', null)).toEqual([])
     // Earlier snapshots that have no explicit owner are rejected closed.
     expect(visibleProfileAnnouncements([{ ...personal }], 'alice', 'main')).toEqual([])
+  })
+
+  it('does not carry a read marker between profiles sharing the same notification ID', () => {
+    const oldReadMarker = new Map([['profile:movie-121-included-session-initial', { readAt: at(T0) }]])
+    const cache = { ownerUserId: 'alice', profileId: 'main', byId: oldReadMarker }
+    expect(visiblePersonalReadStates(cache, 'alice', 'main')).toBe(oldReadMarker)
+    expect(visiblePersonalReadStates(cache, 'alice', 'child').size).toBe(0)
+    expect(visiblePersonalReadStates(cache, 'bob', 'main').size).toBe(0)
+    expect(visiblePersonalReadStates(cache, null, 'main').size).toBe(0)
+    expect(visiblePersonalReadStates({ ...cache, byId: {} }, 'alice', 'main').size).toBe(0)
   })
 
   it('does not modify global admin logic, including its own earlier expiration', () => {
