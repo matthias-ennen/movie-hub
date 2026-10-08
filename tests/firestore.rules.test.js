@@ -57,6 +57,64 @@ describe('Firestore Security Rules', () => {
     await assertFails(setDoc(doc(bob, ...prefix, 'notificationReads', message.id), { readAt: serverTimestamp() }))
   })
 
+  it('erlaubt V2-Reaktivierung nur nach belegter inklusiver Erfüllung und neuer Aktivierung', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore()
+    const bob = testEnv.authenticatedContext('bob').firestore()
+    const prefix = ['users', 'alice', 'profiles', 'lifecycle']
+    const watch = doc(alice, ...prefix, 'titleAlerts', 'movie-21-included')
+    await assertSucceeds(setDoc(watch, {
+      schemaVersion: 1, type: 'movie', tmdbId: 21, title: 'Testfilm',
+      kind: 'included', activationId: 'session-1', createdAt: serverTimestamp(),
+    }))
+    const completion = { schemaVersion: 2, status: 'completed',
+      completedAt: serverTimestamp(),
+      completionNotificationId: 'movie-21-included-session-1-initial' }
+    await assertFails(setDoc(watch, completion, { merge: true })) // No proof of a message.
+
+    const notification = doc(alice, ...prefix, 'notifications', completion.completionNotificationId)
+    await assertSucceeds(setDoc(notification, {
+      schemaVersion: 1, kind: 'included', titleType: 'movie', tmdbId: 21,
+      title: 'Jetzt inklusive', mediaTitle: 'Testfilm', body: 'Inklusive',
+      startsAt: serverTimestamp(), expiresAt: Timestamp.fromMillis(Date.now() + 86400000),
+    }))
+    await assertSucceeds(setDoc(watch, completion, { merge: true }))
+    const done = (await assertSucceeds(getDoc(watch))).data()
+    expect(done.status).toBe('completed')
+    expect(done.completionNotificationId).toBe(completion.completionNotificationId)
+
+    await assertFails(setDoc(watch, { status: 'active' }, { merge: true })) // ID unchanged.
+    await assertFails(setDoc(watch, { title: 'Manipuliert' }, { merge: true }))
+    await assertFails(setDoc(doc(bob, ...prefix, 'titleAlerts', 'movie-21-included'), { status: 'active' }, { merge: true }))
+    await assertSucceeds(setDoc(watch, {
+      schemaVersion: 2, type: 'movie', tmdbId: 21, title: 'Testfilm',
+      kind: 'included', activationId: 'session-2', createdAt: serverTimestamp(), status: 'active',
+    }))
+    const again = (await assertSucceeds(getDoc(watch))).data()
+    expect(again.activationId).toBe('session-2')
+    expect(again.completedAt).toBeUndefined()
+    expect(again.completionNotificationId).toBeUndefined()
+    await assertFails(setDoc(watch, completion, { merge: true })) // Old activation cannot complete new watch.
+  })
+
+  it('erlaubt V2 aktive TV-Watches, aber niemals clientseitigen TV-Fund-Abschluss', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore()
+    const prefix = ['users', 'alice', 'profiles', 'lifecycle']
+    const watch = doc(alice, ...prefix, 'titleAlerts', 'movie-22-tv')
+    await assertSucceeds(setDoc(watch, {
+      schemaVersion: 2, type: 'movie', tmdbId: 22, title: 'Fernsehfilm',
+      kind: 'tv', activationId: 'session-a', createdAt: serverTimestamp(), status: 'active',
+    }))
+    await assertFails(setDoc(watch, {
+      status: 'completed', completedAt: serverTimestamp(),
+      completionNotificationId: 'movie-22-tv-session-a-initial',
+    }, { merge: true }))
+    await assertFails(setDoc(doc(alice, ...prefix, 'titleAlerts', 'movie-23-included'), {
+      schemaVersion: 2, type: 'movie', tmdbId: 23, title: 'Film',
+      kind: 'included', activationId: 'session-a', createdAt: serverTimestamp(),
+      status: 'completed',
+    }))
+  })
+
   it('liefert veröffentlichte Ankündigungen nur an angemeldete Nutzer und schützt Schreibzugriffe', async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await setDoc(doc(context.firestore(), 'announcements', 'public'), { status: 'published', title: 'Hallo' })
