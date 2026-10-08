@@ -391,6 +391,7 @@ export function buildWorkflowSummary({
       },
     ],
     shorterJoynSources,
+    alertChecks: { scheduled: steps.titleAlerts || 'skipped', iamProbe: steps.alertIamProbe || 'skipped' },
     waipuDelta: difference(waipuCounts.titles, baselineWaipu?.counts?.titles),
   }
 }
@@ -405,6 +406,8 @@ export function workflowSummaryMarkdown(summary) {
     '| Datenbereich | Status | Bestand / Umfang | In diesem Lauf | Offen / verworfen |',
     '| --- | --- | --- | --- | --- |',
     ...summary.rows.map((row) => `| ${row.area} | ${row.status} | ${row.stock} | ${row.activity} | ${row.open} |`),
+    '',
+    `**Persönliche Mitteilungen (eigenständiger Prüfstatus):** Titelbeobachtungen: ${outcome(summary.alertChecks?.scheduled, '⏭️ nicht ausgeführt')} · Firestore-IAM-Transaktionsprobe: ${outcome(summary.alertChecks?.iamProbe, '⏭️ nicht ausgeführt')}. Ein erfolgreicher Prüflauf ohne aktive Beobachtungen belegt noch keinen echten Beobachtungsfall.`,
     '',
     ...(summary.shorterJoynSources?.length ? [
       '**Kürzere Joyn-Quellenvorschauen (UTC-Kalendertage):**', '',
@@ -490,6 +493,8 @@ async function main() {
       build: process.env.SUMMARY_BUILD,
       auth: process.env.SUMMARY_AUTH,
       deploy: process.env.SUMMARY_DEPLOY,
+      titleAlerts: process.env.SUMMARY_TITLE_ALERTS,
+      alertIamProbe: process.env.SUMMARY_ALERT_IAM_PROBE,
     },
     run: {
       number: process.env.GITHUB_RUN_NUMBER,
