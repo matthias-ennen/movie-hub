@@ -1,0 +1,48 @@
+name: Verify a targeted title notification
+
+# Runs once when this dedicated workflow is first merged. Thereafter an
+# operator can repeat it manually without invoking any Waipu/Joyn/TMDB import
+# or Firebase Hosting deployment.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/title-alert-e2e.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: movie-hub-targeted-title-alert-e2e
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout audited source
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Authenticate as the existing scoped MovieHub service account
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+
+      - name: Verify movie-121 included watch and notification deduplication
+        env:
+          GOOGLE_CLOUD_PROJECT: movie-hub-62459
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+        run: node scripts/probe-title-alert-e2e.mjs

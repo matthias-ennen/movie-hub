@@ -85,6 +85,32 @@ describe('trusted title alert data sources', () => {
     expect((await runTitleAlertCheck(options)).includedCreated).toBe(1)
     expect([...db.data.keys()].filter((key) => key.includes('/notifications/'))).toHaveLength(2)
   })
+  it('scopes a production diagnostic to one watch without changing regular nightly behavior', async () => {
+    const userPath = 'users/alice'
+    const base = `${userPath}/profiles/main/titleAlerts`
+    const db = inMemoryFirestore({
+      [userPath]: { providerSettings: { enabledProviderIds: ['netflix'], version: 2 } },
+      [`${userPath}/profiles/main`]: { displayName: 'Hauptprofil' },
+      [`${base}/movie-121-included`]: {
+        schemaVersion: 1, type: 'movie', tmdbId: 121, kind: 'included',
+        title: 'Die zwei Türme', activationId: 'session-1',
+      },
+      [`${base}/movie-122-included`]: {
+        schemaVersion: 1, type: 'movie', tmdbId: 122, kind: 'included',
+        title: 'Anderer Film', activationId: 'session-2',
+      },
+    })
+    const fetchImpl = async () => ({ ok: true, json: async () => ({
+      results: { DE: { flatrate: [{ provider_name: 'Netflix', provider_id: 8 }] } },
+    }) })
+    const options = { db, token: 'test-token', fetchImpl, tvTitles: new Map(),
+      onlyWatchId: 'movie-121-included' }
+    expect((await runTitleAlertCheck(options))).toMatchObject({ observed: 1, includedCreated: 1, failed: 0 })
+    expect((await runTitleAlertCheck(options))).toMatchObject({ observed: 1, includedCreated: 0, failed: 0 })
+    expect([...db.data.keys()].filter(key => key.includes('/notifications/'))).toHaveLength(1)
+    expect([...db.data.keys()].some(key => key.includes('movie-122-included') && key.includes('titleAlertState'))).toBe(false)
+  })
+
   it('merges recent Waipu and Joyn TV title publications', async () => {
     const files = new Map([
       ['public/waipu-live/index.json', JSON.stringify({ kind: 'waipu-live-index', status: 'complete', generatedAt: '2026-09-26T12:00:00.000Z' })],
