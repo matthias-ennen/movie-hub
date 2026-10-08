@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeAnnouncement } from '../src/notifications/announcementVisibility.js'
+import { activeAnnouncement, visibleProfileAnnouncements } from '../src/notifications/announcementVisibility.js'
 
 const DAY = 86400000
 const T0 = Date.parse('2026-10-08T10:00:00Z')
@@ -33,6 +33,24 @@ describe('#381 inbox visibility, legacy and global separation', () => {
     const old = { ...personal, schemaVersion: 1, completedAt: undefined }
     expect(activeAnnouncement(old, T0 + 29 * DAY, { readAt: at(T0 + DAY) })).toBe(true)
     expect(activeAnnouncement(old, T0 + 30 * DAY, { readAt: at(T0 + DAY) })).toBe(false)
+  })
+
+  it('never includes cached notifications belonging to an earlier profile or account', () => {
+    const notices = [
+      { ...personal, id: 'profile:same-id', ownerUserId: 'alice', profileId: 'main', body: 'Alice main' },
+      { ...personal, id: 'profile:same-id', ownerUserId: 'alice', profileId: 'child', body: 'Alice child' },
+      { ...personal, id: 'profile:same-id', ownerUserId: 'bob', profileId: 'main', body: 'Bob main' },
+    ]
+    expect(visibleProfileAnnouncements(notices, 'alice', 'main').map((x) => x.body))
+      .toEqual(['Alice main'])
+    expect(visibleProfileAnnouncements(notices, 'alice', 'child').map((x) => x.body))
+      .toEqual(['Alice child'])
+    expect(visibleProfileAnnouncements(notices, 'bob', 'main').map((x) => x.body))
+      .toEqual(['Bob main'])
+    expect(visibleProfileAnnouncements(notices, null, 'main')).toEqual([])
+    expect(visibleProfileAnnouncements(notices, 'alice', null)).toEqual([])
+    // Earlier snapshots that have no explicit owner are rejected closed.
+    expect(visibleProfileAnnouncements([{ ...personal }], 'alice', 'main')).toEqual([])
   })
 
   it('does not modify global admin logic, including its own earlier expiration', () => {
