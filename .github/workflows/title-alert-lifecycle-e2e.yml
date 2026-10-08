@@ -1,0 +1,47 @@
+name: Validate completed personal title watch
+
+# Run once when this workflow is first merged into main; later it can be
+# re-run manually. Scoped to the pre-existing, user-approved movie-121 alert.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/title-alert-lifecycle-e2e.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: movie-hub-title-alert-lifecycle-e2e
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout audited source
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Authenticate as existing MovieHub service account
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+
+      - name: Complete and verify existing included watch without duplicate
+        env:
+          GOOGLE_CLOUD_PROJECT: movie-hub-62459
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+        run: node scripts/verify-title-alert-lifecycle.mjs
