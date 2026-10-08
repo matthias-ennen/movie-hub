@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { normalizeTmdbWatchProviders } from '../src/services/tmdb.js'
+import { isActiveTitleWatch } from '../src/notifications/titleAlertLifecycleModel.js'
 import { PROVIDER_REGISTRY } from '../src/providers/providerRegistry.js'
 import { normalizeStoredProviderSelection } from '../src/settings/providerSelectionModel.js'
 import {
@@ -15,7 +16,8 @@ function parseWatchSnapshot(snapshot) {
   const segments = snapshot.ref.path.split('/')
   const data = snapshot.data()
   if (segments.length !== 6 || segments[0] !== 'users' || segments[2] !== 'profiles'
-    || segments[4] !== 'titleAlerts' || data?.schemaVersion !== 1
+    || segments[4] !== 'titleAlerts' || ![1, 2].includes(data?.schemaVersion)
+    || !isActiveTitleWatch(data)
     || !watchId(data, data.kind) || segments[5] !== watchId(data, data.kind)
     || !/^[a-zA-Z0-9-]{1,80}$/.test(data.activationId || '')) return null
   return { snapshot, userId: segments[1], profileId: segments[3], watch: data }
@@ -108,31 +110,54 @@ function notification(watch, kind, body, now, expiresAt) {
 async function storeIncluded(db, entry, account, offers, now) {
   const { snapshot, watch } = entry
   const enabled = normalizeStoredProviderSelection(
-    account.providerSettings?.enabledProviderIds, account.providerSettings?.version,
+    account?.providerSettings?.enabledProviderIds, account?.providerSettings?.version,
   ).enabledProviderIds
   const providerFingerprint = [...enabled].sort().join(',')
   const availableProviders = includedProviderIds(offers, enabled)
   const available = availableProviders.length > 0
-  const stateRef = snapshot.ref.parent.parent.collection('titleAlertState').doc(snapshot.id)
+  const parent = snapshot.ref.parent.parent
+  const stateRef = parent.collection('titleAlertState').doc(snapshot.id)
+  // An included observation is one-shot. Never generate return-N events.
+  const eventId = alertNotificationId(watch, 'initial')
+  const eventRef = parent.collection('notifications').doc(eventId)
   return db.runTransaction(async (transaction) => {
-    const [current, oldState] = await Promise.all([transaction.get(snapshot.ref), transaction.get(stateRef)])
-    if (!current.exists || current.data().activationId !== watch.activationId) return false
+    // All reads precede writes: clients may have created the initial event.
+    const [current, oldState, existingEvent] = await Promise.all([
+      transaction.get(snapshot.ref), transaction.get(stateRef), transaction.get(eventRef),
+    ])
+    if (!current.exists || current.data().activationId !== watch.activationId
+      || !isActiveTitleWatch(current.data())) return false
+
     const next = includedTransition(oldState.data(), watch.activationId, available, providerFingerprint)
-    let eventRef = null
-    let existingEvent = null
-    if (next.send) {
-      const suffix = next.cycle ? `return-${next.cycle}` : 'initial'
-      const eventId = alertNotificationId(watch, suffix)
-      eventRef = snapshot.ref.parent.parent.collection('notifications').doc(eventId)
-      existingEvent = await transaction.get(eventRef)
+    const shouldCreate = available && next.send && !existingEvent.exists
+    if (!shouldCreate && !existingEvent.exists) {
+      transaction.set(stateRef, { ...next, updatedAt: new Date(now) })
+      return false
     }
-    if (eventRef && !existingEvent.exists) {
+
+    const finishedAt = new Date(now)
+    if (shouldCreate) {
       const names = availableProviders.map((id) => providerLabels.get(id) || id).join(', ')
-      transaction.create(eventRef, notification(watch, 'included',
-        `${watch.title} ist ohne Aufpreis bei ${names} verfügbar.`, now, now + 30 * 86400000))
+      transaction.create(eventRef, {
+        ...notification(watch, 'included',
+          `${watch.title} ist ohne Aufpreis bei ${names} verfügbar.`, now, now + 30 * 86400000),
+        schemaVersion: 2, phase: 'included-found', eventAt: finishedAt, completedAt: finishedAt,
+      })
+    } else if (!existingEvent.data()?.completedAt) {
+      // Existing V1 client-first events also complete their watch; keep the
+      // original message ID/text/deadline instead of re-emitting anything.
+      transaction.update(eventRef, { schemaVersion: 2, phase: 'included-found', completedAt: finishedAt })
     }
-    transaction.set(stateRef, { ...next, updatedAt: new Date(now) })
-    return Boolean(eventRef && !existingEvent.exists)
+    transaction.set(stateRef, {
+      ...next, activationId: watch.activationId, status: 'completed',
+      completedAt: finishedAt, updatedAt: finishedAt,
+    })
+    // Admin SDK's existing custom IAM role supports update; no delete needed.
+    transaction.update(snapshot.ref, {
+      schemaVersion: 2, status: 'completed', completedAt: finishedAt,
+      completionNotificationId: eventId,
+    })
+    return shouldCreate
   })
 }
 

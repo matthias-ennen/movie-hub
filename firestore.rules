@@ -106,9 +106,16 @@ service cloud.firestore {
             && notificationId.matches('^(movie|series)-[0-9]+-(included|tv)-[a-zA-Z0-9-]+-(initial|airing-[0-9]+)$')
             && request.resource.data.keys().hasOnly([
               'schemaVersion', 'kind', 'titleType', 'tmdbId', 'title', 'mediaTitle',
-              'body', 'startsAt', 'expiresAt'
+              'body', 'startsAt', 'expiresAt', 'phase', 'eventAt', 'completedAt'
             ])
-            && request.resource.data.schemaVersion == 1
+            && ((request.resource.data.schemaVersion == 1
+                && !request.resource.data.keys().hasAny(['phase', 'eventAt', 'completedAt']))
+              || (request.resource.data.schemaVersion == 2
+                && request.resource.data.kind == 'included'
+                && notificationId.matches('^(movie|series)-[0-9]+-included-[a-zA-Z0-9-]+-initial$')
+                && request.resource.data.phase == 'included-found'
+                && request.resource.data.eventAt == request.time
+                && request.resource.data.completedAt == request.time))
             && request.resource.data.kind in ['included', 'tv']
             && request.resource.data.titleType in ['movie', 'series']
             && request.resource.data.tmdbId is int && request.resource.data.tmdbId > 0
@@ -124,10 +131,12 @@ service cloud.firestore {
 
         match /notificationReads/{notificationId} {
           allow read: if ownsUserData(userId);
-          allow create, update: if ownsUserData(userId)
+          allow create: if ownsUserData(userId)
             && request.resource.data.keys().hasOnly(['readAt'])
             && request.resource.data.readAt == request.time;
-          allow delete: if false;
+          // The first read is immutable, including across multiple devices.
+          // Otherwise opening the message again could extend its 7-day lifetime.
+          allow update, delete: if false;
         }
 
         match /titles/{titleId} {

@@ -20,7 +20,7 @@ export async function inspectTarget(db, target = TARGET) {
       const watchSnapshot = await profile.ref.collection('titleAlerts').doc(target).get()
       if (!watchSnapshot.exists) continue
       const watch = watchSnapshot.data()
-      if (watch?.schemaVersion !== 1 || watchId(watch, watch.kind) !== target
+      if (![1, 2].includes(watch?.schemaVersion) || watchId(watch, watch.kind) !== target
         || !/^[a-zA-Z0-9-]{1,80}$/.test(watch.activationId || '')) continue
 
       const state = await profile.ref.collection('titleAlertState').doc(target).get()
@@ -39,7 +39,8 @@ export async function inspectTarget(db, target = TARGET) {
 }
 
 export function verifyCheckResults(first, second, states) {
-  if (first.observed < 1 || second.observed !== first.observed || states.length !== first.observed) {
+  if (first.observed < 1 || ![0, first.observed].includes(second.observed)
+    || states.length !== first.observed) {
     throw new Error('Target watch not consistently found in Firestore.')
   }
   if (first.failed || second.failed || second.includedCreated !== 0 || second.tvCreated !== 0) {

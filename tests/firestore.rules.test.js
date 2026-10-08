@@ -5,7 +5,7 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing'
-import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, Timestamp, where } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, Timestamp, where, writeBatch } from 'firebase/firestore'
 import { nativeTitleToFirestore } from '../src/tmdb/tmdbCatalogModel.js'
 
 let testEnv
@@ -54,6 +54,7 @@ describe('Firestore Security Rules', () => {
     await assertFails(getDoc(doc(bob, ...prefix, 'notifications', message.id)))
     await assertFails(setDoc(message, { body: 'Manipuliert' }, { merge: true }))
     await assertSucceeds(setDoc(doc(alice, ...prefix, 'notificationReads', message.id), { readAt: serverTimestamp() }))
+    await assertFails(setDoc(doc(alice, ...prefix, 'notificationReads', message.id), { readAt: serverTimestamp() }))
     await assertFails(setDoc(doc(bob, ...prefix, 'notificationReads', message.id), { readAt: serverTimestamp() }))
   })
 
@@ -112,6 +113,37 @@ describe('Firestore Security Rules', () => {
       schemaVersion: 2, type: 'movie', tmdbId: 23, title: 'Film',
       kind: 'included', activationId: 'session-a', createdAt: serverTimestamp(),
       status: 'completed',
+    }))
+  })
+
+  it('speichert eine V2-Inklusivmeldung und den Abschluss atomar, ohne Client-Update-Rechte auf Nachrichten', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore()
+    const prefix = ['users', 'alice', 'profiles', 'lifecycle']
+    const watch = doc(alice, ...prefix, 'titleAlerts', 'movie-26-included')
+    const event = doc(alice, ...prefix, 'notifications', 'movie-26-included-session-v2-initial')
+    await assertSucceeds(setDoc(watch, {
+      schemaVersion: 2, status: 'active', type: 'movie', tmdbId: 26,
+      title: 'Film', kind: 'included', activationId: 'session-v2', createdAt: serverTimestamp(),
+    }))
+    const batch = writeBatch(alice)
+    batch.set(event, {
+      schemaVersion: 2, kind: 'included', titleType: 'movie', tmdbId: 26,
+      title: 'Jetzt inklusive', mediaTitle: 'Film', body: 'Film ist inklusive.',
+      phase: 'included-found', eventAt: serverTimestamp(), completedAt: serverTimestamp(),
+      startsAt: serverTimestamp(), expiresAt: Timestamp.fromMillis(Date.now() + 86400000),
+    })
+    batch.update(watch, { schemaVersion: 2, status: 'completed',
+      completedAt: serverTimestamp(), completionNotificationId: event.id })
+    await assertSucceeds(batch.commit())
+    expect((await assertSucceeds(getDoc(watch))).data().status).toBe('completed')
+    expect((await assertSucceeds(getDoc(event))).data().phase).toBe('included-found')
+    await assertFails(setDoc(event, { body: 'Manipuliert' }, { merge: true }))
+    const badTv = doc(alice, ...prefix, 'notifications', 'movie-26-tv-session-v2-initial')
+    await assertFails(setDoc(badTv, {
+      schemaVersion: 2, kind: 'tv', titleType: 'movie', tmdbId: 26,
+      title: 'Bald im TV', mediaTitle: 'Film', body: 'TV.',
+      phase: 'included-found', eventAt: serverTimestamp(), completedAt: serverTimestamp(),
+      startsAt: serverTimestamp(), expiresAt: Timestamp.fromMillis(Date.now() + 86400000),
     }))
   })
 
