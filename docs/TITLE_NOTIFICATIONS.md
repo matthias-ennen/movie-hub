@@ -1,4 +1,4 @@
-# Titelbezogene Mitteilungen – erster Umfang
+# Titelbezogene Mitteilungen – Stand 08.10.2026
 
 ## Bedienung
 
@@ -20,14 +20,17 @@ beiden Anlässe.
   Platzhalter `catalog` zählen nicht. Ein fehlender Angebotsnachweis
   wird im nächsten zentralen Prüflauf gezielt anhand der TMDB-ID geprüft.
 - Der planmäßige Datenlauf prüft nach erfolgreicher Veröffentlichung
-  beobachtete Titel einzeln bei TMDB. Ein erster vorhandener Einschluss löst
-  ebenfalls aus. Erst wenn das Angebot bei allen aktivierten Anbietern
-  tatsächlich verschwunden ist, kann sein späteres Wiederkommen erneut
-  melden. Eine Änderung der Anbieterauswahl erzeugt allein keine Meldung.
-- „Wenn im TV“ nutzt ausschließlich eine vollständige, höchstens 48 Stunden
-  alte Waipu-Generation. Der früheste Termin eines nicht deaktivierten Senders
-  innerhalb der nächsten 36 Stunden ergibt eine Meldung mit Uhrzeit, Sender
-  und gegebenenfalls Staffel/Folge. Derselbe Termin und weitere Termine
+  aktive Beobachtungen einzeln bei TMDB. Ein erster inklusive verfügbarer
+  Titel löst **genau eine** persönliche Nachricht aus und markiert die
+  Beobachtung als `completed`. Eine spätere Rückkehr beim selben Watch
+  löst keine weitere Nachricht aus. Erst eine **bewusste neue Aktivierung**
+  mit anderer Aktivierungs-ID erlaubt einen neuen einmaligen Treffer.
+  Rent/Buy, reine Katalog-Platzhalter, ungewählte Anbieter und fehlgeschlagene
+  TMDB-Abrufe führen nicht zum Abschluss.
+- „Wenn im TV“ nutzt die vollständigen, höchstens 48 Stunden alten
+  Generationen von **Waipu und Joyn**. Der früheste Termin eines nicht
+  deaktivierten Senders innerhalb der nächsten 36 Stunden ergibt eine
+  Meldung mit Uhrzeit, Sender und gegebenenfalls Staffel/Folge. Derselbe Termin und weitere Termine
   derselben Serie innerhalb von sieben Tagen erzeugen keine zweite Meldung.
   Die Serienbeobachtung gilt im ersten Umfang für die Serie als Ganzes.
   Beim Einschalten prüft die App den aktuellen veröffentlichten TV-Stand auch
@@ -35,11 +38,26 @@ beiden Anlässe.
   übersehen wird. Der Nachtlauf teilt dieselbe Termin-ID und meldet ihn nicht
   ein zweites Mal.
 - Der Server speichert Übergangszustände unter `titleAlertState` und Meldungen
-  unter `notifications`; das Gerät speichert seinen Lesestatus getrennt unter
-  `notificationReads`. Firestore Rules begrenzen Clients auf das eigene Konto;
-  der vertrauenswürdige Datenlauf verwendet sein bestehendes Dienstkonto.
+  unter `notifications`; der erste geräteübergreifende Lesestatus liegt unter
+  `notificationReads` (**einmaliges `readAt`, niemals überschreibbar**).
+  Firestore Rules begrenzen Clients auf das eigene Konto; innerhalb der App
+  werden Meldungen und Lesestatus zusätzlich vor Anzeige auf die aktive
+  Konto-/Profil-Kombination gefiltert. Der vertrauenswürdige Datenlauf
+  verwendet sein bestehendes Dienstkonto.
   Client und Server verwenden dieselbe ID für den ersten Einschlusstreffer,
   damit eine erneute Prüfung keine zweite Meldung schreibt.
+- Die Glocke zeigt gültige persönliche V1-/V2-Ereignisse und veröffentlichte
+  globale Admin-Mitteilungen unabhängig voneinander. Für neue inklusive
+  Nachrichten gilt ein Hard-TTL von 30 Tagen; bei V2-Ereignissen mit erstem
+  `readAt` **und** `completedAt` bleibt die Meldung längstens sieben Tage
+  nach dem späteren dieser Zeitpunkte sichtbar, niemals über das Hard-TTL.
+  Ungelesene oder noch nicht abgeschlossene Meldungen behalten ihre Frist;
+  bestehende V1-Nachrichten behalten ihre ursprüngliche `expiresAt`.
+- Beim Einschalten von **„Wenn inklusive“** bleibt der Schalter in der
+  gerade geöffneten Detailansicht optisch `Ein`, selbst bei sofortigem
+  erfolgreichem Abschluss. Der echte Firestore-Status ist bereits `completed`.
+  Erst nach Schließen und erneutem Öffnen zeigt er deshalb `Aus`.
+  Kein Erfolgshinweis und kein Timer. Die TV-Beobachtung ist unabhängig.
 
 ## Grenzen und Prüfung
 
@@ -55,12 +73,14 @@ Provideränderung, TV-Zeitfenster und Deduplizierung. Firestore-Regeln werden
 in der GitHub-CI mit Java 21 getestet. Die manuelle Geräteabnahme und ein
 echter geplanter Lauf bleiben eigene Prüfpunkte in #118 und #314.
 
-## Lebenszyklus V2 – Phase A (#381, nur Vertrag und Tests)
+## Lebenszyklus V2 – #381, Phasen A–D produktiv
 
 Der reine Zustands- und Zeitvertrag liegt in
-`src/notifications/titleAlertLifecycleModel.js`. Phase A ist bewusst **noch
-nicht** mit dem produktiven Client, Nachtlauf oder den Firestore-Regeln
-verbunden: Die bestehenden Schalter, Meldungen und Daten werden nicht verändert.
+`src/notifications/titleAlertLifecycleModel.js` und ist inzwischen mit
+Firestore-Regeln, dem Client, dem Nachtlauf und dem Posteingang verbunden.
+Die Prüfungen einschließlich einer bereits vorhandenen V1-Meldung
+(„Die zwei Türme“) waren erfolgreich; der vorhandene Meldungstext und der
+erste Lesestatus wurden dabei nicht ersetzt.
 
 - V1-`titleAlerts` ohne `status` bleiben lesbar und fachlich **aktiv**.
   V2 verwendet `status: active/completed`; Abschluss speichert
@@ -82,7 +102,8 @@ verbunden: Die bestehenden Schalter, Meldungen und Daten werden nicht verändert
   oder Millisekunden), ohne lokale Sommerzeit-Arithmetik.
 - Globale Admin-Mitteilungen bleiben getrennt und unverändert.
 
-Erst die Folgephasen B–E verbinden diese Funktionen mit Rules,
-Servertransaktionen, Client-Status, Posteingang und Legacy-Migration.
-Insbesondere kein globales Firestore-Delete-Recht und keine automatische
-Migration aufgrund dieses Modell-PRs.
+Die Phasen B–D sind integriert und produktiv ausgerollt. #381 bleibt für
+weitere Randfälle und die abschließende Geräte-/Mehrgeräteabnahme offen.
+Insbesondere kein globales Firestore-Delete-Recht und keine ungeprüfte
+Massenmigration. Die TV-Endphase und fünfminütige Erinnerung folgen
+gesondert in #382.
