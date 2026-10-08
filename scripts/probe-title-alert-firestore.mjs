@@ -2,28 +2,22 @@ import { randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 
 /**
- * A bounded, disposable production IAM probe. Uses the same Admin SDK / WIF
- * credentials as check-title-alerts, but never touches a user or a real watch.
+ * Probes the same WIF/Admin SDK principal as check-title-alerts.
+ * Firestore's default read-write runTransaction requires the permission
+ * datastore.databases.get even when the transaction has zero mutations.
+ * The randomly named diagnostic document is NOT created or changed.
+ *
+ * A passing probe proves transaction start and read permission only.
+ * Actual notification create/update/dedup still needs an E2E watch test.
  */
-export async function probeTitleAlertFirestore(db, { probeId = randomUUID(), now = new Date() } = {}) {
+export async function probeTitleAlertFirestore(db, { probeId = randomUUID() } = {}) {
   if (!db || !/^[0-9a-f-]{36}$/i.test(probeId)) throw new Error('Valid Firestore and probe ID required.')
   const ref = db.collection('movieHubDiagnostics').doc(`title-alert-${probeId}`)
-  let committed = false
-  try {
-    await db.runTransaction(async (transaction) => {
-      const old = await transaction.get(ref)
-      if (old.exists) throw new Error('Diagnostic probe already exists.')
-      transaction.create(ref, { kind: 'title-alert-iam-probe', schemaVersion: 1, createdAt: now })
-    })
-    committed = true
-    const persisted = await ref.get()
-    if (!persisted.exists || persisted.data()?.kind !== 'title-alert-iam-probe') {
-      throw new Error('Firestore IAM probe could not read back the transaction.')
-    }
-    return { transaction: 'passed', readback: 'passed', cleanup: 'pending' }
-  } finally {
-    if (committed) await ref.delete()
-  }
+  return db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref)
+    if (snapshot.exists) throw new Error('Diagnostic probe path unexpectedly exists.')
+    return { transaction: 'passed', readback: 'absent', mutations: 0 }
+  })
 }
 
 async function main() {
@@ -36,7 +30,7 @@ async function main() {
   }, 'title-alert-iam-probe')
   try {
     const result = await probeTitleAlertFirestore(getFirestore(app))
-    console.log(JSON.stringify({ ...result, cleanup: 'passed', watchesModified: 0 }))
+    console.log(JSON.stringify({ ...result, userRecordsModified: 0, diagnosticRecordsModified: 0 }))
   } finally {
     await deleteApp(app)
   }
