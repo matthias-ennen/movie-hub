@@ -161,7 +161,11 @@ async function storeTv(db, entry, account, tvTitles, now) {
   })
 }
 
-export async function runTitleAlertCheck({ db, token, now = Date.now(), fetchImpl = fetch, tvTitles = null } = {}) {
+function snapshotMatchesWatch(entry, onlyWatchId) {
+  return entry.snapshot.id === onlyWatchId
+}
+
+export async function runTitleAlertCheck({ db, token, now = Date.now(), fetchImpl = fetch, tvTitles = null, onlyWatchId = null } = {}) {
   if (!db || !token) throw new Error('Firestore and TMDB server credentials are required.')
   const users = await db.collection('users').get()
   const accounts = new Map(users.docs.map((doc) => [doc.id, doc.data() || {}]))
@@ -172,7 +176,7 @@ export async function runTitleAlertCheck({ db, token, now = Date.now(), fetchImp
       const watches = await profile.ref.collection('titleAlerts').get()
       for (const watch of watches.docs) {
         const parsed = parseWatchSnapshot(watch)
-        if (parsed) entries.push(parsed)
+        if (parsed && (!onlyWatchId || snapshotMatchesWatch(parsed, onlyWatchId))) entries.push(parsed)
         if (entries.length > MAX_WATCHES) throw new Error('Title-alert watch limit exceeded; no partial run was started.')
       }
     }
