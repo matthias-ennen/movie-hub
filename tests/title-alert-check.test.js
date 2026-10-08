@@ -120,6 +120,45 @@ describe('trusted title alert data sources', () => {
     expect((await runTitleAlertCheck({ db, token: 'test-token', fetchImpl, tvTitles: new Map() })).observed).toBe(0)
   })
 
+  it('preserves the acknowledged two-towers message and read marker while completing a V1 watch', async () => {
+    const profile = 'users/test-account/profiles/main'
+    const watchPath = `${profile}/titleAlerts/movie-121-included`
+    const eventPath = `${profile}/notifications/movie-121-included/session-1-initial`
+    const validEventPath = `${profile}/notifications/movie-121-included-session-1-initial`
+    const readPath = `${profile}/notificationReads/movie-121-included-session-1-initial`
+    const startsAt = new Date('2026-10-08T09:00:00Z')
+    const expiresAt = new Date('2026-11-07T09:00:00Z')
+    const readAt = new Date('2026-10-08T09:20:00Z')
+    const db = inMemoryFirestore({
+      'users/test-account': { providerSettings: { enabledProviderIds: ['netflix'], version: 2 } },
+      [profile]: { displayName: 'main' },
+      [watchPath]: { schemaVersion: 1, type: 'movie', tmdbId: 121,
+        kind: 'included', title: 'Der Herr der Ringe – Die zwei Türme', activationId: 'session-1' },
+      [validEventPath]: { schemaVersion: 1, kind: 'included', title: 'Jetzt inklusive',
+        body: 'Bestehende Benachrichtigung', startsAt, expiresAt },
+      [readPath]: { readAt },
+    })
+    const fetchImpl = async () => ({ ok: true, json: async () => ({ results: { DE: {} } }) })
+    const result = await runTitleAlertCheck({
+      db, token: 'test-token', fetchImpl, tvTitles: new Map(), onlyWatchId: 'movie-121-included',
+      now: Date.parse('2026-10-08T10:00:00Z'),
+    })
+    expect(result).toMatchObject({ observed: 1, includedCreated: 0, failed: 0 })
+    expect(db.data.get(watchPath)).toMatchObject({
+      status: 'completed', completionNotificationId: 'movie-121-included-session-1-initial',
+    })
+    expect(db.data.get(validEventPath)).toMatchObject({
+      body: 'Bestehende Benachrichtigung', startsAt, expiresAt, schemaVersion: 2,
+    })
+    expect(db.data.get(readPath)).toEqual({ readAt })
+    expect(db.data.has(eventPath)).toBe(false)
+    expect([...db.data.keys()].filter(path => path.startsWith(`${profile}/notifications/`)))
+      .toEqual([validEventPath])
+    expect((await runTitleAlertCheck({
+      db, token: 'test-token', fetchImpl, tvTitles: new Map(), onlyWatchId: 'movie-121-included',
+    })).observed).toBe(0)
+  })
+
   it('scopes a production diagnostic to one watch without changing regular nightly behavior', async () => {
     const userPath = 'users/alice'
     const base = `${userPath}/profiles/main/titleAlerts`
