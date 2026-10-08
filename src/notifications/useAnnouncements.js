@@ -1,22 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { collection, doc, onSnapshot, query, runTransaction, serverTimestamp, Timestamp, where } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
-import { isCurrentPersonalNotification } from './titleAlertLifecycleModel.js'
-
-export function activeAnnouncement(item, now, readState = null) {
-  if (item.id?.startsWith('profile:')) {
-    return item.mode === 'inbox' && typeof item.title === 'string'
-      && typeof item.body === 'string'
-      && isCurrentPersonalNotification(item, readState, now)
-  }
-  // Global Admin announcements are intentionally unaffected by #381.
-  const start = item.startsAt?.toMillis?.()
-  const end = item.expiresAt?.toMillis?.()
-  return item.schemaVersion === 1 && item.status === 'published'
-    && ['inbox', 'startup'].includes(item.mode)
-    && typeof item.title === 'string' && typeof item.body === 'string'
-    && Number.isFinite(start) && Number.isFinite(end) && start <= now && now < end
-}
+import { activeAnnouncement } from './announcementVisibility.js'
 
 export function useAnnouncements(userId, profileId) {
   const [announcements, setAnnouncements] = useState([])
