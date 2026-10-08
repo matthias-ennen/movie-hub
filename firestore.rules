@@ -40,22 +40,62 @@ service cloud.firestore {
         allow read, write: if ownsUserData(userId);
 
         match /titleAlerts/{alertId} {
+          function validActiveWatch() {
+            return alertId.matches('^(movie|series)-[0-9]+-(included|tv)$')
+              && request.resource.data.keys().hasOnly([
+                'schemaVersion', 'type', 'tmdbId', 'title', 'kind',
+                'activationId', 'createdAt', 'status'
+              ])
+              && request.resource.data.type in ['movie', 'series']
+              && request.resource.data.kind in ['included', 'tv']
+              && request.resource.data.tmdbId is int && request.resource.data.tmdbId > 0
+              && request.resource.data.title is string && request.resource.data.title.size() > 0
+              && request.resource.data.title.size() <= 160
+              && request.resource.data.activationId is string
+              && request.resource.data.activationId.matches('^[a-zA-Z0-9-]{1,80}$')
+              && request.resource.data.createdAt == request.time
+              && ((request.resource.data.schemaVersion == 1
+                  && !request.resource.data.keys().hasAny(['status']))
+                || (request.resource.data.schemaVersion == 2
+                  && request.resource.data.status == 'active'));
+          }
+          function clientCompletesIncludedWatch() {
+            return resource.data.schemaVersion in [1, 2]
+              && resource.data.kind == 'included'
+              && resource.data.get('status', 'active') == 'active'
+              && request.resource.data.schemaVersion == 2
+              && request.resource.data.status == 'completed'
+              && request.resource.data.completedAt == request.time
+              && request.resource.data.completionNotificationId ==
+                alertId + '-' + resource.data.activationId + '-initial'
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'schemaVersion', 'status', 'completedAt', 'completionNotificationId'
+              ])
+              && existsAfter(/databases/$(database)/documents/users/$(userId)/profiles/$(profileId)/notifications/$(request.resource.data.completionNotificationId));
+          }
+          function clientReactivatesCompletedWatch() {
+            return resource.data.schemaVersion == 2
+              && resource.data.status == 'completed'
+              && request.resource.data.schemaVersion == 2
+              && request.resource.data.status == 'active'
+              && request.resource.data.keys().hasOnly([
+                'schemaVersion', 'type', 'tmdbId', 'title', 'kind',
+                'activationId', 'createdAt', 'status'
+              ])
+              && request.resource.data.activationId is string
+              && request.resource.data.activationId.matches('^[a-zA-Z0-9-]{1,80}$')
+              && request.resource.data.activationId != resource.data.activationId
+              && request.resource.data.createdAt == request.time
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'activationId', 'createdAt', 'status', 'completedAt', 'completionNotificationId'
+              ]);
+          }
           allow read, delete: if ownsUserData(userId);
-          allow create: if ownsUserData(userId)
-            && alertId.matches('^(movie|series)-[0-9]+-(included|tv)$')
-            && request.resource.data.keys().hasOnly([
-              'schemaVersion', 'type', 'tmdbId', 'title', 'kind', 'activationId', 'createdAt'
-            ])
-            && request.resource.data.schemaVersion == 1
-            && request.resource.data.type in ['movie', 'series']
-            && request.resource.data.kind in ['included', 'tv']
-            && request.resource.data.tmdbId is int && request.resource.data.tmdbId > 0
-            && request.resource.data.title is string && request.resource.data.title.size() > 0
-            && request.resource.data.title.size() <= 160
-            && request.resource.data.activationId is string
-            && request.resource.data.activationId.matches('^[a-zA-Z0-9-]{1,80}$')
-            && request.resource.data.createdAt == request.time;
-          allow update: if false;
+          allow create: if ownsUserData(userId) && validActiveWatch();
+          // Only the included initial event may be completed by the client.
+          // A TV discovery stays active until its final reminder (#382).
+          allow update: if ownsUserData(userId)
+            && (clientCompletesIncludedWatch() || clientReactivatesCompletedWatch());
         }
 
         match /notifications/{notificationId} {
