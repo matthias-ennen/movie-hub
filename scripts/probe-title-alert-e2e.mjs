@@ -3,7 +3,6 @@ import { applicationDefault, deleteApp, initializeApp } from 'firebase-admin/app
 import { getFirestore } from 'firebase-admin/firestore'
 import { runTitleAlertCheck } from './check-title-alerts.mjs'
 import { alertNotificationId, watchId } from '../src/notifications/titleAlertModel.js'
-import { isActiveTitleWatch } from '../src/notifications/titleAlertLifecycleModel.js'
 
 const TARGET = 'movie-121-included' // Der Herr der Ringe – Die zwei Türme (TMDB 121)
 
