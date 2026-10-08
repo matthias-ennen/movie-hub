@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeAnnouncement } from '../src/notifications/useAnnouncements.js'
+import { activeAnnouncement } from '../src/notifications/announcementVisibility.js'
 
 const DAY = 86400000
 const T0 = Date.parse('2026-10-08T10:00:00Z')
