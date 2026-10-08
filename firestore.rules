@@ -131,10 +131,12 @@ service cloud.firestore {
 
         match /notificationReads/{notificationId} {
           allow read: if ownsUserData(userId);
-          allow create, update: if ownsUserData(userId)
+          allow create: if ownsUserData(userId)
             && request.resource.data.keys().hasOnly(['readAt'])
             && request.resource.data.readAt == request.time;
-          allow delete: if false;
+          // The first read is immutable, including across multiple devices.
+          // Otherwise opening the message again could extend its 7-day lifetime.
+          allow update, delete: if false;
         }
 
         match /titles/{titleId} {
