@@ -54,6 +54,7 @@ describe('Firestore Security Rules', () => {
     await assertFails(getDoc(doc(bob, ...prefix, 'notifications', message.id)))
     await assertFails(setDoc(message, { body: 'Manipuliert' }, { merge: true }))
     await assertSucceeds(setDoc(doc(alice, ...prefix, 'notificationReads', message.id), { readAt: serverTimestamp() }))
+    await assertFails(setDoc(doc(alice, ...prefix, 'notificationReads', message.id), { readAt: serverTimestamp() }))
     await assertFails(setDoc(doc(bob, ...prefix, 'notificationReads', message.id), { readAt: serverTimestamp() }))
   })
 
