@@ -30,6 +30,7 @@ function inMemoryFirestore(initial) {
       return fn({
         get: async (reference) => snapshot(reference.path),
         set: (reference, value) => data.set(reference.path, value),
+        update: (reference, fields) => data.set(reference.path, { ...data.get(reference.path), ...fields }),
         create: (reference, value) => {
           if (data.has(reference.path)) throw new Error('duplicate notification')
           data.set(reference.path, value)
@@ -64,7 +65,7 @@ describe('trusted title alert data sources', () => {
     await expect(readPublishedTvEntries({ read, now })).rejects.toThrow(/recent/)
   })
 
-  it('creates one event for the initial offer and one only after disappearance and return', async () => {
+  it('sends exactly one included event per activation and completes the watch', async () => {
     const userPath = 'users/alice'
     const watchPath = `${userPath}/profiles/main/titleAlerts/movie-12-included`
     const db = inMemoryFirestore({
@@ -77,14 +78,48 @@ describe('trusted title alert data sources', () => {
       results: { DE: included ? { flatrate: [{ provider_name: 'Netflix', provider_id: 8 }] } : {} },
     }) })
     const options = { db, token: 'test-token', fetchImpl, tvTitles: new Map(), now: Date.parse('2026-09-25T08:00:00Z') }
-    expect((await runTitleAlertCheck(options)).includedCreated).toBe(1)
-    expect((await runTitleAlertCheck(options)).includedCreated).toBe(0)
+    expect((await runTitleAlertCheck(options))).toMatchObject({ observed: 1, includedCreated: 1, failed: 0 })
+    expect(db.data.get(watchPath)).toMatchObject({ schemaVersion: 2, status: 'completed',
+      completionNotificationId: 'movie-12-included-session-1-initial' })
+    expect((await runTitleAlertCheck(options)).observed).toBe(0)
     included = false
     expect((await runTitleAlertCheck(options)).includedCreated).toBe(0)
     included = true
+    expect((await runTitleAlertCheck(options)).includedCreated).toBe(0)
+    expect([...db.data.keys()].filter((key) => key.includes('/notifications/'))).toHaveLength(1)
+
+    // A new conscious activation uses a different event ID and is independent.
+    db.data.set(watchPath, { ...db.data.get(watchPath), activationId: 'session-2', status: 'active' })
     expect((await runTitleAlertCheck(options)).includedCreated).toBe(1)
+    expect(db.data.get(watchPath)).toMatchObject({ status: 'completed',
+      completionNotificationId: 'movie-12-included-session-2-initial' })
     expect([...db.data.keys()].filter((key) => key.includes('/notifications/'))).toHaveLength(2)
   })
+
+  it('completes a legacy client-first event without creating or replacing the existing message', async () => {
+    const userPath = 'users/alice'
+    const watchPath = `${userPath}/profiles/main/titleAlerts/movie-12-included`
+    const eventPath = `${userPath}/profiles/main/notifications/movie-12-included-session-1-initial`
+    const db = inMemoryFirestore({
+      [userPath]: { providerSettings: { enabledProviderIds: ['netflix'], version: 2 } },
+      [`${userPath}/profiles/main`]: { displayName: 'Hauptprofil' },
+      [watchPath]: { schemaVersion: 1, type: 'movie', tmdbId: 12, kind: 'included', title: 'Testfilm', activationId: 'session-1' },
+      [eventPath]: { schemaVersion: 1, kind: 'included', title: 'Jetzt inklusive',
+        body: 'Vorhandene Sofortmeldung', startsAt: new Date('2026-09-24'),
+        expiresAt: new Date('2026-10-24') },
+    })
+    const fetchImpl = async () => ({ ok: true, json: async () => ({ results: { DE: {} } }) })
+    const result = await runTitleAlertCheck({ db, token: 'test-token', fetchImpl, tvTitles: new Map(),
+      now: Date.parse('2026-09-25T08:00:00Z') })
+    expect(result).toMatchObject({ observed: 1, includedCreated: 0, failed: 0 })
+    expect(db.data.get(watchPath).status).toBe('completed')
+    expect(db.data.get(eventPath)).toMatchObject({ schemaVersion: 2, body: 'Vorhandene Sofortmeldung',
+      phase: 'included-found', expiresAt: new Date('2026-10-24') })
+    expect(db.data.get(eventPath).completedAt).toBeInstanceOf(Date)
+    expect([...db.data.keys()].filter((key) => key.includes('/notifications/'))).toHaveLength(1)
+    expect((await runTitleAlertCheck({ db, token: 'test-token', fetchImpl, tvTitles: new Map() })).observed).toBe(0)
+  })
+
   it('scopes a production diagnostic to one watch without changing regular nightly behavior', async () => {
     const userPath = 'users/alice'
     const base = `${userPath}/profiles/main/titleAlerts`
@@ -106,7 +141,7 @@ describe('trusted title alert data sources', () => {
     const options = { db, token: 'test-token', fetchImpl, tvTitles: new Map(),
       onlyWatchId: 'movie-121-included' }
     expect((await runTitleAlertCheck(options))).toMatchObject({ observed: 1, includedCreated: 1, failed: 0 })
-    expect((await runTitleAlertCheck(options))).toMatchObject({ observed: 1, includedCreated: 0, failed: 0 })
+    expect((await runTitleAlertCheck(options))).toMatchObject({ observed: 0, includedCreated: 0, failed: 0 })
     expect([...db.data.keys()].filter(key => key.includes('/notifications/'))).toHaveLength(1)
     expect([...db.data.keys()].some(key => key.includes('movie-122-included') && key.includes('titleAlertState'))).toBe(false)
   })
