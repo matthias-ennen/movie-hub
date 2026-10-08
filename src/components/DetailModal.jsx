@@ -20,6 +20,7 @@ import { loadSeriesSeasonDetail, normalizeSeriesSeasons } from '../catalog/serie
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
+import { includedSwitchShownAsOn, ignoreCompletedIncludedClick } from '../notifications/includedSwitchSession.js'
 import { resolveProviderPresentation } from '../providers/providerPresentation.js'
 import { formatDetailTvAiring, resolveDetailTvAiring } from '../tv/detailTvAiring.js'
 import { buildDetailLiveProviderEntries, buildDetailStreamingProviderIds } from './detailProviderPresentation.js'
@@ -47,6 +48,7 @@ export default function DetailModal({
   const [alertMenuOpen, setAlertMenuOpen] = useState(false)
   const [alertBusy, setAlertBusy] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
+  const [includedAcceptedForDetail, setIncludedAcceptedForDetail] = useState(null)
   const [noteDraft, setNoteDraft] = useState('')
   const [sharedMedia, setSharedMedia] = useState(() => (
     Array.isArray(initialSharedMedia) ? initialSharedMedia : []
@@ -143,6 +145,14 @@ export default function DetailModal({
   const showMovieHubProvider = sharedMedia.length > 0 && isProviderEnabled('moviehub')
   const cast = Array.isArray(item.cast) ? item.cast.slice(0, 5) : []
   const automaticVideos = Array.isArray(item.videos) ? item.videos : []
+  // This modal is unmounted when closed. A successful activation stays
+  // visually On in this open detail only; Firestore remains the source of truth.
+  // Keying by profile + title avoids carrying the visual state across contexts.
+  const includedDetailKey = [user?.uid, activeProfile?.id, item?.type, item?.tmdbId].join('|')
+  const includedPersistedOn = titleAlerts.isEnabled(item, 'included')
+  const includedShownOn = includedSwitchShownAsOn(
+    includedPersistedOn, includedAcceptedForDetail, includedDetailKey,
+  )
   const personalState = getTitleState(item)
   useEffect(() => {
     const active = returnFocusTarget || document.activeElement
@@ -282,13 +292,19 @@ export default function DetailModal({
 
   async function toggleAlert(kind) {
     if (alertBusy) return
+    // After a completed included event, the visible On is locked for this
+    // detail visit. A second click must not silently create a fresh watch.
+    if (kind === 'included' && ignoreCompletedIncludedClick(
+      includedPersistedOn, includedAcceptedForDetail, includedDetailKey,
+    )) return
     setAlertBusy(true)
     setAlertMessage('')
     try {
       const enabled = await titleAlerts.toggle(item, kind)
-      setAlertMessage(enabled === 'completed'
-        ? 'Meldung erstellt. Beobachtung automatisch abgeschlossen.'
-        : enabled ? 'Benachrichtigung eingeschaltet.' : 'Benachrichtigung ausgeschaltet.')
+      if (kind === 'included') {
+        setIncludedAcceptedForDetail(enabled ? includedDetailKey : null)
+      }
+      // Intentionally no success hint; only failures are reported.
     } catch (error) {
       setAlertMessage(error?.message || 'Benachrichtigung konnte nicht gespeichert werden. Bitte erneut versuchen.')
     } finally {
@@ -832,19 +848,18 @@ export default function DetailModal({
                 <button type="button" className="personal-action alert-menu-toggle"
                   data-focusable="true" aria-expanded={alertMenuOpen}
                   onClick={() => setAlertMenuOpen((open) => !open)}>
-                  Benachrichtigen{titleAlerts.isEnabled(item, 'included') || titleAlerts.isEnabled(item, 'tv') ? ' · aktiv' : ''}
+                  Benachrichtigen{includedShownOn || titleAlerts.isEnabled(item, 'tv') ? ' · aktiv' : ''}
                 </button>
                 {alertMenuOpen && (
                   <div className="title-alert-options" aria-label="Benachrichtigungen für diesen Titel">
-                    <button type="button" data-focusable="true" aria-pressed={titleAlerts.isEnabled(item, 'included')}
+                    <button type="button" data-focusable="true" aria-pressed={includedShownOn}
                       disabled={alertBusy || !titleAlerts.ready} onClick={() => toggleAlert('included')}>
-                      <strong>Wenn inklusive</strong><span>{titleAlerts.isEnabled(item, 'included') ? 'Ein' : 'Aus'}</span>
+                      <strong>Wenn inklusive</strong><span>{includedShownOn ? 'Ein' : 'Aus'}</span>
                     </button>
                     <button type="button" data-focusable="true" aria-pressed={titleAlerts.isEnabled(item, 'tv')}
                       disabled={alertBusy || !titleAlerts.ready} onClick={() => toggleAlert('tv')}>
                       <strong>Wenn im TV</strong><span>{titleAlerts.isEnabled(item, 'tv') ? 'Ein' : 'Aus'}</span>
                     </button>
-                    <p>Mitteilungen erscheinen in der Glocke. TV-Erinnerungen richten sich nach deinen aktivierten Sendern.</p>
                   </div>
                 )}
                 {alertMessage && <p role="status" className="personal-state-message">{alertMessage}</p>}
