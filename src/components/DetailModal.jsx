@@ -286,7 +286,9 @@ export default function DetailModal({
     setAlertMessage('')
     try {
       const enabled = await titleAlerts.toggle(item, kind)
-      setAlertMessage(enabled ? 'Benachrichtigung eingeschaltet.' : 'Benachrichtigung ausgeschaltet.')
+      setAlertMessage(enabled === 'completed'
+        ? 'Meldung erstellt. Beobachtung automatisch abgeschlossen.'
+        : enabled ? 'Benachrichtigung eingeschaltet.' : 'Benachrichtigung ausgeschaltet.')
     } catch (error) {
       setAlertMessage(error?.message || 'Benachrichtigung konnte nicht gespeichert werden. Bitte erneut versuchen.')
     } finally {
