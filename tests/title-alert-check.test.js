@@ -185,6 +185,86 @@ describe('trusted title alert data sources', () => {
     expect([...db.data.keys()].some(key => key.includes('movie-122-included') && key.includes('titleAlertState'))).toBe(false)
   })
 
+  it('does not complete a watch or emit an event for rent/buy, catalog, or only unselected offers', async () => {
+    const profile = 'users/alice/profiles/main'
+    const watchPath = `${profile}/titleAlerts/movie-13-included`
+    const db = inMemoryFirestore({
+      'users/alice': { providerSettings: { enabledProviderIds: ['netflix'], version: 2 } },
+      [profile]: { displayName: 'Main' },
+      [watchPath]: { schemaVersion: 2, status: 'active', type: 'movie', tmdbId: 13,
+        kind: 'included', title: 'Only for rent', activationId: 'activation-1' },
+    })
+    let available = false
+    const fetchImpl = async () => ({ ok: true, json: async () => ({
+      results: { DE: {
+        rent: [{ provider_id: 8, provider_name: 'Netflix' }],
+        buy: [{ provider_id: 8, provider_name: 'Netflix' }],
+        flatrate: [{ provider_id: available ? 8 : 337, provider_name: available ? 'Netflix' : 'Disney Plus' }],
+      } },
+    }) })
+    const opts = { db, token: 'token', fetchImpl, tvTitles: new Map(),
+      now: Date.parse('2026-10-08T10:00:00Z') }
+    for (let n = 0; n < 2; n++) {
+      expect(await runTitleAlertCheck(opts)).toMatchObject({ observed: 1, includedCreated: 0, failed: 0 })
+      expect(db.data.get(watchPath)).toMatchObject({ status: 'active', activationId: 'activation-1' })
+      expect([...db.data.keys()].filter(x => x.startsWith(`${profile}/notifications/`))).toHaveLength(0)
+    }
+    available = true
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ observed: 1, includedCreated: 1, failed: 0 })
+    expect(db.data.get(watchPath).status).toBe('completed')
+    expect([...db.data.keys()].filter(x => x.startsWith(`${profile}/notifications/`))).toHaveLength(1)
+  })
+
+  it('preserves a pending V1 observation when TMDB fails and lets the next healthy check retry', async () => {
+    const profile = 'users/alice/profiles/main'
+    const watchPath = `${profile}/titleAlerts/movie-14-included`
+    const db = inMemoryFirestore({
+      'users/alice': { providerSettings: { enabledProviderIds: ['netflix'], version: 2 } },
+      [profile]: { displayName: 'Main' },
+      [watchPath]: { schemaVersion: 1, type: 'movie', tmdbId: 14,
+        kind: 'included', title: 'Temporarily offline', activationId: 'activation-1' },
+    })
+    let fail = true
+    const fetchImpl = async () => fail
+      ? { ok: false, status: 503 }
+      : { ok: true, json: async () => ({ results: { DE: {
+        flatrate: [{ provider_id: 8, provider_name: 'Netflix' }],
+      } } }) }
+    const opts = { db, token: 'token', fetchImpl, tvTitles: new Map() }
+    await expect(runTitleAlertCheck(opts)).rejects.toThrow(/failed for 1 of 1 watches/)
+    expect(db.data.get(watchPath)).toMatchObject({ schemaVersion: 1, activationId: 'activation-1' })
+    expect([...db.data.keys()].filter(x => x.startsWith(`${profile}/notifications/`))).toHaveLength(0)
+    fail = false
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ includedCreated: 1, failed: 0 })
+    expect(db.data.get(watchPath).status).toBe('completed')
+  })
+
+  it('never creates an event for a stale fetch if another client finished or reactivated the watch', async () => {
+    for (const race of ['completed', 'reactivated']) {
+      const profile = 'users/alice/profiles/main'
+      const watchPath = `${profile}/titleAlerts/movie-15-included`
+      const db = inMemoryFirestore({
+        'users/alice': { providerSettings: { enabledProviderIds: ['netflix'], version: 2 } },
+        [profile]: { displayName: 'Main' },
+        [watchPath]: { schemaVersion: 2, status: 'active', type: 'movie', tmdbId: 15,
+          kind: 'included', title: 'Race test', activationId: 'session-old' },
+      })
+      const fetchImpl = async () => {
+        const current = db.data.get(watchPath)
+        db.data.set(watchPath, race === 'completed'
+          ? { ...current, status: 'completed', completedAt: new Date() }
+          : { ...current, activationId: 'session-new', status: 'active' })
+        return { ok: true, json: async () => ({ results: { DE: {
+          flatrate: [{ provider_id: 8, provider_name: 'Netflix' }],
+        } } }) }
+      }
+      const result = await runTitleAlertCheck({ db, token: 'token', fetchImpl, tvTitles: new Map() })
+      expect(result).toMatchObject({ observed: 1, includedCreated: 0, failed: 0 })
+      expect(db.data.get(watchPath).status).toBe(race === 'completed' ? 'completed' : 'active')
+      expect([...db.data.keys()].filter(x => x.startsWith(`${profile}/notifications/`))).toHaveLength(0)
+    }
+  })
+
   it('merges recent Waipu and Joyn TV title publications', async () => {
     const files = new Map([
       ['public/waipu-live/index.json', JSON.stringify({ kind: 'waipu-live-index', status: 'complete', generatedAt: '2026-09-26T12:00:00.000Z' })],
