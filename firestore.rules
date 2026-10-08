@@ -106,9 +106,16 @@ service cloud.firestore {
             && notificationId.matches('^(movie|series)-[0-9]+-(included|tv)-[a-zA-Z0-9-]+-(initial|airing-[0-9]+)$')
             && request.resource.data.keys().hasOnly([
               'schemaVersion', 'kind', 'titleType', 'tmdbId', 'title', 'mediaTitle',
-              'body', 'startsAt', 'expiresAt'
+              'body', 'startsAt', 'expiresAt', 'phase', 'eventAt', 'completedAt'
             ])
-            && request.resource.data.schemaVersion == 1
+            && ((request.resource.data.schemaVersion == 1
+                && !request.resource.data.keys().hasAny(['phase', 'eventAt', 'completedAt']))
+              || (request.resource.data.schemaVersion == 2
+                && request.resource.data.kind == 'included'
+                && notificationId.matches('^(movie|series)-[0-9]+-included-[a-zA-Z0-9-]+-initial$')
+                && request.resource.data.phase == 'included-found'
+                && request.resource.data.eventAt == request.time
+                && request.resource.data.completedAt == request.time))
             && request.resource.data.kind in ['included', 'tv']
             && request.resource.data.titleType in ['movie', 'series']
             && request.resource.data.tmdbId is int && request.resource.data.tmdbId > 0
