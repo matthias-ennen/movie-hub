@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { collection, doc, onSnapshot, query, runTransaction, serverTimestamp, Timestamp, where } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
-import { activeAnnouncement, visibleProfileAnnouncements } from './announcementVisibility.js'
+import { activeAnnouncement, visibleProfileAnnouncements, visiblePersonalReadStates } from './announcementVisibility.js'
 
 const EMPTY_READS = new Map()
 
@@ -58,8 +58,7 @@ export function useAnnouncements(userId, profileId) {
 
   // Scope the cached inbox and read-state snapshots before React paints a new
   // account/profile. Prior listeners are torn down by effects only afterwards.
-  const scopedPersonalReads = personalReads.ownerUserId === userId && personalReads.profileId === profileId
-    ? personalReads.byId : EMPTY_READS
+  const scopedPersonalReads = visiblePersonalReadStates(personalReads, userId, profileId)
   const items = useMemo(() => [...announcements, ...visibleProfileAnnouncements(personal, userId, profileId)]
     .filter((item) => activeAnnouncement(item, now, scopedPersonalReads.get(item.id)))
     .sort((a, b) => b.startsAt.toMillis() - a.startsAt.toMillis()),
