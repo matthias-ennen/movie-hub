@@ -1,0 +1,7 @@
+# Explicitly package generated TV checker modules; functions/.gitignore excludes these from git only.
+.gcloudignore
+.git
+node_modules/
+.env
+.env.*
+# DO NOT exclude scripts/ or src/: prepare-tv-final-function.mjs populates them.
