@@ -7,15 +7,16 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: Read-only preflight or live scheduler activation
+        description: Read-only preflight, private function prepare, or explicitly approved minute activation
         required: true
         type: choice
         default: preflight
         options:
           - preflight
+          - prepare
           - activate
       confirmation:
-        description: For activation type ENABLE_MOVIEHUB_TV_FINAL_1MIN
+        description: PREPARE_MOVIEHUB_TV_FINAL_PRIVATE or ENABLE_MOVIEHUB_TV_FINAL_1MIN
         required: false
         type: string
 
@@ -114,11 +115,11 @@ jobs:
           fi
           echo "✅ Infrastructure preflight passed (read-only). **This does not activate the function.**" >> "$GITHUB_STEP_SUMMARY"
 
-  activate:
-    if: ${{ github.ref == 'refs/heads/main' && inputs.operation == 'activate' && inputs.confirmation == 'ENABLE_MOVIEHUB_TV_FINAL_1MIN' }}
+  prepare:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.operation == 'prepare' && inputs.confirmation == 'PREPARE_MOVIEHUB_TV_FINAL_PRIVATE' }}
     runs-on: ubuntu-latest
     environment: production-tv-final-reminders
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -130,43 +131,138 @@ jobs:
           workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
           service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v3
-      - name: Verify runtime identity exists
+      - name: Require dedicated accounts before touching production
         run: |
-          gcloud iam service-accounts describe movie-hub-tv-final@movie-hub-62459.iam.gserviceaccount.com --project=movie-hub-62459 --format='value(email)'
-      - name: Install and build the audited function package
+          set -euo pipefail
+          for account in movie-hub-tv-final movie-hub-tv-build; do
+            gcloud iam service-accounts describe "$account@movie-hub-62459.iam.gserviceaccount.com" --project=movie-hub-62459 --format='value(email)' >/dev/null
+          done
+          # Do not impersonate the privileged default Compute/Editor service account.
+      - name: Refuse prepare if a TV minute scheduler already exists
+        run: |
+          set -euo pipefail
+          gcloud scheduler jobs list --project=movie-hub-62459 --location=europe-west3 --format='value(name)' > "$RUNNER_TEMP/tv-scheduler-jobs.txt"
+          if grep -Eiq '(^|/)(movie-hub-tv-final-1min|firebase-schedule-moviehubtvfinalreminder-europe-west3)$' "$RUNNER_TEMP/tv-scheduler-jobs.txt"; then
+            echo 'TV minute scheduler already exists: refusing to redeploy an active worker through prepare.' >&2
+            exit 1
+          fi
+      - name: Test audited worker and private HTTP handler
         run: |
           npm ci
           node scripts/prepare-tv-final-function.mjs
           npm install --prefix functions --omit=dev --no-audit --no-fund
           node --check functions/index.mjs
-          node --check functions/scripts/check-tv-final-reminders.mjs
+          node --check functions/tv-final-http.mjs
           npm run test:unit
-      - name: Authenticate and deploy the required Firestore index only
+      - name: Deploy only the planned Firestore composite index
         run: npx firebase-tools deploy --only firestore:indexes --project movie-hub-62459 --non-interactive
-      - name: Wait for the TV reminder index to be READY
+      - name: Wait until the required TV notification index is ready
         run: |
           set -euo pipefail
-          found=0
+          ready=0
           for attempt in {1..40}; do
-            json="$(gcloud firestore indexes composite list --database='(default)' --project=movie-hub-62459 --format=json)"
-            state="$(node -e '
-              const all=JSON.parse(process.argv[1]);
-              const index=all.find(x=>x.queryScope==="COLLECTION_GROUP"
+            gcloud firestore indexes composite list --database='(default)' --project=movie-hub-62459 --format=json > "$RUNNER_TEMP/tv-indices.json"
+            state="$(node --input-type=module -e '
+              import fs from "node:fs"
+              const list = JSON.parse(fs.readFileSync(process.argv[1], "utf8"))
+              const match = list.find(x => x.queryScope === "COLLECTION_GROUP"
                 && x.name?.includes("/collectionGroups/notifications/")
-                && x.fields?.some(f=>f.fieldPath==="phase")
-                && x.fields?.some(f=>f.fieldPath==="scheduleStatus")
-                && x.fields?.some(f=>f.fieldPath==="airingStartAt"));
-              process.stdout.write(index?.state||"NOT_FOUND");
-            ' "$json")"
+                && ["phase","scheduleStatus","airingStartAt"].every(f => x.fields?.some(v => v.fieldPath === f)))
+              process.stdout.write(match?.state || "NOT_FOUND")
+            ' "$RUNNER_TEMP/tv-indices.json")"
             echo "Index state: $state"
-            if [ "$state" = "READY" ]; then found=1; break; fi
-            if [ "$state" = "NOT_FOUND" ] || [ "$state" = "ERROR" ]; then exit 1; fi
+            if [ "$state" = READY ]; then ready=1; break; fi
+            if [ "$state" = NOT_FOUND ] || [ "$state" = ERROR ]; then exit 1; fi
             sleep 20
           done
-          test "$found" = 1
-      - name: Activate one isolated scheduled function
-        run: npx firebase-tools deploy --only functions:tv-final-reminders --project movie-hub-62459 --non-interactive
-      - name: Record deployment
+          test "$ready" = 1
+      - name: Deploy private HTTP function with isolated build identity (no scheduler)
         run: |
-          echo "### MovieHub minute reminder activated" >> "$GITHUB_STEP_SUMMARY"
-          echo "Firebase Functions codebase: tv-final-reminders; function: movieHubTvFinalReminder; region: europe-west3." >> "$GITHUB_STEP_SUMMARY"
+          gcloud functions deploy movieHubTvFinalReminder --gen2 \
+            --project=movie-hub-62459 --region=europe-west3 \
+            --runtime=nodejs22 --source=functions --entry-point=movieHubTvFinalReminder \
+            --trigger-http --no-allow-unauthenticated \
+            --service-account=movie-hub-tv-final@movie-hub-62459.iam.gserviceaccount.com \
+            --build-service-account=projects/movie-hub-62459/serviceAccounts/movie-hub-tv-build@movie-hub-62459.iam.gserviceaccount.com \
+            --memory=256MiB --timeout=60s --max-instances=1 --min-instances=0 --concurrency=1 --quiet
+      - name: Verify deployed build/runtime identities (still no schedule)
+        run: |
+          gcloud functions describe movieHubTvFinalReminder --gen2 --region=europe-west3 --project=movie-hub-62459 --format=json > "$RUNNER_TEMP/tv-function.json"
+          node scripts/tv-final-deploy-guard.mjs "$RUNNER_TEMP/tv-function.json" > "$RUNNER_TEMP/verified-tv-function.txt"
+          echo "### Private TV function prepared; Cloud Scheduler has NOT been activated" >> "$GITHUB_STEP_SUMMARY"
+
+  activate:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.operation == 'activate' && inputs.confirmation == 'ENABLE_MOVIEHUB_TV_FINAL_1MIN' }}
+    runs-on: ubuntu-latest
+    environment: production-tv-final-reminders
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Verify previously prepared private function and scheduler identity
+        run: |
+          set -euo pipefail
+          gcloud iam service-accounts describe movie-hub-tv-scheduler@movie-hub-62459.iam.gserviceaccount.com --project=movie-hub-62459 --format='value(email)' >/dev/null
+          gcloud functions describe movieHubTvFinalReminder --gen2 --region=europe-west3 --project=movie-hub-62459 --format=json > "$RUNNER_TEMP/tv-function.json"
+          node scripts/tv-final-deploy-guard.mjs "$RUNNER_TEMP/tv-function.json" > "$RUNNER_TEMP/verified-tv-function.txt"
+          # A failed list is a hard failure, never confused with an absent job.
+          gcloud scheduler jobs list --location=europe-west3 --project=movie-hub-62459 --format='value(name)' > "$RUNNER_TEMP/existing-tv-jobs.txt"
+          if grep -Eiq '(^|/)(movie-hub-tv-final-1min|firebase-schedule-moviehubtvfinalreminder-europe-west3)$' "$RUNNER_TEMP/existing-tv-jobs.txt"; then
+            echo 'A TV scheduler job already exists: abort rather than duplicate or replace it.' >&2
+            exit 1
+          fi
+      - name: Refuse activation if the existing Cloud Run service is publicly callable
+        run: |
+          set -euo pipefail
+          mapfile -t verified < "$RUNNER_TEMP/verified-tv-function.txt"
+          gcloud run services get-iam-policy "${verified[1]}" --project=movie-hub-62459 --region=europe-west3 --format=json > "$RUNNER_TEMP/preactivate-tv-iam.json"
+          gcloud run services describe "${verified[1]}" --project=movie-hub-62459 --region=europe-west3 --format=json > "$RUNNER_TEMP/preactivate-tv-service.json"
+          node --input-type=module -e '
+            import fs from "node:fs"
+            const policy=JSON.parse(fs.readFileSync(process.argv[1], "utf8"))
+            const service=JSON.parse(fs.readFileSync(process.argv[2], "utf8"))
+            if ((policy.bindings||[]).some(b=>(b.members||[]).some(m=>m==="allUsers"||m==="allAuthenticatedUsers")))
+              throw new Error("Cannot activate a publicly callable TV function")
+            // Cloud Run can be public even without allUsers, when its Invoker IAM check is disabled.
+            if (service.invokerIamDisabled === true
+              || service.invoker_iam_disabled === true
+              || service.metadata?.annotations?.["run.googleapis.com/invoker-iam-disabled"] === "true")
+              throw new Error("Cloud Run Invoker IAM check is disabled")
+          ' "$RUNNER_TEMP/preactivate-tv-iam.json" "$RUNNER_TEMP/preactivate-tv-service.json"
+      - name: Grant one scheduler identity invocation on only this private service
+        run: |
+          set -euo pipefail
+          mapfile -t verified < "$RUNNER_TEMP/verified-tv-function.txt"
+          gcloud run services add-iam-policy-binding "${verified[1]}" \
+            --project=movie-hub-62459 --region=europe-west3 \
+            --member=serviceAccount:movie-hub-tv-scheduler@movie-hub-62459.iam.gserviceaccount.com \
+            --role=roles/run.invoker --quiet
+          gcloud run services get-iam-policy "${verified[1]}" --project=movie-hub-62459 --region=europe-west3 --format=json > "$RUNNER_TEMP/runner-policy.json"
+          node --input-type=module -e '
+            import fs from "node:fs"
+            const policy=JSON.parse(fs.readFileSync(process.argv[1],"utf8"))
+            const bindings=policy.bindings||[]
+            const invoker=bindings.find(b=>b.role==="roles/run.invoker")
+            if(!invoker?.members?.includes("serviceAccount:movie-hub-tv-scheduler@movie-hub-62459.iam.gserviceaccount.com"))
+              throw new Error("Expected scheduler invoker permission missing")
+            if(bindings.some(b=>b.members?.some(m=>m==="allUsers"||m==="allAuthenticatedUsers")))
+              throw new Error("Function has a public IAM binding")
+          ' "$RUNNER_TEMP/runner-policy.json"
+      - name: Create exactly one private one-minute job (live activation)
+        run: |
+          set -euo pipefail
+          mapfile -t verified < "$RUNNER_TEMP/verified-tv-function.txt"
+          gcloud scheduler jobs create http movie-hub-tv-final-1min \
+            --project=movie-hub-62459 --location=europe-west3 \
+            --schedule='* * * * *' --time-zone='Etc/UTC' \
+            --uri="${verified[0]}" --http-method=POST --attempt-deadline=60s --max-retry-attempts=0 \
+            --oidc-service-account-email=movie-hub-tv-scheduler@movie-hub-62459.iam.gserviceaccount.com \
+            --oidc-token-audience="${verified[0]}" \
+            --description='MovieHub profile-private five-minute TV reminders' --quiet
+          gcloud scheduler jobs describe movie-hub-tv-final-1min --project=movie-hub-62459 --location=europe-west3 --format='table(state,schedule,timeZone)'
+          echo '### MovieHub private TV minute scheduler activated – verify logs and devices' >> "$GITHUB_STEP_SUMMARY"
