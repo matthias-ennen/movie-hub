@@ -221,12 +221,19 @@ jobs:
           set -euo pipefail
           mapfile -t verified < "$RUNNER_TEMP/verified-tv-function.txt"
           gcloud run services get-iam-policy "${verified[1]}" --project=movie-hub-62459 --region=europe-west3 --format=json > "$RUNNER_TEMP/preactivate-tv-iam.json"
+          gcloud run services describe "${verified[1]}" --project=movie-hub-62459 --region=europe-west3 --format=json > "$RUNNER_TEMP/preactivate-tv-service.json"
           node --input-type=module -e '
             import fs from "node:fs"
             const policy=JSON.parse(fs.readFileSync(process.argv[1], "utf8"))
+            const service=JSON.parse(fs.readFileSync(process.argv[2], "utf8"))
             if ((policy.bindings||[]).some(b=>(b.members||[]).some(m=>m==="allUsers"||m==="allAuthenticatedUsers")))
               throw new Error("Cannot activate a publicly callable TV function")
-          ' "$RUNNER_TEMP/preactivate-tv-iam.json"
+            // Cloud Run can be public even without allUsers, when its Invoker IAM check is disabled.
+            if (service.invokerIamDisabled === true
+              || service.invoker_iam_disabled === true
+              || service.metadata?.annotations?.["run.googleapis.com/invoker-iam-disabled"] === "true")
+              throw new Error("Cloud Run Invoker IAM check is disabled")
+          ' "$RUNNER_TEMP/preactivate-tv-iam.json" "$RUNNER_TEMP/preactivate-tv-service.json"
       - name: Grant one scheduler identity invocation on only this private service
         run: |
           set -euo pipefail
