@@ -1,5 +1,8 @@
-export const TV_REMINDER_WINDOW_MS = 36 * 60 * 60 * 1000
-export const TV_REMINDER_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000
+// The TV discovery stage covers the published 14-day EPG, not only the next 36h.
+export const TV_DISCOVERY_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
+export const TV_REMINDER_WINDOW_MS = TV_DISCOVERY_WINDOW_MS // Legacy export used by existing integrations.
+export const TV_FINAL_REMINDER_LEAD_MS = 5 * 60 * 1000
+export const TV_REMINDER_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000 // Legacy, not used for new watches.
 
 export function alertTitleKey(item) {
   const type = item?.type === 'series' || item?.mediaType === 'tv' ? 'series' : item?.type === 'movie' || item?.mediaType === 'movie' ? 'movie' : null
@@ -26,7 +29,7 @@ export function dueTvAiring(airings, disabledStationIds = [], now = Date.now()) 
     .filter((airing) => airing?.stationId && !disabled.has(airing.stationId))
     .filter((airing) => {
       const start = Date.parse(airing.startTime)
-      return Number.isFinite(start) && start > now && start <= now + TV_REMINDER_WINDOW_MS
+      return Number.isFinite(start) && start > now && start <= now + TV_DISCOVERY_WINDOW_MS
     })
     .sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime))[0] || null
 }
@@ -81,11 +84,27 @@ export function includedTransition(previous, activationId, available, providerFi
   return { activationId, available, providerFingerprint, cycle: (previous.cycle || 0) + Number(send), send }
 }
 
+// A TV watch binds its first discovered airing once per activation. The
+// follow-up at start - 5 minutes is processed separately by the trusted
+// timer in #382. Subsequent nightly replays must not emit more first notices.
 export function tvTransition(previous, activationId, airing, now) {
   if (!airing) return { send: false }
-  const previousTime = previous?.lastNotifiedAt?.toMillis?.() ?? Date.parse(previous?.lastNotifiedAt || '')
   const sameSession = previous?.activationId === activationId
-  const tooSoon = sameSession && Number.isFinite(previousTime) && now - previousTime < TV_REMINDER_COOLDOWN_MS
-  const alreadySent = sameSession && previous?.lastAiringStart === airing.startTime
-  return { send: !tooSoon && !alreadySent, lastAiringStart: airing.startTime }
+  if (sameSession && (
+    previous.firstNotificationId || previous.lastAiringStart || previous.lastNotifiedAt
+    || previous.firstAiringStart
+  )) return { send: false }
+  const airingStart = Date.parse(airing.startTime)
+  if (!Number.isFinite(airingStart)) return { send: false }
+  return {
+    send: true,
+    activationId,
+    firstAiringStart: airing.startTime,
+    firstAiringStop: airing.stopTime || null,
+    firstAiringStation: String(airing.stationName || ''),
+    firstAiringStationId: String(airing.sourceStationId || airing.stationId || ''),
+    finalReminderAt: new Date(airingStart - TV_FINAL_REMINDER_LEAD_MS),
+    firstFoundAt: new Date(now),
+    status: 'scheduled',
+  }
 }
