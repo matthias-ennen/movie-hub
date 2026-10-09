@@ -33,3 +33,12 @@ export function visiblePersonalReadStates(readState, userId, profileId) {
     && readState.profileId === profileId && readState.byId instanceof Map
     ? readState.byId : NO_READ_STATES
 }
+
+const NO_GLOBAL_READ_IDS = new Set()
+
+// Global messages are shared, but acknowledgement belongs to the signed-in
+// account. While a new account is loading, discard a previous UID's read set.
+export function visibleGlobalReadIds(snapshot, userId) {
+  return userId && snapshot?.ownerUserId === userId && snapshot.ids instanceof Set
+    ? snapshot.ids : NO_GLOBAL_READ_IDS
+}
