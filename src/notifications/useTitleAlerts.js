@@ -5,7 +5,7 @@ import { db } from '../lib/firebase.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { alertTitleKey, includedProviderIds, dueTvAiring, filterEnabledTvAirings, alertNotificationId, tvAiringId, tvMessage, watchId } from './titleAlertModel.js'
 import { loadFreshTvAirings } from './loadFreshTvAirings.js'
-import { isActiveTitleWatch } from './titleAlertLifecycleModel.js'
+import { isActiveTitleWatch, personalHardExpiry } from './titleAlertLifecycleModel.js'
 
 export function useTitleAlerts(userId, profileId) {
   const [watches, setWatches] = useState({})
@@ -53,6 +53,7 @@ export function useTitleAlerts(userId, profileId) {
     // The trusted daily check independently verifies later provider/TV changes.
     let notification = null
     let notificationId = null
+    let tvAiring = null
     const now = Date.now()
     if (kind === 'included' && providerUserId === userId && !providersLoading) {
       const providerIds = includedProviderIds(item.providerOffers, enabledProviderIds)
@@ -69,10 +70,13 @@ export function useTitleAlerts(userId, profileId) {
         ])
         const airing = dueTvAiring(filterEnabledTvAirings(airings, account.data() || {}), [], now)
         if (airing) {
-          notificationId = tvAiringId(watch, airing)
+          tvAiring = airing
+          notificationId = alertNotificationId(watch, 'initial')
           notification = {
             title: 'Bald im TV', body: tvMessage(airing, watch.title),
-            expiresAt: Timestamp.fromMillis(Date.parse(airing.stopTime)),
+            expiresAt: Timestamp.fromDate(personalHardExpiry('tv', {
+              createdAt: now, airingEndsAt: airing.stopTime,
+            })),
           }
         }
       } catch (error) {
@@ -108,11 +112,24 @@ export function useTitleAlerts(userId, profileId) {
             })
           })
         } else {
-          // The first TV notice is NOT terminal: #382 adds the second phase.
-          await setDoc(messageRef, {
-            schemaVersion: 1, kind, titleType: watch.type, tmdbId: watch.tmdbId,
-            title: notification.title, mediaTitle: watch.title, body: notification.body,
-            startsAt: serverTimestamp(), expiresAt: notification.expiresAt,
+          // The first TV notice is NOT terminal. Use the same ID as the server
+          // and record structured airing data for the later 5-minute stage.
+          await runTransaction(db, async (transaction) => {
+            const [current, existing] = await Promise.all([
+              transaction.get(watchRef), transaction.get(messageRef),
+            ])
+            if (!current.exists() || !isActiveTitleWatch(current.data())
+              || current.data().activationId !== watch.activationId || existing.exists()) return
+            transaction.set(messageRef, {
+              schemaVersion: 2, kind, titleType: watch.type, tmdbId: watch.tmdbId,
+              title: notification.title, mediaTitle: watch.title, body: notification.body,
+              phase: 'tv-found', eventAt: serverTimestamp(),
+              startsAt: serverTimestamp(), expiresAt: notification.expiresAt,
+              airingStartAt: Timestamp.fromMillis(Date.parse(tvAiring.startTime)),
+              ...(Number.isFinite(Date.parse(tvAiring.stopTime))
+                ? { airingEndsAt: Timestamp.fromMillis(Date.parse(tvAiring.stopTime)) } : {}),
+              stationName: String(tvAiring.stationName || '').slice(0, 160),
+            })
           })
         }
       } catch {
