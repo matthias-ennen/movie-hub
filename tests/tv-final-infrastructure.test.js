@@ -52,6 +52,18 @@ describe('#382 isolated Cloud Scheduler rollout contract', () => {
     expect(beforeActivate).not.toContain('|| true')
   })
 
+  it('refuses to overwrite live TV scheduling during prepare and checks private IAM first', () => {
+    const prep = workflow.split('\n  prepare:')[1]?.split('\n  activate:')[0]
+    const activation = workflow.split('\n  activate:')[1]
+    expect(prep).toContain('Refuse prepare if a TV minute scheduler already exists')
+    expect(prep).toContain('TV minute scheduler already exists: refusing to redeploy')
+    expect(prep).toContain('gcloud scheduler jobs list')
+    expect(activation).toContain('Refuse activation if the existing Cloud Run service is publicly callable')
+    expect(activation).toContain('Cannot activate a publicly callable TV function')
+    expect(activation.indexOf('Refuse activation if the existing Cloud Run service is publicly callable'))
+      .toBeLessThan(activation.indexOf('Grant one scheduler identity invocation on only this private service'))
+  })
+
   it('uses a separate codebase and a dedicated runtime identity in Frankfurt', () => {
     expect(firebase.functions.codebase).toBe('tv-final-reminders')
     expect(firebase.functions.source).toBe('functions')
