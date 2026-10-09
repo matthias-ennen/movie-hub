@@ -29,8 +29,9 @@ concurrency:
 
 jobs:
   inspect:
-    if: ${{ inputs.operation == 'preflight' }}
+    if: ${{ github.ref == 'refs/heads/main' && inputs.operation == 'preflight' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v7
       - uses: google-github-actions/auth@v3
@@ -39,17 +40,79 @@ jobs:
           workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
           service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v3
-      - name: Check prerequisites without changing cloud infrastructure
+      - name: Validate Cloud prerequisites without creating or modifying anything
+        env:
+          PROJECT: movie-hub-62459
+          REGION: europe-west3
+          RUNTIME_SA: movie-hub-tv-final@movie-hub-62459.iam.gserviceaccount.com
         run: |
           set -euo pipefail
-          gcloud config set project movie-hub-62459
-          echo "### Enabled APIs" >> "$GITHUB_STEP_SUMMARY"
-          gcloud services list --enabled --format='value(config.name)' | grep -E '^(cloudfunctions|cloudscheduler|run|eventarc|cloudbuild|artifactregistry|firestore)\.googleapis\.com$' || true
-          echo "### Dedicated TV-final runtime identity" >> "$GITHUB_STEP_SUMMARY"
-          gcloud iam service-accounts describe movie-hub-tv-final@movie-hub-62459.iam.gserviceaccount.com --format='value(email)' || true
-          echo "### Cloud Scheduler (read-only)" >> "$GITHUB_STEP_SUMMARY"
-          gcloud scheduler jobs list --location=europe-west3 --format='table(name,schedule,state)' || true
-          echo "Preflight did not deploy functions or create scheduler jobs." >> "$GITHUB_STEP_SUMMARY"
+          failed=0
+          echo "### MovieHub TV final reminder – read-only infrastructure preflight" >> "$GITHUB_STEP_SUMMARY"
+
+          # In contrast to the old informational probe, absent prerequisites
+          # MUST make this job red. No service enablement, IAM writes or deploy.
+          if enabled="$(gcloud services list --enabled --project="$PROJECT" --format='value(config.name)')"; then
+            required=(
+              cloudfunctions.googleapis.com
+              cloudscheduler.googleapis.com
+              run.googleapis.com
+              cloudbuild.googleapis.com
+              artifactregistry.googleapis.com
+              eventarc.googleapis.com
+              firestore.googleapis.com
+            )
+            for api in "${required[@]}"; do
+              if grep -Fxq "$api" <<< "$enabled"; then
+                echo "✅ API: $api" >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "❌ Missing enabled API: $api" >> "$GITHUB_STEP_SUMMARY"
+                failed=1
+              fi
+            done
+          else
+            echo "❌ Cannot inspect enabled APIs – check the deploy account's Service Usage read permissions." >> "$GITHUB_STEP_SUMMARY"
+            failed=1
+          fi
+
+          if gcloud iam service-accounts describe "$RUNTIME_SA" --project="$PROJECT" --format='value(email)' >/dev/null; then
+            echo "✅ Isolated runtime service account exists." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "❌ Isolated runtime service account is missing or cannot be read: $RUNTIME_SA" >> "$GITHUB_STEP_SUMMARY"
+            failed=1
+          fi
+
+          if gcloud iam roles describe MovieHubTvFinalRuntime --project="$PROJECT" --format='value(name)' >/dev/null; then
+            echo "✅ Dedicated Firestore runtime role exists (assignment still requires review)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "❌ Dedicated Firestore runtime role is missing or cannot be read." >> "$GITHUB_STEP_SUMMARY"
+            failed=1
+          fi
+
+          if billing="$(gcloud billing projects describe "$PROJECT" --format='value(billingEnabled)')"; then
+            if [ "$billing" = "True" ] || [ "$billing" = "true" ]; then
+              echo "✅ Google Cloud billing is enabled." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "❌ Google Cloud billing is not enabled." >> "$GITHUB_STEP_SUMMARY"
+              failed=1
+            fi
+          else
+            echo "❌ Cannot verify Cloud Billing status: Billing Account Viewer or billing.projects.get is required." >> "$GITHUB_STEP_SUMMARY"
+            failed=1
+          fi
+
+          if gcloud scheduler jobs list --project="$PROJECT" --location="$REGION"               --format='table(name,schedule,state)' > "$RUNNER_TEMP/moviehub-tv-final-existing-jobs.txt"; then
+            echo "✅ Existing Cloud Scheduler jobs can be inspected." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "❌ Cloud Scheduler jobs cannot be inspected." >> "$GITHUB_STEP_SUMMARY"
+            failed=1
+          fi
+
+          if [ "$failed" -ne 0 ]; then
+            echo "❌ Infrastructure preflight failed; no activation was attempted." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "✅ Infrastructure preflight passed (read-only). **This does not activate the function.**" >> "$GITHUB_STEP_SUMMARY"
 
   activate:
     if: ${{ github.ref == 'refs/heads/main' && inputs.operation == 'activate' && inputs.confirmation == 'ENABLE_MOVIEHUB_TV_FINAL_1MIN' }}
