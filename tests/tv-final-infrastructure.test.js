@@ -14,7 +14,7 @@ describe('#382 isolated Cloud Scheduler rollout contract', () => {
     expect(workflow).not.toMatch(/\n  schedule:/)
     expect(workflow).not.toMatch(/\n  push:/)
     expect(workflow).toContain("github.ref == 'refs/heads/main' && inputs.operation == 'activate' && inputs.confirmation == 'ENABLE_MOVIEHUB_TV_FINAL_1MIN'")
-    expect(workflow).toMatch(/firebase-tools deploy --only functions:tv-final-reminders/)
+    expect(workflow).not.toMatch(/firebase-tools deploy --only functions:tv-final-reminders/)\n    expect(workflow).toContain("inputs.operation == 'prepare'")\n    expect(workflow).toContain('gcloud functions deploy movieHubTvFinalReminder --gen2')\n    expect(workflow).toContain('--build-service-account=projects/movie-hub-62459/serviceAccounts/movie-hub-tv-build@')\n    expect(workflow).toContain('--no-allow-unauthenticated')\n    expect(workflow).toContain('roles/run.invoker')\n    expect(workflow).toContain('--oidc-service-account-email=movie-hub-tv-scheduler@')\n    expect(workflow).toContain('--max-retry-attempts=0')
     expect(workflow).toContain('environment: production-tv-final-reminders')
     expect(nightly).toMatch(/firebase-tools deploy --only hosting,firestore:rules/)
     expect(nightly).not.toMatch(/--only functions:/)
@@ -53,7 +53,7 @@ describe('#382 isolated Cloud Scheduler rollout contract', () => {
     expect(handler).toContain("region: 'europe-west3'")
     expect(handler).toContain("concurrency: 1")
     expect(handler).toContain("maxInstances: 1")
-    expect(handler).toContain('movie-hub-tv-final@movie-hub-62459.iam.gserviceaccount.com')
+    expect(workflow).toContain('movie-hub-tv-final@movie-hub-62459.iam.gserviceaccount.com')
   })
 
   it('prepares source modules for a self-contained Cloud Functions package', () => {
