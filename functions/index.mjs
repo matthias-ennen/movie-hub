@@ -1,3 +1,4 @@
+import { http } from '@google-cloud/functions-framework'
 import { initializeApp, getApps } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { runTvFinalReminderCheck } from './scripts/check-tv-final-reminders.mjs'
@@ -10,3 +11,6 @@ export const movieHubTvFinalReminder = createTvFinalHttpHandler({
   getDb: () => getFirestore(),
   run: runTvFinalReminderCheck,
 })
+
+// Explicit Functions Framework registration for gcloud source deploy.
+http('movieHubTvFinalReminder', movieHubTvFinalReminder)
