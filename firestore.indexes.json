@@ -9,6 +9,10 @@
           "order": "ASCENDING"
         },
         {
+          "fieldPath": "scheduleStatus",
+          "order": "ASCENDING"
+        },
+        {
           "fieldPath": "airingStartAt",
           "order": "ASCENDING"
         }
