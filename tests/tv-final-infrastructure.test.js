@@ -71,7 +71,10 @@ describe('#382 isolated Cloud Scheduler rollout contract', () => {
     expect(prepare).toContain('src/notifications/titleAlertLifecycleModel.js')
     expect(prepare).toContain('src/notifications/tvFinalReminderModel.js')
     expect(handler).toContain("from './scripts/check-tv-final-reminders.mjs'")
-    expect(read('functions/.gcloudignore')).not.toMatch(/^scripts\\/|^src\\//m)
+    const gcloudIgnoreEntries = read('functions/.gcloudignore').split('\n')
+      .map(line => line.trim()).filter(line => line && !line.startsWith('#'))
+    expect(gcloudIgnoreEntries).not.toContain('scripts/')
+    expect(gcloudIgnoreEntries).not.toContain('src/')
     expect(read('functions/package.json')).toContain('"node": "22"')
   })
 
