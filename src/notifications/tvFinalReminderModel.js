@@ -18,7 +18,9 @@ export function tvFinalEligibility(watch, firstEvent, now = Date.now()) {
     || !String(firstEvent.stationName || '').trim()) return null
   const start = timeMillis(firstEvent.airingStartAt)
   const current = timeMillis(now)
+  const stop = timeMillis(firstEvent.airingEndsAt)
   if (!Number.isFinite(start) || !Number.isFinite(current)) return null
+  if (Number.isFinite(stop) && current >= stop) return null
   if (current < start - FINAL_LEAD_MS || current >= start + FINAL_LATE_GRACE_MS) return null
   return { start, now: current, late: current >= start }
 }
