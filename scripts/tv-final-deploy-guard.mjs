@@ -15,11 +15,21 @@ export function checkTvFunction(details) {
     throw new Error('Function build identity or runtime mismatch')
   if (details?.serviceConfig?.serviceAccountEmail !== runtime)
     throw new Error('Unexpected function runtime identity')
-  const runService = details?.serviceConfig?.service?.split('/').at(-1)
-  const uri = details?.serviceConfig?.uri
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(runService || ''))
+  const runResourcePrefix = 'projects/' + project + '/locations/' + region + '/services/'
+  const runResource = details?.serviceConfig?.service
+  if (typeof runResource !== 'string' || !runResource.startsWith(runResourcePrefix))
+    throw new Error('Unexpected Cloud Run service resource')
+  const runService = runResource.slice(runResourcePrefix.length)
+  if (!/^[a-z][a-z0-9-]*$/.test(runService))
     throw new Error('Unable to verify Cloud Run service')
-  if (typeof uri !== 'string' || !/^https:\/\/[a-z0-9.-]+\/?$/.test(uri))
+  const uri = details?.serviceConfig?.uri
+  let parsed
+  try { parsed = new URL(uri) } catch { throw new Error('Unexpected private function URL') }
+  // A scheduler ID token must never be sent to an arbitrary HTTPS host.
+  if (typeof uri !== 'string' || parsed.protocol !== 'https:'
+    || !parsed.hostname.endsWith('.run.app')
+    || parsed.username || parsed.password || parsed.port
+    || (uri !== parsed.origin && uri !== parsed.origin + '/'))
     throw new Error('Unexpected private function URL')
   return { runService, uri }
 }
