@@ -91,6 +91,7 @@ jobs:
               const index=all.find(x=>x.queryScope==="COLLECTION_GROUP"
                 && x.name?.includes("/collectionGroups/notifications/")
                 && x.fields?.some(f=>f.fieldPath==="phase")
+                && x.fields?.some(f=>f.fieldPath==="scheduleStatus")
                 && x.fields?.some(f=>f.fieldPath==="airingStartAt"));
               process.stdout.write(index?.state||"NOT_FOUND");
             ' "$json")"
