@@ -4,6 +4,20 @@ import { timeMillis } from './titleAlertLifecycleModel.js'
 // reconciling its schedule against the latest complete 14-day EPG generation.
 // This is only allowed BEFORE the originally bound airing begins, or after a
 // previously cancelled airing becomes available again.
+// Keep the original confirmed broadcast when it is still present in the
+// current schedule. A different, newly discovered earlier rerun is not a
+// reason to move a user's already-announced appointment.
+export function selectTvAiringForReconciliation(first, airings = []) {
+  const candidates = Array.isArray(airings) ? airings : []
+  const previousStart = timeMillis(first?.airingStartAt)
+  const previousStation = String(first?.stationName || '').trim().toLocaleLowerCase('de-DE')
+  const original = Number.isFinite(previousStart) && previousStation
+    ? candidates.find((airing) => timeMillis(airing?.startTime) === previousStart
+      && String(airing?.stationName || '').trim().toLocaleLowerCase('de-DE') === previousStation)
+    : null
+  return original || candidates[0] || null
+}
+
 export function tvFirstAiringReconciliation(first, nextAiring, {
   now = Date.now(), sourceComplete = true,
 } = {}) {
