@@ -204,10 +204,11 @@ async function storeTv(db, entry, account, tvTitles, now) {
       })
     }
 
-    const recordedStart = existingInitial.exists && existingInitial.data()?.airingStartAt
-      ? existingInitial.data().airingStartAt.toDate?.() || existingInitial.data().airingStartAt
-      : new Date(airing.startTime)
-    const firstStartMs = recordedStart instanceof Date ? recordedStart.getTime() : Date.parse(recordedStart)
+    const eventData = existingInitial.exists ? existingInitial.data() || {} : {}
+    const eventStart = eventData.airingStartAt?.toDate?.() || eventData.airingStartAt
+    const eventEnd = eventData.airingEndsAt?.toDate?.() || eventData.airingEndsAt
+    const firstStartMs = eventStart instanceof Date ? eventStart.getTime() : Date.parse(eventStart)
+    const firstEndMs = eventEnd instanceof Date ? eventEnd.getTime() : Date.parse(eventEnd)
     transaction.set(stateRef, {
       ...next, firstNotificationId: firstId,
       // Preserve the exact client-committed first airing rather than silently
@@ -215,6 +216,9 @@ async function storeTv(db, entry, account, tvTitles, now) {
       ...(Number.isFinite(firstStartMs)
         ? { firstAiringStart: new Date(firstStartMs).toISOString(),
             finalReminderAt: new Date(firstStartMs - 5 * 60 * 1000) } : {}),
+      ...(Number.isFinite(firstEndMs)
+        ? { firstAiringStop: new Date(firstEndMs).toISOString() } : {}),
+      ...(eventData.stationName ? { firstAiringStation: eventData.stationName } : {}),
       updatedAt: new Date(now),
     })
     return !existing
