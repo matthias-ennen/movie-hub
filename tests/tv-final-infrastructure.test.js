@@ -13,7 +13,7 @@ describe('#382 isolated Cloud Scheduler rollout contract', () => {
     expect(workflow).toMatch(/workflow_dispatch:/)
     expect(workflow).not.toMatch(/\n  schedule:/)
     expect(workflow).not.toMatch(/\n  push:/)
-    expect(workflow).toContain("inputs.operation == 'activate' && inputs.confirmation == 'ENABLE_MOVIEHUB_TV_FINAL_1MIN'")
+    expect(workflow).toContain("github.ref == 'refs/heads/main' && inputs.operation == 'activate' && inputs.confirmation == 'ENABLE_MOVIEHUB_TV_FINAL_1MIN'")
     expect(workflow).toMatch(/firebase-tools deploy --only functions:tv-final-reminders/)
     expect(workflow).toContain('environment: production-tv-final-reminders')
     expect(nightly).toMatch(/firebase-tools deploy --only hosting,firestore:rules/)
