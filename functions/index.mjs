@@ -15,6 +15,7 @@ export const movieHubTvFinalReminder = onSchedule({
   memory: '256MiB',
   timeoutSeconds: 60,
   maxInstances: 1,
+  concurrency: 1,
   retryCount: 0,
   serviceAccount: 'movie-hub-tv-final@movie-hub-62459.iam.gserviceaccount.com',
 }, async () => {
