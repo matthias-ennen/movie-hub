@@ -3,6 +3,9 @@ import { alertNotificationId, watchId } from './titleAlertModel.js'
 
 export const FINAL_LEAD_MS = 5 * 60 * 1000
 export const FINAL_LATE_GRACE_MS = 15 * 60 * 1000
+// If the minute scheduler was down, a still-running show is worth surfacing.
+// No retroactive notice is ever created after the broadcast ended.
+export const FINAL_ACTIVE_BROADCAST_CATCHUP_MS = 6 * 60 * 60 * 1000
 export const FINAL_MAX_BATCH = 200
 
 // The first TV event is authoritative. A nightly state checkpoint is NOT
@@ -14,7 +17,7 @@ export function tvFinalEligibility(watch, firstEvent, now = Date.now()) {
     || !(watch.status === 'active' || (watch.status == null && watch.schemaVersion === 1))
     || firstEvent?.schemaVersion !== 2 || firstEvent?.phase !== 'tv-found'
     || firstEvent.kind !== 'tv' || firstEvent.titleType !== watch.type
-    || firstEvent.scheduleStatus === 'cancelled'
+    || ['cancelled', 'completed', 'expired'].includes(firstEvent.scheduleStatus)
     || Number(firstEvent.tmdbId) !== Number(watch.tmdbId)
     || !String(firstEvent.stationName || '').trim()) return null
   const start = timeMillis(firstEvent.airingStartAt)
@@ -22,7 +25,9 @@ export function tvFinalEligibility(watch, firstEvent, now = Date.now()) {
   const stop = timeMillis(firstEvent.airingEndsAt)
   if (!Number.isFinite(start) || !Number.isFinite(current)) return null
   if (Number.isFinite(stop) && current >= stop) return null
-  if (current < start - FINAL_LEAD_MS || current >= start + FINAL_LATE_GRACE_MS) return null
+  const lateGrace = Number.isFinite(stop)
+    ? FINAL_ACTIVE_BROADCAST_CATCHUP_MS : FINAL_LATE_GRACE_MS
+  if (current < start - FINAL_LEAD_MS || current >= start + lateGrace) return null
   return { start, now: current, late: current >= start }
 }
 
