@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeAnnouncement, visibleProfileAnnouncements, visiblePersonalReadStates } from '../src/notifications/announcementVisibility.js'
+import { activeAnnouncement, visibleProfileAnnouncements, visiblePersonalReadStates, visibleGlobalReadIds } from '../src/notifications/announcementVisibility.js'
 
 const DAY = 86400000
 const T0 = Date.parse('2026-10-08T10:00:00Z')
@@ -61,6 +61,18 @@ describe('#381 inbox visibility, legacy and global separation', () => {
     expect(visiblePersonalReadStates(cache, 'bob', 'main').size).toBe(0)
     expect(visiblePersonalReadStates(cache, null, 'main').size).toBe(0)
     expect(visiblePersonalReadStates({ ...cache, byId: {} }, 'alice', 'main').size).toBe(0)
+  })
+
+  it('shares global announcements but never carries their read marker into another account', () => {
+    const globallyRead = new Set(['global-1'])
+    const snapshot = { ownerUserId: 'alice', ids: globallyRead }
+    expect(visibleGlobalReadIds(snapshot, 'alice')).toBe(globallyRead)
+    expect(visibleGlobalReadIds(snapshot, 'bob').size).toBe(0)
+    expect(visibleGlobalReadIds(snapshot, null).size).toBe(0)
+    expect(visibleGlobalReadIds({ ...snapshot, ids: ['global-1'] }, 'alice').size).toBe(0)
+    expect(visibleGlobalReadIds(null, 'alice').size).toBe(0)
+    // Both accounts still see the same published global notice itself.
+    expect(activeAnnouncement(global, T0 + DAY)).toBe(true)
   })
 
   it('does not modify global admin logic, including its own earlier expiration', () => {
