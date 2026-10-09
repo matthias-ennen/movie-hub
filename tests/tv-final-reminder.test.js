@@ -122,10 +122,44 @@ describe('#382 independent 5-minute final reminder engine', () => {
       },
     })
     expect(await runTvFinalReminderCheck({ db, now })).toMatchObject({
-      considered: 1, finalCreated: 0, skipped: 1, failed: 0,
+      considered: 0, finalCreated: 0, skipped: 0, failed: 0,
     })
     expect(db.data.has(finalPath)).toBe(false)
     expect(db.data.get(watchPath).status).toBe('active')
+  })
+
+  it('recovers a missed minute while the confirmed TV show is still on air', async () => {
+    const running = {
+      ...first,
+      airingStartAt: new Date(now - 60 * MIN),
+      airingEndsAt: new Date(now + 60 * MIN),
+    }
+    const db = memoryDb({ [firstPath]: running, [watchPath]: watched })
+    expect(await runTvFinalReminderCheck({ db, now })).toMatchObject({
+      considered: 1, finalCreated: 1, expired: 0, failed: 0,
+    })
+    expect(db.data.get(finalPath)).toMatchObject({
+      phase: 'tv-final', title: 'Jetzt im TV',
+      body: expect.stringContaining('läuft jetzt'),
+    })
+    expect(db.data.get(firstPath).scheduleStatus).toBe('completed')
+  })
+
+  it('expires an already ended show without a misleading final notice, allowing future rebinding', async () => {
+    const ended = {
+      ...first, airingStartAt: new Date(now - 90 * MIN),
+      airingEndsAt: new Date(now - 60 * MIN),
+    }
+    const db = memoryDb({ [firstPath]: ended, [watchPath]: watched })
+    expect(await runTvFinalReminderCheck({ db, now })).toMatchObject({
+      considered: 1, finalCreated: 0, expired: 1, failed: 0,
+    })
+    expect(db.data.get(firstPath).scheduleStatus).toBe('expired')
+    expect(db.data.has(finalPath)).toBe(false)
+    expect(db.data.get(watchPath).status).toBe('active')
+    expect(await runTvFinalReminderCheck({ db, now: now + MIN })).toMatchObject({
+      considered: 0, finalCreated: 0, expired: 0,
+    })
   })
 
   it('creates one immutable final message and atomically completes the active watch', async () => {
