@@ -307,7 +307,7 @@ describe('trusted title alert data sources', () => {
     expect(db.data.get(watchPath).status).toBe('active') // #382 final stage pending.
   })
 
-  it('adopts an existing client-first TV event and never duplicates it after a replay', async () => {
+  it('reconciles an existing client-first TV event without duplicating it after replay', async () => {
     const now = Date.parse('2026-10-09T08:00:00Z')
     const profile = 'users/alice/profiles/main'
     const watchPath = `${profile}/titleAlerts/movie-52-tv`
@@ -332,10 +332,22 @@ describe('trusted title alert data sources', () => {
       ['movie-52', { airings: [laterServerAiring] }],
     ]), now }
     expect(await runTitleAlertCheck(opts)).toMatchObject({ tvCreated: 0, failed: 0 })
-    expect(db.data.get(eventPath)).toEqual(clientEvent)
-    expect(db.data.get(statePath).firstAiringStart).toBe(clientAiringStart.toISOString())
-    expect(db.data.get(statePath).finalReminderAt).toEqual(new Date(clientAiringStart.getTime() - 300000))
+    // The event ID and read marker stay unchanged; the verified EPG may
+    // correct the original client date before airing starts.
+    expect(db.data.get(eventPath)).toMatchObject({
+      schemaVersion: 2, phase: 'tv-found',
+      scheduleStatus: 'scheduled', stationName: 'Sat.1',
+      airingStartAt: new Date(laterServerAiring.startTime),
+    })
+    expect(db.data.get(statePath).firstNotificationId).toBe(eventPath.split('/').at(-1))
+    expect(db.data.get(statePath).firstAiringStart).toBe(laterServerAiring.startTime)
+    expect(db.data.get(statePath).finalReminderAt)
+      .toEqual(new Date(Date.parse(laterServerAiring.startTime) - 300000))
+    const updatedEvent = structuredClone(db.data.get(eventPath))
     expect(await runTitleAlertCheck(opts)).toMatchObject({ tvCreated: 0, failed: 0 })
+    expect(db.data.get(eventPath)).toEqual(updatedEvent)
+    expect([...db.data.keys()].filter(k => k.startsWith(`${profile}/notifications/`)))
+      .toEqual([eventPath])
   })
 
   it('reconciles a shifted existing TV first notice instead of sending a new one', async () => {
