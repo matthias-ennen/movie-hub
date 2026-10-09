@@ -82,6 +82,38 @@ für das 5-Minuten-Endereignis, Terminverschiebung/-ausfall und finaler
 atomarer Watch-Abschluss. Diese Schritte sind vor der Gesamtfreigabe von
 #382 einschließlich IAM- und produktiver Ende-zu-Ende-Tests nötig.
 
+## #382 – zweite TV-Phase: Enderinnerungs-Prüfer (vorbereitet, NICHT aktiviert)
+
+`scripts/check-tv-final-reminders.mjs` ist ein separater, zeitkurzer
+Firestore-Admin-Prüfer, der **keine** externen Programmdaten oder TMDB-Daten
+abruft. Er sucht über einen eng begrenzten Collection-Group-Index nur
+`notifications` mit `phase: tv-found` und `airingStartAt` innerhalb
+des aktuellen 5-Minuten-Erinnerungsfensters. Der konkrete Termin kommt
+aus der **persönlichen ersten Meldung**, auch wenn diese direkt beim
+Einschalten und vor dem nächsten Nachtlauf geschrieben wurde.
+
+Pro Beobachtung ist die End-Nachricht unter `-final` fest mit der
+Aktivierungs-ID verknüpft. Vor dem Schreiben prüft eine Firestore-
+Transaktion erneut, ob der Watch aktiv ist und zum ersten Ereignis gehört.
+Sie legt die V2-Nachricht mit `phase: tv-final` an und setzt
+`titleAlerts.status: completed` sowie den Abschluss unter
+`titleAlertState` atomar. Wiederholungen und nachträglich
+deaktivierte oder neu aktivierte Beobachtungen dürfen keine zusätzlichen
+Endmeldungen erzeugen. Kleinere Scheduler-Verzögerungen führen zu
+einer angepassten Formulierung („läuft jetzt“) statt einer falschen
+Behauptung „in fünf Minuten“. Bei zu alten oder abgelaufenen
+Terminen erzeugt der Prüfer **keine** falsche Erinnerung.
+
+**Abnahme- und Release-Gates:** Der vorgesehene separate GCP-Zeitgeber,
+seine Identität/Berechtigungen, Firestore-Collection-Group-Index und
+laufende Kosten bedürfen einer **expliziten Freigabe**. Kein Cron-Trigger,
+keine Cloud Function und keine Produktionsausführung wurden mit diesem
+PR eingerichtet. Die Script-CLI `npm run alerts:tv:final:check` steht
+nur für spätere autorisierte Ausführung bereit. Noch offen: Abgleich/
+Neubindung verschobener oder ausgefallener Sendetermine, langfristige
+Ausfallwiederholung über das kurze Toleranzfenster hinaus sowie
+echter End-to-End-Test mit zwei verschiedenen Geräten.
+
 ## Grenzen und Prüfung
 
 Die persönliche TMDB-ID und der Titel liegen wie vorhandene persönliche
