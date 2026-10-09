@@ -307,7 +307,7 @@ describe('trusted title alert data sources', () => {
     expect(db.data.get(watchPath).status).toBe('active') // #382 final stage pending.
   })
 
-  it('adopts an existing client-first TV event and never duplicates it after a replay', async () => {
+  it('reconciles an existing client-first TV event without duplicating it after replay', async () => {
     const now = Date.parse('2026-10-09T08:00:00Z')
     const profile = 'users/alice/profiles/main'
     const watchPath = `${profile}/titleAlerts/movie-52-tv`
@@ -332,10 +332,119 @@ describe('trusted title alert data sources', () => {
       ['movie-52', { airings: [laterServerAiring] }],
     ]), now }
     expect(await runTitleAlertCheck(opts)).toMatchObject({ tvCreated: 0, failed: 0 })
-    expect(db.data.get(eventPath)).toEqual(clientEvent)
-    expect(db.data.get(statePath).firstAiringStart).toBe(clientAiringStart.toISOString())
-    expect(db.data.get(statePath).finalReminderAt).toEqual(new Date(clientAiringStart.getTime() - 300000))
+    // The event ID and read marker stay unchanged; the verified EPG may
+    // correct the original client date before airing starts.
+    expect(db.data.get(eventPath)).toMatchObject({
+      schemaVersion: 2, phase: 'tv-found',
+      scheduleStatus: 'scheduled', stationName: 'Sat.1',
+      airingStartAt: new Date(laterServerAiring.startTime),
+    })
+    expect(db.data.get(statePath).firstNotificationId).toBe(eventPath.split('/').at(-1))
+    expect(db.data.get(statePath).firstAiringStart).toBe(laterServerAiring.startTime)
+    expect(db.data.get(statePath).finalReminderAt)
+      .toEqual(new Date(Date.parse(laterServerAiring.startTime) - 300000))
+    const updatedEvent = structuredClone(db.data.get(eventPath))
     expect(await runTitleAlertCheck(opts)).toMatchObject({ tvCreated: 0, failed: 0 })
+    expect(db.data.get(eventPath)).toEqual(updatedEvent)
+    expect([...db.data.keys()].filter(k => k.startsWith(`${profile}/notifications/`)))
+      .toEqual([eventPath])
+  })
+
+  it('reconciles a shifted existing TV first notice instead of sending a new one', async () => {
+    const now = Date.parse('2026-10-09T08:00:00Z')
+    const DAY = 86400000
+    const profile = 'users/alice/profiles/main'
+    const watchPath = `${profile}/titleAlerts/movie-79-tv`
+    const firstPath = `${profile}/notifications/movie-79-tv-session-a-initial`
+    const readPath = `${profile}/notificationReads/movie-79-tv-session-a-initial`
+    const start = new Date(now + 5 * DAY)
+    const moved = {
+      stationId: 'zdf', stationName: 'ZDF',
+      startTime: new Date(now + 7 * DAY).toISOString(),
+      stopTime: new Date(now + 7 * DAY + 7200000).toISOString(),
+    }
+    const previous = {
+      schemaVersion: 2, phase: 'tv-found', kind: 'tv', titleType: 'movie',
+      tmdbId: 79, title: 'Bald im TV', mediaTitle: 'Testfilm',
+      body: 'alter Sendetermin', eventAt: new Date(now - 3600000),
+      startsAt: new Date(now - 3600000), expiresAt: new Date(now + 30 * DAY),
+      airingStartAt: start, airingEndsAt: new Date(start.getTime() + 7200000),
+      stationName: 'ZDF',
+    }
+    const readAt = new Date(now - 15 * 60000)
+    const db = inMemoryFirestore({
+      'users/alice': {}, [profile]: {},
+      [watchPath]: { schemaVersion: 2, status: 'active', kind: 'tv',
+        type: 'movie', tmdbId: 79, title: 'Testfilm', activationId: 'session-a' },
+      [firstPath]: previous, [readPath]: { readAt },
+    })
+    const tvTitles = new Map([['movie-79', { airings: [moved] }]])
+    const opts = { db, token: 'token', now, tvTitles }
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ tvCreated: 0, failed: 0 })
+    expect(db.data.get(firstPath)).toMatchObject({
+      scheduleStatus: 'scheduled', airingStartAt: new Date(moved.startTime),
+      airingEndsAt: new Date(moved.stopTime), body: expect.stringContaining('ZDF'),
+    })
+    expect(db.data.get(readPath)).toEqual({ readAt })
+    expect(db.data.get(`${profile}/titleAlertState/movie-79-tv`)).toMatchObject({
+      firstNotificationId: 'movie-79-tv-session-a-initial',
+      firstAiringStart: moved.startTime,
+      finalReminderAt: new Date(Date.parse(moved.startTime) - 5 * 60000),
+    })
+    const after = structuredClone(db.data.get(firstPath))
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ tvCreated: 0, failed: 0 })
+    expect(db.data.get(firstPath)).toEqual(after)
+    expect([...db.data.keys()].filter(k => k.startsWith(`${profile}/notifications/`)))
+      .toEqual([firstPath])
+  })
+
+  it('cancels an unconfirmed TV broadcast only with complete provider data and resumes when restored', async () => {
+    const now = Date.parse('2026-10-09T08:00:00Z')
+    const DAY = 86400000
+    const profile = 'users/alice/profiles/main'
+    const watchPath = `${profile}/titleAlerts/series-83-tv`
+    const firstPath = `${profile}/notifications/series-83-tv-active-first-initial`
+    const first = {
+      schemaVersion: 2, phase: 'tv-found', kind: 'tv', titleType: 'series',
+      tmdbId: 83, eventAt: new Date(now - 3600000),
+      startsAt: new Date(now - 3600000),
+      expiresAt: new Date(now + 30 * DAY),
+      title: 'Bald im TV', mediaTitle: 'Testserie', body: 'Zuvor bestätigt',
+      airingStartAt: new Date(now + 3 * DAY),
+      airingEndsAt: new Date(now + 3 * DAY + 7200000), stationName: 'ZDF',
+    }
+    const db = inMemoryFirestore({
+      'users/alice': {}, [profile]: {},
+      [watchPath]: { schemaVersion: 2, status: 'active', kind: 'tv',
+        type: 'series', tmdbId: 83, title: 'Testserie', activationId: 'active-first' },
+      [firstPath]: first,
+    })
+    const tvTitles = new Map()
+    tvTitles.sourceComplete = false
+    const opts = { db, token: 'token', now, tvTitles }
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ tvCreated: 0, failed: 0 })
+    expect(db.data.get(firstPath)).toEqual(first) // One provider has missing data.
+    tvTitles.sourceComplete = true
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ tvCreated: 0, failed: 0 })
+    expect(db.data.get(firstPath)).toMatchObject({
+      scheduleStatus: 'cancelled', body: expect.stringContaining('nicht mehr bestätigt'),
+    })
+    expect(db.data.get(`${profile}/titleAlertState/series-83-tv`).status).toBe('cancelled')
+    expect(db.data.get(watchPath).status).toBe('active')
+    const recovered = {
+      stationId: 'ard', stationName: 'Das Erste',
+      startTime: new Date(now + 5 * DAY).toISOString(),
+      stopTime: new Date(now + 5 * DAY + 7200000).toISOString(),
+    }
+    tvTitles.set('series-83', { airings: [recovered] })
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ tvCreated: 0, failed: 0 })
+    expect(db.data.get(firstPath)).toMatchObject({
+      scheduleStatus: 'scheduled', stationName: 'Das Erste',
+      airingStartAt: new Date(recovered.startTime),
+    })
+    expect(db.data.get(`${profile}/titleAlertState/series-83-tv`).status).toBe('scheduled')
+    expect([...db.data.keys()].filter(k => k.startsWith(`${profile}/notifications/`)))
+      .toEqual([firstPath])
   })
 
   it('merges recent Waipu and Joyn TV title publications', async () => {

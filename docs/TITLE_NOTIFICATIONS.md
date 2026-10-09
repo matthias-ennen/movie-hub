@@ -77,10 +77,65 @@ Die erste Phase erweitert Client und vertrauenswürdigen Server gemeinsam:
   bis höchstens sieben Tage nach Sendeende gültig (Hard-TTL maximal 30 Tage);
 - Der TV-Watch bleibt nach der Erstmeldung **aktiv**.
 
+**Terminänderungen im folgenden #382-Entwicklungsstand:** Der vertrauenswürdige
+Nachtlauf vergleicht den bereits gebundenen ersten TV-Termin mit beiden
+vollständig verfügbaren Waipu-/Joyn-Generationen. Vor Sendebeginn korrigiert
+er Beginn, Ende und Sender **innerhalb derselben Erstmeldung** ohne neue
+Aktivierung, weitere Erstmeldung oder Zurücksetzen des Lesestatus. Ein
+entfallener Termin wird bei vollständigen Quellen als `cancelled` markiert,
+und der Minutenprüfer erzeugt dazu keine falsche Enderinnerung. Taucht
+eine passende Ausstrahlung später wieder auf, wird dieselbe Erstmeldung
+neu gebunden. Unvollständige Quellen führen ausdrücklich **nicht** zur
+automatischen Stornierung. Bereits laufende Sendungen werden nicht rückwirkend
+auf eine andere Ausstrahlung verlegt.
+
 **Noch nicht in dieser Phase:** Ein zeitnaher, zuverlässiger Scheduler
 für das 5-Minuten-Endereignis, Terminverschiebung/-ausfall und finaler
 atomarer Watch-Abschluss. Diese Schritte sind vor der Gesamtfreigabe von
 #382 einschließlich IAM- und produktiver Ende-zu-Ende-Tests nötig.
+
+## #382 – zweite TV-Phase: Enderinnerungs-Prüfer (vorbereitet, NICHT aktiviert)
+
+`scripts/check-tv-final-reminders.mjs` ist ein separater, zeitkurzer
+Firestore-Admin-Prüfer, der **keine** externen Programmdaten oder TMDB-Daten
+abruft. Er sucht über einen eng begrenzten Collection-Group-Index nur
+`notifications` mit `phase: tv-found`, `scheduleStatus: scheduled` und
+`airingStartAt` im 5-Minuten-Vorlauf bzw. innerhalb von maximal sechs
+Stunden nach geplantem Beginn. Die zusätzliche Statusbedingung verhindert,
+dass erledigte oder abgesagte Erstmeldungen bei jedem Minutenlauf erneut
+gelesen werden. Der konkrete Termin kommt
+aus der **persönlichen ersten Meldung**, auch wenn diese direkt beim
+Einschalten und vor dem nächsten Nachtlauf geschrieben wurde.
+
+Pro Beobachtung ist die End-Nachricht unter `-final` fest mit der
+Aktivierungs-ID verknüpft. Vor dem Schreiben prüft eine Firestore-
+Transaktion erneut, ob der Watch aktiv ist und zum ersten Ereignis gehört.
+Sie legt die V2-Nachricht mit `phase: tv-final` an und setzt
+`titleAlerts.status: completed` sowie den Abschluss unter
+`titleAlertState` atomar. Wiederholungen und nachträglich
+deaktivierte oder neu aktivierte Beobachtungen dürfen keine zusätzlichen
+Endmeldungen erzeugen. Beim erfolgreichen Abschluss wird außerdem der
+Ersttermin aus der Minuten-Abfrage entfernt (`scheduleStatus: completed`).
+Ist der Scheduler verspätet, sendet er während der **noch laufenden**
+Ausstrahlung „läuft jetzt“ statt einer falschen Fünf-Minuten-Aussage.
+Ist die Sendung bereits beendet, gibt es keine rückwirkende Falschmeldung:
+Der Ersttermin wird als `expired` markiert, die aktive Beobachtung kann beim
+nächsten bestätigten EPG-Termin neu gebunden werden – ohne zweite Fundmeldung.
+
+**Cloud-Setup vorbereitet:** [TV-Scheduler-Runbook](TV_FINAL_SCHEDULER_RUNBOOK.md)
+und die getrennte Firebase-Functions-Codebase mit manuell geschützter
+Aktivierung sind im Draft-PR #406 enthalten. Kein Scheduler wurde aktiviert.
+
+**Abnahme- und Release-Gates:** Der vorgesehene separate GCP-Zeitgeber,
+seine Identität/Berechtigungen, Firestore-Collection-Group-Index und
+laufende Kosten bedürfen einer **expliziten Freigabe**. Kein Cron-Trigger,
+keine Cloud Function und keine Produktionsausführung wurden mit diesem
+PR eingerichtet. Die Script-CLI `npm run alerts:tv:final:check` steht
+nur für spätere autorisierte Ausführung bereit. Der Abgleich von
+verschobenen/entfallenen Sendeterminen und die Wiederanlaufregel für
+kurzfristige Cloud-Ausfälle sind mit Regressionstests umgesetzt. Vor dem
+Livegang bleiben IAM, Cloud-Preflight sowie echter End-to-End-Test mit zwei
+verschiedenen Geräten offen.
 
 ## Grenzen und Prüfung
 

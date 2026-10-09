@@ -123,7 +123,7 @@ export function useTitleAlerts(userId, profileId) {
             transaction.set(messageRef, {
               schemaVersion: 2, kind, titleType: watch.type, tmdbId: watch.tmdbId,
               title: notification.title, mediaTitle: watch.title, body: notification.body,
-              phase: 'tv-found', eventAt: serverTimestamp(),
+              phase: 'tv-found', eventAt: serverTimestamp(), scheduleStatus: 'scheduled',
               startsAt: serverTimestamp(), expiresAt: notification.expiresAt,
               airingStartAt: Timestamp.fromMillis(Date.parse(tvAiring.startTime)),
               ...(Number.isFinite(Date.parse(tvAiring.stopTime))

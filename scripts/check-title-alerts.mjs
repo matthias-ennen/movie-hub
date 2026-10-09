@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { normalizeTmdbWatchProviders } from '../src/services/tmdb.js'
-import { isActiveTitleWatch, personalHardExpiry } from '../src/notifications/titleAlertLifecycleModel.js'
+import { isActiveTitleWatch, personalHardExpiry, timeMillis } from '../src/notifications/titleAlertLifecycleModel.js'
+import { tvFirstAiringReconciliation, selectTvAiringForReconciliation } from '../src/notifications/tvAiringReconciliationModel.js'
 import { PROVIDER_REGISTRY } from '../src/providers/providerRegistry.js'
 import { normalizeStoredProviderSelection } from '../src/settings/providerSelectionModel.js'
 import {
@@ -96,6 +97,10 @@ export async function readPublishedTvEntries({ read = readFile, now = Date.now()
       ].sort((a, b) => String(a?.startTime || '').localeCompare(String(b?.startTime || ''))),
     })
   }
+  // A missing provider feed may falsely look like a cancelled broadcast.
+  // Discovery can still proceed from one recent source; destructive schedule
+  // reconciliation requires both full published source generations.
+  merged.sourceComplete = Boolean(waipuEntries && joynEntries)
   return merged
 }
 
@@ -165,63 +170,114 @@ async function storeTv(db, entry, account, tvTitles, now) {
   const { snapshot, watch } = entry
   const airings = filterEnabledTvAirings(tvTitles.get(alertTitleKey(watch))?.airings, account)
   const airing = dueTvAiring(airings, [], now)
-  if (!airing) return false
-
+  const sourceComplete = tvTitles.sourceComplete !== false
   const parent = snapshot.ref.parent.parent
   const stateRef = parent.collection('titleAlertState').doc(snapshot.id)
-  // One stable first-notice ID per activation, regardless of multiple airings
-  // or an overlapping Waipu/Joyn broadcast.
   const initialId = alertNotificationId(watch, 'initial')
   const initialRef = parent.collection('notifications').doc(initialId)
-  const legacyId = tvAiringId(watch, airing)
-  const legacyRef = parent.collection('notifications').doc(legacyId)
+  // Existing V1 TV first events with the old time-dependent ID are preserved.
+  const legacyId = airing ? tvAiringId(watch, airing) : null
+  const legacyRef = legacyId ? parent.collection('notifications').doc(legacyId) : null
 
   return db.runTransaction(async (transaction) => {
-    // Read every reference before writes so concurrent client/server attempts
-    // share one initial event and cannot overwrite a newer activation.
+    // Read all affected documents before the first transactional write.
     const [current, oldState, existingInitial, existingLegacy] = await Promise.all([
       transaction.get(snapshot.ref), transaction.get(stateRef),
-      transaction.get(initialRef), transaction.get(legacyRef),
+      transaction.get(initialRef),
+      legacyRef ? transaction.get(legacyRef) : Promise.resolve(null),
     ])
     if (!current.exists || current.data().activationId !== watch.activationId
       || !isActiveTitleWatch(current.data())) return false
+    const state = oldState.exists ? oldState.data() || {} : {}
+    if (state.activationId === watch.activationId && state.status === 'completed') return false
 
-    const next = tvTransition(oldState.data(), watch.activationId, airing, now)
+    // Reconcile changed/missing EPG times against the SAME initial event,
+    // never create a second discovery and never reset its read marker.
+    if (existingInitial.exists && existingInitial.data()?.phase === 'tv-found') {
+      if (!sourceComplete) return false // Partial providers cannot prove a cancellation.
+      const original = existingInitial.data()
+      const confirmed = selectTvAiringForReconciliation(original, airings.filter((item) => {
+        const start = timeMillis(item?.startTime)
+        return Number.isFinite(start) && start > now && start <= now + 14 * 86400000
+      }))
+      const plan = tvFirstAiringReconciliation(original, confirmed, { now, sourceComplete })
+      if (!plan) return false
+      if (plan.status === 'cancelled') {
+        transaction.update(initialRef, {
+          scheduleStatus: 'cancelled',
+          body: `Für ${watch.title} ist der zuvor angekündigte TV-Termin derzeit nicht mehr bestätigt.`,
+          scheduleUpdatedAt: new Date(now),
+        })
+        transaction.set(stateRef, {
+          ...state, activationId: watch.activationId,
+          status: 'cancelled', updatedAt: new Date(now),
+          firstNotificationId: initialId,
+        })
+        return false
+      }
+      const firstCreated = timeMillis(original.eventAt) || timeMillis(original.startsAt)
+      const createdAt = Number.isFinite(firstCreated) ? firstCreated : now
+      const expiresAt = personalHardExpiry('tv', {
+        createdAt, airingEndsAt: plan.end,
+      })
+      transaction.update(initialRef, {
+        scheduleStatus: 'scheduled',
+        body: tvMessage(plan.airing, watch.title),
+        airingStartAt: new Date(plan.start),
+        airingEndsAt: new Date(plan.end),
+        stationName: plan.station,
+        expiresAt,
+        scheduleUpdatedAt: new Date(now),
+      })
+      transaction.set(stateRef, {
+        ...state, activationId: watch.activationId,
+        status: 'scheduled', firstNotificationId: initialId,
+        firstAiringStart: new Date(plan.start).toISOString(),
+        firstAiringStop: new Date(plan.end).toISOString(),
+        firstAiringStation: plan.station,
+        firstAiringStationId: String(plan.airing.sourceStationId || plan.airing.stationId || ''),
+        finalReminderAt: new Date(plan.start - 5 * 60000),
+        updatedAt: new Date(now),
+      })
+      return false
+    }
+
+    if (!airing) return false
+    const next = tvTransition(state, watch.activationId, airing, now)
     if (!next.send) return false
-    const existing = existingInitial.exists || existingLegacy.exists
-    const firstId = existingInitial.exists ? initialId : existingLegacy.exists ? legacyId : initialId
+    const legacyExists = Boolean(existingLegacy?.exists)
+    const firstId = legacyExists ? legacyId : initialId
 
-    if (!existing) {
+    if (!existingInitial.exists && !legacyExists) {
       transaction.create(initialRef, {
         ...notification(watch, 'tv', tvMessage(airing, watch.title), now,
-          personalHardExpiry('tv', {
-            createdAt: now, airingEndsAt: airing.stopTime,
-          }).getTime()),
+          personalHardExpiry('tv', { createdAt: now, airingEndsAt: airing.stopTime }).getTime()),
         schemaVersion: 2, phase: 'tv-found', eventAt: new Date(now),
         airingStartAt: new Date(airing.startTime),
         ...(Number.isFinite(Date.parse(airing.stopTime)) ? { airingEndsAt: new Date(airing.stopTime) } : {}),
-        stationName: String(airing.stationName || ''),
+        stationName: String(airing.stationName || ''), scheduleStatus: 'scheduled',
       })
     }
 
     const eventData = existingInitial.exists ? existingInitial.data() || {} : {}
     const eventStart = eventData.airingStartAt?.toDate?.() || eventData.airingStartAt
     const eventEnd = eventData.airingEndsAt?.toDate?.() || eventData.airingEndsAt
-    const firstStartMs = eventStart instanceof Date ? eventStart.getTime() : Date.parse(eventStart)
-    const firstEndMs = eventEnd instanceof Date ? eventEnd.getTime() : Date.parse(eventEnd)
+    const firstStartMs = timeMillis(eventStart)
+    const firstEndMs = timeMillis(eventEnd)
     transaction.set(stateRef, {
       ...next, firstNotificationId: firstId,
-      // Preserve the exact client-committed first airing rather than silently
-      // rescheduling its five-minute follow-up to a different broadcast.
+      // An immediate client-first event may have a different bound time than
+      // the current server EPG. Its own data is authoritative until the next
+      // trusted reconciliation, never silently schedule another broadcast.
       ...(Number.isFinite(firstStartMs)
         ? { firstAiringStart: new Date(firstStartMs).toISOString(),
-            finalReminderAt: new Date(firstStartMs - 5 * 60 * 1000) } : {}),
+            finalReminderAt: new Date(firstStartMs - 5 * 60000) } : {}),
       ...(Number.isFinite(firstEndMs)
         ? { firstAiringStop: new Date(firstEndMs).toISOString() } : {}),
       ...(eventData.stationName ? { firstAiringStation: eventData.stationName } : {}),
       updatedAt: new Date(now),
     })
-    return !existing
+    return !existingInitial.exists && !legacyExists
   })
 }
 
