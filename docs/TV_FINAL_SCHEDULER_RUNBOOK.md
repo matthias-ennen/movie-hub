@@ -15,7 +15,10 @@ durchlaufen werden.
   eine Instanz und eine parallele Ausführung, Timeout 60 Sekunden.
 - Der geprüfte Prozess `runTvFinalReminderCheck` lädt ausschließlich
   aktuelle `tv-found`-Mitteilungen über den vorbereiteten Collection-Group-Index
-  (`phase`, `airingStartAt`). Er ruft **keine** TV-/TMDB-API auf.
+  (`phase`, `scheduleStatus`, `airingStartAt`). Nur `scheduled`-Ereignisse
+  liegen im Zeitfenster; erledigte, stornierte und abgelaufene Einträge
+  werden nicht in jedem Minutentakt erneut geladen. Der Dienst ruft
+  **keine** TV-/TMDB-API auf.
 - Firestore-Transaktion schützt vor älteren Aktivierungen, Doppelaufrufen,
   abgeschalteten Beobachtungen und konkurrierenden Geräten.
 - Der normale Nachtlauf veröffentlicht weiterhin ausschließlich
@@ -72,9 +75,11 @@ anlegen und nicht öffentlich freigeben.
    Android erfolgreich, danach auf `main` integrieren.
 2. PR #406 – Funktion, enger Zeitprüfer, IAM-/Cloud-Plan – CI,
    Firestore-Regeltests, Android sowie **Funktionspaket-Importtest** bestehen.
-3. Integrationstests mit verschobenem/abgesagtem Sendetermin,
-   mehrfachem Lauf, Scheduler-Verzögerung, deaktiviertem und reaktiviertem
-   Watch. Kein künstlicher Massentest am echten Nutzerprofil.
+3. Regressionstests mit verschobenem/abgesagtem Sendetermin,
+   mehrfachem Lauf, Scheduler-Verzögerung, abgeschlossenem TV-Termin,
+   deaktiviertem und reaktiviertem Watch. Zusätzlich echter
+   E2E-Test auf einem eigenen Termin, kein künstlicher Massentest am
+   echten Nutzerprofil.
 4. `firestore.indexes.json` enthält Composite-Collection-Group-Index.
    Die Bereitstellung erfolgt getrennt, und der Index muss vor Aktivierung
    `READY` sein.
@@ -115,10 +120,14 @@ ist noch **keine** erfolgreiche Cloud-Einrichtung.
 
 ## Noch offen vor Livegang
 
-- Änderung/Absetzung eines einmal gebundenen TV-Termins zuverlässig
-  berücksichtigen, dabei keine zusätzliche Fundmeldung erzeugen.
-- Ausfall-/Retry-Verhalten bei Verzögerung von mehr als 15 Minuten
-  fachlich abschließen.
+- Veränderte/abgesagte Sendetermine sind technisch abgeglichen: bei
+  vollständigen EPG-Quellen nur ein korrigierter Ersttermin, ohne doppelte
+  Meldung oder Lesestatusverlust; keine Stornierung bei Teilquellen.
+- Ausfall-/Retry-Verhalten ist implementiert: im laufenden Programm bis
+  maximal sechs Stunden nach Sendebeginn mit korrektem „läuft jetzt“-Text
+  nachholen. Nach Sendeende kein künstliches „verpasst“-Ereignis, sondern
+  den Ersttermin als abgelaufen markieren und auf einen neu bestätigten
+  Folgetermin warten. Reale Ausfall-/Zeitgrenzentests bleiben Pflicht.
 - Echte Produktions-E2E mit einer passenden Ausstrahlung und
   Datumswechsel prüfen.
 - Issue #381 inklusive globaler Admin-Mitteilungen und PR #404 nicht
