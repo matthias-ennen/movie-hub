@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { normalizeTmdbWatchProviders } from '../src/services/tmdb.js'
-import { isActiveTitleWatch } from '../src/notifications/titleAlertLifecycleModel.js'
+import { isActiveTitleWatch, personalHardExpiry } from '../src/notifications/titleAlertLifecycleModel.js'
 import { PROVIDER_REGISTRY } from '../src/providers/providerRegistry.js'
 import { normalizeStoredProviderSelection } from '../src/settings/providerSelectionModel.js'
 import {
@@ -166,23 +166,58 @@ async function storeTv(db, entry, account, tvTitles, now) {
   const airings = filterEnabledTvAirings(tvTitles.get(alertTitleKey(watch))?.airings, account)
   const airing = dueTvAiring(airings, [], now)
   if (!airing) return false
-  const stateRef = snapshot.ref.parent.parent.collection('titleAlertState').doc(snapshot.id)
+
+  const parent = snapshot.ref.parent.parent
+  const stateRef = parent.collection('titleAlertState').doc(snapshot.id)
+  // One stable first-notice ID per activation, regardless of multiple airings
+  // or an overlapping Waipu/Joyn broadcast.
+  const initialId = alertNotificationId(watch, 'initial')
+  const initialRef = parent.collection('notifications').doc(initialId)
+  const legacyId = tvAiringId(watch, airing)
+  const legacyRef = parent.collection('notifications').doc(legacyId)
+
   return db.runTransaction(async (transaction) => {
-    const [current, oldState] = await Promise.all([transaction.get(snapshot.ref), transaction.get(stateRef)])
-    if (!current.exists || current.data().activationId !== watch.activationId) return false
+    // Read every reference before writes so concurrent client/server attempts
+    // share one initial event and cannot overwrite a newer activation.
+    const [current, oldState, existingInitial, existingLegacy] = await Promise.all([
+      transaction.get(snapshot.ref), transaction.get(stateRef),
+      transaction.get(initialRef), transaction.get(legacyRef),
+    ])
+    if (!current.exists || current.data().activationId !== watch.activationId
+      || !isActiveTitleWatch(current.data())) return false
+
     const next = tvTransition(oldState.data(), watch.activationId, airing, now)
     if (!next.send) return false
-    const eventRef = snapshot.ref.parent.parent.collection('notifications').doc(tvAiringId(watch, airing))
-    const existingEvent = await transaction.get(eventRef)
-    if (!existingEvent.exists) {
-      transaction.create(eventRef, notification(watch, 'tv',
-        tvMessage(airing, watch.title), now, Date.parse(airing.stopTime)))
+    const existing = existingInitial.exists || existingLegacy.exists
+    const firstId = existingInitial.exists ? initialId : existingLegacy.exists ? legacyId : initialId
+
+    if (!existing) {
+      transaction.create(initialRef, {
+        ...notification(watch, 'tv', tvMessage(airing, watch.title), now,
+          personalHardExpiry('tv', {
+            createdAt: now, airingEndsAt: airing.stopTime,
+          }).getTime()),
+        schemaVersion: 2, phase: 'tv-found', eventAt: new Date(now),
+        airingStartAt: new Date(airing.startTime),
+        ...(Number.isFinite(Date.parse(airing.stopTime)) ? { airingEndsAt: new Date(airing.stopTime) } : {}),
+        stationName: String(airing.stationName || ''),
+      })
     }
+
+    const recordedStart = existingInitial.exists && existingInitial.data()?.airingStartAt
+      ? existingInitial.data().airingStartAt.toDate?.() || existingInitial.data().airingStartAt
+      : new Date(airing.startTime)
+    const firstStartMs = recordedStart instanceof Date ? recordedStart.getTime() : Date.parse(recordedStart)
     transaction.set(stateRef, {
-      activationId: watch.activationId, lastAiringStart: airing.startTime,
-      lastNotifiedAt: new Date(now),
+      ...next, firstNotificationId: firstId,
+      // Preserve the exact client-committed first airing rather than silently
+      // rescheduling its five-minute follow-up to a different broadcast.
+      ...(Number.isFinite(firstStartMs)
+        ? { firstAiringStart: new Date(firstStartMs).toISOString(),
+            finalReminderAt: new Date(firstStartMs - 5 * 60 * 1000) } : {}),
+      updatedAt: new Date(now),
     })
-    return !existingEvent.exists
+    return !existing
   })
 }
 
