@@ -107,17 +107,17 @@ service cloud.firestore {
             && request.resource.data.keys().hasOnly([
               'schemaVersion', 'kind', 'titleType', 'tmdbId', 'title', 'mediaTitle',
               'body', 'startsAt', 'expiresAt', 'phase', 'eventAt', 'completedAt',
-              'airingStartAt', 'airingEndsAt', 'stationName'
+              'airingStartAt', 'airingEndsAt', 'stationName', 'scheduleStatus'
             ])
             && ((request.resource.data.schemaVersion == 1
                 && !request.resource.data.keys().hasAny([
                   'phase', 'eventAt', 'completedAt',
-                  'airingStartAt', 'airingEndsAt', 'stationName'
+                  'airingStartAt', 'airingEndsAt', 'stationName', 'scheduleStatus'
                 ]))
               || (request.resource.data.schemaVersion == 2
                 && request.resource.data.kind == 'included'
                 && !request.resource.data.keys().hasAny([
-                  'airingStartAt', 'airingEndsAt', 'stationName'
+                  'airingStartAt', 'airingEndsAt', 'stationName', 'scheduleStatus'
                 ])
                 && notificationId.matches('^(movie|series)-[0-9]+-included-[a-zA-Z0-9-]+-initial$')
                 && request.resource.data.phase == 'included-found'
@@ -128,6 +128,7 @@ service cloud.firestore {
                 && notificationId.matches('^(movie|series)-[0-9]+-tv-[a-zA-Z0-9-]+-initial$')
                 && !request.resource.data.keys().hasAny(['completedAt'])
                 && request.resource.data.phase == 'tv-found'
+                && request.resource.data.scheduleStatus == 'scheduled'
                 && request.resource.data.eventAt == request.time
                 && request.resource.data.airingStartAt is timestamp
                 && request.resource.data.airingStartAt > request.time

@@ -30,6 +30,15 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Prepare isolated TV final function and validate source syntax
+        run: |
+          node scripts/prepare-tv-final-function.mjs
+          node --check functions/index.mjs
+          node --check functions/scripts/check-tv-final-reminders.mjs
+          node --check functions/src/notifications/tvFinalReminderModel.js
+          npm install --prefix functions --ignore-scripts --no-audit --no-fund
+          node --input-type=module -e "import('./functions/index.mjs').then(m => { if (!m.movieHubTvFinalReminder) process.exitCode = 1 })"
+
       - name: Test application logic
         run: npm run test:unit
 

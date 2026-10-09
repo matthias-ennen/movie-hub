@@ -116,5 +116,12 @@
     "ui": {
       "enabled": true
     }
+  },
+  "functions": {
+    "source": "functions",
+    "codebase": "tv-final-reminders",
+    "predeploy": [
+      "node scripts/prepare-tv-final-function.mjs"
+    ]
   }
 }
