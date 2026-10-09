@@ -1,0 +1,108 @@
+name: TV final reminder infrastructure (manual)
+
+# Neither PRs nor nightly Firebase deployments may activate the scheduler.
+# The production operation is intentionally available ONLY after merging
+# verified code and a separate exact confirmation in GitHub Actions.
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Read-only preflight or live scheduler activation
+        required: true
+        type: choice
+        default: preflight
+        options:
+          - preflight
+          - activate
+      confirmation:
+        description: For activation type ENABLE_MOVIEHUB_TV_FINAL_1MIN
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: moviehub-tv-final-infrastructure
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    if: ${{ inputs.operation == 'preflight' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Check prerequisites without changing cloud infrastructure
+        run: |
+          set -euo pipefail
+          gcloud config set project movie-hub-62459
+          echo "### Enabled APIs" >> "$GITHUB_STEP_SUMMARY"
+          gcloud services list --enabled --format='value(config.name)' | grep -E '^(cloudfunctions|cloudscheduler|run|eventarc|cloudbuild|artifactregistry|firestore)\.googleapis\.com$' || true
+          echo "### Dedicated TV-final runtime identity" >> "$GITHUB_STEP_SUMMARY"
+          gcloud iam service-accounts describe movie-hub-tv-final@movie-hub-62459.iam.gserviceaccount.com --format='value(email)' || true
+          echo "### Cloud Scheduler (read-only)" >> "$GITHUB_STEP_SUMMARY"
+          gcloud scheduler jobs list --location=europe-west3 --format='table(name,schedule,state)' || true
+          echo "Preflight did not deploy functions or create scheduler jobs." >> "$GITHUB_STEP_SUMMARY"
+
+  activate:
+    if: ${{ inputs.operation == 'activate' && inputs.confirmation == 'ENABLE_MOVIEHUB_TV_FINAL_1MIN' }}
+    runs-on: ubuntu-latest
+    environment: production-tv-final-reminders
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Verify runtime identity exists
+        run: |
+          gcloud iam service-accounts describe movie-hub-tv-final@movie-hub-62459.iam.gserviceaccount.com --project=movie-hub-62459 --format='value(email)'
+      - name: Install and build the audited function package
+        run: |
+          npm ci
+          node scripts/prepare-tv-final-function.mjs
+          npm install --prefix functions --omit=dev --no-audit --no-fund
+          node --check functions/index.mjs
+          node --check functions/scripts/check-tv-final-reminders.mjs
+          npm run test:unit
+      - name: Authenticate and deploy the required Firestore index only
+        run: npx firebase-tools deploy --only firestore:indexes --project movie-hub-62459 --non-interactive
+      - name: Wait for the TV reminder index to be READY
+        run: |
+          set -euo pipefail
+          found=0
+          for attempt in {1..40}; do
+            json="$(gcloud firestore indexes composite list --database='(default)' --project=movie-hub-62459 --format=json)"
+            state="$(node -e '
+              const all=JSON.parse(process.argv[1]);
+              const index=all.find(x=>x.queryScope==="COLLECTION_GROUP"
+                && x.name?.includes("/collectionGroups/notifications/")
+                && x.fields?.some(f=>f.fieldPath==="phase")
+                && x.fields?.some(f=>f.fieldPath==="airingStartAt"));
+              process.stdout.write(index?.state||"NOT_FOUND");
+            ' "$json")"
+            echo "Index state: $state"
+            if [ "$state" = "READY" ]; then found=1; break; fi
+            if [ "$state" = "NOT_FOUND" ] || [ "$state" = "ERROR" ]; then exit 1; fi
+            sleep 20
+          done
+          test "$found" = 1
+      - name: Activate one isolated scheduled function
+        run: npx firebase-tools deploy --only functions:tv-final-reminders --project movie-hub-62459 --non-interactive
+      - name: Record deployment
+        run: |
+          echo "### MovieHub minute reminder activated" >> "$GITHUB_STEP_SUMMARY"
+          echo "Firebase Functions codebase: tv-final-reminders; function: movieHubTvFinalReminder; region: europe-west3." >> "$GITHUB_STEP_SUMMARY"
