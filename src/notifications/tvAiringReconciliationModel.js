@@ -12,7 +12,9 @@ export function tvFirstAiringReconciliation(first, nextAiring, {
   const previousStart = timeMillis(first.airingStartAt)
   const currentTime = timeMillis(now)
   if (!Number.isFinite(previousStart) || !Number.isFinite(currentTime)) return null
-  const wasCancelled = first.scheduleStatus === 'cancelled'
+  // A final that was missed because the cloud timer was offline remains
+  // eligible for a NEW verified airing without manufacturing a late alert.
+  const wasCancelled = ['cancelled', 'expired'].includes(first.scheduleStatus)
   if (!wasCancelled && previousStart <= currentTime) return null
 
   if (!nextAiring) {
