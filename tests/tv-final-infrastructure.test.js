@@ -43,7 +43,14 @@ describe('#382 isolated Cloud Scheduler rollout contract', () => {
   it('does not schedule a job in the normal build or index definition', () => {
     const indexes = JSON.parse(read('firestore.indexes.json'))
     expect(indexes.indexes).toEqual(expect.arrayContaining([
-      expect.objectContaining({ collectionGroup: 'notifications', queryScope: 'COLLECTION_GROUP' }),
+      expect.objectContaining({
+        collectionGroup: 'notifications', queryScope: 'COLLECTION_GROUP',
+        fields: expect.arrayContaining([
+          expect.objectContaining({ fieldPath: 'phase' }),
+          expect.objectContaining({ fieldPath: 'scheduleStatus' }),
+          expect.objectContaining({ fieldPath: 'airingStartAt' }),
+        ]),
+      }),
     ]))
     expect(read('scripts/check-tv-final-reminders.mjs')).not.toContain('waipu:sync')
     expect(read('scripts/check-tv-final-reminders.mjs')).not.toContain('joyn:catalog')
