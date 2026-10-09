@@ -129,7 +129,7 @@ describe('Firestore Security Rules', () => {
     const payload = {
       schemaVersion: 2, kind: 'tv', titleType: 'movie', tmdbId: 24,
       title: 'Bald im TV', mediaTitle: 'Film', body: 'Läuft später auf ZDF.',
-      phase: 'tv-found', eventAt: serverTimestamp(),
+      phase: 'tv-found', eventAt: serverTimestamp(), scheduleStatus: 'scheduled',
       airingStartAt: Timestamp.fromMillis(Date.now() + 10 * 86400000),
       airingEndsAt: Timestamp.fromMillis(Date.now() + 10 * 86400000 + 7200000),
       stationName: 'ZDF',
