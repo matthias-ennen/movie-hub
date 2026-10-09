@@ -153,6 +153,23 @@ describe('#382 independent 5-minute final reminder engine', () => {
     expect(db.data.get(watchPath).activationId).toBe('session-new')
   })
 
+  it('skips a cancelled observation with no watch document and supports series-specific reminders', async () => {
+    const seriesProfile = 'users/alice/profiles/series'
+    const seriesWatch = { ...watched, type: 'series', tmdbId: 55, title: 'Meine Serie' }
+    const seriesFirst = { ...first, titleType: 'series', tmdbId: 55 }
+    const db = memoryDb({
+      [firstPath]: first, // Manually deleted watch: don't recreate it.
+      [`${seriesProfile}/notifications/series-55-tv-session-1-initial`]: seriesFirst,
+      [`${seriesProfile}/titleAlerts/series-55-tv`]: seriesWatch,
+    })
+    expect(await runTvFinalReminderCheck({ db, now })).toMatchObject({
+      considered: 2, skipped: 1, finalCreated: 1, failed: 0,
+    })
+    expect(db.data.get(`${seriesProfile}/notifications/series-55-tv-session-1-final`))
+      .toMatchObject({ titleType: 'series', tmdbId: 55, mediaTitle: 'Meine Serie' })
+    expect(db.data.has(finalPath)).toBe(false)
+  })
+
   it('ignores stale broadcasts, old schema and malformed paths without scanning the whole catalog', async () => {
     const db = memoryDb({
       [firstPath]: { ...first, airingStartAt: new Date(now - 2 * DAY) },
