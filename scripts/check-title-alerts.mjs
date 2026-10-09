@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { normalizeTmdbWatchProviders } from '../src/services/tmdb.js'
 import { isActiveTitleWatch, personalHardExpiry, timeMillis } from '../src/notifications/titleAlertLifecycleModel.js'
-import { tvFirstAiringReconciliation } from '../src/notifications/tvAiringReconciliationModel.js'
+import { tvFirstAiringReconciliation, selectTvAiringForReconciliation } from '../src/notifications/tvAiringReconciliationModel.js'
 import { PROVIDER_REGISTRY } from '../src/providers/providerRegistry.js'
 import { normalizeStoredProviderSelection } from '../src/settings/providerSelectionModel.js'
 import {
@@ -196,7 +196,11 @@ async function storeTv(db, entry, account, tvTitles, now) {
     if (existingInitial.exists && existingInitial.data()?.phase === 'tv-found') {
       if (!sourceComplete) return false // Partial providers cannot prove a cancellation.
       const original = existingInitial.data()
-      const plan = tvFirstAiringReconciliation(original, airing, { now, sourceComplete })
+      const confirmed = selectTvAiringForReconciliation(original, airings.filter((item) => {
+        const start = timeMillis(item?.startTime)
+        return Number.isFinite(start) && start > now && start <= now + 14 * 86400000
+      }))
+      const plan = tvFirstAiringReconciliation(original, confirmed, { now, sourceComplete })
       if (!plan) return false
       if (plan.status === 'cancelled') {
         transaction.update(initialRef, {
