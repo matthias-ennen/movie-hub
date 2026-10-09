@@ -64,5 +64,15 @@ describe('#382 private HTTP transport and deploy safety', () => {
     expect(() => checkTvFunction({ ...validFunction, serviceConfig: {
       ...validFunction.serviceConfig, uri: 'http://untrusted.invalid/',
     } })).toThrow()
+    expect(() => checkTvFunction({ ...validFunction, serviceConfig: {
+      ...validFunction.serviceConfig, uri: 'https://untrusted.example',
+    } })).toThrow()
+    expect(() => checkTvFunction({ ...validFunction, serviceConfig: {
+      ...validFunction.serviceConfig, uri: validFunction.serviceConfig.uri + '/unexpected-path',
+    } })).toThrow()
+    expect(() => checkTvFunction({ ...validFunction, serviceConfig: {
+      ...validFunction.serviceConfig,
+      service: 'projects/another-project/locations/europe-west3/services/moviehubtvfinalreminder',
+    } })).toThrow()
   })
 })
