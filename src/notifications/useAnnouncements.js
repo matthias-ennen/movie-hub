@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { collection, doc, onSnapshot, query, runTransaction, serverTimestamp, Timestamp, where } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
-import { activeAnnouncement, visibleProfileAnnouncements, visiblePersonalReadStates } from './announcementVisibility.js'
+import { activeAnnouncement, visibleProfileAnnouncements, visiblePersonalReadStates, visibleGlobalReadIds } from './announcementVisibility.js'
 
 const EMPTY_READS = new Map()
 
 export function useAnnouncements(userId, profileId) {
   const [announcements, setAnnouncements] = useState([])
-  const [globalReadIds, setGlobalReadIds] = useState(new Set())
+  const [globalReadSnapshot, setGlobalReadSnapshot] = useState({ ownerUserId: null, ids: new Set() })
   const [personal, setPersonal] = useState([])
   const [personalReads, setPersonalReads] = useState({ ownerUserId: null, profileId: null, byId: EMPTY_READS })
   const [announcementsReady, setAnnouncementsReady] = useState(false)
@@ -17,6 +17,8 @@ export function useAnnouncements(userId, profileId) {
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
+    setGlobalReadSnapshot({ ownerUserId: null, ids: new Set() })
+    setReadsReady(false)
     if (!userId || !db) return undefined
     const unsubscribeAnnouncements = onSnapshot(
       query(collection(db, 'announcements'), where('status', '==', 'published')),
@@ -28,7 +30,7 @@ export function useAnnouncements(userId, profileId) {
     )
     const unsubscribeReads = onSnapshot(
       collection(db, 'users', userId, 'announcementReads'),
-      (snapshot) => { setGlobalReadIds(new Set(snapshot.docs.map((entry) => entry.id))); setReadsReady(true) },
+      (snapshot) => { setGlobalReadSnapshot({ ownerUserId: userId, ids: new Set(snapshot.docs.map((entry) => entry.id)) }); setReadsReady(true) },
       () => { setError('Lesestatus konnte nicht geladen werden.'); setReadsReady(true) },
     )
     const clock = window.setInterval(() => setNow(Date.now()), 30_000)
@@ -63,8 +65,9 @@ export function useAnnouncements(userId, profileId) {
     .filter((item) => activeAnnouncement(item, now, scopedPersonalReads.get(item.id)))
     .sort((a, b) => b.startsAt.toMillis() - a.startsAt.toMillis()),
     [announcements, personal, userId, profileId, now, scopedPersonalReads])
-  const readIds = useMemo(() => new Set([...globalReadIds, ...scopedPersonalReads.keys()]),
-    [globalReadIds, scopedPersonalReads])
+  const scopedGlobalReadIds = visibleGlobalReadIds(globalReadSnapshot, userId)
+  const readIds = useMemo(() => new Set([...scopedGlobalReadIds, ...scopedPersonalReads.keys()]),
+    [scopedGlobalReadIds, scopedPersonalReads])
   const unreadCount = items.filter((item) => !readIds.has(item.id)).length
 
   async function markRead(id) {
@@ -83,5 +86,5 @@ export function useAnnouncements(userId, profileId) {
     })
   }
 
-  return { items, readIds, unreadCount, ready: announcementsReady && readsReady && personalReady, error, markRead }
+  return { items, readIds, unreadCount, ready: announcementsReady && readsReady && globalReadSnapshot.ownerUserId === userId && personalReady, error, markRead }
 }
