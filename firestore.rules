@@ -106,16 +106,252 @@ service cloud.firestore {
             && notificationId.matches('^(movie|series)-[0-9]+-(included|tv)-[a-zA-Z0-9-]+-(initial|airing-[0-9]+)$')
             && request.resource.data.keys().hasOnly([
               'schemaVersion', 'kind', 'titleType', 'tmdbId', 'title', 'mediaTitle',
-              'body', 'startsAt', 'expiresAt', 'phase', 'eventAt', 'completedAt'
+              'body', 'startsAt', 'expiresAt', 'phase', 'eventAt', 'completedAt',
+              'airingStartAt', 'airingEndsAt', 'stationName'
             ])
             && ((request.resource.data.schemaVersion == 1
-                && !request.resource.data.keys().hasAny(['phase', 'eventAt', 'completedAt']))
+                && !request.resource.data.keys().hasAny([
+                  'phase', 'eventAt', 'completedAt',
+                  'airingStartAt', 'airingEndsAt', 'stationName'
+                ]))
               || (request.resource.data.schemaVersion == 2
                 && request.resource.data.kind == 'included'
-                && notificationId.matches('^(movie|series)-[0-9]+-included-[a-zA-Z0-9-]+-initial$')
+                && !request.resource.data.keys().hasAny([
+                  'airingStartAt', 'airingEndsAt', 'stationName'
+                ])
+                && notificationId.matches('^(movie|series)-[0-9]+-included-[a-zA-Z0-9-]+-initial
+            && request.resource.data.kind in ['included', 'tv']
+            && request.resource.data.titleType in ['movie', 'series']
+            && request.resource.data.tmdbId is int && request.resource.data.tmdbId > 0
+            && request.resource.data.title is string && request.resource.data.title.size() <= 80
+            && request.resource.data.mediaTitle is string && request.resource.data.mediaTitle.size() <= 160
+            && request.resource.data.body is string && request.resource.data.body.size() <= 500
+            && request.resource.data.startsAt == request.time
+            && request.resource.data.expiresAt is timestamp
+            && request.resource.data.expiresAt > request.time
+            && request.resource.data.expiresAt <= request.time + duration.value(30, 'd');
+          allow update, delete: if false;
+        }
+
+        match /notificationReads/{notificationId} {
+          allow read: if ownsUserData(userId);
+          allow create: if ownsUserData(userId)
+            && request.resource.data.keys().hasOnly(['readAt'])
+            && request.resource.data.readAt == request.time;
+          // The first read is immutable, including across multiple devices.
+          // Otherwise opening the message again could extend its 7-day lifetime.
+          allow update, delete: if false;
+        }
+
+        match /titles/{titleId} {
+          allow read, delete: if ownsUserData(userId);
+          allow create, update: if ownsUserData(userId)
+            && !request.resource.data.keys().hasAny(['note'])
+            && isEncryptedPersonalValue(request.resource.data.noteEncrypted);
+        }
+      }
+
+      // Bestehende technische Diagnosepfade bleiben für Phase-0-/Regeltests
+      // verfügbar, aber ebenfalls nur innerhalb der eigenen UID.
+      match /diagnostics/{document=**} {
+        allow read, write: if ownsUserData(userId);
+      }
+
+      // Gemeinsame Medien sind kontoweit (nicht profilbezogen), damit jeder
+      // Eintrag in allen Movie-Hub-Profilen sichtbar und pflegbar ist.
+      match /sharedMedia/{titleId} {
+        allow read, write: if ownsUserData(userId);
+
+        match /entries/{entryId} {
+          allow read, delete: if ownsUserData(userId);
+          allow create, update: if ownsUserData(userId)
+            && !request.resource.data.keys().hasAny(['label', 'url'])
+            && isEncryptedPersonalValue(request.resource.data.labelEncrypted)
+            && isEncryptedPersonalValue(request.resource.data.urlEncrypted);
+        }
+      }
+
+      // Der persönliche TMDB-Katalog ist wie die geräteweite TMDB-Verbindung
+      // kontoweit und damit für alle internen Movie-Hub-Profile identisch. Es
+      // dürfen ausschließlich nicht geheime Katalogfelder gespeichert werden.
+      match /tmdbCatalog/{titleId} {
+        allow read, delete: if ownsUserData(userId);
+        allow create, update: if ownsUserData(userId)
+          && request.resource.data.keys().hasOnly([
+            'tmdbId', 'mediaType', 'title', 'originalTitle', 'description',
+            'releaseDate', 'posterPath', 'backdropPath', 'originalLanguage',
+            'artwork', 'collectionId', 'collectionName', 'collectionChecked',
+            'collectionDetails',
+            'metadataVersion', 'metadataUpdatedAt', 'metadataComplete',
+            'metadataChecks', 'runtimeMinutes',
+            'numberOfSeasons', 'numberOfEpisodes', 'seasons',
+            'cast', 'videos', 'smartFacets',
+            'voteAverage', 'voteCount', 'genreNames', 'providerIds',
+            'tmdbProviderIds', 'tmdbProviderOffers', 'providerMetadataUpdatedAt', 'ageRating',
+            'favorite', 'watchlist', 'rated', 'ratingValue',
+            'favoriteOrder', 'watchlistOrder', 'ratingOrder', 'syncedAt'
+          ]);
+      }
+
+      // Synchronisationsmetadaten enthalten ebenfalls keine Secrets, sondern
+      // nur Account-Anzeigeinformationen, Zähler, Zeitpunkt und den
+      // sanitisierten Status der sechs persönlichen TMDB-Bereiche.
+      match /tmdbSync/{documentId} {
+        allow read, delete: if ownsUserData(userId);
+        allow create, update: if ownsUserData(userId)
+          && request.resource.data.keys().hasOnly([
+            'syncedAt', 'accountId', 'accountUsername', 'accountName',
+            'favoriteCount', 'watchlistCount', 'ratingCount', 'totalCount',
+            'partial', 'successfulSections', 'totalSections', 'sections'
+          ]);
+      }
+    }
+
+    // Öffentliche Katalogdaten dürfen gelesen, aber niemals direkt vom Client
+    // verändert werden. Schreibzugriffe erfolgen ausschließlich über
+    // vertrauenswürdige Build-/Backend-Prozesse.
+    match /catalog/{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Veröffentlichung erfolgt ausschließlich über einen vertrauenswürdigen Admin-Prozess.
+    match /announcements/{announcementId} {
+      allow read: if signedIn() && resource.data.status == 'published';
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+)
                 && request.resource.data.phase == 'included-found'
                 && request.resource.data.eventAt == request.time
-                && request.resource.data.completedAt == request.time))
+                && request.resource.data.completedAt == request.time)
+              || (request.resource.data.schemaVersion == 2
+                && request.resource.data.kind == 'tv'
+                && notificationId.matches('^(movie|series)-[0-9]+-tv-[a-zA-Z0-9-]+-initial
+            && request.resource.data.kind in ['included', 'tv']
+            && request.resource.data.titleType in ['movie', 'series']
+            && request.resource.data.tmdbId is int && request.resource.data.tmdbId > 0
+            && request.resource.data.title is string && request.resource.data.title.size() <= 80
+            && request.resource.data.mediaTitle is string && request.resource.data.mediaTitle.size() <= 160
+            && request.resource.data.body is string && request.resource.data.body.size() <= 500
+            && request.resource.data.startsAt == request.time
+            && request.resource.data.expiresAt is timestamp
+            && request.resource.data.expiresAt > request.time
+            && request.resource.data.expiresAt <= request.time + duration.value(30, 'd');
+          allow update, delete: if false;
+        }
+
+        match /notificationReads/{notificationId} {
+          allow read: if ownsUserData(userId);
+          allow create: if ownsUserData(userId)
+            && request.resource.data.keys().hasOnly(['readAt'])
+            && request.resource.data.readAt == request.time;
+          // The first read is immutable, including across multiple devices.
+          // Otherwise opening the message again could extend its 7-day lifetime.
+          allow update, delete: if false;
+        }
+
+        match /titles/{titleId} {
+          allow read, delete: if ownsUserData(userId);
+          allow create, update: if ownsUserData(userId)
+            && !request.resource.data.keys().hasAny(['note'])
+            && isEncryptedPersonalValue(request.resource.data.noteEncrypted);
+        }
+      }
+
+      // Bestehende technische Diagnosepfade bleiben für Phase-0-/Regeltests
+      // verfügbar, aber ebenfalls nur innerhalb der eigenen UID.
+      match /diagnostics/{document=**} {
+        allow read, write: if ownsUserData(userId);
+      }
+
+      // Gemeinsame Medien sind kontoweit (nicht profilbezogen), damit jeder
+      // Eintrag in allen Movie-Hub-Profilen sichtbar und pflegbar ist.
+      match /sharedMedia/{titleId} {
+        allow read, write: if ownsUserData(userId);
+
+        match /entries/{entryId} {
+          allow read, delete: if ownsUserData(userId);
+          allow create, update: if ownsUserData(userId)
+            && !request.resource.data.keys().hasAny(['label', 'url'])
+            && isEncryptedPersonalValue(request.resource.data.labelEncrypted)
+            && isEncryptedPersonalValue(request.resource.data.urlEncrypted);
+        }
+      }
+
+      // Der persönliche TMDB-Katalog ist wie die geräteweite TMDB-Verbindung
+      // kontoweit und damit für alle internen Movie-Hub-Profile identisch. Es
+      // dürfen ausschließlich nicht geheime Katalogfelder gespeichert werden.
+      match /tmdbCatalog/{titleId} {
+        allow read, delete: if ownsUserData(userId);
+        allow create, update: if ownsUserData(userId)
+          && request.resource.data.keys().hasOnly([
+            'tmdbId', 'mediaType', 'title', 'originalTitle', 'description',
+            'releaseDate', 'posterPath', 'backdropPath', 'originalLanguage',
+            'artwork', 'collectionId', 'collectionName', 'collectionChecked',
+            'collectionDetails',
+            'metadataVersion', 'metadataUpdatedAt', 'metadataComplete',
+            'metadataChecks', 'runtimeMinutes',
+            'numberOfSeasons', 'numberOfEpisodes', 'seasons',
+            'cast', 'videos', 'smartFacets',
+            'voteAverage', 'voteCount', 'genreNames', 'providerIds',
+            'tmdbProviderIds', 'tmdbProviderOffers', 'providerMetadataUpdatedAt', 'ageRating',
+            'favorite', 'watchlist', 'rated', 'ratingValue',
+            'favoriteOrder', 'watchlistOrder', 'ratingOrder', 'syncedAt'
+          ]);
+      }
+
+      // Synchronisationsmetadaten enthalten ebenfalls keine Secrets, sondern
+      // nur Account-Anzeigeinformationen, Zähler, Zeitpunkt und den
+      // sanitisierten Status der sechs persönlichen TMDB-Bereiche.
+      match /tmdbSync/{documentId} {
+        allow read, delete: if ownsUserData(userId);
+        allow create, update: if ownsUserData(userId)
+          && request.resource.data.keys().hasOnly([
+            'syncedAt', 'accountId', 'accountUsername', 'accountName',
+            'favoriteCount', 'watchlistCount', 'ratingCount', 'totalCount',
+            'partial', 'successfulSections', 'totalSections', 'sections'
+          ]);
+      }
+    }
+
+    // Öffentliche Katalogdaten dürfen gelesen, aber niemals direkt vom Client
+    // verändert werden. Schreibzugriffe erfolgen ausschließlich über
+    // vertrauenswürdige Build-/Backend-Prozesse.
+    match /catalog/{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Veröffentlichung erfolgt ausschließlich über einen vertrauenswürdigen Admin-Prozess.
+    match /announcements/{announcementId} {
+      allow read: if signedIn() && resource.data.status == 'published';
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+)
+                && !request.resource.data.keys().hasAny(['completedAt'])
+                && request.resource.data.phase == 'tv-found'
+                && request.resource.data.eventAt == request.time
+                && request.resource.data.airingStartAt is timestamp
+                && request.resource.data.airingStartAt > request.time
+                && request.resource.data.airingStartAt <= request.time + duration.value(14, 'd')
+                && request.resource.data.stationName is string
+                && request.resource.data.stationName.size() > 0
+                && request.resource.data.stationName.size() <= 160
+                && (!request.resource.data.keys().hasAny(['airingEndsAt'])
+                  || (request.resource.data.airingEndsAt is timestamp
+                    && request.resource.data.airingEndsAt > request.resource.data.airingStartAt))))
             && request.resource.data.kind in ['included', 'tv']
             && request.resource.data.titleType in ['movie', 'series']
             && request.resource.data.tmdbId is int && request.resource.data.tmdbId > 0
