@@ -100,6 +100,58 @@ export async function runTvFinalReminderCheck({ db, now = Date.now(), maxBatch =
       console.warn(`Final TV reminder failed (${first.id}): ${error.message}`)
     }
   }
+  // A scheduler outage longer than the catch-up window must not strand
+  // completed broadcasts as permanently 'scheduled'. Process overdue
+  // records in a separate, smaller query AFTER the imminent due batch, so
+  // backlog cleanup can never crowd out five-minute notifications.
+  const staleLimit = Math.min(50, limit)
+  const stale = await db.collectionGroup('notifications')
+    .where('phase', '==', 'tv-found')
+    .where('scheduleStatus', '==', 'scheduled')
+    .where('airingStartAt', '<', new Date(now - FINAL_ACTIVE_BROADCAST_CATCHUP_MS))
+    .orderBy('airingStartAt', 'asc')
+    .limit(staleLimit).get()
+  result.staleConsidered = stale.docs.length
+  for (const old of stale.docs) {
+    try {
+      const parts = old.ref.path.split('/')
+      if (parts.length !== 6 || parts[0] !== 'users' || parts[2] !== 'profiles'
+        || parts[4] !== 'notifications') { result.skipped++; continue }
+      const profile = old.ref.parent.parent
+      const type = old.data()?.titleType
+      const id = watchId({ type, tmdbId: old.data()?.tmdbId }, 'tv')
+      const watchRef = id ? profile.collection('titleAlerts').doc(id) : null
+      const stateRef = id ? profile.collection('titleAlertState').doc(id) : null
+      const cleaned = await db.runTransaction(async (tx) => {
+        const firstSnap = await tx.get(old.ref)
+        if (!firstSnap.exists || firstSnap.data()?.scheduleStatus !== 'scheduled') return false
+        const watchSnap = watchRef ? await tx.get(watchRef) : null
+        const watch = watchSnap?.exists ? watchSnap.data() : null
+        const sameWatch = watch && isActiveTitleWatch(watch) && watch.kind === 'tv'
+          && isCanonicalFirstTvEvent(watch, firstSnap.id)
+        const stateSnap = sameWatch ? await tx.get(stateRef) : null
+        const state = stateSnap?.exists ? stateSnap.data() : {}
+        const updated = { scheduleStatus: 'expired', scheduleUpdatedAt: new Date(now) }
+        if (sameWatch) {
+          updated.body = `Für ${watch.title} liegt derzeit kein neuer bestätigter TV-Termin vor.`
+          if (!state.activationId || state.activationId === watch.activationId) {
+            tx.set(stateRef, {
+              ...state, activationId: watch.activationId, status: 'expired',
+              firstNotificationId: firstSnap.id, updatedAt: new Date(now),
+            })
+          }
+        }
+        tx.update(old.ref, updated)
+        return true
+      })
+      if (cleaned) result.expired++
+      else result.skipped++
+    } catch (error) {
+      result.failed++
+      console.warn(`Stale TV reminder cleanup failed (${old.id}): ${error.message}`)
+    }
+  }
+  if (stale.docs.length >= staleLimit) result.saturated = true
   if (result.failed) throw new Error(`Final TV reminder failed for ${result.failed} of ${result.considered} candidate events`)
   if (result.saturated) console.warn('Final TV reminder batch is full: adjust schedule/batch limit before production.')
   return result
