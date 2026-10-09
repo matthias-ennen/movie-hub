@@ -104,6 +104,10 @@ einer angepassten Formulierung („läuft jetzt“) statt einer falschen
 Behauptung „in fünf Minuten“. Bei zu alten oder abgelaufenen
 Terminen erzeugt der Prüfer **keine** falsche Erinnerung.
 
+**Cloud-Setup vorbereitet:** [TV-Scheduler-Runbook](TV_FINAL_SCHEDULER_RUNBOOK.md)
+und die getrennte Firebase-Functions-Codebase mit manuell geschützter
+Aktivierung sind im Draft-PR #406 enthalten. Kein Scheduler wurde aktiviert.
+
 **Abnahme- und Release-Gates:** Der vorgesehene separate GCP-Zeitgeber,
 seine Identität/Berechtigungen, Firestore-Collection-Group-Index und
 laufende Kosten bedürfen einer **expliziten Freigabe**. Kein Cron-Trigger,
