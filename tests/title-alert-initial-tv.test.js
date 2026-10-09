@@ -60,6 +60,14 @@ describe('immediate TV observation', () => {
     }), [], now)).toBeNull()
   })
 
+  it('reads an airing ten days away in the published index', async () => {
+    const later = { ...evening,
+      startTime: '2026-10-05T18:15:00Z', stopTime: '2026-10-05T20:00:00Z' }
+    const { fetchImpl } = publishedTv('2026-09-25T08:00:00Z', 'waipu', later)
+    const matches = await loadFreshTvAirings(item, now, fetchImpl)
+    expect(dueTvAiring(matches, [], now)).toMatchObject(later)
+  })
+
   it('ignores stale generic live data', async () => {
     const stale = publishedTv('2026-09-20T08:00:00Z')
     expect(await loadFreshTvAirings(item, now, stale.fetchImpl)).toEqual([])
