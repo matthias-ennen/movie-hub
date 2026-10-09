@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  TV_DISCOVERY_WINDOW_MS, TV_FINAL_REMINDER_LEAD_MS,
   dueTvAiring, filterEnabledTvAirings, includedProviderIds, includedTransition, tvAiringId, tvTransition,
 } from '../src/notifications/titleAlertModel.js'
 
@@ -46,6 +47,43 @@ describe('personal title alerts', () => {
       waipuStationSettings: { disabledStationIds: [] },
       joynStationSettings: { disabledStationIds: ['prosieben'] },
     })).toEqual([airings[0]])
+  })
+
+  it('discovers only real named-station airings in the full 14-day horizon', () => {
+    const now = Date.parse('2026-10-09T08:00:00Z')
+    const DAY = 86400000
+    const airing = (days, stationName = 'ZDF') => ({
+      stationId: 'zdf', stationName,
+      startTime: new Date(now + days * DAY).toISOString(),
+      stopTime: new Date(now + days * DAY + 7200000).toISOString(),
+    })
+    expect(TV_DISCOVERY_WINDOW_MS).toBe(14 * DAY)
+    expect(dueTvAiring([airing(10)], [], now)).toEqual(airing(10))
+    expect(dueTvAiring([airing(14)], [], now)).toEqual(airing(14))
+    expect(dueTvAiring([airing(14.001)], [], now)).toBeNull()
+    expect(dueTvAiring([airing(3)], ['zdf'], now)).toBeNull()
+    expect(dueTvAiring([airing(2, '')], [], now)).toBeNull()
+    expect(dueTvAiring([airing(-1)], [], now)).toBeNull()
+  })
+
+  it('binds only the first TV discovery per activation and schedules its final stage', () => {
+    const now = Date.parse('2026-10-09T08:00:00Z')
+    const upcoming = {
+      stationId: 'zdf', stationName: 'ZDF', startTime: new Date(now + 10 * 86400000).toISOString(),
+      stopTime: new Date(now + 10 * 86400000 + 7200000).toISOString(),
+    }
+    const first = tvTransition(null, 'activation-1', upcoming, now)
+    expect(first).toMatchObject({
+      send: true, activationId: 'activation-1', firstAiringStart: upcoming.startTime,
+      firstAiringStop: upcoming.stopTime, firstAiringStation: 'ZDF', status: 'scheduled',
+    })
+    expect(first.finalReminderAt.getTime()).toBe(Date.parse(upcoming.startTime) - TV_FINAL_REMINDER_LEAD_MS)
+    expect(tvTransition({ ...first, firstNotificationId: 'initial' }, 'activation-1',
+      { ...upcoming, startTime: new Date(now + 12 * 86400000).toISOString() }, now + 86400000).send)
+      .toBe(false)
+    expect(tvTransition({ activationId: 'activation-1', lastAiringStart: upcoming.startTime },
+      'activation-1', upcoming, now + 86400000).send).toBe(false) // V1 server state.
+    expect(tvTransition(first, 'activation-2', upcoming, now).send).toBe(true)
   })
 
   it('reminds before an enabled TV airing and limits repeated series airings', () => {
