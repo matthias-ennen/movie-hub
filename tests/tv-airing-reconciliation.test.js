@@ -41,6 +41,13 @@ describe('#382 first TV airing reconciliation', () => {
     expect(tvFirstAiringReconciliation(cancelled, makeAiring(10), { now: NOW + 6 * DAY }))
       .toMatchObject({ status: 'scheduled', start: NOW + 10 * DAY })
   })
+  it('re-arms a broadcast that was missed during a prolonged scheduler outage', () => {
+    const expired = { ...first, scheduleStatus: 'expired' }
+    expect(tvFirstAiringReconciliation(expired, makeAiring(10), { now: NOW + 6 * DAY }))
+      .toMatchObject({ status: 'scheduled', start: NOW + 10 * DAY })
+    expect(tvFirstAiringReconciliation(expired, null, { now: NOW + 6 * DAY })).toBeNull()
+  })
+
   it('never shifts an already started broadcast or a malformed TV event', () => {
     expect(tvFirstAiringReconciliation(first, makeAiring(7),
       { now: NOW + 5 * DAY })).toBeNull()
