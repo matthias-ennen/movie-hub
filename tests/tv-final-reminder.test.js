@@ -57,6 +57,7 @@ function memoryDb(initial = {}) {
               if (op === '==') return left === right
               if (op === '>=') return left >= right
               if (op === '<=') return left <= right
+              if (op === '<') return left < right
               throw Error(`Unexpected query op ${op}`)
             }))
             .sort((a, b) => (data.get(a)?.airingStartAt?.getTime() || 0)
@@ -159,6 +160,24 @@ describe('#382 independent 5-minute final reminder engine', () => {
     expect(db.data.get(watchPath).status).toBe('active')
     expect(await runTvFinalReminderCheck({ db, now: now + MIN })).toMatchObject({
       considered: 0, finalCreated: 0, expired: 0,
+    })
+  })
+
+  it('cleans expired broadcasts after an outage exceeding six hours, without generating late notifications', async () => {
+    const previouslyAired = {
+      ...first, airingStartAt: new Date(now - 26 * 3600000),
+      airingEndsAt: new Date(now - 24 * 3600000),
+    }
+    const db = memoryDb({ [firstPath]: previouslyAired, [watchPath]: watched })
+    expect(await runTvFinalReminderCheck({ db, now })).toMatchObject({
+      considered: 0, staleConsidered: 1, expired: 1, finalCreated: 0, failed: 0,
+    })
+    expect(db.data.get(firstPath).scheduleStatus).toBe('expired')
+    expect(db.data.get(watchPath).status).toBe('active')
+    expect(db.data.has(finalPath)).toBe(false)
+    expect(db.data.get(`${profilePath}/titleAlertState/movie-42-tv`).status).toBe('expired')
+    expect(await runTvFinalReminderCheck({ db, now: now + MIN })).toMatchObject({
+      considered: 0, staleConsidered: 0, finalCreated: 0,
     })
   })
 
