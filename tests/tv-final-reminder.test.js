@@ -110,6 +110,21 @@ describe('#382 independent 5-minute final reminder engine', () => {
     expect(isCanonicalFirstTvEvent(watched, 'movie-42-tv-other-initial')).toBe(false)
   })
 
+  it('never finalizes a cancelled TV event even when its old scheduled minute arrives', async () => {
+    const db = memoryDb({
+      [firstPath]: { ...first, scheduleStatus: 'cancelled' },
+      [watchPath]: watched,
+      [`${profilePath}/titleAlertState/movie-42-tv`]: {
+        activationId: 'session-1', status: 'cancelled',
+      },
+    })
+    expect(await runTvFinalReminderCheck({ db, now })).toMatchObject({
+      considered: 1, finalCreated: 0, skipped: 1, failed: 0,
+    })
+    expect(db.data.has(finalPath)).toBe(false)
+    expect(db.data.get(watchPath).status).toBe('active')
+  })
+
   it('creates one immutable final message and atomically completes the active watch', async () => {
     const db = memoryDb({ [firstPath]: first, [watchPath]: watched })
     const result = await runTvFinalReminderCheck({ db, now })
