@@ -77,6 +77,18 @@ Die erste Phase erweitert Client und vertrauenswürdigen Server gemeinsam:
   bis höchstens sieben Tage nach Sendeende gültig (Hard-TTL maximal 30 Tage);
 - Der TV-Watch bleibt nach der Erstmeldung **aktiv**.
 
+**Terminänderungen im folgenden #382-Entwicklungsstand:** Der vertrauenswürdige
+Nachtlauf vergleicht den bereits gebundenen ersten TV-Termin mit beiden
+vollständig verfügbaren Waipu-/Joyn-Generationen. Vor Sendebeginn korrigiert
+er Beginn, Ende und Sender **innerhalb derselben Erstmeldung** ohne neue
+Aktivierung, weitere Erstmeldung oder Zurücksetzen des Lesestatus. Ein
+entfallener Termin wird bei vollständigen Quellen als `cancelled` markiert,
+und der Minutenprüfer erzeugt dazu keine falsche Enderinnerung. Taucht
+eine passende Ausstrahlung später wieder auf, wird dieselbe Erstmeldung
+neu gebunden. Unvollständige Quellen führen ausdrücklich **nicht** zur
+automatischen Stornierung. Bereits laufende Sendungen werden nicht rückwirkend
+auf eine andere Ausstrahlung verlegt.
+
 **Noch nicht in dieser Phase:** Ein zeitnaher, zuverlässiger Scheduler
 für das 5-Minuten-Endereignis, Terminverschiebung/-ausfall und finaler
 atomarer Watch-Abschluss. Diese Schritte sind vor der Gesamtfreigabe von
