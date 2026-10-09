@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { tvFirstAiringReconciliation } from '../src/notifications/tvAiringReconciliationModel.js'
+import { tvFirstAiringReconciliation, selectTvAiringForReconciliation } from '../src/notifications/tvAiringReconciliationModel.js'
 import { tvFinalEligibility } from '../src/notifications/tvFinalReminderModel.js'
 
 const DAY = 86400000
@@ -18,6 +18,23 @@ const watch = { schemaVersion: 2, status: 'active', kind: 'tv',
   type: 'movie', tmdbId: 100, title: 'Filmtitel', activationId: 'session' }
 
 describe('#382 first TV airing reconciliation', () => {
+  it('retains a still-confirmed appointment even when a new earlier rerun appears', () => {
+    const earlier = makeAiring(2)
+    const existing = makeAiring(5)
+    const chosen = selectTvAiringForReconciliation(first, [earlier, existing])
+    expect(chosen).toEqual(existing)
+    expect(tvFirstAiringReconciliation(first, chosen, { now: NOW })).toBeNull()
+  })
+
+  it('switches to the next verified date only when the bound appointment disappeared', () => {
+    const earlier = makeAiring(2)
+    const later = makeAiring(6)
+    const selected = selectTvAiringForReconciliation(first, [earlier, later])
+    expect(selected).toEqual(earlier)
+    expect(tvFirstAiringReconciliation(first, selected, { now: NOW }))
+      .toMatchObject({ status: 'scheduled', start: NOW + 2 * DAY })
+  })
+
   it('does not modify a confirmed, unchanged broadcast', () => {
     expect(tvFirstAiringReconciliation(first, makeAiring(5), { now: NOW })).toBeNull()
   })
