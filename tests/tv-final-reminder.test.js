@@ -177,7 +177,9 @@ describe('#382 independent 5-minute final reminder engine', () => {
       ['users/alice/profiles/main/notifications/old-tv-notice']: { ...first, schemaVersion: 1 },
     })
     const result = await runTvFinalReminderCheck({ db, now })
-    expect(result).toMatchObject({ considered: 0, finalCreated: 0, failed: 0 })
+    // The legacy-shaped event matches the indexed time range, but the
+    // processor ignores it because it is not the canonical V2 first event.
+    expect(result).toMatchObject({ considered: 1, finalCreated: 0, skipped: 1, failed: 0 })
     expect(db.data.has(finalPath)).toBe(false)
   })
 })
