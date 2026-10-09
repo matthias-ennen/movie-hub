@@ -14,6 +14,7 @@ export function tvFinalEligibility(watch, firstEvent, now = Date.now()) {
     || !(watch.status === 'active' || (watch.status == null && watch.schemaVersion === 1))
     || firstEvent?.schemaVersion !== 2 || firstEvent?.phase !== 'tv-found'
     || firstEvent.kind !== 'tv' || firstEvent.titleType !== watch.type
+    || firstEvent.scheduleStatus === 'cancelled'
     || Number(firstEvent.tmdbId) !== Number(watch.tmdbId)
     || !String(firstEvent.stationName || '').trim()) return null
   const start = timeMillis(firstEvent.airingStartAt)
