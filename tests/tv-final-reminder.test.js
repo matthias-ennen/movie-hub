@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  FINAL_LEAD_MS, FINAL_LATE_GRACE_MS, isCanonicalFirstTvEvent,
+  FINAL_LEAD_MS, FINAL_LATE_GRACE_MS, FINAL_ACTIVE_BROADCAST_CATCHUP_MS, isCanonicalFirstTvEvent,
   tvFinalEligibility, tvFinalNotification,
 } from '../src/notifications/tvFinalReminderModel.js'
 import { runTvFinalReminderCheck } from '../scripts/check-tv-final-reminders.mjs'
@@ -10,7 +10,7 @@ const MIN = 60000
 const DAY = 86400000
 const watched = { schemaVersion: 2, status: 'active', kind: 'tv',
   type: 'movie', tmdbId: 42, title: 'TV-Film', activationId: 'session-1' }
-const first = { schemaVersion: 2, phase: 'tv-found', kind: 'tv',
+const first = { schemaVersion: 2, phase: 'tv-found', scheduleStatus: 'scheduled', kind: 'tv',
   titleType: 'movie', tmdbId: 42, mediaTitle: 'TV-Film',
   stationName: 'ZDF', airingStartAt: new Date(now + 5 * MIN),
   airingEndsAt: new Date(now + 120 * MIN) }
@@ -96,7 +96,9 @@ describe('#382 independent 5-minute final reminder engine', () => {
     expect(tvFinalNotification(watched, first, now + 8 * MIN)).toMatchObject({
       title: 'Jetzt im TV', phase: 'tv-final',
     })
-    expect(tvFinalEligibility(watched, first, now + 5 * MIN + FINAL_LATE_GRACE_MS)).toBeNull()
+    expect(tvFinalEligibility(watched, first, now + 5 * MIN + FINAL_LATE_GRACE_MS))
+      .toMatchObject({ late: true })
+    expect(tvFinalEligibility(watched, first, now + 5 * MIN + FINAL_ACTIVE_BROADCAST_CATCHUP_MS)).toBeNull()
     expect(tvFinalEligibility(watched, { ...first, airingEndsAt: new Date(now + 8 * MIN) },
       now + 8 * MIN)).toBeNull()
   })
@@ -106,6 +108,7 @@ describe('#382 independent 5-minute final reminder engine', () => {
     expect(tvFinalEligibility(watched, { ...first, tmdbId: 99 }, now)).toBeNull()
     expect(tvFinalEligibility(watched, { ...first, phase: 'tv-final' }, now)).toBeNull()
     expect(tvFinalEligibility(watched, { ...first, stationName: '' }, now)).toBeNull()
+    expect(tvFinalEligibility(watched, { ...first, scheduleStatus: 'completed' }, now)).toBeNull()
     expect(isCanonicalFirstTvEvent(watched, 'movie-42-tv-session-1-initial')).toBe(true)
     expect(isCanonicalFirstTvEvent(watched, 'movie-42-tv-other-initial')).toBe(false)
   })
@@ -140,8 +143,9 @@ describe('#382 independent 5-minute final reminder engine', () => {
       activationId: 'session-1', status: 'completed',
       finalNotificationId: 'movie-42-tv-session-1-final',
     })
+    expect(db.data.get(firstPath).scheduleStatus).toBe('completed')
     expect(await runTvFinalReminderCheck({ db, now: now + 1 * MIN })).toMatchObject({
-      considered: 1, finalCreated: 0, skipped: 1,
+      considered: 0, finalCreated: 0, skipped: 0,
     })
     expect([...db.data.keys()].filter((path) => path.startsWith(`${profilePath}/notifications/`)))
       .toHaveLength(2)
@@ -194,7 +198,7 @@ describe('#382 independent 5-minute final reminder engine', () => {
     const result = await runTvFinalReminderCheck({ db, now })
     // The legacy-shaped event matches the indexed time range, but the
     // processor ignores it because it is not the canonical V2 first event.
-    expect(result).toMatchObject({ considered: 1, finalCreated: 0, skipped: 1, failed: 0 })
+    expect(result).toMatchObject({ considered: 0, finalCreated: 0, skipped: 0, failed: 0 })
     expect(db.data.has(finalPath)).toBe(false)
   })
 })
