@@ -202,14 +202,43 @@ jobs:
           gcloud iam service-accounts describe movie-hub-tv-scheduler@movie-hub-62459.iam.gserviceaccount.com --project=movie-hub-62459 --format='value(email)' >/dev/null
           gcloud functions describe movieHubTvFinalReminder --gen2 --region=europe-west3 --project=movie-hub-62459 --format=json > "$RUNNER_TEMP/tv-function.json"
           node scripts/tv-final-deploy-guard.mjs "$RUNNER_TEMP/tv-function.json" > "$RUNNER_TEMP/verified-tv-function.txt"
-          # Never overwrite a pre-existing job without auditing its binding.
-          if gcloud scheduler jobs describe movie-hub-tv-final-1min --location=europe-west3 --project=movie-hub-62459 --format=json > "$RUNNER_TEMP/existing-job.json" 2>/dev/null; then
-            echo 'Existing TV scheduler job: abort rather than silently modify it.' >&2
-            exit 1
-          fi
-          # The old Firebase onSchedule job must not exist alongside our new job.
-          if gcloud scheduler jobs describe firebase-schedule-movieHubTvFinalReminder-europe-west3 --location=europe-west3 --project=movie-hub-62459 >/dev/null 2>&1; then
-            echo 'Existing Firebase onSchedule job: refuse double scheduling.' >&2
+          # A failed list is a hard failure, never confused with an absent job.
+          gcloud scheduler jobs list --location=europe-west3 --project=movie-hub-62459 --format='value(name)' > "$RUNNER_TEMP/existing-tv-jobs.txt"
+          if grep -Eq '/jobs/(movie-hub-tv-final-1min|firebase-schedule-movieHubTvFinalReminder-europe-west3)
+      - name: Grant one scheduler identity invocation on only this private service
+        run: |
+          set -euo pipefail
+          mapfile -t verified < "$RUNNER_TEMP/verified-tv-function.txt"
+          gcloud run services add-iam-policy-binding "${verified[1]}" \
+            --project=movie-hub-62459 --region=europe-west3 \
+            --member=serviceAccount:movie-hub-tv-scheduler@movie-hub-62459.iam.gserviceaccount.com \
+            --role=roles/run.invoker --quiet
+          gcloud run services get-iam-policy "${verified[1]}" --project=movie-hub-62459 --region=europe-west3 --format=json > "$RUNNER_TEMP/runner-policy.json"
+          node --input-type=module -e '
+            import fs from "node:fs"
+            const policy=JSON.parse(fs.readFileSync(process.argv[1],"utf8"))
+            const bindings=policy.bindings||[]
+            const invoker=bindings.find(b=>b.role==="roles/run.invoker")
+            if(!invoker?.members?.includes("serviceAccount:movie-hub-tv-scheduler@movie-hub-62459.iam.gserviceaccount.com"))
+              throw new Error("Expected scheduler invoker permission missing")
+            if(bindings.some(b=>b.members?.some(m=>m==="allUsers"||m==="allAuthenticatedUsers")))
+              throw new Error("Function has a public IAM binding")
+          ' "$RUNNER_TEMP/runner-policy.json"
+      - name: Create exactly one private one-minute job (live activation)
+        run: |
+          set -euo pipefail
+          mapfile -t verified < "$RUNNER_TEMP/verified-tv-function.txt"
+          gcloud scheduler jobs create http movie-hub-tv-final-1min \
+            --project=movie-hub-62459 --location=europe-west3 \
+            --schedule='* * * * *' --time-zone='Etc/UTC' \
+            --uri="${verified[0]}" --http-method=POST --attempt-deadline=60s --max-retry-attempts=0 \
+            --oidc-service-account-email=movie-hub-tv-scheduler@movie-hub-62459.iam.gserviceaccount.com \
+            --oidc-token-audience="${verified[0]}" \
+            --description='MovieHub profile-private five-minute TV reminders' --quiet
+          gcloud scheduler jobs describe movie-hub-tv-final-1min --project=movie-hub-62459 --location=europe-west3 --format='table(state,schedule,timeZone)'
+          echo '### MovieHub private TV minute scheduler activated – verify logs and devices' >> "$GITHUB_STEP_SUMMARY"
+ "$RUNNER_TEMP/existing-tv-jobs.txt"; then
+            echo 'A TV scheduler job already exists: abort rather than duplicate or replace it.' >&2
             exit 1
           fi
       - name: Grant one scheduler identity invocation on only this private service
