@@ -20,6 +20,31 @@ describe('#382 isolated Cloud Scheduler rollout contract', () => {
     expect(nightly).not.toMatch(/--only functions:/)
   })
 
+  it('treats the manual preflight as a read-only release gate, not a decorative report', () => {
+    expect(workflow).toContain("github.ref == 'refs/heads/main' && inputs.operation == 'preflight'")
+    for (const command of [
+      'gcloud services list --enabled',
+      'gcloud iam service-accounts describe',
+      'gcloud iam roles describe MovieHubTvFinalRuntime',
+      'gcloud billing projects describe',
+      'gcloud scheduler jobs list',
+    ]) expect(workflow).toContain(command)
+    for (const api of [
+      'cloudfunctions.googleapis.com',
+      'cloudscheduler.googleapis.com',
+      'run.googleapis.com',
+      'cloudbuild.googleapis.com',
+      'artifactregistry.googleapis.com',
+      'eventarc.googleapis.com',
+      'firestore.googleapis.com',
+    ]) expect(workflow).toContain(api)
+    expect(workflow).toContain('Infrastructure preflight failed; no activation was attempted.')
+    expect(workflow).toMatch(/if \[ "\$failed" -ne 0 \]; then[\s\S]*?exit 1/)
+    const beforeActivate = workflow.split('\n  activate:')[0]
+    expect(beforeActivate).not.toMatch(/gcloud services enable|gcloud iam service-accounts create|firebase-tools deploy/)
+    expect(beforeActivate).not.toContain('|| true')
+  })
+
   it('uses a separate codebase and a dedicated runtime identity in Frankfurt', () => {
     expect(firebase.functions.codebase).toBe('tv-final-reminders')
     expect(firebase.functions.source).toBe('functions')
