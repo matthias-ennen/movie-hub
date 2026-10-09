@@ -52,7 +52,7 @@ jobs:
           echo "Preflight did not deploy functions or create scheduler jobs." >> "$GITHUB_STEP_SUMMARY"
 
   activate:
-    if: ${{ inputs.operation == 'activate' && inputs.confirmation == 'ENABLE_MOVIEHUB_TV_FINAL_1MIN' }}
+    if: ${{ github.ref == 'refs/heads/main' && inputs.operation == 'activate' && inputs.confirmation == 'ENABLE_MOVIEHUB_TV_FINAL_1MIN' }}
     runs-on: ubuntu-latest
     environment: production-tv-final-reminders
     timeout-minutes: 25
