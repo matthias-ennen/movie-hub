@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url'
 import { alertNotificationId, watchId } from '../src/notifications/titleAlertModel.js'
-import { isActiveTitleWatch } from '../src/notifications/titleAlertLifecycleModel.js'
+import { isActiveTitleWatch, timeMillis } from '../src/notifications/titleAlertLifecycleModel.js'
 import {
   FINAL_LEAD_MS, FINAL_LATE_GRACE_MS, FINAL_ACTIVE_BROADCAST_CATCHUP_MS, FINAL_MAX_BATCH,
   isCanonicalFirstTvEvent, tvFinalNotification,
@@ -21,7 +21,7 @@ export async function runTvFinalReminderCheck({ db, now = Date.now(), maxBatch =
     .orderBy('airingStartAt', 'asc')
     .limit(limit)
     .get()
-  const result = { considered: firstEvents.docs.length, finalCreated: 0, skipped: 0, failed: 0, saturated: firstEvents.docs.length >= limit }
+  const result = { considered: firstEvents.docs.length, finalCreated: 0, expired: 0, skipped: 0, failed: 0, saturated: firstEvents.docs.length >= limit }
   for (const first of firstEvents.docs) {
     try {
       const parts = first.ref.path.split('/')
@@ -52,8 +52,31 @@ export async function runTvFinalReminderCheck({ db, now = Date.now(), maxBatch =
         ])
         const state = stateSnap.exists ? stateSnap.data() : {}
         if (existing.exists || (state.activationId && state.activationId !== watch.activationId)) return false
-        const message = tvFinalNotification(watch, firstSnap.data(), now)
-        if (!message) return false
+        const firstData = firstSnap.data()
+        const message = tvFinalNotification(watch, firstData, now)
+        if (!message) {
+          const start = timeMillis(firstData.airingStartAt)
+          const stop = timeMillis(firstData.airingEndsAt)
+          const noLongerOnAir = Number.isFinite(stop)
+            ? now >= stop : Number.isFinite(start) && now >= start + FINAL_LATE_GRACE_MS
+          const beyondRecovery = Number.isFinite(start)
+            && now >= start + FINAL_ACTIVE_BROADCAST_CATCHUP_MS
+          // If the entire broadcast was missed during downtime, do not create
+          // a misleading "five minutes" notification. Keep the watch active
+          // for a future EPG broadcast and remove this event from the queue.
+          if (noLongerOnAir || beyondRecovery) {
+            tx.update(first.ref, {
+              scheduleStatus: 'expired', scheduleUpdatedAt: new Date(now),
+              body: `Für ${watch.title} liegt derzeit kein neuer bestätigter TV-Termin vor.`,
+            })
+            tx.set(stateRef, {
+              ...state, activationId: watch.activationId, status: 'expired',
+              firstNotificationId: firstSnap.id, updatedAt: new Date(now),
+            })
+            return 'expired'
+          }
+          return false
+        }
         tx.create(finalRef, message)
         // Remove this event from all future minute queries in the same atomic
         // commit. Skipped/cancelled or newly activated watches are untouched.
@@ -67,9 +90,10 @@ export async function runTvFinalReminderCheck({ db, now = Date.now(), maxBatch =
           status: 'completed', completedAt: new Date(now),
           finalNotificationId: finalId, updatedAt: new Date(now),
         })
-        return true
+        return 'completed'
       })
-      if (created) result.finalCreated++
+      if (created === 'completed') result.finalCreated++
+      else if (created === 'expired') result.expired++
       else result.skipped++
     } catch (error) {
       result.failed++
