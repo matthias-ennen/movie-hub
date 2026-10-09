@@ -97,6 +97,10 @@ export async function readPublishedTvEntries({ read = readFile, now = Date.now()
       ].sort((a, b) => String(a?.startTime || '').localeCompare(String(b?.startTime || ''))),
     })
   }
+  // A missing provider feed may falsely look like a cancelled broadcast.
+  // Discovery can still proceed from one recent source; destructive schedule
+  // reconciliation requires both full published source generations.
+  merged.sourceComplete = Boolean(waipuEntries && joynEntries)
   return merged
 }
 
