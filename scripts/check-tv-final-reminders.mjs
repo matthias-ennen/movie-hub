@@ -2,7 +2,7 @@ import { pathToFileURL } from 'node:url'
 import { alertNotificationId, watchId } from '../src/notifications/titleAlertModel.js'
 import { isActiveTitleWatch } from '../src/notifications/titleAlertLifecycleModel.js'
 import {
-  FINAL_LEAD_MS, FINAL_LATE_GRACE_MS, FINAL_MAX_BATCH,
+  FINAL_LEAD_MS, FINAL_LATE_GRACE_MS, FINAL_ACTIVE_BROADCAST_CATCHUP_MS, FINAL_MAX_BATCH,
   isCanonicalFirstTvEvent, tvFinalNotification,
 } from '../src/notifications/tvFinalReminderModel.js'
 
@@ -15,7 +15,8 @@ export async function runTvFinalReminderCheck({ db, now = Date.now(), maxBatch =
   const limit = Math.min(FINAL_MAX_BATCH, Math.max(1, Number(maxBatch) || FINAL_MAX_BATCH))
   const firstEvents = await db.collectionGroup('notifications')
     .where('phase', '==', 'tv-found')
-    .where('airingStartAt', '>=', new Date(now - FINAL_LATE_GRACE_MS))
+    .where('scheduleStatus', '==', 'scheduled')
+    .where('airingStartAt', '>=', new Date(now - FINAL_ACTIVE_BROADCAST_CATCHUP_MS))
     .where('airingStartAt', '<=', new Date(now + FINAL_LEAD_MS))
     .orderBy('airingStartAt', 'asc')
     .limit(limit)
@@ -54,6 +55,9 @@ export async function runTvFinalReminderCheck({ db, now = Date.now(), maxBatch =
         const message = tvFinalNotification(watch, firstSnap.data(), now)
         if (!message) return false
         tx.create(finalRef, message)
+        // Remove this event from all future minute queries in the same atomic
+        // commit. Skipped/cancelled or newly activated watches are untouched.
+        tx.update(first.ref, { scheduleStatus: 'completed', finalReminderAt: new Date(now) })
         tx.update(watchRef, {
           schemaVersion: 2, status: 'completed', completedAt: new Date(now),
           completionNotificationId: finalId,
