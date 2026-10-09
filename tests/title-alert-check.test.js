@@ -265,6 +265,79 @@ describe('trusted title alert data sources', () => {
     }
   })
 
+  it('writes exactly one first TV event for a ten-day broadcast, preserving the five-minute schedule', async () => {
+    const now = Date.parse('2026-10-09T08:00:00Z')
+    const DAY = 86400000
+    const profile = 'users/alice/profiles/main'
+    const watchPath = `${profile}/titleAlerts/movie-51-tv`
+    const statePath = `${profile}/titleAlertState/movie-51-tv`
+    const eventPath = `${profile}/notifications/movie-51-tv-tv-session-initial`
+    const airing = {
+      stationId: 'zdf', stationName: 'ZDF', source: 'waipu',
+      startTime: new Date(now + 10 * DAY).toISOString(),
+      stopTime: new Date(now + 10 * DAY + 2 * 3600000).toISOString(),
+    }
+    const db = inMemoryFirestore({
+      'users/alice': { waipuStationSettings: { disabledStationIds: [] } },
+      [profile]: { displayName: 'Main' },
+      [watchPath]: { schemaVersion: 2, status: 'active', type: 'movie', tmdbId: 51,
+        kind: 'tv', title: 'Film', activationId: 'tv-session' },
+    })
+    const tvTitles = new Map([['movie-51', { airings: [
+      airing, { ...airing, source: 'joyn', providerIds: ['joyn'], stationId: 'joyn.zdf' },
+    ] }]])
+    const opts = { db, token: 'test-token', tvTitles, now }
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ observed: 1, tvCreated: 1, failed: 0 })
+    expect(db.data.get(eventPath)).toMatchObject({
+      schemaVersion: 2, kind: 'tv', phase: 'tv-found',
+      stationName: 'ZDF', airingStartAt: new Date(airing.startTime),
+      expiresAt: new Date(Date.parse(airing.stopTime) + 7 * DAY),
+    })
+    expect(db.data.get(statePath)).toMatchObject({
+      status: 'scheduled', firstNotificationId: 'movie-51-tv-tv-session-initial',
+      firstAiringStart: airing.startTime,
+      finalReminderAt: new Date(Date.parse(airing.startTime) - 5 * 60000),
+    })
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ observed: 1, tvCreated: 0, failed: 0 })
+    tvTitles.set('movie-51', { airings: [{ ...airing,
+      startTime: new Date(now + 12 * DAY).toISOString() }] })
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ observed: 1, tvCreated: 0, failed: 0 })
+    expect([...db.data.keys()].filter((key) => key.startsWith(`${profile}/notifications/`)))
+      .toEqual([eventPath])
+    expect(db.data.get(watchPath).status).toBe('active') // #382 final stage pending.
+  })
+
+  it('adopts an existing client-first TV event and never duplicates it after a replay', async () => {
+    const now = Date.parse('2026-10-09T08:00:00Z')
+    const profile = 'users/alice/profiles/main'
+    const watchPath = `${profile}/titleAlerts/movie-52-tv`
+    const statePath = `${profile}/titleAlertState/movie-52-tv`
+    const eventPath = `${profile}/notifications/movie-52-tv-tv-session-initial`
+    const clientAiringStart = new Date(now + 6 * 86400000)
+    const laterServerAiring = {
+      stationId: 'sat1', stationName: 'Sat.1', source: 'waipu',
+      startTime: new Date(now + 8 * 86400000).toISOString(),
+      stopTime: new Date(now + 8 * 86400000 + 3600000).toISOString(),
+    }
+    const clientEvent = { schemaVersion: 2, kind: 'tv', phase: 'tv-found',
+      title: 'Bald im TV', body: 'Bereits gemeldet', airingStartAt: clientAiringStart,
+      stationName: 'ZDF' }
+    const db = inMemoryFirestore({
+      'users/alice': {}, [profile]: {},
+      [watchPath]: { schemaVersion: 2, status: 'active', type: 'movie', tmdbId: 52,
+        kind: 'tv', title: 'Film', activationId: 'tv-session' },
+      [eventPath]: clientEvent,
+    })
+    const opts = { db, token: 'test-token', tvTitles: new Map([
+      ['movie-52', { airings: [laterServerAiring] }],
+    ]), now }
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ tvCreated: 0, failed: 0 })
+    expect(db.data.get(eventPath)).toEqual(clientEvent)
+    expect(db.data.get(statePath).firstAiringStart).toBe(clientAiringStart.toISOString())
+    expect(db.data.get(statePath).finalReminderAt).toEqual(new Date(clientAiringStart.getTime() - 300000))
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ tvCreated: 0, failed: 0 })
+  })
+
   it('merges recent Waipu and Joyn TV title publications', async () => {
     const files = new Map([
       ['public/waipu-live/index.json', JSON.stringify({ kind: 'waipu-live-index', status: 'complete', generatedAt: '2026-09-26T12:00:00.000Z' })],

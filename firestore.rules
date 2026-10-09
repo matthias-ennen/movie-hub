@@ -106,16 +106,38 @@ service cloud.firestore {
             && notificationId.matches('^(movie|series)-[0-9]+-(included|tv)-[a-zA-Z0-9-]+-(initial|airing-[0-9]+)$')
             && request.resource.data.keys().hasOnly([
               'schemaVersion', 'kind', 'titleType', 'tmdbId', 'title', 'mediaTitle',
-              'body', 'startsAt', 'expiresAt', 'phase', 'eventAt', 'completedAt'
+              'body', 'startsAt', 'expiresAt', 'phase', 'eventAt', 'completedAt',
+              'airingStartAt', 'airingEndsAt', 'stationName'
             ])
             && ((request.resource.data.schemaVersion == 1
-                && !request.resource.data.keys().hasAny(['phase', 'eventAt', 'completedAt']))
+                && !request.resource.data.keys().hasAny([
+                  'phase', 'eventAt', 'completedAt',
+                  'airingStartAt', 'airingEndsAt', 'stationName'
+                ]))
               || (request.resource.data.schemaVersion == 2
                 && request.resource.data.kind == 'included'
+                && !request.resource.data.keys().hasAny([
+                  'airingStartAt', 'airingEndsAt', 'stationName'
+                ])
                 && notificationId.matches('^(movie|series)-[0-9]+-included-[a-zA-Z0-9-]+-initial$')
                 && request.resource.data.phase == 'included-found'
                 && request.resource.data.eventAt == request.time
-                && request.resource.data.completedAt == request.time))
+                && request.resource.data.completedAt == request.time)
+              || (request.resource.data.schemaVersion == 2
+                && request.resource.data.kind == 'tv'
+                && notificationId.matches('^(movie|series)-[0-9]+-tv-[a-zA-Z0-9-]+-initial$')
+                && !request.resource.data.keys().hasAny(['completedAt'])
+                && request.resource.data.phase == 'tv-found'
+                && request.resource.data.eventAt == request.time
+                && request.resource.data.airingStartAt is timestamp
+                && request.resource.data.airingStartAt > request.time
+                && request.resource.data.airingStartAt <= request.time + duration.value(14, 'd')
+                && request.resource.data.stationName is string
+                && request.resource.data.stationName.size() > 0
+                && request.resource.data.stationName.size() <= 160
+                && (!request.resource.data.keys().hasAny(['airingEndsAt'])
+                  || (request.resource.data.airingEndsAt is timestamp
+                    && request.resource.data.airingEndsAt > request.resource.data.airingStartAt))))
             && request.resource.data.kind in ['included', 'tv']
             && request.resource.data.titleType in ['movie', 'series']
             && request.resource.data.tmdbId is int && request.resource.data.tmdbId > 0

@@ -116,6 +116,36 @@ describe('Firestore Security Rules', () => {
     }))
   })
 
+  it('erlaubt eine V2-TV-Fundmeldung mit Termin innerhalb 14 Tagen, aber keine vorzeitige Erfüllung', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore()
+    const bob = testEnv.authenticatedContext('bob').firestore()
+    const prefix = ['users', 'alice', 'profiles', 'lifecycle']
+    const watch = doc(alice, ...prefix, 'titleAlerts', 'movie-24-tv')
+    await assertSucceeds(setDoc(watch, {
+      schemaVersion: 2, status: 'active', type: 'movie', tmdbId: 24,
+      title: 'Film', kind: 'tv', activationId: 'session-a', createdAt: serverTimestamp(),
+    }))
+    const event = doc(alice, ...prefix, 'notifications', 'movie-24-tv-session-a-initial')
+    const payload = {
+      schemaVersion: 2, kind: 'tv', titleType: 'movie', tmdbId: 24,
+      title: 'Bald im TV', mediaTitle: 'Film', body: 'Läuft später auf ZDF.',
+      phase: 'tv-found', eventAt: serverTimestamp(),
+      airingStartAt: Timestamp.fromMillis(Date.now() + 10 * 86400000),
+      airingEndsAt: Timestamp.fromMillis(Date.now() + 10 * 86400000 + 7200000),
+      stationName: 'ZDF',
+      startsAt: serverTimestamp(), expiresAt: Timestamp.fromMillis(Date.now() + 17 * 86400000),
+    }
+    await assertSucceeds(setDoc(event, payload))
+    await assertFails(getDoc(doc(bob, ...prefix, 'notifications', event.id)))
+    await assertFails(setDoc(event, { stationName: 'Falscher Sender' }, { merge: true }))
+    await assertFails(setDoc(watch, { schemaVersion: 2, status: 'completed',
+      completedAt: serverTimestamp(), completionNotificationId: event.id }, { merge: true }))
+    await assertFails(setDoc(doc(alice, ...prefix, 'notifications', 'movie-24-tv-another-initial'),
+      { ...payload, airingStartAt: Timestamp.fromMillis(Date.now() + 20 * 86400000) }))
+    await assertFails(setDoc(doc(alice, ...prefix, 'notifications', 'movie-24-tv-more-initial'),
+      { ...payload, phase: 'tv-final', completedAt: serverTimestamp() }))
+  })
+
   it('speichert eine V2-Inklusivmeldung und den Abschluss atomar, ohne Client-Update-Rechte auf Nachrichten', async () => {
     const alice = testEnv.authenticatedContext('alice').firestore()
     const prefix = ['users', 'alice', 'profiles', 'lifecycle']

@@ -59,6 +59,29 @@ beiden Anlässe.
   Erst nach Schließen und erneutem Öffnen zeigt er deshalb `Aus`.
   Kein Erfolgshinweis und kein Timer. Die TV-Beobachtung ist unabhängig.
 
+## #382 – TV-Fundstufe auf 14 Tage (Entwicklungsstand, noch nicht produktiv)
+
+Die Entwicklung von #382 erfolgt getrennt von der abgeschlossenen #381-Basis.
+Die erste Phase erweitert Client und vertrauenswürdigen Server gemeinsam:
+- Auswahl des frühesten passenden TV-Termins im **veröffentlichten 14-Tage-Horizont**,
+  mit den im Benutzerkonto eingeschalteten Waipu-/Joyn-Sendern;
+- **ein** erstes `tv-found`-Ereignis pro Aktivierung, unabhängig von erneuten
+  Datenläufen, zusätzlichen Ausstrahlungen oder Waipu-/Joyn-Überschneidungen;
+- stabile `-initial`-Benachrichtigungs-ID; alte `-airing-<timestamp>`-Ereignisse
+  bleiben lesbar. Vorhandene clientseitige Erstmeldungen werden vom Nachtlauf
+  übernommen statt nochmals angelegt;
+- strukturierter Termin (`airingStartAt`, optional `airingEndsAt`,
+  `stationName`) in neuen Erstmeldungen sowie serverseitige Terminbindung
+  (`firstAiringStart`, `finalReminderAt`, `firstNotificationId`) im
+  `titleAlertState`. Die erste Nachricht bleibt auch nach dem Sendebeginn
+  bis höchstens sieben Tage nach Sendeende gültig (Hard-TTL maximal 30 Tage);
+- Der TV-Watch bleibt nach der Erstmeldung **aktiv**.
+
+**Noch nicht in dieser Phase:** Ein zeitnaher, zuverlässiger Scheduler
+für das 5-Minuten-Endereignis, Terminverschiebung/-ausfall und finaler
+atomarer Watch-Abschluss. Diese Schritte sind vor der Gesamtfreigabe von
+#382 einschließlich IAM- und produktiver Ende-zu-Ende-Tests nötig.
+
 ## Grenzen und Prüfung
 
 Die persönliche TMDB-ID und der Titel liegen wie vorhandene persönliche
