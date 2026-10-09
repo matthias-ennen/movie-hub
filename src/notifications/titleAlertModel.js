@@ -26,7 +26,8 @@ export function includedProviderIds(offers, enabledProviderIds) {
 export function dueTvAiring(airings, disabledStationIds = [], now = Date.now()) {
   const disabled = new Set(disabledStationIds || [])
   return (Array.isArray(airings) ? airings : [])
-    .filter((airing) => airing?.stationId && !disabled.has(airing.stationId))
+    .filter((airing) => airing?.stationId && String(airing?.stationName || '').trim()
+      && !disabled.has(airing.stationId))
     .filter((airing) => {
       const start = Date.parse(airing.startTime)
       return Number.isFinite(start) && start > now && start <= now + TV_DISCOVERY_WINDOW_MS
