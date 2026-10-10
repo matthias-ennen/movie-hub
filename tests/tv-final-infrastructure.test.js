@@ -64,7 +64,18 @@ describe('#382 isolated Cloud Scheduler rollout contract', () => {
     expect(activation).toContain('invokerIamDisabled')
     expect(activation).toContain('run.googleapis.com/invoker-iam-disabled')
     expect(activation.indexOf('Refuse activation if the existing Cloud Run service is publicly callable'))
-      .toBeLessThan(activation.indexOf('Grant one scheduler identity invocation on only this private service'))
+      .toBeLessThan(activation.indexOf('Verify dedicated scheduler invoker on private Cloud Run service (read-only)'))
+  })
+
+  it('requires a pre-authorized scheduler invoker without giving GitHub Cloud Run IAM write rights', () => {
+    const activation = workflow.split('\n  activate:')[1]
+    expect(activation).toContain('Verify dedicated scheduler invoker on private Cloud Run service (read-only)')
+    expect(activation).toContain('gcloud run services get-iam-policy')
+    expect(activation).toContain('bindings.some(b=>b.role==="roles/run.invoker"')
+    expect(activation).toContain('!b.condition')
+    expect(activation).toContain('Configure this one-time service binding in Cloud Shell')
+    expect(activation).not.toMatch(/gcloud run services (add|remove|set)-iam-policy-binding/)
+    expect(activation).toContain('Create exactly one private one-minute job (live activation)')
   })
 
   it('uses a separate codebase and a dedicated runtime identity in Frankfurt', () => {
