@@ -234,22 +234,22 @@ jobs:
               || service.metadata?.annotations?.["run.googleapis.com/invoker-iam-disabled"] === "true")
               throw new Error("Cloud Run Invoker IAM check is disabled")
           ' "$RUNNER_TEMP/preactivate-tv-iam.json" "$RUNNER_TEMP/preactivate-tv-service.json"
-      - name: Grant one scheduler identity invocation on only this private service
+      - name: Verify dedicated scheduler invoker on private Cloud Run service (read-only)
         run: |
           set -euo pipefail
           mapfile -t verified < "$RUNNER_TEMP/verified-tv-function.txt"
-          gcloud run services add-iam-policy-binding "${verified[1]}" \
-            --project=movie-hub-62459 --region=europe-west3 \
-            --member=serviceAccount:movie-hub-tv-scheduler@movie-hub-62459.iam.gserviceaccount.com \
-            --role=roles/run.invoker --quiet
+          # Service IAM is configured once by the project administrator. The
+          # GitHub deploy identity requires getIamPolicy, NEVER setIamPolicy.
           gcloud run services get-iam-policy "${verified[1]}" --project=movie-hub-62459 --region=europe-west3 --format=json > "$RUNNER_TEMP/runner-policy.json"
           node --input-type=module -e '
             import fs from "node:fs"
             const policy=JSON.parse(fs.readFileSync(process.argv[1],"utf8"))
             const bindings=policy.bindings||[]
-            const invoker=bindings.find(b=>b.role==="roles/run.invoker")
-            if(!invoker?.members?.includes("serviceAccount:movie-hub-tv-scheduler@movie-hub-62459.iam.gserviceaccount.com"))
-              throw new Error("Expected scheduler invoker permission missing")
+            const scheduler="serviceAccount:movie-hub-tv-scheduler@movie-hub-62459.iam.gserviceaccount.com"
+            const authorized=bindings.some(b=>b.role==="roles/run.invoker"
+              && !b.condition && b.members?.includes(scheduler))
+            if(!authorized)
+              throw new Error("Dedicated scheduler is missing an unconditional roles/run.invoker grant on the verified private service. Configure this one-time service binding in Cloud Shell, then rerun activate.")
             if(bindings.some(b=>b.members?.some(m=>m==="allUsers"||m==="allAuthenticatedUsers")))
               throw new Error("Function has a public IAM binding")
           ' "$RUNNER_TEMP/runner-policy.json"
