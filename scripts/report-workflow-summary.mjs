@@ -167,6 +167,8 @@ export function buildWorkflowSummary({
   const shorterJoynSources = coverage.filter(station => Array.isArray(station.days) && station.days.length < 14)
     .map(station => ({ name: station.title || station.id, days: station.days.length, lastDay: station.days.at(-1) || 'keine' }))
   const sourceErrors = Object.entries(health.run?.errors || {}).map(([reason, count]) => `${reason}: ${number(count)}`).join(', ')
+  const responseProblem = health.run?.lastResponseProblem
+  const responseDiagnostic = responseProblem ? ` · Antwortdiagnose: ${responseProblem.operation} / ${responseProblem.reason}${responseProblem.errorCodes?.length ? ' / ' + responseProblem.errorCodes.join(', ') : ''}` : ''
   const protection = health.circuit?.automaticRunsDisabled ? 'automatische Abrufe gesperrt; manuelle Prüfung erforderlich'
     : health.circuit?.blockedUntil ? `Schutzpause bis ${timestamp(health.circuit.blockedUntil)}` : 'keine Schutzpause'
   const currentSync = !health.run?.startedAt || Date.parse(joynSync.generatedAt) >= Date.parse(health.run.startedAt) - 1000
@@ -295,7 +297,7 @@ export function buildWorkflowSummary({
         status: outcome(steps.joynCatalog),
         stock: steps.joynCatalog === 'failure' ? 'kein neuer veröffentlichter Bestand' : `${measured(joynMatching.matchedPrograms)} zugeordnete Programme`,
         activity: `${measured(joynMatching.rejected?.no_candidate)} ohne Kandidat · ${measured(joynMatching.rejected?.ambiguous_exact_title)} mehrdeutig · ${measured(joynMatching.rejected?.below_threshold)} unter Vertrauensschwelle`,
-        open: `${health.run ? (sourceErrors || '0 technische Quellenfehler') : 'Quellenfehler nicht verfügbar'} · ${health.run ? measured(health.run.retries) : 'nicht verfügbar'} Retries · ${protection}${health.run?.failure ? ' · ' + health.run.failure.code : ''}`,
+        open: `${health.run ? (sourceErrors || '0 technische Quellenfehler') : 'Quellenfehler nicht verfügbar'} · ${health.run ? measured(health.run.retries) : 'nicht verfügbar'} Retries · ${protection}${health.run?.failure ? ' · ' + health.run.failure.code : ''}${responseDiagnostic}${health.run?.pauseWaitMs ? ' · Schutzpause abgewartet' : ''}`,
       },
       {
         area: 'Joyn-Quelldaten',
@@ -384,10 +386,10 @@ export function buildWorkflowSummary({
       },
       {
         area: 'Firebase',
-        status: outcome(combinedOutcome(steps.auth, steps.deploy), '⏭️ nicht veröffentlicht'),
+        status: outcome(steps.deploy === 'success' ? 'success' : combinedOutcome(steps.auth === 'success' ? 'skipped' : steps.auth, steps.deploy), '⏭️ nicht veröffentlicht'),
         stock: 'Hosting und Firestore-Regeln',
         activity: steps.deploy === 'success' ? 'gemeinsam veröffentlicht' : 'keine neue Veröffentlichung',
-        open: steps.deploy === 'failure' ? 'letzter gültiger Stand bleibt online' : '–',
+        open: steps.deploy !== 'success' ? 'letzter gültiger Stand bleibt online' : '–',
       },
     ],
     shorterJoynSources,

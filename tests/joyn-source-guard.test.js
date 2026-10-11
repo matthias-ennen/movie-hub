@@ -18,6 +18,65 @@ async function setup(options = {}) {
 }
 afterEach(async () => { await Promise.all(directories.splice(0).map(path => rm(path, { recursive: true, force: true }))) })
 describe('durable Joyn source protection', () => {
+  it('recovers transient GraphQL failures, counting every request against the budget', async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(response({ errors: [{ extensions: { code: 'SERVICE_UNAVAILABLE' } }] }))
+      .mockResolvedValueOnce(response({ data: { search: { results: [] } } }))
+    const { guard } = await setup({ fetchImpl, budgets: { titleSearch: 3 } })
+    expect((await guard.fetch(searchUrl)).ok).toBe(true)
+    expect(guard.snapshot().run).toMatchObject({ requests: { titleSearch: 2 }, retries: 1, errors: { graphql_errors: 1 } })
+  })
+  it('retains a diagnostic without raw GraphQL messages or credentials', async () => {
+    const fetchImpl = vi.fn(async () => response({ data: { search: { results: null } }, errors: [
+      { message: 'Bearer private-secret', extensions: { code: 'GRAPHQL_VALIDATION_FAILED', secret: 'private-secret' } },
+    ] }))
+    const { guard, config } = await setup({ fetchImpl })
+    const url = searchUrl + '&variables=' + encodeURIComponent(JSON.stringify({ text: 'Öffentlicher Titel' }))
+    await expect(guard.fetch(url, { headers: { authorization: 'Bearer private-secret' } })).rejects.toMatchObject({ code: 'JOYN_SOURCE_SCHEMA' })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    const saved = await readFile(join(config.directory, 'source-health.json'), 'utf8')
+    expect(saved).not.toContain('private-secret')
+    expect(JSON.parse(saved).circuit.diagnostic).toMatchObject({ reason: 'graphql_errors', errorCodes: ['GRAPHQL_VALIDATION_FAILED'], title: 'Öffentlicher Titel', httpStatus: 200 })
+  })
+  it('distinguishes a missing results array from a legitimate zero-match response', async () => {
+    const { guard } = await setup({ fetchImpl: async () => response({ data: { search: {} } }) })
+    await expect(guard.fetch(searchUrl)).rejects.toMatchObject({ code: 'JOYN_SOURCE_SCHEMA' })
+    expect(guard.snapshot().circuit.diagnostic.reason).toBe('missing_search_results')
+  })
+  it('bounds invalid JSON retries and retains the last complete publication', async () => {
+    const fetchImpl = vi.fn(async () => new Response('<html>temporary upstream response</html>'))
+    const { guard } = await setup({ fetchImpl })
+    await expect(guard.fetch(searchUrl)).rejects.toMatchObject({ code: 'JOYN_SOURCE_UNAVAILABLE' })
+    expect(fetchImpl).toHaveBeenCalledTimes(3)
+    expect(guard.snapshot().circuit.diagnostic.reason).toBe('invalid_json')
+  })
+  it('does not retry unknown or mixed GraphQL failures', async () => {
+    const fetchImpl = vi.fn(async () => response({ errors: [
+      { extensions: { code: 'TIMEOUT' } }, { message: 'unknown problem' },
+    ] }))
+    const { guard } = await setup({ fetchImpl })
+    await expect(guard.fetch(searchUrl)).rejects.toMatchObject({ code: 'JOYN_SOURCE_SCHEMA' })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
+  it('waits out a restored short protection pause before the first request', async () => {
+    let time = now
+    const { guard, config } = await setup({ now: () => time, fetchImpl: async () => response({}, 401) })
+    await expect(guard.fetch(searchUrl)).rejects.toMatchObject({ code: 'JOYN_SOURCE_AUTH' })
+    const fetchImpl = vi.fn(async () => response({ data: { search: { results: [] } } }))
+    const sleep = vi.fn(async ms => { time += ms })
+    const resumed = await JoynSourceGuard.load({ ...config, fetchImpl, sleep })
+    await resumed.waitUntilAvailable()
+    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(sleep).toHaveBeenCalledTimes(30)
+    expect(resumed.snapshot().run.pauseWaitMs).toBe(900000)
+    expect((await resumed.fetch(searchUrl)).ok).toBe(true)
+  })
+  it('never automatically waits past a long Retry-After or resets a forbidden stop', async () => {
+    for (const status of [403, 429]) {
+      const { guard } = await setup({ fetchImpl: async () => response({}, status, { 'retry-after': '1200' }) })
+      await expect(guard.fetch(searchUrl)).rejects.toMatchObject({ code: status === 403 ? 'JOYN_SOURCE_FORBIDDEN' : 'JOYN_SOURCE_RATE_LIMIT' })
+      await expect(guard.waitUntilAvailable()).rejects.toMatchObject({ code: 'JOYN_SOURCE_PAUSED' })
+    }
+  })
   it('preserves genuine empty search results as successful evidence', async () => {
     const fetchImpl = vi.fn(async () => response({ data: { search: { results: [] } } }))
     const { guard } = await setup({ fetchImpl })

@@ -19,7 +19,7 @@ export async function runJoynLiveCatalog({
         algolia: Number(process.env.JOYN_ALGOLIA_REQUEST_BUDGET || 3600),
         seriesDetail: Number(process.env.JOYN_SERIES_DETAIL_REQUEST_BUDGET || 100) } })
     try {
-      guard.assertAvailable()
+      await guard.waitUntilAvailable()
       const { summary, envelope, publication } = await runJoynAdapterDiagnostic({
         now,
         publicationOutput: candidateOutput,

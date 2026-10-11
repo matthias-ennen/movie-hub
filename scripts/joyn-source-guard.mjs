@@ -4,6 +4,23 @@ import { writeJoynJson } from './joyn-epg-sync.mjs'
 
 const MINUTE = 60000
 const guardedHosts = new Set(['auth.joyn.de', 'api.joyn.de', 'ffqrv35svv-dsn.algolia.net'])
+const transientGraphqlCodes = new Set(['INTERNAL_SERVER_ERROR', 'SERVICE_UNAVAILABLE', 'GATEWAY_TIMEOUT', 'TIMEOUT'])
+
+function responseProblem(body, operation, invalidJson) {
+  if (invalidJson) return { reason: 'invalid_json', retryable: true }
+  if (Array.isArray(body?.errors) && body.errors.length) {
+    const codes = body.errors.map(error => error?.extensions?.code)
+    return { reason: 'graphql_errors', retryable: codes.every(code => transientGraphqlCodes.has(code)),
+      errorCount: codes.length, errorCodes: [...new Set(codes.map(code => transientGraphqlCodes.has(code)
+        || ['GRAPHQL_VALIDATION_FAILED', 'BAD_USER_INPUT', 'UNAUTHENTICATED', 'FORBIDDEN', 'PERSISTED_QUERY_NOT_FOUND'].includes(code) ? code : 'UNKNOWN'))] }
+  }
+  if (operation === 'algolia') return Array.isArray(body?.results) && body.results.length === 1 && Array.isArray(body.results[0]?.hits)
+    ? null : { reason: 'missing_algolia_hits', retryable: false }
+  if (!body?.data || typeof body.data !== 'object') return { reason: 'missing_graphql_data', retryable: false }
+  if (operation === 'titleSearch' && !Array.isArray(body.data.search?.results)) return { reason: 'missing_search_results', retryable: false }
+  if (operation === 'searchKey' && !String(body.data.searchApiKey || '').trim()) return { reason: 'missing_search_key', retryable: false }
+  return null
+}
 
 function operationFor(url) {
   if (url.hostname === 'auth.joyn.de') return 'auth'
@@ -58,9 +75,30 @@ export class JoynSourceGuard {
     const circuit = this.state.circuit
     if (circuit.automaticRunsDisabled || Date.parse(circuit.blockedUntil) > this.now()) throw failure('JOYN_SOURCE_PAUSED', circuit.operation || 'source')
   }
-  async stop(code, operation, status = null, pauseMs = 15 * MINUTE, manual = false) {
+  async waitUntilAvailable({ maxWaitMs = 15 * MINUTE, signal } = {}) {
+    const startedAt = this.now()
+    const circuit = this.state.circuit
+    const remaining = Date.parse(circuit.blockedUntil) - startedAt
+    if (circuit.automaticRunsDisabled || remaining > maxWaitMs) this.assertAvailable()
+    if (remaining > 0) {
+      this.state.run.pauseWaitMs = remaining
+      await this.save()
+      while (Date.parse(circuit.blockedUntil) > this.now()) {
+        signal?.throwIfAborted()
+        if (this.now() - startedAt >= maxWaitMs) this.assertAvailable()
+        await this.sleep(Math.min(30000, Date.parse(circuit.blockedUntil) - this.now(), maxWaitMs - (this.now() - startedAt)))
+      }
+    }
+    if (!circuit.automaticRunsDisabled && Date.parse(circuit.blockedUntil) <= this.now()) {
+      this.state.circuit = { automaticRunsDisabled: false, blockedUntil: null }
+      await this.save()
+    }
+    this.assertAvailable()
+  }
+  async stop(code, operation, status = null, pauseMs = 15 * MINUTE, manual = false, diagnostic = null) {
     this.state.circuit = { automaticRunsDisabled: manual, blockedUntil: manual ? null : new Date(this.now() + pauseMs).toISOString(),
-      openedAt: new Date(this.now()).toISOString(), reason: code, operation, httpStatus: status }
+      openedAt: new Date(this.now()).toISOString(), reason: code, operation, httpStatus: status,
+      ...(diagnostic ? { diagnostic } : {}) }
     await this.save()
     throw failure(code, operation, status)
   }
@@ -112,16 +150,22 @@ export class JoynSourceGuard {
         await this.stop('JOYN_SOURCE_HTTP', operation, status)
       }
       if (['api.joyn.de', 'ffqrv35svv-dsn.algolia.net'].includes(url.hostname)) {
-        let body
-        try { body = await response.clone().json() } catch { body = null }
-        const valid = operation === 'algolia'
-          ? Array.isArray(body?.results) && body.results.length === 1 && Array.isArray(body.results[0]?.hits)
-          : body?.data && !body.errors?.length
-        const searchShape = operation !== 'titleSearch' || Array.isArray(body?.data?.search?.results)
-        const keyShape = operation !== 'searchKey' || Boolean(String(body?.data?.searchApiKey || '').trim())
-        if (!valid || !searchShape || !keyShape) {
-          this.state.run.errors.schema_error = (this.state.run.errors.schema_error || 0) + 1
-          await this.stop('JOYN_SOURCE_SCHEMA', operation)
+        let body, invalidJson = false
+        try { body = await response.clone().json() } catch { invalidJson = true }
+        const problem = responseProblem(body, operation, invalidJson)
+        if (problem) {
+          // Never persist response text, headers, URLs, auth tokens or API keys.
+          const diagnostic = { ...problem, httpStatus: status, operation, attempt: attempt + 1 }
+          if (operation === 'titleSearch') {
+            try { diagnostic.title = String(JSON.parse(url.searchParams.get('variables'))?.text || '').replace(/[\r\n]/g, ' ').slice(0, 160) } catch {}
+          }
+          this.state.run.lastResponseProblem = diagnostic
+          this.state.run.errors[problem.reason] = (this.state.run.errors[problem.reason] || 0) + 1
+          if (problem.retryable && attempt < 2 && !options.signal?.aborted) {
+            this.state.run.retries += 1
+            await this.sleep(500 * (2 ** attempt)); continue
+          }
+          await this.stop(problem.retryable ? 'JOYN_SOURCE_UNAVAILABLE' : 'JOYN_SOURCE_SCHEMA', operation, status, 15 * MINUTE, false, diagnostic)
         }
       }
       return response

@@ -2,6 +2,37 @@
 
 Stand: 07.10.2026. Historisches Betriebspaket: [#315](https://github.com/matthias-ennen/movie-hub/issues/315), abgeschlossen am 03.10.2026.
 
+## Joyn-Suchantwort und Wiederaufnahme (11.10.2026)
+
+Der [Nachtlauf 38100293585](https://github.com/matthias-ennen/movie-hub/actions/runs/38100293585)
+verarbeitete alle 56 EPG-Fenster, stoppte aber bei 55.033/56.544
+Titelzuordnungen mit `JOYN_SOURCE_SCHEMA` in `titleSearch`. Die bisherige
+Diagnose unterschied GraphQL-Fehler, ungültiges JSON und fehlende Pflichtfelder
+nicht. Eine tatsächliche Schemaänderung ist deshalb noch nicht belegt.
+Der [Folgelauf 38103517625](https://github.com/matthias-ennen/movie-hub/actions/runs/38103517625)
+traf auf die noch aktive 15-Minuten-Pause. Der vollständige Live-Stand blieb erhalten.
+
+Korrektur unter dem bestehenden Betriebsnachtrag #271/#315:
+
+- Antwortdiagnosen unterscheiden JSON-, GraphQL- und Pflichtfeldfehler;
+  bekannte GraphQL-Codes, Operation, Versuch und der begrenzte öffentliche
+  EPG-Suchtitel werden im privaten Checkpoint gespeichert. Keine Rohantworten,
+  Fehlermeldungen des Servers, URLs, Header, Tokens oder API-Schlüssel.
+- Ungültiges JSON und ausschließlich bekannte temporäre GraphQL-Codes
+  erhalten höchstens drei Versuche. Unbekannte/mischte GraphQL-Fehler und
+  fehlende Pflichtfelder stoppen weiter sofort. Jeder Versuch zählt zum Budget;
+  echte leere Trefferlisten bleiben erfolgreiche Suchantworten.
+- Eine gespeicherte Schutzpause von höchstens 15 Minuten wird vor dem ersten
+  Quellenabruf abgewartet. Längere Retry-After-Pausen und manuelle 403-Sperren
+  werden nicht zurückgesetzt oder umgangen.
+- Firebase-Erfolg richtet sich nach dem tatsächlichen Deploy, nicht nach
+  erfolgreicher Authentifizierung. Antwortdiagnose und abgewartete Pause
+  erscheinen im Bericht.
+
+Die Korrektur ersetzt keinen produktiven Quellenbeleg: Erst der nächste
+vollständige Datenlauf bestätigt die Wiederaufnahme und konsistente
+Veröffentlichung. Ein Code-Deploy allein bestätigt keine neuen Quellenmengen.
+
 ## Einordnung und Abschlussstand 07.10.2026
 
 Die heutigen Arbeiten sind ein von Matthias priorisierter Betriebsnachtrag
@@ -175,9 +206,10 @@ Versuch zählt gegen das jeweilige HTTP-Budget. Quellenanfragen haben einen
 30-Sekunden-Timeout. Eine Pause wird beim nächsten Lauf vor dem ersten
 Quellenabruf geprüft und nach Ablauf automatisch aufgehoben.
 
-`artifacts/joyn-sync/source-health.json` enthält ausschließlich Zähler,
-Fehlercodes und Schutzstatus, keine Tokens, Schlüssel, Suchtexte oder
-Antwortinhalte. Es wird mit dem bestehenden privaten Joyn-Checkpoint
+`artifacts/joyn-sync/source-health.json` enthält Zähler, Fehlercodes,
+Schutzstatus und seit 11.10.2026 begrenzte Antwortdiagnosen einschließlich
+öffentlichem EPG-Suchtitel, keine Tokens, Schlüssel oder Rohantworten.
+Es wird mit dem bestehenden privaten Joyn-Checkpoint
 gesichert; auch ein Fehler vor dem ersten EPG-Fenster hat dafür einen
 leeren, gültigen Fenster-Checkpoint. Alte und neue HTTP-/GraphQL-Fehler
 werden weder als Suchantwort noch als negative Zuordnung wiederverwendet.

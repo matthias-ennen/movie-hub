@@ -5,6 +5,19 @@ import {
 } from '../scripts/report-workflow-summary.mjs'
 
 describe('kompakter Workflow-Datenbericht', () => {
+  it('does not report authentication as a successful deployment', () => {
+    const result = buildWorkflowSummary({ steps: { auth: 'success', deploy: 'skipped' } })
+    expect(result.rows.find(row => row.area === 'Firebase')).toMatchObject({
+      status: '⏭️ nicht veröffentlicht', activity: 'keine neue Veröffentlichung',
+      open: 'letzter gültiger Stand bleibt online',
+    })
+  })
+  it('shows the precise Joyn response classification', () => {
+    const result = buildWorkflowSummary({ steps: { joynCatalog: 'failure' }, joynHealth: { run: {
+      lastResponseProblem: { operation: 'titleSearch', reason: 'graphql_errors', errorCodes: ['GRAPHQL_VALIDATION_FAILED'] },
+    } } })
+    expect(workflowSummaryMarkdown(result)).toContain('Antwortdiagnose: titleSearch / graphql_errors / GRAPHQL_VALIDATION_FAILED')
+  })
   it('keeps personal notification failures separate from successful Firebase publication', () => {
     const result = buildWorkflowSummary({ steps: {
       deploy: 'success', auth: 'success', titleAlerts: 'failure', alertIamProbe: 'success',
