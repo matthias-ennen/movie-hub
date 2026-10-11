@@ -97,13 +97,15 @@ function timestampIso(value) {
 function metadataObservation(source, value, { now, maxAgeDays }, reference = {}) {
   if (reference.canonicalReady) {
     const metadataUpdatedAt = timestampIso(reference.canonicalMetadataUpdatedAt)
+    const updatedAt = metadataUpdatedAt ? Date.parse(metadataUpdatedAt) : Number.NaN
     // A published-profile marker describes target state, not reusable full metadata.
-    const freshComplete = !titleNeedsMetadataEnrichment(value, { now, maxAgeDays, requireContract: true })
+    const freshComplete = Number.isFinite(updatedAt) && now - updatedAt <= maxAgeDays * 86400000
     return {
       source,
       canonicalPublicationPending: false,
       strictComplete: true,
       freshComplete,
+      reusableComplete: !titleNeedsMetadataEnrichment(value, { now, maxAgeDays, requireContract: true }),
       failed: false,
       structuralGap: false,
       structuralOnlyGap: false,
@@ -130,6 +132,7 @@ function metadataObservation(source, value, { now, maxAgeDays }, reference = {})
     canonicalPublicationPending: source === 'profile-state' && reference.canonicalReady !== true,
     strictComplete,
     freshComplete,
+    reusableComplete: freshComplete,
     failed: Object.values(checks).includes('failed'),
     structuralGap,
     structuralOnlyGap: !strictComplete
@@ -161,7 +164,7 @@ function summarizeCandidateMetadata(observations) {
   return {
     canonicalPublicationPending: values.some(({ canonicalPublicationPending }) => canonicalPublicationPending),
     strictCompleteAvailable: values.some(({ strictComplete }) => strictComplete),
-    freshCompleteAvailable: values.some(({ freshComplete }) => freshComplete),
+    freshCompleteAvailable: values.some(({ reusableComplete }) => reusableComplete),
     incompleteReferences: values.filter(({ strictComplete }) => !strictComplete).length,
     staleReferences: values.filter(({ strictComplete, freshComplete }) => strictComplete && !freshComplete).length,
     failedReferences: values.filter(({ failed }) => failed).length,

@@ -112,10 +112,10 @@ describe('kanonischer Titelkandidatenbestand', () => {
       rejectedReferences: 1,
       uniqueTitles: 1,
       strictCompleteReferences: 1,
-      freshCompleteReferences: 0,
+      freshCompleteReferences: 1,
     })
     expect(inventory.candidates.find(({ key }) => key === 'movie:88')?.metadata)
-      .toMatchObject({ canonicalPublicationPending: false })
+      .toMatchObject({ canonicalPublicationPending: false, freshCompleteAvailable: false, staleReferences: 0 })
     expect(inventory.unresolvedWaipu).toMatchObject({
       detailsAvailable: true,
       programs: 2,
