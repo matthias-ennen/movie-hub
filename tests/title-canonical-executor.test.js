@@ -52,6 +52,22 @@ function queueEntry(key, action) {
 }
 
 describe('kanonischer Titel-Executor', () => {
+  it('loads missing or stale reuse candidates instead of aborting the generation', async () => {
+    const loadTitle = vi.fn(async entry => completeMovie(entry.tmdbId, 'Nachgeladen', '2026-10-11T10:00:00.000Z'))
+    const result = await executeTitlePriorityQueue({
+      preview: { kind: 'title-priority-preview', queue: [queueEntry('movie:4513', 'reuse-canonical')], selectedKeys: ['movie:4513'] },
+      candidateValues: new Map([['movie:4513', [completeMovie(4513, 'Zu alt', '2026-10-01T10:00:00.000Z')]]]),
+      now: new Date('2026-10-11T10:00:00.000Z'), loadTitle,
+    })
+    expect(loadTitle).toHaveBeenCalledTimes(1)
+    expect(result.summary.counts).toMatchObject({ fetched: 1, reused: 0, reuseFallbacks: 1, canonicalReady: 1 })
+  })
+  it('keeps TMDB failures and budget exhaustion fail-closed during a reuse fallback', async () => {
+    await expect(executeTitlePriorityQueue({
+      preview: { kind: 'title-priority-preview', queue: [queueEntry('movie:4513', 'reuse-canonical')], selectedKeys: ['movie:4513'] },
+      loadTitle: async () => { throw Object.assign(new Error('budget exhausted'), { code: 'TMDB_REQUEST_BUDGET' }) },
+    })).rejects.toMatchObject({ code: 'TMDB_REQUEST_BUDGET' })
+  })
   it('loads or reuses every selected identity exactly once', async () => {
     const fetched = completeMovie(1, 'Neu geladen')
     const reusable = { ...completeMovie(2, 'Wiederverwendet'), favorite: true, privateNote: 'nicht verteilen' }
@@ -82,6 +98,7 @@ describe('kanonischer Titel-Executor', () => {
       selected: 2,
       fetched: 1,
       reused: 1,
+      reuseFallbacks: 0,
       notFound: 0,
       canonicalReady: 2,
     })

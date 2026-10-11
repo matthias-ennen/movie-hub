@@ -168,7 +168,8 @@ export function buildWorkflowSummary({
     .map(station => ({ name: station.title || station.id, days: station.days.length, lastDay: station.days.at(-1) || 'keine' }))
   const sourceErrors = Object.entries(health.run?.errors || {}).map(([reason, count]) => `${reason}: ${number(count)}`).join(', ')
   const responseProblem = health.run?.lastResponseProblem
-  const responseDiagnostic = responseProblem ? ` · Antwortdiagnose: ${responseProblem.operation} / ${responseProblem.reason}${responseProblem.errorCodes?.length ? ' / ' + responseProblem.errorCodes.join(', ') : ''}` : ''
+  const responseDiagnostic = (responseProblem ? ` · Antwortdiagnose: ${responseProblem.operation} / ${responseProblem.reason}${responseProblem.errorCodes?.length ? ' / ' + responseProblem.errorCodes.join(', ') : ''}` : '')
+    + (health.run?.excludedUnsupportedSearchItems ? ` · ${number(health.run.excludedUnsupportedSearchItems)} nicht unterstützte Compilation-Suchtreffer ausgeschlossen` : '')
   const protection = health.circuit?.automaticRunsDisabled ? 'automatische Abrufe gesperrt; manuelle Prüfung erforderlich'
     : health.circuit?.blockedUntil ? `Schutzpause bis ${timestamp(health.circuit.blockedUntil)}` : 'keine Schutzpause'
   const currentSync = !health.run?.startedAt || Date.parse(joynSync.generatedAt) >= Date.parse(health.run.startedAt) - 1000
@@ -367,7 +368,7 @@ export function buildWorkflowSummary({
         area: 'Kanonischer Executor',
         status: outcome(steps.canonicalExecutor, '⏭️ bei Code-Deploy unverändert'),
         stock: `${number(canonicalExecutor.counts?.canonicalReady)}/${number(canonicalExecutor.counts?.selected)} kanonisch verarbeitet`,
-        activity: `${number(canonicalExecutor.counts?.fetched)} TMDB geladen · ${number(canonicalExecutor.counts?.reused)} wiederverwendet · ${number(canonicalExecutor.counts?.tmdbRequests)} Requests`,
+        activity: `${number(canonicalExecutor.counts?.fetched)} TMDB geladen · ${number(canonicalExecutor.counts?.reused)} wiederverwendet · ${number(canonicalExecutor.counts?.tmdbRequests)} Requests${canonicalExecutor.counts?.reuseFallbacks ? ' · ' + number(canonicalExecutor.counts.reuseFallbacks) + ' fehlende Wiederverwendungen nachgeladen' : ''}`,
         open: `${number(canonicalExecutor.counts?.catalogUpdated)} Browse · ${number(canonicalExecutor.counts?.searchDetailsUpdated)} Suche · ${number(canonicalExecutor.counts?.waipuUpdated)} Waipu · ${measured(canonicalExecutor.counts?.joynUpdated)} Joyn · ${number(canonicalExecutor.counts?.firestoreWrites)} persönlich verteilt`,
       },
       {

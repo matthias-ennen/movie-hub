@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { writeJoynJson } from './joyn-epg-sync.mjs'
+import { excludedJoynSearchItems } from './joyn-search-response.mjs'
 
 const MINUTE = 60000
 const guardedHosts = new Set(['auth.joyn.de', 'api.joyn.de', 'ffqrv35svv-dsn.algolia.net'])
@@ -9,6 +10,7 @@ const transientGraphqlCodes = new Set(['INTERNAL_SERVER_ERROR', 'SERVICE_UNAVAIL
 function responseProblem(body, operation, invalidJson) {
   if (invalidJson) return { reason: 'invalid_json', retryable: true }
   if (Array.isArray(body?.errors) && body.errors.length) {
+    if (operation === 'titleSearch' && excludedJoynSearchItems(body)) return null
     const codes = body.errors.map(error => error?.extensions?.code)
     return { reason: 'graphql_errors', retryable: codes.every(code => transientGraphqlCodes.has(code)),
       errorCount: codes.length, errorCodes: [...new Set(codes.map(code => transientGraphqlCodes.has(code)
@@ -152,6 +154,9 @@ export class JoynSourceGuard {
       if (['api.joyn.de', 'ffqrv35svv-dsn.algolia.net'].includes(url.hostname)) {
         let body, invalidJson = false
         try { body = await response.clone().json() } catch { invalidJson = true }
+        if (operation === 'titleSearch') {
+          this.state.run.excludedUnsupportedSearchItems = (this.state.run.excludedUnsupportedSearchItems || 0) + excludedJoynSearchItems(body)
+        }
         const problem = responseProblem(body, operation, invalidJson)
         if (problem) {
           // Never persist response text, headers, URLs, auth tokens or API keys.
