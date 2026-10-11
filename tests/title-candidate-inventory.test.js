@@ -115,7 +115,7 @@ describe('kanonischer Titelkandidatenbestand', () => {
       freshCompleteReferences: 1,
     })
     expect(inventory.candidates.find(({ key }) => key === 'movie:88')?.metadata)
-      .toMatchObject({ canonicalPublicationPending: false })
+      .toMatchObject({ canonicalPublicationPending: false, freshCompleteAvailable: false, staleReferences: 0 })
     expect(inventory.unresolvedWaipu).toMatchObject({
       detailsAvailable: true,
       programs: 2,
@@ -125,6 +125,7 @@ describe('kanonischer Titelkandidatenbestand', () => {
 
   it('marks an unpublished profile bootstrap for canonical publication even when metadata is complete', () => {
     const inventory = buildTitleCandidateInventory({
+      generatedAt: '2026-09-20T12:00:00.000Z',
       profileDocuments: [
         document('users/u1/profiles/main/titles/movie-77', {
           titleRef: { type: 'movie', tmdbId: 77 },

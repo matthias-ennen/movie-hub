@@ -14,6 +14,7 @@ import { syncJoynEpg, joynImportHorizon, writeJoynJson } from './joyn-epg-sync.m
 import { JoynMatchCache, JoynLookupCache, sharedJoynTmdbMetadata } from './joyn-match-cache.mjs'
 import { readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
 import { joynTechnicalFailure } from './joyn-source-guard.mjs'
+import { excludedJoynSearchItems } from './joyn-search-response.mjs'
 import { JOYN_EPG_UPSTREAM_FIELD_POLICY } from '../src/sources/policies/joynUpstreamFieldPolicy.js'
 import { writeFieldDiscoveryReport } from '../src/sources/fieldDiscoveryReport.js'
 import {
@@ -402,7 +403,7 @@ export async function searchJoynTitle(title, {
   })
   if (!response.ok) return { type: null, reason: 'http_error' }
   const body = await response.json().catch(() => null)
-  if (!body?.data || body?.errors?.length) return { type: null, reason: 'graphql_error' }
+  if (!body?.data || (body?.errors?.length && !excludedJoynSearchItems(body))) return { type: null, reason: 'graphql_error' }
   const input = normalizeWaipuText(title)
   const exactResults = (Array.isArray(body?.data?.search?.results) ? body.data.search.results : [])
     .filter((result) => normalizeWaipuText(result?.title) === input)

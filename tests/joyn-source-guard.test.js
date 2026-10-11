@@ -18,6 +18,37 @@ async function setup(options = {}) {
 }
 afterEach(async () => { await Promise.all(directories.splice(0).map(path => rm(path, { recursive: true, force: true }))) })
 describe('durable Joyn source protection', () => {
+  it('excludes only the observed unsupported compilation resolver item and preserves valid movie results', async () => {
+    const fetchImpl = vi.fn(async () => response({
+      data: { search: { results: [{ __typename: 'Movie', title: 'Titel', id: 'movie-1', path: '/filme/titel' }, null] } },
+      errors: [{ message: "Type 'COMPILATION_ITEM' not supported", extensions: { code: 'INTERNAL_SERVER_ERROR' }, path: ['search', 'results', 1] }],
+    }))
+    const { guard } = await setup({ fetchImpl })
+    expect(await searchJoynTitle('Titel', { fetchImpl: guard.fetch, token: 'private', apiKey: 'private' }))
+      .toMatchObject({ type: 'movie', reason: 'exact_joyn_search', exactCount: 1 })
+    expect(guard.snapshot().run).toMatchObject({ requests: { titleSearch: 1 }, retries: 0, errors: {}, excludedUnsupportedSearchItems: 1 })
+    expect(guard.snapshot().circuit.blockedUntil).toBeNull()
+  })
+  it.each([
+    { message: "Type 'MOVIE' not supported", path: ['search', 'results', 1] },
+    { message: "Type 'COMPILATION_ITEM' not supported", path: ['search'] },
+    { message: "Type 'COMPILATION_ITEM' not supported", path: ['search', 'results', 5] },
+  ])('does not excuse other types, whole-query failures or invalid result paths: %j', async error => {
+    const { guard } = await setup({ fetchImpl: async () => response({
+      data: { search: { results: [{ __typename: 'Movie', title: 'Titel' }, null] } },
+      errors: [{ ...error, extensions: { code: 'INTERNAL_SERVER_ERROR' } }],
+    }) })
+    await expect(guard.fetch(searchUrl)).rejects.toMatchObject({ code: 'JOYN_SOURCE_UNAVAILABLE' })
+  })
+  it('does not accept partial search data with mixed compilation and unknown failures', async () => {
+    const { guard } = await setup({ fetchImpl: async () => response({
+      data: { search: { results: [null] } }, errors: [
+        { message: "Type 'COMPILATION_ITEM' not supported", extensions: { code: 'INTERNAL_SERVER_ERROR' }, path: ['search', 'results', 0] },
+        { message: 'unrelated failure', extensions: { code: 'UNKNOWN' } },
+      ],
+    }) })
+    await expect(guard.fetch(searchUrl)).rejects.toMatchObject({ code: 'JOYN_SOURCE_SCHEMA' })
+  })
   it('recovers transient GraphQL failures, counting every request against the budget', async () => {
     const fetchImpl = vi.fn().mockResolvedValueOnce(response({ errors: [{ extensions: { code: 'SERVICE_UNAVAILABLE' } }] }))
       .mockResolvedValueOnce(response({ data: { search: { results: [] } } }))

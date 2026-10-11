@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { titleNeedsMetadataEnrichment } from '../src/catalog/titleMetadata.js'
+import { CANONICAL_METADATA_MAX_AGE_DAYS } from './canonical-metadata-policy.mjs'
 
 export const TITLE_CANDIDATE_INVENTORY_VERSION = 2
 export const CANDIDATE_SOURCES = Object.freeze(['browse', 'personal-tmdb', 'profile-state', 'movie-hub', 'waipu', 'joyn'])
@@ -97,13 +98,14 @@ function metadataObservation(source, value, { now, maxAgeDays }, reference = {})
   if (reference.canonicalReady) {
     const metadataUpdatedAt = timestampIso(reference.canonicalMetadataUpdatedAt)
     const updatedAt = metadataUpdatedAt ? Date.parse(metadataUpdatedAt) : Number.NaN
-    const freshComplete = Number.isFinite(updatedAt)
-      && now - updatedAt <= maxAgeDays * 86400000
+    // A published-profile marker describes target state, not reusable full metadata.
+    const freshComplete = Number.isFinite(updatedAt) && now - updatedAt <= maxAgeDays * 86400000
     return {
       source,
       canonicalPublicationPending: false,
       strictComplete: true,
       freshComplete,
+      reusableComplete: !titleNeedsMetadataEnrichment(value, { now, maxAgeDays, requireContract: true }),
       failed: false,
       structuralGap: false,
       structuralOnlyGap: false,
@@ -130,6 +132,7 @@ function metadataObservation(source, value, { now, maxAgeDays }, reference = {})
     canonicalPublicationPending: source === 'profile-state' && reference.canonicalReady !== true,
     strictComplete,
     freshComplete,
+    reusableComplete: freshComplete,
     failed: Object.values(checks).includes('failed'),
     structuralGap,
     structuralOnlyGap: !strictComplete
@@ -161,7 +164,7 @@ function summarizeCandidateMetadata(observations) {
   return {
     canonicalPublicationPending: values.some(({ canonicalPublicationPending }) => canonicalPublicationPending),
     strictCompleteAvailable: values.some(({ strictComplete }) => strictComplete),
-    freshCompleteAvailable: values.some(({ freshComplete }) => freshComplete),
+    freshCompleteAvailable: values.some(({ reusableComplete }) => reusableComplete),
     incompleteReferences: values.filter(({ strictComplete }) => !strictComplete).length,
     staleReferences: values.filter(({ strictComplete, freshComplete }) => strictComplete && !freshComplete).length,
     failedReferences: values.filter(({ failed }) => failed).length,
@@ -249,12 +252,12 @@ export function buildTitleCandidateInventory({
   profileDocuments = [],
   movieHubDocuments = [],
   generatedAt = new Date().toISOString(),
-  maxAgeDays = 30,
+  maxAgeDays = CANONICAL_METADATA_MAX_AGE_DAYS,
 } = {}) {
   const generatedAtMilliseconds = Date.parse(generatedAt)
   const metadataOptions = {
     now: Number.isFinite(generatedAtMilliseconds) ? generatedAtMilliseconds : Date.now(),
-    maxAgeDays: Math.max(1, Number(maxAgeDays) || 30),
+    maxAgeDays: Math.max(1, Number(maxAgeDays) || CANONICAL_METADATA_MAX_AGE_DAYS),
   }
   const candidates = new Map()
   const sources = sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles, joynTitles })
@@ -372,6 +375,7 @@ async function main() {
     db.collectionGroup('sharedMedia').get(),
   ])
   const inventory = buildTitleCandidateInventory({
+    maxAgeDays: Number(process.env.TITLE_CANONICAL_MAX_AGE_DAYS || CANONICAL_METADATA_MAX_AGE_DAYS),
     catalog,
     searchIndex,
     waipuTitles,

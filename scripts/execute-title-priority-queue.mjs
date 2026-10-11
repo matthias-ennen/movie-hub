@@ -8,6 +8,7 @@ import { nativeTitleToFirestore } from '../src/tmdb/tmdbCatalogModel.js'
 import { toSearchIndexEntry } from '../src/search/searchIndex.js'
 import { canonicalTitleIdentity } from './build-title-candidate-inventory.mjs'
 import { WaipuTmdbMetadataClient } from './waipu-title-metadata.mjs'
+import { CANONICAL_METADATA_MAX_AGE_DAYS } from './canonical-metadata-policy.mjs'
 
 export const TITLE_CANONICAL_EXECUTOR_VERSION = 1
 
@@ -61,7 +62,7 @@ export function canonicalForIdentity(value, entry) {
 
 export function selectReusableCanonical(values, {
   now = Date.now(),
-  maxAgeDays = 30,
+  maxAgeDays = CANONICAL_METADATA_MAX_AGE_DAYS,
 } = {}) {
   return (Array.isArray(values) ? values : [])
     .filter((value) => !titleNeedsMetadataEnrichment(value, {
@@ -107,7 +108,7 @@ export async function executeTitlePriorityQueue({
   candidateValues = new Map(),
   loadTitle,
   now = new Date(),
-  maxAgeDays = 30,
+  maxAgeDays = CANONICAL_METADATA_MAX_AGE_DAYS,
   concurrency = 3,
 } = {}) {
   const selected = selectedQueueEntries(preview)
@@ -115,6 +116,7 @@ export async function executeTitlePriorityQueue({
   let fetched = 0
   let reused = 0
   let notFound = 0
+  let reuseFallbacks = 0
 
   // Resolve and validate the complete selected generation before any caller is
   // allowed to fan it out to files or Firestore.
@@ -122,9 +124,10 @@ export async function executeTitlePriorityQueue({
     let canonical = null
     if (entry.action === 'reuse-canonical') {
       canonical = selectReusableCanonical(candidateValues.get(entry.key), { now, maxAgeDays })
-      if (!canonical) throw new Error(`Reusable canonical metadata is unavailable for ${entry.key}.`)
-      reused += 1
-    } else if (entry.action === 'fetch-tmdb') {
+      if (canonical) reused += 1
+      else reuseFallbacks += 1
+    }
+    if (entry.action === 'fetch-tmdb' || (entry.action === 'reuse-canonical' && !canonical)) {
       if (typeof loadTitle !== 'function') throw new Error(`TMDB loader is unavailable for ${entry.key}.`)
       try {
         canonical = await loadTitle(entry, generatedAt)
@@ -134,7 +137,7 @@ export async function executeTitlePriorityQueue({
         notFound += 1
         return null
       }
-    } else {
+    } else if (entry.action !== 'reuse-canonical') {
       throw new Error(`Unsupported title priority action for ${entry.key}: ${entry.action}`)
     }
     const normalized = canonicalForIdentity(canonical, entry)
@@ -157,6 +160,7 @@ export async function executeTitlePriorityQueue({
         selected: selected.length,
         fetched,
         reused,
+        reuseFallbacks,
         notFound,
         canonicalReady: updates.size,
       },
@@ -464,7 +468,10 @@ async function main() {
     movieHubDocuments: movieHubSnapshot.docs,
   })
   const selectedEntries = selectedQueueEntries(preview)
-  const needsTmdb = selectedEntries.some(({ action }) => action === 'fetch-tmdb')
+  const executionNow = new Date()
+  const maxAgeDays = Number(process.env.TITLE_CANONICAL_MAX_AGE_DAYS || CANONICAL_METADATA_MAX_AGE_DAYS)
+  const needsTmdb = selectedEntries.some(entry => entry.action === 'fetch-tmdb'
+    || !selectReusableCanonical(candidateValues.get(entry.key), { now: executionNow, maxAgeDays }))
   if (needsTmdb && !process.env.TMDB_API_READ_TOKEN) throw new Error('TMDB_API_READ_TOKEN is missing for the canonical title executor.')
   const client = needsTmdb ? new WaipuTmdbMetadataClient({
     token: process.env.TMDB_API_READ_TOKEN,
@@ -476,7 +483,8 @@ async function main() {
     preview,
     candidateValues,
     loadTitle: client ? (entry, updatedAt) => client.loadTitle(entry, updatedAt) : null,
-    maxAgeDays: Number(process.env.TITLE_CANONICAL_MAX_AGE_DAYS || 30),
+    now: executionNow,
+    maxAgeDays,
     concurrency: Number(process.env.TITLE_CANONICAL_CONCURRENCY || 3),
   })
   const plan = buildCanonicalFanoutPlan({

@@ -1,6 +1,37 @@
 # Nachtlauf: Alarm und dauerhaftes Import-Checkpoint
 
-Stand: 07.10.2026. Historisches Betriebspaket: [#315](https://github.com/matthias-ennen/movie-hub/issues/315), abgeschlossen am 03.10.2026.
+Stand: 11.10.2026. Historisches Betriebspaket: [#315](https://github.com/matthias-ennen/movie-hub/issues/315), abgeschlossen am 03.10.2026.
+
+## Compilation-Suchtreffer und kanonische Wiederverwendung (11.10.2026)
+
+Der [Wiederanlauf 38130361238](https://github.com/matthias-ennen/movie-hub/actions/runs/38130361238)
+belegt einen reproduzierbaren Joyn-Resolverfehler für die Suchanfrage
+„Schottland“: HTTP 200, `INTERNAL_SERVER_ERROR`, Fehlerpfad
+`search.results[7]`. Eine direkte Quellenprobe bestätigt die Nachricht
+`Type 'COMPILATION_ITEM' not supported`. Zwei Vergleichstitel funktionieren.
+Auch eine auf Movie/Series-Identitätsfelder reduzierte Anfrage trifft diesen
+Resolverfehler; der vorhandene Algolia-Weg findet keinen validierten Ersatz.
+
+Die Korrektur schließt ausschließlich den nachgewiesenen nicht katalogfähigen
+Compilation-Treffer aus: Der Code verlangt die exakte Nachricht, den
+`INTERNAL_SERVER_ERROR`-Code, einen gültigen einzelnen Suchtrefferpfad und
+einen tatsächlich null gesetzten Treffer. Alle Fehler der Antwort müssen diese
+Bedingungen erfüllen. Andere Typen, Fehlerpfade oder gemischte Fehler bleiben
+blockierend; EPG-, Auth-, Budget- und Metadatenprüfungen bleiben verbindlich.
+Der Bericht zählt die ausgeschlossenen Compilation-Suchtreffer separat.
+
+Der unabhängige Executor-Abbruch lautete
+`Reusable canonical metadata is unavailable for movie:4513`. Planung und
+Ausführung verwenden jetzt dieselbe standardmäßige Sieben-Tage-Frische.
+Ein `canonicalReady`-Profilmarker ersetzt keinen tatsächlich verfügbaren
+vollständigen Metadatensatz. Fehlt eine eingeplante Wiederverwendung bei der
+Ausführung, lädt der vorhandene TMDB-Client die Identität innerhalb seines
+normalen Requestbudgets nach. Fallbacks werden gezählt. Fehler, unvollständige
+Metadaten und Budgetüberschreitungen bleiben vor dem Fan-out blockierend.
+
+Lokale Prüfung: 935 Unit-Tests und Produktions-Build erfolgreich.
+Die produktive Bestätigung erfordert weiterhin einen vollständigen Datenlauf
+und die Rückprüfung der fünf veröffentlichten Endpunkte.
 
 ## Joyn-Suchantwort und Wiederaufnahme (11.10.2026)
 
