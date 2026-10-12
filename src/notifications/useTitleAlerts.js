@@ -1,30 +1,15 @@
-import { useEffect, useState } from 'react'
-import { collection, deleteDoc, doc, getDoc, onSnapshot, runTransaction, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore'
+import { deleteDoc, doc, getDoc, runTransaction, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore'
 import { providers } from '../data/catalog.js'
 import { db } from '../lib/firebase.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { alertTitleKey, includedProviderIds, dueTvAiring, filterEnabledTvAirings, alertNotificationId, tvAiringId, tvMessage, watchId } from './titleAlertModel.js'
 import { loadFreshTvAirings } from './loadFreshTvAirings.js'
 import { isActiveTitleWatch, personalHardExpiry } from './titleAlertLifecycleModel.js'
+import { useTitleWatchSnapshot } from './useTitleWatchSnapshot.js'
 
 export function useTitleAlerts(userId, profileId) {
-  const [watches, setWatches] = useState({})
-  const [ready, setReady] = useState(false)
-  const [loadedProfileId, setLoadedProfileId] = useState(null)
+  const { watches, ready } = useTitleWatchSnapshot(userId, profileId)
   const { uid: providerUserId, loading: providersLoading, enabledProviderIds } = useProviderSelection()
-
-  useEffect(() => {
-    setWatches({})
-    setReady(false)
-    setLoadedProfileId(null)
-    if (!db || !userId || !profileId) return undefined
-    return onSnapshot(collection(db, 'users', userId, 'profiles', profileId, 'titleAlerts'),
-      (snapshot) => {
-        setWatches(Object.fromEntries(snapshot.docs.map((entry) => [entry.id, entry.data()])))
-        setReady(true)
-        setLoadedProfileId(profileId)
-      }, () => setReady(true))
-  }, [userId, profileId])
 
   async function toggle(item, kind) {
     const id = watchId(item, kind)
@@ -141,8 +126,8 @@ export function useTitleAlerts(userId, profileId) {
   }
 
   return {
-    ready: ready && loadedProfileId === profileId,
-    isEnabled: (item, kind) => loadedProfileId === profileId && isActiveTitleWatch(watches[watchId(item, kind)]),
+    ready,
+    isEnabled: (item, kind) => isActiveTitleWatch(watches[watchId(item, kind)]),
     canWatch: (item) => Boolean(alertTitleKey(item)),
     toggle,
   }

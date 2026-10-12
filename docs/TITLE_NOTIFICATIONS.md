@@ -11,8 +11,8 @@ nach ausdrücklicher Nutzerabnahme geschlossen: Film-/Serien-Erinnerungskette,
 frühe Fundmeldung mit Termin/Sender, Titelöffnung, Deduplizierung und Erinnerung
 bei geschlossener App; Zeitverhalten und automatischer Abschluss sind ebenfalls
 bestätigt. Globale Admin-/Kontowechsel-Restabnahme und Gesamtfreigabe von #381
-sowie fachliche #118-/#312-Restpunkte bleiben offen. Nächstes Umsetzungspaket
-ist #383: aktive Beobachtungen zentral unter Einstellungen → Mitteilungen verwalten.
+sowie fachliche #118-/#312-Restpunkte bleiben offen. #383 ergänzt die zentrale
+Verwaltung unter Einstellungen → Mitteilungen; die manuelle Geräteabnahme ist offen.
 
 ## Bedienung
 
@@ -22,6 +22,39 @@ persönlichen Meldungen mit den globalen Admin-Mitteilungen. Beim Öffnen eines
 persönlichen Treffers wird er gelesen und führt zur Titel-Detailansicht.
 Es gibt weder Betriebssystem-Push noch E-Mail oder ein Startfenster für diese
 beiden Anlässe.
+
+## #383 – Aktive Beobachtungen in den Einstellungen
+
+Der Bereich **Mitteilungen** steht direkt am Anfang der vorhandenen
+Einstellungsseite. Er übernimmt deren Profilkennzeichnung, Panels, Zeilen und
+Ein/Aus-Schalter. Jede aktive Beobachtung zeigt Titel, Film/Serie, Anlass und
+bei TV den gespeicherten Termin mit Sender (Europe/Berlin). Ohne Termin steht
+sie wartend in der Liste; erledigte Beobachtungen werden nicht angezeigt.
+Ein leerer Bereich erklärt den Einstieg über „Benachrichtigen“ am Titel.
+
+**Daten und Performance:** Detailseite und Verwaltung verwenden denselben
+konten-/profilgebundenen Watch-Listener. Die Abfrage lädt aktive V2- sowie
+Legacy-V1-Beobachtungen statt abgeschlossener V2-Historie. Nur während die
+Einstellungen geöffnet sind werden zusätzlich die deterministischen
+`-initial`-Nachrichten der aktiven TV-Aktivierungen in Gruppen von höchstens
+30 Dokument-IDs beobachtet. Damit erscheinen auch Client-Soforttreffer und
+serverseitige Terminänderungen. Keine neuen TV-/TMDB-Abfragen, keine neue
+Collection, keine zusätzlichen Firestore-Regeln oder Indizes.
+
+**Ausschalten:** Eine Transaktion prüft die angezeigte Aktivierungs-ID und
+beendet nur diesen noch aktiven Auftrag. Bereits abgeschlossene/entfernte
+Aufträge bleiben unverändert, zwischenzeitliche Neuaktivierungen werden nicht
+gelöscht. Ein Profil-/Kontowechsel oder das Verlassen der Verwaltung verhindert
+ausstehende Schreibentscheidungen aus der alten Ansicht. Nachrichten und
+Lesestände bleiben erhalten. Die vorhandenen Listener übertragen Änderungen
+auf andere Geräte. Lade-/Speicherfehler werden angezeigt; es gibt kein
+optimistisches Verschwinden bei fehlgeschlagenem Ausschalten.
+
+**Bedienung und Abnahme:** Alle Schalter sind per Touch und D-Pad erreichbar.
+Beim Entfernen der fokussierten Zeile geht der Fokus zum nächsten Eintrag,
+bei leerer Liste zur Bereichsüberschrift. Die Geräteabnahme in #383 prüft
+Liste/Termin, Ausschalten, Profilwechsel und Synchronisierung auf Smartphone
+und realem Fire TV. Die Glocke bleibt ausschließlich Posteingang.
 
 ## Daten und Auslöser
 

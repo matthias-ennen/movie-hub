@@ -89,9 +89,10 @@ Die Produktentscheidungen vom 03.10.2026 stehen bereits in #314; dafür wurden
 die Teilpakete #380–#385 angelegt. Sie werden nicht erneut als ungeklärte
 Grundsatzfragen behandelt. Die konkrete Fortsetzung lautet:
 
-1. **#383:** als nächstes Umsetzungspaket aktive Beobachtungen unter
-   Einstellungen → Mitteilungen verwalten: aktives Profil, Titel/Anlass,
-   bekannter TV-Termin und direktes Beenden; erledigte Beobachtungen ausblenden.
+1. **#383:** Verwaltung aktiver Beobachtungen unter Einstellungen → Mitteilungen
+   implementiert: aktives Profil, Titel/Anlass, bekannter TV-Termin und direktes
+   Beenden. Nächster Abnahmeschritt: Smartphone/Fire TV, Profilwechsel und
+   geräteübergreifendes Ausschalten; erst danach #383 schließen.
 2. **#381 + #118:** die eigenständigen Restabnahmen des produktiven Lebenszyklus
    abschließen: globale Admin-Meldungen/Lesestatus bei Konto- und Profilwechsel,
    fachliche Inklusiv-Restfälle und ausdrückliche Gesamtfreigabe.
