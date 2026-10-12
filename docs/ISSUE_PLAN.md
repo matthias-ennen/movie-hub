@@ -19,6 +19,7 @@ Am 26.09.2026 wurden folgende Planungsaltlasten bereinigt:
 
 Am 12.10.2026 zusätzlich abgeschlossen:
 
+- #382 – TV-Erinnerungskette für Film und ganze Serie; die fünf offenen Prüfpunkte ausdrücklich mit „1 bis 5 abgenommen“ bestätigt, Zeitverhalten und automatischer Abschluss zuvor bestätigt.
 - #413 – persönliche Smart-Reihen aus dem vollständigen zusammengeführten Bestand; PR #414 veröffentlicht, Geräteabnahme bestätigt.
 - #415 – Schauspielersuche; PR #416 veröffentlicht, Geräteabnahme bestätigt.
 
@@ -39,10 +40,11 @@ Aktueller Abschluss- und Fortsetzungsstand:
 2. #381 + #118 – Lebenszyklus produktiv. Fire-TV-Bedienung, persönliche
    Profiltrennung und Zwei-Geräte-Lesestatus bestätigt. Restabnahme für globale
    Admin-Mitteilungen/Kontowechsel und Gesamtfreigabe offen; PR #404 ist übernommen.
-3. #382 – 14-Tage-Fund und privater Minutenprüfer produktiv; Aktivierung am
-   10.10.2026 belegt. Reale Film-/Serien-Erinnerungskette, automatischer Abschluss
-   und Einordnung der gemeldeten Verspätung bleiben offen.
-4. #383 – aktive Beobachtungen in den Einstellungen verwalten.
+3. #382 – abgeschlossen am 12.10.2026: 14-Tage-Fund, Film-/Serien-Erinnerungskette,
+   Titelöffnung, Deduplizierung, Erinnerung bei geschlossener App, Zeitverhalten
+   und automatischer Abschluss durch Matthias bestätigt.
+4. #383 – nächstes Umsetzungspaket: aktive Beobachtungen des jeweiligen Profils
+   unter Einstellungen → Mitteilungen anzeigen und direkt beenden.
 5. #312 – verbleibende Ende-zu-Ende-/Mehrgeräte-Abnahme. Admin-Schreibfunktionen
    werden im getrennten Movie-Hub-Admin-Paket behandelt.
 6. #384/#385 – optionalen E-Mail-Kanal und weitere Anlässe separat bewerten.
@@ -119,8 +121,8 @@ Vor öffentlicher Veröffentlichung:
 
 ## Aktuelle Abhängigkeitskette
 
-`#314 (#381/#118 und #382 Restabnahme → #383 → #312 Restabnahme; #384/#385 optional) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
+`#314 (#383; Restabnahmen #381/#118 und danach #312; #384/#385 optional) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
 
-#280, #315, #346 und #380 bleiben abgeschlossen. Die reguläre Datenfortschreibung
+#280, #315, #346, #380 und #382 sind abgeschlossen. Die reguläre Datenfortschreibung
 ist bestätigt; Startverzögerungen bleiben unter Beobachtung. #329 bleibt Wartung; Movie Hub Admin
 wird als getrenntes späteres Paket behandelt.

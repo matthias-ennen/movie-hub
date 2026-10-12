@@ -34,6 +34,7 @@ Zu den zuletzt abgeschlossenen beziehungsweise abgenommenen Paketen gehören ins
 - #315 – Nachtlauf-Überwachung, Datenfrische, unabhängiger Alarm und dauerhafte Cloud-Checkpoints; am 03.10.2026 abgeschlossen
 - #346 – Fundamenthärtung und Performance; technische Phasen, Dokumentation und reale Smartphone-/Fire-TV-Abnahme am 03.10.2026 abgeschlossen
 - #380 – Server-Prüflauf/IAM und produktiver Beobachtungsnachweis; am 08.10.2026 abgeschlossen
+- #382 – vollständige TV-Erinnerungskette für Film und ganze Serie; am 12.10.2026 durch Matthias abgenommen und geschlossen
 - #413 – persönliche Smart-Reihen aus dem zusammengeführten Bestand; am 12.10.2026 auf Smartphone/Fire TV abgenommen und geschlossen
 - #415 – Schauspielersuche im öffentlichen und persönlichen Bestand; am 12.10.2026 auf Smartphone/Fire TV abgenommen und geschlossen
 
@@ -82,22 +83,26 @@ Aktueller Stand:
 - persönliche Meldungen bleiben zunächst innerhalb von Movie Hub; Betriebssystem-Push und E-Mail gehören nicht automatisch zum aktuellen Umfang;
 - der in Deploy #939 beobachtete Server-/IAM-Fehler ist über #380 produktiv behoben und abgeschlossen;
 - #381 ist produktiv, einschließlich Kontoisolation aus PR #404; Fire-TV-Bedienung, Zwei-Geräte-Lesestatus und persönliche Profiltrennung sind bestätigt;
-- #382 ist produktiv; der private Minutendienst wurde am 10.10.2026 aktiviert. Film-/Serien-End-to-End-Abnahme und die Einordnung der gemeldeten Verspätung bleiben offen.
+- #382 ist seit 12.10.2026 fachlich abgenommen und geschlossen. Matthias bestätigt die fünf offenen TV-Prüfpunkte ausdrücklich mit „1 bis 5 abgenommen“; Zeitverhalten und automatischer Abschluss waren zuvor bestätigt.
 
 Die Produktentscheidungen vom 03.10.2026 stehen bereits in #314; dafür wurden
 die Teilpakete #380–#385 angelegt. Sie werden nicht erneut als ungeklärte
 Grundsatzfragen behandelt. Die konkrete Fortsetzung lautet:
 
-1. **#381 + #118:** Restabnahme des produktiven Lebenszyklus abschließen;
-   globale Admin-Meldungen/Lesestatus bei Konto- und Profilwechsel sowie
-   ausdrückliche Gesamtfreigabe bleiben offen. #380 wird nicht erneut geöffnet.
-2. **#382:** reale Film-/Serien-Erinnerungskette inklusive automatischem
-   Abschluss abnehmen. Für die Timing-Analyse Phase, Titel, Sendestart und
-   tatsächliche Erscheinungszeit erfassen; keine Vorlaufänderung auf Verdacht.
-3. **#383:** aktive Beobachtungen unter Einstellungen verwalten.
-4. **#312:** noch offene Grundstrecken-/Mehrgeräte-Abnahmen durchführen;
+1. **#383:** als nächstes Umsetzungspaket aktive Beobachtungen unter
+   Einstellungen → Mitteilungen verwalten: aktives Profil, Titel/Anlass,
+   bekannter TV-Termin und direktes Beenden; erledigte Beobachtungen ausblenden.
+2. **#381 + #118:** die eigenständigen Restabnahmen des produktiven Lebenszyklus
+   abschließen: globale Admin-Meldungen/Lesestatus bei Konto- und Profilwechsel,
+   fachliche Inklusiv-Restfälle und ausdrückliche Gesamtfreigabe.
+3. **#312:** noch offene Grundstrecken-/Mehrgeräte-Abnahmen durchführen;
    Admin-spezifische Rücknahme bleibt im getrennten Admin-Paket.
-5. **#384/#385:** optionalen E-Mail-Kanal und weitere Anlässe separat entscheiden.
+4. **#384/#385:** optionalen E-Mail-Kanal und weitere Anlässe separat entscheiden.
+
+#382 ist abgeschlossen. Film-/Serien-Kette, frühe Fundmeldung mit Termin/Sender,
+Titelöffnung, Deduplizierung und Erinnerung bei geschlossener App sind durch
+Matthias bestätigt; Zeitverhalten und automatischer Abschluss ebenfalls.
+Kein Vorlaufpuffer und keine erneute Scheduler-Aktivierung erforderlich.
 
 #312 und #118 bleiben bis zu ihrer fachlichen beziehungsweise Ende-zu-Ende-Abnahme als verknüpfte Teilpakete offen. Sie werden nicht künstlich geschlossen, nur weil #314 nun die gemeinsame Klammer bildet.
 
@@ -187,6 +192,6 @@ Vor einer öffentlichen Version 1.0 sollen mindestens folgende Blöcke abgeschlo
 
 ## Aktuelle Reihenfolge
 
-`#314 (#381/#118 und #382 Restabnahme → #383 → #312 Restabnahme; #384/#385 optional) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
+`#314 (#383; Restabnahmen #381/#118 und danach #312; #384/#385 optional) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
 
-#346, #315 und #380 sind abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) bleiben getrennte Recherchepakete unter #271 und ändern die Hauptstrecke nicht.
+#346, #315, #380 und #382 sind abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) bleiben getrennte Recherchepakete unter #271 und ändern die Hauptstrecke nicht.

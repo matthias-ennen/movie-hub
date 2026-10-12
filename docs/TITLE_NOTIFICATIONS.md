@@ -6,10 +6,13 @@
 PR #404 und beide TV-Phasen #382 sind produktiv. Der private Minutenprüfer wurde
 am 10.10.2026 aktiviert; der letzte belegte Cloud-Lognachweis stammt von diesem
 Tag. Smartphone-/Fire-TV-Bedienung, persönlicher Profilwechsel und
-geräteübergreifender Lesestatus sind in #381 bestätigt. Offen bleiben globale
-Admin-/Kontowechsel-Restabnahme, Gesamtfreigabe und die reale Film-/Serien-
-Erinnerungskette in #382 einschließlich der gemeldeten Timing-Abweichung.
-Aktive Beobachtungen zentral verwalten folgt in #383.
+geräteübergreifender Lesestatus sind in #381 bestätigt. #382 ist am 12.10.2026
+nach ausdrücklicher Nutzerabnahme geschlossen: Film-/Serien-Erinnerungskette,
+frühe Fundmeldung mit Termin/Sender, Titelöffnung, Deduplizierung und Erinnerung
+bei geschlossener App; Zeitverhalten und automatischer Abschluss sind ebenfalls
+bestätigt. Globale Admin-/Kontowechsel-Restabnahme und Gesamtfreigabe von #381
+sowie fachliche #118-/#312-Restpunkte bleiben offen. Nächstes Umsetzungspaket
+ist #383: aktive Beobachtungen zentral unter Einstellungen → Mitteilungen verwalten.
 
 ## Bedienung
 
@@ -102,8 +105,8 @@ automatischen Stornierung. Bereits laufende Sendungen werden nicht rückwirkend
 auf eine andere Ausstrahlung verlegt.
 
 Terminabgleich und atomarer Watch-Abschluss sind implementiert; der unabhängige
-Minutendienst ist aktiviert. Der reale Ende-zu-Ende-Test der gesamten Kette
-bleibt Voraussetzung für die fachliche Gesamtfreigabe von #382.
+Minutendienst ist aktiviert. Die reale Erinnerungskette wurde durch Matthias
+am 12.10.2026 fachlich abgenommen; #382 ist geschlossen.
 
 ## #382 – zweite TV-Phase: Enderinnerungs-Prüfer (aktiviert)
 
@@ -139,22 +142,25 @@ PR #409/#410 liefern den privaten HTTP-/OIDC-Pfad. Der freigegebene
 hat `movie-hub-tv-final-1min` in `europe-west3` mit `* * * * *` aktiviert.
 Die in #382 dokumentierten Cloud-Logs vom 10.10., 17:46–17:48 Uhr Europe/Berlin,
 belegen wiederholte Ausführung mit `failed=0`, aber `finalCreated=0`.
-Das belegt noch keinen fälligen echten Enderinnerungsfall.
+Diese historischen Logs allein belegen keinen fälligen Enderinnerungsfall.
+Den realen Film-/Serien-Ablauf hat Matthias am 12.10.2026 separat abgenommen;
+konkrete Testtitel, Messzeiten oder neue Cloud-Logwerte wurden nicht mitgeteilt.
 
-**Timing und offene Abnahme:** Der Worker erlaubt die Endmeldung erst ab
+**Timing und bestätigte Abnahme:** Der Worker erlaubt die Endmeldung erst ab
 `airingStartAt - 5 Minuten`. Der nächste Minutentakt kann bis knapp 60 Sekunden
 später liegen; zusätzliche Scheduler-/Firestore-Latenz ist möglich. Bei einer
 gemeldeten Verspätung zuerst unterscheiden: `Bald im TV` (Entdeckung) oder
 `Gleich im TV`/`Jetzt im TV` (Enderinnerung). Titel, Sender, Sendestart und
 beobachtete Erscheinungszeit erfassen und mit Erzeugungszeit/Worker-Logs abgleichen.
-Ein Vorlaufpuffer ist noch keine freigegebene oder implementierte Änderung.
+Matthias hat das aktuelle Zeitverhalten am 12.10.2026 als passend bestätigt;
+ein Vorlaufpuffer ist derzeit nicht erforderlich und wurde nicht implementiert.
 
 Der normale Hosting-Deploy aktualisiert diese private Function nicht.
 `prepare` blockiert bei vorhandenem Scheduler; die bereits erfolgte Aktivierung
 wird nicht wiederholt. Vorgehen und Update-Grenzen stehen im
-[TV-Scheduler-Runbook](TV_FINAL_SCHEDULER_RUNBOOK.md). Film, ganze Serie,
-Deduplizierung und automatischer Abschluss müssen auf Smartphone/Fire TV
-noch im realen Ablauf abgenommen werden.
+[TV-Scheduler-Runbook](TV_FINAL_SCHEDULER_RUNBOOK.md). Die fachliche Abnahme von
+Film, ganzer Serie, Deduplizierung und automatischem Abschluss ist in #382
+für den 12.10.2026 dokumentiert.
 
 ## Grenzen und Prüfung
 
@@ -203,4 +209,4 @@ Die Phasen B–D sind integriert und produktiv ausgerollt. #381 bleibt für
 die globale Admin-/Kontowechsel-Restabnahme und ausdrückliche Gesamtfreigabe offen.
 Bestätigte persönliche Profil-, Fire-TV- und Zwei-Geräte-Tests bleiben abgenommen.
 Insbesondere kein globales Firestore-Delete-Recht und keine ungeprüfte
-Massenmigration. Die produktive TV-Endphase wird gesondert in #382 abgenommen.
+Massenmigration. Die produktive TV-Endphase ist in #382 seit 12.10.2026 abgenommen.

@@ -8,7 +8,8 @@ erzeugt und rückgelesen. Cloud-Logs vom 10.10., 17:46–17:48 Uhr Europe/Berlin
 sind in [#382 dokumentiert](https://github.com/matthias-ennen/movie-hub/issues/382#issuecomment-6099322840):
 jeweils `failed=0`, `considered=0`, `finalCreated=0`; einmal `expired=2`.
 Das ist der letzte hier belegte Cloud-Betriebsnachweis, keine neue Cloud-Abfrage
-vom 12.10.2026. Fachliche Film-/Serien-End-to-End-Abnahme bleibt offen.
+vom 12.10.2026. Die fachliche Film-/Serien-End-to-End-Abnahme hat Matthias
+am 12.10.2026 ausdrücklich bestätigt; #382 ist abgeschlossen.
 
 Der frühere [rote Lauf #38063377537](https://github.com/matthias-ennen/movie-hub/actions/runs/38063377537)
 scheiterte an `run.services.setIamPolicy`. Nach der einmaligen ressourcenbezogenen
@@ -69,11 +70,13 @@ Die damalige Kontrolle erfolgte per `gcloud run services get-iam-policy moviehub
   fällig. Bis zum nächsten Minutentakt können knapp 60 Sekunden vergehen,
   zuzüglich Scheduler-/Firestore-Latenz. Während einer noch laufenden Sendung
   lautet eine nachgeholte Nachricht `Jetzt im TV`.
-- Für den gemeldeten verspäteten Fall fehlen weiterhin Phase, Titel/Sender,
-  Sendestart und tatsächliche Erscheinungszeit. Diese Angaben mit
-  Notification-Erzeugungszeit und zugehörigem Worker-Lauf vergleichen.
-  Ein 60-Sekunden-Vorlaufpuffer wurde lediglich als Möglichkeit diskutiert;
-  er ist weder implementiert noch als Produktentscheidung bestätigt.
+- Matthias hat das Zeitverhalten am 12.10.2026 mit „Das passt auch!“ bestätigt.
+  Die anschließende Gesamtabnahme („1 bis 5 abgenommen“) umfasst Film und ganze
+  Serie, frühe Fundmeldung, Titelöffnung, Deduplizierung und die Enderinnerung
+  bei geschlossener App; automatischer Abschluss war separat bestätigt.
+  Der frühere Timing-Einwand ist erledigt. Kein Vorlaufpuffer erforderlich oder
+  implementiert. Bei einer neuen konkreten Abweichung Phase, Titel/Sender,
+  Sendestart und Erscheinungszeit mit Erzeugungszeit/Worker-Logs vergleichen.
 - Der normale Hosting-Deploy ändert den privaten Worker nicht. `prepare`
   verweigert Änderungen bei vorhandenem Scheduler. Ein späteres Worker-Update
   braucht einen gesondert vorbereiteten und freigegebenen Update-/Rollback-Ablauf;
@@ -89,5 +92,7 @@ Die damalige Kontrolle erfolgte per `gcloud run services get-iam-policy moviehub
 Quellen: https://docs.cloud.google.com/sdk/gcloud/reference/functions/deploy ; https://docs.cloud.google.com/run/docs/authenticating/service-to-service ; https://docs.cloud.google.com/run/docs/triggering/using-scheduler ; https://firebase.google.com/docs/functions/schedule-functions .
 
 **Status:** Aktivierung und wiederholter Cloud-Betrieb am 10.10.2026 nachgewiesen.
-Reale fällige Enderinnerung, Film-/Serien-Geräteabnahme und Timing-Rückmeldung
-bleiben offen. Keine erneute Infrastrukturaktivierung erforderlich.
+Fachliche Film-/Serien-Erinnerungskette einschließlich Timing und automatischem
+Abschluss durch Matthias am 12.10.2026 abgenommen; #382 geschlossen. Die
+Nutzerabnahme ergänzt den Cloud-Nachweis, liefert aber keine neuen Logwerte.
+Keine erneute Infrastrukturaktivierung erforderlich.
