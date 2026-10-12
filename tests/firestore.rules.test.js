@@ -5,7 +5,7 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing'
-import { collection, doc, documentId, getDoc, getDocs, or, query, runTransaction, serverTimestamp, setDoc, Timestamp, where, writeBatch } from 'firebase/firestore'
+import { collection, doc, documentId, getDoc, getDocs, onSnapshot, or, query, runTransaction, serverTimestamp, setDoc, Timestamp, updateDoc, where, writeBatch } from 'firebase/firestore'
 import { nativeTitleToFirestore } from '../src/tmdb/tmdbCatalogModel.js'
 import { cancelTitleWatch } from '../src/notifications/titleWatchManagement.js'
 
@@ -230,6 +230,48 @@ describe('Firestore Security Rules', () => {
     await assertFails(setDoc(doc(alice, 'announcements', 'public'), { status: 'published' }))
     const visible = await assertSucceeds(getDocs(query(collection(alice, 'announcements'), where('status', '==', 'published'))))
     expect(visible.docs.map((entry) => entry.id)).toContain('public')
+  })
+
+  it('entfernt zurückgezogene globale Meldungen aus laufenden Konto-Listenern und erhält Lesestände', async () => {
+    const id = 'admin-withdrawal-regression'
+    const alice = testEnv.authenticatedContext('withdrawal-alice').firestore()
+    const bob = testEnv.authenticatedContext('withdrawal-bob').firestore()
+    const adminClient = testEnv.authenticatedContext('admin-client', { movieHubAdmin: true, email_verified: true }).firestore()
+    const read = doc(alice, 'users', 'withdrawal-alice', 'announcementReads', id)
+    const original = { schemaVersion: 1, status: 'published', mode: 'startup', title: 'Testhinweis',
+      body: 'Nur im Emulator', startsAt: Timestamp.fromMillis(Date.now() - 1000),
+      expiresAt: Timestamp.fromMillis(Date.now() + 60000), createdBy: 'publisher' }
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'announcements', id), original)
+    })
+    await assertSucceeds(setDoc(read, { readAt: serverTimestamp() }))
+    const originalRead = (await getDoc(read)).data().readAt
+    await assertFails(updateDoc(doc(alice, 'announcements', id), { status: 'withdrawn' }))
+    // Even an admin claim cannot turn the normal client's rules into a write API.
+    await assertFails(updateDoc(doc(adminClient, 'announcements', id), { status: 'withdrawn' }))
+    const snapshots = [null, null]
+    const errors = []
+    const subscriptions = [alice, bob].map((db, index) => onSnapshot(
+      query(collection(db, 'announcements'), where('status', '==', 'published')),
+      (snapshot) => { snapshots[index] = snapshot.docs.map((entry) => entry.id) },
+      (error) => errors.push(error),
+    ))
+    try {
+      await expect.poll(() => snapshots.every((ids) => ids?.includes(id)), { timeout: 5000 }).toBe(true)
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const ref = doc(context.firestore(), 'announcements', id)
+        await updateDoc(ref, { status: 'withdrawn', withdrawnAt: serverTimestamp(), withdrawnBy: 'admin' })
+        const saved = (await getDoc(ref)).data()
+        expect(saved.createdBy).toBe(original.createdBy)
+        expect(saved.body).toBe(original.body)
+        expect(saved.withdrawnBy).toBe('admin')
+      })
+      await expect.poll(() => snapshots.every((ids) => ids && !ids.includes(id)), { timeout: 5000 }).toBe(true)
+      expect(errors).toEqual([])
+      expect((await getDoc(read)).data().readAt.isEqual(originalRead)).toBe(true)
+      await assertFails(getDoc(doc(alice, 'announcements', id)))
+      await assertFails(getDoc(doc(bob, 'announcements', id)))
+    } finally { subscriptions.forEach((unsubscribe) => unsubscribe()) }
   })
 
   it('erlaubt den Lesestatus nur im eigenen Konto und ausschließlich mit Serverzeit', async () => {

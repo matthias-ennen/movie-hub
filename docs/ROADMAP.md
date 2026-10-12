@@ -89,15 +89,15 @@ Die Produktentscheidungen vom 03.10.2026 stehen bereits in #314; dafür wurden
 die Teilpakete #380–#385 angelegt. Sie werden nicht erneut als ungeklärte
 Grundsatzfragen behandelt. Die konkrete Fortsetzung lautet:
 
-1. **#383:** Verwaltung aktiver Beobachtungen unter Einstellungen → Mitteilungen
-   implementiert: aktives Profil, Titel/Anlass, bekannter TV-Termin und direktes
-   Beenden. Nächster Abnahmeschritt: Smartphone/Fire TV, Profilwechsel und
-   geräteübergreifendes Ausschalten; erst danach #383 schließen.
+1. **#383:** am 12.10.2026 abgenommen und geschlossen. Die Verwaltung unter
+   Einstellungen → Mitteilungen ist auf Smartphone/Fire TV einschließlich
+   Profilwechsel und geräteübergreifendem Ausschalten bestätigt.
 2. **#381 + #118:** die eigenständigen Restabnahmen des produktiven Lebenszyklus
    abschließen: globale Admin-Meldungen/Lesestatus bei Konto- und Profilwechsel,
    fachliche Inklusiv-Restfälle und ausdrückliche Gesamtfreigabe.
 3. **#312:** noch offene Grundstrecken-/Mehrgeräte-Abnahmen durchführen;
-   Admin-spezifische Rücknahme bleibt im getrennten Admin-Paket.
+   Die noch fehlende Rücknahme wird als Voraussetzung im getrennten
+   `movie-hub-admin#11` ergänzt; danach globale Meldungen gemeinsam abnehmen.
 4. **#384/#385:** optionalen E-Mail-Kanal und weitere Anlässe separat entscheiden.
 
 #382 ist abgeschlossen. Film-/Serien-Kette, frühe Fundmeldung mit Termin/Sender,

@@ -43,9 +43,9 @@ Aktueller Abschluss- und Fortsetzungsstand:
 3. #382 – abgeschlossen am 12.10.2026: 14-Tage-Fund, Film-/Serien-Erinnerungskette,
    Titelöffnung, Deduplizierung, Erinnerung bei geschlossener App, Zeitverhalten
    und automatischer Abschluss durch Matthias bestätigt.
-4. #383 – zentrale Beobachtungsverwaltung implementiert: unter Einstellungen →
-   Mitteilungen aktive Aufträge mit Anlass/TV-Termin anzeigen und direkt beenden.
-   Geräteabnahme (Smartphone/Fire TV, Profilwechsel, Synchronisierung) offen.
+4. #383 – am 12.10.2026 abgenommen und geschlossen: zentrale Verwaltung unter
+   Einstellungen → Mitteilungen, Smartphone/Fire TV, Profilwechsel und
+   geräteübergreifendes Ausschalten bestätigt.
 5. #312 – verbleibende Ende-zu-Ende-/Mehrgeräte-Abnahme. Admin-Schreibfunktionen
    werden im getrennten Movie-Hub-Admin-Paket behandelt.
 6. #384/#385 – optionalen E-Mail-Kanal und weitere Anlässe separat bewerten.

@@ -11,8 +11,11 @@ nach ausdrücklicher Nutzerabnahme geschlossen: Film-/Serien-Erinnerungskette,
 frühe Fundmeldung mit Termin/Sender, Titelöffnung, Deduplizierung und Erinnerung
 bei geschlossener App; Zeitverhalten und automatischer Abschluss sind ebenfalls
 bestätigt. Globale Admin-/Kontowechsel-Restabnahme und Gesamtfreigabe von #381
-sowie fachliche #118-/#312-Restpunkte bleiben offen. #383 ergänzt die zentrale
-Verwaltung unter Einstellungen → Mitteilungen; die manuelle Geräteabnahme ist offen.
+sowie fachliche #118-/#312-Restpunkte bleiben offen. #383 ist am 12.10.2026 nach
+Matthias' Bestätigung „Okay. Passt. Weiter“ abgenommen und geschlossen:
+Verwaltung unter Einstellungen → Mitteilungen, Smartphone/Fire TV, Profilwechsel
+und geräteübergreifendes Ausschalten. Als Voraussetzung der globalen Restprüfung
+wird die Rücknahme in `movie-hub-admin#11` ergänzt.
 
 ## Bedienung
 
@@ -52,9 +55,10 @@ optimistisches Verschwinden bei fehlgeschlagenem Ausschalten.
 
 **Bedienung und Abnahme:** Alle Schalter sind per Touch und D-Pad erreichbar.
 Beim Entfernen der fokussierten Zeile geht der Fokus zum nächsten Eintrag,
-bei leerer Liste zur Bereichsüberschrift. Die Geräteabnahme in #383 prüft
-Liste/Termin, Ausschalten, Profilwechsel und Synchronisierung auf Smartphone
-und realem Fire TV. Die Glocke bleibt ausschließlich Posteingang.
+bei leerer Liste zur Bereichsüberschrift. Die Geräteabnahme in #383 ist am
+12.10.2026 bestätigt: Übersicht/Bedienung, Ausschalten, Profilwechsel und
+Synchronisierung auf Smartphone und realem Fire TV. Die Glocke bleibt
+ausschließlich Posteingang.
 
 ## Daten und Auslöser
 
