@@ -17,6 +17,13 @@ Am 26.09.2026 wurden folgende Planungsaltlasten bereinigt:
 - Fire-TV-Abnahme für #312/#118 dokumentiert
 - Fire-TV-Abnahme der ersten Top-100-Stufe aus #7 dokumentiert
 
+Am 12.10.2026 zusätzlich abgeschlossen:
+
+- #413 – persönliche Smart-Reihen aus dem vollständigen zusammengeführten Bestand; PR #414 veröffentlicht, Geräteabnahme bestätigt.
+- #415 – Schauspielersuche; PR #416 veröffentlicht, Geräteabnahme bestätigt.
+
+Matthias bestätigte den gemeinsamen Josh-Hartnett-/„30 Days of Night“-Abnahmeschritt auf Smartphone und Fire TV ausdrücklich mit „Abgenommen“. Beide Issues sind geschlossen; die Hauptstrecke #314 bleibt unverändert.
+
 ## Aktuelle Priorisierung
 
 ### 1. #314 – Mitteilungen und Benachrichtigungen
@@ -88,8 +95,6 @@ Ziel: Ein Nutzer erkennt unmittelbar, ob ein Titel ohne Einzelkauf verfügbar is
 
 ## Parallel / nicht blockierend
 
-- #413 – persönliche Smart-Reihen: PR #414 veröffentlicht; manuelle Filter-/Geräteabnahme offen
-- #415 – Schauspielersuche: PR #416 veröffentlicht; manuelle Such-/Fire-TV-Abnahme offen
 - #329 – Waipu-Restklassifizierung
 - #386 – verbleibende Fire-TV-Navigations-Freezes; eigenes Folgepaket nach #346
 - #387 – Inventur, Fokus und Navigation der Einstellungen
