@@ -2,92 +2,73 @@
 
 ## Produktiv- und Abnahmestand
 
-#380 (Server/IAM) ist abgeschlossen. #381 einschließlich Kontotrennung aus
-PR #404 und beide TV-Phasen #382 sind produktiv. Der private Minutenprüfer wurde
-am 10.10.2026 aktiviert; der letzte belegte Cloud-Lognachweis stammt von diesem
-Tag. Smartphone-/Fire-TV-Bedienung, persönlicher Profilwechsel und
-geräteübergreifender Lesestatus sind in #381 bestätigt. #382 ist am 12.10.2026
-nach ausdrücklicher Nutzerabnahme geschlossen: Film-/Serien-Erinnerungskette,
-frühe Fundmeldung mit Termin/Sender, Titelöffnung, Deduplizierung und Erinnerung
-bei geschlossener App; Zeitverhalten und automatischer Abschluss sind ebenfalls
-bestätigt. Globale Admin-/Kontowechsel-Restabnahme und Gesamtfreigabe von #381
-sowie fachliche #118-/#312-Restpunkte bleiben offen. #383 ist am 12.10.2026 nach
-Matthias' Bestätigung „Okay. Passt. Weiter“ abgenommen und geschlossen:
-Verwaltung unter Einstellungen → Mitteilungen, Smartphone/Fire TV, Profilwechsel
-und geräteübergreifendes Ausschalten. `movie-hub-admin#11` ist ebenfalls
-veröffentlicht, am 12.10.2026 ausdrücklich abgenommen und geschlossen:
-Übersicht, Abbrechen und kontrollierte Rücknahme auf Smartphone/Fire TV.
+Matthias hat am 12.10.2026 alle vier zuletzt vorgelegten Restpunkte ausdrücklich
+mit **„Ja, das ist alles abgenommen“** bestätigt. Damit sind #118, #381 und
+#312 abgeschlossen. #380, #382, #383, #413, #415 sowie `movie-hub-admin#11`
+waren bereits abgeschlossen. Für das gelieferte Mitteilungs-Grundpaket
+besteht keine weitere Geräteabnahme.
 
 ## Tagesabschluss 12.10.2026
 
-Die aktuelle Abnahme von Matthias („Ja, das nehme ich so ab. Das ist fertig.“)
-bezieht sich auf die zuletzt angefragte Admin-Übersicht und Rücknahme.
-`movie-hub-admin#11` ist damit abgeschlossen. Eine pauschale Abnahme weiterer,
-zuvor ausdrücklich getrennt geführter Randfälle wird daraus nicht abgeleitet.
-
 | Paket | Abschluss |
 | --- | --- |
-| #380 Server/IAM | Produktiv und seit 08.10. abgeschlossen |
-| #382 TV-Erinnerungen | 14-Tage-Fund + 5-Minuten-Enderinnerung, Film/Serie, Deduplizierung, geschlossene App und automatischer Abschluss abgenommen |
-| #383 aktive Beobachtungen | Einheitliche Verwaltung, Profilwechsel und geräteübergreifendes Ausschalten abgenommen |
-| #413 persönliche Smart-Reihen | Vollständige gemeinsame Titelbasis, Smartphone/Fire TV abgenommen |
-| #415 Schauspielersuche | Öffentlicher und persönlicher Bestand, Smartphone/Fire TV abgenommen |
-| movie-hub-admin#11 | Übersicht, Abbrechen und kontrollierte Rücknahme auf Smartphone/Fire TV abgenommen |
+| #380 Server/IAM | produktiv abgeschlossen |
+| #118 Wenn inklusive | vollständige Fachabnahme einschließlich technisch geprüfter Randfälle bestätigt |
+| #381 Lebenszyklus | persönliche und globale Profil-/Konto-/Geräte-Lesestände, Gültigkeit und Gesamtfreigabe bestätigt |
+| #382 TV-Erinnerungen | Fundmeldung, letzte Erinnerung, Film/Serie, geschlossene App und automatischer Abschluss bestätigt |
+| #383 aktive Beobachtungen | Verwaltung, Profilwechsel und geräteübergreifendes Ausschalten bestätigt |
+| #312 Mitteilungszentrale | beide Anzeigearten, Bestätigung, spätere Anmeldung, Ablauf, Rücknahme und Mehrgeräteverhalten bestätigt |
+| #413/#415 | persönliche Smart-Reihen und Schauspielersuche auf Smartphone/Fire TV bestätigt |
+| movie-hub-admin#11 | Übersicht, Abbrechen und kontrollierte Rücknahme bestätigt |
 
-### Noch zur gemeinsamen Abnahme
+Die abschließende Bestätigung bezieht sich auf die zuvor konkret aufgeführten
+vier Punkte. Die technischen Inklusiv-Randfälle werden auf Basis der
+vorhandenen Nachweise akzeptiert; kein zusätzlicher vom Assistenten
+durchgeführter realer Providerwechsel wird behauptet. Bereits bestätigte
+Tests werden nicht erneut angefordert.
 
-1. **#118 – vollständige Fachabnahme „Wenn inklusive“:** bereits bestätigte
-   Bedienung, Meldung, automatische Abschaltung, Profiltrennung und persönliche
-   Mehrgeräte-Synchronisierung bleiben abgenommen. Die Gesamtfreigabe umfasst
-   auch den späteren ersten Einschluss bei einem aktivierten Anbieter,
-   keine Auslösung durch reine Kauf-/Leihangebote, genau eine Meldung je
-   Aktivierung und erneute Beobachtung nur nach bewusstem Einschalten.
-   Technische Randfälle sind über #381 und die erfolgreiche CI nachgewiesen;
-   ein zusätzlicher realer späterer Providerwechsel wird hier nicht behauptet.
-2. **#312 – beide globalen Anzeigearten und Bestätigung:** nur Posteingang bzw.
-   Startfenster plus Posteingang; Zurück bestätigt nicht, erst „OK, gelesen“;
-   gelesene Meldung bleibt bis zum Ablauf im Posteingang.
-3. **#381/#312 – globaler Lesezustand:** innerhalb desselben Kontos über Profile
-   und Geräte konsistent, zwischen verschiedenen Konten getrennt; eine spätere
-   Anmeldung erhält eine weiterhin gültige globale Meldung.
-4. **#312 – regulärer Ablauf:** nach Gültig-bis verschwindet die Meldung aus
-   Startfenster, Glockenzähler und aktuellem Posteingang. Die separat geprüfte
-   kontrollierte Rücknahme ist bereits abgeschlossen.
+### Nächstes Arbeitspaket: #384 – Auch per E-Mail je Profil
 
-#118/#381/#312 bleiben nur für diese Restabnahmen offen. Persönliche
-Fire-TV-/Profil-/Lesetests und die Admin-Rücknahme nicht erneut anfordern.
-Zeitgrenzen und persönliche 7-Tage-/Hard-TTL-Regeln sind deterministisch geprüft;
-es müssen keine sieben realen Tage abgewartet werden.
+**Aktuell nur Analyse und Aufwandsschätzung beauftragt.** Der Nutzerwunsch
+erweitert die frühere Beschränkung auf die letzte TV-Erinnerung:
+bestehende persönliche Meldungen (`included-found`, `tv-found`, `tv-final`)
+sollen nach Opt-in zusätzlich per E-Mail zugestellt werden.
 
-### Nächstes Ausbaupaket: #384 – optionaler E-Mail-Kanal
+- Einstellung unter Mitteilungen: **Auch per E-Mail**, je Profil, Default aus.
+- Gemeinsamer serverseitiger Versand für Client-Soforttreffer, spätere
+  Datenlauf-Treffer und Minuten-Erinnerungen. Nur den Minutenprüfer zu
+  erweitern würde nicht alle Meldungen erfassen.
+- Vorhandene Ereignis-IDs für Versandstatus/Deduplizierung verwenden;
+  begrenzte Wiederholungen, keine rückwirkenden Mails beim Einschalten.
+- Passende deutsche HTML-/Textvorlagen mit Profil, Titel und Anlassdaten.
+- Versanddienst/Absender einrichten und Zugangsdaten serverseitig verwalten;
+  No-Reply ist möglich, aber keine technische Pflicht.
+- Grundlage der Schätzung: bestätigte Konto-Adresse. Eigene Empfängeradressen
+  je Profil sind noch nicht eindeutig verlangt und wären Zusatzumfang.
+- Mailfehler dürfen In-App-Meldung und Beobachtungsabschluss nicht blockieren.
+- Profil-/Kontotrennung, Doppelereignisse, Fehlerfälle, alle drei Auslöser
+  und Smartphone-/Fire-TV-Bedienung gezielt prüfen.
 
-Nach den Restabnahmen zunächst das vorhandene Issue konkretisieren: eine
-zusätzliche E-Mail ungefähr fünf Minuten vor dem gebundenen TV-Termin,
-profilbezogenes Opt-in standardmäßig aus, Empfänger ausschließlich die
-bestätigte Konto-E-Mail. Die erste TV-Fundmeldung bleibt In-App.
-Vor Umsetzung Versanddienst/Absender, Kosten/Datenschutz, begrenzten Testmodus,
-Deduplizierung und Fehler-/Wiederholungsverhalten festlegen. Mailfehler dürfen
-die In-App-Meldung und den fachlichen TV-Abschluss nicht verhindern.
+Grobe Schätzung: **2–3,5 Stunden** einschließlich Prüfungen/Bereitstellung bei
+vorhandenem Versanddienst und verifiziertem Absender. Bei vollständiger
+Neueinrichtung eher **3–5 Stunden**, zuzüglich möglicher externer Wartezeiten.
+Kein Implementierungsstart und kein Testversand durch diesen Analyseauftrag.
+Details und spätere Abnahme stehen in #384.
 
-Gestaltung und Bedienung folgen dem vorhandenen Bereich Einstellungen →
-Mitteilungen und den gemeinsamen Smartphone-/Fire-TV-Konventionen.
-Kein neuer Katalogimport, keine neue Beobachtungsverwaltung, kein allgemeiner
-Mailversand aus dem Client. Heute wird dieses Paket nur vorbereitet;
-Implementierung und Testversand beginnen nicht mit dieser Dokumentation.
-Danach #385 einzeln priorisieren; die anschließende Hauptstrecke #271/#336
-bleibt bestehen. #314 bleibt die übergeordnete Klammer.
+#314 bleibt Master für die Erweiterungen #384/#385. Danach gilt weiterhin
+die Hauptstrecke #271/#336 → Produkt-Finish → #112 → 1.0.
 
-### Technischer Endstand
+### Technischer Endstand des Grundpakets
 
-Am Tagesabschluss sind in beiden Repositories keine offenen Pull Requests
-vorhanden. Movie Hub `891fcce`: CI [38261104040](https://github.com/matthias-ennen/movie-hub/actions/runs/38261104040),
+Movie Hub `891fcce`: CI
+[38261104040](https://github.com/matthias-ennen/movie-hub/actions/runs/38261104040),
 Android [38261104049](https://github.com/matthias-ennen/movie-hub/actions/runs/38261104049)
 und Deploy [38261104010](https://github.com/matthias-ennen/movie-hub/actions/runs/38261104010)
 erfolgreich. Admin `0c62707`: CI/Android sowie Backend
 [38262738487](https://github.com/matthias-ennen/movie-hub-admin/actions/runs/38262738487)
 und Hosting [38263221637](https://github.com/matthias-ennen/movie-hub-admin/actions/runs/38263221637)
-erfolgreich. Die Abschlussänderung betrifft ausschließlich Dokumentation und
-Issue-Status; sie benötigt keinen neuen App- oder Backend-Deploy.
+erfolgreich. Die Abschlussnachträge ändern ausschließlich Dokumentation
+und Issue-Status und benötigen keinen App-/Backend-Deploy.
 
 ## Bedienung
 
@@ -314,8 +295,9 @@ erste Lesestatus wurden dabei nicht ersetzt.
   oder Millisekunden), ohne lokale Sommerzeit-Arithmetik.
 - Globale Admin-Mitteilungen bleiben getrennt und unverändert.
 
-Die Phasen B–D sind integriert und produktiv ausgerollt. #381 bleibt für
-die globale Admin-/Kontowechsel-Restabnahme und ausdrückliche Gesamtfreigabe offen.
+Die Phasen B–D sind integriert und produktiv ausgerollt. #381 ist am
+12.10.2026 einschließlich globaler Admin-/Kontowechsel-Abnahme und
+Gesamtfreigabe abgeschlossen.
 Bestätigte persönliche Profil-, Fire-TV- und Zwei-Geräte-Tests bleiben abgenommen.
 Insbesondere kein globales Firestore-Delete-Recht und keine ungeprüfte
 Massenmigration. Die produktive TV-Endphase ist in #382 seit 12.10.2026 abgenommen.

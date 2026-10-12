@@ -33,6 +33,7 @@ Zu den zuletzt abgeschlossenen beziehungsweise abgenommenen Paketen gehören ins
 - #281/#283/#285/#289 – gemeinsame TV-/Hero-/Inhaltsseiten-Grundlage
 - #315 – Nachtlauf-Überwachung, Datenfrische, unabhängiger Alarm und dauerhafte Cloud-Checkpoints; am 03.10.2026 abgeschlossen
 - #346 – Fundamenthärtung und Performance; technische Phasen, Dokumentation und reale Smartphone-/Fire-TV-Abnahme am 03.10.2026 abgeschlossen
+- #118/#381/#312 – vollständige Mitteilungs-Grundstrecke einschließlich aller vier Restabnahmen; am 12.10.2026 durch Matthias ausdrücklich bestätigt und geschlossen
 - #380 – Server-Prüflauf/IAM und produktiver Beobachtungsnachweis; am 08.10.2026 abgeschlossen
 - #383 – aktive Beobachtungen unter Einstellungen → Mitteilungen; am 12.10.2026 durch Matthias abgenommen und geschlossen
 - `movie-hub-admin#11` – Übersicht, Gültigkeits-/Statusanzeige und kontrollierte Rücknahme; am 12.10.2026 ausdrücklich abgenommen und geschlossen
@@ -74,47 +75,28 @@ Die Datenstrecke ist nachgewiesen; pünktlicher Start bleibt ein Überwachungspu
 
 ## Aktive Hauptstrecke
 
-### 1. #314 – Mitteilungen und Benachrichtigungen konsolidieren
+### 1. #314 – Mitteilungs-Grundpaket abgeschlossen, Erweiterung analysieren
 
-#314 ist ab 03.10.2026 das **aktuelle große Arbeitspaket**. Es bündelt die noch offenen Produktentscheidungen und Randfälle der bereits vorhandenen Mitteilungsbasis, ohne die bestehende App-Architektur unnötig umzubauen.
+Matthias hat am 12.10.2026 sämtliche vier zuletzt vorgelegten Restpunkte
+mit „Ja, das ist alles abgenommen“ bestätigt. #118/#381/#312 sind geschlossen;
+#380/#382/#383 und `movie-hub-admin#11` waren bereits abgeschlossen.
+Keine offene Geräteabnahme der gelieferten Basis.
 
-Aktueller Stand:
-- #312 stellt Glocke, Posteingang und globale Admin-Mitteilungen bereit; Smartphone-Grundstrecke und Fire-TV-D-Pad-Bedienung sind bestätigt;
-- #118 stellt „Wenn inklusive“ bereit;
-- die Detailseite bietet zusätzlich „Wenn im TV“ als getrennten persönlichen Auslöser;
-- persönliche Meldungen bleiben zunächst innerhalb von Movie Hub; Betriebssystem-Push und E-Mail gehören nicht automatisch zum aktuellen Umfang;
-- der in Deploy #939 beobachtete Server-/IAM-Fehler ist über #380 produktiv behoben und abgeschlossen;
-- #381 ist produktiv, einschließlich Kontoisolation aus PR #404; Fire-TV-Bedienung, Zwei-Geräte-Lesestatus und persönliche Profiltrennung sind bestätigt;
-- #382 ist seit 12.10.2026 fachlich abgenommen und geschlossen. Matthias bestätigt die fünf offenen TV-Prüfpunkte ausdrücklich mit „1 bis 5 abgenommen“; Zeitverhalten und automatischer Abschluss waren zuvor bestätigt.
+**Aktuell: #384 nur analysieren und Aufwand schätzen.** Gewünscht ist
+**Auch per E-Mail** unter Einstellungen → Mitteilungen, je Profil,
+standardmäßig aus. Der aktuelle Wunsch umfasst bestehende persönliche
+Inklusiv-, TV-Fund- und letzte TV-Meldungen und erweitert damit die frühere
+Beschränkung auf die letzte TV-Erinnerung.
 
-Die Produktentscheidungen vom 03.10.2026 stehen bereits in #314; dafür wurden
-die Teilpakete #380–#385 angelegt. Sie werden nicht erneut als ungeklärte
-Grundsatzfragen behandelt. Die konkrete Fortsetzung lautet:
+Vor Umsetzung Versanddienst/Absender, Empfängerregel und Fehlerverhalten
+konkretisieren. Gemeinsamen Backend-Pfad für alle Entstehungswege planen;
+vorhandene Profile, Meldungs-IDs und UI-Konventionen nutzen.
+Grobe Schätzung: 2–3,5 Stunden bei vorbereitetem Versanddienst/Absender,
+3–5 Stunden bei Neueinrichtung plus externe Wartezeiten. Keine neue
+Implementierung oder Testmail durch diesen Analyseauftrag.
 
-1. **#383:** am 12.10.2026 abgenommen und geschlossen. Die Verwaltung unter
-   Einstellungen → Mitteilungen ist auf Smartphone/Fire TV einschließlich
-   Profilwechsel und geräteübergreifendem Ausschalten bestätigt.
-2. **#381 + #118:** die eigenständigen Restabnahmen des produktiven Lebenszyklus
-   abschließen: globale Admin-Meldungen/Lesestatus bei Konto- und Profilwechsel,
-   fachliche Inklusiv-Restfälle und ausdrückliche Gesamtfreigabe.
-3. **#312:** übrige globale Anzeige-/Mehrgeräte-/Ablaufprüfungen gemeinsam mit
-   #381 abnehmen. Übersicht und Rücknahme in `movie-hub-admin#11` sind seit
-   12.10.2026 ausdrücklich abgenommen und geschlossen; diese Prüfung nicht wiederholen.
-4. **#384:** nächstes Ausbaupaket nach den Restabnahmen: optionaler E-Mail-Kanal
-   ausschließlich für die letzte TV-Erinnerung. Zuerst Versanddienst, Absender,
-   Fehler-/Wiederholungsverhalten und begrenzten Testbetrieb festlegen; danach
-   gesonderte Umsetzungsfreigabe. Heute nur Übergabe, keine Implementierung.
-5. **#385:** weitere Anlässe anschließend einzeln priorisieren.
-
-Die konsolidierte offene Abnahmeliste und der Tagesabschluss stehen in
-[TITLE_NOTIFICATIONS.md](TITLE_NOTIFICATIONS.md#tagesabschluss-12102026).
-
-#382 ist abgeschlossen. Film-/Serien-Kette, frühe Fundmeldung mit Termin/Sender,
-Titelöffnung, Deduplizierung und Erinnerung bei geschlossener App sind durch
-Matthias bestätigt; Zeitverhalten und automatischer Abschluss ebenfalls.
-Kein Vorlaufpuffer und keine erneute Scheduler-Aktivierung erforderlich.
-
-#312 und #118 bleiben bis zu ihrer fachlichen beziehungsweise Ende-zu-Ende-Abnahme als verknüpfte Teilpakete offen. Sie werden nicht künstlich geschlossen, nur weil #314 nun die gemeinsame Klammer bildet.
+Danach #385 einzeln priorisieren. #314 bleibt als Erweiterungs-Master offen.
+Details: [Tagesabschluss und Analyse](TITLE_NOTIFICATIONS.md#tagesabschluss-12102026).
 
 ### 2. #271 – Modulare Quellenplattform danach fortführen
 
@@ -158,7 +140,7 @@ Diese Darstellungs-/Priorisierungsarbeit folgt nach den ersten zusätzlichen Ada
 ## Gesondert offene Betriebs- und Restpakete
 
 - #329 – Waipu-Restklassifizierung der technischen-only Einträge; Wartung, blockiert die aktuelle Hauptstrecke nicht
-- #312/#118/#381 – verbleibende Abnahmen der Hauptstrecke #314; #384/#385 – gesonderte Erweiterungen. #380/#382/#383 und `movie-hub-admin#11` sind abgeschlossen
+- #384/#385 – verbleibende Erweiterungen der Hauptstrecke #314; #118/#312/#380/#381/#382/#383 und `movie-hub-admin#11` sind abgeschlossen
 - #386 – eng begrenzte Fire-TV-Nacharbeit zu verbliebenen Navigations-Freezes; eigenes offenes Folgeissue
 - #387 – Inventur, Fokus und Navigation der Einstellungen; eigenes offenes Folgeissue
 - #7 – erste Top-100-Stufe veröffentlicht und am 26.09.2026 auf Fire TV abgenommen; Empfehlungen und Automatisierung später
@@ -202,6 +184,6 @@ Vor einer öffentlichen Version 1.0 sollen mindestens folgende Blöcke abgeschlo
 
 ## Aktuelle Reihenfolge
 
-`#314 (Restabnahmen #118/#381/#312; danach #384, anschließend #385) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
+`#314 (Grundpaket abgenommen; #384 Analyse, anschließend #385) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
 
-#346, #315, #380, #382, #383 und `movie-hub-admin#11` sind abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) bleiben getrennte Recherchepakete unter #271 und ändern die Hauptstrecke nicht.
+#346, #315, #118, #312, #380, #381, #382, #383 und `movie-hub-admin#11` sind abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) bleiben getrennte Recherchepakete unter #271 und ändern die Hauptstrecke nicht.

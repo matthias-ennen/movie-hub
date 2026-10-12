@@ -19,6 +19,8 @@ Am 26.09.2026 wurden folgende Planungsaltlasten bereinigt:
 
 Am 12.10.2026 zusätzlich abgeschlossen:
 
+- #118/#381/#312 – alle vier Restpunkte mit „Ja, das ist alles abgenommen“ bestätigt; keine offene Geräteabnahme der Mitteilungs-Grundstrecke.
+
 - #383 – aktive Beobachtungen unter Einstellungen → Mitteilungen, einschließlich Profilwechsel und geräteübergreifendem Ausschalten.
 - `movie-hub-admin#11` – Übersicht mit Status/Gültigkeit, Abbrechen und kontrollierte Rücknahme; ausdrücklich mit „Ja, das nehme ich so ab. Das ist fertig.“ bestätigt.
 
@@ -30,33 +32,19 @@ Matthias bestätigte den gemeinsamen Josh-Hartnett-/„30 Days of Night“-Abnah
 
 ## Aktuelle Priorisierung
 
-### 1. #314 – Mitteilungen und Benachrichtigungen
+### 1. #314 – Mitteilungs-Erweiterungen
 
-**Aktuelles großes Produktpaket seit 03.10.2026.** Die verbindlichen
-Produktentscheidungen und Abnahmekriterien stehen in #314. #312 und #118
-bleiben darin als offene Teilpakete erhalten.
+Das Grundpaket #118/#312/#380/#381/#382/#383 einschließlich
+`movie-hub-admin#11` ist vollständig abgenommen und abgeschlossen.
 
-Aktueller Abschluss- und Fortsetzungsstand:
+1. **#384:** aktuell ausschließlich technische Analyse/Aufwandsschätzung für
+   **Auch per E-Mail** je Profil, Default aus. Persönliche Inklusiv-,
+   TV-Fund- und letzte TV-Meldungen; Erweiterung des früheren Umfangs.
+   Gemeinsamer Backend-Versand, Vorlagen, Absender/Versanddienst,
+   Deduplizierung und Tests. Noch keine Implementierung.
+2. **#385:** weitere Anlässe anschließend einzeln priorisieren.
 
-1. #380 – seit 08.10.2026 abgeschlossen: Server-/IAM-Pfad und echter
-   Beobachtungsfall bestätigt; Alert-Fehler vom Publikationsabschluss entkoppelt.
-2. #381 + #118 – Lebenszyklus produktiv. Fire-TV-Bedienung, persönliche
-   Profiltrennung und Zwei-Geräte-Lesestatus bestätigt. Restabnahme für globale
-   Admin-Mitteilungen/Kontowechsel und Gesamtfreigabe offen; PR #404 ist übernommen.
-3. #382 – abgeschlossen am 12.10.2026: 14-Tage-Fund, Film-/Serien-Erinnerungskette,
-   Titelöffnung, Deduplizierung, Erinnerung bei geschlossener App, Zeitverhalten
-   und automatischer Abschluss durch Matthias bestätigt.
-4. #383 – am 12.10.2026 abgenommen und geschlossen: zentrale Verwaltung unter
-   Einstellungen → Mitteilungen, Smartphone/Fire TV, Profilwechsel und
-   geräteübergreifendes Ausschalten bestätigt.
-5. #312 – übrige globale Anzeige-/Mehrgeräte-/Ablaufabnahme. Übersicht und
-   Rücknahme in `movie-hub-admin#11` sind abgenommen und abgeschlossen.
-6. #384 – nächstes Ausbaupaket nach den Restabnahmen: optionaler E-Mail-Kanal
-   für die letzte TV-Erinnerung. Zuerst Versanddienst, Absender, Fehlerverhalten
-   und Testmodus festlegen; heute keine neue Implementierung.
-7. #385 – danach weitere Anlässe einzeln priorisieren.
-
-Konsolidierte Restabnahme und Tagesabschluss:
+Konsolidierter Abschluss und Analyse:
 [TITLE_NOTIFICATIONS.md](TITLE_NOTIFICATIONS.md#tagesabschluss-12102026).
 
 ### 2. Betriebsnachtrag Waipu/Joyn vom 07.10.2026
@@ -131,8 +119,8 @@ Vor öffentlicher Veröffentlichung:
 
 ## Aktuelle Abhängigkeitskette
 
-`#314 (Restabnahmen #118/#381/#312; danach #384, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
+`#314 (Grundpaket abgenommen; #384 Analyse, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
 
-#280, #315, #346, #380, #382, #383 und `movie-hub-admin#11` sind abgeschlossen. Die reguläre Datenfortschreibung
+#280, #315, #346, #118, #312, #380, #381, #382, #383 und `movie-hub-admin#11` sind abgeschlossen. Die reguläre Datenfortschreibung
 ist bestätigt; Startverzögerungen bleiben unter Beobachtung. #329 bleibt Wartung. Movie Hub Admin bleibt ein getrenntes Repository;
 die bereits abgenommene Rücknahme wird nicht erneut als zukünftige Arbeit geführt.
