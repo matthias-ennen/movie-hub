@@ -308,6 +308,7 @@ export function normalizeTmdbTitle(payload, mediaType) {
       : [],
     cast,
     smartFacets: {
+      version: 1,
       cast: fullCast,
       creators,
       keywords,

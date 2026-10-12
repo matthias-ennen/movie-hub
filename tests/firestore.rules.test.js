@@ -378,6 +378,7 @@ describe('Firestore Security Rules', () => {
       cast: [{ id: 1, name: 'Mark Hamill' }],
       videos: [],
       smartFacets: { creators: [{ id: 2, name: 'George Lucas' }] },
+      facets: { castPersonIds: [1], creatorPersonIds: [2], keywordIds: [], collectionId: 40, decade: 1970 },
       originalLanguage: 'en',
       voteAverage: 8.2,
       voteCount: 1000,

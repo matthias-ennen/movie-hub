@@ -1,3 +1,4 @@
+import { hasTitleFacetMetadata } from '../catalog/titleFacets.js'
 import { collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore'
 import { loadCompleteTitleMetadata } from '../catalog/loadCompleteTitleMetadata.js'
 import { mergeEnrichedTitle, titleNeedsMetadataEnrichment } from '../catalog/titleMetadata.js'
@@ -51,7 +52,7 @@ async function refreshCatalogMetadata(userId, entries, {
   limit = 25,
 } = {}) {
   const candidates = (Array.isArray(entries) ? entries : [])
-    .filter((entry) => titleNeedsMetadataEnrichment(entry?.titleRef))
+    .filter((entry) => titleNeedsMetadataEnrichment(entry?.titleRef) || !hasTitleFacetMetadata(entry?.titleRef))
     .slice(0, Math.max(0, Number(limit) || 0))
   if (!userId || !candidates.length) return { candidates: candidates.length, updated: 0 }
 
@@ -61,6 +62,9 @@ async function refreshCatalogMetadata(userId, entries, {
     try {
       const detail = await loadDetail(entry.titleRef)
       if (titleNeedsMetadataEnrichment(detail)) continue
+      // Facet-only repairs must improve the data; otherwise a snapshot event
+      // could schedule the same legacy reference again without making progress.
+      if (!titleNeedsMetadataEnrichment(entry.titleRef) && !hasTitleFacetMetadata(detail)) continue
       const enriched = {
         ...mergeEnrichedTitle(entry.titleRef, detail),
         metadataUpdatedAt: new Date().toISOString(),

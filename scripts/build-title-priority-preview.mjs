@@ -86,7 +86,7 @@ export function buildTitlePriorityPreview({
     const failed = Number(metadata.failedReferences) > 0
     const structuralOnlyGapReferences = Number(metadata.structuralOnlyGapReferences) || 0
     const structuralGap = structuralOnlyGapReferences > 0
-    const incomplete = failed || Number(metadata.incompleteReferences) > structuralOnlyGapReferences
+    const incomplete = failed || Number(metadata.facetGapReferences) > 0 || Number(metadata.incompleteReferences) > structuralOnlyGapReferences
     const stale = Number(metadata.staleReferences) > 0
     const isNew = Boolean(baseline) && !previousKeys.has(candidate.key)
     const canonicalPublicationPending = metadata.canonicalPublicationPending === true

@@ -11,7 +11,7 @@ import ContentDisplaySettings from './ContentDisplaySettings.jsx'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import { useTheme } from '../theme/ThemeProvider.jsx'
 
-export default function ProfileView({ user, onSignOut, publicTitles = [], smartFilterOptions = {} }) {
+export default function ProfileView({ user, onSignOut, personalRowTitles = [], smartFilterOptions = {} }) {
   const {
     profiles,
     activeProfile,
@@ -368,7 +368,7 @@ export default function ProfileView({ user, onSignOut, publicTitles = [], smartF
         </p>
       </section>
 
-      <PersonalRowsSettings titles={publicTitles} filterOptions={smartFilterOptions} />
+      <PersonalRowsSettings titles={personalRowTitles} filterOptions={smartFilterOptions} />
 
       <ContentDisplaySettings />
 

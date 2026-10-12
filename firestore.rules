@@ -204,7 +204,7 @@ service cloud.firestore {
             'metadataVersion', 'metadataUpdatedAt', 'metadataComplete',
             'metadataChecks', 'runtimeMinutes',
             'numberOfSeasons', 'numberOfEpisodes', 'seasons',
-            'cast', 'videos', 'smartFacets',
+            'cast', 'videos', 'smartFacets', 'facets',
             'voteAverage', 'voteCount', 'genreNames', 'providerIds',
             'tmdbProviderIds', 'tmdbProviderOffers', 'providerMetadataUpdatedAt', 'ageRating',
             'favorite', 'watchlist', 'rated', 'ratingValue',

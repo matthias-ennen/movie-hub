@@ -1,3 +1,5 @@
+import { readTitleFacets } from './titleFacets.js'
+import { getTitleStateKey } from '../library/libraryState.js'
 import { getActivePosterRowLimit } from '../profiles/profileExperienceRuntime.js'
 
 export const MAX_PERSONAL_SMART_ROWS = 10
@@ -95,7 +97,7 @@ function matchesPersonalSmartRow(item, row) {
 export function getPersonalSmartRowMatchCount(titles, row) {
   const unique = new Set()
   for (const item of Array.isArray(titles) ? titles : []) {
-    if (item?.id && matchesPersonalSmartRow(item, row)) unique.add(item.id)
+    if (item?.id && matchesPersonalSmartRow(item, row)) unique.add(getTitleStateKey(item))
   }
   return unique.size
 }
@@ -108,7 +110,7 @@ export function buildPersonalSmartRows(titles, settings, limit = getActivePoster
     .map((row) => {
       const unique = new Map()
       for (const item of Array.isArray(titles) ? titles : []) {
-        if (item?.id && matchesPersonalSmartRow(item, row) && !unique.has(item.id)) unique.set(item.id, item)
+        if (item?.id && matchesPersonalSmartRow(item, row) && !unique.has(getTitleStateKey(item))) unique.set(getTitleStateKey(item), item)
       }
       const items = [...unique.values()]
       const ranked = typeof sortItems === 'function' ? sortItems(items, row) : items.sort(byCatalogRank)
@@ -167,56 +169,86 @@ function facetTerms(rawTerms) {
     .filter((term) => Number.isFinite(term.id) && term.label && !seen.has(term.id) && seen.add(term.id))
 }
 
-function addDirectoryValue(directory, value, title) {
-  if (!value) return
-  const current = directory.get(value.id) || { ...value, count: 0, knownFor: [] }
-  current.count += 1
-  if (title && current.knownFor.length < 2 && !current.knownFor.includes(title)) current.knownFor.push(title)
-  if (!current.imageUrl && value.imageUrl) current.imageUrl = value.imageUrl
-  directory.set(value.id, current)
+export function preparePersonalSmartTitles(titles) {
+  return (Array.isArray(titles) ? titles : []).map((item) => ({ ...item, facets: readTitleFacets(item) }))
+}
+
+function facetIdsByType(facets = {}) {
+  return {
+    cast: facets.castPersonIds || [], creator: facets.creatorPersonIds || [], keyword: facets.keywordIds || [],
+    collection: facets.collectionId ? [facets.collectionId] : [],
+    decade: facets.decade ? [facets.decade] : [],
+  }
+}
+
+// Reuse the generated directory, adjusting only differences from its public
+// title basis. Without a baseline this same function builds a fresh directory.
+export function buildPersonalSmartFilterOptions(titles, publicOptions = {}, publicTitles = []) {
+  const useBaseline = publicTitles.length > 0
+  const directories = Object.fromEntries(PERSONAL_SMART_ROW_TYPES.map(({ id }) => [id,
+    new Map((publicOptions[id] || []).map((entry) => [Number(entry.id),
+      useBaseline ? entry : { ...entry, count: 0, knownFor: [] },
+    ])),
+  ]))
+  const remaining = new Map(publicTitles.map((item) => [getTitleStateKey(item), item]))
+  const seen = new Set()
+  function adjust(type, id, delta, title) {
+    const current = directories[type].get(id) || { id, label: '', count: 0, knownFor: [] }
+    const knownFor = delta > 0
+      ? [...new Set([...current.knownFor, title].filter(Boolean))].slice(0, 2)
+      : current.knownFor.filter((name) => name !== title)
+    directories[type].set(id, { ...current, count: current.count + delta, knownFor })
+  }
+  for (const item of Array.isArray(titles) ? titles : []) {
+    const key = getTitleStateKey(item)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    const base = remaining.get(key)
+    remaining.delete(key)
+    const previous = facetIdsByType(base?.facets || (base ? readTitleFacets(base) : {}))
+    const facets = item.facets || readTitleFacets(item)
+    const next = facetIdsByType(facets)
+    let changed = !base
+    for (const { id: type } of PERSONAL_SMART_ROW_TYPES) {
+      const before = previous[type]
+      const after = next[type]
+      if (before.length === after.length && before.every((id, index) => id === after[index])) continue
+      changed = true
+      const beforeIds = new Set(before)
+      const afterIds = new Set(after)
+      for (const id of beforeIds) if (!afterIds.has(id)) adjust(type, id, -1, base?.title)
+      for (const id of afterIds) if (!beforeIds.has(id)) adjust(type, id, 1, item.title)
+    }
+    if (!changed) continue
+    const raw = item.smartFacets || {}
+    const values = {
+      cast: facetPeople([...(Array.isArray(raw.cast) ? raw.cast : []), ...(Array.isArray(item.cast) ? item.cast : [])]),
+      creator: facetPeople(raw.creators), keyword: facetTerms(raw.keywords),
+      collection: facetTerms([{ id: facets.collectionId, name: item.collectionName || raw.collection?.name }]),
+      decade: facets.decade ? [{ id: facets.decade, label: `${facets.decade}er` }] : [],
+    }
+    for (const { id: type } of PERSONAL_SMART_ROW_TYPES) {
+      for (const value of values[type]) {
+        const current = directories[type].get(value.id)
+        if (current && !current.label) directories[type].set(value.id, { ...current, ...value })
+      }
+    }
+  }
+  for (const base of remaining.values()) {
+    for (const [type, ids] of Object.entries(facetIdsByType(base.facets || readTitleFacets(base)))) {
+      for (const id of ids) adjust(type, id, -1, base.title)
+    }
+  }
+  return normalizeSmartFilterOptions(Object.fromEntries(Object.entries(directories).map(([type, directory]) => [type,
+    [...directory.values()],
+  ])))
 }
 
 export function finalizePersonalSmartCatalog(titles) {
-  const directories = {
-    cast: new Map(),
-    creator: new Map(),
-    keyword: new Map(),
-    collection: new Map(),
-    decade: new Map(),
-  }
-
-  const finalizedTitles = (Array.isArray(titles) ? titles : []).map((item) => {
-    const raw = item?.smartFacets || {}
-    const cast = facetPeople(raw.cast)
-    const creators = facetPeople(raw.creators)
-    const keywords = facetTerms(raw.keywords)
-    const collection = facetTerms(raw.collection ? [raw.collection] : [])[0] || null
-    const year = Number(item?.year)
-    const decade = Number.isFinite(year) ? Math.floor(year / 10) * 10 : null
-
-    cast.forEach((value) => addDirectoryValue(directories.cast, value, item.title))
-    creators.forEach((value) => addDirectoryValue(directories.creator, value, item.title))
-    keywords.forEach((value) => addDirectoryValue(directories.keyword, value, item.title))
-    addDirectoryValue(directories.collection, collection, item.title)
-    if (decade !== null) addDirectoryValue(directories.decade, { id: decade, label: `${decade}er` }, item.title)
-
-    const { smartFacets: _removed, ...publicItem } = item
-    return {
-      ...publicItem,
-      facets: {
-        castPersonIds: cast.map((value) => value.id),
-        creatorPersonIds: creators.map((value) => value.id),
-        keywordIds: keywords.map((value) => value.id),
-        collectionId: collection?.id ?? null,
-        decade,
-      },
-    }
-  })
-
+  const prepared = preparePersonalSmartTitles(titles)
+  const smartFilterOptions = buildPersonalSmartFilterOptions(prepared)
   return {
-    titles: finalizedTitles,
-    smartFilterOptions: normalizeSmartFilterOptions(Object.fromEntries(
-      Object.entries(directories).map(([key, directory]) => [key, [...directory.values()]]),
-    )),
+    titles: prepared.map(({ smartFacets: _removed, ...item }) => item),
+    smartFilterOptions,
   }
 }

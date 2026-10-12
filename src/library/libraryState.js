@@ -1,3 +1,4 @@
+import { copyTitleFacetMetadata } from '../catalog/titleFacets.js'
 export const EMPTY_TITLE_STATE = {
   favorite: false,
   watchlist: false,
@@ -109,6 +110,7 @@ export function createTitleSnapshot(item) {
       posterPaths: imagePaths(artwork.posterPaths),
       heroBackdropPaths: imagePaths(artwork.heroBackdropPaths),
     },
+    ...copyTitleFacetMetadata(item),
     collectionId,
     collectionName: collectionId
       ? String(item.collectionName || item.smartFacets?.collection?.name || '').slice(0, 160) || null
@@ -244,6 +246,7 @@ export function applyTitleStateUpdate(item, currentValue, patch, date = new Date
 }
 
 export function hasPersonalTitleState(value) {
-  const state = normalizeTitleState(value)
-  return state.favorite || state.watchlist || state.watched || state.rating !== null || Boolean(state.note.trim())
+  return Boolean(value?.favorite || value?.watchlist || value?.watched
+    || (Number.isInteger(value?.rating) && value.rating >= 1 && value.rating <= 10)
+    || (typeof value?.note === 'string' && value.note.trim()))
 }

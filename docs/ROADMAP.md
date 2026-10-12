@@ -55,6 +55,10 @@ und die Rückprüfung aller fünf öffentlichen Endpunkte sind erfolgreich.
 Sollstart 00:17 Uhr Europe/Berlin, mit normalen Budgets und vollständigem
 TMDB-Verbraucherabschluss.** Sie wird nicht als bereits bestanden markiert.
 
+## Gezielte Korrektur persönlicher Reihen (12.10.2026)
+
+#413 ist von Matthias zur direkten Umsetzung freigegeben: gemeinsame Titelbasis und einheitliche Filtermetadaten für alle fünf persönlichen Smart-Reihentypen, einschließlich Erhalt der Metadaten und Nachpflege älterer Referenzen im bestehenden kanonischen Datenlauf. Keine Änderung der Hauptreihenfolge. Technische Prüfung und Veröffentlichung werden im Issue nachgewiesen; die manuelle Abnahme von „30 Days of Night“/Josh Hartnett und Fire-TV-Bedienung bleibt bis zur Rückmeldung offen.
+
 ## Aktive Hauptstrecke
 
 ### 1. #314 – Mitteilungen und Benachrichtigungen konsolidieren

@@ -1,3 +1,4 @@
+import { hasTitleFacetMetadata } from '../src/catalog/titleFacets.js'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -25,7 +26,7 @@ const PUBLIC_TITLE_FIELDS = Object.freeze([
   'id', 'source', 'tmdbId', 'type', 'mediaType', 'title', 'originalTitle',
   'description', 'year', 'releaseDate', 'runtimeMinutes', 'numberOfSeasons',
   'numberOfEpisodes', 'seasons', 'genres', 'genreNames', 'genre', 'cast',
-  'smartFacets', 'collectionId', 'collectionName', 'collectionChecked',
+  'smartFacets', 'facets', 'collectionId', 'collectionName', 'collectionChecked',
   'collectionDetails', 'metadataComplete', 'metadataVersion', 'metadataChecks',
   'metadataUpdatedAt', 'voteAverage', 'voteCount', 'popularity', 'posterPath',
   'backdropPath', 'neutralPosterPath', 'neutralPosterUrl', 'artwork', 'posterUrl',
@@ -63,8 +64,10 @@ export function canonicalForIdentity(value, entry) {
 export function selectReusableCanonical(values, {
   now = Date.now(),
   maxAgeDays = CANONICAL_METADATA_MAX_AGE_DAYS,
+  requireFacets = false,
 } = {}) {
   return (Array.isArray(values) ? values : [])
+    .filter((value) => !requireFacets || hasTitleFacetMetadata(value))
     .filter((value) => !titleNeedsMetadataEnrichment(value, {
       now: now instanceof Date ? now.getTime() : Number(now),
       maxAgeDays,
@@ -123,7 +126,9 @@ export async function executeTitlePriorityQueue({
   const resolved = await mapWithConcurrency(selected, concurrency, async (entry) => {
     let canonical = null
     if (entry.action === 'reuse-canonical') {
-      canonical = selectReusableCanonical(candidateValues.get(entry.key), { now, maxAgeDays })
+      canonical = selectReusableCanonical(candidateValues.get(entry.key), {
+        now, maxAgeDays, requireFacets: Number(entry.metadata?.facetGapReferences) > 0,
+      })
       if (canonical) reused += 1
       else reuseFallbacks += 1
     }
