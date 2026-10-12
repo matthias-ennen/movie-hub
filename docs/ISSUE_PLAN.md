@@ -19,6 +19,9 @@ Am 26.09.2026 wurden folgende Planungsaltlasten bereinigt:
 
 Am 12.10.2026 zusätzlich abgeschlossen:
 
+- #383 – aktive Beobachtungen unter Einstellungen → Mitteilungen, einschließlich Profilwechsel und geräteübergreifendem Ausschalten.
+- `movie-hub-admin#11` – Übersicht mit Status/Gültigkeit, Abbrechen und kontrollierte Rücknahme; ausdrücklich mit „Ja, das nehme ich so ab. Das ist fertig.“ bestätigt.
+
 - #382 – TV-Erinnerungskette für Film und ganze Serie; die fünf offenen Prüfpunkte ausdrücklich mit „1 bis 5 abgenommen“ bestätigt, Zeitverhalten und automatischer Abschluss zuvor bestätigt.
 - #413 – persönliche Smart-Reihen aus dem vollständigen zusammengeführten Bestand; PR #414 veröffentlicht, Geräteabnahme bestätigt.
 - #415 – Schauspielersuche; PR #416 veröffentlicht, Geräteabnahme bestätigt.
@@ -46,9 +49,15 @@ Aktueller Abschluss- und Fortsetzungsstand:
 4. #383 – am 12.10.2026 abgenommen und geschlossen: zentrale Verwaltung unter
    Einstellungen → Mitteilungen, Smartphone/Fire TV, Profilwechsel und
    geräteübergreifendes Ausschalten bestätigt.
-5. #312 – verbleibende Ende-zu-Ende-/Mehrgeräte-Abnahme. Admin-Schreibfunktionen
-   werden im getrennten Movie-Hub-Admin-Paket behandelt.
-6. #384/#385 – optionalen E-Mail-Kanal und weitere Anlässe separat bewerten.
+5. #312 – übrige globale Anzeige-/Mehrgeräte-/Ablaufabnahme. Übersicht und
+   Rücknahme in `movie-hub-admin#11` sind abgenommen und abgeschlossen.
+6. #384 – nächstes Ausbaupaket nach den Restabnahmen: optionaler E-Mail-Kanal
+   für die letzte TV-Erinnerung. Zuerst Versanddienst, Absender, Fehlerverhalten
+   und Testmodus festlegen; heute keine neue Implementierung.
+7. #385 – danach weitere Anlässe einzeln priorisieren.
+
+Konsolidierte Restabnahme und Tagesabschluss:
+[TITLE_NOTIFICATIONS.md](TITLE_NOTIFICATIONS.md#tagesabschluss-12102026).
 
 ### 2. Betriebsnachtrag Waipu/Joyn vom 07.10.2026
 
@@ -122,8 +131,8 @@ Vor öffentlicher Veröffentlichung:
 
 ## Aktuelle Abhängigkeitskette
 
-`#314 (#383; Restabnahmen #381/#118 und danach #312; #384/#385 optional) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
+`#314 (Restabnahmen #118/#381/#312; danach #384, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
 
-#280, #315, #346, #380 und #382 sind abgeschlossen. Die reguläre Datenfortschreibung
-ist bestätigt; Startverzögerungen bleiben unter Beobachtung. #329 bleibt Wartung; Movie Hub Admin
-wird als getrenntes späteres Paket behandelt.
+#280, #315, #346, #380, #382, #383 und `movie-hub-admin#11` sind abgeschlossen. Die reguläre Datenfortschreibung
+ist bestätigt; Startverzögerungen bleiben unter Beobachtung. #329 bleibt Wartung. Movie Hub Admin bleibt ein getrenntes Repository;
+die bereits abgenommene Rücknahme wird nicht erneut als zukünftige Arbeit geführt.

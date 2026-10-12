@@ -34,6 +34,8 @@ Zu den zuletzt abgeschlossenen beziehungsweise abgenommenen Paketen gehören ins
 - #315 – Nachtlauf-Überwachung, Datenfrische, unabhängiger Alarm und dauerhafte Cloud-Checkpoints; am 03.10.2026 abgeschlossen
 - #346 – Fundamenthärtung und Performance; technische Phasen, Dokumentation und reale Smartphone-/Fire-TV-Abnahme am 03.10.2026 abgeschlossen
 - #380 – Server-Prüflauf/IAM und produktiver Beobachtungsnachweis; am 08.10.2026 abgeschlossen
+- #383 – aktive Beobachtungen unter Einstellungen → Mitteilungen; am 12.10.2026 durch Matthias abgenommen und geschlossen
+- `movie-hub-admin#11` – Übersicht, Gültigkeits-/Statusanzeige und kontrollierte Rücknahme; am 12.10.2026 ausdrücklich abgenommen und geschlossen
 - #382 – vollständige TV-Erinnerungskette für Film und ganze Serie; am 12.10.2026 durch Matthias abgenommen und geschlossen
 - #413 – persönliche Smart-Reihen aus dem zusammengeführten Bestand; am 12.10.2026 auf Smartphone/Fire TV abgenommen und geschlossen
 - #415 – Schauspielersuche im öffentlichen und persönlichen Bestand; am 12.10.2026 auf Smartphone/Fire TV abgenommen und geschlossen
@@ -47,7 +49,7 @@ tatsächlich veröffentlichten gemeinsamen App-Daten. Dies erweitert den
 abgeschlossenen Adapter #280; der vorherige Stand hatte nur rund 31 Stunden
 Joyn-Vorschau. Quellenprüfung, Umsetzung und produktive Datenabnahme sind
 getrennte Nachweise; Details stehen in [DATA_WORKFLOW_RELIABILITY.md](DATA_WORKFLOW_RELIABILITY.md).
-Movie Hub Admin bleibt ein eigenes späteres Arbeitspaket.
+Movie Hub Admin bleibt ein separates Repository; Übersicht und Rücknahme aus #11 sind inzwischen am 12.10.2026 abgenommen.
 
 Dieser Betriebsnachtrag wird unter #271 dokumentiert und ergänzt #280/#315;
 es wurde kein neues eigenes Issue dafür angelegt. Technisch sind der
@@ -95,10 +97,17 @@ Grundsatzfragen behandelt. Die konkrete Fortsetzung lautet:
 2. **#381 + #118:** die eigenständigen Restabnahmen des produktiven Lebenszyklus
    abschließen: globale Admin-Meldungen/Lesestatus bei Konto- und Profilwechsel,
    fachliche Inklusiv-Restfälle und ausdrückliche Gesamtfreigabe.
-3. **#312:** noch offene Grundstrecken-/Mehrgeräte-Abnahmen durchführen;
-   Die noch fehlende Rücknahme wird als Voraussetzung im getrennten
-   `movie-hub-admin#11` ergänzt; danach globale Meldungen gemeinsam abnehmen.
-4. **#384/#385:** optionalen E-Mail-Kanal und weitere Anlässe separat entscheiden.
+3. **#312:** übrige globale Anzeige-/Mehrgeräte-/Ablaufprüfungen gemeinsam mit
+   #381 abnehmen. Übersicht und Rücknahme in `movie-hub-admin#11` sind seit
+   12.10.2026 ausdrücklich abgenommen und geschlossen; diese Prüfung nicht wiederholen.
+4. **#384:** nächstes Ausbaupaket nach den Restabnahmen: optionaler E-Mail-Kanal
+   ausschließlich für die letzte TV-Erinnerung. Zuerst Versanddienst, Absender,
+   Fehler-/Wiederholungsverhalten und begrenzten Testbetrieb festlegen; danach
+   gesonderte Umsetzungsfreigabe. Heute nur Übergabe, keine Implementierung.
+5. **#385:** weitere Anlässe anschließend einzeln priorisieren.
+
+Die konsolidierte offene Abnahmeliste und der Tagesabschluss stehen in
+[TITLE_NOTIFICATIONS.md](TITLE_NOTIFICATIONS.md#tagesabschluss-12102026).
 
 #382 ist abgeschlossen. Film-/Serien-Kette, frühe Fundmeldung mit Termin/Sender,
 Titelöffnung, Deduplizierung und Erinnerung bei geschlossener App sind durch
@@ -149,7 +158,7 @@ Diese Darstellungs-/Priorisierungsarbeit folgt nach den ersten zusätzlichen Ada
 ## Gesondert offene Betriebs- und Restpakete
 
 - #329 – Waipu-Restklassifizierung der technischen-only Einträge; Wartung, blockiert die aktuelle Hauptstrecke nicht
-- #312/#118 und #381–#385 – offene Teilpakete der Hauptstrecke #314; #380 ist abgeschlossen
+- #312/#118/#381 – verbleibende Abnahmen der Hauptstrecke #314; #384/#385 – gesonderte Erweiterungen. #380/#382/#383 und `movie-hub-admin#11` sind abgeschlossen
 - #386 – eng begrenzte Fire-TV-Nacharbeit zu verbliebenen Navigations-Freezes; eigenes offenes Folgeissue
 - #387 – Inventur, Fokus und Navigation der Einstellungen; eigenes offenes Folgeissue
 - #7 – erste Top-100-Stufe veröffentlicht und am 26.09.2026 auf Fire TV abgenommen; Empfehlungen und Automatisierung später
@@ -193,6 +202,6 @@ Vor einer öffentlichen Version 1.0 sollen mindestens folgende Blöcke abgeschlo
 
 ## Aktuelle Reihenfolge
 
-`#314 (#383; Restabnahmen #381/#118 und danach #312; #384/#385 optional) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
+`#314 (Restabnahmen #118/#381/#312; danach #384, anschließend #385) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
 
-#346, #315, #380 und #382 sind abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) bleiben getrennte Recherchepakete unter #271 und ändern die Hauptstrecke nicht.
+#346, #315, #380, #382, #383 und `movie-hub-admin#11` sind abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) bleiben getrennte Recherchepakete unter #271 und ändern die Hauptstrecke nicht.

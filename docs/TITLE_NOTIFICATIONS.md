@@ -14,8 +14,80 @@ bestätigt. Globale Admin-/Kontowechsel-Restabnahme und Gesamtfreigabe von #381
 sowie fachliche #118-/#312-Restpunkte bleiben offen. #383 ist am 12.10.2026 nach
 Matthias' Bestätigung „Okay. Passt. Weiter“ abgenommen und geschlossen:
 Verwaltung unter Einstellungen → Mitteilungen, Smartphone/Fire TV, Profilwechsel
-und geräteübergreifendes Ausschalten. Als Voraussetzung der globalen Restprüfung
-wird die Rücknahme in `movie-hub-admin#11` ergänzt.
+und geräteübergreifendes Ausschalten. `movie-hub-admin#11` ist ebenfalls
+veröffentlicht, am 12.10.2026 ausdrücklich abgenommen und geschlossen:
+Übersicht, Abbrechen und kontrollierte Rücknahme auf Smartphone/Fire TV.
+
+## Tagesabschluss 12.10.2026
+
+Die aktuelle Abnahme von Matthias („Ja, das nehme ich so ab. Das ist fertig.“)
+bezieht sich auf die zuletzt angefragte Admin-Übersicht und Rücknahme.
+`movie-hub-admin#11` ist damit abgeschlossen. Eine pauschale Abnahme weiterer,
+zuvor ausdrücklich getrennt geführter Randfälle wird daraus nicht abgeleitet.
+
+| Paket | Abschluss |
+| --- | --- |
+| #380 Server/IAM | Produktiv und seit 08.10. abgeschlossen |
+| #382 TV-Erinnerungen | 14-Tage-Fund + 5-Minuten-Enderinnerung, Film/Serie, Deduplizierung, geschlossene App und automatischer Abschluss abgenommen |
+| #383 aktive Beobachtungen | Einheitliche Verwaltung, Profilwechsel und geräteübergreifendes Ausschalten abgenommen |
+| #413 persönliche Smart-Reihen | Vollständige gemeinsame Titelbasis, Smartphone/Fire TV abgenommen |
+| #415 Schauspielersuche | Öffentlicher und persönlicher Bestand, Smartphone/Fire TV abgenommen |
+| movie-hub-admin#11 | Übersicht, Abbrechen und kontrollierte Rücknahme auf Smartphone/Fire TV abgenommen |
+
+### Noch zur gemeinsamen Abnahme
+
+1. **#118 – vollständige Fachabnahme „Wenn inklusive“:** bereits bestätigte
+   Bedienung, Meldung, automatische Abschaltung, Profiltrennung und persönliche
+   Mehrgeräte-Synchronisierung bleiben abgenommen. Die Gesamtfreigabe umfasst
+   auch den späteren ersten Einschluss bei einem aktivierten Anbieter,
+   keine Auslösung durch reine Kauf-/Leihangebote, genau eine Meldung je
+   Aktivierung und erneute Beobachtung nur nach bewusstem Einschalten.
+   Technische Randfälle sind über #381 und die erfolgreiche CI nachgewiesen;
+   ein zusätzlicher realer späterer Providerwechsel wird hier nicht behauptet.
+2. **#312 – beide globalen Anzeigearten und Bestätigung:** nur Posteingang bzw.
+   Startfenster plus Posteingang; Zurück bestätigt nicht, erst „OK, gelesen“;
+   gelesene Meldung bleibt bis zum Ablauf im Posteingang.
+3. **#381/#312 – globaler Lesezustand:** innerhalb desselben Kontos über Profile
+   und Geräte konsistent, zwischen verschiedenen Konten getrennt; eine spätere
+   Anmeldung erhält eine weiterhin gültige globale Meldung.
+4. **#312 – regulärer Ablauf:** nach Gültig-bis verschwindet die Meldung aus
+   Startfenster, Glockenzähler und aktuellem Posteingang. Die separat geprüfte
+   kontrollierte Rücknahme ist bereits abgeschlossen.
+
+#118/#381/#312 bleiben nur für diese Restabnahmen offen. Persönliche
+Fire-TV-/Profil-/Lesetests und die Admin-Rücknahme nicht erneut anfordern.
+Zeitgrenzen und persönliche 7-Tage-/Hard-TTL-Regeln sind deterministisch geprüft;
+es müssen keine sieben realen Tage abgewartet werden.
+
+### Nächstes Ausbaupaket: #384 – optionaler E-Mail-Kanal
+
+Nach den Restabnahmen zunächst das vorhandene Issue konkretisieren: eine
+zusätzliche E-Mail ungefähr fünf Minuten vor dem gebundenen TV-Termin,
+profilbezogenes Opt-in standardmäßig aus, Empfänger ausschließlich die
+bestätigte Konto-E-Mail. Die erste TV-Fundmeldung bleibt In-App.
+Vor Umsetzung Versanddienst/Absender, Kosten/Datenschutz, begrenzten Testmodus,
+Deduplizierung und Fehler-/Wiederholungsverhalten festlegen. Mailfehler dürfen
+die In-App-Meldung und den fachlichen TV-Abschluss nicht verhindern.
+
+Gestaltung und Bedienung folgen dem vorhandenen Bereich Einstellungen →
+Mitteilungen und den gemeinsamen Smartphone-/Fire-TV-Konventionen.
+Kein neuer Katalogimport, keine neue Beobachtungsverwaltung, kein allgemeiner
+Mailversand aus dem Client. Heute wird dieses Paket nur vorbereitet;
+Implementierung und Testversand beginnen nicht mit dieser Dokumentation.
+Danach #385 einzeln priorisieren; die anschließende Hauptstrecke #271/#336
+bleibt bestehen. #314 bleibt die übergeordnete Klammer.
+
+### Technischer Endstand
+
+Am Tagesabschluss sind in beiden Repositories keine offenen Pull Requests
+vorhanden. Movie Hub `891fcce`: CI [38261104040](https://github.com/matthias-ennen/movie-hub/actions/runs/38261104040),
+Android [38261104049](https://github.com/matthias-ennen/movie-hub/actions/runs/38261104049)
+und Deploy [38261104010](https://github.com/matthias-ennen/movie-hub/actions/runs/38261104010)
+erfolgreich. Admin `0c62707`: CI/Android sowie Backend
+[38262738487](https://github.com/matthias-ennen/movie-hub-admin/actions/runs/38262738487)
+und Hosting [38263221637](https://github.com/matthias-ennen/movie-hub-admin/actions/runs/38263221637)
+erfolgreich. Die Abschlussänderung betrifft ausschließlich Dokumentation und
+Issue-Status; sie benötigt keinen neuen App- oder Backend-Deploy.
 
 ## Bedienung
 
