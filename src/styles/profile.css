@@ -557,6 +557,16 @@
   font-weight: 800;
 }
 
+.title-watch-row .title-watch-schedule {
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.title-watch-panel h2:focus {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 5px;
+}
+
 .personal-row-setting-actions,
 .personal-row-editor-actions {
   display: flex;

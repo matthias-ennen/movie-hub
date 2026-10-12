@@ -1564,6 +1564,7 @@ function MovieHub({ user }) {
       {currentView === 'settings' && (
         <Suspense fallback={<LazyViewLoading label="Einstellungen" className="browse-page profile-page" />}>
           <LazySettingsView
+            userId={user.uid}
             waipuStations={waipuStationCatalog.stations}
             waipuStationStatus={waipuStationCatalog.status}
             joynStations={joynStationCatalog.stations}

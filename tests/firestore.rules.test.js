@@ -5,8 +5,9 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing'
-import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, Timestamp, where, writeBatch } from 'firebase/firestore'
+import { collection, doc, documentId, getDoc, getDocs, or, query, runTransaction, serverTimestamp, setDoc, Timestamp, where, writeBatch } from 'firebase/firestore'
 import { nativeTitleToFirestore } from '../src/tmdb/tmdbCatalogModel.js'
+import { cancelTitleWatch } from '../src/notifications/titleWatchManagement.js'
 
 let testEnv
 
@@ -33,6 +34,45 @@ afterAll(async () => {
 })
 
 describe('Firestore Security Rules', () => {
+  it('lädt die aktive Verwaltungsübersicht und beendet nur die gewählte eigene Beobachtung', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore()
+    const bob = testEnv.authenticatedContext('bob').firestore()
+    const prefix = ['users', 'alice', 'profiles', 'management']
+    const expected = { id: 'movie-383-tv', schemaVersion: 2, status: 'active', type: 'movie', tmdbId: 383,
+      title: 'Verwaltungstest', kind: 'tv', activationId: 'session-a' }
+    const ref = doc(alice, ...prefix, 'titleAlerts', expected.id)
+    const { id, ...payload } = expected
+    await assertSucceeds(setDoc(ref, { ...payload, createdAt: serverTimestamp() }))
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(doc(db, ...prefix, 'titleAlerts', 'movie-384-included'), {
+        ...payload, kind: 'included', tmdbId: 384, status: 'completed',
+      })
+      await setDoc(doc(db, ...prefix, 'titleAlerts', 'movie-385-tv'), {
+        schemaVersion: 1, type: 'movie', tmdbId: 385, title: 'Legacy', kind: 'tv', activationId: 'legacy',
+      })
+      await setDoc(doc(db, ...prefix, 'notifications', 'movie-383-tv-session-a-initial'), { phase: 'tv-found' })
+      await setDoc(doc(db, ...prefix, 'notificationReads', 'movie-383-tv-session-a-initial'), { readAt: Timestamp.now() })
+      await setDoc(doc(db, 'users', 'alice', 'profiles', 'other', 'titleAlerts', id), payload)
+    })
+    const watchQuery = (db) => query(collection(db, ...prefix, 'titleAlerts'),
+      or(where('status', '==', 'active'), where('schemaVersion', '==', 1)))
+    expect((await assertSucceeds(getDocs(watchQuery(alice)))).docs.map((entry) => entry.id).sort())
+      .toEqual(['movie-383-tv', 'movie-385-tv'])
+    await assertFails(getDocs(watchQuery(bob)))
+    const scheduleQuery = (db) => query(collection(db, ...prefix, 'notifications'),
+      where(documentId(), 'in', ['movie-383-tv-session-a-initial', 'movie-385-tv-legacy-initial']))
+    expect((await assertSucceeds(getDocs(scheduleQuery(alice)))).size).toBe(1)
+    await assertFails(getDocs(scheduleQuery(bob)))
+    await assertFails(runTransaction(bob, (transaction) => cancelTitleWatch(transaction,
+      doc(bob, ...prefix, 'titleAlerts', id), expected)))
+    await assertSucceeds(runTransaction(alice, (transaction) => cancelTitleWatch(transaction, ref, expected)))
+    expect((await getDoc(ref)).exists()).toBe(false)
+    expect((await getDoc(doc(alice, ...prefix, 'notifications', 'movie-383-tv-session-a-initial'))).exists()).toBe(true)
+    expect((await getDoc(doc(alice, ...prefix, 'notificationReads', 'movie-383-tv-session-a-initial'))).exists()).toBe(true)
+    expect((await getDoc(doc(alice, 'users', 'alice', 'profiles', 'other', 'titleAlerts', id))).exists()).toBe(true)
+  })
+
   it('schützt persönliche Beobachtungen und Mitteilungen pro Konto', async () => {
     const alice = testEnv.authenticatedContext('alice').firestore()
     const bob = testEnv.authenticatedContext('bob').firestore()

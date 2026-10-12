@@ -15,6 +15,7 @@ import { useJoynStationSelection } from '../settings/useJoynStationSelection.js'
 import { moveJoynStation } from '../settings/joynStationSelectionModel.js'
 import { useTmdbCatalog } from '../tmdb/TmdbCatalogProvider.jsx'
 import { ProviderBadge } from './ProviderBadges.jsx'
+import TitleWatchSettings from './TitleWatchSettings.jsx'
 
 const VISIBILITY_GROUPS = [
   {
@@ -100,6 +101,7 @@ function visibleProviderOptions(availableTmdbProviderIds) {
 }
 
 export default function SettingsView({
+  userId,
   availableTmdbProviderIds = null,
   waipuStations = [],
   waipuStationStatus = 'loading',
@@ -250,6 +252,9 @@ export default function SettingsView({
         <h1>Einstellungen</h1>
         <p>Profilbezogene Darstellung sowie kontoweite Streaming- und Geräteverbindungen an einem Ort.</p>
       </div>
+
+      <TitleWatchSettings key={JSON.stringify([userId, activeProfile?.id])}
+        userId={userId} profileId={activeProfile?.id} profileName={activeProfile?.displayName} />
 
       <section className="settings-panel content-display-panel" aria-labelledby="profile-display-heading">
         <div className="settings-heading">
