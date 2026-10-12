@@ -9,6 +9,7 @@ export async function prepareDetailRequestItem(item, {
   artworkOptions = {},
   liveAvailabilityEntries = [],
   liveAvailabilityNow = Date.now(),
+  acceptLiveProvider = null,
   loadComplete = loadRuntimeTitleMetadata,
   presentArtwork = resolvePresentationArtwork,
 } = {}) {
@@ -19,7 +20,7 @@ export async function prepareDetailRequestItem(item, {
   const [liveDetail = detail] = mergeLiveAvailability(
     [detail],
     liveAvailabilityEntries,
-    { now: liveAvailabilityNow },
+    { now: liveAvailabilityNow, acceptLiveProvider },
   )
   return presentArtwork(liveDetail, artworkOptions)
 }

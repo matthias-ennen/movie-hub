@@ -8,36 +8,12 @@ function unique(values = []) {
   return [...new Set((Array.isArray(values) ? values : []).map(text).filter(Boolean))]
 }
 
-const PRIMARY_PROVIDER_ORDER = ['moviehub', 'waipu', 'joyn']
-const LIVE_SOURCE_PROVIDER_IDS = new Set(
-  PROVIDER_REGISTRY
-    .filter((provider) => Boolean(provider.liveTvSource))
-    .map((provider) => provider.id),
-)
-const PROVIDER_PRESENTATION_ORDER = [
-  ...PRIMARY_PROVIDER_ORDER,
-  ...PROVIDER_REGISTRY
-    .map((provider) => provider.id)
-    .filter((providerId) => !PRIMARY_PROVIDER_ORDER.includes(providerId)),
-]
-const PROVIDER_PRESENTATION_RANK = new Map(
-  PROVIDER_PRESENTATION_ORDER.map((providerId, index) => [providerId, index]),
-)
+export { orderProviderIds } from './providerOrder.js'
+import { orderProviderIds } from './providerOrder.js'
 
-export function orderProviderIds(providerIds = [], {
-  includeMovieHub = false,
-} = {}) {
-  const ordered = unique([
-    ...(includeMovieHub ? ['moviehub'] : []),
-    ...(Array.isArray(providerIds) ? providerIds : []),
-  ])
-
-  return ordered.sort((left, right) => {
-    const leftRank = PROVIDER_PRESENTATION_RANK.get(left) ?? Number.MAX_SAFE_INTEGER
-    const rightRank = PROVIDER_PRESENTATION_RANK.get(right) ?? Number.MAX_SAFE_INTEGER
-    return leftRank - rightRank
-  })
-}
+const LIVE_SOURCE_PROVIDER_IDS = new Set(PROVIDER_REGISTRY
+  .filter((provider) => Boolean(provider.liveTvSource))
+  .map((provider) => provider.id))
 
 function tmdbProviderIds(item) {
   if (Array.isArray(item?.tmdbProviderIds)) return unique(item.tmdbProviderIds)

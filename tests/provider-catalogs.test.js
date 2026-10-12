@@ -168,7 +168,7 @@ describe('provider catalog architecture', () => {
 
     expect(rows[0].items).toHaveLength(3)
     expect(rows[0].displayLimit).toBe(2)
-    expect(rows[0].preserveOrder).toBe(true)
+    expect(rows[0].preserveOrder).toBe(false)
   })
 
   it('benennt Paramount Home passend zur popularity-basierten Quelle', () => {

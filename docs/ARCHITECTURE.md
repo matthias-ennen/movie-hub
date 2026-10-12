@@ -54,7 +54,9 @@ VOD-/Watch-Provider aus TMDB und zeitabhängige Live-TV-Provider sind fachlich g
 
 Zusätzlich erscheint **Movie Hub** an erster Stelle der kontoweiten Anbieterauswahl. Dieser interne virtuelle Anbieter wird nicht von TMDB erzeugt: Seine Katalogmitgliedschaft entsteht automatisch aus den kontoweiten eigenen Links und Videos. Das Ausschalten blendet Movie-Hub-Reihen, -Badges und den Wiedergabebutton aus, löscht aber keine eigenen Inhalte.
 
-Die zentrale Darstellungsreihenfolge lautet **Movie Hub → Waipu → Joyn → übrige Provider gemäß Registry**. Poster zeigen nach dieser Sortierung höchstens drei Anbieter; Detailseiten dürfen mehr zeigen, behalten aber dieselbe Reihenfolge.
+Die zentrale Darstellungsreihenfolge lautet **Movie Hub → Waipu → Joyn → übrige Provider alphabetisch nach Anzeigename** (`providerOrder.js`). Einstellungen, Katalogreihen und Badges verwenden diese gemeinsame Ordnung. Poster zeigen höchstens drei Anbieter; Detailseiten dürfen mehr zeigen.
+
+#387 gliedert die Einstellungen in Darstellung & Posterreihen, Anbieter & Sender, Mitteilungen und Verbindungen. Nur die aktive Unterseite baut ihre Listen auf. Bestehende Profil-, Konto- und Gerätegrenzen sowie gespeicherte Auswahlen bleiben erhalten. Das gemeinsame Anbieter-Lesemodell ergänzt vorhandene TMDB-Mitgliedschaften um aktivierte Live-Angebote; Home, Browse und Top 10 nutzen denselben Bestand ohne zusätzliche Anfragen je Reihe. Ein gemeinsamer Anbieter-/Senderfilter gilt für Live-Nachweise, TV-Hero, Tagesprogramm und 14-Tage-Übersicht. Inventar, Navigation, Senderordnung und Prüfstand: [SETTINGS.md](SETTINGS.md).
 
 ### Quellenplattform, Senderereignisse und PlaybackRoutes
 
@@ -82,7 +84,7 @@ Der Movie-Hub-Button ist fachlich vom Provider-Layer getrennt. Unter ihm liegen 
 - **Link**: HTTP(S)-Adresse, die in der passenden externen App beziehungsweise im Browser geöffnet wird
 - **Video**: HTTP(S)-Video oder SMB-/UNC-Netzwerkvideo; das zugrunde liegende Protokoll wird automatisch aus der Adresse erkannt
 
-SMB ist kein eigener Bedien- oder Medientyp. Zugangsdaten und Netzlaufwerksdefinitionen bleiben ausschließlich gerätelokal unter **Einstellungen → Netzlaufwerke**.
+SMB ist kein eigener Bedien- oder Medientyp. Zugangsdaten und Netzlaufwerksdefinitionen bleiben ausschließlich gerätelokal unter **Einstellungen → Verbindungen → Netzlaufwerke**.
 
 Ein kontoweites Shared-Media-Manifest bildet daraus ohne öffentlichen Nutzerkatalog und ohne Abfrage jeder Posterkarte die Movie-Hub-Katalogsicht. Vor der Manifest-Einführung gespeicherte Einträge werden bei ihrem nächsten kontrollierten Presence-/Detailzugriff automatisch nachgezogen.
 

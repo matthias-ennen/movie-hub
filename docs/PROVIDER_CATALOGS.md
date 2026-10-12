@@ -144,12 +144,12 @@ Kann der öffentliche Katalog vorübergehend nicht geladen werden, werden deshal
 Reihenfolge:
 
 1. Movie-Hub-Anbieterreihe, sofern eigene Inhalte vorhanden und der Anbieter aktiv ist
-2. öffentliche Anbieterreihen
+2. öffentliche Anbieterreihen: Waipu, Joyn, übrige alphabetisch
 3. allgemeine Entdeckungsreihen
 4. persönliche Movie-Hub-Reihen
 5. persönlicher TMDB-Katalog
 
-Die öffentlichen Anbieterreihen kuratieren je bis zu 20 Filme und Serien aus ihrem vollständigen verfügbaren Kandidatenpool und verwenden kurze redaktionelle Titel, beispielsweise:
+Die öffentlichen Anbieterreihen kuratieren Filme und Serien gemeinsam aus ihrem vollständigen geladenen Kandidatenpool. Das Profil bestimmt das sichtbare Posterlimit; erst nach der Sortierung wird begrenzt. #387 ergänzt Waipu-/Joyn-Live-Mitgliedschaften vorhandener Titel um die aktivierten, noch gültigen Senderangebote. Leere oder deaktivierte Reihen entfallen. Gemeinsame Ordnung, Geltungsbereiche und UI-Inventar: [SETTINGS.md](SETTINGS.md). Die Reihen verwenden kurze redaktionelle Titel, beispielsweise:
 
 - Beliebt auf Netflix
 - Highlights bei Prime Video

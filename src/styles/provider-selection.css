@@ -114,3 +114,59 @@ body.tv-mode .provider-selection-row:focus-visible {
   outline: var(--focus-width) solid var(--color-focus);
   outline-offset: var(--focus-offset);
 }
+
+/* Shared settings hierarchy and controls, with one page scroll surface. */
+.settings-navigation {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.settings-navigation-entry,
+.settings-back {
+  color: var(--color-text);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  padding: 1rem 1.2rem;
+  text-align: left;
+}
+
+.settings-navigation-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 88px;
+  width: 100%;
+}
+
+.settings-navigation-entry > span:first-child {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.settings-navigation-entry small { color: var(--color-muted); }
+.settings-navigation-entry strong { font-size: 1.15rem; }
+.settings-navigation-entry:hover,
+.settings-navigation-entry:focus-visible,
+.settings-back:focus-visible { border-color: var(--color-focus); }
+.settings-back { margin-top: var(--space-3); min-height: 44px; }
+.app-settings-page .settings-panel { max-width: none; width: 100%; }
+.settings-toggle { grid-template-columns: minmax(0, 1fr) auto auto; }
+.settings-toggle.has-badge { grid-template-columns: 48px minmax(0, 1fr) auto auto; }
+.profile-page button[aria-disabled='true'] { opacity: 0.68; cursor: default; }
+.settings-search { display: grid; gap: 0.5rem; margin-bottom: var(--space-4); }
+.settings-search input {
+  width: 100%; min-height: 48px; padding: 0.8rem;
+  border: 1px solid var(--color-line); border-radius: var(--radius-control);
+  background: var(--color-surface-soft); color: var(--color-text);
+}
+@media (max-width: 700px) {
+  .settings-toggle { grid-template-columns: minmax(0, 1fr) auto; }
+  .settings-toggle.has-badge { grid-template-columns: 40px minmax(0, 1fr) auto; }
+}
+
+.app-settings-page .page-heading h1 {
+  font-size: clamp(1.65rem, 4vw, 2.6rem);
+  overflow-wrap: anywhere;
+}
