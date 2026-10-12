@@ -1,6 +1,6 @@
 # Movie Hub – Issue-Plan
 
-Stand: 7. Oktober 2026
+Stand: 12. Oktober 2026
 
 ## Arbeitsprinzip
 
@@ -25,16 +25,16 @@ Am 26.09.2026 wurden folgende Planungsaltlasten bereinigt:
 Produktentscheidungen und Abnahmekriterien stehen in #314. #312 und #118
 bleiben darin als offene Teilpakete erhalten.
 
-Konkrete Reihenfolge:
+Aktueller Abschluss- und Fortsetzungsstand:
 
-1. #380 – aktuellen Server-/IAM-Pfad prüfen und einen kontrollierten echten
-   Beobachtungsfall nachweisen; notwendige Fehlerbehebung und Entkopplung
-   vom Publikationsabschluss. Der aktuelle Code-Deploy lässt `alerts:check` aus
-   und schließt diesen Punkt deshalb nicht.
-2. #381 + #118 – einmalige Erfüllung, automatische Deaktivierung, Gültigkeit,
-   Hard-TTL und endlicher Posteingang.
-3. #382 – TV-Fund über 14 Tage sowie zweite In-App-Erinnerung fünf Minuten
-   vor Beginn; kleiner unabhängiger Zeitprüfer ohne neue Quellenimporte.
+1. #380 – seit 08.10.2026 abgeschlossen: Server-/IAM-Pfad und echter
+   Beobachtungsfall bestätigt; Alert-Fehler vom Publikationsabschluss entkoppelt.
+2. #381 + #118 – Lebenszyklus produktiv. Fire-TV-Bedienung, persönliche
+   Profiltrennung und Zwei-Geräte-Lesestatus bestätigt. Restabnahme für globale
+   Admin-Mitteilungen/Kontowechsel und Gesamtfreigabe offen; PR #404 ist übernommen.
+3. #382 – 14-Tage-Fund und privater Minutenprüfer produktiv; Aktivierung am
+   10.10.2026 belegt. Reale Film-/Serien-Erinnerungskette, automatischer Abschluss
+   und Einordnung der gemeldeten Verspätung bleiben offen.
 4. #383 – aktive Beobachtungen in den Einstellungen verwalten.
 5. #312 – verbleibende Ende-zu-Ende-/Mehrgeräte-Abnahme. Admin-Schreibfunktionen
    werden im getrennten Movie-Hub-Admin-Paket behandelt.
@@ -51,9 +51,11 @@ zu den abgeschlossenen #280/#315 dokumentiert, ohne neues eigenes Issue.
 - Restore des größeren vollständigen Joyn-Titelbestands korrigiert;
 - 837 Unit-Tests, 17 Firestore-Regeltests, CI, APK und finaler Code-Deploy erfolgreich.
 
-**Noch offen:** regulärer Nachtlauf am 08.10.2026 (Sollstart 00:17 Uhr
-Europe/Berlin) mit normalen Budgets, gesicherten Checkpoints, vollständigem
-TMDB-Verbraucherabschluss und frischen gemeinsamen öffentlichen Daten.
+**Aktualisierung 12.10.2026:** Nach #411/#412 bestätigt der reguläre
+[Nachtlauf 38191419867](https://github.com/matthias-ennen/movie-hub/actions/runs/38191419867)
+normale Budgets, gesicherte Checkpoints, vollständigen TMDB-Verbraucherabschluss
+und frische gemeinsame öffentliche Daten. Start 03:19 statt 00:17 Uhr Europe/Berlin:
+182 Minuten Verzögerung, deshalb kein Nachweis pünktlicher Ausführung.
 Nachweise: [DATA_WORKFLOW_RELIABILITY.md](DATA_WORKFLOW_RELIABILITY.md).
 Dieser Betriebspunkt ersetzt die Produkt-Hauptstrecke #314 nicht.
 
@@ -86,6 +88,8 @@ Ziel: Ein Nutzer erkennt unmittelbar, ob ein Titel ohne Einzelkauf verfügbar is
 
 ## Parallel / nicht blockierend
 
+- #413 – persönliche Smart-Reihen: PR #414 veröffentlicht; manuelle Filter-/Geräteabnahme offen
+- #415 – Schauspielersuche: PR #416 veröffentlicht; manuelle Such-/Fire-TV-Abnahme offen
 - #329 – Waipu-Restklassifizierung
 - #386 – verbleibende Fire-TV-Navigations-Freezes; eigenes Folgepaket nach #346
 - #387 – Inventur, Fokus und Navigation der Einstellungen
@@ -110,8 +114,8 @@ Vor öffentlicher Veröffentlichung:
 
 ## Aktuelle Abhängigkeitskette
 
-`#314 (#380 → #381/#118 → #382 → #383 → offene Abnahmen; #384/#385 optional) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
+`#314 (#381/#118 und #382 Restabnahme → #383 → #312 Restabnahme; #384/#385 optional) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
 
-#280, #315 und #346 bleiben abgeschlossen. Die Nachtlauf-Bestätigung des
-Betriebsnachtrags wird separat geprüft. #329 bleibt Wartung; Movie Hub Admin
+#280, #315, #346 und #380 bleiben abgeschlossen. Die reguläre Datenfortschreibung
+ist bestätigt; Startverzögerungen bleiben unter Beobachtung. #329 bleibt Wartung; Movie Hub Admin
 wird als getrenntes späteres Paket behandelt.

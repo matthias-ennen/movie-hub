@@ -1,6 +1,32 @@
 # Nachtlauf: Alarm und dauerhaftes Import-Checkpoint
 
-Stand: 11.10.2026. Historisches Betriebspaket: [#315](https://github.com/matthias-ennen/movie-hub/issues/315), abgeschlossen am 03.10.2026.
+Stand: 12.10.2026. Historisches Betriebspaket: [#315](https://github.com/matthias-ennen/movie-hub/issues/315), abgeschlossen am 03.10.2026.
+
+## Bestätigte reguläre Fortschreibung (12.10.2026)
+
+Der [Nachtlauf 38191419867](https://github.com/matthias-ennen/movie-hub/actions/runs/38191419867)
+ist vollständig erfolgreich. Die am 12.10.2026 ausgelesenen Deploy-Joblogs
+(`114624830964`) belegen den Standardmodus, Restore/Sicherung der privaten
+Waipu-/Joyn-/TMDB-Checkpoints, Quellenimporte, Verbraucherabschluss,
+Hosting-/Regel-Veröffentlichung und Rückprüfung der öffentlichen App-Daten.
+
+- Waipu: 228 Sender, 3.525 Titel, 46.473 Ausstrahlungen; Titelmetadaten vollständig.
+- Joyn: 127 Sender, 2.155 Titel, 24.733 Ausstrahlungen; 56/56 Fenster,
+  67 tatsächliche EPG-Abrufe, 43 aus Cache; keine technischen Quellenfehler.
+  28 Sender haben einen kürzeren tatsächlich verfügbaren Quellenhorizont.
+- Kanonischer Executor: 337/337 Identitäten, 19 geladen, 318 wiederverwendet,
+  30 Requests, 104 persönliche Verteilungen; Checkpoint 12.10.2026 bestätigt.
+- Persönliche Mitteilungsprüfung: `observed=6`, `includedCreated=1`,
+  `tvCreated=0`, `failed=0`. Dies bestätigt den Nachtlauf-Prüfer, nicht die
+  davon unabhängige Fünf-Minuten-Cloud-Function oder eine Geräteabnahme.
+
+**Verbleibende Beobachtung:** geplanter Start 00:17 Uhr, tatsächlicher
+Arbeitsbeginn 03:19:31 Uhr Europe/Berlin (182 Minuten verspätet). Die erfolgreiche
+Datenfortschreibung ist damit nachgewiesen, pünktlicher Start nicht.
+Der Bericht nennt außerdem drei Quellen-Schema-Reviewpunkte und null Breaking-
+Befunde; ein grüner Lauf schließt diese fachlichen Reviews nicht automatisch.
+Die bestehende Überwachung bleibt zuständig. Die historischen Abschnitte unten
+erklären die früheren Fehler; sie sind keine aktuellen Release-Blocker.
 
 ## Compilation-Suchtreffer und kanonische Wiederverwendung (11.10.2026)
 
@@ -30,8 +56,8 @@ normalen Requestbudgets nach. Fallbacks werden gezählt. Fehler, unvollständige
 Metadaten und Budgetüberschreitungen bleiben vor dem Fan-out blockierend.
 
 Lokale Prüfung: 935 Unit-Tests und Produktions-Build erfolgreich.
-Die produktive Bestätigung erfordert weiterhin einen vollständigen Datenlauf
-und die Rückprüfung der fünf veröffentlichten Endpunkte.
+Produktiv bestätigt durch den [Wiederanlauf 38132987072](https://github.com/matthias-ennen/movie-hub/actions/runs/38132987072)
+und die reguläre Fortschreibung vom 12.10.2026 einschließlich öffentlicher Rückprüfung.
 
 ## Joyn-Suchantwort und Wiederaufnahme (11.10.2026)
 
@@ -60,9 +86,9 @@ Korrektur unter dem bestehenden Betriebsnachtrag #271/#315:
   erfolgreicher Authentifizierung. Antwortdiagnose und abgewartete Pause
   erscheinen im Bericht.
 
-Die Korrektur ersetzt keinen produktiven Quellenbeleg: Erst der nächste
-vollständige Datenlauf bestätigt die Wiederaufnahme und konsistente
-Veröffentlichung. Ein Code-Deploy allein bestätigt keine neuen Quellenmengen.
+Die Wiederaufnahme und konsistente Veröffentlichung sind durch die oben
+verlinkten vollständigen Datenläufe vom 11./12.10.2026 bestätigt.
+Ein Code-Deploy allein bestätigt weiterhin keine neuen Quellenmengen.
 
 ## Einordnung und Abschlussstand 07.10.2026
 
@@ -72,7 +98,8 @@ der den abgeschlossenen Joyn-Adapter #280 und den Betrieb aus #315 erweitert.
 Dafür wurde kein neues eigenes Arbeitspaket-Issue angelegt. #280 und #315 werden
 durch diesen Nachtrag nicht wieder geöffnet. Das aktuelle große Produktpaket
 bleibt [#314 Mitteilungen](https://github.com/matthias-ennen/movie-hub/issues/314);
-sein erster Umsetzungsschritt ist die Istprüfung des Server-/IAM-Pfads in #380.
+Der damals erste Umsetzungsschritt #380 ist inzwischen abgeschlossen;
+aktuell stehen die Restabnahmen #381/#382 und anschließend #383 an.
 Movie Hub Admin und seine spätere Logansicht bleiben getrennte Vorhaben.
 
 Technisch umgesetzt und geprüft:
@@ -94,19 +121,18 @@ Technisch umgesetzt und geprüft:
   [Android-APK 37603310199](https://github.com/matthias-ennen/movie-hub/actions/runs/37603310199)
   ebenfalls erfolgreich. Reale lesende Joyn-Schnittstellenprobe erfolgreich.
 
-Noch offen:
+Damals offener Betriebspunkt, aktualisiert am 12.10.2026:
 
-- [ ] Der reguläre Nachtlauf am **08.10.2026**, Sollstart **00:17 Uhr Europe/Berlin**,
-  bestätigt den tatsächlichen Start, die tägliche Fortschreibung beider Quellen
-  mit den normalen Budgets, Wiederherstellung und Sicherung der Checkpoints,
-  den vollständigen zentralen TMDB-Verbraucherabschluss sowie die frische,
-  konsistente Veröffentlichung aller fünf öffentlichen Endpunkte.
+- [x] Tägliche Fortschreibung beider Quellen mit normalen Budgets,
+  Wiederherstellung/Sicherung der Checkpoints, zentraler TMDB-Verbraucherabschluss
+  und konsistente öffentliche Rückprüfung durch den regulären Lauf vom 12.10.2026 belegt.
+- [ ] Pünktlicher planmäßiger Start um 00:17 Uhr Europe/Berlin;
+  am 12.10.2026 wurde eine Verzögerung von 182 Minuten gemessen.
 
-Der einmalige Vollaufbau und ein erfolgreicher Code-Deploy sind noch kein
-Nachweis für diesen regulären Datenlauf. Die vorhandene Überwachung prüft den
-offenen Betriebspunkt; eine neue Überwachung wird dafür nicht angelegt.
-Die heutigen technischen Prüfungen ersetzen keine manuelle Geräteabnahme
-eines späteren Produktpakets.
+Die Bestätigung stammt aus dem vollständigen regulären Datenlauf, nicht allein
+aus einem Code-Deploy. Die vorhandene Überwachung prüft weiterhin Start und
+Datenfrische; eine neue Überwachung wird dafür nicht angelegt. Diese technischen
+Nachweise ersetzen keine manuelle Geräteabnahme eines Produktpakets.
 
 ## TMDB-Suchbudget 07.10.2026
 

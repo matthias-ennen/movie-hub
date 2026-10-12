@@ -1,4 +1,15 @@
-# Titelbezogene Mitteilungen – Stand 08.10.2026
+# Titelbezogene Mitteilungen – Stand 12.10.2026
+
+## Produktiv- und Abnahmestand
+
+#380 (Server/IAM) ist abgeschlossen. #381 einschließlich Kontotrennung aus
+PR #404 und beide TV-Phasen #382 sind produktiv. Der private Minutenprüfer wurde
+am 10.10.2026 aktiviert; der letzte belegte Cloud-Lognachweis stammt von diesem
+Tag. Smartphone-/Fire-TV-Bedienung, persönlicher Profilwechsel und
+geräteübergreifender Lesestatus sind in #381 bestätigt. Offen bleiben globale
+Admin-/Kontowechsel-Restabnahme, Gesamtfreigabe und die reale Film-/Serien-
+Erinnerungskette in #382 einschließlich der gemeldeten Timing-Abweichung.
+Aktive Beobachtungen zentral verwalten folgt in #383.
 
 ## Bedienung
 
@@ -29,9 +40,10 @@ beiden Anlässe.
   TMDB-Abrufe führen nicht zum Abschluss.
 - „Wenn im TV“ nutzt die vollständigen, höchstens 48 Stunden alten
   Generationen von **Waipu und Joyn**. Der früheste Termin eines nicht
-  deaktivierten Senders innerhalb der nächsten 36 Stunden ergibt eine
-  Meldung mit Uhrzeit, Sender und gegebenenfalls Staffel/Folge. Derselbe Termin und weitere Termine
-  derselben Serie innerhalb von sieben Tagen erzeugen keine zweite Meldung.
+  deaktivierten Senders innerhalb des veröffentlichten 14-Tage-Horizonts ergibt
+  eine erste Meldung mit Uhrzeit, Sender und gegebenenfalls Staffel/Folge.
+  Pro Aktivierung gibt es genau eine Fundmeldung und eine abschließende
+  Erinnerung zum gebundenen Termin; kein allgemeiner Sieben-Tage-Cooldown.
   Die Serienbeobachtung gilt im ersten Umfang für die Serie als Ganzes.
   Beim Einschalten prüft die App den aktuellen veröffentlichten TV-Stand auch
   sofort, damit ein Termin am selben Abend nicht bis zum nächsten Nachtlauf
@@ -59,10 +71,10 @@ beiden Anlässe.
   Erst nach Schließen und erneutem Öffnen zeigt er deshalb `Aus`.
   Kein Erfolgshinweis und kein Timer. Die TV-Beobachtung ist unabhängig.
 
-## #382 – TV-Fundstufe auf 14 Tage (Entwicklungsstand, noch nicht produktiv)
+## #382 – TV-Fundstufe auf 14 Tage (produktiv)
 
-Die Entwicklung von #382 erfolgt getrennt von der abgeschlossenen #381-Basis.
-Die erste Phase erweitert Client und vertrauenswürdigen Server gemeinsam:
+PR #405 erweitert Client und vertrauenswürdigen Server gemeinsam.
+Die technische #381-Basis ist produktiv; deren Gesamtabnahme bleibt separat offen:
 - Auswahl des frühesten passenden TV-Termins im **veröffentlichten 14-Tage-Horizont**,
   mit den im Benutzerkonto eingeschalteten Waipu-/Joyn-Sendern;
 - **ein** erstes `tv-found`-Ereignis pro Aktivierung, unabhängig von erneuten
@@ -77,7 +89,7 @@ Die erste Phase erweitert Client und vertrauenswürdigen Server gemeinsam:
   bis höchstens sieben Tage nach Sendeende gültig (Hard-TTL maximal 30 Tage);
 - Der TV-Watch bleibt nach der Erstmeldung **aktiv**.
 
-**Terminänderungen im folgenden #382-Entwicklungsstand:** Der vertrauenswürdige
+**Terminänderungen:** Der vertrauenswürdige
 Nachtlauf vergleicht den bereits gebundenen ersten TV-Termin mit beiden
 vollständig verfügbaren Waipu-/Joyn-Generationen. Vor Sendebeginn korrigiert
 er Beginn, Ende und Sender **innerhalb derselben Erstmeldung** ohne neue
@@ -89,12 +101,11 @@ neu gebunden. Unvollständige Quellen führen ausdrücklich **nicht** zur
 automatischen Stornierung. Bereits laufende Sendungen werden nicht rückwirkend
 auf eine andere Ausstrahlung verlegt.
 
-**Noch nicht in dieser Phase:** Ein zeitnaher, zuverlässiger Scheduler
-für das 5-Minuten-Endereignis, Terminverschiebung/-ausfall und finaler
-atomarer Watch-Abschluss. Diese Schritte sind vor der Gesamtfreigabe von
-#382 einschließlich IAM- und produktiver Ende-zu-Ende-Tests nötig.
+Terminabgleich und atomarer Watch-Abschluss sind implementiert; der unabhängige
+Minutendienst ist aktiviert. Der reale Ende-zu-Ende-Test der gesamten Kette
+bleibt Voraussetzung für die fachliche Gesamtfreigabe von #382.
 
-## #382 – zweite TV-Phase: Enderinnerungs-Prüfer (vorbereitet, NICHT aktiviert)
+## #382 – zweite TV-Phase: Enderinnerungs-Prüfer (aktiviert)
 
 `scripts/check-tv-final-reminders.mjs` ist ein separater, zeitkurzer
 Firestore-Admin-Prüfer, der **keine** externen Programmdaten oder TMDB-Daten
@@ -122,20 +133,28 @@ Ist die Sendung bereits beendet, gibt es keine rückwirkende Falschmeldung:
 Der Ersttermin wird als `expired` markiert, die aktive Beobachtung kann beim
 nächsten bestätigten EPG-Termin neu gebunden werden – ohne zweite Fundmeldung.
 
-**Cloud-Setup vorbereitet:** [TV-Scheduler-Runbook](TV_FINAL_SCHEDULER_RUNBOOK.md)
-und die getrennte Firebase-Functions-Codebase mit manuell geschützter
-Aktivierung sind im Draft-PR #406 enthalten. Kein Scheduler wurde aktiviert.
+**Cloud-Setup produktiv:** PR #407 ersetzt den historischen Draft #406;
+PR #409/#410 liefern den privaten HTTP-/OIDC-Pfad. Der freigegebene
+[Aktivierungslauf 38064584915](https://github.com/matthias-ennen/movie-hub/actions/runs/38064584915)
+hat `movie-hub-tv-final-1min` in `europe-west3` mit `* * * * *` aktiviert.
+Die in #382 dokumentierten Cloud-Logs vom 10.10., 17:46–17:48 Uhr Europe/Berlin,
+belegen wiederholte Ausführung mit `failed=0`, aber `finalCreated=0`.
+Das belegt noch keinen fälligen echten Enderinnerungsfall.
 
-**Abnahme- und Release-Gates:** Der vorgesehene separate GCP-Zeitgeber,
-seine Identität/Berechtigungen, Firestore-Collection-Group-Index und
-laufende Kosten bedürfen einer **expliziten Freigabe**. Kein Cron-Trigger,
-keine Cloud Function und keine Produktionsausführung wurden mit diesem
-PR eingerichtet. Die Script-CLI `npm run alerts:tv:final:check` steht
-nur für spätere autorisierte Ausführung bereit. Der Abgleich von
-verschobenen/entfallenen Sendeterminen und die Wiederanlaufregel für
-kurzfristige Cloud-Ausfälle sind mit Regressionstests umgesetzt. Vor dem
-Livegang bleiben IAM, Cloud-Preflight sowie echter End-to-End-Test mit zwei
-verschiedenen Geräten offen.
+**Timing und offene Abnahme:** Der Worker erlaubt die Endmeldung erst ab
+`airingStartAt - 5 Minuten`. Der nächste Minutentakt kann bis knapp 60 Sekunden
+später liegen; zusätzliche Scheduler-/Firestore-Latenz ist möglich. Bei einer
+gemeldeten Verspätung zuerst unterscheiden: `Bald im TV` (Entdeckung) oder
+`Gleich im TV`/`Jetzt im TV` (Enderinnerung). Titel, Sender, Sendestart und
+beobachtete Erscheinungszeit erfassen und mit Erzeugungszeit/Worker-Logs abgleichen.
+Ein Vorlaufpuffer ist noch keine freigegebene oder implementierte Änderung.
+
+Der normale Hosting-Deploy aktualisiert diese private Function nicht.
+`prepare` blockiert bei vorhandenem Scheduler; die bereits erfolgte Aktivierung
+wird nicht wiederholt. Vorgehen und Update-Grenzen stehen im
+[TV-Scheduler-Runbook](TV_FINAL_SCHEDULER_RUNBOOK.md). Film, ganze Serie,
+Deduplizierung und automatischer Abschluss müssen auf Smartphone/Fire TV
+noch im realen Ablauf abgenommen werden.
 
 ## Grenzen und Prüfung
 
@@ -163,11 +182,11 @@ erste Lesestatus wurden dabei nicht ersetzt.
 - V1-`titleAlerts` ohne `status` bleiben lesbar und fachlich **aktiv**.
   V2 verwendet `status: active/completed`; Abschluss speichert
   `completedAt` und die deterministische `completionNotificationId`.
-- Nur `included-found` und (später in #382) `tv-final` sind terminal.
+- Nur `included-found` und `tv-final` sind terminal.
   `tv-found` darf die Beobachtung **nicht** abschalten.
 - Eine bewusste neue Aktivierung erhält eine **andere** `activationId`;
   Wiederholungen der alten Aktivierung dürfen kein neues Ereignis erzeugen.
-- Geplante Hard-TTL für neue persönliche Nachrichten: 30 Tage ab Erstellung
+- Hard-TTL für neue persönliche Nachrichten: 30 Tage ab Erstellung
   für „inklusive“. TV: höchstens 30 Tage ab Erstellung, bevorzugt sieben Tage
   nach Sendeende; bei fehlender Endezeit sieben Tage ab Erstellung.
   **Bestehende V1-Nachrichten behalten ihre bereits gespeicherte `expiresAt`.**
@@ -181,7 +200,7 @@ erste Lesestatus wurden dabei nicht ersetzt.
 - Globale Admin-Mitteilungen bleiben getrennt und unverändert.
 
 Die Phasen B–D sind integriert und produktiv ausgerollt. #381 bleibt für
-weitere Randfälle und die abschließende Geräte-/Mehrgeräteabnahme offen.
+die globale Admin-/Kontowechsel-Restabnahme und ausdrückliche Gesamtfreigabe offen.
+Bestätigte persönliche Profil-, Fire-TV- und Zwei-Geräte-Tests bleiben abgenommen.
 Insbesondere kein globales Firestore-Delete-Recht und keine ungeprüfte
-Massenmigration. Die TV-Endphase und fünfminütige Erinnerung folgen
-gesondert in #382.
+Massenmigration. Die produktive TV-Endphase wird gesondert in #382 abgenommen.
