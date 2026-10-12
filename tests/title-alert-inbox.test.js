@@ -86,4 +86,14 @@ describe('#381 inbox visibility, legacy and global separation', () => {
     expect(activeAnnouncement({ ...personal, schemaVersion: 9 }, T0 + DAY)).toBe(false)
     expect(activeAnnouncement(personal, T0 - 1)).toBe(false)
   })
+
+  it('excludes withdrawn and expired global messages for both inbox and startup modes', () => {
+    for (const mode of ['inbox', 'startup']) {
+      const message = { ...global, mode }
+      expect(activeAnnouncement(message, T0 - 1)).toBe(false)
+      expect(activeAnnouncement(message, T0)).toBe(true)
+      expect(activeAnnouncement({ ...message, status: 'withdrawn' }, T0 + DAY)).toBe(false)
+      expect(activeAnnouncement(message, T0 + 2 * DAY)).toBe(false)
+    }
+  })
 })
