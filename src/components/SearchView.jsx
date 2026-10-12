@@ -1,38 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSharedMediaCatalog } from '../library/useSharedMediaCatalog.js'
+import { getTitleStateKey } from '../library/libraryState.js'
 import {
   SEARCH_MIN_QUERY_LENGTH,
-  buildSearchIndexEntries,
-  mergeSearchIndexEntries,
   searchIndex,
 } from '../search/searchIndex.js'
+import { buildSearchCatalog } from '../search/searchCatalog.js'
+import { buildActorSearchIndex } from '../search/searchActors.js'
 import { mergeLiveAiringStatus } from '../search/searchLiveAiringStatus.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import PosterCard from './PosterCard.jsx'
 
-function mergePublicEntries(...sources) {
-  const entries = new Map()
-  for (const source of sources) {
-    for (const item of Array.isArray(source) ? source : []) {
-      if (!item?.id) continue
-      const current = entries.get(item.id)
-      entries.set(item.id, current
-        ? {
-            ...current,
-            ...item,
-            scope: 'public',
-            providerIds: [...new Set([...(current.providerIds || []), ...(item.providerIds || [])])],
-            providerOffers: [...(current.providerOffers || []), ...(item.providerOffers || [])],
-          }
-        : { ...item, scope: 'public' })
-    }
-  }
-  return [...entries.values()]
-}
-
-export default function SearchView({ publicTitles, personalTitles, movieHubTitles = [], fullTitles, onOpen }) {
+export default function SearchView({ metadataTitles, personalTitles, statesByKey, actorNames, fullTitles, onOpen }) {
   const [query, setQuery] = useState('')
-  const [remoteEntries, setRemoteEntries] = useState(null)
+  const [remoteIndex, setRemoteIndex] = useState(null)
   const [indexLoading, setIndexLoading] = useState(true)
   const [indexError, setIndexError] = useState(null)
   const { enabledProviderIds, isProviderEnabled } = useProviderSelection()
@@ -50,12 +31,12 @@ export default function SearchView({ publicTitles, personalTitles, movieHubTitle
       .then((payload) => {
         if (cancelled) return
         if (!Array.isArray(payload?.entries)) throw new Error('Suchindex hat ein ungültiges Format.')
-        setRemoteEntries(payload.entries)
+        setRemoteIndex(payload)
         setIndexError(null)
       })
       .catch((error) => {
         if (cancelled) return
-        setRemoteEntries(null)
+        setRemoteIndex(null)
         setIndexError(error)
       })
       .finally(() => {
@@ -65,37 +46,30 @@ export default function SearchView({ publicTitles, personalTitles, movieHubTitle
     return () => { cancelled = true }
   }, [])
 
-  const publicEntries = useMemo(
-    () => remoteEntries ?? buildSearchIndexEntries(publicTitles, { scope: 'public' }),
-    [remoteEntries, publicTitles],
+  const searchCatalog = useMemo(
+    () => buildSearchCatalog({ remoteIndex, metadataTitles, personalTitles, statesByKey, actorNames }),
+    [remoteIndex, metadataTitles, personalTitles, statesByKey, actorNames],
   )
-  const personalEntries = useMemo(
-    () => buildSearchIndexEntries(personalTitles, { scope: 'personal' }),
-    [personalTitles],
-  )
-  const movieHubEntries = useMemo(
-    () => buildSearchIndexEntries(movieHubTitles, { scope: 'public' }),
-    [movieHubTitles],
+  const actorIndex = useMemo(
+    () => buildActorSearchIndex(searchCatalog.entries, searchCatalog.actors),
+    [searchCatalog],
   )
   const entries = useMemo(
-    () => mergeLiveAiringStatus(mergeSearchIndexEntries(
-      mergePublicEntries(publicEntries, movieHubEntries),
-      personalEntries,
-    ), fullTitles),
-    [publicEntries, movieHubEntries, personalEntries, fullTitles],
+    () => mergeLiveAiringStatus(searchCatalog.entries, fullTitles),
+    [searchCatalog, fullTitles],
   )
-  const fullById = useMemo(
-    () => new Map((Array.isArray(fullTitles) ? fullTitles : []).map((title) => [title.id, title])),
+  const fullByKey = useMemo(
+    () => new Map((Array.isArray(fullTitles) ? fullTitles : []).map((title) => [getTitleStateKey(title), title])),
     [fullTitles],
   )
   const searchResult = useMemo(
-    () => searchIndex(entries, query, { enabledProviderIds }),
-    [entries, query, enabledProviderIds],
+    () => searchIndex(entries, query, { enabledProviderIds, actorIndex }),
+    [entries, query, enabledProviderIds, actorIndex],
   )
   const normalizedLength = query.trim().length
 
   function openEntry(entry, displayedPosterUrl = null) {
-    const fullTitle = fullById.get(entry.id)
+    const fullTitle = fullByKey.get(getTitleStateKey(entry))
     if (fullTitle) {
       onOpen(fullTitle, displayedPosterUrl)
       return
@@ -113,8 +87,8 @@ export default function SearchView({ publicTitles, personalTitles, movieHubTitle
           autoFocus
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Film oder Serie suchen …"
-          aria-label="Filme und Serien suchen"
+          placeholder="Titel oder Schauspieler suchen …"
+          aria-label="Filme, Serien oder Schauspieler suchen"
           data-focusable="true"
         />
       </label>
@@ -132,7 +106,7 @@ export default function SearchView({ publicTitles, personalTitles, movieHubTitle
         <section className="library-empty-state">
           <p className="settings-kicker">Keine Treffer</p>
           <h2>Für diese Suche wurde nichts gefunden.</h2>
-          <p>Prüfe den Titel oder aktiviere weitere Streaminganbieter in den Einstellungen.</p>
+          <p>Prüfe den Titel oder Schauspielernamen oder aktiviere weitere Streaminganbieter in den Einstellungen.</p>
         </section>
       )}
 
