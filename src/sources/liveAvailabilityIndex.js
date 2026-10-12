@@ -261,7 +261,7 @@ function buildProviderEvidence(title, liveAvailability) {
   return evidence
 }
 
-export function mergeLiveAvailability(titles = [], entries = [], { now = Date.now() } = {}) {
+export function mergeLiveAvailability(titles = [], entries = [], { now = Date.now(), acceptLiveProvider = null } = {}) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
   const byKey = new Map((Array.isArray(entries) ? entries : [])
     .map((entry) => [entry?.key || titleKey(entry), entry])
@@ -269,11 +269,22 @@ export function mergeLiveAvailability(titles = [], entries = [], { now = Date.no
 
   return (Array.isArray(titles) ? titles : []).map((title) => {
     const entry = byKey.get(titleKey(title))
-    if (!entry) return title
+    if (!entry && (!acceptLiveProvider || (!title.liveAvailability && !title.waipuLive && !title.joynLive))) return title
 
     const liveAvailability = { ...(title?.liveAvailability || {}) }
+    if (title.waipuLive && !liveAvailability.waipu) liveAvailability.waipu = title.waipuLive
+    if (title.joynLive && !liveAvailability.joyn) liveAvailability.joyn = title.joynLive
     for (const provider of Array.isArray(entry?.providers) ? entry.providers : []) {
       liveAvailability[provider.providerId] = provider
+    }
+    if (acceptLiveProvider) {
+      for (const [providerId, availability] of Object.entries(liveAvailability)) {
+        const airings = (Array.isArray(availability?.airings) ? availability.airings : [availability?.nextAiring])
+          .filter((airing) => airing && Date.parse(airing.stopTime) > timestamp && acceptLiveProvider(providerId, airing))
+          .sort((left, right) => String(left.startTime).localeCompare(String(right.startTime)))
+        if (!airings.length) delete liveAvailability[providerId]
+        else liveAvailability[providerId] = { ...availability, providerId, airings, nextAiring: airings[0], airingCount: airings.length }
+      }
     }
     const providerEvidence = buildProviderEvidence(title, liveAvailability)
     const providerIds = Object.keys(providerEvidence)
@@ -286,12 +297,17 @@ export function mergeLiveAvailability(titles = [], entries = [], { now = Date.no
       providerIds,
       providerEvidence,
       liveAvailability,
-      tvAiringOnAir: Boolean(title?.tvAiringOnAir)
+      tvAiringOnAir: (!acceptLiveProvider && Boolean(title?.tvAiringOnAir))
         || nextAirings.some((airing) => isTvAiringOnAir(airing, timestamp)),
-      tvAiringSoon: Boolean(title?.tvAiringSoon)
+      tvAiringSoon: (!acceptLiveProvider && Boolean(title?.tvAiringSoon))
         || nextAirings.some((airing) => isTvAiringSoon(airing, timestamp)),
     }
 
+    if (acceptLiveProvider) {
+      delete merged.waipuLive
+      delete merged.joynLive
+      if (merged.tvLive) merged.tvLive = { ...merged.tvLive, providerIds: Object.keys(liveAvailability) }
+    }
     // Temporary compatibility for existing provider-specific detail helpers.
     if (liveAvailability.waipu) merged.waipuLive = liveAvailability.waipu
     if (liveAvailability.joyn) merged.joynLive = liveAvailability.joyn

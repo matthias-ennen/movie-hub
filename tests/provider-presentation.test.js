@@ -5,7 +5,7 @@ describe('provider presentation policy', () => {
   it('uses one canonical provider order across presentation surfaces', () => {
     expect(orderProviderIds(['disney', 'joyn', 'prime', 'waipu', 'netflix'], {
       includeMovieHub: true,
-    })).toEqual(['moviehub', 'waipu', 'joyn', 'netflix', 'prime', 'disney'])
+    })).toEqual(['moviehub', 'waipu', 'joyn', 'disney', 'netflix', 'prime'])
   })
 
   it('uses title-wide evidence for normal title surfaces', () => {

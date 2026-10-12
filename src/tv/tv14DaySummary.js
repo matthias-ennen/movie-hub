@@ -1,3 +1,4 @@
+import { createLiveProviderFilter } from '../sources/liveProviderSelection.js'
 import { selectProviderMap } from '../sources/providerLiveRoute.js'
 import { resolvePresentationArtwork } from '../catalog/artworkRotation.js'
 
@@ -56,25 +57,11 @@ function normalRow(id, title, items) {
   return { id, title, variant: 'tv', items: items.slice(0, TV_14_DAY_ROW_LIMIT) }
 }
 
-function enabledProviderIds(option, activeWaipuIds, activeJoynIds) {
-  const stationIds = option?.providerStationIds || {}
-  return (Array.isArray(option?.providerIds) ? option.providerIds : [option?.providerId].filter(Boolean))
-    .filter((providerId) => {
-      const providerStationId = String(stationIds?.[providerId] || '')
-      if (providerId === 'waipu') {
-        return activeWaipuIds.has(providerStationId || String(option?.stationId || option?.canonicalStationId || ''))
-      }
-      if (providerId === 'joyn') {
-        return activeJoynIds.has(providerStationId || String(option?.sourceStationId || option?.stationId || ''))
-      }
-      return false
-    })
-}
-
-function nextEnabledOption(options, activeWaipuIds, activeJoynIds, now) {
+function nextEnabledOption(options, acceptProvider, now) {
   return (Array.isArray(options) ? options : [])
     .map((option) => {
-      const providerIds = enabledProviderIds(option, activeWaipuIds, activeJoynIds)
+      const providerIds = (Array.isArray(option?.providerIds) ? option.providerIds : [option?.providerId].filter(Boolean))
+        .filter((id) => acceptProvider(id, option))
       if (!providerIds.length) return null
       return {
         ...option,
@@ -215,6 +202,7 @@ export function clearTv14DaySummaryCache() {
 }
 
 export function buildTv14DayRows({
+  enabledProviderIds = null,
   entries = [],
   titles = [],
   activeWaipuStationIds = [],
@@ -223,8 +211,7 @@ export function buildTv14DayRows({
   now = Date.now(),
 } = {}) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
-  const activeWaipuIds = new Set((Array.isArray(activeWaipuStationIds) ? activeWaipuStationIds : []).map(String))
-  const activeJoynIds = new Set((Array.isArray(activeJoynStationIds) ? activeJoynStationIds : []).map(String))
+  const acceptProvider = createLiveProviderFilter({ enabledProviderIds, activeWaipuStationIds, activeJoynStationIds })
   const titleByKey = new Map((Array.isArray(titles) ? titles : [])
     .map((title) => [titleKey(title), title])
     .filter(([key]) => key))
@@ -232,8 +219,8 @@ export function buildTv14DayRows({
   const normalItems = []
   const primeItems = []
   for (const entry of Array.isArray(entries) ? entries : []) {
-    const normalAiring = nextEnabledOption(entry?.airingOptions, activeWaipuIds, activeJoynIds, timestamp)
-    const primeAiring = nextEnabledOption(entry?.primeTimeOptions, activeWaipuIds, activeJoynIds, timestamp)
+    const normalAiring = nextEnabledOption(entry?.airingOptions, acceptProvider, timestamp)
+    const primeAiring = nextEnabledOption(entry?.primeTimeOptions, acceptProvider, timestamp)
     const normal = itemFromSummary(entry, normalAiring, titleByKey, artworkOptions, timestamp)
     const prime = itemFromSummary(entry, primeAiring, titleByKey, artworkOptions, timestamp)
     if (normal) {

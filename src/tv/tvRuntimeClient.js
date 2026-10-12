@@ -1,3 +1,4 @@
+import { createLiveProviderFilter } from '../sources/liveProviderSelection.js'
 import { selectProviderMap } from '../sources/providerLiveRoute.js'
 import {
   TV_RUNTIME_DAY_KIND,
@@ -221,29 +222,12 @@ export async function loadTvRuntimeDay(key, {
   return request
 }
 
-function stationIdForProvider(airing, providerId) {
-  const providerStationIds = airing?.providerStationIds || {}
-  return String(
-    providerStationIds?.[providerId]
-    || (providerId === 'joyn' ? airing?.sourceStationId : null)
-    || airing?.stationId
-    || airing?.canonicalStationId
-    || '',
-  )
-}
-
-function filterAiringByDisabledStations(airing, disabledWaipuIds, disabledJoynIds) {
+function filterAiringBySelection(airing, acceptProvider) {
   const providerIds = (Array.isArray(airing?.providerIds) ? airing.providerIds : [])
-    .filter((providerId) => {
-      const stationId = stationIdForProvider(airing, providerId)
-      if (providerId === 'waipu') return !stationId || !disabledWaipuIds.has(stationId)
-      if (providerId === 'joyn') return !stationId || !disabledJoynIds.has(stationId)
-      return true
-    })
+    .filter((providerId) => acceptProvider(providerId, airing))
   if (!providerIds.length) return null
   return {
-    ...airing,
-    providerIds,
+    ...airing, providerIds,
     providerStationIds: selectProviderMap(airing?.providerStationIds, providerIds),
     providerProgramIds: selectProviderMap(airing?.providerProgramIds, providerIds),
     playbackRoutes: (Array.isArray(airing?.playbackRoutes) ? airing.playbackRoutes : [])
@@ -251,17 +235,13 @@ function filterAiringByDisabledStations(airing, disabledWaipuIds, disabledJoynId
   }
 }
 
-export function filterTvRuntimeHeroEntriesByStationSelection(entries = [], {
-  disabledWaipuStationIds = [],
-  disabledJoynStationIds = [],
-} = {}) {
-  const disabledWaipuIds = new Set((Array.isArray(disabledWaipuStationIds) ? disabledWaipuStationIds : []).map(String))
-  const disabledJoynIds = new Set((Array.isArray(disabledJoynStationIds) ? disabledJoynStationIds : []).map(String))
+export function filterTvRuntimeHeroEntriesByStationSelection(entries = [], selection = {}) {
+  const acceptProvider = createLiveProviderFilter(selection)
 
   return (Array.isArray(entries) ? entries : [])
     .map((entry) => {
       const airings = (Array.isArray(entry?.airings) ? entry.airings : [])
-        .map((airing) => filterAiringByDisabledStations(airing, disabledWaipuIds, disabledJoynIds))
+        .map((airing) => filterAiringBySelection(airing, acceptProvider))
         .filter(Boolean)
         .sort((left, right) => String(left?.startTime || '').localeCompare(String(right?.startTime || '')))
       if (!airings.length) return null
@@ -306,12 +286,14 @@ function heroProviderLive(airings, providerId) {
 }
 
 export function buildTvRuntimeHeroItems(entries = [], {
+  enabledProviderIds = null,
   disabledWaipuStationIds = [],
   disabledJoynStationIds = [],
   now = Date.now(),
 } = {}) {
   const nowMs = typeof now === 'function' ? Number(now()) : Number(now)
   const filtered = filterTvRuntimeHeroEntriesByStationSelection(entries, {
+    enabledProviderIds,
     disabledWaipuStationIds,
     disabledJoynStationIds,
   })
@@ -375,22 +357,6 @@ export function buildTvRuntimeHeroItems(entries = [], {
     })
 }
 
-function enabledProviderIds(airing, activeWaipuIds, activeJoynIds) {
-  const providerStationIds = airing?.providerStationIds || {}
-  return (Array.isArray(airing?.providerIds) ? airing.providerIds : [])
-    .filter((providerId) => {
-      if (providerId === 'waipu') {
-        const stationId = String(providerStationIds.waipu || airing?.stationId || '')
-        return activeWaipuIds.has(stationId)
-      }
-      if (providerId === 'joyn') {
-        const stationId = String(providerStationIds.joyn || airing?.sourceStationId || airing?.stationId || '')
-        return activeJoynIds.has(stationId)
-      }
-      return true
-    })
-}
-
 function titleFromEntry(entry) {
   const type = mediaType(entry?.type)
   const tmdbId = Number(entry?.tmdbId)
@@ -429,11 +395,11 @@ function titleFromEntry(entry) {
 }
 
 export function buildTvRuntimeSchedule(day, {
+  enabledProviderIds = null,
   activeWaipuStationIds = [],
   activeJoynStationIds = [],
 } = {}) {
-  const activeWaipuIds = new Set((Array.isArray(activeWaipuStationIds) ? activeWaipuStationIds : []).map(String))
-  const activeJoynIds = new Set((Array.isArray(activeJoynStationIds) ? activeJoynStationIds : []).map(String))
+  const acceptProvider = createLiveProviderFilter({ enabledProviderIds, activeWaipuStationIds, activeJoynStationIds })
   const airings = []
   const titles = []
 
@@ -441,7 +407,7 @@ export function buildTvRuntimeSchedule(day, {
     const title = titleFromEntry(entry)
     const accepted = []
     for (const airing of Array.isArray(entry?.airings) ? entry.airings : []) {
-      const providerIds = enabledProviderIds(airing, activeWaipuIds, activeJoynIds)
+      const providerIds = (airing.providerIds || []).filter((id) => acceptProvider(id, airing))
       if (!providerIds.length) continue
       accepted.push({
         ...airing,

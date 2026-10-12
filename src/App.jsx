@@ -1,3 +1,6 @@
+import { catalogTmdbProviderIds } from './settings/providerSelectionModel.js'
+import { settingsParent, settingsNeedStations } from './settings/settingsNavigation.js'
+import { createLiveProviderFilter } from './sources/liveProviderSelection.js'
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import DetailLoadingScreen from './components/DetailLoadingScreen.jsx'
@@ -6,7 +9,7 @@ import { ProgressivePosterGrid, ProgressiveRows } from './components/Progressive
 import { detailInitialImageUrl, prepareDetailRequestItem, preloadDetailImage, waitForDetailLoadingPaint } from './components/detailPresentation.js'
 import { buildCategoryRows } from './catalog/categoryRows.js'
 import { buildPersonalSmartRows, buildPersonalSmartFilterOptions, preparePersonalSmartTitles, normalizeSmartFilterOptions } from './catalog/personalSmartRows.js'
-import { buildProviderBrowseRows, buildProviderHomeRows } from './catalog/providerCatalogRows.js'
+import { buildProviderBrowseRows, buildProviderHomeRows, buildProviderCatalogModel } from './catalog/providerCatalogRows.js'
 import { selectCoordinatedHeroItems, selectPersonalHeroItemsFromSources } from './catalog/heroSelection.js'
 import { buildMovieHubCatalogRows } from './catalog/movieHubCatalog.js'
 import { normalizeFilmCollectionIndex } from './catalog/filmCollections.js'
@@ -262,7 +265,7 @@ function Header({
                   ))}
                 </div>
               )}
-              <button type="button" className="profile-settings-link" onClick={openProfileSettings} onFocus={() => onViewIntent('profile')} onPointerEnter={() => onViewIntent('profile')} data-focusable="true" role="menuitem">Profil & Design</button>
+              <button type="button" className="profile-settings-link" onClick={openProfileSettings} onFocus={() => onViewIntent('profile')} onPointerEnter={() => onViewIntent('profile')} data-focusable="true" role="menuitem">Profile & Konto</button>
               <button type="button" className="app-settings-link" onClick={openAppSettings} onFocus={() => onViewIntent('settings')} onPointerEnter={() => onViewIntent('settings')} data-focusable="true" role="menuitem">Einstellungen</button>
               <button type="button" className="about-settings-link" onClick={openAbout} data-focusable="true" role="menuitem">Über Movie Hub</button>
               <button type="button" onClick={onSignOut} data-focusable="true" role="menuitem">Abmelden</button>
@@ -449,12 +452,10 @@ function MovieHub({ user }) {
   const { enabledProviderIds } = useProviderSelection()
   const {
     disabledStationIds,
-    orderStations,
     loading: stationSelectionLoading,
   } = useWaipuStationSelection()
   const {
     disabledStationIds: disabledJoynStationIds,
-    orderStations: orderJoynStations,
     loading: joynStationSelectionLoading,
   } = useJoynStationSelection()
   const {
@@ -464,6 +465,7 @@ function MovieHub({ user }) {
   } = useSharedMediaCatalog()
   const curationDayKey = useCurationClock()
   const [currentView, setCurrentView] = useState('home')
+  const [settingsPage, setSettingsPage] = useState('overview')
   const [contentActivationRequest, setContentActivationRequest] = useState(null)
   const [selectedTitle, setSelectedTitle] = useState(null)
   const [detailRequest, setDetailRequest] = useState(null)
@@ -522,7 +524,7 @@ function MovieHub({ user }) {
 
   const liveStationsRequested = shouldLoadLiveStations({
     tvRequested: tvStationCatalogsRequested,
-    settingsOpen: currentView === 'settings',
+    settingsOpen: currentView === 'settings' && settingsNeedStations(settingsPage),
   })
 
   useEffect(() => {
@@ -600,7 +602,7 @@ function MovieHub({ user }) {
   }, [homeStartupReady])
 
   useEffect(() => {
-    if (!liveStationsRequested) return undefined
+    if (!liveStationsRequested || waipuStationCatalog.status === 'ready') return undefined
     let cancelled = false
     const controller = new AbortController()
     import('./waipu/waipuTvCatalog.js')
@@ -617,10 +619,10 @@ function MovieHub({ user }) {
       cancelled = true
       controller.abort()
     }
-  }, [liveStationsRequested])
+  }, [liveStationsRequested, waipuStationCatalog.status])
 
   useEffect(() => {
-    if (!liveStationsRequested) return undefined
+    if (!liveStationsRequested || joynStationCatalog.status === 'ready') return undefined
     let cancelled = false
     const controller = new AbortController()
     import('./joyn/joynTvCatalog.js')
@@ -637,7 +639,7 @@ function MovieHub({ user }) {
       cancelled = true
       controller.abort()
     }
-  }, [liveStationsRequested])
+  }, [liveStationsRequested, joynStationCatalog.status])
 
   useEffect(() => {
     const airings = liveAvailabilityEntries.flatMap((entry) => (
@@ -681,18 +683,21 @@ function MovieHub({ user }) {
     () => mergeTitlesWithSharedMediaCatalog(baseTitles, rawMovieHubTitles),
     [baseTitles, rawMovieHubTitles],
   )
+  const acceptLiveProvider = useMemo(() => createLiveProviderFilter({
+    enabledProviderIds, disabledWaipuStationIds: disabledStationIds, disabledJoynStationIds,
+  }), [enabledProviderIds, disabledStationIds, disabledJoynStationIds])
   const rawTitles = useMemo(
-    () => mergeLiveAvailability(preLiveTitles, liveAvailabilityEntries, { now: liveAvailabilityClock }),
-    [liveAvailabilityClock, liveAvailabilityEntries, preLiveTitles],
+    () => mergeLiveAvailability(preLiveTitles, liveAvailabilityEntries, { now: liveAvailabilityClock, acceptLiveProvider }),
+    [liveAvailabilityClock, liveAvailabilityEntries, preLiveTitles, acceptLiveProvider],
   )
   const titles = useMemo(
     () => rawTitles.map((item) => resolvePresentationArtwork(item, artworkOptions)),
     [rawTitles, artworkOptions],
   )
   const movieHubTitles = useMemo(
-    () => mergeLiveAvailability(rawMovieHubTitles, liveAvailabilityEntries, { now: liveAvailabilityClock })
+    () => mergeLiveAvailability(rawMovieHubTitles, liveAvailabilityEntries, { now: liveAvailabilityClock, acceptLiveProvider })
       .map((item) => resolvePresentationArtwork(item, artworkOptions)),
-    [artworkOptions, liveAvailabilityClock, liveAvailabilityEntries, rawMovieHubTitles],
+    [artworkOptions, liveAvailabilityClock, liveAvailabilityEntries, rawMovieHubTitles, acceptLiveProvider],
   )
   const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
   const activeSortMode = useMemo(
@@ -705,6 +710,7 @@ function MovieHub({ user }) {
   const curationSeed = `${activeProfile?.id || 'profile'}:${curationPeriodKey}:${catalog.generatedAt || 'catalog'}`
 
   const handleViewChange = useCallback((nextView) => {
+    if (nextView === 'settings') setSettingsPage('overview')
     recordPerformanceEvent('view:activate', { viewId: nextView })
     setProfileOpen(false)
     setContentActivationRequest(null)
@@ -780,6 +786,7 @@ function MovieHub({ user }) {
         artworkOptions,
         liveAvailabilityEntries,
         liveAvailabilityNow: liveAvailabilityClock,
+        acceptLiveProvider,
       })
       if (cancelled) return
       const displayedItem = {
@@ -837,6 +844,7 @@ function MovieHub({ user }) {
   }, [
     artworkOptions,
     detailRequest,
+    acceptLiveProvider,
     hasMovieHubTitle,
     libraryLoading,
     liveAvailabilityClock,
@@ -924,13 +932,18 @@ function MovieHub({ user }) {
       return true
     }
 
+    if (currentView === 'settings' && settingsParent(settingsPage)) {
+      setSettingsPage(settingsParent(settingsPage))
+      return true
+    }
+
     if (currentView !== 'home') {
       setCurrentView('home')
       return true
     }
 
     return false
-  }, [closeDetail, currentView, detailRequest, profileOpen, restoreDetailReturnFocus, selectedTitle])
+  }, [closeDetail, currentView, detailRequest, profileOpen, restoreDetailReturnFocus, selectedTitle, settingsPage])
 
   const handleBack = useCallback(() => {
     if (closeInteractiveLayer()) return true
@@ -987,25 +1000,28 @@ function MovieHub({ user }) {
     await signOut(auth)
   }
 
+  const providerCatalogModel = useMemo(() => buildProviderCatalogModel(catalog.providerCatalogs, titles, {
+    now: liveAvailabilityClock, acceptLiveProvider,
+  }), [catalog.providerCatalogs, titles, liveAvailabilityClock, acceptLiveProvider])
   const rawHomeRows = useMemo(
     () => prepareRowsForActiveView(currentView, 'home', () => [
-      ...buildProviderHomeRows(catalog.providerCatalogs, titles),
+      ...buildProviderHomeRows(providerCatalogModel, titles),
       ...rowDefinitions.filter((row) => !row.providerId).map((row) => ({
         ...row,
         displayLimit: Array.isArray(row.ids) ? row.ids.length : 0,
         items: (Array.isArray(row.ids) ? row.ids : []).map((id) => titles.find((item) => item.id === id)).filter(Boolean),
       })),
     ].filter((row) => row.items.length)),
-    [catalog.providerCatalogs, currentView, rowDefinitions, titles],
+    [providerCatalogModel, currentView, rowDefinitions, titles, activeProfile?.experienceSettings?.posterRowLimit],
   )
   const personalMetadataTitles = useMemo(
     () => preparePersonalSmartTitles(mergeCatalogWithPersonalSnapshots(preLiveTitles, statesByKey)),
     [preLiveTitles, statesByKey],
   )
   const personalCatalogTitles = useMemo(
-    () => mergeLiveAvailability(personalMetadataTitles, liveAvailabilityEntries, { now: liveAvailabilityClock })
+    () => mergeLiveAvailability(personalMetadataTitles, liveAvailabilityEntries, { now: liveAvailabilityClock, acceptLiveProvider })
       .map((item) => resolvePresentationArtwork(item, artworkOptions)),
-    [personalMetadataTitles, liveAvailabilityEntries, liveAvailabilityClock, artworkOptions],
+    [personalMetadataTitles, liveAvailabilityEntries, liveAvailabilityClock, artworkOptions, acceptLiveProvider],
   )
   const getPersonalSmartFilterOptions = useMemo(() => {
     let options = null
@@ -1016,7 +1032,7 @@ function MovieHub({ user }) {
   }, [personalMetadataTitles, catalog.smartFilterOptions, publicTitles])
   const personalRows = useMemo(
     () => buildPersonalRows(personalCatalogTitles, getTitleState),
-    [personalCatalogTitles, getTitleState, statesByKey],
+    [personalCatalogTitles, getTitleState, statesByKey, activeProfile?.experienceSettings?.posterRowLimit],
   )
   const personalTopHundredRows = useMemo(
     () => prepareRowsForActiveView(
@@ -1038,7 +1054,7 @@ function MovieHub({ user }) {
     () => (currentView === 'home' || currentView === 'library')
       ? buildTmdbCatalogRows(titles)
       : [],
-    [currentView, titles],
+    [currentView, titles, activeProfile?.experienceSettings?.posterRowLimit],
   )
   const personalSmartRows = useMemo(
     () => prepareRowsForActiveView(
@@ -1054,7 +1070,7 @@ function MovieHub({ user }) {
         }),
       ),
     ),
-    [currentView, personalCatalogTitles, activeProfile?.contentRowSettings, activeSortMode, curationSeed],
+    [currentView, personalCatalogTitles, activeProfile?.contentRowSettings, activeSortMode, curationSeed, activeProfile?.experienceSettings?.posterRowLimit],
   )
   const combinedPersonalRows = useMemo(
     () => prepareRowsForActiveView(currentView, 'library', () => [
@@ -1105,11 +1121,11 @@ function MovieHub({ user }) {
     ],
   )
   const providerTopTenInput = useMemo(() => ({
-    providerCatalogs: catalog.providerCatalogs,
+    providerCatalogs: providerCatalogModel,
     titles,
     movieHubTitles,
     enabledProviderIds,
-  }), [catalog.providerCatalogs, titles, movieHubTitles, enabledProviderIds])
+  }), [providerCatalogModel, titles, movieHubTitles, enabledProviderIds])
   const homeTopTen = useMemo(
     () => prepareForActiveView(
       currentView,
@@ -1229,7 +1245,7 @@ function MovieHub({ user }) {
         getTitleState,
       },
     )),
-    [rawHomeRows, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle],
+    [rawHomeRows, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle, activeProfile?.experienceSettings?.posterRowLimit],
   )
   const curateMovieHubTitles = useCallback((items, seedSuffix) => curateTitles(items, {
     mode: activeSortMode,
@@ -1237,7 +1253,7 @@ function MovieHub({ user }) {
     watchedMode: contentDisplaySettings.watchedMode,
     getTitleState,
     limit: PUBLIC_POSTER_ROW_LIMIT,
-  }), [activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey])
+  }), [activeSortMode, curationSeed, contentDisplaySettings.watchedMode, getTitleState, statesByKey, activeProfile?.experienceSettings?.posterRowLimit])
   const curatedMovieHubHomeTitles = useMemo(
     () => prepareForActiveView(
       currentView,
@@ -1289,11 +1305,11 @@ function MovieHub({ user }) {
     ),
     [currentView, curatedMovieHubSeriesTitles, enabledProviderIds],
   )
-  const hasProviderCatalogs = Object.keys(catalog.providerCatalogs || {}).length > 0
+  const hasProviderCatalogs = Object.keys(providerCatalogModel || {}).length > 0
   const providerMovieRows = useMemo(
     () => prepareRowsForActiveView(currentView, 'movies', () => (
       hasProviderCatalogs ? curateCatalogRows(
-        buildProviderBrowseRows(catalog.providerCatalogs, titles, 'movie')
+        buildProviderBrowseRows(providerCatalogModel, titles, 'movie')
           .filter((row) => !row.providerId || enabledProviderIds.includes(row.providerId))
           .map((row) => ({
             ...row,
@@ -1308,12 +1324,12 @@ function MovieHub({ user }) {
         },
       ) : []
     )),
-    [catalog.providerCatalogs, titles, hasProviderCatalogs, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle],
+    [providerCatalogModel, titles, hasProviderCatalogs, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle, activeProfile?.experienceSettings?.posterRowLimit],
   )
   const providerSeriesRows = useMemo(
     () => prepareRowsForActiveView(currentView, 'series', () => (
       hasProviderCatalogs ? curateCatalogRows(
-        buildProviderBrowseRows(catalog.providerCatalogs, titles, 'series')
+        buildProviderBrowseRows(providerCatalogModel, titles, 'series')
           .filter((row) => !row.providerId || enabledProviderIds.includes(row.providerId))
           .map((row) => ({
             ...row,
@@ -1328,7 +1344,7 @@ function MovieHub({ user }) {
         },
       ) : []
     )),
-    [catalog.providerCatalogs, titles, hasProviderCatalogs, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle],
+    [providerCatalogModel, titles, hasProviderCatalogs, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle, activeProfile?.experienceSettings?.posterRowLimit],
   )
   const movieCategoryRows = useMemo(
     () => prepareRowsForActiveView(currentView, 'movies', () => buildCategoryRows({
@@ -1344,7 +1360,7 @@ function MovieHub({ user }) {
         getTitleState,
       }),
     })),
-    [titles, activeProfile?.categorySettings?.enabledMovieCategoryIds, activeProfile?.categorySettings?.movieCategoryOrder, enabledProviderIds, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey],
+    [titles, activeProfile?.categorySettings?.enabledMovieCategoryIds, activeProfile?.categorySettings?.movieCategoryOrder, enabledProviderIds, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey, activeProfile?.experienceSettings?.posterRowLimit],
   )
   const seriesCategoryRows = useMemo(
     () => prepareRowsForActiveView(currentView, 'series', () => buildCategoryRows({
@@ -1360,7 +1376,7 @@ function MovieHub({ user }) {
         getTitleState,
       }),
     })),
-    [titles, activeProfile?.categorySettings?.enabledSeriesCategoryIds, activeProfile?.categorySettings?.seriesCategoryOrder, enabledProviderIds, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey],
+    [titles, activeProfile?.categorySettings?.enabledSeriesCategoryIds, activeProfile?.categorySettings?.seriesCategoryOrder, enabledProviderIds, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey, activeProfile?.experienceSettings?.posterRowLimit],
   )
   const movieBrowseBaseRows = useMemo(
     () => prepareRowsForActiveView(
@@ -1504,8 +1520,7 @@ function MovieHub({ user }) {
             joynStationCatalog={joynStationCatalog}
             disabledWaipuStationIds={disabledStationIds}
             disabledJoynStationIds={disabledJoynStationIds}
-            orderWaipuStations={orderStations}
-            orderJoynStations={orderJoynStations}
+            enabledProviderIds={enabledProviderIds}
             stationSelectionLoading={stationSelectionLoading}
             joynStationSelectionLoading={joynStationSelectionLoading}
             liveAvailabilityEntries={liveAvailabilityEntries}
@@ -1556,8 +1571,7 @@ function MovieHub({ user }) {
           <LazyProfileView
             user={user}
             onSignOut={handleSignOut}
-            personalRowTitles={personalCatalogTitles}
-            smartFilterOptions={getPersonalSmartFilterOptions()}
+            onOpenSettings={(page) => { handleViewChange('settings'); setSettingsPage(page) }}
           />
         </Suspense>
       )}
@@ -1565,6 +1579,11 @@ function MovieHub({ user }) {
         <Suspense fallback={<LazyViewLoading label="Einstellungen" className="browse-page profile-page" />}>
           <LazySettingsView
             userId={user.uid}
+            page={settingsPage}
+            onNavigate={setSettingsPage}
+            personalRowTitles={personalCatalogTitles}
+            smartFilterOptions={settingsPage === 'personal' ? getPersonalSmartFilterOptions() : undefined}
+            availableTmdbProviderIds={catalogTmdbProviderIds(catalog.providerCatalogs)}
             waipuStations={waipuStationCatalog.stations}
             waipuStationStatus={waipuStationCatalog.status}
             joynStations={joynStationCatalog.stations}

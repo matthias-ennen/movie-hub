@@ -40,9 +40,9 @@ export function TvProgramContent({
 
       {status === 'no-stations' && (
         <section className="library-empty-state tv-program-empty">
-          <p className="settings-kicker">Alle Sender ausgeblendet</p>
-          <h2>Aktiviere mindestens einen Sender in den Einstellungen.</h2>
-          <p>Die TV-Seite selbst enthält bewusst keine Senderauswahl.</p>
+          <p className="settings-kicker">Keine TV-Angebote ausgewählt</p>
+          <h2>Aktiviere einen TV-Anbieter und mindestens einen seiner Sender.</h2>
+          <p>Die Auswahl findest du unter Einstellungen → Anbieter & Sender.</p>
         </section>
       )}
 

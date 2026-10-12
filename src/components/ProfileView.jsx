@@ -1,112 +1,25 @@
+import SettingsButton from './SettingsButton.jsx'
 import { useEffect, useState } from 'react'
-import {
-  MOVIE_CATEGORY_OPTIONS,
-  SERIES_CATEGORY_OPTIONS,
-  moveCategoryOrder,
-  normalizeCategorySettings,
-  orderCategoryOptions,
-} from '../catalog/categoryRows.js'
-import PersonalRowsSettings from './PersonalRowsSettings.jsx'
-import ContentDisplaySettings from './ContentDisplaySettings.jsx'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
-import { useTheme } from '../theme/ThemeProvider.jsx'
 
-export default function ProfileView({ user, onSignOut, personalRowTitles = [], smartFilterOptions = {} }) {
+export default function ProfileView({ user, onSignOut, onOpenSettings }) {
   const {
     profiles,
     activeProfile,
     selectProfile,
     createProfile,
     renameProfile,
-    updateActiveProfileCategorySettings,
   } = useProfiles()
-  const {
-    themeId,
-    themes,
-    autoSwitchEnabled,
-    autoSwitchInterval,
-    autoSwitchIntervals,
-    selectTheme,
-    setAutoSwitchEnabled,
-    setAutoSwitchInterval,
-  } = useTheme()
   const [profileName, setProfileName] = useState(activeProfile?.displayName ?? '')
   const [profileMessage, setProfileMessage] = useState('')
   const [profileBusy, setProfileBusy] = useState(false)
-  const [categorySavingId, setCategorySavingId] = useState(null)
-  const [categoryMessage, setCategoryMessage] = useState('')
-  const categorySettings = normalizeCategorySettings(activeProfile?.categorySettings)
-  const categoryGroups = [
-    {
-      id: 'movie',
-      title: 'Filmkategorien',
-      options: orderCategoryOptions(MOVIE_CATEGORY_OPTIONS, categorySettings.movieCategoryOrder),
-      enabledIds: categorySettings.enabledMovieCategoryIds,
-    },
-    {
-      id: 'series',
-      title: 'Serienkategorien',
-      options: orderCategoryOptions(SERIES_CATEGORY_OPTIONS, categorySettings.seriesCategoryOrder),
-      enabledIds: categorySettings.enabledSeriesCategoryIds,
-    },
-  ]
-
   useEffect(() => {
     setProfileName(activeProfile?.displayName ?? '')
     setProfileMessage('')
-    setCategoryMessage('')
   }, [activeProfile?.id, activeProfile?.displayName])
 
-  async function toggleCategory(mediaType, categoryId) {
-    if (!activeProfile || categorySavingId) return
-    const current = normalizeCategorySettings(activeProfile.categorySettings)
-    const key = mediaType === 'series' ? 'enabledSeriesCategoryIds' : 'enabledMovieCategoryIds'
-    const enabled = current[key].includes(categoryId)
-    const next = {
-      ...current,
-      [key]: enabled
-        ? current[key].filter((id) => id !== categoryId)
-        : [...current[key], categoryId],
-    }
-
-    setCategorySavingId(`${mediaType}:${categoryId}`)
-    setCategoryMessage('')
-    try {
-      await updateActiveProfileCategorySettings(next)
-    } catch (error) {
-      console.error(error)
-      setCategoryMessage('Kategorien konnten nicht gespeichert werden.')
-    } finally {
-      setCategorySavingId(null)
-    }
-  }
-
-  async function moveCategory(mediaType, categoryId, direction) {
-    if (!activeProfile || categorySavingId) return
-    const current = normalizeCategorySettings(activeProfile.categorySettings)
-    const series = mediaType === 'series'
-    const orderKey = series ? 'seriesCategoryOrder' : 'movieCategoryOrder'
-    const options = series ? SERIES_CATEGORY_OPTIONS : MOVIE_CATEGORY_OPTIONS
-    const currentOrder = current[orderKey]
-    const nextOrder = moveCategoryOrder(currentOrder, categoryId, direction, options)
-    if (nextOrder.every((id, index) => id === currentOrder[index])) return
-
-    setCategorySavingId(`${mediaType}:${categoryId}`)
-    setCategoryMessage('')
-    try {
-      await updateActiveProfileCategorySettings({
-        ...current,
-        [orderKey]: nextOrder,
-      })
-    } catch (error) {
-      console.error(error)
-      setCategoryMessage('Kategorien konnten nicht sortiert werden.')
-    } finally {
-      setCategorySavingId(null)
-    }
-  }
-
   async function handleCreateProfile() {
+    if (profileBusy) return
     setProfileBusy(true)
     setProfileMessage('')
     try {
@@ -124,6 +37,7 @@ export default function ProfileView({ user, onSignOut, personalRowTitles = [], s
     event.preventDefault()
     if (!activeProfile) return
 
+    if (profileBusy) return
     setProfileBusy(true)
     setProfileMessage('')
     try {
@@ -141,7 +55,7 @@ export default function ProfileView({ user, onSignOut, personalRowTitles = [], s
     <main className="browse-page profile-page">
       <div className="page-heading profile-heading">
         <p className="eyebrow">Dein Movie Hub</p>
-        <h1>Profil & Design</h1>
+        <h1>Profile & Konto</h1>
         <p>Jedes interne Profil bekommt eigene Kategorien, persönliche Reihen und Darstellungseinstellungen.</p>
       </div>
 
@@ -159,7 +73,7 @@ export default function ProfileView({ user, onSignOut, personalRowTitles = [], s
             const active = profile.id === activeProfile?.id
             const initial = profile.displayName.trim().charAt(0).toUpperCase() || 'P'
             return (
-              <button
+              <SettingsButton
                 type="button"
                 key={profile.id}
                 className={active ? 'profile-choice active' : 'profile-choice'}
@@ -172,10 +86,10 @@ export default function ProfileView({ user, onSignOut, personalRowTitles = [], s
                   <strong>{profile.displayName}</strong>
                   <span>{profile.role === 'primary' ? 'Hauptprofil' : 'Unterprofil'}{active ? ' · Aktiv' : ''}</span>
                 </span>
-              </button>
+              </SettingsButton>
             )
           })}
-          <button
+          <SettingsButton
             type="button"
             className="profile-choice profile-add-choice"
             onClick={handleCreateProfile}
@@ -187,7 +101,7 @@ export default function ProfileView({ user, onSignOut, personalRowTitles = [], s
               <strong>Profil hinzufügen</strong>
               <span>Eigene Kategorien, eigenes Design und eigene Inhalte</span>
             </span>
-          </button>
+          </SettingsButton>
         </div>
 
         {activeProfile && (
@@ -202,175 +116,19 @@ export default function ProfileView({ user, onSignOut, personalRowTitles = [], s
                 data-focusable="true"
               />
             </label>
-            <button type="submit" disabled={profileBusy} data-focusable="true">Name speichern</button>
+            <SettingsButton type="submit" disabled={profileBusy} data-focusable="true">Name speichern</SettingsButton>
           </form>
         )}
         {profileMessage && <p className="profile-message">{profileMessage}</p>}
       </section>
 
-      <section className="settings-panel" aria-labelledby="theme-heading">
-        <div className="settings-heading">
-          <div>
-            <p className="settings-kicker">Darstellung</p>
-            <h2 id="theme-heading">Design auswählen</h2>
-          </div>
-          <span className="settings-status">Aktiv: {themes.find((theme) => theme.id === themeId)?.label}</span>
-        </div>
-
-        <div className="theme-choice-grid">
-          {themes.map((theme) => {
-            const active = theme.id === themeId
-            return (
-              <button
-                type="button"
-                key={theme.id}
-                className={active ? 'theme-choice active' : 'theme-choice'}
-                onClick={() => selectTheme(theme.id)}
-                data-focusable="true"
-                aria-pressed={active}
-              >
-                <span className={`theme-preview theme-preview-${theme.id}`} aria-hidden="true">
-                  <span className="theme-preview-bar" />
-                  <span className="theme-preview-hero" />
-                  <span className="theme-preview-row">
-                    <i /><i /><i /><i />
-                  </span>
-                </span>
-                <span className="theme-choice-copy">
-                  <span className="theme-choice-title">
-                    <strong>{theme.label}</strong>
-                    {active && <span className="active-mark">Aktiv</span>}
-                  </span>
-                  <span>{theme.description}</span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
+      <section className="settings-panel">
+        <h2>Darstellung & Posterreihen</h2>
+        <p>Design, Kategorien und persönliche Reihen verwaltest du in den Einstellungen dieses Profils.</p>
+        <SettingsButton className="network-settings-open" onClick={() => onOpenSettings?.('display')}>
+          Einstellungen öffnen
+        </SettingsButton>
       </section>
-
-      <section className="settings-panel auto-switch-panel" aria-labelledby="auto-switch-heading">
-        <div className="settings-heading auto-switch-heading-row">
-          <div>
-            <p className="settings-kicker">Abwechslung</p>
-            <h2 id="auto-switch-heading">Automatischer Designwechsel</h2>
-          </div>
-          <button
-            type="button"
-            className={autoSwitchEnabled ? 'switch-control active' : 'switch-control'}
-            role="switch"
-            aria-checked={autoSwitchEnabled}
-            aria-label="Automatischen Designwechsel ein- oder ausschalten"
-            onClick={() => setAutoSwitchEnabled(!autoSwitchEnabled)}
-            data-focusable="true"
-          >
-            <span className="switch-knob" />
-            <span className="switch-label">{autoSwitchEnabled ? 'Ein' : 'Aus'}</span>
-          </button>
-        </div>
-
-        <p className="settings-description">
-          Wenn diese Funktion aktiv ist, wählt Movie Hub beim ersten Start einer neuen Wechselperiode zufällig eines der fünf Designs aus – nur für das aktuell aktive Profil.
-        </p>
-
-        {autoSwitchEnabled && (
-          <div className="interval-controls" aria-label="Intervall für automatischen Designwechsel">
-            {autoSwitchIntervals.map((interval) => (
-              <button
-                type="button"
-                key={interval.id}
-                className={autoSwitchInterval === interval.id ? 'interval-button active' : 'interval-button'}
-                onClick={() => setAutoSwitchInterval(interval.id)}
-                data-focusable="true"
-                aria-pressed={autoSwitchInterval === interval.id}
-              >
-                {interval.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <p className="settings-hint">
-          Eine manuelle Designwahl schaltet die Automatik nicht aus. Das manuell gewählte Design bleibt bis zum nächsten planmäßigen Wechsel aktiv.
-        </p>
-      </section>
-
-      <section className="settings-panel category-settings-panel" aria-labelledby="category-settings-heading">
-        <div className="settings-heading">
-          <div>
-            <p className="settings-kicker">Persönliche Auswahl</p>
-            <h2 id="category-settings-heading">Meine Kategorien</h2>
-          </div>
-          <span className="settings-status">Profil: {activeProfile?.displayName ?? '–'}</span>
-        </div>
-
-        <p className="settings-description">
-          Deine Auswahl erscheint auf Filme und Serien direkt vor den Anbieterreihen. Mit den Pfeilen legst du zusätzlich die Reihenfolge fest. Home und Meine Inhalte bleiben unverändert.
-        </p>
-
-        {activeProfile && categoryGroups.map((group) => (
-          <div className="category-settings-group" key={group.id}>
-            <div className="category-settings-group-heading">
-              <h3>{group.title}</h3>
-              <span>{group.enabledIds.length} von {group.options.length} aktiv</span>
-            </div>
-            <div className="category-choice-grid" aria-label={`${group.title} auswählen`}>
-              {group.options.map((category, index) => {
-                const enabled = group.enabledIds.includes(category.id)
-                const saving = categorySavingId === `${group.id}:${category.id}`
-                return (
-                  <div className={enabled ? 'category-choice-item active' : 'category-choice-item'} key={category.id}>
-                    <button
-                      type="button"
-                      className={enabled ? 'category-choice active' : 'category-choice'}
-                      onClick={() => toggleCategory(group.id, category.id)}
-                      role="switch"
-                      aria-checked={enabled}
-                      aria-busy={saving}
-                      data-focusable="true"
-                    >
-                      <span>{category.title}</span>
-                      <span className={enabled ? 'category-choice-switch active' : 'category-choice-switch'} aria-hidden="true">
-                        <span />
-                      </span>
-                      <small>{saving ? 'Speichert …' : enabled ? 'An' : 'Aus'}</small>
-                    </button>
-                    <div className="category-order-actions" aria-label={`${category.title} sortieren`}>
-                      <button
-                        type="button"
-                        onClick={() => moveCategory(group.id, category.id, -1)}
-                        disabled={Boolean(categorySavingId) || index === 0}
-                        data-focusable="true"
-                        aria-label={`${category.title} nach oben verschieben`}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveCategory(group.id, category.id, 1)}
-                        disabled={Boolean(categorySavingId) || index === group.options.length - 1}
-                        data-focusable="true"
-                        aria-label={`${category.title} nach unten verschieben`}
-                      >
-                        ↓
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        ))}
-
-        {categoryMessage && <p className="error" role="status">{categoryMessage}</p>}
-        <p className="settings-hint">
-          Klassiker umfasst in dieser Version Filme mit Erscheinungsjahr vor 2000. Jede Änderung gilt nur für das aktuell aktive Profil.
-        </p>
-      </section>
-
-      <PersonalRowsSettings titles={personalRowTitles} filterOptions={smartFilterOptions} />
-
-      <ContentDisplaySettings />
 
       <section className="settings-panel account-panel" aria-labelledby="account-heading">
         <div>
@@ -378,7 +136,7 @@ export default function ProfileView({ user, onSignOut, personalRowTitles = [], s
           <h2 id="account-heading">Movie-Hub-Konto</h2>
           <p className="account-email">{user.email}</p>
         </div>
-        <button type="button" className="account-signout" onClick={onSignOut} data-focusable="true">Abmelden</button>
+        <SettingsButton type="button" className="account-signout" onClick={onSignOut} data-focusable="true">Abmelden</SettingsButton>
       </section>
     </main>
   )

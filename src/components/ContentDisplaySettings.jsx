@@ -1,3 +1,4 @@
+import SettingsButton from './SettingsButton.jsx'
 import { useMemo, useState } from 'react'
 import {
   CONTENT_AUTO_SWITCH_INTERVALS,
@@ -57,7 +58,7 @@ export default function ContentDisplaySettings() {
           const selected = settings.sortMode === mode.id
           const effective = activeModeId === mode.id
           return (
-            <button
+            <SettingsButton
               type="button"
               key={mode.id}
               className={selected ? 'content-sort-choice active' : 'content-sort-choice'}
@@ -72,7 +73,7 @@ export default function ContentDisplaySettings() {
               </span>
               <span>{mode.description}</span>
               <small>{savingKey === `sort:${mode.id}` ? 'Speichert …' : selected ? 'Ausgewählt' : 'Auswählen'}</small>
-            </button>
+            </SettingsButton>
           )
         })}
       </div>
@@ -83,7 +84,7 @@ export default function ContentDisplaySettings() {
             <h3>Automatisch wechseln</h3>
             <p>Movie Hub wählt mit jeder neuen Periode reproduzierbar eine andere wirksame Sortierlogik.</p>
           </div>
-          <button
+          <SettingsButton
             type="button"
             className={settings.autoSwitch.enabled ? 'switch-control active' : 'switch-control'}
             role="switch"
@@ -94,13 +95,13 @@ export default function ContentDisplaySettings() {
           >
             <span className="switch-knob" />
             <span className="switch-label">{settings.autoSwitch.enabled ? 'Ein' : 'Aus'}</span>
-          </button>
+          </SettingsButton>
         </div>
 
         {settings.autoSwitch.enabled && (
           <div className="interval-controls" aria-label="Intervall für automatische Sortierung">
             {CONTENT_AUTO_SWITCH_INTERVALS.map((interval) => (
-              <button
+              <SettingsButton
                 type="button"
                 key={interval.id}
                 className={settings.autoSwitch.interval === interval.id ? 'interval-button active' : 'interval-button'}
@@ -110,7 +111,7 @@ export default function ContentDisplaySettings() {
                 data-focusable="true"
               >
                 {interval.label}
-              </button>
+              </SettingsButton>
             ))}
           </div>
         )}
@@ -132,7 +133,7 @@ export default function ContentDisplaySettings() {
           {ARTWORK_ROTATION_MODES.map((mode) => {
             const selected = settings.artworkRotation === mode.id
             return (
-              <button
+              <SettingsButton
                 type="button"
                 key={mode.id}
                 className={selected ? 'watched-display-choice active' : 'watched-display-choice'}
@@ -143,7 +144,7 @@ export default function ContentDisplaySettings() {
               >
                 <strong>{mode.label}</strong>
                 <span>{mode.description}</span>
-              </button>
+              </SettingsButton>
             )
           })}
         </div>
@@ -158,7 +159,7 @@ export default function ContentDisplaySettings() {
           {WATCHED_DISPLAY_MODES.map((mode) => {
             const selected = settings.watchedMode === mode.id
             return (
-              <button
+              <SettingsButton
                 type="button"
                 key={mode.id}
                 className={selected ? 'watched-display-choice active' : 'watched-display-choice'}
@@ -169,7 +170,7 @@ export default function ContentDisplaySettings() {
               >
                 <strong>{mode.label}</strong>
                 <span>{mode.description}</span>
-              </button>
+              </SettingsButton>
             )
           })}
         </div>

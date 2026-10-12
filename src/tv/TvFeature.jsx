@@ -1,3 +1,4 @@
+import { orderTvStations, combinedTvStationOrder as getCombinedStationOrder } from '../settings/stationOrder.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import TvView from '../components/TvView.jsx'
 import { resolvePresentationArtwork } from '../catalog/artworkRotation.js'
@@ -27,8 +28,7 @@ export default function TvFeature({
   joynStationCatalog,
   disabledWaipuStationIds = [],
   disabledJoynStationIds = [],
-  orderWaipuStations,
-  orderJoynStations,
+  enabledProviderIds = ['waipu', 'joyn'],
   stationSelectionLoading = true,
   joynStationSelectionLoading = true,
   liveAvailabilityEntries = [],
@@ -140,27 +140,26 @@ export default function TvFeature({
   const activeWaipuStations = useMemo(() => {
     const disabled = new Set(disabledWaipuStationIds)
     const stations = Array.isArray(waipuStationCatalog?.stations) ? waipuStationCatalog.stations : []
-    return (typeof orderWaipuStations === 'function' ? orderWaipuStations(stations) : stations)
-      .filter((station) => !disabled.has(station.id))
-  }, [disabledWaipuStationIds, orderWaipuStations, waipuStationCatalog?.stations])
+    return orderTvStations(stations, stations)
+      .filter((station) => enabledProviderIds.includes('waipu') && !disabled.has(station.id))
+  }, [disabledWaipuStationIds, enabledProviderIds, waipuStationCatalog?.stations])
   const activeWaipuStationKey = activeWaipuStations.map((station) => station.id).join('|')
 
   const activeJoynStations = useMemo(() => {
     const disabled = new Set(disabledJoynStationIds)
     const stations = Array.isArray(joynStationCatalog?.stations) ? joynStationCatalog.stations : []
-    return (typeof orderJoynStations === 'function' ? orderJoynStations(stations) : stations)
-      .filter((station) => !disabled.has(station.id))
-  }, [disabledJoynStationIds, joynStationCatalog?.stations, orderJoynStations])
+    return orderTvStations(stations, waipuStationCatalog?.stations || [])
+      .filter((station) => enabledProviderIds.includes('joyn') && !disabled.has(station.id))
+  }, [disabledJoynStationIds, enabledProviderIds, joynStationCatalog?.stations, waipuStationCatalog?.stations])
   const activeJoynStationKey = activeJoynStations.map((station) => station.id).join('|')
 
   const combinedTvDays = useMemo(
     () => tvRuntimeIndex.status === 'ready' ? tvRuntimeIndex.days : [],
     [tvRuntimeIndex.days, tvRuntimeIndex.status],
   )
-  const combinedTvStationOrder = useMemo(() => [...new Set([
-    ...activeWaipuStations.map((station) => station.id),
-    ...activeJoynStations.map((station) => station.canonicalId || `joyn.${station.id}`),
-  ])], [activeJoynStations, activeWaipuStations])
+  const combinedTvStationOrder = useMemo(() => getCombinedStationOrder(
+    activeWaipuStations, activeJoynStations, waipuStationCatalog?.stations || [],
+  ), [activeJoynStations, activeWaipuStations, waipuStationCatalog?.stations])
 
   useEffect(() => {
     if (!tvScheduleRequested || tvPeriodId !== '14-days') return undefined
@@ -249,6 +248,7 @@ export default function TvFeature({
         })
         startPerformanceSpan('tv:view-model', performanceKey, { dayKey })
         const schedule = buildTvRuntimeSchedule(day, {
+          enabledProviderIds,
           activeWaipuStationIds: activeWaipuStations.map((station) => station.id),
           activeJoynStationIds: activeJoynStations.map((station) => station.id),
         })
@@ -278,6 +278,7 @@ export default function TvFeature({
       cancelPerformanceSpan('tv:view-model', performanceKey, { dayKey, reason: 'superseded' })
     }
   }, [
+    enabledProviderIds,
     activeJoynStationKey,
     activeJoynStations,
     activeWaipuStationKey,
@@ -332,6 +333,7 @@ export default function TvFeature({
   const tv14DayRows = useMemo(() => (
     tvPeriodId === '14-days' && tv14DaySummary.status === 'ready'
       ? buildTv14DayRows({
+          enabledProviderIds,
           entries: tv14DaySummary.entries,
           titles: tvPresentationTitles,
           activeWaipuStationIds: activeWaipuStations.map((station) => station.id),
@@ -341,6 +343,7 @@ export default function TvFeature({
         })
       : []
   ), [
+    enabledProviderIds,
     activeJoynStationKey,
     activeWaipuStationKey,
     artworkOptions,
@@ -359,6 +362,7 @@ export default function TvFeature({
 
   const tvHeroItems = useMemo(
     () => buildTvRuntimeHeroItems(tvRuntimeHero.entries, {
+      enabledProviderIds,
       disabledWaipuStationIds,
       disabledJoynStationIds,
       now: tvClock,
@@ -367,6 +371,7 @@ export default function TvFeature({
       artworkOptions,
       disabledJoynStationIds,
       disabledWaipuStationIds,
+      enabledProviderIds,
       tvClock,
       tvRuntimeHero.entries,
     ],

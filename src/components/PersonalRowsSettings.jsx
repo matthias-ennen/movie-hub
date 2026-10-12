@@ -1,3 +1,4 @@
+import SettingsButton from './SettingsButton.jsx'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MAX_PERSONAL_SMART_ROWS,
@@ -261,7 +262,7 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
                   <small>{count} {count === 1 ? 'Treffer' : 'Treffer'}{count === 0 ? ' · derzeit ausgeblendet' : ''}</small>
                 </div>
                 <div className="personal-row-setting-actions">
-                  <button
+                  <SettingsButton
                     type="button"
                     className={row.enabled ? 'personal-row-toggle active' : 'personal-row-toggle'}
                     onClick={() => toggle(row)}
@@ -275,11 +276,11 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
                   >
                     <span>{row.enabled ? 'An' : 'Aus'}</span>
                     <span className={row.enabled ? 'category-choice-switch active' : 'category-choice-switch'} aria-hidden="true"><span /></span>
-                  </button>
-                  <button type="button" onClick={() => startEdit(row)} aria-disabled={busy} data-personal-row-action="edit" data-focusable="true">Bearbeiten</button>
-                  <button type="button" onClick={() => move(row, -1)} disabled={index === 0} aria-disabled={busy || index === 0} aria-busy={busyAction === `up:${row.id}`} aria-label={`${row.title} nach oben`} data-personal-row-action="up" data-focusable="true">↑</button>
-                  <button type="button" onClick={() => move(row, 1)} disabled={index === settings.rows.length - 1} aria-disabled={busy || index === settings.rows.length - 1} aria-busy={busyAction === `down:${row.id}`} aria-label={`${row.title} nach unten`} data-personal-row-action="down" data-focusable="true">↓</button>
-                  <button type="button" className={deleting ? 'danger confirm' : 'danger'} onClick={() => remove(row)} aria-disabled={busy} aria-busy={busyAction === `delete:${row.id}`} data-personal-row-action="delete" data-focusable="true">{deleting ? 'Löschen bestätigen' : 'Löschen'}</button>
+                  </SettingsButton>
+                  <SettingsButton type="button" onClick={() => startEdit(row)} aria-disabled={busy} data-personal-row-action="edit" data-focusable="true">Bearbeiten</SettingsButton>
+                  <SettingsButton type="button" onClick={() => move(row, -1)} disabled={index === 0} aria-disabled={busy || index === 0} aria-busy={busyAction === `up:${row.id}`} aria-label={`${row.title} nach oben`} data-personal-row-action="up" data-focusable="true">↑</SettingsButton>
+                  <SettingsButton type="button" onClick={() => move(row, 1)} disabled={index === settings.rows.length - 1} aria-disabled={busy || index === settings.rows.length - 1} aria-busy={busyAction === `down:${row.id}`} aria-label={`${row.title} nach unten`} data-personal-row-action="down" data-focusable="true">↓</SettingsButton>
+                  <SettingsButton type="button" className={deleting ? 'danger confirm' : 'danger'} onClick={() => remove(row)} aria-disabled={busy} aria-busy={busyAction === `delete:${row.id}`} data-personal-row-action="delete" data-focusable="true">{deleting ? 'Löschen bestätigen' : 'Löschen'}</SettingsButton>
                 </div>
               </article>
             )
@@ -288,7 +289,7 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
       )}
 
       {editingId === null && settings.rows.length < MAX_PERSONAL_SMART_ROWS && (
-        <button type="button" className="personal-row-add" onClick={startAdd} data-personal-row-add="true" data-focusable="true">+ Persönliche Reihe hinzufügen</button>
+        <SettingsButton type="button" className="personal-row-add" onClick={startAdd} data-personal-row-add="true" data-focusable="true">+ Persönliche Reihe hinzufügen</SettingsButton>
       )}
 
       {editingId !== null && (
@@ -330,7 +331,7 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
 
           <div className="personal-row-suggestions" aria-label="Vorschläge">
             {visibleOptions.map((option) => (
-              <button
+              <SettingsButton
                 type="button"
                 className={selected?.id === option.id ? 'personal-row-suggestion active' : 'personal-row-suggestion'}
                 key={option.id}
@@ -339,7 +340,7 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
               >
                 {option.imageUrl && <img src={option.imageUrl} alt="" />}
                 <span><strong>{option.label}</strong><small>{option.count} Treffer{option.knownFor.length ? ` · ${option.knownFor.join(', ')}` : ''}</small></span>
-              </button>
+              </SettingsButton>
             ))}
           </div>
           {type !== 'decade' && query.trim().length >= 2 && visibleOptions.length === 0 && (
@@ -360,8 +361,8 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
           )}
 
           <div className="personal-row-editor-actions">
-            <button type="submit" disabled={!selected || !title.trim()} aria-disabled={busy || !selected || !title.trim()} aria-busy={busyAction?.startsWith('save:')} data-focusable="true">{busy ? 'Speichert …' : 'Reihe speichern'}</button>
-            <button type="button" onClick={cancelForm} aria-disabled={busy} data-focusable="true">Abbrechen</button>
+            <SettingsButton type="submit" disabled={!selected || !title.trim()} aria-disabled={busy || !selected || !title.trim()} aria-busy={busyAction?.startsWith('save:')} data-focusable="true">{busy ? 'Speichert …' : 'Reihe speichern'}</SettingsButton>
+            <SettingsButton type="button" onClick={cancelForm} aria-disabled={busy} data-focusable="true">Abbrechen</SettingsButton>
           </div>
         </form>
       )}

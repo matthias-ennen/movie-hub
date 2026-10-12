@@ -32,12 +32,20 @@ Matthias bestätigte den gemeinsamen Josh-Hartnett-/„30 Days of Night“-Abnah
 
 ## Aktuelle Priorisierung
 
+### Vorgezogen: #387 – Einstellungen und konsistente Anbieterregeln
+
+Am 12.10.2026 ausdrücklich zur Umsetzung freigegeben. Vier Settings-Gruppen,
+gemeinsame Anbieter-/Senderordnung und Live-Auswahl, passende Posterreihen
+auf allen Seiten. 968 Unit-Tests, Build und Browserprüfung erfolgreich;
+CI/Veröffentlichung im PR nachweisen, Geräteabnahme noch offen.
+Details: [SETTINGS.md](SETTINGS.md). #384 bleibt bis danach zurückgestellt.
+
 ### 1. #314 – Mitteilungs-Erweiterungen
 
 Das Grundpaket #118/#312/#380/#381/#382/#383 einschließlich
 `movie-hub-admin#11` ist vollständig abgenommen und abgeschlossen.
 
-1. **#384:** aktuell ausschließlich technische Analyse/Aufwandsschätzung für
+1. **#384:** analysiert, bis nach #387 zurückgestellt. Geplant ist
    **Auch per E-Mail** je Profil, Default aus. Persönliche Inklusiv-,
    TV-Fund- und letzte TV-Meldungen; Erweiterung des früheren Umfangs.
    Gemeinsamer Backend-Versand, Vorlagen, Absender/Versanddienst,
@@ -97,7 +105,6 @@ Ziel: Ein Nutzer erkennt unmittelbar, ob ein Titel ohne Einzelkauf verfügbar is
 
 - #329 – Waipu-Restklassifizierung
 - #386 – verbleibende Fire-TV-Navigations-Freezes; eigenes Folgepaket nach #346
-- #387 – Inventur, Fokus und Navigation der Einstellungen
 - #7 – Empfehlungen/Automatisierung; Top-100-Stufe bereits abgenommen
 - #328 – Trailer/Teaser-Finish
 - #327 – TMDB-Kontosynchronisation, später
@@ -119,7 +126,7 @@ Vor öffentlicher Veröffentlichung:
 
 ## Aktuelle Abhängigkeitskette
 
-`#314 (Grundpaket abgenommen; #384 Analyse, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
+`#387 (vorgezogen, Abnahme offen) → #314 (Grundpaket abgenommen; #384 zurückgestellt, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
 
 #280, #315, #346, #118, #312, #380, #381, #382, #383 und `movie-hub-admin#11` sind abgeschlossen. Die reguläre Datenfortschreibung
 ist bestätigt; Startverzögerungen bleiben unter Beobachtung. #329 bleibt Wartung. Movie Hub Admin bleibt ein getrenntes Repository;

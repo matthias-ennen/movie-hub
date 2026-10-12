@@ -13,17 +13,17 @@ describe('provider badge priority', () => {
 
   it('keeps Waipu and Joyn first when Movie Hub is absent', () => {
     expect(prioritizeProviderBadges(['netflix', 'prime', 'joyn', 'waipu', 'disney']))
-      .toEqual(['waipu', 'joyn', 'netflix'])
+      .toEqual(['waipu', 'joyn', 'disney'])
   })
 
   it('moves Joyn ahead of normal TMDB providers when Waipu is absent', () => {
     expect(prioritizeProviderBadges(['prime', 'joyn', 'netflix', 'disney']))
-      .toEqual(['joyn', 'netflix', 'prime'])
+      .toEqual(['joyn', 'disney', 'netflix'])
   })
 
-  it('uses the canonical registry order for the remaining providers', () => {
+  it('uses the canonical alphabetical order for the remaining providers', () => {
     expect(prioritizeProviderBadges(['disney', 'prime', 'youtube', 'netflix']))
-      .toEqual(['netflix', 'prime', 'disney'])
+      .toEqual(['disney', 'netflix', 'prime'])
   })
 
   it('deduplicates providers and never renders more than three badges', () => {
