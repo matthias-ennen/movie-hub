@@ -34,6 +34,8 @@ Zu den zuletzt abgeschlossenen beziehungsweise abgenommenen Paketen gehören ins
 - #315 – Nachtlauf-Überwachung, Datenfrische, unabhängiger Alarm und dauerhafte Cloud-Checkpoints; am 03.10.2026 abgeschlossen
 - #346 – Fundamenthärtung und Performance; technische Phasen, Dokumentation und reale Smartphone-/Fire-TV-Abnahme am 03.10.2026 abgeschlossen
 - #380 – Server-Prüflauf/IAM und produktiver Beobachtungsnachweis; am 08.10.2026 abgeschlossen
+- #413 – persönliche Smart-Reihen aus dem zusammengeführten Bestand; am 12.10.2026 auf Smartphone/Fire TV abgenommen und geschlossen
+- #415 – Schauspielersuche im öffentlichen und persönlichen Bestand; am 12.10.2026 auf Smartphone/Fire TV abgenommen und geschlossen
 
 ## Gezielter aktueller Betriebsauftrag (07.10.2026)
 
@@ -61,11 +63,11 @@ Die Datenstrecke ist nachgewiesen; pünktlicher Start bleibt ein Überwachungspu
 
 ## Gezielte Korrektur persönlicher Reihen (12.10.2026)
 
-#413 ist über PR #414 technisch geprüft und veröffentlicht: gemeinsame Titelbasis und einheitliche Filtermetadaten für alle fünf persönlichen Smart-Reihentypen, einschließlich Erhalt der Metadaten und Nachpflege älterer Referenzen im bestehenden kanonischen Datenlauf. Keine Änderung der Hauptreihenfolge. Die manuelle Abnahme von „30 Days of Night“/Josh Hartnett, weiteren Filtern und Fire-TV-Bedienung bleibt bis zur Rückmeldung offen. Web-Korrektur nach App-Neustart; neue vollständige native Importe benötigen die neue APK.
+#413 ist über PR #414 technisch geprüft und veröffentlicht: gemeinsame Titelbasis und einheitliche Filtermetadaten für alle fünf persönlichen Smart-Reihentypen, einschließlich Erhalt der Metadaten und Nachpflege älterer Referenzen im bestehenden kanonischen Datenlauf. Keine Änderung der Hauptreihenfolge. Matthias hat am 12.10.2026 den gemeinsamen Abnahmeschritt #413/#415 auf Smartphone/Fire TV ausdrücklich mit „Abgenommen“ bestätigt: Josh Hartnett suchen, „30 Days of Night“ öffnen, persönliche Reihe kontrollieren und flüssige Fire-TV-Bedienung prüfen. #413 ist geschlossen; die technischen Prüfungen aller fünf Filtertypen bleiben im Issue nachgewiesen. Web-Korrektur nach App-Neustart; neue vollständige native Importe benötigen die neue APK.
 
 ## Ergänzung Schauspielersuche (12.10.2026)
 
-#415 ergänzt über den übernommenen PR #416 das bestehende Suchfeld um Schauspielernamen. Gemeinsame Besetzungs-IDs mit #413, öffentlicher Suchindex aus vorhandenen Metadaten und lokale Ergänzung persönlicher Titel; keine zusätzlichen Netzwerkabfragen beim Tippen. Technische Tests und Veröffentlichung sind erfolgreich. Die manuelle Abnahme auf Smartphone/Fire TV bleibt offen; die Reihenfolge der Hauptstrecke ändert sich nicht. Für die Sucherweiterung reicht ein vollständiger App-Neustart.
+#415 ergänzt über den übernommenen PR #416 das bestehende Suchfeld um Schauspielernamen. Gemeinsame Besetzungs-IDs mit #413, öffentlicher Suchindex aus vorhandenen Metadaten und lokale Ergänzung persönlicher Titel; keine zusätzlichen Netzwerkabfragen beim Tippen. Technische Tests und Veröffentlichung sind erfolgreich. Die manuelle Smartphone-/Fire-TV-Abnahme wurde am 12.10.2026 im gemeinsamen Schritt mit #413 bestätigt; #415 ist geschlossen. Die Reihenfolge der Hauptstrecke ändert sich nicht. Für die Sucherweiterung reicht ein vollständiger App-Neustart.
 
 ## Aktive Hauptstrecke
 
@@ -187,4 +189,4 @@ Vor einer öffentlichen Version 1.0 sollen mindestens folgende Blöcke abgeschlo
 
 `#314 (#381/#118 und #382 Restabnahme → #383 → #312 Restabnahme; #384/#385 optional) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
 
-#346, #315 und #380 sind abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 warten auf manuelle Abnahme. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) bleiben getrennte Recherchepakete unter #271 und ändern die Hauptstrecke nicht.
+#346, #315 und #380 sind abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) bleiben getrennte Recherchepakete unter #271 und ändern die Hauptstrecke nicht.
