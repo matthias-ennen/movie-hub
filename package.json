@@ -21,6 +21,7 @@
     "tmdb:catalog": "node scripts/generate-tmdb-catalog.mjs && node scripts/generate-search-index.mjs && node scripts/generate-series-details.mjs",
     "tmdb:restore": "node scripts/restore-live-tmdb-data.mjs",
     "search:index": "node scripts/generate-search-index.mjs",
+    "search:actors": "node scripts/generate-search-index.mjs --actors-only",
     "search:details": "node scripts/generate-search-details.mjs",
     "search:details:restore": "node scripts/restore-live-search-details.mjs",
     "series:details": "node scripts/generate-series-details.mjs",

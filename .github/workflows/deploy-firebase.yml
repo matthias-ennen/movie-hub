@@ -373,6 +373,9 @@ jobs:
         if: ${{ steps.canonical_executor.outcome == 'success' }}
         run: npm run tmdb:changes:ack -- personal-tmdb-metadata
 
+      - name: Project actor search from existing canonical metadata
+        run: npm run search:actors
+
       - name: Report data fill levels
         id: data_status
         env:

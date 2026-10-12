@@ -15,6 +15,7 @@ import {
   toSearchIndexEntry,
 } from '../src/search/searchIndex.js'
 import { SEARCH_DETAIL_BUCKET_COUNT, SEARCH_DETAIL_VERSION } from '../src/search/lazySearchDetails.js'
+import { projectSearchActors } from '../src/search/searchActors.js'
 import { buildFilmCollection } from '../src/catalog/filmCollections.js'
 import { isTmdbTitleChangePending, readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
 import {
@@ -866,19 +867,40 @@ export async function generateBroadSearchIndexFromTmdb() {
       }
     },
   )
-  await writeSearchIndex(searchIndex)
-  await writeSearchDetails([
+  const details = mergeSearchDetails([
     ...existingDetails.filter((detail) => activeSearchIds.has(detail.id)),
     ...records.map((record) => record.detail),
     ...enrichedDetails.filter(Boolean),
     ...catalog.titles.map(searchDetailFromCatalogTitle),
-  ], searchIndex.generatedAt)
-  return searchIndex
+  ])
+  const searchableIndex = projectSearchActors(searchIndex, details, catalog.smartFilterOptions?.cast)
+  await writeSearchIndex(searchableIndex)
+  await writeSearchDetails(details, searchIndex.generatedAt)
+  return searchableIndex
+}
+
+// Reuse restored/canonical detail files on code deploys as well as nightly runs.
+// This projection never fetches TMDB and does not change catalogue membership.
+export async function refreshSearchActors() {
+  const [catalog, details, rawIndex] = await Promise.all([
+    readCatalog(), readExistingSearchDetails(), readFile(searchIndexPath, 'utf8'),
+  ])
+  const index = JSON.parse(rawIndex)
+  if (index?.kind !== 'search-index' || !Array.isArray(index.entries) || !index.entries.length) {
+    throw new Error('A valid non-empty search index is required before projecting actors.')
+  }
+  const result = projectSearchActors(index, mergeSearchDetails([
+    ...details, ...catalog.titles.map(searchDetailFromCatalogTitle),
+  ]), catalog.smartFilterOptions?.cast)
+  await writeSearchIndex(result)
+  console.log(`Actor search: ${result.actorCoverage.titles}/${result.actorCoverage.total} titles with named cast · ${result.actors.length} actors · no metadata requests`)
+  return result
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
-    if (token) await generateBroadSearchIndexFromTmdb()
+    if (process.argv.includes('--actors-only')) await refreshSearchActors()
+    else if (token) await generateBroadSearchIndexFromTmdb()
     else await generateSearchIndexFromCatalog()
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error))

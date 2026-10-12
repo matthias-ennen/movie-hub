@@ -1532,10 +1532,11 @@ function MovieHub({ user }) {
       {currentView === 'search' && (
         <Suspense fallback={<LazyViewLoading label="Suchen" className="browse-page search-page" />}>
           <LazySearchView
-            publicTitles={publicTitles}
+            metadataTitles={personalMetadataTitles}
             personalTitles={tmdbPersonalTitles}
-            movieHubTitles={movieHubTitles}
-            fullTitles={titles}
+            statesByKey={statesByKey}
+            actorNames={catalog.smartFilterOptions.cast}
+            fullTitles={personalCatalogTitles}
             onOpen={handleOpenTitle}
           />
         </Suspense>

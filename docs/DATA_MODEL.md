@@ -150,6 +150,16 @@ Beispiele:
 
 Systemlisten wie Favoriten oder Watchlist müssen nicht zwingend als separate Dokumente gespeichert werden; sie können aus dem persönlichen Filmzustand berechnet werden. Kuratierte oder KI-generierte Reihen können zusätzlich als Listendokumente persistiert werden.
 
+### Schauspieler im Suchindex
+
+`search-index.json` behält sein abwärtskompatibles Format Version 1 und ergänzt seit #415:
+
+- `entries[].castPersonIds`: numerische Besetzungs-IDs aus vollständigen vorhandenen Filtermetadaten; keine Personenbilder oder Rollenbeschreibungen.
+- `actors[]`: deduplizierte `{ id, name }`-Liste ausschließlich verwendeter Schauspieler.
+- `actorCoverage`: `{ titles, total }`, Anzahl Titel mit mindestens einer auflösbaren Schauspielerzuordnung gegenüber allen Suchindex-Titeln. Eine bekannte Besetzung garantiert nicht deren Vollständigkeit.
+
+Diese Felder sind abgeleitete öffentliche Metadaten. Persönliche Titel und Profil-Snapshots werden nur lokal in den Suchbestand aufgenommen. Sie werden dadurch nicht in den öffentlichen Index geschrieben. Ältere Indizes ohne diese Felder unterstützen weiterhin die Titelsuche und die Schauspielersuche für lokal vorhandene Metadaten.
+
 ### Persönliche Smart-Reihen
 
 Die unter **Meine Inhalte** konfigurierten dynamischen Reihen liegen als kleine Regelliste direkt im jeweiligen Profildokument:

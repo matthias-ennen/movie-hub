@@ -1,14 +1,10 @@
+import { readTitleFacets } from '../catalog/titleFacets.js'
+import { getTitleStateKey } from '../library/libraryState.js'
+import { findActorTitleIds, normalizeSearchText as normalizeText, projectSearchActors } from './searchActors.js'
+
 export const SEARCH_INDEX_VERSION = 1
 export const SEARCH_MIN_QUERY_LENGTH = 2
 export const SEARCH_RESULT_LIMIT = 60
-
-function normalizeText(value) {
-  return String(value || '')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('de')
-    .trim()
-}
 
 function normalizeOffer(offer) {
   if (!offer?.id) return null
@@ -52,6 +48,7 @@ export function toSearchIndexEntry(title, { scope = 'public' } = {}) {
     accent2: title.accent2 || '#1c2531',
     providerIds,
     providerOffers,
+    castPersonIds: readTitleFacets(title).castPersonIds,
     searchText,
     scope,
   }
@@ -69,14 +66,15 @@ export function mergeSearchIndexEntries(publicEntries, personalEntries) {
   const merged = new Map()
 
   for (const entry of Array.isArray(publicEntries) ? publicEntries : []) {
-    if (entry?.id) merged.set(entry.id, entry)
+    if (entry?.id) merged.set(getTitleStateKey(entry), entry)
   }
 
   for (const personalEntry of Array.isArray(personalEntries) ? personalEntries : []) {
     if (!personalEntry?.id) continue
-    const current = merged.get(personalEntry.id)
+    const key = getTitleStateKey(personalEntry)
+    const current = merged.get(key)
     if (!current) {
-      merged.set(personalEntry.id, { ...personalEntry, scope: 'personal' })
+      merged.set(key, { ...personalEntry, scope: 'personal' })
       continue
     }
 
@@ -93,10 +91,11 @@ export function mergeSearchIndexEntries(publicEntries, personalEntries) {
         : { ...offer, offerTypes: [...(offer.offerTypes || [])] })
     }
 
-    merged.set(personalEntry.id, {
+    merged.set(key, {
       ...personalEntry,
       ...current,
       scope: 'personal',
+      castPersonIds: [...new Set([...(current.castPersonIds || []), ...(personalEntry.castPersonIds || [])])],
       providerOffers: [...providerOffers.values()],
       providerIds: [...new Set([...(current.providerIds || []), ...(personalEntry.providerIds || [])])],
     })
@@ -106,11 +105,11 @@ export function mergeSearchIndexEntries(publicEntries, personalEntries) {
 }
 
 function matchScore(entry, normalizedQuery) {
-  const title = normalizeText(entry.title)
-  const originalTitle = normalizeText(entry.originalTitle)
   const haystack = entry.searchText || normalizeText(`${entry.title || ''} ${entry.originalTitle || ''} ${entry.year || ''}`)
 
   if (!haystack.includes(normalizedQuery)) return -1
+  const title = normalizeText(entry.title)
+  const originalTitle = normalizeText(entry.originalTitle)
   if (title === normalizedQuery) return 1000
   if (title.startsWith(normalizedQuery)) return 800
   if (originalTitle === normalizedQuery) return 700
@@ -121,6 +120,7 @@ function matchScore(entry, normalizedQuery) {
 export function searchIndex(entries, query, {
   enabledProviderIds = null,
   limit = SEARCH_RESULT_LIMIT,
+  actorIndex = [],
 } = {}) {
   const normalizedQuery = normalizeText(query)
   if (normalizedQuery.length < SEARCH_MIN_QUERY_LENGTH) {
@@ -129,6 +129,7 @@ export function searchIndex(entries, query, {
 
   const enabled = Array.isArray(enabledProviderIds) ? new Set(enabledProviderIds) : null
   const scored = []
+  const actorTitleIds = findActorTitleIds(actorIndex, normalizedQuery)
 
   for (const entry of Array.isArray(entries) ? entries : []) {
     if (!entry?.id) continue
@@ -138,7 +139,7 @@ export function searchIndex(entries, query, {
       if (!providerIds.some((providerId) => enabled.has(providerId))) continue
     }
 
-    const score = matchScore(entry, normalizedQuery)
+    const score = Math.max(matchScore(entry, normalizedQuery), actorTitleIds.has(entry.id) ? 90 : -1)
     if (score < 0) continue
     scored.push({ entry, score })
   }
@@ -159,7 +160,7 @@ export function searchIndex(entries, query, {
 
 export function buildSearchIndexArtifact(catalog) {
   const entries = buildSearchIndexEntries(catalog?.titles, { scope: 'public' })
-  return {
+  return projectSearchActors({
     source: catalog?.source || 'tmdb',
     kind: 'search-index',
     version: SEARCH_INDEX_VERSION,
@@ -170,5 +171,5 @@ export function buildSearchIndexArtifact(catalog) {
     providerAttribution: catalog?.providerAttribution || null,
     count: entries.length,
     entries,
-  }
+  }, catalog?.titles, catalog?.smartFilterOptions?.cast)
 }

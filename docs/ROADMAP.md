@@ -59,6 +59,10 @@ TMDB-Verbraucherabschluss.** Sie wird nicht als bereits bestanden markiert.
 
 #413 ist von Matthias zur direkten Umsetzung freigegeben: gemeinsame Titelbasis und einheitliche Filtermetadaten für alle fünf persönlichen Smart-Reihentypen, einschließlich Erhalt der Metadaten und Nachpflege älterer Referenzen im bestehenden kanonischen Datenlauf. Keine Änderung der Hauptreihenfolge. Technische Prüfung und Veröffentlichung werden im Issue nachgewiesen; die manuelle Abnahme von „30 Days of Night“/Josh Hartnett und Fire-TV-Bedienung bleibt bis zur Rückmeldung offen.
 
+## Ergänzung Schauspielersuche (12.10.2026)
+
+#415 ergänzt nach ausdrücklicher Freigabe das bestehende Suchfeld um Schauspielernamen. Gemeinsame Besetzungs-IDs mit #413, kompakter öffentlicher Suchindex aus vorhandenen Metadaten und lokale Ergänzung persönlicher Titel; keine zusätzlichen Netzwerkabfragen beim Tippen. Technische Tests und Veröffentlichung werden im Issue nachgewiesen. Die manuelle Abnahme auf Smartphone/Fire TV bleibt offen; die Reihenfolge der Hauptstrecke ändert sich nicht.
+
 ## Aktive Hauptstrecke
 
 ### 1. #314 – Mitteilungen und Benachrichtigungen konsolidieren

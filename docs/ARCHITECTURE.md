@@ -122,6 +122,16 @@ Die Facettenaufbereitung ist an Metadatenänderungen gebunden und wird memoisier
 
 Diese Smart-Reihen sind fachlich und technisch von den festen Film-/Serienkategorien sowie von Watchlist, Favoriten, Bewertungen und synchronisierten TMDB-Listen getrennt.
 
+### Titel- und Schauspielersuche
+
+Seit #415 sucht das vorhandene Suchfeld nach Titeln und Schauspielern. Der getrennte, erst beim Öffnen der Suche geladene Suchindex enthält pro Titel nur `castPersonIds` sowie einmalig ein Verzeichnis `actors` mit ID und Name. Die IDs stammen aus demselben `titleFacets.js`-Vertrag wie persönliche Smart-Reihen; der Anzeige-Cast begrenzt die Suche nicht.
+
+Der Kataloggenerator und `npm run search:actors` projizieren vorhandene Katalog-/Search-Detail-Metadaten in diesen Index. Der Deploy führt die Projektion nach Restore und kanonischer Pflege auch bei reinen Code-Veröffentlichungen aus. Sie verändert weder Titelmitgliedschaft noch Verfügbarkeiten oder das ursprüngliche Generationsdatum und führt keine TMDB-Anfragen aus. Fehlende Besetzungsdaten werden weiterhin über die vorhandene Metadatenpflege ergänzt; `actorCoverage` dokumentiert Titel mit mindestens einer benannten Besetzung, keinen Vollständigkeitsnachweis der gesamten Besetzung.
+
+Die Suchansicht ergänzt den Index aus derselben Metadatenbasis wie persönliche Reihen, einschließlich aktiver Profil-Snapshots. Zusammenführung und Detailauflösung verwenden Medientyp + TMDB-ID. Persönliche TMDB-/Profil-Titel bleiben unabhängig von Anbieterfiltern auffindbar; öffentliche und ausschließlich eigene Movie-Hub-Angebote folgen der Anbieterauswahl. Ein Profilwechsel ersetzt die zugehörigen persönlichen Mitgliedschaften.
+
+Normalisierte Schauspielernamen und die Zuordnung zu Titeln werden einmal pro Metadatenänderung aufgebaut, unabhängig vom Live-Zeitgeber. Beim Tippen erfolgen ausschließlich lokale Abgleiche; Schreibweise und Akzente werden ignoriert, Teilnamen sind möglich. Titeltreffer rangieren vor reinen Schauspielertreffern. Gesamtzählung, maximal 60 gerenderte Treffer, Live-Status und der vorhandene Detailpfad bleiben erhalten.
+
 ### Filmreihen-Navigation
 
 Der vertrauenswürdige Katalogjob löst die bei Filmen vorhandene TMDB-Collection-ID einmal je Sammlung über den offiziellen Collection-Endpunkt auf. `catalog.json` enthält daraus einen kompakten `collections`-Index mit Sammlungsmetadaten und sämtlichen von TMDB gelieferten Teilen. Vorhandene vollständige Katalogtitel reichern diese Einträge um die aktuelle Anbieterinformation an; Teile außerhalb des Browse-Katalogs bleiben als reduzierte öffentliche Detailobjekte navigierbar. Zusätzlich können persönliche Movie-Hub-Manifeste ihre eigene kompakte Collection-Teileliste tragen, wenn ihr Titel außerhalb des Browse-Katalogs liegt. Der Browser benötigt dafür keinen TMDB-Schlüssel und führt keine direkten TMDB-Laufzeitabfragen aus.
