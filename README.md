@@ -57,7 +57,7 @@ Details:
 
 Projektstart: 31. August 2026
 
-Stand: **7. Oktober 2026**
+Stand: **12. Oktober 2026**
 
 Die kanonische Titelbasis aus #256 sowie die Waipu-Pakete #4, #259 und #260 sind technisch umgesetzt und auf den vorgesehenen Geräten abgenommen. TMDB bleibt die kanonische Quelle für öffentliche Film- und Serienmetadaten; externe Quellen ergänzen Verfügbarkeiten, Senderereignisse und Wiedergabeziele.
 
@@ -66,10 +66,11 @@ Die kanonische Titelbasis aus #256 sowie die Waipu-Pakete #4, #259 und #260 sind
 Der gezielt vorgezogene Betriebsnachtrag vom 07.10.2026 unter #271 erweitert
 Joyn auf den geprüften 14-Tage-Import, dauerhafte Checkpoints, Quellenfehlerschutz
 und den gemeinsamen Nachtlaufbericht. Er wurde ohne neues eigenes Issue als
-Ergänzung zu #280/#315 bearbeitet. Aufbau, Code-Deploy und öffentliche Rückprüfung
-sind erfolgreich; die tägliche Fortschreibung mit normalen Budgets muss der
-reguläre Lauf am 08.10.2026 (Sollstart 00:17 Uhr Europe/Berlin) noch bestätigen.
-Nachweise und offener Betriebspunkt: [Nachtlauf-Dokumentation](docs/DATA_WORKFLOW_RELIABILITY.md).
+Ergänzung zu #280/#315 bearbeitet. Der reguläre [Nachtlauf vom 12.10.2026](https://github.com/matthias-ennen/movie-hub/actions/runs/38191419867)
+bestätigt die tägliche Fortschreibung mit normalen Budgets, privaten Checkpoints,
+vollständigem TMDB-Verbraucherabschluss und geprüfter Veröffentlichung.
+Der Start war 182 Minuten verspätet; die Pünktlichkeit ist damit nicht bestätigt.
+Nachweise und verbleibende Betriebshinweise: [Nachtlauf-Dokumentation](docs/DATA_WORKFLOW_RELIABILITY.md).
 Die Produkt-Hauptstrecke bleibt #314; Movie Hub Admin wird separat behandelt.
 
 Der interaktive TV-Pfad liest vorbereitete Runtime-Artefakte statt vollständige Providerkataloge in die Oberfläche zu ziehen. Der TV-Hero kommt aus einem kleinen 14-Tage-Snapshot; Tagesdaten werden erst nach Hero-Bereitschaft geladen. Veraltete Tagesrequests werden abgebrochen und der Tagescache ist begrenzt. Seit #346 liegt die komplette TV-Runtime zusätzlich in einem lazy geladenen Feature und wird beim TV-Intent nur vorgewärmt.
@@ -84,6 +85,8 @@ Die aktuelle Hauptreihenfolge lautet:
 
 `#314 Mitteilungen/Benachrichtigungen → #271/#336 Quellenplattform und weitere belastbare Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
 
-Das aktuell aktive große Arbeitspaket ist [#314 – Mitteilungen](https://github.com/matthias-ennen/movie-hub/issues/314). Es führt die noch offenen Punkte aus #312 und #118 zusammen: Ende-zu-Ende-Verhalten, persönliche Auslöser „Wenn inklusive“/„Wenn im TV“, Darstellung, Häufigkeit, Gültigkeit, Deduplizierung und Profilregeln. Der in Deploy #939 beobachtete serverseitige Firestore/IAM-Fehler des TV-Prüflaufs gehört ausdrücklich in dieses Paket. #329 bleibt als Wartungspaket offen. Für eine öffentliche Verteilung gilt weiterhin das Compliance-Gate #112.
+Das aktuell aktive große Arbeitspaket ist [#314 – Mitteilungen](https://github.com/matthias-ennen/movie-hub/issues/314). Der Server-/IAM-Pfad #380 ist abgeschlossen. Lebenszyklus #381 und TV-Erinnerung #382 sind produktiv; der private Minutendienst wurde am 10.10.2026 aktiviert. Offen bleiben die fachlichen Restabnahmen, insbesondere der echte TV-Erinnerungstest und die gemeldete Timing-Abweichung. Danach folgt #383: aktive Beobachtungen unter Einstellungen → Mitteilungen verwalten. Bereits bestätigte Fire-TV-, Lesestatus- und persönliche Profiltests werden nicht erneut als offen geführt. Details: [Mitteilungen](docs/TITLE_NOTIFICATIONS.md) und [Scheduler-Betrieb](docs/TV_FINAL_SCHEDULER_RUNBOOK.md).
+
+Die vorgezogenen Korrekturen [#413 – persönliche Smart-Reihen](https://github.com/matthias-ennen/movie-hub/issues/413) und [#415 – Schauspielersuche](https://github.com/matthias-ennen/movie-hub/issues/415) sind über PR #414/#416 veröffentlicht. Beide nutzen vorhandene gemeinsame Titelmetadaten; es gibt keine zusätzlichen Abfragen beim Tippen oder je Posterreihe. Technische Prüfungen sind erfolgreich, die manuelle Smartphone-/Fire-TV-Abnahme bleibt offen. Web-Suche und Reihen werden nach vollständigem App-Neustart geladen; neue native Importe mit vollständigen Besetzungsfacetten benötigen die neue APK. #329 bleibt Wartung; für öffentliche Verteilung gilt weiterhin #112.
 
 Vor jedem Umsetzungspaket werden offene Produktfragen mit Matthias einzeln geklärt und anschließend im betreffenden Issue verbindlich dokumentiert.

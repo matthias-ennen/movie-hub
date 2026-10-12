@@ -1,6 +1,19 @@
 # MovieHub #382 – privater Minuten-Worker und gesicherter Scheduler-Livegang
 
-**Stand 10.10.2026:** PR #409 ist in `main` integriert. `preflight` und `prepare` wurden laut Nutzer erfolgreich ausgeführt. [Aktivierungslauf #38063377537](https://github.com/matthias-ennen/movie-hub/actions/runs/38063377537) brach nach erfolgreichen Identitäts- und Privatheitsprüfungen bei `run.services.setIamPolicy` mit `PERMISSION_DENIED` ab. **Kein Scheduler-Job aktiviert.** Korrektur: GitHub darf den einzelnen Cloud-Run-Aufrufberechtigten nur lesen/prüfen, die einmalige IAM-Zuweisung übernimmt der befugte Projektadministrator direkt auf dem einzigen TV-Dienst. Das Compute-Standardkonto bleibt unverändert.
+**Dokumentationsstand 12.10.2026:** PR #409/#410 sind in `main` integriert.
+Der freigegebene [Aktivierungslauf #38064584915](https://github.com/matthias-ennen/movie-hub/actions/runs/38064584915)
+hat am 10.10.2026 den privaten Scheduler `movie-hub-tv-final-1min` mit
+`state: ENABLED`, `schedule: '* * * * *'`, `timeZone: Etc/UTC` und OIDC-POST
+erzeugt und rückgelesen. Cloud-Logs vom 10.10., 17:46–17:48 Uhr Europe/Berlin,
+sind in [#382 dokumentiert](https://github.com/matthias-ennen/movie-hub/issues/382#issuecomment-6099322840):
+jeweils `failed=0`, `considered=0`, `finalCreated=0`; einmal `expired=2`.
+Das ist der letzte hier belegte Cloud-Betriebsnachweis, keine neue Cloud-Abfrage
+vom 12.10.2026. Fachliche Film-/Serien-End-to-End-Abnahme bleibt offen.
+
+Der frühere [rote Lauf #38063377537](https://github.com/matthias-ennen/movie-hub/actions/runs/38063377537)
+scheiterte an `run.services.setIamPolicy`. Nach der einmaligen ressourcenbezogenen
+IAM-Zuweisung durch den Projektadministrator prüft GitHub den Invoker nur lesend.
+Das Compute-Standardkonto bleibt unverändert. Die Aktivierung nicht wiederholen.
 
 ## Rollen, Dienste, Trennung
 
@@ -20,7 +33,11 @@
 
 Der normale `deploy-firebase.yml`-Nachtlauf bleibt auf `hosting,firestore:rules` begrenzt. **Niemals** `firebase deploy --only functions` oder die alte `onSchedule`-Variante für diese Function starten.
 
-## Noch manuell aufzubauende und zu verifizierende Voraussetzungen
+## Voraussetzungen der abgeschlossenen Ersteinrichtung
+
+Die folgenden Punkte dokumentieren die damalige Einrichtung. Sie sind keine
+erneute Arbeitsanweisung oder Behauptung aktuell fehlender Voraussetzungen.
+Vor einem späteren Infrastruktur-Update ist der aktuelle Bestand erneut zu prüfen.
 
 - `movie-hub-tv-build`: Google-Cloud-Build-Berechtigungen gemäß der offiziellen Cloud-Functions-Dokumentation; mindestens Log Writer, Artifact Registry Writer auf erforderlichem Repo und Storage Object Viewer auf erforderlichem Quell-Bucket. Bestands-Registry `gcf-artifacts` und Build-Quell-Buckets liegen bisher **nur in europe-west1**, die neue Funktion ist die erste in europe-west3. Daher west3-Buildspeicher gezielt anlegen/verifizieren, **keine pauschalen Rechte am Nachtlauf-Bucket** `movie-hub-62459-nightly-checkpoints`.
 - GitHub-Deployer: `roles/iam.serviceAccountUser` **direkt** auf Build-, Runtime- und Scheduler-SA; `roles/cloudfunctions.developer`, `roles/datastore.indexAdmin`, `roles/cloudscheduler.admin` bestehen. Beim geänderten `activate`-Workflow wird `run.services.getIamPolicy` verwendet, **nicht** `run.services.setIamPolicy`. Daher keine zusätzliche Cloud-Run-IAM-Schreibrolle für GitHub.
@@ -29,9 +46,11 @@ Der normale `deploy-firebase.yml`-Nachtlauf bleibt auf `hosting,firestore:rules`
 - GitHub Environment: Required Reviewer `matthias-ennen`, Selbstfreigabe erlaubt, Admin-Bypass aus, ausschließlich `main`.
 - IAM-Änderungen, mögliche Cloud-Kosten und jeder produktive Job benötigen gesonderte Nutzerfreigabe.
 
-## Einmalige IAM-Reparatur nach rotem Aktivierungslauf
+## Historische einmalige IAM-Reparatur nach rotem Aktivierungslauf
 
-Der Projektadministrator führt in der **Google Cloud Shell** einmalig genau diese ressourcengebundene Zuweisung aus (nur nach Prüfung von Projekt und Service, keine Projektrolle):
+Die folgende ressourcengebundene Zuweisung wurde vor dem erfolgreichen
+Aktivierungslauf vom Projektadministrator ausgeführt (keine Projektrolle).
+Nicht allein wegen der früheren Fehlermeldung erneut ausführen:
 
 ```sh
 gcloud run services add-iam-policy-binding moviehubtvfinalreminder \
@@ -40,7 +59,25 @@ gcloud run services add-iam-policy-binding moviehubtvfinalreminder \
   --role="roles/run.invoker"
 ```
 
-Danach per `gcloud run services get-iam-policy moviehubtvfinalreminder --project=movie-hub-62459 --region=europe-west3 --format=yaml` kontrollieren, dass nur der Scheduler-Serviceaccount diese Rolle erhält und weder `allUsers` noch `allAuthenticatedUsers` berechtigt sind. **Der Nutzer muss den reparierten Workflow von `main` neu ausführen**: Der alte rote Run-Stand kennt die geänderte Prüfung nicht. Der Scheduler startet erst, wenn das geschützte `activate` wieder erfolgreich läuft.
+Die damalige Kontrolle erfolgte per `gcloud run services get-iam-policy moviehubtvfinalreminder --project=movie-hub-62459 --region=europe-west3 --format=yaml` und im korrigierten `activate`-Workflow: nur der Scheduler-Serviceaccount als Aufrufberechtigter, keine `allUsers` oder `allAuthenticatedUsers`. Der alte rote Run kann den erfolgreichen neuen Lauf nicht widerlegen; maßgeblich ist der oben verlinkte Aktivierungsnachweis.
+
+## Timing-Abnahme und spätere Updates
+
+- **Fundmeldung:** `Bald im TV` entsteht bei Aktivierung mit passendem
+  veröffentlichtem Termin oder bei späterer Entdeckung durch den Datenlauf.
+- **Enderinnerung:** `Gleich im TV` wird frühestens fünf Minuten vor Sendestart
+  fällig. Bis zum nächsten Minutentakt können knapp 60 Sekunden vergehen,
+  zuzüglich Scheduler-/Firestore-Latenz. Während einer noch laufenden Sendung
+  lautet eine nachgeholte Nachricht `Jetzt im TV`.
+- Für den gemeldeten verspäteten Fall fehlen weiterhin Phase, Titel/Sender,
+  Sendestart und tatsächliche Erscheinungszeit. Diese Angaben mit
+  Notification-Erzeugungszeit und zugehörigem Worker-Lauf vergleichen.
+  Ein 60-Sekunden-Vorlaufpuffer wurde lediglich als Möglichkeit diskutiert;
+  er ist weder implementiert noch als Produktentscheidung bestätigt.
+- Der normale Hosting-Deploy ändert den privaten Worker nicht. `prepare`
+  verweigert Änderungen bei vorhandenem Scheduler. Ein späteres Worker-Update
+  braucht einen gesondert vorbereiteten und freigegebenen Update-/Rollback-Ablauf;
+  vorhandene Aktivierungs- und Privatheitsprüfungen nicht umgehen.
 
 ## Risiken, Rollback und Monitoring
 
@@ -51,4 +88,6 @@ Danach per `gcloud run services get-iam-policy moviehubtvfinalreminder --project
 
 Quellen: https://docs.cloud.google.com/sdk/gcloud/reference/functions/deploy ; https://docs.cloud.google.com/run/docs/authenticating/service-to-service ; https://docs.cloud.google.com/run/docs/triggering/using-scheduler ; https://firebase.google.com/docs/functions/schedule-functions .
 
-**Status:** Private Function vorbereitet; Scheduler nach fehlgeschlagenem Aktivierungslauf noch inaktiv. Nach separater Dienst-IAM-Zuweisung, grünem Korrektur-PR und bestandener echter Scheduler-/Geräteprüfung erneut bewerten. Keine Produktabnahme.
+**Status:** Aktivierung und wiederholter Cloud-Betrieb am 10.10.2026 nachgewiesen.
+Reale fällige Enderinnerung, Film-/Serien-Geräteabnahme und Timing-Rückmeldung
+bleiben offen. Keine erneute Infrastrukturaktivierung erforderlich.

@@ -1,6 +1,6 @@
 # Movie Hub – Roadmap
 
-Stand: 7. Oktober 2026
+Stand: 12. Oktober 2026
 
 ## Leitprinzip
 
@@ -33,6 +33,7 @@ Zu den zuletzt abgeschlossenen beziehungsweise abgenommenen Paketen gehören ins
 - #281/#283/#285/#289 – gemeinsame TV-/Hero-/Inhaltsseiten-Grundlage
 - #315 – Nachtlauf-Überwachung, Datenfrische, unabhängiger Alarm und dauerhafte Cloud-Checkpoints; am 03.10.2026 abgeschlossen
 - #346 – Fundamenthärtung und Performance; technische Phasen, Dokumentation und reale Smartphone-/Fire-TV-Abnahme am 03.10.2026 abgeschlossen
+- #380 – Server-Prüflauf/IAM und produktiver Beobachtungsnachweis; am 08.10.2026 abgeschlossen
 
 ## Gezielter aktueller Betriebsauftrag (07.10.2026)
 
@@ -51,17 +52,20 @@ es wurde kein neues eigenes Issue dafür angelegt. Technisch sind der
 größeren Titeldatei umgesetzt und veröffentlicht. Der finale Code-Deploy
 [37603310094](https://github.com/matthias-ennen/movie-hub/actions/runs/37603310094)
 und die Rückprüfung aller fünf öffentlichen Endpunkte sind erfolgreich.
-**Noch offen ist die Betriebsbestätigung im regulären Lauf am 08.10.2026,
-Sollstart 00:17 Uhr Europe/Berlin, mit normalen Budgets und vollständigem
-TMDB-Verbraucherabschluss.** Sie wird nicht als bereits bestanden markiert.
+Die nachfolgenden Fehlerkorrekturen #411/#412 sind übernommen. Der reguläre
+[Nachtlauf vom 12.10.2026](https://github.com/matthias-ennen/movie-hub/actions/runs/38191419867)
+bestätigt Fortschreibung, normale Budgets, Checkpoints, vollständigen
+TMDB-Verbraucherabschluss und öffentliche Rückprüfung. Er startete allerdings
+erst um 03:19 Uhr statt 00:17 Uhr Europe/Berlin (182 Minuten Verzögerung).
+Die Datenstrecke ist nachgewiesen; pünktlicher Start bleibt ein Überwachungspunkt.
 
 ## Gezielte Korrektur persönlicher Reihen (12.10.2026)
 
-#413 ist von Matthias zur direkten Umsetzung freigegeben: gemeinsame Titelbasis und einheitliche Filtermetadaten für alle fünf persönlichen Smart-Reihentypen, einschließlich Erhalt der Metadaten und Nachpflege älterer Referenzen im bestehenden kanonischen Datenlauf. Keine Änderung der Hauptreihenfolge. Technische Prüfung und Veröffentlichung werden im Issue nachgewiesen; die manuelle Abnahme von „30 Days of Night“/Josh Hartnett und Fire-TV-Bedienung bleibt bis zur Rückmeldung offen.
+#413 ist über PR #414 technisch geprüft und veröffentlicht: gemeinsame Titelbasis und einheitliche Filtermetadaten für alle fünf persönlichen Smart-Reihentypen, einschließlich Erhalt der Metadaten und Nachpflege älterer Referenzen im bestehenden kanonischen Datenlauf. Keine Änderung der Hauptreihenfolge. Die manuelle Abnahme von „30 Days of Night“/Josh Hartnett, weiteren Filtern und Fire-TV-Bedienung bleibt bis zur Rückmeldung offen. Web-Korrektur nach App-Neustart; neue vollständige native Importe benötigen die neue APK.
 
 ## Ergänzung Schauspielersuche (12.10.2026)
 
-#415 ergänzt nach ausdrücklicher Freigabe das bestehende Suchfeld um Schauspielernamen. Gemeinsame Besetzungs-IDs mit #413, kompakter öffentlicher Suchindex aus vorhandenen Metadaten und lokale Ergänzung persönlicher Titel; keine zusätzlichen Netzwerkabfragen beim Tippen. Technische Tests und Veröffentlichung werden im Issue nachgewiesen. Die manuelle Abnahme auf Smartphone/Fire TV bleibt offen; die Reihenfolge der Hauptstrecke ändert sich nicht.
+#415 ergänzt über den übernommenen PR #416 das bestehende Suchfeld um Schauspielernamen. Gemeinsame Besetzungs-IDs mit #413, öffentlicher Suchindex aus vorhandenen Metadaten und lokale Ergänzung persönlicher Titel; keine zusätzlichen Netzwerkabfragen beim Tippen. Technische Tests und Veröffentlichung sind erfolgreich. Die manuelle Abnahme auf Smartphone/Fire TV bleibt offen; die Reihenfolge der Hauptstrecke ändert sich nicht. Für die Sucherweiterung reicht ein vollständiger App-Neustart.
 
 ## Aktive Hauptstrecke
 
@@ -69,29 +73,29 @@ TMDB-Verbraucherabschluss.** Sie wird nicht als bereits bestanden markiert.
 
 #314 ist ab 03.10.2026 das **aktuelle große Arbeitspaket**. Es bündelt die noch offenen Produktentscheidungen und Randfälle der bereits vorhandenen Mitteilungsbasis, ohne die bestehende App-Architektur unnötig umzubauen.
 
-Ausgangsstand:
+Aktueller Stand:
 - #312 stellt Glocke, Posteingang und globale Admin-Mitteilungen bereit; Smartphone-Grundstrecke und Fire-TV-D-Pad-Bedienung sind bestätigt;
 - #118 stellt „Wenn inklusive“ bereit;
 - die Detailseite bietet zusätzlich „Wenn im TV“ als getrennten persönlichen Auslöser;
 - persönliche Meldungen bleiben zunächst innerhalb von Movie Hub; Betriebssystem-Push und E-Mail gehören nicht automatisch zum aktuellen Umfang;
-- Deploy #939 hat als konkreten Betriebsbefund gezeigt, dass der vertrauenswürdige serverseitige TV-Prüflauf beim transaktionalen Schreiben von `titleAlertState`/Meldungen mit `PERMISSION_DENIED` scheitern kann. Dieser IAM-/Serverpfad ist vor fachlicher Abnahme gezielt zu klären.
+- der in Deploy #939 beobachtete Server-/IAM-Fehler ist über #380 produktiv behoben und abgeschlossen;
+- #381 ist produktiv, einschließlich Kontoisolation aus PR #404; Fire-TV-Bedienung, Zwei-Geräte-Lesestatus und persönliche Profiltrennung sind bestätigt;
+- #382 ist produktiv; der private Minutendienst wurde am 10.10.2026 aktiviert. Film-/Serien-End-to-End-Abnahme und die Einordnung der gemeldeten Verspätung bleiben offen.
 
 Die Produktentscheidungen vom 03.10.2026 stehen bereits in #314; dafür wurden
 die Teilpakete #380–#385 angelegt. Sie werden nicht erneut als ungeklärte
 Grundsatzfragen behandelt. Die konkrete Fortsetzung lautet:
 
-1. **#380:** aktuellen Server-/IAM-Pfad gegen den Befund aus Deploy #939 prüfen,
-   erforderliche Korrekturen bestimmen und einen echten Beobachtungsfall
-   Ende-zu-Ende nachweisen; Alert-Fehler vom Publikationsabschluss entkoppeln.
-   Ein grüner Code-Deploy belegt diesen Pfad nicht, weil `alerts:check` dort aussetzt.
-2. **#381 + #118:** endliche Beobachtungen, automatische Erfüllung, Gültigkeit,
-   Hard-TTL und Posteingang vereinheitlichen; „Wenn inklusive“ einmalig erfüllen.
-3. **#382:** erste TV-Fundmeldung über 14 Tage und zweite Meldung fünf Minuten
-   vor Beginn über einen kleinen unabhängigen Server-Zeitprüfer umsetzen.
-4. **#383:** aktive Beobachtungen unter Einstellungen verwalten.
-5. **#312:** noch offene Grundstrecken-/Mehrgeräte-Abnahmen durchführen;
+1. **#381 + #118:** Restabnahme des produktiven Lebenszyklus abschließen;
+   globale Admin-Meldungen/Lesestatus bei Konto- und Profilwechsel sowie
+   ausdrückliche Gesamtfreigabe bleiben offen. #380 wird nicht erneut geöffnet.
+2. **#382:** reale Film-/Serien-Erinnerungskette inklusive automatischem
+   Abschluss abnehmen. Für die Timing-Analyse Phase, Titel, Sendestart und
+   tatsächliche Erscheinungszeit erfassen; keine Vorlaufänderung auf Verdacht.
+3. **#383:** aktive Beobachtungen unter Einstellungen verwalten.
+4. **#312:** noch offene Grundstrecken-/Mehrgeräte-Abnahmen durchführen;
    Admin-spezifische Rücknahme bleibt im getrennten Admin-Paket.
-6. **#384/#385:** optionalen E-Mail-Kanal und weitere Anlässe separat entscheiden.
+5. **#384/#385:** optionalen E-Mail-Kanal und weitere Anlässe separat entscheiden.
 
 #312 und #118 bleiben bis zu ihrer fachlichen beziehungsweise Ende-zu-Ende-Abnahme als verknüpfte Teilpakete offen. Sie werden nicht künstlich geschlossen, nur weil #314 nun die gemeinsame Klammer bildet.
 
@@ -137,7 +141,7 @@ Diese Darstellungs-/Priorisierungsarbeit folgt nach den ersten zusätzlichen Ada
 ## Gesondert offene Betriebs- und Restpakete
 
 - #329 – Waipu-Restklassifizierung der technischen-only Einträge; Wartung, blockiert die aktuelle Hauptstrecke nicht
-- #312/#118 und #380–#385 – Teilpakete der aktiven Hauptstrecke #314, keine unabhängige Umpriorisierung
+- #312/#118 und #381–#385 – offene Teilpakete der Hauptstrecke #314; #380 ist abgeschlossen
 - #386 – eng begrenzte Fire-TV-Nacharbeit zu verbliebenen Navigations-Freezes; eigenes offenes Folgeissue
 - #387 – Inventur, Fokus und Navigation der Einstellungen; eigenes offenes Folgeissue
 - #7 – erste Top-100-Stufe veröffentlicht und am 26.09.2026 auf Fire TV abgenommen; Empfehlungen und Automatisierung später
@@ -181,6 +185,6 @@ Vor einer öffentlichen Version 1.0 sollen mindestens folgende Blöcke abgeschlo
 
 ## Aktuelle Reihenfolge
 
-`#314 Mitteilungen/Benachrichtigungen (#312 + #118 + TV-Auslöser/IAM) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
+`#314 (#381/#118 und #382 Restabnahme → #383 → #312 Restabnahme; #384/#385 optional) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
 
-#346 und #315 sind abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Für den Betriebsnachtrag vom 07.10.2026 steht nur die reguläre Nachtlauf-Bestätigung aus. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) sind getrennte Recherchepakete unter #271 und ändern die aktuelle Hauptstrecke nicht.
+#346, #315 und #380 sind abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 warten auf manuelle Abnahme. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) bleiben getrennte Recherchepakete unter #271 und ändern die Hauptstrecke nicht.
