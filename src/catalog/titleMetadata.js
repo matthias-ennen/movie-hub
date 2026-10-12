@@ -1,3 +1,5 @@
+import { readTitleFacets } from './titleFacets.js'
+
 export const CURRENT_TITLE_METADATA_VERSION = 3
 
 export const METADATA_CHECK_STATE = Object.freeze({
@@ -378,6 +380,18 @@ export function mergeEnrichedTitle(base, enriched) {
       : latestTimestamp(base.providerMetadataUpdatedAt, enriched.providerMetadataUpdatedAt),
     movieHubCatalog: base.movieHubCatalog === true || enriched.movieHubCatalog === true,
     smartFacets,
+    facets: base.facets || enriched.facets ? readTitleFacets({
+      ...merged,
+      smartFacets,
+      facets: {
+        castPersonIds: mergeUnique(base.facets?.castPersonIds, enriched.facets?.castPersonIds),
+        creatorPersonIds: mergeUnique(base.facets?.creatorPersonIds, enriched.facets?.creatorPersonIds),
+        keywordIds: mergeUnique(base.facets?.keywordIds, enriched.facets?.keywordIds),
+        decade: base.facets?.decade ?? enriched.facets?.decade,
+      },
+      collectionId,
+      collectionChecked: enrichedCollectionChecked || base.collectionChecked === true,
+    }) : null,
     collectionId,
     collectionName,
     collectionChecked: base.type === 'series' ? null : base.collectionChecked === true || enriched.collectionChecked === true,

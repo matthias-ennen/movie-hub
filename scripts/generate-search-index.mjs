@@ -308,6 +308,7 @@ function searchDetailFromCatalogTitle(title) {
     runtimeMinutes: Number.isFinite(Number(title.runtimeMinutes)) ? Number(title.runtimeMinutes) : null,
     ageRating: Number.isFinite(Number(title.ageRating)) ? Number(title.ageRating) : null,
     smartFacets: title.smartFacets || null,
+    facets: title.facets || null,
     providerIds: Array.isArray(title.providerIds) ? title.providerIds : [],
     providerOffers: Array.isArray(title.providerOffers) ? title.providerOffers : [],
     completeness: 'catalog',

@@ -1,3 +1,4 @@
+import { copyTitleFacetMetadata } from '../catalog/titleFacets.js'
 import { titleMediaKey } from './sharedMediaModel.js'
 
 function finiteNumber(value) {
@@ -121,6 +122,7 @@ export function buildSharedMediaTitleRef(item) {
       posterPaths: imagePaths(artwork.posterPaths),
       heroBackdropPaths: imagePaths(artwork.heroBackdropPaths),
     },
+    ...copyTitleFacetMetadata(item),
     collectionId,
     collectionName: collectionId
       ? String(item?.collectionName || item?.smartFacets?.collection?.name || '').trim().slice(0, 160) || null

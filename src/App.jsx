@@ -5,7 +5,7 @@ import HeroFirstPage from './components/HeroFirstPage.jsx'
 import { ProgressivePosterGrid, ProgressiveRows } from './components/ProgressiveContent.jsx'
 import { detailInitialImageUrl, prepareDetailRequestItem, preloadDetailImage, waitForDetailLoadingPaint } from './components/detailPresentation.js'
 import { buildCategoryRows } from './catalog/categoryRows.js'
-import { buildPersonalSmartRows, normalizeSmartFilterOptions } from './catalog/personalSmartRows.js'
+import { buildPersonalSmartRows, buildPersonalSmartFilterOptions, preparePersonalSmartTitles, normalizeSmartFilterOptions } from './catalog/personalSmartRows.js'
 import { buildProviderBrowseRows, buildProviderHomeRows } from './catalog/providerCatalogRows.js'
 import { selectCoordinatedHeroItems, selectPersonalHeroItemsFromSources } from './catalog/heroSelection.js'
 import { buildMovieHubCatalogRows } from './catalog/movieHubCatalog.js'
@@ -998,11 +998,22 @@ function MovieHub({ user }) {
     ].filter((row) => row.items.length)),
     [catalog.providerCatalogs, currentView, rowDefinitions, titles],
   )
-  const personalCatalogTitles = useMemo(
-    () => mergeCatalogWithPersonalSnapshots(titles, statesByKey)
-      .map((item) => resolvePresentationArtwork(item, artworkOptions)),
-    [titles, statesByKey, artworkOptions],
+  const personalMetadataTitles = useMemo(
+    () => preparePersonalSmartTitles(mergeCatalogWithPersonalSnapshots(preLiveTitles, statesByKey)),
+    [preLiveTitles, statesByKey],
   )
+  const personalCatalogTitles = useMemo(
+    () => mergeLiveAvailability(personalMetadataTitles, liveAvailabilityEntries, { now: liveAvailabilityClock })
+      .map((item) => resolvePresentationArtwork(item, artworkOptions)),
+    [personalMetadataTitles, liveAvailabilityEntries, liveAvailabilityClock, artworkOptions],
+  )
+  const getPersonalSmartFilterOptions = useMemo(() => {
+    let options = null
+    return () => {
+      if (!options) options = buildPersonalSmartFilterOptions(personalMetadataTitles, catalog.smartFilterOptions, publicTitles)
+      return options
+    }
+  }, [personalMetadataTitles, catalog.smartFilterOptions, publicTitles])
   const personalRows = useMemo(
     () => buildPersonalRows(personalCatalogTitles, getTitleState),
     [personalCatalogTitles, getTitleState, statesByKey],
@@ -1034,7 +1045,7 @@ function MovieHub({ user }) {
       currentView,
       'library',
       () => buildPersonalSmartRows(
-        publicTitles,
+        personalCatalogTitles,
         activeProfile?.contentRowSettings,
         undefined,
         (items, row) => curateTitles(items, {
@@ -1043,7 +1054,7 @@ function MovieHub({ user }) {
         }),
       ),
     ),
-    [currentView, publicTitles, activeProfile?.contentRowSettings, activeSortMode, curationSeed],
+    [currentView, personalCatalogTitles, activeProfile?.contentRowSettings, activeSortMode, curationSeed],
   )
   const combinedPersonalRows = useMemo(
     () => prepareRowsForActiveView(currentView, 'library', () => [
@@ -1182,7 +1193,7 @@ function MovieHub({ user }) {
       () => currentView === 'library'
         ? personalSmartRows
         : buildPersonalSmartRows(
-          publicTitles,
+          personalCatalogTitles,
           activeProfile?.contentRowSettings,
           undefined,
           (items, row) => curateTitles(items, {
@@ -1201,7 +1212,6 @@ function MovieHub({ user }) {
       personalRows,
       personalSmartRows,
       personalTopHundredRows,
-      publicTitles,
       titles,
       tmdbRows,
     ],
@@ -1545,8 +1555,8 @@ function MovieHub({ user }) {
           <LazyProfileView
             user={user}
             onSignOut={handleSignOut}
-            publicTitles={publicTitles}
-            smartFilterOptions={catalog.smartFilterOptions}
+            personalRowTitles={personalCatalogTitles}
+            smartFilterOptions={getPersonalSmartFilterOptions()}
           />
         </Suspense>
       )}

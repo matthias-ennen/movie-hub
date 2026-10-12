@@ -1,3 +1,4 @@
+import { hasTitleFacetMetadata } from '../src/catalog/titleFacets.js'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -130,6 +131,7 @@ function metadataObservation(source, value, { now, maxAgeDays }, reference = {})
   return {
     source,
     canonicalPublicationPending: source === 'profile-state' && reference.canonicalReady !== true,
+    facetGap: ['personal-tmdb', 'movie-hub'].includes(source) && !hasTitleFacetMetadata(value),
     strictComplete,
     freshComplete,
     reusableComplete: freshComplete,
@@ -165,6 +167,7 @@ function summarizeCandidateMetadata(observations) {
     canonicalPublicationPending: values.some(({ canonicalPublicationPending }) => canonicalPublicationPending),
     strictCompleteAvailable: values.some(({ strictComplete }) => strictComplete),
     freshCompleteAvailable: values.some(({ reusableComplete }) => reusableComplete),
+    facetGapReferences: values.filter(({ facetGap }) => facetGap).length,
     incompleteReferences: values.filter(({ strictComplete }) => !strictComplete).length,
     staleReferences: values.filter(({ strictComplete, freshComplete }) => strictComplete && !freshComplete).length,
     failedReferences: values.filter(({ failed }) => failed).length,

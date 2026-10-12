@@ -392,7 +392,7 @@ final class TmdbApiClient {
                 title.put("seasons", sanitizeSeasons(detail.optJSONArray("seasons"), tmdbId));
             }
 
-            JSONArray cast = sanitizeCast(detail.optJSONObject("credits"));
+            JSONArray cast = sanitizeCast(detail.optJSONObject("credits"), 20, false);
             JSONArray creators = sanitizeCreators(detail, movie);
             JSONArray keywords = sanitizeKeywords(detail.optJSONObject("keywords"), movie);
             JSONArray videos = sanitizeVideos(detail.optJSONObject("videos"));
@@ -400,7 +400,8 @@ final class TmdbApiClient {
             title.put("videos", videos);
 
             JSONObject smartFacets = new JSONObject();
-            smartFacets.put("cast", cast);
+            smartFacets.put("version", 1);
+            smartFacets.put("cast", sanitizeCast(detail.optJSONObject("credits"), Integer.MAX_VALUE, true));
             smartFacets.put("creators", creators);
             smartFacets.put("keywords", keywords);
             title.put("smartFacets", smartFacets);
@@ -524,19 +525,21 @@ final class TmdbApiClient {
         return "present".equals(structural) || "absent".equals(structural);
     }
 
-    private static JSONArray sanitizeCast(JSONObject credits) {
+    private static JSONArray sanitizeCast(JSONObject credits, int limit, boolean filterOnly) {
         JSONArray result = new JSONArray();
         JSONArray cast = credits == null ? null : credits.optJSONArray("cast");
         if (cast == null) return result;
-        for (int index = 0; index < cast.length() && result.length() < 20; index++) {
+        for (int index = 0; index < cast.length() && result.length() < limit; index++) {
             JSONObject raw = cast.optJSONObject(index);
             if (raw == null || raw.optLong("id", 0) <= 0 || raw.optString("name").isEmpty()) continue;
             try {
                 JSONObject person = new JSONObject();
                 person.put("id", raw.optLong("id"));
                 person.put("name", raw.optString("name"));
-                person.put("character", raw.optString("character", null));
-                person.put("profileUrl", imageUrl(raw.optString("profile_path", null), "w185"));
+                if (!filterOnly) {
+                    person.put("character", raw.optString("character", null));
+                    person.put("profileUrl", imageUrl(raw.optString("profile_path", null), "w185"));
+                }
                 result.put(person);
             } catch (Exception ignored) {}
         }

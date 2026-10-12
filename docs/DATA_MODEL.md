@@ -165,7 +165,9 @@ contentRowSettings.rows[]
   order       number
 ```
 
-Die Liste wird auf zehn gültige, eindeutige Regeln begrenzt. Sie enthält keine feste Titelmenge. Treffer werden clientseitig aus den Facetten des aktuellen öffentlichen Katalogs berechnet; eine leere Regel bleibt gespeichert und kann nach einem späteren Katalogupdate wieder sichtbar werden.
+Die Liste wird auf zehn gültige, eindeutige Regeln begrenzt. Sie enthält keine feste Titelmenge. Treffer werden clientseitig aus den normalisierten Facetten des zusammengeführten öffentlichen, persönlichen TMDB-, Movie-Hub- und aktiven Profilbestands berechnet; eine leere Regel bleibt gespeichert und kann nach einem späteren Katalogupdate wieder sichtbar werden.
+
+Seit #413 erhalten persönliche Metadaten die vollständigen `smartFacets` (Version 1: kompakte ID-/Namenslisten für Besetzung, Regie/Creator und Keywords) sowie vorhandene numerische `facets`. Diese Felder bleiben beim Snapshot, bei Shared-Media-Referenzen, im persönlichen TMDB-Katalog und in veröffentlichten Search-Details erhalten. `cast` bleibt ein davon unabhängiger, begrenzter Anzeigeauszug. Fehlende Listen bleiben als unbekannt erkennbar. Die bestehende kanonische Warteschlange ergänzt ältere persönliche Referenzen innerhalb ihrer normalen Budgets. Regeln enthalten weiterhin nur die gewählte Filter-ID, keine Titelkopien.
 
 ## Eigene Links und Videos
 

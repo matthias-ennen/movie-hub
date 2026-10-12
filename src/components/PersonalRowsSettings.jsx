@@ -5,7 +5,6 @@ import {
   defaultPersonalSmartRowTitle,
   getPersonalSmartRowMatchCount,
   normalizePersonalSmartRowSettings,
-  normalizeSmartFilterOptions,
 } from '../catalog/personalSmartRows.js'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 
@@ -17,7 +16,7 @@ function newRowId() {
 export default function PersonalRowsSettings({ titles = [], filterOptions = {} }) {
   const { activeProfile, updateActiveProfileContentRowSettings } = useProfiles()
   const settings = normalizePersonalSmartRowSettings(activeProfile?.contentRowSettings)
-  const options = useMemo(() => normalizeSmartFilterOptions(filterOptions), [filterOptions])
+  const options = filterOptions
   const panelRef = useRef(null)
   const busyRef = useRef(false)
   const [editingId, setEditingId] = useState(null)
@@ -242,7 +241,7 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
       </div>
 
       <p className="settings-description">
-        Erstelle eigene Posterreihen aus dem aktuellen Movie-Hub-Katalog. Sie erscheinen ausschließlich unter Meine Inhalte und aktualisieren sich automatisch.
+        Erstelle eigene Posterreihen aus deinem gesamten Movie-Hub-Bestand. Sie erscheinen ausschließlich unter Meine Inhalte und aktualisieren sich automatisch.
       </p>
 
       {settings.rows.length > 0 && (
@@ -344,10 +343,10 @@ export default function PersonalRowsSettings({ titles = [], filterOptions = {} }
             ))}
           </div>
           {type !== 'decade' && query.trim().length >= 2 && visibleOptions.length === 0 && (
-            <p className="personal-row-preview">Kein passender Vorschlag im aktuellen Movie-Hub-Katalog.</p>
+            <p className="personal-row-preview">Kein passender Vorschlag in deinem Movie-Hub-Bestand.</p>
           )}
           {type === 'decade' && visibleOptions.length === 0 && (
-            <p className="personal-row-preview">Im aktuellen Katalog ist noch kein Jahrzehnt verfügbar.</p>
+            <p className="personal-row-preview">In deinem Movie-Hub-Bestand ist noch kein Jahrzehnt verfügbar.</p>
           )}
 
           {selected && (
