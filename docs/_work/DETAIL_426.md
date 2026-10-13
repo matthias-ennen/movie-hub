@@ -281,3 +281,63 @@ nach der Prioritätspräzisierung ebenfalls grün; Produktionsbuild erfolgreich.
 Browserprüfung in allen vier Größen wiederholt, nun einschließlich Auswahl
 und Fokus der tatsächlich veröffentlichten See-No-Evil-Folge 8. New Tricks zeigt
 den offenen Titelabgleich zutreffend; Zeitwechsel und manuelle Auswahl bestehen.
+
+## Ruhige Oberfläche und Sprachabgleich – Freigabe 13.10.2026, 17:29 Uhr
+
+Matthias beauftragt die abschließende Nachbesserung mit laufenden Rückmeldungen.
+Keine Zuordnungs-/Leerhinweise in der Staffel-/Folgenkachel oder Folgenübersicht.
+Ohne nutzbare Daten entfällt die gesamte Kachel. Vorhandene Folgen bleiben manuell
+wählbar; nur zuverlässig erkannte Episoden werden vorgewählt. Eine einzelne Staffel
+wird nicht als konkrete TV-Folgenzuordnung interpretiert.
+
+Zusatz 17:31 Uhr: Die TV-Zeile unter „Wo anschauen?“ endet nach dem Sender.
+Staffel, Folge und Folgentitel stehen ausschließlich in der Auswahlkachel.
+
+Umsetzung:
+- Kleine verfügbare Staffelübersicht aus den tatsächlich veröffentlichten Episoden
+  im vorhandenen Manifest; einmal je Sitzung zwischengespeichert. Episodenlisten
+  bleiben bedarfsweise geladen, keine Anbieterabfragen im Client.
+- Gemeinsamer Abgleich mit verifizierten englischen Titeln je TMDB-Episoden-ID
+  sowie rein formalen Teilbezeichnungen. Bedarfsbezogene englische Staffelabrufe
+  im vorhandenen 600er-Budget, gecacht; keine titelbezogenen Sonderregeln.
+- Joyn-/Waipu-Feldtransport und Zusammenführung prüfen; keine fremden Ausstrahlungen
+  als Ersatz und keine Nummern aus dem bloßen Serientitel ableiten.
+- Hinweise und redundante TV-Episodenzeile entfernen, Auswahlzustände/Fokus und
+  Rückwege in vier Bildschirmgrößen prüfen; danach CI, Veröffentlichung, Nachweise.
+
+Andere Einstellungs-/Hilfeseiten bleiben ein eigener Sammelpunkt. Manuelle
+Sicht-/Geräteabnahme bleibt offen; keine neue APK erforderlich.
+
+### Umsetzung und Prüfung
+
+- Staffelverfügbarkeit aus nichtleeren veröffentlichten Episodenlisten im Manifest.
+  Ein geteilter Abruf pro Sitzung, parallel zu den Titeldetails; nach drei Sekunden
+  oder Fehlern Rückfall auf vorhandene Metadaten und erneuter Versuch möglich.
+- Keine Zuordnungs-, Leer- oder Ersatzbeschreibungshinweise mehr in der
+  Staffel-/Folgennavigation. Fehlender Bestand blendet die gesamte Kachel aus;
+  unklare Episoden bleiben ungewählt, nutzbare Staffeln bleiben erreichbar.
+- Die TV-Zeile endet nach dem Sender. Kein zweiter Episodentitel unter dem
+  Haupttitel oder in der Ausstrahlungszeile.
+- Englische TMDB-Titel werden anhand identischer Episoden-ID und Nummern als
+  Aliase erhalten. Formale Endungen „Teil 1“/„Part 1“/„(1)“ werden vereinheitlicht;
+  verschiedene Teile bleiben verschieden. Kein Fuzzy-Matching.
+- Bis zu 100 benötigte englische Staffelabrufe innerhalb des bestehenden
+  600er-Budgets; geprüfte Staffeln bleiben 30 Tage gecacht. Sprachabgleiche
+  werden im Workflowbericht dokumentiert, nicht in der Benutzeroberfläche.
+- Joyn und Waipu liefern vorhandene Felder weiter. Ein im Joyn-Abgleich
+  erkannter Nummernkonflikt bleibt jetzt auch im neutralen Broadcastvertrag
+  erhalten, statt beim Übergang verloren zu gehen. Keine zusätzlichen
+  Anbieterabfragen durch den Client.
+
+Prüfung: 1.026 Anwendungstests in 164 Dateien sowie drei zusätzliche
+Renderprüfungen der tatsächlichen Detailseite erfolgreich (insgesamt 1.029).
+Produktionsbuild und `git diff --check` erfolgreich. Geprüft sind insbesondere
+Sprach-ID-Abgleich, Teilnummern, Mehrdeutigkeit, Cache, fehlender Staffelbestand,
+TV-Text ohne Redundanz und das gemeinsame Abrufbudget.
+
+Einschränkung: Die erneute visuelle Vier-Größen-Prüfung war in dieser Umgebung
+nicht möglich: kein installierter Browser; der offizielle Browserdownload
+lieferte eine „Site Unavailable“-HTML-Antwort statt des Browserarchivs. Deshalb
+wird weder eine neue Browser-Sichtprüfung noch eine Geräteabnahme behauptet.
+Fokus-/Layout-Komponenten wurden nicht verändert. CI-/Veröffentlichungsnachweise
+und Prüfung des veröffentlichten Datenbestands folgen im Issue #426.

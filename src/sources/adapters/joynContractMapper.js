@@ -37,9 +37,10 @@ export function mapJoynCandidateToBroadcastEvent(candidate, match, {
     startAt: startAt.toISOString(),
     endAt: endAt.toISOString(),
     episode: mediaType === 'series' ? {
-      seasonNumber: match?.seasonNumber ?? null,
-      episodeNumber: match?.episodeNumber ?? null,
-      title: text(candidate.secondaryTitle),
+      seasonNumber: match?.episode?.seasonNumber ?? match?.seasonNumber ?? null,
+      episodeNumber: match?.episode?.episodeNumber ?? match?.episodeNumber ?? null,
+      title: text(candidate.secondaryTitle) || text(match?.episode?.title),
+      ...(match?.episode?.conflict ? { conflict: true } : {}),
     } : null,
     playbackRoutes,
     sourceRefs: [{

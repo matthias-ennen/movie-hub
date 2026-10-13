@@ -3,6 +3,11 @@
 export function episodeTitleKey(value) {
   return String(value || '').normalize('NFKD').replace(/\p{M}/gu, '')
     .toLocaleLowerCase('de-DE').replace(/ß/g, 'ss').replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+    .replace(/ (?:teil|part) (\d+)$/, ' $1')
+}
+
+function hasTitle(episode, key) {
+  return key && [episode.title, ...(episode.titleAliases || [])].some(title => meaningfulTitle(title) === key)
 }
 
 function meaningfulTitle(value) {
@@ -14,11 +19,11 @@ export function resolveCatalogEpisode(reference, episodes, { complete = false } 
   if (!reference) return { status: 'missing-reference' }
   if (!episodes.length) return { status: 'missing-catalog' }
   const key = meaningfulTitle(reference.title)
-  const named = key ? episodes.filter(e => meaningfulTitle(e.title) === key) : []
+  const named = key ? episodes.filter(e => hasTitle(e, key)) : []
   const numbered = !reference.conflict && reference.seasonNumber != null && reference.episodeNumber != null
     ? episodes.find(e => e.seasonNumber === reference.seasonNumber && e.episodeNumber === reference.episodeNumber) : null
   let matched = null
-  if (numbered && (!key || !meaningfulTitle(numbered.title) || meaningfulTitle(numbered.title) === key)) matched = numbered
+  if (numbered && (!key || !meaningfulTitle(numbered.title) || hasTitle(numbered, key))) matched = numbered
   else if (named.length === 1 && complete) matched = named[0]
   if (matched) return { status: 'matched', catalog: {
     tmdbId: matched.tmdbId, seasonNumber: matched.seasonNumber,

@@ -11,6 +11,7 @@ import {
 import { isTmdbTitleChangePending, readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
 import { discoverLiveSourceCatalogs } from './live-availability-index.mjs'
 import { episodeReference } from '../src/catalog/episodeContext.js'
+import { buildAvailableSeasons, mergeVerifiedEpisodeAliases, selectEpisodeAliasRefreshCandidates } from './series-episode-aliases.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const catalogPath = resolve(root, 'public/catalog.json')
@@ -94,10 +95,10 @@ async function sleep(milliseconds) {
   await new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds))
 }
 
-export async function tmdbSeasonFetch(seriesTmdbId, seasonNumber, attempt = 0) {
+export async function tmdbSeasonFetch(seriesTmdbId, seasonNumber, { language: requestedLanguage = language, attempt = 0 } = {}) {
   if (!token) throw new Error('TMDB_API_READ_TOKEN is missing. Series detail generation must run only in trusted CI.')
   const endpoint = new URL(`https://api.themoviedb.org/3/tv/${seriesTmdbId}/season/${seasonNumber}`)
-  endpoint.searchParams.set('language', language)
+  endpoint.searchParams.set('language', requestedLanguage)
   const response = await fetch(endpoint, {
     headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
   })
@@ -105,7 +106,7 @@ export async function tmdbSeasonFetch(seriesTmdbId, seasonNumber, attempt = 0) {
   if ((response.status === 429 || response.status >= 500) && attempt < maxRetries) {
     const retryAfter = Number(response.headers.get('retry-after'))
     await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 750 * (2 ** attempt))
-    return tmdbSeasonFetch(seriesTmdbId, seasonNumber, attempt + 1)
+    return tmdbSeasonFetch(seriesTmdbId, seasonNumber, { language: requestedLanguage, attempt: attempt + 1 })
   }
   if (!response.ok) throw new Error(`TMDB staffel request failed with HTTP ${response.status}`)
   return response.json()
@@ -204,9 +205,12 @@ export async function generateSeriesDetails({ fetchSeason = tmdbSeasonFetch, now
   const activeKeys = new Set(references.map((reference) => entryKey(reference.seriesTmdbId, reference.seasonNumber)))
   const entries = new Map([...existingEntries].filter(([key]) => activeKeys.has(key)))
   const queuedChanges = changedTitleKeys || tmdbChangedTitleTimes(await readTmdbChangeSet())
+  const aliasCandidates = selectEpisodeAliasRefreshCandidates(liveTitles, entries, {
+    now, limit: Math.min(100, Math.floor(requestLimit / 6)), maxAgeDays,
+  })
   const pending = selectSeriesSeasonRefreshCandidates(references, entries, {
     now,
-    limit: requestLimit,
+    limit: requestLimit - aliasCandidates.length,
     changedTitleKeys: queuedChanges,
     prioritySeriesIds,
     liveSeasonPriorities: collectLiveSeasonPriorities(liveTitles, { now }),
@@ -223,7 +227,11 @@ export async function generateSeriesDetails({ fetchSeason = tmdbSeasonFetch, now
         seriesTitle: reference.seriesTitle,
         generatedAt: now.toISOString(),
       })
-      entries.set(entryKey(reference.seriesTmdbId, reference.seasonNumber), normalized)
+      const key = entryKey(reference.seriesTmdbId, reference.seasonNumber)
+      const previous = entries.get(key)
+      entries.set(key, previous ? mergeVerifiedEpisodeAliases(normalized, previous, {
+        checkedAt: previous.titleAliasesGeneratedAt,
+      }) : normalized)
       refreshed += 1
     } catch (error) {
       failed += 1
@@ -231,6 +239,21 @@ export async function generateSeriesDetails({ fetchSeason = tmdbSeasonFetch, now
         `Series ${reference.seriesTmdbId}, season ${reference.seasonNumber} could not be refreshed:`,
         error instanceof Error ? error.message : String(error),
       )
+    }
+  })
+
+  let aliasRefreshed = 0
+  let aliasFailed = 0
+  await mapWithConcurrency(aliasCandidates, requestConcurrency, async (reference) => {
+    try {
+      const payload = await fetchSeason(reference.seriesTmdbId, reference.seasonNumber, { language: 'en-US' })
+      const translated = normalizeSeriesSeasonDetail(payload, reference)
+      const key = entryKey(reference.seriesTmdbId, reference.seasonNumber)
+      entries.set(key, mergeVerifiedEpisodeAliases(entries.get(key), translated, { checkedAt: now.toISOString() }))
+      aliasRefreshed += 1
+    } catch (error) {
+      aliasFailed += 1
+      console.warn(`Episode aliases ${reference.seriesTmdbId}:${reference.seasonNumber}:`, error instanceof Error ? error.message : String(error))
     }
   })
 
@@ -266,14 +289,18 @@ export async function generateSeriesDetails({ fetchSeason = tmdbSeasonFetch, now
     pendingSeasonCount: Math.max(0, references.length - entries.size),
     refreshedCount: refreshed,
     failedCount: failed,
+    aliasRefreshedCount: aliasRefreshed,
+    aliasFailedCount: aliasFailed,
+    requestedCount: pending.length + aliasCandidates.length,
     requestLimit,
+    availableSeasons: buildAvailableSeasons(entries.values()),
     tvRequestedSeasonCount: references.filter(r => prioritySeriesIds.has(r.seriesTmdbId)).length,
     tvPendingSeasonCount: references.filter(r => prioritySeriesIds.has(r.seriesTmdbId)
       && !entries.has(entryKey(r.seriesTmdbId, r.seasonNumber))).length,
     shards,
   }
   await writeFile(resolve(outputDirectory, 'manifest.json'), `${JSON.stringify(manifest)}\n`, 'utf8')
-  console.log(`Series details: ${entries.size}/${references.length} seasons available · ${refreshed} refreshed · ${failed} failed.`)
+  console.log(`Series details: ${entries.size}/${references.length} seasons available · ${refreshed} refreshed · ${failed} failed · ${aliasRefreshed} alias seasons refreshed · ${aliasFailed} alias failures · ${pending.length + aliasCandidates.length}/${requestLimit} requests.`)
   return manifest
 }
 

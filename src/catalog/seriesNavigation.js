@@ -12,6 +12,7 @@ function positiveInteger(value) {
 }
 
 function nonNegativeInteger(value) {
+  if (value == null || value === '') return null
   const number = Number(value)
   return Number.isInteger(number) && number >= 0 ? number : null
 }
@@ -88,6 +89,8 @@ export function normalizeSeasonEpisode(raw, { seriesTmdbId, seriesTitle, seasonN
     seasonNumber: resolvedSeasonNumber,
     episodeNumber,
     title,
+    ...(Array.isArray(raw?.titleAliases) ? { titleAliases: [...new Set(raw.titleAliases
+      .filter(value => typeof value === 'string').map(value => value.trim()).filter(value => value && value !== title))] } : {}),
     description: String(raw?.description || raw?.overview || ''),
     airDate: isoDate(raw?.airDate ?? raw?.air_date),
     runtimeMinutes: positiveInteger(rawRuntime),
@@ -112,6 +115,7 @@ export function normalizeSeriesSeasonDetail(payload, options = {}) {
     kind: 'series-season-detail',
     version: SERIES_SEASON_DATA_VERSION,
     generatedAt: payload?.generatedAt || null,
+    ...(payload?.titleAliasesGeneratedAt ? { titleAliasesGeneratedAt: payload.titleAliasesGeneratedAt } : {}),
     seriesTmdbId,
     seriesTitle,
     seasonNumber,

@@ -258,9 +258,10 @@ export function normalizeBroadcastEvent(raw) {
     endAt,
     episode: raw?.episode
       ? {
-          seasonNumber: Number.isInteger(seasonNumber) && seasonNumber >= 0 ? seasonNumber : null,
-          episodeNumber: Number.isInteger(episodeNumber) && episodeNumber >= 0 ? episodeNumber : null,
+          seasonNumber: !raw.episode.conflict && Number.isInteger(seasonNumber) && seasonNumber >= 0 ? seasonNumber : null,
+          episodeNumber: !raw.episode.conflict && Number.isInteger(episodeNumber) && episodeNumber >= 0 ? episodeNumber : null,
           title: text(raw.episode.title),
+          ...(raw.episode.conflict ? { conflict: true } : {}),
         }
       : null,
     playbackRoutes: normalizePlaybackRoutes(raw?.playbackRoutes),

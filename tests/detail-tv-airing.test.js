@@ -139,6 +139,8 @@ describe('kanonische TV-Ausstrahlung auf der Detailseite', () => {
     const value = formatDetailTvAiring({
       stationName: 'TELE 5',
       startTime: '2026-10-04T18:15:00.000Z',
+      episode: { seasonNumber: 16, episodeNumber: 3, title: "Producer's Backend",
+        catalog: { tmdbId: 1010787, seasonNumber: 16, episodeNumber: 3, title: 'Minderjährig' } },
     })
 
     expect(value).toBe('Sonntag, 4. Oktober · 20:15 Uhr · TELE 5')
