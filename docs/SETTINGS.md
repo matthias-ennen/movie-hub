@@ -10,13 +10,18 @@ Stand: 13.10.2026 · #387 · Navigation nach freigegebener Skizze umgesetzt, Ger
 | Für alle Profile | Streaminganbieter; Waipu-Sender; Joyn-Sender | Konto, alle Profile und Geräte |
 | Dieses Gerät | Netzlaufwerke; TMDB-Verbindung | Zugangsdaten lokal am Gerät; synchronisierte TMDB-Inhalte kontoweit |
 
-Die drei Gruppen sind Überschriften, keine zusätzlichen Menüseiten. Jede der
-elf Kacheln öffnet direkt den Inhalt. Die Übersicht verwendet je nach Breite
-eine, zwei oder drei Spalten im bestehenden MovieHub-Stil. Der frühere Hinweis
-unter den Kacheln entfällt; der aktive Profilname steht an der Profilgruppe.
+Die drei Gruppen sind umschließende Kacheln im vorhandenen `settings-panel`-
+Stil, keine zusätzlichen Menüseiten. Ihre Überschriften verwenden denselben
+`settings-kicker`-Stil wie Profile & Konto. Innerhalb der Kacheln öffnen elf
+Einträge direkt den Inhalt, je nach Breite in einer, zwei oder drei Spalten.
+Der aktive Profilname steht an der Profilgruppe.
 
 Jede Unterseite zeigt eine kompakte, beim Scrollen sichtbare Kopfzeile:
-**Einstellungen › Seitentitel**, darunter den Geltungsbereich. Breadcrumb und
+**Einstellungen › Seitentitel**, vollständig im vorhandenen kompakten
+`eyebrow`-Überschriftenstil. Einstellungen bleibt als Text ohne dauerhafte
+Buttonfläche bedienbar, mit sichtbarem Tastatur-/D-Pad-Fokus. Die zusätzlichen
+Hinweise Profil: [Name], Für alle Profile und Dieses Gerät unter dem Breadcrumb
+entfallen; der Geltungsbereich ist auf der Übersicht erkennbar. Breadcrumb und
 Hardware-Zurück führen zur gleichen Übersichtskachel und Scrollposition zurück.
 Die tatsächliche Höhe von Hauptnavigation und Kopfzeile bestimmt den Abstand
 für den D-Pad-Fokus, auch bei umgebrochenen Überschriften. Netzlaufwerke und
@@ -25,6 +30,9 @@ TMDB-Verbindung sind getrennt erreichbar; jede Seite lädt nur ihre Verbindung.
 **Profile & Konto** im Profilmenü verwaltet weiterhin Auswahl, Namen und
 Anlegen von Profilen sowie Abmelden. Ausschließlich die mittlere Verweiskachel
 zu den Einstellungen wurde entfernt; obere und untere Kachel bleiben erhalten.
+Die Seite heißt direkt **Profile & Konto** im kompakten Überschriftenstil;
+Dein Movie Hub, die große doppelte Überschrift und der Einleitungstext entfallen.
+Profile & Konto, Einstellungen und Breadcrumbs teilen die Kopfabstände.
 Gespeicherte Werte und Funktionen bleiben erhalten. Das E-Mail-Paket #384 ist
 zurückgestellt.
 
@@ -130,7 +138,16 @@ Navigations-Fine-Tuning vom 13.10.:
 - Haupt-JS: 67,42 KB gzip (+0,04 KB); Settings: 12,28 KB gzip (+0,44 KB)
   gegenüber der ersten Stufe. Keine neue Abhängigkeit. Keine neue APK nötig.
 
-**Noch durch Matthias abzunehmen:** auf Smartphone und Fire TV Menübreiten,
+Stilkorrektur nach den Screenshots vom 13.10.: Build und Diff-Prüfung
+erfolgreich. Chromium bestätigt gemeinsame Überschriften-/Breadcrumb-Typografie
+und Kopfabstände, drei vorhandene Panel-Kacheln mit 6/3/2 Einträgen, entfernte
+Zusatzzeilen und sichtbaren Breadcrumb-Fokus ohne dauerhafte Buttonfläche.
+Alle elf Wege, exakte Scroll-/Fokusrückkehr, lange Senderliste und die
+verbleibenden Profil-/Kontokacheln geprüft. 1280 × 720 und 390 × 844 ohne
+Überlauf oder Browserfehler; Ansichten zusätzlich visuell geprüft.
+
+**Noch durch Matthias abzunehmen:** auf Smartphone und Fire TV Überschriften,
+Gruppenkacheln, Breadcrumb-Stil, Menübreiten,
 lange Senderliste und Zurück/Fokus; Anbieter-/Senderschalter über Home,
 Filme/Serien und TV; bestehende Auswahl und persönliche Reihen nach
 Profilwechsel/App-Neustart. Bis dahin bleibt #387 offen.

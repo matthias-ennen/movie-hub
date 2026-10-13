@@ -168,15 +168,11 @@ body.tv-mode .provider-selection-row:focus-visible {
   position: sticky;
   top: var(--settings-topbar-height, var(--topbar-height));
   z-index: 20;
-  padding-block: 0.7rem 0.85rem;
-  margin-bottom: 1.4rem;
-  border-bottom: 1px solid var(--color-line);
   background: var(--color-bg);
 }
 
 .settings-page-header h1 {
   margin: 0;
-  font-size: clamp(1.65rem, 4vw, 2.6rem);
   overflow-wrap: anywhere;
 }
 
@@ -192,21 +188,26 @@ body.tv-mode .provider-selection-row:focus-visible {
 
 .settings-breadcrumbs button {
   min-height: 44px;
-  padding: 0.5rem 0.7rem;
-  border: 1px solid var(--color-line);
+  padding: 0;
   border-radius: var(--radius-control);
-  color: var(--color-text);
-  background: var(--color-surface-soft);
+  background: transparent;
+}
+
+.settings-breadcrumbs button,
+.settings-current-page h1 {
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
 }
 
 .settings-breadcrumbs button:hover,
-.settings-breadcrumbs button:focus-visible { border-color: var(--color-focus); }
+.settings-breadcrumbs button:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
 .settings-current-page { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
-.settings-current-page > span { color: var(--color-muted); }
-.settings-current-page h1 { font-size: clamp(1.2rem, 2.2vw, 1.7rem); }
-.settings-page-scope { margin: 0.35rem 0 0; color: var(--color-muted); font-size: 0.9rem; }
-.settings-overview-group + .settings-overview-group { margin-top: 1.8rem; }
-.settings-overview-group h2 { margin: 0 0 0.85rem; font-size: clamp(1.15rem, 2vw, 1.5rem); }
+.settings-overview-group > .settings-kicker { margin: 0 0 var(--space-5); }
 .app-settings-page [data-settings-content] [data-focusable='true'] {
   scroll-margin-top: calc(var(--settings-topbar-height, var(--topbar-height)) + var(--settings-header-height, 100px) + 16px);
   scroll-margin-bottom: 24px;

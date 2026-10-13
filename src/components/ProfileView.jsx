@@ -53,11 +53,9 @@ export default function ProfileView({ user, onSignOut }) {
 
   return (
     <main className="browse-page profile-page">
-      <div className="page-heading profile-heading">
-        <p className="eyebrow">Dein Movie Hub</p>
-        <h1>Profile & Konto</h1>
-        <p>Jedes interne Profil bekommt eigene Kategorien, persönliche Reihen und Darstellungseinstellungen.</p>
-      </div>
+      <header className="settings-page-heading">
+        <h1 className="eyebrow">Profile & Konto</h1>
+      </header>
 
       <section className="settings-panel" aria-labelledby="profiles-heading">
         <div className="settings-heading">
