@@ -214,8 +214,8 @@ Titel, Lade-/Fehleransicht, Episoden und Nebenmenüs verwenden `DetailDialog` f�
 Fokus, Dialogstapel und Rückkehr zum Auslöser. Neue Details fokussieren Schließen;
 nachgeladene Daten ändern einen bereits vom Nutzer bewegten Fokus nicht. Nur die
 oberste Ebene ist bedienbar; Zurück schließt genau diese Ebene. Die Folgenübersicht
-fokussiert die aktuelle Auswahl. `DetailLayout` legt die Kopfaktionen außerhalb
-des Scrollbereichs transparent darüber. Lade-/Fehler- und Titelansicht verwenden
+fokussiert die aktuelle Auswahl. `DetailLayout` verankert die transparenten Kopfaktionen
+im scrollenden Inhaltsbereich an der Überschrift. Lade-/Fehler- und Titelansicht verwenden
 dieselbe Geometrie und dieselben festen Buttonplätze; vor der Bereitschaft sind
 Stift und Glocke sichtbar, aber deaktiviert. Schließen bleibt aktiv. `DetailActions`,
 Bearbeitung, Erinnerungen und Seriennavigation sind eigene Bausteine; das
@@ -223,6 +223,16 @@ eigentliche Detailfeature bleibt verzögert geladen.
 Folgen- und Filmreihenübersicht nutzen ebenfalls `DetailActions` für den runden
 Schließen-Button mit denselben Randabständen außerhalb des Listen-Scrollbereichs;
 die aktuelle Folge bzw. der aktuelle Film behält den Anfangsfokus.
+
+`detailDpadNavigation` führt innerhalb der gemeinsamen Dialoge zeilenweise:
+DOM-Reihenfolge für hoch/runter, geometrische Zeilenumbrüche und horizontale Nähe
+nur innerhalb der direkt benachbarten Zeile. Links/rechts verlässt die aktuelle
+Zeile nicht. Explizite Kopfgruppen trennen feste Nebenmenüköpfe von gescrollten
+Listen. Der bestehende Dispatcher filtert deaktivierte/unsichtbare Elemente und
+begrenzt Tastaturwiederholungen. Layoutmessungen erfolgen je Tastendruck, ohne
+Observer oder zusätzliche React-Zustände. Der zuständige Scrollcontainer zeigt
+Zwischenziele mit Randabstand, den Kopf vollständig und die letzte Bewertungszeile
+bis zum Inhaltsende. Der bestehende reine Textscrollpfad für Episoden bleibt erhalten.
 
 Die Inhaltsreihenfolge entspricht Matthias' Nachbesserung vom 13.10.2026:
 Titel/Kerndaten, Beschreibung, Besetzung, Staffeln/Folgen beziehungsweise Filmreihe,

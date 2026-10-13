@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { PROGRESSIVE_ROW_REQUEST_EVENT } from '../performance/progressiveRendering.js'
+import { navigateDetailRows } from '../navigation/detailDpadNavigation.js'
 
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
 const BACK_KEYS = new Set(['Escape', 'BrowserBack', 'GoBack'])
@@ -494,6 +495,11 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
           top: event.key === 'ArrowDown' ? 180 : -180,
           behavior: event.repeat ? 'auto' : 'smooth',
         })
+        return
+      }
+
+      if (navigateDetailRows(scope, candidates, active, event.key, event.repeat ? 'auto' : 'smooth')) {
+        consume(event)
         return
       }
 

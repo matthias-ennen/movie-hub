@@ -41,7 +41,15 @@ Am 13.10.2026 zusätzlich abgeschlossen:
 
 ## Aktuelle Priorisierung
 
-### Zuletzt abgeschlossen: #426 – Detailseite aufräumen und verbessern
+### Aktueller Nachtrag: #426 – D-Pad und Scrollverhalten
+
+Die Basis wurde um 19:05 Uhr abgenommen. Um 19:36 Uhr hat Matthias eine begrenzte
+Nachbesserung freigegeben: mitscrollende Kopfaktionen, lückenlose Navigation durch
+Bedienzeilen und vollständiger unterer Abstand an der letzten Bewertungszeile.
+#426 ist dafür wieder geöffnet; die Abnahme dieses Nachtrags bleibt offen.
+Danach folgt weiterhin #384. Technische Nachweise: [Detailpaket](_work/DETAIL_426.md).
+
+### Bereits abgenommener Basisstand von #426
 
 Matthias hat den veröffentlichten Stand `ddd0dbd` am 13.10.2026 um 19:05 Uhr
 (Europe/Berlin) ausdrücklich zum Abschluss freigegeben. Gemeinsame Dialog-/Fokusregeln,
@@ -50,7 +58,7 @@ mit bebilderter Übersicht sind geliefert. Keine erklärenden Zuordnungshinweise
 ohne nutzbaren Folgenbestand entfällt die Kachel. Die TV-Zeile enthält nur Datum,
 Uhrzeit und Sender. Der gemeinsame Datenlauf ergänzt und prüft vorhandene Episodenangaben.
 Abnahme, veröffentlichter Stand und technische Nachweise: [Detailpaket](_work/DETAIL_426.md).
-Keine offene Paketabnahme. Spätere Schönheitskorrekturen bleiben separate Nacharbeiten;
+Die Basisabnahme bleibt erhalten; die neue Abnahme betrifft nur den obigen Nachtrag;
 #328/#391 gehören nicht zu diesem abgeschlossenen Umfang.
 
 ### 1. #314 – Mitteilungs-Erweiterungen
@@ -139,8 +147,8 @@ Vor öffentlicher Veröffentlichung:
 
 ## Aktuelle Abhängigkeitskette
 
-`#314 (Grundpaket abgenommen; nächstes Paket #384, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
+`#426 Navigationsnachtrag → #314 (Grundpaket abgenommen; nächstes Paket #384, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
 
-#280, #315, #346, #118, #312, #380, #381, #382, #383, #387, #426 und `movie-hub-admin#11` sind abgeschlossen. Die reguläre Datenfortschreibung
+#280, #315, #346, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. #426 hat einen abgenommenen Basisstand und einen offenen Navigationsnachtrag. Die reguläre Datenfortschreibung
 ist bestätigt; Startverzögerungen bleiben unter Beobachtung. #329 bleibt Wartung. Movie Hub Admin bleibt ein getrenntes Repository;
 die bereits abgenommene Rücknahme wird nicht erneut als zukünftige Arbeit geführt.

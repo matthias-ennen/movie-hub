@@ -1,6 +1,48 @@
 # #426 – Detailseite aufräumen und verbessern
 
-Stand: 13.10.2026 · Abgenommen und abgeschlossen, 19:05 Uhr (Europe/Berlin).
+Stand: 13.10.2026 · Navigationsnachtrag um 19:36 Uhr (Europe/Berlin) freigegeben.
+
+## Aktuell: D-Pad- und Scrollnachtrag
+
+Nach Abnahme des bisherigen Lieferstands hat Matthias drei zusammengehörige
+Korrekturen zur Umsetzung freigegeben. #426 ist dafür wieder geöffnet; #384
+beginnt erst nach diesem begrenzten Nachtrag. Die frühere Abnahme bleibt gültig
+für den bisherigen Lieferumfang, nicht für die neue Korrektur.
+
+- Stift/Glocke/Schließen liegen im selben scrollenden Inhaltsbereich wie die
+  Überschrift, mit unveränderter transparenter Gestaltung. Auf schmalen
+  Hochformatansichten stehen die Aktionen platzsparend oberhalb der Überschrift.
+- Alle gemeinsamen Detaildialoge verwenden eine zeilenweise D-Pad-Steuerung:
+  links/rechts innerhalb der Zeile, hoch/runter zur direkt benachbarten Bedienzeile,
+  darin zur horizontal nächsten Aktion. Umbrüche werden aus dem tatsächlichen
+  Layout erkannt; fehlende/deaktivierte Elemente werden wie bisher ausgefiltert.
+- DOM-Reihenfolge legt die vertikale Abfolge fest. Eigene Kopfgruppen verhindern,
+  dass in Nebenansichten ein gescrollter Listeneintrag mit der Kopfzeile verschmilzt.
+- Die erste Bedienzeile zeigt den vollständigen Anfang; die letzte Bewertungszeile
+  scrollt einschließlich des Innenabstands bis zum Ende. Zwischenziele bleiben mit
+  Fokusabstand sichtbar. Nur der zuständige Scrollcontainer wird bewegt.
+- Startfokus, Hardware-Zurück, Dialogstapel und Fokusrückkehr bleiben erhalten.
+  Reine Episodentexte bleiben mit hoch/runter scrollbar. Keine zusätzliche
+  Bibliothek, keine Datenabfragen, keine dauernde Layoutüberwachung.
+
+Prüfung: 1.046 Anwendungstests im vollständigen lokalen Lauf erfolgreich;
+anschließend drei zusätzliche Dispatcher-Tests erfolgreich (insgesamt 1.049).
+Die 20 neuen Regressionen prüfen asymmetrische Zeilen, 3/5/10-Spalten-Umbrüche,
+Fokusvergrößerung, gescrollte Nebenlisten, obere/untere Scrollgrenzen, sichere
+Innenabstände, schnelle Einzelanschläge, Tastaturwiederholung und Hardware-Zurück.
+Produktionsbuild und Diff-Prüfung erfolgreich.
+
+Die lokale Browserinstallation ist erneut am ungültigen Downloadarchiv gescheitert.
+Keine neue visuelle Browserprüfung oder physische Geräteabnahme behauptet.
+CI-/Veröffentlichungsnachweise werden im Issue ergänzt. Für diese Web-Korrektur
+ist keine neue APK nötig. Nach Veröffentlichung: App vollständig neu öffnen,
+auf Fire TV vom Schließen durch jede Bedienzeile bis zur letzten Bewertung und
+wieder zurück navigieren; Titel, Randabstände und Öffnen/Schließen der Nebenmenüs prüfen.
+
+Fachliche Grundlage: [Android TV Navigation](https://developer.android.com/design/ui/tv/guides/foundations/navigation-on-tv)
+und [Fire TV Design Guidelines](https://developer.amazon.com/docs/fire-tv/design-and-user-experience-guidelines.html).
+
+## Vorheriger abgenommener Lieferstand (19:05 Uhr)
 
 ## Paketabnahme und Abschluss
 
