@@ -257,3 +257,27 @@ CI, gezielte Datenvervollständigung und Veröffentlichung werden anschließend 
 Abschließende lokale Prüfung: **1.011 Tests in 161 Dateien erfolgreich**,
 Produktionsbuild erfolgreich, `git diff --check` ohne Befund. Detailfeature
 35,69 kB / 11,41 kB gzip, Hauptchunk 236,08 kB / 71,02 kB gzip.
+
+### Produktionsprüfung und gezielte Ergänzung
+
+PR #432 / Build 2a07dd9 veröffentlicht; CI, Android und Hosting-Prüfung grün.
+600 Staffeln ergänzt, 0 Abruffehler. New Tricks ist mit 12 Staffeln vorhanden;
+TMDB liefert dort aber nur generische Folgentitel, sodass ein alleiniger
+EPG-Titel ohne Nummer nicht zuverlässig zugeordnet werden kann.
+
+Zwei aus der Produktionsprüfung abgeleitete Korrekturen vor Abschluss:
+- Generische Katalogtitel wie „Folge 8“ sind kein Widerspruch zu einem
+  vorhandenen TV-Titel bei passenden Staffel-/Folgennummern. Die Navigation
+  behält den aussagekräftigen TV-Titel und die geprüfte Episoden-ID.
+- Innerhalb fehlender TV-Staffeln aktuelle/nächste Ausstrahlungen priorisieren,
+  statt lediglich nach Serien-ID aufzufüllen. Unbekannte/abweichende Staffel
+  benötigt den gesamten Staffelbestand; Budget und Cache bleiben erhalten.
+
+Prüfung: generische Titel versus echte Titelkonflikte, abgelaufene Sendungen,
+Staffelpriorität bei knappen Budgets und erneute Veröffentlichung/Live-Prüfung.
+
+Ergänzungen umgesetzt: **1.014 Anwendungstests bestanden**, gezielte Prüfung
+nach der Prioritätspräzisierung ebenfalls grün; Produktionsbuild erfolgreich.
+Browserprüfung in allen vier Größen wiederholt, nun einschließlich Auswahl
+und Fokus der tatsächlich veröffentlichten See-No-Evil-Folge 8. New Tricks zeigt
+den offenen Titelabgleich zutreffend; Zeitwechsel und manuelle Auswahl bestehen.

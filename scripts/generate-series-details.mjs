@@ -10,6 +10,7 @@ import {
 } from '../src/catalog/seriesNavigation.js'
 import { isTmdbTitleChangePending, readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
 import { discoverLiveSourceCatalogs } from './live-availability-index.mjs'
+import { episodeReference } from '../src/catalog/episodeContext.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const catalogPath = resolve(root, 'public/catalog.json')
@@ -32,11 +33,36 @@ function isFresh(entry, now = Date.now()) {
   return Number.isFinite(generatedAt) && now - generatedAt < maxAgeDays * 86_400_000
 }
 
+export function collectLiveSeasonPriorities(titles, { now = Date.now() } = {}) {
+  const timestamp = Number(now)
+  const priorities = new Map()
+  for (const title of titles) {
+    if (title.type !== 'series') continue
+    const seasons = normalizeSeriesSeasons(title.seasons, {
+      seriesTmdbId: title.tmdbId, numberOfSeasons: title.numberOfSeasons,
+    })
+    for (const airing of title.airings?.length ? title.airings : [title.nextAiring].filter(Boolean)) {
+      const start = Date.parse(airing.startTime), stop = Date.parse(airing.stopTime)
+      if (!Number.isFinite(start) || !Number.isFinite(stop) || stop <= timestamp) continue
+      const reference = episodeReference(airing)
+      if (!reference) continue
+      const seasonNumber = reference.seasonNumber
+      const exact = seasons.find(s => s.seasonNumber === seasonNumber)
+      for (const season of exact ? [exact] : seasons) {
+        const key = entryKey(title.tmdbId, season.seasonNumber)
+        priorities.set(key, Math.min(priorities.get(key) ?? Infinity, Math.max(timestamp, start)))
+      }
+    }
+  }
+  return priorities
+}
+
 export function selectSeriesSeasonRefreshCandidates(references, existingEntries, {
   now = Date.now(),
   limit = requestLimit,
   changedTitleKeys = new Set(),
   prioritySeriesIds = new Set(),
+  liveSeasonPriorities = new Map(),
 } = {}) {
   const timestamp = now instanceof Date ? now.getTime() : Number(now)
   return (Array.isArray(references) ? references : [])
@@ -45,6 +71,7 @@ export function selectSeriesSeasonRefreshCandidates(references, existingEntries,
       index,
       missingLive: prioritySeriesIds.has(Number(reference.seriesTmdbId))
         && !existingEntries.has(entryKey(reference.seriesTmdbId, reference.seasonNumber)),
+      airingPriority: liveSeasonPriorities.get(entryKey(reference.seriesTmdbId, reference.seasonNumber)) ?? Infinity,
       changed: isTmdbTitleChangePending(
         changedTitleKeys,
         `series:${Number(reference?.seriesTmdbId)}`,
@@ -55,6 +82,7 @@ export function selectSeriesSeasonRefreshCandidates(references, existingEntries,
     .filter((candidate) => candidate.changed || !candidate.fresh)
     .sort((left, right) => {
       if (left.missingLive !== right.missingLive) return left.missingLive ? -1 : 1
+      if (left.missingLive && left.airingPriority !== right.airingPriority) return left.airingPriority - right.airingPriority
       if (left.changed !== right.changed) return left.changed ? -1 : 1
       return left.index - right.index
     })
@@ -181,6 +209,7 @@ export async function generateSeriesDetails({ fetchSeason = tmdbSeasonFetch, now
     limit: requestLimit,
     changedTitleKeys: queuedChanges,
     prioritySeriesIds,
+    liveSeasonPriorities: collectLiveSeasonPriorities(liveTitles, { now }),
   })
 
   let refreshed = 0

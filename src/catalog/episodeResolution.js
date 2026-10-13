@@ -18,11 +18,11 @@ export function resolveCatalogEpisode(reference, episodes, { complete = false } 
   const numbered = !reference.conflict && reference.seasonNumber != null && reference.episodeNumber != null
     ? episodes.find(e => e.seasonNumber === reference.seasonNumber && e.episodeNumber === reference.episodeNumber) : null
   let matched = null
-  if (numbered && (!key || meaningfulTitle(numbered.title) === key)) matched = numbered
+  if (numbered && (!key || !meaningfulTitle(numbered.title) || meaningfulTitle(numbered.title) === key)) matched = numbered
   else if (named.length === 1 && complete) matched = named[0]
   if (matched) return { status: 'matched', catalog: {
     tmdbId: matched.tmdbId, seasonNumber: matched.seasonNumber,
-    episodeNumber: matched.episodeNumber, title: matched.title,
+    episodeNumber: matched.episodeNumber, title: meaningfulTitle(matched.title) ? matched.title : reference.title || matched.title,
   } }
   return { status: named.length > 1 ? 'ambiguous' : !complete ? 'missing-catalog'
     : numbered || reference.conflict ? 'conflict' : 'unmatched' }
