@@ -32,14 +32,6 @@
   z-index: 12;
 }
 
-/* The detail close button is absolutely anchored inside .detail-copy.
- * The generic TV focus rule above must not turn it back into a relative
- * element when Fire TV gives it D-Pad focus, otherwise it jumps into the
- * normal content flow. */
-.icon-button.detail-close:focus-visible {
-  position: absolute;
-}
-
 /* Fire TV header focus must stay fully inside the visible control. The global
  * positive outline offset is useful elsewhere, but at the top viewport edge it
  * can be clipped and overlap neighbouring controls. */

@@ -7,6 +7,7 @@ import DetailLoadingScreen from './components/DetailLoadingScreen.jsx'
 import HeroFirstPage from './components/HeroFirstPage.jsx'
 import { ProgressivePosterGrid, ProgressiveRows } from './components/ProgressiveContent.jsx'
 import { detailInitialImageUrl, prepareDetailRequestItem, preloadDetailImage, waitForDetailLoadingPaint } from './components/detailPresentation.js'
+import { closeTopDetailLayer } from './components/detailDialogNavigation.js'
 import { buildCategoryRows } from './catalog/categoryRows.js'
 import { buildPersonalSmartRows, buildPersonalSmartFilterOptions, preparePersonalSmartTitles, normalizeSmartFilterOptions } from './catalog/personalSmartRows.js'
 import { buildProviderBrowseRows, buildProviderHomeRows, buildProviderCatalogModel } from './catalog/providerCatalogRows.js'
@@ -922,7 +923,7 @@ function MovieHub({ user }) {
     }
 
     if (selectedTitle) {
-      if (window.__movieHubDetailBack?.()) return true
+      if (closeTopDetailLayer()) return true
       closeDetail()
       return true
     }

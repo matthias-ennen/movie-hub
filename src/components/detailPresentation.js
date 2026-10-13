@@ -2,6 +2,7 @@ import { resolvePresentationArtwork } from '../catalog/artworkRotation.js'
 import { loadRuntimeTitleMetadata } from '../catalog/runtimeTitleMetadata.js'
 import { normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
 import { mergeLiveAvailability } from '../sources/liveAvailabilityIndex.js'
+import { openingEpisode } from '../catalog/episodeContext.js'
 
 const DETAIL_IMAGE_WAIT_MS = 1_500
 
@@ -22,7 +23,12 @@ export async function prepareDetailRequestItem(item, {
     liveAvailabilityEntries,
     { now: liveAvailabilityNow, acceptLiveProvider },
   )
-  return presentArtwork(liveDetail, artworkOptions)
+  // Capture the explicit opening context, never a later/other series airing
+  // or a context retained inside the shared metadata cache.
+  const presented = presentArtwork(liveDetail, artworkOptions)
+  return item?.type === 'series' || item?.mediaType === 'tv'
+    ? { ...presented, detailEpisode: openingEpisode(item) }
+    : presented
 }
 
 export function detailInitialImageUrl(item) {
@@ -32,7 +38,8 @@ export function detailInitialImageUrl(item) {
       seriesTmdbId: item.tmdbId,
       numberOfSeasons: item.numberOfSeasons,
     })
-    if (seasons[0]?.posterUrl) return seasons[0].posterUrl
+    const selected = seasons.find((season) => season.seasonNumber === openingEpisode(item)?.seasonNumber)
+    if (selected?.posterUrl) return selected.posterUrl
   }
   return item.displayPosterUrl || item.posterUrl || null
 }

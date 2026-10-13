@@ -1,4 +1,5 @@
 import { isTvAiringOnAir, isTvAiringSoon } from '../waipu/waipuAiringStatus.js'
+import { episodeReference } from '../catalog/episodeContext.js'
 
 export const LIVE_AVAILABILITY_INDEX_VERSION = 1
 export const LIVE_AVAILABILITY_INDEX_URL = '/live-availability-index.json'
@@ -67,6 +68,7 @@ function compactAiring(raw, providerId) {
 
   return {
     stationId: text(raw?.stationId),
+    ...(episodeReference(raw) ? { episode: episodeReference(raw) } : {}),
     sourceStationId: text(raw?.sourceStationId),
     canonicalStationId: text(raw?.canonicalStationId),
     stationName: text(raw?.stationName),
