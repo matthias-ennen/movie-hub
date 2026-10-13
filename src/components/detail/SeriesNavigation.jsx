@@ -10,7 +10,6 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, select
   const [picker, setPicker] = useState(null)
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
   const [episode, setEpisode] = useState(null)
   const request = useRef(0)
   useEffect(() => () => { request.current += 1 }, [])
@@ -20,7 +19,6 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, select
       request.current += 1
       onSelectSeason(season.seasonNumber)
       setDetail(null)
-      setMessage('')
     }
     setPicker(null)
   }
@@ -32,45 +30,35 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, select
     if (detail?.seasonNumber === selectedSeason.seasonNumber) return
     const id = ++request.current
     setLoading(true)
-    setMessage('')
     try {
       const loaded = await loadSeriesSeasonDetail(item, selectedSeason)
       if (request.current !== id) return
       setDetail(loaded)
-      const matched = matchingEpisode(loaded.episodes, selectedEpisode)
-      if (!matched && selectedEpisode?.episodeNumber != null) {
-        setMessage('Die angegebene Folge ist in dieser Staffel nicht enthalten. Bitte wähle eine Folge aus.')
-      }
-    } catch (error) {
-      if (request.current === id) setMessage(error?.message || 'Folgendaten konnten nicht geladen werden.')
+    } catch {
+      if (request.current === id) setDetail(null)
     } finally {
       if (request.current === id) setLoading(false)
     }
   }
 
   const current = matchingEpisode(detail?.episodes || [], selectedEpisode)
-  const episodeLabel = selectedEpisode?.episodeNumber != null
-    ? `Folge ${selectedEpisode.episodeNumber}${selectedEpisode.title ? ` · ${selectedEpisode.title}` : ''}`
-    : selectedEpisode?.title || 'Folge auswählen'
+  const displayEpisode = selectedSeason && (!selectedEpisode?.resolution || selectedEpisode.resolution === 'matched')
+    ? selectedEpisode : null
+  const episodeLabel = displayEpisode?.episodeNumber != null
+    ? `Folge ${displayEpisode.episodeNumber}${displayEpisode.title ? ` · ${displayEpisode.title}` : ''}`
+    : 'Folge auswählen'
 
   return <>
     <DetailCard className="series-navigation-summary" id="series-navigation-heading" title="Staffeln und Folgen">
       <button type="button" className="series-selection-field" data-focusable="true"
         disabled={!seasons.length} aria-haspopup="dialog" onClick={() => { onBeginNavigation?.(); setPicker('seasons') }}>
-        <span>Staffel</span><strong>{selectedSeason ? `Staffel ${selectedSeason.seasonNumber}`
-          : selectedEpisode?.seasonNumber != null ? `Staffel ${selectedEpisode.seasonNumber} · nicht verfügbar`
-            : seasons.length ? 'Staffel auswählen' : 'Keine Staffeldaten verfügbar'}</strong>
+        <span>Staffel</span><strong>{selectedSeason ? `Staffel ${selectedSeason.seasonNumber}` : 'Staffel auswählen'}</strong>
         <span aria-hidden="true">⌄</span>
       </button>
       <button type="button" className="series-selection-field" data-focusable="true"
         disabled={!selectedSeason} aria-haspopup="dialog" onClick={showEpisodes}>
         <span>Folge</span><strong>{episodeLabel}</strong><span aria-hidden="true">›</span>
       </button>
-      {selectedEpisode?.resolution && selectedEpisode.resolution !== 'matched' && <p className="episodes-status">
-        {selectedEpisode.resolution === 'missing-catalog' ? 'Die Folgendaten sind noch nicht vollständig verfügbar.'
-          : selectedEpisode.resolution === 'missing-reference' ? 'Für diese Ausstrahlung fehlen Staffel- und Folgenangaben.'
-            : 'Die TV-Folge ist noch nicht eindeutig der Folgenübersicht zugeordnet.'}
-      </p>}
     </DetailCard>
 
     {picker === 'seasons' && <DetailDialog className="media-panel detail-selection-panel"
@@ -94,10 +82,7 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, select
         subtitle={`${item.title} · ${detail?.episodes.length ?? selectedSeason.episodeCount ?? '–'} Folgen`}>
         Staffel {selectedSeason.seasonNumber}
       </DialogHeading>
-      {loading && <p role="status" className="episodes-status">Folgen werden geladen …</p>}
-      {!loading && message && <p role="status" className="episodes-status">{message}</p>}
       {!loading && !detail && <button type="button" className="action-button" data-focusable="true" onClick={showEpisodes}>Erneut versuchen</button>}
-      {!loading && detail?.episodes.length === 0 && <p role="status" className="episodes-status">Für diese Staffel sind keine Folgen verfügbar.</p>}
       {!loading && detail?.episodes.length > 0 && <div className="episode-grid" aria-label={`Folgen von Staffel ${selectedSeason.seasonNumber}`}>
         {detail.episodes.map((entry) => <button type="button" key={entry.id}
           className={`episode-card${entry.id === current?.id ? ' current' : ''}`}
@@ -109,8 +94,8 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, select
             <span>Folge {entry.episodeNumber}</span>
           </span>
           <span className="episode-copy"><strong>{entry.title}</strong>
-            <small>{entry.airDate || 'Ausstrahlungsdatum unbekannt'}</small>
-            <span>{entry.description || 'Keine Beschreibung verfügbar.'}</span>
+            {entry.airDate && <small>{entry.airDate}</small>}
+            {entry.description && <span>{entry.description}</span>}
           </span>
         </button>)}
       </div>}
@@ -129,7 +114,7 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, select
           {episode.airDate && <span>{episode.airDate}</span>}
           {episode.runtimeMinutes && <span>{episode.runtimeMinutes} Min.</span>}
         </div>
-        <p className="episode-detail-description">{episode.description || 'Für diese Folge liegt noch keine deutsche Beschreibung vor.'}</p>
+        {episode.description && <p className="episode-detail-description">{episode.description}</p>}
       </DetailLayout>
     </DetailDialog>}
   </>

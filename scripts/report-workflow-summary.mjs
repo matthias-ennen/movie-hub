@@ -245,8 +245,8 @@ export function buildWorkflowSummary({
         area: 'Serienstaffeln',
         status: outcome(steps.seriesDetails || tmdbOutcome),
         stock: `${number(seasons.available)}/${number(seasons.requested)} verfügbar`,
-        activity: `${number(seriesManifest.refreshedCount)} aktualisiert`,
-        open: `${number(seasons.pending)} offen · ${number(seriesManifest.failedCount)} Fehler · ${number(seriesManifest.tvPendingSeasonCount)} TV-Staffeln offen`,
+        activity: `${number(seriesManifest.refreshedCount)} aktualisiert · ${number(seriesManifest.aliasRefreshedCount)} Sprachabgleiche`,
+        open: `${number(seasons.pending)} offen · ${number(seriesManifest.failedCount)} Fehler · ${number(seriesManifest.aliasFailedCount)} Sprachabgleichfehler · ${number(seriesManifest.tvPendingSeasonCount)} TV-Staffeln offen`,
       },
       ...Object.entries(availabilityIndex.episodeResolution || {}).map(([provider, counts]) => ({
         area: `TV-Episodenzuordnung (${provider})`,

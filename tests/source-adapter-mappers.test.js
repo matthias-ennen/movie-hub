@@ -11,6 +11,9 @@ describe('source adapter contract mappers', () => {
     expect(partial.extensions.joyn).toMatchObject({ description: 'Quellbeschreibung', ageRating: 12 })
     const known = mapJoynCandidateToBroadcastEvent(candidate, { type: 'series', tmdbId: 22, seasonNumber: 3, episodeNumber: 4 }, { channelId: 'zdf' })
     expect(known.episode).toEqual({ title: 'Folge', seasonNumber: 3, episodeNumber: 4 })
+    const conflict = mapJoynCandidateToBroadcastEvent(candidate, { type: 'series', tmdbId: 22,
+      seasonNumber: 3, episodeNumber: 4, episode: { conflict: true, seasonNumber: null, episodeNumber: null } }, { channelId: 'zdf' })
+    expect(conflict.episode).toEqual({ title: 'Folge', seasonNumber: null, episodeNumber: null, conflict: true })
     expect(mapJoynCandidateToBroadcastEvent(candidate, { type: 'movie', tmdbId: 22 }, { channelId: 'zdf' }).episode).toBeNull()
   })
 

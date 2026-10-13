@@ -16,7 +16,6 @@ import { ProviderBadge } from './ProviderBadges.jsx'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
-import { normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
@@ -30,6 +29,7 @@ import DetailLayout from './detail/DetailLayout.jsx'
 import DetailCard from './detail/DetailCard.jsx'
 import DetailActions, { DialogHeading } from './detail/DetailActions.jsx'
 import SeriesNavigation from './detail/SeriesNavigation.jsx'
+import { availableSeriesSeasons } from '../catalog/seriesAvailability.js'
 import TitleAlertDialog from './detail/TitleAlertDialog.jsx'
 import TitleEditor from './detail/TitleEditor.jsx'
 import PersonalTitleActions from './detail/PersonalTitleActions.jsx'
@@ -87,10 +87,7 @@ export default function DetailModal({
     profileId: activeProfile?.id || 'profile',
     rotationMode: activeProfile?.contentDisplaySettings?.artworkRotation,
   }
-  const seriesSeasons = useMemo(() => normalizeSeriesSeasons(item?.seasons, {
-    seriesTmdbId: item?.tmdbId,
-    numberOfSeasons: item?.numberOfSeasons,
-  }), [item?.tmdbId, item?.numberOfSeasons, item?.seasons])
+  const seriesSeasons = useMemo(() => availableSeriesSeasons(item), [item?.tmdbId, item?.numberOfSeasons, item?.seasons, item?.availableSeasons])
   const selectedSeason = seriesSeasons.find((season) => season.seasonNumber === selectedSeasonNumber)
     || null
   const initialSeasonNumber = openingEpisode(item)?.seasonNumber ?? null
@@ -460,7 +457,7 @@ export default function DetailModal({
             </div>
           )}
 
-          {item.type === 'series' && <SeriesNavigation item={item} seasons={seriesSeasons}
+          {item.type === 'series' && seriesSeasons.length > 0 && <SeriesNavigation item={item} seasons={seriesSeasons}
             selectedSeason={selectedSeason} selectedEpisode={selectedEpisode}
             onSelectEpisode={setManualEpisode}
             onBeginNavigation={() => setManualEpisode(selectedEpisode)}

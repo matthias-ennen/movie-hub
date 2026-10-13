@@ -1107,6 +1107,7 @@ export async function runJoynAdapterDiagnostic({
       type: decision.match.type,
       seasonNumber: episodeEvidence?.seasonNumber ?? null,
       episodeNumber: episodeEvidence?.episodeNumber ?? null,
+      episode: episodeEvidence,
     }, {
       channelId: entry.channelId,
       observedAt: generatedAt,

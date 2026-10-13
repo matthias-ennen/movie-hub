@@ -1,5 +1,5 @@
 import { areEquivalentTvAirings, mergeTvAirings } from '../sources/mergeTvAirings.js'
-import { episodeNumberLabel, episodeReference } from '../catalog/episodeContext.js'
+import { episodeReference } from '../catalog/episodeContext.js'
 import { navigationEpisode, sameEpisode } from '../catalog/episodeResolution.js'
 
 function mediaType(value) {
@@ -61,6 +61,5 @@ export function formatDetailTvAiring(airing, {
   }).format(start)
   const stationName = String(airing?.stationName || '').trim()
 
-  const episode = navigationEpisode(episodeReference(airing))
-  return [date, `${time} Uhr`, stationName, episodeNumberLabel(episode), episode?.title].filter(Boolean).join(' · ')
+  return [date, `${time} Uhr`, stationName].filter(Boolean).join(' · ')
 }

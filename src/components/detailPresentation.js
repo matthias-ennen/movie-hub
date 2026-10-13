@@ -1,6 +1,7 @@
 import { resolvePresentationArtwork } from '../catalog/artworkRotation.js'
 import { loadRuntimeTitleMetadata } from '../catalog/runtimeTitleMetadata.js'
 import { normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
+import { loadSeriesAvailability } from '../catalog/seriesAvailability.js'
 import { mergeLiveAvailability } from '../sources/liveAvailabilityIndex.js'
 import { episodeReference, openingEpisode } from '../catalog/episodeContext.js'
 import { navigationEpisode } from '../catalog/episodeResolution.js'
@@ -14,12 +15,14 @@ export async function prepareDetailRequestItem(item, {
   liveAvailabilityNow = Date.now(),
   acceptLiveProvider = null,
   loadComplete = loadRuntimeTitleMetadata,
+  loadAvailability = loadSeriesAvailability,
   presentArtwork = resolvePresentationArtwork,
 } = {}) {
-  const detail = await loadComplete(item, {
+  const isSeries = item?.type === 'series' || item?.mediaType === 'tv'
+  const [detail, availableSeasons] = await Promise.all([loadComplete(item, {
     requireContract: true,
     requireComplete: true,
-  })
+  }), isSeries ? loadAvailability(item.tmdbId) : null])
   const [liveDetail = detail] = mergeLiveAvailability(
     [detail],
     liveAvailabilityEntries,
@@ -31,7 +34,7 @@ export async function prepareDetailRequestItem(item, {
   const detailAiring = item.tvAiring && item.detailEpisode !== null && (!acceptLiveProvider || providerIds.length)
     ? { ...item.tvAiring, providerIds,
       playbackRoutes: (item.tvAiring.playbackRoutes || []).filter(route => !acceptLiveProvider || acceptLiveProvider(route.providerId, item.tvAiring)) } : null
-  const prepared = { ...liveDetail, detailAiring, detailEpisode: null, detailSelection: item.detailEpisode || undefined }
+  const prepared = { ...liveDetail, availableSeasons, detailAiring, detailEpisode: null, detailSelection: item.detailEpisode || undefined }
   const airing = resolveDetailTvAiring(prepared, { now: liveAvailabilityNow })
   const detailEpisode = item.detailEpisode || navigationEpisode(episodeReference(airing))
     || (airing ? null : openingEpisode(item))
