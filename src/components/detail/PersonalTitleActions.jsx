@@ -18,7 +18,9 @@ export default function PersonalTitleActions({ activeProfile, personalState, per
         )}
         data-focusable="true"
       >
-        <span aria-hidden="true">♥</span>
+        <span aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" focusable="false">
+          <path d="M12 21 3.5 12.7a5.7 5.7 0 0 1 8.1-8L12 5l.4-.3a5.7 5.7 0 0 1 8.1 8Z" />
+        </svg></span>
         <span>{personalState.favorite ? 'Favorit' : 'Als Favorit'}</span>
       </button>
       <button

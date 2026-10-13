@@ -19,11 +19,6 @@
   --poster-accent-2: #080b10;
 }
 
-.detail-loading-copy {
-  display: grid;
-  place-items: center;
-}
-
 .detail-loading-copy .loading-copy {
   margin: 0;
   text-align: center;

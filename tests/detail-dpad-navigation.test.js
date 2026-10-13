@@ -104,4 +104,46 @@ describe('Detaildialog: Fokus und richtiger Scrollcontainer', () => {
   it('übernimmt keine Navigation außerhalb der ausdrücklich markierten Dialoge', () => {
     expect(navigateDetailRows({ matches: () => false }, [], null, 'ArrowDown', 'auto')).toBe(false)
   })
+
+  function editor() {
+    vi.stubGlobal('getComputedStyle', () => ({ overflowY: 'auto', scrollPaddingTop: '16px', scrollPaddingBottom: '16px' }))
+    const scope = { matches: () => true }
+    const port = { parentElement: scope, scrollHeight: 1200, clientHeight: 400, clientTop: 0,
+      scrollTop: 600, getBoundingClientRect: () => ({ top: 100 }), scrollTo: vi.fn() }
+    const make = (x, y, parent = port) => ({ parentElement: parent, closest: () => parent, focus: vi.fn(),
+      getBoundingClientRect: () => box('', x, y).rect })
+    const close = make(700, 30, scope), link = make(300, -350), video = make(500, -350),
+      date = make(300, 180), note = make(300, 280), save = make(300, 400)
+    const buttons = [close, link, video, date, note, save]
+    return { scope, port, close, link, video, date, note, save, buttons }
+  }
+  it('scrollt beim festen Schließen oberhalb des Editors den benachbarten Inhalt vollständig zurück', () => {
+    const { scope, port, close, link, buttons } = editor()
+    navigateDetailRows(scope, buttons, link, 'ArrowUp', 'auto')
+    expect(close.focus).toHaveBeenCalledWith({ preventScroll: true })
+    expect(port.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'auto' })
+  })
+  it('zeigt bereits bei der ersten Inhaltszeile die Kachelüberschrift und den oberen Abstand', () => {
+    const { scope, port, link, date, buttons } = editor()
+    navigateDetailRows(scope, buttons, date, 'ArrowUp', 'smooth')
+    expect(link.focus).toHaveBeenCalledOnce()
+    expect(port.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' })
+  })
+  it('stellt den Anfang auch wieder her, wenn Schließen nach manuellem Scrollen schon fokussiert ist', () => {
+    const { scope, port, close, buttons } = editor()
+    navigateDetailRows(scope, buttons, close, 'ArrowUp', 'auto')
+    expect(port.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'auto' })
+  })
+  it('scrollt bei Notiz speichern einschließlich restlicher Kachel und Innenabstand ganz nach unten', () => {
+    const { scope, port, note, save, buttons } = editor()
+    navigateDetailRows(scope, buttons, note, 'ArrowDown', 'auto')
+    expect(save.focus).toHaveBeenCalledOnce()
+    expect(port.scrollTo).toHaveBeenCalledWith({ top: 800, behavior: 'auto' })
+  })
+  it('behandelt Eingabefelder zwischen den Randzeilen weiterhin als Zwischenziele', () => {
+    const { scope, port, date, note, buttons } = editor()
+    navigateDetailRows(scope, buttons, date, 'ArrowDown', 'auto')
+    expect(note.focus).toHaveBeenCalledOnce()
+    expect(port.scrollTo).toHaveBeenCalledWith({ top: 600, behavior: 'auto' })
+  })
 })

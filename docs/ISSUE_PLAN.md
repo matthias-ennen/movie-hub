@@ -46,6 +46,8 @@ Am 13.10.2026 zusätzlich abgeschlossen:
 Die Basis wurde um 19:05 Uhr abgenommen. Um 19:36 Uhr hat Matthias eine begrenzte
 Nachbesserung freigegeben: mitscrollende Kopfaktionen, lückenlose Navigation durch
 Bedienzeilen und vollständiger unterer Abstand an der letzten Bewertungszeile.
+Die Freigabe um 20:21 Uhr ergänzt stabile Buttonpositionen beim Laden,
+vollständige Editor-Scrollgrenzen und das neutral weiße/aktiv rote Favoritenherz.
 #426 ist dafür wieder geöffnet; die Abnahme dieses Nachtrags bleibt offen.
 Danach folgt weiterhin #384. Technische Nachweise: [Detailpaket](_work/DETAIL_426.md).
 

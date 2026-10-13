@@ -103,6 +103,9 @@ zusätzliche Anbieter-/TMDB-Abfragen in der App entfallen.
 Am 13.10.2026 um 19:36 Uhr hat Matthias einen begrenzten Navigationsnachtrag
 freigegeben: Kopfaktionen scrollen mit der Überschrift, D-Pad hoch/runter folgt
 jeder Bedienzeile, die letzte Bewertung zeigt den vollständigen unteren Abstand.
+Die um 20:21 Uhr freigegebene Ergänzung korrigiert die Buttonposition beim Laden,
+die vollständigen Scrollgrenzen im Bearbeitungsmenü und das neutrale weiße/aktive
+rote Favoritenherz. Gemeinsame Komponenten in sechs Browserformaten geprüft.
 #426 ist dafür wieder geöffnet; die Basisabnahme bleibt dokumentiert. Der Nachtrag
 wird vor #384 abgeschlossen und auf Fire TV abgenommen.
 
