@@ -38,14 +38,15 @@
   min-height: 0;
   padding: var(--detail-padding);
   overflow-x: hidden;
-  overflow-y: auto;
+  /* Keep loading/loaded width identical on WebViews without scrollbar-gutter. */
+  overflow-y: scroll;
   overscroll-behavior: contain;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
   scroll-padding-block: var(--detail-padding);
 }
-.detail-copy-content { position: relative; display: flow-root; min-height: 44px; }
+.detail-copy-content { position: relative; display: flow-root; width: 100%; min-height: 44px; }
 .detail-copy-content > .detail-actions-bar { top: 0; right: 0; }
 .detail-actions-bar {
   position: absolute;
@@ -205,7 +206,7 @@
 .media-panel.detail-alert-panel { width: min(540px, 92vw); }
 .detail-alert-panel .title-alert-options { display: grid; grid-template-columns: 1fr; }
 .detail-editor-panel { grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
-.detail-editor-content { min-height: 0; overflow: auto; padding: 0.5rem; overscroll-behavior: contain; display: grid; gap: 1rem; align-content: start; }
+.detail-editor-content { min-height: 0; overflow: auto; padding: 1rem 0.5rem; scroll-padding-block: 1rem; overscroll-behavior: contain; display: grid; gap: 1rem; align-content: start; }
 .detail-editor-content > .detail-card { margin: 0; }
 .detail-editor-content .media-kind-actions { margin-bottom: 1rem; }
 .detail-editor-content .media-form { margin-bottom: 1rem; }

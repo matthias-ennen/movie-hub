@@ -1,8 +1,50 @@
 # #426 – Detailseite aufräumen und verbessern
 
-Stand: 13.10.2026 · Navigationsnachtrag um 19:36 Uhr (Europe/Berlin) freigegeben.
+Stand: 13.10.2026 · Ergänzende Korrekturen um 20:21 Uhr (Europe/Berlin) freigegeben.
 
-## Aktuell: D-Pad- und Scrollnachtrag
+## Aktuell: Ladeposition, Editor-Scrollgrenzen und Favoritenfarbe
+
+Matthias hat die drei seit 20:08 Uhr gesammelten Beobachtungen zur Umsetzung
+freigegeben. Sie gehören zum offenen Nachtrag von #426; #384 bleibt unbegonnen.
+
+- Die alte Grid-Zentrierung auf `.detail-loading-copy` ließ den inneren
+  Positionierungsrahmen auf seine Textbreite schrumpfen. Sie ist entfernt;
+  der gemeinsame Inhaltswrapper nutzt ausdrücklich die ganze Breite.
+  Nur die Lademeldung wird darin zentriert. Lade-, Fehler- und fertige Ansicht
+  verwenden identische Buttonplätze. `overflow-y: scroll` reserviert auch in
+  älteren WebViews ohne `scrollbar-gutter` denselben Platz. Im schmalen Hochformat
+  bleibt der gemeinsame Bild-/Inhaltsscroll erhalten, die Kopfaktionen scrollen mit.
+- Die feste Editor-Kopfzeile liegt außerhalb des inneren Scrollbereichs. Die
+  gemeinsame D-Pad-Steuerung ermittelt nun dessen eigene erste/letzte Bedienzeile
+  und stellt beim Erreichen von Schließen den zugehörigen Inhalt ebenfalls ganz
+  nach oben. Die letzte Zeile zeigt das vollständige Ende einschließlich Abstand.
+  Der Editor erhält 1 rem vertikalen Innen- und Scrollabstand; keine neuen Listener.
+- Das Favoritenherz verwendet SVG mit `currentColor`. Es ist neutral textweiß und
+  aktiv rot; die Plattform kann das Zeichen nicht mehr als farbiges Emoji ersetzen.
+  Bestehende Aktivzustände, Speicherung und Profilgrenzen bleiben erhalten.
+
+### Technische Prüfung
+
+- 1.054 Anwendungstests erfolgreich, einschließlich fünf neuer Regressionen für
+  getrennte Kopf-/Inhaltsbereiche, erste Inhaltszeile, bereits fokussiertes Schließen,
+  unteres Ende und mittlere Eingabefelder. Produktionsbuild und Diff-Prüfung erfolgreich.
+- Lokale Chromium-Prüfung mit den echten gemeinsamen React-Komponenten, dem echten
+  Editor, D-Pad-Hook und vollständigem CSS: 1280×720, 960×540, 390×844, 844×390,
+  768×1024 und 1024×768. In allen Formaten identische Koordinaten/Größen aller drei
+  Buttons in Lade-/Fehler-/fertiger Ansicht; Schließen aktiv und initial fokussiert.
+- In allen sechs Formaten Editor per Pfeiltasten bis Notiz speichern und zurück
+  zu Schließen geprüft: unterer Scrollwert gleich Maximum, oberer Scrollwert 0.
+  Herzfarbe neutral `rgb(247, 248, 251)`, aktiv `rgb(255, 90, 99)`, danach wieder neutral.
+  Bildschirmaufnahmen von Ladeansicht und Editor-Rändern visuell kontrolliert.
+- Browser war über eine ausschließlich lokale Prüfinstallation verfügbar;
+  keine neue App-Abhängigkeit. Komponentenprüfung mit Testdaten, keine Behauptung
+  einer vollständigen angemeldeten App-Prüfung oder physischen Fire-TV-Abnahme.
+
+Veröffentlichungsnachweise werden im Issue ergänzt. Nach Veröffentlichung App
+vollständig neu starten; keine neue APK nötig. Geräteabnahme der drei Korrekturen
+und des vorherigen Navigationsnachtrags bleibt offen.
+
+## Vorheriger Navigationsnachtrag (19:36 Uhr, Build `21b6e7c`)
 
 Nach Abnahme des bisherigen Lieferstands hat Matthias drei zusammengehörige
 Korrekturen zur Umsetzung freigegeben. #426 ist dafür wieder geöffnet; #384

@@ -72,8 +72,20 @@ export function navigateDetailRows(scope, candidates, active, direction, behavio
   const target = detailRowTarget(rows, active, direction)
   if (!target) return false
   target.element.focus({ preventScroll: true })
-  const container = scrollContainer(target.element, scope)
+  const containers = new Map()
+  const containerFor = element => {
+    if (!containers.has(element)) containers.set(element, scrollContainer(element, scope))
+    return containers.get(element)
+  }
+  // A fixed dialog heading is a sibling of the scrollable content. Returning
+  // to it must reset that content too. Boundaries belong to each scroll area,
+  // so the first content row reveals its heading before focus reaches Close.
+  const container = containerFor(target.element)
+    || (target.first ? candidates.map(containerFor).find(Boolean) : null)
   if (container) {
+    const contentRows = rows.filter(row => row.some(item => containerFor(item.element) === container))
+    const first = target.first || contentRows[0]?.some(item => item.element === target.element)
+    const last = target.last || contentRows[contentRows.length - 1]?.some(item => item.element === target.element)
     const port = container.getBoundingClientRect()
     const rect = target.element.getBoundingClientRect()
     const style = getComputedStyle(container)
@@ -81,7 +93,7 @@ export function navigateDetailRows(scope, candidates, active, direction, behavio
     container.scrollTo({ top: detailScrollTop({
       scrollTop: container.scrollTop, scrollHeight: container.scrollHeight, clientHeight: container.clientHeight,
       top: rect.top - port.top - container.clientTop, bottom: rect.bottom - port.top - container.clientTop,
-      margin, first: target.first, last: target.last,
+      margin, first, last,
     }), behavior })
   }
   return true

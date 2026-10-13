@@ -220,6 +220,9 @@ dieselbe Geometrie und dieselben festen Buttonplätze; vor der Bereitschaft sind
 Stift und Glocke sichtbar, aber deaktiviert. Schließen bleibt aktiv. `DetailActions`,
 Bearbeitung, Erinnerungen und Seriennavigation sind eigene Bausteine; das
 eigentliche Detailfeature bleibt verzögert geladen.
+Der Positionierungsrahmen bleibt auch beim Laden vollbreit; die Lademeldung wird
+nur innerhalb dieses Rahmens zentriert. Eine stets reservierte Scrollbarbreite
+verhindert Verschiebungen auch ohne Unterstützung für `scrollbar-gutter`.
 Folgen- und Filmreihenübersicht nutzen ebenfalls `DetailActions` für den runden
 Schließen-Button mit denselben Randabständen außerhalb des Listen-Scrollbereichs;
 die aktuelle Folge bzw. der aktuelle Film behält den Anfangsfokus.
@@ -232,7 +235,9 @@ Listen. Der bestehende Dispatcher filtert deaktivierte/unsichtbare Elemente und
 begrenzt Tastaturwiederholungen. Layoutmessungen erfolgen je Tastendruck, ohne
 Observer oder zusätzliche React-Zustände. Der zuständige Scrollcontainer zeigt
 Zwischenziele mit Randabstand, den Kopf vollständig und die letzte Bewertungszeile
-bis zum Inhaltsende. Der bestehende reine Textscrollpfad für Episoden bleibt erhalten.
+bis zum Inhaltsende. In Nebenansichten mit getrenntem Kopf und Scrollinhalt gelten
+die Randzeilen je Scrollbereich; die Rückkehr zum festen Schließen setzt auch den
+Inhalt an den Anfang. Der bestehende reine Textscrollpfad für Episoden bleibt erhalten.
 
 Die Inhaltsreihenfolge entspricht Matthias' Nachbesserung vom 13.10.2026:
 Titel/Kerndaten, Beschreibung, Besetzung, Staffeln/Folgen beziehungsweise Filmreihe,
@@ -243,6 +248,8 @@ Gesehen-Datum. Im Hochformat scrollen kompaktes Bild und Inhalt gemeinsam;
 Querformat/TV zeigen Bild links und den Text rechts. Die Episodenbedienung wählt
 den tatsächlich scrollbaren Bereich für D-Pad-Auf/Ab, ohne zusätzliche Timer.
 
+Das Favoritenherz ist ein SVG mit `currentColor`, neutral textweiß und aktiv rot;
+die Darstellung hängt nicht von der Emoji-Schrift des Geräts ab.
 Favorit, Watchlist, Gesehen und Bewertung bleiben direkt sichtbar. Notiz und
 Gesehen-Datum verwenden im Stiftmenü unverändert den profilbezogenen Library-Pfad;
 eigene Links/Videos bleiben kontoweit mit dem vorhandenen verschlüsselten
