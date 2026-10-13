@@ -83,31 +83,26 @@ Für Home, Filme, Serien, TV und Meine Inhalte gelten gemeinsame Seiten-, Hero-,
 
 Die aktuelle Hauptreihenfolge lautet:
 
-`#426 Detailseite: umgesetzt, Abnahme offen → #314 Mitteilungs-Erweiterungen (#384 geparkt, danach #385) → #271/#336 Quellenplattform und weitere belastbare Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
+`#314 Mitteilungs-Erweiterungen (#384 als nächstes, danach #385) → #271/#336 Quellenplattform und weitere belastbare Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
 
-Das Mitteilungs-Grundpaket aus [#314](https://github.com/matthias-ennen/movie-hub/issues/314) ist am 12.10.2026 vollständig durch Matthias abgenommen: #118/#312/#380/#381/#382/#383 und `movie-hub-admin#11` sind geschlossen. Die letzte Bestätigung „Ja, das ist alles abgenommen“ umfasst sämtliche vier noch aufgeführten Restpunkte. Es besteht keine weitere Geräteabnahme für diesen Lieferumfang. Der [Tagesabschluss](docs/TITLE_NOTIFICATIONS.md#tagesabschluss-12102026) hält Nachweise und Fortsetzung fest. Das analysierte E-Mail-Paket [#384](https://github.com/matthias-ennen/movie-hub/issues/384) bleibt zunächst zurückgestellt: **Auch per E-Mail** je Profil für bestehende persönliche Meldungen, mit verlässlichem serverseitigem Versand und passenden Vorlagen. Der Nutzerwunsch erweitert den früheren Umfang „nur letzte TV-Erinnerung“. Noch kein Implementierungsstart; #314 bleibt Master für #384/#385. Details: [Mitteilungen](docs/TITLE_NOTIFICATIONS.md) und [Scheduler-Betrieb](docs/TV_FINAL_SCHEDULER_RUNBOOK.md).
+Das Mitteilungs-Grundpaket aus [#314](https://github.com/matthias-ennen/movie-hub/issues/314) ist am 12.10.2026 vollständig durch Matthias abgenommen: #118/#312/#380/#381/#382/#383 und `movie-hub-admin#11` sind geschlossen. Die letzte Bestätigung „Ja, das ist alles abgenommen“ umfasst sämtliche vier noch aufgeführten Restpunkte. Es besteht keine weitere Geräteabnahme für diesen Lieferumfang. Der [Tagesabschluss](docs/TITLE_NOTIFICATIONS.md#tagesabschluss-12102026) hält Nachweise und Fortsetzung fest. Nach Abschluss von #387 und #426 ist das analysierte E-Mail-Paket [#384](https://github.com/matthias-ennen/movie-hub/issues/384) das nächste vorgesehene Arbeitspaket: **Auch per E-Mail** je Profil für bestehende persönliche Meldungen, mit verlässlichem serverseitigem Versand und passenden Vorlagen. Der Nutzerwunsch erweitert den früheren Umfang „nur letzte TV-Erinnerung“. Noch kein Implementierungsstart; #314 bleibt Master für #384/#385. Details: [Mitteilungen](docs/TITLE_NOTIFICATIONS.md) und [Scheduler-Betrieb](docs/TV_FINAL_SCHEDULER_RUNBOOK.md).
 
 **Abgenommen und abgeschlossen: #387.** Matthias hat den über #422/#424/#425 veröffentlichten Einstellungen-Stand am 13.10.2026 mit „Das ist abgenommen.“ bestätigt. Elf Direktwege in drei Gruppenkacheln, kompakte Überschriften/Breadcrumbs sowie gemeinsame Anbieter-/Senderregeln sind geliefert. Umsetzung, technische Nachweise und Abschluss: [Einstellungen](docs/SETTINGS.md).
 
-**Umgesetzt, Abnahme offen: [#426 – Detailseite aufräumen und verbessern](https://github.com/matthias-ennen/movie-hub/issues/426).** Stift/Glocke/Schließen, Notiz und Gesehen-Datum im Bearbeitungsmenü, einheitliche Staffel-/Folgenauswahl und erhaltene bebilderte Folgenübersicht. Expliziter EPG-Episodenkontext, gemeinsame Dialog-/Fokusregeln und bedarfsweise geladene Episodendaten. Umfang und technische Nachweise: [Detailpaket](docs/_work/DETAIL_426.md). Nachbesserung vom 13.10.: frühere Inhaltsreihenfolge, gemeinsame Kacheln, transparent schwebende Aktionen und lesbare Episodendetails in Hoch-/Querformat. Die Sicht- und Geräteabnahme durch Matthias bleibt offen; #384 E-Mail bleibt geparkt.
+**Abgenommen und abgeschlossen: [#426 – Detailseite aufräumen und verbessern](https://github.com/matthias-ennen/movie-hub/issues/426).** Matthias hat den veröffentlichten Stand `ddd0dbd` am 13.10.2026 um 19:05 Uhr (Europe/Berlin) zum Abschluss freigegeben. Geliefert sind Stift/Glocke/Schließen, Notiz und Gesehen-Datum im Bearbeitungsmenü, gemeinsame Kacheln und Dialog-/Fokusregeln, transparent schwebende Aktionen sowie die einheitliche Staffel-/Folgenauswahl mit bebilderter Übersicht. Umfang, Prüfungen und Abnahme: [Detailpaket](docs/_work/DETAIL_426.md).
 
-Weitere Korrektur vom 13.10.: Joyn ergänzt fehlende Episodennummern auch bei bereits
-erkannten Serien im Import/Nachtlauf. Der gemeinsame TV-Merge erhält vollständige
-Angaben und verhindert eine Vorauswahl bei Nummernkonflikten. Staffel/Folge stehen
-unten in Auswahl/TV-Ausstrahlung; die doppelte Zeile unter dem Serientitel entfällt.
-Folgen- und Filmreihenübersicht verwenden denselben runden Schließen-Button und
-dieselben Randabstände wie die Detailseite. Auch allgemeine Serieneinstiege nutzen
-vorhandene Episodenangaben der angezeigten TV-Ausstrahlung für die Vorauswahl;
-eine ausdrücklich gewählte Folge und spätere manuelle Auswahl bleiben vorrangig.
-Keine zusätzlichen Datenabfragen in der App.
+Die Staffel-/Folgenkachel erscheint bei nutzbarem Episodenbestand. Unklare Folgen
+bleiben ohne Vorauswahl und ohne erklärende Hinweise; die manuelle Navigation
+bleibt erhalten. Unter „Wo anschauen?“ stehen nur Datum, Uhrzeit und Sender.
+Staffel, Folge und Folgentitel werden ausschließlich in der Auswahlkachel geführt.
+Joyn-/Waipu-Daten werden im gemeinsamen Import-/Nachtlauf abgeglichen, einschließlich
+verifizierter TMDB-Sprachaliase und erhaltener Nummernkonflikte. Der Client lädt
+die kompakte Staffelverfügbarkeit einmal je Sitzung und Episodenlisten bei Bedarf;
+zusätzliche Anbieter-/TMDB-Abfragen in der App entfallen.
 
-Die weitere Korrektur unter #426 vereinheitlicht den konkreten Sendungsbezug für
-Vorauswahl, TV-Termin und Anbieterwege. Manuelle Folgenwahl bleibt erhalten;
-ein fremder Sendetermin wird ihr nicht zugeschrieben. Die Datenverarbeitung ordnet
-TV-Folgen eindeutig dem vorhandenen Episodenkatalog zu, erhält Quellangaben und
-ergänzt fehlende Staffeln auch für reine TV-Serien. Unklare Zuordnungen bleiben
-sichtbar offen und werden im Nachtlaufbericht gezählt. Technische Nachweise und
-Veröffentlichungsstand stehen im Detailpaket; manuelle Abnahme bleibt offen.
+Für #426 ist keine weitere Paketabnahme offen. Spätere Schönheitskorrekturen
+werden separat gesammelt. Der Abschlussnachtrag ändert nur Dokumentation und
+Planung; er startet weder ein neues Umsetzungspaket noch einen App-Deploy.
 
 Die vorgezogenen Korrekturen [#413 – persönliche Smart-Reihen](https://github.com/matthias-ennen/movie-hub/issues/413) und [#415 – Schauspielersuche](https://github.com/matthias-ennen/movie-hub/issues/415) sind über PR #414/#416 veröffentlicht. Beide nutzen vorhandene gemeinsame Titelmetadaten; es gibt keine zusätzlichen Abfragen beim Tippen oder je Posterreihe. Technische Prüfungen sind erfolgreich; Matthias hat beide Pakete am 12.10.2026 auf Smartphone und Fire TV ausdrücklich abgenommen. #413 und #415 sind geschlossen. Web-Suche und Reihen werden nach vollständigem App-Neustart geladen; neue native Importe mit vollständigen Besetzungsfacetten benötigen die neue APK. #329 bleibt Wartung; für öffentliche Verteilung gilt weiterhin #112.
 

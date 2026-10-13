@@ -1,6 +1,64 @@
 # #426 – Detailseite aufräumen und verbessern
 
-Stand: 13.10.2026 · Umsetzung durch Matthias um 11:24 Uhr freigegeben.
+Stand: 13.10.2026 · Abgenommen und abgeschlossen, 19:05 Uhr (Europe/Berlin).
+
+## Paketabnahme und Abschluss
+
+Matthias gibt den aktuellen Stand ausdrücklich zum Abschluss frei:
+„Das hier kannst du jetzt abschließen.“ Damit ist #426 einschließlich der letzten
+Nachbesserung abgeschlossen. Die Paketabnahme ersetzt die weiter unten historisch
+dokumentierten offenen Abnahmepunkte. Zusätzliche einzelne Geräteprüfungen werden
+daraus nicht abgeleitet. Spätere Schönheitskorrekturen bleiben separate Nacharbeiten.
+
+### Abgenommener Lieferstand
+
+- Gemeinsame Detaildialoge für Filme, Serien und Episoden mit einheitlichem Fokus,
+  transparenten Kopfaktionen und passenden Kacheln; bestehende Folgenübersicht erhalten.
+- Stift für Links/Videos, Notiz und Gesehen-Datum; Glocke für persönliche Erinnerungen;
+  einheitlicher Schließen-Button auch in Folgen- und Filmreihenübersichten.
+- Staffel-/Folgenkachel nur bei nutzbarem Episodenbestand. Unklare Folgen bleiben
+  ungewählt; manuelle Navigation bleibt erreichbar. Keine erklärenden Hinweise.
+- Keine redundante Episodenzeile unter dem Titel oder beim TV-Termin.
+  „Wo anschauen?“ zeigt nur Datum, Uhrzeit und Sender; Staffel/Folge stehen in der Kachel.
+- Gemeinsamer Import-/Nachtlauf mit sicherer Episodenzuordnung, verifizierten
+  englischen TMDB-Aliasnamen, erhaltener Joyn-/Waipu-Quellinformation und Konflikten.
+  Kompakte Staffelverfügbarkeit und bedarfsweise Episodenlisten ohne Anbieterabfragen im Client.
+
+### Veröffentlichung und vorhandene Nachweise
+
+Abgenommener Funktionsstand: **`ddd0dbd`**, veröffentlicht über
+[PR #434](https://github.com/matthias-ennen/movie-hub/pull/434).
+1.029 Anwendungstests, Produktionsbuild und Diff-Prüfung erfolgreich.
+[CI](https://github.com/matthias-ennen/movie-hub/actions/runs/38426346459),
+[Android](https://github.com/matthias-ennen/movie-hub/actions/runs/38426346113) und
+[Hosting](https://github.com/matthias-ennen/movie-hub/actions/runs/38426346073)
+sind erfolgreich abgeschlossen.
+
+Der veröffentlichte Datenstand wurde direkt zurückgelesen: 500 Staffeln ergänzt,
+100 englische Sprachabgleiche, keine Abruffehler, 600/600 Budgeteinheiten.
+19.919 von 29.908 Staffeln sind vorhanden. SVU S16E3 (`Minderjährig` / verifizierter
+Alias `Producer's Backend`) ist eindeutig zugeordnet; MONSTER ermöglicht die manuelle
+Auswahl seiner 74 Folgen ohne geratene TV-Folge. Bei Richter Alexander Hold fehlt
+nutzbarer Folgenbestand, daher entfällt die Kachel. New Tricks hat alle zwölf
+Staffeln; ein nicht eindeutig passender TV-Titel bleibt ohne Vorauswahl.
+
+Die erneute automatisierte Browser-Sichtprüfung der letzten Nachbesserung war
+technisch blockiert (kein Browser, Download nicht verfügbar); diese Einschränkung
+bleibt im Prüfprotokoll erhalten. Die heutige ausdrückliche Paketabnahme schließt
+den Lieferumfang ab, ohne zusätzliche Browser- oder Einzelgeräteprüfungen zu behaupten.
+
+### Fortsetzung
+
+**#384 – Auch per E-Mail je Profil** ist das nächste vorgesehene offene Paket.
+Die Analyse liegt vor; Umsetzung, Versanddienst-/Absenderwahl und Empfängerregel
+sind noch offen. #314 bleibt Master für #384/#385. Dieser Abschluss ändert nur
+Dokumentation und Issue-Status; kein App-/Backend-Deploy und kein Beginn von #384.
+
+## Historischer Planungs- und Prüfverlauf
+
+Die folgenden Abschnitte halten die damaligen Zwischenstände fest. Angaben zu
+offener Abnahme, zurückgestelltem #384 oder noch folgenden Nachweisen sind durch
+den oben dokumentierten Abschluss überholt. Erstfreigabe: 13.10.2026, 11:24 Uhr.
 
 ## Umfang
 

@@ -34,7 +34,7 @@ Die Seite heißt direkt **Profile & Konto** im kompakten Überschriftenstil;
 Dein Movie Hub, die große doppelte Überschrift und der Einleitungstext entfallen.
 Profile & Konto, Einstellungen und Breadcrumbs teilen die Kopfabstände.
 Gespeicherte Werte und Funktionen bleiben erhalten. Das E-Mail-Paket #384 ist
-zurückgestellt.
+das nächste vorgesehene separate Arbeitspaket und noch nicht umgesetzt.
 
 Die Übersicht baut keine langen Senderlisten auf. Nur die aktive Unterseite
 wird angezeigt; Senderkataloge werden bei Sender-/TV-Bedarf geladen und bei
@@ -156,6 +156,7 @@ Die früheren offenen Abnahmehinweise sind durch die Paketabnahme erledigt.
 Zusätzliche, einzeln protokollierte Geräte-/Testdurchläufe werden daraus
 nicht abgeleitet; der technische Prüfstand ist oben dokumentiert.
 
-Als nächstes Paket ist **#426 – Detailseite aufräumen und verbessern**
-angelegt: zunächst Sammlung, Bestandsaufnahme und gemeinsame Festlegung.
-Noch keine Detailseiten-Implementierung. #384 E-Mail bleibt geparkt.
+Das anschließend vorgezogene Paket **#426 – Detailseite aufräumen und verbessern**
+ist am 13.10.2026 um 19:05 Uhr (Europe/Berlin) ebenfalls abgenommen und abgeschlossen.
+Nächstes vorgesehenes Arbeitspaket ist **#384 – Auch per E-Mail je Profil**;
+die Analyse liegt vor, die Umsetzung ist noch nicht gestartet.

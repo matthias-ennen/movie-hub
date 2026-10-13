@@ -160,7 +160,10 @@ Andere Sender oder spätere Episoden werden nicht als fehlende Angaben ergänzt.
 
 Der Veröffentlichungsjob ordnet mit `episodeResolution.js` Episoden innerhalb
 derselben TMDB-Serie zu: passende Nummern und Titel, alternativ eindeutiger Titel
-bei vollständigem Staffelbestand. Mehrdeutige, widersprüchliche oder unvollständige
+bei vollständigem Staffelbestand. Verifizierte englische Titel werden nur bei
+identischer TMDB-Episoden-ID und Nummerierung als Aliase verwendet. Formale
+Teilbezeichnungen werden vereinheitlicht, verschiedene Teile bleiben getrennt;
+kein unscharfer Titelabgleich. Mehrdeutige, widersprüchliche oder unvollständige
 Zuordnungen bleiben offen. `episode.catalog` trägt die geprüfte kompakte TMDB-ID,
 Staffel, Folge und Titel; originale EPG-Angaben bleiben daneben unverändert.
 Poster, TV-Zeile und Folgenübersicht verwenden dieselbe kanonische Zuordnung.
@@ -174,10 +177,19 @@ von TV-Serien werden innerhalb des bisherigen Budgets vor normaler Auffrischung
 ergänzt. Code-Deploys verwenden weiterhin vorhandene Daten; `[episode-refresh]`
 aktiviert gezielt diesen Datenaufbau. Der Nachtlaufbericht nennt offene TV-Staffeln
 und je Anbieter Zuordnungen, Kataloglücken, fehlende Angaben und Konflikte.
-Die Episodenzeile unter dem Serientitel entfällt;
-TV-Ausstrahlung und Staffel-/Folgenauswahl tragen die Information unten.
-Staffelwahl aktualisiert das Poster mit Rückfall auf das Serienposter; unbekannte
-oder fehlende Angaben bleiben als Auswahl/fehlende Daten sichtbar. Eine Episode
+Bis zu 100 bedarfsbezogene englische Staffelabrufe liegen innerhalb des bestehenden
+600er-Budgets; geprüfte Sprachaliase werden 30 Tage gecacht.
+
+Das vorhandene Manifest enthält die tatsächlich veröffentlichten nichtleeren
+Staffeln. Der Client teilt einen Abruf pro Sitzung, parallel zu den Titeldetails;
+bei Fehlern oder nach drei Sekunden fällt er auf vorhandene Metadaten zurück.
+Ohne nutzbaren Episodenbestand entfällt die gesamte Staffel-/Folgenkachel.
+Unbekannte Folgen bleiben ungewählt; verfügbare Staffeln und Folgen sind manuell
+erreichbar. Erklärende Zuordnungs-, Leer- oder Ersatzbeschreibungshinweise entfallen.
+Die TV-Zeile unter „Wo anschauen?“ enthält nur Datum, Uhrzeit und Sender.
+Staffel, Folge und Folgentitel stehen in der Auswahlkachel; die zusätzliche
+Episodenzeile unter dem Serientitel entfällt ebenfalls.
+Staffelwahl aktualisiert das Poster mit Rückfall auf das Serienposter. Eine Episode
 ersetzt weder Route noch Serien-Titelobjekt und erhält keine eigenen Profilwerte
 oder Erinnerungsarten. Der tägliche TMDB-Job und die Daten-Caches bleiben erhalten;
 der Browser fragt TMDB nicht direkt ab.
@@ -185,7 +197,8 @@ der Browser fragt TMDB nicht direkt ab.
 Die Datenkorrektur erfolgt im Import/Nachtlauf: `mergeTvAirings` ergänzt
 Episodenangaben derselben Ausstrahlung unabhängig von der Anbieterreihenfolge.
 Bei widersprüchlichen Nummern bleiben beide Nummern unbekannt; `episode.conflict`
-erhält diesen Zustand auch bei weiterer Zusammenführung/Kompaktierung.
+erhält diesen Zustand auch bei weiterer Zusammenführung/Kompaktierung und beim
+Übergang vom Joyn-Abgleich in den neutralen Broadcastvertrag.
 Der TV-Runtime-Snapshot verwendet dieselbe Normalisierung.
 Joyn ergänzt nach der Titelzuordnung auch bereits lokal oder aus dem Match-Cache
 erkannte Serien (`joyn-episode-enrichment.mjs`). Der vorhandene siebentägige

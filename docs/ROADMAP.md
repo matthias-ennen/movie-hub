@@ -6,7 +6,7 @@ Stand: 13. Oktober 2026
 
 Movie Hub wird in klar abgegrenzeten Arbeitspaketen weiterentwickelt. TMDB bleibt die kanonische Quelle für öffentliche Film- und Serienmetadaten. Zusätzliche Quellen liefern Verfügbarkeiten, Senderereignisse und Wiedergabeziele. Ein Adapterfehler darf weder andere Quellen noch den letzten gültigen veröffentlichten Datenstand beschädigen.
 
-Das Mitteilungs-Grundpaket #314 und das vorgezogene Einstellungen-Paket #387 sind abgenommen. Das Paket #426 (Detailseite aufräumen und verbessern) ist umgesetzt und wartet auf Sicht-/Geräteabnahme; die Mitteilungs-Erweiterung #384 bleibt geparkt. Danach wird die bestehende Hauptstrecke über #314/#385 und die modulare Quellenplattform fortgeführt. Der Waipu-/Joyn-Betriebsnachtrag bleibt getrennt davon dokumentiert.
+Das Mitteilungs-Grundpaket #314 und die vorgezogenen Pakete #387 (Einstellungen) und #426 (Detailseite) sind abgenommen und abgeschlossen. Nächstes vorgesehenes Arbeitspaket ist #384 (Auch per E-Mail je Profil): analysiert, noch nicht umgesetzt. Danach wird die bestehende Hauptstrecke über #314/#385 und die modulare Quellenplattform fortgeführt. Der Waipu-/Joyn-Betriebsnachtrag bleibt getrennt davon dokumentiert.
 
 ## Bereinigter abgeschlossener Stand
 
@@ -41,6 +41,7 @@ Zu den zuletzt abgeschlossenen beziehungsweise abgenommenen Paketen gehören ins
 - #413 – persönliche Smart-Reihen aus dem zusammengeführten Bestand; am 12.10.2026 auf Smartphone/Fire TV abgenommen und geschlossen
 - #415 – Schauspielersuche im öffentlichen und persönlichen Bestand; am 12.10.2026 auf Smartphone/Fire TV abgenommen und geschlossen
 - #387 – Einstellungen, flache Navigation und Stilkorrektur über #422/#424/#425; am 13.10.2026 mit „Das ist abgenommen.“ bestätigt und abgeschlossen
+- #426 – Detailseiten, Episodennavigation und gemeinsamer Datenabgleich; Stand `ddd0dbd` am 13.10.2026 um 19:05 Uhr (Europe/Berlin) ausdrücklich zum Abschluss freigegeben
 
 ## Gezielter aktueller Betriebsauftrag (07.10.2026)
 
@@ -76,24 +77,26 @@ Die Datenstrecke ist nachgewiesen; pünktlicher Start bleibt ein Überwachungspu
 
 ## Aktive Hauptstrecke
 
-### Aktuelles Paket: #426 – Detailseite aufräumen und verbessern
+### Zuletzt abgeschlossen: #426 – Detailseite aufräumen und verbessern
 
-Umsetzung am 13.10.2026 ausdrücklich freigegeben und geliefert: gemeinsame
-Dialog-/Fokusregeln, Stift/Glocke/Schließen, Notiz und Gesehen-Datum im Menü,
-einheitliche Staffel-/Folgenkachel mit bestehender bebilderter Übersicht.
-Konkrete EPG-Episoden bleiben vorgewählt; fehlende Angaben werden nicht geraten.
-Technischer Stand: [Detailpaket](_work/DETAIL_426.md).
-Die Sicht-/Geräteabnahme durch Matthias bleibt offen. #384 bleibt geparkt;
-#328/#391 gehören nicht automatisch zu diesem Umfang.
+Matthias hat den veröffentlichten Stand `ddd0dbd` am 13.10.2026 um 19:05 Uhr
+(Europe/Berlin) ausdrücklich zum Abschluss freigegeben. Gemeinsame Dialog-/Fokusregeln,
+Stift/Glocke/Schließen, Bearbeitungsmenü und die einheitliche Staffel-/Folgenkachel
+mit bebilderter Übersicht sind geliefert. Keine erklärenden Zuordnungshinweise;
+ohne nutzbaren Folgenbestand entfällt die Kachel. Die TV-Zeile enthält nur Datum,
+Uhrzeit und Sender. Der gemeinsame Datenlauf ergänzt und prüft vorhandene Episodenangaben.
+Abnahme, veröffentlichter Stand und technische Nachweise: [Detailpaket](_work/DETAIL_426.md).
+Keine offene Paketabnahme. Spätere Schönheitskorrekturen bleiben separate Nacharbeiten;
+#328/#391 gehören nicht zu diesem abgeschlossenen Umfang.
 
-### 1. #314 – Mitteilungs-Grundpaket abgeschlossen, Erweiterung analysieren
+### 1. #314 – Mitteilungs-Grundpaket abgeschlossen, #384 als nächstes
 
 Matthias hat am 12.10.2026 sämtliche vier zuletzt vorgelegten Restpunkte
 mit „Ja, das ist alles abgenommen“ bestätigt. #118/#381/#312 sind geschlossen;
 #380/#382/#383 und `movie-hub-admin#11` waren bereits abgeschlossen.
 Keine offene Geräteabnahme der gelieferten Basis.
 
-**#384: analysiert und hinter dem neuen Paket #426 zurückgestellt.** Gewünscht ist
+**#384: analysiert und als nächstes vorgesehen, Umsetzung noch nicht gestartet.** Gewünscht ist
 **Auch per E-Mail** unter Einstellungen → Mitteilungen, je Profil,
 standardmäßig aus. Der aktuelle Wunsch umfasst bestehende persönliche
 Inklusiv-, TV-Fund- und letzte TV-Meldungen und erweitert damit die frühere
@@ -153,7 +156,6 @@ Diese Darstellungs-/Priorisierungsarbeit folgt nach den ersten zusätzlichen Ada
 - #329 – Waipu-Restklassifizierung der technischen-only Einträge; Wartung, blockiert die aktuelle Hauptstrecke nicht
 - #384/#385 – verbleibende Erweiterungen der Hauptstrecke #314; #118/#312/#380/#381/#382/#383 und `movie-hub-admin#11` sind abgeschlossen
 - #386 – eng begrenzte Fire-TV-Nacharbeit zu verbliebenen Navigations-Freezes; eigenes offenes Folgeissue
-- #426 – Detailseite aufräumen und verbessern; umgesetzt, Sicht-/Geräteabnahme offen
 - #7 – erste Top-100-Stufe veröffentlicht und am 26.09.2026 auf Fire TV abgenommen; Empfehlungen und Automatisierung später
 - #328 – Trailer/Teaser-Finish: Sprachwahl und Wiedergabestabilität; späteres UI-/Player-Finish
 - #327 – TMDB-Kontosynchronisation; bewusst für später zurückgestellt
@@ -195,6 +197,6 @@ Vor einer öffentlichen Version 1.0 sollen mindestens folgende Blöcke abgeschlo
 
 ## Aktuelle Reihenfolge
 
-`#426 (Detailseite: umgesetzt, Abnahme offen) → #314 (Grundpaket abgenommen; #384 geparkt, anschließend #385) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
+`#314 (Grundpaket abgenommen; nächstes Paket #384, anschließend #385) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
 
-#346, #315, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) bleiben getrennte Recherchepakete unter #271 und ändern die Hauptstrecke nicht.
+#346, #315, #118, #312, #380, #381, #382, #383, #387, #426 und `movie-hub-admin#11` sind abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) bleiben getrennte Recherchepakete unter #271 und ändern die Hauptstrecke nicht.

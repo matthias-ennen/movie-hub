@@ -7,8 +7,10 @@ Stand: 13.10.2026 · Durch Matthias abgenommen und abgeschlossen.
 Matthias bestätigt den vorgelegten Stand mit **„Das ist abgenommen.“**
 Das Paket #387 ist nach #422/#424/#425 abgeschlossen; letzter öffentlich
 geprüfter Build `b1cc238`. CI, Android und Veröffentlichung erfolgreich.
-Nachfolgepaket: **#426 – Detailseite aufräumen und verbessern**, zunächst
-Sammlung/Bestandsaufnahme und gemeinsame Festlegung. #384 bleibt geparkt.
+Nachfolgepaket **#426 – Detailseite aufräumen und verbessern** ist inzwischen
+am 13.10.2026 um 19:05 Uhr (Europe/Berlin) ebenfalls abgenommen und abgeschlossen.
+Nächstes vorgesehenes Paket: **#384 – Auch per E-Mail je Profil**; Analyse
+vorhanden, Umsetzung noch nicht gestartet.
 
 Die folgenden Abschnitte dokumentieren den damaligen Planungs-/Prüfstand.
 Frühere Angaben „Geräteabnahme offen“ sind durch die Paketabnahme überholt;
