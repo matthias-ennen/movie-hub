@@ -6,7 +6,7 @@ Stand: 13. Oktober 2026
 
 Movie Hub wird in klar abgegrenzeten Arbeitspaketen weiterentwickelt. TMDB bleibt die kanonische Quelle für öffentliche Film- und Serienmetadaten. Zusätzliche Quellen liefern Verfügbarkeiten, Senderereignisse und Wiedergabeziele. Ein Adapterfehler darf weder andere Quellen noch den letzten gültigen veröffentlichten Datenstand beschädigen.
 
-Das Mitteilungs-Grundpaket #314, #387 (Einstellungen) und der Basisstand von #426 (Detailseite) sind abgenommen. Zu #426 läuft seit 19:36 Uhr ein begrenzter D-Pad-/Scrollnachtrag. Nächstes vorgesehenes Arbeitspaket ist #384 (Auch per E-Mail je Profil): analysiert, noch nicht umgesetzt. Danach wird die bestehende Hauptstrecke über #314/#385 und die modulare Quellenplattform fortgeführt. Der Waipu-/Joyn-Betriebsnachtrag bleibt getrennt davon dokumentiert.
+Das Mitteilungs-Grundpaket #314, #387 (Einstellungen) und #426 (Detailseite einschließlich aller Nachträge) sind abgenommen. #426 wurde am 13.10.2026 um 20:46 Uhr vollständig abgeschlossen. Nächstes vorgesehenes Arbeitspaket ist #384 (Auch per E-Mail je Profil): analysiert, noch nicht umgesetzt. Danach wird die bestehende Hauptstrecke über #314/#385 und die modulare Quellenplattform fortgeführt. Der Waipu-/Joyn-Betriebsnachtrag bleibt getrennt davon dokumentiert.
 
 ## Bereinigter abgeschlossener Stand
 
@@ -41,7 +41,7 @@ Zu den zuletzt abgeschlossenen beziehungsweise abgenommenen Paketen gehören ins
 - #413 – persönliche Smart-Reihen aus dem zusammengeführten Bestand; am 12.10.2026 auf Smartphone/Fire TV abgenommen und geschlossen
 - #415 – Schauspielersuche im öffentlichen und persönlichen Bestand; am 12.10.2026 auf Smartphone/Fire TV abgenommen und geschlossen
 - #387 – Einstellungen, flache Navigation und Stilkorrektur über #422/#424/#425; am 13.10.2026 mit „Das ist abgenommen.“ bestätigt und abgeschlossen
-- #426 – Detailseiten, Episodennavigation und gemeinsamer Datenabgleich; Stand `ddd0dbd` am 13.10.2026 um 19:05 Uhr (Europe/Berlin) ausdrücklich zum Abschluss freigegeben
+- #426 – Detailseiten, Episodennavigation, gemeinsamer Datenabgleich und Navigationsnachträge; Stand `6ef4f83` am 13.10.2026 um 20:46 Uhr (Europe/Berlin) ausdrücklich abgenommen und abgeschlossen
 
 ## Gezielter aktueller Betriebsauftrag (07.10.2026)
 
@@ -77,27 +77,19 @@ Die Datenstrecke ist nachgewiesen; pünktlicher Start bleibt ein Überwachungspu
 
 ## Aktive Hauptstrecke
 
-### Aktueller Nachtrag: #426 – D-Pad und Scrollverhalten
+### Abgeschlossen: #426 einschließlich Navigationsnachtrag
 
-Die Basis wurde um 19:05 Uhr abgenommen. Um 19:36 Uhr hat Matthias eine begrenzte
-Nachbesserung freigegeben: mitscrollende Kopfaktionen, lückenlose Navigation durch
-Bedienzeilen und vollständiger unterer Abstand an der letzten Bewertungszeile.
-Die Freigabe um 20:21 Uhr ergänzt stabile Buttonpositionen beim Laden,
-vollständige Editor-Scrollgrenzen und das neutral weiße/aktiv rote Favoritenherz.
-#426 ist dafür wieder geöffnet; die Abnahme dieses Nachtrags bleibt offen.
-Danach folgt weiterhin #384. Technische Nachweise: [Detailpaket](_work/DETAIL_426.md).
+Matthias hat Build `6ef4f83` am 13.10.2026 um 20:46 Uhr (Europe/Berlin)
+mit „Ja, ist abgenommen und damit abgeschlossen“ ausdrücklich bestätigt.
+Damit sind auch mitscrollende Kopfaktionen, zeilenweise D-Pad-Navigation,
+vollständige Scrollgrenzen, stabile Ladepositionen und Favoritenfarben abgenommen.
+Für dieses Arbeitspaket bleibt keine Abnahme offen. Basisabnahme und Verlauf
+bleiben erhalten; #328/#391 gehören nicht zu diesem Umfang.
 
-### Bereits abgenommener Basisstand von #426
-
-Matthias hat den veröffentlichten Stand `ddd0dbd` am 13.10.2026 um 19:05 Uhr
-(Europe/Berlin) ausdrücklich zum Abschluss freigegeben. Gemeinsame Dialog-/Fokusregeln,
-Stift/Glocke/Schließen, Bearbeitungsmenü und die einheitliche Staffel-/Folgenkachel
-mit bebilderter Übersicht sind geliefert. Keine erklärenden Zuordnungshinweise;
-ohne nutzbaren Folgenbestand entfällt die Kachel. Die TV-Zeile enthält nur Datum,
-Uhrzeit und Sender. Der gemeinsame Datenlauf ergänzt und prüft vorhandene Episodenangaben.
-Abnahme, veröffentlichter Stand und technische Nachweise: [Detailpaket](_work/DETAIL_426.md).
-Die Basisabnahme bleibt erhalten; die neue Abnahme betrifft nur den obigen Nachtrag;
-#328/#391 gehören nicht zu diesem abgeschlossenen Umfang.
+1.054 Anwendungstests, Browser-Komponentenprüfung in sechs Bildschirmformaten,
+CI, Android-Build und Veröffentlichung sind nachgewiesen.
+Abnahme und Nachweise: [Detailpaket](_work/DETAIL_426.md).
+Als nächstes folgt **#384 – Auch per E-Mail je Profil**, analysiert und noch nicht gestartet.
 
 ### 1. #314 – Mitteilungs-Grundpaket abgeschlossen, #384 als nächstes
 
@@ -207,6 +199,6 @@ Vor einer öffentlichen Version 1.0 sollen mindestens folgende Blöcke abgeschlo
 
 ## Aktuelle Reihenfolge
 
-`#426 Navigationsnachtrag → #314 (Grundpaket abgenommen; nächstes Paket #384, anschließend #385) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
+`#314 (Grundpaket abgenommen; nächstes Paket #384, anschließend #385) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
 
-#346, #315, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. #426 hat einen abgenommenen Basisstand und einen offenen Navigationsnachtrag. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) bleiben getrennte Recherchepakete unter #271 und ändern die Hauptstrecke nicht.
+#346, #315, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. #426 ist einschließlich aller Nachträge abgenommen und abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) bleiben getrennte Recherchepakete unter #271 und ändern die Hauptstrecke nicht.

@@ -36,32 +36,25 @@ Am 13.10.2026 zusätzlich abgeschlossen:
   Matthias bestätigt den vorgelegten Stand mit „Das ist abgenommen.“.
   Technische Nachweise und Abschluss: [SETTINGS.md](SETTINGS.md).
 - #426 – Detailseite einschließlich aller freigegebenen Nachbesserungen;
-  Stand `ddd0dbd` um 19:05 Uhr (Europe/Berlin) ausdrücklich zum Abschluss freigegeben.
+  Stand `6ef4f83` um 20:46 Uhr (Europe/Berlin) einschließlich Navigationsnachtrag
+  ausdrücklich abgenommen und abgeschlossen; Basisabnahme um 19:05 Uhr bleibt im Verlauf.
   Nachweise und Abnahme: [DETAIL_426.md](_work/DETAIL_426.md).
 
 ## Aktuelle Priorisierung
 
-### Aktueller Nachtrag: #426 – D-Pad und Scrollverhalten
+### Abgeschlossen: #426 einschließlich Navigationsnachtrag
 
-Die Basis wurde um 19:05 Uhr abgenommen. Um 19:36 Uhr hat Matthias eine begrenzte
-Nachbesserung freigegeben: mitscrollende Kopfaktionen, lückenlose Navigation durch
-Bedienzeilen und vollständiger unterer Abstand an der letzten Bewertungszeile.
-Die Freigabe um 20:21 Uhr ergänzt stabile Buttonpositionen beim Laden,
-vollständige Editor-Scrollgrenzen und das neutral weiße/aktiv rote Favoritenherz.
-#426 ist dafür wieder geöffnet; die Abnahme dieses Nachtrags bleibt offen.
-Danach folgt weiterhin #384. Technische Nachweise: [Detailpaket](_work/DETAIL_426.md).
+Matthias hat Build `6ef4f83` am 13.10.2026 um 20:46 Uhr (Europe/Berlin)
+mit „Ja, ist abgenommen und damit abgeschlossen“ ausdrücklich bestätigt.
+Damit sind auch mitscrollende Kopfaktionen, zeilenweise D-Pad-Navigation,
+vollständige Scrollgrenzen, stabile Ladepositionen und Favoritenfarben abgenommen.
+Für dieses Arbeitspaket bleibt keine Abnahme offen. Basisabnahme und Verlauf
+bleiben erhalten; #328/#391 gehören nicht zu diesem Umfang.
 
-### Bereits abgenommener Basisstand von #426
-
-Matthias hat den veröffentlichten Stand `ddd0dbd` am 13.10.2026 um 19:05 Uhr
-(Europe/Berlin) ausdrücklich zum Abschluss freigegeben. Gemeinsame Dialog-/Fokusregeln,
-Stift/Glocke/Schließen, Bearbeitungsmenü und die einheitliche Staffel-/Folgenkachel
-mit bebilderter Übersicht sind geliefert. Keine erklärenden Zuordnungshinweise;
-ohne nutzbaren Folgenbestand entfällt die Kachel. Die TV-Zeile enthält nur Datum,
-Uhrzeit und Sender. Der gemeinsame Datenlauf ergänzt und prüft vorhandene Episodenangaben.
-Abnahme, veröffentlichter Stand und technische Nachweise: [Detailpaket](_work/DETAIL_426.md).
-Die Basisabnahme bleibt erhalten; die neue Abnahme betrifft nur den obigen Nachtrag;
-#328/#391 gehören nicht zu diesem abgeschlossenen Umfang.
+1.054 Anwendungstests, Browser-Komponentenprüfung in sechs Bildschirmformaten,
+CI, Android-Build und Veröffentlichung sind nachgewiesen.
+Abnahme und Nachweise: [Detailpaket](_work/DETAIL_426.md).
+Als nächstes folgt **#384 – Auch per E-Mail je Profil**, analysiert und noch nicht gestartet.
 
 ### 1. #314 – Mitteilungs-Erweiterungen
 
@@ -149,8 +142,8 @@ Vor öffentlicher Veröffentlichung:
 
 ## Aktuelle Abhängigkeitskette
 
-`#426 Navigationsnachtrag → #314 (Grundpaket abgenommen; nächstes Paket #384, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
+`#314 (Grundpaket abgenommen; nächstes Paket #384, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
 
-#280, #315, #346, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. #426 hat einen abgenommenen Basisstand und einen offenen Navigationsnachtrag. Die reguläre Datenfortschreibung
+#280, #315, #346, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. #426 ist einschließlich aller Nachträge abgenommen und abgeschlossen. Die reguläre Datenfortschreibung
 ist bestätigt; Startverzögerungen bleiben unter Beobachtung. #329 bleibt Wartung. Movie Hub Admin bleibt ein getrenntes Repository;
 die bereits abgenommene Rücknahme wird nicht erneut als zukünftige Arbeit geführt.

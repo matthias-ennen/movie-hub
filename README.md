@@ -57,7 +57,7 @@ Details:
 
 Projektstart: 31. August 2026
 
-Stand: **12. Oktober 2026**
+Stand: **13. Oktober 2026**
 
 Die kanonische Titelbasis aus #256 sowie die Waipu-Pakete #4, #259 und #260 sind technisch umgesetzt und auf den vorgesehenen Geräten abgenommen. TMDB bleibt die kanonische Quelle für öffentliche Film- und Serienmetadaten; externe Quellen ergänzen Verfügbarkeiten, Senderereignisse und Wiedergabeziele.
 
@@ -89,7 +89,7 @@ Das Mitteilungs-Grundpaket aus [#314](https://github.com/matthias-ennen/movie-hu
 
 **Abgenommen und abgeschlossen: #387.** Matthias hat den über #422/#424/#425 veröffentlichten Einstellungen-Stand am 13.10.2026 mit „Das ist abgenommen.“ bestätigt. Elf Direktwege in drei Gruppenkacheln, kompakte Überschriften/Breadcrumbs sowie gemeinsame Anbieter-/Senderregeln sind geliefert. Umsetzung, technische Nachweise und Abschluss: [Einstellungen](docs/SETTINGS.md).
 
-**Basis abgenommen, Navigationsnachtrag offen: [#426 – Detailseite aufräumen und verbessern](https://github.com/matthias-ennen/movie-hub/issues/426).** Matthias hat den veröffentlichten Stand `ddd0dbd` am 13.10.2026 um 19:05 Uhr (Europe/Berlin) zum Abschluss freigegeben. Geliefert sind Stift/Glocke/Schließen, Notiz und Gesehen-Datum im Bearbeitungsmenü, gemeinsame Kacheln und Dialog-/Fokusregeln, transparent schwebende Aktionen sowie die einheitliche Staffel-/Folgenauswahl mit bebilderter Übersicht. Umfang, Prüfungen und Abnahme: [Detailpaket](docs/_work/DETAIL_426.md).
+**Abgenommen und abgeschlossen: [#426 – Detailseite aufräumen und verbessern](https://github.com/matthias-ennen/movie-hub/issues/426).** Matthias hat den veröffentlichten Stand `6ef4f83` einschließlich aller Navigations- und Darstellungskorrekturen am 13.10.2026 um 20:46 Uhr (Europe/Berlin) ausdrücklich abgenommen und abgeschlossen. Geliefert sind Stift/Glocke/Schließen, Notiz und Gesehen-Datum im Bearbeitungsmenü, gemeinsame Kacheln und Dialog-/Fokusregeln, transparent mitscrollende Aktionen sowie die einheitliche Staffel-/Folgenauswahl mit bebilderter Übersicht. Umfang, Prüfungen und Abnahme: [Detailpaket](docs/_work/DETAIL_426.md).
 
 Die Staffel-/Folgenkachel erscheint bei nutzbarem Episodenbestand. Unklare Folgen
 bleiben ohne Vorauswahl und ohne erklärende Hinweise; die manuelle Navigation
@@ -106,8 +106,9 @@ jeder Bedienzeile, die letzte Bewertung zeigt den vollständigen unteren Abstand
 Die um 20:21 Uhr freigegebene Ergänzung korrigiert die Buttonposition beim Laden,
 die vollständigen Scrollgrenzen im Bearbeitungsmenü und das neutrale weiße/aktive
 rote Favoritenherz. Gemeinsame Komponenten in sechs Browserformaten geprüft.
-#426 ist dafür wieder geöffnet; die Basisabnahme bleibt dokumentiert. Der Nachtrag
-wird vor #384 abgeschlossen und auf Fire TV abgenommen.
+Mit der ausdrücklichen Abnahme um 20:46 Uhr ist auch dieser Nachtrag abgeschlossen.
+Für #426 bleibt keine Abnahme offen. Als nächstes folgt #384; die Umsetzung ist
+noch nicht gestartet.
 
 Die vorgezogenen Korrekturen [#413 – persönliche Smart-Reihen](https://github.com/matthias-ennen/movie-hub/issues/413) und [#415 – Schauspielersuche](https://github.com/matthias-ennen/movie-hub/issues/415) sind über PR #414/#416 veröffentlicht. Beide nutzen vorhandene gemeinsame Titelmetadaten; es gibt keine zusätzlichen Abfragen beim Tippen oder je Posterreihe. Technische Prüfungen sind erfolgreich; Matthias hat beide Pakete am 12.10.2026 auf Smartphone und Fire TV ausdrücklich abgenommen. #413 und #415 sind geschlossen. Web-Suche und Reihen werden nach vollständigem App-Neustart geladen; neue native Importe mit vollständigen Besetzungsfacetten benötigen die neue APK. #329 bleibt Wartung; für öffentliche Verteilung gilt weiterhin #112.
 

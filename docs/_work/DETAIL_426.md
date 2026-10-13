@@ -1,8 +1,47 @@
 # #426 – Detailseite aufräumen und verbessern
 
-Stand: 13.10.2026 · Ergänzende Korrekturen um 20:21 Uhr (Europe/Berlin) freigegeben.
+Stand: 13.10.2026 · vollständig abgenommen und abgeschlossen um 20:46 Uhr (Europe/Berlin).
 
-## Aktuell: Ladeposition, Editor-Scrollgrenzen und Favoritenfarbe
+## Abschließende Abnahme einschließlich aller Nachträge
+
+Matthias bestätigt: **„Ja, ist abgenommen und damit abgeschlossen“**.
+Damit ist Build **`6ef4f83`** einschließlich des Navigationsnachtrags aus
+PR #436 und der ergänzenden Korrekturen aus [PR #437](https://github.com/matthias-ennen/movie-hub/pull/437)
+abgenommen. Für #426 bleibt keine weitere Abnahme offen. Die frühere Basisabnahme
+um 19:05 Uhr bleibt als eigener Meilenstein erhalten. Aus der Gesamtfreigabe
+werden keine zusätzlichen, einzeln nicht berichteten Gerätetests abgeleitet.
+
+Abgeschlossen sind insbesondere:
+
+- Kopfaktionen scrollen transparent mit der Überschrift und stehen auch beim Laden
+  sofort an ihren endgültigen Positionen.
+- D-Pad folgt jeder bedienbaren Zeile; Detailseite und Bearbeiten erreichen die
+  vollständigen Scrollgrenzen einschließlich Randabstand.
+- Favoritenherz neutral weiß und aktiv rot.
+- Zuvor abgenommene Detailstruktur, Bearbeitung, Erinnerungen sowie Staffel-/Folgen-
+  und Filmreihennavigation einschließlich gemeinsamem Episodendatenabgleich.
+
+Technischer Nachweis des unveränderten Funktionsstands: 1.054 Anwendungstests,
+Komponentenprüfung in sechs Chromium-Viewports, Produktionsbuild sowie
+[CI](https://github.com/matthias-ennen/movie-hub/actions/runs/38448096489),
+[Android](https://github.com/matthias-ennen/movie-hub/actions/runs/38448096238) und
+[Firebase](https://github.com/matthias-ennen/movie-hub/actions/runs/38448096160)
+erfolgreich. Öffentlich ausgelieferter Build und geänderte Assets zurückgeprüft.
+Dieser Abschluss aktualisiert ausschließlich Dokumentation und Issue-Status;
+kein neuer App-/Backend-Deploy erforderlich.
+
+**Nächstes vorgesehenes Paket: #384 – Auch per E-Mail je Profil.** Die Analyse
+liegt vor, Umsetzung noch nicht gestartet. Versanddienst/Absender und Empfängerregel
+werden beim Einstieg konkretisiert; keine Anbieterbuchung und kein Testversand.
+#314 bleibt Master für #384/#385.
+
+## Historischer Verlauf
+
+Die folgenden Abschnitte dokumentieren die damaligen Lieferstände und Prüfungen.
+Dort genannte offene Abnahmen oder noch folgende Veröffentlichungsnachweise sind
+durch den obigen Abschluss erledigt.
+
+## Lieferstand: Ladeposition, Editor-Scrollgrenzen und Favoritenfarbe (20:21 Uhr)
 
 Matthias hat die drei seit 20:08 Uhr gesammelten Beobachtungen zur Umsetzung
 freigegeben. Sie gehören zum offenen Nachtrag von #426; #384 bleibt unbegonnen.
