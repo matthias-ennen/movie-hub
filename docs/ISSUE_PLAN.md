@@ -38,14 +38,15 @@ Am 13.10.2026 zusätzlich abgeschlossen:
 
 ## Aktuelle Priorisierung
 
-### Nächstes Paket: #426 – Detailseite aufräumen und verbessern
+### Aktuelles Paket: #426 – Detailseite aufräumen und verbessern
 
-Nach Abnahme von #387 ausdrücklich als nächstes Arbeitspaket eröffnet.
-Zunächst Wünsche/Screenshots sammeln, aktuelle Detailstruktur und Bedienung
-prüfen, dann konkrete Korrekturen und Aufwand kurz vorstellen und gemeinsam
-festlegen. Vorhandenen MovieHub-Stil, Funktionen, Datenregeln und Performance
-erhalten. Noch keine Freigabe für einen konkreten Detailseiten-Umbau.
-#384 bleibt geparkt; #328/#391 werden nicht automatisch mit umgesetzt.
+Umsetzung am 13.10.2026 ausdrücklich freigegeben und geliefert: gemeinsame
+Dialog-/Fokusregeln, Stift/Glocke/Schließen, Notiz und Gesehen-Datum im Menü,
+einheitliche Staffel-/Folgenkachel mit bestehender bebilderter Übersicht.
+Konkrete EPG-Episoden bleiben vorgewählt; fehlende Angaben werden nicht geraten.
+Technischer Stand: [Detailpaket](_work/DETAIL_426.md).
+Die Sicht-/Geräteabnahme durch Matthias bleibt offen. #384 bleibt geparkt;
+#328/#391 gehören nicht automatisch zu diesem Umfang.
 
 ### 1. #314 – Mitteilungs-Erweiterungen
 
@@ -133,7 +134,7 @@ Vor öffentlicher Veröffentlichung:
 
 ## Aktuelle Abhängigkeitskette
 
-`#426 (Detailseite: Sammlung/Bestandsaufnahme) → #314 (Grundpaket abgenommen; #384 geparkt, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
+`#426 (Detailseite: umgesetzt, Abnahme offen) → #314 (Grundpaket abgenommen; #384 geparkt, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
 
 #280, #315, #346, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. Die reguläre Datenfortschreibung
 ist bestätigt; Startverzögerungen bleiben unter Beobachtung. #329 bleibt Wartung. Movie Hub Admin bleibt ein getrenntes Repository;

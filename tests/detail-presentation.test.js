@@ -106,7 +106,8 @@ describe('stabiler Detail-Ladezustand', () => {
       ],
     }
 
-    expect(detailInitialImageUrl(series)).toBe('/season-1.jpg')
+    expect(detailInitialImageUrl(series)).toBe('/series.jpg')
+    expect(detailInitialImageUrl({ ...series, tvAiring: { seasonNumber: 2, episodeNumber: 4 } })).toBe('/season-2.jpg')
     expect(detailInitialImageUrl({
       id: 'tmdb-movie-2',
       type: 'movie',

@@ -138,13 +138,42 @@ Normalisierte Schauspielernamen und die Zuordnung zu Titeln werden einmal pro Me
 
 Der vertrauenswürdige Katalogjob löst die bei Filmen vorhandene TMDB-Collection-ID einmal je Sammlung über den offiziellen Collection-Endpunkt auf. `catalog.json` enthält daraus einen kompakten `collections`-Index mit Sammlungsmetadaten und sämtlichen von TMDB gelieferten Teilen. Vorhandene vollständige Katalogtitel reichern diese Einträge um die aktuelle Anbieterinformation an; Teile außerhalb des Browse-Katalogs bleiben als reduzierte öffentliche Detailobjekte navigierbar. Zusätzlich können persönliche Movie-Hub-Manifeste ihre eigene kompakte Collection-Teileliste tragen, wenn ihr Titel außerhalb des Browse-Katalogs liegt. Der Browser benötigt dafür keinen TMDB-Schlüssel und führt keine direkten TMDB-Laufzeitabfragen aus.
 
-Auf der Film-Detailseite erscheint vor Videos und Anbieteraktionen ein eigener Abschnitt **Filmreihe**. Das darüber geöffnete Auswahlfenster zeigt alle Teile nach Veröffentlichungsdatum, markiert den aktuellen und den profilbezogenen Gesehen-Status und weist Verfügbarkeit immer je Einzeltitel aus. Die Auswahl ersetzt den aktuellen Film innerhalb derselben Detailansicht. Serien, eigene Sammlungen, Sammlungskacheln und eine eigenständige Sammlungsseite gehören nicht zu dieser ersten Stufe.
+Auf der Film-Detailseite erscheint vor den Videos ein eigener Abschnitt **Filmreihe**. Das darüber geöffnete Auswahlfenster zeigt alle Teile nach Veröffentlichungsdatum, markiert den aktuellen und den profilbezogenen Gesehen-Status und weist Verfügbarkeit immer je Einzeltitel aus. Die Auswahl ersetzt den aktuellen Film innerhalb derselben Detailansicht. Serien, eigene Sammlungen, Sammlungskacheln und eine eigenständige Sammlungsseite gehören nicht zu dieser ersten Stufe.
 
 ### Serien-, Staffel- und Folgen-Navigation
 
-Serien tragen nur kompakte, sortierte Staffelzusammenfassungen. Die wesentlich größeren Episodenlisten liegen in einem eigenen öffentlichen, nach Serien-ID aufgeteilten Shard-Katalog und werden erst durch **Folgen anzeigen** geladen. Staffelwechsel aktualisieren das linke Poster mit Rückfall auf das Serienposter. Eine Folgenselektion ersetzt weder Route noch Titelobjekt, sondern öffnet einen Episodenkontext innerhalb derselben Detailansicht. Dadurch bilden Folgenauswahl, Episodenkontext und Serien-Detailseite klar getrennte Zurück- und Fokusebenen für Touch, Tastatur und D-Pad.
+Serien tragen nur kompakte, sortierte Staffelzusammenfassungen. Die einheitliche
+Kachel **Staffeln und Folgen** enthält zwei vollbreite Felder: Staffelwahl und
+Folgenübersicht. Die wesentlich größeren Episodenlisten liegen im öffentlichen,
+nach Serien-ID aufgeteilten Shard-Katalog. Erst das Folgenfeld lädt sie über den
+bestehenden Cache. Die bebilderte Übersicht markiert und fokussiert die konkrete
+Folge; Bestätigen öffnet ihre Details ohne zweite Navigationskachel.
 
-Der tägliche vertrauenswürdige TMDB-Job erzeugt Staffelzusammenfassungen und Episodenshards inkrementell. Die Web-App führt dafür keine direkten TMDB-Abfragen aus. Fehlen die neuen Felder in einem älteren Katalog, bleibt die bisherige Serien-Detailansicht ohne Navigationsblock erhalten.
+`detailEpisode` hält ausschließlich den normalisierten Kontext des ursprünglichen
+EPG-Einstiegs fest. Metadaten- und Verfügbarkeitsanreicherung dürfen ihn nicht durch
+eine andere Ausstrahlung ersetzen. Allgemeine Serieneinstiege raten keine Folge.
+Staffelwahl aktualisiert das Poster mit Rückfall auf das Serienposter; unbekannte
+oder fehlende Angaben bleiben als Auswahl/fehlende Daten sichtbar. Eine Episode
+ersetzt weder Route noch Serien-Titelobjekt und erhält keine eigenen Profilwerte
+oder Erinnerungsarten. Der tägliche TMDB-Job und die Daten-Caches bleiben erhalten;
+der Browser fragt TMDB nicht direkt ab.
+
+### Gemeinsame Detaildialoge (#426)
+
+Titel, Lade-/Fehleransicht, Episoden und Nebenmenüs verwenden `DetailDialog` für
+Fokus, Dialogstapel und Rückkehr zum Auslöser. Neue Details fokussieren Schließen;
+nachgeladene Daten ändern einen bereits vom Nutzer bewegten Fokus nicht. Nur die
+oberste Ebene ist bedienbar; Zurück schließt genau diese Ebene. Die Folgenübersicht
+fokussiert die aktuelle Auswahl. Die gemeinsame Kopfzeile bleibt beim Scrollen
+sichtbar. `DetailActions`, Bearbeitung, Erinnerungen und Seriennavigation sind
+eigene Bausteine innerhalb des bereits verzögert geladenen Detailfeatures.
+
+Favorit, Watchlist, Gesehen und Bewertung bleiben direkt sichtbar. Notiz und
+Gesehen-Datum verwenden im Stiftmenü unverändert den profilbezogenen Library-Pfad;
+eigene Links/Videos bleiben kontoweit mit dem vorhandenen verschlüsselten
+Speicherpfad. Die Glocke öffnet die vorhandenen Titelüberwachungen und zeigt eine
+aktive Erinnerung blau mit Häkchen. Keine zusätzlichen Dienste, Timer oder
+Abfragen pro Poster; kein E-Mail-Versand.
 
 ### Fire-TV-App
 - schlanke Android-/Fire-OS-APK

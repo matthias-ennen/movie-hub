@@ -740,13 +740,6 @@ p {
   padding: clamp(2rem, 4vw, 4rem);
 }
 
-.detail-close {
-  position: absolute;
-  top: var(--space-4);
-  right: var(--space-4);
-  background: rgba(255, 255, 255, 0.09);
-}
-
 .detail-copy h2 {
   margin-bottom: 0.8rem;
   padding-right: 3rem;

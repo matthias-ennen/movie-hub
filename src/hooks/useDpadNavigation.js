@@ -12,7 +12,7 @@ function isEditable(element) {
 }
 
 function isVisibleFocusable(element) {
-  return !element.disabled && element.getAttribute('aria-hidden') !== 'true' && element.offsetParent !== null
+  return !element.disabled && !element.closest('[inert]') && element.getAttribute('aria-hidden') !== 'true' && element.offsetParent !== null
 }
 
 function getFocusableCandidates(scope) {

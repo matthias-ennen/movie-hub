@@ -102,16 +102,6 @@
   margin-bottom: 0;
 }
 
-/* Visuell immer „Speichern“, unabhängig davon ob neu oder bearbeitet. */
-.media-editor-panel .media-form-actions button:first-child {
-  font-size: 0;
-}
-
-.media-editor-panel .media-form-actions button:first-child::after {
-  content: 'Speichern';
-  font-size: 1rem;
-}
-
 /* Der bisherige Fertig-Button bleibt funktional derselbe Schließpfad, sitzt aber als X oben rechts. */
 .media-editor-panel > .media-cancel {
   position: absolute;

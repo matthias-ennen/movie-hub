@@ -1,4 +1,5 @@
 import { mergeTvAirings } from '../sources/mergeTvAirings.js'
+import { episodeNumberLabel, episodeReference } from '../catalog/episodeContext.js'
 
 function mediaType(value) {
   if (value === 'series' || value === 'tv') return 'series'
@@ -49,5 +50,6 @@ export function formatDetailTvAiring(airing, {
   }).format(start)
   const stationName = String(airing?.stationName || '').trim()
 
-  return [date, `${time} Uhr`, stationName].filter(Boolean).join(' · ')
+  const episode = episodeReference(airing)
+  return [date, `${time} Uhr`, stationName, episodeNumberLabel(episode), episode?.title].filter(Boolean).join(' · ')
 }
