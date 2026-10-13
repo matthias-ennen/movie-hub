@@ -89,7 +89,7 @@ Das Mitteilungs-Grundpaket aus [#314](https://github.com/matthias-ennen/movie-hu
 
 **Abgenommen und abgeschlossen: #387.** Matthias hat den über #422/#424/#425 veröffentlichten Einstellungen-Stand am 13.10.2026 mit „Das ist abgenommen.“ bestätigt. Elf Direktwege in drei Gruppenkacheln, kompakte Überschriften/Breadcrumbs sowie gemeinsame Anbieter-/Senderregeln sind geliefert. Umsetzung, technische Nachweise und Abschluss: [Einstellungen](docs/SETTINGS.md).
 
-**Abgenommen und abgeschlossen: [#426 – Detailseite aufräumen und verbessern](https://github.com/matthias-ennen/movie-hub/issues/426).** Matthias hat den veröffentlichten Stand `ddd0dbd` am 13.10.2026 um 19:05 Uhr (Europe/Berlin) zum Abschluss freigegeben. Geliefert sind Stift/Glocke/Schließen, Notiz und Gesehen-Datum im Bearbeitungsmenü, gemeinsame Kacheln und Dialog-/Fokusregeln, transparent schwebende Aktionen sowie die einheitliche Staffel-/Folgenauswahl mit bebilderter Übersicht. Umfang, Prüfungen und Abnahme: [Detailpaket](docs/_work/DETAIL_426.md).
+**Basis abgenommen, Navigationsnachtrag offen: [#426 – Detailseite aufräumen und verbessern](https://github.com/matthias-ennen/movie-hub/issues/426).** Matthias hat den veröffentlichten Stand `ddd0dbd` am 13.10.2026 um 19:05 Uhr (Europe/Berlin) zum Abschluss freigegeben. Geliefert sind Stift/Glocke/Schließen, Notiz und Gesehen-Datum im Bearbeitungsmenü, gemeinsame Kacheln und Dialog-/Fokusregeln, transparent schwebende Aktionen sowie die einheitliche Staffel-/Folgenauswahl mit bebilderter Übersicht. Umfang, Prüfungen und Abnahme: [Detailpaket](docs/_work/DETAIL_426.md).
 
 Die Staffel-/Folgenkachel erscheint bei nutzbarem Episodenbestand. Unklare Folgen
 bleiben ohne Vorauswahl und ohne erklärende Hinweise; die manuelle Navigation
@@ -100,9 +100,11 @@ verifizierter TMDB-Sprachaliase und erhaltener Nummernkonflikte. Der Client läd
 die kompakte Staffelverfügbarkeit einmal je Sitzung und Episodenlisten bei Bedarf;
 zusätzliche Anbieter-/TMDB-Abfragen in der App entfallen.
 
-Für #426 ist keine weitere Paketabnahme offen. Spätere Schönheitskorrekturen
-werden separat gesammelt. Der Abschlussnachtrag ändert nur Dokumentation und
-Planung; er startet weder ein neues Umsetzungspaket noch einen App-Deploy.
+Am 13.10.2026 um 19:36 Uhr hat Matthias einen begrenzten Navigationsnachtrag
+freigegeben: Kopfaktionen scrollen mit der Überschrift, D-Pad hoch/runter folgt
+jeder Bedienzeile, die letzte Bewertung zeigt den vollständigen unteren Abstand.
+#426 ist dafür wieder geöffnet; die Basisabnahme bleibt dokumentiert. Der Nachtrag
+wird vor #384 abgeschlossen und auf Fire TV abgenommen.
 
 Die vorgezogenen Korrekturen [#413 – persönliche Smart-Reihen](https://github.com/matthias-ennen/movie-hub/issues/413) und [#415 – Schauspielersuche](https://github.com/matthias-ennen/movie-hub/issues/415) sind über PR #414/#416 veröffentlicht. Beide nutzen vorhandene gemeinsame Titelmetadaten; es gibt keine zusätzlichen Abfragen beim Tippen oder je Posterreihe. Technische Prüfungen sind erfolgreich; Matthias hat beide Pakete am 12.10.2026 auf Smartphone und Fire TV ausdrücklich abgenommen. #413 und #415 sind geschlossen. Web-Suche und Reihen werden nach vollständigem App-Neustart geladen; neue native Importe mit vollständigen Besetzungsfacetten benötigen die neue APK. #329 bleibt Wartung; für öffentliche Verteilung gilt weiterhin #112.
 

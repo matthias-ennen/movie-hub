@@ -43,8 +43,10 @@
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
-  scroll-padding-top: 84px;
+  scroll-padding-block: var(--detail-padding);
 }
+.detail-copy-content { position: relative; display: flow-root; min-height: 44px; }
+.detail-copy-content > .detail-actions-bar { top: 0; right: 0; }
 .detail-actions-bar {
   position: absolute;
   top: var(--detail-padding);
@@ -127,9 +129,9 @@
 .detail-action:focus-visible .detail-action-label,
 .detail-action:hover .detail-action-label { display: block; }
 
-.detail-copy > h2 { display: flow-root; padding-right: 0; overflow-wrap: anywhere; font-size: clamp(1.6rem, 3.4vw, 2.7rem); line-height: 1.12; }
+.detail-copy-content > h2 { display: flow-root; padding-right: 0; overflow-wrap: anywhere; font-size: clamp(1.6rem, 3.4vw, 2.7rem); line-height: 1.12; }
 /* Reserve only the lines beside the actions; long titles use full width below. */
-.detail-copy > h2::before { content: ''; float: right; width: var(--detail-action-space); height: 52px; }
+.detail-copy-content > h2::before { content: ''; float: right; width: var(--detail-action-space); height: 52px; }
 .detail-copy h3 { margin-bottom: 0.7rem; }
 /* Shared card styling, including navigation and both editor sections. */
 .detail-card {
@@ -210,7 +212,7 @@
 .detail-editor-content .media-entry-list { margin-top: 1rem; }
 .detail-discard-panel { width: min(540px, 92vw); }
 .detail-discard-panel .media-form-actions button { min-height: 44px; padding: 0.7rem; border-radius: var(--radius-control); }
-.detail-loading-copy { display: grid; place-items: center; padding-top: calc(var(--detail-padding) + 60px); }
+.detail-loading-copy .detail-copy-content { min-height: 100%; display: grid; place-items: center; padding-top: 60px; }
 .detail-loading-copy .loading-copy { margin: 0; }
 .detail-layout-episode { --detail-action-space: 60px; }
 .detail-layout-episode .episode-detail-art {
@@ -220,9 +222,10 @@
   aspect-ratio: 16 / 9;
   border-radius: var(--radius-card);
 }
-.episode-detail-copy > .eyebrow,
-.episode-detail-copy > h2 { padding-right: var(--detail-action-space); overflow-wrap: anywhere; }
-.episode-detail-copy > h2 { margin-top: 0; font-size: clamp(1.6rem, 3.4vw, 2.7rem); line-height: 1.12; }
+.episode-detail-copy .detail-copy-content > .eyebrow,
+.episode-detail-copy .detail-copy-content > h2 { padding-right: var(--detail-action-space); overflow-wrap: anywhere; }
+.episode-detail-copy .detail-copy-content > h2 { margin-top: 0; }
+.episode-detail-copy .detail-copy-content > h2::before { display: none; }
 
 /* Short landscape screens use the same columns as TV, without a tall banner. */
 @media (max-width: 760px) and (orientation: landscape) {
@@ -230,15 +233,16 @@
 }
 @media (max-width: 760px) and (orientation: portrait) {
   .detail-layout-panel { width: 100%; border-radius: var(--radius-panel) var(--radius-panel) 0 0; }
-  .detail-body { display: block; overflow: auto; overscroll-behavior: contain; scroll-padding-top: 84px; }
+  .detail-body { display: block; overflow: auto; overscroll-behavior: contain; scroll-padding-block: var(--detail-padding); }
   .detail-body .detail-copy,
   .detail-body .episode-detail-copy { overflow: visible; scrollbar-gutter: auto; }
   .detail-body .detail-art,
   .detail-layout-episode .episode-detail-art { height: clamp(120px, 22vh, 210px); margin: 0; border-radius: 0; aspect-ratio: auto; }
-  .detail-copy > h2,
-  .episode-detail-copy > h2,
-  .episode-detail-copy > .eyebrow { padding-right: 0; }
-  .detail-copy > h2::before { display: none; }
+  .detail-copy-content { padding-top: 60px; }
+  .detail-copy-content > h2,
+  .episode-detail-copy .detail-copy-content > h2,
+  .episode-detail-copy .detail-copy-content > .eyebrow { padding-right: 0; }
+  .detail-copy-content > h2::before { display: none; }
   .detail-loading-copy { min-height: 40vh; }
 }
 

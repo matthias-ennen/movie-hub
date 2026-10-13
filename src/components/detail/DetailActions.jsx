@@ -1,7 +1,7 @@
 import BellIcon from '../BellIcon.jsx'
 
 export default function DetailActions({ onClose, onEdit, onAlert, alertActive = false, notePresent = false, loading = false, closeLabel = 'Details schließen' }) {
-  return <div className={`detail-actions-bar${onEdit || loading ? ' detail-title-actions' : ''}`}>
+  return <div data-dpad-row-group="true" className={`detail-actions-bar${onEdit || loading ? ' detail-title-actions' : ''}`}>
     {(onEdit || loading) && <button type="button" className="icon-button detail-action" data-focusable="true" disabled={loading}
       aria-label={notePresent ? 'Bearbeiten · Notiz vorhanden' : 'Bearbeiten'} onClick={onEdit}>
       <svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor"
@@ -26,7 +26,7 @@ export default function DetailActions({ onClose, onEdit, onAlert, alertActive = 
 }
 
 export function DialogHeading({ id, children, subtitle, onClose, floatingClose = false }) {
-  return <><div className="detail-dialog-heading">
+  return <><div className="detail-dialog-heading" data-dpad-row-group="true">
     <div><h2 id={id}>{children}</h2>{subtitle && <p>{subtitle}</p>}</div>
     {!floatingClose && <button type="button" className="icon-button" data-focusable="true" data-dialog-close="true"
       aria-label="Schließen" onClick={onClose}>×</button>}

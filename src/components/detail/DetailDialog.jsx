@@ -69,7 +69,7 @@ export default function DetailDialog({
       onMouseDown={(event) => event.target === event.currentTarget && close.current?.()}>
       <section ref={panel} className={className} role="dialog" aria-modal="true"
         aria-label={label} aria-labelledby={labelledBy} aria-busy={busy || undefined}
-        data-detail-dialog={primary ? 'primary' : 'nested'}>
+        data-detail-dialog={primary ? 'primary' : 'nested'} data-dpad-navigation="rows">
         {children}
       </section>
     </div>
