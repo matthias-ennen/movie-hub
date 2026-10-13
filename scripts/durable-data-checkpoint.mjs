@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
+import { createInterface } from 'node:readline'
 import { cp, lstat, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises'
 import { createReadStream } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -113,17 +114,38 @@ export async function makeArchive({ root, group }) {
   }
 }
 
+export async function validateArchiveListing(archive, args, validate, { spawnProcess = spawn } = {}) {
+  const child = spawnProcess('tar', [...args, archive], { stdio: ['ignore', 'pipe', 'pipe'] })
+  let stderr = ''
+  child.stderr.on('data', (chunk) => { stderr = (stderr + chunk.toString()).slice(-4096) })
+  const completion = new Promise((resolve, reject) => {
+    child.once('error', reject)
+    child.once('close', (code) => code === 0 ? resolve() : reject(new Error(`Checkpoint archive listing failed (${code}): ${stderr}`)))
+  })
+  // Attach a handler immediately; the process can fail while lines are read.
+  completion.catch(() => {})
+  const lines = createInterface({ input: child.stdout, crlfDelay: Infinity })
+  try {
+    for await (const entry of lines) if (entry) validate(entry)
+    await completion
+  } catch (error) {
+    child.kill()
+    await completion.catch(() => {})
+    throw error
+  } finally {
+    lines.close()
+  }
+}
+
 export async function inspectArchive({ archive, sha256, group }) {
   paths(group)
   if (await hashFile(archive) !== sha256) throw new Error('Checkpoint checksum mismatch.')
-  const { stdout } = await exec('tar', ['-tzf', archive], { maxBuffer: 30 * 1024 * 1024 })
-  for (const entry of stdout.split('\n').filter(Boolean)) {
+  await validateArchiveListing(archive, ['-tzf'], (entry) => {
     if (!allowedEntry(group, entry)) throw new Error(`Unexpected checkpoint path: ${entry}`)
-  }
-  const { stdout: details } = await exec('tar', ['-tvzf', archive], { maxBuffer: 30 * 1024 * 1024 })
-  for (const entry of details.split('\n').filter(Boolean)) {
+  })
+  await validateArchiveListing(archive, ['-tvzf'], (entry) => {
     if (!['-', 'd'].includes(entry[0])) throw new Error('Checkpoint archive contains a link or special file.')
-  }
+  })
   const directory = await mkdtemp(join(tmpdir(), 'movie-hub-restore-'))
   try {
     await exec('tar', ['-xzf', archive, '-C', directory, '--no-same-owner'])

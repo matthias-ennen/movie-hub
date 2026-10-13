@@ -1,6 +1,25 @@
 # Nachtlauf: Alarm und dauerhaftes Import-Checkpoint
 
-Stand: 12.10.2026. Historisches Betriebspaket: [#315](https://github.com/matthias-ennen/movie-hub/issues/315), abgeschlossen am 03.10.2026.
+Stand: 13.10.2026. Historisches Betriebspaket: [#315](https://github.com/matthias-ennen/movie-hub/issues/315), abgeschlossen am 03.10.2026.
+
+## Waipu-Archivsicherung: Ausgabepufferüberlauf (13.10.2026)
+
+Die Läufe [38339776377](https://github.com/matthias-ennen/movie-hub/actions/runs/38339776377)
+und [38342424561](https://github.com/matthias-ennen/movie-hub/actions/runs/38342424561)
+haben Waipu und Joyn erfolgreich aufbereitet, scheiterten anschließend aber beim
+Prüfen des privaten Waipu-Archivs: `tar -tvzf` überschritt mit seiner Dateiliste
+den 30-MiB-Ausgabepuffer (`ERR_CHILD_PROCESS_STDIO_MAXBUFFER`). Hosting wurde
+nicht veröffentlicht; der TMDB-Checkpointabschluss scheiterte als Folge davon.
+
+Die beiden Archivlisten werden nun zeilenweise aus einem laufenden Prozess
+geprüft. Pfadfreigabe, Ablehnung von Links/Spezialdateien, Prüfsumme und Prüfung
+des entpackten Checkpoints bleiben verbindlich. Prozessfehler werden weiterhin
+abgelehnt; Diagnoseausgaben sind auf 4 KiB begrenzt.
+
+Validierung: alle elf Checkpointtests bestehen, einschließlich einer echten
+Prozessausgabe mit 350.000 Zeilen (über 30 MiB), fehlerhaftem Prozessabschluss
+und den bisherigen Sicherheits-/Wiederherstellungsprüfungen. Die produktive
+Bestätigung durch einen vollständigen Datenlauf steht noch aus.
 
 ## Bestätigte reguläre Fortschreibung (12.10.2026)
 

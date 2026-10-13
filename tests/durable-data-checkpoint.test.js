@@ -1,12 +1,14 @@
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { spawn } from 'node:child_process'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   applyArchive,
   downloadCheckpoint,
   makeArchive,
   uploadCheckpoint,
+  validateArchiveListing,
 } from '../scripts/durable-data-checkpoint.mjs'
 
 const directories = []
@@ -48,6 +50,32 @@ afterEach(async () => {
 })
 
 describe('durable checkpoint', () => {
+  it('validates every line beyond the former 30 MiB buffer limit', async () => {
+    let count = 0
+    const total = 350000
+    await validateArchiveListing('unused', ['-tvzf'], (line) => {
+      expect(line[0]).toBe('-')
+      count += 1
+    }, { spawnProcess: () => spawn(process.execPath, ['-e', `
+      const line = '-' + 'x'.repeat(99) + '\\n';
+      let remaining = ${total};
+      function write() {
+        while (remaining > 0) {
+          remaining--;
+          if (!process.stdout.write(line)) { process.stdout.once('drain', write); return; }
+        }
+      }
+      write();
+    `], { stdio: ['ignore', 'pipe', 'pipe'] }) })
+    expect(count).toBe(total)
+  }, 20000)
+
+  it('rejects a failed listing process even after valid output', async () => {
+    await expect(validateArchiveListing('unused', ['-tzf'], () => {}, {
+      spawnProcess: () => spawn(process.execPath, ['-e', "console.log('artifacts/waipu-sync/'); process.exitCode = 2"], { stdio: ['ignore', 'pipe', 'pipe'] }),
+    })).rejects.toThrow('listing failed (2)')
+  })
+
   it('restores Joyn windows together with matching, lookup and metadata caches', async () => {
     const root = await workspace(), bucket = fakeBucket()
     await put(root, 'artifacts/joyn-sync/checkpoint.json', { kind: 'joyn-sync-checkpoint', schemaVersion: 1, windows: { '1000_2000': { count: 1 } } })
