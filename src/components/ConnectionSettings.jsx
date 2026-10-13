@@ -6,14 +6,10 @@ function formatSyncTime(value) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('de-DE')
 }
 
-export default function ConnectionSettings() {
+export function NetworkSettings() {
   const nativeNetworkSettings = typeof window.MovieHubNative?.openNetworkSettings === 'function'
-  const nativeTmdbSettings = typeof window.MovieHubNative?.openTmdbSettings === 'function'
-  const { syncState, syncBusy, syncMessage, requestSync, nativeSyncAvailable, error: tmdbCatalogError } = useTmdbCatalog()
-  const lastSync = formatSyncTime(syncState?.syncedAt)
   const openNetworkSettings = () => window.MovieHubNative?.openNetworkSettings?.()
-  const openTmdbSettings = () => window.MovieHubNative?.openTmdbSettings?.()
-  return <>
+  return (
       <section className="settings-panel network-settings-panel" aria-labelledby="network-settings-heading">
         <div className="settings-heading">
           <div>
@@ -38,7 +34,15 @@ export default function ConnectionSettings() {
           </p>
         )}
       </section>
+  )
+}
 
+export function TmdbConnectionSettings() {
+  const nativeTmdbSettings = typeof window.MovieHubNative?.openTmdbSettings === 'function'
+  const { syncState, syncBusy, syncMessage, requestSync, nativeSyncAvailable, error: tmdbCatalogError } = useTmdbCatalog()
+  const lastSync = formatSyncTime(syncState?.syncedAt)
+  const openTmdbSettings = () => window.MovieHubNative?.openTmdbSettings?.()
+  return (
       <section className="settings-panel tmdb-settings-panel" aria-labelledby="tmdb-settings-heading">
         <div className="settings-heading">
           <div>
@@ -90,5 +94,5 @@ export default function ConnectionSettings() {
         {syncMessage && <p className="settings-hint tmdb-sync-message">{syncMessage}</p>}
         {tmdbCatalogError && <p className="error">TMDB-Katalog konnte nicht geladen werden: {tmdbCatalogError.message}</p>}
       </section>
-  </>
+  )
 }

@@ -34,10 +34,12 @@ Matthias bestätigte den gemeinsamen Josh-Hartnett-/„30 Days of Night“-Abnah
 
 ### Vorgezogen: #387 – Einstellungen und konsistente Anbieterregeln
 
-Am 12.10.2026 ausdrücklich zur Umsetzung freigegeben. Vier Settings-Gruppen,
-gemeinsame Anbieter-/Senderordnung und Live-Auswahl, passende Posterreihen
-auf allen Seiten. 968 Unit-Tests, Build und Browserprüfung erfolgreich;
-CI/Veröffentlichung im PR nachweisen, Geräteabnahme noch offen.
+Erste Stufe vom 12.10.2026 über PR #422 veröffentlicht: gemeinsame
+Anbieter-/Senderordnung und Live-Auswahl, passende Posterreihen auf allen Seiten.
+Freigegebenes Fine-Tuning vom 13.10.: elf direkte Kacheln unter Profil,
+Für alle Profile und Dieses Gerät, Breadcrumb und erhaltener Rückkehrfokus.
+970 Unit-Tests, Build und Browserprüfung erfolgreich; CI/Veröffentlichung
+im Folge-PR nachweisen, Geräteabnahme noch offen.
 Details: [SETTINGS.md](SETTINGS.md). #384 bleibt bis danach zurückgestellt.
 
 ### 1. #314 – Mitteilungs-Erweiterungen
