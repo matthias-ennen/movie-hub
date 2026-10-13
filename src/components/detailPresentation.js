@@ -2,8 +2,8 @@ import { resolvePresentationArtwork } from '../catalog/artworkRotation.js'
 import { loadRuntimeTitleMetadata } from '../catalog/runtimeTitleMetadata.js'
 import { normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
 import { mergeLiveAvailability } from '../sources/liveAvailabilityIndex.js'
-import { episodeReference, mergeEpisodeReferences, openingEpisode } from '../catalog/episodeContext.js'
-import { areEquivalentTvAirings } from '../sources/mergeTvAirings.js'
+import { episodeReference, openingEpisode } from '../catalog/episodeContext.js'
+import { navigationEpisode } from '../catalog/episodeResolution.js'
 import { resolveDetailTvAiring } from '../tv/detailTvAiring.js'
 
 const DETAIL_IMAGE_WAIT_MS = 1_500
@@ -25,26 +25,17 @@ export async function prepareDetailRequestItem(item, {
     liveAvailabilityEntries,
     { now: liveAvailabilityNow, acceptLiveProvider },
   )
-  // Preserve an explicit episode and enrich only that same broadcast. General
-  // title entries use the same current/next airing as the detail TV line.
-  // Never inherit a previous opening from the metadata cache.
-  let detailEpisode = openingEpisode(item)
-  if (item?.tvAiring && !(Object.prototype.hasOwnProperty.call(item, 'detailEpisode') && item.detailEpisode === null)) {
-    const identity = { type: item.type || item.mediaType, tmdbId: item.tmdbId }
-    const candidates = Object.values(liveDetail?.liveAvailability || {}).flatMap((provider) => (
-      provider?.airings?.length ? provider.airings : [provider?.nextAiring].filter(Boolean)
-    ))
-    const sameBroadcast = candidates.filter((airing) => areEquivalentTvAirings(
-      { ...item.tvAiring, ...identity }, { ...airing, ...identity },
-    ))
-    detailEpisode = mergeEpisodeReferences(detailEpisode, ...sameBroadcast.map(episodeReference))
-  } else if (!detailEpisode && (item?.type === 'series' || item?.mediaType === 'tv')) {
-    detailEpisode = episodeReference(resolveDetailTvAiring(liveDetail, { now: liveAvailabilityNow }))
-  }
-  const presented = presentArtwork(liveDetail, artworkOptions)
-  return item?.type === 'series' || item?.mediaType === 'tv'
-    ? { ...presented, detailEpisode }
-    : presented
+  if (item?.type !== 'series' && item?.mediaType !== 'tv') return presentArtwork(liveDetail, artworkOptions)
+  // Only the actual click supplies the broadcast anchor, never cached metadata.
+  const providerIds = (item.tvAiring?.providerIds || []).filter(id => !acceptLiveProvider || acceptLiveProvider(id, item.tvAiring))
+  const detailAiring = item.tvAiring && item.detailEpisode !== null && (!acceptLiveProvider || providerIds.length)
+    ? { ...item.tvAiring, providerIds,
+      playbackRoutes: (item.tvAiring.playbackRoutes || []).filter(route => !acceptLiveProvider || acceptLiveProvider(route.providerId, item.tvAiring)) } : null
+  const prepared = { ...liveDetail, detailAiring, detailEpisode: null, detailSelection: item.detailEpisode || undefined }
+  const airing = resolveDetailTvAiring(prepared, { now: liveAvailabilityNow })
+  const detailEpisode = item.detailEpisode || navigationEpisode(episodeReference(airing))
+    || (airing ? null : openingEpisode(item))
+  return presentArtwork({ ...prepared, detailEpisode }, artworkOptions)
 }
 
 export function detailInitialImageUrl(item) {

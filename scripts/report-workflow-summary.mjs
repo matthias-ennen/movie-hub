@@ -243,11 +243,18 @@ export function buildWorkflowSummary({
       },
       {
         area: 'Serienstaffeln',
-        status: outcome(tmdbOutcome),
+        status: outcome(steps.seriesDetails || tmdbOutcome),
         stock: `${number(seasons.available)}/${number(seasons.requested)} verfügbar`,
         activity: `${number(seriesManifest.refreshedCount)} aktualisiert`,
-        open: `${number(seasons.pending)} offen · ${number(seriesManifest.failedCount)} Fehler`,
+        open: `${number(seasons.pending)} offen · ${number(seriesManifest.failedCount)} Fehler · ${number(seriesManifest.tvPendingSeasonCount)} TV-Staffeln offen`,
       },
+      ...Object.entries(availabilityIndex.episodeResolution || {}).map(([provider, counts]) => ({
+        area: `TV-Episodenzuordnung (${provider})`,
+        status: outcome(steps.availability),
+        stock: `${number(counts.matched)}/${number(counts.total)} zugeordnet`,
+        activity: 'Vorhandene Staffel-/Folgendaten; keine Anbieterabfragen in der App',
+        open: `${number(counts.missingCatalog)} Kataloglücken · ${number(counts.missingReference)} ohne Angaben · ${number(counts.ambiguous)} mehrdeutig · ${number(counts.conflict)} widersprüchlich · ${number(counts.unmatched)} ohne Treffer`,
+      })),
       {
         area: 'Waipu EPG',
         status: outcome(steps.waipuSync),
@@ -479,6 +486,7 @@ async function main() {
     sourceMerge,
     steps: {
       tmdbChanges: process.env.SUMMARY_TMDB_CHANGES,
+      seriesDetails: process.env.SUMMARY_SERIES_DETAILS,
       tmdbCheckpoint: process.env.SUMMARY_TMDB_CHECKPOINT,
       tmdbStrict: process.env.SUMMARY_TMDB_STRICT,
       tmdbPush: process.env.SUMMARY_TMDB_PUSH,

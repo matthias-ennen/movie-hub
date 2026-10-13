@@ -35,7 +35,8 @@ import TitleEditor from './detail/TitleEditor.jsx'
 import PersonalTitleActions from './detail/PersonalTitleActions.jsx'
 import CollectionPicker from './detail/CollectionPicker.jsx'
 import TitleDescription from './detail/TitleDescription.jsx'
-import { openingEpisode } from '../catalog/episodeContext.js'
+import { episodeReference, openingEpisode } from '../catalog/episodeContext.js'
+import { navigationEpisode } from '../catalog/episodeResolution.js'
 
 export default function DetailModal({
   item,
@@ -75,8 +76,12 @@ export default function DetailModal({
   const [playing, setPlaying] = useState(null)
   const [collectionPickerOpen, setCollectionPickerOpen] = useState(false)
   const [collectionBusyId, setCollectionBusyId] = useState(null)
-  const initialEpisode = useMemo(() => openingEpisode(item), [item])
-  const [selectedSeasonNumber, setSelectedSeasonNumber] = useState(() => openingEpisode(item)?.seasonNumber ?? null)
+  const [manualEpisode, setManualEpisode] = useState(undefined)
+  const automaticTvAiring = useMemo(() => resolveDetailTvAiring(item, { now: liveAvailabilityNow }), [item, liveAvailabilityNow])
+  const initialEpisode = navigationEpisode(episodeReference(automaticTvAiring))
+    || (automaticTvAiring ? null : openingEpisode(item))
+  const selectedEpisode = manualEpisode === undefined ? initialEpisode : manualEpisode
+  const selectedSeasonNumber = selectedEpisode?.seasonNumber ?? null
   const personalBusyRef = useRef(false)
   const artworkOptions = {
     profileId: activeProfile?.id || 'profile',
@@ -88,7 +93,7 @@ export default function DetailModal({
   }), [item?.tmdbId, item?.numberOfSeasons, item?.seasons])
   const selectedSeason = seriesSeasons.find((season) => season.seasonNumber === selectedSeasonNumber)
     || null
-  const initialSeasonNumber = initialEpisode?.seasonNumber ?? null
+  const initialSeasonNumber = openingEpisode(item)?.seasonNumber ?? null
   const usesInitialDetailImage = item?.type !== 'series'
     || (selectedSeason?.seasonNumber ?? null) === initialSeasonNumber
   const detailPosterUrl = usesInitialDetailImage && initialPrimaryImageUrl !== undefined
@@ -105,8 +110,9 @@ export default function DetailModal({
   const currentCollectionIndex = collectionParts.findIndex((part) => Number(part.tmdbId) === Number(item.tmdbId))
   const hasFilmCollection = item.type === 'movie' && collectionParts.length > 1
   const detailTvAiring = useMemo(
-    () => resolveDetailTvAiring(item, { now: liveAvailabilityNow }),
-    [item, liveAvailabilityNow],
+    () => manualEpisode === undefined ? automaticTvAiring
+      : resolveDetailTvAiring(item, { now: liveAvailabilityNow, selection: manualEpisode }),
+    [item, liveAvailabilityNow, manualEpisode, automaticTvAiring],
   )
   const detailTvAiringLabel = useMemo(
     () => formatDetailTvAiring(detailTvAiring),
@@ -455,7 +461,10 @@ export default function DetailModal({
           )}
 
           {item.type === 'series' && <SeriesNavigation item={item} seasons={seriesSeasons}
-            selectedSeason={selectedSeason} initialEpisode={initialEpisode} onSelectSeason={setSelectedSeasonNumber} />}
+            selectedSeason={selectedSeason} selectedEpisode={selectedEpisode}
+            onSelectEpisode={setManualEpisode}
+            onBeginNavigation={() => setManualEpisode(selectedEpisode)}
+            onSelectSeason={seasonNumber => setManualEpisode({ seasonNumber, episodeNumber: null, title: '' })} />}
 
           {hasFilmCollection && (
             <DetailCard className="film-collection-summary" id="film-collection-heading" title="Filmreihe">

@@ -9,6 +9,7 @@ import {
   seriesSeasonBucket,
 } from '../src/catalog/seriesNavigation.js'
 import { isTmdbTitleChangePending, readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
+import { discoverLiveSourceCatalogs } from './live-availability-index.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const catalogPath = resolve(root, 'public/catalog.json')
@@ -35,12 +36,15 @@ export function selectSeriesSeasonRefreshCandidates(references, existingEntries,
   now = Date.now(),
   limit = requestLimit,
   changedTitleKeys = new Set(),
+  prioritySeriesIds = new Set(),
 } = {}) {
   const timestamp = now instanceof Date ? now.getTime() : Number(now)
   return (Array.isArray(references) ? references : [])
     .map((reference, index) => ({
       reference,
       index,
+      missingLive: prioritySeriesIds.has(Number(reference.seriesTmdbId))
+        && !existingEntries.has(entryKey(reference.seriesTmdbId, reference.seasonNumber)),
       changed: isTmdbTitleChangePending(
         changedTitleKeys,
         `series:${Number(reference?.seriesTmdbId)}`,
@@ -50,6 +54,7 @@ export function selectSeriesSeasonRefreshCandidates(references, existingEntries,
     }))
     .filter((candidate) => candidate.changed || !candidate.fresh)
     .sort((left, right) => {
+      if (left.missingLive !== right.missingLive) return left.missingLive ? -1 : 1
       if (left.changed !== right.changed) return left.changed ? -1 : 1
       return left.index - right.index
     })
@@ -163,7 +168,10 @@ export async function generateSeriesDetails({ fetchSeason = tmdbSeasonFetch, now
   if (!Array.isArray(catalog?.titles)) throw new Error('The current catalog contains no title list.')
 
   const searchDetailTitles = await readSearchDetailTitles()
-  const references = collectSeriesSeasonReferences([...catalog.titles, ...searchDetailTitles])
+  const liveSources = await discoverLiveSourceCatalogs(resolve(root, 'public'), { resolveEpisodes: false })
+  const liveTitles = liveSources.flatMap(source => source.entries)
+  const prioritySeriesIds = new Set(liveTitles.filter(t => t.type === 'series').map(t => Number(t.tmdbId)))
+  const references = collectSeriesSeasonReferences([...catalog.titles, ...searchDetailTitles, ...liveTitles])
   const existingEntries = await readExistingEntries()
   const activeKeys = new Set(references.map((reference) => entryKey(reference.seriesTmdbId, reference.seasonNumber)))
   const entries = new Map([...existingEntries].filter(([key]) => activeKeys.has(key)))
@@ -172,6 +180,7 @@ export async function generateSeriesDetails({ fetchSeason = tmdbSeasonFetch, now
     now,
     limit: requestLimit,
     changedTitleKeys: queuedChanges,
+    prioritySeriesIds,
   })
 
   let refreshed = 0
@@ -228,6 +237,10 @@ export async function generateSeriesDetails({ fetchSeason = tmdbSeasonFetch, now
     pendingSeasonCount: Math.max(0, references.length - entries.size),
     refreshedCount: refreshed,
     failedCount: failed,
+    requestLimit,
+    tvRequestedSeasonCount: references.filter(r => prioritySeriesIds.has(r.seriesTmdbId)).length,
+    tvPendingSeasonCount: references.filter(r => prioritySeriesIds.has(r.seriesTmdbId)
+      && !entries.has(entryKey(r.seriesTmdbId, r.seasonNumber))).length,
     shards,
   }
   await writeFile(resolve(outputDirectory, 'manifest.json'), `${JSON.stringify(manifest)}\n`, 'utf8')
@@ -235,7 +248,7 @@ export async function generateSeriesDetails({ fetchSeason = tmdbSeasonFetch, now
   return manifest
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] === fileURLToPath(import.meta.url) && process.env.TMDB_SERIES_DETAILS_DEFER !== '1') {
   try {
     await generateSeriesDetails()
   } catch (error) {

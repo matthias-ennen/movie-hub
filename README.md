@@ -101,6 +101,14 @@ vorhandene Episodenangaben der angezeigten TV-Ausstrahlung für die Vorauswahl;
 eine ausdrücklich gewählte Folge und spätere manuelle Auswahl bleiben vorrangig.
 Keine zusätzlichen Datenabfragen in der App.
 
+Die weitere Korrektur unter #426 vereinheitlicht den konkreten Sendungsbezug für
+Vorauswahl, TV-Termin und Anbieterwege. Manuelle Folgenwahl bleibt erhalten;
+ein fremder Sendetermin wird ihr nicht zugeschrieben. Die Datenverarbeitung ordnet
+TV-Folgen eindeutig dem vorhandenen Episodenkatalog zu, erhält Quellangaben und
+ergänzt fehlende Staffeln auch für reine TV-Serien. Unklare Zuordnungen bleiben
+sichtbar offen und werden im Nachtlaufbericht gezählt. Technische Nachweise und
+Veröffentlichungsstand stehen im Detailpaket; manuelle Abnahme bleibt offen.
+
 Die vorgezogenen Korrekturen [#413 – persönliche Smart-Reihen](https://github.com/matthias-ennen/movie-hub/issues/413) und [#415 – Schauspielersuche](https://github.com/matthias-ennen/movie-hub/issues/415) sind über PR #414/#416 veröffentlicht. Beide nutzen vorhandene gemeinsame Titelmetadaten; es gibt keine zusätzlichen Abfragen beim Tippen oder je Posterreihe. Technische Prüfungen sind erfolgreich; Matthias hat beide Pakete am 12.10.2026 auf Smartphone und Fire TV ausdrücklich abgenommen. #413 und #415 sind geschlossen. Web-Suche und Reihen werden nach vollständigem App-Neustart geladen; neue native Importe mit vollständigen Besetzungsfacetten benötigen die neue APK. #329 bleibt Wartung; für öffentliche Verteilung gilt weiterhin #112.
 
 Vor jedem Umsetzungspaket werden offene Produktfragen mit Matthias einzeln geklärt und anschließend im betreffenden Issue verbindlich dokumentiert.

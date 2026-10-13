@@ -2,6 +2,15 @@ import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 
 describe('Firebase workflow data separation', () => {
+  it('generates seasons once after current TV imports and before both TV publications', async () => {
+    const workflow = await readFile('.github/workflows/deploy-firebase.yml', 'utf8')
+    expect(workflow).toContain("TMDB_SERIES_DETAILS_DEFER: '1'")
+    const seasons = workflow.indexOf('name: Complete series seasons including current TV source titles')
+    expect(seasons).toBeGreaterThan(workflow.indexOf('id: joyn_catalog'))
+    expect(seasons).toBeGreaterThan(workflow.indexOf('id: canonical_executor'))
+    expect(seasons).toBeLessThan(workflow.indexOf('id: live_availability_index'))
+    expect(workflow).toContain('SUMMARY_SERIES_DETAILS: ${{ steps.series_details.outcome }}')
+  })
   it('keeps the Joyn first-build reserve limited to explicitly marked pushes', async () => {
     const workflow = await readFile('.github/workflows/deploy-firebase.yml', 'utf8')
     const expressions = [...workflow.matchAll(/JOYN_(ALGOLIA|SERIES_DETAIL)_REQUEST_BUDGET:\s*\$\{\{\s*([^\n]+?)\s*\}\}/g)]

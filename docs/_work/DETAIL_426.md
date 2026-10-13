@@ -198,3 +198,62 @@ Bildschirmgrößen. Keine Änderung an Import, Nachtlauf oder persönlichen Date
   erfolgreich. Keine echten Benutzerdaten geändert; physische Geräteabnahme offen.
 - CI/Android/Veröffentlichung werden in #426 nachgewiesen. App-Neustart genügt,
   keine neue APK und kein Datenimport für diese Korrektur erforderlich.
+
+## Gemeinsamer Sendungsbezug und Episodenzuordnung – 13.10.2026, 15:33 Uhr
+
+Freigabe: Matthias „Okay. Umsetzen und auf dem laufenden halten“.
+Ausgangspunkt main 217d579; vorherige Geräteprüfung zeigt verbleibende Fehler.
+
+- See No Evil/Ladykracher: gewählte Folge und unabhängig ermittelter frühester
+  TV-Termin gehören zu unterschiedlichen Ausstrahlungen.
+- Hubert/Richter: regionale bzw. andere Einstiegssender ohne Episodendaten;
+  keine Übernahme einer fremden Ausstrahlung allein aufgrund der Serien-ID.
+- Yu-Gi-Oh!: TV S4E21 entspricht dem vorhandenen TMDB S1E165; Anbieterzählung
+  muss als Herkunft erhalten bleiben, Episodennavigation kanonisch zugeordnet.
+- New Tricks/Richter: Staffelgenerator muss zusätzlich die TV-Serien aus den
+  Quellen berücksichtigen. Fehlende Staffeln vor normaler Altersauffrischung.
+
+Zielstruktur: kompakte geprüfte Episodenzuordnung im veröffentlichten TV-Vertrag,
+Originalangaben erhalten; ein Resolver für angeklickte/laufende/nächste Sendung,
+Vorauswahl und manuelle Episoden-/Staffelauswahl. Mehrdeutige Zuordnungen bleiben
+sichtbar offen. Kein Titel-Hardcoding, keine Anbieterabfragen in der App.
+Datenlauf: vorhandenen Staffelgenerator nach Quellenimport ausführen, TV-Serien
+aufnehmen, vorhandene Shards erhalten, Budget/Fehler/fehlende Daten berichten.
+
+Prüfpunkte: alle Screenshot-Fälle, abweichende Zählweisen, gleiche Folgentitel,
+Anbieterreihenfolge, fehlende Kataloge, Sendungsablauf, manuelle Auswahl,
+Lazy-Folgenübersicht/Fokus und Rückwege; Veröffentlichung mit Datenaufbereitung.
+Technische Prüfung und manuelle Abnahme getrennt; Issue bleibt geöffnet.
+
+### Umsetzung und Prüfung der gemeinsamen Episodenzuordnung
+
+- Eine konkrete Ausstrahlung steuert Auswahl, TV-Zeile und Anbieterwege. Ein
+  allgemeiner Einstieg folgt laufendem/nächstem Termin. Manuelle Auswahl bleibt
+  erhalten und zeigt nur zugehörige bekannte TV-Termine; kein fremder Rückfall.
+- Gemeinsame Katalogzuordnung vor Veröffentlichung beider TV-Datenformen.
+  Exakte Nummern/Titel oder eindeutiger Titel bei vollständigem Staffelbestand;
+  kein unscharfer Titelabgleich, keine titelbezogenen Sonderregeln. Originale
+  Anbieterzählung bleibt neben der geprüften TMDB-Episodenreferenz erhalten.
+- Vorhandene Staffelverarbeitung nach Import verlegt, TV-Serien ergänzt und
+  fehlende TV-Staffeln priorisiert. Standardbudget 600, kein zweiter Staffeljob
+  im Nachtlauf. `[episode-refresh]` ermöglicht die gezielte Erstergänzung.
+- Nachtlaufbericht enthält offene TV-Staffeln und pro Anbieter vollständige
+  Zuordnungszahlen sowie Kataloglücken, fehlende Angaben, Konflikte und Mehrdeutigkeiten.
+- Neue Regressionen verwenden die Screenshot-Konstellationen einschließlich
+  See No Evil, Ladykracher, Hubert, Yu-Gi-Oh!, Waltons und New Tricks; außerdem
+  Pipeline-Transport, Konflikterhalt, Zeitwechsel und manuelle Auswahl.
+- Echte veröffentlichte Datenauszüge im isolierten Browser bei 1280×720,
+  844×390, 667×375 und 390×844 geprüft: Ladykracher S5E9, Yu-Gi-Oh! S1E165,
+  Hubert S10E7 mit richtiger Übersicht und Fokus; See No Evil Folge 8 mit
+  23-Uhr-Termin; New Tricks mit ehrlicher Kataloglücke vor Datenaufbau.
+  Automatischer Zeitwechsel und manuelle Auswahl erhalten konsistenten Zustand.
+  Drei bedarfsweise Episodenabfragen pro Seitenladung, keine Vorabladung.
+- Bestehende Browserprüfung für Details, Erinnerungen, Notiz/Datum/Medien,
+  Lade-/Fehlerfokus und Rückwege erneut erfolgreich. Keine echten Nutzerdaten geändert.
+
+CI, gezielte Datenvervollständigung und Veröffentlichung werden anschließend in
+#426 dokumentiert. Eine physische Geräteabnahme wird nicht behauptet.
+
+Abschließende lokale Prüfung: **1.011 Tests in 161 Dateien erfolgreich**,
+Produktionsbuild erfolgreich, `git diff --check` ohne Befund. Detailfeature
+35,69 kB / 11,41 kB gzip, Hauptchunk 236,08 kB / 71,02 kB gzip.

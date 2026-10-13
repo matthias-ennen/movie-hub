@@ -2,6 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { selectSeriesSeasonRefreshCandidates } from '../scripts/generate-series-details.mjs'
 
 describe('series season refresh priority', () => {
+  it('fills missing TV seasons before aged catalog entries without refetching fresh TV seasons', () => {
+    const references = [1, 2, 3].map(seriesTmdbId => ({ seriesTmdbId, seasonNumber: 1 }))
+    const entries = new Map([
+      ['1:1', { version: 1, generatedAt: '2026-07-01T00:00:00Z' }],
+      ['3:1', { version: 1, generatedAt: '2026-10-13T00:00:00Z' }],
+    ])
+    expect(selectSeriesSeasonRefreshCandidates(references, entries, {
+      now: new Date('2026-10-13T13:00:00Z'), limit: 1, prioritySeriesIds: new Set([2, 3]),
+    })).toEqual([references[1]])
+  })
   it('refreshes TMDB-changed series before normally stale seasons', () => {
     const references = [
       { seriesTmdbId: 1, seasonNumber: 1 },

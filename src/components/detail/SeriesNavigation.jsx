@@ -6,12 +6,11 @@ import DetailActions, { DialogHeading } from './DetailActions.jsx'
 import DetailLayout from './DetailLayout.jsx'
 import DetailCard from './DetailCard.jsx'
 
-export default function SeriesNavigation({ item, seasons, selectedSeason, initialEpisode, onSelectSeason }) {
+export default function SeriesNavigation({ item, seasons, selectedSeason, selectedEpisode, onSelectEpisode, onSelectSeason, onBeginNavigation }) {
   const [picker, setPicker] = useState(null)
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-  const [selectedEpisode, setSelectedEpisode] = useState(initialEpisode)
   const [episode, setEpisode] = useState(null)
   const request = useRef(0)
   useEffect(() => () => { request.current += 1 }, [])
@@ -20,7 +19,6 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, initia
     if (selectedSeason?.seasonNumber !== season.seasonNumber) {
       request.current += 1
       onSelectSeason(season.seasonNumber)
-      setSelectedEpisode(null)
       setDetail(null)
       setMessage('')
     }
@@ -29,6 +27,7 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, initia
 
   async function showEpisodes() {
     if (!selectedSeason) return
+    onBeginNavigation?.()
     setPicker('episodes')
     if (detail?.seasonNumber === selectedSeason.seasonNumber) return
     const id = ++request.current
@@ -39,8 +38,7 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, initia
       if (request.current !== id) return
       setDetail(loaded)
       const matched = matchingEpisode(loaded.episodes, selectedEpisode)
-      if (matched) setSelectedEpisode(matched)
-      else if (selectedEpisode?.episodeNumber != null) {
+      if (!matched && selectedEpisode?.episodeNumber != null) {
         setMessage('Die angegebene Folge ist in dieser Staffel nicht enthalten. Bitte wähle eine Folge aus.')
       }
     } catch (error) {
@@ -58,9 +56,9 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, initia
   return <>
     <DetailCard className="series-navigation-summary" id="series-navigation-heading" title="Staffeln und Folgen">
       <button type="button" className="series-selection-field" data-focusable="true"
-        disabled={!seasons.length} aria-haspopup="dialog" onClick={() => setPicker('seasons')}>
+        disabled={!seasons.length} aria-haspopup="dialog" onClick={() => { onBeginNavigation?.(); setPicker('seasons') }}>
         <span>Staffel</span><strong>{selectedSeason ? `Staffel ${selectedSeason.seasonNumber}`
-          : initialEpisode?.seasonNumber != null ? `Staffel ${initialEpisode.seasonNumber} · nicht verfügbar`
+          : selectedEpisode?.seasonNumber != null ? `Staffel ${selectedEpisode.seasonNumber} · nicht verfügbar`
             : seasons.length ? 'Staffel auswählen' : 'Keine Staffeldaten verfügbar'}</strong>
         <span aria-hidden="true">⌄</span>
       </button>
@@ -68,6 +66,11 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, initia
         disabled={!selectedSeason} aria-haspopup="dialog" onClick={showEpisodes}>
         <span>Folge</span><strong>{episodeLabel}</strong><span aria-hidden="true">›</span>
       </button>
+      {selectedEpisode?.resolution && selectedEpisode.resolution !== 'matched' && <p className="episodes-status">
+        {selectedEpisode.resolution === 'missing-catalog' ? 'Die Folgendaten sind noch nicht vollständig verfügbar.'
+          : selectedEpisode.resolution === 'missing-reference' ? 'Für diese Ausstrahlung fehlen Staffel- und Folgenangaben.'
+            : 'Die TV-Folge ist noch nicht eindeutig der Folgenübersicht zugeordnet.'}
+      </p>}
     </DetailCard>
 
     {picker === 'seasons' && <DetailDialog className="media-panel detail-selection-panel"
@@ -100,7 +103,7 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, initia
           className={`episode-card${entry.id === current?.id ? ' current' : ''}`}
           data-focusable="true" data-episode-option="true" aria-current={entry.id === current?.id ? 'true' : undefined}
           aria-label={`${episodeNumberLabel(entry)}: ${entry.title}`}
-          onClick={() => { setSelectedEpisode(entry); setEpisode(entry) }}>
+          onClick={() => { onSelectEpisode(entry); setEpisode(entry) }}>
           <span className={entry.stillUrl ? 'episode-still has-image' : 'episode-still'}>
             {entry.stillUrl && <img src={entry.stillUrl} alt="" loading="lazy" />}
             <span>Folge {entry.episodeNumber}</span>

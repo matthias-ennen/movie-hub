@@ -1,6 +1,8 @@
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import ProviderBadges from './ProviderBadges.jsx'
 import { formatTvAiringCard } from '../tv/tvAiringPresentation.js'
+import { episodeReference } from '../catalog/episodeContext.js'
+import { navigationEpisode } from '../catalog/episodeResolution.js'
 import { resolveProviderPresentation } from '../providers/providerPresentation.js'
 import { posterImageProps, posterSourceUrl } from '../performance/posterImages.js'
 
@@ -22,11 +24,12 @@ export default function PosterCard({
     hasMovieHub,
   })
   const providerIds = providerPresentation.providerIds
+  const episode = navigationEpisode(episodeReference(item.tvAiring))
   const episodeLabel = item.type === 'series' && item.tvAiring
     ? [
-      Number.isInteger(item.tvAiring.seasonNumber) ? `S${item.tvAiring.seasonNumber}` : null,
-      Number.isInteger(item.tvAiring.episodeNumber) ? `F${item.tvAiring.episodeNumber}` : null,
-      item.tvAiring.episodeTitle || null,
+      Number.isInteger(episode?.seasonNumber) ? `S${episode.seasonNumber}` : null,
+      Number.isInteger(episode?.episodeNumber) ? `F${episode.episodeNumber}` : null,
+      episode?.title || null,
     ].filter(Boolean).join(' · ')
     : null
 
