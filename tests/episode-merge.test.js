@@ -55,9 +55,12 @@ describe('shared episode evidence for the same broadcast', () => {
     expect(result.detailEpisode).toEqual(waipu.episode)
   })
 
-  it('never borrows another airing, station or cached opening for a general series', async () => {
-    expect((await prepare(title)).detailEpisode).toBeNull()
-    expect((await prepare({ ...title, detailEpisode: null, tvAiring: joyn })).detailEpisode).toBeNull()
+  it('uses available airing evidence for general series entries too', async () => {
+    expect((await prepare(title)).detailEpisode).toEqual(waipu.episode)
+    expect((await prepare({ ...title, detailEpisode: null, tvAiring: joyn })).detailEpisode).toEqual(waipu.episode)
+  })
+
+  it('never borrows another airing or station to enrich a specific opening', async () => {
     expect((await prepare({ ...title, tvAiring: joyn }, [{ ...waipu, stationId: 'andere' }])).detailEpisode).toEqual(joyn.episode)
     expect((await prepare({ ...title, tvAiring: joyn }, [{ ...waipu,
       startTime: '2026-10-14T10:45:00Z', stopTime: '2026-10-14T11:35:00Z' }])).detailEpisode).toEqual(joyn.episode)

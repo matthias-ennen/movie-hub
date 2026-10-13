@@ -95,8 +95,11 @@ Weitere Korrektur vom 13.10.: Joyn ergänzt fehlende Episodennummern auch bei be
 erkannten Serien im Import/Nachtlauf. Der gemeinsame TV-Merge erhält vollständige
 Angaben und verhindert eine Vorauswahl bei Nummernkonflikten. Staffel/Folge stehen
 unten in Auswahl/TV-Ausstrahlung; die doppelte Zeile unter dem Serientitel entfällt.
-Die Folgenübersicht verwendet denselben runden Schließen-Button und dieselben
-Randabstände wie die Detailseite. Keine zusätzlichen Datenabfragen in der App.
+Folgen- und Filmreihenübersicht verwenden denselben runden Schließen-Button und
+dieselben Randabstände wie die Detailseite. Auch allgemeine Serieneinstiege nutzen
+vorhandene Episodenangaben der angezeigten TV-Ausstrahlung für die Vorauswahl;
+eine ausdrücklich gewählte Folge und spätere manuelle Auswahl bleiben vorrangig.
+Keine zusätzlichen Datenabfragen in der App.
 
 Die vorgezogenen Korrekturen [#413 – persönliche Smart-Reihen](https://github.com/matthias-ennen/movie-hub/issues/413) und [#415 – Schauspielersuche](https://github.com/matthias-ennen/movie-hub/issues/415) sind über PR #414/#416 veröffentlicht. Beide nutzen vorhandene gemeinsame Titelmetadaten; es gibt keine zusätzlichen Abfragen beim Tippen oder je Posterreihe. Technische Prüfungen sind erfolgreich; Matthias hat beide Pakete am 12.10.2026 auf Smartphone und Fire TV ausdrücklich abgenommen. #413 und #415 sind geschlossen. Web-Suche und Reihen werden nach vollständigem App-Neustart geladen; neue native Importe mit vollständigen Besetzungsfacetten benötigen die neue APK. #329 bleibt Wartung; für öffentliche Verteilung gilt weiterhin #112.
 

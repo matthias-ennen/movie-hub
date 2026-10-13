@@ -149,11 +149,15 @@ nach Serien-ID aufgeteilten Shard-Katalog. Erst das Folgenfeld lädt sie über d
 bestehenden Cache. Die bebilderte Übersicht markiert und fokussiert die konkrete
 Folge; Bestätigen öffnet ihre Details ohne zweite Navigationskachel.
 
-`detailEpisode` hält ausschließlich den normalisierten Kontext des ursprünglichen
-EPG-Einstiegs fest. Metadaten- und Verfügbarkeitsanreicherung dürfen ihn nicht durch
-eine andere Ausstrahlung ersetzen. Allgemeine Serieneinstiege raten keine Folge.
-Bereits geladene Angaben dürfen ausschließlich bei nachgewiesen gleicher
-Ausstrahlung ergänzt werden. Die Episodenzeile unter dem Serientitel entfällt;
+`detailEpisode` hält die einmal vor Anzeige vorbereitete Episodenvorauswahl fest.
+Ein konkreter EPG-Einstieg hat Vorrang; Anreicherung ergänzt ausschließlich Angaben
+derselben Ausstrahlung. Ohne konkreten Einstieg verwendet `prepareDetailRequestItem`
+die bereits geladenen Angaben der laufenden/nächsten Ausstrahlung aus
+`resolveDetailTvAiring`, demselben Resolver wie die TV-Zeile. Das gilt unabhängig
+von der Einstiegsseite. Fehlende Nummern und Konflikte werden nicht erraten;
+alte Einstiege aus dem Metadaten-Cache werden nicht übernommen. Manuelle Auswahl
+bleibt lokaler Dialogzustand und wird nicht durch den TV-Zeitwechsel überschrieben.
+Die Episodenzeile unter dem Serientitel entfällt;
 TV-Ausstrahlung und Staffel-/Folgenauswahl tragen die Information unten.
 Staffelwahl aktualisiert das Poster mit Rückfall auf das Serienposter; unbekannte
 oder fehlende Angaben bleiben als Auswahl/fehlende Daten sichtbar. Eine Episode
@@ -186,9 +190,9 @@ dieselbe Geometrie und dieselben festen Buttonplätze; vor der Bereitschaft sind
 Stift und Glocke sichtbar, aber deaktiviert. Schließen bleibt aktiv. `DetailActions`,
 Bearbeitung, Erinnerungen und Seriennavigation sind eigene Bausteine; das
 eigentliche Detailfeature bleibt verzögert geladen.
-Die Folgenübersicht nutzt ebenfalls `DetailActions` für den runden Schließen-Button
-mit denselben Randabständen außerhalb des Listen-Scrollbereichs; die aktuelle
-Folge behält den Anfangsfokus.
+Folgen- und Filmreihenübersicht nutzen ebenfalls `DetailActions` für den runden
+Schließen-Button mit denselben Randabständen außerhalb des Listen-Scrollbereichs;
+die aktuelle Folge bzw. der aktuelle Film behält den Anfangsfokus.
 
 Die Inhaltsreihenfolge entspricht Matthias' Nachbesserung vom 13.10.2026:
 Titel/Kerndaten, Beschreibung, Besetzung, Staffeln/Folgen beziehungsweise Filmreihe,
