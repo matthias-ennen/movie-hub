@@ -9,7 +9,7 @@ export default function CollectionPicker({ filmCollection, collectionParts, curr
   item, artworkOptions, getTitleState, isProviderEnabled, collectionBusyId, selectCollectionPart, onClose }) {
   return <DetailDialog className="media-panel collection-panel" labelledBy="collection-picker-heading"
     onClose={onClose} busy={Boolean(collectionBusyId)} initialFocus='[data-collection-initial="true"]'>
-    <DialogHeading id="collection-picker-heading" subtitle="Nach Veröffentlichung" onClose={onClose}>{filmCollection.name}</DialogHeading>
+    <DialogHeading id="collection-picker-heading" subtitle="Nach Veröffentlichung" onClose={onClose} floatingClose>{filmCollection.name}</DialogHeading>
             <div className="collection-part-grid" aria-label={`Alle Teile von ${filmCollection.name}`}>
               {collectionParts.map((part, index) => {
                 const isCurrent = Number(part.tmdbId) === Number(item.tmdbId)

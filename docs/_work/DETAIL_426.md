@@ -159,3 +159,42 @@ TV-Datenerneuerung prüfen. Manuelle Abnahme bleibt offen.
   Notiz/Datum/Medien, Entwürfe, Tab-Begrenzung und Lade-/Fehleransicht.
 - Kein nativer Code geändert. Veröffentlichung und einmalige Joyn-Aktualisierung
   werden im Issue nachgewiesen; Geräteabnahme durch Matthias bleibt offen.
+
+## Einheitliche Vorauswahl – Freigabe 13.10.2026, 14:40 Uhr
+
+Matthias: „Umsetzen und Feedback“. Zwei gesammelte Korrekturen:
+
+- Verfügbare Staffel-/Folgenangaben auf allen Einstiegsseiten nutzen. Eine
+  ausdrücklich gewählte Folge bleibt vorrangig; ohne konkreten Einstieg wird
+  die laufende/nächste Ausstrahlung über denselben Resolver wie die TV-Zeile
+  verwendet. Auswahl einmal vor dem Anzeigen vorbereiten, manuelle Änderungen
+  erhalten, Konflikte und fehlende Nummern nicht erraten. Keine Zusatzabfragen.
+- Filmreihenübersicht: gemeinsamer runder Schließen-Button wie Detailseite und
+  Folgenübersicht, gleiche Randabstände und feste Position außerhalb des
+  scrollenden Inhalts. Auswahlfokus und Rückweg bleiben erhalten.
+
+Reproduktion: Bei Law & Order: SVU enthält der öffentliche TV-Datensatz für
+13.10., 14:10 Uhr, 13th Street korrekt S16E1 „Verschwundene Mädchen“. Allgemeiner
+Serienaufruf erzeugt bislang dennoch eine leere Vorauswahl. Konkreter TV-Einstieg
+funktioniert. Geprüft werden beide Wege, fehlende/partielle/widersprüchliche und
+abgelaufene Angaben sowie manuelle Auswahl, Rückfokus und Filmreihen-X in vier
+Bildschirmgrößen. Keine Änderung an Import, Nachtlauf oder persönlichen Daten.
+
+### Technisches Ergebnis
+
+- Gemeinsame Detailvorbereitung nutzt für allgemeine Serienaufrufe denselben
+  TV-Resolver wie die Terminzeile. Konkrete Einstiege und manuelle Auswahl bleiben
+  erhalten; kein zusätzlicher Netzabruf und keine neue Abhängigkeit.
+- Filmreihen- und Folgenübersicht teilen `DetailActions` und dieselben
+  CSS-Randabstände; der Schließen-Button liegt außerhalb der scrollenden Liste.
+- **999 Anwendungstests in 160 Dateien erfolgreich**, Produktionsbuild und
+  Diff-Prüfung erfolgreich. Regressionen umfassen allgemeine/konkrete Einstiege,
+  veralteten Metadaten-Cache, abgelaufene/partielle/widersprüchliche Angaben.
+- Browserprüfung mit echten Komponenten bei 1280×720, 844×390, 667×375 und 390×844:
+  SVU S16E1 über beide Einstiege, fokussierte Folge, manuelle Folgen-/Staffelwahl,
+  identische Schließen-Geometrie und -Gestaltung, feste Position beim Scrollen,
+  Fokusrückkehr und keine Überbreite/Browserfehler. Screenshots kontrolliert.
+- Bestehende Detail-/Editor-/Erinnerungsprüfung auf TV-Breite und Mobil erneut
+  erfolgreich. Keine echten Benutzerdaten geändert; physische Geräteabnahme offen.
+- CI/Android/Veröffentlichung werden in #426 nachgewiesen. App-Neustart genügt,
+  keine neue APK und kein Datenimport für diese Korrektur erforderlich.

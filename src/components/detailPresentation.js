@@ -4,6 +4,7 @@ import { normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
 import { mergeLiveAvailability } from '../sources/liveAvailabilityIndex.js'
 import { episodeReference, mergeEpisodeReferences, openingEpisode } from '../catalog/episodeContext.js'
 import { areEquivalentTvAirings } from '../sources/mergeTvAirings.js'
+import { resolveDetailTvAiring } from '../tv/detailTvAiring.js'
 
 const DETAIL_IMAGE_WAIT_MS = 1_500
 
@@ -24,8 +25,9 @@ export async function prepareDetailRequestItem(item, {
     liveAvailabilityEntries,
     { now: liveAvailabilityNow, acceptLiveProvider },
   )
-  // Enrich only the explicit opening broadcast with already loaded evidence.
-  // Never take the next airing or a previous opening from the metadata cache.
+  // Preserve an explicit episode and enrich only that same broadcast. General
+  // title entries use the same current/next airing as the detail TV line.
+  // Never inherit a previous opening from the metadata cache.
   let detailEpisode = openingEpisode(item)
   if (item?.tvAiring && !(Object.prototype.hasOwnProperty.call(item, 'detailEpisode') && item.detailEpisode === null)) {
     const identity = { type: item.type || item.mediaType, tmdbId: item.tmdbId }
@@ -36,6 +38,8 @@ export async function prepareDetailRequestItem(item, {
       { ...item.tvAiring, ...identity }, { ...airing, ...identity },
     ))
     detailEpisode = mergeEpisodeReferences(detailEpisode, ...sameBroadcast.map(episodeReference))
+  } else if (!detailEpisode && (item?.type === 'series' || item?.mediaType === 'tv')) {
+    detailEpisode = episodeReference(resolveDetailTvAiring(liveDetail, { now: liveAvailabilityNow }))
   }
   const presented = presentArtwork(liveDetail, artworkOptions)
   return item?.type === 'series' || item?.mediaType === 'tv'
