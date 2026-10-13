@@ -1,6 +1,6 @@
 # Movie Hub – Issue-Plan
 
-Stand: 12. Oktober 2026
+Stand: 13. Oktober 2026
 
 ## Arbeitsprinzip
 
@@ -30,24 +30,29 @@ Am 12.10.2026 zusätzlich abgeschlossen:
 
 Matthias bestätigte den gemeinsamen Josh-Hartnett-/„30 Days of Night“-Abnahmeschritt auf Smartphone und Fire TV ausdrücklich mit „Abgenommen“. Beide Issues sind geschlossen; die Hauptstrecke #314 bleibt unverändert.
 
+Am 13.10.2026 zusätzlich abgeschlossen:
+
+- #387 – Einstellungen, Navigation und Stilkorrektur über #422/#424/#425;
+  Matthias bestätigt den vorgelegten Stand mit „Das ist abgenommen.“.
+  Technische Nachweise und Abschluss: [SETTINGS.md](SETTINGS.md).
+
 ## Aktuelle Priorisierung
 
-### Vorgezogen: #387 – Einstellungen und konsistente Anbieterregeln
+### Nächstes Paket: #426 – Detailseite aufräumen und verbessern
 
-Erste Stufe vom 12.10.2026 über PR #422 veröffentlicht: gemeinsame
-Anbieter-/Senderordnung und Live-Auswahl, passende Posterreihen auf allen Seiten.
-Freigegebenes Fine-Tuning vom 13.10.: elf direkte Kacheln unter Profil,
-Für alle Profile und Dieses Gerät, Breadcrumb und erhaltener Rückkehrfokus.
-970 Unit-Tests, Build und Browserprüfung erfolgreich; CI/Veröffentlichung
-im Folge-PR nachweisen, Geräteabnahme noch offen.
-Details: [SETTINGS.md](SETTINGS.md). #384 bleibt bis danach zurückgestellt.
+Nach Abnahme von #387 ausdrücklich als nächstes Arbeitspaket eröffnet.
+Zunächst Wünsche/Screenshots sammeln, aktuelle Detailstruktur und Bedienung
+prüfen, dann konkrete Korrekturen und Aufwand kurz vorstellen und gemeinsam
+festlegen. Vorhandenen MovieHub-Stil, Funktionen, Datenregeln und Performance
+erhalten. Noch keine Freigabe für einen konkreten Detailseiten-Umbau.
+#384 bleibt geparkt; #328/#391 werden nicht automatisch mit umgesetzt.
 
 ### 1. #314 – Mitteilungs-Erweiterungen
 
 Das Grundpaket #118/#312/#380/#381/#382/#383 einschließlich
 `movie-hub-admin#11` ist vollständig abgenommen und abgeschlossen.
 
-1. **#384:** analysiert, bis nach #387 zurückgestellt. Geplant ist
+1. **#384:** analysiert und hinter #426 zurückgestellt. Geplant ist
    **Auch per E-Mail** je Profil, Default aus. Persönliche Inklusiv-,
    TV-Fund- und letzte TV-Meldungen; Erweiterung des früheren Umfangs.
    Gemeinsamer Backend-Versand, Vorlagen, Absender/Versanddienst,
@@ -128,8 +133,8 @@ Vor öffentlicher Veröffentlichung:
 
 ## Aktuelle Abhängigkeitskette
 
-`#387 (vorgezogen, Abnahme offen) → #314 (Grundpaket abgenommen; #384 zurückgestellt, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
+`#426 (Detailseite: Sammlung/Bestandsaufnahme) → #314 (Grundpaket abgenommen; #384 geparkt, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
 
-#280, #315, #346, #118, #312, #380, #381, #382, #383 und `movie-hub-admin#11` sind abgeschlossen. Die reguläre Datenfortschreibung
+#280, #315, #346, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. Die reguläre Datenfortschreibung
 ist bestätigt; Startverzögerungen bleiben unter Beobachtung. #329 bleibt Wartung. Movie Hub Admin bleibt ein getrenntes Repository;
 die bereits abgenommene Rücknahme wird nicht erneut als zukünftige Arbeit geführt.

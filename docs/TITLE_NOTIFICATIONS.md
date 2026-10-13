@@ -1,4 +1,4 @@
-# Titelbezogene Mitteilungen – Stand 12.10.2026
+# Titelbezogene Mitteilungen – Stand 13.10.2026
 
 ## Produktiv- und Abnahmestand
 
@@ -27,7 +27,12 @@ vorhandenen Nachweise akzeptiert; kein zusätzlicher vom Assistenten
 durchgeführter realer Providerwechsel wird behauptet. Bereits bestätigte
 Tests werden nicht erneut angefordert.
 
-### Nächstes Arbeitspaket: #384 – Auch per E-Mail je Profil
+### Zurückgestelltes Arbeitspaket: #384 – Auch per E-Mail je Profil
+
+Priorität vom 13.10.: #387 (Einstellungen) ist abgenommen und abgeschlossen.
+Als nächstes Paket ist #426 (Detailseite aufräumen und verbessern) eröffnet.
+Das E-Mail-Paket bleibt geparkt; die folgende Analyse und Schätzung bleiben
+unverändert gültiger Planungsstand.
 
 **Aktuell nur Analyse und Aufwandsschätzung beauftragt.** Der Nutzerwunsch
 erweitert die frühere Beschränkung auf die letzte TV-Erinnerung:
