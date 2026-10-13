@@ -1,7 +1,32 @@
 import { describe, expect, it } from 'vitest'
-import { selectSeriesSeasonRefreshCandidates } from '../scripts/generate-series-details.mjs'
+import { collectLiveSeasonPriorities, selectSeriesSeasonRefreshCandidates } from '../scripts/generate-series-details.mjs'
 
 describe('series season refresh priority', () => {
+  it('bevorzugt tatsächlich laufende Staffeln und ignoriert abgelaufene Ausstrahlungen', () => {
+    const now = new Date('2026-10-13T13:00:00Z')
+    const air = (start, stop, seasonNumber) => ({ startTime: `2026-10-13T${start}:00Z`, stopTime: `2026-10-13T${stop}:00Z`, seasonNumber })
+    const priorities = collectLiveSeasonPriorities([
+      { type: 'series', tmdbId: 1, numberOfSeasons: 2, airings: [air('15:00', '16:00', 1)] },
+      { type: 'series', tmdbId: 88971, numberOfSeasons: 6, airings: [air('12:30', '13:30', 6)] },
+      { type: 'series', tmdbId: 3, numberOfSeasons: 1, airings: [air('12:00', '13:00', 1)] },
+      { type: 'series', tmdbId: 4, numberOfSeasons: 2, airings: [air('12:30', '13:30', null)] },
+    ], { now })
+    expect(priorities.has('3:1')).toBe(false)
+    expect(priorities.has('4:1')).toBe(false)
+    expect(priorities.has('1:2')).toBe(false)
+    const references = [{ seriesTmdbId: 1, seasonNumber: 1 }, { seriesTmdbId: 88971, seasonNumber: 6 }]
+    expect(selectSeriesSeasonRefreshCandidates(references, new Map(), {
+      now, limit: 1, prioritySeriesIds: new Set([1, 88971]), liveSeasonPriorities: priorities,
+    })).toEqual([references[1]])
+  })
+
+  it('priorisiert bei unbekannter oder abweichender Staffel den gesamten Katalogbestand', () => {
+    const title = { type: 'series', tmdbId: 902, numberOfSeasons: 2,
+      airings: [{ startTime: '2026-10-13T14:00:00Z', stopTime: '2026-10-13T15:00:00Z', episodeTitle: 'Das Panzerdeck', seasonNumber: 4 }] }
+    expect([...collectLiveSeasonPriorities([title], { now: Date.parse('2026-10-13T13:00:00Z') }).keys()])
+      .toEqual(['902:1', '902:2'])
+  })
+
   it('fills missing TV seasons before aged catalog entries without refetching fresh TV seasons', () => {
     const references = [1, 2, 3].map(seriesTmdbId => ({ seriesTmdbId, seasonNumber: 1 }))
     const entries = new Map([

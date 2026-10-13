@@ -19,6 +19,16 @@ const prepare = (item, airings) => prepareDetailRequestItem(item, {
 })
 
 describe('kanonische TV-Episodenzuordnung', () => {
+  it('nutzt vorhandene Nummern bei generischem Katalogtitel und erhält den aussagekräftigen TV-Titel', () => {
+    const catalog = ep(88, 9, 8, 'Folge 8')
+    const result = resolveCatalogEpisode({ seasonNumber: 9, episodeNumber: 8, title: 'Arglistige Täuschung' }, [catalog])
+    expect(result).toMatchObject({ status: 'matched', catalog: { tmdbId: 88, title: 'Arglistige Täuschung' } })
+    expect(matchingEpisode([catalog], navigationEpisode({ catalog: result.catalog }))).toBe(catalog)
+    expect(resolveCatalogEpisode({ title: 'Der Felsen (2)' }, [catalog], { complete: true }).status).toBe('unmatched')
+    expect(resolveCatalogEpisode({ seasonNumber: 9, episodeNumber: 8, title: 'Arglistige Täuschung' },
+      [ep(88, 9, 8, 'Eine andere Folge')], { complete: true }).status).toBe('conflict')
+  })
+
   it('ordnet abweichende Yu-Gi-Oh!-Nummerierung über einen eindeutigen Titel zu', () => {
     const episodes = [ep(1857635, 1, 165, 'Das Panzerdeck'), ep(2, 1, 21, 'Ärger im Doppelpack (3)')]
     const result = resolveCatalogEpisode({ seasonNumber: 4, episodeNumber: 21, title: 'Das Panzerdeck' }, episodes, { complete: true })
