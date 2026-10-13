@@ -2,6 +2,34 @@
 
 Stand: 13.10.2026 · Umsetzung und Navigations-Fine-Tuning von Matthias freigegeben.
 
+## Freigegebene Stilkorrektur – 13.10.2026
+
+Nach Screenshots gesammelt und mit „Okay. Das setzen wir jetzt erstmal um.“
+freigegeben. Diese Vorgaben ersetzen die abweichenden Kopf-/Gruppenstile und
+die zusätzliche Geltungsbereich-Zeile der unmittelbar vorherigen Stufe:
+
+- Profile & Konto direkt im bisherigen kleinen Dein-Movie-Hub-Stil;
+  große doppelte Überschrift und Einleitung entfernen.
+- Einstellungen und kompletter Breadcrumb im vorhandenen `eyebrow`-Stil,
+  gemeinsame Abstände. Einstellungen bleibt ohne dauerhafte Buttonfläche
+  bedienbar und zeigt weiterhin Tastatur-/D-Pad-Fokus.
+- Alle zusätzlichen Geltungsbereich-Zeilen unter dem Breadcrumb entfernen.
+  Die drei Zuordnungen auf der Übersicht bleiben erhalten.
+- Drei umschließende `settings-panel`-Kacheln mit `settings-kicker`-
+  Überschriften wie in Profile & Konto; elf direkte Unterseiten darin.
+- Bestehende Navigation, Fokus-/Scrollwiederherstellung und Werte erhalten.
+  Keine neue Funktion, Datenlogik, Abhängigkeit oder native Änderung.
+
+Prüfung: Produktionsbuild und Diff-Prüfung erfolgreich. Chromium bestätigt
+gleiche berechnete Schrift-/Farb-/Abstandswerte der Seitenüberschriften und
+Breadcrumbs, drei Kacheln mit 6/3/2 Einträgen sowie entfernte Zusatzzeilen.
+Alle elf Direktwege, exakte Fokus-/Scrollrückkehr, sichtbarer Breadcrumb-Fokus,
+228 Sender mit Sticky-Kopf, Profilwechsel und Geräteverbindungen erfolgreich.
+1280 × 720 und 390 × 844 ohne Überlauf/Browserfehler; Übersicht, Profilseite
+und lange mobile Breadcrumb visuell geprüft. Externe Daten-/Gerätegrenzen
+simuliert; keine produktiven Kontowerte geändert. CI folgt im PR, echte
+Geräteabnahme bleibt offen. Keine neue APK nötig.
+
 ## Freigegebenes Navigations-Fine-Tuning – 13.10.2026
 
 Die folgenden Vorgaben ersetzen die erste Vier-Gruppen-Navigation, nicht

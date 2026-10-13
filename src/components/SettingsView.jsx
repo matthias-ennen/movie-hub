@@ -27,24 +27,22 @@ export default function SettingsView({
   const { activeProfile } = useProfiles()
   const current = SETTINGS_PAGES[page] || SETTINGS_PAGES.overview
   const { mainRef, headerRef, navigate } = useSettingsNavigation(page, onNavigate, activeProfile?.id)
-  const scopeLabel = settingsScopeLabel(current.group, activeProfile?.displayName)
 
   return <main ref={mainRef} className="browse-page profile-page app-settings-page">
-    <header ref={headerRef} className="settings-page-header">
-      {current.parent ? <nav className="settings-breadcrumbs" aria-label="Einstellungspfad">
+    <header ref={headerRef} className="settings-page-header settings-page-heading">
+      {current.parent ? <nav className="settings-breadcrumbs eyebrow" aria-label="Einstellungspfad">
         <ol>
           <li><SettingsButton data-settings-back="true" onClick={() => navigate(current.parent)}>
             {SETTINGS_PAGES[current.parent].title}
           </SettingsButton></li>
           <li className="settings-current-page" aria-current="page"><span aria-hidden="true">›</span><h1>{current.title}</h1></li>
         </ol>
-      </nav> : <h1>{current.title}</h1>}
-      {scopeLabel && <p className="settings-page-scope">{scopeLabel}</p>}
+      </nav> : <h1 className="eyebrow">{current.title}</h1>}
     </header>
     <div data-settings-content key={`${page}:${activeProfile?.id || ''}`}>
-      {page === 'overview' && SETTINGS_GROUPS.map((group) => <section className="settings-overview-group" key={group.id}
+      {page === 'overview' && SETTINGS_GROUPS.map((group) => <section className="settings-panel settings-overview-group" key={group.id}
         aria-labelledby={`settings-group-${group.id}`}>
-        <h2 id={`settings-group-${group.id}`}>{settingsScopeLabel(group.id, activeProfile?.displayName)}</h2>
+        <h2 className="settings-kicker" id={`settings-group-${group.id}`}>{settingsScopeLabel(group.id, activeProfile?.displayName)}</h2>
         <nav className="settings-navigation" aria-labelledby={`settings-group-${group.id}`}>
           {group.pages.map(([id, entry]) => <SettingsButton key={id} className="settings-navigation-entry"
             data-settings-entry={id} onClick={() => navigate(id)}>

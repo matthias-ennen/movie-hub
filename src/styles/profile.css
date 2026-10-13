@@ -3,8 +3,15 @@
   margin: 0 auto;
 }
 
-.profile-heading {
-  margin-bottom: clamp(2rem, 4vw, 3.2rem);
+.settings-page-heading {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin-bottom: var(--space-5);
+}
+
+.settings-page-heading > .eyebrow {
+  margin: 0;
 }
 
 .settings-panel {
