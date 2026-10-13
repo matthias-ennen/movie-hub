@@ -35,25 +35,30 @@ Am 13.10.2026 zusätzlich abgeschlossen:
 - #387 – Einstellungen, Navigation und Stilkorrektur über #422/#424/#425;
   Matthias bestätigt den vorgelegten Stand mit „Das ist abgenommen.“.
   Technische Nachweise und Abschluss: [SETTINGS.md](SETTINGS.md).
+- #426 – Detailseite einschließlich aller freigegebenen Nachbesserungen;
+  Stand `ddd0dbd` um 19:05 Uhr (Europe/Berlin) ausdrücklich zum Abschluss freigegeben.
+  Nachweise und Abnahme: [DETAIL_426.md](_work/DETAIL_426.md).
 
 ## Aktuelle Priorisierung
 
-### Aktuelles Paket: #426 – Detailseite aufräumen und verbessern
+### Zuletzt abgeschlossen: #426 – Detailseite aufräumen und verbessern
 
-Umsetzung am 13.10.2026 ausdrücklich freigegeben und geliefert: gemeinsame
-Dialog-/Fokusregeln, Stift/Glocke/Schließen, Notiz und Gesehen-Datum im Menü,
-einheitliche Staffel-/Folgenkachel mit bestehender bebilderter Übersicht.
-Konkrete EPG-Episoden bleiben vorgewählt; fehlende Angaben werden nicht geraten.
-Technischer Stand: [Detailpaket](_work/DETAIL_426.md).
-Die Sicht-/Geräteabnahme durch Matthias bleibt offen. #384 bleibt geparkt;
-#328/#391 gehören nicht automatisch zu diesem Umfang.
+Matthias hat den veröffentlichten Stand `ddd0dbd` am 13.10.2026 um 19:05 Uhr
+(Europe/Berlin) ausdrücklich zum Abschluss freigegeben. Gemeinsame Dialog-/Fokusregeln,
+Stift/Glocke/Schließen, Bearbeitungsmenü und die einheitliche Staffel-/Folgenkachel
+mit bebilderter Übersicht sind geliefert. Keine erklärenden Zuordnungshinweise;
+ohne nutzbaren Folgenbestand entfällt die Kachel. Die TV-Zeile enthält nur Datum,
+Uhrzeit und Sender. Der gemeinsame Datenlauf ergänzt und prüft vorhandene Episodenangaben.
+Abnahme, veröffentlichter Stand und technische Nachweise: [Detailpaket](_work/DETAIL_426.md).
+Keine offene Paketabnahme. Spätere Schönheitskorrekturen bleiben separate Nacharbeiten;
+#328/#391 gehören nicht zu diesem abgeschlossenen Umfang.
 
 ### 1. #314 – Mitteilungs-Erweiterungen
 
 Das Grundpaket #118/#312/#380/#381/#382/#383 einschließlich
 `movie-hub-admin#11` ist vollständig abgenommen und abgeschlossen.
 
-1. **#384:** analysiert und hinter #426 zurückgestellt. Geplant ist
+1. **#384:** analysiert und als nächstes vorgesehen; noch nicht gestartet. Geplant ist
    **Auch per E-Mail** je Profil, Default aus. Persönliche Inklusiv-,
    TV-Fund- und letzte TV-Meldungen; Erweiterung des früheren Umfangs.
    Gemeinsamer Backend-Versand, Vorlagen, Absender/Versanddienst,
@@ -134,8 +139,8 @@ Vor öffentlicher Veröffentlichung:
 
 ## Aktuelle Abhängigkeitskette
 
-`#426 (Detailseite: umgesetzt, Abnahme offen) → #314 (Grundpaket abgenommen; #384 geparkt, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
+`#314 (Grundpaket abgenommen; nächstes Paket #384, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
 
-#280, #315, #346, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. Die reguläre Datenfortschreibung
+#280, #315, #346, #118, #312, #380, #381, #382, #383, #387, #426 und `movie-hub-admin#11` sind abgeschlossen. Die reguläre Datenfortschreibung
 ist bestätigt; Startverzögerungen bleiben unter Beobachtung. #329 bleibt Wartung. Movie Hub Admin bleibt ein getrenntes Repository;
 die bereits abgenommene Rücknahme wird nicht erneut als zukünftige Arbeit geführt.

@@ -27,12 +27,12 @@ vorhandenen Nachweise akzeptiert; kein zusätzlicher vom Assistenten
 durchgeführter realer Providerwechsel wird behauptet. Bereits bestätigte
 Tests werden nicht erneut angefordert.
 
-### Zurückgestelltes Arbeitspaket: #384 – Auch per E-Mail je Profil
+### Nächstes vorgesehenes Arbeitspaket: #384 – Auch per E-Mail je Profil
 
-Priorität vom 13.10.: #387 (Einstellungen) ist abgenommen und abgeschlossen.
-Als nächstes Paket ist #426 (Detailseite aufräumen und verbessern) eröffnet.
-Das E-Mail-Paket bleibt geparkt; die folgende Analyse und Schätzung bleiben
-unverändert gültiger Planungsstand.
+Priorität vom 13.10.2026, 19:05 Uhr (Europe/Berlin): #387 (Einstellungen) und
+#426 (Detailseite aufräumen und verbessern) sind abgenommen und abgeschlossen.
+Damit ist #384 wieder das nächste vorgesehene Arbeitspaket. Die folgende Analyse
+und Schätzung bleiben Planungsstand; die Umsetzung ist noch nicht gestartet.
 
 **Aktuell nur Analyse und Aufwandsschätzung beauftragt.** Der Nutzerwunsch
 erweitert die frühere Beschränkung auf die letzte TV-Erinnerung:
@@ -77,8 +77,8 @@ und Issue-Status und benötigen keinen App-/Backend-Deploy.
 
 ## Bedienung
 
-Film-/Seriendetails → Meine Einstellungen → Benachrichtigen: „Wenn inklusive“ und
-„Wenn im TV“ sind getrennte, profilbezogene Schalter. Die Glocke vereint diese
+Film-/Seriendetails → Glocken-Button: „Wenn inklusive“ und
+„Wenn im TV“ sind getrennte, profilbezogene Schalter. Die Glocke im Hauptmenü vereint diese
 persönlichen Meldungen mit den globalen Admin-Mitteilungen. Beim Öffnen eines
 persönlichen Treffers wird er gelesen und führt zur Titel-Detailansicht.
 Es gibt weder Betriebssystem-Push noch E-Mail oder ein Startfenster für diese
