@@ -115,14 +115,13 @@ body.tv-mode .provider-selection-row:focus-visible {
   outline-offset: var(--focus-offset);
 }
 
-/* Shared settings hierarchy and controls, with one page scroll surface. */
+/* Flat settings groups and controls, with one page scroll surface. */
 .settings-navigation {
   display: grid;
   gap: var(--space-4);
 }
 
-.settings-navigation-entry,
-.settings-back {
+.settings-navigation-entry {
   color: var(--color-text);
   background: var(--color-surface-soft);
   border: 1px solid var(--color-line);
@@ -141,16 +140,15 @@ body.tv-mode .provider-selection-row:focus-visible {
 }
 
 .settings-navigation-entry > span:first-child {
+  min-width: 0;
   display: grid;
   gap: 0.4rem;
 }
 
 .settings-navigation-entry small { color: var(--color-muted); }
-.settings-navigation-entry strong { font-size: 1.15rem; }
+.settings-navigation-entry strong { font-size: 1.15rem; overflow-wrap: anywhere; }
 .settings-navigation-entry:hover,
-.settings-navigation-entry:focus-visible,
-.settings-back:focus-visible { border-color: var(--color-focus); }
-.settings-back { margin-top: var(--space-3); min-height: 44px; }
+.settings-navigation-entry:focus-visible { border-color: var(--color-focus); }
 .app-settings-page .settings-panel { max-width: none; width: 100%; }
 .settings-toggle { grid-template-columns: minmax(0, 1fr) auto auto; }
 .settings-toggle.has-badge { grid-template-columns: 48px minmax(0, 1fr) auto auto; }
@@ -166,7 +164,58 @@ body.tv-mode .provider-selection-row:focus-visible {
   .settings-toggle.has-badge { grid-template-columns: 40px minmax(0, 1fr) auto; }
 }
 
-.app-settings-page .page-heading h1 {
+.settings-page-header {
+  position: sticky;
+  top: var(--settings-topbar-height, var(--topbar-height));
+  z-index: 20;
+  padding-block: 0.7rem 0.85rem;
+  margin-bottom: 1.4rem;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-bg);
+}
+
+.settings-page-header h1 {
+  margin: 0;
   font-size: clamp(1.65rem, 4vw, 2.6rem);
   overflow-wrap: anywhere;
+}
+
+.settings-breadcrumbs ol {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-breadcrumbs button {
+  min-height: 44px;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  background: var(--color-surface-soft);
+}
+
+.settings-breadcrumbs button:hover,
+.settings-breadcrumbs button:focus-visible { border-color: var(--color-focus); }
+.settings-current-page { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.settings-current-page > span { color: var(--color-muted); }
+.settings-current-page h1 { font-size: clamp(1.2rem, 2.2vw, 1.7rem); }
+.settings-page-scope { margin: 0.35rem 0 0; color: var(--color-muted); font-size: 0.9rem; }
+.settings-overview-group + .settings-overview-group { margin-top: 1.8rem; }
+.settings-overview-group h2 { margin: 0 0 0.85rem; font-size: clamp(1.15rem, 2vw, 1.5rem); }
+.app-settings-page [data-settings-content] [data-focusable='true'] {
+  scroll-margin-top: calc(var(--settings-topbar-height, var(--topbar-height)) + var(--settings-header-height, 100px) + 16px);
+  scroll-margin-bottom: 24px;
+}
+
+@media (min-width: 761px) {
+  .settings-navigation { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1200px) {
+  .settings-navigation { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

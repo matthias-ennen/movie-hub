@@ -1571,7 +1571,6 @@ function MovieHub({ user }) {
           <LazyProfileView
             user={user}
             onSignOut={handleSignOut}
-            onOpenSettings={(page) => { handleViewChange('settings'); setSettingsPage(page) }}
           />
         </Suspense>
       )}

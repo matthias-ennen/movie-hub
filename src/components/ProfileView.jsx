@@ -2,7 +2,7 @@ import SettingsButton from './SettingsButton.jsx'
 import { useEffect, useState } from 'react'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 
-export default function ProfileView({ user, onSignOut, onOpenSettings }) {
+export default function ProfileView({ user, onSignOut }) {
   const {
     profiles,
     activeProfile,
@@ -120,14 +120,6 @@ export default function ProfileView({ user, onSignOut, onOpenSettings }) {
           </form>
         )}
         {profileMessage && <p className="profile-message">{profileMessage}</p>}
-      </section>
-
-      <section className="settings-panel">
-        <h2>Darstellung & Posterreihen</h2>
-        <p>Design, Kategorien und persönliche Reihen verwaltest du in den Einstellungen dieses Profils.</p>
-        <SettingsButton className="network-settings-open" onClick={() => onOpenSettings?.('display')}>
-          Einstellungen öffnen
-        </SettingsButton>
       </section>
 
       <section className="settings-panel account-panel" aria-labelledby="account-heading">

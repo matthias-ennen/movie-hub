@@ -1,6 +1,6 @@
-import { useLayoutEffect, useRef } from 'react'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
-import { SETTINGS_PAGES, settingsChildren, settingsParent } from '../settings/settingsNavigation.js'
+import { SETTINGS_PAGES, SETTINGS_GROUPS, settingsScopeLabel } from '../settings/settingsNavigation.js'
+import { useSettingsNavigation } from '../settings/useSettingsNavigation.js'
 import SettingsButton from './SettingsButton.jsx'
 import DisplaySettings from './DisplaySettings.jsx'
 import ThemeSettings from './ThemeSettings.jsx'
@@ -9,7 +9,7 @@ import PersonalRowsSettings from './PersonalRowsSettings.jsx'
 import ContentDisplaySettings from './ContentDisplaySettings.jsx'
 import ProviderSettings from './ProviderSettings.jsx'
 import { WaipuStationSettings, JoynStationSettings } from './StationSettings.jsx'
-import ConnectionSettings from './ConnectionSettings.jsx'
+import { NetworkSettings, TmdbConnectionSettings } from './ConnectionSettings.jsx'
 import TitleWatchSettings from './TitleWatchSettings.jsx'
 
 export default function SettingsView({
@@ -25,43 +25,33 @@ export default function SettingsView({
   smartFilterOptions = {},
 }) {
   const { activeProfile } = useProfiles()
-  const mainRef = useRef(null)
-  const previousPage = useRef(null)
   const current = SETTINGS_PAGES[page] || SETTINGS_PAGES.overview
-  const children = settingsChildren(page)
-
-  useLayoutEffect(() => {
-    const previous = previousPage.current
-    previousPage.current = page
-    const frame = window.requestAnimationFrame(() => {
-      const main = mainRef.current
-      const returnTarget = settingsParent(previous) === page
-        ? main?.querySelector(`[data-settings-entry="${previous}"]`)
-        : null
-      const target = returnTarget || main?.querySelector('[data-settings-content] [data-focusable="true"]')
-        || main?.querySelector('[data-settings-back]')
-      target?.focus({ preventScroll: true })
-      if (returnTarget) returnTarget.scrollIntoView({ block: 'nearest' })
-      else window.scrollTo({ top: 0, behavior: 'instant' })
-    })
-    return () => window.cancelAnimationFrame(frame)
-  }, [page])
+  const { mainRef, headerRef, navigate } = useSettingsNavigation(page, onNavigate, activeProfile?.id)
+  const scopeLabel = settingsScopeLabel(current.group, activeProfile?.displayName)
 
   return <main ref={mainRef} className="browse-page profile-page app-settings-page">
-    <div className="page-heading profile-heading">
-      <p className="eyebrow">Dein Movie Hub</p>
-      <h1>{current.title}</h1>
-      {current.parent && <SettingsButton className="settings-back" data-settings-back="true"
-        onClick={() => onNavigate(current.parent)}>← {SETTINGS_PAGES[current.parent].title}</SettingsButton>}
-    </div>
+    <header ref={headerRef} className="settings-page-header">
+      {current.parent ? <nav className="settings-breadcrumbs" aria-label="Einstellungspfad">
+        <ol>
+          <li><SettingsButton data-settings-back="true" onClick={() => navigate(current.parent)}>
+            {SETTINGS_PAGES[current.parent].title}
+          </SettingsButton></li>
+          <li className="settings-current-page" aria-current="page"><span aria-hidden="true">›</span><h1>{current.title}</h1></li>
+        </ol>
+      </nav> : <h1>{current.title}</h1>}
+      {scopeLabel && <p className="settings-page-scope">{scopeLabel}</p>}
+    </header>
     <div data-settings-content key={`${page}:${activeProfile?.id || ''}`}>
-      {children.length > 0 && <nav className="settings-navigation" aria-label={current.title}>
-        {children.map(([id, entry]) => <SettingsButton key={id} className="settings-navigation-entry"
-          data-settings-entry={id} onClick={() => onNavigate(id)}>
-          <span><strong>{entry.title}</strong><small>{entry.description}</small></span><span aria-hidden="true">›</span>
-        </SettingsButton>)}
-      </nav>}
-      {page === 'display' && <p className="settings-hint">Für das aktive Profil: {activeProfile?.displayName ?? '–'}</p>}
+      {page === 'overview' && SETTINGS_GROUPS.map((group) => <section className="settings-overview-group" key={group.id}
+        aria-labelledby={`settings-group-${group.id}`}>
+        <h2 id={`settings-group-${group.id}`}>{settingsScopeLabel(group.id, activeProfile?.displayName)}</h2>
+        <nav className="settings-navigation" aria-labelledby={`settings-group-${group.id}`}>
+          {group.pages.map(([id, entry]) => <SettingsButton key={id} className="settings-navigation-entry"
+            data-settings-entry={id} onClick={() => navigate(id)}>
+            <span><strong>{entry.title}</strong><small>{entry.description}</small></span><span aria-hidden="true">›</span>
+          </SettingsButton>)}
+        </nav>
+      </section>)}
       {page === 'appearance' && <DisplaySettings />}
       {page === 'design' && <ThemeSettings />}
       {page === 'categories' && <CategorySettings />}
@@ -71,7 +61,8 @@ export default function SettingsView({
       {page === 'waipu' && <WaipuStationSettings stations={waipuStations} canonicalStations={waipuStations} status={waipuStationStatus} />}
       {page === 'joyn' && <JoynStationSettings stations={joynStations} canonicalStations={waipuStations} status={joynStationStatus} />}
       {page === 'notifications' && <TitleWatchSettings userId={userId} profileId={activeProfile?.id} profileName={activeProfile?.displayName} />}
-      {page === 'connections' && <ConnectionSettings />}
+      {page === 'network' && <NetworkSettings />}
+      {page === 'tmdb' && <TmdbConnectionSettings />}
     </div>
   </main>
 }

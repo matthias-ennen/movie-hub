@@ -77,10 +77,12 @@ Die Datenstrecke ist nachgewiesen; pünktlicher Start bleibt ein Überwachungspu
 
 ### Vorgezogen: #387 – Einstellungen und konsistente Anbieterregeln
 
-Umsetzung am 12.10.2026 freigegeben: vier Einstellungsgruppen, einheitliche
+Erste Stufe vom 12.10.2026 über PR #422 veröffentlicht: einheitliche
 Anbieter-/Senderordnung und Live-Auswahl sowie konsistente Posterreihen.
-968 Unit-Tests, Build und Browserprüfung erfolgreich; CI/Veröffentlichung
-im PR nachweisen, Smartphone-/Fire-TV-Abnahme noch offen.
+Freigegebenes Fine-Tuning vom 13.10.: elf direkte Kacheln unter Profil,
+Für alle Profile und Dieses Gerät, Breadcrumb und erhaltener Rückkehrfokus.
+970 Unit-Tests, Build und Browserprüfung erfolgreich; CI/Veröffentlichung
+im Folge-PR nachweisen, Smartphone-/Fire-TV-Abnahme noch offen.
 Inventar und Architektur: [SETTINGS.md](SETTINGS.md). #384 bleibt zurückgestellt.
 
 ### 1. #314 – Mitteilungs-Grundpaket abgeschlossen, Erweiterung analysieren

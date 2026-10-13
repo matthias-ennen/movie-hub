@@ -1,27 +1,38 @@
 # Einstellungen und Anbieterregeln
 
-Stand: 12.10.2026 · #387 · Umsetzung freigegeben, Geräteabnahme offen.
+Stand: 13.10.2026 · #387 · Navigation nach freigegebener Skizze umgesetzt, Geräteabnahme offen.
 
 ## Navigation und Geltungsbereich
 
-| Hauptgruppe | Unterseiten / Inhalt | Geltungsbereich |
+| Überschrift auf der Übersicht | Direkte Kacheln | Geltungsbereich |
 | --- | --- | --- |
-| Darstellung & Posterreihen | Oberfläche; Design; Meine Kategorien; Persönliche Posterreihen; Sortierung & Abwechslung | Aktives Profil |
-| Anbieter & Sender | Streaminganbieter; Waipu-Sender; Joyn-Sender | Konto, alle Profile und Geräte |
-| Mitteilungen | Beobachtete Titel und Erinnerungen | Aktives Profil |
-| Verbindungen | Netzlaufwerke; TMDB-Zugang und Synchronisierung | Zugangsdaten lokal am Gerät; synchronisierte TMDB-Inhalte kontoweit |
+| Profil: [aktiver Name] | Oberfläche; Design; Meine Kategorien; Persönliche Posterreihen; Sortierung & Abwechslung; Mitteilungen | Aktives Profil |
+| Für alle Profile | Streaminganbieter; Waipu-Sender; Joyn-Sender | Konto, alle Profile und Geräte |
+| Dieses Gerät | Netzlaufwerke; TMDB-Verbindung | Zugangsdaten lokal am Gerät; synchronisierte TMDB-Inhalte kontoweit |
+
+Die drei Gruppen sind Überschriften, keine zusätzlichen Menüseiten. Jede der
+elf Kacheln öffnet direkt den Inhalt. Die Übersicht verwendet je nach Breite
+eine, zwei oder drei Spalten im bestehenden MovieHub-Stil. Der frühere Hinweis
+unter den Kacheln entfällt; der aktive Profilname steht an der Profilgruppe.
+
+Jede Unterseite zeigt eine kompakte, beim Scrollen sichtbare Kopfzeile:
+**Einstellungen › Seitentitel**, darunter den Geltungsbereich. Breadcrumb und
+Hardware-Zurück führen zur gleichen Übersichtskachel und Scrollposition zurück.
+Die tatsächliche Höhe von Hauptnavigation und Kopfzeile bestimmt den Abstand
+für den D-Pad-Fokus, auch bei umgebrochenen Überschriften. Netzlaufwerke und
+TMDB-Verbindung sind getrennt erreichbar; jede Seite lädt nur ihre Verbindung.
 
 **Profile & Konto** im Profilmenü verwaltet weiterhin Auswahl, Namen und
-Anlegen von Profilen sowie Abmelden. Ein Link führt zu den
-Darstellungseinstellungen. Keine Funktion oder gespeicherte Auswahl wurde
-entfernt. Das E-Mail-Paket #384 ist zurückgestellt.
+Anlegen von Profilen sowie Abmelden. Ausschließlich die mittlere Verweiskachel
+zu den Einstellungen wurde entfernt; obere und untere Kachel bleiben erhalten.
+Gespeicherte Werte und Funktionen bleiben erhalten. Das E-Mail-Paket #384 ist
+zurückgestellt.
 
 Die Übersicht baut keine langen Senderlisten auf. Nur die aktive Unterseite
 wird angezeigt; Senderkataloge werden bei Sender-/TV-Bedarf geladen und bei
 erneutem Öffnen wiederverwendet. Anbieter und Sender nutzen einheitliche
 Schalter und dieselbe Panelbreite. Senderlisten bieten eine Suche und normales
-Seitenscrollen, keinen zweiten Scrollbereich. Speichern erhält den Fokus;
-Zurück führt stufenweise zum vorherigen Menüeintrag.
+Seitenscrollen, keinen zweiten Scrollbereich. Speichern erhält den Fokus.
 
 ## Anbieterinventar und Reihenfolge
 
@@ -85,13 +96,15 @@ Live-TV-Archiv.
 
 Gemeinsame Module: `providerOrder.js`, `providerSelectionModel.js`,
 `stationOrder.js`, `liveProviderSelection.js`, `providerCatalogRows.js` und
-`settingsNavigation.js`. Die bestehenden Auswahl-/Profil-Hooks bleiben die
+`settingsNavigation.js`. `useSettingsNavigation.js` kapselt ausschließlich
+Fokus, Scrollposition und die gemessenen Headerabstände, ohne Scroll-Listener
+oder React-Aktualisierung bei jeder Scrollbewegung. Die bestehenden Auswahl-/Profil-Hooks bleiben die
 Persistenzgrenze. Keine neue Collection, keine Datenmigration, keine neue
 Abhängigkeit und keine Änderung an nativen Schnittstellen.
 
-- 968 Unit-Tests in 157 Dateien erfolgreich; sieben neue gezielte
-  Konsistenztests ergänzen die vorhandenen Prüfungen.
-- Produktionsbuild erfolgreich. Haupt-JS gegenüber `091a0c95`: gzip
+- Erste Stufe vom 12.10.: 968 Unit-Tests in 157 Dateien erfolgreich; sieben
+  neue gezielte Konsistenztests ergänzten die vorhandenen Prüfungen.
+- Produktionsbuild der ersten Stufe erfolgreich. Haupt-JS gegenüber `091a0c95`: gzip
   65,79 → 67,38 KB (+1,59 KB). Settings und Profile zusammen:
   14,35 → 13,25 KB gzip; weiterhin separat nachgeladen.
 - Chromium-Prüfung mit tatsächlichen Settings-Komponenten und simulierten
@@ -101,6 +114,21 @@ Abhängigkeit und keine Änderung an nativen Schnittstellen.
   schmale Ansicht 390 × 844 ohne horizontalen Überlauf.
 - CI einschließlich Firestore-Regeltests und Veröffentlichung werden im
   zugehörigen PR und Issue belegt. Browserprüfung ersetzt keine Geräteabnahme.
+
+Navigations-Fine-Tuning vom 13.10.:
+
+- Aktuelle vollständige Suite: 970 Tests in 157 Dateien erfolgreich;
+  Produktionsbuild und `git diff --check` erfolgreich.
+- Chromium mit echten UI-Komponenten und D-Pad-Navigation, simulierten
+  Profil-/Speicher-/Geräteschnittstellen: alle elf Wege, Breadcrumb und
+  Escape-Zurück, exakte Kachel-/Scrollwiederherstellung, Profilwechsel,
+  Anbieter-Speicherfokus, Sender-Suche und 228 Sender geprüft. Fokus auf
+  Sender 101 bleibt beim Navigieren unter der Sticky-Kopfzeile sichtbar.
+- Getrennte Netzwerk-/TMDB-Aufrufe und genau zwei verbleibende Kacheln unter
+  Profile & Konto geprüft. Desktop 1280 × 720 und Mobilansicht 390 × 844
+  ohne horizontalen Überlauf; keine Browserfehler.
+- Haupt-JS: 67,42 KB gzip (+0,04 KB); Settings: 12,28 KB gzip (+0,44 KB)
+  gegenüber der ersten Stufe. Keine neue Abhängigkeit. Keine neue APK nötig.
 
 **Noch durch Matthias abzunehmen:** auf Smartphone und Fire TV Menübreiten,
 lange Senderliste und Zurück/Fokus; Anbieter-/Senderschalter über Home,
