@@ -3,6 +3,8 @@ import { loadSeriesSeasonDetail } from '../../catalog/seriesNavigation.js'
 import { episodeNumberLabel, matchingEpisode } from '../../catalog/episodeContext.js'
 import DetailDialog from './DetailDialog.jsx'
 import DetailActions, { DialogHeading } from './DetailActions.jsx'
+import DetailLayout from './DetailLayout.jsx'
+import DetailCard from './DetailCard.jsx'
 
 export default function SeriesNavigation({ item, seasons, selectedSeason, initialEpisode, onSelectSeason }) {
   const [picker, setPicker] = useState(null)
@@ -54,8 +56,7 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, initia
     : selectedEpisode?.title || 'Folge auswählen'
 
   return <>
-    <section className="series-navigation-summary" aria-labelledby="series-navigation-heading">
-      <h3 id="series-navigation-heading" className="settings-kicker">Staffeln und Folgen</h3>
+    <DetailCard className="series-navigation-summary" id="series-navigation-heading" title="Staffeln und Folgen">
       <button type="button" className="series-selection-field" data-focusable="true"
         disabled={!seasons.length} aria-haspopup="dialog" onClick={() => setPicker('seasons')}>
         <span>Staffel</span><strong>{selectedSeason ? `Staffel ${selectedSeason.seasonNumber}`
@@ -67,7 +68,7 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, initia
         disabled={!selectedSeason} aria-haspopup="dialog" onClick={showEpisodes}>
         <span>Folge</span><strong>{episodeLabel}</strong><span aria-hidden="true">›</span>
       </button>
-    </section>
+    </DetailCard>
 
     {picker === 'seasons' && <DetailDialog className="media-panel detail-selection-panel"
       labelledBy="season-picker-heading" onClose={() => setPicker(null)}
@@ -112,14 +113,13 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, initia
       </div>}
     </DetailDialog>}
 
-    {episode && <DetailDialog className="media-panel episode-detail-panel" label={`Details zu ${episode.title}`}
+    {episode && <DetailDialog className="media-panel episode-detail-panel detail-layout-panel" label={`Details zu ${episode.title}`}
       backdropClassName="media-layer detail-backdrop episode-detail-layer" onClose={() => setEpisode(null)}>
+      <DetailLayout episode actions={<DetailActions onClose={() => setEpisode(null)} />} artwork={
       <div className={episode.stillUrl ? 'episode-detail-art has-image' : 'episode-detail-art'}>
         {episode.stillUrl && <img src={episode.stillUrl} alt="" />}
         <span className="episode-detail-type">EPISODE</span>
-      </div>
-      <div className="episode-detail-copy" data-dpad-scroll-container="true">
-        <DetailActions onClose={() => setEpisode(null)} />
+      </div>}>
         <p className="eyebrow">{item.title}</p>
         <h2>{episode.title}</h2>
         <div className="episode-detail-meta"><strong>{episodeNumberLabel(episode)}</strong>
@@ -127,7 +127,7 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, initia
           {episode.runtimeMinutes && <span>{episode.runtimeMinutes} Min.</span>}
         </div>
         <p className="episode-detail-description">{episode.description || 'Für diese Folge liegt noch keine deutsche Beschreibung vor.'}</p>
-      </div>
+      </DetailLayout>
     </DetailDialog>}
   </>
 }

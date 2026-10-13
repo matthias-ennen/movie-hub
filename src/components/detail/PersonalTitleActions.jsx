@@ -1,13 +1,10 @@
+import DetailCard from './DetailCard.jsx'
+
 export default function PersonalTitleActions({ activeProfile, personalState, personalBusy, libraryLoading, personalMessage, savePersonalPatch }) {
   return (
-  <section className="personal-title-state" aria-labelledby="personal-title-state-heading" aria-busy={personalBusy}>
-    <div className="personal-title-state-heading">
-      <div>
-        <p className="personal-profile-name">{activeProfile?.displayName ?? 'Profil'}</p>
-        <h3 id="personal-title-state-heading">Meine Auswahl</h3>
-      </div>
-      {personalState.rating && <span className="personal-rating-summary">{personalState.rating}/10</span>}
-    </div>
+  <DetailCard className="personal-title-state" id="personal-title-state-heading" title="Meine Einstellungen" busy={personalBusy}
+    context={activeProfile?.displayName ?? 'Profil'}
+    aside={personalState.rating ? <span className="personal-rating-summary">{personalState.rating}/10</span> : null}>
 
     <div className="personal-action-grid">
       <button
@@ -75,7 +72,7 @@ export default function PersonalTitleActions({ activeProfile, personalState, per
     </div>
 
     {personalMessage && <p className="personal-state-message" role="status">{personalMessage}</p>}
-  </section>
+  </DetailCard>
 
   )
 }

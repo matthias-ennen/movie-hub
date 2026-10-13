@@ -26,6 +26,8 @@ import { formatDetailTvAiring, resolveDetailTvAiring } from '../tv/detailTvAirin
 import { buildDetailLiveProviderEntries, buildDetailStreamingProviderIds } from './detailProviderPresentation.js'
 
 import DetailDialog from './detail/DetailDialog.jsx'
+import DetailLayout from './detail/DetailLayout.jsx'
+import DetailCard from './detail/DetailCard.jsx'
 import DetailActions, { DialogHeading } from './detail/DetailActions.jsx'
 import SeriesNavigation from './detail/SeriesNavigation.jsx'
 import TitleAlertDialog from './detail/TitleAlertDialog.jsx'
@@ -418,8 +420,11 @@ export default function DetailModal({
 
   return (
     <>
-      <DetailDialog primary className="detail-modal" backdropClassName="detail-backdrop primary-detail-backdrop"
+      <DetailDialog primary className="detail-modal detail-layout-panel" backdropClassName="detail-backdrop primary-detail-backdrop"
         label={`Details zu ${item.title}`} onClose={onClose} returnFocusTarget={returnFocusTarget}>
+        <DetailLayout actions={<DetailActions onClose={onClose} onEdit={() => { resetMediaDraft(); setMediaEditorOpen(true) }}
+            onAlert={titleAlerts.canWatch(item) ? () => setAlertMenuOpen(true) : null}
+            alertActive={includedShownOn || titleAlerts.isEnabled(item, 'tv')} notePresent={Boolean(personalState.note)} />} artwork={
         <div className={detailPosterUrl ? 'detail-art has-image' : 'detail-art'} style={{ '--poster-accent': item.accent, '--poster-accent-2': item.accent2 }}>
           {detailPosterUrl && (
             <img
@@ -432,11 +437,7 @@ export default function DetailModal({
             />
           )}
           <span className="detail-type">{item.type === 'series' ? 'SERIE' : 'FILM'}</span>
-        </div>
-        <div className="detail-copy">
-          <DetailActions onClose={onClose} onEdit={() => { resetMediaDraft(); setMediaEditorOpen(true) }}
-            onAlert={titleAlerts.canWatch(item) ? () => setAlertMenuOpen(true) : null}
-            alertActive={includedShownOn || titleAlerts.isEnabled(item, 'tv')} notePresent={Boolean(personalState.note)} />
+        </div>}>
           <h2>{item.title}</h2>
           {initialEpisode && <p className="detail-episode-reference">{[episodeNumberLabel(initialEpisode), initialEpisode.title].filter(Boolean).join(' · ')}</p>}
           <div className="meta-line">
@@ -446,9 +447,54 @@ export default function DetailModal({
             <AgeRatingBadge value={item.ageRating} className="detail-age-rating" />
           </div>
           <p className="genre">{item.genre}</p>
-          <PersonalTitleActions activeProfile={activeProfile} personalState={personalState}
-            personalBusy={personalBusy} libraryLoading={libraryLoading} personalMessage={personalMessage}
-            savePersonalPatch={savePersonalPatch} />
+          <TitleDescription text={item.description} />
+          {cast.length > 0 && (
+            <div className="cast-block">
+              <h3>Besetzung</h3>
+              <p>{cast.map((person) => person.name).join(' · ')}</p>
+            </div>
+          )}
+
+          {item.type === 'series' && <SeriesNavigation item={item} seasons={seriesSeasons}
+            selectedSeason={selectedSeason} initialEpisode={initialEpisode} onSelectSeason={setSelectedSeasonNumber} />}
+
+          {hasFilmCollection && (
+            <DetailCard className="film-collection-summary" id="film-collection-heading" title="Filmreihe">
+              <div>
+                <p className="detail-card-name">{filmCollection.name}</p>
+                <p>
+                  {currentCollectionIndex >= 0
+                    ? `Teil ${currentCollectionIndex + 1} von ${collectionParts.length}`
+                    : `${collectionParts.length} Teile`}
+                  {' · '}nach Veröffentlichung
+                </p>
+              </div>
+              <button
+                type="button"
+                className="action-button film-collection-open"
+                data-focusable="true"
+                onClick={openCollectionPicker}
+              >Alle Teile anzeigen</button>
+            </DetailCard>
+          )}
+
+          {automaticVideos.length > 0 && (
+            <section className="catalog-videos" aria-labelledby="catalog-videos-heading">
+              <h3 id="catalog-videos-heading">Videos</h3>
+              <div className="video-actions">
+                {automaticVideos.map((video) => (
+                  <button
+                    type="button"
+                    className="action-button video-action"
+                    key={video.id || video.url}
+                    data-focusable="true"
+                    onClick={() => openAutomaticVideo(video)}
+                  >▶ {video.label || (video.type === 'teaser' ? 'Teaser' : 'Trailer')}</button>
+                ))}
+              </div>
+            </section>
+          )}
+
           <h3>Wo anschauen?</h3>
           {hasTvAiring && (
             <section className="provider-availability-group" aria-label="TV-Ausstrahlung">
@@ -528,58 +574,12 @@ export default function DetailModal({
           {!showMovieHubProvider && !hasProviders && !hasTvAiring && (
             <p className="prototype-note">Für diesen Titel ist derzeit kein unterstützter Anbieter in Deutschland hinterlegt.</p>
           )}
-          <TitleDescription text={item.description} />
-          {cast.length > 0 && (
-            <div className="cast-block">
-              <h3>Besetzung</h3>
-              <p>{cast.map((person) => person.name).join(' · ')}</p>
-            </div>
-          )}
-
-          {item.type === 'series' && <SeriesNavigation item={item} seasons={seriesSeasons}
-            selectedSeason={selectedSeason} initialEpisode={initialEpisode} onSelectSeason={setSelectedSeasonNumber} />}
-
-          {hasFilmCollection && (
-            <section className="film-collection-summary" aria-labelledby="film-collection-heading">
-              <div>
-                <p className="settings-kicker">Filmreihe</p>
-                <h3 id="film-collection-heading">{filmCollection.name}</h3>
-                <p>
-                  {currentCollectionIndex >= 0
-                    ? `Teil ${currentCollectionIndex + 1} von ${collectionParts.length}`
-                    : `${collectionParts.length} Teile`}
-                  {' · '}nach Veröffentlichung
-                </p>
-              </div>
-              <button
-                type="button"
-                className="action-button film-collection-open"
-                data-focusable="true"
-                onClick={openCollectionPicker}
-              >Alle Teile anzeigen</button>
-            </section>
-          )}
-
-          {automaticVideos.length > 0 && (
-            <section className="catalog-videos" aria-labelledby="catalog-videos-heading">
-              <h3 id="catalog-videos-heading">Videos</h3>
-              <div className="video-actions">
-                {automaticVideos.map((video) => (
-                  <button
-                    type="button"
-                    className="action-button video-action"
-                    key={video.id || video.url}
-                    data-focusable="true"
-                    onClick={() => openAutomaticVideo(video)}
-                  >▶ {video.label || (video.type === 'teaser' ? 'Teaser' : 'Trailer')}</button>
-                ))}
-              </div>
-            </section>
-          )}
-
           {item.tmdbId && <p className="tmdb-credit">Datenquelle: TMDB · ID {item.tmdbId}</p>}
+          <PersonalTitleActions activeProfile={activeProfile} personalState={personalState}
+            personalBusy={personalBusy} libraryLoading={libraryLoading} personalMessage={personalMessage}
+            savePersonalPatch={savePersonalPatch} />
           {mediaMessage && !mediaEditorOpen && <p className="personal-state-message" role="status">{mediaMessage}</p>}
-        </div>
+        </DetailLayout>
       </DetailDialog>
 
       {collectionPickerOpen && hasFilmCollection && <CollectionPicker filmCollection={filmCollection}
