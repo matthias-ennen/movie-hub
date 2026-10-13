@@ -152,11 +152,27 @@ Folge; Bestätigen öffnet ihre Details ohne zweite Navigationskachel.
 `detailEpisode` hält ausschließlich den normalisierten Kontext des ursprünglichen
 EPG-Einstiegs fest. Metadaten- und Verfügbarkeitsanreicherung dürfen ihn nicht durch
 eine andere Ausstrahlung ersetzen. Allgemeine Serieneinstiege raten keine Folge.
+Bereits geladene Angaben dürfen ausschließlich bei nachgewiesen gleicher
+Ausstrahlung ergänzt werden. Die Episodenzeile unter dem Serientitel entfällt;
+TV-Ausstrahlung und Staffel-/Folgenauswahl tragen die Information unten.
 Staffelwahl aktualisiert das Poster mit Rückfall auf das Serienposter; unbekannte
 oder fehlende Angaben bleiben als Auswahl/fehlende Daten sichtbar. Eine Episode
 ersetzt weder Route noch Serien-Titelobjekt und erhält keine eigenen Profilwerte
 oder Erinnerungsarten. Der tägliche TMDB-Job und die Daten-Caches bleiben erhalten;
 der Browser fragt TMDB nicht direkt ab.
+
+Die Datenkorrektur erfolgt im Import/Nachtlauf: `mergeTvAirings` ergänzt
+Episodenangaben derselben Ausstrahlung unabhängig von der Anbieterreihenfolge.
+Bei widersprüchlichen Nummern bleiben beide Nummern unbekannt; `episode.conflict`
+erhält diesen Zustand auch bei weiterer Zusammenführung/Kompaktierung.
+Der TV-Runtime-Snapshot verwendet dieselbe Normalisierung.
+Joyn ergänzt nach der Titelzuordnung auch bereits lokal oder aus dem Match-Cache
+erkannte Serien (`joyn-episode-enrichment.mjs`). Der vorhandene siebentägige
+Antwortcache speichert Treffer und echte Leerergebnisse, keine technischen Fehler.
+Standardmäßig höchstens 300 ergänzende Suchabfragen pro Lauf, zusätzlich begrenzt
+durch das verbleibende gemeinsame Algolia-Budget. Nur eindeutige Serien-/Folgentitel
+liefern Nummern; offene Fälle bleiben ohne Schätzung. Kennzahlen stehen im
+Joyn-Laufbericht und `joyn-live/index.json` unter `runtime.episodeEnrichment`.
 
 ### Gemeinsame Detaildialoge (#426)
 
@@ -170,6 +186,9 @@ dieselbe Geometrie und dieselben festen Buttonplätze; vor der Bereitschaft sind
 Stift und Glocke sichtbar, aber deaktiviert. Schließen bleibt aktiv. `DetailActions`,
 Bearbeitung, Erinnerungen und Seriennavigation sind eigene Bausteine; das
 eigentliche Detailfeature bleibt verzögert geladen.
+Die Folgenübersicht nutzt ebenfalls `DetailActions` für den runden Schließen-Button
+mit denselben Randabständen außerhalb des Listen-Scrollbereichs; die aktuelle
+Folge behält den Anfangsfokus.
 
 Die Inhaltsreihenfolge entspricht Matthias' Nachbesserung vom 13.10.2026:
 Titel/Kerndaten, Beschreibung, Besetzung, Staffeln/Folgen beziehungsweise Filmreihe,

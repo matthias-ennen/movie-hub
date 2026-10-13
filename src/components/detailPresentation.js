@@ -2,7 +2,8 @@ import { resolvePresentationArtwork } from '../catalog/artworkRotation.js'
 import { loadRuntimeTitleMetadata } from '../catalog/runtimeTitleMetadata.js'
 import { normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
 import { mergeLiveAvailability } from '../sources/liveAvailabilityIndex.js'
-import { openingEpisode } from '../catalog/episodeContext.js'
+import { episodeReference, mergeEpisodeReferences, openingEpisode } from '../catalog/episodeContext.js'
+import { areEquivalentTvAirings } from '../sources/mergeTvAirings.js'
 
 const DETAIL_IMAGE_WAIT_MS = 1_500
 
@@ -23,11 +24,22 @@ export async function prepareDetailRequestItem(item, {
     liveAvailabilityEntries,
     { now: liveAvailabilityNow, acceptLiveProvider },
   )
-  // Capture the explicit opening context, never a later/other series airing
-  // or a context retained inside the shared metadata cache.
+  // Enrich only the explicit opening broadcast with already loaded evidence.
+  // Never take the next airing or a previous opening from the metadata cache.
+  let detailEpisode = openingEpisode(item)
+  if (item?.tvAiring && !(Object.prototype.hasOwnProperty.call(item, 'detailEpisode') && item.detailEpisode === null)) {
+    const identity = { type: item.type || item.mediaType, tmdbId: item.tmdbId }
+    const candidates = Object.values(liveDetail?.liveAvailability || {}).flatMap((provider) => (
+      provider?.airings?.length ? provider.airings : [provider?.nextAiring].filter(Boolean)
+    ))
+    const sameBroadcast = candidates.filter((airing) => areEquivalentTvAirings(
+      { ...item.tvAiring, ...identity }, { ...airing, ...identity },
+    ))
+    detailEpisode = mergeEpisodeReferences(detailEpisode, ...sameBroadcast.map(episodeReference))
+  }
   const presented = presentArtwork(liveDetail, artworkOptions)
   return item?.type === 'series' || item?.mediaType === 'tv'
-    ? { ...presented, detailEpisode: openingEpisode(item) }
+    ? { ...presented, detailEpisode }
     : presented
 }
 

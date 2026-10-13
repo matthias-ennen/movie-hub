@@ -12,6 +12,7 @@ import { mapJoynCandidateToBroadcastEvent, buildJoynSourceEnvelope } from '../sr
 import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
 import { syncJoynEpg, joynImportHorizon, writeJoynJson } from './joyn-epg-sync.mjs'
 import { JoynMatchCache, JoynLookupCache, sharedJoynTmdbMetadata } from './joyn-match-cache.mjs'
+import { enrichJoynEpisodeReferences } from './joyn-episode-enrichment.mjs'
 import { readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
 import { joynTechnicalFailure } from './joyn-source-guard.mjs'
 import { excludedJoynSearchItems } from './joyn-search-response.mjs'
@@ -1074,11 +1075,33 @@ export async function runJoynAdapterDiagnostic({
     ...matchingCounters(),
   })
 
+  // Title matching (including match-cache hits) has finished. Optional episode
+  // enrichment must not consume the budget needed to identify TV titles.
+  let episodeEnrichment
+  try {
+    episodeEnrichment = await enrichJoynEpisodeReferences([...uniquePrograms.values()], {
+      diagnostics: programDiagnostics, lookupCache,
+      maxRequests: Math.min(
+        Math.max(0, Number(process.env.JOYN_EPISODE_REQUEST_BUDGET ?? 300)),
+        Math.max(0, algoliaRequestBudget - (sourceHealth()?.run?.requests?.algolia ?? algoliaRequests)),
+      ),
+      search: algoliaKey.key ? async (query) => {
+        algoliaRequests += 1
+        await new Promise((done) => setTimeout(done, 100))
+        return searchJoynAlgoliaTitle(query, { fetchImpl, searchApiKey: algoliaKey.key })
+      } : null,
+    })
+    console.log(`Joyn-Folgen: ${episodeEnrichment.metrics.enriched} ergänzt · ${episodeEnrichment.metrics.complete} vollständig · ${episodeEnrichment.metrics.requests} Abfragen · ${episodeEnrichment.metrics.deferred} zurückgestellt`)
+  } finally {
+    await lookupCache.save(lookupCachePath)
+  }
+
   const events = []
   for (const entry of mapped) {
     const decision = decisions.get(entry.candidate.joynProgramId)
     if (decision?.status !== 'matched') continue
-    const episodeEvidence = programDiagnostics.get(entry.candidate.joynProgramId)?.joynClassification?.algolia
+    const episodeEvidence = episodeEnrichment.episodes.get(entry.candidate.joynProgramId)
+      || programDiagnostics.get(entry.candidate.joynProgramId)?.joynClassification?.algolia
     const event = mapJoynCandidateToBroadcastEvent(entry.candidate, {
       tmdbId: decision.match.tmdbId,
       type: decision.match.type,
@@ -1182,6 +1205,7 @@ export async function runJoynAdapterDiagnostic({
     tmdbDetailRequests: tmdbSearch?.detailRequestsStarted || 0,
     tmdbDetailBudget: Number(process.env.JOYN_TMDB_DETAIL_REQUEST_BUDGET || 300),
     ...matchingCounters(),
+    episodeEnrichment: episodeEnrichment.metrics,
   }
   requireCompleteLiveTitleMetadata(publication.titles.entries)
 
@@ -1276,6 +1300,7 @@ export async function runJoynAdapterDiagnostic({
       joynOnlyStationRows: mapped.filter((entry) => !entry.canonicalChannelId).length,
     },
     matching: {
+      episodeEnrichment: episodeEnrichment.metrics,
       matchCacheHits: matchCache.hits,
       localTmdbCandidates: tmdbCandidates.length,
       matchedPrograms: [...decisions.values()].filter((d) => d.status === 'matched').length,

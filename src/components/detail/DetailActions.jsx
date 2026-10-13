@@ -1,6 +1,6 @@
 import BellIcon from '../BellIcon.jsx'
 
-export default function DetailActions({ onClose, onEdit, onAlert, alertActive = false, notePresent = false, loading = false }) {
+export default function DetailActions({ onClose, onEdit, onAlert, alertActive = false, notePresent = false, loading = false, closeLabel = 'Details schließen' }) {
   return <div className={`detail-actions-bar${onEdit || loading ? ' detail-title-actions' : ''}`}>
     {(onEdit || loading) && <button type="button" className="icon-button detail-action" data-focusable="true" disabled={loading}
       aria-label={notePresent ? 'Bearbeiten · Notiz vorhanden' : 'Bearbeiten'} onClick={onEdit}>
@@ -19,16 +19,16 @@ export default function DetailActions({ onClose, onEdit, onAlert, alertActive = 
       <span className="detail-action-label">{alertActive ? 'Erinnerung aktiv' : 'Erinnerung einrichten'}</span>
     </button>}
     <button type="button" className="icon-button detail-action detail-close" data-focusable="true"
-      data-dialog-close="true" aria-label="Details schließen" onClick={onClose}>
+      data-dialog-close="true" aria-label={closeLabel} onClick={onClose}>
       <span aria-hidden="true">×</span>
     </button>
   </div>
 }
 
-export function DialogHeading({ id, children, subtitle, onClose }) {
-  return <div className="detail-dialog-heading">
+export function DialogHeading({ id, children, subtitle, onClose, floatingClose = false }) {
+  return <><div className="detail-dialog-heading">
     <div><h2 id={id}>{children}</h2>{subtitle && <p>{subtitle}</p>}</div>
-    <button type="button" className="icon-button" data-focusable="true" data-dialog-close="true"
-      aria-label="Schließen" onClick={onClose}>×</button>
-  </div>
+    {!floatingClose && <button type="button" className="icon-button" data-focusable="true" data-dialog-close="true"
+      aria-label="Schließen" onClick={onClose}>×</button>}
+  </div>{floatingClose && <DetailActions onClose={onClose} closeLabel="Schließen" />}</>
 }

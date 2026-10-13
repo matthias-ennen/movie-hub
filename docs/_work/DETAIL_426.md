@@ -113,3 +113,49 @@ Abnahme bleibt offen.
 
 PR, CI und Hosting-Nachweise folgen im Issue #426. Das Issue bleibt bis zur
 Abnahme geöffnet. Für diese Nachbesserung ist keine neue APK nötig.
+
+## Episodenkontext – Freigabe 13.10.2026, 13:56 Uhr
+
+Matthias: „Okay umsetzen und Feedback“. Gesammelter Umfang:
+
+- Joyn-Episodenauflösung auch für lokal oder aus dem Match-Cache erkannte Serien,
+  mit bestehendem Antwortcache und begrenztem Importbudget; keine App-Abfragen.
+- Episodenangaben beim zentralen Zusammenführen derselben Ausstrahlung ergänzen,
+  unabhängig von der Anbieterreihenfolge; Nummernkonflikte nicht erraten.
+- Konkreten Öffnungskontext ausschließlich mit derselben Ausstrahlung ergänzen;
+  Staffel/Folge vorauswählen und vorhandene Folgenübersicht dort öffnen.
+- Zusätzliche Episodenzeile unter dem Serientitel entfernen. Handlung bleibt
+  unverändert; Angaben zur TV-Ausstrahlung und Auswahl bleiben unten erhalten.
+- Schließen in der Folgenübersicht wie auf der Detailseite: gemeinsamer runder
+  Button, identische Randabstände, beim Scrollen sichtbar.
+
+Nachgewiesener Fehler: Die veröffentlichten TV-Daten zu „Die Waltons / Das
+Vollblut“ enthalten nach Joyn/waipu-Merge nur den Titel. waipu liefert für
+dieselbe SAT.1-GOLD-Ausstrahlung am 13.10.2026, 12:45–13:35 Uhr Staffel 3/Folge 3;
+der bisherige Merge übernimmt unverändert das erste Episodenobjekt. Der
+Joyn-Import überspringt außerdem Episodenauflösung bei bereits erkannten Titeln.
+
+Prüfplan: echte Waltons-Daten, beide Quellreihenfolgen, unvollständige und
+widersprüchliche Angaben, allgemeiner Serienaufruf/andere Ausstrahlung,
+Joyn-Cache/Budget und Folgenübersicht auf Mobil/TV. Anschließend CI, Deploy und
+TV-Datenerneuerung prüfen. Manuelle Abnahme bleibt offen.
+
+### Technische Prüfung der Episodenkorrektur
+
+- 990 Anwendungstests in 160 Dateien erfolgreich; Produktionsbuild und
+  `git diff --check` erfolgreich. Keine zusätzliche Abhängigkeit.
+- Neuer Importbaustein nach der Titelzuordnung: lokale und gecachte Serien,
+  positive/negative Antwortcaches, Budgetende, Wiederholungen, uneindeutige Treffer,
+  direkte EPG-Nummern und temporäre Fehler geprüft.
+- Echte gespeicherte TV-Indexdaten vom 13.10. erneut durch den Runtime-Aufbau
+  verarbeitet: 14 Tage, 7.700 Ausstrahlungen, 2 Nummernkonflikte bleiben unbekannt.
+  Waltons/Das Vollblut erreicht unabhängig von der Anbieterreihenfolge S3E3.
+- Isolierte Browserprüfung mit echten Komponenten bei 1280×720, 844×390,
+  667×375 und 390×844: Waltons-Vorwahl, fokussierte Folge, fehlende Zusatzzeile,
+  weiterhin vollständige TV-Zeile, identischer Schließen-Stil und Randabstand,
+  feste Buttonposition beim Scrollen und Rückfokus erfolgreich.
+- Bestehender Browser-Interaktionslauf erneut erfolgreich: konkrete/allgemeine/
+  unvollständige/fehlende Serienkontexte, Zurück/Fokus, TV/Mobil, Erinnerung,
+  Notiz/Datum/Medien, Entwürfe, Tab-Begrenzung und Lade-/Fehleransicht.
+- Kein nativer Code geändert. Veröffentlichung und einmalige Joyn-Aktualisierung
+  werden im Issue nachgewiesen; Geräteabnahme durch Matthias bleibt offen.

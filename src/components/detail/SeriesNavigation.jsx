@@ -87,7 +87,7 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, initia
     {picker === 'episodes' && <DetailDialog className="media-panel collection-panel episodes-panel"
       labelledBy="episodes-picker-heading" onClose={() => { setEpisode(null); setPicker(null) }}
       initialFocus={current ? '[aria-current="true"]' : '[data-episode-option]'} focusReady={!loading} busy={loading}>
-      <DialogHeading id="episodes-picker-heading" onClose={() => setPicker(null)}
+      <DialogHeading id="episodes-picker-heading" onClose={() => setPicker(null)} floatingClose
         subtitle={`${item.title} · ${detail?.episodes.length ?? selectedSeason.episodeCount ?? '–'} Folgen`}>
         Staffel {selectedSeason.seasonNumber}
       </DialogHeading>
