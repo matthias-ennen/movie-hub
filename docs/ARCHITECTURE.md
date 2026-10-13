@@ -149,14 +149,31 @@ nach Serien-ID aufgeteilten Shard-Katalog. Erst das Folgenfeld lädt sie über d
 bestehenden Cache. Die bebilderte Übersicht markiert und fokussiert die konkrete
 Folge; Bestätigen öffnet ihre Details ohne zweite Navigationskachel.
 
-`detailEpisode` hält die einmal vor Anzeige vorbereitete Episodenvorauswahl fest.
-Ein konkreter EPG-Einstieg hat Vorrang; Anreicherung ergänzt ausschließlich Angaben
-derselben Ausstrahlung. Ohne konkreten Einstieg verwendet `prepareDetailRequestItem`
-die bereits geladenen Angaben der laufenden/nächsten Ausstrahlung aus
-`resolveDetailTvAiring`, demselben Resolver wie die TV-Zeile. Das gilt unabhängig
-von der Einstiegsseite. Fehlende Nummern und Konflikte werden nicht erraten;
-alte Einstiege aus dem Metadaten-Cache werden nicht übernommen. Manuelle Auswahl
-bleibt lokaler Dialogzustand und wird nicht durch den TV-Zeitwechsel überschrieben.
+`prepareDetailRequestItem` bereitet die Vorauswahl vor und übergibt ausschließlich
+den aktuellen Klick als `detailAiring`; Metadaten-Caches bestimmen keinen Einstieg.
+`resolveDetailTvAiring` verwendet diesen noch gültigen Termin vorrangig, sonst die
+laufende/nächste Ausstrahlung. Vorauswahl, TV-Zeile und Anbieterwege beziehen sich
+auf diesen einen Termin. Automatische Zeitwechsel führen die Vorauswahl mit.
+Ab Beginn einer manuellen Navigation bleibt die Auswahl erhalten; die TV-Zeile
+zeigt nur passende bekannte Termine und verschwindet ohne passenden Termin.
+Andere Sender oder spätere Episoden werden nicht als fehlende Angaben ergänzt.
+
+Der Veröffentlichungsjob ordnet mit `episodeResolution.js` Episoden innerhalb
+derselben TMDB-Serie zu: passende Nummern und Titel, alternativ eindeutiger Titel
+bei vollständigem Staffelbestand. Mehrdeutige, widersprüchliche oder unvollständige
+Zuordnungen bleiben offen. `episode.catalog` trägt die geprüfte kompakte TMDB-ID,
+Staffel, Folge und Titel; originale EPG-Angaben bleiben daneben unverändert.
+Poster, TV-Zeile und Folgenübersicht verwenden dieselbe kanonische Zuordnung.
+Konflikte zwischen kanonischen IDs bleiben auch über weitere Merges erhalten.
+Die Vorbereitung erfolgt für Live-Index und TV-Runtime identisch aus vorhandenen
+Staffel-Shards; keine zusätzlichen Anbieter-/TMDB-Abfragen in der App.
+
+Der Staffelgenerator läuft einmal nach dem Quellenimport und der kanonischen
+Metadatenpflege. Er berücksichtigt Browse-, Such- und TV-Serien. Fehlende Staffeln
+von TV-Serien werden innerhalb des bisherigen Budgets vor normaler Auffrischung
+ergänzt. Code-Deploys verwenden weiterhin vorhandene Daten; `[episode-refresh]`
+aktiviert gezielt diesen Datenaufbau. Der Nachtlaufbericht nennt offene TV-Staffeln
+und je Anbieter Zuordnungen, Kataloglücken, fehlende Angaben und Konflikte.
 Die Episodenzeile unter dem Serientitel entfällt;
 TV-Ausstrahlung und Staffel-/Folgenauswahl tragen die Information unten.
 Staffelwahl aktualisiert das Poster mit Rückfall auf das Serienposter; unbekannte

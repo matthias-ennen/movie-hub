@@ -5,6 +5,16 @@ import {
 } from '../scripts/report-workflow-summary.mjs'
 
 describe('kompakter Workflow-Datenbericht', () => {
+  it('reports episode mapping gaps separately from successful season generation', () => {
+    const result = buildWorkflowSummary({ steps: { seriesDetails: 'success', availability: 'success' },
+      seriesManifest: { tvPendingSeasonCount: 12 }, availabilityIndex: { episodeResolution: { joyn: {
+        total: 20, matched: 10, missingCatalog: 2, missingReference: 3, ambiguous: 1, conflict: 1, unmatched: 3,
+      } } } })
+    expect(result.rows.find(r => r.area === 'Serienstaffeln')).toMatchObject({ status: '✅ erfolgreich' })
+    expect(workflowSummaryMarkdown(result)).toContain('12 TV-Staffeln offen')
+    expect(workflowSummaryMarkdown(result)).toContain('10/20 zugeordnet')
+    expect(workflowSummaryMarkdown(result)).toContain('2 Kataloglücken · 3 ohne Angaben · 1 mehrdeutig · 1 widersprüchlich · 3 ohne Treffer')
+  })
   it('does not report authentication as a successful deployment', () => {
     const result = buildWorkflowSummary({ steps: { auth: 'success', deploy: 'skipped' } })
     expect(result.rows.find(row => row.area === 'Firebase')).toMatchObject({

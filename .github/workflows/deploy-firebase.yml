@@ -201,6 +201,7 @@ jobs:
           TMDB_SEARCH_DETAIL_ENRICH_LIMIT: ${{ (inputs.data_mode == 'accelerated' || contains(github.event.head_commit.message, '[data-bootstrap]')) && '2000' || '800' }}
           TMDB_SEARCH_DETAIL_MAX_AGE_DAYS: 30
           TMDB_SERIES_SEASON_ENRICH_LIMIT: ${{ (inputs.data_mode == 'accelerated' || contains(github.event.head_commit.message, '[data-bootstrap]')) && '2000' || '600' }}
+          TMDB_SERIES_DETAILS_DEFER: '1'
         run: npm run tmdb:catalog
 
       - name: Acknowledge TMDB catalog change consumer
@@ -376,6 +377,15 @@ jobs:
       - name: Project actor search from existing canonical metadata
         run: npm run search:actors
 
+      - name: Complete series seasons including current TV source titles
+        id: series_details
+        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[episode-refresh]') }}
+        env:
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+          TMDB_LANGUAGE: de-DE
+          TMDB_SERIES_SEASON_ENRICH_LIMIT: ${{ (inputs.data_mode == 'accelerated' || contains(github.event.head_commit.message, '[data-bootstrap]')) && '2000' || '600' }}
+        run: npm run series:details
+
       - name: Report data fill levels
         id: data_status
         env:
@@ -484,6 +494,7 @@ jobs:
         env:
           SUMMARY_DATA_MODE: ${{ inputs.data_mode || 'standard' }}
           SUMMARY_TMDB_CHANGES: ${{ steps.tmdb_changes.outcome }}
+          SUMMARY_SERIES_DETAILS: ${{ steps.series_details.outcome }}
           SUMMARY_TMDB_CHECKPOINT: ${{ steps.tmdb_change_commit.outcome }}
           SUMMARY_TMDB_STRICT: ${{ steps.tmdb_catalog_strict.outcome }}
           SUMMARY_WAIPU_SYNC: ${{ steps.waipu_sync.outcome }}

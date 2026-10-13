@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
 import { buildLiveAvailabilityIndex } from '../src/sources/liveAvailabilityIndex.js'
+import { enrichTvSourceEpisodes, readEpisodeSeasons } from './tv-episode-resolution.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const publicDir = resolve(root, 'public')
@@ -12,7 +13,7 @@ async function readJson(path) {
   return JSON.parse(await readFile(path, 'utf8'))
 }
 
-export async function discoverLiveSourceCatalogs(directory = publicDir) {
+export async function discoverLiveSourceCatalogs(directory = publicDir, { resolveEpisodes = true } = {}) {
   const dirents = await readdir(directory, { withFileTypes: true })
   const sources = []
   for (const dirent of dirents) {
@@ -34,7 +35,8 @@ export async function discoverLiveSourceCatalogs(directory = publicDir) {
       }
     }
   }
-  return sources.sort((left, right) => left.providerId.localeCompare(right.providerId))
+  sources.sort((left, right) => left.providerId.localeCompare(right.providerId))
+  return resolveEpisodes ? enrichTvSourceEpisodes(sources, await readEpisodeSeasons(resolve(directory, 'series-details'))) : sources
 }
 
 export async function writeLiveAvailabilityIndex({
@@ -44,6 +46,7 @@ export async function writeLiveAvailabilityIndex({
 } = {}) {
   const sources = await discoverLiveSourceCatalogs(directory)
   const publication = buildLiveAvailabilityIndex(sources, { now })
+  publication.episodeResolution = Object.fromEntries(sources.map(source => [source.providerId, source.episodeResolution]))
   await mkdir(resolve(output, '..'), { recursive: true })
   await writeFile(output, `${JSON.stringify(publication)}\n`, 'utf8')
   process.stdout.write(JSON.stringify({

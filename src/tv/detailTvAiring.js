@@ -1,5 +1,6 @@
-import { mergeTvAirings } from '../sources/mergeTvAirings.js'
+import { areEquivalentTvAirings, mergeTvAirings } from '../sources/mergeTvAirings.js'
 import { episodeNumberLabel, episodeReference } from '../catalog/episodeContext.js'
+import { navigationEpisode, sameEpisode } from '../catalog/episodeResolution.js'
 
 function mediaType(value) {
   if (value === 'series' || value === 'tv') return 'series'
@@ -7,7 +8,7 @@ function mediaType(value) {
   return null
 }
 
-export function resolveDetailTvAiring(item, { now = Date.now() } = {}) {
+export function resolveDetailTvAiring(item, { now = Date.now(), selection = item?.detailSelection } = {}) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
   const type = mediaType(item?.type ?? item?.mediaType)
   const tmdbId = Number(item?.tmdbId)
@@ -26,7 +27,17 @@ export function resolveDetailTvAiring(item, { now = Date.now() } = {}) {
       }))
   ))
 
-  return mergeTvAirings(...groups)[0] || null
+  const opened = item?.detailAiring && Date.parse(item.detailAiring.stopTime) > timestamp
+    ? { ...item.detailAiring, type, tmdbId } : null
+  const airings = mergeTvAirings(...groups, opened ? [opened] : [])
+  if (type === 'series' && selection !== undefined) {
+    return airings.find(airing => {
+      const episode = episodeReference(airing)
+      if (selection?.episodeNumber != null || selection?.title) return sameEpisode(episode, selection)
+      return selection?.seasonNumber != null && navigationEpisode(episode)?.seasonNumber === selection.seasonNumber
+    }) || null
+  }
+  return (opened && airings.find(airing => areEquivalentTvAirings(airing, opened))) || airings[0] || null
 }
 
 export function formatDetailTvAiring(airing, {
@@ -50,6 +61,6 @@ export function formatDetailTvAiring(airing, {
   }).format(start)
   const stationName = String(airing?.stationName || '').trim()
 
-  const episode = episodeReference(airing)
+  const episode = navigationEpisode(episodeReference(airing))
   return [date, `${time} Uhr`, stationName, episodeNumberLabel(episode), episode?.title].filter(Boolean).join(' · ')
 }
