@@ -8,11 +8,26 @@ function integer(value, minimum) {
 export function episodeReference(airing) {
   if (!airing) return null
   const raw = airing.episode || airing
-  const seasonNumber = integer(raw.seasonNumber, 0)
-  const episodeNumber = integer(raw.episodeNumber, 1)
-  const title = String(airing.episode ? raw.title || '' : raw.episodeTitle || '').trim()
-  if (seasonNumber === null && episodeNumber === null && !title) return null
-  return { seasonNumber, episodeNumber, title }
+  const conflict = raw.conflict === true
+  const seasonNumber = conflict ? null : integer(raw.seasonNumber, 0) ?? integer(airing.seasonNumber, 0)
+  const episodeNumber = conflict ? null : integer(raw.episodeNumber, 1) ?? integer(airing.episodeNumber, 1)
+  const title = String(airing.episode ? raw.title || airing.episodeTitle || '' : raw.episodeTitle || '').trim()
+  if (seasonNumber === null && episodeNumber === null && !title && !conflict) return null
+  return { seasonNumber, episodeNumber, title, ...(conflict ? { conflict: true } : {}) }
+}
+
+// Call only after broadcast identity has been verified. Preserve conflicts so a
+// later provider cannot silently turn an ambiguous reference into a selection.
+export function mergeEpisodeReferences(...references) {
+  const values = references.filter(Boolean)
+  if (!values.length) return null
+  const seasons = [...new Set(values.map((value) => value.seasonNumber).filter((value) => value != null))]
+  const episodes = [...new Set(values.map((value) => value.episodeNumber).filter((value) => value != null))]
+  const conflict = values.some((value) => value.conflict) || seasons.length > 1 || episodes.length > 1
+  const title = [...new Set(values.map((value) => value.title).filter(Boolean))].sort()[0] || ''
+  return { seasonNumber: conflict ? null : seasons[0] ?? null,
+    episodeNumber: conflict ? null : episodes[0] ?? null, title,
+    ...(conflict ? { conflict: true } : {}) }
 }
 
 export function openingEpisode(item) {

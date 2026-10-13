@@ -1,3 +1,5 @@
+import { episodeReference } from '../../catalog/episodeContext.js'
+
 function text(value) {
   const result = String(value ?? '').trim()
   return result || null
@@ -40,6 +42,10 @@ export function normalizeJoynLiveChannelsAndEpg(data) {
 
       if (!joynProgramId || !title || !startTime || !endTime) continue
       if (Date.parse(endTime) <= Date.parse(startTime)) continue
+      const episode = episodeReference({
+        seasonNumber: program.seasonNumber ?? program.season?.number,
+        episodeNumber: program.episodeNumber ?? program.number,
+      })
 
       candidates.push({
         source: 'joyn-epg',
@@ -54,6 +60,7 @@ export function normalizeJoynLiveChannelsAndEpg(data) {
         joynProgramId,
         title,
         secondaryTitle: text(program?.secondaryTitle),
+        ...(episode ? { seasonNumber: episode.seasonNumber, episodeNumber: episode.episodeNumber } : {}),
         description: text(program?.description),
         ageRating: program?.ageRating?.minAge ?? null,
         startTime,

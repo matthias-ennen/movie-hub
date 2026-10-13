@@ -91,6 +91,13 @@ Das Mitteilungs-Grundpaket aus [#314](https://github.com/matthias-ennen/movie-hu
 
 **Umgesetzt, Abnahme offen: [#426 – Detailseite aufräumen und verbessern](https://github.com/matthias-ennen/movie-hub/issues/426).** Stift/Glocke/Schließen, Notiz und Gesehen-Datum im Bearbeitungsmenü, einheitliche Staffel-/Folgenauswahl und erhaltene bebilderte Folgenübersicht. Expliziter EPG-Episodenkontext, gemeinsame Dialog-/Fokusregeln und bedarfsweise geladene Episodendaten. Umfang und technische Nachweise: [Detailpaket](docs/_work/DETAIL_426.md). Nachbesserung vom 13.10.: frühere Inhaltsreihenfolge, gemeinsame Kacheln, transparent schwebende Aktionen und lesbare Episodendetails in Hoch-/Querformat. Die Sicht- und Geräteabnahme durch Matthias bleibt offen; #384 E-Mail bleibt geparkt.
 
+Weitere Korrektur vom 13.10.: Joyn ergänzt fehlende Episodennummern auch bei bereits
+erkannten Serien im Import/Nachtlauf. Der gemeinsame TV-Merge erhält vollständige
+Angaben und verhindert eine Vorauswahl bei Nummernkonflikten. Staffel/Folge stehen
+unten in Auswahl/TV-Ausstrahlung; die doppelte Zeile unter dem Serientitel entfällt.
+Die Folgenübersicht verwendet denselben runden Schließen-Button und dieselben
+Randabstände wie die Detailseite. Keine zusätzlichen Datenabfragen in der App.
+
 Die vorgezogenen Korrekturen [#413 – persönliche Smart-Reihen](https://github.com/matthias-ennen/movie-hub/issues/413) und [#415 – Schauspielersuche](https://github.com/matthias-ennen/movie-hub/issues/415) sind über PR #414/#416 veröffentlicht. Beide nutzen vorhandene gemeinsame Titelmetadaten; es gibt keine zusätzlichen Abfragen beim Tippen oder je Posterreihe. Technische Prüfungen sind erfolgreich; Matthias hat beide Pakete am 12.10.2026 auf Smartphone und Fire TV ausdrücklich abgenommen. #413 und #415 sind geschlossen. Web-Suche und Reihen werden nach vollständigem App-Neustart geladen; neue native Importe mit vollständigen Besetzungsfacetten benötigen die neue APK. #329 bleibt Wartung; für öffentliche Verteilung gilt weiterhin #112.
 
 Vor jedem Umsetzungspaket werden offene Produktfragen mit Matthias einzeln geklärt und anschließend im betreffenden Issue verbindlich dokumentiert.

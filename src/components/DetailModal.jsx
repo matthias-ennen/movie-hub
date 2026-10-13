@@ -35,7 +35,7 @@ import TitleEditor from './detail/TitleEditor.jsx'
 import PersonalTitleActions from './detail/PersonalTitleActions.jsx'
 import CollectionPicker from './detail/CollectionPicker.jsx'
 import TitleDescription from './detail/TitleDescription.jsx'
-import { openingEpisode, episodeNumberLabel } from '../catalog/episodeContext.js'
+import { openingEpisode } from '../catalog/episodeContext.js'
 
 export default function DetailModal({
   item,
@@ -439,7 +439,6 @@ export default function DetailModal({
           <span className="detail-type">{item.type === 'series' ? 'SERIE' : 'FILM'}</span>
         </div>}>
           <h2>{item.title}</h2>
-          {initialEpisode && <p className="detail-episode-reference">{[episodeNumberLabel(initialEpisode), initialEpisode.title].filter(Boolean).join(' · ')}</p>}
           <div className="meta-line">
             <strong>{item.score}</strong>
             <span>{item.year || '–'}</span>

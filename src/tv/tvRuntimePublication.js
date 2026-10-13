@@ -1,4 +1,5 @@
 import { mergeTvAirings } from '../sources/mergeTvAirings.js'
+import { episodeReference } from '../catalog/episodeContext.js'
 import { ensureProviderLiveRoute } from '../sources/providerLiveRoute.js'
 import { tvDayKey } from '../waipu/waipuTvCatalog.js'
 
@@ -447,15 +448,7 @@ function normalizeProviderAiring(raw, providerId, type, tmdbId) {
       programId,
       verifiedAt: raw?.verifiedAt || null,
     }),
-    episode: raw?.episode || (
-      type === 'series'
-        ? {
-            seasonNumber: Number.isInteger(Number(raw?.seasonNumber)) ? Number(raw.seasonNumber) : null,
-            episodeNumber: Number.isInteger(Number(raw?.episodeNumber)) ? Number(raw.episodeNumber) : null,
-            title: text(raw?.episodeTitle),
-          }
-        : null
-    ),
+    episode: type === 'series' ? episodeReference(raw) : null,
   }
 }
 

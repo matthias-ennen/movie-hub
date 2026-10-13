@@ -15,8 +15,11 @@
 }
 .primary-detail-backdrop,
 .episode-detail-layer { place-items: center; padding: 0; }
-.detail-layout {
+.detail-layout,
+.episodes-panel {
   --detail-padding: clamp(1.1rem, 2.2vw, 1.75rem);
+}
+.detail-layout {
   --detail-action-space: 172px;
   position: relative;
   height: 100%;
@@ -128,7 +131,6 @@
 /* Reserve only the lines beside the actions; long titles use full width below. */
 .detail-copy > h2::before { content: ''; float: right; width: var(--detail-action-space); height: 52px; }
 .detail-copy h3 { margin-bottom: 0.7rem; }
-.detail-episode-reference { color: var(--color-brand-accent); font-weight: 700; line-height: 1.5; }
 /* Shared card styling, including navigation and both editor sections. */
 .detail-card {
   display: grid;
@@ -195,6 +197,8 @@
 .detail-dialog-heading h2 { font-size: clamp(1.15rem, 2.3vw, 1.6rem); overflow-wrap: anywhere; }
 .detail-dialog-heading p { margin: 0.3rem 0 0; color: var(--color-muted); font-size: 0.85rem; }
 .detail-dialog-heading > button { flex: 0 0 44px; width: 44px; height: 44px; }
+.media-panel.episodes-panel { position: relative; padding: var(--detail-padding); }
+.episodes-panel .detail-dialog-heading { min-height: 44px; padding: 0 60px 0 0; }
 .media-panel.detail-selection-panel { width: min(600px, 92vw); grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
 .media-panel.detail-alert-panel { width: min(540px, 92vw); }
 .detail-alert-panel .title-alert-options { display: grid; grid-template-columns: 1fr; }

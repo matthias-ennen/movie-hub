@@ -1,3 +1,5 @@
+import { episodeReference, mergeEpisodeReferences } from '../catalog/episodeContext.js'
+
 export const TV_AIRING_MATCH_MAX_START_DELTA_MS = 5 * 60 * 1_000
 export const TV_AIRING_MATCH_MIN_OVERLAP_RATIO = 0.8
 
@@ -72,12 +74,15 @@ function providerValueMap(airing, mapField, fallbackFields = []) {
 
 
 function mergePair(previous, airing) {
+  const episode = mergeEpisodeReferences(episodeReference(previous), episodeReference(airing))
   const routeMap = new Map(
     [...(previous.playbackRoutes || []), ...(Array.isArray(airing.playbackRoutes) ? airing.playbackRoutes : [])]
       .map((route) => [routeKey(route), route]),
   )
   return {
     ...previous,
+    ...(episode ? { episode, seasonNumber: episode.seasonNumber,
+      episodeNumber: episode.episodeNumber, episodeTitle: episode.title } : {}),
     providerIds: [...new Set([
       ...(Array.isArray(previous.providerIds) ? previous.providerIds : []),
       ...(Array.isArray(airing.providerIds) ? airing.providerIds : []),
