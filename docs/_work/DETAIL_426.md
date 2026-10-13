@@ -62,3 +62,54 @@ CI-/Android-Build und Hosting-Veröffentlichung werden am PR und in #426
 nachgetragen. **Die manuelle Sicht-/Geräteabnahme durch Matthias bleibt offen.**
 Kein nativer Code geändert; für diese Oberfläche genügt ein vollständiger
 App-Neustart. E-Mail-Paket #384 bleibt zurückgestellt.
+
+## Nachbesserung – Freigabe 13.10.2026, 12:45 Uhr
+
+Matthias: „Bitte alles umsetzen und Feedback“. Der erste Stand ist noch nicht
+abgenommen. Verbindliche Korrekturen aus der anschließenden Sammlung:
+
+1. Inhaltsreihenfolge: Titel/Kerndaten, Beschreibung, Besetzung, Staffeln/Folgen
+   bzw. Filmreihe, Videos, Wo anschauen, Datenquelle, Meine Einstellungen.
+2. Serien- und Filmreihenkachel am selben Platz, beide im gemeinsamen Stil
+   von Meine Einstellungen: Rahmen, Fläche, Rundungen, Überschrift, Abstände.
+3. Bearbeiten: zwei Kacheln, eigene Links/Videos oben, persönliche Notiz unten;
+   Gesehen-Datum bleibt im Menü, Profil-/Kontogrenzen bleiben erhalten.
+4. Episodendetails: kompakte Abbildung und gemeinsam scrollender Inhalt im
+   Hochformat; Bild links und lesbarer Inhalt rechts im Querformat/auf TV.
+5. Transparente Kopfaktionen ohne Hintergrundband/Trennlinie; Inhalt läuft
+   dahinter, Überschrift höher und beim Einstieg vollständig sichtbar.
+6. Ladeansicht zeigt Stift/Glocke/Schließen an denselben festen Positionen;
+   Bearbeiten/Erinnerungen bis zur Bereitschaft deaktiviert, Schließen aktiv
+   und fokussiert. Kein Versatz beim Übergang zum fertigen Inhalt.
+
+Umsetzung mit gemeinsamen Layout-/Kachelbausteinen und vorhandener Dialoglogik.
+Gezielte Browserprüfung zusätzlich in niedrigen Smartphone-Querformaten,
+mit langen Titeln und gescrolltem Inhalt. Keine neuen Datenabfragen/Dienste.
+Prüfergebnisse und Veröffentlichung werden nach Umsetzung ergänzt; manuelle
+Abnahme bleibt offen.
+
+### Ergebnis der Nachbesserung
+
+- Gemeinsame `DetailLayout`-Geometrie für Laden, Fehler, Film/Serie und Episode;
+  transparente Aktionen außerhalb des Scrollbereichs. Auch bei nicht unterstützter
+  Glocke behalten die übrigen Aktionen ihre Plätze. Lange Titel nutzen den Platz
+  neben und unter den Aktionen. Schließen verdeckt den Titel nicht mit einem Tooltip.
+- Gemeinsame `DetailCard` für Meine Einstellungen, Staffeln/Folgen, Filmreihe
+  sowie beide Editorbereiche. Frühere Inhaltsreihenfolge wiederhergestellt.
+- Veraltete Sonderlayouts und Kachelrahmen ersetzt. Keine neue Abhängigkeit,
+  keine Änderung von Speicher-/Anbieterregeln oder Episodendaten.
+- `npm run test:unit`: erneut **975 Tests in 158 Dateien bestanden**.
+- Produktionsbuild erfolgreich; Detailchunk rund 39,01 kB / 12,38 kB gzip,
+  Hauptchunk rund 228,99 kB / 69,03 kB gzip.
+- Bestehende isolierte Interaktionsprüfung erneut erfolgreich: Auswahl, Rückwege,
+  Fokus, Erinnerungen, Notiz-/Datums-/Medienspeicherung, Entwurfsbehandlung.
+- Zusätzliche Layoutprüfung bei 1280 × 720, 844 × 390, 667 × 375 und 390 × 844:
+  Inhaltsreihenfolge, identische Kachelflächen, zwei Editor-Kacheln in der richtigen
+  Reihenfolge, Filmreihenübersicht, sichtbarer Episodentext, D-Pad-Scrollen und
+  unverdeckte lange Titel. Buttonpositionen in Lade-/Fehler-/Titelansicht identisch.
+  Transparenz und beim Scrollen unveränderte Buttonpositionen ebenfalls geprüft.
+- Screenshots aller vier Größen geprüft; keine Überbreite oder Browserfehler.
+  Die Prüfung verwendet Testdaten und ersetzt keine echte Geräteabnahme.
+
+PR, CI und Hosting-Nachweise folgen im Issue #426. Das Issue bleibt bis zur
+Abnahme geöffnet. Für diese Nachbesserung ist keine neue APK nötig.

@@ -164,9 +164,21 @@ Titel, Lade-/Fehleransicht, Episoden und Nebenmenüs verwenden `DetailDialog` f�
 Fokus, Dialogstapel und Rückkehr zum Auslöser. Neue Details fokussieren Schließen;
 nachgeladene Daten ändern einen bereits vom Nutzer bewegten Fokus nicht. Nur die
 oberste Ebene ist bedienbar; Zurück schließt genau diese Ebene. Die Folgenübersicht
-fokussiert die aktuelle Auswahl. Die gemeinsame Kopfzeile bleibt beim Scrollen
-sichtbar. `DetailActions`, Bearbeitung, Erinnerungen und Seriennavigation sind
-eigene Bausteine innerhalb des bereits verzögert geladenen Detailfeatures.
+fokussiert die aktuelle Auswahl. `DetailLayout` legt die Kopfaktionen außerhalb
+des Scrollbereichs transparent darüber. Lade-/Fehler- und Titelansicht verwenden
+dieselbe Geometrie und dieselben festen Buttonplätze; vor der Bereitschaft sind
+Stift und Glocke sichtbar, aber deaktiviert. Schließen bleibt aktiv. `DetailActions`,
+Bearbeitung, Erinnerungen und Seriennavigation sind eigene Bausteine; das
+eigentliche Detailfeature bleibt verzögert geladen.
+
+Die Inhaltsreihenfolge entspricht Matthias' Nachbesserung vom 13.10.2026:
+Titel/Kerndaten, Beschreibung, Besetzung, Staffeln/Folgen beziehungsweise Filmreihe,
+Videos, Wo anschauen, Datenquelle, Meine Einstellungen. `DetailCard` vereinheitlicht
+die Kacheln für Seriennavigation, Filmreihe, persönliche Aktionen und Bearbeitung.
+Im Stiftmenü stehen eigene Links/Videos über der persönlichen Notiz und dem
+Gesehen-Datum. Im Hochformat scrollen kompaktes Bild und Inhalt gemeinsam;
+Querformat/TV zeigen Bild links und den Text rechts. Die Episodenbedienung wählt
+den tatsächlich scrollbaren Bereich für D-Pad-Auf/Ab, ohne zusätzliche Timer.
 
 Favorit, Watchlist, Gesehen und Bewertung bleiben direkt sichtbar. Notiz und
 Gesehen-Datum verwenden im Stiftmenü unverändert den profilbezogenen Library-Pfad;

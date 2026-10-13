@@ -481,8 +481,9 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
         return
       }
 
-      const episodeScrollContainer = active.closest?.('.episode-detail-panel')
-        ?.querySelector('[data-dpad-scroll-container="true"]')
+      const episodeScrollContainer = [...(active.closest?.('.episode-detail-panel')
+        ?.querySelectorAll('[data-dpad-scroll-container="true"]') || [])]
+        .find((element) => element.scrollHeight > element.clientHeight)
       if (
         episodeScrollContainer
         && (event.key === 'ArrowUp' || event.key === 'ArrowDown')

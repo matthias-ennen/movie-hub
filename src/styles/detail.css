@@ -1,24 +1,67 @@
 /* Shared detail presentation; all colors/radii follow the current theme. */
 .media-layer.detail-backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; }
+/* The common panel fixes geometry across loading, title and episode states. */
+.detail-layout-panel {
+  position: relative;
+  display: block;
+  width: min(1120px, 94vw);
+  height: min(760px, 94vh);
+  max-height: 94vh;
+  padding: 0;
+  overflow: hidden;
+}
+@supports (height: 100dvh) {
+  .detail-layout-panel { height: min(760px, 94dvh); max-height: 94dvh; }
+}
+.primary-detail-backdrop,
+.episode-detail-layer { place-items: center; padding: 0; }
+.detail-layout {
+  --detail-padding: clamp(1.1rem, 2.2vw, 1.75rem);
+  --detail-action-space: 172px;
+  position: relative;
+  height: 100%;
+  min-height: 0;
+}
+.detail-body {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(200px, 0.72fr) minmax(0, 1.28fr);
+  overflow: hidden;
+}
+.detail-body .detail-art { min-height: 0; height: 100%; }
 .detail-copy,
 .episode-detail-copy {
-  --detail-padding: clamp(1.25rem, 2.5vw, 2rem);
-  padding: 0 var(--detail-padding) var(--detail-padding);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--detail-padding);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
   scroll-padding-top: 84px;
 }
-
 .detail-actions-bar {
-  position: sticky;
-  top: 0;
-  z-index: 5;
+  position: absolute;
+  top: var(--detail-padding);
+  right: var(--detail-padding);
+  z-index: 20;
   display: flex;
   justify-content: flex-end;
   gap: 0.55rem;
-  margin: 0 calc(-1 * var(--detail-padding)) 1rem;
-  padding: 0.75rem var(--detail-padding);
-  background: var(--color-bg-elevated);
-  border-bottom: 1px solid var(--color-line);
+  width: max-content;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  pointer-events: none;
 }
+.detail-actions-bar > button { pointer-events: auto; }
+.detail-actions-bar > button:disabled { opacity: 0.5; cursor: default; }
+.detail-title-actions { display: grid; grid-template-columns: repeat(3, 44px); }
+.detail-title-actions .detail-alert-button { grid-column: 2; }
+.detail-title-actions .detail-close { grid-column: 3; }
 
 .detail-actions-bar .detail-action {
   position: relative;
@@ -81,12 +124,31 @@
 .detail-action:focus-visible .detail-action-label,
 .detail-action:hover .detail-action-label { display: block; }
 
-.detail-copy h2 { padding-right: 0; font-size: clamp(1.6rem, 3.4vw, 2.7rem); line-height: 1.12; }
+.detail-copy > h2 { display: flow-root; padding-right: 0; overflow-wrap: anywhere; font-size: clamp(1.6rem, 3.4vw, 2.7rem); line-height: 1.12; }
+/* Reserve only the lines beside the actions; long titles use full width below. */
+.detail-copy > h2::before { content: ''; float: right; width: var(--detail-action-space); height: 52px; }
 .detail-copy h3 { margin-bottom: 0.7rem; }
 .detail-episode-reference { color: var(--color-brand-accent); font-weight: 700; line-height: 1.5; }
-.detail-copy .personal-title-state { margin: 1rem 0 1.5rem; padding: 1rem; }
-.detail-copy .personal-title-state-heading { margin-bottom: 0.8rem; }
-.detail-copy .personal-profile-name { margin: 0 0 0.25rem; font-size: 0.85rem; color: var(--color-muted); }
+/* Shared card styling, including navigation and both editor sections. */
+.detail-card {
+  display: grid;
+  align-content: start;
+  gap: 0.85rem;
+  margin: 1.25rem 0;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-panel);
+  background: color-mix(in srgb, var(--color-surface) 90%, transparent);
+}
+.detail-card-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.detail-card-heading > div { min-width: 0; }
+.detail-card-heading h3 { margin: 0; color: var(--color-text); font-size: clamp(1.05rem, 1.7vw, 1.3rem); line-height: 1.3; }
+.detail-card-context { margin: 0 0 0.35rem; color: var(--color-muted); font-size: 0.85rem; }
+.detail-card-name { font-weight: 700; margin: 0 0 0.35rem; }
+.detail-card .personal-action-grid { margin-bottom: 0; }
+.detail-card .personal-rating-block { margin-bottom: 0; }
+.detail-card .personal-state-message { margin-top: 0; }
+.detail-card .film-collection-open { width: 100%; background: var(--color-surface-control); color: var(--color-text); }
 .detail-copy .personal-rating-block { margin-top: 0.9rem; }
 .detail-copy .personal-rating-buttons { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.3rem; }
 .detail-copy .rating-button { width: auto; min-width: 0; min-height: 44px; }
@@ -96,8 +158,6 @@
 .detail-text-toggle { margin-top: 0.4rem; min-height: 44px; padding: 0.4rem; background: transparent; color: var(--color-brand-accent); font-weight: 700; }
 .detail-copy .tmdb-credit { margin: 1.25rem 0 0; }
 
-.detail-copy .series-navigation-summary { padding: 1rem; gap: 0.7rem; }
-.series-navigation-summary .settings-kicker { margin: 0; }
 .series-selection-field {
   width: 100%;
   min-width: 0;
@@ -139,28 +199,52 @@
 .media-panel.detail-alert-panel { width: min(540px, 92vw); }
 .detail-alert-panel .title-alert-options { display: grid; grid-template-columns: 1fr; }
 .detail-editor-panel { grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
-.detail-editor-content { min-height: 0; overflow: auto; padding: 0.5rem; overscroll-behavior: contain; }
-.detail-editor-content > section + section { border-top: 1px solid var(--color-line); padding-top: 1.25rem; margin-top: 1.5rem; }
+.detail-editor-content { min-height: 0; overflow: auto; padding: 0.5rem; overscroll-behavior: contain; display: grid; gap: 1rem; align-content: start; }
+.detail-editor-content > .detail-card { margin: 0; }
 .detail-editor-content .media-kind-actions { margin-bottom: 1rem; }
 .detail-editor-content .media-form { margin-bottom: 1rem; }
 .detail-editor-content .media-entry-list { margin-top: 1rem; }
 .detail-discard-panel { width: min(540px, 92vw); }
 .detail-discard-panel .media-form-actions button { min-height: 44px; padding: 0.7rem; border-radius: var(--radius-control); }
-.detail-loading-copy { padding-top: 0; display: block; }
-.detail-loading-copy .loading-copy { margin-top: 3rem; }
-.detail-loading-copy .loading-copy { align-self: center; }
-.episode-detail-panel .detail-actions-bar { background: var(--color-surface); }
-.episode-detail-panel .episode-detail-copy h2 { margin-top: 0; }
+.detail-loading-copy { display: grid; place-items: center; padding-top: calc(var(--detail-padding) + 60px); }
+.detail-loading-copy .loading-copy { margin: 0; }
+.detail-layout-episode { --detail-action-space: 60px; }
+.detail-layout-episode .episode-detail-art {
+  min-height: 0;
+  align-self: start;
+  margin: var(--detail-padding) 0 var(--detail-padding) var(--detail-padding);
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-card);
+}
+.episode-detail-copy > .eyebrow,
+.episode-detail-copy > h2 { padding-right: var(--detail-action-space); overflow-wrap: anywhere; }
+.episode-detail-copy > h2 { margin-top: 0; font-size: clamp(1.6rem, 3.4vw, 2.7rem); line-height: 1.12; }
+
+/* Short landscape screens use the same columns as TV, without a tall banner. */
+@media (max-width: 760px) and (orientation: landscape) {
+  .detail-body { grid-template-columns: minmax(160px, 32%) minmax(0, 1fr); }
+}
+@media (max-width: 760px) and (orientation: portrait) {
+  .detail-layout-panel { width: 100%; border-radius: var(--radius-panel) var(--radius-panel) 0 0; }
+  .detail-body { display: block; overflow: auto; overscroll-behavior: contain; scroll-padding-top: 84px; }
+  .detail-body .detail-copy,
+  .detail-body .episode-detail-copy { overflow: visible; scrollbar-gutter: auto; }
+  .detail-body .detail-art,
+  .detail-layout-episode .episode-detail-art { height: clamp(120px, 22vh, 210px); margin: 0; border-radius: 0; aspect-ratio: auto; }
+  .detail-copy > h2,
+  .episode-detail-copy > h2,
+  .episode-detail-copy > .eyebrow { padding-right: 0; }
+  .detail-copy > h2::before { display: none; }
+  .detail-loading-copy { min-height: 40vh; }
+}
 
 @media (min-width: 1050px) {
   .detail-copy .personal-rating-buttons { grid-template-columns: repeat(10, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
-  .detail-modal { grid-template-rows: minmax(120px, 24vh) minmax(0, 1fr); }
   .detail-copy .personal-action-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .detail-copy .personal-action { padding: 0.6rem 0.25rem; font-size: 0.75rem; }
   .detail-editor-content .media-entry { grid-template-columns: 1fr 1fr; }
   .detail-editor-content .media-entry > button:first-child { grid-column: 1 / -1; }
   .series-selection-field { grid-template-columns: 3rem minmax(0, 1fr) 0.6rem; }
-  .detail-actions-bar { margin-bottom: 0.85rem; }
 }
