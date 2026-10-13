@@ -1,6 +1,18 @@
 # #387 – Einstellungen und konsistente Anbieterregeln
 
-Stand: 13.10.2026 · Umsetzung und Navigations-Fine-Tuning von Matthias freigegeben.
+Stand: 13.10.2026 · Durch Matthias abgenommen und abgeschlossen.
+
+## Abschluss
+
+Matthias bestätigt den vorgelegten Stand mit **„Das ist abgenommen.“**
+Das Paket #387 ist nach #422/#424/#425 abgeschlossen; letzter öffentlich
+geprüfter Build `b1cc238`. CI, Android und Veröffentlichung erfolgreich.
+Nachfolgepaket: **#426 – Detailseite aufräumen und verbessern**, zunächst
+Sammlung/Bestandsaufnahme und gemeinsame Festlegung. #384 bleibt geparkt.
+
+Die folgenden Abschnitte dokumentieren den damaligen Planungs-/Prüfstand.
+Frühere Angaben „Geräteabnahme offen“ sind durch die Paketabnahme überholt;
+es werden keine zusätzlichen einzelnen Gerätetests behauptet.
 
 ## Freigegebene Stilkorrektur – 13.10.2026
 

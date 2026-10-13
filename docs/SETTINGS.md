@@ -1,6 +1,6 @@
 # Einstellungen und Anbieterregeln
 
-Stand: 13.10.2026 · #387 · Navigation nach freigegebener Skizze umgesetzt, Geräteabnahme offen.
+Stand: 13.10.2026 · #387 · Durch Matthias abgenommen und abgeschlossen.
 
 ## Navigation und Geltungsbereich
 
@@ -146,8 +146,16 @@ Alle elf Wege, exakte Scroll-/Fokusrückkehr, lange Senderliste und die
 verbleibenden Profil-/Kontokacheln geprüft. 1280 × 720 und 390 × 844 ohne
 Überlauf oder Browserfehler; Ansichten zusätzlich visuell geprüft.
 
-**Noch durch Matthias abzunehmen:** auf Smartphone und Fire TV Überschriften,
-Gruppenkacheln, Breadcrumb-Stil, Menübreiten,
-lange Senderliste und Zurück/Fokus; Anbieter-/Senderschalter über Home,
-Filme/Serien und TV; bestehende Auswahl und persönliche Reihen nach
-Profilwechsel/App-Neustart. Bis dahin bleibt #387 offen.
+## Abnahme und Abschluss – 13.10.2026
+
+Matthias hat den vorgelegten Stand mit **„Das ist abgenommen.“** bestätigt.
+Damit ist #387 einschließlich Navigation und Stilkorrektur abgeschlossen.
+Die Lieferkette #422 → #424 → #425 ist veröffentlicht, zuletzt Build
+`b1cc238`; CI, Android und Firebase-Veröffentlichung waren erfolgreich.
+Die früheren offenen Abnahmehinweise sind durch die Paketabnahme erledigt.
+Zusätzliche, einzeln protokollierte Geräte-/Testdurchläufe werden daraus
+nicht abgeleitet; der technische Prüfstand ist oben dokumentiert.
+
+Als nächstes Paket ist **#426 – Detailseite aufräumen und verbessern**
+angelegt: zunächst Sammlung, Bestandsaufnahme und gemeinsame Festlegung.
+Noch keine Detailseiten-Implementierung. #384 E-Mail bleibt geparkt.
