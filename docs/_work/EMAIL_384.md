@@ -60,8 +60,12 @@ Nächster vorbereiteter Schritt: `--build-access --apply` desselben Skripts prü
 Projekt, Buildkonto, beide festen Frankfurt-Quell-Buckets und die Docker-Registry,
 bevor es ausschließlich drei direkte Builder-Bindungen ergänzt. Keine
 Speicheranlage, Secret-Zugriffe, Functions, Indizes oder Zeitplanjobs.
-20 lokale Cloud-Simulationstests bestanden. Ausführung und unabhängiger
-Cloud-Prüfnachweis noch offen; exakte PR-/Laufnachweise in #384.
+20 lokale Cloud-Simulationstests bestanden. Die unabhängige Cloud-Prüfung
+bestätigt inzwischen die Grundlage. Screenshot 11:52 bestätigt beide
+Frankfurt-Buckets; im Upload-Namen steht zwischen Projektnummer und Region
+ein Punkt. Der vorherige Bindestrich im Setup/Preflight wurde korrigiert.
+Die tatsächlichen Bucket-Namen stehen jetzt unabhängig vom Setup-Code in der
+Cloud-Test-Fixture. Buildrechte-Ausführung noch offen; exakte PR-/Laufnachweise in #384.
 Umfang und Anleitung: [EMAIL_CLOUD_SETUP.md](../EMAIL_CLOUD_SETUP.md).
 
 - Domain in Resend verifizieren; DNS-Einträge exakt aus Resend übernehmen.

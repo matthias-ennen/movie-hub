@@ -36,7 +36,7 @@ API_KEY = "RESEND_API_KEY"
 ACCOUNT_READ_DELAYS = (0, 2, 4, 8, 16, 30, 30)
 BUILD_BUCKETS = (
     f"gcf-v2-sources-{NUMBER}-{REGION}",
-    f"gcf-v2-uploads-{NUMBER}-{REGION}.cloudfunctions.appspot.com",
+    f"gcf-v2-uploads-{NUMBER}.{REGION}.cloudfunctions.appspot.com",
 )
 BUILD_REPOSITORY = f"projects/{PROJECT}/locations/{REGION}/repositories/gcf-artifacts"
 

@@ -33,8 +33,11 @@ class Cloud:
         self.pending_reads = {}
         self.conflict_on_create = False
         self.disabled_on_create = False
-        self.buckets = {name: {"name": name, "projectNumber": mail.NUMBER, "location": mail.REGION.upper()}
-                        for name in mail.BUILD_BUCKETS}
+        # Actual names from the owner's 14 Oct 11:52 Cloud Shell inventory,
+        # independent of the implementation constants (uploads uses a dot).
+        self.buckets = {name: {"name": name, "projectNumber": "612913221205", "location": "EUROPE-WEST3"}
+                        for name in ["gcf-v2-sources-612913221205-europe-west3",
+                                     "gcf-v2-uploads-612913221205.europe-west3.cloudfunctions.appspot.com"]}
         self.repository = {"name": mail.BUILD_REPOSITORY, "format": "DOCKER", "mode": "STANDARD_REPOSITORY"}
 
     def __call__(self, args, **options):

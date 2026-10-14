@@ -62,7 +62,7 @@ for (const account of accounts) {
 const builder = `serviceAccount:movie-hub-email-build@${project}.iam.gserviceaccount.com`
 const hasBuildRole = (value, role) => value.bindings?.some((binding) =>
   binding.role === role && !binding.condition && binding.members?.includes(builder))
-for (const bucket of [`gcf-v2-sources-${number}-${region}`, `gcf-v2-uploads-${number}-${region}.cloudfunctions.appspot.com`]) {
+for (const bucket of [`gcf-v2-sources-${number}-${region}`, `gcf-v2-uploads-${number}.${region}.cloudfunctions.appspot.com`]) {
   check(`Build bucket: ${bucket}`,
     inspect(['storage', 'buckets', 'describe', `gs://${bucket}`, '--raw'], 'json(name,projectNumber,location)'),
     (value) => value.name === bucket && String(value.projectNumber) === number && value.location?.toLowerCase() === region)
