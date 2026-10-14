@@ -1,0 +1,10 @@
+# Generated server/src modules are required; do not include .gitignore here.
+.gcloudignore
+.git
+.gitignore
+node_modules/
+.env
+.env.*
+.secret.local
+gha-creds-*.json
+*-debug.log

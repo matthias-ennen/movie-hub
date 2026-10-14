@@ -65,8 +65,18 @@ bestätigt inzwischen die Grundlage. Screenshot 11:52 bestätigt beide
 Frankfurt-Buckets; im Upload-Namen steht zwischen Projektnummer und Region
 ein Punkt. Der vorherige Bindestrich im Setup/Preflight wurde korrigiert.
 Die tatsächlichen Bucket-Namen stehen jetzt unabhängig vom Setup-Code in der
-Cloud-Test-Fixture. Buildrechte-Ausführung noch offen; exakte PR-/Laufnachweise in #384.
+Cloud-Test-Fixture. Screenshot 12:00 bestätigt nun **BUILDRECHTE ERFOLGREICH**.
+Die drei direkten Speicherrechte sind eingerichtet/rückgeprüft, Versand aus.
+Exakte PR-/Laufnachweise in #384.
 Umfang und Anleitung: [EMAIL_CLOUD_SETUP.md](../EMAIL_CLOUD_SETUP.md).
+
+Nächster vorbereiteter Schritt: eigener manueller GitHub-Workflow für genau vier
+private Mailfunktionen in Frankfurt, dedizierte Build-/Laufzeit-/Eventidentitäten,
+numerische Secret-Referenzen und fest ausgeschalteter Versand. Schutz vor
+Überschreiben aktivierter Dienste/Bestandszeitpläne sowie Metadaten-/IAM-Rückprüfung
+nach jedem Deploy. Retry ist jetzt ein privater POST-Einstieg ohne impliziten
+Scheduler. Index, Aufrufrechte, Minutenjob und Testaktivierung folgen danach.
+Bedienung und Grenzen: [EMAIL_DEPLOYMENT.md](../EMAIL_DEPLOYMENT.md).
 
 - Domain in Resend verifizieren; DNS-Einträge exakt aus Resend übernehmen.
 - Absender festlegen; Vorschlag `MovieHub <mitteilungen@moviehubgermany.de>`.

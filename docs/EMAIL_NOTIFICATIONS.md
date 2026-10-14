@@ -106,9 +106,11 @@ Die einmalige Einrichtung der vier Mailkonten, begrenzten Rollen und des
 Token-Schlüssels ist als geprüftes Cloud-Shell-Skript vorbereitet:
 [EMAIL_CLOUD_SETUP.md](EMAIL_CLOUD_SETUP.md). Matthias' Screenshot um 11:34 Uhr
 bestätigt den erfolgreichen Grundlagenlauf. Der unabhängige GitHub-Prüfer wurde
-für fehlende Statusfelder aktiver Konten korrigiert. Der nächste vorbereitete
-Cloud-Shell-Schritt prüft die drei Buildspeicherziele und ergänzt ausschließlich
-die erforderlichen direkten Rechte für das Mail-Buildkonto. Mail-Functions,
+für fehlende Statusfelder aktiver Konten korrigiert. Der Screenshot um 12:00 Uhr
+bestätigt außerdem die erfolgreiche Einrichtung und Rückprüfung der drei
+direkten Buildspeicherrechte. Der nächste vorbereitete Schritt ist der manuelle
+GitHub-Workflow für vier private, ausgeschaltete Mailfunktionen:
+[EMAIL_DEPLOYMENT.md](EMAIL_DEPLOYMENT.md). Mail-Functions,
 Index, Dienst-Aufrufrechte und Retry-Zeitplan sind weiterhin nicht bereitgestellt.
 Der Code-Merge selbst verändert keine Cloud-Ressource.
 
@@ -125,8 +127,10 @@ Versand; Importieren führt keine Firestore-Abfragen/Netzwerkversände aus.
 
 - `profileEmailPreferences`: Wunschänderung prüfen und ggf. Bestätigung erzeugen.
 - `profileEmailNotification`: vorhandenes Mitteilungsereignis prüfen/versenden.
-- `profileEmailRetry`: minütlich höchstens 40 fällige Aufträge verarbeiten.
-- `profileEmailAction`: öffentliche, tokengebundene Bestätigungs-/Abmeldeseite.
+- `profileEmailRetry`: privater POST-Einstieg, später minütlich höchstens 40 fällige
+  Aufträge verarbeiten; der Minutenjob wird getrennt eingerichtet.
+- `profileEmailAction`: zunächst privater Einstieg für die später öffentliche,
+  tokengebundene Bestätigungs-/Abmeldeseite.
 
 Vor einem **separat freigegebenen** produktiven Start:
 
@@ -150,10 +154,11 @@ Vor einem **separat freigegebenen** produktiven Start:
    Eine neue App-Domain oder Hosting-Rewrite ist dafür nicht erforderlich.
 5. Bereitgestellte Besitzerregeln prüfen und den Collection-Group-Index
    `emailDeliveries.queueAt` aus `firestore.indexes.json` separat bereitstellen.
-   Dann ausschließlich die neue Codebase
-   über `firebase deploy --config firebase.email.json --only functions:profile-email`
-   bereitstellen. Nicht pauschal alle Functions aus der Standardkonfiguration
-   deployen. Kein solcher Befehl wurde in diesem Arbeitspaket ausgeführt.
+   Die vier Funktionen ausschließlich über den geprüften manuellen Workflow
+   [EMAIL_DEPLOYMENT.md](EMAIL_DEPLOYMENT.md) mit festem Build-/Laufzeitkonto
+   bereitstellen. Ein pauschaler Firebase-Function-Deploy ist hierfür nicht
+   vorgesehen. Dienst-Aufrufrechte und Retry-Minutenjob anschließend getrennt
+   einrichten. Noch kein solcher Deploy wurde ausgeführt.
 6. Cloud-Funktions-/Scheduler-/Firestore-Kosten und begrenzte Laufzeitrollen
    prüfen, Aktions-URL einsetzen. Eindeutige UTC-Startzeit als
    `MOVIE_HUB_EMAIL_LIVE_AFTER` setzen, Versand erst für den vereinbarten Test

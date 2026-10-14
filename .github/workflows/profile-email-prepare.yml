@@ -1,0 +1,37 @@
+name: Profile email server prepare (sending disabled)
+
+# Deliberately manual. This workflow cannot enable sending or create a scheduler.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: moviehub-profile-email-infrastructure
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Prepare and import isolated source without Cloud credentials
+        run: |
+          node scripts/prepare-email-function.mjs
+          npm ci --prefix email-functions --ignore-scripts --no-audit --no-fund
+          node --input-type=module -e "import('./email-functions/index.mjs').then(m => { if (Object.keys(m).length !== 4 || m.profileEmailRetry.__endpoint.scheduleTrigger) process.exitCode = 1 })"
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Deploy only four private mail functions with sending disabled
+        run: node scripts/prepare-profile-email-deploy.mjs --apply
