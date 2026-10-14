@@ -45,7 +45,9 @@ export function useTitleAlerts(userId, profileId) {
       if (providerIds.length) {
         const names = providerIds.map((providerId) => providers[providerId]?.label || providerId).join(', ')
         notificationId = alertNotificationId(watch)
-        notification = { title: 'Jetzt inklusive', body: `${watch.title} ist ohne Aufpreis bei ${names} verfügbar.`, expiresAt: Timestamp.fromMillis(now + 30 * 86400000) }
+        notification = { title: 'Jetzt inklusive', body: `${watch.title} ist ohne Aufpreis bei ${names} verfügbar.`,
+          providerNames: providerIds.map((id) => String(providers[id]?.label || id).slice(0, 100)).slice(0, 20),
+          expiresAt: Timestamp.fromMillis(now + 30 * 86400000) }
       }
     } else if (kind === 'tv') {
       try {
@@ -87,6 +89,7 @@ export function useTitleAlerts(userId, profileId) {
                 schemaVersion: 2, kind, titleType: watch.type, tmdbId: watch.tmdbId,
                 title: notification.title, mediaTitle: watch.title, body: notification.body,
                 phase: 'included-found', eventAt: serverTimestamp(),
+                providerNames: notification.providerNames,
                 completedAt: serverTimestamp(), startsAt: serverTimestamp(),
                 expiresAt: notification.expiresAt,
               })

@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "source": "email-functions",
+    "codebase": "profile-email",
+    "predeploy": ["node scripts/prepare-email-function.mjs"]
+  }
+}

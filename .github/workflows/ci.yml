@@ -46,6 +46,13 @@ jobs:
       - name: Test application logic
         run: npm run test:unit
 
+      - name: Prepare isolated email source (no send or deployment)
+        run: |
+          node scripts/prepare-email-function.mjs
+          npm ci --prefix email-functions --ignore-scripts --no-audit --no-fund
+          node --input-type=module -e "import('./email-functions/index.mjs').then(m => { if (Object.keys(m).length !== 4) process.exitCode = 1 })"
+          npm audit --prefix email-functions --omit=dev --audit-level=high
+
       - name: Test Firestore rules
         run: npm run test:rules
 

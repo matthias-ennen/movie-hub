@@ -306,3 +306,11 @@ Gesamtfreigabe abgeschlossen.
 Bestätigte persönliche Profil-, Fire-TV- und Zwei-Geräte-Tests bleiben abgenommen.
 Insbesondere kein globales Firestore-Delete-Recht und keine ungeprüfte
 Massenmigration. Die produktive TV-Endphase ist in #382 seit 12.10.2026 abgenommen.
+
+## Optionaler E-Mail-Kanal – #384, noch nicht freigeschaltet
+
+Der [E-Mail-Entwurf](EMAIL_NOTIFICATIONS.md) verwendet dieselben persönlichen
+V2-Ereignisse (`included-found`, `tv-found`, `tv-final`) und trennt Empfängerwunsch,
+Adressbestätigung und Versandledger. Neue Inklusivmeldungen führen optional
+`providerNames` mit. Es gibt keine zweite Titelprüfung, keinen rückwirkenden
+Versand und keine Änderung am bestehenden TV-Minutenprüfer.
