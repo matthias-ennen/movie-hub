@@ -36,6 +36,7 @@ class Cloud {
   service = { metadata: { annotations: {} } }
   deny = () => false
   afterDeploy = () => {}
+  rejectIamUpdates = false
   run = (args, options) => {
     this.calls.push(args)
     if (this.deny(args)) throw Error('permission-or-authentication')
@@ -53,6 +54,9 @@ class Cloud {
     if (command === 'run services describe') return this.service
     if (args[0] === 'functions' && args[1] === 'deploy') {
       expect(options.format).toBe('none')
+      if (this.rejectIamUpdates && this.existing.has(args[2]) && args.includes('--no-allow-unauthenticated')) {
+        throw Error('permission-or-authentication: run.services.setIamPolicy')
+      }
       this.writes.push(args)
       const value = fixture(args[2])
       this.afterDeploy(value)
@@ -113,6 +117,11 @@ describe('disabled mail deployment', () => {
     expect(spawnSync.mock.calls.at(-1)[2].env.CLOUDSDK_CORE_LOG_HTTP).toBe('false')
     spawnSync.mockReturnValue({ status: 1, stderr: 'NOT_FOUND private-marker' })
     expect(gcloud(['functions', 'describe', 'profileEmailAction'], { missing: true })).toBeNull()
+    spawnSync.mockReturnValue({ status: 1, stderr: 'Permission denied while using the Eventarc Service Agent. private-marker' })
+    expect(() => gcloud(['functions', 'deploy', 'profileEmailPreferences']))
+      .toThrow('eventarc-service-agent-propagation-or-role')
+    try { gcloud(['functions', 'deploy', 'profileEmailPreferences']) }
+    catch (error) { expect(error.message).not.toContain('private-marker') }
   })
 
   it('inspects every existing target before any mutation and refuses live or changed configuration', () => {
@@ -160,7 +169,16 @@ describe('disabled mail deployment', () => {
   it('can resume a partial disabled deployment after verifying its existing private service', () => {
     const cloud = new Cloud()
     cloud.existing.set('profileEmailAction', fixture('profileEmailAction'))
+    cloud.existing.set('profileEmailRetry', fixture('profileEmailRetry'))
+    cloud.rejectIamUpdates = true
     expect(prepare(cloud)).toHaveLength(4)
+    for (const name of ['profileEmailAction', 'profileEmailRetry']) {
+      const args = cloud.writes.find((call) => call[2] === name)
+      expect(args).not.toContain('--no-allow-unauthenticated')
+      expect(args).not.toContain('--allow-unauthenticated')
+      expect(cloud.calls.filter((call) => call.slice(0, 3).join(' ') === 'run services get-iam-policy'
+        && call[3] === name.toLowerCase())).toHaveLength(2)
+    }
     const failed = fixture('profileEmailAction'); failed.state = 'FAILED'
     delete failed.serviceConfig.uri; delete failed.serviceConfig.service
     delete failed.serviceConfig.allTrafficOnLatestRevision

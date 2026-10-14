@@ -41,7 +41,9 @@ export function gcloud(args, { missing = false, timeout = 60000, format = 'json'
     // Only fixed categories and permission identifiers leave this boundary.
     const permission = error.match(/(?:Permission|permission) ["']?((?:run|iam|eventarc|cloudfunctions|cloudbuild|storage|artifactregistry|secretmanager)\.[a-zA-Z.]+)/)?.[1]
     const code = denied ? 'permission-or-authentication' : /NOT_FOUND|404/i.test(error) ? 'not-found' : 'command-failed'
-    throw new Error(`Cloud command failed (${code}${permission ? `: ${permission}` : ''}; exit ${result.status}).`)
+    const eventarc = /permission denied while using (?:the )?eventarc service agent/i.test(error)
+      ? '; eventarc-service-agent-propagation-or-role' : ''
+    throw new Error(`Cloud command failed (${code}${permission ? `: ${permission}` : ''}${eventarc}; exit ${result.status}).`)
   }
   if (format === 'none') return null
   try { return JSON.parse(result.stdout) } catch { throw new Error('Cloud metadata could not be parsed.') }
@@ -136,10 +138,14 @@ export function prepareEmailDeployment({ run = gcloud, apply = false, envFile, l
     }
     checkNoMailSchedule(schedules())
     // Inspect ALL existing mail targets before the first deploy. No live reset.
+    const existingNames = new Set()
     for (const name of names) {
       stage = `Inspect existing ${name}`
       const existing = describe(name)
-      if (existing) privateService(checkEmailFunction(existing, name, { before: true }))
+      if (existing) {
+        privateService(checkEmailFunction(existing, name, { before: true }))
+        existingNames.add(name)
+      }
     }
     if (!apply) { log('Read-only inspection complete; no deployment or sending.'); return [] }
     require(typeof envFile === 'string' && envFile.length > 0, 'Disabled environment file missing.')
@@ -157,7 +163,12 @@ export function prepareEmailDeployment({ run = gcloud, apply = false, envFile, l
       if (paths[name]) args.push(`--trigger-event-filters=type=${written},database=(default),namespace=(default)`,
         `--trigger-event-filters-path-pattern=document=${paths[name]}`, `--trigger-location=${region}`,
         `--trigger-service-account=${events}`, '--retry')
-      else args.push('--trigger-http', '--no-allow-unauthenticated')
+      else {
+        args.push('--trigger-http')
+        // On updates this flag asks gcloud to write service IAM even when the
+        // existing service is already private. Keep its verified policy instead.
+        if (!existingNames.has(name)) args.push('--no-allow-unauthenticated')
+      }
       run(args, { format: 'none', timeout: 15 * 60 * 1000 })
       const target = checkEmailFunction(describe(name), name, { versions })
       privateService(target)
