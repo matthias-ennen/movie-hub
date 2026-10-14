@@ -16,6 +16,17 @@ const require = (condition, message) => { if (!condition) throw Error(message) }
 const bound = (policy, member) => policy?.bindings?.some((b) => b.role === 'roles/run.invoker'
   && !b.condition && b.members?.includes(member))
 
+function sameRetryTarget(actual, expected) {
+  // Cloud Scheduler adds '/' to a bare service origin. Accept only those two
+  // spellings of this exact HTTPS Cloud Run root, never paths/query/credentials.
+  try {
+    const url = new URL(expected)
+    return url.protocol === 'https:' && url.hostname.endsWith('.run.app')
+      && !url.port && [url.origin, `${url.origin}/`].includes(expected)
+      && [url.origin, `${url.origin}/`].includes(actual)
+  } catch { return false }
+}
+
 export function checkTestAccess(policy, service, name) {
   // Only the token action page may have exactly this public invocation binding.
   const rest = { ...policy, bindings: (policy?.bindings || []).map((binding) => ({ ...binding,
@@ -34,7 +45,7 @@ export function checkRetryJob(job, uri) {
     && job.schedule === '* * * * *' && ['Etc/UTC', 'UTC'].includes(job.timeZone)
     && job.attemptDeadline === '120s' && (job.retryConfig?.retryCount ?? 0) === 0
     && ['0s', undefined].includes(job.retryConfig?.maxRetryDuration)
-    && target?.uri === uri && target.httpMethod === 'POST' && !target.oauthToken
+    && sameRetryTarget(target?.uri, uri) && target.httpMethod === 'POST' && !target.oauthToken
     && target.oidcToken?.serviceAccountEmail === scheduler && target.oidcToken.audience === uri
     && target.body === 'e30=' && !job.pubsubTarget && !job.appEngineHttpTarget,
   'Existing mail scheduler differs; no replacement or deletion.')
@@ -59,10 +70,11 @@ export async function probeAction(uri, fetchImpl = fetch, sleep = (ms) => new Pr
   throw Error('Public confirmation page could not be verified; no additional activation attempted.')
 }
 
-export async function activateEmailTest({ recipient, apply = false, run = gcloud, clock = Date.now,
+export async function activateEmailTest({ recipient, apply = false, verifyActive = false, run = gcloud, clock = Date.now,
   writeEnv, probe = probeAction, log = console.log } = {}) {
   let stage = 'Inspect test prerequisites'
   try {
+    require(!(apply && verifyActive), 'Choose activation or read-only active verification, not both.')
     const email = normalizeEmailAddress(recipient)
     require(isValidEmailAddress(email), 'Valid Resend account email required.')
     const fingerprint = recipientFingerprint(email)
@@ -104,7 +116,8 @@ export async function activateEmailTest({ recipient, apply = false, run = gcloud
       const value = original[name]?.serviceConfig?.environmentVariables
       const legacy = Object.entries(disabledEnv).every(([key, expected]) => value?.[key] === expected)
       require(legacy || ['true', 'false'].includes(value?.MOVIE_HUB_EMAIL_ENABLED), 'Unexpected enabled state.')
-      targets[name] = checkEmailFunction(original[name], name, { expectedEnv: legacy ? disabledEnv :
+      require(!verifyActive || value?.MOVIE_HUB_EMAIL_ENABLED === 'true', 'Test sending is not enabled on every mail function.')
+      targets[name] = checkEmailFunction(original[name], name, { expectedEnv: verifyActive ? env : legacy ? disabledEnv :
         { ...env, MOVIE_HUB_EMAIL_ENABLED: value.MOVIE_HUB_EMAIL_ENABLED } })
       access(name)
       for (const ref of original[name].serviceConfig.secretEnvironmentVariables) {
@@ -122,13 +135,22 @@ export async function activateEmailTest({ recipient, apply = false, run = gcloud
       const jobs = run(['scheduler', 'jobs', 'list', `--location=${region}`])
       require(Array.isArray(jobs), 'Scheduler inventory unreadable.')
       const mailJobs = jobs.filter((job) => /(?:movie-hub-email|profileemail)/i.test(`${job.name || ''} ${job.httpTarget?.uri || ''}`)
-        || job.httpTarget?.uri === retryUri)
+        || sameRetryTarget(job.httpTarget?.uri, retryUri))
       require(mailJobs.length <= 1 && mailJobs.every((job) => job.name === jobPath), 'Conflicting mail scheduler exists.')
       if (mailJobs[0]) checkRetryJob(mailJobs[0], retryUri)
       return mailJobs[0]
     }
     let job = inventory()
     log('Voraussetzungen geprüft: vier Mailfunktionen, Aufrufrechte, Secret-Metadaten und READY-Index.')
+    if (verifyActive) {
+      stage = 'Verify active test configuration'
+      require(job?.state === 'ENABLED', 'Retry scheduler not enabled.')
+      require(bound(access('profileEmailAction'), 'allUsers'), 'Public action invocation grant not confirmed.')
+      await probe(actionUri)
+      log('TESTVERSAND GEPRÜFT: vier aktive Testfunktionen, öffentliche Aktionsseite und privater Minutenjob bestätigt.')
+      log('Nur gelesen; keine Cloud-Einstellungen geändert. Tatsächlichen E-Mail-Empfang separat prüfen.')
+      return { active: true, verified: true, liveAfter, actionUri, retryUri }
+    }
     if (!apply) { log('NUR PRÜFUNG. Keine Aktivierung oder E-Mail.'); return { active: false } }
     require(typeof writeEnv === 'function', 'Temporary configuration writer missing.')
     const envFile = writeEnv(env)
@@ -176,7 +198,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const dir = mkdtempSync(resolve(tmpdir(), 'moviehub-mail-test-'))
   let input
   try {
-    require(process.argv.slice(2).every((arg) => arg === '--apply'), 'Unknown argument.')
+    require(process.argv.slice(2).every((arg) => ['--apply', '--verify-active'].includes(arg)), 'Unknown argument.')
+    require(!(process.argv.includes('--apply') && process.argv.includes('--verify-active')), 'Choose one mode.')
     require(Number(process.versions.node.split('.')[0]) >= 22, 'Node.js 22 oder neuer erforderlich.')
     require(!process.env.GITHUB_ACTIONS, 'Nur in der Cloud Shell des Projektbesitzers ausführen.')
     process.chdir(resolve(dirname(fileURLToPath(import.meta.url)), '..'))
@@ -184,11 +207,13 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const recipient = await input.question('E-Mail-Adresse deines Resend-Kontos: ')
     input.close()
     if (process.argv.includes('--apply')) await import('./prepare-email-function.mjs')
-    await activateEmailTest({ recipient, apply: process.argv.includes('--apply'),
+    await activateEmailTest({ recipient, apply: process.argv.includes('--apply'), verifyActive: process.argv.includes('--verify-active'),
       writeEnv: (env) => { const path = resolve(dir, 'test-env.json'); writeFileSync(path, JSON.stringify(env), { mode: 0o600 }); return path } })
   } catch (error) {
     console.error(error.message)
-    console.error('Bei Abbruch können einzelne Testfunktionen bereits aktiv sein. Derselbe Befehl setzt mit derselben Adresse und Startzeit fort.')
+    console.error(process.argv.includes('--apply')
+      ? 'Bei Abbruch können einzelne Testfunktionen bereits aktiv sein. Derselbe Befehl setzt mit derselben Adresse und Startzeit fort.'
+      : 'Prüfung abgebrochen; keine Cloud-Einstellungen verändert.')
     process.exitCode = 1
   } finally { input?.close(); rmSync(dir, { recursive: true, force: true }) }
 }

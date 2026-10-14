@@ -1,5 +1,35 @@
 # Private Mailfunktionen bereitstellen (#384)
 
+## Abschlussprüfung nach Scheduler-URL-Normalisierung
+
+Der Besitzerlauf am 14.10.2026 um 14:25 Uhr hat alle vier Testfunktionen
+bereitgestellt und die öffentliche Aktionsseite bestätigt. Die abschließende
+Scheduler-Prüfung stoppte an einem zu strengen Zeichenkettenvergleich:
+Der Screenshot um 14:29 Uhr zeigt die Retry-Service-URL ohne abschließenden Slash,
+die Scheduler-Zieladresse mit `/` und die OIDC-Audience weiterhin exakt ohne Slash.
+Der Job ist `ENABLED`; `lastAttemptTime` liegt bei 12:29 UTC und `status` ist leer.
+Das ist noch kein Nachweis einer zugestellten E-Mail.
+
+Die Prüfung akzeptiert jetzt ausschließlich die zwei Schreibweisen desselben
+HTTPS-Cloud-Run-Ursprungs mit leerem Pfad bzw. `/`. Andere Hosts, Pfade, Querys,
+Fragmente, Anmeldedaten und Ports bleiben ausgeschlossen. Die OIDC-Audience
+wird weiterhin exakt mit der rückgelesenen Service-URL verglichen.
+Auch die Suche nach kollidierenden Jobs erkennt beide Ziel-Schreibweisen.
+
+Nach dem geprüften Merge das korrigierte Archiv laden und ausschließlich
+`node scripts/activate-profile-email-test.mjs --verify-active` ausführen.
+Die interaktive Resend-Kontoadresse muss der bisherigen Testadresse entsprechen.
+Dieser Modus verlangt vier eingeschaltete Funktionen mit derselben vollständigen
+Testkonfiguration, passende Aufrufrechte, Secret-Metadaten, den READY-Index,
+einen eingeschalteten privaten Minutenjob und eine erreichbare Aktionsseite.
+Er führt nur Metadatenabfragen und den zustandsfreien GET aus; kein Deployment,
+keine IAM-/Jobänderung, keine neue Startzeit und kein Versandauftrag.
+`--apply` und `--verify-active` dürfen nicht kombiniert werden.
+
+Erwarteter Abschluss: **TESTVERSAND GEPRÜFT**. Danach folgen Profil-Einstellungen
+und echter Empfangstest wie unten beschrieben. Ein Konfigurationsnachweis ersetzt
+weder den tatsächlichen E-Mail-Empfang noch dessen Abnahme.
+
 ## Kontrollierten Testversand aktivieren
 
 Matthias hat am 14.10.2026 um 13:43 Uhr `INDEX BEREIT` bestätigt.
