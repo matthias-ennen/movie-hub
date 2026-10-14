@@ -4,10 +4,12 @@ import { getAuth } from 'firebase-admin/auth'
 import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { onRequest } from 'firebase-functions/v2/https'
 import { defineSecret, defineString } from 'firebase-functions/params'
+import { cloudEvent, http } from '@google-cloud/functions-framework'
 import { createResendTransport } from './server/email/transport.mjs'
 import { createEmailTokens } from './server/email/tokens.mjs'
 import { createEmailService } from './server/email/service.mjs'
 import { createEmailActionHandler, createEmailRetryHandler } from './server/email/http.mjs'
+import { mailEventIdentity } from './server/email/eventIdentity.mjs'
 
 initializeApp()
 const apiKey = defineSecret('RESEND_API_KEY')
@@ -26,12 +28,26 @@ function service() {
 }
 export const profileEmailPreferences = onDocumentWritten({ ...options, retry: true,
   document: 'users/{uid}/profiles/{profileId}/emailPreferences/current' },
-async (event) => { await service().reconcile(event.params.uid, event.params.profileId) })
+async (event) => {
+  const { uid, profileId } = mailEventIdentity(event, 'preferences')
+  await service().reconcile(uid, profileId)
+})
 export const profileEmailNotification = onDocumentWritten({ ...options, retry: true,
   document: 'users/{uid}/profiles/{profileId}/notifications/{eventId}' },
-async (event) => { await service().enqueueNotification(event.params.uid, event.params.profileId, event.params.eventId) })
+async (event) => {
+  const { uid, profileId, eventId } = mailEventIdentity(event, 'notification')
+  await service().enqueueNotification(uid, profileId, eventId)
+})
 // Scheduler and per-service invocation grants are provisioned separately.
 export const profileEmailRetry = onRequest({ ...options, invoker: 'private', cors: false },
 createEmailRetryHandler(service))
 export const profileEmailAction = onRequest({ ...options, invoker: 'private', cors: false },
 async (req, res) => createEmailActionHandler(service())(req, res))
+
+// gcloud's Functions Framework loader does not infer Firebase __endpoint metadata.
+// Explicit signatures make the HTTP envelope become a CloudEvent before the SDK
+// extracts document captures. Keep HTTP action/retry handlers explicitly HTTP.
+cloudEvent('profileEmailPreferences', profileEmailPreferences)
+cloudEvent('profileEmailNotification', profileEmailNotification)
+http('profileEmailRetry', profileEmailRetry)
+http('profileEmailAction', profileEmailAction)

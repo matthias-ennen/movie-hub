@@ -167,7 +167,7 @@ describe('controlled mail activation', () => {
     expect(cloud.writes[0].join(' ')).not.toMatch(/env-vars|allow-unauthenticated/)
     expect({ functions: cloud.functions, policies: cloud.policies, jobs: cloud.jobs }).toEqual(before)
     for (const name of names) {
-      expect(cloud.calls.filter((a) => a[0] === 'functions' && a[1] === 'describe' && a[2] === name)).toHaveLength(2)
+      expect(cloud.calls.filter((a) => a[0] === 'functions' && a[1] === 'describe' && a[2] === name)).toHaveLength(name === 'profileEmailPreferences' ? 3 : 2)
     }
   })
   it('refuses a Preferences refresh if activation is incomplete or the recipient differs', async () => {
@@ -214,6 +214,40 @@ describe('controlled mail activation', () => {
       await expect(activate(cloud, { refreshPreferences: true, ...options })).rejects.toThrow('Choose only one mode')
       expect(cloud.calls).toEqual([])
     }
+  })
+  it('refreshes exactly the two Firestore functions and preserves the complete active setup', async () => {
+    const cloud = new Cloud(); await activate(cloud); cloud.writes = []
+    const before = structuredClone({ functions: cloud.functions, policies: cloud.policies, jobs: cloud.jobs })
+    const writeEnv = vi.fn()
+    const result = await activate(cloud, { apply: false, refreshEvents: true, writeEnv, clock: () => now + 3600000 })
+    expect(result).toMatchObject({ active: true, refreshed: ['profileEmailPreferences', 'profileEmailNotification'], liveAfter: new Date(now).toISOString() })
+    expect(cloud.writes.map((args) => args.slice(0, 3))).toEqual([
+      ['functions', 'deploy', 'profileEmailPreferences'], ['functions', 'deploy', 'profileEmailNotification'],
+    ])
+    expect(cloud.writes.flat().join(' ')).not.toMatch(/env-vars|allow-unauthenticated|add-iam|scheduler/)
+    expect(writeEnv).not.toHaveBeenCalled()
+    expect({ functions: cloud.functions, policies: cloud.policies, jobs: cloud.jobs }).toEqual(before)
+  })
+  it('resumes a partial event refresh with the same configuration and no IAM/job changes', async () => {
+    const cloud = new Cloud(); await activate(cloud); cloud.writes = []; cloud.failDeploy = 'profileEmailNotification'
+    await expect(activate(cloud, { apply: false, refreshEvents: true })).rejects.toThrow('Refresh profileEmailNotification')
+    expect(cloud.writes.map((args) => args[2])).toEqual(['profileEmailPreferences'])
+    cloud.failDeploy = ''; cloud.writes = []
+    await activate(cloud, { apply: false, refreshEvents: true, clock: () => now + 3600000 })
+    expect(cloud.functions.profileEmailPreferences.serviceConfig.environmentVariables.MOVIE_HUB_EMAIL_LIVE_AFTER).toBe(new Date(now).toISOString())
+    expect(cloud.writes.map((args) => args.slice(0, 3))).toEqual([
+      ['functions', 'deploy', 'profileEmailPreferences'], ['functions', 'deploy', 'profileEmailNotification'],
+    ])
+  })
+  it('refuses an event refresh with another mode or a mismatched existing recipient', async () => {
+    for (const options of [{ apply: true }, { apply: false, verifyActive: true }, { apply: false, refreshPreferences: true }]) {
+      const cloud = new Cloud()
+      await expect(activate(cloud, { refreshEvents: true, ...options })).rejects.toThrow('Choose only one mode')
+      expect(cloud.calls).toEqual([])
+    }
+    const cloud = new Cloud(); await activate(cloud); cloud.writes = []
+    await expect(activate(cloud, { apply: false, refreshEvents: true, recipient: 'other@example.org' })).rejects.toThrow()
+    expect(cloud.writes).toEqual([])
   })
   it('stops before writes for an incomplete index, missing invocation grant or foreign function', async () => {
     for (const mutate of [(c) => { c.indexState = 'CREATING' },
