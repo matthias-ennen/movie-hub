@@ -93,12 +93,19 @@ optional TTL auf deren `expiresAt` konfigurieren, niemals auf dem Versandledger.
 
 Matthias hat die Hauptprofilanzeige bestätigt und die Mailoption aktiviert.
 Am 14.10.2026 um 10:40 Uhr hat er das sichere Hinterlegen eines neuen
-Resend-Schlüssels unter `RESEND_API_KEY` bestätigt. Dessen Cloud-Metadaten und
-die verbleibenden Servervoraussetzungen werden im Workflow
+Resend-Schlüssels unter `RESEND_API_KEY` bestätigt. Nach seiner Secret-Viewer-
+Freigabe hat der erneut gestartete Prüflauf eine aktive Version technisch
+bestätigt. Schlüsselinhalt und Resend-Berechtigung sind noch nicht geprüft.
+Die verbleibenden Servervoraussetzungen werden im Workflow
 `Profile email infrastructure preflight` geprüft. Dieser liest ausschließlich
 Metadaten, niemals Schlüsselwerte oder persönliche Profildaten. Fehlende oder
 nicht lesbare Voraussetzungen ergeben einen fehlgeschlagenen Prüflauf; sie
 werden nicht automatisch angelegt. Der bestehende TV-Prüfer wird nicht verändert.
+
+Die einmalige Einrichtung der vier Mailkonten, begrenzten Rollen und des
+Token-Schlüssels ist als geprüftes Cloud-Shell-Skript vorbereitet:
+[EMAIL_CLOUD_SETUP.md](EMAIL_CLOUD_SETUP.md). Ausführung mit dem Cloud-Konto von
+Matthias steht aus; der Code-Merge selbst verändert keine Cloud-Ressource.
 
 Der provisorische Absender ist `MovieHub <onboarding@resend.dev>`; Resend erlaubt
 damit nur die mit dem Resend-Konto verbundene Empfängeradresse. Diese muss vor

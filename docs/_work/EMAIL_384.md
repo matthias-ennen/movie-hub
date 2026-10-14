@@ -41,11 +41,21 @@ Beobachtungen nutzen einen gemeinsamen optionalen Kanal.
 Vorheriger begrenzter Test ohne Domain ist inzwischen beauftragt. Matthias hat
 die Hauptprofilanzeige bestätigt und die Mailoption aktiviert. Um 10:40 Uhr
 bestätigte er die sichere Ablage eines neuen Resend-Schlüssels als
-`RESEND_API_KEY`. Noch kein technischer Nachweis der Ablage oder Schlüsselgültigkeit.
+`RESEND_API_KEY`. Nach der um 10:55 Uhr bestätigten Secret-Viewer-Freigabe
+erkennt Prüflauf `38537750613`, Versuch 2, technisch eine aktive Version.
+Schlüsselgültigkeit und Resend-Versandberechtigung sind damit noch nicht belegt.
 Ein eigener ausschließlich lesender Infrastruktur-Prüflauf ermittelt den
 tatsächlichen Bestand über den vorhandenen GitHub-Deploy-Zugang. Keine Secrets
 auslesen, keine IAM-/Cloud-Änderung und keine Testmail durch diesen Prüflauf.
 Testempfänger muss zur Resend-Konto-Adresse passen; bisher nicht festgestellt.
+
+Nächster vorbereiteter Schritt: `scripts/setup-profile-email-cloud.py` legt
+vier isolierte Mailkonten, begrenzte Rollen und den zufälligen Token-Schlüssel
+mit direkter Übergabe an Secret Manager an. Bestehende Schlüssel werden erhalten;
+keine Mail-Functions, Indizes oder Zeitplanjobs durch dieses Skript. Ausführung
+durch Matthias mit seinem Cloud-Konto steht aus. Umfang und Anleitung:
+[EMAIL_CLOUD_SETUP.md](../EMAIL_CLOUD_SETUP.md). Acht lokale Prüfungen mit
+simulierten Cloud-Antworten bestanden; kein Nachweis eines echten Cloud-Laufs.
 
 - Domain in Resend verifizieren; DNS-Einträge exakt aus Resend übernehmen.
 - Absender festlegen; Vorschlag `MovieHub <mitteilungen@moviehubgermany.de>`.

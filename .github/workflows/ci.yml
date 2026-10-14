@@ -53,6 +53,9 @@ jobs:
           node --input-type=module -e "import('./email-functions/index.mjs').then(m => { if (Object.keys(m).length !== 4) process.exitCode = 1 })"
           npm audit --prefix email-functions --omit=dev --audit-level=high
 
+      - name: Check mail infrastructure setup safety with simulated Cloud responses
+        run: python3 scripts/test-profile-email-cloud.py
+
       - name: Test Firestore rules
         run: npm run test:rules
 

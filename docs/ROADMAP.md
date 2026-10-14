@@ -1,12 +1,12 @@
 # Movie Hub – Roadmap
 
-Stand: 13. Oktober 2026
+Stand: 14. Oktober 2026
 
 ## Leitprinzip
 
 Movie Hub wird in klar abgegrenzeten Arbeitspaketen weiterentwickelt. TMDB bleibt die kanonische Quelle für öffentliche Film- und Serienmetadaten. Zusätzliche Quellen liefern Verfügbarkeiten, Senderereignisse und Wiedergabeziele. Ein Adapterfehler darf weder andere Quellen noch den letzten gültigen veröffentlichten Datenstand beschädigen.
 
-Das Mitteilungs-Grundpaket #314, #387 (Einstellungen) und #426 (Detailseite einschließlich aller Nachträge) sind abgenommen. #426 wurde am 13.10.2026 um 20:46 Uhr vollständig abgeschlossen. Nächstes vorgesehenes Arbeitspaket ist #384 (Auch per E-Mail je Profil): analysiert, noch nicht umgesetzt. Danach wird die bestehende Hauptstrecke über #314/#385 und die modulare Quellenplattform fortgeführt. Der Waipu-/Joyn-Betriebsnachtrag bleibt getrennt davon dokumentiert.
+Das Mitteilungs-Grundpaket #314, #387 (Einstellungen) und #426 (Detailseite einschließlich aller Nachträge) sind abgenommen. #426 wurde am 13.10.2026 um 20:46 Uhr vollständig abgeschlossen. Aktuelles Arbeitspaket ist #384 (Auch per E-Mail je Profil): Profiloberfläche und Besitzerregeln sind veröffentlicht; der ausgeschaltete Mailserver ist vorbereitet. Die Einrichtung für den begrenzten Resend-Test ohne eigene Domain läuft, echter Versand und Abnahme stehen aus. Danach wird die bestehende Hauptstrecke über #314/#385 und die modulare Quellenplattform fortgeführt. Der Waipu-/Joyn-Betriebsnachtrag bleibt getrennt davon dokumentiert.
 
 ## Bereinigter abgeschlossener Stand
 
