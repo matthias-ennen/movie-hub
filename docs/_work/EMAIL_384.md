@@ -130,3 +130,12 @@ Die Veröffentlichung umfasst Oberfläche und Firestore-Regeln über den vorhand
 Workflow, ausdrücklich keinen Mail-Function-/Index-Deploy. Exakte Build- und
 Deploymentnachweise werden in #384 festgehalten. DNS/IAM/Secrets, echter Mailversand
 und Matthias' Smartphone-/Fire-TV-Abnahme bleiben offen; #384 bleibt offen.
+# Diagnose nach erstem privaten Mail-Deploy (14.10.2026, 12:30)
+
+Lauf [38549712845](https://github.com/matthias-ennen/movie-hub/actions/runs/38549712845)
+auf `93d9cf7`: `profileEmailAction` und `profileEmailRetry` erfolgreich bereitgestellt
+und privat/ausgeschaltet rückgeprüft. `profileEmailPreferences` scheitert beim
+Cloud-Befehl mit nicht genauer benanntem Berechtigungsfehler; vierte Function nicht
+begonnen. Lesende Vorgangs-/Dienstkonto-Diagnose ergänzt; keine spekulative
+Rechtevergabe, kein automatischer erneuter Deploy. Konkrete Ursache und nächste
+Maßnahme nach dem Diagnosebericht festlegen. Versand bleibt aus, #384 offen.
