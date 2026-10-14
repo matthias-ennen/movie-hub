@@ -12,6 +12,21 @@ um 12:30 Uhr mit `permission-or-authentication`; `profileEmailNotification`
 wurde danach nicht mehr angefasst. Der genaue Grund wird lesend diagnostiziert.
 Versand bleibt aus; kein Retry-Zeitplan oder Index wurde eingerichtet.
 
+Der Besitzer-Auditbefund um 12:51 bestätigt `cloudfunctions.functions.create`
+als erlaubt; die ursprüngliche Ablehnung betrifft den Google-Eventarc-Service-Agent
+(Status 9) und nennt anfängliche Rechteausbreitung als mögliche Ursache. Dessen passende Projektrolle
+ist inzwischen im Preflight nachgewiesen. Ein begründeter zweiter Versuch desselben
+Laufs stoppte am 14.10. um 12:54 beim Update von `profileEmailAction`:
+`run.services.setIamPolicy` wurde verweigert. Ursache ist das erneut übergebene
+`--no-allow-unauthenticated`, das auch bei bereits privaten Diensten IAM schreibt.
+Bei geprüften Bestandsfunktionen wird dieses Flag deshalb weggelassen; ihre private
+IAM-Konfiguration wird davor und danach weiterhin zwingend geprüft. Neue HTTP-
+Funktionen werden weiter explizit privat angelegt. Keine neue IAM-Rolle erforderlich.
+Ein neuer manueller Lauf auf dem korrigierten Main ist erforderlich; **Re-run jobs**
+des alten Laufs verwendet weiterhin dessen alten Commit und enthält die Korrektur nicht.
+Die bekannte Eventarc-Meldung wird künftig direkt als feste Diagnosekennung
+`eventarc-service-agent-propagation-or-role` protokolliert, ohne rohe Fehlermeldung.
+
 Die vorhandene Preflight-Ausführung liest zusätzlich die Zustände der vier festen
 Mail-Functions, ausgewählte projektweite Dienstkonto-Rollen und bis zu fünf Seiten
 Cloud-Functions-Vorgangsmetadaten. Nur die jeweils drei neuesten Vorgänge der exakt
