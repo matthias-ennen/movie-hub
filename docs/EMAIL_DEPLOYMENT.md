@@ -1,5 +1,20 @@
 # Private Mailfunktionen bereitstellen (#384)
 
+## Aktueller Tagesabschluss – 14.10.2026, 19:22 Uhr
+
+**Die Testinstallation ist aktiv; der erste echte TV-Mail-Empfang ist bestätigt.**
+Matthias' Lauf um 18:57 aktualisierte Preferences/Notification aus
+`aa599a788d27201d2894bc1bfb03177e7ce1f20b` mit `--refresh-events` und endete mit
+`EREIGNISFUNKTIONEN AKTUALISIERT`. Um 19:14 bestätigt er Empfang und positives
+Layoutfeedback. Die zweite TV-Mail und weitere Abnahmen bleiben offen.
+Domainregistrierung bestätigt, eigene Resend-/DNS-Konfiguration noch nicht.
+
+Für einen neuen Chat zuerst die [Übergabe](_work/EMAIL_384.md) lesen. Die folgenden
+Abschnitte dokumentieren frühere Stufen und deren Bedienung, keinen Auftrag zum
+erneuten Durchlaufen. Insbesondere kein ausgeschaltetes Prepare auf die aktive
+Installation anwenden. Beim heutigen Schlusspunkt bleiben Testversand und Jobs
+aktiv; Domain-/Absenderumstellung wird in der nächsten Sitzung fortgeführt.
+
 ## CloudEvent-Einstiege korrigieren – 14.10.2026, 16:06 Uhr
 
 Screenshot `1000062564.jpg` bestätigt das installierte Diagnoseupdate.

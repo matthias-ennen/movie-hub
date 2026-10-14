@@ -1,4 +1,12 @@
-# Titelbezogene Mitteilungen – Stand 13.10.2026
+# Titelbezogene Mitteilungen – Stand 14.10.2026
+
+## Tagesabschluss 14.10.2026 – #384 bleibt aktuell
+
+Begrenzter Mailversand aktiv; Matthias bestätigt die erste TV-Mail und positives
+Feedback zur Gestaltung. Zweite TV-Mail, weitere Mailfälle und Gesamtfreigabe
+offen. `moviehubgermany.de` ist registriert, Resend/DNS und dauerhafter Absender
+folgen. [Übergabe für den nächsten Chat](_work/EMAIL_384.md) ist maßgeblich.
+Die bereits abgenommene Mitteilungs-Grundstrecke bleibt abgeschlossen.
 
 ## Produktiv- und Abnahmestand
 
@@ -27,7 +35,11 @@ vorhandenen Nachweise akzeptiert; kein zusätzlicher vom Assistenten
 durchgeführter realer Providerwechsel wird behauptet. Bereits bestätigte
 Tests werden nicht erneut angefordert.
 
-### Nächstes vorgesehenes Arbeitspaket: #384 – Auch per E-Mail je Profil
+### Historische Planung vom 13.10.2026: #384 – Auch per E-Mail je Profil
+
+Diese damalige Analyse ist durch die Umsetzung und die aktuelle Übergabe oben
+fortgeschrieben. Insbesondere sind eigene Empfängeradressen je Profil inzwischen
+ausdrücklich beauftragt und implementiert; die Oberfläche liegt unter Profile & Konto.
 
 Priorität vom 13.10.2026, 19:05 Uhr (Europe/Berlin): #387 (Einstellungen) und
 #426 (Detailseite aufräumen und verbessern) sind abgenommen und abgeschlossen.
@@ -307,10 +319,13 @@ Bestätigte persönliche Profil-, Fire-TV- und Zwei-Geräte-Tests bleiben abgeno
 Insbesondere kein globales Firestore-Delete-Recht und keine ungeprüfte
 Massenmigration. Die produktive TV-Endphase ist in #382 seit 12.10.2026 abgenommen.
 
-## Optionaler E-Mail-Kanal – #384, noch nicht freigeschaltet
+## Optionaler E-Mail-Kanal – #384, begrenzter Test aktiv
 
-Der [E-Mail-Entwurf](EMAIL_NOTIFICATIONS.md) verwendet dieselben persönlichen
+Der [E-Mail-Kanal](EMAIL_NOTIFICATIONS.md) verwendet dieselben persönlichen
 V2-Ereignisse (`included-found`, `tv-found`, `tv-final`) und trennt Empfängerwunsch,
 Adressbestätigung und Versandledger. Neue Inklusivmeldungen führen optional
 `providerNames` mit. Es gibt keine zweite Titelprüfung, keinen rückwirkenden
 Versand und keine Änderung am bestehenden TV-Minutenprüfer.
+
+Der erste echte TV-Mail-Empfang ist am 14.10.2026 bestätigt. Für Domainumstellung
+und offene Fachabnahme gilt die [aktuelle Übergabe](_work/EMAIL_384.md).

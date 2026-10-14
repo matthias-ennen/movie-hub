@@ -6,7 +6,7 @@ Stand: 14. Oktober 2026
 
 Movie Hub wird in klar abgegrenzeten Arbeitspaketen weiterentwickelt. TMDB bleibt die kanonische Quelle für öffentliche Film- und Serienmetadaten. Zusätzliche Quellen liefern Verfügbarkeiten, Senderereignisse und Wiedergabeziele. Ein Adapterfehler darf weder andere Quellen noch den letzten gültigen veröffentlichten Datenstand beschädigen.
 
-Das Mitteilungs-Grundpaket #314, #387 (Einstellungen) und #426 (Detailseite einschließlich aller Nachträge) sind abgenommen. #426 wurde am 13.10.2026 um 20:46 Uhr vollständig abgeschlossen. Aktuelles Arbeitspaket ist #384 (Auch per E-Mail je Profil): Profiloberfläche und Besitzerregeln sind veröffentlicht; der ausgeschaltete Mailserver ist vorbereitet. Die Einrichtung für den begrenzten Resend-Test ohne eigene Domain läuft, echter Versand und Abnahme stehen aus. Danach wird die bestehende Hauptstrecke über #314/#385 und die modulare Quellenplattform fortgeführt. Der Waipu-/Joyn-Betriebsnachtrag bleibt getrennt davon dokumentiert.
+Das Mitteilungs-Grundpaket #314, #387 (Einstellungen) und #426 (Detailseite einschließlich aller Nachträge) sind abgenommen. #426 wurde am 13.10.2026 um 20:46 Uhr vollständig abgeschlossen. Aktuelles Arbeitspaket ist #384 (Auch per E-Mail je Profil): Der begrenzte Resend-Test ist aktiv, der erste echte TV-Mail-Empfang und das positive Layoutfeedback sind bestätigt. Tagesabschluss am 14.10., 19:22 Uhr; zweite TV-Mail, weitere Fachtests und Gesamtfreigabe offen. Die eigene Domain ist registriert; als Nächstes Resend/DNS und dauerhaften Absender einrichten. [Verbindliche Übergabe](_work/EMAIL_384.md). Danach #385 und die modulare Quellenplattform. Der Waipu-/Joyn-Betriebsnachtrag bleibt getrennt davon dokumentiert.
 
 ## Bereinigter abgeschlossener Stand
 
@@ -89,27 +89,26 @@ bleiben erhalten; #328/#391 gehören nicht zu diesem Umfang.
 1.054 Anwendungstests, Browser-Komponentenprüfung in sechs Bildschirmformaten,
 CI, Android-Build und Veröffentlichung sind nachgewiesen.
 Abnahme und Nachweise: [Detailpaket](_work/DETAIL_426.md).
-Als nächstes folgt **#384 – Auch per E-Mail je Profil**, analysiert und noch nicht gestartet.
+Aktuell läuft **#384 – Auch per E-Mail je Profil**, begrenzter Versand mit erstem bestätigtem Empfang.
 
-### 1. #314 – Mitteilungs-Grundpaket abgeschlossen, #384 als nächstes
+### 1. #314 – Mitteilungs-Grundpaket abgeschlossen, #384 in Arbeit
 
 Matthias hat am 12.10.2026 sämtliche vier zuletzt vorgelegten Restpunkte
 mit „Ja, das ist alles abgenommen“ bestätigt. #118/#381/#312 sind geschlossen;
 #380/#382/#383 und `movie-hub-admin#11` waren bereits abgeschlossen.
 Keine offene Geräteabnahme der gelieferten Basis.
 
-**#384: analysiert und als nächstes vorgesehen, Umsetzung noch nicht gestartet.** Gewünscht ist
-**Auch per E-Mail** unter Einstellungen → Mitteilungen, je Profil,
-standardmäßig aus. Der aktuelle Wunsch umfasst bestehende persönliche
-Inklusiv-, TV-Fund- und letzte TV-Meldungen und erweitert damit die frühere
-Beschränkung auf die letzte TV-Erinnerung.
+**#384: implementiert, begrenzter Test aktiv, erste TV-Mail empfangen.** Unter
+**Profile & Konto** stehen Empfängeradresse und optionaler Mail-Schalter je Profil.
+Gemeinsamer Backend-Versand nutzt die bestehenden persönlichen Ereignisse für
+Inklusiv-, TV-Fund- und letzte TV-Meldungen. Vier Mailfunktionen, Rechte,
+Secrets, Index und privater Minutenjob sind eingerichtet; keine Neueinrichtung
+aus früheren Zwischenständen ableiten.
 
-Vor Umsetzung Versanddienst/Absender, Empfängerregel und Fehlerverhalten
-konkretisieren. Gemeinsamen Backend-Pfad für alle Entstehungswege planen;
-vorhandene Profile, Meldungs-IDs und UI-Konventionen nutzen.
-Grobe Schätzung: 2–3,5 Stunden bei vorbereitetem Versanddienst/Absender,
-3–5 Stunden bei Neueinrichtung plus externe Wartezeiten. Keine neue
-Implementierung oder Testmail durch diesen Analyseauftrag.
+Fortsetzung nach Tagesabschluss: Ergebnis der zweiten TV-Mail erfragen, dann
+`moviehubgermany.de` mit Resend/DNS verbinden, Absender kontrolliert umstellen,
+weitere eigene Profiladressen und die offenen Mailfälle prüfen. #384 bleibt bis
+zur ausdrücklichen Gesamtfreigabe offen. [Stand und Nachweise](_work/EMAIL_384.md).
 
 Danach #385 einzeln priorisieren. #314 bleibt als Erweiterungs-Master offen.
 Details: [Tagesabschluss und Analyse](TITLE_NOTIFICATIONS.md#tagesabschluss-12102026).
@@ -199,6 +198,6 @@ Vor einer öffentlichen Version 1.0 sollen mindestens folgende Blöcke abgeschlo
 
 ## Aktuelle Reihenfolge
 
-`#314 (Grundpaket abgenommen; nächstes Paket #384, anschließend #385) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
+`#314 (Grundpaket abgenommen; #384 in Arbeit, anschließend #385) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
 
 #346, #315, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. #426 ist einschließlich aller Nachträge abgenommen und abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) bleiben getrennte Recherchepakete unter #271 und ändern die Hauptstrecke nicht.
