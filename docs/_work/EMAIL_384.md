@@ -1,7 +1,7 @@
 # #384 – Profilbezogene E-Mail-Mitteilungen
 
-Stand: 14.10.2026 · Oberfläche und Regeln für die Veröffentlichung vorbereitet;
-Mail-Infrastruktur und Versand bleiben ausgeschaltet.
+Stand: 14.10.2026 · Oberfläche und Regeln mit `a790327` veröffentlicht;
+Vorbereitung des provisorischen Versands, Mail-Infrastruktur noch nicht aktiv.
 
 ## Auftrag und Grenzen
 
@@ -37,6 +37,15 @@ Beobachtungen nutzen einen gemeinsamen optionalen Kanal.
    anschließend prüfbaren Entwurf auf GitHub sichern.
 
 ## Offene Einrichtung nach Domainfreischaltung
+
+Vorheriger begrenzter Test ohne Domain ist inzwischen beauftragt. Matthias hat
+die Hauptprofilanzeige bestätigt und die Mailoption aktiviert. Um 10:40 Uhr
+bestätigte er die sichere Ablage eines neuen Resend-Schlüssels als
+`RESEND_API_KEY`. Noch kein technischer Nachweis der Ablage oder Schlüsselgültigkeit.
+Ein eigener ausschließlich lesender Infrastruktur-Prüflauf ermittelt den
+tatsächlichen Bestand über den vorhandenen GitHub-Deploy-Zugang. Keine Secrets
+auslesen, keine IAM-/Cloud-Änderung und keine Testmail durch diesen Prüflauf.
+Testempfänger muss zur Resend-Konto-Adresse passen; bisher nicht festgestellt.
 
 - Domain in Resend verifizieren; DNS-Einträge exakt aus Resend übernehmen.
 - Absender festlegen; Vorschlag `MovieHub <mitteilungen@moviehubgermany.de>`.

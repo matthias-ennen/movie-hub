@@ -1,7 +1,7 @@
 # Profilbezogene E-Mail-Mitteilungen (#384)
 
-Stand 14.10.2026: Profiloberfläche und Besitzerregeln zur Veröffentlichung
-vorbereitet; der Mailkanal bleibt standardmäßig abgeschaltet.
+Stand 14.10.2026: Profiloberfläche und Besitzerregeln mit Web-Build `a790327`
+veröffentlicht; der Mailkanal bleibt standardmäßig abgeschaltet.
 Keine Mail-Function bereitgestellt und keine echte E-Mail versandt.
 Die bestehende Hosting-Konfiguration und der TV-Minutenprüfer bleiben unverändert.
 Der normale Hosting-Workflow veröffentlicht nur die Oberfläche und Firestore-
@@ -90,6 +90,20 @@ bleiben zusätzlich wirksam. Serverinterne Zähler liegen unter `emailInternal`;
 optional TTL auf deren `expiresAt` konfigurieren, niemals auf dem Versandledger.
 
 ## Isolierte Funktionen und Freischaltung
+
+Matthias hat die Hauptprofilanzeige bestätigt und die Mailoption aktiviert.
+Am 14.10.2026 um 10:40 Uhr hat er das sichere Hinterlegen eines neuen
+Resend-Schlüssels unter `RESEND_API_KEY` bestätigt. Dessen Cloud-Metadaten und
+die verbleibenden Servervoraussetzungen werden im Workflow
+`Profile email infrastructure preflight` geprüft. Dieser liest ausschließlich
+Metadaten, niemals Schlüsselwerte oder persönliche Profildaten. Fehlende oder
+nicht lesbare Voraussetzungen ergeben einen fehlgeschlagenen Prüflauf; sie
+werden nicht automatisch angelegt. Der bestehende TV-Prüfer wird nicht verändert.
+
+Der provisorische Absender ist `MovieHub <onboarding@resend.dev>`; Resend erlaubt
+damit nur die mit dem Resend-Konto verbundene Empfängeradresse. Diese muss vor
+dem echten Test festgestellt werden. Der abgesonderte Test ersetzt weder die
+Domainverifikation noch den späteren Test anderer Profiladressen.
 
 `server/email/` enthält die testbare Logik. `email-functions/` ist eine eigene
 Gen2-Codebase mit eigenem Lockfile. `scripts/prepare-email-function.mjs` kopiert
