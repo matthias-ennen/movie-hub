@@ -47,6 +47,7 @@ test('reads only metadata, follows pagination and reports only the latest three 
   for (const value of [secret, 'private@example.invalid', 'private-other-service', 'page-private-token', 'roles/owner']) expect(text).not.toContain(value)
   for (const [url, options] of request.mock.calls) {
     expect(new URL(url).origin).toBe('https://cloudfunctions.googleapis.com')
+    expect(new URL(url).searchParams.get('fields')).toBe('operations(name,metadata,done,error),nextPageToken')
     expect(options).toMatchObject({ method: 'GET', redirect: 'error', headers: { Authorization: `Bearer ${secret}` } })
   }
 })
