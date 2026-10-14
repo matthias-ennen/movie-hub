@@ -1,8 +1,11 @@
 # Profilbezogene E-Mail-Mitteilungen (#384)
 
-Stand 14.10.2026: implementierter, standardmäßig abgeschalteter Entwurf.
+Stand 14.10.2026: Profiloberfläche und Besitzerregeln zur Veröffentlichung
+vorbereitet; der Mailkanal bleibt standardmäßig abgeschaltet.
 Keine Mail-Function bereitgestellt und keine echte E-Mail versandt.
 Die bestehende Hosting-Konfiguration und der TV-Minutenprüfer bleiben unverändert.
+Der normale Hosting-Workflow veröffentlicht nur die Oberfläche und Firestore-
+Regeln. Der separate Mail-Deploy wird dadurch nicht ausgelöst.
 
 ## Bedienung und Daten
 
@@ -119,8 +122,9 @@ Vor einem **separat freigegebenen** produktiven Start:
    abgleichen. Dedizierte `MOVIE_HUB_EMAIL_SERVICE_ACCOUNT` setzen. `APP_URL` ist
    die vorhandene App; `ACTION_URL` ist die HTTPS-URL von `profileEmailAction`.
    Eine neue App-Domain oder Hosting-Rewrite ist dafür nicht erforderlich.
-5. Regeln und den Collection-Group-Index `emailDeliveries.queueAt` aus
-   `firestore.indexes.json` bereitstellen. Dann ausschließlich die neue Codebase
+5. Bereitgestellte Besitzerregeln prüfen und den Collection-Group-Index
+   `emailDeliveries.queueAt` aus `firestore.indexes.json` separat bereitstellen.
+   Dann ausschließlich die neue Codebase
    über `firebase deploy --config firebase.email.json --only functions:profile-email`
    bereitstellen. Nicht pauschal alle Functions aus der Standardkonfiguration
    deployen. Kein solcher Befehl wurde in diesem Arbeitspaket ausgeführt.
@@ -140,6 +144,22 @@ bei Bedarf deren neue Trigger/Retry-Job stoppen. Bestehende In-App-Mitteilungen
 und der TV-Prüfer bleiben fachlich unabhängig. Während längerer Abschaltung
 abgelaufene private Auftragsdaten kontrolliert bereinigen; Deduplizierungs-
 Endzustände erhalten. Keine vorhandenen Rollen/Scheduler anderer Funktionen ändern.
+
+## Reproduzierbare Oberflächenprüfung
+
+`npm run test:email:browser` startet einen lokalen Firestore-Emulator mit dem
+Demo-Projekt `demo-moviehub-email-ui` und prüft echte Profilkomponenten mit
+synthetischen Konten. Voraussetzung: Java 21 und ein mit
+`npx playwright install chromium` installiertes Chromium. CI installiert den
+Browser einschließlich Systemabhängigkeiten. Der Test blockiert alle externen
+Browseranfragen und erzeugt keine E-Mails.
+
+Geprüft werden getrennte Profile, Defaults, Speichern/Neuladen, zwei gleichzeitige
+Ansichten, Revisionskonflikte, Live-Bestätigungsstatus und D-Pad-Fokus. Vier
+Bildschirmgrößen sowie alle vier Mailvorlagen erzeugen Screenshots und einen
+Prüfbericht unter `artifacts/profile-email-browser/`; CI bewahrt sie sieben Tage
+auf. Echte Smartphone-/Fire-TV-Bedienung und Empfang in Mailprogrammen benötigen
+weiterhin die gesonderte Abnahme. Die Profilwahl im Browser verwendet Testdaten.
 
 ## Technische Referenzen
 

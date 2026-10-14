@@ -16,11 +16,11 @@ export function ProfileEmailForm({ profile, accountEmail, ready, preferences, ve
   const saving = useRef(false)
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   useEffect(() => {
-    if (dirty || busy) return
+    if (dirty || busy || (preferences?.revision ?? 0) < revision) return
     setEmail(initialProfileEmail(profile, accountEmail, preferences))
     setEnabled(preferences?.enabled === true)
     setRevision(preferences?.revision ?? 0)
-  }, [preferences, profile, accountEmail, dirty, busy])
+  }, [preferences, profile, accountEmail, dirty, busy, revision])
 
   async function submit(event) {
     event.preventDefault()
@@ -29,8 +29,14 @@ export function ProfileEmailForm({ profile, accountEmail, ready, preferences, ve
     setBusy(true)
     setMessage('')
     try {
-      await save({ email, enabled, expectedRevision: revision })
-      if (alive.current) { setDirty(false); setMessage('E-Mail-Einstellungen gespeichert.') }
+      const saved = await save({ email, enabled, expectedRevision: revision })
+      if (alive.current) {
+        setEmail(saved.email)
+        setEnabled(saved.enabled)
+        setRevision(saved.revision)
+        setDirty(false)
+        setMessage('E-Mail-Einstellungen gespeichert.')
+      }
     } catch (failure) {
       if (alive.current) setMessage(failure?.code
         ? 'E-Mail-Einstellungen konnten nicht gespeichert werden. Bitte erneut versuchen.'
@@ -42,7 +48,9 @@ export function ProfileEmailForm({ profile, accountEmail, ready, preferences, ve
   }
 
   const confirmed = emailAddressConfirmed(preferences, verification)
-  const currentProof = verification?.addressVersion === preferences?.addressVersion ? verification : null
+  const currentProof = verification && preferences && verification.addressVersion === preferences.addressVersion
+    && (!['pending', 'failed'].includes(verification.status) || verification.revision === preferences?.revision)
+    ? verification : null
   const status = !preferences?.enabled ? '' : confirmed ? 'E-Mail-Adresse bestätigt.'
     : currentProof?.status === 'limited' ? 'Zu viele Bestätigungsanfragen. Bitte später erneut speichern.'
       : currentProof?.status === 'failed' ? 'Die Bestätigungs-E-Mail konnte nicht versandt werden. Bitte erneut speichern.'
@@ -64,7 +72,10 @@ export function ProfileEmailForm({ profile, accountEmail, ready, preferences, ve
       <SettingsButton type="submit" disabled={!ready || busy || Boolean(error)} aria-busy={busy || undefined}>
         {busy ? 'Speichert …' : 'E-Mail-Einstellungen speichern'}
       </SettingsButton>
-      <p className="profile-message" role="status" aria-live="polite">{error || message || (!ready ? 'E-Mail-Einstellungen werden geladen …' : status)}</p>
+      <div className="profile-email-feedback" role="status" aria-live="polite">
+        {(error || message || !ready) && <p className="profile-message">{error || message || 'E-Mail-Einstellungen werden geladen …'}</p>}
+        {ready && !error && status && <p className="profile-message">{status}</p>}
+      </div>
     </form>
   )
 }

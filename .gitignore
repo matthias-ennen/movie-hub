@@ -15,5 +15,6 @@ artifacts/waipu-account-probe/
 artifacts/waipu-sync/
 artifacts/waipu-live/
 artifacts/waipu-station-inventory/
+artifacts/profile-email-browser/
 .DS_Store
 gha-creds-*.json

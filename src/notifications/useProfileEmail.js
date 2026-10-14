@@ -40,10 +40,11 @@ export function useProfileEmail(userId, profileId) {
   async function save(input) {
     const { db } = await firebaseReady
     const ref = doc(db, 'users', userId, 'profiles', profileId, 'emailPreferences', 'current')
-    await runTransaction(db, async (tx) => {
+    return runTransaction(db, async (tx) => {
       const snapshot = await tx.get(ref)
       const next = nextEmailPreferences(snapshot.exists() ? snapshot.data() : null, input, serverTimestamp())
       tx.set(ref, next)
+      return next
     })
   }
   return { ...state, save }

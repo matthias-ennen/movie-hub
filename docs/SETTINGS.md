@@ -34,7 +34,7 @@ Die Seite heißt direkt **Profile & Konto** im kompakten Überschriftenstil;
 Dein Movie Hub, die große doppelte Überschrift und der Einleitungstext entfallen.
 Profile & Konto, Einstellungen und Breadcrumbs teilen die Kopfabstände.
 
-Der Entwurf zu #384 ergänzt unter dem Profilnamen eine eigene Empfängeradresse
+#384 ergänzt unter dem Profilnamen eine eigene Empfängeradresse
 und **Mitteilungen auch per E-Mail erhalten** (anfangs aus). Hauptprofil initial
 mit Konto-Adresse, Unterprofile leer; bewusst gespeicherte Werte bleiben erhalten.
 Die Anmeldeadresse bleibt unverändert. Bestätigung und Versand werden separat

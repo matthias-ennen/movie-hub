@@ -1,13 +1,17 @@
 # #384 – Profilbezogene E-Mail-Mitteilungen
 
-Stand: 14.10.2026 · Umsetzung auf isoliertem Branch, noch nicht veröffentlicht.
+Stand: 14.10.2026 · Oberfläche und Regeln für die Veröffentlichung vorbereitet;
+Mail-Infrastruktur und Versand bleiben ausgeschaltet.
 
 ## Auftrag und Grenzen
 
 Matthias hat die Vorbereitung während der Registrierung von
 `moviehubgermany.de` bei netcup beauftragt. Resend-Konto vorhanden; Domain,
-DNS und Versandzugang noch nicht eingerichtet. Keine echten E-Mails senden,
-keine Cloud-Ressourcen ändern, kein produktiver Versand in dieser Stufe.
+DNS und Versandzugang noch nicht eingerichtet. In der ersten Stufe wurde der
+Entwurf isoliert vorbereitet. Mit dem anschließenden „Weiter“ wird jetzt die
+prüfbare Oberfläche samt Besitzerregeln über den bestehenden Hosting-Deploy
+bereitgestellt. Keine echten E-Mails, keine neuen Mail-Functions und keine
+DNS-/IAM-/Secret-Änderungen in dieser Stufe.
 
 Unter Profile & Konto folgt auf den Profilnamen die editierbare E-Mail-Adresse
 und „Mitteilungen auch per E-Mail erhalten“. Hauptprofil initial mit
@@ -64,12 +68,25 @@ Lokal erfolgreich: 1.070 Anwendungstests plus drei zusätzliche Renderprüfungen
 Transaktionen, Produktionsbuild, Import der vier isolierten Functions,
 keine npm-Audit-Funde in den produktiven Abhängigkeiten der Mail-Codebase.
 
-Die versuchte Browser-Sichtprüfung ist in dieser Umgebung blockiert: Der
-offizielle Browserdownload liefert kein gültiges Archiv; ein separat verfügbarer
-Chromium-Runtime scheitert beim Grafikstart. Daher **keine** bestandene Sichtprüfung,
-Vier-Größen-Prüfung oder Smartphone-/Fire-TV-Abnahme behaupten. Reale React-
-Formularausgabe (Vorbelegung, Unterprofil, Fokusattribute, Lade-/Bestätigungsstatus)
-ist automatisiert geprüft; die visuelle/physische Abnahme bleibt offen.
+Die anfängliche Browserblockade wurde mit einem ohne Grafikbeschleunigung
+gestarteten Chromium behoben. `npm run test:email:browser` prüft die echten
+Profilkomponenten und Speicher-/Listenerlogik mit lokalem Firestore-Emulator,
+synthetischen Profilen und blockierten externen Browseranfragen. Die Profilwahl
+ist eine Fixture; ein echter Login und physische Geräte werden nicht simuliert.
 
-Kein produktives Deployment, keine DNS-/IAM-/Secret-Änderung und kein echter
-Mailversand. #384 bleibt bis zur vollständigen Abnahme offen.
+Bestanden: Haupt-/Unterprofilvorbelegung, getrennte Empfänger und Einwilligungen,
+unveränderte Loginadresse, Speichern/Neuladen, bewusst leeres Hauptprofil,
+Synchronisierung zweier Ansichten, Erhalt eines Entwurfs bei Revisionskonflikt,
+sichtbarer Live-Bestätigungsstatus sowie die echte D-Pad-Navigation. Vier Ansichten
+(390, 768, 1280 und 1920 Pixel) und alle vier Mailvorlagen wurden geprüft und die
+Screenshots visuell gesichtet. Browserprüfung und synthetische Screenshots sind
+auch in CI aufgenommen. Kein Nachweis für echte Mailclients oder native Geräte.
+
+Dabei behoben: verdeckter Status nach dem Speichern, veralteter Snapshot nach
+einem erfolgreichen Speichervorgang und übersprungener Mail-Schalter bei D-Pad
+nach oben. Danach erneut 1.073 Anwendungstests und Produktionsbuild erfolgreich.
+
+Die Veröffentlichung umfasst Oberfläche und Firestore-Regeln über den vorhandenen
+Workflow, ausdrücklich keinen Mail-Function-/Index-Deploy. Exakte Build- und
+Deploymentnachweise werden in #384 festgehalten. DNS/IAM/Secrets, echter Mailversand
+und Matthias' Smartphone-/Fire-TV-Abnahme bleiben offen; #384 bleibt offen.
