@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/profile-email-preflight.yml
       - scripts/profile-email-preflight.mjs
+      - scripts/profile-email-diagnostics.mjs
   workflow_dispatch:
 
 permissions:
@@ -33,5 +34,7 @@ jobs:
           workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
           service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v3
+      - name: Inspect mail deployment failure metadata without writes or raw errors
+        run: node scripts/profile-email-diagnostics.mjs
       - name: Inspect prerequisites without reading secret values
         run: node scripts/profile-email-preflight.mjs

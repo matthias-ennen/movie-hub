@@ -4,7 +4,24 @@ Stand 14.10.2026: Matthias' Screenshot um 12:00 Uhr bestätigt
 **BUILDRECHTE ERFOLGREICH**. Das Setup hat die beiden Frankfurt-Buckets und die
 Docker-Registry geprüft, die drei direkten Rechte für das Mail-Buildkonto ergänzt
 und rückgelesen. Grundlage: [EMAIL_CLOUD_SETUP.md](EMAIL_CLOUD_SETUP.md).
-Die Mailfunktionen sind noch nicht bereitgestellt, es wurde keine E-Mail versandt.
+Erster manueller Lauf am 14.10.2026, 12:27 Uhr:
+[38549712845](https://github.com/matthias-ennen/movie-hub/actions/runs/38549712845)
+auf Main `93d9cf7` hat `profileEmailAction` und `profileEmailRetry` erstellt und
+vollständig rückgeprüft. Bei `profileEmailPreferences` stoppte der Cloud-Befehl
+um 12:30 Uhr mit `permission-or-authentication`; `profileEmailNotification`
+wurde danach nicht mehr angefasst. Der genaue Grund wird lesend diagnostiziert.
+Versand bleibt aus; kein Retry-Zeitplan oder Index wurde eingerichtet.
+
+Die vorhandene Preflight-Ausführung liest zusätzlich die Zustände der vier festen
+Mail-Functions, ausgewählte projektweite Dienstkonto-Rollen und bis zu fünf Seiten
+Cloud-Functions-Vorgangsmetadaten. Nur die jeweils drei neuesten Vorgänge der exakt
+passenden Mailziele werden ausgewertet. Aus Fehlern erscheinen ausschließlich
+erkannte Berechtigungsnamen, fest erlaubte Rollen, Konto-Aliase und Fehlerkategorien.
+Keine rohen Fehlermeldungen, Umgebungswerte, Secret-Inhalte oder Dokumentdaten.
+Das kurzlebige Cloud-Zugriffstoken bleibt im Prozess und wird nur an den festen
+Google-Metadatenendpunkt übertragen; Weiterleitungen sind gesperrt.
+Der Diagnose-Workflow kann keine Rechte vergeben oder Bereitstellung wiederholen.
+Ein unlesbarer oder begrenzter Bericht wird ausdrücklich als solcher gekennzeichnet.
 
 ## Manueller Start nach geprüftem Merge
 
@@ -99,6 +116,7 @@ Eine spätere Abschaltung muss die Aktivierung gezielt zurücknehmen.
 
 ## Referenzen
 
+- [Cloud-Functions-Vorgänge lesend auflisten](https://docs.cloud.google.com/functions/docs/reference/rest/v2/projects.locations.operations/list)
 - [Cloud Functions deploy: Buildkonto, Triggerfilter, Env- und Secret-Referenzen](https://docs.cloud.google.com/sdk/gcloud/reference/functions/deploy)
 - [Metadaten der Gen2-Funktionen und Ereignisfilter](https://docs.cloud.google.com/functions/docs/reference/rest/v2/projects.locations.functions)
 - [Firestore-Trigger und getrennte Aufrufberechtigung](https://docs.cloud.google.com/firestore/native/docs/extend-with-cloud-run-functions)
