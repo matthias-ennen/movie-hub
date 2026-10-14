@@ -29,6 +29,10 @@ class Cloud:
         self.secret_values = []
         self.denied = None
         self.ignore_bindings = False
+        self.post_create_reads = []
+        self.pending_reads = {}
+        self.conflict_on_create = False
+        self.disabled_on_create = False
 
     def __call__(self, args, **options):
         self.calls.append(args)
@@ -37,6 +41,12 @@ class Cloud:
         if args[:2] == ["projects", "describe"]:
             return {"projectId": mail.PROJECT, "projectNumber": mail.NUMBER, "lifecycleState": "ACTIVE"}
         if args[:3] == ["iam", "service-accounts", "describe"]:
+            pending = self.pending_reads.get(args[3], [])
+            if pending:
+                reply = pending.pop(0)
+                if reply is not None:
+                    raise mail.SetupError("Simulierter Lesefehler", reply)
+                return None
             return copy.deepcopy(self.accounts.get(args[3]))
         if args[:3] == ["iam", "roles", "describe"]:
             return copy.deepcopy(self.role)
@@ -54,7 +64,10 @@ class Cloud:
 
         self.writes.append(args)
         if args[:3] == ["iam", "service-accounts", "create"]:
-            self.accounts[mail.account(args[3])] = {"email": mail.account(args[3]), "disabled": False}
+            self.accounts[mail.account(args[3])] = {"email": mail.account(args[3]), "disabled": self.disabled_on_create}
+            self.pending_reads[mail.account(args[3])] = list(self.post_create_reads)
+            if self.conflict_on_create:
+                raise mail.SetupError("Konto existiert bereits", "ALREADY_EXISTS")
         elif args[:3] == ["iam", "roles", "create"]:
             self.role = {"includedPermissions": mail.PERMISSIONS, "stage": "GA"}
         elif args[:2] == ["secrets", "create"] or args[:3] == ["secrets", "versions", "add"]:
@@ -77,7 +90,7 @@ class Cloud:
 class SetupTests(unittest.TestCase):
     def run_setup(self, cloud, apply=True):
         output = io.StringIO()
-        with patch.object(mail, "gcloud", cloud), contextlib.redirect_stdout(output):
+        with patch.object(mail, "gcloud", cloud), patch.object(mail.time, "sleep"), contextlib.redirect_stdout(output):
             mail.setup(apply)
         return output.getvalue()
 
@@ -108,6 +121,69 @@ class SetupTests(unittest.TestCase):
         cloud = Cloud()
         self.run_setup(cloud, False)
         self.assertEqual(cloud.writes, [])
+
+    def test_delayed_visibility_after_creation_retries_reads_without_recreating(self):
+        cloud = Cloud()
+        cloud.post_create_reads = [None, "PERMISSION_DENIED", "UNAVAILABLE", None]
+        self.run_setup(cloud)
+        creates = [c for c in cloud.writes if c[:3] == ["iam", "service-accounts", "create"]]
+        self.assertEqual(len(creates), 4)
+        self.assertEqual(len({c[3] for c in creates}), 4)
+        self.assertEqual(len(cloud.secret_values), 1)
+
+    def test_create_conflict_requires_successful_readback_then_resumes(self):
+        cloud = Cloud()
+        cloud.conflict_on_create = True
+        cloud.post_create_reads = [None]
+        output = self.run_setup(cloud)
+        self.assertIn("Identität wird geprüft", output)
+        self.assertEqual(len(cloud.secret_values), 1)
+
+    def test_persistent_denial_after_creation_stops_before_roles_and_secrets(self):
+        cloud = Cloud()
+        cloud.post_create_reads = ["PERMISSION_DENIED"] * len(mail.ACCOUNT_READ_DELAYS)
+        with self.assertRaisesRegex(mail.SetupError, "Konto noch nicht sicher lesbar"):
+            self.run_setup(cloud)
+        self.assertEqual(len(cloud.writes), 1)
+        self.assertEqual(cloud.writes[0][:3], ["iam", "service-accounts", "create"])
+        self.assertIsNone(cloud.role)
+        self.assertEqual(cloud.secret_values, [])
+
+    def test_conflict_does_not_accept_a_disabled_account(self):
+        cloud = Cloud()
+        cloud.conflict_on_create = True
+        cloud.disabled_on_create = True
+        with self.assertRaisesRegex(mail.SetupError, "deaktiviertes Konto"):
+            self.run_setup(cloud)
+        self.assertEqual(len(cloud.writes), 1)
+        self.assertEqual(cloud.secret_values, [])
+
+    def test_permission_denied_during_initial_inspection_never_creates_or_retries(self):
+        cloud = Cloud()
+        cloud.denied = lambda args: args[:3] == ["iam", "service-accounts", "describe"]
+        with self.assertRaisesRegex(mail.SetupError, "Berechtigung"):
+            self.run_setup(cloud)
+        self.assertEqual(cloud.writes, [])
+        self.assertEqual(sum(c[:3] == ["iam", "service-accounts", "describe"] for c in cloud.calls), 1)
+
+    def test_create_failure_is_not_retried_or_ignored(self):
+        cloud = Cloud()
+        cloud.denied = lambda args: args[:3] == ["iam", "service-accounts", "create"]
+        with self.assertRaisesRegex(mail.SetupError, "Dienstkonto anlegen"):
+            self.run_setup(cloud)
+        self.assertEqual(sum(c[:3] == ["iam", "service-accounts", "create"] for c in cloud.calls), 1)
+        self.assertEqual(cloud.secret_values, [])
+
+    def test_sdk_conflict_reports_only_category_and_keeps_secret_material_hidden(self):
+        marker = "provider-private-material"
+        failed = subprocess.CompletedProcess([], 1, "", "Resource is the subject of a conflict: "
+                                              f"Service account already exists. {marker}")
+        with patch.object(mail.subprocess, "run", return_value=failed):
+            with self.assertRaises(mail.SetupError) as caught:
+                mail.gcloud(["iam", "service-accounts", "create", "movie-hub-email"], format="none")
+        self.assertEqual(caught.exception.code, "ALREADY_EXISTS")
+        self.assertIn("Exit 1", str(caught.exception))
+        self.assertNotIn(marker, str(caught.exception))
 
     def test_permission_failure_is_not_resource_absence(self):
         cloud = Cloud()

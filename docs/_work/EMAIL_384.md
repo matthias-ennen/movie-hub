@@ -52,10 +52,15 @@ Testempfänger muss zur Resend-Konto-Adresse passen; bisher nicht festgestellt.
 Nächster vorbereiteter Schritt: `scripts/setup-profile-email-cloud.py` legt
 vier isolierte Mailkonten, begrenzte Rollen und den zufälligen Token-Schlüssel
 mit direkter Übergabe an Secret Manager an. Bestehende Schlüssel werden erhalten;
-keine Mail-Functions, Indizes oder Zeitplanjobs durch dieses Skript. Ausführung
-durch Matthias mit seinem Cloud-Konto steht aus. Umfang und Anleitung:
-[EMAIL_CLOUD_SETUP.md](../EMAIL_CLOUD_SETUP.md). Acht lokale Prüfungen mit
-simulierten Cloud-Antworten bestanden; kein Nachweis eines echten Cloud-Laufs.
+keine Mail-Functions, Indizes oder Zeitplanjobs durch dieses Skript. Matthias hat
+den Cloud-Shell-Lauf gestartet; zunächst Abbruch beim Runtime-Konto, im nächsten
+Screenshot beim Build-Konto. Ein direkter SDK-Aufruf um 11:22 Uhr bestätigt,
+dass das Runtime-Konto bereits existiert. Vollständige Einrichtung noch offen.
+Der überarbeitete Code wartet begrenzt auf Sichtbarkeit neuer Konten und prüft
+Existenzkonflikte durch Rücklesen; eindeutigere Fehlerstufen/-codes ohne rohe
+SDK-Antworten. 15 lokale Prüfungen mit simulierten Cloud-Antworten bestanden;
+Fortsetzung mit der korrigierten Version noch erforderlich. Umfang und Anleitung:
+[EMAIL_CLOUD_SETUP.md](../EMAIL_CLOUD_SETUP.md).
 
 - Domain in Resend verifizieren; DNS-Einträge exakt aus Resend übernehmen.
 - Absender festlegen; Vorschlag `MovieHub <mitteilungen@moviehubgermany.de>`.

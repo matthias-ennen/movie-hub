@@ -104,8 +104,10 @@ werden nicht automatisch angelegt. Der bestehende TV-Prüfer wird nicht verände
 
 Die einmalige Einrichtung der vier Mailkonten, begrenzten Rollen und des
 Token-Schlüssels ist als geprüftes Cloud-Shell-Skript vorbereitet:
-[EMAIL_CLOUD_SETUP.md](EMAIL_CLOUD_SETUP.md). Ausführung mit dem Cloud-Konto von
-Matthias steht aus; der Code-Merge selbst verändert keine Cloud-Ressource.
+[EMAIL_CLOUD_SETUP.md](EMAIL_CLOUD_SETUP.md). Matthias hat die Einrichtung gestartet;
+nach einem Abbruch bei der Kontoprüfung wird sie mit begrenzten Lese-Wiederholungen
+und geprüfter Übernahme vorhandener Konten fortgesetzt. Vollständiger Erfolg
+steht aus; der Code-Merge selbst verändert keine Cloud-Ressource.
 
 Der provisorische Absender ist `MovieHub <onboarding@resend.dev>`; Resend erlaubt
 damit nur die mit dem Resend-Konto verbundene Empfängeradresse. Diese muss vor
