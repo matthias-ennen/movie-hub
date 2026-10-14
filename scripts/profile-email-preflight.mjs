@@ -4,6 +4,7 @@ import { appendFileSync } from 'node:fs'
 // Fixed project, fixed metadata commands. Never call secrets versions access,
 // fetch user documents or print provider responses/credentials.
 const project = 'movie-hub-62459'
+const number = '612913221205'
 const region = 'europe-west3'
 const runtime = `movie-hub-email@${project}.iam.gserviceaccount.com`
 const accounts = ['movie-hub-email', 'movie-hub-email-build', 'movie-hub-email-events', 'movie-hub-email-scheduler']
@@ -25,8 +26,13 @@ function inspect(args, format) {
   catch { return { state: 'unreadable', reason: 'metadata-format' } }
 }
 function check(name, result, valid, detail = '') {
-  checks.push({ name, state: result.state === 'read' ? valid(result.value) ? 'ready' : 'needs-setup' : result.state,
-    ...(result.reason ? { reason: result.reason } : {}), detail })
+  let state = result.state
+  let reason = result.reason
+  if (state === 'read') {
+    try { state = result.value != null && valid(result.value) ? 'ready' : 'needs-setup' }
+    catch { state = 'unreadable'; reason = 'metadata-format' }
+  }
+  checks.push({ name, state, ...(reason ? { reason } : {}), detail })
 }
 
 const apis = inspect(['services', 'list', '--enabled'], 'value(config.name)')
@@ -47,9 +53,30 @@ for (const name of ['RESEND_API_KEY', 'MOVIE_HUB_EMAIL_TOKEN_KEY']) {
 }
 for (const account of accounts) {
   check(`Dedicated account: ${account}`,
-    inspect(['iam', 'service-accounts', 'describe', `${account}@${project}.iam.gserviceaccount.com`], 'json(disabled)'),
-    (value) => value.disabled !== true)
+    inspect(['iam', 'service-accounts', 'describe', `${account}@${project}.iam.gserviceaccount.com`], 'json(email,disabled)'),
+    (value) => value.email === `${account}@${project}.iam.gserviceaccount.com` && value.disabled !== true)
 }
+
+// An enabled account may omit disabled=false. Always retain a required identity
+// field in projections; an empty projection can otherwise become JSON null.
+const builder = `serviceAccount:movie-hub-email-build@${project}.iam.gserviceaccount.com`
+const hasBuildRole = (value, role) => value.bindings?.some((binding) =>
+  binding.role === role && !binding.condition && binding.members?.includes(builder))
+for (const bucket of [`gcf-v2-sources-${number}-${region}`, `gcf-v2-uploads-${number}-${region}.cloudfunctions.appspot.com`]) {
+  check(`Build bucket: ${bucket}`,
+    inspect(['storage', 'buckets', 'describe', `gs://${bucket}`, '--raw'], 'json(name,projectNumber,location)'),
+    (value) => value.name === bucket && String(value.projectNumber) === number && value.location?.toLowerCase() === region)
+  check(`Build source access: ${bucket}`,
+    inspect(['storage', 'buckets', 'get-iam-policy', `gs://${bucket}`], 'json(bindings)'),
+    (value) => hasBuildRole(value, 'roles/storage.objectViewer'))
+}
+const repository = `projects/${project}/locations/${region}/repositories/gcf-artifacts`
+check('Build image repository in europe-west3',
+  inspect(['artifacts', 'repositories', 'describe', repository], 'json(name,format,mode)'),
+  (value) => value.name === repository && value.format === 'DOCKER' && value.mode === 'STANDARD_REPOSITORY')
+check('Build image write access',
+  inspect(['artifacts', 'repositories', 'get-iam-policy', repository], 'json(bindings)'),
+  (value) => hasBuildRole(value, 'roles/artifactregistry.writer'))
 
 const role = inspect(['iam', 'roles', 'describe', 'MovieHubEmailRuntime'], 'json(includedPermissions,deleted,stage)')
 const required = ['datastore.databases.get', 'datastore.entities.get', 'datastore.entities.list',
