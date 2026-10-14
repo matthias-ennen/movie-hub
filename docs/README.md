@@ -1,5 +1,7 @@
 # Movie Hub – Projektdokumentation
 
+- [Aktuelle Übergabe: E-Mail-Paket #384, Tagesabschluss 14.10.2026](_work/EMAIL_384.md)
+- [E-Mail-Vertrag und Betrieb](EMAIL_NOTIFICATIONS.md)
 - [Bestandsaufnahme ab APK 0.1.473](APP_REVIEW_0.1.473.md)
 - [Produktbild](PRODUCT.md)
 - [Architektur](ARCHITECTURE.md)

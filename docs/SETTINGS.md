@@ -37,10 +37,10 @@ Profile & Konto, Einstellungen und Breadcrumbs teilen die Kopfabstände.
 #384 ergänzt unter dem Profilnamen eine eigene Empfängeradresse
 und **Mitteilungen auch per E-Mail erhalten** (anfangs aus). Hauptprofil initial
 mit Konto-Adresse, Unterprofile leer; bewusst gespeicherte Werte bleiben erhalten.
-Die Anmeldeadresse bleibt unverändert. Bestätigung und Versand werden separat
-serverseitig freigeschaltet: [E-Mail-Kanal](EMAIL_NOTIFICATIONS.md).
-Gespeicherte Werte und Funktionen bleiben erhalten. Das E-Mail-Paket #384 ist
-das nächste vorgesehene separate Arbeitspaket und noch nicht umgesetzt.
+Die Anmeldeadresse bleibt unverändert. Bestätigung und Versand laufen über den
+separaten [E-Mail-Kanal](EMAIL_NOTIFICATIONS.md). Seit 14.10.2026 ist der begrenzte
+Testversand aktiv und der erste echte Empfang bestätigt. Gesamtfreigabe und
+Domainumstellung bleiben offen: [aktuelle Übergabe #384](_work/EMAIL_384.md).
 
 Die Übersicht baut keine langen Senderlisten auf. Nur die aktive Unterseite
 wird angezeigt; Senderkataloge werden bei Sender-/TV-Bedarf geladen und bei
@@ -164,5 +164,6 @@ nicht abgeleitet; der technische Prüfstand ist oben dokumentiert.
 
 Das anschließend vorgezogene Paket **#426 – Detailseite aufräumen und verbessern**
 ist am 13.10.2026 um 19:05 Uhr (Europe/Berlin) ebenfalls abgenommen und abgeschlossen.
-Nächstes vorgesehenes Arbeitspaket ist **#384 – Auch per E-Mail je Profil**;
-die Analyse liegt vor, die Umsetzung ist noch nicht gestartet.
+Das damals nächste Paket **#384 – Auch per E-Mail je Profil** ist inzwischen
+implementiert und im begrenzten Mailtest. Aktueller Stand und Restabnahme stehen
+in der [Übergabe](_work/EMAIL_384.md).

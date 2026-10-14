@@ -1,6 +1,6 @@
 # Movie Hub – Issue-Plan
 
-Stand: 13. Oktober 2026
+Stand: 14. Oktober 2026, Tagesabschluss 19:22 Uhr (Europe/Berlin)
 
 ## Arbeitsprinzip
 
@@ -54,22 +54,22 @@ bleiben erhalten; #328/#391 gehören nicht zu diesem Umfang.
 1.054 Anwendungstests, Browser-Komponentenprüfung in sechs Bildschirmformaten,
 CI, Android-Build und Veröffentlichung sind nachgewiesen.
 Abnahme und Nachweise: [Detailpaket](_work/DETAIL_426.md).
-Als nächstes folgt **#384 – Auch per E-Mail je Profil**, analysiert und noch nicht gestartet.
+Aktuelles Paket ist **#384 – Auch per E-Mail je Profil**; erster echter Mail-Empfang bestätigt.
 
 ### 1. #314 – Mitteilungs-Erweiterungen
 
 Das Grundpaket #118/#312/#380/#381/#382/#383 einschließlich
 `movie-hub-admin#11` ist vollständig abgenommen und abgeschlossen.
 
-1. **#384:** analysiert und als nächstes vorgesehen; noch nicht gestartet. Geplant ist
-   **Auch per E-Mail** je Profil, Default aus. Persönliche Inklusiv-,
-   TV-Fund- und letzte TV-Meldungen; Erweiterung des früheren Umfangs.
-   Gemeinsamer Backend-Versand, Vorlagen, Absender/Versanddienst,
-   Deduplizierung und Tests. Noch keine Implementierung.
+1. **#384:** implementiert und im begrenzten Resend-Test. Erste TV-Mail empfangen,
+   Gestaltung positiv bestätigt. Die zweite TV-Mail, Inklusivmail, Abmeldung,
+   weitere Profiladressen und Gesamtfreigabe stehen aus. Domain registriert;
+   Resend/DNS und dauerhaften Absender als Nächstes einrichten. Kein erneutes
+   Infrastruktur-Bootstrap. [Übergabe für den nächsten Chat](_work/EMAIL_384.md).
 2. **#385:** weitere Anlässe anschließend einzeln priorisieren.
 
-Konsolidierter Abschluss und Analyse:
-[TITLE_NOTIFICATIONS.md](TITLE_NOTIFICATIONS.md#tagesabschluss-12102026).
+Abgeschlossenes Grundpaket: [TITLE_NOTIFICATIONS.md](TITLE_NOTIFICATIONS.md#tagesabschluss-12102026).
+Aktuelle Mail-Fortsetzung: [EMAIL_384.md](_work/EMAIL_384.md).
 
 ### 2. Betriebsnachtrag Waipu/Joyn vom 07.10.2026
 
@@ -142,7 +142,7 @@ Vor öffentlicher Veröffentlichung:
 
 ## Aktuelle Abhängigkeitskette
 
-`#314 (Grundpaket abgenommen; nächstes Paket #384, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
+`#314 (Grundpaket abgenommen; #384 in Arbeit, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
 
 #280, #315, #346, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. #426 ist einschließlich aller Nachträge abgenommen und abgeschlossen. Die reguläre Datenfortschreibung
 ist bestätigt; Startverzögerungen bleiben unter Beobachtung. #329 bleibt Wartung. Movie Hub Admin bleibt ein getrenntes Repository;

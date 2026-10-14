@@ -1,11 +1,14 @@
 # Profilbezogene E-Mail-Mitteilungen (#384)
 
-Stand 14.10.2026: Profiloberfläche und Besitzerregeln mit Web-Build `a790327`
-veröffentlicht; der Mailkanal bleibt standardmäßig abgeschaltet.
-Keine Mail-Function bereitgestellt und keine echte E-Mail versandt.
-Die bestehende Hosting-Konfiguration und der TV-Minutenprüfer bleiben unverändert.
-Der normale Hosting-Workflow veröffentlicht nur die Oberfläche und Firestore-
-Regeln. Der separate Mail-Deploy wird dadurch nicht ausgelöst.
+Stand **14.10.2026, 19:22 Uhr (Europe/Berlin)**: Profiloberfläche, Regeln und
+vier Mailfunktionen sind eingerichtet. Der begrenzte Testversand ist aktiv;
+Matthias bestätigt um 19:14 die erste echte TV-Mail und positives Layoutfeedback.
+Zweite TV-Mail, weitere Fachtests und Gesamtfreigabe sind offen. Die eigene
+Domain ist bei netcup registriert; Resend/DNS und dauerhafter Absender folgen.
+**Fortsetzung ausschließlich anhand der [aktuellen Übergabe](_work/EMAIL_384.md).**
+Neue Profile haben weiterhin standardmäßig ausgeschalteten Mail-Empfang.
+Der normale Hosting-Workflow veröffentlicht Oberfläche und Firestore-Regeln;
+er aktualisiert die gesonderten Mailfunktionen nicht.
 
 ## Bedienung und Daten
 
@@ -89,7 +92,12 @@ zählen nicht erneut gegen diese lokalen Budgets. Technische Resend-Limits
 bleiben zusätzlich wirksam. Serverinterne Zähler liegen unter `emailInternal`;
 optional TTL auf deren `expiresAt` konfigurieren, niemals auf dem Versandledger.
 
-## Isolierte Funktionen und Freischaltung
+## Historischer Einrichtungsverlauf und Freischaltungsplan
+
+Die folgenden Abschnitte bewahren die früheren Zwischenstände. Aussagen über
+ausgeschaltete oder noch fehlende Ressourcen sind durch die aktuelle Übergabe
+überholt. Bestehende Funktionen, Secrets, Rechte, Index und Minutenjob nicht
+erneut anlegen; offen ist die kontrollierte Domainumstellung mit Restabnahme.
 
 Matthias hat die Hauptprofilanzeige bestätigt und die Mailoption aktiviert.
 Am 14.10.2026 um 10:40 Uhr hat er das sichere Hinterlegen eines neuen

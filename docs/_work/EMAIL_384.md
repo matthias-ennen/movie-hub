@@ -1,7 +1,110 @@
 # #384 – Profilbezogene E-Mail-Mitteilungen
 
-Stand: 14.10.2026 · Oberfläche und Regeln mit `a790327` veröffentlicht;
-Vorbereitung des provisorischen Versands, Mail-Infrastruktur noch nicht aktiv.
+Stand: **14.10.2026, 19:22 Uhr (Europe/Berlin) – Tagesabschluss**.
+
+Matthias setzt hier einen Schlusspunkt für heute. Die dokumentierte Arbeitsphase
+ist beendet; **#384 bleibt als aktuelles Arbeitspaket offen**. Der erste echte
+TV-Mail-Empfang ist bestätigt, die vollständige Fachabnahme noch nicht.
+Heute keine weitere Domain-/Cloud-Umstellung und kein neues Arbeitspaket starten.
+Der laufende begrenzte Testversand samt Minutenjobs bleibt aktiv.
+
+## Einstieg im nächsten Chat
+
+1. Human AI Protocol als Arbeitsrahmen berücksichtigen. Dieses Dokument und
+   [Issue #384 samt neuen Rückmeldungen](https://github.com/matthias-ennen/movie-hub/issues/384)
+   lesen; den aktuellen Repo-/Cloud-Stand vor einer Änderung abgleichen.
+2. Zuerst Matthias fragen, ob die erwartete **zweite TV-Mail** angekommen ist.
+   Sie ist etwa fünf Minuten vor Sendebeginn vorgesehen; Minutenlauf und
+   Zustellung können verzögern. Titel und genaue Startzeit wurden nicht genannt.
+   Empfang niemals aus vergangener Uhrzeit oder aus der ersten Mail ableiten.
+3. Mit der **eigenen Versanddomain** fortsetzen: Resend → Domains → Add Domain.
+   Zuletzt vorgeschlagen ist `mail.moviehubgermany.de` als Versand-Subdomain,
+   europäische Region. Das ist ein Vorschlag, noch keine bestätigte Einrichtung.
+   Zuerst einen eventuell inzwischen angelegten Domain-Eintrag ansehen.
+4. Die tatsächlich von Resend angezeigten DNS-Einträge bei netcup zuordnen,
+   setzen und rückprüfen. Kein erfundener DKIM-Wert und keine Übernahme alter
+   Beispielwerte: je nach Resend-Konfiguration sind TXT/MX oder CNAME möglich.
+   Bestehende Einträge erhalten; SPF/DKIM und anschließend DMARC prüfen.
+5. Nach erfolgreicher Domainprüfung den passenden dauerhaften Absender und
+   einen auf die Domain begrenzten Sending-Schlüssel festlegen. Die kontrollierte
+   Umstellung der bestehenden Funktionen vorbereiten, prüfen und durchführen;
+   kein erneutes Infrastruktur-Bootstrap. Schlüssel nur im Secret Manager.
+   Die bisherige Empfängerbegrenzung erst im abgestimmten Test erweitern.
+6. Die noch offenen Fachtests unten abschließen, danach Matthias' ausdrückliche
+   Abnahme einholen. Erst dann #384 schließen und #385 einzeln priorisieren.
+
+## Bestätigter Stand und Grenzen
+
+| Bestandteil | Nachweis / aktueller Status |
+| --- | --- |
+| Profiloberfläche | Hauptprofil mit Konto-Adresse vorbelegt, Unterprofile zunächst leer; eigene Adresse und optionaler Schalter, getrennt von der Anmeldung. Veröffentlicht. |
+| Mail-Infrastruktur | Vier Gen2-Funktionen, dedizierte Konten/Rechte, zwei numerisch referenzierte Secrets, READY-Queue-Index und privater Retry-Minutenjob eingerichtet. |
+| CloudEvent-Korrektur | PR #453 auf Main `aa599a788d27201d2894bc1bfb03177e7ce1f20b`; Preferences/Notification durch Besitzer am 14.10. um 18:57 aktualisiert und rückgeprüft (`1000062582.jpg`). |
+| Adressbestätigung | App zeigt um 19:09 „E-Mail-Adresse bestätigt“ (`1000062591.jpg`). Bei gleicher bereits verifizierter Konto-Adresse ist keine zusätzliche Bestätigungsmail erforderlich. Konkrete Nachweisquelle wurde nicht aus Cloud-Daten gelesen. |
+| Erster echter Empfang | Matthias bestätigt um 19:14 nach einer neuen TV-Mitteilung eine zugehörige E-Mail. Inhalt und Gestaltung gefallen ihm. Als bestätigten Einzelfall dokumentiert, keine Gesamtfreigabe. |
+| Weitere TV-Mail | Noch keine Rückmeldung. Erwartet etwa fünf Minuten vor dem Sendebeginn; kein automatischer Nachweis und keine eingerichtete ChatGPT-Erinnerung. |
+| Domain | Netcup-Mail vom 14.10., 14:30 Uhr bestätigt Registrierung von `moviehubgermany.de`; CCP-Einstellungen verfügbar. Weltweite DNS-Verbreitung kann laut Mail bis zu 48 Stunden benötigen. |
+| Resend / DNS | Hinzufügen, DNS-Einträge und Verifikation der eigenen Domain sind noch nicht nachgewiesen. Kein dauerhafter Absender umgestellt. |
+
+Der Testsender ist weiterhin `MovieHub <onboarding@resend.dev>`, begrenzt auf die
+bereits privat freigegebene Resend-Kontoadresse. Adresse, Fingerprint, Tokens und
+Schlüssel nicht in öffentliche Dokumentation übernehmen. Bestehende Startzeit,
+numerische Secret-Versionen und Empfängerbegrenzung bei Wartung erhalten.
+Alte Mitteilungen werden nach Opt-in/Bestätigung nicht nachgesendet. Jede neue
+Mail beruht auf dem bestehenden persönlichen Mitteilungsereignis.
+
+## Offene Abnahme
+
+- Echte `tv-final`-Mail zur laufenden Beobachtung (etwa fünf Minuten vorher).
+- Echte `included-found`-Mail; `tv-found` ist durch den ersten Empfang belegt.
+- Unterprofil und andere eigene Testadresse nach Domainfreigabe: Profiltrennung,
+  Bestätigung per Link, passende Empfänger, Adresswechsel und Ausschalten.
+- Abmeldelink bewusst betätigen und danach ausbleibenden weiteren Versand prüfen;
+  diesen Test erst nach der noch erwarteten TV-Mail durchführen.
+- App-Link, Smartphone-/Fire-TV-Bedienung und Mehrgeräteverhalten im Mailumfang.
+  Die bereits abgenommene Mitteilungs-Grundstrecke nicht erneut öffnen.
+- Deduplizierung/Fehler/Wiederholungen sind automatisiert geprüft. Ein echter
+  Providerfehler mit erfolgreicher Wiederholung ist nicht beobachtet; vor der
+  Gesamtfreigabe technische Nachweise und verbleibenden Live-Testbedarf benennen.
+
+## Betrieb und geprüfte Quellen
+
+- Projekt `movie-hub-62459`, Nummer `612913221205`, Region `europe-west3`.
+- `profileEmailPreferences` und `profileEmailNotification`: private Firestore-
+  Ereignisse. `profileEmailRetry`: privater POST, Job `movie-hub-email-retry-1min`.
+  `profileEmailAction`: öffentliche tokengebundene Bestätigungs-/Abmeldeseite;
+  bloßes Öffnen eines Links ändert nichts.
+- Runtime `movie-hub-email`, Builder `movie-hub-email-build`, Eventkonto
+  `movie-hub-email-events`, Retrykonto `movie-hub-email-scheduler`, jeweils im
+  Projekt. Keine pauschalen Owner-/Editor-Rechte erforderlich.
+- Secrets `RESEND_API_KEY` und `MOVIE_HUB_EMAIL_TOKEN_KEY`; keine Schlüsselwerte
+  auslesen oder neu erzeugen, nur weil ein neuer Chat beginnt.
+- Behobener Fehler: Ohne Framework-Registrierung wurde ein Firestore-Ereignis
+  als HTTP-Aufruf behandelt; UID fehlte und `auth/invalid-uid` entstand. PR #453
+  registriert die Signaturen und prüft den Dokumentbezug vor dem Servicezugriff.
+- Der spätere Vorprüfungsabbruch um 18:19 lag an keiner aktiven gcloud-Kontoauswahl.
+  Er ist durch den erfolgreichen Lauf um 18:57 überholt; keine offene IAM-Störung.
+- [CI #1413](https://github.com/matthias-ennen/movie-hub/actions/runs/38579598191)
+  und [Android #1338](https://github.com/matthias-ennen/movie-hub/actions/runs/38579597765)
+  auf dem getesteten PR-Head `b14c3462ba1309630ab13a7c7f77ea2e231ef26d` erfolgreich.
+  1.130 App-Tests, sechs echte lokale HTTP-Eingangsprüfungen, 35 Rules-Tests,
+  Infrastruktur-Simulationen und Browserprüfung. Merge-Tree
+  `d277c84984ee82c81a66906ccd232c15421ec5a9` geprüft.
+- Mail-Abhängigkeiten: keine hohen/kritischen Auditfunde im geprüften Gate;
+  drei moderate transitive Meldungen waren dokumentiert. Keine Null-Funde behaupten.
+- `--verify-active` prüft Metadaten und die zustandslose GET-Aktionsseite, keinen
+  echten Empfang. `--refresh-events` ist bereits erledigt und kein nächster
+  Pflichtschritt. Den ausgeschalteten Prepare-Workflow nicht auf die aktive
+  Installation anwenden. Ein normaler Hosting-Deploy aktualisiert keine Mailfunktion.
+- Fortsetzung: [Mailvertrag](../EMAIL_NOTIFICATIONS.md),
+  [Deploymentverlauf](../EMAIL_DEPLOYMENT.md),
+  [archivierter Issue-Verlauf](EMAIL_384_ISSUE_HISTORY_2026-10-14.md).
+
+## Historischer Verlauf vor dem Tagesabschluss
+
+Die nachfolgenden Abschnitte bewahren die damaligen Zwischenstände. Aussagen
+wie „Versand aus“ oder „noch nicht eingerichtet“ gelten für ihren damaligen
+Zeitpunkt; maßgeblich für die Fortsetzung sind die Abschnitte oben.
 
 ## Auftrag und Grenzen
 

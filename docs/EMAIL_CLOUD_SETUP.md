@@ -1,5 +1,10 @@
 # Einmalige Mail-Grundlage in Google Cloud (#384)
 
+**Aktueller Stand zum Tagesabschluss 14.10., 19:22 Uhr:** Die unten beschriebene
+Einrichtung ist erfolgt; Testversand aktiv und erster echter Empfang bestätigt.
+Dieses Dokument ist der historische Setup-/Diagnoseverlauf, kein neuer
+Bootstrap-Auftrag. [Übergabe und offene Schritte](_work/EMAIL_384.md) zuerst lesen.
+
 Stand 14.10.2026, Rückmeldung 11:34 Uhr: Der Cloud-Shell-Lauf meldet
 **EINRICHTUNG ERFOLGREICH**. Vier Mailkonten, Rollen und Secret-Metadaten wurden
 vom Einrichtungsskript rückgeprüft. Die zusätzliche GitHub-Prüfung scheiterte
