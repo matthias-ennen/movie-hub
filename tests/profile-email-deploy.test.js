@@ -163,6 +163,7 @@ describe('disabled mail deployment', () => {
     expect(prepare(cloud)).toHaveLength(4)
     const failed = fixture('profileEmailAction'); failed.state = 'FAILED'
     delete failed.serviceConfig.uri; delete failed.serviceConfig.service
+    delete failed.serviceConfig.allTrafficOnLatestRevision
     expect(checkEmailFunction(failed, 'profileEmailAction', { before: true })).toBeNull()
     expect(() => checkEmailFunction(failed, 'profileEmailAction')).toThrow()
   })

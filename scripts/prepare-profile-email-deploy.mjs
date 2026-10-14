@@ -75,7 +75,7 @@ export function checkEmailFunction(details, name, { before = false, versions } =
     ref.key === key && ref.secret === key && (!ref.projectId || [project, number].includes(String(ref.projectId)))
     && /^[1-9][0-9]*$/.test(ref.version) && (!versions || ref.version === versions[key])))
     && !service.secretVolumes?.length, 'Unexpected or unpinned secret references.')
-  require(service.allTrafficOnLatestRevision === true && service.maxInstanceCount === 1 && (service.minInstanceCount ?? 0) === 0
+  require(service.maxInstanceCount === 1 && (service.minInstanceCount ?? 0) === 0
     && service.maxInstanceRequestConcurrency === 1 && service.timeoutSeconds === 120
     && ['256M', '256Mi', '256MiB', '268435456'].includes(service.availableMemory), 'Mail resource limits differ.')
   if (paths[name]) {
@@ -91,6 +91,7 @@ export function checkEmailFunction(details, name, { before = false, versions } =
   } else require(!details.eventTrigger, 'HTTP mail function has an unexpected event trigger.')
   // A failed first build may not have created its Cloud Run service yet.
   if (before && details.state === 'FAILED' && !service.service && !service.uri) return null
+  require(service.allTrafficOnLatestRevision === true, 'Traffic is not confined to the inspected disabled revision.')
   const runService = name.toLowerCase()
   require(service.service === `projects/${project}/locations/${region}/services/${runService}`,
     'Unexpected Cloud Run service target.')
