@@ -91,7 +91,10 @@ export async function diagnoseEmailDeployment({ execute = spawnSync, request = f
       for (let page = 0; page < 5; page++) {
         const url = new URL(`https://cloudfunctions.googleapis.com/v2/${root}/operations`)
         url.searchParams.set('pageSize', '100')
-        url.searchParams.set('fields', 'operations(name,metadata(target,createTime,endTime,verb,stages),done,error),nextPageToken')
+        // Operation metadata is a protobuf Any. A nested partial-response
+        // selector can be rejected before the list is returned; select only
+        // the stable envelope and sanitize its metadata locally.
+        url.searchParams.set('fields', 'operations(name,metadata,done,error),nextPageToken')
         if (pageToken) url.searchParams.set('pageToken', pageToken)
         const response = await request(url.href, { method: 'GET', redirect: 'error',
           headers: { Authorization: `Bearer ${auth.stdout.trim()}` }, signal: AbortSignal.timeout(30000) })
