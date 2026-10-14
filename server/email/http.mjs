@@ -1,5 +1,22 @@
 import { createHash } from 'node:crypto'
 
+// Cloud Run IAM authenticates the dedicated scheduler before this handler.
+export function createEmailRetryHandler(serviceFactory) {
+  return async (req, res) => {
+    res.set('Cache-Control', 'no-store')
+    if (req.method !== 'POST') return res.status(405).json({ error: 'method-not-allowed' })
+    try {
+      const service = serviceFactory()
+      if (!service.enabled) return res.status(503).json({ error: 'mail-unavailable' })
+      await service.retryDue()
+      return res.status(204).send()
+    } catch {
+      // Never expose recipient, document path, token or provider error details.
+      return res.status(503).json({ error: 'retry-unavailable' })
+    }
+  }
+}
+
 const script = `const token=location.hash.slice(1);history.replaceState(null,'',location.pathname);const button=document.querySelector('button'),status=document.querySelector('[role=status]');let purpose;try{const part=token.split('.')[0].replace(/-/g,'+').replace(/_/g,'/');purpose=JSON.parse(atob(part)).purpose}catch{}button.textContent=purpose==='unsubscribe'?'E-Mail-Mitteilungen ausschalten':'E-Mail-Adresse bestätigen';button.disabled=!token;button.addEventListener('click',async()=>{button.disabled=true;status.textContent='Wird verarbeitet …';try{const response=await fetch(location.pathname,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token}),credentials:'omit'});const result=await response.json();if(!response.ok)throw Error();status.textContent=result.status==='confirmed'?'Deine Adresse ist bestätigt. Neue Mitteilungen für dieses Profil erhältst du auch per E-Mail.':'E-Mail-Mitteilungen für dieses Profil sind ausgeschaltet.';button.hidden=true}catch{status.textContent='Der Link konnte nicht verarbeitet werden. Bitte versuche es erneut oder speichere deine E-Mail-Einstellungen in MovieHub erneut.';button.disabled=false}});`
 const css = 'body{margin:0;background:#edf1f7;color:#1d293d;font:17px/1.6 system-ui,sans-serif}main{max-width:480px;margin:10vh auto;padding:32px;background:white;border-radius:18px}h1{font-size:28px}button{background:#25477a;color:white;border:0;border-radius:9px;font:inherit;padding:14px 20px;cursor:pointer}button:focus-visible{outline:3px solid #397fee;outline-offset:4px}button:disabled{opacity:.6}small{color:#58667a}@media(max-width:550px){main{margin:24px 12px;padding:24px}}'
 const hash = (value) => createHash('sha256').update(value).digest('base64')

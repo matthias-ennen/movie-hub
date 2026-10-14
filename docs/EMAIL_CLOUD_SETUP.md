@@ -20,6 +20,11 @@ nun die beobachteten Namen unabhängig von den Konstanten des Setup-Skripts.
 GitHubs fehlende Leserechte für Speicher-IAM bleiben davon getrennt; der
 Cloud-Shell-Schritt prüft Projektzuordnung, Region und jede Bindung selbst.
 
+Nachtrag 12:00 Uhr: Matthias' Screenshot bestätigt **BUILDRECHTE ERFOLGREICH**.
+Die beiden Bucket-Bindungen und die Registry-Bindung für das Mail-Buildkonto sind
+damit durch das Skript eingerichtet und rückgeprüft. Versand weiterhin aus.
+Nächster vorbereiteter Schritt: [Private Mailfunktionen bereitstellen](EMAIL_DEPLOYMENT.md).
+
 `scripts/setup-profile-email-cloud.py` richtet die folgende begrenzte Grundlage
 im festen Projekt `movie-hub-62459` (Nummer `612913221205`) ein. Es wird einmalig
 durch Matthias als Projektadministrator in Google Cloud Shell ausgeführt.
@@ -88,7 +93,7 @@ Fehlerausgaben unterscheiden jetzt Anlage und Rückprüfung und nennen einen
 festen Fehlercode samt Exit-Code. SDK-Antworten, Schlüsselwerte und persönliche
 Daten bleiben ausgeblendet. Rechteumfang und Secret-Rotation bleiben unverändert.
 
-## Nächster Schritt: begrenzte Buildspeicherrechte
+## Abgeschlossener Schritt: begrenzte Buildspeicherrechte
 
 Der separate Modus `--build-access` liest ausschließlich die vorhandene
 Buildidentität und die drei festgelegten Speicherziele. `--build-access --apply`
@@ -129,9 +134,8 @@ Scheduler-Jobs** an und versendet nichts. Danach folgt eine unabhängige
 GitHub-Metadatenprüfung. Der gesamte Infrastruktur-Prüflauf bleibt bis zum
 späteren Index-/Function-Deploy erwartungsgemäß unvollständig.
 
-Anschließend: vorhandenen Buildspeicher in Frankfurt gezielt prüfen und
-freigeben, Mail-Index bereitstellen, isolierte Functions zunächst ausgeschaltet
-ausrollen, konkrete Dienst-Aufrufrechte einrichten, Resend-Testempfänger
+Anschließend: isolierte Functions zunächst ausgeschaltet ausrollen,
+Mail-Index bereitstellen, konkrete Dienst-Aufrufrechte einrichten, Resend-Testempfänger
 feststellen und erst dann den begrenzten Versandtest aktivieren. Dafür genügt
 die Resend-Kontoadresse mit dem provisorischen Absender; die eigene Domain
 wird später getrennt verifiziert. Keine privaten Empfängeradressen ins Repository.

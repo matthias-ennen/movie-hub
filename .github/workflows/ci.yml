@@ -30,6 +30,7 @@ jobs:
       - name: Validate manual production workflow YAML syntax
         run: |
           ruby -e 'require "yaml"; begin; YAML.load_file(ARGV.fetch(0)); rescue Psych::SyntaxError => e; warn "YAML at line #{e.line}, column #{e.column}: #{e.problem}; context: #{e.context}"; exit 1; end' .github/workflows/tv-final-infrastructure.yml
+          ruby -e 'require "yaml"; YAML.load_file(ARGV.fetch(0))' .github/workflows/profile-email-prepare.yml
 
       - name: Build
         run: npm run build
