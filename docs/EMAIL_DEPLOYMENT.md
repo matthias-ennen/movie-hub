@@ -1,5 +1,58 @@
 # Private Mailfunktionen bereitstellen (#384)
 
+## CloudEvent-Einstiege korrigieren – 14.10.2026, 16:06 Uhr
+
+Screenshot `1000062564.jpg` bestätigt das installierte Diagnoseupdate.
+Der anschließende frische Fehler (`1000062566.jpg`, 14:06:20 UTC) lautet
+`mail-account-unavailable sdk=auth/invalid-uid http=unknown hints=unknown`.
+Damit liegt der beobachtete Abbruch bei der UID-Validierung vor dem Auth-Netzaufruf.
+
+Der Fehler wurde mit dem tatsächlichen Quellpaket lokal reproduziert: Der
+Functions-Framework-Loader übernimmt bei nicht registrierten Exporten seinen
+HTTP-Standard, ohne die Firebase-`__endpoint`-Metadaten auszuwerten. Ein binärer
+Firestore-CloudEvent-POST erreicht den Firebase-Wrapper dann als Express-Request.
+`event.document` fehlt, die extrahierten `params` sind leer und `getUser(undefined)`
+erzeugt denselben Fehler. Der frühere reine Importtest hat diesen Eingang nicht
+ausgeführt und konnte den Fehler deshalb nicht erkennen.
+
+`email-functions/index.mjs` registriert Preferences und Notification jetzt
+ausdrücklich als `cloudEvent`, Action und Retry als `http` im Functions Framework.
+Das Framework ist eine direkte, im Lockfile festgelegte Paketabhängigkeit.
+Die Firebase-Wrapper samt Ereignis-/Deployment-Metadaten bleiben erhalten.
+Vor dem Mailservice prüft `mailEventIdentity` Ereignistyp, UID, Profilkennung,
+Mitteilungskennung und deren Übereinstimmung mit dem erwarteten Dokumentpfad.
+Ungültige Übergaben enden mit dem festen Fehler `invalid-mail-event`, ohne
+Kontoprüfung, Datenbankarbeit oder Wiedergabe von Nutzdaten.
+
+`scripts/test-profile-email-entrypoints.mjs` lädt die echten Exporte über den
+Functions-Framework-Loader mit HTTP als Ausgangseinstellung und sendet lokale
+binäre Protobuf- sowie strukturierte JSON-Ereignisse an dessen HTTP-Server.
+Sechs Prüfungen decken Registrierungen, Haupt-/Unterprofile, Schreib-/Löschereignisse,
+die Mitteilungspfade, fehlerhafte Übergaben und die HTTP-Verträge von Action/Retry ab.
+Auth/Firestore werden dabei im Testprozess ersetzt; externe Fetch-Aufrufe sind
+gesperrt. Kein Cloud-Zugriff oder E-Mail-Versand. Dieser Test läuft in CI und im
+manuellen Prepare-Workflow vor der Cloud-Anmeldung.
+
+Nach geprüftem Merge das festgelegte Archiv laden und als Besitzer
+`node scripts/activate-profile-email-test.mjs --refresh-events` ausführen.
+Der Modus verlangt die vollständige bestehende Testkonfiguration und aktualisiert
+ausschließlich `profileEmailPreferences` und `profileEmailNotification`.
+Umgebung, Empfängerbegrenzung, Startzeit und Secret-Versionen bleiben erhalten;
+IAM und Scheduler werden nicht geändert. Jede Funktion wird direkt nach dem
+Update geprüft, anschließend nochmals alle vier Funktionen, Aufrufrechte und der
+private Minutenjob. Bei einem Teilabbruch setzt derselbe Befehl mit derselben
+Kontoadresse fort. Der Modus darf nicht mit anderen Modi kombiniert werden.
+
+Erwarteter Abschluss: **EREIGNISFUNKTIONEN AKTUALISIERT**. Danach einmal die
+Profil-E-Mail-Einstellungen speichern und den tatsächlichen Empfang prüfen.
+Eine erfolgreiche lokale Reproduktion und Korrektur ersetzt diesen Cloud-Test
+nicht. Bei weiterhin fehlender Mail frische Preferences-Fehler lesen. Issue #384
+bleibt bis zu Empfang, Linkprüfung und fachlicher Abnahme offen.
+
+Referenzen: [CloudEvent-Registrierung](https://github.com/GoogleCloudPlatform/functions-framework-nodejs/blob/main/docs/cloudevents.md),
+[Firestore-CloudEvent-Beispiel](https://docs.cloud.google.com/run/docs/triggering/trigger-functions-with-firestore-documents),
+[Firebase-Admin-Fehler](https://firebase.google.com/docs/auth/admin/errors).
+
 ## Kontoprüfung diagnostizieren – 14.10.2026, 15:32 Uhr
 
 Die Besitzerprüfung um 14:49 Uhr bestätigt die aktive Testkonfiguration.

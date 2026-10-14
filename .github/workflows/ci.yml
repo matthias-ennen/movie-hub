@@ -52,6 +52,7 @@ jobs:
           node scripts/prepare-email-function.mjs
           npm ci --prefix email-functions --ignore-scripts --no-audit --no-fund
           node --input-type=module -e "import('./email-functions/index.mjs').then(m => { if (Object.keys(m).length !== 4) process.exitCode = 1 })"
+          node scripts/test-profile-email-entrypoints.mjs
           npm audit --prefix email-functions --omit=dev --audit-level=high
 
       - name: Check mail infrastructure setup safety with simulated Cloud responses

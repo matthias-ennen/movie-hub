@@ -27,6 +27,7 @@ jobs:
           node scripts/prepare-email-function.mjs
           npm ci --prefix email-functions --ignore-scripts --no-audit --no-fund
           node --input-type=module -e "import('./email-functions/index.mjs').then(m => { if (Object.keys(m).length !== 4 || m.profileEmailRetry.__endpoint.scheduleTrigger) process.exitCode = 1 })"
+          node scripts/test-profile-email-entrypoints.mjs
       - uses: google-github-actions/auth@v3
         with:
           project_id: movie-hub-62459

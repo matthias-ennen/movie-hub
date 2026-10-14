@@ -70,12 +70,12 @@ export async function probeAction(uri, fetchImpl = fetch, sleep = (ms) => new Pr
   throw Error('Public confirmation page could not be verified; no additional activation attempted.')
 }
 
-export async function activateEmailTest({ recipient, apply = false, verifyActive = false, refreshPreferences = false, run = gcloud, clock = Date.now,
+export async function activateEmailTest({ recipient, apply = false, verifyActive = false, refreshPreferences = false, refreshEvents = false, run = gcloud, clock = Date.now,
   writeEnv, probe = probeAction, log = console.log } = {}) {
   let stage = 'Inspect test prerequisites'
   try {
-    require([apply, verifyActive, refreshPreferences].filter(Boolean).length <= 1, 'Choose only one mode.')
-    const requireActive = verifyActive || refreshPreferences
+    require([apply, verifyActive, refreshPreferences, refreshEvents].filter(Boolean).length <= 1, 'Choose only one mode.')
+    const requireActive = verifyActive || refreshPreferences || refreshEvents
     const email = normalizeEmailAddress(recipient)
     require(isValidEmailAddress(email), 'Valid Resend account email required.')
     const fingerprint = recipientFingerprint(email)
@@ -154,13 +154,20 @@ export async function activateEmailTest({ recipient, apply = false, verifyActive
         return { active: true, verified: true, liveAfter, actionUri, retryUri }
       }
     }
-    if (refreshPreferences) {
-      stage = 'Refresh profileEmailPreferences'
-      log('profileEmailPreferences: Kontoprüfungs-Diagnose bereitstellen und rückprüfen …')
+    if (refreshPreferences || refreshEvents) {
+      const refreshNames = refreshEvents ? ['profileEmailPreferences', 'profileEmailNotification'] : ['profileEmailPreferences']
       // Omit environment flags so gcloud keeps all existing variables, including
       // Google-managed values. The complete snapshots are checked afterwards.
-      run(emailDeploymentArgs('profileEmailPreferences', { versions, existing: true, preserveEnv: true }),
-        { format: 'none', timeout: 15 * 60 * 1000 })
+      for (const name of refreshNames) {
+        stage = `Refresh ${name}`
+        log(`${name}: geprüften Ereigniseinstieg bereitstellen und rückprüfen …`)
+        run(emailDeploymentArgs(name, { versions, existing: true, preserveEnv: true }),
+          { format: 'none', timeout: 15 * 60 * 1000 })
+        const target = checkEmailFunction(describe(name), name,
+          { versions, expectedEnv: original[name].serviceConfig.environmentVariables })
+        require(target.uri === targets[name].uri, 'Service URL changed during refresh.')
+        access(name)
+      }
       for (const name of names) {
         const target = checkEmailFunction(describe(name), name,
           { versions, expectedEnv: original[name].serviceConfig.environmentVariables })
@@ -169,9 +176,11 @@ export async function activateEmailTest({ recipient, apply = false, verifyActive
       }
       require(bound(access('profileEmailAction'), 'allUsers'), 'Public action invocation grant not confirmed.')
       require(inventory()?.state === 'ENABLED', 'Retry scheduler not enabled.')
-      log('KONTOPRÜFUNGS-DIAGNOSE BEREIT: nur profileEmailPreferences aktualisiert; Testkonfiguration rückgeprüft.')
+      log(refreshEvents
+        ? 'EREIGNISFUNKTIONEN AKTUALISIERT: Preferences und Notification bereit; Testkonfiguration rückgeprüft.'
+        : 'KONTOPRÜFUNGS-DIAGNOSE BEREIT: nur profileEmailPreferences aktualisiert; Testkonfiguration rückgeprüft.')
       log('Empfängerbegrenzung, Startzeit und Secret-Versionen beibehalten. Fehlerursache und Empfang noch prüfen.')
-      return { active: true, refreshed: 'profileEmailPreferences', liveAfter, actionUri, retryUri }
+      return { active: true, refreshed: refreshEvents ? refreshNames : 'profileEmailPreferences', liveAfter, actionUri, retryUri }
     }
     if (!apply) { log('NUR PRÜFUNG. Keine Aktivierung oder E-Mail.'); return { active: false } }
     require(typeof writeEnv === 'function', 'Temporary configuration writer missing.')
@@ -220,7 +229,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const dir = mkdtempSync(resolve(tmpdir(), 'moviehub-mail-test-'))
   let input
   try {
-    const modes = ['--apply', '--verify-active', '--refresh-preferences']
+    const modes = ['--apply', '--verify-active', '--refresh-preferences', '--refresh-events']
     require(process.argv.slice(2).every((arg) => modes.includes(arg)), 'Unknown argument.')
     require(modes.filter((arg) => process.argv.includes(arg)).length <= 1, 'Choose one mode.')
     require(Number(process.versions.node.split('.')[0]) >= 22, 'Node.js 22 oder neuer erforderlich.')
@@ -229,13 +238,16 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     input = createInterface({ input: process.stdin, output: process.stdout })
     const recipient = await input.question('E-Mail-Adresse deines Resend-Kontos: ')
     input.close()
-    if (process.argv.includes('--apply') || process.argv.includes('--refresh-preferences')) await import('./prepare-email-function.mjs')
+    if (process.argv.includes('--apply') || process.argv.includes('--refresh-preferences') || process.argv.includes('--refresh-events')) await import('./prepare-email-function.mjs')
     await activateEmailTest({ recipient, apply: process.argv.includes('--apply'), verifyActive: process.argv.includes('--verify-active'),
       refreshPreferences: process.argv.includes('--refresh-preferences'),
+      refreshEvents: process.argv.includes('--refresh-events'),
       writeEnv: (env) => { const path = resolve(dir, 'test-env.json'); writeFileSync(path, JSON.stringify(env), { mode: 0o600 }); return path } })
   } catch (error) {
     console.error(error.message)
-    console.error(process.argv.includes('--refresh-preferences')
+    console.error(process.argv.includes('--refresh-events')
+      ? 'Update abgebrochen; einzelne Ereignisfunktionen können bereits aktualisiert sein. Abschlussprüfung fehlt; gleicher Befehl setzt den Stand fort.'
+      : process.argv.includes('--refresh-preferences')
       ? 'Update abgebrochen; profileEmailPreferences kann bereits aktualisiert sein. Abschlussprüfung fehlt.'
       : process.argv.includes('--apply')
       ? 'Bei Abbruch können einzelne Testfunktionen bereits aktiv sein. Derselbe Befehl setzt mit derselben Adresse und Startzeit fort.'
