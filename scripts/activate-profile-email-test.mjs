@@ -43,11 +43,20 @@ export function checkRetryJob(job, uri) {
   'Unexpected scheduler headers.')
 }
 
-export async function probeAction(uri, fetchImpl = fetch) {
-  try {
-    const result = await fetchImpl(uri, { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(15000) })
-    require(result.status === 200 && (await result.text()) === emailActionPage, 'Action page not ready.')
-  } catch { throw Error('Public confirmation page could not be verified; no additional activation attempted.') }
+export async function probeAction(uri, fetchImpl = fetch, sleep = (ms) => new Promise((done) => setTimeout(done, ms))) {
+  // IAM propagation/cold start may lag the successful metadata readback. Repeat
+  // only inert GETs, never the IAM mutation or deployment.
+  for (let attempt = 0; attempt < 7; attempt++) {
+    let result
+    try { result = await fetchImpl(uri, { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(15000) }) } catch {}
+    if (result?.status === 200) {
+      try { if (await result.text() === emailActionPage) return } catch {}
+      break
+    }
+    if (result && ![401, 403, 503].includes(result.status)) break
+    if (attempt < 6) await sleep(10000)
+  }
+  throw Error('Public confirmation page could not be verified; no additional activation attempted.')
 }
 
 export async function activateEmailTest({ recipient, apply = false, run = gcloud, clock = Date.now,
