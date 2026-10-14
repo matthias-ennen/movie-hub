@@ -22,7 +22,8 @@ const fixture = (name) => ({
 })
 const validJob = () => ({ name: jobPath, state: 'ENABLED', schedule: '* * * * *', timeZone: 'Etc/UTC',
   attemptDeadline: '120s', retryConfig: { retryCount: 0, maxRetryDuration: '0s' },
-  httpTarget: { uri: uri('profileEmailRetry'), httpMethod: 'POST', body: 'e30=', headers: { 'Content-Type': 'application/json' },
+  // Real Scheduler readback normalizes the root path but leaves OIDC audience exact.
+  httpTarget: { uri: `${uri('profileEmailRetry')}/`, httpMethod: 'POST', body: 'e30=', headers: { 'Content-Type': 'application/json' },
     oidcToken: { serviceAccountEmail: scheduler, audience: uri('profileEmailRetry') } } })
 class Cloud {
   functions = Object.fromEntries(names.map((name) => [name, fixture(name)]))
@@ -94,6 +95,60 @@ describe('controlled mail activation', () => {
     expect((await activate(cloud, { apply: false, probe })).active).toBe(false)
     expect(cloud.writes).toEqual([]); expect(probe).not.toHaveBeenCalled()
   })
+  it('accepts only the optional root slash while keeping the OIDC audience exact', () => {
+    for (const expected of [uri('profileEmailRetry'), `${uri('profileEmailRetry')}/`]) {
+      for (const actual of [uri('profileEmailRetry'), `${uri('profileEmailRetry')}/`]) {
+        const job = validJob(); job.httpTarget.uri = actual; job.httpTarget.oidcToken.audience = expected
+        expect(() => checkRetryJob(job, expected)).not.toThrow()
+      }
+    }
+    const job = validJob(); job.httpTarget.oidcToken.audience += '/'
+    expect(() => checkRetryJob(job, uri('profileEmailRetry'))).toThrow()
+  })
+  it('rejects other targets rather than broadly normalizing their URLs', () => {
+    const root = uri('profileEmailRetry')
+    for (const actual of [`${root}//`, `${root}/other`, `${root}/?x=1`, `${root}/#x`, `${root}/.`,
+      `${root}:443/`, root.replace('https:', 'http:'), root.replace('https://', 'https://user@'),
+      `${root}.example.org/`, 'https://another.run.app/']) {
+      const job = validJob(); job.httpTarget.uri = actual
+      expect(() => checkRetryJob(job, root)).toThrow()
+    }
+  })
+  it('verifies the active setup with normalized Scheduler target without any mutations', async () => {
+    const cloud = new Cloud(); await activate(cloud)
+    cloud.calls = []; cloud.writes = []
+    const probe = vi.fn(); const writeEnv = vi.fn()
+    const result = await activate(cloud, { apply: false, verifyActive: true, probe, writeEnv, clock: () => now + 3600000 })
+    expect(result).toMatchObject({ active: true, verified: true, liveAfter: new Date(now).toISOString() })
+    expect(cloud.writes).toEqual([]); expect(writeEnv).not.toHaveBeenCalled()
+    expect(probe).toHaveBeenCalledExactlyOnceWith(uri('profileEmailAction'))
+    expect(cloud.calls.every((args) => args.includes('describe') || args.includes('get-iam-policy') || args.includes('list'))).toBe(true)
+  })
+  it('does not repair or approve an incomplete active setup in verification mode', async () => {
+    for (const change of [
+      (c) => { c.functions.profileEmailPreferences.serviceConfig.environmentVariables.MOVIE_HUB_EMAIL_ENABLED = 'false' },
+      (c) => { c.functions.profileEmailRetry.serviceConfig.environmentVariables.MOVIE_HUB_EMAIL_TEST_RECIPIENT_SHA256 = '0'.repeat(64) },
+      (c) => { c.jobs.find((j) => j.name === jobPath).state = 'PAUSED' },
+      (c) => { c.jobs = c.jobs.filter((j) => j.name !== jobPath) },
+      (c) => { c.policies.profileemailaction.bindings = [] },
+    ]) {
+      const cloud = new Cloud(); await activate(cloud); change(cloud); cloud.writes = []
+      const probe = vi.fn(); const writeEnv = vi.fn()
+      await expect(activate(cloud, { apply: false, verifyActive: true, probe, writeEnv })).rejects.toThrow()
+      expect(cloud.writes).toEqual([]); expect(writeEnv).not.toHaveBeenCalled(); expect(probe).not.toHaveBeenCalled()
+    }
+  })
+  it('fails read-only verification when the action page is unavailable', async () => {
+    const cloud = new Cloud(); await activate(cloud); cloud.writes = []
+    await expect(activate(cloud, { apply: false, verifyActive: true,
+      probe: vi.fn().mockRejectedValue(Error('Page unavailable')) })).rejects.toThrow('Page unavailable')
+    expect(cloud.writes).toEqual([])
+  })
+  it('refuses simultaneous activation and verification before calling Cloud', async () => {
+    const cloud = new Cloud()
+    await expect(activate(cloud, { verifyActive: true })).rejects.toThrow('not both')
+    expect(cloud.calls).toEqual([])
+  })
   it('stops before writes for an incomplete index, missing invocation grant or foreign function', async () => {
     for (const mutate of [(c) => { c.indexState = 'CREATING' },
       (c) => { c.policies.profileemailnotification.bindings = [] },
@@ -128,7 +183,8 @@ describe('controlled mail activation', () => {
     expect(cloud.jobs).toHaveLength(1)
   })
   it('rejects a conflicting or differently authenticated scheduler before any mutation', async () => {
-    for (const change of [(j) => { j.name += '-other' }, (j) => { j.httpTarget.oidcToken.audience = 'other' },
+    for (const change of [(j) => { j.name += '-other' }, (j) => { j.name = j.name.replace(jobName, 'unrelated-job') },
+      (j) => { j.httpTarget.oidcToken.audience = 'other' },
       (j) => { j.httpTarget.headers.Authorization = 'unexpected' }, (j) => { j.retryConfig.retryCount = 2 }]) {
       const cloud = new Cloud(); const job = validJob(); change(job); cloud.jobs.push(job)
       await expect(activate(cloud)).rejects.toThrow()
