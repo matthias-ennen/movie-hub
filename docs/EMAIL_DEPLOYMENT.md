@@ -1,5 +1,51 @@
 # Private Mailfunktionen bereitstellen (#384)
 
+## Kontoprüfung diagnostizieren – 14.10.2026, 15:32 Uhr
+
+Die Besitzerprüfung um 14:49 Uhr bestätigt die aktive Testkonfiguration.
+Ein echter E-Mail-Empfang wurde weiterhin nicht bestätigt. Der Screenshot um
+15:01 Uhr zeigt stattdessen HTTP 500 mit `mail-account-unavailable` aus
+`accountAvailable → reconcile`: `auth.getUser(uid)` scheitert vor Bestätigung,
+Queue und Resend. Um 15:32 Uhr sind `firebaseauth.users.get` in der vorgesehenen
+Laufzeitrolle und deren bedingungslose Bindung an das Mail-Laufzeitkonto bestätigt.
+Die gezielte Identity-Toolkit-Auditabfrage liefert keine Einträge; daraus lässt
+sich weder eine erfolgreiche Kontoprüfung noch eine konkrete Ursache ableiten.
+
+`server/email/accountFailure.mjs` erhält deshalb nur fest erlaubte SDK-Codes,
+HTTP-Statuscodes und bekannte API-/Berechtigungshinweise in der Fehlermeldung.
+Unbekannte Werte werden `unknown`. Originalfehler, `cause`, Provider-Antwort,
+Header, UID, Adresse und Tokens werden nicht protokolliert. Fehlende oder gesperrte
+Konten werden weiterhin ohne Versand übersprungen. Die Oberfläche nennt bei
+fehlendem Bestätigungsstatus jetzt die ausstehende Bestätigung; sie behauptet
+keinen bekannten Zustand der Cloud-Versandfreigabe.
+
+Nach geprüftem Merge das genaue Archiv laden und als Besitzer
+`node scripts/activate-profile-email-test.mjs --refresh-preferences` ausführen.
+Die interaktive Kontoadresse muss der bestehenden Resend-Testadresse entsprechen.
+Dieser separate Modus verlangt zuerst dieselbe vollständig aktive Konfiguration
+wie `--verify-active`, einschließlich eingeschaltetem privaten Minutenjob und
+erreichbarer Aktionsseite. Er aktualisiert ausschließlich `profileEmailPreferences`
+aus der geprüften Quelle. Ohne Env-Änderungsflags bleiben sämtliche bisherigen
+Umgebungsvariablen erhalten; die numerischen Secret-Versionen werden beibehalten.
+Es gibt keine IAM-/Jobänderung, keine neue Empfängerfreigabe oder Startzeit.
+Alle vier Funktionskonfigurationen und Aufrufrechte sowie der Minutenjob werden
+anschließend erneut geprüft. Der Modus lässt sich nicht mit `--apply` oder
+`--verify-active` kombinieren. Bei Abbruch kann diese einzelne Funktion schon
+aktualisiert sein; eine fehlende Abschlussprüfung ist kein bestätigter Erfolg.
+
+Erwarteter Abschluss: **KONTOPRÜFUNGS-DIAGNOSE BEREIT**. Danach einmal die
+Profil-E-Mail-Einstellungen speichern und frische Logs von
+`profileemailpreferences` auf `mail-account-unavailable sdk=` lesen. Aus dem
+festen Fehlercode folgt der nächste gezielte Reparaturschritt. Das Diagnoseupdate
+behebt die noch unbekannte Ursache nicht und ist kein Versand-/Empfangsnachweis.
+Die übrigen drei Cloud-Funktionen erhalten diesen Diagnosecode bei einem späteren
+vollständigen Mail-Update. Issue #384 bleibt bis zum tatsächlichen Empfang und
+der fachlichen Abnahme offen.
+
+Referenzen: [Firebase-Admin-Fehler](https://firebase.google.com/docs/auth/admin/errors),
+[accounts.lookup](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/projects.accounts/lookup),
+[gcloud functions deploy](https://docs.cloud.google.com/sdk/gcloud/reference/functions/deploy).
+
 ## Abschlussprüfung nach Scheduler-URL-Normalisierung
 
 Der Besitzerlauf am 14.10.2026 um 14:25 Uhr hat alle vier Testfunktionen

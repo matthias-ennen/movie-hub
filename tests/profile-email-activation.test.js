@@ -49,7 +49,9 @@ class Cloud {
     if (command === 'scheduler jobs list') return structuredClone(this.jobs)
     if (args[0] === 'functions' && args[1] === 'deploy') {
       if (this.failDeploy === args[2]) throw Error('Simulated deployment failure')
-      this.functions[args[2]].serviceConfig.environmentVariables = structuredClone(this.env)
+      if (args.some((arg) => arg.startsWith('--env-vars-file='))) {
+        this.functions[args[2]].serviceConfig.environmentVariables = structuredClone(this.env)
+      }
     } else if (command === 'run services add-iam-policy-binding') {
       expect(args[3]).toBe('profileemailaction')
       this.policies[args[3]].bindings.push({ role: 'roles/run.invoker', members: ['allUsers'] })
@@ -146,8 +148,72 @@ describe('controlled mail activation', () => {
   })
   it('refuses simultaneous activation and verification before calling Cloud', async () => {
     const cloud = new Cloud()
-    await expect(activate(cloud, { verifyActive: true })).rejects.toThrow('not both')
+    await expect(activate(cloud, { verifyActive: true })).rejects.toThrow('Choose only one mode')
     expect(cloud.calls).toEqual([])
+  })
+  it('refreshes only Preferences, keeping environment, secret pins, IAM and schedules', async () => {
+    const cloud = new Cloud(); await activate(cloud)
+    cloud.functions.profileEmailPreferences.serviceConfig.environmentVariables.LOG_EXECUTION_ID = 'true'
+    const before = structuredClone({ functions: cloud.functions, policies: cloud.policies, jobs: cloud.jobs })
+    cloud.calls = []; cloud.writes = []; cloud.env = null
+    const writeEnv = vi.fn(); const probe = vi.fn()
+    const result = await activate(cloud, { apply: false, refreshPreferences: true, writeEnv, probe, clock: () => now + 3600000 })
+    expect(result).toMatchObject({ active: true, refreshed: 'profileEmailPreferences', liveAfter: new Date(now).toISOString() })
+    expect(writeEnv).not.toHaveBeenCalled()
+    expect(probe).toHaveBeenCalledExactlyOnceWith(uri('profileEmailAction'))
+    expect(cloud.writes).toHaveLength(1)
+    expect(cloud.writes[0].slice(0, 3)).toEqual(['functions', 'deploy', 'profileEmailPreferences'])
+    expect(cloud.writes[0]).toContain(`--set-secrets=RESEND_API_KEY=projects/${number}/secrets/RESEND_API_KEY:2,MOVIE_HUB_EMAIL_TOKEN_KEY=projects/${number}/secrets/MOVIE_HUB_EMAIL_TOKEN_KEY:2`)
+    expect(cloud.writes[0].join(' ')).not.toMatch(/env-vars|allow-unauthenticated/)
+    expect({ functions: cloud.functions, policies: cloud.policies, jobs: cloud.jobs }).toEqual(before)
+    for (const name of names) {
+      expect(cloud.calls.filter((a) => a[0] === 'functions' && a[1] === 'describe' && a[2] === name)).toHaveLength(2)
+    }
+  })
+  it('refuses a Preferences refresh if activation is incomplete or the recipient differs', async () => {
+    for (const mutate of [
+      (c) => { c.functions.profileEmailPreferences.serviceConfig.environmentVariables.MOVIE_HUB_EMAIL_ENABLED = 'false' },
+      (c) => { c.functions.profileEmailRetry.serviceConfig.environmentVariables.MOVIE_HUB_EMAIL_TEST_RECIPIENT_SHA256 = '0'.repeat(64) },
+      (c) => { c.jobs.find((j) => j.name === jobPath).state = 'PAUSED' },
+      (c) => { c.policies.profileemailpreferences.bindings = [] },
+      (c) => { c.policies.profileemailaction.bindings = [] },
+    ]) {
+      const cloud = new Cloud(); await activate(cloud); mutate(cloud); cloud.writes = []
+      await expect(activate(cloud, { apply: false, refreshPreferences: true })).rejects.toThrow()
+      expect(cloud.writes).toEqual([])
+    }
+  })
+  it('does not refresh Preferences when the active action page cannot be verified', async () => {
+    const cloud = new Cloud(); await activate(cloud); cloud.writes = []
+    await expect(activate(cloud, { apply: false, refreshPreferences: true,
+      probe: vi.fn().mockRejectedValue(Error('Page unavailable')) })).rejects.toThrow('Page unavailable')
+    expect(cloud.writes).toEqual([])
+  })
+  it('rejects a changed configuration in the post-refresh readback', async () => {
+    const cloud = new Cloud(); await activate(cloud); cloud.writes = []
+    const run = (args) => {
+      const result = cloud.run(args)
+      if (args[0] === 'functions' && args[1] === 'deploy') {
+        cloud.functions.profileEmailPreferences.serviceConfig.environmentVariables.MOVIE_HUB_EMAIL_LIVE_AFTER = new Date(now - 1).toISOString()
+      }
+      return result
+    }
+    await expect(activate(cloud, { apply: false, refreshPreferences: true, run })).rejects.toThrow('Refresh profileEmailPreferences')
+    expect(cloud.writes).toHaveLength(1)
+  })
+  it('does not deploy more functions or mutate IAM/jobs after a failed Preferences refresh', async () => {
+    const cloud = new Cloud(); await activate(cloud); cloud.writes = []; cloud.calls = []
+    cloud.failDeploy = 'profileEmailPreferences'
+    await expect(activate(cloud, { apply: false, refreshPreferences: true })).rejects.toThrow('Refresh profileEmailPreferences')
+    expect(cloud.writes).toEqual([])
+    expect(cloud.calls.filter((a) => a[0] === 'functions' && a[1] === 'deploy')).toHaveLength(1)
+  })
+  it('refuses to combine a Preferences refresh with another mode', async () => {
+    for (const options of [{ apply: true }, { apply: false, verifyActive: true }]) {
+      const cloud = new Cloud()
+      await expect(activate(cloud, { refreshPreferences: true, ...options })).rejects.toThrow('Choose only one mode')
+      expect(cloud.calls).toEqual([])
+    }
   })
   it('stops before writes for an incomplete index, missing invocation grant or foreign function', async () => {
     for (const mutate of [(c) => { c.indexState = 'CREATING' },
