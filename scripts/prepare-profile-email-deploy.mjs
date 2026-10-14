@@ -110,15 +110,17 @@ function checkNoMailSchedule(jobs) {
     'A mail scheduler already exists; prepare must not overwrite a scheduled service.')
 }
 
-export function emailDeploymentArgs(name, { envFile, versions, existing = false }) {
+export function emailDeploymentArgs(name, { envFile, versions, existing = false, preserveEnv = false }) {
   require(names.includes(name), 'Unexpected deployment target.')
+  require(!preserveEnv || existing, 'Environment preservation requires an existing function.')
   const args = ['functions', 'deploy', name, '--gen2', `--region=${region}`, '--runtime=nodejs22',
     '--source=email-functions', `--entry-point=${name}`, `--service-account=${runtime}`,
     `--build-service-account=projects/${project}/serviceAccounts/${builder}`,
     `--docker-repository=projects/${project}/locations/${region}/repositories/gcf-artifacts`,
     '--memory=256MiB', '--timeout=120s', '--max-instances=1', '--min-instances=0', '--concurrency=1',
     '--serve-all-traffic-latest-revision',
-    `--env-vars-file=${envFile}`, `--set-secrets=${secrets.map((key) => `${key}=projects/${number}/secrets/${key}:${versions[key]}`).join(',')}`]
+    ...(!preserveEnv ? [`--env-vars-file=${envFile}`] : []),
+    `--set-secrets=${secrets.map((key) => `${key}=projects/${number}/secrets/${key}:${versions[key]}`).join(',')}`]
   if (paths[name]) args.push(`--trigger-event-filters=type=${written},database=(default),namespace=(default)`,
     `--trigger-event-filters-path-pattern=document=${paths[name]}`, `--trigger-location=${region}`,
     `--trigger-service-account=${events}`, '--retry')

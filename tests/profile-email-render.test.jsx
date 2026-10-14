@@ -29,7 +29,7 @@ describe('actual email profile form rendering', () => {
     expect(loading).not.toContain(' disabled=""')
     expect(render({ error: 'Ladefehler' })).toContain('Ladefehler')
     const preferences = { schemaVersion: 1, email: 'owner@example.org', enabled: true, revision: 1, addressVersion: 1 }
-    expect(render({ preferences })).toContain('Versandfreischaltung steht noch aus')
+    expect(render({ preferences })).toContain('Die Bestätigung steht noch aus')
     expect(render({ preferences, verification: { status: 'pending', revision: 1, addressVersion: 1, expiresAt: Date.now() + 86400000 } })).toContain('wird vorbereitet')
     expect(render({ preferences, verification: { status: 'pending', revision: 0, addressVersion: 1, sentAt: Date.now(), expiresAt: Date.now() + 86400000 } })).not.toContain('zugesandten Link')
   })

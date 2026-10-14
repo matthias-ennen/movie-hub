@@ -59,7 +59,7 @@ export function ProfileEmailForm({ profile, accountEmail, ready, preferences, ve
             ? 'Der Bestätigungslink ist abgelaufen. Bitte erneut speichern.'
             : currentProof.sentAt ? 'Bitte bestätige deine E-Mail-Adresse über den zugesandten Link.'
               : 'Die Bestätigungs-E-Mail wird vorbereitet.'
-          : 'E-Mail-Empfang vorgemerkt. Die Versandfreischaltung steht noch aus.'
+          : 'E-Mail-Empfang vorgemerkt. Die Bestätigung steht noch aus.'
   return (
     <form className="profile-email-form" onSubmit={submit} aria-label="E-Mail-Mitteilungen für dieses Profil">
       <label htmlFor="profile-email-address">E-Mail-Adresse

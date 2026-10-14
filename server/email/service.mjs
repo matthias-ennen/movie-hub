@@ -5,6 +5,7 @@ import { watchId } from '../../src/notifications/titleAlertModel.js'
 import { MAIL_MAX_ATTEMPTS, MAIL_RETRY_WINDOW, notificationMailModel } from './eligibility.mjs'
 import { tokenHash } from './tokens.mjs'
 import { titleNotificationEmail, verificationEmail } from './templates.mjs'
+import { accountFailure } from './accountFailure.mjs'
 
 const HOUR = 3600000
 const DAY = 24 * HOUR
@@ -30,7 +31,7 @@ export function createEmailService({ db, auth, transport, tokens, appUrl, action
   }
   async function accountAvailable(uid) {
     try { const user = await auth.getUser(uid); return user.disabled ? null : user }
-    catch (error) { if (error.code === 'auth/user-not-found') return null; throw new Error('mail-account-unavailable') }
+    catch (error) { if (error?.code === 'auth/user-not-found') return null; throw accountFailure(error) }
   }
   const link = (token) => `${actionUrl}#${token}`
 
