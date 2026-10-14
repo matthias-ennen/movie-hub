@@ -1,5 +1,61 @@
 # Private Mailfunktionen bereitstellen (#384)
 
+## Kontrollierten Testversand aktivieren
+
+Matthias hat am 14.10.2026 um 13:43 Uhr `INDEX BEREIT` bestätigt.
+Die Resend-Kontoadresse für den ersten Empfangstest ist im Chat ausdrücklich
+benannt; sie wird nicht in Repository, Issue oder Workflow-Eingaben gespeichert.
+
+Nach geprüftem Merge wird der genaue Commit als Archiv in ein frisches temporäres
+Cloud-Shell-Verzeichnis geladen. Dort startet der Besitzer mit Node.js 22 oder neuer
+`node scripts/activate-profile-email-test.mjs --apply`. Der Helfer fragt die
+Resend-Kontoadresse interaktiv ab, normalisiert sie wie die App und hinterlegt nur
+ihren SHA-256-Fingerabdruck in der Cloud-Konfiguration. Ohne `--apply` liest er nur.
+Kein neuer API-Schlüssel wird benötigt; die bereits geprüften numerischen
+Secret-Versionen werden weiterverwendet, ohne ihre Inhalte auszulesen.
+
+Der Helfer prüft alle vier vorhandenen Functions, ihre privaten Aufrufrechte,
+den READY-Index, Secret-Versionsmetadaten und bestehende Zeitpläne vor Änderungen.
+Er stellt das geprüfte Mail-Quellpaket mit genau einer zugelassenen Empfängeradresse,
+einem festen Versandstart und der tatsächlichen Aktions-URL bereit. Zuerst folgen
+Action und Retry, dann die beiden Ereignisfunktionen. Nur `profileemailaction`
+erhält die öffentliche Invoker-Bindung für die tokengebundene Bestätigungs-/Abmeldeseite.
+Ein anonymer GET muss genau die erwartete Seite liefern, bevor weitere Funktionen
+aktiviert werden. GET/HEAD verarbeiten weiterhin keine Tokens oder Profiländerungen.
+
+Abschließend wird genau `movie-hub-email-retry-1min` in Frankfurt eingerichtet:
+POST jede Minute in UTC, OIDC über das dedizierte Schedulerkonto, Audience gleich
+der rückgelesenen Retry-URL, 120 Sekunden Deadline und keine zusätzlichen
+Scheduler-Retryversuche. Die fachlichen Wiederholungen steuert die vorhandene
+Firestore-Queue. Andere Zeitpläne, insbesondere TV-Erinnerungen, bleiben unberührt.
+Der Helfer prüft die fertige Jobkonfiguration; ein erfolgreicher Jobaufruf und
+echter E-Mail-Empfang sind anschließend gesondert zu bestätigen.
+
+Für `resend.dev` verweigert der Transport eine Aktivierung ohne gültigen
+Empfängerfingerabdruck. Andere Adressen werden vor Queue-/Budget-Erstellung und
+zusätzlich unmittelbar vor dem Netzaufruf ausgeschlossen; bestehende unzulässige
+Queue-Einträge werden ohne Versand beendet. Die normale Verifizierung, Einwilligung,
+Zeitgrenzen, Duplikatsperren und Limits bleiben bestehen. Eine Produktionsfreigabe
+für beliebige Empfänger ist damit nicht verbunden.
+
+Bei Abbruch können bereits einzelne Testfunktionen aktiv sein. Derselbe geprüfte
+Befehl mit derselben Adresse setzt den Teilstand fort und behält den ursprünglichen
+Versandstart. Ein anderer Empfänger, uneinheitliche Startzeiten, unerwartete
+Konfigurationen, weitere öffentliche Dienste oder fremde Mail-Zeitpläne stoppen
+vor weiteren Änderungen. Der Prepare-Workflow mit ausgeschaltetem Versand ist
+danach weiterhin nicht zum Überschreiben dieses aktivierten Standes geeignet.
+
+Nach `TESTVERSAND AKTIV` die E-Mail-Einstellungen des vorgesehenen MovieHub-Profils
+erneut speichern. Bei einer bereits über Firebase bestätigten identischen Adresse
+wird keine zusätzliche Bestätigungsmail erzeugt; für den Empfangstest anschließend
+eine neue passende Titelmitteilung auslösen. Andere Profiladressen bleiben im
+provisorischen Betrieb ausgeschlossen. Erst Empfang, Bestätigungs-/Abmeldelink,
+alle drei Meldungsphasen und Retry-Ausführung abnehmen; Issue #384 bleibt offen.
+
+Referenzen: [Resend-Testempfänger](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain),
+[Cloud Scheduler OIDC](https://docs.cloud.google.com/scheduler/docs/http-target-auth),
+[Jobparameter](https://docs.cloud.google.com/sdk/gcloud/reference/scheduler/jobs/create/http).
+
 ## Bestätigter Stand am 14.10.2026, 13:24 Uhr
 
 Der neue [Prepare-Lauf #2](https://github.com/matthias-ennen/movie-hub/actions/runs/38554131325)

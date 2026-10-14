@@ -58,7 +58,7 @@ export function checkPrivateService(policy, service) {
   'Cloud Run Invoker IAM check is disabled.')
 }
 
-export function checkEmailFunction(details, name, { before = false, versions } = {}) {
+export function checkEmailFunction(details, name, { before = false, versions, expectedEnv = disabledEnv } = {}) {
   require(names.includes(name) && details?.name === `projects/${project}/locations/${region}/functions/${name}`,
     'Unexpected mail function target.')
   require(details.environment === 'GEN_2' && (details.state === 'ACTIVE' || (before && details.state === 'FAILED')),
@@ -69,7 +69,7 @@ export function checkEmailFunction(details, name, { before = false, versions } =
     && [project, number].some((id) => build.serviceAccount === `projects/${id}/serviceAccounts/${builder}`),
   'Unexpected function build identity/runtime/entry point.')
   require(service?.serviceAccountEmail === runtime, 'Unexpected function runtime identity.')
-  require(Object.entries(disabledEnv).every(([key, value]) => service.environmentVariables?.[key] === value),
+  require(Object.entries(expectedEnv).every(([key, value]) => service.environmentVariables?.[key] === value),
     'Refusing to overwrite an enabled or differently configured mail function.')
   require(secrets.every((key) => !(key in service.environmentVariables)), 'Secret value found in ordinary environment configuration.')
   const refs = service.secretEnvironmentVariables
@@ -108,6 +108,25 @@ function checkNoMailSchedule(jobs) {
   require(Array.isArray(jobs), 'Scheduler inventory unreadable.')
   require(!jobs.some((job) => /(?:movie-hub-email|profileemail)/i.test(`${job.name || ''} ${job.httpTarget?.uri || ''}`)),
     'A mail scheduler already exists; prepare must not overwrite a scheduled service.')
+}
+
+export function emailDeploymentArgs(name, { envFile, versions, existing = false }) {
+  require(names.includes(name), 'Unexpected deployment target.')
+  const args = ['functions', 'deploy', name, '--gen2', `--region=${region}`, '--runtime=nodejs22',
+    '--source=email-functions', `--entry-point=${name}`, `--service-account=${runtime}`,
+    `--build-service-account=projects/${project}/serviceAccounts/${builder}`,
+    `--docker-repository=projects/${project}/locations/${region}/repositories/gcf-artifacts`,
+    '--memory=256MiB', '--timeout=120s', '--max-instances=1', '--min-instances=0', '--concurrency=1',
+    '--serve-all-traffic-latest-revision',
+    `--env-vars-file=${envFile}`, `--set-secrets=${secrets.map((key) => `${key}=projects/${number}/secrets/${key}:${versions[key]}`).join(',')}`]
+  if (paths[name]) args.push(`--trigger-event-filters=type=${written},database=(default),namespace=(default)`,
+    `--trigger-event-filters-path-pattern=document=${paths[name]}`, `--trigger-location=${region}`,
+    `--trigger-service-account=${events}`, '--retry')
+  else {
+    args.push('--trigger-http')
+    if (!existing) args.push('--no-allow-unauthenticated')
+  }
+  return args
 }
 
 export function prepareEmailDeployment({ run = gcloud, apply = false, envFile, log = console.log } = {}) {
@@ -153,22 +172,8 @@ export function prepareEmailDeployment({ run = gcloud, apply = false, envFile, l
     for (const name of names) {
       stage = `Deploy and verify ${name}`
       log(`${stage} (sending disabled)…`)
-      const args = ['functions', 'deploy', name, '--gen2', `--region=${region}`, '--runtime=nodejs22',
-        '--source=email-functions', `--entry-point=${name}`, `--service-account=${runtime}`,
-        `--build-service-account=projects/${project}/serviceAccounts/${builder}`,
-        `--docker-repository=projects/${project}/locations/${region}/repositories/gcf-artifacts`,
-        '--memory=256MiB', '--timeout=120s', '--max-instances=1', '--min-instances=0', '--concurrency=1',
-        '--serve-all-traffic-latest-revision',
-        `--env-vars-file=${envFile}`, `--set-secrets=${secrets.map((key) => `${key}=projects/${number}/secrets/${key}:${versions[key]}`).join(',')}`]
-      if (paths[name]) args.push(`--trigger-event-filters=type=${written},database=(default),namespace=(default)`,
-        `--trigger-event-filters-path-pattern=document=${paths[name]}`, `--trigger-location=${region}`,
-        `--trigger-service-account=${events}`, '--retry')
-      else {
-        args.push('--trigger-http')
-        // On updates this flag asks gcloud to write service IAM even when the
-        // existing service is already private. Keep its verified policy instead.
-        if (!existingNames.has(name)) args.push('--no-allow-unauthenticated')
-      }
+      // Preserve inspected service IAM on updates; explicit private flag only on creation.
+      const args = emailDeploymentArgs(name, { envFile, versions, existing: existingNames.has(name) })
       run(args, { format: 'none', timeout: 15 * 60 * 1000 })
       const target = checkEmailFunction(describe(name), name, { versions })
       privateService(target)

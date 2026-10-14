@@ -58,6 +58,31 @@ export function registerEmailServiceTests() {
       expect((await proofRef().get()).data()).toMatchObject({ status: 'verified', source: 'firebase-auth' })
       expect(transport.send).not.toHaveBeenCalled()
     })
+    it('does not create verification, jobs or budget records for an excluded test recipient', async () => {
+      transport.allowsRecipient = (email) => email === 'test@example.org'
+      await settings('other@example.org')
+      await service.reconcile(uid, 'main')
+      expect((await proofRef().get()).exists).toBe(false)
+      expect((await ref.collection('emailDeliveries').get()).empty).toBe(true)
+      await trustedSettings()
+      await service.enqueueNotification(uid, 'main', await includedEvent())
+      expect((await ref.collection('emailDeliveries').get()).empty).toBe(true)
+      expect(transport.send).not.toHaveBeenCalled()
+    })
+    it('cancels an already queued recipient excluded by the current test configuration', async () => {
+      await trustedSettings()
+      const eventId = await includedEvent()
+      transport.send.mockRejectedValueOnce({ code: 'mail-network', retryable: true })
+      await service.enqueueNotification(uid, 'main', eventId)
+      transport.allowsRecipient = () => false
+      now += 61000
+      await service.retryDue()
+      expect(transport.send).toHaveBeenCalledTimes(1)
+      const jobs = await ref.collection('emailDeliveries').get()
+      expect(jobs.docs[0].data()).toMatchObject({ state: 'cancelled', reason: 'test-recipient-excluded' })
+      expect(jobs.docs[0].data()).not.toHaveProperty('recipient')
+      expect(jobs.docs[0].data()).not.toHaveProperty('queueAt')
+    })
     it('confirms a custom address once and rejects the old token after an address change', async () => {
       const prefs = await settings('other@example.org')
       await service.reconcile(uid, 'main')

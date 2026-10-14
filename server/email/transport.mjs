@@ -1,4 +1,7 @@
-import { isValidEmailAddress } from '../../src/notifications/profileEmailModel.js'
+import { createHash } from 'node:crypto'
+import { isValidEmailAddress, normalizeEmailAddress } from '../../src/notifications/profileEmailModel.js'
+
+export const recipientFingerprint = (value) => createHash('sha256').update(normalizeEmailAddress(value)).digest('hex')
 
 export class EmailTransportError extends Error {
   constructor(code, retryable = false) { super(code); this.code = code; this.retryable = retryable }
@@ -9,13 +12,19 @@ export function createResendTransport(env = {}, fetchImpl = globalThis.fetch) {
   const from = String(env.MOVIE_HUB_EMAIL_FROM || '')
   const address = from.match(/^MovieHub <([^<>]+)>$/)?.[1]
   const key = String(env.RESEND_API_KEY || '')
+  const recipientHash = String(env.MOVIE_HUB_EMAIL_TEST_RECIPIENT_SHA256 || '')
+  const limited = address?.toLowerCase().endsWith('@resend.dev') || recipientHash !== ''
+  const validLimit = !limited || /^[a-f0-9]{64}$/.test(recipientHash)
+  const allowsRecipient = (to) => isValidEmailAddress(to) && validLimit
+    && (!limited || recipientFingerprint(to) === recipientHash)
   const enabled = env.MOVIE_HUB_EMAIL_ENABLED === 'true' && isValidEmailAddress(address)
     && key.startsWith('re_') && Number.isFinite(liveAfter)
-    && String(env.MOVIE_HUB_EMAIL_TOKEN_KEY || '').length >= 32
+    && String(env.MOVIE_HUB_EMAIL_TOKEN_KEY || '').length >= 32 && validLimit
   return {
-    enabled: Boolean(enabled), liveAfter, from,
+    enabled: Boolean(enabled), liveAfter, from, allowsRecipient,
     async send({ to, subject, html, text, idempotencyKey, sender = from }) {
       if (!enabled) throw new EmailTransportError('mail-disabled')
+      if (!allowsRecipient(to)) throw new EmailTransportError('mail-recipient-excluded')
       if (!isValidEmailAddress(to) || typeof subject !== 'string' || /[\r\n]/.test(subject)
         || subject.length > 240 || typeof html !== 'string' || typeof text !== 'string'
         || html.length > 50000 || text.length > 12000 || sender !== from

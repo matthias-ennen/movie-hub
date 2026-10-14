@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { initialProfileEmail, nextEmailPreferences, isValidEmailAddress, emailAddressConfirmed } from '../src/notifications/profileEmailModel.js'
 import { createEmailTokens } from '../server/email/tokens.mjs'
-import { createResendTransport } from '../server/email/transport.mjs'
+import { createResendTransport, recipientFingerprint } from '../server/email/transport.mjs'
 import { notificationMailModel } from '../server/email/eligibility.mjs'
 import { titleNotificationEmail, verificationEmail } from '../server/email/templates.mjs'
 import { createEmailActionHandler } from '../server/email/http.mjs'
@@ -94,6 +94,22 @@ describe('tokens, transport and HTTP boundary', () => {
     expect(fetch.mock.calls[0][1].headers['Idempotency-Key']).toBe('test-job')
     expect(JSON.parse(fetch.mock.calls[0][1].body).to).toEqual(['recipient@example.org'])
     await expect(transport.send(input)).rejects.toMatchObject({ code: 'mail-http-429', retryable: true })
+  })
+  it('requires a valid recipient limit for the provisional sender and blocks other recipients before networking', async () => {
+    const env = { MOVIE_HUB_EMAIL_ENABLED: 'true', MOVIE_HUB_EMAIL_FROM: 'MovieHub <onboarding@resend.dev>',
+      RESEND_API_KEY: 're_test', MOVIE_HUB_EMAIL_TOKEN_KEY: 'local-test-only-key-1234567890123456',
+      MOVIE_HUB_EMAIL_LIVE_AFTER: new Date(now).toISOString() }
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'test-id' }) })
+    for (const value of ['', 'invalid', 'A'.repeat(64)]) {
+      expect(createResendTransport({ ...env, MOVIE_HUB_EMAIL_TEST_RECIPIENT_SHA256: value }, fetch).enabled).toBe(false)
+    }
+    const transport = createResendTransport({ ...env, MOVIE_HUB_EMAIL_TEST_RECIPIENT_SHA256: recipientFingerprint('test@example.org') }, fetch)
+    expect(transport.enabled).toBe(true)
+    const input = { to: 'someone-else@example.org', subject: 'Film', html: '<p>Film</p>', text: 'Film', idempotencyKey: 'test-job' }
+    await expect(transport.send(input)).rejects.toMatchObject({ code: 'mail-recipient-excluded', retryable: false })
+    expect(fetch).not.toHaveBeenCalled()
+    await expect(transport.send({ ...input, to: 'test@example.org' })).resolves.toEqual({ providerId: 'test-id' })
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
   it('does not consume tokens on GET; only explicit JSON POST invokes the action', async () => {
     const service = { enabled: true, applyToken: vi.fn().mockResolvedValue('confirmed') }
