@@ -75,7 +75,7 @@ export function checkEmailFunction(details, name, { before = false, versions } =
     ref.key === key && ref.secret === key && (!ref.projectId || [project, number].includes(String(ref.projectId)))
     && /^[1-9][0-9]*$/.test(ref.version) && (!versions || ref.version === versions[key])))
     && !service.secretVolumes?.length, 'Unexpected or unpinned secret references.')
-  require(service.maxInstanceCount === 1 && (service.minInstanceCount ?? 0) === 0
+  require(service.allTrafficOnLatestRevision === true && service.maxInstanceCount === 1 && (service.minInstanceCount ?? 0) === 0
     && service.maxInstanceRequestConcurrency === 1 && service.timeoutSeconds === 120
     && ['256M', '256Mi', '256MiB', '268435456'].includes(service.availableMemory), 'Mail resource limits differ.')
   if (paths[name]) {
@@ -151,6 +151,7 @@ export function prepareEmailDeployment({ run = gcloud, apply = false, envFile, l
         `--build-service-account=projects/${project}/serviceAccounts/${builder}`,
         `--docker-repository=projects/${project}/locations/${region}/repositories/gcf-artifacts`,
         '--memory=256MiB', '--timeout=120s', '--max-instances=1', '--min-instances=0', '--concurrency=1',
+        '--serve-all-traffic-latest-revision',
         `--env-vars-file=${envFile}`, `--set-secrets=${secrets.map((key) => `${key}=projects/${number}/secrets/${key}:${versions[key]}`).join(',')}`]
       if (paths[name]) args.push(`--trigger-event-filters=type=${written},database=(default),namespace=(default)`,
         `--trigger-event-filters-path-pattern=document=${paths[name]}`, `--trigger-location=${region}`,

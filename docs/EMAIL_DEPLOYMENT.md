@@ -62,6 +62,8 @@ Vorhandene Dienste müssen private IAM-Bindungen und einen aktiven Invoker-IAM-C
 haben. Nach jedem Deploy werden Name, Gen2-/Node-Version, Einstieg, Build-/Laufzeit-
 identität, ausgeschaltete Konfiguration, numerische Secret-Referenzen,
 Ressourcenlimits, Ereignispfade/-identität sowie Cloud-Run-Ziel/HTTPS-URL geprüft.
+Der gesamte Verkehr muss auf der geprüften neuesten Revision liegen; gemischte
+alte/neue Revisionen werden nicht als bestätigter ausgeschalteter Stand akzeptiert.
 Anschließend wird erneut dessen dienstbezogene IAM-Konfiguration geprüft.
 Der Workflow ändert keine Dienst-IAM-Bindungen. Der abschließende Scheduler-Check
 bestätigt, dass weiterhin kein Mail-Job existiert. Andere Zeitpläne werden nicht verändert.

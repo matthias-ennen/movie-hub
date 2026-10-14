@@ -12,7 +12,7 @@ const fixture = (name) => ({
   buildConfig: { runtime: 'nodejs22', entryPoint: name, serviceAccount: `projects/${project}/serviceAccounts/${builder}` },
   serviceConfig: {
     serviceAccountEmail: runtime, environmentVariables: { ...disabledEnv },
-    maxInstanceCount: 1, maxInstanceRequestConcurrency: 1, timeoutSeconds: 120, availableMemory: '256Mi',
+    maxInstanceCount: 1, maxInstanceRequestConcurrency: 1, timeoutSeconds: 120, availableMemory: '256Mi', allTrafficOnLatestRevision: true,
     service: `projects/${project}/locations/europe-west3/services/${name.toLowerCase()}`,
     uri: `https://${name.toLowerCase()}-synthetic-ew.a.run.app`,
     secretEnvironmentVariables: ['RESEND_API_KEY', 'MOVIE_HUB_EMAIL_TOKEN_KEY'].map((key) =>
@@ -75,6 +75,7 @@ describe('disabled mail deployment', () => {
       expect(args).toContain('--source=email-functions')
       expect(args).toContain('--max-instances=1')
       expect(args).toContain('--concurrency=1')
+      expect(args).toContain('--serve-all-traffic-latest-revision')
       expect(args).toContain('--set-secrets=RESEND_API_KEY=projects/612913221205/secrets/RESEND_API_KEY:2,MOVIE_HUB_EMAIL_TOKEN_KEY=projects/612913221205/secrets/MOVIE_HUB_EMAIL_TOKEN_KEY:2')
       expect(args).toContain('--build-service-account=projects/movie-hub-62459/serviceAccounts/movie-hub-email-build@movie-hub-62459.iam.gserviceaccount.com')
       if (['profileEmailAction', 'profileEmailRetry'].includes(args[2])) {
@@ -146,6 +147,7 @@ describe('disabled mail deployment', () => {
   it('stops subsequent deployments when readback detects a bad identity, limit or trigger scope', () => {
     for (const change of [
       (v) => { v.serviceConfig.maxInstanceCount = 5 },
+      (v) => { v.serviceConfig.allTrafficOnLatestRevision = false },
       (v) => { v.buildConfig.serviceAccount = 'projects/other/serviceAccounts/default@example.org' },
       (v) => { if (v.eventTrigger) v.eventTrigger.eventFilters[2].value = 'users/{uid}/**' },
     ]) {
