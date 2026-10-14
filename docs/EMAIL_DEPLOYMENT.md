@@ -1,5 +1,39 @@
 # Private Mailfunktionen bereitstellen (#384)
 
+## Bestätigter Stand am 14.10.2026, 13:24 Uhr
+
+Der neue [Prepare-Lauf #2](https://github.com/matthias-ennen/movie-hub/actions/runs/38554131325)
+auf Main `e3447d28b74eae724d9941466f12b19322dc31d0` ist erfolgreich.
+Alle vier Funktionen wurden als ACTIVE, privat und ausgeschaltet geprüft.
+Matthias' Screenshot um 13:23 Uhr bestätigt außerdem die drei unabhängig
+rückgelesenen `roles/run.invoker`-Bindungen: Ereigniskonto auf
+`profileemailpreferences` und `profileemailnotification`, Schedulerkonto auf
+`profileemailretry`. Alle drei Richtlinien enthalten keinen öffentlichen Zugriff.
+
+Als nächstes ergänzt `scripts/setup-profile-email-index.py --apply` ausschließlich
+den Collection-Group-Index `emailDeliveries.queueAt` in aufsteigender Reihenfolge.
+Ohne `--apply` wird nur gelesen. Vor der Änderung prüft das Skript Projekt,
+Datenbankregion, Feldziel und vorhandene Indexdefinitionen. Der einzelne REST-Patch
+mit `updateMask=indexConfig` übernimmt alle gelesenen Feldindizes und fügt nur den
+benötigten Index hinzu. TTL-Einstellungen und andere Felder werden nicht geschrieben.
+Geerbte Indexdefinitionen werden dabei als ausdrückliche Feldkonfiguration erhalten;
+spätere Änderungen an übergeordneten Standardindizes werden für dieses Feld nicht
+mehr automatisch übernommen. Unbekannte Indexoptionen führen zum Abbruch.
+
+Unmittelbar vor dem Patch wird das Feld erneut gelesen und auf Änderungen geprüft.
+Die Field-API bietet keine ETag-Vorbedingung; während der Einrichtung soll deshalb
+keine parallele Bearbeitung dieses Feldindex stattfinden. Anschließend wird bis zu
+fünf Minuten auf `READY` geprüft. Ein laufender Aufbau wird bei Wiederholung nur
+weiter geprüft. `INDEX NOCH IM AUFBAU` ist kein Erfolg; später erneut prüfen.
+Der Helfer liest keine Dokumente/Secrets, vergibt keine Rechte und richtet keinen
+Zeitplan ein. Der Versand bleibt ausgeschaltet. Der private Minutenjob folgt erst
+nach dem bereiten Index; Aktionsseite und kontrollierter Versandtest bleiben offen.
+
+Referenzen: [gezielter Field-Patch](https://docs.cloud.google.com/firestore/docs/reference/rest/v1/projects.databases.collectionGroups.fields/patch),
+[Feldkonfiguration und Vererbung](https://docs.cloud.google.com/firestore/docs/reference/rest/v1/projects.databases.collectionGroups.fields).
+
+## Verlauf der Bereitstellung
+
 Stand 14.10.2026: Matthias' Screenshot um 12:00 Uhr bestätigt
 **BUILDRECHTE ERFOLGREICH**. Das Setup hat die beiden Frankfurt-Buckets und die
 Docker-Registry geprüft, die drei direkten Rechte für das Mail-Buildkonto ergänzt

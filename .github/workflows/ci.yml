@@ -55,7 +55,9 @@ jobs:
           npm audit --prefix email-functions --omit=dev --audit-level=high
 
       - name: Check mail infrastructure setup safety with simulated Cloud responses
-        run: python3 scripts/test-profile-email-cloud.py
+        run: |
+          python3 scripts/test-profile-email-cloud.py
+          python3 scripts/test-profile-email-index.py
 
       - name: Test Firestore rules
         run: npm run test:rules
