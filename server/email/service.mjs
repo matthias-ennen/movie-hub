@@ -23,6 +23,7 @@ const terminal = (job, state, now, extra = {}) => {
 export function createEmailService({ db, auth, transport, tokens, appUrl, actionUrl, clock = Date.now }) {
   const validUrl = (value) => { try { return new URL(value).protocol === 'https:' && !new URL(value).hash } catch { return false } }
   const enabled = transport.enabled && tokens && validUrl(appUrl) && validUrl(actionUrl)
+  const allowed = (email) => !transport.allowsRecipient || transport.allowsRecipient(email)
   const profileRef = (uid, profileId) => {
     if (!safeId(uid) || !safeId(profileId)) throw new Error('invalid-profile')
     return db.doc(`users/${uid}/profiles/${profileId}`)
@@ -45,7 +46,8 @@ export function createEmailService({ db, auth, transport, tokens, appUrl, action
       const [profile, prefsSnap, proofSnap] = await Promise.all([tx.get(ref), tx.get(prefsRef), tx.get(proofRef)])
       const prefs = data(prefsSnap)
       const proof = data(proofSnap)
-      if (!profile.exists || !validEmailPreferences(prefs) || !prefs.enabled || emailAddressConfirmed(prefs, proof)) return null
+      if (!profile.exists || !validEmailPreferences(prefs) || !prefs.enabled || !allowed(prefs.email)
+        || emailAddressConfirmed(prefs, proof)) return null
       // Trust only Firebase Admin's current account record, never a browser flag.
       if (user.emailVerified && normalizeEmailAddress(user.email) === prefs.email) {
         tx.set(proofRef, { email: prefs.email, addressVersion: prefs.addressVersion, status: 'verified',
@@ -91,6 +93,7 @@ export function createEmailService({ db, auth, transport, tokens, appUrl, action
       if (!watchKey) return
       const watchSnap = await tx.get(ref.collection('titleAlerts').doc(watchKey))
       const prefs = data(prefsSnap)
+      if (!prefs || !allowed(prefs.email)) return
       const model = notificationMailModel({ eventId, message, watch: data(watchSnap), preferences: prefs,
         verification: data(proofSnap), profileName: profile.data().displayName,
         createdAt: timeMillis(messageSnap.createTime), now, liveAfter: transport.liveAfter })
@@ -124,6 +127,7 @@ export function createEmailService({ db, auth, transport, tokens, appUrl, action
       const cancel = (reason) => { tx.set(jobRef, terminal(job, 'cancelled', now, { reason })); return null }
       if (!user || !profile.exists || !validEmailPreferences(prefs) || !prefs.enabled
         || prefs.revision !== job.revision || prefs.addressVersion !== job.addressVersion || prefs.email !== job.recipient) return cancel('consent-changed')
+      if (!allowed(job.recipient)) return cancel('test-recipient-excluded')
       if (now >= timeMillis(job.expiresAt) || job.attempts >= MAIL_MAX_ATTEMPTS) return cancel('expired')
       if (job.purpose === 'confirm') {
         if (proof?.status !== 'pending' || proof.tokenHash !== tokenHash(tokens.issue(job.tokenData))) return cancel('confirmation-changed')
