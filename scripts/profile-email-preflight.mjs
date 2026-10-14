@@ -6,23 +6,27 @@ import { appendFileSync } from 'node:fs'
 const project = 'movie-hub-62459'
 const region = 'europe-west3'
 const runtime = `movie-hub-email@${project}.iam.gserviceaccount.com`
-const accounts = ['movie-hub-email', 'movie-hub-email-build', 'movie-hub-email-events']
+const accounts = ['movie-hub-email', 'movie-hub-email-build', 'movie-hub-email-events', 'movie-hub-email-scheduler']
 const checks = []
 function inspect(args, format) {
   const result = spawnSync('gcloud', [...args, `--project=${project}`, `--format=${format}`, '--quiet'],
     { encoding: 'utf8', timeout: 60000, maxBuffer: 4 * 1024 * 1024 })
-  if (result.error || result.signal) return { state: 'unreadable' }
+  if (result.error || result.signal) return { state: 'unreadable', reason: 'command-or-timeout' }
   if (result.status !== 0) {
     // Do not mistake an authorization failure for a missing resource.
     const error = result.stderr || ''
-    return { state: /PERMISSION_DENIED|permission|403|UNAUTHENTICATED|401/i.test(error) ? 'unreadable'
-      : /NOT_FOUND|not found|404|does not exist/i.test(error) ? 'missing' : 'unreadable' }
+    if (/PERMISSION_DENIED|permission|403|UNAUTHENTICATED|401/i.test(error)) {
+      return { state: 'unreadable', reason: 'permission-or-authentication' }
+    }
+    return /NOT_FOUND|not found|404|does not exist/i.test(error)
+      ? { state: 'missing' } : { state: 'unreadable', reason: 'command-failed' }
   }
   try { return { state: 'read', value: format.startsWith('json') ? JSON.parse(result.stdout) : result.stdout.trim() } }
-  catch { return { state: 'unreadable' } }
+  catch { return { state: 'unreadable', reason: 'metadata-format' } }
 }
 function check(name, result, valid, detail = '') {
-  checks.push({ name, state: result.state === 'read' ? valid(result.value) ? 'ready' : 'needs-setup' : result.state, detail })
+  checks.push({ name, state: result.state === 'read' ? valid(result.value) ? 'ready' : 'needs-setup' : result.state,
+    ...(result.reason ? { reason: result.reason } : {}), detail })
 }
 
 const apis = inspect(['services', 'list', '--enabled'], 'value(config.name)')
@@ -37,8 +41,8 @@ check('Cloud billing enabled', inspect(['billing', 'projects', 'describe', proje
   (value) => value.toLowerCase() === 'true')
 
 for (const name of ['RESEND_API_KEY', 'MOVIE_HUB_EMAIL_TOKEN_KEY']) {
-  const versions = inspect(['secrets', 'versions', 'list', name, '--filter=state:ENABLED', '--limit=1'], 'json(state)')
-  check(`Enabled secret version: ${name}`, versions, (value) => Array.isArray(value) && value.some((v) => v.state === 'ENABLED'),
+  const version = inspect(['secrets', 'versions', 'describe', 'latest', `--secret=${name}`], 'json(state)')
+  check(`Latest secret version enabled: ${name}`, version, (value) => value.state === 'ENABLED',
     'Metadata only; does not prove key validity or provider permissions.')
 }
 for (const account of accounts) {
