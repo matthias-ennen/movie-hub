@@ -9,6 +9,17 @@ jetzt zusätzlich die exakte Konto-E-Mail an und verarbeitet leere bzw.
 unerwartete Metadaten ohne Abbruch des übrigen Berichts. Die erneute unabhängige
 Prüfung und ihr exakter Laufnachweis werden in #384 dokumentiert.
 
+Nachtrag 11:52 Uhr: Der korrigierte GitHub-Preflight bestätigt die Grundlage
+(vier Konten, beide aktiven Secret-Versionen, exakte Laufzeitrolle/Zuweisung).
+Matthias' lesende Bucket-Liste bestätigt beide Bestandsziele in Frankfurt.
+Der tatsächliche Upload-Bucket verwendet zwischen Projektnummer und Region
+einen **Punkt**. Der zuvor im Code verwendete Bindestrich adressierte einen
+anderen, nicht existierenden Namen. Setup und Preflight wurden entsprechend
+korrigiert; es ist kein neuer Speicher erforderlich. Der Cloud-Test verwendet
+nun die beobachteten Namen unabhängig von den Konstanten des Setup-Skripts.
+GitHubs fehlende Leserechte für Speicher-IAM bleiben davon getrennt; der
+Cloud-Shell-Schritt prüft Projektzuordnung, Region und jede Bindung selbst.
+
 `scripts/setup-profile-email-cloud.py` richtet die folgende begrenzte Grundlage
 im festen Projekt `movie-hub-62459` (Nummer `612913221205`) ein. Es wird einmalig
 durch Matthias als Projektadministrator in Google Cloud Shell ausgeführt.
@@ -86,7 +97,7 @@ ergänzt nur die folgenden direkten Bindungen für `movie-hub-email-build`:
 | Bestandsressource | Rolle |
 | --- | --- |
 | `gcf-v2-sources-612913221205-europe-west3` | `roles/storage.objectViewer` |
-| `gcf-v2-uploads-612913221205-europe-west3.cloudfunctions.appspot.com` | `roles/storage.objectViewer` |
+| `gcf-v2-uploads-612913221205.europe-west3.cloudfunctions.appspot.com` | `roles/storage.objectViewer` |
 | `projects/movie-hub-62459/locations/europe-west3/repositories/gcf-artifacts` | `roles/artifactregistry.writer` |
 
 Vor dem ersten Schreibvorgang müssen das aktive Projekt, die aktive
