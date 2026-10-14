@@ -1,12 +1,13 @@
 # Einmalige Mail-Grundlage in Google Cloud (#384)
 
-Stand 14.10.2026: Der erneute Metadaten-Prüflauf nach der Secret-Viewer-Freigabe
-erkennt eine aktive Version von `RESEND_API_KEY`. Das belegt weder die Gültigkeit
-des Inhalts noch die Resend-Versandberechtigung. Der Token-Schlüssel war für den
-Prüfer noch nicht lesbar. Die Einrichtung wurde inzwischen gestartet, ist aber
-beim Prüfen der Dienstkonten abgebrochen. Der Screenshot um 11:22 Uhr bestätigt,
-dass `movie-hub-email` bereits existiert; der neue Skriptabbruch liegt bei
-`movie-hub-email-build`. Noch kein Nachweis der vollständigen Einrichtung.
+Stand 14.10.2026, Rückmeldung 11:34 Uhr: Der Cloud-Shell-Lauf meldet
+**EINRICHTUNG ERFOLGREICH**. Vier Mailkonten, Rollen und Secret-Metadaten wurden
+vom Einrichtungsskript rückgeprüft. Die zusätzliche GitHub-Prüfung scheiterte
+anschließend an einem Fehler im Prüfer: `json(disabled)` kann bei einem aktiven
+Konto ohne explizites `disabled=false` JSON `null` liefern. Der Prüfer fordert
+jetzt zusätzlich die exakte Konto-E-Mail an und verarbeitet leere bzw.
+unerwartete Metadaten ohne Abbruch des übrigen Berichts. Die erneute unabhängige
+Prüfung und ihr exakter Laufnachweis werden in #384 dokumentiert.
 
 `scripts/setup-profile-email-cloud.py` richtet die folgende begrenzte Grundlage
 im festen Projekt `movie-hub-62459` (Nummer `612913221205`) ein. Es wird einmalig
@@ -76,6 +77,40 @@ Fehlerausgaben unterscheiden jetzt Anlage und Rückprüfung und nennen einen
 festen Fehlercode samt Exit-Code. SDK-Antworten, Schlüsselwerte und persönliche
 Daten bleiben ausgeblendet. Rechteumfang und Secret-Rotation bleiben unverändert.
 
+## Nächster Schritt: begrenzte Buildspeicherrechte
+
+Der separate Modus `--build-access` liest ausschließlich die vorhandene
+Buildidentität und die drei festgelegten Speicherziele. `--build-access --apply`
+ergänzt nur die folgenden direkten Bindungen für `movie-hub-email-build`:
+
+| Bestandsressource | Rolle |
+| --- | --- |
+| `gcf-v2-sources-612913221205-europe-west3` | `roles/storage.objectViewer` |
+| `gcf-v2-uploads-612913221205-europe-west3.cloudfunctions.appspot.com` | `roles/storage.objectViewer` |
+| `projects/movie-hub-62459/locations/europe-west3/repositories/gcf-artifacts` | `roles/artifactregistry.writer` |
+
+Vor dem ersten Schreibvorgang müssen das aktive Projekt, die aktive
+Buildidentität, beide Bucket-Namen, deren Eigentümerprojekt und Frankfurt als
+Region sowie die exakte Docker-Registry bestätigt sein. Alle drei IAM-Policies
+müssen lesbar sein. Fehlende Ressourcen, andere Regionen/Projekte oder fehlende
+Leserechte führen zum Abbruch; es wird kein Ersatzspeicher angelegt. Vorhandene
+Bindungen werden erhalten. Jede neue Bindung wird rückgelesen. Bei späterem
+Abbruch bleiben bestätigte Teiländerungen erhalten; ein erneuter Lauf überspringt sie.
+
+Ausführung durch Matthias mit der im Chat mitgeteilten, auf einen geprüften
+Git-Commit festgelegten Downloadzeile; anschließend:
+`python3 setup-profile-email-cloud.py --build-access --apply`.
+
+Erfolgszeile: **BUILDRECHTE ERFOLGREICH: Zwei Quell-Buckets und eine Docker-Registry rückgeprüft.**
+Dieser Modus liest keine Secrets, legt keine Funktionen oder Zeitpläne an und
+schaltet den Versand nicht ein. Die zuvor abgeschlossene Grundlagen-Einrichtung
+wird dabei nicht erneut ausgeführt. Ohne `--apply` bleibt auch dieser Modus lesend.
+
+Der GitHub-Preflight prüft nun zusätzlich diese drei Speicherziele und deren
+direkte Builder-Bindungen. Nicht lesbare Policies sind kein Beleg für fehlende
+Bindungen. Der Prüfbericht bleibt unvollständig, solange Index und Mail-Functions
+noch nicht bereitgestellt sind.
+
 ## Danach noch erforderlich
 
 Der reine Grundlagenlauf legt **keine Functions, Trigger, Indizes oder
@@ -96,10 +131,16 @@ wird später getrennt verifiziert. Keine privaten Empfängeradressen ins Reposit
 Ersteinrichtung, Wiederholung ohne Rotation, lesenden Modus, fehlende Rechte,
 abweichende Rollen, deaktivierte aktuelle Secret-Versionen, Wiederaufnahme nach
 Unterbrechung, fehlgeschlagenes IAM-Rücklesen und die geschützte Schlüsselübergabe.
-Insgesamt 15 Tests einschließlich verzögerter Kontosichtbarkeit, Existenzkonflikt
+Insgesamt 20 Tests einschließlich verzögerter Kontosichtbarkeit, Existenzkonflikt
 mit anschließender Identitätsprüfung, dauerhaft verweigertem Lesen, deaktiviertem
 Bestandskonto, sofortigem Abbruch bei initialem Berechtigungs-/Anlegefehler und
-bereinigter SDK-Fehlerkategorie.
+bereinigter SDK-Fehlerkategorie. Fünf weitere Tests prüfen den Buildmodus:
+ausschließlich drei direkte Bindungen, unveränderte Fremdbindungen,
+wiederholbarer/lesender Lauf, vollständige Zielprüfung vor dem ersten Schreiben,
+Abbruch bei fehlenden/unlesbaren Zielen und fehlgeschlagener IAM-Rückprüfung.
+Vier Regressionstests des Preflights decken weggelassene Statusfelder, leere oder
+fehlerhafte Metadaten, falsche/deaktivierte Identitäten sowie getrennte
+Berechtigungs-/Nichtgefunden-Fehler ohne rohe Provider-Ausgaben ab.
 Der Test ersetzt keinen erfolgreichen Lauf mit dem tatsächlichen Cloud-Konto.
 
 - [Eigene Buildidentität und erforderliche Rollen](https://docs.cloud.google.com/functions/docs/building)

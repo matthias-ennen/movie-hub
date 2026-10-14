@@ -33,6 +33,9 @@ class Cloud:
         self.pending_reads = {}
         self.conflict_on_create = False
         self.disabled_on_create = False
+        self.buckets = {name: {"name": name, "projectNumber": mail.NUMBER, "location": mail.REGION.upper()}
+                        for name in mail.BUILD_BUCKETS}
+        self.repository = {"name": mail.BUILD_REPOSITORY, "format": "DOCKER", "mode": "STANDARD_REPOSITORY"}
 
     def __call__(self, args, **options):
         self.calls.append(args)
@@ -50,6 +53,11 @@ class Cloud:
             return copy.deepcopy(self.accounts.get(args[3]))
         if args[:3] == ["iam", "roles", "describe"]:
             return copy.deepcopy(self.role)
+        if args[:3] == ["storage", "buckets", "describe"]:
+            assert "--raw" in args
+            return copy.deepcopy(self.buckets.get(args[3].removeprefix("gs://")))
+        if args[:3] == ["artifacts", "repositories", "describe"]:
+            return copy.deepcopy(self.repository)
         if args[:2] == ["secrets", "describe"]:
             return {"name": args[2]} if args[2] in self.versions else None
         if args[:3] == ["secrets", "versions", "list"]:
@@ -93,6 +101,75 @@ class SetupTests(unittest.TestCase):
         with patch.object(mail, "gcloud", cloud), patch.object(mail.time, "sleep"), contextlib.redirect_stdout(output):
             mail.setup(apply)
         return output.getvalue()
+
+    def run_build(self, cloud, apply=True):
+        output = io.StringIO()
+        with patch.object(mail, "gcloud", cloud), contextlib.redirect_stdout(output):
+            mail.setup_build_access(apply)
+        return output.getvalue()
+
+    def build_cloud(self):
+        cloud = Cloud()
+        cloud.accounts[mail.account("movie-hub-email-build")] = {"email": mail.account("movie-hub-email-build")}
+        return cloud
+
+    def test_build_access_only_three_scoped_grants_and_repeat_is_read_only(self):
+        cloud = self.build_cloud()
+        key = ("storage", "buckets", f"gs://{mail.BUILD_BUCKETS[0]}")
+        unrelated = {"role": "roles/storage.objectViewer", "members": ["serviceAccount:existing-tv-account"]}
+        cloud.policies[key] = {"bindings": [unrelated]}
+        self.assertIn("BUILDRECHTE ERFOLGREICH", self.run_build(cloud))
+        self.assertEqual(len(cloud.writes), 3)
+        for call in cloud.writes:
+            self.assertIn("add-iam-policy-binding", call)
+            self.assertIn(f"--member=serviceAccount:{mail.account('movie-hub-email-build')}", call)
+            self.assertNotIn("projects", call)
+            self.assertIn(call[3], [f"gs://{name}" for name in mail.BUILD_BUCKETS] + [mail.BUILD_REPOSITORY])
+        self.assertIn(unrelated, cloud.policies[key]["bindings"])
+        before = copy.deepcopy(cloud.writes)
+        self.run_build(cloud)
+        self.assertEqual(before, cloud.writes)
+        self.assertFalse(any("secrets" in call or "functions" in call or "scheduler" in call for call in cloud.calls))
+
+    def test_build_read_only_never_grants_access(self):
+        cloud = self.build_cloud()
+        self.run_build(cloud, False)
+        self.assertEqual(cloud.writes, [])
+
+    def test_all_build_targets_must_match_before_any_grant(self):
+        for field, wrong in [("location", "EUROPE-WEST1"), ("projectNumber", "999"), ("name", "other-bucket")]:
+            with self.subTest(field=field):
+                cloud = self.build_cloud()
+                cloud.buckets[mail.BUILD_BUCKETS[1]][field] = wrong
+                with self.assertRaisesRegex(mail.SetupError, "unerwartetes Projekt oder Region"):
+                    self.run_build(cloud)
+                self.assertEqual(cloud.writes, [])
+        for field, wrong in [("name", "other-registry"), ("format", "NPM"), ("mode", "REMOTE_REPOSITORY")]:
+            with self.subTest(field=field):
+                cloud = self.build_cloud()
+                cloud.repository[field] = wrong
+                with self.assertRaisesRegex(mail.SetupError, "Build-Registry"):
+                    self.run_build(cloud)
+                self.assertEqual(cloud.writes, [])
+
+    def test_missing_or_unreadable_build_resource_never_triggers_creation_or_grant(self):
+        cloud = self.build_cloud()
+        del cloud.buckets[mail.BUILD_BUCKETS[1]]
+        with self.assertRaises(mail.SetupError):
+            self.run_build(cloud)
+        self.assertEqual(cloud.writes, [])
+        cloud = self.build_cloud()
+        cloud.denied = lambda args: args[:3] == ["artifacts", "repositories", "get-iam-policy"]
+        with self.assertRaisesRegex(mail.SetupError, "Berechtigung"):
+            self.run_build(cloud)
+        self.assertEqual(cloud.writes, [])
+
+    def test_build_grant_readback_failure_stops_next_grant(self):
+        cloud = self.build_cloud()
+        cloud.ignore_bindings = True
+        with self.assertRaisesRegex(mail.SetupError, "Rücklesen"):
+            self.run_build(cloud)
+        self.assertEqual(len(cloud.writes), 1)
 
     def test_initial_setup_and_repeat_preserve_keys_and_unrelated_policy(self):
         cloud = Cloud()

@@ -34,6 +34,11 @@ PERMISSIONS = sorted([
 TOKEN = "MOVIE_HUB_EMAIL_TOKEN_KEY"
 API_KEY = "RESEND_API_KEY"
 ACCOUNT_READ_DELAYS = (0, 2, 4, 8, 16, 30, 30)
+BUILD_BUCKETS = (
+    f"gcf-v2-sources-{NUMBER}-{REGION}",
+    f"gcf-v2-uploads-{NUMBER}-{REGION}.cloudfunctions.appspot.com",
+)
+BUILD_REPOSITORY = f"projects/{PROJECT}/locations/{REGION}/repositories/gcf-artifacts"
 
 
 class SetupError(Exception):
@@ -157,6 +162,52 @@ def bind(resource, member, role):
     require(has_binding(policy(), member, role), "IAM-Zuweisung beim Rücklesen nicht bestätigt.")
 
 
+def setup_build_access(apply=False):
+    """Grant only the mail builder's three resource-specific storage bindings."""
+    stage = "Buildspeicher und Konto prüfen"
+    try:
+        project = gcloud(["projects", "describe", PROJECT],
+                         format="json(projectId,projectNumber,lifecycleState)")
+        require(isinstance(project, dict) and project.get("projectId") == PROJECT
+                and str(project.get("projectNumber")) == NUMBER
+                and project.get("lifecycleState") == "ACTIVE", "Falsches oder inaktives Projekt.")
+        validate_account(gcloud(["iam", "service-accounts", "describe", account("movie-hub-email-build")],
+                                format="json(email,disabled)"), "movie-hub-email-build")
+        # All exact destinations must be readable and match before any mutation.
+        for name in BUILD_BUCKETS:
+            value = gcloud(["storage", "buckets", "describe", f"gs://{name}", "--raw"],
+                           format="json(name,projectNumber,location)")
+            require(isinstance(value, dict) and value.get("name") == name
+                    and str(value.get("projectNumber")) == NUMBER
+                    and str(value.get("location", "")).lower() == REGION,
+                    f"Build-Bucket hat unerwartetes Projekt oder Region: {name}")
+        repository = gcloud(["artifacts", "repositories", "describe", BUILD_REPOSITORY],
+                            format="json(name,format,mode)")
+        require(isinstance(repository, dict) and repository.get("name") == BUILD_REPOSITORY
+                and repository.get("format") == "DOCKER" and repository.get("mode") == "STANDARD_REPOSITORY",
+                "Build-Registry fehlt oder weicht von der geplanten Docker-Registry ab.")
+        resources = [(["storage", "buckets", f"gs://{name}"], "roles/storage.objectViewer")
+                     for name in BUILD_BUCKETS]
+        resources.append((["artifacts", "repositories", BUILD_REPOSITORY], "roles/artifactregistry.writer"))
+        member = f"serviceAccount:{account('movie-hub-email-build')}"
+        for resource, role in resources:
+            policy = gcloud([*resource[:-1], "get-iam-policy", resource[-1]])
+            require(isinstance(policy, dict) and isinstance(policy.get("bindings", []), list),
+                    "Build-IAM-Metadaten nicht prüfbar.")
+            state = "vorhanden" if has_binding(policy, member, role) else "einzurichten"
+            print(f"Buildrecht {state}: {role} auf {resource[-1]}", flush=True)
+        if not apply:
+            print("NUR PRÜFUNG. Keine Änderung. Buildrechte mit --build-access --apply einrichten.")
+            return
+        for resource, role in resources:
+            stage = f"Buildrecht auf {resource[-1]}"
+            bind(resource, member, role)
+        print("BUILDRECHTE ERFOLGREICH: Zwei Quell-Buckets und eine Docker-Registry rückgeprüft.")
+        print("Versand bleibt aus. Keine Functions, Scheduler oder neuen Speicher angelegt.")
+    except SetupError as error:
+        raise SetupError(f"{stage}: {error}", error.code) from None
+
+
 def setup(apply=False):
     stage = "Projekt und vorhandene Ressourcen lesen"
     try:
@@ -249,9 +300,11 @@ def setup(apply=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="Die oben begrenzte Einrichtung ausführen")
+    parser.add_argument("--build-access", action="store_true",
+                        help="Nur drei Buildspeicherrechte auf vorab geprüften Bestandsressourcen einrichten")
     args = parser.parse_args()
     try:
-        setup(args.apply)
+        (setup_build_access if args.build_access else setup)(args.apply)
     except SetupError as error:
         print(f"STOPP: {error}", file=sys.stderr)
         sys.exit(1)

@@ -49,18 +49,20 @@ tatsächlichen Bestand über den vorhandenen GitHub-Deploy-Zugang. Keine Secrets
 auslesen, keine IAM-/Cloud-Änderung und keine Testmail durch diesen Prüflauf.
 Testempfänger muss zur Resend-Konto-Adresse passen; bisher nicht festgestellt.
 
-Nächster vorbereiteter Schritt: `scripts/setup-profile-email-cloud.py` legt
-vier isolierte Mailkonten, begrenzte Rollen und den zufälligen Token-Schlüssel
-mit direkter Übergabe an Secret Manager an. Bestehende Schlüssel werden erhalten;
-keine Mail-Functions, Indizes oder Zeitplanjobs durch dieses Skript. Matthias hat
-den Cloud-Shell-Lauf gestartet; zunächst Abbruch beim Runtime-Konto, im nächsten
-Screenshot beim Build-Konto. Ein direkter SDK-Aufruf um 11:22 Uhr bestätigt,
-dass das Runtime-Konto bereits existiert. Vollständige Einrichtung noch offen.
-Der überarbeitete Code wartet begrenzt auf Sichtbarkeit neuer Konten und prüft
-Existenzkonflikte durch Rücklesen; eindeutigere Fehlerstufen/-codes ohne rohe
-SDK-Antworten. 15 lokale Prüfungen mit simulierten Cloud-Antworten bestanden;
-Fortsetzung mit der korrigierten Version noch erforderlich. Umfang und Anleitung:
-[EMAIL_CLOUD_SETUP.md](../EMAIL_CLOUD_SETUP.md).
+Cloud-Grundlage: Matthias' Screenshot um 11:34 Uhr bestätigt den erfolgreichen
+Lauf von `setup-profile-email-cloud.py`: vier Mailkonten, Rollen und beide
+Secret-Metadaten rückgeprüft, Versand weiterhin aus. Die unabhängige
+GitHub-Prüfung scheiterte danach an `null` statt eines `disabled`-Statusobjekts.
+Korrigiert: exakte Kontoidentität mitlesen, leere/fehlerhafte Metadaten ohne
+Abbruch des gesamten Berichts ausweisen. Vier lokale Regressionstests bestanden.
+
+Nächster vorbereiteter Schritt: `--build-access --apply` desselben Skripts prüft
+Projekt, Buildkonto, beide festen Frankfurt-Quell-Buckets und die Docker-Registry,
+bevor es ausschließlich drei direkte Builder-Bindungen ergänzt. Keine
+Speicheranlage, Secret-Zugriffe, Functions, Indizes oder Zeitplanjobs.
+20 lokale Cloud-Simulationstests bestanden. Ausführung und unabhängiger
+Cloud-Prüfnachweis noch offen; exakte PR-/Laufnachweise in #384.
+Umfang und Anleitung: [EMAIL_CLOUD_SETUP.md](../EMAIL_CLOUD_SETUP.md).
 
 - Domain in Resend verifizieren; DNS-Einträge exakt aus Resend übernehmen.
 - Absender festlegen; Vorschlag `MovieHub <mitteilungen@moviehubgermany.de>`.
