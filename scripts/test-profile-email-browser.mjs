@@ -55,7 +55,7 @@ try {
   assert.equal(await address(page).inputValue(), 'owner@example.org')
   assert.equal(await switchControl(page).getAttribute('aria-checked'), 'false')
   await address(page).fill('primary@example.org'); await switchControl(page).click(); await persist(page)
-  await page.getByText('E-Mail-Empfang vorgemerkt. Die Versandfreischaltung steht noch aus.', { exact: true }).waitFor()
+  await page.getByText('E-Mail-Empfang vorgemerkt. Die Bestätigung steht noch aus.', { exact: true }).waitFor()
   assert.equal(await page.locator('.account-email').textContent(), 'owner@example.org')
   await page.reload(); await ready(page)
   assert.equal(await address(page).inputValue(), 'primary@example.org')
