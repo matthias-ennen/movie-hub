@@ -147,6 +147,7 @@ async function storeIncluded(db, entry, account, offers, now) {
         ...notification(watch, 'included',
           `${watch.title} ist ohne Aufpreis bei ${names} verfügbar.`, now, now + 30 * 86400000),
         schemaVersion: 2, phase: 'included-found', eventAt: finishedAt, completedAt: finishedAt,
+        providerNames: availableProviders.map((id) => String(providerLabels.get(id) || id).slice(0, 100)).slice(0, 20),
       })
     } else if (!existingEvent.data()?.completedAt) {
       // Existing V1 client-first events also complete their watch; keep the

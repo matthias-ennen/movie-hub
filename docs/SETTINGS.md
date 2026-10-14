@@ -33,6 +33,12 @@ zu den Einstellungen wurde entfernt; obere und untere Kachel bleiben erhalten.
 Die Seite heißt direkt **Profile & Konto** im kompakten Überschriftenstil;
 Dein Movie Hub, die große doppelte Überschrift und der Einleitungstext entfallen.
 Profile & Konto, Einstellungen und Breadcrumbs teilen die Kopfabstände.
+
+#384 ergänzt unter dem Profilnamen eine eigene Empfängeradresse
+und **Mitteilungen auch per E-Mail erhalten** (anfangs aus). Hauptprofil initial
+mit Konto-Adresse, Unterprofile leer; bewusst gespeicherte Werte bleiben erhalten.
+Die Anmeldeadresse bleibt unverändert. Bestätigung und Versand werden separat
+serverseitig freigeschaltet: [E-Mail-Kanal](EMAIL_NOTIFICATIONS.md).
 Gespeicherte Werte und Funktionen bleiben erhalten. Das E-Mail-Paket #384 ist
 das nächste vorgesehene separate Arbeitspaket und noch nicht umgesetzt.
 

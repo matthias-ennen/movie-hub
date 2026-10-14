@@ -39,6 +39,37 @@ service cloud.firestore {
       match /profiles/{profileId} {
         allow read, write: if ownsUserData(userId);
 
+        // Desired recipient/consent only. A client can never grant verification
+        // or create a mail job. Keep monotonic versions across address changes.
+        match /emailPreferences/{settingsId} {
+          function validEmailSettings() {
+            let data = request.resource.data;
+            return settingsId == 'current'
+              && exists(/databases/$(database)/documents/users/$(userId)/profiles/$(profileId))
+              && data.keys().hasOnly(['schemaVersion', 'email', 'enabled', 'revision', 'addressVersion', 'updatedAt'])
+              && data.schemaVersion == 1 && data.enabled is bool
+              && data.email is string && data.email.size() <= 254
+              && ((data.email == '' && data.enabled == false)
+                || data.email.matches('^[a-zA-Z0-9.!#$%&\'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)+$'))
+              && data.revision is int && data.revision > 0
+              && data.addressVersion is int && data.addressVersion > 0
+              && data.updatedAt == request.time;
+          }
+          allow read: if ownsUserData(userId) && settingsId == 'current';
+          allow create: if ownsUserData(userId) && validEmailSettings()
+            && request.resource.data.revision == 1 && request.resource.data.addressVersion == 1;
+          allow update: if ownsUserData(userId) && validEmailSettings()
+            && request.resource.data.revision == resource.data.revision + 1
+            && request.resource.data.addressVersion == resource.data.addressVersion
+              + (request.resource.data.email == resource.data.email ? 0 : 1);
+          allow delete: if false;
+        }
+
+        match /emailVerification/{verificationId} {
+          allow read: if ownsUserData(userId) && verificationId == 'current';
+          allow write: if false;
+        }
+
         match /titleAlerts/{alertId} {
           function validActiveWatch() {
             return alertId.matches('^(movie|series)-[0-9]+-(included|tv)$')
@@ -107,8 +138,12 @@ service cloud.firestore {
             && request.resource.data.keys().hasOnly([
               'schemaVersion', 'kind', 'titleType', 'tmdbId', 'title', 'mediaTitle',
               'body', 'startsAt', 'expiresAt', 'phase', 'eventAt', 'completedAt',
-              'airingStartAt', 'airingEndsAt', 'stationName', 'scheduleStatus'
+              'airingStartAt', 'airingEndsAt', 'stationName', 'scheduleStatus', 'providerNames'
             ])
+            && (!request.resource.data.keys().hasAny(['providerNames'])
+              || (request.resource.data.kind == 'included'
+                && request.resource.data.providerNames is list
+                && request.resource.data.providerNames.size() <= 20))
             && ((request.resource.data.schemaVersion == 1
                 && !request.resource.data.keys().hasAny([
                   'phase', 'eventAt', 'completedAt',

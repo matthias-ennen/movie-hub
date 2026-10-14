@@ -1,4 +1,5 @@
 import SettingsButton from './SettingsButton.jsx'
+import ProfileEmailSettings from './ProfileEmailSettings.jsx'
 import { useEffect, useState } from 'react'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 
@@ -118,6 +119,7 @@ export default function ProfileView({ user, onSignOut }) {
           </form>
         )}
         {profileMessage && <p className="profile-message">{profileMessage}</p>}
+        {activeProfile && <ProfileEmailSettings key={`${user.uid}:${activeProfile.id}`} user={user} profile={activeProfile} />}
       </section>
 
       <section className="settings-panel account-panel" aria-labelledby="account-heading">

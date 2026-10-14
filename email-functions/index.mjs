@@ -1,0 +1,37 @@
+import { initializeApp } from 'firebase-admin/app'
+import { getFirestore } from 'firebase-admin/firestore'
+import { getAuth } from 'firebase-admin/auth'
+import { onDocumentWritten } from 'firebase-functions/v2/firestore'
+import { onRequest } from 'firebase-functions/v2/https'
+import { onSchedule } from 'firebase-functions/v2/scheduler'
+import { defineSecret, defineString } from 'firebase-functions/params'
+import { createResendTransport } from './server/email/transport.mjs'
+import { createEmailTokens } from './server/email/tokens.mjs'
+import { createEmailService } from './server/email/service.mjs'
+import { createEmailActionHandler } from './server/email/http.mjs'
+
+initializeApp()
+const apiKey = defineSecret('RESEND_API_KEY')
+const tokenKey = defineSecret('MOVIE_HUB_EMAIL_TOKEN_KEY')
+// Dedicated least-privilege service account must be provisioned before deploy.
+const identity = defineString('MOVIE_HUB_EMAIL_SERVICE_ACCOUNT')
+const region = defineString('MOVIE_HUB_EMAIL_REGION', { default: 'europe-west3' })
+const options = { region, serviceAccount: identity, secrets: [apiKey, tokenKey],
+  maxInstances: 1, concurrency: 1, timeoutSeconds: 120, memory: '256MiB' }
+function service() {
+  const env = { ...process.env, RESEND_API_KEY: apiKey.value(), MOVIE_HUB_EMAIL_TOKEN_KEY: tokenKey.value() }
+  const transport = createResendTransport(env)
+  return createEmailService({ db: getFirestore(), auth: getAuth(), transport,
+    tokens: transport.enabled ? createEmailTokens(env.MOVIE_HUB_EMAIL_TOKEN_KEY) : null,
+    appUrl: env.MOVIE_HUB_EMAIL_APP_URL, actionUrl: env.MOVIE_HUB_EMAIL_ACTION_URL })
+}
+export const profileEmailPreferences = onDocumentWritten({ ...options, retry: true,
+  document: 'users/{uid}/profiles/{profileId}/emailPreferences/current' },
+async (event) => { await service().reconcile(event.params.uid, event.params.profileId) })
+export const profileEmailNotification = onDocumentWritten({ ...options, retry: true,
+  document: 'users/{uid}/profiles/{profileId}/notifications/{eventId}' },
+async (event) => { await service().enqueueNotification(event.params.uid, event.params.profileId, event.params.eventId) })
+export const profileEmailRetry = onSchedule({ ...options, schedule: 'every 1 minutes', timeZone: 'Etc/UTC', retryCount: 0 },
+async () => { await service().retryDue() })
+export const profileEmailAction = onRequest({ ...options, invoker: 'public', cors: false },
+async (req, res) => createEmailActionHandler(service())(req, res))

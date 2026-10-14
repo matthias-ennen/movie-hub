@@ -46,8 +46,30 @@ jobs:
       - name: Test application logic
         run: npm run test:unit
 
+      - name: Prepare isolated email source (no send or deployment)
+        run: |
+          node scripts/prepare-email-function.mjs
+          npm ci --prefix email-functions --ignore-scripts --no-audit --no-fund
+          node --input-type=module -e "import('./email-functions/index.mjs').then(m => { if (Object.keys(m).length !== 4) process.exitCode = 1 })"
+          npm audit --prefix email-functions --omit=dev --audit-level=high
+
       - name: Test Firestore rules
         run: npm run test:rules
+
+      - name: Install browser for profile email acceptance checks
+        run: npx playwright install --with-deps chromium
+
+      - name: Check profile email UI with local Firestore and render mail templates
+        run: npm run test:email:browser
+
+      - name: Upload synthetic profile email screenshots and check report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: profile-email-browser-${{ github.run_id }}
+          path: artifacts/profile-email-browser/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Reject high and critical production dependency findings
         run: npm audit --omit=dev --audit-level=high

@@ -8,6 +8,9 @@ import {
 import { collection, doc, documentId, getDoc, getDocs, onSnapshot, or, query, runTransaction, serverTimestamp, setDoc, Timestamp, updateDoc, where, writeBatch } from 'firebase/firestore'
 import { nativeTitleToFirestore } from '../src/tmdb/tmdbCatalogModel.js'
 import { cancelTitleWatch } from '../src/notifications/titleWatchManagement.js'
+import { registerEmailServiceTests } from './email-service.integration.js'
+
+registerEmailServiceTests()
 
 let testEnv
 
@@ -34,6 +37,28 @@ afterAll(async () => {
 })
 
 describe('Firestore Security Rules', () => {
+  it('isolates email preferences and forbids forged verification or delivery jobs', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore()
+    const bob = testEnv.authenticatedContext('bob').firestore()
+    const prefix = ['users', 'alice', 'profiles', 'email-test']
+    await setDoc(doc(alice, ...prefix), { displayName: 'Mailtest' })
+    const prefs = doc(alice, ...prefix, 'emailPreferences', 'current')
+    const value = { schemaVersion: 1, email: 'person@example.org', enabled: true, revision: 1, addressVersion: 1, updatedAt: serverTimestamp() }
+    await assertSucceeds(setDoc(prefs, value))
+    await assertSucceeds(getDoc(prefs))
+    await assertFails(getDoc(doc(bob, ...prefix, 'emailPreferences', 'current')))
+    await assertFails(setDoc(doc(bob, ...prefix, 'emailPreferences', 'current'), value))
+    await assertFails(setDoc(doc(alice, ...prefix, 'emailVerification', 'current'), { status: 'verified' }))
+    await assertFails(setDoc(doc(alice, ...prefix, 'emailDeliveries', 'forged'), { state: 'pending' }))
+    await assertFails(getDoc(doc(alice, ...prefix, 'emailDeliveries', 'forged')))
+    await assertFails(setDoc(prefs, { ...value, verified: true, revision: 2 }))
+    await assertFails(setDoc(prefs, { ...value, revision: 2, email: 'changed@example.org' }))
+    await assertSucceeds(setDoc(prefs, { ...value, revision: 2, addressVersion: 2, email: 'changed@example.org' }))
+    await assertFails(setDoc(prefs, { ...value, revision: 2, addressVersion: 2 }))
+    await assertFails(setDoc(prefs, { ...value, revision: 3, addressVersion: 3, email: '' }))
+    await assertSucceeds(setDoc(prefs, { ...value, revision: 3, addressVersion: 3, email: '', enabled: false }))
+    await assertFails(setDoc(doc(alice, 'users', 'alice', 'profiles', 'missing-mail-profile', 'emailPreferences', 'current'), value))
+  })
   it('lädt die aktive Verwaltungsübersicht und beendet nur die gewählte eigene Beobachtung', async () => {
     const alice = testEnv.authenticatedContext('alice').firestore()
     const bob = testEnv.authenticatedContext('bob').firestore()
