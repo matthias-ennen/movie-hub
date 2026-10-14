@@ -9,6 +9,7 @@ function execute(_command, args, options) {
   expect(args.some((arg) => ['deploy', 'create', 'access', 'set-iam-policy', 'add-iam-policy-binding', 'delete'].includes(arg))).toBe(false)
   expect(options.env.CLOUDSDK_CORE_LOG_HTTP).toBe('false')
   if (args[0] === 'auth') return { status: 0, stdout: secret }
+  if (args[0] === 'logging') return { status: 0, stdout: '[]' }
   if (args[0] === 'projects') return { status: 0, stdout: JSON.stringify({ bindings: [
     { role: 'roles/eventarc.serviceAgent', members: ['serviceAccount:service-612913221205@gcp-sa-eventarc.iam.gserviceaccount.com'] },
     { role: 'roles/owner', members: ['user:private@example.invalid'] },
@@ -70,4 +71,19 @@ test('bounds operation pagination and refuses mismatched function identities', a
   expect(report.functions.every((item) => item.reason === 'identity-mismatch')).toBe(true)
   expect(request).toHaveBeenCalledTimes(5)
   expect(report.operations.truncated).toBe(true)
+})
+
+test('reports a rejected create request even when no operation was created, without logging audit payloads', async () => {
+  const request = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ operations: [] }) })
+  const report = await diagnoseEmailDeployment({ execute: (_command, args, options) => {
+    if (args[0] !== 'logging') return execute(_command, args, options)
+    expect(args).toContain('--freshness=1d'); expect(args).toContain('--limit=30')
+    expect(args[2]).toContain('protoPayload.status.code>0')
+    return { status: 0, stdout: JSON.stringify([{ protoPayload: { serviceName: 'eventarc.googleapis.com',
+      status: { code: 7, message: secret }, request: { private: secret },
+      authorizationInfo: [{ permission: 'eventarc.triggers.create', granted: false },
+        { permission: 'eventarc.triggers.get', granted: true }] } }]) }
+  }, request })
+  expect(report.deniedRequests.entries[0]).toMatchObject({ code: 7, failure: { permissions: ['eventarc.triggers.create'] } })
+  expect(JSON.stringify(report)).not.toContain(secret)
 })

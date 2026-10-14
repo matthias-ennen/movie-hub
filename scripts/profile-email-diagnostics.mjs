@@ -62,6 +62,23 @@ export async function diagnoseEmailDeployment({ execute = spawnSync, request = f
         .map((b) => b.role).filter((role) => knownRoles.includes(role)).sort() })) }
     : { state: 'unreadable' }
 
+  // A rejected create request may never get an operation. Read only failed
+  // infrastructure audit entries for these deployment identities (last day).
+  const principals = ['deployer', 'functionsAgent', 'eventarcAgent'].map((name) =>
+    `protoPayload.authenticationInfo.principalEmail="${identities[name]}"`).join(' OR ')
+  const audit = metadata(['logging', 'read',
+    `(protoPayload.serviceName="cloudfunctions.googleapis.com" OR protoPayload.serviceName="eventarc.googleapis.com") AND protoPayload.status.code>0 AND (${principals})`,
+    '--freshness=1d', '--limit=30'], execute)
+  const deniedRequests = audit.state === 'read' && Array.isArray(audit.value)
+    ? { state: 'read', entries: audit.value.map((entry) => ({
+      service: ['cloudfunctions.googleapis.com', 'eventarc.googleapis.com'].includes(entry.protoPayload?.serviceName)
+        ? entry.protoPayload.serviceName : 'unknown',
+      code: Number.isInteger(entry.protoPayload?.status?.code) ? entry.protoPayload.status.code : null,
+      failure: summarizeFailure({ status: entry.protoPayload?.status,
+        denied: entry.protoPayload?.authorizationInfo?.filter((info) => info.granted === false),
+        principal: entry.protoPayload?.authenticationInfo?.principalEmail }),
+    })) } : { state: 'unreadable', ...(audit.failure ? { failure: audit.failure } : {}) }
+
   // A short-lived access token stays in memory and goes only to this fixed
   // Google metadata endpoint. Never return it, log it, or write it to a file.
   const auth = execute('gcloud', ['auth', 'print-access-token', `--project=${project}`, '--quiet'],
@@ -96,7 +113,7 @@ export async function diagnoseEmailDeployment({ execute = spawnSync, request = f
       }
     } catch { operations = { state: 'unreadable', reason: 'request-or-metadata' } }
   }
-  return { project, region, readOnly: true, functions, roles, operations }
+  return { project, region, readOnly: true, functions, roles, deniedRequests, operations }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

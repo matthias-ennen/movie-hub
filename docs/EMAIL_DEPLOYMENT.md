@@ -22,6 +22,11 @@ Das kurzlebige Cloud-Zugriffstoken bleibt im Prozess und wird nur an den festen
 Google-Metadatenendpunkt übertragen; Weiterleitungen sind gesperrt.
 Der Diagnose-Workflow kann keine Rechte vergeben oder Bereitstellung wiederholen.
 Ein unlesbarer oder begrenzter Bericht wird ausdrücklich als solcher gekennzeichnet.
+Weil eine abgewiesene Erstellung noch keinen Cloud-Vorgang erzeugt haben muss,
+werden ergänzend höchstens 30 fehlgeschlagene Functions-/Eventarc-Auditereignisse
+des letzten Tages für den GitHub-Deployer und die beiden zugehörigen Dienst-Agents
+gelesen. Auch daraus erscheinen nur Fehlercodes und erkannte Diagnosekennungen,
+keine Audit-Nutzdaten oder rohen Fehlermeldungen.
 
 ## Manueller Start nach geprüftem Merge
 
