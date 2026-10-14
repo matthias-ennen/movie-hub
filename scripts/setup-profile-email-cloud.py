@@ -13,6 +13,7 @@ import re
 import secrets
 import subprocess
 import sys
+import time
 
 PROJECT = "movie-hub-62459"
 NUMBER = "612913221205"
@@ -32,10 +33,31 @@ PERMISSIONS = sorted([
 ])
 TOKEN = "MOVIE_HUB_EMAIL_TOKEN_KEY"
 API_KEY = "RESEND_API_KEY"
+ACCOUNT_READ_DELAYS = (0, 2, 4, 8, 16, 30, 30)
 
 
 class SetupError(Exception):
-    pass
+    def __init__(self, message, code="SETUP_FAILED"):
+        super().__init__(message)
+        self.code = code
+
+
+def error_code(error):
+    # Only allowlisted categories leave the SDK boundary; never raw responses.
+    for code, pattern in [
+        ("UNAUTHENTICATED", r"UNAUTHENTICATED|\b401\b"),
+        ("PERMISSION_DENIED", r"PERMISSION_DENIED|permission|\b403\b"),
+        ("ALREADY_EXISTS", r"ALREADY_EXISTS|already exists|subject of a conflict|\b409\b"),
+        ("NOT_FOUND", r"NOT_FOUND|not found|does not exist|\b404\b"),
+        ("RESOURCE_EXHAUSTED", r"RESOURCE_EXHAUSTED|quota exceeded|\b429\b"),
+        ("UNAVAILABLE", r"UNAVAILABLE|\b503\b"),
+        ("INVALID_ARGUMENT", r"INVALID_ARGUMENT|unrecognized arguments|\b400\b"),
+        ("FAILED_PRECONDITION", r"FAILED_PRECONDITION"),
+        ("DEADLINE_EXCEEDED", r"DEADLINE_EXCEEDED"),
+    ]:
+        if re.search(pattern, error, re.I):
+            return code
+    return "SDK_ERROR"
 
 
 def account(name):
@@ -51,16 +73,19 @@ def gcloud(args, *, missing_ok=False, data=None, format="json"):
     try:
         result = subprocess.run(command, input=data, capture_output=True,
                                 text=True, timeout=120, env=env, check=False)
-    except (OSError, subprocess.TimeoutExpired):
-        raise SetupError("Cloud-Befehl nicht ausgeführt oder Zeitlimit erreicht.") from None
+    except subprocess.TimeoutExpired:
+        raise SetupError("Cloud-Befehl: Zeitlimit erreicht [DEADLINE_EXCEEDED].", "DEADLINE_EXCEEDED") from None
+    except OSError:
+        raise SetupError("Cloud-Befehl konnte nicht gestartet werden [SDK_UNAVAILABLE].", "SDK_UNAVAILABLE") from None
     if result.returncode:
         # Never print raw errors: SDK/provider responses may contain private data.
-        error = result.stderr or ""
-        if re.search(r"PERMISSION_DENIED|permission|403|UNAUTHENTICATED|401", error, re.I):
-            raise SetupError("Cloud-Berechtigung fehlt. Keine automatische Rechteausweitung.")
-        if missing_ok and re.search(r"NOT_FOUND|not found|404|does not exist", error, re.I):
+        code = error_code(result.stderr or "")
+        if missing_ok and code == "NOT_FOUND":
             return None
-        raise SetupError("Cloud-Befehl fehlgeschlagen; vorhandene Ressourcen bleiben erhalten.")
+        message = ("Cloud-Berechtigung/Anmeldung fehlt. Keine automatische Rechteausweitung."
+                   if code in {"PERMISSION_DENIED", "UNAUTHENTICATED"}
+                   else "Cloud-Befehl fehlgeschlagen; vorhandene Ressourcen bleiben erhalten.")
+        raise SetupError(f"{message} [{code}; Exit {result.returncode}]", code)
     if format == "none":
         return None
     try:
@@ -72,6 +97,37 @@ def gcloud(args, *, missing_ok=False, data=None, format="json"):
 def require(condition, message):
     if not condition:
         raise SetupError(message)
+
+
+def validate_account(value, name):
+    require(isinstance(value, dict) and value.get("email") == account(name)
+            and not value.get("disabled"), f"Unerwartetes/deaktiviertes Konto: {name}")
+
+
+def wait_for_account(name):
+    # IAM reads can lag creation by 60+ seconds. Repeat reads, never creation.
+    # A 403 is retried only for this just-created/conflicting account; it never
+    # becomes proof of absence or a reason to grant wider privileges.
+    last_code = "NOT_FOUND"
+    for delay in ACCOUNT_READ_DELAYS:
+        if delay:
+            print(f"Warte auf Sichtbarkeit von {name}: nächste Prüfung in {delay} Sekunden.", flush=True)
+            time.sleep(delay)
+        try:
+            value = gcloud(["iam", "service-accounts", "describe", account(name)],
+                           missing_ok=True, format="json(email,disabled)")
+        except SetupError as error:
+            if error.code not in {"NOT_FOUND", "PERMISSION_DENIED", "UNAVAILABLE", "DEADLINE_EXCEEDED"}:
+                raise
+            last_code = error.code
+            continue
+        if value is not None:
+            validate_account(value, name)
+            return
+        last_code = "NOT_FOUND"
+    raise SetupError(f"Konto noch nicht sicher lesbar [{last_code}]. "
+                     "Keine weiteren Einrichtungsschritte ausgeführt; später denselben Befehl erneut starten.",
+                     "ACCOUNT_NOT_VISIBLE")
 
 
 def enabled_latest(secret):
@@ -122,14 +178,13 @@ def setup(apply=False):
             existing[name] = gcloud(["iam", "service-accounts", "describe", account(name)],
                                    missing_ok=True, format="json(email,disabled)")
             if existing[name] is not None:
-                require(existing[name].get("email") == account(name)
-                        and not existing[name].get("disabled"), f"Unerwartetes/deaktiviertes Konto: {name}")
+                validate_account(existing[name], name)
         role = gcloud(["iam", "roles", "describe", ROLE], missing_ok=True,
                       format="json(includedPermissions,deleted,stage)")
         require(role is None or valid_role(role), "Vorhandene Mailrolle weicht ab; keine Überschreibung.")
 
         print(f"Ziel: {PROJECT}, Region {REGION}")
-        print("Vier getrennte Mailkonten; Firestore/Auth-Leserolle ohne Löschen oder IAM-Schreibrechte.")
+        print("Vier getrennte Mailkonten; begrenzte Firestore-/Auth-Rechte ohne Löschen oder IAM-Schreibrechte.")
         print("Runtime: Zugriff auf genau die beiden Mail-Secrets. Deployer: nur deren Metadaten.")
         print("Build: Log Writer. Events: Event Receiver. Deployer darf die vier Konten verwenden.")
         print("Token-Schlüssel: neu erzeugen, falls noch ohne Version; vorhandenen Schlüssel erhalten.")
@@ -139,12 +194,19 @@ def setup(apply=False):
             return
 
         for name, display in ACCOUNTS.items():
-            stage = f"Dienstkonto {name}"
-            if existing[name] is None:
+            if existing[name] is not None:
+                print(f"Dienstkonto bestätigt, wird weiterverwendet: {name}", flush=True)
+                continue
+            stage = f"Dienstkonto anlegen: {name}"
+            try:
                 gcloud(["iam", "service-accounts", "create", name, f"--display-name={display}"], format="none")
-            verified = gcloud(["iam", "service-accounts", "describe", account(name)], format="json(email,disabled)")
-            require(verified.get("email") == account(name) and not verified.get("disabled"),
-                    "Dienstkonto beim Rücklesen nicht bestätigt.")
+            except SetupError as error:
+                if error.code != "ALREADY_EXISTS":
+                    raise
+                print(f"Dienstkonto existiert bereits; Identität wird geprüft: {name}", flush=True)
+            stage = f"Dienstkonto nach Anlage/Existenzkonflikt lesen: {name}"
+            wait_for_account(name)
+            print(f"Dienstkonto bestätigt: {name}", flush=True)
         stage = "Begrenzte Laufzeitrolle"
         if role is None:
             gcloud(["iam", "roles", "create", ROLE, "--title=MovieHub profile email runtime",
@@ -181,7 +243,7 @@ def setup(apply=False):
         print("EINRICHTUNG ERFOLGREICH: Mailkonten, Rollen und Secret-Metadaten rückgeprüft.")
         print("Versand bleibt aus. Kein Schlüsselwert ausgelesen oder angezeigt. Keine E-Mail versandt.")
     except SetupError as error:
-        raise SetupError(f"{stage}: {error}") from None
+        raise SetupError(f"{stage}: {error}", error.code) from None
 
 
 if __name__ == "__main__":

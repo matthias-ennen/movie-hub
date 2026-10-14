@@ -3,7 +3,10 @@
 Stand 14.10.2026: Der erneute Metadaten-Prüflauf nach der Secret-Viewer-Freigabe
 erkennt eine aktive Version von `RESEND_API_KEY`. Das belegt weder die Gültigkeit
 des Inhalts noch die Resend-Versandberechtigung. Der Token-Schlüssel war für den
-Prüfer noch nicht lesbar; die dedizierten Mailkonten fehlen.
+Prüfer noch nicht lesbar. Die Einrichtung wurde inzwischen gestartet, ist aber
+beim Prüfen der Dienstkonten abgebrochen. Der Screenshot um 11:22 Uhr bestätigt,
+dass `movie-hub-email` bereits existiert; der neue Skriptabbruch liegt bei
+`movie-hub-email-build`. Noch kein Nachweis der vollständigen Einrichtung.
 
 `scripts/setup-profile-email-cloud.py` richtet die folgende begrenzte Grundlage
 im festen Projekt `movie-hub-62459` (Nummer `612913221205`) ein. Es wird einmalig
@@ -51,6 +54,28 @@ Bei Abbruch können bereits angelegte Teilressourcen erhalten bleiben. Derselbe
 Befehl kann nach Klärung des Fehlers erneut laufen; er überspringt bestätigte
 Ressourcen und Bindungen. Nicht gleichzeitig in mehreren Terminals ausführen.
 
+### Korrektur nach dem ersten Cloud-Shell-Lauf
+
+Google dokumentiert, dass neu angelegte Dienstkonten erst nach 60 Sekunden oder
+mehr sichtbar sein können. Der bisherige Code las sofort einmal zurück und
+brach bei einem Fehler ab. Das passt zum beobachteten Fortschritt über mehrere
+Läufe; der ursprüngliche SDK-Fehler wurde jedoch verkürzt und ist nicht als
+konkreter Statuscode belegt.
+
+Die korrigierte Version prüft frisch angelegte Konten mit begrenzten lesenden
+Wiederholungen (2/4/8/16/30/30 Sekunden Wartezeit, zusätzlich Befehlslaufzeit).
+Ein Existenzkonflikt beim Anlegen wird nur dann akzeptiert, wenn anschließend
+die exakte Kontoidentität und ihr aktiver Zustand rückgelesen werden können.
+Anlegebefehle werden nicht automatisch wiederholt. Vorher bestätigte Konten
+werden weiterverwendet. Nicht lesbare oder deaktivierte Konten verhindern alle
+nachfolgenden Rollen-/Secret-Schritte. Ein 403 wird ausschließlich bei dieser
+begrenzten Rückprüfung eines gerade angelegten bzw. bereits existierenden Kontos
+erneut gelesen, niemals als fehlendes Konto interpretiert.
+
+Fehlerausgaben unterscheiden jetzt Anlage und Rückprüfung und nennen einen
+festen Fehlercode samt Exit-Code. SDK-Antworten, Schlüsselwerte und persönliche
+Daten bleiben ausgeblendet. Rechteumfang und Secret-Rotation bleiben unverändert.
+
 ## Danach noch erforderlich
 
 Der reine Grundlagenlauf legt **keine Functions, Trigger, Indizes oder
@@ -71,9 +96,14 @@ wird später getrennt verifiziert. Keine privaten Empfängeradressen ins Reposit
 Ersteinrichtung, Wiederholung ohne Rotation, lesenden Modus, fehlende Rechte,
 abweichende Rollen, deaktivierte aktuelle Secret-Versionen, Wiederaufnahme nach
 Unterbrechung, fehlgeschlagenes IAM-Rücklesen und die geschützte Schlüsselübergabe.
+Insgesamt 15 Tests einschließlich verzögerter Kontosichtbarkeit, Existenzkonflikt
+mit anschließender Identitätsprüfung, dauerhaft verweigertem Lesen, deaktiviertem
+Bestandskonto, sofortigem Abbruch bei initialem Berechtigungs-/Anlegefehler und
+bereinigter SDK-Fehlerkategorie.
 Der Test ersetzt keinen erfolgreichen Lauf mit dem tatsächlichen Cloud-Konto.
 
 - [Eigene Buildidentität und erforderliche Rollen](https://docs.cloud.google.com/functions/docs/building)
+- [Verzögerte Sichtbarkeit neuer Dienstkonten](https://docs.cloud.google.com/iam/docs/service-accounts-create)
 - [Eventarc-Empfänger und dienstbezogene Aufrufrechte](https://docs.cloud.google.com/eventarc/docs/roles-permissions)
 - [Secret-Erzeugung mit Standardeingabe](https://docs.cloud.google.com/sdk/gcloud/reference/secrets/create)
 - [Secret-Manager-Rollen](https://docs.cloud.google.com/secret-manager/docs/access-control)
