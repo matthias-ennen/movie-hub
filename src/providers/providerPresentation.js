@@ -1,5 +1,3 @@
-import { PROVIDER_REGISTRY } from './providerRegistry.js'
-
 function text(value) {
   return String(value ?? '').trim()
 }
@@ -10,10 +8,6 @@ function unique(values = []) {
 
 export { orderProviderIds } from './providerOrder.js'
 import { orderProviderIds } from './providerOrder.js'
-
-const LIVE_SOURCE_PROVIDER_IDS = new Set(PROVIDER_REGISTRY
-  .filter((provider) => Boolean(provider.liveTvSource))
-  .map((provider) => provider.id))
 
 function tmdbProviderIds(item) {
   const offers = Array.isArray(item?.tmdbProviderOffers)
@@ -62,16 +56,14 @@ export function resolveProviderPresentation(item, {
   const concreteAiringIds = airingProviderIds(item)
   const movieHub = Boolean(hasMovieHub || item?.movieHubCatalog === true)
 
-  const airingTmdbIds = tmdbIds.filter((providerId) => !LIVE_SOURCE_PROVIDER_IDS.has(providerId))
-  const providerIds = orderProviderIds(context === 'airing'
-    ? [
-        ...airingTmdbIds,
-        ...concreteAiringIds,
-      ]
-    : [
-        ...tmdbIds,
-        ...titleLiveIds,
-      ])
+  // A provider can independently offer VOD *and* live television.
+  // Treat its TMDB evidence as title-wide streaming, even when the same
+  // provider (for example Joyn) is registered as a live-TV adapter.
+  // Only concreteAiringIds can make a provider AIR for this broadcast.
+  const providerIds = orderProviderIds([
+    ...tmdbIds,
+    ...(context === 'airing' ? concreteAiringIds : titleLiveIds),
+  ])
 
   return {
     context,
