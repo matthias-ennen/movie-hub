@@ -75,10 +75,14 @@ service cloud.firestore {
             return alertId.matches('^(movie|series)-[0-9]+-(included|tv|available)
               && request.resource.data.keys().hasOnly([
                 'schemaVersion', 'type', 'tmdbId', 'title', 'kind',
-                'activationId', 'createdAt', 'status'
+                'activationId', 'createdAt', 'status', 'settingsFingerprint'
               ])
               && request.resource.data.type in ['movie', 'series']
               && request.resource.data.kind in ['included', 'tv', 'available']
+              && (request.resource.data.kind == 'available'
+                ? (request.resource.data.settingsFingerprint is string
+                  && request.resource.data.settingsFingerprint.size() <= 8192)
+                : !request.resource.data.keys().hasAny(['settingsFingerprint']))
               && request.resource.data.tmdbId is int && request.resource.data.tmdbId > 0
               && request.resource.data.title is string && request.resource.data.title.size() > 0
               && request.resource.data.title.size() <= 160
@@ -111,7 +115,7 @@ service cloud.firestore {
               && request.resource.data.status == 'active'
               && request.resource.data.keys().hasOnly([
                 'schemaVersion', 'type', 'tmdbId', 'title', 'kind',
-                'activationId', 'createdAt', 'status'
+                'activationId', 'createdAt', 'status', 'settingsFingerprint'
               ])
               && request.resource.data.activationId is string
               && request.resource.data.activationId.matches('^[a-zA-Z0-9-]{1,80}$')
