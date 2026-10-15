@@ -109,7 +109,7 @@ export async function readPublishedTvEntries({ read = readFile, now = Date.now()
 function notification(watch, kind, body, now, expiresAt) {
   return {
     schemaVersion: 1, kind, titleType: watch.type, tmdbId: watch.tmdbId,
-    mediaTitle: watch.title, title: kind === 'tv' ? 'Bald im TV' : 'Jetzt inklusive',
+    mediaTitle: watch.title, title: kind === 'tv' ? 'Bald im TV' : kind === 'available' ? 'Jetzt verfügbar' : 'Jetzt inklusive',
     body, startsAt: new Date(now), expiresAt: new Date(expiresAt),
   }
 }
@@ -180,7 +180,7 @@ async function storeAvailable(db, entry, account, offers, tvTitles, now, tvUnava
   const tvCandidates = filterEnabledTvAirings(tvTitles.get(alertTitleKey(watch))?.airings, account)
   const tvAiring = dueTvAiring(tvCandidates, [], now)
   const tvIds = tvAiring ? [...new Set((Array.isArray(tvAiring.providerIds) && tvAiring.providerIds.length
-    ? tvAiring.providerIds : [tvAiring.source]).filter((id) => ['waipu', 'joyn'].includes(id)))] : []
+    ? tvAiring.providerIds : [tvAiring.source]).filter((id) => ['waipu', 'joyn'].includes(id) && enabled.includes(id)))] : []
   const stateRef = snapshot.ref.parent.parent.collection('titleAlertState').doc(snapshot.id)
   const eventId = alertNotificationId(watch, 'initial')
   const eventRef = snapshot.ref.parent.parent.collection('notifications').doc(eventId)
