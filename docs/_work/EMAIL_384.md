@@ -1,5 +1,23 @@
 # #384 – Profilbezogene E-Mail-Mitteilungen
 
+## Abschluss 15.10.2026 – Gesamtabnahme durch Matthias, #384 abgeschlossen
+
+**Aktueller verbindlicher Stand (alle folgenden 14.10.-Zwischenstände sind historische Dokumentation):**
+
+- Matthias hat am **15.10.2026** die vollständige fachliche **Gesamtabnahme** ausdrücklich erteilt: **„Alles abgenommen!“**, nachdem die vier zuletzt vorgeschlagenen Restprüfungen benannt worden waren. Keine weitere verpflichtende Nutzerabnahme in #384.
+- Eigene verifizierte Resend-Versanddomain `mail.moviehubgermany.de` (Ireland); DKIM und beide CNAME-Verifizierungen `Verified`, DNS bei netcup. Eigener Absender `MovieHub <mitteilungen@mail.moviehubgermany.de>`.
+- Produktiver Resend-Schlüssel ausschließlich im Secret Manager, **`RESEND_API_KEY` Version 2**. Die vier bestehenden Google-Cloud-Gen2-Mailfunktionen sind per geprüftem Besitzerlauf mit dem Cloud-Shell-Helfer aus [PR #455](https://github.com/matthias-ennen/movie-hub/pull/455) umgestellt worden: Abschluss **`PRODUKTIVER MAILVERSAND AKTIV: 4/4 Funktionen`**. Das provisorische Testadress-Limit ist entfernt. Privater Retry-Minutenjob blieb erhalten und wurde als aktiviert rückgeprüft. Keine alten persönlichen Mitteilungen nachsenden.
+- Echte neue Mail nach Umstellung im Hauptprofil erhalten und vom Nutzer bestätigt. Separate Unterprofiladresse mit erfolgreicher Bestätigungsmail, Bestätigungslink und echter TV-Mail praktisch bestätigt. Zuvor waren `tv-found` und die zweite TV-Mail `tv-final` schon tatsächlich angekommen.
+- Abmeldelinks wurden in **Unterprofil und Hauptprofil** erfolgreich ausgeführt; UI zeigte danach jeweils den Schalter **Aus**. Ein einmalig zuvor fehlgeschlagener Linkversuch bleibt als historische Beobachtung; keine allgemein reproduzierte technische Störung nachgewiesen.
+- [PR #456](https://github.com/matthias-ennen/movie-hub/pull/456) vereinheitlichte die Bedienung mit **`E-Mail speichern`** analog zu **`Name speichern`** und sofort persistierendem An/Aus-Schalter. Automatische Browser-/Firestore-/CI- und Android-Tests grün; tatsächlicher [Firebase-Deploy #38715082287](https://github.com/matthias-ennen/movie-hub/actions/runs/38715082287) erfolgreich. Nutzer nahm dies ausdrücklich mit **„Passt!“** ab.
+- Die vier final genannten Restprüfungen (Adresswechsel mit erneuter Bestätigung, Geräteabgleich, `included-found` und keine Mail bei deaktiviertem Kanal) wurden vom Nutzer insgesamt abgenommen. **Keine eigenständigen Live-Logs/Screenshots zu jeder dieser vier Einzelfunktionen vorgelegt**; deshalb hier keine von der Nutzerabnahme unabhängigen Live-Belege behaupten. Die technische Fehler-/Retry-Behandlung ist in automatisierten Tests nachgewiesen; ein echter provozierter Resend-Ausfall mit Wiederholung wurde nicht beobachtet.
+- Funktionsumfang #384 ist geschlossen. Fortsetzung nicht erneut bei Resend-DNS, Cloud-Secret oder Testversand beginnen. **Nächstes vorgemerktes Arbeitspaket: [#385](https://github.com/matthias-ennen/movie-hub/issues/385)**, mit zunächst gemeinsamer Priorisierung neuer sinnvoller Benachrichtigungsanlässe (keine automatische Umsetzung ohne Abstimmung). Master [#314](https://github.com/matthias-ennen/movie-hub/issues/314) bleibt bis zur Entscheidung zu #385 offen.
+
+**Betrieb:** Keine Secrets, personenbezogenen Mailadressen oder signierten Token im Repository/Issue archivieren; bestehende vier Funktionen, Secrets, Startzeit und Jobs nicht erneut initialisieren; Hosting-Deploy ist kein Mailfunktions-Deploy.
+
+---
+
+
 ## Fortsetzung 15.10.2026 – Versanddomain verifiziert, produktive Umstellung beauftragt
 
 - Matthias bestätigt echten Empfang beider TV-Mail-Phasen (`tv-found` und
