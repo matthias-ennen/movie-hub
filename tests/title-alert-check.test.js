@@ -461,7 +461,7 @@ describe('trusted title alert data sources', () => {
 
 
   it('alerts once when a previously missing title becomes rentable or available on television', async () => {
-    const { availabilitySettingsFingerprint } = await import('../src/notifications/titleAlertModel.js')
+    const { availabilitySettingsFingerprint } = await import('../src/notifications/availableWatchModel.js')
     const now = Date.parse('2026-10-15T13:00:00Z')
     const user = 'users/test'
     const account = { providerSettings: { enabledProviderIds: ['prime'], version: 2 } }
