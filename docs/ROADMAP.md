@@ -1,12 +1,12 @@
 # Movie Hub – Roadmap
 
-Stand: 14. Oktober 2026
+Stand: 15. Oktober 2026
 
 ## Leitprinzip
 
 Movie Hub wird in klar abgegrenzeten Arbeitspaketen weiterentwickelt. TMDB bleibt die kanonische Quelle für öffentliche Film- und Serienmetadaten. Zusätzliche Quellen liefern Verfügbarkeiten, Senderereignisse und Wiedergabeziele. Ein Adapterfehler darf weder andere Quellen noch den letzten gültigen veröffentlichten Datenstand beschädigen.
 
-Das Mitteilungs-Grundpaket #314, #387 (Einstellungen) und #426 (Detailseite einschließlich aller Nachträge) sind abgenommen. #426 wurde am 13.10.2026 um 20:46 Uhr vollständig abgeschlossen. Aktuelles Arbeitspaket ist #384 (Auch per E-Mail je Profil): Der begrenzte Resend-Test ist aktiv, der erste echte TV-Mail-Empfang und das positive Layoutfeedback sind bestätigt. Tagesabschluss am 14.10., 19:22 Uhr; zweite TV-Mail, weitere Fachtests und Gesamtfreigabe offen. Die eigene Domain ist registriert; als Nächstes Resend/DNS und dauerhaften Absender einrichten. [Verbindliche Übergabe](_work/EMAIL_384.md). Danach #385 und die modulare Quellenplattform. Der Waipu-/Joyn-Betriebsnachtrag bleibt getrennt davon dokumentiert.
+Das Mitteilungs-Grundpaket, #387 (Einstellungen) und #426 (Detailseite einschließlich aller Nachträge) sind abgenommen. **#384 (Auch per E-Mail je Profil) wurde am 15.10.2026 durch Matthias mit „Alles abgenommen!“ vollständig freigegeben und abgeschlossen.** Die verifizierte Versanddomain `mail.moviehubgermany.de`, der produktive Absender, die vier Gen2-Mailfunktionen, die Profiltrennung, echte E-Mail-Empfänge, Bestätigungs- und Abmeldelinks sowie die abgenommene UI-Verbesserung sind dokumentiert. Die finale [Übergabe](_work/EMAIL_384.md) enthält auch die Nachweisgrenzen. **Nächstes Arbeitspaket ist #385** (gezielt zusätzliche sinnvolle Mitteilungsanlässe priorisieren). #314 bleibt als Master bis zur #385-Entscheidung offen; danach die modulare Quellenplattform. Der Waipu-/Joyn-Betriebsnachtrag bleibt getrennt davon dokumentiert.
 
 ## Bereinigter abgeschlossener Stand
 
