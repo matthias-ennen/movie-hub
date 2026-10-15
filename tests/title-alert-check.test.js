@@ -496,6 +496,8 @@ describe('trusted title alert data sources', () => {
     const tvWatchPath = `${profile}/titleAlerts/movie-91-available`
     db.data.set(tvWatchPath, { ...db.data.get(watchPath), type: 'movie', tmdbId: 91,
       status: 'active', title: 'TV-Film', activationId: 'second' })
+    // Establish the authoritative zero-provider baseline before TV is published.
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ availableCreated: 0, failed: 0 })
     const startTime = new Date(now + 2 * 86400000).toISOString()
     tvTitles.set('movie-91', { airings: [{ stationId: 'zdf', stationName: 'ZDF',
       source: 'waipu', startTime, stopTime: new Date(now + 2 * 86400000 + 7200000).toISOString() }] })
