@@ -1,3 +1,4 @@
+import { compactProviderOffers, mergeProviderOffers } from '../providers/providerOfferSnapshot.js'
 import { mergeTvAirings } from '../sources/mergeTvAirings.js'
 import { episodeReference } from '../catalog/episodeContext.js'
 import { ensureProviderLiveRoute } from '../sources/providerLiveRoute.js'
@@ -84,6 +85,7 @@ function compactMetadata(value = {}) {
     genreIds: genreIds(value),
     genreNames: genreNames(value),
     tmdbProviderIds: tmdbProviderIds(value),
+    tmdbProviderOffers: compactProviderOffers(value),
   }
 }
 
@@ -398,6 +400,7 @@ function mergeMetadata(left = {}, right = {}) {
     genreIds: [...new Set([...leftMeta.genreIds, ...rightMeta.genreIds])],
     genreNames: [...new Set([...leftMeta.genreNames, ...rightMeta.genreNames])],
     tmdbProviderIds: [...new Set([...leftMeta.tmdbProviderIds, ...rightMeta.tmdbProviderIds])],
+    tmdbProviderOffers: mergeProviderOffers(leftMeta.tmdbProviderOffers, rightMeta.tmdbProviderOffers),
   }
 }
 
