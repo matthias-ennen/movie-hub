@@ -459,4 +459,104 @@ describe('trusted title alert data sources', () => {
     expect(entries.get('movie-11').airings).toHaveLength(2)
   })
 
+
+  it('alerts once when a previously missing title becomes rentable or available on television', async () => {
+    const { availabilitySettingsFingerprint } = await import('../src/notifications/titleAlertModel.js')
+    const now = Date.parse('2026-10-15T13:00:00Z')
+    const user = 'users/test'
+    const account = { providerSettings: { enabledProviderIds: ['prime'], version: 2 } }
+    const profile = `${user}/profiles/main`
+    const watchPath = `${profile}/titleAlerts/movie-90-available`
+    const db = inMemoryFirestore({
+      [user]: account, [profile]: { displayName: 'Main' },
+      [watchPath]: { schemaVersion: 2, status: 'active', type: 'movie', tmdbId: 90,
+        kind: 'available', title: 'Wartender Film', activationId: 'first',
+        settingsFingerprint: availabilitySettingsFingerprint(account) },
+    })
+    let rent = false
+    const fetchImpl = async () => ({ ok: true, json: async () => ({ results: {
+      DE: rent ? { rent: [{ provider_id: 9, provider_name: 'Amazon Prime Video' }] } : {},
+    } }) })
+    const tvTitles = new Map()
+    tvTitles.sourceComplete = true
+    const opts = { db, token: 'token', fetchImpl, tvTitles, now }
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ observed: 1, availableCreated: 0, failed: 0 })
+    const statePath = `${profile}/titleAlertState/movie-90-available`
+    expect(db.data.get(statePath).available).toBe(false)
+    rent = true
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ observed: 1, availableCreated: 1, failed: 0 })
+    const eventPath = `${profile}/notifications/movie-90-available-first-initial`
+    expect(db.data.get(eventPath)).toMatchObject({ kind: 'available', phase: 'available-found',
+      providerNames: ['Prime Video'] })
+    expect(db.data.get(watchPath).status).toBe('completed')
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ observed: 0, availableCreated: 0 })
+    expect([...db.data.keys()].filter(x => x.startsWith(`${profile}/notifications/`))).toHaveLength(1)
+
+    const tvWatchPath = `${profile}/titleAlerts/movie-91-available`
+    db.data.set(tvWatchPath, { ...db.data.get(watchPath), type: 'movie', tmdbId: 91,
+      status: 'active', title: 'TV-Film', activationId: 'second' })
+    const startTime = new Date(now + 2 * 86400000).toISOString()
+    tvTitles.set('movie-91', { airings: [{ stationId: 'zdf', stationName: 'ZDF',
+      source: 'waipu', startTime, stopTime: new Date(now + 2 * 86400000 + 7200000).toISOString() }] })
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ availableCreated: 1, failed: 0 })
+    expect(db.data.get(`${profile}/notifications/movie-91-available-second-initial`)).toMatchObject({
+      phase: 'available-found', providerNames: ['waipu.tv'],
+    })
+  })
+
+  it('detects an added personal MovieHub entry and ignores changed provider settings', async () => {
+    const { availabilitySettingsFingerprint } = await import('../src/notifications/titleAlertModel.js')
+    const now = Date.parse('2026-10-15T13:00:00Z')
+    const user = 'users/test'
+    const profile = `${user}/profiles/kid`
+    const oldAccount = { providerSettings: { enabledProviderIds: ['netflix'], version: 2 } }
+    const watch = { schemaVersion: 2, kind: 'available', status: 'active',
+      type: 'series', tmdbId: 42, title: 'Serie', activationId: 'session',
+      settingsFingerprint: availabilitySettingsFingerprint(oldAccount) }
+    const path = `${profile}/titleAlerts/series-42-available`
+    const db = inMemoryFirestore({ [user]: oldAccount, [profile]: {}, [path]: watch })
+    const tvTitles = new Map(); tvTitles.sourceComplete = true
+    const fetchImpl = async () => ({ ok: true, json: async () => ({ results: { DE: {} } }) })
+    const opts = { db, token: 'token', tvTitles, fetchImpl, now }
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ availableCreated: 0 })
+    db.data.set(`${user}/sharedMedia/series-42`, { hasMedia: true })
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ availableCreated: 1 })
+    expect(db.data.get(`${profile}/notifications/series-42-available-session-initial`).providerNames)
+      .toEqual(['Movie Hub'])
+
+    const nextWatch = `${profile}/titleAlerts/movie-43-available`
+    db.data.set(nextWatch, { ...watch, type: 'movie', tmdbId: 43, activationId: 'other',
+      settingsFingerprint: availabilitySettingsFingerprint(oldAccount) })
+    db.data.set(user, { providerSettings: { enabledProviderIds: ['prime'], version: 2 } })
+    const paidFetch = async () => ({ ok: true, json: async () => ({ results: { DE: {
+      buy: [{ provider_name: 'Amazon Prime Video', provider_id: 9 }],
+    } } }) })
+    expect(await runTitleAlertCheck({ ...opts, fetchImpl: paidFetch })).toMatchObject({
+      availableCreated: 0, failed: 0,
+    })
+    expect(db.data.get(nextWatch).status).toBe('active')
+    expect(db.data.get(`${profile}/titleAlertState/movie-43-available`).available).toBe(true)
+    expect(await runTitleAlertCheck({ ...opts, fetchImpl: paidFetch })).toMatchObject({
+      availableCreated: 0, failed: 0,
+    })
+  })
+
+  it('never treats an incomplete TV import as proof that an unavailable title remains absent', async () => {
+    const { availabilitySettingsFingerprint } = await import('../src/notifications/titleAlertModel.js')
+    const account = {}
+    const profile = 'users/test/profiles/main'
+    const watchPath = `${profile}/titleAlerts/movie-55-available`
+    const db = inMemoryFirestore({ 'users/test': account, [profile]: {},
+      [watchPath]: { schemaVersion: 2, status: 'active', type: 'movie', tmdbId: 55,
+        title: 'Kein Anbieter', kind: 'available', activationId: 'watch',
+        settingsFingerprint: availabilitySettingsFingerprint(account) },
+    })
+    const tvTitles = new Map(); tvTitles.sourceComplete = false
+    const fetchImpl = async () => ({ ok: true, json: async () => ({ results: { DE: {} } }) })
+    const opts = { db, token: 'token', fetchImpl, tvTitles }
+    expect(await runTitleAlertCheck(opts)).toMatchObject({ availableCreated: 0, failed: 0 })
+    expect(db.data.has(`${profile}/titleAlertState/movie-55-available`)).toBe(false)
+  })
+
+
 })
