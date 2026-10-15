@@ -103,6 +103,10 @@ export async function promoteEmailDomain({ run = gcloud, newKeyVersion, apply = 
     await probe(actionUrl)
     log(`Production preflight: ${Object.values(states).filter((s) => s === 'production').length}/4 functions switched; secret version inspected; sender ${productionFrom}.`)
     if (!apply) { log('NUR PRÜFUNG: kein Cloud-Deploy, keine Scheduler-Änderung.'); return { states, ready: true } }
+    if (Object.values(states).every((state) => state === 'production') && mailJobs[0].state === 'ENABLED') {
+      log('PRODUKTIVER MAILVERSAND BEREITS AKTIV: vier Funktionen und Minutenjob unverändert geprüft.')
+      return { states, ready: true, active: true }
+    }
     need(typeof quietQueue === 'function' && typeof writeEnv === 'function', 'Queue and configuration guards are required.')
     stage = 'Check old delivery queue'
     need(await quietQueue(), 'An attempted delivery still uses an older sender; allow retry to finish before cutover.')
