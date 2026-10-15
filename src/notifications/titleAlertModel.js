@@ -1,6 +1,4 @@
 // The TV discovery stage covers the published 14-day EPG, not only the next 36h.
-import { normalizeStoredProviderSelection } from '../settings/providerSelectionModel.js'
-
 export const TV_DISCOVERY_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
 export const TV_REMINDER_WINDOW_MS = TV_DISCOVERY_WINDOW_MS // Legacy export used by existing integrations.
 export const TV_FINAL_REMINDER_LEAD_MS = 5 * 60 * 1000
@@ -30,18 +28,6 @@ export function anyOfferProviderIds(offers, enabledProviderIds) {
 
 // A provider/station setting change may reveal an old offer. It is not a new release.
 // Keep this signature in one shared model for the client and trusted nightly check.
-export function availabilitySettingsFingerprint(account = {}) {
-  const enabled = normalizeStoredProviderSelection(
-    account?.providerSettings?.enabledProviderIds, account?.providerSettings?.version,
-  ).enabledProviderIds
-  const disabled = (value) => [...new Set((Array.isArray(value) ? value : []).map(String))].sort()
-  return JSON.stringify([
-    [...enabled].sort(),
-    disabled(account?.waipuStationSettings?.disabledStationIds),
-    disabled(account?.joynStationSettings?.disabledStationIds),
-  ])
-}
-
 export function availableTransition(previous, activationId, fingerprint, available, activationFingerprint) {
   const sameSession = previous?.activationId === activationId
   // At activation the user sees no badges. A fresh trusted check can generate
