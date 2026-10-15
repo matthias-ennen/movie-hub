@@ -59,7 +59,7 @@ export default function TitleWatchSettingsView({ profileName, items, ready, erro
       {ready && !error && items.length > 0 && (
         <div className="personal-row-settings-list title-watch-list" aria-label="Aktive Beobachtungen">
           {items.map((watch, index) => {
-            const kind = watch.kind === 'tv' ? 'Wenn im TV' : 'Wenn inklusive'
+            const kind = watch.kind === 'tv' ? 'Wenn im TV' : watch.kind === 'available' ? 'Wenn verfügbar' : 'Wenn inklusive'
             return (
               <article key={`${watch.id}:${watch.activationId}`} className="personal-row-setting title-watch-row">
                 <div className="personal-row-setting-copy">

@@ -4,6 +4,8 @@ import { db } from '../lib/firebase.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { alertTitleKey, includedProviderIds, dueTvAiring, filterEnabledTvAirings, alertNotificationId, tvAiringId, tvMessage, watchId } from './titleAlertModel.js'
 import { loadFreshTvAirings } from './loadFreshTvAirings.js'
+import { availabilitySettingsFingerprint } from './availableWatchModel.js'
+import { resolveProviderPresentation } from '../providers/providerPresentation.js'
 import { isActiveTitleWatch, personalHardExpiry } from './titleAlertLifecycleModel.js'
 import { useTitleWatchSnapshot } from './useTitleWatchSnapshot.js'
 
@@ -11,7 +13,7 @@ export function useTitleAlerts(userId, profileId) {
   const { watches, ready } = useTitleWatchSnapshot(userId, profileId)
   const { uid: providerUserId, loading: providersLoading, enabledProviderIds } = useProviderSelection()
 
-  async function toggle(item, kind) {
+  async function toggle(item, kind, { hasMovieHub = false } = {}) {
     const id = watchId(item, kind)
     if (!id || !db || !userId || !profileId) throw new Error('Dieser Titel kann noch nicht beobachtet werden.')
     const path = ['users', userId, 'profiles', profileId]
@@ -21,6 +23,14 @@ export function useTitleAlerts(userId, profileId) {
       await deleteDoc(watchRef)
       return false
     }
+    if (kind === 'available' && (hasMovieHub
+      || resolveProviderPresentation(item).providerIds.length > 0)) {
+      throw new Error('Für diesen Titel ist bereits ein Anbieter vorhanden. „Wenn verfügbar“ gilt nur für Titel ohne Anbieter.')
+    }
+    const settingsSnapshot = kind === 'available' ? await getDoc(doc(db, 'users', userId)) : null
+    if (kind === 'available' && !settingsSnapshot.exists()) {
+      throw new Error('Deine Anbietereinstellungen konnten nicht geprüft werden.')
+    }
     const watch = {
       schemaVersion: 2, status: 'active',
       type: id.startsWith('series-') ? 'series' : 'movie',
@@ -29,6 +39,7 @@ export function useTitleAlerts(userId, profileId) {
       title: previous.exists() ? previous.data().title : String(item.title || '').trim().slice(0, 160),
       kind,
       activationId: crypto.randomUUID(),
+      ...(kind === 'available' ? { settingsFingerprint: availabilitySettingsFingerprint(settingsSnapshot.data()) } : {}),
       createdAt: serverTimestamp(),
     }
     if (!watch.title) throw new Error('Für diesen Titel fehlt noch ein Name.')

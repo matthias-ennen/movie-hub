@@ -12,7 +12,33 @@ export function alertTitleKey(item) {
 
 export function watchId(item, kind) {
   const key = alertTitleKey(item)
-  return key && ['included', 'tv'].includes(kind) ? `${key}-${kind}` : null
+  return key && ['included', 'tv', 'available'].includes(kind) ? `${key}-${kind}` : null
+}
+
+
+const OFFER_ACCESS_TYPES = new Set(['flatrate', 'free', 'ads', 'rent', 'buy'])
+
+export function anyOfferProviderIds(offers, enabledProviderIds) {
+  const enabled = new Set(enabledProviderIds || [])
+  return [...new Set((Array.isArray(offers) ? offers : [])
+    .filter((offer) => enabled.has(offer?.id)
+      && (offer.offerTypes || []).some((type) => OFFER_ACCESS_TYPES.has(type)))
+    .map((offer) => offer.id))]
+}
+
+// A provider/station setting change may reveal an old offer. It is not a new release.
+// Keep this signature in one shared model for the client and trusted nightly check.
+export function availableTransition(previous, activationId, fingerprint, available, _activationFingerprint) {
+  const sameSession = previous?.activationId === activationId
+  // An authoritative, complete zero-availability check must establish the
+  // baseline first. A stale client card or an offer hidden by user settings
+  // must never create a "new" availability notice on first server inspection.
+  const send = Boolean(available && sameSession
+    && previous.settingsFingerprint === fingerprint && previous.available === false)
+  return {
+    activationId, settingsFingerprint: fingerprint, available: Boolean(available),
+    status: send ? 'completed' : 'watching', send,
+  }
 }
 
 export function includedProviderIds(offers, enabledProviderIds) {

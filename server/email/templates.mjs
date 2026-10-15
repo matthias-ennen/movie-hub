@@ -31,6 +31,11 @@ export function titleNotificationEmail({ phase, title, profileName, stationName,
     const names = providerNames.filter((name) => typeof name === 'string').slice(0, 20).map((name) => plain(name, 100)).filter(Boolean).join(', ')
     detail = names ? `Dein beobachteter Titel ist jetzt bei ${names} ohne Aufpreis verfügbar.`
       : 'Dein beobachteter Titel ist jetzt bei einem deiner ausgewählten Anbieter ohne Aufpreis verfügbar.'
+  } else if (phase === 'available-found') {
+    heading = 'Jetzt verfügbar'
+    const names = providerNames.filter((name) => typeof name === 'string').slice(0, 20).map((name) => plain(name, 100)).filter(Boolean).join(', ')
+    detail = names ? `Dein beobachteter Titel ist jetzt bei ${names} verfügbar.`
+      : 'Dein beobachteter Titel ist jetzt bei mindestens einem Anbieter verfügbar.'
   } else if (['tv-found', 'tv-final'].includes(phase) && Number.isFinite(airingStartAt) && station) {
     const date = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric' }).format(airingStartAt)
     const time = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' }).format(airingStartAt)

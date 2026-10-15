@@ -1,6 +1,6 @@
 // Shared client/server contract. Verification is never inferred from client data.
 export const PROFILE_EMAIL_VERSION = 1
-export const EMAIL_PHASES = Object.freeze(['included-found', 'tv-found', 'tv-final'])
+export const EMAIL_PHASES = Object.freeze(['included-found', 'tv-found', 'tv-final', 'available-found'])
 
 export function normalizeEmailAddress(value) {
   if (typeof value !== 'string') return ''

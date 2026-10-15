@@ -37,7 +37,8 @@ export function isActiveTitleWatch(watch) {
 }
 
 export function isTerminalAlertPhase(kind, phase) {
-  return (kind === 'included' && phase === 'included-found')
+  return ((kind === 'included' && phase === 'included-found')
+    || (kind === 'available' && phase === 'available-found'))
     || (kind === 'tv' && phase === 'tv-final')
 }
 
@@ -77,11 +78,11 @@ export function activateTitleWatch(previous, { activationId, createdAt } = {}) {
 // A hard expiration cannot be postponed by opening a message or by a replay.
 export function personalHardExpiry(kind, { createdAt, airingEndsAt } = {}) {
   const created = timeMillis(createdAt)
-  if (!Number.isFinite(created) || !['included', 'tv'].includes(kind)) {
+  if (!Number.isFinite(created) || !['included', 'tv', 'available'].includes(kind)) {
     throw new Error('Personal expiry requires a supported type and creation timestamp.')
   }
   const outerLimit = created + PERSONAL_HARD_TTL_MS
-  if (kind === 'included') return new Date(outerLimit)
+  if (kind === 'included' || kind === 'available') return new Date(outerLimit)
   const airingEnd = timeMillis(airingEndsAt)
   // TV reminders are not valid indefinitely even when no reliable stop time exists.
   const proposed = Number.isFinite(airingEnd)
@@ -102,7 +103,7 @@ export function personalVisibleUntil(message, readState = null) {
 
 export function isCurrentPersonalNotification(message, readState = null, now = Date.now()) {
   if (!message || ![1, PERSONAL_NOTIFICATION_SCHEMA_VERSION].includes(message.schemaVersion)
-    || !['included', 'tv'].includes(message.kind)) return false
+    || !['included', 'tv', 'available'].includes(message.kind)) return false
   const start = timeMillis(message.startsAt)
   const end = personalVisibleUntil(message, readState)
   const checkedAt = timeMillis(now)

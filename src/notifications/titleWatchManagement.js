@@ -19,6 +19,7 @@ export function activeTitleWatchRows(watches) {
 
 export function titleWatchStatusText(watch, event, now = Date.now()) {
   if (watch.kind === 'included') return 'Wartet auf ein Angebot bei deinen aktivierten Anbietern.'
+  if (watch.kind === 'available') return 'Wartet darauf, dass der Titel erstmals bei einem Anbieter verfügbar wird.'
   const valid = event?.id === alertNotificationId(watch) && event?.phase === 'tv-found'
     && event.kind === 'tv' && event.titleType === watch.type
     && Number(event.tmdbId) === Number(watch.tmdbId)

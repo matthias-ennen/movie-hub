@@ -24,6 +24,12 @@ describe('#381 inbox visibility, legacy and global separation', () => {
     expect(activeAnnouncement(personal, T0 + 30 * DAY, null)).toBe(false)
   })
 
+  it('shows completed first-availability notices with the normal expiry and read rules', () => {
+    const available = { ...personal, kind: 'available', title: 'Jetzt verfügbar' }
+    expect(activeAnnouncement(available, T0 + DAY)).toBe(true)
+    expect(activeAnnouncement(available, T0 + 8 * DAY, { readAt: at(T0) })).toBe(false)
+  })
+
   it('does not hide a read but still pending TV reminder early', () => {
     const tvFound = { ...personal, kind: 'tv', completedAt: undefined, title: 'Bald im TV' }
     expect(activeAnnouncement(tvFound, T0 + 15 * DAY, { readAt: at(T0 + DAY) })).toBe(true)

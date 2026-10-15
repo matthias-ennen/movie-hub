@@ -1,0 +1,54 @@
+name: MovieHub email - update availability notification only
+
+# A carefully scoped manual code-only revision of the EXISTING live mail trigger.
+# Never run the old disabled Prepare workflow: it would turn off live sending.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Bestehende aktive Funktion profileEmailNotification gezielt aktualisieren?'
+        required: true
+        default: 'no'
+        type: choice
+        options:
+          - 'no'
+          - 'update-one-mail-function'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: moviehub-profile-email-infrastructure
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'update-one-mail-function' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout released main
+        uses: actions/checkout@v7
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Verify and prepare isolated mail source
+        run: |
+          node --check scripts/deploy-profile-email-available.mjs
+          node scripts/prepare-email-function.mjs
+          npm ci --prefix email-functions --ignore-scripts --no-audit --no-fund
+          node scripts/test-profile-email-entrypoints.mjs
+      - name: Authenticate as existing deploy service
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v3
+      - name: Read-only production compatibility check
+        run: node scripts/deploy-profile-email-available.mjs
+      - name: Update only existing notification mail source and verify invariants
+        run: node scripts/deploy-profile-email-available.mjs --apply

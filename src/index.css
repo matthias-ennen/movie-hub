@@ -535,7 +535,8 @@ p {
 .provider-badge {
   display: inline-grid;
   place-items: center;
-  min-width: var(--provider-badge-size);
+  position: relative;
+  min-width: max(var(--provider-badge-size), 2.35rem);
   height: var(--provider-badge-size);
   padding: 0 0.38rem;
   border: 1px solid rgba(255, 255, 255, 0.28);
@@ -546,6 +547,36 @@ p {
   font-weight: 950;
   letter-spacing: -0.01em;
   box-shadow: 0 5px 16px rgba(0, 0, 0, 0.35);
+}
+
+/* A single readable tag floats above the existing badge's upper-right corner. */
+.provider-badge-symbol {
+  display: block;
+  line-height: 1;
+  text-align: center;
+}
+
+.provider-offer-tag {
+  position: absolute;
+  top: -0.63rem;
+  right: -1px;
+  z-index: 2;
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  min-width: 1.6rem;
+  min-height: 0.8rem;
+  padding: 0.09rem 0.22rem;
+  border-radius: 0.2rem;
+  background: #25477a;
+  color: #fff;
+  font-size: 0.56rem;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.34);
 }
 
 .browse-page {

@@ -209,7 +209,7 @@ export default function DetailModal({
     setAlertBusy(true)
     setAlertMessage('')
     try {
-      const enabled = await titleAlerts.toggle(item, kind)
+      const enabled = await titleAlerts.toggle(item, kind, { hasMovieHub: showMovieHubProvider })
       if (kind === 'included') {
         setIncludedAcceptedForDetail(enabled ? includedDetailKey : null)
       }
@@ -427,7 +427,7 @@ export default function DetailModal({
         label={`Details zu ${item.title}`} onClose={onClose} returnFocusTarget={returnFocusTarget}>
         <DetailLayout actions={<DetailActions onClose={onClose} onEdit={() => { resetMediaDraft(); setMediaEditorOpen(true) }}
             onAlert={titleAlerts.canWatch(item) ? () => setAlertMenuOpen(true) : null}
-            alertActive={includedShownOn || titleAlerts.isEnabled(item, 'tv')} notePresent={Boolean(personalState.note)} />} artwork={
+            alertActive={includedShownOn || titleAlerts.isEnabled(item, 'tv') || titleAlerts.isEnabled(item, 'available')} notePresent={Boolean(personalState.note)} />} artwork={
         <div className={detailPosterUrl ? 'detail-art has-image' : 'detail-art'} style={{ '--poster-accent': item.accent, '--poster-accent-2': item.accent2 }}>
           {detailPosterUrl && (
             <img
@@ -517,7 +517,7 @@ export default function DetailModal({
                           className="provider-action provider-action-static"
                           aria-label={`${provider.label} für diese TV-Ausstrahlung verfügbar`}
                         >
-                          <ProviderBadge providerId={providerId} />
+                          <ProviderBadge providerId={providerId} item={detailProviderItem} context="airing" />
                           {provider.label}
                         </span>
                       )
@@ -531,7 +531,7 @@ export default function DetailModal({
                         onClick={() => openLiveProvider(providerId)}
                         aria-label={`${provider.label} für diese TV-Ausstrahlung öffnen`}
                       >
-                        <ProviderBadge providerId={providerId} />
+                        <ProviderBadge providerId={providerId} item={detailProviderItem} context="airing" />
                         {provider.label}
                       </button>
                     )
@@ -552,7 +552,7 @@ export default function DetailModal({
                     onClick={() => sharedMedia.length === 1 ? launchMedia(sharedMedia[0]) : setMediaPickerOpen(true)}
                     aria-label={sharedMedia.length === 1 ? `${sharedMedia[0].label} über Movie Hub öffnen` : 'Eigene Movie-Hub-Links und Videos auswählen'}
                   >
-                    <span className="movie-hub-provider-mark" aria-hidden="true">MH</span>
+                    <ProviderBadge providerId="moviehub" item={item} />
                     Movie Hub
                   </button>
                 )}
@@ -568,7 +568,7 @@ export default function DetailModal({
                       onClick={() => openStreamingProvider(providerId)}
                       aria-label={`${provider.label} als Streaming- oder Mediathek-Anbieter öffnen`}
                     >
-                      <ProviderBadge providerId={providerId} />
+                      <ProviderBadge providerId={providerId} item={item} context="title" />
                       {provider.label}
                     </button>
                   )
@@ -592,7 +592,9 @@ export default function DetailModal({
         artworkOptions={artworkOptions} getTitleState={getTitleState} isProviderEnabled={isProviderEnabled}
         collectionBusyId={collectionBusyId} selectCollectionPart={selectCollectionPart} onClose={closeCollectionPicker} />}
       {alertMenuOpen && <TitleAlertDialog title={item.title} included={includedShownOn}
-        tv={titleAlerts.isEnabled(item, 'tv')} busy={alertBusy} ready={titleAlerts.ready}
+        tv={titleAlerts.isEnabled(item, 'tv')} available={titleAlerts.isEnabled(item, 'available')}
+        canEnableAvailable={!showMovieHubProvider && !hasProviders && !hasTvAiring}
+        busy={alertBusy} ready={titleAlerts.ready}
         message={alertMessage} onToggle={toggleAlert} onClose={() => setAlertMenuOpen(false)} />}
       {mediaEditorOpen && <TitleEditor {...{ activeProfile, personalState, personalBusy, libraryLoading,
         personalMessage, savePersonalPatch, noteDraft, setNoteDraft, handleSaveNote, sharedMedia,

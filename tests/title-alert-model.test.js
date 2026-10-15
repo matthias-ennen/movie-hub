@@ -1,10 +1,37 @@
 import { describe, expect, it } from 'vitest'
+import { availabilitySettingsFingerprint } from '../src/notifications/availableWatchModel.js'
 import {
   TV_DISCOVERY_WINDOW_MS, TV_FINAL_REMINDER_LEAD_MS,
-  dueTvAiring, filterEnabledTvAirings, includedProviderIds, includedTransition, tvAiringId, tvTransition,
+  dueTvAiring, filterEnabledTvAirings, includedProviderIds, includedTransition, availableTransition,
+  anyOfferProviderIds, tvAiringId, tvTransition,
 } from '../src/notifications/titleAlertModel.js'
 
 describe('personal title alerts', () => {
+
+  it('treats any supported paid/free offer as available and suppresses setting-only changes', () => {
+    const account = { providerSettings: { enabledProviderIds: ['netflix'], version: 2 } }
+    const fingerprint = availabilitySettingsFingerprint(account)
+    const offers = [{ id: 'netflix', offerTypes: ['rent', 'buy'] }, { id: 'prime', offerTypes: ['free'] }]
+    expect(anyOfferProviderIds(offers, ['netflix'])).toEqual(['netflix'])
+    expect(anyOfferProviderIds(offers, ['prime'])).toEqual(['prime'])
+    expect(anyOfferProviderIds([{ id: 'netflix', offerTypes: ['catalog'] }], ['netflix'])).toEqual([])
+    const zero = availableTransition(null, 'activation-a', fingerprint, false, fingerprint)
+    expect(zero.send).toBe(false)
+    const found = availableTransition(zero, 'activation-a', fingerprint, true, fingerprint)
+    expect(found.send).toBe(true)
+    expect(availableTransition(found, 'activation-a', fingerprint, true, fingerprint).send).toBe(false)
+    const changed = availabilitySettingsFingerprint({ providerSettings: { enabledProviderIds: ['prime'], version: 2 } })
+    expect(availableTransition(zero, 'activation-a', changed, true, fingerprint).send).toBe(false)
+    expect(availableTransition(null, 'activation-a', changed, true, fingerprint).send).toBe(false)
+    expect(availableTransition(null, 'activation-b', fingerprint, true, fingerprint).send).toBe(false)
+    // Only a subsequent true transition from a verified absent baseline may notify.
+    expect(availableTransition(
+      availableTransition(null, 'activation-b', fingerprint, true, fingerprint),
+      'activation-b', fingerprint, true, fingerprint,
+    ).send).toBe(false)
+  })
+
+
   it('accepts only included offers from selected providers', () => {
     const offers = [
       { id: 'netflix', offerTypes: ['rent'] },
