@@ -1,5 +1,6 @@
 import { createLiveProviderFilter } from '../sources/liveProviderSelection.js'
 import { selectProviderMap } from '../sources/providerLiveRoute.js'
+import { mergeProviderOffers } from '../providers/providerOfferSnapshot.js'
 import { resolvePresentationArtwork } from '../catalog/artworkRotation.js'
 
 export const TV_14_DAY_SUMMARY_URL = '/tv-14-days-summary.json'
@@ -116,8 +117,17 @@ function itemFromSummary(entry, airing, titleByKey, artworkOptions, now) {
   }
   const item = {
     ...base,
+    tmdbProviderIds: [...new Set([
+      ...(Array.isArray(base.tmdbProviderIds) ? base.tmdbProviderIds : []),
+      ...(Array.isArray(entry?.tmdbProviderIds) ? entry.tmdbProviderIds : []),
+    ])],
+    tmdbProviderOffers: mergeProviderOffers(
+      Array.isArray(base?.tmdbProviderOffers) ? base.tmdbProviderOffers : base?.providerOffers,
+      entry?.tmdbProviderOffers,
+    ),
     id: `tv-14-days-${key}-${liveProviderIds.join('-') || 'provider'}-${airing.stationId || 'station'}`,
     providerIds: [
+      ...(Array.isArray(entry?.tmdbProviderIds) ? entry.tmdbProviderIds : []),
       ...(Array.isArray(base.providerIds)
         ? base.providerIds.filter((id) => id !== 'waipu' && id !== 'joyn')
         : []),
