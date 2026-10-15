@@ -1,5 +1,32 @@
 # Private Mailfunktionen bereitstellen (#384)
 
+## Verbindlicher Abschlussstand 15.10.2026 – produktiv, gesamt abgenommen
+
+Der im Folgenden beschriebene domainbezogene Cloud-Shell-Cutover wurde auf dem
+geprüften Stand aus [PR #455](https://github.com/matthias-ennen/movie-hub/pull/455)
+**bereits erfolgreich ausgeführt**. Besitzer-Screenshot bestätigt
+`PRODUKTIVER MAILVERSAND AKTIV: 4/4 Funktionen`. Neuer Absender:
+`MovieHub <mitteilungen@mail.moviehubgermany.de>`; `RESEND_API_KEY` ist auf
+numerische Version **2** gepinnt; provisorischer Testadress-Fingerprint entfernt;
+der private E-Mail-Retry-Minutenjob ist aktiv. Domain und die erforderlichen
+DKIM/CNAME-Einträge waren zuvor bei Resend als **Verified** geprüft worden.
+Nachfolgend dokumentierte Test-/Einrichtungsbefehle sind **historische
+Migrationsanleitungen und kein neuer Arbeitsauftrag**. Bestehende Cloud-Funktionen
+und Secrets nicht auf Verdacht neu initialisieren.
+
+Echte Mail-Empfänge wurden vom Nutzer für Haupt- und Unterprofil bestätigt,
+ebenso Bestätigungs- und Abmeldelinks. Die Profiloberfläche wurde mit
+[PR #456](https://github.com/matthias-ennen/movie-hub/pull/456) verbessert,
+gebaut, veröffentlicht und ausdrücklich abgenommen. Am 15.10.2026 erklärte
+Matthias nach der finalen Testübersicht **„Alles abgenommen!“**. #384
+ist damit fachlich abgeschlossen. Die technischen Retry- und Fehlerfälle sind
+automatisiert geprüft; ein realer absichtlich ausgelöster Resend-Ausfall mit
+erfolgreichem Wiederholungsversuch ist nicht als Live-Test belegt. Für die
+nächste Arbeit gilt [#385](https://github.com/matthias-ennen/movie-hub/issues/385).
+
+---
+
+
 ## Neu: kontrollierter Produktionsumstieg auf die verifizierte Resend-Domain (15.10.2026)
 
 **Stand: Vorbereitung im PR – noch kein Cloud-Deploy und keine Empfangsabnahme.**
