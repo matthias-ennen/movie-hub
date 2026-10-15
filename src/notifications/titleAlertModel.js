@@ -28,13 +28,13 @@ export function anyOfferProviderIds(offers, enabledProviderIds) {
 
 // A provider/station setting change may reveal an old offer. It is not a new release.
 // Keep this signature in one shared model for the client and trusted nightly check.
-export function availableTransition(previous, activationId, fingerprint, available, activationFingerprint) {
+export function availableTransition(previous, activationId, fingerprint, available, _activationFingerprint) {
   const sameSession = previous?.activationId === activationId
-  // At activation the user sees no badges. A fresh trusted check can generate
-  // the first actual appearance, but never one caused by changed settings.
-  const send = Boolean(available && (sameSession
-    ? previous.settingsFingerprint === fingerprint && !previous.available
-    : activationFingerprint === fingerprint))
+  // An authoritative, complete zero-availability check must establish the
+  // baseline first. A stale client card or an offer hidden by user settings
+  // must never create a "new" availability notice on first server inspection.
+  const send = Boolean(available && sameSession
+    && previous.settingsFingerprint === fingerprint && previous.available === false)
   return {
     activationId, settingsFingerprint: fingerprint, available: Boolean(available),
     status: send ? 'completed' : 'watching', send,
