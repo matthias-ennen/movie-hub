@@ -128,7 +128,7 @@ describe('neutral TV airing merge', () => {
 
 
 describe('Serien-Ausstrahlungen mit unterscheidbaren Folgen', () => {
-  it('legt nicht zwei unterschiedliche bekannte Episoden auf demselben Sender und Timeslot zusammen', () => {
+  it('bewahrt widersprüchliche Episodennummern derselben Ausstrahlung als Konflikt', () => {
     const base = {
       tmdbId: 71728, type: 'series', stationId: 'prosieben',
       startTime: '2026-10-15T18:15:00.000Z',
@@ -138,8 +138,11 @@ describe('Serien-Ausstrahlungen mit unterscheidbaren Folgen', () => {
       [{ ...base, providerIds: ['waipu'], episode: { seasonNumber: 3, episodeNumber: 8 } }],
       [{ ...base, providerIds: ['joyn'], episode: { seasonNumber: 3, episodeNumber: 9 } }],
     )
-    expect(airings).toHaveLength(2)
-    expect(airings.map((value) => value.providerIds)).toEqual([['waipu'], ['joyn']])
+    expect(airings).toHaveLength(1)
+    expect(airings[0].providerIds).toEqual(['joyn', 'waipu'])
+    expect(airings[0].episode).toMatchObject({
+      conflict: true, seasonNumber: null, episodeNumber: null,
+    })
   })
 
   it('vereint dieselbe Folge weiterhin providerübergreifend', () => {
