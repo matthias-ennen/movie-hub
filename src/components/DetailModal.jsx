@@ -101,8 +101,8 @@ export default function DetailModal({
   const filmCollection = findFilmCollectionForTitle(item, collections)
     || buildFilmCollection(item?.collectionDetails, titles)
   const collectionParts = useMemo(
-    () => resolveFilmCollectionParts(filmCollection, titles),
-    [filmCollection, titles],
+    () => resolveFilmCollectionParts(filmCollection, [...titles, item]),
+    [filmCollection, titles, item],
   )
   const currentCollectionIndex = collectionParts.findIndex((part) => Number(part.tmdbId) === Number(item.tmdbId))
   const hasFilmCollection = item.type === 'movie' && collectionParts.length > 1

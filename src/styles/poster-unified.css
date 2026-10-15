@@ -3,7 +3,8 @@
  * Keep the heading anchored; pull the year/status line closer, with clearance
  * for the provider mini-labels beneath.
  */
-.poster-card {
+.poster-card,
+.collection-part-card {
   --poster-badge-height: 2rem;
   --poster-badge-min-width: 2.35rem;
   --poster-badge-font: 0.62rem;
@@ -49,7 +50,8 @@
   line-height: 1;
 }
 
-.poster-card .provider-badges {
+.poster-card .provider-badges,
+.collection-part-card .provider-badges {
   left: 0.65rem;
   right: 0.65rem;
   bottom: 0.65rem;
@@ -59,12 +61,18 @@
   overflow: visible;
 }
 
-.poster-card .provider-badge {
+.poster-card .provider-badge,
+.collection-part-card .provider-badge {
   flex: 0 0 auto;
   min-width: var(--poster-badge-min-width);
   height: var(--poster-badge-height);
   padding: 0 0.32rem;
   font-size: var(--poster-badge-font);
+}
+
+/* Filmreihen teilen die Anbieter-Geometrie und dürfen Mini-Tags nicht abschneiden. */
+.collection-part-art .provider-badges {
+  overflow: visible;
 }
 
 /* Provider badge top border crosses the small label at 60% of its height. */
@@ -91,6 +99,11 @@
   --poster-badge-font: 0.74rem;
   --poster-offer-font: 0.66rem;
   --poster-offer-height: 0.94rem;
+}
+
+/* Nur Top Ten: Titel und Jahreszeile leicht anheben, damit die Angebots-Tags frei bleiben. */
+.top-ten-poster-card .poster-art {
+  padding-bottom: calc(var(--poster-badge-height) + 1.75rem);
 }
 
 .top-ten-poster-card .poster-title,

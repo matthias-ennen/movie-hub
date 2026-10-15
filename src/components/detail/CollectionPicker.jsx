@@ -1,6 +1,5 @@
 import { resolveArtworkUrl } from '../../catalog/artworkRotation.js'
-import { resolveProviderPresentation } from '../../providers/providerPresentation.js'
-import { providers } from '../../data/catalog.js'
+import { resolvePosterProviderModel } from '../../providers/posterProviderModel.js'
 import ProviderBadges from '../ProviderBadges.jsx'
 import DetailDialog from './DetailDialog.jsx'
 import { DialogHeading } from './DetailActions.jsx'
@@ -15,14 +14,11 @@ export default function CollectionPicker({ filmCollection, collectionParts, curr
                 const isCurrent = Number(part.tmdbId) === Number(item.tmdbId)
                 const watched = getTitleState(part).watched
                 const partPosterUrl = resolveArtworkUrl(part, artworkOptions)
-                const partProviderPresentation = resolveProviderPresentation(part, {
-                  context: 'title',
-                  hasMovieHub: part.movieHubCatalog === true || part.providerIds?.includes('moviehub'),
+                const providerModel = resolvePosterProviderModel(part, {
+                  hasMovieHub: isProviderEnabled('moviehub')
+                    && (part.movieHubCatalog === true || part.providerIds?.includes('moviehub')),
                 })
-                const movieHubAvailable = partProviderPresentation.includeMovieHub && isProviderEnabled('moviehub')
-                const automaticProviderIds = partProviderPresentation.providerIds
-                  .filter((providerId) => Boolean(providers[providerId]))
-                const hasAvailability = movieHubAvailable || automaticProviderIds.length > 0
+                const hasAvailability = providerModel.hasAvailability
                 return (
                   <button
                     type="button"
@@ -46,18 +42,16 @@ export default function CollectionPicker({ filmCollection, collectionParts, curr
                         {watched && <span className="watched">✓ Gesehen</span>}
                       </span>
                       {hasAvailability && (
-                        <ProviderBadges
-                          providerIds={automaticProviderIds}
-                          includeMovieHub={movieHubAvailable}
-                          maxVisible={3}
-                        />
+                        <ProviderBadges model={providerModel} item={part} />
                       )}
                     </span>
                     <span className="collection-part-copy">
                       <strong>{part.title}</strong>
                       <small>{part.year || 'Jahr unbekannt'}</small>
                       <small className={hasAvailability ? 'available' : 'unavailable'}>
-                        {hasAvailability ? 'Bei deinen Anbietern verfügbar' : 'Derzeit nicht bei deinen Anbietern'}
+                        {hasAvailability ? 'Bei deinen Anbietern verfügbar'
+                          : providerModel.availabilityVerified ? 'Derzeit nicht bei deinen Anbietern'
+                            : 'Verfügbarkeit beim Öffnen prüfen'}
                       </small>
                     </span>
                     {collectionBusyId === part.id && <span className="collection-part-loading">Details werden geladen …</span>}
