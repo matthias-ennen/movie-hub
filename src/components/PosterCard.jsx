@@ -3,7 +3,7 @@ import ProviderBadges from './ProviderBadges.jsx'
 import { formatTvAiringCard } from '../tv/tvAiringPresentation.js'
 import { episodeReference } from '../catalog/episodeContext.js'
 import { navigationEpisode } from '../catalog/episodeResolution.js'
-import { resolveProviderPresentation } from '../providers/providerPresentation.js'
+import { resolvePosterProviderModel } from '../providers/posterProviderModel.js'
 import { posterImageProps, posterSourceUrl } from '../performance/posterImages.js'
 
 export default function PosterCard({
@@ -19,11 +19,7 @@ export default function PosterCard({
   const posterImage = posterImageProps(item, { variant: rank ? 'top-ten' : variant })
   const hasPoster = Boolean(posterUrl)
   const tvAiring = formatTvAiringCard(item.tvAiring)
-  const providerPresentation = resolveProviderPresentation(item, {
-    context: item?.tvAiring ? 'airing' : 'title',
-    hasMovieHub,
-  })
-  const providerIds = providerPresentation.providerIds
+  const providerModel = resolvePosterProviderModel(item, { hasMovieHub })
   const episode = navigationEpisode(episodeReference(item.tvAiring))
   const episodeLabel = item.type === 'series' && item.tvAiring
     ? [
@@ -82,14 +78,8 @@ export default function PosterCard({
           )}
         </span>
       </span>
-      {(providerPresentation.includeMovieHub || providerIds.length > 0) && (
-        <ProviderBadges
-          providerIds={providerIds}
-          maxVisible={3}
-          includeMovieHub={providerPresentation.includeMovieHub}
-          item={item}
-          context={providerPresentation.context}
-        />
+      {providerModel.hasAvailability && (
+        <ProviderBadges model={providerModel} item={item} />
       )}
     </button>
   )

@@ -16,16 +16,17 @@ const LIVE_SOURCE_PROVIDER_IDS = new Set(PROVIDER_REGISTRY
   .map((provider) => provider.id))
 
 function tmdbProviderIds(item) {
-  if (Array.isArray(item?.tmdbProviderIds)) return unique(item.tmdbProviderIds)
   const offers = Array.isArray(item?.tmdbProviderOffers)
     ? item.tmdbProviderOffers
-    : Array.isArray(item?.providerOffers)
-      ? item.providerOffers
-      : []
-  const fromOffers = offers
+    : Array.isArray(item?.providerOffers) ? item.providerOffers : []
+  const evidenced = offers
+    .filter((offer) => Array.isArray(offer?.offerTypes) && offer.offerTypes.length)
+    .map((offer) => offer?.id)
+  if (Array.isArray(item?.tmdbProviderIds)) return unique([...item.tmdbProviderIds, ...evidenced])
+  const indexed = offers
     .filter((offer) => Number.isFinite(Number(offer?.tmdbProviderId)))
     .map((offer) => offer?.id)
-  if (fromOffers.length) return unique(fromOffers)
+  if (indexed.length || evidenced.length) return unique([...indexed, ...evidenced])
   return unique(item?.providerIds).filter((providerId) => (
     providerId !== 'moviehub' && providerId !== 'waipu' && providerId !== 'joyn'
   ))
