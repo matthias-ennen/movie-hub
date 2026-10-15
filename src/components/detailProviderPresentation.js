@@ -1,3 +1,5 @@
+import { compactProviderOffers } from '../providers/providerOfferSnapshot.js'
+
 export function buildDetailLiveProviderEntries(
   providerPresentation,
   providers = {},
@@ -25,6 +27,7 @@ export function buildDetailStreamingProviderIds(
   titleProviderPresentation,
   providers = {},
   liveProviderEntries = [],
+  item = null,
 ) {
   const orderedProviderIds = Array.isArray(titleProviderPresentation?.providerIds)
     ? titleProviderPresentation.providerIds
@@ -40,8 +43,11 @@ export function buildDetailStreamingProviderIds(
       .filter(Boolean),
   )
 
+  const streamedWithKnownOffer = new Set(compactProviderOffers(item).map((offer) => offer.id))
+
   return orderedProviderIds
     .filter((providerId) => tmdbProviderIds.has(providerId))
-    .filter((providerId) => !concreteLiveProviderIds.has(providerId))
+    // Separate VOD offers can coexist with live broadcasting on the same provider.
+    .filter((providerId) => !concreteLiveProviderIds.has(providerId) || streamedWithKnownOffer.has(providerId))
     .filter((providerId) => Boolean(providers?.[providerId]))
 }
