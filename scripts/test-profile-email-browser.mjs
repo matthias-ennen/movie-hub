@@ -47,14 +47,19 @@ try {
   const url = 'http://127.0.0.1:4178/tests/browser/profile-email/index.html'
   const address = (p) => p.getByLabel('E-Mail-Adresse', { exact: true })
   const switchControl = (p) => p.getByRole('switch')
-  const save = (p) => p.getByRole('button', { name: 'E-Mail-Einstellungen speichern', exact: true })
+  const save = (p) => p.getByRole('button', { name: 'E-Mail speichern', exact: true })
+  const changeConsent = async (p, enabled) => {
+    await switchControl(p).click()
+    await p.getByText(enabled ? 'E-Mail-Mitteilungen eingeschaltet.' : 'E-Mail-Mitteilungen ausgeschaltet.', { exact: true }).waitFor()
+    assert.equal(await switchControl(p).getAttribute('aria-checked'), String(enabled))
+  }
   const ready = (p) => p.waitForFunction(() => document.querySelector('#profile-email-address')?.readOnly === false)
   async function select(p, name) { await p.getByRole('button', { name: new RegExp(`^${name} `) }).click(); await ready(p) }
-  async function persist(p) { await save(p).click(); await p.getByText('E-Mail-Einstellungen gespeichert.', { exact: true }).waitFor() }
+  async function persist(p) { await save(p).click(); await p.getByText('E-Mail-Adresse gespeichert.', { exact: true }).waitFor() }
   await page.goto(url); await ready(page)
   assert.equal(await address(page).inputValue(), 'owner@example.org')
   assert.equal(await switchControl(page).getAttribute('aria-checked'), 'false')
-  await address(page).fill('primary@example.org'); await switchControl(page).click(); await persist(page)
+  await address(page).fill('primary@example.org'); await persist(page); await changeConsent(page, true)
   await page.getByText('E-Mail-Empfang vorgemerkt. Die Bestätigung steht noch aus.', { exact: true }).waitFor()
   assert.equal(await page.locator('.account-email').textContent(), 'owner@example.org')
   await page.reload(); await ready(page)
@@ -63,13 +68,16 @@ try {
   await select(page, 'Familie')
   assert.equal(await address(page).inputValue(), '')
   assert.equal(await switchControl(page).getAttribute('aria-checked'), 'false')
-  await address(page).fill('family@example.org'); await switchControl(page).click(); await persist(page)
+  await switchControl(page).click()
+  await page.getByText('Bitte zuerst eine gültige E-Mail-Adresse speichern.').waitFor()
+  assert.equal(await switchControl(page).getAttribute('aria-checked'), 'false')
+  await address(page).fill('family@example.org'); await persist(page); await changeConsent(page, true)
   await select(page, 'Hauptprofil'); assert.equal(await address(page).inputValue(), 'primary@example.org')
   results.push('Primary/member defaults, independent saved recipient/consent, reload persistence, unchanged login address')
 
   const second = await context.newPage(); second.on('pageerror', (error) => errors.push(error.message))
   await second.goto(url); await ready(second)
-  await switchControl(page).click(); await address(page).fill(''); await persist(page)
+  await changeConsent(page, false); await address(page).fill(''); await persist(page)
   await second.waitForFunction(() => document.querySelector('#profile-email-address').value === '')
   await page.reload(); await ready(page); assert.equal(await address(page).inputValue(), '')
   await address(page).fill('draft@example.org')
@@ -89,18 +97,32 @@ try {
       .every((element) => { const rect = element.getBoundingClientRect(); return rect.left >= 0 && rect.right <= innerWidth && element.scrollWidth <= element.clientWidth + 1 })), true, `${label}: clipped email control`)
     await page.screenshot({ path: resolve(output, `profile-${label}.png`), fullPage: true })
   }
-  await switchControl(page).focus(); await page.keyboard.press('ArrowDown')
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await address(page).focus(); await page.keyboard.press('ArrowRight')
   assert.equal(await save(page).evaluate((button) => button === document.activeElement), true)
-  await page.keyboard.press('ArrowUp')
-  assert.equal(await switchControl(page).evaluate((button) => button === document.activeElement), true)
-  await page.keyboard.press('ArrowUp')
+  await page.keyboard.press('ArrowLeft')
   assert.equal(await address(page).evaluate((input) => input === document.activeElement), true)
   await page.keyboard.press('ArrowDown')
   assert.equal(await switchControl(page).evaluate((button) => button === document.activeElement), true)
-  results.push('Four viewport layouts without clipped email controls; production D-pad handler reaches toggle/save')
+  await page.keyboard.press('ArrowUp')
+  assert.equal(await address(page).evaluate((input) => input === document.activeElement), true)
+  results.push('Four viewport layouts without clipped email controls; D-pad left/right save and up/down consent')
 
-  // Verify new server status is visible even after a successful local save.
-  await switchControl(page).click(); await persist(page)
+  // Toggle persists consent without saving a different unsaved address draft.
+  await address(page).fill('unsaved-draft@example.org')
+  await changeConsent(page, true)
+  assert.equal(await address(page).inputValue(), 'unsaved-draft@example.org')
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore()
+    const prefs = (await getDoc(doc(db, 'users/email-ui-owner/profiles/main/emailPreferences/current'))).data()
+    assert.equal(prefs.email, 'other-device@example.org')
+    assert.equal(prefs.enabled, true)
+  })
+  await page.reload(); await ready(page)
+  assert.equal(await address(page).inputValue(), 'other-device@example.org')
+  results.push('Autosave toggle preserves unsaved address draft without changing saved recipient')
+
+  // Verify new server status is visible even after a successful consent toggle.
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
     const prefs = (await getDoc(doc(db, 'users/email-ui-owner/profiles/main/emailPreferences/current'))).data()
