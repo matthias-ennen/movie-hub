@@ -58,7 +58,7 @@ describe('provider presentation policy', () => {
     expect(result.playbackRoutes.map((route) => route.providerId)).toEqual(['joyn'])
   })
 
-  it('does not present a TMDB-only live-source provider as part of a concrete TV airing', () => {
+  it('keeps an independent TMDB streaming provider even if it also supports live-TV', () => {
     const result = resolveProviderPresentation({
       tmdbProviderIds: ['joyn', 'pluto'],
       tvAiring: {
@@ -69,7 +69,7 @@ describe('provider presentation policy', () => {
 
     expect(result.tmdbProviderIds).toEqual(['joyn', 'pluto'])
     expect(result.liveProviderIds).toEqual(['waipu'])
-    expect(result.providerIds).toEqual(['waipu', 'pluto'])
+    expect(result.providerIds).toEqual(['waipu', 'joyn', 'pluto'])
   })
 
   it('keeps both live providers when the concrete broadcast is merged', () => {
