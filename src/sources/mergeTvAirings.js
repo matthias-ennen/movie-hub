@@ -49,6 +49,21 @@ export function areEquivalentTvAirings(left, right, {
   if (!Number.isInteger(leftTmdbId) || leftTmdbId <= 0 || leftTmdbId !== rightTmdbId) return false
   if (!leftStation || leftStation !== rightStation || !a || !b) return false
 
+  // Same series/station/timeslot is not sufficient when adapters positively
+  // identify different episodes. Keep incomplete episode references mergeable.
+  if (leftType === 'series') {
+    const leftEpisode = episodeReference(left)
+    const rightEpisode = episodeReference(right)
+    if (leftEpisode && rightEpisode) {
+      if (leftEpisode.seasonNumber != null && rightEpisode.seasonNumber != null
+          && leftEpisode.seasonNumber !== rightEpisode.seasonNumber) return false
+      if (leftEpisode.episodeNumber != null && rightEpisode.episodeNumber != null
+          && leftEpisode.episodeNumber !== rightEpisode.episodeNumber) return false
+      if (leftEpisode.catalog?.tmdbId && rightEpisode.catalog?.tmdbId
+          && leftEpisode.catalog.tmdbId !== rightEpisode.catalog.tmdbId) return false
+    }
+  }
+
   if (a.start === b.start && a.stop === b.stop) return true
   return Math.abs(a.start - b.start) <= maxStartDeltaMs
     && tvAiringOverlapRatio(left, right) >= minOverlapRatio

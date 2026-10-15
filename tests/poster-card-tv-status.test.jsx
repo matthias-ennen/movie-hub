@@ -46,6 +46,31 @@ describe('TV-Zustand in der Poster-Metadatenzeile', () => {
 })
 
 
+describe('gemeinsame TV-Posterzeile für Serien aller Postergrößen', () => {
+  const episode = {
+    seasonNumber: 2, episodeNumber: 18, title: 'Verbotene Folge',
+  }
+  const series = tvItem({
+    type: 'series', title: 'Beispielserie',
+    tvAiring: {
+      startTime: '2026-09-21T18:15:00.000Z',
+      stationName: 'ProSieben', providerIds: ['joyn'],
+      episode,
+    },
+  })
+  for (const rank of [null, 1]) {
+    it(`zeigt nur Uhrzeit und Sender ${rank ? 'in Top Ten' : 'in normalen Postern'}`, () => {
+      const markup = renderToStaticMarkup(<PosterCard item={series} rank={rank} onOpen={() => {}} />)
+      expect(markup).toContain('ProSieben')
+      expect(markup).toContain('20:15')
+      expect(markup).not.toContain('Verbotene Folge')
+      expect(markup).not.toContain('S2')
+      expect(markup).not.toContain('F18')
+      expect(markup).toContain('provider-joyn')
+    })
+  }
+})
+
 describe('zentrale Provider-Darstellung auf Postern', () => {
   it('zeigt bei einem zusammengeführten TV-Airing sowohl Joyn als auch Waipu', () => {
     const markup = renderCard(tvItem({

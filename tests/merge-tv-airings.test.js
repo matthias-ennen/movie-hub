@@ -127,6 +127,36 @@ describe('neutral TV airing merge', () => {
 })
 
 
+describe('Serien-Ausstrahlungen mit unterscheidbaren Folgen', () => {
+  it('legt nicht zwei unterschiedliche bekannte Episoden auf demselben Sender und Timeslot zusammen', () => {
+    const base = {
+      tmdbId: 71728, type: 'series', stationId: 'prosieben',
+      startTime: '2026-10-15T18:15:00.000Z',
+      stopTime: '2026-10-15T18:45:00.000Z',
+    }
+    const airings = mergeTvAirings(
+      [{ ...base, providerIds: ['waipu'], episode: { seasonNumber: 3, episodeNumber: 8 } }],
+      [{ ...base, providerIds: ['joyn'], episode: { seasonNumber: 3, episodeNumber: 9 } }],
+    )
+    expect(airings).toHaveLength(2)
+    expect(airings.map((value) => value.providerIds)).toEqual([['waipu'], ['joyn']])
+  })
+
+  it('vereint dieselbe Folge weiterhin providerübergreifend', () => {
+    const base = {
+      tmdbId: 46260, type: 'series', stationId: 'naruto',
+      startTime: '2026-10-15T17:50:00.000Z',
+      stopTime: '2026-10-15T18:20:00.000Z',
+    }
+    const merged = mergeTvAirings(
+      [{ ...base, providerIds: ['waipu'], episode: { seasonNumber: 2, episodeNumber: 5 } }],
+      [{ ...base, providerIds: ['joyn'], episode: { seasonNumber: 2, episodeNumber: 5 } }],
+    )
+    expect(merged).toHaveLength(1)
+    expect(merged[0].providerIds).toEqual(['joyn', 'waipu'])
+  })
+})
+
 describe('tolerant cross-provider broadcast matching', () => {
   const base = {
     tmdbId: 603,

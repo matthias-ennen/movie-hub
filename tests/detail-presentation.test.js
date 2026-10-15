@@ -2,12 +2,17 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import DetailLoadingScreen from '../src/components/DetailLoadingScreen.jsx'
+import { resolveDetailTvAiring } from '../src/tv/detailTvAiring.js'
 import {
   detailInitialImageUrl,
   prepareDetailRequestItem,
   preloadDetailImage,
   waitForDetailLoadingPaint,
 } from '../src/components/detailPresentation.js'
+
+function resolveAiring(item, now) {
+  return resolveDetailTvAiring(item, { now: Date.parse(now) })
+}
 
 describe('stabiler Detail-Ladezustand', () => {
   it('lädt jeden Titel streng vollständig, bevor er präsentiert wird', async () => {
@@ -74,6 +79,67 @@ describe('stabiler Detail-Ladezustand', () => {
 
     expect(result.liveAvailability.waipu.nextAiring.stationName).toBe('TELE 5')
     expect(result.providerIds).toContain('waipu')
+  })
+
+  it('bewahrt den noch gültigen konkret angeklickten TV-Sendetermin auch für Filme', async () => {
+    const clicked = {
+      stationId: 'tele5', stationName: 'TELE 5',
+      startTime: '2026-10-15T17:15:00.000Z',
+      stopTime: '2026-10-15T19:15:00.000Z',
+      providerIds: ['waipu'],
+      playbackRoutes: [{ providerId: 'waipu', mode: 'APP_DEEP_LINK', target: 'waipu://tele5/movie' }],
+    }
+    const item = { id: 'tv-runtime-movie-11', type: 'movie', tmdbId: 11, title: 'Filmtitel', tvAiring: clicked }
+    const complete = { tmdbId: 11, type: 'movie', title: 'Filmtitel', metadataComplete: true }
+    const live = { ...clicked, stationId: 'pro7', stationName: 'ProSieben',
+      providerIds: ['joyn'], startTime: '2026-10-15T18:15:00.000Z', stopTime: '2026-10-15T20:15:00.000Z' }
+    const result = await prepareDetailRequestItem(item, {
+      liveAvailabilityNow: Date.parse('2026-10-15T18:00:00.000Z'),
+      liveAvailabilityEntries: [{ key: 'movie:11', providers: [
+        { providerId: 'joyn', airings: [live], nextAiring: live },
+      ] }],
+      loadComplete: async () => complete,
+      presentArtwork: (value) => value,
+    })
+    expect(result.detailAiring).toMatchObject({ stationId: 'tele5', providerIds: ['waipu'] })
+    expect(result.liveAvailability.joyn).toBeTruthy()
+    expect(resolveAiring(result, '2026-10-15T18:00:00.000Z').stationName).toBe('TELE 5')
+  })
+
+  it('bewahrt den Serien-Klick-Kontext trotz anderer Folgen/Sender aus dem Live-Index', async () => {
+    const clicked = {
+      stationId: 'pro7', stationName: 'ProSieben',
+      startTime: '2026-10-15T18:15:00.000Z',
+      stopTime: '2026-10-15T19:15:00.000Z',
+      providerIds: ['waipu'],
+      episode: { seasonNumber: 4, episodeNumber: 3 },
+    }
+    const joyn = { ...clicked, stationId: 'pro7maxx', stationName: 'ProSieben MAXX',
+      providerIds: ['joyn'], episode: { seasonNumber: 4, episodeNumber: 4 } }
+    const item = { id: 'tv-runtime-series-71728', type: 'series', tmdbId: 71728, title: 'Young Sheldon', tvAiring: clicked }
+    const result = await prepareDetailRequestItem(item, {
+      liveAvailabilityNow: Date.parse('2026-10-15T18:20:00.000Z'),
+      liveAvailabilityEntries: [{ key: 'series:71728', providers: [
+        { providerId: 'joyn', airings: [joyn], nextAiring: joyn },
+      ] }],
+      loadComplete: async () => ({ type: 'series', tmdbId: 71728, title: 'Young Sheldon', metadataComplete: true }),
+      loadAvailability: async () => [],
+      presentArtwork: (value) => value,
+    })
+    expect(result.detailAiring).toMatchObject({ stationId: 'pro7', providerIds: ['waipu'] })
+    expect(resolveAiring(result, '2026-10-15T18:20:00.000Z').providerIds).toEqual(['waipu'])
+  })
+
+  it('verwirft abgelaufene oder deaktivierte Klick-Kontexte', async () => {
+    const item = { type: 'movie', tmdbId: 7, title: 'Film',
+      tvAiring: { stationId: 'old', startTime: '2026-10-14T18:00:00.000Z',
+        stopTime: '2026-10-14T19:00:00.000Z', providerIds: ['waipu'] } }
+    const result = await prepareDetailRequestItem(item, {
+      liveAvailabilityNow: Date.parse('2026-10-15T18:00:00.000Z'),
+      loadComplete: async () => ({ type: 'movie', tmdbId: 7, title: 'Film' }),
+      presentArtwork: (value) => value,
+    })
+    expect(result.detailAiring).toBeUndefined()
   })
 
   it('verwendet auch für normale Titel denselben vollständigen Metadatenvertrag', async () => {
