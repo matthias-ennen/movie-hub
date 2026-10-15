@@ -46,6 +46,23 @@ describe('mail eligibility and rendering', () => {
       expect(notificationMailModel({ ...modelArgs, ...change })).toBeNull()
     }
   })
+
+  it('sends a single opt-in email for a completed first-availability event', () => {
+    const availableWatch = { ...watch, kind: 'available',
+      completionNotificationId: 'movie-123-available-a-initial' }
+    const availableMessage = { ...message, kind: 'available', phase: 'available-found' }
+    const args = { ...modelArgs, watch: availableWatch, eventId: availableWatch.completionNotificationId,
+      message: availableMessage }
+    expect(notificationMailModel(args)?.phase).toBe('available-found')
+    expect(notificationMailModel({ ...args, message: { ...availableMessage, phase: 'included-found' } })).toBeNull()
+    expect(notificationMailModel({ ...args, watch: { ...availableWatch, status: 'active' } })).toBeNull()
+    const email = titleNotificationEmail({ phase: 'available-found', title: 'Neuer Film', profileName: 'Test',
+      providerNames: ['Netflix'], sentAt: now, url: 'https://example.org',
+      unsubscribeUrl: 'https://example.org/action' })
+    expect(email.subject).toContain('Jetzt verfügbar')
+    expect(email.text).toContain('Netflix')
+  })
+
   it('supports both TV phases, rejects cancelled/expired schedules and first notices after start', () => {
     const tvWatch = { ...watch, kind: 'tv', status: 'active' }
     const tvMessage = { ...message, kind: 'tv', phase: 'tv-found', scheduleStatus: 'scheduled', stationName: 'ZDF', airingStartAt: now + 4 * 60000, airingEndsAt: now + 3600000 }
