@@ -28,13 +28,33 @@ export async function prepareDetailRequestItem(item, {
     liveAvailabilityEntries,
     { now: liveAvailabilityNow, acceptLiveProvider },
   )
-  if (item?.type !== 'series' && item?.mediaType !== 'tv') return presentArtwork(liveDetail, artworkOptions)
-  // Only the actual click supplies the broadcast anchor, never cached metadata.
-  const providerIds = (item.tvAiring?.providerIds || []).filter(id => !acceptLiveProvider || acceptLiveProvider(id, item.tvAiring))
-  const detailAiring = item.tvAiring && item.detailEpisode !== null && (!acceptLiveProvider || providerIds.length)
-    ? { ...item.tvAiring, providerIds,
-      playbackRoutes: (item.tvAiring.playbackRoutes || []).filter(route => !acceptLiveProvider || acceptLiveProvider(route.providerId, item.tvAiring)) } : null
-  const prepared = { ...liveDetail, availableSeasons, detailAiring, detailEpisode: null, detailSelection: item.detailEpisode || undefined }
+  // The clicked card identifies one concrete programme, not every broadcast
+  // of the same TMDB title. This anchor survives async TMDB enrichment and
+  // also applies to movies, not only series. Expired/disabled airings are
+  // discarded so a normal catalogue detail still picks the next valid airing.
+  const clickedAiring = item?.tvAiring
+  const start = Date.parse(clickedAiring?.startTime)
+  const stop = Date.parse(clickedAiring?.stopTime)
+  const providerIds = (Array.isArray(clickedAiring?.providerIds)
+    ? clickedAiring.providerIds : [clickedAiring?.source].filter(Boolean))
+    .filter((id) => !acceptLiveProvider || acceptLiveProvider(id, clickedAiring))
+  const hasValidClick = Number.isFinite(start) && Number.isFinite(stop)
+    && start < stop && stop > liveAvailabilityNow
+    && item?.detailEpisode !== null
+    && (!acceptLiveProvider || providerIds.length > 0)
+  const detailAiring = hasValidClick
+    ? {
+        ...clickedAiring,
+        providerIds,
+        playbackRoutes: (Array.isArray(clickedAiring?.playbackRoutes) ? clickedAiring.playbackRoutes : [])
+          .filter((route) => providerIds.includes(route?.providerId)),
+      } : null
+  const anchoredDetail = detailAiring ? { ...liveDetail, detailAiring } : liveDetail
+  if (!isSeries) return presentArtwork(anchoredDetail, artworkOptions)
+  const prepared = {
+    ...anchoredDetail, availableSeasons, detailAiring,
+    detailEpisode: null, detailSelection: item.detailEpisode || undefined,
+  }
   const airing = resolveDetailTvAiring(prepared, { now: liveAvailabilityNow })
   const detailEpisode = item.detailEpisode || navigationEpisode(episodeReference(airing))
     || (airing ? null : openingEpisode(item))

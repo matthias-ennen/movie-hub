@@ -119,6 +119,31 @@ describe('kanonische TV-Ausstrahlung auf der Detailseite', () => {
     expect(result.playbackRoutes.map((route) => route.providerId).sort()).toEqual(['joyn', 'waipu'])
   })
 
+  it('bindet die Detailansicht an den angeklickten Filmtermin statt einen anderen Titeltermin', () => {
+    const waipu = airing({ providerId: 'waipu', stationId: 'sender-a',
+      startTime: '2026-10-15T18:00:00.000Z', stopTime: '2026-10-15T20:00:00.000Z' })
+    const joyn = airing({ providerId: 'joyn', stationId: 'sender-b',
+      startTime: '2026-10-15T17:30:00.000Z', stopTime: '2026-10-15T19:30:00.000Z' })
+    const result = resolveDetailTvAiring({
+      ...movie, detailAiring: waipu,
+      liveAvailability: { joyn: { airings: [joyn] }, waipu: { airings: [waipu] } },
+    }, { now: Date.parse('2026-10-15T18:15:00.000Z') })
+    expect(result.providerIds).toEqual(['waipu'])
+    expect(result.stationId).toBe('sender-a')
+  })
+
+  it('mergt den angeklickten Simulcast mit dem exakt gleichen Live-Termin', () => {
+    const waipu = airing({ providerId: 'waipu',
+      startTime: '2026-10-15T18:00:00.000Z', stopTime: '2026-10-15T20:00:00.000Z' })
+    const joyn = airing({ providerId: 'joyn',
+      startTime: '2026-10-15T18:00:00.000Z', stopTime: '2026-10-15T20:00:00.000Z' })
+    const result = resolveDetailTvAiring({
+      ...movie, detailAiring: waipu,
+      liveAvailability: { joyn: { airings: [joyn] }, waipu: { airings: [waipu] } },
+    }, { now: Date.parse('2026-10-15T18:10:00.000Z') })
+    expect(result.providerIds).toEqual(['joyn', 'waipu'])
+  })
+
   it('liefert ohne noch gültige Ausstrahlung null', () => {
     const expired = airing({
       providerId: 'joyn',

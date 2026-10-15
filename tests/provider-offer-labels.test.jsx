@@ -4,6 +4,15 @@ import { ProviderBadge } from '../src/components/ProviderBadges.jsx'
 import { labelForOfferTypes, providerOfferLabel } from '../src/providers/providerOfferLabels.js'
 
 describe('#385 provider access labels', () => {
+  it('zeigt bei fremder konkreter TV-Ausstrahlung für Joyn kein AIR aus anderen TV-Terminen', () => {
+    const item = {
+      tvAiring: { providerIds: ['waipu'] },
+      liveAvailability: { joyn: { nextAiring: { startTime: '2026-10-16T19:00:00Z' } } },
+    }
+    expect(providerOfferLabel(item, 'joyn', { context: 'airing' })).toBeNull()
+    expect(providerOfferLabel(item, 'joyn', { context: 'title' })).toBe('AIR')
+  })
+
   it('uses exactly one dominant label without losing original offer data', () => {
     const offers = ['buy', 'rent', 'flatrate']
     expect(labelForOfferTypes(offers)).toBe('FLAT')

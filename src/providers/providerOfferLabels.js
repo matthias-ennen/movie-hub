@@ -30,6 +30,10 @@ export function providerOfferLabel(item, providerId, { context = 'title' } = {})
   const streaming = labelForOfferTypes(offer?.offerTypes)
   if (streaming) return streaming
 
+  // A title may have a later Joyn programme while the selected TV card is a
+  // Waipu broadcast. Such title-wide airings must not label Joyn AIR here.
+  if (context === 'airing' && exactAiring) return null
+
   const live = item?.liveAvailability?.[providerId]
     || (providerId === 'waipu' ? item?.waipuLive : providerId === 'joyn' ? item?.joynLive : null)
   const hasFutureAirings = Array.isArray(live?.airings) ? live.airings.length > 0 : Boolean(live?.nextAiring)

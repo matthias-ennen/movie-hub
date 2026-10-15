@@ -31,11 +31,14 @@ export function resolveDetailTvAiring(item, { now = Date.now(), selection = item
     ? { ...item.detailAiring, type, tmdbId } : null
   const airings = mergeTvAirings(...groups, opened ? [opened] : [])
   if (type === 'series' && selection !== undefined) {
-    return airings.find(airing => {
+    const matchesSelection = (airing) => {
       const episode = episodeReference(airing)
       if (selection?.episodeNumber != null || selection?.title) return sameEpisode(episode, selection)
       return selection?.seasonNumber != null && navigationEpisode(episode)?.seasonNumber === selection.seasonNumber
-    }) || null
+    }
+    const anchored = opened && airings.find((airing) => areEquivalentTvAirings(airing, opened))
+    return (anchored && matchesSelection(anchored) ? anchored : null)
+      || airings.find(matchesSelection) || null
   }
   return (opened && airings.find(airing => areEquivalentTvAirings(airing, opened))) || airings[0] || null
 }
