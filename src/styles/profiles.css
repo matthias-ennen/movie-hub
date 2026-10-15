@@ -68,14 +68,17 @@
   line-height: 1.35;
 }
 
-.profile-name-form {
+.profile-name-form,
+.profile-email-address-row {
   display: flex;
   align-items: end;
   gap: var(--space-3);
   max-width: 720px;
 }
 
-.profile-name-form label {
+.profile-name-form label,
+.profile-email-address-row label {
+  min-width: 0;
   flex: 1 1 auto;
   display: grid;
   gap: 0.45rem;
@@ -94,7 +97,9 @@
   color: var(--color-text);
 }
 
-.profile-name-form button {
+.profile-name-form button,
+.profile-email-address-row button {
+  flex: 0 0 auto;
   min-height: 48px;
   padding: 0.7rem 1rem;
   border: 1px solid var(--color-line);
@@ -117,15 +122,7 @@
   margin-top: var(--space-4);
 }
 
-.profile-email-form > label {
-  display: grid;
-  gap: 0.45rem;
-  color: var(--color-muted);
-  font-size: 0.82rem;
-  font-weight: 800;
-}
-
-.profile-email-form input {
+ .profile-email-form input {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
@@ -136,19 +133,6 @@
   background: var(--color-surface-soft);
   color: var(--color-text);
   font: inherit;
-}
-
-.profile-email-form > button[type='submit'] {
-  /* Keep all email controls on the same horizontal focus axis for D-pad Up/Down. */
-  justify-self: stretch;
-  text-align: left;
-  min-height: 48px;
-  padding: 0.7rem 1rem;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-control);
-  background: var(--color-surface-control);
-  color: var(--color-text);
-  font-weight: 850;
 }
 
 .profile-email-form .profile-message { margin: 0; min-height: 1.3em; }
@@ -176,12 +160,14 @@
 }
 
 @media (max-width: 760px) {
-  .profile-name-form {
+  .profile-name-form,
+  .profile-email-address-row {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .profile-name-form button {
+  .profile-name-form button,
+  .profile-email-address-row button {
     align-self: flex-start;
   }
 }
