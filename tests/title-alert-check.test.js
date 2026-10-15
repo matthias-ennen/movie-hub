@@ -492,6 +492,7 @@ describe('trusted title alert data sources', () => {
     expect(await runTitleAlertCheck(opts)).toMatchObject({ observed: 0, availableCreated: 0 })
     expect([...db.data.keys()].filter(x => x.startsWith(`${profile}/notifications/`))).toHaveLength(1)
 
+    rent = false // The second watch verifies TV detection alone, not a leftover rental offer.
     const tvWatchPath = `${profile}/titleAlerts/movie-91-available`
     db.data.set(tvWatchPath, { ...db.data.get(watchPath), type: 'movie', tmdbId: 91,
       status: 'active', title: 'TV-Film', activationId: 'second' })
