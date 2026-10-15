@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { compactProviderOffers, mergeProviderOffers } from '../src/providers/providerOfferSnapshot.js'
 import { mergeTvAirings } from '../src/sources/mergeTvAirings.js'
 import { ensureProviderLiveRoute } from '../src/sources/providerLiveRoute.js'
 import { isPrimeTimeStart } from '../src/tv/tvPrimeTime.js'
@@ -169,7 +170,14 @@ function buildMetadataLookup(catalog, searchIndex) {
     const key = canonicalKey(value)
     if (!key) continue
     const current = lookup.get(key)
-    lookup.set(key, bestMetadata(current, value))
+    lookup.set(key, {
+      ...bestMetadata(current, value),
+      tmdbProviderOffers: mergeProviderOffers(compactProviderOffers(current), compactProviderOffers(value)),
+      tmdbProviderIds: [...new Set([
+        ...(Array.isArray(current?.tmdbProviderIds) ? current.tmdbProviderIds : []),
+        ...(Array.isArray(value?.tmdbProviderIds) ? value.tmdbProviderIds : []),
+      ])],
+    })
   }
   return lookup
 }
@@ -195,7 +203,17 @@ export function buildTv14DaySummary({
 
   const entries = [...grouped.entries()].map(([key, group]) => {
     const sourceEntryMetadata = group.sources.map(({ entry }) => entry)
-    const metadata = rankingMetadata(bestMetadata(metadataByKey.get(key), ...sourceEntryMetadata))
+    const metadataSources = [metadataByKey.get(key), ...sourceEntryMetadata]
+    const tmdbProviderOffers = mergeProviderOffers(...metadataSources.map(compactProviderOffers))
+    const tmdbProviderIds = [...new Set([
+      ...metadataSources.flatMap((source) => Array.isArray(source?.tmdbProviderIds) ? source.tmdbProviderIds : []),
+      ...tmdbProviderOffers.map((offer) => offer.id),
+    ])]
+    const metadata = {
+      ...rankingMetadata(bestMetadata(...metadataSources)),
+      tmdbProviderIds,
+      tmdbProviderOffers,
+    }
     const mergedAirings = mergeTvAirings(group.airings)
     const firstByStation = new Map()
     const firstPrimeByStation = new Map()

@@ -141,6 +141,7 @@ export default function DetailModal({
     titleProviderPresentation,
     providers,
     liveProviderEntries,
+    item,
   )
   const hasLiveProviders = liveProviderEntries.length > 0
   const hasStreamingProviders = streamingProviderIds.length > 0

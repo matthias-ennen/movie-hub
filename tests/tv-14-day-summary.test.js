@@ -10,6 +10,8 @@ describe('TV 14-day summary', () => {
           tmdbId: 11,
           type: 'movie',
           title: 'Film A',
+          tmdbProviderIds: ['netflix'],
+          tmdbProviderOffers: [{ id: 'netflix', offerTypes: ['flatrate'] }],
           voteAverage: 8.1,
           voteCount: 1000,
           popularity: 22,
@@ -64,6 +66,8 @@ describe('TV 14-day summary', () => {
       voteCount: 1000,
       popularity: 22,
       providerIds: ['joyn', 'waipu'],
+      tmdbProviderIds: ['netflix'],
+      tmdbProviderOffers: [{ id: 'netflix', offerTypes: ['flatrate'] }],
       airingCount: 2,
     })
     expect(summary.entries[0].nextAiring.providerIds).toEqual(['joyn', 'waipu'])

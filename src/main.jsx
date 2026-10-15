@@ -22,6 +22,7 @@ import './styles/waipu-tv.css'
 import './styles/issue287-focus-detail.css'
 import './styles/notifications.css'
 import './styles/detail.css'
+import './styles/poster-unified.css'
 
 installPerformanceDiagnostics()
 recordPerformanceEvent('app:render-start')

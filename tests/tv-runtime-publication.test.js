@@ -20,6 +20,7 @@ describe('TV runtime publication', () => {
           posterUrl: 'https://image.test/creepshow.jpg',
           genres: [{ id: 27, name: 'Horror' }],
           tmdbProviderIds: ['pluto'],
+          tmdbProviderOffers: [{ id: 'pluto', offerTypes: ['flatrate', 'rent', 'buy'] }],
           voteAverage: 6.9,
           voteCount: 1200,
         }],
@@ -75,6 +76,7 @@ describe('TV runtime publication', () => {
       year: 1982,
       ageRating: 16,
       tmdbProviderIds: ['pluto'],
+      tmdbProviderOffers: [{ id: 'pluto', offerTypes: ['flatrate', 'rent', 'buy'] }],
     })
     expect(entry.airings).toHaveLength(1)
     expect(entry.airings[0].providerIds).toEqual(['joyn', 'waipu'])
