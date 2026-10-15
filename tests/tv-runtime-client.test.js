@@ -175,7 +175,10 @@ describe('TV runtime client', () => {
     expect(normalizeTvRuntimeIndex(indexPayload)?.days[0].key).toBe('2026-10-01')
     expect(normalizeTvRuntimeDay(dayPayload, '2026-10-01')?.entries).toHaveLength(1)
     expect(normalizeTvRuntimeDay(dayPayload, '2026-10-02')).toBeNull()
-    expect(buildTvRuntimeSchedule(dayPayload, {}).titles[0].tmdbProviderOffers).toEqual([
+    expect(buildTvRuntimeSchedule(dayPayload, {
+      activeWaipuStationIds: ['kabeleinsclassics'],
+      activeJoynStationIds: ['kabeleinsclassics-de-hd'],
+    }).titles[0].tmdbProviderOffers).toEqual([
       { id: 'pluto', offerTypes: ['flatrate'] },
     ])
   })
