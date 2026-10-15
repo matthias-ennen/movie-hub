@@ -89,7 +89,7 @@ await test('binary Firestore writes and deletes preserve main/member UID and pro
 })
 await test('notification events pass the matching UID, profile and event ID to service reads', async () => {
   await withServer('profileEmailNotification', async (url) => {
-    for (const eventId of ['included-1', 'tv-found-1', 'tv-final-1']) {
+    for (const eventId of ['included-1', 'tv-found-1', 'tv-final-1', 'available-found-1']) {
       const document = `users/synthetic-user-2/profiles/family_1/notifications/${eventId}`
       const before = authCalls.length; reads.length = 0
       assert.equal(await postEvent(url, document), 204)
