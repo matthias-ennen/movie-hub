@@ -227,10 +227,12 @@ export function resolveFilmCollectionParts(collection, titles = []) {
         collectionId: collection.id,
       },
       providerIds: [...new Set([...(part.providerIds || []), ...(full.providerIds || [])])],
-      tmdbProviderIds: [...new Set([
-        ...(Array.isArray(part.tmdbProviderIds) ? part.tmdbProviderIds : []),
-        ...(Array.isArray(full.tmdbProviderIds) ? full.tmdbProviderIds : []),
-      ])],
+      ...(Array.isArray(part.tmdbProviderIds) || Array.isArray(full.tmdbProviderIds)
+        ? { tmdbProviderIds: [...new Set([
+            ...(Array.isArray(part.tmdbProviderIds) ? part.tmdbProviderIds : []),
+            ...(Array.isArray(full.tmdbProviderIds) ? full.tmdbProviderIds : []),
+          ])] }
+        : {}),
       tmdbProviderOffers: mergeProviderOffers(
         compactProviderOffers(part), compactProviderOffers(full),
       ),
