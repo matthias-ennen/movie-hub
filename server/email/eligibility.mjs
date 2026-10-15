@@ -17,8 +17,10 @@ export function notificationMailModel({ eventId, message, watch, preferences, ve
     || !Number.isFinite(timeMillis(verification.verifiedAt)) || createdAt < timeMillis(verification.verifiedAt)) return null
   const isFinal = message.phase === 'tv-final'
   if (eventId !== alertNotificationId(watch, isFinal ? 'final' : 'initial')) return null
-  if ((message.kind === 'included') !== (message.phase === 'included-found')) return null
-  const terminal = message.phase === 'included-found' || isFinal
+  if (message.kind === 'included' && message.phase !== 'included-found') return null
+  if (message.kind === 'available' && message.phase !== 'available-found') return null
+  if (message.kind === 'tv' && !['tv-found', 'tv-final'].includes(message.phase)) return null
+  const terminal = message.phase === 'included-found' || message.phase === 'available-found' || isFinal
   if (terminal ? watch.status !== 'completed' || watch.completionNotificationId !== eventId
     : !isActiveTitleWatch(watch) || message.scheduleStatus !== 'scheduled') return null
   let expiresAt = Math.min(createdAt + MAIL_RETRY_WINDOW, timeMillis(message.expiresAt))
