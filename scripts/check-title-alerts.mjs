@@ -4,10 +4,11 @@ import { normalizeTmdbWatchProviders } from '../src/services/tmdb.js'
 import { isActiveTitleWatch, personalHardExpiry, timeMillis } from '../src/notifications/titleAlertLifecycleModel.js'
 import { tvFirstAiringReconciliation, selectTvAiringForReconciliation } from '../src/notifications/tvAiringReconciliationModel.js'
 import { PROVIDER_REGISTRY } from '../src/providers/providerRegistry.js'
+import { availabilitySettingsFingerprint } from '../src/notifications/availableWatchModel.js'
 import { normalizeStoredProviderSelection } from '../src/settings/providerSelectionModel.js'
 import {
   alertNotificationId, alertTitleKey, dueTvAiring, filterEnabledTvAirings, includedProviderIds,
-  includedTransition, availableTransition, anyOfferProviderIds, availabilitySettingsFingerprint,
+  includedTransition, availableTransition, anyOfferProviderIds,
   tvAiringId, tvMessage, tvTransition, watchId,
 } from '../src/notifications/titleAlertModel.js'
 
