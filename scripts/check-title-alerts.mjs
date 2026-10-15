@@ -197,7 +197,7 @@ async function storeAvailable(db, entry, account, offers, tvTitles, now, tvUnava
       || current.data().activationId !== watch.activationId) return false
 
     const availableProviders = [...new Set([
-      ...streamingIds, ...tvIds, ...(movieHub.exists && movieHub.data()?.hasMedia === true ? ['moviehub'] : []),
+      ...streamingIds, ...tvIds, ...(enabled.includes('moviehub') && movieHub.exists && movieHub.data()?.hasMedia === true ? ['moviehub'] : []),
     ])]
     // Absence is not authoritative when either TV source is incomplete. A real
     // positive observation, however, can be used without waiting for its peer.
