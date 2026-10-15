@@ -130,6 +130,7 @@ const dayPayload = {
     genreIds: [27],
     genreNames: ['Horror'],
     tmdbProviderIds: ['pluto'],
+    tmdbProviderOffers: [{ id: 'pluto', offerTypes: ['flatrate'] }],
     airings: [{
       providerIds: ['joyn', 'waipu'],
       providerStationIds: {
@@ -174,6 +175,9 @@ describe('TV runtime client', () => {
     expect(normalizeTvRuntimeIndex(indexPayload)?.days[0].key).toBe('2026-10-01')
     expect(normalizeTvRuntimeDay(dayPayload, '2026-10-01')?.entries).toHaveLength(1)
     expect(normalizeTvRuntimeDay(dayPayload, '2026-10-02')).toBeNull()
+    expect(buildTvRuntimeSchedule(dayPayload, {}).titles[0].tmdbProviderOffers).toEqual([
+      { id: 'pluto', offerTypes: ['flatrate'] },
+    ])
   })
 
   it('validates and loads the dedicated TV hero snapshot only', async () => {
