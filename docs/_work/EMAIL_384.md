@@ -1,6 +1,35 @@
 # #384 – Profilbezogene E-Mail-Mitteilungen
 
-Stand: **14.10.2026, 19:22 Uhr (Europe/Berlin) – Tagesabschluss**.
+## Fortsetzung 15.10.2026 – Versanddomain verifiziert, produktive Umstellung beauftragt
+
+- Matthias bestätigt echten Empfang beider TV-Mail-Phasen (`tv-found` und
+  `tv-final`). Individuelle Minutengenauigkeit wurde nicht vermessen.
+- netcup DNS-Änderungen veröffentlicht; Resend `mail.moviehubgermany.de`
+  in Ireland `Verified`, beide SPF-CNAMEs und DKIM jeweils `Verified`.
+  Ein zusätzlicher DMARC-TXT-Eintrag mit `v=DMARC1; p=none;` liegt bei netcup.
+- Matthias hat einen neuen domainbeschränkten Resend-Sending-Key und
+  **Version 2** im bestehenden Secret `RESEND_API_KEY` bestätigt.
+  Cloud-Version/-Secret-Inhalte noch nicht unabhängig geprüft.
+- **Neuer ausdrücklicher Auftrag:** das provisorische Testempfänger-Limit
+  vollständig entfernen und alle vier aktiven Funktionen auf
+  `MovieHub <mitteilungen@mail.moviehubgermany.de>` und die
+  verifizierte Domain umstellen. Nur per Opt-in und bestätigter Adresse
+  versenden; nicht rückwirkend. #384 bleibt offen.
+- Dafür entsteht ein eigener geprüfter PR mit
+  `scripts/promote-profile-email-domain.mjs` und Tests. Dieser
+  **ändert die Cloud nicht beim Merge**. Benutzer führt den geprüften
+  Cloud-Shell-Lauf danach aus und bestätigt Ausgabe/Empfang.
+  **Keinesfalls** vorherige Testaktivierung, ausgeschaltetes Prepare
+  oder `--refresh-events` erneut ausführen. Einzelheiten:
+  [EMAIL_DEPLOYMENT.md](../EMAIL_DEPLOYMENT.md).
+
+Die nachfolgenden Inhalte sind der archivierte Tagesabschluss vom 14.10.
+und deshalb kein neuer Auftrag, die bereits erledigte Domainregistrierung
+oder DNS-Einrichtung zu wiederholen.
+
+---
+
+Stand des historischen Abschlusses: **14.10.2026, 19:22 Uhr (Europe/Berlin)**.
 
 Matthias setzt hier einen Schlusspunkt für heute. Die dokumentierte Arbeitsphase
 ist beendet; **#384 bleibt als aktuelles Arbeitspaket offen**. Der erste echte

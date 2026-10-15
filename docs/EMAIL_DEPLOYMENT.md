@@ -1,6 +1,68 @@
 # Private Mailfunktionen bereitstellen (#384)
 
-## Aktueller Tagesabschluss – 14.10.2026, 19:22 Uhr
+## Neu: kontrollierter Produktionsumstieg auf die verifizierte Resend-Domain (15.10.2026)
+
+**Stand: Vorbereitung im PR – noch kein Cloud-Deploy und keine Empfangsabnahme.**
+Resend zeigt `mail.moviehubgermany.de` (Ireland) als `Verified`; die drei
+versandrelevanten DKIM-/CNAME-Einträge sind `Verified`. netcup CloudDNS hat die
+Änderungen übernommen. Der zusätzliche `_dmarc`-Eintrag steht mit `p=none`.
+Matthias hat beide TV-Phasen tatsächlich empfangen, die neue domainbeschränkte
+Resend-Sending-Berechtigung angelegt und eine neue `RESEND_API_KEY`-Version **2**
+im Secret Manager bestätigt. Der bestehende Testbetrieb wurde **noch nicht** umgestellt.
+
+**Freigabe durch Matthias:** provisorische Testempfängerbeschränkung komplett
+entfernen, vier vorhandene Funktionen mit neuem Absender
+`MovieHub <mitteilungen@mail.moviehubgermany.de>` in den normalen
+Opt-in/Bestätigungsbetrieb überführen. Keine automatische Mail an Profile ohne
+Einwilligung und verifizierte Adresse; keine Altmitteilungen neu aufrollen.
+
+**Nach grünem CI, geprüftem Merge und festgepinnter Quellversion in Google Cloud Shell:**
+
+1. Projekt `movie-hub-62459` wählen, Node 22+, `gcloud`-Anmeldung und
+   Firestore-Leseberechtigung des Besitzers prüfen. Nur den **geprüften
+   Merge-Commit** als Archiv herunterladen; kein möglicherweise veraltetes
+   lokales Checkout verwenden. `npm ci` im Projektroot ausführen.
+2. Nur Metadaten lesen: `node scripts/promote-profile-email-domain.mjs --key-version=2`.
+   Erwartung: Projekt/Region, vier Gen2-Mailfunktionen, Laufzeit- und
+   Eventidentitäten, private HTTP-/Event-IAM-Politik, bestehende Action-URL,
+   historische Startzeit, signierende Token-Secret-Version, aktivierte
+   Resend-Secret-Version 2 sowie existierenden privaten Minutenjob geprüft.
+   Die Resend-Secret-Nutzdaten nicht lesen oder loggen.
+3. Erst nach stimmigem Ergebnis:
+   `node scripts/promote-profile-email-domain.mjs --apply --key-version=2`.
+   Der Helfer fragt vor Änderungen den `queueAt`-Index in Firestore ab:
+   bis zu 500 wartende Sendejobs (nur Senderfeld), blockiert alte bereits
+   versuchte Senderjobs und bleibt bei fehlender/zu großer Abfrage stehen.
+   Er pausiert **nur** den eigenen E-Mail-Retry-Minutenjob, aktualisiert die
+   vorhandenen vier Funktionen einzeln, pinnt Resend-Key **2** und die bisherige
+   Token-Key-Version, entfernt beide `MOVIE_HUB_EMAIL_TEST_*`-Flags und setzt
+   den verifizierten Absender. Er verändert weder historische Startzeit
+   noch Profildaten, allgemeine Zeitpläne, IAM-Policies oder URLs.
+4. Nach jedem Funktionsupdate werden Identitäten, Secrets, Umgebung, Trigger,
+   Aufrufrechte und URL erneut geprüft. Die Action-Seite wird ausschließlich
+   mittels zustandslosem GET getestet. Nach vier korrekten Funktionen wird
+   der private Minutenjob wieder gestartet und sein `ENABLED`-Status geprüft.
+   Erfolgsmeldung: `PRODUKTIVER MAILVERSAND AKTIV`.
+5. **Teilabbruch:** bisherige Funktionsänderungen können bereits aktiv sein;
+   der E-Mail-Retry-Job bleibt ggf. `PAUSED`. Den Zustand zuerst untersuchen,
+   insbesondere alte Senderjobs, und **denselben** geprüften Befehl fortsetzen.
+   Weder den Testaktivierer noch den deaktivierenden Prepare-Workflow starten.
+   Niemals `RESEND_API_KEY`-Werte in Chat, Logs oder Repository kopieren.
+6. Echtes Senden/Empfangen über neuen Absender kontrollieren (bestätigte
+   Hauptadresse, separate Unterprofiladresse, Inklusiv-/TV-Phasen,
+   Linkbestätigung, Abmeldung, Adressänderung, Abschalten und Mehrgeräte).
+   Resend-`Verified` allein ist keine Zustellbestätigung. Bis zur ausdrücklichen
+   Endabnahme #384 offen lassen.
+
+**Technische Restgrenze:** Ein altes, schon mit dem Provisoriums-Absender
+versuchtes Warteschlangenelement darf nicht mit dem neuen, domänenbeschränkten
+Resend-Schlüssel erneut gesendet werden. Der Helfer stoppt dann kontrolliert,
+statt mit geändertem Absender/Idempotency-Key möglicherweise doppelt zu senden.
+Ein solcher Teilzustand erfordert gezielte Warteschlangenprüfung vor Fortsetzung.
+
+---
+
+## Historischer Tagesabschluss – 14.10.2026, 19:22 Uhr
 
 **Die Testinstallation ist aktiv; der erste echte TV-Mail-Empfang ist bestätigt.**
 Matthias' Lauf um 18:57 aktualisierte Preferences/Notification aus
