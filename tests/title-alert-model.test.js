@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { availabilitySettingsFingerprint } from '../src/notifications/availableWatchModel.js'
 import {
   TV_DISCOVERY_WINDOW_MS, TV_FINAL_REMINDER_LEAD_MS,
   dueTvAiring, filterEnabledTvAirings, includedProviderIds, includedTransition, availableTransition,
-  anyOfferProviderIds, availabilitySettingsFingerprint, tvAiringId, tvTransition,
+  anyOfferProviderIds, tvAiringId, tvTransition,
 } from '../src/notifications/titleAlertModel.js'
 
 describe('personal title alerts', () => {
