@@ -11,6 +11,9 @@ describe('#385 shared poster geometry', () => {
     expect(entry).toContain("import './styles/poster-unified.css'")
     expect(css).toContain('.poster-card .poster-meta-line')
     expect(css).toContain('.top-ten-poster-card')
+    expect(css).toContain('.collection-part-card .provider-badge')
+    expect(css).toContain('.collection-part-art .provider-badges')
+    expect(css).toContain('padding-bottom: calc(var(--poster-badge-height) + 1.75rem)')
     expect(css).toContain('--poster-badge-min-width:')
   })
   it('positions the extra label 60% above / 40% inside each badge', () => {
