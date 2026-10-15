@@ -51,6 +51,22 @@ describe('detail live provider presentation', () => {
     expect(streamingProviderIds).toEqual(['joyn', 'prime', 'netzkino'])
   })
 
+  it('keeps verified Joyn ADS alongside its separate live AIR offer', () => {
+    const presentation = {
+      providerIds: ['joyn', 'disney'],
+      tmdbProviderIds: ['joyn', 'disney'],
+    }
+    expect(buildDetailStreamingProviderIds(presentation, {
+      joyn: { id: 'joyn' },
+      disney: { id: 'disney' },
+    }, [{ providerId: 'joyn', canLaunch: true }], {
+      tmdbProviderOffers: [
+        { id: 'joyn', offerTypes: ['ads'] },
+        { id: 'disney', offerTypes: ['flatrate'] },
+      ],
+    })).toEqual(['joyn', 'disney'])
+  })
+
   it('does not show Joyn twice when the concrete TV airing already uses Joyn', () => {
     const streamingProviderIds = buildDetailStreamingProviderIds({
       providerIds: ['joyn', 'prime'],
