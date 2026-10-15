@@ -23,7 +23,12 @@ describe('personal title alerts', () => {
     const changed = availabilitySettingsFingerprint({ providerSettings: { enabledProviderIds: ['prime'], version: 2 } })
     expect(availableTransition(zero, 'activation-a', changed, true, fingerprint).send).toBe(false)
     expect(availableTransition(null, 'activation-a', changed, true, fingerprint).send).toBe(false)
-    expect(availableTransition(null, 'activation-b', fingerprint, true, fingerprint).send).toBe(true)
+    expect(availableTransition(null, 'activation-b', fingerprint, true, fingerprint).send).toBe(false)
+    // Only a subsequent true transition from a verified absent baseline may notify.
+    expect(availableTransition(
+      availableTransition(null, 'activation-b', fingerprint, true, fingerprint),
+      'activation-b', fingerprint, true, fingerprint,
+    ).send).toBe(false)
   })
 
 
