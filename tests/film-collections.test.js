@@ -64,6 +64,8 @@ describe('Filmreihen-Katalog', () => {
       id: 40, name: 'Toy Story', parts: [{
         id: 1, title: 'A Toy Story', providerIds: ['disney'],
         tmdbProviderOffers: [{ id: 'disney', offerTypes: ['flatrate'] }],
+      }, {
+        id: 2, title: 'Toy Story 2',
       }],
     }])['40']
     expect(raw.parts[0].tmdbProviderOffers[0].offerTypes).toEqual(['flatrate'])

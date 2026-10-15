@@ -5,7 +5,7 @@ import PosterCard from '../src/components/PosterCard.jsx'
 import CollectionPicker from '../src/components/detail/CollectionPicker.jsx'
 import { resolvePosterProviderModel } from '../src/providers/posterProviderModel.js'
 import { enrichSearchPosterEntries } from '../src/search/searchPosterEvidence.js'
-import { resetProviderSelectionSnapshot } from '../src/settings/providerSelectionRuntime.js'
+import { resetProviderSelectionSnapshot, updateProviderSelectionSnapshot } from '../src/settings/providerSelectionRuntime.js'
 
 // The nested dialog is portaled on devices; SSR examines its stable markup only.
 vi.mock('../src/components/detail/DetailDialog.jsx', () => ({
@@ -21,7 +21,10 @@ const item = {
   ],
 }
 
-beforeEach(() => resetProviderSelectionSnapshot({ loading: false }))
+beforeEach(() => {
+  resetProviderSelectionSnapshot({ loading: false })
+  updateProviderSelectionSnapshot({ enabledProviderIds: ['disney', 'magenta', 'youtube', 'waipu'] })
+})
 
 describe('#385 common provider contract across poster surfaces', () => {
   it('resolves identical labels and order from one common model', () => {
