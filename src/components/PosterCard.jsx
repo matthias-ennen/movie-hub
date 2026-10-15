@@ -87,6 +87,8 @@ export default function PosterCard({
           providerIds={providerIds}
           maxVisible={3}
           includeMovieHub={providerPresentation.includeMovieHub}
+          item={item}
+          context={providerPresentation.context}
         />
       )}
     </button>
