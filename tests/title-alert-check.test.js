@@ -510,7 +510,7 @@ describe('trusted title alert data sources', () => {
     const now = Date.parse('2026-10-15T13:00:00Z')
     const user = 'users/test'
     const profile = `${user}/profiles/kid`
-    const oldAccount = { providerSettings: { enabledProviderIds: ['netflix'], version: 2 } }
+    const oldAccount = { providerSettings: { enabledProviderIds: ['netflix', 'moviehub'], version: 2 } }
     const watch = { schemaVersion: 2, kind: 'available', status: 'active',
       type: 'series', tmdbId: 42, title: 'Serie', activationId: 'session',
       settingsFingerprint: availabilitySettingsFingerprint(oldAccount) }
