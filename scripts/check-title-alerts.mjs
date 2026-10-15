@@ -7,7 +7,8 @@ import { PROVIDER_REGISTRY } from '../src/providers/providerRegistry.js'
 import { normalizeStoredProviderSelection } from '../src/settings/providerSelectionModel.js'
 import {
   alertNotificationId, alertTitleKey, dueTvAiring, filterEnabledTvAirings, includedProviderIds,
-  includedTransition, tvAiringId, tvMessage, tvTransition, watchId,
+  includedTransition, availableTransition, anyOfferProviderIds, availabilitySettingsFingerprint,
+  tvAiringId, tvMessage, tvTransition, watchId,
 } from '../src/notifications/titleAlertModel.js'
 
 const MAX_WATCHES = 500
@@ -167,6 +168,71 @@ async function storeIncluded(db, entry, account, offers, now) {
   })
 }
 
+
+async function storeAvailable(db, entry, account, offers, tvTitles, now, tvUnavailable = false) {
+  const { snapshot, userId, watch } = entry
+  const settingsFingerprint = availabilitySettingsFingerprint(account)
+  const enabled = normalizeStoredProviderSelection(
+    account?.providerSettings?.enabledProviderIds, account?.providerSettings?.version,
+  ).enabledProviderIds
+  const streamingIds = anyOfferProviderIds(offers, enabled)
+  const tvCandidates = filterEnabledTvAirings(tvTitles.get(alertTitleKey(watch))?.airings, account)
+  const tvAiring = dueTvAiring(tvCandidates, [], now)
+  const tvIds = tvAiring ? [...new Set((Array.isArray(tvAiring.providerIds) && tvAiring.providerIds.length
+    ? tvAiring.providerIds : [tvAiring.source]).filter((id) => ['waipu', 'joyn'].includes(id)))] : []
+  const stateRef = snapshot.ref.parent.parent.collection('titleAlertState').doc(snapshot.id)
+  const eventId = alertNotificationId(watch, 'initial')
+  const eventRef = snapshot.ref.parent.parent.collection('notifications').doc(eventId)
+  const movieHubRef = db.collection('users').doc(userId).collection('sharedMedia')
+    .doc(`${watch.type}-${watch.tmdbId}`)
+  const sourcesComplete = !tvUnavailable && tvTitles.sourceComplete !== false
+
+  return db.runTransaction(async (transaction) => {
+    const [current, oldState, existingEvent, movieHub] = await Promise.all([
+      transaction.get(snapshot.ref), transaction.get(stateRef),
+      transaction.get(eventRef), transaction.get(movieHubRef),
+    ])
+    if (!current.exists || !isActiveTitleWatch(current.data())
+      || current.data().activationId !== watch.activationId) return false
+
+    const availableProviders = [...new Set([
+      ...streamingIds, ...tvIds, ...(movieHub.exists && movieHub.data()?.hasMedia === true ? ['moviehub'] : []),
+    ])]
+    // Absence is not authoritative when either TV source is incomplete. A real
+    // positive observation, however, can be used without waiting for its peer.
+    if (!availableProviders.length && !sourcesComplete) return false
+    const transition = availableTransition(
+      oldState.exists ? oldState.data() : null,
+      watch.activationId, settingsFingerprint,
+      availableProviders.length > 0, watch.settingsFingerprint,
+    )
+    if (!transition.send && !existingEvent.exists) {
+      transaction.set(stateRef, { ...transition, updatedAt: new Date(now) })
+      return false
+    }
+
+    if (!existingEvent.exists) {
+      const names = availableProviders.map((id) => providerLabels.get(id) || id)
+      transaction.create(eventRef, {
+        ...notification(watch, 'available',
+          `${watch.title} ist jetzt bei ${names.join(', ')} verfügbar.`, now, now + 30 * 86400000),
+        schemaVersion: 2, phase: 'available-found',
+        eventAt: new Date(now), completedAt: new Date(now),
+        providerNames: names.map((name) => String(name).slice(0, 100)).slice(0, 20),
+      })
+    }
+    transaction.update(snapshot.ref, {
+      schemaVersion: 2, status: 'completed', completedAt: new Date(now),
+      completionNotificationId: eventId,
+    })
+    transaction.set(stateRef, {
+      ...transition, status: 'completed', available: true,
+      completedAt: new Date(now), updatedAt: new Date(now),
+    })
+    return !existingEvent.exists
+  })
+}
+
 async function storeTv(db, entry, account, tvTitles, now) {
   const { snapshot, watch } = entry
   const airings = filterEnabledTvAirings(tvTitles.get(alertTitleKey(watch))?.airings, account)
@@ -302,7 +368,7 @@ export async function runTitleAlertCheck({ db, token, now = Date.now(), fetchImp
       }
     }
   }
-  const needsTv = entries.some((entry) => entry.watch.kind === 'tv')
+  const needsTv = entries.some((entry) => ['tv', 'available'].includes(entry.watch.kind))
   let publishedTv = tvTitles || new Map()
   let tvUnavailable = false
   if (needsTv && !tvTitles) {
@@ -310,7 +376,7 @@ export async function runTitleAlertCheck({ db, token, now = Date.now(), fetchImp
     catch (error) { console.warn(error.message); tvUnavailable = true }
   }
   const offers = new Map()
-  const result = { observed: entries.length, includedCreated: 0, tvCreated: 0, failed: 0 }
+  const result = { observed: entries.length, includedCreated: 0, tvCreated: 0, availableCreated: 0, failed: 0 }
 
   for (const entry of entries) {
     try {
@@ -318,6 +384,12 @@ export async function runTitleAlertCheck({ db, token, now = Date.now(), fetchImp
         const key = alertTitleKey(entry.watch)
         if (!offers.has(key)) offers.set(key, await fetchWatchOffers(entry.watch, token, fetchImpl))
         result.includedCreated += Number(await storeIncluded(db, entry, accounts.get(entry.userId), offers.get(key), now))
+      } else if (entry.watch.kind === 'available') {
+        const key = alertTitleKey(entry.watch)
+        if (!offers.has(key)) offers.set(key, await fetchWatchOffers(entry.watch, token, fetchImpl))
+        result.availableCreated += Number(await storeAvailable(
+          db, entry, accounts.get(entry.userId), offers.get(key), publishedTv, now, tvUnavailable,
+        ))
       } else {
         if (tvUnavailable) { result.failed++; continue }
         result.tvCreated += Number(await storeTv(db, entry, accounts.get(entry.userId), publishedTv, now))
