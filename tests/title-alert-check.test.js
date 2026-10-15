@@ -464,7 +464,7 @@ describe('trusted title alert data sources', () => {
     const { availabilitySettingsFingerprint } = await import('../src/notifications/availableWatchModel.js')
     const now = Date.parse('2026-10-15T13:00:00Z')
     const user = 'users/test'
-    const account = { providerSettings: { enabledProviderIds: ['prime'], version: 2 } }
+    const account = { providerSettings: { enabledProviderIds: ['prime', 'waipu'], version: 2 } }
     const profile = `${user}/profiles/main`
     const watchPath = `${profile}/titleAlerts/movie-90-available`
     const db = inMemoryFirestore({
@@ -487,7 +487,7 @@ describe('trusted title alert data sources', () => {
     expect(await runTitleAlertCheck(opts)).toMatchObject({ observed: 1, availableCreated: 1, failed: 0 })
     const eventPath = `${profile}/notifications/movie-90-available-first-initial`
     expect(db.data.get(eventPath)).toMatchObject({ kind: 'available', phase: 'available-found',
-      providerNames: ['Prime Video'] })
+      title: 'Jetzt verfügbar', providerNames: ['Prime Video'] })
     expect(db.data.get(watchPath).status).toBe('completed')
     expect(await runTitleAlertCheck(opts)).toMatchObject({ observed: 0, availableCreated: 0 })
     expect([...db.data.keys()].filter(x => x.startsWith(`${profile}/notifications/`))).toHaveLength(1)
@@ -501,7 +501,7 @@ describe('trusted title alert data sources', () => {
       source: 'waipu', startTime, stopTime: new Date(now + 2 * 86400000 + 7200000).toISOString() }] })
     expect(await runTitleAlertCheck(opts)).toMatchObject({ availableCreated: 1, failed: 0 })
     expect(db.data.get(`${profile}/notifications/movie-91-available-second-initial`)).toMatchObject({
-      phase: 'available-found', providerNames: ['waipu.tv'],
+      phase: 'available-found', title: 'Jetzt verfügbar', providerNames: ['waipu.tv'],
     })
   })
 
