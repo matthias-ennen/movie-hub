@@ -16,6 +16,9 @@ describe('actual email profile form rendering', () => {
     expect(html).toContain('value="owner@example.org"')
     expect(html).toContain('role="switch" aria-checked="false"')
     expect(html).toContain('Mitteilungen auch per E-Mail erhalten')
+    expect(html).toContain('profile-email-address-row')
+    expect(html).toContain('E-Mail speichern')
+    expect(html).not.toContain('E-Mail-Einstellungen speichern')
     expect(html).toMatch(/type="submit" data-focusable="true"/)
   })
   it('keeps member profiles empty and preserves deliberately cleared primary addresses', () => {
