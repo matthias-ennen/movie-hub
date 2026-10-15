@@ -8,6 +8,7 @@ import {
 import { buildSearchCatalog } from '../search/searchCatalog.js'
 import { buildActorSearchIndex } from '../search/searchActors.js'
 import { mergeLiveAiringStatus } from '../search/searchLiveAiringStatus.js'
+import { enrichSearchPosterEntries } from '../search/searchPosterEvidence.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import PosterCard from './PosterCard.jsx'
 
@@ -55,7 +56,7 @@ export default function SearchView({ metadataTitles, personalTitles, statesByKey
     [searchCatalog],
   )
   const entries = useMemo(
-    () => mergeLiveAiringStatus(searchCatalog.entries, fullTitles),
+    () => enrichSearchPosterEntries(mergeLiveAiringStatus(searchCatalog.entries, fullTitles), fullTitles),
     [searchCatalog, fullTitles],
   )
   const fullByKey = useMemo(

@@ -18,11 +18,15 @@ function normalizeOffer(offer) {
 export function toSearchIndexEntry(title, { scope = 'public' } = {}) {
   if (!title?.id || !title?.title) return null
 
-  const providerOffers = (Array.isArray(title.providerOffers) ? title.providerOffers : [])
+  const sourceOffers = Array.isArray(title.tmdbProviderOffers) && title.tmdbProviderOffers.length
+    ? title.tmdbProviderOffers
+    : title.providerOffers
+  const providerOffers = (Array.isArray(sourceOffers) ? sourceOffers : [])
     .map(normalizeOffer)
     .filter(Boolean)
   const providerIds = [...new Set([
     ...(Array.isArray(title.providerIds) ? title.providerIds : []),
+    ...(Array.isArray(title.tmdbProviderIds) ? title.tmdbProviderIds : []),
     ...providerOffers.map((offer) => offer.id),
   ].filter(Boolean))]
 

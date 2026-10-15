@@ -1,4 +1,5 @@
 import { buildTmdbImageUrl } from '../services/tmdb.js'
+import { compactProviderOffers, mergeProviderOffers } from '../providers/providerOfferSnapshot.js'
 
 const ACCENT_PAIRS = [
   ['#c88953', '#50311f'],
@@ -114,8 +115,16 @@ export function normalizeCollectionPart(raw, collectionId) {
     genres: Array.isArray(raw?.genres) ? raw.genres : [],
     cast: Array.isArray(raw?.cast) ? raw.cast : [],
     videos: Array.isArray(raw?.videos) ? raw.videos : [],
-    providerIds: Array.isArray(raw?.providerIds) ? [...new Set(raw.providerIds)] : [],
-    providerOffers: Array.isArray(raw?.providerOffers) ? raw.providerOffers : [],
+    providerIds: [...new Set([
+      ...(Array.isArray(raw?.providerIds) ? raw.providerIds : []),
+      ...compactProviderOffers(raw).map((offer) => offer.id),
+    ])],
+    ...(Array.isArray(raw?.tmdbProviderIds)
+      ? { tmdbProviderIds: [...new Set(raw.tmdbProviderIds)] }
+      : {}),
+    providerOffers: Array.isArray(raw?.providerOffers) ? raw.providerOffers : compactProviderOffers(raw),
+    tmdbProviderOffers: compactProviderOffers(raw),
+    metadataChecks: raw?.metadataChecks || null,
     accent,
     accent2,
     facets: { collectionId: finiteId(collectionId) },
@@ -218,6 +227,15 @@ export function resolveFilmCollectionParts(collection, titles = []) {
         collectionId: collection.id,
       },
       providerIds: [...new Set([...(part.providerIds || []), ...(full.providerIds || [])])],
+      ...(Array.isArray(part.tmdbProviderIds) || Array.isArray(full.tmdbProviderIds)
+        ? { tmdbProviderIds: [...new Set([
+            ...(Array.isArray(part.tmdbProviderIds) ? part.tmdbProviderIds : []),
+            ...(Array.isArray(full.tmdbProviderIds) ? full.tmdbProviderIds : []),
+          ])] }
+        : {}),
+      tmdbProviderOffers: mergeProviderOffers(
+        compactProviderOffers(part), compactProviderOffers(full),
+      ),
     }
   })
 }

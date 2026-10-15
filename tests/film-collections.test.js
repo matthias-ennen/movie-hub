@@ -59,6 +59,28 @@ describe('Filmreihen-Katalog', () => {
     expect(index['99']).toBeUndefined()
   })
 
+  it('preserves TMDB access types through normalized collection and loaded title merge', () => {
+    const raw = buildFilmCollectionIndex([{
+      id: 40, name: 'Toy Story', parts: [{
+        id: 1, title: 'A Toy Story', providerIds: ['disney'],
+        tmdbProviderOffers: [{ id: 'disney', offerTypes: ['flatrate'] }],
+      }, {
+        id: 2, title: 'Toy Story 2',
+      }],
+    }])['40']
+    expect(raw.parts[0].tmdbProviderOffers[0].offerTypes).toEqual(['flatrate'])
+    const [part] = resolveFilmCollectionParts(raw, [
+      catalogTitle(1, 40, {
+        providerIds: ['magenta'],
+        tmdbProviderOffers: [{ id: 'magenta', offerTypes: ['rent', 'buy'] }],
+      }),
+    ])
+    expect(part.tmdbProviderOffers).toEqual(expect.arrayContaining([
+      { id: 'disney', offerTypes: ['flatrate'] },
+      { id: 'magenta', offerTypes: ['rent', 'buy'] },
+    ]))
+  })
+
   it('accepts old catalogs without a collection index', () => {
     expect(normalizeFilmCollectionIndex(undefined)).toEqual({})
     expect(normalizeFilmCollectionIndex([])).toEqual({})

@@ -29,6 +29,17 @@ function title(overrides = {}) {
 }
 
 describe('skalierbarer Movie-Hub-Suchindex', () => {
+  it('projects evidenced TMDB offer types even if the legacy providerOffers field is absent', () => {
+    const [entry] = buildSearchIndexEntries([title({
+      providerIds: [],
+      providerOffers: [],
+      tmdbProviderIds: ['disney'],
+      tmdbProviderOffers: [{ id: 'disney', offerTypes: ['flatrate'] }],
+    })])
+    expect(entry.providerIds).toEqual(['disney'])
+    expect(entry.providerOffers).toEqual([{ id: 'disney', tmdbProviderId: null, offerTypes: ['flatrate'] }])
+  })
+
   it('projects full catalog titles into compact search entries', () => {
     const [entry] = buildSearchIndexEntries([title()])
 
