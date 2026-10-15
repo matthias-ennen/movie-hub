@@ -389,6 +389,7 @@ function titleFromEntry(entry) {
     genreNames,
     genre: genreNames.length ? genreNames.join(' · ') : 'TV-Programm',
     tmdbProviderIds,
+    tmdbProviderOffers: Array.isArray(entry?.tmdbProviderOffers) ? entry.tmdbProviderOffers : [],
     providerIds: tmdbProviderIds,
     metadataComplete: false,
   }
