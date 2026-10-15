@@ -506,7 +506,7 @@ describe('trusted title alert data sources', () => {
   })
 
   it('detects an added personal MovieHub entry and ignores changed provider settings', async () => {
-    const { availabilitySettingsFingerprint } = await import('../src/notifications/titleAlertModel.js')
+    const { availabilitySettingsFingerprint } = await import('../src/notifications/availableWatchModel.js')
     const now = Date.parse('2026-10-15T13:00:00Z')
     const user = 'users/test'
     const profile = `${user}/profiles/kid`
@@ -543,7 +543,7 @@ describe('trusted title alert data sources', () => {
   })
 
   it('never treats an incomplete TV import as proof that an unavailable title remains absent', async () => {
-    const { availabilitySettingsFingerprint } = await import('../src/notifications/titleAlertModel.js')
+    const { availabilitySettingsFingerprint } = await import('../src/notifications/availableWatchModel.js')
     const account = {}
     const profile = 'users/test/profiles/main'
     const watchPath = `${profile}/titleAlerts/movie-55-available`
