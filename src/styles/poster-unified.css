@@ -1,0 +1,125 @@
+/*
+ * #385: One proportional poster geometry across all tabs, TV rows and Top Ten.
+ * Keep the heading anchored; pull the year/status line closer, with clearance
+ * for the provider mini-labels beneath.
+ */
+.poster-card {
+  --poster-badge-height: 2rem;
+  --poster-badge-min-width: 2.35rem;
+  --poster-badge-font: 0.62rem;
+  --poster-offer-font: 0.56rem;
+  --poster-offer-height: 0.8rem;
+}
+
+.poster-card .poster-copy {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0;
+}
+
+.poster-card .poster-title {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.poster-card .poster-meta-line {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  align-items: center;
+  min-width: 0;
+  gap: 0.45rem;
+  margin-top: 0.13rem;
+  /* Avoid pushing the title upwards or moving the provider row. */
+  transform: translateY(-0.12rem);
+}
+
+.poster-card .poster-year {
+  margin-top: 0;
+  font-size: 0.74rem;
+  line-height: 1;
+}
+
+.poster-card .provider-badges {
+  left: 0.65rem;
+  right: 0.65rem;
+  bottom: 0.65rem;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  gap: 0.3rem;
+  overflow: visible;
+}
+
+.poster-card .provider-badge {
+  flex: 0 0 auto;
+  min-width: var(--poster-badge-min-width);
+  height: var(--poster-badge-height);
+  padding: 0 0.32rem;
+  font-size: var(--poster-badge-font);
+}
+
+/* Provider badge top border crosses the small label at 60% of its height. */
+.provider-badge .provider-offer-tag {
+  top: 0;
+  right: -1px;
+  transform: translateY(-60%);
+  min-height: var(--poster-offer-height, 0.8rem);
+  font-size: var(--poster-offer-font, 0.56rem);
+}
+
+/* MovieHub base badges use the same neutral base colors as any provider. */
+.provider-badge.provider-movie-hub,
+.provider-action .provider-badge.provider-movie-hub {
+  border-color: var(--theme-provider-border);
+  background: var(--theme-provider-bg);
+  color: var(--theme-provider-text);
+}
+
+/* Top Ten shares positions while enlarging its content proportionally. */
+.top-ten-poster-card {
+  --poster-badge-height: 2.35rem;
+  --poster-badge-min-width: 2.75rem;
+  --poster-badge-font: 0.74rem;
+  --poster-offer-font: 0.66rem;
+  --poster-offer-height: 0.94rem;
+}
+
+.top-ten-poster-card .poster-title,
+.top-ten-poster-card .poster-art.has-image .poster-title {
+  font-size: clamp(1.1rem, 1.65vw, 1.53rem);
+}
+.top-ten-poster-card .poster-year {
+  font-size: 0.88rem;
+}
+.top-ten-poster-card .poster-meta-line {
+  gap: 0.55rem;
+  margin-top: 0.18rem;
+  transform: translateY(-0.15rem);
+}
+.top-ten-poster-card .poster-kicker {
+  font-size: 0.68rem;
+}
+.top-ten-poster-card .on-air-badge,
+.top-ten-poster-card .soon-badge {
+  min-height: 1.4rem;
+  font-size: 0.66rem;
+}
+
+@media (max-width: 640px) {
+  .top-ten-poster-card {
+    --poster-badge-height: 2.2rem;
+    --poster-badge-min-width: 2.6rem;
+    --poster-badge-font: 0.7rem;
+    --poster-offer-font: 0.62rem;
+    --poster-offer-height: 0.88rem;
+  }
+}
