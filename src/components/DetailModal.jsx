@@ -517,7 +517,7 @@ export default function DetailModal({
                           className="provider-action provider-action-static"
                           aria-label={`${provider.label} für diese TV-Ausstrahlung verfügbar`}
                         >
-                          <ProviderBadge providerId={providerId} />
+                          <ProviderBadge providerId={providerId} item={detailProviderItem} context="airing" />
                           {provider.label}
                         </span>
                       )
@@ -531,7 +531,7 @@ export default function DetailModal({
                         onClick={() => openLiveProvider(providerId)}
                         aria-label={`${provider.label} für diese TV-Ausstrahlung öffnen`}
                       >
-                        <ProviderBadge providerId={providerId} />
+                        <ProviderBadge providerId={providerId} item={detailProviderItem} context="airing" />
                         {provider.label}
                       </button>
                     )
@@ -552,7 +552,7 @@ export default function DetailModal({
                     onClick={() => sharedMedia.length === 1 ? launchMedia(sharedMedia[0]) : setMediaPickerOpen(true)}
                     aria-label={sharedMedia.length === 1 ? `${sharedMedia[0].label} über Movie Hub öffnen` : 'Eigene Movie-Hub-Links und Videos auswählen'}
                   >
-                    <span className="movie-hub-provider-mark" aria-hidden="true">MH</span>
+                    <ProviderBadge providerId="moviehub" item={item} />
                     Movie Hub
                   </button>
                 )}
@@ -568,7 +568,7 @@ export default function DetailModal({
                       onClick={() => openStreamingProvider(providerId)}
                       aria-label={`${provider.label} als Streaming- oder Mediathek-Anbieter öffnen`}
                     >
-                      <ProviderBadge providerId={providerId} />
+                      <ProviderBadge providerId={providerId} item={item} context="title" />
                       {provider.label}
                     </button>
                   )
