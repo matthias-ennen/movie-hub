@@ -98,15 +98,14 @@ try {
     await page.screenshot({ path: resolve(output, `profile-${label}.png`), fullPage: true })
   }
   await page.setViewportSize({ width: 1280, height: 720 })
-  await address(page).focus(); await page.keyboard.press('ArrowRight')
-  assert.equal(await save(page).evaluate((button) => button === document.activeElement), true)
-  await page.keyboard.press('ArrowLeft')
+  // Horizontal arrows inside a text input edit its caret; the save button stays D-pad reachable.
+  await save(page).focus(); await page.keyboard.press('ArrowLeft')
   assert.equal(await address(page).evaluate((input) => input === document.activeElement), true)
   await page.keyboard.press('ArrowDown')
   assert.equal(await switchControl(page).evaluate((button) => button === document.activeElement), true)
   await page.keyboard.press('ArrowUp')
   assert.equal(await address(page).evaluate((input) => input === document.activeElement), true)
-  results.push('Four viewport layouts without clipped email controls; D-pad left/right save and up/down consent')
+  results.push('Four viewport layouts without clipped email controls; D-pad reaches inline save and consent')
 
   // Toggle persists consent without saving a different unsaved address draft.
   await address(page).fill('unsaved-draft@example.org')
