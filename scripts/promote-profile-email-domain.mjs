@@ -105,7 +105,7 @@ export async function promoteEmailDomain({ run = gcloud, newKeyVersion, apply = 
     if (!apply) { log('NUR PRÜFUNG: kein Cloud-Deploy, keine Scheduler-Änderung.'); return { states, ready: true } }
     need(typeof quietQueue === 'function' && typeof writeEnv === 'function', 'Queue and configuration guards are required.')
     stage = 'Check old delivery queue'
-    need(await quietQueue(), 'Pending email deliveries exist; allow the retry queue to drain before cutover.')
+    need(await quietQueue(), 'An attempted delivery still uses an older sender; allow retry to finish before cutover.')
     stage = 'Pause only the private email retry scheduler'
     if (mailJobs[0].state === 'ENABLED') run(['scheduler', 'jobs', 'pause', 'movie-hub-email-retry-1min',
       `--location=${region}`], { format: 'none' })
@@ -118,7 +118,7 @@ export async function promoteEmailDomain({ run = gcloud, newKeyVersion, apply = 
     for (const name of transitionOrder) {
       if (states[name] === 'production') continue
       stage = `Promote ${name}`
-      need(await quietQueue(), 'Mail queue became active during cutover; retry job remains paused.')
+      need(await quietQueue(), 'An attempted delivery still uses the former sender; retry job remains paused for inspection.')
       const configPath = writeEnv(name, expectedEnv[name])
       run(emailDeploymentArgs(name, { envFile: configPath, versions: {
         RESEND_API_KEY: version, MOVIE_HUB_EMAIL_TOKEN_KEY: tokenVersion,
@@ -139,7 +139,7 @@ export async function promoteEmailDomain({ run = gcloud, newKeyVersion, apply = 
       inspectIam(name)
     }
     await probe(actionUrl)
-    need(await quietQueue(), 'Outstanding queue items detected; retry scheduler remains paused for inspection.')
+    need(await quietQueue(), 'An attempted delivery still uses the former sender; retry scheduler remains paused for inspection.')
     const beforeResume = run(['scheduler', 'jobs', 'describe', 'movie-hub-email-retry-1min',
       `--location=${region}`])
     checkRetryJob(beforeResume, retryUrl)
@@ -177,8 +177,13 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         db = firestore.getFirestore()
       }
       const snap = await db.collectionGroup('emailDeliveries').where('queueAt', '>=',
-        new Date(0)).orderBy('queueAt').limit(1).get()
-      return snap.empty
+        new Date(0)).orderBy('queueAt').limit(500).select('sender').get()
+      // An attempted old-sender job cannot safely be resent using the new
+      // domain-limited key. Unattempted and new-sender jobs may proceed.
+      return snap.size < 500 && snap.docs.every((doc) => {
+        const sender = doc.get('sender')
+        return !sender || sender === productionFrom
+      })
     }
     if (apply) await import('./prepare-email-function.mjs')
     await promoteEmailDomain({ newKeyVersion: version, apply, quietQueue, writeEnv: (name, env) => {
