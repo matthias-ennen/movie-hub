@@ -209,7 +209,7 @@ export default function DetailModal({
     setAlertBusy(true)
     setAlertMessage('')
     try {
-      const enabled = await titleAlerts.toggle(item, kind)
+      const enabled = await titleAlerts.toggle(item, kind, { hasMovieHub: showMovieHubProvider })
       if (kind === 'included') {
         setIncludedAcceptedForDetail(enabled ? includedDetailKey : null)
       }
@@ -427,7 +427,7 @@ export default function DetailModal({
         label={`Details zu ${item.title}`} onClose={onClose} returnFocusTarget={returnFocusTarget}>
         <DetailLayout actions={<DetailActions onClose={onClose} onEdit={() => { resetMediaDraft(); setMediaEditorOpen(true) }}
             onAlert={titleAlerts.canWatch(item) ? () => setAlertMenuOpen(true) : null}
-            alertActive={includedShownOn || titleAlerts.isEnabled(item, 'tv')} notePresent={Boolean(personalState.note)} />} artwork={
+            alertActive={includedShownOn || titleAlerts.isEnabled(item, 'tv') || titleAlerts.isEnabled(item, 'available')} notePresent={Boolean(personalState.note)} />} artwork={
         <div className={detailPosterUrl ? 'detail-art has-image' : 'detail-art'} style={{ '--poster-accent': item.accent, '--poster-accent-2': item.accent2 }}>
           {detailPosterUrl && (
             <img
@@ -592,7 +592,9 @@ export default function DetailModal({
         artworkOptions={artworkOptions} getTitleState={getTitleState} isProviderEnabled={isProviderEnabled}
         collectionBusyId={collectionBusyId} selectCollectionPart={selectCollectionPart} onClose={closeCollectionPicker} />}
       {alertMenuOpen && <TitleAlertDialog title={item.title} included={includedShownOn}
-        tv={titleAlerts.isEnabled(item, 'tv')} busy={alertBusy} ready={titleAlerts.ready}
+        tv={titleAlerts.isEnabled(item, 'tv')} available={titleAlerts.isEnabled(item, 'available')}
+        canEnableAvailable={!showMovieHubProvider && titleProviderPresentation.providerIds.length === 0}
+        busy={alertBusy} ready={titleAlerts.ready}
         message={alertMessage} onToggle={toggleAlert} onClose={() => setAlertMenuOpen(false)} />}
       {mediaEditorOpen && <TitleEditor {...{ activeProfile, personalState, personalBusy, libraryLoading,
         personalMessage, savePersonalPatch, noteDraft, setNoteDraft, handleSaveNote, sharedMedia,
