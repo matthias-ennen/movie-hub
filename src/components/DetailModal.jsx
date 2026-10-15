@@ -593,7 +593,7 @@ export default function DetailModal({
         collectionBusyId={collectionBusyId} selectCollectionPart={selectCollectionPart} onClose={closeCollectionPicker} />}
       {alertMenuOpen && <TitleAlertDialog title={item.title} included={includedShownOn}
         tv={titleAlerts.isEnabled(item, 'tv')} available={titleAlerts.isEnabled(item, 'available')}
-        canEnableAvailable={!showMovieHubProvider && titleProviderPresentation.providerIds.length === 0}
+        canEnableAvailable={!showMovieHubProvider && !hasProviders && !hasTvAiring}
         busy={alertBusy} ready={titleAlerts.ready}
         message={alertMessage} onToggle={toggleAlert} onClose={() => setAlertMenuOpen(false)} />}
       {mediaEditorOpen && <TitleEditor {...{ activeProfile, personalState, personalBusy, libraryLoading,
