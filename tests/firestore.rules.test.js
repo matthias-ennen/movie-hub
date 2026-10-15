@@ -37,6 +37,36 @@ afterAll(async () => {
 })
 
 describe('Firestore Security Rules', () => {
+
+  it('allows an available watch but never lets a client forge its availability event', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore()
+    const bob = testEnv.authenticatedContext('bob').firestore()
+    const prefix = ['users', 'alice', 'profiles', 'available-test']
+    await setDoc(doc(alice, ...prefix), { displayName: 'Available test' })
+    const watch = doc(alice, ...prefix, 'titleAlerts', 'movie-999-available')
+    const value = {
+      schemaVersion: 2, status: 'active', type: 'movie', tmdbId: 999,
+      title: 'Wartender Film', kind: 'available', activationId: 'session-1',
+      settingsFingerprint: '[["netflix"],[],[]]', createdAt: serverTimestamp(),
+    }
+    await assertSucceeds(setDoc(watch, value))
+    await assertFails(getDoc(doc(bob, ...prefix, 'titleAlerts', watch.id)))
+    await assertFails(setDoc(doc(alice, ...prefix, 'titleAlerts', 'movie-998-available'),
+      { ...value, tmdbId: 998, settingsFingerprint: { forged: true } }))
+    await assertFails(setDoc(doc(alice, ...prefix, 'titleAlerts', 'movie-997-available'),
+      { ...value, tmdbId: 997, kind: 'evil' }))
+    await assertFails(setDoc(doc(alice, ...prefix, 'notifications',
+      'movie-999-available-session-1-initial'), {
+      schemaVersion: 2, kind: 'available', titleType: 'movie', tmdbId: 999,
+      title: 'Jetzt verfügbar', mediaTitle: 'Wartender Film',
+      body: 'Gefälschte Mitteilung', phase: 'available-found',
+      startsAt: serverTimestamp(), eventAt: serverTimestamp(),
+      completedAt: serverTimestamp(), expiresAt: Timestamp.fromMillis(Date.now() + 86400000),
+    }))
+    await assertSucceeds(getDoc(watch))
+  })
+
+
   it('isolates email preferences and forbids forged verification or delivery jobs', async () => {
     const alice = testEnv.authenticatedContext('alice').firestore()
     const bob = testEnv.authenticatedContext('bob').firestore()
