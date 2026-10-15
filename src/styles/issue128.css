@@ -368,21 +368,15 @@
   flex-wrap: nowrap;
   justify-content: flex-start;
   gap: 0.3rem;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .poster-card .provider-badge {
   flex: 0 0 auto;
-  min-width: 2rem;
+  min-width: 2.35rem;
   height: 2rem;
   padding: 0 0.32rem;
   font-size: 0.62rem;
-}
-
-.poster-card .provider-movie-hub {
-  border-color: rgba(141, 167, 255, 0.8);
-  background: var(--color-brand-accent);
-  color: #0a0d12;
 }
 
 @media (max-width: 1050px) {
