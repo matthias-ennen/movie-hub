@@ -4,6 +4,34 @@
 **Ergebnisstatus:** G0 Recherche, G1 24er-Smoke, 200er-Inventar und **zwei echte kombinierte YouTube-/TMDB-Analyseläufe einschließlich Jahreslückenvergleich erfolgreich ausgeführt** (16.10.2026); *Matchingqualität nur für Diagnose und Prüfreihenfolge belegt; keine Produktiv-, Lizenz-, DE-Wiedergabe- oder Gerätefreigabe*.  
 **Freigabegrenze:** noch kein Produktivadapter; G2/G3/G4 nicht erteilt oder begonnen. Die unten folgenden früheren G0-/Zugangsgate-Kapitel dokumentieren den historischen Verlauf, nicht den neuesten Status.
 
+## G1-Folgepaket – konkrete Sichtprüfliste und separate `unmatched`-Suchdiagnose vorbereitet
+
+**Stand 16.10.2026: Code/Tests vorbereitet; noch kein erneuter Live-Lauf mit dieser Diagnose.** Reale bekannte Baseline: **200** YouTube-Videos, **174** TMDB-geprüfte Langvideos, **10** provisorische Identitäten, **117** Reviews und **47** `unmatched`. Von den 111 Jahreslücken wurden **79** nur für eine zukünftige **manuelle** Sichtprüfung priorisiert.
+
+Der G1-Folgepilot trägt dieser Trennung Rechnung: Weitere rein automatische Titelindikatoren ersetzen **weder die Beobachtung des konkreten Videos noch Rechte-/DE-Playback-Nachweise**.
+
+### A. Arbeitsliste für tatsächliche manuelle Qualitätsprüfung
+
+- `scripts/youtube-g1-review-diagnostics.mjs` erhält nur **temporär im Prozessspeicher** die schon gefundenen 79 priorisierten YouTube-/TMDB-Kandidaten. Die bisherige Review-Zwischenfunktion behält nun alle Kandidaten im Speicher; ihr normaler öffentlicher Ergebnisbericht begrenzt die Beispiele weiterhin auf 18.
+- Eine **deterministische, bis zu 18 Fälle umfassende** Arbeitsliste wird über Filmjahr-Jahrzehnte und YouTube-/TMDB-Laufzeitdifferenzgruppen (nahe, mittel, Randfälle) verteilt. Ziel ist eine prüfbare **qualitative** Stichprobe statt willkürlich der ersten 18 Ergebnisse.
+- Die Arbeitsliste zeigt **gültige YouTube-Video- und TMDB-Filmlinks**, Filmjahr, Laufzeitabweichung und Status **„offen“**. Diese Links sind erst Einladungen zur **noch nicht durchgeführten** menschlichen Sichtprüfung.
+- Bei der späteren manuellen Prüfung getrennt dokumentieren: **identisches Werk / TMDB-ID**, vollständiger Film versus Clip/andere Schnittfassung, echte DE-Abspielbarkeit im Browser und auf Fire TV, Kosten/Anmeldung/Werbeform sowie zulässige Rechte/Quellenstatus. Keine Annahme, dass eine Plattform-Regionsfreigabe dies schon beweist.
+
+### B. Die 47 `unmatched` getrennt diagnostizieren
+
+- `no_candidate` bleibt als **eigene Qualitätsklasse** bestehen; die 47 bisherigen Nichttreffer werden **nicht** durch bloße Umbenennung als neue Filme ausgegeben.
+- Aus diesen 47 werden höchstens **20 Fälle** mit Publisher-Streuung gewählt. Nur eindeutige **Werbepräfixe, durch `|` getrennte Elemente oder explizite Marketing-Suffixe** dürfen höchstens **zwei alternative Suchtexte** erzeugen; echte mehrteilige Filmtitel mit Bindestrich dürfen nicht unkontrolliert abgeschnitten werden.
+- Ein bounded Follow-up gegen denselben vorhandenen **`WaipuTmdbSearchClient`** kann öffentlich verfügbare TMDB-Suchhinweise ermitteln. Solche Hinweise bleiben **`candidate-hints-only`**, ohne automatisches Matching oder mutierte Bestandsdaten. Wenn eine sichere Suchvariante fehlt, ausdrücklich `no-safe-query-variant`, nicht vermeintlich kein Film.
+- **Zusätzliche Diagnoseabfragen begrenzt auf maximal 40** TMDB-Suchfunktionsaufrufe vor Cache; die bestehende harte Obergrenze bleibt **420 echte TMDB-Requests** einschließlich Retry. Die YouTube-Abfragen bleiben bei höchstens **90**. Der bereits gespeicherte, gültige TMDB-Token und Secret-Manager-Zugang werden unverändert genutzt.
+
+### Weiterer Ablauf / Nicht-Ziele
+
+1. Nur nach **grüner PR-CI einschließlich Android** als nichtproduktive Diagnose über den bestehenden ausschließlich **manuellen** Workflow `YouTube G1 TMDB Match Research` nach `main` veröffentlichen; kein regulärer Deploy.
+2. Nach neuem manuellem Lauf **tatsächliche** 18er-Arbeitsliste, geprüfte alternative Suchbegriffe, zusätzliche Suchhinweise und API-Budgetverbrauch aus GitHub-Logs/14-Tage-Artefakt lesen. Keine Zahlen im Voraus behaupten.
+3. Danach bei einer wirklich durchgeführten Stichprobe **Sichtprüfung und Playback** ausdrücklich als `verified`/`not verified` mit Beleg protokollieren; nicht mit automatisch gefundenen YouTube-/TMDB-Metadaten verwechseln. Erst später separaten, sicheren kanonischen Live-MovieHub-Katalogabgleich starten.
+
+**Sicherheitsgates:** keine produktiven MovieHub-, Firestore- oder Firebase-Schreiboperationen, keine Änderung des zentralen Waipu-/Joyn-Matchers und keine G2-/Provider-/Badge-Freigabe. Die Kandidatenliste ist eine **Prüfanleitung**, keine vollständige legale Filmliste.
+
 ## G1-Livebefund – zusätzlicher Evidenzvergleich ohne Filmjahr erfolgreich (16.10.2026)
 
 **Primärbeleg:** [Manueller GitHub Actions Run #38886597861](https://github.com/matthias-ennen/movie-hub/actions/runs/38886597861), `YouTube G1 TMDB Match Research`, **SUCCESS** (16.10.2026, Start 10:20:40 UTC). [Schlüsselfreier Originalreport als temporäres Actions-Artefakt #12040255568](https://github.com/matthias-ennen/movie-hub/actions/runs/38886597861/artifacts/12040255568) (Aufbewahrung 14 Tage), Job **116925732806**. Alle Authentifizierungs-, YouTube-/TMDB-Diagnose- und Artefaktschritte **grün**. Keine Firebase-, Firestore-, Katalog-, Provider- oder Badge-Schreiboperation.
