@@ -57,14 +57,13 @@ Details:
 
 Projektstart: 31. August 2026
 
-Stand: **14. Oktober 2026, Tagesabschluss 19:22 Uhr (Europe/Berlin)**
+Stand: **16. Oktober 2026**
 
-**Startpunkt für den nächsten Chat:** [Übergabe zum E-Mail-Paket #384](docs/_work/EMAIL_384.md).
-Der begrenzte Testversand ist aktiv; Matthias hat den ersten echten TV-Mail-Empfang
-und sein positives Feedback zum Layout bestätigt. Die zweite TV-Mail und weitere
-Fachtests bleiben offen. `moviehubgermany.de` ist registriert; als Nächstes folgen
-Resend-/DNS-Einrichtung und die kontrollierte Umstellung des Absenders.
-Der heutige Arbeitsabschnitt ist beendet, #384 noch nicht insgesamt abgenommen.
+**Aktuelles Arbeitspaket: [#271 – Quellenplattform](https://github.com/matthias-ennen/movie-hub/issues/271), zunächst [#388 – YouTube-Adapter](https://github.com/matthias-ennen/movie-hub/issues/388).** Das Gesamtpaket Mitteilungen (#314 und #385) wurde auf ausdrücklichen Wunsch als abgeschlossen dokumentiert; Erweiterungen folgen erst später auf neue Freigabe. #380–#384 sind abgeschlossen und abgenommen.
+
+**Verbindlicher Plan und erste Analyse:** [Adapterprogramm](docs/ADAPTER_PROGRAM.md) · [Roadmap](docs/ROADMAP.md) · [Issue-Plan](docs/ISSUE_PLAN.md).
+
+**Reihenfolge:** YouTube-Analyse und nichtproduktiver Pilot → DVB-I-Zugang/EPG → Prime-Video-GTI-/ID-Analyse → gegebenenfalls weitere Quellen → Verfügbarkeitsdarstellung und Release-Gates. Noch **kein** Produktivadapter freigegeben.
 
 Die kanonische Titelbasis aus #256 sowie die Waipu-Pakete #4, #259 und #260 sind technisch umgesetzt und auf den vorgesehenen Geräten abgenommen. TMDB bleibt die kanonische Quelle für öffentliche Film- und Serienmetadaten; externe Quellen ergänzen Verfügbarkeiten, Senderereignisse und Wiedergabeziele.
 
@@ -78,7 +77,7 @@ bestätigt die tägliche Fortschreibung mit normalen Budgets, privaten Checkpoin
 vollständigem TMDB-Verbraucherabschluss und geprüfter Veröffentlichung.
 Der Start war 182 Minuten verspätet; die Pünktlichkeit ist damit nicht bestätigt.
 Nachweise und verbleibende Betriebshinweise: [Nachtlauf-Dokumentation](docs/DATA_WORKFLOW_RELIABILITY.md).
-Die Produkt-Hauptstrecke bleibt #314; Movie Hub Admin wird separat behandelt.
+Die Produkt-Hauptstrecke ist seit 16.10.2026 #271, zuerst YouTube #388; Movie Hub Admin wird separat behandelt.
 
 Der interaktive TV-Pfad liest vorbereitete Runtime-Artefakte statt vollständige Providerkataloge in die Oberfläche zu ziehen. Der TV-Hero kommt aus einem kleinen 14-Tage-Snapshot; Tagesdaten werden erst nach Hero-Bereitschaft geladen. Veraltete Tagesrequests werden abgebrochen und der Tagescache ist begrenzt. Seit #346 liegt die komplette TV-Runtime zusätzlich in einem lazy geladenen Feature und wird beim TV-Intent nur vorgewärmt.
 
@@ -90,9 +89,9 @@ Für Home, Filme, Serien, TV und Meine Inhalte gelten gemeinsame Seiten-, Hero-,
 
 Die aktuelle Hauptreihenfolge lautet:
 
-`#314 Mitteilungs-Erweiterungen (#384 in Arbeit, danach #385) → #271/#336 Quellenplattform und weitere belastbare Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
+`#314/#385 abgeschlossen → #271/#388 YouTube → #336 DVB-I → #391 Prime Video → weitere Quellen nach Freigabe → Verfügbarkeitsdarstellung/Produkt-Finish → #112 Release-Gate → 1.0`
 
-Das Mitteilungs-Grundpaket aus [#314](https://github.com/matthias-ennen/movie-hub/issues/314) ist am 12.10.2026 vollständig durch Matthias abgenommen: #118/#312/#380/#381/#382/#383 und `movie-hub-admin#11` sind geschlossen. Die letzte Bestätigung „Ja, das ist alles abgenommen“ umfasst sämtliche vier noch aufgeführten Restpunkte. Es besteht keine weitere Geräteabnahme für diesen Lieferumfang. Der [Tagesabschluss](docs/TITLE_NOTIFICATIONS.md#tagesabschluss-12102026) hält die Nachweise fest. Nach #387 und #426 ist [#384](https://github.com/matthias-ennen/movie-hub/issues/384) das aktuelle Arbeitspaket: profilbezogener optionaler Mailkanal für persönliche Inklusiv-, TV-Fund- und letzte TV-Meldungen. Oberfläche, Regeln und Mailserver sind eingerichtet; der erste TV-Mail-Empfang ist bestätigt. Die vollständige Abnahme und Domainumstellung stehen aus. #314 bleibt Master für #384/#385. Details: [Übergabe #384](docs/_work/EMAIL_384.md) und [Scheduler-Betrieb](docs/TV_FINAL_SCHEDULER_RUNBOOK.md).
+**Mitteilungen: abgeschlossen seit 16.10.2026.** Das Grundpaket #118/#312/#380–#383 und der E-Mail-Kanal #384 sind nach Geräte-/Funktionsabnahmen geschlossen. Das übergeordnete #314 und die konzeptionelle Bewertung #385 wurden mit Nutzerentscheidung am 16.10. geschlossen; nicht umgesetzte neue Meldungsanlässe bleiben für ein späteres separates Paket vorgemerkt. Technische TV-/Anbieter-Fixes in #385 wurden veröffentlicht; daraus wird keine neue, unbestätigte visuelle Geräteabnahme abgeleitet. [Dokumentation](docs/TITLE_NOTIFICATIONS.md) · [Mail-Abschluss](docs/_work/EMAIL_384.md) · [Adapterprogramm](docs/ADAPTER_PROGRAM.md).
 
 **Abgenommen und abgeschlossen: #387.** Matthias hat den über #422/#424/#425 veröffentlichten Einstellungen-Stand am 13.10.2026 mit „Das ist abgenommen.“ bestätigt. Elf Direktwege in drei Gruppenkacheln, kompakte Überschriften/Breadcrumbs sowie gemeinsame Anbieter-/Senderregeln sind geliefert. Umsetzung, technische Nachweise und Abschluss: [Einstellungen](docs/SETTINGS.md).
 
@@ -114,8 +113,7 @@ Die um 20:21 Uhr freigegebene Ergänzung korrigiert die Buttonposition beim Lade
 die vollständigen Scrollgrenzen im Bearbeitungsmenü und das neutrale weiße/aktive
 rote Favoritenherz. Gemeinsame Komponenten in sechs Browserformaten geprüft.
 Mit der ausdrücklichen Abnahme um 20:46 Uhr ist auch dieser Nachtrag abgeschlossen.
-Für #426 bleibt keine Abnahme offen. #384 ist inzwischen implementiert und im
-begrenzten Mailtest; seine offenen Schritte stehen in der verlinkten Übergabe.
+Für #426 bleibt keine Abnahme offen. #384 ist seit dem 15.10.2026 vollständig abgenommen und geschlossen; die verlinkte Übergabe enthält den historischen Verlauf.
 
 Die vorgezogenen Korrekturen [#413 – persönliche Smart-Reihen](https://github.com/matthias-ennen/movie-hub/issues/413) und [#415 – Schauspielersuche](https://github.com/matthias-ennen/movie-hub/issues/415) sind über PR #414/#416 veröffentlicht. Beide nutzen vorhandene gemeinsame Titelmetadaten; es gibt keine zusätzlichen Abfragen beim Tippen oder je Posterreihe. Technische Prüfungen sind erfolgreich; Matthias hat beide Pakete am 12.10.2026 auf Smartphone und Fire TV ausdrücklich abgenommen. #413 und #415 sind geschlossen. Web-Suche und Reihen werden nach vollständigem App-Neustart geladen; neue native Importe mit vollständigen Besetzungsfacetten benötigen die neue APK. #329 bleibt Wartung; für öffentliche Verteilung gilt weiterhin #112.
 
