@@ -49,6 +49,18 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 **Nächstes Gate:** hochwertige, **nichtproduktive TMDB-Matchinganalyse** der 174 Kandidaten, inklusive Titel-/Originaltitel-/Jahr-/Laufzeitprüfung, Konfidenz, unsicherer Fälle und Überschneidungen mit dem bestehenden MovieHub-Katalog. Danach rechtliche Verfügbarkeit und echte DE-/Fire-TV-Wiedergabetests. **Keine Freigabe für Produktivimport oder neue Badges. #388 bleibt offen.**
 
+### G1-TMDB-Livelauf – technische Zuordnung erfolgreich, Qualitätsgates noch offen
+
+**Beleg:** [GitHub Actions #38884328789](https://github.com/matthias-ennen/movie-hub/actions/runs/38884328789) ist **vollständig grün**; kombinierter YouTube-/TMDB-API-Test nutzt den **vorhandenen Waipu-Matcher v5**. **200** untersuchte Videos, **26** Quell-/Laufzeit-Ausschlüsse, somit **174** analysierte Langvideos; davon **10** starke *vorläufige* Identitäts-Hypothesen, **117** prüfpflichtige Kandidaten und **47** ohne hinreichenden TMDB-Kandidaten. **194 TMDB-API-Aufrufe** durchgeführt. Eine potenzielle Dublettengruppe bei `movie:304613` unter YouTube-Videos; kein verifizierter Live-MovieHub-Dublettenabgleich.
+
+**Entscheidender Befund:** Bei **111** Videos fehlt das vom Erstpilot zur automatischen vorläufigen Bestätigung vorgeschriebene ausdrückliche Filmjahr im YouTube-Titel; dadurch allein sinkt die strenge Zuordnungsrate auf 10/174. Das ist **kein** Beweis für fehlende TMDB-Identität, schlechte YouTube-Quellen oder angeblich 164 ungeeignete Filme. Die Matchingregeln dürfen nicht unbemerkt gelockert werden.
+
+**Nächstes separates G1-Gate:** konservative, universelle Evidenzanreicherung für unvollständige YouTube-/Publisher-Titel und Vergleichsmessung auf derselben Stichprobe. TMDB-Titel/Originaltitel/Jahr/Laufzeit gemeinsam validieren, mehrdeutige Varianten in Review belassen, die 47 Suchausfälle diagnostizieren. Anschließend mit tatsächlichem kanonischen Live-Katalog vergleichen und echte DE-/Fire-TV-Wiedergabe sowie erlaubte Angebotsklasse separat prüfen.
+
+**Freigabestatus:** YouTube API/Inventar/Matchingdiagnostik technisch nachgewiesen, **noch kein freigegebener Produktivadapter oder neue Anbieter-Badges**. [Detaillierter Originalmessbericht](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1-livebefund--erster-kombinierter-youtube-tmdb-matchinglauf-16102026). #388 offen.
+
+### Historischer vorbereiteter TMDB-Pilot (vor dem erfolgreichen Liveabruf)
+
 ### G1-Folgepaket vorbereitet – konservatives YouTube-/TMDB-Matching (noch nicht ausgeführt)
 
 Nach erfolgreicher YouTube-Inventarisierung von 2.790 IDs und 200/200 Video-Metadaten folgt die **identitätsorientierte Analyse der 174 Langvideo-Kandidaten**. Der getrennte, ausschließlich manuelle Diagnoseworkflow `YouTube G1 TMDB Match Research` kombiniert das bestehende G1-Inventar mit dem **bereits in MovieHub vorhandenen Waipu-TMDB-Matcher** und seinem TMDB-Suchclient. Die vorhandene Logik für kanonische Identität, Titel-/Jahr-Konfidenz und Mehrdeutigkeiten wird wiederverwendet, statt einen Youtube-Sondermatcher zu bauen.
