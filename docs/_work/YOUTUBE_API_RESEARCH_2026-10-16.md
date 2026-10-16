@@ -1,8 +1,65 @@
 # YouTube Data API – Recherche und erste Adapterbewertung
 
 **MovieHub · Issue #388 · 16.10.2026**  
-**Ergebnisstatus:** G0 Recherche, G1 24er-Smoke-Test **und G1 200er-Inventar- und Datenprobe erfolgreich** (16.10.2026); *TMDB-Matching, genaue Lizenz-/DE-Wiedergabe und Geräteprüfung weiterhin ausstehend*.  
+**Ergebnisstatus:** G0 Recherche, G1 24er-Smoke, 200er-Inventar **und erster echter YouTube-/TMDB-Matchinglauf erfolgreich ausgeführt** (16.10.2026); *Matchingqualität erst analysiert, nicht produktiv bestätigt; Lizenz-/DE-Wiedergabe und Geräteprüfung weiterhin ausstehend*.  
 **Freigabegrenze:** noch kein Produktivadapter; G2/G3/G4 nicht erteilt oder begonnen. Die unten folgenden früheren G0-/Zugangsgate-Kapitel dokumentieren den historischen Verlauf, nicht den neuesten Status.
+
+## G1-Livebefund – erster kombinierter YouTube-/TMDB-Matchinglauf (16.10.2026)
+
+**Primärbeleg:** [GitHub Actions Run #38884328789](https://github.com/matthias-ennen/movie-hub/actions/runs/38884328789) – `YouTube G1 TMDB Match Research`, auf `main` manuell, **SUCCESS**, 16.10.2026 ab 10:00:32 UTC. [Originalbericht im temporären Actions-Artefakt #12039465886](https://github.com/matthias-ennen/movie-hub/actions/runs/38884328789/artifacts/12039465886) (14 Tage), Job **116918298820**. Secret Manager für YouTube und bestehender GitHub-TMDB-Token wurden erfolgreich verwendet, ohne Secrets auszugeben. Lauf war **ausschließlich lesend**: kein Firebase, keine Film-/Provider-Angebote veröffentlicht, keine produktive MovieHub-Datenänderung.
+
+### Gesicherte Ergebnisse aus dem Log
+
+| Kennzahl | CiNENET | Netzkino | Gesamt |
+| --- | ---: | ---: | ---: |
+| Für Analyse ausgewählte Videos | **24** | **176** | **200** |
+| Qualitätsausschlüsse vor TMDB-Matching | **1** (anderer Kanal) | **25** (21 Shorts, 4 mittellang) | **26** |
+| TMDB-geprüfte Langvideo-Kandidaten | **23** | **151** | **174** |
+| **provisional-identity**: guter Match *plus* YouTube-Filmjahr identisch mit TMDB und Laufzeitdifferenz ≤15 min | **10** | **0** | **10** |
+| **review**: möglicher Treffer, aber noch nicht hinreichend belegt | **6** | **111** | **117** |
+| **unmatched**: kein hinreichender TMDB-Treffer | **7** | **40** | **47** |
+
+Weitere Messpunkte: **194 tatsächliche TMDB-API-Aufrufe** einschließlich Retry (Limit 420), erfolgreiche Bearbeitung aller 174 Langvideo-Kandidaten. **Eine potenzielle TMDB-ID-Dublettengruppe** innerhalb der untersuchten YouTube-Videos: **`movie:304613`**, zwei Video-IDs; deren Zuordnung ist **keine** bestätigte Dublette des wirklichen Films. **Abgleich mit dem Live-MovieHub-Katalog nicht erfolgt**; GitHub `public/catalog.json` ist kein verlässlicher produktiver Vollbestand.
+
+**Ursachen der nicht ausreichend bestätigten 164 Langvideo-Zuordnungen (aus dem Report):**
+- **111 × `no-independent-year`** – kein eindeutig als Filmjahr aus dem Videotitel erkennbares `(YYYY)`. Der Matcher hat möglicherweise bereits einen plausiblen TMDB-Titel gefunden, aber YouTube liefert für diese Videos kein entsprechendes Identitätssignal. Das ist besonders bei Netzkino systematisch und **bedeutet nicht**, dass diese 111 Filme keinen TMDB-Eintrag besitzen.
+- **47 × `no_candidate`** – der gegenwärtige Titel-/Suchansatz fand keine genügend passende TMDB-Kandidatur.
+- **3 × `below_threshold`**, **1 × `year-conflict`**, **1 × `runtime-conflict`**, **1 × `missing-runtime-evidence`**. Diese dürfen nicht durch künstliche Schwellenwertabsenkung automatisch als bestätigt gelten.
+
+### Zehn konkret belegte vorläufige Identitäten
+
+| YouTube-Titel / exakter Filmtitel (gekürzt) | TMDB-ID | Filmjahr laut Video | YouTube-/TMDB-Laufzeitdifferenz |
+| --- | ---: | ---: | ---: |
+| Zwei Irre und ein Schwein | 160975 | 1995 | 0,2 min |
+| Kiss me Deadly / Kiss Me Deadly – Codename: Delphi | 17286 | 2008 | 5,5 min |
+| Das Netz der Freiheit | 479960 | 2017 | 10,2 min |
+| The Circle – Willkommen in der Hölle | 660838 | 2020 | 6,4 min |
+| Spiders On A Plane | 1135245 | 2024 | 0,7 min |
+| Edgar Allan Poe's Lighthouse Keeper / Lighthouse Keeper | 388410 | 2016 | 1,0 min |
+| Milano Kaliber 9 | 40022 | 1972 | 13,1 min |
+| Die Schlacht um Schloss Itter | 1478055 | 2025 | 4,5 min |
+| Medusa – Die Schlangenkönigin | 761563 | 2020 | 3,4 min |
+| Der Diamantencoup | 237925 | 1978 | 0,8 min |
+
+**Achtung:** Diese zehn Werte sind **forschungsinterne Identitätshypothesen**. Besonders nahe am Laufzeit-Grenzwert liegende Fälle und das lediglich aus dem YouTube-Titel abgeleitete Filmjahr müssen später manuell gegengeprüft werden. **Es sind nicht zehn nachweislich legal in DE verfügbare oder auf Fire TV nutzbare Filme.**
+
+### Interpretation und fachlich nächste Entscheidung
+
+Der neue Workflow beweist die technische Wiederverwendung der **Waipu-TMDB-Matchinglogik v5** und ermöglicht eine ehrliche, klar geschichtete Qualitätsmessung. Eine scheinbare Trefferquote von **10/174 ≈ 5,7 %** entspricht **nur der bewusst sehr strengen Kombination** aus YouTube-Titel-Format, Matchingentscheidung und Laufzeitgates. Sie ist **keine** Aussage über die allgemeine TMDB-Erkennbarkeit von Netzkino oder den Anteil echter Vollfilme. Das YouTube-Video-Veröffentlichungsdatum bleibt ausdrücklich **kein Filmejahr**.
+
+Für die nächste *eigene Freigaberunde* sollte die **universelle Titel-/Metadaten-Evidenzschicht** erweitert werden, nicht ein „YouTube-Sondermatch“ entstehen:
+
+1. Den 111 Fällen ohne Video-Filmjahr zusätzliche **unabhängige** Kandidatenevidenz gegenüberstellen (TMDB-Titelaliases/Originaltitel, Laufzeit und soweit erreichbar offizielle filmbezogene Angaben aus Publisher-Beschreibung); Werbe-Buzzwords kontrolliert entfernen. YouTube-Videoupload-Datum niemals als Filmjahr verwenden.
+2. Zunächst eine **beobachtende Vergleichsdiagnose** gegen dieselben 174 Rohvideokandidaten (bestehende strenge Regeln gegen erweiterte Evidenz). Ohne belastbare zweite Bestätigung bleiben Kandidaten `review`. Möglichst keine Lockerung der bereits genutzten Waipu-/Joyn-Produktivregeln.
+3. **47 `no_candidate`** gesondert untersuchen (sprachabhängige Titel, werbliche Zusätze, Übersetzungen, Episoden-/Clipfehletikettierung). Suchvarianten begrenzen und den Anfrageverbrauch beobachten.
+4. **1 potenzielle Dublettengruppe** nur nach Titel-/Jahres-/Laufzeit-/Video-ID-Abgleich werten; später eigenständiger Vergleich mit dem **laufenden MovieHub-Katalog**, nicht dem leeren GitHub-Fallback.
+5. Erst nach stabiler Matchingqualität und manueller Vorabprüfung **DE-Playback/Fire-TV, tatsächliche Kosten-/Werbe-/Rechtssituation** testen; weitere G2-/Produktivfreigabe bleibt **ausstehend**.
+
+### Grenzen des aktuellen Liveberichts
+
+Der Workflow protokolliert keine individuelle Gesamtliste der **117 Reviews** oder **47 nicht gefundenen Fälle**, sondern aggregierte Kategorien und die zehn starken Beispieltreffer. Eine solche detaillierte Fehlertyp-Diagnose benötigt gegebenenfalls eine *gezielte Erweiterung des schreibgeschützten, zeitlich begrenzten Reports*; es wurden keine Roh-API-Daten im Repository oder Katalog persistiert.
+
+## Historische Vorbereitungsphase vor dem erfolgreichen TMDB-Livelauf
 
 ## G1-Fortsetzung – YouTube-zu-TMDB-Matchingpilot vorbereitet (16.10.2026)
 
