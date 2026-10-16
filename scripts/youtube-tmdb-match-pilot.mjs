@@ -6,6 +6,7 @@ import { WaipuTmdbSearchClient, matchWaipuProgram, WAIPU_MATCHER_VERSION } from 
 import { runInventoryPilot, classifyVideo, durationSeconds } from './youtube-api-inventory-pilot.mjs'
 import { SOURCES, getSecret, youtubeGet, safeTitle } from './youtube-api-smoke.mjs'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
+import { buildReviewDiagnostics } from './youtube-g1-review-diagnostics.mjs'
 
 export const MATCHING_PILOT_VERSION = 1
 export const TMDB_REQUEST_CAP = 420
@@ -284,8 +285,12 @@ async function main() {
       const comparison = await compareYearlessReviews({ decisions: findings.decisions, detailMap:data.detailMap }, {
         loadDetails: (input) => tmdb.detail(input),
       })
-      report = findings.report + '\n' + comparison.report +
-        '\n- TMDB-API-Anfragen (inklusive Retry), Baseline + Vergleich: **' + tmdb.requestsStarted + ' / ' + TMDB_REQUEST_CAP + '**.\n'
+      const diagnostics = await buildReviewDiagnostics({
+        prioritized: comparison.prioritized, decisions:findings.decisions, detailMap:data.detailMap,
+      }, { searchTmdb: input => tmdb.search(input) })
+      report = findings.report + '\n' + comparison.report + '\n' + diagnostics.report +
+        '\n- TMDB-API-Anfragen (inklusive Retry), Baseline + Vergleich + Diagnostik: **' +
+        tmdb.requestsStarted + ' / ' + TMDB_REQUEST_CAP + '**.\n'
     },
   })
   if(!report) throw new Error('TMDB_ANALYSIS_NO_REPORT')
