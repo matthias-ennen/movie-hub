@@ -1,0 +1,61 @@
+name: YouTube G1 TMDB Match Research
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: moviehub-youtube-g1-tmdb-research
+  cancel-in-progress: false
+
+jobs:
+  youtube-tmdb-research:
+    name: Read-only YouTube/TMDB matching and uncertainty report
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Authenticate to Google via existing Workload Identity
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+
+      - name: Setup gcloud to read one Secret Manager secret
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Verify existing TMDB token is configured
+        run: |
+          if [ -z "$TMDB_API_READ_TOKEN" ]; then
+            echo "::error::TMDB_API_READ_TOKEN is not available in GitHub Actions"
+            exit 1
+          fi
+
+      - name: Syntax check
+        run: node --check scripts/youtube-tmdb-match-pilot.mjs
+
+      - name: Analyze temporary YouTube source sample against TMDB
+        run: node scripts/youtube-tmdb-match-pilot.mjs
+
+      - name: Publish research-only report
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g1-tmdb-report-${{ github.run_id }}
+          path: artifacts/youtube-api-g1/tmdb-match-report.md
+          if-no-files-found: error
+          retention-days: 14
