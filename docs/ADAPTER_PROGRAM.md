@@ -49,6 +49,18 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 **Nächstes Gate:** hochwertige, **nichtproduktive TMDB-Matchinganalyse** der 174 Kandidaten, inklusive Titel-/Originaltitel-/Jahr-/Laufzeitprüfung, Konfidenz, unsicherer Fälle und Überschneidungen mit dem bestehenden MovieHub-Katalog. Danach rechtliche Verfügbarkeit und echte DE-/Fire-TV-Wiedergabetests. **Keine Freigabe für Produktivimport oder neue Badges. #388 bleibt offen.**
 
+### G1-Kodi-Nachprüfung live abgeschlossen: fünf Filmhinweise zur Sichtprüfung, Spider mehrdeutig
+
+**Echter Live-Nachweis:** [YouTube G1 TMDB Match Research #38895558740](https://github.com/matthias-ennen/movie-hub/actions/runs/38895558740), **SUCCESS**. Die vormals sechs gefundenen TMDB-Suchhinweise wurden gegen zentralen Matcherscore, weitere konkurrierende Kandidaten, TMDB-Jahr und Videolaufzeit erneut geprüft: **fünf `priority-manual-review`** (`movie:13998`, `11595`, `14359`, `150`, `45881`) mit Laufzeitdifferenzen von **0,2 bis 2,4 Minuten**. **Spider bleibt `ambiguous-or-weak`**; vollständigerer Kandidatenvergleich meldete `movie:9613` gegen `movie:615750` und ungenügenden Score-Abstand. Die Top-3-Suchergebnisliste aus dem früheren A/B-Pilot war ausdrücklich keine vollständige Matchingentscheidung.
+
+**Kodi-inspirierte en-US-Suche der übrigen 14 Videos:** **10 `no-results`**, **4 `results-but-no-exact-alias`**, **0** neue identifizierte TMDB-Kandidaten; **14** Suchabfragen auf Seite 1, **0** auf Seite 2, da nirgends weitere Ergebnisseiten gemeldet wurden. Gesamtverbrauch aller G1-Stufen: **327/420** echte TMDB-Requests inklusive Retry. **Baseline 10 `provisional-identity` / 117 `review` / 47 `unmatched` bleibt unverändert.**
+
+**Nächste fachliche Gate-Reihenfolge:** (1) Tatsächliche menschliche Sichtprüfung ausgewählter Fünfer- und 18er-Prüffälle auf Werk, Vollfilm, DE-/Android-/Fire-TV-Wiedergabe, Kosten/Anmeldung und Publisherrechte; (2) bei übrigen unklaren Titeln bessere **Publisher-/Originaltitel-Metadaten**, nicht unnötige zusätzliche Seiten/Sprachen; (3) kanonischer Dubletten-/Bestandsvergleich gegen **echte** MovieHub-Live-Daten, nicht GitHub-Fallback. **Auch fünf sehr plausible Hinweise sind keine fünf final gematchten oder frei nutzbaren Filme.** Produktivadapter, G2/G3/G4, Badges, Nachtlauf und Firebase bleiben gesperrt.
+
+[Vollständiger Messbericht samt Videolinks, Spider-Erklärung und Ablehnungsgründen](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1-livebefund--kodi-inspirierte-nachprüfung-16102026).
+
+### Historische Vorbereitungsphase vor dem Live-Nachlauf
+
 ### G1-Folgeanalyse vorbereitet: sechs neue Filmhinweise und 14 Suchprobleme
 
 Auf Basis des echten G1-A/B-Berichts (**6** neue TMDB-Suchhinweise aus 20 wiederholten Nichttreffern, bisherige Baseline **10/117/47** unverändert) wird die Kodi-inspirierte Kandidatensuche in den bestehenden **read-only** YouTube-/TMDB-Forschungsworkflow integriert.
