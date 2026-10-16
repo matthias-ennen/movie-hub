@@ -53,7 +53,7 @@ Die YouTube-/TMDB-Zuordnung ist **diagnostisch plausibel**, aber noch nicht einz
 1. **Manuelle Stichprobe aus den 79 priorisierten Fällen** mit bewusster Streuung (hohe und niedrige Laufzeitabweichung, deutsche/englische/abweichende Titel, unterschiedliche Produktionsjahre). Gegenprüfen, ob YouTube-Video und TMDB-Eintrag tatsächlich dasselbe Werk und dieselbe Art von Inhaltsfassung bezeichnen; Ergebnisse als belastbare Beobachtung statt bloße automatische Matchzahl protokollieren.
 2. **32 weiterhin unklare Jahreslücken** gesondert analysieren; Werbezusätze, lokale vs. Originaltitel und fehlende TMDB-Laufzeiten trennen; keine unkontrollierten Schwellenwertabsenkungen. Die **47 ursprünglich `unmatched`** sind ein getrenntes Such-/Titelaufbereitungspaket, nicht Teil des hier gemessenen Vergleichs.
 3. Für mögliche Übereinstimmungen mit **bestehenden Live-MovieHub-Titeln** muss eine eigenständige, aktuelle kanonische Titelquelle genutzt werden. `public/catalog.json` im Repository ist nur ein Fallback und darf nicht als vollständiger Live-Katalog gelten.
-4. **Rechte-/Kostenklasse und wirkliches DE-/Fire-TV-Playback** sind eigene Verifikationsgates; YouTube-Region-Metadaten allein reichen nicht aus. **G2/Produktivimport/Badeges bleiben gesperrt**.
+4. **Rechte-/Kostenklasse und wirkliches DE-/Fire-TV-Playback** sind eigene Verifikationsgates; YouTube-Region-Metadaten allein reichen nicht aus. **G2/Produktivimport/Badges bleiben gesperrt**.
 
 ### Technische Konsequenz
 
