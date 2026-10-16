@@ -1,5 +1,12 @@
 # Profilbezogene E-Mail-Mitteilungen (#384)
 
+## Verbindlicher Abschluss – 15./16.10.2026
+
+**#384 wurde am 15.10.2026 mit „Alles abgenommen!“ durch Matthias fachlich freigegeben und geschlossen.** Verifizierter eigener Resend-Absender, produktive E-Mail-Funktionen sowie Haupt-/Unterprofil, bestätigte Empfänger, Abmeldung und UI sind in der [Abschlussübergabe](_work/EMAIL_384.md) dokumentiert. **Das gesamte Mitteilungen-Masterpaket #314 und die Konzeptbewertung #385 wurden am 16.10.2026 auf ausdrücklichen Nutzerwunsch geschlossen.** Neue Benachrichtigungsarten sind für später vertagt; aktuelle Hauptstrecke ist [Adapterprogramm / YouTube zuerst](ADAPTER_PROGRAM.md).
+
+**Die nachfolgenden Hinweise vom 14.10.2026 sind ein historischer Zwischenstand:** Keine erneute DNS-/Resend-/Secret-Einrichtung, kein erneuter Testversand und keine ausstehende Gesamtabnahme aus diesen Alttexten ableiten.
+
+
 Stand **14.10.2026, 19:22 Uhr (Europe/Berlin)**: Profiloberfläche, Regeln und
 vier Mailfunktionen sind eingerichtet. Der begrenzte Testversand ist aktiv;
 Matthias bestätigt um 19:14 die erste echte TV-Mail und positives Layoutfeedback.
