@@ -1,12 +1,22 @@
 # Movie Hub – Roadmap
 
-Stand: 15. Oktober 2026
+Stand: 16. Oktober 2026
 
 ## Leitprinzip
 
 Movie Hub wird in klar abgegrenzeten Arbeitspaketen weiterentwickelt. TMDB bleibt die kanonische Quelle für öffentliche Film- und Serienmetadaten. Zusätzliche Quellen liefern Verfügbarkeiten, Senderereignisse und Wiedergabeziele. Ein Adapterfehler darf weder andere Quellen noch den letzten gültigen veröffentlichten Datenstand beschädigen.
 
-Das Mitteilungs-Grundpaket, #387 (Einstellungen) und #426 (Detailseite einschließlich aller Nachträge) sind abgenommen. **#384 (Auch per E-Mail je Profil) wurde am 15.10.2026 durch Matthias mit „Alles abgenommen!“ vollständig freigegeben und abgeschlossen.** Die verifizierte Versanddomain `mail.moviehubgermany.de`, der produktive Absender, die vier Gen2-Mailfunktionen, die Profiltrennung, echte E-Mail-Empfänge, Bestätigungs- und Abmeldelinks sowie die abgenommene UI-Verbesserung sind dokumentiert. Die finale [Übergabe](_work/EMAIL_384.md) enthält auch die Nachweisgrenzen. **Nächstes Arbeitspaket ist #385** (gezielt zusätzliche sinnvolle Mitteilungsanlässe priorisieren). #314 bleibt als Master bis zur #385-Entscheidung offen; danach die modulare Quellenplattform. Der Waipu-/Joyn-Betriebsnachtrag bleibt getrennt davon dokumentiert.
+**Projektentscheidung 16.10.2026:** Das gesamte Mitteilungspaket einschließlich #314 und #385 ist auf ausdrücklichen Wunsch abgeschlossen; #380–#384 waren zuvor abgenommen. Spätere neue Meldungstypen sind nicht Teil der aktiven Entwicklung. **Neue Hauptstrecke ist #271 (Quellenplattform), erster Adapter #388 (YouTube), danach #336 (DVB-I) und #391 (Prime Video).** Die Adapter werden zunächst analysiert und über getrennte Pilot-/Freigabegates vorbereitet; es besteht noch keine Produktivfreigabe. [Verbindlicher Adapterplan](ADAPTER_PROGRAM.md).
+
+## Aktive Hauptstrecke ab 16.10.2026 – Adapter-Fundament
+
+1. **#388 YouTube – Priorität 1:** Zulässige Quellen/API, echte kostenlose vollständige Filme in Deutschland, konservatives TMDB-Matching, exakte YouTube-Video-Routen und Fire-TV-Absprung untersuchen. Zuerst begrenzter nichtproduktiver Datenpilot, anschließend Go/No-Go. Keine Scraping- oder Direktstream-Lösung.
+2. **#336 DVB-I – Priorität 2:** Offiziellen deutschen Service-List-/Content-Guide-Zugang, EPG, Region, Rechte und Wiedergabeziele als isolierten Pilot prüfen. Produktionszugang nicht voraussetzen.
+3. **#391 Prime Video – Priorität 3:** Vorliegende Fire-TV-GTI-Erfahrungen und mögliche belastbare Quelle für titelgenaue IDs prüfen. Kein universeller Deep-Link und kein Adapter ohne geprüften Datenzugang.
+4. **Weitere offizielle Quellen** nach Entscheidung einzeln priorisieren, ohne #271 zur Sammelimplementierung aufzublähen.
+5. **Danach:** Verfügbarkeits- und Kostenpriorität (FLAT/FREE/ADS/RENT/BUY/TV), Gerätefinish, #112-Release-Gate.
+
+**Architektur:** TMDB ist die kanonische Titelbasis; Adapter ergänzen Provenienz, Verfügbarkeit und PlaybackRoute im bestehenden gemeinsamen Vertrag. Quellenfehler dürfen andere Quellen und den letzten gültigen Stand nicht beschädigen. Technische und manuelle Abnahmen bleiben getrennt.
 
 ## Bereinigter abgeschlossener Stand
 
@@ -75,7 +85,7 @@ Die Datenstrecke ist nachgewiesen; pünktlicher Start bleibt ein Überwachungspu
 
 #415 ergänzt über den übernommenen PR #416 das bestehende Suchfeld um Schauspielernamen. Gemeinsame Besetzungs-IDs mit #413, öffentlicher Suchindex aus vorhandenen Metadaten und lokale Ergänzung persönlicher Titel; keine zusätzlichen Netzwerkabfragen beim Tippen. Technische Tests und Veröffentlichung sind erfolgreich. Die manuelle Smartphone-/Fire-TV-Abnahme wurde am 12.10.2026 im gemeinsamen Schritt mit #413 bestätigt; #415 ist geschlossen. Die Reihenfolge der Hauptstrecke ändert sich nicht. Für die Sucherweiterung reicht ein vollständiger App-Neustart.
 
-## Aktive Hauptstrecke
+## Historischer Umsetzungsverlauf bis 15.10.2026 (nicht mehr aktive Priorisierung)
 
 ### Abgeschlossen: #426 einschließlich Navigationsnachtrag
 
@@ -154,7 +164,7 @@ Diese Darstellungs-/Priorisierungsarbeit folgt nach den ersten zusätzlichen Ada
 ## Gesondert offene Betriebs- und Restpakete
 
 - #329 – Waipu-Restklassifizierung der technischen-only Einträge; Wartung, blockiert die aktuelle Hauptstrecke nicht
-- #385 – verbleibende Erweiterung der Hauptstrecke #314; #384 und das Mitteilungs-Grundpaket sind vollständig abgenommen und abgeschlossen
+- #388 – YouTube-Erstanalyse als nächstes Adapterpaket unter #271; #314/#385 sind abgeschlossen
 - #386 – eng begrenzte Fire-TV-Nacharbeit zu verbliebenen Navigations-Freezes; eigenes offenes Folgeissue
 - #7 – erste Top-100-Stufe veröffentlicht und am 26.09.2026 auf Fire TV abgenommen; Empfehlungen und Automatisierung später
 - #328 – Trailer/Teaser-Finish: Sprachwahl und Wiedergabestabilität; späteres UI-/Player-Finish
@@ -197,6 +207,6 @@ Vor einer öffentlichen Version 1.0 sollen mindestens folgende Blöcke abgeschlo
 
 ## Aktuelle Reihenfolge
 
-`#385 (Mitteilungsanlässe priorisieren; #384 abgeschlossen) → #271/#336 weitere Quellen → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
+`#271 / #388 YouTube-Analyse + Pilot → #336 DVB-I → #391 Prime-Video-Analyse → weitere Quellen nach Go/No-Go → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
 
-#346, #315, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. #426 ist einschließlich aller Nachträge abgenommen und abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Neue Quellenkandidaten #388 (YouTube) und #391 (Prime Video) bleiben getrennte Recherchepakete unter #271 und ändern die Hauptstrecke nicht.
+#346, #315, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. #426 ist einschließlich aller Nachträge abgenommen und abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Die Adapter #388 (YouTube), #336 (DVB-I) und #391 (Prime Video) bilden die neu priorisierte Hauptstrecke unter #271; #314/#385 sind abgeschlossen.
