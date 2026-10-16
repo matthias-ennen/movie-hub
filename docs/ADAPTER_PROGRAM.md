@@ -49,6 +49,14 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 **Nächstes Gate:** hochwertige, **nichtproduktive TMDB-Matchinganalyse** der 174 Kandidaten, inklusive Titel-/Originaltitel-/Jahr-/Laufzeitprüfung, Konfidenz, unsicherer Fälle und Überschneidungen mit dem bestehenden MovieHub-Katalog. Danach rechtliche Verfügbarkeit und echte DE-/Fire-TV-Wiedergabetests. **Keine Freigabe für Produktivimport oder neue Badges. #388 bleibt offen.**
 
+### G1-Datenqualität: konservativer Vergleich für 111 Video-Titel ohne Filmjahr (vorbereitet)
+
+**Zusatzdiagnose zum gleichen 174er-TMDB-Sample:** Nach den Live-Ergebnissen mit 10 vorläufigen Identitäten, 117 Reviews und 47 ohne Kandidaten soll eine **zweite Evidenzschicht** die **111 Reviews ohne explizites Filmjahr** auf *manuell lohnende Fälle* reduzieren. Der bestehende Waipu-TMDB-Matcher und die Baseline-Kategorien werden nicht verändert oder aufgeweicht. Ein Review erhält **keine automatische TMDB-Identität**.
+
+Die nur manuell ausführbare Forschungsstrecke ergänzt bei exakt passendem TMDB-Lokal- oder Originaltitel, vorhandener Matcher-Eindeutigkeit und einer Laufzeitdifferenz ≤10 Minuten den Status **`priority-manual-review`**. Das ist nur eine *Prioritätsliste für menschliche Sichtprüfung* – keine Nachweisführung zu identischem Werk, Filmrechten, kostenlosen Angeboten oder DE-/Fire-TV-Abspielbarkeit. Fehlende Belege bleiben als `insufficient` nachvollziehbar. Einheitlicher Matcher und Quellen-/Katalogvertrag bleiben verbindlich.
+
+**Status:** Code/Regressionstests vorbereitet, echte Vergleichszahlen stehen noch aus. Workflow nach grüner CI nur manuell starten. [Methode und Ausschlussgründe](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1--vergleichsdiagnose-ohne-filmjahr-vorbereitet-16102026). **Keine Produktivänderung und keine G2-Freigabe.**
+
 ### G1-TMDB-Livelauf – technische Zuordnung erfolgreich, Qualitätsgates noch offen
 
 **Beleg:** [GitHub Actions #38884328789](https://github.com/matthias-ennen/movie-hub/actions/runs/38884328789) ist **vollständig grün**; kombinierter YouTube-/TMDB-API-Test nutzt den **vorhandenen Waipu-Matcher v5**. **200** untersuchte Videos, **26** Quell-/Laufzeit-Ausschlüsse, somit **174** analysierte Langvideos; davon **10** starke *vorläufige* Identitäts-Hypothesen, **117** prüfpflichtige Kandidaten und **47** ohne hinreichenden TMDB-Kandidaten. **194 TMDB-API-Aufrufe** durchgeführt. Eine potenzielle Dublettengruppe bei `movie:304613` unter YouTube-Videos; kein verifizierter Live-MovieHub-Dublettenabgleich.
