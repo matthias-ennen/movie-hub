@@ -4,6 +4,24 @@
 **Ergebnisstatus:** G0 – Dokumentations-/Internetrecherche; **kein** authentifizierter API-Abruf, **kein** Datenpilot, **kein** Wiedergabe- oder Fire-TV-Gerätetest, **keine** Code-/Secret-/Cloud-Änderung.  
 **Entscheidungsbedarf:** später G1 (begrenzter nichtproduktiver API-Pilot) und danach gegebenenfalls separate Produktivfreigabe G2.
 
+## G1-Testwerkzeug – nach Secret-Freigabe vorbereitet (16.10.2026)
+
+**Nutzerbestätigung:** Das Secret `YOUTUBE_API_KEY` ist angelegt, und dem bestehenden Workload-Identity-Dienstkonto wurde am **einzelnen Secret** nach Rückmeldung des Nutzers die Rolle `Secret Manager Secret Accessor` zugewiesen. Tatsächliche Berechtigung, aktive Secret-Version und API-Key-Gültigkeit werden **erst durch den realen GitHub-Test nachgewiesen**.
+
+**Implementierung ausschließlich als Diagnosewerkzeug:**
+
+- Workflow `.github/workflows/youtube-api-g1-readonly.yml` mit **nur `workflow_dispatch`**, nur auf `main`. Kein Zeitplan, kein Trigger durch Pull Requests oder Pushes.
+- Nutzt ausschließlich vorhandene GitHub-OIDC-/Workload-Identity-Konfiguration `github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com`; **keine** neue Service-Account-Schlüsseldatei und keine GitHub-Secret-Kopie des API-Keys.
+- `scripts/youtube-api-smoke.mjs`: liest `YOUTUBE_API_KEY` aus Google Cloud Secret Manager **nur im Prozessspeicher**, sendet ihn als `x-goog-api-key`-Header (nicht URL), loggt weder den Schlüssel noch Rohfehlerkörper.
+- Durchführt **maximal sechs** dokumentierte YouTube-Leseabfragen: `channels.list` für CiNENET/Netzkino (1), `playlists.list` für beide (2), `playlistItems.list` je Publisher (2; jeweils höchstens 12 Einträge), `videos.list` gemeinsam (1). Die konkrete CiNENET-Playlist ist `PLnJg6MSfgQqnIcJ492cEmZCeTsLOoZzfD`; Netzkino nutzt die API-bestätigte Upload-Playlist. **Keine weiteren Seiten und kein 100–200-Video-Import in dieser ersten Berechtigungsprobe.**
+- Bericht ausschließlich als **GitHub-Actions-Jobzusammenfassung**: API-Playlist-Länge, Abrufzahlen, Video-ID-Treffer und öffentliche Stichprobentitel/Laufzeiten/technische DE-Regionssignale. Keine TMDB-IDs, keine Rechte-/Kostenfreigabe, kein Playbackversprechen.
+- `tests/youtube-api-smoke.test.js` prüft ohne echte Keys/API-Abfragen Status-/Regionsbehandlung, sichere Schlüsselübergabe, Fehlermeldung und Ausgabe.
+- **Kein** Daten-/Firebase-Schreibzugriff, kein MovieHub-Badge, keine neue Katalog-/Cloud-Funktion und kein Live-Deploy durch diesen Workflow.
+
+**Ausführung, erst wenn Workflow auf `main` verfügbar:** GitHub → Actions → **YouTube API G1 Read-only Smoke** → **Run workflow** → Branch `main` → Start. Anschließend Schritt-/Job-Zusammenfassung in GitHub auswerten; Link zum Lauf in #388 nachtragen. **Nicht** das bestehende **Deploy Firebase**-Workflow starten.
+
+**Sicherheitsaspekt bei Veröffentlichung:** Ein normaler Commit auf `main` löst den vorhandenen `Deploy Firebase`-Workflow aus, der nicht Teil dieser isolierten Probe sein soll. Zunächst eigenständigen PR samt Test-CI prüfen; Veröffentlichung des Diagnoseschritts möglichst ohne automatisches Deploy (z. B. nach grüner PR-CI mit **`[skip ci]`** im finalen Merge-Commit). GitHub verweist darauf, dass das Commit-Wort nur Push-/PR-Workflows überspringt, nicht den späteren `workflow_dispatch`-Test: https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs . Vor einer Überspringung sicherstellen, dass Branchschutz/Required-Checks weiterhin erfüllbar sind.
+
 ## G1-Zugangsprüfung und konkretisierte Datenprobe – 16.10.2026
 
 **Auftrag:** Nach Freigabe von G0 mit dem geplanten echten API-Test für CiNENET und Netzkino fortfahren. **Ergebnis:** Quellenidentität und API-Aufrufplan konkretisiert; **authentifizierter Abruf derzeit nicht ausgeführt, weil kein verwendbarer YouTube-API-Zugang über die verbundenen Werkzeuge vorliegt.** Die verbundenen GitHub-Werkzeuge ermöglichen die Einsicht in Repository-Dateien, aber keinen Abruf aus Google Cloud Console/Secret Manager und kein Auslesen eines bestehenden API-Schlüssels. Ob im Google-Cloud-Projekt `movie-hub-62459` bereits die YouTube Data API aktiviert oder ein Key eingerichtet ist, **konnte daher weder bestätigt noch ausgeschlossen werden**. Ein direkter Abruf über den hier verfügbaren Webzugang wurde technisch nicht bereitgestellt; das ist **keine** gemessene YouTube-API-Fehlerantwort und kein Nachweis eines 403/fehlgeschlagenen Schlüssels.
