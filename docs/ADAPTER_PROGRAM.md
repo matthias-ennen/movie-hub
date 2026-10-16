@@ -37,6 +37,12 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 **Quellenstand der folgenden Angaben: 16.10.2026.** Die folgenden Ergebnisse beruhen auf den offiziellen veröffentlichten Dokumentationen und dem bereits angelegten Issue #388; **es gab noch keinen authentifizierten YouTube-API-Abruf und keinen realen Fire-TV-Wiedergabetest dieses Adapters**.
 
+### G1-Folgepilot – vollständiges Quelleninventar, 200-Videos-Stichprobe und internes Ranking
+
+**Neu vorbereitet, noch nicht durchgeführt:** manuell startbarer **schreibgeschützter** Workflow `YouTube G1 Inventory Pilot (200)`. Er inventarisiert die vorhandenen CiNENET-/Netzkino-Playlist-IDs seitenweise und bildet daraus bis zu 200 eindeutig bestimmte Video-IDs mit **zeitlich verteilter Netzkino-Stichprobe** statt bloß der neuesten Uploads. `videos.list` ergänzt Laufzeit, Regionssignale und `statistics.viewCount`; ein transparentes Ranking gilt **nur innerhalb der untersuchten Stichprobe**. Filter trennt Shorts/Clips, mittellange und lange Videos. [Reproduzierbare Methodik und technische Gates](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1-vertiefung--größere-zeitlich-verteilte-stichprobe-in-vorbereitung-16102026).
+
+**Grenzen:** maximal 70 Seiten je Playlist, 90 API-Aufrufe, 200 Videos; bei unvollständigen Quellen oder Fehlern Abbruch. Keine Google-Suche zur vermeintlichen Komplettinventarisierung, keine TMDB-Matches, keine automatische Bestätigung von Vollfilm/DE-/Gratisangebot, kein Cloud-/Produktivimport. Echte Zahlen erst nach manuellem Lauf; spätere TMDB-Zuordnung und Geräteproben gesondert.
+
 ### G1-Messergebnis vom 16.10.2026 – erste echte Quellenprobe erfolgreich
 
 **Beleg:** [GitHub Actions Run #38874604617](https://github.com/matthias-ennen/movie-hub/actions/runs/38874604617); **auslesbarer Bericht** in Job-Logs und temporärem Artefakt. [Detaillierte Quantifizierung, Filterbefunde und offene Gates](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1--quantitativer-erstbefund-youtube-data-api-liefert-echte-filmdaten-16102026).
