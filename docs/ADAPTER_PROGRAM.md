@@ -49,6 +49,14 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 **Nächstes Gate:** hochwertige, **nichtproduktive TMDB-Matchinganalyse** der 174 Kandidaten, inklusive Titel-/Originaltitel-/Jahr-/Laufzeitprüfung, Konfidenz, unsicherer Fälle und Überschneidungen mit dem bestehenden MovieHub-Katalog. Danach rechtliche Verfügbarkeit und echte DE-/Fire-TV-Wiedergabetests. **Keine Freigabe für Produktivimport oder neue Badges. #388 bleibt offen.**
 
+### G1-Folgepaket vorbereitet – konservatives YouTube-/TMDB-Matching (noch nicht ausgeführt)
+
+Nach erfolgreicher YouTube-Inventarisierung von 2.790 IDs und 200/200 Video-Metadaten folgt die **identitätsorientierte Analyse der 174 Langvideo-Kandidaten**. Der getrennte, ausschließlich manuelle Diagnoseworkflow `YouTube G1 TMDB Match Research` kombiniert das bestehende G1-Inventar mit dem **bereits in MovieHub vorhandenen Waipu-TMDB-Matcher** und seinem TMDB-Suchclient. Die vorhandene Logik für kanonische Identität, Titel-/Jahr-Konfidenz und Mehrdeutigkeiten wird wiederverwendet, statt einen Youtube-Sondermatcher zu bauen.
+
+Für eine **vorläufig starke Zuordnung** müssen zusätzlich zu einer positiven Matchentscheidung ein explizites Filmjahr aus dem Videotitel und eine TMDB-Laufzeitdifferenz von höchstens 15 Minuten vorliegen. Unbekannte Jahre, unklare Titel und Konflikte gehen in den Prüf-/Review-Pfad. Mehrfache YouTube-IDs mit derselben TMDB-ID werden als **potenzielle Quellen-Dubletten** protokolliert. Eine belastbare **Überschneidung mit dem Live-MovieHub-Katalog** ist hier noch nicht geprüft und wird nicht aus dem leeren `public/catalog.json`-Fallback abgeleitet.
+
+**Betriebsgrenzen:** max. 200 YouTube-Videos, 90 YouTube- und 420 TMDB-Requests, ausschließlich öffentliches Research-Reporting, beide Schlüssel geschützt, keine Produktiv-/Firebase-Schreibzugriffe. **Ausführung und Ergebnisanalyse ausstehend**; TMDB-Treffer sind weiterhin kein Nachweis einer legalen, kostenlosen oder aus Deutschland auf Fire TV abspielbaren Quelle. [Detaillierte Methodik](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1-fortsetzung--youtube-zu-tmdb-matchingpilot-vorbereitet-16102026).
+
 ### Historischer Plan vor dem erfolgreichen 200er-Run
 
 ### G1-Folgepilot – vollständiges Quelleninventar, 200-Videos-Stichprobe und internes Ranking
