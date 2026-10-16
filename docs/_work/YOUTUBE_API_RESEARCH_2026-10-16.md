@@ -1,8 +1,57 @@
 # YouTube Data API – Recherche und erste Adapterbewertung
 
 **MovieHub · Issue #388 · 16.10.2026**  
-**Ergebnisstatus:** G0 Recherche und **G1 erste begrenzte Live-API-Stichprobe erfolgreich** (16.10.2026); *größeres 100–200-Video-Sample, TMDB-Matching und Geräte-/Rechtsprüfung noch ausstehend*.  
+**Ergebnisstatus:** G0 Recherche, G1 24er-Smoke-Test **und G1 200er-Inventar- und Datenprobe erfolgreich** (16.10.2026); *TMDB-Matching, genaue Lizenz-/DE-Wiedergabe und Geräteprüfung weiterhin ausstehend*.  
 **Freigabegrenze:** noch kein Produktivadapter; G2/G3/G4 nicht erteilt oder begonnen. Die unten folgenden früheren G0-/Zugangsgate-Kapitel dokumentieren den historischen Verlauf, nicht den neuesten Status.
+
+## G1-Livebefund – vollständige Playlist-ID-Inventarisierung und 200er-Stichprobe erfolgreich (16.10.2026)
+
+**Primärbeleg:** [GitHub Actions Run #38878217586](https://github.com/matthias-ennen/movie-hub/actions/runs/38878217586), manuell auf `main`, vollständig **SUCCESS**. [14-Tage-Report als GitHub-Artefakt #12036217546](https://github.com/matthias-ennen/movie-hub/actions/runs/38878217586/artifacts/12036217546), Job **116898314139**. Erzeugung 2026-10-16 09:07:05 UTC, Ende des Laufes rund 09:07:21 UTC. Alle API-Abfragen, Secret-Manager-Zugriffe und Artefakt-Upload erfolgreich. Dieser Abschnitt gibt **tatsächliche, im Job-Log gelesene Messdaten** wieder, nicht vorweggenommene Erwartungen.
+
+### Inventar- und Stichprobengrößen
+
+| Kennzahl | CiNENET Deutschland | Netzkino | Gesamt |
+| --- | ---: | ---: | ---: |
+| Quelle | UCM.ONE-verlinkte Themenplaylist „Silvester 2025“ | Kanal-Upload-Playlist | Zwei unterschiedlich kuratierte Eingänge |
+| YouTube-`playlists.list.contentDetails.itemCount` | **24** | **2.766** | **2.790 Listeneinträge**, **keine** 2.790 bewiesenen Filme |
+| Vollständig inventarisierte gültige eindeutige Video-IDs | **24** | **2.766** | **2.790** (innerhalb der Einzellisten) |
+| `playlistItems.list`-Seiten zur Erfassung | **1** | **56** | **57** |
+| Bewusst ausgewählte Video-IDs | **24** | **176** | **200 eindeutige IDs** |
+| Durch `videos.list` aufgelöste Metadatensätze | **24/24** | **176/176** | **200/200** |
+| Langvideo-Kandidaten (ab 45 Minuten, eigener Kanal) | **23** | **151** | **174** |
+| Kurzvideos unter 20 Minuten | 0 | **21** | **21** |
+| Mittlere Laufzeit 20–44 Minuten | 0 | **4** | **4** |
+| Video aus anderem Kanal in der Publisher-Playlist | **1** | 0 | **1** |
+| Explizites `DE` in `regionRestriction.allowed` | **22** | **172** | **194** |
+| Kein eindeutiges DE-Regionssignal | **2** | **4** | **6** |
+| Explizite DE-Sperre / DE nicht in Allowlist | 0 | 0 | **0** |
+
+**API-Verbrauch:** **64 erfolgreiche GET-Abfragen** laut laufendem Script: `channels.list` ×1; `playlists.list` ×2; `playlistItems.list` ×57; `videos.list` ×4. Innerhalb der festen Grenzen 70 Seiten pro Playlist, 90 API-Aufrufe insgesamt und maximal 200 Metadaten-IDs. API-Quota in Google Cloud nicht unabhängig gemessen.
+
+**Absolut wichtig:** Eine Upload-Playlist von **2.766** Einträgen ist ein Video-Inventar, keine Ansammlung 2.766 bestätigter Vollfilme. Auch die 174 als Langvideo eingestuften Datensätze sind **nur vorläufige Kandidaten** ohne TMDB- oder Rechtsprüfung. Die **194 DE-Allowlist-Signale** belegen ausschließlich ein Metadatenmerkmal, keine tatsächliche Abspielbarkeit in Deutschland oder auf Fire TV.
+
+### Qualitätsbefunde aus genau dieser Stichprobe
+
+- Die **21 Shorts/Clips unter 20 Minuten** allein bei Netzkino beweisen, dass Kanal-Uploads vor dem Filmabgleich gefiltert werden müssen. Die vier Fälle zwischen 20 und 44 Minuten bleiben **Review-Kandidaten**, nicht automatische Ablehnungen.
+- Der **fremde Upload-Kanal in einer CiNENET-kuratierten Playlist** ist eine Provenienz-Abweichung. Das Playlist-Vertrauenssignal darf **nicht** auf den tatsächlichen Eigentümer eines Videos übertragen werden. Diesen Datensatz für **separate Publisher-/Lizenzprüfung** kennzeichnen, nicht automatisch als rechtlich ungültig oder endgültig zu löschen deklarieren.
+- **Netzkino-Sampling:** neueste 20 Einträge sowie über die gesamte Upload-Playlist gleichmäßig verteilte Positionen, insgesamt 176 ausgewählte IDs. **CiNENET:** alle 24 Einträge dieser Publisherplaylist. Deterministisch, aber **keine repräsentative Zufallsstichprobe**. Die 151/176 ≈ **85,8 %** Langvideo-Kandidaten gelten **nur für die untersuchte Netzkino-Auswahl**, nicht für sämtliche 2.766 Einträge.
+- Der sichtbare Aufrufzahl-Rang ist **kein globales Top-Ranking** aller Netzkino-Uploads. Ein Ranking des ganzen Kanals verlangte `statistics.viewCount` für sämtliche relevanten Videos – nicht allein die ID-Inventarisierung.
+- **Beispiele aus der temporären Rangliste (Messmoment 16.10.2026):** CiNENET „Viking Blood“ ist unter den gemessenen Langvideo-Kandidaten vorn; Netzkino „Die Rache der Putzfrauen“ vor „American Soldiers – Ein Tag im Irak“ und „Mitten im Sturm“. **Keine** dauerhafte Speicherung dynamischer `viewCount`-Einzelwerte im Repository; Original-Ranking siehe befristetes Actions-Artefakt.
+- `statistics.viewCount` (YouTube-Popularität) kann ein **nachrangiges Discovery-/Priorisierungssignal** sein; nach bestätigtem TMDB-Match sollte im kanonischen Titelmodell weiterhin TMDB-basierte Identität/Qualität/Popularität getrennt bleiben. Der bekannte zeitlich verteilte Probenplan ist eine **Datenbeschaffungsstrategie**, kein Produktionssortiervertrag.
+
+### Nachweisstand und nächstes Gate
+
+**Bestätigt:** Secret-/WIF-Verbindung, offizielle read-only API, tatsächliche seitenvollständige ID-Inventarisierung der beiden *ausgewählten* Playlists, die 200er-Metadatenprobe, Publisher-/Kurzvideo-/Laufzeit- und DE-Metadatengruppierung, erste nach Aufrufen sortierte **Stichproben-Rangliste**, erfolgreiches separates Artefakt.
+
+**Noch offen:** konservative TMDB-Suche/Normalisierung (deutscher Titel, Originaltitel, Releasejahr, Laufzeit, Medientyp), genaue TMDB-Matchquote, Dubletten zwischen unterschiedlich hochgeladenen Videos bzw. existierenden Netzkino-Angeboten in MovieHub, Beleg für legal verfügbare Vollfilme, tatsächlich kostenlose Verfügbarkeit, DE-Playback, Fire-TV-Route und Endgeräteabnahme. **Nicht alle möglichen CiNENET-/UCM.ONE-Playlists oder Kanäle wurden inventarisiert**, nur die eine bestätigte Themenplaylist.
+
+**Empfohlene nächste isolierte Untersuchung:** 200er-Stichprobe mit dem vorhandenen zentralen TMDB-Katalog bzw. bestehenden sicheren TMDB-Zugang vergleichen, **ohne** neue Filmidentitäten aus unbestätigten Videotiteln zu erzeugen. Normalize/Match mit Confidence, eindeutigen Entscheidungen, Review-/Reject-Gründen und bereits vorhandenen Media-IDs; nicht vorzeitig einen Produktivadapter oder Quellen-Badges einschalten. Für die vollständige dynamische Kanal-Popularität wären zusätzliche `videos.list`-Batches nötig, das ist **nicht** Inhalt des abgeschlossenen G1-Piloten.
+
+**G1-Teilentscheidung:** Erstes Quellen-Inventar und technische 200er-Datenprobe **abgenommen auf technischer Ebene durch erfolgreiche Automation**; **inhaltliche Rechte-/Match- und Endgeräte-Abnahme bleibt ausstehend**. #388 bleibt offen, keine G2/G3/G4-Freigabe.
+
+---
+
+## Historischer G1-200er-Implementierungsplan vor dem erfolgreichen Live-Lauf
 
 ## G1-Vertiefung – größere, zeitlich verteilte Stichprobe in Vorbereitung (16.10.2026)
 
