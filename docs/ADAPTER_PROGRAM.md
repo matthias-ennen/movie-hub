@@ -37,6 +37,21 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 **Quellenstand der folgenden Angaben: 16.10.2026.** Die folgenden Ergebnisse beruhen auf den offiziellen veröffentlichten Dokumentationen und dem bereits angelegten Issue #388; **es gab noch keinen authentifizierten YouTube-API-Abruf und keinen realen Fire-TV-Wiedergabetest dieses Adapters**.
 
+### G1-Messergebnis vom 16.10.2026 – erste echte Quellenprobe erfolgreich
+
+**Beleg:** [GitHub Actions Run #38874604617](https://github.com/matthias-ennen/movie-hub/actions/runs/38874604617); **auslesbarer Bericht** in Job-Logs und temporärem Artefakt. [Detaillierte Quantifizierung, Filterbefunde und offene Gates](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1--quantitativer-erstbefund-youtube-data-api-liefert-echte-filmdaten-16102026).
+
+- **CiNENET-Themenplaylist:** 24 Gesamt-Playlist-Einträge; 12 gelesen, alle 12 Videos über `videos.list` aufgelöst.
+- **Netzkino-Upload-Playlist:** 2.766 Playlist-Einträge laut API; 12 gelesen, alle 12 Videos aufgelöst. **Uploadliste ist kein Nachweis von 2.766 vollständigen Filmen!**
+- **Gesamtprobe:** **24/24 eindeutige Videos mit Detailmetadaten**; **22** mit `DE` in der `allowed`-Liste, **2** ohne ausdrückliches DE-Signal, **0** ausdrücklich als für DE blockiert gemeldete Videos. **1 eindeutiger Nichtfilm-Short (32 Sekunden)** in Netzkino-Uploads.
+- **Technik/Betrieb:** 6 erfolgreiche, rein lesende YouTube-API-Aufrufe. Workload Identity, Secret Manager, YouTube API, GitHub-Bericht/Artefakt erfolgreich. Kein Live-Import, keine Änderung am produktiven MovieHub.
+- **Noch nicht abgeleitet:** rechtlich belegte Vollfilme, tatsächliche kostenlose DE-Wiedergabe, eindeutige TMDB-Matches, Überschneidungen mit bestehendem Netzkino-Katalog, Fire-TV-Playback.
+- **Nächste Untersuchung:** systematischer, nichtproduktiver **100–200-Videos-G1-Datenpilot** mit Pagination, Vorfilter für Trailer/Shorts, konservativer TMDB-Zuordnung und separaten Gerätetests. Weitere Code-/Infrastrukturschritte getrennt bewerten und freigeben, keine automatische Produktivsetzung.
+
+**Status:** G0 erfolgreich, **G1 erste technische Datenprobe nachgewiesen**, erweiterte G1-Analyse noch offen; **G2–G4 nicht beauftragt**.
+
+### Historischer Zwischenstand vor dem erfolgreichen G1-Lauf
+
 ### G1-Fortsetzung vom 16.10.2026 – Zugangsgate statt erfundener Datenprobe
 
 **Verschobener Testschritt:** Der vereinbarte reale YouTube-Datenpilot wurde begonnen, konnte aber **noch keinen authentifizierten YouTube-API-Datenabruf** durchführen: In der aktuellen Werkzeugverbindung steht kein verwendbarer YouTube-API-Key und kein Zugriff auf Google-Cloud-API-Aktivierung/Secret Manager zur Verfügung. Daraus folgt **nicht**, dass im Google-Projekt noch kein Key existiert; dieser Zustand ist bislang **unbestätigt**.
