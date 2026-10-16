@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { extractYouTubeMovieTitle, runtimeAgreement, analyzeYouTubeMovie, analyzeSample } from '../scripts/youtube-tmdb-match-pilot.mjs'
+import { extractYouTubeMovieTitle, runtimeAgreement, analyzeYouTubeMovie, analyzeSample, assessYearlessCandidate, compareYearlessReviews } from '../scripts/youtube-tmdb-match-pilot.mjs'
 import { SOURCES } from '../scripts/youtube-api-smoke.mjs'
 
 const ID='abcdefghijk'
@@ -66,4 +66,50 @@ describe('YouTube G1 TMDB research only',()=>{
    expect(result.report).toContain('Keine MovieHub-Katalog')
    expect(result.report).not.toContain('TMDB_API_READ_TOKEN')
  })
+ it('keeps the existing year-required result on the same sample unchanged',async()=>{
+   const raw=video({snippet:{title:'Viking Blood (ganzer Film)',channelId:SOURCES[0].channelId}})
+   const result=await analyzeSample({
+     byPublisher:[{source:SOURCES[0],ids:[ID]}], detailMap:new Map([[ID,raw]]),
+   },{searchTmdb:tmdbResults([a(233,2018)]),loadDetails:async()=>({runtimeMinutes:88})})
+   expect(result.counts).toEqual({review:1})
+   expect(result.decisions[0].reason).toBe('no-independent-year')
+   expect(result.decisions[0].sharedMatcherStatus).toBe('unmatched')
+   expect(result.decisions[0].candidateScore).toBe(70)
+   expect(result.decisions[0].sharedMatcherMargin).toBeGreaterThanOrEqual(12)
+ })
+ it('prioritizes only for human review when unique exact alias and TMDB runtime align',async()=>{
+   const result={reason:'no-independent-year',tmdbId:233,tmdbTitle:'Viking Blood',
+    tmdbOriginalTitle:'Viking Blood',title:'Viking Blood',tmdbYear:2018,
+    candidateScore:70,sharedMatcherMargin:70}
+   expect(assessYearlessCandidate(result,video()).status).toBe('needs-runtime-detail')
+   const picked=assessYearlessCandidate(result,video(),{runtimeMinutes:90,year:2018})
+   expect(picked).toEqual({status:'priority-manual-review',reason:'exact-alias-plus-runtime',delta:2})
+   expect(assessYearlessCandidate(result,video(),{runtimeMinutes:111,year:2018}).status).toBe('insufficient')
+   expect(assessYearlessCandidate({...result,sharedMatcherMargin:2},video()).reason).toBe('weak-or-ambiguous-candidate')
+   expect(assessYearlessCandidate({...result,title:'Viking Blood Edition'},video()).reason).toBe('no-exact-tmdb-alias')
+   expect(assessYearlessCandidate(result,video(),{runtimeMinutes:90,year:2017}).reason).toBe('inconsistent-tmdb-year')
+   expect(assessYearlessCandidate({...result,tmdbYear:null},video()).reason).toBe('missing-tmdb-year')
+ })
+ it('compares yearless reviews with detail caching without upgrading the baseline decisions',async()=>{
+   const decisions=[{reason:'no-independent-year',status:'review',title:'Viking Blood',videoId:ID,tmdbId:233,
+      tmdbTitle:'Viking Blood',tmdbOriginalTitle:'Viking Blood',tmdbYear:2018,candidateScore:70,
+      sharedMatcherStatus:'unmatched',sharedMatcherMargin:70},
+      {reason:'no-independent-year',status:'review',title:'Viking Blood',videoId:'12345678901',tmdbId:233,
+      tmdbTitle:'Viking Blood',tmdbOriginalTitle:'Viking Blood',tmdbYear:2018,candidateScore:70,
+      sharedMatcherStatus:'unmatched',sharedMatcherMargin:70},
+      {reason:'year-conflict',status:'review',title:'Other film',videoId:'other'}]
+   const details=vi.fn(async()=>({year:2018,runtimeMinutes:89}))
+   const outcome=await compareYearlessReviews({
+       decisions, detailMap:new Map([[ID,video()],['12345678901',video({id:'12345678901'})]]),
+   },{loadDetails:details})
+   expect(outcome.yearlessCount).toBe(2)
+   expect(outcome.priorityCount).toBe(2)
+   expect(outcome.attemptedDetails).toBe(1)
+   expect(details).toHaveBeenCalledTimes(1)
+   expect(decisions.map(x=>x.status)).toEqual(['review','review','review'])
+   expect(outcome.report).toContain('nur eine Priorisierung für manuelle Prüfung')
+   expect(outcome.report).toContain('Baseline unverändert')
+   expect(outcome.report).not.toContain('TMDB_API_READ_TOKEN')
+ })
+
 })
