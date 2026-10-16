@@ -62,8 +62,13 @@ export async function reviewSixSearchHints({ rows, detailMap }, { searchTmdb, lo
       score:evaluation.best?.score??null, margin:evaluation.margin,
       runtimeDelta:null,
       topIds:candidates.map(x=>tmdbId(x)).filter(Boolean).slice(0,6)}
-    if(evaluation.status!=='matched') {
-      outcome.status='ambiguous-or-weak';outcome.reason=evaluation.reason
+    // Without an independent YouTube film year the shared production matcher
+    // intentionally scores exact-title matches below the production threshold.
+    // We still may *prioritize HUMAN review* (score>=70, margin>=12), never promote identity.
+    if(!best || evaluation.best.score<70 || (evaluation.runnerUp && evaluation.margin<12)) {
+      outcome.status='ambiguous-or-weak'
+      outcome.reason=evaluation.runnerUp && evaluation.margin<12
+        ? 'ambiguous_margin' : (evaluation.reason || 'weak-search-evidence')
       outcomes.push(outcome);continue
     }
     if(!bestId || !titleAliasMatch(names[0],best)) {
@@ -144,7 +149,8 @@ export async function probeLanguageAndPageTwo({ rows }, { searchDiagnostic, maxV
     const credible=candidates.filter(x=>titleAliasMatch(query,x))
     const status=!candidates.length?'no-results':
       credible.length===0?'results-but-no-exact-alias':
-      decision.status!=='matched'?'ambiguous-or-weak':'candidate-hint-only'
+      !decision.best || decision.best.score<70 || (decision.runnerUp && decision.margin<12)
+        ?'ambiguous-or-weak':'candidate-hint-only'
     outcomes.push({videoId:item.videoId,query,status,requests:1+(first.totalPages>1?1:0),
       candidates:credible.map(x=>({id:tmdbId(x),year:filmYear(String(x.release_date||'').slice(0,4))})).slice(0,4)})
   }
