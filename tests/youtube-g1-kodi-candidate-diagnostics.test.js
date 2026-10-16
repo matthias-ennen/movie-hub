@@ -117,7 +117,7 @@ describe('Common TMDB client diagnostics use existing budget and cache',()=>{
     expect(client.requestsStarted).toBe(1)
     expect(String(request.mock.calls[0][0])).toContain('page=2')
     expect(String(request.mock.calls[0][0])).toContain('language=en-US')
-    expect(client.searchDiagnostic({type:'movie',title:'Test Film',language:'fr-FR',page:3})).rejects.toThrow('Invalid')
+    await expect(client.searchDiagnostic({type:'movie',title:'Test Film',language:'fr-FR',page:3})).rejects.toThrow('Invalid')
   })
   it('enforces shared hard API budget, including new diagnostic endpoints',async()=>{
     const fetchImpl=vi.fn(async()=>({ok:true,status:200,headers:{get:()=>null},
