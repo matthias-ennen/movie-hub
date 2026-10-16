@@ -6,7 +6,7 @@ import { WaipuTmdbSearchClient, matchWaipuProgram, WAIPU_MATCHER_VERSION } from 
 import { runInventoryPilot, classifyVideo, durationSeconds } from './youtube-api-inventory-pilot.mjs'
 import { SOURCES, getSecret, youtubeGet, safeTitle } from './youtube-api-smoke.mjs'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
-import { buildReviewDiagnostics } from './youtube-g1-review-diagnostics.mjs'
+import { buildReviewDiagnostics, compareUnmatchedQueryQuality } from './youtube-g1-review-diagnostics.mjs'
 
 export const MATCHING_PILOT_VERSION = 1
 export const TMDB_REQUEST_CAP = 420
@@ -288,8 +288,12 @@ async function main() {
       const diagnostics = await buildReviewDiagnostics({
         prioritized: comparison.prioritized, decisions:findings.decisions, detailMap:data.detailMap,
       }, { searchTmdb: input => tmdb.search(input) })
+      const titleQueryComparison = await compareUnmatchedQueryQuality({ problems:diagnostics.problems }, {
+        searchTmdb: input => tmdb.search(input),
+      })
       report = findings.report + '\n' + comparison.report + '\n' + diagnostics.report +
-        '\n- TMDB-API-Anfragen (inklusive Retry), Baseline + Vergleich + Diagnostik: **' +
+        '\n' + titleQueryComparison.report +
+        '\n- TMDB-API-Anfragen (inklusive Retry), Baseline + Jahresvergleich + alte und neue Suchtextdiagnostik: **' +
         tmdb.requestsStarted + ' / ' + TMDB_REQUEST_CAP + '**.\n'
     },
   })

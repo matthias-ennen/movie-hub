@@ -2,6 +2,7 @@
 // A TMDB search result is never converted here into a canonical movie or provider offer.
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 import { safeTitle, isVideoId } from './youtube-api-smoke.mjs'
+import { sourceTitleQueryCandidates } from './source-title-query-variants.mjs'
 
 export const MAX_MANUAL_QUEUE = 18
 export const MAX_UNMATCHED_PROBE = 20
@@ -170,4 +171,67 @@ export async function buildReviewDiagnostics({prioritized, decisions, detailMap}
     '- Keine Änderung an Waipu-/Joyn-Matcher, MovieHub-Katalog, Provider-Badges, Firestore oder Firebase.',
     '')
   return {report:lines.join('\n'),manual,problems,reasonCounts,actualSearchCalls,totalUnmatched:decisions.filter(x=>x.status==='unmatched').length}
+}
+
+
+// Separate A/B diagnostic on precisely the same 20 unmatched video IDs:
+// keep the baseline search and its decisions intact; search only fresh variants.
+export async function compareUnmatchedQueryQuality({ problems }, { searchTmdb } = {}) {
+  if (typeof searchTmdb !== 'function') throw new TypeError('TMDB search callback is required')
+  const rows = []
+  let addedQueries = 0
+  let casesWithNewHints = 0
+  let casesWithoutFreshVariants = 0
+  for (const p of problems.slice(0, MAX_UNMATCHED_PROBE)) {
+    const previous = new Set([p.oldTitle, ...p.variants].map(normalizeWaipuText))
+    const alternatives = sourceTitleQueryCandidates(p.rawTitle, p.oldTitle)
+      .filter(v => !previous.has(normalizeWaipuText(v.title)))
+    const hits = []
+    for (const q of alternatives) {
+      if (addedQueries >= MAX_UNMATCHED_PROBE * MAX_VARIANTS_PER_TITLE) {
+        throw new Error('G1 additional TMDB-query budget exceeded')
+      }
+      addedQueries++
+      const result = await searchTmdb({ type:'movie', title:q.title })
+      if (!Array.isArray(result)) throw new Error('TMDB A/B search did not return a list')
+      for (const item of result.slice(0, 8)) {
+        const id=Number(item.id ?? item.tmdbId)
+        if (!Number.isInteger(id) || id <= 0) continue
+        hits.push({ tmdbId:id, title:String(item.title || ''), year:year(String(item.release_date || '').slice(0,4)) })
+      }
+    }
+    const found = [...new Map(hits.map(x => [x.tmdbId, x])).values()].slice(0, 3)
+    if (found.length) casesWithNewHints++
+    if (!alternatives.length) casesWithoutFreshVariants++
+    rows.push({ videoId:p.videoId, baseline:p.status, alternatives, hints:found })
+  }
+  const report = [
+    '## G1 – A/B-Vergleich alter und verbesserter TMDB-Suchtexte', '',
+    '- **Identische Video-IDs**, alter Baseline-Pfad unverändert. Nur ergänzende, separat begrenzte neue Suche.',
+    '- Quellenneutrale, nachvollziehbare Varianten entfernen nur klar erkennbare Namenswerbung und Genre-/Format-Footer.',
+    '- Jede alternative TMDB-ID ist nur ein **Suchhinweis**, KEIN neuer Match oder Rechte-/Playbacknachweis.',
+    '',
+    '| Kennzahl | Tatsächlich |',
+    '| --- | ---: |',
+    '| Bisherige Nichttreffer in der Vergleichsprobe | **' + rows.length + '** |',
+    '| Fälle mit zusätzlichen Suchbegriffen | **' + (rows.length-casesWithoutFreshVariants) + '** |',
+    '| Fälle mit neuen TMDB-Suchhinweisen | **' + casesWithNewHints + '** |',
+    '| Ohne weitere eindeutig ableitbare Suchform | **' + casesWithoutFreshVariants + '** |',
+    '| Zusätzliche TMDB-Suchfunktionsaufrufe | **' + addedQueries + '** |',
+    '',
+    '### Vorher/Nachher – echte Suchtexte (maximal 20)', '',
+    '| Video | Bisheriges Suchergebnis | Neue Suchvariante (Regel) | Zusätzliche TMDB-Hinweise |',
+    '| --- | --- | --- | --- |',
+  ]
+  for (const x of rows) {
+    const variants = x.alternatives.map(y => safeTitle(y.title) + ' (' + y.reason + ')').join('; ')
+    const hints = x.hints.map(y => '[TMDB ' + y.tmdbId + '](https://www.themoviedb.org/movie/' + y.tmdbId + ')' + (y.year ? ' (' + y.year + ')' : '')).join('; ')
+    report.push('| [Video](https://www.youtube.com/watch?v=' + x.videoId + ') | ' + x.baseline +
+      ' | ' + (variants || 'keine') + ' | ' + (hints || 'kein Suchhinweis') + ' |')
+  }
+  if (!rows.length) report.push('| keine Fälle | – | – | – |')
+  report.push('', '- Die bisherigen unmatched-Fälle bleiben unmatched, auch ein positives Suchergebnis ist kein Identitätsnachweis.',
+    '- Keine automatische Hochstufung, keine TMDB-Katalog- oder Firebase-Schreiboperation.', '')
+  return { report:report.join('\n'), compared:rows.length, casesWithNewHints,
+    casesWithoutFreshVariants, addedQueries, rows }
 }

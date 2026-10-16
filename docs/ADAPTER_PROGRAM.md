@@ -49,6 +49,14 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 **Nächstes Gate:** hochwertige, **nichtproduktive TMDB-Matchinganalyse** der 174 Kandidaten, inklusive Titel-/Originaltitel-/Jahr-/Laufzeitprüfung, Konfidenz, unsicherer Fälle und Überschneidungen mit dem bestehenden MovieHub-Katalog. Danach rechtliche Verfügbarkeit und echte DE-/Fire-TV-Wiedergabetests. **Keine Freigabe für Produktivimport oder neue Badges. #388 bleibt offen.**
 
+### G1-Titelqualität – quellneutraler Parser und A/B-Vergleich vorbereitet
+
+Nach der echten [G1-Liveprobe #38889900636](https://github.com/matthias-ennen/movie-hub/actions/runs/38889900636) (20 aus 47 `unmatched`, 25 zusätzliche TMDB-Suchen, 0 neue Hinweise) wurde eine streng begrenzte **quellneutrale Query-Bereinigung** vorbereitet. Sie trennt **eindeutig erkennbare Darsteller-Werbeformeln, Publisher-Prefixe und Genre-/Format-Footer** von möglichen Filmtiteln, ohne Werktitel mit Bindestrich pauschal zu zerschneiden.
+
+Ein A/B-Diagnoselauf gegen **dieselben maximal 20 unverändert `unmatched` gebliebenen YouTube-Videos** vergleicht die früheren Suchtexte mit **höchstens zwei tatsächlich zusätzlichen** Varianten pro Video (max. 40 Query-Aufrufe). Auch gute neue TMDB-Hinweise bleiben **reine Suchkandidaten**; zentraler Waipu-/Joyn-Matcher, Score-/Margin-/Jahres-/Laufzeitgates, kanonischer Filmvertrag und Bestandsstatus werden nicht verändert.
+
+**Stand:** implementiert und mit Regressionstests versehen, **Live-Ergebnisse der neuen A/B-Diagnose ausstehend**. Manuell nur nach grüner PR-CI/Android-Freigabe starten; bestehendes Limit 420 TMDB-Requests inklusive Retry beibehalten. Keine Cloud-/Firebase-Schreibzugriffe, kein YouTube-Provider-Badge, keine automatische Filmaufnahme. [Methodik und bewusst verbotene Sonderregeln](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1-ausbau--erklärbare-quellunabhängige-titelbereinigung-und-ab-diagnose-vorbereitet).
+
 ### G1-Sichtprüfliste und `unmatched`-Diagnose real durchgelaufen – nächster Titelqualitäts-Fokus
 
 **Nachweis:** [YouTube G1 TMDB Match Research #38889900636](https://github.com/matthias-ennen/movie-hub/actions/runs/38889900636), komplett **grün**, ausschließlich lesend. Die bestehende **Baseline 10 provisorische Identitäten / 117 Reviews / 47 unmatched** blieb unverändert. Der Forschungsworkflow hat aus den 79 priorisierten Kandidaten eine **divers verteilte Liste von 18 konkreten YouTube-/TMDB-Paaren** mit gültigen Links, Filmjahr und Laufzeitabweichungen erstellt; alle 18 stehen weiter ausdrücklich auf **`offen`**, keine tatsächliche menschliche Film-/DE-/Fire-TV-/Rechteabnahme.

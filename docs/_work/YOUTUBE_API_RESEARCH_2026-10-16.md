@@ -4,6 +4,27 @@
 **Ergebnisstatus:** G0 Recherche, G1 24er-Smoke, 200er-Inventar und **drei echte YouTube-/TMDB-Diagnoseläufe einschließlich Jahreslückenvergleich, 18er-Prüfliste und separater 20er-Nichttrefferdiagnose erfolgreich ausgeführt** (16.10.2026); *nur Forschungs-/Prüflistenstatus; keine tatsächliche Film-, Produktiv-, Lizenz-, DE-Wiedergabe- oder Gerätefreigabe*.  
 **Freigabegrenze:** noch kein Produktivadapter; G2/G3/G4 nicht erteilt oder begonnen. Die unten folgenden früheren G0-/Zugangsgate-Kapitel dokumentieren den historischen Verlauf, nicht den neuesten Status.
 
+## G1-Ausbau – erklärbare, quellunabhängige Titelbereinigung und A/B-Diagnose vorbereitet
+
+**Status 16.10.2026:** Neues Forschungsmodul und Regressionstests sind vorbereitet; der **erneute echte API-Vergleich wurde noch nicht gestartet**. Keine neuen Trefferzahlen vorwegnehmen. Der bestätigte Ausgangslauf [#38889900636](https://github.com/matthias-ennen/movie-hub/actions/runs/38889900636) bleibt der Referenzwert: **20** aus 47 `unmatched` untersucht, **25** zusätzliche TMDB-Suchfunktionsaufrufe, **0** neue Suchhinweise, **301** TMDB-API-Requests gesamt.
+
+### Technische Umsetzung und Architektur
+
+- `scripts/source-title-query-variants.mjs` ist eine **reine, quellenneutrale Parserfunktion** für zusätzliche mögliche Suchanfragen, keine zweite Filmidentitäts- oder Matchlogik. Die vorhandene `normalizeWaipuText`-Normalisierung bleibt verbindlich.
+- Die Funktion behandelt bewusst nur **im echten Quellbericht beobachtete, strukturell erkennbare** Werbemuster: Großbuchstaben-Schauspielernamen mit einleitendem `in` oder `ist` („MERYL STREEP in GLAUBENSFRAGE“, „RALPH FIENNES ist SPIDER“), erkennbar deklarative Mehrfachdarsteller-Prefixe („EDDIE MURPHY & NICK NOLTE haben NUR 48 STUNDEN“), eindeutig werbliche Darsteller-Suffixe nach Bindestrich („UND WIEDER 48 STUNDEN – EDDIE MURPHY & NICK NOLTE sind zurück!“), explizite Publisher-/Format-Prefixe, klar markierte Genre-/Werbe-Footer.
+- **Verboten:** Pauschales Zerlegen von Filmtiteln an Bindestrichen, blindes Entfernen vermeintlicher Schauspielernamen, freies Raten eines Filmjahres, Einsatz des YouTube-Uploadjahrs als Erscheinungsjahr. Unklare Fälle bleiben ohne sichere zusätzliche Suchvariante.
+- **Begrenzung:** maximal **zwei** neue Suchtexte je Video, nur für die bereits festgelegten **höchstens 20** `unmatched` der Diagnosegruppe; insgesamt max. **40** weitere Suchfunktionsaufrufe. Für den Gesamtworkflow bleiben die bestehenden harten Caps von **90 YouTube- und 420 TMDB-Requests einschließlich Retry** bestehen.
+- `compareUnmatchedQueryQuality` erhält die **unveränderten Ergebnisse und Suchtexte** aus `buildReviewDiagnostics`, analysiert **dieselben Video-IDs** und ruft nur wirklich neue, nicht bereits geprüfte normalisierte Varianten ab. Der Bericht zeigt die tatsächlich ausgeführten A/B-Queries, Gründe und ggf. neue TMDB-ID-Hinweise, nicht bloß eine geschätzte Qualitätsverbesserung.
+- Ein möglicherweise gefundener TMDB-Eintrag wird **nur als `candidate-hints-only` (Suchhinweis)** protokolliert. Der bestehende zentrale `WaipuTmdbSearchClient`, der `matchWaipuProgram`-Entscheidungspfad und die strenge G1-Baseline **10 / 117 / 47** bleiben unverändert. **Kein Produktiv-Match**, keine neuen Filme, YouTube-Badges, Firestore-/Firebase-Writes oder Nachtläufe.
+- Synthetische Tests umfassen die realen Muster und **Gegenbeispiele** (etwa „Knight Moves – Ein mörderisches Spiel“, fehlende Jahresangabe, volle Filmtitel mit `in`, Grenzen für Query-Anzahl, keine automatische Hochstufung, sichere Fehlerbehandlung).
+
+### Nächste Schritte
+
+1. PR-CI einschließlich Android-Build prüfen; nur bei grünem Gate mit `[skip ci]` nach `main` übernehmen.
+2. Den **bestehenden** ausschließlich manuellen [YouTube G1 TMDB Match Research](https://github.com/matthias-ennen/movie-hub/actions/workflows/youtube-g1-tmdb-research.yml) **erneut** ausführen (keine Änderung an Cloud-Deploys oder produktivem Catalog).
+3. Erst danach aus dem echten Report festhalten: Anzahl neuer Suchtexte, ehemals 0 jetzt tatsächlich gefundene Suchhinweise, welche Muster helfen, Fehlerrisiken und **tatsächlicher** TMDB-Budgetverbrauch. Danach nur begründete Folgeanpassungen.
+4. Die separat dokumentierte **18er-Sichtprüfliste** bleibt hinsichtlich Werk, Vollständigkeit, DE-/Fire-TV-Wiedergabe und Rechte **vollständig offen**; auch ein erfolgreicher Titelsuchversuch ersetzt keinen solchen Nachweis.
+
 ## G1-Livebefund – 18er-Sichtprüfliste und `unmatched`-Suchdiagnose erfolgreich erzeugt (16.10.2026)
 
 **Originalbeleg:** [YouTube G1 TMDB Match Research, GitHub Run #38889900636](https://github.com/matthias-ennen/movie-hub/actions/runs/38889900636), auf `main` manuell ausgeführt, **SUCCESS**; gestarteter Workflow vom Commit `bdc12eb46431e11a2b741c5edf340757d4c77d45`; Job **116936574728** mit grünen Authentifizierungs-, Forschungs- und Berichtsschritten. Sämtliche folgenden Zahlen sind aus dem realen **Job-Log** abgelesen, nicht hochgerechnet. Der Workflow hat **keine** produktive MovieHub-/Firestore-/Firebase-Datenänderung durchgeführt. Berichts-Artefakt auf dem GitHub-Lauf für 14 Tage vorhanden.
