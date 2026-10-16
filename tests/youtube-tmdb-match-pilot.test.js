@@ -63,7 +63,7 @@ describe('YouTube G1 TMDB research only',()=>{
    expect(result.counts['provisional-identity']).toBe(2)
    expect(result.possibleDuplicateGroups).toEqual([{key:'movie:233',videoCount:2}])
    expect(result.report).toContain('nicht durchgeführt')
-   expect(result.report).toContain('keine MovieHub-Katalog')
+   expect(result.report).toContain('Keine MovieHub-Katalog')
    expect(result.report).not.toContain('TMDB_API_READ_TOKEN')
  })
 })
