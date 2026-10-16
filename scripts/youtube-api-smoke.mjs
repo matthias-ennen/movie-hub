@@ -1,6 +1,7 @@
 // Isolated, read-only G1 probe. Never publish credentials, video payloads or catalog changes.
 import { spawnSync } from 'node:child_process'
-import { appendFile } from 'node:fs/promises'
+import { appendFile, mkdir, writeFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 export const SOURCES = Object.freeze([
@@ -135,7 +136,12 @@ async function main() {
   const report = await runSmoke((endpoint, params) => youtubeGet(endpoint, params, secret))
   const summaryPath = process.env.GITHUB_STEP_SUMMARY
   if (summaryPath) await appendFile(summaryPath, report + '\n', 'utf8')
-  process.stdout.write('Read-only YouTube API smoke abgeschlossen. Ergebnisse in der Job-Zusammenfassung.\n')
+  const reportPath = resolve('artifacts/youtube-api-g1/report.md')
+  await mkdir(dirname(reportPath), { recursive: true })
+  await writeFile(reportPath, report + '\n', 'utf8')
+  // The report contains only deliberately selected public metadata, never the API key or raw API responses.
+  process.stdout.write(report + '\n')
+  process.stdout.write('Read-only YouTube API smoke abgeschlossen. Bericht in Job-Zusammenfassung und Artefakt.\n')
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
