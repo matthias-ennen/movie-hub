@@ -4,6 +4,31 @@
 **Ergebnisstatus:** G0 Recherche, G1 24er-Smoke-Test **und G1 200er-Inventar- und Datenprobe erfolgreich** (16.10.2026); *TMDB-Matching, genaue Lizenz-/DE-Wiedergabe und Geräteprüfung weiterhin ausstehend*.  
 **Freigabegrenze:** noch kein Produktivadapter; G2/G3/G4 nicht erteilt oder begonnen. Die unten folgenden früheren G0-/Zugangsgate-Kapitel dokumentieren den historischen Verlauf, nicht den neuesten Status.
 
+## G1-Fortsetzung – YouTube-zu-TMDB-Matchingpilot vorbereitet (16.10.2026)
+
+**Phase:** Analysewerkzeug vorbereitet; **noch kein authentifizierter kombinierter YouTube-/TMDB-Lauf**. Die vorherige **200/200** YouTube-API-Stichprobe ist erfolgreich. Der neue Schritt untersucht auf Basis derselben seitenverteilten Erfassungsstrecke die tatsächliche Übereinstimmung der **174 Langvideo-Kandidaten** mit TMDB-Titeln. Er führt weiterhin **keinen** MovieHub-Import, kein Firestore-Update und keine Provider-/Badge-Änderung aus.
+
+### Architektur und Wiederverwendung
+
+- **Kein eigener Matching-Algorithmus für YouTube:** Das Skript `scripts/youtube-tmdb-match-pilot.mjs` nutzt den vorhandenen `WaipuTmdbSearchClient` und `matchWaipuProgram` aus `scripts/waipu-tmdb-matcher.mjs` (aktuelle Version **v5**). Identität bleibt **Medientyp + TMDB-ID**.
+- `scripts/youtube-api-inventory-pilot.mjs` bekommt lediglich einen optionalen **In-Memory-Callback** auf die bereits normalisierten Stichprobendetails; die bestehende manuelle 200er-Probe verhält sich ohne Callback unverändert. Kein zweites, divergierendes YouTube-Pagination-/Samplingmodul und kein dauerhaftes Rohdatenarchiv.
+- Das YouTube-Video wird zunächst über die bestehende Source-Qualitätsklassifikation geprüft: erwarteter Publisher-Kanal, öffentliches Video, Mindestlänge, DE-Regionssignale. Nur **`long-video-candidate`** geht zur TMDB-Suche.
+- Für die Suche wird der **führende Filmtitel** vor einem expliziten Jahr in Klammern extrahiert; Werbetexte werden nur bei eindeutigen Trennungen entfernt. Ein Erscheinungsjahr wird ausschließlich aus dem YouTube-Titel **`(YYYY)`** am Titelanfang übernommen, **niemals** aus dem YouTube-Veröffentlichungsdatum. Darsteller-/Genreüberschriften können somit bewusst im Review verbleiben.
+- Der wiederverwendete Matcher berücksichtigt Titelähnlichkeit, Jahr, Schwellenwerte und Abstand zum zweitbesten Kandidaten. Ein Treffer wird zusätzlich nur dann als **`provisional-identity`** gekennzeichnet, wenn **ein explizites, identisches Filmjahr** vorliegt **und** das TMDB-Detail eine Laufzeit innerhalb von **15 Minuten** der YouTube-Laufzeit bestätigt. Der TMDB-Detailabruf verwendet wiederum den existierenden TMDB-Client.
+- Fehlendes Jahr, fehlende Laufzeit, falsche Laufzeit, unterhalb der Konfidenzschwelle oder zweideutige TMDB-Titel verbleiben **`review`** bzw. **`unmatched`**. **Auch `provisional-identity` ist keine finale Freigabe**, da YouTube-Titel, Schnitte, Rechte und Geräteverfügbarkeit nicht verifiziert sind.
+- YouTube-Video-ID und TMDB-`movie:<id>` sind voneinander getrennte IDs. Eine mehrfache identische TMDB-ID über verschiedene Video-IDs wird **nur als potenzielle Dublette** gemeldet, nicht als Grund, Quellenlinks ohne weitere Prüfung zu überschreiben.
+
+### Betrieb und Auswertung
+
+- Neuer Workflow: `.github/workflows/youtube-g1-tmdb-research.yml` – ausschließlich **manuell** auf `main`, keine geplanten Nachtläufe, kein produktiver Cloud-/Firebase-Zugriff, keine MovieHub-Datenveröffentlichung.
+- Sicherheit: YouTube-API-Schlüssel bleibt im bestehenden Secret Manager `YOUTUBE_API_KEY` und wird nur im Arbeitsspeicher gelesen; TMDB-Zugriff nutzt den in MovieHub bereits vorhandenen GitHub-Actions-Secret **`TMDB_API_READ_TOKEN`**. Keine Ausgabe der beiden Zugangsdaten in GitHub-Logs oder Reports.
+- Schutzgrenzen: höchstens **90** YouTube-Abfragen, **200** ausgewählte Videos, **420** TMDB-API-Anfragen einschließlich Retry; sequenzielles TMDB-Suchbudget, kontrollierte Pace, bei unvollständigem Pilot kein Ergebnis als Erfolg ausgeben.
+- Report: geprüfte Videoanzahl je Publisher, `provisional-identity`/`review`/`unmatched`, Gründe, Beispieltreffer (öffentliche Filmtitel und TMDB-IDs), mögliche Sample-Dubletten und tatsächliche API-Zahlen; 14 Tage als Actions-Artefakt und zusätzlich bereinigt im Job-Log.
+- **Keine Behauptung von Überschneidungen mit dem aktuellen Live-MovieHub-Katalog.** Das versionierte `public/catalog.json` enthält lediglich einen leeren Fallback; eine belastbare Gegenprüfung benötigt separat den aktuellen, veröffentlichten kanonischen Titelbestand. Diese Phase dokumentiert nur Mehrfachidentitäten **innerhalb der YouTube-Stichprobe**.
+- Prüfungen: synthetische Unit-Tests für Titel-/Jahres-Extraktion, fehlende Jahre, Konflikte bei der Laufzeit, Fremdkanäle und doppelte TMDB-ID; normaler CI-/Android-Build vor Aufnahme in `main`.
+
+**Nächstes fachliches Gate nach dem echten Lauf:** Die Anzahl `provisional-identity` ist **keine automatische Matchquote**. Erst die manuelle Einzelfallprüfung und später die tatsächliche DE-/Android-/Fire-TV-Wiedergabe erlauben eine fundierte Entscheidung über künftige Adapteraktivierung, Aktualisierungsrhythmus und Filterqualität. **G2 weiterhin nicht freigegeben.**
+
 ## G1-Livebefund – vollständige Playlist-ID-Inventarisierung und 200er-Stichprobe erfolgreich (16.10.2026)
 
 **Primärbeleg:** [GitHub Actions Run #38878217586](https://github.com/matthias-ennen/movie-hub/actions/runs/38878217586), manuell auf `main`, vollständig **SUCCESS**. [14-Tage-Report als GitHub-Artefakt #12036217546](https://github.com/matthias-ennen/movie-hub/actions/runs/38878217586/artifacts/12036217546), Job **116898314139**. Erzeugung 2026-10-16 09:07:05 UTC, Ende des Laufes rund 09:07:21 UTC. Alle API-Abfragen, Secret-Manager-Zugriffe und Artefakt-Upload erfolgreich. Dieser Abschnitt gibt **tatsächliche, im Job-Log gelesene Messdaten** wieder, nicht vorweggenommene Erwartungen.
