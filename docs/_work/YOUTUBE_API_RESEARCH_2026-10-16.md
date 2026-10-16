@@ -1,8 +1,62 @@
 # YouTube Data API – Recherche und erste Adapterbewertung
 
 **MovieHub · Issue #388 · 16.10.2026**  
-**Ergebnisstatus:** G0 Recherche, G1 24er-Smoke, 200er-Inventar und **drei echte YouTube-/TMDB-Diagnoseläufe einschließlich Jahreslückenvergleich, 18er-Prüfliste und separater 20er-Nichttrefferdiagnose erfolgreich ausgeführt** (16.10.2026); *nur Forschungs-/Prüflistenstatus; keine tatsächliche Film-, Produktiv-, Lizenz-, DE-Wiedergabe- oder Gerätefreigabe*.  
+**Ergebnisstatus:** G0 Recherche, G1 24er-Smoke, 200er-Inventar und **vier echte YouTube-/TMDB-Diagnoseläufe einschließlich Jahreslückenvergleich, 18er-Prüfliste, 20er-Nichttrefferdiagnose und erfolgreichem A/B-Suchtextvergleich** (16.10.2026); *nur Forschungs-/Suchhinweise; keine produktive Filmidentitäts-, Lizenz-, DE-Wiedergabe- oder Gerätefreigabe*.  
 **Freigabegrenze:** noch kein Produktivadapter; G2/G3/G4 nicht erteilt oder begonnen. Die unten folgenden früheren G0-/Zugangsgate-Kapitel dokumentieren den historischen Verlauf, nicht den neuesten Status.
+
+## G1-Livebefund – neuer Suchtext-Parser: 6 statt 0 Suchhinweise (16.10.2026)
+
+**Primärbeleg:** [Manueller YouTube G1 TMDB Match Research – Run #38892290414](https://github.com/matthias-ennen/movie-hub/actions/runs/38892290414), **SUCCESS**, gestartet 2026-10-16 11:12:54 UTC, Job **116944434382**, auf `main` Commit `fc0267669ec81f3e2af8843bbb388a8c5846d615`. Sämtliche Zahlen unten stammen aus den echten GitHub-Logs; keine TMDB- oder YouTube-Metadaten wurden in MovieHub veröffentlicht.
+
+### A/B-Vergleich mit exakt denselben 20 Videodaten
+
+| Messgröße | Bisheriger Diagnosepfad | Zusätzlicher quellneutraler Parser |
+| --- | ---: | ---: |
+| Untersuchte `unmatched`-Video-IDs | 20 | **dieselben 20** |
+| Fälle mit neuen TMDB-Suchhinweisen | **0** | **6** |
+| Tatsächliche alternative TMDB-Suchfunktionsaufrufe | **25** | **7** |
+| Fälle ohne weitere sichere neue Titelvariante | – | **14** |
+| TMDB-API-Requests für den **gesamten** G1-Workflow inkl. Baseline und Jahreslückenvergleich | 301 / 420 | **308 / 420** |
+
+**Unveränderte Baseline:** 200 YouTube-Testvideos, 174 Langvideo-Kandidaten und **10 `provisional-identity` / 117 `review` / 47 `unmatched`**; davon 111 ohne Filmjahr, 79 für manuelle Prüfung priorisiert. **Sechs erfolgreiche Suchhinweise erhöhen diese gesicherte Identitätsquote nicht.** Die 18er-Manualliste bleibt vollständig ungesichtet.
+
+| YouTube-Video | Neuer Suchtext und Regel | TMDB-Kandidaten aus der API – **keine Match-Freigabe** |
+| --- | --- | --- |
+| [NICOLE KIDMAN in MARGOT UND DIE HOCHZEIT](https://www.youtube.com/watch?v=2-S8M7tg1U0) | `MARGOT UND DIE HOCHZEIT`, `cast-prefix` | [movie:13998 (2007)](https://www.themoviedb.org/movie/13998) |
+| [UND WIEDER 48 STUNDEN – EDDIE MURPHY & NICK NOLTE sind zurück!](https://www.youtube.com/watch?v=4IX90tdOIEg) | `UND WIEDER 48 STUNDEN`, `cast-promo-tail` | [movie:11595 (1990)](https://www.themoviedb.org/movie/11595) |
+| [MERYL STREEP in GLAUBENSFRAGE](https://www.youtube.com/watch?v=64g1wNiBQmM) | `GLAUBENSFRAGE`, `cast-prefix` | [movie:14359 (2008)](https://www.themoviedb.org/movie/14359) |
+| [RALPH FIENNES ist SPIDER](https://www.youtube.com/watch?v=AMMdyZ7K3e8) | `SPIDER`, `cast-prefix` | **mehrdeutig:** [969681 (2026)](https://www.themoviedb.org/movie/969681), [557 (2002)](https://www.themoviedb.org/movie/557), [315635 (2017)](https://www.themoviedb.org/movie/315635) |
+| [EDDIE MURPHY & NICK NOLTE haben NUR 48 STUNDEN](https://www.youtube.com/watch?v=bB9zAcIEgGc) | `NUR 48 STUNDEN`, `cast-pair-prefix` | [movie:150 (1982)](https://www.themoviedb.org/movie/150) |
+| [ROBERT DE NIRO in DIE BRÜCKE VON SAN LUIS REY](https://www.youtube.com/watch?v=CW-quVx6pqI) | `DIE BRÜCKE VON SAN LUIS REY`, `cast-prefix` | [movie:45881 (2004)](https://www.themoviedb.org/movie/45881) |
+
+**Weitere Qualitätsbeobachtung:** Beim `NUR 48 STUNDEN`-Fall erzeugt der Parser zusätzlich eine überflüssige Werbetextvariante mit Klammerzusatz. Nicht alle generierten Alternativen sind automatisch wertvoll. **Nächster kleinstmöglicher Parser-Gate:** erkennbar werbliche Klammeranhänge als Ganzes prüfen, ohne echte Filmzusätze oder Produktionstitel blind zu löschen. Nicht automatisch freigegebene Filme zählen, sondern präzise Suchtexte und spätere Wiederholung gegen dieselben realen Video-IDs.
+
+---
+
+## Kodi-Referenzanalyse: bewährte Such- und Identitätskonzepte für MovieHub (16.10.2026)
+
+**Bewertete Originalreferenzen:** [Kodi Team – TMDB Movie Scraper](https://github.com/xbmc/metadata.themoviedb.org.python) mit [`python/scraper.py`](https://github.com/xbmc/metadata.themoviedb.org.python/blob/master/python/scraper.py), [`python/lib/tmdbscraper/tmdb.py`](https://github.com/xbmc/metadata.themoviedb.org.python/blob/master/python/lib/tmdbscraper/tmdb.py) und [`tmdbapi.py`](https://github.com/xbmc/metadata.themoviedb.org.python/blob/master/python/lib/tmdbscraper/tmdbapi.py), [offizielle Kodi-Wiki-Dokumentation](https://kodi.wiki/view/Add-on:The_Movie_Database_Python); ergänzend [Kodi YouTube Add-on](https://github.com/anxdpanic/plugin.video.youtube) als separate Playback-Referenz. Untersucht wurden die **Algorithmen und Architekturideen**, nicht die Übernahme fremder Dateien.
+
+### Nachweisbare Kodi-Verfahren und sinnvolle MovieHub-Übertragungen
+
+1. **Gestufte Titelsuche:** Kodi `search_for_movie` versucht mit bekanntem Jahr zuerst die exakte Jahrssuche, danach bei ausbleibenden Ergebnissen **Jahr−1**, **Jahr+1** und schließlich **ohne Jahresfilter**. **Übertragbar nur für Kandidatenermittlung**, keinesfalls als automatische Freigabe eines um ein Jahr abweichenden Films. Für unser YouTube-G1 ohne eigenständiges Video-Produktionsjahr ist das ausdrücklich **kein** Ersatz für fehlende Evidenz.
+2. **Erweiterte TMDB-Suchseiten nur bei Bedarf:** Kodi `TMDBMovieScraper.search` liest eine zweite TMDB-Ergebnisseite, wenn noch weitere Seiten existieren und auf Seite 1 kein exakter, hinreichend populärer Treffer vorhanden ist. Dies ist eine **Abdeckungsstrategie**, kein Match-Sicherheitsbeweis; bei MovieHub nur kontrolliert mit Quotenbudget, Frühabbruch und Logging von Query-Version/Seitenzahl ausprobieren.
+3. **Suchsprache getrennt von Metadatenanzeige:** Kodi führt `search_language` getrennt von `language`. In MovieHub sollten wir zuerst den **Original- und deutsch lokalisierten Titel** als kontrollierte Suchvarianten testen; Metadatenanzeige und redaktionelle Sprachwahl bleiben eigenständig. Zukünftig nur mit gemessenen Mehrwerten/Quotenfreigabe ausbauen.
+4. **Exakte IDs sind stärker als fehleranfällige Freitextsuche:** Kodi unterstützt TMDB-/IMDb-ID-basierte Nachschläge; die Kodi-Wiki empfiehlt primär die native Datenbank-ID, weil externe Cross-References unvollständig sein können. MovieHub behält `movie:<tmdbId>` als **einzige kanonische Filmidentität** und `youtube:<videoId>` nur als externe Quellenreferenz. Ein YouTube-Video liefert per se **keine** vertrauenswürdige TMDB-ID, auch nicht über Textbehauptungen in seiner Beschreibung.
+5. **Ergebnisse zur Überprüfung sichtbar machen:** Kodi listet Suchergebnisse mit Filmtitel, Jahr und Bild; daneben priorisiert der Scraper exakte Kandidaten anhand Popularität. Bei MovieHub sollen mehrdeutige TMDB-Alternativen transparent als **Review-Kandidaten** mit Filmjahr, Laufzeitdifferenz und Provenienz der Suchregel gelistet werden. **TMDB-Popularität beeinflusst höchstens die Reihenfolge**, niemals Matching-Confidence oder automatische Identitätsfreigabe.
+6. **Sprachfallback und Qualitätsgates vor Speicherung:** Der Kodi-Scraper nutzt beim Nachschlagen von Details sprachspezifische und fallbackbasierte Felder (etwa Plot/Artwork) und führt einzigartige IDs getrennt von Darstellungstiteln. Das passt zur **bestehenden** kanonischen MovieHub-Anreicherung und ist keine Rechtfertigung für einen parallelen Kodi-Datenimport.
+7. **YouTube-Playback ist ein eigenes System:** Kodi referenziert YouTube-Videos z. B. über `plugin://plugin.video.youtube/play/?video_id=...`, einen **Kodi-internen** Pfad. Er darf **nicht** als Android-/Fire-TV-MovieHub-Deep-Link übernommen werden. Spätere Android-/Fire-TV-Playback-Routen müssen separat wirklich getestet werden.
+
+### Architektur-, Lizenz- und Sicherheitsentscheidung
+
+- Der offizielle Kodi TMDB-Python-Scraper ist unter **GPL-2.0-or-later** veröffentlicht. Wir übernehmen **nur das sachlich beschriebene Konzept und eigene neue Implementierungen**, **keinen** kopierten GPL-Quelltext, keine in Kodi enthaltenen API-Zugangsdaten oder unautorisierte Provider-Endpunkte. Für konkrete Codeübernahme wäre zuerst eine gesonderte Lizenz-/Architekturprüfung nötig.
+- Die **bestehende** `WaipuTmdbSearchClient` + `matchWaipuProgram`-Logik bleibt zentral. Ein optionaler gestufter Kandidaten-Suchplan (normalisierter Titel → Originaltitel → lokalisierte Sprache → zusätzliche Seite → Jahr-Nachbarschaft nur bei belegtem Jahr) wäre als **eigenständige, hart begrenzte G1-Diagnose** zu messen, bevor irgendetwas in Produktion geht.
+- Die Kodi-Analyse **ändert nicht** den Produktionscode, bestehende Scores, unsere 10/117/47-Baseline, Rechte-/Regionsevidenz oder Quellen-/Filmidentitätsvertrag. **Keine** laufende Fire-TV-/DE-Playbackprüfung, **keine** YouTube-Produktivfreigabe.
+- Empfohlener G1-Prüfplan: zuerst die **sechs konkreten neuen Suchhinweise** anhand Titel, Erscheinungsjahr, TMDB-Originaltitel, Videolaufzeit und möglicher konkurrierender Treffer bewerten; danach die **14 weiterhin ohne Suchvariante** mit klar begrenzter zusätzlicher Suchsprache/Page-2-Analyse vergleichen; hierfür Quoten und einzelne Ablehnungsgründe getrennt messen.
+
+---
+
+## Historische Vorbereitung vor dem erfolgreichen A/B-Lauf
 
 ## G1-Ausbau – erklärbare, quellunabhängige Titelbereinigung und A/B-Diagnose vorbereitet
 
