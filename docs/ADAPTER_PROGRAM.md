@@ -49,6 +49,20 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 **Nächstes Gate:** hochwertige, **nichtproduktive TMDB-Matchinganalyse** der 174 Kandidaten, inklusive Titel-/Originaltitel-/Jahr-/Laufzeitprüfung, Konfidenz, unsicherer Fälle und Überschneidungen mit dem bestehenden MovieHub-Katalog. Danach rechtliche Verfügbarkeit und echte DE-/Fire-TV-Wiedergabetests. **Keine Freigabe für Produktivimport oder neue Badges. #388 bleibt offen.**
 
+### G1-A/B-Livebefund: 6 neue TMDB-Suchhinweise und Kodi-Architekturvergleich
+
+**Echter Live-Lauf:** [YouTube G1 TMDB Match Research #38892290414](https://github.com/matthias-ennen/movie-hub/actions/runs/38892290414) vollständig **grün**. **Identische 20** aus 47 `unmatched`-Video-IDs erneut untersucht: mit dem alten Suchdiagnosepfad **0** zusätzliche TMDB-Hinweise (25 Suchfunktionsaufrufe); die neue quellneutrale Bereinigung gewann bei **6 von 20 Videos** mindestens einen weiteren Kandidaten mit nur **7** zusätzlichen TMDB-Suchfunktionsaufrufen. **14** Videos blieben ohne sicher neu ableitbare Suchvariante. Gesamtworkflow **308/420** echte TMDB-Anfragen einschließlich der unveränderten Baseline und des Jahresvergleichs.
+
+Die sechs Fälle betreffen `Margot und die Hochzeit` (TMDB 13998), `Und wieder 48 Stunden` (11595), `Glaubensfrage` (14359), `Spider` (**mehrdeutige TMDB-IDs**), `Nur 48 Stunden` (150) sowie `Die Brücke von San Luis Rey` (45881). Für `Nur 48 Stunden` wurde ebenfalls eine offensichtlich werbliche, unnötige zweite Titelfassung erzeugt: gezieltes künftiges Qualitätsgate. **Alle sechs sind nur Suchhinweise, kein MovieHub-Match. Die Baseline bleibt 10 `provisional-identity`, 117 `review`, 47 `unmatched`.**
+
+**Zusätzlich Kodi-Originalcode/Wiki untersucht:** Der offizielle [Kodi-TMDB-Filmscraper](https://github.com/xbmc/metadata.themoviedb.org.python) belegt kontrollierte Suchkaskaden (Jahr, ±1, ohne Jahr), ggf. zweite TMDB-Ergebnisseite, getrennte Such-/Anzeigesprache, exakte TMDB-/IMDb-IDs, Ergebnispriorisierung/Manuell-Auswahl und fallbackbasierte Detailanreicherung. **Für MovieHub übernehmen wir nur konzeptionelle Suchideen**: breite, begrenzte Kandidatenfindung → unveränderte, **strenge** zentrale Identitätsentscheidung. TMDB-Popularität und alternative Jahre sind höchstens Sortier-/Recall-Signale; **niemals automatische Freigabe**. Der Kodi-Scraper ist **GPL-2.0-or-later**; **kein Quelltext oder API-Key übernommen**. Kodi-interne YouTube-`plugin://`-Links taugen nicht als Android-/Fire-TV-Wiedergaberoute.
+
+**Nächstes G1-Gate:** die sechs Hinweise inkl. `Spider`-Mehrdeutigkeit konservativ durch gemeinsamen Matcher, Jahr, Originaltitel und tatsächliche Video-/TMDB-Laufzeit abgleichen; dann die 14 weiterhin unklaren Fälle begrenzt über ergänzende Suchsprache bzw. weitere Kandidatenseite testen und Ergebnis sowie API-Budget messen. Echte manuelle 18er-Filmsichtung, DE-/Fire-TV-Playback und Rechtefrage bleiben gesondert offen. **Kein G2, keine neuen YouTube-Badges oder produktiven Änderungen.**
+
+[Gesicherte Messwerte, vollständige Videolinks und Kodi-Referenzanalyse](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1-livebefund--neuer-suchtext-parser-6-statt-0-suchhinweise-16102026).
+
+### Historischer A/B-Plan vor dem erfolgreichen Lauf
+
 ### G1-Titelqualität – quellneutraler Parser und A/B-Vergleich vorbereitet
 
 Nach der echten [G1-Liveprobe #38889900636](https://github.com/matthias-ennen/movie-hub/actions/runs/38889900636) (20 aus 47 `unmatched`, 25 zusätzliche TMDB-Suchen, 0 neue Hinweise) wurde eine streng begrenzte **quellneutrale Query-Bereinigung** vorbereitet. Sie trennt **eindeutig erkennbare Darsteller-Werbeformeln, Publisher-Prefixe und Genre-/Format-Footer** von möglichen Filmtiteln, ohne Werktitel mit Bindestrich pauschal zu zerschneiden.
