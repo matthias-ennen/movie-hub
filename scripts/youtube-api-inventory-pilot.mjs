@@ -102,7 +102,7 @@ export async function readPlaylist(api, playlistId) {
   return { ids: [...new Set(records)], pages, listedItems: records.length, duplicates: records.length - new Set(records).size }
 }
 
-export async function runInventoryPilot(api, now = new Date()) {
+export async function runInventoryPilot(api, now = new Date(), { onVideoSample = null } = {}) {
   let calls = 0
   const counts = {}
   async function checked(endpoint, params) {
@@ -140,6 +140,17 @@ export async function runInventoryPilot(api, now = new Date()) {
     for (const item of data.items) {
       if (isVideoId(item.id)) detailMap.set(item.id, item)
     }
+  }
+  if (typeof onVideoSample === 'function') {
+    // In-process sample handoff only; no raw YouTube metadata is persisted by the inventory tool.
+    await onVideoSample({
+      selected: [...selected],
+      detailMap,
+      byPublisher: records.map((rec) => ({
+        source: rec.source,
+        ids: rec === first ? [...firstChosen] : [...secondChosen],
+      })),
+    })
   }
   const lines = [
     '# YouTube G1 – schreibgeschützter, zeitlich verteilter Stichprobenpilot',
