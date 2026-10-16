@@ -49,6 +49,18 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 **Nächstes Gate:** hochwertige, **nichtproduktive TMDB-Matchinganalyse** der 174 Kandidaten, inklusive Titel-/Originaltitel-/Jahr-/Laufzeitprüfung, Konfidenz, unsicherer Fälle und Überschneidungen mit dem bestehenden MovieHub-Katalog. Danach rechtliche Verfügbarkeit und echte DE-/Fire-TV-Wiedergabetests. **Keine Freigabe für Produktivimport oder neue Badges. #388 bleibt offen.**
 
+### G1-Sichtprüfliste und `unmatched`-Diagnose real durchgelaufen – nächster Titelqualitäts-Fokus
+
+**Nachweis:** [YouTube G1 TMDB Match Research #38889900636](https://github.com/matthias-ennen/movie-hub/actions/runs/38889900636), komplett **grün**, ausschließlich lesend. Die bestehende **Baseline 10 provisorische Identitäten / 117 Reviews / 47 unmatched** blieb unverändert. Der Forschungsworkflow hat aus den 79 priorisierten Kandidaten eine **divers verteilte Liste von 18 konkreten YouTube-/TMDB-Paaren** mit gültigen Links, Filmjahr und Laufzeitabweichungen erstellt; alle 18 stehen weiter ausdrücklich auf **`offen`**, keine tatsächliche menschliche Film-/DE-/Fire-TV-/Rechteabnahme.
+
+Von den bisherigen **47 `unmatched`** wurden **20** in einer getrennten, streng begrenzten Alternativtitelsuche untersucht. **19** blieben ohne TMDB-Suchresultat, **1** besaß keine sichere alternative Suchform. Die Diagnose führte **25** weitere TMDB-Suchaufrufe aus; die echte Gesamtsumme stieg von **276 auf 301** (Budget 420).
+
+**Interpretation für die Architektur:** Die vorherige Query-Aufbereitung lässt häufig Filmschauspieler, Marketing- und Genrefragmente in den Suchstrings stehen; die Suche scheitert also potenziell am Suchtext, **nicht** zwingend an fehlenden TMDB-Titeln. Das nächste kleine G1-Qualitätspaket ist ein **konservativer, erklärbarer Titel-/Werbetextparser**, dessen Vorher-/Nachher-Vergleich zuerst die 20 realen Nichttreffer und dann begrenzt weitere der 47 testet. Der zentrale Waipu-/Joyn-Matcher, der Filmidentitätsvertrag und Produktiv-Schwellenwerte bleiben unverändert. Separat: **wirkliche menschliche Video-/Playback-Sichtprüfung** der dokumentierten 18 Fälle, später kanonischer Live-MovieHub-Katalogabgleich und Anbieterrechts-/Kostenprüfung.
+
+**Detaillierter Livebericht mit allen 18 Video-/TMDB-Paaren:** [YouTube-Forschungsdokument](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1-livebefund--18er-sichtprüfliste-und-unmatched-suchdiagnose-erfolgreich-erzeugt-16102026). **Keine produktive Quellenaufnahme, keine YouTube-Badges und keine G2-Freigabe.**
+
+### Historische Vorbereitung der 18er-/20er-Diagnose
+
 ### G1-Nächste Qualitätsanalyse: Prüfliste und 47 Nichttreffer (vorbereitet)
 
 Nach dem echten G1-Jahreslückenvergleich (**79** priorisierte und **32** ungeklärte Fälle bei weiterhin **10/117/47** Baseline) wird als nächste **nur manuell auszulösende Diagnose** eine **über Laufzeitdifferenz und Filmjahr gestreute Sichtprüfliste mit höchstens 18 YouTube-/TMDB-Linkpaaren** erzeugt. Alle Einträge sind ausdrücklich **ungeprüft**, bis das konkrete Video hinsichtlich Filmidentität, Vollständigkeit, deutschem Playback auf Geräten, Anmeldung/Kosten und Verbreitungsrechten tatsächlich überprüft wurde.
