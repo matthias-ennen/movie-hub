@@ -4,6 +4,16 @@
 **Ergebnisstatus:** G0 – Dokumentations-/Internetrecherche; **kein** authentifizierter API-Abruf, **kein** Datenpilot, **kein** Wiedergabe- oder Fire-TV-Gerätetest, **keine** Code-/Secret-/Cloud-Änderung.  
 **Entscheidungsbedarf:** später G1 (begrenzter nichtproduktiver API-Pilot) und danach gegebenenfalls separate Produktivfreigabe G2.
 
+## G1 – erster authentifizierter API-Lauf erfolgreich (16.10.2026)
+
+**Tatsächlicher Nachweis:** [GitHub Actions Run 38873598607](https://github.com/matthias-ennen/movie-hub/actions/runs/38873598607), manuell ausgelöst auf `main`, wurde erfolgreich abgeschlossen (Start 08:25:33 UTC / 10:25:33 Europe/Berlin, Abschluss 08:25:57 UTC). [Job 116883253037](https://github.com/matthias-ennen/movie-hub/actions/runs/38873598607) hat sämtliche Schritte erfolgreich durchlaufen: Workload Identity, `gcloud`-Einrichtung, isolierte Script-Syntax, `node scripts/youtube-api-smoke.mjs`, Abschluss. Der Job meldet ausdrücklich `Read-only YouTube API smoke abgeschlossen`. Da der Scriptpfad die ersten sechs offiziellen Abfragen nur nach Erfolg aller Abfragen vollständig beendet, ist **die technische Lesbarkeit des Secret-Werts, der API-Key und die grundsätzliche Abrufbarkeit der beiden Quellen bestätigt**. Es sind **keine** produktiven MovieHub-Daten verändert worden.
+
+**Abgrenzung:** Dieser erste Lauf schrieb seinen Inhalt ausschließlich als **GitHub-Actions-Job-Zusammenfassung** (`GITHUB_STEP_SUMMARY`), nicht in die herunterladbaren Artefakte oder den regulären Job-Log. Die Verbindung zum GitHub-Repository bestätigt den grünen Lauf und die Log-Erfolgsmeldung, **kann die Job-Zusammenfassung aber nicht direkt auslesen**. Deshalb sind konkrete Playlistgrößen, Titel, tatsächliche Netto-ID-Zahlen oder regional gesperrte Videos derzeit **noch nicht belegbar**; kein geratenes Ergebnis. Technische Abrufbarkeit ist auch **kein Lizenz-/Gratis-/Vollfilm-/DE-Playback-Nachweis**.
+
+**Verbesserung in Vorbereitung:** Die isolierte Probe wird zusätzlich denselben **bereinigten öffentlichen Metadatenbericht** in die normalen GitHub-Logs schreiben und als `artifacts/youtube-api-g1/report.md` für 14 Tage in ein GitHub-Actions-Artefakt aufnehmen. API-Key, URL-Schlüsselparameter, rohe Fehlerantworten, TMDB-/Nutzerinhalte und Secrets sind ausdrücklich nicht Bestandteil. Die folgende erneute Ausführung ist separat manuell auszulösen; CI/Bereitstellung ersetzen keine zweite, echte Datenauswertung.
+
+**Gates:** G0 Dokumentationsrecherche abgeschlossen; **G1 Grundfunktion der YouTube-API nachgewiesen**; erste quantitative Inhaltsauswertung ausstehend; G2/Produktivadapter weiterhin nicht freigegeben.
+
 ## G1-Testwerkzeug – nach Secret-Freigabe vorbereitet (16.10.2026)
 
 **Nutzerbestätigung:** Das Secret `YOUTUBE_API_KEY` ist angelegt, und dem bestehenden Workload-Identity-Dienstkonto wurde am **einzelnen Secret** nach Rückmeldung des Nutzers die Rolle `Secret Manager Secret Accessor` zugewiesen. Tatsächliche Berechtigung, aktive Secret-Version und API-Key-Gültigkeit werden **erst durch den realen GitHub-Test nachgewiesen**.
