@@ -37,6 +37,14 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 **Quellenstand der folgenden Angaben: 16.10.2026.** Die folgenden Ergebnisse beruhen auf den offiziellen veröffentlichten Dokumentationen und dem bereits angelegten Issue #388; **es gab noch keinen authentifizierten YouTube-API-Abruf und keinen realen Fire-TV-Wiedergabetest dieses Adapters**.
 
+### G1-Fortsetzung vom 16.10.2026 – Zugangsgate statt erfundener Datenprobe
+
+**Verschobener Testschritt:** Der vereinbarte reale YouTube-Datenpilot wurde begonnen, konnte aber **noch keinen authentifizierten YouTube-API-Datenabruf** durchführen: In der aktuellen Werkzeugverbindung steht kein verwendbarer YouTube-API-Key und kein Zugriff auf Google-Cloud-API-Aktivierung/Secret Manager zur Verfügung. Daraus folgt **nicht**, dass im Google-Projekt noch kein Key existiert; dieser Zustand ist bislang **unbestätigt**.
+
+**Neue konkrete Primärquellen-Evidenz:** UCM.ONE verlinkt selbst die CiNENET-Deutschland-Playlist „Silvester 2025“ mit `playlistId=PLnJg6MSfgQqnIcJ492cEmZCeTsLOoZzfD`. Die ID und eine exakt definierte `channels.list → playlists.list → playlistItems.list → videos.list`-Probe stehen im [G1-Zugangsprotokoll](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1-zugangsprüfung-und-konkretisierte-datenprobe--16102026). Die Zahl der heute enthaltenen Videos ist **nicht gemessen**; eine kleine Jahreswechsel-Playlist allein muss nicht die geplanten 100–200 Fälle liefern. Bei gültigem Zugang andere offiziell kuratierte Kanalplaylists/Uploads ergänzen; kein Scraping.
+
+**Entscheidungsgrenze:** Nichtproduktiver Abruf kann nach geklärtem Projektzugang starten. Kein Code/Secret/Cloud-Deploy in dieser Fortsetzung; #388 bleibt offen, G1-API-Datensample weiterhin ausstehend.
+
 ### G0-Nachtrag vom 16.10.2026 – vertiefte YouTube-API-Recherche
 
 **Dokumentiert:** [YouTube Data API – Methoden, Feldmatrix, aktuelle Quotas, Rechte-/Caching-Regeln, Quellenkandidaten und G1-Pilotvorschlag](_work/YOUTUBE_API_RESEARCH_2026-10-16.md).
