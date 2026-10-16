@@ -37,6 +37,20 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 **Quellenstand der folgenden Angaben: 16.10.2026.** Die folgenden Ergebnisse beruhen auf den offiziellen veröffentlichten Dokumentationen und dem bereits angelegten Issue #388; **es gab noch keinen authentifizierten YouTube-API-Abruf und keinen realen Fire-TV-Wiedergabetest dieses Adapters**.
 
+### G1-Ergebnis (16.10.2026) – 200er-Inventarisierung erfolgreich
+
+**Live belegt:** [YouTube G1 Inventory Run #38878217586](https://github.com/matthias-ennen/movie-hub/actions/runs/38878217586), alle Schritte grün. [Messdetails und methodische Abgrenzung](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1-livebefund--vollständige-playlist-id-inventarisierung-und-200er-stichprobe-erfolgreich-16102026).
+
+- **Vollständiges ID-Inventar dieser beiden spezifischen Playlists:** **24 CiNENET**-Themenplaylist-Einträge + **2.766 Netzkino**-Uploadliste-Einträge; 57 Seiten erfolgreich gelesen. **Keine Behauptung, 2.790 geprüfte Filme oder der komplette CiNENET-Kanal seien erschlossen.**
+- **Zeitlich verteilte 200er-Probe:** **200/200** Videometadaten erfolgreich; davon **174 Langvideo-Kandidaten** (≥45 Min), **21 Clips** (unter 20 Min), **4 mittlere Videos** (20–44 Min) und **1 Video aus anderem Kanal innerhalb der CiNENET-Playlist** (separate Herkunftsprüfung).
+- **DE-Metadaten:** **194** explizite `regionRestriction.allowed`-Signale für DE, **6** ohne solche Eindeutigkeit, keine ausdrückliche DE-Sperre in der Probe; **kein Playbackbeweis**.
+- **API-Aufwand:** 64 lesende Calls, keine Katalog-/Firebase-/Adapter-/Nightly-Schreiboperationen. Secret- und WIF-Pfad nachgewiesen.
+- **Interne Priorisierung:** `viewCount`-Ranking für die 200er-Stichprobe gelungen, **keine** weltweite oder kanalweite Aufrufzahlrangliste. Datenbeschaffung (seitenweises Inventar) bleibt getrennt von nachgelagerter Priorisierung und kanonischer TMDB-Identität.
+
+**Nächstes Gate:** hochwertige, **nichtproduktive TMDB-Matchinganalyse** der 174 Kandidaten, inklusive Titel-/Originaltitel-/Jahr-/Laufzeitprüfung, Konfidenz, unsicherer Fälle und Überschneidungen mit dem bestehenden MovieHub-Katalog. Danach rechtliche Verfügbarkeit und echte DE-/Fire-TV-Wiedergabetests. **Keine Freigabe für Produktivimport oder neue Badges. #388 bleibt offen.**
+
+### Historischer Plan vor dem erfolgreichen 200er-Run
+
 ### G1-Folgepilot – vollständiges Quelleninventar, 200-Videos-Stichprobe und internes Ranking
 
 **Neu vorbereitet, noch nicht durchgeführt:** manuell startbarer **schreibgeschützter** Workflow `YouTube G1 Inventory Pilot (200)`. Er inventarisiert die vorhandenen CiNENET-/Netzkino-Playlist-IDs seitenweise und bildet daraus bis zu 200 eindeutig bestimmte Video-IDs mit **zeitlich verteilter Netzkino-Stichprobe** statt bloß der neuesten Uploads. `videos.list` ergänzt Laufzeit, Regionssignale und `statistics.viewCount`; ein transparentes Ranking gilt **nur innerhalb der untersuchten Stichprobe**. Filter trennt Shorts/Clips, mittellange und lange Videos. [Reproduzierbare Methodik und technische Gates](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1-vertiefung--größere-zeitlich-verteilte-stichprobe-in-vorbereitung-16102026).
