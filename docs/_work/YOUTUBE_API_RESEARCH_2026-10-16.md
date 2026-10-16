@@ -4,6 +4,45 @@
 **Ergebnisstatus:** G0 – Dokumentations-/Internetrecherche; **kein** authentifizierter API-Abruf, **kein** Datenpilot, **kein** Wiedergabe- oder Fire-TV-Gerätetest, **keine** Code-/Secret-/Cloud-Änderung.  
 **Entscheidungsbedarf:** später G1 (begrenzter nichtproduktiver API-Pilot) und danach gegebenenfalls separate Produktivfreigabe G2.
 
+## G1-Zugangsprüfung und konkretisierte Datenprobe – 16.10.2026
+
+**Auftrag:** Nach Freigabe von G0 mit dem geplanten echten API-Test für CiNENET und Netzkino fortfahren. **Ergebnis:** Quellenidentität und API-Aufrufplan konkretisiert; **authentifizierter Abruf derzeit nicht ausgeführt, weil kein verwendbarer YouTube-API-Zugang über die verbundenen Werkzeuge vorliegt.** Die verbundenen GitHub-Werkzeuge ermöglichen die Einsicht in Repository-Dateien, aber keinen Abruf aus Google Cloud Console/Secret Manager und kein Auslesen eines bestehenden API-Schlüssels. Ob im Google-Cloud-Projekt `movie-hub-62459` bereits die YouTube Data API aktiviert oder ein Key eingerichtet ist, **konnte daher weder bestätigt noch ausgeschlossen werden**. Ein direkter Abruf über den hier verfügbaren Webzugang wurde technisch nicht bereitgestellt; das ist **keine** gemessene YouTube-API-Fehlerantwort und kein Nachweis eines 403/fehlgeschlagenen Schlüssels.
+
+### Neu konkret verifizierte Publisher-Playlist
+
+- **Herausgeber/Primärquelle:** [UCM.ONE – „Silvester 2025“ bei CiNENET Deutschland](https://ucm.one/de/silvester-2025-playlist-bei-cinenet-deutschland/), publiziert 28.12.2025.
+- **Offizieller von UCM.ONE verlinkter YouTube-Pfad:** https://www.youtube.com/playlist?list=PLnJg6MSfgQqnIcJ492cEmZCeTsLOoZzfD
+- **Playlist-ID:** `PLnJg6MSfgQqnIcJ492cEmZCeTsLOoZzfD`.
+- **Publisher-Kanal:** CiNENET Deutschland `UClyuw-OWE6taGFv0reZI6eQ`; diese ID ist durch weitere UCM-/Verbraucherreferenzen als Kanal der Filmreihe belegbar.
+- **Beispiele laut Publishertext (nicht per API bestätigt):** „Die Uhr des Grauens“, „Wollen Sie mit mir tanzen?“, „Josie – Gefährliche Begegnung“, „Milano Kaliber 9“, „Viking Blood“. Die Publisherseite enthält weitere Titel.
+- **Wichtig:** Die Playlist vom Jahreswechsel ist ein **verifizierter Einstieg zur technischen Datenprobe**, aber **ihre heutige Zahl und regionale Abrufbarkeit wurden nicht gemessen**. Sie könnte deutlich unter 100–200 Items liegen. Daher zunächst deren tatsächliche Länge über die API prüfen, danach für das größere Sample weitere ausdrücklich vom Publisher gepflegte Playlists oder dessen offizielle Upload-Playlist einbeziehen.
+
+### Exakte geplante Leseaufrufe (keine Anfragen ausgeführt)
+
+1. **Kanalidentität/Uploadliste:** `GET https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails&id=UClyuw-OWE6taGFv0reZI6eQ`. Benötigt einen gültigen API-Key; liefert bei Erfolg insbesondere `contentDetails.relatedPlaylists.uploads`.
+2. **Direkt verlinkte Playlist prüfen:** `GET https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&id=PLnJg6MSfgQqnIcJ492cEmZCeTsLOoZzfD`. `itemCount`, Owner und öffentlichen Status erfassen.
+3. **Playlist-IDs lesen:** `GET https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=PLnJg6MSfgQqnIcJ492cEmZCeTsLOoZzfD` und über `nextPageToken` seitenweise fortsetzen.
+4. **Video-Metadaten anreichern:** `GET https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,status&id=<kommagetrennte Video-IDs>`, maximal 50 IDs je Batch. Fehlende/entfernte Videos, Besitzerkanal-ID, Laufzeit, Sprache und Region als getrennte Spalten auswerten.
+5. **Falls die Publisher-Playlist zu klein ist:** weitere auf dem Kanal selbst gepflegte, öffentlich zugängliche Playlists oder die über Schritt 1 gelieferte Upload-Playlist sequenziell lesen, bis höchstens 200 unterschiedliche Video-IDs gesammelt wurden; **keine** Suche/Community-Playlist zum Auffüllen ungeprüfter Quellen.
+6. **Netzkino Kontrollstichprobe:** dieselbe Sequenz mit Channel-ID `UCGkHFrwE8KEuOHPVsIOskAg` und einer dann tatsächlich per API bestätigten eigenen Playlist/Uploads; Vergleiche mit dem bereits im MovieHub-Katalog enthaltenen Netzkino-Angebot.
+
+**Sichere Authentifizierung:** Für öffentliche Daten ist laut Google ein API-Key ausreichend, kein YouTube-OAuth-Login zum Publisherkanal. API-Key nur aus sicherer Umgebung verwenden, z. B. als Umgebungsvariable in geschütztem Prüflauf oder Secret Manager; bei Requests bevorzugt `x-goog-api-key`-Header verwenden und Schlüssel/Antworten mit Geheimnissen nie in GitHub-Kommentare, Repository oder ungeschützte Logs schreiben. Vor Installation neuen Infrastrukturzugang/Secret-Handling gesondert abstimmen. Dokumentation: https://developers.google.com/youtube/v3/getting-started und https://developers.google.com/youtube/v3/quickstart/java .
+
+### G1-Status-Tabelle
+
+| Prüfschritt | Status | Beleg/Grenze |
+| --- | --- | --- |
+| Publisher-Identität CiNENET | **Publisherbeleg vorhanden** | UCM.ONE (eigene Filmkanäle/AVOD-Angebot) |
+| Konkrete Video-Playlist-ID | **Publisherbeleg vorhanden** | `PLnJg6MSfgQqnIcJ492cEmZCeTsLOoZzfD` |
+| API-Methodik und Kontingentkosten | **Dokumentation geprüft** | Offizielle Google Data-API-Dokumente |
+| Projekt-API-Aktivierung und Schlüssel | **Ungeprüft / Zugang fehlt in dieser Sitzung** | Kein Google-Cloud-/Secret-Manager-Zugriff |
+| Echte Playlist-/Video-API-Antwort | **Nicht durchgeführt** | Nicht behaupten, dass 50/100/200 Videos abgerufen wurden |
+| Tatsächliche Anzahl CiNENET-/Netzkino-Videos | **Unbekannt** | Erst aus `itemCount` / tatsächlichen `items` ermitteln |
+| TMDB-Matchquote und Filmanteil | **Unbekannt** | Erst nach G1-Sample berechnen |
+| DE-Wiedergabe / Rechte / Fire-TV-Absprung | **Nicht getestet** | API-Metadaten allein genügen nicht |
+
+**Weiteres Vorgehen bei Freischaltung:** genau die sechs Schritte durchführen, mit niedrigem Abrufbudget und ohne Live-Import; anschließend erst echte statistische Befunde und unklare Daten im Issue #388 berichten. Keine App- oder Adapterimplementierung durch diese Zugangsprüfung.
+
 ## 1. Zusammenfassung
 
 Die **offizielle YouTube Data API v3** eignet sich grundsätzlich, bekannte öffentliche Filmplaylists oder Uploadlisten verifizierter Publisher automatisiert zu inventarisieren, Video-IDs mit Metadaten nachzuladen und diese **als Kandidaten** konservativ gegen TMDB abzugleichen. Die API liefert aber **keinen im dokumentierten Methodenbestand bestätigten** vollständigen Feed des deutschen kostenlosen YouTube-Primetime-Katalogs und **kein verlässliches allgemeines Einzelvideo-Feld für FREE/ADS/RENT/BUY oder territoriale Verwertungsrechte**.
