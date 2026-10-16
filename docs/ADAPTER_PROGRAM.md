@@ -49,6 +49,14 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 **Nächstes Gate:** hochwertige, **nichtproduktive TMDB-Matchinganalyse** der 174 Kandidaten, inklusive Titel-/Originaltitel-/Jahr-/Laufzeitprüfung, Konfidenz, unsicherer Fälle und Überschneidungen mit dem bestehenden MovieHub-Katalog. Danach rechtliche Verfügbarkeit und echte DE-/Fire-TV-Wiedergabetests. **Keine Freigabe für Produktivimport oder neue Badges. #388 bleibt offen.**
 
+### G1-Nächste Qualitätsanalyse: Prüfliste und 47 Nichttreffer (vorbereitet)
+
+Nach dem echten G1-Jahreslückenvergleich (**79** priorisierte und **32** ungeklärte Fälle bei weiterhin **10/117/47** Baseline) wird als nächste **nur manuell auszulösende Diagnose** eine **über Laufzeitdifferenz und Filmjahr gestreute Sichtprüfliste mit höchstens 18 YouTube-/TMDB-Linkpaaren** erzeugt. Alle Einträge sind ausdrücklich **ungeprüft**, bis das konkrete Video hinsichtlich Filmidentität, Vollständigkeit, deutschem Playback auf Geräten, Anmeldung/Kosten und Verbreitungsrechten tatsächlich überprüft wurde.
+
+Die separaten **47 `unmatched`** erhalten im selben schreibgeschützten Test nur eine **auf höchstens 20 Videos / 40 Titelsuchvarianten begrenzte** diagnostische TMDB-Suche bei eindeutig entfernbaren Werbezusätzen; kein automatisches Matching oder pauschales Zerlegen mehrteiliger Filmtitel. Ohne sichere Suchalternative bleibt `no-safe-query-variant` im Bericht stehen. Vorhandener Matcher, Quellenvertrag, Quotenlimits und bestehende Geheimnisse bleiben unverändert.
+
+**Status:** Implementierung/Tests im G1-Pilot vorbereitet, **kein erneuter Live-Test dieser Zusatzdiagnose** und **keine manuelle Film-/Playback-/Rechteabnahme** bisher. Workflow und Ergebnisse nach grüner CI auf Basis echter Daten getrennt prüfen. [Methodik](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1-folgepaket--konkrete-sichtprüfliste-und-separate-unmatched-suchdiagnose-vorbereitet). **G2 nicht freigegeben.**
+
 ### G1-Jahreslückenvergleich erfolgreich – 79 von 111 Fällen für die manuelle Prüfung priorisiert
 
 **Tatsächlicher Live-Nachweis:** [Read-only Run #38886597861](https://github.com/matthias-ennen/movie-hub/actions/runs/38886597861), vollständiger Job-Erfolg. Baseline auf exakt derselben 200er-YouTube-Stichprobe unverändert: **174** TMDB-untersuchte Langvideos, **10** vorläufige Identitäten, **117** Reviews, **47** `unmatched`. Von den **111** Reviews ohne explizites Filmjahr im YouTube-Videotitel wurden nach exaktem TMDB-Lokal-/Originaltitel, Kandidatenabstand und verifizierter Laufzeitdifferenz von höchstens zehn Minuten **79** als **`priority-manual-review`** priorisiert (rund 71 %). **32** der 111 bleiben ohne genügend zusätzliche Evidenz: 16 fehlende exakte Titelaliases, 12 mehrdeutige/schwache Kandidaten, 3 Laufzeitkonflikte, 1 fehlendes Laufzeitdetail.
