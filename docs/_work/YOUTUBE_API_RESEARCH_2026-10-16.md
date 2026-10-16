@@ -1,8 +1,66 @@
 # YouTube Data API – Recherche und erste Adapterbewertung
 
 **MovieHub · Issue #388 · 16.10.2026**  
-**Ergebnisstatus:** G0 Recherche, G1 24er-Smoke, 200er-Inventar und **vier echte YouTube-/TMDB-Diagnoseläufe einschließlich Jahreslückenvergleich, 18er-Prüfliste, 20er-Nichttrefferdiagnose und erfolgreichem A/B-Suchtextvergleich** (16.10.2026); *nur Forschungs-/Suchhinweise; keine produktive Filmidentitäts-, Lizenz-, DE-Wiedergabe- oder Gerätefreigabe*.  
+**Ergebnisstatus:** G0 Recherche, G1 24er-Smoke, 200er-Inventar und **fünf erfolgreiche YouTube-/TMDB-Diagnoseläufe einschließlich A/B-Titelbereinigung, Nachprüfung sechs neuer Suchhinweise und Kodi-inspirierter Sprach-/Seitensuche** (16.10.2026); *nur Forschungs-/Reviewpriorität; keine produktive Filmidentitäts-, Lizenz-, DE-Wiedergabe- oder Gerätefreigabe*.  
 **Freigabegrenze:** noch kein Produktivadapter; G2/G3/G4 nicht erteilt oder begonnen. Die unten folgenden früheren G0-/Zugangsgate-Kapitel dokumentieren den historischen Verlauf, nicht den neuesten Status.
+
+## G1-Livebefund – Kodi-inspirierte Nachprüfung (16.10.2026)
+
+**Primärnachweis:** [GitHub Actions YouTube G1 TMDB Match Research #38895558740](https://github.com/matthias-ennen/movie-hub/actions/runs/38895558740), manuell gestartet 16.10.2026 11:42:33 UTC, **SUCCESS**; Job **116955064073**, `main`-Commit `68dd2c4251f1b37959f4a1af892f5aad7d81e8a9`. Realer, secretsanitisierter Bericht im Job-Log und temporären 14-Tage-Artefakt; alle Authentifizierungs-, YouTube-/TMDB- und Report-Schritte erfolgreich. **Keine produktiven Schreiboperationen.**
+
+### Gesicherter Stand
+
+| Kategorie | Live-Ergebnis |
+| --- | ---: |
+| Ursprünglich ausgewählte YouTube-Stichprobe | **200** Video-IDs |
+| Analysierte Langvideo-Kandidaten nach Vorfilter | **174** |
+| **Unveränderte G1-Baseline** | **10 `provisional-identity`, 117 `review`, 47 `unmatched`** |
+| Reviews ohne selbständige Produktionsjahresangabe | **111**, davon **79** nur zur Sichtprüfung priorisiert |
+| Bisherige A/B-Titelaufbereitung | **6** Fälle mit neuen Suchhinweisen aus 20 `unmatched`; **14** ohne neue Query |
+| Kodi-inspirierte Detail-Nachprüfung dieser sechs | **5 × `priority-manual-review`**, **1 × `ambiguous-or-weak`** |
+| Zusätzliche TMDB-Filmdetails für diese Nachprüfung | **5** |
+| Sprach-/Seitendiagnose der 14 verbliebenen Fälle | **10 × `no-results`**, **4 × `results-but-no-exact-alias`** |
+| Suchaufrufe `en-US`, Seite 1 / 2 | **14 / 0** – keine Antwort meldete weitere Seiten |
+| TMDB-API-Anfragen einschließlich aller Pilotphasen, Cache und ggf. Retries | **327 von max. 420** |
+
+**Wichtig:** Die fünf neuen Prioritätsfälle sind **keine fünf produktiv gematchten, nachweislich vollständigen, kostenlosen oder in Deutschland auf Fire TV abspielbaren Filme**. Die anfänglichen `47 unmatched` werden durch die Analyse **nicht** automatisch umgebucht. Die 18 separat gelisteten Sichtprüfungsfälle blieben **ungesichtet**. Frühere 20-Videodiagnosen benutzen die festgelegte Stichprobenlogik; die gesamte 200er-Stichprobe wird bei jedem manuellen Lauf erneut aus den verfügbaren Quelldaten gebildet, sodass identische Gesamtheit über alle Tage nicht vorausgesetzt werden darf.
+
+### Nachprüfung der sechs neu entdeckten Suchhinweise
+
+| YouTube-Video (Publisher) | TMDB-Suchkandidat | Delta Video–TMDB | Befund |
+| --- | --- | ---: | --- |
+| [Margot und die Hochzeit](https://www.youtube.com/watch?v=2-S8M7tg1U0) | [movie:13998](https://www.themoviedb.org/movie/13998) | **0,3 min** | `priority-manual-review` |
+| [Und wieder 48 Stunden](https://www.youtube.com/watch?v=4IX90tdOIEg) | [movie:11595](https://www.themoviedb.org/movie/11595) | **2,4 min** | `priority-manual-review` |
+| [Glaubensfrage](https://www.youtube.com/watch?v=64g1wNiBQmM) | [movie:14359](https://www.themoviedb.org/movie/14359) | **0,2 min** | `priority-manual-review` |
+| [Spider](https://www.youtube.com/watch?v=AMMdyZ7K3e8) | **bestes Scorer-Signal [movie:9613](https://www.themoviedb.org/movie/9613); Konkurrenz [movie:615750](https://www.themoviedb.org/movie/615750)** | n. a. | **`ambiguous-or-weak`**, kein Detailsignal |
+| [Nur 48 Stunden](https://www.youtube.com/watch?v=bB9zAcIEgGc) | [movie:150](https://www.themoviedb.org/movie/150) | **0,6 min** | `priority-manual-review` |
+| [Die Brücke von San Luis Rey](https://www.youtube.com/watch?v=CW-quVx6pqI) | [movie:45881](https://www.themoviedb.org/movie/45881) | **0,3 min** | `priority-manual-review` |
+
+**Unterschied zur vorherigen ersten A/B-Ergebnistabelle:** Dort waren bei `Spider` die **ersten drei** Ergebnisse der TMDB-Suche (`969681`, `557`, `315635`) als bloße Suchhinweise protokolliert. In diesem Live-Nachlauf wertete `chooseWaipuTmdbMatch` die **breitere gesamte TMDB-Suchergebnisgruppe** mit Titel-Score und Kandidatenabständen aus: Als bestbewertetes Signal wurde `9613`, als Konkurrenz `615750` gezeigt, Ergebnis **`ambiguous_margin`**. Das ist **keine widersprüchliche automatische Filmzuordnung**, sondern der Beleg, dass die frühere Top-3-Suchanzeige kein ausreichender Entscheidungsbestand ist. `Spider` muss ausdrücklich bei `review/unmatched` bleiben, bis unabhängige Werk-/Videonachweise vorliegen.
+
+Alle fünf positiven Fälle erfüllen innerhalb dieses **diagnostischen Teilmoduls** Titelgleichheit, Kandidatenlage, TMDB-Jahr-Konsistenz und Laufzeitdelta ≤10 Minuten. Weil ein **unabhängig belegtes Filmjahr auf YouTube fehlt**, erreichen sie damit **nicht** die automatische Freigabe des zentralen Waipu-Matchers. Der Produktions-Matcher hat **keine geänderten Schwellenwerte**.
+
+### Kodi-inspirierte englische Nachsuche der übrigen 14 Fälle
+
+| Kategorie | Videos | Erläuterung |
+| --- | ---: | --- |
+| `no-results` | **10** | Auch `en-US`-Suche mit bisherigem deutschen/werblichen Titelsuchtext ohne Ergebnisse |
+| `results-but-no-exact-alias` | **4** | TMDB-Ergebnisse erschienen, aber kein exakt normierter Titel/Originaltitel: [Crossbreed](https://www.youtube.com/watch?v=-6DyWnl7NMI), [Road Wars](https://www.youtube.com/watch?v=0ah-Uey-nX4), [Hard Lessons](https://www.youtube.com/watch?v=vlg_1xCKxS0), [Die Verlobungsplanerin](https://www.youtube.com/watch?v=CfRRwB8cpZ4) |
+| `candidate-hint-only` | **0** | Keine neue sichere, exakt zuordenbare Titelalternative |
+| Seite-2-Abrufe | **0** | Bei keiner der 14 Suchen meldete TMDB `total_pages>1`; daher berechtigter Verzicht auf weitere Seiten |
+
+**Entscheidung:** Weitere englische Ergebnisseiten bringen bei dieser Probe aktuell nichts; die vier fremdsprachigen Suchresultate sind ohne passende Alias-Evidenz nicht ausreichend. Als nächstes geht es um **Publisher-Metadaten-/Originaltitelqualität**, nicht blindes Weitersuchen. Besonders fehlen bei verschiedenen Titeln unabhängige Werkinformationen; TMDB-Sprache ändert daran nichts.
+
+### Nächste getrennte Gates
+
+1. **Manuelle Qualitätsprüfung** der fünf aussichtsreichsten neuen Fälle und einer gezielt gestreuten Auswahl aus der bestehenden 18er-Liste: tatsächliches Werk und Schnittfassung, Vollfilm/Clip, deutsches Browser- und Fire-TV-/Android-Playback, Preis/Anmeldung/Werbung, Quellen-/Verbreitungsrechte mit Beleg. Automatische Laufzeitnähe ist keine Abnahme.
+2. **Titel-/Originaltitel-Evidenz:** Bei den 14 weiterhin unklaren Fällen strukturiert YouTube-Originalbeschreibung, Kanalzugehörigkeit und, falls öffentlich belegt, Originaltitel/Produktionsjahr vergleichen. Der TMDB-Filmjahrwert selbst gilt nicht als unabhängiger Nachweis; keine willkürliche Serie von Suchsprachen/Seiten oder fragliche Kopien.
+3. **Aktueller Live-Katalog-Abgleich** erst gegen den realen kanonischen MovieHub-Datenbestand, nicht gegen den leeren `public/catalog.json`-Fallback. Duplikate auf `movie:<tmdbId>` kanonisch, YouTube-Video-ID als separate Quelle behandeln.
+4. **Freigabe:** Issue #388 offen, G1-Forschungsstrecke aktiv; G2/G3/G4, Produktivadapter, neue YouTube-Badges, Cloud-Nachtlauf und Firebase-Deploy **nicht** freigegeben.
+
+---
+
+## Historischer G1-Vorbereitungsstand vor diesem erfolgreichen Live-Lauf
 
 ## G1-Folgearbeit vorbereitet – sechs Suchhinweise streng nachprüfen, Kodi-Suchkaskade begrenzt testen
 
