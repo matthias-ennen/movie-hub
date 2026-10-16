@@ -89,6 +89,7 @@ export function conservativeTitleVariants(rawTitle, parsedTitle) {
       .replace(/^[\s'"«»]+|[\s'"«»]+$/g,'')
       .replace(/\s+[-–|:]\s*(?:ganzer film(?: auf deutsch)?|full movie|kompletter film|deutsch(?:e fassung)?|hd(?: 1080p)?)\b.*$/i,'')
       .trim()
+    if(/^(?:ganzer film|full movie|kompletter film|hd 1080p|netzkino)(?:\s|$)/i.test(t)) return
     if(t.length>=4 && t.length<=110 && normalizeWaipuText(t)!==normalizeWaipuText(parsed) &&
        !suggestions.some(x=>normalizeWaipuText(x)===normalizeWaipuText(t))) suggestions.push(t)
   }
