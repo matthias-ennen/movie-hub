@@ -7,6 +7,7 @@ import { runInventoryPilot, classifyVideo, durationSeconds } from './youtube-api
 import { SOURCES, getSecret, youtubeGet, safeTitle } from './youtube-api-smoke.mjs'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 import { buildReviewDiagnostics, compareUnmatchedQueryQuality } from './youtube-g1-review-diagnostics.mjs'
+import { reviewSixSearchHints, probeLanguageAndPageTwo } from './youtube-g1-kodi-candidate-diagnostics.mjs'
 
 export const MATCHING_PILOT_VERSION = 1
 export const TMDB_REQUEST_CAP = 420
@@ -291,9 +292,19 @@ async function main() {
       const titleQueryComparison = await compareUnmatchedQueryQuality({ problems:diagnostics.problems }, {
         searchTmdb: input => tmdb.search(input),
       })
+      const hinted = await reviewSixSearchHints({
+        rows:titleQueryComparison.rows, detailMap:data.detailMap,
+      }, {
+        searchTmdb: input => tmdb.search(input),
+        loadDetails: input => tmdb.detail(input),
+      })
+      const languageProbe = await probeLanguageAndPageTwo({ rows:titleQueryComparison.rows }, {
+        searchDiagnostic: input => tmdb.searchDiagnostic(input),
+      })
       report = findings.report + '\n' + comparison.report + '\n' + diagnostics.report +
-        '\n' + titleQueryComparison.report +
-        '\n- TMDB-API-Anfragen (inklusive Retry), Baseline + Jahresvergleich + alte und neue Suchtextdiagnostik: **' +
+        '\n' + titleQueryComparison.report + '\n' + hinted.report +
+        '\n' + languageProbe.report +
+        '\n- TMDB-API-Anfragen (inklusive Retry), sämtliche G1-Diagnosen: **' +
         tmdb.requestsStarted + ' / ' + TMDB_REQUEST_CAP + '**.\n'
     },
   })
