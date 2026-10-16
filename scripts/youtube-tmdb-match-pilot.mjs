@@ -3,10 +3,11 @@ import { mkdir, writeFile, appendFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { WaipuTmdbSearchClient, matchWaipuProgram, WAIPU_MATCHER_VERSION } from './waipu-tmdb-matcher.mjs'
-import { runInventoryPilot, classifyVideo, durationSeconds } from './youtube-api-inventory-pilot.mjs'
+import { runInventoryPilot, classifyVideo, durationSeconds, runtimeAgreement } from './youtube-api-inventory-pilot.mjs'
 import { SOURCES, getSecret, youtubeGet, safeTitle } from './youtube-api-smoke.mjs'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 import { buildReviewDiagnostics, compareUnmatchedQueryQuality } from './youtube-g1-review-diagnostics.mjs'
+import { reviewSixSearchHints, probeLanguageAndPageTwo } from './youtube-g1-kodi-candidate-diagnostics.mjs'
 
 export const MATCHING_PILOT_VERSION = 1
 export const TMDB_REQUEST_CAP = 420
@@ -26,13 +27,7 @@ export function extractYouTubeMovieTitle(videoTitle) {
   return { title, productionYear }
 }
 
-export function runtimeAgreement(videoSeconds, tmdbMinutes) {
-  if (!Number.isFinite(videoSeconds) || !Number.isFinite(tmdbMinutes) || tmdbMinutes <= 0) {
-    return { checked: false, delta: null, withinTolerance: false }
-  }
-  const delta = Math.round((Math.abs(videoSeconds / 60 - tmdbMinutes)) * 10) / 10
-  return { checked: true, delta, withinTolerance: delta <= MAX_RUNTIME_DELTA_MINUTES }
-}
+export { runtimeAgreement } from './youtube-api-inventory-pilot.mjs'
 
 export async function analyzeYouTubeMovie(video, expectedChannel, { searchTmdb, loadDetails, now = Date.now } = {}) {
   const kind = classifyVideo(video, expectedChannel)
@@ -291,9 +286,19 @@ async function main() {
       const titleQueryComparison = await compareUnmatchedQueryQuality({ problems:diagnostics.problems }, {
         searchTmdb: input => tmdb.search(input),
       })
+      const hinted = await reviewSixSearchHints({
+        rows:titleQueryComparison.rows, detailMap:data.detailMap,
+      }, {
+        searchTmdb: input => tmdb.search(input),
+        loadDetails: input => tmdb.detail(input),
+      })
+      const languageProbe = await probeLanguageAndPageTwo({ rows:titleQueryComparison.rows }, {
+        searchDiagnostic: input => tmdb.searchDiagnostic(input),
+      })
       report = findings.report + '\n' + comparison.report + '\n' + diagnostics.report +
-        '\n' + titleQueryComparison.report +
-        '\n- TMDB-API-Anfragen (inklusive Retry), Baseline + Jahresvergleich + alte und neue Suchtextdiagnostik: **' +
+        '\n' + titleQueryComparison.report + '\n' + hinted.report +
+        '\n' + languageProbe.report +
+        '\n- TMDB-API-Anfragen (inklusive Retry), sämtliche G1-Diagnosen: **' +
         tmdb.requestsStarted + ' / ' + TMDB_REQUEST_CAP + '**.\n'
     },
   })

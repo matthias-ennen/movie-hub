@@ -336,6 +336,30 @@ export class WaipuTmdbSearchClient {
     }))
   }
 
+  // Opt-in G1 diagnostic lookup. Production search() remains untouched.
+  // Same client/session, rate limiting, response cache and maxRequests.
+  async searchDiagnostic({ type = 'movie', title, language = 'en-US', page = 1 } = {}) {
+    const query = String(title || '').trim()
+    if (type !== 'movie' || !query || query.length > 120 ||
+        !['de-DE', 'en-US'].includes(language) ||
+        !Number.isInteger(page) || page < 1 || page > 2) {
+      throw new TypeError('Invalid bounded TMDB diagnostic search')
+    }
+    const payload = await this.#searchRequest('/search/movie', {
+      language, query, include_adult: 'false', page: String(page),
+    })
+    if (!Array.isArray(payload?.results) ||
+        !Number.isInteger(payload?.total_pages) || payload.total_pages < 0) {
+      throw new Error('Invalid TMDB diagnostic response')
+    }
+    return {
+      results: payload.results.map(item => ({ ...item, type: 'movie', source: 'tmdb-diagnostic' })),
+      totalPages: payload.total_pages,
+      page,
+      language,
+    }
+  }
+
   async detail(input) {
     const type = mediaType(input?.type ?? input?.mediaType)
     const tmdbId = finiteNumber(input?.tmdbId ?? input?.id)

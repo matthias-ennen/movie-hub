@@ -203,7 +203,8 @@ export async function compareUnmatchedQueryQuality({ problems }, { searchTmdb } 
     const found = [...new Map(hits.map(x => [x.tmdbId, x])).values()].slice(0, 3)
     if (found.length) casesWithNewHints++
     if (!alternatives.length) casesWithoutFreshVariants++
-    rows.push({ videoId:p.videoId, baseline:p.status, alternatives, hints:found })
+    rows.push({ videoId:p.videoId, oldTitle:p.oldTitle, sourceTitle:p.rawTitle,
+      baseline:p.status, alternatives, hints:found })
   }
   const report = [
     '## G1 – A/B-Vergleich alter und verbesserter TMDB-Suchtexte', '',

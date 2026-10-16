@@ -4,6 +4,30 @@
 **Ergebnisstatus:** G0 Recherche, G1 24er-Smoke, 200er-Inventar und **vier echte YouTube-/TMDB-Diagnoseläufe einschließlich Jahreslückenvergleich, 18er-Prüfliste, 20er-Nichttrefferdiagnose und erfolgreichem A/B-Suchtextvergleich** (16.10.2026); *nur Forschungs-/Suchhinweise; keine produktive Filmidentitäts-, Lizenz-, DE-Wiedergabe- oder Gerätefreigabe*.  
 **Freigabegrenze:** noch kein Produktivadapter; G2/G3/G4 nicht erteilt oder begonnen. Die unten folgenden früheren G0-/Zugangsgate-Kapitel dokumentieren den historischen Verlauf, nicht den neuesten Status.
 
+## G1-Folgearbeit vorbereitet – sechs Suchhinweise streng nachprüfen, Kodi-Suchkaskade begrenzt testen
+
+**Stand:** Reiner Code- und Testplan, **noch kein neuer echter TMDB-Livelauf** dieser beiden neuen Diagnoseverfahren. Grundlage: manueller G1-Lauf [#38892290414](https://github.com/matthias-ennen/movie-hub/actions/runs/38892290414): Sechs neue TMDB-Suchhinweise aus identischen zwanzig `unmatched`-Videos, sieben neue Abfragen; bestehende Baseline **10/117/47** unverändert. Keine Rechte- oder Fire-TV-Playbackfreigabe.
+
+### 1. Sechs Suchhinweise konservativ nachprüfen
+
+- `scripts/youtube-g1-kodi-candidate-diagnostics.mjs` übernimmt die schon **im Prozessspeicher vorhandenen** Ergebnisse von `compareUnmatchedQueryQuality`; **kein weiteres YouTube-Inventar und keine Veränderung des früheren Matchers**.
+- Die sechs echten Trefferfälle einschließlich der drei konkurrierenden `Spider`-TMDB-IDs werden mit `chooseWaipuTmdbMatch` aus `scripts/waipu-tmdb-matcher.mjs` (derselbe kanonische Waipu-Matcher) erneut bewertet. Die alternativen Suchanfragen werden aus dem bestehenden API-Cache wiederverwendet; alle konkurrierenden TMDB-Kandidaten müssen in den Scorer einfließen, nicht nur die erste Suchantwort.
+- Nur bei genügend eindeutigen und exakt zum bereinigten Suchbegriff passenden Kandidaten wird zusätzlich `tmdb.detail` geladen und die TMDB-Filmlaufzeit mit der tatsächlichen YouTube-Videolaufzeit verglichen (max. **10 Minuten**). Dokumentiert werden *alle* Unsicherheiten und Mehrdeutigkeiten. Ein gutes Ergebnis wird ausschließlich `priority-manual-review` genannt: **kein neues `matched`, keine automatische TMDB-Verknüpfung oder Provider-Badge**.
+- **Keine** Nutzung des YouTube-Uploaddatums als Filmjahr. Ein aus TMDB ermitteltes Erscheinungsjahr ist **nicht unabhängig belegt**, weshalb ein identischer Film trotz guten Titels/Laufzeit nicht ohne reale Videosichtung freigegeben ist.
+
+### 2. Kodi-inspirierte Suchsprache und Seite 2 als streng begrenzte Diagnostik
+
+- Die **14** Fälle, für die der neue Titelparser keinen weiteren sicheren Suchbegriff erzeugen konnte, erhalten auf **demselben 20er-Sample** ausschließlich eine **englische `en-US`-Titelsuche auf Seite 1**. Wenn und nur wenn `total_pages>1`, wird als zweite und letzte Kandidatenseite **Seite 2** geladen. Kein neuer Filmjahr-Guess, keine willkürlichen zusätzlichen Sprachen oder Seite 3 ff.
+- Minimal additive Methode `WaipuTmdbSearchClient.searchDiagnostic` im vorhandenen gemeinsam limitierten API-Client: nur `movie`, `de-DE`/`en-US`, Seite 1/2, bekannte Pagination/Responsevalidierung. **Produktive `search()`-Methode vollständig unverändert.** Dieselben TMDB-Zugangsdaten, derselbe harte **420-Request-Deckel inklusive Retry und Caching**, kontrollierte Pace.
+- Der Diagnosescorer ist erneut der bereits vorhandene `chooseWaipuTmdbMatch`; Ergebnisse werden nur als `candidate-hint-only`, `ambiguous-or-weak`, `results-but-no-exact-alias` oder `no-results` gezählt. TMDB-Popularität oder Page-2-Position alleine belegt **keine** Identität.
+- Budgetgrenze dieser Folgeanalysen: höchstens sechs zuvor erkannte Hinweisfälle, 14 Sprach-/Seitenfälle mit max. **28** zusätzlichen TMDB-Suchaufrufen vor Cache; Detailabrufe nur falls Scorer/Kandidaten-Eindeutigkeit dies rechtfertigen. Gesamter G1-Workflow bleibt bei max. **90 YouTube- und 420 TMDB-API-Requests**. Bei Erschöpfung Abbruch und **keine Teilresultate als vollständige Diagnose** deklarieren.
+
+### G1-Gates / Belege
+
+- Neue Regressionstests mit künstlichen `Spider`-Mehrdeutigkeiten, sauberer und falscher Laufzeit, fehlendem unabhängigen Jahr, zweiter TMDB-Seite, Sprachvalidierung, Cachetreffern und gemeinsamem Budget.
+- Der bereits vorhandene **rein manuelle** Workflow `YouTube G1 TMDB Match Research` erstellt nach grünem PR-Merge eine ergänzende schlüsselfreie Auswertung im Job-Log und 14-Tage-Artefakt; **noch nicht wirklich ausgeführt**.
+- **Kein produktiver Import** und keine Änderung an Firestore, Firebase, Joyn/Waipu-Prozesspfaden, Badge-Reihenfolge, Titellisten oder Gerätedeep-Links. Erst nach tatsächlicher API-Auswertung und später separater **Werk-/Vollfilm-/DE-/Fire-TV-/Rechteprüfung** kann eine Produktivfreigabe bewertet werden.
+
 ## G1-Livebefund – neuer Suchtext-Parser: 6 statt 0 Suchhinweise (16.10.2026)
 
 **Primärbeleg:** [Manueller YouTube G1 TMDB Match Research – Run #38892290414](https://github.com/matthias-ennen/movie-hub/actions/runs/38892290414), **SUCCESS**, gestartet 2026-10-16 11:12:54 UTC, Job **116944434382**, auf `main` Commit `fc0267669ec81f3e2af8843bbb388a8c5846d615`. Sämtliche Zahlen unten stammen aus den echten GitHub-Logs; keine TMDB- oder YouTube-Metadaten wurden in MovieHub veröffentlicht.

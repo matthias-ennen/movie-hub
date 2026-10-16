@@ -18,6 +18,14 @@ export function durationSeconds(raw) {
   return days * 86400 + hours * 3600 + minutes * 60 + seconds
 }
 
+export function runtimeAgreement(videoSeconds, tmdbMinutes) {
+  if (!Number.isFinite(videoSeconds) || !Number.isFinite(tmdbMinutes) || tmdbMinutes <= 0) {
+    return { checked: false, delta: null, withinTolerance: false }
+  }
+  const delta = Math.round((Math.abs(videoSeconds / 60 - tmdbMinutes)) * 10) / 10
+  return { checked: true, delta, withinTolerance: delta <= 15 }
+}
+
 export function stratifiedSelection(ids, limit, newCount = 20) {
   const source = [...new Set(ids.filter(isVideoId))]
   const desired = Math.min(Math.max(0, limit), source.length)
