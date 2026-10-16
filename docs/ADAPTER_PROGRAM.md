@@ -80,11 +80,15 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 ### DVB-I – #336 / Priorität 2
 
-**Bekannte Vorarbeit im Repo:** deutscher Service-List-/Registry-Zugang, Parser, Content Guide/EPG, Region, Bearer-/Playback-Signalisierung und SourceEnvelope-Probe als Pilot planbar. Ob ein **zugelassener stabiler deutscher Produktionszugang aktuell** verfügbar ist, ist **nicht durch diesen Plan bestätigt**. Nächster Schritt: Primärquelle/Zugangsstatus anhand aktueller Plattform- und DVB-Dokumentation prüfen; Referenz/experimentell/Pilot/Produktion strikt trennen. Keine experimentelle Liste als Produktionswahrheit.
+**Erster externer Quellenbefund:** Die Deutsche TV-Plattform hat am **17.03.2026** das deutsche DVB-I Implementation Profile veröffentlicht; die DVB meldete am **29.05.2026** die Verabschiedung des „DVB-I Book Germany“. Dies sind **Normen-/Rahmenmeilensteine**, nicht der Nachweis eines für MovieHub zugänglichen deutschen **Produktions-Service-List-Endpunkts**. Die DVB-Deployment-Übersicht beschreibt einen deutschen Pilot und einen damals für September 2026 **angestrebten** Marktstart; das ist nicht als bestätigter tatsächlicher Start zu lesen.
+
+**Bekannte Vorarbeit im Repo:** deutscher Service-List-/Registry-Zugang, Parser, Content Guide/EPG, Region, Bearer-/Playback-Signalisierung und SourceEnvelope-Probe als Pilot planbar. Ob ein **zugelassener stabiler deutscher Produktionszugang aktuell** verfügbar ist, ist **nicht durch diese Recherche bestätigt**. Nächster Schritt: Betreiber/Registry, Produktionsfreigabe, Nutzungsbedingungen und Beispielendpunkt ermitteln; Referenz/experimentell/Pilot/Produktion strikt trennen. Keine experimentelle Liste als Produktionswahrheit.
+
+**Primärquellen:** [DTVP-Profil](https://www.tv-plattform.de/dvb-i-implementation-profile-veroeffentlicht/) · [DVB Book Germany](https://dvb.org/news/dvb-i-book-germany-approved-clearing-path-to-market-launch/) · [DVB-I Deployments](https://dvb-i.tv/deployments/).
 
 ### Prime Video – #391 / Priorität 3
 
-**Bekannte Vorarbeit im Repo:** Auf Fire TV wurde für einen Referenztitel ein `app.primevideo.com/detail?gti=...`-basierter titelspezifischer Absprung getestet. Das ist ein **beobachteter Deep-Link-Test**, kein Beleg für eine offizielle allgemeine Prime-Katalog-/GTI-Schnittstelle. Nächster Schritt: offizielle/erlaubte Quellen für titelgenaue GTI und deutsches Angebot untersuchen; GTI getrennt von TMDB halten. Keine automatisierte GTI-Generierung aus Titeln behaupten und keine unbestätigten universellen Links veröffentlichen.
+**Bekannte Vorarbeit im Repo:** Auf Fire TV wurde für einen Referenztitel ein `app.primevideo.com/detail?gti=...`-basierter titelspezifischer Absprung getestet. Das ist ein **beobachteter Deep-Link-Test**, kein Beleg für eine offizielle allgemeine Prime-Katalog-/GTI-Schnittstelle. Die öffentlich beschriebene [Amazon Fire-TV-Launcher-Integration](https://developer.amazon.com/docs/catalog/integrate-with-launcher.html) betrifft die Integration **eigener Contentanbieter-Apps**; sie belegt **nicht**, dass MovieHub fremde Prime-GTIs offiziell in einem offenen Katalog abrufen kann. Nächster Schritt: offizielle/erlaubte Quellen für titelgenaue GTI und deutsches Angebot untersuchen; GTI getrennt von TMDB halten. Keine automatisierte GTI-Generierung aus Titeln behaupten und keine unbestätigten universellen Links veröffentlichen.
 
 ### Weitere Free-TV-/FAST-/Mediathekquellen
 
