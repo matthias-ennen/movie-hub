@@ -39,7 +39,11 @@ export async function analyzeYouTubeMovie(video, expectedChannel, { searchTmdb, 
   if (parsed.title.length < 3) {
     return { status: 'review', reason: 'no-searchable-title', title: parsed.title, videoId: video?.id }
   }
-  const input = { type: 'movie', title: parsed.title, productionYear: parsed.productionYear }
+  // The shared search client treats a supplied year as an exact search filter.
+  // Omit the field entirely when YouTube supplies no explicit film year.
+  const input = { type: 'movie', title: parsed.title,
+    ...(parsed.productionYear ? { productionYear: parsed.productionYear } : {}),
+  }
   const decision = await matchWaipuProgram(input, { searchTmdb, now })
   const candidate = decision.match || decision.diagnostic?.best || null
   if (!candidate || !Number.isInteger(Number(candidate.tmdbId))) {
