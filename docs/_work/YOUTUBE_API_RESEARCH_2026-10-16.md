@@ -1,8 +1,67 @@
 # YouTube Data API – Recherche und erste Adapterbewertung
 
 **MovieHub · Issue #388 · 16.10.2026**  
-**Ergebnisstatus:** G0 Recherche, G1 24er-Smoke, 200er-Inventar **und erster echter YouTube-/TMDB-Matchinglauf erfolgreich ausgeführt** (16.10.2026); *Matchingqualität erst analysiert, nicht produktiv bestätigt; Lizenz-/DE-Wiedergabe und Geräteprüfung weiterhin ausstehend*.  
+**Ergebnisstatus:** G0 Recherche, G1 24er-Smoke, 200er-Inventar und **zwei echte kombinierte YouTube-/TMDB-Analyseläufe einschließlich Jahreslückenvergleich erfolgreich ausgeführt** (16.10.2026); *Matchingqualität nur für Diagnose und Prüfreihenfolge belegt; keine Produktiv-, Lizenz-, DE-Wiedergabe- oder Gerätefreigabe*.  
 **Freigabegrenze:** noch kein Produktivadapter; G2/G3/G4 nicht erteilt oder begonnen. Die unten folgenden früheren G0-/Zugangsgate-Kapitel dokumentieren den historischen Verlauf, nicht den neuesten Status.
+
+## G1-Livebefund – zusätzlicher Evidenzvergleich ohne Filmjahr erfolgreich (16.10.2026)
+
+**Primärbeleg:** [Manueller GitHub Actions Run #38886597861](https://github.com/matthias-ennen/movie-hub/actions/runs/38886597861), `YouTube G1 TMDB Match Research`, **SUCCESS** (16.10.2026, Start 10:20:40 UTC). [Schlüsselfreier Originalreport als temporäres Actions-Artefakt #12040255568](https://github.com/matthias-ennen/movie-hub/actions/runs/38886597861/artifacts/12040255568) (Aufbewahrung 14 Tage), Job **116925732806**. Alle Authentifizierungs-, YouTube-/TMDB-Diagnose- und Artefaktschritte **grün**. Keine Firebase-, Firestore-, Katalog-, Provider- oder Badge-Schreiboperation.
+
+### Messwerte: exakt dieselbe 200er-Stichprobe und Baseline
+
+| Prüfgröße | Ergebnis |
+| --- | ---: |
+| In YouTube-Stichprobe getestete Videos | **200** |
+| Nach Publisher-/Laufzeit-Vorfilter TMDB-analysierte Langvideos | **174** |
+| Unveränderte Baseline: `provisional-identity` | **10** |
+| Unveränderte Baseline: `review` | **117** |
+| Unveränderte Baseline: `unmatched` | **47** |
+| Davon Baseline-`review` ohne explizites Filmjahr im YouTube-Titel | **111** (Netzkino) |
+| Zusätzliche Evidenz: **`priority-manual-review`** innerhalb dieser 111 | **79** |
+| Zusätzliche Evidenz: **`insufficient`**, weiterhin unklar | **32** |
+| TMDB-Detailabrufe des Vergleichs vor internem Cache | **82** |
+| Reale TMDB-API-Anfragen insgesamt, Baseline und Vergleich (inkl. Retry) | **276 / 420** |
+
+**Interpretation:** 79 von 111 (rund **71 %**) bisher durch fehlende Jahresangabe blockierten Fällen sind nun **gezielt manuell nachprüfbare Filmidentitäts-Hypothesen**. Die weiteren 32 bleiben hinsichtlich der ergänzenden Evidenz unzureichend. **Die 79 ändern ausdrücklich nicht die Baseline:** Es sind weiterhin genau **10** provisorische Identitäts-Hypothesen, **117** Reviews und **47** ohne hinreichenden TMDB-Kandidaten. **Nicht** 89 automatisch gematchte Filme und **nicht** 79 lizenzierte Streamingangebote.
+
+### Ursachen der 32 weiterhin unklaren Jahreslücken
+
+| Prüfgrund | Anzahl |
+| --- | ---: |
+| Kein exakt übereinstimmender normierter lokaler oder originaler TMDB-Titel (`no-exact-tmdb-alias`) | **16** |
+| Score/Kandidatenabstand zu schwach oder mehrdeutig (`weak-or-ambiguous-candidate`) | **12** |
+| YouTube-/TMDB-Laufzeitdifferenz über 10 Minuten (`runtime-gap-over-10-minutes`) | **3** |
+| TMDB-Detail ohne ausreichend belastbare Laufzeit (`missing-runtime-detail`) | **1** |
+| **Summe** | **32** |
+
+### Real gemessene Beispiele für die manuelle Prüfliste
+
+| YouTube-Video | TMDB-ID | TMDB-Filmjahr | Laufzeitdifferenz |
+| --- | ---: | ---: | ---: |
+| [Borders Of Love](https://www.youtube.com/watch?v=DR0Qb7LMa5g) | 993234 | 2022 | 5,0 Minuten |
+| [Und wieder ist Freitag der 13.](https://www.youtube.com/watch?v=fHoNjdSjn4Y) | 9728 | 1982 | 0,2 Minuten |
+| [Meadowland](https://www.youtube.com/watch?v=XbUD3QCP74A) | 328869 | 2015 | 0,1 Minuten |
+| [Anchorman – Die Legende von Ron Burgundy](https://www.youtube.com/watch?v=3sDfDon2U_E) | 8699 | 2004 | 0,1 Minuten |
+| [Knight Moves – Ein mörderisches Spiel](https://www.youtube.com/watch?v=ymIio0XKVc4) | 5765 | 1992 | 6,5 Minuten |
+| [DOA: Dead or Alive](https://www.youtube.com/watch?v=7Z8AATSF7eM) | 9053 | 2006 | 4,4 Minuten |
+
+Die YouTube-/TMDB-Zuordnung ist **diagnostisch plausibel**, aber noch nicht einzeln auf Videoinhalt, Schnittfassung, Verfügbarkeit, Filmrechte und tatsächliches DE-/Fire-TV-Playback geprüft. Dass TMDB ein Filmjahr führt, ersetzt **kein unabhängiges MovieHub-Identitäts-/Lizenzsignal**. Im späteren Quellenvertrag bleibt die kanonische Filmidentität `movie:<tmdbId>`, während YouTube-Video-IDs eigenständige externe Referenzen sind; keine Duplikat-Filmtitel generieren.
+
+### Nächste qualitätsorientierte Schritte (nicht implementiert oder freigegeben)
+
+1. **Manuelle Stichprobe aus den 79 priorisierten Fällen** mit bewusster Streuung (hohe und niedrige Laufzeitabweichung, deutsche/englische/abweichende Titel, unterschiedliche Produktionsjahre). Gegenprüfen, ob YouTube-Video und TMDB-Eintrag tatsächlich dasselbe Werk und dieselbe Art von Inhaltsfassung bezeichnen; Ergebnisse als belastbare Beobachtung statt bloße automatische Matchzahl protokollieren.
+2. **32 weiterhin unklare Jahreslücken** gesondert analysieren; Werbezusätze, lokale vs. Originaltitel und fehlende TMDB-Laufzeiten trennen; keine unkontrollierten Schwellenwertabsenkungen. Die **47 ursprünglich `unmatched`** sind ein getrenntes Such-/Titelaufbereitungspaket, nicht Teil des hier gemessenen Vergleichs.
+3. Für mögliche Übereinstimmungen mit **bestehenden Live-MovieHub-Titeln** muss eine eigenständige, aktuelle kanonische Titelquelle genutzt werden. `public/catalog.json` im Repository ist nur ein Fallback und darf nicht als vollständiger Live-Katalog gelten.
+4. **Rechte-/Kostenklasse und wirkliches DE-/Fire-TV-Playback** sind eigene Verifikationsgates; YouTube-Region-Metadaten allein reichen nicht aus. **G2/Produktivimport/Badeges bleiben gesperrt**.
+
+### Technische Konsequenz
+
+Der vorhandene Waipu-TMDB-Matcher v5 und die Baseline bleiben unverändert. `compareYearlessReviews` ist weiterhin nur eine schreibgeschützte **Review-Priorisierung**. Bei tatsächlicher Quellenintegration müssen bestätigte Filme über die zentrale Identitäts- und Quellenarchitektur geführt werden; keine YouTube-spezifische eigene Kanonisierung und keine Einträge durch bloßes ViewCount- oder Laufzeitranking.
+
+---
+
+## Historischer Plan vor dem nachgewiesenen Vergleichslauf
 
 ## G1 – Vergleichsdiagnose ohne Filmjahr vorbereitet (16.10.2026)
 
