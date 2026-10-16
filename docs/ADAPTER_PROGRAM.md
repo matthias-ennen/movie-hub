@@ -49,6 +49,16 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 **Nächstes Gate:** hochwertige, **nichtproduktive TMDB-Matchinganalyse** der 174 Kandidaten, inklusive Titel-/Originaltitel-/Jahr-/Laufzeitprüfung, Konfidenz, unsicherer Fälle und Überschneidungen mit dem bestehenden MovieHub-Katalog. Danach rechtliche Verfügbarkeit und echte DE-/Fire-TV-Wiedergabetests. **Keine Freigabe für Produktivimport oder neue Badges. #388 bleibt offen.**
 
+### G1-Folgeanalyse vorbereitet: sechs neue Filmhinweise und 14 Suchprobleme
+
+Auf Basis des echten G1-A/B-Berichts (**6** neue TMDB-Suchhinweise aus 20 wiederholten Nichttreffern, bisherige Baseline **10/117/47** unverändert) wird die Kodi-inspirierte Kandidatensuche in den bestehenden **read-only** YouTube-/TMDB-Forschungsworkflow integriert.
+
+**Prüfspur A – sechs Kandidaten:** Sämtliche bekannten konkurrierenden TMDB-Ergebnisse werden erneut mit dem **zentralen Waipu-TMDB-Scorer** bewertet; nur bei eindeutigem und exakt passendem Titel wird TMDB-Jahr und Laufzeitdifferenz des YouTube-Videos zusätzlich geprüft. `Spider` mit mehreren möglichen IDs bleibt ausdrücklich eine Mehrdeutigkeit. Das Resultat ist allenfalls **`priority-manual-review`**, niemals automatische Film-/Provider-Freigabe.
+
+**Prüfspur B – 14 ohne weitere Titelvariante:** Streng begrenzte `en-US`-Recherche auf derselben Quellstichprobe; zweite TMDB-Seite nur bei `total_pages>1`, nie mehr als zwei Seiten. Die additive `WaipuTmdbSearchClient.searchDiagnostic`-Methode nutzt **dieselbe API-Budget-/Cache-/Rate-Limit-Logik**, während die bestehende produktive `search()` unverändert bleibt. Max. 28 zusätzliche Suchrequests vor Cache; Gesamtdeckel **420 TMDB**, **90 YouTube**. Nur diagnostische Suchhinweise.
+
+**Status:** Code/Tests vorbereitet, neuer Live-Diagnoselauf steht noch aus; keine Produktiv-/Quellen-, Badge-, Firestore-/Firebase- oder Playback-Änderung. [Methodik und Gate-Definition](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1-folgearbeit-vorbereitet--sechs-suchhinweise-streng-nachprüfen-kodi-suchkaskade-begrenzt-testen). **#388 bleibt offen, G2 nicht freigegeben.**
+
 ### G1-A/B-Livebefund: 6 neue TMDB-Suchhinweise und Kodi-Architekturvergleich
 
 **Echter Live-Lauf:** [YouTube G1 TMDB Match Research #38892290414](https://github.com/matthias-ennen/movie-hub/actions/runs/38892290414) vollständig **grün**. **Identische 20** aus 47 `unmatched`-Video-IDs erneut untersucht: mit dem alten Suchdiagnosepfad **0** zusätzliche TMDB-Hinweise (25 Suchfunktionsaufrufe); die neue quellneutrale Bereinigung gewann bei **6 von 20 Videos** mindestens einen weiteren Kandidaten mit nur **7** zusätzlichen TMDB-Suchfunktionsaufrufen. **14** Videos blieben ohne sicher neu ableitbare Suchvariante. Gesamtworkflow **308/420** echte TMDB-Anfragen einschließlich der unveränderten Baseline und des Jahresvergleichs.
