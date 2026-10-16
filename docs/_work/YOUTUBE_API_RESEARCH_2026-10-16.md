@@ -4,6 +4,30 @@
 **Ergebnisstatus:** G0 Recherche und **G1 erste begrenzte Live-API-Stichprobe erfolgreich** (16.10.2026); *größeres 100–200-Video-Sample, TMDB-Matching und Geräte-/Rechtsprüfung noch ausstehend*.  
 **Freigabegrenze:** noch kein Produktivadapter; G2/G3/G4 nicht erteilt oder begonnen. Die unten folgenden früheren G0-/Zugangsgate-Kapitel dokumentieren den historischen Verlauf, nicht den neuesten Status.
 
+## G1-Vertiefung – größere, zeitlich verteilte Stichprobe in Vorbereitung (16.10.2026)
+
+**Ausgangsentscheidung:** Nach erfolgreichem 24-Video-Smoke-Test und der Diskussion zur YouTube-Sortierung soll der Adapter zunächst **die vollständige Playlist-ID-Inventarisierung** demonstrieren und **höchstens 200 Videodetails** über eine bewusst gemischte Stichprobe abrufen. Der Pilot wird **separat** vom bisherigen 12+12-Smoke-Test entwickelt; **noch nicht live ausgeführt**, daher fehlen gemessene neue Zahlen. Kein Produktivauftrag.
+
+### Methodik der neuen Teststrecke
+
+- Neuer **manueller** Workflow `.github/workflows/youtube-api-g1-inventory.yml`, nur auf `main`, kein Zeittrigger, keine automatische Cloud-Veröffentlichung, kein Zugriff auf Firebase oder TMDB.
+- `scripts/youtube-api-inventory-pilot.mjs` nutzt denselben vorhandenen `YOUTUBE_API_KEY`-Secret-Manager-Zugriff und ausschließlich die offiziellen **GET**-Methoden `channels.list`, `playlists.list`, `playlistItems.list` und `videos.list`.
+- **Alle Seiten** der beiden nachgewiesenen Publisherquellen inventarisieren (CiNENET-Publisherplaylist, Netzkino-Kanal-Uploadliste). Bis **50 Einträge/Seite**, maximal **70 Seiten je Playlist**; bei Überlauf, fehlerhafter Pagination oder fehlgeschlagenen API-Aufrufen **abbrechen statt Teildaten als vollständig ausgeben**.
+- Stichprobe aus dem vollständigen ID-Inventar: maximal **40 CiNENET-Videos** (derzeit nach G1-Messung 24), plus verbleibende Slots aus Netzkino bis **200 eindeutige IDs**. Von Netzkino die ersten bis zu 20 Uploads bevorzugen, die übrigen **deterministisch über die gesamte Liste verteilen**, damit nicht nur die neuesten Uploads berücksichtigt werden.
+- Gesammelte max. 200 Video-IDs in `videos.list`-Batches zu je maximal 50 abfragen, einschließlich `statistics.viewCount`, Laufzeit, Kanalzuordnung, DE-Regionalsignalen und Status. **Kein permanentes API-Datenarchiv.**
+- Reiner Vorfilter: Clips unter **20 Minuten** ausschließen, **20–44 Minuten** als unklar einstufen, ab **45 Minuten** nur als **Langvideo-Kandidat**. Fremdkanäle, nichtöffentliche und für DE ausdrücklich eingeschränkte Videos getrennt diagnostizieren. **Länge und Videotitel allein beweisen keine vollständigen oder lizenzrechtlich einwandfreien Filme.**
+- **YouTube-Aufrufzahl als provisorisches Sortiersignal:** Ranking der **geeigneten Langvideo-Kandidaten nur innerhalb der höchstens 200 gewählten Videos**. `viewCount` ist kein TMDB-Rating und seit August 2026 auch um Starts/Autoplay/Hover beeinflusst; nicht als globale Netzkino-Topliste oder Qualitätssiegel interpretieren.
+- Bericht mit tatsächlichen Playlistgrößen, gezählten IDs, Sampling-Positionen (aktuell/älter), Filterausschlüssen, Regionshinweisen, bis zu zwölf bestplatzierten YouTube-Links pro Quelle und API-Aufrufzahlen. Es werden weder geheime Zugangsdaten noch vollständige Rohantworten geloggt; GitHub-Artefakt wird **14 Tage** aufbewahrt.
+- Harte Limits: **max. 90** YouTube-API-Requests insgesamt, **max. 70** Listen-Seiten je Quelle, **max. 200** verschiedene Video-IDs. Kein `search.list` zur vermeintlich vollständigen Kanalabdeckung.
+
+**Gates:** Dieses Paket misst Inventarkonsistenz, zeitlich gestreute Datenqualität und eine **erste API-basierte YouTube-Sortierung**. Der nächste, separat zu entscheidende Analyseschritt ist die konservative TMDB-Zuordnung der Langfilm-Kandidaten, inklusive Originaltitel/Jahr/Laufzeit, Unsicherheiten und Duplikaten. **Noch keine seriöse TMDB-Trefferquote, keine Einzelvideo-Lizenz- oder tatsächliche DE-/Fire-TV-Wiedergabebestätigung.**
+
+**Offizielle API-Nachweise:**
+- [playlistItems.list – Pagination, maximal 50 Items, keine freie Sortierung](https://developers.google.com/youtube/data/reference/rest/v3/playlistItems/list)
+- [videos.list – Metadaten/Statisik abrufen](https://developers.google.com/youtube/data/reference/rest/v3/videos/list)
+- [videos statistics.viewCount – Definition seit 24.08.2026](https://developers.google.com/youtube/data/reference/rest/v3/videos)
+- [YouTube-Quota-Kosten](https://developers.google.com/youtube/data/determine_quota_cost)
+
 ## G1 – Quantitativer Erstbefund: YouTube Data API liefert echte Filmdaten (16.10.2026)
 
 **Beleg:** [Run #38874604617](https://github.com/matthias-ennen/movie-hub/actions/runs/38874604617) · [reduzierter Originalbericht, GitHub-Artefakt](https://github.com/matthias-ennen/movie-hub/actions/runs/38874604617/artifacts/12034467922), 14 Tage Aufbewahrung · Job **116886514755**. Start 08:34:33 UTC / **10:34 Uhr Europe/Berlin**, erfolgreich abgeschlossen; Videoantworten im **Job-Log** überprüft. Diese Zahlen entstammen **echten authentifizierten YouTube-Data-API-v3-Antworten**, nicht hypothetischen Annahmen oder Tests mit Fixtures. Der Test lief ausschließlich manuell und schreibgeschützt.
