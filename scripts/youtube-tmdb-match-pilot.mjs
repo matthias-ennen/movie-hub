@@ -139,7 +139,7 @@ export async function compareYearlessReviews({ decisions, detailMap }, { loadDet
     counts[evaluation.status] = (counts[evaluation.status] || 0) + 1
     if (evaluation.status === 'priority-manual-review') {
       priorityCount++
-      if (prioritized.length < 18) prioritized.push({
+      prioritized.push({
         title: candidate.title, videoId:candidate.videoId, tmdbTitle:candidate.tmdbTitle,
         tmdbId:candidate.tmdbId, tmdbYear:candidate.tmdbYear, runtimeDelta: evaluation.delta,
       })
@@ -169,7 +169,7 @@ export async function compareYearlessReviews({ decisions, detailMap }, { loadDet
   lines.push('', '### Zur manuellen Prüfung priorisierte Beispielvideos', '',
     '| YouTube-Video | TMDB-Titel | TMDB-ID | TMDB-Jahr | Abweichung |',
     '| --- | --- | ---: | ---: | ---: |')
-  for(const c of prioritized) {
+  for(const c of prioritized.slice(0, 18)) {
     lines.push('| [' + markdownSafe(c.title) + '](https://www.youtube.com/watch?v=' + c.videoId +
       ') | ' + markdownSafe(c.tmdbTitle) + ' | ' + c.tmdbId +
       ' | ' + c.tmdbYear + ' | ' + c.runtimeDelta + ' min |')
