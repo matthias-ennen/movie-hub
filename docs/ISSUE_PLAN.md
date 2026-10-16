@@ -1,10 +1,20 @@
 # Movie Hub – Issue-Plan
 
-Stand: 14. Oktober 2026, Tagesabschluss 19:22 Uhr (Europe/Berlin)
+Stand: 16. Oktober 2026
 
 ## Arbeitsprinzip
 
 Die aktive Planung enthält nur noch echte Arbeitspakete. Historische Bestandsaufnahmen werden nach Überführung ihrer Restpunkte geschlossen. Große Sammelissues werden vermieden, wenn ein klarer technischer Rest als kleineres Paket separat geführt werden kann.
+
+## Verbindliche Priorisierung ab 16.10.2026
+
+- **Abgeschlossen:** Gesamtpaket Mitteilungen #314 einschließlich Bewertungsissue #385 auf ausdrücklichen Wunsch von Matthias geschlossen. #380–#384 sind zuvor abgenommen und geschlossen. Neue Meldungstypen sind für später vertagt; keine erneute Abnahme der bestehenden Funktion.
+- **Neue Hauptstrecke:** #271 Quellenplattform / [Adapterprogramm](ADAPTER_PROGRAM.md). Zuerst #388 **YouTube**, danach #336 **DVB-I**, danach #391 **Prime Video**. Weitere offizielle Quellen nur nach gesonderter Priorisierung.
+- **Aktuelle Phase:** zulässige technische Quellen, API-/Rechtebedingungen, Datenqualität, konservatives TMDB-Matching, gemeinsame SourceEnvelope-/PlaybackRoute-Integration und reale Geräteziele analysieren. Pro Quelle klein begrenzter nichtproduktiver Datenpilot mit Bericht und Go/No-Go.
+- **Klare Grenze:** Diese Planungsrunde gibt **keinen** produktiven Adapter, Codeumbau, Live-Import oder neue Secrets frei. G0/G1-Analyse vor Entscheidung; danach getrennte technische Tests, CI/Deploy und manuelle Geräteabnahme.
+- **Danach:** Kosten-/Verfügbarkeitsdarstellung, Produktfinish, Compliance #112, Release 1.0. #386 und #458 bleiben eigenständige spätere/parallel planbare Pakete.
+
+## Frühere Priorisierung bis 15.10.2026 (historische Einordnung)
 
 ## Bereinigter Status
 
@@ -40,7 +50,7 @@ Am 13.10.2026 zusätzlich abgeschlossen:
   ausdrücklich abgenommen und abgeschlossen; Basisabnahme um 19:05 Uhr bleibt im Verlauf.
   Nachweise und Abnahme: [DETAIL_426.md](_work/DETAIL_426.md).
 
-## Aktuelle Priorisierung
+## Historische Priorisierung (durch Beschluss 16.10.2026 ersetzt)
 
 ### Abgeschlossen: #426 einschließlich Navigationsnachtrag
 
@@ -140,9 +150,9 @@ Vor öffentlicher Veröffentlichung:
 - wesentliche Provisorien bereinigt
 - #112 Compliance vollständig bearbeitet bzw. extern freigegeben, wo erforderlich
 
-## Aktuelle Abhängigkeitskette
+## Aktuelle Abhängigkeitskette – 16.10.2026
 
-`#314 (Grundpaket abgenommen; #384 in Arbeit, anschließend #385) → #271/weitere Adapter → Verfügbarkeitsdarstellung und Produkt-Finish → #112 → 1.0`
+`#314/#385 abgeschlossen → #271/#388 YouTube → #336 DVB-I → #391 Prime Video → weitere Quellen nach Prüfung → Verfügbarkeitsdarstellung/Produkt-Finish → #112 → 1.0`
 
 #280, #315, #346, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. #426 ist einschließlich aller Nachträge abgenommen und abgeschlossen. Die reguläre Datenfortschreibung
 ist bestätigt; Startverzögerungen bleiben unter Beobachtung. #329 bleibt Wartung. Movie Hub Admin bleibt ein getrenntes Repository;
