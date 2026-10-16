@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url'
 import { WaipuTmdbSearchClient, matchWaipuProgram, WAIPU_MATCHER_VERSION } from './waipu-tmdb-matcher.mjs'
 import { runInventoryPilot, classifyVideo, durationSeconds } from './youtube-api-inventory-pilot.mjs'
 import { SOURCES, getSecret, youtubeGet, safeTitle } from './youtube-api-smoke.mjs'
+import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 
 export const MATCHING_PILOT_VERSION = 1
 export const TMDB_REQUEST_CAP = 420
@@ -54,7 +55,10 @@ export async function analyzeYouTubeMovie(video, expectedChannel, { searchTmdb, 
   const result = { status: 'review', reason: decision.reason || 'insufficient-evidence',
     title: parsed.title, videoId: video.id, productionYear: parsed.productionYear,
     tmdbId: Number(candidate.tmdbId), tmdbTitle: String(candidate.title || ''),
-    tmdbYear: candidate.year ?? null, candidateScore: candidate.score ?? null }
+    tmdbYear: candidate.year ?? null, candidateScore: candidate.score ?? null,
+    tmdbOriginalTitle: String(candidate.originalTitle || ''),
+    sharedMatcherStatus: decision.status,
+    sharedMatcherMargin: decision.diagnostic?.margin ?? decision.match?.margin ?? 0 }
   if (decision.status !== 'matched' || !parsed.productionYear || parsed.productionYear !== candidate.year) {
     result.reason = !parsed.productionYear ? 'no-independent-year' : (decision.reason || 'year-conflict')
     return result
@@ -76,6 +80,104 @@ export async function analyzeYouTubeMovie(video, expectedChannel, { searchTmdb, 
   }
   // Conservatively keep even these in research-only status; legal and playback verification remain open.
   return { ...result, status: 'provisional-identity', reason: null }
+}
+
+// Diagnostic only: preserve the original matcher decision and the strict yearly baseline.
+// Exact normalized alias + unambiguous candidate + close runtime prioritizes HUMAN review;
+// it never yields a new canonical TMDB match or asserts publication rights.
+export function assessYearlessCandidate(result, video, tmdbDetail = null) {
+  if (result?.reason !== 'no-independent-year') return { status: 'not-applicable', reason: 'not-yearless-review' }
+  if (!Number.isInteger(result.tmdbId) || result.tmdbId <= 0) return { status: 'insufficient', reason: 'missing-tmdb-id' }
+  const inputTitle = normalizeWaipuText(result.title)
+  const expectedAliases = [result.tmdbTitle, result.tmdbOriginalTitle]
+    .map(normalizeWaipuText).filter(Boolean)
+  if (!inputTitle || !expectedAliases.includes(inputTitle)) {
+    return { status: 'insufficient', reason: 'no-exact-tmdb-alias' }
+  }
+  if (!Number.isFinite(result.candidateScore) || result.candidateScore < 70 ||
+      !Number.isFinite(result.sharedMatcherMargin) || result.sharedMatcherMargin < 12) {
+    return { status: 'insufficient', reason: 'weak-or-ambiguous-candidate' }
+  }
+  if (!Number.isInteger(Number(result.tmdbYear)) ||
+      Number(result.tmdbYear) < 1888 || Number(result.tmdbYear) > 2100) {
+    return { status: 'insufficient', reason: 'missing-tmdb-year' }
+  }
+  // When details have not been requested, signal that a further API read is justified.
+  if (!tmdbDetail) return { status: 'needs-runtime-detail', reason: 'needs-runtime-detail' }
+  if (Number(tmdbDetail.year) !== Number(result.tmdbYear)) {
+    return { status: 'insufficient', reason: 'inconsistent-tmdb-year' }
+  }
+  const seconds = durationSeconds(video?.contentDetails?.duration)
+  const runtime = runtimeAgreement(seconds, Number(tmdbDetail.runtimeMinutes))
+  if (!runtime.checked) return { status: 'insufficient', reason: 'missing-runtime-detail' }
+  if (runtime.delta > 10) {
+    return { status: 'insufficient', reason: 'runtime-gap-over-10-minutes', delta: runtime.delta }
+  }
+  return { status: 'priority-manual-review', reason: 'exact-alias-plus-runtime', delta: runtime.delta }
+}
+
+export async function compareYearlessReviews({ decisions, detailMap }, { loadDetails } = {}) {
+  if (typeof loadDetails !== 'function') throw new TypeError('TMDB detail loader required')
+  const yearless = decisions.filter(x => x.reason === 'no-independent-year')
+  const counts = {}
+  const prioritized = []
+  const detailCache = new Map()
+  let attemptedDetails = 0
+  let priorityCount = 0
+  for (const candidate of yearless) {
+    const video = detailMap.get(candidate.videoId)
+    let evaluation = assessYearlessCandidate(candidate, video)
+    if (evaluation.status === 'needs-runtime-detail') {
+      if (!detailCache.has(candidate.tmdbId)) {
+        const promise = Promise.resolve().then(() => loadDetails({ type:'movie', tmdbId: candidate.tmdbId }))
+        detailCache.set(candidate.tmdbId, promise)
+        attemptedDetails++
+      }
+      const metadata = await detailCache.get(candidate.tmdbId)
+      evaluation = assessYearlessCandidate(candidate, video, metadata)
+    }
+    counts[evaluation.status] = (counts[evaluation.status] || 0) + 1
+    if (evaluation.status === 'priority-manual-review') {
+      priorityCount++
+      if (prioritized.length < 18) prioritized.push({
+        title: candidate.title, videoId:candidate.videoId, tmdbTitle:candidate.tmdbTitle,
+        tmdbId:candidate.tmdbId, tmdbYear:candidate.tmdbYear, runtimeDelta: evaluation.delta,
+      })
+    }
+    counts['reason:' + evaluation.reason] = (counts['reason:' + evaluation.reason] || 0) + 1
+  }
+  const lines = [
+    '## Zusätzlicher Evidenzvergleich für Videos ohne Filmjahr', '',
+    '- **Baseline unverändert:** Alle hier betrachteten Videos bleiben im Baseline-Ergebnis `review`.',
+    '- Ein stärkerer Datenhinweis ist **nur eine Priorisierung für manuelle Prüfung**, keine automatische Identität.',
+    '- Vergleich auf demselben In-Memory-Video-Sample; YouTube-Veröffentlichungsdatum wird niemals als Filmjahr verwendet.',
+    '- Normierter exakter lokaler/oder Original-TMDB-Titel, Matcher-Score ≥70, Kandidatenabstand ≥12, TMDB-Jahr konsistent und Laufzeitdifferenz ≤10 Minuten.',
+    '- Der TMDB-Matcher und seine produktiven Schwellenwerte werden **nicht verändert**; die Kandidatenabstände berücksichtigen nur die gelieferten Suchkandidaten.',
+    '',
+    '| Prüfkategorie | Anzahl |', '| --- | ---: |',
+    '| Baseline-Reviews ohne explizites Video-Filmjahr | **' + yearless.length + '** |',
+    '| Für manuelle Prüfung durch ergänzende Evidenz priorisiert | **' + priorityCount + '** |',
+    '| Nach zusätzlicher Evidenz weiterhin ungeklärt | **' + (yearless.length - priorityCount) + '** |',
+    '| Zusätzliche TMDB-Detail-Anfragen (vor API-Client-internem Cache) | **' + attemptedDetails + '** |',
+    '',
+    '### Beobachtete Gründe', '',
+  ]
+  for (const [name, count] of Object.entries(counts).filter(([key])=>key.startsWith('reason:'))
+      .sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))) {
+    lines.push('- ' + name.slice(7) + ': **' + count + '**')
+  }
+  lines.push('', '### Zur manuellen Prüfung priorisierte Beispielvideos', '',
+    '| YouTube-Video | TMDB-Titel | TMDB-ID | TMDB-Jahr | Abweichung |',
+    '| --- | --- | ---: | ---: | ---: |')
+  for(const c of prioritized) {
+    lines.push('| [' + markdownSafe(c.title) + '](https://www.youtube.com/watch?v=' + c.videoId +
+      ') | ' + markdownSafe(c.tmdbTitle) + ' | ' + c.tmdbId +
+      ' | ' + c.tmdbYear + ' | ' + c.runtimeDelta + ' min |')
+  }
+  if(!prioritized.length) lines.push('| keine | – | – | – | – |')
+  lines.push('', '- **Nicht** bestätigt: freie oder rechtmäßige Nutzung, DE-Playback, tatsächlicher Filminhalt, Doppelungen im Live-MovieHub-Katalog.',
+    '- Gleicher TMDB-Film mit unterschiedlichen YouTube-IDs ist höchstens eine potenzielle Quellen-Dublette.', '')
+  return { report: lines.join('\n'), yearlessCount:yearless.length, priorityCount, attemptedDetails, counts, prioritized }
 }
 
 function markdownSafe(value) {
@@ -179,7 +281,11 @@ async function main() {
         searchTmdb: (input) => tmdb.search(input),
         loadDetails: (input) => tmdb.detail(input),
       })
-      report = findings.report + '\n- TMDB-API-Anfragen (inklusive Retry): **' + tmdb.requestsStarted + ' / ' + TMDB_REQUEST_CAP + '**.\n'
+      const comparison = await compareYearlessReviews({ decisions: findings.decisions, detailMap:data.detailMap }, {
+        loadDetails: (input) => tmdb.detail(input),
+      })
+      report = findings.report + '\n' + comparison.report +
+        '\n- TMDB-API-Anfragen (inklusive Retry), Baseline + Vergleich: **' + tmdb.requestsStarted + ' / ' + TMDB_REQUEST_CAP + '**.\n'
     },
   })
   if(!report) throw new Error('TMDB_ANALYSIS_NO_REPORT')
