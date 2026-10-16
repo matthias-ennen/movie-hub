@@ -1,8 +1,56 @@
 # YouTube Data API – Recherche und erste Adapterbewertung
 
 **MovieHub · Issue #388 · 16.10.2026**  
-**Ergebnisstatus:** G0 – Dokumentations-/Internetrecherche; **kein** authentifizierter API-Abruf, **kein** Datenpilot, **kein** Wiedergabe- oder Fire-TV-Gerätetest, **keine** Code-/Secret-/Cloud-Änderung.  
-**Entscheidungsbedarf:** später G1 (begrenzter nichtproduktiver API-Pilot) und danach gegebenenfalls separate Produktivfreigabe G2.
+**Ergebnisstatus:** G0 Recherche und **G1 erste begrenzte Live-API-Stichprobe erfolgreich** (16.10.2026); *größeres 100–200-Video-Sample, TMDB-Matching und Geräte-/Rechtsprüfung noch ausstehend*.  
+**Freigabegrenze:** noch kein Produktivadapter; G2/G3/G4 nicht erteilt oder begonnen. Die unten folgenden früheren G0-/Zugangsgate-Kapitel dokumentieren den historischen Verlauf, nicht den neuesten Status.
+
+## G1 – Quantitativer Erstbefund: YouTube Data API liefert echte Filmdaten (16.10.2026)
+
+**Beleg:** [Run #38874604617](https://github.com/matthias-ennen/movie-hub/actions/runs/38874604617) · [reduzierter Originalbericht, GitHub-Artefakt](https://github.com/matthias-ennen/movie-hub/actions/runs/38874604617/artifacts/12034467922), 14 Tage Aufbewahrung · Job **116886514755**. Start 08:34:33 UTC / **10:34 Uhr Europe/Berlin**, erfolgreich abgeschlossen; Videoantworten im **Job-Log** überprüft. Diese Zahlen entstammen **echten authentifizierten YouTube-Data-API-v3-Antworten**, nicht hypothetischen Annahmen oder Tests mit Fixtures. Der Test lief ausschließlich manuell und schreibgeschützt.
+
+### 1. Gemessene Zahlen
+
+| Kenngröße | CiNENET Deutschland | Netzkino | Zusammen |
+| --- | ---: | ---: | ---: |
+| Untersuchte Quelle | CiNENET-Playlist „Silvester 2025“ | offizieller Kanal-Uploadbestand | zwei unterschiedliche Quelletypen |
+| Von `playlists.list` gemeldete **Playlist-Einträge** | **24** | **2.766** | **2.790 Playlist-Einträge** *unterschiedlicher Listen*, **keine 2.790 geprüften Filme** |
+| Mit `playlistItems.list` abgefragte Einträge | **12** | **12** | **24** |
+| Eindeutige formal gültige Video-IDs in den abgefragten Einträgen | 12 | 12 | 24 |
+| Durch `videos.list` tatsächlich aufgelöste Videos | 12 | 12 | **24 von 24** |
+| `regionRestriction.allowed` enthält `DE` | **11** | **11** | **22** |
+| Kein ausdrückliches DE-Regionssignal | **1** | **1** | **2** |
+| Mit `regionRestriction.blocked` gesperrtes `DE` in Stichprobe | **0** | **0** | **0** |
+| Offenkundige Kurzclips, Laufzeit unter 20 Minuten | **0** | **1** | **1** |
+
+**API-Aufrufe insgesamt: genau 6** (1 × `channels.list` für beide Kanäle, je 2 × `playlists.list` und `playlistItems.list`, 1 × `videos.list` für alle eindeutigen IDs). Die sechs erfolgreichen Aufrufe verbrauchten nach dokumentierter Regel **rechnerisch sechs Quota-Einheiten**; ein konkreter Google-Cloud-Quota-Dashboard-Messwert liegt **nicht** vor.
+
+**Wichtige Unterscheidungen:** `playlists.list.contentDetails.itemCount=2766` erfasst die **Upload-Playlist** eines YouTube-Kanals; sie ist **kein verifizierter Katalog von 2.766 vollständigen kostenlosen Filmen**. Die CiNENET-Liste ist dagegen eine von UCM.ONE selbst verlinkte Themen-Playlist und hat hier tatsächlich 24 API-Einträge. Aufgelöste IDs bedeutet **nicht** bewiesener vollständiger Film, Lizenz oder DE-Playback.
+
+### 2. Erste Qualitätsbefunde
+
+- **CiNENET:** Alle zwölf betrachteten Videos haben Laufzeiten in der Größenordnung ungefähr 72 bis 120 Minuten; elf führen `DE` in der ausdrücklichen Freigabeliste. Der Titel **„Spiders On A Plane“** (2024) hat im API-Bericht bei rund 78 Minuten **kein DE-Regionalsignal**. Das ist **keine** nachgewiesene Sperre, sondern erfordert einen separaten Playbacktest.
+- **Netzkino:** Elf der zwölf untersuchten Uploads sind von ihrer Länge her mögliche Langfilm-Kandidaten. Der zwölfte ist ein **32-Sekunden-Short** (Titel beginnt „Blutiges Bett ... #shorts“). Er besitzt **kein DE-Regionalsignal**. Das bestätigt, dass ein Kanal-Uploadfeed **auch Nicht-Filme** enthält und wir eine klare Film-/Clip-Filterung benötigen.
+- YouTube-Titel enthalten teils Zusätze wie „ganzer Film“, Darsteller, Genre oder Werbewörter. Solche Formulierungen sind **nur schwache Hinweise** und dürfen nicht allein als TMDB-Identität oder Nachweis der vollständigen Werkfassung dienen.
+- Die beiden Listen enthielten in den betrachteten 24 Einträgen **keine doppelte Video-ID**. **Nicht** geprüft wurden Duplikate desselben TMDB-Films über unterschiedliche Videos oder die Überlappung mit dem bestehenden Netzkino-Angebot in MovieHub.
+- Es gab keine Secret-/IAM-/API-Fehler; der manuelle Workflow, einschließlich Artefakt-Upload, war erfolgreich. Es wurden **keine** MovieHub-Titel, Poster, Provider-Badges, Firestore-Daten, Workflows für Nachtläufe oder Live-Adapter verändert.
+
+### 3. Was die Messwerte ausdrücklich **nicht** beweisen
+
+- Aus `regionRestriction.allowed=DE` folgt **nur ein YouTube-Metadatenhinweis** auf die Region. Ob der Film aktuell aus Deutschland auf Android/Fire TV tatsächlich zu öffnen und kostenlos vollständig anzusehen ist, bleibt zu testen.
+- Weder die zwölf Langfilm-Kandidaten von CiNENET noch die elf von Netzkino sind bislang automatisiert gegen **TMDB-ID + Medientyp + Laufzeit/Jahr/Originaltitel** gematcht. **Eindeutige TMDB-Treffer: noch nicht erhoben.**
+- 24 Videodatensätze sind eine **technische Funktionsprobe**, **keine repräsentative Stichprobe** für Rechtslage, Angebotstyp, deutschen Katalog, Filmschnitt oder Matchingquote.
+- Publisher-Verifikation ist nicht gleich Lizenzbeweis für jedes einzelne Video, und `licensedContent` ist kein generelles DE-/FREE-Rechtsmerkmal.
+- Rohlisten oder vollständige öffentliche YouTube-API-Metadaten werden nicht als dauerhafter Katalog in GitHub eingefroren; der reduktive Testbericht ist nur temporär als Actions-Artefakt verfügbar (14 Tage).
+
+### 4. Nächstes G1-Untersuchungspaket, noch **nicht durchgeführt**
+
+Eine **kontrollierte Erweiterung auf 100–200 eindeutige Video-IDs** aus mehreren verifizierten Publisher-Playlists/Uploadfenstern, mit Pagination, Kanalvalidierung, Laufzeit/Trailer/Shorts-/Serienfilter, verlässlichem Jahres-/Titelabgleich, konservativem TMDB-Matching und eindeutigem Reject-/Review-Pfad. Dabei getrennt ausweisen: Roh-Videos, ausgesonderte Shorts, Filmkandidaten, sichere/unsichere TMDB-Matches, YouTube-ID-Dubletten, Titel-Dubletten, Regionen und tatsächlich manuell validierte YouTube-App-Absprünge.
+
+**Schutzgrenzen:** weiter ausschließlich lesender, manuell auslösbarer Diagnoseweg; kein produktiver Adapter/Import, keine unbelegte FREE-/ADS-Badges und keine Festlegung eines dauerhaften YouTube-Datenbestands, bevor API-Rechte, Aktualisierungsregeln und Laufzeitqualität geklärt sind.
+
+**Einordnung:** G1 *erste technische Datenprobe bestanden*; **G1 Vollanalyse noch offen**. G2/Produktiveinführung weiterhin nicht freigegeben.
+
+## Historischer Ablauf des ersten API-Tests (vor Verfügbarkeit des auslesbaren Berichts)
 
 ## G1 – erster authentifizierter API-Lauf erfolgreich (16.10.2026)
 
@@ -10,7 +58,7 @@
 
 **Abgrenzung:** Dieser erste Lauf schrieb seinen Inhalt ausschließlich als **GitHub-Actions-Job-Zusammenfassung** (`GITHUB_STEP_SUMMARY`), nicht in die herunterladbaren Artefakte oder den regulären Job-Log. Die Verbindung zum GitHub-Repository bestätigt den grünen Lauf und die Log-Erfolgsmeldung, **kann die Job-Zusammenfassung aber nicht direkt auslesen**. Deshalb sind konkrete Playlistgrößen, Titel, tatsächliche Netto-ID-Zahlen oder regional gesperrte Videos derzeit **noch nicht belegbar**; kein geratenes Ergebnis. Technische Abrufbarkeit ist auch **kein Lizenz-/Gratis-/Vollfilm-/DE-Playback-Nachweis**.
 
-**Verbesserung in Vorbereitung:** Die isolierte Probe wird zusätzlich denselben **bereinigten öffentlichen Metadatenbericht** in die normalen GitHub-Logs schreiben und als `artifacts/youtube-api-g1/report.md` für 14 Tage in ein GitHub-Actions-Artefakt aufnehmen. API-Key, URL-Schlüsselparameter, rohe Fehlerantworten, TMDB-/Nutzerinhalte und Secrets sind ausdrücklich nicht Bestandteil. Die folgende erneute Ausführung ist separat manuell auszulösen; CI/Bereitstellung ersetzen keine zweite, echte Datenauswertung.
+**Historischer Zwischenstand (mittlerweile in PR #467 umgesetzt):** Die isolierte Probe sollte zusätzlich denselben **bereinigten öffentlichen Metadatenbericht** in die normalen GitHub-Logs schreiben und als `artifacts/youtube-api-g1/report.md` für 14 Tage in ein GitHub-Actions-Artefakt aufnehmen. API-Key, URL-Schlüsselparameter, rohe Fehlerantworten, TMDB-/Nutzerinhalte und Secrets sind ausdrücklich nicht Bestandteil. Die folgende erneute Ausführung ist separat manuell auszulösen; CI/Bereitstellung ersetzen keine zweite, echte Datenauswertung.
 
 **Gates:** G0 Dokumentationsrecherche abgeschlossen; **G1 Grundfunktion der YouTube-API nachgewiesen**; erste quantitative Inhaltsauswertung ausstehend; G2/Produktivadapter weiterhin nicht freigegeben.
 
