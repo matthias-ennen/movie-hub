@@ -41,3 +41,12 @@ jobs:
 
       - name: Read YouTube publisher metadata (no writes)
         run: node scripts/youtube-api-smoke.mjs
+
+      - name: Publish public-metadata G1 report
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g1-readonly-report-${{ github.run_id }}
+          path: artifacts/youtube-api-g1/report.md
+          if-no-files-found: error
+          retention-days: 14
