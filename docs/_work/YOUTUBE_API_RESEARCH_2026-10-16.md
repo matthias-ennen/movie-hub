@@ -1,8 +1,87 @@
 # YouTube Data API – Recherche und erste Adapterbewertung
 
 **MovieHub · Issue #388 · 16.10.2026**  
-**Ergebnisstatus:** G0 Recherche, G1 24er-Smoke, 200er-Inventar und **zwei echte kombinierte YouTube-/TMDB-Analyseläufe einschließlich Jahreslückenvergleich erfolgreich ausgeführt** (16.10.2026); *Matchingqualität nur für Diagnose und Prüfreihenfolge belegt; keine Produktiv-, Lizenz-, DE-Wiedergabe- oder Gerätefreigabe*.  
+**Ergebnisstatus:** G0 Recherche, G1 24er-Smoke, 200er-Inventar und **drei echte YouTube-/TMDB-Diagnoseläufe einschließlich Jahreslückenvergleich, 18er-Prüfliste und separater 20er-Nichttrefferdiagnose erfolgreich ausgeführt** (16.10.2026); *nur Forschungs-/Prüflistenstatus; keine tatsächliche Film-, Produktiv-, Lizenz-, DE-Wiedergabe- oder Gerätefreigabe*.  
 **Freigabegrenze:** noch kein Produktivadapter; G2/G3/G4 nicht erteilt oder begonnen. Die unten folgenden früheren G0-/Zugangsgate-Kapitel dokumentieren den historischen Verlauf, nicht den neuesten Status.
+
+## G1-Livebefund – 18er-Sichtprüfliste und `unmatched`-Suchdiagnose erfolgreich erzeugt (16.10.2026)
+
+**Originalbeleg:** [YouTube G1 TMDB Match Research, GitHub Run #38889900636](https://github.com/matthias-ennen/movie-hub/actions/runs/38889900636), auf `main` manuell ausgeführt, **SUCCESS**; gestarteter Workflow vom Commit `bdc12eb46431e11a2b741c5edf340757d4c77d45`; Job **116936574728** mit grünen Authentifizierungs-, Forschungs- und Berichtsschritten. Sämtliche folgenden Zahlen sind aus dem realen **Job-Log** abgelesen, nicht hochgerechnet. Der Workflow hat **keine** produktive MovieHub-/Firestore-/Firebase-Datenänderung durchgeführt. Berichts-Artefakt auf dem GitHub-Lauf für 14 Tage vorhanden.
+
+### 1. Vergleich mit früherer Baseline und Zusatzanalyse
+
+| Kennzahl | Tatsächlicher Wert |
+| --- | ---: |
+| YouTube-Stichprobe | **200** Videos |
+| Nach Vorfilter bei TMDB analysierte Langvideos | **174** |
+| Unveränderte Baseline `provisional-identity` | **10** |
+| Unveränderte Baseline `review` | **117** |
+| Unveränderte Baseline `unmatched` | **47** |
+| Davon `no-independent-year` | **111** |
+| Davon `priority-manual-review` aufgrund Titel-/Laufzeitevidenz | **79** |
+| Aus den 79 ausgewählte Prüfplätze | **18** |
+| Aus 47 `unmatched` separat untersuchte Fälle | **20** |
+| Alternative TMDB-Titelsuchaufrufe in diesem Diagnoseabschnitt | **25** (max. 40) |
+| Zusätzliche TMDB-Suchhinweise daraus | **0** |
+| Nichttreffer nach alternativer Suche | **19** |
+| Ohne sicher ableitbare alternative Titelvariante | **1** |
+| Reale TMDB-API-Requests gesamt, Baseline + Jahresvergleich + zusätzliche Suchdiagnose | **301 / 420** |
+
+**Abgrenzung:** Aus der neuen Prüfliste wurde **noch kein einziges Video tatsächlich manuell gesichtet, auf Fire TV abgespielt oder rechtlich abgenommen**. Alle 18 Einträge sind ausdrücklich `offen`. Die 20 weiteren Suchdiagnosen sind **keine 20 identifizierten Filme**. Der weiterhin identische Status **10 / 117 / 47** ist ein Sicherheitsmerkmal, keine mangelnde Funktion des Workflows.
+
+### 2. Vollständige manuelle Arbeitsliste (18 Film-/Video-Paare, sämtlich ungeprüft)
+
+Die Auswahl wurde über Laufzeitabweichung und Filmjahr-Jahrzehnte verteilt. Erst eine Sichtprüfung kann entscheiden, ob das tatsächliche Video dem angegebenen TMDB-Film entspricht und eine vollständige, auf deutschen Zielgeräten zulässig erreichbare Fassung bietet.
+
+| YouTube-Video | TMDB-Movie-ID | TMDB-Jahr | Laufzeitdifferenz | Werk/Fassung/DE/Fire TV/Rechte |
+| --- | ---: | ---: | ---: | --- |
+| [Brombeerzeit](https://www.youtube.com/watch?v=jdcMW7O77jE) | [17044](https://www.themoviedb.org/movie/17044) | 1998 | 5,3 min | **offen** |
+| [Sensored](https://www.youtube.com/watch?v=d4g1o1Rz2UY) | [65322](https://www.themoviedb.org/movie/65322) | 2009 | 7,1 min | **offen** |
+| [Jenseits des Himmels](https://www.youtube.com/watch?v=_pYDiSNjL_o) | [246424](https://www.themoviedb.org/movie/246424) | 2013 | 8,5 min | **offen** |
+| [Christmas à La Carte](https://www.youtube.com/watch?v=orNFdxuB-Zw) | [844869](https://www.themoviedb.org/movie/844869) | 2021 | 6,3 min | **offen** |
+| [Flashman](https://www.youtube.com/watch?v=vQVWfGyJQu8) | [106925](https://www.themoviedb.org/movie/106925) | 1967 | 1,0 min | **offen** |
+| [Und wieder ist Freitag der 13.](https://www.youtube.com/watch?v=fHoNjdSjn4Y) | [9728](https://www.themoviedb.org/movie/9728) | 1982 | 0,2 min | **offen** |
+| [Im Herzen der Rache](https://www.youtube.com/watch?v=eWIf-vuyf6g) | [49822](https://www.themoviedb.org/movie/49822) | 1992 | 0,7 min | **offen** |
+| [Anchorman – Die Legende von Ron Burgundy](https://www.youtube.com/watch?v=3sDfDon2U_E) | [8699](https://www.themoviedb.org/movie/8699) | 2004 | 0,1 min | **offen** |
+| [1920 – Die letzte Schlacht](https://www.youtube.com/watch?v=60c53KJG3sQ) | [87077](https://www.themoviedb.org/movie/87077) | 2011 | 0,8 min | **offen** |
+| [Multiverse – Parallele Dimensionen](https://www.youtube.com/watch?v=AtRHSonDUpc) | [660833](https://www.themoviedb.org/movie/660833) | 2021 | 0,4 min | **offen** |
+| [Bogus](https://www.youtube.com/watch?v=atvVmo6TBIQ) | [3587](https://www.themoviedb.org/movie/3587) | 1996 | 4,4 min | **offen** |
+| [September Dawn](https://www.youtube.com/watch?v=4PkiJ223EEE) | [14877](https://www.themoviedb.org/movie/14877) | 2007 | 3,1 min | **offen** |
+| [Altar – Das Portal zur Hölle](https://www.youtube.com/watch?v=089h9xcvUAU) | [314065](https://www.themoviedb.org/movie/314065) | 2014 | 2,0 min | **offen** |
+| [Borders Of Love](https://www.youtube.com/watch?v=DR0Qb7LMa5g) | [993234](https://www.themoviedb.org/movie/993234) | 2022 | 5,0 min | **offen** |
+| [Salz auf unserer Haut](https://www.youtube.com/watch?v=SHYj2f3WZjI) | [117202](https://www.themoviedb.org/movie/117202) | 1992 | 5,7 min | **offen** |
+| [The Man From Earth](https://www.youtube.com/watch?v=dMS5em4DjOE) | [13363](https://www.themoviedb.org/movie/13363) | 2007 | 6,5 min | **offen** |
+| [Stripper Zombieland](https://www.youtube.com/watch?v=5s0AhADrTZU) | [66925](https://www.themoviedb.org/movie/66925) | 2011 | 9,7 min | **offen** |
+| [Sams in Gefahr](https://www.youtube.com/watch?v=iKZ-K36U3YI) | [75897](https://www.themoviedb.org/movie/75897) | 2003 | 0,5 min | **offen** |
+
+**Sichtprüfung je Paar benötigt:** (1) Identität/echter Inhalt inklusive Filmjahr; (2) ganze Fassung, anderer Schnitt oder Auszug; (3) tatsächliches deutsches Browser-Playback und erst später Fire-TV-App-Playback; (4) Anmeldung, Werbung und Kosten; (5) Publisher-/Verbreitungsrechte. Automatisierte Regionshinweise oder ein Kanalname genügen nicht.
+
+### 3. Gesonderte TMDB-Nichttrefferdiagnose: 20 von 47
+
+**Nachgewiesen:** Bei **19** der 20 zusätzlichen Fälle führten die konservativ erzeugten Suchvarianten **zu keinem TMDB-Suchresultat**; **1** Fall (ein Titel mit `Amazonas – Im Reich der Tectuan`) erlaubte überhaupt keinen sicheren alternativen Suchbegriff. **25** neue TMDB-Suchfunktionsaufrufe entstanden, der Gesamtverbrauch stieg gegenüber dem vorherigen erfolgreichen Workflow von **276 auf 301** echte TMDB-Requests.
+
+**Wichtiger Qualitätsbefund:** Viele erzeugte Titelvarianten entfernen Marketingtext nur unvollständig und behalten Nebentexte wie `Drama Thriller`, `Action`, Schauspielernamen oder Beschreibungs-/Jahresfragmente. Beispiele aus dem echten Report:
+
+| Ursprünglicher videobezogener Suchtext | Erkanntes Problem |
+| --- | --- |
+| `NICOLE KIDMAN in MARGOT UND DIE HOCHZEIT` | Darsteller als Werbepräfix vor dem eigentlichen Filmtitel |
+| `MERYL STREEP in GLAUBENSFRAGE` | Darstellername, nicht Teil des Werktitels |
+| `RALPH FIENNES ist SPIDER` | Schauspieler + Einleitungsverb vor dem eigentlichen Filmtitel |
+| `UND WIEDER 48 STUNDEN – EDDIE MURPHY & NICK NOLTE sind zurück!` | Haupttitel wird mit Darsteller-/Werbetext verlängert |
+| `Josie – Gefährliche Begegnung` / `Crossbreed – This is War` | Nachgestellte Genre-, Jahres-/Fassungshinweise sind nicht ausreichend strukturiert getrennt |
+
+**Interpretation:** Das Ausbleiben neuer Treffer beweist weder, dass diese Filme nicht in TMDB existieren, noch, dass der Titel fachlich ungeeignet ist. Diese Diagnose überprüft zuerst die **Qualität des TMDB-Suchtexts**. Ein Parser, der gezielt nachvollziehbare Werbestrukturen und Akteursnennungen entfernt, kann die Trefferquote wahrscheinlich verbessern; diese Hypothese muss aber **gegen echte gemessene Fälle** geprüft werden. **Keine pauschale Lockerung des vorhandenen Waipu-Matchers oder destruktive Abschneidung echter Titelbestandteile** (beispielsweise Untertitel nach Bindestrich).
+
+### 4. Folgende Arbeiten getrennt halten
+
+1. **G1-Titelbereinigung/Multititel-Analyse:** Publisher-Werbeprefixe, Darsteller-Formeln, Genre-Footer, explizit nachgestellte Jahres-/Fassungsangaben **strukturiert und konservativ** herausarbeiten; vorher/nachher gegen dieselben 20 bzw. 47 Fälle messen. Originalvideo-Titel und unveränderte Baseline parallel aufbewahren. Eindeutige TMDB-ID nur über den gemeinsamen kanonischen Matcher und unabhängige Evidenz bestimmen.
+2. **Echte Geräte- und Werkprüfung:** Die 18 oben gelisteten Links konkret ansehen; zunächst eine gut verteilte Teilmenge, dann größere Gruppe. Ohne überprüfbare Wiedergabe auf Android/Fire TV und geeignete Rechte **keine Übernahme**.
+3. **Produktiver Identitäts-/Duplikatabgleich:** Später mit **wirklich aktueller** kanonischer MovieHub-Datenquelle, niemals mit dem leeren GitHub-Fallback. Die bislang festgestellte potenzielle Quellendublette `movie:304613` bleibt ein offenes Prüfsignal.
+4. **G2/Produktivadapter:** Bis zur gesonderten Freigabe weiterhin kein Katalogimport, keine YouTube-Provider-Badges, keine Nachtlaufänderungen.
+
+---
+
+## Historischer Plan vor dem erfolgreichen 18er-/20er-Diagnoselauf
 
 ## G1-Folgepaket – konkrete Sichtprüfliste und separate `unmatched`-Suchdiagnose vorbereitet
 
