@@ -1,0 +1,52 @@
+name: YouTube G1 Inventory Pilot (200)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: moviehub-youtube-g1-inventory
+  cancel-in-progress: false
+
+jobs:
+  youtube-inventory:
+    name: Read-only publisher inventory and balanced sample
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Authenticate via existing GitHub Workload Identity
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+
+      - name: Setup gcloud for the single Secret Manager read
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Syntax check
+        run: node --check scripts/youtube-api-inventory-pilot.mjs
+
+      - name: Inventory CiNENET and Netzkino and sample 200 video details
+        run: node scripts/youtube-api-inventory-pilot.mjs
+
+      - name: Upload sanitised, short-lived sample report
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g1-inventory-${{ github.run_id }}
+          path: artifacts/youtube-api-g1/inventory-report.md
+          if-no-files-found: error
+          retention-days: 14
