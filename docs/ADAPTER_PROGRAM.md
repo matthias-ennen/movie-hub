@@ -37,6 +37,16 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 **Quellenstand der folgenden Angaben: 16.10.2026.** Die folgenden Ergebnisse beruhen auf den offiziellen veröffentlichten Dokumentationen und dem bereits angelegten Issue #388; **es gab noch keinen authentifizierten YouTube-API-Abruf und keinen realen Fire-TV-Wiedergabetest dieses Adapters**.
 
+### G0-Nachtrag vom 16.10.2026 – vertiefte YouTube-API-Recherche
+
+**Dokumentiert:** [YouTube Data API – Methoden, Feldmatrix, aktuelle Quotas, Rechte-/Caching-Regeln, Quellenkandidaten und G1-Pilotvorschlag](_work/YOUTUBE_API_RESEARCH_2026-10-16.md).
+
+- **G0 abgeschlossen als Recherche**, **G1 noch nicht ausgeführt**: keine Live-API-Antworten, keine echten Videozahlen oder Geräteergebnisse vorgetäuscht.
+- **Kontingentstand 15.10.2026:** YouTube hat die offizielle Quota-Tabelle aktualisiert. `search.list` jetzt eigener Tages-Bucket **100 Aufrufe**, **1 Einheit je Suche**; übrige `playlistItems.list`, `videos.list` etc. jeweils 1 Einheit und typischer Gesamt-Bucket 10.000 Einheiten/Tag. Der 200-Video-Playlist-Pilot läge rechnerisch bei 8 List-Aufrufen vor Zusatzabfragen.
+- **Quellenempfehlung:** zuerst der deutsche Publisher **CiNENET Deutschland / UCM.ONE** (laut Betreiber lizenzierte AVOD-Filme), **Netzkino / PLAION** als Kontrollkanal. Offizielle DE-Primetime-Angebote sind vorhanden, aber der vollständige deutsche FREE/ADS-Katalog ist **nicht** als offene Data-API-Liste nachgewiesen.
+- **Wichtiges Compliance-Gate:** Fremd-API-Metadaten regelmäßig aktualisieren (30-Tage-Grenze gemäß API-Policies), YouTube-Quelle sichtbar lassen, keine Videoextraktion, kein Scraping, keine Abkürzung von Geo-/Wiedergaberegeln.
+- **Nächster konkreter Schritt:** Nach API-/Quellenfreigabe begrenzter **nichtproduktiver** G1-Datenabruf, danach Bericht mit echten Treffer-, Matching-, Rechte- und Wiedergabezahlen; erst dann eine Implementierungsentscheidung.
+
 ### 4.1 Bestätigter Einstieg
 
 - YouTube bietet laut offizieller Hilfe **kostenlose werbeunterstützte Primetime-Filme in Deutschland**; der Nutzerkatalog ist unter `youtube.com/movies` sichtbar. Das allein belegt **keinen** öffentlich dokumentierten vollständigen Datenfeed für exakt diese `FREE/ADS`-Teilmenge.
