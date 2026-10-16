@@ -1,6 +1,13 @@
-# Titelbezogene Mitteilungen – Stand 14.10.2026
+# Titelbezogene Mitteilungen – Stand 16.10.2026
 
-## Tagesabschluss 14.10.2026 – #384 bleibt aktuell
+## Verbindlicher Gesamtabschluss 16.10.2026
+
+Matthias hat das gesamte Arbeitspaket **Mitteilungen ausdrücklich für abgeschlossen erklärt**. [Master-Issue #314](https://github.com/matthias-ennen/movie-hub/issues/314) und das konzeptionelle Folgeissue [#385](https://github.com/matthias-ennen/movie-hub/issues/385) sind daraufhin mit `completed` geschlossen. Die Teilpakete #380–#384 waren bereits vollständig implementiert, technisch geprüft und fachlich abgenommen. Der profilbezogene E-Mail-Kanal #384 wurde am 15.10.2026 ausdrücklich mit „Alles abgenommen!“ freigegeben und geschlossen ([verbindlicher Abschluss](_work/EMAIL_384.md)). Die früheren unten aufgeführten Test-/Domain-/Abnahmeaufgaben sind **historische Zwischenstände und keine offenen Arbeitsaufträge**.
+
+**Nutzerentscheidung:** Weitere Meldungsarten werden **erst später in einem eigenständigen Arbeitspaket** analysiert und gegebenenfalls entwickelt. Die aktive Produkt-Hauptstrecke ist seit 16.10.2026 **Quellenplattform #271, zuerst YouTube #388** ([Adapterprogramm](ADAPTER_PROGRAM.md)). Bestehende Meldungen, Mailfunktionen, Zeit- und Profilregeln bleiben unverändert produktiv. Diese Dokumentation enthält keine erneute Geräteabnahme oder neue Cloud-/Codeänderung.
+
+
+## Historischer Tagesabschluss 14.10.2026 – #384 war damals noch offen
 
 Begrenzter Mailversand aktiv; Matthias bestätigt die erste TV-Mail und positives
 Feedback zur Gestaltung. Zweite TV-Mail, weitere Mailfälle und Gesamtfreigabe
@@ -319,7 +326,7 @@ Bestätigte persönliche Profil-, Fire-TV- und Zwei-Geräte-Tests bleiben abgeno
 Insbesondere kein globales Firestore-Delete-Recht und keine ungeprüfte
 Massenmigration. Die produktive TV-Endphase ist in #382 seit 12.10.2026 abgenommen.
 
-## Optionaler E-Mail-Kanal – #384, begrenzter Test aktiv
+## Optionaler E-Mail-Kanal – #384 (abgeschlossen; folgende Testnotizen historisch)
 
 Der [E-Mail-Kanal](EMAIL_NOTIFICATIONS.md) verwendet dieselben persönlichen
 V2-Ereignisse (`included-found`, `tv-found`, `tv-final`) und trennt Empfängerwunsch,
