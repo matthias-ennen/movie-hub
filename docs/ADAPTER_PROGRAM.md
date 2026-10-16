@@ -49,6 +49,18 @@ Die Reihenfolge ist eine **Arbeitspriorität**, keine Zusage, alle drei Adapter 
 
 **Nächstes Gate:** hochwertige, **nichtproduktive TMDB-Matchinganalyse** der 174 Kandidaten, inklusive Titel-/Originaltitel-/Jahr-/Laufzeitprüfung, Konfidenz, unsicherer Fälle und Überschneidungen mit dem bestehenden MovieHub-Katalog. Danach rechtliche Verfügbarkeit und echte DE-/Fire-TV-Wiedergabetests. **Keine Freigabe für Produktivimport oder neue Badges. #388 bleibt offen.**
 
+### G1-Jahreslückenvergleich erfolgreich – 79 von 111 Fällen für die manuelle Prüfung priorisiert
+
+**Tatsächlicher Live-Nachweis:** [Read-only Run #38886597861](https://github.com/matthias-ennen/movie-hub/actions/runs/38886597861), vollständiger Job-Erfolg. Baseline auf exakt derselben 200er-YouTube-Stichprobe unverändert: **174** TMDB-untersuchte Langvideos, **10** vorläufige Identitäten, **117** Reviews, **47** `unmatched`. Von den **111** Reviews ohne explizites Filmjahr im YouTube-Videotitel wurden nach exaktem TMDB-Lokal-/Originaltitel, Kandidatenabstand und verifizierter Laufzeitdifferenz von höchstens zehn Minuten **79** als **`priority-manual-review`** priorisiert (rund 71 %). **32** der 111 bleiben ohne genügend zusätzliche Evidenz: 16 fehlende exakte Titelaliases, 12 mehrdeutige/schwache Kandidaten, 3 Laufzeitkonflikte, 1 fehlendes Laufzeitdetail.
+
+**API-Aufwand:** **276** tatsächliche TMDB-Requests inkl. Retry (Baseline + Zusatzanalyse; Obergrenze 420), von denen die Vergleichsanalyse 82 ergänzende Detailabfragen vor Client-internem Cache benötigte. Keine Änderung der produktiven Matcher-/Quellenregeln, kein Import und keine Firestore-/Firebase-Schreiboperation.
+
+**Wesentliche Trennung:** `priority-manual-review` ist **keine neue Identitätsfreigabe**. Es bleiben weiterhin 117 Reviews, nicht automatisch 79 zusätzliche „fertige Filme“. Die **47 `unmatched`** sind ein separates Problem der Titel-/Suchqualität. Echte DE-/Fire-TV-Wiedergabe, zulässige Rechte und der Abgleich mit dem aktuellen veröffentlichten MovieHub-Katalog bleiben offen.
+
+**Nächstes G1-Gate:** Einzelfallprüfung einer repräsentativen Teilmenge der 79 priorisierten Videos und gezielte Fehleranalyse der übrigen 32 plus der 47 nicht gefundenen Kandidaten; Ergebnisse nach den bestehenden, zentralen Identitäts- und Quellenverträgen bewerten. Keine Lockerung des Waipu-/Joyn-Produktivmatchings, keine G2-Freigabe. [Vollständiger Livebericht mit Beispieltiteln und Zahlen](_work/YOUTUBE_API_RESEARCH_2026-10-16.md#g1-livebefund--zusätzlicher-evidenzvergleich-ohne-filmjahr-erfolgreich-16102026).
+
+### Historische Vorbereitung vor dem erfolgreichen Vergleichslauf
+
 ### G1-Datenqualität: konservativer Vergleich für 111 Video-Titel ohne Filmjahr (vorbereitet)
 
 **Zusatzdiagnose zum gleichen 174er-TMDB-Sample:** Nach den Live-Ergebnissen mit 10 vorläufigen Identitäten, 117 Reviews und 47 ohne Kandidaten soll eine **zweite Evidenzschicht** die **111 Reviews ohne explizites Filmjahr** auf *manuell lohnende Fälle* reduzieren. Der bestehende Waipu-TMDB-Matcher und die Baseline-Kategorien werden nicht verändert oder aufgeweicht. Ein Review erhält **keine automatische TMDB-Identität**.
