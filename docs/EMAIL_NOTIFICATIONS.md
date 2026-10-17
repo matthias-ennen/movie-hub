@@ -6,6 +6,8 @@
 
 **Die nachfolgenden Hinweise vom 14.10.2026 sind ein historischer Zwischenstand:** Keine erneute DNS-/Resend-/Secret-Einrichtung, kein erneuter Testversand und keine ausstehende Gesamtabnahme aus diesen Alttexten ableiten.
 
+**Nachtrag 17.10.2026 – Eingehende E-Mail-App-Links (nur dokumentiert):** [Issue #482](https://github.com/matthias-ennen/movie-hub/issues/482) hält den beobachteten Browser- statt Android-App-Start über „MovieHub öffnen“, fehlende Titelzielnavigation sowie den Ansatz mit verifizierten Android App Links, HTTPS-Web-Fallback und sicheren, kanonischen Titelreferenzen fest. #384/#314 bleiben vollständig abgeschlossen. Kein Code-/Cloud-Änderungsauftrag, kein erneuter Versand und keine vorgezogene Priorisierung.
+
 
 Stand **14.10.2026, 19:22 Uhr (Europe/Berlin)**: Profiloberfläche, Regeln und
 vier Mailfunktionen sind eingerichtet. Der begrenzte Testversand ist aktiv;
