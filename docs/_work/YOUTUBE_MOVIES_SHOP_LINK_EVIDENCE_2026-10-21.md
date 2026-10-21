@@ -140,3 +140,19 @@ Die bestehende **manuelle** [YouTube Movies G1 ID Discovery](https://github.com/
 **Präziser Statuswechsel gegenüber Abschnitt H:** `externalLinkReportedWorking=true`, `youtubeAppOpened=user-confirmed`, `correctFilmDisplayed=user-confirmed`, Plattform `Android/external-link`. Das belegt **nicht**, dass tatsächliche Kauf-/Leih-/Gratis-/Werbe-/Abooptionen sichtbar waren, dass ein gekaufter Film abgespielt werden konnte, dass in MovieHub die Produktiv-Provider-PlaybackRoute bereits angesteuert wird oder dass Fire TV dieselben Links annimmt. Deshalb bleiben `offerType=unknown`, `priceEUR=unknown`, `entitlement=unknown`, `actualPlayback=untested`, `movieHubBridgeTest=untested`, `fireTvResult=untested`.
 
 **Nächste G1-Abnahme:** Exakt diese drei IDs **auf Fire TV** über den nativen MovieHub-Playback-Absprung kontrollieren, getrennt dokumentieren ob YouTube-App, richtige Filmseite und ggf. Rückfall auf Suche/Browser erfolgt. Preise/Entitlements später gesondert in realer deutscher Shop-UI beobachten, ohne Testkäufe. Kein Produktions-Commit, kein Badge und keine Firestore-Katalogänderungen allein aufgrund dieser Nutzerrückmeldung.
+
+## J. Fire-TV-Nutzerabnahme 3/3 und Fortsetzung: deutsche Shop-Angebotsarten
+
+**Fire-TV-Rückmeldung (21.10.2026):** Unmittelbar nachdem die Assistenz ausdrücklich darum gebeten hatte, **die gleichen drei Watch-Links auf Fire TV aus MovieHub heraus** auf die korrekte Filmseite zu prüfen, antwortete der Nutzer: **„Passt auch. Bitte weit“**, anschließend „Weiter“. Die nahe Gesprächssituation belegt eine **positive Nutzerbestätigung für diesen angefragten Fire-TV-Test**. Es liegt aber weder ein automatisierter Intent-/Player-Log noch ein aufgezeichnetes Videowiedergabeprotokoll vor. Kein Kauf und keine Kontoberechtigung wurde bestätigt.
+
+| Film / TMDB-ID | Android externer Link | Fire TV über MovieHub | YouTube-Angebotsklasse (Deutschland) |
+| --- | --- | --- | --- |
+| Nightmare Before Christmas / `movie:9479` | Nutzer bestätigt App + korrekten Film | Nutzer bestätigt Test positiv | `unknown` |
+| Der Pate / `movie:238` | Nutzer bestätigt App + korrekten Film | Nutzer bestätigt Test positiv | `unknown` |
+| Oppenheimer / `movie:872585` | Nutzer bestätigt App + korrekten Film | Nutzer bestätigt Test positiv | `unknown` |
+
+**Bewertung:** Für diese drei Titel ist das kanonische `https://www.youtube.com/watch?v=<echte Video-ID>`-Linkformat nun sowohl im externen Android-Praxistest als auch im vom Nutzer bestätigten Fire-TV-MovieHub-Absprung positiv. Das testet den **Absprung zu Filmseiten**, nicht die eigentliche Wiedergabe des Films oder seinen aktuellen Lizenz-/Zahlungsstatus. Das Gesamt-G1-Gate bleibt offen.
+
+**Nächster eigener G1-Prüfschwerpunkt:** Nicht weitere Link-Roundtrips, sondern die tatsächlich sichtbaren *deutschen Shop-Angebotsarten* mit Quellennachweis. Der öffentliche YouTube-Data-API-`videos.list`-Datensatz enthält keine verlässliche Rent/Buy/Free/Ads-Preis-/Berechtigungstabelle; TMDB/JustWatch hat landes-/anbieterspezifische Angebotsindikatoren ohne den filmgenauen YouTube-Deep-Link und fordert Quellenattribution. **YouTube Premium ist nicht dasselbe wie der Bezug eines einzelnen Primetime-Kanal-Abos.**
+
+**Verbindlicher Angebots-, Badge-, Provenienz- und Quellenplan:** [YOUTUBE_MOVIES_G1_MONETIZATION_EVIDENCE_2026-10-21.md](YOUTUBE_MOVIES_G1_MONETIZATION_EVIDENCE_2026-10-21.md). Sofortige nächste Sichtprüfung: für die drei funktionierenden Filmseiten **nur die sichtbaren Buttons** in der YouTube-App notieren (Leihen/Kaufen/Kostenlos/Mit Werbung/Abo-Kanal/nicht verfügbar), ohne Kauf. Bis zur Bestätigung bleiben die Offer-Typen für alle drei `unknown`. Aus einer funktionierenden Filmseite niemals ein `free`-, `ads`-, `flat`- oder `R&B`-Badge ableiten.
