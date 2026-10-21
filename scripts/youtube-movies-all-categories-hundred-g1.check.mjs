@@ -38,7 +38,7 @@ test('category-only long videos need independent movie signal; no trailers or pr
   v(2,'Ganzer Film Abenteuertitel'),
   v(3,'Full movie trailer 2026'),
   v(4,'Ganzer Film was','private'),
-  v(5,'Ganzer Film regional',{allowed:['DE']},{blocked:['DE']})
+  v(5,'Ganzer Film regional','public',{blocked:['DE']})
  ])
  assert.deepEqual(r.selected.map(x=>x.videoId),[id(2)])
  assert.ok(r.rejected.weak>=1)
