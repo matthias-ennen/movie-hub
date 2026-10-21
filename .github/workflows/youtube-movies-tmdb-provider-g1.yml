@@ -28,7 +28,7 @@ jobs:
       - name: Check isolated G1 diagnostic
         run: |
           node --check scripts/youtube-movies-tmdb-provider-g1.mjs
-          node --test tests/youtube-movies-tmdb-provider-g1.test.mjs
+          node --test scripts/youtube-movies-tmdb-provider-g1.check.mjs
       - name: Read TMDB provider categories only
         run: node scripts/youtube-movies-tmdb-provider-g1.mjs
       - name: Upload temporary G1 report
