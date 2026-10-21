@@ -1,0 +1,50 @@
+name: YouTube Movies G1 47 Video IDs – Identity Audit (Read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: moviehub-youtube-g1-forty-seven
+  cancel-in-progress: false
+
+jobs:
+  forty-seven-identity:
+    name: Recheck 47 observed video IDs against YouTube and TMDB, no publication
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Set up Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Authenticate using existing GitHub OIDC
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Set up gcloud for existing YouTube API key
+        uses: google-github-actions/setup-gcloud@v3
+      - name: Validate source and mocked API safety
+        run: |
+          node --check scripts/youtube-movies-forty-seven-g1.mjs
+          node --test scripts/youtube-movies-forty-seven-g1.check.mjs
+      - name: Read-only YouTube and TMDB identity / type review
+        run: node scripts/youtube-movies-forty-seven-g1.mjs
+      - name: Upload private 14-day G1 review report
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g1-forty-seven-identity-${{ github.run_id }}
+          path: artifacts/youtube-movies-g1/forty-seven-identity-review.md
+          if-no-files-found: error
+          retention-days: 14
