@@ -1,0 +1,41 @@
+name: YouTube Movies G1 Three Film Offers (Read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: moviehub-youtube-movies-g1-three-offers
+  cancel-in-progress: false
+
+jobs:
+  exact-three-film-offers:
+    name: Read-only DE movie offers by exact TMDB provider ID
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Validate isolated G1 research source and tests
+        run: |
+          node --check scripts/youtube-movies-three-offers-g1.mjs
+          node --test scripts/youtube-movies-three-offers-g1.check.mjs
+      - name: Read only three DE TMDB movie watch-provider details
+        run: node scripts/youtube-movies-three-offers-g1.mjs
+      - name: Save 14-day temporary research report
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-movies-three-offers-g1-${{ github.run_id }}
+          path: artifacts/youtube-movies-g1/three-tmdb-offers.md
+          if-no-files-found: error
+          retention-days: 14
