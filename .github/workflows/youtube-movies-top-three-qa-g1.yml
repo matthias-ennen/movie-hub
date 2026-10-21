@@ -1,0 +1,54 @@
+name: YouTube G1 Top-Three Work Matcher QA (Read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: moviehub-g1-top-three-qa
+  cancel-in-progress: false
+
+jobs:
+  isolated-top-three-review:
+    name: Review prior multi-work hypotheses for 13 risk and 21 film-category videos
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Syntax and regression checks
+        run: |
+          node --check scripts/youtube-movies-top-three-qa-g1.mjs
+          node --test scripts/youtube-movies-top-three-qa-g1.check.mjs
+      - name: Fetch original two short-retention private G1 reports
+        run: |
+          mkdir -p artifacts/youtube-movies-g1
+          gh api --method GET /repos/matthias-ennen/movie-hub/actions/artifacts/12353497700/zip > "$RUNNER_TEMP/g1-category-100.zip"
+          gh api --method GET /repos/matthias-ennen/movie-hub/actions/artifacts/12358536690/zip > "$RUNNER_TEMP/g1-tmdb-100.zip"
+          unzip -t "$RUNNER_TEMP/g1-category-100.zip" >/dev/null
+          unzip -t "$RUNNER_TEMP/g1-tmdb-100.zip" >/dev/null
+          unzip -p "$RUNNER_TEMP/g1-category-100.zip" all-categories-hundred.md > artifacts/youtube-movies-g1/original-all-categories-hundred.md
+          unzip -p "$RUNNER_TEMP/g1-tmdb-100.zip" hundred-tmdb-review.md > artifacts/youtube-movies-g1/original-hundred-tmdb-review.md
+          test -s artifacts/youtube-movies-g1/original-all-categories-hundred.md
+          test -s artifacts/youtube-movies-g1/original-hundred-tmdb-review.md
+      - name: Compare top-three work/alias details; never autoaccept titles
+        run: node scripts/youtube-movies-top-three-qa-g1.mjs
+      - name: Upload bounded G1 research artifact only (14 days)
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g1-top-three-qa-${{ github.run_id }}
+          path: artifacts/youtube-movies-g1/top-three-matcher-qa.md
+          if-no-files-found: error
+          retention-days: 14
