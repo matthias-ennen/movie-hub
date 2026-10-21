@@ -45,7 +45,7 @@ test('exactly four TMDB read-only calls, safe report, source separation',async()
  const token='SUPER_SECRET_TEST_TOKEN'
  const request=async(uri,init)=>{
    paths.push({path:uri.pathname,auth:init.headers.Authorization})
-   const data=uri.pathname==='/watch/providers/movie'
+   const data=uri.pathname==='/3/watch/providers/movie'
      ?{results:directory.map(p=>({provider_id:p.id,provider_name:p.name}))}
      :sample
    return {ok:true,json:async()=>data}
@@ -53,8 +53,8 @@ test('exactly four TMDB read-only calls, safe report, source separation',async()
  const result=await audit({token,request,at:()=> '2026-10-21T10:40Z'})
  assert.equal(result.calls,LIMIT)
  assert.deepEqual(paths.map(p=>p.path),[
-  '/watch/providers/movie','/movie/9479/watch/providers',
-  '/movie/238/watch/providers','/movie/872585/watch/providers'
+  '/3/watch/providers/movie','/3/movie/9479/watch/providers',
+  '/3/movie/238/watch/providers','/3/movie/872585/watch/providers'
  ])
  assert.ok(paths.every(p=>p.auth==='Bearer '+token))
  assert.ok(!result.report.includes(token))
