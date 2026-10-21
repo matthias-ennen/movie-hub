@@ -198,6 +198,19 @@ Das sind **providergebundene TMDB-/JustWatch-Befunde, keine direkt von der deuts
 **Nächster fachlicher Gate:** Keine erneute TMDB-Suchdiagnose. **Direkt auf den drei echten deutschen YouTube-Filmseiten** die sichtbaren Buttons und Preise/Qualitätsstufen von Nutzer-Gerät bzw. Konto prüfen; ohne Kauf. Danach (1) repräsentativere 40–60 unabhängige Filme aller tatsächlich vorhandenen Kategorien, (2) erlaubte fortlaufende TMDB-ID→YouTube-Film-ID/Angebotsdatenquelle, (3) ausdrückliche G2-Produktentscheidung. Voller Befund und Quellen: [G1-Monetarisierung, Abschnitt 8](_work/YOUTUBE_MOVIES_G1_MONETIZATION_EVIDENCE_2026-10-21.md). **Issue #388 G1 offen, G2–G4 ohne Freigabe.**
 
 ---
+## G1 YouTube Movies – reale Android-Angebotsbuttons 21.10.2026
+
+**Neue visuelle Nutzer-Evidenz (11:48 Uhr MESZ):** Zwei Screenshots der **YouTube-Android-App-Suchergebnisse** für **Oppenheimer** und **Der Pate**. Die bekannten drei direkten Watch-URLs hatten zuvor den nutzerbestätigten Android-/Fire-TV-Routentest bestanden. Die Screenshots zeigen **aktuelle YouTube-Shop-Buttons**, nicht lediglich TMDB-/JustWatch-Daten:
+
+- **Oppenheimer** (`movie:872585`, zuvor geprüfte ID `_1WjM7ucekc`): Titel, 3:00:22, Drama 2023, FSK12, Quelle `Filme & Shows von YouTube`; Button **„Kaufen oder ausleihen“**. TMDB-DE-Provider 192 hatte im echten Detailbericht bisher **nur `buy`**. Deshalb **mögliche Tarifabweichung**, bis der echte Kauf-/Leihdialog separat vorliegt. Kein genauer Preis sichtbar; generische Buttonbeschriftung ist kein transaktionsfähiger Nachweis für beide Einzeloptionen.
+- **Der Pate** (`movie:238`, zuvor geprüfte ID `xcCsnx-GRkA`): Titel, 2:55:28, FSK16; Buttons **„Als Mitglied ansehen“** und **„Kaufen oder ausleihen“**. TMDB DE YouTube 192 hatte `rent,buy`, aber **keinen** YouTube-Premium/YouTube-Free-Treffer. Der zusätzliche **Mitgliedschaftszugang** ist real als UI-Option beobachtet, **welcher konkrete Abo-/Primetime-Kanal** dahintersteht ist noch unklar. Nicht als Premium oder allgemeines `flat` einordnen. UI-Metadaten zeigen **„Drama · 1977“**, obwohl das bekannte Werkjahr **1972** ist; Jahresabweichung als Matching-Warnung markieren.
+- **Nightmare Before Christmas** (`movie:9479`): in dieser Nutzerlieferung **kein** UI-Screenshot; TMDB DE `rent,buy` bleibt unabhängige Datenquellenangabe, Shop-Button unbekannt.
+
+**Evidenzdisziplin:** Die Bilder stammen aus **YouTube-Suchergebnissen**, nicht aus dem geöffneten Preis-/Mitgliedschafts-Folgedialog. Keine Preiszahl, Zahlungsberechtigung, werbefreie Vollfilmwiedergabe oder genaue Aboidentität beobachtet. Deshalb keine neuen produktiven `R&B`, `free`, `ads`, `flat`-Badges und keine Änderung am Katalog. Die vollständige tabellarische Analyse sowie separate Status- und Qualitätsfelder sind unter [G1 Monetarisierung – Abschnitt 9](_work/YOUTUBE_MOVIES_G1_MONETIZATION_EVIDENCE_2026-10-21.md) dokumentiert.
+
+**Gezielter nächster Test ohne Kauf:** Bei Oppenheimer nur Kauf-/Leih-Auswahldialog anzeigen; bei Der Pate nur Mitgliedschafts-Ziel/Anbieter anzeigen; jeweils Preis, Region und angezeigte Aboidentität notieren. Danach kann die konkrete Differenz TMDB-Angebot ↔ reale YouTube-Shop-UI geklärt werden, ohne weitere Catalog-Discovery-Loops. Issue #388 bleibt G1 offen.
+
+---
 ## 1. Projektübergabe und Entscheidung
 
 Matthias hat am **16.10.2026** das Gesamtpaket **Mitteilungen** als abgeschlossen erklärt; **#314 und #385** sind danach mit `completed` geschlossen worden. Die Teilpakete **#380–#384** sind ebenfalls geschlossen und zuvor fachlich abgenommen. Zusätzliche Meldungsfamilien sind Ideen für später, **keine aktuelle Aufgabe**. Die in #385 mit dokumentierten TV-/Provider-Korrekturen wurden technisch veröffentlicht; daraus wird keine undokumentierte weitere visuelle Geräteabnahme abgeleitet.
