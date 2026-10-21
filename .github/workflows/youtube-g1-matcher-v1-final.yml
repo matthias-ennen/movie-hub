@@ -1,0 +1,62 @@
+name: YouTube G1 Final Matcher v1 – 100-Video Acceptance (Read-only)
+
+on:
+  # One-time run when this final matcher source is merged into main.
+  push:
+    branches: [main]
+    paths:
+      - scripts/youtube-g1-matcher-v1.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: youtube-g1-final-matcher-v1-acceptance
+  cancel-in-progress: false
+
+jobs:
+  frozen-matcher-v1:
+    name: Compare all 100 original VIDEO IDs to at most three existing TMDB movie hypotheses
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Enforce final 100-ID matcher v1 source and confidence regression tests
+        run: |
+          node --check scripts/youtube-g1-matcher-v1.mjs
+          node --test scripts/youtube-g1-matcher-v1.check.mjs
+      - name: Fetch ONLY two original provenance-checked G1 reports (14-day expiry)
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/youtube-movies-g1
+          gh api --method GET /repos/matthias-ennen/movie-hub/actions/artifacts/12353497700/zip > "$RUNNER_TEMP/original-g1-100-videos.zip"
+          gh api --method GET /repos/matthias-ennen/movie-hub/actions/artifacts/12358536690/zip > "$RUNNER_TEMP/original-g1-100-TMDB.zip"
+          unzip -t "$RUNNER_TEMP/original-g1-100-videos.zip" >/dev/null
+          unzip -t "$RUNNER_TEMP/original-g1-100-TMDB.zip" >/dev/null
+          unzip -p "$RUNNER_TEMP/original-g1-100-videos.zip" all-categories-hundred.md \
+            > artifacts/youtube-movies-g1/original-all-categories-hundred.md
+          unzip -p "$RUNNER_TEMP/original-g1-100-TMDB.zip" hundred-tmdb-review.md \
+            > artifacts/youtube-movies-g1/original-hundred-tmdb-review.md
+          test -s artifacts/youtube-movies-g1/original-all-categories-hundred.md
+          test -s artifacts/youtube-movies-g1/original-hundred-tmdb-review.md
+      - name: Execute one final bounded TMDB-only 100-candidate matcher v1 acceptance
+        run: node scripts/youtube-g1-matcher-v1.mjs
+      - name: Store derived INTERNAL research report (14-day expiry)
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g1-final-matcher-v1-${{ github.run_id }}
+          path: artifacts/youtube-movies-g1/matcher-v1-final-hundred.md
+          if-no-files-found: error
+          retention-days: 14
