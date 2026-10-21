@@ -72,7 +72,7 @@ export async function analyze({ api, at=()=>new Date().toISOString() }={}) {
     const detail=metadata(detailById.get(hit.id))
     return {tmdb:o.tmdb,film:o.title,id:hit.id,detail,
       knownChannel:detail?.channelId?knownChannels.has(detail.channelId):null,
-      filmLength:detail?.runtimeMinutes===null?null:detail.runtimeMinutes>=60}
+      filmLength:typeof detail?.runtimeMinutes==='number'?detail.runtimeMinutes>=60:null}
   }))
   for(const o of outcomes) {
     const detail=o.knownId?metadata(detailById.get(o.knownId)):null
