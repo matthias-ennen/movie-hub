@@ -27,8 +27,12 @@ const sequelToken=s=>{
 }
 function yearHint(title){
  // Only an explicitly present *four-digit* year is evidence, not inferred from upload date.
- const found=[...simplify(title).matchAll(/\b(?:19\d{2}|20\d{2})\b/g)]
- return found.length===1?Number(found[0][0]):null
+ const stripped=simplify(title)
+ const found=[...stripped.matchAll(/\b(?:19\d{2}|20\d{2})\b/g)]
+ if(found.length!==1)return null
+ // Movie '2010: The Year We Make Contact' has a YEAR-LIKE TITLE, not a 2010 release hint.
+ if(found[0].index===0&&/^\d{4}\s*[:\-–]/.test(stripped))return null
+ return Number(found[0][0])
 }
 function tvHintsFromReport(report){
  const result=new Map()
@@ -129,7 +133,7 @@ export async function reviewHundred({originalReport,tmdbReport,getMovie,
   }
   const detail=[],errors=[]
   for(const movieId of video.movieIds){
-   if(calls>=MAX_MOVIE_DETAILS){quotaStopped=true;break}
+   if(!cache.has(movieId)&&calls>=MAX_MOVIE_DETAILS){quotaStopped=true;break}
    let film
    if(cache.has(movieId))film=cache.get(movieId)
    else {
