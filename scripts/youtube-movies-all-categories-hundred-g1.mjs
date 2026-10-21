@@ -107,10 +107,10 @@ export function select100(prior,results,videos){
 export async function run({oldManifest,api,now=()=>new Date().toISOString()}){
  if(typeof api!=='function')throw Error('read-only API callback required')
  const prior=historical(oldManifest)
- const [de,legacy]=await Promise.all([
-  api('videoCategories',{part:'snippet',regionCode:'DE',hl:'de_DE'}),
-  api('videoCategories',{part:'snippet',id:OLD_CATEGORIES.join(','),hl:'de_DE'})
- ])
+ const de=await api('videoCategories',{part:'snippet',regionCode:'DE',hl:'de_DE'})
+ let legacy={items:[]},legacyError=null
+ try{legacy=await api('videoCategories',{part:'snippet',id:OLD_CATEGORIES.join(','),hl:'de_DE'})}
+ catch(e){legacyError=String(e?.message||'failed').slice(0,90)}
  const directory=categories(de,legacy),allPlan=plan(directory.list)
  const results=[],errors=[],rawIds=new Set()
  let calls=0,quotaStopped=false
@@ -158,6 +158,7 @@ export async function run({oldManifest,api,now=()=>new Date().toISOString()}){
    '; newly observed IDs in selected set: '+sample.newSelected+'.',
   '- Unique normalized title strings among selected: '+sample.distinctTitleStrings+
    ' (name collisions/remakes/editions still unresolved).',
+  '- Legacy category-ID lookup: '+(legacyError?'failed ('+legacyError+')':'completed')+'.',
   '- Category IDs from official DE list plus separately requested 30/35/36/39/43: '+directory.list.length+
    '; historical IDs absent from official directories: '+(directory.missingHistorical.join(', ')||'none')+'.',
   '- Category base probes completed: '+results.filter(x=>x.mode==='category').length+
