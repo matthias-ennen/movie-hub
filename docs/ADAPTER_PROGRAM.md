@@ -1,5 +1,25 @@
 # Movie Hub – Adapterprogramm und Quellen-Ausbau
 
+## Aktuelle Zielkorrektur – 21.10.2026: YouTube Movies vor Publisher-Playlists
+
+**Neues fachliches Ziel nach Nutzerklärung:** MovieHub soll **von YouTube selbst über YouTube Movies/Film-Shop angebotene Filme in Deutschland** erschließen, nicht nur kostenlose Filme und nicht primär vollständige YouTube-Uploads von Publishern. Zu unterscheiden sind **FREE/ADS** (kostenlos/werbeunterstützt), **RENT** (Leihe), **BUY** (Kauf) und, soweit tatsächlich belegbar, **SUBSCRIPTION** (Primetime-Kanalabo). Derselbe Film kann mehrere Angebotsarten besitzen. Nicht belegte Angebote/Preise bleiben **unbekannt**; keine erfundenen Badges. Publisher-Playlists wie Netzkino/CiNENET bleiben ein **Kontroll- und Ergänzungsszenario**, nicht das primäre Produktziel. Frühere auf kostenlose Playlists begrenzte Zieltexte sind insofern historisch; der bestehende G1-200er-API-/TMDB-Befund bleibt unverändert und gültig.
+
+### G1-Testszenario vor Produktiv-Coding ausweiten
+
+1. **Katalog-/API-Zugang klären:** Dokumentierte, zulässige Schnittstellen oder offiziell lizenzierte Katalogquellen für den *deutschen YouTube-Movies-Shop einschließlich Angebotsart und Preisen* ermitteln. Die dokumentierte YouTube Data API kennt u.a. die Filmsuche mit videoType=movie und Videos-Metadaten; sie ist **bisher kein nachgewiesener vollständiger DE-Shop-/Preisfeed**. Der Parameter videoPaidProductPlacement betrifft Creator-Werbung, nicht Rent/Buy. Ohne belastbaren Feed kein automatischer Vollkatalog.
+2. **Separate offizielle Shop-Stichprobe:** **40–60 anhand der offiziellen YouTube-Movies-Oberfläche ermittelte Testfälle**, möglichst über FREE/ADS, RENT, BUY, belegbare Abo-Fälle und Negativfälle verteilt. Bestehende 200er-Publisher-Stichprobe weiter als Kontrollfall nutzen. Falls eine Klasse nicht belegbar ist, die Lücke statt fiktiver Fälle ausweisen.
+3. **Fallakte je Film:** offizieller Film-/Share-Link, belegte Film-/Video-ID, Titel/Originaltitel/Jahr/Version, Medientyp+TMDB-ID, Preis-/Angebotsart(en), ggf. EUR-Betrag und Qualität, Quelle/Publisher, DE-Region, Zeitpunkt, Anmelde-/Kanalabo-Voraussetzung, Filmseite/Kaufdialog/Wiedergabe unterscheiden. Unbekanntes nicht aus anderen Videoattributen ableiten.
+4. **API-Kontrollvergleich:** Shop-Stichprobe gegen dokumentierte search.list-/videos.list-Felder halten. Messen, welche Filme und IDs auffindbar sind und welche Preis-/Angebotsklasse **wirklich aus offizieller Datenquelle** ableitbar ist. Region oder Filmtyp allein ist kein Kosten-/Rechtenachweis.
+5. **Exakte Geräteziele:** Bei hinreichend belegten Film-IDs kontrollieren, ob Android-Smartphone, Tablet und Fire TV die richtige YouTube-Filmseite, den Leih-/Kaufdialog oder die tatsächliche Wiedergabe öffnen; Web-Fallback/Entitlement dokumentieren. Keine Testkäufe ohne ausdrücklichen Auftrag und keine erfundene Geräteabnahme.
+6. **Kanonische Identität und Lebenszyklus:** TMDB-ID+Medientyp weiterhin zentral; gleiche Filme aus YouTube-Shop und Publishern nicht duplizieren. Änderungen bei Preis, Region, Gratis-Angebot, Abo oder Entfernung getrennt erfassen.
+7. **Gate-Entscheidung:** G1-Zahlenbericht je Klasse: offizielle Katalogabdeckung, sichere Titel-IDs, Preis-/Availability-Daten, Matchquote, Links/Fire TV, Frische/Quota/Rechte, **Go / begrenztes Teil-Go / No-Go**. G2 erst nach erneuter Nutzerfreigabe.
+
+**Grenzen:** kein Scraping, keine internen undokumentierten APIs, keine Preisbehauptung aus normalen Video-Metadaten, kein automatischer Massenimport oder Produktiv-Code. Eine kleine kuratierte Film-Link-Liste ist allenfalls ein **später separat freizugebendes** Teilziel, kein Ersatz für bewiesene Shop-Automatisierung.
+
+**Offizielle Referenzen:** [YouTube Filme kaufen/leihen](https://support.google.com/youtube/answer/9674101?hl=de) · [YouTube kostenlose Primetime-Filme](https://support.google.com/youtube/answer/16618963?hl=de) · [Data API search.list](https://developers.google.com/youtube/data/reference/rest/v3/search/list) · [Videos](https://developers.google.com/youtube/data/reference/rest/v3/videos) · [Developer Policies](https://developers.google.com/youtube/terms/developer-policies).
+
+---
+
 **Stand:** 16.10.2026  
 **Status:** Verbindliche Priorisierung und erste Analyse; **keine Implementierungs- oder Produktivfreigabe**.  
 **Leit-Issue:** [#271 – Modulare Quellenplattform](https://github.com/matthias-ennen/movie-hub/issues/271).  
