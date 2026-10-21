@@ -60,3 +60,31 @@ Nach Abschluss des TMDB-Discover-Diagnoseteils wurde **kein** weiterer TMDB-Test
 - `search.list` dokumentiert `videoType=movie` ausdrücklich, hat aber laut der API-Referenz **keine Preis-/Rent-/Buy-/DE-Entitlement-Felder**. Das Partnerportal ist weiterhin kein öffentlicher Komplettfeed. Fehlende Treffer bei nicht aktiv angebotenen Filmen sind laut Google ausdrücklich möglich.
 
 **Status:** Diagnosecode technisch durch bestehende CI/APK validiert und nachgelesen; **neuer API-Livebericht noch offen**. Keine Android-/Fire-TV-App-Abnahme, keine produktive Film-PlaybackRoute, kein Badge, kein Katalogimport und keine Testkäufe. Die unabhängige echte DE-YouTube-Shop-Stichprobe mit 40–60 Fällen ist weiterhin G1-Arbeit.
+
+
+## F. Erster echter YouTube-Data-API-ID-Test und gebündelte Filmkandidaten-Gegenprüfung (21.10.2026)
+
+**Primärbeleg:** [GitHub Actions #39568885205](https://github.com/matthias-ennen/movie-hub/actions/runs/39568885205) (SUCCESS, 21.10.2026 08:23 UTC), [unveränderter G1-Report #12330773610](https://github.com/matthias-ennen/movie-hub/actions/runs/39568885205/artifacts/12330773610), vollständig gelesen. **8/8 search.list + 1/1 videos.list** erfolgreich, **vier TMDB-Filmfälle**, pro Film die Suchvarianten \`videoType=movie\` und \`any\`, DE/Deutsch, erste zehn Treffer, **keine Pagination**.
+
+**Bereits vorhandene offizielle Filmseiten-IDs durch videos.list aufgelöst:**
+
+| TMDB-Film | Frühere Filmseiten-ID | videos.list Titel/Kanal | Laufzeit | RegionRestriction Metadaten DE | Such-Recall (erste 10) |
+| --- | --- | --- | --- | --- | --- |
+| \`movie:392011\` Kedi | \`-oMYcSU3oVo\` | Kedi: Von Katzen und Menschen / YouTube Movies | \`PT1H19M2S\` | DE **in** Allowed-Liste | Weder \`movie\` noch \`any\` |
+| \`movie:9479\` Nightmare Before Christmas | \`Hw0CGCHl3V8\` | Tim Burton's The Nightmare Before Christmas / YouTube Movies | \`PT1H16M39S\` | DE **nicht in** Allowed-Liste | Weder \`movie\` noch \`any\` |
+
+**Weitere reine Search-Kandidaten, noch ohne eigene videos.list-Gegenprobe (keine automatischen Matches):**
+
+| TMDB-Film | YouTube Movies \`videoType=movie\`-Suchkandidat | Status |
+| --- | --- | --- |
+| \`movie:9479\` Nightmare Before Christmas | \`nJf67zNZhoc\` | Nur Suchresultat; vollständiger Videos-/Regions-/Kanal-ID-Beweis offen |
+| \`movie:238\` Der Pate / The Godfather | \`xcCsnx-GRkA\` | Nur Suchresultat; vollständiger Videos-/Regions-/Kanal-ID-Beweis offen |
+| \`movie:872585\` Oppenheimer | \`_1WjM7ucekc\` | Nur Suchresultat; vollständiger Videos-/Regions-/Kanal-ID-Beweis offen |
+
+Für \`Kedi\` lieferte \`videoType=movie\` innerhalb der ersten Resultate **andere** Filme (Schmidts Katze / Annemin Yarası); \`videoType=any\` führte unter anderem zu Dritten und Trailern. Wichtig: **Nichtauffindbarkeit in den ersten zehn Suchergebnissen belegt nicht, dass eine konkrete Film-ID ungültig oder außerhalb Deutschlands unverfügbar ist.** Eine YouTube-Video-ID kann je Werk/Fassung/Region variieren. Ein vorhandener Kanal- oder Laufzeitnachweis belegt **keinen** aktuellen deutschen Shop-Preis, Rent/Buy/Ads/Free, Käuferberechtigung oder tatsächlichen Fire-TV-App-Absprung.
+
+**Gezielte technische Fortsetzung abgeschlossen:** [PR #489](https://github.com/matthias-ennen/movie-hub/pull/489), [CI SUCCESS #39569847409](https://github.com/matthias-ennen/movie-hub/actions/runs/39569847409) mit **187 bestandenen Testdateien / 1218 Tests**, [Android APK SUCCESS #39569847441](https://github.com/matthias-ennen/movie-hub/actions/runs/39569847441). Kontrollierter Research-only-Squash-Merge \`9e61132a2e7eab7034fc25a712af23df26466e8e\` mit \`[skip ci]\`; 3 Dateien auf \`main\` verifiziert.
+
+Die bestehende **manuelle** [YouTube Movies G1 ID Discovery](https://github.com/matthias-ennen/movie-hub/actions/workflows/youtube-movies-store-id-g1.yml) führt künftig denselben **einen** \`videos.list\`-API-Abruf **nach** den acht \`search.list\`-Aufrufen aus. Er umfasst beide Referenz-IDs und maximal die ersten **drei** \`videoType=movie\`-Suchtreffer je Film (maximal 14 verschiedene Video-IDs, API-Batchlimit 50). Der neue Bericht unterscheidet Metadatenabruf, konkrete Laufzeit, Regionsausschluss und Übereinstimmung der Kanal-ID mit den älteren Filmseiten des offiziellen YouTube-Movies-Kanals. **9 API-Aufrufe unverändert**, öffentliche Metadaten und temporäre Research-Datei; kein Firestore, kein Katalog, kein Badge, keine Kauf-/Geräteaktion. Ein fehlender Datensatz bleibt ausdrücklich \`unverified\` und verursacht keinen Crash.
+
+**Status des neuen erweiterten API-Laufs: noch NICHT gestartet.** Bestehender G1-Livebefund ist nur #39568885205. Nächste Aktion: Workflow einmal manuell auf \`main\` laufen lassen und sein neues Artefakt auswerten. Danach getrennte Sichtprüfung realer deutscher YouTube-Movies-Detailseiten auf Android und Fire TV (Titel/Fassung/Angebotsklasse/Preis/App-Ziel) **ohne** Testkauf. Erst unabhängige Nachweise erlauben ein belastbares TMDB→YouTube-Movie-ID-Mapping; G2–G4 weiterhin gesperrt.
