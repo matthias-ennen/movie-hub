@@ -1,0 +1,41 @@
+name: YouTube Movies G1 21 Unclear Titles TMDB Review (Read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: moviehub-youtube-g1-twenty-one-review
+  cancel-in-progress: false
+
+jobs:
+  research-only:
+    name: Review 21 uncertain YouTube movie identities via official TMDB
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Set up Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Verify schema, mock cases, and script syntax
+        run: |
+          node --check scripts/youtube-movies-twenty-one-g1.mjs
+          node --test scripts/youtube-movies-twenty-one-g1.check.mjs
+      - name: Run bounded official TMDB alias and work-type checks, research only
+        run: node scripts/youtube-movies-twenty-one-g1.mjs
+      - name: Upload research report (14 day retention)
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g1-21-identity-${{ github.run_id }}
+          path: artifacts/youtube-movies-g1/21-identity-alias-review.md
+          if-no-files-found: error
+          retention-days: 14

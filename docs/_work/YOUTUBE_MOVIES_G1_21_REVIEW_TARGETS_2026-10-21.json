@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "source": "GitHub Actions run 39602961148, original artifact 12347785136, identity report",
+  "purpose": "Read-only alias/title/film-TV ambiguity review, NOT production acceptance",
+  "expectedCount": 21,
+  "rows": [
+    {
+      "videoId": "3ivgYkh5Res",
+      "title": "2010: The Year We Make Contact",
+      "minutes": 115.8,
+      "previousStatus": "unmatched-or-title-variant"
+    },
+    {
+      "videoId": "cVubTPv90f4",
+      "title": "War Story",
+      "minutes": 89.3,
+      "previousStatus": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "j5PHSqJ7xl0",
+      "title": "Lügen haben kurze Beine",
+      "minutes": 106.6,
+      "previousStatus": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "TPSkKEl65sE",
+      "title": "The Beast",
+      "minutes": 154,
+      "previousStatus": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "IxL_x8G1_FU",
+      "title": "Police Story",
+      "minutes": 100.7,
+      "previousStatus": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "9PsAlt9VHQ0",
+      "title": "Jagdgeschwader Wildkatze",
+      "minutes": 95.9,
+      "previousStatus": "unmatched-or-title-variant"
+    },
+    {
+      "videoId": "RrR7rAvdEUE",
+      "title": "School of Rock",
+      "minutes": 109.2,
+      "previousStatus": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "unV_jg5B7mI",
+      "title": "Baywatch",
+      "minutes": 116.6,
+      "previousStatus": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "4Dy4kWCnXxY",
+      "title": "Paradise",
+      "minutes": 86.5,
+      "previousStatus": "series-title-review"
+    },
+    {
+      "videoId": "yhPTiB5EDq4",
+      "title": "Peter Maffay - Niemals war es besser - Live - Arenatour 2015",
+      "minutes": 169.7,
+      "previousStatus": "unmatched-or-title-variant"
+    },
+    {
+      "videoId": "3SJO7aaY8r8",
+      "title": "Back In Time OmU",
+      "minutes": 94.3,
+      "previousStatus": "unmatched-or-title-variant"
+    },
+    {
+      "videoId": "n4tAw7v73Cc",
+      "title": "Operation Arsenal - Widerstand in Warschau",
+      "minutes": 107.5,
+      "previousStatus": "unmatched-or-title-variant"
+    },
+    {
+      "videoId": "6f5O_yR5hUc",
+      "title": "Isn't She Great? - Ist sie nicht großartig?",
+      "minutes": 95.3,
+      "previousStatus": "unmatched-or-title-variant"
+    },
+    {
+      "videoId": "ImYG7I2Z2yM",
+      "title": "El Club (OmU)",
+      "minutes": 93.2,
+      "previousStatus": "unmatched-or-title-variant"
+    },
+    {
+      "videoId": "sL38Hwd0rwY",
+      "title": "Mountain",
+      "minutes": 73.9,
+      "previousStatus": "series-title-review"
+    },
+    {
+      "videoId": "RxhyuyCQq-I",
+      "title": "Mein bester Feind",
+      "minutes": 100.8,
+      "previousStatus": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "ClLIOYaxXy0",
+      "title": "Das Protokoll - Mord auf höchster Ebene",
+      "minutes": 115.6,
+      "previousStatus": "unmatched-or-title-variant"
+    },
+    {
+      "videoId": "UCJKGbgBXd0",
+      "title": "Janette Oke: Die Coal Valley Saga Teil 6 - Entscheidungen",
+      "minutes": 88.8,
+      "previousStatus": "unmatched-or-title-variant"
+    },
+    {
+      "videoId": "2SwHXYoQQeQ",
+      "title": "Sahara",
+      "minutes": 124,
+      "previousStatus": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "PZC6NS-IFCk",
+      "title": "The Amateur",
+      "minutes": 122.6,
+      "previousStatus": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "EBiseL2xAz8",
+      "title": "Napoleon",
+      "minutes": 158.2,
+      "previousStatus": "ambiguous-work-or-media-type-review"
+    }
+  ]
+}
