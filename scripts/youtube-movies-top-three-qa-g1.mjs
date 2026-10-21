@@ -119,9 +119,9 @@ export function getPriority(cases){
   selected.slice(0,13).some(x=>x.category==='30'))throw Error('QA priority manifest mismatch')
  return selected
 }
-export async function review({originalSource,tmdbSource,tmdbGet,now=()=>new Date().toISOString()}={}){
+export async function review({originalSource,tmdbSource,tmdbGet,now=()=>new Date().toISOString(),expectedHash}={}){
  if(typeof tmdbGet!=='function')throw Error('No read-only TMDB callback')
- const original=parseOriginal(originalSource)
+ const original=parseOriginal(originalSource,expectedHash)
  const existing=parseTmdbReport(tmdbSource,original)
  const cases=getPriority(existing)
  let calls=0,quotaStop=false
