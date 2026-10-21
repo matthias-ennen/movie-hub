@@ -1,0 +1,48 @@
+name: YouTube Movies G1 User Twelve Links (Read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: moviehub-youtube-user-twelve-g1
+  cancel-in-progress: false
+
+jobs:
+  investigate-twelve-links:
+    name: Check 12 user YouTube IDs, channels and public playlist membership
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Set up Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Authenticate via existing Google Workload Identity
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Setup gcloud (read-only existing API key)
+        uses: google-github-actions/setup-gcloud@v3
+      - name: Verify G1 mock tests and syntax
+        run: |
+          node --check scripts/youtube-movies-user-twelve-g1.mjs
+          node --test scripts/youtube-movies-user-twelve-g1.check.mjs
+      - name: Read official YouTube videos, public playlists and membership
+        run: node scripts/youtube-movies-user-twelve-g1.mjs
+      - name: Save temporary research report (14 days)
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g1-user-twelve-${{ github.run_id }}
+          path: artifacts/youtube-movies-g1/user-twelve-playlists.md
+          if-no-files-found: error
+          retention-days: 14
