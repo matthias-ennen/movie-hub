@@ -93,6 +93,22 @@
 
 ---
 
+## G1-Abschlussbefund 21.10.2026 – Filter und YouTube-Film-ID
+
+**Echter dritter TMDB-G1-Lauf:** [GitHub Actions #39566078265](https://github.com/matthias-ennen/movie-hub/actions/runs/39566078265), 08:00 UTC, SUCCESS, tatsächliches [Reportartefakt #12329747051](https://github.com/matthias-ennen/movie-hub/actions/runs/39566078265/artifacts/12329747051) gelesen. Die **20 Abweichungen in 28 gezielt ausgewählten Provider-/Angebotstyp-Kombinationen** waren in allen **20 Fällen** mit dem gesuchten Angebotstyp bei **einem anderen DE-Anbieter** verknüpft, nicht beim gesuchten YouTube-Provider; **0** Fälle, in denen der Angebotstyp in den DE-Details überhaupt nicht existierte. **8** provider- und typgebundene Treffer. Dies ist ein starkes Indiz für getrennte TMDB-Discover-Filterbedingungen, **kein Beweis der inneren TMDB-Implementierung und keine repräsentative Katalog-Fehlerquote**. Die Filterursachenforschung wird damit vorerst beendet: **Discover nur Kandidaten**, `movie/{id}/watch/providers` zur providergebundenen TMDB-Evidenz, **nie** als eigenständiger YouTube-Shop-Preis-/App-Beleg.
+
+**Neuer zentraler offizieller Nachweis:** [Google Movies & TV Partner-Hilfe – Titel auf unseren Plattformen](https://support.google.com/moviestvpartners/answer/9311527?hl=de) dokumentiert für YouTube-Film-Shop-Titel (Legacy / Next Gen) den titelgenauen Filmseiten-Link `https://www.youtube.com/watch?v=<YOUTUBE_FILM_VIDEO_ID>`; die ID ist im Partner-VOD-Portal unter **Angebote → Angebotsdetails** gespeichert. Das ist **keine öffentliche TMDB-ID-zu-YouTube-ID-Abbildung** und keine bestätigte öffentliche API-/Katalogroute; die konkrete ID darf nicht geraten werden. Google-TV-TVoD-Deeplinks bleiben ein getrennter Linktyp.
+
+**Zwei konkret gefundene YouTube-Movies-Filmseiten (Web-Suche):**
+- `movie:392011` **Kedi – Von Katzen und Menschen**: `https://www.youtube.com/watch?v=-oMYcSU3oVo`, Suchnachweis als YouTube Movies (verifizierter Kanal).
+- `movie:9479` **Nightmare Before Christmas**: `https://www.youtube.com/watch?v=Hw0CGCHl3V8`, Suchnachweis als YouTube Movies & TV (verifizierter Kanal).
+
+**Stufe:** authentische titelgenaue öffentliche Web-Fundstellen, aber **noch keine tatsächlich von uns lesbar bestätigte DE-Kauf-/Miet-/Aboanzeige**, kein rechtlich belastbarer automatischer Katalogzugang, **kein** Android-/Fire-TV-App-Test. Diese Film-URLs nicht zu als abgenommen deklarierten PlaybackRoutes/Badges machen. Die erfolgreiche YouTube-App-Wiedergabe gekaufter Filme auf Fire TV wird von [Google allgemein bestätigt](https://support.google.com/youtube/answer/9679194?hl=de), beweist aber **keinen exakten von MovieHub ausgelösten Film-Absprung**.
+
+**Neues verbindliches G1-Testinventar und genaue Evidenz-/Geräte-Gates:** [`docs/_work/YOUTUBE_MOVIES_SHOP_LINK_EVIDENCE_2026-10-21.md`](_work/YOUTUBE_MOVIES_SHOP_LINK_EVIDENCE_2026-10-21.md). Jetzt zuerst die beiden tatsächlichen Shop-Webseiten an Android und Fire TV sichtprüfen und das Angebot/Entitlement/Preis kontrollieren, danach die YouTube-Shop-Probe auf 40–60 tatsächlich unabhängige Filme ausweiten. **Nicht** weiter die TMDB-Filter-Diagnose endlos ausbauen. G2–G4 bleiben ausdrücklich ohne Freigabe.
+
+---
+
 ## 1. Projektübergabe und Entscheidung
 
 Matthias hat am **16.10.2026** das Gesamtpaket **Mitteilungen** als abgeschlossen erklärt; **#314 und #385** sind danach mit `completed` geschlossen worden. Die Teilpakete **#380–#384** sind ebenfalls geschlossen und zuvor fachlich abgenommen. Zusätzliche Meldungsfamilien sind Ideen für später, **keine aktuelle Aufgabe**. Die in #385 mit dokumentierten TV-/Provider-Korrekturen wurden technisch veröffentlicht; daraus wird keine undokumentierte weitere visuelle Geräteabnahme abgeleitet.
