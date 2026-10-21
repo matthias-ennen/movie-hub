@@ -109,6 +109,24 @@
 
 ---
 
+## G1-Fortsetzung 21.10.2026 – öffentliche YouTube-Data-API gegen echte Storefront-Filmkennungen testen
+
+Die TMDB-Discover-Filterforschung ist als abgeschlossenes **G1-Teilthema** dokumentiert; keine weiteren Iterationen ohne neue Fakten. **Jetzt Priorität: echte Film-ID-Discoverability**. Googles [offizielle Partner-Hilfe](https://support.google.com/moviestvpartners/answer/9311527?hl=de) weist darauf hin, dass eine Film-ID über das VOD-Partnerportal existieren kann, obwohl ein Titel **außerhalb seiner Verfügbarkeitsfenster per Titelsuche nicht gefunden wird**. Somit beweist fehlender Suchtreffer weder fehlende YouTube-Filmseite noch fehlende lizenzierte Angebotshistorie.
+
+**Neuer Forschungs-PR erfolgreich geprüft:** [PR #488](https://github.com/matthias-ennen/movie-hub/pull/488), nach erfolgreicher [CI #39568236727](https://github.com/matthias-ennen/movie-hub/actions/runs/39568236727) und [Android-APK #39568236795](https://github.com/matthias-ennen/movie-hub/actions/runs/39568236795) mit Squash `b848c53d1326145fec13b7da9d14d41df3627ed1` in `main` gemergt, `[skip ci]`. Exakt drei Forschungsdateien, in `main` nachgelesen, keine Produktivcodes, Anzeigen, Firebase-Daten oder Adapter geändert.
+
+**Neu vorbereiteter, strikt manueller Read-only-G1-Test:** [`YouTube Movies G1 ID Discovery (Read-only)`](https://github.com/matthias-ennen/movie-hub/actions/workflows/youtube-movies-store-id-g1.yml) (`workflow_dispatch`, nur `main`, bestehendes Secret `YOUTUBE_API_KEY` durch bestehende GitHub-OIDC/Secret-Manager-Route). Script `scripts/youtube-movies-store-id-g1.mjs` und isolierte Tests `scripts/youtube-movies-store-id-g1.check.mjs`:
+
+- **Bekannte öffentliche YouTube-Movies-ID-Kandidaten aus der G1-Linkrecherche:** `movie:392011` (Kedi), `-oMYcSU3oVo`; `movie:9479` (Nightmare Before Christmas), `Hw0CGCHl3V8`. **Nicht** als aktuelle DE-Shop- oder Gerätefreigabe verstehen.
+- **TMDB-Filme ohne YouTube-Video-ID als Suchkontrollen:** `movie:238` (Der Pate), `movie:872585` (Oppenheimer). Keine ungeprüfte ID aus Suchtreffern als Match deklarieren.
+- **Testmatrix:** genau 1 × `videos.list` mit beiden vorhandenen IDs (Metadaten/DE-RegionRestriction als begrenzte Evidenz), je Film `search.list` einmal mit `videoType=movie` und einmal `videoType=any`, `type=video`, `regionCode=DE`, `relevanceLanguage=de`, max. 10 erste Ergebnisse. **Max. 8 Search-Anfragen + 1 Videos-Anfrage** insgesamt; keine Pagination, kein unkontrollierter Crawl. Die [YouTube Data API](https://developers.google.com/youtube/data/reference/rest/v3/search/list) dokumentiert `videoType=movie` als Videotypfilter, **nicht** als Vollständigkeits- oder Kaufpreisschnittstelle; das [aktuelle Quota-Modell](https://developers.google.com/youtube/v3/determine_quota_cost) hat standardmäßig 100 `search.list`-Aufrufe/Tag.
+- **Protokoll:** tatsächliche Daten-API-Abrufbarkeit der zwei öffentlichen IDs, Treffer derselben IDs unter `movie` und `any`, maximal drei Suchhinweise je Variante, Fehler separat; 14-Tage-Artefakt `artifacts/youtube-movies-g1/id-discoverability.md`. Keine automatisch positive Filmidentität aus ähnlichen Suchresultaten.
+- **Grenze:** **Noch kein echter API-Lauf** nach dem Merge. CI grün ist keine Bestätigung der Live-API-Reichweite, und der gerätefreie Test beweist weder tatsächliche Leih-/Kaufpreise/Gratis-Entitlements noch einen YouTube-App-Absprung auf Fire TV. Diese Gates gehören zur unabhängigen offiziellen Filmshop-/Geräte-Stichprobe.
+
+**Nächster Schritt:** Workflow manuell auf `main` starten; tatsächliches Job-Log und Report lesen und Film-ID-Recall nach Typ dokumentieren. **Anschließend** entscheiden, ob die öffentliche API das TMDB→YouTube-Movies-ID-Mapping überhaupt leisten kann, ob ein vertraglich lizenzierter Anbieterlink-Feed nötig ist oder ob vorerst nur einzelne überprüfte Links möglich sind. G1 bleibt offen; keine G2-/G3-/G4-Freigabe.
+
+---
+
 ## 1. Projektübergabe und Entscheidung
 
 Matthias hat am **16.10.2026** das Gesamtpaket **Mitteilungen** als abgeschlossen erklärt; **#314 und #385** sind danach mit `completed` geschlossen worden. Die Teilpakete **#380–#384** sind ebenfalls geschlossen und zuvor fachlich abgenommen. Zusätzliche Meldungsfamilien sind Ideen für später, **keine aktuelle Aufgabe**. Die in #385 mit dokumentierten TV-/Provider-Korrekturen wurden technisch veröffentlicht; daraus wird keine undokumentierte weitere visuelle Geräteabnahme abgeleitet.
