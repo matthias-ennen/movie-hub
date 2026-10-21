@@ -22,7 +22,7 @@ const queryAliases=[
  [/\bDas Beste kommt noch\b/i,'Le meilleur reste à venir'],
  [/\bReich und Arm\b/i,'Rich Man, Poor Man']
 ]
-export function parseOriginal(markdown){
+export function parseOriginal(markdown,expectedHash=EXPECTED_HASH){
  if(!markdown.includes('Actual selected **100/100**')||
   !markdown.includes('## The up-to-100 video-ID research sample'))
   throw Error('Wrong or incomplete original G1 100-video report')
@@ -45,7 +45,7 @@ export function parseOriginal(markdown){
    new Set(rows.map(x=>x.videoId)).size!==EXPECTED)
   throw Error('Expected exactly original 100 numbered unique videos')
  const hash=createHash('sha256').update(rows.map(x=>x.videoId).join('\n')+'\n').digest('hex')
- if(hash!==EXPECTED_HASH)throw Error('Original 100 VIDEO IDs SHA-256 mismatch')
+ if(hash!==expectedHash)throw Error('Original 100 VIDEO IDs SHA-256 mismatch')
  if(rows.filter(x=>x.category!=='30').length!==13||
    rows.filter(x=>x.category==='30').length!==87||
    rows.filter(x=>x.origin==='existing-47').length!==45)
@@ -87,9 +87,9 @@ function candidateRow(item,c,media){
   matchStrength:s}
 }
 const short=(x,n=90)=>clean(x).slice(0,n)
-export async function audit({source,tmdbGet,now=()=>new Date().toISOString()}={}){
+export async function audit({source,tmdbGet,now=()=>new Date().toISOString(),expectedHash=EXPECTED_HASH}={}){
  if(typeof tmdbGet!=='function')throw Error('TMDB read-only callback required')
- const inputs=parseOriginal(source)
+ const inputs=parseOriginal(source,expectedHash)
  const ordered=[...inputs.filter(x=>x.category!=='30'),...inputs.filter(x=>x.category==='30')]
  let calls=0,stop=false,rateLimited=false
  const statuses={}
