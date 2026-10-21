@@ -127,6 +127,19 @@ Die TMDB-Discover-Filterforschung ist als abgeschlossenes **G1-Teilthema** dokum
 
 ---
 
+## G1-YouTube-Movies-ID-Livebefund 21.10.2026 – Such-Recall und Videodetails
+
+**Echter erfolgreicher YouTube-API-Datenlauf:** [Actions #39568885205](https://github.com/matthias-ennen/movie-hub/actions/runs/39568885205) vom 21.10.2026 08:23 UTC, [vollständiger gelesener G1-Bericht](https://github.com/matthias-ennen/movie-hub/actions/runs/39568885205/artifacts/12330773610). Alle neun API-Aufrufe erfolgreich: 8 search.list, 1 videos.list; 4 kanonische TMDB-Filme.
+
+**Verifizierte Video-Metadaten, aber kein DE-Shop-/Playback-Nachweis:** Kedi (movie:392011) mit Video-ID -oMYcSU3oVo: YouTube Movies, 1:19:02, DE in Allowed-Liste. Nightmare Before Christmas (movie:9479), Hw0CGCHl3V8: YouTube Movies, 1:16:39, DE NICHT in Allowed-Liste. **Beide IDs tauchten bei keinem der beiden Suchtypen unter den ersten 10 Ergebnissen auf**, waren aber direkt via videos.list abrufbar. Fehlende Suchtreffer sind kein Nichtverfügbarkeitsbeweis.
+
+**Drei neue, noch unbestätigte Suchkandidaten von YouTube Movies:** Nightmare Before Christmas (movie:9479) nJf67zNZhoc, Der Pate / The Godfather (movie:238) xcCsnx-GRkA, Oppenheimer (movie:872585) _1WjM7ucekc. Diese Kandidaten waren bisher nur Search-Snippets, noch keine bestätigten Full-Movie-Metadaten oder Wiedergabelinks. Kedi-Suche zeigte prominent andere Filme; videoType=movie allein reicht nicht für sichere Identitätszuordnung.
+
+**Präzise, kostenneutrale G1-Erweiterung implementiert:** [PR #489](https://github.com/matthias-ennen/movie-hub/pull/489), CI [#39569847409](https://github.com/matthias-ennen/movie-hub/actions/runs/39569847409) SUCCESS inkl. eigenem automatisch gelaufenen Node-Mock-Gate (187 Testdateien, 1218 Tests), Android APK [#39569847441](https://github.com/matthias-ennen/movie-hub/actions/runs/39569847441) SUCCESS; Squash auf main 9e61132a2e7eab7034fc25a712af23df26466e8e mit [skip ci]. Alle drei Forschungsdateien auf main nachgelesen. **Gleiche neun API-Aufrufe**: die acht unveränderten Suchen und danach EIN gemeinsamer videos.list-Detailabruf mit zwei alten IDs plus maximal drei movie-Suchtreffern je Film. Erfasst Kanal-ID, Laufzeit, DE-Regionseinschränkung und nicht auflösbare Treffer ohne Crash. G1 research-only: kein produktiver Adapter/Badge/Katalog, Firestore oder Cloud-Deployment geändert.
+
+**Nächste Aktion:** [Manuellen YouTube Movies G1 ID Discovery Workflow](https://github.com/matthias-ennen/movie-hub/actions/workflows/youtube-movies-store-id-g1.yml) auf main erneut ausführen und neues reales Artefakt für die drei Kandidaten lesen. **Dieser neue Live-Lauf steht noch aus.** Anschließend separat die echten Angebote und titelgenauen Android-/Fire-TV-App-Links in Deutschland prüfen, ohne Testkäufe. Detaillierte Herkunft und Evidenz: [G1-Shop-Link-Inventar](_work/YOUTUBE_MOVIES_SHOP_LINK_EVIDENCE_2026-10-21.md). Issue #388 offen, G2–G4 nicht freigegeben.
+
+---
 ## 1. Projektübergabe und Entscheidung
 
 Matthias hat am **16.10.2026** das Gesamtpaket **Mitteilungen** als abgeschlossen erklärt; **#314 und #385** sind danach mit `completed` geschlossen worden. Die Teilpakete **#380–#384** sind ebenfalls geschlossen und zuvor fachlich abgenommen. Zusätzliche Meldungsfamilien sind Ideen für später, **keine aktuelle Aufgabe**. Die in #385 mit dokumentierten TV-/Provider-Korrekturen wurden technisch veröffentlicht; daraus wird keine undokumentierte weitere visuelle Geräteabnahme abgeleitet.
