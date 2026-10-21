@@ -1,5 +1,20 @@
 # Movie Hub – Adapterprogramm und Quellen-Ausbau
 
+## G1-Livebefund 21.10.2026 – Sortierung `rating` liefert 18/50 YouTube-Movies-Kandidaten
+
+**Echter User-freigegebener Pilot jetzt ausgeführt:** [YouTube Movies G1 Three Search Sort Modes #39597247661](https://github.com/matthias-ennen/movie-hub/actions/runs/39597247661) **SUCCESS**; [GitHub-Research-Artefakt #12344466389](https://github.com/matthias-ennen/movie-hub/actions/runs/39597247661/artifacts/12344466389), Datei `three-sort-compare.md`, wurde tatsächlich heruntergeladen und komplett gelesen. Auf `main` ausgeführt, **keine Produktion geändert**.
+
+**Messergebnis bei jeweils exakt 50 DE `videoType=movie`-Ergebnissen, zuerst 50 pro `order`, dann `videos.list`-Prüfung auf echten Kanalnamen `YouTube Movies`, öffentlich, ≥60 Minuten, DE nicht ausdrücklich ausgeschlossen:** `viewCount` **5/50**, `date` **1/50**, `rating` **18/50**. Über alle drei 150 Treffer **140** unterschiedliche rohe Videosuch-IDs, davon **24** verschiedene qualifizierte `YouTube Movies`-Videos. **0** Überschneidungen in den drei gefilterten G1-Listen. API: `search.list` **3**; `videos.list` **3**; TMDB **36** Requests.
+
+**TMDB-Vorprüfung für diese 24 Kandidaten:** **12** `plausible-review` (exakter Titeltreffer + plausibler Laufzeitabgleich), **4** `ambiguous-review`, **8** `unmatched-or-title-variant`. Das liefert **keine** freigegebene Werkidentität/Offer-Kategorie. Bei den 24 `YouTube Movies`-Videos waren die in `statistics.viewCount` angeforderten **echten Abrufzahlen nicht lesbar (`?`)** – `order=viewCount` ist nur ein Search-Ranking, **keine eigene verlässliche MovieHub-Beliebtheitssortierung**. `rating`-Treffer beinhalten auch Konzertvideos und offenbar episodisches Material; Video-Dauer und Label alleine erfüllen **keinen** Film-Werk-Abgleich.
+
+**Deduplizierung mit drei vorherigen realen G1-Läufen:** `12` YouTube-first Kandidaten + `2` wirklich neue Upload-Feed-IDs = **14**; aus den 24 sortierten Kandidaten sind **2** schon bekannt (`Police Story`, `Jagdgeschwader Wildkatze`), ergo **22** neu. Aus den zwölf manuell gesammelten Links sind **11** öffentliche `YouTube Movies`-Langform-ID-Kandidaten zusätzlich, keine IDs mit vorherigen 36 überschneidend; der eine **unlisted Suno-Music-Kurzclip** ist ausgeschlossen. Macht **47 unterschiedliche vorläufige YouTube-Movies-VIDEO_IDs** – **keine** 47 verifizierten Filme oder TMDB-Identitäten. Der 50-**Werk**-Gate wird **nicht** als erreicht gemeldet; derselbe Film kann mehrere Video-IDs besitzen und Nicht-Film-Fälle müssen ausgesondert werden.
+
+**Folgerung:** Für **weitere kontrollierte Discovery-Stichproben** `rating` von den drei getesteten Varianten bevorzugen (18 statt 5/1), aber nicht als Endnutzer-MovieHub-Ranking. Als nächste **separat freizugebende** G1-Ausbaustufe **TMDB-DE-Watch-Provider-YouTube-Filmseeds → gezielte YouTube-Movie-IDs → konservatives Werk-/Fassungs-/DE-Rechte-Review** statt blind weiteres globales Scrapen, Sortieren oder Preis-/Abo-Deep-Dives. G1 #388 bleibt offen, G2–G4 nicht freigegeben.
+
+**Detailbericht und alle 24 Roh-Video-IDs:** [G1-Dreiersortierungs-Livebericht](_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md).
+
+---
 ## G1 – Drei YouTube-Film-Sortierungen für Deutschland: read-only Vergleich implementiert
 
 **Nutzerentscheidung 21.10.2026:** Der von uns vorgeschlagene Vergleich von **drei** YouTube-Data-API-Suchen für Deutschland – `order=viewCount`, `date`, `rating` – wurde ausdrücklich freigegeben („Okay so machen wir weiter“). Freigabe **nur für G1-Forschung**, kein G2-Produktivimport.
