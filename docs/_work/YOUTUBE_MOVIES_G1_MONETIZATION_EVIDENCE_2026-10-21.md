@@ -27,7 +27,7 @@ Der Nutzer hat bereits alle **drei** von ihm zuvor auf Android bestätigten exte
 
 **A. Filmidentität:** TMDB-Medientyp und ID, Titel, Jahr/Fassung, echte elfstellige YouTube-ID, Filmumfang, verifizierter Provenienz-/Kanalhinweis. Ein Suchtreffer mit ähnlichem Titel ist `candidate`, noch kein sicherer Werk-Match.
 
-**B. Abspielroute:** `route.type=youtubeWatch`, echte Video-ID, kononische HTTPS-Watch-URL, Quelle, `androidExternalTest=user-confirmed`, `fireTvMovieHubTest=user-confirmed`, letzter Checkzeitpunkt. Route-Erfolg sagt **nichts** über Preis-/Lizenztarif aus.
+**B. Abspielroute:** `route.type=youtubeWatch`, echte Video-ID, kanonische HTTPS-Watch-URL, Quelle, `androidExternalTest=user-confirmed`, `fireTvMovieHubTest=user-confirmed`, letzter Checkzeitpunkt. Route-Erfolg sagt **nichts** über Preis-/Lizenztarif aus.
 
 **C. Angebot pro Region und Anbieter:** `country=DE`, `providerId`, `offerType` (`free|ads|flatrate|rent|buy|unknown`), optional `price` plus `currency` und Qualität/Fassung, `sourceType`, `observedAt`, `confidence`, `expiry`. Leihe und Kauf können gleichzeitig gelten; nicht in einen einzelnen Typ zwängen. Ein filmgenauer YouTube-Link ohne bestätigte Angebotsart behält `unknown`.
 
@@ -40,7 +40,7 @@ Der Nutzer hat bereits alle **drei** von ihm zuvor auf Android bestätigten exte
 | YouTube-App öffnet richtige Filmseite | Filmgenauer Link funktioniert auf getesteter Plattform | **Nein** – Route separat, Angebot unbekannt |
 | YouTube API: Laufzeit + DE-Allowed | Video-Metadaten und technischer Regionsindikator | **Nein** |
 | TMDB Discover: YouTube und `free` / `ads` / `rent` / `buy` als Filter | Kandidat zur Einzelprüfung | **Nein** |
-| TMDB Watch Details: **genau** YouTube-Provider-ID + konkreter Angebotstyp für DE | Externe angebieterspezifische JustWatch/TMDB-Indikation | **Nur nach existierenden MovieHub-Regeln, Attribution- und Datenqualitätscheck**; kein Beweis für aktuelle YouTube-Shopseite oder Preis |
+| TMDB Watch Details: **genau** YouTube-Provider-ID + konkreter Angebotstyp für DE | Externe anbieterspezifische JustWatch/TMDB-Indikation | **Nur nach existierenden MovieHub-Regeln, Attribution- und Datenqualitätscheck**; kein Beweis für aktuelle YouTube-Shopseite oder Preis |
 | Direkt auf der richtigen DE-YouTube-Filmseite sichtbarer `Ausleihen`-/`Kaufen`-Button | Manuell beobachteter Shop-Angebotstyp zu einem Zeitpunkt und Konto | G1-**bestätigter UI-Befund**, aber erst nach Daten-/Rechte-/Aktualisierungsfreigabe produktiv |
 | Sichtbar kostenlos abspielbarer kompletter Film (rechtmäßiger Anbieter) | Beobachtete Gratis-/Werbe-Situation je Account und Gerät | `free` vs. `ads` **nicht** ohne klare UI-/Playback-Evidenz verwechseln |
 | YouTube Premium vorhanden / YouTube-Primetime-Titel sichtbar | Unklar, welcher Abozugang den Film umfasst | **Nein** ohne konkret identifizierten Primetime-Kanal und Berechtigung |
@@ -56,3 +56,9 @@ Der Nutzer hat bereits alle **drei** von ihm zuvor auf Android bestätigten exte
 **Technisch anschließbarer Pfad (noch nicht freigegeben):** TMDB-Film-ID → Kandidatenliste via TMDB-Watch-Details/YouTube `videoType=movie` → strenger Werk-/Kanal-/Fassungsabgleich → eine oder mehrere provenance-stamped YouTube-Watch-IDs → **separater, ggf. unbekannter** DE-Angebotsstatus → bestehender nativer YouTube-Launcher. Bei fehlender ID ausschließlich bestehender Such-Fallback, niemals generierte Film-ID. Rechtmäßig nutzbarer dauerhafter VOD-Katalog-/Entitlement-Feed weiterhin **nicht identifiziert**.
 
 **G1→G2-Grenze:** Entscheiden erst nach ausreichendem Treffer-/Fehlmatch-Bericht, Rechte-/Attributionsprüfung, echter Geräteabnahme und nachvollziehbarer Datenaktualisierung, welche *isolierten* Integrationsbausteine produktiv umgesetzt werden dürfen. Ohne belegten Monetarisierungsfeed wäre eventuell ein eingeschränkter **Link-Only-Modus ohne Angebotsversprechen** denkbar, aber das ist ein **gesondert freizugebendes G2-Produktfeature**, nicht automatisch aus diesem Test entstanden.
+
+## 6. Bereits vorhandene JustWatch-Attribution im MovieHub-Bestandscode geprüft
+
+Bei einer read-only-Codeinspektion von [`src/components/AboutView.jsx`](../../src/components/AboutView.jsx) auf `main` war die JustWatch-Attribution **bereits explizit vorhanden**: eine sichtbare Listenzeile `JustWatch` mit Streaming-Verfügbarkeitsdaten aus TMDB sowie der englische Satz `Watch-provider availability is powered by JustWatch via TMDB.`. Auch die TMDB-Nutzung und Nicht-Zertifizierung wird dort erwähnt. Die pauschale Behauptung, MovieHub verfüge **überhaupt nicht** über diese Quellenangabe, wäre falsch.
+
+**Offen bleibt nur eine engere Fachprüfung:** Ob die vorhandene Position und Darstellung dieser Attribution sämtliche anwendbaren TMDB-/JustWatch-Nutzungsbedingungen für jede konkrete Präsentationsfläche erfüllt, wurde rechtlich nicht geprüft; vor G2 keine neue Quellennutzung ohne Prüfung. Diese G1-Erkenntnis verlangt **keinen** sofortigen produktiven Eingriff.
