@@ -1,0 +1,39 @@
+name: MovieHub G1 26 Provisional YouTube Movies – Public Index Membership (Read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: moviehub-g1-public-index-26
+  cancel-in-progress: false
+
+jobs:
+  public-index-membership:
+    name: Check 26 provisional TMDB movie IDs in PUBLIC MovieHub title files
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Set up Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Syntax and mocked no-private-data tests
+        run: |
+          node --check scripts/youtube-movies-public-membership-g1.mjs
+          node --test scripts/youtube-movies-public-membership-g1.check.mjs
+      - name: Read PUBLIC catalog and search index only, no API secrets or writes
+        run: node scripts/youtube-movies-public-membership-g1.mjs
+      - name: Upload 14-day public membership review
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: moviehub-g1-public-index-26-${{ github.run_id }}
+          path: artifacts/youtube-movies-g1/public-membership-26.md
+          if-no-files-found: error
+          retention-days: 14
