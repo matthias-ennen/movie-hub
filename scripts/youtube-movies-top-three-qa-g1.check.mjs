@@ -117,7 +117,7 @@ test('34 fixed QA cases, exact real-world errors corrected by independent top-th
  assert.ok(result.rows.every(x=>x.candidates.every(y=>y.confirmedFilm===false)))
  assert.ok(calls.every(c=>/^\/movie\/\d+$/.test(c.path)))
  assert.equal(new Set(result.rows.map(x=>x.videoId)).size,34)
- assert.ok(result.report.includes('remaining 66 original videos are not freshly re-examined'))
+ assert.ok(result.report.includes('Remaining 66 original videos are not freshly re-examined'))
 })
 test('on TMDB 429, residual 33 cases explicit not checked, not falsely unmatched',async()=>{
  let requests=0
