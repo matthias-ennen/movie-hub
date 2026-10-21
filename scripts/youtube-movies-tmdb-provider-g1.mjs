@@ -48,12 +48,20 @@ export async function audit({token,request=fetch,time=()=>new Date().toISOString
       }
       const de=detailsCache.get(m.id)
       const actual=TYPES.filter(t=>Array.isArray(de[t])&&de[t].some(p=>Number(p.provider_id)===r.p.id))
+      const alternatives=(Array.isArray(de[r.offer])?de[r.offer]:[])
+        .filter(p=>Number(p.provider_id)!==r.p.id)
+        .map(p=>({id:Number(p.provider_id),name:String(p.provider_name||'').replace(/[|\n\r]/g,' ').slice(0,65)}))
+        .filter(p=>Number.isInteger(p.id)&&p.id>0)
+      const diagnosis=actual.includes(r.offer)?'same-provider'
+        : alternatives.length?'other-provider-only':'type-not-in-DE-details'
       checked.push({...m,providerId:r.p.id,discoverType:r.offer,actual,
-        result:actual.includes(r.offer)?'detail-agrees':'detail-disagrees'})
+        alternatives,diagnosis,result:actual.includes(r.offer)?'detail-agrees':'detail-disagrees'})
     }
   }
   const matches=checked.filter(c=>c.result==='detail-agrees').length
   const conflicts=checked.length-matches
+  const elsewhere=checked.filter(c=>c.diagnosis==='other-provider-only').length
+  const absent=checked.filter(c=>c.diagnosis==='type-not-in-DE-details').length
   const quality=rows.map(r=>{
     const samples=checked.filter(c=>c.providerId===r.p.id && c.discoverType===r.offer)
     return {providerId:r.p.id,offer:r.offer,candidates:r.total,checked:samples.length,
@@ -67,6 +75,8 @@ export async function audit({token,request=fetch,time=()=>new Date().toISOString
     '- Keine Änderung von MovieHub-Katalog oder Badges; YouTube- und Google-Provider nicht gleichsetzen.',
     '- Discover-Filterkombinationen sind nur Kandidaten. Detail-Übereinstimmung ist TMDB-interne Evidenz, **keine** reale YouTube-Shop-Validierung.',
     '- Kontrollierte Vergleiche: '+checked.length+' (übereinstimmend '+matches+', abweichend '+conflicts+'), '+detailsCache.size+' einmalig abgerufene Filmdetails.',
+    '- Unter den Abweichungen: '+elsewhere+' mit anderem Anbieter im gesuchten Angebotstyp, '+absent+' ohne diesen Angebotstyp in DE-Details.',
+    '- **Hypothesentest:** Anderer Anbieter im gesuchten Typ spricht für getrennte Filterbedingungen; beweist aber keine interne TMDB-SQL-Implementierung.',
     '','## TMDB-Anbieterkennungen (Deutschland)','',
     '| ID | Anbieter | Klassifizierung |','| ---: | --- | --- |',
     ...providers.map(p=>'| '+p.id+' | '+p.name+' | '+p.kind+' |'),
@@ -78,15 +88,15 @@ export async function audit({token,request=fetch,time=()=>new Date().toISOString
     '| ---: | --- | ---: | ---: | ---: | ---: |',
     ...quality.map(q=>'| '+q.providerId+' | '+q.offer+' | '+(q.candidates??'unbekannt')+' | '+q.checked+' | '+q.matches+' | '+q.conflicts+' |'),
     '','## TMDB-Detail-Gegenproben (max. zwei Discover-Beispiele pro Anbieter/Typ)','',
-    '| TMDB-Film-ID | Titel | Provider-ID | Discover-Typ | Detail-Angebote DE | Bewertung |',
-    '| ---: | --- | ---: | --- | --- | --- |',
-    ...checked.map(c=>'| '+c.id+' | '+c.title+' | '+c.providerId+' | '+c.discoverType+' | '+(c.actual.join(', ')||'keine')+' | '+c.result+' |'),
+    '| TMDB-ID | Titel | Provider-ID | Discover-Typ | Detailangebote beim Anbieter | Vergleich | Alternativ-Anbieter (selbe Angebotsart) | Diagnose |',
+    '| ---: | --- | ---: | --- | --- | --- | --- | --- |',
+    ...checked.map(c=>'| '+c.id+' | '+c.title+' | '+c.providerId+' | '+c.discoverType+' | '+(c.actual.join(', ')||'keine')+' | '+c.result+' | '+(c.alternatives.map(p=>p.name+' ('+p.id+')').slice(0,3).join(', ')||'—')+' | '+c.diagnosis+' |'),
     '','## Offene Gates','',
     '- Abdeckung des YouTube-eigenen Filmshops, tatsächliche Preise und exakte YouTube-App-Deep-Links nicht belegt.',
     '- Separates 40–60-Fälle-Shop-Sample, manuelle Android-/Fire-TV-Linktests, Lizenz-/Attributionsprüfung.',
     '- Kein produktiver Adapter, kein Scraping, keine G2-Freigabe.',''
   ].join('\n')
-  return {report,calls,providers,rows,checked,quality,matches,conflicts}
+  return {report,calls,providers,rows,checked,quality,matches,conflicts,elsewhere,absent}
 }
 if(process.argv[1]?.endsWith('youtube-movies-tmdb-provider-g1.mjs')) {
   try {

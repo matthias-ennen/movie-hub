@@ -26,6 +26,8 @@ test('read-only TMDB sample verifies offer types without exposing keys',async()=
  assert.equal(r.calls,7)
  assert.equal(r.matches,1)
  assert.equal(r.conflicts,4)
+ assert.equal(r.elsewhere,0)
+ assert.equal(r.absent,4)
  assert.deepEqual(r.checked.map(x=>x.result),['detail-disagrees','detail-disagrees','detail-agrees','detail-disagrees','detail-disagrees'])
  assert.deepEqual(r.checked[0].actual,['rent'])
  assert.deepEqual(r.quality.map(q=>q.checked),[1,1,1,1,1])
@@ -55,4 +57,32 @@ test('per-offer samples reuse movie-detail cache and do not invent absent offers
  assert.equal(r.quality.find(q=>q.offer==='buy').matches,2)
  assert.equal(r.quality.find(q=>q.offer==='free').conflicts,2)
  assert.ok(r.report.includes('TMDB-interne Evidenz'))
+})
+
+test('reports other-provider availability separately from YouTube availability',async()=>{
+ const request=async url=>{
+   const p=new URL(url).pathname
+   if(p.endsWith('/watch/providers/movie'))return {ok:true,json:async()=>({results:[{provider_id:192,provider_name:'YouTube'}]})}
+   if(p.endsWith('/discover/movie'))return {ok:true,json:async()=>({total_results:1,results:[{id:238,title:'The Godfather'}]})}
+   if(p.endsWith('/movie/238/watch/providers'))return {ok:true,json:async()=>({results:{DE:{
+     free:[{provider_id:9,provider_name:'Some Free Provider'}],
+     rent:[{provider_id:192,provider_name:'YouTube'}],
+     buy:[{provider_id:192,provider_name:'YouTube'}]
+   }}})}
+   throw Error('Unexpected request '+p)
+ }
+ const r=await audit({token:'unit-secret',request})
+ assert.equal(r.checked.length,5)
+ assert.equal(r.matches,2)
+ assert.equal(r.conflicts,3)
+ assert.equal(r.elsewhere,1)
+ assert.equal(r.absent,2)
+ const free=r.checked.find(x=>x.discoverType==='free')
+ assert.equal(free.diagnosis,'other-provider-only')
+ assert.deepEqual(free.alternatives,[{id:9,name:'Some Free Provider'}])
+ const ads=r.checked.find(x=>x.discoverType==='ads')
+ assert.equal(ads.diagnosis,'type-not-in-DE-details')
+ assert.equal(ads.alternatives.length,0)
+ assert.ok(r.report.includes('Some Free Provider (9)'))
+ assert.ok(!r.report.includes('unit-secret'))
 })
