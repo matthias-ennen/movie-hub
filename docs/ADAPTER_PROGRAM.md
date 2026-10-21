@@ -182,6 +182,22 @@ Historischer echter G1-TMDB-Befund aus [#39566078265](https://github.com/matthia
 **Nächste G1-Aktion:** Manuellen Vier-Anfragen-Workflow auf `main` auslösen, echten Report lesen und danach für die drei vom Nutzer in Android/Fire TV positiv getesteten YouTube-Filmseiten die tatsächlich angezeigten Shopbuttons vergleichen. **Bis dahin kein Preis- oder Tarifsuffix-Badge** aus bloß funktionierenden Film-URLs. Der G1-Monetarisierungsplan mit Quellennachweisen und Attribution steht unter [YouTube Movies G1 Monetarisierung](_work/YOUTUBE_MOVIES_G1_MONETIZATION_EVIDENCE_2026-10-21.md), Abschnitt 7. #388 bleibt offen, G2–G4 gesperrt.
 
 ---
+## G1-Monetarisierung – echter Dreifilm-Livebericht 21.10.2026
+
+**Live statt nur Vorbereitung:** [YouTube Movies G1 Three Film Offers, Run #39578883501](https://github.com/matthias-ennen/movie-hub/actions/runs/39578883501), 21.10.2026 09:41 UTC / 11:41 MESZ, **SUCCESS**, [originäres Reportartefakt #12336195508](https://github.com/matthias-ennen/movie-hub/actions/runs/39578883501/artifacts/12336195508) tatsächlich gelesen. Vier von vier lesenden TMDB-Anfragen erfolgreich; drei individuelle deutsche `watch/providers`-Detaildatensätze + Anbieter-Directory, ohne Produktionswirkung. Exakte Provider-IDs: **188 YouTube Premium**, **192 YouTube**, **235 YouTube Free**.
+
+**G1-TMDB-Daten für drei zuvor in Android und Fire TV positiv getestete YouTube-Filmseiten:**
+- `movie:9479` **Nightmare Before Christmas**, `https://www.youtube.com/watch?v=nJf67zNZhoc`: TMDB YouTube **192 rent + buy**; YouTube Free 235 **kein DE-Detailtreffer**; YouTube Premium 188 **kein DE-Detailtreffer**.
+- `movie:238` **Der Pate**, `https://www.youtube.com/watch?v=xcCsnx-GRkA`: TMDB YouTube **192 rent + buy**, nicht `free` – das kostenlose Angebot ist **Arte** zugeordnet.
+- `movie:872585` **Oppenheimer**, `https://www.youtube.com/watch?v=_1WjM7ucekc`: TMDB YouTube **192 buy**, nicht `ads` – werbefinanziertes Angebot ist **Joyn** zugeordnet.
+
+Das sind **providergebundene TMDB-/JustWatch-Befunde, keine direkt von der deutschen YouTube-Shop-UI bestätigten Konditionen**, keine Preise und keine Abspielberechtigungen. Fehlender TMDB-Detailtreffer bedeutet nicht echte Nichtverfügbarkeit. Keine zugehörigen `free`, `ads`, `flat` oder `R&B`-Badge-Änderungen allein aus diesem Research-Report vor G2-Freigabe.
+
+**Read-only-Bestandscode geprüft:** `src/services/tmdb.js` normalisiert die fünf Angebotsarten für TMDB-Provider-Detaildaten bereits in `providerOffers[].offerTypes`. Der normale `youtube`-Alias in `src/providers/providerRegistry.js` entspricht exakt YouTube, nicht automatisch „YouTube Free“/„YouTube Premium“. Die Discover-Katalogmitgliedschaft `offerTypes:['catalog']` in `scripts/provider-catalogs.mjs` ist als reine Aufnahme eines Kandidaten zu behandeln, nicht als bezahltes oder inkludiertes YouTube-Angebot. Bei G2 separate Regressionstests für konsistente Poster-/Detail-Badges und diese Mitgliedschaft einplanen.
+
+**Nächster fachlicher Gate:** Keine erneute TMDB-Suchdiagnose. **Direkt auf den drei echten deutschen YouTube-Filmseiten** die sichtbaren Buttons und Preise/Qualitätsstufen von Nutzer-Gerät bzw. Konto prüfen; ohne Kauf. Danach (1) repräsentativere 40–60 unabhängige Filme aller tatsächlich vorhandenen Kategorien, (2) erlaubte fortlaufende TMDB-ID→YouTube-Film-ID/Angebotsdatenquelle, (3) ausdrückliche G2-Produktentscheidung. Voller Befund und Quellen: [G1-Monetarisierung, Abschnitt 8](_work/YOUTUBE_MOVIES_G1_MONETIZATION_EVIDENCE_2026-10-21.md). **Issue #388 G1 offen, G2–G4 ohne Freigabe.**
+
+---
 ## 1. Projektübergabe und Entscheidung
 
 Matthias hat am **16.10.2026** das Gesamtpaket **Mitteilungen** als abgeschlossen erklärt; **#314 und #385** sind danach mit `completed` geschlossen worden. Die Teilpakete **#380–#384** sind ebenfalls geschlossen und zuvor fachlich abgenommen. Zusätzliche Meldungsfamilien sind Ideen für später, **keine aktuelle Aufgabe**. Die in #385 mit dokumentierten TV-/Provider-Korrekturen wurden technisch veröffentlicht; daraus wird keine undokumentierte weitere visuelle Geräteabnahme abgeleitet.
