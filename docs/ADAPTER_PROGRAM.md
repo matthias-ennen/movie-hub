@@ -73,6 +73,26 @@
 
 ---
 
+## G1-Nachlauf 21.10.2026 – 28 Anbieter/Monetarisierungs-Vergleiche und offene Filtersemantik
+
+**Echter Folgelauf, erfolgreich:** [GitHub Actions #39564348305](https://github.com/matthias-ennen/movie-hub/actions/runs/39564348305), 21.10.2026 07:46 UTC, [Reportartefakt #12329191808](https://github.com/matthias-ennen/movie-hub/actions/runs/39564348305/artifacts/12329191808). **30/48** read-only TMDB-Anfragen; 3 deutsche TMDB-Provider (`192 YouTube`, `235 YouTube Free`, `188 YouTube Premium`), 15 Provider-/Angebotstyp-Discover-Abfragen, **14 verschiedene Film-Detaildatensätze** und **28 Vergleiche** (gezielt die ersten ein bis zwei Filme je Filter, teilweise wiederholte Filme).
+
+**Resultat: nur 8/28 Übereinstimmungen**, **20/28 Abweichungen** beim exakten Paar `Provider-ID + Monetarisierungsart`. Dies ist **keine** repräsentative Fehlerquote für alle YouTube-Filme. Die beobachteten `discover.total_results`-Zahlen dürfen weiterhin nicht als bestätigte Movie-Shop-Angebote oder Preis-/Verfügbarkeits-Badges interpretiert werden.
+
+| Anbieter in TMDB | free | ads | rent | buy | flatrate |
+| --- | --- | --- | --- | --- | --- |
+| YouTube (192) | 0/2 | 0/2 | 2/2 | 2/2 | 0/2 |
+| YouTube Free (235) | 0/2 | 2/2 | 0/2 | 0/2 | 0/2 |
+| YouTube Premium (188) | 0 Fälle | 0/2 | 0/2 | 0/2 | 2/2 |
+
+**Arbeits-Hypothese, nicht bestätigt:** TMDB könnte Anbieter- und Monetarisierungsfilter ohne Bindung an *denselben* Anbieter erfüllen (beispielsweise Film bei YouTube als Kauf und bei einem anderen Anbieter als Free). [Offizielles Discover-Referenzdokument](https://developer.themoviedb.org/reference/discover-movie) benennt die Filter, beweist deren innere Datenbankverknüpfung aber nicht. Datenfrische oder unterschiedliche Datenindizes bleiben mögliche Alternativerklärungen.
+
+**Geprüfte zusätzliche G1-Diagnose implementiert:** [PR #487](https://github.com/matthias-ennen/movie-hub/pull/487) mit [CI grün #39564874423](https://github.com/matthias-ennen/movie-hub/actions/runs/39564874423) und [Android APK grün #39564874383](https://github.com/matthias-ennen/movie-hub/actions/runs/39564874383) nach `main` gemergt (Commit `9510257ffbb82d2b8528eb4bdae587b88ff97ad8`, `[skip ci]`). Nur zwei isolierte Forschungsdateien geändert, keine Cloud-/Produktiv-Daten. Der nächste Bericht klassifiziert jede der beobachteten Abweichungen in `other-provider-only` (Typ bei anderem Anbieter), `type-not-in-DE-details` (Typ in DE-Detaildaten fehlt) oder `same-provider`. **Keine zusätzlichen API-Calls**, bestehender Maximaldeckel 48, bisheriger manueller Workflow unverändert. Nach Merge per Readback verifiziert; **noch kein neuer tatsächlicher API-Lauf für diese zusätzliche Diagnose**.
+
+**Nächster sinnvoller Schritt:** Noch **ein** begrenzter manuell ausgelöster [YouTube Movies G1 TMDB Provider Audit](https://github.com/matthias-ennen/movie-hub/actions/workflows/youtube-movies-tmdb-provider-g1.yml) auf `main` zur Diagnose der Filterverknüpfung. Unabhängig davon dann **offizielle YouTube-Movies-Filmseiten/Share-Links** anhand einer ausgewogenen Free/Ads/Rent/Buy-/optional-Primetime-Stichprobe erfassen; Anbieter-TMDB-Daten liefern keine gesicherten YouTube-ID-/Preis- oder App-Deep-Link-Informationen. Später nur tatsächlich bestätigte App-Ziele auf Android/Fire TV als bestandene Playback-Gates deklarieren. **#388 bleibt G1, G2/G3/G4 nicht freigegeben.**
+
+---
+
 ## 1. Projektübergabe und Entscheidung
 
 Matthias hat am **16.10.2026** das Gesamtpaket **Mitteilungen** als abgeschlossen erklärt; **#314 und #385** sind danach mit `completed` geschlossen worden. Die Teilpakete **#380–#384** sind ebenfalls geschlossen und zuvor fachlich abgenommen. Zusätzliche Meldungsfamilien sind Ideen für später, **keine aktuelle Aufgabe**. Die in #385 mit dokumentierten TV-/Provider-Korrekturen wurden technisch veröffentlicht; daraus wird keine undokumentierte weitere visuelle Geräteabnahme abgeleitet.
