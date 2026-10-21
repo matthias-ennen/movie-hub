@@ -24,8 +24,6 @@ export async function analyze({ api, at=()=>new Date().toISOString() }={}) {
     return api(endpoint,params)
   }
   const known=FILMS.map(f=>f.knownId).filter(isVideoId)
-  const details=await limited('videos',{part:'snippet,contentDetails,status',id:known.join(',')})
-  const detailById=new Map(details.items.filter(x=>isVideoId(x.id)).map(x=>[x.id,x]))
   const outcomes=[]
   for(const film of FILMS) {
     const variants=[]
@@ -48,14 +46,38 @@ export async function analyze({ api, at=()=>new Date().toISOString() }={}) {
       }
       variants.push(result)
     }
-    const detail=film.knownId?detailById.get(film.knownId):null
-    outcomes.push({tmdb:film.tmdb,title:film.title,knownId:film.knownId||null,
-      knownIdResolved:film.knownId?Boolean(detail):null,
-      detail:detail?{title:safeTitle(detail.snippet?.title),channel:safeTitle(detail.snippet?.channelTitle),
-        deSignal:getRegionSignal(detail.contentDetails?.regionRestriction),
-        duration:String(detail.contentDetails?.duration||'unbekannt').slice(0,32),
-        visibility:String(detail.status?.privacyStatus||'unbekannt').slice(0,24)}:null,
-      variants})
+    outcomes.push({tmdb:film.tmdb,title:film.title,knownId:film.knownId||null,variants})
+  }
+  // Use the ONE existing videos.list call after search; include known and first
+  // three movie-filter candidates per title. No additional YouTube API calls.
+  const candidateIds=[...new Set(outcomes.flatMap(o=>(o.variants[0]?.first||[]).map(x=>x.id)).filter(isVideoId))]
+  const detailIds=[...new Set([...known,...candidateIds])].slice(0,50)
+  const details=await limited('videos',{part:'snippet,contentDetails,status',id:detailIds.join(',')})
+  const detailById=new Map(details.items.filter(x=>isVideoId(x.id)).map(x=>[x.id,x]))
+  const knownChannels=new Set(known.map(id=>detailById.get(id))
+    .filter(x=>x?.snippet?.channelId && /^YouTube Movies(?: & TV)?$/.test(x.snippet.channelTitle||''))
+    .map(x=>x.snippet.channelId))
+  const metadata=(v)=>v?{
+    title:safeTitle(v.snippet?.title),channel:safeTitle(v.snippet?.channelTitle),
+    channelId:String(v.snippet?.channelId||'').slice(0,80),
+    deSignal:getRegionSignal(v.contentDetails?.regionRestriction),
+    deExcluded:Array.isArray(v.contentDetails?.regionRestriction?.allowed)
+      ?!v.contentDetails.regionRestriction.allowed.includes('DE')
+      :Boolean(v.contentDetails?.regionRestriction?.blocked?.includes('DE')),
+    duration:String(v.contentDetails?.duration||'unbekannt').slice(0,32),
+    runtimeMinutes:runtimeMinutes(v.contentDetails?.duration),
+    visibility:String(v.status?.privacyStatus||'unbekannt').slice(0,24)
+  }:null
+  const candidateDetails=outcomes.flatMap(o=>(o.variants[0]?.first||[]).map(hit=>{
+    const detail=metadata(detailById.get(hit.id))
+    return {tmdb:o.tmdb,film:o.title,id:hit.id,detail,
+      knownChannel:detail?.channelId?knownChannels.has(detail.channelId):null,
+      filmLength:detail?.runtimeMinutes===null?null:detail.runtimeMinutes>=60}
+  }))
+  for(const o of outcomes) {
+    const detail=o.knownId?metadata(detailById.get(o.knownId)):null
+    o.knownIdResolved=o.knownId?Boolean(detail):null
+    o.detail=detail
   }
   const lines=[
     '# YouTube Movies G1 – Film-ID Discoverability (DE, Data API)',
