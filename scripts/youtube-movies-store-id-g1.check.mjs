@@ -43,3 +43,38 @@ test('records sanitized API failures without pretending a missing result is nega
  assert.equal(r.calls,9)
  assert.ok(r.report.includes('ID im öffentlichen Data-API-Abruf'))
 })
+
+
+test('uses the original one videos.list batch for newly discovered movies and known IDs',async()=>{
+ const { runtimeMinutes }=await import('./youtube-movies-store-id-g1.mjs')
+ assert.equal(runtimeMinutes('PT1H16M39S'),76.65)
+ assert.equal(runtimeMinutes('PT48M'),48)
+ assert.equal(runtimeMinutes('unknown'),null)
+ let batchedIds=[]
+ const api=async(endpoint,params)=>{
+   if(endpoint==='search')return {items:params.videoType==='movie'
+     ?[{id:{videoId:'nJf67zNZhoc'},snippet:{title:'Tim Burton Nightmare Before Christmas',channelTitle:'YouTube Movies'}}]
+     :[]}
+   if(endpoint==='videos'){
+     batchedIds=params.id.split(',')
+     return {items:[
+       {id:'-oMYcSU3oVo',snippet:{title:'Kedi',channelTitle:'YouTube Movies',channelId:'UC_REF'},contentDetails:{duration:'PT1H19M',regionRestriction:{allowed:['DE']}},status:{privacyStatus:'public'}},
+       {id:'Hw0CGCHl3V8',snippet:{title:'Nightmare',channelTitle:'YouTube Movies',channelId:'UC_REF'},contentDetails:{duration:'PT1H16M39S',regionRestriction:{allowed:['US']}},status:{privacyStatus:'public'}},
+       {id:'nJf67zNZhoc',snippet:{title:'Tim Burton Nightmare Before Christmas',channelTitle:'YouTube Movies',channelId:'UC_REF'},contentDetails:{duration:'PT1H16M39S',regionRestriction:{allowed:['DE']}},status:{privacyStatus:'public'}}
+     ]}
+   }
+   throw Error('Unexpected endpoint')
+ }
+ const r=await analyze({api,at:()=> '2026-10-21'})
+ assert.equal(r.calls,9)
+ assert.equal(r.searchCalls,8)
+ assert.deepEqual(new Set(batchedIds),new Set(['-oMYcSU3oVo','Hw0CGCHl3V8','nJf67zNZhoc']))
+ assert.equal(r.outcomes.find(x=>x.tmdb===9479).detail.deExcluded,true)
+ assert.equal(r.outcomes.find(x=>x.tmdb===392011).detail.deExcluded,false)
+ const candidate=r.candidateDetails.find(x=>x.id==='nJf67zNZhoc')
+ assert.equal(candidate.knownChannel,true)
+ assert.equal(candidate.filmLength,true)
+ assert.equal(candidate.detail.deExcluded,false)
+ assert.ok(r.report.includes('Neuer G1-Abgleich'))
+ assert.ok(r.report.includes('PT1H16M39S'))
+})
