@@ -127,6 +127,13 @@ export async function review({originalSource,tmdbSource,tmdbGet,now=()=>new Date
  let calls=0,quotaStop=false
  const rows=[]
  for(const v of cases){
+  if(quotaStop){
+   rows.push({rank:v.rank,videoId:v.videoId,title:v.title,category:v.category,
+    originalMinutes:v.minutes,priorStatus:v.previousReview,candidates:[],
+    improvementOverOldFirst:false,status:'review-not-checked-quota',errors:[],
+    confirmedFilm:false,confirmedDEPlayback:false,confirmedOffer:false})
+   continue
+  }
   const details=[],errors=[]
   for(const id of v.movieIds){
    if(quotaStop||calls>=MAX_DETAILS){quotaStop=true;break}
