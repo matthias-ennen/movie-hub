@@ -1,0 +1,41 @@
+name: YouTube G1 21 TMDB Alias and Public Index Review (Read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: moviehub-youtube-g1-twenty-one
+  cancel-in-progress: false
+
+jobs:
+  targeted-tmdb-review:
+    name: Recheck ambiguous title aliases in TMDB and PUBLIC MovieHub index only
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Set up Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Syntax and isolated mocked research gates
+        run: |
+          node --check scripts/youtube-movies-twenty-one-g1.mjs
+          node --test scripts/youtube-movies-twenty-one-g1.check.mjs
+      - name: Limited TMDB title recheck and public-only Search Index membership
+        run: node scripts/youtube-movies-twenty-one-g1.mjs
+      - name: Upload research report (14 days)
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g1-twenty-one-${{ github.run_id }}
+          path: artifacts/youtube-movies-g1/twenty-one-targeted.md
+          if-no-files-found: error
+          retention-days: 14
