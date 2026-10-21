@@ -114,3 +114,15 @@ Die bestehende **manuelle** [YouTube Movies G1 ID Discovery](https://github.com/
 5. **Vergleich:** Die alte Nightmare-URL als kontrollierter DE-Negativfall getrennt betrachten. Keine Testkäufe, keine Anmeldung an Partnerportal, kein Scraping.
 
 **Abnahmeschema je Link:** `titleMatched` / `youtubeAppOpened` / `exactDetailOpened` / `offerType` (`free|ads|rent|buy|flatrate|unknown`) / `priceEUR` (nur sichtbarer Preis) / `entitlement` (nur beobachtet) / `androidResult` / `fireTvResult` / `checkedAt` / `country=DE`. Bewertung erst nach Benutzer-/Gerätebeobachtung. Eine 40–60 Fälle umfassende ausgewogene Stichprobe sowie der rechtmäßige kontinuierliche TMDB→YouTube-Movies-ID-Feed bleiben G1-offen.
+
+## H. Nutzer-Praxistest: drei YouTube-Movies-Watch-Links funktionieren (21.10.2026)
+
+**Nutzerbeobachtung im laufenden MovieHub-G1-Chat:** Nach Aushändigung der drei URLs als lesbare HTTPS-Links meldete der Nutzer wörtlich: **„Haben alle funktioniert“**. Die Aufforderung zuvor bezog sich auf den *externen Linkaufruf auf Android*, nicht auf einen in MovieHub eingebauten Abspielbutton. Somit für alle drei IDs **gemeldete erfolgreiche externe Linkfunktion im Android-Testkontext**. Die Antwort präzisiert nicht, ob die native YouTube-App statt eines Browsers geöffnet wurde, ob die *exakte* Film-Detailseite zu sehen war oder welche Shopoptionen/Preise sichtbar waren. **Diese Aspekte bleiben ausdrücklich unbestätigt.**
+
+| TMDB-Identität / Film | Geprüfter externer HTTPS-Link | Beobachtungsstatus | Offene Informationen |
+| --- | --- | --- | --- |
+| `movie:9479` Nightmare Before Christmas | https://www.youtube.com/watch?v=nJf67zNZhoc | Nutzer meldet funktionierenden Link | native App vs. Browser, genaue Film-Detailseite, DE-Kauf-/Leih-/Aboangebot, Fire TV |
+| `movie:238` Der Pate | https://www.youtube.com/watch?v=xcCsnx-GRkA | Nutzer meldet funktionierenden Link | native App vs. Browser, genaue Film-Detailseite, DE-Kauf-/Leih-/Aboangebot, Fire TV |
+| `movie:872585` Oppenheimer | https://www.youtube.com/watch?v=_1WjM7ucekc | Nutzer meldet funktionierenden Link | native App vs. Browser, genaue Film-Detailseite, DE-Kauf-/Leih-/Aboangebot, Fire TV |
+
+**G1-Gate-Einstufung:** `externalLinkReportedWorking=true` für alle drei URLs (Nutzerbericht, Android-Testkontext); `youtubeAppOpened=unknown`, `exactDetailOpened=unknown`, `offerType=unknown`, `priceEUR=unknown`, `fireTvResult=untested`, `movieHubBridgeTest=untested`. Keinerlei tatsächliche Käufe, keine automatische Anbieterbadgevergabe, keine produktiven Firestore-Schreiboperationen. Nächster Schritt: gezielt nach der Art des geöffneten Ziels (YouTube-App vs. Browser und richtige Filmseite) fragen; danach einen echten Fire-TV-Test mit identischen IDs durchführen. Die Original-API-Metadaten und die drei Links sind oben in Abschnitt G dokumentiert.
