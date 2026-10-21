@@ -47,6 +47,32 @@
 
 ---
 
+## G1-Realbefund 21.10.2026 – deutsche TMDB-Anbieter, Discover-Konflikte und erweiterte Diagnose
+
+**Echter erfolgreicher Read-only-Lauf:** [Actions #39562949571](https://github.com/matthias-ennen/movie-hub/actions/runs/39562949571) auf `main`, 21.10.2026 07:34 UTC, 26/48 TMDB-Anfragen; echtes Job-Log und [14-Tage-Bericht](https://github.com/matthias-ennen/movie-hub/actions/runs/39562949571/artifacts/12328107583) ausgewertet. **Keine YouTube-Movies-Shop-/Preis-/Deep-Link-/Geräteprüfung.**
+
+**Echte DE-Provider-IDs:** YouTube `192`, YouTube Free `235`, YouTube Premium `188`. Google Play Movies und Google TV erschienen im gefilterten TMDB-Film-Verzeichnis nicht als eigene Treffer. Diese Identitäten nicht gleichsetzen.
+
+**TMDB-Discover-Treffermengen nach Anbieter und Monetarisierungsfilter** – ausdrücklich nur **unbestätigte Kandidatenzahlen**, **keine** geprüften Film-Shop-Bestände:
+
+| TMDB-Anbieter | free | ads | rent | buy | flatrate |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| YouTube (192) | 1362 | 4079 | 19061 | 19290 | 11265 |
+| YouTube Free (235) | 72 | 1113 | 896 | 899 | 721 |
+| YouTube Premium (188) | 0 | 2 | 4 | 11 | 29 |
+
+**Entscheidender Befund:** Bei der ersten streng `TMDB-ID + Provider-ID + Monetarisierungstyp` verglichenen 10er-Film-Stichprobe stimmten **nur 3 von 10** Discover-Anfrageklassen mit den deutschen `movie/{id}/watch/providers`-Detaildaten überein; **7 von 10 wichen ab**. Beispielsweise wurde **Der Pate** (`movie:238`) unter `free` für YouTube (192) von Discover vorgeschlagen, die konkrete TMDB-Detailantwort nannte für YouTube nur `rent,buy`. Auch **Der wilde Roboter** (`movie:1184918`) unter `ads` zeigte in den Details nur `rent,buy`. **Ursache noch unbewiesen** (z.B. Filtersemantik/Frische); Detaildaten belegen ihrerseits keine aktuelle YouTube-App-Wiedergabe oder Preise.
+
+**Technische Konsequenz:** `discover.total_results` konsequent als Suchkandidaten behandeln, niemals automatisch als `verifiedOffers`, `free`-, `rent`- oder `buy`-Badges interpretieren. Die bestehende Produktivkatalog-Logik in `scripts/provider-catalogs.mjs` übernimmt Discover-Kandidaten zunächst als Mitgliedschaft (`offerTypes:['catalog']`) und reichert danach echte Detailangebote an; daher ein **potenzielles**, noch nicht als UI-Bug bewiesenes Integrationsrisiko gesondert prüfen. Produktiven Renderer/Normalizer bisher nicht verändert.
+
+**Qualitätsnachtrag:** [PR #486](https://github.com/matthias-ennen/movie-hub/pull/486) nach [grüner CI #39563658427](https://github.com/matthias-ennen/movie-hub/actions/runs/39563658427) und [grüner Android-APK #39563658412](https://github.com/matthias-ennen/movie-hub/actions/runs/39563658412) mit Squash `2710f8306ef7f99f2a808fbe3e053be464a99e97` in `main` übernommen. **Ausschließlich G1-Forschungsdiagnose und eigene Node-Tests**, manuell auszulösender Workflow unverändert. Nun bis zu **30 Kombinationen** (maximal zwei Discover-Titel je Provider/Typ), zwischengespeicherte Details, getrennte `detail-agrees` / `detail-disagrees`-Auswertung und unverändert maximal **48** lesende TMDB-Anfragen. Änderungen erfolgreich nachgelesen; noch **kein erneuter Live-Datenlauf** des verbesserten Tools.
+
+**Nächster Schritt:** [YouTube Movies G1 TMDB Provider Audit](https://github.com/matthias-ennen/movie-hub/actions/workflows/youtube-movies-tmdb-provider-g1.yml) auf `main` erneut **manuell** starten. Danach echten neuen Bericht auf provider-/offer-gebundene Trefferquote auswerten und getrennt einen unabhängigen **offiziellen YouTube-Movies-Shop-Test mit 40–60 Fällen** inklusive Original-Filmseitenlinks, Deutschland-Preis/Angebotsklasse, Identität und Android-/Fire-TV-App-Öffnung vorbereiten. Die [offizielle YouTube-Hilfe](https://support.google.com/youtube/answer/9679194?hl=de) bestätigt Filme/Käufe in der YouTube-App auf Fire TV, **aber keinen konkreten für MovieHub bestätigten Filmtitel-Deep-Link**.
+
+**Freigabegrenze:** G1 research-only; kein produktiver YouTube-Adapter, keine neuen Badges/Anbieterreihen, kein Scraping, keine Testkäufe, keine G2-/G3-/G4-Freigabe.
+
+---
+
 ## 1. Projektübergabe und Entscheidung
 
 Matthias hat am **16.10.2026** das Gesamtpaket **Mitteilungen** als abgeschlossen erklärt; **#314 und #385** sind danach mit `completed` geschlossen worden. Die Teilpakete **#380–#384** sind ebenfalls geschlossen und zuvor fachlich abgenommen. Zusätzliche Meldungsfamilien sind Ideen für später, **keine aktuelle Aufgabe**. Die in #385 mit dokumentierten TV-/Provider-Korrekturen wurden technisch veröffentlicht; daraus wird keine undokumentierte weitere visuelle Geräteabnahme abgeleitet.
