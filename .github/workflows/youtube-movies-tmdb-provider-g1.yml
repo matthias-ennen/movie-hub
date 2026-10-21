@@ -1,0 +1,41 @@
+name: YouTube Movies G1 TMDB Provider Audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: moviehub-youtube-movies-g1-provider-audit
+  cancel-in-progress: false
+
+jobs:
+  tmdb-provider-audit:
+    name: Read-only TMDB DE YouTube/Google TV provider audit
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Check isolated G1 diagnostic
+        run: |
+          node --check scripts/youtube-movies-tmdb-provider-g1.mjs
+          node --test tests/youtube-movies-tmdb-provider-g1.test.mjs
+      - name: Read TMDB provider categories only
+        run: node scripts/youtube-movies-tmdb-provider-g1.mjs
+      - name: Upload temporary G1 report
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-movies-tmdb-g1-${{ github.run_id }}
+          path: artifacts/youtube-movies-g1/provider-audit.md
+          if-no-files-found: error
+          retention-days: 14
