@@ -1,0 +1,50 @@
+name: YouTube Movies G1 Fifty Titles (Read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: moviehub-youtube-movies-g1-fifty
+  cancel-in-progress: false
+
+jobs:
+  youtube-first-fifty:
+    name: Discover up to 50 distinct YouTube-owned movies, check TMDB candidates
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Authenticate with existing GitHub OIDC
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Setup gcloud for existing YouTube API key
+        uses: google-github-actions/setup-gcloud@v3
+      - name: Validate mocked 50-title G1 only
+        run: |
+          node --check scripts/youtube-movies-fifty-g1.mjs
+          node --test scripts/youtube-movies-fifty-g1.check.mjs
+      - name: Run bounded YouTube-first 50-title research
+        run: node scripts/youtube-movies-fifty-g1.mjs
+      - name: Upload temporary G1 findings
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-movies-g1-fifty-${{ github.run_id }}
+          path: artifacts/youtube-movies-g1/fifty-youtube-first.md
+          if-no-files-found: error
+          retention-days: 14
