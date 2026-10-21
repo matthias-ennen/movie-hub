@@ -63,7 +63,7 @@ test('read-only YouTube-first keeps newly discovered titles, series and excluded
  assert.ok(r.rows.every(x=>x.existingInMovieHub==='not-checked'&&!x.verifiedWork))
  assert.ok(r.report.includes('number of truly NEW MovieHub works is UNKNOWN'))
  assert.ok(r.report.includes('no auto-accepted films'))
- assert.ok(r.report.includes('different actual channel IDs'))
+ assert.ok(r.report.includes('distinct actual channel IDs'))
 })
 test('identical film and series titles remain ambiguous, no forced TMDB film identity',async()=>{
  const first=unique[0]
