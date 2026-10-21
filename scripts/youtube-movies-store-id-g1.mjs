@@ -112,6 +112,19 @@ export async function analyze({ api, at=()=>new Date().toISOString() }={}) {
         ...v.first.map(x=>'| '+x.id+' | '+x.title+' | '+x.channel+' |'),'')
     }
   }
+  lines.push('## Neuer G1-Abgleich: erste movie-Suchtreffer per videos.list','',
+    '- Filmkandidaten: '+candidateDetails.length+' aus maximal drei movie-Suchergebnissen je Film.',
+    '- Kanalkennung mit '+knownChannels.size+' Kennung(en) der zwei früher belegten Film-IDs verglichen.',
+    '- **Gleiche Kanalkennung, Laufzeit oder DE-Region sind keine Bestätigung für richtige Filmfassung, Preis oder App-Wiedergabe.**',
+    '',
+    '| TMDB-Film | YouTube-ID | Video-Titel | Kanal | Gleicher Referenzkanal | Laufzeit | DE-Signal | DE ausgeschlossen |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- |',
+    ...candidateDetails.map(x=>'| '+safeTitle(x.film)+' ('+x.tmdb+') | '+x.id+
+      ' | '+(x.detail?.title||'nicht abrufbar')+' | '+(x.detail?.channel||'unbekannt')+
+      ' | '+(x.knownChannel===null?'unbekannt':x.knownChannel?'ja':'nein')+
+      ' | '+(x.detail?.duration||'unbekannt')+
+      ' | '+(x.detail?.deSignal||'unbekannt')+
+      ' | '+(x.detail?x.detail.deExcluded?'ja':'nein':'unbekannt')+' |'),'')
   lines.push('## Interpretation und weitere G1-Gates','',
     '- **Fehlender Suchtreffer beweist keine fehlende Storefront:** Google weist darauf hin, dass Titel außerhalb ihres Angebotsfensters unter Umständen nicht per Titelsuche auffindbar sind.',
     '- **Gefundene ID allein genügt nicht für TMDB-Match:** Regie, Jahr/Fassung, offizieller Filmmodus und Anbieter/Entitlement sind unabhängig zu prüfen.',
@@ -119,7 +132,12 @@ export async function analyze({ api, at=()=>new Date().toISOString() }={}) {
     '- **Keine** Anmeldung an ein fremdes Partnerportal, kein Scraping, keine Käufe, keine Geräteabnahme und keine Veröffentlichung in MovieHub.',
     '- Nächster G1-Gate: tatsächliche offizielle YouTube-Movies-UI (DE, ggf. eingeloggtes Testkonto) und mobiler bzw. Fire-TV-Linktest mit expliziter Nutzerabnahme.',
     '')
-  return {calls,searchCalls,outcomes,report:lines.join('\n')}
+  return {calls,searchCalls,outcomes,candidateDetails,report:lines.join('\n')}
+}
+export function runtimeMinutes(value) {
+  const m=String(value||'').match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/)
+  if(!m || (!m[1]&&!m[2]&&!m[3]))return null
+  return Number(m[1]||0)*60 + Number(m[2]||0) + Number(m[3]||0)/60
 }
 function status(v) {
   if(v.state!=='ok')return 'API-Fehler'
