@@ -140,6 +140,22 @@ Die TMDB-Discover-Filterforschung ist als abgeschlossenes **G1-Teilthema** dokum
 **Nächste Aktion:** [Manuellen YouTube Movies G1 ID Discovery Workflow](https://github.com/matthias-ennen/movie-hub/actions/workflows/youtube-movies-store-id-g1.yml) auf main erneut ausführen und neues reales Artefakt für die drei Kandidaten lesen. **Dieser neue Live-Lauf steht noch aus.** Anschließend separat die echten Angebote und titelgenauen Android-/Fire-TV-App-Links in Deutschland prüfen, ohne Testkäufe. Detaillierte Herkunft und Evidenz: [G1-Shop-Link-Inventar](_work/YOUTUBE_MOVIES_SHOP_LINK_EVIDENCE_2026-10-21.md). Issue #388 offen, G2–G4 nicht freigegeben.
 
 ---
+## G1-Ergebnis 21.10.2026 – YouTube Movie-ID Kandidaten jetzt per videos.list geprüft
+
+**Echter neuer Read-only-Lauf erfolgreich:** [YouTube Movies G1 ID Discovery #39571075075](https://github.com/matthias-ennen/movie-hub/actions/runs/39571075075), 21.10.2026 08:40 UTC; [Original-Reportartefakt #12332506808](https://github.com/matthias-ennen/movie-hub/actions/runs/39571075075/artifacts/12332506808) wurde tatsächlich gelesen. Neun von neun API-Anfragen erfolgreich: 8 Suchen und eine gebündelte videos.list-Abfrage; die 12 movie-Suchkandidaten aus den vier abgefragten TMDB-Titeln lieferten alle Video-Details. Die zwei zuvor gesammelten Referenz-IDs wurden erneut gelesen. Es gab **keinen** API- oder App-Produktivimport.
+
+**Fokus der nächsten G1-Phase – drei echte Video-Metadatensätze, aber noch keine DE-Shop- oder Geräteevidenz:**
+- Nightmare Before Christmas (movie:9479), Video-ID `nJf67zNZhoc`, https://www.youtube.com/watch?v=nJf67zNZhoc , YouTube Movies, 1:16:39, DE in Allowed-Liste, Kanal-ID stimmt mit **einem** früheren YouTube-Movies-Referenzfilm überein. Frühere Nightmare-ID `Hw0CGCHl3V8` hat gleiche Runtime, aber DE **nicht** in Allowed-Liste. **A-Kandidat** für genaues Filmseitenziel.
+- Der Pate (movie:238), `xcCsnx-GRkA`, https://www.youtube.com/watch?v=xcCsnx-GRkA , YouTube Movies, 2:55:28, DE in Allowed-Liste. Seine Kanal-ID ist anders als die zwei vorhandenen Referenzkanäle; **B-Kandidat**, keine vorschnelle Echtheits-/Fassung-/Angebotsfreigabe.
+- Oppenheimer (movie:872585), `_1WjM7ucekc`, https://www.youtube.com/watch?v=_1WjM7ucekc , YouTube Movies, 3:00:22, DE in Allowed-Liste. Auch hier andere Kanal-ID als bei den zwei Referenzkanälen; **B-Kandidat**.
+
+**Architektur-Befund im bestehenden Android/Fire-TV-Code (read-only geprüft):** Native App besitzt `YouTubeUrlResolver.canonicalWatchUrl` für öffentliche elfstellige Video-IDs und `openProviderExact` beziehungsweise `launchYouTubeMedia` mit paketgebundenem `ACTION_VIEW` zuerst für bekannte YouTube-Pakete; danach Rückfall auf andere Provider-/Web-Aktionen. Die vorhandene Softwarelogik ist **kein tatsächlicher Gerätetesterfolg**. Kein Adapter-/Badge-/Provider-Code wurde geändert.
+
+**Nächste konkrete Aufgabe:** **Nicht** erneut youtube.search-Tiefenstudien oder zusätzliche Discover-Filter bauen. Die drei unveränderten `watch?v=`-Links nun in der realen deutschen YouTube-App auf Android und Fire TV mit Account prüfen: tatsächliche Film-Detailseite, richtige Fassung, Angebotsart, angezeigter Preis, Browser-/App-Routing, Fire-TV-Fokus/Wiedergabedialog; kein Testkauf. Vorher weder eine PlaybackRoute noch Availability-Badge freigeben. Danach erst eine ausgewogene 40–60-Fälle-Shop-Stichprobe und einen legitim automatisierbaren TMDB-ID→YouTube-Movies-ID-Datenpfad verifizieren.
+
+**Vollständige Probedaten, drei URLs, Negativkontrolle, Abnahmeschema:** [YouTube Movies G1-Shop-Link-Evidenzinventar](_work/YOUTUBE_MOVIES_SHOP_LINK_EVIDENCE_2026-10-21.md), Abschnitt G. #388 weiterhin **G1 offen**, G2–G4 nicht freigegeben. Keine Firestore-Schreibzugriffe, kein Produktiv-Deploy, keine Film-/Badge-Datenänderung.
+
+---
 ## 1. Projektübergabe und Entscheidung
 
 Matthias hat am **16.10.2026** das Gesamtpaket **Mitteilungen** als abgeschlossen erklärt; **#314 und #385** sind danach mit `completed` geschlossen worden. Die Teilpakete **#380–#384** sind ebenfalls geschlossen und zuvor fachlich abgenommen. Zusätzliche Meldungsfamilien sind Ideen für später, **keine aktuelle Aufgabe**. Die in #385 mit dokumentierten TV-/Provider-Korrekturen wurden technisch veröffentlicht; daraus wird keine undokumentierte weitere visuelle Geräteabnahme abgeleitet.
