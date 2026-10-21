@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "referenceRunId": 39609488229,
+  "referenceArtifactId": 12349258409,
+  "referenceDate": "2026-10-21",
+  "mode": "G1 research only. None of these work IDs is confirmed. No offers, rights or production imports.",
+  "candidates": [
+    {
+      "videoId": "3ivgYkh5Res",
+      "youtubeTitle": "2010: The Year We Make Contact",
+      "tmdbMovieId": 4437,
+      "releaseYear": 1984,
+      "tmdbMinutes": 116,
+      "observedYoutubeMinutes": 115.8,
+      "expectedDirector": "Peter Hyams",
+      "originalTitle": "2010",
+      "knownAlias": "2010: The Year We Make Contact"
+    },
+    {
+      "videoId": "cVubTPv90f4",
+      "youtubeTitle": "War Story",
+      "tmdbMovieId": 246013,
+      "releaseYear": 2014,
+      "tmdbMinutes": 90,
+      "observedYoutubeMinutes": 89.3,
+      "expectedDirector": "Mark Jackson",
+      "originalTitle": "War Story",
+      "knownAlias": null
+    },
+    {
+      "videoId": "6f5O_yR5hUc",
+      "youtubeTitle": "Isn't She Great? - Ist sie nicht großartig?",
+      "tmdbMovieId": 75531,
+      "releaseYear": 2000,
+      "tmdbMinutes": 95,
+      "observedYoutubeMinutes": 95.3,
+      "expectedDirector": "Andrew Bergman",
+      "originalTitle": "Isn't She Great",
+      "knownAlias": "Ist sie nicht großartig?"
+    },
+    {
+      "videoId": "ImYG7I2Z2yM",
+      "youtubeTitle": "El Club (OmU)",
+      "tmdbMovieId": 319995,
+      "releaseYear": 2015,
+      "tmdbMinutes": 97,
+      "observedYoutubeMinutes": 93.2,
+      "expectedDirector": "Pablo Larraín",
+      "originalTitle": "El Club",
+      "knownAlias": null
+    },
+    {
+      "videoId": "ClLIOYaxXy0",
+      "youtubeTitle": "Das Protokoll - Mord auf höchster Ebene",
+      "tmdbMovieId": 394645,
+      "releaseYear": 2016,
+      "tmdbMinutes": 115,
+      "observedYoutubeMinutes": 115.6,
+      "expectedDirector": "Erik Van Looy",
+      "originalTitle": "De Premier",
+      "knownAlias": "Das Protokoll"
+    }
+  ]
+}
