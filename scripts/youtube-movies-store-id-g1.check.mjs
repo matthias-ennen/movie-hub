@@ -78,3 +78,20 @@ test('uses the original one videos.list batch for newly discovered movies and kn
  assert.ok(r.report.includes('Neuer G1-Abgleich'))
  assert.ok(r.report.includes('PT1H16M39S'))
 })
+
+
+test('keeps unresolved movie candidates unverified without throwing or labeling an offer',async()=>{
+ const api=async(endpoint,params)=>{
+   if(endpoint==='search')return{items:params.videoType==='movie'
+     ?[{id:{videoId:'nJf67zNZhoc'},snippet:{title:'Nightmare',channelTitle:'YouTube Movies'}}]
+     :[]}
+   if(endpoint==='videos')return{items:[]}
+   throw Error('Unexpected')
+ }
+ const result=await analyze({api})
+ assert.equal(result.calls,9)
+ assert.equal(result.candidateDetails.length,4)
+ assert.ok(result.candidateDetails.every(x=>x.detail===null))
+ assert.ok(result.candidateDetails.every(x=>x.filmLength===null))
+ assert.ok(result.report.includes('nicht abrufbar'))
+})
