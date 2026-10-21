@@ -1,0 +1,50 @@
+name: YouTube Movies G1 Three Search Sort Modes (Read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: moviehub-youtube-movies-g1-three-sorts
+  cancel-in-progress: false
+
+jobs:
+  compare-youtube-sorts:
+    name: Compare DE movie search viewCount, date and rating without publication
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Set up Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Authenticate using existing GitHub OIDC (read-only research)
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Set up gcloud for existing YouTube API key
+        uses: google-github-actions/setup-gcloud@v3
+      - name: Validate syntax and mocked sorting behavior
+        run: |
+          node --check scripts/youtube-movies-three-sorts-g1.mjs
+          node --test scripts/youtube-movies-three-sorts-g1.check.mjs
+      - name: Compare three official movie search orders (DE), bounded G1 only
+        run: node scripts/youtube-movies-three-sorts-g1.mjs
+      - name: Upload 14-day private research report
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g1-three-sorts-${{ github.run_id }}
+          path: artifacts/youtube-movies-g1/three-sort-compare.md
+          if-no-files-found: error
+          retention-days: 14
