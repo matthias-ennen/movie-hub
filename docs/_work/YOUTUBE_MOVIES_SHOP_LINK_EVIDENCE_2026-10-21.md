@@ -48,3 +48,15 @@ Diese zwei einzelnen YouTube-Suchergebnisse sind **nicht** Trailerfunde: Die tat
 6. **Abnahme:** erst G1-Zahlenbericht, dann explizite G2-Entscheidung. Keine produktiven Badges/Firestore-Schreibzugriffe/Käufe.
 
 **Architektur:** Kanonische Identität bleibt `movie:<TMDB-ID>`; YouTube-Video-ID ist separate belegte PlaybackRoute mit Quelle, Prüfzeit, Land, Angebotsstatus und gerätespezifischer Verifikationsstufe. Fallback bei unbekannter ID weiterhin Suchroute, **nicht** erfundene `watch?v=`-URL.
+
+## E. Öffentliche Data API vs. Film-Shop-IDs: eng begrenzter Suchtest vorbereitet (21.10.2026)
+
+Nach Abschluss des TMDB-Discover-Diagnoseteils wurde **kein** weiterer TMDB-Test implementiert. [PR #488](https://github.com/matthias-ennen/movie-hub/pull/488) liegt nach grüner CI/APK als **isoliertes, manuelles, rein lesendes** Forschungswerkzeug auf main (Commit `b848c53d1326145fec13b7da9d14d41df3627ed1`).
+
+**Prüffrage:** Liefert der offizielle YouTube-Endpunkt `search.list` mit `videoType=movie` bei `regionCode=DE` tatsächlich die schon dokumentierten Film-Video-IDs `-oMYcSU3oVo` und `Hw0CGCHl3V8`, die zugleich über `videos.list` in Metadaten verifiziert werden sollen? Gegenprobe mit `videoType=any`. Zusätzlich nur Freitextsuche nach Der Pate / Oppenheimer ohne bekannte Film-ID; solche Suchtreffer sind *Hinweise* und keine freigegebene Identität.
+
+- <https://github.com/matthias-ennen/movie-hub/actions/workflows/youtube-movies-store-id-g1.yml>: Manuell auf `main` ausführbarer Workflow, OIDC/Secret-Manager-Schlüssel, **max. 9** lesende YouTube-API-Calls (8 Suchanfragen, 1 Videodetail).
+- Script `scripts/youtube-movies-store-id-g1.mjs` und isolierte Node-Tests `scripts/youtube-movies-store-id-g1.check.mjs` liegen auf main; temporärer 14-Tage-Bericht im Actions-Artefakt.
+- `search.list` dokumentiert `videoType=movie` ausdrücklich, hat aber laut der API-Referenz **keine Preis-/Rent-/Buy-/DE-Entitlement-Felder**. Das Partnerportal ist weiterhin kein öffentlicher Komplettfeed. Fehlende Treffer bei nicht aktiv angebotenen Filmen sind laut Google ausdrücklich möglich.
+
+**Status:** Diagnosecode technisch durch bestehende CI/APK validiert und nachgelesen; **neuer API-Livebericht noch offen**. Keine Android-/Fire-TV-App-Abnahme, keine produktive Film-PlaybackRoute, kein Badge, kein Katalogimport und keine Testkäufe. Die unabhängige echte DE-YouTube-Shop-Stichprobe mit 40–60 Fällen ist weiterhin G1-Arbeit.
