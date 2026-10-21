@@ -74,3 +74,31 @@ Bei einer read-only-Codeinspektion von [`src/components/AboutView.jsx`](../../sr
 **Sicherheit:** Nur manueller [YouTube Movies G1 Three Film Offers (Read-only)](https://github.com/matthias-ennen/movie-hub/actions/workflows/youtube-movies-three-offers-g1.yml)-Workflow auf `main`, max. **4** TMDB-Anfragen, bestehendes geheimes `TMDB_API_READ_TOKEN` nicht ausgeben, temporäres 14-Tage-Artefakt. Keine Firebase-/Firestore-/Badge-/Katalog-/APK-Produktivänderung. **Ein echter Lauf dieses neu angelegten Workflows hat zum Zeitpunkt dieses Dokuments noch nicht stattgefunden**; CI-Grün allein ist kein Live-Datenbericht.
 
 **Noch offener Entscheidungsweg:** Den manuellen Bericht einmal ausführen, nach tatsächlichem Artefakt nachprüfen, historische TMDB-Vorbefunde gegen aktuelle DE-Provider-Details vergleichen und weiterhin erst im echten YouTube-Shop am Gerät `Leihen`, `Kaufen`, `Kostenlos`, `Mit Werbung`, konkrete Primetime-Kanäle und sichtbare Preise bestätigen. Bis dahin behalten die drei Filme `offerType=unknown` auf Ebene **YouTube-Shop direkt beobachtet**; keine voreilige Produktiv-Integration. Erst danach 40–60 belegte unabhängige Werke verschiedener Angebotsklassen als G1-Stichprobe.
+
+## 8. Echter G1-Dreifilm-TMDB-Detailbericht (21.10.2026, 09:41 UTC)
+
+**Quelle (tatsächlich als Artefakt gelesen):** [Actions #39578883501](https://github.com/matthias-ennen/movie-hub/actions/runs/39578883501), 21.10.2026 **09:41 UTC** (11:41 MESZ), SUCCESS, [Reportartefakt #12336195508](https://github.com/matthias-ennen/movie-hub/actions/runs/39578883501/artifacts/12336195508). Skript meldet 4/4 ausschließlich lesende TMDB-API-Abfragen; Node-Test 5/5 erfolgreich. Enthalten waren der DE-Filmanbieterkatalog und drei separate `movie/{id}/watch/providers`-DE-Details. Dieser Run **ist real ausgeführt** (die davor stehende historische Vorbereitung in Abschnitt 7 ist daher inzwischen erledigt).
+
+**Echtes deutsches TMDB-Detailresultat, streng nach exakter Anbieter-ID:**
+
+| TMDB Film | Filmgenaues YouTube-Watch-Ziel (extern auf Android und Fire TV vom Nutzer positiv getestet) | YouTube TMDB-ID 192 | YouTube Free ID 235 | YouTube Premium ID 188 | Echter YouTube-Shop-Button / Preis |
+| --- | --- | --- | --- | --- | --- |
+| `movie:9479` Nightmare Before Christmas | https://www.youtube.com/watch?v=nJf67zNZhoc | **rent, buy** | kein DE-Detailtreffer | kein DE-Detailtreffer | **unbekannt**, nicht beobachtet |
+| `movie:238` Der Pate | https://www.youtube.com/watch?v=xcCsnx-GRkA | **rent, buy** | kein DE-Detailtreffer | kein DE-Detailtreffer | **unbekannt**, nicht beobachtet |
+| `movie:872585` Oppenheimer | https://www.youtube.com/watch?v=_1WjM7ucekc | **buy** | kein DE-Detailtreffer | kein DE-Detailtreffer | **unbekannt**, nicht beobachtet |
+
+**Gegenproben belegen den Grund für getrennte Provider-IDs:** Der Pate hat laut TMDB `free` bei **Arte**, nicht YouTube. Oppenheimer hat `ads` bei **Joyn**, nicht YouTube. Nightmare hat `flatrate` bei **Disney Plus**, nicht YouTube. Diese Angebotsarten dürfen die YouTube-Badges **nicht** infizieren. Die vorigen G1-TMDB-Vorbefunde für Der Pate und Oppenheimer werden im echten aktuellen Test bestätigt, Nightmare neu korrekt mit `rent+buy` eingeordnet.
+
+**Keine Preisauskunft, keine Lizenz- oder Abspielgarantie:** Eine positive `watch?v=...`-Route plus TMDB-Watch-Provider-Angabe sind **zwei voneinander unabhängige Quellen** und beweisen nicht, dass das spezifische YouTube-Video im aktuell angemeldeten DE-Konto tatsächlich zu diesen Konditionen angeboten wird. „Kein TMDB-Detailtreffer“ = fehlende Daten, **nicht** nachgewiesene Abwesenheit der Leistung. Bei uns bleiben aktuelle UI-/Konto-`offerType` und Preis zunächst `unknown`.
+
+### Anschluss an bestehende MovieHub-Architektur – read-only geprüft
+
+- In `src/services/tmdb.js` normalisiert `normalizeTmdbWatchProviders` bereits `flatrate`, `free`, `ads`, `rent`, `buy` zu `providerOffers[].offerTypes`. Die `TMDB_PROVIDER_REGISTRY` kennt den **YouTube**-Alias, aber nicht automatisch `YouTube Free` oder `YouTube Premium`; diese separaten TMDB-Anbieter werden damit nicht stillschweigend zur normalen YouTube-Angebotsklasse vermischt.
+- `src/providers/providerPlaybackLaunch.js` kann eine providergebundene exakte Route verwenden; der native `YouTubeUrlResolver` und der paketgebundene Android-/Fire-TV-Launcher wurden bereits geprüft und für die drei konkreten URLs vom Nutzer praktisch bestätigt.
+- `scripts/provider-catalogs.mjs` nutzt TMDB Discover nur zur Kandidatenrekrutierung und zieht individuelle `watch/providers`-Daten beim Film-Detail hinzu. Die gesonderte Discover-Katalogmitgliedschaft mit `offerTypes: ['catalog']` ist **nicht** mit echtem `rent`, `buy`, `free` oder `ads` gleichzusetzen. Vor produktiver Integration muss die vorhandene Abgrenzung der Katalog-Mitgliedschaft zu tatsächlichen Badge-OfferTypes getestet werden.
+
+### G1-Gate nach dem Messlauf
+
+Der nächste sinnvolle Schritt ist **nicht** noch ein ähnlicher TMDB-Test. Die vorhandenen Filmseiten werden in der echten deutschen YouTube-App (gleiches Konto wie beim Gerätetest) geöffnet und die **sichtbaren Buttons** `Ausleihen`, `Kaufen`, `Kostenlos ansehen`, `Mit Werbung`, `Primetime abonnieren`, jeweils ggf. Preis und Qualitätsvariante, ohne Kauf notiert. Für die spätere automatische Skalierung bleibt die offene Kernfrage ein nachweisbar rechtmäßiger, pflegbarer Film-ID+Angebotsfeed; ein beliebiges `search.list`-Treffer-Resultat reicht wegen Fehlzuordnungen/Regionen nicht aus.
+
+**Gate-Status:** Android/Fire-TV-Routing für drei Filme (Nutzerbericht) ✅; exakte deutsche TMDB-Anbieter-Angebotsklassen (Report) ✅; aktuelle YouTube-Storefront-Buttons/Preise ❌; breite unabhängige 40–60-Film-Stichprobe ❌; rechtmäßiger automatischer laufender Shop-/ID-Datenpfad ❌. **G1 bleibt offen, G2–G4 nicht freigegeben, keine produktiven Badges/Firestore/Katalogänderungen.**
