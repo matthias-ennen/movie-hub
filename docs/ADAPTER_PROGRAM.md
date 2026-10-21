@@ -1,5 +1,20 @@
 # Movie Hub – Adapterprogramm und Quellen-Ausbau
 
+## G1 – Drei YouTube-Film-Sortierungen für Deutschland: read-only Vergleich implementiert
+
+**Nutzerentscheidung 21.10.2026:** Der von uns vorgeschlagene Vergleich von **drei** YouTube-Data-API-Suchen für Deutschland – `order=viewCount`, `date`, `rating` – wurde ausdrücklich freigegeben („Okay so machen wir weiter“). Freigabe **nur für G1-Forschung**, kein G2-Produktivimport.
+
+**Implementierung:** [Pull Request #494](https://github.com/matthias-ennen/movie-hub/pull/494) **merged** nach `main`, Squash-Commit `2014d16190e25884cb6155926877c816bd968208` `[skip ci]`. Ausschließlich vier zusätzliche isolierte Dateien: `scripts/youtube-movies-three-sorts-g1.mjs`, `.check.mjs`, `tests/youtube-movies-three-sorts-g1.test.js`, `.github/workflows/youtube-movies-three-sorts-g1.yml`. Keine Änderung an App-, Android-, TV-, Firebase-/Firestore-, Badge-, Anbieter- oder Scheduler-Code. [CI #39596491195](https://github.com/matthias-ennen/movie-hub/actions/runs/39596491195) **SUCCESS**, **1223 Anwendungstests** (neuer Mock-Test inklusive); [Android #39596491288](https://github.com/matthias-ennen/movie-hub/actions/runs/39596491288) **SUCCESS**.
+
+**Exakte API-Abfrage für beide DE-Filter und jede Sortierung identisch:** `search.list(part=snippet,type=video,videoType=movie,regionCode=DE,maxResults=50,order=...)`, **ohne `q` und ohne `channelId`**. Zunächst exakt **drei** Suche-Calls, keine Pagination oder verdeckten Ausweichstrategien. Anschließend bis zu **150** deduplizierte Such-Video-IDs in höchstens drei `videos.list(part=snippet,contentDetails,status,statistics)`-Calls. Kanalname muss echter `YouTube Movies`-Anzeigename sein, öffentliche Vollfilmlänge ≥60 Minuten, DE darf nicht ausdrücklich gesperrt sein. Im G1-Bericht erscheinen pro Sortierung die tatsächlichen Treffer, tatsächlichen YouTube-Movies-Label-Treffer, qualifizierte Filmkandidaten, andere Kanäle, Views, IDs, Ränge, Überschneidungen und API-Fehler (beispielsweise eine einzelne `rating`-Ablehnung).
+
+**Vorsichtige TMDB-Anreicherung:** maximal **35** deduplizierte Kandidaten für eine begrenzte TMDB-DE-`search/movie`-Titelprüfung mit optionalem `/movie/{id}`-Laufzeitabgleich; maximal 80 TMDB-Anfragen. Genaue Titel- und Laufzeitähnlichkeit ist nur **`review`**, niemals ein verbindlicher TMDB-Match oder ein Angebotsnachweis. Von YouTube berechnete Sortierung `rating` ist interner Score, `viewCount` sind Videoviews, **keine Leih-/Kaufzahlen**. Suchindex und Sortierung können weniger als 50 liefern; selbst 50 gefundene Treffer sind **nicht** der komplette deutsche YouTube-Filmshop.
+
+**Echter API-Lauf NOCH AUSSTEHEND:** Kein tatsächlicher Live-Dreiersortierbericht liegt vor. Der getrennte Forschungsworkflow [YouTube Movies G1 Three Search Sort Modes (Read-only)](https://github.com/matthias-ennen/movie-hub/actions/workflows/youtube-movies-three-sorts-g1.yml) muss **einmal manuell auf `main`** per `Run workflow` gestartet werden. Erst danach das temporäre (14 Tage) GitHub-Artefakt `three-sort-compare.md` herunterladen, reale Zahlen und Unterschiede analysieren, Issue #388 mit einem Live-Beleg ergänzen und entscheiden, ob die Sortierungen für den 50er-Pool taugen oder TMDB-DE-seedbasierte gezielte Filmabfragen erforderlich werden.
+
+**Status:** Code und Tests abgeschlossen; tatsächliche YouTube-Suche und TMDB-Prüfung stehen ausdrücklich noch aus. G1 #388 offen, G2–G4 nicht freigegeben.
+
+---
 ## G1-Livebefund 21.10.2026 – zwölf Nutzerfilmlinks aufgelöst, kein gemeinsamer öffentlicher Playlist-Katalog
 
 **Neuer echter G1-API-Lauf** [YouTube Movies G1 User Twelve Links #39593679849](https://github.com/matthias-ennen/movie-hub/actions/runs/39593679849) wurde manuell auf `main` ausgeführt, GitHub Actions meldet **SUCCESS**. Das [Originalartefakt #12343545125](https://github.com/matthias-ennen/movie-hub/actions/runs/39593679849/artifacts/12343545125) ist tatsächlich heruntergeladen und vollständig ausgewertet. **12/12** vom Nutzer gelieferte Video-IDs via einem einzigen `videos.list` aufgelöst; 37 lesende YouTube-API-Requests insgesamt (`videos 1`, `channels 1`, `playlists 12`, `playlistItems 23`).
