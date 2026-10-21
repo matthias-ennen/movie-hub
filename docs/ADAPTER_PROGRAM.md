@@ -15,6 +15,17 @@
 **G1-Fokus ab jetzt:** belastbare, rechtmäßig abrufbare Film-ID/Link-Quelle; robuste Matching-/Region-/Lösch- und Verfügbarkeitsregeln; source-aware Merge-/Badge-Qualitätsprüfung mit repräsentativen Fällen; dokumentierte G1-Go-/No-Go-Abnahme vor G2. **Kein produktiver Adapter, Firestore-Katalog-Write, Badge-Umbau oder Deployment ohne separate Freigabe.** Issue #388 bleibt offen; die abgesagte tiefe YouTube-Shop-Tarifprüfung blockiert G1 nicht mehr.
 
 ---
+## G1-Umsetzung 21.10.2026 – direkter 50-Titel-YouTube-first-Pilot auf main
+
+**Nutzer hat die Stufung ausdrücklich auf 50 Filme in einem ersten Test umgestellt:** „Lass uns bitte direkt mit 50 Titel starten“. Deshalb **keine vorgeschaltete 15–20-Titel-Testphase** mehr. Die Erweiterung bezieht sich auf die **direkt aus YouTube Movies per YouTube Data API eingelesene Filmauswahl**, nicht auf den separaten alten Publisher-Playlist-200er-Pilot.
+
+**Technisch auf main:** [PR #491](https://github.com/matthias-ennen/movie-hub/pull/491) wurde nach CI [#39583563200](https://github.com/matthias-ennen/movie-hub/actions/runs/39583563200) SUCCESS (**189 Testdateien / 1220 Tests**, darunter gemockter 50-Titel-Forschungsfall) und Android APK [#39583563164](https://github.com/matthias-ennen/movie-hub/actions/runs/39583563164) SUCCESS mit `9003a44768905f9e80e715a63f3f40e0d354d9d0` `[skip ci]` kontrolliert übernommen. Vier Forschungsdateien, kein Produktivcode. Der neue [YouTube Movies G1 Fifty Titles (Read-only)](https://github.com/matthias-ennen/movie-hub/actions/workflows/youtube-movies-fifty-g1.yml) lässt sich **manuell auf main** starten.
+
+**Algorithmus:** 20 unterschiedlich ausgerichtete YouTube-first-Film-/Genre-/Zeitfenster-`search.list`-Anfragen (nicht 20 Titel), max. 20 zur Detailprüfung berücksichtigte Film-IDs je Anfrage, max. 8 gebündelte `videos.list`-Metadatenabfragen. Auswahl bis **50 unterschiedliche Titel** nach Laufzeit >=60 Min., schwachem YouTube-Movies-Kanaltitelsignal, ohne expliziten DE-Ausschluss und stabiler Video-/Titeldeduplizierung über ein Round-Robin der Suchstrata. Danach maximal 105 TMDB-GETs für zunächst **nur provisional** Film-Identität/Runtime-Hinweise. Harte YouTube-Quota-Höchstgrenze 2100 (theoretisch höchstens 2008). Die öffentliche Filmsuche bleibt ein **unvollständiges und fehleranfälliges Kandidatensignal**, kein bestätigter 50er-Angebotsfeed.
+
+**Noch offen (nicht als erledigt darstellen):** Der neue echte Live-YouTube-Abruf der 50 Zielkandidaten muss manuell gestartet und sein temporäres 14-Tage-Artefakt gelesen werden. Mocks erreichen exakt 50, reale YouTube-Daten können **weniger** geeignete eindeutige Titel liefern; dann offen als weniger berichten und Verbesserungsbedarf begründen. G1 bleibt bis zur geprüften Werks-/Linkqualität und rechtmäßigem Datenweg offen. G2–G4, Badge-/Katalog-/Firestore-/Firebase-/Native-Änderungen weiterhin gesperrt. Voller Bericht-/Testplan: [G1 50-Titel-Auswahl](_work/YOUTUBE_MOVIES_G1_TITLE_SELECTION_EXPANSION_2026-10-21.md).
+
+---
 ## G1-Priorität 21.10.2026 – Titel-Auswahl direkt aus YouTube jetzt vergrößern
 
 **Neue Nutzer-Rückfrage/Entscheidung:** Die bisherige Auswahl der **direkt von YouTube selbst eingelesenen Filme** ist zu klein und muss erweitert werden. **Zeitpunkt: bereits in G1 als read-only Auswahl-/Matchingtest, nicht erst nach produktiver Freigabe.** Die automatische Veröffentlichung vergrößerter Titelbestände in MovieHub wird hingegen erst in **separat freizugebendem G2** umgesetzt.
