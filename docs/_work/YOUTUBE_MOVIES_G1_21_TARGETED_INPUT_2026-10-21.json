@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "sourceRun": 39602961148,
+  "sourceArtifact": 12347785136,
+  "observedOn": "2026-10-21",
+  "purpose": "Read-only TMDB title-alias diagnostic and public Search Index membership, not YouTube shop/film verification",
+  "unresolved": [
+    {
+      "videoId": "3ivgYkh5Res",
+      "title": "2010: The Year We Make Contact",
+      "observedRuntimeMinutes": 115.8,
+      "previousReview": "unmatched-or-title-variant",
+      "queryAlias": "2010"
+    },
+    {
+      "videoId": "cVubTPv90f4",
+      "title": "War Story",
+      "observedRuntimeMinutes": 89.3,
+      "previousReview": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "j5PHSqJ7xl0",
+      "title": "Lügen haben kurze Beine",
+      "observedRuntimeMinutes": 106.6,
+      "previousReview": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "TPSkKEl65sE",
+      "title": "The Beast",
+      "observedRuntimeMinutes": 154,
+      "previousReview": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "IxL_x8G1_FU",
+      "title": "Police Story",
+      "observedRuntimeMinutes": 100.7,
+      "previousReview": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "9PsAlt9VHQ0",
+      "title": "Jagdgeschwader Wildkatze",
+      "observedRuntimeMinutes": 95.9,
+      "previousReview": "unmatched-or-title-variant"
+    },
+    {
+      "videoId": "RrR7rAvdEUE",
+      "title": "School of Rock",
+      "observedRuntimeMinutes": 109.2,
+      "previousReview": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "unV_jg5B7mI",
+      "title": "Baywatch",
+      "observedRuntimeMinutes": 116.6,
+      "previousReview": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "4Dy4kWCnXxY",
+      "title": "Paradise",
+      "observedRuntimeMinutes": 86.5,
+      "previousReview": "series-title-review"
+    },
+    {
+      "videoId": "yhPTiB5EDq4",
+      "title": "Peter Maffay - Niemals war es besser - Live - Arenatour 2015",
+      "observedRuntimeMinutes": 169.7,
+      "previousReview": "unmatched-or-title-variant",
+      "contentTypeControl": true
+    },
+    {
+      "videoId": "3SJO7aaY8r8",
+      "title": "Back In Time OmU",
+      "observedRuntimeMinutes": 94.3,
+      "previousReview": "unmatched-or-title-variant",
+      "queryAlias": "Back In Time"
+    },
+    {
+      "videoId": "n4tAw7v73Cc",
+      "title": "Operation Arsenal - Widerstand in Warschau",
+      "observedRuntimeMinutes": 107.5,
+      "previousReview": "unmatched-or-title-variant",
+      "queryAlias": "Operation Arsenal"
+    },
+    {
+      "videoId": "6f5O_yR5hUc",
+      "title": "Isn't She Great? - Ist sie nicht großartig?",
+      "observedRuntimeMinutes": 95.3,
+      "previousReview": "unmatched-or-title-variant",
+      "queryAlias": "Isn't She Great?"
+    },
+    {
+      "videoId": "ImYG7I2Z2yM",
+      "title": "El Club (OmU)",
+      "observedRuntimeMinutes": 93.2,
+      "previousReview": "unmatched-or-title-variant",
+      "queryAlias": "El Club"
+    },
+    {
+      "videoId": "sL38Hwd0rwY",
+      "title": "Mountain",
+      "observedRuntimeMinutes": 73.9,
+      "previousReview": "series-title-review"
+    },
+    {
+      "videoId": "RxhyuyCQq-I",
+      "title": "Mein bester Feind",
+      "observedRuntimeMinutes": 100.8,
+      "previousReview": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "ClLIOYaxXy0",
+      "title": "Das Protokoll - Mord auf höchster Ebene",
+      "observedRuntimeMinutes": 115.6,
+      "previousReview": "unmatched-or-title-variant",
+      "queryAlias": "Das Protokoll"
+    },
+    {
+      "videoId": "UCJKGbgBXd0",
+      "title": "Janette Oke: Die Coal Valley Saga Teil 6 - Entscheidungen",
+      "observedRuntimeMinutes": 88.8,
+      "previousReview": "unmatched-or-title-variant",
+      "contentTypeControl": true
+    },
+    {
+      "videoId": "2SwHXYoQQeQ",
+      "title": "Sahara",
+      "observedRuntimeMinutes": 124,
+      "previousReview": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "PZC6NS-IFCk",
+      "title": "The Amateur",
+      "observedRuntimeMinutes": 122.6,
+      "previousReview": "ambiguous-work-or-media-type-review"
+    },
+    {
+      "videoId": "EBiseL2xAz8",
+      "title": "Napoleon",
+      "observedRuntimeMinutes": 158.2,
+      "previousReview": "ambiguous-work-or-media-type-review"
+    }
+  ],
+  "priorTmdbMovieIdHints": [
+    10112,
+    1221061,
+    788921,
+    26022,
+    180863,
+    1369,
+    311301,
+    111196,
+    555457,
+    14105,
+    174341,
+    15198,
+    14053,
+    80530,
+    160165,
+    446308,
+    17819,
+    242065,
+    670266,
+    1242898,
+    969681,
+    1291595,
+    1258479,
+    532812,
+    1212763,
+    687163
+  ]
+}
