@@ -1,0 +1,303 @@
+{
+  "schemaVersion": 1,
+  "scope": "Research-only G1, not a provider catalog or TMDB work index",
+  "observedOn": "2026-10-21",
+  "expectedUniqueVideoIds": 47,
+  "expectedObservationCount": 49,
+  "observations": [
+    {
+      "videoId": "RY32dCRpRvE",
+      "title": "The Aristocats",
+      "source": "youtube-first-genre",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_TITLE_SELECTION_EXPANSION_2026-10-21.md"
+    },
+    {
+      "videoId": "3ivgYkh5Res",
+      "title": "2010: The Year We Make Contact",
+      "source": "youtube-first-genre",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_TITLE_SELECTION_EXPANSION_2026-10-21.md"
+    },
+    {
+      "videoId": "24u6ps_a_c4",
+      "title": "In die Sonne schauen",
+      "source": "youtube-first-genre",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_TITLE_SELECTION_EXPANSION_2026-10-21.md"
+    },
+    {
+      "videoId": "cVubTPv90f4",
+      "title": "War Story",
+      "source": "youtube-first-genre",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_TITLE_SELECTION_EXPANSION_2026-10-21.md"
+    },
+    {
+      "videoId": "j5PHSqJ7xl0",
+      "title": "Lügen haben kurze Beine",
+      "source": "youtube-first-genre",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_TITLE_SELECTION_EXPANSION_2026-10-21.md"
+    },
+    {
+      "videoId": "RLsHxwsFVqY",
+      "title": "Everything Will Change",
+      "source": "youtube-first-genre",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_TITLE_SELECTION_EXPANSION_2026-10-21.md"
+    },
+    {
+      "videoId": "m-hwfIKIb5w",
+      "title": "My Name Is Khan",
+      "source": "youtube-first-genre",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_TITLE_SELECTION_EXPANSION_2026-10-21.md"
+    },
+    {
+      "videoId": "TPSkKEl65sE",
+      "title": "The Beast",
+      "source": "youtube-first-genre",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_TITLE_SELECTION_EXPANSION_2026-10-21.md"
+    },
+    {
+      "videoId": "IxL_x8G1_FU",
+      "title": "Police Story",
+      "source": "youtube-first-genre",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_TITLE_SELECTION_EXPANSION_2026-10-21.md"
+    },
+    {
+      "videoId": "WRZ0-JNo5BE",
+      "title": "T2 Trainspotting",
+      "source": "youtube-first-genre",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_TITLE_SELECTION_EXPANSION_2026-10-21.md"
+    },
+    {
+      "videoId": "WlzWW8zfJSI",
+      "title": "Rambo II - Der Auftrag",
+      "source": "youtube-first-genre",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_TITLE_SELECTION_EXPANSION_2026-10-21.md"
+    },
+    {
+      "videoId": "u_Sf2eOZtiQ",
+      "title": "Als wir träumten",
+      "source": "youtube-first-genre",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_TITLE_SELECTION_EXPANSION_2026-10-21.md"
+    },
+    {
+      "videoId": "rRjpz4JDvB8",
+      "title": "Captain USA - The Iron Soldier",
+      "source": "public-channel-uploads",
+      "evidence": "GitHub Actions run 39586142933, artifact 12338904782, channel-uploads.md"
+    },
+    {
+      "videoId": "9PsAlt9VHQ0",
+      "title": "Jagdgeschwader Wildkatze",
+      "source": "public-channel-uploads",
+      "evidence": "GitHub Actions run 39586142933, artifact 12338904782, channel-uploads.md"
+    },
+    {
+      "videoId": "IxL_x8G1_FU",
+      "title": "Police Story",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "RrR7rAvdEUE",
+      "title": "School of Rock",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "unV_jg5B7mI",
+      "title": "Baywatch",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "4RCqKX8K83A",
+      "title": "Vier Kids und der magische Sandelf",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "HvrbUMWtRkk",
+      "title": "Rache - Vergeltung hat ihren Preis",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "9PsAlt9VHQ0",
+      "title": "Jagdgeschwader Wildkatze",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "X83UMdFJkD8",
+      "title": "Some Velvet Morning",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "tk1rk-m3hvc",
+      "title": "Mystery - New York: Ein Spiel um die Ehre",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "4Dy4kWCnXxY",
+      "title": "Paradise",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "yhPTiB5EDq4",
+      "title": "Peter Maffay - Niemals war es besser - Live - Arenatour 2015",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "3SJO7aaY8r8",
+      "title": "Back In Time OmU",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "n4tAw7v73Cc",
+      "title": "Operation Arsenal - Widerstand in Warschau",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "6f5O_yR5hUc",
+      "title": "Isn't She Great? - Ist sie nicht großartig?",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "ImYG7I2Z2yM",
+      "title": "El Club (OmU)",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "sL38Hwd0rwY",
+      "title": "Mountain",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "EFRNDiFXTKs",
+      "title": "Schlappschuss 3 - Die Junior Liga",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "n0AQvakU8VI",
+      "title": "Magic Beyond Words: Die zauberhafte Geschichte der J.K. Rowling",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "vA9VaqicDQI",
+      "title": "Im Namen des...",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "RxhyuyCQq-I",
+      "title": "Mein bester Feind",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "LHzf_KpCU-g",
+      "title": "Die Gabe zu heilen",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "cTympGJiyGo",
+      "title": "Ninas Alibi",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "s0Ez7ljobJc",
+      "title": "LUCIA - Engel des Todes?",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "ClLIOYaxXy0",
+      "title": "Das Protokoll - Mord auf höchster Ebene",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "UCJKGbgBXd0",
+      "title": "Janette Oke: Die Coal Valley Saga Teil 6 - Entscheidungen",
+      "source": "youtube-search-sort",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_THREE_SORTS_LIVE_2026-10-21.md"
+    },
+    {
+      "videoId": "q9Gba51rkHw",
+      "title": "Tremors: Shrieker Island",
+      "source": "user-supplied",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_USER_12_LIVE_EVIDENCE_2026-10-21.md"
+    },
+    {
+      "videoId": "2SwHXYoQQeQ",
+      "title": "Sahara",
+      "source": "user-supplied",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_USER_12_LIVE_EVIDENCE_2026-10-21.md"
+    },
+    {
+      "videoId": "rzIyI-OME3M",
+      "title": "Predator: Badlands",
+      "source": "user-supplied",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_USER_12_LIVE_EVIDENCE_2026-10-21.md"
+    },
+    {
+      "videoId": "PZC6NS-IFCk",
+      "title": "The Amateur",
+      "source": "user-supplied",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_USER_12_LIVE_EVIDENCE_2026-10-21.md"
+    },
+    {
+      "videoId": "tGPvABsHlu4",
+      "title": "Spider-Man: Brand New Day",
+      "source": "user-supplied",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_USER_12_LIVE_EVIDENCE_2026-10-21.md"
+    },
+    {
+      "videoId": "Etlfq9KD78Q",
+      "title": "INSIDIOUS: OUT OF THE FURTHER",
+      "source": "user-supplied",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_USER_12_LIVE_EVIDENCE_2026-10-21.md"
+    },
+    {
+      "videoId": "DxRslNY7hDw",
+      "title": "Bibi Blocksberg: Das große Hexentreffen",
+      "source": "user-supplied",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_USER_12_LIVE_EVIDENCE_2026-10-21.md"
+    },
+    {
+      "videoId": "EBiseL2xAz8",
+      "title": "Napoleon",
+      "source": "user-supplied",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_USER_12_LIVE_EVIDENCE_2026-10-21.md"
+    },
+    {
+      "videoId": "Ln4NNpDD5q8",
+      "title": "Robert The Bruce – König von Schottland",
+      "source": "user-supplied",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_USER_12_LIVE_EVIDENCE_2026-10-21.md"
+    },
+    {
+      "videoId": "rSn7jQolX_c",
+      "title": "Evil Dead Burn",
+      "source": "user-supplied",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_USER_12_LIVE_EVIDENCE_2026-10-21.md"
+    },
+    {
+      "videoId": "h4Tv29mk4LE",
+      "title": "Project Hail Mary",
+      "source": "user-supplied",
+      "evidence": "docs/_work/YOUTUBE_MOVIES_G1_USER_12_LIVE_EVIDENCE_2026-10-21.md"
+    }
+  ]
+}
