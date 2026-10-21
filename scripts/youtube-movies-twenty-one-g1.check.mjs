@@ -57,7 +57,7 @@ test('targeted TMDB-only research preserves ambiguous status and compares 26 pub
  assert.ok(out.index.present.includes(4437))
  assert.ok(out.index.absent.includes(26022))
  assert.ok(out.report.includes('absent-from-PUBLIC-index-only'))
- assert.ok(out.report.includes('not accepted'))
+ assert.ok(out.report.includes('no approved identity'))
 })
 test('public index fetch is read-only, rejects HTML and version mismatches',async()=>{
  const data={kind:'search-index',version:1,entries:[],generatedAt:'2026-10-21'}
