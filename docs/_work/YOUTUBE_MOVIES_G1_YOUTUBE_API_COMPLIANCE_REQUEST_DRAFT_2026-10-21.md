@@ -1,5 +1,17 @@
 # MovieHub – Entwurf einer YouTube-API-Compliance-Anfrage (G1, nicht abgesendet)
 
+## Projektentscheidung 21.10.2026 – interne Einzelnutzung, Anfrage zurückgestellt
+
+Der Eigentümer nutzt MovieHub derzeit **allein mit einem Benutzerkonto**. Er hat entschieden, den Versand dieser Anfrage **bis zur konkreten Freigabe weiterer Benutzer oder öffentlicher Nutzung** zurückzustellen und die interne G1-Entwicklung fortzuführen. Die Entscheidung und ihr Geltungsumfang sind im [verbindlichen Issue #388](https://github.com/matthias-ennen/movie-hub/issues/388#issuecomment-6325708456) dokumentiert.
+
+**Harter Trigger vor einer Freigabe:** Sobald weitere eigenständige Benutzer Zugang bekommen sollen oder MovieHub öffentlich/extern genutzt beziehungsweise der YouTube-Katalog-/Badge-Adapter veröffentlicht werden soll, den geplanten API-Datenfluss erneut bewerten, YouTubes erforderliche konkrete Genehmigungen/Compliance-Fragen klären und **erst danach** Zugriff, Veröffentlichungen und automatisierte Angebote aktivieren. Nicht allein wegen einer kleinen Benutzerzahl freigeben.
+
+**Wichtig auch jetzt:** Single-User/private Nutzung ist **keine** nachgewiesene Ausnahme von [YouTube API Developer Policies III.E.2](https://developers.google.com/youtube/terms/developer-policies) über Datenaggregation verschiedener Content Owner oder von Datenretentions-/Refresh-Vorgaben. Diese Projektentscheidung gibt **keinen** zusätzlichen kanalübergreifenden API-Gesamtkatalog, keinen breiten Multi-Owner-Crawl und keine ungeprüften MovieHub-YouTube-Badges frei. Weiterarbeit vorläufig an vorhandener 100er-Qualitätsauswertung, unverändertem Matcher v1, Tests und datenflussgetrennter Architektur im Rahmen der geltenden Regeln.
+
+**Status:** Entwurf weiter **nicht versendet**. Keine öffentliche Freigabe, keine bestätigten DE-Offers, kein produktiver YouTube-Import.
+
+---
+
 **Status:** fachlicher Entwurf, Stand 21.10.2026. **Nicht an YouTube gesendet. Keine Freigabe behauptet.** Antragsteller/Projekt-ID/Ansprechpartner aus dem echten verknüpften Google-Cloud-Projekt nur bei einer später explizit freigegebenen Einreichung ergänzen, keine Secrets oder personenbezogenen Daten in GitHub-Dokumente schreiben.
 
 ## Zweck für Google/YouTube
