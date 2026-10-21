@@ -15,6 +15,17 @@
 **G1-Fokus ab jetzt:** belastbare, rechtmäßig abrufbare Film-ID/Link-Quelle; robuste Matching-/Region-/Lösch- und Verfügbarkeitsregeln; source-aware Merge-/Badge-Qualitätsprüfung mit repräsentativen Fällen; dokumentierte G1-Go-/No-Go-Abnahme vor G2. **Kein produktiver Adapter, Firestore-Katalog-Write, Badge-Umbau oder Deployment ohne separate Freigabe.** Issue #388 bleibt offen; die abgesagte tiefe YouTube-Shop-Tarifprüfung blockiert G1 nicht mehr.
 
 ---
+## G1-Livebefund 21.10.2026 – 50 geplant, 12 gefunden; Quellenzugang verbessern
+
+**Echter 50er-YouTube-API-Run liegt vor:** [#39584388602](https://github.com/matthias-ennen/movie-hub/actions/runs/39584388602), **SUCCESS**, [originales Reportartefakt #12337893476](https://github.com/matthias-ennen/movie-hub/actions/runs/39584388602/artifacts/12337893476) tatsächlich heruntergeladen und gelesen. **20 YouTube search.list + 7 videos.list**, 307 Video-IDs gefunden und auch im Metadaten-Detail aufgelöst. Aus diesen erreichte der konservative Kanaltitel-/≥60-Minuten-/DE-nicht-explizit-gesperrt-/Titel-Deduplikationsfilter **nur 12 statt der angestrebten 50 Titel**. 19 TMDB-GETs; 6 plausible `review`, 4 mehrdeutige, 1 ohne exakten Titelalias, 1 weitere nur exakte Titelreview. **Keine 50 bestätigten Filme und noch kein G2-Go.**
+
+**Fachlicher Befund:** Die zwanzig breiten Genre-/Jahrzehnt-/Sprachsuchen liefern mit dem `videoType=movie`-Filter sehr viele andere/nicht zuordenbare Videos. Einfach dieselben breiten Suchen zu wiederholen oder die 200 Publisher-Videos zum YouTube-eigenen Shop hinzuzuzählen, wäre fachlich falsch. Stattdessen **die tatsächlichen Kanal-IDs hinter den zwölf zuvor gefundenen Film-IDs** auf zugängliche, offiziell dokumentierte `channels.list`-`relatedPlaylists.uploads`-Feeds und `playlistItems.list` prüfen; nur falls brauchbar, weitere Film-ID-Kandidaten nachschalten. Öffentliche Upload-Listen sind **kein** bestätigter YouTube-Shop-/Lizenz-/Angebotsfeed.
+
+**Folgeprüfung in Vorbereitung:** [PR #492](https://github.com/matthias-ennen/movie-hub/pull/492), strikt read-only, maximal 22 YouTube-Data-API-Aufrufe, höchstens sechs beobachtete Kanal-IDs und je zwei Upload-Playlistseiten; bis 300 neue Video-IDs batched nachprüfen. CI/Android laufen zum Zeitpunkt dieser Notiz; deshalb weder Merge noch Live-Ergebnis behaupten. Falls der Upload-Feed unbrauchbar ist, als nächstes gezieltere **TMDB-DE-providerbasierte Filmseed-Liste → legitime YouTube-Titel-ID-Suche** mit konservativem Matching erforschen.
+
+**Vollständige echte 12 Kandidaten und Messzahlen** im [G1-50-Titel-Evidenzbericht](_work/YOUTUBE_MOVIES_G1_TITLE_SELECTION_EXPANSION_2026-10-21.md). G1 offen; kein produktiver MovieHub-Katalog, kein Badge und kein Firebase-Deployment geändert.
+
+---
 ## G1-Umsetzung 21.10.2026 – direkter 50-Titel-YouTube-first-Pilot auf main
 
 **Nutzer hat die Stufung ausdrücklich auf 50 Filme in einem ersten Test umgestellt:** „Lass uns bitte direkt mit 50 Titel starten“. Deshalb **keine vorgeschaltete 15–20-Titel-Testphase** mehr. Die Erweiterung bezieht sich auf die **direkt aus YouTube Movies per YouTube Data API eingelesene Filmauswahl**, nicht auf den separaten alten Publisher-Playlist-200er-Pilot.
