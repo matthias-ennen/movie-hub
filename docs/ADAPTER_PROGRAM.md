@@ -1,5 +1,17 @@
 # Movie Hub – Adapterprogramm und Quellen-Ausbau
 
+## G1-Liveergebnis 21.10.2026 – 21 TMDB-Klärungen und öffentlicher MovieHub-Indexabgleich mit 26 Filmhinweisen
+
+**Beide tatsächlichen manuellen Forschungsläufe abgeschlossen und Originalartefakte eingesehen:** [21 TMDB-Aliase #39609488229](https://github.com/matthias-ennen/movie-hub/actions/runs/39609488229) **SUCCESS** ([Originalartefakt #12349258409](https://github.com/matthias-ennen/movie-hub/actions/runs/39609488229/artifacts/12349258409)), **103** lesende TMDB-GETs, **0** weitere YouTube-API-Requests; die **21** unklaren Originalfälle ergaben **5 Single-Film-Hypothesen**, **10 mehrdeutige Film-/TV-Hypothesen**, **2 TV-Titel-Hypothesen**, **2 ungeklärte Werke** und **2 Nichtfilm-Risiken**. Alle nur `review`; weder 5 noch 21 geprüfte Filmversionen.
+
+**Öffentlicher Bestandsvergleich tatsächlich ausgeführt:** [26 öffentliche TMDB-ID-Hinweise #39609504832](https://github.com/matthias-ennen/movie-hub/actions/runs/39609504832) **SUCCESS** ([Originalartefakt #12349283359](https://github.com/matthias-ennen/movie-hub/actions/runs/39609504832/artifacts/12349283359)). Der **tatsächlich veröffentlichte öffentliche** `search-index.json` vom **2026-10-21T01:54:14.490Z** enthielt **20.671** Titel: **13 der 26** zuvor vorgeschlagenen TMDB-Movie-IDs enthalten, **13 von 26** nicht darin enthalten. Der öffentliche `catalog.json`-Vergleich wurde **nicht** gültig abgeschlossen (`unavailable-or-invalid`), daher zu `Browse` **unbekannt** statt 0. **Das sind KEINE 13 bestätigten neuen MovieHub-Filme:** Identitäts-/Fassungsprüfung fehlt, persönlich/kontogebundene Katalogteile sind nicht im öffentlichen Suchindex enthalten.
+
+**Nächster G1-Gate:** fünf besonders starke Filmhypothesen auf Identität/Fassung prüfen, 10 Ambiguitäten gezielt auflösen und fehlende Aliasfälle weiter vorsichtig kennzeichnen. Separat den Fehler des öffentlichen Browse-Katalog-GET diagnostizieren; falls nicht prüfbar, `unknown` beibehalten. YouTube API Developer Policies **III.E.2** (kanal-/rechteinhaberübergreifende API-Datenaggregation) als echtes **Compliance-Blockergate** vor jeglicher G2-Veröffentlichung behandeln, nicht von einer automatisch erlaubten Multi-Provider-Darstellung ausgehen. Kein G2-Go und keine produktiven Anbieterbadges oder Titelimporte.
+
+**Dauerhafte Originalbefund-/Übergabedokumentation:** [G1 – 21 Alias-/26 Index-Liveergebnisse](_work/YOUTUBE_MOVIES_G1_21_26_LIVE_RESULTS_2026-10-21.md).
+
+---
+
 ## G1-Fortsetzung 21.10.2026 – gezielte Film-/Serien-/Aliasprüfung der 21 unklaren YouTube-Video-IDs
 
 **Aktueller Forschungsstand vor dieser Änderung:** Der vorherige echte 47-Video-Audit [#39602961148](https://github.com/matthias-ennen/movie-hub/actions/runs/39602961148) hat **47/47** YouTube Movies Video-IDs geprüft und **25 plausible + 1 titelgenauen, aber laufzeit-ungeklärten TMDB-Filmhinweis** gefunden, daneben **10 mehrdeutige, 2 TV-Titel- und 9 nicht exakt gematchte Fälle**. **0** verifizierte/aufgenommene Filmwerke. Die vorherige Überlegung, weitere rating-Suchergebnisseiten ungefiltert abzurufen, wird zunächst zugunsten der fachlichen Qualitätsprüfung dieser 21 ungelösten Fälle zurückgestellt. Die jüngste, verbindliche Zwei-Wege-Architektur **YouTube-first unabhängig von TMDB-Providerbestand PLUS TMDB-first** bleibt voll gültig.
