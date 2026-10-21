@@ -1,0 +1,51 @@
+name: YouTube G1 Original 100 Video Candidates – TMDB Identity Review (Read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: youtube-g1-original-hundred-tmdb-research
+  cancel-in-progress: false
+
+jobs:
+  hundred-tmdb:
+    name: Review 13 category-risk titles first and 87 film-category titles, no publication
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Set up Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Mocked research and source parser checks
+        run: |
+          node --check scripts/youtube-movies-hundred-tmdb-g1.mjs
+          node --test scripts/youtube-movies-hundred-tmdb-g1.check.mjs
+      - name: Download exact 14-day G1 original GitHub research artifact
+        run: |
+          mkdir -p artifacts/youtube-movies-g1
+          gh api --method GET /repos/matthias-ennen/movie-hub/actions/artifacts/12353497700/zip > "$RUNNER_TEMP/g1-original-100.zip"
+          unzip -t "$RUNNER_TEMP/g1-original-100.zip" >/dev/null
+          unzip -p "$RUNNER_TEMP/g1-original-100.zip" all-categories-hundred.md \
+            > artifacts/youtube-movies-g1/original-all-categories-hundred.md
+          test -s artifacts/youtube-movies-g1/original-all-categories-hundred.md
+      - name: Read-only exact-original hundred TMDB movie/TV/alias research
+        run: node scripts/youtube-movies-hundred-tmdb-g1.mjs
+      - name: Archive derived review only (no original YouTube API metadata reupload)
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g1-100-tmdb-review-${{ github.run_id }}
+          path: artifacts/youtube-movies-g1/hundred-tmdb-review.md
+          if-no-files-found: error
+          retention-days: 14
