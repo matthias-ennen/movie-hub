@@ -1,0 +1,48 @@
+name: YouTube Movies G1 Public Upload Feeds (Read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: moviehub-youtube-movies-g1-channel-uploads
+  cancel-in-progress: false
+
+jobs:
+  check-movie-channel-uploads:
+    name: Probe public upload feeds of observed YouTube Movies channels
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Authenticate using existing GitHub OIDC
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v3
+      - name: Validate read-only isolated tests
+        run: |
+          node --check scripts/youtube-movies-channel-uploads-g1.mjs
+          node --test scripts/youtube-movies-channel-uploads-g1.check.mjs
+      - name: Probe official YouTube Data API channel upload listings
+        run: node scripts/youtube-movies-channel-uploads-g1.mjs
+      - name: Upload 14-day research report
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-movies-g1-channel-uploads-${{ github.run_id }}
+          path: artifacts/youtube-movies-g1/channel-uploads.md
+          if-no-files-found: error
+          retention-days: 14
