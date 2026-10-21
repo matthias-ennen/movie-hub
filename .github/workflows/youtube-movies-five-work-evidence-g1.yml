@@ -1,0 +1,50 @@
+name: YouTube Movies G1 Five Work/Version Evidence (Read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: youtube-movies-g1-five-work-evidence
+  cancel-in-progress: false
+
+jobs:
+  five-work-evidence:
+    name: Compare five observed public YouTube video IDs to candidate TMDB movie versions
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Authenticate for existing read-only Google API key
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: gcloud for existing YOUTUBE_API_KEY
+        uses: google-github-actions/setup-gcloud@v3
+      - name: Check G1 report script and mock expectations
+        run: |
+          node --check scripts/youtube-movies-five-work-evidence-g1.mjs
+          node --test scripts/youtube-movies-five-work-evidence-g1.check.mjs
+      - name: Official read-only YouTube and TMDB work/version evidence
+        run: node scripts/youtube-movies-five-work-evidence-g1.mjs
+      - name: Archive diagnostic report for 14 days
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g1-five-work-evidence-${{ github.run_id }}
+          path: artifacts/youtube-movies-g1/five-work-evidence.md
+          if-no-files-found: error
+          retention-days: 14
