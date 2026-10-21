@@ -126,3 +126,17 @@ Die bestehende **manuelle** [YouTube Movies G1 ID Discovery](https://github.com/
 | `movie:872585` Oppenheimer | https://www.youtube.com/watch?v=_1WjM7ucekc | Nutzer meldet funktionierenden Link | native App vs. Browser, genaue Film-Detailseite, DE-Kauf-/Leih-/Aboangebot, Fire TV |
 
 **G1-Gate-Einstufung:** `externalLinkReportedWorking=true` für alle drei URLs (Nutzerbericht, Android-Testkontext); `youtubeAppOpened=unknown`, `exactDetailOpened=unknown`, `offerType=unknown`, `priceEUR=unknown`, `fireTvResult=untested`, `movieHubBridgeTest=untested`. Keinerlei tatsächliche Käufe, keine automatische Anbieterbadgevergabe, keine produktiven Firestore-Schreiboperationen. Nächster Schritt: gezielt nach der Art des geöffneten Ziels (YouTube-App vs. Browser und richtige Filmseite) fragen; danach einen echten Fire-TV-Test mit identischen IDs durchführen. Die Original-API-Metadaten und die drei Links sind oben in Abschnitt G dokumentiert.
+
+## I. Nutzer bestätigt Android-App-Absprung und Film-Anzeige (21.10.2026)
+
+**Nachfrage und eindeutige Rückmeldung:** Nach der vorherigen Mitteilung zu den drei Links fragte die Assistenz explizit: „Haben deine drei gerade getesteten Links die **YouTube-App direkt geöffnet und dort die Filme angezeigt**?“ Darauf antwortete der Nutzer: **„Ja passt alles bis hierhin“**. Der vorangehende externe Test bezog sich auf sein Android-Gerät. Damit liegt jetzt eine **Nutzerbestätigung** für den direkten Wechsel zur YouTube-App und die Anzeige des jeweils zugehörigen Films für **alle drei** Links vor. Es ist eine Nutzerbeobachtung, kein automatisierter Emulator-, App-Bridge- oder Geräteprotokolltest.
+
+| TMDB-Film | Exakte extern getestete HTTPS-URL | Android-App-Absprung | Passender Film angezeigt |
+| --- | --- | --- | --- |
+| Nightmare Before Christmas `movie:9479` | https://www.youtube.com/watch?v=nJf67zNZhoc | vom Nutzer bestätigt | vom Nutzer bestätigt |
+| Der Pate `movie:238` | https://www.youtube.com/watch?v=xcCsnx-GRkA | vom Nutzer bestätigt | vom Nutzer bestätigt |
+| Oppenheimer `movie:872585` | https://www.youtube.com/watch?v=_1WjM7ucekc | vom Nutzer bestätigt | vom Nutzer bestätigt |
+
+**Präziser Statuswechsel gegenüber Abschnitt H:** `externalLinkReportedWorking=true`, `youtubeAppOpened=user-confirmed`, `correctFilmDisplayed=user-confirmed`, Plattform `Android/external-link`. Das belegt **nicht**, dass tatsächliche Kauf-/Leih-/Gratis-/Werbe-/Abooptionen sichtbar waren, dass ein gekaufter Film abgespielt werden konnte, dass in MovieHub die Produktiv-Provider-PlaybackRoute bereits angesteuert wird oder dass Fire TV dieselben Links annimmt. Deshalb bleiben `offerType=unknown`, `priceEUR=unknown`, `entitlement=unknown`, `actualPlayback=untested`, `movieHubBridgeTest=untested`, `fireTvResult=untested`.
+
+**Nächste G1-Abnahme:** Exakt diese drei IDs **auf Fire TV** über den nativen MovieHub-Playback-Absprung kontrollieren, getrennt dokumentieren ob YouTube-App, richtige Filmseite und ggf. Rückfall auf Suche/Browser erfolgt. Preise/Entitlements später gesondert in realer deutscher Shop-UI beobachten, ohne Testkäufe. Kein Produktions-Commit, kein Badge und keine Firestore-Katalogänderungen allein aufgrund dieser Nutzerrückmeldung.
