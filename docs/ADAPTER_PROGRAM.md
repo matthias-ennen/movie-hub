@@ -1,5 +1,17 @@
 # Movie Hub – Adapterprogramm und Quellen-Ausbau
 
+## G1-Livebefund 21.10.2026 – 47 Video-IDs erfolgreich einzeln geprüft, 26 reine TMDB-Filmhinweise
+
+**Echter manuell gestarteter read-only Workflow:** [YouTube Movies G1 47 Video IDs – Identity Audit #39602961148](https://github.com/matthias-ennen/movie-hub/actions/runs/39602961148) **SUCCESS**; [Originalreport-Artefakt #12347785136](https://github.com/matthias-ennen/movie-hub/actions/runs/39602961148/artifacts/12347785136), `forty-seven-identity-review.md`, vollständig heruntergeladen und gelesen. **1 YouTube-`videos.list`-Call** für 47/47 aufgelöste öffentliche Video-IDs; bei allen meldet die API DE in der regionalen Freigabeliste. **73 TMDB-GETs**. Ergebnis: **25 `plausible-review`, 1 `title-exact-review`, 10 `ambiguous-work-or-media-type-review`, 2 `series-title-review`, 9 `unmatched-or-title-variant`**. 26 verschiedene vorgeschlagene TMDB-Film-IDs, **0 automatisch bestätigte Filmidentitäten**, **0** produktiv ergänzte MovieHub-Titel. Die 2 `series-title-review` sind **keine** bestätigten Serien; reine TMDB-Suchergebnis-Typkollisionen.
+
+**Zentraler Befund:** Von den 47 beobachteten YouTube-Video-IDs brauchen **21** zunächst eine filmfachliche Werk-/Typ-/Aliasprüfung. Ein direkter Vergleich der 26 TMDB-Filmhinweise mit `public/search-index.json` ist bislang **nicht gelaufen**; folglich ist die Anzahl tatsächlich **neuer MovieHub-Titel unbekannt**. Auch die 47 erlaubten DE-Regionssignale belegen **keine** tatsächliche Wiedergabe, Verfügbarkeit oder Tarifart.
+
+**G1-Fortsetzung:** Erst die **21 unklaren Fälle gezielt** abgleichen, dann kanonische TMDB-Werke read-only mit dem **tatsächlich aktuellen öffentlichen** MovieHub-Titelindex vergleichen. Vor jeder produktiven Aggregation kanal-/rechteinhaberübergreifender YouTube-Daten die aktuellen YouTube API Developer Policies, insbesondere E.2, und den konkret vorgesehenen Such-/Quellenanzeigefall ausdrücklich prüfen. Kein G2-Go, keine App-/Badge-/Katalog-/Cloud-Änderung.
+
+**Dauerhafter detailgetreuer Ergebnisbericht:** [G1 – 47 IDs Live-Review](_work/YOUTUBE_MOVIES_G1_47_IDENTITY_LIVE_2026-10-21.md).
+
+---
+
 ## G1-Architekturpräzisierung 21.10.2026 – YouTube-first UND TMDB-first, keine TMDB-Discovery-Sperre
 
 **Auslöser / Freigabe:** Matthias hat ausdrücklich darauf hingewiesen, dass ein ausschließlich TMDB-basierter Suchpfad neue, nur direkt bei YouTube entdeckte Filme übersehen würde, und nach der erläuterten Zwei-Wege-Architektur mit „Okay weiter“ die Fortsetzung des G1-Arbeitspakets freigegeben. **Dies ist eine Discovery- und Forschungsentscheidung, keine G2-Freigabe zur Veröffentlichung.** Diese Präzisierung ersetzt ältere Formulierungen, die den nächsten G1-Schritt allein auf TMDB-DE-YouTube-Seeds begrenzen.
