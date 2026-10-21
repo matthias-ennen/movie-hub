@@ -17,7 +17,7 @@ const specials={
 function fixture(){
  const rows=Array.from({length:100},(_,i)=>({rank:i+1,
   videoId:id(i+1),title:specials[i+1]||'Movie Candidate '+(i+1),
-  category:i<13?'1':'30',origin:i>=55?'existing-47':'new-search',
+  category:i>=1&&i<=13?'1':'30',origin:i>=55?'existing-47':'new-search',
   minutes:i+1===13?92:i+1===30?89.3:i+1===22?115.8:i+1===19?96.1:100}))
  const original=['# G1',
  '- Actual selected **100/100**; missing **0**.',
