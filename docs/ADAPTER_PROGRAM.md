@@ -1,5 +1,15 @@
 # Movie Hub – Adapterprogramm und Quellen-Ausbau
 
+## G1-Live-Ergebnis 21.10.2026 – Top-3-QA der 34 Problemfälle
+
+**Echter GitHub-Actions-Lauf [#39636101093](https://github.com/matthias-ennen/movie-hub/actions/runs/39636101093) SUCCESS; [Original-Artefakt #12362130138](https://github.com/matthias-ennen/movie-hub/actions/runs/39636101093/artifacts/12362130138) heruntergeladen und vollständig ausgewertet.** Die QA untersuchte **34** bereits bestehende YouTube-Video-IDs (zuerst alle 13 Neben-Kategorie-Fälle, danach 21 priorisierte Kategorie-30-Fälle) gegen maximal drei **bereits gefundene** TMDB-Film-IDs je Video: **77** lesende Film-Detailabrufe, **0** weitere YouTube-/TMDB-Suchanfragen. Bei **10/34** Fällen ist der bisherige Ersttreffer nicht mehr der höchstbewertete Kandidat.
+
+**Diagnosen (nicht produktive Filmwerke):** **21** deutlich führende Filmhypothesen, **4** ähnlich plausible Mehrfachwerke, **4** ungelöste Laufzeit-/Fassungsabweichungen, **3** ohne passenden alten TMDB-Filmhinweis, **2** Inhaltsrisiken (Gaming/Staffel/Lernen). `War Story` (2014, TMDB 246013, Δ0,7 Min.), `Man Bites Dog` ↔ `Mann beißt Hund` (TMDB 10086, Δ3 Min.) und `2010` ↔ `2010: The Year We Make Contact` (TMDB 4437, Δ0,2 Min.) werden im Top-3-Scorer besser rangiert. Making-ofs/Sequel-Kollisionen sind nun deutlich schwächer. **Nichts davon beweist die reale YouTube-Filmfassung oder ein DE-Angebot.**
+
+**Offen:** Vier ähnliche Werkgruppen, vier deutliche Laufzeit-/Fassungsprobleme, die zwei Inhaltsrisiken und die drei ungelösten Dokumentations-/Filmhinweise; außerdem **66** des ursprünglichen 100-Video-Samples wurden in dieser zusätzlichen QA noch nicht neu bewertet. **Keine** automatische `(movie,tmdbId)`-Übernahme, kein YouTube-Badge, keine bestätigte Gratis-/Ads-/Leih-/Kauf-/Abofreigabe. Vor G2 weiter die [YouTube API Developer Policies III.E.2](https://developers.google.com/youtube/terms/developer-policies) zur Datenaggregation über mehrere Content-Owner klären. [Detaillierter Originalbefund und Fortsetzung](_work/YOUTUBE_MOVIES_G1_TOP3_MATCHER_QA_LIVE_2026-10-21.md). **G1 #388 offen.**
+
+---
+
 ## G1-Liveergebnis 21.10.2026 – 100 originale Video-IDs mit TMDB geprüft (G1 weiterhin offen)
 
 **Echter manueller [100er-TMDB-Review-Lauf #39628463786](https://github.com/matthias-ennen/movie-hub/actions/runs/39628463786) erfolgreich, [Originalreport #12358536690](https://github.com/matthias-ennen/movie-hub/actions/runs/39628463786/artifacts/12358536690) heruntergeladen, vollständig gelesen.** Exakte ursprüngliche 100 YouTube-VIDEO-IDs der 31-Kategorien-Forschung anhand SHA-256 geprüft; **13** Neben-Kategorien zuerst, danach **87** Kategorie-30; **287** lesende TMDB-GETs, keine API-Quota-Unterbrechung und **kein** weiterer YouTube-API-Call. **40** `single-movie-hypothesis-review`, **43** `multiple-works-or-film-TV-review`, **13** `unmatched-or-alias-review`, **2** `movie-hypothesis-runtime-conflict`, **2** `content-type-risk-review`. **0** fachlich bestätigte Werk-/Video-Fassung, **0** Angebote/Anbieterbadges/Produktivdaten aktualisiert.
