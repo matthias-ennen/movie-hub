@@ -47,3 +47,45 @@
 - **Messbericht:** temporäres 14-Tage-Research-Artefakt `fifty-youtube-first.md` mit **echter** erreichten Titelzahl, Video-/Regionsdaten, TMDB-Vorschlagsstatus, Quota-Verbrauch und Liste sämtlicher ausgewählter Kandidaten. Falls YouTube nicht 50 geeignete eindeutige Kandidaten liefert, wird die **niedrigere tatsächliche Zahl** unverändert ausgewiesen, nicht durch fremde Trailer/Playlists erfunden.
 
 **Wichtig zum Status:** PR/CI/APK belegen ausschließlich, dass der Pilot **technisch integriert und mit Mocks getestet** ist. Ein **echter Live-YouTube-50-Titel-Lauf wurde zum Dokumentationszeitpunkt noch nicht beobachtet/ausgewertet**. Nächste Aktion ist die einmalige manuelle Ausführung des Read-only-Workflows auf `main` und danach eine anhand des tatsächlichen Artefakts vorgenommene Match-/Coverage-Bewertung. G1 bleibt offen, G2–G4 und jeder produktive Titelimport bleiben ohne Freigabe.
+
+## Erster echter 50-Titel-YouTube-first-Lauf – 21.10.2026, 10:25 UTC
+
+**Originallauf und Originalartefakt:** [Workflow #39584388602](https://github.com/matthias-ennen/movie-hub/actions/runs/39584388602) **SUCCESS**, [Archiv #12337893476](https://github.com/matthias-ennen/movie-hub/actions/runs/39584388602/artifacts/12337893476) tatsächlich heruntergeladen und `fifty-youtube-first.md` vollständig gelesen. Start 21.10.2026, 10:24 UTC; Report 10:25 UTC. **Erster echter 50-Titel-Test liefert nicht 50, sondern 12 Kandidaten.** Technisch erfolgreich heißt nicht, dass 50 Filme identifiziert wurden.
+
+| Messgröße | Echter Befund |
+| --- | ---: |
+| Ziel verschiedene Filmkandidaten | 50 |
+| `search.list`-Abfragen (20 Genres/Epochen/Sprachen) | 20 |
+| Eindeutige Such-Video-IDs (erste höchstens 20 je Stratum) | 307 |
+| `videos.list`-Batches | 7 |
+| Erfolgreich aufgelöste Videos | 307 |
+| Nach Kanaltitel-/Vollfilmlänge-/DE-Regions-/Deduplizierungsfilter ausgewählte Kandidaten | **12** |
+| TMDB-GETs | 19 |
+| Plausibler TMDB-Titel plus ähnliche Laufzeit, weiterhin nur `review` | **6** |
+| Mehrdeutiger TMDB-Titelmatch | 4 |
+| Kein exakter TMDB-Titelalias | 1 |
+| Exakter Titel, Laufzeit nicht ausreichend passend / noch Review | 1 |
+| YouTube-Quota-Verbrauch nach klassischem 100-pro-search-Kostenmodell (Schätzung) | 2007 |
+
+### Die zwölf tatsächlich ermittelten YouTube-Movies-Video-IDs (G1-Kandidaten)
+
+| Film-Titel laut YouTube-API | Video-ID | Vorläufige TMDB-ID | Prüfstatus |
+| --- | --- | ---: | --- |
+| The Aristocats | `RY32dCRpRvE` | 10112 | plausible-review |
+| 2010: The Year We Make Contact | `3ivgYkh5Res` | ? | unmatched-or-title-variant |
+| In die Sonne schauen | `24u6ps_a_c4` | 1221061 | plausible-review |
+| War Story | `cVubTPv90f4` | ? | ambiguous-review |
+| Lügen haben kurze Beine | `j5PHSqJ7xl0` | ? | ambiguous-review |
+| Everything Will Change | `RLsHxwsFVqY` | 788921 | plausible-review |
+| My Name Is Khan | `m-hwfIKIb5w` | 26022 | title-exact-review |
+| The Beast | `TPSkKEl65sE` | ? | ambiguous-review |
+| Police Story | `IxL_x8G1_FU` | ? | ambiguous-review |
+| T2 Trainspotting | `WRZ0-JNo5BE` | 180863 | plausible-review |
+| Rambo II - Der Auftrag | `WlzWW8zfJSI` | 1369 | plausible-review |
+| Als wir träumten | `u_Sf2eOZtiQ` | 311301 | plausible-review |
+
+**Evidenzgrenze:** Die 12 resultieren aus dem simplen Filmlaufzeit-/DE-Signal-/Kanalnamen-Screening. Es sind **nicht** zwölf unabhängig nachgewiesene legitime YouTube-DE-Shop-Angebote, und die sechs plausiblen TMDB-Referenzen sind **noch keine automatisiert freigabefähigen Matches**. VideoChannelName `YouTube Movies` allein ist kein Lizenzbeweis. Keine Angebote/Badges, keine Filme in Firestore geschrieben.
+
+**Wichtiger Befund für das Ziel 50:** Die 20 breiten Suchbegriffe haben bereits 307 individuelle Videos produziert; der einfache YouTube-Movies-Filter ergab nur zwölf eindeutige Filmkandidaten. **Weitere identische breite Suchrunden wären ineffizient.** Bessere erlaubte Quellenerschließung nötig, nicht Filter aufweichen und Trailer/Publisher als eigene Movies-Angebote zählen. Jetzt priorisieren: die hinter den zwölf IDs liegenden echten Kanal-IDs und öffentlich via Data API verfügbare Upload-Playlist-Metadaten auf möglichen legitimen Film-Katalog-Pfad untersuchen; falls kein Katalogfeed, anschließend gezieltere TMDB-Provider-seed-basierten Video-ID-Lookups evaluieren. Für alle Wege bleiben TMDB-Kanonisierung und sichere Video-ID-/Regions-/Linkvalidierung obligatorisch.
+
+**Status:** G1 offen, 50er-Stichprobe **erst zu 12/50 Kandidaten abgedeckt**, 50er-Produktivimport **nicht** angestoßen. Kein G2-Go.
