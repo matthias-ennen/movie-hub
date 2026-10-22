@@ -1,0 +1,107 @@
+name: YouTube G2 – Missing Video Recovery + Existing Badge Bridge (Read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: 'Original fixed two-playlist QA run'
+        required: true
+        type: string
+        default: '39816864480'
+  # One-time audit on reviewed merge commit only; never ordinary pushes.
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-recovery-badge-bridge.yml
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+  issues: write
+
+concurrency:
+  group: youtube-g2-recovery-badge-readonly
+  cancel-in-progress: false
+
+jobs:
+  fixed-source-review:
+    name: Retry missing fixed IDs and compare current exact YouTube badges, no deploy
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' &&
+        contains(github.event.head_commit.message, '[youtube-recovery-bridge-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TMDB_API_READ_TOKEN: \${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Source QA, retry and canonical bridge safety tests
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-recovery-badge-bridge.mjs
+          node --check scripts/youtube-g2-recovery-badge-bridge-live.mjs
+          npx vitest run tests/youtube-g2-recovery-badge-bridge.test.js tests/youtube-g2-curated-tmdb-membership.test.js tests/youtube-g2-curated-two-playlists.test.js
+      - name: Load original two-list QA with its exact video IDs
+        uses: actions/download-artifact@v7
+        with:
+          name: youtube-g2-two-curated-playlists-\${{ inputs.source_run_id || '39816864480' }}
+          run-id: \${{ inputs.source_run_id || '39816864480' }}
+          github-token: \${{ github.token }}
+          path: artifacts/youtube-g2/curated-playlists
+      - name: Authenticate for pre-existing YouTube API secret (read only)
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Recheck missing video IDs and match original 21 to existing MovieHub YouTube badges
+        run: node scripts/youtube-g2-recovery-badge-bridge-live.mjs
+      - name: Private internal QA for seven days, never publish film/link data
+        if: \${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-recovery-badge-bridge-\${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/recovery-badge-bridge/qa.json
+            artifacts/youtube-g2/recovery-badge-bridge/report.md
+          if-no-files-found: error
+          retention-days: 7
+      - name: Record aggregate results in issue 388 only for one-time merge run
+        if: >-
+          always() && github.event_name == 'push' &&
+          contains(github.event.head_commit.message, '[youtube-recovery-bridge-once]')
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          node --input-type=module <<'NODE'
+          import {existsSync,readFileSync,writeFileSync} from 'node:fs'
+          const path='artifacts/youtube-g2/recovery-badge-bridge/qa.json'
+          const lines=[
+            '## YouTube G2 – Quelle erneut prüfen und vorhandene Anbieterbadges anbinden (read-only)',
+            '- Actions: https://github.com/'+process.env.GITHUB_REPOSITORY+'/actions/runs/'+process.env.GITHUB_RUN_ID,
+            '- Ursprung: exakt zwei feste Playlists, original 21 Video-IDs aus Run #39816864480.',
+          ]
+          if(existsSync(path)){
+            const d=JSON.parse(readFileSync(path,'utf8'))
+            lines.push(
+              '- Video IDs: '+d.sourceVideoIds+'; fehlende erneut angefragt: '+d.recovery.attempted,
+              '- Erneut auflösbar: '+d.recovery.recovered+'; davon für Filmprüfung geeignet: '+d.recovery.recoveredEligible,
+              '- Weiter ohne Videodetails: '+d.recovery.stillMissing,
+              '- TMDB-Lese-GET: '+d.matcher.tmdbCalls,
+              '- Kandidaten zu bestehenden exakten YouTube-Badges: '+d.bridge.candidateExistingBadgeRoutes,
+              '- Vorhandene exakte Badge-Hinweise im öffentlichen Index: '+d.bridge.knownPublicYoutubeBadges,
+              '- Verifizierte Angebote/Titel/Produktivwrites: 0/0/0; keine automatische Freigabe.'
+            )
+          } else {
+            lines.push('- Kein QA-Ergebnis vorhanden, Laufprotokoll prüfen; keine Ergebnisse behaupten.')
+          }
+          writeFileSync('/tmp/youtube-g2-bridge-status.json',JSON.stringify({body:lines.join('\n')+'\n'}))
+          NODE
+          gh api "repos/\${GITHUB_REPOSITORY}/issues/388/comments" --method POST --input /tmp/youtube-g2-bridge-status.json
