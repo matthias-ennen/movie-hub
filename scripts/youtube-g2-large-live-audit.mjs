@@ -1,10 +1,11 @@
 /**
- * 125 NEW eligible video IDs: one publisher, actual YouTube/TMDB live API.
+ * 125 NEW eligible video IDs: configurable publishers, actual YouTube/TMDB live API.
  * Frozen matcher v1; ZERO catalog/Firestore/provider/badge/nightly writes.
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { getSecret, youtubeGet, SOURCES } from './youtube-api-smoke.mjs'
+import { resolveYouTubeResearchSources, MAX_RESEARCH_CHANNELS } from './youtube-g2-source-config.mjs'
 import { previouslyReviewedYouTubeIds } from './youtube-g2-prior-video-ids.mjs'
 import { prepareYouTubeMovieSearchTitle } from './youtube-g2-title-query-prep.mjs'
 import { scoreCandidate, classifyVideo } from './youtube-g1-matcher-v1.mjs'
@@ -13,7 +14,7 @@ import { buildYoutubeTitleImportPreview } from '../src/sources/youtubeTitleImpor
 
 export const TARGET = 125
 export const MAX_PAGES = 12
-export const MAX_YOUTUBE = 26
+export const MAX_YOUTUBE = 32
 export const MAX_TMDB = 800
 export const OUTPUT_DIR = 'artifacts/youtube-g2/large-125'
 const VIDEO = /^[A-Za-z0-9_-]{11}$/
@@ -24,12 +25,17 @@ const unique = v => [...new Set(v)]
 const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms))
 
 export async function runYoutubeLargeAudit({
- youtube,tmdb,source=SOURCES[1],priorIds=previouslyReviewedYouTubeIds,
+ youtube,tmdb,source=null,sources=SOURCES,priorIds=previouslyReviewedYouTubeIds,
  knownTitleRefs=null,target=TARGET,maxPages=MAX_PAGES,
  now=()=>new Date().toISOString(),
 }={}) {
  if(typeof youtube!=='function'||typeof tmdb!=='function')throw Error('Read-only API callbacks required')
- if(!CHANNEL.test(source?.channelId||''))throw Error('Exactly ONE valid publisher channel required')
+ const selectedSources = source ? [source] : sources
+ if(!Array.isArray(selectedSources)||selectedSources.length<1||
+    selectedSources.length>MAX_RESEARCH_CHANNELS||
+    selectedSources.some(s=>!CHANNEL.test(s?.channelId||''))||
+    new Set(selectedSources.map(s=>s.channelId)).size!==selectedSources.length)
+  throw Error('Requires 1..4 distinct valid YouTube channel sources')
  if(!Number.isInteger(target)||target<101||target>TARGET)throw Error('Target must be 101..125')
  if(!Number.isInteger(maxPages)||maxPages<1||maxPages>MAX_PAGES)throw Error('Max playlist pages invalid')
  if(!Array.isArray(priorIds)||priorIds.some(x=>!VIDEO.test(x)))throw Error('Historical exclusions invalid')
@@ -48,24 +54,37 @@ export async function runYoutubeLargeAudit({
   tmdbCalls++
   return tmdb(p,q)
  }
- const channel=(await yget('channels',{part:'snippet,contentDetails',id:source.channelId}))
-  ?.items?.find(x=>x.id===source.channelId)
- const uploads=channel?.contentDetails?.relatedPlaylists?.uploads
- if(!uploads)throw Error('Official uploads playlist missing')
+ // Channel IDs are explicit acquisition provenance. This batch has one global
+ // deduplication set and a shared API quota, but keeps every source labelled.
+ const channels=(await yget('channels',{
+  part:'snippet,contentDetails',id:selectedSources.map(s=>s.channelId).join(','),
+ }))?.items||[]
+ const states=selectedSources.map(s=>{
+  const ch=channels.find(c=>c.id===s.channelId)
+  const playlist=ch?.contentDetails?.relatedPlaylists?.uploads
+  if(!playlist)throw Error('Official uploads playlist missing for '+s.channelId)
+  return {channelId:s.channelId,name:s.name||ch?.snippet?.title||s.channelId,
+   playlist,token:null,done:false,pages:0,examined:0,resolved:0,
+   oldSkipped:0,screenedOut:0,eligible:0}
+ })
  const seen=new Set(),selected=[]
- let token=null
- for(let n=0;n<maxPages && selected.length<target;n++){
-  const args={part:'snippet,contentDetails',playlistId:uploads,maxResults:50}
-  if(token)args.pageToken=token
+ // Round-robin pages: a prolific first channel cannot starve other sources.
+ let round=0
+ while(pages<maxPages && selected.length<target && states.some(s=>!s.done)){
+  const state=states[round%states.length]
+  round++
+  if(state.done)continue
+  const args={part:'snippet,contentDetails',playlistId:state.playlist,maxResults:50}
+  if(state.token)args.pageToken=state.token
   const page=await yget('playlistItems',args)
   if(!Array.isArray(page?.items))throw Error('Playlist page invalid')
-  pages++
+  pages++;state.pages++
   const ids=[]
   for(const item of page.items){
    const id=item?.contentDetails?.videoId
    if(!VIDEO.test(id||'')||seen.has(id))continue
-   seen.add(id);examined++
-   if(excluded.has(id)){oldSkipped++;continue}
+   seen.add(id);examined++;state.examined++
+   if(excluded.has(id)){oldSkipped++;state.oldSkipped++;continue}
    ids.push(id)
   }
   for(let i=0;i<ids.length&&selected.length<target;i+=50){
@@ -76,20 +95,22 @@ export async function runYoutubeLargeAudit({
    for(const id of batch){
     const video=index.get(id)
     if(!video)continue
-    resolved++
-    if(video?.snippet?.channelId!==source.channelId)throw Error('CROSS_CHANNEL_SOURCE_ABORT')
+    resolved++;state.resolved++
+    if(video?.snippet?.channelId!==state.channelId)throw Error('CROSS_CHANNEL_SOURCE_ABORT')
     const normalized=normalizeYoutubeVideoCandidate(video,{observedAt:runAt})
-    if(!normalized?.screening?.eligible){screenedOut++;continue}
-    selected.push(normalized)
+    if(!normalized?.screening?.eligible){
+     screenedOut++;state.screenedOut++;continue
+    }
+    selected.push(normalized);state.eligible++
     if(selected.length>=target)break
    }
   }
-  token=page.nextPageToken||null
-  if(!token)break
+  state.token=page.nextPageToken||null
+  if(!state.token)state.done=true
  }
  if(selected.length<target)
   throw Error('INSUFFICIENT_NEW_ELIGIBLE_IDS: '+selected.length+'/'+target+
-   ' from '+pages+' pages; no TMDB calls; no import')
+   ' from '+pages+' pages across '+states.length+' channels; no TMDB calls; no import')
  const cache=new Map()
  const cached=async(p,q)=>{
   const key=p+':'+JSON.stringify(q)
@@ -140,8 +161,9 @@ export async function runYoutubeLargeAudit({
    leadingWorks.add(row.verdict.topCandidates[0].tmdbId)
  }
  const summary={
-  generatedAt:runAt,mode:'READ_ONLY_G2_SINGLE_CHANNEL_STRESS',
-  publisherChannelId:source.channelId,
+  generatedAt:runAt,mode:'READ_ONLY_G2_CONFIGURABLE_SOURCES_STRESS',
+  publisherChannelIds:states.map(s=>s.channelId),
+  sourceBreakdown:states.map(({channelId,name,pages,examined,resolved,oldSkipped,screenedOut,eligible})=>({channelId,name,pages,examined,resolved,oldSkipped,screenedOut,eligible})),
   knownExclusions:excluded.size,
   examinedPlaylistVideoIds:examined,resolvedVideoMetadata:resolved,
   previouslyKnownIdsExcluded:oldSkipped,screenedOut,
@@ -153,12 +175,13 @@ export async function runYoutubeLargeAudit({
   catalogWrites:0,firestoreWrites:0,providerWrites:0,badgeWrites:0,nightlyWrites:0,
   publicationPermitted:false,
  }
- if(rows.length!==target||rows.some(x=>x.video.channelId!==source.channelId))
+ if(rows.length!==target||rows.some(x=>!states.some(s=>s.channelId===x.video.channelId)))
   throw Error('Batch or source integrity failure')
  const report=[
   '# YouTube G2 – Live-Stresstest mit 125 NEUEN Film-Video-Kandidaten','',
   '- Run: '+runAt,
-  '- EIN Publisher/Channel: '+source.channelId,
+  '- Konfigurierte YouTube-Kanäle: '+states.map(s=>s.name+' ('+s.channelId+')').join('; '),
+  '- Pro Kanal: '+JSON.stringify(summary.sourceBreakdown),
   '- IDs in archivierten G1-100/G2-20-Referenzlisten ausgeschlossen: '+excluded.size,
   '- Gescreente Playlist-IDs: '+examined+'; Videos-Metadaten: '+resolved+
     '; davon alte: '+oldSkipped+'; neu aber ausgeschlossen: '+screenedOut,
@@ -172,9 +195,9 @@ export async function runYoutubeLargeAudit({
   '- **NO DATA IMPORT: Catalog/Firestore/Provider/Badge/Nightly writes all ZERO.**',
   '- YouTube-Titel, Laufzeit und Regionsmetadaten belegen weder Rechte noch Vollfilm noch DE-Verfügbarkeit.',
   '- Eine führende Matcher-Hypothese ist KEINE Trefferquotenmessung.','',
-  '| Nr. | Video (Originaltitel) | Bereinigte Suchanfrage | Minuten | Matcher v1 | TMDB Top 3 |',
-  '| ---: | --- | --- | ---: | --- | --- |',
-  ...rows.map((r,i)=>'| '+(i+1)+' | ['+clean(r.video.title)+']('+r.video.watchUrl+') | '+
+  '| Nr. | Quelle/Kanal-ID | Video (Originaltitel) | Bereinigte Suchanfrage | Minuten | Matcher v1 | TMDB Top 3 |',
+  '| ---: | --- | --- | --- | ---: | --- | --- |',
+  ...rows.map((r,i)=>'| '+(i+1)+' | '+r.video.channelId+' | ['+clean(r.video.title)+']('+r.video.watchUrl+') | '+
    clean(r.prepared.matchingTitle)+' | '+r.video.minutes+' | '+r.verdict.status+
    (r.errors.length?' ERROR '+clean(r.errors.join(', ')):'')+' | '+
    (r.verdict.topCandidates||[]).map(x=>x.tmdbId+' (Δ'+(x.runtimeDelta??'?')+'min)').join(', ')+' |'),
@@ -210,9 +233,13 @@ async function main(){
   if(c.source==='fallback'||!Array.isArray(c.titles))throw Error('Cannot use fallback catalog')
   knownTitleRefs=c.titles.map(x=>({mediaType:x.type==='series'?'series':'movie',tmdbId:x.tmdbId}))
  }
+ const sourceList=resolveYouTubeResearchSources({
+  mode:process.env.YOUTUBE_G2_SOURCE_MODE||'all',
+  channelIds:process.env.YOUTUBE_G2_CHANNEL_IDS||'',
+ })
  const key=getSecret()
  const {summary,report,rows}=await runYoutubeLargeAudit({
-  knownTitleRefs,
+  sources:sourceList,knownTitleRefs,
   youtube:(p,q)=>youtubeGet(p,q,key),
   tmdb:(p,q)=>tmdbLive(p,q,token),
  })
@@ -226,7 +253,7 @@ async function main(){
   })),
  },null,2)+'\n',{mode:0o600})
  console.log(JSON.stringify({success:true,count:summary.newEligibleUniqueVideos,
-  youtubeCalls:summary.youtubeCalls,tmdbCalls:summary.tmdbCalls,
+  sourceBreakdown:summary.sourceBreakdown,youtubeCalls:summary.youtubeCalls,tmdbCalls:summary.tmdbCalls,
   catalogWrites:0,firestoreWrites:0}))
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)

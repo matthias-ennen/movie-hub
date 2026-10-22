@@ -1,24 +1,42 @@
-name: YouTube G2 – 125 NEW Single-Channel Film Candidates / Full Adapter Read-only Audit
+name: YouTube G2 – 125 New Videos / Configurable Channels / Full Adapter Read-only Audit
 
 on:
   workflow_dispatch:
+    inputs:
+      source_mode:
+        description: 'Quellen: alle registrierten Kanäle, einzelner Kanal oder eigene Kanal-IDs'
+        type: choice
+        options:
+          - all
+          - netzkino
+          - cinenet
+          - custom
+        default: all
+        required: true
+      channel_ids:
+        description: 'Nur bei custom: kommagetrennte YouTube UC-Kanal-IDs (max. 4)'
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
   id-token: write
 
 concurrency:
-  group: youtube-g2-125-new-live-one-channel
+  group: youtube-g2-125-new-live-sources
   cancel-in-progress: false
 
 jobs:
   large-125-preimport:
-    name: 125 fresh, distinct Netzkino film-video candidates / frozen matcher v1 / zero writes
+    name: 125 fresh videos / selected channels / frozen matcher v1 / zero writes
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+      YOUTUBE_G2_SOURCE_MODE: ${{ inputs.source_mode }}
+      YOUTUBE_G2_CHANNEL_IDS: ${{ inputs.channel_ids }}
     steps:
       - name: Checkout trusted main
         uses: actions/checkout@v7
@@ -39,7 +57,8 @@ jobs:
           npm ci
           node --check scripts/youtube-g2-large-live-audit.mjs
           node --check scripts/youtube-g2-prior-video-ids.mjs
-          npx vitest run tests/youtube-g2-large-live-audit.test.js tests/youtube-source-adapter-preflight.test.js tests/youtube-g2-title-query-prep.test.js
+          node --check scripts/youtube-g2-source-config.mjs
+          npx vitest run tests/youtube-g2-source-config.test.js tests/youtube-g2-large-live-audit.test.js tests/youtube-source-adapter-preflight.test.js tests/youtube-g2-title-query-prep.test.js
       - name: Read >100 new eligible YouTube videos and execute frozen matcher v1 against TMDB
         run: node scripts/youtube-g2-large-live-audit.mjs
       - name: Upload internal-only QA evidence, not a MovieHub catalog

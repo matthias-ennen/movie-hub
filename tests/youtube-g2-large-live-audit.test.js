@@ -54,7 +54,7 @@ describe('YouTube G2 >100 NEW live video audit contract',()=>{
   expect(previouslyReviewedYouTubeIds.length).toBeGreaterThanOrEqual(100)
   expect(TARGET).toBe(125)
   expect(MAX_TMDB).toBeLessThanOrEqual(800)
-  expect(MAX_YOUTUBE).toBeLessThanOrEqual(26)
+  expect(MAX_YOUTUBE).toBeLessThanOrEqual(32)
   expect(MAX_PAGES).toBeLessThanOrEqual(12)
  })
  it('fetches MORE THAN 100 unique NEW screened video IDs from exactly one channel',async()=>{
@@ -80,6 +80,68 @@ describe('YouTube G2 >100 NEW live video audit contract',()=>{
   expect(youtube.mock.calls.every(([name])=>['channels','playlistItems','videos'].includes(name))).toBe(true)
   expect(tmdb.mock.calls.every(([name])=>['/search/movie','/search/tv','/movie/246013'].includes(name))).toBe(true)
   expect(result.report).toContain('125/125')
+ })
+ it('collects a real 125-ID batch FAIRLY across two independent channels and keeps provenance',async()=>{
+  const sourceA='UCaaaaaaaaaaaaaaaaaaaaaa'
+  const sourceB='UCbbbbbbbbbbbbbbbbbbbbbb'
+  const sources=[
+   {channelId:sourceA,name:'Publisher A'},
+   {channelId:sourceB,name:'Publisher B'},
+  ]
+  const a=Array.from({length:82},(_,i)=>'A'+String(i).padStart(10,'0'))
+  const b=Array.from({length:82},(_,i)=>'B'+String(i).padStart(10,'0'))
+  const youtube=vi.fn(async(endpoint,params)=>{
+   if(endpoint==='channels')return {items:sources.map(s=>({
+    id:s.channelId,snippet:{title:s.name},
+    contentDetails:{relatedPlaylists:{uploads:'uploads-'+s.channelId}},
+   }))}
+   if(endpoint==='playlistItems'){
+    const which=params.playlistId.endsWith(sourceA)?a:b
+    const from=Number(params.pageToken||0)
+    return {items:which.slice(from,from+50).map(videoId=>({
+     contentDetails:{videoId},
+    })),...(from+50<which.length?{nextPageToken:String(from+50)}:{})}
+   }
+   if(endpoint==='videos'){
+    return {items:params.id.split(',').map(id=>({
+     ...video(id),snippet:{...video(id).snippet,
+      channelId:id.startsWith('A')?sourceA:sourceB},
+    }))}
+   }
+   throw Error('Unexpected endpoint')
+  })
+  const tmdb=vi.fn(async(path)=>{
+   if(path==='/search/movie')return {results:[{id:246013}]}
+   if(path==='/search/tv')return {results:[]}
+   if(path==='/movie/246013')return movie
+   throw Error('Unexpected TMDB')
+  })
+  const result=await runYoutubeLargeAudit({
+   youtube,tmdb,sources,priorIds:[],now:()=>NOW,
+  })
+  expect(result.rows).toHaveLength(125)
+  expect(result.summary.publisherChannelIds).toEqual([sourceA,sourceB])
+  expect(result.summary.sourceBreakdown).toHaveLength(2)
+  expect(result.summary.sourceBreakdown[0].eligible).toBeGreaterThan(0)
+  expect(result.summary.sourceBreakdown[1].eligible).toBeGreaterThan(0)
+  expect(result.summary.sourceBreakdown.reduce((sum,s)=>sum+s.eligible,0)).toBe(125)
+  expect(result.summary.youtubeCalls).toBeLessThanOrEqual(MAX_YOUTUBE)
+  expect(result.summary.catalogWrites).toBe(0)
+  expect(result.summary.firestoreWrites).toBe(0)
+  expect(result.report).toContain(sourceA)
+  expect(result.report).toContain(sourceB)
+  expect(result.report).toContain('125/125')
+  expect(youtube.mock.calls.filter(x=>x[0]==='channels')).toHaveLength(1)
+  expect(youtube.mock.calls.filter(x=>x[0]==='playlistItems').length).toBeGreaterThanOrEqual(3)
+ })
+ it('rejects duplicate publisher channel IDs before calling YouTube',async()=>{
+  const {youtube,tmdb}=createApi()
+  const channels=[{channelId:CHANNEL},{channelId:CHANNEL}]
+  await expect(runYoutubeLargeAudit({
+   youtube,tmdb,sources:channels,now:()=>NOW,
+  })).rejects.toThrow(/1..4 distinct/)
+  expect(youtube).not.toHaveBeenCalled()
+  expect(tmdb).not.toHaveBeenCalled()
  })
  it('fails closed on fewer than 101 suitable new IDs, without TMDB queries or writes',async()=>{
   const {youtube,tmdb}=createApi({available:85})
