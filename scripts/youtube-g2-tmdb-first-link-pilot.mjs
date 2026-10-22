@@ -19,7 +19,6 @@ export const OUTPUT = 'artifacts/youtube-g2/tmdb-first-link-pilot'
 const MAX_INDEX_BYTES = 30 * 1024 * 1024
 const MAX_TMDB_GETS = 1 + TMDB_FIRST_MAX_TITLES * 2
 const MAX_VIDEO_GETS = 10
-const maxResults = 10
 const validVideoId = id => /^[A-Za-z0-9_-]{11}$/.test(String(id || ''))
 
 export async function loadPublicMovieHubIndex(request = fetch) {
