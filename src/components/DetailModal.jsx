@@ -17,6 +17,7 @@ import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
+import { requireYouTubeWatchUrl, canonicalYouTubeWatchUrl } from '../providers/youtubeExactLink.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { includedSwitchShownAsOn, ignoreCompletedIncludedClick } from '../notifications/includedSwitchSession.js'
@@ -345,7 +346,9 @@ export default function DetailModal({
     setMediaBusy(true)
     setMediaMessage('')
     try {
-      const entry = { ...mediaDraft, id: editingMediaId }
+      const entry = mediaDraft.type === 'youtube'
+        ? { ...mediaDraft, type: 'web', url: requireYouTubeWatchUrl(mediaDraft.url), id: editingMediaId }
+        : { ...mediaDraft, id: editingMediaId }
       const normalized = normaliseMedia(entry)
       const id = await saveSharedMedia(user.uid, item, entry)
       const saved = { ...normalized, id }
@@ -419,6 +422,7 @@ export default function DetailModal({
 
   function mediaActionLabel(entry) {
     if (entry.type === 'video' && isSmbMediaUrl(entry.url)) return 'Netzwerkvideo in Movie Hub abspielen'
+    if (entry.type === 'web' && canonicalYouTubeWatchUrl(entry.url)) return 'YouTube-Video in YouTube öffnen'
     return entry.type === 'video' ? 'In Movie Hub abspielen' : 'In passender App oder im Browser öffnen'
   }
 
