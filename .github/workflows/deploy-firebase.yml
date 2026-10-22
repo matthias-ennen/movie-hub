@@ -404,6 +404,12 @@ jobs:
         id: tv_runtime_snapshot
         run: npm run tv:runtime:snapshot
 
+      # Only independently verified canonical SourceEnvelope records may
+      # replace a TMDB YouTube badge's existing search destination.
+      # No approved input => publish an empty index; all badges/fallbacks stay.
+      - name: Generate verified YouTube title routes (additive, no badge writes)
+        run: node scripts/generate-youtube-verified-route-index.mjs
+
       - name: Build
         id: app_build
         run: npm run build
