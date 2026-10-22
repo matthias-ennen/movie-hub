@@ -63,10 +63,13 @@ export function buildYoutubeTitleImportPreview(rows = [], {
       verifiedDEOffer: false,
     })
   }
+  // "Potential works" counts UNIQUE leading TMDB works even when a real
+  // MovieHub catalog snapshot is absent. It is NOT a new-title/import count.
   totals.potentialTitles = new Set(candidates.filter(c =>
     c.disposition === 'preview-enrich-existing'
     || c.disposition === 'preview-new-title-candidate'
-  ).map(c => titleKey(c.titleRef))).size
+    || c.disposition === 'catalog-status-unknown'
+  ).map(c => titleKey(c.titleRef)).filter(Boolean)).size
   return {
     generatedAt: new Date(reportGeneratedAt).toISOString(),
     mode: 'READ_ONLY_YOUTUBE_MATCHER_PREFLIGHT',
