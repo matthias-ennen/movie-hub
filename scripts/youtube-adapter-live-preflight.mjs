@@ -56,6 +56,13 @@ export async function runYoutubeLivePreflight({
   if(!/^UC[A-Za-z0-9_-]{22}$/.test(source?.channelId||''))throw Error('One valid single publisher channel required')
  }
  if(!Number.isInteger(limit)||limit<1||limit>MAX_SOURCE_VIDEOS)throw Error('Limit out of range')
+ const replay=Array.isArray(videoIdsSnapshot)
+ // Validate the replay manifest BEFORE any paid/limited external API request.
+ if(replay && (
+  videoIdsSnapshot.length!==limit
+  || videoIdsSnapshot.some(x=>!id.test(String(x||'')))
+  || new Set(videoIdsSnapshot).size!==videoIdsSnapshot.length
+ ))throw Error('Pinned video-ID replay snapshot is missing/duplicate/invalid')
  let youtubeCalls=0,tmdbCalls=0
  const runAt=mkDate(now())
  const getYoutube=async(path,params)=>{
@@ -73,12 +80,7 @@ export async function runYoutubeLivePreflight({
  const uploads=channel?.contentDetails?.relatedPlaylists?.uploads
  if(!channel||!uploads)throw Error('Publisher channel/official uploads playlist missing')
  let videoIds
- const replay=Array.isArray(videoIdsSnapshot)
  if(replay){
-  if(videoIdsSnapshot.length!==limit
-    || videoIdsSnapshot.some(x=>!id.test(String(x||'')))
-    || new Set(videoIdsSnapshot).size!==videoIdsSnapshot.length)
-   throw Error('Pinned video-ID replay snapshot is missing/duplicate/invalid')
   videoIds=[...videoIdsSnapshot]
  }else{
   const playlist=await getYoutube('playlistItems',{
