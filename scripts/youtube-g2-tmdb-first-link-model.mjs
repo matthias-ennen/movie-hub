@@ -63,6 +63,47 @@ export function selectYoutubeBadgedMovies(index, { limit = TMDB_FIRST_MAX_TITLES
   }
 }
 
+/**
+ * Explicit, cursor-controlled research batch built from the FULL canonical
+ * inventory plan, but still constrained to existing PUBLIC exact YouTube
+ * badges. The MovieHub index, not an arbitrary caller, owns film identity.
+ */
+export function selectExplicitYoutubeBadgedMovies(index, refs, { limit = TMDB_FIRST_MAX_TITLES } = {}) {
+  const validated = selectYoutubeBadgedMovies(index, { limit: 1 })
+  if (!Array.isArray(refs) || refs.length < 1 || refs.length > limit
+    || !Number.isInteger(limit) || limit < 1 || limit > TMDB_FIRST_MAX_TITLES) {
+    throw new Error('TMDB_FIRST_EXPLICIT_BATCH_SIZE_INVALID')
+  }
+  const eligible = new Map()
+  for (const e of index.entries) {
+    if (e?.type !== 'movie' || !validId(e.tmdbId) || !safe(e.title)) continue
+    if (!((Array.isArray(e.providerIds) && e.providerIds.includes('youtube'))
+      || (Array.isArray(e.providerOffers) && e.providerOffers.some(o => o?.id === 'youtube')))) continue
+    const key = Number(e.tmdbId)
+    if (eligible.has(key)) continue
+    eligible.set(key, {
+      mediaType:'movie',tmdbId:key,title:safe(e.title),
+      originalTitle:safe(e.originalTitle) || null,
+      year:Number.isInteger(Number(e.year)) && Number(e.year)>=1888 ? Number(e.year) : null,
+      source:'published-moviehub-search-index',
+    })
+  }
+  const seen = new Set(), selected = []
+  for (const ref of refs) {
+    const mediaType = ref?.mediaType
+    const tmdbId = Number(ref?.tmdbId)
+    if (mediaType !== 'movie' || !Number.isInteger(tmdbId) || !eligible.has(tmdbId)
+      || seen.has(tmdbId)) throw new Error('TMDB_FIRST_EXPLICIT_BADGE_IDENTITY_INVALID')
+    seen.add(tmdbId)
+    selected.push(eligible.get(tmdbId))
+  }
+  return {
+    ...validated,
+    selected,
+    selectionMode:'explicit-full-canonical-inventory-batch',
+  }
+}
+
 export function exactYoutubeProviderIds(directory) {
   const entries = Array.isArray(directory?.results) ? directory.results : []
   return [...new Set(entries
