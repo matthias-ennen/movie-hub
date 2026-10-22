@@ -11,7 +11,7 @@ import {
   selectYoutubeBadgedMovies, exactYoutubeProviderIds,
   exactDeYoutubeOfferTypes, evaluateTmdbFirstYoutubeLinks,
   summarizeTmdbFirstPilot,
-} from '../src/sources/youtubeTmdbFirstLinkAudit.js'
+} from './youtube-g2-tmdb-first-link-model.mjs'
 
 export const PUBLIC_INDEX = 'https://movie-hub-62459.web.app/search-index.json'
 export const OUTPUT = 'artifacts/youtube-g2/tmdb-first-link-pilot'
