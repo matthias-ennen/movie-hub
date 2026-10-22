@@ -71,7 +71,7 @@ describe('YouTube G2 TMDB-FIRST – existing badge -> review-only direct link ca
     expect(exactDeYoutubeOfferTypes({ results: { DE: {
       rent: [{ provider_id: 192 }], free: [{ provider_id: 3 }],
       buy: [{ provider_id: 235 }],
-    } }, providers)).toEqual(['rent'])
+    } } }, providers)).toEqual(['rent'])
   })
 
   it('returns only a review candidate, never an activated provider route', () => {
