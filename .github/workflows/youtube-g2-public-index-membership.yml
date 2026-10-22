@@ -1,0 +1,63 @@
+name: YouTube G2 – Public Search-Index Membership (Read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      audit_run_id:
+        description: 'Original 125-ID v1.1 QA run (read-only); defaults to verified #39769005927'
+        type: string
+        required: true
+        default: '39769005927'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: youtube-g2-public-membership
+  cancel-in-progress: false
+
+jobs:
+  public-membership:
+    name: Check actual published PUBLIC search-index membership (no imports)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      YOUTUBE_G2_AUDIT_QA_PATH: artifacts/youtube-g2/replay-source/qa.json
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Verify read-only source and integrity tests
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-public-index-membership.mjs
+          npx vitest run tests/youtube-g2-public-index-membership.test.js
+      - name: Read ONLY the already completed v1.1 QA artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.audit_run_id }}
+        run: |
+          case "$SOURCE_RUN_ID" in
+            ''|*[!0-9]*) echo 'Invalid source QA run ID'; exit 1;;
+          esac
+          mkdir -p artifacts/youtube-g2/replay-source
+          gh run download "$SOURCE_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "youtube-g2-125-new-preimport-$SOURCE_RUN_ID" \
+            --dir artifacts/youtube-g2/replay-source
+          test -s "$YOUTUBE_G2_AUDIT_QA_PATH"
+      - name: Check PUBLIC index only – no personal catalog or title addition
+        run: node scripts/youtube-g2-public-index-membership.mjs
+      - name: Upload bounded internal QA report (no public catalog)
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-public-membership-${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/public-membership-125/report.md
+            artifacts/youtube-g2/public-membership-125/public-membership.json
+          if-no-files-found: error
+          retention-days: 7
