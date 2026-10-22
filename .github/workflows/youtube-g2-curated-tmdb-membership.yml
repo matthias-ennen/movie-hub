@@ -8,16 +8,9 @@ on:
         type: string
         required: true
         default: '39816864480'
-  # One-time explicit read-only replay; ordinary pushes never run it.
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/youtube-g2-curated-tmdb-membership.yml
-
 permissions:
   contents: read
   actions: read
-  issues: write
 
 concurrency:
   group: youtube-g2-curated-tmdb-read-only
@@ -26,10 +19,7 @@ concurrency:
 jobs:
   curated-tmdb-research:
     name: Fixed playlist video IDs -> TMDB identity and public MovieHub index, no import
-    if: >-
-      github.ref == 'refs/heads/main' &&
-      (github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'push' && contains(github.event.head_commit.message, '[youtube-curated-query-once]')))
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -66,36 +56,3 @@ jobs:
             artifacts/youtube-g2/curated-tmdb-membership/report.md
           if-no-files-found: error
           retention-days: 7
-      - name: Summarize read-only query-repair QA in existing issue
-        if: >-
-          always() && github.event_name == 'push' &&
-          contains(github.event.head_commit.message, '[youtube-curated-query-once]')
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          node --input-type=module <<'NODE'
-          import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-          const path='artifacts/youtube-g2/curated-tmdb-membership/qa.json'
-          const lines=[
-            '## YouTube G2 – gleiche 21 IDs, gezielte Title-Query-Korrektur, READ ONLY',
-            '- Actions-Run: https://github.com/'+process.env.GITHUB_REPOSITORY+'/actions/runs/'+process.env.GITHUB_RUN_ID,
-            '- Original-YouTube-Quellen-QA: 39816864480; keine neue YouTube-Suche.',
-          ]
-          if(existsSync(path)){
-            const d=JSON.parse(readFileSync(path,'utf8')).summary
-            lines.push(
-              '- Quelle/Verarbeitung: '+d.sourceVideoIds+' / '+d.processedRows+' IDs',
-              '- Matcher: '+d.matcherVersion,
-              '- Gezielte Query-Korrekturen: '+d.curatedQueryCorrections,
-              '- Review-Status: '+JSON.stringify(d.counts),
-              '- Öffentlicher MovieHub-Index: '+JSON.stringify(d.publicIndexMembership),
-              '- TMDB-GETs: '+d.tmdbCalls,
-              '- Veröffentlichung: '+d.publicationPermitted+'; verifizierte Filme/DE-Angebote/Importe: 0/0/0.',
-              '- Alle Produktionswrites: 0. Öffentlicher Index != gesamter Account-Katalog.'
-            )
-          } else {
-            lines.push('- QA fehlgeschlagen/fehlend: keine Ergebnisbehauptung; Actions-Protokoll prüfen.')
-          }
-          writeFileSync('/tmp/youtube-query-qa.json',JSON.stringify({body:lines.join('\n')+'\n'}))
-          NODE
-          gh api "repos/${GITHUB_REPOSITORY}/issues/388/comments" --method POST --input /tmp/youtube-query-qa.json
