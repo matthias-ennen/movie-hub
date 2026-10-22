@@ -1,4 +1,5 @@
 name: YouTube G2 – Two Curated User Playlists (Read-only)
+# Validated one-shot production-reader replay; never writes catalogs or Firebase.
 
 on:
   workflow_dispatch:
