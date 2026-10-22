@@ -6,11 +6,28 @@
 import {mkdir,readFile,writeFile} from 'node:fs/promises'
 import {pathToFileURL} from 'node:url'
 import {getSecret,youtubeGet,SOURCES} from './youtube-api-smoke.mjs'
-import {titleVariants} from './youtube-movies-hundred-tmdb-g1.mjs'
+import {prepareYouTubeMovieSearchTitle} from './youtube-g2-title-query-prep.mjs'
 import {scoreCandidate,classifyVideo} from './youtube-g1-matcher-v1.mjs'
 import {normalizeYoutubeVideoCandidate} from '../src/sources/adapters/youtubeContractMapper.js'
 import {buildYoutubeTitleImportPreview} from '../src/sources/youtubeTitleImportPreview.js'
 
+// Exact YouTube VIDEO-ID provenance from the successful G2 run #39737252995.
+// Re-read metadata LIVE for these 20, never compare against newly uploaded videos.
+export const NETZKINO_BASELINE_20_VIDEO_IDS = Object.freeze([
+ 'gCCgGmtEuNk','RmoK2khmyiE','wOkwIsL2p44','P2TSjraNZSM',
+ 'mdQNb0GWiHo','pcOGi8dpIdY','J-Cx2UexjnY','ucRKSNwzM_w',
+ 'm8V3_4uhtzI','2-S8M7tg1U0','mXZDKGZoVOg','uQmypOH0xE4',
+ 'DR0Qb7LMa5g','4IX90tdOIEg','5xjC8dfrkv4','zK7Oa9yk8GA',
+ 'fHoNjdSjn4Y','emcEtLS6W8c','M35e4dwrIJU','3xmyrfDhSq8',
+])
+export const BASELINE_G2_RUN=39737252995
+export const BASELINE_MATCH_COUNTS=Object.freeze({
+ 'review-no-movie-candidate':13,
+ 'review-multiple-film-works':3,
+ 'review-leading-film-hypothesis':2,
+ 'review-explicit-year-conflict':1,
+ 'review-source-screened-out':1,
+})
 export const MAX_SOURCE_VIDEOS=20
 export const MAX_YOUTUBE_CALLS=3
 export const MAX_TMDB_CALLS=100
@@ -30,6 +47,7 @@ function tmdbIds(body) {
 }
 export async function runYoutubeLivePreflight({
  youtube,tmdb,source=SOURCES[1],knownTitleRefs=null,limit=MAX_SOURCE_VIDEOS,
+ videoIdsSnapshot=null,
  now=()=>new Date().toISOString(),
 }={}) {
  if(typeof youtube!=='function'||typeof tmdb!=='function')throw Error('Need read-only API callbacks')
@@ -38,6 +56,13 @@ export async function runYoutubeLivePreflight({
   if(!/^UC[A-Za-z0-9_-]{22}$/.test(source?.channelId||''))throw Error('One valid single publisher channel required')
  }
  if(!Number.isInteger(limit)||limit<1||limit>MAX_SOURCE_VIDEOS)throw Error('Limit out of range')
+ const replay=Array.isArray(videoIdsSnapshot)
+ // Validate the replay manifest BEFORE any paid/limited external API request.
+ if(replay && (
+  videoIdsSnapshot.length!==limit
+  || videoIdsSnapshot.some(x=>!id.test(String(x||'')))
+  || new Set(videoIdsSnapshot).size!==videoIdsSnapshot.length
+ ))throw Error('Pinned video-ID replay snapshot is missing/duplicate/invalid')
  let youtubeCalls=0,tmdbCalls=0
  const runAt=mkDate(now())
  const getYoutube=async(path,params)=>{
@@ -54,11 +79,16 @@ export async function runYoutubeLivePreflight({
  const channel=(Array.isArray(ch?.items)?ch.items:[]).find(x=>x.id===source.channelId)
  const uploads=channel?.contentDetails?.relatedPlaylists?.uploads
  if(!channel||!uploads)throw Error('Publisher channel/official uploads playlist missing')
- const playlist=await getYoutube('playlistItems',{
-  part:'snippet,contentDetails',playlistId:uploads,maxResults:limit,
- })
- const videoIds=unique((Array.isArray(playlist?.items)?playlist.items:[])
-  .map(x=>x?.contentDetails?.videoId).filter(x=>id.test(String(x||'')))).slice(0,limit)
+ let videoIds
+ if(replay){
+  videoIds=[...videoIdsSnapshot]
+ }else{
+  const playlist=await getYoutube('playlistItems',{
+   part:'snippet,contentDetails',playlistId:uploads,maxResults:limit,
+  })
+  videoIds=unique((Array.isArray(playlist?.items)?playlist.items:[])
+   .map(x=>x?.contentDetails?.videoId).filter(x=>id.test(String(x||'')))).slice(0,limit)
+ }
  const raw=videoIds.length?await getYoutube('videos',{
   part:'snippet,contentDetails,status',id:videoIds.join(','),
  }):{items:[]}
@@ -75,16 +105,24 @@ export async function runYoutubeLivePreflight({
     confirmedFilm:false,confirmedOffer:false},errors:[]})
    continue
   }
-  const variants=titleVariants({title:video.title}).filter(Boolean)
-  const query=variants[0]||video.title
+  const prepared=prepareYouTubeMovieSearchTitle(video.title)
   let filmIds=[],tvIds=[],scored=[],errors=[]
+  const movieLists=[]
   try{
-   const res=await getTmdb('/search/movie',{
-    language:'de-DE',query,include_adult:'false',page:1,
-   })
-   filmIds=tmdbIds(res)
+   for(const query of prepared.queries){
+    const res=await getTmdb('/search/movie',{
+     language:'de-DE',query,include_adult:'false',page:1,
+    })
+    movieLists.push(tmdbIds(res))
+   }
+   // Cover both main title and alternate short title, without a query
+   // widening from one publisher to a second YouTube source.
+   filmIds=unique([
+    ...movieLists.flatMap(list=>list.slice(0,2)),
+    ...movieLists.flat(),
+   ]).slice(0,3)
    const tv=await getTmdb('/search/tv',{
-    language:'de-DE',query,include_adult:'false',page:1,
+    language:'de-DE',query:prepared.matchingTitle,include_adult:'false',page:1,
    })
    tvIds=tmdbIds(tv)
    for(const tmdbId of filmIds){
@@ -93,27 +131,36 @@ export async function runYoutubeLivePreflight({
     })
     if(Number(detail?.id)!==tmdbId)throw Error('TMDB detail ID changed')
     scored.push(scoreCandidate({
-     title:video.title,minutes:video.minutes,category:video.category,region:video.deRegionSignal,
+     // Only the pre-processed title is compared to TMDB; original raw
+     // YouTube source title remains untouched in the video provenance.
+     title:prepared.matchingTitle,minutes:video.minutes,
+     category:video.category,region:video.deRegionSignal,
     },detail))
    }
   }catch(e){errors.push(clean(e?.message))}
   const verdict=classifyVideo({
-   title:video.title,minutes:video.minutes,category:video.category,region:video.deRegionSignal,
+   title:prepared.matchingTitle,minutes:video.minutes,
+   category:video.category,region:video.deRegionSignal,
   },scored,tvIds,{incomplete:errors.length>0,asOfYear:Number(runAt.slice(0,4))})
-  rows.push({video,verdict,errors})
+  rows.push({video,prepared,verdict,errors})
   // Reject ambiguous or failed partial match before any potential title publication.
   if(errors.some(x=>/quota|hard cap|429/i.test(x)))break
  }
  const preview=buildYoutubeTitleImportPreview(rows,{knownTitleRefs,reportGeneratedAt:runAt})
  const counts={...preview.counts, sourceVideoIds:videoIds.length,
   detailResolved:videos.length, matcherReviewed:rows.filter(x=>x.video.screening.eligible).length,
-  youtubeCalls,tmdbCalls}
+  youtubeCalls,tmdbCalls, replaySourceIds:replay}
  const lines=[
   '# MovieHub YouTube G2 – REAL single-publisher API / frozen Matcher v1 pre-import test','',
   '- Generated: '+runAt,
   '- Publisher channel ID: '+source.channelId+' ('+clean(channel.snippet?.title||source.name)+').',
-  '- ONE original publisher upload playlist only. No other channel or Content Owner is combined.',
+  '- ONE publisher channel only; '+(replay
+   ?'exact 20 original IDs from run #'+BASELINE_G2_RUN+' re-fetched live (NOT recent uploads)'
+   :'latest official publisher upload playlist')+'. No other channel is combined.',
   '- YouTube API calls: '+youtubeCalls+'/'+MAX_YOUTUBE_CALLS+'; TMDB calls: '+tmdbCalls+'/'+MAX_TMDB_CALLS+'.',
+  '- Query changes: SEO actor/marketing text removed before searches; frozen Matcher v1 UNCHANGED.',
+  '- Fixed-baseline replay: '+replay+'; unavailable previous IDs: '+(videoIds.length-videos.length)+'.',
+  ...(replay?['- Original run #'+BASELINE_G2_RUN+' statuses: '+JSON.stringify(BASELINE_MATCH_COUNTS)+'.']:[]),
   '- Live source Video-IDs '+counts.sourceVideoIds+'; resolved '+counts.detailResolved+'; eligible matcher-reviewed '+counts.matcherReviewed+'.',
   '- Existing-title comparison: '+(preview.catalogStatus==='known'?'against provided canonical catalog':'UNKNOWN – no live catalog snapshot supplied')+'.',
   '- Preview existing='+counts.matchedExisting+', new-title candidates='+counts.proposedNew+
@@ -124,11 +171,12 @@ export async function runYoutubeLivePreflight({
   '- NO production catalog, Firestore, Nightly, app, provider badges, player, TMDB match approvals or Offer data were written.',
   '- This report does not determine movie-license rights, DE app playback, free/ads/rent/buy/subscription offers, or content owner identity.','',
   '## Per-video QA – all review-only','',
-  '| YouTube Video ID / title | Length min | Screen | TMDB top-3 hypotheses / runtime Δ | Matcher v1 | Canonical reconciliation preview |',
-  '| --- | ---: | --- | --- | --- | --- |',
+  '| YouTube Video ID / title | Search query (cleaned) | Length min | Screen | TMDB top-3 hypotheses / runtime Δ | Matcher v1 | Canonical reconciliation preview |',
+  '| --- | --- | ---: | --- | --- | --- |',
   ...preview.candidates.map(c=>{
    const row=rows.find(r=>r.video.videoId===c.videoId)
    return '| ['+clean(c.title)+']('+c.youtubeWatchUrl+') '+c.videoId+
+    ' | '+clean(row?.prepared?.queries?.join(' / ')||'–')+
     ' | '+(row?.video?.minutes??'?')+
     ' | '+(row?.video?.screening?.rejectionReason||'eligible')+
     ' | '+(row?.verdict?.topCandidates||[]).map(x=>x.tmdbId+' ('+(x.runtimeDelta??'?')+'min)').join('; ')+
@@ -170,6 +218,7 @@ async function main(){
  const key=getSecret()
  const r=await runYoutubeLivePreflight({
   source,knownTitleRefs,limit:MAX_SOURCE_VIDEOS,
+  videoIdsSnapshot:NETZKINO_BASELINE_20_VIDEO_IDS,
   youtube:(p,q)=>youtubeGet(p,q,key),
   tmdb:(p,q)=>tmdbGet(p,q,secret),
  })

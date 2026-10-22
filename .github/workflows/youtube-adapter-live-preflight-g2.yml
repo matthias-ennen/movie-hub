@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   single-source-preflight:
-    name: Live 20 uploads / single publisher / frozen TMDB matcher / ZERO imports
+    name: Recheck exact 20 original Netzkino video IDs / frozen matcher v1 / ZERO imports
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 18
@@ -39,7 +39,7 @@ jobs:
           npm ci
           node --check scripts/youtube-adapter-live-preflight.mjs
           npx vitest run tests/youtube-source-adapter-preflight.test.js
-      - name: Live YouTube/official TMDB reads in 1 isolated channel only
+      - name: Replay original 20 video IDs using fresh API metadata in 1 isolated channel only
         run: node scripts/youtube-adapter-live-preflight.mjs
       - name: Upload short-lived internal pre-import QA report only
         if: ${{ success() }}
