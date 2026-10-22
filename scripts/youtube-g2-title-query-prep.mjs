@@ -9,7 +9,7 @@ const bracketed = /\s*\(([^()]*)\)/g
 // CiNENET-like publisher format: "Actual film name (1981) [Horror] [Thriller] promo text".
 // Only a standalone source year immediately followed by one or more GENRE tags
 // qualifies. Never confuse a movie title such as "2010: ..." with a release year.
-const sourceYearGenre = /^(.*?)\s+\(((?:19|20)\d{2})\)\s+((?:\[[^\[\]]{2,35}\]\s*)+)(?:.*)$/u
+const sourceYearGenre = /^(.*?)\s+\(((?:19|20)\d{2})\)\s+((?:\[(?:action|sci-fi|science-fiction|komödie|horror|thriller|drama|mystery|krimi|abenteuer|adventure|romantik|eastern|kriegsfilm|fantasy|western|slasher|martial arts|krieg|klassiker|katastrophenfilm|biografie|satire|trash)\]\s*)+)(?:.*)$/iu
 
 const actorPrefix = /^[A-ZÄÖÜ][A-ZÄÖÜ\s.'’&-]{4,42}\s+in\s+(?=[A-ZÄÖÜ0-9])/u
 const promotionalTail = /\s+[–—]\s+(?:ein\s+etwas\s+anderer|[A-ZÄÖÜ\s&.'’]{4,}\s+(?:sind|ist)\s+)/u
