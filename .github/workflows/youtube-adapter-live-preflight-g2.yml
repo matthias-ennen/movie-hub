@@ -1,0 +1,51 @@
+name: YouTube G2 Live Adapter Pre-Import / Frozen Matcher v1 (Read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: moviehub-youtube-g2-single-publisher-preimport
+  cancel-in-progress: false
+
+jobs:
+  single-source-preflight:
+    name: Live 20 uploads / single publisher / frozen TMDB matcher / ZERO imports
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Authenticate with existing Google workload identity
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Set up gcloud for existing read-only API key
+        uses: google-github-actions/setup-gcloud@v3
+      - name: Enforce code checks and mock acceptance before any external API
+        run: |
+          npm ci
+          node --check scripts/youtube-adapter-live-preflight.mjs
+          npx vitest run tests/youtube-source-adapter-preflight.test.js
+      - name: Live YouTube/official TMDB reads in 1 isolated channel only
+        run: node scripts/youtube-adapter-live-preflight.mjs
+      - name: Upload short-lived internal pre-import QA report only
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-single-publisher-preimport-${{ github.run_id }}
+          path: artifacts/youtube-g2/preimport-live-report.md
+          if-no-files-found: error
+          retention-days: 14
