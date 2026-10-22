@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   selectYoutubeBadgedMovies, exactYoutubeProviderIds,
   exactDeYoutubeOfferTypes, evaluateTmdbFirstYoutubeLinks,
-} from '../src/sources/youtubeTmdbFirstLinkAudit.js'
+} from '../scripts/youtube-g2-tmdb-first-link-model.mjs'
 import {
   runTmdbFirstLinkPilot,
   pilotMarkdown,
