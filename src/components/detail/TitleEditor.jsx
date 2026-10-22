@@ -35,14 +35,15 @@ export default function TitleEditor({ activeProfile, personalState, personalBusy
       <DetailCard id="shared-edit-heading" title="Eigene Links und Videos" context="Alle Profile">
         <div className="media-kind-actions" aria-label="Eigenen Inhalt hinzufügen">
           <button ref={addLink} type="button" data-focusable="true" onClick={(event) => { mediaTrigger.current = event.currentTarget; startMediaDraft('web') }}>↗ Link hinzufügen</button>
+          <button type="button" data-focusable="true" onClick={(event) => { mediaTrigger.current = event.currentTarget; startMediaDraft('youtube') }}>▶ YouTube-Link hinzufügen</button>
           <button type="button" data-focusable="true" onClick={(event) => { mediaTrigger.current = event.currentTarget; startMediaDraft('video') }}>▶ Video hinzufügen</button>
         </div>
 
         {mediaDraft.type && (
           <form onSubmit={addMedia} className="media-form">
-            <h3 className="media-form-title">{editingMediaId ? 'Eintrag bearbeiten' : mediaDraft.type === 'video' ? 'Video hinzufügen' : 'Link hinzufügen'}</h3>
-            <label>Bezeichnung<input required maxLength="80" placeholder={mediaDraft.type === 'video' ? 'z. B. Film auf NAS' : 'z. B. YouTube-Video'} value={mediaDraft.label} onChange={(event) => setMediaDraft({ ...mediaDraft, label: event.target.value })} data-focusable="true" /></label>
-            <label>Adresse<input required type="text" placeholder={mediaDraft.type === 'video' ? 'https://…/video.mp4, smb://… oder \\Server\Freigabe\video.mkv' : 'https://…'} value={mediaDraft.url} onChange={(event) => setMediaDraft({ ...mediaDraft, url: event.target.value })} data-focusable="true" /></label>
+            <h3 className="media-form-title">{editingMediaId ? 'Eintrag bearbeiten' : mediaDraft.type === 'video' ? 'Video hinzufügen' : mediaDraft.type === 'youtube' ? 'YouTube-Video verknüpfen' : 'Link hinzufügen'}</h3>
+            <label>Bezeichnung<input required maxLength="80" placeholder={mediaDraft.type === 'video' ? 'z. B. Film auf NAS' : mediaDraft.type === 'youtube' ? 'z. B. YouTube-Link für diesen Film' : 'z. B. YouTube-Video'} value={mediaDraft.label} onChange={(event) => setMediaDraft({ ...mediaDraft, label: event.target.value })} data-focusable="true" /></label>
+            <label>Adresse<input required type="text" placeholder={mediaDraft.type === 'video' ? 'https://…/video.mp4, smb://… oder \\Server\Freigabe\video.mkv' : mediaDraft.type === 'youtube' ? 'https://youtu.be/ABCDEFGHIJK' : 'https://…'} value={mediaDraft.url} onChange={(event) => setMediaDraft({ ...mediaDraft, url: event.target.value })} data-focusable="true" /></label>
             <div className="media-form-actions">
               <button type="submit" disabled={mediaBusy} data-focusable="true">Speichern</button>
               <button type="button" disabled={mediaBusy} data-focusable="true" onClick={resetMediaDraft}>Abbrechen</button>
@@ -50,6 +51,7 @@ export default function TitleEditor({ activeProfile, personalState, personalBusy
           </form>
         )}
 
+        {mediaDraft.type === 'youtube' && <p className="media-form-hint">Bitte den konkreten YouTube-Videolink eingeben. Der persönliche Link wird für alle Movie-Hub-Profile gespeichert und auf unterstützten Geräten in der YouTube-App geöffnet. Keine automatische Bestätigung von Filmfassung oder Gratis-Angebot; kein YouTube-Anbieterbadge aus diesem Link.</p>}
         {mediaDraft.type === 'web' && <p className="media-form-hint">Links werden außerhalb des Movie-Hub-Players in der passenden App oder im Browser geöffnet. YouTube-Links werden auf unterstützten Geräten gezielt an die YouTube-App übergeben.</p>}
         {mediaDraft.type === 'video' && <p className="media-form-hint">Movie Hub erkennt die Quelle automatisch: HTTP(S)-Videos laufen im Movie-Hub-Player; <code>smb://server/freigabe/datei</code> und Windows-Pfade wie <code>\\Server\Freigabe\datei</code> werden als Netzwerkvideo geöffnet. Zugangsdaten kommen aus <strong>Einstellungen → Netzlaufwerke</strong>.</p>}
         {mediaMessage && <p className="personal-state-message" role="status">{mediaMessage}</p>}
