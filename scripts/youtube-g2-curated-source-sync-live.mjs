@@ -9,6 +9,8 @@
  */
 import {readFile, mkdir, writeFile} from 'node:fs/promises'
 import {pathToFileURL} from 'node:url'
+import {dirname} from 'node:path'
+import {buildYoutubeVerifiedTitleSeeds} from './youtube-g2-verified-title-seeds.mjs'
 import {getSecret,youtubeGet} from './youtube-api-smoke.mjs'
 import {runCuratedYoutubeSourceSync} from './youtube-g2-curated-source-sync.mjs'
 
@@ -16,6 +18,7 @@ export const OUTPUT='artifacts/youtube-g2/curated-production-sync'
 export const APPROVAL_INPUT='artifacts/youtube-g2-independent-approvals.json'
 export const VERIFIED_ENVELOPE_OUTPUT='artifacts/youtube-verified-source-envelope.json'
 export const PUBLIC_SUMMARY='public/youtube-curated-source-status.json'
+export const VERIFIED_TITLE_SEEDS='public/youtube-curated/verified-titles.json'
 
 async function loadApprovals(input=APPROVAL_INPUT){
   try {return JSON.parse(await readFile(input,'utf8'))}
@@ -27,6 +30,7 @@ export async function runProductionCuratedSync({
   output=OUTPUT,approvalInput=APPROVAL_INPUT,
   verifiedEnvelopeOutput=VERIFIED_ENVELOPE_OUTPUT,
   publicSummaryOutput=PUBLIC_SUMMARY,
+  verifiedTitleSeedsOutput=VERIFIED_TITLE_SEEDS,
 }={}){
   if(process.env.YOUTUBE_G2_WRITE_MODE)throw Error('YOUTUBE_CURATED_CANONICAL_NO_PRODUCT_WRITES')
   const verifiedApprovals=approvals===undefined?await loadApprovals(approvalInput):approvals
@@ -39,6 +43,7 @@ export async function runProductionCuratedSync({
     ||result.sourceEnvelope?.records?.length!==result.publishedVerifiedAvailabilities){
     throw Error('YOUTUBE_CURATED_PUBLISH_RECONCILIATION_FAILED')
   }
+  const titleSeeds=buildYoutubeVerifiedTitleSeeds(result.sourceEnvelope,{now:result.observedAt})
   const status={
     kind:'moviehub-youtube-curated-source-status',
     generatedAt:result.observedAt,
@@ -58,11 +63,13 @@ export async function runProductionCuratedSync({
   await mkdir(output,{recursive:true})
   await mkdir('artifacts',{recursive:true})
   await mkdir('public',{recursive:true})
+  await mkdir(dirname(verifiedTitleSeedsOutput),{recursive:true})
   await writeFile(output+'/qa.json',JSON.stringify({
     ...result,sourceEnvelope:undefined,
   },null,2)+'\n',{mode:0o600})
   await writeFile(verifiedEnvelopeOutput,JSON.stringify(result.sourceEnvelope)+'\n',{mode:0o600})
   await writeFile(publicSummaryOutput,JSON.stringify(status)+'\n','utf8')
+  await writeFile(verifiedTitleSeedsOutput,JSON.stringify(titleSeeds)+'\n','utf8')
   console.log(JSON.stringify({
     twoPlaylistsScanned:true,uniqueVideoIds:status.inventoryVideoIds,
     resolvedVideoDetails:status.videoDetailsResolved,
