@@ -66,7 +66,7 @@ jobs:
           node --check scripts/youtube-g2-large-live-audit.mjs
           node --check scripts/youtube-g2-prior-video-ids.mjs
           node --check scripts/youtube-g2-source-config.mjs
-          npx vitest run tests/youtube-g2-source-config.test.js tests/youtube-g2-large-live-audit.test.js tests/youtube-source-adapter-preflight.test.js tests/youtube-g2-title-query-prep.test.js
+          npx vitest run tests/youtube-g2-source-config.test.js tests/youtube-g2-large-live-audit.test.js tests/youtube-source-adapter-preflight.test.js tests/youtube-g2-title-query-prep.test.js tests/youtube-g2-cinenet-title-prep.test.js tests/youtube-g2-live-replay.test.js
       - name: Load original 125-ID internal QA artifact for exact replay when requested
         if: ${{ inputs.replay_run_id != '' }}
         env:
