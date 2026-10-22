@@ -149,7 +149,8 @@ export function buildExistingYoutubeBadgeLinkReview({ audit, tmdbRows, publicInd
       || (Array.isArray(movie.providerOffers)
         && movie.providerOffers.some(o => o?.id === 'youtube'))))
     const identityReviewable = r.matchStatus === 'review-leading-film-hypothesis'
-      && Number(top?.titleLevel) >= 3 && Number(top?.runtimeDelta) <= 15
+      && Number(top?.titleLevel) >= 3 && typeof top?.runtimeDelta === 'number'
+      && Number.isFinite(top.runtimeDelta) && top.runtimeDelta >= 0 && top.runtimeDelta <= 15
       && top?.yearMismatch !== true && top?.sequelConflict !== true
       && c.screened === true && c.playlistModes.length === 1
     const candidateWatchUrl = identityReviewable && hasYoutubeBadge
