@@ -8,16 +8,9 @@ on:
         type: string
         required: true
         default: '39816864480'
-  # Explicit once-only QA, never triggered by ordinary source changes.
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/youtube-g2-curated-tmdb-membership.yml
-
 permissions:
   contents: read
   actions: read
-  issues: write
 
 concurrency:
   group: youtube-g2-curated-tmdb-read-only
@@ -26,12 +19,7 @@ concurrency:
 jobs:
   curated-tmdb-research:
     name: Fixed playlist video IDs -> TMDB identity and public MovieHub index, no import
-    if: >-
-      github.ref == 'refs/heads/main' &&
-      (github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'push' &&
-        (contains(github.event.head_commit.message, '[youtube-curated-tmdb-once]') ||
-         contains(github.event.head_commit.message, '[youtube-curated-cast-once]'))))
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -67,38 +55,3 @@ jobs:
             artifacts/youtube-g2/curated-tmdb-membership/report.md
           if-no-files-found: error
           retention-days: 7
-      - name: Publish non-sensitive result pointer and aggregates to issue 388
-        if: >-
-          always() && github.event_name == 'push' &&
-          (contains(github.event.head_commit.message, '[youtube-curated-tmdb-once]') ||
-           contains(github.event.head_commit.message, '[youtube-curated-cast-once]'))
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          node --input-type=module <<'NODE'
-          import {existsSync,readFileSync,writeFileSync} from 'node:fs'
-          const path='artifacts/youtube-g2/curated-tmdb-membership/qa.json'
-          const text=[
-            '## YouTube G2 – Exakte zwei-Playlist-IDs zu TMDB und öffentlichem MovieHub-Index (READ ONLY)',
-            '- Actions-Run: https://github.com/'+process.env.GITHUB_REPOSITORY+'/actions/runs/'+process.env.GITHUB_RUN_ID,
-            '- Quelle: zuvor vollständig ausgelesene Playlists, exakter QA-Run 39816864480; keine weitere YouTube-Suche.',
-          ]
-          if(existsSync(path)){
-            const d=JSON.parse(readFileSync(path,'utf8')).summary
-            text.push(
-              '- Eingelesene Video-IDs: '+d.sourceVideoIds,
-              '- Matcher: '+d.matcherVersion+'; geprüfte Fälle: '+d.processedRows,
-              '- Explizite Darstellerprüfung: '+d.actorEvidenceCases+' Fälle, geänderte führende TMDB-ID: '+d.castChangedTopIds,
-              '- Matcher-Review-Status: '+JSON.stringify(d.counts),
-              '- Mitgliedschaft im **öffentlichen** MovieHub-Index: '+JSON.stringify(d.publicIndexMembership),
-              '- TMDB-API-GET: '+d.tmdbCalls,
-              '- Unabhängig bestätigte Filme/DE-Angebote/Neuimporte: 0/0/0.',
-              '- Veröffentlichung: '+d.publicationPermitted+'; Katalog-/Firestore-/Provider-/Badge-/Nightly-Writes alle 0.',
-              '- Not-present im öffentlichen Index ist KEIN gesichert neuer MovieHub-Titel.'
-            )
-          }else{
-            text.push('- QA nicht erfolgreich erstellt. Fehler im verlinkten Actions-Protokoll prüfen; keine Match-/Angebotsquote behaupten.')
-          }
-          writeFileSync('/tmp/curated-tmdb-report.json',JSON.stringify({body:text.join('\n')+'\n'}))
-          NODE
-          gh api "repos/${GITHUB_REPOSITORY}/issues/388/comments" --method POST --input /tmp/curated-tmdb-report.json
