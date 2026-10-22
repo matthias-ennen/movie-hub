@@ -71,11 +71,24 @@ describe('G2 exactly two curated YouTube playlists', () => {
     expect(api.mock.calls.map(x => x[0])).toEqual(['playlists', 'playlistItems', 'playlistItems', 'videos'])
   })
 
-  it('refuses inaccessible or mismatched-owner playlists', async () => {
-    for (const opts of [{ hidden: true }, { playlistOwner: 'other' }]) {
-      await expect(runTwoCuratedPlaylistAudit({ playlists, youtubeApi: fixture(opts) }))
-        .rejects.toThrow(/PLAYLIST_NOT_ACCESSIBLE|CURATED_PLAYLISTS_MUST_HAVE/)
-    }
+  it('rejects private/inaccessible sources but allows two independently published playlists', async () => {
+    await expect(runTwoCuratedPlaylistAudit({
+      playlists, youtubeApi: fixture({ hidden: true }),
+    })).rejects.toThrow('PLAYLIST_NOT_ACCESSIBLE_WITH_READ_ONLY_API_KEY')
+
+    const result = await runTwoCuratedPlaylistAudit({
+      playlists, youtubeApi: fixture({ playlistOwner: 'other' }),
+      at: () => '2026-10-22T13:00:00Z',
+    })
+    expect(result.playlistsHaveSameOwner).toBe(false)
+    expect(result.playlistOwnerChannelIds).toEqual(['UC222', 'UC333'])
+    expect(result.playlistSummaries.map(x => x.ownerChannelId)).toEqual(['UC222', 'UC333'])
+    expect(result.uniqueVideoIds).toBe(3)
+    expect(result.crossPlaylistConflicts).toBe(1)
+    expect(result.publicationPermitted).toBe(false)
+    expect(result.providerWrites).toBe(0)
+    expect(result.catalogWrites).toBe(0)
+    expect(result.firestoreWrites).toBe(0)
   })
 
   it('marks incomplete paging without pretending an exhaustive inventory', async () => {
