@@ -9,7 +9,7 @@ import { getSecret, youtubeGet } from './youtube-api-smoke.mjs'
 import { planTmdbFirstYoutubeQueries } from './youtube-g2-tmdb-first-query-plan.mjs'
 import {
   TMDB_FIRST_MAX_SEARCHES, TMDB_FIRST_MAX_TITLES,
-  selectYoutubeBadgedMovies, exactYoutubeProviderIds,
+  selectYoutubeBadgedMovies, selectExplicitYoutubeBadgedMovies, exactYoutubeProviderIds,
   exactDeYoutubeOfferTypes, evaluateTmdbFirstYoutubeLinks,
   summarizeTmdbFirstPilot,
 } from './youtube-g2-tmdb-first-link-model.mjs'
@@ -40,7 +40,7 @@ export async function loadPublicMovieHubIndex(request = fetch) {
 
 export async function runTmdbFirstLinkPilot({
   publicIndex, tmdbGet, youtubeApi,
-  limit = TMDB_FIRST_MAX_TITLES, now = () => new Date().toISOString(),
+  limit = TMDB_FIRST_MAX_TITLES, seedRefs = null, now = () => new Date().toISOString(),
 } = {}) {
   if (typeof tmdbGet !== 'function' || typeof youtubeApi !== 'function') {
     throw new Error('READ_ONLY_API_CALLBACKS_REQUIRED')
@@ -50,7 +50,9 @@ export async function runTmdbFirstLinkPilot({
   if (!Number.isFinite(age) || age < -86400000 || age > 30 * 86400000) {
     throw new Error('PUBLISHED_INDEX_STALE_OR_FUTURE')
   }
-  const selection = selectYoutubeBadgedMovies(publicIndex, { limit })
+  const selection = seedRefs === null
+    ? selectYoutubeBadgedMovies(publicIndex, { limit })
+    : selectExplicitYoutubeBadgedMovies(publicIndex, seedRefs, { limit })
   if (!selection.selected.length) throw new Error('NO_EXISTING_YOUTUBE_BADGED_MOVIES')
   const counters = { youtubeSearches: 0, youtubeVideoLookups: 0, tmdbGetRequests: 0 }
   const yt = async (path, params) => {
