@@ -27,6 +27,7 @@ const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms))
 export async function runYoutubeLargeAudit({
  youtube,tmdb,source=null,sources=SOURCES,priorIds=previouslyReviewedYouTubeIds,
  knownTitleRefs=null,target=TARGET,maxPages=MAX_PAGES,
+ replayCases=null,replayRunId=null,
  now=()=>new Date().toISOString(),
 }={}) {
  if(typeof youtube!=='function'||typeof tmdb!=='function')throw Error('Read-only API callbacks required')
@@ -39,6 +40,14 @@ export async function runYoutubeLargeAudit({
  if(!Number.isInteger(target)||target<101||target>TARGET)throw Error('Target must be 101..125')
  if(!Number.isInteger(maxPages)||maxPages<1||maxPages>MAX_PAGES)throw Error('Max playlist pages invalid')
  if(!Array.isArray(priorIds)||priorIds.some(x=>!VIDEO.test(x)))throw Error('Historical exclusions invalid')
+ const isReplay=Array.isArray(replayCases)
+ if(isReplay && (
+  replayCases.length!==target
+  || new Set(replayCases.map(x=>x?.videoId)).size!==target
+  || replayCases.some(x=>!VIDEO.test(x?.videoId||'')
+    || !CHANNEL.test(x?.channelId||'')
+    || !selectedSources.some(s=>s.channelId===x.channelId))
+ ))throw Error('INVALID_125_VIDEO_REPLAY_MANIFEST')
  const excluded=new Set(priorIds)
  const runAt=new Date(now()).toISOString()
  let youtubeCalls=0,tmdbCalls=0,examined=0,resolved=0,oldSkipped=0,screenedOut=0,pages=0
@@ -68,6 +77,28 @@ export async function runYoutubeLargeAudit({
    oldSkipped:0,screenedOut:0,eligible:0}
  })
  const seen=new Set(),selected=[]
+ if(isReplay){
+  // Original short-lived private Actions QA artifact: exact IDs, fresh metadata.
+  for(let i=0;i<replayCases.length;i+=50){
+   const batch=replayCases.slice(i,i+50)
+   const metadata=await yget('videos',{
+    part:'snippet,contentDetails,status',id:batch.map(x=>x.videoId).join(','),
+   })
+   if(!Array.isArray(metadata?.items))throw Error('REPLAY_VIDEOS_RESPONSE_INVALID')
+   const index=new Map(metadata.items.map(v=>[v.id,v]))
+   for(const ref of batch){
+    const raw=index.get(ref.videoId)
+    const state=states.find(x=>x.channelId===ref.channelId)
+    if(!raw)throw Error('REPLAY_VIDEO_REMOVED: '+ref.videoId)
+    if(raw?.snippet?.channelId!==ref.channelId)throw Error('REPLAY_CHANNEL_CHANGED: '+ref.videoId)
+    const normalized=normalizeYoutubeVideoCandidate(raw,{observedAt:runAt})
+    if(!normalized?.screening?.eligible)throw Error('REPLAY_VIDEO_NO_LONGER_ELIGIBLE: '+ref.videoId)
+    selected.push(normalized)
+    seen.add(ref.videoId);examined++;resolved++
+    state.examined++;state.resolved++;state.eligible++
+   }
+  }
+ }else{
  // Round-robin pages: a prolific first channel cannot starve other sources.
  let round=0
  while(pages<maxPages && selected.length<target && states.some(s=>!s.done)){
@@ -107,6 +138,7 @@ export async function runYoutubeLargeAudit({
   }
   state.token=page.nextPageToken||null
   if(!state.token)state.done=true
+ }
  }
  if(selected.length<target)
   throw Error('INSUFFICIENT_NEW_ELIGIBLE_IDS: '+selected.length+'/'+target+
@@ -160,8 +192,32 @@ export async function runYoutubeLargeAudit({
   if(s.startsWith('review-leading-')&&row.verdict.topCandidates?.[0]?.tmdbId)
    leadingWorks.add(row.verdict.topCandidates[0].tmdbId)
  }
+ const priorById=isReplay?new Map(replayCases.map(x=>[x.videoId,x])):null
+ const comparison=isReplay?{
+  replayRunId:String(replayRunId||'reference-artifact'),
+  sourceCases:replayCases.length,
+  sameVideoIds:rows.every(x=>priorById.has(x.video.videoId)),
+  changedStatus:rows.filter(x=>
+   priorById.get(x.video.videoId)?.status!==x.verdict.status).length,
+  previousNoMovie:rows.filter(x=>
+   priorById.get(x.video.videoId)?.status==='review-no-movie-candidate').length,
+  previousNoMovieNowHasCandidates:rows.filter(x=>
+   priorById.get(x.video.videoId)?.status==='review-no-movie-candidate'
+   && x.verdict.topCandidates?.length>0).length,
+  previousNoMovieNowLeading:rows.filter(x=>
+   priorById.get(x.video.videoId)?.status==='review-no-movie-candidate'
+   && String(x.verdict.status).startsWith('review-leading-')).length,
+  bySource:states.map(s=>({
+   channelId:s.channelId,
+   previousNoMovie:rows.filter(x=>x.video.channelId===s.channelId
+    && priorById.get(x.video.videoId)?.status==='review-no-movie-candidate').length,
+   nowNoMovie:rows.filter(x=>x.video.channelId===s.channelId
+    && x.verdict.status==='review-no-movie-candidate').length,
+  })),
+ } :null
  const summary={
   generatedAt:runAt,mode:'READ_ONLY_G2_CONFIGURABLE_SOURCES_STRESS',
+  replayMode:isReplay,comparison,
   publisherChannelIds:states.map(s=>s.channelId),
   sourceBreakdown:states.map(({channelId,name,pages,examined,resolved,oldSkipped,screenedOut,eligible})=>({channelId,name,pages,examined,resolved,oldSkipped,screenedOut,eligible})),
   knownExclusions:excluded.size,
@@ -181,6 +237,7 @@ export async function runYoutubeLargeAudit({
   '# YouTube G2 – Live-Stresstest mit 125 NEUEN Film-Video-Kandidaten','',
   '- Run: '+runAt,
   '- Konfigurierte YouTube-Kanäle: '+states.map(s=>s.name+' ('+s.channelId+')').join('; '),
+  '- Original-ID-Replay: '+isReplay+(comparison?' aus Run '+comparison.replayRunId+'; Vorher/Nachher: '+JSON.stringify(comparison):''),
   '- Pro Kanal: '+JSON.stringify(summary.sourceBreakdown),
   '- IDs in archivierten G1-100/G2-20-Referenzlisten ausgeschlossen: '+excluded.size,
   '- Gescreente Playlist-IDs: '+examined+'; Videos-Metadaten: '+resolved+
@@ -237,9 +294,17 @@ async function main(){
   mode:process.env.YOUTUBE_G2_SOURCE_MODE||'all',
   channelIds:process.env.YOUTUBE_G2_CHANNEL_IDS||'',
  })
+ const replayRunId=String(process.env.YOUTUBE_G2_REPLAY_RUN_ID||'').trim()
+ const replayPath=String(process.env.YOUTUBE_G2_REPLAY_MANIFEST||'').trim()
+ const replayArtifact=replayRunId?JSON.parse(await readFile(replayPath,'utf8')):null
+ if(replayArtifact && (!Array.isArray(replayArtifact.cases)
+  || replayArtifact.summary?.newEligibleUniqueVideos!==TARGET
+  || replayArtifact.summary?.publicationPermitted!==false))
+   throw Error('REPLAY_ARTIFACT_INVALID')
  const key=getSecret()
  const {summary,report,rows}=await runYoutubeLargeAudit({
   sources:sourceList,knownTitleRefs,
+  replayCases:replayArtifact?.cases||null,replayRunId,
   youtube:(p,q)=>youtubeGet(p,q,key),
   tmdb:(p,q)=>tmdbLive(p,q,token),
  })
