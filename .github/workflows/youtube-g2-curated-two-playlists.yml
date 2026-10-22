@@ -1,5 +1,4 @@
 name: YouTube G2 – Two Curated User Playlists (Read-only)
-# Validated one-shot production-reader replay; never writes catalogs or Firebase.
 
 on:
   workflow_dispatch:
@@ -15,11 +14,6 @@ on:
         type: string
         required: true
 
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/youtube-g2-curated-two-playlists.yml
-
 permissions:
   contents: read
   id-token: write
@@ -31,16 +25,12 @@ concurrency:
 jobs:
   two-user-playlists:
     name: List exactly two configured playlists; zero imports or offer claims
-    if: >-
-      github.ref == 'refs/heads/main' &&
-      (github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'push' &&
-        contains(github.event.head_commit.message, '[youtube-curated-sync-qa-once]')))
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      YOUTUBE_G2_CURATED_FREE_PLAYLIST: ${{ inputs.free_playlist || 'PL9hLFbkmRD8nBj_e8FfntoBporPAqqeSJ' }}
-      YOUTUBE_G2_CURATED_RENT_BUY_PLAYLIST: ${{ inputs.rent_buy_playlist || 'PLJWJS8p_IeEo' }}
+      YOUTUBE_G2_CURATED_FREE_PLAYLIST: ${{ inputs.free_playlist }}
+      YOUTUBE_G2_CURATED_RENT_BUY_PLAYLIST: ${{ inputs.rent_buy_playlist }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -62,37 +52,6 @@ jobs:
         uses: google-github-actions/setup-gcloud@v3
       - name: Fetch ONLY playlist IDs and video metadata, never search or write
         run: node scripts/youtube-g2-curated-two-playlists-live.mjs
-      - name: Read both same playlists through the ACTUAL production source sync
-        run: |
-          node scripts/youtube-g2-curated-source-sync-live.mjs
-          node scripts/generate-youtube-verified-route-index.mjs
-      - name: Verify actual source-count and zero unapproved offers
-        run: |
-          node --input-type=module <<'NODE'
-          import {readFileSync} from 'node:fs'
-          const p=JSON.parse(readFileSync('public/youtube-curated-source-status.json','utf8'))
-          const a=JSON.parse(readFileSync('artifacts/youtube-g2/curated-production-sync/qa.json','utf8'))
-          const i=JSON.parse(readFileSync('public/youtube-verified-title-routes.json','utf8'))
-          if(p.sourcePlaylistCount!==2||!p.fullyScanned||p.inventoryVideoIds<1
-            ||a.audit.calls.search!==0||a.audit.calls.tmdb!==0
-            ||a.catalogWrites!==0||a.firestoreWrites!==0||a.tmdbBadgeWrites!==0
-            ||i.count!==p.approvedDEOfferRoutes)throw Error('PRODUCTION_SYNC_QA_INVALID')
-          console.log(JSON.stringify({playlists:p.sourcePlaylistCount,
-            videoIds:p.inventoryVideoIds,details:p.videoDetailsResolved,
-            conflicting:p.playlistOverlapConflicts,verifiedOffers:i.count,
-            noDirectLinkOnUnverified:true,prodWrites:0}))
-          NODE
-      - name: Upload internal production-sync QA, never Firebase
-        if: ${{ success() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: youtube-g2-production-sync-qa-${{ github.run_id }}
-          path: |
-            artifacts/youtube-g2/curated-production-sync/qa.json
-            public/youtube-curated-source-status.json
-            public/youtube-verified-title-routes.json
-          if-no-files-found: error
-          retention-days: 7
       - name: Internal seven-day QA artifact only
         if: ${{ success() }}
         uses: actions/upload-artifact@v7
