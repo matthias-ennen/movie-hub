@@ -114,6 +114,7 @@ describe('canonical existing versus new TMDB title import *preview*',()=>{
   expect(p.catalogStatus).toBe('not-loaded')
   expect(p.counts.catalogUnknown).toBe(1)
   expect(p.counts.proposedNew).toBe(0)
+  expect(p.counts.potentialTitles).toBe(1)
  })
  it('deduplicates VIDEO IDs but never pretends video count is unique movie work count',()=>{
   const p=buildYoutubeTitleImportPreview([
