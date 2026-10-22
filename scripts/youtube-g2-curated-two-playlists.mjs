@@ -1,5 +1,5 @@
 /**
- * Two curated user-owned YouTube playlists -> exact video-ID inventory.
+ * Two explicitly configured YouTube playlists -> exact video-ID inventory.
  * A playlist's label is an editorial HINT, not a confirmed DE offer.
  * Do not write source data to the MovieHub catalog, badges or Firestore.
  */
@@ -57,7 +57,7 @@ export async function runTwoCuratedPlaylistAudit({
     part: 'snippet,status', id: sources.map(x => x.playlistId).join(','),
   })
   const byId = new Map((meta?.items || []).map(x => [x.id, x]))
-  const owners = new Set()
+  const ownersByPlaylistId = new Map()
   for (const source of sources) {
     const playlist = byId.get(source.playlistId)
     const owner = playlist?.snippet?.channelId
@@ -65,9 +65,13 @@ export async function runTwoCuratedPlaylistAudit({
     if (!owner || !['public', 'unlisted'].includes(privacy)) {
       throw new Error('PLAYLIST_NOT_ACCESSIBLE_WITH_READ_ONLY_API_KEY')
     }
-    owners.add(owner)
+    // Both sources are chosen by the user, but need not be published by the same channel.
+    // Preserve each playlist publisher instead of asserting ownership/offer rights.
+    ownersByPlaylistId.set(source.playlistId, {
+      channelId: owner, channelTitle: safe(playlist?.snippet?.channelTitle),
+    })
   }
-  if (owners.size !== 1) throw new Error('CURATED_PLAYLISTS_MUST_HAVE_SAME_OWNER')
+  const ownerIds = [...new Set([...ownersByPlaylistId.values()].map(x => x.channelId))]
   const rows = new Map()
   const perPlaylist = []
   for (const source of sources) {
@@ -101,6 +105,8 @@ export async function runTwoCuratedPlaylistAudit({
     } while (token && pages < YOUTUBE_CURATED_MAX_PAGES_PER_LIST)
     perPlaylist.push({
       mode: source.mode, playlistId: source.playlistId, pages,
+      ownerChannelId: ownersByPlaylistId.get(source.playlistId).channelId,
+      ownerChannelTitle: ownersByPlaylistId.get(source.playlistId).channelTitle,
       distinctVideoIds: foundIds.size, fullyScanned: token === null,
     })
   }
@@ -147,7 +153,8 @@ export async function runTwoCuratedPlaylistAudit({
     .map(status => [status, candidates.filter(x => x.status === status).length]))
   return {
     mode: 'CURATED_TWO_PLAYLISTS_READ_ONLY',
-    observedAt, editorChannelId: [...owners][0],
+    observedAt, playlistOwnerChannelIds: ownerIds,
+    playlistsHaveSameOwner: ownerIds.length === 1,
     playlistSummaries: perPlaylist, uniqueVideoIds: ids.length,
     crossPlaylistConflicts: candidates.filter(x => x.playlistModes.length !== 1).length,
     fullyScanned: perPlaylist.every(x => x.fullyScanned),
