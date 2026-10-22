@@ -17,6 +17,8 @@ import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
+import { selectYoutubeVerifiedTitleRoute } from '../providers/youtubeVerifiedRouteIndex.js'
+import { loadYoutubeVerifiedTitleRoutes } from '../providers/youtubeVerifiedRouteRuntime.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { includedSwitchShownAsOn, ignoreCompletedIncludedClick } from '../notifications/includedSwitchSession.js'
@@ -57,6 +59,14 @@ export default function DetailModal({
   const titleAlerts = useTitleAlerts(user?.uid, activeProfile?.id)
   const { isProviderEnabled } = useProviderSelection()
   const [personalMessage, setPersonalMessage] = useState('')
+  const [youtubeVerifiedRoutes, setYoutubeVerifiedRoutes] = useState(null)
+  useEffect(() => {
+    let active = true
+    loadYoutubeVerifiedTitleRoutes().then((result) => {
+      if (active) setYoutubeVerifiedRoutes(result)
+    })
+    return () => { active = false }
+  }, [])
   const [personalBusy, setPersonalBusy] = useState(false)
   const [alertMenuOpen, setAlertMenuOpen] = useState(false)
   const [alertBusy, setAlertBusy] = useState(false)
@@ -314,16 +324,30 @@ export default function DetailModal({
     })
     if (!destination) return
 
+    // Only an already visible TMDB YouTube badge can be enriched. If the
+    // independently verified source route is absent/expired, keep EXACTLY
+    // the existing YouTube search destination and TMDB offer label.
+    const verifiedRoute = providerId === 'youtube'
+      ? selectYoutubeVerifiedTitleRoute(youtubeVerifiedRoutes, item, {
+          hasYoutubeBadge: streamingProviderIds.includes('youtube'),
+        })
+      : null
     markWatchedFromProvider()
+    if (verifiedRoute && launchProviderPlaybackRoute({
+      providerId, title: item.title, route: verifiedRoute,
+      fallbackUrl: destination,
+    })) return
+
+    const target = verifiedRoute?.target || destination
     if (window.MovieHubNative?.openProvider) {
-      window.MovieHubNative.openProvider(providerId, item.title, destination)
+      window.MovieHubNative.openProvider(providerId, item.title, target)
       return
     }
     if (window.MovieHubNative?.openExternalUrl) {
-      window.MovieHubNative.openExternalUrl(destination)
+      window.MovieHubNative.openExternalUrl(target)
       return
     }
-    window.open(destination, '_blank', 'noopener,noreferrer')
+    window.open(target, '_blank', 'noopener,noreferrer')
   }
 
   function openUrl(url) {
