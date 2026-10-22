@@ -86,7 +86,7 @@ export function prepareYouTubeMovieSearchTitle(rawTitle) {
   }).slice(0,2)
   return {
     rawTitle:original,
-    matchingTitle:cleanQueries[0]||candidate,
+    matchingTitle:removedPublisherGenre ? candidate : cleanQueries[0]||candidate,
     queries:cleanQueries,
     removed:[...new Set(removed)],
   }
