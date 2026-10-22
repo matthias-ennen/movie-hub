@@ -1,3 +1,5 @@
+import { canonicalYouTubeWatchUrl } from '../providers/youtubeExactLink.js'
+
 export function titleMediaKey(item) {
   const type = item?.type === 'series' ? 'series' : 'movie'
   return `${type}-${String(item?.tmdbId || item?.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`
@@ -76,7 +78,9 @@ export function normalizeMediaUrl(value) {
   if (url.username || url.password) {
     throw new Error('Zugangsdaten dürfen nicht in der Adresse stehen.')
   }
-  return url.toString()
+  // Direct user bookmarks remain type=web and encrypted in shared media.
+  // Strip tracking/share params; do not infer any YouTube movie availability.
+  return canonicalYouTubeWatchUrl(url.toString()) || url.toString()
 }
 
 export function normalizeVideoUrl(value) {
