@@ -18,9 +18,15 @@ on:
         type: string
         required: false
         default: ''
+      replay_run_id:
+        description: 'Gleiche 125 Video-IDs wie vorher: GitHub Actions Run-ID; leer = neue Uploads testen (bei Einzelkanal leeren)'
+        type: string
+        required: false
+        default: '39754462653'
 
 permissions:
   contents: read
+  actions: read
   id-token: write
 
 concurrency:
@@ -37,6 +43,8 @@ jobs:
       TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
       YOUTUBE_G2_SOURCE_MODE: ${{ inputs.source_mode }}
       YOUTUBE_G2_CHANNEL_IDS: ${{ inputs.channel_ids }}
+      YOUTUBE_G2_REPLAY_RUN_ID: ${{ inputs.replay_run_id }}
+      YOUTUBE_G2_REPLAY_MANIFEST: artifacts/youtube-g2/replay-original/qa.json
     steps:
       - name: Checkout trusted main
         uses: actions/checkout@v7
@@ -59,7 +67,21 @@ jobs:
           node --check scripts/youtube-g2-prior-video-ids.mjs
           node --check scripts/youtube-g2-source-config.mjs
           npx vitest run tests/youtube-g2-source-config.test.js tests/youtube-g2-large-live-audit.test.js tests/youtube-source-adapter-preflight.test.js tests/youtube-g2-title-query-prep.test.js
-      - name: Read >100 new eligible YouTube videos and execute frozen matcher v1 against TMDB
+      - name: Load original 125-ID internal QA artifact for exact replay when requested
+        if: ${{ inputs.replay_run_id != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "$YOUTUBE_G2_REPLAY_RUN_ID" in
+            ''|*[!0-9]*) echo "Invalid replay run ID"; exit 1;;
+          esac
+          mkdir -p artifacts/youtube-g2/replay-original
+          gh run download "$YOUTUBE_G2_REPLAY_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "youtube-g2-125-new-preimport-$YOUTUBE_G2_REPLAY_RUN_ID" \
+            --dir artifacts/youtube-g2/replay-original
+          test -s "$YOUTUBE_G2_REPLAY_MANIFEST"
+      - name: Read 125 original or new eligible YouTube videos and execute frozen matcher v1 against TMDB
         run: node scripts/youtube-g2-large-live-audit.mjs
       - name: Upload internal-only QA evidence, not a MovieHub catalog
         if: ${{ success() }}
