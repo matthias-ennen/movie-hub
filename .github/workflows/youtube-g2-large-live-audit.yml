@@ -1,0 +1,54 @@
+name: YouTube G2 – 125 NEW Single-Channel Film Candidates / Full Adapter Read-only Audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-125-new-live-one-channel
+  cancel-in-progress: false
+
+jobs:
+  large-125-preimport:
+    name: 125 fresh, distinct Netzkino film-video candidates / frozen matcher v1 / zero writes
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v7
+      - name: Set up Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Authenticate via existing Google OIDC
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Set up gcloud access to read-only YouTube API key
+        uses: google-github-actions/setup-gcloud@v3
+      - name: Run mock 125-ID and contract safeguards BEFORE real API reads
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-large-live-audit.mjs
+          node --check scripts/youtube-g2-prior-video-ids.mjs
+          npx vitest run tests/youtube-g2-large-live-audit.test.js tests/youtube-source-adapter-preflight.test.js tests/youtube-g2-title-query-prep.test.js
+      - name: Read >100 new eligible YouTube videos and execute frozen matcher v1 against TMDB
+        run: node scripts/youtube-g2-large-live-audit.mjs
+      - name: Upload internal-only QA evidence, not a MovieHub catalog
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-125-new-preimport-${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/large-125/report.md
+            artifacts/youtube-g2/large-125/qa.json
+          if-no-files-found: error
+          retention-days: 7
