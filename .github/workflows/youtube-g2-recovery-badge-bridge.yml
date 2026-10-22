@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      TMDB_API_READ_TOKEN: \${{ secrets.TMDB_API_READ_TOKEN }}
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -50,9 +50,9 @@ jobs:
       - name: Load original two-list QA with its exact video IDs
         uses: actions/download-artifact@v7
         with:
-          name: youtube-g2-two-curated-playlists-\${{ inputs.source_run_id || '39816864480' }}
-          run-id: \${{ inputs.source_run_id || '39816864480' }}
-          github-token: \${{ github.token }}
+          name: youtube-g2-two-curated-playlists-${{ inputs.source_run_id || '39816864480' }}
+          run-id: ${{ inputs.source_run_id || '39816864480' }}
+          github-token: ${{ github.token }}
           path: artifacts/youtube-g2/curated-playlists
       - name: Authenticate for pre-existing YouTube API secret (read only)
         uses: google-github-actions/auth@v3
@@ -64,10 +64,10 @@ jobs:
       - name: Recheck missing video IDs and match original 21 to existing MovieHub YouTube badges
         run: node scripts/youtube-g2-recovery-badge-bridge-live.mjs
       - name: Private internal QA for seven days, never publish film/link data
-        if: \${{ success() }}
+        if: ${{ success() }}
         uses: actions/upload-artifact@v7
         with:
-          name: youtube-g2-recovery-badge-bridge-\${{ github.run_id }}
+          name: youtube-g2-recovery-badge-bridge-${{ github.run_id }}
           path: |
             artifacts/youtube-g2/recovery-badge-bridge/qa.json
             artifacts/youtube-g2/recovery-badge-bridge/report.md
@@ -78,7 +78,7 @@ jobs:
           always() && github.event_name == 'push' &&
           contains(github.event.head_commit.message, '[youtube-recovery-bridge-once]')
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           node --input-type=module <<'NODE'
           import {existsSync,readFileSync,writeFileSync} from 'node:fs'
@@ -104,4 +104,4 @@ jobs:
           }
           writeFileSync('/tmp/youtube-g2-bridge-status.json',JSON.stringify({body:lines.join('\n')+'\n'}))
           NODE
-          gh api "repos/\${GITHUB_REPOSITORY}/issues/388/comments" --method POST --input /tmp/youtube-g2-bridge-status.json
+          gh api "repos/${GITHUB_REPOSITORY}/issues/388/comments" --method POST --input /tmp/youtube-g2-bridge-status.json
