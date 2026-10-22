@@ -1,0 +1,109 @@
+name: YouTube G2 – Full Canonical Catalog / TMDB-first Batch (Read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      offset:
+        description: 'Next cursor in exact public YouTube movie badge inventory'
+        type: string
+        required: true
+        default: '0'
+      batch_size:
+        description: 'YouTube research works (max 25; two search requests each)'
+        type: string
+        required: true
+        default: '10'
+  # One single read-only API pilot after REVIEWED merge, not recurring.
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-full-catalog-queue.yml
+
+permissions:
+  contents: read
+  id-token: write
+  issues: write
+
+concurrency:
+  group: youtube-g2-full-inventory-research-readonly
+  cancel-in-progress: false
+
+jobs:
+  canonical-youtube-research:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' &&
+        contains(github.event.head_commit.message, '[youtube-canonical-batch-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GOOGLE_CLOUD_PROJECT: movie-hub-62459
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+      YOUTUBE_G2_RESEARCH_OFFSET: ${{ inputs.offset || '0' }}
+      YOUTUBE_G2_RESEARCH_BATCH_SIZE: ${{ inputs.batch_size || '10' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Validate complete inventory and bounded research WITHOUT API writes
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-full-catalog-queue.mjs
+          node --check scripts/youtube-g2-full-catalog-queue-live.mjs
+          node --check scripts/youtube-g2-tmdb-first-link-model.mjs
+          node --check scripts/youtube-g2-tmdb-first-link-pilot.mjs
+          npx vitest run tests/youtube-g2-full-catalog-queue.test.js tests/youtube-g2-tmdb-first-link-pilot.test.js tests/title-candidate-inventory.test.js
+      - name: Authenticate existing MovieHub inventory reader (OIDC, no writes)
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Build canonical title inventory via existing #256 Firestore/browse/TV pathway
+        run: npm run title:candidates:inventory
+      - name: Select exact YouTube public badges from full inventory and research one capped batch
+        run: node scripts/youtube-g2-full-catalog-queue-live.mjs
+      - name: Save research QA for seven days – do not upload private Firestore inventory
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-full-catalog-research-${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/full-catalog-queue/qa.json
+            artifacts/youtube-g2/full-catalog-queue/report.md
+          if-no-files-found: error
+          retention-days: 7
+      - name: One-shot aggregate status in issue 388 (no user document paths)
+        if: >-
+          always() && github.event_name == 'push' &&
+          contains(github.event.head_commit.message, '[youtube-canonical-batch-once]')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node --input-type=module <<'NODE'
+          import {existsSync,readFileSync,writeFileSync} from 'node:fs'
+          const path='artifacts/youtube-g2/full-catalog-queue/qa.json'
+          const lines=[
+            '## YouTube G2 – Vollständige kanonische Titelinventur / begrenzter TMDB-first-Batch (read-only)',
+            '- GitHub-Actions-Run: https://github.com/'+process.env.GITHUB_REPOSITORY+'/actions/runs/'+process.env.GITHUB_RUN_ID,
+            '- Quellarten: browse, persönliche TMDB, Profile, MovieHub-Medien, Waipu, Joyn.',
+          ]
+          if(existsSync(path)){
+            const d=JSON.parse(readFileSync(path,'utf8'))
+            lines.push(
+              '- Kanonische Film-/Serienreferenzen: '+d.plan.basis.completeCanonicalTitleReferences+' ('+d.plan.basis.completeCanonicalMovies+' Filme / '+d.plan.basis.completeCanonicalSeries+' Serien).',
+              '- YouTube-Badges im öffentlichen DE-Suchindex: '+d.plan.basis.publicYoutubeBadgedMovies+' Filme, '+d.plan.basis.publicYoutubeBadgedSeriesDeferred+' Serien (separat).',
+              '- Public+kanonisch: '+d.plan.basis.canonicalAndPublicBadgedTitles+'; nur Public: '+d.plan.basis.publicSearchOnlyBadgedTitles+'.',
+              '- Persönliche/exklusiv private Provider-Angebote: NICHT aus dem öffentlichen Index ableitbar.',
+              '- Batch: '+d.plan.batch.offset+' + '+d.plan.batch.selectedCount+' / '+d.plan.batch.total+'; nächster Cursor: '+d.plan.batch.nextOffset+'.',
+              '- YouTube-Suche/Video-Lookups: '+d.pilot.summary.calls.youtubeSearches+'/'+d.pilot.summary.calls.youtubeVideoLookups+'.',
+              '- Match-Review: '+JSON.stringify(d.pilot.summary.statusCounts)+'; Link-Kandidaten: '+d.pilot.summary.candidateLinksForReview+'.',
+              '- Verifizierte Player-Links/DE-Angebote/Produktivwrites: 0/0/0.'
+            )
+          }else lines.push('- Kein QA-Bericht – Ursache im verlinkten Laufprotokoll prüfen; keine Bestandszahlen behaupten.')
+          writeFileSync('/tmp/youtube-full-catalog-report.json',JSON.stringify({body:lines.join('\n')+'\n'}))
+          NODE
+          gh api "repos/${GITHUB_REPOSITORY}/issues/388/comments" --method POST --input /tmp/youtube-full-catalog-report.json
