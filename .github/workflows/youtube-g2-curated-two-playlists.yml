@@ -13,6 +13,12 @@ on:
         default: 'https://www.youtube.com/playlist?list=PLJWJS8p_IeEo'
         type: string
         required: true
+  # One-time read-only live test only when THIS file is committed with the marker.
+  # Ordinary subsequent pushes never execute the YouTube API job.
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-curated-two-playlists.yml
 
 permissions:
   contents: read
@@ -25,12 +31,15 @@ concurrency:
 jobs:
   two-user-playlists:
     name: List exactly two configured playlists; zero imports or offer claims
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && contains(github.event.head_commit.message, '[youtube-playlists-once]')))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      YOUTUBE_G2_CURATED_FREE_PLAYLIST: ${{ inputs.free_playlist }}
-      YOUTUBE_G2_CURATED_RENT_BUY_PLAYLIST: ${{ inputs.rent_buy_playlist }}
+      YOUTUBE_G2_CURATED_FREE_PLAYLIST: ${{ inputs.free_playlist || 'https://www.youtube.com/playlist?list=PL9hLFbkmRD8nBj_e8FfntoBporPAqqeSJ' }}
+      YOUTUBE_G2_CURATED_RENT_BUY_PLAYLIST: ${{ inputs.rent_buy_playlist || 'https://www.youtube.com/playlist?list=PLJWJS8p_IeEo' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
