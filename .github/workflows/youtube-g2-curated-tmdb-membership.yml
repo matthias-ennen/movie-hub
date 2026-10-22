@@ -29,7 +29,9 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'push' && contains(github.event.head_commit.message, '[youtube-curated-tmdb-once]')))
+       (github.event_name == 'push' &&
+        (contains(github.event.head_commit.message, '[youtube-curated-tmdb-once]') ||
+         contains(github.event.head_commit.message, '[youtube-curated-cast-once]'))))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -41,8 +43,9 @@ jobs:
         run: |
           npm ci
           node --check scripts/youtube-g2-curated-tmdb-membership.mjs
+          node --check scripts/youtube-g2-curated-cast-evidence.mjs
           node --check scripts/youtube-g2-curated-tmdb-membership-live.mjs
-          npx vitest run tests/youtube-g2-curated-tmdb-membership.test.js
+          npx vitest run tests/youtube-g2-curated-tmdb-membership.test.js tests/youtube-g2-curated-cast-evidence.test.js
       - name: Download the exact 21-ID LIVE playlist QA, no new YouTube discovery
         uses: actions/download-artifact@v7
         with:
@@ -67,7 +70,8 @@ jobs:
       - name: Publish non-sensitive result pointer and aggregates to issue 388
         if: >-
           always() && github.event_name == 'push' &&
-          contains(github.event.head_commit.message, '[youtube-curated-tmdb-once]')
+          (contains(github.event.head_commit.message, '[youtube-curated-tmdb-once]') ||
+           contains(github.event.head_commit.message, '[youtube-curated-cast-once]'))
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -84,6 +88,7 @@ jobs:
             text.push(
               '- Eingelesene Video-IDs: '+d.sourceVideoIds,
               '- Matcher: '+d.matcherVersion+'; geprüfte Fälle: '+d.processedRows,
+              '- Explizite Darstellerprüfung: '+d.actorEvidenceCases+' Fälle, geänderte führende TMDB-ID: '+d.castChangedTopIds,
               '- Matcher-Review-Status: '+JSON.stringify(d.counts),
               '- Mitgliedschaft im **öffentlichen** MovieHub-Index: '+JSON.stringify(d.publicIndexMembership),
               '- TMDB-API-GET: '+d.tmdbCalls,

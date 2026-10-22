@@ -7,6 +7,7 @@
  */
 import { prepareYouTubeMovieSearchTitle } from './youtube-g2-title-query-prep.mjs'
 import { scoreCandidateV11, classifyVideoV11 } from './youtube-g2-matcher-v1-1.mjs'
+import { applyExplicitCastGuard } from './youtube-g2-curated-cast-evidence.mjs'
 
 export const CURATED_TMDB_MODE = 'CURATED_PLAYLIST_TMDB_PUBLIC_MEMBERSHIP_READ_ONLY'
 export const CURATED_TMDB_MAX_CASES = 50
@@ -81,6 +82,7 @@ export async function runCuratedTmdbMembership({
       videoId: c.videoId, playlistModes: c.playlistModes,
       editorialOfferHint: c.editorialOfferHint,
       videoTitle: safe(c.videoTitle), minutes: c.minutes,
+      castEvidence: null, castChangedTopId: false,
       sourceStatus: c.status, sourceVideoDetailAvailable: Boolean(c.videoTitle),
       playbackRoute: null, verifiedOfferType: null, verifiedTmdbId: null,
       verifiedDEPlayback: false, toImport: false, publicationPermitted: false,
@@ -98,6 +100,7 @@ export async function runCuratedTmdbMembership({
     const movieIds = new Set()
     const tvIds = []
     const details = []
+    const tmdbFilms = []
     const errors = []
     try {
       for (const query of queryVariants) {
@@ -122,6 +125,7 @@ export async function runCuratedTmdbMembership({
           language: 'de-DE', append_to_response: 'alternative_titles,credits,external_ids',
         })
         if (Number(movie?.id) !== id) throw new Error('CURATED_TMDB_MOVIE_ID_MISMATCH')
+        tmdbFilms.push(movie)
         details.push(scoreCandidateV11({
           title: prepared.matchingTitle, minutes: Number(c.minutes),
           category: 'unknown', region: c.deRegionSignal || 'unknown',
@@ -131,19 +135,25 @@ export async function runCuratedTmdbMembership({
       if (/BUDGET|quota|429|403|rate.limit/i.test(String(e?.message || ''))) throw e
       errors.push(safe(e?.message))
     }
+    const cast = applyExplicitCastGuard(c.videoTitle, details, tmdbFilms)
+    const originalTopId = [...details].sort((a,b) => b.score - a.score)[0]?.tmdbId || null
     const verdict = classifyVideoV11({
       title: prepared.matchingTitle, minutes: Number(c.minutes),
       category: 'unknown', region: c.deRegionSignal || 'unknown',
-    }, details, tvIds, { incomplete: errors.length > 0,
+    }, cast.scores, tvIds, { incomplete: errors.length > 0,
       asOfYear: Number(observedAt.slice(0,4)) })
     const topCandidates = verdict.topCandidates.map(v => ({
       tmdbId: v.tmdbId, score: v.score,
       titleLevel: v.titleLevel, runtimeDelta: v.runtimeDelta,
       yearMismatch: v.yearMismatch, sequelConflict: v.sequelConflict,
+      quotedActorCreditMatches: v.quotedActorCreditMatches ?? null,
     }))
     const topId = positiveId(topCandidates[0]?.tmdbId)
     rows.push({
       ...base, matchStatus: verdict.status,
+      castEvidence: cast.evidence,
+      castChangedTopId: cast.evidence.affectsRanking === true
+        && Number(originalTopId) !== Number(verdict.topCandidates[0]?.tmdbId),
       hasPlaylistOfferConflict: c.status === 'review-conflicting-curation',
       topCandidates,
       alternativeTvIds: tvIds,
@@ -168,7 +178,10 @@ export async function runCuratedTmdbMembership({
       sourcePlaylistIds: audit.playlistSummaries.map(x => x.playlistId),
       publishedIndexGeneratedAt: publicIndex.generatedAt,
       publicIndexOnly: true,
-      matcherVersion: 'v1.1', counts, publicIndexMembership: membership,
+      matcherVersion: 'v1.1+explicit-cast-review-guard', counts,
+      actorEvidenceCases: rows.filter(x => x.castEvidence?.affectsRanking === true).length,
+      castChangedTopIds: rows.filter(x => x.castChangedTopId).length,
+      publicIndexMembership: membership,
       tmdbCalls, verifiedFilms: 0, verifiedDEOffers: 0, newMovieImports: 0,
       publicationPermitted: false,
       catalogWrites: 0, firestoreWrites: 0, providerWrites: 0,

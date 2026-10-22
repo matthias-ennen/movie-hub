@@ -58,7 +58,7 @@ describe('G2 curated playlist exact IDs -> TMDB-only identity hypotheses', () =>
       audit: qa(), publicIndex: idx(), tmdbGet: tmdb, now: () => AT,
     })
     expect(result.summary).toMatchObject({
-      processedRows:3, sourceVideoIds:3, matcherVersion:'v1.1',
+      processedRows:3, sourceVideoIds:3, matcherVersion:'v1.1+explicit-cast-review-guard',
       verifiedFilms:0, verifiedDEOffers:0, newMovieImports:0,
       publicationPermitted:false, catalogWrites:0, firestoreWrites:0,
       badgeWrites:0, providerWrites:0, nightlyWrites:0,
