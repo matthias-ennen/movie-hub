@@ -18,6 +18,14 @@ on:
         type: string
         required: false
         default: ''
+      matcher_version:
+        description: 'Forschungs-Matcher: v1 als unveränderte Vergleichsbasis oder konservative v1.1-Identitätsprüfung'
+        type: choice
+        options:
+          - v1
+          - v1.1
+        default: v1
+        required: true
       replay_run_id:
         description: 'Gleiche 125 Video-IDs wie vorher: GitHub Actions Run-ID; leer = neue Uploads testen (bei Einzelkanal leeren)'
         type: string
@@ -42,6 +50,7 @@ jobs:
     env:
       TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
       YOUTUBE_G2_SOURCE_MODE: ${{ inputs.source_mode }}
+      YOUTUBE_G2_MATCHER_VERSION: ${{ inputs.matcher_version }}
       YOUTUBE_G2_CHANNEL_IDS: ${{ inputs.channel_ids }}
       YOUTUBE_G2_REPLAY_RUN_ID: ${{ inputs.replay_run_id }}
       YOUTUBE_G2_REPLAY_MANIFEST: artifacts/youtube-g2/replay-original/qa.json
@@ -66,7 +75,7 @@ jobs:
           node --check scripts/youtube-g2-large-live-audit.mjs
           node --check scripts/youtube-g2-prior-video-ids.mjs
           node --check scripts/youtube-g2-source-config.mjs
-          npx vitest run tests/youtube-g2-source-config.test.js tests/youtube-g2-large-live-audit.test.js tests/youtube-source-adapter-preflight.test.js tests/youtube-g2-title-query-prep.test.js tests/youtube-g2-cinenet-title-query.test.js tests/youtube-g2-live-replay.test.js
+          npx vitest run tests/youtube-g2-source-config.test.js tests/youtube-g2-large-live-audit.test.js tests/youtube-source-adapter-preflight.test.js tests/youtube-g2-title-query-prep.test.js tests/youtube-g2-cinenet-title-query.test.js tests/youtube-g2-live-replay.test.js tests/youtube-g2-matcher-v1-1.test.js
       - name: Load original 125-ID internal QA artifact for exact replay when requested
         if: ${{ inputs.replay_run_id != '' }}
         env:
