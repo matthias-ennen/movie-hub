@@ -5,7 +5,7 @@
  * This module never infers a verified YouTube DE offer, a newly imported film,
  * or a valid direct playback route. All records remain in review.
  */
-import { prepareYouTubeMovieSearchTitle } from './youtube-g2-title-query-prep.mjs'
+import { planCuratedTmdbQueries } from './youtube-g2-curated-title-query-plan.mjs'
 import { scoreCandidateV11, classifyVideoV11 } from './youtube-g2-matcher-v1-1.mjs'
 import { applyExplicitCastGuard } from './youtube-g2-curated-cast-evidence.mjs'
 
@@ -94,7 +94,7 @@ export async function runCuratedTmdbMembership({
         topCandidates: [], publicIndexMembership: 'unknown', errors: [] })
       continue
     }
-    const prepared = prepareYouTubeMovieSearchTitle(c.videoTitle)
+    const prepared = planCuratedTmdbQueries(c.videoTitle)
     const queryVariants = [...new Set((prepared.queries || [])
       .map(x => safe(x)).filter(Boolean))].slice(0, 2)
     const movieIds = new Set()
@@ -151,6 +151,8 @@ export async function runCuratedTmdbMembership({
     const topId = positiveId(topCandidates[0]?.tmdbId)
     rows.push({
       ...base, matchStatus: verdict.status,
+      curatedQueryReason: prepared.curatedQueryReason,
+      tmdbQueries: queryVariants,
       castEvidence: cast.evidence,
       castChangedTopId: cast.evidence.affectsRanking === true
         && Number(originalTopId) !== Number(verdict.topCandidates[0]?.tmdbId),
@@ -180,6 +182,7 @@ export async function runCuratedTmdbMembership({
       publicIndexOnly: true,
       matcherVersion: 'v1.1+explicit-cast-review-guard', counts,
       actorEvidenceCases: rows.filter(x => x.castEvidence?.affectsRanking === true).length,
+      curatedQueryCorrections: rows.filter(x => x.curatedQueryReason).length,
       castChangedTopIds: rows.filter(x => x.castChangedTopId).length,
       publicIndexMembership: membership,
       tmdbCalls, verifiedFilms: 0, verifiedDEOffers: 0, newMovieImports: 0,
