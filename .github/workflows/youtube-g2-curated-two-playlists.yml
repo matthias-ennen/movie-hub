@@ -1,0 +1,62 @@
+name: YouTube G2 – Two Curated User Playlists (Read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      free_playlist:
+        description: 'Meine Playlist Kostenlose Filme – YouTube Playlist-URL oder PL-ID'
+        type: string
+        required: true
+      rent_buy_playlist:
+        description: 'Meine Playlist Leihen & Kaufen – YouTube Playlist-URL oder PL-ID'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-two-curated-playlists-read-only
+  cancel-in-progress: false
+
+jobs:
+  two-user-playlists:
+    name: List exactly two configured playlists; zero imports or offer claims
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      YOUTUBE_G2_CURATED_FREE_PLAYLIST: ${{ inputs.free_playlist }}
+      YOUTUBE_G2_CURATED_RENT_BUY_PLAYLIST: ${{ inputs.rent_buy_playlist }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Validate two playlist parser and no-write gates
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-curated-two-playlists.mjs
+          node --check scripts/youtube-g2-curated-two-playlists-live.mjs
+          npx vitest run tests/youtube-g2-curated-two-playlists.test.js
+      - name: Authenticate via existing Google OIDC
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Set up gcloud access to existing YouTube key
+        uses: google-github-actions/setup-gcloud@v3
+      - name: Fetch ONLY playlist IDs and video metadata, never search or write
+        run: node scripts/youtube-g2-curated-two-playlists-live.mjs
+      - name: Internal seven-day QA artifact only
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-two-curated-playlists-${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/curated-playlists/qa.json
+            artifacts/youtube-g2/curated-playlists/report.md
+          if-no-files-found: error
+          retention-days: 7
