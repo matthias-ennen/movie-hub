@@ -47,6 +47,15 @@ jobs:
       - name: Test application logic
         run: npm run test:unit
 
+      - name: Use maintained npm CLI for registry bulk-advisory audits
+        # npm 10 sometimes falls back to the retired Quick Audit endpoint (HTTP 400).
+        # Production security gates below are NOT bypassed or weakened.
+        run: |
+          npm install --global npm@11.21.1 --ignore-scripts --no-audit --no-fund
+          node -v
+          npm -v
+          test "$(npm -v)" = "11.21.1"
+
       - name: Prepare isolated email source (no send or deployment)
         run: |
           node scripts/prepare-email-function.mjs
