@@ -5,10 +5,12 @@ on:
     inputs:
       free_playlist:
         description: 'Meine Playlist Kostenlose Filme – YouTube Playlist-URL oder PL-ID'
+        default: 'https://www.youtube.com/playlist?list=PL9hLFbkmRD8nBj_e8FfntoBporPAqqeSJ'
         type: string
         required: true
       rent_buy_playlist:
         description: 'Meine Playlist Leihen & Kaufen – YouTube Playlist-URL oder PL-ID'
+        default: 'https://www.youtube.com/playlist?list=PLJWJS8p_IeEo'
         type: string
         required: true
 
