@@ -331,6 +331,14 @@ jobs:
           workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
           service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
 
+      # YouTube G2: refresh BOTH pinned playlists through the official API.
+      # Never treat playlist labels or matcher hypotheses as confirmed offers.
+      # Failure leaves all TMDB YouTube badges and standard search links intact.
+      - name: Refresh both curated YouTube playlists through canonical source contract
+        id: youtube_curated_source
+        continue-on-error: true
+        run: node scripts/youtube-g2-curated-source-sync-live.mjs
+
       - name: Migrate legacy Movie-Hub presence parents
         id: presence_migration
         env:
