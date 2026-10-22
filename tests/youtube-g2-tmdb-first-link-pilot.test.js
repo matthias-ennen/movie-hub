@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  selectYoutubeBadgedMovies, exactYoutubeProviderIds,
+  selectYoutubeBadgedMovies, selectExplicitYoutubeBadgedMovies, exactYoutubeProviderIds,
   exactDeYoutubeOfferTypes, evaluateTmdbFirstYoutubeLinks,
 } from '../scripts/youtube-g2-tmdb-first-link-model.mjs'
 import {
@@ -59,6 +59,35 @@ describe('YouTube G2 TMDB-FIRST – existing badge -> review-only direct link ca
     expect(selection.selected[0].mediaType).toBe('movie')
     expect(() => selectYoutubeBadgedMovies({ ...publicIndex, source: 'fallback' })).toThrow()
     expect(() => selectYoutubeBadgedMovies(publicIndex, { limit: 100 })).toThrow()
+  })
+
+  it('uses only explicit FULL-inventory movie seeds that have exact YouTube badges', async () => {
+    const s=selectExplicitYoutubeBadgedMovies(publicIndex, [
+      {mediaType:'movie',tmdbId:111},
+    ],{limit:10})
+    expect(s.selectionMode).toBe('explicit-full-canonical-inventory-batch')
+    expect(s.selected).toHaveLength(1)
+    expect(s.selected[0].title).toBe('Iron Soldier')
+    expect(s.publicYoutubeBadgedMovies).toBe(1)
+    expect(()=>selectExplicitYoutubeBadgedMovies(publicIndex, [
+      {mediaType:'movie',tmdbId:1},
+    ],{limit:10})).toThrow('TMDB_FIRST_EXPLICIT_BADGE_IDENTITY_INVALID')
+    expect(()=>selectExplicitYoutubeBadgedMovies(publicIndex, [
+      {mediaType:'series',tmdbId:111},
+    ],{limit:10})).toThrow('TMDB_FIRST_EXPLICIT_BADGE_IDENTITY_INVALID')
+    expect(()=>selectExplicitYoutubeBadgedMovies(publicIndex, [
+      {mediaType:'movie',tmdbId:111},{mediaType:'movie',tmdbId:111},
+    ],{limit:10})).toThrow('TMDB_FIRST_EXPLICIT_BADGE_IDENTITY_INVALID')
+    ytApi.mockClear();tmdbApi.mockClear()
+    const result=await runTmdbFirstLinkPilot({
+      publicIndex,seedRefs:[{mediaType:'movie',tmdbId:111}],limit:10,
+      tmdbGet:tmdbApi,youtubeApi:ytApi,now:()=>now,
+    })
+    expect(result.summary).toMatchObject({
+      processedMovies:1,verifiedDirectLinks:0,publicationPermitted:false,
+      firestoreWrites:0,badgeWrites:0,
+    })
+    expect(result.summary.calls.youtubeSearches).toBe(2)
   })
 
   it('checks exact DE YouTube provider+offer pairing, not Google TV', () => {
