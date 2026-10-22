@@ -93,8 +93,12 @@ export function createYoutubeFullCatalogResearchPlan({
       indexed.set(key,entry)
     }
   }
+  const publicYoutubeBadgedSeries = [...indexed.values()]
+    .filter(entry => entry.type === 'series' && exactPublicYoutubeBadge(entry)).length
+  // This pilot is FILM-only. Series need verified episode/season identity and
+  // cannot safely borrow a movie playback route.
   const badged = [...indexed.entries()]
-    .filter(([,entry]) => exactPublicYoutubeBadge(entry))
+    .filter(([,entry]) => entry.type === 'movie' && exactPublicYoutubeBadge(entry))
     .map(([key,entry]) => {
       const member = canonical.get(key)
       return {
@@ -135,6 +139,8 @@ export function createYoutubeFullCatalogResearchPlan({
       exactYoutubeBadgesOnlyFromPublicSearchIndex:true,
       privateProfileYoutubeBadgeCoverage:'not-available-from-inventory',
       publicYoutubeBadgedTitles:pending.length,
+      publicYoutubeBadgedMovies:pending.length,
+      publicYoutubeBadgedSeriesDeferred:publicYoutubeBadgedSeries,
       canonicalAndPublicBadgedTitles:catalogBadged.length,
       publicSearchOnlyBadgedTitles:publicOnly.length,
       // Do NOT make 'not in public' into absent-on-YouTube.
