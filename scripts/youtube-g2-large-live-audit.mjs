@@ -9,6 +9,7 @@ import { resolveYouTubeResearchSources, MAX_RESEARCH_CHANNELS } from './youtube-
 import { previouslyReviewedYouTubeIds } from './youtube-g2-prior-video-ids.mjs'
 import { prepareYouTubeMovieSearchTitle } from './youtube-g2-title-query-prep.mjs'
 import { scoreCandidate, classifyVideo } from './youtube-g1-matcher-v1.mjs'
+import { scoreCandidateV11, classifyVideoV11 } from './youtube-g2-matcher-v1-1.mjs'
 import { normalizeYoutubeVideoCandidate } from '../src/sources/adapters/youtubeContractMapper.js'
 import { buildYoutubeTitleImportPreview } from '../src/sources/youtubeTitleImportPreview.js'
 
@@ -27,10 +28,11 @@ const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms))
 export async function runYoutubeLargeAudit({
  youtube,tmdb,source=null,sources=SOURCES,priorIds=previouslyReviewedYouTubeIds,
  knownTitleRefs=null,target=TARGET,maxPages=MAX_PAGES,
- replayCases=null,replayRunId=null,
+ replayCases=null,replayRunId=null,matcherVersion='v1',
  now=()=>new Date().toISOString(),
 }={}) {
  if(typeof youtube!=='function'||typeof tmdb!=='function')throw Error('Read-only API callbacks required')
+ if(!['v1','v1.1'].includes(matcherVersion))throw Error('Unrecognized review-only matcher version')
  const selectedSources = source ? [source] : sources
  if(!Array.isArray(selectedSources)||selectedSources.length<1||
     selectedSources.length>MAX_RESEARCH_CHANNELS||
@@ -172,14 +174,15 @@ export async function runYoutubeLargeAudit({
      language:'de-DE',append_to_response:'alternative_titles,credits,external_ids',
     })
     if(Number(movie?.id)!==id)throw Error('TMDB film ID mismatch')
-    scored.push(scoreCandidate(v1Input,movie))
+    scored.push(matcherVersion==='v1.1' ? scoreCandidateV11(v1Input,movie) : scoreCandidate(v1Input,movie))
    }
   }catch(e){
    errors.push(clean(e?.message))
    if(/HARD_STOP|quota|429|403|rate.limit/i.test(e?.message||''))
     throw Error('PARTIAL_BATCH_ABORT: '+rows.length+'/'+target+'; '+clean(e?.message))
   }
-  const verdict=classifyVideo(v1Input,scored,tvIds,{
+  const classify=matcherVersion==='v1.1' ? classifyVideoV11 : classifyVideo
+  const verdict=classify(v1Input,scored,tvIds,{
    incomplete:errors.length>0,asOfYear:Number(runAt.slice(0,4)),
   })
   rows.push({video,prepared,verdict,errors})
@@ -216,7 +219,7 @@ export async function runYoutubeLargeAudit({
   })),
  } :null
  const summary={
-  generatedAt:runAt,mode:'READ_ONLY_G2_CONFIGURABLE_SOURCES_STRESS',
+  generatedAt:runAt,mode:'READ_ONLY_G2_CONFIGURABLE_SOURCES_STRESS',matcherVersion,
   replayMode:isReplay,comparison,
   publisherChannelIds:states.map(s=>s.channelId),
   sourceBreakdown:states.map(({channelId,name,pages,examined,resolved,oldSkipped,screenedOut,eligible})=>({channelId,name,pages,examined,resolved,oldSkipped,screenedOut,eligible})),
@@ -236,6 +239,7 @@ export async function runYoutubeLargeAudit({
  const report=[
   '# YouTube G2 – Live-Stresstest mit 125 NEUEN Film-Video-Kandidaten','',
   '- Run: '+runAt,
+  '- Matcher: '+matcherVersion+' (research/review-only; no accepted movie IDs)',
   '- Konfigurierte YouTube-Kanäle: '+states.map(s=>s.name+' ('+s.channelId+')').join('; '),
   '- Original-ID-Replay: '+isReplay+(comparison?' aus Run '+comparison.replayRunId+'; Vorher/Nachher: '+JSON.stringify(comparison):''),
   '- Pro Kanal: '+JSON.stringify(summary.sourceBreakdown),
@@ -305,6 +309,7 @@ async function main(){
  const {summary,report,rows}=await runYoutubeLargeAudit({
   sources:sourceList,knownTitleRefs,
   replayCases:replayArtifact?.cases||null,replayRunId,
+  matcherVersion:process.env.YOUTUBE_G2_MATCHER_VERSION||'v1',
   youtube:(p,q)=>youtubeGet(p,q,key),
   tmdb:(p,q)=>tmdbLive(p,q,token),
  })
