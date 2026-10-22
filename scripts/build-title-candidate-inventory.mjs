@@ -1,4 +1,5 @@
 import { hasTitleFacetMetadata } from '../src/catalog/titleFacets.js'
+import { readVerifiedYoutubeTitleSeeds } from './youtube-g2-verified-title-seeds.mjs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -6,7 +7,7 @@ import { titleNeedsMetadataEnrichment } from '../src/catalog/titleMetadata.js'
 import { CANONICAL_METADATA_MAX_AGE_DAYS } from './canonical-metadata-policy.mjs'
 
 export const TITLE_CANDIDATE_INVENTORY_VERSION = 2
-export const CANDIDATE_SOURCES = Object.freeze(['browse', 'personal-tmdb', 'profile-state', 'movie-hub', 'waipu', 'joyn'])
+export const CANDIDATE_SOURCES = Object.freeze(['browse', 'personal-tmdb', 'profile-state', 'movie-hub', 'waipu', 'joyn', 'youtube-curated'])
 
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || 'movie-hub-62459'
 const inventoryPath = resolve(process.env.TITLE_CANDIDATE_INVENTORY || 'artifacts/title-candidate-inventory.json')
@@ -55,7 +56,7 @@ function hasCatalogRelevantProfileState(value) {
     || (Number.isInteger(value?.rating) && value.rating >= 1 && value.rating <= 10)
 }
 
-function sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles, joynTitles }) {
+function sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles, joynTitles, youtubeTitles }) {
   return {
     browse: (Array.isArray(catalog?.titles) ? catalog.titles : []).map((value) => ({ value, eligible: true })),
     'personal-tmdb': (Array.isArray(personalDocuments) ? personalDocuments : []).map((document) => {
@@ -84,6 +85,7 @@ function sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDo
     }),
     waipu: (Array.isArray(waipuTitles?.entries) ? waipuTitles.entries : []).map((value) => ({ value, eligible: true })),
     joyn: (Array.isArray(joynTitles?.entries) ? joynTitles.entries : []).map((value) => ({ value, eligible: true })),
+    'youtube-curated': readVerifiedYoutubeTitleSeeds(youtubeTitles).map(value => ({ value, eligible: true })),
   }
 }
 
@@ -249,6 +251,7 @@ export function buildTitleCandidateInventory({
   searchIndex = {},
   waipuTitles = {},
   joynTitles = {},
+  youtubeTitles = {},
   waipuIndex = {},
   waipuUnresolved = {},
   personalDocuments = [],
@@ -263,7 +266,7 @@ export function buildTitleCandidateInventory({
     maxAgeDays: Math.max(1, Number(maxAgeDays) || CANONICAL_METADATA_MAX_AGE_DAYS),
   }
   const candidates = new Map()
-  const sources = sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles, joynTitles })
+  const sources = sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles, joynTitles, youtubeTitles })
   const sourceStats = Object.fromEntries(CANDIDATE_SOURCES.map((source) => [
     source,
     collectSource(source, sources[source], candidates, metadataOptions),
@@ -366,11 +369,12 @@ async function main() {
   ])
   const app = initializeApp({ credential: applicationDefault(), projectId }, 'title-candidate-inventory')
   const db = getFirestore(app)
-  const [catalog, searchIndex, waipuTitles, joynTitles, waipuIndex, waipuUnresolved, personalSnapshot, profileSnapshot, movieHubSnapshot] = await Promise.all([
+  const [catalog, searchIndex, waipuTitles, joynTitles, youtubeTitles, waipuIndex, waipuUnresolved, personalSnapshot, profileSnapshot, movieHubSnapshot] = await Promise.all([
     readJson('public/catalog.json', { titles: [] }),
     readJson('public/search-index.json', { entries: [] }),
     readJson('public/waipu-live/titles.json', { entries: [] }),
     readJson('public/joyn-live/titles.json', { entries: [] }),
+    readJson('public/youtube-curated/verified-titles.json', {}),
     readJson('public/waipu-live/index.json'),
     readJson('artifacts/waipu-live/unresolved.json'),
     db.collectionGroup('tmdbCatalog').get(),
@@ -383,6 +387,7 @@ async function main() {
     searchIndex,
     waipuTitles,
     joynTitles,
+    youtubeTitles,
     waipuIndex,
     waipuUnresolved,
     personalDocuments: personalSnapshot.docs,
