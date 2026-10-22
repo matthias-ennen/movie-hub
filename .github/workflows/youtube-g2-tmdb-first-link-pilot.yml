@@ -2,6 +2,12 @@ name: YouTube G2 – TMDB-first YouTube Exact Link Pilot (Read-only)
 
 on:
   workflow_dispatch:
+  # One-time research run on an explicitly marked reviewed merge commit.
+  # Future ordinary pushes NEVER run the research/API workflow.
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-tmdb-first-link-pilot.yml
 
 permissions:
   contents: read
@@ -14,7 +20,10 @@ concurrency:
 jobs:
   tmdb-first-link-research:
     name: Existing MovieHub YouTube badges -> candidate video IDs (no imports)
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && contains(github.event.head_commit.message, '[youtube-tmdb-first-once]')))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
