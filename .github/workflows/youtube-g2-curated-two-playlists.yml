@@ -13,18 +13,10 @@ on:
         default: 'https://www.youtube.com/playlist?list=PLJWJS8p_IeEo'
         type: string
         required: true
-  # One-time read-only live test only when THIS file is committed with the marker.
-  # Ordinary subsequent pushes never execute the YouTube API job.
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/youtube-g2-curated-two-playlists.yml
 
 permissions:
   contents: read
   id-token: write
-  # Required only for a tightly bounded, non-sensitive QA status in existing issue #388.
-  issues: write
 
 concurrency:
   group: youtube-g2-two-curated-playlists-read-only
@@ -33,17 +25,12 @@ concurrency:
 jobs:
   two-user-playlists:
     name: List exactly two configured playlists; zero imports or offer claims
-    if: >-
-      github.ref == 'refs/heads/main' &&
-      (github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'push' &&
-        (contains(github.event.head_commit.message, '[youtube-playlists-once]') ||
-         contains(github.event.head_commit.message, '[youtube-playlists-report-once]'))))
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      YOUTUBE_G2_CURATED_FREE_PLAYLIST: ${{ inputs.free_playlist || 'https://www.youtube.com/playlist?list=PL9hLFbkmRD8nBj_e8FfntoBporPAqqeSJ' }}
-      YOUTUBE_G2_CURATED_RENT_BUY_PLAYLIST: ${{ inputs.rent_buy_playlist || 'https://www.youtube.com/playlist?list=PLJWJS8p_IeEo' }}
+      YOUTUBE_G2_CURATED_FREE_PLAYLIST: ${{ inputs.free_playlist }}
+      YOUTUBE_G2_CURATED_RENT_BUY_PLAYLIST: ${{ inputs.rent_buy_playlist }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -75,38 +62,3 @@ jobs:
             artifacts/youtube-g2/curated-playlists/report.md
           if-no-files-found: error
           retention-days: 7
-      - name: Post aggregate read-only audit status to existing tracking issue (one shot)
-        if: >-
-          always() && github.event_name == 'push' &&
-          contains(github.event.head_commit.message, '[youtube-playlists-report-once]')
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          node --input-type=module <<'NODE'
-          import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-          const path = 'artifacts/youtube-g2/curated-playlists/qa.json'
-          const lines = [
-            '## YouTube G2 – Live-Abruf der zwei festen Playlists (read-only)',
-            '',
-            '- GitHub-Lauf: https://github.com/' + process.env.GITHUB_REPOSITORY + '/actions/runs/' + process.env.GITHUB_RUN_ID,
-            '- Ausführung: nur offizielle Playlist-/Video-API; keine MovieHub-/Firestore-/Badge-/Provider-Writes.',
-          ]
-          if (existsSync(path)) {
-            const d = JSON.parse(readFileSync(path, 'utf8'))
-            lines.push(
-              '- QA-Ergebnis vorhanden; vollständig gescannt: ' + d.fullyScanned,
-              '- Verschiedene Video-IDs: ' + d.uniqueVideoIds,
-              '- Konflikte zwischen Playlist-Kategorien: ' + d.crossPlaylistConflicts,
-              '- Playlists: ' + d.playlistSummaries.map(s => s.mode + '=' + s.distinctVideoIds + ' (vollständig=' + s.fullyScanned + ')').join(', '),
-              '- Besitzerkanäle identisch: ' + d.playlistsHaveSameOwner,
-              '- Kandidatenstatus (nicht verifiziert): ' + JSON.stringify(d.counts),
-              '- API-Aufrufe: ' + JSON.stringify(d.calls),
-              '- Veröffentlichung erlaubt: ' + d.publicationPermitted,
-            )
-          } else {
-            lines.push('- Kein erfolgreiches QA-Artefakt erzeugt. Fehlerursache im verlinkten Laufprotokoll nachsehen; keine Verfügbarkeit behaupten.')
-          }
-          writeFileSync('/tmp/moviehub-youtube-qa-issue.json',
-            JSON.stringify({body: lines.join('\n') + '\n'}))
-          NODE
-          gh api "repos/${GITHUB_REPOSITORY}/issues/388/comments" --method POST --input /tmp/moviehub-youtube-qa-issue.json
