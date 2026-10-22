@@ -6,6 +6,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { getSecret, youtubeGet } from './youtube-api-smoke.mjs'
+import { planTmdbFirstYoutubeQueries } from './youtube-g2-tmdb-first-query-plan.mjs'
 import {
   TMDB_FIRST_MAX_SEARCHES, TMDB_FIRST_MAX_TITLES,
   selectYoutubeBadgedMovies, exactYoutubeProviderIds,
@@ -85,15 +86,9 @@ export async function runTmdbFirstLinkPilot({
       language: 'de-DE', append_to_response: 'alternative_titles,credits,external_ids',
     })
     if (Number(tmdbFilm?.id) !== seed.tmdbId) throw new Error('TMDB_TITLE_ID_MISMATCH')
-    // Pass A: licensed Movie-type search. Pass B: publisher uploads, if present.
-    // Search outputs are discovery, not proof that a movie is in the paid store.
-    const searches = [
-      { part: 'snippet', type: 'video', videoType: 'movie',
-        regionCode: 'DE', maxResults, order: 'relevance', q: [seed.title, seed.year].filter(Boolean).join(' ') },
-      { part: 'snippet', type: 'video', videoDuration: 'long',
-        regionCode: 'DE', maxResults, order: 'relevance',
-        q: [seed.originalTitle || seed.title, seed.year].filter(Boolean).join(' ') },
-    ]
+    // First precise DE movie search; then original-title/no-year discovery.
+    // Still exactly two calls/work and every result remains review-only.
+    const searches = planTmdbFirstYoutubeQueries(seed, tmdbFilm)
     const videoIds = new Set()
     for (const params of searches) {
       const response = await yt('search', params)
