@@ -56,7 +56,6 @@ describe('G2 exactly two curated YouTube playlists', () => {
     })
     expect(result).toMatchObject({
       uniqueVideoIds: 3, fullyScanned: true, crossPlaylistConflicts: 1,
-      independentVerifiedWorks: undefined,
       independentlyVerifiedWorks: 0, verifiedDEOffers: 0,
       publicationPermitted: false, providerWrites: 0, catalogWrites: 0, firestoreWrites: 0,
       badgeWrites: 0, nightlyWrites: 0, calls: {
