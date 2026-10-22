@@ -70,7 +70,7 @@ function approvedRows(bundle,now){
     ||!Array.isArray(bundle.approvals)
     ||bundle.approvals.length>500||!validIso(bundle.generatedAt)
     ||Date.parse(bundle.generatedAt)>Date.parse(now)+60000
-    ||Date.parse(now)-Date.parse(bundle.generatedAt)>86400000)
+    ||Date.parse(now)-Date.parse(bundle.generatedAt)>MAX_VERIFICATION_AGE_DAYS*86400000)
     throw Error('YOUTUBE_APPROVAL_BUNDLE_INVALID_OR_STALE')
   const seen=new Set()
   for(const a of bundle.approvals){
