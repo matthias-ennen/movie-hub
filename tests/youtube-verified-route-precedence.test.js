@@ -1,4 +1,8 @@
 import {describe,it,expect,vi} from 'vitest'
+import {mkdtemp,readFile,rm} from 'node:fs/promises'
+import {tmpdir} from 'node:os'
+import {join} from 'node:path'
+import {generateYoutubeVerifiedRouteIndex} from '../scripts/generate-youtube-verified-route-index.mjs'
 import {
   buildYoutubeVerifiedRouteIndex,selectYoutubeVerifiedTitleRoute,
 } from '../src/providers/youtubeVerifiedRouteIndex.js'
@@ -78,6 +82,20 @@ describe('YouTube verified route enrichment leaves TMDB badges and original sear
     expect(()=>buildYoutubeVerifiedRouteIndex({
       ...verified(),sourceId:'google_tv',
     },{now:NOW})).toThrow('YOUTUBE_VERIFIED_SOURCE_UNTRUSTED_OR_STALE')
+  })
+  it('writes zero approved routes when the deploy has no verified YouTube envelope',async()=>{
+    const dir=await mkdtemp(join(tmpdir(),'moviehub-youtube-routes-'))
+    try{
+      const target=join(dir,'title-routes.json')
+      const projected=await generateYoutubeVerifiedRouteIndex({
+        input:join(dir,'not-provided.json'),output:target,now:NOW,
+      })
+      const deployed=JSON.parse(await readFile(target,'utf8'))
+      expect(projected.count).toBe(0)
+      expect(deployed).toMatchObject({count:0,entries:[],providerId:'youtube'})
+      expect(selectYoutubeVerifiedTitleRoute(deployed,item,{
+        now:Date.parse(NOW),hasYoutubeBadge:true})).toBeNull()
+    }finally{await rm(dir,{recursive:true,force:true})}
   })
   it('handles route fetch failure as null, retaining search fallback',async()=>{
     const fetcher=vi.fn(async()=>({ok:false,status:404}))
