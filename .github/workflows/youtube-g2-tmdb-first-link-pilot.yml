@@ -1,0 +1,51 @@
+name: YouTube G2 – TMDB-first YouTube Exact Link Pilot (Read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-tmdb-first-link-research
+  cancel-in-progress: false
+
+jobs:
+  tmdb-first-link-research:
+    name: Existing MovieHub YouTube badges -> candidate video IDs (no imports)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Research regression and budget gates BEFORE any API calls
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-tmdb-first-link-pilot.mjs
+          npx vitest run tests/youtube-g2-tmdb-first-link-pilot.test.js
+      - name: Authenticate via existing Google OIDC (Secret Manager read only)
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Set up gcloud to fetch existing YOUTUBE_API_KEY
+        uses: google-github-actions/setup-gcloud@v3
+      - name: Read published MovieHub titles and look up limited YouTube video IDs
+        run: node scripts/youtube-g2-tmdb-first-link-pilot.mjs
+      - name: Upload internal QA only (7 days; no app/catalog deployment)
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-tmdb-first-links-${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/tmdb-first-link-pilot/report.md
+            artifacts/youtube-g2/tmdb-first-link-pilot/qa.json
+          if-no-files-found: error
+          retention-days: 7
