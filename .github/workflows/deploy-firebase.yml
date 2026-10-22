@@ -331,6 +331,9 @@ jobs:
           workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
           service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
 
+      - name: Setup Cloud SDK for existing read-only YouTube Secret Manager adapter
+        uses: google-github-actions/setup-gcloud@v3
+
       # YouTube G2: refresh BOTH pinned playlists through the official API.
       # Never treat playlist labels or matcher hypotheses as confirmed offers.
       # Failure leaves all TMDB YouTube badges and standard search links intact.
