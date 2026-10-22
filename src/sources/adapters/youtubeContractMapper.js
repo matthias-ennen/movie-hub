@@ -12,7 +12,7 @@ export const YOUTUBE_MAX_AGE_DAYS = 30
 export const YOUTUBE_VIDEO_ID = /^[A-Za-z0-9_-]{11}$/
 export const YOUTUBE_ACCESS_TYPES = Object.freeze(['free', 'ads', 'flatrate', 'rent', 'buy'])
 const ACCESS = new Set(YOUTUBE_ACCESS_TYPES)
-const RISK = /(?:trailer|teaser|making.of|behind.the.scenes|gameplay|walkthrough|staffel|episode|full season|deutsch lernen|recap|review|reaction)/i
+const RISK = /(?:trailer|teaser|making.of|behind.the.scenes|gameplay|walkthrough|compilation|zusammenschnitt|staffel|episode|full season|deutsch lernen|recap|review|reaction)/i
 
 function safeText(input, maxLength = 200) {
   return String(input ?? '').replace(/[<>|\r\n]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, maxLength)
