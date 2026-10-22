@@ -18,6 +18,7 @@ import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
 import { requireYouTubeWatchUrl, canonicalYouTubeWatchUrl } from '../providers/youtubeExactLink.js'
+import { launchYouTubeTitleSearch } from '../providers/youtubeSearchAction.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { includedSwitchShownAsOn, ignoreCompletedIncludedClick } from '../notifications/includedSwitchSession.js'
@@ -583,6 +584,19 @@ export default function DetailModal({
           )}
           {!showMovieHubProvider && !hasProviders && !hasTvAiring && (
             <p className="prototype-note">Für diesen Titel ist derzeit kein unterstützter Anbieter in Deutschland hinterlegt.</p>
+          )}
+          {providers.youtube && item.title && (
+            <section className="provider-availability-group" aria-label="YouTube-Plattformsuche">
+              <p className="settings-kicker">YouTube durchsuchen</p>
+              <div className="provider-actions">
+                <button type="button" className="action-button provider-action"
+                  data-focusable="true"
+                  aria-label="Nach diesem Film auf YouTube suchen, keine bestätigte Verfügbarkeit"
+                  onClick={() => launchYouTubeTitleSearch(item.title)}
+                >↗ Auf YouTube suchen</button>
+              </div>
+              <p className="media-form-hint">YouTube-Suchergebnisse sind keine bestätigte Filmfassung oder Verfügbarkeit. Bitte den konkreten Fund prüfen.</p>
+            </section>
           )}
           {item.tmdbId && <p className="tmdb-credit">Datenquelle: TMDB · ID {item.tmdbId}</p>}
           <PersonalTitleActions activeProfile={activeProfile} personalState={personalState}
