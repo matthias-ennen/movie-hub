@@ -440,6 +440,13 @@ jobs:
         id: youtube_editorial_hints
         run: node scripts/generate-youtube-curated-editorial-index.mjs
 
+      # Full two-playlist intake is 1:1 with audited video IDs. Individual
+      # film identities and offers remain review-only, not catalog writes.
+      - name: Stage complete YouTube playlist intake for catalog reconciliation
+        id: youtube_complete_intake
+        if: ${{ steps.youtube_curated_source.outcome == 'success' && steps.youtube_editorial_research.outcome == 'success' }}
+        run: node scripts/youtube-g2-complete-playlist-intake-live.mjs
+
       - name: Build
         id: app_build
         run: npm run build
@@ -541,6 +548,7 @@ jobs:
           SUMMARY_YOUTUBE_SYNC: ${{ steps.youtube_curated_source.outcome }}
           SUMMARY_YOUTUBE_ROUTES: ${{ steps.youtube_verified_routes.outcome }}
           SUMMARY_YOUTUBE_EDITORIAL: ${{ steps.youtube_editorial_hints.outcome }}
+          SUMMARY_YOUTUBE_INTAKE: ${{ steps.youtube_complete_intake.outcome }}
           SUMMARY_TV_14_DAY: ${{ steps.tv_14_day_summary.outcome }}
           SUMMARY_PREPARED_VERIFY: ${{ steps.prepared_verify.outcome }}
           SUMMARY_AVAILABILITY: ${{ steps.live_availability_index.outcome }}
@@ -577,6 +585,8 @@ jobs:
             artifacts/source-merge/*.json
             artifacts/youtube-g2/curated-production-sync/qa.json
             artifacts/youtube-g2/curated-tmdb-membership/qa.json
+            artifacts/youtube-g2/complete-playlist-intake/qa.json
+            artifacts/youtube-g2/complete-playlist-intake/report.md
             artifacts/joyn-pilot/*.json
             artifacts/joyn-adapter/*.json
             artifacts/joyn-sync/status.json
