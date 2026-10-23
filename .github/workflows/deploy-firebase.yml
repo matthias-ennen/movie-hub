@@ -464,6 +464,16 @@ jobs:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
         run: node scripts/youtube-g2-canonical-metadata-review-live.mjs
 
+      # Merge only strongly-matched canonical TMDB film metadata into
+      # MovieHub's public client catalog. The exact YouTube playlist links
+      # remain editorial, never verified SourceEnvelope playback offers.
+      - name: Publish new YouTube playlist films as canonical TMDB metadata
+        id: youtube_new_film_catalog
+        if: ${{ steps.youtube_new_film_metadata.outcome == 'success' }}
+        env:
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+        run: node scripts/youtube-g2-publish-new-film-catalog-live.mjs
+
       - name: Build
         id: app_build
         run: npm run build
@@ -577,6 +587,7 @@ jobs:
           SUMMARY_CANDIDATE_INVENTORY: ${{ steps.candidate_inventory.outcome }}
           SUMMARY_YOUTUBE_FULL_CATALOG: ${{ steps.youtube_full_catalog_reconciliation.outcome }}
           SUMMARY_YOUTUBE_NEW_METADATA: ${{ steps.youtube_new_film_metadata.outcome }}
+          SUMMARY_YOUTUBE_NEW_FILM_CATALOG: ${{ steps.youtube_new_film_catalog.outcome }}
           SUMMARY_PRIORITY_PREVIEW: ${{ steps.priority_preview.outcome }}
           SUMMARY_BUILD: ${{ steps.app_build.outcome }}
           SUMMARY_AUTH: ${{ steps.gcp_auth.outcome }}
