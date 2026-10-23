@@ -29,6 +29,14 @@ export function explicitAlternateWorkFormRisk(sourceTitle) {
     ? 'explicit-alternate-work-form' : null
 }
 
+// Edition / publisher provenance is a distinct uncertainty from TMDB work
+// identity. "uncut", "unrated" or "bootleg" is NOT proof of matching the
+// canonical work's theatrical/version cut; never silently promote that link.
+export function explicitSourceOrCutRisk(sourceTitle) {
+  return /\b(?:bootleg|unrated|uncut)\b|ungekürzte\s+fassung/iu.test(safe(sourceTitle))
+    ? 'explicit-unverified-cut-or-source' : null
+}
+
 export function validateCuratedTmdbInputs(audit, publicIndex, observedAt) {
   if (audit?.mode !== 'CURATED_TWO_PLAYLISTS_READ_ONLY'
     || audit?.fullyScanned !== true || audit?.publicationPermitted !== false
@@ -95,7 +103,8 @@ export async function runCuratedTmdbMembership({
       editorialOfferHint: c.editorialOfferHint,
       videoTitle: safe(c.videoTitle), minutes: c.minutes,
       castEvidence: null, castChangedTopId: false,
-      identityRisk: explicitAlternateWorkFormRisk(c.videoTitle),
+      identityRisk: explicitAlternateWorkFormRisk(c.videoTitle)
+        || explicitSourceOrCutRisk(c.videoTitle),
       hasPlaylistOverlap: c.playlistModes.length > 1,
       // Historical field: overlap is now resolved by FREE precedence, not a conflict.
       hasPlaylistOfferConflict: false,
@@ -176,7 +185,9 @@ export async function runCuratedTmdbMembership({
     const topId = positiveId(topCandidates[0]?.tmdbId)
     rows.push({
       ...base, matchStatus: base.identityRisk
-        ? 'review-explicit-alternate-work-form' : verdict.status,
+        ? (base.identityRisk === 'explicit-unverified-cut-or-source'
+          ? 'review-explicit-source-or-cut-risk'
+          : 'review-explicit-alternate-work-form') : verdict.status,
       curatedQueryReason: prepared.curatedQueryReason,
       tmdbQueries: queryVariants,
       castEvidence: cast.evidence,
