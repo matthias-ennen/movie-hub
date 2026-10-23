@@ -140,6 +140,46 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
     const index=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
     expect(index.entries.find(x=>x.tmdbId===10586).playlistMode).toBe('free')
   })
+  it('accepts clear dominant exact film when TMDB also returns a weak unrelated secondary result',()=>{
+    const {audit,research}=make()
+    // Live example: Hidden Figures top movie score=40 exact, unrelated
+    // runner score=-7 and titleLevel=2. Keep source video provenance intact.
+    research.rows[0].topCandidates=[
+      {tmdbId:10586,titleLevel:4,score:40,runtimeDelta:0.5,
+        yearMismatch:false,sequelConflict:false},
+      {tmdbId:199999,titleLevel:2,score:-7,runtimeDelta:89,
+        yearMismatch:false,sequelConflict:false},
+    ]
+    const result=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+    expect(result.entries.find(x=>x.tmdbId===10586)).toMatchObject({
+      key:'movie:10586',videoId:VID,playlistMode:'free',
+    })
+    expect(result.entries.some(x=>x.tmdbId===199999)).toBe(false)
+  })
+
+  it('rejects near-ties, plausible remakes, TV alternatives and more than 2 TMDB movie hits',()=>{
+    for(const changed of [
+      r=>{r.topCandidates[1].score=25},
+      r=>{r.topCandidates[1].titleLevel=4},
+      r=>{r.topCandidates.push({...r.topCandidates[1],tmdbId:89000})},
+      r=>{r.alternativeTvIds=[800]},
+      r=>{r.topCandidates[0].runtimeDelta=11},
+      r=>{r.topCandidates[0].titleLevel=3},
+    ]){
+      const {audit,research}=make()
+      const source=research.rows[0]
+      source.topCandidates=[
+        {tmdbId:10586,titleLevel:4,score:40,runtimeDelta:1,
+          yearMismatch:false,sequelConflict:false},
+        {tmdbId:199999,titleLevel:2,score:10,runtimeDelta:90,
+          yearMismatch:false,sequelConflict:false},
+      ]
+      changed(source)
+      const result=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+      expect(result.entries.some(x=>x.tmdbId===10586)).toBe(false)
+    }
+  })
+
   it('rejects conflicting video IDs for the same movie rather than guess a playback link',()=>{
     const {audit,research}=make()
     research.rows[1].topCandidates[0].tmdbId=10586
