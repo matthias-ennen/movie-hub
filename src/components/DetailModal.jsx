@@ -18,7 +18,8 @@ import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
 import { selectYoutubeVerifiedTitleRoute } from '../providers/youtubeVerifiedRouteIndex.js'
-import { useYoutubeVerifiedOffers } from '../providers/YoutubeVerifiedOffersContext.jsx'
+import { selectCuratedEditorialTitleHint } from '../providers/youtubeCuratedEditorialIndex.js'
+import { useYoutubeVerifiedOffers, useYoutubeCuratedEditorialHints } from '../providers/YoutubeVerifiedOffersContext.jsx'
 import { withVerifiedYoutubeTitleOffer } from '../providers/youtubeVerifiedTitlePresentation.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
@@ -61,9 +62,10 @@ export default function DetailModal({
   const { isProviderEnabled } = useProviderSelection()
   const [personalMessage, setPersonalMessage] = useState('')
   const youtubeVerifiedRoutes = useYoutubeVerifiedOffers()
+  const youtubeCuratedHints = useYoutubeCuratedEditorialHints()
   const titleWithVerifiedOffers = useMemo(
-    () => withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes),
-    [item, youtubeVerifiedRoutes],
+    () => withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes, {curatedIndex: youtubeCuratedHints}),
+    [item, youtubeVerifiedRoutes, youtubeCuratedHints],
   )
   const [personalBusy, setPersonalBusy] = useState(false)
   const [alertMenuOpen, setAlertMenuOpen] = useState(false)
@@ -330,13 +332,22 @@ export default function DetailModal({
           hasYoutubeBadge: streamingProviderIds.includes('youtube'),
         })
       : null
-    markWatchedFromProvider()
+    // Provisional playlist links are distinct from independently verified routes.
+    const provisionalRoute = providerId === 'youtube' && !verifiedRoute
+      ? selectCuratedEditorialTitleHint(youtubeCuratedHints, item)
+      : null
+    // Opening a provisional link must not mark the MovieHub film as watched.
+    if (!provisionalRoute) markWatchedFromProvider()
+    if (provisionalRoute && launchProviderPlaybackRoute({
+      providerId, title:item.title, route:provisionalRoute,
+      fallbackUrl:destination,
+    })) return
     if (verifiedRoute && launchProviderPlaybackRoute({
       providerId, title: item.title, route: verifiedRoute,
       fallbackUrl: destination,
     })) return
 
-    const target = verifiedRoute?.target || destination
+    const target = verifiedRoute?.target || provisionalRoute?.target || destination
     if (window.MovieHubNative?.openProvider) {
       window.MovieHubNative.openProvider(providerId, item.title, target)
       return
@@ -589,7 +600,9 @@ export default function DetailModal({
                       className="action-button provider-action"
                       data-focusable="true"
                       onClick={() => openStreamingProvider(providerId)}
-                      aria-label={`${provider.label} als Streaming- oder Mediathek-Anbieter öffnen`}
+                      aria-label={providerId === 'youtube' && titleWithVerifiedOffers.curatedPlaylistTitleOffer
+                        ? 'YouTube-Playlist-Link öffnen (Angebotsart und Filmfassung nicht unabhängig bestätigt)'
+                        : `${provider.label} als Streaming- oder Mediathek-Anbieter öffnen`}
                     >
                       <ProviderBadge providerId={providerId} item={titleWithVerifiedOffers} context="title" />
                       {provider.label}
