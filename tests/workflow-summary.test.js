@@ -22,6 +22,15 @@ describe('kompakter Workflow-Datenbericht', () => {
       open: 'letzter gültiger Stand bleibt online',
     })
   })
+  it('does not confuse a successful Firebase upload with verified public source generations', () => {
+    const r=buildWorkflowSummary({steps:{auth:'success',deploy:'success',publication:'failure'}})
+    const row=r.rows.find(x=>x.area==='Firebase')
+    expect(row.status).toContain('öffentliche Datenprüfung offen/fehlgeschlagen')
+    expect(row.open).toContain('YouTube-Dateien')
+    const ok=buildWorkflowSummary({steps:{auth:'success',deploy:'success',publication:'success'}})
+    expect(ok.rows.find(x=>x.area==='Firebase').status).toBe('✅ veröffentlicht und zurückgelesen')
+  })
+
   it('shows the precise Joyn response classification', () => {
     const result = buildWorkflowSummary({ steps: { joynCatalog: 'failure' }, joynHealth: { run: {
       lastResponseProblem: { operation: 'titleSearch', reason: 'graphql_errors', errorCodes: ['GRAPHQL_VALIDATION_FAILED'] },
@@ -30,10 +39,10 @@ describe('kompakter Workflow-Datenbericht', () => {
   })
   it('keeps personal notification failures separate from successful Firebase publication', () => {
     const result = buildWorkflowSummary({ steps: {
-      deploy: 'success', auth: 'success', titleAlerts: 'failure', alertIamProbe: 'success',
+      deploy: 'success', publication: 'success', auth: 'success', titleAlerts: 'failure', alertIamProbe: 'success',
     } })
     const markdown = workflowSummaryMarkdown(result)
-    expect(result.rows.find((row) => row.area === 'Firebase').status).toBe('✅ erfolgreich')
+    expect(result.rows.find((row) => row.area === 'Firebase').status).toBe('✅ veröffentlicht und zurückgelesen')
     expect(markdown).toContain('Titelbeobachtungen: ❌ fehlgeschlagen')
     expect(markdown).toContain('Firestore-IAM-Transaktionsprobe: ✅ erfolgreich')
     expect(markdown).toContain('ohne aktive Beobachtungen')
