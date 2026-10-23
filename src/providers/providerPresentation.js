@@ -59,6 +59,11 @@ export function resolveProviderPresentation(item, {
       .filter((offer) => Array.isArray(offer?.offerTypes) && offer.offerTypes.length)
       .map((offer) => offer?.id),
   )
+  const preview = item?.curatedPlaylistTitleOffer
+  const editorialTitleIds = preview?.id === 'youtube'
+    && preview?.provenance === 'playlist-declared-not-verified'
+    && ['free','rent-buy'].includes(preview.playlistMode)
+    ? ['youtube'] : []
   const titleLiveIds = liveProviderIds(item)
   const concreteAiringIds = airingProviderIds(item)
   const movieHub = Boolean(hasMovieHub || item?.movieHubCatalog === true)
@@ -70,6 +75,7 @@ export function resolveProviderPresentation(item, {
   const providerIds = orderProviderIds([
     ...tmdbIds,
     ...verifiedTitleIds,
+    ...editorialTitleIds,
     ...(context === 'airing' ? concreteAiringIds : titleLiveIds),
   ])
 
@@ -79,6 +85,7 @@ export function resolveProviderPresentation(item, {
     includeMovieHub: movieHub,
     tmdbProviderIds: tmdbIds,
     verifiedTitleProviderIds: verifiedTitleIds,
+    editorialTitleProviderIds: editorialTitleIds,
     liveProviderIds: context === 'airing' ? concreteAiringIds : titleLiveIds,
     providerEvidence: item?.providerEvidence || {},
     playbackRoutes: context === 'airing'
