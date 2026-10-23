@@ -19,6 +19,10 @@ const actorAndFullFilmTail = /^(.{4,100}?)\s+(?:thriller|horror|drama|actionfilm
 // German theatrical release year (2026) is not necessarily production year (2025).
 const germanNuremberg = /^Nürnberg\s+\(((?:19|20)\d{2})\)\s*$/iu
 
+// Live source QA #39928710237: explicit non-title promotional wrappers.
+const completeFilmDeutsch = /^(.{4,100}?)\s+kompletter\s+film\s+deutsch\s*$/iu
+const promotedSurvivalThriller = /^grandioser\s+survival[-\s]thriller\s+mit\s+starbesetzung:\s*(.{4,90}?)\s+\(((?:19|20)\d{2})\)\s+\(\s*HD\s*\)\s*$/iu
+
 function researchQueries(legacy, title, firstQuery, reason, fallback = true) {
   const clean = tidy(firstQuery)
   if (clean.length < 4) return {...legacy, curatedQueryReason: null}
@@ -32,6 +36,19 @@ export function planCuratedTmdbQueries(sourceTitle) {
   const raw = tidy(sourceTitle)
   const legacy = prepareYouTubeMovieSearchTitle(raw)
   // Observed 23.10.2026 YouTube video headings: query-only changes.
+  const completeMovie = raw.match(completeFilmDeutsch)
+  if (completeMovie) {
+    const film = tidy(completeMovie[1])
+    return researchQueries(legacy, film, film,
+      'complete-film-deutsch-ad-tail', false)
+  }
+  const survival = raw.match(promotedSurvivalThriller)
+  if (survival) {
+    const film = tidy(survival[1])
+    // The published source year is a search/mismatch clue, not verified identity.
+    return researchQueries(legacy, film + ' (' + survival[2] + ')',
+      film, 'survival-starbesetzung-year-hd-wrapper', false)
+  }
   const yearCast = raw.match(germanYearAndCast)
   if (yearCast) {
     const film = tidy(yearCast[1])
