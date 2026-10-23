@@ -10,8 +10,9 @@ import { scoreCandidateV11, classifyVideoV11 } from './youtube-g2-matcher-v1-1.m
 import { applyExplicitCastGuard } from './youtube-g2-curated-cast-evidence.mjs'
 
 export const CURATED_TMDB_MODE = 'CURATED_PLAYLIST_TMDB_PUBLIC_MEMBERSHIP_READ_ONLY'
-export const CURATED_TMDB_MAX_CASES = 50
-export const CURATED_TMDB_MAX_GETS = 320
+export const CURATED_TMDB_MAX_CASES = 100
+// Two movie queries, one TV query, up to three movie details per source video.
+export const CURATED_TMDB_MAX_GETS = 650
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/
 const IDS = Object.freeze({
   free: 'PL9hLFbkmRD8nBj_e8FfntoBporPAqqeSJ',
@@ -19,6 +20,14 @@ const IDS = Object.freeze({
 })
 const safe = x => String(x ?? '').replace(/[<>|\r\n]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180)
 const positiveId = x => Number.isInteger(Number(x)) && Number(x) > 0 ? Number(x) : null
+
+// An explicit reinterpretation (e.g. 'Ice Age 2 ... SPIELVERFILMUNG') may be
+// a different work from the original movie even if its name is identical.
+// This only adds a manual review flag; it is not an automated TMDB match.
+export function explicitAlternateWorkFormRisk(sourceTitle) {
+  return /\b(?:spielverfilmung|fan[- ]?made|fan[- ]?film|(?:ai|ki)[- ]?(?:generated|generiert))\b/iu.test(safe(sourceTitle))
+    ? 'explicit-alternate-work-form' : null
+}
 
 export function validateCuratedTmdbInputs(audit, publicIndex, observedAt) {
   if (audit?.mode !== 'CURATED_TWO_PLAYLISTS_READ_ONLY'
@@ -32,6 +41,9 @@ export function validateCuratedTmdbInputs(audit, publicIndex, observedAt) {
     || audit.uniqueVideoIds !== audit.candidates.length
     || new Set(audit.candidates.map(c => c.videoId)).size !== audit.candidates.length
     || audit.candidates.some(c => !VIDEO_ID.test(String(c.videoId))
+      || !Array.isArray(c.playlistModes) || c.playlistModes.length < 1
+      || c.playlistModes.some(mode => mode !== 'free' && mode !== 'rent-buy')
+      || c.editorialOfferHint !== (c.playlistModes.includes('free') ? 'free' : 'rent-buy')
       || c.accepted !== false || c.toImport !== false
       || c.playbackRoute !== null || c.verifiedOfferType !== null)
     || ['catalogWrites','firestoreWrites','providerWrites','badgeWrites','nightlyWrites']
@@ -83,6 +95,10 @@ export async function runCuratedTmdbMembership({
       editorialOfferHint: c.editorialOfferHint,
       videoTitle: safe(c.videoTitle), minutes: c.minutes,
       castEvidence: null, castChangedTopId: false,
+      identityRisk: explicitAlternateWorkFormRisk(c.videoTitle),
+      hasPlaylistOverlap: c.playlistModes.length > 1,
+      // Historical field: overlap is now resolved by FREE precedence, not a conflict.
+      hasPlaylistOfferConflict: false,
       sourceStatus: c.status, sourceVideoDetailAvailable: Boolean(c.videoTitle),
       playbackRoute: null, verifiedOfferType: null, verifiedTmdbId: null,
       verifiedDEPlayback: false, toImport: false, publicationPermitted: false,
@@ -150,13 +166,13 @@ export async function runCuratedTmdbMembership({
     }))
     const topId = positiveId(topCandidates[0]?.tmdbId)
     rows.push({
-      ...base, matchStatus: verdict.status,
+      ...base, matchStatus: base.identityRisk
+        ? 'review-explicit-alternate-work-form' : verdict.status,
       curatedQueryReason: prepared.curatedQueryReason,
       tmdbQueries: queryVariants,
       castEvidence: cast.evidence,
       castChangedTopId: cast.evidence.affectsRanking === true
         && Number(originalTopId) !== Number(verdict.topCandidates[0]?.tmdbId),
-      hasPlaylistOfferConflict: c.status === 'review-conflicting-curation',
       topCandidates,
       alternativeTvIds: tvIds,
       // Membership is not verification. Absent in a PUBLIC search index
@@ -180,7 +196,8 @@ export async function runCuratedTmdbMembership({
       sourcePlaylistIds: audit.playlistSummaries.map(x => x.playlistId),
       publishedIndexGeneratedAt: publicIndex.generatedAt,
       publicIndexOnly: true,
-      matcherVersion: 'v1.1+explicit-cast-review-guard', counts,
+      matcherVersion: 'v1.1+explicit-cast+alternate-work-form-review', counts,
+      alternateWorkFormRisks: rows.filter(x => x.identityRisk !== null).length,
       actorEvidenceCases: rows.filter(x => x.castEvidence?.affectsRanking === true).length,
       curatedQueryCorrections: rows.filter(x => x.curatedQueryReason).length,
       castChangedTopIds: rows.filter(x => x.castChangedTopId).length,
