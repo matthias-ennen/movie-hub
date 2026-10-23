@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
   runCuratedTmdbMembership, validateCuratedTmdbInputs,
+  explicitAlternateWorkFormRisk,
 } from '../scripts/youtube-g2-curated-tmdb-membership.mjs'
 
 const AT = '2026-10-22T16:50:00.000Z'
@@ -20,7 +21,7 @@ const missing = {
 const both = {
   ...available, videoId: 'PZC6NS-IFCk', videoTitle: 'The Amateur',
   minutes: 122.6, playlistModes: ['free','rent-buy'],
-  status: 'review-conflicting-curation', editorialOfferHint: 'ambiguous',
+  status: 'review-tmdb-work-identity', editorialOfferHint: 'free',
 }
 function qa(cases = [available, missing, both]) {
   return {
@@ -58,7 +59,8 @@ describe('G2 curated playlist exact IDs -> TMDB-only identity hypotheses', () =>
       audit: qa(), publicIndex: idx(), tmdbGet: tmdb, now: () => AT,
     })
     expect(result.summary).toMatchObject({
-      processedRows:3, sourceVideoIds:3, matcherVersion:'v1.1+explicit-cast-review-guard',
+      processedRows:3, sourceVideoIds:3,
+      matcherVersion:'v1.1+explicit-cast+alternate-work-form-review',
       verifiedFilms:0, verifiedDEOffers:0, newMovieImports:0,
       publicationPermitted:false, catalogWrites:0, firestoreWrites:0,
       badgeWrites:0, providerWrites:0, nightlyWrites:0,
@@ -73,7 +75,8 @@ describe('G2 curated playlist exact IDs -> TMDB-only identity hypotheses', () =>
       publicIndexMembership:'unknown', toImport:false,
     })
     expect(result.rows[2]).toMatchObject({
-      hasPlaylistOfferConflict:true, editorialOfferHint:'ambiguous',
+      hasPlaylistOverlap:true, hasPlaylistOfferConflict:false,
+      editorialOfferHint:'free',
       verifiedOfferType:null, playbackRoute:null, publicationPermitted:false,
     })
     expect(tmdb.mock.calls.every(c=> /^\/(?:search\/(?:movie|tv)|movie\/\d+)$/.test(c[0]))).toBe(true)
@@ -86,12 +89,41 @@ describe('G2 curated playlist exact IDs -> TMDB-only identity hypotheses', () =>
     expect(out.rows[0].toImport).toBe(false)
     expect(out.summary.newMovieImports).toBe(0)
   })
+  it('handles at most 100 exact IDs (not the outdated 50-ID limit)', () => {
+    const hundred=Array.from({length:100},(_,i)=>({
+      ...available,videoId:String(i).padStart(11,'0'),
+    }))
+    expect(()=>validateCuratedTmdbInputs(qa(hundred),idx(),AT)).not.toThrow()
+    expect(()=>validateCuratedTmdbInputs(qa([...hundred,{
+      ...available,videoId:'A0000000000',
+    }]),idx(),AT)).toThrow('CURATED_QA_PROVENANCE')
+  })
+  it('holds explicit alternate adaptations for separate identity review, never a leading original-film match', async () => {
+    const suspicious={...available,videoId:'5ky33JjGTao',
+      videoTitle:'ICE AGE 2 JETZT TAUTS GANZER FILM 2026 (SPIELVERFILMUNG) 4K Ultra',
+      minutes:107.8, deRegionSignal:'unknown'}
+    expect(explicitAlternateWorkFormRisk(suspicious.videoTitle)).toBe('explicit-alternate-work-form')
+    expect(explicitAlternateWorkFormRisk('The Amateur')).toBeNull()
+    const output=await runCuratedTmdbMembership({
+      audit:qa([suspicious]),publicIndex:idx(),tmdbGet:tmdb,now:()=>AT,
+    })
+    expect(output.rows[0]).toMatchObject({
+      matchStatus:'review-explicit-alternate-work-form',
+      identityRisk:'explicit-alternate-work-form',
+      toImport:false, verifiedDEPlayback:false, publicationPermitted:false,
+    })
+    expect(output.summary.alternateWorkFormRisks).toBe(1)
+    expect(output.summary.verifiedFilms).toBe(0)
+  })
   it('fails closed for stale/incomplete/tampered source QA and noncanonical index', () => {
     expect(()=>validateCuratedTmdbInputs(
       {...qa(),fullyScanned:false},idx(),AT,
     )).toThrow('CURATED_QA_PROVENANCE')
     expect(()=>validateCuratedTmdbInputs(
       {...qa(),firestoreWrites:1},idx(),AT,
+    )).toThrow('CURATED_QA_PROVENANCE')
+    expect(()=>validateCuratedTmdbInputs(
+      qa([{...available,editorialOfferHint:'rent-buy'}]),idx(),AT,
     )).toThrow('CURATED_QA_PROVENANCE')
     expect(()=>validateCuratedTmdbInputs(
       {...qa(),playlistSummaries:[
