@@ -14,22 +14,37 @@ import {runCuratedYoutubeSourceSync} from './youtube-g2-curated-source-sync.mjs'
 
 export const OUTPUT='artifacts/youtube-g2/curated-production-sync'
 export const APPROVAL_INPUT='artifacts/youtube-g2-independent-approvals.json'
+// A reviewed, versioned manifest is an optional durable source. Never ship a placeholder.
+export const REVIEWED_APPROVAL_INPUT='.github/youtube-g2/independent-approvals.json'
 export const VERIFIED_ENVELOPE_OUTPUT='artifacts/youtube-verified-source-envelope.json'
 export const PUBLIC_SUMMARY='public/youtube-curated-source-status.json'
 
-async function loadApprovals(input=APPROVAL_INPUT){
-  try {return JSON.parse(await readFile(input,'utf8'))}
-  catch(error){if(error?.code==='ENOENT')return null;throw error}
+async function readApprovalFile(path){
+  try {return {present:true,body:JSON.parse(await readFile(path,'utf8'))}}
+  catch(error){if(error?.code==='ENOENT')return {present:false,body:null};throw error}
+}
+/** Both runtime artifacts and reviewed GitHub manifests are supported; never
+ * let one silently override the other. Missing files mean no approvals.
+ */
+export async function loadApprovals(input=APPROVAL_INPUT,reviewedInput=REVIEWED_APPROVAL_INPUT){
+  if(input===reviewedInput)throw Error('YOUTUBE_APPROVAL_SOURCES_NOT_DISTINCT')
+  const [runtime,reviewed]=await Promise.all([
+    readApprovalFile(input),readApprovalFile(reviewedInput),
+  ])
+  if(runtime.present&&reviewed.present)throw Error('YOUTUBE_APPROVAL_SOURCES_AMBIGUOUS')
+  return runtime.present?runtime.body:reviewed.body
 }
 export async function runProductionCuratedSync({
   youtubeApi,approvals=undefined,
   now=()=>new Date().toISOString(),
   output=OUTPUT,approvalInput=APPROVAL_INPUT,
+  reviewedApprovalInput=REVIEWED_APPROVAL_INPUT,
   verifiedEnvelopeOutput=VERIFIED_ENVELOPE_OUTPUT,
   publicSummaryOutput=PUBLIC_SUMMARY,
 }={}){
   if(process.env.YOUTUBE_G2_WRITE_MODE)throw Error('YOUTUBE_CURATED_CANONICAL_NO_PRODUCT_WRITES')
-  const verifiedApprovals=approvals===undefined?await loadApprovals(approvalInput):approvals
+  const verifiedApprovals=approvals===undefined
+    ?await loadApprovals(approvalInput,reviewedApprovalInput):approvals
   const result=await runCuratedYoutubeSourceSync({
     youtubeApi,approvals:verifiedApprovals,now,
   })
