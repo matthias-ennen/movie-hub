@@ -63,11 +63,12 @@ describe('G2 exactly two curated YouTube playlists', () => {
       },
     })
     expect(result.candidates.find(x => x.videoId === idB)).toMatchObject({
-      status: 'review-conflicting-curation',
-      editorialOfferHint: 'ambiguous', verifiedOfferType: null,
+      status: 'review-tmdb-work-identity',
+      editorialOfferHint: 'free', playlistModes: ['free', 'rent-buy'],
+      playlistIds: [FREE, RENT], verifiedOfferType: null,
       toImport: false, titleRef: null, playbackRoute: null,
     })
-    expect(result.candidates.filter(x => x.status === 'review-tmdb-work-identity')).toHaveLength(2)
+    expect(result.candidates.filter(x => x.status === 'review-tmdb-work-identity')).toHaveLength(3)
     expect(api.mock.calls.map(x => x[0])).toEqual(['playlists', 'playlistItems', 'playlistItems', 'videos'])
   })
 
@@ -85,6 +86,7 @@ describe('G2 exactly two curated YouTube playlists', () => {
     expect(result.playlistSummaries.map(x => x.ownerChannelId)).toEqual(['UC222', 'UC333'])
     expect(result.uniqueVideoIds).toBe(3)
     expect(result.crossPlaylistConflicts).toBe(1)
+    expect(result.candidates.find(x => x.videoId === idB).editorialOfferHint).toBe('free')
     expect(result.publicationPermitted).toBe(false)
     expect(result.providerWrites).toBe(0)
     expect(result.catalogWrites).toBe(0)
