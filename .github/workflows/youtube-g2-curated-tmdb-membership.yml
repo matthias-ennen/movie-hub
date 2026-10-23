@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   curated-tmdb-research:
-    name: Current production exact video IDs -> TMDB hypotheses (max 100; no writes)
+    name: Current production exact video IDs -> TMDB hypotheses (max 200; no writes)
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
