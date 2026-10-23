@@ -18,7 +18,8 @@ import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
 import { selectYoutubeVerifiedTitleRoute } from '../providers/youtubeVerifiedRouteIndex.js'
-import { loadYoutubeVerifiedTitleRoutes } from '../providers/youtubeVerifiedRouteRuntime.js'
+import { useYoutubeVerifiedOffers } from '../providers/YoutubeVerifiedOffersContext.jsx'
+import { withVerifiedYoutubeTitleOffer } from '../providers/youtubeVerifiedTitlePresentation.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { includedSwitchShownAsOn, ignoreCompletedIncludedClick } from '../notifications/includedSwitchSession.js'
@@ -59,14 +60,11 @@ export default function DetailModal({
   const titleAlerts = useTitleAlerts(user?.uid, activeProfile?.id)
   const { isProviderEnabled } = useProviderSelection()
   const [personalMessage, setPersonalMessage] = useState('')
-  const [youtubeVerifiedRoutes, setYoutubeVerifiedRoutes] = useState(null)
-  useEffect(() => {
-    let active = true
-    loadYoutubeVerifiedTitleRoutes().then((result) => {
-      if (active) setYoutubeVerifiedRoutes(result)
-    })
-    return () => { active = false }
-  }, [])
+  const youtubeVerifiedRoutes = useYoutubeVerifiedOffers()
+  const titleWithVerifiedOffers = useMemo(
+    () => withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes),
+    [item, youtubeVerifiedRoutes],
+  )
   const [personalBusy, setPersonalBusy] = useState(false)
   const [alertMenuOpen, setAlertMenuOpen] = useState(false)
   const [alertBusy, setAlertBusy] = useState(false)
@@ -134,8 +132,8 @@ export default function DetailModal({
     [detailProviderItem],
   )
   const titleProviderPresentation = useMemo(
-    () => resolveProviderPresentation(item, { context: 'title' }),
-    [item],
+    () => resolveProviderPresentation(titleWithVerifiedOffers, { context: 'title' }),
+    [titleWithVerifiedOffers],
   )
   const liveRouteSnapshot = useMemo(() => {
     const providerIds = liveProviderPresentation.liveProviderIds
@@ -151,7 +149,7 @@ export default function DetailModal({
     titleProviderPresentation,
     providers,
     liveProviderEntries,
-    item,
+    titleWithVerifiedOffers,
   )
   const hasLiveProviders = liveProviderEntries.length > 0
   const hasStreamingProviders = streamingProviderIds.length > 0
@@ -593,7 +591,7 @@ export default function DetailModal({
                       onClick={() => openStreamingProvider(providerId)}
                       aria-label={`${provider.label} als Streaming- oder Mediathek-Anbieter öffnen`}
                     >
-                      <ProviderBadge providerId={providerId} item={item} context="title" />
+                      <ProviderBadge providerId={providerId} item={titleWithVerifiedOffers} context="title" />
                       {provider.label}
                     </button>
                   )
