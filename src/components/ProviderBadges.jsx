@@ -12,7 +12,6 @@ export function ProviderBadge({ providerId, item = null, context = 'title', reso
   const provisional = providerId === 'youtube'
     && item?.curatedPlaylistTitleOffer?.provenance === 'playlist-declared-not-verified'
     && !item?.verifiedTitleOffers?.some((o) => o.id === 'youtube')
-    && !item?.tmdbProviderOffers?.some((o) => o.id === 'youtube' && o.offerTypes?.length)
   const offerLabel = resolvedOfferLabel === undefined
     ? providerOfferLabel(item, providerId, { context }) : resolvedOfferLabel
 
