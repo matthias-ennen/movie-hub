@@ -162,6 +162,40 @@ describe('kanonischer Titelkandidatenbestand', () => {
     })
   })
 
+  it('adds only independently approved YouTube titles as canonical identities, never raw playlist hypotheses', () => {
+    const inventory = buildTitleCandidateInventory({
+      generatedAt: '2026-10-23T06:00:00.000Z',
+      catalog: { titles: [{ type: 'movie', tmdbId: 11 }] },
+      youtubeApprovedTitles: [
+        { type: 'movie', tmdbId: 11, verified: true },
+        { type: 'movie', tmdbId: 77, verified: true },
+        { type: 'movie', tmdbId: 88, verified: false },
+        { type: 'movie', tmdbId: 0, verified: true },
+        { type: 'series', tmdbId: 99, verified: true },
+      ],
+    })
+    expect(inventory.candidates.map(x => x.key)).toEqual(['movie:11', 'movie:77'])
+    expect(inventory.candidates[0].sources).toEqual(['browse', 'youtube'])
+    expect(inventory.candidates[0].metadata).toMatchObject({
+      canonicalPublicationPending: false,
+      // An availability-only reference is NOT complete TMDB metadata.
+      freshCompleteAvailable: false,
+      incompleteReferences: 1,
+    })
+    expect(inventory.candidates[1]).toMatchObject({
+      sources: ['youtube'],
+      metadata: {
+        canonicalPublicationPending: true,
+        freshCompleteAvailable: false,
+        incompleteReferences: 0,
+      },
+    })
+    expect(inventory.sourceStats.youtube).toMatchObject({
+      rawReferences: 5, eligibleReferences: 2, rejectedReferences: 3,
+    })
+    expect(inventory.sourceStats.browse.eligibleReferences).toBe(1)
+  })
+
   it('erstellt einen veröffentlichbaren Zählbericht ohne Titel- oder persönliche Zuordnungen', () => {
     const inventory = buildTitleCandidateInventory({
       catalog: { titles: [{ type: 'movie', tmdbId: 11 }] },

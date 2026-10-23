@@ -263,9 +263,22 @@ export function buildCanonicalFanoutPlan({
   personalDocuments = [],
   profileDocuments = [],
   movieHubDocuments = [],
+  youtubeApprovedKeys = new Set(),
   generatedAt = new Date().toISOString(),
 } = {}) {
   const catalogResult = updateMatchingEntries(catalog.titles, updates)
+  // Only positively verified YouTube source identities may add a film to
+  // the existing browse/catalog surface. TMDB metadata remains authoritative.
+  const existingCatalogKeys = new Set(catalogResult.entries.map(canonicalKey).filter(Boolean))
+  const youtubeCatalogAdditions = []
+  for (const key of youtubeApprovedKeys instanceof Set ? youtubeApprovedKeys : []) {
+    if (existingCatalogKeys.has(key)) continue
+    const canonical = updates.get(key)
+    if (!canonical || canonical.type !== 'movie' || canonicalKey(canonical) !== key) continue
+    youtubeCatalogAdditions.push(canonical)
+    existingCatalogKeys.add(key)
+  }
+  youtubeCatalogAdditions.sort((left, right) => canonicalKey(left).localeCompare(canonicalKey(right)))
   const waipuResult = updateMatchingEntries(waipuTitles.entries, updates)
   const joynResult = updateMatchingEntries(joynTitles.entries, updates)
   const nextSearchShards = new Map([...searchShards].map(([bucket, shard]) => [bucket, {
@@ -371,7 +384,7 @@ export function buildCanonicalFanoutPlan({
   }
 
   return {
-    catalog: { ...catalog, titles: catalogResult.entries },
+    catalog: { ...catalog, titles: [...catalogResult.entries, ...youtubeCatalogAdditions] },
     searchIndex: {
       ...searchIndex,
       generatedAt,
@@ -384,6 +397,7 @@ export function buildCanonicalFanoutPlan({
     firestoreWrites,
     counts: {
       catalogUpdated: catalogResult.updated,
+      ...(youtubeCatalogAdditions.length ? { youtubeCatalogAdded: youtubeCatalogAdditions.length } : {}),
       waipuUpdated: waipuResult.updated,
       joynUpdated: joynResult.updated,
       searchDetailsUpdated,
@@ -502,6 +516,9 @@ async function main() {
     personalDocuments: personalSnapshot.docs,
     profileDocuments: profileSnapshot.docs,
     movieHubDocuments: movieHubSnapshot.docs,
+    youtubeApprovedKeys: new Set(inventory.candidates
+      .filter(entry => entry.type === 'movie' && entry.sources?.includes('youtube'))
+      .map(entry => entry.key)),
     generatedAt: execution.summary.generatedAt,
   })
 

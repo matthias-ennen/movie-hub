@@ -16,7 +16,8 @@ export const YOUTUBE_SEARCHES_PER_TITLE = 2
 export const YOUTUBE_SEARCH_QUOTA_UNITS = 100
 export const YOUTUBE_RESEARCH_MAX_ESTIMATED_SEARCH_QUOTA = YOUTUBE_RESEARCH_MAX_TITLES
   * YOUTUBE_SEARCHES_PER_TITLE * YOUTUBE_SEARCH_QUOTA_UNITS
-const SOURCES = Object.freeze(['browse', 'personal-tmdb', 'profile-state', 'movie-hub', 'waipu', 'joyn'])
+const REQUIRED_SOURCES = Object.freeze(['browse', 'personal-tmdb', 'profile-state', 'movie-hub', 'waipu', 'joyn'])
+const SOURCES = Object.freeze([...REQUIRED_SOURCES, 'youtube'])
 const OFFERS = new Set(['free', 'ads', 'flatrate', 'rent', 'buy'])
 const validId = x => Number.isInteger(Number(x)) && Number(x) > 0 ? Number(x) : null
 const safe = x => String(x ?? '').replace(/[<>\r\n|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
@@ -28,8 +29,8 @@ function validate(inventory, publicIndex) {
     || inventory?.schemaVersion !== 2 || inventory.identity !== 'media-type+tmdb-id'
     || !Array.isArray(inventory.candidates) || !inventory.candidates.length
     || inventory?.counts?.canonicalCandidates !== inventory.candidates.length
-    || !SOURCES.every(x => inventory?.sourceStats && Object.hasOwn(inventory.sourceStats,x))
-    || !SOURCES.every(x => inventory?.policy?.candidateSources?.includes(x))
+    || !REQUIRED_SOURCES.every(x => inventory?.sourceStats && Object.hasOwn(inventory.sourceStats,x))
+    || !REQUIRED_SOURCES.every(x => inventory?.policy?.candidateSources?.includes(x))
     || inventory.candidates.some(x =>
       !titleKey(x) || x.key !== titleKey(x)
       || !Array.isArray(x.sources) || !x.sources.length

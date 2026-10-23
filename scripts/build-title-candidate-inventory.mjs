@@ -4,9 +4,10 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { titleNeedsMetadataEnrichment } from '../src/catalog/titleMetadata.js'
 import { CANONICAL_METADATA_MAX_AGE_DAYS } from './canonical-metadata-policy.mjs'
+import { buildYoutubeVerifiedRouteIndex } from '../src/providers/youtubeVerifiedRouteIndex.js'
 
 export const TITLE_CANDIDATE_INVENTORY_VERSION = 2
-export const CANDIDATE_SOURCES = Object.freeze(['browse', 'personal-tmdb', 'profile-state', 'movie-hub', 'waipu', 'joyn'])
+export const CANDIDATE_SOURCES = Object.freeze(['browse', 'personal-tmdb', 'profile-state', 'movie-hub', 'waipu', 'joyn', 'youtube'])
 
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || 'movie-hub-62459'
 const inventoryPath = resolve(process.env.TITLE_CANDIDATE_INVENTORY || 'artifacts/title-candidate-inventory.json')
@@ -55,7 +56,9 @@ function hasCatalogRelevantProfileState(value) {
     || (Number.isInteger(value?.rating) && value.rating >= 1 && value.rating <= 10)
 }
 
-function sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles, joynTitles }) {
+function sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles, joynTitles, youtubeApprovedTitles }) {
+  const browseKeys = new Set((Array.isArray(catalog?.titles) ? catalog.titles : [])
+    .map(value => canonicalTitleIdentity(value)?.key).filter(Boolean))
   return {
     browse: (Array.isArray(catalog?.titles) ? catalog.titles : []).map((value) => ({ value, eligible: true })),
     'personal-tmdb': (Array.isArray(personalDocuments) ? personalDocuments : []).map((document) => {
@@ -84,6 +87,15 @@ function sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDo
     }),
     waipu: (Array.isArray(waipuTitles?.entries) ? waipuTitles.entries : []).map((value) => ({ value, eligible: true })),
     joyn: (Array.isArray(joynTitles?.entries) ? joynTitles.entries : []).map((value) => ({ value, eligible: true })),
+    // Only independent, currently valid verified SourceEnvelope title identities.
+    // Never add raw playlist video IDs, publisher hints, or matching hypotheses.
+    youtube: (Array.isArray(youtubeApprovedTitles) ? youtubeApprovedTitles : [])
+      .map(value => ({
+        value,
+        eligible: value?.verified === true && value?.type === 'movie'
+          && canonicalTitleIdentity(value) !== null,
+        canonicalPublicationPending: !browseKeys.has(canonicalTitleIdentity(value)?.key),
+      })),
   }
 }
 
@@ -96,6 +108,16 @@ function timestampIso(value) {
 }
 
 function metadataObservation(source, value, { now, maxAgeDays }, reference = {}) {
+  if (source === 'youtube') {
+    // SourceEnvelope attests an offer and a TMDB identity, NOT TMDB metadata.
+    // Its references must not pollute metadata completeness or staleness.
+    return {
+      source, canonicalPublicationPending: reference.canonicalPublicationPending === true,
+      strictComplete: false, freshComplete: false, reusableComplete: false,
+      failed: false, structuralGap: false, structuralOnlyGap: false,
+      facetGap: false, metadataVersion: 0, metadataUpdatedAt: null,
+    }
+  }
   if (reference.canonicalReady) {
     const metadataUpdatedAt = timestampIso(reference.canonicalMetadataUpdatedAt)
     const updatedAt = metadataUpdatedAt ? Date.parse(metadataUpdatedAt) : Number.NaN
@@ -148,6 +170,7 @@ function metadataObservation(source, value, { now, maxAgeDays }, reference = {})
 
 function summarizeCandidateMetadata(observations) {
   const values = Array.isArray(observations) ? observations : []
+  const metadataReferences = values.filter(({ source }) => source !== 'youtube')
   const sourceStates = Object.fromEntries(CANDIDATE_SOURCES
     .map((source) => {
       const matching = values.filter((observation) => observation.source === source)
@@ -162,18 +185,18 @@ function summarizeCandidateMetadata(observations) {
       }]
     })
     .filter(Boolean))
-  const updated = values.map(({ metadataUpdatedAt }) => metadataUpdatedAt).filter(Boolean).sort()
+  const updated = metadataReferences.map(({ metadataUpdatedAt }) => metadataUpdatedAt).filter(Boolean).sort()
   return {
     canonicalPublicationPending: values.some(({ canonicalPublicationPending }) => canonicalPublicationPending),
-    strictCompleteAvailable: values.some(({ strictComplete }) => strictComplete),
-    freshCompleteAvailable: values.some(({ reusableComplete }) => reusableComplete),
-    facetGapReferences: values.filter(({ facetGap }) => facetGap).length,
-    incompleteReferences: values.filter(({ strictComplete }) => !strictComplete).length,
-    staleReferences: values.filter(({ strictComplete, freshComplete }) => strictComplete && !freshComplete).length,
-    failedReferences: values.filter(({ failed }) => failed).length,
-    structuralGapReferences: values.filter(({ structuralGap }) => structuralGap).length,
-    structuralOnlyGapReferences: values.filter(({ structuralOnlyGap }) => structuralOnlyGap).length,
-    referencesWithoutUpdatedAt: values.filter(({ metadataUpdatedAt }) => !metadataUpdatedAt).length,
+    strictCompleteAvailable: metadataReferences.some(({ strictComplete }) => strictComplete),
+    freshCompleteAvailable: metadataReferences.some(({ reusableComplete }) => reusableComplete),
+    facetGapReferences: metadataReferences.filter(({ facetGap }) => facetGap).length,
+    incompleteReferences: metadataReferences.filter(({ strictComplete }) => !strictComplete).length,
+    staleReferences: metadataReferences.filter(({ strictComplete, freshComplete }) => strictComplete && !freshComplete).length,
+    failedReferences: metadataReferences.filter(({ failed }) => failed).length,
+    structuralGapReferences: metadataReferences.filter(({ structuralGap }) => structuralGap).length,
+    structuralOnlyGapReferences: metadataReferences.filter(({ structuralOnlyGap }) => structuralOnlyGap).length,
+    referencesWithoutUpdatedAt: metadataReferences.filter(({ metadataUpdatedAt }) => !metadataUpdatedAt).length,
     oldestUpdatedAt: updated[0] || null,
     latestUpdatedAt: updated.at(-1) || null,
     sourceStates,
@@ -254,6 +277,7 @@ export function buildTitleCandidateInventory({
   personalDocuments = [],
   profileDocuments = [],
   movieHubDocuments = [],
+  youtubeApprovedTitles = [],
   generatedAt = new Date().toISOString(),
   maxAgeDays = CANONICAL_METADATA_MAX_AGE_DAYS,
 } = {}) {
@@ -263,7 +287,7 @@ export function buildTitleCandidateInventory({
     maxAgeDays: Math.max(1, Number(maxAgeDays) || CANONICAL_METADATA_MAX_AGE_DAYS),
   }
   const candidates = new Map()
-  const sources = sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles, joynTitles })
+  const sources = sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles, joynTitles, youtubeApprovedTitles })
   const sourceStats = Object.fromEntries(CANDIDATE_SOURCES.map((source) => [
     source,
     collectSource(source, sources[source], candidates, metadataOptions),
@@ -366,18 +390,25 @@ async function main() {
   ])
   const app = initializeApp({ credential: applicationDefault(), projectId }, 'title-candidate-inventory')
   const db = getFirestore(app)
-  const [catalog, searchIndex, waipuTitles, joynTitles, waipuIndex, waipuUnresolved, personalSnapshot, profileSnapshot, movieHubSnapshot] = await Promise.all([
+  const [catalog, searchIndex, waipuTitles, joynTitles, waipuIndex, waipuUnresolved, youtubeSourceEnvelope, personalSnapshot, profileSnapshot, movieHubSnapshot] = await Promise.all([
     readJson('public/catalog.json', { titles: [] }),
     readJson('public/search-index.json', { entries: [] }),
     readJson('public/waipu-live/titles.json', { entries: [] }),
     readJson('public/joyn-live/titles.json', { entries: [] }),
     readJson('public/waipu-live/index.json'),
     readJson('artifacts/waipu-live/unresolved.json'),
+    readJson('artifacts/youtube-verified-source-envelope.json', null),
     db.collectionGroup('tmdbCatalog').get(),
     db.collectionGroup('titles').get(),
     db.collectionGroup('sharedMedia').get(),
   ])
+  // Reuse the SAME independent verified-route gate as the UI and Firebase
+  // publisher, not playlist/video-matcher confidence or editorial labels.
+  const approved = buildYoutubeVerifiedRouteIndex(youtubeSourceEnvelope)
   const inventory = buildTitleCandidateInventory({
+    youtubeApprovedTitles: approved.entries
+      .filter(entry => entry.mediaType === 'movie')
+      .map(entry => ({ type: 'movie', tmdbId: entry.tmdbId, verified: true })),
     maxAgeDays: Number(process.env.TITLE_CANONICAL_MAX_AGE_DAYS || CANONICAL_METADATA_MAX_AGE_DAYS),
     catalog,
     searchIndex,

@@ -240,6 +240,55 @@ describe('kanonischer Titel-Executor', () => {
     })
   })
 
+  it('imports only independently approved YouTube titles to existing browse and search without changing TMDB providers', () => {
+    const existing = completeMovie(11, 'Existing TMDB Film')
+    const newFilm = completeMovie(77, 'New verified YouTube movie')
+    const updates = new Map([
+      ['movie:11', existing], ['movie:77', newFilm],
+    ])
+    const plan = buildCanonicalFanoutPlan({
+      updates,
+      youtubeApprovedKeys: new Set(['movie:77', 'movie:11', 'movie:999']),
+      catalog: { titles: [existing] },
+      searchIndex: { entries: [] },
+      searchShards: new Map(),
+      generatedAt: '2026-10-23T06:00:00.000Z',
+    })
+    expect(plan.catalog.titles.map(x => x.tmdbId)).toEqual([11, 77])
+    expect(plan.counts.youtubeCatalogAdded).toBe(1)
+    expect(plan.catalog.titles[1]).toMatchObject({
+      title: 'New verified YouTube movie',
+      metadataComplete: true,
+    })
+    // Never synthesize YouTube provider membership from an editorial playlist.
+    expect(plan.catalog.titles[1].providerIds).toEqual(newFilm.providerIds)
+    expect(plan.searchIndex.entries.map(x => x.tmdbId)).toEqual([11, 77])
+    expect(plan.firestoreWrites).toHaveLength(0)
+    const again = buildCanonicalFanoutPlan({
+      updates,
+      youtubeApprovedKeys: new Set(['movie:77']),
+      catalog: plan.catalog,
+      searchIndex: plan.searchIndex,
+      searchShards: plan.searchShards,
+    })
+    expect(again.catalog.titles).toHaveLength(2)
+    expect(again.counts.youtubeCatalogAdded).toBeUndefined()
+  })
+
+  it('never imports unapproved YouTube hypotheses from queue-only updates', () => {
+    const newFilm = completeMovie(77, 'New candidate')
+    const plan = buildCanonicalFanoutPlan({
+      updates: new Map([['movie:77', newFilm]]),
+      catalog: { titles: [] },
+      searchIndex: { entries: [] },
+      searchShards: new Map(),
+    })
+    expect(plan.catalog.titles).toEqual([])
+    expect(plan.counts.youtubeCatalogAdded).toBeUndefined()
+    // The normal executor may publish search refs for other canonical sources.
+    expect(plan.searchIndex.entries).toHaveLength(1)
+  })
+
   it('publishes a profile-only title to the shared search detail before discarding its bootstrap', () => {
     const canonical = completeMovie(77, 'Profilfilm')
     const profileDocument = {
