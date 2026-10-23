@@ -32,11 +32,12 @@ export function buildDetailStreamingProviderIds(
   const orderedProviderIds = Array.isArray(titleProviderPresentation?.providerIds)
     ? titleProviderPresentation.providerIds
     : []
-  const tmdbProviderIds = new Set(
-    Array.isArray(titleProviderPresentation?.tmdbProviderIds)
-      ? titleProviderPresentation.tmdbProviderIds
-      : [],
-  )
+  const tmdbProviderIds = new Set([
+    ...(Array.isArray(titleProviderPresentation?.tmdbProviderIds)
+      ? titleProviderPresentation.tmdbProviderIds : []),
+    ...(Array.isArray(titleProviderPresentation?.verifiedTitleProviderIds)
+      ? titleProviderPresentation.verifiedTitleProviderIds : []),
+  ])
   const concreteLiveProviderIds = new Set(
     (Array.isArray(liveProviderEntries) ? liveProviderEntries : [])
       .map((entry) => entry?.providerId)
