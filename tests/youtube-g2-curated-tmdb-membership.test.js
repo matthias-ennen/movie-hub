@@ -115,6 +115,25 @@ describe('G2 curated playlist exact IDs -> TMDB-only identity hypotheses', () =>
     expect(output.summary.alternateWorkFormRisks).toBe(1)
     expect(output.summary.verifiedFilms).toBe(0)
   })
+  it('keeps real 2-character IT video ID for manual work review with zero TMDB calls', async () => {
+    tmdb.mockClear()
+    const source={...available,videoId:'OXXkaZvKPjw',videoTitle:'IT',minutes:135.5}
+    const out=await runCuratedTmdbMembership({
+      audit:qa([source]),publicIndex:idx(),tmdbGet:tmdb,now:()=>AT,
+    })
+    expect(out.summary).toMatchObject({
+      processedRows:1,tmdbCalls:0,verifiedFilms:0,verifiedDEOffers:0,
+      newMovieImports:0,publicationPermitted:false,
+    })
+    expect(out.rows[0]).toMatchObject({
+      videoId:'OXXkaZvKPjw',videoTitle:'IT',
+      matchStatus:'review-short-ambiguous-title',
+      topCandidates:[],tmdbQueries:[],verifiedTmdbId:null,
+      playbackRoute:null,toImport:false,
+    })
+    expect(tmdb).not.toHaveBeenCalled()
+  })
+
   it('fails closed for stale/incomplete/tampered source QA and noncanonical index', () => {
     expect(()=>validateCuratedTmdbInputs(
       {...qa(),fullyScanned:false},idx(),AT,
