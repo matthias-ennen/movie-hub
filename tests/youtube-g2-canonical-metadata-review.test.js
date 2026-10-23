@@ -20,7 +20,7 @@ const make=()=>{
   const sources=ids.map((videoId,i)=>({
     videoId,playlistClass:classes[i],sourceScreened:true,
     sourceTitle:['Freitag der 13. – Das letzte Kapitel','Deep Star Six','Der Geist und die Dunkelheit'][i],
-    sourceMinutes:[91,100,110][i],regionSignal:'unknown',
+    durationMinutes:[91,100,110][i],regionSignal:'unknown',
     identityResearchStatus:'review-leading-film-hypothesis',
   }))
   const rows=ids.map((videoId,i)=>({
