@@ -15,8 +15,10 @@ const GOOD_STATUS='review-leading-film-hypothesis'
  * A first film can be clear even when TWO unrelated weak side-results appear.
  * Accept 2 or 3 only when the first is exact-title / close-runtime and EVERY
  * alternate has an inferior title level and trails by at least 20 points.
- * Near ties, same-title remakes, extra candidates and TV alternatives still
- * stay out of the published playlist hints.
+ * Two tightly bounded exceptions for SAME-title side hits: an explicitly
+ * contradictory source year and cut, or a wildly different runtime plus an
+ * affirmative actor identity for the winner. Do NOT accept same-year remakes,
+ * close runtimes, plausible near-ties, or any TV alternatives.
  */
 export function hasDominantFilmHypothesis(results){
   if(!Array.isArray(results)||(results.length!==2&&results.length!==3))return false
@@ -27,14 +29,30 @@ export function hasDominantFilmHypothesis(results){
     &&winner.runtimeDelta<=10
     &&winner.yearMismatch!==true&&winner.sequelConflict!==true
     &&Number.isInteger(Number(winner.tmdbId))&&Number(winner.tmdbId)>0
-    &&runners.every(runner=>
-      Number.isFinite(runner?.score)
-      &&winner.score-runner.score>=20
-      &&Number.isFinite(runner?.titleLevel)&&runner.titleLevel<=2
-      &&Number.isInteger(Number(runner?.tmdbId))
-      &&Number(runner.tmdbId)>0
-      &&Number(winner.tmdbId)!==Number(runner.tmdbId)
-    )
+    &&runners.every(runner=>{
+      if(!Number.isFinite(runner?.score)
+        ||!Number.isFinite(runner?.titleLevel)
+        ||winner.score-runner.score<20
+        ||!Number.isInteger(Number(runner?.tmdbId))
+        ||Number(runner.tmdbId)<=0
+        ||Number(winner.tmdbId)===Number(runner.tmdbId))return false
+      if(runner.titleLevel<=2)return true
+      if(runner.titleLevel!==4)return false
+      // A source video explicitly dated 1978/1993 is not the later remake.
+      // Also require a clear duration disagreement, not only a year signal.
+      if(runner.yearMismatch===true
+        &&winner.score>=40&&winner.runtimeDelta<=5
+        &&Number.isFinite(runner.runtimeDelta)
+        &&runner.runtimeDelta>=15)return true
+      // A same-title result with a completely different duration remains
+      // inferior only if independent cast evidence supports the winner.
+      return winner.score>=50&&winner.runtimeDelta<=5
+        &&winner.quotedActorCreditMatches===true
+        &&runner.quotedActorCreditMatches===false
+        &&winner.score-runner.score>=40
+        &&Number.isFinite(runner.runtimeDelta)
+        &&runner.runtimeDelta>=60
+    })
 }
 const ALLOWED=new Set(['free','rent-buy'])
 const NO_WRITE=['catalogWrites','firestoreWrites','providerWrites','badgeWrites','nightlyWrites']
