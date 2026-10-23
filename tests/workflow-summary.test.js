@@ -251,7 +251,7 @@ describe('kompakter Workflow-Datenbericht', () => {
     })
 
     const markdown = workflowSummaryMarkdown(summary)
-    expect(summary.rows).toHaveLength(22)
+    expect(summary.rows).toHaveLength(26)
     expect(markdown).toContain('Lauf #321')
     expect(markdown).toContain('| Waipu EPG | ✅ erfolgreich | 50 Sender')
     expect(markdown).toContain('3.600 zugeordnet · 4/4 Metadaten vollständig')
@@ -271,7 +271,7 @@ describe('kompakter Workflow-Datenbericht', () => {
     expect(markdown).toContain('| Kanonische Titelkandidaten | ✅ erfolgreich | 1.500 Titel aus 1.900 Referenzen | 400 Dubletten entfernt · 300 Mehrfachzuordnungen | 16.308 nur Suche · 17 Waipu ungeklärt |')
     expect(markdown).toContain('| Prioritätsvorschau | ✅ erfolgreich | 900/1.500 eingeplant · 800 in Tageskapazität | 700 TMDB-Abrufe · 200 Wiederverwendungen | 100 Rückstand · 0 Queue-Dubletten |')
     expect(markdown).toContain('| Laufüberwachung | ✅ pünktlich gestartet | geplant 19.9.2026, 03:17:00 | tatsächlich 19.9.2026, 03:22:00 · 5 Minuten Verzögerung | vorheriger Datenstand beim Start 4 Tage 17 Stunden alt |')
-    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(24)
+    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(28)
   })
 
   it('bleibt bei fehlenden optionalen Artefakten lesbar', () => {
