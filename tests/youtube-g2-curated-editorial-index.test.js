@@ -204,7 +204,10 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
     for(const changed of [
       r=>{r.topCandidates[1].score=25},
       r=>{r.topCandidates[1].titleLevel=4},
-      r=>{r.topCandidates.push({...r.topCandidates[1],tmdbId:89000})},
+      r=>{r.topCandidates.push(
+        {...r.topCandidates[1],tmdbId:89000},
+        {...r.topCandidates[1],tmdbId:89001},
+      )},
       r=>{r.alternativeTvIds=[800]},
       r=>{r.topCandidates[0].runtimeDelta=11},
       r=>{r.topCandidates[0].titleLevel=3},
