@@ -455,6 +455,15 @@ jobs:
         if: ${{ steps.youtube_complete_intake.outcome == 'success' && steps.candidate_inventory.outcome == 'success' }}
         run: node scripts/youtube-g2-full-catalog-reconciliation-live.mjs
 
+      # Extract genuine TMDB metadata for strong missing-film candidates only.
+      # Private review: no film identity approval and no catalog/provider writes.
+      - name: Review canonical TMDB metadata for missing YouTube films
+        id: youtube_new_film_metadata
+        if: ${{ steps.youtube_full_catalog_reconciliation.outcome == 'success' }}
+        env:
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+        run: node scripts/youtube-g2-canonical-metadata-review-live.mjs
+
       - name: Build
         id: app_build
         run: npm run build
@@ -567,6 +576,7 @@ jobs:
           SUMMARY_CANONICAL_EXECUTOR: ${{ steps.canonical_executor.outcome }}
           SUMMARY_CANDIDATE_INVENTORY: ${{ steps.candidate_inventory.outcome }}
           SUMMARY_YOUTUBE_FULL_CATALOG: ${{ steps.youtube_full_catalog_reconciliation.outcome }}
+          SUMMARY_YOUTUBE_NEW_METADATA: ${{ steps.youtube_new_film_metadata.outcome }}
           SUMMARY_PRIORITY_PREVIEW: ${{ steps.priority_preview.outcome }}
           SUMMARY_BUILD: ${{ steps.app_build.outcome }}
           SUMMARY_AUTH: ${{ steps.gcp_auth.outcome }}
@@ -598,6 +608,8 @@ jobs:
             artifacts/youtube-g2/complete-playlist-intake/report.md
             artifacts/youtube-g2/full-catalog-reconciliation/qa.json
             artifacts/youtube-g2/full-catalog-reconciliation/report.md
+            artifacts/youtube-g2/canonical-new-film-metadata-review/qa.json
+            artifacts/youtube-g2/canonical-new-film-metadata-review/report.md
             artifacts/joyn-pilot/*.json
             artifacts/joyn-adapter/*.json
             artifacts/joyn-sync/status.json
