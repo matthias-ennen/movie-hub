@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
+import { YoutubeVerifiedOffersProvider } from './providers/YoutubeVerifiedOffersContext.jsx'
 import InitialHomeFocus from './components/InitialHomeFocus.jsx'
 import { installPerformanceDiagnostics, recordPerformanceEvent } from './performance/performanceDiagnostics.js'
 import './index.css'
@@ -30,6 +31,8 @@ recordPerformanceEvent('app:render-start')
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <InitialHomeFocus />
-    <App />
+    <YoutubeVerifiedOffersProvider>
+      <App />
+    </YoutubeVerifiedOffersProvider>
   </StrictMode>,
 )
