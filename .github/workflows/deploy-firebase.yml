@@ -455,6 +455,16 @@ jobs:
         if: ${{ steps.youtube_complete_intake.outcome == 'success' && steps.candidate_inventory.outcome == 'success' }}
         run: node scripts/youtube-g2-full-catalog-reconciliation-live.mjs
 
+      # Inspect NEW strong one-to-one film hypotheses using the SAME canonical
+      # TMDB metadata client as other provider pipelines. PRIVATE research only.
+      # Metadata readiness cannot approve YouTube work identity or availability.
+      - name: Read-only TMDB metadata preflight for new YouTube film candidates
+        id: youtube_new_film_metadata
+        if: ${{ steps.youtube_full_catalog_reconciliation.outcome == 'success' }}
+        env:
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+        run: node scripts/youtube-g2-new-film-metadata-preflight-live.mjs
+
       - name: Build
         id: app_build
         run: npm run build
@@ -567,6 +577,7 @@ jobs:
           SUMMARY_CANONICAL_EXECUTOR: ${{ steps.canonical_executor.outcome }}
           SUMMARY_CANDIDATE_INVENTORY: ${{ steps.candidate_inventory.outcome }}
           SUMMARY_YOUTUBE_FULL_CATALOG: ${{ steps.youtube_full_catalog_reconciliation.outcome }}
+          SUMMARY_YOUTUBE_NEW_FILM_METADATA: ${{ steps.youtube_new_film_metadata.outcome }}
           SUMMARY_PRIORITY_PREVIEW: ${{ steps.priority_preview.outcome }}
           SUMMARY_BUILD: ${{ steps.app_build.outcome }}
           SUMMARY_AUTH: ${{ steps.gcp_auth.outcome }}
@@ -598,6 +609,8 @@ jobs:
             artifacts/youtube-g2/complete-playlist-intake/report.md
             artifacts/youtube-g2/full-catalog-reconciliation/qa.json
             artifacts/youtube-g2/full-catalog-reconciliation/report.md
+            artifacts/youtube-g2/new-film-metadata-preflight/qa.json
+            artifacts/youtube-g2/new-film-metadata-preflight/report.md
             artifacts/joyn-pilot/*.json
             artifacts/joyn-adapter/*.json
             artifacts/joyn-sync/status.json
