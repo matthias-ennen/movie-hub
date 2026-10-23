@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
   runCuratedTmdbMembership, validateCuratedTmdbInputs,
-  explicitAlternateWorkFormRisk,
+  explicitAlternateWorkFormRisk, explicitSourceOrCutRisk,
 } from '../scripts/youtube-g2-curated-tmdb-membership.mjs'
 
 const AT = '2026-10-22T16:50:00.000Z'
@@ -147,6 +147,28 @@ describe('G2 curated playlist exact IDs -> TMDB-only identity hypotheses', () =>
     expect(output.summary.alternateWorkFormRisks).toBe(1)
     expect(output.summary.verifiedFilms).toBe(0)
   })
+  it('keeps a clearly labelled bootleg / uncut release under separate edition review, not an approved offer',async()=>{
+    expect(explicitSourceOrCutRisk('From Dusk Till Dawn ,1996 - Bootleg, UnratED, 100% iger Uncut, Deutsch'))
+      .toBe('explicit-unverified-cut-or-source')
+    expect(explicitSourceOrCutRisk('Sleepy Hollow 1999 (Ungekürzte Fassung) Deutsch'))
+      .toBe('explicit-unverified-cut-or-source')
+    expect(explicitSourceOrCutRisk('Street Kings')).toBeNull()
+    const clip={...available,videoId:'nZzSVyw4ktA',minutes:107.2,
+      videoTitle:'From Dusk Till Dawn ,1996 - Bootleg, UnratED, 100% iger Uncut, Deutsch'}
+    const out=await runCuratedTmdbMembership({
+      audit:qa([clip]),publicIndex:idx(),tmdbGet:tmdb,now:()=>AT,
+    })
+    expect(out.rows[0]).toMatchObject({
+      videoId:clip.videoId,identityRisk:'explicit-unverified-cut-or-source',
+      matchStatus:'review-explicit-source-or-cut-risk',
+      verifiedTmdbId:null,verifiedDEPlayback:false,playbackRoute:null,
+      publicationPermitted:false,toImport:false,
+      curatedQueryReason:'explicit-bootleg-cut-and-year-review',
+    })
+    expect(out.summary.verifiedFilms).toBe(0)
+    expect(out.summary.verifiedDEOffers).toBe(0)
+  })
+
   it('keeps real 2-character IT video ID for manual work review with zero TMDB calls', async () => {
     tmdb.mockClear()
     const source={...available,videoId:'OXXkaZvKPjw',videoTitle:'IT',minutes:135.5}
