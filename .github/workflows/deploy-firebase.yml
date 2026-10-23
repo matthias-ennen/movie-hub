@@ -512,6 +512,7 @@ jobs:
         if: ${{ always() }}
         env:
           SUMMARY_DATA_MODE: ${{ inputs.data_mode || 'standard' }}
+          SUMMARY_SCHEMA_BASELINE: ${{ steps.source_schema_baseline.outcome }}
           SUMMARY_TMDB_CHANGES: ${{ steps.tmdb_changes.outcome }}
           SUMMARY_SERIES_DETAILS: ${{ steps.series_details.outcome }}
           SUMMARY_TMDB_CHECKPOINT: ${{ steps.tmdb_change_commit.outcome }}
