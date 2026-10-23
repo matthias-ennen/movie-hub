@@ -11,6 +11,7 @@ import { ProgressivePosterGrid, ProgressiveRows } from './components/Progressive
 import { detailInitialImageUrl, prepareDetailRequestItem, preloadDetailImage, waitForDetailLoadingPaint } from './components/detailPresentation.js'
 import { closeTopDetailLayer } from './components/detailDialogNavigation.js'
 import { buildCategoryRows } from './catalog/categoryRows.js'
+import { mergeYoutubeNewFilmsIntoCatalog, YOUTUBE_NEW_FILMS_PUBLIC_URL } from './catalog/youtubeCuratedNewFilms.js'
 import { buildPersonalSmartRows, buildPersonalSmartFilterOptions, preparePersonalSmartTitles, normalizeSmartFilterOptions } from './catalog/personalSmartRows.js'
 import { buildProviderBrowseRows, buildProviderHomeRows, buildProviderCatalogModel } from './catalog/providerCatalogRows.js'
 import { selectCoordinatedHeroItems, selectPersonalHeroItemsFromSources } from './catalog/heroSelection.js'
@@ -539,7 +540,12 @@ function MovieHub({ user }) {
     async function loadCatalog() {
       try {
         const data = await loadCatalogWithRetry(async () => {
-          const response = await fetch('/catalog.json', { cache: 'no-store' })
+          const [response, youtubeResponse] = await Promise.all([
+            fetch('/catalog.json', { cache: 'no-store' }),
+            // Optional metadata companion: Firebase deploy may temporarily
+            // contain an older catalog generation or no YouTube additions.
+            fetch(YOUTUBE_NEW_FILMS_PUBLIC_URL, { cache: 'no-store' }).catch(() => null),
+          ])
           if (!response.ok) throw new Error(`Katalog konnte nicht geladen werden (${response.status})`)
           const loadedCatalog = await response.json()
 
@@ -548,7 +554,9 @@ function MovieHub({ user }) {
               || !Array.isArray(loadedCatalog.rowDefinitions)) {
             throw new Error('Der geladene Katalog ist unvollständig.')
           }
-          return loadedCatalog
+          const youtubeFeed = youtubeResponse?.ok
+            ? await youtubeResponse.json().catch(() => null) : null
+          return mergeYoutubeNewFilmsIntoCatalog(loadedCatalog, youtubeFeed)
         }, { shouldCancel: () => cancelled })
 
         if (!cancelled) {
