@@ -601,7 +601,7 @@ export default function DetailModal({
                       data-focusable="true"
                       onClick={() => openStreamingProvider(providerId)}
                       aria-label={providerId === 'youtube' && titleWithVerifiedOffers.curatedPlaylistTitleOffer
-                        ? 'YouTube-Playlist-Link öffnen (Angebotsart und Filmfassung nicht unabhängig bestätigt)'
+                        ? 'YouTube-Playlist-Link öffnen (Playlist-Klasse ' + (titleWithVerifiedOffers.curatedPlaylistTitleOffer.playlistMode === 'free' ? 'FREE' : 'R&B') + '; Filmfassung und Wiedergabe nicht unabhängig bestätigt)'
                         : `${provider.label} als Streaming- oder Mediathek-Anbieter öffnen`}
                     >
                       <ProviderBadge providerId={providerId} item={titleWithVerifiedOffers} context="title" />
