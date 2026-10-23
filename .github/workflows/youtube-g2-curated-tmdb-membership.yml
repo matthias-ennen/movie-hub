@@ -7,11 +7,13 @@ on:
         description: 'Successful Firebase Deploy run containing source-adapter-artifacts; blank = latest successful deploy'
         type: string
         required: false
-  # One controlled post-upgrade replay. Future runs can use workflow_dispatch.
+  # Recheck only when this review workflow or its TMDB query/safety rules change.
   push:
     branches: [main]
     paths:
       - '.github/workflows/youtube-g2-curated-tmdb-membership.yml'
+      - 'scripts/youtube-g2-curated-title-query-plan.mjs'
+      - 'scripts/youtube-g2-curated-tmdb-membership.mjs'
 
 permissions:
   contents: read

@@ -26,6 +26,46 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
       expect(p.queries.length).toBeLessThanOrEqual(2)
     }
   })
+  it.each([
+    ['Wishmaster 2: Evil Never Dies FANTASY, HORROR Full Movie in English',
+      'Wishmaster 2: Evil Never Dies', 'english-genre-and-full-movie-tail'],
+    ['Stalingrad [1993] Ganzer FIlm mit Thomas Kretschmann, Jochen Nickel, Dominique Horwitz',
+      'Stalingrad', 'explicit-source-year-and-cast-tail'],
+    ['So Weit Die Füße Tragen (bewegender Abenteuerfilm und Kriegsdrama mit 7,3 IMDb-Bewertung)',
+      'So Weit Die Füße Tragen', 'imdb-description-tail'],
+    ['The Watcher Thriller mit Keanu Reeves Ganzer Film',
+      'The Watcher', 'genre-actor-and-full-film-tail'],
+    ['Nürnberg (2026)', 'Nuremberg', 'official-original-title-alias-release-year-review'],
+  ])('repairs real 58-ID source searches without modifying video-title provenance: %s',
+    (source, firstQuery, reason) => {
+      const result = planCuratedTmdbQueries(source)
+      expect(result.rawTitle).toBe(source)
+      expect(result.queries[0]).toBe(firstQuery)
+      expect(result.queries.length).toBeLessThanOrEqual(2)
+      expect(result.curatedQueryReason).toBe(reason)
+    })
+
+  it('treats the German 2026 theatrical year as provenance, NOT confirmed original-film release year', () => {
+    const result = planCuratedTmdbQueries('Nürnberg (2026)')
+    expect(result.matchingTitle).toBe('Nuremberg')
+    expect(result.queries).toEqual(['Nuremberg', 'Nürnberg'])
+    expect(result.reportedYear).toBe(2026)
+  })
+
+  it('keeps already clean full titles, short ambiguous titles and lookalikes untouched', () => {
+    for (const raw of [
+      'Wishmaster 2: Evil Never Dies', 'Stalingrad (1993)',
+      'So Weit Die Füße Tragen', 'The Watcher',
+      'Nürnberg', 'IT', 'Full Movie in English',
+      'The Watcher of the Woods', 'Stalingrad [1993] Preview',
+    ]) {
+      const plan = planCuratedTmdbQueries(raw)
+      expect(plan.rawTitle).toBe(raw)
+      expect(plan.curatedQueryReason).toBeNull()
+    }
+    expect(planCuratedTmdbQueries('IT').queries).toEqual([])
+  })
+
   it('rejects ambiguous collection-like strings without a complete year', () => {
     const p=planCuratedTmdbQueries('Alte Deutsche Spielfilme ~ Something ~ 19')
     expect(p.curatedQueryReason).toBeNull()

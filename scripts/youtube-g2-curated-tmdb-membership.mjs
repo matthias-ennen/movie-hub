@@ -113,6 +113,15 @@ export async function runCuratedTmdbMembership({
     const prepared = planCuratedTmdbQueries(c.videoTitle)
     const queryVariants = [...new Set((prepared.queries || [])
       .map(x => safe(x)).filter(Boolean))].slice(0, 2)
+    // 'IT' and similar one/two-character source titles have no safe query
+    // identity. Keep them in the 1:1 QA, without guessing an existing film.
+    if (queryVariants.length === 0 && safe(c.videoTitle).length < 3) {
+      rows.push({...base, matchStatus:'review-short-ambiguous-title',
+        curatedQueryReason:null, tmdbQueries:[],
+        topCandidates:[], alternativeTvIds:[],
+        publicIndexMembership:'unknown', errors:[]})
+      continue
+    }
     const movieIds = new Set()
     const tvIds = []
     const details = []
