@@ -57,7 +57,7 @@ const item=(id=10586)=>({type:'movie',tmdbId:id,title:TITLE,
 beforeEach(()=>resetProviderSelectionSnapshot({loading:false}))
 
 describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verified',()=>{
-  it('links exact real FREE video + R&B title as QUESTION-MARK preview badges and deep links',()=>{
+  it('links exact real FREE video + R&B title as playlist-declared badges without question marks and deep links',()=>{
     const {audit,research}=make()
     const index=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
     expect(index).toMatchObject({count:2,sourceVideoIds:2,
@@ -71,7 +71,7 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
     expect(g).not.toHaveProperty('verifiedTitleOffers')
     const poster=resolvePosterProviderModel(g)
     expect(poster.providerIds).toEqual(['youtube'])
-    expect(poster.offerLabels.youtube).toBe('FREE?')
+    expect(poster.offerLabels.youtube).toBe('FREE')
     const presentation=resolveProviderPresentation(g)
     expect(presentation.verifiedTitleProviderIds).toEqual([])
     expect(presentation.editorialTitleProviderIds).toEqual(['youtube'])
@@ -80,7 +80,7 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
       providerId:'youtube',item:g,
     }))
     expect(markup).toContain('Nur Playlist-Zuordnung')
-    expect(markup).toContain('FREE?')
+    expect(markup).toContain('FREE')
     expect(markup).toContain('noch nicht unabhängig geprüft')
     const hint=selectCuratedEditorialTitleHint(index,item(),{now:Date.parse(AT)})
     expect(hint).toMatchObject({target:'https://www.youtube.com/watch?v='+VID,
@@ -93,7 +93,7 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
       'APP_DEEP_LINK','title','https://www.youtube.com/watch?v='+VID,fallback)
     const r=withVerifiedYoutubeTitleOffer(item(11607),null,{
       curatedIndex:index,now:Date.parse(AT)})
-    expect(providerOfferLabel(r,'youtube')).toBe('R&B?')
+    expect(providerOfferLabel(r,'youtube')).toBe('R&B')
   })
 
   it('uses FREE priority when the SAME video ID appears in both playlists',()=>{
