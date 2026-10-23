@@ -14,6 +14,7 @@ on:
       - '.github/workflows/youtube-g2-curated-tmdb-membership.yml'
       - 'scripts/youtube-g2-curated-title-query-plan.mjs'
       - 'scripts/youtube-g2-curated-tmdb-membership.mjs'
+      - 'scripts/youtube-g2-first-offer-acceptance-pack.mjs'
 
 permissions:
   contents: read
@@ -41,7 +42,8 @@ jobs:
           node --check scripts/youtube-g2-curated-cast-evidence.mjs
           node --check scripts/youtube-g2-curated-title-query-plan.mjs
           node --check scripts/youtube-g2-curated-tmdb-membership-live.mjs
-          npx vitest run tests/youtube-g2-curated-tmdb-membership.test.js tests/youtube-g2-curated-cast-evidence.test.js tests/youtube-g2-curated-title-query-plan.test.js
+          node --check scripts/youtube-g2-first-offer-acceptance-pack.mjs
+          npx vitest run tests/youtube-g2-curated-tmdb-membership.test.js tests/youtube-g2-curated-cast-evidence.test.js tests/youtube-g2-curated-title-query-plan.test.js tests/youtube-g2-first-offer-acceptance-pack.test.js
       - name: Select an existing successful Firebase source-QA generation
         id: source
         env:
@@ -77,7 +79,9 @@ jobs:
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
         run: node scripts/youtube-g2-curated-tmdb-membership-live.mjs
-      - name: Upload private seven-day review QA (no confirmed routes or provider writes)
+      - name: Prepare three-case manual Android / Fire TV acceptance packet, no approvals
+        run: node scripts/youtube-g2-first-offer-acceptance-pack.mjs
+      - name: Upload private seven-day review QA and human-test checklist (no confirmed routes)
         if: ${{ success() }}
         uses: actions/upload-artifact@v7
         with:
@@ -85,5 +89,7 @@ jobs:
           path: |
             artifacts/youtube-g2/curated-tmdb-membership/qa.json
             artifacts/youtube-g2/curated-tmdb-membership/report.md
+            artifacts/youtube-g2/first-offer-manual-acceptance/qa.json
+            artifacts/youtube-g2/first-offer-manual-acceptance/checklist.md
           if-no-files-found: error
           retention-days: 7
