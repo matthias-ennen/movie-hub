@@ -114,6 +114,91 @@ describe('new YouTube playlist movies use canonical TMDB metadata, no verified a
         verificationStatus:'not-independently-verified'})
     expect(model.filmFeed.entries[0].film.verifiedTitleOffers).toBeUndefined()
   })
+  it('links one strong existing personal film without creating a duplicate catalog movie',()=>{
+    const x=inputs()
+    const videoId='G-ETE-RO7Q4'
+    const tmdbId=12212
+    x.metadataReview.totalVideoIds=3
+    x.reconciliation.totalVideoIds=3
+    x.intake.uniqueVideoIds=3
+    x.editorialIndex.sourceVideoIds=3
+    x.reconciliation.entries.push({
+      videoId,decision:'exists-in-complete-catalog-review',
+      strongMetadataCandidate:true,suggestedFilmKey:'movie:'+tmdbId,
+      completeCatalogMembership:'canonical-existing',
+      canonicalSources:['personal-tmdb','profile-state','movie-hub'],
+      playlistClass:'FREE',filmIdentityApproved:false,
+      newMovieImported:false,verifiedOffer:false,
+    })
+    x.intake.items.push({
+      videoId,playlistClass:'FREE',sourceScreened:true,regionSignal:'unknown',
+      suggestedFilmRef:{mediaType:'movie',tmdbId},
+      sourceTitle:'Düstere Legenden 2 - Urban Legends: The Final Cut',
+      channelTitle:'Netzkino',durationMinutes:96,playlistIds:['FREE-PLAYLIST'],
+    })
+    const result=buildYoutubeNewFilmCatalogProjection(x)
+    expect(result.summary).toMatchObject({
+      sourceVideos:3,newTmdbFilms:1,editorialLinks:3,
+      additionalExistingCanonicalLinks:1,
+      firestoreWrites:0,independentlyVerifiedDEOffers:0,
+    })
+    expect(result.filmFeed.count).toBe(1) // Existing film was NOT imported again.
+    const hint=result.editorialIndex.entries.find(v=>v.tmdbId===tmdbId)
+    expect(hint).toMatchObject({
+      videoId,watchUrl:'https://www.youtube.com/watch?v='+videoId,
+      playlistMode:'free',verificationStatus:'not-independently-verified',
+    })
+    const personal={type:'movie',tmdbId,title:'Düstere Legenden 2',
+      providerIds:[],tmdbProviderOffers:[]}
+    const enriched=withVerifiedYoutubeTitleOffer(personal,null,{
+      curatedIndex:result.editorialIndex,now:Date.parse(NOW)})
+    expect(enriched.curatedPlaylistTitleOffer.videoId).toBe(videoId)
+    expect(providerOfferLabel(enriched,'youtube')).toBe('FREE')
+    expect(selectCuratedEditorialTitleHint(result.editorialIndex,enriched,{
+      now:Date.parse(NOW)}).target).toBe('https://www.youtube.com/watch?v='+videoId)
+  })
+
+  it('never links ambiguous duplicated, mismatched, or unverified personal-film references',()=>{
+    const setup=()=>{
+      const x=inputs()
+      x.metadataReview.totalVideoIds=3
+      x.reconciliation.totalVideoIds=3
+      x.intake.uniqueVideoIds=3
+      x.editorialIndex.sourceVideoIds=3
+      x.reconciliation.entries.push({
+        videoId:'G-ETE-RO7Q4',decision:'exists-in-complete-catalog-review',
+        strongMetadataCandidate:true,suggestedFilmKey:'movie:12212',
+        completeCatalogMembership:'canonical-existing',
+        canonicalSources:['personal-tmdb','movie-hub'],
+        playlistClass:'FREE',filmIdentityApproved:false,
+        newMovieImported:false,verifiedOffer:false,
+      })
+      x.intake.items.push({
+        videoId:'G-ETE-RO7Q4',playlistClass:'FREE',
+        suggestedFilmRef:{mediaType:'movie',tmdbId:12212},
+        sourceScreened:true,regionSignal:'unknown',
+        durationMinutes:96,sourceTitle:'Düstere Legenden 2',
+        playlistIds:['FREE-PLAYLIST'],
+      })
+      return x
+    }
+    for(const change of [
+      x=>{x.reconciliation.entries[2].canonicalSources=[]},
+      x=>{x.reconciliation.entries[2].filmIdentityApproved=true},
+      x=>{x.intake.items[2].playlistClass='R&B'},
+      x=>{x.intake.items[2].regionSignal='excluded'},
+      x=>{x.reconciliation.entries[2].suggestedFilmKey='movie:777'},
+      x=>{x.reconciliation.entries.push({
+        videoId:'ucRKSNwzM_w',suggestedFilmKey:'movie:12212',
+        decision:'work-identity-review'
+      })},
+    ]){
+      const x=setup()
+      change(x)
+      expect(()=>buildYoutubeNewFilmCatalogProjection(x)).toThrow()
+    }
+  })
+
   it('never duplicates an existing film and never rewrites TMDB metadata',()=>{
     const model=buildYoutubeNewFilmCatalogProjection(inputs())
     const existing={...base(),titles:[...base().titles,structuredClone(movie)]}

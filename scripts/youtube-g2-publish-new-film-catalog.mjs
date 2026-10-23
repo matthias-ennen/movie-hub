@@ -59,6 +59,51 @@ export function buildYoutubeNewFilmCatalogProjection({
   const entries=[]
   const allIds=new Set(hints.map(x=>x.videoId))
   const allKeys=new Set(hints.map(x=>x.key))
+  // Existing films in the COMPLETE canonical account inventory were already
+  // deduplicated by movie:TMDB ID. Only uniquely strong source-work matches
+  // are eligible for an editorial YouTube link; ambiguous/cut-risk matches stay
+  // in manual review and no new film or independently verified offer is minted.
+  let linkedAdditionalExisting=0
+  for(const rec of reconciliation.entries){
+    if(rec?.decision!=='exists-in-complete-catalog-review'
+      ||rec.strongMetadataCandidate!==true)continue
+    const src=byVideo.get(rec.videoId)
+    const filmKey=rec.suggestedFilmKey
+    const tmdbId=Number(/^movie:([1-9]\d*)$/.exec(String(filmKey||''))?.[1])
+    if(!Number.isInteger(tmdbId)||tmdbId<=0||!src
+      ||!VID.test(String(rec.videoId||''))
+      ||rec.completeCatalogMembership!=='canonical-existing'
+      ||!Array.isArray(rec.canonicalSources)||rec.canonicalSources.length<1
+      ||!src.suggestedFilmRef||src.suggestedFilmRef.mediaType!=='movie'
+      ||src.suggestedFilmRef.tmdbId!==tmdbId
+      ||src.sourceScreened!==true||src.regionSignal==='excluded'
+      ||!Number.isFinite(Number(src.durationMinutes))
+      ||Number(src.durationMinutes)<30
+      ||!src.sourceTitle||!Array.isArray(src.playlistIds)
+      ||src.playlistIds.length<1||!CLASS.has(src.playlistClass)
+      ||src.playlistClass!==rec.playlistClass
+      ||rec.filmIdentityApproved!==false||rec.newMovieImported!==false
+      ||rec.verifiedOffer!==false
+      ||allIds.has(rec.videoId)||allKeys.has(filmKey)) {
+      throw Error('YOUTUBE_EXISTING_FILM_EDITORIAL_LINK_UNSAFE')
+    }
+    // Another video proposing the same TMDB identity is a collision even if
+    // that video is currently held in the manual review lane.
+    if(reconciliation.entries.filter(x=>x.suggestedFilmKey===filmKey).length!==1){
+      throw Error('YOUTUBE_EXISTING_FILM_VIDEO_COLLISION')
+    }
+    allIds.add(rec.videoId);allKeys.add(filmKey)
+    hints.push({
+      key:filmKey,mediaType:'movie',tmdbId,videoId:rec.videoId,
+      watchUrl:videoUrl(rec.videoId),
+      playlistMode:src.playlistClass==='FREE'?'free':'rent-buy',
+      playlistIds:[...src.playlistIds],sourceTitle:src.sourceTitle,
+      channelTitle:src.channelTitle||'',deRegionSignal:src.regionSignal,
+      evidence:'playlist-declared-plus-review-matcher',
+      verificationStatus:'not-independently-verified',
+    })
+    linkedAdditionalExisting++
+  }
   for(const approvedMetadata of metadataReview.items){
     const videoId=approvedMetadata.videoId
     const src=byVideo.get(videoId)
@@ -120,7 +165,8 @@ export function buildYoutubeNewFilmCatalogProjection({
       ...editorialIndex,generatedAt:now,count:hints.length,entries:hints,
     },
     summary:{sourceVideos:metadataReview.totalVideoIds,newTmdbFilms:entries.length,
-      editorialLinks:hints.length,firestoreWrites:0,badgeDatabaseWrites:0,
+      editorialLinks:hints.length,additionalExistingCanonicalLinks:linkedAdditionalExisting,
+      firestoreWrites:0,badgeDatabaseWrites:0,
       independentlyVerifiedDEOffers:0},
   }
 }
