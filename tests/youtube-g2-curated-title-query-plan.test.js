@@ -45,6 +45,24 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
       expect(result.curatedQueryReason).toBe(reason)
     })
 
+  it.each([
+    ['BASIC Kompletter Film Deutsch','BASIC','complete-film-deutsch-ad-tail'],
+    ['Grandioser Survival-Thriller mit STARBESETZUNG: Transsiberian (2008) (HD)',
+     'Transsiberian','survival-starbesetzung-year-hd-wrapper'],
+  ])('repairs additional LIVE 62-ID FREE title wrapper without changing the source: %s',
+    (source, expectedSearch, reason) => {
+      const p=planCuratedTmdbQueries(source)
+      expect(p.rawTitle).toBe(source)
+      expect(p.queries).toEqual([expectedSearch])
+      expect(p.curatedQueryReason).toBe(reason)
+    })
+
+  it('retains an explicit year for Transsiberian only as a review clue', () => {
+    const p=planCuratedTmdbQueries(
+      'Grandioser Survival-Thriller mit STARBESETZUNG: Transsiberian (2008) (HD)')
+    expect(p.matchingTitle).toBe('Transsiberian (2008)')
+  })
+
   it('treats the German 2026 theatrical year as provenance, NOT confirmed original-film release year', () => {
     const result = planCuratedTmdbQueries('Nürnberg (2026)')
     expect(result.matchingTitle).toBe('Nuremberg')
@@ -58,6 +76,9 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
       'So Weit Die Füße Tragen', 'The Watcher',
       'Nürnberg', 'IT', 'Full Movie in English',
       'The Watcher of the Woods', 'Stalingrad [1993] Preview',
+      'Basic Instinct', 'Basic', 'Transsiberian (2008)',
+      'Survival-Thriller mit STARBESETZUNG: Transsiberian',
+      'The Crow - Die Krähe Ganzer Film Deutsch 18+',
     ]) {
       const plan = planCuratedTmdbQueries(raw)
       expect(plan.rawTitle).toBe(raw)
