@@ -2,6 +2,8 @@ import AgeRatingBadge from './AgeRatingBadge.jsx'
 import ProviderBadges from './ProviderBadges.jsx'
 import { formatTvAiringCard } from '../tv/tvAiringPresentation.js'
 import { resolvePosterProviderModel } from '../providers/posterProviderModel.js'
+import { useYoutubeVerifiedOffers } from '../providers/YoutubeVerifiedOffersContext.jsx'
+import { withVerifiedYoutubeTitleOffer } from '../providers/youtubeVerifiedTitlePresentation.js'
 import { posterImageProps, posterSourceUrl } from '../performance/posterImages.js'
 
 export default function PosterCard({
@@ -13,11 +15,13 @@ export default function PosterCard({
   posterIndex = null,
   variant = 'standard',
 }) {
+  const youtubeVerifiedRoutes = useYoutubeVerifiedOffers()
+  const displayItem = withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes)
   const posterUrl = posterSourceUrl(item)
   const posterImage = posterImageProps(item, { variant: rank ? 'top-ten' : variant })
   const hasPoster = Boolean(posterUrl)
   const tvAiring = formatTvAiringCard(item.tvAiring)
-  const providerModel = resolvePosterProviderModel(item, { hasMovieHub })
+  const providerModel = resolvePosterProviderModel(displayItem, { hasMovieHub })
 
   return (
     <button
@@ -69,7 +73,7 @@ export default function PosterCard({
         </span>
       </span>
       {providerModel.hasAvailability && (
-        <ProviderBadges model={providerModel} item={item} />
+        <ProviderBadges model={providerModel} item={displayItem} />
       )}
     </button>
   )

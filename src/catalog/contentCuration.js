@@ -174,6 +174,10 @@ export function curateCatalogRows(rows, options = {}) {
 export function hasEnabledAvailability(item, enabledProviderIds, hasMovieHubTitle = null) {
   const enabled = new Set(Array.isArray(enabledProviderIds) ? enabledProviderIds : [])
   if (enabled.has('moviehub') && hasMovieHubTitle?.(item)) return true
+  if (enabled.has('youtube')
+    && (Array.isArray(item?.verifiedTitleOffers) ? item.verifiedTitleOffers : [])
+      .some((offer) => offer?.id === 'youtube'
+        && Array.isArray(offer.offerTypes) && offer.offerTypes.length > 0)) return true
   return (Array.isArray(item?.providerIds) ? item.providerIds : [])
     .some((providerId) => enabled.has(providerId))
 }

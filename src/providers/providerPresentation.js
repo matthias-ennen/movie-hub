@@ -52,6 +52,13 @@ export function resolveProviderPresentation(item, {
   hasMovieHub = false,
 } = {}) {
   const tmdbIds = tmdbProviderIds(item)
+  // Independently verified title-wide offers are additive. They must never
+  // impersonate TMDB evidence or a live-TV airing.
+  const verifiedTitleIds = unique(
+    (Array.isArray(item?.verifiedTitleOffers) ? item.verifiedTitleOffers : [])
+      .filter((offer) => Array.isArray(offer?.offerTypes) && offer.offerTypes.length)
+      .map((offer) => offer?.id),
+  )
   const titleLiveIds = liveProviderIds(item)
   const concreteAiringIds = airingProviderIds(item)
   const movieHub = Boolean(hasMovieHub || item?.movieHubCatalog === true)
@@ -62,6 +69,7 @@ export function resolveProviderPresentation(item, {
   // Only concreteAiringIds can make a provider AIR for this broadcast.
   const providerIds = orderProviderIds([
     ...tmdbIds,
+    ...verifiedTitleIds,
     ...(context === 'airing' ? concreteAiringIds : titleLiveIds),
   ])
 
@@ -70,6 +78,7 @@ export function resolveProviderPresentation(item, {
     providerIds,
     includeMovieHub: movieHub,
     tmdbProviderIds: tmdbIds,
+    verifiedTitleProviderIds: verifiedTitleIds,
     liveProviderIds: context === 'airing' ? concreteAiringIds : titleLiveIds,
     providerEvidence: item?.providerEvidence || {},
     playbackRoutes: context === 'airing'

@@ -1,4 +1,6 @@
 import { catalogTmdbProviderIds } from './settings/providerSelectionModel.js'
+import { useYoutubeVerifiedOffers } from './providers/YoutubeVerifiedOffersContext.jsx'
+import { withVerifiedYoutubeTitleOffer } from './providers/youtubeVerifiedTitlePresentation.js'
 import { settingsParent, settingsNeedStations } from './settings/settingsNavigation.js'
 import { createLiveProviderFilter } from './sources/liveProviderSelection.js'
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -451,6 +453,7 @@ function MovieHub({ user }) {
   const { getTitleState, statesByKey, loading: libraryLoading, error: libraryError } = useLibrary()
   const { personalTitles: tmdbPersonalTitles } = useTmdbCatalog()
   const { enabledProviderIds } = useProviderSelection()
+  const youtubeVerifiedRoutes = useYoutubeVerifiedOffers()
   const {
     disabledStationIds,
     loading: stationSelectionLoading,
@@ -692,13 +695,15 @@ function MovieHub({ user }) {
     [liveAvailabilityClock, liveAvailabilityEntries, preLiveTitles, acceptLiveProvider],
   )
   const titles = useMemo(
-    () => rawTitles.map((item) => resolvePresentationArtwork(item, artworkOptions)),
-    [rawTitles, artworkOptions],
+    () => rawTitles.map((item) => resolvePresentationArtwork(
+      withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes), artworkOptions)),
+    [rawTitles, artworkOptions, youtubeVerifiedRoutes],
   )
   const movieHubTitles = useMemo(
     () => mergeLiveAvailability(rawMovieHubTitles, liveAvailabilityEntries, { now: liveAvailabilityClock, acceptLiveProvider })
-      .map((item) => resolvePresentationArtwork(item, artworkOptions)),
-    [artworkOptions, liveAvailabilityClock, liveAvailabilityEntries, rawMovieHubTitles, acceptLiveProvider],
+      .map((item) => resolvePresentationArtwork(
+        withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes), artworkOptions)),
+    [artworkOptions, liveAvailabilityClock, liveAvailabilityEntries, rawMovieHubTitles, acceptLiveProvider, youtubeVerifiedRoutes],
   )
   const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
   const activeSortMode = useMemo(
@@ -1021,8 +1026,9 @@ function MovieHub({ user }) {
   )
   const personalCatalogTitles = useMemo(
     () => mergeLiveAvailability(personalMetadataTitles, liveAvailabilityEntries, { now: liveAvailabilityClock, acceptLiveProvider })
-      .map((item) => resolvePresentationArtwork(item, artworkOptions)),
-    [personalMetadataTitles, liveAvailabilityEntries, liveAvailabilityClock, artworkOptions, acceptLiveProvider],
+      .map((item) => resolvePresentationArtwork(
+        withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes), artworkOptions)),
+    [personalMetadataTitles, liveAvailabilityEntries, liveAvailabilityClock, artworkOptions, acceptLiveProvider, youtubeVerifiedRoutes],
   )
   const getPersonalSmartFilterOptions = useMemo(() => {
     let options = null
