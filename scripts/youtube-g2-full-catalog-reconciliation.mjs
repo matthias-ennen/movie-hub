@@ -1,3 +1,4 @@
+import { hasDominantFilmHypothesis } from '../src/providers/youtubeCuratedEditorialIndex.js'
 /**
  * Read-only, private reconciliation of ALL YouTube G2 playlist video IDs with
  * MovieHub's canonical complete title inventory (including personal titles).
@@ -61,7 +62,8 @@ function strongCandidate(item,row){
     &&row.identityRisk===null
     &&Array.isArray(row.errors)&&row.errors.length===0
     &&Array.isArray(row.alternativeTvIds)&&row.alternativeTvIds.length===0
-    &&Array.isArray(row.topCandidates)&&row.topCandidates.length===1
+    &&Array.isArray(row.topCandidates)
+    &&(row.topCandidates.length===1||hasDominantFilmHypothesis(row.topCandidates))
     &&top?.tmdbId===item.suggestedFilmRef?.tmdbId
     &&Number.isFinite(top.score)&&top.score>=38&&top.titleLevel===4
     &&Number.isFinite(top.runtimeDelta)&&top.runtimeDelta>=0&&top.runtimeDelta<=10

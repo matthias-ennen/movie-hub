@@ -65,6 +65,22 @@ describe('YouTube G2 TMDB new-film metadata review (not a catalog import)',()=>{
     })
     expect(load).not.toHaveBeenCalled()
   })
+  it('reuses dominant-film safeguard for new-film TMDB metadata, but not a remake tie',()=>{
+    const {full,intake,research}=make()
+    research.rows[0].topCandidates.push(
+      {tmdbId:4488,score:8,titleLevel:2,runtimeDelta:32},
+      {tmdbId:13207,score:-4,titleLevel:0,runtimeDelta:42},
+    )
+    const plan=planYoutubeNewFilmMetadataReview(full,intake,research,{now:NOW})
+    expect(plan.candidates).toHaveLength(1)
+    expect(plan.candidates[0].independentWorkIdentityApproved).toBe(false)
+
+    research.rows[0].topCandidates[1]={
+      tmdbId:4488,score:38,titleLevel:4,runtimeDelta:3,
+    }
+    expect(()=>planYoutubeNewFilmMetadataReview(full,intake,research,{now:NOW}))
+      .toThrow('YOUTUBE_METADATA_REVIEW_CANDIDATE_NOT_UNIQUE')
+  })
   it('fetches existing canonical TMDB metadata format but approves nothing',async()=>{
     const {full,intake,research}=make()
     const plan=planYoutubeNewFilmMetadataReview(full,intake,research,{now:NOW})
