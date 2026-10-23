@@ -422,6 +422,24 @@ jobs:
         id: youtube_verified_routes
         run: node scripts/generate-youtube-verified-route-index.mjs
 
+      # Playlist modes describe the user's editorial classification, not
+      # independently verified access/rights. Match only conservative film
+      # candidates and keep provisional hints separate from verified routes.
+      - name: Read-only YouTube playlist candidate TMDB matching
+        id: youtube_editorial_research
+        if: ${{ steps.youtube_curated_source.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+        run: |
+          mkdir -p artifacts/youtube-g2/curated-playlists
+          cp artifacts/youtube-g2/curated-production-sync/qa.json artifacts/youtube-g2/curated-playlists/qa.json
+          node scripts/youtube-g2-curated-tmdb-membership-live.mjs
+
+      - name: Publish provisional YouTube playlist title hints, never verified offers
+        id: youtube_editorial_hints
+        run: node scripts/generate-youtube-curated-editorial-index.mjs
+
       - name: Build
         id: app_build
         run: npm run build
@@ -522,6 +540,7 @@ jobs:
           SUMMARY_JOYN_CATALOG: ${{ steps.joyn_catalog.outcome }}
           SUMMARY_YOUTUBE_SYNC: ${{ steps.youtube_curated_source.outcome }}
           SUMMARY_YOUTUBE_ROUTES: ${{ steps.youtube_verified_routes.outcome }}
+          SUMMARY_YOUTUBE_EDITORIAL: ${{ steps.youtube_editorial_hints.outcome }}
           SUMMARY_TV_14_DAY: ${{ steps.tv_14_day_summary.outcome }}
           SUMMARY_PREPARED_VERIFY: ${{ steps.prepared_verify.outcome }}
           SUMMARY_AVAILABILITY: ${{ steps.live_availability_index.outcome }}
@@ -557,6 +576,7 @@ jobs:
             artifacts/source-adapters/*.json
             artifacts/source-merge/*.json
             artifacts/youtube-g2/curated-production-sync/qa.json
+            artifacts/youtube-g2/curated-tmdb-membership/qa.json
             artifacts/joyn-pilot/*.json
             artifacts/joyn-adapter/*.json
             artifacts/joyn-sync/status.json
