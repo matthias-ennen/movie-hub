@@ -104,7 +104,9 @@ describe('new YouTube playlist movies use canonical TMDB metadata, no verified a
     const next=mergeYoutubeNewFilmsIntoCatalog(base(),model.filmFeed,{now:Date.parse(NOW)})
     expect(next.titles.map(x=>x.id)).toEqual(['tmdb-movie-10586','tmdb-movie-12594'])
     expect(next.providerCatalogs.youtube.movieIds).toContain(movie.id)
-    const preview=withVerifiedYoutubeTitleOffer(next.titles[1],model.editorialIndex,{now:Date.parse(NOW)})
+    const preview=withVerifiedYoutubeTitleOffer(next.titles[1],model.editorialIndex,{
+      curatedIndex:model.editorialIndex,now:Date.parse(NOW),
+    })
     expect(preview.curatedPlaylistTitleOffer).toMatchObject({playlistMode:'free',videoId:VIDEO})
     expect(providerOfferLabel(preview,'youtube')).toBe('FREE')
     expect(selectCuratedEditorialTitleHint(model.editorialIndex,preview,{now:Date.parse(NOW)}))
