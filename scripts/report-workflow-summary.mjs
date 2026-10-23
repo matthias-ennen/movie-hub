@@ -116,7 +116,7 @@ const REPORT_ROWS = [
   'Joyn EPG', 'Joyn → TMDB', 'Joyn-Suchqualität', 'Joyn-Quelldaten',
   'Quellen-Merge-Test', 'YouTube · 2 Playlists', 'Bestandsmigration',
   'Kanonische Titelkandidaten', 'Prioritätsvorschau', 'Kanonischer Executor',
-  'Suchindex', 'Suchdetails', 'Serienstaffeln', 'TV · 14-Tage-Vorschau',
+  'YouTube → TMDB-Neutitel', 'Suchindex', 'Suchdetails', 'Serienstaffeln', 'TV · 14-Tage-Vorschau',
   'Gemeinsame App-Daten', 'YouTube · Direktlink-Freigabe',
   'App-Build', 'Vorabprüfung', 'Firebase',
 ]
@@ -342,7 +342,7 @@ export function buildWorkflowSummary({
       youtube.source,
       {
         area: 'Quellen-Schema',
-        status: schemaSummary.breaking > 0
+        status: steps.schema === 'failure' ? '❌ Quellenschema-Report fehlgeschlagen' : schemaSummary.breaking > 0
           ? '🔴 BREAKING erkannt'
           : schemaSummary.review > 0
             ? '🟡 REVIEW erforderlich'
@@ -414,6 +414,21 @@ export function buildWorkflowSummary({
         stock: `${number(canonicalExecutor.counts?.canonicalReady)}/${number(canonicalExecutor.counts?.selected)} kanonisch verarbeitet`,
         activity: `${number(canonicalExecutor.counts?.fetched)} TMDB geladen · ${number(canonicalExecutor.counts?.reused)} wiederverwendet · ${number(canonicalExecutor.counts?.tmdbRequests)} Requests${canonicalExecutor.counts?.reuseFallbacks ? ' · ' + number(canonicalExecutor.counts.reuseFallbacks) + ' fehlende Wiederverwendungen nachgeladen' : ''}`,
         open: `${number(canonicalExecutor.counts?.catalogUpdated)} Browse · ${number(canonicalExecutor.counts?.searchDetailsUpdated)} Suche · ${number(canonicalExecutor.counts?.waipuUpdated)} Waipu · ${measured(canonicalExecutor.counts?.joynUpdated)} Joyn · ${number(canonicalExecutor.counts?.firestoreWrites)} persönlich verteilt`,
+      },
+      {
+        area: 'YouTube → TMDB-Neutitel',
+        status: steps.youtubeSync === 'failure'
+          ? '⚠️ YouTube-Quellenlauf fehlgeschlagen'
+          : outcome(combinedOutcome(steps.candidateInventory, steps.canonicalExecutor),
+            '⏭️ kein neuer Kanon-Abgleich'),
+        stock: steps.candidateInventory === 'success'
+          && Number.isInteger(candidateInventory.sourceStats?.youtube?.eligibleReferences)
+          ? number(candidateInventory.sourceStats.youtube.eligibleReferences)+' bestätigte TMDB-Filmreferenzen'
+          : 'Freigabe-Inventur nicht verfügbar',
+        activity: steps.canonicalExecutor === 'success'
+          ? number(canonicalExecutor.counts?.youtubeCatalogAdded)+' neue Filme im vorhandenen Browse-Katalog'
+          : 'Neutitel-Import in diesem Lauf nicht bestätigt',
+        open: 'nur unabhängig bestätigte DE-Filmangebote, TMDB-Metadaten und zentraler Search-Fanout; Playlist-IDs allein importieren nichts',
       },
       youtube.routes,
       {
@@ -540,6 +555,7 @@ async function main() {
     sourceSchemaReports: [schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive, schemaJoynLive].filter(Boolean),
     sourceMerge, youtubeStatus, youtubeRoutes, tv14DaySummary,
     steps: {
+      schema: process.env.SUMMARY_SCHEMA_BASELINE,
       youtubeSync: process.env.SUMMARY_YOUTUBE_SYNC,
       youtubeRoutes: process.env.SUMMARY_YOUTUBE_ROUTES,
       tv14Day: process.env.SUMMARY_TV_14_DAY,
