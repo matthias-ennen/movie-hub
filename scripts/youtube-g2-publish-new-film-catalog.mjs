@@ -32,6 +32,7 @@ function sourceReady(review,reconciliation,intake,editorial){
     ||reconciliation.totalVideoIds!==intake?.uniqueVideoIds
     ||reconciliation.unaccountedForVideoIds!==0
     ||!Array.isArray(reconciliation.entries)
+    ||reconciliation.entries.length!==reconciliation.totalVideoIds
     ||!Array.isArray(intake.items)
     ||intake.items.length!==reconciliation.totalVideoIds
     ||editorial?.kind!=='moviehub-youtube-curated-editorial-title-hints'
