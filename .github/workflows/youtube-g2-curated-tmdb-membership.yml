@@ -4,10 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       audit_run_id:
-        description: 'Existing two-playlist QA run containing the exact previously observed video IDs'
+        description: 'Successful Firebase Deploy run containing source-adapter-artifacts; blank = latest successful deploy'
         type: string
-        required: true
-        default: '39816864480'
+        required: false
+  # One controlled post-upgrade replay. Future runs can use workflow_dispatch.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/youtube-g2-curated-tmdb-membership.yml'
+
 permissions:
   contents: read
   actions: read
@@ -18,7 +23,7 @@ concurrency:
 
 jobs:
   curated-tmdb-research:
-    name: Fixed playlist video IDs -> TMDB identity and public MovieHub index, no import
+    name: Current production exact video IDs -> TMDB hypotheses (max 100; no writes)
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -27,7 +32,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-      - name: Validate strict read-only matching and source identity gates
+      - name: Validate read-only matching, FREE precedence and identity-risk guards
         run: |
           npm ci
           node --check scripts/youtube-g2-curated-tmdb-membership.mjs
@@ -35,18 +40,42 @@ jobs:
           node --check scripts/youtube-g2-curated-title-query-plan.mjs
           node --check scripts/youtube-g2-curated-tmdb-membership-live.mjs
           npx vitest run tests/youtube-g2-curated-tmdb-membership.test.js tests/youtube-g2-curated-cast-evidence.test.js tests/youtube-g2-curated-title-query-plan.test.js
-      - name: Download the exact 21-ID LIVE playlist QA, no new YouTube discovery
+      - name: Select an existing successful Firebase source-QA generation
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_AUDIT_RUN_ID: ${{ inputs.audit_run_id }}
+        run: |
+          set -euo pipefail
+          run_id="$REQUESTED_AUDIT_RUN_ID"
+          if [ -z "$run_id" ]; then
+            run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/deploy-firebase.yml/runs?status=success&per_page=1" --jq '.workflow_runs[0].id')"
+          fi
+          if ! [[ "$run_id" =~ ^[0-9]+$ ]]; then
+            echo "Invalid or missing completed Firebase deploy run ID" >&2
+            exit 1
+          fi
+          echo "Selected completed source generation from Firebase run $run_id"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+      - name: Download exact current production source QA (no new YouTube discovery)
         uses: actions/download-artifact@v7
         with:
-          name: youtube-g2-two-curated-playlists-${{ inputs.audit_run_id || '39816864480' }}
-          run-id: ${{ inputs.audit_run_id || '39816864480' }}
+          name: source-adapter-artifacts-${{ steps.source.outputs.run_id }}-1
+          run-id: ${{ steps.source.outputs.run_id }}
           github-token: ${{ github.token }}
-          path: artifacts/youtube-g2/curated-playlists
-      - name: Live TMDB-only identity research and PUBLIC MovieHub membership
+          path: artifacts/youtube-g2/production-download
+      - name: Recover original read-only audit (exact IDs and provenance retained)
+        run: |
+          set -euo pipefail
+          source_path="artifacts/youtube-g2/production-download/artifacts/youtube-g2/curated-production-sync/qa.json"
+          test -s "$source_path"
+          mkdir -p artifacts/youtube-g2/curated-playlists
+          cp "$source_path" artifacts/youtube-g2/curated-playlists/qa.json
+      - name: Live read-only TMDB research and PUBLIC MovieHub index membership
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
         run: node scripts/youtube-g2-curated-tmdb-membership-live.mjs
-      - name: Upload private 7-day QA with all 21 original video IDs (no provider writes)
+      - name: Upload private seven-day review QA (no confirmed routes or provider writes)
         if: ${{ success() }}
         uses: actions/upload-artifact@v7
         with:
