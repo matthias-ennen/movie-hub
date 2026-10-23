@@ -1,6 +1,7 @@
 import { appendFile, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { summarizeYoutubeDeployment } from './deploy-youtube-report-model.mjs'
 
 function integer(value) {
   const parsed = Number(value)
@@ -109,6 +110,22 @@ function age(value, comparedAt) {
   return hours < 24 ? `${hours} Stunden` : `${Math.floor(hours / 24)} Tage ${hours % 24} Stunden`
 }
 
+const REPORT_ROWS = [
+  'Laufüberwachung', 'Quellen-Schema', 'TMDB-Änderungen', 'TMDB Browse-Katalog',
+  'Waipu EPG', 'Waipu → TMDB', 'Waipu-Quelldaten',
+  'Joyn EPG', 'Joyn → TMDB', 'Joyn-Suchqualität', 'Joyn-Quelldaten',
+  'Quellen-Merge-Test', 'YouTube · 2 Playlists', 'Bestandsmigration',
+  'Kanonische Titelkandidaten', 'Prioritätsvorschau', 'Kanonischer Executor',
+  'Suchindex', 'Suchdetails', 'Serienstaffeln', 'TV · 14-Tage-Vorschau',
+  'Gemeinsame App-Daten', 'YouTube · Direktlink-Freigabe',
+  'App-Build', 'Vorabprüfung', 'Firebase',
+]
+function workflowRowRank(area) {
+  if (area.startsWith('TV-Episodenzuordnung (')) return REPORT_ROWS.indexOf('Gemeinsame App-Daten') + 0.5
+  const rank = REPORT_ROWS.indexOf(area)
+  return rank < 0 ? REPORT_ROWS.length : rank
+}
+
 export function buildWorkflowSummary({
   dataStatus = {},
   catalog = {},
@@ -140,6 +157,9 @@ export function buildWorkflowSummary({
   workflowTiming = {},
   sourceSchemaReports = [],
   sourceMerge = null,
+  youtubeStatus = null,
+  youtubeRoutes = null,
+  tv14DaySummary = null,
   steps = {},
   run = {},
 } = {}) {
@@ -182,8 +202,13 @@ export function buildWorkflowSummary({
   const detailRejected = integer(waipuMetrics.detailsUnavailable) + integer(waipuMetrics.detailsMissing)
   const tmdbOutcome = combinedOutcome(steps.tmdbStrict, steps.tmdbPush)
   const schemaSummary = sourceSchemaSummary(sourceSchemaReports)
+  const youtube = summarizeYoutubeDeployment({
+    status: youtubeStatus, routes: youtubeRoutes,
+    sourceStep: steps.youtubeSync, routeStep: steps.youtubeRoutes,
+    reportedAt: run.reportedAt || new Date().toISOString(),
+  })
 
-  return {
+  const report = {
     run: {
       number: String(run.number || '–'),
       event: String(run.event || 'unbekannt'),
@@ -314,6 +339,7 @@ export function buildWorkflowSummary({
         activity: `${number(joynSources.complete)}/${number(joynSources.total)} Quelldaten vollständig · ${measured(joynPlayback.withRoute)} mit Ziel · ${measured(joynPlayback.withoutRoute)} ohne Ziel`,
         open: `${number(joynSources.withEpisodeData)}/${number(joynSources.seriesTotal)} Serienausstrahlungen mit Episodenangabe · ${measured(joynPlayback.channelIdRoute ?? joynPlayback.channelIdFallback)} channel_id-Ziele · Erzeugung ${timestamp(joynIndex.generatedAt)}`,
       },
+      youtube.source,
       {
         area: 'Quellen-Schema',
         status: schemaSummary.breaking > 0
@@ -351,6 +377,17 @@ export function buildWorkflowSummary({
           : '–',
       },
       {
+        area: 'TV · 14-Tage-Vorschau',
+        status: outcome(steps.tv14Day, '⏭️ nicht erzeugt'),
+        stock: steps.tv14Day === 'success' && tv14DaySummary?.kind === 'moviehub-tv-14-day-summary'
+          ? `${number(tv14DaySummary.count)} kuratierte Titel · ${number(tv14DaySummary.sourceCount)} TV-Titel in Quelle`
+          : 'Datenstand nicht verfügbar',
+        activity: steps.tv14Day === 'success' && Array.isArray(tv14DaySummary?.entries)
+          ? `${number(tv14DaySummary.entries.filter(e => e?.hasPrimeTime).length)} mit Prime Time · max. ${number(tv14DaySummary.candidateLimitPerRow)} Kandidaten pro Reihe`
+          : 'kein gültiges aktuelles Vorschauartefakt',
+        open: 'aus Waipu und Joyn; keine YouTube-Filmangebote als TV-Ausstrahlungen zählen',
+      },
+      {
         area: 'Gemeinsame App-Daten',
         status: outcome(combinedOutcome(steps.availability, steps.tvRuntime)),
         stock: `${measured(availabilityIndex.count)} eindeutige aktive Titel · Quellen: ${(availabilityIndex.sources || []).map(({ providerId }) => providerId).join(' + ') || 'nicht verfügbar'}`,
@@ -378,6 +415,7 @@ export function buildWorkflowSummary({
         activity: `${number(canonicalExecutor.counts?.fetched)} TMDB geladen · ${number(canonicalExecutor.counts?.reused)} wiederverwendet · ${number(canonicalExecutor.counts?.tmdbRequests)} Requests${canonicalExecutor.counts?.reuseFallbacks ? ' · ' + number(canonicalExecutor.counts.reuseFallbacks) + ' fehlende Wiederverwendungen nachgeladen' : ''}`,
         open: `${number(canonicalExecutor.counts?.catalogUpdated)} Browse · ${number(canonicalExecutor.counts?.searchDetailsUpdated)} Suche · ${number(canonicalExecutor.counts?.waipuUpdated)} Waipu · ${measured(canonicalExecutor.counts?.joynUpdated)} Joyn · ${number(canonicalExecutor.counts?.firestoreWrites)} persönlich verteilt`,
       },
+      youtube.routes,
       {
         area: 'Bestandsmigration',
         status: outcome(steps.presence),
@@ -393,6 +431,13 @@ export function buildWorkflowSummary({
         open: '–',
       },
       {
+        area: 'Vorabprüfung',
+        status: outcome(steps.preparedVerify, '⏭️ nicht geprüft'),
+        stock: 'öffentliche Build-Daten und Quellengenerationen',
+        activity: steps.preparedVerify === 'success' ? 'vor Veröffentlichung validiert' : 'noch keine erfolgreiche Vorabprüfung',
+        open: 'YouTube-Route im Veröffentlichungssnapshot getrennt prüfen',
+      },
+      {
         area: 'Firebase',
         status: outcome(steps.deploy === 'success' ? 'success' : combinedOutcome(steps.auth === 'success' ? 'skipped' : steps.auth, steps.deploy), '⏭️ nicht veröffentlicht'),
         stock: 'Hosting und Firestore-Regeln',
@@ -404,6 +449,8 @@ export function buildWorkflowSummary({
     alertChecks: { scheduled: steps.titleAlerts || 'skipped', iamProbe: steps.alertIamProbe || 'skipped' },
     waipuDelta: difference(waipuCounts.titles, baselineWaipu?.counts?.titles),
   }
+  report.rows.sort((left, right) => workflowRowRank(left.area) - workflowRowRank(right.area))
+  return report
 }
 
 export function workflowSummaryMarkdown(summary) {
@@ -412,6 +459,8 @@ export function workflowSummaryMarkdown(summary) {
     '## Movie Hub · kompakter Datenlauf-Bericht',
     '',
     header,
+    '',
+    '**Ablauf:** Quellenprüfung → TMDB / Waipu / Joyn / YouTube → kanonischer Titelabgleich → Such- und TV-Daten → verifizierte YouTube-Ziele → Build → Vorabprüfung → Firebase. Persönliche Mitteilungen folgen separat.',
     '',
     '| Datenbereich | Status | Bestand / Umfang | In diesem Lauf | Offen / verworfen |',
     '| --- | --- | --- | --- | --- |',
@@ -423,6 +472,7 @@ export function workflowSummaryMarkdown(summary) {
       '**Kürzere Joyn-Quellenvorschauen (UTC-Kalendertage):**', '',
       ...summary.shorterJoynSources.map(station => `- ${String(station.name).replace(/[\n\r|<>*`]/g, ' ')}: ${station.days}/14 Tage, zuletzt ${station.lastDay}.`), '',
     ] : []),
+    'YouTube-Playlist-Mitgliedschaft ist kein bestätigtes Filmwerk oder DE-Angebot. Null verifizierte Links ist ein gemessener Wert nur bei erfolgreicher Quellen- und Routenprüfung; fehlende Daten werden nicht als Null ausgegeben.', '',
     'Programme ohne Kandidat sind nicht automatisch verlorene Filme oder Serien. Technische Quellenfehler, mehrdeutige Zuordnungen und fehlende Kandidaten werden getrennt betrachtet.', '',
     `Waipu-Titelbestand: **${summary.waipuDelta}**. TMDB bleibt Metadatenquelle; Waipu und Joyn liefern unabhängig Sender, Ausstrahlungen und Wiedergabeziele. Rollierende Rückgänge allein sind kein Datenverlust.`,
     '',
@@ -438,6 +488,11 @@ async function readJson(path, fallback = {}) {
 }
 
 async function main() {
+  const [youtubeStatus, youtubeRoutes, tv14DaySummary] = await Promise.all([
+    readJson('public/youtube-curated-source-status.json', null),
+    readJson('public/youtube-verified-title-routes.json', null),
+    readJson('public/tv-14-days-summary.json', null),
+  ])
   const [baselineJoyn, joynSync, joynProgress, availabilityIndex, tvRuntimeIndex, joynHealth] = await Promise.all([
     readJson('artifacts/workflow-baseline/joyn-index.json', null),
     readJson('artifacts/joyn-sync/status.json'),
@@ -483,8 +538,12 @@ async function main() {
     dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, joynIndex, joynTitles, joynDiagnostic, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges,
     tmdbChangeRun: activeTmdbChangeRun || lastTmdbChangeRun || {}, baselineData, baselineWaipu, workflowTiming,
     sourceSchemaReports: [schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive, schemaJoynLive].filter(Boolean),
-    sourceMerge,
+    sourceMerge, youtubeStatus, youtubeRoutes, tv14DaySummary,
     steps: {
+      youtubeSync: process.env.SUMMARY_YOUTUBE_SYNC,
+      youtubeRoutes: process.env.SUMMARY_YOUTUBE_ROUTES,
+      tv14Day: process.env.SUMMARY_TV_14_DAY,
+      preparedVerify: process.env.SUMMARY_PREPARED_VERIFY,
       tmdbChanges: process.env.SUMMARY_TMDB_CHANGES,
       seriesDetails: process.env.SUMMARY_SERIES_DETAILS,
       tmdbCheckpoint: process.env.SUMMARY_TMDB_CHECKPOINT,
