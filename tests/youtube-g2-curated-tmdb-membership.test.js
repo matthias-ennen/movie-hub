@@ -81,6 +81,38 @@ describe('G2 curated playlist exact IDs -> TMDB-only identity hypotheses', () =>
     })
     expect(tmdb.mock.calls.every(c=> /^\/(?:search\/(?:movie|tv)|movie\/\d+)$/.test(c[0]))).toBe(true)
   })
+  it('sends only the extracted movie name to live TMDB search, without publishing a speculative match',async()=>{
+    const movie=vi.fn(async(path,params)=>{
+      if(path==='/search/movie'){
+        expect(params.query).toBe('Street Kings')
+        return {results:[{id:1}]}
+      }
+      if(path==='/search/tv')return {results:[]}
+      if(path==='/movie/1')return {
+        id:1,title:'Street Kings',original_title:'Street Kings',runtime:109,
+        release_date:'2008-01-01',alternative_titles:{titles:[]},credits:{cast:[]},
+      }
+      throw Error('Unexpected TMDB path')
+    })
+    const source={...available,videoId:'2jc3mP9mvOk',
+      videoTitle:'So ein geiler Film mit Keanu Reeves: Street Kings (Ganzer Film in HD)',
+      minutes:109}
+    const out=await runCuratedTmdbMembership({
+      audit:qa([source]),publicIndex:idx([1]),tmdbGet:movie,now:()=>AT,
+    })
+    expect(out.summary).toMatchObject({
+      processedRows:1,newMovieImports:0,verifiedDEOffers:0,
+      publicationPermitted:false,catalogWrites:0,
+    })
+    expect(out.rows[0]).toMatchObject({
+      videoId:source.videoId,videoTitle:source.videoTitle,
+      tmdbQueries:['Street Kings'],
+      curatedQueryReason:'actor-promo-colon-film-title',
+      verifiedTmdbId:null,toImport:false,playbackRoute:null,
+    })
+    expect(out.rows[0].topCandidates[0].tmdbId).toBe(1)
+  })
+
   it('not-present in PUBLIC index is not labeled a new film', async () => {
     const out = await runCuratedTmdbMembership({
       audit:qa([available]),publicIndex:idx([999]),tmdbGet:tmdb,now:()=>AT,
