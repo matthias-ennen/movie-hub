@@ -26,6 +26,19 @@ export function providerOfferLabel(item, providerId, { context = 'title' } = {})
   const airedBy = exactAiring?.providerIds || (exactAiring?.source ? [exactAiring.source] : [])
   if (context === 'airing' && (Array.isArray(airedBy) && airedBy.includes(providerId))) return 'AIR'
 
+  // When the exact YouTube video comes from a user-curated playlist, the
+  // displayed offer classification must describe THAT selected source video.
+  // TMDB may independently report e.g. ADS for the same movie as a whole.
+  // Neither value proves the offer on the other source's video URL.
+  // Verified SourceEnvelope offers cannot also carry this provisional hint.
+  if (providerId === 'youtube' &&
+    item?.curatedPlaylistTitleOffer?.id === 'youtube' &&
+    item.curatedPlaylistTitleOffer.provenance === 'playlist-declared-not-verified' &&
+    !item?.verifiedTitleOffers?.some((entry) => entry?.id === 'youtube')) {
+    if (item.curatedPlaylistTitleOffer.playlistMode === 'free') return 'FREE'
+    if (item.curatedPlaylistTitleOffer.playlistMode === 'rent-buy') return 'R&B'
+  }
+
   const offer = tmdbOffers(item).find((entry) => entry?.id === providerId)
   const streaming = labelForOfferTypes(offer?.offerTypes)
   if (streaming) return streaming
@@ -36,13 +49,6 @@ export function providerOfferLabel(item, providerId, { context = 'title' } = {})
     ? item.verifiedTitleOffers : []).find((entry) => entry?.id === providerId)
   const verifiedLabel = labelForOfferTypes(independentlyVerified?.offerTypes)
   if (verifiedLabel) return verifiedLabel
-
-  // A playlist declaration is only a provisional hint, never a verified tariff.
-  if (providerId === 'youtube' &&
-    item?.curatedPlaylistTitleOffer?.provenance === 'playlist-declared-not-verified') {
-    if (item.curatedPlaylistTitleOffer.playlistMode === 'free') return 'FREE'
-    if (item.curatedPlaylistTitleOffer.playlistMode === 'rent-buy') return 'R&B'
-  }
 
   // A title may have a later Joyn programme while the selected TV card is a
   // Waipu broadcast. Such title-wide airings must not label Joyn AIR here.
