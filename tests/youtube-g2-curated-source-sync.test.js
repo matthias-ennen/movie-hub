@@ -1,5 +1,5 @@
 import {describe,it,expect,vi} from 'vitest'
-import {mkdtemp,readFile,rm} from 'node:fs/promises'
+import {mkdtemp,readFile,writeFile,rm} from 'node:fs/promises'
 import {join} from 'node:path'
 import {tmpdir} from 'node:os'
 import {
@@ -7,7 +7,7 @@ import {
   APPROVAL_BUNDLE_KIND,runCuratedYoutubeSourceSync,
   reconcileCuratedYoutubeSource,
 } from '../scripts/youtube-g2-curated-source-sync.mjs'
-import {runProductionCuratedSync} from '../scripts/youtube-g2-curated-source-sync-live.mjs'
+import {runProductionCuratedSync,loadApprovals} from '../scripts/youtube-g2-curated-source-sync-live.mjs'
 import {buildYoutubeVerifiedRouteIndex} from '../src/providers/youtubeVerifiedRouteIndex.js'
 const NOW='2026-10-22T19:00:00.000Z'
 const ids=['Abc12345678','Zbc12345678','Mbc12345678']
@@ -163,6 +163,65 @@ describe('MovieHub production two-playlist source / canonical verified availabil
       expect(envelope.records).toEqual([])
       expect(publicStatus).not.toHaveProperty('candidates')
       expect(JSON.stringify(publicStatus)).not.toContain(ids[0])
+    }finally{await rm(dir,{recursive:true,force:true})}
+  })
+})
+
+// The versioned manifest is intentionally absent from the repository until
+// real independent evidence is reviewed. These fixtures are synthetic only.
+describe('G2 approval source intake is durable and fail-closed',()=>{
+  it('returns no approvals when both inputs are absent',async()=>{
+    const dir=await mkdtemp(join(tmpdir(),'youtube-g2-intake-'))
+    try{
+      expect(await loadApprovals(join(dir,'runtime.json'),join(dir,'reviewed.json'))).toBeNull()
+    }finally{await rm(dir,{recursive:true,force:true})}
+  })
+  it('reads a reviewed bundle and lets existing independent evidence gate publish only verified rows',async()=>{
+    const dir=await mkdtemp(join(tmpdir(),'youtube-g2-intake-'))
+    try{
+      const runtime=join(dir,'runtime.json'),reviewed=join(dir,'reviewed.json')
+      const approved=bundle([approval(ids[0])])
+      await writeFile(reviewed,JSON.stringify(approved))
+      expect(await loadApprovals(runtime,reviewed)).toEqual(approved)
+      const status=await runProductionCuratedSync({
+        youtubeApi:api(),now:()=>NOW,approvalInput:runtime,reviewedApprovalInput:reviewed,
+        output:join(dir,'private'),verifiedEnvelopeOutput:join(dir,'envelope.json'),
+        publicSummaryOutput:join(dir,'status.json'),
+      })
+      expect(status.approvedDEOfferRoutes).toBe(1)
+      const envelope=JSON.parse(await readFile(join(dir,'envelope.json'),'utf8'))
+      expect(envelope.records).toHaveLength(1)
+      expect(buildYoutubeVerifiedRouteIndex(envelope,{now:NOW}).count).toBe(1)
+    }finally{await rm(dir,{recursive:true,force:true})}
+  })
+  it('rejects two competing approval sources rather than silently overriding one',async()=>{
+    const dir=await mkdtemp(join(tmpdir(),'youtube-g2-intake-'))
+    try{
+      const runtime=join(dir,'runtime.json'),reviewed=join(dir,'reviewed.json')
+      await writeFile(runtime,JSON.stringify(bundle()))
+      await writeFile(reviewed,JSON.stringify(bundle()))
+      await expect(loadApprovals(runtime,reviewed)).rejects.toThrow('YOUTUBE_APPROVAL_SOURCES_AMBIGUOUS')
+      await expect(runProductionCuratedSync({
+        youtubeApi:api(),now:()=>NOW,approvalInput:runtime,reviewedApprovalInput:reviewed,
+        output:join(dir,'private'),verifiedEnvelopeOutput:join(dir,'envelope.json'),
+        publicSummaryOutput:join(dir,'status.json'),
+      })).rejects.toThrow('YOUTUBE_APPROVAL_SOURCES_AMBIGUOUS')
+    }finally{await rm(dir,{recursive:true,force:true})}
+  })
+  it('does not silently accept malformed or unapproved versioned evidence',async()=>{
+    const dir=await mkdtemp(join(tmpdir(),'youtube-g2-intake-'))
+    try{
+      const runtime=join(dir,'runtime.json'),reviewed=join(dir,'reviewed.json')
+      await writeFile(reviewed,'{invalid')
+      await expect(loadApprovals(runtime,reviewed)).rejects.toThrow()
+      await writeFile(reviewed,JSON.stringify(bundle([
+        {...approval(),fullWorkOrValidCutVerified:false},
+      ])))
+      await expect(runProductionCuratedSync({
+        youtubeApi:api(),now:()=>NOW,approvalInput:runtime,reviewedApprovalInput:reviewed,
+        output:join(dir,'private'),verifiedEnvelopeOutput:join(dir,'envelope.json'),
+        publicSummaryOutput:join(dir,'status.json'),
+      })).rejects.toThrow('YOUTUBE_APPROVAL_MISSING_INDEPENDENT_EVIDENCE')
     }finally{await rm(dir,{recursive:true,force:true})}
   })
 })

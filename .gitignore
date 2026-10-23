@@ -18,3 +18,5 @@ artifacts/waipu-station-inventory/
 artifacts/profile-email-browser/
 .DS_Store
 gha-creds-*.json
+# Ad hoc evidence is private to its run; only deliberately reviewed manifests are versioned.
+artifacts/youtube-g2-independent-approvals.json
