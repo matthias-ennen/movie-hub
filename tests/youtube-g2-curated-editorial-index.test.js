@@ -157,7 +157,50 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
     expect(result.entries.some(x=>x.tmdbId===199999)).toBe(false)
   })
 
-  it('rejects near-ties, plausible remakes, TV alternatives and more than 2 TMDB movie hits',()=>{
+  it('keeps an exact film with TWO clearly unrelated weak search hits',()=>{
+    const {audit,research}=make()
+    // Real-data shape: Cold Skin / The Resident / Transsiberian:
+    // exact strong primary, two weak side hits, no TV or edition warnings.
+    research.rows[0].topCandidates=[
+      {tmdbId:10586,titleLevel:4,score:50,runtimeDelta:1,
+        yearMismatch:false,sequelConflict:false},
+      {tmdbId:100001,titleLevel:2,score:12,runtimeDelta:70,
+        yearMismatch:false,sequelConflict:false},
+      {tmdbId:100002,titleLevel:0,score:-10,runtimeDelta:95,
+        yearMismatch:false,sequelConflict:false},
+    ]
+    const index=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+    expect(index.entries.find(x=>x.key==='movie:10586')).toMatchObject({
+      videoId:VID,playlistMode:'free',
+    })
+    expect(index.count).toBe(2)
+  })
+
+  it('keeps remake and TV ambiguities in review even with a strong primary',()=>{
+    for(const unsafe of [
+      r=>{r.topCandidates[2].score=32},
+      r=>{r.topCandidates[2].titleLevel=4},
+      r=>{r.topCandidates[1].score=40},
+      r=>{r.alternativeTvIds=[922]},
+      r=>{r.topCandidates.push({...r.topCandidates[2],tmdbId:100003})},
+    ]){
+      const {audit,research}=make()
+      const row=research.rows[0]
+      row.topCandidates=[
+        {tmdbId:10586,titleLevel:4,score:50,runtimeDelta:1,
+          yearMismatch:false,sequelConflict:false},
+        {tmdbId:100001,titleLevel:2,score:12,runtimeDelta:90,
+          yearMismatch:false,sequelConflict:false},
+        {tmdbId:100002,titleLevel:0,score:-10,runtimeDelta:100,
+          yearMismatch:false,sequelConflict:false},
+      ]
+      unsafe(row)
+      const index=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+      expect(index.entries.some(x=>x.key==='movie:10586')).toBe(false)
+    }
+  })
+
+  it('rejects near-ties, plausible remakes, TV alternatives and >3 TMDB movie hits',()=>{
     for(const changed of [
       r=>{r.topCandidates[1].score=25},
       r=>{r.topCandidates[1].titleLevel=4},
