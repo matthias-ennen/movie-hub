@@ -70,6 +70,69 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
     expect(result.reportedYear).toBe(2026)
   })
 
+  it.each([
+    ['So ein geiler Film mit Keanu Reeves: Street Kings (Ganzer Film in HD)',
+      'Street Kings','actor-promo-colon-film-title'],
+    ['STARBESETZUNG! Dieser Thriller lässt das Blut in den Adern gefrieren! (Ganzer Film: The Calling)',
+      'The Calling','publisher-genre-promo-film-title-parentheses'],
+    ['Die Zeit Maschine - 1960','Die Zeit Maschine','quoted-original-title-with-year'],
+    ['JFK - TATORT DALLAS - Meisterwerk mit Kevin Costner - Ganzer Film bei Moviedome',
+      'JFK - TATORT DALLAS','actor-promo-meisterwerk-moviedome'],
+    ['Sleepy Hollow 1999 (Ungekürzte Fassung) Deutsch',
+      'Sleepy Hollow','unverified-cut-language-promo-with-year'],
+    ['Marvins Töchter 4K Leonardo DiCaprio & Meryl Streep Kostenloser Film in voller Länge',
+      'Marvins Töchter','actors-4k-free-length-promo'],
+    ['Ein Amerikanischer Werwolf in London HORROR Ganzer Film Film Komplett auf Deutsch',
+      'Ein Amerikanischer Werwolf in London','genre-full-german-film-promo'],
+    ['Der Außenseiter 4K Brendan Fraser & Matt Damon Ganzer Film auf Deutsch',
+      'Der Außenseiter','actors-4k-german-full-film-promo'],
+    ['Stephen Kings Stark Horrorfilm Ganzer Film',
+      'Stephen Kings Stark','genre-horror-full-film-promo'],
+    ['Dawn of the dead 1978 (Zombie) ganzer Film auf deutsch',
+      'Dawn of the dead','year-zombie-full-german-promo'],
+    ['Blair Witch Project (deutsch)',
+      'Blair Witch Project','language-dub-parenthetical'],
+    ['From Dusk Till Dawn ,1996 - Bootleg, Unradet, 100% iger Uncut, Deutsch',
+      'From Dusk Till Dawn','explicit-bootleg-cut-and-year-review'],
+  ])('recovers the film-title search from a live 86-ID YouTube publisher heading: %s',
+    (title,expected,reason)=>{
+      const plan=planCuratedTmdbQueries(title)
+      expect(plan.rawTitle).toBe(title)
+      expect(plan.curatedQueryReason).toBe(reason)
+      expect(plan.queries[0]).toBe(expected)
+      expect(plan.queries.length).toBeGreaterThan(0)
+      expect(plan.queries.length).toBeLessThanOrEqual(2)
+      expect(plan.verifiedTmdbId).toBeUndefined()
+      expect(plan.playbackRoute).toBeUndefined()
+    })
+
+  it('uses years only as reported review context, preserves alternate query for German Time Machine',()=>{
+    expect(planCuratedTmdbQueries('Die Zeit Maschine - 1960')).toMatchObject({
+      matchingTitle:'Die Zeit Maschine (1960)',
+      queries:['Die Zeit Maschine','Die Zeitmaschine'],
+      reportedYear:1960,
+    })
+    expect(planCuratedTmdbQueries('Sleepy Hollow 1999 (Ungekürzte Fassung) Deutsch'))
+      .toMatchObject({matchingTitle:'Sleepy Hollow (1999)',reportedYear:1999})
+    expect(planCuratedTmdbQueries('Dawn of the dead 1978 (Zombie) ganzer Film auf deutsch'))
+      .toMatchObject({matchingTitle:'Dawn of the dead (1978)',reportedYear:1978})
+    expect(planCuratedTmdbQueries(
+      'From Dusk Till Dawn ,1996 - Bootleg, Unradet, 100% iger Uncut, Deutsch'))
+      .toMatchObject({matchingTitle:'From Dusk Till Dawn (1996)',reportedYear:1996})
+  })
+
+  it('does not strip movie titles and arbitrary cast/genre words without an observed wrapper',()=>{
+    for (const title of [
+      'The Calling', 'The Time Machine (1960)', 'Dawn of the Dead',
+      'So ein geiler Film mit Keanu Reeves', 'The Calling (Ganzer Film)',
+      'JFK - Tatort Dallas', 'Sleepy Hollow 2',
+      'From Dusk Till Dawn', 'Stephen Kings Stark',
+      'The Amateur', 'The Crow - Die Krähe Ganzer Film Deutsch 18+',
+    ]){
+      expect(planCuratedTmdbQueries(title).curatedQueryReason).toBeNull()
+    }
+  })
+
   it('keeps already clean full titles, short ambiguous titles and lookalikes untouched', () => {
     for (const raw of [
       'Wishmaster 2: Evil Never Dies', 'Stalingrad (1993)',
