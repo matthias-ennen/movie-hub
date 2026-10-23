@@ -119,10 +119,58 @@ describe('YouTube: all playlist IDs reconciled with complete MovieHub catalog',(
   })
   it('keeps questionable or ambiguous works in identity review',()=>{
     const {intake,research,inventory}=sourceData()
-    research.rows[2].topCandidates.push({tmdbId:12,score:8,titleLevel:2,runtimeDelta:20})
+    research.rows[2].topCandidates.push({tmdbId:12,score:35,titleLevel:4,runtimeDelta:2})
     const result=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
     expect(result.entries[2].decision).toBe('work-identity-review')
     expect(result.entries[2].strongMetadataCandidate).toBe(false)
+  })
+  it.each([
+    ['Braven',459910,'3_K8jkv-5xg',52,0.3,[
+      {tmdbId:487941,score:-1,titleLevel:2,runtimeDelta:13.7},
+      {tmdbId:495621,score:-13,titleLevel:2,runtimeDelta:33.7},
+    ]],
+    ['American Evil',49429,'S5w40y_CIxM',50,4.3,[
+      {tmdbId:28936,score:-12,titleLevel:0,runtimeDelta:2.7},
+      {tmdbId:1191077,score:-29,titleLevel:0,runtimeDelta:40.7},
+    ]],
+  ])('prepares dominant new TMDB film %s for canonical metadata review only',
+    (title,tmdbId,videoId,score,delta,side)=>{
+      const {intake,research,inventory}=sourceData()
+      intake.items[2].videoId=videoId
+      intake.items[2].sourceTitle=title
+      intake.items[2].suggestedFilmRef.tmdbId=tmdbId
+      research.rows[2].videoId=videoId
+      research.rows[2].topCandidates=[
+        {tmdbId,score,titleLevel:4,runtimeDelta:delta,
+          yearMismatch:false,sequelConflict:false},...side,
+      ]
+      const result=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
+      expect(result.entries[2]).toMatchObject({
+        videoId,decision:'new-tmdb-metadata-review',
+        strongMetadataCandidate:true,filmIdentityApproved:false,newMovieImported:false,
+      })
+      expect(result.metadataReviewCandidateCount).toBe(1)
+      expect(result.catalogWrites).toBe(0)
+    })
+
+  it('never promotes close second films, extra candidates or TV alternates',()=>{
+    for(const mutation of [
+      r=>{r.topCandidates[1].titleLevel=4},
+      r=>{r.topCandidates[1].score=30},
+      r=>{r.topCandidates.push({tmdbId:4,score:0,titleLevel:0,runtimeDelta:34})},
+      r=>{r.alternativeTvIds=[11]},
+      r=>{r.identityRisk='explicit-unverified-cut-or-source'},
+      r=>{r.topCandidates[0].runtimeDelta=17},
+    ]){
+      const {intake,research,inventory}=sourceData()
+      research.rows[2].topCandidates.push({
+        tmdbId:12,score:5,titleLevel:2,runtimeDelta:20,
+      })
+      mutation(research.rows[2])
+      const result=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
+      expect(result.entries[2].decision).toBe('work-identity-review')
+      expect(result.entries[2].strongMetadataCandidate).toBe(false)
+    }
   })
   it('rejects incomplete intake, non-canonical inventory and forged approvals',()=>{
     const baseline=sourceData()
