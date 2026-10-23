@@ -30,6 +30,13 @@ export function providerOfferLabel(item, providerId, { context = 'title' } = {})
   const streaming = labelForOfferTypes(offer?.offerTypes)
   if (streaming) return streaming
 
+  // TMDB evidence wins where it exists. An independently verified YouTube-only
+  // offer may contribute its own label without modifying tmdbProviderOffers.
+  const independentlyVerified = (Array.isArray(item?.verifiedTitleOffers)
+    ? item.verifiedTitleOffers : []).find((entry) => entry?.id === providerId)
+  const verifiedLabel = labelForOfferTypes(independentlyVerified?.offerTypes)
+  if (verifiedLabel) return verifiedLabel
+
   // A title may have a later Joyn programme while the selected TV card is a
   // Waipu broadcast. Such title-wide airings must not label Joyn AIR here.
   if (context === 'airing' && exactAiring) return null
