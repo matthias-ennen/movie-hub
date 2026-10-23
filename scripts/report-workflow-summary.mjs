@@ -378,7 +378,9 @@ export function buildWorkflowSummary({
       },
       {
         area: 'TV · 14-Tage-Vorschau',
-        status: outcome(steps.tv14Day, '⏭️ nicht erzeugt'),
+        status: steps.tv14Day === 'success' && tv14DaySummary?.kind !== 'moviehub-tv-14-day-summary'
+          ? '⚠️ TV-Vorschau-Bericht fehlt'
+          : outcome(steps.tv14Day, '⏭️ nicht erzeugt'),
         stock: steps.tv14Day === 'success' && tv14DaySummary?.kind === 'moviehub-tv-14-day-summary'
           ? `${number(tv14DaySummary.count)} kuratierte Titel · ${number(tv14DaySummary.sourceCount)} TV-Titel in Quelle`
           : 'Datenstand nicht verfügbar',
@@ -454,10 +456,22 @@ export function buildWorkflowSummary({
       },
       {
         area: 'Firebase',
-        status: outcome(steps.deploy === 'success' ? 'success' : combinedOutcome(steps.auth === 'success' ? 'skipped' : steps.auth, steps.deploy), '⏭️ nicht veröffentlicht'),
+        status: steps.deploy === 'success'
+          ? steps.publication === 'success'
+            ? '✅ veröffentlicht und zurückgelesen'
+            : '⚠️ veröffentlicht, öffentliche Datenprüfung offen/fehlgeschlagen'
+          : outcome(combinedOutcome(steps.auth === 'success' ? 'skipped' : steps.auth, steps.deploy),
+            '⏭️ nicht veröffentlicht'),
         stock: 'Hosting und Firestore-Regeln',
-        activity: steps.deploy === 'success' ? 'gemeinsam veröffentlicht' : 'keine neue Veröffentlichung',
-        open: steps.deploy !== 'success' ? 'letzter gültiger Stand bleibt online' : '–',
+        activity: steps.deploy === 'success'
+          ? steps.publication === 'success'
+            ? 'gemeinsam veröffentlicht; Quellen und App-Indizes geprüft'
+            : 'Hosting/Regeln veröffentlicht; Readback nicht bestätigt'
+          : 'keine neue Veröffentlichung',
+        open: steps.deploy !== 'success'
+          ? 'letzter gültiger Stand bleibt online'
+          : steps.publication === 'success' ? 'öffentlicher Stand entspricht dem Build'
+            : 'öffentliche Veröffentlichung prüfen: Waipu/Joyn/App- und YouTube-Dateien',
       },
     ],
     shorterJoynSources,
