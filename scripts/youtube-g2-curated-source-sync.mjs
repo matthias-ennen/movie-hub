@@ -17,6 +17,7 @@ import {
 import {
   runTwoCuratedPlaylistAudit,
   validateTwoCuratedPlaylists,
+  preferredCuratedPlaylistMode,
 } from './youtube-g2-curated-two-playlists.mjs'
 
 export const CURATED_FREE_PLAYLIST='PL9hLFbkmRD8nBj_e8FfntoBporPAqqeSJ'
@@ -32,6 +33,10 @@ const validTmdb=ref=>(ref?.mediaType==='movie'||ref?.mediaType==='series')
 const validIso=s=>Number.isFinite(Date.parse(s))
 const sourceIdForMode=mode=>mode==='free'
   ?CURATED_FREE_PLAYLIST:mode==='rent-buy'?CURATED_RENT_BUY_PLAYLIST:null
+// Editorial FREE and R&B may never publish an availability with the opposite tariff.
+const accessMatchesMode=(mode,accessType)=>mode==='free'
+  ?accessType==='free'||accessType==='ads'
+  :mode==='rent-buy'&&(accessType==='rent'||accessType==='buy')
 
 export function validateCuratedSyncAudit(audit,{
   now=new Date().toISOString(),
@@ -57,7 +62,8 @@ export function validateCuratedSyncAudit(audit,{
       ||!Array.isArray(c.playlistModes)||c.playlistModes.length<1
       ||c.playlistModes.some(mode=>!sourceIdForMode(mode))
       ||!Array.isArray(c.playlistIds)
-      ||c.playlistModes.some(mode=>!c.playlistIds.includes(sourceIdForMode(mode))))) {
+      ||c.playlistModes.some(mode=>!c.playlistIds.includes(sourceIdForMode(mode)))
+      ||c.editorialOfferHint!==preferredCuratedPlaylistMode(c.playlistModes))) {
     throw Error('YOUTUBE_CURATED_SOURCE_INCOMPLETE_OR_UNTRUSTED')
   }
   return audit
@@ -86,7 +92,7 @@ function approvedRows(bundle,now){
       ||a.workIdentityVerified!==true||a.fullWorkOrValidCutVerified!==true
       ||a.dePlaybackVerified!==true||a.offerTypeVerified!==true
       ||a.sourceUseAuthorized!==true
-      ||!['free','ads','flatrate','rent','buy'].includes(a.accessType)){
+      ||!accessMatchesMode(a.playlistMode,a.accessType)){
       throw Error('YOUTUBE_APPROVAL_MISSING_INDEPENDENT_EVIDENCE')
     }
     seen.add(a.videoId)
@@ -94,8 +100,8 @@ function approvedRows(bundle,now){
   return bundle.approvals
 }
 
-/** Reconcile only independently authorized offers still present in exactly
- * one configured playlist. Revocation or API absence suppresses a route;
+/** Reconcile independently authorized offers with FREE > Rent/Buy precedence
+ * for IDs in both configured playlists. Revocation or API absence suppresses a route;
  * never remove an existing TMDB YouTube badge.
  */
 export function reconcileCuratedYoutubeSource({
@@ -108,8 +114,8 @@ export function reconcileCuratedYoutubeSource({
   const blocked=[]
   for(const review of signedOff){
     const c=videos.get(review.videoId)
-    if(!c||c.playlistModes.length!==1
-      ||c.playlistModes[0]!==review.playlistMode
+    if(!c||c.editorialOfferHint!==review.playlistMode
+      ||!c.playlistModes.includes(review.playlistMode)
       ||c.screened!==true||!c.videoTitle||!c.channelId
       ||c.deRegionSignal==='excluded'){
       blocked.push({videoId:review.videoId,reason:'missing-conflicting-or-ineligible-current-video'})

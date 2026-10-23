@@ -6,6 +6,12 @@
 import { normalizeYoutubeVideoCandidate } from '../src/sources/adapters/youtubeContractMapper.js'
 
 export const YOUTUBE_CURATED_PLAYLIST_MODES = Object.freeze(['free', 'rent-buy'])
+// The user-defined editorial precedence is independent of offer verification.
+export function preferredCuratedPlaylistMode(modes) {
+  if (!Array.isArray(modes)) return null
+  if (modes.includes('free')) return 'free'
+  return modes.includes('rent-buy') ? 'rent-buy' : null
+}
 export const YOUTUBE_CURATED_MAX_PAGES_PER_LIST = 5
 export const YOUTUBE_CURATED_PAGE_SIZE = 50
 export const YOUTUBE_CURATED_MAX_VIDEOS = 500
@@ -130,9 +136,9 @@ export async function runTwoCuratedPlaylistAudit({
     const row = rows.get(id)
     const raw = details.get(id)
     const video = raw ? normalizeYoutubeVideoCandidate(raw, { observedAt }) : null
-    const conflict = row.playlistModes.length !== 1
-    const disposition = conflict ? 'review-conflicting-curation'
-      : !video ? 'review-video-missing-or-private'
+    // A video may appear in both playlists; FREE wins, and both source IDs remain.
+    const preferredMode = preferredCuratedPlaylistMode(row.playlistModes)
+    const disposition = !video ? 'review-video-missing-or-private'
       : !video.screening.eligible ? 'review-screening-rejected'
       : 'review-tmdb-work-identity'
     return {
@@ -141,7 +147,7 @@ export async function runTwoCuratedPlaylistAudit({
       channelTitle: video?.channelTitle || null,
       minutes: video?.minutes ?? null,
       deRegionSignal: video?.deRegionSignal || 'unknown',
-      editorialOfferHint: conflict ? 'ambiguous' : row.playlistModes[0],
+      editorialOfferHint: preferredMode,
       verifiedOfferType: null,
       youtubeWatchUrl: video?.watchUrl || null,
       status: disposition, screened: video?.screening?.eligible === true,
@@ -156,6 +162,7 @@ export async function runTwoCuratedPlaylistAudit({
     observedAt, playlistOwnerChannelIds: ownerIds,
     playlistsHaveSameOwner: ownerIds.length === 1,
     playlistSummaries: perPlaylist, uniqueVideoIds: ids.length,
+    // Legacy report field counts physical overlaps, now resolved by FREE precedence.
     crossPlaylistConflicts: candidates.filter(x => x.playlistModes.length !== 1).length,
     fullyScanned: perPlaylist.every(x => x.fullyScanned),
     counts: totals, calls,
