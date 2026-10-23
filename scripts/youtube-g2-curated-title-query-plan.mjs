@@ -23,6 +23,95 @@ const germanNuremberg = /^Nürnberg\s+\(((?:19|20)\d{2})\)\s*$/iu
 const completeFilmDeutsch = /^(.{4,100}?)\s+kompletter\s+film\s+deutsch\s*$/iu
 const promotedSurvivalThriller = /^grandioser\s+survival[-\s]thriller\s+mit\s+starbesetzung:\s*(.{4,90}?)\s+\(((?:19|20)\d{2})\)\s+\(\s*HD\s*\)\s*$/iu
 
+// Actual two-playlist publisher wrappers captured from 86-ID live QA. These
+// are anchored editorial SEARCH-QUERY repairs. They do not verify a film,
+// country, exact cut, source rights, offer, or Video ID.
+const observedAdWrappers = [
+  {
+    reason:'actor-promo-colon-film-title',
+    regex:/^so ein geiler film mit [^:]{5,90}:\s*(.{4,110}?)\s*\(\s*ganzer film in hd\s*\)$/iu,
+    title:m=>m[1],
+  },
+  {
+    reason:'publisher-genre-promo-film-title-parentheses',
+    regex:/^starbesetzung!\s+dieser thriller lässt das blut in den adern gefrieren!\s*\(\s*ganzer film:\s*(.{4,110}?)\s*\)$/iu,
+    title:m=>m[1],
+  },
+  {
+    reason:'quoted-original-title-with-year',
+    regex:/^(.{4,105}?)\s+-\s+((?:19|20)\d{2})$/iu,
+    title:m=>m[1],year:m=>m[2],
+  },
+  {
+    reason:'actor-promo-meisterwerk-moviedome',
+    regex:/^(.{4,100}?)\s+-\s+meisterwerk mit [\p{L}\s.'-]{5,70}\s+-\s+ganzer film bei moviedome\s*$/iu,
+    title:m=>m[1],
+  },
+  {
+    reason:'unverified-cut-language-promo-with-year',
+    regex:/^(.{4,110}?)\s+((?:19|20)\d{2})\s*\(\s*ungekürzte fassung\s*\)\s+deutsch\s*$/iu,
+    title:m=>m[1],year:m=>m[2],
+  },
+  {
+    reason:'actors-4k-free-length-promo',
+    regex:/^(.{4,95}?)\s+4k\b.{5,130}\s+kostenloser film in voller länge\s*$/iu,
+    title:m=>m[1],
+  },
+  {
+    reason:'genre-full-german-film-promo',
+    regex:/^(.{4,125}?)\s+(?:horror|action|thriller|sci-fi)\s+ganzer film film komplett auf deutsch\s*$/iu,
+    title:m=>m[1],
+  },
+  {
+    reason:'actors-4k-german-full-film-promo',
+    regex:/^(.{4,100}?)\s+4k\b.{5,130}\s+ganzer film auf deutsch\s*$/iu,
+    title:m=>m[1],
+  },
+  {
+    reason:'genre-horror-full-film-promo',
+    regex:/^(.{4,105}?)\s+horrorfilm ganzer film\s*$/iu,
+    title:m=>m[1],
+  },
+  {
+    reason:'year-zombie-full-german-promo',
+    regex:/^(.{4,100}?)\s+((?:19|20)\d{2})\s*\(\s*zombie\s*\)\s+ganzer film auf deutsch\s*$/iu,
+    title:m=>m[1],year:m=>m[2],
+  },
+  {
+    reason:'language-dub-parenthetical',
+    regex:/^(.{4,105}?)\s*\(\s*deutsch\s*\)\s*$/iu,
+    title:m=>m[1],
+  },
+  {
+    reason:'explicit-bootleg-cut-and-year-review',
+    regex:/^(.{4,105}?)\s*,\s*((?:19|20)\d{2})\s+-\s+bootleg,\s+.+$/iu,
+    title:m=>m[1],year:m=>m[2],
+  },
+]
+function repairObservedWrapper(legacy, raw) {
+  for (const rule of observedAdWrappers) {
+    const match=raw.match(rule.regex)
+    if (!match) continue
+    const core=tidy(rule.title(match))
+    if (core.length<4) continue
+    const year=rule.year?.(match)
+    // Reported publisher year is a matcher/review clue, never independent
+    // metadata verification. The video title itself is not modified.
+    const matchingTitle=core+(year?' ('+year+')':'')
+    const alternatives=rule.reason==='quoted-original-title-with-year'
+      && /^die zeit maschine$/iu.test(core)
+      ?['Die Zeitmaschine']:[]
+    return {
+      ...legacy,
+      matchingTitle,
+      queries:[...new Set([core,...alternatives])].slice(0,2),
+      curatedQueryReason:rule.reason,
+      reportedYear:year?Number(year):null,
+    }
+  }
+  return null
+}
+
 function researchQueries(legacy, title, firstQuery, reason, fallback = true) {
   const clean = tidy(firstQuery)
   if (clean.length < 4) return {...legacy, curatedQueryReason: null}
@@ -35,6 +124,8 @@ function researchQueries(legacy, title, firstQuery, reason, fallback = true) {
 export function planCuratedTmdbQueries(sourceTitle) {
   const raw = tidy(sourceTitle)
   const legacy = prepareYouTubeMovieSearchTitle(raw)
+  const corrected = repairObservedWrapper(legacy, raw)
+  if (corrected) return corrected
   // Observed 23.10.2026 YouTube video headings: query-only changes.
   const completeMovie = raw.match(completeFilmDeutsch)
   if (completeMovie) {

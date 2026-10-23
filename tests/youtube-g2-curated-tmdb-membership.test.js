@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
   runCuratedTmdbMembership, validateCuratedTmdbInputs,
-  explicitAlternateWorkFormRisk,
+  explicitAlternateWorkFormRisk, explicitSourceOrCutRisk,
 } from '../scripts/youtube-g2-curated-tmdb-membership.mjs'
 
 const AT = '2026-10-22T16:50:00.000Z'
@@ -81,6 +81,38 @@ describe('G2 curated playlist exact IDs -> TMDB-only identity hypotheses', () =>
     })
     expect(tmdb.mock.calls.every(c=> /^\/(?:search\/(?:movie|tv)|movie\/\d+)$/.test(c[0]))).toBe(true)
   })
+  it('sends only the extracted movie name to live TMDB search, without publishing a speculative match',async()=>{
+    const movie=vi.fn(async(path,params)=>{
+      if(path==='/search/movie'){
+        expect(params.query).toBe('Street Kings')
+        return {results:[{id:1}]}
+      }
+      if(path==='/search/tv')return {results:[]}
+      if(path==='/movie/1')return {
+        id:1,title:'Street Kings',original_title:'Street Kings',runtime:109,
+        release_date:'2008-01-01',alternative_titles:{titles:[]},credits:{cast:[]},
+      }
+      throw Error('Unexpected TMDB path')
+    })
+    const source={...available,videoId:'2jc3mP9mvOk',
+      videoTitle:'So ein geiler Film mit Keanu Reeves: Street Kings (Ganzer Film in HD)',
+      minutes:109}
+    const out=await runCuratedTmdbMembership({
+      audit:qa([source]),publicIndex:idx([1]),tmdbGet:movie,now:()=>AT,
+    })
+    expect(out.summary).toMatchObject({
+      processedRows:1,newMovieImports:0,verifiedDEOffers:0,
+      publicationPermitted:false,catalogWrites:0,
+    })
+    expect(out.rows[0]).toMatchObject({
+      videoId:source.videoId,videoTitle:source.videoTitle,
+      tmdbQueries:['Street Kings'],
+      curatedQueryReason:'actor-promo-colon-film-title',
+      verifiedTmdbId:null,toImport:false,playbackRoute:null,
+    })
+    expect(out.rows[0].topCandidates[0].tmdbId).toBe(1)
+  })
+
   it('not-present in PUBLIC index is not labeled a new film', async () => {
     const out = await runCuratedTmdbMembership({
       audit:qa([available]),publicIndex:idx([999]),tmdbGet:tmdb,now:()=>AT,
@@ -115,6 +147,28 @@ describe('G2 curated playlist exact IDs -> TMDB-only identity hypotheses', () =>
     expect(output.summary.alternateWorkFormRisks).toBe(1)
     expect(output.summary.verifiedFilms).toBe(0)
   })
+  it('keeps a clearly labelled bootleg / uncut release under separate edition review, not an approved offer',async()=>{
+    expect(explicitSourceOrCutRisk('From Dusk Till Dawn ,1996 - Bootleg, UnratED, 100% iger Uncut, Deutsch'))
+      .toBe('explicit-unverified-cut-or-source')
+    expect(explicitSourceOrCutRisk('Sleepy Hollow 1999 (Ungekürzte Fassung) Deutsch'))
+      .toBe('explicit-unverified-cut-or-source')
+    expect(explicitSourceOrCutRisk('Street Kings')).toBeNull()
+    const clip={...available,videoId:'nZzSVyw4ktA',minutes:107.2,
+      videoTitle:'From Dusk Till Dawn ,1996 - Bootleg, UnratED, 100% iger Uncut, Deutsch'}
+    const out=await runCuratedTmdbMembership({
+      audit:qa([clip]),publicIndex:idx(),tmdbGet:tmdb,now:()=>AT,
+    })
+    expect(out.rows[0]).toMatchObject({
+      videoId:clip.videoId,identityRisk:'explicit-unverified-cut-or-source',
+      matchStatus:'review-explicit-source-or-cut-risk',
+      verifiedTmdbId:null,verifiedDEPlayback:false,playbackRoute:null,
+      publicationPermitted:false,toImport:false,
+      curatedQueryReason:'explicit-bootleg-cut-and-year-review',
+    })
+    expect(out.summary.verifiedFilms).toBe(0)
+    expect(out.summary.verifiedDEOffers).toBe(0)
+  })
+
   it('keeps real 2-character IT video ID for manual work review with zero TMDB calls', async () => {
     tmdb.mockClear()
     const source={...available,videoId:'OXXkaZvKPjw',videoTitle:'IT',minutes:135.5}
