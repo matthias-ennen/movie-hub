@@ -447,6 +447,14 @@ jobs:
         if: ${{ steps.youtube_curated_source.outcome == 'success' && steps.youtube_editorial_research.outcome == 'success' }}
         run: node scripts/youtube-g2-complete-playlist-intake-live.mjs
 
+      # The public search index does NOT include every personal MovieHub film.
+      # Join all 1:1 staged YouTube IDs to the existing trusted canonical
+      # account-wide candidate inventory, privately, without any catalog writes.
+      - name: Reconcile all YouTube IDs with complete account-scoped MovieHub catalog
+        id: youtube_full_catalog_reconciliation
+        if: ${{ steps.youtube_complete_intake.outcome == 'success' && steps.candidate_inventory.outcome == 'success' }}
+        run: node scripts/youtube-g2-full-catalog-reconciliation-live.mjs
+
       - name: Build
         id: app_build
         run: npm run build
@@ -558,6 +566,7 @@ jobs:
           SUMMARY_PRESENCE: ${{ steps.presence_migration.outcome }}
           SUMMARY_CANONICAL_EXECUTOR: ${{ steps.canonical_executor.outcome }}
           SUMMARY_CANDIDATE_INVENTORY: ${{ steps.candidate_inventory.outcome }}
+          SUMMARY_YOUTUBE_FULL_CATALOG: ${{ steps.youtube_full_catalog_reconciliation.outcome }}
           SUMMARY_PRIORITY_PREVIEW: ${{ steps.priority_preview.outcome }}
           SUMMARY_BUILD: ${{ steps.app_build.outcome }}
           SUMMARY_AUTH: ${{ steps.gcp_auth.outcome }}
@@ -587,6 +596,8 @@ jobs:
             artifacts/youtube-g2/curated-tmdb-membership/qa.json
             artifacts/youtube-g2/complete-playlist-intake/qa.json
             artifacts/youtube-g2/complete-playlist-intake/report.md
+            artifacts/youtube-g2/full-catalog-reconciliation/qa.json
+            artifacts/youtube-g2/full-catalog-reconciliation/report.md
             artifacts/joyn-pilot/*.json
             artifacts/joyn-adapter/*.json
             artifacts/joyn-sync/status.json
