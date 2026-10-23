@@ -22,6 +22,15 @@ describe('kompakter Workflow-Datenbericht', () => {
       open: 'letzter gültiger Stand bleibt online',
     })
   })
+  it('does not confuse a successful Firebase upload with verified public source generations', () => {
+    const r=buildWorkflowSummary({steps:{auth:'success',deploy:'success',publication:'failure'}})
+    const row=r.rows.find(x=>x.area==='Firebase')
+    expect(row.status).toContain('öffentliche Datenprüfung offen/fehlgeschlagen')
+    expect(row.open).toContain('YouTube-Dateien')
+    const ok=buildWorkflowSummary({steps:{auth:'success',deploy:'success',publication:'success'}})
+    expect(ok.rows.find(x=>x.area==='Firebase').status).toBe('✅ veröffentlicht und zurückgelesen')
+  })
+
   it('shows the precise Joyn response classification', () => {
     const result = buildWorkflowSummary({ steps: { joynCatalog: 'failure' }, joynHealth: { run: {
       lastResponseProblem: { operation: 'titleSearch', reason: 'graphql_errors', errorCodes: ['GRAPHQL_VALIDATION_FAILED'] },
@@ -30,10 +39,10 @@ describe('kompakter Workflow-Datenbericht', () => {
   })
   it('keeps personal notification failures separate from successful Firebase publication', () => {
     const result = buildWorkflowSummary({ steps: {
-      deploy: 'success', auth: 'success', titleAlerts: 'failure', alertIamProbe: 'success',
+      deploy: 'success', publication: 'success', auth: 'success', titleAlerts: 'failure', alertIamProbe: 'success',
     } })
     const markdown = workflowSummaryMarkdown(result)
-    expect(result.rows.find((row) => row.area === 'Firebase').status).toBe('✅ erfolgreich')
+    expect(result.rows.find((row) => row.area === 'Firebase').status).toBe('✅ veröffentlicht und zurückgelesen')
     expect(markdown).toContain('Titelbeobachtungen: ❌ fehlgeschlagen')
     expect(markdown).toContain('Firestore-IAM-Transaktionsprobe: ✅ erfolgreich')
     expect(markdown).toContain('ohne aktive Beobachtungen')
@@ -251,7 +260,7 @@ describe('kompakter Workflow-Datenbericht', () => {
     })
 
     const markdown = workflowSummaryMarkdown(summary)
-    expect(summary.rows).toHaveLength(22)
+    expect(summary.rows).toHaveLength(27)
     expect(markdown).toContain('Lauf #321')
     expect(markdown).toContain('| Waipu EPG | ✅ erfolgreich | 50 Sender')
     expect(markdown).toContain('3.600 zugeordnet · 4/4 Metadaten vollständig')
@@ -271,7 +280,7 @@ describe('kompakter Workflow-Datenbericht', () => {
     expect(markdown).toContain('| Kanonische Titelkandidaten | ✅ erfolgreich | 1.500 Titel aus 1.900 Referenzen | 400 Dubletten entfernt · 300 Mehrfachzuordnungen | 16.308 nur Suche · 17 Waipu ungeklärt |')
     expect(markdown).toContain('| Prioritätsvorschau | ✅ erfolgreich | 900/1.500 eingeplant · 800 in Tageskapazität | 700 TMDB-Abrufe · 200 Wiederverwendungen | 100 Rückstand · 0 Queue-Dubletten |')
     expect(markdown).toContain('| Laufüberwachung | ✅ pünktlich gestartet | geplant 19.9.2026, 03:17:00 | tatsächlich 19.9.2026, 03:22:00 · 5 Minuten Verzögerung | vorheriger Datenstand beim Start 4 Tage 17 Stunden alt |')
-    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(24)
+    expect(markdown.split('\n').filter((line) => line.startsWith('| '))).toHaveLength(summary.rows.length + 2)
   })
 
   it('bleibt bei fehlenden optionalen Artefakten lesbar', () => {

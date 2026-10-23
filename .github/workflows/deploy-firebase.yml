@@ -419,6 +419,7 @@ jobs:
       # replace a TMDB YouTube badge's existing search destination.
       # No approved input => publish an empty index; all badges/fallbacks stay.
       - name: Generate verified YouTube title routes (additive, no badge writes)
+        id: youtube_verified_routes
         run: node scripts/generate-youtube-verified-route-index.mjs
 
       - name: Build
@@ -430,6 +431,7 @@ jobs:
         run: npm run tmdb:changes:verify -- --exclude firebase-publication
 
       - name: Validate prepared source generations and app data
+        id: prepared_verify
         env:
           REQUIRE_JOYN_14_DAYS: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
         run: node scripts/verify-published-data.mjs --prepared
@@ -510,6 +512,7 @@ jobs:
         if: ${{ always() }}
         env:
           SUMMARY_DATA_MODE: ${{ inputs.data_mode || 'standard' }}
+          SUMMARY_SCHEMA_BASELINE: ${{ steps.source_schema_baseline.outcome }}
           SUMMARY_TMDB_CHANGES: ${{ steps.tmdb_changes.outcome }}
           SUMMARY_SERIES_DETAILS: ${{ steps.series_details.outcome }}
           SUMMARY_TMDB_CHECKPOINT: ${{ steps.tmdb_change_commit.outcome }}
@@ -517,6 +520,10 @@ jobs:
           SUMMARY_WAIPU_SYNC: ${{ steps.waipu_sync.outcome }}
           SUMMARY_WAIPU_CATALOG: ${{ steps.waipu_catalog.outcome }}
           SUMMARY_JOYN_CATALOG: ${{ steps.joyn_catalog.outcome }}
+          SUMMARY_YOUTUBE_SYNC: ${{ steps.youtube_curated_source.outcome }}
+          SUMMARY_YOUTUBE_ROUTES: ${{ steps.youtube_verified_routes.outcome }}
+          SUMMARY_TV_14_DAY: ${{ steps.tv_14_day_summary.outcome }}
+          SUMMARY_PREPARED_VERIFY: ${{ steps.prepared_verify.outcome }}
           SUMMARY_AVAILABILITY: ${{ steps.live_availability_index.outcome }}
           SUMMARY_TV_RUNTIME: ${{ steps.tv_runtime_snapshot.outcome }}
           SUMMARY_PUBLICATION: ${{ steps.publication_verify.outcome }}
