@@ -38,6 +38,10 @@ const inputs=()=>({
       videoId:VIDEO,decision:'new-tmdb-metadata-review',
       strongMetadataCandidate:true,suggestedFilmKey:'movie:12594',
       completeCatalogMembership:'not-in-canonical-inventory',
+    },{
+      videoId:'1uf2AMrQMk0',decision:'already-linked-editorial',
+      strongMetadataCandidate:true,suggestedFilmKey:'movie:10586',
+      completeCatalogMembership:'canonical-existing',
     }],
   },
   intake:{
@@ -47,6 +51,12 @@ const inputs=()=>({
       sourceScreened:true,regionSignal:'unknown',
       sourceTitle:'Wishmaster 2',channelTitle:'Film Channel',
       durationMinutes:92.7,playlistIds:['FREE-PLAYLIST'],
+    },{
+      videoId:'1uf2AMrQMk0',playlistClass:'FREE',
+      suggestedFilmRef:{mediaType:'movie',tmdbId:10586},
+      sourceScreened:true,regionSignal:'unknown',
+      sourceTitle:'Der Geist und die Dunkelheit',channelTitle:'YouTube Movies',
+      durationMinutes:110,playlistIds:['FREE-PLAYLIST'],
     }],
   },
   editorialIndex:{
