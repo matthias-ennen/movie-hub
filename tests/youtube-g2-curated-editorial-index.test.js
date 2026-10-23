@@ -96,6 +96,41 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
     expect(providerOfferLabel(r,'youtube')).toBe('R&B')
   })
 
+  it('shows R&B for the EXACT Deep Star Six playlist video even when TMDB reports YouTube ADS',()=>{
+    // Real app observation: movie:11607 displays TMDB ADS, but its exact video
+    // 3csAkKfa6Vs originates from the user-defined Rent & Buy playlist.
+    const {audit,research}=make()
+    const index=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+    const tmdb={...item(11607),title:'Deep Star Six',
+      tmdbProviderIds:['youtube','prime','pluto'],
+      tmdbProviderOffers:[{id:'youtube',offerTypes:['ads']},
+        {id:'prime',offerTypes:['flatrate']}]}
+    const original=structuredClone(tmdb)
+    const enriched=withVerifiedYoutubeTitleOffer(tmdb,null,{
+      curatedIndex:index,now:Date.parse(AT)})
+    expect(providerOfferLabel(tmdb,'youtube')).toBe('ADS')
+    expect(providerOfferLabel(enriched,'youtube')).toBe('R&B')
+    const poster=resolvePosterProviderModel(enriched)
+    expect(poster.offerLabels.youtube).toBe('R&B')
+    expect(buildDetailStreamingProviderIds(resolveProviderPresentation(enriched),
+      providers,[],enriched)).toContain('youtube')
+    const rendered=renderToStaticMarkup(createElement(ProviderBadge,{
+      providerId:'youtube',item:enriched}))
+    expect(rendered).toContain('R&amp;B')
+    expect(rendered).toContain('Nur Playlist-Zuordnung')
+    expect(selectCuratedEditorialTitleHint(index,tmdb,{now:Date.parse(AT)}))
+      .toMatchObject({target:'https://www.youtube.com/watch?v='+SECOND,
+        playlistMode:'rent-buy'})
+    expect(tmdb).toEqual(original) // TMDB ADS data is not rewritten.
+  })
+
+  it('keeps TMDB label if no exact curated video is matched',()=>{
+    const tmdb={...item(11607),tmdbProviderIds:['youtube'],
+      tmdbProviderOffers:[{id:'youtube',offerTypes:['ads']}]}
+    expect(providerOfferLabel(withVerifiedYoutubeTitleOffer(tmdb,null),
+      'youtube')).toBe('ADS')
+  })
+
   it('uses FREE priority when the SAME video ID appears in both playlists',()=>{
     const {audit,research}=make()
     audit.candidates[0].playlistModes=['free','rent-buy']
