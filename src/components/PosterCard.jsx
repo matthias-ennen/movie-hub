@@ -2,7 +2,7 @@ import AgeRatingBadge from './AgeRatingBadge.jsx'
 import ProviderBadges from './ProviderBadges.jsx'
 import { formatTvAiringCard } from '../tv/tvAiringPresentation.js'
 import { resolvePosterProviderModel } from '../providers/posterProviderModel.js'
-import { useYoutubeVerifiedOffers } from '../providers/YoutubeVerifiedOffersContext.jsx'
+import { useYoutubeVerifiedOffers, useYoutubeCuratedEditorialHints } from '../providers/YoutubeVerifiedOffersContext.jsx'
 import { withVerifiedYoutubeTitleOffer } from '../providers/youtubeVerifiedTitlePresentation.js'
 import { posterImageProps, posterSourceUrl } from '../performance/posterImages.js'
 
@@ -16,7 +16,8 @@ export default function PosterCard({
   variant = 'standard',
 }) {
   const youtubeVerifiedRoutes = useYoutubeVerifiedOffers()
-  const displayItem = withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes)
+  const youtubeCuratedHints = useYoutubeCuratedEditorialHints()
+  const displayItem = withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes, {curatedIndex: youtubeCuratedHints})
   const posterUrl = posterSourceUrl(item)
   const posterImage = posterImageProps(item, { variant: rank ? 'top-ten' : variant })
   const hasPoster = Boolean(posterUrl)

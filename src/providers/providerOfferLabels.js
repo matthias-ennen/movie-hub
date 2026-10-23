@@ -37,6 +37,13 @@ export function providerOfferLabel(item, providerId, { context = 'title' } = {})
   const verifiedLabel = labelForOfferTypes(independentlyVerified?.offerTypes)
   if (verifiedLabel) return verifiedLabel
 
+  // A playlist declaration is only a provisional hint, never a verified tariff.
+  if (providerId === 'youtube' &&
+    item?.curatedPlaylistTitleOffer?.provenance === 'playlist-declared-not-verified') {
+    if (item.curatedPlaylistTitleOffer.playlistMode === 'free') return 'FREE'
+    if (item.curatedPlaylistTitleOffer.playlistMode === 'rent-buy') return 'R&B'
+  }
+
   // A title may have a later Joyn programme while the selected TV card is a
   // Waipu broadcast. Such title-wide airings must not label Joyn AIR here.
   if (context === 'airing' && exactAiring) return null

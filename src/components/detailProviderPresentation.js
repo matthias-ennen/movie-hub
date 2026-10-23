@@ -37,6 +37,8 @@ export function buildDetailStreamingProviderIds(
       ? titleProviderPresentation.tmdbProviderIds : []),
     ...(Array.isArray(titleProviderPresentation?.verifiedTitleProviderIds)
       ? titleProviderPresentation.verifiedTitleProviderIds : []),
+    ...(Array.isArray(titleProviderPresentation?.editorialTitleProviderIds)
+      ? titleProviderPresentation.editorialTitleProviderIds : []),
   ])
   const concreteLiveProviderIds = new Set(
     (Array.isArray(liveProviderEntries) ? liveProviderEntries : [])

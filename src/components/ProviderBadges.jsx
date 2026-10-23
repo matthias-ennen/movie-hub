@@ -9,13 +9,18 @@ export function ProviderBadge({ providerId, item = null, context = 'title', reso
   const provider = providerDirectory[providerId]
   if (!provider) return null
   const classId = providerId === 'moviehub' ? 'movie-hub' : providerId
+  const provisional = providerId === 'youtube'
+    && item?.curatedPlaylistTitleOffer?.provenance === 'playlist-declared-not-verified'
+    && !item?.verifiedTitleOffers?.some((o) => o.id === 'youtube')
+    && !item?.tmdbProviderOffers?.some((o) => o.id === 'youtube' && o.offerTypes?.length)
   const offerLabel = resolvedOfferLabel === undefined
     ? providerOfferLabel(item, providerId, { context }) : resolvedOfferLabel
 
   return (
-    <span className={`provider-badge provider-${classId}`} title={offerLabel ? `${provider.label} · ${offerLabel}` : provider.label}>
+    <span className={`provider-badge provider-${classId}`} title={provisional ? `${provider.label} · ${offerLabel} · Nur Playlist-Zuordnung, Verfügbarkeit ungeprüft`
+      : offerLabel ? `${provider.label} · ${offerLabel}` : provider.label}>
       <span className="provider-badge-symbol">{provider.short}</span>
-      {offerLabel && <span className="provider-offer-tag" aria-label={`Angebotsart ${offerLabel}`}>{offerLabel}</span>}
+      {offerLabel && <span className="provider-offer-tag" aria-label={provisional ? `Playlist-Einstufung ${offerLabel}, noch nicht unabhängig geprüft` : `Angebotsart ${offerLabel}`}>{offerLabel}</span>}
     </span>
   )
 }

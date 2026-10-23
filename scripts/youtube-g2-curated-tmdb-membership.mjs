@@ -10,9 +10,9 @@ import { scoreCandidateV11, classifyVideoV11 } from './youtube-g2-matcher-v1-1.m
 import { applyExplicitCastGuard } from './youtube-g2-curated-cast-evidence.mjs'
 
 export const CURATED_TMDB_MODE = 'CURATED_PLAYLIST_TMDB_PUBLIC_MEMBERSHIP_READ_ONLY'
-export const CURATED_TMDB_MAX_CASES = 100
+export const CURATED_TMDB_MAX_CASES = 200
 // Two movie queries, one TV query, up to three movie details per source video.
-export const CURATED_TMDB_MAX_GETS = 650
+export const CURATED_TMDB_MAX_GETS = 1300
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/
 const IDS = Object.freeze({
   free: 'PL9hLFbkmRD8nBj_e8FfntoBporPAqqeSJ',
