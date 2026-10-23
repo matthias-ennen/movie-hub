@@ -89,12 +89,12 @@ describe('G2 curated playlist exact IDs -> TMDB-only identity hypotheses', () =>
     expect(out.rows[0].toImport).toBe(false)
     expect(out.summary.newMovieImports).toBe(0)
   })
-  it('handles at most 100 exact IDs (not the outdated 50-ID limit)', () => {
-    const hundred=Array.from({length:100},(_,i)=>({
+  it('accepts up to 200 exact video IDs for the growing inventory, then fails closed', () => {
+    const twoHundred=Array.from({length:200},(_,i)=>({
       ...available,videoId:String(i).padStart(11,'0'),
     }))
-    expect(()=>validateCuratedTmdbInputs(qa(hundred),idx(),AT)).not.toThrow()
-    expect(()=>validateCuratedTmdbInputs(qa([...hundred,{
+    expect(()=>validateCuratedTmdbInputs(qa(twoHundred),idx(),AT)).not.toThrow()
+    expect(()=>validateCuratedTmdbInputs(qa([...twoHundred,{
       ...available,videoId:'A0000000000',
     }]),idx(),AT)).toThrow('CURATED_QA_PROVENANCE')
   })
