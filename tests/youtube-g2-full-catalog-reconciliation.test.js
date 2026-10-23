@@ -157,7 +157,7 @@ describe('YouTube: all playlist IDs reconciled with complete MovieHub catalog',(
     for(const mutation of [
       r=>{r.topCandidates[1].titleLevel=4},
       r=>{r.topCandidates[1].score=30},
-      r=>{r.topCandidates.push({tmdbId:4,score:0,titleLevel:0,runtimeDelta:34})},
+      r=>{r.topCandidates.push({tmdbId:4,score:0,titleLevel:0,runtimeDelta:34},{tmdbId:5,score:-1,titleLevel:0,runtimeDelta:35})},
       r=>{r.alternativeTvIds=[11]},
       r=>{r.identityRisk='explicit-unverified-cut-or-source'},
       r=>{r.topCandidates[0].runtimeDelta=17},
