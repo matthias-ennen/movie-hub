@@ -2,6 +2,7 @@ import { appendFile, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { summarizeYoutubeDeployment } from './deploy-youtube-report-model.mjs'
+import { summarizeYoutubeEditorialCatalogPublication } from './deploy-youtube-editorial-catalog-report-model.mjs'
 
 function integer(value) {
   const parsed = Number(value)
@@ -114,7 +115,7 @@ const REPORT_ROWS = [
   'Laufüberwachung', 'Quellen-Schema', 'TMDB-Änderungen', 'TMDB Browse-Katalog',
   'Waipu EPG', 'Waipu → TMDB', 'Waipu-Quelldaten',
   'Joyn EPG', 'Joyn → TMDB', 'Joyn-Suchqualität', 'Joyn-Quelldaten',
-  'Quellen-Merge-Test', 'YouTube · 2 Playlists', 'Bestandsmigration',
+  'Quellen-Merge-Test', 'YouTube · 2 Playlists', 'YouTube · vollständiger Playlist-Intake', 'Bestandsmigration',
   'Kanonische Titelkandidaten', 'Prioritätsvorschau', 'Kanonischer Executor',
   'YouTube → TMDB-Neutitel', 'Suchindex', 'Suchdetails', 'Serienstaffeln', 'TV · 14-Tage-Vorschau',
   'Gemeinsame App-Daten', 'YouTube · Direktlink-Freigabe',
@@ -159,6 +160,10 @@ export function buildWorkflowSummary({
   sourceMerge = null,
   youtubeStatus = null,
   youtubeRoutes = null,
+  youtubeCompleteIntake = null,
+  youtubeFullCatalog = null,
+  youtubeNewFilms = null,
+  youtubeCuratedHints = null,
   tv14DaySummary = null,
   steps = {},
   run = {},
@@ -205,6 +210,20 @@ export function buildWorkflowSummary({
   const youtube = summarizeYoutubeDeployment({
     status: youtubeStatus, routes: youtubeRoutes,
     sourceStep: steps.youtubeSync, routeStep: steps.youtubeRoutes,
+    reportedAt: run.reportedAt || new Date().toISOString(),
+  })
+
+  const youtubeEditorial = summarizeYoutubeEditorialCatalogPublication({
+    intake: youtubeCompleteIntake,
+    reconciliation: youtubeFullCatalog,
+    films: youtubeNewFilms,
+    hints: youtubeCuratedHints,
+    sourceStep: steps.youtubeSync,
+    intakeStep: steps.youtubeIntake,
+    reconcileStep: steps.youtubeFullCatalog,
+    metadataStep: steps.youtubeNewMetadata,
+    filmStep: steps.youtubeNewFilmCatalog,
+    publishedStep: steps.publication,
     reportedAt: run.reportedAt || new Date().toISOString(),
   })
 
@@ -340,6 +359,7 @@ export function buildWorkflowSummary({
         open: `${number(joynSources.withEpisodeData)}/${number(joynSources.seriesTotal)} Serienausstrahlungen mit Episodenangabe · ${measured(joynPlayback.channelIdRoute ?? joynPlayback.channelIdFallback)} channel_id-Ziele · Erzeugung ${timestamp(joynIndex.generatedAt)}`,
       },
       youtube.source,
+      youtubeEditorial.intake,
       {
         area: 'Quellen-Schema',
         status: steps.schema === 'failure' ? '❌ Quellenschema-Report fehlgeschlagen' : schemaSummary.breaking > 0
@@ -417,21 +437,7 @@ export function buildWorkflowSummary({
         activity: `${number(canonicalExecutor.counts?.fetched)} TMDB geladen · ${number(canonicalExecutor.counts?.reused)} wiederverwendet · ${number(canonicalExecutor.counts?.tmdbRequests)} Requests${canonicalExecutor.counts?.reuseFallbacks ? ' · ' + number(canonicalExecutor.counts.reuseFallbacks) + ' fehlende Wiederverwendungen nachgeladen' : ''}`,
         open: `${number(canonicalExecutor.counts?.catalogUpdated)} Browse · ${number(canonicalExecutor.counts?.searchDetailsUpdated)} Suche · ${number(canonicalExecutor.counts?.waipuUpdated)} Waipu · ${measured(canonicalExecutor.counts?.joynUpdated)} Joyn · ${number(canonicalExecutor.counts?.firestoreWrites)} persönlich verteilt`,
       },
-      {
-        area: 'YouTube → TMDB-Neutitel',
-        status: steps.youtubeSync === 'failure'
-          ? '⚠️ YouTube-Quellenlauf fehlgeschlagen'
-          : outcome(combinedOutcome(steps.candidateInventory, steps.canonicalExecutor),
-            '⏭️ kein neuer Kanon-Abgleich'),
-        stock: steps.candidateInventory === 'success'
-          && Number.isInteger(candidateInventory.sourceStats?.youtube?.eligibleReferences)
-          ? number(candidateInventory.sourceStats.youtube.eligibleReferences)+' bestätigte TMDB-Filmreferenzen'
-          : 'Freigabe-Inventur nicht verfügbar',
-        activity: steps.canonicalExecutor === 'success'
-          ? number(canonicalExecutor.counts?.youtubeCatalogAdded)+' neue Filme im vorhandenen Browse-Katalog'
-          : 'Neutitel-Import in diesem Lauf nicht bestätigt',
-        open: 'nur unabhängig bestätigte DE-Filmangebote, TMDB-Metadaten und zentraler Search-Fanout; Playlist-IDs allein importieren nichts',
-      },
+      youtubeEditorial.films,
       youtube.routes,
       {
         area: 'Bestandsmigration',
@@ -517,10 +523,14 @@ async function readJson(path, fallback = {}) {
 }
 
 async function main() {
-  const [youtubeStatus, youtubeRoutes, tv14DaySummary] = await Promise.all([
+  const [youtubeStatus, youtubeRoutes, tv14DaySummary, youtubeCompleteIntake, youtubeFullCatalog, youtubeNewFilms, youtubeCuratedHints] = await Promise.all([
     readJson('public/youtube-curated-source-status.json', null),
     readJson('public/youtube-verified-title-routes.json', null),
     readJson('public/tv-14-days-summary.json', null),
+    readJson('artifacts/youtube-g2/complete-playlist-intake/qa.json', null),
+    readJson('artifacts/youtube-g2/full-catalog-reconciliation/qa.json', null),
+    readJson('public/youtube-curated-new-films.json', null),
+    readJson('public/youtube-curated-title-hints.json', null),
   ])
   const [baselineJoyn, joynSync, joynProgress, availabilityIndex, tvRuntimeIndex, joynHealth] = await Promise.all([
     readJson('artifacts/workflow-baseline/joyn-index.json', null),
@@ -567,11 +577,17 @@ async function main() {
     dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, joynIndex, joynTitles, joynDiagnostic, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges,
     tmdbChangeRun: activeTmdbChangeRun || lastTmdbChangeRun || {}, baselineData, baselineWaipu, workflowTiming,
     sourceSchemaReports: [schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive, schemaJoynLive].filter(Boolean),
-    sourceMerge, youtubeStatus, youtubeRoutes, tv14DaySummary,
+    sourceMerge, youtubeStatus, youtubeRoutes,
+    youtubeCompleteIntake, youtubeFullCatalog, youtubeNewFilms, youtubeCuratedHints,
+    tv14DaySummary,
     steps: {
       schema: process.env.SUMMARY_SCHEMA_BASELINE,
       youtubeSync: process.env.SUMMARY_YOUTUBE_SYNC,
       youtubeRoutes: process.env.SUMMARY_YOUTUBE_ROUTES,
+      youtubeIntake: process.env.SUMMARY_YOUTUBE_INTAKE,
+      youtubeFullCatalog: process.env.SUMMARY_YOUTUBE_FULL_CATALOG,
+      youtubeNewMetadata: process.env.SUMMARY_YOUTUBE_NEW_METADATA,
+      youtubeNewFilmCatalog: process.env.SUMMARY_YOUTUBE_NEW_FILM_CATALOG,
       tv14Day: process.env.SUMMARY_TV_14_DAY,
       preparedVerify: process.env.SUMMARY_PREPARED_VERIFY,
       tmdbChanges: process.env.SUMMARY_TMDB_CHANGES,
