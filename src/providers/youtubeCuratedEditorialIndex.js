@@ -10,6 +10,26 @@ export const CURATED_HINT_VERSION=1
 export const CURATED_HINT_MAX_AGE_MS=7*86400000
 const VID=/^[A-Za-z0-9_-]{11}$/
 const GOOD_STATUS='review-leading-film-hypothesis'
+/**
+ * The TMDB discovery API can return a weak side-result even when a primary
+ * film is unambiguously identified. Only allow TWO hits when the first has an
+ * exact-level title, strong score and close runtime and the other has a clearly
+ * inferior title match AND trails by >=20 points. Close remakes/sequels, ties,
+ * additional candidates, or TV alternatives remain in review.
+ */
+export function hasDominantFilmHypothesis(results){
+  if(!Array.isArray(results)||results.length!==2)return false
+  const [winner,runner]=results
+  return Number.isFinite(winner?.score)&&winner.score>=38
+    &&winner.titleLevel===4
+    &&Number.isFinite(winner.runtimeDelta)&&winner.runtimeDelta>=0
+    &&winner.runtimeDelta<=10
+    &&winner.yearMismatch!==true&&winner.sequelConflict!==true
+    &&Number.isFinite(runner?.score)
+    &&winner.score-runner.score>=20
+    &&Number.isFinite(runner?.titleLevel)&&runner.titleLevel<=2
+    &&Number(winner.tmdbId)!==Number(runner.tmdbId)
+}
 const ALLOWED=new Set(['free','rent-buy'])
 const NO_WRITE=['catalogWrites','firestoreWrites','providerWrites','badgeWrites','nightlyWrites']
 const validDate=v=>Number.isFinite(Date.parse(v))
@@ -81,7 +101,8 @@ export function buildCuratedEditorialTitleIndex(source,research,{
       ||r.publicIndexMembership!=='public-present'
       ||(r.alternativeTvIds||[]).length>0
       ||(r.errors||[]).length>0
-      ||!Array.isArray(r.topCandidates)||r.topCandidates.length!==1)continue
+      ||!Array.isArray(r.topCandidates)
+      ||!(r.topCandidates.length===1||hasDominantFilmHypothesis(r.topCandidates)))continue
     const top=r.topCandidates[0]
     const movieKey=key('movie',top.tmdbId)
     if(!movieKey||!Number.isFinite(top.score)||top.score<28
