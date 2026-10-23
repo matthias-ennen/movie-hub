@@ -11,9 +11,59 @@ const promotionalFullMovieInHd = /\(\s*ganzer\s+Film\s+auf\s+Deutsch\s*\)\s+in\s
 const hdSuffix = /\s+in\s+HD\s*$/iu
 const tidy = v => String(v ?? '').replace(/[<>\r\n|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
 
+// Exact observed publisher promo tails. Leave genuine film-title words intact.
+const englishFullMovie = /^(.{5,120}?)\s+(?:(?:(?:fantasy|horror|action|thriller|drama|mystery|sci-fi)\s*,\s*)+(?:fantasy|horror|action|thriller|drama|mystery|sci-fi)\s+)?full\s+movie\s+in\s+english\s*$/iu
+const germanYearAndCast = /^(.{4,100}?)\s*\[((?:19|20)\d{2})\]\s+ganzer\s+film\s+mit\s+.{8,}$/iu
+const imdbDescriptionTail = /^(.{4,110}?)\s+\([^()]*\bIMDb[- ]Bewertung\)\s*$/iu
+const actorAndFullFilmTail = /^(.{4,100}?)\s+(?:thriller|horror|drama|actionfilm|krimi)\s+mit\s+[A-ZÄÖÜ][\p{L}.'-]{1,35}\s+[A-ZÄÖÜ][\p{L}.'-]{1,35}\s+ganzer\s+film\s*$/iu
+// German theatrical release year (2026) is not necessarily production year (2025).
+const germanNuremberg = /^Nürnberg\s+\(((?:19|20)\d{2})\)\s*$/iu
+
+function researchQueries(legacy, title, firstQuery, reason, fallback = true) {
+  const clean = tidy(firstQuery)
+  if (clean.length < 4) return {...legacy, curatedQueryReason: null}
+  const queries = [...new Set([clean, ...(fallback ? legacy.queries : [])]
+    .map(tidy).filter(Boolean))].slice(0, 2)
+  return {...legacy, matchingTitle: title, queries, curatedQueryReason: reason}
+}
+
+
 export function planCuratedTmdbQueries(sourceTitle) {
   const raw = tidy(sourceTitle)
   const legacy = prepareYouTubeMovieSearchTitle(raw)
+  // Observed 23.10.2026 YouTube video headings: query-only changes.
+  const yearCast = raw.match(germanYearAndCast)
+  if (yearCast) {
+    const film = tidy(yearCast[1])
+    return researchQueries(legacy, film + ' (' + yearCast[2] + ')',
+      film, 'explicit-source-year-and-cast-tail', false)
+  }
+  const englishMovie = raw.match(englishFullMovie)
+  if (englishMovie) {
+    const film = tidy(englishMovie[1])
+    return researchQueries(legacy, film, film,
+      'english-genre-and-full-movie-tail')
+  }
+  const imdbTail = raw.match(imdbDescriptionTail)
+  if (imdbTail) {
+    const film = tidy(imdbTail[1])
+    return researchQueries(legacy, film, film, 'imdb-description-tail')
+  }
+  const actorTail = raw.match(actorAndFullFilmTail)
+  if (actorTail) {
+    const film = tidy(actorTail[1])
+    return researchQueries(legacy, film, film,
+      'genre-actor-and-full-film-tail')
+  }
+  const germanAlias = raw.match(germanNuremberg)
+  if (germanAlias) {
+    // Keep the video source title intact. 2026 may mean DE cinema release,
+    // not the source film production date: do not invent a year match.
+    return {...legacy, matchingTitle:'Nuremberg',
+      queries:['Nuremberg', 'Nürnberg'],
+      curatedQueryReason:'official-original-title-alias-release-year-review',
+      reportedYear:Number(germanAlias[1])}
+  }
   const collection = raw.match(oldGermanMovies)
   if (collection) {
     const title = tidy(collection[1])
