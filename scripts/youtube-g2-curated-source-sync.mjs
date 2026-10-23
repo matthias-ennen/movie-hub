@@ -33,6 +33,10 @@ const validTmdb=ref=>(ref?.mediaType==='movie'||ref?.mediaType==='series')
 const validIso=s=>Number.isFinite(Date.parse(s))
 const sourceIdForMode=mode=>mode==='free'
   ?CURATED_FREE_PLAYLIST:mode==='rent-buy'?CURATED_RENT_BUY_PLAYLIST:null
+// Editorial FREE and R&B may never publish an availability with the opposite tariff.
+const accessMatchesMode=(mode,accessType)=>mode==='free'
+  ?accessType==='free'||accessType==='ads'
+  :mode==='rent-buy'&&(accessType==='rent'||accessType==='buy')
 
 export function validateCuratedSyncAudit(audit,{
   now=new Date().toISOString(),
@@ -88,7 +92,7 @@ function approvedRows(bundle,now){
       ||a.workIdentityVerified!==true||a.fullWorkOrValidCutVerified!==true
       ||a.dePlaybackVerified!==true||a.offerTypeVerified!==true
       ||a.sourceUseAuthorized!==true
-      ||!['free','ads','flatrate','rent','buy'].includes(a.accessType)){
+      ||!accessMatchesMode(a.playlistMode,a.accessType)){
       throw Error('YOUTUBE_APPROVAL_MISSING_INDEPENDENT_EVIDENCE')
     }
     seen.add(a.videoId)
