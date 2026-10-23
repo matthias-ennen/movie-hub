@@ -11,24 +11,30 @@ export const CURATED_HINT_MAX_AGE_MS=7*86400000
 const VID=/^[A-Za-z0-9_-]{11}$/
 const GOOD_STATUS='review-leading-film-hypothesis'
 /**
- * The TMDB discovery API can return a weak side-result even when a primary
- * film is unambiguously identified. Only allow TWO hits when the first has an
- * exact-level title, strong score and close runtime and the other has a clearly
- * inferior title match AND trails by >=20 points. Close remakes/sequels, ties,
- * additional candidates, or TV alternatives remain in review.
+ * TMDB search returns at most three movie candidates in the G2 review.
+ * A first film can be clear even when TWO unrelated weak side-results appear.
+ * Accept 2 or 3 only when the first is exact-title / close-runtime and EVERY
+ * alternate has an inferior title level and trails by at least 20 points.
+ * Near ties, same-title remakes, extra candidates and TV alternatives still
+ * stay out of the published playlist hints.
  */
 export function hasDominantFilmHypothesis(results){
-  if(!Array.isArray(results)||results.length!==2)return false
-  const [winner,runner]=results
+  if(!Array.isArray(results)||(results.length!==2&&results.length!==3))return false
+  const [winner,...runners]=results
   return Number.isFinite(winner?.score)&&winner.score>=38
     &&winner.titleLevel===4
     &&Number.isFinite(winner.runtimeDelta)&&winner.runtimeDelta>=0
     &&winner.runtimeDelta<=10
     &&winner.yearMismatch!==true&&winner.sequelConflict!==true
-    &&Number.isFinite(runner?.score)
-    &&winner.score-runner.score>=20
-    &&Number.isFinite(runner?.titleLevel)&&runner.titleLevel<=2
-    &&Number(winner.tmdbId)!==Number(runner.tmdbId)
+    &&Number.isInteger(Number(winner.tmdbId))&&Number(winner.tmdbId)>0
+    &&runners.every(runner=>
+      Number.isFinite(runner?.score)
+      &&winner.score-runner.score>=20
+      &&Number.isFinite(runner?.titleLevel)&&runner.titleLevel<=2
+      &&Number.isInteger(Number(runner?.tmdbId))
+      &&Number(runner.tmdbId)>0
+      &&Number(winner.tmdbId)!==Number(runner.tmdbId)
+    )
 }
 const ALLOWED=new Set(['free','rent-buy'])
 const NO_WRITE=['catalogWrites','firestoreWrites','providerWrites','badgeWrites','nightlyWrites']
