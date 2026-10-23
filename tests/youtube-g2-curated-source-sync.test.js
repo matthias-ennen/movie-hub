@@ -94,13 +94,43 @@ describe('MovieHub production two-playlist source / canonical verified availabil
       .toBe('missing-conflicting-or-ineligible-current-video')
     expect(result.tmdbBadgeWrites).toBe(0)
   })
-  it('blocks an approval spanning the free/rent playlist overlap',async()=>{
+  it('resolves FREE priority and publishes an overlap only with independent FREE approval',async()=>{
+    const noApproval=await runCuratedYoutubeSourceSync({
+      youtubeApi:api(),now:()=>NOW,approvals:null,
+    })
+    expect(noApproval.audit.crossPlaylistConflicts).toBe(1)
+    expect(noApproval.audit.candidates.find(c=>c.videoId===ids[1])).toMatchObject({
+      playlistModes:['free','rent-buy'],editorialOfferHint:'free',
+      verifiedOfferType:null,playbackRoute:null,
+    })
+    expect(noApproval.publishedVerifiedAvailabilities).toBe(0)
+
     const result=await runCuratedYoutubeSourceSync({
       youtubeApi:api(),now:()=>NOW,approvals:bundle([approval(ids[1])]),
     })
-    expect(result.audit.crossPlaylistConflicts).toBe(1)
+    expect(result.publishedVerifiedAvailabilities).toBe(1)
+    expect(result.sourceEnvelope.records).toHaveLength(1)
+    expect(result.sourceEnvelope.records[0]).toMatchObject({
+      accessType:'free',titleRef:{mediaType:'movie',tmdbId:539892},
+    })
+    expect(buildYoutubeVerifiedRouteIndex(result.sourceEnvelope,{now:NOW}).count).toBe(1)
+    expect(result.catalogWrites).toBe(0)
+    expect(result.tmdbBadgeWrites).toBe(0)
+  })
+  it('blocks an R&B approval for the overlapping ID despite independent claims',async()=>{
+    const result=await runCuratedYoutubeSourceSync({
+      youtubeApi:api(),now:()=>NOW,
+      approvals:bundle([{...approval(ids[1],'rent-buy'),accessType:'rent'}]),
+    })
     expect(result.publishedVerifiedAvailabilities).toBe(0)
     expect(result.approvalCandidatesBlocked).toHaveLength(1)
+    expect(result.sourceEnvelope.records).toEqual([])
+  })
+  it('refuses a mismatched tariff and playlist approval',async()=>{
+    await expect(runCuratedYoutubeSourceSync({
+      youtubeApi:api(),now:()=>NOW,
+      approvals:bundle([{...approval(ids[1],'free'),accessType:'rent'}]),
+    })).rejects.toThrow('YOUTUBE_APPROVAL_MISSING_INDEPENDENT_EVIDENCE')
   })
   it('rejects incomplete pagination and expired or unverified claims',async()=>{
     await expect(runCuratedYoutubeSourceSync({
