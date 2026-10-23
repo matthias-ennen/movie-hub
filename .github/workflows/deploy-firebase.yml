@@ -556,6 +556,8 @@ jobs:
           path: |
             artifacts/source-adapters/*.json
             artifacts/source-merge/*.json
+            # Sanitized read-only YouTube inventory, never approval/evidence bundles.
+            artifacts/youtube-g2/curated-production-sync/qa.json
             artifacts/joyn-pilot/*.json
             artifacts/joyn-adapter/*.json
             artifacts/joyn-sync/status.json
