@@ -60,7 +60,7 @@ export function summarizeYoutubeDeployment({
         ? fmt(status.inventoryVideoIds-status.videoDetailsResolved)+' ohne Videodetails · '+fmt(status.playlistOverlapConflicts)+' redaktionelle Überschneidungen'
         : 'kein aktueller vollständiger Zwei-Playlist-Nachweis',
       open: sourceMeasured
-        ? fmt(status.reviewOnlyCandidates)+' ungeprüfte IDs · '+fmt(status.approvedDEOfferRoutes)+' unabhängig bestätigte DE-Angebote · Stand '+new Date(status.generatedAt).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })
+        ? fmt(status.reviewOnlyCandidates)+' ohne unabhängig bestätigte DE-Angebotsroute · '+fmt(status.approvedDEOfferRoutes)+' unabhängig bestätigte DE-Angebote · Stand '+new Date(status.generatedAt).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })
         : 'TMDB-Badges und YouTube-Suchfallback bleiben maßgeblich; kein Datenverlust behauptet',
     },
     routes: {
