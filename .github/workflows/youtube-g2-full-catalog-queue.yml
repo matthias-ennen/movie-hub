@@ -47,9 +47,10 @@ jobs:
           npm ci
           node --check scripts/youtube-g2-full-catalog-queue.mjs
           node --check scripts/youtube-g2-full-catalog-queue-live.mjs
+          node --check scripts/youtube-g2-known-candidate-reuse.mjs
           node --check scripts/youtube-g2-tmdb-first-link-model.mjs
           node --check scripts/youtube-g2-tmdb-first-link-pilot.mjs
-          npx vitest run tests/youtube-g2-full-catalog-queue.test.js tests/youtube-g2-tmdb-first-link-pilot.test.js tests/title-candidate-inventory.test.js
+          npx vitest run tests/youtube-g2-full-catalog-queue.test.js tests/youtube-g2-tmdb-first-link-pilot.test.js tests/youtube-g2-known-candidate-reuse.test.js tests/title-candidate-inventory.test.js
       - name: Authenticate existing MovieHub inventory reader (OIDC, no writes)
         uses: google-github-actions/auth@v3
         with:
@@ -99,6 +100,39 @@ jobs:
             test -s artifacts/youtube-g2/prior-full-catalog/qa.json
             echo "Trusted private research continuation downloaded"
           fi
+      # Reuse previously observed exact VIDEO IDs for these exact TMDB works.
+      # Authenticated archival QA, not playback/offer approval. Fails closed
+      # before YouTube API use if archive source is stale, missing or forged.
+      - name: Load previously observed candidates from authenticated original Golden archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive_run='40086393094'
+          archive_sha='6c1d1070ed39691256e8e8c9b5cd08fdbbf1425c'
+          source_state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$archive_run" --jq '[.head_sha,.conclusion,.status] | join("|")')"
+          if [[ "$source_state" != "$archive_sha|success|completed" ]]; then
+            echo "::error::Trusted archived candidate source identity not verified"
+            exit 1
+          fi
+          artifact_name="youtube-g2-tmdb-first-links-$archive_run"
+          source_artifact="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$archive_run/artifacts" --jq '.artifacts[] | select(.name == "youtube-g2-tmdb-first-links-40086393094") | [.name,.expired,.workflow_run.id] | join("|")')"
+          if [[ "$source_artifact" != "$artifact_name|false|$archive_run" ]]; then
+            echo "::error::Private historic candidate artifact missing or expired"
+            exit 1
+          fi
+          mkdir -p artifacts/youtube-g2/trusted-known-candidates
+          gh run download "$archive_run" --repo "$GITHUB_REPOSITORY" \
+            -n "$artifact_name" -D artifacts/youtube-g2/trusted-known-candidates
+          test -s artifacts/youtube-g2/trusted-known-candidates/qa.json
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs'
+          import {getTrustedTmdbFirstKnownCandidates} from './scripts/youtube-g2-known-candidate-reuse.mjs'
+          const data=JSON.parse(readFileSync('artifacts/youtube-g2/trusted-known-candidates/qa.json','utf8'))
+          const known=getTrustedTmdbFirstKnownCandidates(data)
+          if(known.size<1)throw Error('KNOWN_VIDEO_ARCHIVE_EMPTY')
+          console.log('Trusted private TMDB-first candidate-film IDs: '+known.size+
+            ' (video IDs remain private; zero offer approvals)')
+          NODE
       - name: Select exact YouTube public badges from full inventory and research one capped batch
         run: node scripts/youtube-g2-full-catalog-queue-live.mjs
       - name: Save research QA for seven days – do not upload private Firestore inventory

@@ -6,6 +6,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { getSecret, youtubeGet } from './youtube-api-smoke.mjs'
+import {validateKnownCandidateMap} from './youtube-g2-known-candidate-reuse.mjs'
 import { planTmdbFirstYoutubeQueries } from './youtube-g2-tmdb-first-query-plan.mjs'
 import {
   TMDB_FIRST_GOLDEN,compareTmdbFirstPilotToGolden,
@@ -49,10 +50,14 @@ export async function runTmdbFirstLinkPilot({
   publicIndex, tmdbGet, youtubeApi,
   limit = TMDB_FIRST_MAX_TITLES, seedRefs = null, now = () => new Date().toISOString(),
   knownDeviceCandidates = TMDB_FIRST_KNOWN_DEVICE_CANDIDATES,
+  knownVideoCandidatesByTmdbId = null,
 } = {}) {
   if (typeof tmdbGet !== 'function' || typeof youtubeApi !== 'function') {
     throw new Error('READ_ONLY_API_CALLBACKS_REQUIRED')
   }
+  // An archival map is a read-only search shortcut, not approval evidence.
+  // Reject malformed inputs before TMDB and YouTube network operations.
+  const knownMap=validateKnownCandidateMap(knownVideoCandidatesByTmdbId)
   const observedAt = new Date(now()).toISOString()
   const age = Date.parse(observedAt) - Date.parse(publicIndex?.generatedAt || '')
   if (!Number.isFinite(age) || age < -86400000 || age > 30 * 86400000) {
@@ -65,6 +70,7 @@ export async function runTmdbFirstLinkPilot({
   const priorDeviceIds = planTmdbFirstPriorDeviceCandidates(
     selection.selected,knownDeviceCandidates)
   const counters = { youtubeSearches: 0, youtubeVideoLookups: 0, tmdbGetRequests: 0 }
+  let reusedMovies=0,reusedCandidateIds=0,avoidedSearches=0
   const yt = async (path, params) => {
     if (path === 'search') {
       if (++counters.youtubeSearches > TMDB_FIRST_MAX_SEARCHES) throw new Error('SEARCH_BUDGET_HARD_STOP')
@@ -102,22 +108,31 @@ export async function runTmdbFirstLinkPilot({
     // Still exactly two calls/work and every result remains review-only.
     const searches = planTmdbFirstYoutubeQueries(seed, tmdbFilm)
     const videoIds = new Set()
-    for (const params of searches) {
-      const response = await yt('search', params)
-      for (const candidate of (response.items || [])) {
-        const id = candidate?.id?.videoId
-        if (!validVideoId(id)) continue
-        videoIds.add(id); allIds.add(id)
+    const archivedIds=knownMap?.get(seed.tmdbId)||null
+    if(archivedIds?.length){
+      reusedMovies++
+      reusedCandidateIds+=archivedIds.length
+      avoidedSearches+=searches.length
+      for(const id of archivedIds){videoIds.add(id);allIds.add(id)}
+    }else{
+      for (const params of searches) {
+        const response = await yt('search', params)
+        for (const candidate of (response.items || [])) {
+          const id = candidate?.id?.videoId
+          if (!validVideoId(id)) continue
+          videoIds.add(id); allIds.add(id)
+        }
       }
     }
-    const searchedVideoIds=[...videoIds]
+    const searchedVideoIds=archivedIds?.length?[]:[...videoIds]
     // A previously user-observed exact video may be missing from search.list
     // even when videos.list can still resolve it. Fetch and match it through
     // the same read-only film/cut gates, never as independently verified offer.
     const priorDeviceId=priorDeviceIds.get(seed.tmdbId)||null
     if(priorDeviceId){videoIds.add(priorDeviceId);allIds.add(priorDeviceId)}
     pending.push({seed,offerTypes,tmdbFilm,
-      videoIds:[...videoIds],searchedVideoIds,priorDeviceId})
+      videoIds:[...videoIds],searchedVideoIds,priorDeviceId,
+      discoveryMode:archivedIds?.length?'trusted-previous-candidate-ids':'new-search'})
   }
   if (allIds.size > 525) throw new Error('VIDEO_RESULT_HARD_STOP')
   const ids = [...allIds]
@@ -131,14 +146,20 @@ export async function runTmdbFirstLinkPilot({
     }
   }
   const rows = pending.map(({seed,offerTypes,tmdbFilm,videoIds,
-    searchedVideoIds,priorDeviceId})=>{
+    searchedVideoIds,priorDeviceId,discoveryMode})=>{
     const row=evaluateTmdbFirstYoutubeLinks(seed,tmdbFilm,offerTypes,
       videoIds.map(id=>sourceVideos.get(id)).filter(Boolean),{observedAt})
-    if(!priorDeviceId)return {...row,priorDeviceCandidate:null}
-    return {...row,priorDeviceCandidate:{
+    if(!priorDeviceId)return {...row,
+      candidateDiscoveryMode:discoveryMode||'no-current-tmdb-de-youtube-offer',
+      priorDeviceCandidate:null}
+    return {...row,
+      candidateDiscoveryMode:discoveryMode||'no-current-tmdb-de-youtube-offer',
+      priorDeviceCandidate:{
       videoId:priorDeviceId,
       evidenceKind:TMDB_FIRST_PRIOR_DEVICE_CANDIDATE_KIND,
-      returnedByCurrentSearch:searchedVideoIds.includes(priorDeviceId),
+      returnedByCurrentSearch:discoveryMode==='new-search'
+        ?searchedVideoIds.includes(priorDeviceId):null,
+      currentSearchPerformed:discoveryMode==='new-search',
       currentVideoMetadataAvailable:sourceVideos.has(priorDeviceId),
       inTop10RankedCandidates:row.videoCandidates.some(x=>x.videoId===priorDeviceId),
       offerOrPlaybackIndependentlyVerified:false,
@@ -149,7 +170,11 @@ export async function runTmdbFirstLinkPilot({
     ...summarizeTmdbFirstPilot(rows, selection, counters),
     priorDeviceCandidatesResearched:rows.filter(r=>r.priorDeviceCandidate).length,
     priorDeviceCandidatesMissingFromSearch:rows.filter(r=>r.priorDeviceCandidate
+      && r.priorDeviceCandidate.currentSearchPerformed
       && !r.priorDeviceCandidate.returnedByCurrentSearch).length,
+    knownCandidateReuseMovies:reusedMovies,
+    knownCandidateReusedVideoIds:reusedCandidateIds,
+    avoidedYoutubeSearchCalls:avoidedSearches,
     priorDeviceCandidatesResolvedViaVideoDetails:rows.filter(r=>r.priorDeviceCandidate
       && r.priorDeviceCandidate.currentVideoMetadataAvailable).length,
     priorDeviceCandidatesInTop10:rows.filter(r=>r.priorDeviceCandidate
@@ -169,6 +194,9 @@ export function pilotMarkdown({ summary, rows }) {
     '- Published YouTube-badged movies in index: ' + summary.publicYoutubeBadgedMovies,
     '- Selected/processed: ' + summary.selectedMovies + '/' + summary.processedMovies,
     '- YouTube search: ' + summary.calls.youtubeSearches + '/' + TMDB_FIRST_MAX_SEARCHES,
+    '- Trusted known-video refresh: '+(summary.knownCandidateReuseMovies||0)
+      +' films / '+(summary.knownCandidateReusedVideoIds||0)+' archived candidate IDs; '
+      +(summary.avoidedYoutubeSearchCalls||0)+' search.list requests avoided. All candidates remain unapproved.',
     '- YouTube video batch lookup: ' + summary.calls.youtubeVideoLookups + '/' + MAX_VIDEO_GETS,
     '- Known prior-device candidate check: ' + summary.priorDeviceCandidatesResearched
       + ' reviewed; ' + summary.priorDeviceCandidatesMissingFromSearch

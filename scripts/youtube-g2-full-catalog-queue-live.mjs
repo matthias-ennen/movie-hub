@@ -10,6 +10,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { getSecret, youtubeGet } from './youtube-api-smoke.mjs'
 import { createYoutubeFullCatalogResearchPlan } from './youtube-g2-full-catalog-queue.mjs'
+import {getTrustedTmdbFirstKnownCandidates} from './youtube-g2-known-candidate-reuse.mjs'
 import {
   loadPublicMovieHubIndex, runTmdbFirstLinkPilot,
 } from './youtube-g2-tmdb-first-link-pilot.mjs'
@@ -18,6 +19,7 @@ export const OUTPUT = 'artifacts/youtube-g2/full-catalog-queue'
 export const INVENTORY = 'artifacts/title-candidate-inventory.json'
 export const DEFAULT_SAFE_BATCH = 10
 export const PRIOR_QA='artifacts/youtube-g2/prior-full-catalog/qa.json'
+export const KNOWN_ARCHIVE_QA='artifacts/youtube-g2/trusted-known-candidates/qa.json'
 export function parseResearchRunInput(env=process.env){
   const rawOffset=env.YOUTUBE_G2_RESEARCH_OFFSET
   const rawLimit=env.YOUTUBE_G2_RESEARCH_BATCH_SIZE
@@ -66,6 +68,10 @@ export function fullCatalogBatchReport(plan, pilot) {
       +' calls/day (NOT current project quota or available balance).',
     '- This batch requests up to '+plan.batch.youtubeSearchCallsPlanned
       +' search.list calls; quota per search call: 1 search-bucket unit.',
+    '- Trusted prior-film candidate IDs reused: '+plan.batch.knownCandidateReusedVideoIds
+      +' across '+plan.batch.knownCandidateReuseMovies+' films; '
+      +plan.batch.youtubeSearchCallsAvoided+' repeat search.list calls avoided.',
+    '- Reused candidates are rescored using CURRENT videos.list and TMDB DE watch providers; they are not approved playback links.',
     '- No automatic retries on HTTP 429, no auto-scheduling, no implicit cursor reset.',
     '- Selected batch: '+plan.batch.selectedCount+' / '+plan.batch.total,
     '- YouTube search API calls: '+pilot.summary.calls.youtubeSearches,
@@ -98,9 +104,12 @@ async function main(){
   const token=process.env.TMDB_API_READ_TOKEN
   if(!token||token.length<15)throw Error('TMDB_READ_ONLY_TOKEN_REQUIRED')
   const inventory=JSON.parse(await readFile(INVENTORY,'utf8'))
+  const trustedArchive=JSON.parse(await readFile(KNOWN_ARCHIVE_QA,'utf8'))
+  const knownVideoCandidatesByTmdbId=getTrustedTmdbFirstKnownCandidates(trustedArchive)
   const index=await loadPublicMovieHubIndex()
   const plan=createYoutubeFullCatalogResearchPlan({
     inventory,publicIndex:index,offset,limit,continuation,
+    knownVideoCandidatesByTmdbId,
   })
   if(plan.batch.selectedCount===0)throw Error('FULL_CATALOG_EMPTY_RESEARCH_BATCH')
   const key=getSecret()
@@ -109,9 +118,17 @@ async function main(){
     limit:plan.batch.selectedCount,
     tmdbGet:(p,q)=>tmdbRead(p,q,token),
     youtubeApi:(p,q)=>youtubeGet(p,q,key),
+    knownVideoCandidatesByTmdbId,
   })
   if(pilot.summary.processedMovies!==plan.batch.selectedCount
     || pilot.summary.calls.youtubeSearches>plan.batch.youtubeSearchCallsPlanned
+    // Planning counts all archived-badged candidates, but a DE YouTube
+    // offer may have disappeared. Those films are correctly skipped before
+    // their archived video IDs need refreshing; do not invent a reuse.
+    || pilot.summary.knownCandidateReuseMovies>plan.batch.knownCandidateReuseMovies
+    || pilot.summary.knownCandidateReusedVideoIds>plan.batch.knownCandidateReusedVideoIds
+    || pilot.summary.avoidedYoutubeSearchCalls>plan.batch.youtubeSearchCallsAvoided
+    || pilot.summary.avoidedYoutubeSearchCalls!==pilot.summary.knownCandidateReuseMovies*2
     || pilot.summary.publicationPermitted!==false
     || pilot.summary.verifiedDirectLinks!==0
     || pilot.summary.catalogWrites!==0||pilot.summary.firestoreWrites!==0
@@ -133,6 +150,9 @@ async function main(){
     researchPriorRun:previousRun,
     sourceStatus:pilot.summary.statusCounts,
     videoReviewCandidates:pilot.summary.candidateLinksForReview,
+    reusedKnownCandidateMovies:plan.batch.knownCandidateReuseMovies,
+    reusedKnownVideoIds:plan.batch.knownCandidateReusedVideoIds,
+    searchRequestsAvoided:plan.batch.youtubeSearchCallsAvoided,
     youtubeSearches:pilot.summary.calls.youtubeSearches,
     verifiedDirectLinks:0,productionWrites:0,
   }))
