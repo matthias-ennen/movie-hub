@@ -1,0 +1,97 @@
+name: YouTube G2 – bootstrap private durable candidate checkpoint (once)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-private-candidate-checkpoint.yml
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+# Serialise with subsequent TMDB-first research checkpoint mutations.
+concurrency:
+  group: youtube-g2-private-candidate-checkpoint-mutations
+  cancel-in-progress: false
+
+jobs:
+  bootstrap-private-video-candidates:
+    name: Preserve original 25-film candidate video IDs in private GCS
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' &&
+        contains(github.event.head_commit.message, '[youtube-checkpoint-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
+      SOURCE_RUN: '40086393094'
+      SOURCE_SHA: 6c1d1070ed39691256e8e8c9b5cd08fdbbf1425c
+      SOURCE_ARTIFACT: youtube-g2-tmdb-first-links-40086393094
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Validate candidate-only checkpoint contracts and no-write tests
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-durable-candidate-checkpoint.mjs
+          npx vitest run tests/youtube-g2-durable-candidate-checkpoint.test.js tests/youtube-g2-known-candidate-reuse.test.js tests/youtube-g2-tmdb-first-archived-review.test.js
+      - name: Verify immutable archive source and fetch exact original 25-film private QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq '[.head_sha,.conclusion,.status] | join("|")')"
+          if [[ "$source_state" != "$SOURCE_SHA|success|completed" ]]; then
+            echo "::error::Original 25-film QA run not authenticated"
+            exit 1
+          fi
+          artifact_state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/artifacts" --jq '.artifacts[] | select(.name == "youtube-g2-tmdb-first-links-40086393094") | [.expired,.workflow_run.id] | join("|")')"
+          if [[ "$artifact_state" != "false|$SOURCE_RUN" ]]; then
+            echo "::error::Original private QA artifact unavailable or expired"
+            exit 1
+          fi
+          mkdir -p artifacts/youtube-g2/trusted-known-candidates
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            -n "$SOURCE_ARTIFACT" -D artifacts/youtube-g2/trusted-known-candidates
+          test -s artifacts/youtube-g2/trusted-known-candidates/qa.json
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs'
+          import {createCandidateCheckpointFromArchive} from './scripts/youtube-g2-durable-candidate-checkpoint.mjs'
+          const qa=JSON.parse(readFileSync(
+            'artifacts/youtube-g2/trusted-known-candidates/qa.json','utf8'))
+          const doc=createCandidateCheckpointFromArchive(qa)
+          if(doc.entries.length<20||doc.approvedDirectRoutes!==0)
+            throw Error('ORIGINAL_CANDIDATE_BOOTSTRAP_INTEGRITY_FAILED')
+          console.log('Authenticated original private candidate works: '+doc.entries.length)
+          NODE
+      - name: Authenticate existing Google OIDC for private checkpoint bucket
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Save once to isolated versioned checkpoint; restore and hash-verify
+        run: |
+          node scripts/youtube-g2-durable-candidate-checkpoint.mjs bootstrap
+          node scripts/youtube-g2-durable-candidate-checkpoint.mjs read
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs'
+          import {validateCandidateCheckpoint} from './scripts/youtube-g2-durable-candidate-checkpoint.mjs'
+          const checkpoint=validateCandidateCheckpoint(JSON.parse(readFileSync(
+            'artifacts/youtube-g2/trusted-known-candidates/candidates.json','utf8')))
+          if(checkpoint.entries.length<20||checkpoint.verifiedDEOffers!==0
+            ||checkpoint.approvedDirectRoutes!==0||checkpoint.productionWrites!==0)
+            throw Error('PRIVATE_CANDIDATE_READBACK_FAILED')
+          console.log(JSON.stringify({
+            durablePrivateCandidateMovies:checkpoint.entries.length,
+            totalCandidateIds:checkpoint.entries.reduce((n,e)=>n+e.videoIds.length,0),
+            approvedGermanOffers:0,firestoreWrites:0,
+          }))
+          NODE

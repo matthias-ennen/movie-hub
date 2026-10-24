@@ -42,7 +42,9 @@ export function getTrustedTmdbFirstKnownCandidates(archive){
  */
 export function validateKnownCandidateMap(map){
   if(map===null)return null
-  if(!(map instanceof Map)||map.size>25)
+  // The initial Golden manifest has only 25 works. The durable private
+  // checkpoint grows across successful, bounded TMDB-first batches.
+  if(!(map instanceof Map)||map.size>3500)
     throw Error('G2_KNOWN_VIDEO_INPUT_INVALID')
   const normalized=new Map()
   for(const [tmdbId,videoIds] of map){
