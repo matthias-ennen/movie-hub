@@ -28,6 +28,9 @@ jobs:
     timeout-minutes: 30
     env:
       TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+      # Only the explicitly labelled main-merge run uses the exact original
+      # 25 Golden TMDB IDs. Manual research dispatch keeps legacy selection.
+      YOUTUBE_G2_TMDB_FIRST_GOLDEN_REPLAY: ${{ github.event_name == 'push' && '1' || '0' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -37,7 +40,8 @@ jobs:
         run: |
           npm ci
           node --check scripts/youtube-g2-tmdb-first-link-pilot.mjs
-          npx vitest run tests/youtube-g2-tmdb-first-link-pilot.test.js
+          node --check scripts/youtube-g2-tmdb-first-prior-device-candidates.mjs
+          npx vitest run tests/youtube-g2-tmdb-first-link-pilot.test.js tests/youtube-g2-tmdb-first-prior-device-candidates.test.js tests/youtube-g2-quality-golden.test.js tests/youtube-g2-tmdb-first-golden-rerun.test.js
       - name: Authenticate via existing Google OIDC (Secret Manager read only)
         uses: google-github-actions/auth@v3
         with:
@@ -56,5 +60,7 @@ jobs:
           path: |
             artifacts/youtube-g2/tmdb-first-link-pilot/report.md
             artifacts/youtube-g2/tmdb-first-link-pilot/qa.json
+            artifacts/youtube-g2/tmdb-first-link-pilot/golden-compare.json
+            artifacts/youtube-g2/tmdb-first-link-pilot/golden-compare.md
           if-no-files-found: error
           retention-days: 7
