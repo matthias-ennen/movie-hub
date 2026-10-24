@@ -336,8 +336,10 @@ export default function DetailModal({
     const provisionalRoute = providerId === 'youtube' && !verifiedRoute
       ? selectCuratedEditorialTitleHint(youtubeCuratedHints, item)
       : null
-    // Opening a provisional link must not mark the MovieHub film as watched.
-    if (!provisionalRoute) markWatchedFromProvider()
+    // A click on any available provider badge marks the title as watched.
+    // FREE/R&B is playlist provenance, not an exception to the user's
+    // consistent provider-launch interaction rule.
+    markWatchedFromProvider()
     if (provisionalRoute && launchProviderPlaybackRoute({
       providerId, title:item.title, route:provisionalRoute,
       fallbackUrl:destination,
