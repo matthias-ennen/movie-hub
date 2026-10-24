@@ -1,0 +1,127 @@
+name: YouTube G2 – refresh 55 unresolved playlist video IDs (no search)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-pending-video-refresh.yml
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-pending-55-videos-readonly
+  cancel-in-progress: false
+
+jobs:
+  pending-known-ids-only:
+    name: Re-evaluate latest 55 playlist video IDs with 2 videos.list calls
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' &&
+        contains(github.event.head_commit.message, '[youtube-pending55-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: '40113571365'
+      SOURCE_SHA: 5fc50a92d2385259e3d5483411efa45f8c74c098
+      SOURCE_ARTIFACT: source-adapter-artifacts-40113571365-1
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Validate conservative playlist candidate review and no-search tests
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-pending-video-refresh.mjs
+          npx vitest run tests/youtube-g2-pending-video-refresh.test.js tests/youtube-g2-actionable-review-queue.test.js tests/youtube-g2-durable-candidate-checkpoint.test.js
+      - name: Authenticate exact successful original Firebase source QA with 87/32/55 split
+        shell: bash
+        run: |
+          set -euo pipefail
+          meta="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq '[.head_sha,.conclusion,.status,.head_branch,.path] | join("|")')"
+          if [[ "$meta" != "$SOURCE_SHA|success|completed|main|.github/workflows/deploy-firebase.yml" ]]; then
+            echo "::error::Original global Firebase source QA is not authenticated"
+            exit 1
+          fi
+          artifact_meta="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/artifacts" --jq '.artifacts[] | select(.name == "source-adapter-artifacts-40113571365-1") | [.name,.expired,.workflow_run.id] | join("|")')"
+          if [[ "$artifact_meta" != "$SOURCE_ARTIFACT|false|$SOURCE_RUN" ]]; then
+            echo "::error::Original protected playlist review artifact missing or expired"
+            exit 1
+          fi
+          mkdir -p artifacts/youtube-g2/source-reviewed
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            -n "$SOURCE_ARTIFACT" -D artifacts/youtube-g2/source-reviewed
+          test -s artifacts/youtube-g2/source-reviewed/artifacts/youtube-g2/actionable-review-queue/qa.json
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs'
+          import {planPendingCuratedVideoRefresh}
+            from './scripts/youtube-g2-pending-video-refresh.mjs'
+          const data=JSON.parse(readFileSync(
+            'artifacts/youtube-g2/source-reviewed/artifacts/youtube-g2/actionable-review-queue/qa.json','utf8'))
+          const p=planPendingCuratedVideoRefresh(data)
+          if(p.sourceVideoIds!==87||p.published!==32||p.pending!==55
+            ||p.chunks.length!==2||p.chunks[0].length!==50||p.chunks[1].length!==5)
+            throw Error('YOUTUBE_CURRENT_55_EXPECTED_SOURCE_SPLIT_MISMATCH')
+          console.log('Source verified: 87 playlist videos, 32 editorial links, 55 unresolved video IDs')
+          NODE
+      - name: Authenticate original Google read-only principal for videos.list
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Refresh only 55 known VIDEO IDs through official videos.list, no search.list
+        run: node scripts/youtube-g2-pending-video-refresh.mjs
+      - name: Publish aggregate pending review results only in GitHub summary
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const {summary:s,rows,reviewPriority}=JSON.parse(readFileSync(
+            'artifacts/youtube-g2/pending-video-metadata-refresh/qa.json','utf8'))
+          if(s.kind!=='moviehub-youtube-g2-pending-playlist-video-metadata-refresh'
+            ||s.sourceVideoIds!==87||s.publishedEditorialLinks!==32
+            ||s.pendingVideoIds!==55||s.videosListCalls!==2
+            ||s.searchListCalls!==0||s.firestoreWrites!==0
+            ||s.verifiedGermanOffers!==0||s.approvedDirectRoutes!==0
+            ||rows.length!==55||reviewPriority.length!==s.readyForIndividualIdentityReview)
+            throw Error('PENDING_55_LIVE_REVIEW_UNSAFE')
+          const lines=[
+            '## YouTube G2 – pending playlist VIDEO IDs refreshed, no search',
+            '',
+            '| Result | Current state |',
+            '| --- | ---: |',
+            '| Original playlist video IDs | '+s.sourceVideoIds+' |',
+            '| Editorial links already present | '+s.publishedEditorialLinks+' |',
+            '| Pending video IDs refreshed | '+s.pendingVideoIds+' |',
+            '| Official videos.list requests | '+s.videosListCalls+' |',
+            '| YouTube search.list requests | **0** |',
+            '| Previously missing source metadata | '+s.previouslyMissingMetadata+' |',
+            '| Now recovered video metadata | '+s.recoveredMissingMetadata+' |',
+            '| Strong next manual work-identity review candidates | '+s.readyForIndividualIdentityReview+' |',
+            '| Verified DE offers and published playback routes | **0** |',
+            '',
+            'Reasons: '+JSON.stringify(s.videoStatusCounts),
+            '',
+            'Raw video IDs and candidate TMDB links are in private 7-day QA only.',
+            '',
+          ]
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n')
+          console.log(JSON.stringify(s))
+          NODE
+      - name: Upload protected 55-film prioritised QA, no provider writes
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-pending55-videos-${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/pending-video-metadata-refresh/qa.json
+            artifacts/youtube-g2/pending-video-metadata-refresh/report.md
+          retention-days: 7
+          if-no-files-found: error
