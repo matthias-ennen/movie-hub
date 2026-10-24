@@ -1,0 +1,89 @@
+name: YouTube AP2 – single search quota preflight (one call maximum)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-one-search-quota-preflight.yml
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-exactly-one-search-quota-preflight
+  cancel-in-progress: false
+
+jobs:
+  one-search-only:
+    name: Check 1 NEW public-badge movie using one search.list, never retry
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'push' &&
+         contains(github.event.head_commit.message, '[youtube-search-preflight-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
+      GOOGLE_CLOUD_PROJECT: movie-hub-62459
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Validate strict one-request quota guard without external APIs
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-one-search-quota-diagnostic.mjs
+          npx vitest run tests/youtube-g2-one-search-quota-diagnostic.test.js \
+            tests/youtube-g2-global-known-no-search-live.test.js
+      - name: Authenticate existing Google OIDC for protected cache and API secret
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Read global shared MovieHub movie candidate checkpoint
+        run: node scripts/youtube-g2-durable-candidate-checkpoint.mjs read
+      - name: Query EXACTLY ONCE from public-badged film outside the cached 56
+        run: node scripts/youtube-g2-one-search-quota-diagnostic.mjs
+      - name: Report quota result without exposing key or raw search results
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const x=JSON.parse(readFileSync(
+            'artifacts/youtube-g2/one-search-quota-diagnostic/summary.json','utf8'))
+          if(x.kind!=='moviehub-youtube-g2-one-search-project-quota-diagnostic'
+            ||x.searchCallsAttempted!==1||x.noAutomaticRetry!==true
+            ||x.responseCandidateCount>10||x.verifiedDEOffers>0
+            ||x.independentlyVerifiedDEOffers!==0
+            ||x.confirmedPlaybackRoutes!==0||x.firestoreWrites!==0
+            ||x.catalogWrites!==0||x.badgeWrites!==0)
+            throw Error('QUOTA_PREFLIGHT_UNSAFE_OR_UNRECONCILED')
+          const lines=[
+            '## YouTube AP2 – one search.list call preflight',
+            '',
+            '- Previous global cached films: '+x.globalCachedMovieIdentities,
+            '- Public DE-YouTube badged films: '+x.publicTmdbYoutubeBadgeMovies,
+            '- Previously unknown sampled TMDB ID: '+x.sampledExactTmdbFilmId,
+            '- Actual search.list requests: **'+x.searchCallsAttempted+'**; automatic retries: **0**',
+            '- Search outcome: **'+x.searchOutcome+'**',
+            '- Sanitized Google API failure class: **'+x.googleFailureClass+'**',
+            '- Raw search result count (no IDs/links published): '+x.responseCandidateCount,
+            '- Remaining daily Google search quota: NOT MEASURED',
+            '- Provider, Firestore, catalog, badge and playback writes: **0**',
+            '',
+          ]
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n')
+          console.log(JSON.stringify(x))
+          NODE
+      - name: Save sanitized one-call status (no video IDs or API credentials)
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-one-search-diagnostic-${{ github.run_id }}
+          path: artifacts/youtube-g2/one-search-quota-diagnostic/summary.json
+          retention-days: 7
+          if-no-files-found: error
