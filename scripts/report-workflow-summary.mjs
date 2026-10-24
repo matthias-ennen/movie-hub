@@ -111,13 +111,84 @@ function age(value, comparedAt) {
   return hours < 24 ? `${hours} Stunden` : `${Math.floor(hours / 24)} Tage ${hours % 24} Stunden`
 }
 
+
+/**
+ * Account-scoped YouTube identity review results belong in the PRIVATE CI
+ * artifact. Only aggregate counts may appear in the workflow summary.
+ * Absence, stale snapshots and contradictory counts are never presented as zero.
+ */
+function youtubeReviewSummary({queue, intake, hints, films, step, reportedAt}) {
+  const nonNegative = value => Number.isInteger(value) && value >= 0
+  const source = queue?.sourceVideoIds
+  const rows = queue?.items
+  const pending = queue?.prioritizedReview
+  const lanes = queue?.lanes
+  const ageMs = Date.parse(reportedAt) - Date.parse(queue?.generatedAt)
+  const reliable = step === 'success'
+    && queue?.kind === 'moviehub-youtube-g2-actionable-review-queue'
+    && queue.schemaVersion === 1 && queue.privateArtifact === true
+    && queue.publicationPermitted === false
+    && queue.independentVerifiedDEOffers === 0
+    && queue.newUnverifiedDatabaseWrites === 0
+    && Number.isFinite(ageMs) && ageMs >= -60_000 && ageMs <= 12 * 3_600_000
+    && nonNegative(source) && source > 0
+    && intake?.uniqueVideoIds === source
+    && intake.processedVideoIds === source
+    && intake.unaccountedForVideoIds === 0
+    && hints?.sourceVideoIds === source
+    && films?.sourceVideoIds === source
+    && nonNegative(queue.accountedForVideos) && queue.accountedForVideos === source
+    && queue.missingVideos === 0
+    && nonNegative(queue.publishedPlaylistLinks)
+    && nonNegative(queue.pendingReview)
+    && nonNegative(queue.newCanonicalMovies)
+    && queue.publishedPlaylistLinks + queue.pendingReview === source
+    && queue.publishedPlaylistLinks === hints.count
+    && queue.newCanonicalMovies === films.count
+    && queue.declaredClasses?.FREE === intake.playlistClasses?.FREE
+    && queue.declaredClasses?.['R&B'] === intake.playlistClasses?.['R&B']
+    && Array.isArray(rows) && rows.length === source
+    && Array.isArray(pending) && pending.length === queue.pendingReview
+    && new Set(rows.map(row => row.videoId)).size === source
+    && rows.filter(row => row.publicationStatus === 'playlist-link-published').length === queue.publishedPlaylistLinks
+    && rows.filter(row => row.publicationStatus === 'review-only').length === queue.pendingReview
+    && pending.every(row => row.publicationStatus === 'review-only')
+    && lanes && typeof lanes === 'object' && !Array.isArray(lanes)
+    && Object.values(lanes).every(nonNegative)
+    && Object.values(lanes).reduce((sum, value) => sum + value, 0) === queue.pendingReview
+  const state = step === 'failure' ? '❌ fehlgeschlagen'
+    : step === 'cancelled' ? '⛔ abgebrochen'
+      : step !== 'success' ? '⏭️ nicht ausgeführt'
+        : reliable ? '✅ erfolgreich' : '⚠️ kein gültiger privater Review-Bericht'
+  return {
+    area: 'YouTube · offene Playlist-Prüfliste',
+    status: state,
+    stock: reliable
+      ? number(source) + '/' + number(source) + ' Video-IDs erfasst · ' + number(queue.pendingReview) + ' zur Filmprüfung'
+      : 'Aktuelle Review-Zahlen nicht nachgewiesen',
+    activity: reliable
+      ? number(queue.publishedPlaylistLinks) + ' redaktionelle Direktlinks · ' + number(queue.newCanonicalMovies) + ' neue TMDB-Filme'
+      : 'Link-/Neufilm-Abgleich unbekannt',
+    open: reliable
+      ? number(lanes['ambiguous-work-identity']) + ' mehrdeutige Werke · '
+        + number(lanes['movie-versus-series']) + ' Film/Serie · '
+        + number(lanes['missing-video-metadata']) + ' Metadaten · '
+        + number(lanes['edition-or-source-conflict']) + ' Fassung/Quelle · '
+        + number(queue.pendingReview - (lanes['ambiguous-work-identity'] || 0)
+          - (lanes['movie-versus-series'] || 0)
+          - (lanes['missing-video-metadata'] || 0)
+          - (lanes['edition-or-source-conflict'] || 0)) + ' weitere · nur private Einzelfälle'
+      : 'Private vollständige 1:1-Review-Queue erneut prüfen; keine Nullwerte vermuten',
+  }
+}
+
 const REPORT_ROWS = [
   'Laufüberwachung', 'Quellen-Schema', 'TMDB-Änderungen', 'TMDB Browse-Katalog',
   'Waipu EPG', 'Waipu → TMDB', 'Waipu-Quelldaten',
   'Joyn EPG', 'Joyn → TMDB', 'Joyn-Suchqualität', 'Joyn-Quelldaten',
   'Quellen-Merge-Test', 'YouTube · 2 Playlists', 'YouTube · vollständiger Playlist-Intake', 'Bestandsmigration',
   'Kanonische Titelkandidaten', 'Prioritätsvorschau', 'Kanonischer Executor',
-  'YouTube → TMDB-Neutitel', 'Suchindex', 'Suchdetails', 'Serienstaffeln', 'TV · 14-Tage-Vorschau',
+  'YouTube → TMDB-Neutitel', 'YouTube · offene Playlist-Prüfliste', 'Suchindex', 'Suchdetails', 'Serienstaffeln', 'TV · 14-Tage-Vorschau',
   'Gemeinsame App-Daten', 'YouTube · Direktlink-Freigabe',
   'App-Build', 'Vorabprüfung', 'Firebase',
 ]
@@ -164,6 +235,7 @@ export function buildWorkflowSummary({
   youtubeFullCatalog = null,
   youtubeNewFilms = null,
   youtubeCuratedHints = null,
+  youtubeReviewQueue = null,
   tv14DaySummary = null,
   steps = {},
   run = {},
@@ -438,6 +510,9 @@ export function buildWorkflowSummary({
         open: `${number(canonicalExecutor.counts?.catalogUpdated)} Browse · ${number(canonicalExecutor.counts?.searchDetailsUpdated)} Suche · ${number(canonicalExecutor.counts?.waipuUpdated)} Waipu · ${measured(canonicalExecutor.counts?.joynUpdated)} Joyn · ${number(canonicalExecutor.counts?.firestoreWrites)} persönlich verteilt`,
       },
       youtubeEditorial.films,
+      youtubeReviewSummary({queue: youtubeReviewQueue, intake: youtubeCompleteIntake,
+        hints: youtubeCuratedHints, films: youtubeNewFilms,
+        step: steps.youtubeReviewQueue, reportedAt: run.reportedAt || new Date().toISOString()}),
       youtube.routes,
       {
         area: 'Bestandsmigration',
@@ -523,7 +598,7 @@ async function readJson(path, fallback = {}) {
 }
 
 async function main() {
-  const [youtubeStatus, youtubeRoutes, tv14DaySummary, youtubeCompleteIntake, youtubeFullCatalog, youtubeNewFilms, youtubeCuratedHints] = await Promise.all([
+  const [youtubeStatus, youtubeRoutes, tv14DaySummary, youtubeCompleteIntake, youtubeFullCatalog, youtubeNewFilms, youtubeCuratedHints, youtubeReviewQueue] = await Promise.all([
     readJson('public/youtube-curated-source-status.json', null),
     readJson('public/youtube-verified-title-routes.json', null),
     readJson('public/tv-14-days-summary.json', null),
@@ -531,6 +606,7 @@ async function main() {
     readJson('artifacts/youtube-g2/full-catalog-reconciliation/qa.json', null),
     readJson('public/youtube-curated-new-films.json', null),
     readJson('public/youtube-curated-title-hints.json', null),
+    readJson('artifacts/youtube-g2/actionable-review-queue/qa.json', null),
   ])
   const [baselineJoyn, joynSync, joynProgress, availabilityIndex, tvRuntimeIndex, joynHealth] = await Promise.all([
     readJson('artifacts/workflow-baseline/joyn-index.json', null),
@@ -578,7 +654,7 @@ async function main() {
     tmdbChangeRun: activeTmdbChangeRun || lastTmdbChangeRun || {}, baselineData, baselineWaipu, workflowTiming,
     sourceSchemaReports: [schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive, schemaJoynLive].filter(Boolean),
     sourceMerge, youtubeStatus, youtubeRoutes,
-    youtubeCompleteIntake, youtubeFullCatalog, youtubeNewFilms, youtubeCuratedHints,
+    youtubeCompleteIntake, youtubeFullCatalog, youtubeNewFilms, youtubeCuratedHints, youtubeReviewQueue,
     tv14DaySummary,
     steps: {
       schema: process.env.SUMMARY_SCHEMA_BASELINE,
@@ -588,6 +664,7 @@ async function main() {
       youtubeFullCatalog: process.env.SUMMARY_YOUTUBE_FULL_CATALOG,
       youtubeNewMetadata: process.env.SUMMARY_YOUTUBE_NEW_METADATA,
       youtubeNewFilmCatalog: process.env.SUMMARY_YOUTUBE_NEW_FILM_CATALOG,
+      youtubeReviewQueue: process.env.SUMMARY_YOUTUBE_REVIEW_QUEUE,
       tv14Day: process.env.SUMMARY_TV_14_DAY,
       preparedVerify: process.env.SUMMARY_PREPARED_VERIFY,
       tmdbChanges: process.env.SUMMARY_TMDB_CHANGES,
