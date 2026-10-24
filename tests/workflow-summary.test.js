@@ -260,7 +260,8 @@ describe('kompakter Workflow-Datenbericht', () => {
     })
 
     const markdown = workflowSummaryMarkdown(summary)
-    expect(summary.rows).toHaveLength(30)
+    expect(summary.rows).toHaveLength(31)
+    expect(markdown).toContain('| YouTube · TMDB-Badge-Abgleich |')
     expect(markdown).toContain('| YouTube · TMDB-first-Verifikation |')
     expect(markdown).toContain('Lauf #321')
     expect(markdown).toContain('| Waipu EPG | ✅ erfolgreich | 50 Sender')
