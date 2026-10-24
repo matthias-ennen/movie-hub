@@ -10,7 +10,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { getSecret, youtubeGet } from './youtube-api-smoke.mjs'
 import { createYoutubeFullCatalogResearchPlan } from './youtube-g2-full-catalog-queue.mjs'
-import {getTrustedTmdbFirstKnownCandidates} from './youtube-g2-known-candidate-reuse.mjs'
+import {mapFromCandidateCheckpoint} from './youtube-g2-durable-candidate-checkpoint.mjs'
 import {
   loadPublicMovieHubIndex, runTmdbFirstLinkPilot,
 } from './youtube-g2-tmdb-first-link-pilot.mjs'
@@ -19,7 +19,7 @@ export const OUTPUT = 'artifacts/youtube-g2/full-catalog-queue'
 export const INVENTORY = 'artifacts/title-candidate-inventory.json'
 export const DEFAULT_SAFE_BATCH = 10
 export const PRIOR_QA='artifacts/youtube-g2/prior-full-catalog/qa.json'
-export const KNOWN_ARCHIVE_QA='artifacts/youtube-g2/trusted-known-candidates/qa.json'
+export const KNOWN_ARCHIVE_QA='artifacts/youtube-g2/trusted-known-candidates/candidates.json'
 export function parseResearchRunInput(env=process.env){
   const rawOffset=env.YOUTUBE_G2_RESEARCH_OFFSET
   const rawLimit=env.YOUTUBE_G2_RESEARCH_BATCH_SIZE
@@ -104,8 +104,8 @@ async function main(){
   const token=process.env.TMDB_API_READ_TOKEN
   if(!token||token.length<15)throw Error('TMDB_READ_ONLY_TOKEN_REQUIRED')
   const inventory=JSON.parse(await readFile(INVENTORY,'utf8'))
-  const trustedArchive=JSON.parse(await readFile(KNOWN_ARCHIVE_QA,'utf8'))
-  const knownVideoCandidatesByTmdbId=getTrustedTmdbFirstKnownCandidates(trustedArchive)
+  const checkpoint=JSON.parse(await readFile(KNOWN_ARCHIVE_QA,'utf8'))
+  const knownVideoCandidatesByTmdbId=mapFromCandidateCheckpoint(checkpoint)
   const index=await loadPublicMovieHubIndex()
   const plan=createYoutubeFullCatalogResearchPlan({
     inventory,publicIndex:index,offset,limit,continuation,
