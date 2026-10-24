@@ -40,7 +40,7 @@ export function reviewTvSearchAlternatives({sourceTitle,movie,tvResults=[]}={}){
   const filmWords=new Set(filmAliases.flatMap(tokens))
   const candidates=[]
   const ids=new Set()
-  for(const result of tvResults.slice(0,3)){
+  for(const result of tvResults){
     const id=positiveId(result?.id)
     if(!id||ids.has(id))continue
     ids.add(id)
@@ -60,6 +60,7 @@ export function reviewTvSearchAlternatives({sourceTitle,movie,tvResults=[]}={}){
       yearGap,titleOverlap,disposition:clearlyUnrelated
         ?'clearly-unrelated-search-hit':'retained-for-film-tv-review',
     })
+    if(candidates.length===3)break
   }
   return {
     rawTvIds:candidates.map(x=>x.tmdbTvId),
