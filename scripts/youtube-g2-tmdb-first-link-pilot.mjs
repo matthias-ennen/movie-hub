@@ -213,6 +213,60 @@ export function planOriginalTmdbFirstGoldenReplay(){
   return TMDB_FIRST_GOLDEN.map(x=>({mediaType:'movie',tmdbId:x.tmdbId}))
 }
 
+/**
+ * Keep all 25 original works accounted for, while actually researching ONLY
+ * the subset still bearing YouTube badges in the current PUBLIC DE index.
+ * Losing a badge is a meaningful source delta, not permission to search
+ * a title as if TMDB still asserted a YouTube offer.
+ */
+export async function runOriginalTmdbFirstGoldenReplay({
+  publicIndex,tmdbGet,youtubeApi,now=()=>new Date().toISOString(),
+  knownDeviceCandidates,
+}={}){
+  const original=planOriginalTmdbFirstGoldenReplay()
+  // Reuse the independently-tested current DE index/source validation.
+  const eligible=selectYoutubeBadgedMovies(publicIndex,{limit:1})
+  if(!eligible.selected.length)throw Error('G2_GOLDEN_NO_CURRENT_PUBLIC_YOUTUBE_BADGES')
+  const currentIds=new Set((publicIndex.entries||[]).filter(x=>
+    x?.type==='movie'
+    &&((Array.isArray(x.providerIds)&&x.providerIds.includes('youtube'))
+      ||(Array.isArray(x.providerOffers)&&x.providerOffers.some(o=>o?.id==='youtube')))
+  ).map(x=>Number(x.tmdbId)))
+  const active=original.filter(ref=>currentIds.has(ref.tmdbId))
+  const missing=original.filter(ref=>!currentIds.has(ref.tmdbId))
+  if(!active.length)throw Error('G2_GOLDEN_NO_RESEARCHABLE_TMDB_IDS')
+  const live=await runTmdbFirstLinkPilot({
+    publicIndex,seedRefs:active,limit:TMDB_FIRST_MAX_TITLES,
+    tmdbGet,youtubeApi,now,
+    ...(knownDeviceCandidates?{knownDeviceCandidates}:{}),
+  })
+  const liveRows=new Map(live.rows.map(row=>[row.tmdbId,row]))
+  const rows=original.map(ref=>liveRows.get(ref.tmdbId)||{
+    ...ref,title:'TMDB movie '+ref.tmdbId+' (no current public YouTube badge)',
+    status:'no-current-public-youtube-badge',
+    tmdbDeOfferTypes:[],videoCandidates:[],reviewedVideoId:null,
+    directPlaybackRoute:null,priorDeviceCandidate:null,
+    publicationPermitted:false,
+  })
+  const statusCounts={...live.summary.statusCounts}
+  if(missing.length)statusCounts['no-current-public-youtube-badge']=missing.length
+  const summary={
+    ...live.summary,
+    // Be explicit: fewer than 25 films may currently have public badges.
+    // processedMovies reports real API-observed works, NOT padding rows.
+    selectedMovies:original.length,
+    historicalCohortMovies:original.length,
+    historicalCohortAccountedFor:rows.length,
+    historicalPublicBadgeMissingIds:missing.map(x=>x.tmdbId),
+    statusCounts,
+  }
+  const result={summary,rows}
+  // This validates 25 distinct original IDs and exact per-row fail-closed
+  // semantics before any comparative artifact is published.
+  compareTmdbFirstPilotToGolden(result)
+  return result
+}
+
 export function formatTmdbFirstGoldenReplay(comparison,result) {
   const summary=result.summary
   return [
@@ -220,6 +274,10 @@ export function formatTmdbFirstGoldenReplay(comparison,result) {
     '',
     '- Historical reference run: '+comparison.sourceRun,
     '- Actual current API processed movies: '+summary.processedMovies,
+    '- Historic cohort missing a CURRENT PUBLIC YouTube badge: '
+      +comparison.historicalPublicBadgesMissing,
+    '- Missing public-badge TMDB IDs (not searched): '
+      +comparison.historicalPublicBadgeMissingIds.join(', '),
     '- Exact original TMDB-ID cohort: 25/25 (no contemporary reselection)',
     '- YouTube search.list calls: '+summary.calls.youtubeSearches,
     '- YouTube videos.list batch calls: '+summary.calls.youtubeVideoLookups,
@@ -250,13 +308,14 @@ async function main() {
   const key = getSecret()
   const index = await loadPublicMovieHubIndex()
   const goldenReplay=process.env.YOUTUBE_G2_TMDB_FIRST_GOLDEN_REPLAY==='1'
-  const seedRefs=goldenReplay?planOriginalTmdbFirstGoldenReplay():null
-  const result = await runTmdbFirstLinkPilot({
+  const inputs={
     publicIndex:index,
-    ...(seedRefs?{seedRefs,limit:TMDB_FIRST_MAX_TITLES}:{}),
     tmdbGet:(path,params)=>tmdbLive(path,params,tmdbToken),
     youtubeApi:(path,params)=>youtubeGet(path,params,key),
-  })
+  }
+  const result=goldenReplay
+    ?await runOriginalTmdbFirstGoldenReplay(inputs)
+    :await runTmdbFirstLinkPilot(inputs)
   if(goldenReplay){
     const comparison=compareTmdbFirstPilotToGolden(result)
     // This report is private GitHub QA only, never public Hosting.
@@ -272,7 +331,10 @@ async function main() {
     ])
     console.log(JSON.stringify({
       kind:'moviehub-youtube-g2-tmdb-first-live-golden-comparison',
-      originalTmdbIds:25,reviewDeltas:comparison.reviewDeltas.length,
+      originalTmdbIds:25,actuallyResearchedMovies:result.summary.processedMovies,
+      publicBadgesNoLongerPresent:comparison.historicalPublicBadgesMissing,
+      missingPublicBadgeTmdbIds:comparison.historicalPublicBadgeMissingIds,
+      reviewDeltas:comparison.reviewDeltas.length,
       sameClass:comparison.observedSameClass,
       sameLeadingVideoId:comparison.observedSameLeadVideoId,
       priorDeviceResolutions:result.summary.priorDeviceCandidatesResolvedViaVideoDetails,
