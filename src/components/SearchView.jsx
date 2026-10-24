@@ -5,7 +5,8 @@ import {
   SEARCH_MIN_QUERY_LENGTH,
   searchIndex,
 } from '../search/searchIndex.js'
-import { buildSearchCatalog } from '../search/searchCatalog.js'
+import { buildSearchCatalog, mergeYoutubeCuratedSearchTitles } from '../search/searchCatalog.js'
+import { YOUTUBE_NEW_FILMS_PUBLIC_URL } from '../catalog/youtubeCuratedNewFilms.js'
 import { buildActorSearchIndex } from '../search/searchActors.js'
 import { mergeLiveAiringStatus } from '../search/searchLiveAiringStatus.js'
 import { enrichSearchPosterEntries } from '../search/searchPosterEvidence.js'
@@ -15,6 +16,7 @@ import PosterCard from './PosterCard.jsx'
 export default function SearchView({ metadataTitles, personalTitles, statesByKey, actorNames, fullTitles, onOpen }) {
   const [query, setQuery] = useState('')
   const [remoteIndex, setRemoteIndex] = useState(null)
+  const [curatedYoutubeFeed, setCuratedYoutubeFeed] = useState(null)
   const [indexLoading, setIndexLoading] = useState(true)
   const [indexError, setIndexError] = useState(null)
   const { enabledProviderIds, isProviderEnabled } = useProviderSelection()
@@ -23,6 +25,14 @@ export default function SearchView({ metadataTitles, personalTitles, statesByKey
 
   useEffect(() => {
     let cancelled = false
+
+    // The public search index is generated before some YouTube metadata
+    // companions. Refresh the companion here independently from the App's
+    // initial catalog load, including on an already-running Android/Fire TV app.
+    fetch(YOUTUBE_NEW_FILMS_PUBLIC_URL, { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((feed) => { if (!cancelled) setCuratedYoutubeFeed(feed) })
+      .catch(() => { if (!cancelled) setCuratedYoutubeFeed(null) })
 
     fetch('/search-index.json', { cache: 'no-store' })
       .then((response) => {
@@ -48,8 +58,11 @@ export default function SearchView({ metadataTitles, personalTitles, statesByKey
   }, [])
 
   const searchCatalog = useMemo(
-    () => buildSearchCatalog({ remoteIndex, metadataTitles, personalTitles, statesByKey, actorNames }),
-    [remoteIndex, metadataTitles, personalTitles, statesByKey, actorNames],
+    () => buildSearchCatalog({
+      remoteIndex, metadataTitles, personalTitles, statesByKey, actorNames,
+      curatedYoutubeFeed,
+    }),
+    [remoteIndex, metadataTitles, personalTitles, statesByKey, actorNames, curatedYoutubeFeed],
   )
   const actorIndex = useMemo(
     () => buildActorSearchIndex(searchCatalog.entries, searchCatalog.actors),
@@ -60,8 +73,9 @@ export default function SearchView({ metadataTitles, personalTitles, statesByKey
     [searchCatalog, fullTitles],
   )
   const fullByKey = useMemo(
-    () => new Map((Array.isArray(fullTitles) ? fullTitles : []).map((title) => [getTitleStateKey(title), title])),
-    [fullTitles],
+    () => new Map(mergeYoutubeCuratedSearchTitles(fullTitles, curatedYoutubeFeed)
+      .map((title) => [getTitleStateKey(title), title])),
+    [fullTitles, curatedYoutubeFeed],
   )
   const searchResult = useMemo(
     () => searchIndex(entries, query, { enabledProviderIds, actorIndex }),
