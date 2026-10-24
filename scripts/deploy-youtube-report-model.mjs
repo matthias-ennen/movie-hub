@@ -10,7 +10,8 @@ const fresh = (value, now) => {
   return Number.isFinite(ageMs) && ageMs >= -60_000 && ageMs <= 12 * 3_600_000
 }
 export function summarizeYoutubeDeployment({
-  status = null, routes = null, sourceStep = 'skipped', routeStep = 'skipped',
+  status = null, routes = null, coverage = null,
+  sourceStep = 'skipped', routeStep = 'skipped', coverageStep = 'skipped',
   reportedAt = new Date().toISOString(),
 } = {}) {
   // TMDB-first approved videos are outside the two playlist inventories.
@@ -47,8 +48,40 @@ export function summarizeYoutubeDeployment({
     && validInt(routes.count)
     && Array.isArray(routes.entries) && routes.entries.length === routes.count
     && routes.entries.every(e => e?.key && e?.verifiedVideoId && e?.target)
+  const b=coverage?.tmdbFirst, p=coverage?.youtubeFirst
+  const coverageValid = coverage?.kind === 'moviehub-youtube-g2-bidirectional-coverage-baseline'
+    && coverage.schemaVersion === 1 && coverage.privateArtifact === true
+    && coverage.publicationPermitted === false
+    && coverage.status === 'read-only-coverage-no-offer-or-match-approval'
+    && iso(coverage.generatedAt) && fresh(coverage.generatedAt, reportedAt)
+    && coverage.catalogWrites === 0 && coverage.firestoreWrites === 0
+    && coverage.providerWrites === 0 && coverage.badgeWrites === 0
+    && coverage.nightlyWrites === 0 && coverage.publicRecordsExported === 0
+    && validInt(p?.sourceVideos) && p.sourceVideos === status?.inventoryVideoIds
+    && validInt(p.editorialDirectLinks) && validInt(p.reviewOnlyVideos)
+    && p.editorialDirectLinks+p.reviewOnlyVideos === p.sourceVideos
+    && validInt(b?.publicYoutubeBadgedMovies)
+    && validInt(b?.publicYoutubeBadgedSeries)
+    && validInt(b?.canonicalAndPublicMovieBadges)
+    && validInt(b?.publicSearchOnlyMovieBadges)
+    && validInt(b?.movieBadgesWithCuratedPlaylistLinks)
+    && validInt(b?.movieBadgesWithIndependentlyVerifiedRoutes)
+    && validInt(b?.movieBadgesWithAnyExactRoute)
+    && validInt(b?.movieBadgesStillUsingSearchFallback)
+    && validInt(b?.seriesBadgesRequiringEpisodeOrSeriesReview)
+    && validInt(b?.seriesBadgesWithIndependentlyVerifiedRoutes)
+    && b.canonicalAndPublicMovieBadges+b.publicSearchOnlyMovieBadges === b.publicYoutubeBadgedMovies
+    && b.movieBadgesWithAnyExactRoute+b.movieBadgesStillUsingSearchFallback === b.publicYoutubeBadgedMovies
+    && b.seriesBadgesRequiringEpisodeOrSeriesReview+b.seriesBadgesWithIndependentlyVerifiedRoutes === b.publicYoutubeBadgedSeries
+    && b.movieBadgesWithCuratedPlaylistLinks <= p.editorialDirectLinks
+    && b.movieBadgesWithAnyExactRoute >= b.movieBadgesWithCuratedPlaylistLinks
+    && b.movieBadgesWithAnyExactRoute >= b.movieBadgesWithIndependentlyVerifiedRoutes
+    && b.movieBadgesWithIndependentlyVerifiedRoutes <= verifiedTmdbFirst
+    && b.movieBadgesWithAnyExactRoute <= b.movieBadgesWithCuratedPlaylistLinks
+      + b.movieBadgesWithIndependentlyVerifiedRoutes
   const sourceMeasured = sourceStep === 'success' && sourceValid
   const routesMeasured = routeStep === 'success' && routesValid
+  const coverageMeasured = sourceMeasured && coverageStep === 'success' && coverageValid
   const consistent = sourceMeasured && routesMeasured
     && status.approvedDEOfferRoutes === routes.count
   const sourceState = sourceStep === 'failure' ? '❌ fehlgeschlagen'
@@ -74,6 +107,24 @@ export function summarizeYoutubeDeployment({
       open: sourceMeasured
         ? fmt(status.reviewOnlyCandidates)+' Playlist-Videos ohne unabhängig bestätigte DE-Angebotsroute · '+fmt(playlistApproved)+' Playlist-Angebote bestätigt · Stand '+new Date(status.generatedAt).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })
         : 'TMDB-Badges und YouTube-Suchfallback bleiben maßgeblich; kein Datenverlust behauptet',
+    },
+    badges: {
+      area: 'YouTube · TMDB-Badge-Abgleich',
+      status: coverageStep === 'failure' ? '❌ fehlgeschlagen'
+        : coverageStep === 'cancelled' ? '⛔ abgebrochen'
+          : coverageStep !== 'success' ? '⏭️ nicht ausgeführt'
+            : coverageMeasured ? '✅ erfolgreich' : '⚠️ vollständiger Badge-Abgleich fehlt',
+      stock: coverageMeasured
+        ? fmt(b.publicYoutubeBadgedMovies)+' öffentliche Filme · '+fmt(b.publicYoutubeBadgedSeries)+' Serien mit YouTube-Badge'
+        : 'Aktueller TMDB-YouTube-Badge-Bestand nicht nachgewiesen',
+      activity: coverageMeasured
+        ? fmt(b.movieBadgesWithCuratedPlaylistLinks)+' Filme mit redaktioneller Playlist-Video-ID · '
+          +fmt(b.movieBadgesWithIndependentlyVerifiedRoutes)+' mit unabhängig verifizierter DE-Route'
+        : 'Öffentliche Badge-Zuordnungen ohne vollständigen Abgleich',
+      open: coverageMeasured
+        ? fmt(b.movieBadgesStillUsingSearchFallback)+' Filme weiterhin mit YouTube-Suchfallback · '
+          +fmt(b.publicSearchOnlyMovieBadges)+' Badge-Filme nur im Suchindex · persönliche Inhalte nicht abgedeckt'
+        : 'Ohne gültige aktuelle Bestandsprüfung keine erfundenen Nullwerte; Suchfallback bleibt',
     },
     tmdbFirst: {
       area: 'YouTube · TMDB-first-Verifikation', status: sourceState,
