@@ -323,6 +323,7 @@ export async function runCheckpointCommand(mode,{
       {expectedGeneration:existing.generation})
     return {mode,movies:saved.entries,addedMovies:result.newMovies,
       addedCandidateIds:result.newIds,
+      candidateSourceRun:evidenceRunId,
       ...(mode==='merge-editorial'?{
         editorialLinksReviewed:result.editorialLinksReviewed,
         sourcePlaylistVideoIds:result.sourceVideos,
