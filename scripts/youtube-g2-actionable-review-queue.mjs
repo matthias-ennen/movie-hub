@@ -4,6 +4,8 @@
  * unresolved exact videos have separate lanes. This tool does NOT assign
  * identity, playback permission, provider availability, or writes to MovieHub.
  */
+import {hasDominantFilmHypothesis} from '../src/providers/youtubeCuratedEditorialIndex.js'
+
 export const G2_REVIEW_KIND='moviehub-youtube-g2-actionable-review-queue'
 export const G2_REVIEW_VERSION=1
 const VIDEO=/^[A-Za-z0-9_-]{11}$/
@@ -69,12 +71,25 @@ function verify(intake,research,reconciliation,hints,filmFeed,now){
     throw Error('YOUTUBE_REVIEW_QUEUE_INPUT_NOT_CURRENT_OR_NOT_TRUSTED')
   }
 }
-function laneFor(item,research,rec){
+function laneFor(item,research,rec,{competingVideoIds=[]}={}){
   const verdict=research?.matchStatus
+  // A rejected, *known* source must not be misreported as missing metadata.
+  // Both cases are still pending, but require DIFFERENT next steps.
+  if(item.regionSignal==='excluded')return {
+    lane:'region-excluded',priority:3,
+    nextAction:'DE is excluded in YouTube source metadata; keep unlinked and recheck only after source-region changes.'}
+  if(item.sourceScreened===false&&item.sourceTitle
+    &&Number.isFinite(item.durationMinutes)&&item.durationMinutes>0
+    &&item.durationMinutes<30)return {
+      lane:'short-video-not-full-film',priority:3,
+      nextAction:'Source duration is too short for a full film; do not turn a trailer/clip into a MovieHub movie link.'}
   if(!item.sourceScreened||!item.sourceTitle
     ||verdict==='review-no-eligible-video-details')return {
       lane:'missing-video-metadata',priority:2,
       nextAction:'Check private/deleted/unavailable video and retry YouTube metadata; never guess film identity.'}
+  if(competingVideoIds.length)return {
+    lane:'competing-video-routes',priority:1,
+    nextAction:'Two strong video candidates propose the same TMDB film; inspect both exact versions and DE playback, then choose a route explicitly. FREE preference is not independent evidence.'}
   if(research?.identityRisk||verdict==='review-explicit-source-or-cut-risk'
     ||verdict==='review-work-or-cut-runtime-conflict')return {
       lane:'edition-or-source-conflict',priority:2,
@@ -112,6 +127,43 @@ export function buildYoutubeActionableReviewQueue({
   const reconciled=new Map(reconciliation.entries.map(x=>[x.videoId,x]))
   const published=new Map(hints.entries.map(x=>[x.videoId,x]))
   const publishedFilms=new Map(filmFeed.entries.map(x=>[x.videoId,x]))
+  // Diagnose cross-playlist film duplicates WITHOUT resolving them automatically.
+  // Competing full-film videos remain unlinked even when both score strongly.
+  const byFilm=new Map()
+  for(const item of intake.items){
+    const key=item.suggestedFilmRef?.mediaType==='movie'
+      &&Number.isInteger(item.suggestedFilmRef.tmdbId)
+      &&item.suggestedFilmRef.tmdbId>0
+      ?'movie:'+item.suggestedFilmRef.tmdbId:null
+    if(key)byFilm.set(key,[...(byFilm.get(key)||[]),item])
+  }
+  const competing=new Map()
+  for(const [key,items] of byFilm){
+    if(items.length!==2||items[0].videoId===items[1].videoId)continue
+    const strong=items.every(item=>{
+      const row=researched.get(item.videoId)
+      const rec=reconciled.get(item.videoId)
+      const top=row?.topCandidates?.[0]
+      return !published.has(item.videoId)
+        &&row?.matchStatus==='review-leading-film-hypothesis'
+        &&row.identityRisk===null
+        &&Array.isArray(row.errors)&&row.errors.length===0
+        &&Array.isArray(row.alternativeTvIds)&&row.alternativeTvIds.length===0
+        &&Array.isArray(row.topCandidates)
+        &&(row.topCandidates.length===1
+          ||hasDominantFilmHypothesis(row.topCandidates))
+        &&top?.tmdbId===item.suggestedFilmRef.tmdbId
+        &&top.titleLevel===4&&top.score>=38
+        &&Number.isFinite(top.runtimeDelta)&&top.runtimeDelta<=10
+        &&item.sourceScreened===true&&Boolean(item.sourceTitle)
+        &&item.regionSignal!=='excluded'
+        &&Number.isFinite(item.durationMinutes)&&item.durationMinutes>=60
+        &&rec?.suggestedFilmKey===key
+    })
+    if(!strong||Math.abs(items[0].durationMinutes-items[1].durationMinutes)>3)continue
+    competing.set(items[0].videoId,[items[1].videoId])
+    competing.set(items[1].videoId,[items[0].videoId])
+  }
   for(const film of filmFeed.entries){
     const hint=published.get(film.videoId)
     if(!VIDEO.test(String(film.videoId||''))
@@ -141,7 +193,7 @@ export function buildYoutubeActionableReviewQueue({
     const action=hint
       ?{lane:publishedFilms.has(item.videoId)?'new-movie-published':'existing-movie-linked',
         priority:0,nextAction:'Playlist link published; independent DE playback/edition still separate.'}
-      :laneFor(item,r,rec)
+      :laneFor(item,r,rec,{competingVideoIds:competing.get(item.videoId)||[]})
     return {
       videoId:item.videoId,playlistClass:item.playlistClass,
       title:item.sourceTitle||null,channel:item.channelTitle||null,
@@ -155,6 +207,7 @@ export function buildYoutubeActionableReviewQueue({
           runtimeDelta:c.runtimeDelta})),
       publicationStatus:hint?'playlist-link-published':'review-only',
       sourceVerifiedDEOffer:false,
+      competingVideoIds:competing.get(item.videoId)||[],
       ...action,
     }
   })
@@ -200,12 +253,13 @@ export function renderYoutubeActionableReviewQueue(r){
     '- No claims of independently verified Germany availability or source usage rights.',
     '- Private QA artifact: may reflect account-specific catalog membership.',
     '',
-    '| Priority | Video ID | Source title | Playlist | Proposed TMDB IDs | Reason | Next action |',
-    '| --- | --- | --- | --- | --- | --- | --- |',
+    '| Priority | Video ID | Source title | Playlist | Proposed TMDB IDs | Competing video IDs | Reason | Next action |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- |',
   ]
   const clean=value=>String(value??'—').replace(/[\r\n|<>]/g,' ').trim()
   return head.concat(r.prioritizedReview.map(x=>'| P'+x.priority
     +' | '+x.videoId+' | '+clean(x.title)
     +' | '+x.playlistClass+' | '+(x.tmdbAlternatives.map(y=>y.tmdbId).join(', ')||'—')
+    +' | '+(x.competingVideoIds.join(', ')||'—')
     +' | '+x.lane+' | '+clean(x.nextAction)+' |'),'').join('\n')
 }
