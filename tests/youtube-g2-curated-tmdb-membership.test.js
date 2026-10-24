@@ -113,6 +113,63 @@ describe('G2 curated playlist exact IDs -> TMDB-only identity hypotheses', () =>
     expect(out.rows[0].topCandidates[0].tmdbId).toBe(1)
   })
 
+  it('removes only clearly unrelated fuzzy TV search hits while preserving every original hit',async()=>{
+    const source={...available,videoId:'2jc3mP9mvOk',
+      videoTitle:'Street Kings',minutes:109}
+    const get=vi.fn(async(path)=>{
+      if(path==='/search/movie')return {results:[{id:1266}]}
+      if(path==='/search/tv')return {results:[{
+        id:88001,name:'Modern Gardening Competitions',
+        original_name:'Modern Gardening Competitions',
+        first_air_date:'2024-06-01',
+      }]}
+      if(path==='/movie/1266')return {
+        id:1266,title:'Street Kings',original_title:'Street Kings',
+        runtime:109,release_date:'2008-04-01',
+        alternative_titles:{titles:[]},credits:{cast:[]},
+      }
+      throw Error('Unexpected mocked TMDB route')
+    })
+    const out=await runCuratedTmdbMembership({
+      audit:qa([source]),publicIndex:idx([1266]),tmdbGet:get,now:()=>AT,
+    })
+    expect(out.rows[0]).toMatchObject({
+      matchStatus:'review-leading-film-hypothesis',alternativeTvIds:[],
+      tvSearchEvidence:{rawTvIds:[88001],unrelatedTvIds:[88001],
+        alternativeTvIds:[]},
+      verifiedTmdbId:null,verifiedDEPlayback:false,toImport:false,
+      publicationPermitted:false,
+    })
+    expect(out.summary.excludedUnrelatedTvSearchHits).toBe(1)
+    expect(out.summary.rawTvSearchHits).toBe(1)
+    expect(get.mock.calls.map(x=>x[0])).not.toContain('/tv/88001')
+  })
+  it('keeps the TV conflict if a near-identical TV title is in fuzzy TMDB search',async()=>{
+    const get=vi.fn(async(path)=>{
+      if(path==='/search/movie')return {results:[{id:1266}]}
+      if(path==='/search/tv')return {results:[{
+        id:88001,name:'Street Kings',original_name:'Street Kings',
+        first_air_date:'2024-06-01',
+      }]}
+      if(path==='/movie/1266')return {
+        id:1266,title:'Street Kings',original_title:'Street Kings',
+        runtime:109,release_date:'2008-04-01',
+        alternative_titles:{titles:[]},credits:{cast:[]},
+      }
+      throw Error('Unexpected mocked TMDB route')
+    })
+    const out=await runCuratedTmdbMembership({
+      audit:qa([{...available,videoId:'2jc3mP9mvOk',
+        videoTitle:'Street Kings',minutes:109}]),
+      publicIndex:idx([1266]),tmdbGet:get,now:()=>AT,
+    })
+    expect(out.rows[0]).toMatchObject({
+      matchStatus:'review-leading-movie-with-TV-alternatives',
+      alternativeTvIds:[88001],tvSearchEvidence:{unrelatedTvIds:[]},
+      verifiedTmdbId:null,verifiedOfferType:null,
+    })
+  })
+
   it('not-present in PUBLIC index is not labeled a new film', async () => {
     const out = await runCuratedTmdbMembership({
       audit:qa([available]),publicIndex:idx([999]),tmdbGet:tmdb,now:()=>AT,
