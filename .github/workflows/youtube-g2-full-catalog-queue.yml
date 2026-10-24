@@ -22,7 +22,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: youtube-g2-full-inventory-research-readonly
+  group: youtube-g2-private-candidate-checkpoint-mutations
   cancel-in-progress: false
 
 jobs:
