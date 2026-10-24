@@ -115,9 +115,11 @@ export async function refreshPendingCuratedMetadata({qa,youtubeApi,now=new Date(
       videoStatus=video.status?.privacyStatus==='public'
         &&video.snippet?.title&&minutes
         ?'video-details-current':'video-details-not-eligible'
+      if(minutes!==null&&minutes<30)videoStatus='short-video-metadata'
+      // DE exclusion is stricter than a duration issue: preserve this
+      // explicit provider signal as the primary reason.
       if(regionSignal==='DE-blocked-metadata'||regionSignal==='DE-not-allowed-metadata')
         videoStatus='DE-excluded-metadata'
-      if(minutes!==null&&minutes<30)videoStatus='short-video-metadata'
     }
     const originallyMissing=row.lane==='missing-video-metadata'
     return {
