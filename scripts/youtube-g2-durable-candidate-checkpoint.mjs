@@ -65,7 +65,8 @@ export function validateCandidateCheckpoint(doc){
       ||!Array.isArray(entry.provenance)||entry.provenance.length<1
       ||entry.provenance.length>5
       ||entry.provenance.some(p=>
-        !['original-trusted-25-film-archive','successful-readonly-full-catalog-batch'].includes(p?.kind)
+        !['original-trusted-25-film-archive','successful-readonly-full-catalog-batch',
+          'published-editorial-playlist-hint'].includes(p?.kind)
         ||!Number.isSafeInteger(p?.runId)||p.runId<1)){
       throw Error('G2_CANDIDATE_CHECKPOINT_ENTRY_INVALID')
     }
@@ -136,6 +137,76 @@ export function mergeCandidateCheckpoint(previous,qa,{
   return {checkpoint:updated,newMovies,newIds,sourceRun:runId,
     existingMovies:old.entries.length,movies:updated.entries.length}
 }
+
+/** Add ONLY already published editorial playlist film/video hypotheses from
+ * an authenticated, completed private Firebase deploy QA artifact.
+ * These remain candidates: FREE/R&B editorial labels do not verify actual
+ * German playback rights or purchasable/free offer state.
+ */
+export function mergeEditorialPlaylistCandidates(previous,qa,{
+  runId,now=new Date().toISOString(),
+}={}){
+  const old=validateCandidateCheckpoint(previous)
+  const video=/^[A-Za-z0-9_-]{11}$/
+  if(!Number.isSafeInteger(runId)||runId<1||!validTime(now)
+    ||Date.parse(now)<Date.parse(old.updatedAt)
+    ||qa?.kind!=='moviehub-youtube-g2-actionable-review-queue'
+    ||qa?.schemaVersion!==1
+    ||qa.privateArtifact!==true||qa.publicationPermitted!==false
+    ||qa.independentVerifiedDEOffers!==0
+    ||qa.newUnverifiedDatabaseWrites!==0
+    ||!Number.isInteger(qa.sourceVideoIds)||qa.sourceVideoIds<1
+    ||qa.accountedForVideos!==qa.sourceVideoIds
+    ||qa.missingVideos!==0
+    ||!Array.isArray(qa.items)||qa.items.length!==qa.sourceVideoIds
+    ||!Number.isInteger(qa.publishedPlaylistLinks)
+    ||qa.publishedPlaylistLinks<1
+    ||!Number.isInteger(qa.pendingReview)
+    ||qa.publishedPlaylistLinks+qa.pendingReview!==qa.sourceVideoIds
+    ||!qa.declaredClasses||qa.declaredClasses.FREE+qa.declaredClasses['R&B']!==qa.sourceVideoIds
+    ||new Set(qa.items.map(r=>r.videoId)).size!==qa.items.length
+    ||qa.items.some(r=>!video.test(String(r?.videoId||''))
+      ||!['FREE','R&B'].includes(r.playlistClass)
+      ||r.url!=='https://www.youtube.com/watch?v='+r.videoId
+      ||r.sourceVerifiedDEOffer!==false
+      ||!['review-only','playlist-link-published'].includes(r.publicationStatus)))
+    throw Error('G2_EDITORIAL_CANDIDATE_SOURCE_INVALID')
+  const published=qa.items.filter(r=>r.publicationStatus==='playlist-link-published')
+  if(published.length!==qa.publishedPlaylistLinks
+    ||published.some(r=>!Number.isInteger(r.suggestedTmdbId)
+      ||r.suggestedTmdbId<1||r.priority!==0
+      ||!['existing-movie-linked','new-movie-published'].includes(r.lane)
+      ||!Array.isArray(r.competingVideoIds)||r.competingVideoIds.length!==0
+      ||!Array.isArray(r.tmdbAlternatives)
+      ||r.tmdbAlternatives[0]?.tmdbId!==r.suggestedTmdbId)
+    ||new Set(published.map(r=>r.suggestedTmdbId)).size!==published.length)
+    throw Error('G2_EDITORIAL_CANDIDATE_FILM_IDENTITY_UNTRUSTED')
+  const all=new Map(old.entries.map(e=>[e.tmdbId,copy(e)]))
+  let newMovies=0,newIds=0
+  for(const row of published){
+    const source={kind:'published-editorial-playlist-hint',runId}
+    const prior=all.get(row.suggestedTmdbId)
+    if(!prior){
+      all.set(row.suggestedTmdbId,{
+        tmdbId:row.suggestedTmdbId,videoIds:[row.videoId],provenance:[source]})
+      newMovies++;newIds++
+    }else{
+      if(!prior.videoIds.includes(row.videoId)){
+        if(prior.videoIds.length>=10)continue
+        prior.videoIds.push(row.videoId);newIds++
+      }
+      if(!prior.provenance.some(p=>p.runId===runId&&p.kind===source.kind))
+        prior.provenance=[...prior.provenance,source].slice(-5)
+    }
+  }
+  const checkpoint=validateCandidateCheckpoint({
+    ...old,updatedAt:now,entries:canonical(all.values()),
+  })
+  return {checkpoint,newMovies,newIds,sourceRun:runId,
+    editorialLinksReviewed:published.length,sourceVideos:qa.sourceVideoIds,
+    movies:checkpoint.entries.length}
+}
+
 export function serializeCheckpoint(doc){
   const validated=validateCandidateCheckpoint(doc)
   const bytes=Buffer.from(JSON.stringify(validated)+'\n','utf8')
@@ -214,10 +285,11 @@ async function withBucket(callback){
 export async function runCheckpointCommand(mode,{
   archivePath='artifacts/youtube-g2/trusted-known-candidates/qa.json',
   batchQaPath='artifacts/youtube-g2/full-catalog-queue/qa.json',
+  editorialQaPath='artifacts/youtube-g2/actionable-review-queue/qa.json',
   outputPath='artifacts/youtube-g2/trusted-known-candidates/candidates.json',
   runId=Number(process.env.GITHUB_RUN_ID),
 }={}){
-  if(!['bootstrap','read','merge'].includes(mode))
+  if(!['bootstrap','read','merge','merge-editorial'].includes(mode))
     throw Error('G2_CANDIDATE_COMMAND_INVALID')
   return withBucket(async bucket=>{
     const existing=await loadDurableCandidateCheckpoint(bucket)
@@ -236,12 +308,19 @@ export async function runCheckpointCommand(mode,{
       return {mode,movies:saved.entries,hash:saved.hash}
     }
     if(!existing.checkpoint)throw Error('G2_CANDIDATE_CHECKPOINT_NOT_BOOTSTRAPPED')
-    const qa=JSON.parse(await readFile(batchQaPath,'utf8'))
-    const result=mergeCandidateCheckpoint(existing.checkpoint,qa,{runId})
+    const qa=JSON.parse(await readFile(
+      mode==='merge-editorial'?editorialQaPath:batchQaPath,'utf8'))
+    const result=mode==='merge-editorial'
+      ?mergeEditorialPlaylistCandidates(existing.checkpoint,qa,{runId})
+      :mergeCandidateCheckpoint(existing.checkpoint,qa,{runId})
     const saved=await saveDurableCandidateCheckpoint(bucket,result.checkpoint,
       {expectedGeneration:existing.generation})
     return {mode,movies:saved.entries,addedMovies:result.newMovies,
-      addedCandidateIds:result.newIds,hash:saved.hash}
+      addedCandidateIds:result.newIds,
+      ...(mode==='merge-editorial'?{
+        editorialLinksReviewed:result.editorialLinksReviewed,
+        sourcePlaylistVideoIds:result.sourceVideos,
+      }:{}),hash:saved.hash}
   })
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
