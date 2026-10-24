@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto'
+import {validateKnownCandidateMap} from './youtube-g2-known-candidate-reuse.mjs'
 
 /**
  * Reconcile the EXISTING complete canonical title inventory with the published
@@ -74,7 +75,9 @@ export function createYoutubeFullCatalogResearchPlan({
   inventory, publicIndex,
   offset = 0, limit = YOUTUBE_RESEARCH_DEFAULT_TITLES,
   now = new Date().toISOString(),continuation = null,
+  knownVideoCandidatesByTmdbId = null,
 } = {}) {
+  const knownMap=validateKnownCandidateMap(knownVideoCandidatesByTmdbId)
   validate(inventory, publicIndex)
   const asOf = new Date(now).toISOString()
   for (const [label, timestamp, maxMs] of [
@@ -168,7 +171,11 @@ export function createYoutubeFullCatalogResearchPlan({
   const selected = pending.slice(offset,offset+limit)
   const nextOffset = offset+selected.length >= pending.length
     ? null : offset+selected.length
-  const potentialApiCost = selected.length*YOUTUBE_SEARCHES_PER_TITLE*YOUTUBE_SEARCH_QUOTA_UNITS
+  const reusable=selected.filter(x=>knownMap?.has(x.tmdbId))
+  const reusableVideoIds=reusable.reduce((sum,x)=>sum+knownMap.get(x.tmdbId).length,0)
+  const skippedSearchCalls=reusable.length*YOUTUBE_SEARCHES_PER_TITLE
+  const plannedSearchCalls=(selected.length-reusable.length)*YOUTUBE_SEARCHES_PER_TITLE
+  const potentialApiCost = plannedSearchCalls*YOUTUBE_SEARCH_QUOTA_UNITS
   return {
     mode:YOUTUBE_FULL_CATALOG_PLAN,
     generatedAt:asOf,
@@ -199,10 +206,13 @@ export function createYoutubeFullCatalogResearchPlan({
       defaultDailyCallLimitIsProjectActual:false,
       total:pending.length,
       fullyScanned:nextOffset===null,
-      youtubeSearchCallsPlanned:selected.length*YOUTUBE_SEARCHES_PER_TITLE,
+      knownCandidateReuseMovies:reusable.length,
+      knownCandidateReusedVideoIds:reusableVideoIds,
+      youtubeSearchCallsAvoided:skippedSearchCalls,
+      youtubeSearchCallsPlanned:plannedSearchCalls,
       estimatedYoutubeSearchQuotaUnits:potentialApiCost,
       searchesRemainingAgainstUnsharedDefaultDailyLimit:
-        YOUTUBE_SEARCH_DEFAULT_DAILY_CALL_LIMIT-selected.length*YOUTUBE_SEARCHES_PER_TITLE,
+        YOUTUBE_SEARCH_DEFAULT_DAILY_CALL_LIMIT-plannedSearchCalls,
       quotaUnitBudget:YOUTUBE_RESEARCH_MAX_ESTIMATED_SEARCH_QUOTA,
       youtubeVideoDetailCallsPlanned:0,
       realYoutubeApiRequestsPerformed:0,
