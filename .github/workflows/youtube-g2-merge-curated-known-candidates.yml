@@ -1,0 +1,105 @@
+name: YouTube G2 – reuse 32 existing curated exact-film hints (private)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-merge-curated-known-candidates.yml
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-private-candidate-checkpoint-mutations
+  cancel-in-progress: false
+
+jobs:
+  merge-editorial-exact-video-ids:
+    name: Store original curated editorial movie/video IDs as private unapproved candidates
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' &&
+        contains(github.event.head_commit.message, '[youtube-curated-candidates-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
+      SOURCE_RUN: '40108251915'
+      SOURCE_SHA: 8c2ba4d6326ec493594bdef6cb55b28b111d69ca
+      SOURCE_ARTIFACT: source-adapter-artifacts-40108251915-1
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Verify candidate-only merge and checksum/CAS regression tests
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-durable-candidate-checkpoint.mjs
+          npx vitest run tests/youtube-g2-editorial-candidate-checkpoint.test.js tests/youtube-g2-durable-candidate-checkpoint.test.js tests/youtube-g2-known-candidate-reuse.test.js
+      - name: Authenticate exact prior successful Firebase deploy and private source QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq '[.head_sha,.conclusion,.status,.head_branch,.path] | join("|")')"
+          IFS='|' read -r sha result status branch workflow <<< "$state"
+          if [[ "$sha" != "$SOURCE_SHA" || "$result" != "success"
+             || "$status" != "completed" || "$branch" != "main"
+             || "$workflow" != *".github/workflows/deploy-firebase.yml"* ]]; then
+            echo "::error::Original successful main Firebase QA source not trusted"
+            exit 1
+          fi
+          artifact_state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/artifacts" --jq '.artifacts[] | select(.name == "source-adapter-artifacts-40108251915-1") | [.name,.expired,.workflow_run.id] | join("|")')"
+          if [[ "$artifact_state" != "$SOURCE_ARTIFACT|false|$SOURCE_RUN" ]]; then
+            echo "::error::Expected private source-adapter QA missing or expired"
+            exit 1
+          fi
+          mkdir -p artifacts/youtube-g2/source-reviewed
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            -n "$SOURCE_ARTIFACT" -D artifacts/youtube-g2/source-reviewed
+          test -s artifacts/youtube-g2/source-reviewed/artifacts/youtube-g2/actionable-review-queue/qa.json
+          mkdir -p artifacts/youtube-g2/actionable-review-queue
+          cp artifacts/youtube-g2/source-reviewed/artifacts/youtube-g2/actionable-review-queue/qa.json \
+            artifacts/youtube-g2/actionable-review-queue/qa.json
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs'
+          const qa=JSON.parse(readFileSync('artifacts/youtube-g2/actionable-review-queue/qa.json','utf8'))
+          if(qa.sourceVideoIds!==87||qa.publishedPlaylistLinks!==32
+            ||qa.pendingReview!==55||qa.privateArtifact!==true
+            ||qa.publicationPermitted!==false||qa.independentVerifiedDEOffers!==0)
+            throw Error('HISTORIC_EDITORIAL_FROZEN_COUNTS_UNEXPECTED')
+          console.log('Authenticated original reviewed 87 playlist IDs, 32 exact editorial film hints')
+          NODE
+      - name: Authenticate existing OIDC principal for private checkpoint bucket
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Merge curated film/video IDs into private durable checkpoint and verify
+        run: |
+          node scripts/youtube-g2-durable-candidate-checkpoint.mjs merge-editorial
+          node scripts/youtube-g2-durable-candidate-checkpoint.mjs read
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs'
+          import {validateCandidateCheckpoint} from './scripts/youtube-g2-durable-candidate-checkpoint.mjs'
+          const q=validateCandidateCheckpoint(JSON.parse(readFileSync(
+            'artifacts/youtube-g2/trusted-known-candidates/candidates.json','utf8')))
+          const total=q.entries.reduce((sum,row)=>sum+row.videoIds.length,0)
+          const labelled=q.entries.filter(e=>e.provenance.some(p=>
+            p.kind==='published-editorial-playlist-hint'&&p.runId===40108251915))
+          if(labelled.length!==32||q.entries.length!==56||total!==242
+            ||q.verifiedDEOffers!==0||q.approvedDirectRoutes!==0
+            ||q.productionWrites!==0)throw Error('DURABLE_EDITORIAL_SOURCE_READBACK_MISMATCH')
+          console.log(JSON.stringify({
+            durablePrivateCandidateFilms:q.entries.length,
+            durableCandidateVideoEntries:total,
+            extraCuratedExactMovieHints:labelled.length,
+            youtubeSearchCalls:0,verifiedDEOffers:0,firestoreWrites:0,
+          }))
+          NODE
