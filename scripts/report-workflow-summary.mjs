@@ -189,7 +189,7 @@ const REPORT_ROWS = [
   'Quellen-Merge-Test', 'YouTube · 2 Playlists', 'YouTube · vollständiger Playlist-Intake', 'Bestandsmigration',
   'Kanonische Titelkandidaten', 'Prioritätsvorschau', 'Kanonischer Executor',
   'YouTube → TMDB-Neutitel', 'YouTube · offene Playlist-Prüfliste', 'Suchindex', 'Suchdetails', 'Serienstaffeln', 'TV · 14-Tage-Vorschau',
-  'Gemeinsame App-Daten', 'YouTube · TMDB-first-Verifikation', 'YouTube · Direktlink-Freigabe',
+  'Gemeinsame App-Daten', 'YouTube · TMDB-Badge-Abgleich', 'YouTube · TMDB-first-Verifikation', 'YouTube · Direktlink-Freigabe',
   'App-Build', 'Vorabprüfung', 'Firebase',
 ]
 function workflowRowRank(area) {
@@ -231,6 +231,7 @@ export function buildWorkflowSummary({
   sourceMerge = null,
   youtubeStatus = null,
   youtubeRoutes = null,
+  youtubeBidirectionalCoverage = null,
   youtubeCompleteIntake = null,
   youtubeFullCatalog = null,
   youtubeNewFilms = null,
@@ -281,7 +282,9 @@ export function buildWorkflowSummary({
   const schemaSummary = sourceSchemaSummary(sourceSchemaReports)
   const youtube = summarizeYoutubeDeployment({
     status: youtubeStatus, routes: youtubeRoutes,
+    coverage: youtubeBidirectionalCoverage,
     sourceStep: steps.youtubeSync, routeStep: steps.youtubeRoutes,
+    coverageStep: steps.youtubeCoverage,
     reportedAt: run.reportedAt || new Date().toISOString(),
   })
 
@@ -513,6 +516,7 @@ export function buildWorkflowSummary({
       youtubeReviewSummary({queue: youtubeReviewQueue, intake: youtubeCompleteIntake,
         hints: youtubeCuratedHints, films: youtubeNewFilms,
         step: steps.youtubeReviewQueue, reportedAt: run.reportedAt || new Date().toISOString()}),
+      youtube.badges,
       youtube.tmdbFirst,
       youtube.routes,
       {
@@ -599,7 +603,7 @@ async function readJson(path, fallback = {}) {
 }
 
 async function main() {
-  const [youtubeStatus, youtubeRoutes, tv14DaySummary, youtubeCompleteIntake, youtubeFullCatalog, youtubeNewFilms, youtubeCuratedHints, youtubeReviewQueue] = await Promise.all([
+  const [youtubeStatus, youtubeRoutes, tv14DaySummary, youtubeCompleteIntake, youtubeFullCatalog, youtubeNewFilms, youtubeCuratedHints, youtubeReviewQueue, youtubeBidirectionalCoverage] = await Promise.all([
     readJson('public/youtube-curated-source-status.json', null),
     readJson('public/youtube-verified-title-routes.json', null),
     readJson('public/tv-14-days-summary.json', null),
@@ -608,6 +612,7 @@ async function main() {
     readJson('public/youtube-curated-new-films.json', null),
     readJson('public/youtube-curated-title-hints.json', null),
     readJson('artifacts/youtube-g2/actionable-review-queue/qa.json', null),
+    readJson('artifacts/youtube-g2/bidirectional-coverage/qa.json', null),
   ])
   const [baselineJoyn, joynSync, joynProgress, availabilityIndex, tvRuntimeIndex, joynHealth] = await Promise.all([
     readJson('artifacts/workflow-baseline/joyn-index.json', null),
@@ -654,7 +659,7 @@ async function main() {
     dataStatus, catalog, searchIndex, searchManifest, seriesManifest, waipuIndex, waipuTitles, joynIndex, joynTitles, joynDiagnostic, waipuSync, waipuDetail, presence, canonicalExecutor, candidateInventory, priorityPreview, searchRun, tmdbChanges,
     tmdbChangeRun: activeTmdbChangeRun || lastTmdbChangeRun || {}, baselineData, baselineWaipu, workflowTiming,
     sourceSchemaReports: [schemaWaipuBaseline, schemaTmdbBaseline, schemaWaipuSyncLive, schemaWaipuProgramLive, schemaTmdbLive, schemaJoynLive].filter(Boolean),
-    sourceMerge, youtubeStatus, youtubeRoutes,
+    sourceMerge, youtubeStatus, youtubeRoutes, youtubeBidirectionalCoverage,
     youtubeCompleteIntake, youtubeFullCatalog, youtubeNewFilms, youtubeCuratedHints, youtubeReviewQueue,
     tv14DaySummary,
     steps: {
@@ -666,6 +671,7 @@ async function main() {
       youtubeNewMetadata: process.env.SUMMARY_YOUTUBE_NEW_METADATA,
       youtubeNewFilmCatalog: process.env.SUMMARY_YOUTUBE_NEW_FILM_CATALOG,
       youtubeReviewQueue: process.env.SUMMARY_YOUTUBE_REVIEW_QUEUE,
+      youtubeCoverage: process.env.SUMMARY_YOUTUBE_COVERAGE,
       tv14Day: process.env.SUMMARY_TV_14_DAY,
       preparedVerify: process.env.SUMMARY_PREPARED_VERIFY,
       tmdbChanges: process.env.SUMMARY_TMDB_CHANGES,
