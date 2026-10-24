@@ -310,9 +310,15 @@ export async function runCheckpointCommand(mode,{
     if(!existing.checkpoint)throw Error('G2_CANDIDATE_CHECKPOINT_NOT_BOOTSTRAPPED')
     const qa=JSON.parse(await readFile(
       mode==='merge-editorial'?editorialQaPath:batchQaPath,'utf8'))
+    // Editorial rows were learned by a PREVIOUS successful Firebase deploy.
+    // Preserve that authenticated original source-run ID, not the current
+    // checkpoint import workflow's GITHUB_RUN_ID. Full-catalog new research
+    // instead correctly records its own source run.
+    const evidenceRunId=mode==='merge-editorial'
+      ?Number(process.env.SOURCE_RUN):runId
     const result=mode==='merge-editorial'
-      ?mergeEditorialPlaylistCandidates(existing.checkpoint,qa,{runId})
-      :mergeCandidateCheckpoint(existing.checkpoint,qa,{runId})
+      ?mergeEditorialPlaylistCandidates(existing.checkpoint,qa,{runId:evidenceRunId})
+      :mergeCandidateCheckpoint(existing.checkpoint,qa,{runId:evidenceRunId})
     const saved=await saveDurableCandidateCheckpoint(bucket,result.checkpoint,
       {expectedGeneration:existing.generation})
     return {mode,movies:saved.entries,addedMovies:result.newMovies,
