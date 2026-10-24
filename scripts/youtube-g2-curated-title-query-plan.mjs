@@ -28,6 +28,14 @@ const promotedSurvivalThriller = /^grandioser\s+survival[-\s]thriller\s+mit\s+st
 // country, exact cut, source rights, offer, or Video ID.
 const observedAdWrappers = [
   {
+    // Public YouTube Movies: 'Rambo - First Blood' is the first 1982 film,
+    // not 'Rambo III'. Search by the distinct film work, not the franchise.
+    // Source playback and exact cut remain separately unverified.
+    reason:'first-blood-franchise-work-disambiguation',
+    regex:/^rambo\s*[-–]\s*first\s+blood$/iu,
+    title:()=> 'First Blood',
+  },
+  {
     reason:'actor-promo-colon-film-title',
     regex:/^so ein geiler film mit [^:]{5,90}:\s*(.{4,110}?)\s*\(\s*ganzer film in hd\s*\)$/iu,
     title:m=>m[1],
