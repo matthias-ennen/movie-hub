@@ -25,7 +25,7 @@ const original=()=>({
     catalogWrites:0,firestoreWrites:0,providerWrites:0,badgeWrites:0,nightlyWrites:0,
   },
   rows:TMDB_FIRST_GOLDEN.map(g=>({
-    tmdbId:g.tmdbId,status:status[g.observedClass],
+    mediaType:'movie',tmdbId:g.tmdbId,status:status[g.observedClass],
     publicationPermitted:false,reviewedVideoId:null,directPlaybackRoute:null,
     videoCandidates:[{videoId:g.leadVideoId}],
   })),
