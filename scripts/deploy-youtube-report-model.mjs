@@ -59,8 +59,9 @@ export function summarizeYoutubeDeployment({
     : routeStep === 'cancelled' ? '⛔ abgebrochen'
       : routeStep !== 'success' ? '⏭️ nicht ausgeführt'
         : !routesValid ? '⚠️ gültiger Routenbericht fehlt'
-          : sourceMeasured && !consistent ? '⚠️ Zählabweichung zum Quellenlauf'
-            : '✅ erfolgreich'
+          : !sourceMeasured ? '⚠️ Quellenabgleich nicht bestätigt'
+            : !consistent ? '⚠️ Zählabweichung zum Quellenlauf'
+              : '✅ erfolgreich'
   return {
     source: {
       area: 'YouTube · 2 Playlists', status: sourceState,
