@@ -41,7 +41,7 @@ jobs:
           npm ci
           node --check scripts/youtube-g2-tmdb-first-link-pilot.mjs
           node --check scripts/youtube-g2-tmdb-first-prior-device-candidates.mjs
-          npx vitest run tests/youtube-g2-tmdb-first-link-pilot.test.js tests/youtube-g2-tmdb-first-prior-device-candidates.test.js tests/youtube-g2-quality-golden.test.js tests/youtube-g2-tmdb-first-golden-rerun.test.js tests/youtube-g2-tmdb-first-historical-badge-drift.test.js
+          npx vitest run tests/youtube-g2-tmdb-first-link-pilot.test.js tests/youtube-g2-tmdb-first-prior-device-candidates.test.js tests/youtube-g2-quality-golden.test.js tests/youtube-g2-tmdb-first-golden-rerun.test.js tests/youtube-g2-tmdb-first-historical-badge-drift.test.js tests/youtube-g2-tmdb-first-edition-review.test.js
       - name: Authenticate via existing Google OIDC (Secret Manager read only)
         uses: google-github-actions/auth@v3
         with:
@@ -62,5 +62,7 @@ jobs:
             artifacts/youtube-g2/tmdb-first-link-pilot/qa.json
             artifacts/youtube-g2/tmdb-first-link-pilot/golden-compare.json
             artifacts/youtube-g2/tmdb-first-link-pilot/golden-compare.md
+            artifacts/youtube-g2/tmdb-first-link-pilot/edition-review.json
+            artifacts/youtube-g2/tmdb-first-link-pilot/edition-review.md
           if-no-files-found: error
           retention-days: 7
