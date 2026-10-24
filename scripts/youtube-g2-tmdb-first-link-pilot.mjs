@@ -8,6 +8,10 @@ import { pathToFileURL } from 'node:url'
 import { getSecret, youtubeGet } from './youtube-api-smoke.mjs'
 import { planTmdbFirstYoutubeQueries } from './youtube-g2-tmdb-first-query-plan.mjs'
 import {
+  planTmdbFirstPriorDeviceCandidates,TMDB_FIRST_KNOWN_DEVICE_CANDIDATES,
+  TMDB_FIRST_PRIOR_DEVICE_CANDIDATE_KIND,
+} from './youtube-g2-tmdb-first-prior-device-candidates.mjs'
+import {
   TMDB_FIRST_MAX_SEARCHES, TMDB_FIRST_MAX_TITLES,
   selectYoutubeBadgedMovies, selectExplicitYoutubeBadgedMovies, exactYoutubeProviderIds,
   exactDeYoutubeOfferTypes, evaluateTmdbFirstYoutubeLinks,
@@ -18,7 +22,7 @@ export const PUBLIC_INDEX = 'https://movie-hub-62459.web.app/search-index.json'
 export const OUTPUT = 'artifacts/youtube-g2/tmdb-first-link-pilot'
 const MAX_INDEX_BYTES = 30 * 1024 * 1024
 const MAX_TMDB_GETS = 1 + TMDB_FIRST_MAX_TITLES * 2
-const MAX_VIDEO_GETS = 10
+const MAX_VIDEO_GETS = 11
 const validVideoId = id => /^[A-Za-z0-9_-]{11}$/.test(String(id || ''))
 
 export async function loadPublicMovieHubIndex(request = fetch) {
@@ -41,6 +45,7 @@ export async function loadPublicMovieHubIndex(request = fetch) {
 export async function runTmdbFirstLinkPilot({
   publicIndex, tmdbGet, youtubeApi,
   limit = TMDB_FIRST_MAX_TITLES, seedRefs = null, now = () => new Date().toISOString(),
+  knownDeviceCandidates = TMDB_FIRST_KNOWN_DEVICE_CANDIDATES,
 } = {}) {
   if (typeof tmdbGet !== 'function' || typeof youtubeApi !== 'function') {
     throw new Error('READ_ONLY_API_CALLBACKS_REQUIRED')
@@ -54,6 +59,8 @@ export async function runTmdbFirstLinkPilot({
     ? selectYoutubeBadgedMovies(publicIndex, { limit })
     : selectExplicitYoutubeBadgedMovies(publicIndex, seedRefs, { limit })
   if (!selection.selected.length) throw new Error('NO_EXISTING_YOUTUBE_BADGED_MOVIES')
+  const priorDeviceIds = planTmdbFirstPriorDeviceCandidates(
+    selection.selected,knownDeviceCandidates)
   const counters = { youtubeSearches: 0, youtubeVideoLookups: 0, tmdbGetRequests: 0 }
   const yt = async (path, params) => {
     if (path === 'search') {
@@ -80,7 +87,8 @@ export async function runTmdbFirstLinkPilot({
     const offerDetail = await tm('/movie/' + seed.tmdbId + '/watch/providers')
     const offerTypes = exactDeYoutubeOfferTypes(offerDetail, youtubeProviderIds)
     if (!offerTypes.length) {
-      pending.push({ seed, offerTypes, tmdbFilm: { id: seed.tmdbId }, videoIds: [] })
+      pending.push({ seed, offerTypes, tmdbFilm: { id: seed.tmdbId },
+        videoIds: [], searchedVideoIds: [], priorDeviceId: null })
       continue
     }
     const tmdbFilm = await tm('/movie/' + seed.tmdbId, {
@@ -99,9 +107,16 @@ export async function runTmdbFirstLinkPilot({
         videoIds.add(id); allIds.add(id)
       }
     }
-    pending.push({ seed, offerTypes, tmdbFilm, videoIds: [...videoIds] })
+    const searchedVideoIds=[...videoIds]
+    // A previously user-observed exact video may be missing from search.list
+    // even when videos.list can still resolve it. Fetch and match it through
+    // the same read-only film/cut gates, never as independently verified offer.
+    const priorDeviceId=priorDeviceIds.get(seed.tmdbId)||null
+    if(priorDeviceId){videoIds.add(priorDeviceId);allIds.add(priorDeviceId)}
+    pending.push({seed,offerTypes,tmdbFilm,
+      videoIds:[...videoIds],searchedVideoIds,priorDeviceId})
   }
-  if (allIds.size > 500) throw new Error('VIDEO_RESULT_HARD_STOP')
+  if (allIds.size > 525) throw new Error('VIDEO_RESULT_HARD_STOP')
   const ids = [...allIds]
   for (let i = 0; i < ids.length; i += 50) {
     const details = await yt('videos', {
@@ -112,10 +127,32 @@ export async function runTmdbFirstLinkPilot({
       if (validVideoId(item.id)) sourceVideos.set(item.id, item)
     }
   }
-  const rows = pending.map(({ seed, offerTypes, tmdbFilm, videoIds }) =>
-    evaluateTmdbFirstYoutubeLinks(seed, tmdbFilm, offerTypes,
-      videoIds.map(id => sourceVideos.get(id)).filter(Boolean), { observedAt }))
-  const summary = summarizeTmdbFirstPilot(rows, selection, counters)
+  const rows = pending.map(({seed,offerTypes,tmdbFilm,videoIds,
+    searchedVideoIds,priorDeviceId})=>{
+    const row=evaluateTmdbFirstYoutubeLinks(seed,tmdbFilm,offerTypes,
+      videoIds.map(id=>sourceVideos.get(id)).filter(Boolean),{observedAt})
+    if(!priorDeviceId)return {...row,priorDeviceCandidate:null}
+    return {...row,priorDeviceCandidate:{
+      videoId:priorDeviceId,
+      evidenceKind:TMDB_FIRST_PRIOR_DEVICE_CANDIDATE_KIND,
+      returnedByCurrentSearch:searchedVideoIds.includes(priorDeviceId),
+      currentVideoMetadataAvailable:sourceVideos.has(priorDeviceId),
+      inTop10RankedCandidates:row.videoCandidates.some(x=>x.videoId===priorDeviceId),
+      offerOrPlaybackIndependentlyVerified:false,
+      publicationPermitted:false,
+    }}
+  })
+  const summary={
+    ...summarizeTmdbFirstPilot(rows, selection, counters),
+    priorDeviceCandidatesResearched:rows.filter(r=>r.priorDeviceCandidate).length,
+    priorDeviceCandidatesMissingFromSearch:rows.filter(r=>r.priorDeviceCandidate
+      && !r.priorDeviceCandidate.returnedByCurrentSearch).length,
+    priorDeviceCandidatesResolvedViaVideoDetails:rows.filter(r=>r.priorDeviceCandidate
+      && r.priorDeviceCandidate.currentVideoMetadataAvailable).length,
+    priorDeviceCandidatesInTop10:rows.filter(r=>r.priorDeviceCandidate
+      && r.priorDeviceCandidate.inTop10RankedCandidates).length,
+    priorDeviceCandidatesApprovedAsOffers:0,
+  }
   if (summary.processedMovies !== selection.selected.length || summary.publicationPermitted !== false) {
     throw new Error('TMDB_FIRST_AUDIT_INTEGRITY_FAILED')
   }
@@ -130,6 +167,11 @@ export function pilotMarkdown({ summary, rows }) {
     '- Selected/processed: ' + summary.selectedMovies + '/' + summary.processedMovies,
     '- YouTube search: ' + summary.calls.youtubeSearches + '/' + TMDB_FIRST_MAX_SEARCHES,
     '- YouTube video batch lookup: ' + summary.calls.youtubeVideoLookups + '/' + MAX_VIDEO_GETS,
+    '- Known prior-device candidate check: ' + summary.priorDeviceCandidatesResearched
+      + ' reviewed; ' + summary.priorDeviceCandidatesMissingFromSearch
+      + ' were missing from current search.list; '
+      + summary.priorDeviceCandidatesResolvedViaVideoDetails
+      + ' resolved via official videos.list. NO direct link or DE offer approved.',
     '- TMDB GET: ' + summary.calls.tmdbGetRequests + '/' + MAX_TMDB_GETS,
     '- **Verified direct routes: 0 – all video IDs are hypotheses only.**',
     '- **No new movie titles, series or provider badges imported.**',
@@ -177,6 +219,9 @@ async function main() {
     mode: result.summary.mode, processed: result.summary.processedMovies,
     statusCounts: result.summary.statusCounts, calls: result.summary.calls,
     verifiedDirectLinks: 0, productionWrites: 0,
+    priorDeviceCandidatesResearched:result.summary.priorDeviceCandidatesResearched,
+    priorDeviceCandidatesMissingFromSearch:result.summary.priorDeviceCandidatesMissingFromSearch,
+    priorDeviceCandidatesResolvedViaVideoDetails:result.summary.priorDeviceCandidatesResolvedViaVideoDetails,
   }) + '\n')
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
