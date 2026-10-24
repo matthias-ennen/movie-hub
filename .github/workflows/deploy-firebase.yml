@@ -481,6 +481,15 @@ jobs:
         if: ${{ steps.youtube_new_film_catalog.outcome == 'success' }}
         run: node scripts/youtube-g2-actionable-review-queue-live.mjs
 
+      # Separate historical TMDB YouTube badges from direct links found in
+      # the two curated Playlists. Read-only; preserve the working deployment
+      # if this first additional QA probe cannot reach the public index.
+      - name: Measure bidirectional YouTube inventory and exact-link coverage (private)
+        id: youtube_bidirectional_coverage
+        if: ${{ steps.youtube_review_queue.outcome == 'success' && steps.candidate_inventory.outcome == 'success' }}
+        continue-on-error: true
+        run: node scripts/youtube-g2-bidirectional-coverage-live.mjs
+
       - name: Build
         id: app_build
         run: npm run build
@@ -631,6 +640,8 @@ jobs:
             artifacts/youtube-g2/canonical-new-film-metadata-review/report.md
             artifacts/youtube-g2/actionable-review-queue/qa.json
             artifacts/youtube-g2/actionable-review-queue/report.md
+            artifacts/youtube-g2/bidirectional-coverage/qa.json
+            artifacts/youtube-g2/bidirectional-coverage/report.md
             artifacts/joyn-pilot/*.json
             artifacts/joyn-adapter/*.json
             artifacts/joyn-sync/status.json
