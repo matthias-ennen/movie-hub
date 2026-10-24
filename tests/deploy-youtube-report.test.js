@@ -171,6 +171,11 @@ describe('data-flow ordered deploy report: YouTube source, verification, publish
       expect(y.source.stock).toBe('Quellenbestand nicht verfügbar')
       expect(y.source.status).not.toBe('✅ erfolgreich')
     }
+    const missingSource=summarizeYoutubeDeployment({
+      status:null,routes,sourceStep:'success',routeStep:'success',reportedAt:at,
+    })
+    expect(missingSource.routes.status).toBe('⚠️ Quellenabgleich nicht bestätigt')
+    expect(missingSource.tmdbFirst.stock).toBe('TMDB-first-Verifikationsstand nicht verfügbar')
     const absent=summary(null,null,'failure','skipped')
     expect(absent.rows.find(r=>r.area==='YouTube · 2 Playlists').status).toContain('fehlgeschlagen')
     expect(absent.rows.find(r=>r.area==='YouTube · Direktlink-Freigabe').stock)
