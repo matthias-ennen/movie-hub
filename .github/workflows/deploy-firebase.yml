@@ -490,6 +490,14 @@ jobs:
         continue-on-error: true
         run: node scripts/youtube-g2-bidirectional-coverage-live.mjs
 
+      # Historical real-pilot and playlist regression anchors, review only.
+      # This has no YouTube search quota and cannot approve a direct route.
+      - name: Compare playlist matcher against historical golden safety anchors (private)
+        id: youtube_golden_quality
+        if: ${{ steps.youtube_review_queue.outcome == 'success' }}
+        continue-on-error: true
+        run: node scripts/youtube-g2-quality-golden-live.mjs
+
       - name: Build
         id: app_build
         run: npm run build
@@ -642,6 +650,8 @@ jobs:
             artifacts/youtube-g2/actionable-review-queue/report.md
             artifacts/youtube-g2/bidirectional-coverage/qa.json
             artifacts/youtube-g2/bidirectional-coverage/report.md
+            artifacts/youtube-g2/quality-golden/qa.json
+            artifacts/youtube-g2/quality-golden/report.md
             artifacts/joyn-pilot/*.json
             artifacts/joyn-adapter/*.json
             artifacts/joyn-sync/status.json
