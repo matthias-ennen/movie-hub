@@ -1,0 +1,103 @@
+name: YouTube G2 – original 25-film Golden review (offline, private)
+
+on:
+  workflow_dispatch:
+  # Exactly one explicitly marked, reviewed main merge. Normal deploys do
+  # not read historical private QA or run a parallel YouTube adapter.
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-tmdb-first-offline-review.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: youtube-g2-offline-archived-25-review
+  cancel-in-progress: false
+
+jobs:
+  offline-original-golden-review:
+    name: Rebuild 25-film Golden reviewer from immutable completed private QA
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' &&
+        contains(github.event.head_commit.message, '[youtube-offline-review-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: '40086393094'
+      SOURCE_ARTIFACT: youtube-g2-tmdb-first-links-40086393094
+      SOURCE_COMMIT: 6c1d1070ed39691256e8e8c9b5cd08fdbbf1425c
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Validate archived reviewer and all no-write regression tests
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-tmdb-first-archived-review.mjs
+          npx vitest run tests/youtube-g2-tmdb-first-archived-review.test.js tests/youtube-g2-tmdb-first-review-pack.test.js tests/youtube-g2-tmdb-first-historical-editions.test.js tests/youtube-g2-quality-golden.test.js
+      - name: Authenticate archived source identity before download
+        run: |
+          source_state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq '[.head_sha,.conclusion,.status] | join("|")')"
+          if [ "$source_state" != "$SOURCE_COMMIT|success|completed" ]; then
+            echo "::error::Unexpected historical Actions source; offline review stopped"
+            exit 1
+          fi
+          artifact_state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/artifacts" --jq '.artifacts[] | select(.name == "youtube-g2-tmdb-first-links-40086393094") | [.expired,.workflow_run.id] | join("|")')"
+          if [ "$artifact_state" != "false|$SOURCE_RUN" ]; then
+            echo "::error::Trusted historical private artifact missing or expired"
+            exit 1
+          fi
+          echo "Verified historical read-only QA run #$SOURCE_RUN (no YouTube API calls)"
+      - name: Download ONLY previously verified original 25-film private evidence
+        run: |
+          mkdir -p artifacts/youtube-g2/tmdb-first-link-pilot
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            -n "$SOURCE_ARTIFACT" -D artifacts/youtube-g2/tmdb-first-link-pilot
+          test -s artifacts/youtube-g2/tmdb-first-link-pilot/qa.json
+      - name: Rebuild private complete edition, film and source-collision review
+        run: node scripts/youtube-g2-tmdb-first-archived-review.mjs
+      - name: Report historical-only aggregate counters without private video IDs
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const x=JSON.parse(readFileSync(
+            'artifacts/youtube-g2/tmdb-first-archived-review/summary.json','utf8'))
+          if(x.sourceRun!==40086393094||x.historicalCohort!==25
+            ||x.currentYoutubeSearchCalls!==0||x.publishedDirectRoutes!==0
+            ||x.approvedGermanOffers!==0||x.firestoreWrites!==0){
+            throw Error('ARCHIVE_SUMMARY_OUTPUT_INVALID')
+          }
+          const lines=[
+            '### MovieHub original 25 TMDB-first films – offline replay',
+            '',
+            '- Source: successful **historical** API run #'+x.sourceRun+'; NOT a fresh live run',
+            '- Actually researched in source run: **'+x.actuallyResearchedInHistoricalRun+'/25**',
+            '- Archived candidates: **'+x.rawCandidateCount+'** ('+x.distinctVideoIds+' unique video IDs)',
+            '- Strong cross-work candidate collisions: '+x.strongCrossWorkVideoIdConflicts,
+            '- Review lanes: '+JSON.stringify(x.statusCounts),
+            '- Edition/source classes: '+JSON.stringify(x.editionClasses),
+            '- New YouTube API requests: **0**',
+            '- Automatically approved German offers / direct routes: **0 / 0**',
+            '- Full candidate IDs and edition reviews: private artifact only',
+            '',
+          ]
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n'))
+          NODE
+      - name: Upload PRIVATE historical review (7 days, no deployments)
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-offline-original-25-${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/tmdb-first-archived-review/summary.json
+            artifacts/youtube-g2/tmdb-first-archived-review/review-queue.json
+            artifacts/youtube-g2/tmdb-first-archived-review/golden-compare.json
+            artifacts/youtube-g2/tmdb-first-archived-review/review-queue.md
+          if-no-files-found: error
+          retention-days: 7
