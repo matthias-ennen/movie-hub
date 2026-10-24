@@ -85,10 +85,10 @@ jobs:
             '| Verified DE offers / published direct routes | **0 / 0** |',
             '',
             'All candidate IDs stay in protected QA; no profile, badge, Firestore or catalog writes.',
-            'Review-class counts: \\u0060'+JSON.stringify(summary.reviewStatuses)+'\\u0060.',
+            'Review-class counts: `'+JSON.stringify(summary.reviewStatuses)+'`.',
             '',
           ]
-          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\\n')+'\\n')
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n')
           console.log(JSON.stringify(summary))
           NODE
       - name: Upload protected review only – no publicly exposed direct routes
