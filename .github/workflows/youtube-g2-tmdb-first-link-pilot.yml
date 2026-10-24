@@ -71,8 +71,17 @@ jobs:
             ||review.badgeWrites!==0
             ||review.items?.length!==rows.length
             ||review.sourceSelectedFilms!==rows.length
+            ||rows.some(row=>row.publicationPermitted!==false
+              ||row.directPlaybackRoute!==null||row.reviewedVideoId!==null)
+            ||review.items.some(item=>{
+              const original=rows.find(row=>row.tmdbId===item.tmdbId)
+              return !original||item.publicationPermitted!==false
+                ||item.playbackRoute!==null
+                ||item.candidateVideos?.length!==original.videoCandidates?.length
+            })
             ||(process.env.YOUTUBE_G2_TMDB_FIRST_GOLDEN_REPLAY==='1'
-              && rows.length!==25)) {
+              && (rows.length!==25
+                ||qa.summary?.historicalCohortMovies!==25))) {
             throw Error('PRIVATE_REVIEW_OUTPUT_INTEGRITY_GATE_FAILED')
           }
           console.log(JSON.stringify({
