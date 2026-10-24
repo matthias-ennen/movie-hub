@@ -17,8 +17,8 @@ describe('G2: search/tv suggestions are evidence, not automatically material wor
       ],
     })
     expect(r.rawTvIds).toEqual([111,222,333])
-    expect(r.unrelatedTvIds).toEqual([111])
-    expect(r.alternativeTvIds).toEqual([222,333])
+    expect(r.unrelatedTvIds).toEqual([111,333])
+    expect(r.alternativeTvIds).toEqual([222])
     expect(r.candidates[0].disposition).toBe('clearly-unrelated-search-hit')
   })
   it('never dismisses TV work with an identical, overlapping or alternate original title',()=>{
@@ -31,6 +31,41 @@ describe('G2: search/tv suggestions are evidence, not automatically material wor
     })
     expect(r.alternativeTvIds).toEqual([1,2,3])
     expect(r.unrelatedTvIds).toHaveLength(0)
+  })
+  it('recognizes actual Street Kings versus unrelated Street Outlaws TV titles',()=>{
+    const r=reviewTvSearchAlternatives({
+      sourceTitle:'Street Kings',movie:film,
+      tvResults:[
+        tv(77543,'Street Outlaws: No Prep Kings','2018-01-01'),
+        tv(210688,'Street Outlaws: No Prep Kings: The Great Eight','2022-01-01'),
+        tv(136614,'Street Outlaws No Prep Kings Team Attack','2021-01-01'),
+      ],
+    })
+    expect(r.rawTvIds).toHaveLength(3)
+    expect(r.unrelatedTvIds).toEqual([77543,210688,136614])
+    expect(r.alternativeTvIds).toEqual([])
+    expect(r.candidates.every(x=>x.titleOverlap===true
+      &&x.wholeFilmTitleMatch===false)).toBe(true)
+  })
+  it('dismisses old TV search titles that only contain Basic as a generic word',()=>{
+    const r=reviewTvSearchAlternatives({sourceTitle:'Basic',
+      movie:{id:10782,title:'Basic',original_title:'Basic',
+        release_date:'2003-04-01'},
+      tvResults:[
+        tv(214087,'Universal Basic Guys','2024-01-01'),
+        tv(112153,'Basic Bitch','2020-01-01'),
+        tv(299378,'Basic Bitch Bærum','2026-01-01'),
+      ]})
+    expect(r.unrelatedTvIds).toHaveLength(3)
+    expect(r.alternativeTvIds).toEqual([])
+  })
+  it('retains a TV spin-off explicitly containing the entire multiword movie name',()=>{
+    const r=reviewTvSearchAlternatives({sourceTitle:'First Blood',
+      movie:{title:'First Blood',original_title:'First Blood',
+        release_date:'1982-10-01'},
+      tvResults:[tv(156930,'Bloody Bunny The First Blood','2015-01-01')]})
+    expect(r.alternativeTvIds).toEqual([156930])
+    expect(r.candidates[0].wholeFilmTitleMatch).toBe(true)
   })
   it('retains unknown title, year, movie year and ambiguous short movie titles',()=>{
     for(const hit of [
