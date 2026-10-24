@@ -53,7 +53,7 @@ describe('YouTube G2 – private TMDB-first bundled evidence review',()=>{
   it('preserves every bounded original candidate including alternatives after top three',()=>{
     const qa=fixture()
     const candidates=qa.rows[2].videoCandidates
-    for(const id of ['More123456','More234567','More345678']){
+    for(const id of ['More1234567','More2345678','More3456789']){
       candidates.push(video(id,false))
     }
     expect(candidates).toHaveLength(5)
@@ -61,7 +61,7 @@ describe('YouTube G2 – private TMDB-first bundled evidence review',()=>{
     const row=pack.items.find(x=>x.tmdbId===103)
     expect(row.candidateVideos.map(x=>x.videoId))
       .toEqual(candidates.map(x=>x.videoId))
-    expect(renderTmdbFirstReviewPack(pack)).toContain('More345678')
+    expect(renderTmdbFirstReviewPack(pack)).toContain('More3456789')
     expect(pack.approvedDirectLinks).toBe(0)
     expect(pack.publicationPermitted).toBe(false)
   })
