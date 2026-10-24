@@ -34,6 +34,39 @@ describe('YouTube G1 read-only smoke contracts', () => {
     }
   })
 
+  it('classifies known quota/rate failures but never leaks raw error metadata or API key', async () => {
+    const apiKey='SENSITIVE_KEY_MUST_NOT_APPEAR'
+    const privateMessage='SENSITIVE_RAW_ERROR_BODY_MUST_NOT_APPEAR'
+    const responseFor=(reason)=>async()=>({
+      ok:false,status:429,json:async()=>({error:{
+        status:'UNKNOWN',message:privateMessage,
+        errors:[{reason,message:privateMessage}],
+      }}),
+    })
+    for(const [reason,expected] of [
+      ['quotaExceeded','QUOTA_EXHAUSTED'],
+      ['dailyLimitExceeded','QUOTA_EXHAUSTED'],
+      ['rateLimitExceeded','RATE_LIMITED'],
+      ['userRateLimitExceeded','RATE_LIMITED'],
+      ['otherValue','RATE_LIMIT_OR_QUOTA_UNCLASSIFIED'],
+    ]){
+      try{
+        await youtubeGet('search',{q:'movie',part:'snippet'},apiKey,responseFor(reason))
+        throw Error('Expected the API request to fail')
+      }catch(error){
+        expect(error.message).toContain('HTTP 429')
+        expect(error.message).toContain(expected)
+        expect(error.message).not.toContain(apiKey)
+        expect(error.message).not.toContain(privateMessage)
+        expect(error.message).not.toContain(reason)
+      }
+    }
+    const invalidBody=async()=>({ok:false,status:429,
+      json:async()=>{throw Error(privateMessage)}})
+    await expect(youtubeGet('search',{q:'movie'},apiKey,invalidBody))
+      .rejects.toThrow('RATE_LIMIT_OR_QUOTA_UNCLASSIFIED')
+  })
+
   it('reports both publishers, without inferring legal full films or TMDB matches', async () => {
     const first = 'abcdefghijk'
     const second = 'zbcdefghijk'

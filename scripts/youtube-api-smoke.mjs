@@ -54,8 +54,35 @@ export async function youtubeGet(endpoint, params, key, fetchImpl = fetch) {
     throw new Error('YouTube API: Netzwerk- oder Zeitüberschreitungsfehler bei ' + endpoint)
   }
   if (!response.ok) {
-    // Intentionally do not log raw error body, request object, URL or key.
-    throw new Error('YouTube API: HTTP ' + response.status + ' bei ' + endpoint + '. API-Aktivierung, API-Key-Restriktion und Quota prüfen.')
+    // The Google API error body may contain request data and diagnostics.
+    // Parse ONLY known public error codes. Never log the body, messages,
+    // URL, request params or API key, and never retry a failed search.
+    let failureClass = response.status === 429
+      ? 'RATE_LIMIT_OR_QUOTA_UNCLASSIFIED' : 'API_REQUEST_REJECTED'
+    try {
+      const body = await response.json()
+      const codes = new Set([
+        body?.error?.status,body?.error?.reason,
+        ...(Array.isArray(body?.error?.errors)
+          ? body.error.errors.map(item => item?.reason) : []),
+      ])
+      if (codes.has('quotaExceeded') || codes.has('dailyLimitExceeded')) {
+        failureClass = 'QUOTA_EXHAUSTED'
+      } else if (codes.has('rateLimitExceeded')
+        || codes.has('userRateLimitExceeded')) {
+        failureClass = 'RATE_LIMITED'
+      } else if (codes.has('RESOURCE_EXHAUSTED')) {
+        failureClass = 'QUOTA_OR_RATE_LIMIT'
+      } else if (codes.has('API_KEY_INVALID') || codes.has('keyInvalid')) {
+        failureClass = 'API_KEY_INVALID'
+      } else if (codes.has('accessNotConfigured')) {
+        failureClass = 'API_NOT_ENABLED'
+      }
+    } catch {
+      // A malformed/HTML error response must not hide the HTTP status.
+    }
+    throw new Error('YouTube API: HTTP ' + response.status + ' bei ' + endpoint
+      + ' [' + failureClass + ']. API-Quota und Key-Restriktion prüfen; kein automatischer Retry.')
   }
   const data = await response.json()
   if (!data || !Array.isArray(data.items)) throw new Error('YouTube API: Antwort ohne items bei ' + endpoint)
