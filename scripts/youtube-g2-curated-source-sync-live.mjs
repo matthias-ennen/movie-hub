@@ -11,12 +11,16 @@ import {readFile, mkdir, writeFile} from 'node:fs/promises'
 import {pathToFileURL} from 'node:url'
 import {getSecret,youtubeGet} from './youtube-api-smoke.mjs'
 import {runCuratedYoutubeSourceSync} from './youtube-g2-curated-source-sync.mjs'
+import {buildYoutubeSourceEnvelope} from '../src/sources/adapters/youtubeContractMapper.js'
+import {collectVerifiedTmdbFirstYoutubeAvailabilities} from './youtube-g2-tmdb-first-approved-source.mjs'
 
 export const OUTPUT='artifacts/youtube-g2/curated-production-sync'
 export const APPROVAL_INPUT='artifacts/youtube-g2-independent-approvals.json'
 // A reviewed, versioned manifest is an optional durable source. Never ship a placeholder.
 export const REVIEWED_APPROVAL_INPUT='.github/youtube-g2/independent-approvals.json'
 export const VERIFIED_ENVELOPE_OUTPUT='artifacts/youtube-verified-source-envelope.json'
+// Optional separately reviewed TMDB-first approvals; no placeholder is shipped.
+export const TMDB_FIRST_APPROVAL_INPUT='.github/youtube-g2/tmdb-first-independent-approvals.json'
 export const PUBLIC_SUMMARY='public/youtube-curated-source-status.json'
 
 async function readApprovalFile(path){
@@ -35,10 +39,11 @@ export async function loadApprovals(input=APPROVAL_INPUT,reviewedInput=REVIEWED_
   return runtime.present?runtime.body:reviewed.body
 }
 export async function runProductionCuratedSync({
-  youtubeApi,approvals=undefined,
+  youtubeApi,approvals=undefined,tmdbFirstApprovals=undefined,
   now=()=>new Date().toISOString(),
   output=OUTPUT,approvalInput=APPROVAL_INPUT,
   reviewedApprovalInput=REVIEWED_APPROVAL_INPUT,
+  tmdbFirstApprovalInput=TMDB_FIRST_APPROVAL_INPUT,
   verifiedEnvelopeOutput=VERIFIED_ENVELOPE_OUTPUT,
   publicSummaryOutput=PUBLIC_SUMMARY,
 }={}){
@@ -48,10 +53,32 @@ export async function runProductionCuratedSync({
   const result=await runCuratedYoutubeSourceSync({
     youtubeApi,approvals:verifiedApprovals,now,
   })
+  const tmdbFirstBundle=tmdbFirstApprovals===undefined
+    ?(await readApprovalFile(tmdbFirstApprovalInput)).body:tmdbFirstApprovals
+  const tmdbFirst=await collectVerifiedTmdbFirstYoutubeAvailabilities({
+    youtubeApi,approvals:tmdbFirstBundle,now:result.audit.observedAt,
+  })
+  // Both adapter directions publish through ONE existing YouTube SourceEnvelope.
+  // No approved TMDB-first bundle means no extra API request or route.
+  const combinedEnvelope=tmdbFirst.verifiedAvailabilities.length
+    ?buildYoutubeSourceEnvelope([
+      ...result.sourceEnvelope.records,...tmdbFirst.verifiedAvailabilities,
+    ],{
+      generatedAt:result.sourceEnvelope.generatedAt,
+      fetchedAt:result.audit.observedAt,
+      sourceGenerationId:result.sourceEnvelope.sourceGenerationId,
+      sourceCoverage:{...result.sourceEnvelope.sourceCoverage,
+        tmdbFirstApprovedInputRows:tmdbFirst.approvedInputRows,
+        tmdbFirstCurrentVerifiedVideos:tmdbFirst.verifiedAvailabilities.length},
+    }):result.sourceEnvelope
   if(!result.audit.fullyScanned
     ||result.audit.calls.search!==0||result.audit.calls.tmdb!==0
     ||result.catalogWrites!==0||result.firestoreWrites!==0||result.tmdbBadgeWrites!==0
-    ||result.sourceEnvelope?.records?.length!==result.publishedVerifiedAvailabilities){
+    ||result.sourceEnvelope?.records?.length!==result.publishedVerifiedAvailabilities
+    ||combinedEnvelope.records.length!==(result.publishedVerifiedAvailabilities
+      +tmdbFirst.verifiedAvailabilities.length)
+    ||tmdbFirst.youtubeSearchCalls!==0||tmdbFirst.firestoreWrites!==0
+    ||tmdbFirst.badgeWrites!==0){
     throw Error('YOUTUBE_CURATED_PUBLISH_RECONCILIATION_FAILED')
   }
   const status={
@@ -63,7 +90,10 @@ export async function runProductionCuratedSync({
     inventoryVideoIds:result.inventoryVideoIds,
     videoDetailsResolved:result.audit.candidates.filter(c=>Boolean(c.videoTitle)).length,
     reviewOnlyCandidates:result.reviewOnlyCandidates,
-    approvedDEOfferRoutes:result.publishedVerifiedAvailabilities,
+    approvedDEOfferRoutes:combinedEnvelope.records.length,
+    tmdbFirstApprovedInputRows:tmdbFirst.approvedInputRows,
+    tmdbFirstVerifiedVideoRoutes:tmdbFirst.verifiedAvailabilities.length,
+    tmdbFirstBlockedVideoRoutes:tmdbFirst.blocked.length,
     playlistOverlapConflicts:result.audit.crossPlaylistConflicts,
     fullyScanned:true,
     providerBadgeAuthority:'tmdb-preserved',
@@ -74,14 +104,17 @@ export async function runProductionCuratedSync({
   await mkdir('artifacts',{recursive:true})
   await mkdir('public',{recursive:true})
   await writeFile(output+'/qa.json',JSON.stringify({
-    ...result,sourceEnvelope:undefined,
+    ...result,tmdbFirst:{...tmdbFirst,verifiedAvailabilities:undefined},
+    sourceEnvelope:undefined,
   },null,2)+'\n',{mode:0o600})
-  await writeFile(verifiedEnvelopeOutput,JSON.stringify(result.sourceEnvelope)+'\n',{mode:0o600})
+  await writeFile(verifiedEnvelopeOutput,JSON.stringify(combinedEnvelope)+'\n',{mode:0o600})
   await writeFile(publicSummaryOutput,JSON.stringify(status)+'\n','utf8')
   console.log(JSON.stringify({
     twoPlaylistsScanned:true,uniqueVideoIds:status.inventoryVideoIds,
     resolvedVideoDetails:status.videoDetailsResolved,
     verifiedDEOfferRoutes:status.approvedDEOfferRoutes,
+    tmdbFirstVerifiedVideoRoutes:status.tmdbFirstVerifiedVideoRoutes,
+    tmdbFirstVideoLookups:tmdbFirst.videoLookupCalls,
     searchLinkFallbackPreserved:true,
     youtubeSearchApiCalls:0,
     catalogWrites:0,firestoreWrites:0,badgeWrites:0,
