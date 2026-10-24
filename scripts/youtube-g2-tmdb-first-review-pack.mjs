@@ -67,10 +67,33 @@ export function buildTmdbFirstReviewPack(qa){
   const items=rows.map(row=>{
     const shared=row.videoCandidates.filter(c=>c.strong===true
       &&(byVideo.get(c.videoId)?.size??0)>1).map(c=>c.videoId)
+    const strong=row.videoCandidates.filter(c=>c.strong===true)
+    const youtubeMoviesLabelled=strong.filter(c=>
+      String(c.channelTitle??'').trim().toLowerCase()==='youtube movies')
+    const editionClass=row.status==='no-current-public-youtube-badge'
+      ?'historical-badge-gone'
+      :row.status==='no-current-tmdb-de-youtube-offer'
+        ?'current-de-offer-gone'
+        :strong.length>1
+          ?youtubeMoviesLabelled.length>1?'multiple-storefront-labelled-versions'
+            :youtubeMoviesLabelled.length===1?'storefront-labelled-vs-other-sources'
+              :'multiple-unconfirmed-editions'
+          :strong.length===1?'single-strong-candidate-offer-unverified'
+            :'no-strong-work-evidence'
     return {
       tmdbId:row.tmdbId,title:safeText(row.title),status:row.status,
       lane:shared.length?'cross-work-video-id-conflict':LABEL[row.status],
       priority:shared.length?0:PRIORITY[row.status],
+      editionReview:{
+        class:editionClass,
+        strongCandidateCount:strong.length,
+        youtubeMoviesLabelledStrongCount:youtubeMoviesLabelled.length,
+        sameVideoProposedForOtherFilmIds:shared,
+        distinctCutOrVersionRequiresReview:strong.length>1,
+        channelNameIsNotOfferProof:true,
+        exactVersionVerified:false,independentDEOfferVerified:false,
+        automaticallyApproved:false,
+      },
       currentTmdbOfferTypes:Array.isArray(row.tmdbDeOfferTypes)
         ?row.tmdbDeOfferTypes.filter(x=>['free','ads','flatrate','rent','buy'].includes(x)):[],
       candidateVideos:row.videoCandidates.map(c=>({
@@ -93,6 +116,11 @@ export function buildTmdbFirstReviewPack(qa){
     videoSearchCalls:summary.calls?.youtubeSearches??null,
     lanes:Object.fromEntries([...new Set(items.map(x=>x.lane))].sort()
       .map(lane=>[lane,items.filter(x=>x.lane===lane).length])),
+    editionClasses:Object.fromEntries([...new Set(items.map(x=>x.editionReview.class))].sort()
+      .map(kind=>[kind,items.filter(x=>x.editionReview.class===kind).length])),
+    crossWorkStrongVideoIdCollisions:[...byVideo].filter(([,ids])=>ids.size>1)
+      .map(([videoId,ids])=>({videoId,tmdbIds:[...ids].sort((a,b)=>a-b)}))
+      .sort((a,b)=>a.videoId.localeCompare(b.videoId)),
     items,verifiedDEOffers:0,approvedDirectLinks:0,publicationPermitted:false,
     catalogWrites:0,firestoreWrites:0,badgeWrites:0,
   }
@@ -109,10 +137,14 @@ export function renderTmdbFirstReviewPack(pack){
     '- Nur privates Reviewer-Artefakt: niemals in öffentlichen Katalog, Hosting oder Firestore übernehmen.',
     '- Für jede Kandidaten-ID: Film/Fassung, DE-Wiedergabe und echten Tarif samt Quellen-/Nutzungsrecht unabhängig prüfen.',
     '- Historisch entfallene TMDB-YouTube-Badges NICHT durch Suche wiederherstellen.',
+    '- Editions- und Quellenklassen: '+JSON.stringify(pack.editionClasses),
+    '- Starke filmübergreifende Video-ID-Konflikte: '+pack.crossWorkStrongVideoIdCollisions.length,
+    '- YouTube-Movies-Kanalname allein belegt weder Rechte noch DE-Angebot, Tarif oder Wiedergabe.',
     '',
-    '| TMDB Film | Prüfklasse | Konkrete Kandidaten zur Prüfung |',
-    '| --- | --- | --- |',
-    ...pack.items.map(r=>'| movie:'+r.tmdbId+' '+r.title+' | '+r.lane+' | '+
+    '| TMDB Film | Prüfklasse | Fassungs-/Quellprüfung | Konkrete Kandidaten zur Prüfung |',
+    '| --- | --- | --- | --- |',
+    ...pack.items.map(r=>'| movie:'+r.tmdbId+' '+r.title+' | '+r.lane+
+      ' | '+r.editionReview.class+' | '+
       (r.candidateVideos.map(c=>c.videoId+' ('+c.channel+')').join('; ')||'–')+' |'),
     '',
     '**Freigabestatus: AUSSTEHEND.** Diese Liste ist keine technische oder rechtliche Bestätigung.',
