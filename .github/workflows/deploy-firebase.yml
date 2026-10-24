@@ -613,6 +613,7 @@ jobs:
           SUMMARY_YOUTUBE_NEW_METADATA: ${{ steps.youtube_new_film_metadata.outcome }}
           SUMMARY_YOUTUBE_NEW_FILM_CATALOG: ${{ steps.youtube_new_film_catalog.outcome }}
           SUMMARY_YOUTUBE_REVIEW_QUEUE: ${{ steps.youtube_review_queue.outcome }}
+          SUMMARY_YOUTUBE_COVERAGE: ${{ steps.youtube_bidirectional_coverage.outcome }}
           SUMMARY_PRIORITY_PREVIEW: ${{ steps.priority_preview.outcome }}
           SUMMARY_BUILD: ${{ steps.app_build.outcome }}
           SUMMARY_AUTH: ${{ steps.gcp_auth.outcome }}

@@ -12,9 +12,28 @@ const source={
   playlistIds:['PL9hLFbkmRD8nBj_e8FfntoBporPAqqeSJ','PLJWJS8p_IeEo'],
   inventoryVideoIds:37,videoDetailsResolved:28,
   reviewOnlyCandidates:37,approvedDEOfferRoutes:0,
+  tmdbFirstApprovedInputRows:0,tmdbFirstVerifiedVideoRoutes:0,
+  tmdbFirstBlockedVideoRoutes:0,
   playlistOverlapConflicts:1,fullyScanned:true,
   providerBadgeAuthority:'tmdb-preserved',
   unmatchedTitleBehavior:'original-youtube-search-link',
+}
+const badgeCoverage={
+  kind:'moviehub-youtube-g2-bidirectional-coverage-baseline',
+  schemaVersion:1,generatedAt:at,privateArtifact:true,
+  publicationPermitted:false,status:'read-only-coverage-no-offer-or-match-approval',
+  catalogWrites:0,firestoreWrites:0,providerWrites:0,badgeWrites:0,nightlyWrites:0,
+  publicRecordsExported:0,
+  youtubeFirst:{sourceVideos:37,editorialDirectLinks:0,reviewOnlyVideos:37},
+  tmdbFirst:{
+    publicYoutubeBadgedMovies:3036,publicYoutubeBadgedSeries:4,
+    canonicalAndPublicMovieBadges:1046,publicSearchOnlyMovieBadges:1990,
+    movieBadgesWithCuratedPlaylistLinks:0,
+    movieBadgesWithIndependentlyVerifiedRoutes:0,
+    movieBadgesWithAnyExactRoute:0,movieBadgesStillUsingSearchFallback:3036,
+    seriesBadgesWithIndependentlyVerifiedRoutes:0,
+    seriesBadgesRequiringEpisodeOrSeriesReview:4,
+  },
 }
 const routes={
   kind:'moviehub-youtube-verified-title-routes',schemaVersion:1,
@@ -40,7 +59,7 @@ describe('data-flow ordered deploy report: YouTube source, verification, publish
     expect(rows.find(r=>r.area==='YouTube · 2 Playlists').activity)
       .toContain('9 ohne Videodetails · 1 redaktionelle Überschneidungen')
     expect(rows.find(r=>r.area==='YouTube · 2 Playlists').open)
-      .toContain('37 ohne unabhängig bestätigte DE-Angebotsroute')
+      .toContain('37 Playlist-Videos ohne unabhängig bestätigte DE-Angebotsroute')
     expect(rows.find(r=>r.area==='YouTube · 2 Playlists').open)
       .not.toContain('ungeprüfte IDs')
     expect(rows.find(r=>r.area==='YouTube · Direktlink-Freigabe')).toMatchObject({
@@ -61,13 +80,100 @@ describe('data-flow ordered deploy report: YouTube source, verification, publish
     expect(rows.find(r=>r.area==='YouTube → TMDB-Neutitel').stock)
       .toBe('Neutitel-Veröffentlichung nicht bestätigt')
     expect(position('Suchindex')).toBeLessThan(position('TV · 14-Tage-Vorschau'))
-    expect(position('Gemeinsame App-Daten')).toBeLessThan(position('YouTube · Direktlink-Freigabe'))
+    expect(position('Gemeinsame App-Daten')).toBeLessThan(position('YouTube · TMDB-first-Verifikation'))
+    expect(position('YouTube · TMDB-first-Verifikation')).toBeLessThan(position('YouTube · Direktlink-Freigabe'))
     expect(position('YouTube · Direktlink-Freigabe')).toBeLessThan(position('App-Build'))
     expect(position('App-Build')).toBeLessThan(position('Vorabprüfung'))
     expect(position('Vorabprüfung')).toBeLessThan(position('Firebase'))
     expect(workflowSummaryMarkdown(result)).toContain('YouTube-Playlist-Mitgliedschaft ist kein bestätigtes Filmwerk')
   })
 
+  it('reconciles independently approved TMDB-first routes outside the two playlist inventories',()=>{
+    const approved={...source,
+      tmdbFirstApprovedInputRows:2,tmdbFirstVerifiedVideoRoutes:1,
+      tmdbFirstBlockedVideoRoutes:1,approvedDEOfferRoutes:1,
+    }
+    const index={...routes,count:1,entries:[{
+      key:'movie:539892',verifiedVideoId:'Abc12345678',
+      target:'https://www.youtube.com/watch?v=Abc12345678',
+    }]}
+    const result=summarizeYoutubeDeployment({status:approved,routes:index,
+      sourceStep:'success',routeStep:'success',reportedAt:at})
+    expect(result.source.status).toBe('✅ erfolgreich')
+    expect(result.source.open).toContain('0 Playlist-Angebote bestätigt')
+    expect(result.tmdbFirst.status).toBe('✅ erfolgreich')
+    expect(result.tmdbFirst.stock).toContain('2 unabhängig geprüfte TMDB-first-Freigaben')
+    expect(result.tmdbFirst.stock).toContain('1 aktuell verifizierte Filmrouten')
+    expect(result.tmdbFirst.activity).toContain('1 nach aktuellem Video-/Quellenabgleich gesperrt')
+    expect(result.routes.status).toBe('✅ erfolgreich')
+    expect(result.routes.stock).toBe('1 verifizierte Filmrouten')
+    const workflow=summary(approved,index)
+    expect(workflow.rows.find(x=>x.area==='YouTube · TMDB-first-Verifikation').status)
+      .toBe('✅ erfolgreich')
+    const areas=workflow.rows.map(x=>x.area)
+    expect(areas.indexOf('YouTube · TMDB-first-Verifikation'))
+      .toBeLessThan(areas.indexOf('YouTube · Direktlink-Freigabe'))
+  })
+  it('reconciles mixed playlist + TMDB-first routes, rejecting impossible counts',()=>{
+    const input={...source,reviewOnlyCandidates:36,approvedDEOfferRoutes:2,
+      tmdbFirstApprovedInputRows:2,tmdbFirstVerifiedVideoRoutes:1,
+      tmdbFirstBlockedVideoRoutes:1}
+    const index={...routes,count:2,entries:[
+      {key:'movie:101',verifiedVideoId:'Abc12345678',
+        target:'https://www.youtube.com/watch?v=Abc12345678'},
+      {key:'movie:102',verifiedVideoId:'Zbc12345678',
+        target:'https://www.youtube.com/watch?v=Zbc12345678'},
+    ]}
+    const options={routes:index,sourceStep:'success',routeStep:'success',reportedAt:at}
+    expect(summarizeYoutubeDeployment({...options,status:input}).source.status)
+      .toBe('✅ erfolgreich')
+    expect(summarizeYoutubeDeployment({...options,status:input}).routes.status)
+      .toBe('✅ erfolgreich')
+    for(const sourceInvalid of [
+      {...input,tmdbFirstBlockedVideoRoutes:0},
+      {...input,tmdbFirstVerifiedVideoRoutes:3},
+      {...input,approvedDEOfferRoutes:1},
+      {...input,tmdbFirstApprovedInputRows:undefined},
+    ]){
+      const out=summarizeYoutubeDeployment({...options,status:sourceInvalid})
+      expect(out.source.status).not.toBe('✅ erfolgreich')
+      expect(out.tmdbFirst.stock).toBe('TMDB-first-Verifikationsstand nicht verfügbar')
+    }
+  })
+  it('reports verified current public TMDB badge coverage separately from offer approval',()=>{
+    const props={status:source,routes,coverage:badgeCoverage,
+      sourceStep:'success',routeStep:'success',coverageStep:'success',reportedAt:at}
+    const result=summarizeYoutubeDeployment(props)
+    expect(result.badges.status).toBe('✅ erfolgreich')
+    expect(result.badges.stock).toBe('3.036 öffentliche Filme · 4 Serien mit YouTube-Badge')
+    expect(result.badges.open).toContain('3.036 Filme weiterhin mit YouTube-Suchfallback')
+    expect(result.badges.open).toContain('1.990 Badge-Filme nur im Suchindex')
+    expect(result.badges.activity).toContain('0 mit unabhängig verifizierter DE-Route')
+    const flow=buildWorkflowSummary({
+      youtubeStatus:source,youtubeRoutes:routes,
+      youtubeBidirectionalCoverage:badgeCoverage,
+      steps:{youtubeSync:'success',youtubeRoutes:'success',youtubeCoverage:'success'},
+      run:{reportedAt:at},
+    })
+    const areas=flow.rows.map(x=>x.area)
+    expect(areas.indexOf('YouTube · TMDB-Badge-Abgleich'))
+      .toBeLessThan(areas.indexOf('YouTube · TMDB-first-Verifikation'))
+    expect(flow.rows.find(x=>x.area==='YouTube · TMDB-Badge-Abgleich').status)
+      .toBe('✅ erfolgreich')
+    expect(workflowSummaryMarkdown(flow)).toContain('3.036 öffentliche Filme')
+    for(const bad of [
+      {...badgeCoverage,generatedAt:'2026-10-20T01:00:00Z'},
+      {...badgeCoverage,tmdbFirst:{...badgeCoverage.tmdbFirst,
+        movieBadgesStillUsingSearchFallback:3035}},
+      {...badgeCoverage,youtubeFirst:{...badgeCoverage.youtubeFirst,sourceVideos:36}},
+    ]){
+      const notVerified=summarizeYoutubeDeployment({...props,coverage:bad})
+      expect(notVerified.badges.status).not.toBe('✅ erfolgreich')
+      expect(notVerified.badges.stock).toBe('Aktueller TMDB-YouTube-Badge-Bestand nicht nachgewiesen')
+    }
+    expect(summarizeYoutubeDeployment({...props,coverageStep:'skipped'}).badges.stock)
+      .toBe('Aktueller TMDB-YouTube-Badge-Bestand nicht nachgewiesen')
+  })
   it('summarizes the real private review split without leaking video IDs, and fails closed',()=>{
     const entry=(id,state)=>({videoId:id,publicationStatus:state})
     const queue={
@@ -116,6 +222,11 @@ describe('data-flow ordered deploy report: YouTube source, verification, publish
       expect(y.source.stock).toBe('Quellenbestand nicht verfügbar')
       expect(y.source.status).not.toBe('✅ erfolgreich')
     }
+    const missingSource=summarizeYoutubeDeployment({
+      status:null,routes,sourceStep:'success',routeStep:'success',reportedAt:at,
+    })
+    expect(missingSource.routes.status).toBe('⚠️ Quellenabgleich nicht bestätigt')
+    expect(missingSource.tmdbFirst.stock).toBe('TMDB-first-Verifikationsstand nicht verfügbar')
     const absent=summary(null,null,'failure','skipped')
     expect(absent.rows.find(r=>r.area==='YouTube · 2 Playlists').status).toContain('fehlgeschlagen')
     expect(absent.rows.find(r=>r.area==='YouTube · Direktlink-Freigabe').stock)
