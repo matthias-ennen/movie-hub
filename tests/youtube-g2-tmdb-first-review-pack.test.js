@@ -65,6 +65,50 @@ describe('YouTube G2 – private TMDB-first bundled evidence review',()=>{
     expect(pack.approvedDirectLinks).toBe(0)
     expect(pack.publicationPermitted).toBe(false)
   })
+  it('groups ambiguous editions in one private queue without publishing a route',()=>{
+    const qa=fixture()
+    qa.rows[2].videoCandidates[0].channelTitle='YouTube Movies'
+    qa.rows[2].videoCandidates[1].channelTitle='Another publisher'
+    const result=buildTmdbFirstReviewPack(qa)
+    const multi=result.items.find(x=>x.tmdbId===103)
+    expect(multi.editionReview.class).toBe('storefront-labelled-vs-other-sources')
+    expect(multi.editionReview.strongCandidateCount).toBe(2)
+    expect(multi.editionReview.youtubeMoviesLabelledStrongCount).toBe(1)
+    expect(multi.editionReview.distinctCutOrVersionRequiresReview).toBe(true)
+    expect(multi.editionReview.independentDEOfferVerified).toBe(false)
+    expect(multi.editionReview.automaticallyApproved).toBe(false)
+    expect(result.editionClasses['historical-badge-gone']).toBe(1)
+    expect(result.editionClasses['single-strong-candidate-offer-unverified']).toBe(1)
+    expect(renderTmdbFirstReviewPack(result)).toContain('storefront-labelled-vs-other-sources')
+    expect(result.approvedDirectLinks).toBe(0)
+  })
+  it('distinguishes two storefront-labelled copies from other source editions',()=>{
+    const qa=fixture()
+    for(const c of qa.rows[2].videoCandidates)c.channelTitle='YouTube Movies'
+    const both=buildTmdbFirstReviewPack(qa)
+    expect(both.items.find(x=>x.tmdbId===103).editionReview.class)
+      .toBe('multiple-storefront-labelled-versions')
+    qa.rows[2].videoCandidates.forEach(c=>{c.channelTitle='Independent creator'})
+    const other=buildTmdbFirstReviewPack(qa)
+    expect(other.items.find(x=>x.tmdbId===103).editionReview.class)
+      .toBe('multiple-unconfirmed-editions')
+    expect(other.verifiedDEOffers).toBe(0)
+    expect(other.publicationPermitted).toBe(false)
+  })
+  it('counts only strong cross-film video collisions, not weak reused search hits',()=>{
+    const qa=fixture()
+    let pack=buildTmdbFirstReviewPack(qa)
+    expect(pack.crossWorkStrongVideoIdCollisions).toEqual([])
+    qa.rows[3].videoCandidates[0].strong=true
+    pack=buildTmdbFirstReviewPack(qa)
+    expect(pack.crossWorkStrongVideoIdCollisions).toEqual([{
+      videoId:'Xyz12345678',tmdbIds:[103,104],
+    }])
+    expect(pack.items.filter(x=>x.editionReview.sameVideoProposedForOtherFilmIds
+      .includes('Xyz12345678'))).toHaveLength(2)
+    expect(pack.items.every(x=>x.independentOfferApproved===false
+      &&x.playbackRoute===null)).toBe(true)
+  })
   it('rejects forged grants, writes, duplicates and mismatched source totals',()=>{
     for(const mutate of [
       x=>x.summary.firestoreWrites=1,
