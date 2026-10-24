@@ -138,8 +138,17 @@ export function validateG2QualityGoldenManifest(){
 }
 export function compareTmdbFirstPilotToGolden(pilot){
   const historical=validateG2QualityGoldenManifest()
+  const badgeMissing=pilot?.summary?.historicalPublicBadgeMissingIds??[]
+  const goldenIds=new Set(TMDB_FIRST_GOLDEN.map(g=>g.tmdbId))
+  if(!Array.isArray(badgeMissing)
+    ||new Set(badgeMissing).size!==badgeMissing.length
+    ||badgeMissing.some(id=>!Number.isInteger(id)||!goldenIds.has(id)))
+    throw Error('YOUTUBE_G2_PILOT_BADGE_DRIFT_NOT_TRUSTED')
+  const absent=new Set(badgeMissing)
+  // The original 25-cohort is ALL accounted for; only films whose current
+  // PUBLIC TMDB/YouTube badge still exists were actually researched by API.
   if(pilot?.summary?.mode!==TMDB_FIRST_SOURCE_MODE
-    ||pilot.summary.processedMovies!==25
+    ||pilot.summary.processedMovies!==25-absent.size
     ||pilot.summary.publicationPermitted!==false
     ||pilot.summary.verifiedDirectLinks!==0
     ||pilot.summary.verifiedSeriesEpisodes!==0
@@ -158,6 +167,17 @@ export function compareTmdbFirstPilotToGolden(pilot){
       ||!Array.isArray(row.videoCandidates)
       ||row.videoCandidates.some(x=>!VIDEO.test(x.videoId)))
       throw Error('YOUTUBE_G2_PILOT_REVIEW_LINK_UNSAFE_OR_MISSING')
+    // A historical public badge can legitimately disappear between TMDB
+    // snapshots. Account for that film WITHOUT a new YouTube search,
+    // inventing a replacement offer, or declaring all 25 API-researched.
+    if(absent.has(g.tmdbId)
+      &&(row.status!=='no-current-public-youtube-badge'
+        ||row.videoCandidates.length!==0
+        ||row.tmdbDeOfferTypes?.length!==0
+        ||row.priorDeviceCandidate!==null))
+      throw Error('YOUTUBE_G2_PILOT_MISSING_BADGE_ROW_UNTRUSTED')
+    if(!absent.has(g.tmdbId)&&row.status==='no-current-public-youtube-badge')
+      throw Error('YOUTUBE_G2_PILOT_BADGE_STATUS_MISMATCH')
     const classMatches=row.status===pilotStatus[g.observedClass]
     const leadMatches=row.videoCandidates[0]?.videoId===g.leadVideoId
     if(classMatches)observedSameClass++
@@ -172,6 +192,9 @@ export function compareTmdbFirstPilotToGolden(pilot){
   return {
     sourceRun:TMDB_FIRST_PILOT_RUN,
     selected:25,historicalClassCounts:historical,
+    historicalPublicBadgesMissing:badgeMissing.length,
+    historicalPublicBadgeMissingIds:[...badgeMissing],
+    actualApiResearchedMovies:pilot.summary.processedMovies,
     observedSameClass,observedSameLeadVideoId,
     reviewDeltas,independentlyVerifiedDEOffers:0,
     directLinksAutoApproved:0,
