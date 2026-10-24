@@ -7,6 +7,7 @@ import {
 } from '../search/searchIndex.js'
 import { buildSearchCatalog, mergeYoutubeCuratedSearchTitles } from '../search/searchCatalog.js'
 import { YOUTUBE_NEW_FILMS_PUBLIC_URL } from '../catalog/youtubeCuratedNewFilms.js'
+import { YOUTUBE_SEARCH_TITLES_PUBLIC_URL } from '../catalog/youtubeCuratedSearchTitles.js'
 import { buildActorSearchIndex } from '../search/searchActors.js'
 import { mergeLiveAiringStatus } from '../search/searchLiveAiringStatus.js'
 import { enrichSearchPosterEntries } from '../search/searchPosterEvidence.js'
@@ -17,6 +18,7 @@ export default function SearchView({ metadataTitles, personalTitles, statesByKey
   const [query, setQuery] = useState('')
   const [remoteIndex, setRemoteIndex] = useState(null)
   const [curatedYoutubeFeed, setCuratedYoutubeFeed] = useState(null)
+  const [curatedYoutubeSearchTitleFeed, setCuratedYoutubeSearchTitleFeed] = useState(null)
   const [indexLoading, setIndexLoading] = useState(true)
   const [indexError, setIndexError] = useState(null)
   const { enabledProviderIds, isProviderEnabled } = useProviderSelection()
@@ -33,6 +35,13 @@ export default function SearchView({ metadataTitles, personalTitles, statesByKey
       .then((response) => response.ok ? response.json() : null)
       .then((feed) => { if (!cancelled) setCuratedYoutubeFeed(feed) })
       .catch(() => { if (!cancelled) setCuratedYoutubeFeed(null) })
+
+    // Durable search coverage: a previously new film must not vanish when
+    // a profile later syncs the same canonical movie from TMDB.
+    fetch(YOUTUBE_SEARCH_TITLES_PUBLIC_URL, { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((feed) => { if (!cancelled) setCuratedYoutubeSearchTitleFeed(feed) })
+      .catch(() => { if (!cancelled) setCuratedYoutubeSearchTitleFeed(null) })
 
     fetch('/search-index.json', { cache: 'no-store' })
       .then((response) => {
@@ -60,9 +69,10 @@ export default function SearchView({ metadataTitles, personalTitles, statesByKey
   const searchCatalog = useMemo(
     () => buildSearchCatalog({
       remoteIndex, metadataTitles, personalTitles, statesByKey, actorNames,
-      curatedYoutubeFeed,
+      curatedYoutubeFeed, curatedYoutubeSearchTitleFeed,
     }),
-    [remoteIndex, metadataTitles, personalTitles, statesByKey, actorNames, curatedYoutubeFeed],
+    [remoteIndex, metadataTitles, personalTitles, statesByKey, actorNames,
+      curatedYoutubeFeed, curatedYoutubeSearchTitleFeed],
   )
   const actorIndex = useMemo(
     () => buildActorSearchIndex(searchCatalog.entries, searchCatalog.actors),
@@ -73,9 +83,11 @@ export default function SearchView({ metadataTitles, personalTitles, statesByKey
     [searchCatalog, fullTitles],
   )
   const fullByKey = useMemo(
-    () => new Map(mergeYoutubeCuratedSearchTitles(fullTitles, curatedYoutubeFeed)
-      .map((title) => [getTitleStateKey(title), title])),
-    [fullTitles, curatedYoutubeFeed],
+    () => new Map(mergeYoutubeCuratedSearchTitles(
+      mergeYoutubeCuratedSearchTitles(fullTitles, curatedYoutubeFeed),
+      curatedYoutubeSearchTitleFeed,
+    ).map((title) => [getTitleStateKey(title), title])),
+    [fullTitles, curatedYoutubeFeed, curatedYoutubeSearchTitleFeed],
   )
   const searchResult = useMemo(
     () => searchIndex(entries, query, { enabledProviderIds, actorIndex }),

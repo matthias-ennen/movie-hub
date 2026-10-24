@@ -2,6 +2,9 @@ import {readFile,writeFile} from 'node:fs/promises'
 import {pathToFileURL} from 'node:url'
 import {WaipuTmdbMetadataClient} from './waipu-title-metadata.mjs'
 import {buildYoutubeNewFilmCatalogProjection} from './youtube-g2-publish-new-film-catalog.mjs'
+import {
+  buildYoutubeCuratedSearchTitleFeed,YOUTUBE_SEARCH_TITLES_OUTPUT,
+} from './youtube-g2-publish-search-title-companion.mjs'
 
 export const REVIEW='artifacts/youtube-g2/canonical-new-film-metadata-review/qa.json'
 export const RECON='artifacts/youtube-g2/full-catalog-reconciliation/qa.json'
@@ -11,7 +14,7 @@ export const OUTPUT='public/youtube-curated-new-films.json'
 
 export async function publishYoutubeCuratedNewFilmMetadata({
   reviewPath=REVIEW,reconciliationPath=RECON,intakePath=INTAKE,
-  editorialPath=HINTS,output=OUTPUT,
+  editorialPath=HINTS,output=OUTPUT,searchOutput=YOUTUBE_SEARCH_TITLES_OUTPUT,
   token=process.env.TMDB_API_READ_TOKEN,
   now=new Date().toISOString(),loadTitle=null,
 }={}){
@@ -23,9 +26,10 @@ export async function publishYoutubeCuratedNewFilmMetadata({
   const client=loadTitle?null:new WaipuTmdbMetadataClient({
     token,language:'de-DE',country:'DE',maxRequests:250,maxRetries:2,
   })
+  const readCanonical=loadTitle||((ref,at)=>client.loadTitle(ref,at))
   const canonicalTitles=[]
   for(const entry of metadataReview.items){
-    const movie=await (loadTitle||((ref,at)=>client.loadTitle(ref,at)))({
+    const movie=await readCanonical({
       type:'movie',tmdbId:entry.tmdbId,
     },now)
     canonicalTitles.push(movie)
@@ -34,19 +38,32 @@ export async function publishYoutubeCuratedNewFilmMetadata({
     metadataReview,reconciliation,intake,editorialIndex,
     canonicalTitles,now,
   })
-  // Prepare both files atomically enough for the single Firebase build:
-  // no title is published without an accompanying exact video hint.
+  // A film stops being "new" when its TMDB identity subsequently enters the
+  // user's canonical catalog. Keep it searchable by generating a SEPARATE
+  // public TMDB-only companion from ALL current editorial-linked film IDs.
+  // Never publish account-scoped membership or mark an offer verified.
+  const searchMovies=new Map(canonicalTitles.map(movie=>[Number(movie.tmdbId),movie]))
+  for(const hint of projected.editorialIndex.entries){
+    if(searchMovies.has(Number(hint.tmdbId)))continue
+    const movie=await readCanonical({type:'movie',tmdbId:Number(hint.tmdbId)},now)
+    searchMovies.set(Number(hint.tmdbId),movie)
+  }
+  const searchFeed=buildYoutubeCuratedSearchTitleFeed(
+    projected.editorialIndex,[...searchMovies.values()],{now})
+  // Prepare all three files within the same trusted Firebase build.
   await Promise.all([
     writeFile(output,JSON.stringify(projected.filmFeed)+'\n','utf8'),
     writeFile(editorialPath,JSON.stringify(projected.editorialIndex)+'\n','utf8'),
+    writeFile(searchOutput,JSON.stringify(searchFeed)+'\n','utf8'),
   ])
   console.log(JSON.stringify({
     ...projected.summary,tmdbApiRequests:client?.requestsStarted||0,
     publishedNewCanonicalMovieTitles:projected.filmFeed.count,
+    searchableEditorialPlaylistMovies:searchFeed.count,
     catalogOrFirestoreDatabaseWrites:0,
     verifiedDEOffers:0,
   }))
-  return projected
+  return {...projected,searchFeed}
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   publishYoutubeCuratedNewFilmMetadata().catch(e=>{
