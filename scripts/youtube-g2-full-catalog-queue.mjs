@@ -1,3 +1,5 @@
+import {createHash} from 'node:crypto'
+
 /**
  * Reconcile the EXISTING complete canonical title inventory with the published
  * YouTube badges, then schedule strictly bounded TMDB-first YouTube research.
@@ -13,7 +15,13 @@ export const YOUTUBE_FULL_CATALOG_PLAN = 'YOUTUBE_G2_CANONICAL_INVENTORY_AND_PUB
 export const YOUTUBE_RESEARCH_MAX_TITLES = 25
 export const YOUTUBE_RESEARCH_DEFAULT_TITLES = 15
 export const YOUTUBE_SEARCHES_PER_TITLE = 2
-export const YOUTUBE_SEARCH_QUOTA_UNITS = 100
+// Official YouTube Data API quota rules, updated 2026-10-15:
+ // https://developers.google.com/youtube/data/determine_quota_cost
+ // search.list has a dedicated default 100-CALL daily bucket, each call costs
+ // one unit in that bucket. Never treat this default as this project's measured
+ // remaining quota; all research also shares the key with other workflows.
+export const YOUTUBE_SEARCH_QUOTA_UNITS = 1
+export const YOUTUBE_SEARCH_DEFAULT_DAILY_CALL_LIMIT = 100
 export const YOUTUBE_RESEARCH_MAX_ESTIMATED_SEARCH_QUOTA = YOUTUBE_RESEARCH_MAX_TITLES
   * YOUTUBE_SEARCHES_PER_TITLE * YOUTUBE_SEARCH_QUOTA_UNITS
 const REQUIRED_SOURCES = Object.freeze(['browse', 'personal-tmdb', 'profile-state', 'movie-hub', 'waipu', 'joyn'])
@@ -65,7 +73,7 @@ function publicYoutubeOfferHints(entry) {
 export function createYoutubeFullCatalogResearchPlan({
   inventory, publicIndex,
   offset = 0, limit = YOUTUBE_RESEARCH_DEFAULT_TITLES,
-  now = new Date().toISOString(),
+  now = new Date().toISOString(),continuation = null,
 } = {}) {
   validate(inventory, publicIndex)
   const asOf = new Date(now).toISOString()
@@ -121,6 +129,41 @@ export function createYoutubeFullCatalogResearchPlan({
   // Prioritize the complete canonical inventory: these films are already
   // relevant to MovieHub's current browse/profile/shared-media/TV universe.
   const pending = [...catalogBadged,...publicOnly]
+  const queueIdentity = createHash('sha256').update(JSON.stringify(
+    pending.map(x=>x.key))).digest('hex')
+  // Never let a second manual run silently repeat offset 0 or jump ahead:
+  // a resumed run must be chained to a previous, completed, immutable
+  // private Actions QA. The caller verifies the GitHub artifact provenance.
+  if (continuation === null && offset !== 0)
+    throw Error('G2_RESEARCH_NONZERO_CURSOR_REQUIRES_PRIOR_QA')
+  if (continuation !== null) {
+    const previous = continuation
+    const p=previous?.plan
+    if (p?.mode!==YOUTUBE_FULL_CATALOG_PLAN
+      ||p.publicationPermitted!==false||p.verifiedDEOffers!==0
+      ||p.confirmedDirectLinks!==0
+      ||['catalogWrites','firestoreWrites','providerWrites','badgeWrites','nightlyWrites']
+        .some(field=>p[field]!==0)
+      ||!Array.isArray(p.plan)||p.plan.length!==p.batch?.selectedCount
+      ||!Number.isInteger(p.batch?.offset)
+      ||!Number.isInteger(p.batch?.selectedCount)
+      ||p.batch.selectedCount<1
+      ||p.batch.nextOffset===null
+      ||p.batch.nextOffset!==offset
+      ||p.batch.total!==pending.length
+      ||p.batch.queueIdentity!==queueIdentity
+      ||p.plan.some((x,i)=>x?.key!==pending[p.batch.offset+i]?.key
+        ||x?.confirmedVideoId!==null||x?.playbackRoute!==null
+        ||x?.publicationPermitted!==false)
+      ||previous?.pilot?.summary?.publicationPermitted!==false
+      ||previous.pilot.summary.verifiedDirectLinks!==0
+      ||previous.pilot.summary.processedMovies!==p.batch.selectedCount
+      ||previous.pilot.summary.calls?.youtubeSearches>
+          p.batch.youtubeSearchCallsPlanned
+      ||previous.pilot.summary.calls?.youtubeSearches<0){
+      throw Error('G2_RESEARCH_PRIOR_QA_OR_QUEUE_GENERATION_MISMATCH')
+    }
+  }
   if (offset > pending.length) throw new Error('G2_RESEARCH_CURSOR_PAST_END')
   const selected = pending.slice(offset,offset+limit)
   const nextOffset = offset+selected.length >= pending.length
@@ -150,10 +193,16 @@ export function createYoutubeFullCatalogResearchPlan({
     },
     batch:{
       offset,limit,selectedCount:selected.length,nextOffset,
+      queueIdentity,
+      continuationRequiredForNextBatch:nextOffset!==null,
+      defaultSearchDailyCallLimit:YOUTUBE_SEARCH_DEFAULT_DAILY_CALL_LIMIT,
+      defaultDailyCallLimitIsProjectActual:false,
       total:pending.length,
       fullyScanned:nextOffset===null,
       youtubeSearchCallsPlanned:selected.length*YOUTUBE_SEARCHES_PER_TITLE,
       estimatedYoutubeSearchQuotaUnits:potentialApiCost,
+      searchesRemainingAgainstUnsharedDefaultDailyLimit:
+        YOUTUBE_SEARCH_DEFAULT_DAILY_CALL_LIMIT-selected.length*YOUTUBE_SEARCHES_PER_TITLE,
       quotaUnitBudget:YOUTUBE_RESEARCH_MAX_ESTIMATED_SEARCH_QUOTA,
       youtubeVideoDetailCallsPlanned:0,
       realYoutubeApiRequestsPerformed:0,

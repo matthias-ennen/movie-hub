@@ -2,7 +2,9 @@ import { describe,it,expect } from 'vitest'
 import {
   createYoutubeFullCatalogResearchPlan,
   YOUTUBE_RESEARCH_MAX_ESTIMATED_SEARCH_QUOTA,
+  YOUTUBE_SEARCH_QUOTA_UNITS,YOUTUBE_SEARCH_DEFAULT_DAILY_CALL_LIMIT,
 } from '../scripts/youtube-g2-full-catalog-queue.mjs'
+import {parseResearchRunInput} from '../scripts/youtube-g2-full-catalog-queue-live.mjs'
 const now='2026-10-22T20:10:00.000Z'
 const kinds=['browse','personal-tmdb','profile-state','movie-hub','waipu','joyn']
 const candidates=[
@@ -25,6 +27,11 @@ const entry=(type,tmdbId,providerIds,offerTypes=[])=>({
   providerIds,
   providerOffers:offerTypes.length?[{id:'youtube',offerTypes}]:[],
 })
+const finished=(plan)=>({plan,pilot:{summary:{
+  publicationPermitted:false,verifiedDirectLinks:0,
+  processedMovies:plan.batch.selectedCount,
+  calls:{youtubeSearches:plan.batch.youtubeSearchCallsPlanned},
+}}})
 const idx=()=>({
   kind:'search-index',version:1,country:'DE',source:'published',
   generatedAt:'2026-10-22T18:02:00.000Z',
@@ -65,11 +72,12 @@ describe('G2 full canonical MovieHub inventory and YouTube badge research queue'
     const a=createYoutubeFullCatalogResearchPlan({inventory:inventory(),publicIndex:idx(),
       offset:0,limit:2,now})
     const b=createYoutubeFullCatalogResearchPlan({inventory:inventory(),publicIndex:idx(),
-      offset:a.batch.nextOffset,limit:2,now})
+      offset:a.batch.nextOffset,limit:2,now,continuation:finished(a)})
     expect(a.batch).toMatchObject({offset:0,selectedCount:2,nextOffset:2,
-      youtubeSearchCallsPlanned:4,estimatedYoutubeSearchQuotaUnits:400})
+      youtubeSearchCallsPlanned:4,estimatedYoutubeSearchQuotaUnits:4})
     expect(b.batch).toMatchObject({offset:2,selectedCount:1,nextOffset:null,
-      youtubeSearchCallsPlanned:2,estimatedYoutubeSearchQuotaUnits:200})
+      youtubeSearchCallsPlanned:2,estimatedYoutubeSearchQuotaUnits:2,
+      queueIdentity:a.batch.queueIdentity})
     expect([...a.plan,...b.plan].map(x=>x.tmdbId)).toEqual([10,20,80])
     expect(a.batch.estimatedYoutubeSearchQuotaUnits).toBeLessThanOrEqual(
       YOUTUBE_RESEARCH_MAX_ESTIMATED_SEARCH_QUOTA)
@@ -93,9 +101,73 @@ describe('G2 full canonical MovieHub inventory and YouTube badge research queue'
     })).toThrow('G2_YOUTUBE_RESEARCH_CURSOR_OR_BUDGET_INVALID')
     expect(()=>createYoutubeFullCatalogResearchPlan({
       inventory:inventory(),publicIndex:idx(),offset:12,limit:2,now,
-    })).toThrow('G2_RESEARCH_CURSOR_PAST_END')
+    })).toThrow('G2_RESEARCH_NONZERO_CURSOR_REQUIRES_PRIOR_QA')
     const p=createYoutubeFullCatalogResearchPlan({inventory:inventory(),publicIndex:idx(),now})
     expect(p.plan.some(x=>x.tmdbId===30)).toBe(false)
+  })
+  it('uses the 2026-10-15 official search.list daily-call bucket, not 100 units per search',()=>{
+    expect(YOUTUBE_SEARCH_QUOTA_UNITS).toBe(1)
+    expect(YOUTUBE_SEARCH_DEFAULT_DAILY_CALL_LIMIT).toBe(100)
+    expect(YOUTUBE_RESEARCH_MAX_ESTIMATED_SEARCH_QUOTA).toBe(50)
+    const p=createYoutubeFullCatalogResearchPlan({
+      inventory:inventory(),publicIndex:idx(),limit:2,now,
+    })
+    expect(p.batch).toMatchObject({
+      defaultSearchDailyCallLimit:100,defaultDailyCallLimitIsProjectActual:false,
+      youtubeSearchCallsPlanned:4,estimatedYoutubeSearchQuotaUnits:4,
+      searchesRemainingAgainstUnsharedDefaultDailyLimit:96,
+    })
+  })
+  it('blocks silent repetition, skipping and reshuffled badge queues before any API',()=>{
+    const first=createYoutubeFullCatalogResearchPlan({
+      inventory:inventory(),publicIndex:idx(),limit:2,now,
+    })
+    const opts={inventory:inventory(),publicIndex:idx(),
+      offset:first.batch.nextOffset,limit:2,now}
+    const previous=finished(first)
+    expect(()=>createYoutubeFullCatalogResearchPlan(opts))
+      .toThrow('G2_RESEARCH_NONZERO_CURSOR_REQUIRES_PRIOR_QA')
+    expect(()=>createYoutubeFullCatalogResearchPlan({...opts,
+      offset:1,continuation:previous}))
+      .toThrow('G2_RESEARCH_PRIOR_QA_OR_QUEUE_GENERATION_MISMATCH')
+    expect(()=>createYoutubeFullCatalogResearchPlan({...opts,
+      continuation:{...previous,pilot:{summary:{...previous.pilot.summary,
+        verifiedDirectLinks:1}}}}))
+      .toThrow('G2_RESEARCH_PRIOR_QA_OR_QUEUE_GENERATION_MISMATCH')
+    const replaced=idx();replaced.entries.push(entry('movie',75,['youtube']))
+    replaced.count++
+    expect(()=>createYoutubeFullCatalogResearchPlan({...opts,
+      publicIndex:replaced,continuation:previous}))
+      .toThrow('G2_RESEARCH_PRIOR_QA_OR_QUEUE_GENERATION_MISMATCH')
+    const altered=finished(first)
+    altered.plan.plan[0]={...altered.plan.plan[0],confirmedVideoId:'Abc12345678'}
+    expect(()=>createYoutubeFullCatalogResearchPlan({...opts,
+      continuation:altered}))
+      .toThrow('G2_RESEARCH_PRIOR_QA_OR_QUEUE_GENERATION_MISMATCH')
+  })
+  it('refuses implicit zero cursor, malformed prior run IDs and oversized batches',()=>{
+    const good={
+      YOUTUBE_G2_RESEARCH_OFFSET:'0',YOUTUBE_G2_RESEARCH_BATCH_SIZE:'10',
+      YOUTUBE_G2_RESEARCH_PREVIOUS_RUN:'',
+    }
+    expect(parseResearchRunInput(good)).toEqual({
+      offset:0,limit:10,previousRun:null,
+    })
+    expect(parseResearchRunInput({...good,
+      YOUTUBE_G2_RESEARCH_OFFSET:'2',
+      YOUTUBE_G2_RESEARCH_PREVIOUS_RUN:'40012345678'})).toEqual({
+        offset:2,limit:10,previousRun:'40012345678',
+      })
+    for(const bad of [
+      {...good,YOUTUBE_G2_RESEARCH_OFFSET:undefined},
+      {...good,YOUTUBE_G2_RESEARCH_OFFSET:'1'},
+      {...good,YOUTUBE_G2_RESEARCH_OFFSET:'01'},
+      {...good,YOUTUBE_G2_RESEARCH_OFFSET:'0',
+        YOUTUBE_G2_RESEARCH_PREVIOUS_RUN:'123'},
+      {...good,YOUTUBE_G2_RESEARCH_OFFSET:'2',
+        YOUTUBE_G2_RESEARCH_PREVIOUS_RUN:'../../bad'},
+      {...good,YOUTUBE_G2_RESEARCH_BATCH_SIZE:'26'},
+    ])expect(()=>parseResearchRunInput(bad)).toThrow()
   })
   it('treats published providerOffers youtube as exact YouTube but never as verified tariff',()=>{
     const data=idx()

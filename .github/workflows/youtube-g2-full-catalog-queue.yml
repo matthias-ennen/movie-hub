@@ -7,7 +7,10 @@ on:
         description: 'Next cursor in exact public YouTube movie badge inventory'
         type: string
         required: true
-        default: '0'
+      previous_run:
+        description: 'Successful previous batch Actions run ID (REQUIRED if offset > 0)'
+        type: string
+        required: false
       batch_size:
         description: 'YouTube research works (max 25; two search requests each)'
         type: string
@@ -15,6 +18,7 @@ on:
         default: '10'
 permissions:
   contents: read
+  actions: read
   id-token: write
 
 concurrency:
@@ -29,8 +33,10 @@ jobs:
     env:
       GOOGLE_CLOUD_PROJECT: movie-hub-62459
       TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
-      YOUTUBE_G2_RESEARCH_OFFSET: ${{ inputs.offset || '0' }}
+      YOUTUBE_G2_RESEARCH_OFFSET: ${{ inputs.offset }}
       YOUTUBE_G2_RESEARCH_BATCH_SIZE: ${{ inputs.batch_size || '10' }}
+      YOUTUBE_G2_RESEARCH_PREVIOUS_RUN: ${{ inputs.previous_run }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -53,6 +59,46 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v3
       - name: Build canonical title inventory via existing #256 Firestore/browse/TV pathway
         run: npm run title:candidates:inventory
+      - name: Validate explicit research cursor and previous successful private batch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$YOUTUBE_G2_RESEARCH_OFFSET" =~ ^(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::A manually chosen numeric cursor is required"
+            exit 1
+          fi
+          if [[ "$YOUTUBE_G2_RESEARCH_OFFSET" == "0" ]]; then
+            if [[ -n "$YOUTUBE_G2_RESEARCH_PREVIOUS_RUN" ]]; then
+              echo "::error::Offset zero must not carry an earlier research checkpoint"
+              exit 1
+            fi
+            echo "Explicit initial batch at offset 0"
+          else
+            if [[ ! "$YOUTUBE_G2_RESEARCH_PREVIOUS_RUN" =~ ^[1-9][0-9]*$ ]]; then
+              echo "::error::Nonzero offset requires a prior successful main Actions run"
+              exit 1
+            fi
+            source_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$YOUTUBE_G2_RESEARCH_PREVIOUS_RUN" --jq '[.conclusion,.status,.head_branch,.event,.path] | join("|")')"
+            IFS='|' read -r conclusion state branch event workflow_path <<< "$source_run"
+            if [[ "$conclusion" != "success" || "$state" != "completed"
+              || "$branch" != "main" || "$event" != "workflow_dispatch"
+              || "$workflow_path" != *".github/workflows/youtube-g2-full-catalog-queue.yml"* ]]; then
+              echo "::error::Research continuation source is not a completed trusted batch"
+              exit 1
+            fi
+            artifact_name="youtube-g2-full-catalog-research-$YOUTUBE_G2_RESEARCH_PREVIOUS_RUN"
+            artifact_state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$YOUTUBE_G2_RESEARCH_PREVIOUS_RUN/artifacts" --jq '.artifacts[] | select(.name | startswith("youtube-g2-full-catalog-research-")) | [.name,.expired] | join("|")')"
+            if [[ "$artifact_state" != "$artifact_name|false" ]]; then
+              echo "::error::Prior private research QA artifact is missing, expired or ambiguous"
+              exit 1
+            fi
+            mkdir -p artifacts/youtube-g2/prior-full-catalog
+            gh run download "$YOUTUBE_G2_RESEARCH_PREVIOUS_RUN" \
+              --repo "$GITHUB_REPOSITORY" -n "$artifact_name" \
+              -D artifacts/youtube-g2/prior-full-catalog
+            test -s artifacts/youtube-g2/prior-full-catalog/qa.json
+            echo "Trusted private research continuation downloaded"
+          fi
       - name: Select exact YouTube public badges from full inventory and research one capped batch
         run: node scripts/youtube-g2-full-catalog-queue-live.mjs
       - name: Save research QA for seven days – do not upload private Firestore inventory
