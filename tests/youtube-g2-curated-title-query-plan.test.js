@@ -19,6 +19,22 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
       curatedQueryReason:'explicit-german-movie-collection-label-with-year',
     })
   })
+  it('avoids the observed Rambo III false lead for the exact First Blood source title',()=>{
+    const q=planCuratedTmdbQueries('Rambo - First Blood')
+    expect(q).toMatchObject({
+      rawTitle:'Rambo - First Blood',matchingTitle:'First Blood',
+      queries:['First Blood'],
+      curatedQueryReason:'first-blood-franchise-work-disambiguation',
+    })
+    expect(q.verifiedTmdbId).toBeUndefined()
+    expect(q.playbackRoute).toBeUndefined()
+    // Never strip actual franchise sequels or vaguely related publisher labels.
+    for(const raw of ['Rambo: First Blood Part II','Rambo III',
+      'Rambo - First Blood - Trailer','First Blood']){
+      const other=planCuratedTmdbQueries(raw)
+      expect(other.curatedQueryReason).not.toBe('first-blood-franchise-work-disambiguation')
+    }
+  })
   it('does not strip genuine title words or rewrite ordinary titles', () => {
     for (const raw of ['The Amateur', 'Terrified', 'Heat in HD', 'Heat (1995)']) {
       const p=planCuratedTmdbQueries(raw)
