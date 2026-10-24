@@ -40,6 +40,7 @@ jobs:
         run: |
           npm ci
           node --check scripts/youtube-g2-tmdb-first-link-pilot.mjs
+          node --check scripts/youtube-g2-tmdb-first-review-pack.mjs
           node --check scripts/youtube-g2-tmdb-first-prior-device-candidates.mjs
           npx vitest run tests/youtube-g2-tmdb-first-link-pilot.test.js tests/youtube-g2-tmdb-first-prior-device-candidates.test.js tests/youtube-g2-quality-golden.test.js tests/youtube-g2-tmdb-first-golden-rerun.test.js tests/youtube-g2-tmdb-first-historical-badge-drift.test.js tests/youtube-g2-tmdb-first-review-pack.test.js
       - name: Authenticate via existing Google OIDC (Secret Manager read only)
@@ -54,6 +55,33 @@ jobs:
         run: node scripts/youtube-g2-tmdb-first-link-pilot.mjs
       - name: Build private complete TMDB-first film/edition review queue (no API calls)
         run: node scripts/youtube-g2-tmdb-first-review-pack.mjs
+      - name: Verify private research artifact consistency and deny automatic offers
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs'
+          const base='artifacts/youtube-g2/tmdb-first-link-pilot/'
+          const qa=JSON.parse(readFileSync(base+'qa.json','utf8'))
+          const review=JSON.parse(readFileSync(base+'review-queue.json','utf8'))
+          const rows=qa?.rows
+          if(!Array.isArray(rows)||rows.length===0
+            ||review?.kind!=='moviehub-youtube-g2-tmdb-first-manual-review-pack'
+            ||review.privateArtifact!==true||review.publicationPermitted!==false
+            ||review.approvedDirectLinks!==0||review.verifiedDEOffers!==0
+            ||review.firestoreWrites!==0||review.catalogWrites!==0
+            ||review.badgeWrites!==0
+            ||review.items?.length!==rows.length
+            ||review.sourceSelectedFilms!==rows.length
+            ||(process.env.YOUTUBE_G2_TMDB_FIRST_GOLDEN_REPLAY==='1'
+              && rows.length!==25)) {
+            throw Error('PRIVATE_REVIEW_OUTPUT_INTEGRITY_GATE_FAILED')
+          }
+          console.log(JSON.stringify({
+            privateReviewRows:rows.length,
+            independentlyApprovedOffers:0,
+            directRoutesPublished:0,
+            noWrites:true,
+          }))
+          NODE
       - name: Upload internal QA only (7 days; no app/catalog deployment)
         if: ${{ success() }}
         uses: actions/upload-artifact@v7
