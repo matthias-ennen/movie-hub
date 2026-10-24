@@ -8,6 +8,7 @@
 import { planCuratedTmdbQueries } from './youtube-g2-curated-title-query-plan.mjs'
 import { scoreCandidateV11, classifyVideoV11 } from './youtube-g2-matcher-v1-1.mjs'
 import { applyExplicitCastGuard } from './youtube-g2-curated-cast-evidence.mjs'
+import { reviewTvSearchAlternatives } from './youtube-g2-tv-alternative-evidence.mjs'
 
 export const CURATED_TMDB_MODE = 'CURATED_PLAYLIST_TMDB_PUBLIC_MEMBERSHIP_READ_ONLY'
 export const CURATED_TMDB_MAX_CASES = 200
@@ -132,7 +133,7 @@ export async function runCuratedTmdbMembership({
       continue
     }
     const movieIds = new Set()
-    const tvIds = []
+    const tvHits = []
     const details = []
     const tmdbFilms = []
     const errors = []
@@ -152,7 +153,7 @@ export async function runCuratedTmdbMembership({
       })
       for (const item of (answer?.results || []).slice(0, 3)) {
         const id = positiveId(item?.id)
-        if (id && !tvIds.includes(id)) tvIds.push(id)
+        if (id && !tvHits.some(x=>positiveId(x?.id)===id)) tvHits.push(item)
       }
       for (const id of [...movieIds].slice(0, 3)) {
         const movie = await get('/movie/' + id, {
@@ -171,10 +172,15 @@ export async function runCuratedTmdbMembership({
     }
     const cast = applyExplicitCastGuard(c.videoTitle, details, tmdbFilms)
     const originalTopId = [...details].sort((a,b) => b.score - a.score)[0]?.tmdbId || null
+    const firstFilmId=[...cast.scores].sort((a,b)=>b.score-a.score)[0]?.tmdbId
+    const topMovie=tmdbFilms.find(x=>Number(x.id)===firstFilmId)
+    const tvEvidence=reviewTvSearchAlternatives({
+      sourceTitle:prepared.matchingTitle,movie:topMovie,tvResults:tvHits,
+    })
     const verdict = classifyVideoV11({
       title: prepared.matchingTitle, minutes: Number(c.minutes),
       category: 'unknown', region: c.deRegionSignal || 'unknown',
-    }, cast.scores, tvIds, { incomplete: errors.length > 0,
+    }, cast.scores, tvEvidence.alternativeTvIds, { incomplete: errors.length > 0,
       asOfYear: Number(observedAt.slice(0,4)) })
     const topCandidates = verdict.topCandidates.map(v => ({
       tmdbId: v.tmdbId, score: v.score,
@@ -194,7 +200,8 @@ export async function runCuratedTmdbMembership({
       castChangedTopId: cast.evidence.affectsRanking === true
         && Number(originalTopId) !== Number(verdict.topCandidates[0]?.tmdbId),
       topCandidates,
-      alternativeTvIds: tvIds,
+      alternativeTvIds: tvEvidence.alternativeTvIds,
+      tvSearchEvidence: tvEvidence,
       // Membership is not verification. Absent in a PUBLIC search index
       // never implies that a personal/hidden MovieHub film is 'new'.
       publicIndexMembership: topId === null ? 'unknown'
@@ -220,6 +227,9 @@ export async function runCuratedTmdbMembership({
       alternateWorkFormRisks: rows.filter(x => x.identityRisk !== null).length,
       actorEvidenceCases: rows.filter(x => x.castEvidence?.affectsRanking === true).length,
       curatedQueryCorrections: rows.filter(x => x.curatedQueryReason).length,
+      rawTvSearchHits:rows.reduce((n,x)=>n+(x.tvSearchEvidence?.rawTvIds.length||0),0),
+      excludedUnrelatedTvSearchHits:rows.reduce((n,x)=>
+        n+(x.tvSearchEvidence?.unrelatedTvIds.length||0),0),
       castChangedTopIds: rows.filter(x => x.castChangedTopId).length,
       publicIndexMembership: membership,
       tmdbCalls, verifiedFilms: 0, verifiedDEOffers: 0, newMovieImports: 0,
