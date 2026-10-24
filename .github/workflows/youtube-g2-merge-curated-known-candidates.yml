@@ -83,7 +83,20 @@ jobs:
           service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
       - name: Merge curated film/video IDs into private durable checkpoint and verify
         run: |
-          node scripts/youtube-g2-durable-candidate-checkpoint.mjs merge-editorial
+          node scripts/youtube-g2-durable-candidate-checkpoint.mjs merge-editorial | tee /tmp/youtube-g2-editorial-merge-result.jsonl
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs'
+          const result=JSON.parse(readFileSync(
+            '/tmp/youtube-g2-editorial-merge-result.jsonl','utf8').trim().split('\\n').at(-1))
+          if(result.mode!=='merge-editorial'
+            ||result.candidateSourceRun!==Number(process.env.SOURCE_RUN)
+            ||result.movies!==56||result.addedMovies!==0
+            ||result.addedCandidateIds!==0
+            ||result.approvedOffers!==0||result.playbackRoutesWritten!==0
+            ||result.firestoreWrites!==0)
+            throw Error('EDITORIAL_CANDIDATE_SOURCE_PROVENANCE_NOT_REPAIRED')
+          console.log('Confirmed global editorial candidates attributed to authenticated source run '+result.candidateSourceRun)
+          NODE
           node scripts/youtube-g2-durable-candidate-checkpoint.mjs read
           node --input-type=module <<'NODE'
           import {readFileSync} from 'node:fs'
