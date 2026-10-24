@@ -56,6 +56,19 @@ jobs:
           npm -v
           test "$(npm -v)" = "11.21.1"
 
+      - name: Stage patched email dependency lock for GHSA-27r3-jxmh-p828
+        run: |
+          npm install body-parser@2.4.0 --prefix email-functions --save-exact --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Save patched email manifest for permanent audited upgrade
+        uses: actions/upload-artifact@v7
+        with:
+          name: patched-email-parser-manifest-${{ github.run_id }}
+          path: |
+            email-functions/package.json
+            email-functions/package-lock.json
+          retention-days: 2
+
       - name: Prepare isolated email source (no send or deployment)
         run: |
           node scripts/prepare-email-function.mjs
