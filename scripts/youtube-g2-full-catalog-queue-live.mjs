@@ -18,6 +18,10 @@ import {
 export const OUTPUT = 'artifacts/youtube-g2/full-catalog-queue'
 export const INVENTORY = 'artifacts/title-candidate-inventory.json'
 export const DEFAULT_SAFE_BATCH = 10
+// Google returned HTTP 429 RATE_LIMITED when sequential searches were
+// burst-fired in a live 10-film batch. Limit this specific live runner to
+// at most 3 Google searches/minute; no automatic retry upon HTTP 429.
+export const FULL_CATALOG_SEARCH_INTERVAL_MS = 20000
 export const PRIOR_QA='artifacts/youtube-g2/prior-full-catalog/qa.json'
 export const KNOWN_ARCHIVE_QA='artifacts/youtube-g2/trusted-known-candidates/candidates.json'
 export function parseResearchRunInput(env=process.env){
@@ -113,15 +117,24 @@ async function main(){
   })
   if(plan.batch.selectedCount===0)throw Error('FULL_CATALOG_EMPTY_RESEARCH_BATCH')
   const key=getSecret()
+  let successfulGoogleSearches=0
   const pilot=await runTmdbFirstLinkPilot({
     publicIndex:index,seedRefs:plan.plan.map(p=>({mediaType:'movie',tmdbId:p.tmdbId})),
     limit:plan.batch.selectedCount,
     tmdbGet:(p,q)=>tmdbRead(p,q,token),
-    youtubeApi:(p,q)=>youtubeGet(p,q,key),
+    youtubeApi:async(p,q)=>{
+      const response=await youtubeGet(p,q,key)
+      // Only aggregate counters, NEVER titles, raw result IDs, API key or
+      // credentialled URLs. Allows diagnosis of exactly where 429 appeared.
+      if(p==='search')console.log('YOUTUBE_SEARCH_COMPLETED '+(++successfulGoogleSearches))
+      return response
+    },
     knownVideoCandidatesByTmdbId,
+    minimumSearchIntervalMs:FULL_CATALOG_SEARCH_INTERVAL_MS,
   })
   if(pilot.summary.processedMovies!==plan.batch.selectedCount
     || pilot.summary.calls.youtubeSearches>plan.batch.youtubeSearchCallsPlanned
+    || pilot.summary.calls.youtubeSearches!==successfulGoogleSearches
     // Planning counts all archived-badged candidates, but a DE YouTube
     // offer may have disappeared. Those films are correctly skipped before
     // their archived video IDs need refreshing; do not invent a reuse.
@@ -154,6 +167,7 @@ async function main(){
     reusedKnownVideoIds:plan.batch.knownCandidateReusedVideoIds,
     searchRequestsAvoided:plan.batch.youtubeSearchCallsAvoided,
     youtubeSearches:pilot.summary.calls.youtubeSearches,
+    searchSpacingMs:FULL_CATALOG_SEARCH_INTERVAL_MS,
     verifiedDirectLinks:0,productionWrites:0,
   }))
 }
