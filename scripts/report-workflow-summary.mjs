@@ -189,7 +189,7 @@ const REPORT_ROWS = [
   'Quellen-Merge-Test', 'YouTube · 2 Playlists', 'YouTube · vollständiger Playlist-Intake', 'Bestandsmigration',
   'Kanonische Titelkandidaten', 'Prioritätsvorschau', 'Kanonischer Executor',
   'YouTube → TMDB-Neutitel', 'YouTube · offene Playlist-Prüfliste', 'Suchindex', 'Suchdetails', 'Serienstaffeln', 'TV · 14-Tage-Vorschau',
-  'Gemeinsame App-Daten', 'YouTube · Direktlink-Freigabe',
+  'Gemeinsame App-Daten', 'YouTube · TMDB-first-Verifikation', 'YouTube · Direktlink-Freigabe',
   'App-Build', 'Vorabprüfung', 'Firebase',
 ]
 function workflowRowRank(area) {
@@ -513,6 +513,7 @@ export function buildWorkflowSummary({
       youtubeReviewSummary({queue: youtubeReviewQueue, intake: youtubeCompleteIntake,
         hints: youtubeCuratedHints, films: youtubeNewFilms,
         step: steps.youtubeReviewQueue, reportedAt: run.reportedAt || new Date().toISOString()}),
+      youtube.tmdbFirst,
       youtube.routes,
       {
         area: 'Bestandsmigration',
