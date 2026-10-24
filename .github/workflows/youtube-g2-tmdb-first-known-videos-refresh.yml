@@ -1,0 +1,78 @@
+name: YouTube G2 – known TMDB-first video ID freshness (no search)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-tmdb-first-known-videos-refresh.yml
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-known-videos-no-search-review
+  cancel-in-progress: false
+
+jobs:
+  known-videos-only:
+    name: Recheck archived exact videos.list metadata without YouTube search
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' &&
+        contains(github.event.head_commit.message, '[youtube-known-videos-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+      SOURCE_RUN: '40086393094'
+      SOURCE_COMMIT: 6c1d1070ed39691256e8e8c9b5cd08fdbbf1425c
+      SOURCE_ARTIFACT: youtube-g2-tmdb-first-links-40086393094
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Fail-closed code checks BEFORE any YouTube/Google calls
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-tmdb-first-known-videos-refresh.mjs
+          npx vitest run tests/youtube-g2-tmdb-first-known-videos-refresh.test.js tests/youtube-g2-tmdb-first-archived-review.test.js tests/youtube-g2-tmdb-first-review-pack.test.js tests/youtube-g2-quality-golden.test.js
+      - name: Authenticate immutable earlier private 25-film source
+        run: |
+          source_state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq '[.head_sha,.conclusion,.status] | join("|")')"
+          if [ "$source_state" != "$SOURCE_COMMIT|success|completed" ]; then
+            echo "::error::Archived exact-video source provenance failed"
+            exit 1
+          fi
+          artifact_state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/artifacts" --jq '.artifacts[] | select(.name == "youtube-g2-tmdb-first-links-40086393094") | [.expired,.workflow_run.id] | join("|")')"
+          if [ "$artifact_state" != "false|$SOURCE_RUN" ]; then
+            echo "::error::Trusted 25-film raw private QA artifact missing or expired"
+            exit 1
+          fi
+          mkdir -p artifacts/youtube-g2/tmdb-first-link-pilot
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            -n "$SOURCE_ARTIFACT" -D artifacts/youtube-g2/tmdb-first-link-pilot
+          test -s artifacts/youtube-g2/tmdb-first-link-pilot/qa.json
+      - name: Authenticate with existing Google OIDC account for read-only key
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Check only existing exact YouTube video IDs and TMDB DE offers
+        run: node scripts/youtube-g2-tmdb-first-known-videos-refresh.mjs
+      - name: Upload PRIVATE video freshness and updated matcher QA (7 days only)
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-known-videos-current-${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/tmdb-first-current-known-video-review/qa.json
+            artifacts/youtube-g2/tmdb-first-current-known-video-review/report.md
+          if-no-files-found: error
+          retention-days: 7
