@@ -39,6 +39,10 @@ describe('data-flow ordered deploy report: YouTube source, verification, publish
     })
     expect(rows.find(r=>r.area==='YouTube · 2 Playlists').activity)
       .toContain('9 ohne Videodetails · 1 redaktionelle Überschneidungen')
+    expect(rows.find(r=>r.area==='YouTube · 2 Playlists').open)
+      .toContain('37 ohne unabhängig bestätigte DE-Angebotsroute')
+    expect(rows.find(r=>r.area==='YouTube · 2 Playlists').open)
+      .not.toContain('ungeprüfte IDs')
     expect(rows.find(r=>r.area==='YouTube · Direktlink-Freigabe')).toMatchObject({
       status:'✅ erfolgreich',stock:'0 verifizierte Filmrouten',
     })
@@ -63,6 +67,48 @@ describe('data-flow ordered deploy report: YouTube source, verification, publish
     expect(position('Vorabprüfung')).toBeLessThan(position('Firebase'))
     expect(workflowSummaryMarkdown(result)).toContain('YouTube-Playlist-Mitgliedschaft ist kein bestätigtes Filmwerk')
   })
+
+  it('summarizes the real private review split without leaking video IDs, and fails closed',()=>{
+    const entry=(id,state)=>({videoId:id,publicationStatus:state})
+    const queue={
+      kind:'moviehub-youtube-g2-actionable-review-queue',schemaVersion:1,
+      privateArtifact:true,publicationPermitted:false,generatedAt:at,
+      sourceVideoIds:3,accountedForVideos:3,missingVideos:0,
+      publishedPlaylistLinks:1,pendingReview:2,newCanonicalMovies:1,
+      independentVerifiedDEOffers:0,newUnverifiedDatabaseWrites:0,
+      declaredClasses:{FREE:2,'R&B':1},
+      lanes:{'ambiguous-work-identity':1,'missing-video-metadata':1},
+      items:[entry('AAAAAAAAAA1','playlist-link-published'),
+        entry('AAAAAAAAAA2','review-only'),entry('AAAAAAAAAA3','review-only')],
+      prioritizedReview:[entry('AAAAAAAAAA2','review-only'),
+        entry('AAAAAAAAAA3','review-only')],
+    }
+    const options={
+      youtubeReviewQueue:queue,
+      youtubeCompleteIntake:{uniqueVideoIds:3,processedVideoIds:3,
+        unaccountedForVideoIds:0,playlistClasses:{FREE:2,'R&B':1}},
+      youtubeCuratedHints:{sourceVideoIds:3,count:1},
+      youtubeNewFilms:{sourceVideoIds:3,count:1},
+      steps:{youtubeReviewQueue:'success'},
+      run:{reportedAt:'2026-10-23T08:20:00.000Z'},
+    }
+    const find=props=>buildWorkflowSummary(props).rows
+      .find(x=>x.area==='YouTube · offene Playlist-Prüfliste')
+    const good=find(options)
+    expect(good.status).toBe('✅ erfolgreich')
+    expect(good.stock).toContain('3/3 Video-IDs erfasst · 2 zur Filmprüfung')
+    expect(good.activity).toContain('1 redaktionelle Direktlinks · 1 neue TMDB-Filme')
+    expect(good.open).toContain('1 mehrdeutige Werke')
+    expect(JSON.stringify(good)).not.toContain('AAAAAAAAAA2')
+    const bad=find({...options,youtubeReviewQueue:{...queue,pendingReview:1}})
+    expect(bad.status).toContain('kein gültiger')
+    expect(bad.stock).toContain('nicht nachgewiesen')
+    const stale=find({...options,run:{reportedAt:'2026-10-26T12:00:00.000Z'}})
+    expect(stale.status).toContain('kein gültiger')
+    const absent=find({...options,youtubeReviewQueue:null})
+    expect(absent.stock).toContain('nicht nachgewiesen')
+  })
+
   it('does not claim 0 live offers on a missing, failed or stale source report',()=>{
     for(const [input,step] of [[null,'success'],[source,'failure'],
       [{...source,generatedAt:'2026-10-20T01:00:00Z'},'success']]){
