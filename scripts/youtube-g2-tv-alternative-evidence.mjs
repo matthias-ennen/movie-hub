@@ -3,8 +3,8 @@
  *
  * TMDB /search/tv is a fuzzy discovery endpoint, NOT an identity proof.
  * Discard a TV result as clearly unrelated search noise only when BOTH
- * localized/original TV names are present, neither shares a substantive word
- * with the searched/canonical film titles, AND its explicit first-air year
+ * localized/original TV names are present, neither contains the complete
+ * searched/canonical film title, AND its explicit first-air year
  * differs from the canonical movie's release year by at least ten years.
  *
  * Any unknown, matching, translated-but-unproven, or contemporary hit stays a
@@ -28,6 +28,20 @@ const tokens=value=>{
     .filter(x=>x.length>=4&&!ignore.has(x))
 }
 const anyCommon=(known,candidate)=>candidate.some(word=>known.has(word))
+const matchesFullFilmName=(movieAliases,tvWords)=>
+  movieAliases.some(alias=>{
+    if(alias.length===0||tvWords.length===0)return false
+    // One-word movies (Heat, Basic): only the WHOLE TV title counts.
+    // For multi-word movies, permit an intact film-name phrase inside a
+    // qualified spin-off title, but not disconnected vocabulary overlap
+    // such as 'Street Outlaws: No Prep Kings' for 'Street Kings'.
+    if(alias.length===1)return tvWords.length===1&&tvWords[0]===alias[0]
+    for(let start=0;start<=tvWords.length-alias.length;start++){
+      if(alias.every((word,index)=>tvWords[start+index]===word))return true
+    }
+    return false
+  })
+
 
 export function reviewTvSearchAlternatives({sourceTitle,movie,tvResults=[]}={}){
   if(!Array.isArray(tvResults))throw Error('YOUTUBE_TV_EVIDENCE_RESULTS_INVALID')
@@ -37,7 +51,8 @@ export function reviewTvSearchAlternatives({sourceTitle,movie,tvResults=[]}={}){
     ...(Array.isArray(movie?.alternative_titles?.titles)
       ?movie.alternative_titles.titles.map(x=>x?.title).slice(0,40):[]),
   ]
-  const filmWords=new Set(filmAliases.flatMap(tokens))
+  const aliasSequences=filmAliases.map(tokens).filter(x=>x.length>0)
+  const filmWords=new Set(aliasSequences.flat())
   const candidates=[]
   const ids=new Set()
   for(const result of tvResults){
@@ -49,15 +64,17 @@ export function reviewTvSearchAlternatives({sourceTitle,movie,tvResults=[]}={}){
     const firstAirYear=year(result?.first_air_date)
     const tvWords=tokens(name).concat(tokens(originalName))
     const titleOverlap=anyCommon(filmWords,tvWords)
+    const wholeFilmTitleMatch=[tokens(name),tokens(originalName)]
+      .some(words=>matchesFullFilmName(aliasSequences,words))
     const yearGap=movieYear!==null&&firstAirYear!==null
       ?Math.abs(movieYear-firstAirYear):null
     const clearlyUnrelated=Boolean(
       name&&originalName&&movieYear!==null&&firstAirYear!==null
-      &&filmWords.size>0&&tvWords.length>0&&!titleOverlap
+      &&filmWords.size>0&&tvWords.length>0&&!wholeFilmTitleMatch
       &&yearGap>=10)
     candidates.push({
       tmdbTvId:id,name,originalName,firstAirYear,
-      yearGap,titleOverlap,disposition:clearlyUnrelated
+      yearGap,titleOverlap,wholeFilmTitleMatch,disposition:clearlyUnrelated
         ?'clearly-unrelated-search-hit':'retained-for-film-tv-review',
     })
     if(candidates.length===3)break
