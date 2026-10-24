@@ -152,7 +152,11 @@ jobs:
           fi
       - name: Restore persistent private candidate checkpoint for existing film IDs
         run: node scripts/youtube-g2-durable-candidate-checkpoint.mjs read
-      - name: Select exact YouTube public badges from full inventory and research one capped batch
+      # The official API returned HTTP 429 [RATE_LIMITED] during the earlier
+      # burst-mode batch #40112987726, even though the preceding exact one-call
+      # probe was successful. This updated first batch uses >=20 sec between
+      # consecutive search.list requests and has no retries on 429.
+      - name: Process up to 10 canonical YouTube-badged films with 20-second search pacing
         run: node scripts/youtube-g2-full-catalog-queue-live.mjs
       # The checkpoint contains film/video hypotheses ONLY. This never writes
       # Firestore, published badges, provider availability or playback routes.
@@ -176,6 +180,7 @@ jobs:
             '',
             '- Films actually researched: '+s.processedMovies,
             '- New search.list requests used: '+s.calls.youtubeSearches,
+            '- Minimum interval between sequential search.list calls: 20 seconds; automatic retries: 0',
             '- Reused global film candidates: '+(s.knownCandidateReuseMovies||0),
             '- Search requests avoided: '+(s.avoidedYoutubeSearchCalls||0),
             '- Current official videos.list batches: '+s.calls.youtubeVideoLookups,
