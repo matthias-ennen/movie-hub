@@ -122,9 +122,13 @@ async function main(){
   })
   if(pilot.summary.processedMovies!==plan.batch.selectedCount
     || pilot.summary.calls.youtubeSearches>plan.batch.youtubeSearchCallsPlanned
-    || pilot.summary.knownCandidateReuseMovies!==plan.batch.knownCandidateReuseMovies
-    || pilot.summary.knownCandidateReusedVideoIds!==plan.batch.knownCandidateReusedVideoIds
-    || pilot.summary.avoidedYoutubeSearchCalls!==plan.batch.youtubeSearchCallsAvoided
+    // Planning counts all archived-badged candidates, but a DE YouTube
+    // offer may have disappeared. Those films are correctly skipped before
+    // their archived video IDs need refreshing; do not invent a reuse.
+    || pilot.summary.knownCandidateReuseMovies>plan.batch.knownCandidateReuseMovies
+    || pilot.summary.knownCandidateReusedVideoIds>plan.batch.knownCandidateReusedVideoIds
+    || pilot.summary.avoidedYoutubeSearchCalls>plan.batch.youtubeSearchCallsAvoided
+    || pilot.summary.avoidedYoutubeSearchCalls!==pilot.summary.knownCandidateReuseMovies*2
     || pilot.summary.publicationPermitted!==false
     || pilot.summary.verifiedDirectLinks!==0
     || pilot.summary.catalogWrites!==0||pilot.summary.firestoreWrites!==0
