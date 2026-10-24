@@ -46,6 +46,15 @@ describe('AP2 full-original-title aliases with optional leading The',()=>{
     expect(r.reviewedVideoId).toBeNull()
     expect(r.publicationPermitted).toBe(false)
   })
+  it('keeps subtitle-delimited publisher names in historical partial-work review',()=>{
+    const film=movie(11111,
+      'Special Unit AT 13 - Wettlauf mit dem Tod',
+      'The Red Phone: Manhunt',96,2001)
+    const scored=scoreCandidateV11(src('Red Phone - Manhunt (2001)',96),film)
+    expect(scored.titleLevel).toBe(2)
+    expect(scored.titleComparisonMode).not.toBe('cautious-omitted-leading-the')
+    expect(scored.confirmedDEAvailability).toBe(false)
+  })
   it('does not remove the article from one-word work names',()=>{
     const film=movie(1091,'Das Ding aus einer anderen Welt','The Thing',109,1982)
     const old=scoreCandidate(src('Thing',109),film)
