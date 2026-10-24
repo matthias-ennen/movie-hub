@@ -100,6 +100,79 @@ describe('G2: private lossless risk-prioritized review queue',()=>{
     expect(out.items[2].lane).toBe('new-release-content-check')
     expect(out.items[2].playlistClass).toBe('FREE')
   })
+
+  it('keeps two exact competing playlist videos under one explicit review lane, not an auto FREE/R&B assignment',()=>{
+    const x=fixture()
+    const a='RqLsh88GYKc',b='xJ2PbAb2zCw'
+    const ids=[a,b]
+    for(let k=0;k<2;k++){
+      const videoId=ids[k],playlistClass=k===0?'FREE':'R&B'
+      x.intake.items.push({
+        videoId,playlistClass,sourceTitle:'Knockin on Heaven’s Door',
+        channelTitle:'Synthetic test channel',sourceScreened:true,
+        regionSignal:k===0?'unknown':'allowed',durationMinutes:88.9,
+        suggestedFilmRef:{mediaType:'movie',tmdbId:158},
+        publicCatalogMembership:'public-present',
+        identityResearchStatus:'review-leading-film-hypothesis',
+      })
+      x.research.rows.push({
+        videoId,editorialOfferHint:k===0?'free':'rent-buy',
+        matchStatus:'review-leading-film-hypothesis',identityRisk:null,
+        errors:[],alternativeTvIds:[],
+        topCandidates:[
+          {tmdbId:158,score:44-k*4,titleLevel:4,runtimeDelta:2.9},
+          {tmdbId:483909,score:16,titleLevel:2,runtimeDelta:45},
+          {tmdbId:11299,score:7,titleLevel:2,runtimeDelta:26.1},
+        ],
+      })
+      x.reconciliation.entries.push({
+        videoId,playlistClass,suggestedFilmKey:'movie:158',
+        completeCatalogMembership:'canonical-existing',
+      })
+    }
+    x.intake.uniqueVideoIds=x.intake.processedVideoIds=6
+    x.research.summary.sourceVideoIds=x.research.summary.processedRows=6
+    x.reconciliation.totalVideoIds=x.reconciliation.processedVideoIds=6
+    x.hints.sourceVideoIds=x.filmFeed.sourceVideoIds=6
+    const out=buildYoutubeActionableReviewQueue({...x,now})
+    expect(out.pendingReview).toBe(4)
+    expect(out.publishedPlaylistLinks).toBe(2)
+    expect(out.lanes['competing-video-routes']).toBe(2)
+    for(const id of ids){
+      const row=out.prioritizedReview.find(v=>v.videoId===id)
+      expect(row).toMatchObject({lane:'competing-video-routes',
+        publicationStatus:'review-only',sourceVerifiedDEOffer:false,
+        priority:1})
+      expect(row.competingVideoIds).toEqual(ids.filter(v=>v!==id))
+    }
+    expect(renderYoutubeActionableReviewQueue(out))
+      .toContain('Competing video IDs')
+    // Inconsistent cuts must NOT be called the same, securely resolvable route pair.
+    x.intake.items.at(-1).durationMinutes=110
+    const risky=buildYoutubeActionableReviewQueue({...x,now})
+    expect(risky.lanes['competing-video-routes']).toBeUndefined()
+  })
+  it('distinguishes nine genuinely missing video details from a DE-blocked video and a short teaser',()=>{
+    const a=fixture()
+    const r=a.intake.items[3]
+    const rr=a.research.rows[3]
+    r.sourceTitle='Das Boot - The Director’s Cut'
+    r.regionSignal='excluded'
+    r.durationMinutes=208.2
+    expect(buildYoutubeActionableReviewQueue({...a,now}).items[3].lane)
+      .toBe('region-excluded')
+    r.sourceTitle='The Odyssey'
+    r.regionSignal='allowed'
+    r.durationMinutes=0.5
+    expect(buildYoutubeActionableReviewQueue({...a,now}).items[3].lane)
+      .toBe('short-video-not-full-film')
+    r.sourceTitle=null
+    r.durationMinutes=0
+    expect(buildYoutubeActionableReviewQueue({...a,now}).items[3].lane)
+      .toBe('missing-video-metadata')
+    expect(rr.matchStatus).toBe('review-no-eligible-video-details')
+  })
+
   it('rejects omitted, drifted, forged, duplicate and expired sources',()=>{
     const mutations=[
       x=>x.intake.processedVideoIds=3,
