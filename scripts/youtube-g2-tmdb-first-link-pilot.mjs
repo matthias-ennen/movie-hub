@@ -51,10 +51,19 @@ export async function runTmdbFirstLinkPilot({
   limit = TMDB_FIRST_MAX_TITLES, seedRefs = null, now = () => new Date().toISOString(),
   knownDeviceCandidates = TMDB_FIRST_KNOWN_DEVICE_CANDIDATES,
   knownVideoCandidatesByTmdbId = null,
+  // Default remains zero for historical pilots and offline/mocked tests.
+  // The live full-catalog runner opts into deliberate, serial spacing to
+  // respect the actual Google 429 RATE_LIMITED search bucket.
+  minimumSearchIntervalMs = 0,
+  waitBetweenSearches = ms=>new Promise(resolve=>setTimeout(resolve,ms)),
 } = {}) {
   if (typeof tmdbGet !== 'function' || typeof youtubeApi !== 'function') {
     throw new Error('READ_ONLY_API_CALLBACKS_REQUIRED')
   }
+  if(!Number.isInteger(minimumSearchIntervalMs)
+    ||minimumSearchIntervalMs<0||minimumSearchIntervalMs>60000
+    ||typeof waitBetweenSearches!=='function')
+    throw Error('YOUTUBE_SEARCH_SPACING_INVALID')
   // An archival map is a read-only search shortcut, not approval evidence.
   // Reject malformed inputs before TMDB and YouTube network operations.
   const knownMap=validateKnownCandidateMap(knownVideoCandidatesByTmdbId)
@@ -74,6 +83,11 @@ export async function runTmdbFirstLinkPilot({
   const yt = async (path, params) => {
     if (path === 'search') {
       if (++counters.youtubeSearches > TMDB_FIRST_MAX_SEARCHES) throw new Error('SEARCH_BUDGET_HARD_STOP')
+      // Sequential calls already await the preceding Google response.
+      // Before EVERY second and subsequent search request, add an explicit
+      // quiet interval. NEVER retry an HTTP 429; no hidden catch/replay.
+      if(counters.youtubeSearches>1&&minimumSearchIntervalMs>0)
+        await waitBetweenSearches(minimumSearchIntervalMs)
     } else if (path === 'videos') {
       if (++counters.youtubeVideoLookups > MAX_VIDEO_GETS) throw new Error('VIDEO_BUDGET_HARD_STOP')
     } else throw new Error('YOUTUBE_ENDPOINT_NOT_APPROVED')

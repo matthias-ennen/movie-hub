@@ -161,6 +161,31 @@ describe('YouTube G2 TMDB-FIRST – existing badge -> review-only direct link ca
     expect(ytApi.mock.calls.map(c => c[0])).toEqual(['search', 'search', 'videos'])
   })
 
+  it('paces every search after the first without retrying or changing matcher result', async()=>{
+    const wait=vi.fn(async()=>{})
+    const api=vi.fn(async (path)=>path==='search'
+      ?{items:[{id:{videoId:validVideo.id}}]}:{items:[validVideo]})
+    const r=await runTmdbFirstLinkPilot({
+      publicIndex,tmdbGet:tmdbApi,youtubeApi:api,
+      minimumSearchIntervalMs:20000,waitBetweenSearches:wait,
+      now:()=>now,
+    })
+    expect(r.summary.calls.youtubeSearches).toBe(2)
+    expect(wait).toHaveBeenCalledTimes(1)
+    expect(wait).toHaveBeenCalledWith(20000)
+    expect(api.mock.calls.map(c=>c[0])).toEqual(['search','search','videos'])
+    expect(r.summary.verifiedDirectLinks).toBe(0)
+    expect(r.rows[0].directPlaybackRoute).toBeNull()
+  })
+  it('fails closed on invalid pacing before any external requests',async()=>{
+    const api=vi.fn()
+    await expect(runTmdbFirstLinkPilot({
+      publicIndex,youtubeApi:api,tmdbGet:api,
+      minimumSearchIntervalMs:-1,now:()=>now,
+    })).rejects.toThrow('YOUTUBE_SEARCH_SPACING_INVALID')
+    expect(api).not.toHaveBeenCalled()
+  })
+
   it('stops stale indexes and missing current source provider before search', async () => {
     await expect(runTmdbFirstLinkPilot({
       publicIndex: { ...publicIndex, generatedAt: '2025-01-01T00:00:00Z' },
