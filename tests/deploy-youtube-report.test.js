@@ -18,6 +18,23 @@ const source={
   providerBadgeAuthority:'tmdb-preserved',
   unmatchedTitleBehavior:'original-youtube-search-link',
 }
+const badgeCoverage={
+  kind:'moviehub-youtube-g2-bidirectional-coverage-baseline',
+  schemaVersion:1,generatedAt:at,privateArtifact:true,
+  publicationPermitted:false,status:'read-only-coverage-no-offer-or-match-approval',
+  catalogWrites:0,firestoreWrites:0,providerWrites:0,badgeWrites:0,nightlyWrites:0,
+  publicRecordsExported:0,
+  youtubeFirst:{sourceVideos:37,editorialDirectLinks:0,reviewOnlyVideos:37},
+  tmdbFirst:{
+    publicYoutubeBadgedMovies:3036,publicYoutubeBadgedSeries:4,
+    canonicalAndPublicMovieBadges:1046,publicSearchOnlyMovieBadges:1990,
+    movieBadgesWithCuratedPlaylistLinks:0,
+    movieBadgesWithIndependentlyVerifiedRoutes:0,
+    movieBadgesWithAnyExactRoute:0,movieBadgesStillUsingSearchFallback:3036,
+    seriesBadgesWithIndependentlyVerifiedRoutes:0,
+    seriesBadgesRequiringEpisodeOrSeriesReview:4,
+  },
+}
 const routes={
   kind:'moviehub-youtube-verified-title-routes',schemaVersion:1,
   generatedAt:at,providerId:'youtube',count:0,entries:[],
@@ -122,6 +139,40 @@ describe('data-flow ordered deploy report: YouTube source, verification, publish
       expect(out.source.status).not.toBe('✅ erfolgreich')
       expect(out.tmdbFirst.stock).toBe('TMDB-first-Verifikationsstand nicht verfügbar')
     }
+  })
+  it('reports verified current public TMDB badge coverage separately from offer approval',()=>{
+    const props={status:source,routes,coverage:badgeCoverage,
+      sourceStep:'success',routeStep:'success',coverageStep:'success',reportedAt:at}
+    const result=summarizeYoutubeDeployment(props)
+    expect(result.badges.status).toBe('✅ erfolgreich')
+    expect(result.badges.stock).toBe('3.036 öffentliche Filme · 4 Serien mit YouTube-Badge')
+    expect(result.badges.open).toContain('3.036 Filme weiterhin mit YouTube-Suchfallback')
+    expect(result.badges.open).toContain('1.990 Badge-Filme nur im Suchindex')
+    expect(result.badges.activity).toContain('0 mit unabhängig verifizierter DE-Route')
+    const flow=buildWorkflowSummary({
+      youtubeStatus:source,youtubeRoutes:routes,
+      youtubeBidirectionalCoverage:badgeCoverage,
+      steps:{youtubeSync:'success',youtubeRoutes:'success',youtubeCoverage:'success'},
+      run:{reportedAt:at},
+    })
+    const areas=flow.rows.map(x=>x.area)
+    expect(areas.indexOf('YouTube · TMDB-Badge-Abgleich'))
+      .toBeLessThan(areas.indexOf('YouTube · TMDB-first-Verifikation'))
+    expect(flow.rows.find(x=>x.area==='YouTube · TMDB-Badge-Abgleich').status)
+      .toBe('✅ erfolgreich')
+    expect(workflowSummaryMarkdown(flow)).toContain('3.036 öffentliche Filme')
+    for(const bad of [
+      {...badgeCoverage,generatedAt:'2026-10-20T01:00:00Z'},
+      {...badgeCoverage,tmdbFirst:{...badgeCoverage.tmdbFirst,
+        movieBadgesStillUsingSearchFallback:3035}},
+      {...badgeCoverage,youtubeFirst:{...badgeCoverage.youtubeFirst,sourceVideos:36}},
+    ]){
+      const notVerified=summarizeYoutubeDeployment({...props,coverage:bad})
+      expect(notVerified.badges.status).not.toBe('✅ erfolgreich')
+      expect(notVerified.badges.stock).toBe('Aktueller TMDB-YouTube-Badge-Bestand nicht nachgewiesen')
+    }
+    expect(summarizeYoutubeDeployment({...props,coverageStep:'skipped'}).badges.stock)
+      .toBe('Aktueller TMDB-YouTube-Badge-Bestand nicht nachgewiesen')
   })
   it('summarizes the real private review split without leaking video IDs, and fails closed',()=>{
     const entry=(id,state)=>({videoId:id,publicationStatus:state})
