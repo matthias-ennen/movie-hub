@@ -68,6 +68,33 @@ describe('TMDB-first large edition/film-source conflict review, with no implicit
     })
     expect(r.reviews.every(x=>x.automaticWorkAssignmentPermitted===false)).toBe(true)
   })
+  it('flags known full-pilot cross-work reuse, not just strong-video overlaps',()=>{
+    // Actual original 25-film API observation: one title's search returns
+    // video IDs belonging to another film or a similarly titled film.
+    const cases=[
+      row(238,'review-single-video-candidate',[
+        candidate('xcCsnx-GRkA','YouTube Movies'),
+        candidate('AA37teyRCOE','An unrelated uploader',false,2),
+      ]),
+      row(240,'review-weak-or-unresolved-videos',[
+        candidate('xcCsnx-GRkA','YouTube Movies',false,2),
+        candidate('AA37teyRCOE','An unrelated uploader',false,2),
+      ]),
+      row(254320,'review-multiple-video-editions',[
+        candidate('BM7h32RI-Vc','YouTube Movies'),
+        candidate('Zpkekh50sHE','YouTube Movies'),
+      ]),
+      row(121986,'review-single-video-candidate',[
+        candidate('BM7h32RI-Vc','YouTube Movies'),
+      ]),
+    ]
+    const review=buildTmdbFirstEditionReview(cases)
+    expect(review.multiWorkVideoCollisions).toBe(3)
+    expect(review.collisions.map(x=>x.videoId).sort())
+      .toEqual(['AA37teyRCOE','BM7h32RI-Vc','xcCsnx-GRkA'].sort())
+    expect(review.collisions.every(x=>x.automaticApproval===false)).toBe(true)
+    expect(review.reviews.every(x=>x.automaticWorkAssignmentPermitted===false)).toBe(true)
+  })
   it('does not equate the channel label with an approved offer even with only one strong video',()=>{
     const r=buildTmdbFirstEditionReview([
       row(9479,'review-single-video-candidate',[
