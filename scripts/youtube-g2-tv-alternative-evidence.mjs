@@ -36,6 +36,11 @@ const matchesFullFilmName=(movieAliases,tvWords)=>
     // qualified spin-off title, but not disconnected vocabulary overlap
     // such as 'Street Outlaws: No Prep Kings' for 'Street Kings'.
     if(alias.length===1)return tvWords.length===1&&tvWords[0]===alias[0]
+    // The same *complete* title tokens may be reordered in translations;
+    // retain that as a genuine work-identity ambiguity. Extra unrelated
+    // tokens (Street Outlaws No Prep Kings) are not the same whole title.
+    if(alias.length===tvWords.length
+      &&[...alias].sort().join(' ')===[...tvWords].sort().join(' '))return true
     for(let start=0;start<=tvWords.length-alias.length;start++){
       if(alias.every((word,index)=>tvWords[start+index]===word))return true
     }
