@@ -73,7 +73,7 @@ export function buildTmdbFirstReviewPack(qa){
       priority:shared.length?0:PRIORITY[row.status],
       currentTmdbOfferTypes:Array.isArray(row.tmdbDeOfferTypes)
         ?row.tmdbDeOfferTypes.filter(x=>['free','ads','flatrate','rent','buy'].includes(x)):[],
-      candidateVideos:row.videoCandidates.slice(0,3).map(c=>({
+      candidateVideos:row.videoCandidates.map(c=>({
         videoId:c.videoId,watchUrl:'https://www.youtube.com/watch?v='+c.videoId,
         title:safeText(c.videoTitle),channel:safeText(c.channelTitle),
         durationMinutes:Number.isFinite(c.durationMinutes)?c.durationMinutes:null,

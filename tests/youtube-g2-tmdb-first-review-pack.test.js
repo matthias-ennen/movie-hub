@@ -50,6 +50,21 @@ describe('YouTube G2 – private TMDB-first bundled evidence review',()=>{
     expect(p.items.filter(x=>x.lane==='cross-work-video-id-conflict')
       .every(x=>x.candidateVideos.some(c=>c.conflictingOtherMovie))).toBe(true)
   })
+  it('preserves every bounded original candidate including alternatives after top three',()=>{
+    const qa=fixture()
+    const candidates=qa.rows[2].videoCandidates
+    for(const id of ['More1234567','More2345678','More3456789']){
+      candidates.push(video(id,false))
+    }
+    expect(candidates).toHaveLength(5)
+    const pack=buildTmdbFirstReviewPack(qa)
+    const row=pack.items.find(x=>x.tmdbId===103)
+    expect(row.candidateVideos.map(x=>x.videoId))
+      .toEqual(candidates.map(x=>x.videoId))
+    expect(renderTmdbFirstReviewPack(pack)).toContain('More3456789')
+    expect(pack.approvedDirectLinks).toBe(0)
+    expect(pack.publicationPermitted).toBe(false)
+  })
   it('rejects forged grants, writes, duplicates and mismatched source totals',()=>{
     for(const mutate of [
       x=>x.summary.firestoreWrites=1,
