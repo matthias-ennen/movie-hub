@@ -12,6 +12,8 @@ const source={
   playlistIds:['PL9hLFbkmRD8nBj_e8FfntoBporPAqqeSJ','PLJWJS8p_IeEo'],
   inventoryVideoIds:37,videoDetailsResolved:28,
   reviewOnlyCandidates:37,approvedDEOfferRoutes:0,
+  tmdbFirstApprovedInputRows:0,tmdbFirstVerifiedVideoRoutes:0,
+  tmdbFirstBlockedVideoRoutes:0,
   playlistOverlapConflicts:1,fullyScanned:true,
   providerBadgeAuthority:'tmdb-preserved',
   unmatchedTitleBehavior:'original-youtube-search-link',
@@ -40,7 +42,7 @@ describe('data-flow ordered deploy report: YouTube source, verification, publish
     expect(rows.find(r=>r.area==='YouTube · 2 Playlists').activity)
       .toContain('9 ohne Videodetails · 1 redaktionelle Überschneidungen')
     expect(rows.find(r=>r.area==='YouTube · 2 Playlists').open)
-      .toContain('37 ohne unabhängig bestätigte DE-Angebotsroute')
+      .toContain('37 Playlist-Videos ohne unabhängig bestätigte DE-Angebotsroute')
     expect(rows.find(r=>r.area==='YouTube · 2 Playlists').open)
       .not.toContain('ungeprüfte IDs')
     expect(rows.find(r=>r.area==='YouTube · Direktlink-Freigabe')).toMatchObject({
@@ -61,13 +63,66 @@ describe('data-flow ordered deploy report: YouTube source, verification, publish
     expect(rows.find(r=>r.area==='YouTube → TMDB-Neutitel').stock)
       .toBe('Neutitel-Veröffentlichung nicht bestätigt')
     expect(position('Suchindex')).toBeLessThan(position('TV · 14-Tage-Vorschau'))
-    expect(position('Gemeinsame App-Daten')).toBeLessThan(position('YouTube · Direktlink-Freigabe'))
+    expect(position('Gemeinsame App-Daten')).toBeLessThan(position('YouTube · TMDB-first-Verifikation'))
+    expect(position('YouTube · TMDB-first-Verifikation')).toBeLessThan(position('YouTube · Direktlink-Freigabe'))
     expect(position('YouTube · Direktlink-Freigabe')).toBeLessThan(position('App-Build'))
     expect(position('App-Build')).toBeLessThan(position('Vorabprüfung'))
     expect(position('Vorabprüfung')).toBeLessThan(position('Firebase'))
     expect(workflowSummaryMarkdown(result)).toContain('YouTube-Playlist-Mitgliedschaft ist kein bestätigtes Filmwerk')
   })
 
+  it('reconciles independently approved TMDB-first routes outside the two playlist inventories',()=>{
+    const approved={...source,
+      tmdbFirstApprovedInputRows:2,tmdbFirstVerifiedVideoRoutes:1,
+      tmdbFirstBlockedVideoRoutes:1,approvedDEOfferRoutes:1,
+    }
+    const index={...routes,count:1,entries:[{
+      key:'movie:539892',verifiedVideoId:'Abc12345678',
+      target:'https://www.youtube.com/watch?v=Abc12345678',
+    }]}
+    const result=summarizeYoutubeDeployment({status:approved,routes:index,
+      sourceStep:'success',routeStep:'success',reportedAt:at})
+    expect(result.source.status).toBe('✅ erfolgreich')
+    expect(result.source.open).toContain('0 Playlist-Angebote bestätigt')
+    expect(result.tmdbFirst.status).toBe('✅ erfolgreich')
+    expect(result.tmdbFirst.stock).toContain('2 unabhängig geprüfte TMDB-first-Freigaben')
+    expect(result.tmdbFirst.stock).toContain('1 aktuell verifizierte Filmrouten')
+    expect(result.tmdbFirst.activity).toContain('1 nach aktuellem Video-/Quellenabgleich gesperrt')
+    expect(result.routes.status).toBe('✅ erfolgreich')
+    expect(result.routes.stock).toBe('1 verifizierte Filmrouten')
+    const workflow=summary(approved,index)
+    expect(workflow.rows.find(x=>x.area==='YouTube · TMDB-first-Verifikation').status)
+      .toBe('✅ erfolgreich')
+    const areas=workflow.rows.map(x=>x.area)
+    expect(areas.indexOf('YouTube · TMDB-first-Verifikation'))
+      .toBeLessThan(areas.indexOf('YouTube · Direktlink-Freigabe'))
+  })
+  it('reconciles mixed playlist + TMDB-first routes, rejecting impossible counts',()=>{
+    const input={...source,reviewOnlyCandidates:36,approvedDEOfferRoutes:2,
+      tmdbFirstApprovedInputRows:2,tmdbFirstVerifiedVideoRoutes:1,
+      tmdbFirstBlockedVideoRoutes:1}
+    const index={...routes,count:2,entries:[
+      {key:'movie:101',verifiedVideoId:'Abc12345678',
+        target:'https://www.youtube.com/watch?v=Abc12345678'},
+      {key:'movie:102',verifiedVideoId:'Zbc12345678',
+        target:'https://www.youtube.com/watch?v=Zbc12345678'},
+    ]}
+    const options={routes:index,sourceStep:'success',routeStep:'success',reportedAt:at}
+    expect(summarizeYoutubeDeployment({...options,status:input}).source.status)
+      .toBe('✅ erfolgreich')
+    expect(summarizeYoutubeDeployment({...options,status:input}).routes.status)
+      .toBe('✅ erfolgreich')
+    for(const sourceInvalid of [
+      {...input,tmdbFirstBlockedVideoRoutes:0},
+      {...input,tmdbFirstVerifiedVideoRoutes:3},
+      {...input,approvedDEOfferRoutes:1},
+      {...input,tmdbFirstApprovedInputRows:undefined},
+    ]){
+      const out=summarizeYoutubeDeployment({...options,status:sourceInvalid})
+      expect(out.source.status).not.toBe('✅ erfolgreich')
+      expect(out.tmdbFirst.stock).toBe('TMDB-first-Verifikationsstand nicht verfügbar')
+    }
+  })
   it('summarizes the real private review split without leaking video IDs, and fails closed',()=>{
     const entry=(id,state)=>({videoId:id,publicationStatus:state})
     const queue={
