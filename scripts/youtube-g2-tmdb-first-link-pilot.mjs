@@ -8,6 +8,9 @@ import { pathToFileURL } from 'node:url'
 import { getSecret, youtubeGet } from './youtube-api-smoke.mjs'
 import { planTmdbFirstYoutubeQueries } from './youtube-g2-tmdb-first-query-plan.mjs'
 import {
+  buildTmdbFirstEditionReview,renderTmdbFirstEditionReview,
+} from './youtube-g2-tmdb-first-edition-review.mjs'
+import {
   TMDB_FIRST_GOLDEN,compareTmdbFirstPilotToGolden,
 } from './youtube-g2-quality-golden.mjs'
 import {
@@ -341,9 +344,24 @@ async function main() {
       verifiedDEOffers:0,apiWrites:0,
     }))
   }
-  await mkdir(OUTPUT, { recursive: true })
-  await writeFile(OUTPUT + '/qa.json', JSON.stringify(result, null, 2) + '\n', { mode: 0o600 })
-  await writeFile(OUTPUT + '/report.md', pilotMarkdown(result) + '\n', { mode: 0o600 })
+  // A separate, private review pack groups multiple plausible editions and
+  // cross-work video-ID reuse without promoting any candidate to playback.
+  const editionReview=buildTmdbFirstEditionReview(result.rows)
+  await mkdir(OUTPUT,{recursive:true})
+  await Promise.all([
+    writeFile(OUTPUT+'/qa.json',JSON.stringify(result,null,2)+'\n',{mode:0o600}),
+    writeFile(OUTPUT+'/report.md',pilotMarkdown(result)+'\n',{mode:0o600}),
+    writeFile(OUTPUT+'/edition-review.json',
+      JSON.stringify(editionReview,null,2)+'\n',{mode:0o600}),
+    writeFile(OUTPUT+'/edition-review.md',
+      renderTmdbFirstEditionReview(editionReview)+'\n',{mode:0o600}),
+  ])
+  console.log(JSON.stringify({kind:editionReview.kind,
+    works:editionReview.processedReviewRows,
+    reviewLanes:editionReview.reviewLanes,
+    crossWorkVideoCollisions:editionReview.multiWorkVideoCollisions,
+    verifiedDEOffers:0,automaticDirectLinkApprovals:0,
+  }))
   process.stdout.write(JSON.stringify({
     mode: result.summary.mode, processed: result.summary.processedMovies,
     statusCounts: result.summary.statusCounts, calls: result.summary.calls,
