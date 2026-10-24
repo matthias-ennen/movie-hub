@@ -13,6 +13,14 @@ export function summarizeYoutubeDeployment({
   status = null, routes = null, sourceStep = 'skipped', routeStep = 'skipped',
   reportedAt = new Date().toISOString(),
 } = {}) {
+  // TMDB-first approved videos are outside the two playlist inventories.
+  // Check each source population independently before comparing their sum
+  // to the canonical merged route index. Never classify valid extra routes
+  // as invented playlist videos.
+  const approvedTmdbFirst = status?.tmdbFirstApprovedInputRows
+  const verifiedTmdbFirst = status?.tmdbFirstVerifiedVideoRoutes
+  const blockedTmdbFirst = status?.tmdbFirstBlockedVideoRoutes
+  const playlistApproved = status?.approvedDEOfferRoutes - verifiedTmdbFirst
   const sourceValid = status?.kind === 'moviehub-youtube-curated-source-status'
     && status.sourceId === 'youtube'
     && status.sourcePlaylistCount === 2
@@ -25,9 +33,12 @@ export function summarizeYoutubeDeployment({
     && validInt(status.reviewOnlyCandidates)
     && validInt(status.approvedDEOfferRoutes)
     && validInt(status.playlistOverlapConflicts)
+    && validInt(approvedTmdbFirst) && validInt(verifiedTmdbFirst)
+    && validInt(blockedTmdbFirst) && validInt(playlistApproved)
+    && approvedTmdbFirst === verifiedTmdbFirst + blockedTmdbFirst
     && status.videoDetailsResolved <= status.inventoryVideoIds
-    && status.approvedDEOfferRoutes <= status.inventoryVideoIds
-    && status.reviewOnlyCandidates + status.approvedDEOfferRoutes === status.inventoryVideoIds
+    && playlistApproved <= status.inventoryVideoIds
+    && status.reviewOnlyCandidates + playlistApproved === status.inventoryVideoIds
     && status.providerBadgeAuthority === 'tmdb-preserved'
     && status.unmatchedTitleBehavior === 'original-youtube-search-link'
   const routesValid = routes?.kind === 'moviehub-youtube-verified-title-routes'
@@ -60,8 +71,20 @@ export function summarizeYoutubeDeployment({
         ? fmt(status.inventoryVideoIds-status.videoDetailsResolved)+' ohne Videodetails · '+fmt(status.playlistOverlapConflicts)+' redaktionelle Überschneidungen'
         : 'kein aktueller vollständiger Zwei-Playlist-Nachweis',
       open: sourceMeasured
-        ? fmt(status.reviewOnlyCandidates)+' ohne unabhängig bestätigte DE-Angebotsroute · '+fmt(status.approvedDEOfferRoutes)+' unabhängig bestätigte DE-Angebote · Stand '+new Date(status.generatedAt).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })
+        ? fmt(status.reviewOnlyCandidates)+' Playlist-Videos ohne unabhängig bestätigte DE-Angebotsroute · '+fmt(playlistApproved)+' Playlist-Angebote bestätigt · Stand '+new Date(status.generatedAt).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })
         : 'TMDB-Badges und YouTube-Suchfallback bleiben maßgeblich; kein Datenverlust behauptet',
+    },
+    tmdbFirst: {
+      area: 'YouTube · TMDB-first-Verifikation', status: sourceState,
+      stock: sourceMeasured
+        ? fmt(approvedTmdbFirst)+' unabhängig geprüfte TMDB-first-Freigaben · '+fmt(verifiedTmdbFirst)+' aktuell verifizierte Filmrouten'
+        : 'TMDB-first-Verifikationsstand nicht verfügbar',
+      activity: sourceMeasured
+        ? fmt(blockedTmdbFirst)+' nach aktuellem Video-/Quellenabgleich gesperrt · 0 zusätzliche Such-API-Aufrufe'
+        : 'Keine belastbaren Zahlen aus dem gemeinsamen YouTube-Quellenlauf',
+      open: sourceMeasured
+        ? 'Nur unabhängig bestätigte deutsche Angebote erhalten einen Direktlink; TMDB-Badges ohne Nachweis behalten ihre YouTube-Suche'
+        : 'TMDB-YouTube-Anbieterbadges sind keine einzeln bestätigten Video-IDs',
     },
     routes: {
       area: 'YouTube · Direktlink-Freigabe', status: routeState,
