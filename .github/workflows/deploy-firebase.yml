@@ -474,6 +474,13 @@ jobs:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
         run: node scripts/youtube-g2-publish-new-film-catalog-live.mjs
 
+      # Per-source no-loss QA includes all declared FREE/R&B video IDs.
+      # Account-scoped membership stays in private artifacts, not Hosting.
+      - name: Prioritize unresolved YouTube playlist reviews without database writes
+        id: youtube_review_queue
+        if: ${{ steps.youtube_new_film_catalog.outcome == 'success' }}
+        run: node scripts/youtube-g2-actionable-review-queue-live.mjs
+
       - name: Build
         id: app_build
         run: npm run build
@@ -588,6 +595,7 @@ jobs:
           SUMMARY_YOUTUBE_FULL_CATALOG: ${{ steps.youtube_full_catalog_reconciliation.outcome }}
           SUMMARY_YOUTUBE_NEW_METADATA: ${{ steps.youtube_new_film_metadata.outcome }}
           SUMMARY_YOUTUBE_NEW_FILM_CATALOG: ${{ steps.youtube_new_film_catalog.outcome }}
+          SUMMARY_YOUTUBE_REVIEW_QUEUE: ${{ steps.youtube_review_queue.outcome }}
           SUMMARY_PRIORITY_PREVIEW: ${{ steps.priority_preview.outcome }}
           SUMMARY_BUILD: ${{ steps.app_build.outcome }}
           SUMMARY_AUTH: ${{ steps.gcp_auth.outcome }}
@@ -621,6 +629,8 @@ jobs:
             artifacts/youtube-g2/full-catalog-reconciliation/report.md
             artifacts/youtube-g2/canonical-new-film-metadata-review/qa.json
             artifacts/youtube-g2/canonical-new-film-metadata-review/report.md
+            artifacts/youtube-g2/actionable-review-queue/qa.json
+            artifacts/youtube-g2/actionable-review-queue/report.md
             artifacts/joyn-pilot/*.json
             artifacts/joyn-adapter/*.json
             artifacts/joyn-sync/status.json
