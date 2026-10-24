@@ -8,6 +8,9 @@ import { pathToFileURL } from 'node:url'
 import { getSecret, youtubeGet } from './youtube-api-smoke.mjs'
 import { planTmdbFirstYoutubeQueries } from './youtube-g2-tmdb-first-query-plan.mjs'
 import {
+  TMDB_FIRST_GOLDEN,compareTmdbFirstPilotToGolden,
+} from './youtube-g2-quality-golden.mjs'
+import {
   planTmdbFirstPriorDeviceCandidates,TMDB_FIRST_KNOWN_DEVICE_CANDIDATES,
   TMDB_FIRST_PRIOR_DEVICE_CANDIDATE_KIND,
 } from './youtube-g2-tmdb-first-prior-device-candidates.mjs'
@@ -201,17 +204,81 @@ async function tmdbLive(path, params, token) {
   if (!response.ok) throw new Error('TMDB read HTTP ' + response.status)
   return response.json()
 }
+/** Only read-only, opt-in comparison to the EXACT original 25 TMDB IDs. */
+export function planOriginalTmdbFirstGoldenReplay(){
+  if(TMDB_FIRST_GOLDEN.length!==TMDB_FIRST_MAX_TITLES
+    ||new Set(TMDB_FIRST_GOLDEN.map(x=>x.tmdbId)).size!==TMDB_FIRST_MAX_TITLES
+    ||TMDB_FIRST_GOLDEN.some(x=>!Number.isInteger(x.tmdbId)||x.tmdbId<=0))
+    throw Error('G2_TMDB_FIRST_GOLDEN_REPLAY_INVALID')
+  return TMDB_FIRST_GOLDEN.map(x=>({mediaType:'movie',tmdbId:x.tmdbId}))
+}
+
+export function formatTmdbFirstGoldenReplay(comparison,result) {
+  const summary=result.summary
+  return [
+    '# MovieHub TMDB-first real API rerun: original 25-film golden comparison',
+    '',
+    '- Historical reference run: '+comparison.sourceRun,
+    '- Actual current API processed movies: '+summary.processedMovies,
+    '- Exact original TMDB-ID cohort: 25/25 (no contemporary reselection)',
+    '- YouTube search.list calls: '+summary.calls.youtubeSearches,
+    '- YouTube videos.list batch calls: '+summary.calls.youtubeVideoLookups,
+    '- Original observed statuses: '+JSON.stringify(comparison.historicalClassCounts),
+    '- Current observed statuses: '+JSON.stringify(summary.statusCounts),
+    '- Same status as original: '+comparison.observedSameClass+'/25',
+    '- Same leading video ID as original: '+comparison.observedSameLeadVideoId+'/25',
+    '- Review-only candidate changes: '+comparison.reviewDeltas.length,
+    '- Prior-device exact IDs checked: '+summary.priorDeviceCandidatesResearched,
+    '- Prior-device IDs absent from current search: '+summary.priorDeviceCandidatesMissingFromSearch,
+    '- Prior-device IDs with current official video details: '+summary.priorDeviceCandidatesResolvedViaVideoDetails,
+    '- Prior-device IDs in ranked top 10: '+summary.priorDeviceCandidatesInTop10,
+    '- Independent DE offers verified: 0; published direct links: 0; Firestore/database writes: 0.',
+    '- These are metadata hypotheses, NOT demonstrated same-film/cut or DE entitlement.',
+    '',
+    '## Review-only deltas (never auto-publish)',
+    ...comparison.reviewDeltas.map(x=>'- TMDB '+x.tmdbId
+      +': '+x.previousClass+' / '+x.previousLeadVideoId
+      +' → '+x.observedClass+' / '+(x.observedLeadVideoId||'(none)')),
+    '',
+  ].join('\n')
+}
+
 async function main() {
   if (process.env.YOUTUBE_G2_WRITE_MODE) throw new Error('RESEARCH_ONLY_NO_WRITE')
   const tmdbToken = process.env.TMDB_API_READ_TOKEN
   if (!tmdbToken || tmdbToken.length < 15) throw new Error('TMDB_READ_TOKEN_MISSING')
   const key = getSecret()
   const index = await loadPublicMovieHubIndex()
+  const goldenReplay=process.env.YOUTUBE_G2_TMDB_FIRST_GOLDEN_REPLAY==='1'
+  const seedRefs=goldenReplay?planOriginalTmdbFirstGoldenReplay():null
   const result = await runTmdbFirstLinkPilot({
-    publicIndex: index,
-    tmdbGet: (path, params) => tmdbLive(path, params, tmdbToken),
-    youtubeApi: (path, params) => youtubeGet(path, params, key),
+    publicIndex:index,
+    ...(seedRefs?{seedRefs,limit:TMDB_FIRST_MAX_TITLES}:{}),
+    tmdbGet:(path,params)=>tmdbLive(path,params,tmdbToken),
+    youtubeApi:(path,params)=>youtubeGet(path,params,key),
   })
+  if(goldenReplay){
+    const comparison=compareTmdbFirstPilotToGolden(result)
+    // This report is private GitHub QA only, never public Hosting.
+    await mkdir(OUTPUT,{recursive:true})
+    await Promise.all([
+      writeFile(OUTPUT+'/golden-compare.json',
+        JSON.stringify({kind:'moviehub-youtube-g2-tmdb-first-live-golden-comparison',
+          schemaVersion:1,privateArtifact:true,publicationPermitted:false,
+          liveCurrentRun:true,comparison,summary:result.summary,
+          directLinksApproved:0,firestoreWrites:0},null,2)+'\n',{mode:0o600}),
+      writeFile(OUTPUT+'/golden-compare.md',
+        formatTmdbFirstGoldenReplay(comparison,result)+'\n',{mode:0o600}),
+    ])
+    console.log(JSON.stringify({
+      kind:'moviehub-youtube-g2-tmdb-first-live-golden-comparison',
+      originalTmdbIds:25,reviewDeltas:comparison.reviewDeltas.length,
+      sameClass:comparison.observedSameClass,
+      sameLeadingVideoId:comparison.observedSameLeadVideoId,
+      priorDeviceResolutions:result.summary.priorDeviceCandidatesResolvedViaVideoDetails,
+      verifiedDEOffers:0,apiWrites:0,
+    }))
+  }
   await mkdir(OUTPUT, { recursive: true })
   await writeFile(OUTPUT + '/qa.json', JSON.stringify(result, null, 2) + '\n', { mode: 0o600 })
   await writeFile(OUTPUT + '/report.md', pilotMarkdown(result) + '\n', { mode: 0o600 })
