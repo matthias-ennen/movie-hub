@@ -54,7 +54,12 @@ export function scoreCandidateV11(video, film, asOfYear = 2026) {
   }
 
   const aliases = cautiousLeadingTheAliases(film)
-  if (!aliases.length || current.titleLevel === 4) return current
+  // A publisher subtitle separated by a dash/colon may be a *different*
+  // work or series, even if joining all tokens resembles a TMDB alias.
+  // Preserve the pre-existing Red Phone - Manhunt partial-title safety gate.
+  // Only a plain complete film title without a subtitle delimiter qualifies.
+  if (!aliases.length || current.titleLevel === 4
+    || /[–—:]/u.test(matchTitle) || /\s-\s/u.test(matchTitle)) return current
   const enhanced = titleQuality(matchTitle, {
     ...film,
     alternative_titles: {
