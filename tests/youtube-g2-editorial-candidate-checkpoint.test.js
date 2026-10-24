@@ -60,6 +60,25 @@ describe('Add already published FREE/R&B movie hypotheses to private durable TMD
     expect(next.newIds).toBe(0)
     expect(next.movies).toBe(2)
   })
+  it('repairs a previously stored import-run provenance without duplicating films or videos',()=>{
+    // A prior checkpoint was saved with the *import workflow* run ID,
+    // not the verified Firebase source run. Replaying the verified QA
+    // must preserve 56/242 counters and add the SOURCE provenance only.
+    const incorrect=mergeEditorialPlaylistCandidates(original(),reviewed(),
+      {runId:40109403724,now})
+    const corrected=mergeEditorialPlaylistCandidates(incorrect.checkpoint,reviewed(),
+      {runId:40108251915,now:'2026-10-24T16:10:00Z'})
+    expect(corrected.newMovies).toBe(0)
+    expect(corrected.newIds).toBe(0)
+    expect(corrected.movies).toBe(2)
+    for(const e of corrected.checkpoint.entries){
+      if(e.tmdbId===100||e.tmdbId===200)
+        expect(e.provenance.some(p=>p.kind==='published-editorial-playlist-hint'
+          &&p.runId===40108251915)).toBe(true)
+    }
+    expect(corrected.checkpoint.verifiedDEOffers).toBe(0)
+    expect(corrected.checkpoint.approvedDirectRoutes).toBe(0)
+  })
   it('fails closed on altered counts, forged DE approvals, invented TMDB IDs and video URLs',()=>{
     const base=original()
     const invalid=[
