@@ -1,6 +1,10 @@
 name: YouTube G2 – Full Canonical Catalog / TMDB-first Batch (Read-only)
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-full-catalog-queue.yml
   workflow_dispatch:
     inputs:
       offset:
@@ -27,14 +31,18 @@ concurrency:
 
 jobs:
   canonical-youtube-research:
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' &&
+        contains(github.event.head_commit.message, '[youtube-first-ten-once]')))
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
       GOOGLE_CLOUD_PROJECT: movie-hub-62459
       TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
       DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
-      YOUTUBE_G2_RESEARCH_OFFSET: ${{ inputs.offset }}
+      YOUTUBE_G2_RESEARCH_OFFSET: ${{ inputs.offset || '0' }}
       YOUTUBE_G2_RESEARCH_BATCH_SIZE: ${{ inputs.batch_size || '10' }}
       YOUTUBE_G2_RESEARCH_PREVIOUS_RUN: ${{ inputs.previous_run }}
       GH_TOKEN: ${{ github.token }}
@@ -60,6 +68,38 @@ jobs:
           workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
           service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v3
+      - name: Verify successful actual 1-call YouTube search before one-time new-film batch
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe_run='40112455820'
+          probe_sha='e255751a8c38b0ecdfc833b2df09e0636585cd24'
+          meta="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$probe_run" --jq '[.conclusion,.status,.head_sha,.head_branch,.path] | join("|")')"
+          if [[ "$meta" != "success|completed|$probe_sha|main|.github/workflows/youtube-g2-one-search-quota-preflight.yml" ]]; then
+            echo "::error::Prior one-search test is not authenticated SUCCESS"
+            exit 1
+          fi
+          art="youtube-g2-one-search-diagnostic-$probe_run"
+          state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$probe_run/artifacts" --jq '.artifacts[] | select(.name == "youtube-g2-one-search-diagnostic-40112455820") | [.name,.expired,.workflow_run.id] | join("|")')"
+          if [[ "$state" != "$art|false|$probe_run" ]]; then
+            echo "::error::Sanitized one-search evidence missing or expired"
+            exit 1
+          fi
+          mkdir -p artifacts/youtube-g2/one-search-preflight
+          gh run download "$probe_run" -n "$art" --repo "$GITHUB_REPOSITORY" \
+            -D artifacts/youtube-g2/one-search-preflight
+          test -s artifacts/youtube-g2/one-search-preflight/summary.json
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs'
+          const p=JSON.parse(readFileSync('artifacts/youtube-g2/one-search-preflight/summary.json','utf8'))
+          if(p.kind!=='moviehub-youtube-g2-one-search-project-quota-diagnostic'
+            ||p.searchOutcome!=='search-accessible'||p.searchCallsAttempted!==1
+            ||p.noAutomaticRetry!==true||p.independentlyVerifiedDEOffers!==0
+            ||p.confirmedPlaybackRoutes!==0||p.firestoreWrites!==0)
+            throw Error('ONE_SEARCH_PREFLIGHT_NOT_SAFE_FOR_TEN_FILM_BATCH')
+          console.log('Prior search API probe accessible; capped 10-film full-catalog batch allowed')
+          NODE
       - name: Build canonical title inventory via existing #256 Firestore/browse/TV pathway
         run: npm run title:candidates:inventory
       - name: Validate explicit research cursor and previous successful private batch
@@ -81,13 +121,21 @@ jobs:
               echo "::error::Nonzero offset requires a prior successful main Actions run"
               exit 1
             fi
-            source_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$YOUTUBE_G2_RESEARCH_PREVIOUS_RUN" --jq '[.conclusion,.status,.head_branch,.event,.path] | join("|")')"
-            IFS='|' read -r conclusion state branch event workflow_path <<< "$source_run"
+            source_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$YOUTUBE_G2_RESEARCH_PREVIOUS_RUN" --jq '[.conclusion,.status,.head_branch,.event,.path,.head_sha] | join("|")')"
+            IFS='|' read -r conclusion state branch event workflow_path source_sha <<< "$source_run"
             if [[ "$conclusion" != "success" || "$state" != "completed"
-              || "$branch" != "main" || "$event" != "workflow_dispatch"
-              || "$workflow_path" != *".github/workflows/youtube-g2-full-catalog-queue.yml"* ]]; then
+              || "$branch" != "main"
+              || "$workflow_path" != *".github/workflows/youtube-g2-full-catalog-queue.yml"*
+              || ( "$event" != "workflow_dispatch" && "$event" != "push" ) ]]; then
               echo "::error::Research continuation source is not a completed trusted batch"
               exit 1
+            fi
+            if [[ "$event" == "push" ]]; then
+              original_msg="$(gh api "repos/$GITHUB_REPOSITORY/commits/$source_sha" --jq '.commit.message')"
+              if [[ "$original_msg" != *"[youtube-first-ten-once]"* ]]; then
+                echo "::error::Push research prior run was not the one authorized first-batch"
+                exit 1
+              fi
             fi
             artifact_name="youtube-g2-full-catalog-research-$YOUTUBE_G2_RESEARCH_PREVIOUS_RUN"
             artifact_state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$YOUTUBE_G2_RESEARCH_PREVIOUS_RUN/artifacts" --jq '.artifacts[] | select(.name | startswith("youtube-g2-full-catalog-research-")) | [.name,.expired] | join("|")')"
@@ -111,6 +159,38 @@ jobs:
       # Uploaded QA is validated against the exact selected film identities.
       - name: Merge completed read-only candidates into persistent private checkpoint
         run: node scripts/youtube-g2-durable-candidate-checkpoint.mjs merge
+      - name: Summarize safe first batch without disclosing raw candidates
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const {plan,pilot}=JSON.parse(readFileSync('artifacts/youtube-g2/full-catalog-queue/qa.json','utf8'))
+          const s=pilot.summary
+          if(plan.batch.selectedCount>10||plan.batch.selectedCount<1
+            ||s.processedMovies!==plan.batch.selectedCount
+            ||s.calls.youtubeSearches>20||s.publicationPermitted!==false
+            ||s.verifiedDirectLinks!==0||s.firestoreWrites!==0
+            ||s.catalogWrites!==0||s.providerWrites!==0||s.badgeWrites!==0)
+            throw Error('FIRST_TEN_GLOBAL_BATCH_EXCEEDED_BUDGET_OR_PUBLICATION_GATES')
+          const summary=[
+            '## MovieHub YouTube AP2 – new TMDB-badge first full-catalog batch',
+            '',
+            '- Films actually researched: '+s.processedMovies,
+            '- New search.list requests used: '+s.calls.youtubeSearches,
+            '- Reused global film candidates: '+(s.knownCandidateReuseMovies||0),
+            '- Search requests avoided: '+(s.avoidedYoutubeSearchCalls||0),
+            '- Current official videos.list batches: '+s.calls.youtubeVideoLookups,
+            '- Single strong unapproved movie/video candidates: '+s.candidateLinksForReview,
+            '- Status counts: '+JSON.stringify(s.statusCounts),
+            '- Next cursor for authenticated continuation: '+plan.batch.nextOffset,
+            '- Verified DE offers, player routes and published badges: 0',
+            '',
+          ]
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,summary.join('\n')+'\n')
+          console.log(JSON.stringify({processed:s.processedMovies,
+            searches:s.calls.youtubeSearches,avoided:s.avoidedYoutubeSearchCalls,
+            candidates:s.candidateLinksForReview,nextOffset:plan.batch.nextOffset,
+            verifiedDirectLinks:0,firestoreWrites:0}))
+          NODE
       - name: Save research QA for seven days – do not upload private Firestore inventory
         if: ${{ success() }}
         uses: actions/upload-artifact@v7
