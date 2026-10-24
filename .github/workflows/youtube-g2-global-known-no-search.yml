@@ -1,0 +1,102 @@
+name: YouTube AP2 – global cached films live recheck (0 searches)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-global-known-no-search.yml
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-global-known-no-search
+  cancel-in-progress: false
+
+jobs:
+  global-known-live-review:
+    name: Current DE TMDB / YouTube videos.list for global known movie IDs only
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'push' &&
+         contains(github.event.head_commit.message, '[youtube-global-known-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
+      GOOGLE_CLOUD_PROJECT: movie-hub-62459
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Validate no-search source model, current film identity and quota guard
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-global-known-no-search-live.mjs
+          npx vitest run \
+            tests/youtube-g2-global-known-no-search-live.test.js \
+            tests/youtube-g2-durable-candidate-checkpoint.test.js \
+            tests/youtube-g2-tmdb-first-link-pilot.test.js
+      - name: Authenticate Google OIDC for protected shared candidate checkpoint
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Read authenticated existing checkpoint (never mutate)
+        run: node scripts/youtube-g2-durable-candidate-checkpoint.mjs read
+      - name: Recheck all stored shared-film candidates with current DE API data, zero YouTube searches
+        run: node scripts/youtube-g2-global-known-no-search-live.mjs
+      - name: Publish aggregate outcome only to Actions summary (not MovieHub catalog)
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const p='artifacts/youtube-g2/global-known-no-search-review/qa.json'
+          const {summary,rows}=JSON.parse(readFileSync(p,'utf8'))
+          if(summary.kind!=='moviehub-youtube-g2-global-known-video-no-search-recheck'
+            ||summary.globalStoredCandidateFilms<50
+            ||summary.currentBadgeCachedFilms+summary.cachedFilmsWithoutCurrentPublicBadge
+              !==summary.globalStoredCandidateFilms
+            ||summary.searchCalls!==0
+            ||summary.publishedDirectRoutes!==0
+            ||summary.independentlyVerifiedDeOffers!==0
+            ||summary.firebaseWrites!==0
+            ||rows.length!==summary.currentBadgeCachedFilms)
+            throw Error('GLOBAL_CACHED_LIVE_RECHECK_NOT_SAFE_TO_REPORT')
+          const lines=[
+            '## MovieHub YouTube AP2 – global candidate LIVE review',
+            '',
+            '| Result | Current value |',
+            '| --- | ---: |',
+            '| Global cached TMDB movie references | '+summary.globalStoredCandidateFilms+' |',
+            '| Current public TMDB-YouTube badges amongst cached films | '+summary.currentBadgeCachedFilms+' |',
+            '| Cached works without public badge | '+summary.cachedFilmsWithoutCurrentPublicBadge+' |',
+            '| Current TMDB DE YouTube offer hints | '+summary.filmsWithCurrentTmdbDeYoutubeOffers+' |',
+            '| Cached video candidate IDs rescored | '+summary.reusedVideoCandidateIds+' |',
+            '| YouTube videos.list calls | '+summary.videosListBatches+' |',
+            '| YouTube search.list calls | **0** |',
+            '| Avoided search.list calls | '+summary.avoidedYoutubeSearchCalls+' |',
+            '| Verified DE offers / published direct routes | **0 / 0** |',
+            '',
+            'All candidate IDs stay in protected QA; no profile, badge, Firestore or catalog writes.',
+            'Review-class counts: \\u0060'+JSON.stringify(summary.reviewStatuses)+'\\u0060.',
+            '',
+          ]
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\\n')+'\\n')
+          console.log(JSON.stringify(summary))
+          NODE
+      - name: Upload protected review only – no publicly exposed direct routes
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-global-known-no-search-${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/global-known-no-search-review/qa.json
+            artifacts/youtube-g2/global-known-no-search-review/report.md
+          retention-days: 7
+          if-no-files-found: error
