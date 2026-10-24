@@ -17,6 +17,23 @@ import {
 export const OUTPUT = 'artifacts/youtube-g2/full-catalog-queue'
 export const INVENTORY = 'artifacts/title-candidate-inventory.json'
 export const DEFAULT_SAFE_BATCH = 10
+export const PRIOR_QA='artifacts/youtube-g2/prior-full-catalog/qa.json'
+export function parseResearchRunInput(env=process.env){
+  const rawOffset=env.YOUTUBE_G2_RESEARCH_OFFSET
+  const rawLimit=env.YOUTUBE_G2_RESEARCH_BATCH_SIZE
+  const previous=env.YOUTUBE_G2_RESEARCH_PREVIOUS_RUN||''
+  const numeric=/^(?:0|[1-9][0-9]*)$/
+  if(!numeric.test(String(rawOffset??''))
+    ||!numeric.test(String(rawLimit??''))
+    ||(Number(rawOffset)>0&&!/^[1-9][0-9]*$/.test(previous))
+    ||(Number(rawOffset)===0&&previous!==''))
+    throw Error('G2_RESEARCH_EXPLICIT_CURSOR_AND_PRIOR_RUN_REQUIRED')
+  const limit=Number(rawLimit),offset=Number(rawOffset)
+  if(!Number.isSafeInteger(limit)||limit<1||limit>25
+    ||!Number.isSafeInteger(offset))
+    throw Error('G2_RESEARCH_BATCH_INPUT_INVALID')
+  return {limit,offset,previousRun:previous||null}
+}
 async function tmdbRead(path, params, token) {
   if (!/^\/(?:watch\/providers\/movie|movie\/[1-9]\d*(?:\/watch\/providers)?)$/.test(path)) {
     throw Error('TMDB_FULL_CATALOG_PATH_NOT_APPROVED')
@@ -43,6 +60,13 @@ export function fullCatalogBatchReport(plan, pilot) {
     '- Public YouTube-badged films outside complete canonical inventory: '+plan.basis.publicSearchOnlyBadgedTitles,
     '- Private/profile-only YouTube provider coverage: UNKNOWN (inventory records identities, not private badge offers).',
     '- Next cursor after this batch: '+(plan.batch.nextOffset ?? 'DONE'),
+    '- Immutable ordered badge queue digest: '+plan.batch.queueIdentity,
+    '- Resume next batch using this exact Actions QA as prior run; if the badge queue changes, stop and rebuild a new plan.',
+    '- Official default search.list bucket: '+plan.batch.defaultSearchDailyCallLimit
+      +' calls/day (NOT current project quota or available balance).',
+    '- This batch requests up to '+plan.batch.youtubeSearchCallsPlanned
+      +' search.list calls; quota per search call: 1 search-bucket unit.',
+    '- No automatic retries on HTTP 429, no auto-scheduling, no implicit cursor reset.',
     '- Selected batch: '+plan.batch.selectedCount+' / '+plan.batch.total,
     '- YouTube search API calls: '+pilot.summary.calls.youtubeSearches,
     '- YouTube video detail lookups: '+pilot.summary.calls.youtubeVideoLookups,
@@ -66,14 +90,17 @@ export function fullCatalogBatchReport(plan, pilot) {
 }
 async function main(){
   if(process.env.YOUTUBE_G2_WRITE_MODE)throw Error('FULL_CATALOG_READ_ONLY_REQUIRED')
-  const limit=Number(process.env.YOUTUBE_G2_RESEARCH_BATCH_SIZE||DEFAULT_SAFE_BATCH)
-  const offset=Number(process.env.YOUTUBE_G2_RESEARCH_OFFSET||0)
+  const {limit,offset,previousRun}=parseResearchRunInput()
+  // The workflow is responsible for verifying the exact prior successful
+  // main-branch Action and downloading only its own immutable QA artifact.
+  const continuation=previousRun
+    ?JSON.parse(await readFile(PRIOR_QA,'utf8')):null
   const token=process.env.TMDB_API_READ_TOKEN
   if(!token||token.length<15)throw Error('TMDB_READ_ONLY_TOKEN_REQUIRED')
   const inventory=JSON.parse(await readFile(INVENTORY,'utf8'))
   const index=await loadPublicMovieHubIndex()
   const plan=createYoutubeFullCatalogResearchPlan({
-    inventory,publicIndex:index,offset,limit,
+    inventory,publicIndex:index,offset,limit,continuation,
   })
   if(plan.batch.selectedCount===0)throw Error('FULL_CATALOG_EMPTY_RESEARCH_BATCH')
   const key=getSecret()
@@ -100,6 +127,10 @@ async function main(){
     publicYoutubeMovies:plan.basis.publicYoutubeBadgedMovies,
     publicYoutubeSeriesDeferred:plan.basis.publicYoutubeBadgedSeriesDeferred,
     selected:plan.batch.selectedCount,nextOffset:plan.batch.nextOffset,
+    queueIdentity:plan.batch.queueIdentity,
+    defaultDailySearchCallLimit:plan.batch.defaultSearchDailyCallLimit,
+    defaultDailyLimitIsMeasured:false,
+    researchPriorRun:previousRun,
     sourceStatus:pilot.summary.statusCounts,
     videoReviewCandidates:pilot.summary.candidateLinksForReview,
     youtubeSearches:pilot.summary.calls.youtubeSearches,
