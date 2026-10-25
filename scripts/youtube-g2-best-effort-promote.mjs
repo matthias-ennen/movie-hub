@@ -70,7 +70,7 @@ export function safePublicBestEffortProjection(preview,source,{
       ||e.quality!=='probable-video-not-verified'
       ||e.provenance!=='global-known-video-metadata-review'
       ||e.observedAt!==preview.sourceObservedAt
-      ||!okTime(e.validUntil,now)
+      ||!date(e.validUntil)
       ||Date.parse(e.validUntil)<=t
       ||Date.parse(e.validUntil)>Date.parse(e.observedAt)+BEST_EFFORT_MAX_AGE_MS
       ||seenMovies.has(e.key)||seenVideos.has(e.videoId))
