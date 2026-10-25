@@ -549,8 +549,11 @@ jobs:
           REQUIRE_JOYN_14_DAYS: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
         run: node scripts/verify-published-data.mjs
 
+      # Independent read-only HTTP verification: a failure of the general
+      # data-generation readback must stay FAILED but must not hide whether
+      # the already-deployed YouTube link index matches the prepared index.
       - name: Verify hosted best-effort link index and true rollback (read-only)
-        if: ${{ steps.publication_verify.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.firebase_deploy.outcome == 'success' }}
         run: node scripts/verify-youtube-best-effort-publication.mjs
 
       - name: Acknowledge published TMDB change generation
