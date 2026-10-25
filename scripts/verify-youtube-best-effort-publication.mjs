@@ -100,9 +100,10 @@ export function selectPublishedYoutubeDeviceTestCases(links,publicIndex,{
     const key=Number(entry.tmdbId)
     // Conflicting public film identities cannot supply a test title.
     if(badgeMovies.has(key)){badgeMovies.set(key,null);continue}
-    const title=String(entry.title||'').replace(/[<>\\r\\n|[\\]*()]/g,' ')
+    const title=String(entry.title||'').replace(/[<>|*()\\[\\]{}\\r\\n]/g,' ')
       .replace(/\\s+/g,' ').trim().slice(0,120)
-    badgeMovies.set(key,title?{title,year:entry.year||null}:null)
+    badgeMovies.set(key,title?{title,year:Number.isInteger(Number(entry.year))
+      &&Number(entry.year)>=1880&&Number(entry.year)<=2100?Number(entry.year):null}:null)
   }
   return links.entries.map(entry=>{
     const movie=badgeMovies.get(Number(entry.tmdbId))
