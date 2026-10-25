@@ -145,7 +145,7 @@ describe('YouTube read-only coordinated bootstrap preview; NEVER grants quota',(
       x=>{x.previousQa.plan.batch.offset=1},
       x=>{x.progress.queueIdentity='b'.repeat(64)},
       x=>{x.progress.nextOffset=5},
-      x=>{x.publicIndex.entries[0].providerIds=[]},
+      x=>{x.publicIndex.entries[0].providerIds=[];x.publicIndex.entries[0].providerOffers=[]},
       x=>{x.previousQa=null},
     ]){
       const x={
