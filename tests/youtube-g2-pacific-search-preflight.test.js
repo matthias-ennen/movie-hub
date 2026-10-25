@@ -1,4 +1,5 @@
 import {describe,it,expect} from 'vitest'
+import {readFileSync} from 'node:fs'
 import {
   pacificSearchDay,evaluatePacificSearchBudget,
   RATE,EXCEEDED,QUOTA,KIND,
@@ -99,5 +100,22 @@ describe('Pacific-day YouTube search budget preflight without a search authoriza
     expect(r.blocks).toContain('early-after-PT-reset')
     expect(r.smallBatchAdvisory).toBe(false)
     expect(r.automaticSearchAllowed).toBe(false)
+  })
+  it('windowed quota-v2 readout remains diagnosis only, not a search ticket',()=>{
+    const wf=readFileSync(new URL('../.github/workflows/youtube-g2-pacific-search-preflight.yml',
+      import.meta.url),'utf8')
+    const fetchAt=wf.indexOf('for type in rate exceeded ratev2')
+    const observeAt=wf.indexOf('Inspect windowed quota-v2 telemetry only')
+    const ordinaryAt=wf.indexOf('Interpret observed PT day quota defensively')
+    expect(fetchAt).toBeGreaterThan(0)
+    expect(observeAt).toBeGreaterThan(fetchAt)
+    expect(ordinaryAt).toBeGreaterThan(observeAt)
+    expect(wf).toContain("kind='ratev2/net_usage'")
+    expect(wf).toContain("guaranteedRemainingQuota:null,authorizedSearchCalls:0")
+    expect(wf).toContain("youtubeApiCalls:0,gcsWrites:0,publicationPermitted:false")
+    expect(wf).toContain(String.raw`/^\d{1,14}$/.test(raw)`)
+    expect(wf).toContain('windowed-v2.json')
+    expect(wf).not.toContain('youtube-api-smoke.mjs')
+    expect(wf).not.toContain('reserveWithAtomicGcs')
   })
 })
