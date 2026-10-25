@@ -110,7 +110,9 @@ export function selectYoutubeBestEffortTitleRoute(index,item,{
     ||index.verifiedDEOffers!==0||index.verifiedPlaybackRoutes!==0
     ||index.providerBadgeWrites!==0
     ||!Array.isArray(index.claimedOfferTypes)||index.claimedOfferTypes.length!==0
-    ||!Array.isArray(index.entries)||index.count!==index.entries.length
+    ||!Array.isArray(index.entries)
+    ||index.entries.length>BEST_EFFORT_MAX_LINKS
+    ||index.count!==index.entries.length
     ||!goodDate(index.generatedAt)||!goodDate(index.sourceObservedAt)
     ||Date.parse(index.generatedAt)>time+60000
     ||time-Date.parse(index.sourceObservedAt)>BEST_EFFORT_MAX_AGE_MS
@@ -120,6 +122,11 @@ export function selectYoutubeBestEffortTitleRoute(index,item,{
   const entries=index.entries.filter(e=>e?.key===wanted)
   if(entries.length!==1)return null
   const e=entries[0]
+  // A forged or stale public feed must not reuse one YouTube VIDEO ID
+  // as an apparently exact link for two different TMDB films.
+  // Producer already quarantines these; keep the same safety at click time.
+  if(index.entries.some(other=>other!==e&&other?.videoId===e.videoId))
+    return null
   if(e.mediaType!=='movie'||Number(e.tmdbId)!==Number(item.tmdbId)
     ||!VIDEO.test(String(e.videoId||''))||e.target!==url(e.videoId)
     ||e.provenance!=='global-known-video-metadata-review'
