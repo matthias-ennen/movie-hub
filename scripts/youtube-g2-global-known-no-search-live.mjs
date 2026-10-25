@@ -20,7 +20,7 @@ export const KNOWN_NO_SEARCH_QA_KIND='moviehub-youtube-g2-global-known-video-no-
 export const KNOWN_NO_SEARCH_OUTPUT='artifacts/youtube-g2/global-known-no-search-review'
 export const KNOWN_NO_SEARCH_CHECKPOINT='artifacts/youtube-g2/trusted-known-candidates/candidates.json'
 export const MAX_REUSE_BATCH=25
-export const MAX_REUSE_MOVIES=100
+export const MAX_REUSE_MOVIES=250
 const badge=e=>Array.isArray(e?.providerIds)&&e.providerIds.includes('youtube')
   ||Array.isArray(e?.providerOffers)&&e.providerOffers.some(p=>p?.id==='youtube')
 const validId=x=>Number.isInteger(x)&&x>0
