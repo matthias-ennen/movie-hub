@@ -41,7 +41,7 @@ export function verifyBudgetPreflight(preflight,{now}={}){
     ||preflight.authorizedSearchCalls!==0
     ||preflight.automaticSearchAllowed!==false
     ||preflight.currentQuotaRemaining!==null
-    ||preflight.monitoredUsageIsCompleteRealTime!==false
+    ||preflight.monitoringIsActualRemainingQuota!==false
     ||preflight.youtubeSearchCalls!==0||preflight.quotaWrites!==0
     ||preflight.firestoreWrites!==0||preflight.providerWrites!==0
     ||preflight.privateArtifact!==true||preflight.publicationPermitted!==false
