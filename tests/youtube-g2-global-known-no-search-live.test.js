@@ -1,6 +1,7 @@
 import {describe,it,expect,vi} from 'vitest'
 import {
   selectGlobalCachedYoutubeResearch,recheckGlobalCachedYoutubeCandidates,
+  MAX_REUSE_MOVIES,
   globalCachedReviewReport,
 } from '../scripts/youtube-g2-global-known-no-search-live.mjs'
 const now='2026-10-24T17:00:00.000Z'
@@ -67,6 +68,29 @@ describe('global cached TMDB-first real data review without YouTube search.list'
     expect(plan.batchPlan.map(x=>x.length)).toEqual([25,1])
     expect(plan.selection).toHaveLength(26)
     expect(plan.knownVideoCandidatesByTmdbId.size).toBe(27)
+  })
+  it('plans a bounded 250-film known-ID refresh and blocks a 251st before API calls',()=>{
+    expect(MAX_REUSE_MOVIES).toBe(250)
+    const c=checkpoint()
+    c.entries=Array.from({length:250},(_,i)=>({
+      tmdbId:3000+i,videoIds:[videoId(3000+i)],
+      provenance:[{kind:'published-editorial-playlist-hint',runId:40108251915}],
+    }))
+    const p=publicIndex()
+    p.entries=c.entries.map(r=>({type:'movie',tmdbId:r.tmdbId,
+      title:'Known '+r.tmdbId,year:2010,providerIds:['youtube']}))
+    p.count=p.entries.length
+    const planned=selectGlobalCachedYoutubeResearch({
+      checkpoint:c,publicIndex:p,now,
+    })
+    expect(planned.storedGlobalFilmIds).toBe(250)
+    expect(planned.batchPlan).toHaveLength(10)
+    expect(planned.batchPlan.every(chunk=>chunk.length===25)).toBe(true)
+    c.entries.push({tmdbId:4000,videoIds:['Z1234567890'],
+      provenance:[{kind:'published-editorial-playlist-hint',runId:40108251915}]})
+    expect(()=>selectGlobalCachedYoutubeResearch({
+      checkpoint:c,publicIndex:p,now,
+    })).toThrow('G2_GLOBAL_CACHED_SOURCE_INVALID')
   })
   it('rechecks 26 film identities in 2 batches using videos.list; zero searches, zero offers',async()=>{
     const s=services()

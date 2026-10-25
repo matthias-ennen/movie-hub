@@ -92,6 +92,28 @@ describe('Best-effort exact YouTube link without inventing verified offers',()=>
       expect(buildYoutubeBestEffortLinkIndex(input,{now:NOW}).count).toBe(0)
     }
   })
+  it('quarantines conflicting exact video IDs for two films, preserving unrelated shortcuts',()=>{
+    const privateQa=qa()
+    privateQa.rows=[
+      row(),
+      {...row(),tmdbId:200},
+      {...row(),tmdbId:300,videoCandidates:[{
+        ...top(),videoId:'Z1234567890',
+      }]},
+    ]
+    privateQa.summary.rowsChecked=3
+    const index=buildYoutubeBestEffortLinkIndex(privateQa,{now:NOW})
+    expect(index.count).toBe(1)
+    expect(index.entries.map(e=>e.tmdbId)).toEqual([300])
+    expect(index.entries[0].videoId).toBe('Z1234567890')
+    expect(selectYoutubeBestEffortTitleRoute(index,{
+      ...item,tmdbId:300,
+    },props)).not.toBeNull()
+    expect(selectYoutubeBestEffortTitleRoute(index,item,props)).toBeNull()
+    expect(selectYoutubeBestEffortTitleRoute(index,{
+      ...item,tmdbId:200,
+    },props)).toBeNull()
+  })
   it('rejects forged privileged QA and expired private research before projection',()=>{
     for(const change of [
       x=>{x.summary.generatedAt='2026-10-01T12:00:00Z'},

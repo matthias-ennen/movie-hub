@@ -12,7 +12,7 @@ export const BEST_EFFORT_MAX_AGE_MS=7*86400000
 const SOURCE_KIND='moviehub-youtube-g2-global-known-video-no-search-recheck'
 const VIDEO=/^[A-Za-z0-9_-]{11}$/
 const MOVIE=/^movie:[1-9]\d*$/
-const MAX_ROWS=100
+export const BEST_EFFORT_MAX_LINKS=250
 const MAX_RESULTS=10
 const MIN_SCORE=36
 const MIN_MARGIN=8
@@ -52,7 +52,7 @@ export function buildYoutubeBestEffortLinkIndex(review,{
     ||s.independentlyVerifiedDeOffers!==0||s.publishedDirectRoutes!==0
     ||s.firebaseWrites!==0||s.providerWrites!==0||s.catalogWrites!==0
     ||s.badgeWrites!==0
-    ||!Array.isArray(review?.rows)||review.rows.length>MAX_ROWS
+    ||!Array.isArray(review?.rows)||review.rows.length>BEST_EFFORT_MAX_LINKS
     ||s.rowsChecked!==review.rows.length
     ||new Set(review.rows.map(r=>r.tmdbId)).size!==review.rows.length
     ||review.rows.some(r=>!key(r?.tmdbId)
@@ -86,6 +86,14 @@ export function buildYoutubeBestEffortLinkIndex(review,{
       quality:'probable-video-not-verified',
     })
   }
+  // A single YouTube video may superficially match two different TMDB
+  // films. Neither match is safe as an exact route: quarantine both while
+  // retaining every independent, strong link in the published index.
+  const videoFrequency=new Map()
+  for(const entry of index.entries){
+    videoFrequency.set(entry.videoId,(videoFrequency.get(entry.videoId)||0)+1)
+  }
+  index.entries=index.entries.filter(e=>videoFrequency.get(e.videoId)===1)
   index.entries.sort((a,b)=>a.key.localeCompare(b.key))
   index.count=index.entries.length
   return index
