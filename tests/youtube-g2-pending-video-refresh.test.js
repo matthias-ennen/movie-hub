@@ -88,4 +88,25 @@ describe('Pending 55 curated playlist video refresh uses 0 search.list',()=>{
       qa:qa(),youtubeApi:api,now:TIME})).rejects.toThrow('YOUTUBE_PENDING_VIDEO_ID_MISMATCH')
     expect(api).toHaveBeenCalledTimes(1)
   })
+
+  it('keeps the protected identity evidence checklist review-only and refuses forged approval',async()=>{
+    const out=await refreshPendingCuratedMetadata({
+      qa:qa(),youtubeApi:async()=>({items:[video('Abc12345678','Known Film')]}),
+      now:TIME,
+    })
+    const report=pendingRefreshMarkdown(out)
+    expect(report).toContain('### 1. movie:111')
+    expect(report).toContain('https://www.youtube.com/watch?v=Abc12345678')
+    expect(report).toContain('Android:')
+    expect(report).toContain('Fire TV:')
+    expect(report).toContain('keine automatische Angebots-/Routenfreigabe')
+    expect(report).not.toContain('### 2. movie:')
+    const forged=structuredClone(out)
+    forged.reviewPriority[0].approvedWorkIdentity=true
+    expect(()=>pendingRefreshMarkdown(forged)).toThrow(
+      'YOUTUBE_PENDING_REPORT_REVIEW_NOT_TRUSTED')
+    forged.reviewPriority[0].approvedWorkIdentity=false
+    forged.summary.verifiedGermanOffers=1
+    expect(()=>pendingRefreshMarkdown(forged)).toThrow('YOUTUBE_PENDING_REPORT_INVALID')
+  })
 })
