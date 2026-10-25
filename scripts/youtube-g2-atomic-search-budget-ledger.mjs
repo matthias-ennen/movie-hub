@@ -27,10 +27,16 @@ export function verifyBudgetPreflight(preflight,{now}={}){
     ||preflight.smallBatchAdvisory!==true
     ||!Array.isArray(preflight.blocks)||preflight.blocks.length!==0
     ||preflight.rate?.http!==200||preflight.rate.complete!==true
-    ||preflight.rate.points<1||preflight.rate.units>50
+    ||!Number.isInteger(preflight.rate.points)||preflight.rate.points<1
+    ||!Number.isInteger(preflight.rate.units)||preflight.rate.units<0
+    ||preflight.rate.units>50
     ||preflight.exceeded?.http!==200||preflight.exceeded.complete!==true
     ||preflight.exceeded.exceededTrue!==0
+    ||!Number.isInteger(preflight.monitoringSampleAgeMinutes)
+    ||preflight.monitoringSampleAgeMinutes<0
     ||preflight.monitoringSampleAgeMinutes>15
+    ||preflight.otherConsumersReserve!==30
+    ||preflight.monitoringLagBuffer!==10
     ||preflight.acquiredSharedReservation!==false
     ||preflight.authorizedSearchCalls!==0
     ||preflight.automaticSearchAllowed!==false
@@ -117,7 +123,8 @@ export function prepareResearchReservation({
 }
 const objectName=day=>LEDGER_PREFIX+day.date+'.json'
 export async function loadBudgetLedger(bucket,day){
-  if(typeof bucket?.file!=='function')throw Error('YOUTUBE_SEARCH_GCS_BUCKET_REQUIRED')
+  if(typeof bucket?.file!=='function'||bucket.name!=='movie-hub-62459-nightly-checkpoints')
+    throw Error('YOUTUBE_SEARCH_GCS_BUCKET_REQUIRED')
   const name=objectName(day)
   let meta
   try{[meta]=await bucket.file(name).getMetadata()}
