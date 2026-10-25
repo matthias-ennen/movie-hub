@@ -498,6 +498,33 @@ jobs:
         continue-on-error: true
         run: node scripts/youtube-g2-quality-golden-live.mjs
 
+      # Use only a successful SAME-REPO main Actions review whose source
+      # commit is an ancestor of this deploy commit. No YouTube search calls.
+      # Errors/missing QA fail closed to the existing YouTube text-search link.
+      - name: Select fresh authenticated YouTube known-video source for optional links
+        id: youtube_best_effort_source
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/youtube-g2-best-effort-source-provenance.mjs
+
+      - name: Download protected link-only projection from authenticated main run
+        id: youtube_best_effort_download
+        if: ${{ steps.youtube_best_effort_source.outputs.found == 'true' }}
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ steps.youtube_best_effort_source.outputs.artifact_name }}
+          run-id: ${{ steps.youtube_best_effort_source.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: artifacts/youtube-g2/best-effort-downloaded
+
+      - name: Project only safe current YouTube watch links (optional, revoke on absence)
+        id: youtube_best_effort_promote
+        # Runs also when source selection or download fails, in order to
+        # REMOVE any stale linkindex. Private QA is never placed under public/.
+        run: node scripts/youtube-g2-best-effort-promote.mjs
+
       - name: Build
         id: app_build
         run: npm run build

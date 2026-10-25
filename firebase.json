@@ -48,6 +48,15 @@
         ]
       },
       {
+        "source": "/youtube-best-effort-title-links.json",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store"
+          }
+        ]
+      },
+      {
         "source": "/search-details/**",
         "headers": [
           {
