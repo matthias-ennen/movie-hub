@@ -1,0 +1,98 @@
+name: YouTube G2 – public badge cache budget forecast (NO YouTube API)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-bootstrap-budget-forecast.yml
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-bootstrap-budget-forecast-readonly
+  cancel-in-progress: false
+
+jobs:
+  public-badge-forecast:
+    name: Compare public badge films and global cache without search
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' &&
+        contains(github.event.head_commit.message, '[youtube-budget-forecast-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Validate read-only quota forecast and checkpoint regression
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-bootstrap-budget-forecast.mjs
+          npx vitest run tests/youtube-g2-bootstrap-budget-forecast.test.js tests/youtube-g2-durable-candidate-checkpoint.test.js
+      - name: Authenticate preexisting Google OIDC for private checkpoint read
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Restore PRIVATE known candidates without mutation
+        run: node scripts/youtube-g2-durable-candidate-checkpoint.mjs read
+      - name: Forecast public badge search needs with zero YouTube calls
+        run: node scripts/youtube-g2-bootstrap-budget-forecast.mjs
+      - name: Validate output and publish ONLY aggregate counts
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const x=JSON.parse(readFileSync('artifacts/youtube-g2/bootstrap-budget-forecast/forecast.json','utf8'))
+          if(x.kind!=='moviehub-youtube-g2-bootstrap-search-budget-forecast'
+            ||x.publicBadgeMovieCount<1000
+            ||x.checkpointStoredCandidateMovieCount<50
+            ||x.plannedDailyResearchSearchCalls!==10
+            ||x.theoreticalSearchCallsForSingleEnvelope>10
+            ||x.knownCandidateOverlapInPublicBadges+x.publicBadgeFilmsWithoutCachedCandidates!==x.publicBadgeMovieCount
+            ||x.currentActualQuotaUsage!==null||x.currentQuotaRemaining!==null
+            ||x.availableSearchCallsGuaranteed!==false
+            ||x.automaticallyRunSearch!==false||x.newYoutubeSearchCalls!==0
+            ||x.confirmedPlaybackRoutes!==0||x.verifiedGermanOffers!==0
+            ||x.firestoreWrites!==0||x.providerWrites!==0
+            ||x.badgeWrites!==0||x.catalogWrites!==0
+            ||x.publicationPermitted!==false||x.privateArtifact!==true)
+            throw Error('YOUTUBE_BOOTSTRAP_BUDGET_QA_NOT_SAFE')
+          const lines=[
+            '### MovieHub YouTube – live public badge/cache bootstrap budget forecast',
+            '',
+            '- Public movie badges: '+x.publicBadgeMovieCount,
+            '- Protected cached film works: '+x.checkpointStoredCandidateMovieCount,
+            '- Overlap (existing cached video candidates): '+x.knownCandidateOverlapInPublicBadges,
+            '- Public badge films still requiring new candidate discovery: '+x.publicBadgeFilmsWithoutCachedCandidates,
+            '- Hypothetical controlled 10-search envelope: '+x.plannedFilmsForSingleResearchEnvelope+' films',
+            '- Search call budget used: 0; quota remaining: UNKNOWN',
+            '- No verified German offer, no direct playback route, no production write',
+            '',
+          ]
+          for(const s of x.scenarios){
+            lines.push('- Forecast '+s.researchSearchCallsPerDay+
+              ' search calls/day: >= '+s.minimumTheoreticalSearchDays+
+              ' days of searching (NOT a publication timeline)')
+          }
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n')
+          NODE
+      - name: Upload protected forecast (7 days, NO production data)
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-bootstrap-budget-forecast-\${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/bootstrap-budget-forecast/forecast.json
+            artifacts/youtube-g2/bootstrap-budget-forecast/report.md
+          if-no-files-found: error
+          retention-days: 7
