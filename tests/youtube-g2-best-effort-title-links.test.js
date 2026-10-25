@@ -77,6 +77,41 @@ describe('Best-effort exact YouTube link without inventing verified offers',()=>
     }
     expect(getProviderDestination('youtube',item.title)).toContain('search_query=')
   })
+  it('rejects cross-film public VIDEO-ID collisions at load and click time',async()=>{
+    const publicIndex=build()
+    const copied=structuredClone(publicIndex.entries[0])
+    copied.key='movie:99999'
+    copied.tmdbId=99999
+    publicIndex.entries.push(copied)
+    publicIndex.count=2
+    // A duplicate canonical video cannot represent two independent titles.
+    expect(selectYoutubeBestEffortTitleRoute(publicIndex,item,props)).toBeNull()
+    expect(selectYoutubeBestEffortTitleRoute(publicIndex,{
+      ...item,tmdbId:99999,
+    },props)).toBeNull()
+    expect(await loadYoutubeBestEffortTitleLinks(
+      vi.fn(async()=>({ok:true,json:async()=>publicIndex})))).toBeNull()
+  })
+  it('rejects duplicate film keys and oversized feeds before use',async()=>{
+    const duplicated=build()
+    duplicated.entries.push({...duplicated.entries[0],videoId:'Z1234567890',
+      target:'https://www.youtube.com/watch?v=Z1234567890'})
+    duplicated.count=2
+    expect(await loadYoutubeBestEffortTitleLinks(
+      vi.fn(async()=>({ok:true,json:async()=>duplicated})))).toBeNull()
+    const tooMany=build()
+    tooMany.entries=Array.from({length:251},(_,i)=>({
+      ...tooMany.entries[0],key:'movie:'+(200000+i),
+      tmdbId:200000+i,videoId:'X'+String(i).padStart(10,'0'),
+      target:'https://www.youtube.com/watch?v=X'+String(i).padStart(10,'0'),
+    }))
+    tooMany.count=tooMany.entries.length
+    expect(selectYoutubeBestEffortTitleRoute(tooMany,{
+      ...item,tmdbId:200000,
+    },props)).toBeNull()
+    expect(await loadYoutubeBestEffortTitleLinks(
+      vi.fn(async()=>({ok:true,json:async()=>tooMany})))).toBeNull()
+  })
   it('rejects poor match, ambiguous near-tie, blocked DE and no YouTube badge',()=>{
     for(const change of [
       x=>{x.rows[0].status='review-multiple-video-editions'},
