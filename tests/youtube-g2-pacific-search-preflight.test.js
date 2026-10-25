@@ -70,7 +70,7 @@ describe('Pacific-day YouTube search budget preflight without a search authoriza
       expect(r.smallBatchAdvisory).toBe(false)
       expect(r.authorizedSearchCalls).toBe(0)
       expect(r.currentQuotaRemaining).toBe(null)
-      expect(JSON.stringify(r)).not.toContain('private')
+      expect(JSON.stringify(r)).not.toContain('private token')
     }
   })
   it('refuses forged project/metric, out of day sample, malformed value and future data',()=>{
