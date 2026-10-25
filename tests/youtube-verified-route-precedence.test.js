@@ -83,6 +83,49 @@ describe('YouTube verified route enrichment leaves TMDB badges and original sear
       ...verified(),sourceId:'google_tv',
     },{now:NOW})).toThrow('YOUTUBE_VERIFIED_SOURCE_UNTRUSTED_OR_STALE')
   })
+  it('revokes a film with contradictory FREE/RENT offers for the SAME exact video',()=>{
+    const source=verified()
+    const original=source.records[0]
+    const competing={...original,
+      availabilityId:original.availabilityId+'-rent',
+      accessType:'rent'}
+    for(const records of [
+      [original,competing],
+      [competing,original],
+      [original,competing,{...original,availabilityId:original.availabilityId+'-again'}],
+    ]){
+      const index=buildYoutubeVerifiedRouteIndex({...source,records},{now:NOW})
+      expect(index).toMatchObject({count:0,entries:[]})
+      expect(selectYoutubeVerifiedTitleRoute(index,item,{
+        now:Date.parse(NOW),hasYoutubeBadge:true})).toBeNull()
+      expect(getProviderDestination('youtube',item.title))
+        .toContain('results?search_query=')
+    }
+  })
+  it('keeps the same approved film and tariff if identical evidence is repeated',()=>{
+    const source=verified()
+    const original=source.records[0]
+    const repeated={...original,availabilityId:original.availabilityId+'-repeat'}
+    const index=buildYoutubeVerifiedRouteIndex({
+      ...source,records:[original,repeated]},{now:NOW})
+    expect(index.count).toBe(1)
+    expect(index.entries[0]).toMatchObject({
+      key:'movie:539892',verifiedVideoId:ID,accessType:'free',
+    })
+  })
+  it('drops an old YouTube source observation even when a record advertises a later expiration',()=>{
+    const source=verified()
+    const record=source.records[0]
+    const outOfDate={...record,
+      sourceRefs:record.sourceRefs.map(ref=>({
+        ...ref,observedAt:'2026-09-01T00:00:00Z',
+      })),
+    }
+    expect(buildYoutubeVerifiedRouteIndex({
+      ...source,records:[outOfDate]},{now:NOW}))
+      .toMatchObject({count:0,entries:[]})
+    expect(buildYoutubeVerifiedRouteIndex(source,{now:NOW}).count).toBe(1)
+  })
   it('writes zero approved routes when the deploy has no verified YouTube envelope',async()=>{
     const dir=await mkdtemp(join(tmpdir(),'moviehub-youtube-routes-'))
     try{
