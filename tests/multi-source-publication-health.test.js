@@ -50,7 +50,7 @@ describe('independent sources and their actual app publication', () => {
       const files = generation()
       for (let i = 0; i < paths.length; i++) { const path = join(root, paths[i]); await mkdir(dirname(path), { recursive: true }); await writeFile(path, JSON.stringify(files[i])) }
       const actual = structuredClone(files); actual[2].generatedAt = '2026-10-07T04:00:00Z'
-      await expect(verifyPublishedGeneration({ directory: root, fetchImpl: async url => ({ ok: true, json: async () => actual[paths.indexOf(url.pathname.slice(1))] }) })).rejects.toThrow('Published generation differs from build: joyn-live/index.json')
+      await expect(verifyPublishedGeneration({ directory: root, fetchImpl: async url => ({ ok: true, json: async () => actual[paths.indexOf(url.pathname.slice(1))] }) })).rejects.toThrow('Published generation differs from build: joyn-live/index.json (preparedAt=2026-10-07T04:30:00.000Z, servedAt=2026-10-07T04:00:00Z)')
     } finally { await rm(root, { recursive: true, force: true }) }
   })
 })

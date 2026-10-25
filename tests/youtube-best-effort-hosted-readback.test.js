@@ -149,13 +149,22 @@ describe('actual Firebase YouTube link-only HTTP publication probe',()=>{
       ...options,limit:0,
     })).toEqual([])
   })
-  it('runs only after regular post-deployment data integrity succeeded',()=>{
+  it('independently audits deployed YouTube links even if generic data readback fails',()=>{
     const wf=readFileSync(new URL('../.github/workflows/deploy-firebase.yml',
       import.meta.url),'utf8')
     const deploy=wf.indexOf('npx firebase-tools deploy')
     const ordinary=wf.indexOf('node scripts/verify-published-data.mjs',deploy)
     const http=wf.indexOf('node scripts/verify-youtube-best-effort-publication.mjs')
+    expect(deploy).toBeGreaterThan(-1)
+    expect(ordinary).toBeGreaterThan(deploy)
     expect(http).toBeGreaterThan(ordinary)
-    expect(wf).toContain("steps.publication_verify.outcome == 'success'")
+    const readback=wf.slice(wf.lastIndexOf('- name: Verify hosted best-effort link index',http),http)
+    expect(readback).toContain("!cancelled() && steps.firebase_deploy.outcome == 'success'")
+    expect(readback).not.toContain("steps.publication_verify.outcome == 'success'")
+    // The shared publication audit still fails the whole deploy on mismatch:
+    // it must not become continue-on-error merely to print device cases.
+    const standard=wf.slice(wf.lastIndexOf('- name: Verify actually published source generations',http),http)
+    expect(standard).toContain('run: node scripts/verify-published-data.mjs')
+    expect(standard).not.toContain('continue-on-error: true')
   })
 })
