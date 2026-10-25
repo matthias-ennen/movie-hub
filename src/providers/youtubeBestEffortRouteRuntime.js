@@ -5,12 +5,12 @@ import {
 
 // Optional public *link-only* projection of private known-ID review QA.
 // Missing/old/invalid data never changes TMDB badges or their search fallback.
+// Do not keep a promise forever: a resumed TV/WebView session must see
+// newly published and revoked links rather than reusing a stale index.
 export const YOUTUBE_BEST_EFFORT_LINKS_URL='/youtube-best-effort-title-links.json'
-let cached=null
 export function loadYoutubeBestEffortTitleLinks(request=fetch){
-  if(request===fetch&&cached)return cached
   const promise=Promise.resolve()
-    .then(()=>request(YOUTUBE_BEST_EFFORT_LINKS_URL,{redirect:'error'}))
+    .then(()=>request(YOUTUBE_BEST_EFFORT_LINKS_URL,{redirect:'error',cache:'no-store'}))
     .then(async response=>{
       if(!response?.ok)return null
       const data=await response.json()
@@ -25,6 +25,5 @@ export function loadYoutubeBestEffortTitleLinks(request=fetch){
         ?data:null
     })
     .catch(()=>null)
-  if(request===fetch)cached=promise
   return promise
 }
