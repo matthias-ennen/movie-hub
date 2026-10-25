@@ -94,8 +94,9 @@ export function selectPublishedYoutubeDeviceTestCases(links,publicIndex,{
   for(const entry of publicIndex.entries){
     if(entry?.type!=='movie'||!Number.isSafeInteger(Number(entry.tmdbId))
       ||Number(entry.tmdbId)<1)continue
-    const badge=entry?.providerIds?.includes('youtube')
-      ||entry?.providerOffers?.some(p=>p?.id==='youtube')
+    const badge=(Array.isArray(entry.providerIds)&&entry.providerIds.includes('youtube'))
+      ||(Array.isArray(entry.providerOffers)
+        &&entry.providerOffers.some(p=>p?.id==='youtube'))
     if(!badge)continue
     const key=Number(entry.tmdbId)
     // Conflicting public film identities cannot supply a test title.
