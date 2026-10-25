@@ -101,8 +101,9 @@ export function selectPublishedYoutubeDeviceTestCases(links,publicIndex,{
     const key=Number(entry.tmdbId)
     // Conflicting public film identities cannot supply a test title.
     if(badgeMovies.has(key)){badgeMovies.set(key,null);continue}
-    const title=String(entry.title||'').replace(/[<>|*()\\[\\]{}\\r\\n]/g,' ')
-      .replace(/\\s+/g,' ').trim().slice(0,120)
+    const title=String(entry.title||'').split('')
+      .map(ch=>'<>|*()[]{}\r\n'.includes(ch)?' ':ch)
+      .join('').trim().split(/\s+/).join(' ').slice(0,120)
     badgeMovies.set(key,title?{title,year:Number.isInteger(Number(entry.year))
       &&Number(entry.year)>=1880&&Number(entry.year)<=2100?Number(entry.year):null}:null)
   }
