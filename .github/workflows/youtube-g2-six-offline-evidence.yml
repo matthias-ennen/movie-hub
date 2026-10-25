@@ -1,4 +1,4 @@
-name: YouTube G2 – six verified-source review sheets (offline, private)
+name: YouTube G2 – all 55 pending review sheets (offline, private)
 
 on:
   workflow_dispatch:
@@ -17,12 +17,12 @@ concurrency:
 
 jobs:
   protected-offline-six:
-    name: Replay exactly six pending-video reviews from original protected QA
+    name: Replay 6 prioritized plus 49 remaining from original protected QA
     if: >-
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'push' &&
-        contains(github.event.head_commit.message, '[youtube-six-offline-once]')))
+        contains(github.event.head_commit.message, '[youtube-full55-offline-once]')))
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
@@ -40,7 +40,7 @@ jobs:
         run: |
           npm ci
           node --check scripts/youtube-g2-pending-video-refresh.mjs
-          npx vitest run tests/youtube-g2-pending-video-refresh.test.js
+          npx vitest run tests/youtube-g2-pending-video-refresh.test.js tests/youtube-g2-pending-rest-offline-review.test.js
       - name: Authenticate exact completed original live metadata refresh and artifact ID
         shell: bash
         run: |
@@ -127,6 +127,14 @@ jobs:
           writeFileSync(root+'summary.json',JSON.stringify(summary,null,2)+'\n',{mode:0o600})
           console.log(JSON.stringify(summary))
           NODE
+      - name: Build additional 49 distinct protected video review tasks (no API)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/youtube-g2-pending-rest-offline-review.mjs
+          node scripts/youtube-g2-pending-rest-offline-review.mjs \
+            artifacts/youtube-g2/six-offline-evidence/qa-source.json \
+            artifacts/youtube-g2/six-offline-evidence
           rm artifacts/youtube-g2/six-offline-evidence/qa-source.json
       - name: Publish only aggregate, nonidentifying results in workflow summary
         shell: bash
@@ -135,7 +143,18 @@ jobs:
           import {readFileSync,appendFileSync} from 'node:fs'
           const s=JSON.parse(readFileSync(
             'artifacts/youtube-g2/six-offline-evidence/summary.json','utf8'))
+          const rest=JSON.parse(readFileSync(
+            'artifacts/youtube-g2/six-offline-evidence/remaining-49-summary.json','utf8'))
           if(s.sourceArtifactId!==12569251342||s.manualPriorityCases!==6
+            ||rest.sourceArtifactId!==s.sourceArtifactId
+            ||rest.sourceMeasuredAt!==s.sourceMeasuredAt
+            ||rest.remainingReviewIds!==49||rest.separateTopPriorityReview!==6
+            ||Object.values(rest.remainingLaneCounts).reduce((a,b)=>a+b,0)!==49
+            ||rest.currentYouTubeCalls!==0||rest.currentYouTubeSearchCalls!==0
+            ||rest.independentGermanOffersApproved!==0
+            ||rest.directPlaybackRoutesApproved!==0
+            ||rest.publicationPermitted!==false||rest.privateArtifact!==true
+            ||rest.firestoreWrites!==0||rest.catalogWrites!==0||rest.providerWrites!==0
             ||s.currentYouTubeRequests!==0||s.currentSearchRequests!==0
             ||s.independentApprovedOffers!==0||s.directRoutesApproved!==0
             ||s.firestoreWrites!==0||s.publicationPermitted!==false)
@@ -147,7 +166,8 @@ jobs:
             '- Zeitstempel der urspruenglichen Messung: '+s.sourceMeasuredAt,
             '- Video-IDs: '+s.sourceVideoIds+'; redaktionelle Links: '+s.editorialLinks+
               '; offene IDs: '+s.openVideos,
-            '- Sechs individuelle Werk-/Fassungs-/DE-/Geraetepruefblatter: nur im **geschuetzten** Artefakt',
+            '- Sechs priorisierte Werk-/Fassungs-/DE-/Geraetepruefblatter: nur im **geschuetzten** Artefakt',
+            '- Zusaetzlich **49** weitere geschuetzte Einzelpruefungen (8 Konfliktklassen): 55/55 bekannte offene IDs abgedeckt',
             '- Neue YouTube requests: **0**, neue zugelassene DE-Angebote: **0**',
             '- Keine Produktion, keine Profil- oder Katalogveraenderung',
             '',
@@ -156,9 +176,11 @@ jobs:
       - name: Upload PRIVATE six-case manual review sheets (7 days)
         uses: actions/upload-artifact@v7
         with:
-          name: youtube-g2-six-offline-evidence-${{ github.run_id }}
+          name: youtube-g2-full55-offline-evidence-${{ github.run_id }}
           path: |
             artifacts/youtube-g2/six-offline-evidence/six-case-review.md
             artifacts/youtube-g2/six-offline-evidence/summary.json
+            artifacts/youtube-g2/six-offline-evidence/remaining-49-review.md
+            artifacts/youtube-g2/six-offline-evidence/remaining-49-summary.json
           retention-days: 7
           if-no-files-found: error
