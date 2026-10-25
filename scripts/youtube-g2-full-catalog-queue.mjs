@@ -79,9 +79,13 @@ export function createYoutubeFullCatalogResearchPlan({
   // Existing historical 2-query QA remains default. The new bounded
   // first-pass admission explicitly selects ONE query, not both.
   searchesPerTitle = YOUTUBE_SEARCHES_PER_TITLE,
+  // One-off research of an unknown cached-miss: never a resumable cursor.
+  uncachedOnly = false,
 } = {}) {
   if(searchesPerTitle!==1&&searchesPerTitle!==2)
     throw Error('G2_RESEARCH_INVALID_SEARCH_STRATEGY')
+  if(typeof uncachedOnly!=='boolean'||uncachedOnly&&(offset!==0||continuation!==null||limit!==1))
+    throw Error('G2_UNCACHED_RESEARCH_ONLY_ONE_INITIAL_WORK')
   const knownMap=validateKnownCandidateMap(knownVideoCandidatesByTmdbId)
   validate(inventory, publicIndex)
   const asOf = new Date(now).toISOString()
@@ -136,7 +140,9 @@ export function createYoutubeFullCatalogResearchPlan({
   const publicOnly = badged.filter(x=>x.catalogMembership==='public-search-only')
   // Prioritize the complete canonical inventory: these films are already
   // relevant to MovieHub's current browse/profile/shared-media/TV universe.
-  const pending = [...catalogBadged,...publicOnly]
+  const allBadged = [...catalogBadged,...publicOnly]
+  const pending = uncachedOnly
+    ?allBadged.filter(x=>!knownMap?.has(x.tmdbId)):allBadged
   const queueIdentity = createHash('sha256').update(JSON.stringify(
     pending.map(x=>x.key))).digest('hex')
   // Never let a second manual run silently repeat offset 0 or jump ahead:
@@ -194,8 +200,10 @@ export function createYoutubeFullCatalogResearchPlan({
       exposesPersonalDocumentPaths:false,
       exactYoutubeBadgesOnlyFromPublicSearchIndex:true,
       privateProfileYoutubeBadgeCoverage:'not-available-from-inventory',
-      publicYoutubeBadgedTitles:pending.length,
-      publicYoutubeBadgedMovies:pending.length,
+      publicYoutubeBadgedTitles:allBadged.length,
+      publicYoutubeBadgedMovies:allBadged.length,
+      uncachedResearchOnly:uncachedOnly,
+      remainingPublicYoutubeBadgedUnknownFilms:uncachedOnly?pending.length:null,
       publicYoutubeBadgedSeriesDeferred:publicYoutubeBadgedSeries,
       canonicalAndPublicBadgedTitles:catalogBadged.length,
       publicSearchOnlyBadgedTitles:publicOnly.length,
