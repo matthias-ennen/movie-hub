@@ -5,8 +5,7 @@ import { loadYoutubeBestEffortTitleLinks } from './youtubeBestEffortRouteRuntime
 
 // Shared by every poster and detail; no per-card network requests.
 // Best-effort links can be revoked at Hosting while a Fire TV stays open.
-// Recheck on app resume and occasionally while visible, without YouTube API use.
-const BEST_EFFORT_RECHECK_MS = 15 * 60 * 1000
+// Recheck only when the user returns to the app, without a background poll.
 const YoutubeVerifiedOffersContext = createContext(null)
 
 export function YoutubeVerifiedOffersProvider({ children }) {
@@ -43,12 +42,10 @@ export function YoutubeVerifiedOffersProvider({ children }) {
     refreshBestEffort()
     document.addEventListener('visibilitychange', onResume)
     window.addEventListener('focus', onResume)
-    const interval = window.setInterval(onResume, BEST_EFFORT_RECHECK_MS)
     return () => {
       active = false
       document.removeEventListener('visibilitychange', onResume)
       window.removeEventListener('focus', onResume)
-      window.clearInterval(interval)
     }
   }, [])
   return (
