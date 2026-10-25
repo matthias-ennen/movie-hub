@@ -1,0 +1,143 @@
+name: YouTube G2 – Pacific daily search budget preflight (read-only, NO search)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-pacific-search-preflight.yml
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-pacific-search-preflight-readonly
+  cancel-in-progress: false
+
+jobs:
+  quota-diagnostic:
+    name: Bound current Pacific-day search quota telemetry; never authorize a search
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' &&
+        contains(github.event.head_commit.message, '[youtube-pacific-budget-preflight-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Verify fail-closed Pacific DST and project quota tests
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-pacific-search-preflight.mjs
+          npx vitest run tests/youtube-g2-pacific-search-preflight.test.js
+      - name: Derive current Pacific quota window from actual current UTC instant
+        id: window
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync} from 'node:fs'
+          import {pacificSearchDay} from './scripts/youtube-g2-pacific-search-preflight.mjs'
+          const now=new Date().toISOString()
+          const day=pacificSearchDay(now)
+          appendFileSync(process.env.GITHUB_OUTPUT,
+            'now='+now+'\nstart='+day.start+'\n')
+          console.log('Pacific day: '+day.date+'; next reset: '+day.end)
+          NODE
+      - name: Authenticate existing Google OIDC principal (no new keys or permissions)
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Read two bounded current PT-day Monitoring metrics with Google GET only
+        id: monitoring
+        shell: bash
+        env:
+          START: ${{ steps.window.outputs.start }}
+          NOW: ${{ steps.window.outputs.now }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/moviehub-youtube-pt-budget-private
+          token="$(gcloud auth print-access-token)"
+          for type in rate exceeded; do
+            if [[ "$type" == rate ]]; then kind='rate/net_usage'; else kind='exceeded'; fi
+            FILTER="metric.type=\"serviceruntime.googleapis.com/quota/$kind\" AND resource.type=\"consumer_quota\" AND resource.label.service=\"youtube.googleapis.com\" AND metric.label.quota_metric=\"youtube.googleapis.com/search_list\""
+            code="$(curl --silent --show-error --max-time 35 --retry 0 \
+              --get --header "Authorization: Bearer $token" \
+              --header 'Accept: application/json' \
+              --data-urlencode "filter=$FILTER" \
+              --data-urlencode "interval.startTime=$START" \
+              --data-urlencode "interval.endTime=$NOW" \
+              --data-urlencode 'view=FULL' \
+              --data-urlencode 'pageSize=5000' \
+              --output "/tmp/moviehub-youtube-pt-budget-private/$type.json" \
+              --write-out '%{http_code}' \
+              'https://monitoring.googleapis.com/v3/projects/movie-hub-62459/timeSeries')"
+            [[ "$code" =~ ^[0-9]{3}$ ]] || {
+              echo '::error::Invalid Google Monitoring HTTP response'
+              exit 1
+            }
+            echo "$type=$code" >> "$GITHUB_OUTPUT"
+          done
+          unset token FILTER
+          echo 'Cloud Monitoring PT-day GET-only telemetry completed (raw responses private).'
+      - name: Interpret observed PT day quota defensively (NO lease)
+        shell: bash
+        env:
+          NOW: ${{ steps.window.outputs.now }}
+          RATE_HTTP: ${{ steps.monitoring.outputs.rate }}
+          EXCEEDED_HTTP: ${{ steps.monitoring.outputs.exceeded }}
+        run: |
+          set -euo pipefail
+          node scripts/youtube-g2-pacific-search-preflight.mjs \
+            "$NOW" \
+            "$RATE_HTTP" /tmp/moviehub-youtube-pt-budget-private/rate.json \
+            "$EXCEEDED_HTTP" /tmp/moviehub-youtube-pt-budget-private/exceeded.json \
+            artifacts/youtube-g2/pacific-search-preflight
+          rm -rf /tmp/moviehub-youtube-pt-budget-private
+      - name: Summarize only read-only metrics; do not publish an authorization
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const p=JSON.parse(readFileSync(
+            'artifacts/youtube-g2/pacific-search-preflight/summary.json','utf8'))
+          if(p.kind!=='moviehub-youtube-g2-pacific-search-budget-preflight'
+            ||p.measuredProjectDailyLimit!==100||p.researchBudgetProposed!==10
+            ||p.acquiredSharedReservation!==false
+            ||p.authorizedSearchCalls!==0||p.automaticSearchAllowed!==false
+            ||p.currentQuotaRemaining!==null
+            ||p.monitoringIsActualRemainingQuota!==false
+            ||p.youtubeSearchCalls!==0||p.quotaWrites!==0
+            ||p.firestoreWrites!==0||p.providerWrites!==0
+            ||p.privateArtifact!==true||p.publicationPermitted!==false)
+            throw Error('YOUTUBE_PACIFIC_BUDGET_WORKFLOW_UNSAFE')
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,[
+            '## YouTube search.list – aktueller Pacific-Tag (nur Beobachtung)',
+            '',
+            '- Pacific quota date: '+p.pacificDate,
+            '- Reset UTC: '+p.nextResetUTC,
+            '- Google quota limit: 100 search calls/PT day',
+            '- Observed rate/net_usage: HTTP '+p.rate.http+
+              ', '+p.rate.units+' sampled units, '+p.rate.points+' points',
+            '- quota/exceeded: HTTP '+p.exceeded.http+
+              ', '+p.exceeded.exceededTrue+' TRUE points',
+            '- Potential 10-call plan advisory: '+p.smallBatchAdvisory,
+            '- Blocks: '+(p.blocks.join(', ')||'none within observed read-only telemetry'),
+            '- **NO guaranteed remaining quota, NO shared reservation, NO search authorization, NO YouTube calls and NO writes.**',
+            '',
+          ].join('\n')+'\n')
+          NODE
+      - name: Upload sanitized PT-day quota diagnostic privately (7 days)
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-pacific-search-preflight-${{ github.run_id }}
+          path: artifacts/youtube-g2/pacific-search-preflight/summary.json
+          retention-days: 7
+          if-no-files-found: error
