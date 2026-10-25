@@ -2,6 +2,9 @@ name: YouTube AP2 – global cached films live recheck (0 searches)
 
 on:
   workflow_dispatch:
+  schedule:
+    # GitHub cron is UTC. Refresh only known IDs daily, never search.list.
+    - cron: '35 5 * * *'
   push:
     branches: [main]
     paths:
@@ -21,6 +24,7 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
+       github.event_name == 'schedule' ||
         (github.event_name == 'push' &&
          contains(github.event.head_commit.message, '[youtube-global-known-once]')))
     runs-on: ubuntu-latest
@@ -42,6 +46,21 @@ jobs:
             tests/youtube-g2-global-known-no-search-live.test.js \
             tests/youtube-g2-durable-candidate-checkpoint.test.js \
             tests/youtube-g2-tmdb-first-link-pilot.test.js
+      - name: Assert daily job is explicitly limited to known IDs and zero new searches
+        shell: bash
+        run: |
+          set -euo pipefail
+          # This scheduled task does not chain full-catalog search, stage routes,
+          # change quotas, grant DE rights or mutate Firestore/candidate checkpoint.
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs'
+          const source=readFileSync('scripts/youtube-g2-global-known-no-search-live.mjs','utf8')
+          if(!source.includes("if(endpoint!=='videos')throw Error('G2_GLOBAL_CACHED_YOUTUBE_SEARCH_FORBIDDEN')")
+            ||!source.includes("summary.searchCalls")
+            ||!source.includes("independentlyVerifiedDeOffers:0")
+            ||!source.includes("publishedDirectRoutes:0"))
+            throw Error('YOUTUBE_GLOBAL_KNOWN_SCHEDULED_SEARCH_GUARD_MISSING')
+          NODE
       - name: Authenticate Google OIDC for protected shared candidate checkpoint
         uses: google-github-actions/auth@v3
         with:
