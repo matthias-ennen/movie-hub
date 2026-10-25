@@ -1,4 +1,5 @@
 import {describe,it,expect,vi} from 'vitest'
+import {readFileSync} from 'node:fs'
 import {
   buildYoutubeBestEffortLinkIndex,selectYoutubeBestEffortTitleRoute,
   BEST_EFFORT_YOUTUBE_KIND,
@@ -110,13 +111,51 @@ describe('Best-effort exact YouTube link without inventing verified offers',()=>
       expect(()=>buildYoutubeBestEffortLinkIndex(input,{now:NOW})).toThrow()
     }
   })
+  it('revalidates default Hosted fetch instead of retaining a revoked URL for the whole session',async()=>{
+    const originalFetch=globalThis.fetch
+    const valid=build()
+    let served=valid
+    const request=vi.fn(async(_url,options)=>served
+      ?{ok:true,status:200,json:async()=>served}
+      :{ok:false,status:404})
+    globalThis.fetch=request
+    try{
+      expect(await loadYoutubeBestEffortTitleLinks()).toEqual(valid)
+      served=null
+      expect(await loadYoutubeBestEffortTitleLinks()).toBeNull()
+      served=valid
+      expect(await loadYoutubeBestEffortTitleLinks()).toEqual(valid)
+    }finally{
+      globalThis.fetch=originalFetch
+    }
+    expect(request).toHaveBeenCalledTimes(3)
+    for(const [url,options] of request.mock.calls){
+      expect(url).toBe('/youtube-best-effort-title-links.json')
+      expect(options).toMatchObject({cache:'no-store',redirect:'error'})
+    }
+  })
+  it('refreshes only the shared best-effort feed on visibility, focus and visible session interval',()=>{
+    const source=readFileSync(new URL('../src/providers/YoutubeVerifiedOffersContext.jsx',
+      import.meta.url),'utf8')
+    expect(source).toContain("document.addEventListener('visibilitychange', onResume)")
+    expect(source).toContain("window.addEventListener('focus', onResume)")
+    expect(source).toContain('window.setInterval(onResume, BEST_EFFORT_RECHECK_MS)')
+    expect(source).toContain("if (document.visibilityState !== 'hidden') refreshBestEffort()")
+    expect(source).toContain('setBestEffort(null)')
+    expect(source).toContain('requestId === latestRequest')
+    expect(source).toContain("document.removeEventListener('visibilitychange', onResume)")
+    expect(source).toContain("window.removeEventListener('focus', onResume)")
+    expect(source).toContain('window.clearInterval(interval)')
+  })
   it('optional loader never asserts an offer or breaks on 404',async()=>{
     expect(await loadYoutubeBestEffortTitleLinks(
       vi.fn(async()=>({ok:false,status:404})))).toBeNull()
     const valid=build()
     const fetcher=vi.fn(async()=>({ok:true,json:async()=>valid}))
     expect(await loadYoutubeBestEffortTitleLinks(fetcher)).toEqual(valid)
-    expect(fetcher).toHaveBeenCalledWith('/youtube-best-effort-title-links.json',{redirect:'error'})
+    expect(fetcher).toHaveBeenCalledWith('/youtube-best-effort-title-links.json',{
+      redirect:'error',cache:'no-store',
+    })
     const modified={...valid,claimedOfferTypes:['free']}
     expect(await loadYoutubeBestEffortTitleLinks(
       vi.fn(async()=>({ok:true,json:async()=>modified})))).toBeNull()
