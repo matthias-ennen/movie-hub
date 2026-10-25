@@ -16,10 +16,10 @@ on:
         type: string
         required: false
       batch_size:
-        description: 'YouTube research works (max 25; two search requests each)'
+        description: 'Films to research; uncached work permits exactly 1 reserved search per run'
         type: string
         required: true
-        default: '10'
+        default: '1'
 permissions:
   contents: read
   actions: read
@@ -35,7 +35,7 @@ jobs:
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'push' &&
-        contains(github.event.head_commit.message, '[youtube-first-ten-once]')))
+        contains(github.event.head_commit.message, '[youtube-one-guarded-once]')))
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -43,7 +43,7 @@ jobs:
       TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
       DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
       YOUTUBE_G2_RESEARCH_OFFSET: ${{ inputs.offset || '0' }}
-      YOUTUBE_G2_RESEARCH_BATCH_SIZE: ${{ inputs.batch_size || '10' }}
+      YOUTUBE_G2_RESEARCH_BATCH_SIZE: ${{ github.event_name == 'push' && '1' || inputs.batch_size || '1' }}
       YOUTUBE_G2_RESEARCH_PREVIOUS_RUN: ${{ inputs.previous_run }}
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -56,11 +56,12 @@ jobs:
           npm ci
           node --check scripts/youtube-g2-full-catalog-queue.mjs
           node --check scripts/youtube-g2-full-catalog-queue-live.mjs
+          node --check scripts/youtube-g2-one-search-admission.mjs
           node --check scripts/youtube-g2-known-candidate-reuse.mjs
           node --check scripts/youtube-g2-durable-candidate-checkpoint.mjs
           node --check scripts/youtube-g2-tmdb-first-link-model.mjs
           node --check scripts/youtube-g2-tmdb-first-link-pilot.mjs
-          npx vitest run tests/youtube-g2-full-catalog-queue.test.js tests/youtube-g2-tmdb-first-link-pilot.test.js tests/youtube-g2-known-candidate-reuse.test.js tests/youtube-g2-durable-candidate-checkpoint.test.js tests/title-candidate-inventory.test.js
+          npx vitest run tests/youtube-g2-full-catalog-queue.test.js tests/youtube-g2-one-search-admission.test.js tests/youtube-g2-tmdb-first-link-pilot.test.js tests/youtube-g2-known-candidate-reuse.test.js tests/youtube-g2-durable-candidate-checkpoint.test.js tests/title-candidate-inventory.test.js
       - name: Authenticate existing MovieHub inventory reader (OIDC, no writes)
         uses: google-github-actions/auth@v3
         with:
@@ -68,38 +69,6 @@ jobs:
           workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
           service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v3
-      - name: Verify successful actual 1-call YouTube search before one-time new-film batch
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          set -euo pipefail
-          probe_run='40112455820'
-          probe_sha='e255751a8c38b0ecdfc833b2df09e0636585cd24'
-          meta="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$probe_run" --jq '[.conclusion,.status,.head_sha,.head_branch,.path] | join("|")')"
-          if [[ "$meta" != "success|completed|$probe_sha|main|.github/workflows/youtube-g2-one-search-quota-preflight.yml" ]]; then
-            echo "::error::Prior one-search test is not authenticated SUCCESS"
-            exit 1
-          fi
-          art="youtube-g2-one-search-diagnostic-$probe_run"
-          state="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$probe_run/artifacts" --jq '.artifacts[] | select(.name == "youtube-g2-one-search-diagnostic-40112455820") | [.name,.expired,.workflow_run.id] | join("|")')"
-          if [[ "$state" != "$art|false|$probe_run" ]]; then
-            echo "::error::Sanitized one-search evidence missing or expired"
-            exit 1
-          fi
-          mkdir -p artifacts/youtube-g2/one-search-preflight
-          gh run download "$probe_run" -n "$art" --repo "$GITHUB_REPOSITORY" \
-            -D artifacts/youtube-g2/one-search-preflight
-          test -s artifacts/youtube-g2/one-search-preflight/summary.json
-          node --input-type=module <<'NODE'
-          import {readFileSync} from 'node:fs'
-          const p=JSON.parse(readFileSync('artifacts/youtube-g2/one-search-preflight/summary.json','utf8'))
-          if(p.kind!=='moviehub-youtube-g2-one-search-project-quota-diagnostic'
-            ||p.searchOutcome!=='search-accessible'||p.searchCallsAttempted!==1
-            ||p.noAutomaticRetry!==true||p.independentlyVerifiedDEOffers!==0
-            ||p.confirmedPlaybackRoutes!==0||p.firestoreWrites!==0)
-            throw Error('ONE_SEARCH_PREFLIGHT_NOT_SAFE_FOR_TEN_FILM_BATCH')
-          console.log('Prior search API probe accessible; capped 10-film full-catalog batch allowed')
-          NODE
       - name: Build canonical title inventory via existing #256 Firestore/browse/TV pathway
         run: npm run title:candidates:inventory
       - name: Validate explicit research cursor and previous successful private batch
@@ -132,7 +101,7 @@ jobs:
             fi
             if [[ "$event" == "push" ]]; then
               original_msg="$(gh api "repos/$GITHUB_REPOSITORY/commits/$source_sha" --jq '.commit.message')"
-              if [[ "$original_msg" != *"[youtube-first-ten-once]"* ]]; then
+              if [[ "$original_msg" != *"[youtube-one-guarded-once]"* ]]; then
                 echo "::error::Push research prior run was not the one authorized first-batch"
                 exit 1
               fi
@@ -152,11 +121,49 @@ jobs:
           fi
       - name: Restore persistent private candidate checkpoint for existing film IDs
         run: node scripts/youtube-g2-durable-candidate-checkpoint.mjs read
-      # The official API returned HTTP 429 [RATE_LIMITED] during the earlier
-      # burst-mode batch #40112987726, even though the preceding exact one-call
-      # probe was successful. This updated first batch uses >=20 sec between
-      # consecutive search.list requests and has no retries on 429.
-      - name: Process up to 10 canonical YouTube-badged films with 20-second search pacing
+      # Official YouTube API search.list is 1 CALL maximum (or 0 if all cached).
+      # Quota monitoring alone is never sufficient: CAS and a hard 429 stop
+      # are enforced in the live JS runner, before any search attempt.
+      # This is deliberately read-only. Cloud Monitoring does not grant global
+      # quota; the runner must still atomically reserve its ONE own search.
+      # Missing, stale or untrusted samples fail closed before getSecret().
+      - name: Collect current Pacific search telemetry (no YouTube calls)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/moviehub-youtube-pt-search-private
+          read -r checked_at day_start < <(node --input-type=module <<'NODE'
+          import {pacificSearchDay} from './scripts/youtube-g2-pacific-search-preflight.mjs'
+          const now=new Date().toISOString()
+          console.log(now+' '+pacificSearchDay(now).start)
+          NODE
+          )
+          token="$(gcloud auth print-access-token)"
+          for type in rate exceeded; do
+            if [[ "$type" == rate ]]; then metric='rate/net_usage'; else metric='exceeded'; fi
+            filter="metric.type=\"serviceruntime.googleapis.com/quota/$metric\" AND resource.type=\"consumer_quota\" AND resource.label.service=\"youtube.googleapis.com\" AND metric.label.quota_metric=\"youtube.googleapis.com/search_list\""
+            code="$(curl --silent --show-error --max-time 35 --retry 0 \
+              --get --header "Authorization: Bearer $token" \
+              --header 'Accept: application/json' \
+              --data-urlencode "filter=$filter" \
+              --data-urlencode "interval.startTime=$day_start" \
+              --data-urlencode "interval.endTime=$checked_at" \
+              --data-urlencode 'view=FULL' \
+              --data-urlencode 'pageSize=5000' \
+              --output "/tmp/moviehub-youtube-pt-search-private/$type.json" \
+              --write-out '%{http_code}' \
+              'https://monitoring.googleapis.com/v3/projects/movie-hub-62459/timeSeries')"
+            [[ "$code" =~ ^[0-9]{3}$ ]] || exit 1
+            printf '%s=%s\n' "$type" "$code" >> /tmp/moviehub-youtube-pt-search-private/status
+          done
+          unset token filter
+          . /tmp/moviehub-youtube-pt-search-private/status
+          node scripts/youtube-g2-pacific-search-preflight.mjs \
+            "$checked_at" "$rate" /tmp/moviehub-youtube-pt-search-private/rate.json \
+            "$exceeded" /tmp/moviehub-youtube-pt-search-private/exceeded.json \
+            artifacts/youtube-g2/pacific-search-preflight
+          rm -rf /tmp/moviehub-youtube-pt-search-private
+      - name: Research at most one NEW movie with CAS quota reservation, no retry
         run: node scripts/youtube-g2-full-catalog-queue-live.mjs
       # The checkpoint contains film/video hypotheses ONLY. This never writes
       # Firestore, published badges, provider availability or playback routes.

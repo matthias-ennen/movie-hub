@@ -11,6 +11,7 @@ import { pathToFileURL } from 'node:url'
 import { getSecret, youtubeGet } from './youtube-api-smoke.mjs'
 import { createYoutubeFullCatalogResearchPlan } from './youtube-g2-full-catalog-queue.mjs'
 import {mapFromCandidateCheckpoint} from './youtube-g2-durable-candidate-checkpoint.mjs'
+import {admitPreparedOneSearchPlan} from './youtube-g2-one-search-admission.mjs'
 import {
   loadPublicMovieHubIndex, runTmdbFirstLinkPilot,
 } from './youtube-g2-tmdb-first-link-pilot.mjs'
@@ -134,25 +135,31 @@ async function main(){
     // This legacy manual job remains no-search until GCS atomic admission
     // is attached. When enabled, the new first pass saves one call/film.
     searchesPerTitle:1,
+    uncachedOnly:offset===0&&limit===1&&previousRun===null,
   })
   if(plan.batch.selectedCount===0)throw Error('FULL_CATALOG_EMPTY_RESEARCH_BATCH')
-  // MUST happen before any TMDB or YouTube API request, and before reading the
-  // YouTube secret: pure budget preview ≠ live admission or Google quota.
-  assertNoUngatedYoutubeSearch(plan)
+  // No newly unknown work is allowed unless exact 1-search admission has
+  // passed fresh Pacific monitoring and a private GCS generation-CAS write.
+  // Every failed API attempt keeps its pessimistic reservation.
+  const admission=plan.batch.youtubeSearchCallsPlanned===0
+    ?assertNoUngatedYoutubeSearch(plan)
+    :await admitPreparedOneSearchPlan({plan})
   const key=getSecret()
-  let successfulGoogleSearches=0
+  let attemptedGoogleSearches=0
   const pilot=await runTmdbFirstLinkPilot({
     publicIndex:index,seedRefs:plan.plan.map(p=>({mediaType:'movie',tmdbId:p.tmdbId})),
     limit:plan.batch.selectedCount,
     tmdbGet:(p,q)=>tmdbRead(p,q,token),
     youtubeApi:async(p,q)=>{
-      // Independent defense-in-depth even if the planner is later changed.
-      if(p==='search')throw Error('G2_SEARCH_LIST_ATOMIC_QUOTA_ADMISSION_NOT_YET_CONNECTED')
-      const response=await youtubeGet(p,q,key)
-      // Only aggregate counters, NEVER titles, raw result IDs, API key or
-      // credentialled URLs. Allows diagnosis of exactly where 429 appeared.
-      if(p==='search')console.log('YOUTUBE_SEARCH_COMPLETED '+(++successfulGoogleSearches))
-      return response
+      // Defense-in-depth: count BEFORE the Google request. A 429, timeout
+      // or malformed reply still spends the pessimistic one-call allowance.
+      if(p==='search'){
+        if(admission?.maximumSearchAttempts!==1
+          ||++attemptedGoogleSearches!==1)
+          throw Error('G2_SEARCH_LIST_NOT_ATOMICALLY_ADMITTED')
+      }else if(p!=='videos')throw Error('G2_UNAPPROVED_YOUTUBE_ENDPOINT')
+      // No caught 429, retries, redirects, logging IDs or raw response.
+      return youtubeGet(p,q,key)
     },
     knownVideoCandidatesByTmdbId,
     searchesPerUncachedMovie:plan.batch.plannedSearchesPerUncachedMovie,
@@ -160,7 +167,7 @@ async function main(){
   })
   if(pilot.summary.processedMovies!==plan.batch.selectedCount
     || pilot.summary.calls.youtubeSearches>plan.batch.youtubeSearchCallsPlanned
-    || pilot.summary.calls.youtubeSearches!==successfulGoogleSearches
+    || pilot.summary.calls.youtubeSearches!==attemptedGoogleSearches
     // Planning counts all archived-badged candidates, but a DE YouTube
     // offer may have disappeared. Those films are correctly skipped before
     // their archived video IDs need refreshing; do not invent a reuse.
@@ -194,6 +201,9 @@ async function main(){
     searchRequestsAvoided:plan.batch.youtubeSearchCallsAvoided,
     youtubeSearches:pilot.summary.calls.youtubeSearches,
     searchSpacingMs:FULL_CATALOG_SEARCH_INTERVAL_MS,
+    quotaAdmission:admission.maximumSearchAttempts===1
+      ?'one-internal-GCS-reservation-no-shared-Google-guarantee'
+      :'previously-known-video-ids-no-search',
     verifiedDirectLinks:0,productionWrites:0,
   }))
 }
