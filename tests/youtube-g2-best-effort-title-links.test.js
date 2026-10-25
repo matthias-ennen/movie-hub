@@ -134,18 +134,18 @@ describe('Best-effort exact YouTube link without inventing verified offers',()=>
       expect(options).toMatchObject({cache:'no-store',redirect:'error'})
     }
   })
-  it('refreshes only the shared best-effort feed on visibility, focus and visible session interval',()=>{
+  it('refreshes the shared best-effort feed on returning to the app, without background polling',()=>{
     const source=readFileSync(new URL('../src/providers/YoutubeVerifiedOffersContext.jsx',
       import.meta.url),'utf8')
     expect(source).toContain("document.addEventListener('visibilitychange', onResume)")
     expect(source).toContain("window.addEventListener('focus', onResume)")
-    expect(source).toContain('window.setInterval(onResume, BEST_EFFORT_RECHECK_MS)')
+    expect(source).not.toContain('setInterval(')
     expect(source).toContain("if (document.visibilityState !== 'hidden') refreshBestEffort()")
     expect(source).toContain('setBestEffort(null)')
     expect(source).toContain('requestId === latestRequest')
     expect(source).toContain("document.removeEventListener('visibilitychange', onResume)")
     expect(source).toContain("window.removeEventListener('focus', onResume)")
-    expect(source).toContain('window.clearInterval(interval)')
+
   })
   it('optional loader never asserts an offer or breaks on 404',async()=>{
     expect(await loadYoutubeBestEffortTitleLinks(
