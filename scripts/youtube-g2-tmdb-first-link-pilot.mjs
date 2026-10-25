@@ -55,6 +55,11 @@ export async function runTmdbFirstLinkPilot({
   // The live full-catalog runner opts into deliberate, serial spacing to
   // respect the actual Google 429 RATE_LIMITED search bucket.
   minimumSearchIntervalMs = 0,
+  // New low-cost research phase: try exactly ONE precise query for each
+  // uncached film. A follow-up original-title query must be scheduled and
+  // budgeted in a SEPARATE, explicit pass after scoring first-pass metadata.
+  // Historical two-query pilots are unchanged by default.
+  searchesPerUncachedMovie = 2,
   waitBetweenSearches = ms=>new Promise(resolve=>setTimeout(resolve,ms)),
 } = {}) {
   if (typeof tmdbGet !== 'function' || typeof youtubeApi !== 'function') {
@@ -64,6 +69,8 @@ export async function runTmdbFirstLinkPilot({
     ||minimumSearchIntervalMs<0||minimumSearchIntervalMs>60000
     ||typeof waitBetweenSearches!=='function')
     throw Error('YOUTUBE_SEARCH_SPACING_INVALID')
+  if(searchesPerUncachedMovie!==1&&searchesPerUncachedMovie!==2)
+    throw Error('YOUTUBE_SEARCH_STRATEGY_INVALID')
   // An archival map is a read-only search shortcut, not approval evidence.
   // Reject malformed inputs before TMDB and YouTube network operations.
   const knownMap=validateKnownCandidateMap(knownVideoCandidatesByTmdbId)
@@ -118,9 +125,10 @@ export async function runTmdbFirstLinkPilot({
       language: 'de-DE', append_to_response: 'alternative_titles,credits,external_ids',
     })
     if (Number(tmdbFilm?.id) !== seed.tmdbId) throw new Error('TMDB_TITLE_ID_MISMATCH')
-    // First precise DE movie search; then original-title/no-year discovery.
-    // Still exactly two calls/work and every result remains review-only.
+    // Historical QA uses two searches. Cheap first-pass is OPT-IN and
+    // executes exactly one call. No hidden or automatic second query.
     const searches = planTmdbFirstYoutubeQueries(seed, tmdbFilm)
+      .slice(0,searchesPerUncachedMovie)
     const videoIds = new Set()
     const archivedIds=knownMap?.get(seed.tmdbId)||null
     if(archivedIds?.length){
@@ -165,9 +173,13 @@ export async function runTmdbFirstLinkPilot({
       videoIds.map(id=>sourceVideos.get(id)).filter(Boolean),{observedAt})
     if(!priorDeviceId)return {...row,
       candidateDiscoveryMode:discoveryMode||'no-current-tmdb-de-youtube-offer',
+      researchPhase:searchesPerUncachedMovie===1
+        ?'single-search-first-pass':'historical-two-search',
       priorDeviceCandidate:null}
     return {...row,
       candidateDiscoveryMode:discoveryMode||'no-current-tmdb-de-youtube-offer',
+      researchPhase:searchesPerUncachedMovie===1
+        ?'single-search-first-pass':'historical-two-search',
       priorDeviceCandidate:{
       videoId:priorDeviceId,
       evidenceKind:TMDB_FIRST_PRIOR_DEVICE_CANDIDATE_KIND,
@@ -182,6 +194,13 @@ export async function runTmdbFirstLinkPilot({
   })
   const summary={
     ...summarizeTmdbFirstPilot(rows, selection, counters),
+    researchPhase:searchesPerUncachedMovie===1
+      ?'single-search-first-pass':'historical-two-search',
+    maximumSearchesPerUncachedMovie:searchesPerUncachedMovie,
+    automaticSecondSearchEnabled:false,
+    firstPassReviewUnresolvedMovies:searchesPerUncachedMovie===1
+      ?rows.filter(r=>r.candidateDiscoveryMode==='new-search'
+        &&r.status!=='review-single-video-candidate').length:0,
     priorDeviceCandidatesResearched:rows.filter(r=>r.priorDeviceCandidate).length,
     priorDeviceCandidatesMissingFromSearch:rows.filter(r=>r.priorDeviceCandidate
       && r.priorDeviceCandidate.currentSearchPerformed

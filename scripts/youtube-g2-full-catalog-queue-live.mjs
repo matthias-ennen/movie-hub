@@ -131,6 +131,9 @@ async function main(){
   const plan=createYoutubeFullCatalogResearchPlan({
     inventory,publicIndex:index,offset,limit,continuation,
     knownVideoCandidatesByTmdbId,
+    // This legacy manual job remains no-search until GCS atomic admission
+    // is attached. When enabled, the new first pass saves one call/film.
+    searchesPerTitle:1,
   })
   if(plan.batch.selectedCount===0)throw Error('FULL_CATALOG_EMPTY_RESEARCH_BATCH')
   // MUST happen before any TMDB or YouTube API request, and before reading the
@@ -152,6 +155,7 @@ async function main(){
       return response
     },
     knownVideoCandidatesByTmdbId,
+    searchesPerUncachedMovie:plan.batch.plannedSearchesPerUncachedMovie,
     minimumSearchIntervalMs:FULL_CATALOG_SEARCH_INTERVAL_MS,
   })
   if(pilot.summary.processedMovies!==plan.batch.selectedCount
@@ -163,7 +167,7 @@ async function main(){
     || pilot.summary.knownCandidateReuseMovies>plan.batch.knownCandidateReuseMovies
     || pilot.summary.knownCandidateReusedVideoIds>plan.batch.knownCandidateReusedVideoIds
     || pilot.summary.avoidedYoutubeSearchCalls>plan.batch.youtubeSearchCallsAvoided
-    || pilot.summary.avoidedYoutubeSearchCalls!==pilot.summary.knownCandidateReuseMovies*2
+    || pilot.summary.avoidedYoutubeSearchCalls!==pilot.summary.knownCandidateReuseMovies*plan.batch.plannedSearchesPerUncachedMovie
     || pilot.summary.publicationPermitted!==false
     || pilot.summary.verifiedDirectLinks!==0
     || pilot.summary.catalogWrites!==0||pilot.summary.firestoreWrites!==0

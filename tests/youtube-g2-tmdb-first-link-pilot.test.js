@@ -161,6 +161,51 @@ describe('YouTube G2 TMDB-FIRST – existing badge -> review-only direct link ca
     expect(ytApi.mock.calls.map(c => c[0])).toEqual(['search', 'search', 'videos'])
   })
 
+  it('opt-in first-pass uses ONE search for uncached title, then bulk video metadata',async()=>{
+    const api=vi.fn(async (endpoint)=>endpoint==='search'
+      ?{items:[{id:{videoId:validVideo.id}}]}:{items:[validVideo]})
+    const report=await runTmdbFirstLinkPilot({
+      publicIndex,tmdbGet:tmdbApi,youtubeApi:api,now:()=>now,
+      searchesPerUncachedMovie:1,
+    })
+    expect(api.mock.calls.map(c=>c[0])).toEqual(['search','videos'])
+    expect(report.summary).toMatchObject({
+      researchPhase:'single-search-first-pass',
+      maximumSearchesPerUncachedMovie:1,
+      automaticSecondSearchEnabled:false,
+      firstPassReviewUnresolvedMovies:0,
+      calls:{youtubeSearches:1,youtubeVideoLookups:1},
+      verifiedDirectLinks:0,publicationPermitted:false,
+      providerWrites:0,firestoreWrites:0,
+    })
+    expect(report.rows[0]).toMatchObject({
+      status:'review-single-video-candidate',
+      candidateDiscoveryMode:'new-search',
+      researchPhase:'single-search-first-pass',
+      directPlaybackRoute:null,
+    })
+  })
+  it('one-search first-pass records unresolved titles without silently running the alternate query',async()=>{
+    const api=vi.fn(async endpoint=>endpoint==='search'?{items:[]}:{items:[]})
+    const report=await runTmdbFirstLinkPilot({
+      publicIndex,tmdbGet:tmdbApi,youtubeApi:api,now:()=>now,
+      searchesPerUncachedMovie:1,
+    })
+    expect(api.mock.calls.map(c=>c[0])).toEqual(['search'])
+    expect(report.summary.firstPassReviewUnresolvedMovies).toBe(1)
+    expect(report.rows[0].status).toBe('no-video-candidate')
+    expect(report.rows[0].directPlaybackRoute).toBeNull()
+  })
+  it('rejects invalid search plans before reading ANY external APIs',async()=>{
+    const api=vi.fn()
+    for(const count of [0,3,-1,1.5,null]){
+      await expect(runTmdbFirstLinkPilot({
+        publicIndex,tmdbGet:api,youtubeApi:api,
+        searchesPerUncachedMovie:count,now:()=>now,
+      })).rejects.toThrow('YOUTUBE_SEARCH_STRATEGY_INVALID')
+    }
+    expect(api).not.toHaveBeenCalled()
+  })
   it('paces every search after the first without retrying or changing matcher result', async()=>{
     const wait=vi.fn(async()=>{})
     const api=vi.fn(async (path)=>path==='search'
