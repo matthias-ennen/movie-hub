@@ -1033,6 +1033,18 @@ public final class MainActivity extends ComponentActivity {
             if (tryStartActivity(deepLink)) return;
         }
 
+        // The app package may be absent or lack ACTION_VIEW support on a
+        // specific Android/Fire-TV version. Do not discard a validated exact
+        // YouTube watch VIDEO ID in favor of a generic text search yet.
+        if (ProviderLaunchPolicy.shouldTryExactYoutubeWebFallback(
+                providerId, exactUri.toString())) {
+            Intent exactWeb = new Intent(Intent.ACTION_VIEW, exactUri);
+            exactWeb.addCategory(Intent.CATEGORY_BROWSABLE);
+            if (tryStartActivity(exactWeb)) return;
+        }
+
+        // Preserve the existing title-search/provider-home fallback if no
+        // installed handler can open the original exact watch destination.
         launchProvider(providerId, title, fallbackUri);
     }
 
