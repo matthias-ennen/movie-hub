@@ -16,8 +16,6 @@ const limitInt=(x)=>typeof x==='string'&&/^-?\d{1,20}$/.test(x)?x:null
 const parsedResponse=(status,response)=>{
   if(!Number.isInteger(status)||!HTTP_CODES.has(status))
     throw Error('YOUTUBE_QUOTA_UNKNOWN_HTTP_STATUS')
-  if(status===200&&!response?.constructor===Object) // final object check below
-    throw Error('YOUTUBE_QUOTA_INVALID_RESPONSE')
   if(status===200&&(response===null||typeof response!=='object'
     ||Array.isArray(response)))throw Error('YOUTUBE_QUOTA_INVALID_RESPONSE')
   if(status!==200)return null
