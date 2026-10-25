@@ -8,7 +8,7 @@ import {resolve} from 'node:path'
 import {pathToFileURL} from 'node:url'
 import {isDeepStrictEqual} from 'node:util'
 import {
-  BEST_EFFORT_YOUTUBE_KIND,BEST_EFFORT_YOUTUBE_VERSION,
+  BEST_EFFORT_YOUTUBE_KIND,BEST_EFFORT_YOUTUBE_VERSION,BEST_EFFORT_MAX_LINKS,
   selectYoutubeBestEffortTitleRoute,
 } from '../src/providers/youtubeBestEffortRouteIndex.js'
 
@@ -49,7 +49,7 @@ export async function verifyLiveBestEffortLinkPublication({
     ||expected.schemaVersion!==BEST_EFFORT_YOUTUBE_VERSION
     ||expected.providerId!=='youtube'||!Array.isArray(expected.entries)
     ||expected.count!==expected.entries.length
-    ||expected.count<1||expected.count>100
+    ||expected.count<1||expected.count>BEST_EFFORT_MAX_LINKS
     ||expected.verifiedDEOffers!==0||expected.verifiedPlaybackRoutes!==0
     ||expected.providerBadgeWrites!==0
     ||!Array.isArray(expected.claimedOfferTypes)
