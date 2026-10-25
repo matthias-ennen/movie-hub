@@ -1,0 +1,124 @@
+name: YouTube G2 – inspect Google Cloud quota configuration (no YouTube requests)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-quota-readonly-audit.yml
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-readonly-quota-configuration
+  cancel-in-progress: false
+
+jobs:
+  serviceusage-read-only:
+    name: Inspect configured YouTube Data API quota, never trigger search
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' &&
+        contains(github.event.head_commit.message, '[youtube-quota-readonly-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Test strict quota audit interpretation (no actual API invocation)
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-readonly-quota-audit.mjs
+          npx vitest run tests/youtube-g2-readonly-quota-audit.test.js
+      - name: Authenticate EXISTING project OIDC principal without new keys
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: GET only Google Service Usage API state and quota metadata
+        id: read_google_quota
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/youtube-g2-quota-private
+          token="$(gcloud auth print-access-token)"
+          # Both URLs below are from the official Service Usage API; no Youtube API
+          # calls, no quotas.update, no service enabling, no retries.
+          SERVICE_HTTP="$(curl --silent --show-error --max-time 30 --retry 0 \
+            --header "Authorization: Bearer $token" \
+            --header 'Accept: application/json' \
+            --output /tmp/youtube-g2-quota-private/service.json \
+            --write-out '%{http_code}' \
+            'https://serviceusage.googleapis.com/v1/projects/612913221205/services/youtube.googleapis.com')"
+          METRICS_HTTP="$(curl --silent --show-error --max-time 30 --retry 0 \
+            --header "Authorization: Bearer $token" \
+            --header 'Accept: application/json' \
+            --output /tmp/youtube-g2-quota-private/metrics.json \
+            --write-out '%{http_code}' \
+            'https://serviceusage.googleapis.com/v1beta1/projects/612913221205/services/youtube.googleapis.com/consumerQuotaMetrics?view=FULL&pageSize=200')"
+          unset token
+          [[ "$SERVICE_HTTP" =~ ^[0-9]{3}$ && "$METRICS_HTTP" =~ ^[0-9]{3}$ ]] || {
+            echo '::error::Google Service Usage returned invalid HTTP status'
+            exit 1
+          }
+          echo "service_http=$SERVICE_HTTP" >> "$GITHUB_OUTPUT"
+          echo "metrics_http=$METRICS_HTTP" >> "$GITHUB_OUTPUT"
+          echo 'Google Service Usage GET-only requests completed; code intentionally redacted.'
+      - name: Convert responses to whitelist-only, private metadata audit
+        env:
+          SERVICE_HTTP: ${{ steps.read_google_quota.outputs.service_http }}
+          METRICS_HTTP: ${{ steps.read_google_quota.outputs.metrics_http }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/youtube-g2-readonly-quota-audit.mjs \
+            "$SERVICE_HTTP" /tmp/youtube-g2-quota-private/service.json \
+            "$METRICS_HTTP" /tmp/youtube-g2-quota-private/metrics.json \
+            artifacts/youtube-g2/cloud-quota-readonly
+          rm -rf /tmp/youtube-g2-quota-private
+      - name: Publish statuses ONLY, without secrets or guessed remaining quota
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const audit=JSON.parse(readFileSync(
+            'artifacts/youtube-g2/cloud-quota-readonly/summary.json','utf8'))
+          if(audit.kind!=='moviehub-youtube-g2-serviceusage-readonly-diagnostic'
+            ||audit.projectId!=='movie-hub-62459'
+            ||audit.currentUsage!==null||audit.actualSearchCallsRemaining!==null
+            ||audit.rateLimit429RootCause!=='not-established'
+            ||audit.futureSearchAutomaticallyPermitted!==false
+            ||audit.newYouTubeApiCalls!==0||audit.quotaChanges!==0
+            ||audit.firestoreWrites!==0||audit.publicationPermitted!==false)
+            throw Error('YOUTUBE_QUOTA_READONLY_SUMMARY_FAIL_CLOSED')
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,[
+            '### YouTube search 429 – read-only Cloud quota configuration diagnosis',
+            '',
+            '- Service: `youtube.googleapis.com` in existing project `movie-hub-62459`',
+            '- Service Usage GET HTTP: '+audit.serviceUsageHttp+
+              ' (service state: '+audit.serviceState+')',
+            '- Quota metadata GET HTTP: '+audit.quotaMetadataHttp+
+              ' (read status: '+audit.quotaMetadataState+')',
+            '- Reported configured limit buckets: '+audit.limits.length,
+            '- **This is NOT actual usage, per-key rate, or remaining quota; the 429 cause is NOT established.**',
+            '- **0 YouTube API requests, 0 quota changes, 0 source/provider/profile writes.**',
+            '- Full limit metadata: private artifact only. No automatic search retry.',
+            '',
+          ].join('\n')+'\n')
+          NODE
+      - name: Upload protected quota metadata report (7 days)
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-readonly-quota-${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/cloud-quota-readonly/summary.json
+            artifacts/youtube-g2/cloud-quota-readonly/report.md
+          retention-days: 7
+          if-no-files-found: error
