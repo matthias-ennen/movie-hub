@@ -76,7 +76,12 @@ export function createYoutubeFullCatalogResearchPlan({
   offset = 0, limit = YOUTUBE_RESEARCH_DEFAULT_TITLES,
   now = new Date().toISOString(),continuation = null,
   knownVideoCandidatesByTmdbId = null,
+  // Existing historical 2-query QA remains default. The new bounded
+  // first-pass admission explicitly selects ONE query, not both.
+  searchesPerTitle = YOUTUBE_SEARCHES_PER_TITLE,
 } = {}) {
+  if(searchesPerTitle!==1&&searchesPerTitle!==2)
+    throw Error('G2_RESEARCH_INVALID_SEARCH_STRATEGY')
   const knownMap=validateKnownCandidateMap(knownVideoCandidatesByTmdbId)
   validate(inventory, publicIndex)
   const asOf = new Date(now).toISOString()
@@ -173,8 +178,8 @@ export function createYoutubeFullCatalogResearchPlan({
     ? null : offset+selected.length
   const reusable=selected.filter(x=>knownMap?.has(x.tmdbId))
   const reusableVideoIds=reusable.reduce((sum,x)=>sum+knownMap.get(x.tmdbId).length,0)
-  const skippedSearchCalls=reusable.length*YOUTUBE_SEARCHES_PER_TITLE
-  const plannedSearchCalls=(selected.length-reusable.length)*YOUTUBE_SEARCHES_PER_TITLE
+  const skippedSearchCalls=reusable.length*searchesPerTitle
+  const plannedSearchCalls=(selected.length-reusable.length)*searchesPerTitle
   const potentialApiCost = plannedSearchCalls*YOUTUBE_SEARCH_QUOTA_UNITS
   return {
     mode:YOUTUBE_FULL_CATALOG_PLAN,
@@ -209,6 +214,8 @@ export function createYoutubeFullCatalogResearchPlan({
       knownCandidateReuseMovies:reusable.length,
       knownCandidateReusedVideoIds:reusableVideoIds,
       youtubeSearchCallsAvoided:skippedSearchCalls,
+      plannedSearchesPerUncachedMovie:searchesPerTitle,
+      researchPhase:searchesPerTitle===1?'single-search-first-pass':'historical-two-search',
       youtubeSearchCallsPlanned:plannedSearchCalls,
       estimatedYoutubeSearchQuotaUnits:potentialApiCost,
       searchesRemainingAgainstUnsharedDefaultDailyLimit:
