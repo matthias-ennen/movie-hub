@@ -1,0 +1,164 @@
+name: YouTube G2 – six verified-source review sheets (offline, private)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-six-offline-evidence.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: youtube-g2-six-offline-20261025
+  cancel-in-progress: false
+
+jobs:
+  protected-offline-six:
+    name: Replay exactly six pending-video reviews from original protected QA
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' &&
+        contains(github.event.head_commit.message, '[youtube-six-offline-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: '40115074408'
+      SOURCE_SHA: 25122a6b8aff9d09f3f7571f887038b10a216ddc
+      SOURCE_ARTIFACT_ID: '12569251342'
+      SOURCE_ARTIFACT_NAME: youtube-g2-pending55-videos-40115074408
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Validate current report-only safety and regression checks
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-pending-video-refresh.mjs
+          npx vitest run tests/youtube-g2-pending-video-refresh.test.js
+      - name: Authenticate exact completed original live metadata refresh and artifact ID
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq '[.head_sha,.conclusion,.status,.head_branch,.path,(.run_attempt|tostring)] | join("|")')"
+          expected="$SOURCE_SHA|success|completed|main|.github/workflows/youtube-g2-pending-video-refresh.yml|2"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "::error::Original read-only run identity or successful rerun invalid"
+            exit 1
+          fi
+          artifact="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/artifacts" --jq '.artifacts[] | select(.id == 12569251342) | [.name,(.expired|tostring),(.workflow_run.id|tostring),(.id|tostring)] | join("|")')"
+          if [[ "$artifact" != "$SOURCE_ARTIFACT_NAME|false|$SOURCE_RUN|$SOURCE_ARTIFACT_ID" ]]; then
+            echo "::error::Exact latest protected QA artifact missing, expired or mismatched"
+            exit 1
+          fi
+          echo "Verified successful original metadata refresh and immutable artifact ID; no new YouTube calls."
+      - name: Download ONLY original successful attempt-2 archive (not same-name attempt-1)
+        uses: actions/download-artifact@v7
+        with:
+          artifact-ids: 12569251342
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 40115074408
+          path: artifacts/youtube-g2/original-six-offline-input
+      - name: Generate protected six-case evidence checklist from archived current metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          input=artifacts/youtube-g2/original-six-offline-input
+          mkdir -p artifacts/youtube-g2/six-offline-evidence
+          if [[ -s "$input/qa.json" && ! -e "$input/artifacts/youtube-g2/pending-video-metadata-refresh/qa.json" ]]; then
+            cp "$input/qa.json" artifacts/youtube-g2/six-offline-evidence/qa-source.json
+          elif [[ -s "$input/artifacts/youtube-g2/pending-video-metadata-refresh/qa.json" && ! -e "$input/qa.json" ]]; then
+            cp "$input/artifacts/youtube-g2/pending-video-metadata-refresh/qa.json" artifacts/youtube-g2/six-offline-evidence/qa-source.json
+          else
+            echo "::error::Missing or ambiguous exact archive file"
+            exit 1
+          fi
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs'
+          import {pendingRefreshMarkdown,OPEN55_KIND}
+            from './scripts/youtube-g2-pending-video-refresh.mjs'
+          const root='artifacts/youtube-g2/six-offline-evidence/'
+          const qa=JSON.parse(readFileSync(root+'qa-source.json','utf8'))
+          const s=qa.summary
+          const expected=[8337,8922,9742,10042,49530,390051].sort((a,b)=>a-b)
+          const actual=(qa.reviewPriority||[]).map(x=>x.suggestedTmdbId).sort((a,b)=>a-b)
+          if(s?.kind!==OPEN55_KIND||s.sourceVideoIds!==87
+            ||s.publishedEditorialLinks!==32||s.pendingVideoIds!==55
+            ||s.videosListCalls!==2||s.searchListCalls!==0
+            ||s.readyForIndividualIdentityReview!==6
+            ||s.verifiedGermanOffers!==0||s.approvedDirectRoutes!==0
+            ||s.privateArtifact!==true||s.publicationPermitted!==false
+            ||s.firestoreWrites!==0||s.providerWrites!==0||s.catalogWrites!==0
+            ||!Array.isArray(qa.rows)||qa.rows.length!==55
+            ||new Set(qa.rows.map(x=>x.videoId)).size!==55
+            ||JSON.stringify(expected)!==JSON.stringify(actual)
+            ||qa.reviewPriority.some(x=>!qa.rows.some(r=>r.videoId===x.videoId
+              &&r.suggestedTmdbId===x.suggestedTmdbId))
+            ||Object.values(s.videoStatusCounts||{}).reduce((n,v)=>n+v,0)!==55
+            ||Date.parse(s.generatedAt)<Date.parse('2026-10-24T17:00:00Z')
+            ||Date.parse(s.generatedAt)>Date.parse('2026-10-25T00:00:00Z'))
+            throw Error('YOUTUBE_SIX_ARCHIVED_QA_NOT_TRUSTED')
+          const report=pendingRefreshMarkdown(qa)
+          const heading='# Sechs priorisierte YouTube-Faelle – historischer privater Livebefund'
+          const intro=[
+            heading,'',
+            '**Quelle:** GitHub Actions 40115074408, Versuch 2, Artefakt 12569251342.',
+            '**Keine neuen YouTube-API-Aufrufe:** dieser Bericht ist ein Offline-Replay.',
+            '**0 unabhaengig bestaetigte DE-Angebote, 0 Freigaben, 0 Geraeteabnahmen.**',
+            'Das Datum der Quellenmessung ist '+s.generatedAt+'.','',
+          ].join('\n')
+          writeFileSync(root+'six-case-review.md',intro+report+'\n',{mode:0o600})
+          const summary={
+            kind:'moviehub-youtube-g2-six-case-archived-review',
+            sourceRun:40115074408,sourceAttempt:2,sourceArtifactId:12569251342,
+            sourceMeasuredAt:s.generatedAt,sourceVideoIds:87,
+            editorialLinks:32,openVideos:55,manualPriorityCases:6,
+            currentYouTubeRequests:0,currentSearchRequests:0,
+            independentApprovedOffers:0,directRoutesApproved:0,
+            catalogWrites:0,firestoreWrites:0,privateArtifact:true,
+            publicationPermitted:false,
+          }
+          writeFileSync(root+'summary.json',JSON.stringify(summary,null,2)+'\n',{mode:0o600})
+          console.log(JSON.stringify(summary))
+          NODE
+          rm artifacts/youtube-g2/six-offline-evidence/qa-source.json
+      - name: Publish only aggregate, nonidentifying results in workflow summary
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const s=JSON.parse(readFileSync(
+            'artifacts/youtube-g2/six-offline-evidence/summary.json','utf8'))
+          if(s.sourceArtifactId!==12569251342||s.manualPriorityCases!==6
+            ||s.currentYouTubeRequests!==0||s.currentSearchRequests!==0
+            ||s.independentApprovedOffers!==0||s.directRoutesApproved!==0
+            ||s.firestoreWrites!==0||s.publicationPermitted!==false)
+            throw Error('YOUTUBE_SIX_SUMMARY_PUBLICATION_GATE')
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,[
+            '### MovieHub YouTube – sechs exakte Filmpruefungen vorbereitet (OFFLINE)',
+            '',
+            '- Echte fruehere Quelle: erfolgreicher 55-ID-Lauf #'+s.sourceRun,
+            '- Zeitstempel der urspruenglichen Messung: '+s.sourceMeasuredAt,
+            '- Video-IDs: '+s.sourceVideoIds+'; redaktionelle Links: '+s.editorialLinks+
+              '; offene IDs: '+s.openVideos,
+            '- Sechs individuelle Werk-/Fassungs-/DE-/Geraetepruefblatter: nur im **geschuetzten** Artefakt',
+            '- Neue YouTube requests: **0**, neue zugelassene DE-Angebote: **0**',
+            '- Keine Produktion, keine Profil- oder Katalogveraenderung',
+            '',
+          ].join('\n')+'\n')
+          NODE
+      - name: Upload PRIVATE six-case manual review sheets (7 days)
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-six-offline-evidence-${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/six-offline-evidence/six-case-review.md
+            artifacts/youtube-g2/six-offline-evidence/summary.json
+          retention-days: 7
+          if-no-files-found: error
