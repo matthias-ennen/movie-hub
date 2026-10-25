@@ -82,6 +82,33 @@ describe('G2 full canonical MovieHub inventory and YouTube badge research queue'
     expect(a.batch.estimatedYoutubeSearchQuotaUnits).toBeLessThanOrEqual(
       YOUTUBE_RESEARCH_MAX_ESTIMATED_SEARCH_QUOTA)
   })
+  it('chooses a genuinely uncached public YouTube movie in one-search mode',()=>{
+    const known=new Map([[10,['Abc12345678']],[20,['Def12345678']]])
+    const p=createYoutubeFullCatalogResearchPlan({
+      inventory:inventory(),publicIndex:idx(),offset:0,limit:1,now,
+      knownVideoCandidatesByTmdbId:known,searchesPerTitle:1,
+      uncachedOnly:true,
+    })
+    expect(p.plan.map(x=>x.tmdbId)).toEqual([80])
+    expect(p.basis).toMatchObject({
+      publicYoutubeBadgedMovies:3,
+      uncachedResearchOnly:true,
+      remainingPublicYoutubeBadgedUnknownFilms:1,
+    })
+    expect(p.batch).toMatchObject({
+      selectedCount:1,total:1,youtubeSearchCallsPlanned:1,
+      estimatedYoutubeSearchQuotaUnits:1,knownCandidateReuseMovies:0,
+    })
+    for(const opts of [
+      {offset:1,continuation:null},
+      {limit:2,offset:0},
+      {offset:0,continuation:{plan:{}}},
+    ])expect(()=>createYoutubeFullCatalogResearchPlan({
+      inventory:inventory(),publicIndex:idx(),now,limit:1,
+      knownVideoCandidatesByTmdbId:known,
+      searchesPerTitle:1,uncachedOnly:true,...opts,
+    })).toThrow('G2_UNCACHED_RESEARCH_ONLY_ONE_INITIAL_WORK')
+  })
   it('refuses stale/partial/fallback inventory instead of calling it complete',()=>{
     expect(()=>createYoutubeFullCatalogResearchPlan({
       inventory:{...inventory(),counts:{canonicalCandidates:100}},
