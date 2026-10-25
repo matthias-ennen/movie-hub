@@ -48,6 +48,7 @@ export function previewCoordinatedBootstrapBatch({
     offset:previous?.nextOffset??0,
     limit:MAX_PREVIEW_MOVIES,
     continuation:previousQa,now,
+    searchesPerTitle:1,
   })
   const batch=plan.batch
   if(previous&&(previous.total!==batch.total
@@ -91,6 +92,8 @@ export function previewCoordinatedBootstrapBatch({
     knownVideoCandidateMovieCount:batch.knownCandidateReuseMovies,
     searchesAvoidedByCandidateReuse:batch.youtubeSearchCallsAvoided,
     proposedNewSearchCalls:batch.youtubeSearchCallsPlanned,
+    searchStrategy:'one-precise-query-first; followup-separately-authorized',
+    automaticSecondSearchEnabled:false,
     proposedInternalDayReservedAfter:estimated.spentOrReserved,
     pacificQuotaDay:estimated.day.date,
     // This preview has zero authority; all later live actions must perform
