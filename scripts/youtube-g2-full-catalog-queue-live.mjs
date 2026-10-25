@@ -135,6 +135,7 @@ async function main(){
     // This legacy manual job remains no-search until GCS atomic admission
     // is attached. When enabled, the new first pass saves one call/film.
     searchesPerTitle:1,
+    uncachedOnly:offset===0&&limit===1&&previousRun===null,
   })
   if(plan.batch.selectedCount===0)throw Error('FULL_CATALOG_EMPTY_RESEARCH_BATCH')
   // No newly unknown work is allowed unless exact 1-search admission has
