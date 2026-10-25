@@ -3,8 +3,9 @@ import { loadYoutubeVerifiedTitleRoutes } from './youtubeVerifiedRouteRuntime.js
 import { loadYoutubeCuratedTitleHints } from './youtubeCuratedEditorialRuntime.js'
 import { loadYoutubeBestEffortTitleLinks } from './youtubeBestEffortRouteRuntime.js'
 
-// One bounded fetch for the whole app, shared by every poster and detail.
-// Missing/invalid feed leaves TMDB badges and their existing links unchanged.
+// Shared by every poster and detail; no per-card network requests.
+// Best-effort links can be revoked at Hosting while a Fire TV stays open.
+// Recheck only when the user returns to the app, without a background poll.
 const YoutubeVerifiedOffersContext = createContext(null)
 
 export function YoutubeVerifiedOffersProvider({ children }) {
@@ -19,10 +20,33 @@ export function YoutubeVerifiedOffersProvider({ children }) {
     loadYoutubeCuratedTitleHints().then((data) => {
       if (active) setCurated(data)
     })
-    loadYoutubeBestEffortTitleLinks().then((data) => {
-      if (active) setBestEffort(data)
-    })
-    return () => { active = false }
+
+    let latestRequest = 0
+    let lastRecheck = 0
+    const refreshBestEffort = () => {
+      const now = Date.now()
+      // visibilitychange and focus commonly fire together on TV/WebView.
+      if (now >= lastRecheck && now - lastRecheck < 1000) return
+      lastRecheck = now
+      const requestId = ++latestRequest
+      // Until the current Hosted JSON is checked, use the existing search
+      // fallback rather than keeping a revoked direct watch URL clickable.
+      setBestEffort(null)
+      loadYoutubeBestEffortTitleLinks().then((data) => {
+        if (active && requestId === latestRequest) setBestEffort(data)
+      })
+    }
+    const onResume = () => {
+      if (document.visibilityState !== 'hidden') refreshBestEffort()
+    }
+    refreshBestEffort()
+    document.addEventListener('visibilitychange', onResume)
+    window.addEventListener('focus', onResume)
+    return () => {
+      active = false
+      document.removeEventListener('visibilitychange', onResume)
+      window.removeEventListener('focus', onResume)
+    }
   }, [])
   return (
     <YoutubeVerifiedOffersContext.Provider value={{index,curated,bestEffort}}>
