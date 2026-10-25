@@ -117,7 +117,7 @@ jobs:
                   throw Error('unexpected-series')
                 for(const p of s.points){
                   const raw=p?.value?.int64Value
-                  if(typeof raw!=='string'||!/^\\d{1,14}$/.test(raw))
+                  if(typeof raw!=='string'||!/^\d{1,14}$/.test(raw))
                     throw Error('invalid-count')
                   const count=Number(raw),t=Date.parse(p?.interval?.endTime)
                   if(!Number.isFinite(t))throw Error('invalid-end-time')
@@ -138,12 +138,12 @@ jobs:
             guaranteedRemainingQuota:null,authorizedSearchCalls:0,
             youtubeApiCalls:0,gcsWrites:0,publicationPermitted:false}
           writeFileSync('artifacts/youtube-g2/pacific-search-preflight/windowed-v2.json',
-            JSON.stringify(out)+'\\n',{mode:0o600})
+            JSON.stringify(out)+'\n',{mode:0o600})
           appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-            '\\nWindowed quota-v2 HTTP '+out.httpStatus+
+            '\nWindowed quota-v2 HTTP '+out.httpStatus+
             '; parsed='+out.parseValid+'; series='+out.series+
             '; points='+out.points+'; latest='+String(out.latestSample)+
-            '; **never quota authorization**.\\n')
+            '; **never quota authorization**.\n')
           console.log(JSON.stringify(out))
           NODE
       - name: Interpret observed PT day quota defensively (NO lease)
