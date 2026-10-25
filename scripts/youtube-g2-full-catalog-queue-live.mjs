@@ -24,6 +24,23 @@ export const DEFAULT_SAFE_BATCH = 10
 export const FULL_CATALOG_SEARCH_INTERVAL_MS = 20000
 export const PRIOR_QA='artifacts/youtube-g2/prior-full-catalog/qa.json'
 export const KNOWN_ARCHIVE_QA='artifacts/youtube-g2/trusted-known-candidates/candidates.json'
+/**
+ * Until a per-run authenticated atomic admission is wired into this runner,
+ * only cached known VIDEO IDs may be refreshed. The old manual workflow
+ * cannot bypass the global 100/day search.list budget by an offset parameter.
+ */
+export function assertNoUngatedYoutubeSearch(plan){
+  if(plan?.publicationPermitted!==false
+    ||plan?.verifiedDEOffers!==0||plan?.confirmedDirectLinks!==0
+    ||!Number.isSafeInteger(plan?.batch?.youtubeSearchCallsPlanned)
+    ||plan.batch.youtubeSearchCallsPlanned!==0
+    ||plan.batch.realYoutubeApiRequestsPerformed!==0
+    ||plan.batch.estimatedYoutubeSearchQuotaUnits!==0
+    ||!Array.isArray(plan?.plan)||plan.plan.length<1
+    ||plan.plan.length!==plan.batch.selectedCount)
+    throw Error('G2_SEARCH_LIST_ATOMIC_QUOTA_ADMISSION_NOT_YET_CONNECTED')
+  return {knownCandidateOnly:true,authorizedSearchCalls:0}
+}
 export function parseResearchRunInput(env=process.env){
   const rawOffset=env.YOUTUBE_G2_RESEARCH_OFFSET
   const rawLimit=env.YOUTUBE_G2_RESEARCH_BATCH_SIZE
@@ -116,6 +133,9 @@ async function main(){
     knownVideoCandidatesByTmdbId,
   })
   if(plan.batch.selectedCount===0)throw Error('FULL_CATALOG_EMPTY_RESEARCH_BATCH')
+  // MUST happen before any TMDB or YouTube API request, and before reading the
+  // YouTube secret: pure budget preview ≠ live admission or Google quota.
+  assertNoUngatedYoutubeSearch(plan)
   const key=getSecret()
   let successfulGoogleSearches=0
   const pilot=await runTmdbFirstLinkPilot({
@@ -123,6 +143,8 @@ async function main(){
     limit:plan.batch.selectedCount,
     tmdbGet:(p,q)=>tmdbRead(p,q,token),
     youtubeApi:async(p,q)=>{
+      // Independent defense-in-depth even if the planner is later changed.
+      if(p==='search')throw Error('G2_SEARCH_LIST_ATOMIC_QUOTA_ADMISSION_NOT_YET_CONNECTED')
       const response=await youtubeGet(p,q,key)
       // Only aggregate counters, NEVER titles, raw result IDs, API key or
       // credentialled URLs. Allows diagnosis of exactly where 429 appeared.
