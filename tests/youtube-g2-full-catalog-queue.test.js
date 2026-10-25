@@ -4,7 +4,7 @@ import {
   YOUTUBE_RESEARCH_MAX_ESTIMATED_SEARCH_QUOTA,
   YOUTUBE_SEARCH_QUOTA_UNITS,YOUTUBE_SEARCH_DEFAULT_DAILY_CALL_LIMIT,
 } from '../scripts/youtube-g2-full-catalog-queue.mjs'
-import {parseResearchRunInput} from '../scripts/youtube-g2-full-catalog-queue-live.mjs'
+import {parseResearchRunInput,assertNoUngatedYoutubeSearch} from '../scripts/youtube-g2-full-catalog-queue-live.mjs'
 const now='2026-10-22T20:10:00.000Z'
 const kinds=['browse','personal-tmdb','profile-state','movie-hub','waipu','joyn']
 const candidates=[
@@ -178,5 +178,32 @@ describe('G2 full canonical MovieHub inventory and YouTube badge research queue'
     expect(p.plan.at(-1)).toMatchObject({tmdbId:90,catalogMembership:'public-search-only',
       offerTypesFromPublishedTmdbSnapshot:['ads','flatrate'],
       independentlyVerifiedDeOffer:false,confirmedVideoId:null})
+  })
+  it('blocks legacy manual full-catalog research from spending unreserved search.list calls',()=>{
+    const unsafe=createYoutubeFullCatalogResearchPlan({
+      inventory:inventory(),publicIndex:idx(),offset:0,limit:2,now,
+    })
+    expect(unsafe.batch.youtubeSearchCallsPlanned).toBe(4)
+    expect(()=>assertNoUngatedYoutubeSearch(unsafe))
+      .toThrow('G2_SEARCH_LIST_ATOMIC_QUOTA_ADMISSION_NOT_YET_CONNECTED')
+    const safe=createYoutubeFullCatalogResearchPlan({
+      inventory:inventory(),publicIndex:idx(),offset:0,limit:2,now,
+      knownVideoCandidatesByTmdbId:new Map([
+        [10,['Abc12345678']],[20,['Def12345678']],
+      ]),
+    })
+    expect(safe.batch.youtubeSearchCallsPlanned).toBe(0)
+    expect(assertNoUngatedYoutubeSearch(safe)).toEqual({
+      knownCandidateOnly:true,authorizedSearchCalls:0,
+    })
+    for(const edit of [
+      p=>{p.publicationPermitted=true},
+      p=>{p.batch.youtubeSearchCallsPlanned=1},
+      p=>{p.batch.estimatedYoutubeSearchQuotaUnits=1},
+      p=>{p.batch.realYoutubeApiRequestsPerformed=1},
+    ]){
+      const forged=structuredClone(safe);edit(forged)
+      expect(()=>assertNoUngatedYoutubeSearch(forged)).toThrow()
+    }
   })
 })
