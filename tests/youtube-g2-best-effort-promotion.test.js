@@ -153,6 +153,26 @@ describe('revocable minimal public best-effort promotion',()=>{
       })).toThrow()
     }
   })
+  it('promotes at most 250 distinct strong movie links; rejects a 251st',()=>{
+    const p=preview()
+    p.entries=Array.from({length:250},(_,i)=>({
+      ...p.entries[0],key:'movie:'+(1000+i),tmdbId:1000+i,
+      videoId:'Z'+String(i).padStart(10,'0'),
+      target:'https://www.youtube.com/watch?v=Z'+String(i).padStart(10,'0'),
+    }))
+    p.count=p.entries.length
+    const safe=safePublicBestEffortProjection(p,metadata(),{
+      now:NOW,repository:repo,
+    })
+    expect(safe.count).toBe(250)
+    expect(safe.entries[249].tmdbId).toBe(1249)
+    p.entries.push({...p.entries[0],key:'movie:2000',tmdbId:2000,
+      videoId:'X1234567890',target:'https://www.youtube.com/watch?v=X1234567890'})
+    p.count=p.entries.length
+    expect(()=>safePublicBestEffortProjection(p,metadata(),{
+      now:NOW,repository:repo,
+    })).toThrow('BEST_EFFORT_PROMOTION_SOURCE_OR_PREVIEW_UNTRUSTED')
+  })
   it('writes only minimal public JSON and removes it when source is missing',async()=>{
     const folder=await mkdtemp(join(tmpdir(),'youtube-promote-'))
     const sourceFile=join(folder,'meta.json')
