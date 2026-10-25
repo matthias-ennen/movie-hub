@@ -77,6 +77,11 @@ describe('actual Firebase YouTube link-only HTTP publication probe',()=>{
       })).toEqual({published:false,count:0,revoked:true})
     }
     await expect(verifyLiveBestEffortLinkPublication({
+      ...options,expected:null,request:async()=>response(index(),{
+        type:'text/plain',
+      }),
+    })).rejects.toThrow('YOUTUBE_BEST_EFFORT_STALE_LINKS_NOT_REVOKED')
+    await expect(verifyLiveBestEffortLinkPublication({
       ...options,expected:null,request:async()=>response(index()),
     })).rejects.toThrow('YOUTUBE_BEST_EFFORT_STALE_LINKS_NOT_REVOKED')
   })
