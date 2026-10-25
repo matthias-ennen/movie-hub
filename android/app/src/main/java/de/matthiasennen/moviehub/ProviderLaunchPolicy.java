@@ -24,6 +24,17 @@ final class ProviderLaunchPolicy {
         return "program".equals(scope) || "channel".equals(scope);
     }
 
+    /**
+     * A concrete YouTube VIDEO ID must remain exact even if the installed
+     * YouTube package cannot handle ACTION_VIEW. Try the same canonical
+     * HTTPS watch URL with Android's normal resolver before title search.
+     * Generic provider searches and other provider links remain unchanged.
+     */
+    static boolean shouldTryExactYoutubeWebFallback(String providerId, String exactUrl) {
+        return "youtube".equals(providerId)
+                && YouTubeUrlResolver.canonicalWatchUrl(exactUrl) != null;
+    }
+
     static boolean triesTextSearchFirst(String providerId) {
         if (providerId == null) return false;
         switch (providerId) {

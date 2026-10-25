@@ -47,6 +47,26 @@ public final class ProviderLaunchPolicyTest {
     }
 
     @Test
+    public void preservesVerifiedYoutubeWatchIdThroughWebFallback() {
+        assertTrue(ProviderLaunchPolicy.shouldTryExactYoutubeWebFallback(
+                "youtube", "https://www.youtube.com/watch?v=1uf2AMrQMk0"));
+        assertTrue(ProviderLaunchPolicy.shouldTryExactYoutubeWebFallback(
+                "youtube", "https://youtu.be/1uf2AMrQMk0?si=link"));
+        assertFalse(ProviderLaunchPolicy.shouldTryExactYoutubeWebFallback(
+                "youtube", "https://www.youtube.com/results?search_query=Movie+Hub"));
+        assertFalse(ProviderLaunchPolicy.shouldTryExactYoutubeWebFallback(
+                "youtube", "https://youtube.com.example.org/watch?v=1uf2AMrQMk0"));
+        assertFalse(ProviderLaunchPolicy.shouldTryExactYoutubeWebFallback(
+                "youtube", "https://www.youtube.com/watch?v=too-short"));
+        assertFalse(ProviderLaunchPolicy.shouldTryExactYoutubeWebFallback(
+                "youtube", null));
+        assertFalse(ProviderLaunchPolicy.shouldTryExactYoutubeWebFallback(
+                "netflix", "https://www.youtube.com/watch?v=1uf2AMrQMk0"));
+        assertFalse(ProviderLaunchPolicy.shouldTryExactYoutubeWebFallback(
+                "waipu", "https://www.youtube.com/watch?v=1uf2AMrQMk0"));
+    }
+
+    @Test
     public void rejectsUnknownProvider() {
         assertFalse(ProviderLaunchPolicy.triesTextSearchFirst("unknown"));
         assertFalse(ProviderLaunchPolicy.triesTextSearchFirst(null));
