@@ -1,6 +1,7 @@
 import {
   BEST_EFFORT_YOUTUBE_KIND,
   BEST_EFFORT_YOUTUBE_VERSION,
+  BEST_EFFORT_MAX_LINKS,
 } from './youtubeBestEffortRouteIndex.js'
 
 // Optional public *link-only* projection of private known-ID review QA.
@@ -21,7 +22,12 @@ export function loadYoutubeBestEffortTitleLinks(request=fetch){
         &&data.verifiedDEOffers===0&&data.verifiedPlaybackRoutes===0
         &&data.providerBadgeWrites===0
         &&Array.isArray(data.claimedOfferTypes)&&data.claimedOfferTypes.length===0
-        &&Array.isArray(data.entries)&&data.count===data.entries.length
+        &&Array.isArray(data.entries)
+        &&data.entries.length<=BEST_EFFORT_MAX_LINKS
+        &&data.count===data.entries.length
+        // Reject cross-film VIDEO ID collisions before a clickable route exists.
+        &&new Set(data.entries.map(e=>e?.key)).size===data.entries.length
+        &&new Set(data.entries.map(e=>e?.videoId)).size===data.entries.length
         ?data:null
     })
     .catch(()=>null)
