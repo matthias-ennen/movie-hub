@@ -10,7 +10,7 @@ import {pathToFileURL} from 'node:url'
 export const YT_SERVICE='youtube.googleapis.com'
 const HTTP_CODES=new Set([0,200,400,401,403,404,429,500,502,503,504])
 const safeString=(value,max=120)=>typeof value==='string'
-  &&/^[A-Za-z0-9 _./:()%-]+$/.test(value)
+  &&/^[A-Za-z0-9 _./:()%{}-]+$/.test(value)
   ?value.slice(0,max):null
 const limitInt=(x)=>typeof x==='string'&&/^-?\d{1,20}$/.test(x)?x:null
 const parsedResponse=(status,response)=>{
