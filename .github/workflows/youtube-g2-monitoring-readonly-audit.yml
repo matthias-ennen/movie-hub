@@ -1,0 +1,138 @@
+name: YouTube G2 – read search quota usage signals (Google Monitoring only)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-monitoring-readonly-audit.yml
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-readonly-search-monitoring
+  cancel-in-progress: false
+
+jobs:
+  bounded-cloud-monitoring-get:
+    name: Read historical search quota usage without new YouTube calls
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' &&
+        contains(github.event.head_commit.message, '[youtube-monitoring-readonly-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Validate strict no-write Cloud Monitoring analysis
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-monitoring-readonly-audit.mjs
+          npx vitest run tests/youtube-g2-monitoring-readonly-audit.test.js
+      - name: Authenticate existing Google OIDC principal (no new keys)
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Request ONLY two bounded Google Cloud Monitoring GET series
+        id: get_monitoring
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/moviehub-quota-monitoring-private
+          FROM="$(date -u -d '48 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
+          TO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          token="$(gcloud auth print-access-token)"
+          for metric in rate exceeded; do
+            if [[ "$metric" == rate ]]; then
+              kind=rate/net_usage
+            else
+              kind=exceeded
+            fi
+            # Only a 48-hour historical read, not a YouTube API call.
+            FILTER="metric.type=\"serviceruntime.googleapis.com/quota/$kind\" AND resource.type=\"consumer_quota\" AND resource.label.service=\"youtube.googleapis.com\" AND metric.label.quota_metric=\"youtube.googleapis.com/search_list\""
+            status="$(curl --silent --show-error --max-time 35 --retry 0 \
+              --get --header "Authorization: Bearer $token" \
+              --header 'Accept: application/json' \
+              --data-urlencode "filter=$FILTER" \
+              --data-urlencode "interval.startTime=$FROM" \
+              --data-urlencode "interval.endTime=$TO" \
+              --data-urlencode "view=FULL" \
+              --data-urlencode "pageSize=5000" \
+              --output "/tmp/moviehub-quota-monitoring-private/$metric.json" \
+              --write-out '%{http_code}' \
+              'https://monitoring.googleapis.com/v3/projects/movie-hub-62459/timeSeries')"
+            [[ "$status" =~ ^[0-9]{3}$ ]] || {
+              echo '::error::Malformed Google Monitoring HTTP status'
+              exit 1
+            }
+            echo "${metric}_http=$status" >> "$GITHUB_OUTPUT"
+          done
+          unset token FILTER
+          echo "from=$FROM" >> "$GITHUB_OUTPUT"
+          echo "to=$TO" >> "$GITHUB_OUTPUT"
+          echo 'Two read-only quota usage time-series requests finished.'
+      - name: Whitelist the observed usage signals; never claim 429 cause from missing series
+        shell: bash
+        env:
+          FROM: ${{ steps.get_monitoring.outputs.from }}
+          TO: ${{ steps.get_monitoring.outputs.to }}
+          RATE_HTTP: ${{ steps.get_monitoring.outputs.rate_http }}
+          EXCEEDED_HTTP: ${{ steps.get_monitoring.outputs.exceeded_http }}
+        run: |
+          set -euo pipefail
+          node scripts/youtube-g2-monitoring-readonly-audit.mjs \
+            "$FROM" "$TO" \
+            "$RATE_HTTP" /tmp/moviehub-quota-monitoring-private/rate.json \
+            "$EXCEEDED_HTTP" /tmp/moviehub-quota-monitoring-private/exceeded.json \
+            artifacts/youtube-g2/search-monitoring-readonly
+          rm -rf /tmp/moviehub-quota-monitoring-private
+      - name: Publish non-secret, no-write Monitoring source status only
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const s=JSON.parse(readFileSync(
+            'artifacts/youtube-g2/search-monitoring-readonly/summary.json','utf8'))
+          if(s.kind!=='moviehub-youtube-g2-readonly-search-monitoring'
+            ||s.quotaMetric!=='youtube.googleapis.com/search_list'
+            ||s.actualRemainingSearchCalls!==null
+            ||s.exact429Cause!=='not-established'
+            ||s.proofOfZeroUsage!==false||s.searchAutomaticallyAllowed!==false
+            ||s.youtubeApiRequests!==0||s.quotaChanges!==0
+            ||s.monitoringChanges!==0||s.firestoreWrites!==0
+            ||s.publicationPermitted!==false)
+            throw Error('YOUTUBE_MONITORING_PUBLIC_SUMMARY_GUARD')
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,[
+            '### YouTube search.list – Google Cloud Monitoring read-only',
+            '',
+            '- Requested observation window: '+s.windowFrom+' to '+s.windowTo,
+            '- Rate usage: HTTP '+s.rate.http+' ('+s.rate.availability+
+              ', '+s.rate.series+' observed series)',
+            '- Quota exceeded: HTTP '+s.exceeded.http+' ('+s.exceeded.availability+
+              ', '+s.exceeded.series+' observed series)',
+            '- Historical value counts: rate '+s.rate.observedPoints+
+              ', exceeded '+s.exceeded.observedPoints,
+            '- **Unobserved data is NOT zero usage; actual quota remaining and 429 cause are NOT established.**',
+            '- New YouTube requests **0**, quota changes **0**, productive writes **0**.',
+            '- Full sanitized measured values are in the protected seven-day artifact.',
+            '',
+          ].join('\n')+'\n')
+          NODE
+      - name: Upload protected sanitized 48-hour search-monitoring audit
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-readonly-monitoring-${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/search-monitoring-readonly/summary.json
+            artifacts/youtube-g2/search-monitoring-readonly/report.md
+          if-no-files-found: error
+          retention-days: 7
