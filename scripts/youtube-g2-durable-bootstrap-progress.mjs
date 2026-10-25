@@ -16,7 +16,7 @@ const sha=v=>typeof v==='string'&&/^[0-9a-f]{40}$/.test(v)
 const run=v=>Number.isSafeInteger(v)&&v>0
 const digest=v=>createHash('sha256').update(JSON.stringify(v)).digest('hex')
 const clone=v=>JSON.parse(JSON.stringify(v))
-function validateProgress(state){
+export function validateProgress(state){
   if(state?.kind!==PROGRESS_KIND||state.schemaVersion!==1
     ||state.projectId!=='movie-hub-62459'
     ||!Number.isSafeInteger(state.total)||state.total<1||state.total>100000
