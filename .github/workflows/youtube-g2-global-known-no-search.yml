@@ -45,7 +45,8 @@ jobs:
           npx vitest run \
             tests/youtube-g2-global-known-no-search-live.test.js \
             tests/youtube-g2-durable-candidate-checkpoint.test.js \
-            tests/youtube-g2-tmdb-first-link-pilot.test.js
+            tests/youtube-g2-tmdb-first-link-pilot.test.js \
+            tests/youtube-g2-best-effort-title-links.test.js
       - name: Assert daily job is explicitly limited to known IDs and zero new searches
         shell: bash
         run: |
@@ -72,6 +73,8 @@ jobs:
         run: node scripts/youtube-g2-durable-candidate-checkpoint.mjs read
       - name: Recheck all stored shared-film candidates with current DE API data, zero YouTube searches
         run: node scripts/youtube-g2-global-known-no-search-live.mjs
+      - name: Derive protected best-effort watch shortcuts from completed QA (zero API calls)
+        run: node scripts/youtube-g2-best-effort-link-preview.mjs
       - name: Publish aggregate outcome only to Actions summary (not MovieHub catalog)
         run: |
           node --input-type=module <<'NODE'
@@ -117,5 +120,6 @@ jobs:
           path: |
             artifacts/youtube-g2/global-known-no-search-review/qa.json
             artifacts/youtube-g2/global-known-no-search-review/report.md
+            artifacts/youtube-g2/global-known-no-search-review/best-effort-links.private.json
           retention-days: 7
           if-no-files-found: error

@@ -19,7 +19,8 @@ import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDe
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
 import { selectYoutubeVerifiedTitleRoute } from '../providers/youtubeVerifiedRouteIndex.js'
 import { selectCuratedEditorialTitleHint } from '../providers/youtubeCuratedEditorialIndex.js'
-import { useYoutubeVerifiedOffers, useYoutubeCuratedEditorialHints } from '../providers/YoutubeVerifiedOffersContext.jsx'
+import { selectYoutubeBestEffortTitleRoute } from '../providers/youtubeBestEffortRouteIndex.js'
+import { useYoutubeVerifiedOffers, useYoutubeCuratedEditorialHints, useYoutubeBestEffortLinks } from '../providers/YoutubeVerifiedOffersContext.jsx'
 import { withVerifiedYoutubeTitleOffer } from '../providers/youtubeVerifiedTitlePresentation.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
@@ -63,6 +64,7 @@ export default function DetailModal({
   const [personalMessage, setPersonalMessage] = useState('')
   const youtubeVerifiedRoutes = useYoutubeVerifiedOffers()
   const youtubeCuratedHints = useYoutubeCuratedEditorialHints()
+  const youtubeBestEffortLinks = useYoutubeBestEffortLinks()
   const titleWithVerifiedOffers = useMemo(
     () => withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes, {curatedIndex: youtubeCuratedHints}),
     [item, youtubeVerifiedRoutes, youtubeCuratedHints],
@@ -336,20 +338,25 @@ export default function DetailModal({
     const provisionalRoute = providerId === 'youtube' && !verifiedRoute
       ? selectCuratedEditorialTitleHint(youtubeCuratedHints, item)
       : null
+    // Optional lightweight candidate is ONLY an external watch shortcut on
+    // an existing YouTube badge. It never claims FREE/R&B/DE verification.
+    // Verified offers and the two curated playlist hints retain precedence.
+    const bestEffortRoute = providerId === 'youtube' && !verifiedRoute && !provisionalRoute
+      ? selectYoutubeBestEffortTitleRoute(youtubeBestEffortLinks,item,{
+          hasYoutubeBadge:streamingProviderIds.includes('youtube'),
+        })
+      : null
     // A click on any available provider badge marks the title as watched.
     // FREE/R&B is playlist provenance, not an exception to the user's
     // consistent provider-launch interaction rule.
     markWatchedFromProvider()
-    if (provisionalRoute && launchProviderPlaybackRoute({
-      providerId, title:item.title, route:provisionalRoute,
+    const exactRoute = verifiedRoute || provisionalRoute || bestEffortRoute
+    if (exactRoute && launchProviderPlaybackRoute({
+      providerId, title:item.title, route:exactRoute,
       fallbackUrl:destination,
     })) return
-    if (verifiedRoute && launchProviderPlaybackRoute({
-      providerId, title: item.title, route: verifiedRoute,
-      fallbackUrl: destination,
-    })) return
 
-    const target = verifiedRoute?.target || provisionalRoute?.target || destination
+    const target = exactRoute?.target || destination
     if (window.MovieHubNative?.openProvider) {
       window.MovieHubNative.openProvider(providerId, item.title, target)
       return
@@ -595,6 +602,14 @@ export default function DetailModal({
                 {streamingProviderIds.map((providerId) => {
                   const provider = providers[providerId]
                   if (!provider) return null
+                  const possibleYoutubeLink = providerId === 'youtube'
+                    && !selectYoutubeVerifiedTitleRoute(youtubeVerifiedRoutes,item,{
+                      hasYoutubeBadge:true,
+                    })
+                    && !selectCuratedEditorialTitleHint(youtubeCuratedHints,item)
+                    && selectYoutubeBestEffortTitleRoute(youtubeBestEffortLinks,item,{
+                      hasYoutubeBadge:true,
+                    })
                   return (
                     <button
                       type="button"
@@ -604,7 +619,9 @@ export default function DetailModal({
                       onClick={() => openStreamingProvider(providerId)}
                       aria-label={providerId === 'youtube' && titleWithVerifiedOffers.curatedPlaylistTitleOffer
                         ? 'YouTube-Playlist-Link öffnen (Playlist-Klasse ' + (titleWithVerifiedOffers.curatedPlaylistTitleOffer.playlistMode === 'free' ? 'FREE' : 'R&B') + '; Filmfassung und Wiedergabe nicht unabhängig bestätigt)'
-                        : `${provider.label} als Streaming- oder Mediathek-Anbieter öffnen`}
+                        : possibleYoutubeLink
+                          ? 'Möglichen YouTube-Filmtreffer öffnen (Zuordnung und Wiedergabe nicht garantiert)'
+                          : `${provider.label} als Streaming- oder Mediathek-Anbieter öffnen`}
                     >
                       <ProviderBadge providerId={providerId} item={titleWithVerifiedOffers} context="title" />
                       {provider.label}
