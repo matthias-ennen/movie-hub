@@ -8,7 +8,7 @@ import {dirname} from 'node:path'
 import {pathToFileURL} from 'node:url'
 import {
   BEST_EFFORT_YOUTUBE_KIND,BEST_EFFORT_YOUTUBE_VERSION,
-  BEST_EFFORT_MAX_AGE_MS,selectYoutubeBestEffortTitleRoute,
+  BEST_EFFORT_MAX_AGE_MS,BEST_EFFORT_MAX_LINKS,selectYoutubeBestEffortTitleRoute,
 } from '../src/providers/youtubeBestEffortRouteIndex.js'
 import {SOURCE_METADATA} from './youtube-g2-best-effort-source-provenance.mjs'
 
@@ -54,7 +54,7 @@ export function safePublicBestEffortProjection(preview,source,{
     ||!Array.isArray(preview.entries)
     ||!Number.isSafeInteger(preview.count)
     ||preview.count!==preview.entries.length
-    ||preview.entries.length>100)
+    ||preview.entries.length>BEST_EFFORT_MAX_LINKS)
     throw Error('BEST_EFFORT_PROMOTION_SOURCE_OR_PREVIEW_UNTRUSTED')
 
   const seenMovies=new Set(),seenVideos=new Set()
