@@ -21,6 +21,8 @@ describe('scheduled no-search known-video refresh remains private',()=>{
     expect(file).toContain('node scripts/youtube-g2-durable-candidate-checkpoint.mjs read')
     expect(file).toContain('node scripts/youtube-g2-global-known-no-search-live.mjs')
     expect(file).toContain('G2_GLOBAL_CACHED_YOUTUBE_SEARCH_FORBIDDEN')
+    expect(file).toContain('source.includes("searchCalls:0,")')
+    expect(live).toContain('searchCalls:0,')
     expect(live).toContain("if(endpoint!=='videos')throw Error('G2_GLOBAL_CACHED_YOUTUBE_SEARCH_FORBIDDEN')")
     expect(file).not.toContain('node scripts/youtube-g2-full-catalog-queue-live.mjs')
     expect(file).not.toContain('node scripts/youtube-g2-durable-candidate-checkpoint.mjs merge')
