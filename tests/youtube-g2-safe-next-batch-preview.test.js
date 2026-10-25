@@ -93,8 +93,10 @@ describe('YouTube read-only coordinated bootstrap preview; NEVER grants quota',(
       kind:PREVIEW_KIND,startOffset:0,nextOffsetIfSuccessful:5,
       totalBadgeMovieCount:6,plannedFilmHypotheses:5,
       knownVideoCandidateMovieCount:1,
-      searchesAvoidedByCandidateReuse:2,
-      proposedNewSearchCalls:8,proposedInternalDayReservedAfter:8,
+      searchesAvoidedByCandidateReuse:1,
+      proposedNewSearchCalls:4,proposedInternalDayReservedAfter:4,
+      searchStrategy:'one-precise-query-first; followup-separately-authorized',
+      automaticSecondSearchEnabled:false,
       pacificQuotaDay:'2026-10-25',
       actualProjectQuotaRemaining:null,
       preflightIsRealTimeQuotaGuarantee:false,
@@ -118,7 +120,7 @@ describe('YouTube read-only coordinated bootstrap preview; NEVER grants quota',(
     })
     expect(r.startOffset).toBe(2)
     expect(r.plannedFilmHypotheses).toBe(4)
-    expect(r.proposedNewSearchCalls).toBe(8)
+    expect(r.proposedNewSearchCalls).toBe(4)
     expect(r.nextOffsetIfSuccessful).toBe(null)
     expect(r.cursorAdvanced).toBe(false)
   })
@@ -160,11 +162,11 @@ describe('YouTube read-only coordinated bootstrap preview; NEVER grants quota',(
     const x=input()
     x.existingDailyLedger=null
     const first=previewCoordinatedBootstrapBatch(x)
-    expect(first.proposedInternalDayReservedAfter).toBe(8)
+    expect(first.proposedInternalDayReservedAfter).toBe(4)
     const y=input()
     // Reserve once only in MEMORY to simulate another bounded research job.
     const dummy=prepareResearchReservation({
-      now,runId:700099,calls:4,preflight:preflight(),
+      now,runId:700099,calls:7,preflight:preflight(),
     })
     y.existingDailyLedger=dummy.ledger
     expect(()=>previewCoordinatedBootstrapBatch(y))
