@@ -195,6 +195,85 @@ jobs:
             '; **never quota authorization**.\n')
           console.log(JSON.stringify(out))
           NODE
+      - name: Query configured YouTube search quota via Service Usage (GET only; NO search)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Read-only v1beta1 API, same existing OIDC principal. Permission:
+          # serviceusage.quotas.get. Never enable API, change quota or grant IAM.
+          mkdir -p /tmp/moviehub-youtube-pt-budget-private
+          token="$(gcloud auth print-access-token)"
+          code="$(curl --silent --show-error --max-time 35 --retry 0 \
+            --get --header "Authorization: Bearer $token" \
+            --header 'Accept: application/json' \
+            --data-urlencode 'view=FULL' \
+            --data-urlencode 'pageSize=100' \
+            --output '/tmp/moviehub-youtube-pt-budget-private/serviceusage.json' \
+            --write-out '%{http_code}' \
+            'https://serviceusage.googleapis.com/v1beta1/projects/612913221205/services/youtube.googleapis.com/consumerQuotaMetrics')"
+          unset token
+          [[ "$code" =~ ^[0-9]{3}$ ]] || {
+            echo '::error::Invalid Service Usage HTTP response'
+            exit 1
+          }
+          SERVICE_USAGE_HTTP="$code" node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync,appendFileSync} from 'node:fs'
+          const http=Number(process.env.SERVICE_USAGE_HTTP)
+          let responseShape='http-not-200',parsed=false,metricCount=0
+          let searchMetricCount=0,searchLimitCount=0,hasMorePages=false
+          if(http===200){
+            try{
+              const doc=JSON.parse(readFileSync(
+                '/tmp/moviehub-youtube-pt-budget-private/serviceusage.json','utf8'))
+              if(!doc||typeof doc!=='object'||Array.isArray(doc))
+                throw Error('invalid-object')
+              if(doc.metrics===undefined){
+                responseShape='metrics-omitted'
+              }else{
+                if(!Array.isArray(doc.metrics)||doc.metrics.length>100)
+                  throw Error('invalid-metrics')
+                responseShape=doc.metrics.length?'metrics-present':'metrics-empty'
+                metricCount=doc.metrics.length
+                for(const m of doc.metrics){
+                  if(m?.metric!=='youtube.googleapis.com/search_list')continue
+                  const limits=m.consumerQuotaLimits??[]
+                  if(!Array.isArray(limits)||limits.length>100)
+                    throw Error('invalid-limits')
+                  searchMetricCount++
+                  searchLimitCount+=limits.length
+                }
+                parsed=true
+              }
+              hasMorePages=typeof doc.nextPageToken==='string'
+                &&doc.nextPageToken.length>0
+            }catch{
+              responseShape='invalid-json-or-shape';parsed=false
+              metricCount=0;searchMetricCount=0;searchLimitCount=0
+              hasMorePages=false
+            }
+          }
+          // Service Usage reports a quota CONFIGURATION, never current usage,
+          // remaining project quota, Google-wide serialization or permission
+          // to perform search.list. This output cannot feed the search gate.
+          const out={kind:'youtube-g2-serviceusage-configuration-readonly',
+            httpStatus:Number.isInteger(http)?http:null,
+            parsed,responseShape,metricCount,searchMetricCount,
+            searchLimitCount,hasMorePages,observedQuotaUsage:null,
+            guaranteedRemainingQuota:null,authorizedSearchCalls:0,
+            youtubeApiCalls:0,gcsWrites:0,publicationPermitted:false}
+          writeFileSync(
+            'artifacts/youtube-g2/pacific-search-preflight/serviceusage.json',
+            JSON.stringify(out)+'\n',{mode:0o600})
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            '\nConfigured YouTube search quota (Service Usage GET-only): HTTP '+
+            out.httpStatus+'; shape='+out.responseShape+
+            '; parsed='+out.parsed+'; metric-count='+out.metricCount+
+            '; matching-search-metrics='+out.searchMetricCount+
+            '; matching-limits='+out.searchLimitCount+
+            '; pagination='+out.hasMorePages+
+            '; **never a usage or search authorization**.\n')
+          console.log(JSON.stringify(out))
+          NODE
       - name: Interpret observed PT day quota defensively (NO lease)
         shell: bash
         env:
@@ -249,5 +328,6 @@ jobs:
           path: |
             artifacts/youtube-g2/pacific-search-preflight/summary.json
             artifacts/youtube-g2/pacific-search-preflight/windowed-v2.json
+            artifacts/youtube-g2/pacific-search-preflight/serviceusage.json
           retention-days: 7
           if-no-files-found: error
