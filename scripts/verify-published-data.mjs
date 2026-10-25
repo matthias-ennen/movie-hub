@@ -151,7 +151,13 @@ export async function verifyPublishedGeneration({ fetchImpl = fetch, directory =
   const expected = await Promise.all(paths.map(async (path) => JSON.parse(await readFile(resolve(directory, path), 'utf8'))))
   const actual = await fetchPublishedData({ fetchImpl })
   for (let i = 0; i < paths.length; i += 1) {
-    if (!isDeepStrictEqual(actual[i], expected[i])) throw new Error(`Published generation differs from build: ${paths[i]}`)
+    if (!isDeepStrictEqual(actual[i], expected[i])) {
+      // These are public timestamps only. Record which generation was
+      // served; do not dump whole data/status payloads or user metadata.
+      const preparedAt=String(expected[i]?.generatedAt||'unknown').slice(0,40)
+      const servedAt=String(actual[i]?.generatedAt||'unknown').slice(0,40)
+      throw new Error(`Published generation differs from build: ${paths[i]} (preparedAt=${preparedAt}, servedAt=${servedAt})`)
+    }
   }
   const result = validatePreparedGeneration(actual, { requireJoynHorizon })
   const youtube = await verifyYoutubePublishedReports({ fetchImpl, directory })
