@@ -41,7 +41,7 @@ export async function verifyLiveBestEffortLinkPublication({
     // Firebase's SPA rewrite legitimately returns index.html with HTTP 200
     // for a missing JSON; JSON must NOT remain available after rollback.
     if(response?.status===404)return {published:false,count:0,revoked:true}
-    if(!response?.ok||type.includes('json'))
+    if(!response?.ok||!type.includes('text/html'))
       throw Error('YOUTUBE_BEST_EFFORT_STALE_LINKS_NOT_REVOKED')
     return {published:false,count:0,revoked:true}
   }
