@@ -65,8 +65,10 @@ jobs:
           set -euo pipefail
           mkdir -p /tmp/moviehub-youtube-pt-budget-private
           token="$(gcloud auth print-access-token)"
-          for type in rate exceeded; do
-            if [[ "$type" == rate ]]; then kind='rate/net_usage'; else kind='exceeded'; fi
+          for type in rate exceeded ratev2; do
+            if [[ "$type" == rate ]]; then kind='rate/net_usage';
+            elif [[ "$type" == ratev2 ]]; then kind='ratev2/net_usage';
+            else kind='exceeded'; fi
             FILTER="metric.type=\"serviceruntime.googleapis.com/quota/$kind\" AND resource.type=\"consumer_quota\" AND resource.label.service=\"youtube.googleapis.com\" AND metric.label.quota_metric=\"youtube.googleapis.com/search_list\""
             code="$(curl --silent --show-error --max-time 35 --retry 0 \
               --get --header "Authorization: Bearer $token" \
@@ -87,6 +89,63 @@ jobs:
           done
           unset token FILTER
           echo 'Cloud Monitoring PT-day GET-only telemetry completed (raw responses private).'
+      - name: Inspect windowed quota-v2 telemetry only (NEVER an authorization)
+        shell: bash
+        env:
+          V2_HTTP: ${{ steps.monitoring.outputs.ratev2 }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/youtube-g2/pacific-search-preflight
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync,appendFileSync} from 'node:fs'
+          const http=Number(process.env.V2_HTTP)
+          let series=[],valid=http===200,points=0,latest=null
+          let sampledMax=null
+          if(valid){
+            try{
+              const doc=JSON.parse(readFileSync(
+                '/tmp/moviehub-youtube-pt-budget-private/ratev2.json','utf8'))
+              if(!Array.isArray(doc?.timeSeries)||doc.nextPageToken
+                ||doc.timeSeries.length>100)throw Error('invalid-page')
+              series=doc.timeSeries
+              for(const s of series){
+                if(s?.metric?.type!=='serviceruntime.googleapis.com/quota/ratev2/net_usage'
+                  ||s?.metric?.labels?.quota_metric!=='youtube.googleapis.com/search_list'
+                  ||s?.resource?.type!=='consumer_quota'
+                  ||s?.resource?.labels?.service!=='youtube.googleapis.com'
+                  ||!Array.isArray(s.points)||s.points.length>5000)
+                  throw Error('unexpected-series')
+                for(const p of s.points){
+                  const raw=p?.value?.int64Value
+                  if(typeof raw!=='string'||!/^\\d{1,14}$/.test(raw))
+                    throw Error('invalid-count')
+                  const count=Number(raw),t=Date.parse(p?.interval?.endTime)
+                  if(!Number.isFinite(t))throw Error('invalid-end-time')
+                  sampledMax=sampledMax===null?count:Math.max(sampledMax,count)
+                  const iso=new Date(t).toISOString()
+                  if(!latest||iso>latest)latest=iso
+                  points++
+                }
+              }
+            }catch{valid=false;series=[];points=0;latest=null;sampledMax=null}
+          }
+          // A gauge's maximum is NOT cumulative PT-day quota and cannot
+          // grant a global Google project lease. This is diagnosis only.
+          const out={kind:'youtube-g2-windowed-quota-v2-readonly',
+            httpStatus:Number.isInteger(http)?http:null,parseValid:valid,
+            series:series.length,points,latestSample:latest,
+            maximumObservedWindowGauge:sampledMax,
+            guaranteedRemainingQuota:null,authorizedSearchCalls:0,
+            youtubeApiCalls:0,gcsWrites:0,publicationPermitted:false}
+          writeFileSync('artifacts/youtube-g2/pacific-search-preflight/windowed-v2.json',
+            JSON.stringify(out)+'\\n',{mode:0o600})
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            '\\nWindowed quota-v2 HTTP '+out.httpStatus+
+            '; parsed='+out.parseValid+'; series='+out.series+
+            '; points='+out.points+'; latest='+String(out.latestSample)+
+            '; **never quota authorization**.\\n')
+          console.log(JSON.stringify(out))
+          NODE
       - name: Interpret observed PT day quota defensively (NO lease)
         shell: bash
         env:
@@ -138,6 +197,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: youtube-g2-pacific-search-preflight-${{ github.run_id }}
-          path: artifacts/youtube-g2/pacific-search-preflight/summary.json
+          path: |
+            artifacts/youtube-g2/pacific-search-preflight/summary.json
+            artifacts/youtube-g2/pacific-search-preflight/windowed-v2.json
           retention-days: 7
           if-no-files-found: error
