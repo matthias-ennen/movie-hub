@@ -61,7 +61,7 @@ export function buildYoutubeBestEffortLinkIndex(review,{
       ||r.videoCandidates.length>MAX_RESULTS
       ||!Array.isArray(r.tmdbDeOfferTypes)
       ||r.tmdbDeOfferTypes.some(t=>!['free','ads','flatrate','rent','buy'].includes(t))
-      ||r.candidateDiscoveryMode==='new-search'))
+      ||r.candidateDiscoveryMode!=='trusted-previous-candidate-ids'))
     throw Error('YOUTUBE_BEST_EFFORT_PRIVATE_QA_INVALID_OR_STALE')
   const index=empty(now,s.generatedAt)
   for(const row of review.rows){
