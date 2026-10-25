@@ -163,7 +163,20 @@ export async function refreshPendingCuratedMetadata({qa,youtubeApi,now=new Date(
 export function pendingRefreshMarkdown(data){
   const {summary:s,reviewPriority}=data
   if(s?.kind!==OPEN55_KIND||s.searchListCalls!==0||s.approvedDirectRoutes!==0
+    ||s.verifiedGermanOffers!==0||s.publicationPermitted!==false
     ||!s.privateArtifact)throw Error('YOUTUBE_PENDING_REPORT_INVALID')
+  if(!Array.isArray(reviewPriority)
+    ||!Number.isInteger(s.readyForIndividualIdentityReview)
+    ||reviewPriority.length!==s.readyForIndividualIdentityReview
+    ||new Set(reviewPriority.map(r=>r.videoId)).size!==reviewPriority.length
+    ||reviewPriority.some(r=>!VIDEO.test(String(r?.videoId||''))
+      ||r.identityReviewReady!==true||r.videoStatus!=='video-details-current'
+      ||!Number.isInteger(r.suggestedTmdbId)||r.suggestedTmdbId<1
+      ||!Array.isArray(r.alternatives)
+      ||r.alternatives[0]?.tmdbId!==r.suggestedTmdbId
+      ||r.approvedWorkIdentity!==false
+      ||r.verifiedGermanOffer!==false||r.approvedPlaybackRoute!==null))
+    throw Error('YOUTUBE_PENDING_REPORT_REVIEW_NOT_TRUSTED')
   const clean=x=>String(x??'').replace(/[\r\n|<>]/g,' ').slice(0,160)
   return [
     '# MovieHub YouTube – bekannte offene Playlist-Videos LIVE ohne Suche aktualisiert',
@@ -183,6 +196,31 @@ export function pendingRefreshMarkdown(data){
     ...reviewPriority.map(r=>'| movie:'+r.suggestedTmdbId+' | '+r.videoId
       +' | '+clean(r.recordedSourceTitle)+' | '+r.existingReviewLane+' |'),
     '',
+    '## Manuelle Werk-, Fassungs- und DE-Angebotspruefung (nur geschuetztes QA-Artefakt)',
+    '',
+    'Die folgenden Eintraege sind **Pruefauftraege**, keine genehmigten Filme,',
+    'PlaybackRoutes oder Angebotsdaten. Jeder Nachweis muss unabhaengig dokumentiert werden.',
+    '',
+    ...reviewPriority.flatMap((r,i)=>[
+      '### '+(i+1)+'. movie:'+r.suggestedTmdbId+' – '+clean(r.recordedSourceTitle),
+      '',
+      '- Exakte YouTube-Video-ID: `'+r.videoId+'`',
+      '- Link: https://www.youtube.com/watch?v='+r.videoId,
+      '- Playlist-Hinweis (nicht Tarifbeweis): '+clean(r.playlistClass),
+      '- Aktueller Videotitel: '+clean(r.currentVideoTitle),
+      '- Video-Metadatenlaufzeit: '+(Number.isFinite(r.minutes)?r.minutes+' min':'unbekannt'),
+      '- Beste TMDB-Filmhypothese: movie:'+r.suggestedTmdbId,
+      '- Weitere TMDB-Vorschlaege (keine Bestaetigung): '+
+        (r.alternatives.slice(1).map(c=>'movie:'+c.tmdbId).join(', ')||'keine'),
+      '- [ ] Exaktes Video gegen Filmwerk, Jahr, Laufzeit, Szenen und Fassung unabhaengig geprueft',
+      '- [ ] Originalquelle/Publisher und zulassige API-/Quellennutzung geprueft (#112)',
+      '- [ ] Tatsachliche Wiedergabe in Deutschland und Angebotstyp (FREE/ADS/RENT/BUY/kein Angebot) belegt',
+      '- [ ] Android: genau diese Video-ID in YouTube-App gestartet und kontrolliert',
+      '- [ ] Fire TV: genau diese Video-ID in YouTube-App gestartet und kontrolliert',
+      '- Beobachtung mit Datum, Quelle, Geraet, Konto-/Paywallstatus und Beleg: **noch offen**',
+      '- Entscheidung: **unbestaetigte Hypothese; keine automatische Angebots-/Routenfreigabe**',
+      '',
+    ]),
   ].join('\n')
 }
 export async function runPendingRefresh({
