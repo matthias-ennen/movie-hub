@@ -38,6 +38,7 @@ export function buildYoutubeVerifiedRouteIndex(envelope=null,{
     const src=record.sourceRefs?.find(ref=>ref.sourceId==='youtube'
       && VIDEO_ID.test(String(ref.externalId||''))
       && Date.parse(ref.observedAt)<=ms+60000
+      && Date.parse(ref.observedAt)>=ms-MAX_AGE_DAYS*86400000
       && (!ref.expiresAt||Date.parse(ref.expiresAt)>ms))
     const route=record.playbackRoutes?.find(r=>r.providerId==='youtube'
       && r.mode==='APP_DEEP_LINK' && r.scope==='title'
@@ -54,8 +55,13 @@ export function buildYoutubeVerifiedRouteIndex(envelope=null,{
       validUntil:record.validUntil,
     }
     const prior=entries.get(key)
-    // One conflicting rendition is not proof of a deterministic best route.
-    if(prior && prior.verifiedVideoId!==value.verifiedVideoId){
+    // A canonical film can expose ONE deterministic exact video and tariff.
+    // Conflicting cuts OR different offer types for the SAME video (e.g.
+    // FREE vs RENT) must revoke the enrichment, not arbitrarily publish
+    // the first record encountered. The null sentinel is sticky, so a
+    // third record cannot resurrect a quarantined film.
+    if(prior && (prior.verifiedVideoId!==value.verifiedVideoId
+      || prior.accessType!==value.accessType)){
       entries.set(key,null)
       continue
     }
