@@ -124,8 +124,14 @@ jobs:
           const base='artifacts/youtube-g2/one-search-candidate-review/'
           const s=JSON.parse(readFileSync(base+'summary.json','utf8'))
           const privateReview=JSON.parse(readFileSync(base+'qa.private.json','utf8'))
+          const source=JSON.parse(readFileSync(
+            'artifacts/youtube-g2/one-search-quota-diagnostic/summary.json','utf8'))
+          const sourceHints=JSON.parse(readFileSync(
+            'artifacts/youtube-g2/one-search-quota-diagnostic/candidate-ids.private.json','utf8'))
           if(s.kind!=='moviehub-youtube-g2-one-search-candidate-review'
-            ||s.tmdbId!==11||s.candidateIdsInPrivateInput!==7
+            ||s.tmdbId!==source.sampledExactTmdbFilmId
+            ||s.candidateIdsInPrivateInput!==sourceHints.videoIds.length
+            ||sourceHints.videoIds.length>source.responseCandidateCount
             ||s.youtubeSearchCalls!==0
             ||s.youtubeVideoLookups>1||s.tmdbGetRequests>3
             ||s.independentDeOffersVerified!==0
@@ -137,7 +143,7 @@ jobs:
             ||privateReview.summary?.kind!==s.kind
             ||!Array.isArray(privateReview.rows)
             ||privateReview.rows.length!==1
-            ||privateReview.rows[0].tmdbId!==11
+            ||privateReview.rows[0].tmdbId!==source.sampledExactTmdbFilmId
             ||privateReview.rows[0].publicationPermitted!==false
             ||privateReview.rows[0].directPlaybackRoute!==null)
             throw Error('ONE_SEARCH_NO_SEARCH_REVIEW_INTEGRITY_FAILED')
