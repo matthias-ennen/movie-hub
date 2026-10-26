@@ -146,7 +146,8 @@ describe('global cached TMDB-first real data review without YouTube search.list'
     expect(plan.knownVideoCandidatesByTmdbId.size).toBe(250)
     expect(plan.selection).toContain(10)
     expect(plan.selection).toContain(256)
-    expect(plan.selection).not.toContain(257)
+    expect(plan.selection).toContain(259)
+    expect(plan.selection).not.toContain(260)
   })
   it('never lets the remaining unreviewed checkpoint impersonate a verified source',async()=>{
     const c=checkpoint(),p=publicIndex(),s=services()
