@@ -1,0 +1,106 @@
+name: YouTube G2 – private bounded overflow review (manual gate)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+# Keep cursor mutation single-writer; no push/scheduled execution until
+# a real, authenticated first run has passed review.
+concurrency:
+  group: youtube-g2-private-overflow-review-cursor
+  cancel-in-progress: false
+
+jobs:
+  private-overflow-recheck:
+    name: Review up to 25 nonbaseline films via videos.list (zero searches)
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GOOGLE_CLOUD_PROJECT: movie-hub-62459
+      DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Validate private rotation, API caps and no-offer tests
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-overflow-rotation-cursor.mjs
+          node --check scripts/youtube-g2-overflow-recheck-live.mjs
+          npx vitest run \
+            tests/youtube-g2-overflow-rotation-cursor.test.js \
+            tests/youtube-g2-overflow-recheck-live.test.js \
+            tests/youtube-g2-global-known-no-search-live.test.js \
+            tests/youtube-g2-durable-candidate-checkpoint.test.js \
+            tests/youtube-g2-tmdb-first-link-pilot.test.js
+      - name: Authorize only official known-video lookups, no search and no publication
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs'
+          const src=readFileSync('scripts/youtube-g2-overflow-recheck-live.mjs','utf8')
+          if(!src.includes("if(endpoint!=='videos'")
+            ||!src.includes('MAX_OVERFLOW_VIDEOS_CALLS=5')
+            ||!src.includes('MAX_OVERFLOW_TMDB_CALLS=60')
+            ||!src.includes('publicationPermitted:false')
+            ||!src.includes('await persistPrivateQa(bucket,runId,')
+            ||!src.includes('await saveOverflowCursor(bucket,next,'))
+            throw Error('G2_OVERFLOW_WORKFLOW_SOURCE_GATE_FAILED')
+          NODE
+      - name: Authenticate existing Google OIDC principal for private GCS
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Recheck overflow candidates and commit PRIVATE GCS QA before cursor CAS
+        run: node scripts/youtube-g2-overflow-recheck-live.mjs
+      - name: Validate only aggregate research counts for public summary
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const s=JSON.parse(readFileSync('artifacts/youtube-g2/overflow-recheck/summary.json','utf8'))
+          if(s.kind!=='moviehub-youtube-g2-private-overflow-live-recheck'
+            ||s.publicationPermitted!==false
+            ||s.verifiedDEOffers!==0||s.publishedDirectRoutes!==0
+            ||s.productionWrites!==0||s.searchCalls!==0
+            ||!Number.isInteger(s.videosListCalls)
+            ||s.videosListCalls<0||s.videosListCalls>5
+            ||!Number.isInteger(s.tmdbCalls)||s.tmdbCalls<0||s.tmdbCalls>60
+            ||!Number.isInteger(s.selectedMovies)||s.selectedMovies<0||s.selectedMovies>25
+            ||Object.keys(s).some(k=>/videoId|watchUrl|secret|apiKey|token|tmdbId/i.test(k))
+            ||(s.status==='review-complete'&&(!s.privateQaStored||!s.cursorAdvanced)))
+            throw Error('G2_OVERFLOW_SUMMARY_NOT_PUBLICLY_SAFE')
+          const lines=[
+            '## MovieHub YouTube G2 – PRIVATE overflow recheck',
+            '',
+            '| Field | Value |',
+            '| --- | ---: |',
+            '| Status | '+s.status+' |',
+            '| Shared candidate film count | '+s.sharedCheckpointCandidateFilms+' |',
+            '| Stable baseline (unchanged) | '+s.stableBaselineFilms+' |',
+            '| Deferred checkpoint films | '+s.deferredCandidateFilms+' |',
+            '| Eligible overflow films | '+s.eligibleOverflowFilms+' |',
+            '| Checked overflow films (this run) | '+s.selectedMovies+' |',
+            '| videos.list requests | '+s.videosListCalls+' |',
+            '| search.list requests | **0** |',
+            '| Independently confirmed DE offers | **0** |',
+            '| Published routes / production writes | **0 / 0** |',
+            '',
+            'Individual TMDB/video IDs stay in private GCS. No automatic public link projection.',
+          ]
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n')
+          NODE
+      - name: Upload aggregate counts only – never candidate IDs or private QA
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-overflow-counts-${{ github.run_id }}
+          path: artifacts/youtube-g2/overflow-recheck/summary.json
+          retention-days: 7
+          if-no-files-found: error
