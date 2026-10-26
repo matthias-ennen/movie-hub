@@ -103,7 +103,8 @@ describe('G2 manually gated private overflow videos.list review',()=>{
       verifiedDEOffers:0,publishedDirectRoutes:0,productionWrites:0})
     const qa=JSON.parse(store.get(OVERFLOW_QA_PREFIX+'/501.json'))
     expect(qa.rows.map(x=>x.tmdbId)).toEqual([1250,1251,1252,1253,1254])
-    expect(qa.summary.status).toBe('review-complete')
+    expect(qa.summary.status).toBe('review-complete-awaiting-cursor')
+    expect(qa.summary.cursorAdvanced).toBe(false)
     const cursor=JSON.parse(store.get(OVERFLOW_CURSOR_OBJECT))
     expect(cursor).toMatchObject({lastTmdbId:1254,
       reviewedFilms:5,completedBatches:1,privateOnly:true,
