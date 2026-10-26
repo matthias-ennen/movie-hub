@@ -26,6 +26,25 @@ describe('TMDB-first targeted YouTube candidate search planning', () => {
       'Nightmare Before Christmas 1994', 'Nightmare Before Christmas',
     ])
   })
+  it('uses the canonical TMDB release year when public search index is stale (Citizen Kane)', () => {
+    const result = planTmdbFirstYoutubeQueries(
+      { mediaType: 'movie', tmdbId: 15, title: 'Citizen Kane',
+        originalTitle: 'Citizen Kane', year: 1962 },
+      { id: 15, original_title: 'Citizen Kane', release_date: '1941-05-01' },
+    )
+    expect(result[0].q).toBe('Citizen Kane 1941')
+    expect(result[1].q).toBe('Citizen Kane')
+    expect(result).toHaveLength(2)
+  })
+  it('uses source-year fallback for missing or malformed TMDB dates', () => {
+    for (const release_date of ['', 'not-a-date', '1941', '1941-99']) {
+      const results = planTmdbFirstYoutubeQueries(
+        { mediaType: 'movie', title: 'Testfilm', year: 1984 },
+        { release_date, original_title: 'Testfilm' },
+      )
+      expect(results[0].q).toBe('Testfilm 1984')
+    }
+  })
   it('never adapts movie search heuristics to series/episodes silently', () => {
     expect(() => planTmdbFirstYoutubeQueries(
       { mediaType: 'series', title: 'Dark', year: 2017 }, {},
