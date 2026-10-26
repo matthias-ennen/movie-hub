@@ -69,7 +69,7 @@ describe('global cached TMDB-first real data review without YouTube search.list'
     expect(plan.selection).toHaveLength(26)
     expect(plan.knownVideoCandidatesByTmdbId.size).toBe(27)
   })
-  it('plans a bounded 250-film known-ID refresh and blocks a 251st before API calls',()=>{
+  it('preserves the trusted 250-film baseline as the private checkpoint exceeds 250',()=>{
     expect(MAX_REUSE_MOVIES).toBe(250)
     const c=checkpoint()
     c.entries=Array.from({length:250},(_,i)=>({
@@ -86,11 +86,64 @@ describe('global cached TMDB-first real data review without YouTube search.list'
     expect(planned.storedGlobalFilmIds).toBe(250)
     expect(planned.batchPlan).toHaveLength(10)
     expect(planned.batchPlan.every(chunk=>chunk.length===25)).toBe(true)
-    c.entries.push({tmdbId:4000,videoIds:['Z1234567890'],
-      provenance:[{kind:'published-editorial-playlist-hint',runId:40108251915}]})
-    expect(()=>selectGlobalCachedYoutubeResearch({
+    // A newly discovered film with smaller TMDB ID cannot displace the
+    // previously curated baseline just because the checkpoint grew.
+    c.entries.push({tmdbId:100,videoIds:['Z1234567890'],
+      provenance:[{kind:'successful-readonly-full-catalog-batch',runId:40108251915}]})
+    c.entries.sort((a,b)=>a.tmdbId-b.tmdbId)
+    const continued=selectGlobalCachedYoutubeResearch({
       checkpoint:c,publicIndex:p,now,
-    })).toThrow('G2_GLOBAL_CACHED_SOURCE_INVALID')
+    })
+    expect(continued).toMatchObject({
+      sharedCheckpointCandidateFilms:251,deferredCandidateFilms:1,
+      storedGlobalFilmIds:250,reviewCoverage:'bounded-baseline-partial',
+    })
+    expect(continued.selection).toHaveLength(250)
+    expect(continued.selection).not.toContain(100)
+    expect(continued.knownVideoCandidatesByTmdbId.size).toBe(250)
+  })
+  it('bounds a validated 3,500-film checkpoint without stale-video mass processing',()=>{
+    const c=checkpoint(),p=publicIndex()
+    c.entries=Array.from({length:3500},(_,i)=>({
+      tmdbId:i+10,videoIds:[videoId(i+10)],
+      provenance:[{kind:i<247?'original-trusted-25-film-archive'
+        :'successful-readonly-full-catalog-batch',runId:40108251915}],
+    }))
+    p.entries=c.entries.map(e=>({type:'movie',tmdbId:e.tmdbId,
+      title:'Known '+e.tmdbId,providerIds:['youtube']}))
+    p.count=p.entries.length
+    const plan=selectGlobalCachedYoutubeResearch({checkpoint:c,publicIndex:p,now})
+    expect(plan).toMatchObject({
+      sharedCheckpointCandidateFilms:3500,storedGlobalFilmIds:250,
+      deferredCandidateFilms:3250,reviewCoverage:'bounded-baseline-partial',
+      currentPublicBadgeFilmIds:250,
+    })
+    expect(plan.batchPlan).toHaveLength(10)
+    expect(plan.batchPlan.every(group=>group.length===25)).toBe(true)
+    expect(plan.knownVideoCandidatesByTmdbId.size).toBe(250)
+    expect(plan.selection).toContain(10)
+    expect(plan.selection).toContain(256)
+    expect(plan.selection).not.toContain(257)
+  })
+  it('never lets the remaining unreviewed checkpoint impersonate a verified source',async()=>{
+    const c=checkpoint(),p=publicIndex(),s=services()
+    c.entries.push({
+      tmdbId:9999999,videoIds:['Z1234567890'],
+      provenance:[{kind:'successful-readonly-full-catalog-batch',runId:40108251915}],
+    })
+    const outcome=await recheckGlobalCachedYoutubeCandidates({
+      checkpoint:c,publicIndex:p,now,...s,
+    })
+    expect(outcome.summary).toMatchObject({
+      globalStoredCandidateFilms:28,sharedCheckpointCandidateFilms:28,
+      deferredCandidateFilms:0,reviewCoverage:'complete',
+      independentlyVerifiedDeOffers:0,publishedDirectRoutes:0,
+      searchCalls:0,
+    })
+    expect(outcome.rows).toHaveLength(26)
+    expect(outcome.summary.globalStoredCandidateFilms
+      +outcome.summary.deferredCandidateFilms)
+      .toBe(outcome.summary.sharedCheckpointCandidateFilms)
   })
   it('rechecks 26 film identities in 2 batches using videos.list; zero searches, zero offers',async()=>{
     const s=services()
