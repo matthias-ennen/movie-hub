@@ -87,6 +87,9 @@ jobs:
             ||summary.sharedCheckpointCandidateFilms<summary.globalStoredCandidateFilms
             ||summary.globalStoredCandidateFilms+summary.deferredCandidateFilms
               !==summary.sharedCheckpointCandidateFilms
+            ||!Number.isInteger(summary.crossTitleCollisionFilms)
+            ||summary.crossTitleCollisionFilms<0
+            ||summary.crossTitleCollisionFilms>summary.deferredCandidateFilms
             ||summary.reviewCoverage!==(
               summary.deferredCandidateFilms?'bounded-baseline-partial':'complete')
             ||summary.currentBadgeCachedFilms+summary.cachedFilmsWithoutCurrentPublicBadge
@@ -105,6 +108,7 @@ jobs:
             '| All private checkpoint TMDB movie references | '+summary.sharedCheckpointCandidateFilms+' |',
             '| Safely rechecked stable baseline this run | '+summary.globalStoredCandidateFilms+' |',
             '| Additional checkpoint films awaiting rotating review | '+summary.deferredCandidateFilms+' |',
+            '| Cross-title video collision films quarantined | '+summary.crossTitleCollisionFilms+' |',
             '| Review coverage | '+summary.reviewCoverage+' |',
             '| Current public TMDB-YouTube badges amongst cached films | '+summary.currentBadgeCachedFilms+' |',
             '| Cached works without public badge | '+summary.cachedFilmsWithoutCurrentPublicBadge+' |',
