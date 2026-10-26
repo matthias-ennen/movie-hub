@@ -1,0 +1,105 @@
+name: YouTube G2 – Five-search expansion for existing DE movie badges
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-five-search-public-batch.yml
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-five-search-public-badge-once
+  cancel-in-progress: false
+
+jobs:
+  five-search:
+    name: At most FIVE actual search.list requests, stop on 403/429, never retry
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'push' &&
+         contains(github.event.head_commit.message, '[youtube-five-search-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOOGLE_CLOUD_PROJECT: movie-hub-62459
+      DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Verify hard cap and NO retry / identity tests before any API call
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-five-search-public-batch.mjs
+          npx vitest run tests/youtube-g2-five-search-public-batch.test.js \
+            tests/youtube-g2-tmdb-first-link-pilot.test.js
+      - name: Authenticate existing OIDC principal to read Google API key and GCS checkpoint
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Read private known-candidate checkpoint (no write)
+        run: node scripts/youtube-g2-durable-candidate-checkpoint.mjs read
+      - name: Search at most five NEW YouTube-badged films (20s apart; no retries)
+        run: node scripts/youtube-g2-five-search-public-batch.mjs
+      - name: Verify all five finished or stop (never approve links automatically)
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const root='artifacts/youtube-g2/five-search-public-badge/'
+          const s=JSON.parse(readFileSync(root+'summary.json','utf8'))
+          const qa=JSON.parse(readFileSync(root+'qa.private.json','utf8'))
+          if(s.kind!=='moviehub-youtube-g2-five-search-public-badge-review'
+            ||s.complete!==true||s.completedMovies!==5
+            ||s.maximumSearchAttempts!==5
+            ||s.youtubeSearchAttempts>5
+            ||s.noAutomaticRetry!==true
+            ||s.searchIntervalMs!==20000
+            ||s.independentlyVerifiedDeOffers!==0
+            ||s.directLinksPublished!==0
+            ||['catalogWrites','firestoreWrites','providerWrites','badgeWrites']
+              .some(k=>s[k]!==0)
+            ||s.publicationPermitted!==false
+            ||qa.summary.kind!==s.kind
+            ||qa.rows?.length!==5
+            ||new Set(qa.rows.map(r=>r.tmdbId)).size!==5
+            ||qa.rows.some(r=>r.publicationPermitted!==false
+              ||r.reviewedVideoId!==null||r.directPlaybackRoute!==null))
+            throw Error('FIVE_SEARCH_PRIVATE_RESEARCH_NOT_SAFE')
+          const lines=[
+            '## YouTube G2: 5-film manual/capped search research',
+            '',
+            '- Public YouTube/TMDB-badged movies: '+s.publicBadgedMovies,
+            '- Already cached films (not searched): '+s.cachedMovieCount,
+            '- New films reviewed: '+s.completedMovies,
+            '- Actual search.list attempts (max 5): **'+s.youtubeSearchAttempts+'**',
+            '- videos.list calls: '+s.youtubeVideoLookups,
+            '- TMDB reads: '+s.tmdbGetRequests,
+            '- Automatic retry on 403/429: **0**',
+            '- Verified offers and automatically approved routes: **0**',
+            '- All MovieHub production writes: **0**',
+            '- Raw review IDs/film details remain in private 7-day artifact.',
+            '',
+          ]
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n')
+          console.log(JSON.stringify(s))
+          NODE
+      - name: Retain private completed OR partial research (seven days; no site deployment)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-five-search-public-badge-${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/five-search-public-badge/summary.json
+            artifacts/youtube-g2/five-search-public-badge/qa.private.json
+          retention-days: 7
+          if-no-files-found: ignore
