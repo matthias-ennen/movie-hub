@@ -17,11 +17,8 @@ import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
-import { selectYoutubeVerifiedTitleRoute } from '../providers/youtubeVerifiedRouteIndex.js'
-import { selectCuratedEditorialTitleHint } from '../providers/youtubeCuratedEditorialIndex.js'
-import { selectYoutubeBestEffortTitleRoute } from '../providers/youtubeBestEffortRouteIndex.js'
 import { useYoutubeVerifiedOffers, useYoutubeCuratedEditorialHints, useYoutubeBestEffortLinks } from '../providers/YoutubeVerifiedOffersContext.jsx'
-import { withVerifiedYoutubeTitleOffer } from '../providers/youtubeVerifiedTitlePresentation.js'
+import { enrichTitleProviderRoutes } from '../providers/titleProviderRouteEnrichment.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { includedSwitchShownAsOn, ignoreCompletedIncludedClick } from '../notifications/includedSwitchSession.js'
@@ -65,9 +62,14 @@ export default function DetailModal({
   const youtubeVerifiedRoutes = useYoutubeVerifiedOffers()
   const youtubeCuratedHints = useYoutubeCuratedEditorialHints()
   const youtubeBestEffortLinks = useYoutubeBestEffortLinks()
+  // One canonical TMDB film view with source-specific route enrichment.
+  // Do not copy unverified routes into TMDB offers or title availability.
   const titleWithVerifiedOffers = useMemo(
-    () => withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes, {curatedIndex: youtubeCuratedHints}),
-    [item, youtubeVerifiedRoutes, youtubeCuratedHints],
+    () => enrichTitleProviderRoutes(item, {
+      youtubeVerified:youtubeVerifiedRoutes,youtubeCurated:youtubeCuratedHints,
+      youtubeBestEffort:youtubeBestEffortLinks,
+    }),
+    [item, youtubeVerifiedRoutes, youtubeCuratedHints, youtubeBestEffortLinks],
   )
   const [personalBusy, setPersonalBusy] = useState(false)
   const [alertMenuOpen, setAlertMenuOpen] = useState(false)
@@ -326,31 +328,19 @@ export default function DetailModal({
     })
     if (!destination) return
 
-    // Only an already visible TMDB YouTube badge can be enriched. If the
-    // independently verified source route is absent/expired, keep EXACTLY
-    // the existing YouTube search destination and TMDB offer label.
-    const verifiedRoute = providerId === 'youtube'
-      ? selectYoutubeVerifiedTitleRoute(youtubeVerifiedRoutes, item, {
-          hasYoutubeBadge: streamingProviderIds.includes('youtube'),
-        })
-      : null
-    // Provisional playlist links are distinct from independently verified routes.
-    const provisionalRoute = providerId === 'youtube' && !verifiedRoute
-      ? selectCuratedEditorialTitleHint(youtubeCuratedHints, item)
-      : null
-    // Optional lightweight candidate is ONLY an external watch shortcut on
-    // an existing YouTube badge. It never claims FREE/R&B/DE verification.
-    // Verified offers and the two curated playlist hints retain precedence.
-    const bestEffortRoute = providerId === 'youtube' && !verifiedRoute && !provisionalRoute
-      ? selectYoutubeBestEffortTitleRoute(youtubeBestEffortLinks,item,{
-          hasYoutubeBadge:streamingProviderIds.includes('youtube'),
-        })
+    // Route resolution is now a single per-title enrichment, not three
+    // independent adapter special-cases in this click handler. Re-evaluate
+    // on click to enforce expiry and immediate revocation of hosted indices.
+    const exactRoute = providerId === 'youtube' && streamingProviderIds.includes('youtube')
+      ? enrichTitleProviderRoutes(item,{
+          youtubeVerified:youtubeVerifiedRoutes,youtubeCurated:youtubeCuratedHints,
+          youtubeBestEffort:youtubeBestEffortLinks,now:Date.now(),
+        }).titleProviderRoutes?.youtube ?? null
       : null
     // A click on any available provider badge marks the title as watched.
     // FREE/R&B is playlist provenance, not an exception to the user's
     // consistent provider-launch interaction rule.
     markWatchedFromProvider()
-    const exactRoute = verifiedRoute || provisionalRoute || bestEffortRoute
     if (exactRoute && launchProviderPlaybackRoute({
       providerId, title:item.title, route:exactRoute,
       fallbackUrl:destination,
