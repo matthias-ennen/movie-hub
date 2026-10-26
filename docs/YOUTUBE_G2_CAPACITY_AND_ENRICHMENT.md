@@ -102,6 +102,36 @@ CI-/Android-Tests mit echtem private-GCS-Readback kontrolliert freigeben.
 Danach erst zusätzliche öffentliche Best-Effort-Projektion gesondert
 prüfen, niemals ungeprüfte Overflow-Kandidaten direkt publizieren.
 
+## Zweite Overflow-Stufe: privater Live-Recheck nur nach manueller Freigabe
+
+Der getrennte `scripts/youtube-g2-overflow-recheck-live.mjs` verwendet
+die oben beschriebene sichere 25er-Rotation und den bestehenden privaten
+checksummierten Kandidatencheckpoint. Je manueller Ausführung liest er
+ausschließlich **vorher bekannte** Video-IDs per offiziellen
+`videos.list`-API-Endpunkt (höchstens **5** Aufrufe insgesamt, max. 50
+IDs je Batch) und prüft das aktuelle TMDB-DE-YouTube-Signal (maximal
+**60** TMDB-GETs). **`search.list` ist technisch verboten**, nicht
+nur auf null budgetiert. Bisherige Video-ID-/TMDB-Kollisionen und
+zurückgestellte Basisfilme bleiben ausgeschlossen.
+
+Die Pilotlogik validiert die vorläufige Identität konservativ und
+lässt weder verifizierte DE-Angebote noch produktive
+Provider-/Badge-/Firestore-/Playback-Schreibaktionen zu. Der vollständige
+neue Forschungsbericht wird **ausschließlich in den privaten GCS-Bucket**
+als unveränderliches, run-spezifisches Prüfobjekt geschrieben; erst nach
+dem erfolgreichen Readback wird der getrennte Rotationscursor mit
+Generation-CAS atomar vorgerückt. Im öffentlichen GitHub-Actions-Log
+sind ausschließlich aggregierte Kennzahlen erlaubt.
+
+**Sicherheitsentscheidung:** Die neue
+`.github/workflows/youtube-g2-overflow-private-recheck.yml` ist zunächst
+**nur manuell per workflow_dispatch** ausführbar, nicht via Push/Cron.
+Die echte API-/GCS-Ausführung, tägliche Aktivierung und das spätere
+kontrollierte Einbeziehen geprüfter weiterer Best-Effort-Links sind
+**nicht** allein durch den CI-Erfolg dieses Patches freigegeben. Erst
+authentifizierte echte Readbacks und Quotenbeobachtung auswerten;
+keine automatische Erhöhung von Search-/Video-Budgets.
+
 ## Betriebs- und Freigabegates
 
 1. Vor jedem Merge: CI- und Android-Erfolg auf dem **konkreten** PR-Commit.
