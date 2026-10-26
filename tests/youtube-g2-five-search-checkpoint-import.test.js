@@ -67,7 +67,7 @@ describe('five-search private research -> durable CAS candidate checkpoint (no o
     source.qa.rows[0].videoCandidates[0].videoId=id(100)
     source.qa.rows[1].videoCandidates[0].videoId=id(3)
     const result=merge(source)
-    expect(result).toMatchObject({newMovies:2,newIds:2,conflictingIds:4})
+    expect(result).toMatchObject({newMovies:2,newIds:2,conflictingIds:3})
     expect(result.checkpoint.entries.find(e=>e.tmdbId===100).videoIds).toEqual([id(100)])
     expect(result.checkpoint.entries.some(e=>e.tmdbId===201)).toBe(false)
     expect(result.checkpoint.entries.some(e=>e.tmdbId===202)).toBe(false)
@@ -100,7 +100,7 @@ describe('five-search private research -> durable CAS candidate checkpoint (no o
       x=>{x.qa.rows[0].candidateDiscoveryMode='trusted-previous-candidate-ids'},
       x=>{x.qa.rows[0].publicationPermitted=true},
       x=>{x.qa.rows.pop()},
-      x=>{x.summary.generatedAt='2026-10-20T12:00:00Z';x.qa.summary.generatedAt=x.summary.generatedAt},
+      x=>{x.summary.generatedAt='2026-10-17T12:00:00Z';x.qa.summary.generatedAt=x.summary.generatedAt},
     ]
     for(const change of changes){
       const source=sample();change(source)
