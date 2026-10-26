@@ -14,6 +14,8 @@ import {selectYoutubeBadgedMovies}
   from './youtube-g2-tmdb-first-link-model.mjs'
 import {mapFromCandidateCheckpoint}
   from './youtube-g2-durable-candidate-checkpoint.mjs'
+import {admitPreparedFiveSearches,assertFiveSearchAdmission}
+  from './youtube-g2-five-search-admission.mjs'
 
 export const FIVE_SEARCH_KIND='moviehub-youtube-g2-five-search-public-badge-review'
 export const FIVE_SEARCH_OUTPUT='artifacts/youtube-g2/five-search-public-badge'
@@ -63,9 +65,11 @@ export function planFiveYoutubeSearches({
 export async function researchFiveYouTubeMovies({
   publicIndex,checkpoint,tmdbGet,youtubeApi,onProgress=async()=>{},
   now=new Date().toISOString(),wait=ms=>new Promise(r=>setTimeout(r,ms)),
-  minIntervalMs=FIVE_SEARCH_SPACING_MS,
+  minIntervalMs=FIVE_SEARCH_SPACING_MS,budgetAdmission,
 }={}){
   const plan=planFiveYoutubeSearches({publicIndex,checkpoint,now})
+  // A public/index-only research caller must not bypass the shared GCS CAS.
+  assertFiveSearchAdmission(budgetAdmission,plan)
   if(typeof tmdbGet!=='function'||typeof youtubeApi!=='function'
     ||typeof onProgress!=='function'||typeof wait!=='function'
     ||!Number.isInteger(minIntervalMs)||minIntervalMs<0
@@ -151,9 +155,12 @@ export async function liveFiveSearchBatch({
     readFile(checkpointPath,'utf8').then(JSON.parse),
     loadPublicMovieHubIndex(),
   ])
-  planFiveYoutubeSearches({checkpoint,publicIndex}) // fail before Secret Manager
+  const plan=planFiveYoutubeSearches({checkpoint,publicIndex}) // fail before Secret Manager
   if(typeof token!=='string'||token.length<15)
     throw Error('G2_FIVE_SEARCH_TMDB_TOKEN_MISSING')
+  // Reserve all five pessimistically BEFORE obtaining a YouTube key or any
+  // official YouTube request. Failure/429/partial runs never refund calls.
+  const budgetAdmission=await admitPreparedFiveSearches({plan})
   const key=youtubeKey||getSecret()
   await mkdir(output,{recursive:true})
   const onProgress=async partial=>{
@@ -165,7 +172,7 @@ export async function liveFiveSearchBatch({
   const result=await researchFiveYouTubeMovies({checkpoint,publicIndex,
     tmdbGet:(p,q)=>tmdbLive(p,q,token),
     youtubeApi:(p,q)=>youtubeGet(p,q,key),
-    onProgress})
+    onProgress,budgetAdmission})
   await onProgress(result)
   await writeFile(output+'/summary.json',
     JSON.stringify({...result.summary,complete:true},null,2)+'\n',{mode:0o600})

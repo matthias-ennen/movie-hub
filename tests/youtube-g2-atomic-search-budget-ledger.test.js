@@ -77,6 +77,26 @@ describe('YouTube adapter own 10-call Pacific-day atomic GCS reservation ledger'
       now,runId:601001,calls:1,preflight:p,previous:b.ledger,
     })).toThrow('YOUTUBE_RESEARCH_RUN_ALREADY_RESERVED')
   })
+  it('shares 10 PT-day calls between a 5-search batch and one-search research jobs',async()=>{
+    const b=bucket(),p=preflight()
+    const five=await reserveWithAtomicGcs(b,{
+      now,runId:610001,calls:5,preflight:p,
+    })
+    expect(five).toMatchObject({
+      reservationCalls:5,totalAdapterReservations:5,
+      globalGoogleQuotaGuaranteed:false,
+    })
+    for(let i=0;i<5;i++){
+      const one=await reserveWithAtomicGcs(b,{
+        now,runId:610002+i,calls:1,preflight:p,
+      })
+      expect(one.totalAdapterReservations).toBe(6+i)
+    }
+    await expect(reserveWithAtomicGcs(b,{
+      now,runId:610007,calls:5,preflight:p,
+    })).rejects.toThrow('YOUTUBE_RESEARCH_INTERNAL_DAILY_CAP_EXHAUSTED')
+    expect(b.saved.size).toBe(1)
+  })
   it('uses generation 0 for first storage reservation and CAS for later writes',async()=>{
     const b=bucket(),p=preflight()
     const a=await reserveWithAtomicGcs(b,{now,runId:601101,calls:4,preflight:p})

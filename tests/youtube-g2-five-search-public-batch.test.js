@@ -42,6 +42,14 @@ const tmdb=async path=>{
   }
   throw Error('Unexpected TMDB path')
 }
+// Offline substitute for the successful GCS admission readback. Live code
+// obtains this only through Monitoring + GCS generation-CAS, never a flag.
+const admission=()=>({
+  source:'gcs-atomic-five-search-reservation',runId:601100,
+  tmdbIds:[201,202,203,204,205],maximumSearchAttempts:5,
+  internalReservationRecorded:true,quotaIsSharedAndNotGuaranteed:true,
+  noAutomaticRetries:true,offerApproval:false,
+})
 const video=id=>({id,snippet:{title:'Test Film',channelTitle:'YouTube Movies',
   channelId:'UCaaaaaaaaaaaaaaaaaaaaaa',categoryId:'30',
   publishedAt:'2025-01-01T00:00:00Z'},
@@ -63,7 +71,7 @@ describe('bounded 5-search MovieHub YouTube G2 pilot (#388)',()=>{
     })
     const waited=[]
     const r=await researchFiveYouTubeMovies({
-      publicIndex:index,checkpoint,now:at,tmdbGet:tmdb,
+      publicIndex:index,checkpoint,now:at,tmdbGet:tmdb,budgetAdmission:admission(),
       youtubeApi:api,wait:async ms=>{waited.push(ms)},
       onProgress:async p=>{progress.push(p)},
     })
@@ -91,13 +99,30 @@ describe('bounded 5-search MovieHub YouTube G2 pilot (#388)',()=>{
         return {items:[]}
       })
       await expect(researchFiveYouTubeMovies({
-        publicIndex:index,checkpoint,now:at,tmdbGet:tmdb,
+        publicIndex:index,checkpoint,now:at,tmdbGet:tmdb,budgetAdmission:admission(),
         youtubeApi:api,wait:async()=>{},
         onProgress:async p=>progress.push(p),
       })).rejects.toThrow('HTTP '+blocked)
       expect(seq.filter(x=>x==='search')).toHaveLength(3)
       expect(progress).toHaveLength(2)
       expect(progress.at(-1).summary.completedMovies).toBe(2)
+    }
+  })
+  it('refuses a valid plan without an authenticated shared reservation',async()=>{
+    for(const budgetAdmission of [undefined,null,{},{
+      ...admission(),tmdbIds:[201,202,203,204,206],
+    },{
+      ...admission(),maximumSearchAttempts:10,
+    },{
+      ...admission(),quotaIsSharedAndNotGuaranteed:false,
+    }]){
+      const yt=vi.fn(),tmdbGet=vi.fn()
+      await expect(researchFiveYouTubeMovies({
+        publicIndex:index,checkpoint,now:at,tmdbGet,youtubeApi:yt,
+        budgetAdmission,
+      })).rejects.toThrow('G2_FIVE_SEARCH_ATOMIC_RESERVATION_REQUIRED')
+      expect(yt).not.toHaveBeenCalled()
+      expect(tmdbGet).not.toHaveBeenCalled()
     }
   })
   it('rejects stale/fallback/forged indexes before TMDB or YouTube',async()=>{
