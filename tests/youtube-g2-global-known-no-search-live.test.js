@@ -102,6 +102,29 @@ describe('global cached TMDB-first real data review without YouTube search.list'
     expect(continued.selection).not.toContain(100)
     expect(continued.knownVideoCandidatesByTmdbId.size).toBe(250)
   })
+  it('quarantines an exact video collision with a film outside the daily cohort',()=>{
+    const c=checkpoint(),p=publicIndex()
+    c.entries=Array.from({length:250},(_,i)=>({
+      tmdbId:3000+i,videoIds:[videoId(3000+i)],
+      provenance:[{kind:'original-trusted-25-film-archive',runId:40108251915}],
+    }))
+    c.entries.push({
+      tmdbId:9000,videoIds:[videoId(3000)],
+      provenance:[{kind:'successful-readonly-full-catalog-batch',runId:40108251915}],
+    })
+    p.entries=c.entries.map(e=>({type:'movie',tmdbId:e.tmdbId,
+      title:'Known '+e.tmdbId,providerIds:['youtube']}))
+    p.count=p.entries.length
+    const plan=selectGlobalCachedYoutubeResearch({checkpoint:c,publicIndex:p,now})
+    expect(plan).toMatchObject({
+      sharedCheckpointCandidateFilms:251,storedGlobalFilmIds:249,
+      deferredCandidateFilms:2,crossTitleCollisionFilms:2,
+      currentPublicBadgeFilmIds:249,reviewCoverage:'bounded-baseline-partial',
+    })
+    expect(plan.selection).not.toContain(3000)
+    expect(plan.selection).not.toContain(9000)
+    expect(plan.knownVideoCandidatesByTmdbId.has(3000)).toBe(false)
+  })
   it('bounds a validated 3,500-film checkpoint without stale-video mass processing',()=>{
     const c=checkpoint(),p=publicIndex()
     c.entries=Array.from({length:3500},(_,i)=>({
