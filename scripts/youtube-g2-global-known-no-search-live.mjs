@@ -1,14 +1,14 @@
 /**
- * AP2 live acceptance: re-evaluate EVERY cached exact movie/video candidate
- * against current MovieHub public badges, current TMDB DE YouTube offers and
- * official YouTube videos.list WITHOUT invoking search.list even once.
+ * AP2 live acceptance: re-evaluate a stable, bounded canonical cohort of
+ * cached movie/video candidates against current public badges and TMDB DE
+ * provider evidence with official videos.list, NEVER search.list.
  *
  * Global MovieHub TMDB film identities, never personal profile references.
  * CANDIDATES ONLY: no offer grant, route, Firestore, provider or catalog writes.
  */
 import {readFile,mkdir,writeFile} from 'node:fs/promises'
 import {pathToFileURL} from 'node:url'
-import {mapFromCandidateCheckpoint}
+import {mapFromCandidateCheckpoint,CANDIDATE_CHECKPOINT_MAX_MOVIES}
   from './youtube-g2-durable-candidate-checkpoint.mjs'
 import {loadPublicMovieHubIndex,runTmdbFirstLinkPilot}
   from './youtube-g2-tmdb-first-link-pilot.mjs'
@@ -21,12 +21,34 @@ export const KNOWN_NO_SEARCH_OUTPUT='artifacts/youtube-g2/global-known-no-search
 export const KNOWN_NO_SEARCH_CHECKPOINT='artifacts/youtube-g2/trusted-known-candidates/candidates.json'
 export const MAX_REUSE_BATCH=25
 export const MAX_REUSE_MOVIES=250
+// Preserve the previously published baseline's trusted archival/curated
+// films as the checkpoint grows beyond this daily API/runtime budget.
+const baselineTier=entry=>entry.provenance.some(p=>
+  p.kind==='original-trusted-25-film-archive'
+  ||p.kind==='published-editorial-playlist-hint')?0:1
+export function selectBoundedKnownMovieBaseline(checkpoint){
+  const all=mapFromCandidateCheckpoint(checkpoint)
+  if(all.size<1||all.size>CANDIDATE_CHECKPOINT_MAX_MOVIES)
+    throw Error('G2_GLOBAL_CACHED_SOURCE_INVALID')
+  const preferred=[...checkpoint.entries].sort((a,b)=>
+    baselineTier(a)-baselineTier(b)||a.tmdbId-b.tmdbId)
+  const chosen=new Set(preferred.slice(0,MAX_REUSE_MOVIES).map(e=>e.tmdbId))
+  const mapping=new Map([...all].filter(([id])=>chosen.has(id)))
+  if(mapping.size!==Math.min(all.size,MAX_REUSE_MOVIES))
+    throw Error('G2_GLOBAL_CACHED_BASELINE_COHORT_INVALID')
+  return {
+    mapping,sharedCheckpointCandidateFilms:all.size,
+    deferredCandidateFilms:all.size-mapping.size,
+  }
+}
 const badge=e=>Array.isArray(e?.providerIds)&&e.providerIds.includes('youtube')
   ||Array.isArray(e?.providerOffers)&&e.providerOffers.some(p=>p?.id==='youtube')
 const validId=x=>Number.isInteger(x)&&x>0
 
 export function selectGlobalCachedYoutubeResearch({checkpoint,publicIndex,now=new Date().toISOString()}={}){
-  const mapping=mapFromCandidateCheckpoint(checkpoint)
+  const {
+    mapping,sharedCheckpointCandidateFilms,deferredCandidateFilms,
+  }=selectBoundedKnownMovieBaseline(checkpoint)
   const timestamp=Date.parse(now),published=Date.parse(publicIndex?.generatedAt)
   if(!Number.isFinite(timestamp)||!Number.isFinite(published)
     ||timestamp-published< -86400000||timestamp-published>30*86400000
@@ -52,6 +74,8 @@ export function selectGlobalCachedYoutubeResearch({checkpoint,publicIndex,now=ne
     source:KNOWN_NO_SEARCH_QA_KIND,generatedAt:now,
     publicYoutubeBadgedFilms:source.publicYoutubeBadgedMovies,
     storedGlobalFilmIds:mapping.size,
+    sharedCheckpointCandidateFilms,deferredCandidateFilms,
+    reviewCoverage:deferredCandidateFilms?'bounded-baseline-partial':'complete',
     currentPublicBadgeFilmIds:selection.length,
     noCurrentPublicBadgeFilmIds:noCurrentPublicBadge.length,
     noCurrentPublicBadgeTmdbIds:noCurrentPublicBadge,
@@ -120,6 +144,9 @@ export async function recheckGlobalCachedYoutubeCandidates({
     kind:KNOWN_NO_SEARCH_QA_KIND,generatedAt:now,
     publicYoutubeBadgedFilms:plan.publicYoutubeBadgedFilms,
     globalStoredCandidateFilms:plan.storedGlobalFilmIds,
+    sharedCheckpointCandidateFilms:plan.sharedCheckpointCandidateFilms,
+    deferredCandidateFilms:plan.deferredCandidateFilms,
+    reviewCoverage:plan.reviewCoverage,
     currentBadgeCachedFilms:plan.currentPublicBadgeFilmIds,
     cachedFilmsWithoutCurrentPublicBadge:plan.noCurrentPublicBadgeFilmIds,
     filmsWithCurrentTmdbDeYoutubeOffers:expectedReused.length,
@@ -137,7 +164,9 @@ export async function recheckGlobalCachedYoutubeCandidates({
   }
   if(summary.avoidedYoutubeSearchCalls!==2*expectedReused.length
     ||summary.rowsChecked+summary.cachedFilmsWithoutCurrentPublicBadge
-       !==summary.globalStoredCandidateFilms)
+       !==summary.globalStoredCandidateFilms
+    ||summary.globalStoredCandidateFilms+summary.deferredCandidateFilms
+       !==summary.sharedCheckpointCandidateFilms)
     throw Error('G2_GLOBAL_CACHED_END_TO_END_ACCOUNTING_FAILED')
   return {summary,rows,
     noCurrentPublicBadgeTmdbIds:plan.noCurrentPublicBadgeTmdbIds}
@@ -147,7 +176,12 @@ export function globalCachedReviewReport({summary,rows}){
     '# MovieHub globaler TMDB-first Kandidaten-Recheck (YouTube search.list = 0)',
     '',
     '- Technisch geteilter, zugriffsgeschuetzter Checkpoint: '
-      +summary.globalStoredCandidateFilms+' Filmidentitaeten.',
+      +summary.sharedCheckpointCandidateFilms+' Filmidentitaeten.', 
+    '- Davon heute sicher gepruefter Basisbestand: '
+      +summary.globalStoredCandidateFilms+'.',
+    '- Uebrige checkpoint-Filme (noch nicht in diesem QA-Artefakt): '
+      +summary.deferredCandidateFilms+'.',
+    '- QA-Abdeckung: '+summary.reviewCoverage+'.',
     '- Davon noch mit oeffentlichem YouTube TMDB-Badge: '
       +summary.currentBadgeCachedFilms+'.',
     '- Aktuelles TMDB DE YouTube-Angebotstyp-Mapping: '
