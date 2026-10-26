@@ -70,6 +70,38 @@ Film-Links definiert und mit Tests abgesichert werden.
 Ein bloßes Erhöhen der 250er-Grenze wäre wegen YouTube-API-Aufrufen,
 TMDB-Requests, Workflow-Laufzeit und Fehlerrisiken unzureichend.
 
+## Begonnene Overflow-Umsetzung: privater Rotationscursor
+
+**Vorbereitete erste Stufe (Arbeitsbranch, noch keine Live-Freigabe):**
+`scripts/youtube-g2-overflow-rotation-cursor.mjs` wählt aus dem
+bereits validierten, privaten Kandidatencheckpoint höchstens **25** Filme
+pro UTC-Tag aus, die **nicht** zur stabilen 250er-Basiskohorte gehören.
+Die Auswahl berücksichtigt nur vorhandene öffentliche DE-TMDB-YouTube-
+Filmbadges, isoliert Video-ID-Kollisionen gegen den **gesamten** Checkpoint
+und überspringt Filmidentitäten ohne gegenwärtiges Badge.
+
+Der isolierte GCS-Cursor `youtube-g2/private-overflow-review/v1/cursor.json`
+verwendet das bestehende private Bucket, eine atomare Generation-CAS-
+Vorbedingung und einen anschließenden exakten Readback. Er speichert
+nur zuletzt geprüfte **öffentliche TMDB-Film-ID**, UTC-Tagesdatum und
+summarische Laufzähler, keine privaten Video-IDs. Der Cursor wird erst
+nach einem erfolgreich abgeschlossenen künftigen Review-Batch
+weitergesetzt. Kein Review am selben UTC-Tag wird erneut geplant.
+
+**Noch nicht umgesetzt und nicht behauptet:** Es gibt derzeit **keinen**
+zusätzlichen Live-Runner, keine neue GitHub-Actions-Schedule, keine
+Übernahme von Overflow-Review-Ergebnissen in öffentliche Link-Projektionen
+und **keine** neuen YouTube-/TMDB-API-Anfragen durch diese erste Stufe.
+Die bestehende stabile 250er-Basiskohorte, ihre tägliche Linkquelle und
+der Nachweis von 0 unabhängig geprüften Angeboten bleiben unberührt.
+
+**Nächster eigener Review-Schritt:** separater budgetierter
+`videos.list`-/TMDB-Overflow-Runner, ausschließlich privates QA,
+erfolgsabhängiges Cursor-CAS und anonymisierte Zähler; nach erfolgreichen
+CI-/Android-Tests mit echtem private-GCS-Readback kontrolliert freigeben.
+Danach erst zusätzliche öffentliche Best-Effort-Projektion gesondert
+prüfen, niemals ungeprüfte Overflow-Kandidaten direkt publizieren.
+
 ## Betriebs- und Freigabegates
 
 1. Vor jedem Merge: CI- und Android-Erfolg auf dem **konkreten** PR-Commit.
