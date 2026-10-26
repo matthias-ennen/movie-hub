@@ -24,6 +24,8 @@ import {
 } from './youtube-g2-nightly-queue.mjs'
 import {pacificSearchDay}
   from './youtube-g2-pacific-search-preflight.mjs'
+import {recoverNightlyFailureReport,classifyNightlyFailure}
+  from './youtube-g2-nightly-failure-report.mjs'
 import {
   verifyBudgetPreflight,loadBudgetLedger,reserveWithAtomicGcs,
   ADAPTER_SEARCH_DAY_CAP,
@@ -260,9 +262,17 @@ export async function liveNightlyDiscovery({
   }
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
-  liveNightlyDiscovery().catch(error=>{
+  liveNightlyDiscovery().catch(async error=>{
+    // Keep the real execution FAILED. An anonymized, read-only recovery
+    // snapshot lets operators see durable progress without claiming a
+    // precise YouTube request count after a crash / 429 / IAM outage.
     console.error('G2 NIGHTLY DISCOVERY FAILED CLOSED: '+
-      String(error?.message||'unknown').slice(0,200))
+      classifyNightlyFailure(error))
+    try{
+      await recoverNightlyFailureReport({error})
+    }catch{
+      console.error('G2 NIGHTLY RECOVERY AUDIT UNAVAILABLE')
+    }
     process.exitCode=1
   })
 }
