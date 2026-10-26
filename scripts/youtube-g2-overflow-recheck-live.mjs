@@ -126,17 +126,17 @@ export async function runOverflowLiveReview({
       ||!(/^[a-z0-9-]{1,60}$/).test(r.status)))
     throw Error('G2_OVERFLOW_RESEARCH_NOT_SAFE')
   // Do not claim an offer, or make public link artifacts from this result.
-  const summary={...base,status:'review-complete',
+  const precommitSummary={...base,status:'review-complete-awaiting-cursor',
     videosListCalls,tmdbCalls,
     reviewStatuses:Object.fromEntries([...new Set(rows.map(x=>x.status))]
       .sort().map(status=>[status,rows.filter(x=>x.status===status).length])),
-    privateQaStored:true,cursorAdvanced:true,
+    privateQaStored:true,cursorAdvanced:false,
   }
   // Immutable PRIVATE GCS evidence is committed *before* cursor advance.
   // A failure or CAS race leaves the cursor unchanged; no public artifacts.
   await persistPrivateQa(bucket,runId,{
     kind:OVERFLOW_QA_KIND,schemaVersion:1,generatedAt:now,
-    summary,rows,
+    summary:precommitSummary,rows,
   })
   const next=advanceOverflowCursor(current.cursor,plan,{now})
   const saved=await saveOverflowCursor(bucket,next,{
@@ -146,7 +146,7 @@ export async function runOverflowLiveReview({
     ||saved.cursor.reviewedFilms!==(current.cursor?.reviewedFilms??0)
       +plan.selectedIds.length)
     throw Error('G2_OVERFLOW_CURSOR_COMMIT_READBACK_INVALID')
-  return summary
+  return {...precommitSummary,status:'review-complete',cursorAdvanced:true}
 }
 async function tmdbLive(path,params={},token){
   if(!/^\/(?:watch\/providers\/movie|movie\/[1-9]\d*(?:\/watch\/providers)?)$/.test(path))
