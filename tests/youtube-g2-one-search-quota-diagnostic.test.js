@@ -60,7 +60,8 @@ describe('quota preflight: strictly ONE search.list call for a previously unrese
       onPrivateCandidates:capture,now:at,
     })
     expect(api).toHaveBeenCalledTimes(1)
-    expect(capture).toHaveBeenCalledExactlyOnceWith({
+    expect(capture).toHaveBeenCalledTimes(1)
+    expect(capture).toHaveBeenCalledWith({
       tmdbId:102,generatedAt:at,videoIds:['Abc12345678','Z1234567890'],
     })
     expect(summary).toMatchObject({searchCallsAttempted:1,
