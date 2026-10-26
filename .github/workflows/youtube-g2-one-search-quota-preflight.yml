@@ -63,6 +63,26 @@ jobs:
             ||x.confirmedPlaybackRoutes!==0||x.firestoreWrites!==0
             ||x.catalogWrites!==0||x.badgeWrites!==0)
             throw Error('QUOTA_PREFLIGHT_UNSAFE_OR_UNRECONCILED')
+          if(x.searchOutcome==='search-accessible'){
+            // Validate the private hint artifact without printing VIDEO IDs.
+            // Hints require later videos.list and TMDB review, never approval.
+            const hints=JSON.parse(readFileSync(
+              'artifacts/youtube-g2/one-search-quota-diagnostic/candidate-ids.private.json',
+              'utf8'))
+            if(hints.kind!=='moviehub-youtube-g2-one-search-private-candidate-hints'
+              ||hints.schemaVersion!==1||hints.privateArtifact!==true
+              ||hints.publicationPermitted!==false
+              ||hints.metadataRechecked!==false
+              ||hints.searchCallsAttempted!==1
+              ||hints.sampledExactTmdbFilmId!==x.sampledExactTmdbFilmId
+              ||hints.independentDEOffersVerified!==0
+              ||hints.publishedPlaybackRoutes!==0
+              ||!Array.isArray(hints.videoIds)||hints.videoIds.length>10
+              ||new Set(hints.videoIds).size!==hints.videoIds.length
+              ||hints.videoIds.some(id=>typeof id!=='string'
+                ||!/^[A-Za-z0-9_-]{11}$/.test(id)))
+              throw Error('PRIVATE_SEARCH_HINTS_UNTRUSTED')
+          }
           const lines=[
             '## YouTube AP2 – one search.list call preflight',
             '',
@@ -84,6 +104,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: youtube-g2-one-search-diagnostic-${{ github.run_id }}
-          path: artifacts/youtube-g2/one-search-quota-diagnostic/summary.json
+          path: |
+            artifacts/youtube-g2/one-search-quota-diagnostic/summary.json
+            artifacts/youtube-g2/one-search-quota-diagnostic/candidate-ids.private.json
           retention-days: 7
           if-no-files-found: error
