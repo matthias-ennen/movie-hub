@@ -137,7 +137,7 @@ describe('YouTube #388 one-search candidates review without any new search.list'
     }
   })
   it('rejects any attempted YouTube search before making the actual API call',async()=>{
-    const input=fixture(),api=vi.fn(),get=vi.fn(tmdb)
+    const input=fixture(),api=vi.fn(yt),get=vi.fn(tmdb)
     // The inner pilot stays in known-ID reuse lane; even a future accidental
     // fallback search would hit the adapter's endpoint hard-stop.
     await reviewOneSearchCandidates({...input,now,tmdbGet:get,youtubeApi:api})
