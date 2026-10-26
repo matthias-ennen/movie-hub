@@ -117,15 +117,20 @@ export function advanceOverflowCursor(cursor,plan,{
   const old=cursor?validateOverflowCursor(cursor):initialOverflowCursor(now)
   const ids=plan?.selectedIds
   if(!iso(now)||Date.parse(now)<Date.parse(old.updatedAt)
+    ||plan?.kind!=='moviehub-youtube-g2-overflow-private-review-plan'
     ||plan?.generatedAt!==now
     ||plan?.startedAfterTmdbId!==old.lastTmdbId
     ||plan?.publicationPermitted!==false||plan.searchCalls!==0
     ||plan.verifiedDEOffers!==0||plan.productionWrites!==0
+    ||plan.alreadyReviewedToday!==false
     ||!Array.isArray(ids)||ids.length<1
     ||ids.length>OVERFLOW_MAX_REVIEW_FILMS
+    ||ids.length>plan.eligibleOverflowFilms
     ||new Set(ids).size!==ids.length
     ||ids.some((id,i)=>!Number.isSafeInteger(id)||id<1
       ||i>0&&ids[i-1]>=id)
+    ||(plan.wrapped===true&&old.lastTmdbId===0)
+    ||(plan.wrapped!==true&&ids[0]<=old.lastTmdbId)
     ||old.lastReviewedUtcDate===now.slice(0,10))
     throw Error('G2_OVERFLOW_ADVANCE_NOT_AUTHORIZED')
   return validateOverflowCursor({
