@@ -30,15 +30,27 @@ export function selectBoundedKnownMovieBaseline(checkpoint){
   const all=mapFromCandidateCheckpoint(checkpoint)
   if(all.size<1||all.size>CANDIDATE_CHECKPOINT_MAX_MOVIES)
     throw Error('G2_GLOBAL_CACHED_SOURCE_INVALID')
+  // Cross-title ID reuse is never an independent exact film match.
+  // Check *all* known films, including the pending cohort, so today's
+  // subset cannot miss collisions with a not-yet-reviewed film.
+  const owner=new Map(),conflicts=new Set()
+  for(const [id,ids] of all)for(const videoId of ids){
+    const previous=owner.get(videoId)
+    if(previous!==undefined&&previous!==id){
+      conflicts.add(previous);conflicts.add(id)
+    }else owner.set(videoId,id)
+  }
   const preferred=[...checkpoint.entries].sort((a,b)=>
     baselineTier(a)-baselineTier(b)||a.tmdbId-b.tmdbId)
-  const chosen=new Set(preferred.slice(0,MAX_REUSE_MOVIES).map(e=>e.tmdbId))
+  const chosen=new Set(preferred.filter(e=>!conflicts.has(e.tmdbId))
+    .slice(0,MAX_REUSE_MOVIES).map(e=>e.tmdbId))
   const mapping=new Map([...all].filter(([id])=>chosen.has(id)))
-  if(mapping.size!==Math.min(all.size,MAX_REUSE_MOVIES))
+  if(mapping.size!==Math.min(all.size-conflicts.size,MAX_REUSE_MOVIES))
     throw Error('G2_GLOBAL_CACHED_BASELINE_COHORT_INVALID')
   return {
     mapping,sharedCheckpointCandidateFilms:all.size,
     deferredCandidateFilms:all.size-mapping.size,
+    crossTitleCollisionFilms:conflicts.size,
   }
 }
 const badge=e=>Array.isArray(e?.providerIds)&&e.providerIds.includes('youtube')
@@ -48,6 +60,7 @@ const validId=x=>Number.isInteger(x)&&x>0
 export function selectGlobalCachedYoutubeResearch({checkpoint,publicIndex,now=new Date().toISOString()}={}){
   const {
     mapping,sharedCheckpointCandidateFilms,deferredCandidateFilms,
+    crossTitleCollisionFilms,
   }=selectBoundedKnownMovieBaseline(checkpoint)
   const timestamp=Date.parse(now),published=Date.parse(publicIndex?.generatedAt)
   if(!Number.isFinite(timestamp)||!Number.isFinite(published)
@@ -75,6 +88,7 @@ export function selectGlobalCachedYoutubeResearch({checkpoint,publicIndex,now=ne
     publicYoutubeBadgedFilms:source.publicYoutubeBadgedMovies,
     storedGlobalFilmIds:mapping.size,
     sharedCheckpointCandidateFilms,deferredCandidateFilms,
+    crossTitleCollisionFilms,
     reviewCoverage:deferredCandidateFilms?'bounded-baseline-partial':'complete',
     currentPublicBadgeFilmIds:selection.length,
     noCurrentPublicBadgeFilmIds:noCurrentPublicBadge.length,
@@ -146,6 +160,7 @@ export async function recheckGlobalCachedYoutubeCandidates({
     globalStoredCandidateFilms:plan.storedGlobalFilmIds,
     sharedCheckpointCandidateFilms:plan.sharedCheckpointCandidateFilms,
     deferredCandidateFilms:plan.deferredCandidateFilms,
+    crossTitleCollisionFilms:plan.crossTitleCollisionFilms,
     reviewCoverage:plan.reviewCoverage,
     currentBadgeCachedFilms:plan.currentPublicBadgeFilmIds,
     cachedFilmsWithoutCurrentPublicBadge:plan.noCurrentPublicBadgeFilmIds,
@@ -181,6 +196,8 @@ export function globalCachedReviewReport({summary,rows}){
       +summary.globalStoredCandidateFilms+'.',
     '- Uebrige checkpoint-Filme (noch nicht in diesem QA-Artefakt): '
       +summary.deferredCandidateFilms+'.',
+    '- Sicherheitsquarantaene (filmuebergreifende Video-ID-Kollisionen): '
+      +summary.crossTitleCollisionFilms+'.',
     '- QA-Abdeckung: '+summary.reviewCoverage+'.',
     '- Davon noch mit oeffentlichem YouTube TMDB-Badge: '
       +summary.currentBadgeCachedFilms+'.',
