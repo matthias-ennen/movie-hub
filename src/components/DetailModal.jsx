@@ -18,7 +18,7 @@ import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
 import { useYoutubeVerifiedOffers, useYoutubeCuratedEditorialHints, useYoutubeBestEffortLinks } from '../providers/YoutubeVerifiedOffersContext.jsx'
-import { enrichTitleProviderRoutes } from '../providers/titleProviderRouteEnrichment.js'
+import { enrichTitleProviderRoutes, TITLE_ROUTE_EVIDENCE } from '../providers/titleProviderRouteEnrichment.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { includedSwitchShownAsOn, ignoreCompletedIncludedClick } from '../notifications/includedSwitchSession.js'
@@ -593,13 +593,8 @@ export default function DetailModal({
                   const provider = providers[providerId]
                   if (!provider) return null
                   const possibleYoutubeLink = providerId === 'youtube'
-                    && !selectYoutubeVerifiedTitleRoute(youtubeVerifiedRoutes,item,{
-                      hasYoutubeBadge:true,
-                    })
-                    && !selectCuratedEditorialTitleHint(youtubeCuratedHints,item)
-                    && selectYoutubeBestEffortTitleRoute(youtubeBestEffortLinks,item,{
-                      hasYoutubeBadge:true,
-                    })
+                    && titleWithVerifiedOffers.titleProviderRouteEvidence?.youtube?.source
+                      === TITLE_ROUTE_EVIDENCE.BEST_EFFORT
                   return (
                     <button
                       type="button"
