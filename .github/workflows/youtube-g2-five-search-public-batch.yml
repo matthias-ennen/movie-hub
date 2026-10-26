@@ -38,7 +38,11 @@ jobs:
         run: |
           npm ci
           node --check scripts/youtube-g2-five-search-public-batch.mjs
+          node --check scripts/youtube-g2-five-search-admission.mjs
+          node --check scripts/youtube-g2-atomic-search-budget-ledger.mjs
           npx vitest run tests/youtube-g2-five-search-public-batch.test.js \
+            tests/youtube-g2-five-search-admission.test.js \
+            tests/youtube-g2-atomic-search-budget-ledger.test.js \
             tests/youtube-g2-tmdb-first-link-pilot.test.js
       - name: Authenticate existing OIDC principal to read Google API key and GCS checkpoint
         uses: google-github-actions/auth@v3
@@ -49,7 +53,43 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v3
       - name: Read private known-candidate checkpoint (no write)
         run: node scripts/youtube-g2-durable-candidate-checkpoint.mjs read
-      - name: Search at most five NEW YouTube-badged films (20s apart; no retries)
+      - name: Collect current Pacific search telemetry (no YouTube calls)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/moviehub-youtube-pt-search-private
+          read -r checked_at day_start < <(node --input-type=module <<'NODE'
+          import {pacificSearchDay} from './scripts/youtube-g2-pacific-search-preflight.mjs'
+          const now=new Date().toISOString()
+          console.log(now+' '+pacificSearchDay(now).start)
+          NODE
+          )
+          token="$(gcloud auth print-access-token)"
+          for type in rate exceeded; do
+            if [[ "$type" == rate ]]; then metric='rate/net_usage'; else metric='exceeded'; fi
+            filter="metric.type=\"serviceruntime.googleapis.com/quota/$metric\" AND resource.type=\"consumer_quota\" AND resource.label.service=\"youtube.googleapis.com\" AND metric.label.quota_metric=\"youtube.googleapis.com/search_list\""
+            code="$(curl --silent --show-error --max-time 35 --retry 0 \
+              --get --header "Authorization: Bearer $token" \
+              --header 'Accept: application/json' \
+              --data-urlencode "filter=$filter" \
+              --data-urlencode "interval.startTime=$day_start" \
+              --data-urlencode "interval.endTime=$checked_at" \
+              --data-urlencode 'view=FULL' \
+              --data-urlencode 'pageSize=5000' \
+              --output "/tmp/moviehub-youtube-pt-search-private/$type.json" \
+              --write-out '%{http_code}' \
+              'https://monitoring.googleapis.com/v3/projects/movie-hub-62459/timeSeries')"
+            [[ "$code" =~ ^[0-9]{3}$ ]] || exit 1
+            printf '%s=%s\n' "$type" "$code" >> /tmp/moviehub-youtube-pt-search-private/status
+          done
+          unset token filter
+          . /tmp/moviehub-youtube-pt-search-private/status
+          node scripts/youtube-g2-pacific-search-preflight.mjs \
+            "$checked_at" "$rate" /tmp/moviehub-youtube-pt-search-private/rate.json \
+            "$exceeded" /tmp/moviehub-youtube-pt-search-private/exceeded.json \
+            artifacts/youtube-g2/pacific-search-preflight
+          rm -rf /tmp/moviehub-youtube-pt-search-private
+      - name: Search at most five NEW YouTube-badged films (20s apart; GCS CAS 5-call reservation, no retries)
         run: node scripts/youtube-g2-five-search-public-batch.mjs
       - name: Verify all five finished or stop (never approve links automatically)
         run: |
