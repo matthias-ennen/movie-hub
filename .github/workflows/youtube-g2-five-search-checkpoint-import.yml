@@ -1,0 +1,154 @@
+name: YouTube G2 – import completed five-search candidates (private GCS only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: 'Completed SUCCESS five-search GitHub Actions run ID (not a CI run)'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-private-candidate-checkpoint-mutations
+  cancel-in-progress: false
+
+jobs:
+  import-private-candidates:
+    name: Verify five-search provenance, then CAS-import private candidate IDs
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SOURCE_RUN: ${{ inputs.source_run_id }}
+      GH_TOKEN: ${{ github.token }}
+      DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Test private checkpoint merge logic without any API calls
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-durable-candidate-checkpoint.mjs
+          npx vitest run tests/youtube-g2-five-search-checkpoint-import.test.js \
+            tests/youtube-g2-durable-candidate-checkpoint.test.js
+      - name: Authenticate exact successful five-search run (reject CI/PR/failure)
+        run: |
+          node --input-type=module <<'NODE'
+          import {execFileSync} from 'node:child_process'
+          const id=process.env.SOURCE_RUN
+          const repo=process.env.GITHUB_REPOSITORY
+          if(!/^[1-9]\d{7,14}$/.test(id))throw Error('INVALID_SOURCE_RUN_ID')
+          const run=JSON.parse(execFileSync('gh',['api',
+            'repos/'+repo+'/actions/runs/'+id],{
+            encoding:'utf8',timeout:30000,maxBuffer:1000000}))
+          const age=Date.now()-Date.parse(run.created_at)
+          const sourcePath=String(run.path||'').split('@')[0]
+          if(run.id!==Number(id)||run.repository?.full_name!==repo
+            ||run.head_branch!=='main'
+            ||run.status!=='completed'||run.conclusion!=='success'
+            ||sourcePath!=='.github/workflows/youtube-g2-five-search-public-batch.yml'
+            ||!['push','workflow_dispatch'].includes(run.event)
+            ||!Number.isFinite(age)||age<0||age>7*86400000
+            ||!/^[a-f0-9]{40}$/.test(run.head_sha))
+            throw Error('FIVE_SEARCH_RUN_NOT_AUTHENTIC_SUCCESS')
+          if(run.event==='push'){
+            const sourceCommit=JSON.parse(execFileSync('gh',['api',
+              'repos/'+repo+'/commits/'+run.head_sha],{
+              encoding:'utf8',timeout:30000,maxBuffer:1000000}))
+            if(!String(sourceCommit.commit?.message||'').includes('[youtube-five-search-once]'))
+              throw Error('FIVE_SEARCH_PUSH_NOT_EXPLICITLY_AUTHORIZED')
+          }
+          try{
+            execFileSync('git',['merge-base','--is-ancestor',
+              run.head_sha,process.env.GITHUB_SHA],{timeout:15000,stdio:'ignore'})
+          }catch{throw Error('FIVE_SEARCH_SOURCE_NOT_IN_MAIN_ANCESTRY')}
+          const artifacts=JSON.parse(execFileSync('gh',['api',
+            'repos/'+repo+'/actions/runs/'+id+'/artifacts'],{
+            encoding:'utf8',timeout:30000,maxBuffer:1000000}))
+            .artifacts?.filter(a=>a.name==='youtube-g2-five-search-public-badge-'+id)
+          if(artifacts?.length!==1||artifacts[0].expired!==false
+            ||artifacts[0].workflow_run?.id!==run.id)
+            throw Error('FIVE_SEARCH_PRIVATE_ARTIFACT_MISSING_OR_AMBIGUOUS')
+          console.log(JSON.stringify({
+            trustedSourceRun:run.id,completedSuccessfully:true,
+            originalEvent:run.event,sourceCommitVerified:true,
+            artifactPrivate:true,withinSevenDays:true,
+          }))
+          NODE
+      - name: Download only two protected QA JSON files (no video IDs in logs)
+        run: |
+          set -euo pipefail
+          dir=artifacts/youtube-g2/five-search-source
+          mkdir -p "$dir"
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "youtube-g2-five-search-public-badge-$SOURCE_RUN" \
+            --dir "$dir"
+          node --input-type=module <<'NODE'
+          import {readdirSync,readFileSync} from 'node:fs'
+          const dir='artifacts/youtube-g2/five-search-source'
+          if(JSON.stringify(readdirSync(dir).sort())!==
+            JSON.stringify(['qa.private.json','summary.json']))
+            throw Error('FIVE_SEARCH_SOURCE_FILES_NOT_EXACT')
+          const s=JSON.parse(readFileSync(dir+'/summary.json','utf8'))
+          const qa=JSON.parse(readFileSync(dir+'/qa.private.json','utf8'))
+          if(s.complete!==true
+            ||s.kind!=='moviehub-youtube-g2-five-search-public-badge-review'
+            ||s.completedMovies!==5||s.maximumSearchAttempts!==5
+            ||qa.summary?.generatedAt!==s.generatedAt
+            ||!Array.isArray(qa.rows)||qa.rows.length!==5
+            ||s.publicationPermitted!==false||s.directLinksPublished!==0)
+            throw Error('FIVE_SEARCH_PRIVATE_QA_INCOMPLETE_OR_UNSAFE')
+          console.log(JSON.stringify({privateSourceRows:qa.rows.length,
+            sourceHadUpToFiveSearches:true,detailsNotPublished:true}))
+          NODE
+      - name: Authenticate existing Google OIDC (private checkpoint only)
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: CAS-merge private candidate IDs from this exact successful run
+        run: node scripts/youtube-g2-durable-candidate-checkpoint.mjs merge-five
+      - name: Read back checkpoint and verify unapproved research only
+        run: |
+          node scripts/youtube-g2-durable-candidate-checkpoint.mjs read
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          import {validateCandidateCheckpoint} from './scripts/youtube-g2-durable-candidate-checkpoint.mjs'
+          const p=JSON.parse(readFileSync(
+            'artifacts/youtube-g2/trusted-known-candidates/candidates.json','utf8'))
+          const checkpoint=validateCandidateCheckpoint(p)
+          const sourceRun=Number(process.env.SOURCE_RUN)
+          const sourceRows=checkpoint.entries.filter(e=>e.provenance.some(
+            p=>p.kind==='successful-readonly-five-search-batch'&&p.runId===sourceRun))
+          if(checkpoint.verifiedDEOffers!==0||checkpoint.approvedDirectRoutes!==0
+            ||checkpoint.productionWrites!==0)
+            throw Error('FIVE_SEARCH_CHECKPOINT_NOT_RESEARCH_ONLY')
+          const lines=[
+            '## Private YouTube candidate checkpoint five-search import',
+            '',
+            '- Verified original successful source run: '+sourceRun,
+            '- Durable global film candidates: '+checkpoint.entries.length,
+            '- Candidate movies with this source run: '+sourceRows.length,
+            '- Independent DE offers and approved direct routes: **0**',
+            '- Firebase/Firestore/provider/badge writes: **0**',
+            '- No YouTube search.list/videos.list requests in this importer',
+            '- Private VIDEO IDs not printed or published',
+            '',
+          ]
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n')
+          console.log(JSON.stringify({sourceRun,
+            checkpointMovies:checkpoint.entries.length,
+            sourcedMovies:sourceRows.length,approvedDirectRoutes:0,
+            independentlyVerifiedDeOffers:0,productionWrites:0}))
+          NODE
