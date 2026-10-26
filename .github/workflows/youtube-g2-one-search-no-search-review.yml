@@ -1,0 +1,172 @@
+name: YouTube G2 – review private one-search candidates (NO search.list)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: 'Successful private one-search diagnostic run ID (seven-day limit)'
+        required: true
+        type: string
+        default: '40303073425'
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-one-search-no-search-review.yml
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-private-one-search-followup
+  cancel-in-progress: false
+
+jobs:
+  review-only:
+    name: Recheck private candidate IDs with videos.list only, zero search.list
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' &&
+        contains(github.event.head_commit.message, '[youtube-one-search-review-40303073425-once]')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      SOURCE_RUN_ID: ${{ inputs.source_run_id || '40303073425' }}
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+      DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
+      GOOGLE_CLOUD_PROJECT: movie-hub-62459
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Validate independent no-search reviewer before any cloud API
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-one-search-no-search-review.mjs
+          npx vitest run tests/youtube-g2-one-search-no-search-review.test.js \
+            tests/youtube-g2-one-search-quota-diagnostic.test.js
+      - name: Verify completed source run provenance (no YouTube API calls)
+        run: |
+          node --input-type=module <<'NODE'
+          import {execFileSync} from 'node:child_process'
+          const id=process.env.SOURCE_RUN_ID
+          if(!/^[1-9]\d{7,14}$/.test(id))
+            throw Error('INVALID_PRIVATE_SOURCE_RUN_ID')
+          const repo=process.env.GITHUB_REPOSITORY
+          const raw=execFileSync('gh',['api',
+            'repos/'+repo+'/actions/runs/'+id],{
+            encoding:'utf8',timeout:30000,maxBuffer:1000000,
+          })
+          const run=JSON.parse(raw)
+          const age=Date.now()-Date.parse(run.created_at)
+          if(run.id!==Number(id)||run.repository?.full_name!==repo
+            ||run.event!=='workflow_dispatch'||run.status!=='completed'
+            ||run.conclusion!=='success'||run.head_branch!=='main'
+            ||String(run.path||'').split('@')[0]
+              !=='.github/workflows/youtube-g2-one-search-quota-preflight.yml'
+            ||!Number.isFinite(age)||age<0||age>7*86400000
+            ||typeof run.head_sha!=='string'
+            ||!/^[a-f0-9]{40}$/.test(run.head_sha))
+            throw Error('ONE_SEARCH_REVIEW_PROVENANCE_NOT_TRUSTED')
+          try{
+            execFileSync('git',['merge-base','--is-ancestor',
+              run.head_sha,process.env.GITHUB_SHA],{
+              timeout:15000,stdio:'ignore',
+            })
+          }catch{
+            throw Error('SOURCE_SHA_NOT_ANCESTOR_OF_CURRENT_MAIN')
+          }
+          console.log(JSON.stringify({
+            verifiedSourceRun:Number(id),sourceCompleted:true,
+            sourceWasManual:true,ageWithinSevenDays:true,
+            originalSourceCommitVerified:true,sourceResultsPrivate:true,
+          }))
+          NODE
+      - name: Download exact paired PRIVATE one-search artifact from checked run
+        run: |
+          set -euo pipefail
+          dir=artifacts/youtube-g2/one-search-quota-diagnostic
+          mkdir -p "$dir"
+          gh run download "$SOURCE_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "youtube-g2-one-search-diagnostic-$SOURCE_RUN_ID" \
+            --dir "$dir"
+          node --input-type=module <<'NODE'
+          import {readdirSync} from 'node:fs'
+          const files=readdirSync('artifacts/youtube-g2/one-search-quota-diagnostic').sort()
+          if(JSON.stringify(files)!==JSON.stringify([
+            'candidate-ids.private.json','summary.json',
+          ]))throw Error('ONE_SEARCH_PRIVATE_PAIR_MISSING_OR_EXTRA')
+          // Never print video IDs or artifact JSON in Actions logs.
+          console.log('Source contains exactly two private one-search JSON files')
+          NODE
+      - name: Authenticate existing GCP service account (read only)
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Read protected global known-candidate checkpoint (no writes)
+        run: node scripts/youtube-g2-durable-candidate-checkpoint.mjs read
+      - name: Re-score downloaded candidate IDs via ONE videos.list (NO search.list)
+        run: node scripts/youtube-g2-one-search-no-search-review.mjs
+      - name: Verify sanitized follow-up and no import before private upload
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const base='artifacts/youtube-g2/one-search-candidate-review/'
+          const s=JSON.parse(readFileSync(base+'summary.json','utf8'))
+          const privateReview=JSON.parse(readFileSync(base+'qa.private.json','utf8'))
+          if(s.kind!=='moviehub-youtube-g2-one-search-candidate-review'
+            ||s.tmdbId!==11||s.candidateIdsInPrivateInput!==7
+            ||s.youtubeSearchCalls!==0
+            ||s.youtubeVideoLookups>1||s.tmdbGetRequests>3
+            ||s.independentDeOffersVerified!==0
+            ||s.verifiedFilmOrCut!==false||s.verifiedDePlayback!==false
+            ||s.publishedPlaybackRoutes!==0
+            ||['catalogWrites','firestoreWrites','providerWrites','badgeWrites']
+              .some(key=>s[key]!==0)
+            ||s.publicationPermitted!==false||s.privateArtifact!==true
+            ||privateReview.summary?.kind!==s.kind
+            ||!Array.isArray(privateReview.rows)
+            ||privateReview.rows.length!==1
+            ||privateReview.rows[0].tmdbId!==11
+            ||privateReview.rows[0].publicationPermitted!==false
+            ||privateReview.rows[0].directPlaybackRoute!==null)
+            throw Error('ONE_SEARCH_NO_SEARCH_REVIEW_INTEGRITY_FAILED')
+          const lines=[
+            '## YouTube G2: existing one-search candidates rechecked',
+            '',
+            '- Source diagnostic run: '+process.env.SOURCE_RUN_ID,
+            '- Film TMDB ID: '+s.tmdbId,
+            '- Candidate IDs in private input: '+s.candidateIdsInPrivateInput,
+            '- YouTube search.list calls: **0**',
+            '- YouTube videos.list calls: '+s.youtubeVideoLookups,
+            '- TMDB metadata reads: '+s.tmdbGetRequests,
+            '- DE YouTube watchprovider hint currently listed: '+s.currentTmdbDeYoutubeOfferHint,
+            '- Metadata-review status: '+s.reviewStatus,
+            '- Independently verified DE offers: **0**',
+            '- Approved playback routes: **0**',
+            '- All catalog/Firestore/provider/badge writes: **0**',
+            '- Video IDs and review details stay in private artifact only.',
+            '',
+          ]
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n')
+          console.log(JSON.stringify(s))
+          NODE
+      - name: Upload only internal QA (seven days, no Firebase publication)
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-one-search-no-search-review-${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/one-search-candidate-review/summary.json
+            artifacts/youtube-g2/one-search-candidate-review/qa.private.json
+          retention-days: 7
+          if-no-files-found: error
