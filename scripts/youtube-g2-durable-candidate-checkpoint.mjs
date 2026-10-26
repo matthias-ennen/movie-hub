@@ -66,7 +66,8 @@ export function validateCandidateCheckpoint(doc){
       ||entry.provenance.length>5
       ||entry.provenance.some(p=>
         !['original-trusted-25-film-archive','successful-readonly-full-catalog-batch',
-          'published-editorial-playlist-hint'].includes(p?.kind)
+          'published-editorial-playlist-hint',
+          'successful-readonly-five-search-batch'].includes(p?.kind)
         ||!Number.isSafeInteger(p?.runId)||p.runId<1)){
       throw Error('G2_CANDIDATE_CHECKPOINT_ENTRY_INVALID')
     }
@@ -136,6 +137,127 @@ export function mergeCandidateCheckpoint(previous,qa,{
   })
   return {checkpoint:updated,newMovies,newIds,sourceRun:runId,
     existingMovies:old.entries.length,movies:updated.entries.length}
+}
+
+
+/**
+ * Explicit import of a completed five-search manual/private GitHub QA run.
+ * This is NOT a new search, DE offer, verified cut or playback entitlement.
+ * The outer manual Actions workflow authenticates the successful source run
+ * and the private artifact pair BEFORE granting this function GCS access.
+ */
+export function mergeFiveSearchCandidateCheckpoint(previous,qa,publicSummary,{
+  sourceRun,now=new Date().toISOString(),
+}={}){
+  const old=validateCandidateCheckpoint(previous)
+  const run=Number(sourceRun),at=Date.parse(now),observed=Date.parse(publicSummary?.generatedAt)
+  const s=qa?.summary,rows=qa?.rows
+  if(!Number.isSafeInteger(run)||run<1||!Number.isFinite(at)
+    ||!Number.isFinite(observed)||at-observed< -60000
+    ||at-observed>7*86400000||at<Date.parse(old.updatedAt)
+    ||publicSummary?.kind!=='moviehub-youtube-g2-five-search-public-badge-review'
+    ||publicSummary.complete!==true
+    ||publicSummary.privateArtifact!==true
+    ||publicSummary.publicationPermitted!==false
+    ||publicSummary.dailyQuotaRemainingKnown!==false
+    ||publicSummary.plannedMovies!==5||publicSummary.completedMovies!==5
+    ||publicSummary.maximumSearchAttempts!==5
+    ||!Number.isInteger(publicSummary.youtubeSearchAttempts)
+    ||publicSummary.youtubeSearchAttempts<0
+    ||publicSummary.youtubeSearchAttempts>5
+    ||!Number.isInteger(publicSummary.youtubeVideoLookups)
+    ||publicSummary.youtubeVideoLookups<0
+    ||publicSummary.youtubeVideoLookups>5
+    ||!Number.isInteger(publicSummary.tmdbGetRequests)
+    ||publicSummary.tmdbGetRequests<5
+    ||publicSummary.tmdbGetRequests>15
+    ||publicSummary.noAutomaticRetry!==true
+    ||publicSummary.searchIntervalMs!==20000
+    ||publicSummary.independentlyVerifiedDeOffers!==0
+    ||publicSummary.directLinksPublished!==0
+    ||['catalogWrites','firestoreWrites','providerWrites','badgeWrites']
+      .some(k=>publicSummary[k]!==0)
+    ||s?.kind!==publicSummary.kind||s.generatedAt!==publicSummary.generatedAt
+    ||s.plannedMovies!==5||s.completedMovies!==5
+    ||s.maximumSearchAttempts!==5
+    ||s.youtubeSearchAttempts!==publicSummary.youtubeSearchAttempts
+    ||s.youtubeVideoLookups!==publicSummary.youtubeVideoLookups
+    ||s.tmdbGetRequests!==publicSummary.tmdbGetRequests
+    ||s.publicationPermitted!==false||s.privateArtifact!==true
+    ||s.independentlyVerifiedDeOffers!==0||s.directLinksPublished!==0
+    ||['catalogWrites','firestoreWrites','providerWrites','badgeWrites']
+      .some(k=>s[k]!==0)
+    ||!Array.isArray(rows)||rows.length!==5
+    ||new Set(rows.map(r=>r?.tmdbId)).size!==5
+    ||rows.some(r=>!Number.isSafeInteger(r?.tmdbId)
+      ||r.tmdbId<=0||r.tmdbId===11
+      ||r.mediaType!=='movie'
+      ||r.publicationPermitted!==false
+      ||r.directPlaybackRoute!==null||r.reviewedVideoId!==null
+      ||!Array.isArray(r.videoCandidates)
+      ||r.videoCandidates.length>10
+      ||!Array.isArray(r.tmdbDeOfferTypes)
+      ||r.tmdbDeOfferTypes.some(t=>!['free','ads','flatrate','rent','buy'].includes(t))
+      ||r.videoCandidates.length>0&&(
+        r.tmdbDeOfferTypes.length===0
+        ||r.candidateDiscoveryMode!=='new-search')
+      ||r.videoCandidates.some(c=>
+        typeof c?.videoId!=='string'||!VIDEO.test(c.videoId)
+        ||c.videoId?.length!==11)))
+    throw Error('G2_FIVE_SEARCH_CHECKPOINT_SOURCE_NOT_TRUSTED')
+  // A single video ID cannot represent two different TMDB films.
+  // Quarantine collisions against both the old checkpoint and this batch.
+  const videoOwners=new Map()
+  for(const e of old.entries){
+    for(const id of e.videoIds){
+      if(!videoOwners.has(id))videoOwners.set(id,new Set())
+      videoOwners.get(id).add(e.tmdbId)
+    }
+  }
+  for(const row of rows){
+    for(const id of row.videoCandidates.map(c=>c.videoId)){
+      if(!videoOwners.has(id))videoOwners.set(id,new Set())
+      videoOwners.get(id).add(row.tmdbId)
+    }
+  }
+  const byMovie=new Map(old.entries.map(e=>[e.tmdbId,copy(e)]))
+  let newMovies=0,newIds=0,conflictingIds=0,emptyMovies=0
+  for(const row of rows){
+    const ids=[...new Set(row.videoCandidates.map(c=>c.videoId))]
+      .filter(id=>{
+        const safe=videoOwners.get(id).size===1
+        if(!safe)conflictingIds++
+        return safe
+      })
+    if(ids.length===0){emptyMovies++;continue}
+    const before=byMovie.get(row.tmdbId)
+    if(!before){
+      byMovie.set(row.tmdbId,{tmdbId:row.tmdbId,videoIds:ids,
+        provenance:[{kind:'successful-readonly-five-search-batch',runId:run}]})
+      newMovies++;newIds+=ids.length
+    }else{
+      const prior=new Set(before.videoIds)
+      for(const id of ids){
+        if(prior.has(id)||before.videoIds.length>=10)continue
+        prior.add(id);before.videoIds.push(id);newIds++
+      }
+      if(!before.provenance.some(p=>p.runId===run
+        &&p.kind==='successful-readonly-five-search-batch'))
+        before.provenance=[...before.provenance,
+          {kind:'successful-readonly-five-search-batch',runId:run}].slice(-5)
+    }
+  }
+  const updated=validateCandidateCheckpoint({
+    ...old,updatedAt:now,entries:canonical(byMovie.values()),
+  })
+  return {
+    checkpoint:updated,sourceRun:run,
+    sourceMovies:rows.length,existingMovies:old.entries.length,
+    movies:updated.entries.length,newMovies,newIds,
+    conflictingIds,emptyMovies,
+    independentlyVerifiedDeOffers:0,publishedPlaybackRoutes:0,
+    publicationPermitted:false,
+  }
 }
 
 /** Add ONLY already published editorial playlist film/video hypotheses from
@@ -286,10 +408,12 @@ export async function runCheckpointCommand(mode,{
   archivePath='artifacts/youtube-g2/trusted-known-candidates/qa.json',
   batchQaPath='artifacts/youtube-g2/full-catalog-queue/qa.json',
   editorialQaPath='artifacts/youtube-g2/actionable-review-queue/qa.json',
+  fiveQaPath='artifacts/youtube-g2/five-search-source/qa.private.json',
+  fiveSummaryPath='artifacts/youtube-g2/five-search-source/summary.json',
   outputPath='artifacts/youtube-g2/trusted-known-candidates/candidates.json',
   runId=Number(process.env.GITHUB_RUN_ID),
 }={}){
-  if(!['bootstrap','read','merge','merge-editorial'].includes(mode))
+  if(!['bootstrap','read','merge','merge-editorial','merge-five'].includes(mode))
     throw Error('G2_CANDIDATE_COMMAND_INVALID')
   return withBucket(async bucket=>{
     const existing=await loadDurableCandidateCheckpoint(bucket)
@@ -309,16 +433,26 @@ export async function runCheckpointCommand(mode,{
     }
     if(!existing.checkpoint)throw Error('G2_CANDIDATE_CHECKPOINT_NOT_BOOTSTRAPPED')
     const qa=JSON.parse(await readFile(
-      mode==='merge-editorial'?editorialQaPath:batchQaPath,'utf8'))
+      mode==='merge-editorial'?editorialQaPath
+        :mode==='merge-five'?fiveQaPath:batchQaPath,'utf8'))
     // Editorial rows were learned by a PREVIOUS successful Firebase deploy.
     // Preserve that authenticated original source-run ID, not the current
     // checkpoint import workflow's GITHUB_RUN_ID. Full-catalog new research
     // instead correctly records its own source run.
-    const evidenceRunId=mode==='merge-editorial'
+    const evidenceRunId=mode==='merge-editorial'||mode==='merge-five'
       ?Number(process.env.SOURCE_RUN):runId
     const result=mode==='merge-editorial'
       ?mergeEditorialPlaylistCandidates(existing.checkpoint,qa,{runId:evidenceRunId})
-      :mergeCandidateCheckpoint(existing.checkpoint,qa,{runId:evidenceRunId})
+      :mode==='merge-five'
+        ?mergeFiveSearchCandidateCheckpoint(existing.checkpoint,qa,
+          JSON.parse(await readFile(fiveSummaryPath,'utf8')),
+          {sourceRun:evidenceRunId})
+        :mergeCandidateCheckpoint(existing.checkpoint,qa,{runId:evidenceRunId})
+    // A zero-delta research batch cannot manufacture progress or rewrite GCS.
+    if(mode==='merge-five'&&result.newIds===0)
+      return {mode,movies:existing.checkpoint.entries.length,addedMovies:0,
+        addedCandidateIds:0,candidateSourceRun:evidenceRunId,
+        conflictingIds:result.conflictingIds,checkpointUnchanged:true}
     const saved=await saveDurableCandidateCheckpoint(bucket,result.checkpoint,
       {expectedGeneration:existing.generation})
     return {mode,movies:saved.entries,addedMovies:result.newMovies,
