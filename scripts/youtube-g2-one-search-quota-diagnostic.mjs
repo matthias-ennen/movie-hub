@@ -3,7 +3,7 @@
  * project search-bucket problem. No automatic retry, pagination or batch
  * follow-up. Protect the API key, return only sanitized aggregate status.
  */
-import {readFile,mkdir,writeFile} from 'node:fs/promises'
+import {readFile,mkdir,writeFile,rm} from 'node:fs/promises'
 import {pathToFileURL} from 'node:url'
 import {getSecret,youtubeGet} from './youtube-api-smoke.mjs'
 import {loadPublicMovieHubIndex} from './youtube-g2-tmdb-first-link-pilot.mjs'
@@ -17,6 +17,8 @@ import {planTmdbFirstYoutubeQueries}
 export const ONE_SEARCH_QUOTA_KIND='moviehub-youtube-g2-one-search-project-quota-diagnostic'
 export const ONE_SEARCH_QUOTA_OUTPUT='artifacts/youtube-g2/one-search-quota-diagnostic'
 export const ONE_SEARCH_CHECKPOINT='artifacts/youtube-g2/trusted-known-candidates/candidates.json'
+export const ONE_SEARCH_PRIVATE_CANDIDATES='candidate-ids.private.json'
+const VIDEO_ID=/^[A-Za-z0-9_-]{11}$/
 const valid=x=>Number.isInteger(Number(x))&&Number(x)>0
 const labelled=e=>Array.isArray(e?.providerIds)&&e.providerIds.includes('youtube')
   ||Array.isArray(e?.providerOffers)&&e.providerOffers.some(p=>p?.id==='youtube')
@@ -48,20 +50,27 @@ export function selectExactlyOnePreviouslyUnknownBadgedMovie(publicIndex,checkpo
 }
 const failure=/^YouTube API: HTTP (429|403) bei search \[([A-Z_]+)\]/
 export async function runOneSearchQuotaDiagnostic({
-  publicIndex,checkpoint,youtubeApi,
+  publicIndex,checkpoint,youtubeApi,onPrivateCandidates=null,
   now=new Date().toISOString(),
 }={}){
-  if(!Number.isFinite(Date.parse(now))||typeof youtubeApi!=='function')
+  if(!Number.isFinite(Date.parse(now))||typeof youtubeApi!=='function'
+    ||onPrivateCandidates!==null&&typeof onPrivateCandidates!=='function')
     throw Error('G2_ONE_SEARCH_INPUT_INVALID')
   const select=selectExactlyOnePreviouslyUnknownBadgedMovie(publicIndex,checkpoint)
   const generatedAt=new Date(now).toISOString()
   let outcome='search-accessible',reason='OK',returnedVideos=0,apiCalls=0
+  let privateVideoIds=null
   try{
     apiCalls++
     const result=await youtubeApi('search',select.query)
     if(!Array.isArray(result?.items)||result.items.length>10)
       throw Error('G2_ONE_SEARCH_RESPONSE_UNTRUSTED')
     returnedVideos=result.items.length
+    // Preserve only canonical, distinct IDs in a private, review-only artifact.
+    // Never retain raw search JSON, titles, channels, links or API credentials.
+    privateVideoIds=[...new Set(result.items
+      .map(item=>item?.id?.videoId)
+      .filter(id=>typeof id==='string'&&VIDEO_ID.test(id)))]
   }catch(error){
     const parsed=failure.exec(String(error?.message||''))
     if(!parsed)throw error
@@ -69,6 +78,11 @@ export async function runOneSearchQuotaDiagnostic({
     reason=parsed[2]
   }
   if(apiCalls!==1)throw Error('G2_ONE_SEARCH_CALL_COUNT_MISMATCH')
+  if(outcome==='search-accessible'&&onPrivateCandidates){
+    await onPrivateCandidates({
+      tmdbId:select.tmdbId,videoIds:privateVideoIds,generatedAt,
+    })
+  }
   const summary={
     kind:ONE_SEARCH_QUOTA_KIND,generatedAt,
     sampledExactTmdbFilmId:select.tmdbId,
@@ -95,12 +109,28 @@ export async function oneSearchQuotaLive({
     loadPublicMovieHubIndex(),
   ])
   const key=youtubeKey||getSecret()
+  // A rerun must not leave stale private candidate IDs after a failed search.
+  await mkdir(output,{recursive:true})
+  const privatePath=output+'/'+ONE_SEARCH_PRIVATE_CANDIDATES
+  await rm(privatePath,{force:true})
+  let privateHints=null
   const result=await runOneSearchQuotaDiagnostic({
     checkpoint,publicIndex,
     youtubeApi:(path,params)=>youtubeGet(path,params,key),
+    onPrivateCandidates:({tmdbId,videoIds,generatedAt})=>{
+      privateHints={
+        kind:'moviehub-youtube-g2-one-search-private-candidate-hints',
+        schemaVersion:1,generatedAt,sampledExactTmdbFilmId:tmdbId,
+        videoIds,searchCallsAttempted:1,metadataRechecked:false,
+        independentDEOffersVerified:0,publishedPlaybackRoutes:0,
+        privateArtifact:true,publicationPermitted:false,
+      }
+    },
   })
-  await mkdir(output,{recursive:true})
   await writeFile(output+'/summary.json',JSON.stringify(result,null,2)+'\n',{mode:0o600})
+  if(privateHints)
+    await writeFile(privatePath,JSON.stringify(privateHints,null,2)+'\n',{mode:0o600})
+  // No video IDs in Actions logs or the public job summary.
   console.log(JSON.stringify(result))
   return result
 }
