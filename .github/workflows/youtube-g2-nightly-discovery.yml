@@ -1,0 +1,127 @@
+name: YouTube G2 – nightly bounded public-movie discovery (private, no offers)
+
+on:
+  schedule:
+    # 01:35 UTC = 02:35 CET / 03:35 CEST; separate from 00:17 Berlin
+    # Firebase nightly. One cron; no run on code push or PR.
+    - cron: '35 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-private-candidate-checkpoint-mutations
+  cancel-in-progress: false
+
+jobs:
+  nightly-known-to-new:
+    name: Resume unknown public YouTube movie IDs with reserved PT searches
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GOOGLE_CLOUD_PROJECT: movie-hub-62459
+      DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Validate nightly cursor, API quota guard and no-offer tests before external APIs
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-nightly-queue.mjs
+          node --check scripts/youtube-g2-nightly-discovery-live.mjs
+          npx vitest run tests/youtube-g2-nightly-queue.test.js \
+            tests/youtube-g2-nightly-discovery-live.test.js \
+            tests/youtube-g2-atomic-search-budget-ledger.test.js \
+            tests/youtube-g2-tmdb-first-link-pilot.test.js
+      - name: Authenticate trusted OIDC principal to read private GCS and research data
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Collect current Pacific search telemetry (no YouTube calls)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/moviehub-youtube-pt-search-private
+          read -r checked_at day_start < <(node --input-type=module <<'NODE'
+          import {pacificSearchDay} from './scripts/youtube-g2-pacific-search-preflight.mjs'
+          const now=new Date().toISOString()
+          console.log(now+' '+pacificSearchDay(now).start)
+          NODE
+          )
+          token="$(gcloud auth print-access-token)"
+          for type in rate exceeded; do
+            if [[ "$type" == rate ]]; then metric='rate/net_usage'; else metric='exceeded'; fi
+            filter="metric.type=\"serviceruntime.googleapis.com/quota/$metric\" AND resource.type=\"consumer_quota\" AND resource.label.service=\"youtube.googleapis.com\" AND metric.label.quota_metric=\"youtube.googleapis.com/search_list\""
+            code="$(curl --silent --show-error --max-time 35 --retry 0 \
+              --get --header "Authorization: Bearer $token" \
+              --header 'Accept: application/json' \
+              --data-urlencode "filter=$filter" \
+              --data-urlencode "interval.startTime=$day_start" \
+              --data-urlencode "interval.endTime=$checked_at" \
+              --data-urlencode 'view=FULL' \
+              --data-urlencode 'pageSize=5000' \
+              --output "/tmp/moviehub-youtube-pt-search-private/$type.json" \
+              --write-out '%{http_code}' \
+              'https://monitoring.googleapis.com/v3/projects/movie-hub-62459/timeSeries')"
+            [[ "$code" =~ ^[0-9]{3}$ ]] || exit 1
+            printf '%s=%s\n' "$type" "$code" >> /tmp/moviehub-youtube-pt-search-private/status
+          done
+          unset token filter
+          . /tmp/moviehub-youtube-pt-search-private/status
+          node scripts/youtube-g2-pacific-search-preflight.mjs \
+            "$checked_at" "$rate" /tmp/moviehub-youtube-pt-search-private/rate.json \
+            "$exceeded" /tmp/moviehub-youtube-pt-search-private/exceeded.json \
+            artifacts/youtube-g2/pacific-search-preflight
+          rm -rf /tmp/moviehub-youtube-pt-search-private
+      - name: Resume film queue with CAS progress and up to ten shared PT-day searches
+        run: node scripts/youtube-g2-nightly-discovery-live.mjs
+      - name: Verify safe, anonymized nightly budget summary
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const r=JSON.parse(readFileSync('artifacts/youtube-g2/nightly-discovery/summary.json','utf8'))
+          if(r.kind!=='moviehub-youtube-g2-nightly-budgeted-discovery'
+            ||r.dayLimit!==10||r.searchCalls<0
+            ||r.searchCalls>r.selectedForSearch
+            ||r.selectedForSearch>10||r.priorReserved>10
+            ||r.selectedForSearch+r.priorReserved>10
+            ||r.independentlyVerifiedDEOffers!==0
+            ||r.publicationPermitted!==false
+            ||r.publishedPlaybackRoutes!==0
+            ||['firestoreWrites','providerWrites','catalogWrites','badgeWrites'].some(k=>r[k]!==0)
+            ||Object.keys(r).some(k=>/videoId|watchUrl|secret/i.test(k)))
+            throw Error('YOUTUBE_NIGHTLY_BUDGET_OR_PUBLICATION_GUARD_FAILED')
+          const lines=[
+            '## YouTube nightly private, budgeted TMDB-first discovery','',
+            '- Pacific research day: '+r.pacificDate,
+            '- Shared conservative daily search cap: '+r.dayLimit,
+            '- Prior manual/research reservations: '+r.priorReserved,
+            '- Nightly reserved search attempts: '+r.selectedForSearch,
+            '- Actual search.list attempts: '+r.searchCalls,
+            '- New privately stored film candidates: '+r.savedNewCandidateFilms,
+            '- Total still-eligible public badge films at scan: '+r.stillEligible,
+            '- Outcome: '+r.status,
+            '- Published DE offers, badges and direct playback routes: **0**',
+            '- Personal profile/private film IDs: not exported',
+          ]
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n')
+          console.log(JSON.stringify({pacificDay:r.pacificDate,
+            reserved:r.selectedForSearch,searches:r.searchCalls,
+            result:r.status,productionWrites:0}))
+          NODE
+      - name: Upload counts only (no private candidate or video IDs)
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-g2-nightly-budget-summary-${{ github.run_id }}
+          path: artifacts/youtube-g2/nightly-discovery/summary.json
+          if-no-files-found: error
+          retention-days: 7
