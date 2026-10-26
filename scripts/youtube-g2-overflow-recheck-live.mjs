@@ -118,7 +118,12 @@ export async function runOverflowLiveReview({
     ||rows.some((r,i)=>r?.tmdbId!==plan.selectedIds[i]
       ||r?.candidateDiscoveryMode==='new-search'
       ||r?.publicationPermitted!==false
-      ||r?.directPlaybackRoute!==null||r?.reviewedVideoId!==null))
+      ||r?.directPlaybackRoute!==null||r?.reviewedVideoId!==null
+      ||!Array.isArray(r.videoCandidates)||r.videoCandidates.length>10
+      ||r.videoCandidates.some(candidate=>
+        !known.get(r.tmdbId)?.includes(candidate?.videoId))
+      ||typeof r.status!=='string'
+      ||!(/^[a-z0-9-]{1,60}$/).test(r.status)))
     throw Error('G2_OVERFLOW_RESEARCH_NOT_SAFE')
   // Do not claim an offer, or make public link artifacts from this result.
   const summary={...base,status:'review-complete',
