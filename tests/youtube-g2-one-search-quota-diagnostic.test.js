@@ -50,6 +50,48 @@ describe('quota preflight: strictly ONE search.list call for a previously unrese
     expect(x).not.toHaveProperty('videoCandidates')
     expect(JSON.stringify(x)).not.toContain('Abc12345678')
   })
+  it('preserves distinct canonical search IDs privately without leaking into summary',async()=>{
+    const ids=['Abc12345678','Abc12345678','Z1234567890','bad video id']
+    const api=vi.fn(async()=>({items:ids.map(videoId=>({id:{videoId},
+      snippet:{title:'private-source-title-DO-NOT-PUBLISH'}}))}))
+    const capture=vi.fn()
+    const summary=await runOneSearchQuotaDiagnostic({
+      checkpoint,publicIndex:index,youtubeApi:api,
+      onPrivateCandidates:capture,now:at,
+    })
+    expect(api).toHaveBeenCalledTimes(1)
+    expect(capture).toHaveBeenCalledTimes(1)
+    expect(capture).toHaveBeenCalledWith({
+      tmdbId:102,generatedAt:at,videoIds:['Abc12345678','Z1234567890'],
+    })
+    expect(summary).toMatchObject({searchCallsAttempted:1,
+      searchOutcome:'search-accessible',responseCandidateCount:4,
+      confirmedPlaybackRoutes:0,quotaActuallyMeasured:false})
+    for(const privateValue of ['Abc12345678','Z1234567890',
+      'private-source-title-DO-NOT-PUBLISH']){
+      expect(JSON.stringify(summary)).not.toContain(privateValue)
+    }
+  })
+  it('never creates private candidates on 403/429 or invalid responses',async()=>{
+    for(const status of [403,429]){
+      const callback=vi.fn()
+      const api=vi.fn(async()=>{throw Error(
+        'YouTube API: HTTP '+status+' bei search [QUOTA_EXHAUSTED].')})
+      const result=await runOneSearchQuotaDiagnostic({
+        checkpoint,publicIndex:index,youtubeApi:api,now:at,
+        onPrivateCandidates:callback,
+      })
+      expect(result.searchCallsAttempted).toBe(1)
+      expect(api).toHaveBeenCalledTimes(1)
+      expect(callback).not.toHaveBeenCalled()
+    }
+    const capture=vi.fn()
+    await expect(runOneSearchQuotaDiagnostic({
+      checkpoint,publicIndex:index,youtubeApi:async()=>({items:Array(11).fill({})}),
+      onPrivateCandidates:capture,now:at,
+    })).rejects.toThrow('G2_ONE_SEARCH_RESPONSE_UNTRUSTED')
+    expect(capture).not.toHaveBeenCalled()
+  })
   it('captures sanitized 429 quota error and refuses extra retries',async()=>{
     const api=vi.fn(async()=>{throw Error(
       'YouTube API: HTTP 429 bei search [QUOTA_EXHAUSTED]. API-Quota und Key-Restriktion prüfen; kein automatischer Retry.')})
