@@ -35,8 +35,10 @@ jobs:
           npm ci
           node --check scripts/youtube-g2-nightly-queue.mjs
           node --check scripts/youtube-g2-nightly-discovery-live.mjs
+          node --check scripts/youtube-g2-nightly-failure-report.mjs
           npx vitest run tests/youtube-g2-nightly-queue.test.js \
             tests/youtube-g2-nightly-discovery-live.test.js \
+            tests/youtube-g2-nightly-failure-report.test.js \
             tests/youtube-g2-atomic-search-budget-ledger.test.js \
             tests/youtube-g2-tmdb-first-link-pilot.test.js
       - name: Authenticate trusted OIDC principal to read private GCS and research data
@@ -83,32 +85,54 @@ jobs:
             artifacts/youtube-g2/pacific-search-preflight
           rm -rf /tmp/moviehub-youtube-pt-search-private
       - name: Resume film queue with CAS progress and up to ten shared PT-day searches
+        id: nightly_discovery
         run: node scripts/youtube-g2-nightly-discovery-live.mjs
       - name: Verify safe, anonymized nightly budget summary
+        if: ${{ always() && steps.nightly_discovery.outcome != 'skipped' }}
         run: |
           node --input-type=module <<'NODE'
           import {readFileSync,appendFileSync} from 'node:fs'
           const r=JSON.parse(readFileSync('artifacts/youtube-g2/nightly-discovery/summary.json','utf8'))
+          const failed=r.status==='failed'
           if(r.kind!=='moviehub-youtube-g2-nightly-budgeted-discovery'
-            ||r.dayLimit!==10||r.searchCalls<0
-            ||r.searchCalls>r.selectedForSearch
-            ||r.selectedForSearch>10||r.priorReserved>10
-            ||r.selectedForSearch+r.priorReserved>10
+            ||r.dayLimit!==10
             ||r.independentlyVerifiedDEOffers!==0
             ||r.publicationPermitted!==false
             ||r.publishedPlaybackRoutes!==0
             ||['firestoreWrites','providerWrites','catalogWrites','badgeWrites'].some(k=>r[k]!==0)
             ||Object.keys(r).some(k=>/videoId|watchUrl|secret/i.test(k)))
             throw Error('YOUTUBE_NIGHTLY_BUDGET_OR_PUBLICATION_GUARD_FAILED')
+          if(failed){
+            // A GCS reservation is NOT proof of an actual search.list call.
+            if(r.searchCalls!==null||r.actualSearchCallsMeasured!==false
+              ||!['youtube-rate-limit','authorization-or-api-block',
+                  'checkpoint-consistency','quota-preflight-or-monitoring',
+                  'tmdb-source','other-unclassified'].includes(r.failureCategory)
+              ||(r.selectedForSearch!==null
+                 &&(!Number.isInteger(r.selectedForSearch)
+                     ||r.selectedForSearch<0||r.selectedForSearch>10))
+              ||(r.sharedDayReserved!==null
+                 &&(!Number.isInteger(r.sharedDayReserved)
+                     ||r.sharedDayReserved<0||r.sharedDayReserved>10))
+              ||(r.priorReserved!==null
+                 &&r.priorReserved+r.selectedForSearch!==r.sharedDayReserved))
+              throw Error('YOUTUBE_NIGHTLY_FAILURE_REPORT_NOT_TRUSTED')
+          }else if(!Number.isInteger(r.searchCalls)||r.searchCalls<0
+            ||r.searchCalls>r.selectedForSearch
+            ||r.selectedForSearch>10||r.priorReserved>10
+            ||r.selectedForSearch+r.priorReserved>10)
+            throw Error('YOUTUBE_NIGHTLY_BUDGET_OR_PUBLICATION_GUARD_FAILED')
           const lines=[
             '## YouTube nightly private, budgeted TMDB-first discovery','',
             '- Pacific research day: '+r.pacificDate,
             '- Shared conservative daily search cap: '+r.dayLimit,
             '- Prior manual/research reservations: '+r.priorReserved,
-            '- Nightly reserved search attempts: '+r.selectedForSearch,
-            '- Actual search.list attempts: '+r.searchCalls,
-            '- New privately stored film candidates: '+r.savedNewCandidateFilms,
-            '- Total still-eligible public badge films at scan: '+r.stillEligible,
+            '- Nightly reserved search attempts: '+(r.selectedForSearch??'unknown'),
+            '- Actual search.list attempts: '+(r.searchCalls??'unknown after failure'),
+            '- New privately stored film candidates: '+(r.savedNewCandidateFilms??'unknown after failure'),
+            '- Total still-eligible public badge films at scan: '+(r.stillEligible??'unknown'),
+            '- Completed cursor entries this run: '+(r.runCompletedFilms??'not measured'),
+            '- Failure category: '+(r.failureCategory??'none'),
             '- Outcome: '+r.status,
             '- Published DE offers, badges and direct playback routes: **0**',
             '- Personal profile/private film IDs: not exported',
@@ -116,12 +140,14 @@ jobs:
           appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n')
           console.log(JSON.stringify({pacificDay:r.pacificDate,
             reserved:r.selectedForSearch,searches:r.searchCalls,
+            actualSearchCallsKnown:!failed,
             result:r.status,productionWrites:0}))
           NODE
       - name: Upload counts only (no private candidate or video IDs)
+        if: ${{ always() && steps.nightly_discovery.outcome != 'skipped' }}
         uses: actions/upload-artifact@v7
         with:
           name: youtube-g2-nightly-budget-summary-${{ github.run_id }}
           path: artifacts/youtube-g2/nightly-discovery/summary.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 7
