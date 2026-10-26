@@ -168,24 +168,60 @@ export async function verifyPublishedGeneration({ fetchImpl = fetch, directory =
   return result
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  let failure
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      const requireJoynHorizon = process.env.REQUIRE_JOYN_14_DAYS === 'true'
-      if (process.argv.includes('--prepared')) {
-        const paths = ['data-status.json', 'waipu-live/index.json', 'joyn-live/index.json', 'live-availability-index.json', 'tv-runtime/index.json']
-        const expected = await Promise.all(paths.map(async (path) => JSON.parse(await readFile(resolve('public', path), 'utf8'))))
-        validatePreparedGeneration(expected, { requireJoynHorizon })
-        await verifyYoutubePublishedReports({ prepared: true })
-        await verifyYoutubeEditorialFilmPublication({ prepared: true })
-        console.log('Prepared source generations, YouTube routes and app data verified before deployment.')
-      } else await verifyPublishedGeneration({ requireJoynHorizon })
-      failure = null; break
-    } catch (error) {
-      failure = error
-      if (attempt < 2) await new Promise((done) => setTimeout(done, 2000))
+
+/**
+ * Hosting CDN/edge propagation can briefly serve the previous generation
+ * immediately after Firebase prints "Deploy complete". Keep exact deep-equal
+ * verification mandatory; retry ONLY bounded read-only HTTP requests.
+ *
+ * The existing validation/offer gates stay unchanged. No API quotas, secrets,
+ * YouTube search endpoints or Firestore writes are touched by this retry.
+ */
+export async function verifyPublicationWithBoundedConvergence({
+  verify,wait=ms=>new Promise(done=>setTimeout(done,ms)),
+  maxAttempts=12,staleDelayMs=4000,
+}={}){
+  if(typeof verify!=='function'||typeof wait!=='function'
+    ||!Number.isSafeInteger(maxAttempts)||maxAttempts<1||maxAttempts>12
+    ||!Number.isSafeInteger(staleDelayMs)||staleDelayMs<0||staleDelayMs>10000)
+    throw Error('PUBLISHED_GENERATION_RETRY_CONFIG_INVALID')
+  let ordinaryFailures=0
+  for(let attempt=1;attempt<=maxAttempts;attempt++){
+    try{return await verify()}
+    catch(error){
+      const lag=String(error?.message||'')
+        .startsWith('Published generation differs from build:')
+      if(!lag)ordinaryFailures++
+      if(attempt===maxAttempts||(!lag&&ordinaryFailures>=3))throw error
+      if(lag)console.log(
+        'Hosting publication generation not yet converged; exact HTTP readback retry '
+        +attempt+'/'+maxAttempts)
+      await wait(lag?staleDelayMs:2000)
     }
   }
-  if (failure) { console.error(failure.message); process.exitCode = 1 }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  const prepared=process.argv.includes('--prepared')
+  const requireJoynHorizon=process.env.REQUIRE_JOYN_14_DAYS==='true'
+  const verify=async()=>{
+    if(prepared){
+      const paths=['data-status.json','waipu-live/index.json','joyn-live/index.json',
+        'live-availability-index.json','tv-runtime/index.json']
+      const expected=await Promise.all(paths.map(async path=>
+        JSON.parse(await readFile(resolve('public',path),'utf8'))))
+      validatePreparedGeneration(expected,{requireJoynHorizon})
+      await verifyYoutubePublishedReports({prepared:true})
+      await verifyYoutubeEditorialFilmPublication({prepared:true})
+      console.log('Prepared source generations, YouTube routes and app data verified before deployment.')
+    }else await verifyPublishedGeneration({requireJoynHorizon})
+  }
+  try{
+    await verifyPublicationWithBoundedConvergence({
+      verify,maxAttempts:prepared?3:12,
+    })
+  }catch(error){
+    console.error(error.message)
+    process.exitCode=1
+  }
 }

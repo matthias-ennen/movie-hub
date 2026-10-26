@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { evaluatePublishedData } from '../scripts/validate-publication-health.mjs'
-import { verifyPublishedGeneration } from '../scripts/verify-published-data.mjs'
+import { verifyPublishedGeneration, verifyPublicationWithBoundedConvergence } from '../scripts/verify-published-data.mjs'
 const at = '2026-10-07T04:30:00.000Z'
 const now = new Date('2026-10-07T05:00:00Z')
 const scheduledAt = '2026-10-06T22:17:00Z'
@@ -52,5 +52,55 @@ describe('independent sources and their actual app publication', () => {
       const actual = structuredClone(files); actual[2].generatedAt = '2026-10-07T04:00:00Z'
       await expect(verifyPublishedGeneration({ directory: root, fetchImpl: async url => ({ ok: true, json: async () => actual[paths.indexOf(url.pathname.slice(1))] }) })).rejects.toThrow('Published generation differs from build: joyn-live/index.json (preparedAt=2026-10-07T04:30:00.000Z, servedAt=2026-10-07T04:00:00Z)')
     } finally { await rm(root, { recursive: true, force: true }) }
+  })
+})
+
+describe('bounded Firebase Hosting generation convergence after successful deploy',()=>{
+  it('accepts a delayed exact generation without treating an older HTTP 200 as success',async()=>{
+    let attempts=0
+    const waits=[]
+    const outcome=await verifyPublicationWithBoundedConvergence({
+      verify:async()=>{
+        if(++attempts<=3)
+          throw Error('Published generation differs from build: data-status.json (old generation)')
+        return {exactGeneration:true}
+      },
+      wait:async ms=>{waits.push(ms)},
+      maxAttempts:5,staleDelayMs:4000,
+    })
+    expect(outcome).toEqual({exactGeneration:true})
+    expect(attempts).toBe(4)
+    expect(waits).toEqual([4000,4000,4000])
+  })
+  it('fails closed when the stale generation never converges within the bound',async()=>{
+    let attempts=0
+    const waits=[]
+    await expect(verifyPublicationWithBoundedConvergence({
+      verify:async()=>{
+        attempts++
+        throw Error('Published generation differs from build: data-status.json (permanent)')
+      },
+      wait:async ms=>{waits.push(ms)},
+      maxAttempts:4,staleDelayMs:4000,
+    })).rejects.toThrow('Published generation differs from build: data-status.json')
+    expect(attempts).toBe(4)
+    expect(waits).toEqual([4000,4000,4000])
+  })
+  it('keeps the existing three-attempt maximum for unrelated validation failures',async()=>{
+    let attempts=0
+    const waits=[]
+    await expect(verifyPublicationWithBoundedConvergence({
+      verify:async()=>{
+        attempts++
+        throw Error('Invalid or missing trusted publication input')
+      },
+      wait:async ms=>{waits.push(ms)},
+      maxAttempts:12,
+    })).rejects.toThrow('Invalid or missing trusted publication input')
+    expect(attempts).toBe(3)
+    expect(waits).toEqual([2000,2000])
+    await expect(verifyPublicationWithBoundedConvergence({
+      verify:async()=>null,maxAttempts:13,
+    })).rejects.toThrow('PUBLISHED_GENERATION_RETRY_CONFIG_INVALID')
   })
 })
