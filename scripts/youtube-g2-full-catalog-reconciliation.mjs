@@ -1,6 +1,7 @@
 import { hasDominantFilmHypothesis } from '../src/providers/youtubeCuratedEditorialIndex.js'
 import { hasExclusiveActorCanonicalFilmEvidence } from './youtube-g2-exclusive-actor-canonical-film.mjs'
 import {hasExclusiveBilledPairFilmHypothesis} from './youtube-g2-exclusive-pair-evidence.mjs'
+import {hasExclusiveHistoricalYearFilmHypothesis} from './youtube-g2-exclusive-year-film-evidence.mjs'
 /**
  * Read-only, private reconciliation of ALL YouTube G2 playlist video IDs with
  * MovieHub's canonical complete title inventory (including personal titles).
@@ -67,7 +68,8 @@ function strongCandidate(item,row){
       &&Array.isArray(row.topCandidates)
       &&(row.topCandidates.length===1||hasDominantFilmHypothesis(row.topCandidates)))
       ||hasExclusiveActorCanonicalFilmEvidence(item,row)
-      ||hasExclusiveBilledPairFilmHypothesis(item.sourceTitle,row))
+      ||hasExclusiveBilledPairFilmHypothesis(item.sourceTitle,row)
+      ||hasExclusiveHistoricalYearFilmHypothesis(item.sourceTitle,row))
     &&top?.tmdbId===item.suggestedFilmRef?.tmdbId
     &&Number.isFinite(top.score)&&top.score>=38&&top.titleLevel===4
     &&Number.isFinite(top.runtimeDelta)&&top.runtimeDelta>=0&&top.runtimeDelta<=10
