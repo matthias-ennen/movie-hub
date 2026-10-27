@@ -1,8 +1,6 @@
 export const YOUTUBE_CURATED_TITLE_HINTS_URL = '/youtube-curated-title-hints.json'
-let cached = null
 export function loadYoutubeCuratedTitleHints(request = fetch) {
-  if (request === fetch && cached) return cached
-  const pending = Promise.resolve().then(() => request(YOUTUBE_CURATED_TITLE_HINTS_URL, { redirect: 'error' }))
+  const pending = Promise.resolve().then(() => request(YOUTUBE_CURATED_TITLE_HINTS_URL, { redirect: 'error', cache: 'no-store' }))
     .then(async response => {
       if (!response?.ok) return null
       const data = await response.json()
@@ -12,6 +10,5 @@ export function loadYoutubeCuratedTitleHints(request = fetch) {
       if (data.verifiedDEOffers !== 0 || data.verifiedPlaybackRoutes !== 0) return null
       return Array.isArray(data.entries) && data.count === data.entries.length ? data : null
     }).catch(() => null)
-  if (request === fetch) cached = pending
   return pending
 }
