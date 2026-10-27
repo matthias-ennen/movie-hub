@@ -7,17 +7,17 @@ import {hasExclusiveBilledPairFilmHypothesis} from '../scripts/youtube-g2-exclus
 const outside='Der Außenseiter 4K Brendan Fraser & Matt Damon Ganzer Film auf Deutsch'
 const marvins='Marvins Töchter 4K Leonardo DiCaprio & Meryl Streep Kostenloser Film in voller Länge'
 const before=[
-  {tmdbId:12504,score:40,titleLevel:4,runtimeDelta:1,
+  {tmdbId:9000001,score:40,titleLevel:4,runtimeDelta:1,
     yearMismatch:false,sequelConflict:false},
-  {tmdbId:14684,score:38,titleLevel:4,runtimeDelta:7,
+  {tmdbId:9000002,score:38,titleLevel:4,runtimeDelta:7,
     yearMismatch:false,sequelConflict:false},
-  {tmdbId:286962,score:32,titleLevel:4,runtimeDelta:21,
+  {tmdbId:9000003,score:32,titleLevel:4,runtimeDelta:21,
     yearMismatch:false,sequelConflict:false},
 ]
 const films=[
-  {id:12504,credits:{cast:[{name:'Brendan Fraser'},{name:'Matt Damon'}]}},
-  {id:14684,credits:{cast:[{name:'Other One'}]}},
-  {id:286962,credits:{cast:[{name:'Other Two'}]}},
+  {id:9000001,credits:{cast:[{name:'Brendan Fraser'},{name:'Matt Damon'}]}},
+  {id:9000002,credits:{cast:[{name:'Other One'}]}},
+  {id:9000003,credits:{cast:[{name:'Other Two'}]}},
 ]
 function matched(){
   const result=applyExplicitCastGuard(outside,before,films)
@@ -39,22 +39,53 @@ describe('G2 two explicitly credited actors from publisher banner',()=>{
       'Der Außenseiter 4K Brendan Fraser und Matt Damon Ganzer Film',
     ])expect(explicitBilledActorPair(source)).toBeNull()
   })
-  it('corroborates BOTH independently and safely separates three same-title films',()=>{
+  it('corroborates BOTH independently in a SYNTHETIC close-runtime movie fixture',()=>{
     const {result,row}=matched()
     expect(result.evidence).toMatchObject({
       explicitActor:null,explicitActors:['Brendan Fraser','Matt Damon'],
       actorCreditEvidence:'matched-exclusive-two-actor-credit-list',
-      creditedMovieIds:[12504],partiallyCreditedMovieIds:[],affectsRanking:true,
+      creditedMovieIds:[9000001],partiallyCreditedMovieIds:[],affectsRanking:true,
     })
     expect(result.scores.map(x=>x.score)).toEqual([52,18,12])
     expect(hasExclusiveBilledPairFilmHypothesis(outside,row)).toBe(true)
   })
+  it('replays REAL Der Außenseiter QA: both actors select film 14684 but its 7-minute cut mismatch blocks publication',()=>{
+    const raw=[
+      {tmdbId:12504,score:40,titleLevel:4,runtimeDelta:1,
+        yearMismatch:false,sequelConflict:false},
+      {tmdbId:14684,score:38,titleLevel:4,runtimeDelta:7,
+        yearMismatch:false,sequelConflict:false},
+      {tmdbId:286962,score:32,titleLevel:4,runtimeDelta:21,
+        yearMismatch:false,sequelConflict:false},
+    ]
+    const films=[
+      {id:12504,credits:{cast:[]}},
+      {id:14684,credits:{cast:[{name:'Brendan Fraser'},{name:'Matt Damon'}]}},
+      {id:286962,credits:{cast:[]}},
+    ]
+    const evidence=applyExplicitCastGuard(outside,raw,films)
+    expect(evidence.evidence).toMatchObject({
+      actorCreditEvidence:'matched-exclusive-two-actor-credit-list',
+      creditedMovieIds:[14684],affectsRanking:true,
+    })
+    const ranked=[...evidence.scores].sort((a,b)=>b.score-a.score)
+    expect(ranked.map(x=>[x.tmdbId,x.score,x.runtimeDelta])).toEqual([
+      [14684,50,7],[12504,20,1],[286962,12,21],
+    ])
+    const row={matchStatus:'review-leading-film-hypothesis',
+      identityRisk:null,errors:[],alternativeTvIds:[],
+      castEvidence:evidence.evidence,topCandidates:ranked}
+    expect(hasExclusiveBilledPairFilmHypothesis(outside,row)).toBe(false)
+    // The closest-runtime film is not the cast-matched work. Never swap IDs.
+    expect(evidence.evidence.creditedMovieIds).not.toContain(12504)
+  })
+
   it('does not invent film evidence from missing credits, shared actors, fake billing or rivals',()=>{
     for(const titles of [
-      [{id:12504,credits:{cast:[{name:'Brendan Fraser'}]}},...films.slice(1)],
-      [films[0],{id:14684,credits:{cast:[{name:'Matt Damon'}]}},films[2]],
-      [films[0],{id:14684,credits:{cast:[{name:'Brendan Fraser'},{name:'Matt Damon'}]}},films[2]],
-      [films[0],{id:14684,credits:{}},films[2]],
+      [{id:9000001,credits:{cast:[{name:'Brendan Fraser'}]}},...films.slice(1)],
+      [films[0],{id:9000002,credits:{cast:[{name:'Matt Damon'}]}},films[2]],
+      [films[0],{id:9000002,credits:{cast:[{name:'Brendan Fraser'},{name:'Matt Damon'}]}},films[2]],
+      [films[0],{id:9000002,credits:{}},films[2]],
     ]){
       const result=applyExplicitCastGuard(outside,before,titles)
       expect(result.evidence.affectsRanking).toBe(false)
@@ -70,7 +101,7 @@ describe('G2 two explicitly credited actors from publisher banner',()=>{
       r=>{r.topCandidates[1].tmdbId=r.topCandidates[0].tmdbId},
       r=>{r.topCandidates[0].titleLevel=3},
       r=>{r.topCandidates[0].yearMismatch=true},
-      r=>{r.castEvidence.creditedMovieIds.push(14684)},
+      r=>{r.castEvidence.creditedMovieIds.push(9000002)},
       r=>{r.castEvidence.actorCreditEvidence='matched-a-tmdb-credit-list'},
       r=>{r.alternativeTvIds=[100]},
       r=>{r.matchStatus='review-multiple-film-works'},
