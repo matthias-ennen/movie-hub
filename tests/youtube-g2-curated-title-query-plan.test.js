@@ -137,6 +137,45 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
       .toMatchObject({matchingTitle:'From Dusk Till Dawn (1996)',reportedYear:1996})
   })
 
+  it('uses real FREE playlist headings to search TMDB by film name only',()=>{
+    const cases=[
+      [
+        "John Carpenter's Sie leben – ganzer Film auf Deutsch kostenlos schauen in HD",
+        'Sie leben','director-billing-and-free-full-movie-promo',
+      ],
+      [
+        'Vendetta - Alles was ihm blieb war Rache - mit Arnold Schwarzenegger - Ganzer Film kostenlos in HD',
+        'Vendetta - Alles was ihm blieb war Rache',
+        'actor-billing-and-free-hd-promo',
+      ],
+    ]
+    for (const [source,title,reason] of cases) {
+      const plan=planCuratedTmdbQueries(source)
+      expect(plan).toMatchObject({
+        rawTitle:source,matchingTitle:title,queries:[title],
+        curatedQueryReason:reason,
+      })
+      expect(plan.verifiedTmdbId).toBeUndefined()
+      expect(plan.playbackRoute).toBeUndefined()
+      expect(plan.queries).toHaveLength(1)
+    }
+  })
+  it('does not strip genuine director billing, actor names or ambiguous close titles',()=>{
+    for (const source of [
+      "John Carpenter's The Thing",
+      "John Carpenter's Sie leben – Trailer",
+      "John Carpenter's Sie leben – ganzer Film auf Deutsch kostenlos schauen",
+      "Alfred Hitchcock's Psycho",
+      'Vendetta - Alles was ihm blieb war Rache',
+      'Vendetta - mit Arnold Schwarzenegger - Trailer',
+      'Vendetta - mit Arnold Schwarzenegger - Ganzer Film kostenlos in SD',
+    ]) {
+      const plan=planCuratedTmdbQueries(source)
+      expect(['director-billing-and-free-full-movie-promo',
+        'actor-billing-and-free-hd-promo']).not.toContain(plan.curatedQueryReason)
+    }
+  })
+
   it('does not strip movie titles and arbitrary cast/genre words without an observed wrapper',()=>{
     for (const title of [
       'The Calling', 'The Time Machine (1960)', 'Dawn of the Dead',
