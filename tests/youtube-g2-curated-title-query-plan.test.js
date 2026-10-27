@@ -220,6 +220,43 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
     }
   })
 
+  it('matches two exact 1960/2012 playlist films by their independently known original titles',()=>{
+    const cases=[
+      ['Die Zeit Maschine - 1960','The Time Machine (1960)',
+        ['The Time Machine','Die Zeitmaschine'],1960,
+        'time-machine-1960-original-title'],
+      ['Die Jagd (2012)','Jagten (2012)',
+        ['Jagten','The Hunt'],2012,
+        'the-hunt-2012-original-title'],
+    ]
+    for(const [source,matchingTitle,queries,year,curatedQueryReason] of cases){
+      const result=planCuratedTmdbQueries(source)
+      expect(result).toMatchObject({
+        rawTitle:source,matchingTitle,queries,
+        reportedYear:year,curatedQueryReason,
+      })
+      expect(result.queries).toHaveLength(2)
+      expect(result.verifiedTmdbId).toBeUndefined()
+      expect(result.playbackRoute).toBeUndefined()
+    }
+  })
+  it('does not rewrite a remake, trailer, generic title or another source year',()=>{
+    for(const source of [
+      'Die Zeit Maschine - 2002',
+      'Die Zeitmaschine (1960)',
+      'Die Zeit Maschine - 1960 Trailer',
+      'The Time Machine - 1960',
+      'Die Jagd (2013)',
+      'Die Jagd (2012) Trailer',
+      'Die Jagd',
+      'Jagten (2012)',
+    ]){
+      const result=planCuratedTmdbQueries(source)
+      expect(['time-machine-1960-original-title',
+        'the-hunt-2012-original-title']).not.toContain(result.curatedQueryReason)
+    }
+  })
+
   it('does not strip movie titles and arbitrary cast/genre words without an observed wrapper',()=>{
     for (const title of [
       'The Calling', 'The Time Machine (1960)', 'Dawn of the Dead',
