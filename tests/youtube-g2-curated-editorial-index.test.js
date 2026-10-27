@@ -376,6 +376,34 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
       .entries.some(x=>x.tmdbId===9819)).toBe(false)
   })
 
+  it('matches an exact film from its reported 1960 year without choosing a wrong remake',()=>{
+    const {audit,research}=make()
+    audit.candidates[0].videoTitle='Die Zeit Maschine - 1960'
+    const r=research.rows[0]
+    r.topCandidates=[
+      {tmdbId:2134,titleLevel:4,score:44,runtimeDelta:1.9,
+        yearMismatch:false,sequelConflict:false},
+      {tmdbId:148948,titleLevel:4,score:28,runtimeDelta:2.1,
+        yearMismatch:true,sequelConflict:false},
+      {tmdbId:2135,titleLevel:4,score:26,runtimeDelta:5.1,
+        yearMismatch:true,sequelConflict:false},
+    ]
+    const found=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+    expect(found.entries.find(x=>x.tmdbId===2134)).toMatchObject({
+      videoId:VID,playlistMode:'free',
+      watchUrl:'https://www.youtube.com/watch?v='+VID,
+      verificationStatus:'not-independently-verified',
+    })
+    expect(found.entries.some(x=>x.tmdbId===148948||x.tmdbId===2135)).toBe(false)
+    r.topCandidates[1].yearMismatch=false
+    const unsafe=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+    expect(unsafe.entries.some(x=>x.tmdbId===2134)).toBe(false)
+    r.topCandidates[1].yearMismatch=true
+    audit.candidates[0].videoTitle='The Time Machine'
+    expect(buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+      .entries.some(x=>x.tmdbId===2134)).toBe(false)
+  })
+
   it('keeps remake and TV ambiguities in review even with a strong primary',()=>{
     for(const unsafe of [
       r=>{r.topCandidates[2].score=32},
