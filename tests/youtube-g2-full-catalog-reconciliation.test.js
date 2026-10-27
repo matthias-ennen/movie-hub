@@ -158,6 +158,8 @@ describe('YouTube: all playlist IDs reconciled with complete MovieHub catalog',(
     const source=intake.items[2]
     source.sourceTitle="Heiter bis wolkig (ROMANTISCHE KOMÖDIE mit ELYAS M'BAREK, Liebeskomödie ganzer Film Deutsch, ROMCOM)"
     source.suggestedFilmRef.tmdbId=117467
+    inventory.candidates.push({key:'movie:117467',sources:['personal-tmdb','profile-state']})
+    inventory.counts.canonicalCandidates=4
     source.identityResearchStatus='review-leading-movie-with-TV-alternatives'
     source.durationMinutes=99.4
     const row=research.rows[2]
@@ -180,14 +182,16 @@ describe('YouTube: all playlist IDs reconciled with complete MovieHub catalog',(
     const out=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
     expect(out.entries[2]).toMatchObject({
       suggestedFilmKey:'movie:117467',
-      decision:'new-tmdb-metadata-review',strongMetadataCandidate:true,
+      decision:'exists-in-complete-catalog-review',strongMetadataCandidate:true,
+      completeCatalogMembership:'canonical-existing',
+      canonicalSources:['personal-tmdb','profile-state'],
       filmIdentityApproved:false,verifiedOffer:false,newMovieImported:false,
     })
-    expect(out.metadataReviewCandidateCount).toBe(1)
+    expect(out.metadataReviewCandidateCount).toBe(0)
     row.castEvidence.creditedMovieIds=[117467,1071608]
     const rejected=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
     expect(rejected.entries[2]).toMatchObject({
-      decision:'work-identity-review',strongMetadataCandidate:false,
+      decision:'exists-in-complete-catalog-review',strongMetadataCandidate:false,
     })
   })
   it('never promotes close second films, extra candidates or TV alternates',()=>{
