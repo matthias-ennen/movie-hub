@@ -36,12 +36,47 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
     }
   })
   it('does not strip genuine title words or rewrite ordinary titles', () => {
-    for (const raw of ['The Amateur', 'Terrified', 'Heat in HD', 'Heat (1995)']) {
+    for (const raw of ['The Amateur', 'Terrified', 'Heat in HD']) {
       const p=planCuratedTmdbQueries(raw)
       expect(p.curatedQueryReason).toBeNull()
       expect(p.queries.length).toBeLessThanOrEqual(2)
     }
   })
+  it.each([
+    ['Friday the 13th (1980)','Friday the 13th',1980],
+    ['The Thing (1982)','The Thing',1982],
+    ['Heat (1995)','Heat',1995],
+  ])('searches film %s without its terminal year, keeping the year for mismatch checks',
+    (raw,title,year)=>{
+      const out=planCuratedTmdbQueries(raw)
+      expect(out).toMatchObject({
+        rawTitle:raw,matchingTitle:title+' ('+year+')',
+        queries:[title],reportedYear:year,
+        curatedQueryReason:'terminal-parenthesized-movie-year',
+      })
+      expect(out.verifiedTmdbId).toBeUndefined()
+      expect(out.playbackRoute).toBeUndefined()
+    })
+
+  it('never strips unknown years, movie excerpts or single-word ambiguity',()=>{
+    for(const raw of [
+      'IT (2017)','Basic (2003)',
+      'Friday the 13th Trailer (1980)',
+      'Friday the 13th (1980) Trailer',
+      'Friday the 13th (1880)',
+      'Friday the 13th (1980) Uncut',
+      'Friday the 13th Part 2',
+    ]){
+      expect(planCuratedTmdbQueries(raw).curatedQueryReason)
+        .not.toBe('terminal-parenthesized-movie-year')
+    }
+    // Existing special-case aliases must keep their original stronger plan.
+    expect(planCuratedTmdbQueries('Nürnberg (2026)').curatedQueryReason)
+      .toBe('official-original-title-alias-release-year-review')
+    expect(planCuratedTmdbQueries('Die Jagd (2012)').curatedQueryReason)
+      .toBe('the-hunt-2012-original-title')
+  })
+
   it.each([
     ['Wishmaster 2: Evil Never Dies FANTASY, HORROR Full Movie in English',
       'Wishmaster 2: Evil Never Dies', 'english-genre-and-full-movie-tail'],
