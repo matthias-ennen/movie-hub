@@ -3,6 +3,7 @@ import {createElement} from 'react'
 import {renderToStaticMarkup} from 'react-dom/server'
 import {
   buildCuratedEditorialTitleIndex,selectCuratedEditorialTitleHint,
+  hasDominantFilmHypothesis,hasExclusiveSourceActorFilmHypothesis,
 } from '../src/providers/youtubeCuratedEditorialIndex.js'
 import {withVerifiedYoutubeTitleOffer} from '../src/providers/youtubeVerifiedTitlePresentation.js'
 import {resolveProviderPresentation} from '../src/providers/providerPresentation.js'
@@ -239,6 +240,105 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
       unsafe(row,audit.candidates[0])
       const index=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
       expect(index.entries.some(e=>e.key==='movie:10586')).toBe(false)
+    }
+  })
+
+  it.each([
+    ['The Watcher Thriller mit Keanu Reeves Ganzer Film',10685,'Keanu Reeves',
+      50,4.1,[[421049,18,4,3.9],[437375,15,4,10.1]]],
+    ["Heiter bis wolkig (ROMANTISCHE KOMÖDIE mit ELYAS M'BAREK, Liebeskomödie ganzer Film Deutsch, ROMCOM)",
+      117467,"ELYAS M'BAREK",52,0.6,[[1071608,3,4,89.4],[1090200,-4,2,null]]],
+  ])('supports only source-credited actor-exclusive %s in MOVIE-playlist matching',
+    (source,tmdbId,explicitActor,score,runtimeDelta,runners)=>{
+      const {audit,research}=make()
+      const row=research.rows[0]
+      audit.candidates[0].videoTitle=source
+      row.matchStatus='review-leading-movie-with-TV-alternatives'
+      row.alternativeTvIds=[210232]
+      row.castEvidence={
+        explicitActor, actorCreditEvidence:'matched-a-tmdb-credit-list',
+        creditedMovieIds:[tmdbId],affectsRanking:true,
+      }
+      row.topCandidates=[
+        {tmdbId,titleLevel:4,score,runtimeDelta,yearMismatch:false,
+          sequelConflict:false,quotedActorCreditMatches:true},
+        ...runners.map(([id,otherScore,titleLevel,otherDelta])=>({
+          tmdbId:id,score:otherScore,titleLevel,
+          runtimeDelta:otherDelta,yearMismatch:false,
+          sequelConflict:false,quotedActorCreditMatches:false,
+        })),
+      ]
+      // The historical gate properly refuses same-title movies with close
+      // runtime even when the publisher credited an actor.
+      expect(hasDominantFilmHypothesis(row.topCandidates)).toBe(false)
+      expect(hasExclusiveSourceActorFilmHypothesis(
+        row.topCandidates,row.castEvidence)).toBe(true)
+      const index=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+      expect(index.entries.find(e=>e.key==='movie:'+tmdbId))
+        .toMatchObject({videoId:VID,playlistMode:'free',
+          watchUrl:'https://www.youtube.com/watch?v='+VID})
+      expect(selectCuratedEditorialTitleHint(index,item(tmdbId),{
+        now:Date.parse(AT)})).toMatchObject({
+          videoId:VID,playlistMode:'free',
+          verificationStatus:'not-independently-verified',
+        })
+      expect(index.verifiedDEOffers).toBe(0)
+    })
+
+  it('never treats unique actor labels as a way around any identity/safety proof',()=>{
+    const before=[
+      {tmdbId:10685,score:50,titleLevel:4,runtimeDelta:4.1,
+        yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:true},
+      {tmdbId:421049,score:18,titleLevel:4,runtimeDelta:3.9,
+        yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:false},
+      {tmdbId:437375,score:15,titleLevel:4,runtimeDelta:10.1,
+        yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:false},
+    ]
+    const cast={
+      explicitActor:'Keanu Reeves',actorCreditEvidence:'matched-a-tmdb-credit-list',
+      creditedMovieIds:[10685],affectsRanking:true,
+    }
+    const changes=[
+      (r,c)=>{c.actorCreditEvidence='not-corroborated-in-candidates'},
+      (r,c)=>{c.creditedMovieIds=[]},
+      (r,c)=>{c.creditedMovieIds=[10685,421049]},
+      (r,c)=>{c.creditedMovieIds=[421049]},
+      (r,c)=>{c.explicitActor='Keanu'},
+      (r,c)=>{delete c.explicitActor},
+      (r,c)=>{r[0].quotedActorCreditMatches=null},
+      (r,c)=>{r[1].quotedActorCreditMatches=null},
+      (r,c)=>{r[1].quotedActorCreditMatches=true},
+      (r,c)=>{r[1].score=26},
+      (r,c)=>{r[0].score=49},
+      (r,c)=>{r[0].runtimeDelta=5.1},
+      (r,c)=>{r[0].titleLevel=3},
+      (r,c)=>{r[0].yearMismatch=true},
+      (r,c)=>{r[0].sequelConflict=true},
+      (r,c)=>{r[2].tmdbId=10685},
+      (r,c)=>{r.push({...r[2],tmdbId:9991})},
+    ]
+    for(const mutate of changes){
+      const scores=structuredClone(before), evidence=structuredClone(cast)
+      mutate(scores,evidence)
+      expect(hasExclusiveSourceActorFilmHypothesis(scores,evidence)).toBe(false)
+    }
+    for(const mutate of [
+      r=>{r.identityRisk='explicit-unverified-cut-or-source'},
+      r=>{r.publicIndexMembership='public-not-present'},
+      r=>{r.hasPlaylistOfferConflict=true},
+      r=>{r.errors=['TMDB-timeout']},
+      r=>{r.matchStatus='review-multiple-film-works'},
+      r=>{r.alternativeTvIds=[]},
+    ]){
+      const {audit,research}=make()
+      const r=research.rows[0]
+      r.topCandidates=structuredClone(before)
+      r.castEvidence=structuredClone(cast)
+      r.matchStatus='review-leading-movie-with-TV-alternatives'
+      r.alternativeTvIds=[210232]
+      mutate(r)
+      const index=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+      expect(index.entries.some(e=>e.tmdbId===10685)).toBe(false)
     }
   })
 
