@@ -153,6 +153,43 @@ describe('YouTube: all playlist IDs reconciled with complete MovieHub catalog',(
       expect(result.catalogWrites).toBe(0)
     })
 
+  it('reconciles one actor-confirmed Heiter film without misclassifying the 1978 TV namesake',()=>{
+    const {intake,research,inventory}=sourceData()
+    const source=intake.items[2]
+    source.sourceTitle="Heiter bis wolkig (ROMANTISCHE KOMÖDIE mit ELYAS M'BAREK, Liebeskomödie ganzer Film Deutsch, ROMCOM)"
+    source.suggestedFilmRef.tmdbId=117467
+    source.identityResearchStatus='review-leading-movie-with-TV-alternatives'
+    source.durationMinutes=99.4
+    const row=research.rows[2]
+    row.matchStatus='review-leading-movie-with-TV-alternatives'
+    row.topCandidates=[
+      {tmdbId:117467,score:52,titleLevel:4,runtimeDelta:0.6,
+        yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:true},
+      {tmdbId:1071608,score:3,titleLevel:4,runtimeDelta:89.4,
+        yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:false},
+      {tmdbId:1090200,score:-4,titleLevel:2,runtimeDelta:null,
+        yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:false},
+    ]
+    row.castEvidence={explicitActor:"ELYAS M'BAREK",
+      actorCreditEvidence:'matched-a-tmdb-credit-list',
+      creditedMovieIds:[117467],affectsRanking:true}
+    row.alternativeTvIds=[81870]
+    row.tvSearchEvidence={candidates:[{tmdbTvId:81870,
+      name:'Heiter bis wolkig',firstAirYear:1978,yearGap:34,
+      disposition:'retained-for-film-tv-review'}]}
+    const out=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
+    expect(out.entries[2]).toMatchObject({
+      suggestedFilmKey:'movie:117467',
+      decision:'new-tmdb-metadata-review',strongMetadataCandidate:true,
+      filmIdentityApproved:false,verifiedOffer:false,newMovieImported:false,
+    })
+    expect(out.metadataReviewCandidateCount).toBe(1)
+    row.castEvidence.creditedMovieIds=[117467,1071608]
+    const rejected=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
+    expect(rejected.entries[2]).toMatchObject({
+      decision:'work-identity-review',strongMetadataCandidate:false,
+    })
+  })
   it('never promotes close second films, extra candidates or TV alternates',()=>{
     for(const mutation of [
       r=>{r.topCandidates[1].titleLevel=4},
