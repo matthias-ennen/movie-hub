@@ -37,6 +37,15 @@ const promotedSurvivalThriller = /^grandioser\s+survival[-\s]thriller\s+mit\s+st
 // decide whether a watch link can be published.
 const observedOriginalTitleBatch = [
   {
+    // The 1981 Bond movie is credited under its official original title
+    // "For Your Eyes Only", not the publisher's short German franchise name.
+    // Title-query repair only; video identity and offers still need all gates.
+    source:'James Bond: In tödlicher Mission',
+    matchingTitle:'For Your Eyes Only',
+    queries:['For Your Eyes Only','In tödlicher Mission'],
+    reason:'bond-for-your-eyes-only-original-title',
+  },
+  {
     source:'Bud Spencer - Aladin (1986) - Deutsch - HD 1080p',
     matchingTitle:'Superfantagenio (1986)',
     queries:['Superfantagenio','Aladin'],
