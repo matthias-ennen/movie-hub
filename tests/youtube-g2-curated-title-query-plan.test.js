@@ -347,11 +347,11 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
 
   it('keeps already clean full titles, short ambiguous titles and lookalikes untouched', () => {
     for (const raw of [
-      'Wishmaster 2: Evil Never Dies',
+      'Wishmaster 2: Evil Never Dies', 'Stalingrad (1993)',
       'So Weit Die Füße Tragen', 'The Watcher',
       'Nürnberg', 'IT', 'Full Movie in English',
       'The Watcher of the Woods', 'Stalingrad [1993] Preview',
-      'Basic Instinct', 'Basic',
+      'Basic Instinct', 'Basic', 'Transsiberian (2008)',
       'Survival-Thriller mit STARBESETZUNG: Transsiberian',
       'The Crow - Die Krähe Ganzer Film Deutsch 18+',
     ]) {
@@ -365,8 +365,6 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
   it('splits the literal year from multiword movie searches but preserves the original source identity',()=>{
     for(const [source,query,year] of [
       ['The Time Machine (1960)','The Time Machine',1960],
-      ['Stalingrad (1993)','Stalingrad',1993],
-      ['Transsiberian (2008)','Transsiberian',2008],
       ['Friday the 13th (1980)','Friday the 13th',1980],
     ]){
       const result=planCuratedTmdbQueries(source)
