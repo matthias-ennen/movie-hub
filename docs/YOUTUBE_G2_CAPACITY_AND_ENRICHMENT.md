@@ -139,38 +139,38 @@ Der erste geplante private Nightly-Discovery-Lauf
 endete **FAILED CLOSED**, nachdem das Pacific-Quota-Preflight
 nicht vollständige bzw. nicht frische Monitoring-Telemetrie meldete.
 Der Fehlerreport las privat **61** Filmkandidaten; er enthält
-\`searchCalls:null\` statt einer erfundenen Zahl. Hosted Firebase
+`searchCalls:null` statt einer erfundenen Zahl. Hosted Firebase
 lieferte unverändert **25 Best-Effort-Links**, **0** verifizierte
 DE-Angebotsrouten.
 
 Ein anschließend manuell durchgeführter rein lesender Quoten-Lauf
 [GitHub #40466003615](https://github.com/matthias-ennen/movie-hub/actions/runs/40466003615)
 zeigte HTTP 200 bei Service Usage (Quotenkonfiguration vorhanden)
-und Monitoring; bei \`quota/ratev2/net_usage\` lieferte selbst die
-Query ohne \`quota_metric\`-Filter **keine** Zeitreihen. Die legacy
-\`quota/exceeded\`-Zeitreihe war ebenfalls nicht belastbar. Google
+und Monitoring; bei `quota/ratev2/net_usage` lieferte selbst die
+Query ohne `quota_metric`-Filter **keine** Zeitreihen. Die legacy
+`quota/exceeded`-Zeitreihe war ebenfalls nicht belastbar. Google
 Cloud Monitoring kann bei gültigem HTTP-200-Status trotzdem keine
 Daten liefern; fehlende Messpunkte, verspätete Daten, falsche Filter
 oder vom jeweiligen Dienst nicht exportierte Metriken sind
 verschiedene Diagnosen.
 
 Die isolierte zusätzliche **read-only** Prüfung im manuellen
-\`youtube-g2-pacific-search-preflight.yml\` ruft ausschließlich
-\`timeSeries.list\` auf, für
-\`quota/rate/net_usage\` und \`quota/exceeded\` jeweils sowohl
-mit dem eng gefilterten \`youtube.googleapis.com/search_list\`
+`youtube-g2-pacific-search-preflight.yml` ruft ausschließlich
+`timeSeries.list` auf, für
+`quota/rate/net_usage` und `quota/exceeded` jeweils sowohl
+mit dem eng gefilterten `youtube.googleapis.com/search_list`
 als auch nur mit der YouTube-Service-Einschränkung.
-\`youtube-g2-legacy-quota-scope-diagnostic.mjs\` speichert ausschließlich
+`youtube-g2-legacy-quota-scope-diagnostic.mjs` speichert ausschließlich
 HTTP-Status, Antwortform, Anzahl Zeitreihen / Messpunkte und
 Übereinstimmungen zur Suchquota, ohne Google-Labels, URLs,
 Video-/Film-IDs oder rohe Fehler. Die neu hinzukommenden Queries sind
 nur diagnostisch und produzieren keine YouTube-API-Aufrufe.
 
-**Wichtig:** Eine ausgelassene oder leere \`timeSeries\` ist weder
+**Wichtig:** Eine ausgelassene oder leere `timeSeries` ist weder
 Messwert 0 noch der Nachweis, dass niemals eine Quotenüberschreitung
 passiert ist. Konfiguration, Monitoring-Zeitreihen und garantierte
 heutige Restquote müssen getrennt bleiben.
-\`authorizedSearchCalls=0\`, alle bisherigen Nachtlauf-Preflight-
+`authorizedSearchCalls=0`, alle bisherigen Nachtlauf-Preflight-
 Sperren, Reservierungen und Quotenobergrenzen bleiben unverändert.
 Die echte erneute Cloud-Diagnose ist erst durch einen manuellen
 GitHub-Actions-Lauf nach Merge belegbar; CI beweist nur Quellcode-
