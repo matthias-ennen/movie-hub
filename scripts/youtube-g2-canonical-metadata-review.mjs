@@ -1,6 +1,7 @@
 import { hasDominantFilmHypothesis } from '../src/providers/youtubeCuratedEditorialIndex.js'
 import { hasExclusiveActorCanonicalFilmEvidence } from './youtube-g2-exclusive-actor-canonical-film.mjs'
 import {hasExclusiveBilledPairFilmHypothesis} from './youtube-g2-exclusive-pair-evidence.mjs'
+import {hasExclusiveReportedYearFilmHypothesis} from './youtube-g2-exclusive-source-year-film.mjs'
 /**
  * A bounded stage after the full account-wide intake: fetch canonical TMDB
  * metadata for strong NEW film hypotheses. Film identity is NOT approved by a
@@ -70,7 +71,8 @@ export function planYoutubeNewFilmMetadataReview(full,intake,research,{
         &&row.alternativeTvIds?.length===0
         &&(row.topCandidates?.length===1||hasDominantFilmHypothesis(row.topCandidates)))
         ||hasExclusiveActorCanonicalFilmEvidence(source,row)
-        ||hasExclusiveBilledPairFilmHypothesis(source.sourceTitle,row))
+        ||hasExclusiveBilledPairFilmHypothesis(source.sourceTitle,row)
+        ||hasExclusiveReportedYearFilmHypothesis(source.sourceTitle,row))
       ||Number(top?.tmdbId)!==Number(match[1])
       ||Number(top.score)<38||top.titleLevel!==4
       ||!Number.isFinite(top.runtimeDelta)||top.runtimeDelta<0||top.runtimeDelta>10
