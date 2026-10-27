@@ -335,7 +335,7 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
 
   it('does not strip movie titles and arbitrary cast/genre words without an observed wrapper',()=>{
     for (const title of [
-      'The Calling', 'The Time Machine (1960)', 'Dawn of the Dead',
+      'The Calling', 'Dawn of the Dead',
       'So ein geiler Film mit Keanu Reeves', 'The Calling (Ganzer Film)',
       'JFK - Tatort Dallas', 'Sleepy Hollow 2',
       'From Dusk Till Dawn', 'Stephen Kings Stark',
@@ -347,11 +347,11 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
 
   it('keeps already clean full titles, short ambiguous titles and lookalikes untouched', () => {
     for (const raw of [
-      'Wishmaster 2: Evil Never Dies', 'Stalingrad (1993)',
+      'Wishmaster 2: Evil Never Dies',
       'So Weit Die Füße Tragen', 'The Watcher',
       'Nürnberg', 'IT', 'Full Movie in English',
       'The Watcher of the Woods', 'Stalingrad [1993] Preview',
-      'Basic Instinct', 'Basic', 'Transsiberian (2008)',
+      'Basic Instinct', 'Basic',
       'Survival-Thriller mit STARBESETZUNG: Transsiberian',
       'The Crow - Die Krähe Ganzer Film Deutsch 18+',
     ]) {
@@ -360,6 +360,23 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
       expect(plan.curatedQueryReason).toBeNull()
     }
     expect(planCuratedTmdbQueries('IT').queries).toEqual([])
+  })
+
+  it('splits the literal year from multiword movie searches but preserves the original source identity',()=>{
+    for(const [source,query,year] of [
+      ['The Time Machine (1960)','The Time Machine',1960],
+      ['Stalingrad (1993)','Stalingrad',1993],
+      ['Transsiberian (2008)','Transsiberian',2008],
+      ['Friday the 13th (1980)','Friday the 13th',1980],
+    ]){
+      const result=planCuratedTmdbQueries(source)
+      expect(result).toMatchObject({
+        rawTitle:source,matchingTitle:source,queries:[query],
+        reportedYear:year,curatedQueryReason:'terminal-year-multiword-film-title',
+      })
+      expect(result.playbackRoute).toBeUndefined()
+      expect(result.verifiedTmdbId).toBeUndefined()
+    }
   })
 
   it('rejects ambiguous collection-like strings without a complete year', () => {
