@@ -35,6 +35,27 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
       expect(other.curatedQueryReason).not.toBe('first-blood-franchise-work-disambiguation')
     }
   })
+  it('searches the observed Bond film by official original title, not its nonmatching publisher prefix',()=>{
+    const raw='James Bond: In tödlicher Mission'
+    const plan=planCuratedTmdbQueries(raw)
+    expect(plan).toMatchObject({
+      rawTitle:raw,matchingTitle:'For Your Eyes Only',
+      queries:['For Your Eyes Only','In tödlicher Mission'],
+      curatedQueryReason:'bond-for-your-eyes-only-original-title',
+    })
+    expect(plan.verifiedTmdbId).toBeUndefined()
+    expect(plan.playbackRoute).toBeUndefined()
+    for(const other of [
+      'James Bond: In tödlicher Mission Trailer',
+      'James Bond: Lizenz zum Töten',
+      'James Bond: Der Hauch des Todes',
+      'For Your Eyes Only',
+      'In tödlicher Mission (1981)',
+    ]){
+      expect(planCuratedTmdbQueries(other).curatedQueryReason)
+        .not.toBe('bond-for-your-eyes-only-original-title')
+    }
+  })
   it('does not strip genuine title words or rewrite ordinary titles', () => {
     for (const raw of ['The Amateur', 'Terrified', 'Heat in HD']) {
       const p=planCuratedTmdbQueries(raw)
