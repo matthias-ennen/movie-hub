@@ -348,32 +348,32 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
     }
   })
 
-  it('links the existing Der Außenseiter film only with both exclusive TMDB actor credits',()=>{
+  it('preserves the actual Marvins Töchter film when two billed actors beat synthetic rivals',()=>{
     const {audit,research}=make()
     const row=research.rows[0]
-    audit.candidates[0].videoTitle='Der Außenseiter 4K Brendan Fraser & Matt Damon Ganzer Film auf Deutsch'
+    audit.candidates[0].videoTitle='Marvins Töchter 4K Leonardo DiCaprio & Meryl Streep Kostenloser Film in voller Länge'
     row.castEvidence={
-      explicitActor:null,explicitActors:['Brendan Fraser','Matt Damon'],
+      explicitActor:null,explicitActors:['Leonardo DiCaprio','Meryl Streep'],
       actorCreditEvidence:'matched-exclusive-two-actor-credit-list',
-      creditedMovieIds:[12504],partiallyCreditedMovieIds:[],affectsRanking:true,
+      creditedMovieIds:[9819],partiallyCreditedMovieIds:[],affectsRanking:true,
     }
     row.topCandidates=[
-      {tmdbId:12504,titleLevel:4,score:52,runtimeDelta:1,
+      {tmdbId:9819,titleLevel:4,score:52,runtimeDelta:1,
         yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:true},
-      {tmdbId:14684,titleLevel:4,score:18,runtimeDelta:7,
+      {tmdbId:9000002,titleLevel:4,score:18,runtimeDelta:7,
         yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:false},
-      {tmdbId:286962,titleLevel:4,score:12,runtimeDelta:21,
+      {tmdbId:9000003,titleLevel:4,score:12,runtimeDelta:21,
         yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:false},
     ]
     const result=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
-    expect(result.entries.find(x=>x.tmdbId===12504)).toMatchObject({
-      key:'movie:12504',videoId:VID,
+    expect(result.entries.find(x=>x.tmdbId===9819)).toMatchObject({
+      key:'movie:9819',videoId:VID,
       watchUrl:'https://www.youtube.com/watch?v='+VID,
       playlistMode:'free',verificationStatus:'not-independently-verified',
     })
-    row.castEvidence.partiallyCreditedMovieIds=[14684]
+    row.castEvidence.partiallyCreditedMovieIds=[9000002]
     expect(buildCuratedEditorialTitleIndex(audit,research,{now:AT})
-      .entries.some(x=>x.tmdbId===12504)).toBe(false)
+      .entries.some(x=>x.tmdbId===9819)).toBe(false)
   })
 
   it('keeps remake and TV ambiguities in review even with a strong primary',()=>{
