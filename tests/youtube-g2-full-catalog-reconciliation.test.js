@@ -194,6 +194,38 @@ describe('YouTube: all playlist IDs reconciled with complete MovieHub catalog',(
       decision:'exists-in-complete-catalog-review',strongMetadataCandidate:false,
     })
   })
+  it('keeps the two-actor Außenseiter match on its existing canonical TMDB identity',()=>{
+    const {intake,research,inventory}=sourceData()
+    const source=intake.items[2],row=research.rows[2]
+    source.sourceTitle='Der Außenseiter 4K Brendan Fraser & Matt Damon Ganzer Film auf Deutsch'
+    source.suggestedFilmRef.tmdbId=12504
+    source.durationMinutes=95
+    row.topCandidates=[
+      {tmdbId:12504,score:52,titleLevel:4,runtimeDelta:1,
+        yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:true},
+      {tmdbId:14684,score:18,titleLevel:4,runtimeDelta:7,
+        yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:false},
+      {tmdbId:286962,score:12,titleLevel:4,runtimeDelta:21,
+        yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:false},
+    ]
+    row.castEvidence={explicitActor:null,
+      explicitActors:['Brendan Fraser','Matt Damon'],
+      actorCreditEvidence:'matched-exclusive-two-actor-credit-list',
+      creditedMovieIds:[12504],partiallyCreditedMovieIds:[],affectsRanking:true}
+    inventory.candidates.push({key:'movie:12504',sources:['search','personal-tmdb']})
+    inventory.counts.canonicalCandidates=4
+    const strong=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
+    expect(strong.entries[2]).toMatchObject({
+      decision:'exists-in-complete-catalog-review',
+      suggestedFilmKey:'movie:12504',strongMetadataCandidate:true,
+      filmIdentityApproved:false,newMovieImported:false,verifiedOffer:false,
+    })
+    row.castEvidence.creditedMovieIds=[]
+    const unsafe=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
+    expect(unsafe.entries[2].strongMetadataCandidate).toBe(false)
+    expect(unsafe.newMoviesImported).toBe(0)
+  })
+
   it('never promotes close second films, extra candidates or TV alternates',()=>{
     for(const mutation of [
       r=>{r.topCandidates[1].titleLevel=4},
