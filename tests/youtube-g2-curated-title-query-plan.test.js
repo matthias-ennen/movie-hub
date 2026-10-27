@@ -176,6 +176,50 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
     }
   })
 
+  it('recovers Faculty and The Cavern from two real FREE playlist promo headings',()=>{
+    const cases=[
+      [
+        'Faculty - Trau keinem Lehrer! 4K Amerikanischer Science Fiction Film',
+        'Faculty - Trau keinem Lehrer!',
+        ['Faculty - Trau keinem Lehrer!', 'The Faculty'],
+        'faculty-4k-science-fiction-promo',
+      ],
+      [
+        'Abstieg ins Grauen - The Cavern (2006) Ganzer Film auf Deutsch',
+        'The Cavern',
+        ['The Cavern', 'Abstieg ins Grauen'],
+        'cavern-german-original-dual-title-promo',
+      ],
+    ]
+    for(const [raw,matchingTitle,queries,curatedQueryReason] of cases){
+      const result=planCuratedTmdbQueries(raw)
+      expect(result).toMatchObject({
+        rawTitle:raw,matchingTitle,queries,curatedQueryReason,
+      })
+      expect(result.verifiedTmdbId).toBeUndefined()
+      expect(result.playbackRoute).toBeUndefined()
+      expect(result.queries).toHaveLength(2)
+    }
+  })
+  it('does not rewrite nearby film or trailer headlines as these two known sources',()=>{
+    for(const raw of [
+      'Faculty - Trau keinem Lehrer!',
+      'Faculty - Trau keinem Lehrer! Trailer',
+      'The Faculty (1998)',
+      'Faculty - Trau keinem Lehrer! 4K Science Fiction Film',
+      'Abstieg ins Grauen - The Cavern (2006) Trailer auf Deutsch',
+      'Abstieg ins Grauen - The Cavern',
+      'The Cavern (2006)',
+      'Abstieg ins Grauen - The Cavern (2007) Ganzer Film auf Deutsch',
+    ]){
+      const output=planCuratedTmdbQueries(raw)
+      expect([
+        'faculty-4k-science-fiction-promo',
+        'cavern-german-original-dual-title-promo',
+      ]).not.toContain(output.curatedQueryReason)
+    }
+  })
+
   it('does not strip movie titles and arbitrary cast/genre words without an observed wrapper',()=>{
     for (const title of [
       'The Calling', 'The Time Machine (1960)', 'Dawn of the Dead',
