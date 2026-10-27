@@ -30,6 +30,24 @@ final class ProviderLaunchPolicy {
      * HTTPS watch URL with Android's normal resolver before title search.
      * Generic provider searches and other provider links remain unchanged.
      */
+    /**
+     * Both the current PlaybackRoute bridge and the legacy exact bridge must
+     * hand the SAME canonical watch address to Android's app resolver.
+     * Fire TV packages do not reliably understand mobile or youtu.be shares.
+     * Never convert title searches, live program links or another provider.
+     * The caller still applies ProviderUrlPolicy's HTTPS host allow-list.
+     */
+    static String canonicalTitleYoutubeTarget(
+            String providerId, String mode, String scope, String rawUrl) {
+        if (!"youtube".equals(providerId)
+                || !"APP_DEEP_LINK".equals(mode)
+                || !"title".equals(scope)) {
+            return rawUrl;
+        }
+        String canonical = YouTubeUrlResolver.canonicalWatchUrl(rawUrl);
+        return canonical == null ? rawUrl : canonical;
+    }
+
     static boolean shouldTryExactYoutubeWebFallback(String providerId, String exactUrl) {
         return "youtube".equals(providerId)
                 && YouTubeUrlResolver.canonicalWatchUrl(exactUrl) != null;

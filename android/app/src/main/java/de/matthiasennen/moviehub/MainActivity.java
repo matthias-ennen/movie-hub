@@ -744,7 +744,9 @@ public final class MainActivity extends ComponentActivity {
             final Uri targetUri;
             final Uri fallbackUri;
             try {
-                targetUri = Uri.parse(rawTargetUrl);
+                String exactYouTubeTarget = ProviderLaunchPolicy.canonicalTitleYoutubeTarget(
+                        providerId, mode, scope, rawTargetUrl);
+                targetUri = Uri.parse(exactYouTubeTarget);
                 fallbackUri = Uri.parse(rawFallbackUrl);
             } catch (Exception ignored) {
                 return;
@@ -768,12 +770,8 @@ public final class MainActivity extends ComponentActivity {
             final Uri exactUri;
             final Uri fallbackUri;
             try {
-                String normalizedYouTubeUrl = "youtube".equals(providerId)
-                        ? YouTubeUrlResolver.canonicalWatchUrl(rawExactUrl)
-                        : null;
-                exactUri = Uri.parse(normalizedYouTubeUrl == null
-                        ? rawExactUrl
-                        : normalizedYouTubeUrl);
+                exactUri = Uri.parse(ProviderLaunchPolicy.canonicalTitleYoutubeTarget(
+                        providerId, "APP_DEEP_LINK", "title", rawExactUrl));
                 fallbackUri = Uri.parse(rawFallbackUrl);
             } catch (Exception ignored) {
                 return;

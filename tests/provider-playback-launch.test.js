@@ -98,6 +98,39 @@ describe('provider playback launch', () => {
     expect(nativeBridge.openProviderExact).not.toHaveBeenCalled()
   })
 
+  it('passes an exact YouTube playlist video to current native PlaybackRoute, never replacing it with search', () => {
+    const nativeBridge = { openProviderRoute: vi.fn() }
+    expect(launchProviderPlaybackRoute({
+      providerId: 'youtube',
+      title: 'The Watcher',
+      route: { mode: 'APP_DEEP_LINK', scope: 'title',
+        target: 'https://www.youtube.com/watch?v=1uf2AMrQMk0' },
+      fallbackUrl: 'https://www.youtube.com/results?search_query=The+Watcher',
+      nativeBridge,
+    })).toBe(true)
+    expect(nativeBridge.openProviderRoute).toHaveBeenCalledWith(
+      'youtube','The Watcher','APP_DEEP_LINK','title',
+      'https://www.youtube.com/watch?v=1uf2AMrQMk0',
+      'https://www.youtube.com/results?search_query=The+Watcher',
+    )
+  })
+
+  it('preserves exact YouTube video target for older APK bridge, with search as last fallback', () => {
+    const nativeBridge = {openProviderExact:vi.fn(),openExternalUrl:vi.fn()}
+    expect(launchProviderPlaybackRoute({
+      providerId:'youtube',title:'Die Jagd',
+      route:{mode:'APP_DEEP_LINK',scope:'title',
+        target:'https://youtu.be/1uf2AMrQMk0'},
+      fallbackUrl:'https://www.youtube.com/results?search_query=Die+Jagd',
+      nativeBridge,
+    })).toBe(true)
+    expect(nativeBridge.openProviderExact).toHaveBeenCalledWith(
+      'youtube','Die Jagd','https://youtu.be/1uf2AMrQMk0',
+      'https://www.youtube.com/results?search_query=Die+Jagd',
+    )
+    expect(nativeBridge.openExternalUrl).not.toHaveBeenCalled()
+  })
+
   it('returns false when no usable route exists', () => {
     expect(launchProviderPlaybackRoute({
       providerId: 'joyn',
