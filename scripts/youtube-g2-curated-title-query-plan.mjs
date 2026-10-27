@@ -14,6 +14,11 @@ const tidy = v => String(v ?? '').replace(/[<>\r\n|]/g, ' ').replace(/\s+/g, ' '
 // Exact observed publisher promo tails. Leave genuine film-title words intact.
 const englishFullMovie = /^(.{5,120}?)\s+(?:(?:(?:fantasy|horror|action|thriller|drama|mystery|sci-fi)\s*,\s*)+(?:fantasy|horror|action|thriller|drama|mystery|sci-fi)\s+)?full\s+movie\s+in\s+english\s*$/iu
 const germanYearAndCast = /^(.{4,100}?)\s*\[((?:19|20)\d{2})\]\s+ganzer\s+film\s+mit\s+.{8,}$/iu
+// General, strict terminal source year is a QUERY hint, not a playback or
+// film identity approval. Keep the year on matchingTitle for the v1.1
+// year-conflict check, but never send it as literal words to TMDB /search/movie.
+const trailingParenthesizedYear = /^(.{7,115}?)\s+\(((?:19|20)\d{2})\)\s*$/u
+const unsafeYearTitleWords = /\b(?:trailer|teaser|clip|ausschnitt|bootleg|uncut)\b/iu
 const imdbDescriptionTail = /^(.{4,110}?)\s+\([^()]*\bIMDb[- ]Bewertung\)\s*$/iu
 const actorAndFullFilmTail = /^(.{4,100}?)\s+(?:thriller|horror|drama|actionfilm|krimi)\s+mit\s+[A-ZÄÖÜ][\p{L}.'-]{1,35}\s+[A-ZÄÖÜ][\p{L}.'-]{1,35}\s+ganzer\s+film\s*$/iu
 // German theatrical release year (2026) is not necessarily production year (2025).
@@ -302,6 +307,23 @@ export function planCuratedTmdbQueries(sourceTitle) {
         ...legacy, matchingTitle: title + ' (' + year + ')',
         queries: [title],
         curatedQueryReason: 'explicit-german-movie-collection-label-with-year',
+      }
+    }
+  }
+  // Generic film catalogue headings like "Friday the 13th (1980)".
+  // Keep source year in the scoring title but search by the actual film name.
+  // Require >=2 film-name words: short "IT (2017)" remains manual review.
+  const yearTitle=raw.match(trailingParenthesizedYear)
+  if (yearTitle) {
+    const film=tidy(yearTitle[1])
+    const words=film.match(/[\p{L}\p{N}]+/gu)||[]
+    if(words.length>=2&&!unsafeYearTitleWords.test(film)){
+      return {
+        ...legacy,
+        matchingTitle:film+' ('+yearTitle[2]+')',
+        queries:[film],
+        curatedQueryReason:'terminal-parenthesized-movie-year',
+        reportedYear:Number(yearTitle[2]),
       }
     }
   }

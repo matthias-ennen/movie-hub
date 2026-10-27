@@ -36,12 +36,48 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
     }
   })
   it('does not strip genuine title words or rewrite ordinary titles', () => {
-    for (const raw of ['The Amateur', 'Terrified', 'Heat in HD', 'Heat (1995)']) {
+    for (const raw of ['The Amateur', 'Terrified', 'Heat in HD']) {
       const p=planCuratedTmdbQueries(raw)
       expect(p.curatedQueryReason).toBeNull()
       expect(p.queries.length).toBeLessThanOrEqual(2)
     }
   })
+  it.each([
+    ['Friday the 13th (1980)','Friday the 13th',1980],
+    ['The Thing (1982)','The Thing',1982],
+    ['The Time Machine (1960)','The Time Machine',1960],
+  ])('searches film %s without its terminal year, keeping the year for mismatch checks',
+    (raw,title,year)=>{
+      const out=planCuratedTmdbQueries(raw)
+      expect(out).toMatchObject({
+        rawTitle:raw,matchingTitle:title+' ('+year+')',
+        queries:[title],reportedYear:year,
+        curatedQueryReason:'terminal-parenthesized-movie-year',
+      })
+      expect(out.verifiedTmdbId).toBeUndefined()
+      expect(out.playbackRoute).toBeUndefined()
+    })
+
+  it('never strips unknown years, movie excerpts or single-word ambiguity',()=>{
+    for(const raw of [
+      'IT (2017)','Basic (2003)','Heat (1995)',
+      'Stalingrad (1993)','Transsiberian (2008)',
+      'Friday the 13th Trailer (1980)',
+      'Friday the 13th (1980) Trailer',
+      'Friday the 13th (1880)',
+      'Friday the 13th (1980) Uncut',
+      'Friday the 13th Part 2',
+    ]){
+      expect(planCuratedTmdbQueries(raw).curatedQueryReason)
+        .not.toBe('terminal-parenthesized-movie-year')
+    }
+    // Existing special-case aliases must keep their original stronger plan.
+    expect(planCuratedTmdbQueries('Nürnberg (2026)').curatedQueryReason)
+      .toBe('official-original-title-alias-release-year-review')
+    expect(planCuratedTmdbQueries('Die Jagd (2012)').curatedQueryReason)
+      .toBe('the-hunt-2012-original-title')
+  })
+
   it.each([
     ['Wishmaster 2: Evil Never Dies FANTASY, HORROR Full Movie in English',
       'Wishmaster 2: Evil Never Dies', 'english-genre-and-full-movie-tail'],
@@ -335,7 +371,7 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
 
   it('does not strip movie titles and arbitrary cast/genre words without an observed wrapper',()=>{
     for (const title of [
-      'The Calling', 'The Time Machine (1960)', 'Dawn of the Dead',
+      'The Calling', 'Dawn of the Dead',
       'So ein geiler Film mit Keanu Reeves', 'The Calling (Ganzer Film)',
       'JFK - Tatort Dallas', 'Sleepy Hollow 2',
       'From Dusk Till Dawn', 'Stephen Kings Stark',
@@ -347,11 +383,11 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
 
   it('keeps already clean full titles, short ambiguous titles and lookalikes untouched', () => {
     for (const raw of [
-      'Wishmaster 2: Evil Never Dies', 'Stalingrad (1993)',
+      'Wishmaster 2: Evil Never Dies',
       'So Weit Die Füße Tragen', 'The Watcher',
       'Nürnberg', 'IT', 'Full Movie in English',
       'The Watcher of the Woods', 'Stalingrad [1993] Preview',
-      'Basic Instinct', 'Basic', 'Transsiberian (2008)',
+      'Basic Instinct', 'Basic',
       'Survival-Thriller mit STARBESETZUNG: Transsiberian',
       'The Crow - Die Krähe Ganzer Film Deutsch 18+',
     ]) {
