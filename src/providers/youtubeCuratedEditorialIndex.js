@@ -74,7 +74,7 @@ export function hasExclusiveSourceActorFilmHypothesis(results, castEvidence) {
     ||winner.quotedActorCreditMatches!==true
     ||castEvidence?.actorCreditEvidence!=='matched-a-tmdb-credit-list'
     ||typeof castEvidence.explicitActor!=='string'
-    ||!/^\\S+\\s+\\S+/.test(castEvidence.explicitActor)
+    ||!/^\S+\s+\S+/.test(castEvidence.explicitActor)
     ||!Array.isArray(castEvidence.creditedMovieIds)
     ||castEvidence.creditedMovieIds.length!==1
     ||Number(castEvidence.creditedMovieIds[0])!==Number(winner.tmdbId))return false
