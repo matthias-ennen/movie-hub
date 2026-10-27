@@ -16,6 +16,18 @@ export function explicitNamedActor(sourceTitle) {
   const match = text.match(/\b(?:mit|with|starring)\s+([A-ZÄÖÜ][A-Za-zÄÖÜäöüß.'-]{1,28}\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß.'-]{1,32})(?=[\s,;.!?\-–—)]|$)/u)
   return match ? match[1].trim() : null
 }
+/**
+ * Publisher banner grammar observed in multiple playlist films:
+ * "4K Actor Name & Actor Name Ganzer/Kostenloser Film".
+ * Reject single names, free-form descriptions, and other punctuation.
+ */
+export function explicitBilledActorPair(sourceTitle) {
+  const text=String(sourceTitle??'')
+  const name="[A-ZÄÖÜ][A-Za-zÄÖÜäöüß.'-]{1,28} [A-ZÄÖÜ][A-Za-zÄÖÜäöüß.'-]{1,32}"
+  const expression=new RegExp("(?:^|\\s)4K\\s+("+name+")\\s+&\\s+("+name+")\\s+(?=(?:Ganzer|Kostenloser)\\s+Film\\b)","u")
+  const match=text.match(expression)
+  return match?[match[1],match[2]]:null
+}
 function hasActor(movie, actor) {
   if (!movie || !actor) return false
   const credited = movie?.credits?.cast
@@ -33,6 +45,44 @@ export function applyExplicitCastGuard(sourceTitle, scores = [], tmdbFilms = [])
   const byId = new Map((tmdbFilms || [])
     .filter(x => Number.isInteger(Number(x?.id)) && Number(x.id) > 0)
     .map(x => [Number(x.id), x]))
+  const pair = !actor ? explicitBilledActorPair(sourceTitle) : null
+  if (pair) {
+    // Strong dual-person evidence must not demote ANY challenger whose
+    // credits are unavailable or contain either named person.
+    const complete=scores.every(s=>
+      Array.isArray(byId.get(Number(s.tmdbId))?.credits?.cast))
+    const both=scores.filter(s=>pair.every(name=>
+      hasActor(byId.get(Number(s.tmdbId)),name)))
+    const partial=scores.filter(s=>pair.some(name=>
+      hasActor(byId.get(Number(s.tmdbId)),name))
+      &&!both.some(b=>b.tmdbId===s.tmdbId))
+    const exclusive=complete&&both.length===1&&partial.length===0
+    if (exclusive) {
+      const movieId=Number(both[0].tmdbId)
+      return {
+        scores:scores.map(s=>({
+          ...s,score:s.score+(Number(s.tmdbId)===movieId?12:-20),
+          quotedActorCreditMatches:Number(s.tmdbId)===movieId,
+        })),
+        evidence:{
+          explicitActor:null,explicitActors:[...pair],
+          actorCreditEvidence:'matched-exclusive-two-actor-credit-list',
+          creditedMovieIds:[movieId],partiallyCreditedMovieIds:[],
+          affectsRanking:true,
+        },
+      }
+    }
+    return {
+      scores:[...scores],
+      evidence:{
+        explicitActor:null,explicitActors:[...pair],
+        actorCreditEvidence:'two-actor-pair-not-exclusive',
+        creditedMovieIds:both.map(s=>Number(s.tmdbId)),
+        partiallyCreditedMovieIds:partial.map(s=>Number(s.tmdbId)),
+        affectsRanking:false,
+      },
+    }
+  }
   const matching = actor ? scores.filter(s =>
     hasActor(byId.get(Number(s.tmdbId)), actor)).map(s => Number(s.tmdbId)) : []
   if (!actor || matching.length === 0) {
