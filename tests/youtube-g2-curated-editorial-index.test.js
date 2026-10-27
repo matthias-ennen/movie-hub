@@ -463,6 +463,42 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
     expect(blocked.entries.some(x=>x.tmdbId===1368)).toBe(false)
   })
 
+  it('links John Carpenter\'s Sie leben despite unrelated TV search noise only with exclusive director credit',()=>{
+    const {audit,research}=make()
+    const title="John Carpenter's Sie leben – ganzer Film auf Deutsch kostenlos schauen in HD"
+    audit.candidates[0].videoTitle=title
+    const r=research.rows[0]
+    r.videoTitle=title
+    r.sourceVideoDetailAvailable=true
+    r.matchStatus='review-leading-movie-with-TV-alternatives'
+    r.alternativeTvIds=[76497]
+    r.tvSearchEvidence={alternativeTvIds:[76497],candidates:[{
+      tmdbTvId:76497,name:'True Women',originalName:'True Women',
+      firstAirYear:1997,yearGap:9,titleOverlap:false,
+      wholeFilmTitleMatch:false,disposition:'retained-for-film-tv-review',
+    }]}
+    r.directorEvidence={director:'John Carpenter',
+      evidence:'matched-exclusive-tmdb-director',creditedMovieIds:[8337],
+      affectsRanking:true}
+    r.topCandidates=[
+      {tmdbId:8337,score:52,titleLevel:4,runtimeDelta:2.5,
+        yearMismatch:false,sequelConflict:false,creditedDirectorMatches:true},
+      {tmdbId:44190,score:2,titleLevel:2,runtimeDelta:5.5,
+        yearMismatch:false,sequelConflict:false,creditedDirectorMatches:false},
+      {tmdbId:24167,score:-14,titleLevel:0,runtimeDelta:9.5,
+        yearMismatch:false,sequelConflict:false,creditedDirectorMatches:false},
+    ]
+    const result=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+    expect(result.entries.find(x=>x.key==='movie:8337')).toMatchObject({
+      videoId:VID,playlistMode:'free',
+      verificationStatus:'not-independently-verified',
+      watchUrl:'https://www.youtube.com/watch?v='+VID,
+    })
+    r.tvSearchEvidence.candidates[0].titleOverlap=true
+    expect(buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+      .entries.some(x=>x.tmdbId===8337)).toBe(false)
+  })
+
   it('keeps remake and TV ambiguities in review even with a strong primary',()=>{
     for(const unsafe of [
       r=>{r.topCandidates[2].score=32},

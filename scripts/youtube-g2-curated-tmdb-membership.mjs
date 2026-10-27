@@ -8,6 +8,7 @@
 import { planCuratedTmdbQueries } from './youtube-g2-curated-title-query-plan.mjs'
 import { scoreCandidateV11, classifyVideoV11 } from './youtube-g2-matcher-v1-1.mjs'
 import { applyExplicitCastGuard } from './youtube-g2-curated-cast-evidence.mjs'
+import { applyExplicitDirectorGuard } from './youtube-g2-exclusive-director-evidence.mjs'
 import { reviewTvSearchAlternatives } from './youtube-g2-tv-alternative-evidence.mjs'
 
 export const CURATED_TMDB_MODE = 'CURATED_PLAYLIST_TMDB_PUBLIC_MEMBERSHIP_READ_ONLY'
@@ -171,8 +172,14 @@ export async function runCuratedTmdbMembership({
       errors.push(safe(e?.message))
     }
     const cast = applyExplicitCastGuard(c.videoTitle, details, tmdbFilms)
+    // Director evidence is independent of actors, and never stacks two
+    // score bonuses for one source video.
+    const director = cast.evidence.affectsRanking===true
+      ? {scores:cast.scores,evidence:{director:null,evidence:'actor-evidence-priority',
+          creditedMovieIds:[],affectsRanking:false}}
+      : applyExplicitDirectorGuard(c.videoTitle,cast.scores,tmdbFilms)
     const originalTopId = [...details].sort((a,b) => b.score - a.score)[0]?.tmdbId || null
-    const firstFilmId=[...cast.scores].sort((a,b)=>b.score-a.score)[0]?.tmdbId
+    const firstFilmId=[...director.scores].sort((a,b)=>b.score-a.score)[0]?.tmdbId
     const topMovie=tmdbFilms.find(x=>Number(x.id)===firstFilmId)
     const tvEvidence=reviewTvSearchAlternatives({
       sourceTitle:prepared.matchingTitle,movie:topMovie,tvResults:tvHits,
@@ -180,13 +187,14 @@ export async function runCuratedTmdbMembership({
     const verdict = classifyVideoV11({
       title: prepared.matchingTitle, minutes: Number(c.minutes),
       category: 'unknown', region: c.deRegionSignal || 'unknown',
-    }, cast.scores, tvEvidence.alternativeTvIds, { incomplete: errors.length > 0,
+    }, director.scores, tvEvidence.alternativeTvIds, { incomplete: errors.length > 0,
       asOfYear: Number(observedAt.slice(0,4)) })
     const topCandidates = verdict.topCandidates.map(v => ({
       tmdbId: v.tmdbId, score: v.score,
       titleLevel: v.titleLevel, runtimeDelta: v.runtimeDelta,
       yearMismatch: v.yearMismatch, sequelConflict: v.sequelConflict,
       quotedActorCreditMatches: v.quotedActorCreditMatches ?? null,
+      creditedDirectorMatches: v.creditedDirectorMatches ?? null,
     }))
     const topId = positiveId(topCandidates[0]?.tmdbId)
     rows.push({
@@ -197,6 +205,7 @@ export async function runCuratedTmdbMembership({
       curatedQueryReason: prepared.curatedQueryReason,
       tmdbQueries: queryVariants,
       castEvidence: cast.evidence,
+      directorEvidence: director.evidence,
       castChangedTopId: cast.evidence.affectsRanking === true
         && Number(originalTopId) !== Number(verdict.topCandidates[0]?.tmdbId),
       topCandidates,

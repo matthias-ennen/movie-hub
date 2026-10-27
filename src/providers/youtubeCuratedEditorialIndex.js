@@ -9,6 +9,7 @@ import {hasExclusiveBilledPairFilmHypothesis} from '../../scripts/youtube-g2-exc
 
 import {hasExclusiveReportedYearFilmHypothesis} from '../../scripts/youtube-g2-exclusive-source-year-film.mjs'
 import {hasDistantTvNamesakeFeatureFilmEvidence} from '../../scripts/youtube-g2-distant-tv-feature-evidence.mjs'
+import {hasExclusiveDirectorFeatureFilmEvidence} from '../../scripts/youtube-g2-exclusive-director-evidence.mjs'
 
 export const CURATED_HINT_KIND='moviehub-youtube-curated-editorial-title-hints'
 export const CURATED_HINT_VERSION=1
@@ -164,6 +165,11 @@ export function buildCuratedEditorialTitleIndex(source,research,{
       ||r.identityRisk!==null||r.hasPlaylistOfferConflict!==false
       ||r.hasPlaylistOverlap!==(c.playlistModes.length>1)
       ||r.publicIndexMembership!=='public-present'
+      // A newly boosted director score cannot bypass the stricter check
+      // for near-era/unrelated TV candidates through ordinary film dominance.
+      ||(r.matchStatus===MOVIE_PLAYLIST_WITH_TV_SEARCH_HITS
+        &&r.directorEvidence?.affectsRanking===true
+        &&!hasExclusiveDirectorFeatureFilmEvidence(c.videoTitle,r))
       // This is a user-defined MOVIE playlist. A fuzzy /search/tv result
       // is not a competing FILM when one TMDB movie matches decisively.
       // For ordinary leading-film rows, unexpected TV hits still fail closed.
@@ -178,7 +184,8 @@ export function buildCuratedEditorialTitleIndex(source,research,{
         ||hasExclusiveSourceActorFilmHypothesis(r.topCandidates,r.castEvidence)
         ||hasExclusiveBilledPairFilmHypothesis(c.videoTitle,r)
         ||hasExclusiveReportedYearFilmHypothesis(c.videoTitle,r)
-        ||hasDistantTvNamesakeFeatureFilmEvidence(c.videoTitle,r)))continue
+        ||hasDistantTvNamesakeFeatureFilmEvidence(c.videoTitle,r)
+        ||hasExclusiveDirectorFeatureFilmEvidence(c.videoTitle,r)))continue
     const top=r.topCandidates[0]
     const movieKey=key('movie',top.tmdbId)
     if(!movieKey||!Number.isFinite(top.score)||top.score<28
