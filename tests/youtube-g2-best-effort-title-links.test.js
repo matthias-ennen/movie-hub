@@ -197,9 +197,14 @@ describe('Best-effort exact YouTube link without inventing verified offers',()=>
     expect(source).toContain("document.addEventListener('visibilitychange', onResume)")
     expect(source).toContain("window.addEventListener('focus', onResume)")
     expect(source).not.toContain('setInterval(')
-    expect(source).toContain("if (document.visibilityState !== 'hidden') refreshBestEffort()")
-    expect(source).toContain('setBestEffort(null)')
-    expect(source).toContain('requestId === latestRequest')
+    expect(source).toContain("if (document.visibilityState !== 'hidden') controller.refresh()")
+    expect(source).toContain('loadBestEffort: loadYoutubeBestEffortTitleLinks')
+    const controller=readFileSync(new URL('../src/providers/youtubeLinkRefreshController.js',
+      import.meta.url),'utf8')
+    expect(controller).toContain('for (const [, set] of loaders) set(null)')
+    expect(controller).toContain('active && generation === request')
+    expect(controller).toContain('generation++')
+    expect(source).toContain('controller.stop()')
     expect(source).toContain("document.removeEventListener('visibilitychange', onResume)")
     expect(source).toContain("window.removeEventListener('focus', onResume)")
 
