@@ -182,7 +182,7 @@ describe('new YouTube playlist movies use canonical TMDB metadata, no verified a
     const projection=buildYoutubeNewFilmCatalogProjection(x)
     expect(projection.summary).toMatchObject({
       editorialLinks:3,additionalExistingCanonicalLinks:1,
-      independentlyVerifiedDEOffers:0,catalogOrFirestoreDatabaseWrites:undefined,
+      independentlyVerifiedDEOffers:0,firestoreWrites:0,
     })
     expect(projection.filmFeed.count).toBe(1)
     expect(projection.filmFeed.entries.some(e=>e.tmdbId===tmdbId)).toBe(false)
