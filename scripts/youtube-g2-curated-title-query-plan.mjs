@@ -28,6 +28,21 @@ const promotedSurvivalThriller = /^grandioser\s+survival[-\s]thriller\s+mit\s+st
 // country, exact cut, source rights, offer, or Video ID.
 const observedAdWrappers = [
   {
+    // Exact 1960 playlist title: the original English film title is a
+    // more reliable TMDB query than the publisher's spaced German spelling.
+    // Preserve the explicit 1960 source year as a matcher conflict check.
+    reason:'time-machine-1960-original-title',
+    regex:/^die zeit maschine\s*[-–]\s*(1960)$/iu,
+    title:()=> 'The Time Machine',year:m=>m[1],
+  },
+  {
+    // Exact 2012 publisher heading: original Danish title and international
+    // English alternative both belong to the same known film work.
+    reason:'the-hunt-2012-original-title',
+    regex:/^die jagd\s*\((2012)\)$/iu,
+    title:()=> 'Jagten',year:m=>m[1],
+  },
+  {
     // FREE playlist: remove publisher 4K/genre advertising while retaining
     // the whole German theatrical film title for TMDB identity matching.
     reason:'faculty-4k-science-fiction-promo',
@@ -138,11 +153,15 @@ function repairObservedWrapper(legacy, raw) {
     const alternatives=rule.reason==='quoted-original-title-with-year'
       && /^die zeit maschine$/iu.test(core)
       ?['Die Zeitmaschine']
-      :rule.reason==='faculty-4k-science-fiction-promo'
-        ?['The Faculty']
-        :rule.reason==='cavern-german-original-dual-title-promo'
-          ?['Abstieg ins Grauen']
-          :[]
+      :rule.reason==='time-machine-1960-original-title'
+        ?['Die Zeitmaschine']
+        :rule.reason==='the-hunt-2012-original-title'
+          ?['The Hunt']
+          :rule.reason==='faculty-4k-science-fiction-promo'
+            ?['The Faculty']
+            :rule.reason==='cavern-german-original-dual-title-promo'
+              ?['Abstieg ins Grauen']
+              :[]
     return {
       ...legacy,
       matchingTitle,
