@@ -6,6 +6,7 @@
  * MovieHub may show it only as a clearly provisional playlist hint.
  */
 import {hasExclusiveBilledPairFilmHypothesis} from '../../scripts/youtube-g2-exclusive-pair-evidence.mjs'
+import {hasExclusiveHistoricalYearFilmHypothesis} from '../../scripts/youtube-g2-exclusive-year-film-evidence.mjs'
 
 export const CURATED_HINT_KIND='moviehub-youtube-curated-editorial-title-hints'
 export const CURATED_HINT_VERSION=1
@@ -173,7 +174,8 @@ export function buildCuratedEditorialTitleIndex(source,research,{
       ||!(r.topCandidates.length===1
         ||hasDominantFilmHypothesis(r.topCandidates)
         ||hasExclusiveSourceActorFilmHypothesis(r.topCandidates,r.castEvidence)
-        ||hasExclusiveBilledPairFilmHypothesis(c.videoTitle,r)))continue
+        ||hasExclusiveBilledPairFilmHypothesis(c.videoTitle,r)
+        ||hasExclusiveHistoricalYearFilmHypothesis(c.videoTitle,r)))continue
     const top=r.topCandidates[0]
     const movieKey=key('movie',top.tmdbId)
     if(!movieKey||!Number.isFinite(top.score)||top.score<28
