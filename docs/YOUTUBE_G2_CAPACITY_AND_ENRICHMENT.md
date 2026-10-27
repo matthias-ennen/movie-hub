@@ -176,6 +176,44 @@ Die echte erneute Cloud-Diagnose ist erst durch einen manuellen
 GitHub-Actions-Lauf nach Merge belegbar; CI beweist nur Quellcode-
 und Offline-Testzustand.
 
+## Zweite Monitoring-Messquelle: tatsächlich abgeschlossene API-Anfragen (27.10.2026)
+
+Die Quotenmetriken `quota/rate/net_usage`, `quota/exceeded` und
+`quota/ratev2/net_usage` können bei HTTP 200 leere bzw. ausgelassene
+Zeitreihen liefern. Deshalb ergänzt der manuelle, nur lesende
+`youtube-g2-pacific-search-preflight.yml` die neue unabhängige
+Quelle `serviceruntime.googleapis.com/api/request_count` für
+`resource.type=consumed_api` und YouTube als Dienst. Das
+vorherige 24-Stunden-Fenster wird genau **einmal** über den vorhandenen
+Google-Cloud-OIDC-Zugang abgefragt, ohne YouTube Data API Requests.
+
+Der separate Parser `scripts/youtube-g2-api-traffic-diagnostic.mjs`
+liefert nur HTTP-Status, Antwortform, Zahl der Zeitreihen/Messpunkte,
+Summe beobachteter abgeschlossener Requests und Zeitpunkt des jüngsten
+Messpunkts. Rohe Google-Labels, Credential-IDs, Methoden,
+Video-/Film-IDs und Zugriffsgeheimnisse werden nicht ausgegeben.
+Nicht vorhandene oder unvollständige Zeitreihen bleiben **UNKNOWN**,
+und bei paginierten Antworten wird kein erfundener Gesamtzähler gemeldet.
+
+**Messgrenzen:** Google dokumentiert für `api/request_count`
+eine Sichtbarkeitsverzögerung von bis zu 30 Minuten. Das 24-Stunden-
+Zeitfenster ist kein Pacific-Tag und kann verschiedene YouTube-
+Methoden und verschiedene Kontingentklassen enthalten. Eine erfolgreiche
+Abfrage zeigt nur, welche abgeschlossenen Requests Google tatsächlich
+in diesem Fenster gemeldet hat – nicht garantierte heutige
+`search.list`-Restkapazität oder die vollständige Zahl eigener
+Versuche. Auch eine leere `api/request_count`-Antwort ist kein Beleg
+für null Requests.
+
+Diese zusätzliche Quelle ist **ausschließlich Diagnose** und fließt
+nicht in `smallBatchAdvisory`, `verifyBudgetPreflight`, die
+GCS-Tagesreservierung oder Nightly-Search-Admisson ein.
+Weiterhin gelten die bisherige konservative 10er-Suchobergrenze,
+keine automatischen Wiederholungen nach 403/429,
+keine stillen DE-Angebotsfreigaben und keine neuen öffentlichen Links.
+Ein echter Google-Readback dieser neuen Quelle muss erst im
+separat gestarteten manuellen Workflow überprüft werden.
+
 ## Betriebs- und Freigabegates
 
 1. Vor jedem Merge: CI- und Android-Erfolg auf dem **konkreten** PR-Commit.
