@@ -99,7 +99,7 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
     ['Marvins Töchter 4K Leonardo DiCaprio & Meryl Streep Kostenloser Film in voller Länge',
       'Marvins Töchter','actors-4k-free-length-promo'],
     ['Ein Amerikanischer Werwolf in London HORROR Ganzer Film Film Komplett auf Deutsch',
-      'Ein Amerikanischer Werwolf in London','genre-full-german-film-promo'],
+      'An American Werewolf in London','american-werewolf-original-title'],
     ['Der Außenseiter 4K Brendan Fraser & Matt Damon Ganzer Film auf Deutsch',
       'Der Außenseiter','actors-4k-german-full-film-promo'],
     ['Stephen Kings Stark Horrorfilm Ganzer Film',
@@ -254,6 +254,82 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
       const result=planCuratedTmdbQueries(source)
       expect(['time-machine-1960-original-title',
         'the-hunt-2012-original-title']).not.toContain(result.curatedQueryReason)
+    }
+  })
+
+  it.each([
+    [
+      'Bud Spencer - Aladin (1986) - Deutsch - HD 1080p',
+      'Superfantagenio (1986)', ['Superfantagenio','Aladin'],
+      'bud-spencer-aladin-original-title', 1986,
+    ],
+    [
+      'Ein Amerikanischer Werwolf in London HORROR Ganzer Film Film Komplett auf Deutsch',
+      'An American Werewolf in London',
+      ['An American Werewolf in London','Ein Amerikanischer Werwolf in London'],
+      'american-werewolf-original-title', null,
+    ],
+    [
+      'O grande dragão branco (Bloodsport)', 'Bloodsport', ['Bloodsport'],
+      'bloodsport-parenthesized-original-title', null,
+    ],
+    [
+      'Freitag der 13. – Ein neuer Anfang (TEIL 5 der KULT HORRORFILM REIHE, Horrorfilme in voller Länge)',
+      'Friday the 13th: A New Beginning',
+      ['Friday the 13th: A New Beginning','Freitag der 13. – Ein neuer Anfang'],
+      'friday-thirteenth-part-five-original-title', null,
+    ],
+    [
+      'Freitag der 13. - Das letzte Kapitel (TEIL 4 der KULT HORRORFILM REIHE, Horrorfilme in voller Länge)',
+      'Friday the 13th: The Final Chapter',
+      ['Friday the 13th: The Final Chapter','Freitag der 13. - Das letzte Kapitel'],
+      'friday-thirteenth-part-four-original-title', null,
+    ],
+    [
+      'Die Tribute von Panem - The Ballad of Songbirds & Snakes',
+      'The Hunger Games: The Ballad of Songbirds & Snakes',
+      ['The Hunger Games: The Ballad of Songbirds & Snakes',
+       'Die Tribute von Panem - The Ballad of Songbirds & Snakes'],
+      'songbirds-snakes-original-franchise-title', null,
+    ],
+  ])('recovers an exact film name from a known playlist publisher title: %s',
+    (source,matchingTitle,queries,reason,reportedYear)=>{
+      const result=planCuratedTmdbQueries(source)
+      expect(result).toMatchObject({
+        rawTitle:source,matchingTitle,queries,
+        curatedQueryReason:reason,reportedYear,
+      })
+      expect(result.queries.length).toBeGreaterThan(0)
+      expect(result.queries.length).toBeLessThanOrEqual(2)
+      expect(result.verifiedTmdbId).toBeUndefined()
+      expect(result.playbackRoute).toBeUndefined()
+    })
+
+  it('never broadens the six exact source aliases to trailers, other parts or remakes',()=>{
+    for(const raw of [
+      'Bud Spencer - Aladin (1987) - Deutsch - HD 1080p',
+      'Bud Spencer - Aladin (1986) - Trailer',
+      'Aladin (1986)',
+      'Ein Amerikanischer Werwolf in London Trailer',
+      'Ein Amerikanischer Werwolf in Paris',
+      'O grande dragão branco (Bloodsport 2)',
+      'Bloodsport',
+      'Freitag der 13. – Ein neuer Anfang Trailer',
+      'Freitag der 13. – Ein neuer Anfang (TEIL 4 der KULT HORRORFILM REIHE, Horrorfilme in voller Länge)',
+      'Freitag der 13. - Das letzte Kapitel (TEIL 5 der KULT HORRORFILM REIHE, Horrorfilme in voller Länge)',
+      'Die Tribute von Panem - The Ballad of Songbirds & Snakes Trailer',
+      'Die Tribute von Panem - Mockingjay',
+    ]) {
+      const result=planCuratedTmdbQueries(raw)
+      expect([
+        'bud-spencer-aladin-original-title',
+        'american-werewolf-original-title',
+        'bloodsport-parenthesized-original-title',
+        'friday-thirteenth-part-five-original-title',
+        'friday-thirteenth-part-four-original-title',
+        'songbirds-snakes-original-franchise-title',
+      ]).not.toContain(result.curatedQueryReason)
+      expect(result.rawTitle).toBe(raw)
     }
   })
 
