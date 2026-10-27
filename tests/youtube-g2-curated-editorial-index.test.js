@@ -404,6 +404,30 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
       .entries.some(x=>x.tmdbId===2134)).toBe(false)
   })
 
+  it('projects Friday 1980 with year-conflicting remake AND weak third film, never a verified R&B route',()=>{
+    const {audit,research}=make()
+    audit.candidates[1].videoTitle='Friday the 13th (1980)'
+    const row=research.rows[1]
+    row.topCandidates=[
+      {tmdbId:4488,titleLevel:4,score:44,runtimeDelta:0.3,
+        yearMismatch:false,sequelConflict:false},
+      {tmdbId:13207,titleLevel:4,score:28,runtimeDelta:1.7,
+        yearMismatch:true,sequelConflict:false},
+      {tmdbId:9728,titleLevel:2,score:24,runtimeDelta:0.3,
+        yearMismatch:false,sequelConflict:false},
+    ]
+    const index=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+    expect(index.entries.find(x=>x.tmdbId===4488)).toMatchObject({
+      videoId:SECOND,playlistMode:'rent-buy',
+      watchUrl:'https://www.youtube.com/watch?v='+SECOND,
+      verificationStatus:'not-independently-verified',
+    })
+    expect(index.verifiedDEOffers).toBe(0)
+    row.topCandidates[2].titleLevel=4
+    expect(buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+      .entries.some(x=>x.tmdbId===4488)).toBe(false)
+  })
+
   it('keeps remake and TV ambiguities in review even with a strong primary',()=>{
     for(const unsafe of [
       r=>{r.topCandidates[2].score=32},
