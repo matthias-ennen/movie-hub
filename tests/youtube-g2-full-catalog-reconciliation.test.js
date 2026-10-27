@@ -258,6 +258,42 @@ describe('YouTube: all playlist IDs reconciled with complete MovieHub catalog',(
     })
   })
 
+  it('reconciles distant-series Nürnberg as preview metadata, never a verified video offer',()=>{
+    const {intake,research,inventory}=sourceData()
+    const source=intake.items[2],row=research.rows[2]
+    source.sourceTitle='Nürnberg (2026)'
+    source.suggestedFilmRef.tmdbId=1214931
+    source.durationMinutes=146
+    source.identityResearchStatus='review-leading-movie-with-TV-alternatives'
+    row.matchStatus='review-leading-movie-with-TV-alternatives'
+    row.videoTitle=source.sourceTitle
+    row.sourceVideoDetailAvailable=true
+    row.alternativeTvIds=[7389]
+    row.tvSearchEvidence={alternativeTvIds:[7389],candidates:[{
+      tmdbTvId:7389,firstAirYear:2000,yearGap:25,
+      wholeFilmTitleMatch:true,disposition:'retained-for-film-tv-review',
+    }]}
+    row.topCandidates=[
+      {tmdbId:1214931,titleLevel:4,score:40,runtimeDelta:1.2,
+        yearMismatch:false,sequelConflict:false},
+      {tmdbId:1045933,titleLevel:4,score:23,runtimeDelta:98.2,
+        yearMismatch:false,sequelConflict:false},
+      {tmdbId:821,titleLevel:2,score:7,runtimeDelta:36.8,
+        yearMismatch:false,sequelConflict:false},
+    ]
+    const out=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
+    expect(out.entries[2]).toMatchObject({
+      decision:'new-tmdb-metadata-review',
+      suggestedFilmKey:'movie:1214931',strongMetadataCandidate:true,
+      newMovieImported:false,verifiedOffer:false,filmIdentityApproved:false,
+    })
+    row.tvSearchEvidence.candidates[0].yearGap=24
+    const blocked=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
+    expect(blocked.entries[2]).toMatchObject({
+      decision:'work-identity-review',strongMetadataCandidate:false,
+    })
+  })
+
   it('never promotes close second films, extra candidates or TV alternates',()=>{
     for(const mutation of [
       r=>{r.topCandidates[1].titleLevel=4},
