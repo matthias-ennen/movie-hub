@@ -99,7 +99,7 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
     ['Marvins Töchter 4K Leonardo DiCaprio & Meryl Streep Kostenloser Film in voller Länge',
       'Marvins Töchter','actors-4k-free-length-promo'],
     ['Ein Amerikanischer Werwolf in London HORROR Ganzer Film Film Komplett auf Deutsch',
-      'Ein Amerikanischer Werwolf in London','genre-full-german-film-promo'],
+      'An American Werewolf in London','american-werewolf-original-title'],
     ['Der Außenseiter 4K Brendan Fraser & Matt Damon Ganzer Film auf Deutsch',
       'Der Außenseiter','actors-4k-german-full-film-promo'],
     ['Stephen Kings Stark Horrorfilm Ganzer Film',
