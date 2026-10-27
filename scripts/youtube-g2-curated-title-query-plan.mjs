@@ -28,6 +28,20 @@ const promotedSurvivalThriller = /^grandioser\s+survival[-\s]thriller\s+mit\s+st
 // country, exact cut, source rights, offer, or Video ID.
 const observedAdWrappers = [
   {
+    // FREE playlist: remove publisher 4K/genre advertising while retaining
+    // the whole German theatrical film title for TMDB identity matching.
+    reason:'faculty-4k-science-fiction-promo',
+    regex:/^faculty\s*[-–]\s*trau keinem lehrer!\s+4k amerikanischer science fiction film$/iu,
+    title:()=> 'Faculty - Trau keinem Lehrer!',
+  },
+  {
+    // FREE playlist: the billed year and 'Ganzer Film' are query noise.
+    // Keep the original source title and reported year in the source QA.
+    reason:'cavern-german-original-dual-title-promo',
+    regex:/^abstieg ins grauen\s*[-–]\s*the cavern\s*\(2006\)\s+ganzer film auf deutsch$/iu,
+    title:()=> 'The Cavern',
+  },
+  {
     // An observed FREE playlist title uses director billing and a full-movie
     // advertisement around the actual German film title. Only the TMDB query
     // changes; the original video/title and every matcher gate remain intact.
@@ -123,7 +137,12 @@ function repairObservedWrapper(legacy, raw) {
     const matchingTitle=core+(year?' ('+year+')':'')
     const alternatives=rule.reason==='quoted-original-title-with-year'
       && /^die zeit maschine$/iu.test(core)
-      ?['Die Zeitmaschine']:[]
+      ?['Die Zeitmaschine']
+      :rule.reason==='faculty-4k-science-fiction-promo'
+        ?['The Faculty']
+        :rule.reason==='cavern-german-original-dual-title-promo'
+          ?['Abstieg ins Grauen']
+          :[]
     return {
       ...legacy,
       matchingTitle,
