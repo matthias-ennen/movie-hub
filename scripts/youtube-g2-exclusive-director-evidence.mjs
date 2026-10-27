@@ -12,7 +12,11 @@ const unsafe=/\b(?:trailer|teaser|clip|preview|ausschnitt|uncut|bootleg)\b/iu
 export function explicitBilledDirector(sourceTitle){
   const source=String(sourceTitle??'')
   if(unsafe.test(source))return null
+  // Both observed publisher spellings: John Carpenter's Sie leben,
+  // John Carpenters Vampire. Missing apostrophe does not by itself
+  // establish a director: the TMDB credits still must match.
   const match=source.match(/^([A-ZÄÖÜ][\p{L}.'-]{1,30}\s+[A-ZÄÖÜ][\p{L}.'-]{1,30})['’]s\s+\S/u)
+    ||source.match(/^([A-ZÄÖÜ][\p{L}.'-]{1,30}\s+[A-ZÄÖÜ][\p{L}.'-]{1,30}?)s\s+\S/u)
   return match?match[1]:null
 }
 
