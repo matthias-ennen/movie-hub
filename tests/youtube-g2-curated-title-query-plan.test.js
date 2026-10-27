@@ -45,9 +45,7 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
   it.each([
     ['Friday the 13th (1980)','Friday the 13th',1980],
     ['The Thing (1982)','The Thing',1982],
-    ['Stalingrad (1993)','Stalingrad',1993],
     ['The Time Machine (1960)','The Time Machine',1960],
-    ['Transsiberian (2008)','Transsiberian',2008],
   ])('searches film %s without its terminal year, keeping the year for mismatch checks',
     (raw,title,year)=>{
       const out=planCuratedTmdbQueries(raw)
@@ -63,6 +61,7 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
   it('never strips unknown years, movie excerpts or single-word ambiguity',()=>{
     for(const raw of [
       'IT (2017)','Basic (2003)','Heat (1995)',
+      'Stalingrad (1993)','Transsiberian (2008)',
       'Friday the 13th Trailer (1980)',
       'Friday the 13th (1980) Trailer',
       'Friday the 13th (1880)',
