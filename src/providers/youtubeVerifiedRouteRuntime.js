@@ -1,11 +1,9 @@
 // Small public projection of the canonical, independently verified YouTube
 // SourceEnvelope, NOT a second provider/badge source. Failure means search.
 export const YOUTUBE_VERIFIED_TITLE_ROUTES_URL='/youtube-verified-title-routes.json'
-let cached=null
 export function loadYoutubeVerifiedTitleRoutes(request=fetch){
-  if(request===fetch&&cached)return cached
   const promise=Promise.resolve()
-    .then(()=>request(YOUTUBE_VERIFIED_TITLE_ROUTES_URL,{redirect:'error'}))
+    .then(()=>request(YOUTUBE_VERIFIED_TITLE_ROUTES_URL,{redirect:'error',cache:'no-store'}))
     .then(async response=>{
       if(!response?.ok)return null
       const data=await response.json()
@@ -15,6 +13,5 @@ export function loadYoutubeVerifiedTitleRoutes(request=fetch){
         ?data:null
     })
     .catch(()=>null)
-  if(request===fetch)cached=promise
   return promise
 }
