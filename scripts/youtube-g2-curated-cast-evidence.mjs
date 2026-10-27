@@ -23,6 +23,9 @@ export function explicitNamedActor(sourceTitle) {
  */
 export function explicitBilledActorPair(sourceTitle) {
   const text=String(sourceTitle??'')
+  // A trailer, teaser or excerpt is never full-movie identity evidence,
+  // even when the exact two-actor advertising phrase also appears.
+  if(/\b(?:trailer|teaser|clip|preview|ausschnitt)\b/iu.test(text))return null
   const name="[A-ZÄÖÜ][A-Za-zÄÖÜäöüß.'-]{1,28} [A-ZÄÖÜ][A-Za-zÄÖÜäöüß.'-]{1,32}"
   const expression=new RegExp("(?:^|\\s)4K\\s+("+name+")\\s+&\\s+("+name+")\\s+(?=(?:Ganzer|Kostenloser)\\s+Film\\b)","u")
   const match=text.match(expression)
