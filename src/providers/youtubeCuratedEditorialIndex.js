@@ -8,6 +8,7 @@
 import {hasExclusiveBilledPairFilmHypothesis} from '../../scripts/youtube-g2-exclusive-pair-evidence.mjs'
 
 import {hasExclusiveReportedYearFilmHypothesis} from '../../scripts/youtube-g2-exclusive-source-year-film.mjs'
+import {hasDistantTvNamesakeFeatureFilmEvidence} from '../../scripts/youtube-g2-distant-tv-feature-evidence.mjs'
 
 export const CURATED_HINT_KIND='moviehub-youtube-curated-editorial-title-hints'
 export const CURATED_HINT_VERSION=1
@@ -176,7 +177,8 @@ export function buildCuratedEditorialTitleIndex(source,research,{
         ||hasDominantFilmHypothesis(r.topCandidates)
         ||hasExclusiveSourceActorFilmHypothesis(r.topCandidates,r.castEvidence)
         ||hasExclusiveBilledPairFilmHypothesis(c.videoTitle,r)
-        ||hasExclusiveReportedYearFilmHypothesis(c.videoTitle,r)))continue
+        ||hasExclusiveReportedYearFilmHypothesis(c.videoTitle,r)
+        ||hasDistantTvNamesakeFeatureFilmEvidence(c.videoTitle,r)))continue
     const top=r.topCandidates[0]
     const movieKey=key('movie',top.tmdbId)
     if(!movieKey||!Number.isFinite(top.score)||top.score<28

@@ -428,6 +428,41 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
       .entries.some(x=>x.tmdbId===4488)).toBe(false)
   })
 
+  it('projects the exact First Blood video despite only decades-separated TV namesakes',()=>{
+    const {audit,research}=make()
+    audit.candidates[0].videoTitle='Rambo - First Blood'
+    const r=research.rows[0]
+    r.videoTitle=audit.candidates[0].videoTitle
+    r.sourceVideoDetailAvailable=true
+    r.matchStatus='review-leading-movie-with-TV-alternatives'
+    r.alternativeTvIds=[204885,156930]
+    r.tvSearchEvidence={
+      alternativeTvIds:[204885,156930],
+      candidates:[
+        {tmdbTvId:204885,firstAirYear:2022,yearGap:40,
+          wholeFilmTitleMatch:true,disposition:'retained-for-film-tv-review'},
+        {tmdbTvId:156930,firstAirYear:2015,yearGap:33,
+          wholeFilmTitleMatch:true,disposition:'retained-for-film-tv-review'},
+      ],
+    }
+    r.topCandidates=[
+      {tmdbId:1368,titleLevel:4,score:38,runtimeDelta:3.4,
+        yearMismatch:false,sequelConflict:false},
+      {tmdbId:1073952,titleLevel:4,score:23,runtimeDelta:81.6,
+        yearMismatch:false,sequelConflict:false},
+      {tmdbId:1369,titleLevel:2,score:22,runtimeDelta:6.4,
+        yearMismatch:false,sequelConflict:false},
+    ]
+    const index=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+    expect(index.entries.find(x=>x.key==='movie:1368')).toMatchObject({
+      videoId:VID,watchUrl:'https://www.youtube.com/watch?v='+VID,
+      playlistMode:'free',verificationStatus:'not-independently-verified',
+    })
+    r.tvSearchEvidence.candidates[1].yearGap=9
+    const blocked=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+    expect(blocked.entries.some(x=>x.tmdbId===1368)).toBe(false)
+  })
+
   it('keeps remake and TV ambiguities in review even with a strong primary',()=>{
     for(const unsafe of [
       r=>{r.topCandidates[2].score=32},
