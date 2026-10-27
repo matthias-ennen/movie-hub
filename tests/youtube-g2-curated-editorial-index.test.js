@@ -176,6 +176,72 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
     expect(index.count).toBe(2)
   })
 
+  it.each([
+    ['Heat',949,40,0.5,[
+      [136795,7,2,53.5],[1108566,7,2,75.5]]],
+    ['The Equalizer',156022,40,1,[
+      [550001,19,2,11],[550002,7,2,29]]],
+    ['Smile 2',1100782,38,4.4,[
+      [988843,-1,1,121.6],[1433770,-1,1,117.6]]],
+    ['Der Name der Rose',192,40,0.3,[
+      [776669,7,2,82.3]]],
+  ])('one MOVIE-playlist batch links a dominant %s film despite fuzzy TV search suggestions',
+    (title,tmdbId,score,runtimeDelta,alternatives)=>{
+      const {audit,research}=make()
+      audit.candidates[0].videoTitle=title
+      research.rows[0].matchStatus='review-leading-movie-with-TV-alternatives'
+      research.rows[0].alternativeTvIds=[222,333]
+      research.rows[0].topCandidates=[
+        {tmdbId,titleLevel:4,score,runtimeDelta,
+          yearMismatch:false,sequelConflict:false},
+        ...alternatives.map(([id,s,l,d])=>({
+          tmdbId:id,score:s,titleLevel:l,runtimeDelta:d,
+          yearMismatch:false,sequelConflict:false,
+        })),
+      ]
+      const index=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+      expect(index.entries.find(entry=>entry.tmdbId===tmdbId)).toMatchObject({
+        key:'movie:'+tmdbId,videoId:VID,playlistMode:'free',
+        watchUrl:'https://www.youtube.com/watch?v='+VID,
+      })
+      expect(index.verifiedPlaybackRoutes).toBe(0)
+      const hint=selectCuratedEditorialTitleHint(index,item(tmdbId),{now:Date.parse(AT)})
+      expect(hint?.target).toBe('https://www.youtube.com/watch?v='+VID)
+    })
+
+  it('keeps ambiguous film matches, weak movie identity and invalid source out of TV-noise batch',()=>{
+    for(const unsafe of [
+      r=>{r.topCandidates[0].runtimeDelta=5.1},
+      r=>{r.topCandidates[0].score=37},
+      r=>{r.topCandidates[0].titleLevel=3},
+      r=>{r.topCandidates[1].score=25},
+      r=>{r.topCandidates[1].titleLevel=4},
+      r=>{r.topCandidates[0].yearMismatch=true},
+      r=>{r.alternativeTvIds=[]},
+      r=>{r.alternativeTvIds=null},
+      r=>{r.identityRisk='explicit-unverified-cut-or-source'},
+      r=>{r.publicIndexMembership='public-not-present'},
+      r=>{r.matchStatus='review-multiple-film-works'},
+      (r,a)=>{a.screened=false},
+      (r,a)=>{a.deRegionSignal='excluded'},
+      (r,a)=>{a.playlistIds=[]},
+    ]){
+      const {audit,research}=make()
+      const row=research.rows[0]
+      row.matchStatus='review-leading-movie-with-TV-alternatives'
+      row.alternativeTvIds=[888]
+      row.topCandidates=[
+        {tmdbId:10586,titleLevel:4,score:40,runtimeDelta:1,
+          yearMismatch:false,sequelConflict:false},
+        {tmdbId:199999,titleLevel:2,score:0,runtimeDelta:90,
+          yearMismatch:false,sequelConflict:false},
+      ]
+      unsafe(row,audit.candidates[0])
+      const index=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+      expect(index.entries.some(e=>e.key==='movie:10586')).toBe(false)
+    }
+  })
+
   it('keeps remake and TV ambiguities in review even with a strong primary',()=>{
     for(const unsafe of [
       r=>{r.topCandidates[2].score=32},

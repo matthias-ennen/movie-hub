@@ -10,6 +10,7 @@ export const CURATED_HINT_VERSION=1
 export const CURATED_HINT_MAX_AGE_MS=7*86400000
 const VID=/^[A-Za-z0-9_-]{11}$/
 const GOOD_STATUS='review-leading-film-hypothesis'
+const MOVIE_PLAYLIST_WITH_TV_SEARCH_HITS='review-leading-movie-with-TV-alternatives'
 /**
  * TMDB search returns at most three movie candidates in the G2 review.
  * A first film can be clear even when TWO unrelated weak side-results appear.
@@ -119,11 +120,18 @@ export function buildCuratedEditorialTitleIndex(source,research,{
       ||r.playlistModes.join(',')!==c.playlistModes.join(',')
       ||!c.screened||!c.videoTitle||!c.channelId
       ||c.deRegionSignal==='excluded'
-      ||r.matchStatus!==GOOD_STATUS
+      ||(r.matchStatus!==GOOD_STATUS
+        &&r.matchStatus!==MOVIE_PLAYLIST_WITH_TV_SEARCH_HITS)
       ||r.identityRisk!==null||r.hasPlaylistOfferConflict!==false
       ||r.hasPlaylistOverlap!==(c.playlistModes.length>1)
       ||r.publicIndexMembership!=='public-present'
-      ||(r.alternativeTvIds||[]).length>0
+      // This is a user-defined MOVIE playlist. A fuzzy /search/tv result
+      // is not a competing FILM when one TMDB movie matches decisively.
+      // For ordinary leading-film rows, unexpected TV hits still fail closed.
+      ||(r.matchStatus===GOOD_STATUS&&(r.alternativeTvIds||[]).length>0)
+      ||(r.matchStatus===MOVIE_PLAYLIST_WITH_TV_SEARCH_HITS
+        &&(!Array.isArray(r.alternativeTvIds)||r.alternativeTvIds.length===0
+          ||!Array.isArray(c.playlistIds)||c.playlistIds.length===0))
       ||(r.errors||[]).length>0
       ||!Array.isArray(r.topCandidates)
       ||!(r.topCandidates.length===1||hasDominantFilmHypothesis(r.topCandidates)))continue
@@ -132,7 +140,12 @@ export function buildCuratedEditorialTitleIndex(source,research,{
     if(!movieKey||!Number.isFinite(top.score)||top.score<28
       ||!Number.isFinite(top.titleLevel)||top.titleLevel<3
       ||!Number.isFinite(top.runtimeDelta)||top.runtimeDelta<0||top.runtimeDelta>15
-      ||top.yearMismatch===true||top.sequelConflict===true)continue
+      ||top.yearMismatch===true||top.sequelConflict===true
+      // A TV search hit must never rescue an otherwise weak movie match.
+      // For this MOVIE-playlist-only batch require an EXACT movie title,
+      // near-exact film runtime, and the unchanged dominant-movie gate.
+      ||(r.matchStatus===MOVIE_PLAYLIST_WITH_TV_SEARCH_HITS
+        &&(top.score<38||top.titleLevel!==4||top.runtimeDelta>5)))continue
     const entry={
       key:movieKey,mediaType:'movie',tmdbId:Number(top.tmdbId),
       videoId:c.videoId,watchUrl:watch(c.videoId),
