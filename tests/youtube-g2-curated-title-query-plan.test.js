@@ -91,7 +91,7 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
       'Street Kings','actor-promo-colon-film-title'],
     ['STARBESETZUNG! Dieser Thriller lässt das Blut in den Adern gefrieren! (Ganzer Film: The Calling)',
       'The Calling','publisher-genre-promo-film-title-parentheses'],
-    ['Die Zeit Maschine - 1960','Die Zeit Maschine','quoted-original-title-with-year'],
+    ['Die Zeit Maschine - 1960','The Time Machine','time-machine-1960-original-title'],
     ['JFK - TATORT DALLAS - Meisterwerk mit Kevin Costner - Ganzer Film bei Moviedome',
       'JFK - TATORT DALLAS','actor-promo-meisterwerk-moviedome'],
     ['Sleepy Hollow 1999 (Ungekürzte Fassung) Deutsch',
@@ -124,8 +124,8 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
 
   it('uses years only as reported review context, preserves alternate query for German Time Machine',()=>{
     expect(planCuratedTmdbQueries('Die Zeit Maschine - 1960')).toMatchObject({
-      matchingTitle:'Die Zeit Maschine (1960)',
-      queries:['Die Zeit Maschine','Die Zeitmaschine'],
+      matchingTitle:'The Time Machine (1960)',
+      queries:['The Time Machine','Die Zeitmaschine'],
       reportedYear:1960,
     })
     expect(planCuratedTmdbQueries('Sleepy Hollow 1999 (Ungekürzte Fassung) Deutsch'))
