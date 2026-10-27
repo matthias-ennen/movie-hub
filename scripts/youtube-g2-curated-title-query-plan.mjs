@@ -18,6 +18,10 @@ const imdbDescriptionTail = /^(.{4,110}?)\s+\([^()]*\bIMDb[- ]Bewertung\)\s*$/iu
 const actorAndFullFilmTail = /^(.{4,100}?)\s+(?:thriller|horror|drama|actionfilm|krimi)\s+mit\s+[A-ZÄÖÜ][\p{L}.'-]{1,35}\s+[A-ZÄÖÜ][\p{L}.'-]{1,35}\s+ganzer\s+film\s*$/iu
 // German theatrical release year (2026) is not necessarily production year (2025).
 const germanNuremberg = /^Nürnberg\s+\(((?:19|20)\d{2})\)\s*$/iu
+// Only a complete, multi-word film title with a terminal YEAR (not a year
+// embedded in its real title) qualifies for a query-only year split.
+const datedFilmTitle = /^(.{9,100}?)\s+\(((?:19|20)\d{2})\)\s*$/iu
+const ambiguousCutOrSupplement=/\b(?:trailer|teaser|clip|preview|ausschnitt|uncut|ungek[uü]rzt|director['’]s cut|bootleg)\b/iu
 
 // Live source QA #39928710237: explicit non-title promotional wrappers.
 const completeFilmDeutsch = /^(.{4,100}?)\s+kompletter\s+film\s+deutsch\s*$/iu
@@ -292,6 +296,19 @@ export function planCuratedTmdbQueries(sourceTitle) {
       queries:['Nuremberg', 'Nürnberg'],
       curatedQueryReason:'official-original-title-alias-release-year-review',
       reportedYear:Number(germanAlias[1])}
+  }
+  // Search TMDB by film name without a publisher's trailing date. Keep the
+  // year in matchingTitle so the EXISTING scorer can flag remakes and era
+  // conflicts. This is not a movie-ID approval or an offer verification.
+  const dated = raw.match(datedFilmTitle)
+  if (dated && dated[1].trim().split(/\s+/u).length>=3
+    &&!ambiguousCutOrSupplement.test(raw)) {
+    const film=tidy(dated[1])
+    return {
+      ...legacy,matchingTitle:film+' ('+dated[2]+')',
+      queries:[film],reportedYear:Number(dated[2]),
+      curatedQueryReason:'terminal-year-multiword-film-title',
+    }
   }
   const collection = raw.match(oldGermanMovies)
   if (collection) {
