@@ -34,8 +34,10 @@ jobs:
         run: |
           npm ci
           node --check scripts/youtube-g2-pacific-search-preflight.mjs
+          node --check scripts/youtube-g2-api-traffic-diagnostic.mjs
           npx vitest run tests/youtube-g2-pacific-search-preflight.test.js \
-            tests/youtube-g2-legacy-quota-scope-diagnostic.test.js
+            tests/youtube-g2-legacy-quota-scope-diagnostic.test.js \
+            tests/youtube-g2-api-traffic-diagnostic.test.js
       - name: Derive current Pacific quota window from actual current UTC instant
         id: window
         shell: bash
@@ -46,7 +48,8 @@ jobs:
           const now=new Date().toISOString()
           const day=pacificSearchDay(now)
           appendFileSync(process.env.GITHUB_OUTPUT,
-            'now='+now+'\nstart='+day.start+'\n')
+            'now='+now+'\nstart='+day.start+'\ntraffic_start='+
+            new Date(Date.parse(now)-86400000).toISOString()+'\n')
           console.log('Pacific day: '+day.date+'; next reset: '+day.end)
           NODE
       - name: Authenticate existing Google OIDC principal (no new keys or permissions)
@@ -316,6 +319,39 @@ jobs:
             '; **never a usage or search authorization**.\n')
           console.log(JSON.stringify(out))
           NODE
+      - name: Read prior 24h completed YouTube API request traffic (GET only; never quota authorization)
+        shell: bash
+        env:
+          TRAFFIC_START: ${{ steps.window.outputs.traffic_start }}
+          NOW: ${{ steps.window.outputs.now }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/moviehub-youtube-pt-budget-private
+          token="$(gcloud auth print-access-token)"
+          filter='metric.type="serviceruntime.googleapis.com/api/request_count" AND resource.type="consumed_api" AND resource.label.service="youtube.googleapis.com"'
+          code="$(curl --silent --show-error --max-time 35 --retry 0 \
+            --get --header "Authorization: Bearer $token" \
+            --header 'Accept: application/json' \
+            --data-urlencode "filter=$filter" \
+            --data-urlencode "interval.startTime=$TRAFFIC_START" \
+            --data-urlencode "interval.endTime=$NOW" \
+            --data-urlencode 'view=FULL' \
+            --data-urlencode 'pageSize=500' \
+            --output '/tmp/moviehub-youtube-pt-budget-private/api-traffic.json' \
+            --write-out '%{http_code}' \
+            'https://monitoring.googleapis.com/v3/projects/movie-hub-62459/timeSeries')"
+          unset token filter
+          [[ "$code" =~ ^[0-9]{3}$ ]] || {
+            echo '::error::Invalid API request traffic Monitoring status'
+            exit 1
+          }
+          node scripts/youtube-g2-api-traffic-diagnostic.mjs \
+            "$TRAFFIC_START" "$NOW" "$code" \
+            /tmp/moviehub-youtube-pt-budget-private/api-traffic.json \
+            artifacts/youtube-g2/pacific-search-preflight/api-traffic.json
+          # This 24h completed-request counter can lag by up to 30 minutes.
+          # It mixes quota classes and is NEVER a source of remaining
+          # search.list quota, shared global quota, or search permission.
       - name: Interpret observed PT day quota defensively (NO lease)
         shell: bash
         env:
@@ -372,5 +408,6 @@ jobs:
             artifacts/youtube-g2/pacific-search-preflight/windowed-v2.json
             artifacts/youtube-g2/pacific-search-preflight/serviceusage.json
             artifacts/youtube-g2/pacific-search-preflight/legacy-scope.json
+            artifacts/youtube-g2/pacific-search-preflight/api-traffic.json
           retention-days: 7
           if-no-files-found: error
