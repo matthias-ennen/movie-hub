@@ -195,6 +195,8 @@ export async function runCuratedTmdbMembership({
           ? 'review-explicit-source-or-cut-risk'
           : 'review-explicit-alternate-work-form') : verdict.status,
       curatedQueryReason: prepared.curatedQueryReason,
+      // Unverified source-publisher year; never a TMDB identity approval.
+      reportedSourceYear: Number.isInteger(prepared.reportedYear)?prepared.reportedYear:null,
       tmdbQueries: queryVariants,
       castEvidence: cast.evidence,
       castChangedTopId: cast.evidence.affectsRanking === true
