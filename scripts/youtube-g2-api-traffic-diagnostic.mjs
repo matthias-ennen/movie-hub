@@ -42,6 +42,13 @@ export function inspectYoutubeApiTraffic({
     result.shape='invalid-response'
     return result
   }
+  // timeSeries.list can return HTTP 200 with partial execution errors.
+  // Such replies cannot support a complete traffic total.
+  if(Array.isArray(document.executionErrors)&&document.executionErrors.length
+    ||Array.isArray(document.unreachable)&&document.unreachable.length){
+    result.shape='incomplete-execution-unknown'
+    return result
+  }
   if(!Object.hasOwn(document,'timeSeries')){
     result.shape='timeSeries-omitted'
     return result
