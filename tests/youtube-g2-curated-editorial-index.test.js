@@ -268,9 +268,10 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
           sequelConflict:false,quotedActorCreditMatches:false,
         })),
       ]
-      // The historical gate properly refuses same-title movies with close
-      // runtime even when the publisher credited an actor.
-      expect(hasDominantFilmHypothesis(row.topCandidates)).toBe(false)
+      // The historical gate already accepts Heiter (the rival runtime
+      // differs by 89 min), but not Watcher (a close-runtime rival).
+      expect(hasDominantFilmHypothesis(row.topCandidates))
+        .toBe(tmdbId===117467)
       expect(hasExclusiveSourceActorFilmHypothesis(
         row.topCandidates,row.castEvidence)).toBe(true)
       const index=buildCuratedEditorialTitleIndex(audit,research,{now:AT})
@@ -283,6 +284,11 @@ describe('YouTube G2 provisional FREE/R&B playlist classifications, NEVER verifi
           verificationStatus:'not-independently-verified',
         })
       expect(index.verifiedDEOffers).toBe(0)
+      // Actual Heiter metadata has not entered the public Movie Hub index.
+      // Exclusive cast proof must not override that separate requirement.
+      row.publicIndexMembership='public-not-present'
+      expect(buildCuratedEditorialTitleIndex(audit,research,{now:AT})
+        .entries.some(e=>e.tmdbId===tmdbId)).toBe(false)
     })
 
   it('never treats unique actor labels as a way around any identity/safety proof',()=>{
