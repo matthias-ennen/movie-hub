@@ -111,7 +111,7 @@ describe('Pacific-day YouTube search budget preflight without a search authoriza
     expect(observeAt).toBeGreaterThan(fetchAt)
     expect(ordinaryAt).toBeGreaterThan(observeAt)
     expect(wf).toContain("kind='ratev2/net_usage'")
-    expect(wf).toContain('if [[ "$type" != ratev2scope ]]')
+    expect(wf).toContain('if [[ "$type" != ratev2scope && "$type" != ratescope && "$type" != exceededscope ]]')
     expect(wf).toContain('scopeTargetSeries')
     expect(wf).toContain('scopeHasMore')
     expect(wf).toContain('narrowResponseShape')
