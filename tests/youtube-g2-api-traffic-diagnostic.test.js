@@ -42,6 +42,12 @@ describe('YouTube API consumed request traffic telemetry is diagnostic only',()=
       shape:'timeSeries-empty',observedCompletedRequests:0})
     expect(inspect({document:{timeSeries:[series()],nextPageToken:'secret'}}))
       .toMatchObject({shape:'paginated-unknown',observedCompletedRequests:null})
+    expect(inspect({document:{timeSeries:[series()],
+      executionErrors:[{message:'DO-NOT-LOG'}]}}))
+      .toMatchObject({shape:'incomplete-execution-unknown',observedCompletedRequests:null})
+    expect(inspect({document:{timeSeries:[series()],
+      unreachable:['private-location']}}))
+      .toMatchObject({shape:'incomplete-execution-unknown',observedCompletedRequests:null})
     expect(inspect({http:403,document:{message:'secret'}}))
       .toMatchObject({shape:'http-unavailable',observedCompletedRequests:null})
   })
