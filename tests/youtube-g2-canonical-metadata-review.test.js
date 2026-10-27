@@ -116,6 +116,32 @@ describe('YouTube G2 TMDB new-film metadata review (not a catalog import)',()=>{
     expect(()=>planYoutubeNewFilmMetadataReview(full,intake,research,{now:NOW}))
       .toThrow('YOUTUBE_METADATA_REVIEW_CANDIDATE_NOT_UNIQUE')
   })
+  it('reuses the 1960 source-year identity proof through the final TMDB metadata review',()=>{
+    const {full,intake,research}=make()
+    const source=intake.items[0],r=research.rows[0]
+    source.sourceTitle='Die Zeit Maschine - 1960'
+    source.durationMinutes=101.1
+    full.entries[0].suggestedFilmKey='movie:2134'
+    r.videoTitle=source.sourceTitle
+    r.reportedSourceYear=1960
+    r.curatedQueryReason='time-machine-1960-original-title'
+    r.topCandidates=[
+      {tmdbId:2134,score:44,titleLevel:4,runtimeDelta:1.9,
+        yearMismatch:false,sequelConflict:false},
+      {tmdbId:148948,score:28,titleLevel:4,runtimeDelta:2.1,
+        yearMismatch:true,sequelConflict:false},
+      {tmdbId:2135,score:26,titleLevel:4,runtimeDelta:5.1,
+        yearMismatch:true,sequelConflict:false},
+    ]
+    const plan=planYoutubeNewFilmMetadataReview(full,intake,research,{now:NOW})
+    expect(plan.candidates).toMatchObject([{
+      tmdbId:2134,independentWorkIdentityApproved:false,
+    }])
+    r.topCandidates[1].yearMismatch=false
+    expect(()=>planYoutubeNewFilmMetadataReview(full,intake,research,{now:NOW}))
+      .toThrow('YOUTUBE_METADATA_REVIEW_CANDIDATE_NOT_UNIQUE')
+  })
+
   it('fetches existing canonical TMDB metadata format but approves nothing',async()=>{
     const {full,intake,research}=make()
     const plan=planYoutubeNewFilmMetadataReview(full,intake,research,{now:NOW})
