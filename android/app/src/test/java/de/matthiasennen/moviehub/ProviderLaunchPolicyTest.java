@@ -1,5 +1,6 @@
 package de.matthiasennen.moviehub;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -64,6 +65,45 @@ public final class ProviderLaunchPolicyTest {
                 "netflix", "https://www.youtube.com/watch?v=1uf2AMrQMk0"));
         assertFalse(ProviderLaunchPolicy.shouldTryExactYoutubeWebFallback(
                 "waipu", "https://www.youtube.com/watch?v=1uf2AMrQMk0"));
+    }
+
+    @Test
+    public void canonicalizesYoutubeTitleLinksForBothNativeBridgeGenerations() {
+        assertEquals(
+                "https://www.youtube.com/watch?v=1uf2AMrQMk0",
+                ProviderLaunchPolicy.canonicalTitleYoutubeTarget(
+                        "youtube", "APP_DEEP_LINK", "title",
+                        "https://youtu.be/1uf2AMrQMk0?feature=shared&t=45"));
+        assertEquals(
+                "https://www.youtube.com/watch?v=1uf2AMrQMk0",
+                ProviderLaunchPolicy.canonicalTitleYoutubeTarget(
+                        "youtube", "APP_DEEP_LINK", "title",
+                        "https://m.youtube.com/watch?feature=shared&v=1uf2AMrQMk0"));
+        assertEquals(
+                "https://www.youtube.com/watch?v=1uf2AMrQMk0",
+                ProviderLaunchPolicy.canonicalTitleYoutubeTarget(
+                        "youtube", "APP_DEEP_LINK", "title",
+                        "https://www.youtube.com/watch?v=1uf2AMrQMk0"));
+    }
+
+    @Test
+    public void neverRewritesSearchesLiveRoutesOtherProvidersOrUntrustedVideoIds() {
+        final String youtubeSearch = "https://www.youtube.com/results?search_query=Heat";
+        final String shared = "https://youtu.be/1uf2AMrQMk0";
+        final String unknown = "https://youtube.com.example.org/watch?v=1uf2AMrQMk0";
+        assertEquals(youtubeSearch, ProviderLaunchPolicy.canonicalTitleYoutubeTarget(
+                "youtube", "APP_DEEP_LINK", "title", youtubeSearch));
+        assertEquals(shared, ProviderLaunchPolicy.canonicalTitleYoutubeTarget(
+                "youtube", "WEB_LINK", "title", shared));
+        assertEquals(shared, ProviderLaunchPolicy.canonicalTitleYoutubeTarget(
+                "youtube", "APP_DEEP_LINK", "program", shared));
+        assertEquals(shared, ProviderLaunchPolicy.canonicalTitleYoutubeTarget(
+                "youtube", "APP_DEEP_LINK", "channel", shared));
+        assertEquals(shared, ProviderLaunchPolicy.canonicalTitleYoutubeTarget(
+                "netflix", "APP_DEEP_LINK", "title", shared));
+        assertEquals(unknown, ProviderLaunchPolicy.canonicalTitleYoutubeTarget(
+                "youtube", "APP_DEEP_LINK", "title", unknown));
+        assertFalse(ProviderUrlPolicy.isAllowed("youtube", unknown));
     }
 
     @Test
