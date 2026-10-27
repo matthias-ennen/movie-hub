@@ -158,6 +158,48 @@ describe('new YouTube playlist movies use canonical TMDB metadata, no verified a
       now:Date.parse(NOW)}).target).toBe('https://www.youtube.com/watch?v='+videoId)
   })
 
+  it('publishes a unique Heiter playlist link on its EXISTING canonical film, with no duplicate import',()=>{
+    const x=inputs()
+    const videoId='G-ETE-RO7Q4',tmdbId=117467
+    x.metadataReview.totalVideoIds=3
+    x.reconciliation.totalVideoIds=3
+    x.intake.uniqueVideoIds=3
+    x.editorialIndex.sourceVideoIds=3
+    x.reconciliation.entries.push({
+      videoId,decision:'exists-in-complete-catalog-review',
+      strongMetadataCandidate:true,suggestedFilmKey:'movie:'+tmdbId,
+      completeCatalogMembership:'canonical-existing',
+      canonicalSources:['personal-tmdb','profile-state'],
+      playlistClass:'FREE',filmIdentityApproved:false,
+      newMovieImported:false,verifiedOffer:false,
+    })
+    x.intake.items.push({
+      videoId,playlistClass:'FREE',sourceScreened:true,regionSignal:'unknown',
+      suggestedFilmRef:{mediaType:'movie',tmdbId},
+      sourceTitle:"Heiter bis wolkig (ROMANTISCHE KOMÖDIE mit ELYAS M'BAREK, Liebeskomödie ganzer Film Deutsch, ROMCOM)",
+      channelTitle:'Film channel',durationMinutes:99.4,playlistIds:['FREE-PLAYLIST'],
+    })
+    const projection=buildYoutubeNewFilmCatalogProjection(x)
+    expect(projection.summary).toMatchObject({
+      editorialLinks:3,additionalExistingCanonicalLinks:1,
+      independentlyVerifiedDEOffers:0,catalogOrFirestoreDatabaseWrites:undefined,
+    })
+    expect(projection.filmFeed.count).toBe(1)
+    expect(projection.filmFeed.entries.some(e=>e.tmdbId===tmdbId)).toBe(false)
+    const hint=projection.editorialIndex.entries.find(e=>e.tmdbId===tmdbId)
+    expect(hint).toMatchObject({
+      videoId,playlistMode:'free',
+      watchUrl:'https://www.youtube.com/watch?v='+videoId,
+      verificationStatus:'not-independently-verified',
+    })
+    const personal={type:'movie',tmdbId,title:'Heiter bis wolkig',
+      providerIds:[],tmdbProviderOffers:[]}
+    const enriched=withVerifiedYoutubeTitleOffer(personal,null,{
+      curatedIndex:projection.editorialIndex,now:Date.parse(NOW)})
+    expect(enriched.curatedPlaylistTitleOffer.videoId).toBe(videoId)
+    expect(providerOfferLabel(enriched,'youtube')).toBe('FREE')
+  })
+
   it('never links ambiguous duplicated, mismatched, or unverified personal-film references',()=>{
     const setup=()=>{
       const x=inputs()
