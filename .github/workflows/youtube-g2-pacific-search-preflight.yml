@@ -34,7 +34,8 @@ jobs:
         run: |
           npm ci
           node --check scripts/youtube-g2-pacific-search-preflight.mjs
-          npx vitest run tests/youtube-g2-pacific-search-preflight.test.js
+          npx vitest run tests/youtube-g2-pacific-search-preflight.test.js \
+            tests/youtube-g2-legacy-quota-scope-diagnostic.test.js
       - name: Derive current Pacific quota window from actual current UTC instant
         id: window
         shell: bash
@@ -65,13 +66,13 @@ jobs:
           set -euo pipefail
           mkdir -p /tmp/moviehub-youtube-pt-budget-private
           token="$(gcloud auth print-access-token)"
-          for type in rate exceeded ratev2 ratev2scope; do
-            if [[ "$type" == rate ]]; then kind='rate/net_usage';
+          for type in rate exceeded ratev2 ratev2scope ratescope exceededscope; do
+            if [[ "$type" == rate || "$type" == ratescope ]]; then kind='rate/net_usage';
             elif [[ "$type" == ratev2 || "$type" == ratev2scope ]]; then kind='ratev2/net_usage';
             else kind='exceeded'; fi
             FILTER="metric.type=\"serviceruntime.googleapis.com/quota/$kind\" AND resource.type=\"consumer_quota\" AND resource.label.service=\"youtube.googleapis.com\""
             # Scope check drops only quota_metric: no raw Google labels leave /tmp.
-            if [[ "$type" != ratev2scope ]]; then
+            if [[ "$type" != ratev2scope && "$type" != ratescope && "$type" != exceededscope ]]; then
               FILTER+=" AND metric.label.quota_metric=\"youtube.googleapis.com/search_list\""
             fi
             code="$(curl --silent --show-error --max-time 35 --retry 0 \
@@ -93,6 +94,47 @@ jobs:
           done
           unset token FILTER
           echo 'Cloud Monitoring PT-day GET-only telemetry completed (raw responses private).'
+      - name: Compare narrow and service-wide legacy quota timeSeries (READ-ONLY)
+        shell: bash
+        env:
+          RATE_HTTP: ${{ steps.monitoring.outputs.rate }}
+          EXCEEDED_HTTP: ${{ steps.monitoring.outputs.exceeded }}
+          RATE_SCOPE_HTTP: ${{ steps.monitoring.outputs.ratescope }}
+          EXCEEDED_SCOPE_HTTP: ${{ steps.monitoring.outputs.exceededscope }}
+        run: |
+          set -euo pipefail
+          # Only Google Monitoring GETs are performed above;
+          # 0 search requests, 0 quota changes, no GCS mutations.
+          mkdir -p artifacts/youtube-g2/pacific-search-preflight
+          node scripts/youtube-g2-legacy-quota-scope-diagnostic.mjs \
+            "$RATE_HTTP" /tmp/moviehub-youtube-pt-budget-private/rate.json \
+            "$EXCEEDED_HTTP" /tmp/moviehub-youtube-pt-budget-private/exceeded.json \
+            "$RATE_SCOPE_HTTP" /tmp/moviehub-youtube-pt-budget-private/ratescope.json \
+            "$EXCEEDED_SCOPE_HTTP" /tmp/moviehub-youtube-pt-budget-private/exceededscope.json \
+            artifacts/youtube-g2/pacific-search-preflight/legacy-scope.json
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const r=JSON.parse(readFileSync(
+            'artifacts/youtube-g2/pacific-search-preflight/legacy-scope.json',
+            'utf8'))
+          if(r.kind!=='moviehub-youtube-g2-legacy-quota-scope-readonly'
+            ||r.authorizedSearchCalls!==0||r.youtubeApiCalls!==0
+            ||r.gcsWrites!==0||r.quotaWrites!==0
+            ||r.publicationPermitted!==false
+            ||r.currentRemainingQuota!==null
+            ||r.measuredActualSearchCalls!==null
+            ||Object.keys(r).some(k=>/videoId|watchUrl|secret|token/i.test(k)))
+            throw Error('UNSAFE_LEGACY_QUOTA_DIAGNOSTIC')
+          const keys=['rate','rateScope','exceeded','exceededScope']
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            '\nLegacy quota telemetry comparison (never search authorization):\n'+
+            keys.map(k=>'- '+k+': HTTP '+r[k].http+
+              ', shape '+r[k].shape+
+              ', series '+r[k].series+
+              ', matching search quota series '+r[k].targetSeries+
+              ', points '+r[k].points).join('\n')+
+            '\nMissing exceeded series are UNKNOWN, never proof of zero quota failures.\n')
+          NODE
       - name: Inspect windowed quota-v2 telemetry only (NEVER an authorization)
         shell: bash
         env:
@@ -329,5 +371,6 @@ jobs:
             artifacts/youtube-g2/pacific-search-preflight/summary.json
             artifacts/youtube-g2/pacific-search-preflight/windowed-v2.json
             artifacts/youtube-g2/pacific-search-preflight/serviceusage.json
+            artifacts/youtube-g2/pacific-search-preflight/legacy-scope.json
           retention-days: 7
           if-no-files-found: error
