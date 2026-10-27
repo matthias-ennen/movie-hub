@@ -194,16 +194,19 @@ describe('YouTube: all playlist IDs reconciled with complete MovieHub catalog',(
       decision:'exists-in-complete-catalog-review',strongMetadataCandidate:false,
     })
   })
-  it('keeps the two-actor Außenseiter match on its existing canonical TMDB identity',()=>{
+  it('keeps actual Außenseiter actor-matched movie 14684 in review for a 7-minute cut conflict',()=>{
     const {intake,research,inventory}=sourceData()
     const source=intake.items[2],row=research.rows[2]
     source.sourceTitle='Der Außenseiter 4K Brendan Fraser & Matt Damon Ganzer Film auf Deutsch'
-    source.suggestedFilmRef.tmdbId=12504
-    source.durationMinutes=95
+    source.suggestedFilmRef.tmdbId=14684
+    source.durationMinutes=99
+    source.publicCatalogMembership='public-present'
+    source.stage='existing-film-match-review'
+    row.publicIndexMembership='public-present'
     row.topCandidates=[
-      {tmdbId:12504,score:52,titleLevel:4,runtimeDelta:1,
+      {tmdbId:14684,score:50,titleLevel:4,runtimeDelta:7,
         yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:true},
-      {tmdbId:14684,score:18,titleLevel:4,runtimeDelta:7,
+      {tmdbId:12504,score:20,titleLevel:4,runtimeDelta:1,
         yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:false},
       {tmdbId:286962,score:12,titleLevel:4,runtimeDelta:21,
         yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:false},
@@ -211,19 +214,20 @@ describe('YouTube: all playlist IDs reconciled with complete MovieHub catalog',(
     row.castEvidence={explicitActor:null,
       explicitActors:['Brendan Fraser','Matt Damon'],
       actorCreditEvidence:'matched-exclusive-two-actor-credit-list',
-      creditedMovieIds:[12504],partiallyCreditedMovieIds:[],affectsRanking:true}
-    inventory.candidates.push({key:'movie:12504',sources:['search','personal-tmdb']})
+      creditedMovieIds:[14684],partiallyCreditedMovieIds:[],affectsRanking:true}
+    inventory.candidates.push({key:'movie:14684',sources:['search','personal-tmdb']})
     inventory.counts.canonicalCandidates=4
-    const strong=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
-    expect(strong.entries[2]).toMatchObject({
+    const report=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
+    expect(report.entries[2]).toMatchObject({
       decision:'exists-in-complete-catalog-review',
-      suggestedFilmKey:'movie:12504',strongMetadataCandidate:true,
+      suggestedFilmKey:'movie:14684',strongMetadataCandidate:false,
       filmIdentityApproved:false,newMovieImported:false,verifiedOffer:false,
     })
-    row.castEvidence.creditedMovieIds=[]
-    const unsafe=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
-    expect(unsafe.entries[2].strongMetadataCandidate).toBe(false)
-    expect(unsafe.newMoviesImported).toBe(0)
+    expect(report.metadataReviewCandidateCount).toBe(0)
+    // Changing the inferred film to the closer-but-wrong identity is unsafe.
+    source.suggestedFilmRef.tmdbId=12504
+    const rejected=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
+    expect(rejected.entries[2].strongMetadataCandidate).toBe(false)
   })
 
   it('never promotes close second films, extra candidates or TV alternates',()=>{
