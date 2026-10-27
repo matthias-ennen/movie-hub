@@ -230,6 +230,37 @@ describe('YouTube: all playlist IDs reconciled with complete MovieHub catalog',(
     expect(rejected.entries[2].strongMetadataCandidate).toBe(false)
   })
 
+  it('classifies a uniquely dated 1960 film as metadata-review only, not independently approved',()=>{
+    const {intake,research,inventory}=sourceData()
+    const source=intake.items[2],r=research.rows[2]
+    source.sourceTitle='Die Zeit Maschine - 1960'
+    source.durationMinutes=101.1
+    source.suggestedFilmRef.tmdbId=2134
+    r.videoTitle=source.sourceTitle
+    r.reportedSourceYear=1960
+    r.curatedQueryReason='time-machine-1960-original-title'
+    r.topCandidates=[
+      {tmdbId:2134,score:44,titleLevel:4,runtimeDelta:1.9,
+        yearMismatch:false,sequelConflict:false},
+      {tmdbId:148948,score:28,titleLevel:4,runtimeDelta:2.1,
+        yearMismatch:true,sequelConflict:false},
+      {tmdbId:2135,score:26,titleLevel:4,runtimeDelta:5.1,
+        yearMismatch:true,sequelConflict:false},
+    ]
+    const pass=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
+    expect(pass.entries[2]).toMatchObject({
+      suggestedFilmKey:'movie:2134',decision:'new-tmdb-metadata-review',
+      strongMetadataCandidate:true,filmIdentityApproved:false,
+      newMovieImported:false,verifiedOffer:false,
+    })
+    expect(pass.metadataReviewCandidateCount).toBe(1)
+    r.topCandidates[1].yearMismatch=false
+    const blocked=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
+    expect(blocked.entries[2]).toMatchObject({
+      decision:'work-identity-review',strongMetadataCandidate:false,
+    })
+  })
+
   it('never promotes close second films, extra candidates or TV alternates',()=>{
     for(const mutation of [
       r=>{r.topCandidates[1].titleLevel=4},
