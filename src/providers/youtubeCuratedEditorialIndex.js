@@ -13,12 +13,10 @@ const GOOD_STATUS='review-leading-film-hypothesis'
 /**
  * TMDB search returns at most three movie candidates in the G2 review.
  * A first film can be clear even when TWO unrelated weak side-results appear.
- * Accept 2 or 3 only when the first is exact-title / close-runtime and EVERY
- * alternate has an inferior title level and trails by at least 20 points.
- * Two tightly bounded exceptions for SAME-title side hits: an explicitly
- * contradictory source year and cut, or a wildly different runtime plus an
- * affirmative actor identity for the winner. Do NOT accept same-year remakes,
- * close runtimes, plausible near-ties, or any TV alternatives.
+ * A clear first film may beat weak unrelated alternatives. For a second
+ * same-title result, allow a lower score margin only when the first film's
+ * runtime is nearly exact and the alternative is over 90 minutes away.
+ * Close editions, remakes, near ties and TV alternatives remain in review.
  */
 export function hasDominantFilmHypothesis(results){
   if(!Array.isArray(results)||(results.length!==2&&results.length!==3))return false
@@ -30,14 +28,23 @@ export function hasDominantFilmHypothesis(results){
     &&winner.yearMismatch!==true&&winner.sequelConflict!==true
     &&Number.isInteger(Number(winner.tmdbId))&&Number(winner.tmdbId)>0
     &&runners.every(runner=>{
+      const margin=winner.score-runner.score
       if(!Number.isFinite(runner?.score)
         ||!Number.isFinite(runner?.titleLevel)
-        ||winner.score-runner.score<20
+        ||margin<15
         ||!Number.isInteger(Number(runner?.tmdbId))
         ||Number(runner.tmdbId)<=0
         ||Number(winner.tmdbId)===Number(runner.tmdbId))return false
-      if(runner.titleLevel<=2)return true
+      if(runner.titleLevel<=2)return margin>=20
       if(runner.titleLevel!==4)return false
+      // Example: a full-length Braveheart search result versus a much
+      // shorter same-title film. Do not accept contrary cast/year evidence.
+      if(winner.score>=40&&winner.runtimeDelta<=3&&margin>=15
+        &&runner.quotedActorCreditMatches!==true
+        &&runner.yearMismatch!==true&&runner.sequelConflict!==true
+        &&Number.isFinite(runner.runtimeDelta)
+        &&runner.runtimeDelta>=90)return true
+      if(margin<20)return false
       // A source video explicitly dated 1978/1993 is not the later remake.
       // Also require a clear duration disagreement, not only a year signal.
       if(runner.yearMismatch===true
