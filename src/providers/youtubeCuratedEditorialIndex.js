@@ -55,6 +55,40 @@ export function hasDominantFilmHypothesis(results){
         &&runner.runtimeDelta>=60
     })
 }
+/**
+ * Explicit actor named IN the source playlist title, independently checked
+ * against the TMDB credits of every proposed movie, can disambiguate
+ * similarly named films even if their runtimes overlap.
+ *
+ * This is separate from the historical duration/cast dominant gate:
+ * no relaxations to hasDominantFilmHypothesis or ordinary movies.
+ */
+export function hasExclusiveSourceActorFilmHypothesis(results, castEvidence) {
+  if(!Array.isArray(results)||(results.length!==2&&results.length!==3))return false
+  const [winner,...runners]=results
+  if(!Number.isInteger(Number(winner?.tmdbId))||Number(winner.tmdbId)<=0
+    ||!Number.isFinite(winner.score)||winner.score<50
+    ||winner.titleLevel!==4||!Number.isFinite(winner.runtimeDelta)
+    ||winner.runtimeDelta<0||winner.runtimeDelta>5
+    ||winner.yearMismatch===true||winner.sequelConflict===true
+    ||winner.quotedActorCreditMatches!==true
+    ||castEvidence?.actorCreditEvidence!=='matched-a-tmdb-credit-list'
+    ||typeof castEvidence.explicitActor!=='string'
+    ||!/^\S+\s+\S+/.test(castEvidence.explicitActor)
+    ||!Array.isArray(castEvidence.creditedMovieIds)
+    ||castEvidence.creditedMovieIds.length!==1
+    ||Number(castEvidence.creditedMovieIds[0])!==Number(winner.tmdbId))return false
+  const seen=new Set([Number(winner.tmdbId)])
+  return runners.every(runner=>{
+    const id=Number(runner?.tmdbId)
+    if(!Number.isInteger(id)||id<=0||seen.has(id))return false
+    seen.add(id)
+    return Number.isFinite(runner.score)
+      &&Number.isFinite(runner.titleLevel)
+      &&runner.quotedActorCreditMatches===false
+      &&winner.score-runner.score>=25
+  })
+}
 const ALLOWED=new Set(['free','rent-buy'])
 const NO_WRITE=['catalogWrites','firestoreWrites','providerWrites','badgeWrites','nightlyWrites']
 const validDate=v=>Number.isFinite(Date.parse(v))
@@ -134,7 +168,9 @@ export function buildCuratedEditorialTitleIndex(source,research,{
           ||!Array.isArray(c.playlistIds)||c.playlistIds.length===0))
       ||(r.errors||[]).length>0
       ||!Array.isArray(r.topCandidates)
-      ||!(r.topCandidates.length===1||hasDominantFilmHypothesis(r.topCandidates)))continue
+      ||!(r.topCandidates.length===1
+        ||hasDominantFilmHypothesis(r.topCandidates)
+        ||hasExclusiveSourceActorFilmHypothesis(r.topCandidates,r.castEvidence)))continue
     const top=r.topCandidates[0]
     const movieKey=key('movie',top.tmdbId)
     if(!movieKey||!Number.isFinite(top.score)||top.score<28
