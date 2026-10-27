@@ -28,6 +28,21 @@ const promotedSurvivalThriller = /^grandioser\s+survival[-\s]thriller\s+mit\s+st
 // country, exact cut, source rights, offer, or Video ID.
 const observedAdWrappers = [
   {
+    // An observed FREE playlist title uses director billing and a full-movie
+    // advertisement around the actual German film title. Only the TMDB query
+    // changes; the original video/title and every matcher gate remain intact.
+    reason:'director-billing-and-free-full-movie-promo',
+    regex:/^john carpenter['’]s\s+(.{4,100}?)\s+[–—-]\s+ganzer film auf deutsch kostenlos schauen in hd$/iu,
+    title:m=>m[1],
+  },
+  {
+    // The movie's two-part subtitle is integral to the title; remove only
+    // this exact observed star-name/free-HD marketing tail.
+    reason:'actor-billing-and-free-hd-promo',
+    regex:/^(.{4,115}?)\s+[-–]\s+mit arnold schwarzenegger\s+[-–]\s+ganzer film kostenlos in hd$/iu,
+    title:m=>m[1],
+  },
+  {
     // Public YouTube Movies: 'Rambo - First Blood' is the first 1982 film,
     // not 'Rambo III'. Search by the distinct film work, not the franchise.
     // Source playback and exact cut remain separately unverified.
