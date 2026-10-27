@@ -294,6 +294,46 @@ describe('YouTube: all playlist IDs reconciled with complete MovieHub catalog',(
     })
   })
 
+  it('carries verified director billing to canonical movie review without importing or claiming DE availability',()=>{
+    const {intake,research,inventory}=sourceData()
+    const source=intake.items[2],r=research.rows[2]
+    const title="John Carpenter's Sie leben – ganzer Film auf Deutsch kostenlos schauen in HD"
+    source.sourceTitle=title
+    source.suggestedFilmRef.tmdbId=8337
+    source.identityResearchStatus='review-leading-movie-with-TV-alternatives'
+    const row=research.rows[2]
+    row.matchStatus='review-leading-movie-with-TV-alternatives'
+    row.videoTitle=title
+    row.sourceVideoDetailAvailable=true
+    row.directorEvidence={director:'John Carpenter',
+      evidence:'matched-exclusive-tmdb-director',creditedMovieIds:[8337],
+      affectsRanking:true}
+    row.alternativeTvIds=[76497]
+    row.tvSearchEvidence={alternativeTvIds:[76497],candidates:[{
+      tmdbTvId:76497,name:'True Women',originalName:'True Women',
+      firstAirYear:1997,yearGap:9,titleOverlap:false,
+      wholeFilmTitleMatch:false,disposition:'retained-for-film-tv-review',
+    }]}
+    row.topCandidates=[
+      {tmdbId:8337,score:52,titleLevel:4,runtimeDelta:2.5,
+        yearMismatch:false,sequelConflict:false,creditedDirectorMatches:true},
+      {tmdbId:44190,score:2,titleLevel:2,runtimeDelta:5.5,
+        yearMismatch:false,sequelConflict:false,creditedDirectorMatches:false},
+      {tmdbId:24167,score:-14,titleLevel:0,runtimeDelta:9.5,
+        yearMismatch:false,sequelConflict:false,creditedDirectorMatches:false},
+    ]
+    const good=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
+    expect(good.entries[2]).toMatchObject({
+      suggestedFilmKey:'movie:8337',
+      decision:'new-tmdb-metadata-review',
+      strongMetadataCandidate:true,filmIdentityApproved:false,
+      newMovieImported:false,verifiedOffer:false,
+    })
+    row.tvSearchEvidence.candidates[0].wholeFilmTitleMatch=true
+    const bad=reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{now:NOW})
+    expect(bad.entries[2].strongMetadataCandidate).toBe(false)
+  })
+
   it('never promotes close second films, extra candidates or TV alternates',()=>{
     for(const mutation of [
       r=>{r.topCandidates[1].titleLevel=4},
