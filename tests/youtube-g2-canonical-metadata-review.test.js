@@ -81,6 +81,41 @@ describe('YouTube G2 TMDB new-film metadata review (not a catalog import)',()=>{
     expect(()=>planYoutubeNewFilmMetadataReview(full,intake,research,{now:NOW}))
       .toThrow('YOUTUBE_METADATA_REVIEW_CANDIDATE_NOT_UNIQUE')
   })
+  it('carries independently corroborated actor evidence to TMDB metadata review',()=>{
+    const {full,intake,research}=make()
+    const source=intake.items[0]
+    source.sourceTitle="Heiter bis wolkig (ROMANTISCHE KOMÖDIE mit ELYAS M'BAREK, Liebeskomödie ganzer Film Deutsch, ROMCOM)"
+    source.identityResearchStatus='review-leading-movie-with-TV-alternatives'
+    source.durationMinutes=99.4
+    full.entries[0].suggestedFilmKey='movie:117467'
+    const row=research.rows[0]
+    row.matchStatus='review-leading-movie-with-TV-alternatives'
+    row.publicIndexMembership='public-not-present'
+    row.topCandidates=[
+      {tmdbId:117467,score:52,titleLevel:4,runtimeDelta:0.6,
+        yearMismatch:false,sequelConflict:false,quotedActorCreditMatches:true},
+      {tmdbId:1071608,score:3,titleLevel:4,runtimeDelta:89.4,
+        quotedActorCreditMatches:false},
+      {tmdbId:1090200,score:-4,titleLevel:2,runtimeDelta:null,
+        quotedActorCreditMatches:false},
+    ]
+    row.castEvidence={explicitActor:"ELYAS M'BAREK",
+      actorCreditEvidence:'matched-a-tmdb-credit-list',
+      creditedMovieIds:[117467],affectsRanking:true}
+    row.alternativeTvIds=[81870]
+    row.tvSearchEvidence={candidates:[{
+      tmdbTvId:81870,name:'Heiter bis wolkig',
+      firstAirYear:1978,yearGap:34,disposition:'retained-for-film-tv-review',
+    }]}
+    const plan=planYoutubeNewFilmMetadataReview(full,intake,research,{now:NOW})
+    expect(plan.candidates).toMatchObject([{
+      videoId:'ucRKSNwzM_w',tmdbId:117467,
+      independentWorkIdentityApproved:false,
+    }])
+    row.tvSearchEvidence.candidates[0].yearGap=5
+    expect(()=>planYoutubeNewFilmMetadataReview(full,intake,research,{now:NOW}))
+      .toThrow('YOUTUBE_METADATA_REVIEW_CANDIDATE_NOT_UNIQUE')
+  })
   it('fetches existing canonical TMDB metadata format but approves nothing',async()=>{
     const {full,intake,research}=make()
     const plan=planYoutubeNewFilmMetadataReview(full,intake,research,{now:NOW})

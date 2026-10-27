@@ -1,4 +1,5 @@
 import { hasDominantFilmHypothesis } from '../src/providers/youtubeCuratedEditorialIndex.js'
+import { hasExclusiveActorCanonicalFilmEvidence } from './youtube-g2-exclusive-actor-canonical-film.mjs'
 /**
  * A bounded stage after the full account-wide intake: fetch canonical TMDB
  * metadata for strong NEW film hypotheses. Film identity is NOT approved by a
@@ -63,10 +64,11 @@ export function planYoutubeNewFilmMetadataReview(full,intake,research,{
     if(!match||entry.completeCatalogMembership!=='not-in-canonical-inventory'
       ||entry.strongMetadataCandidate!==true||source.sourceScreened!==true
       ||source.regionSignal==='excluded'
-      ||row.matchStatus!=='review-leading-film-hypothesis'
-      ||row.identityRisk!==null
-      ||row.errors?.length!==0||row.alternativeTvIds?.length!==0
-      ||!(row.topCandidates?.length===1||hasDominantFilmHypothesis(row.topCandidates))
+      ||row.identityRisk!==null||row.errors?.length!==0
+      ||!((row.matchStatus==='review-leading-film-hypothesis'
+        &&row.alternativeTvIds?.length===0
+        &&(row.topCandidates?.length===1||hasDominantFilmHypothesis(row.topCandidates)))
+        ||hasExclusiveActorCanonicalFilmEvidence(source,row))
       ||Number(top?.tmdbId)!==Number(match[1])
       ||Number(top.score)<38||top.titleLevel!==4
       ||!Number.isFinite(top.runtimeDelta)||top.runtimeDelta<0||top.runtimeDelta>10
