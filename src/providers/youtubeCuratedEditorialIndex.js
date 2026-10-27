@@ -165,6 +165,11 @@ export function buildCuratedEditorialTitleIndex(source,research,{
       ||r.identityRisk!==null||r.hasPlaylistOfferConflict!==false
       ||r.hasPlaylistOverlap!==(c.playlistModes.length>1)
       ||r.publicIndexMembership!=='public-present'
+      // A newly boosted director score cannot bypass the stricter check
+      // for near-era/unrelated TV candidates through ordinary film dominance.
+      ||(r.matchStatus===MOVIE_PLAYLIST_WITH_TV_SEARCH_HITS
+        &&r.directorEvidence?.affectsRanking===true
+        &&!hasExclusiveDirectorFeatureFilmEvidence(c.videoTitle,r))
       // This is a user-defined MOVIE playlist. A fuzzy /search/tv result
       // is not a competing FILM when one TMDB movie matches decisively.
       // For ordinary leading-film rows, unexpected TV hits still fail closed.
