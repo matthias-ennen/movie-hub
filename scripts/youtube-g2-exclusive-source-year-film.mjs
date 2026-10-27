@@ -14,7 +14,9 @@ export function hasExclusiveReportedYearFilmHypothesis(sourceTitle,row){
   const sourceYear=terminalPublisherFilmYear(sourceTitle)
   const results=row?.topCandidates
   const winner=Array.isArray(results)?results[0]:null
-  if(sourceYear===null||row?.matchStatus!=='review-leading-film-hypothesis'
+  if(sourceYear===null||sourceYear<1920||sourceYear>2015
+    ||/\b(?:trailer|teaser|clip|ausschnitt|bootleg|uncut|ungek[uü]rzt)\b/iu.test(String(sourceTitle))
+    ||row?.matchStatus!=='review-leading-film-hypothesis'
     ||row.identityRisk!==null
     ||!Array.isArray(row.errors)||row.errors.length!==0
     ||!Array.isArray(row.alternativeTvIds)||row.alternativeTvIds.length!==0
@@ -24,14 +26,27 @@ export function hasExclusiveReportedYearFilmHypothesis(sourceTitle,row){
     ||!Number.isFinite(winner.runtimeDelta)||winner.runtimeDelta<0||winner.runtimeDelta>2
     ||winner.yearMismatch!==false||winner.sequelConflict===true)return false
   const ids=new Set([winner.tmdbId])
-  return results.slice(1).every(other=>{
+  let yearConflictingExactRivals=0
+  const allSafe=results.slice(1).every(other=>{
     if(!Number.isInteger(other?.tmdbId)||other.tmdbId<=0||ids.has(other.tmdbId)
-      ||other.titleLevel!==4||other.yearMismatch!==true
       ||other.sequelConflict===true
-      ||!Number.isFinite(other.score)||other.score>28
-      ||winner.score-other.score<14
+      ||!Number.isFinite(other.score)
       ||!Number.isFinite(other.runtimeDelta)||other.runtimeDelta<0)return false
     ids.add(other.tmdbId)
-    return true
+    // Same-title remake: TMDB must EXPLICITLY contradict the publisher
+    // year, not merely have a lower score or a different running time.
+    if(other.titleLevel===4){
+      if(other.yearMismatch!==true||other.score>28
+        ||winner.score-other.score<14)return false
+      yearConflictingExactRivals++
+      return true
+    }
+    // TMDB may return an unrelated *weak-title* side result alongside a
+    // clearly different-year remake. It gets no year-based waiver:
+    // retain the ordinary 20-point dominance gap even when its running
+    // time is identical. Unknown or partial-exact titles still block.
+    return Number.isFinite(other.titleLevel)&&other.titleLevel<=2
+      &&other.score<=24&&winner.score-other.score>=20
   })
+  return allSafe&&yearConflictingExactRivals>=1
 }
