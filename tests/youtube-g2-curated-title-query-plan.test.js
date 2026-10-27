@@ -45,7 +45,9 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
   it.each([
     ['Friday the 13th (1980)','Friday the 13th',1980],
     ['The Thing (1982)','The Thing',1982],
-    ['Heat (1995)','Heat',1995],
+    ['Stalingrad (1993)','Stalingrad',1993],
+    ['The Time Machine (1960)','The Time Machine',1960],
+    ['Transsiberian (2008)','Transsiberian',2008],
   ])('searches film %s without its terminal year, keeping the year for mismatch checks',
     (raw,title,year)=>{
       const out=planCuratedTmdbQueries(raw)
@@ -60,7 +62,7 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
 
   it('never strips unknown years, movie excerpts or single-word ambiguity',()=>{
     for(const raw of [
-      'IT (2017)','Basic (2003)',
+      'IT (2017)','Basic (2003)','Heat (1995)',
       'Friday the 13th Trailer (1980)',
       'Friday the 13th (1980) Trailer',
       'Friday the 13th (1880)',
@@ -370,7 +372,7 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
 
   it('does not strip movie titles and arbitrary cast/genre words without an observed wrapper',()=>{
     for (const title of [
-      'The Calling', 'The Time Machine (1960)', 'Dawn of the Dead',
+      'The Calling', 'Dawn of the Dead',
       'So ein geiler Film mit Keanu Reeves', 'The Calling (Ganzer Film)',
       'JFK - Tatort Dallas', 'Sleepy Hollow 2',
       'From Dusk Till Dawn', 'Stephen Kings Stark',
@@ -382,11 +384,11 @@ describe('G2 curated playlists: conservative observed title query repairs', () =
 
   it('keeps already clean full titles, short ambiguous titles and lookalikes untouched', () => {
     for (const raw of [
-      'Wishmaster 2: Evil Never Dies', 'Stalingrad (1993)',
+      'Wishmaster 2: Evil Never Dies',
       'So Weit Die Füße Tragen', 'The Watcher',
       'Nürnberg', 'IT', 'Full Movie in English',
       'The Watcher of the Woods', 'Stalingrad [1993] Preview',
-      'Basic Instinct', 'Basic', 'Transsiberian (2008)',
+      'Basic Instinct', 'Basic',
       'Survival-Thriller mit STARBESETZUNG: Transsiberian',
       'The Crow - Die Krähe Ganzer Film Deutsch 18+',
     ]) {
