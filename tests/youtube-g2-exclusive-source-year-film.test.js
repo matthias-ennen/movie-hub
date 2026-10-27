@@ -31,6 +31,43 @@ describe('G2 full-movie year names a unique TMDB work despite remakes',()=>{
     // advertised as 1960 if TMDB independently reports a different year.
     expect(row().topCandidates[1].runtimeDelta).toBe(2.1)
   })
+  it('replays real Friday the 13th (1980): one year-conflicting remake plus one weak-title side hit',()=>{
+    const source='Friday the 13th (1980)'
+    const mixed={
+      matchStatus:'review-leading-film-hypothesis',
+      identityRisk:null,errors:[],alternativeTvIds:[],
+      topCandidates:[
+        {tmdbId:4488,score:44,titleLevel:4,runtimeDelta:0.3,
+          yearMismatch:false,sequelConflict:false},
+        {tmdbId:13207,score:28,titleLevel:4,runtimeDelta:1.7,
+          yearMismatch:true,sequelConflict:false},
+        {tmdbId:9728,score:24,titleLevel:2,runtimeDelta:0.3,
+          yearMismatch:false,sequelConflict:false},
+      ],
+    }
+    expect(hasExclusiveReportedYearFilmHypothesis(source,mixed)).toBe(true)
+    for(const change of [
+      r=>{r.topCandidates[1].yearMismatch=false},
+      r=>{r.topCandidates[1].yearMismatch=null},
+      r=>{r.topCandidates[1].titleLevel=3},
+      r=>{r.topCandidates[2].titleLevel=3},
+      r=>{r.topCandidates[2].titleLevel=4},
+      r=>{r.topCandidates[2].score=25},
+      r=>{r.topCandidates[2].score=24;r.topCandidates[0].score=43},
+      r=>{r.topCandidates[2].runtimeDelta=null},
+      r=>{r.topCandidates[2].tmdbId=4488},
+      r=>{r.topCandidates[1].runtimeDelta=null},
+      r=>{r.topCandidates[0].yearMismatch=true},
+      r=>{r.alternativeTvIds=[42]},
+      r=>{r.identityRisk='explicit-unverified-cut-or-source'},
+    ]){
+      const altered=structuredClone(mixed)
+      change(altered)
+      expect(hasExclusiveReportedYearFilmHypothesis(source,altered)).toBe(false)
+    }
+    expect(hasExclusiveReportedYearFilmHypothesis(source+' Trailer',mixed)).toBe(false)
+    expect(hasExclusiveReportedYearFilmHypothesis('Friday the 13th (2026)',mixed)).toBe(false)
+  })
   it('blocks Braveheart without year and every plausible year/rival ambiguity',()=>{
     const rejects=[
       (r)=>{r.topCandidates[1].yearMismatch=false},
