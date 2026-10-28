@@ -9,7 +9,7 @@ on:
   # a squash merge with [youtube-nightly-once]. Ordinary code pushes skip.
   # Its successful trusted main-branch completion must trigger the separate
   # videos.list-only workflow_run recheck; this push is NOT a schedule proof.
-  # All existing Pacific 10/1 CAS limits, no-retry and offer guards remain.
+  # All existing Pacific 50/1 CAS limits, no-retry and offer guards remain.
   push:
     branches: [main]
     paths:
@@ -98,7 +98,7 @@ jobs:
             "$exceeded" /tmp/moviehub-youtube-pt-search-private/exceeded.json \
             artifacts/youtube-g2/pacific-search-preflight
           rm -rf /tmp/moviehub-youtube-pt-search-private
-      - name: Resume film queue with CAS progress and up to ten shared PT-day searches
+      - name: Resume film queue with CAS progress and up to 50 shared PT-day searches
         id: nightly_discovery
         run: node scripts/youtube-g2-nightly-discovery-live.mjs
       - name: Verify safe, anonymized nightly budget summary
@@ -109,7 +109,7 @@ jobs:
           const r=JSON.parse(readFileSync('artifacts/youtube-g2/nightly-discovery/summary.json','utf8'))
           const failed=r.status==='failed'
           if(r.kind!=='moviehub-youtube-g2-nightly-budgeted-discovery'
-            ||r.dayLimit!==10
+            ||r.dayLimit!==50
             ||r.independentlyVerifiedDEOffers!==0
             ||r.publicationPermitted!==false
             ||r.publishedPlaybackRoutes!==0
@@ -124,17 +124,17 @@ jobs:
                   'tmdb-source','other-unclassified'].includes(r.failureCategory)
               ||(r.selectedForSearch!==null
                  &&(!Number.isInteger(r.selectedForSearch)
-                     ||r.selectedForSearch<0||r.selectedForSearch>10))
+                     ||r.selectedForSearch<0||r.selectedForSearch>50))
               ||(r.sharedDayReserved!==null
                  &&(!Number.isInteger(r.sharedDayReserved)
-                     ||r.sharedDayReserved<0||r.sharedDayReserved>10))
+                     ||r.sharedDayReserved<0||r.sharedDayReserved>50))
               ||(r.priorReserved!==null
                  &&r.priorReserved+r.selectedForSearch!==r.sharedDayReserved))
               throw Error('YOUTUBE_NIGHTLY_FAILURE_REPORT_NOT_TRUSTED')
           }else if(!Number.isInteger(r.searchCalls)||r.searchCalls<0
             ||r.searchCalls>r.selectedForSearch
-            ||r.selectedForSearch>10||r.priorReserved>10
-            ||r.selectedForSearch+r.priorReserved>10)
+            ||r.selectedForSearch>50||r.priorReserved>50
+            ||r.selectedForSearch+r.priorReserved>50)
             throw Error('YOUTUBE_NIGHTLY_BUDGET_OR_PUBLICATION_GUARD_FAILED')
           const lines=[
             '## YouTube nightly private, budgeted TMDB-first discovery','',
