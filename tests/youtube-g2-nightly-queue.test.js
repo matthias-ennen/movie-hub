@@ -1,4 +1,5 @@
 import {describe,it,expect} from 'vitest'
+import {readFileSync} from 'node:fs'
 import {
   initialNightlyQueue,validateNightlyQueue,putNightlyResult,
   selectNightlyPublicBadgeMovies,loadNightlyQueue,saveNightlyQueue,
@@ -114,6 +115,43 @@ describe('private nightly movie cursor / capped public badge queue',()=>{
     expect(()=>selectNightlyPublicBadgeMovies({
       publicIndex:{...publicIndex(),source:'fallback'},checkpoint,now:AT,
     })).toThrow('G2_NIGHTLY_PUBLIC_INDEX_NOT_TRUSTED')
+  })
+  it('can plan 600 public badge preflights offline while the live runner remains capped at 60',()=>{
+    const all=Array.from({length:1200},(_,i)=>({
+      type:'movie',tmdbId:1000+i,providerIds:['youtube'],
+    }))
+    const index={kind:'search-index',version:1,source:'tmdb',country:'DE',
+      generatedAt:'2026-10-25T17:50:00.000Z',entries:all,count:all.length}
+    let progress=putNightlyResult(initialNightlyQueue(AT),{
+      tmdbId:1001,state:'started',runId:610020,now:AT,
+    })
+    progress=putNightlyResult(progress,{
+      tmdbId:1002,state:'no-current-offer',runId:610020,now:AT,
+    })
+    const large=selectNightlyPublicBadgeMovies({
+      publicIndex:index,checkpoint,progress,now:AT,limit:600,
+    })
+    expect(large.movieIds).toHaveLength(600)
+    expect(large.movieIds[0]).toBe(1000)
+    expect(large.movieIds[599]).toBe(1601)
+    expect(large.movieIds).not.toContain(1001)
+    expect(large.movieIds).not.toContain(1002)
+    expect(large).toMatchObject({
+      totalPublicBadgeMovies:1200,knownCandidateMovies:0,
+      recentProgressMovies:2,pendingMovies:1198,queueTruncated:true,
+      publicationPermitted:false,verifiedDEOffers:0,
+    })
+    expect(selectNightlyPublicBadgeMovies({
+      publicIndex:index,checkpoint,now:AT,
+    }).movieIds).toHaveLength(120)
+    expect(()=>selectNightlyPublicBadgeMovies({
+      publicIndex:index,checkpoint,now:AT,limit:601,
+    })).toThrow('G2_NIGHTLY_PUBLIC_INDEX_NOT_TRUSTED')
+    const live=readFileSync(new URL(
+      '../scripts/youtube-g2-nightly-discovery-live.mjs',import.meta.url),'utf8')
+    expect(live).toContain('NIGHTLY_MAX_TMDB_PREFLIGHT_MOVIES=60')
+    expect(live).toContain('now:startedAt,limit:NIGHTLY_MAX_TMDB_PREFLIGHT_MOVIES')
+    expect(live).toContain('NIGHTLY_TMDB_MAX_REQUESTS=1+NIGHTLY_MAX_TMDB_PREFLIGHT_MOVIES')
   })
   it('saves with CAS, validates readback and rejects stale concurrent writers',async()=>{
     const b=bucket()
