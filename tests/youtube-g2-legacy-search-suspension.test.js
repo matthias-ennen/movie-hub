@@ -75,7 +75,8 @@ describe('YouTube #388: historical search research cannot escape shared PT budge
     expect(known).toContain('run: node scripts/youtube-g2-global-known-no-search-live.mjs')
     expect(known).toContain("if(endpoint!=='videos')")
     expect(nightly).toContain("contains(github.event.head_commit.message, '[youtube-nightly-once]')")
-    expect(nightly).toContain("- cron: '35 11 * * *'")
+    expect(nightly).toContain("- cron: '17 20 * * *'")
+    expect(nightly).toContain('timezone: Europe/Berlin')
     // A targeted push acceptance is not the scheduled acceptance proof.
     expect(known).toContain("github.event.workflow_run.event == 'workflow_dispatch'")
   })
