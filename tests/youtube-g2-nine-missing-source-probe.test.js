@@ -14,6 +14,7 @@ function apiFixture({detailIds=[],missing=[],move=null,privateLabel=false}={}){
       return {items:TARGETS.filter(x=>!missing.includes(x.videoId)).map(x=>
         fixtureItem(x,x.videoId===move?{position:61}
           :privateLabel?{title:'Private video'}:{}))}
+    }
     if(endpoint==='videos'){
       expect(params.part).toBe('snippet,contentDetails,status')
       expect(params.id.split(',')).toEqual(TARGETS.map(x=>x.videoId))
