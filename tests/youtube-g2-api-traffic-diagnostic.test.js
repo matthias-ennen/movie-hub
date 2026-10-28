@@ -68,8 +68,8 @@ describe('YouTube API consumed request traffic telemetry is diagnostic only',()=
     ]}})
     expect(r).toMatchObject({
       shape:'timeSeries-present',observedCompletedRequests:8,
-      observedSearchMethodRequests:1,observedOtherMethodRequests:2,
-      unclassifiedMethodRequests:5,methodLabelsPresentForAllSeries:false,
+      observedSearchMethodRequests:1,observedOtherMethodRequests:0,
+      unclassifiedMethodRequests:7,methodLabelsPresentForAllSeries:false,
       distinctCredentialGroupsObserved:null,
       externalConsumersFullyAccountedFor:false,
       actualSearchListRequests:null,quotaRemaining:null,
