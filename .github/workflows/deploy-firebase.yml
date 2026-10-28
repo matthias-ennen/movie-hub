@@ -3,11 +3,13 @@ name: Deploy Firebase
 on:
   push:
     branches: [main]
-  schedule:
-    # GitHub evaluates cron in UTC. These summer/winter triggers bracket 00:17
-    # Europe/Berlin; the gate below starts at most one full data run per local day.
-    - cron: '17 22 * * *'
-    - cron: '17 23 * * *'
+  # The sole scheduled production import now comes from the central
+  # MovieHub Nightly Pipeline at 00:10 Europe/Berlin, after YouTube QA.
+  workflow_call:
+    inputs:
+      nightly_chain:
+        type: boolean
+        required: true
   workflow_dispatch:
     inputs:
       data_mode:
@@ -42,7 +44,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Select the daily 00:17 Europe/Berlin run
+      - name: Permit the verified central night chain or a standalone deploy
         id: gate
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -50,6 +52,9 @@ jobs:
           DATA_WORKFLOW_HOUR: '0'
           DATA_WORKFLOW_MINUTE: '17'
           DATA_WORKFLOW_NAME: Deploy Firebase
+          # A reusable job inherits its caller's event_name=schedule. The
+          # outer orchestrator has ALREADY applied the once-per-day gate.
+          GITHUB_EVENT_NAME: ${{ inputs.nightly_chain && 'workflow_call' || github.event_name }}
         run: node scripts/check-data-workflow-schedule.mjs --gate
 
   deploy:
@@ -72,8 +77,9 @@ jobs:
         env:
           DATA_WORKFLOW_TIMEZONE: Europe/Berlin
           DATA_WORKFLOW_HOUR: '0'
-          DATA_WORKFLOW_MINUTE: '17'
+          DATA_WORKFLOW_MINUTE: ${{ inputs.nightly_chain && '10' || '17' }}
           DATA_WORKFLOW_MAX_DELAY_MINUTES: '60'
+          GITHUB_EVENT_NAME: ${{ inputs.nightly_chain && 'workflow_call' || github.event_name }}
         run: node scripts/check-data-workflow-schedule.mjs --capture
 
       - name: Install dependencies

@@ -1,0 +1,111 @@
+name: MovieHub Nightly Pipeline
+
+on:
+  schedule:
+    # One daily Berlin-local trigger; GitHub handles CET/CEST automatically.
+    # 00:10 may be delayed by Actions. The actual dependencies enforce order.
+    - cron: '10 0 * * *'
+      timezone: Europe/Berlin
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+concurrency:
+  group: moviehub-nightly-pipeline
+  cancel-in-progress: false
+
+jobs:
+  night-gate:
+    name: Enforce one trusted scheduled night per Berlin day
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.gate.outputs.should_run }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Fail closed if GitHub cannot prove the daily gate
+        id: gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DATA_WORKFLOW_TIMEZONE: Europe/Berlin
+          DATA_WORKFLOW_HOUR: '0'
+          DATA_WORKFLOW_MINUTE: '10'
+          DATA_WORKFLOW_NAME: MovieHub Nightly Pipeline
+        run: node scripts/check-data-workflow-schedule.mjs --gate
+
+  discovery:
+    name: Private bounded YouTube discovery (may fail closed)
+    needs: night-gate
+    if: ${{ !cancelled() && needs.night-gate.outputs.should_run == 'true' }}
+    uses: ./.github/workflows/youtube-g2-nightly-discovery.yml
+    permissions:
+      contents: read
+      id-token: write
+    secrets: inherit
+
+  known-videos:
+    name: Trusted known YouTube videos.list recheck (no searches)
+    needs: [night-gate, discovery]
+    # Intentional fallback: failed Google Monitoring MUST NOT block known IDs.
+    if: ${{ always() && !cancelled() && needs.night-gate.outputs.should_run == 'true' }}
+    uses: ./.github/workflows/youtube-g2-global-known-no-search.yml
+    permissions:
+      contents: read
+      id-token: write
+    secrets: inherit
+
+  firebase:
+    name: Normal complete MovieHub Firebase import and Hosting publish
+    needs: [night-gate, discovery, known-videos]
+    # Existing validated/known data remain deployable even after G2 failure.
+    if: ${{ always() && !cancelled() && needs.night-gate.outputs.should_run == 'true' }}
+    uses: ./.github/workflows/deploy-firebase.yml
+    with:
+      nightly_chain: true
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    secrets: inherit
+
+  report:
+    name: Aggregate adapter QA, step results and publication evidence
+    needs: [night-gate, discovery, known-videos, firebase]
+    if: ${{ always() && !cancelled() && needs.night-gate.outputs.should_run == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Read only sanitized Firebase source artifacts from this exact run
+        id: reports
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: source-adapter-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .
+      - name: Write aggregate complete chain report (never video IDs or private raw data)
+        env:
+          NIGHT_GATE_RESULT: ${{ needs.night-gate.result }}
+          NIGHT_DISCOVERY_RESULT: ${{ needs.discovery.result }}
+          NIGHT_KNOWN_RESULT: ${{ needs.known-videos.result }}
+          NIGHT_FIREBASE_RESULT: ${{ needs.firebase.result }}
+          NIGHT_ARTIFACT_READ_RESULT: ${{ steps.reports.outcome }}
+        run: node scripts/moviehub-nightly-chain-report.mjs
+      - name: Upload bounded anonymized cross-adapter report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: moviehub-nightly-chain-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/moviehub-nightly/summary.json
+            artifacts/moviehub-nightly/report.md
+          if-no-files-found: warn
+          retention-days: 30

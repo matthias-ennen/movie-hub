@@ -187,8 +187,9 @@ describe('scheduled nightly movie research: shared 10 PT calls and private resum
   it('schedules away from the PT reset and only allows an explicit one-time main push',()=>{
     const workflow=readFileSync(new URL('../.github/workflows/youtube-g2-nightly-discovery.yml',
       import.meta.url),'utf8')
-    expect(workflow).toContain("- cron: '17 20 * * *'")
-    expect(workflow).toContain('timezone: Europe/Berlin')
+    expect(workflow).not.toContain('  schedule:')
+    expect(workflow).toContain('  workflow_call:')
+    expect(workflow).toContain('github.ref == \'refs/heads/main\'')
     expect(workflow).toContain("branches: [main]")
     expect(workflow).toContain("github.event_name == 'push'")
     expect(workflow).toContain("contains(github.event.head_commit.message, '[youtube-nightly-once]')")

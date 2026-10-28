@@ -1,15 +1,9 @@
 name: YouTube G2 – nightly bounded public-movie discovery (private, no offers)
 
 on:
-  schedule:
-    # Daily 20:17 Europe/Berlin (CET/CEST), well after the Pacific
-    # midnight reset and its two-hour quota-safety guard.
-    # A successful run immediately triggers the trusted workflow_run known
-    # video refresh. The independent 22:17 known refresh is a safe fallback
-    # if Discovery is blocked; Firebase stays at 00:17 Europe/Berlin.
-    # Never bypass Google Monitoring or the shared 10/1 PT-day CAS cap.
-    - cron: '17 20 * * *'
-      timezone: Europe/Berlin
+  # Scheduled centrally by MovieHub Nightly Pipeline at 00:10 Berlin.
+  # Also callable directly and manually, with unchanged private quota guards.
+  workflow_call:
   workflow_dispatch:
   # A single carefully reviewed one-off acceptance run can be started by
   # a squash merge with [youtube-nightly-once]. Ordinary code pushes skip.

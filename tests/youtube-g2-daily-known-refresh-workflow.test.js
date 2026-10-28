@@ -10,8 +10,9 @@ const live=readFileSync(
 )
 describe('scheduled no-search known-video refresh remains private',()=>{
   it('runs once a day on the main branch and keeps manual authenticated option',()=>{
-    expect(file).toContain("cron: '17 22 * * *'")
-    expect(file).toContain('timezone: Europe/Berlin')
+    expect(file).not.toContain('  schedule:')
+    expect(file).toContain('  workflow_call:')
+    expect(file).toContain('github.event_name == \'schedule\'')
     expect(file).toContain("github.ref == 'refs/heads/main'")
     expect(file).toContain("github.event_name == 'schedule'")
     expect(file).toContain("github.event_name == 'workflow_dispatch'")

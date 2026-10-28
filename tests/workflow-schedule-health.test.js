@@ -3,6 +3,7 @@ import {
   captureWorkflowTiming,
   evaluateScheduleGate,
   evaluateScheduledRuns,
+  isProductionDeployJob,
   expectedScheduleAt,
   scheduleGateMain,
   scheduleHealthMarkdown,
@@ -11,6 +12,32 @@ import {
 } from '../scripts/check-data-workflow-schedule.mjs'
 
 describe('Nachtlauf-Zeitplanung', () => {
+  it('findet den echten Firebase-Deploy in verschachtelten reusable workflow jobs', () => {
+    expect(isProductionDeployJob({name:'deploy'})).toBe(true)
+    expect(isProductionDeployJob({
+      name:'Normal complete MovieHub Firebase import and Hosting publish / deploy',
+    })).toBe(true)
+    expect(isProductionDeployJob({name:'firebase / schedule-gate'})).toBe(false)
+    expect(isProductionDeployJob({name:'discovery / nightly-known-to-new'})).toBe(false)
+  })
+
+  it('zeigt eine verweigerte Discovery trotz erfolgreichem Firebase-Deploy als degraded', () => {
+    const options={hour:0,minute:10,workflowName:'MovieHub Nightly Pipeline'}
+    const now=new Date('2026-10-29T05:00:00Z')
+    const runs=[{id:801,run_number:44,name:'MovieHub Nightly Pipeline',
+      event:'schedule',status:'completed',conclusion:'failure',
+      created_at:'2026-10-28T23:11:00Z'}]
+    const r=evaluateScheduledRuns(runs,{now,options,jobsByRunId:{
+      801:[{name:'Normal complete MovieHub Firebase import and Hosting publish / deploy',
+        conclusion:'success',started_at:'2026-10-29T01:00:00Z',
+        completed_at:'2026-10-29T02:25:00Z'}],
+    }})
+    expect(r.status).toBe('degraded')
+    expect(r.deployCompletedAt).toBe('2026-10-29T02:25:00Z')
+    expect(watchdogShouldFail(r,{status:'fresh'})).toBe(false)
+    expect(watchdogShouldFail(r,{status:'stale'})).toBe(true)
+  })
+
   it('plant 00:17 Europe/Berlin korrekt am UTC-Vortag durch Sommer- und Winterzeit', () => {
     expect(expectedScheduleAt(new Date('2026-09-21T04:00:00.000Z')).toISOString()).toBe('2026-09-20T22:17:00.000Z')
     expect(expectedScheduleAt(new Date('2026-12-21T05:00:00.000Z')).toISOString()).toBe('2026-12-20T23:17:00.000Z')
