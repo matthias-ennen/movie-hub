@@ -157,10 +157,12 @@ describe('YouTube #388 staged shared-search transport – never live by default'
       })).toThrow('YOUTUBE_SHARED_SEARCH_TRANSPORT_NOT_CONFIGURED')
     }
   })
-  it('preserves the productive v1 10/1 day guard; not wired to workflows',()=>{
+  it('preserves the productive v1 50/1 day guard; not wired to workflows',()=>{
     const src=readFileSync(new URL(
       '../scripts/youtube-g2-atomic-search-budget-ledger.mjs',import.meta.url),'utf8')
-    expect(src).toContain('ADAPTER_SEARCH_DAY_CAP=10')
+    expect(src).toContain('ADAPTER_SEARCH_DAY_CAP=RESEARCH_DAY_CAP')
+    const preflight=readFileSync(new URL('../scripts/youtube-g2-pacific-search-preflight.mjs',import.meta.url),'utf8')
+    expect(preflight).toContain('RESEARCH_DAY_CAP=50')
     expect(src).toContain('DEGRADED_ONE_SEARCH_DAY_CAP=1')
     const jobs=['youtube-g2-nightly-discovery',
       'youtube-g2-five-search-public-batch',
