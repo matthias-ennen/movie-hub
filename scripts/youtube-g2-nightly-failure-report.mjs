@@ -9,7 +9,7 @@
 import {mkdir,writeFile} from 'node:fs/promises'
 import {dirname} from 'node:path'
 import {pacificSearchDay} from './youtube-g2-pacific-search-preflight.mjs'
-import {ADAPTER_SEARCH_DAY_CAP,loadBudgetLedger,validateBudgetLedger}
+import {NIGHTLY_QUOTA_OBSERVATION_SAFETY_CAP,loadBudgetLedger,validateBudgetLedger}
   from './youtube-g2-atomic-search-budget-ledger.mjs'
 import {loadNightlyQueue,validateNightlyQueue}
   from './youtube-g2-nightly-queue.mjs'
@@ -53,7 +53,8 @@ export function buildFailedNightlySummary({
   return {
     kind:'moviehub-youtube-g2-nightly-budgeted-discovery',
     status:'failed',failureCategory:classifyNightlyFailure(error),
-    pacificDate:day.date,dayLimit:ADAPTER_SEARCH_DAY_CAP,
+    pacificDate:day.date,dayLimit:NIGHTLY_QUOTA_OBSERVATION_SAFETY_CAP,
+    quotaExceededConfirmed:false,successfulSearchCalls:null,
     priorReserved:total===null?null:total-ownCalls,
     selectedForSearch:ownCalls,
     sharedDayReserved:total,
