@@ -1,7 +1,7 @@
 import {describe,it,expect,vi} from 'vitest'
 import {
   selectGlobalCachedYoutubeResearch,recheckGlobalCachedYoutubeCandidates,
-  MAX_REUSE_MOVIES,
+  assertKnownVideoLookup,MAX_REUSE_MOVIES,
   globalCachedReviewReport,
 } from '../scripts/youtube-g2-global-known-no-search-live.mjs'
 const now='2026-10-24T17:00:00.000Z'
@@ -57,6 +57,37 @@ function services(){
   })
   return {tmdbGet,youtubeApi,calls}
 }
+describe('known videos.list request confined to collision-free private cohort',()=>{
+  const trusted=new Set(['Y0000000101','Y0000000102'])
+  it('accepts a known single or bounded batch with exact permitted parts',()=>{
+    expect(assertKnownVideoLookup({
+      part:'snippet,contentDetails,status',id:'Y0000000101',
+    },trusted)).toBe(1)
+    expect(assertKnownVideoLookup({
+      part:'snippet,contentDetails,status',id:'Y0000000101,Y0000000102',
+    },trusted)).toBe(2)
+  })
+  it('blocks unrelated IDs, duplicate entries, bad video IDs and oversized batches',()=>{
+    for(const id of ['UNTRUSTED01','Y0000000101,Y0000000101',
+      '',Array(51).fill('Y0000000101').join(','),'Y000000010']){
+      expect(()=>assertKnownVideoLookup({
+        part:'snippet,contentDetails,status',id,
+      },trusted)).toThrow('G2_GLOBAL_CACHED_VIDEO_ID_NOT_IN_TRUSTED_COHORT')
+    }
+  })
+  it('blocks arbitrary video API params and a different part',()=>{
+    for(const params of [
+      {part:'snippet',id:'Y0000000101'},
+      {part:'snippet,contentDetails,status',id:'Y0000000101',q:'private-title'},
+      {part:'snippet,contentDetails,status',id:'Y0000000101',key:'secret'},
+      {id:'Y0000000101'},null,[],
+    ]){
+      expect(()=>assertKnownVideoLookup(params,trusted))
+        .toThrow('G2_GLOBAL_CACHED_VIDEO_REQUEST_NOT_TRUSTED')
+    }
+  })
+})
+
 describe('global cached TMDB-first real data review without YouTube search.list',()=>{
   it('enumerates every stored global film, accounts for vanished badges, splits at 25',()=>{
     const plan=selectGlobalCachedYoutubeResearch({

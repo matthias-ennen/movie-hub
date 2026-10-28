@@ -75,6 +75,8 @@ jobs:
           import {readFileSync} from 'node:fs'
           const source=readFileSync('scripts/youtube-g2-global-known-no-search-live.mjs','utf8')
           if(!source.includes("if(endpoint!=='videos')throw Error('G2_GLOBAL_CACHED_YOUTUBE_SEARCH_FORBIDDEN')")
+            ||!source.includes('assertKnownVideoLookup(params,allowedVideoIds)')
+            ||!source.includes('const allowedVideoIds=new Set(')
             ||!source.includes("searchCalls:0,")
             ||!source.includes("independentlyVerifiedDeOffers:0")
             ||!source.includes("publishedDirectRoutes:0"))

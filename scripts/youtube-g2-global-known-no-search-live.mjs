@@ -57,6 +57,27 @@ const badge=e=>Array.isArray(e?.providerIds)&&e.providerIds.includes('youtube')
   ||Array.isArray(e?.providerOffers)&&e.providerOffers.some(p=>p?.id==='youtube')
 const validId=x=>Number.isInteger(x)&&x>0
 
+/**
+ * Strict videos.list transport policy for the zero-search daily review.
+ * Every requested ID must come from the validated private checkpoint and
+ * belong to the selected collision-free cohort. Never send an arbitrary
+ * ID, a custom part or a free-text search to the Google API.
+ */
+export function assertKnownVideoLookup(params,knownVideoIds){
+  if(!params||typeof params!=='object'||Array.isArray(params)
+    ||Object.keys(params).sort().join(',')!=='id,part'
+    ||params.part!=='snippet,contentDetails,status'
+    ||typeof params.id!=='string'
+    ||!(knownVideoIds instanceof Set))
+    throw Error('G2_GLOBAL_CACHED_VIDEO_REQUEST_NOT_TRUSTED')
+  const ids=params.id.split(',')
+  if(ids.length<1||ids.length>50
+    ||new Set(ids).size!==ids.length
+    ||ids.some(id=>!/^[A-Za-z0-9_-]{11}$/.test(id)||!knownVideoIds.has(id)))
+    throw Error('G2_GLOBAL_CACHED_VIDEO_ID_NOT_IN_TRUSTED_COHORT')
+  return ids.length
+}
+
 export function selectGlobalCachedYoutubeResearch({checkpoint,publicIndex,now=new Date().toISOString()}={}){
   const {
     mapping,sharedCheckpointCandidateFilms,deferredCandidateFilms,
@@ -108,8 +129,11 @@ export async function recheckGlobalCachedYoutubeCandidates({
   // Hard gate: even if a caller or future edit accidentally invokes a search,
   // fail immediately BEFORE hitting YouTube quota.
   let videosListCalls=0
+  const allowedVideoIds=new Set(
+    [...plan.knownVideoCandidatesByTmdbId.values()].flat())
   const knownVideosOnly=async(endpoint,params)=>{
     if(endpoint!=='videos')throw Error('G2_GLOBAL_CACHED_YOUTUBE_SEARCH_FORBIDDEN')
+    assertKnownVideoLookup(params,allowedVideoIds)
     if(++videosListCalls>MAX_REUSE_MOVIES)
       throw Error('G2_GLOBAL_CACHED_VIDEO_DETAILS_BUDGET_EXCEEDED')
     return youtubeApi(endpoint,params)
