@@ -88,6 +88,8 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import {readFileSync,appendFileSync} from 'node:fs'
+          import {configuredSearchLimitReadback}
+            from './scripts/youtube-g2-readonly-quota-audit.mjs'
           const audit=JSON.parse(readFileSync(
             'artifacts/youtube-g2/cloud-quota-readonly/summary.json','utf8'))
           if(audit.kind!=='moviehub-youtube-g2-serviceusage-readonly-diagnostic'
@@ -98,6 +100,24 @@ jobs:
             ||audit.newYouTubeApiCalls!==0||audit.quotaChanges!==0
             ||audit.firestoreWrites!==0||audit.publicationPermitted!==false)
             throw Error('YOUTUBE_QUOTA_READONLY_SUMMARY_FAIL_CLOSED')
+          const search=configuredSearchLimitReadback(audit)
+          if(search.actualSearchCallsRemaining!==null
+            ||search.actualPacificDayUsage!==null
+            ||search.allExternalConsumersVerified!==false
+            ||search.futureSearchAutomaticallyPermitted!==false
+            ||search.authorizedSearchCalls!==0
+            ||search.quotaChanges!==0||search.youtubeApiCalls!==0
+            ||search.publicationPermitted!==false)
+            throw Error('YOUTUBE_SEARCH_QUOTA_CONFIGURATION_UNSAFE')
+          // Only vetted method/units/limits, never raw response or quota
+          // labels, credentials or false assertions about remaining quota.
+          console.log('CONFIGURED_SEARCH_LIMITS_READONLY '+JSON.stringify(search))
+          const description=search.configurationComplete
+            ?search.searchLimits.map((x,i)=>
+              '- Search limit '+(i+1)+': unit '+x.unit+
+              ', effective '+x.effectiveLimit+', default '+x.defaultLimit+
+              ', dimensioned '+x.dimensioned+', override '+x.overridden
+            ):['- Search limit configuration: UNKNOWN (incomplete Google readback)']
           appendFileSync(process.env.GITHUB_STEP_SUMMARY,[
             '### YouTube search 429 – read-only Cloud quota configuration diagnosis',
             '',
@@ -107,6 +127,9 @@ jobs:
             '- Quota metadata GET HTTP: '+audit.quotaMetadataHttp+
               ' (read status: '+audit.quotaMetadataState+')',
             '- Reported configured limit buckets: '+audit.limits.length,
+            '- Search metric limit records: '+search.visibleSearchLimitBuckets,
+            ...description,
+            '- **Configured effective limits are NOT actual usage, guaranteed remaining quota, external-consumer coverage or an approval for 95.**',
             '- **This is NOT actual usage, per-key rate, or remaining quota; the 429 cause is NOT established.**',
             '- **0 YouTube API requests, 0 quota changes, 0 source/provider/profile writes.**',
             '- Full limit metadata: private artifact only. No automatic search retry.',

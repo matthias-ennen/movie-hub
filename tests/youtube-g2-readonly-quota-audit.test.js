@@ -1,6 +1,8 @@
 import {describe,it,expect} from 'vitest'
+import {readFileSync} from 'node:fs'
 import {
   summarizeYoutubeQuotaMetadata,quotaAuditMarkdown,
+  configuredSearchLimitReadback,
 } from '../scripts/youtube-g2-readonly-quota-audit.mjs'
 const stamp='2026-10-25T08:45:00.000Z'
 const sample={
@@ -37,6 +39,72 @@ describe('YouTube: Google Cloud read-only quota audit',()=>{
     expect(report).toContain('75')
     expect(report).toContain('0 YouTube-API-Aufrufe')
     expect(report).toContain('nicht nachgewiesen')
+  })
+  it('reports only actual effective search limits, not general read quota or remaining quota',()=>{
+    const sampleWithSearch=structuredClone(sample)
+    sampleWithSearch.metricsResponse.metrics.push({
+      metric:'youtube.googleapis.com/search_list',
+      consumerQuotaLimits:[
+        {unit:'1/{project}/{day}',quotaBuckets:[{
+          defaultLimit:'100',effectiveLimit:'95',dimensions:{},
+        }]},
+        {unit:'1/{project}/{minute}',quotaBuckets:[{
+          defaultLimit:'10',effectiveLimit:'3',dimensions:{key:'private'},
+        }]},
+      ],
+    })
+    const parsed=summarizeYoutubeQuotaMetadata(sampleWithSearch)
+    const r=configuredSearchLimitReadback(parsed)
+    expect(r).toMatchObject({
+      kind:'moviehub-youtube-search-config-readonly-v1',
+      configurationComplete:true,visibleSearchLimitBuckets:2,
+      searchLimits:[
+        {unit:'1/{project}/{day}',effectiveLimit:'95',
+          defaultLimit:'100',overridden:true,dimensioned:false},
+        {unit:'1/{project}/{minute}',effectiveLimit:'3',
+          defaultLimit:'10',overridden:true,dimensioned:true},
+      ],
+      actualSearchCallsRemaining:null,actualPacificDayUsage:null,
+      allExternalConsumersVerified:false,authorizedSearchCalls:0,
+      quotaChanges:0,youtubeApiCalls:0,
+      futureSearchAutomaticallyPermitted:false,publicationPermitted:false,
+    })
+    expect(JSON.stringify(r)).not.toContain('private')
+    expect(JSON.stringify(r)).not.toContain('read_requests')
+  })
+  it('keeps incomplete Google quota metrics unknown with no guessed effective limit',()=>{
+    for(const change of [
+      x=>{x.metricsHttp=403;x.metricsResponse={error:{message:'private'}}},
+      x=>{x.metricsResponse={metrics:[],nextPageToken:'secret'}},
+      x=>{x.serviceHttp=404;x.serviceResponse=null},
+    ]){
+      const q=structuredClone(sample);change(q)
+      const r=configuredSearchLimitReadback(summarizeYoutubeQuotaMetadata(q))
+      expect(r).toMatchObject({
+        configurationComplete:false,visibleSearchLimitBuckets:0,
+        searchLimits:[],actualPacificDayUsage:null,
+        allExternalConsumersVerified:false,authorizedSearchCalls:0,
+      })
+      expect(JSON.stringify(r)).not.toContain('secret')
+    }
+  })
+  it('will not turn a mutated or self-approved quota report into trusted config',()=>{
+    const q=summarizeYoutubeQuotaMetadata(sample)
+    q.futureSearchAutomaticallyPermitted=true
+    expect(()=>configuredSearchLimitReadback(q)).toThrow('YOUTUBE_SEARCH_CONFIG_READBACK_UNTRUSTED')
+    const p=summarizeYoutubeQuotaMetadata(sample)
+    p.limits.push({metric:'youtube.googleapis.com/search_list',
+      unit:'1/{project}/{day}',effectiveLimit:'100',
+      defaultLimit:'100',dimensioned:false,overridden:true})
+    expect(()=>configuredSearchLimitReadback(p)).toThrow('YOUTUBE_SEARCH_CONFIG_LIMIT_INVALID')
+  })
+  it('keeps OIDC quota config workflow gated to one explicit main push only',()=>{
+    const wf=readFileSync(new URL(
+      '../.github/workflows/youtube-g2-quota-readonly-audit.yml',import.meta.url),'utf8')
+    expect(wf).toContain('[youtube-quota-readonly-once]')
+    expect(wf).toContain('CONFIGURED_SEARCH_LIMITS_READONLY')
+    expect(wf).toContain('search.futureSearchAutomaticallyPermitted!==false')
+    expect(wf).not.toContain('youtube-g2-nightly-discovery-live.mjs')
   })
   it('treats insufficient IAM or disabled API as unknown, NOT zero usage',()=>{
     for(const status of [403,404,429]){

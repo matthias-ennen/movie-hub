@@ -92,6 +92,57 @@ export function summarizeYoutubeQuotaMetadata({
   }
   return result
 }
+/**
+ * Whitelisted effective search.list limit configuration only.
+ * A configured ceiling is NOT remaining quota, a Pacific-day reservation,
+ * proof of no external consumers, or automatic 95-call approval.
+ * Never emit unfiltered Google quota labels, dimensions or credentials.
+ */
+export function configuredSearchLimitReadback(audit){
+  if(audit?.kind!=='moviehub-youtube-g2-serviceusage-readonly-diagnostic'
+    ||audit.projectId!=='movie-hub-62459'
+    ||audit.service!==YT_SERVICE
+    ||audit.currentUsage!==null
+    ||audit.actualSearchCallsRemaining!==null
+    ||audit.futureSearchAutomaticallyPermitted!==false
+    ||audit.newYouTubeApiCalls!==0||audit.quotaChanges!==0
+    ||audit.firestoreWrites!==0||audit.publicationPermitted!==false
+    ||!Array.isArray(audit.limits)||audit.limits.length>10000)
+    throw Error('YOUTUBE_SEARCH_CONFIG_READBACK_UNTRUSTED')
+  const readable=audit.serviceUsageHttp===200
+    &&audit.quotaMetadataHttp===200
+    &&audit.serviceState==='enabled'
+    &&audit.quotaMetadataState==='readable'
+  const rows=[]
+  if(readable){
+    for(const lim of audit.limits){
+      if(lim?.metric!=='youtube.googleapis.com/search_list')continue
+      if(!safeString(lim.unit,160)
+        ||limitInt(lim.effectiveLimit)===null
+        ||limitInt(lim.defaultLimit)===null
+        ||typeof lim.dimensioned!=='boolean'
+        ||typeof lim.overridden!=='boolean'
+        ||lim.overridden!==(lim.effectiveLimit!==lim.defaultLimit))
+        throw Error('YOUTUBE_SEARCH_CONFIG_LIMIT_INVALID')
+      rows.push({
+        unit:lim.unit,effectiveLimit:lim.effectiveLimit,
+        defaultLimit:lim.defaultLimit,
+        dimensioned:lim.dimensioned,overridden:lim.overridden,
+      })
+    }
+  }
+  return {
+    kind:'moviehub-youtube-search-config-readonly-v1',
+    projectId:'movie-hub-62459',service:YT_SERVICE,
+    configurationComplete:readable&&rows.length>0,
+    visibleSearchLimitBuckets:rows.length,searchLimits:rows,
+    actualSearchCallsRemaining:null,actualPacificDayUsage:null,
+    allExternalConsumersVerified:false,authorizedSearchCalls:0,
+    futureSearchAutomaticallyPermitted:false,
+    quotaChanges:0,youtubeApiCalls:0,publicationPermitted:false,
+  }
+}
+
 export function quotaAuditMarkdown(result){
   if(result?.kind!=='moviehub-youtube-g2-serviceusage-readonly-diagnostic'
     ||result.projectId!=='movie-hub-62459'
