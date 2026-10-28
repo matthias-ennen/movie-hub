@@ -25,6 +25,7 @@ const reviewed=Object.freeze([
   "youtube-g2-large-live-audit",
   "youtube-g2-merge-curated-known-candidates",
   "youtube-g2-monitoring-readonly-audit",
+  "youtube-g2-monitoring-response-diagnostic",
   "youtube-g2-nightly-discovery",
   "youtube-g2-nine-missing-source-probe",
   "youtube-g2-one-search-no-search-review",
@@ -86,7 +87,7 @@ describe('YouTube #388 workflow entrypoint budget closure',()=>{
       .filter(n=>/^youtube.*\.yml$/.test(n)).map(n=>n.slice(0,-4)).sort()
     expect(actual).toEqual([...reviewed].sort())
     expect(new Set(reviewed).size).toBe(reviewed.length)
-    expect(reviewed).toHaveLength(43)
+    expect(reviewed).toHaveLength(44)
   })
   it('keeps all six historical search jobs inactive at job boundary',()=>{
     expect(disabled.size).toBe(6)
@@ -112,7 +113,7 @@ describe('YouTube #388 workflow entrypoint budget closure',()=>{
   })
   it('keeps other reviewed entrypoint runner scripts free of direct search transport',()=>{
     const unclassified=reviewed.filter(n=>!disabled.has(n)&&!conservativeLive.has(n))
-    expect(unclassified).toHaveLength(34)
+    expect(unclassified).toHaveLength(35)
     for(const name of unclassified){
       const yml=workflow(name)
       expect(yml,name).not.toMatch(bareSearchUrl)
