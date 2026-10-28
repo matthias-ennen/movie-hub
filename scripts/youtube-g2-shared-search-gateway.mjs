@@ -149,22 +149,37 @@ async function saveCas(bucket,read,ledger){
     preconditionOpts:{ifGenerationMatch:Number(read.generation)},
   })
 }
+/**
+ * A 412 here means *no* request was dispatched: it is safe to retry only
+ * the GCS reservation after rereading and revalidating the whole ledger.
+ * Never retry an API request, an uncertain GCS error, or a duplicate attempt.
+ */
 export async function reserveSharedSearchWithGcs(bucket,options){
   const planned=prepareSharedSearchReservation(options)
-  const read=await readSharedSearchLedger(bucket,planned.day)
-  const final=prepareSharedSearchReservation({...options,
-    previous:read.ledger})
-  await saveCas(bucket,read,final.ledger)
-  const readback=await readSharedSearchLedger(bucket,planned.day)
-  if(readback.ledger?.records.length!==final.ledger.records.length
-    ||!readback.ledger.records.some(x=>x.runId===options.runId
+  for(let attempt=0;attempt<5;attempt++){
+    const read=await readSharedSearchLedger(bucket,planned.day)
+    const final=prepareSharedSearchReservation({...options,
+      previous:read.ledger})
+    try{await saveCas(bucket,read,final.ledger)}
+    catch(e){
+      if(Number(e?.code)===412)continue
+      throw e
+    }
+    const readback=await readSharedSearchLedger(bucket,planned.day)
+    if(!readback.ledger?.records.some(x=>x.runId===options.runId
       &&x.attemptNumber===options.attemptNumber
       &&x.state==='reserved-unknown'))
-    throw Error('YOUTUBE_SHARED_SEARCH_RESERVATION_READBACK_FAILED')
-  return {day:planned.day,runId:options.runId,
-    attemptNumber:options.attemptNumber,
-    reservedSearches:readback.ledger.records.length,
-    guaranteedGoogleRemaining:null}
+      throw Error('YOUTUBE_SHARED_SEARCH_RESERVATION_READBACK_FAILED')
+    // A concurrent worker might have persisted quotaExceeded after our CAS
+    // write. A reserved slot does not authorize transport on a halted day.
+    if(readback.ledger.haltedForQuota)
+      throw Error('YOUTUBE_SHARED_SEARCH_DAY_HALTED')
+    return {day:planned.day,runId:options.runId,
+      attemptNumber:options.attemptNumber,
+      reservedSearches:readback.ledger.records.length,
+      guaranteedGoogleRemaining:null}
+  }
+  throw Error('YOUTUBE_SHARED_SEARCH_RESERVATION_CAS_CONFLICT')
 }
 /**
  * Only the bookkeeping CAS may be retried. A 412 indicates a concurrent
