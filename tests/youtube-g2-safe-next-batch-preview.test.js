@@ -45,7 +45,7 @@ function preflight(){
         interval:{
           startTime:'2026-10-25T17:49:00Z',
           endTime:'2026-10-25T17:50:00Z',
-        },value:{int64Value:'15'},
+        },value:{int64Value:'5'},
       }],
     }]},
     exceededHttp:200,exceededResponse:{timeSeries:[]},
@@ -166,7 +166,7 @@ describe('YouTube read-only coordinated bootstrap preview; NEVER grants quota',(
     const y=input()
     // Reserve once only in MEMORY to simulate another bounded research job.
     const dummy=prepareResearchReservation({
-      now,runId:700099,calls:7,preflight:preflight(),
+      now,runId:700099,calls:47,preflight:preflight(),
     })
     y.existingDailyLedger=dummy.ledger
     expect(()=>previewCoordinatedBootstrapBatch(y))
