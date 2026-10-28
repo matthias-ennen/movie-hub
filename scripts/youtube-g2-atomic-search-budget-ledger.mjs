@@ -13,6 +13,10 @@ import {pacificSearchDay,KIND as PREFLIGHT_KIND,RESEARCH_DAY_CAP,
 export const LEDGER_KIND='moviehub-youtube-g2-search-reservation-ledger'
 export const LEDGER_PREFIX='youtube-g2/private-search-budget/v1/days/'
 export const ADAPTER_SEARCH_DAY_CAP=RESEARCH_DAY_CAP
+// Operator-approved live research, designed to observe Google's real 403 quotaExceeded.
+// A finite fault-safety ceiling prevents unlimited requests if the configured Google
+// quota changes; reaching this ceiling is NOT proof of quota exhaustion.
+export const NIGHTLY_QUOTA_OBSERVATION_SAFETY_CAP=200
 export const PROJECT_SEARCH_DAY_LIMIT=100
 export const DEGRADED_ONE_SEARCH_DAY_CAP=1
 
@@ -105,6 +109,7 @@ export function validateBudgetLedger(doc,day,{allowLegacyCap=false}={}){
   // The old 10/day document is accepted on read only, not on a new write.
   const recordedCap=doc?.adapterDayCap
   const capTrusted=recordedCap===ADAPTER_SEARCH_DAY_CAP
+    ||recordedCap===NIGHTLY_QUOTA_OBSERVATION_SAFETY_CAP
     ||allowLegacyCap&&recordedCap===10
   if(doc?.kind!==LEDGER_KIND||doc.schemaVersion!==1
     ||doc.projectId!=='movie-hub-62459'
@@ -124,7 +129,8 @@ export function validateBudgetLedger(doc,day,{allowLegacyCap=false}={}){
   let sum=0
   for(const r of doc.reservations){
     if(!safeRun(r?.runId)||ids.has(r.runId)
-      ||!Number.isInteger(r.calls)||r.calls<1||r.calls>ADAPTER_SEARCH_DAY_CAP
+      ||!Number.isInteger(r.calls)||r.calls<1
+      ||r.calls>NIGHTLY_QUOTA_OBSERVATION_SAFETY_CAP
       ||!Number.isFinite(Date.parse(r.reservedAt))
       ||Date.parse(r.reservedAt)<Date.parse(day.start)
       ||Date.parse(r.reservedAt)>=Date.parse(day.end)
@@ -153,16 +159,20 @@ function emptyLedger(day){
 }
 export function prepareResearchReservation({
   now,runId,calls,preflight,previous=null,degradedOneSearch=false,
+  quotaObservationMode=false,
 }={}){
   // This alternative is ONLY for the nightly runner's exact 200/200 empty
   // Monitoring response, never a general preflight bypass.
-  const day=degradedOneSearch
-    ?(isDegradedOneSearchPreflight(preflight,{now})
-      ?pacificSearchDay(now):null)
-    :verifyBudgetPreflight(preflight,{now})
+  const day=quotaObservationMode
+    ?pacificSearchDay(now)
+    :degradedOneSearch
+      ?(isDegradedOneSearchPreflight(preflight,{now})
+        ?pacificSearchDay(now):null)
+      :verifyBudgetPreflight(preflight,{now})
   if(!day)throw Error('YOUTUBE_RESEARCH_SEARCH_PREFLIGHT_NOT_TRUSTED')
   if(!safeRun(runId)||!Number.isInteger(calls)||calls<1
-    ||calls>ADAPTER_SEARCH_DAY_CAP
+    ||calls>(quotaObservationMode?NIGHTLY_QUOTA_OBSERVATION_SAFETY_CAP:ADAPTER_SEARCH_DAY_CAP)
+    ||quotaObservationMode&&degradedOneSearch
     ||degradedOneSearch&&calls!==DEGRADED_ONE_SEARCH_DAY_CAP)
     throw Error('YOUTUBE_RESEARCH_RESERVATION_INPUT_INVALID')
   const old=previous===null?emptyLedger(day):
@@ -171,10 +181,12 @@ export function prepareResearchReservation({
     throw Error('YOUTUBE_DEGRADED_SINGLE_SEARCH_DAILY_ALLOWANCE_USED')
   if(old.reservations.some(r=>r.runId===runId))
     throw Error('YOUTUBE_RESEARCH_RUN_ALREADY_RESERVED')
-  if(old.totalConservativelyReserved+calls>ADAPTER_SEARCH_DAY_CAP)
+  if(old.totalConservativelyReserved+calls>
+    (quotaObservationMode?NIGHTLY_QUOTA_OBSERVATION_SAFETY_CAP:ADAPTER_SEARCH_DAY_CAP))
     throw Error('YOUTUBE_RESEARCH_INTERNAL_DAILY_CAP_EXHAUSTED')
   const next=validateBudgetLedger({
-    ...old,adapterDayCap:ADAPTER_SEARCH_DAY_CAP,
+    ...old,adapterDayCap:quotaObservationMode
+      ?NIGHTLY_QUOTA_OBSERVATION_SAFETY_CAP:ADAPTER_SEARCH_DAY_CAP,
     totalConservativelyReserved:old.totalConservativelyReserved+calls,
     reservations:[...old.reservations,{
       runId,calls,reservedAt:new Date(now).toISOString(),
@@ -210,15 +222,17 @@ export async function loadBudgetLedger(bucket,day){
 }
 export async function reserveWithAtomicGcs(bucket,{
   now,runId,calls,preflight,degradedOneSearch=false,
+  quotaObservationMode=false,
 }={}){
-  const day=degradedOneSearch
+  const day=quotaObservationMode?pacificSearchDay(now):degradedOneSearch
     ?(isDegradedOneSearchPreflight(preflight,{now})
       ?pacificSearchDay(now):null)
     :verifyBudgetPreflight(preflight,{now})
   if(!day)throw Error('YOUTUBE_RESEARCH_SEARCH_PREFLIGHT_NOT_TRUSTED')
   const previous=await loadBudgetLedger(bucket,day)
   const planned=prepareResearchReservation({
-    now,runId,calls,preflight,degradedOneSearch,previous:previous.ledger,
+    now,runId,calls,preflight,degradedOneSearch,quotaObservationMode,
+    previous:previous.ledger,
   })
   const serialized=Buffer.from(JSON.stringify(planned.ledger)+'\n')
   if(serialized.length>12000)throw Error('YOUTUBE_SEARCH_LEDGER_TOO_LARGE')
