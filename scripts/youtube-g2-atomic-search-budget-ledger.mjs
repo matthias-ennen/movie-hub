@@ -160,6 +160,8 @@ export function prepareResearchReservation({
     ||degradedOneSearch&&calls!==DEGRADED_ONE_SEARCH_DAY_CAP)
     throw Error('YOUTUBE_RESEARCH_RESERVATION_INPUT_INVALID')
   const old=previous===null?emptyLedger(day):validateBudgetLedger(previous,day)
+  if(degradedOneSearch&&old.totalConservativelyReserved!==0)
+    throw Error('YOUTUBE_DEGRADED_SINGLE_SEARCH_DAILY_ALLOWANCE_USED')
   if(old.reservations.some(r=>r.runId===runId))
     throw Error('YOUTUBE_RESEARCH_RUN_ALREADY_RESERVED')
   if(old.totalConservativelyReserved+calls>ADAPTER_SEARCH_DAY_CAP)
