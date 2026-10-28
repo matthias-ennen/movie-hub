@@ -359,6 +359,7 @@ jobs:
             ||Number.isSafeInteger(value)&&value>=0
           const counts=['observedSearchMethodRequests',
             'observedOtherMethodRequests','unclassifiedMethodRequests',
+            'possibleSearchAmongUnknown','otherUnknownMethodRequests',
             'distinctCredentialGroupsObserved']
           const shapeNames=['missingOrInvalid','otherYoutubePrefixed',
             'slashFormatted','otherDotted','other']
@@ -373,6 +374,12 @@ jobs:
           if(report.kind!=='moviehub-youtube-g2-api-traffic-readonly'
             ||!shapeSafe
             ||(report.unclassifiedMethodRequests!==null&&breakdown===null)
+            ||(report.unclassifiedMethodRequests===null
+              &&(report.possibleSearchAmongUnknown!==null
+                ||report.otherUnknownMethodRequests!==null))
+            ||(report.unclassifiedMethodRequests!==null
+              &&report.possibleSearchAmongUnknown+report.otherUnknownMethodRequests
+                !==report.unclassifiedMethodRequests)
             ||report.quotaRemaining!==null
             ||report.actualSearchListRequests!==null
             ||report.externalConsumersFullyAccountedFor!==false
@@ -395,6 +402,10 @@ jobs:
               observed(report.observedOtherMethodRequests),
             '- Unknown or unlabeled method observations: '+
               observed(report.unclassifiedMethodRequests),
+            '- Search-like UNKNOWN method observations (NOT confirmed search.list): '+
+              observed(report.possibleSearchAmongUnknown),
+            '- Other UNKNOWN method observations (MAY still contain searches): '+
+              observed(report.otherUnknownMethodRequests),
             '- Unknown labels by structural bucket (no raw names): '+
               (breakdown===null?'unknown':shapeNames.map(k=>
                 k+'='+breakdown[k]).join(', ')),

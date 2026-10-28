@@ -59,6 +59,7 @@ export function inspectYoutubeApiTraffic({
     observedSearchMethodRequests:null,observedOtherMethodRequests:null,
     unclassifiedMethodRequests:null,methodLabelsPresentForAllSeries:false,
     unclassifiedLabelShapes:null,
+    possibleSearchAmongUnknown:null,otherUnknownMethodRequests:null,
     distinctCredentialGroupsObserved:null,
     externalConsumersFullyAccountedFor:false,
     authorizedSearchCalls:0,youtubeApiCalls:0,gcsWrites:0,
@@ -91,6 +92,7 @@ export function inspectYoutubeApiTraffic({
   }
   let count=0,points=0,latest=null
   let searchMethodCount=0,otherMethodCount=0,unclassifiedCount=0
+  let possibleSearchAmongUnknown=0
   const unknownShapes=emptyUnknownShapes()
   const observedCredentials=new Set()
   let allMethodLabels=true,allCredentialLabels=true
@@ -132,6 +134,12 @@ export function inspectYoutubeApiTraffic({
       else{
         unclassifiedCount+=Number(raw)
         unknownShapes[unknownLabelShape(method)]+=Number(raw)
+        // Suggests only a possible search method, NEVER an exact call.
+        // This is intentionally a broad case-insensitive substring test
+        // over opaque public API method names; no raw label leaves memory.
+        if(typeof method==='string'
+          &&method.startsWith('youtube.')&&/search/i.test(method))
+          possibleSearchAmongUnknown+=Number(raw)
       }
       if(!Number.isSafeInteger(count)||count>MAX_REQUESTS){
         result.shape='count-overflow'
@@ -152,6 +160,8 @@ export function inspectYoutubeApiTraffic({
     result.observedOtherMethodRequests=otherMethodCount
     result.unclassifiedMethodRequests=unclassifiedCount
     result.unclassifiedLabelShapes=unknownShapes
+    result.possibleSearchAmongUnknown=possibleSearchAmongUnknown
+    result.otherUnknownMethodRequests=unclassifiedCount-possibleSearchAmongUnknown
     result.methodLabelsPresentForAllSeries=allMethodLabels
     if(allCredentialLabels)
       result.distinctCredentialGroupsObserved=observedCredentials.size
