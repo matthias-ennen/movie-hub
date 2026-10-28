@@ -18,7 +18,7 @@ const interval={
 }
 const args=()=>({
   now,rateHttp:200,exceededHttp:200,
-  rateResponse:series(RATE,{interval,value:{int64Value:'15'}}),
+  rateResponse:series(RATE,{interval,value:{int64Value:'5'}}),
   exceededResponse:{timeSeries:[]},
 })
 describe('Pacific-day YouTube search budget preflight without a search authorization',()=>{
@@ -36,14 +36,14 @@ describe('Pacific-day YouTube search budget preflight without a search authoriza
       end:'2026-03-09T07:00:00.000Z',
     })
   })
-  it('only advises conservative ten-call possibility, NEVER authorizes search or reports remaining',()=>{
+  it('only advises conservative fifty-call possibility, NEVER authorizes search or reports remaining',()=>{
     const r=evaluatePacificSearchBudget(args())
     expect(r).toMatchObject({
       kind:KIND,pacificDate:'2026-10-25',
-      rate:{http:200,complete:true,series:1,points:1,units:15},
+      rate:{http:200,complete:true,series:1,points:1,units:5},
       exceeded:{http:200,complete:true,series:0,points:0,exceededTrue:0},
       monitoringSampleAgeMinutes:10,smallBatchAdvisory:true,blocks:[],
-      measuredProjectDailyLimit:100,researchBudgetProposed:10,
+      measuredProjectDailyLimit:100,researchBudgetProposed:50,
       otherConsumersReserve:30,monitoringLagBuffer:10,
       currentQuotaRemaining:null,monitoringIsActualRemainingQuota:false,
       acquiredSharedReservation:false,authorizedSearchCalls:0,
@@ -53,6 +53,13 @@ describe('Pacific-day YouTube search budget preflight without a search authoriza
     })
   })
   it('blocks exhausted usage, quota exceeded and stale/missing telemetry',()=>{
+    const justInside=args()
+    justInside.rateResponse.timeSeries[0].points[0].value.int64Value='10'
+    expect(evaluatePacificSearchBudget(justInside).smallBatchAdvisory).toBe(true)
+    const justOutside=args()
+    justOutside.rateResponse.timeSeries[0].points[0].value.int64Value='11'
+    expect(evaluatePacificSearchBudget(justOutside).blocks)
+      .toContain('outside-conservative-50-call-headroom')
     for(const edit of [
       x=>{x.rateResponse.timeSeries[0].points[0].value.int64Value='99'},
       x=>{x.exceededResponse=series(EXCEEDED,{
