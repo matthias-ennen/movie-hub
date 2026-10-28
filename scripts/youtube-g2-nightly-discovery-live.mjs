@@ -207,7 +207,7 @@ export async function runNightlyDiscovery({
       // HTTP 403 alone, rate-limit 429, malformed responses and key errors
       // remain genuine failures, never misreported as spent quota.
       if(quotaObservationMode
-        &&/HTTP 403 bei search \\[QUOTA_EXHAUSTED\\]/.test(String(error?.message))) {
+        &&/HTTP 403 bei search \[QUOTA_EXHAUSTED\]/.test(String(error?.message))) {
         return redactedSummary({...report,status:'quota-exhausted-confirmed',
           quotaExceededConfirmed:true,searchCalls:actualSearches,
           videoDetailCalls,checkedTmdbReads:tmdbReads,
