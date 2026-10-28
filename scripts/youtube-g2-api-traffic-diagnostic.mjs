@@ -34,6 +34,11 @@ export function inspectYoutubeApiTraffic({
     observedCompletedRequests:null,latestSample:null,
     potentiallyDelayedMinutes:30,requestCountIsNotQuotaUnits:true,
     quotaRemaining:null,actualSearchListRequests:null,
+    // Diagnostic subsets, never an exact PT-day usage total or a quota lease.
+    observedSearchMethodRequests:null,observedOtherMethodRequests:null,
+    unclassifiedMethodRequests:null,methodLabelsPresentForAllSeries:false,
+    distinctCredentialGroupsObserved:null,
+    externalConsumersFullyAccountedFor:false,
     authorizedSearchCalls:0,youtubeApiCalls:0,gcsWrites:0,
     quotaWrites:0,publicationPermitted:false,
   }
@@ -63,6 +68,9 @@ export function inspectYoutubeApiTraffic({
     return result
   }
   let count=0,points=0,latest=null
+  let searchMethodCount=0,otherMethodCount=0,unclassifiedCount=0
+  const observedCredentials=new Set()
+  let allMethodLabels=true,allCredentialLabels=true
   for(const series of document.timeSeries){
     if(series?.metric?.type!==TRAFFIC_METRIC
       ||series?.resource?.type!=='consumed_api'
@@ -73,6 +81,15 @@ export function inspectYoutubeApiTraffic({
       result.shape='unexpected-series'
       return result
     }
+    const method=series.resource.labels.method
+    const credential=series.resource.labels.credential_id
+    const hasMethod=typeof method==='string'
+      &&method.length>0&&method.length<=256
+    const hasCredential=typeof credential==='string'
+      &&credential.length>0&&credential.length<=256
+    if(!hasMethod)allMethodLabels=false
+    if(!hasCredential)allCredentialLabels=false
+    if(hasCredential)observedCredentials.add(credential)
     for(const point of series.points){
       const endAt=Date.parse(point?.interval?.endTime)
       const beginAt=point?.interval?.startTime
@@ -85,6 +102,11 @@ export function inspectYoutubeApiTraffic({
         return result
       }
       count+=Number(raw)
+      // The exact known method label is recognized conservatively. Other
+      // values are aggregated without ever publishing the raw method/ID.
+      if(!hasMethod)unclassifiedCount+=Number(raw)
+      else if(method==='search.list')searchMethodCount+=Number(raw)
+      else otherMethodCount+=Number(raw)
       if(!Number.isSafeInteger(count)||count>MAX_REQUESTS){
         result.shape='count-overflow'
         return result
@@ -99,6 +121,16 @@ export function inspectYoutubeApiTraffic({
   result.points=points
   result.observedCompletedRequests=count
   result.latestSample=latest===null?null:new Date(latest).toISOString()
+  if(document.timeSeries.length>0){
+    result.observedSearchMethodRequests=searchMethodCount
+    result.observedOtherMethodRequests=otherMethodCount
+    result.unclassifiedMethodRequests=unclassifiedCount
+    result.methodLabelsPresentForAllSeries=allMethodLabels
+    if(allCredentialLabels)
+      result.distinctCredentialGroupsObserved=observedCredentials.size
+  }
+  // Even one observed key does NOT prove other project callers do not exist,
+  // and no method-specific observation authorizes future search requests.
   return result
 }
 export async function runTrafficDiagnostic({
