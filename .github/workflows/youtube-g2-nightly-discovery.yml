@@ -2,9 +2,11 @@ name: YouTube G2 – nightly bounded public-movie discovery (private, no offers)
 
 on:
   schedule:
-    # 01:35 UTC = 02:35 CET / 03:35 CEST; separate from 00:17 Berlin
-    # Firebase nightly. One cron; no run on code push or PR.
-    - cron: '35 1 * * *'
+    # 11:35 UTC = 12:35 CET / 13:35 CEST, after the Pacific
+    # quota reset's two-hour guard even if GitHub Actions is delayed.
+    # The known-video daily refresh remains separate; newly discovered IDs
+    # enter its next cycle. One cron; no run on code push or PR.
+    - cron: '35 11 * * *'
   workflow_dispatch:
 
 permissions:
