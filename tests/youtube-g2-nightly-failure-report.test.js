@@ -80,7 +80,7 @@ describe('anonymized YouTube nightly budget audit after a FAILED research job',(
     })
     expect(report).toMatchObject({
       status:'failed',failureCategory:'youtube-rate-limit',
-      dayLimit:50,priorReserved:3,selectedForSearch:4,
+      dayLimit:200,priorReserved:3,selectedForSearch:4,
       sharedDayReserved:7,searchCalls:null,
       actualSearchCallsMeasured:false,videoDetailCalls:null,
       runStartedFilms:2,runCompletedFilms:1,runUnfinishedFilms:1,

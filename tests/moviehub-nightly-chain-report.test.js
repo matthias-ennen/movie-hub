@@ -39,6 +39,31 @@ describe('safe end-of-chain adapter summary (#388)',()=>{
     expect(r.googleRemainingQuota).toBe(null)
     expect(r.youtubeSearchCallsMeasuredHere).toBe(false)
   })
+  it('reports measured quotaExceeded as a normal discovery terminal, not inferred quota',()=>{
+    const discovery={
+      kind:'moviehub-youtube-g2-nightly-budgeted-discovery',
+      status:'quota-exhausted-confirmed',pacificDate:'2026-10-28',
+      dayLimit:200,quotaMode:'real-google-quota-until-confirmed-403',
+      priorReserved:5,selectedForSearch:96,
+      searchCalls:96,successfulSearchCalls:95,
+      quotaExceededConfirmed:true,unusedReservedSearches:0,
+      savedNewCandidateFilms:12,stillEligible:2800,
+      terminationReason:'youtube-search-list-403-quotaExceeded',
+      videoId:'SHOULD_NOT_BE_INCLUDED',secret:'NOT_EXPORTED',
+    }
+    const r=buildNightlyReport({...base,sourceData:{...qa,discovery}})
+    expect(r.status).toBe('success')
+    expect(r.youtubeSearchCallsMeasuredHere).toBe(true)
+    expect(r.googleRemainingQuota).toBe(null)
+    expect(r.youtubeDiscoveryQuota).toMatchObject({
+      priorReserved:5,reservedForNight:96,actualSearchAttempts:96,
+      successfulSearchCalls:95,rejectedSearchCalls:1,
+      quotaExceededConfirmed:true,terminationReason:'youtube-search-list-403-quotaExceeded',
+    })
+    const printed=JSON.stringify(r)+nightlyMarkdown(r)
+    expect(printed).toContain('Tatsächliche search.list-Versuche: 96')
+    expect(printed).not.toMatch(/SHOULD_NOT_BE_INCLUDED|NOT_EXPORTED/)
+  })
   it('reports a quota-blocked discovery as degraded if known video and Firebase succeeded',()=>{
     const r=buildNightlyReport({...base,stages:{...base.stages,discovery:'failure'}})
     expect(r.status).toBe('degraded')

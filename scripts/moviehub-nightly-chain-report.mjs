@@ -10,6 +10,7 @@ import {pathToFileURL} from 'node:url'
 
 const OUT='artifacts/moviehub-nightly'
 const source={
+  discovery:'artifacts/youtube-g2/nightly-discovery/summary.json',
   youtube:'artifacts/youtube-g2/bidirectional-coverage/qa.json',
   waipu:'public/waipu-live/index.json',
   joyn:'public/joyn-live/index.json',
@@ -33,6 +34,31 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
   const wf=sourceData.waipu?.kind==='waipu-live-index'?sourceData.waipu:null
   const joyn=sourceData.joyn?.kind==='joyn-live-index'?sourceData.joyn:null
   const tv=sourceData.tv?.kind==='moviehub-tv-runtime-index'?sourceData.tv:null
+  const d=sourceData.discovery?.kind==='moviehub-youtube-g2-nightly-budgeted-discovery'
+    ?sourceData.discovery:null
+  const quota=d?{
+    status:['completed','quota-exhausted-confirmed','internal-safety-cap-reached',
+      'daily-budget-exhausted','no-unknown-public-films',
+      'no-current-offer-candidates','failed'].includes(d.status)?d.status:'unknown',
+    mode:d.quotaMode==='real-google-quota-until-confirmed-403'
+      ?d.quotaMode:'other-or-unknown',
+    pacificDay:typeof d.pacificDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.pacificDate)
+      ?d.pacificDate:null,
+    priorReserved:n(d.priorReserved),reservedForNight:n(d.selectedForSearch),
+    actualSearchAttempts:n(d.searchCalls),
+    successfulSearchCalls:n(d.successfulSearchCalls),
+    rejectedSearchCalls:n(d.searchCalls)!==null&&n(d.successfulSearchCalls)!==null
+      ?Math.max(0,d.searchCalls-d.successfulSearchCalls):null,
+    quotaExceededConfirmed:d.quotaExceededConfirmed===true,
+    quotaSafetyCeiling:n(d.dayLimit),
+    unusedReservedSearches:n(d.unusedReservedSearches),
+    newCandidateFilms:n(d.savedNewCandidateFilms),
+    pendingCandidateFilms:n(d.stillEligible),
+    terminationReason:['youtube-search-list-403-quotaExceeded',
+      'internal-safety-cap-not-google-exceeded',
+      'eligible-tmdb-film-candidates-exhausted'].includes(d.terminationReason)
+      ?d.terminationReason:null,
+  }:null
   const qa={
     youtube:youtube?{
       sourceVideos:n(youtube.youtubeFirst?.sourceVideos),
@@ -77,9 +103,11 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
     status,steps,sourceQaAvailability:Object.fromEntries(
       Object.entries(qa).map(([k,v])=>[k,Boolean(v)])),
     adapters:qa,
+    youtubeDiscoveryQuota:quota,
     // A reservation is not proof of an actual search call. This report does
     // not have authenticated quota data or make any offer/right assertions.
-    youtubeSearchCallsMeasuredHere:false,googleRemainingQuota:null,
+    youtubeSearchCallsMeasuredHere:quota?.actualSearchAttempts!==null&&quota!==null,
+    googleRemainingQuota:null,
     sourceVideoIdsIncluded:false,verifiedDEOfferInferred:false,
     productionMutationsByReport:0,
   }
@@ -95,6 +123,20 @@ export function nightlyMarkdown(report){
     ...(report.run?['- GitHub: '+report.run.url]:[]),'',
     '## Ablauf','',
     ...Object.entries(stageNames).map(([k,name])=>'- '+name+': **'+report.steps[k]+'**'),
+    '',
+    '## YouTube-API: echte Suchanfragen','',
+    ...(report.youtubeDiscoveryQuota?[
+      '- Pacific-Tag: '+(report.youtubeDiscoveryQuota.pacificDay??'unbekannt'),
+      '- Suchmodus: '+report.youtubeDiscoveryQuota.mode,
+      '- Vorherige Reservierungen: '+(report.youtubeDiscoveryQuota.priorReserved??'unbekannt'),
+      '- Für diese Nacht reserviert: '+(report.youtubeDiscoveryQuota.reservedForNight??'unbekannt'),
+      '- Tatsächliche search.list-Versuche: '+(report.youtubeDiscoveryQuota.actualSearchAttempts??'nicht messbar'),
+      '- Erfolgreiche search.list-Aufrufe: '+(report.youtubeDiscoveryQuota.successfulSearchCalls??'nicht messbar'),
+      '- Abgewiesene bzw. fehlgeschlagene Versuche: '+(report.youtubeDiscoveryQuota.rejectedSearchCalls??'nicht messbar'),
+      '- Google quotaExceeded bestätigt: '+(report.youtubeDiscoveryQuota.quotaExceededConfirmed?'JA':'NEIN'),
+      '- Endgrund: '+(report.youtubeDiscoveryQuota.terminationReason??report.youtubeDiscoveryQuota.status),
+      '- Neue Filmkandidaten in privater Prüfung: '+(report.youtubeDiscoveryQuota.newCandidateFilms??'unbekannt'),
+    ]:['- Discovery-Zähler nicht verfügbar; kein API-Verbrauch aus Reservierungen abgeleitet.']),
     '',
     '## Adapter und Datenquellen','',
   ]

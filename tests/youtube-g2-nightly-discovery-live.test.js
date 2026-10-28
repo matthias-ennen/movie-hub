@@ -133,6 +133,83 @@ describe('scheduled nightly movie research: shared 50 PT calls and private resum
     const candidates=await loadDurableCandidateCheckpoint(b)
     expect(candidates.checkpoint.entries).toHaveLength(1)
   })
+  it('stops ONLY on confirmed Google search quotaExceeded and counts the rejected attempt',async()=>{
+    const b=await seededBucket(),svc=services()
+    let successes=0
+    svc.youtubeApi.mockImplementation(async endpoint=>{
+      if(endpoint==='search'){
+        if(++successes===2)
+          throw Error('YouTube API: HTTP 403 bei search [QUOTA_EXHAUSTED]. Kein Retry.')
+        return {items:[]}
+      }
+      if(endpoint==='videos')return {items:[]}
+      throw Error('unexpected endpoint')
+    })
+    const r=await runNightlyDiscovery({
+      publicIndex:publicIndex(),bucket:b,preflight:null,
+      quotaObservationMode:true,runId:630101,now:()=>NOW,wait:async()=>{},...svc,
+    })
+    expect(r).toMatchObject({
+      dayLimit:200,quotaMode:'real-google-quota-until-confirmed-403',
+      status:'quota-exhausted-confirmed',quotaExceededConfirmed:true,
+      searchCalls:2,successfulSearchCalls:1,
+      selectedForSearch:2,priorReserved:0,
+      terminationReason:'youtube-search-list-403-quotaExceeded',
+      publicationPermitted:false,independentlyVerifiedDEOffers:0,
+      firestoreWrites:0,catalogWrites:0,providerWrites:0,
+    })
+    expect(svc.youtubeApi.mock.calls.filter(x=>x[0]==='search')).toHaveLength(2)
+    const ledger=JSON.parse([...b.objects].find(([k])=>
+      k.includes('private-search-budget'))[1].bytes.toString('utf8'))
+    expect(ledger.totalConservativelyReserved).toBe(2)
+    expect(ledger.adapterDayCap).toBe(200)
+    const q=(await loadNightlyQueue(b)).queue
+    expect(q.entries.find(x=>x.tmdbId===102).state).toBe('no-video-candidates')
+    expect(q.entries.find(x=>x.tmdbId===104).state).toBe('started')
+  })
+  it('runs quota observation without stale Monitoring and does not falsely infer exhaustion',async()=>{
+    const b=await seededBucket(),svc=services()
+    const r=await runNightlyDiscovery({
+      publicIndex:publicIndex(),bucket:b,quotaObservationMode:true,
+      preflight:null,runId:630201,now:()=>NOW,wait:async()=>{},...svc,
+    })
+    expect(r).toMatchObject({
+      quotaMode:'real-google-quota-until-confirmed-403',
+      searchCalls:2,successfulSearchCalls:2,quotaExceededConfirmed:false,
+      status:'completed',
+      terminationReason:'eligible-tmdb-film-candidates-exhausted',
+    })
+  })
+  it('does not mistake plain HTTP 403 or transient rate limit for quotaExceeded',async()=>{
+    for(const message of ['YouTube API: HTTP 403 bei search [API_REQUEST_REJECTED]',
+      'YouTube API: HTTP 429 bei search [RATE_LIMITED]']){
+      const b=await seededBucket(),svc=services()
+      svc.youtubeApi.mockRejectedValue(Error(message))
+      await expect(runNightlyDiscovery({
+        publicIndex:publicIndex(),bucket:b,quotaObservationMode:true,
+        preflight:null,runId:630301,now:()=>NOW,wait:async()=>{},...svc,
+      })).rejects.toThrow(message)
+      expect(svc.youtubeApi).toHaveBeenCalledTimes(1)
+    }
+  })
+  it('inherits the existing 50-call Pacific ledger instead of duplicating day budget',async()=>{
+    const b=await seededBucket(),svc=services()
+    await reserveWithAtomicGcs(b,{
+      now:NOW,runId:630401,calls:50,preflight:preflight(),
+    })
+    const r=await runNightlyDiscovery({
+      publicIndex:publicIndex(),bucket:b,quotaObservationMode:true,
+      preflight:null,runId:630402,now:()=>NOW,wait:async()=>{},...svc,
+    })
+    expect(r).toMatchObject({
+      dayLimit:200,priorReserved:50,selectedForSearch:2,searchCalls:2,
+      successfulSearchCalls:2,quotaExceededConfirmed:false,
+    })
+    const ledger=JSON.parse([...b.objects].find(([k])=>
+      k.includes('private-search-budget'))[1].bytes.toString('utf8'))
+    expect(ledger.totalConservativelyReserved).toBe(52)
+    expect(ledger.reservations).toHaveLength(2)
+  })
   it('honors an already exhausted daily shared ledger without asking YouTube or TMDB',async()=>{
     const b=await seededBucket(),s=services()
     await reserveWithAtomicGcs(b,{

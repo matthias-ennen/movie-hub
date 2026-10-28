@@ -29,13 +29,13 @@ import {recoverNightlyFailureReport,classifyNightlyFailure}
 import {
   verifyBudgetPreflight,isDegradedOneSearchPreflight,
   loadBudgetLedger,reserveWithAtomicGcs,ADAPTER_SEARCH_DAY_CAP,
-  DEGRADED_ONE_SEARCH_DAY_CAP,
+  DEGRADED_ONE_SEARCH_DAY_CAP,NIGHTLY_QUOTA_OBSERVATION_SAFETY_CAP,
 } from './youtube-g2-atomic-search-budget-ledger.mjs'
 
 export const NIGHTLY_DISCOVERY_REPORT='artifacts/youtube-g2/nightly-discovery/summary.json'
-export const NIGHTLY_MAX_TMDB_PREFLIGHT_MOVIES=60
-export const NIGHTLY_MIN_SEARCH_INTERVAL_MS=20000
-export const NIGHTLY_TMDB_MAX_REQUESTS=1+NIGHTLY_MAX_TMDB_PREFLIGHT_MOVIES+3*ADAPTER_SEARCH_DAY_CAP
+export const NIGHTLY_MAX_TMDB_PREFLIGHT_MOVIES=600
+export const NIGHTLY_MIN_SEARCH_INTERVAL_MS=2000
+export const NIGHTLY_TMDB_MAX_REQUESTS=1+NIGHTLY_MAX_TMDB_PREFLIGHT_MOVIES+3*NIGHTLY_QUOTA_OBSERVATION_SAFETY_CAP
 const isId=x=>Number.isSafeInteger(x)&&x>0
 const sleep=ms=>new Promise(done=>setTimeout(done,ms))
 function redactedSummary(summary){
@@ -61,7 +61,7 @@ export function validateNightlyDiscoveryPreflight(preflight,{now}={}){
 /** All live Google/Cloud API clients are injected so no network is used by unit tests. */
 export async function runNightlyDiscovery({
   publicIndex,bucket,tmdbGet,youtubeApi,
-  preflight,runId,now=()=>new Date().toISOString(),
+  preflight,runId,quotaObservationMode=false,now=()=>new Date().toISOString(),
   wait=sleep,
 }={}){
   if(!isId(runId)||typeof now!=='function'||typeof wait!=='function'
@@ -69,18 +69,20 @@ export async function runNightlyDiscovery({
     ||bucket?.name!=='movie-hub-62459-nightly-checkpoints')
     throw Error('G2_NIGHTLY_RUNNER_CONTEXT_INVALID')
   const startedAt=now()
-  const {day,degradedOneSearch}=validateNightlyDiscoveryPreflight(
-    preflight,{now:startedAt})
+  const {day,degradedOneSearch}=quotaObservationMode
+    ?{day:pacificSearchDay(startedAt),degradedOneSearch:false}
+    :validateNightlyDiscoveryPreflight(preflight,{now:startedAt})
   const current=await loadBudgetLedger(bucket,day)
-  const remaining=ADAPTER_SEARCH_DAY_CAP-
-    (current.ledger?.totalConservativelyReserved||0)
+  const dayCap=quotaObservationMode
+    ?NIGHTLY_QUOTA_OBSERVATION_SAFETY_CAP:ADAPTER_SEARCH_DAY_CAP
+  const remaining=dayCap-(current.ledger?.totalConservativelyReserved||0)
   // The unmeasured mode is ONE attempt per PT day across ALL cooperating
   // workflows, not one attempt per GitHub run. A prior manual reservation
   // consumes the same degraded-mode allowance.
   const runCapacity=degradedOneSearch
     ?(current.ledger?.totalConservativelyReserved?0:DEGRADED_ONE_SEARCH_DAY_CAP)
     :remaining
-  if(!Number.isInteger(remaining)||remaining<0||remaining>ADAPTER_SEARCH_DAY_CAP)
+  if(!Number.isInteger(remaining)||remaining<0||remaining>dayCap)
     throw Error('G2_NIGHTLY_DAILY_BUDGET_INVALID')
   let progress=await loadNightlyQueue(bucket)
   let candidates=await loadDurableCandidateCheckpoint(bucket)
@@ -91,10 +93,13 @@ export async function runNightlyDiscovery({
     now:startedAt,limit:NIGHTLY_MAX_TMDB_PREFLIGHT_MOVIES,
   })
   const base={
-    pacificDate:day.date,dayLimit:ADAPTER_SEARCH_DAY_CAP,
-    quotaMode:degradedOneSearch?'one-call-unmeasured-no-quota-guarantee'
-      :'observed-monitoring-guarded',
-    priorReserved:ADAPTER_SEARCH_DAY_CAP-remaining,
+    pacificDate:day.date,dayLimit:dayCap,
+    quotaMode:quotaObservationMode?'real-google-quota-until-confirmed-403'
+      :degradedOneSearch?'one-call-unmeasured-no-quota-guarantee'
+        :'observed-monitoring-guarded',
+    priorReserved:dayCap-remaining,
+    quotaExceededConfirmed:false,successfulSearchCalls:0,
+    googleProjectRemaining:null,
     publicBadgeFilms:plan.totalPublicBadgeMovies,
     previouslyKnownVideoFilms:plan.knownCandidateMovies,
     stillEligible:plan.pendingMovies,checkedNoOffer:0,
@@ -149,6 +154,7 @@ export async function runNightlyDiscovery({
   const allocation=Math.min(eligible.length,runCapacity)
   const admitted=await reserveWithAtomicGcs(bucket,{
     now:now(),runId,calls:allocation,preflight,degradedOneSearch,
+    quotaObservationMode,
   })
   if(admitted.reservationCalls!==allocation
     ||admitted.globalGoogleQuotaGuaranteed!==false
@@ -166,7 +172,9 @@ export async function runNightlyDiscovery({
     progress=await saveNightlyQueue(bucket,putNightlyResult(progress.queue,{
       tmdbId,state:'started',runId,now:now(),
     }),{expectedGeneration:progress.generation})
-    const pilot=await runTmdbFirstLinkPilot({
+    let pilot
+    try{
+      pilot=await runTmdbFirstLinkPilot({
       publicIndex,seedRefs:[{mediaType:'movie',tmdbId}],limit:1,
       knownDeviceCandidates:[],knownVideoCandidatesByTmdbId:new Map(),
       searchesPerUncachedMovie:1,now,
@@ -189,9 +197,25 @@ export async function runNightlyDiscovery({
           if(++videoDetailCalls>allocation)
             throw Error('G2_NIGHTLY_VIDEO_DETAILS_EXCEEDED')
         }else throw Error('G2_NIGHTLY_YOUTUBE_ENDPOINT_FORBIDDEN')
-        return youtubeApi(endpoint,params)
+        const response=await youtubeApi(endpoint,params)
+        if(endpoint==='search')report.successfulSearchCalls++
+        return response
       },
     })
+    }catch(error){
+      // Only an explicit Google quota reason is a normal terminal outcome.
+      // HTTP 403 alone, rate-limit 429, malformed responses and key errors
+      // remain genuine failures, never misreported as spent quota.
+      if(quotaObservationMode
+        &&/HTTP 403 bei search \[QUOTA_EXHAUSTED\]/.test(String(error?.message))) {
+        return redactedSummary({...report,status:'quota-exhausted-confirmed',
+          quotaExceededConfirmed:true,searchCalls:actualSearches,
+          videoDetailCalls,checkedTmdbReads:tmdbReads,
+          unusedReservedSearches:allocation-actualSearches,
+          terminationReason:'youtube-search-list-403-quotaExceeded'})
+      }
+      throw error
+    }
     if(pilot.rows.length!==1||pilot.rows[0].tmdbId!==tmdbId
       ||pilot.summary.calls.youtubeSearches>1
       ||pilot.summary.calls.youtubeVideoLookups>1
@@ -229,7 +253,12 @@ export async function runNightlyDiscovery({
     report.searchCalls=actualSearches
     report.videoDetailCalls=videoDetailCalls
   }
-  return redactedSummary({...report,status:'completed',
+  return redactedSummary({...report,
+    status:quotaObservationMode&&allocation===runCapacity
+      ?'internal-safety-cap-reached':'completed',
+    terminationReason:quotaObservationMode
+      ?allocation===runCapacity?'internal-safety-cap-not-google-exceeded'
+        :'eligible-tmdb-film-candidates-exhausted':null,
     unusedReservedSearches:allocation-actualSearches,
     checkedTmdbReads:tmdbReads})
 }
@@ -254,10 +283,12 @@ export async function liveNightlyDiscovery({
     ||process.env.DATA_CHECKPOINT_BUCKET!=='movie-hub-62459-nightly-checkpoints'
     ||!isId(runId)||typeof token!=='string'||token.length<15)
     throw Error('G2_NIGHTLY_LIVE_CLOUD_CONTEXT_INVALID')
-  const preflight=JSON.parse(await readFile(preflightPath,'utf8'))
-  // Run exactly the same admission as the pure runner BEFORE OIDC/GCS reads.
-  // Neither mode claims a globally guaranteed remaining Google quota.
-  validateNightlyDiscoveryPreflight(preflight,{now:new Date().toISOString()})
+  // Operator-approved quota observation: the real YouTube API decides exhaustion.
+  // Monitoring telemetry is not a reliable live admission ticket (#388).
+  const quotaObservationMode=true
+  const preflight=quotaObservationMode?null:JSON.parse(await readFile(preflightPath,'utf8'))
+  if(!quotaObservationMode)
+    validateNightlyDiscoveryPreflight(preflight,{now:new Date().toISOString()})
   const [{applicationDefault,initializeApp,deleteApp},{getStorage}]=await Promise.all([
     import('firebase-admin/app'),import('firebase-admin/storage')])
   const app=initializeApp({credential:applicationDefault(),
@@ -272,7 +303,7 @@ export async function liveNightlyDiscovery({
       return youtubeGet(path,params,apiKey)
     }
     const summary=await runNightlyDiscovery({
-      publicIndex,bucket,preflight,runId,
+      publicIndex,bucket,preflight,runId,quotaObservationMode,
       tmdbGet:(p,q)=>tmdbLive(p,q,token),youtubeApi:guardedYoutube,
     })
     await mkdir('artifacts/youtube-g2/nightly-discovery',{recursive:true})
