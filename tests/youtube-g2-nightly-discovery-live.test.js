@@ -1,6 +1,6 @@
 import {describe,it,expect,vi} from 'vitest'
 import {readFileSync} from 'node:fs'
-import {runNightlyDiscovery}
+import {runNightlyDiscovery,validateNightlyDiscoveryPreflight}
   from '../scripts/youtube-g2-nightly-discovery-live.mjs'
 import {
   loadNightlyQueue,
@@ -193,6 +193,31 @@ describe('scheduled nightly movie research: shared 10 PT calls and private resum
     expect(workflow).toContain("contains(github.event.head_commit.message, '[youtube-nightly-once]')")
     expect(workflow).toContain("github.ref == 'refs/heads/main'")
     expect(workflow).toContain("cancel-in-progress: false")
+  })
+  it('uses the same normal/degraded admission at live entrypoint and pure runner',()=>{
+    const missing=evaluatePacificSearchBudget({
+      now:NOW,rateHttp:200,rateResponse:{},
+      exceededHttp:200,exceededResponse:{},
+    })
+    expect(validateNightlyDiscoveryPreflight(missing,{now:NOW})).toMatchObject({
+      degradedOneSearch:true,
+      day:{date:'2026-10-25'},
+    })
+    expect(validateNightlyDiscoveryPreflight(preflight(),{now:NOW})).toMatchObject({
+      degradedOneSearch:false,
+      day:{date:'2026-10-25'},
+    })
+    const early='2026-10-25T07:12:00Z'
+    const invalid=evaluatePacificSearchBudget({
+      now:early,rateHttp:200,rateResponse:{},
+      exceededHttp:200,exceededResponse:{},
+    })
+    expect(()=>validateNightlyDiscoveryPreflight(invalid,{now:early}))
+      .toThrow('YOUTUBE_RESEARCH_SEARCH_PREFLIGHT_NOT_TRUSTED')
+    const source=readFileSync(new URL('../scripts/youtube-g2-nightly-discovery-live.mjs',
+      import.meta.url),'utf8')
+    expect(source).toContain('validateNightlyDiscoveryPreflight(preflight,{now:new Date().toISOString()})')
+    expect(source).not.toContain('verifyBudgetPreflight(preflight,{now:new Date().toISOString()})')
   })
   it('advances exactly ONE uncached TMDB-badged film when both 200 Monitoring replies omit samples',async()=>{
     const p=evaluatePacificSearchBudget({
