@@ -75,6 +75,15 @@
         ]
       },
       {
+        "source": "/youtube-curated-search-titles.json",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store"
+          }
+        ]
+      },
+      {
         "source": "/youtube-curated-new-films.json",
         "headers": [
           {

@@ -539,6 +539,9 @@ jobs:
           REQUIRE_JOYN_14_DAYS: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
         run: node scripts/verify-published-data.mjs --prepared
 
+      - name: Verify complete YouTube search companion before deploy (no API calls)
+        run: node scripts/verify-youtube-search-companion-publication.mjs --prepared
+
       - name: Deploy Hosting and Firestore Rules
         id: firebase_deploy
         run: npx firebase-tools deploy --only hosting,firestore:rules --project movie-hub-62459 --non-interactive
@@ -548,6 +551,10 @@ jobs:
         env:
           REQUIRE_JOYN_14_DAYS: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
         run: node scripts/verify-published-data.mjs
+
+      - name: Verify hosted YouTube film search companion and no-store headers
+        if: ${{ !cancelled() && steps.firebase_deploy.outcome == 'success' }}
+        run: node scripts/verify-youtube-search-companion-publication.mjs
 
       # Independent read-only HTTP verification: a failure of the general
       # data-generation readback must stay FAILED but must not hide whether
