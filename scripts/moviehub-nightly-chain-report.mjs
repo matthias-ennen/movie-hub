@@ -32,7 +32,7 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
     ?sourceData.youtube:null
   const wf=sourceData.waipu?.kind==='waipu-live-index'?sourceData.waipu:null
   const joyn=sourceData.joyn?.kind==='joyn-live-index'?sourceData.joyn:null
-  const tv=sourceData.tv?.kind==='tv-runtime-index'?sourceData.tv:null
+  const tv=sourceData.tv?.kind==='moviehub-tv-runtime-index'?sourceData.tv:null
   const qa={
     youtube:youtube?{
       sourceVideos:n(youtube.youtubeFirst?.sourceVideos),
