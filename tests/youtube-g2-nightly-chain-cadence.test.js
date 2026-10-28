@@ -40,7 +40,7 @@ describe('single permanently chained 00:10 Europe/Berlin production night (#388)
     expect(deploy).toContain("inputs.nightly_chain && 'workflow_call'")
   })
   it('preserves Pacific safety guard in both CET and CEST at 00:10, including the new PT day',()=>{
-    for(const start of ['2026-10-28T22:10:00.000Z','2026-12-02T23:10:00.000Z',
+    for(const start of ['2026-10-28T23:10:00.000Z','2026-12-02T23:10:00.000Z',
       '2027-07-01T22:10:00.000Z']){
       const berlin=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Berlin',
         hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(start))
