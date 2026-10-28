@@ -68,6 +68,7 @@ jobs:
     uses: ./.github/workflows/deploy-firebase.yml
     with:
       nightly_chain: true
+      youtube_known_recheck: ${{ needs.known-videos.result }}
     permissions:
       actions: read
       contents: read

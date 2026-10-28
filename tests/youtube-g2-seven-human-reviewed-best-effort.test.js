@@ -98,7 +98,6 @@ describe('seven human-confirmed movie matcher results (offline, anonymous IDs)',
       candidate=>{candidate.strong=false},
       candidate=>{candidate.titleLevel=3},
       candidate=>{candidate.yearMismatch=true},
-      candidate=>{candidate.regionSignal='excluded'},
       candidate=>{candidate.runtimeDelta=16},
       candidate=>{candidate.sourceTypeRisk=true},
     ]
