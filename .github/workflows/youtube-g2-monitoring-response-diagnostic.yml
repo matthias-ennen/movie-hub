@@ -44,8 +44,11 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import {appendFileSync} from 'node:fs'
-          const localDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Berlin',
-            year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())
+          const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Berlin',
+            year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date())
+          const values=Object.fromEntries(parts.filter(x=>x.type!=='literal')
+            .map(x=>[x.type,x.value]))
+          const localDate=values.year+'-'+values.month+'-'+values.day
           const valid=['30 8 29 10 *','30 15 29 10 *']
           const approved=process.env.EVENT_NAME!=='schedule' ||
             (localDate==='2026-10-29' &&
