@@ -38,7 +38,6 @@ function candidateAllowed(c){
     &&Number.isFinite(c.runtimeDelta)&&c.runtimeDelta>=0&&c.runtimeDelta<=15
     &&c.yearMismatch!==true&&c.sequelConflict!==true
     &&c.sourceTypeRisk!==true
-    &&c.regionSignal!=='excluded'
 }
 export function buildYoutubeBestEffortLinkIndex(review,{
   now=new Date().toISOString(),
