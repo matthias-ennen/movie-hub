@@ -349,6 +349,50 @@ jobs:
             "$TRAFFIC_START" "$NOW" "$code" \
             /tmp/moviehub-youtube-pt-budget-private/api-traffic.json \
             artifacts/youtube-g2/pacific-search-preflight/api-traffic.json
+          # Only privacy-safe aggregate fields may leave the protected
+          # diagnostic artifact. Missing metrics are UNKNOWN, not zero usage.
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs'
+          const report=JSON.parse(readFileSync(
+            'artifacts/youtube-g2/pacific-search-preflight/api-traffic.json','utf8'))
+          const safeCount=value=>value===null
+            ||Number.isSafeInteger(value)&&value>=0
+          const counts=['observedSearchMethodRequests',
+            'observedOtherMethodRequests','unclassifiedMethodRequests',
+            'distinctCredentialGroupsObserved']
+          if(report.kind!=='moviehub-youtube-g2-api-traffic-readonly'
+            ||report.quotaRemaining!==null
+            ||report.actualSearchListRequests!==null
+            ||report.externalConsumersFullyAccountedFor!==false
+            ||report.authorizedSearchCalls!==0
+            ||report.youtubeApiCalls!==0||report.gcsWrites!==0
+            ||report.quotaWrites!==0||report.publicationPermitted!==false
+            ||typeof report.methodLabelsPresentForAllSeries!=='boolean'
+            ||counts.some(k=>!safeCount(report[k])))
+            throw Error('YOUTUBE_TRAFFIC_ACCOUNTING_NOT_SAFE')
+          const observed=x=>x===null?'unknown':String(x)
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,[
+            '### YouTube API completed request traffic (24h, READ ONLY)',
+            '',
+            '- Monitoring HTTP: '+report.httpStatus+'; shape: '+report.shape,
+            '- Observed completed requests (all methods): '+
+              observed(report.observedCompletedRequests),
+            '- Explicit search.list method observations: '+
+              observed(report.observedSearchMethodRequests),
+            '- Explicit known non-search method observations: '+
+              observed(report.observedOtherMethodRequests),
+            '- Unknown or unlabeled method observations: '+
+              observed(report.unclassifiedMethodRequests),
+            '- Method labels present in all returned series: '+
+              report.methodLabelsPresentForAllSeries,
+            '- Distinct credential groups observed (IDs hidden): '+
+              observed(report.distinctCredentialGroupsObserved),
+            '- External consumer coverage independently proven: NO',
+            '- **Not a Pacific-day total, no exact search count, no remaining '+
+              'Google quota and no authorization. Monitoring may lag.**',
+            '',
+          ].join('\n')+'\n')
+          NODE
           # This 24h completed-request counter can lag by up to 30 minutes.
           # It mixes quota classes and is NEVER a source of remaining
           # search.list quota, shared global quota, or search permission.
