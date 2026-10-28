@@ -166,19 +166,68 @@ export async function reserveSharedSearchWithGcs(bucket,options){
     reservedSearches:readback.ledger.records.length,
     guaranteedGoogleRemaining:null}
 }
+/**
+ * Only the bookkeeping CAS may be retried. A 412 indicates a concurrent
+ * cooperating workflow updated the ledger; it says NOTHING about whether
+ * our already-sent YouTube request may be repeated.
+ *
+ * Reconcile an already-persisted same outcome idempotently (e.g. if the
+ * caller lost the acknowledgement). Conflicting outcomes fail closed.
+ */
 export async function finishSharedSearchWithGcs(bucket,{
   day,runId,attemptNumber,state,
 }={}){
-  const read=await readSharedSearchLedger(bucket,day)
-  const ledger=prepareSharedSearchOutcome({
-    day,previous:read.ledger,runId,attemptNumber,state})
-  await saveCas(bucket,read,ledger)
-  const check=await readSharedSearchLedger(bucket,day)
-  if(!check.ledger.records.some(x=>x.runId===runId
-    &&x.attemptNumber===attemptNumber&&x.state===state))
-    throw Error('YOUTUBE_SHARED_SEARCH_OUTCOME_READBACK_FAILED')
-  return {state,reservedSearches:check.ledger.records.length,
-    haltedForQuota:check.ledger.haltedForQuota}
+  if(!statuses.has(state)||state==='reserved-unknown')
+    throw Error('YOUTUBE_SHARED_SEARCH_OUTCOME_INVALID')
+  for(let attempt=0;attempt<5;attempt++){
+    const read=await readSharedSearchLedger(bucket,day)
+    const existing=read.ledger?.records.find(x=>x.runId===runId
+      &&x.attemptNumber===attemptNumber)
+    if(!existing)throw Error('YOUTUBE_SHARED_SEARCH_OUTCOME_NOT_RESERVED')
+    if(existing.state!== 'reserved-unknown' && existing.state!==state)
+      throw Error('YOUTUBE_SHARED_SEARCH_OUTCOME_CONFLICT')
+    if(existing.state==='reserved-unknown'){
+      const ledger=prepareSharedSearchOutcome({
+        day,previous:read.ledger,runId,attemptNumber,state})
+      try{await saveCas(bucket,read,ledger)}
+      catch(e){
+        if(Number(e?.code)===412)continue
+        throw e
+      }
+    }
+    const check=await readSharedSearchLedger(bucket,day)
+    if(check.ledger?.records.some(x=>x.runId===runId
+      &&x.attemptNumber===attemptNumber&&x.state===state))
+      return {state,reservedSearches:check.ledger.records.length,
+        haltedForQuota:check.ledger.haltedForQuota}
+    // A newer valid generation may still have another pending outcome.
+    // Reconcile by reading it, never by resending the YouTube request.
+  }
+  throw Error('YOUTUBE_SHARED_SEARCH_OUTCOME_CAS_CONFLICT')
+}
+
+/** Aggregated PRIVATE bookkeeping: no titles, IDs, query text or fake quotas. */
+export function summarizeSharedSearchLedger(doc,day){
+  const ledger=doc===null?empty(day):validateSharedSearchLedger(doc,day)
+  const counts={success:0,'quota-exceeded':0,'rate-limited':0,
+    'failed-unknown':0,'reserved-unknown':0}
+  for(const row of ledger.records)counts[row.state]++
+  return {
+    kind:'moviehub-youtube-shared-search-daily-accounting-v1',
+    pacificDate:day.date,internalDayCap:TARGET_SEARCH_CAP,
+    conservativelyReserved:ledger.records.length,
+    unusedInternalSlots:TARGET_SEARCH_CAP-ledger.records.length,
+    confirmedByTransport:counts.success,
+    rejectedQuota:counts['quota-exceeded'],
+    rejectedRate:counts['rate-limited'],
+    failedWithUncertainTransport:counts['failed-unknown'],
+    outstandingUnknown:counts['reserved-unknown'],
+    haltedForQuota:ledger.haltedForQuota,
+    googleProjectRemaining:null,
+    externallyVerifiedCalls:null,
+    exactSentCallsProven:false,
+    activationApproved:false,
+  }
 }
 export function classifySharedSearchFailure(error){
   const message=String(error?.message||'')
