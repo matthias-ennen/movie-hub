@@ -213,14 +213,16 @@ describe('YouTube API consumed request traffic telemetry is diagnostic only',()=
       http:200,start:'2026-10-01T00:00:00Z',end,document:{},
     })).toThrow('INVALID_TRAFFIC_DIAGNOSTIC_WINDOW')
   })
-  it('preserves unchanged fail-closed nighttime quota preflight and no automatic runs',()=>{
+  it('keeps read-only quota telemetry separate from trusted real-quota nightly discovery',()=>{
     const nightly=readFileSync(new URL(
       '../.github/workflows/youtube-g2-nightly-discovery.yml',import.meta.url),'utf8')
     const wf=readFileSync(new URL(
       '../.github/workflows/youtube-g2-pacific-search-preflight.yml',
       import.meta.url),'utf8')
     expect(nightly).toContain('node scripts/youtube-g2-nightly-discovery-live.mjs')
-    expect(nightly).toContain('node scripts/youtube-g2-pacific-search-preflight.mjs')
+    expect(nightly).not.toContain('node scripts/youtube-g2-pacific-search-preflight.mjs')
+    expect(nightly).toContain('quotaExceeded')
+    expect(nightly).toContain("[youtube-nightly-once]")
     expect(wf).toContain('api/request_count')
     expect(wf).toContain('scripts/youtube-g2-api-traffic-diagnostic.mjs')
     expect(wf).toContain('api-traffic.json')
