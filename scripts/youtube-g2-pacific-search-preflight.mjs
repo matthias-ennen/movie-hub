@@ -84,6 +84,20 @@ function readSeries(http,response,metric,day,now){
   }
   return result
 }
+/** Finite, anonymized Monitoring response causes for private QA. Strictly
+ * observational: NEVER used to admit API searches or estimate remaining quota.
+ * Do not serialize raw API errors, pagination tokens, labels, IDs or secrets.
+ */
+export function monitoringResponseShape(http,response){
+  if(http!==200)return 'http-not-ok'
+  if(!response||typeof response!=='object'||Array.isArray(response))
+    return 'invalid-json-object'
+  if(!Object.hasOwn(response,'timeSeries'))return 'missing-timeseries'
+  if(!Array.isArray(response.timeSeries))return 'malformed-timeseries'
+  if(response.nextPageToken)return 'paginated-timeseries'
+  return response.timeSeries.length===0?'empty-timeseries':'present-timeseries'
+}
+
 export function evaluatePacificSearchBudget({
   now,rateHttp,rateResponse,exceededHttp,exceededResponse,
 }={}){
@@ -103,12 +117,18 @@ export function evaluatePacificSearchBudget({
   // This flag is advisory only. Even if true, another project caller may
   // exhaust the bucket during Monitoring's reporting lag.
   const smallBatchAdvisory=blocks.length===0
+  // Diagnostic-only finite labels. Does not modify 'blocks' or any search gate.
+  const monitoringResponseShapes={
+    rate:monitoringResponseShape(rateHttp,rateResponse),
+    exceeded:monitoringResponseShape(exceededHttp,exceededResponse),
+  }
   return {
     kind:KIND,checkedAt:new Date(now).toISOString(),
     pacificDate:day.date,resetStartUTC:day.start,nextResetUTC:day.end,
     measuredProjectDailyLimit:100,researchBudgetProposed:10,
     otherConsumersReserve:30,monitoringLagBuffer:10,
     rate,exceeded,monitoringSampleAgeMinutes:age,blocks,
+    monitoringResponseShapes,
     smallBatchAdvisory,
     currentQuotaRemaining:null,
     monitoringIsActualRemainingQuota:false,
@@ -138,6 +158,8 @@ export async function runPacificSearchPreflight({
     observedUsage:r.rate.units,observedExceeded:r.exceeded.exceededTrue,
     rateStatus:r.rate.http,exceededStatus:r.exceeded.http,
     advisory:r.smallBatchAdvisory,blocks:r.blocks,
+    monitoringResponseShapes:r.monitoringResponseShapes,
+    monitoringSampleAgeMinutes:r.monitoringSampleAgeMinutes,
     actualRemaining:null,authorizedSearchCalls:0,youtubeCalls:0,
   }))
   return r
