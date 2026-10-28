@@ -16,7 +16,7 @@ const series=(metric,value)=>({timeSeries:[{
     endTime:'2026-10-25T17:50:00Z'},value}],
 }]})
 const preflight=()=>evaluatePacificSearchBudget({
-  now:NOW,rateHttp:200,rateResponse:series(RATE,{int64Value:'15'}),
+  now:NOW,rateHttp:200,rateResponse:series(RATE,{int64Value:'5'}),
   exceededHttp:200,exceededResponse:{timeSeries:[]},
 })
 const plan=()=>({

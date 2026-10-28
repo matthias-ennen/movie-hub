@@ -20,7 +20,7 @@ const sample={timeSeries:[{
   points:[{
     interval:{startTime:'2026-10-25T17:49:00Z',
       endTime:'2026-10-25T17:50:00Z'},
-    value:{int64Value:'15'},
+    value:{int64Value:'5'},
   }],
 }]}
 const preflight=()=>evaluatePacificSearchBudget({
@@ -109,7 +109,7 @@ function services(){
   })
   return {tmdbGet,youtubeApi}
 }
-describe('scheduled nightly movie research: shared 10 PT calls and private resume',()=>{
+describe('scheduled nightly movie research: shared 50 PT calls and private resume',()=>{
   it('uses two actual search calls, skips a known ID and no-offer case, saves cursor',async()=>{
     const b=await seededBucket(),s=services()
     const summary=await runNightlyDiscovery({
@@ -117,7 +117,7 @@ describe('scheduled nightly movie research: shared 10 PT calls and private resum
       runId:610101,now:()=>NOW,wait:async()=>{},...s,
     })
     expect(summary).toMatchObject({
-      dayLimit:10,priorReserved:0,publicBadgeFilms:4,
+      dayLimit:50,priorReserved:0,publicBadgeFilms:4,
       previouslyKnownVideoFilms:1,selectedForSearch:2,
       checkedNoOffer:1,searchCalls:2,videoDetailCalls:0,
       finishedWithoutCandidates:2,status:'completed',
@@ -136,7 +136,7 @@ describe('scheduled nightly movie research: shared 10 PT calls and private resum
   it('honors an already exhausted daily shared ledger without asking YouTube or TMDB',async()=>{
     const b=await seededBucket(),s=services()
     await reserveWithAtomicGcs(b,{
-      now:NOW,runId:610200,calls:10,preflight:preflight(),
+      now:NOW,runId:610200,calls:50,preflight:preflight(),
     })
     const summary=await runNightlyDiscovery({
       publicIndex:publicIndex(),bucket:b,preflight:preflight(),
@@ -144,7 +144,7 @@ describe('scheduled nightly movie research: shared 10 PT calls and private resum
     })
     expect(summary).toMatchObject({
       status:'daily-budget-exhausted',
-      priorReserved:10,selectedForSearch:0,searchCalls:0,
+      priorReserved:50,selectedForSearch:0,searchCalls:0,
     })
     expect(s.tmdbGet).not.toHaveBeenCalled()
     expect(s.youtubeApi).not.toHaveBeenCalled()

@@ -18,7 +18,7 @@ function exampleSeries(metric,value){
 }
 function preflight(){
   return evaluatePacificSearchBudget({
-    now,rateHttp:200,rateResponse:exampleSeries(RATE,{int64Value:'15'}),
+    now,rateHttp:200,rateResponse:exampleSeries(RATE,{int64Value:'5'}),
     exceededHttp:200,exceededResponse:{timeSeries:[]},
   })
 }
@@ -54,21 +54,21 @@ function bucket(){
   }
   return b
 }
-describe('YouTube adapter own 10-call Pacific-day atomic GCS reservation ledger',()=>{
+describe('YouTube adapter own 50-call Pacific-day atomic GCS reservation ledger',()=>{
   it('counts requests pessimistically and never turns an internal reservation into Google quota',()=>{
     const p=preflight()
     expect(p.smallBatchAdvisory).toBe(true)
     const a=prepareResearchReservation({now,runId:601001,calls:4,preflight:p})
     expect(a.ledger).toMatchObject({
       kind:LEDGER_KIND,pacificDate:'2026-10-25',
-      adapterDayCap:10,totalConservativelyReserved:4,
+      adapterDayCap:50,totalConservativelyReserved:4,
       remainingSharedProjectCalls:null,externalCallersCoordinated:false,
       automaticSearchApproved:false,productionWrites:0,
     })
     const b=prepareResearchReservation({
-      now,runId:601002,calls:6,preflight:p,previous:a.ledger,
+      now,runId:601002,calls:46,preflight:p,previous:a.ledger,
     })
-    expect(b.ledger.totalConservativelyReserved).toBe(10)
+    expect(b.ledger.totalConservativelyReserved).toBe(50)
     expect(b.ledger.reservations).toHaveLength(2)
     expect(()=>prepareResearchReservation({
       now,runId:601003,calls:1,preflight:p,previous:b.ledger,
@@ -77,7 +77,7 @@ describe('YouTube adapter own 10-call Pacific-day atomic GCS reservation ledger'
       now,runId:601001,calls:1,preflight:p,previous:b.ledger,
     })).toThrow('YOUTUBE_RESEARCH_RUN_ALREADY_RESERVED')
   })
-  it('shares 10 PT-day calls between a 5-search batch and one-search research jobs',async()=>{
+  it('shares 50 PT-day calls between five-search and one-search research jobs',async()=>{
     const b=bucket(),p=preflight()
     const five=await reserveWithAtomicGcs(b,{
       now,runId:610001,calls:5,preflight:p,
@@ -86,14 +86,14 @@ describe('YouTube adapter own 10-call Pacific-day atomic GCS reservation ledger'
       reservationCalls:5,totalAdapterReservations:5,
       globalGoogleQuotaGuaranteed:false,
     })
-    for(let i=0;i<5;i++){
+    for(let i=0;i<45;i++){
       const one=await reserveWithAtomicGcs(b,{
         now,runId:610002+i,calls:1,preflight:p,
       })
       expect(one.totalAdapterReservations).toBe(6+i)
     }
     await expect(reserveWithAtomicGcs(b,{
-      now,runId:610007,calls:5,preflight:p,
+      now,runId:610047,calls:5,preflight:p,
     })).rejects.toThrow('YOUTUBE_RESEARCH_INTERNAL_DAILY_CAP_EXHAUSTED')
     expect(b.saved.size).toBe(1)
   })
@@ -113,9 +113,9 @@ describe('YouTube adapter own 10-call Pacific-day atomic GCS reservation ledger'
     expect(state.generation).toBe('1')
     expect(state.name).toBe(LEDGER_PREFIX+'2026-10-25.json')
     const second=await reserveWithAtomicGcs(b,{
-      now,runId:601102,calls:6,preflight:p,
+      now,runId:601102,calls:46,preflight:p,
     })
-    expect(second.totalAdapterReservations).toBe(10)
+    expect(second.totalAdapterReservations).toBe(50)
     await expect(reserveWithAtomicGcs(b,{
       now,runId:601103,calls:1,preflight:p,
     })).rejects.toThrow('YOUTUBE_RESEARCH_INTERNAL_DAILY_CAP_EXHAUSTED')
@@ -151,7 +151,7 @@ describe('YouTube adapter own 10-call Pacific-day atomic GCS reservation ledger'
       })).toThrow('YOUTUBE_RESEARCH_SEARCH_PREFLIGHT_NOT_TRUSTED')
     }
     expect(()=>prepareResearchReservation({
-      now,runId:601301,calls:11,preflight:p,
+      now,runId:601301,calls:51,preflight:p,
     })).toThrow('YOUTUBE_RESEARCH_RESERVATION_INPUT_INVALID')
     const a=prepareResearchReservation({now,runId:601401,calls:4,preflight:p})
     for(const mutation of [
@@ -165,6 +165,37 @@ describe('YouTube adapter own 10-call Pacific-day atomic GCS reservation ledger'
       const x=structuredClone(a.ledger);mutation(x)
       expect(()=>validateBudgetLedger(x,a.day)).toThrow()
     }
+  })
+  it('upgrades an existing v1 10/day document in-place under the SAME CAS generation',async()=>{
+    const b=bucket(),p=preflight()
+    const day={date:'2026-10-25',start:'2026-10-25T07:00:00.000Z',
+      end:'2026-10-26T07:00:00.000Z'}
+    const a=prepareResearchReservation({now,runId:601601,calls:10,preflight:p})
+    const legacy={...a.ledger,adapterDayCap:10}
+    expect(()=>validateBudgetLedger(legacy,a.day)).toThrow('YOUTUBE_SEARCH_LEDGER_NOT_TRUSTED')
+    expect(validateBudgetLedger(legacy,a.day,{allowLegacyCap:true}).totalConservativelyReserved)
+      .toBe(10)
+    const key=LEDGER_PREFIX+day.date+'.json'
+    b.saved.set(key,{generation:1,bytes:Buffer.from(JSON.stringify(legacy))})
+    const updated=await reserveWithAtomicGcs(b,{now,runId:601602,calls:40,preflight:p})
+    expect(updated.totalAdapterReservations).toBe(50)
+    const {ledger,generation}=await loadBudgetLedger(b,day)
+    expect(generation).toBe('2')
+    expect(ledger.adapterDayCap).toBe(50)
+    expect(ledger.reservations).toMatchObject([{runId:601601,calls:10},
+      {runId:601602,calls:40}])
+    await expect(reserveWithAtomicGcs(b,{now,runId:601603,calls:1,preflight:p}))
+      .rejects.toThrow('YOUTUBE_RESEARCH_INTERNAL_DAILY_CAP_EXHAUSTED')
+  })
+  it('rejects a legacy ledger with more than the historical 10 reservations',()=>{
+    const p=preflight()
+    const a=prepareResearchReservation({now,runId:601701,calls:1,preflight:p})
+    const fake={...a.ledger,adapterDayCap:10,totalConservativelyReserved:50,
+      reservations:Array.from({length:50},(_,i)=>({
+        runId:601800+i,calls:1,reservedAt:now,
+        state:'reserved-conservatively-no-refund',
+      }))}
+    expect(()=>validateBudgetLedger(fake,a.day,{allowLegacyCap:true})).toThrow()
   })
   it('rejects wrong Google bucket identity before any read or write',async()=>{
     const b=bucket();b.name='a-public-bucket'

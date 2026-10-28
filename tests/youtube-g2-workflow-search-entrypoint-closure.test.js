@@ -105,7 +105,9 @@ describe('YouTube #388 workflow entrypoint budget closure',()=>{
       expect(script(runner)).toContain(admission)
     }
     const ledger=script('youtube-g2-atomic-search-budget-ledger')
-    expect(ledger).toContain('ADAPTER_SEARCH_DAY_CAP=10')
+    expect(ledger).toContain('ADAPTER_SEARCH_DAY_CAP=RESEARCH_DAY_CAP')
+    const preflight=script('youtube-g2-pacific-search-preflight')
+    expect(preflight).toContain('RESEARCH_DAY_CAP=50')
     expect(ledger).toContain('DEGRADED_ONE_SEARCH_DAY_CAP=1')
   })
   it('keeps other reviewed entrypoint runner scripts free of direct search transport',()=>{

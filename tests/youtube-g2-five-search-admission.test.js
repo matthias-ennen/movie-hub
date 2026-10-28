@@ -20,7 +20,7 @@ const series={timeSeries:[{
       startTime:'2026-10-25T17:49:00Z',
       endTime:'2026-10-25T17:50:00Z',
     },
-    value:{int64Value:'15'},
+    value:{int64Value:'5'},
   }],
 }]}
 const preflight=()=>evaluatePacificSearchBudget({

@@ -1,7 +1,7 @@
 /**
  * One conservative, atomic FIVE-search reservation for the existing manually
  * triggered public-badge pilot. Reuses the SAME Pacific-day GCS ledger used by
- * the one-search full-catalog workflow, so 5 + 1 cannot overbook 10/day.
+ * the one-search full-catalog workflow, so 5 + 1 cannot overbook the shared 50/day.
  *
  * This is not shared Google-project quota leasing, automatic discovery, offer
  * authority or permission to publish candidates. Monitoring can lag and
