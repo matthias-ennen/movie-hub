@@ -8,6 +8,12 @@ import {readFile,mkdir,writeFile} from 'node:fs/promises'
 import {pathToFileURL} from 'node:url'
 export const KIND='moviehub-youtube-g2-pacific-search-budget-preflight'
 export const QUOTA='youtube.googleapis.com/search_list'
+// Shared conservative search allocation (not guaranteed Google quota).
+export const RESEARCH_DAY_CAP=50
+export const PROJECT_DAILY_SEARCH_LIMIT=100
+export const OTHER_CONSUMERS_RESERVE=30
+export const MONITORING_LAG_BUFFER=10
+export const MAX_OBSERVED_SEARCH_USAGE=PROJECT_DAILY_SEARCH_LIMIT-OTHER_CONSUMERS_RESERVE-MONITORING_LAG_BUFFER-RESEARCH_DAY_CAP
 export const RATE='serviceruntime.googleapis.com/quota/rate/net_usage'
 export const EXCEEDED='serviceruntime.googleapis.com/quota/exceeded'
 const format=new Intl.DateTimeFormat('en-US',{
@@ -112,8 +118,7 @@ export function evaluatePacificSearchBudget({
   if(!rate.points)blocks.push('no-observed-usage-is-not-zero')
   if(age===null||age>15)blocks.push('monitoring-samples-not-recent')
   if(exceeded.exceededTrue)blocks.push('quota-exceeded-reported-today')
-  const ceiling=100-30-10-10
-  if(rate.units>ceiling)blocks.push('outside-conservative-10-call-headroom')
+  if(rate.units>MAX_OBSERVED_SEARCH_USAGE)blocks.push('outside-conservative-50-call-headroom')
   // This flag is advisory only. Even if true, another project caller may
   // exhaust the bucket during Monitoring's reporting lag.
   const smallBatchAdvisory=blocks.length===0
@@ -125,8 +130,8 @@ export function evaluatePacificSearchBudget({
   return {
     kind:KIND,checkedAt:new Date(now).toISOString(),
     pacificDate:day.date,resetStartUTC:day.start,nextResetUTC:day.end,
-    measuredProjectDailyLimit:100,researchBudgetProposed:10,
-    otherConsumersReserve:30,monitoringLagBuffer:10,
+    measuredProjectDailyLimit:PROJECT_DAILY_SEARCH_LIMIT,researchBudgetProposed:RESEARCH_DAY_CAP,
+    otherConsumersReserve:OTHER_CONSUMERS_RESERVE,monitoringLagBuffer:MONITORING_LAG_BUFFER,
     rate,exceeded,monitoringSampleAgeMinutes:age,blocks,
     monitoringResponseShapes,
     smallBatchAdvisory,
