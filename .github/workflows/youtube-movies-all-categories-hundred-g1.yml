@@ -14,7 +14,8 @@ concurrency:
 jobs:
   all-categories-hundred:
     name: Enumerate DE categories and screen up to 100 distinct movie video leads
-    if: github.ref == 'refs/heads/main'
+    # #388: suspended until search.list uses shared project-wide CAS admission.
+    if: false && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 22
     steps:

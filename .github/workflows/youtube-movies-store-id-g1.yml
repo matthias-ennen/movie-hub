@@ -14,7 +14,8 @@ concurrency:
 jobs:
   discover-film-ids:
     name: Validate official YouTube Movies film IDs against Data API
-    if: github.ref == 'refs/heads/main'
+    # #388: suspended until search.list uses shared project-wide CAS admission.
+    if: false && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:

@@ -20,7 +20,9 @@ concurrency:
 jobs:
   tmdb-first-link-research:
     name: Existing MovieHub YouTube badges -> candidate video IDs (no imports)
+    # #388: suspended until search.list uses shared project-wide CAS admission.
     if: >-
+      false &&
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'push' && contains(github.event.head_commit.message, '[youtube-tmdb-first-once]')))
