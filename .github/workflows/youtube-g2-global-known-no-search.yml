@@ -9,13 +9,9 @@ on:
     workflows:
       - "YouTube G2 – nightly bounded public-movie discovery (private, no offers)"
     types: [completed]
-  schedule:
-    # Independent nightly fallback at 22:17 Europe/Berlin, after the
-    # 20:17 Discovery and before the existing 00:17 Firebase deploy.
-    # Even after a blocked Discovery, refresh known IDs; NEVER search.list.
-    # Successful Discovery also triggers an immediate trusted workflow_run.
-    - cron: '17 22 * * *'
-      timezone: Europe/Berlin
+  # Chained nightly after Discovery (including failed quota preflight),
+  # but also standalone workflow_dispatch and trusted workflow_run.
+  workflow_call:
   push:
     branches: [main]
     paths:
