@@ -91,20 +91,26 @@ describe('TMDB-first historical device candidates: search miss recovery, not ava
     expect(log.map(x=>x.path)).toEqual(['search','search','videos'])
     expect(log.at(-1).params.id).toBe(deviceId)
   })
-  it('does not fabricate a link when the formerly observed ID is now removed, private or blocked',async()=>{
-    for(const videos of [[],[{...movieVideo,status:{privacyStatus:'private'}}],
-      [{...movieVideo,contentDetails:{duration:'PT1H16M',regionRestriction:{blocked:['DE']}}}]]){
+  it('rejects removed/private video but permits user-approved DE-blocked best-effort candidate',async()=>{
+    for(const [videos,expectedCandidates] of [
+      [[],0],
+      [[{...movieVideo,status:{privacyStatus:'private'}}],0],
+      [[{...movieVideo,contentDetails:{
+        duration:'PT1H16M',regionRestriction:{blocked:['DE']},
+      }}],1],
+    ]){
       const result=await runTmdbFirstLinkPilot({
         publicIndex,seedRefs:[{mediaType:'movie',tmdbId:9479}],limit:1,
         tmdbGet,now:()=>observedAt,
         youtubeApi:async path=>path==='search'?{items:[]}:{items:videos},
       })
       expect(result.rows[0].directPlaybackRoute).toBeNull()
-      expect(result.rows[0].videoCandidates).toHaveLength(0)
+      expect(result.rows[0].videoCandidates).toHaveLength(expectedCandidates)
       expect(result.summary.verifiedDirectLinks).toBe(0)
       expect(result.rows[0].priorDeviceCandidate.currentVideoMetadataAvailable)
         .toBe(videos.length===1)
-      expect(result.rows[0].priorDeviceCandidate.inTop10RankedCandidates).toBe(false)
+      expect(result.rows[0].priorDeviceCandidate.inTop10RankedCandidates)
+        .toBe(expectedCandidates>0)
     }
   })
   it('is read-only even if the ID is returned from normal search too',async()=>{
