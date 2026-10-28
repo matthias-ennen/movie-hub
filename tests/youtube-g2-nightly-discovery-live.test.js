@@ -1,4 +1,5 @@
 import {describe,it,expect,vi} from 'vitest'
+import {readFileSync} from 'node:fs'
 import {runNightlyDiscovery}
   from '../scripts/youtube-g2-nightly-discovery-live.mjs'
 import {
@@ -183,6 +184,16 @@ describe('scheduled nightly movie research: shared 10 PT calls and private resum
     expect(s.tmdbGet).not.toHaveBeenCalled()
   })
 
+  it('schedules away from the PT reset and only allows an explicit one-time main push',()=>{
+    const workflow=readFileSync(new URL('../.github/workflows/youtube-g2-nightly-discovery.yml',
+      import.meta.url),'utf8')
+    expect(workflow).toContain("- cron: '35 11 * * *'")
+    expect(workflow).toContain("branches: [main]")
+    expect(workflow).toContain("github.event_name == 'push'")
+    expect(workflow).toContain("contains(github.event.head_commit.message, '[youtube-nightly-once]')")
+    expect(workflow).toContain("github.ref == 'refs/heads/main'")
+    expect(workflow).toContain("cancel-in-progress: false")
+  })
   it('advances exactly ONE uncached TMDB-badged film when both 200 Monitoring replies omit samples',async()=>{
     const p=evaluatePacificSearchBudget({
       now:NOW,rateHttp:200,rateResponse:{},
