@@ -27,8 +27,9 @@ import {pacificSearchDay}
 import {recoverNightlyFailureReport,classifyNightlyFailure}
   from './youtube-g2-nightly-failure-report.mjs'
 import {
-  verifyBudgetPreflight,loadBudgetLedger,reserveWithAtomicGcs,
-  ADAPTER_SEARCH_DAY_CAP,
+  verifyBudgetPreflight,isDegradedOneSearchPreflight,
+  loadBudgetLedger,reserveWithAtomicGcs,ADAPTER_SEARCH_DAY_CAP,
+  DEGRADED_ONE_SEARCH_DAY_CAP,
 } from './youtube-g2-atomic-search-budget-ledger.mjs'
 
 export const NIGHTLY_DISCOVERY_REPORT='artifacts/youtube-g2/nightly-discovery/summary.json'
@@ -57,10 +58,15 @@ export async function runNightlyDiscovery({
     ||bucket?.name!=='movie-hub-62459-nightly-checkpoints')
     throw Error('G2_NIGHTLY_RUNNER_CONTEXT_INVALID')
   const startedAt=now()
-  const day=verifyBudgetPreflight(preflight,{now:startedAt})
+  const degradedOneSearch=isDegradedOneSearchPreflight(preflight,{now:startedAt})
+  const day=degradedOneSearch
+    ?pacificSearchDay(startedAt)
+    :verifyBudgetPreflight(preflight,{now:startedAt})
   const current=await loadBudgetLedger(bucket,day)
   const remaining=ADAPTER_SEARCH_DAY_CAP-
     (current.ledger?.totalConservativelyReserved||0)
+  const runCapacity=Math.min(remaining,degradedOneSearch
+    ?DEGRADED_ONE_SEARCH_DAY_CAP:ADAPTER_SEARCH_DAY_CAP)
   if(!Number.isInteger(remaining)||remaining<0||remaining>ADAPTER_SEARCH_DAY_CAP)
     throw Error('G2_NIGHTLY_DAILY_BUDGET_INVALID')
   let progress=await loadNightlyQueue(bucket)
@@ -73,6 +79,8 @@ export async function runNightlyDiscovery({
   })
   const base={
     pacificDate:day.date,dayLimit:ADAPTER_SEARCH_DAY_CAP,
+    quotaMode:degradedOneSearch?'one-call-unmeasured-no-quota-guarantee'
+      :'observed-monitoring-guarded',
     priorReserved:ADAPTER_SEARCH_DAY_CAP-remaining,
     publicBadgeFilms:plan.totalPublicBadgeMovies,
     previouslyKnownVideoFilms:plan.knownCandidateMovies,
@@ -104,7 +112,7 @@ export async function runNightlyDiscovery({
     const snap=await guardedTmdb('/movie/'+tmdbId+'/watch/providers',{})
     if(exactDeYoutubeOfferTypes(snap,youtubeProviderIds).length){
       eligible.push(tmdbId)
-      if(eligible.length>=remaining)break
+      if(eligible.length>=runCapacity)break
     }else noOffer.push(tmdbId)
   }
 
@@ -125,9 +133,9 @@ export async function runNightlyDiscovery({
 
   // The reservation is pessimistic (NOT refunded for 403/429, a skip or
   // crash). This is the SAME GCS PT-day ledger as manual 5 and 1 searches.
-  const allocation=Math.min(eligible.length,remaining)
+  const allocation=Math.min(eligible.length,runCapacity)
   const admitted=await reserveWithAtomicGcs(bucket,{
-    now:now(),runId,calls:allocation,preflight,
+    now:now(),runId,calls:allocation,preflight,degradedOneSearch,
   })
   if(admitted.reservationCalls!==allocation
     ||admitted.globalGoogleQuotaGuaranteed!==false
