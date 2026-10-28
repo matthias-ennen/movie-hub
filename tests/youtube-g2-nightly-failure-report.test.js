@@ -21,7 +21,7 @@ const preflight=()=>evaluatePacificSearchBudget({
     resource:{type:'consumer_quota',labels:{service:'youtube.googleapis.com'}},
     points:[{
       interval:{startTime:'2026-10-25T17:49:00Z',endTime:'2026-10-25T17:50:00Z'},
-      value:{int64Value:'15'},
+      value:{int64Value:'5'},
     }],
   }]},
   exceededHttp:200,exceededResponse:{timeSeries:[]},
@@ -80,7 +80,7 @@ describe('anonymized YouTube nightly budget audit after a FAILED research job',(
     })
     expect(report).toMatchObject({
       status:'failed',failureCategory:'youtube-rate-limit',
-      dayLimit:10,priorReserved:3,selectedForSearch:4,
+      dayLimit:50,priorReserved:3,selectedForSearch:4,
       sharedDayReserved:7,searchCalls:null,
       actualSearchCallsMeasured:false,videoDetailCalls:null,
       runStartedFilms:2,runCompletedFilms:1,runUnfinishedFilms:1,
