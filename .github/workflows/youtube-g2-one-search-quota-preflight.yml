@@ -18,7 +18,9 @@ concurrency:
 jobs:
   one-search-only:
     name: Check 1 NEW public-badge movie using one search.list, never retry
+    # #388: suspended until search.list uses shared project-wide CAS admission.
     if: >-
+      false &&
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
         (github.event_name == 'push' &&
