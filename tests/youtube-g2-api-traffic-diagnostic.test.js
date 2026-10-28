@@ -85,6 +85,7 @@ describe('YouTube API consumed request traffic telemetry is diagnostic only',()=
         distinctCredentialGroupsObserved:null,
         observedSearchMethodRequests:null,
         unclassifiedLabelShapes:null,
+        possibleSearchAmongUnknown:null,otherUnknownMethodRequests:null,
         actualSearchListRequests:null,
         methodLabelsPresentForAllSeries:false,
         externalConsumersFullyAccountedFor:false,
@@ -118,6 +119,41 @@ describe('YouTube API consumed request traffic telemetry is diagnostic only',()=
       'youtube.v3.SearchService.List','/youtube/v3/search','unrelated']){
       expect(output).not.toContain(raw)
     }
+  })
+  it('aggregates unknown search-like labels without treating them as confirmed calls',()=>{
+    const r=inspect({document:{timeSeries:[
+      series({method:'youtube.internal.SearchService.List',count:'7'}),
+      series({method:'youtube.searchDiscovery.lookup',count:'3'}),
+      series({method:'youtube.videoInternal.list',count:'11'}),
+      series({method:'google.search.list',count:'5'}),
+      series({method:'youtube.search.list',count:'2'}),
+    ]}})
+    expect(r).toMatchObject({
+      observedCompletedRequests:28,
+      observedSearchMethodRequests:2,
+      unclassifiedMethodRequests:26,
+      possibleSearchAmongUnknown:10,
+      otherUnknownMethodRequests:16,
+      actualSearchListRequests:null,
+      quotaRemaining:null,
+      externalConsumersFullyAccountedFor:false,
+      authorizedSearchCalls:0,
+    })
+    const hidden=JSON.stringify(r)
+    for(const label of ['SearchService','searchDiscovery','videoInternal',
+      'google.search.list'])expect(hidden).not.toContain(label)
+  })
+  it('does not infer no searches from a fully unclassified method window',()=>{
+    const r=inspect({document:{timeSeries:[
+      series({method:'youtube.unmappedMethod',count:'223'}),
+    ]}})
+    expect(r).toMatchObject({
+      observedCompletedRequests:223,observedSearchMethodRequests:0,
+      unclassifiedMethodRequests:223,possibleSearchAmongUnknown:0,
+      otherUnknownMethodRequests:223,
+      actualSearchListRequests:null,quotaRemaining:null,
+      externalConsumersFullyAccountedFor:false,
+    })
   })
   it('provides only aggregate shape hints for missing and unfamiliar labels',()=>{
     const r=inspect({document:{timeSeries:[
