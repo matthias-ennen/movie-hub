@@ -8,6 +8,12 @@ on:
     # enter its next cycle. One cron; no run on code push or PR.
     - cron: '35 11 * * *'
   workflow_dispatch:
+  # A single carefully reviewed one-off acceptance run can be started by
+  # a squash merge with [youtube-nightly-once]. Ordinary code pushes skip.
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-nightly-discovery.yml
 
 permissions:
   contents: read
@@ -20,7 +26,12 @@ concurrency:
 jobs:
   nightly-known-to-new:
     name: Resume unknown public YouTube movie IDs with reserved PT searches
-    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    if: >-
+      ${{ github.ref == 'refs/heads/main' &&
+          (github.event_name == 'schedule' ||
+           github.event_name == 'workflow_dispatch' ||
+           (github.event_name == 'push' &&
+            contains(github.event.head_commit.message, '[youtube-nightly-once]'))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
