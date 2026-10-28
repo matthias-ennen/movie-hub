@@ -65,8 +65,12 @@ export async function runNightlyDiscovery({
   const current=await loadBudgetLedger(bucket,day)
   const remaining=ADAPTER_SEARCH_DAY_CAP-
     (current.ledger?.totalConservativelyReserved||0)
-  const runCapacity=Math.min(remaining,degradedOneSearch
-    ?DEGRADED_ONE_SEARCH_DAY_CAP:ADAPTER_SEARCH_DAY_CAP)
+  // The unmeasured mode is ONE attempt per PT day across ALL cooperating
+  // workflows, not one attempt per GitHub run. A prior manual reservation
+  // consumes the same degraded-mode allowance.
+  const runCapacity=degradedOneSearch
+    ?(current.ledger?.totalConservativelyReserved?0:DEGRADED_ONE_SEARCH_DAY_CAP)
+    :remaining
   if(!Number.isInteger(remaining)||remaining<0||remaining>ADAPTER_SEARCH_DAY_CAP)
     throw Error('G2_NIGHTLY_DAILY_BUDGET_INVALID')
   let progress=await loadNightlyQueue(bucket)
@@ -87,10 +91,10 @@ export async function runNightlyDiscovery({
     stillEligible:plan.pendingMovies,checkedNoOffer:0,
     selectedForSearch:0,searchCalls:0,videoDetailCalls:0,
     savedNewCandidateFilms:0,finishedWithoutCandidates:0,
-    status:remaining===0?'daily-budget-exhausted':
+    status:runCapacity===0?'daily-budget-exhausted':
       plan.pendingMovies===0?'no-unknown-public-films':'pending',
   }
-  if(remaining===0||!plan.movieIds.length)
+  if(runCapacity===0||!plan.movieIds.length)
     return redactedSummary(base)
 
   let tmdbReads=0
