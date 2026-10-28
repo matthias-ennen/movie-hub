@@ -133,16 +133,18 @@ describe('Future shared YouTube 95-search gateway is fail-closed and inert',()=>
       Error('YouTube API: HTTP 429 bei search [RATE_LIMITED]'))).toBe('rate-limited')
     expect(classifySharedSearchFailure(Error('network-error'))).toBe('failed-unknown')
   })
-  it('uses a private GCS generation CAS: two concurrent leases cannot spend one slot',async()=>{
+  it('serializes two concurrent reservations without duplicate spend or API retry',async()=>{
     const b=bucket()
     const results=await Promise.allSettled([
       reserveSharedSearchWithGcs(b,reserve({runId:999301})),
       reserveSharedSearchWithGcs(b,reserve({runId:999302})),
     ])
-    expect(results.filter(x=>x.status==='fulfilled')).toHaveLength(1)
-    expect(results.filter(x=>x.status==='rejected')).toHaveLength(1)
+    expect(results.filter(x=>x.status==='fulfilled')).toHaveLength(2)
+    expect(results.filter(x=>x.status==='rejected')).toHaveLength(0)
     const row=(await readSharedSearchLedger(b,pacificSearchDay(NOW))).ledger
-    expect(row.records).toHaveLength(1)
+    expect(row.records).toHaveLength(2)
+    expect(row.records.map(x=>x.runId).sort())
+      .toEqual([999301,999302])
     expect(b.saved.size).toBe(1)
     expect([...b.saved.keys()][0]).toBe(
       SHARED_SEARCH_PREFIX+'2026-10-28.json')
