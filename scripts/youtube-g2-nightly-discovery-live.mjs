@@ -47,6 +47,17 @@ function redactedSummary(summary){
   }
 }
 
+/**
+ * Both the real GHA entrypoint AND the pure runner must use the SAME strict
+ * preflight admission. In particular, an old unconditional strict check in
+ * liveNightlyDiscovery would permanently block the newly bounded fallback.
+ */
+export function validateNightlyDiscoveryPreflight(preflight,{now}={}){
+  if(isDegradedOneSearchPreflight(preflight,{now}))
+    return {day:pacificSearchDay(now),degradedOneSearch:true}
+  return {day:verifyBudgetPreflight(preflight,{now}),degradedOneSearch:false}
+}
+
 /** All live Google/Cloud API clients are injected so no network is used by unit tests. */
 export async function runNightlyDiscovery({
   publicIndex,bucket,tmdbGet,youtubeApi,
@@ -58,10 +69,8 @@ export async function runNightlyDiscovery({
     ||bucket?.name!=='movie-hub-62459-nightly-checkpoints')
     throw Error('G2_NIGHTLY_RUNNER_CONTEXT_INVALID')
   const startedAt=now()
-  const degradedOneSearch=isDegradedOneSearchPreflight(preflight,{now:startedAt})
-  const day=degradedOneSearch
-    ?pacificSearchDay(startedAt)
-    :verifyBudgetPreflight(preflight,{now:startedAt})
+  const {day,degradedOneSearch}=validateNightlyDiscoveryPreflight(
+    preflight,{now:startedAt})
   const current=await loadBudgetLedger(bucket,day)
   const remaining=ADAPTER_SEARCH_DAY_CAP-
     (current.ledger?.totalConservativelyReserved||0)
@@ -246,7 +255,9 @@ export async function liveNightlyDiscovery({
     ||!isId(runId)||typeof token!=='string'||token.length<15)
     throw Error('G2_NIGHTLY_LIVE_CLOUD_CONTEXT_INVALID')
   const preflight=JSON.parse(await readFile(preflightPath,'utf8'))
-  verifyBudgetPreflight(preflight,{now:new Date().toISOString()})
+  // Run exactly the same admission as the pure runner BEFORE OIDC/GCS reads.
+  // Neither mode claims a globally guaranteed remaining Google quota.
+  validateNightlyDiscoveryPreflight(preflight,{now:new Date().toISOString()})
   const [{applicationDefault,initializeApp,deleteApp},{getStorage}]=await Promise.all([
     import('firebase-admin/app'),import('firebase-admin/storage')])
   const app=initializeApp({credential:applicationDefault(),
