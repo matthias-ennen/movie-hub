@@ -27,7 +27,11 @@ function durationMinutes(iso) {
     ? Math.round((Number(m[1] || 0) * 60 + Number(m[2] || 0) + Number(m[3] || 0) / 60) * 10) / 10
     : null
 }
-export function normalizeYoutubeVideoCandidate(raw, { observedAt = new Date().toISOString() } = {}) {
+export function normalizeYoutubeVideoCandidate(raw, {
+  observedAt = new Date().toISOString(),
+  // MovieHub link-only matcher may show YouTube's own regional error on click.
+  allowExcludedDE = false,
+} = {}) {
   const videoId = raw?.id
   if (!YOUTUBE_VIDEO_ID.test(String(videoId || ''))) return null
   const channelId = safeText(raw?.snippet?.channelId, 100)
@@ -44,7 +48,7 @@ export function normalizeYoutubeVideoCandidate(raw, { observedAt = new Date().to
   if (!checkTime) throw new TypeError('observedAt must be an ISO timestamp')
   const contentRisk = RISK.test(title)
   const rejectionReason = visibility !== 'public' ? 'not-public'
-    : explicitlyExcludedDE ? 'DE-explicitly-excluded'
+    : explicitlyExcludedDE && !allowExcludedDE ? 'DE-explicitly-excluded'
     : duration === null ? 'duration-unknown'
     : duration < 60 ? 'short-form-or-part'
     : contentRisk ? 'video-content-type-risk'
