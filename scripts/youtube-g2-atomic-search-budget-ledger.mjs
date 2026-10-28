@@ -13,6 +13,54 @@ export const LEDGER_KIND='moviehub-youtube-g2-search-reservation-ledger'
 export const LEDGER_PREFIX='youtube-g2/private-search-budget/v1/days/'
 export const ADAPTER_SEARCH_DAY_CAP=10
 export const PROJECT_SEARCH_DAY_LIMIT=100
+export const DEGRADED_ONE_SEARCH_DAY_CAP=1
+
+/**
+ * Deliberately narrow last-resort mode for one Google-enforced search attempt.
+ * The actual global Google quota REMAINS UNKNOWN. Only use it after the first
+ * two PT hours when both Monitoring GETs responded 200 but omitted timeSeries.
+ * A truly observed limit/exceeded report, HTTP error, stale report, unexpected
+ * shape or an early PT reset must NEVER be converted into an authorization.
+ *
+ * This only checks eligibility; a caller must still reserve pessimistically
+ * using the same atomic 10-call GCS ledger and stop on API 403/429.
+ */
+export function isDegradedOneSearchPreflight(p,{now}={}){
+  const ms=Date.parse(now)
+  if(!Number.isFinite(ms))return false
+  let day
+  try{day=pacificSearchDay(now)}catch{return false}
+  const elapsed=ms-Date.parse(day.start)
+  if(elapsed<2*3600000||Date.parse(day.end)-ms<3600000)return false
+  if(p?.kind!==PREFLIGHT_KIND||p.pacificDate!==day.date
+    ||p.resetStartUTC!==day.start||p.nextResetUTC!==day.end
+    ||p.measuredProjectDailyLimit!==PROJECT_SEARCH_DAY_LIMIT
+    ||p.researchBudgetProposed!==ADAPTER_SEARCH_DAY_CAP
+    ||p.otherConsumersReserve!==30||p.monitoringLagBuffer!==10
+    ||p.smallBatchAdvisory!==false
+    ||!Array.isArray(p.blocks)
+    ||p.blocks.length!==3
+    ||!['metrics-inaccessible-or-paginated',
+       'no-observed-usage-is-not-zero',
+       'monitoring-samples-not-recent'].every(x=>p.blocks.includes(x))
+    ||p.rate?.http!==200||p.rate.complete!==false
+    ||p.rate.series!==0||p.rate.points!==0||p.rate.units!==0
+    ||p.rate.newest!==null
+    ||p.exceeded?.http!==200||p.exceeded.complete!==false
+    ||p.exceeded.series!==0||p.exceeded.points!==0
+    ||p.exceeded.exceededTrue!==0
+    ||p.currentQuotaRemaining!==null
+    ||p.monitoringIsActualRemainingQuota!==false
+    ||p.acquiredSharedReservation!==false
+    ||p.authorizedSearchCalls!==0||p.automaticSearchAllowed!==false
+    ||p.youtubeSearchCalls!==0||p.quotaWrites!==0
+    ||p.firestoreWrites!==0||p.providerWrites!==0
+    ||p.privateArtifact!==true||p.publicationPermitted!==false
+    ||!Number.isFinite(Date.parse(p.checkedAt))
+    ||Date.parse(p.checkedAt)>ms||ms-Date.parse(p.checkedAt)>5*60000)
+    return false
+  return true
+}
 const safeRun=x=>Number.isSafeInteger(x)&&x>0
 const copy=x=>JSON.parse(JSON.stringify(x))
 
@@ -98,11 +146,18 @@ function emptyLedger(day){
   }
 }
 export function prepareResearchReservation({
-  now,runId,calls,preflight,previous=null,
+  now,runId,calls,preflight,previous=null,degradedOneSearch=false,
 }={}){
-  const day=verifyBudgetPreflight(preflight,{now})
+  // This alternative is ONLY for the nightly runner's exact 200/200 empty
+  // Monitoring response, never a general preflight bypass.
+  const day=degradedOneSearch
+    ?(isDegradedOneSearchPreflight(preflight,{now})
+      ?pacificSearchDay(now):null)
+    :verifyBudgetPreflight(preflight,{now})
+  if(!day)throw Error('YOUTUBE_RESEARCH_SEARCH_PREFLIGHT_NOT_TRUSTED')
   if(!safeRun(runId)||!Number.isInteger(calls)||calls<1
-    ||calls>ADAPTER_SEARCH_DAY_CAP)
+    ||calls>ADAPTER_SEARCH_DAY_CAP
+    ||degradedOneSearch&&calls!==DEGRADED_ONE_SEARCH_DAY_CAP)
     throw Error('YOUTUBE_RESEARCH_RESERVATION_INPUT_INVALID')
   const old=previous===null?emptyLedger(day):validateBudgetLedger(previous,day)
   if(old.reservations.some(r=>r.runId===runId))
@@ -143,12 +198,16 @@ export async function loadBudgetLedger(bucket,day){
   return {ledger,generation,name}
 }
 export async function reserveWithAtomicGcs(bucket,{
-  now,runId,calls,preflight,
+  now,runId,calls,preflight,degradedOneSearch=false,
 }={}){
-  const day=verifyBudgetPreflight(preflight,{now})
+  const day=degradedOneSearch
+    ?(isDegradedOneSearchPreflight(preflight,{now})
+      ?pacificSearchDay(now):null)
+    :verifyBudgetPreflight(preflight,{now})
+  if(!day)throw Error('YOUTUBE_RESEARCH_SEARCH_PREFLIGHT_NOT_TRUSTED')
   const previous=await loadBudgetLedger(bucket,day)
   const planned=prepareResearchReservation({
-    now,runId,calls,preflight,previous:previous.ledger,
+    now,runId,calls,preflight,degradedOneSearch,previous:previous.ledger,
   })
   const serialized=Buffer.from(JSON.stringify(planned.ledger)+'\n')
   if(serialized.length>12000)throw Error('YOUTUBE_SEARCH_LEDGER_TOO_LARGE')
