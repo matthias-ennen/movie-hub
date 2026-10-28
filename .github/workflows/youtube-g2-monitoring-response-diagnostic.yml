@@ -1,0 +1,97 @@
+name: YouTube G2 – read-only Monitoring response stability (3 samples)
+
+# TEMPORARY DIAGNOSTIC #388: 1 main-push run plus two date-bound samples
+# at distinct Pacific-day phases. Remove schedule after 2026-10-29 study.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-monitoring-response-diagnostic.yml
+      - scripts/youtube-g2-monitoring-response-diagnostic.mjs
+  schedule:
+    # Both are intentionally one-day-only; date gate below rejects later years.
+    # 08:30 Berlin = shortly after PT reset; 15:30 = well after PT reset.
+    - cron: '30 8 29 10 *'
+      timezone: Europe/Berlin
+    - cron: '30 15 29 10 *'
+      timezone: Europe/Berlin
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: youtube-g2-monitoring-readonly-3-sample
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    if: >-
+      ${{ github.ref == 'refs/heads/main' &&
+          (github.event_name == 'workflow_dispatch' ||
+           github.event_name == 'schedule' ||
+           (github.event_name == 'push' &&
+            contains(github.event.head_commit.message, '[youtube-monitoring-diagnostic-once]'))) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Reject a scheduled run outside the explicitly approved study date
+        id: one_day
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SCHEDULED_CRON: ${{ github.event.schedule }}
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync} from 'node:fs'
+          const localDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Berlin',
+            year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())
+          const valid=['30 8 29 10 *','30 15 29 10 *']
+          const approved=process.env.EVENT_NAME!=='schedule' ||
+            (localDate==='2026-10-29' &&
+             valid.includes(process.env.SCHEDULED_CRON))
+          appendFileSync(process.env.GITHUB_OUTPUT,'approved='+approved+'\n')
+          console.log(approved?'Read-only probe approved':'Scheduled one-off study window expired; skip')
+          NODE
+      - uses: actions/checkout@v7
+        if: ${{ steps.one_day.outputs.approved == 'true' }}
+      - uses: actions/setup-node@v7
+        if: ${{ steps.one_day.outputs.approved == 'true' }}
+        with:
+          node-version: '22'
+      - name: Validate isolated zero-search contract offline
+        if: ${{ steps.one_day.outputs.approved == 'true' }}
+        run: |
+          npm ci
+          node --check scripts/youtube-g2-monitoring-response-diagnostic.mjs
+          npx vitest run tests/youtube-g2-monitoring-response-diagnostic.test.js
+      - name: Authenticate existing trusted OIDC Google monitoring reader
+        if: ${{ steps.one_day.outputs.approved == 'true' }}
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+        if: ${{ steps.one_day.outputs.approved == 'true' }}
+      - name: Observe identical Monitoring filters now, +2min and +5min
+        if: ${{ steps.one_day.outputs.approved == 'true' }}
+        run: node scripts/youtube-g2-monitoring-response-diagnostic.mjs
+      - name: Publish sanitized per-round comparison to Actions summary
+        if: ${{ always() && steps.one_day.outputs.approved == 'true' }}
+        run: |
+          if test -f artifacts/youtube-g2/monitoring-response-diagnostic/report.md; then
+            cat artifacts/youtube-g2/monitoring-response-diagnostic/report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::No safe diagnostic summary produced; investigate runner and OIDC"
+          fi
+      - name: Retain only anonymized round comparison for further analysis
+        if: ${{ always() && steps.one_day.outputs.approved == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: youtube-monitoring-readonly-three-rounds-${{ github.run_id }}
+          path: |
+            artifacts/youtube-g2/monitoring-response-diagnostic/summary.json
+            artifacts/youtube-g2/monitoring-response-diagnostic/report.md
+          if-no-files-found: warn
+          retention-days: 14
