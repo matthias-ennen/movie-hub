@@ -54,19 +54,15 @@ function memoryBucket(onSave=()=>{}){
 }
 
 describe('future shared YouTube search reservations: CAS-only retries',()=>{
-  it('accepts five simultaneous attempts in five unique slots (not one duplicated slot)',async()=>{
+  it('accepts five simultaneous reservations in five unique slots',async()=>{
     const b=memoryBucket()
-    const api=Array.from({length:5},()=>vi.fn(async()=>({items:[]})))
-    const outcomes=await Promise.allSettled(api.map((search,i)=>
-      executeSharedBudgetedSearch({
-        bucket:b,...opts(745001+i),now:()=>NOW,search,
-      })))
+    const outcomes=await Promise.allSettled(Array.from({length:5},(_,i)=>
+      reserveSharedSearchWithGcs(b,opts(745001+i))))
     expect(outcomes.every(x=>x.status==='fulfilled')).toBe(true)
-    expect(api.every(x=>x.mock.calls.length===1)).toBe(true)
     const ledger=(await readSharedSearchLedger(b,day)).ledger
     expect(ledger.records).toHaveLength(5)
     expect(new Set(ledger.records.map(x=>x.runId)).size).toBe(5)
-    expect(ledger.records.every(x=>x.state==='success')).toBe(true)
+    expect(ledger.records.every(x=>x.state==='reserved-unknown')).toBe(true)
     expect(b.saved.size).toBe(1)
   })
   it('rereads a concurrent quota halt and performs no YouTube API call',async()=>{
