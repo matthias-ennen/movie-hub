@@ -2,6 +2,13 @@ name: YouTube AP2 – global cached films live recheck (0 searches)
 
 on:
   workflow_dispatch:
+  # Recheck newly saved film candidates immediately after a SUCCESSFUL,
+  # trusted main-branch nightly discovery. The recheck uses videos.list only,
+  # never additional search.list or a product database write.
+  workflow_run:
+    workflows:
+      - "YouTube G2 – nightly bounded public-movie discovery (private, no offers)"
+    types: [completed]
   schedule:
     # GitHub cron is UTC. Refresh only known IDs daily, never search.list.
     - cron: '35 5 * * *'
@@ -25,6 +32,13 @@ jobs:
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        github.event_name == 'schedule' ||
+        (github.event_name == 'workflow_run' &&
+         github.event.workflow_run.conclusion == 'success' &&
+         github.event.workflow_run.head_branch == 'main' &&
+         github.event.workflow_run.head_repository.full_name == github.repository &&
+         (github.event.workflow_run.event == 'schedule' ||
+          github.event.workflow_run.event == 'workflow_dispatch' ||
+          github.event.workflow_run.event == 'push')) ||
         (github.event_name == 'push' &&
          contains(github.event.head_commit.message, '[youtube-global-known-once]')))
     runs-on: ubuntu-latest
@@ -34,6 +48,10 @@ jobs:
       GOOGLE_CLOUD_PROJECT: movie-hub-62459
       TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
     steps:
+      # workflow_run may be emitted by another branch/repository; the
+      # job-level origin gate above rejects untrusted runs before checkout.
+      # Checkout deliberately uses the trusted current default main, never
+      # the completed workflow_run's head SHA or untrusted uploaded artifacts.
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
