@@ -163,6 +163,10 @@ export function captureWorkflowTiming({ now = new Date(), eventName = '', option
   }
 }
 
+// GitHub prefixes reusable jobs with their calling job name.
+export const isProductionDeployJob = job =>
+  job?.name === 'deploy' || /^firebase \/ deploy$/.test(job?.name || '')
+
 export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jobsByRunId = {}, manualRuns = [] } = {}) {
   const settings = { ...defaultOptions, ...options }
   const scheduledAt = expectedScheduleAt(now, settings)
@@ -171,21 +175,21 @@ export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jo
     .filter((entry) => entry?.name === settings.workflowName && entry?.event === 'schedule')
     .filter((entry) => Date.parse(entry.created_at) >= earliestAccepted)
     .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at))
-  const gateOnly = candidates.filter((entry) => jobsByRunId[entry.id]?.some((job) => job.name === 'deploy' && job.conclusion === 'skipped'))
-  const deployRuns = candidates.filter((entry) => jobsByRunId[entry.id]?.some((job) => job.name === 'deploy' && job.conclusion !== 'skipped'))
+  const gateOnly = candidates.filter((entry) => jobsByRunId[entry.id]?.some((job) => isProductionDeployJob(job) && job.conclusion === 'skipped'))
+  const deployRuns = candidates.filter((entry) => jobsByRunId[entry.id]?.some((job) => isProductionDeployJob(job) && job.conclusion !== 'skipped'))
   const run = deployRuns[0]
-  const pendingGate = candidates.find((entry) => entry.status !== 'completed' && !jobsByRunId[entry.id]?.some((job) => job.name === 'deploy'))
+  const pendingGate = candidates.find((entry) => entry.status !== 'completed' && !jobsByRunId[entry.id]?.some((job) => isProductionDeployJob(job)))
   const manualRecovery = (Array.isArray(manualRuns) ? manualRuns : [])
     .filter((entry) => entry?.name === settings.workflowName && entry?.event === 'workflow_dispatch')
     .filter((entry) => Date.parse(entry.created_at) >= earliestAccepted)
     .filter((entry) => entry.status === 'completed' && entry.conclusion === 'success')
-    .filter((entry) => jobsByRunId[entry.id]?.some((job) => job.name === 'deploy' && job.conclusion === 'success'))
+    .filter((entry) => jobsByRunId[entry.id]?.some((job) => isProductionDeployJob(job) && job.conclusion === 'success'))
     .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))[0]
 
   if (!run) {
     return {
       status: manualRecovery ? 'recovered' : pendingGate ? 'running' : 'missing',
-      ...(manualRecovery ? { scheduledIncident: 'missing', recovery: { number: manualRecovery.run_number, url: manualRecovery.html_url, source: 'manual', completedAt: jobsByRunId[manualRecovery.id].find((job) => job.name === 'deploy').completed_at } } : {}),
+      ...(manualRecovery ? { scheduledIncident: 'missing', recovery: { number: manualRecovery.run_number, url: manualRecovery.html_url, source: 'manual', completedAt: jobsByRunId[manualRecovery.id].find((job) => isProductionDeployJob(job)).completed_at } } : {}),
       scheduledAt: scheduledAt.toISOString(),
       checkedAt: now.toISOString(),
       maximumDelayMinutes: settings.maximumDelayMinutes,
@@ -193,15 +197,18 @@ export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jo
     }
   }
 
-  const deploy = jobsByRunId[run.id].find((job) => job.name === 'deploy')
+  const deploy = jobsByRunId[run.id].find((job) => isProductionDeployJob(job))
   const delayMinutes = Math.max(0, Math.floor((Date.parse(run.created_at) - scheduledAt.getTime()) / 60_000))
-  const failed = run.status === 'completed' && (run.conclusion !== 'success' || deploy.conclusion !== 'success')
+  const failed = run.status === 'completed' && deploy.conclusion !== 'success'
+  // Quota-monitoring failure must be reported, but a successful Firebase
+  // publish with failed optional Discovery is a DEGRADED night, not a lost deploy.
+  const degraded = !failed && run.status === 'completed' && run.conclusion !== 'success'
   const scheduledRecovery = failed && deployRuns.slice(1).findLast((entry) => entry.status === 'completed'
     && entry.conclusion === 'success'
-    && jobsByRunId[entry.id]?.some((job) => job.name === 'deploy' && job.conclusion === 'success'))
+    && jobsByRunId[entry.id]?.some((job) => isProductionDeployJob(job) && job.conclusion === 'success'))
   const recovery = scheduledRecovery || (failed && manualRecovery && Date.parse(manualRecovery.created_at) > Date.parse(run.created_at) ? manualRecovery : null)
   return {
-    status: failed && !recovery ? 'failed' : run.status !== 'completed' ? 'running' : delayMinutes > settings.maximumDelayMinutes ? 'delayed' : failed ? 'recovered' : 'healthy',
+    status: failed && !recovery ? 'failed' : run.status !== 'completed' ? 'running' : delayMinutes > settings.maximumDelayMinutes ? 'delayed' : failed ? 'recovered' : degraded ? 'degraded' : 'healthy',
     scheduledAt: scheduledAt.toISOString(),
     checkedAt: now.toISOString(),
     actualStartAt: run.created_at,
@@ -218,7 +225,7 @@ export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jo
       conclusion: run.conclusion,
       url: run.html_url,
     },
-    ...(recovery ? { recovery: { number: recovery.run_number, url: recovery.html_url, source: recovery.event === 'workflow_dispatch' ? 'manual' : 'scheduled', completedAt: jobsByRunId[recovery.id].find((job) => job.name === 'deploy').completed_at } } : {}),
+    ...(recovery ? { recovery: { number: recovery.run_number, url: recovery.html_url, source: recovery.event === 'workflow_dispatch' ? 'manual' : 'scheduled', completedAt: jobsByRunId[recovery.id].find((job) => isProductionDeployJob(job)).completed_at } } : {}),
   }
 }
 
