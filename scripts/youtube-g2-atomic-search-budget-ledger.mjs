@@ -6,12 +6,13 @@
  *
  * This module has NO automatically activated workflow or API calls.
  */
-import {pacificSearchDay,KIND as PREFLIGHT_KIND}
+import {pacificSearchDay,KIND as PREFLIGHT_KIND,RESEARCH_DAY_CAP,
+  MAX_OBSERVED_SEARCH_USAGE}
   from './youtube-g2-pacific-search-preflight.mjs'
 
 export const LEDGER_KIND='moviehub-youtube-g2-search-reservation-ledger'
 export const LEDGER_PREFIX='youtube-g2/private-search-budget/v1/days/'
-export const ADAPTER_SEARCH_DAY_CAP=10
+export const ADAPTER_SEARCH_DAY_CAP=RESEARCH_DAY_CAP
 export const PROJECT_SEARCH_DAY_LIMIT=100
 export const DEGRADED_ONE_SEARCH_DAY_CAP=1
 
@@ -23,7 +24,7 @@ export const DEGRADED_ONE_SEARCH_DAY_CAP=1
  * shape or an early PT reset must NEVER be converted into an authorization.
  *
  * This only checks eligibility; a caller must still reserve pessimistically
- * using the same atomic 10-call GCS ledger and stop on API 403/429.
+ * using the same atomic 50-call GCS ledger and stop on API 403/429.
  */
 export function isDegradedOneSearchPreflight(p,{now}={}){
   const ms=Date.parse(now)
@@ -77,7 +78,7 @@ export function verifyBudgetPreflight(preflight,{now}={}){
     ||preflight.rate?.http!==200||preflight.rate.complete!==true
     ||!Number.isInteger(preflight.rate.points)||preflight.rate.points<1
     ||!Number.isInteger(preflight.rate.units)||preflight.rate.units<0
-    ||preflight.rate.units>50
+    ||preflight.rate.units>MAX_OBSERVED_SEARCH_USAGE
     ||preflight.exceeded?.http!==200||preflight.exceeded.complete!==true
     ||preflight.exceeded.exceededTrue!==0
     ||!Number.isInteger(preflight.monitoringSampleAgeMinutes)
@@ -99,20 +100,25 @@ export function verifyBudgetPreflight(preflight,{now}={}){
     throw Error('YOUTUBE_RESEARCH_SEARCH_PREFLIGHT_NOT_TRUSTED')
   return day
 }
-export function validateBudgetLedger(doc,day){
+export function validateBudgetLedger(doc,day,{allowLegacyCap=false}={}){
+  // Retain ALL previously reserved attempts when upgrading the v1 day document.
+  // The old 10/day document is accepted on read only, not on a new write.
+  const recordedCap=doc?.adapterDayCap
+  const capTrusted=recordedCap===ADAPTER_SEARCH_DAY_CAP
+    ||allowLegacyCap&&recordedCap===10
   if(doc?.kind!==LEDGER_KIND||doc.schemaVersion!==1
     ||doc.projectId!=='movie-hub-62459'
     ||doc.service!=='youtube.googleapis.com'
     ||doc.pacificDate!==day.date||doc.dayStartUTC!==day.start
     ||doc.nextResetUTC!==day.end
     ||doc.projectLimit!==PROJECT_SEARCH_DAY_LIMIT
-    ||doc.adapterDayCap!==ADAPTER_SEARCH_DAY_CAP
+    ||!capTrusted
     ||doc.remainingSharedProjectCalls!==null
     ||doc.externalCallersCoordinated!==false
     ||doc.automaticSearchApproved!==false
     ||doc.verifiedGermanOffers!==0||doc.playbackRoutesPublished!==0
     ||doc.productionWrites!==0
-    ||!Array.isArray(doc.reservations)||doc.reservations.length>10)
+    ||!Array.isArray(doc.reservations)||doc.reservations.length>50)
     throw Error('YOUTUBE_SEARCH_LEDGER_NOT_TRUSTED')
   const ids=new Set()
   let sum=0
@@ -126,7 +132,7 @@ export function validateBudgetLedger(doc,day){
       throw Error('YOUTUBE_SEARCH_LEDGER_RESERVATION_UNTRUSTED')
     ids.add(r.runId);sum+=r.calls
   }
-  if(sum>ADAPTER_SEARCH_DAY_CAP||sum!==doc.totalConservativelyReserved)
+  if(sum>recordedCap||sum!==doc.totalConservativelyReserved)
     throw Error('YOUTUBE_SEARCH_LEDGER_BUDGET_EXCEEDED')
   return copy(doc)
 }
@@ -159,7 +165,8 @@ export function prepareResearchReservation({
     ||calls>ADAPTER_SEARCH_DAY_CAP
     ||degradedOneSearch&&calls!==DEGRADED_ONE_SEARCH_DAY_CAP)
     throw Error('YOUTUBE_RESEARCH_RESERVATION_INPUT_INVALID')
-  const old=previous===null?emptyLedger(day):validateBudgetLedger(previous,day)
+  const old=previous===null?emptyLedger(day):
+    validateBudgetLedger(previous,day,{allowLegacyCap:true})
   if(degradedOneSearch&&old.totalConservativelyReserved!==0)
     throw Error('YOUTUBE_DEGRADED_SINGLE_SEARCH_DAILY_ALLOWANCE_USED')
   if(old.reservations.some(r=>r.runId===runId))
@@ -167,7 +174,8 @@ export function prepareResearchReservation({
   if(old.totalConservativelyReserved+calls>ADAPTER_SEARCH_DAY_CAP)
     throw Error('YOUTUBE_RESEARCH_INTERNAL_DAILY_CAP_EXHAUSTED')
   const next=validateBudgetLedger({
-    ...old,totalConservativelyReserved:old.totalConservativelyReserved+calls,
+    ...old,adapterDayCap:ADAPTER_SEARCH_DAY_CAP,
+    totalConservativelyReserved:old.totalConservativelyReserved+calls,
     reservations:[...old.reservations,{
       runId,calls,reservedAt:new Date(now).toISOString(),
       state:'reserved-conservatively-no-refund',
@@ -196,7 +204,8 @@ export async function loadBudgetLedger(bucket,day){
   const [buf]=await bucket.file(name,{generation}).download()
   if(!Buffer.isBuffer(buf)||buf.length>12000)
     throw Error('YOUTUBE_SEARCH_GCS_LEDGER_OVERSIZE')
-  const ledger=validateBudgetLedger(JSON.parse(buf.toString('utf8')),day)
+  const ledger=validateBudgetLedger(JSON.parse(buf.toString('utf8')),day,
+    {allowLegacyCap:true})
   return {ledger,generation,name}
 }
 export async function reserveWithAtomicGcs(bucket,{
