@@ -10,8 +10,12 @@ on:
       - "YouTube G2 – nightly bounded public-movie discovery (private, no offers)"
     types: [completed]
   schedule:
-    # GitHub cron is UTC. Refresh only known IDs daily, never search.list.
-    - cron: '35 5 * * *'
+    # Independent nightly fallback at 22:17 Europe/Berlin, after the
+    # 20:17 Discovery and before the existing 00:17 Firebase deploy.
+    # Even after a blocked Discovery, refresh known IDs; NEVER search.list.
+    # Successful Discovery also triggers an immediate trusted workflow_run.
+    - cron: '17 22 * * *'
+      timezone: Europe/Berlin
   push:
     branches: [main]
     paths:
