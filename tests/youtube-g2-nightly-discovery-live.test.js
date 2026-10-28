@@ -276,7 +276,10 @@ describe('scheduled nightly movie research: shared 10 PT calls and private resum
     await expect(reserveWithAtomicGcs(b,{
       now:NOW,runId:610511,calls:1,preflight:p,degradedOneSearch:true,
     })).rejects.toThrow('YOUTUBE_DEGRADED_SINGLE_SEARCH_DAILY_ALLOWANCE_USED')
-    expect(b.objects.size).toBe(2)
+    const ledgers=[...b.objects].filter(([name])=>name.includes('private-search-budget'))
+    expect(ledgers).toHaveLength(1)
+    expect(JSON.parse(ledgers[0][1].bytes.toString('utf8'))
+      .totalConservativelyReserved).toBe(1)
   })
 
 })
