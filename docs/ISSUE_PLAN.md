@@ -2,6 +2,18 @@
 
 Stand: 16. Oktober 2026
 
+## Aktuelle Arbeitsliste / Übergabe vom 28.10.2026
+
+**Operativ:** Waipu, Joyn und YouTube sind als technische V1-Adapter umgesetzt. `MovieHub Nightly Pipeline`: **00:10 Europe/Berlin**, gefolgt von einziger ChatGPT-Auswertung um **06:00**. [CI #40775805198](https://github.com/matthias-ennen/movie-hub/actions/runs/40775805198), [Android #40775805275](https://github.com/matthias-ennen/movie-hub/actions/runs/40775805275), [Push-Firebase #40775805203](https://github.com/matthias-ennen/movie-hub/actions/runs/40775805203) **success** – erster echter geplanter Lauf des neuen Gesamtwegs noch nicht belegt.
+
+1. **[#388 YouTube](https://github.com/matthias-ennen/movie-hub/issues/388):** Code fertig; offen nur echte Nightly-Live-Abnahme (2–3 Läufe), daraus abgeleitete Matcher-Verbesserungen und ausdrückliches finales Nutzer-Okay. Automatische eindeutige Best-Effort-Film-ID-Deep-Links am YouTube-Badge seit [PR #693](https://github.com/matthias-ennen/movie-hub/pull/693); keine extra Rent-/Buy-Freigabe. Nicht vorher schließen.
+2. **[#271 Quellenplattform](https://github.com/matthias-ennen/movie-hub/issues/271):** Rahmenpaket offen. Die laufende YouTube-Beobachtung **blockiert nicht mehr** die Planung des nächsten isolierten Quellenpiloten.
+3. **[#336 DVB-I](https://github.com/matthias-ennen/movie-hub/issues/336):** nächster **parallel startbarer** G0-Pilot – offizieller deutscher Zugriff, Service List, EPG, Playback-Signalisierung und Go/No-Go; kein ungeprüfter Produktionsadapter. Danach [#391 Prime Video](https://github.com/matthias-ennen/movie-hub/issues/391).
+4. **Verbesserungs-/Fehlerbacklog:** [#329 Waipu](https://github.com/matthias-ennen/movie-hub/issues/329) und [#481 Joyn](https://github.com/matthias-ennen/movie-hub/issues/481) bleiben bewusst offen, weitere Matcher-Tuningarbeiten nur anhand gemessener Fallgruppen. [#112 Compliance](https://github.com/matthias-ennen/movie-hub/issues/112) unabhängig.
+5. **PR-Hygiene:** Alt-PRs [#521](https://github.com/matthias-ennen/movie-hub/pull/521) und [#578](https://github.com/matthias-ennen/movie-hub/pull/578) begründet geschlossen, **nicht gemergt**. Aktuelle YouTube-PRs #690–#693 sind gemergt. Offene Issues haben aktuell **keine zugeordneten GitHub-Milestones**; die vollständige eigenständige Milestone-Liste ist über den verbundenen Zugriff nicht lesbar – keine frei erfundenen Statusänderungen.
+
+**Morgen im neuen Chat als Erstes:** [Aktuelle Adapter- und Nightly-Übergabe](ADAPTER_NIGHTLY_HANDOFF_2026-10-28.md) und echte neueste GitHub-Runs lesen. **Die Priorisierung vom 16.10. weiter unten ist nur historische Einordnung.**
+
 ## Arbeitsprinzip
 
 Die aktive Planung enthält nur noch echte Arbeitspakete. Historische Bestandsaufnahmen werden nach Überführung ihrer Restpunkte geschlossen. Große Sammelissues werden vermieden, wenn ein klarer technischer Rest als kleineres Paket separat geführt werden kann.
