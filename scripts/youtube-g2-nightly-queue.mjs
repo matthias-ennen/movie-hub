@@ -13,6 +13,8 @@ import {mapFromCandidateCheckpoint} from './youtube-g2-durable-candidate-checkpo
 export const NIGHTLY_QUEUE_KIND='moviehub-youtube-g2-nightly-public-badge-queue'
 export const NIGHTLY_QUEUE_OBJECT='youtube-g2/private-nightly-research/v1/queue.json'
 export const NIGHTLY_MAX_TRACKED=3500
+// Future preflight planning only; the live nightly runner still requests 60.
+export const NIGHTLY_MAX_PREFLIGHT_PLAN_MOVIES=600
 const STAGES=new Set(['started','known-candidate','no-current-offer','no-video-candidates'])
 const allowed=x=>Number.isSafeInteger(x)&&x>0
 const iso=x=>typeof x==='string'&&Number.isFinite(Date.parse(x))
@@ -69,7 +71,7 @@ export function selectNightlyPublicBadgeMovies({
   publicIndex,checkpoint,progress=null,now=new Date().toISOString(),
   limit=120,
 }={}){
-  if(!Number.isInteger(limit)||limit<1||limit>120
+  if(!Number.isInteger(limit)||limit<1||limit>NIGHTLY_MAX_PREFLIGHT_PLAN_MOVIES
     ||!iso(now)||!Number.isFinite(Date.parse(publicIndex?.generatedAt))
     ||Date.parse(now)-Date.parse(publicIndex.generatedAt)<-3600000
     ||Date.parse(now)-Date.parse(publicIndex.generatedAt)>3*86400000
