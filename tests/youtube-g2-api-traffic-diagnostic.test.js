@@ -7,12 +7,13 @@ const start='2026-10-26T12:00:00Z'
 const end='2026-10-27T12:00:00Z'
 function series({service='youtube.googleapis.com',
   project='movie-hub-62459',metric=TRAFFIC_METRIC,
-  code='200',count='3',when='2026-10-27T11:00:00Z'}={}){
+  code='200',count='3',when='2026-10-27T11:00:00Z',
+  method='search.list',credential='PRIVATE-CREDENTIAL-DO-NOT-EXPOSE'}={}){
   return {
     metric:{type:metric,labels:{response_code:code,
       private_credential_id:'CREDENTIAL-DO-NOT-EXPOSE'}},
     resource:{type:'consumed_api',labels:{service,project_id:project,
-      credential_id:'PRIVATE-CREDENTIAL-DO-NOT-EXPOSE',method:'search.list'}},
+      credential_id:credential,method}},
     points:[{interval:{startTime:'2026-10-27T10:59:00Z',endTime:when},
       value:{int64Value:count}}],
   }
@@ -29,11 +30,66 @@ describe('YouTube API consumed request traffic telemetry is diagnostic only',()=
       observedCompletedRequests:5,latestSample:'2026-10-27T11:00:00.000Z',
       potentiallyDelayedMinutes:30,requestCountIsNotQuotaUnits:true,
       quotaRemaining:null,actualSearchListRequests:null,
+      observedSearchMethodRequests:5,observedOtherMethodRequests:0,
+      unclassifiedMethodRequests:0,methodLabelsPresentForAllSeries:true,
+      distinctCredentialGroupsObserved:1,
+      externalConsumersFullyAccountedFor:false,
       authorizedSearchCalls:0,youtubeApiCalls:0,gcsWrites:0,
       quotaWrites:0,publicationPermitted:false,
     })
     expect(JSON.stringify(report)).not.toContain('PRIVATE-CREDENTIAL')
     expect(JSON.stringify(report)).not.toContain('search.list')
+  })
+  it('reports multiple observed credential groups but never exposes their identities',()=>{
+    const data={timeSeries:[
+      series({credential:'KEY-ONE',count:'4'}),
+      series({credential:'KEY-TWO',method:'videos.list',count:'8'}),
+      series({credential:'KEY-ONE',code:'429',count:'2'}),
+    ]}
+    const r=inspect({document:data})
+    expect(r).toMatchObject({
+      observedCompletedRequests:14,observedSearchMethodRequests:6,
+      observedOtherMethodRequests:8,unclassifiedMethodRequests:0,
+      methodLabelsPresentForAllSeries:true,
+      distinctCredentialGroupsObserved:2,
+      externalConsumersFullyAccountedFor:false,
+      actualSearchListRequests:null,quotaRemaining:null,
+      authorizedSearchCalls:0,
+    })
+    expect(JSON.stringify(r)).not.toContain('KEY-ONE')
+    expect(JSON.stringify(r)).not.toContain('KEY-TWO')
+    expect(JSON.stringify(r)).not.toContain('videos.list')
+  })
+  it('does not equate absent method or credential labels with zero other consumers',()=>{
+    const r=inspect({document:{timeSeries:[
+      series({count:'1',credential:'KEY-ONE'}),
+      series({count:'5',method:null,credential:null}),
+      series({count:'2',method:'Unknown Method',credential:'KEY-TWO'}),
+    ]}})
+    expect(r).toMatchObject({
+      shape:'timeSeries-present',observedCompletedRequests:8,
+      observedSearchMethodRequests:1,observedOtherMethodRequests:0,
+      unclassifiedMethodRequests:7,methodLabelsPresentForAllSeries:false,
+      distinctCredentialGroupsObserved:null,
+      externalConsumersFullyAccountedFor:false,
+      actualSearchListRequests:null,quotaRemaining:null,
+    })
+    expect(JSON.stringify(r)).not.toContain('KEY-TWO')
+    expect(JSON.stringify(r)).not.toContain('Unknown Method')
+  })
+  it('never turns an empty or truncated monitoring response into coverage proof',()=>{
+    for(const document of [{timeSeries:[]},{},{
+      timeSeries:[series()],nextPageToken:'PRIVATE-TOKEN'}]){
+      const r=inspect({document})
+      expect(r).toMatchObject({
+        distinctCredentialGroupsObserved:null,
+        observedSearchMethodRequests:null,
+        actualSearchListRequests:null,
+        methodLabelsPresentForAllSeries:false,
+        externalConsumersFullyAccountedFor:false,
+        quotaRemaining:null,authorizedSearchCalls:0,
+      })
+    }
   })
   it('distinguishes omitted, empty, paginated and HTTP-inaccessible responses',()=>{
     expect(inspect({document:{}})).toMatchObject({
