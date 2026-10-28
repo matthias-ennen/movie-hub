@@ -1,5 +1,18 @@
 # Movie Hub – Adapterprogramm und Quellen-Ausbau
 
+## OPERATIVER STAND / MAẞGEBLICHE ÜBERGABE – 28.10.2026
+
+**Ersetzt alle älteren untenstehenden G0/G1-No-Go-Priorisierungen als Beschreibung des IST-Implementierungsstands, nicht deren historische Forschungsergebnisse.** Waipu und Joyn laufen produktiv; YouTube hat die implementierte V1-Plattform mit **zwei Playlists, TMDB-first-Suche, Matchv1.1, privatem Kandidaten-Checkpoint, `videos.list`-Known-Recheck und automatischer Veröffentlichung eindeutiger Best-Effort-Video-Watch-Links am bereits bestehenden YouTube-Badge**. Die letzten produktiven Schritte sind [PR #692](https://github.com/matthias-ennen/movie-hub/pull/692) und [PR #693](https://github.com/matthias-ennen/movie-hub/pull/693).
+
+**Freigaberegel:** YouTube-Match als genauer Film-Video-Link bei eindeutiger Werkidentität; **keine zusätzliche Freigabebedingung nach TMDB `rent`/`buy`/`free`/`ads`/`flatrate`**. Tarif-/DE-Wiedergaberechte werden nicht vom Matcher bewiesen und nicht als unabhängig verifiziert dargestellt. Trailer/Konkurrenztreffer/Sequel-Verwechslungen bleiben ausgeschlossen.
+
+**Noch offen:** 2–3 echte `event=schedule`-Nachtläufe ab **29.10.2026** für den neuen zentralen **00:10 Europe/Berlin**-Workflow und dessen veröffentlichtes `youtube-best-effort-title-links.json`; konkrete Matcher-Tuning-Aufgaben erst aus den gemessenen Fehlergruppen ableiten; persönliche Endabnahme unter [#388](https://github.com/matthias-ennen/movie-hub/issues/388), das bis dahin offen bleibt.
+
+**Parallel planbar:** [#336 DVB-I G0/Go-No-Go](https://github.com/matthias-ennen/movie-hub/issues/336) als nächster Quellenpilot, nachgeordnet [#391 Prime Video](https://github.com/matthias-ennen/movie-hub/issues/391). Waipu [#329](https://github.com/matthias-ennen/movie-hub/issues/329) / Joyn [#481](https://github.com/matthias-ennen/movie-hub/issues/481) als getrennte Qualitäts-/Fehlernacharbeit. Eigenständiges Recht-/Policy-Release-Gate [#112](https://github.com/matthias-ennen/movie-hub/issues/112) bleibt.
+
+**Einziger verlässlicher Wieder-Einstieg:** [Adapter- und Nachtlauf-Handover 28.10.2026](ADAPTER_NIGHTLY_HANDOFF_2026-10-28.md). Alter Forschungsinhalt darunter wird nicht gelöscht, aber darf nicht erneut als „noch kein produktiver YouTube-Adapter“ missverstanden werden.
+
+
 ## G1-Live-Ergebnis 21.10.2026 – Top-3-QA der 34 Problemfälle
 
 **Echter GitHub-Actions-Lauf [#39636101093](https://github.com/matthias-ennen/movie-hub/actions/runs/39636101093) SUCCESS; [Original-Artefakt #12362130138](https://github.com/matthias-ennen/movie-hub/actions/runs/39636101093/artifacts/12362130138) heruntergeladen und vollständig ausgewertet.** Die QA untersuchte **34** bereits bestehende YouTube-Video-IDs (zuerst alle 13 Neben-Kategorie-Fälle, danach 21 priorisierte Kategorie-30-Fälle) gegen maximal drei **bereits gefundene** TMDB-Film-IDs je Video: **77** lesende Film-Detailabrufe, **0** weitere YouTube-/TMDB-Suchanfragen. Bei **10/34** Fällen ist der bisherige Ersttreffer nicht mehr der höchstbewertete Kandidat.

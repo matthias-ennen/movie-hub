@@ -2,6 +2,16 @@
 
 Movie Hub ist eine persönliche, TV-optimierte Filmzentrale für Fire TV, Android-Smartphones und Tablets. Die Anwendung bündelt Filme und Serien aus Streaming-Diensten sowie linearem Fernsehen über Waipu und Joyn in einer gemeinsamen Oberfläche und verbindet Streaming-Verfügbarkeit mit persönlichen Bewertungen, Listen, eigenen Medien und TMDB-Daten.
 
+## Aktueller Arbeitsstand – 28. Oktober 2026
+
+**Technisches Adapter-Grundpaket: Waipu, Joyn und YouTube implementiert.** Der zentrale Nightly-Workflow läuft planmäßig **00:10 Uhr Europe/Berlin**; der erste echte Schedule-Gesamtlauf nach den YouTube-PRs #692/#693 steht ab 29.10.2026 noch aus. [CI](https://github.com/matthias-ennen/movie-hub/actions/runs/40775805198), [Android](https://github.com/matthias-ennen/movie-hub/actions/runs/40775805275) und [Firebase-Push](https://github.com/matthias-ennen/movie-hub/actions/runs/40775805203) für den Implementierungsstand sind erfolgreich; Push-Deploy ist keine Schedule-Abnahme.
+
+**Für neue Chats zuerst lesen: [Verbindliche Adapter-/Nachtlauf-Übergabe](docs/ADAPTER_NIGHTLY_HANDOFF_2026-10-28.md).** [YouTube #388](https://github.com/matthias-ennen/movie-hub/issues/388) bleibt **für 2–3 Nachtläufe, datengetriebene Matcher-Nacharbeit und ausdrückliche Nutzer-Endabnahme** offen. Eindeutig gematchte Videos werden bereits automatisch als **Best-Effort-Watch-Deep-Link am bestehenden YouTube-Badge** eingebunden, ohne neue Tarif-Freigabe. In DE abspielbares Rent-/Buy-Angebot wird daraus nicht behauptet.
+
+**Parallel nächstes planbares Arbeitspaket:** [#336 DVB-I G0-Datenzugangs-/EPG-Pilot](https://github.com/matthias-ennen/movie-hub/issues/336), unter [#271 Quellenplattform](https://github.com/matthias-ennen/movie-hub/issues/271); danach [#391 Prime Video](https://github.com/matthias-ennen/movie-hub/issues/391). Waipu/Joyn verbleiben im regulären Betrieb; konkrete Matcher-/Fehlerverbesserungen sind eigenständige kleine Folgeschritte.
+
+> **Historischer Stand ab „## Status“ weiter unten:** Aussagen vom 16.10. über „noch kein YouTube-Produktivadapter“ sind durch den Implementierungsstand vom 28.10. ersetzt. Die aktuelle Übergabe hat Vorrang.
+
 ## Zielbild
 
 - Streaming-artige Oberfläche mit großen Postern und Backdrops

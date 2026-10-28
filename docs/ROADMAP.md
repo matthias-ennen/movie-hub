@@ -2,6 +2,14 @@
 
 Stand: 16. Oktober 2026
 
+## Aktueller verbindlicher Stand – 28.10.2026 (ersetzt ältere Priorisierungsabschnitte)
+
+- **Abgeschlossen als technische Grundimplementierung:** Waipu-/Joyn-Quellen, TV-/EPG-/TMDB-Abgleich, Provider-Absprung und YouTube-Playlist- plus TMDB-first-Discovery mit automatischen Best-Effort-Watch-Links auf vorhandenen Anbieterbadges. YouTube-Implementierung in PRs [#692](https://github.com/matthias-ennen/movie-hub/pull/692) und [#693](https://github.com/matthias-ennen/movie-hub/pull/693).
+- **In Live-Abnahme:** [#388 YouTube](https://github.com/matthias-ennen/movie-hub/issues/388) nach dem ersten neuen zentralen **00:10 Europe/Berlin** Schedule-Lauf (ab 29.10.2026), 2–3 Beobachtungstage, echter Quoten-/Fehler-/Link-/Deploy-Bericht und erst danach datengetriebene Matcher-Verbesserung. Ohne echte Läufe oder persönliche Abnahme **nicht schließen**. Die aktuelle CI/APK/Push-Firebase-Basis ist grün, aber keine Schedule-Abnahme.
+- **Parallel nächster Entwicklungsstrang:** [#336 DVB-I](https://github.com/matthias-ennen/movie-hub/issues/336) als **G0-Zugangs-, Service-List- und EPG-Pilot** vorbereiten; danach [#391 Prime Video](https://github.com/matthias-ennen/movie-hub/issues/391). Produktive neue Quelle erst nach dokumentiertem Go/No-Go. [#271](https://github.com/matthias-ennen/movie-hub/issues/271) bleibt als Rahmenpaket offen.
+- **Qualitätsbacklog separieren:** Waipu [#329](https://github.com/matthias-ennen/movie-hub/issues/329), Joyn [#481](https://github.com/matthias-ennen/movie-hub/issues/481), YouTube echte Matcher-/Link-Abdeckungsfälle aus Nachtbericht. Keine willkürliche generelle Matcher-Lockerung; [#112](https://github.com/matthias-ennen/movie-hub/issues/112) bleibt unabhängiges öffentliches Release-/Compliance-Thema.
+- **Verbindlicher neuer Chat-Einstieg:** [Adapter-Live-Übergabe](ADAPTER_NIGHTLY_HANDOFF_2026-10-28.md). Frühere „nur Pilot, keine produktive Arbeit“-Texte unten sind historisch.
+
 ## Leitprinzip
 
 Movie Hub wird in klar abgegrenzeten Arbeitspaketen weiterentwickelt. TMDB bleibt die kanonische Quelle für öffentliche Film- und Serienmetadaten. Zusätzliche Quellen liefern Verfügbarkeiten, Senderereignisse und Wiedergabeziele. Ein Adapterfehler darf weder andere Quellen noch den letzten gültigen veröffentlichten Datenstand beschädigen.
