@@ -9,7 +9,7 @@ on:
   # a squash merge with [youtube-nightly-once]. Ordinary code pushes skip.
   # Its successful trusted main-branch completion must trigger the separate
   # videos.list-only workflow_run recheck; this push is NOT a schedule proof.
-  # All existing Pacific 50/1 CAS limits, no-retry and offer guards remain.
+  # Live Google quota errors, durable per-PT-day CAS and no-retry offer guards.
   push:
     branches: [main]
     paths:
@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   nightly-known-to-new:
-    name: Resume unknown public YouTube movie IDs with reserved PT searches
+    name: Discover public TMDB film links until real Google quotaExceeded or candidates end
     if: >-
       ${{ github.ref == 'refs/heads/main' &&
           (github.event_name == 'schedule' ||
@@ -34,7 +34,7 @@ jobs:
            (github.event_name == 'push' &&
             contains(github.event.head_commit.message, '[youtube-nightly-once]'))) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 60
     env:
       GOOGLE_CLOUD_PROJECT: movie-hub-62459
       DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
@@ -62,43 +62,7 @@ jobs:
           workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
           service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v3
-      - name: Collect current Pacific search telemetry (no YouTube calls)
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/moviehub-youtube-pt-search-private
-          read -r checked_at day_start < <(node --input-type=module <<'NODE'
-          import {pacificSearchDay} from './scripts/youtube-g2-pacific-search-preflight.mjs'
-          const now=new Date().toISOString()
-          console.log(now+' '+pacificSearchDay(now).start)
-          NODE
-          )
-          token="$(gcloud auth print-access-token)"
-          for type in rate exceeded; do
-            if [[ "$type" == rate ]]; then metric='rate/net_usage'; else metric='exceeded'; fi
-            filter="metric.type=\"serviceruntime.googleapis.com/quota/$metric\" AND resource.type=\"consumer_quota\" AND resource.label.service=\"youtube.googleapis.com\" AND metric.label.quota_metric=\"youtube.googleapis.com/search_list\""
-            code="$(curl --silent --show-error --max-time 35 --retry 0 \
-              --get --header "Authorization: Bearer $token" \
-              --header 'Accept: application/json' \
-              --data-urlencode "filter=$filter" \
-              --data-urlencode "interval.startTime=$day_start" \
-              --data-urlencode "interval.endTime=$checked_at" \
-              --data-urlencode 'view=FULL' \
-              --data-urlencode 'pageSize=5000' \
-              --output "/tmp/moviehub-youtube-pt-search-private/$type.json" \
-              --write-out '%{http_code}' \
-              'https://monitoring.googleapis.com/v3/projects/movie-hub-62459/timeSeries')"
-            [[ "$code" =~ ^[0-9]{3}$ ]] || exit 1
-            printf '%s=%s\n' "$type" "$code" >> /tmp/moviehub-youtube-pt-search-private/status
-          done
-          unset token filter
-          . /tmp/moviehub-youtube-pt-search-private/status
-          node scripts/youtube-g2-pacific-search-preflight.mjs \
-            "$checked_at" "$rate" /tmp/moviehub-youtube-pt-search-private/rate.json \
-            "$exceeded" /tmp/moviehub-youtube-pt-search-private/exceeded.json \
-            artifacts/youtube-g2/pacific-search-preflight
-          rm -rf /tmp/moviehub-youtube-pt-search-private
-      - name: Resume film queue with CAS progress and up to 50 shared PT-day searches
+      - name: Resume film queue until confirmed YouTube search quotaExceeded
         id: nightly_discovery
         run: node scripts/youtube-g2-nightly-discovery-live.mjs
       - name: Verify safe, anonymized nightly budget summary
@@ -109,7 +73,7 @@ jobs:
           const r=JSON.parse(readFileSync('artifacts/youtube-g2/nightly-discovery/summary.json','utf8'))
           const failed=r.status==='failed'
           if(r.kind!=='moviehub-youtube-g2-nightly-budgeted-discovery'
-            ||r.dayLimit!==50
+            ||r.dayLimit!==200
             ||r.independentlyVerifiedDEOffers!==0
             ||r.publicationPermitted!==false
             ||r.publishedPlaybackRoutes!==0
@@ -124,25 +88,36 @@ jobs:
                   'tmdb-source','other-unclassified'].includes(r.failureCategory)
               ||(r.selectedForSearch!==null
                  &&(!Number.isInteger(r.selectedForSearch)
-                     ||r.selectedForSearch<0||r.selectedForSearch>50))
+                     ||r.selectedForSearch<0||r.selectedForSearch>200))
               ||(r.sharedDayReserved!==null
                  &&(!Number.isInteger(r.sharedDayReserved)
-                     ||r.sharedDayReserved<0||r.sharedDayReserved>50))
+                     ||r.sharedDayReserved<0||r.sharedDayReserved>200))
               ||(r.priorReserved!==null
                  &&r.priorReserved+r.selectedForSearch!==r.sharedDayReserved))
               throw Error('YOUTUBE_NIGHTLY_FAILURE_REPORT_NOT_TRUSTED')
           }else if(!Number.isInteger(r.searchCalls)||r.searchCalls<0
             ||r.searchCalls>r.selectedForSearch
-            ||r.selectedForSearch>50||r.priorReserved>50
-            ||r.selectedForSearch+r.priorReserved>50)
+            ||r.selectedForSearch>200||r.priorReserved>200
+            ||r.selectedForSearch+r.priorReserved>200)
             throw Error('YOUTUBE_NIGHTLY_BUDGET_OR_PUBLICATION_GUARD_FAILED')
+          if(r.quotaExceededConfirmed===true
+            &&(r.status!=='quota-exhausted-confirmed'
+              ||r.searchCalls<1
+              ||r.successfulSearchCalls!==r.searchCalls-1))
+            throw Error('YOUTUBE_NIGHTLY_QUOTA_CLAIM_UNTRUSTED')
+          if(r.quotaExceededConfirmed!==true
+            &&r.status==='quota-exhausted-confirmed')
+            throw Error('YOUTUBE_NIGHTLY_FALSE_QUOTA_EXCEEDED')
           const lines=[
             '## YouTube nightly private, budgeted TMDB-first discovery','',
             '- Pacific research day: '+r.pacificDate,
             '- Shared conservative daily search cap: '+r.dayLimit,
             '- Prior manual/research reservations: '+r.priorReserved,
             '- Nightly reserved search attempts: '+(r.selectedForSearch??'unknown'),
-            '- Actual search.list attempts: '+(r.searchCalls??'unknown after failure'),
+            '- Actual search.list attempts (including quota-rejected): '+(r.searchCalls??'unknown after failure'),
+            '- Successful search.list calls: '+(r.successfulSearchCalls??'unknown'),
+            '- Confirmed YouTube quotaExceeded: '+(r.quotaExceededConfirmed===true?'YES':'NO'),
+            '- Stop reason: '+(r.terminationReason??'no quota boundary observed'),
             '- New privately stored film candidates: '+(r.savedNewCandidateFilms??'unknown after failure'),
             '- Total still-eligible public badge films at scan: '+(r.stillEligible??'unknown'),
             '- Completed cursor entries this run: '+(r.runCompletedFilms??'not measured'),
@@ -162,6 +137,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: youtube-g2-nightly-budget-summary-${{ github.run_id }}
-          path: artifacts/youtube-g2/nightly-discovery/summary.json
+          path: artifacts/youtube-g2/nightly-discovery/
           if-no-files-found: warn
           retention-days: 7
