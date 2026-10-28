@@ -4,6 +4,8 @@ import {pacificSearchDay} from '../scripts/youtube-g2-pacific-search-preflight.m
 
 const nightly=readFileSync(new URL(
   '../.github/workflows/youtube-g2-nightly-discovery.yml',import.meta.url),'utf8')
+const nightlySource=readFileSync(new URL(
+  '../scripts/youtube-g2-nightly-discovery-live.mjs',import.meta.url),'utf8')
 const known=readFileSync(new URL(
   '../.github/workflows/youtube-g2-global-known-no-search.yml',import.meta.url),'utf8')
 const deploy=readFileSync(new URL(
@@ -48,7 +50,7 @@ describe('permanent Berlin YouTube nightly sequence (#388)',()=>{
     expect(known).toContain("github.event.workflow_run.head_repository.full_name == github.repository")
     expect(known).toContain("github.event_name == 'schedule'")
     expect(known).toContain('G2_GLOBAL_CACHED_YOUTUBE_SEARCH_FORBIDDEN')
-    expect(nightly).toContain('reserveWithAtomicGcs')
+    expect(nightlySource).toContain('reserveWithAtomicGcs')
     expect(nightly).toContain("contains(github.event.head_commit.message, '[youtube-nightly-once]')")
     expect(nightly).toContain('cancel-in-progress: false')
     expect(known).toContain('cancel-in-progress: false')
