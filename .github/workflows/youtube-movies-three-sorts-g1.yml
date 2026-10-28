@@ -14,7 +14,8 @@ concurrency:
 jobs:
   compare-youtube-sorts:
     name: Compare DE movie search viewCount, date and rating without publication
-    if: github.ref == 'refs/heads/main'
+    # #388: suspended until search.list uses shared project-wide CAS admission.
+    if: false && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
