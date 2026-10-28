@@ -118,7 +118,6 @@ describe('Best-effort exact YouTube link without inventing verified offers',()=>
       x=>{x.rows[0].videoCandidates[0].strong=false},
       x=>{x.rows[0].videoCandidates[0].score=20},
       x=>{x.rows[0].videoCandidates[0].sourceTypeRisk=true},
-      x=>{x.rows[0].videoCandidates[0].regionSignal='excluded'},
       x=>{x.rows[0].videoCandidates[0].yearMismatch=true},
       x=>{x.rows[0].tmdbDeOfferTypes=[]},
       x=>{x.rows[0].videoCandidates.push({...top(),videoId:'abcdefghijk',score:46,strong:false})},
@@ -126,6 +125,15 @@ describe('Best-effort exact YouTube link without inventing verified offers',()=>
       const input=qa();change(input)
       expect(buildYoutubeBestEffortLinkIndex(input,{now:NOW}).count).toBe(0)
     }
+  })
+  it('keeps high-confidence video link despite DE-region metadata exclusion',()=>{
+    const review=qa()
+    review.rows[0].videoCandidates[0].regionSignal='excluded'
+    const index=buildYoutubeBestEffortLinkIndex(review,{now:NOW})
+    expect(index.count).toBe(1)
+    expect(selectYoutubeBestEffortTitleRoute(index,item,props)?.target)
+      .toBe('https://www.youtube.com/watch?v='+ID)
+    expect(index.claimedOfferTypes).toEqual([])
   })
   it('quarantines conflicting exact video IDs for two films, preserving unrelated shortcuts',()=>{
     const privateQa=qa()
