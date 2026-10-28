@@ -40,7 +40,7 @@ jobs:
         run: node scripts/check-data-workflow-schedule.mjs --gate
 
   discovery:
-    name: Private bounded YouTube discovery (may fail closed)
+    name: Real-quota YouTube discovery (until confirmed quotaExceeded or candidates exhausted)
     needs: night-gate
     if: ${{ !cancelled() && needs.night-gate.outputs.should_run == 'true' }}
     uses: ./.github/workflows/youtube-g2-nightly-discovery.yml
@@ -52,7 +52,7 @@ jobs:
   known-videos:
     name: Trusted known YouTube videos.list recheck (no searches)
     needs: [night-gate, discovery]
-    # Intentional fallback: failed Google Monitoring MUST NOT block known IDs.
+    # Real YouTube quota exhaustion or discovery failure MUST NOT block known IDs.
     if: ${{ always() && !cancelled() && needs.night-gate.outputs.should_run == 'true' }}
     uses: ./.github/workflows/youtube-g2-global-known-no-search.yml
     permissions:
@@ -91,6 +91,13 @@ jobs:
         with:
           name: source-adapter-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
           path: .
+      - name: Read sanitized YouTube discovery counters from this exact run
+        id: discovery-counts
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: youtube-g2-nightly-budget-summary-${{ github.run_id }}
+          path: artifacts/youtube-g2/nightly-discovery
       - name: Write aggregate complete chain report (never video IDs or private raw data)
         env:
           NIGHT_GATE_RESULT: ${{ needs.night-gate.result }}
