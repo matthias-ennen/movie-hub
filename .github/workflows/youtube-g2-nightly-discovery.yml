@@ -10,6 +10,9 @@ on:
   workflow_dispatch:
   # A single carefully reviewed one-off acceptance run can be started by
   # a squash merge with [youtube-nightly-once]. Ordinary code pushes skip.
+  # Its successful trusted main-branch completion must trigger the separate
+  # videos.list-only workflow_run recheck; this push is NOT a schedule proof.
+  # All existing Pacific 10/1 CAS limits, no-retry and offer guards remain.
   push:
     branches: [main]
     paths:
