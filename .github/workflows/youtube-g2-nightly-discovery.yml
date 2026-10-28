@@ -2,10 +2,18 @@ name: YouTube G2 – nightly bounded public-movie discovery (private, no offers)
 
 on:
   schedule:
-    # 01:35 UTC = 02:35 CET / 03:35 CEST; separate from 00:17 Berlin
-    # Firebase nightly. One cron; no run on code push or PR.
-    - cron: '35 1 * * *'
+    # 11:35 UTC = 12:35 CET / 13:35 CEST, after the Pacific
+    # quota reset's two-hour guard even if GitHub Actions is delayed.
+    # The known-video daily refresh remains separate; newly discovered IDs
+    # enter its next cycle. One cron; no run on code push or PR.
+    - cron: '35 11 * * *'
   workflow_dispatch:
+  # A single carefully reviewed one-off acceptance run can be started by
+  # a squash merge with [youtube-nightly-once]. Ordinary code pushes skip.
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/youtube-g2-nightly-discovery.yml
 
 permissions:
   contents: read
@@ -18,7 +26,12 @@ concurrency:
 jobs:
   nightly-known-to-new:
     name: Resume unknown public YouTube movie IDs with reserved PT searches
-    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    if: >-
+      ${{ github.ref == 'refs/heads/main' &&
+          (github.event_name == 'schedule' ||
+           github.event_name == 'workflow_dispatch' ||
+           (github.event_name == 'push' &&
+            contains(github.event.head_commit.message, '[youtube-nightly-once]'))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
