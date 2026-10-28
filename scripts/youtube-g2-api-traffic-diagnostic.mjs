@@ -15,6 +15,8 @@ export const TRAFFIC_KIND='moviehub-youtube-g2-api-traffic-readonly'
 const MAX_SERIES=100
 const MAX_POINTS=2500
 const MAX_REQUESTS=100000000
+const KNOWN_READ_METHODS=new Set(['videos.list','channels.list',
+  'playlists.list','playlistItems.list','videoCategories.list'])
 const matchCount=v=>typeof v==='string'&&/^\d{1,12}$/.test(v)
 
 export function inspectYoutubeApiTraffic({
@@ -104,9 +106,9 @@ export function inspectYoutubeApiTraffic({
       count+=Number(raw)
       // The exact known method label is recognized conservatively. Other
       // values are aggregated without ever publishing the raw method/ID.
-      if(!hasMethod)unclassifiedCount+=Number(raw)
-      else if(method==='search.list')searchMethodCount+=Number(raw)
-      else otherMethodCount+=Number(raw)
+      if(method==='search.list')searchMethodCount+=Number(raw)
+      else if(KNOWN_READ_METHODS.has(method))otherMethodCount+=Number(raw)
+      else unclassifiedCount+=Number(raw)
       if(!Number.isSafeInteger(count)||count>MAX_REQUESTS){
         result.shape='count-overflow'
         return result
