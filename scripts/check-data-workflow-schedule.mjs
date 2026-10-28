@@ -165,7 +165,7 @@ export function captureWorkflowTiming({ now = new Date(), eventName = '', option
 
 // GitHub prefixes reusable jobs with their calling job name.
 export const isProductionDeployJob = job =>
-  job?.name === 'deploy' || /^firebase \/ deploy$/.test(job?.name || '')
+  job?.name === 'deploy' || / \/ deploy$/.test(job?.name || '')
 
 export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jobsByRunId = {}, manualRuns = [] } = {}) {
   const settings = { ...defaultOptions, ...options }
