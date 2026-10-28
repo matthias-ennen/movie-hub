@@ -9,7 +9,7 @@ import {
 } from '../scripts/youtube-g2-durable-candidate-checkpoint.mjs'
 import {evaluatePacificSearchBudget,RATE,QUOTA}
   from '../scripts/youtube-g2-pacific-search-preflight.mjs'
-import {reserveWithAtomicGcs}
+import {reserveWithAtomicGcs,isDegradedOneSearchPreflight}
   from '../scripts/youtube-g2-atomic-search-budget-ledger.mjs'
 
 const NOW='2026-10-25T18:00:00.000Z'
@@ -182,4 +182,90 @@ describe('scheduled nightly movie research: shared 10 PT calls and private resum
     expect(s.youtubeApi).not.toHaveBeenCalled()
     expect(s.tmdbGet).not.toHaveBeenCalled()
   })
+
+  it('advances exactly ONE uncached TMDB-badged film when both 200 Monitoring replies omit samples',async()=>{
+    const p=evaluatePacificSearchBudget({
+      now:NOW,rateHttp:200,rateResponse:{},
+      exceededHttp:200,exceededResponse:{},
+    })
+    expect(p.smallBatchAdvisory).toBe(false)
+    expect(p.blocks).toEqual([
+      'metrics-inaccessible-or-paginated',
+      'no-observed-usage-is-not-zero',
+      'monitoring-samples-not-recent',
+    ])
+    expect(isDegradedOneSearchPreflight(p,{now:NOW})).toBe(true)
+    const b=await seededBucket(),servicesA=services()
+    const summary=await runNightlyDiscovery({
+      publicIndex:publicIndex(),bucket:b,preflight:p,
+      runId:610501,now:()=>NOW,wait:async()=>{},...servicesA,
+    })
+    expect(summary).toMatchObject({
+      quotaMode:'one-call-unmeasured-no-quota-guarantee',
+      status:'completed',selectedForSearch:1,searchCalls:1,
+      independentlyVerifiedDEOffers:0,publicationPermitted:false,
+      firestoreWrites:0,providerWrites:0,badgeWrites:0,
+    })
+    expect(servicesA.youtubeApi.mock.calls.map(x=>x[0])).toEqual(['search'])
+    const ledger=JSON.parse([...b.objects].find(([name])=>
+      name.includes('private-search-budget'))[1].bytes.toString('utf8'))
+    expect(ledger.totalConservativelyReserved).toBe(1)
+    expect(ledger.externalCallersCoordinated).toBe(false)
+    expect(ledger.remainingSharedProjectCalls).toBe(null)
+    const servicesB=services()
+    const next=await runNightlyDiscovery({
+      publicIndex:publicIndex(),bucket:b,preflight:p,
+      runId:610502,now:()=>NOW,...servicesB,
+    })
+    expect(next).toMatchObject({
+      quotaMode:'one-call-unmeasured-no-quota-guarantee',
+      status:'daily-budget-exhausted',selectedForSearch:0,searchCalls:0,
+    })
+    expect(servicesB.youtubeApi).not.toHaveBeenCalled()
+    expect(servicesB.tmdbGet).not.toHaveBeenCalled()
+  })
+  it('never grants a degraded search too early, after HTTP failures or if a sample is present',async()=>{
+    const early='2026-10-25T07:12:00.000Z'
+    const candidates=[
+      {now:early,rateHttp:200,rateResponse:{},
+        exceededHttp:200,exceededResponse:{}},
+      {now:NOW,rateHttp:403,rateResponse:{},
+        exceededHttp:200,exceededResponse:{}},
+      {now:NOW,rateHttp:200,rateResponse:{timeSeries:[]},
+        exceededHttp:200,exceededResponse:{}},
+    ]
+    const b=await seededBucket(),s=services()
+    for(const candidate of candidates){
+      const p=evaluatePacificSearchBudget(candidate)
+      expect(isDegradedOneSearchPreflight(p,{now:candidate.now})).toBe(false)
+      await expect(runNightlyDiscovery({
+        publicIndex:publicIndex(),bucket:b,preflight:p,
+        runId:610503,now:()=>candidate.now,...s,
+      })).rejects.toThrow('YOUTUBE_RESEARCH_SEARCH_PREFLIGHT_NOT_TRUSTED')
+    }
+    expect(s.youtubeApi).not.toHaveBeenCalled()
+    expect(s.tmdbGet).not.toHaveBeenCalled()
+  })
+  it('never allows two unmetered calls, even from a direct GCS reservation attempt',async()=>{
+    const p=evaluatePacificSearchBudget({
+      now:NOW,rateHttp:200,rateResponse:{},
+      exceededHttp:200,exceededResponse:{},
+    })
+    const b=await seededBucket()
+    await expect(reserveWithAtomicGcs(b,{
+      now:NOW,runId:610510,calls:2,preflight:p,degradedOneSearch:true,
+    })).rejects.toThrow('YOUTUBE_RESEARCH_RESERVATION_INPUT_INVALID')
+    const one=await reserveWithAtomicGcs(b,{
+      now:NOW,runId:610510,calls:1,preflight:p,degradedOneSearch:true,
+    })
+    expect(one).toMatchObject({
+      reservationCalls:1,globalGoogleQuotaGuaranteed:false,
+      currentRemainingProjectQuota:null,automaticallyCallYoutube:false,
+    })
+    await expect(reserveWithAtomicGcs(b,{
+      now:NOW,runId:610511,calls:1,preflight:p,degradedOneSearch:true,
+    })).rejects.toThrow('YOUTUBE_DEGRADED_SINGLE_SEARCH_DAILY_ALLOWANCE_USED')
+    expect(b.objects.size).toBe(2)
+  })
+
 })
