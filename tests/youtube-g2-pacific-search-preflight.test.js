@@ -2,7 +2,7 @@ import {describe,it,expect} from 'vitest'
 import {readFileSync} from 'node:fs'
 import {
   pacificSearchDay,evaluatePacificSearchBudget,
-  RATE,EXCEEDED,QUOTA,KIND,
+  RATE,EXCEEDED,QUOTA,KIND,monitoringResponseShape,
 } from '../scripts/youtube-g2-pacific-search-preflight.mjs'
 const now='2026-10-25T18:00:00Z'
 function series(metric,point){
@@ -73,6 +73,38 @@ describe('Pacific-day YouTube search budget preflight without a search authoriza
       expect(r.currentQuotaRemaining).toBe(null)
       expect(JSON.stringify(r)).not.toContain('private token')
     }
+  })
+  it('explains Monitoring response shape without copying private error bodies or authorizing search',()=>{
+    const normal=evaluatePacificSearchBudget(args())
+    expect(normal.monitoringResponseShapes).toEqual({
+      rate:'present-timeseries',exceeded:'empty-timeseries',
+    })
+    expect(normal.smallBatchAdvisory).toBe(true)
+    const cases=[
+      [{},'missing-timeseries'],
+      [{timeSeries:null},'malformed-timeseries'],
+      [{timeSeries:[],nextPageToken:'PRIVATE_PAGE_TOKEN'},'paginated-timeseries'],
+      [{timeSeries:[]},'empty-timeseries'],
+    ]
+    for(const [response,expected] of cases){
+      const x=args()
+      x.exceededResponse=response
+      const r=evaluatePacificSearchBudget(x)
+      expect(r.monitoringResponseShapes.exceeded).toBe(expected)
+      expect(r.authorizedSearchCalls).toBe(0)
+      expect(r.automaticSearchAllowed).toBe(false)
+      expect(JSON.stringify(r)).not.toContain('PRIVATE_PAGE_TOKEN')
+      if(expected!=='empty-timeseries')
+        expect(r.smallBatchAdvisory).toBe(false)
+    }
+    const bad=args()
+    bad.rateHttp=403
+    bad.rateResponse={error:{message:'MY_PRIVATE_API_KEY'}}
+    const blocked=evaluatePacificSearchBudget(bad)
+    expect(blocked.monitoringResponseShapes.rate).toBe('http-not-ok')
+    expect(blocked.smallBatchAdvisory).toBe(false)
+    expect(JSON.stringify(blocked)).not.toContain('MY_PRIVATE_API_KEY')
+    expect(monitoringResponseShape(200,null)).toBe('invalid-json-object')
   })
   it('refuses forged project/metric, out of day sample, malformed value and future data',()=>{
     for(const edit of [
