@@ -126,18 +126,22 @@ describe('Future project-wide search gateway: concurrent outcome reconciliation'
     let data=null
     const finished=[['success',1],['quota-exceeded',2],
       ['rate-limited',3],['failed-unknown',4]]
-    for(const [status,i] of finished){
-      const plan=prepareSharedSearchReservation({
+    // Reserve before any quotaExceeded outcome: a halted day correctly
+    // prevents all later NEW reservations, not bookkeeping completions.
+    for(const [,i] of finished){
+      data=prepareSharedSearchReservation({
         ...reserve(812400+i),previous:data,
-      })
-      data=prepareSharedSearchOutcome({
-        day:plan.day,previous:plan.ledger,
-        runId:812400+i,attemptNumber:1,state:status,
-      })
+      }).ledger
     }
     data=prepareSharedSearchReservation({
       ...reserve(812499),previous:data,
     }).ledger
+    for(const [status,i] of finished){
+      data=prepareSharedSearchOutcome({
+        day:DAY,previous:data,runId:812400+i,
+        attemptNumber:1,state:status,
+      })
+    }
     const summary=summarizeSharedSearchLedger(data,DAY)
     expect(summary).toMatchObject({
       conservativelyReserved:5,unusedInternalSlots:TARGET_SEARCH_CAP-5,
