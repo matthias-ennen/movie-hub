@@ -15,8 +15,27 @@ export const TRAFFIC_KIND='moviehub-youtube-g2-api-traffic-readonly'
 const MAX_SERIES=100
 const MAX_POINTS=2500
 const MAX_REQUESTS=100000000
-const KNOWN_READ_METHODS=new Set(['videos.list','channels.list',
-  'playlists.list','playlistItems.list','videoCategories.list'])
+// Official YouTube REST discovery method IDs use youtube.search.list,
+// youtube.videos.list, etc. The short forms are retained for older signals.
+// An unknown method label is NEVER assumed to mean a non-search request.
+const SEARCH_METHOD_IDS=new Set(['search.list','youtube.search.list'])
+const KNOWN_READ_METHODS=new Set(['videos.list','youtube.videos.list',
+  'channels.list','youtube.channels.list',
+  'playlists.list','youtube.playlists.list',
+  'playlistItems.list','youtube.playlistItems.list',
+  'videoCategories.list','youtube.videoCategories.list'])
+const unknownLabelShape=value=>{
+  if(typeof value!=='string'||value.length===0||value.length>256)
+    return 'missingOrInvalid'
+  if(value.startsWith('youtube.'))return 'otherYoutubePrefixed'
+  if(value.includes('/'))return 'slashFormatted'
+  if(value.includes('.'))return 'otherDotted'
+  return 'other'
+}
+const emptyUnknownShapes=()=>({
+  missingOrInvalid:0,otherYoutubePrefixed:0,slashFormatted:0,
+  otherDotted:0,other:0,
+})
 const matchCount=v=>typeof v==='string'&&/^\d{1,12}$/.test(v)
 
 export function inspectYoutubeApiTraffic({
@@ -39,6 +58,7 @@ export function inspectYoutubeApiTraffic({
     // Diagnostic subsets, never an exact PT-day usage total or a quota lease.
     observedSearchMethodRequests:null,observedOtherMethodRequests:null,
     unclassifiedMethodRequests:null,methodLabelsPresentForAllSeries:false,
+    unclassifiedLabelShapes:null,
     distinctCredentialGroupsObserved:null,
     externalConsumersFullyAccountedFor:false,
     authorizedSearchCalls:0,youtubeApiCalls:0,gcsWrites:0,
@@ -71,6 +91,7 @@ export function inspectYoutubeApiTraffic({
   }
   let count=0,points=0,latest=null
   let searchMethodCount=0,otherMethodCount=0,unclassifiedCount=0
+  const unknownShapes=emptyUnknownShapes()
   const observedCredentials=new Set()
   let allMethodLabels=true,allCredentialLabels=true
   for(const series of document.timeSeries){
@@ -106,9 +127,12 @@ export function inspectYoutubeApiTraffic({
       count+=Number(raw)
       // The exact known method label is recognized conservatively. Other
       // values are aggregated without ever publishing the raw method/ID.
-      if(method==='search.list')searchMethodCount+=Number(raw)
+      if(SEARCH_METHOD_IDS.has(method))searchMethodCount+=Number(raw)
       else if(KNOWN_READ_METHODS.has(method))otherMethodCount+=Number(raw)
-      else unclassifiedCount+=Number(raw)
+      else{
+        unclassifiedCount+=Number(raw)
+        unknownShapes[unknownLabelShape(method)]+=Number(raw)
+      }
       if(!Number.isSafeInteger(count)||count>MAX_REQUESTS){
         result.shape='count-overflow'
         return result
@@ -127,6 +151,7 @@ export function inspectYoutubeApiTraffic({
     result.observedSearchMethodRequests=searchMethodCount
     result.observedOtherMethodRequests=otherMethodCount
     result.unclassifiedMethodRequests=unclassifiedCount
+    result.unclassifiedLabelShapes=unknownShapes
     result.methodLabelsPresentForAllSeries=allMethodLabels
     if(allCredentialLabels)
       result.distinctCredentialGroupsObserved=observedCredentials.size

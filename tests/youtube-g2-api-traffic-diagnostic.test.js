@@ -84,12 +84,59 @@ describe('YouTube API consumed request traffic telemetry is diagnostic only',()=
       expect(r).toMatchObject({
         distinctCredentialGroupsObserved:null,
         observedSearchMethodRequests:null,
+        unclassifiedLabelShapes:null,
         actualSearchListRequests:null,
         methodLabelsPresentForAllSeries:false,
         externalConsumersFullyAccountedFor:false,
         quotaRemaining:null,authorizedSearchCalls:0,
       })
     }
+  })
+  it('recognizes public Google YouTube REST discovery IDs but never broad prefix guesses',()=>{
+    const r=inspect({document:{timeSeries:[
+      series({method:'youtube.search.list',count:'3'}),
+      series({method:'youtube.videos.list',count:'5'}),
+      series({method:'youtube.playlistItems.list',count:'7'}),
+      series({method:'youtube.search.unknown',count:'11'}),
+      series({method:'youtube.v3.SearchService.List',count:'13'}),
+      series({method:'/youtube/v3/search',count:'17'}),
+      series({method:'unrelated',count:'19'}),
+    ]}})
+    expect(r).toMatchObject({
+      observedCompletedRequests:75,observedSearchMethodRequests:3,
+      observedOtherMethodRequests:12,unclassifiedMethodRequests:60,
+      unclassifiedLabelShapes:{
+        missingOrInvalid:0,otherYoutubePrefixed:24,
+        slashFormatted:17,otherDotted:0,other:19,
+      },
+      methodLabelsPresentForAllSeries:true,
+      actualSearchListRequests:null,quotaRemaining:null,
+      externalConsumersFullyAccountedFor:false,
+    })
+    const output=JSON.stringify(r)
+    for(const raw of ['youtube.search.list','youtube.videos.list',
+      'youtube.v3.SearchService.List','/youtube/v3/search','unrelated']){
+      expect(output).not.toContain(raw)
+    }
+  })
+  it('provides only aggregate shape hints for missing and unfamiliar labels',()=>{
+    const r=inspect({document:{timeSeries:[
+      series({method:'google.internal.Request',count:'2'}),
+      series({method:null,count:'5'}),
+      series({method:'https://youtube.googleapis.com/v3/search',count:'9'}),
+    ]}})
+    expect(r).toMatchObject({
+      unclassifiedMethodRequests:16,
+      unclassifiedLabelShapes:{
+        missingOrInvalid:5,otherYoutubePrefixed:0,
+        slashFormatted:9,otherDotted:2,other:0,
+      },
+      observedSearchMethodRequests:0,
+      methodLabelsPresentForAllSeries:false,
+    })
+    const redacted=JSON.stringify(r)
+    expect(redacted).not.toContain('google.internal.Request')
+    expect(redacted).not.toContain('https://')
   })
   it('distinguishes omitted, empty, paginated and HTTP-inaccessible responses',()=>{
     expect(inspect({document:{}})).toMatchObject({
@@ -142,6 +189,7 @@ describe('YouTube API consumed request traffic telemetry is diagnostic only',()=
     expect(wf).toContain('scripts/youtube-g2-api-traffic-diagnostic.mjs')
     expect(wf).toContain('api-traffic.json')
     expect(wf).toContain('observed(report.observedSearchMethodRequests)')
+    expect(wf).toContain('report.unclassifiedLabelShapes')
     expect(wf).toContain('observed(report.distinctCredentialGroupsObserved)')
     expect(wf).toContain('report.externalConsumersFullyAccountedFor!==false')
     expect(wf).toContain('report.actualSearchListRequests!==null')

@@ -360,7 +360,19 @@ jobs:
           const counts=['observedSearchMethodRequests',
             'observedOtherMethodRequests','unclassifiedMethodRequests',
             'distinctCredentialGroupsObserved']
+          const shapeNames=['missingOrInvalid','otherYoutubePrefixed',
+            'slashFormatted','otherDotted','other']
+          const breakdown=report.unclassifiedLabelShapes
+          const shapeSafe=breakdown===null||
+            (breakdown&&typeof breakdown==='object'&&!Array.isArray(breakdown)
+              &&Object.keys(breakdown).length===shapeNames.length
+              &&shapeNames.every(k=>Number.isSafeInteger(breakdown[k])
+                &&breakdown[k]>=0)
+              &&shapeNames.reduce((s,k)=>s+breakdown[k],0)
+                ===report.unclassifiedMethodRequests)
           if(report.kind!=='moviehub-youtube-g2-api-traffic-readonly'
+            ||!shapeSafe
+            ||(report.unclassifiedMethodRequests!==null&&breakdown===null)
             ||report.quotaRemaining!==null
             ||report.actualSearchListRequests!==null
             ||report.externalConsumersFullyAccountedFor!==false
@@ -383,6 +395,9 @@ jobs:
               observed(report.observedOtherMethodRequests),
             '- Unknown or unlabeled method observations: '+
               observed(report.unclassifiedMethodRequests),
+            '- Unknown labels by structural bucket (no raw names): '+
+              (breakdown===null?'unknown':shapeNames.map(k=>
+                k+'='+breakdown[k]).join(', ')),
             '- Method labels present in all returned series: '+
               report.methodLabelsPresentForAllSeries,
             '- Distinct credential groups observed (IDs hidden): '+
