@@ -14,7 +14,8 @@ concurrency:
 jobs:
   youtube-first-fifty:
     name: Discover up to 50 distinct YouTube-owned movies, check TMDB candidates
-    if: github.ref == 'refs/heads/main'
+    # #388: suspended until search.list uses shared project-wide CAS admission.
+    if: false && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 18
     env:
