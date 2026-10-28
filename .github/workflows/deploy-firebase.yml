@@ -10,6 +10,10 @@ on:
       nightly_chain:
         type: boolean
         required: true
+      youtube_known_recheck:
+        type: string
+        required: false
+        default: 'unknown'
   workflow_dispatch:
     inputs:
       data_mode:
@@ -530,6 +534,23 @@ jobs:
         # Runs also when source selection or download fails, in order to
         # REMOVE any stale linkindex. Private QA is never placed under public/.
         run: node scripts/youtube-g2-best-effort-promote.mjs
+
+      # The same 00:10 parent run has completed the official no-search
+      # recheck, including all newly discovered candidates. Publish its
+      # strongly matched VIDEO links through the EXISTING best-effort badge
+      # route. This does not assert rent/buy/free, offer rights or DE playback.
+      - name: Download this-night authenticated known-video link projection
+        id: youtube_same_night_download
+        if: ${{ inputs.nightly_chain && inputs.youtube_known_recheck == 'success' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: youtube-g2-global-known-no-search-${{ github.run_id }}
+          path: artifacts/youtube-g2/same-run-known
+
+      - name: Attach same-night strong YouTube video matches to existing badges
+        id: youtube_same_night_promote
+        if: ${{ inputs.nightly_chain && inputs.youtube_known_recheck == 'success' }}
+        run: node scripts/youtube-g2-promote-same-night-best-effort.mjs
 
       - name: Build
         id: app_build
