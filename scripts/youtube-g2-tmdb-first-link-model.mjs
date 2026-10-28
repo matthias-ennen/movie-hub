@@ -120,7 +120,7 @@ export function exactDeYoutubeOfferTypes(watchProviders, youtubeProviderIds) {
 }
 
 function bestCandidate(rawVideo, tmdbFilm, observedAt) {
-  const video = normalizeYoutubeVideoCandidate(rawVideo, { observedAt })
+  const video = normalizeYoutubeVideoCandidate(rawVideo, { observedAt,allowExcludedDE:true })
   if (!video || !video.screening.eligible) return null
   const prepared = prepareYouTubeMovieSearchTitle(video.title)
   const assessment = scoreCandidateV11({
