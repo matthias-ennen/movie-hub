@@ -55,6 +55,7 @@ jobs:
           npx vitest run tests/youtube-g2-nightly-queue.test.js \
             tests/youtube-g2-nightly-discovery-live.test.js \
             tests/youtube-g2-nightly-failure-report.test.js \
+            tests/youtube-g2-nightly-search-journal.test.js \
             tests/youtube-g2-atomic-search-budget-ledger.test.js \
             tests/youtube-g2-tmdb-first-link-pilot.test.js
       - name: Authenticate trusted OIDC principal to read private GCS and research data
