@@ -1,4 +1,4 @@
-name: YouTube G2 – nightly quota-driven public-movie discovery (private, no offers)
+name: YouTube G2 – nightly bounded public-movie discovery (private, no offers)
 
 on:
   # Scheduled centrally by MovieHub Nightly Pipeline at 00:10 Berlin.
