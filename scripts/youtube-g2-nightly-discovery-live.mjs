@@ -329,7 +329,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
     console.error('G2 NIGHTLY DISCOVERY FAILED CLOSED: '+
       classifyNightlyFailure(error))
     try{
-      await recoverNightlyFailureReport({error})
+      await recoverNightlyFailureReport({error,realQuotaMode:true})
     }catch{
       console.error('G2 NIGHTLY RECOVERY AUDIT UNAVAILABLE')
     }
