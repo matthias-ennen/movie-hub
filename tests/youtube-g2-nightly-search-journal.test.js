@@ -83,7 +83,6 @@ describe('private live-nightly Google quota journal',()=>{
       status:'failed',dayLimit:null,selectedForSearch:2,
       searchCalls:2,successfulSearchCalls:1,uncertainSearchAttempts:1,
       durableAttemptCountKnown:true,actualSearchCallsMeasured:false,
-      productionWrites:undefined,
     })
     expect(r.firestoreWrites).toBe(0)
     expect(JSON.stringify(r)).not.toMatch(/PRIVATE_SECRET|tmdbId|videoId/)
