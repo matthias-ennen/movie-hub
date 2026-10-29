@@ -64,6 +64,28 @@ describe('safe end-of-chain adapter summary (#388)',()=>{
     expect(printed).toContain('Tatsächliche search.list-Versuche: 96')
     expect(printed).not.toMatch(/SHOULD_NOT_BE_INCLUDED|NOT_EXPORTED/)
   })
+  it('keeps a rate-limited yet cleanly terminated discovery visibly degraded',()=>{
+    const discovery={
+      kind:'moviehub-youtube-g2-nightly-budgeted-discovery',
+      status:'rate-limited-stalled',pacificDate:'2026-10-29',
+      quotaMode:'google-enforced-no-internal-daily-cap',dayLimit:null,
+      selectedForSearch:17,searchCalls:17,successfulSearchCalls:4,
+      rateLimitResponses:13,uncertainSearchAttempts:0,
+      quotaExceededConfirmed:false,
+      terminationReason:'youtube-search-rate-limit-not-confirmed-quota',
+    }
+    const report=buildNightlyReport({...base,sourceData:{...qa,discovery}})
+    expect(report.status).toBe('degraded')
+    expect(report.steps.discovery).toBe('success')
+    expect(report.youtubeDiscoveryQuota).toMatchObject({
+      status:'rate-limited-stalled',actualSearchAttempts:17,
+      successfulSearchCalls:4,rateLimitResponses:13,
+      quotaExceededConfirmed:false,
+    })
+    const printed=nightlyMarkdown(report)
+    expect(printed).toContain('Rate-Limit-Antworten: 13')
+    expect(printed).toContain('youtube-search-rate-limit-not-confirmed-quota')
+  })
   it('reports a quota-blocked discovery as degraded if known video and Firebase succeeded',()=>{
     const r=buildNightlyReport({...base,stages:{...base.stages,discovery:'failure'}})
     expect(r.status).toBe('degraded')
