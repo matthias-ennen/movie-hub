@@ -163,6 +163,38 @@ describe('scheduled nightly movie research: shared 50 PT calls and private resum
     })
     expect(svc.youtubeApi.mock.calls.filter(x=>x[0]==='search')).toHaveLength(2)
   })
+  it('accepts explicit quotaExceeded on HTTP 429 as a normal terminal condition',async()=>{
+    const b=await seededBucket(),svc=services()
+    svc.youtubeApi.mockRejectedValue(
+      Error('YouTube API: HTTP 429 bei search [QUOTA_EXHAUSTED]'))
+    const r=await runNightlyDiscovery({
+      publicIndex:publicIndex(),bucket:b,quotaObservationMode:true,
+      preflight:null,runId:630151,now:()=>NOW,wait:async()=>{},...svc,
+    })
+    expect(r).toMatchObject({
+      status:'quota-exhausted-confirmed',
+      quotaExceededConfirmed:true,searchCalls:1,
+      successfulSearchCalls:0,
+    })
+    expect(svc.youtubeApi).toHaveBeenCalledTimes(1)
+  })
+  it('holds a sustained rate limit with long backoff and counts every retry',async()=>{
+    const b=await seededBucket(),svc=services(),waits=[]
+    svc.youtubeApi.mockRejectedValue(
+      Error('YouTube API: HTTP 429 bei search [RATE_LIMITED]'))
+    await expect(runNightlyDiscovery({
+      publicIndex:publicIndex(),bucket:b,quotaObservationMode:true,
+      preflight:null,runId:630152,now:()=>NOW,
+      wait:async ms=>{waits.push(ms)},...svc,
+    })).rejects.toThrow('RATE_LIMITED')
+    expect(svc.youtubeApi).toHaveBeenCalledTimes(10)
+    expect(Math.max(...waits)).toBeGreaterThanOrEqual(180000)
+    const journal=JSON.parse([...b.objects].find(([k])=>
+      k.includes('private-nightly-search-journal'))[1].bytes.toString('utf8'))
+    expect(journal).toMatchObject({
+      attempts:10,successful:0,rateLimited:10,pendingAttempts:0,
+    })
+  })
   it('runs all eligible movies without requiring Monitoring evidence',async()=>{
     const b=await seededBucket(),svc=services()
     const r=await runNightlyDiscovery({
@@ -179,7 +211,8 @@ describe('scheduled nightly movie research: shared 50 PT calls and private resum
   it('rejects plain HTTP 403 and retries a transient rate-limit only within bounds',async()=>{
     for(const [message,expectedAttempts] of [
       ['YouTube API: HTTP 403 bei search [API_REQUEST_REJECTED]',1],
-      ['YouTube API: HTTP 429 bei search [RATE_LIMITED]',5],
+      ['YouTube API: HTTP 429 bei search [RATE_LIMITED]',10],
+      ['YouTube API: HTTP 503 bei search [API_REQUEST_REJECTED]',5],
     ]){
       const b=await seededBucket(),svc=services()
       svc.youtubeApi.mockRejectedValue(Error(message))
