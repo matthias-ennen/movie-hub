@@ -1,9 +1,9 @@
 /**
  * Scheduled, strictly read-only nightly discovery of previously unknown
- * PUBLIC YouTube-badged TMDB movies. Uses one PT-day GCS CAS reservation,
- * never Google-project quota guarantees. Progress survives crashes in a
- * private CAS queue; candidate VIDEO IDs are stored only in the private,
- * checksummed known-candidates checkpoint.
+ * PUBLIC YouTube-badged TMDB movies. The productive entrypoint delegates
+ * to the real Google-quota search loop and journals each API attempt in GCS.
+ * No local search-day ceiling; queue progress survives crashes, while
+ * candidate VIDEO IDs remain in the private checksummed checkpoint.
  *
  * This makes no DE-offer, film-cut, rights or playback-route approvals.
  */
