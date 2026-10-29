@@ -105,12 +105,15 @@ export async function runRealQuotaNightly({
     const done=journal.journal
     return protectedResult({...base,
       status:done.state==='quota-exhausted'
-        ?'quota-exhausted-confirmed':'completed',
+        ?'quota-exhausted-confirmed':done.state==='rate-limited'
+          ?'rate-limited-stalled':'completed',
       quotaExceededConfirmed:done.state==='quota-exhausted',
       selectedForSearch:done.attempts,searchCalls:done.attempts,
       successfulSearchCalls:done.successful,rateLimitResponses:done.rateLimited,
       uncertainSearchAttempts:done.uncertain+done.pendingAttempts,
-      terminationReason:'prior-run-journal-already-final'})
+      terminationReason:done.state==='rate-limited'
+        ?'youtube-search-rate-limit-not-confirmed-quota'
+        :'prior-run-journal-already-final'})
   }
   // GitHub job reruns share their run ID. Any pre-crash in-flight call
   // remains accounted for as uncertain rather than being refunded.
@@ -174,6 +177,14 @@ export async function runRealQuotaNightly({
         await wait(delay+Math.floor(Math.random()*1000))
         continue
       }
+      if(isRate(error)){
+        // Drosselung ist nicht das gleiche wie eine erschöpfte Tagesquote.
+        // Als Einschränkung beenden, ohne einen falschen Erfolg zu melden.
+        journal=await changeSearchJournal(bucket,journal,{
+          now:now(),runId,event:'rate-limited-stop',
+        })
+        throw Error('G2_NIGHTLY_RATE_LIMIT_STALLED')
+      }
       throw error
     }
   }
@@ -189,7 +200,8 @@ export async function runRealQuotaNightly({
     videoDetailCalls,checkedTmdbReads:tmdbReads,
     savedNewCandidateFilms,finishedWithoutCandidates,
     runCompletedFilms:completedFilms,
-    runUnfinishedFilms:status==='quota-exhausted-confirmed'?1:0,
+    runUnfinishedFilms:['quota-exhausted-confirmed',
+      'rate-limited-stalled'].includes(status)?1:0,
   })
   for(const tmdbId of eligible){
     if(pacificSearchDay(now()).date!==day.date)
@@ -209,6 +221,9 @@ export async function runRealQuotaNightly({
       if(isQuota(error))
         return report('quota-exhausted-confirmed',
           'youtube-search-list-403-quotaExceeded')
+      if(error?.message==='G2_NIGHTLY_RATE_LIMIT_STALLED')
+        return report('rate-limited-stalled',
+          'youtube-search-rate-limit-not-confirmed-quota')
       throw error
     }
     if(pilot.rows.length!==1||pilot.rows[0].tmdbId!==tmdbId
