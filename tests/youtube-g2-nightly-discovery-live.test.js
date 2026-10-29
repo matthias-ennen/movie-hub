@@ -182,18 +182,40 @@ describe('scheduled nightly movie research: shared 50 PT calls and private resum
     const b=await seededBucket(),svc=services(),waits=[]
     svc.youtubeApi.mockRejectedValue(
       Error('YouTube API: HTTP 429 bei search [RATE_LIMITED]'))
-    await expect(runNightlyDiscovery({
+    const result=await runNightlyDiscovery({
       publicIndex:publicIndex(),bucket:b,quotaObservationMode:true,
       preflight:null,runId:630152,now:()=>NOW,
       wait:async ms=>{waits.push(ms)},...svc,
-    })).rejects.toThrow('RATE_LIMITED')
+    })
+    expect(result).toMatchObject({
+      status:'rate-limited-stalled',quotaExceededConfirmed:false,
+      searchCalls:10,rateLimitResponses:10,
+      successfulSearchCalls:0,
+      terminationReason:'youtube-search-rate-limit-not-confirmed-quota',
+    })
     expect(svc.youtubeApi).toHaveBeenCalledTimes(10)
     expect(Math.max(...waits)).toBeGreaterThanOrEqual(180000)
     const journal=JSON.parse([...b.objects].find(([k])=>
       k.includes('private-nightly-search-journal'))[1].bytes.toString('utf8'))
     expect(journal).toMatchObject({
-      attempts:10,successful:0,rateLimited:10,pendingAttempts:0,
+      state:'rate-limited',attempts:10,successful:0,
+      rateLimited:10,pendingAttempts:0,quotaRejected:0,
     })
+  })
+  it('does not retry an already finalized rate-limited GitHub run',async()=>{
+    const b=await seededBucket(),svc=services()
+    svc.youtubeApi.mockRejectedValue(Error('YouTube API: HTTP 429 bei search [RATE_LIMITED]'))
+    const opts={publicIndex:publicIndex(),bucket:b,quotaObservationMode:true,
+      preflight:null,runId:630153,now:()=>NOW,wait:async()=>{},...svc}
+    const first=await runNightlyDiscovery(opts)
+    expect(first).toMatchObject({status:'rate-limited-stalled',searchCalls:10})
+    svc.youtubeApi.mockClear()
+    const second=await runNightlyDiscovery(opts)
+    expect(second).toMatchObject({
+      status:'rate-limited-stalled',quotaExceededConfirmed:false,
+      searchCalls:10,terminationReason:'youtube-search-rate-limit-not-confirmed-quota',
+    })
+    expect(svc.youtubeApi).not.toHaveBeenCalled()
   })
   it('runs all eligible movies without requiring Monitoring evidence',async()=>{
     const b=await seededBucket(),svc=services()
@@ -211,7 +233,6 @@ describe('scheduled nightly movie research: shared 50 PT calls and private resum
   it('rejects plain HTTP 403 and retries a transient rate-limit only within bounds',async()=>{
     for(const [message,expectedAttempts] of [
       ['YouTube API: HTTP 403 bei search [API_REQUEST_REJECTED]',1],
-      ['YouTube API: HTTP 429 bei search [RATE_LIMITED]',10],
       ['YouTube API: HTTP 503 bei search [API_REQUEST_REJECTED]',5],
     ]){
       const b=await seededBucket(),svc=services()
