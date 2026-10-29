@@ -23,11 +23,11 @@ concurrency:
 jobs:
   api-diagnostic:
     name: Compare search.list with videos.list every 20 minutes
-    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' }
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 270
     env:
-      YT_DIAG_DURATION_MINUTES: ${{ inputs.duration_minutes }
+      YT_DIAG_DURATION_MINUTES: ${{ inputs.duration_minutes }}
       GOOGLE_CLOUD_PROJECT: movie-hub-62459
     steps:
       - uses: actions/checkout@v7
@@ -50,10 +50,10 @@ jobs:
       - name: Probe same-key YouTube search and videos.list at 20-minute intervals
         run: node scripts/youtube-g2-search-api-diagnostic.mjs
       - name: Upload sanitized samples even if interrupted
-        if: ${{ always() }
+        if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: youtube-g2-search-api-diagnostic-${{ github.run_id }
+          name: youtube-g2-search-api-diagnostic-${{ github.run_id }}
           path: artifacts/youtube-g2/search-api-diagnostic/
           if-no-files-found: warn
           retention-days: 14
