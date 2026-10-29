@@ -26,6 +26,8 @@ import {pacificSearchDay}
   from './youtube-g2-pacific-search-preflight.mjs'
 import {recoverNightlyFailureReport,classifyNightlyFailure}
   from './youtube-g2-nightly-failure-report.mjs'
+import {runRealQuotaNightly}
+  from './youtube-g2-real-quota-nightly.mjs'
 import {
   verifyBudgetPreflight,isDegradedOneSearchPreflight,
   loadBudgetLedger,reserveWithAtomicGcs,ADAPTER_SEARCH_DAY_CAP,
@@ -68,6 +70,10 @@ export async function runNightlyDiscovery({
     ||typeof tmdbGet!=='function'||typeof youtubeApi!=='function'
     ||bucket?.name!=='movie-hub-62459-nightly-checkpoints')
     throw Error('G2_NIGHTLY_RUNNER_CONTEXT_INVALID')
+  if(quotaObservationMode)
+    return runRealQuotaNightly({
+      publicIndex,bucket,tmdbGet,youtubeApi,runId,now,wait,
+    })
   const startedAt=now()
   const {day,degradedOneSearch}=quotaObservationMode
     ?{day:pacificSearchDay(startedAt),degradedOneSearch:false}
