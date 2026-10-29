@@ -130,7 +130,7 @@ jobs:
             '- Published DE offers, badges and direct playback routes: **0**',
             '- Private IDs and API credentials: not exported',
           ]
-          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\\n')+'\\n')
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n')
           console.log(JSON.stringify({pacificDay:r.pacificDate,
             attempts:r.searchCalls,successes:r.successfulSearchCalls,
             quotaExceededConfirmed:r.quotaExceededConfirmed===true,
