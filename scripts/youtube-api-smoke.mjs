@@ -40,6 +40,23 @@ export function getSecret() {
   return secret
 }
 
+// Accept only a numeric seconds hint or a well-formed HTTP-date. Do not
+// persist or print the raw header. A bounded hint never implies quota reset.
+export function safeYoutubeRetryAfterMs(headers,nowMs=Date.now()){
+  const raw=headers?.get?.('retry-after')
+  if(typeof raw!=='string'||raw.length>64)return null
+  const trimmed=raw.trim()
+  let ms=null
+  if(/^\d{1,8}$/.test(trimmed)){
+    ms=Number(trimmed)*1000
+  }else if(/^[A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(trimmed)){
+    const timestamp=Date.parse(trimmed)
+    if(Number.isFinite(timestamp))ms=Math.max(0,timestamp-nowMs)
+  }
+  return ms!==null&&Number.isSafeInteger(ms)&&ms>=0
+    ?Math.min(ms,3600000):null
+}
+
 export async function youtubeGet(endpoint, params, key, fetchImpl = fetch) {
   const url = new URL('https://www.googleapis.com/youtube/v3/' + endpoint)
   for (const [name, value] of Object.entries(params)) url.searchParams.set(name, String(value))
@@ -81,8 +98,15 @@ export async function youtubeGet(endpoint, params, key, fetchImpl = fetch) {
     } catch {
       // A malformed/HTML error response must not hide the HTTP status.
     }
-    throw new Error('YouTube API: HTTP ' + response.status + ' bei ' + endpoint
+    const failure=new Error('YouTube API: HTTP ' + response.status + ' bei ' + endpoint
       + ' [' + failureClass + ']. API-Quota und Key-Restriktion prüfen; kein automatischer Retry.')
+    // Sanitized metadata for the caller's retry scheduler and counts-only
+    // GCS audit. Never attach request URLs, raw errors or secret headers.
+    failure.youtubeHttpStatus=response.status
+    failure.youtubeFailureClass=failureClass
+    const retryAfterMs=safeYoutubeRetryAfterMs(response.headers)
+    if(retryAfterMs!==null)failure.retryAfterMs=retryAfterMs
+    throw failure
   }
   const data = await response.json()
   if (!data || !Array.isArray(data.items)) throw new Error('YouTube API: Antwort ohne items bei ' + endpoint)
