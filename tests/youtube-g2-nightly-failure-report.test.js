@@ -79,7 +79,7 @@ describe('anonymized YouTube nightly budget audit after a FAILED research job',(
       error:Error('HTTP 429: Authorization Bearer PRIVATE_SECRET'),
     })
     expect(report).toMatchObject({
-      status:'failed',failureCategory:'youtube-rate-limit',
+      status:'failed',failureCategory:'checkpoint-storage-transient',
       dayLimit:200,priorReserved:3,selectedForSearch:4,
       sharedDayReserved:7,searchCalls:null,
       actualSearchCallsMeasured:false,videoDetailCalls:null,
@@ -135,7 +135,7 @@ describe('anonymized YouTube nightly budget audit after a FAILED research job',(
   })
   it('uses finite public failure categories instead of copying sensitive messages',()=>{
     for(const [message,expected] of [
-      ['YouTube HTTP 429','youtube-rate-limit'],
+      ['YouTube HTTP 429','checkpoint-storage-transient'],
       ['403 PERMISSION_DENIED','authorization-or-api-block'],
       ['CAS 412','checkpoint-consistency'],
       ['YOUTUBE_RESEARCH_SEARCH_PREFLIGHT_NOT_TRUSTED','quota-preflight-or-monitoring'],
