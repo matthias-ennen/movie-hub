@@ -64,6 +64,8 @@ export async function runRealQuotaNightly({
     quotaExceededConfirmed:false,successfulSearchCalls:0,
     selectedForSearch:0,searchCalls:0,rateLimitResponses:0,
     uncertainSearchAttempts:0,videoDetailCalls:0,
+    rateLimitHttp429:0,rateLimitHttp403:0,rateLimitUnclassified:0,
+    rateLimitRetryAfterHints:0,rateLimitFirstAt:null,rateLimitLastAt:null,
     publicBadgeFilms:plan.totalPublicBadgeMovies,
     previouslyKnownVideoFilms:plan.knownCandidateMovies,
     stillEligible:plan.pendingMovies,checkedNoOffer:0,
