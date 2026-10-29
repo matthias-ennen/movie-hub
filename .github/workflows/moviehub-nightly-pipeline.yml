@@ -7,6 +7,12 @@ on:
     - cron: '10 0 * * *'
       timezone: Europe/Berlin
   workflow_dispatch:
+  # A narrowly scoped, explicitly marked one-off commit may launch a genuine
+  # workflow_dispatch of THIS central chain. Ordinary pushes do not run it.
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/moviehub-nightly-pipeline.yml
 
 permissions:
   actions: read
@@ -18,9 +24,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  dispatch-one-off:
+    name: Trigger one complete central night via workflow_dispatch
+    if: >-
+      ${{ github.ref == 'refs/heads/main' &&
+          github.event_name == 'push' &&
+          contains(github.event.head_commit.message, '[moviehub-nightly-sim-once]') }}
+    permissions:
+      actions: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch the existing full-chain workflow, not individual jobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh workflow run moviehub-nightly-pipeline.yml --ref main
+          echo 'Requested exactly one complete MovieHub Nightly Pipeline via workflow_dispatch.'
+
   night-gate:
     name: Enforce one trusted scheduled night per Berlin day
-    if: ${{ github.ref == 'refs/heads/main' }}
+    if: >-
+      ${{ github.ref == 'refs/heads/main' &&
+          (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     outputs:
       should_run: ${{ steps.gate.outputs.should_run }}
