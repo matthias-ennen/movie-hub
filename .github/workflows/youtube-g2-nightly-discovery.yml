@@ -15,6 +15,9 @@ on:
     paths:
       - .github/workflows/youtube-g2-nightly-discovery.yml
       - scripts/youtube-g2-nightly-discovery-live.mjs
+      - scripts/youtube-g2-real-quota-nightly.mjs
+      - scripts/youtube-g2-nightly-search-journal.mjs
+      - scripts/youtube-g2-nightly-failure-report.mjs
 
 permissions:
   contents: read
