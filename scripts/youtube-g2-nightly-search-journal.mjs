@@ -17,13 +17,14 @@ const nameFor=(day,runId)=>SEARCH_JOURNAL_PREFIX+day.date+'/'+runId+'.json'
 export function validateSearchJournal(value,{day,runId}={}){
   if(value?.kind!==SEARCH_JOURNAL_KIND||value.schemaVersion!==1
     ||value.pacificDate!==day?.date||value.runId!==runId
-    ||!['running','completed','quota-exhausted'].includes(value.state)
+    ||!['running','completed','quota-exhausted','rate-limited'].includes(value.state)
     ||!['attempts','successful','quotaRejected','rateLimited',
       'failed','pendingAttempts','uncertain'].every(k=>validCount(value[k]))
     ||value.attempts!==value.successful+value.quotaRejected+
       value.rateLimited+value.failed+value.pendingAttempts+value.uncertain
     ||value.quotaRejected>1
     ||value.state==='quota-exhausted'&&value.quotaRejected!==1
+    ||value.state==='rate-limited'&&(value.rateLimited<1||value.quotaRejected!==0)
     ||value.state!=='running'&&value.pendingAttempts!==0)
     throw Error('G2_NIGHTLY_SEARCH_JOURNAL_NOT_TRUSTED')
   return copy(value)
@@ -75,6 +76,11 @@ export async function changeSearchJournal(bucket,snapshot,{now,runId,event}={}){
     if(next.state!=='running')throw Error('G2_NIGHTLY_SEARCH_RECOVERY_UNSAFE')
     next.uncertain+=next.pendingAttempts
     next.pendingAttempts=0
+  }else if(event==='rate-limited-stop'){
+    if(next.state!=='running'||next.pendingAttempts!==0
+      ||next.rateLimited<1||next.quotaRejected!==0)
+      throw Error('G2_NIGHTLY_SEARCH_RATE_LIMIT_STOP_UNSAFE')
+    next.state='rate-limited'
   }else if(event==='complete'){
     if(next.state!=='running'||next.pendingAttempts!==0)
       throw Error('G2_NIGHTLY_SEARCH_COMPLETION_UNSAFE')
@@ -90,7 +96,7 @@ export async function changeSearchJournal(bucket,snapshot,{now,runId,event}={}){
   // and those downloads coincided with noisy listener warnings.
   // Read the new generation for the next CAS write; perform full document
   // readback at initialization and at both terminal states.
-  if(['init','quota','complete'].includes(event)){
+  if(['init','quota','complete','rate-limited-stop'].includes(event)){
     const current=await loadSearchJournal(bucket,{now,runId})
     if(JSON.stringify(current.journal)!==JSON.stringify(next))
       throw Error('G2_NIGHTLY_SEARCH_JOURNAL_READBACK_MISMATCH')
