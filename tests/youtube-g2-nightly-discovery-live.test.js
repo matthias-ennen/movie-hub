@@ -133,66 +133,68 @@ describe('scheduled nightly movie research: shared 50 PT calls and private resum
     const candidates=await loadDurableCandidateCheckpoint(b)
     expect(candidates.checkpoint.entries).toHaveLength(1)
   })
-  it('stops ONLY on confirmed Google search quotaExceeded and counts the rejected attempt',async()=>{
+  it('stops on confirmed Google quota and journals every attempted search',async()=>{
     const b=await seededBucket(),svc=services()
-    let successes=0
+    let calls=0
     svc.youtubeApi.mockImplementation(async endpoint=>{
       if(endpoint==='search'){
-        if(++successes===2)
+        if(++calls===2)
           throw Error('YouTube API: HTTP 403 bei search [QUOTA_EXHAUSTED]. Kein Retry.')
         return {items:[]}
       }
-      if(endpoint==='videos')return {items:[]}
-      throw Error('unexpected endpoint')
+      return {items:[]}
     })
     const r=await runNightlyDiscovery({
       publicIndex:publicIndex(),bucket:b,preflight:null,
       quotaObservationMode:true,runId:630101,now:()=>NOW,wait:async()=>{},...svc,
     })
     expect(r).toMatchObject({
-      dayLimit:200,quotaMode:'real-google-quota-until-confirmed-403',
+      dayLimit:null,quotaMode:'google-enforced-no-internal-daily-cap',
       status:'quota-exhausted-confirmed',quotaExceededConfirmed:true,
       searchCalls:2,successfulSearchCalls:1,
-      selectedForSearch:2,priorReserved:0,
+      selectedForSearch:2,priorReserved:null,
       terminationReason:'youtube-search-list-403-quotaExceeded',
       publicationPermitted:false,independentlyVerifiedDEOffers:0,
-      firestoreWrites:0,catalogWrites:0,providerWrites:0,
+    })
+    const journals=[...b.objects].filter(([k])=>k.includes('private-nightly-search-journal'))
+    expect(journals).toHaveLength(1)
+    expect(JSON.parse(journals[0][1].bytes.toString('utf8'))).toMatchObject({
+      attempts:2,successful:1,quotaRejected:1,state:'quota-exhausted',
     })
     expect(svc.youtubeApi.mock.calls.filter(x=>x[0]==='search')).toHaveLength(2)
-    const ledger=JSON.parse([...b.objects].find(([k])=>
-      k.includes('private-search-budget'))[1].bytes.toString('utf8'))
-    expect(ledger.totalConservativelyReserved).toBe(2)
-    expect(ledger.adapterDayCap).toBe(200)
-    const q=(await loadNightlyQueue(b)).queue
-    expect(q.entries.find(x=>x.tmdbId===102).state).toBe('no-video-candidates')
-    expect(q.entries.find(x=>x.tmdbId===104).state).toBe('started')
   })
-  it('runs quota observation without stale Monitoring and does not falsely infer exhaustion',async()=>{
+  it('runs all eligible movies without requiring Monitoring evidence',async()=>{
     const b=await seededBucket(),svc=services()
     const r=await runNightlyDiscovery({
       publicIndex:publicIndex(),bucket:b,quotaObservationMode:true,
       preflight:null,runId:630201,now:()=>NOW,wait:async()=>{},...svc,
     })
     expect(r).toMatchObject({
-      quotaMode:'real-google-quota-until-confirmed-403',
+      quotaMode:'google-enforced-no-internal-daily-cap',
       searchCalls:2,successfulSearchCalls:2,quotaExceededConfirmed:false,
       status:'completed',
       terminationReason:'eligible-tmdb-film-candidates-exhausted',
     })
   })
-  it('does not mistake plain HTTP 403 or transient rate limit for quotaExceeded',async()=>{
-    for(const message of ['YouTube API: HTTP 403 bei search [API_REQUEST_REJECTED]',
-      'YouTube API: HTTP 429 bei search [RATE_LIMITED]']){
+  it('rejects plain HTTP 403 and retries a transient rate-limit only within bounds',async()=>{
+    for(const [message,expectedAttempts] of [
+      ['YouTube API: HTTP 403 bei search [API_REQUEST_REJECTED]',1],
+      ['YouTube API: HTTP 429 bei search [RATE_LIMITED]',5],
+    ]){
       const b=await seededBucket(),svc=services()
       svc.youtubeApi.mockRejectedValue(Error(message))
       await expect(runNightlyDiscovery({
         publicIndex:publicIndex(),bucket:b,quotaObservationMode:true,
         preflight:null,runId:630301,now:()=>NOW,wait:async()=>{},...svc,
       })).rejects.toThrow(message)
-      expect(svc.youtubeApi).toHaveBeenCalledTimes(1)
+      expect(svc.youtubeApi).toHaveBeenCalledTimes(expectedAttempts)
+      const journal=JSON.parse([...b.objects].find(([k])=>
+        k.includes('private-nightly-search-journal'))[1].bytes.toString('utf8'))
+      expect(journal.attempts).toBe(expectedAttempts)
+      expect(journal.pendingAttempts).toBe(0)
     }
   })
-  it('inherits the existing 50-call Pacific ledger instead of duplicating day budget',async()=>{
+  it('ignores earlier manual reservations because only Google enforces live quota',async()=>{
     const b=await seededBucket(),svc=services()
     await reserveWithAtomicGcs(b,{
       now:NOW,runId:630401,calls:50,preflight:preflight(),
@@ -202,13 +204,13 @@ describe('scheduled nightly movie research: shared 50 PT calls and private resum
       preflight:null,runId:630402,now:()=>NOW,wait:async()=>{},...svc,
     })
     expect(r).toMatchObject({
-      dayLimit:200,priorReserved:50,selectedForSearch:2,searchCalls:2,
+      dayLimit:null,priorReserved:null,selectedForSearch:2,searchCalls:2,
       successfulSearchCalls:2,quotaExceededConfirmed:false,
     })
     const ledger=JSON.parse([...b.objects].find(([k])=>
       k.includes('private-search-budget'))[1].bytes.toString('utf8'))
-    expect(ledger.totalConservativelyReserved).toBe(52)
-    expect(ledger.reservations).toHaveLength(2)
+    expect(ledger.totalConservativelyReserved).toBe(50)
+    expect(ledger.reservations).toHaveLength(1)
   })
   it('honors an already exhausted daily shared ledger without asking YouTube or TMDB',async()=>{
     const b=await seededBucket(),s=services()
