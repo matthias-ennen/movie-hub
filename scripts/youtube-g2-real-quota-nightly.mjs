@@ -18,9 +18,14 @@ import {pacificSearchDay} from './youtube-g2-pacific-search-preflight.mjs'
 
 export const REAL_QUOTA_MAX_PREFLIGHT_FILMS=600
 export const REAL_QUOTA_MIN_SEARCH_INTERVAL_MS=2000
+// Temporary throttling must get a meaningful cooldown. A 429 without an
+// explicit quotaExceeded reason is not proof the daily allowance has ended.
+export const REAL_QUOTA_MAX_RATE_LIMIT_RETRIES=9
+export const REAL_QUOTA_MAX_TRANSIENT_RETRIES=4
+export const REAL_QUOTA_MAX_RATE_BACKOFF_MS=180000
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms))
 const isQuota=error=>
-  /^YouTube API: HTTP 403 bei search \[QUOTA_EXHAUSTED\]/.test(String(error?.message))
+  /^YouTube API: HTTP (?:403|429) bei search \[QUOTA_EXHAUSTED\]/.test(String(error?.message))
 const isRate=error=>
   /^YouTube API: HTTP (?:403|429) bei search \[(?:RATE_LIMITED|RATE_LIMIT_OR_QUOTA_UNCLASSIFIED|QUOTA_OR_RATE_LIMIT)\]/.test(String(error?.message))
 const isTemporary=error=>
@@ -113,7 +118,8 @@ export async function runRealQuotaNightly({
     journal=await changeSearchJournal(bucket,journal,{
       now:now(),runId,event:'recover',
     })
-  let lastSearchAt=null,videoDetailCalls=0,savedNewCandidateFilms=0
+  let lastSearchAt=null,adaptiveIntervalMs=REAL_QUOTA_MIN_SEARCH_INTERVAL_MS
+  let videoDetailCalls=0,savedNewCandidateFilms=0
   let finishedWithoutCandidates=0,completedFilms=0
 
   const search=async(endpoint,params)=>{
@@ -127,11 +133,11 @@ export async function runRealQuotaNightly({
       throw Error('G2_NIGHTLY_YOUTUBE_ENDPOINT_FORBIDDEN')
     // A throttled or transient error may be retried; every network attempt is
     // individually journaled. A confirmed daily quota error is NEVER retried.
-    for(let retry=0;retry<=4;retry++){
+    for(let retry=0;retry<=REAL_QUOTA_MAX_RATE_LIMIT_RETRIES;retry++){
       if(pacificSearchDay(now()).date!==day.date)
         throw Error('G2_NIGHTLY_PACIFIC_DAY_CHANGED_MID_RUN')
       if(lastSearchAt!==null){
-        const pause=Math.max(0,REAL_QUOTA_MIN_SEARCH_INTERVAL_MS-
+        const pause=Math.max(0,adaptiveIntervalMs-
           (Date.now()-lastSearchAt))
         if(pause>0)await wait(pause)
       }
@@ -147,10 +153,25 @@ export async function runRealQuotaNightly({
         event:!error?'success':isQuota(error)?'quota':
           isRate(error)?'rate-limit':'failed',
       })
-      if(!error)return answer
-      if((isRate(error)||isTemporary(error))&&retry<4){
-        await wait(Math.min(16000,2000*2**retry)+
-          Math.floor(Math.random()*1000))
+      if(!error){
+        // Gradually return to normal search speed only after real successes.
+        adaptiveIntervalMs=Math.max(REAL_QUOTA_MIN_SEARCH_INTERVAL_MS,
+          Math.floor(adaptiveIntervalMs*0.8))
+        return answer
+      }
+      if(isRate(error)){
+        adaptiveIntervalMs=Math.min(30000,
+          Math.max(5000,adaptiveIntervalMs*2))
+      }
+      const maxRetries=isRate(error)
+        ?REAL_QUOTA_MAX_RATE_LIMIT_RETRIES:REAL_QUOTA_MAX_TRANSIENT_RETRIES
+      if((isRate(error)||isTemporary(error))&&retry<maxRetries){
+        // Do not hammer Google when its 429 is sustained. Every retry
+        // remains individually persisted as a separate API attempt.
+        const delay=isRate(error)
+          ?Math.min(REAL_QUOTA_MAX_RATE_BACKOFF_MS,3000*2**retry)
+          :Math.min(16000,2000*2**retry)
+        await wait(delay+Math.floor(Math.random()*1000))
         continue
       }
       throw error
