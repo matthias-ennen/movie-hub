@@ -71,6 +71,11 @@ describe('safe end-of-chain adapter summary (#388)',()=>{
       quotaMode:'google-enforced-no-internal-daily-cap',dayLimit:null,
       selectedForSearch:17,searchCalls:17,successfulSearchCalls:4,
       rateLimitResponses:13,uncertainSearchAttempts:0,
+      rateLimitHttp429:12,rateLimitHttp403:1,
+      rateLimitUnclassified:3,rateLimitRetryAfterHints:2,
+      rateLimitFirstAt:'2026-10-29T12:03:04.000Z',
+      rateLimitLastAt:'2026-10-29T13:03:04.000Z',
+      secret:'PRIVATE_NEVER_EXPORT',
       quotaExceededConfirmed:false,
       terminationReason:'youtube-search-rate-limit-not-confirmed-quota',
     }
@@ -80,11 +85,19 @@ describe('safe end-of-chain adapter summary (#388)',()=>{
     expect(report.youtubeDiscoveryQuota).toMatchObject({
       status:'rate-limited-stalled',actualSearchAttempts:17,
       successfulSearchCalls:4,rateLimitResponses:13,
+      rateLimitHttp429:12,rateLimitHttp403:1,
+      rateLimitUnclassified:3,rateLimitRetryAfterHints:2,
+      rateLimitFirstAt:'2026-10-29T12:03:04.000Z',
+      rateLimitLastAt:'2026-10-29T13:03:04.000Z',
       quotaExceededConfirmed:false,
     })
     const printed=nightlyMarkdown(report)
     expect(printed).toContain('Rate-Limit-Antworten: 13')
+    expect(printed).toContain('HTTP 429 / 403 Drosselungen: 12 / 1')
+    expect(printed).toContain('Retry-After-Hinweise von Google: 2')
+    expect(printed).toContain('2026-10-29T13:03:04.000Z')
     expect(printed).toContain('youtube-search-rate-limit-not-confirmed-quota')
+    expect(JSON.stringify(report)+printed).not.toContain('PRIVATE_NEVER_EXPORT')
   })
   it('reports a quota-blocked discovery as degraded if known video and Firebase succeeded',()=>{
     const r=buildNightlyReport({...base,stages:{...base.stages,discovery:'failure'}})
