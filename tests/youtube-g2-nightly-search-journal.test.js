@@ -7,8 +7,8 @@ import {buildFailedNightlySummary,classifyNightlyFailure}
 const NOW='2026-10-25T18:00:00.000Z',RUN=779001
 const bucket=()=>{
   const objects=new Map()
-  return {
-    name:'movie-hub-62459-nightly-checkpoints',objects,
+  const result={
+    name:'movie-hub-62459-nightly-checkpoints',objects,downloadCount:0,
     file(name,options={}){
       return {
         async getMetadata(){
@@ -17,6 +17,7 @@ const bucket=()=>{
           return [{generation:String(o.generation)}]
         },
         async download(){
+          result.downloadCount++
           const o=objects.get(name)
           if(!o||options.generation&&String(options.generation)!==String(o.generation))
             throw Object.assign(Error('missing'),{code:404})
@@ -31,6 +32,7 @@ const bucket=()=>{
       }
     },
   }
+  return result
 }
 const advance=(b,s,event)=>changeSearchJournal(b,s,{now:NOW,runId:RUN,event})
 
@@ -52,6 +54,19 @@ describe('private live-nightly Google quota journal',()=>{
       .toEqual(x.journal)
     await expect(advance(b,x,'attempt')).rejects.toThrow('G2_NIGHTLY_SEARCH_AFTER_STOP')
     expect(JSON.stringify(x.journal)).not.toMatch(/tmdbId|videoId|secret|https?:/)
+  })
+  it('avoids a full GCS download on every attempt while retaining CAS readback',async()=>{
+    const b=bucket()
+    let x=await ensureSearchJournal(b,{now:NOW,runId:RUN})
+    const initialDownloads=b.downloadCount
+    x=await advance(b,x,'attempt')
+    x=await advance(b,x,'success')
+    expect(b.downloadCount).toBe(initialDownloads)
+    x=await advance(b,x,'complete')
+    expect(b.downloadCount).toBe(initialDownloads+1)
+    expect(x.journal).toMatchObject({
+      state:'completed',attempts:1,successful:1,pendingAttempts:0,
+    })
   })
   it('preserves uncertain attempts on a crashed or retried run',async()=>{
     const b=bucket()
