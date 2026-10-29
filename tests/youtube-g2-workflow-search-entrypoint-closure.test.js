@@ -36,6 +36,7 @@ const reviewed=Object.freeze([
   "youtube-g2-private-candidate-checkpoint",
   "youtube-g2-quota-readonly-audit",
   "youtube-g2-recovery-badge-bridge",
+  "youtube-g2-search-api-diagnostic",
   "youtube-g2-six-offline-evidence",
   "youtube-g2-tmdb-first-known-videos-refresh",
   "youtube-g2-tmdb-first-link-pilot",
@@ -59,6 +60,9 @@ const conservativeLive=new Map([
   ['youtube-g2-nightly-discovery',['youtube-g2-nightly-discovery-live','reserveWithAtomicGcs']],
   ['youtube-g2-five-search-public-batch',['youtube-g2-five-search-public-batch','admitPreparedFiveSearches']],
   ['youtube-g2-full-catalog-queue',['youtube-g2-full-catalog-queue-live','admitPreparedOneSearchPlan']],
+])
+const diagnostic=new Map([
+  ['youtube-g2-search-api-diagnostic','youtube-g2-search-api-diagnostic'],
 ])
 const disabled=new Map([
   ['youtube-movies-all-categories-hundred-g1','youtube-movies-all-categories-hundred-g1'],
@@ -87,7 +91,7 @@ describe('YouTube #388 workflow entrypoint budget closure',()=>{
       .filter(n=>/^youtube.*\.yml$/.test(n)).map(n=>n.slice(0,-4)).sort()
     expect(actual).toEqual([...reviewed].sort())
     expect(new Set(reviewed).size).toBe(reviewed.length)
-    expect(reviewed).toHaveLength(44)
+    expect(reviewed).toHaveLength(45)
   })
   it('keeps all six historical search jobs inactive at job boundary',()=>{
     expect(disabled.size).toBe(6)
@@ -111,8 +115,22 @@ describe('YouTube #388 workflow entrypoint budget closure',()=>{
     expect(preflight).toContain('RESEARCH_DAY_CAP=50')
     expect(ledger).toContain('DEGRADED_ONE_SEARCH_DAY_CAP=1')
   })
+  it('allows exactly one human-triggered and tightly bounded API diagnosis outside production',()=>{
+    expect(diagnostic.size).toBe(1)
+    const yml=workflow('youtube-g2-search-api-diagnostic')
+    expect(yml).toContain('  workflow_dispatch:')
+    expect(yml).not.toMatch(/^  schedule:|^  push:/m)
+    expect(yml).toContain("github.event_name == 'workflow_dispatch'")
+    expect(yml).toContain('timeout-minutes: 270')
+    expect(yml).toContain('run: node scripts/youtube-g2-search-api-diagnostic.mjs')
+    const src=script('youtube-g2-search-api-diagnostic')
+    expect(src).toContain('DIAG_DURATIONS=Object.freeze([60,240])')
+    expect(src).toContain('DIAG_INTERVAL_MINUTES=20')
+    expect(src).toContain("apiCall('search'")
+    expect(src).not.toMatch(/(?:getStorage|firebase-admin|firestoreWrites|catalogWrites|badgeWrites|youtube-g2-nightly-search-journal)/)
+  })
   it('keeps other reviewed entrypoint runner scripts free of direct search transport',()=>{
-    const unclassified=reviewed.filter(n=>!disabled.has(n)&&!conservativeLive.has(n))
+    const unclassified=reviewed.filter(n=>!disabled.has(n)&&!conservativeLive.has(n)&&!diagnostic.has(n))
     expect(unclassified).toHaveLength(35)
     for(const name of unclassified){
       const yml=workflow(name)
