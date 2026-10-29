@@ -23,16 +23,16 @@ export const FAILURE_REPORT_PATH='artifacts/youtube-g2/nightly-discovery/summary
 export function classifyNightlyFailure(error){
   const message=String(error?.message||'')
   // Do not call a Cloud Storage 429 or RESOURCE_EXHAUSTED a YouTube rate-limit.
-  if(/^YouTube API: HTTP (?:403|429) bei search \\[(?:RATE_LIMITED|RATE_LIMIT_OR_QUOTA_UNCLASSIFIED|QUOTA_OR_RATE_LIMIT)\\]/.test(message))
+  if(/^YouTube API: HTTP (?:403|429) bei search \[(?:RATE_LIMITED|RATE_LIMIT_OR_QUOTA_UNCLASSIFIED|QUOTA_OR_RATE_LIMIT)\]/.test(message))
     return 'youtube-rate-limit'
-  if(/^YouTube API: HTTP 403 bei search \\[QUOTA_EXHAUSTED\\]/.test(message))
+  if(/^YouTube API: HTTP 403 bei search \[QUOTA_EXHAUSTED\]/.test(message))
     return 'youtube-quota-exhausted-unexpected'
   if(/^YouTube API:/.test(message)
-    ||/(?:^|\\b)(?:403|PERMISSION_DENIED|UNAUTHENTICATED)(?:\\b|_)/i.test(message))
+    ||/(?:^|\b)(?:403|PERMISSION_DENIED|UNAUTHENTICATED)(?:\b|_)/i.test(message))
     return 'authorization-or-api-block'
-  if(/(?:CAS|GENERATION|READBACK|\\b412\\b|PRECONDITION)/i.test(message))
+  if(/(?:CAS|GENERATION|READBACK|\b412\b|PRECONDITION)/i.test(message))
     return 'checkpoint-consistency'
-  if(/(?:RESOURCE_EXHAUSTED|\\b429\\b|GCS|STORAGE|DOWNLOAD|UPLOAD)/i.test(message))
+  if(/(?:RESOURCE_EXHAUSTED|\b429\b|GCS|STORAGE|DOWNLOAD|UPLOAD)/i.test(message))
     return 'checkpoint-storage-transient'
   if(/(?:PREFLIGHT|MONITOR|TELEMETRY|QUOTA)/i.test(message))
     return 'quota-preflight-or-monitoring'
