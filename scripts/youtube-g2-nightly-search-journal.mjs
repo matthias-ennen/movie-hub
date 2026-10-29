@@ -87,7 +87,7 @@ export async function changeSearchJournal(bucket,snapshot,{now,runId,event}={}){
   })
   // The fulfilled conditional upload is durable. Avoid downloading the
   // complete object after EACH request: this loop runs hundreds of times,
-  // and repeated GCS stream downloads caused noisy listener warnings.
+  // and those downloads coincided with noisy listener warnings.
   // Read the new generation for the next CAS write; perform full document
   // readback at initialization and at both terminal states.
   if(['init','quota','complete'].includes(event)){
@@ -98,7 +98,7 @@ export async function changeSearchJournal(bucket,snapshot,{now,runId,event}={}){
   }
   const [metadata]=await bucket.file(snapshot.name).getMetadata()
   const generation=String(metadata?.generation)
-  if(!/^\\d+$/.test(generation)
+  if(!/^\d+$/.test(generation)
     ||!Number.isSafeInteger(Number(generation))
     ||generation===snapshot.generation)
     throw Error('G2_NIGHTLY_SEARCH_JOURNAL_GENERATION_INVALID')
