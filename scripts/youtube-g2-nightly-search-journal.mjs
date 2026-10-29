@@ -11,6 +11,10 @@ export const SEARCH_JOURNAL_KIND='moviehub-youtube-g2-nightly-search-journal'
 export const SEARCH_JOURNAL_PREFIX='youtube-g2/private-nightly-search-journal/v1/'
 const validCount=x=>Number.isSafeInteger(x)&&x>=0
 const validRun=x=>Number.isSafeInteger(x)&&x>0
+const optionalCount=x=>x===undefined||validCount(x)
+const optionalTime=x=>x===undefined||x===null
+  ||typeof x==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(x)
+    &&Number.isFinite(Date.parse(x))
 const copy=x=>JSON.parse(JSON.stringify(x))
 const nameFor=(day,runId)=>SEARCH_JOURNAL_PREFIX+day.date+'/'+runId+'.json'
 
@@ -23,6 +27,11 @@ export function validateSearchJournal(value,{day,runId}={}){
     ||value.attempts!==value.successful+value.quotaRejected+
       value.rateLimited+value.failed+value.pendingAttempts+value.uncertain
     ||value.quotaRejected>1
+    ||!['rateLimitHttp429','rateLimitHttp403','rateLimitUnclassified',
+      'rateLimitRetryAfterHints'].every(k=>optionalCount(value[k])
+        &&(value[k]===undefined||value[k]<=value.rateLimited))
+    ||(value.rateLimitHttp429??0)+(value.rateLimitHttp403??0)>value.rateLimited
+    ||!optionalTime(value.rateLimitFirstAt)||!optionalTime(value.rateLimitLastAt)
     ||value.state==='quota-exhausted'&&value.quotaRejected!==1
     ||value.state==='rate-limited'&&(value.rateLimited<1||value.quotaRejected!==0)
     ||value.state!=='running'&&value.pendingAttempts!==0)
@@ -48,7 +57,8 @@ export async function loadSearchJournal(bucket,{now,runId}={}){
   return {journal:validateSearchJournal(JSON.parse(bytes.toString('utf8')),
     {day,runId}),generation,name,day}
 }
-export async function changeSearchJournal(bucket,snapshot,{now,runId,event}={}){
+export async function changeSearchJournal(bucket,snapshot,{now,runId,event,
+  rateLimitMeta=null}={}){
   const day=pacificSearchDay(now)
   if(!snapshot||snapshot.day?.date!==day.date
     ||snapshot.name!==nameFor(day,runId))
@@ -57,6 +67,8 @@ export async function changeSearchJournal(bucket,snapshot,{now,runId,event}={}){
     kind:SEARCH_JOURNAL_KIND,schemaVersion:1,runId,pacificDate:day.date,
     state:'running',attempts:0,successful:0,quotaRejected:0,
     rateLimited:0,failed:0,pendingAttempts:0,uncertain:0,
+    rateLimitHttp429:0,rateLimitHttp403:0,rateLimitUnclassified:0,
+    rateLimitRetryAfterHints:0,rateLimitFirstAt:null,rateLimitLastAt:null,
   }
   const next=copy(old)
   if(event==='init'){
@@ -70,7 +82,23 @@ export async function changeSearchJournal(bucket,snapshot,{now,runId,event}={}){
     next.pendingAttempts--
     if(event==='success')next.successful++
     if(event==='quota'){next.quotaRejected++;next.state='quota-exhausted'}
-    if(event==='rate-limit')next.rateLimited++
+    if(event==='rate-limit'){
+      next.rateLimited++
+      // Only persist whitelisted numbers and timestamps. Never store
+      // Google error bodies, headers, query text, API keys or video IDs.
+      if(rateLimitMeta?.httpStatus===429)
+        next.rateLimitHttp429=(next.rateLimitHttp429??0)+1
+      if(rateLimitMeta?.httpStatus===403)
+        next.rateLimitHttp403=(next.rateLimitHttp403??0)+1
+      if(['RATE_LIMIT_OR_QUOTA_UNCLASSIFIED','QUOTA_OR_RATE_LIMIT']
+        .includes(rateLimitMeta?.failureClass))
+        next.rateLimitUnclassified=(next.rateLimitUnclassified??0)+1
+      if(Number.isSafeInteger(rateLimitMeta?.retryAfterMs)
+        &&rateLimitMeta.retryAfterMs>=0)
+        next.rateLimitRetryAfterHints=(next.rateLimitRetryAfterHints??0)+1
+      next.rateLimitFirstAt??=new Date(now).toISOString()
+      next.rateLimitLastAt=new Date(now).toISOString()
+    }
     if(event==='failed')next.failed++
   }else if(event==='recover'){
     if(next.state!=='running')throw Error('G2_NIGHTLY_SEARCH_RECOVERY_UNSAFE')

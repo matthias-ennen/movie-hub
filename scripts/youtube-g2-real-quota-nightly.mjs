@@ -22,7 +22,13 @@ export const REAL_QUOTA_MIN_SEARCH_INTERVAL_MS=2000
 // explicit quotaExceeded reason is not proof the daily allowance has ended.
 export const REAL_QUOTA_MAX_RATE_LIMIT_RETRIES=9
 export const REAL_QUOTA_MAX_TRANSIENT_RETRIES=4
-export const REAL_QUOTA_MAX_RATE_BACKOFF_MS=180000
+// 9 progressively longer gaps between 10 search attempts = 60 minutes.
+// These are retry pauses, not a daily quota cap or a promise of Google recovery.
+export const REAL_QUOTA_RATE_RETRY_GAPS_MS=Object.freeze(
+  [1,2,3,4,5,6,9,12,18].map(minutes=>minutes*60000))
+export const REAL_QUOTA_RATE_RETRY_WINDOW_MS=
+  REAL_QUOTA_RATE_RETRY_GAPS_MS.reduce((sum,gap)=>sum+gap,0)
+export const REAL_QUOTA_MAX_RATE_BACKOFF_MS=18*60000
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms))
 const isQuota=error=>
   /^YouTube API: HTTP (?:403|429) bei search \[QUOTA_EXHAUSTED\]/.test(String(error?.message))
@@ -58,6 +64,8 @@ export async function runRealQuotaNightly({
     quotaExceededConfirmed:false,successfulSearchCalls:0,
     selectedForSearch:0,searchCalls:0,rateLimitResponses:0,
     uncertainSearchAttempts:0,videoDetailCalls:0,
+    rateLimitHttp429:0,rateLimitHttp403:0,rateLimitUnclassified:0,
+    rateLimitRetryAfterHints:0,rateLimitFirstAt:null,rateLimitLastAt:null,
     publicBadgeFilms:plan.totalPublicBadgeMovies,
     previouslyKnownVideoFilms:plan.knownCandidateMovies,
     stillEligible:plan.pendingMovies,checkedNoOffer:0,
@@ -111,6 +119,12 @@ export async function runRealQuotaNightly({
       selectedForSearch:done.attempts,searchCalls:done.attempts,
       successfulSearchCalls:done.successful,rateLimitResponses:done.rateLimited,
       uncertainSearchAttempts:done.uncertain+done.pendingAttempts,
+      rateLimitHttp429:done.rateLimitHttp429??0,
+      rateLimitHttp403:done.rateLimitHttp403??0,
+      rateLimitUnclassified:done.rateLimitUnclassified??0,
+      rateLimitRetryAfterHints:done.rateLimitRetryAfterHints??0,
+      rateLimitFirstAt:done.rateLimitFirstAt??null,
+      rateLimitLastAt:done.rateLimitLastAt??null,
       terminationReason:done.state==='rate-limited'
         ?'youtube-search-rate-limit-not-confirmed-quota'
         :'prior-run-journal-already-final'})
@@ -122,6 +136,7 @@ export async function runRealQuotaNightly({
       now:now(),runId,event:'recover',
     })
   let lastSearchAt=null,adaptiveIntervalMs=REAL_QUOTA_MIN_SEARCH_INTERVAL_MS
+  let retryCooldownDone=false
   let videoDetailCalls=0,savedNewCandidateFilms=0
   let finishedWithoutCandidates=0,completedFilms=0
 
@@ -139,11 +154,14 @@ export async function runRealQuotaNightly({
     for(let retry=0;retry<=REAL_QUOTA_MAX_RATE_LIMIT_RETRIES;retry++){
       if(pacificSearchDay(now()).date!==day.date)
         throw Error('G2_NIGHTLY_PACIFIC_DAY_CHANGED_MID_RUN')
-      if(lastSearchAt!==null){
+      // A minute-scale retry cooldown already satisfies normal pacing.
+      // Do not add the 5–30s adaptive interval on top of the hour schedule.
+      if(lastSearchAt!==null&&!retryCooldownDone){
         const pause=Math.max(0,adaptiveIntervalMs-
           (Date.now()-lastSearchAt))
         if(pause>0)await wait(pause)
       }
+      retryCooldownDone=false
       journal=await changeSearchJournal(bucket,journal,{
         now:now(),runId,event:'attempt',
       })
@@ -155,6 +173,11 @@ export async function runRealQuotaNightly({
         now:now(),runId,
         event:!error?'success':isQuota(error)?'quota':
           isRate(error)?'rate-limit':'failed',
+        ...(isRate(error)?{rateLimitMeta:{
+          httpStatus:error.youtubeHttpStatus,
+          failureClass:error.youtubeFailureClass,
+          retryAfterMs:error.retryAfterMs,
+        }}:{}),
       })
       if(!error){
         // Gradually return to normal search speed only after real successes.
@@ -169,12 +192,17 @@ export async function runRealQuotaNightly({
       const maxRetries=isRate(error)
         ?REAL_QUOTA_MAX_RATE_LIMIT_RETRIES:REAL_QUOTA_MAX_TRANSIENT_RETRIES
       if((isRate(error)||isTemporary(error))&&retry<maxRetries){
-        // Do not hammer Google when its 429 is sustained. Every retry
-        // remains individually persisted as a separate API attempt.
-        const delay=isRate(error)
-          ?Math.min(REAL_QUOTA_MAX_RATE_BACKOFF_MS,3000*2**retry)
+        // The ten rate-limit attempts span 60 minutes without Retry-After.
+        // A bounded, sanitized provider hint can extend an individual gap;
+        // never fire an additional attempt earlier than Google recommends.
+        const scheduled=isRate(error)
+          ?REAL_QUOTA_RATE_RETRY_GAPS_MS[retry]
           :Math.min(16000,2000*2**retry)
-        await wait(delay+Math.floor(Math.random()*1000))
+        const retryAfter=isRate(error)&&Number.isSafeInteger(error.retryAfterMs)
+          &&error.retryAfterMs>=0
+          ?Math.min(error.retryAfterMs,REAL_QUOTA_RATE_RETRY_WINDOW_MS):0
+        await wait(Math.max(scheduled,retryAfter))
+        retryCooldownDone=isRate(error)
         continue
       }
       if(isRate(error)){
@@ -197,6 +225,12 @@ export async function runRealQuotaNightly({
     rateLimitResponses:journal.journal.rateLimited,
     uncertainSearchAttempts:journal.journal.uncertain+
       journal.journal.pendingAttempts,
+    rateLimitHttp429:journal.journal.rateLimitHttp429??0,
+    rateLimitHttp403:journal.journal.rateLimitHttp403??0,
+    rateLimitUnclassified:journal.journal.rateLimitUnclassified??0,
+    rateLimitRetryAfterHints:journal.journal.rateLimitRetryAfterHints??0,
+    rateLimitFirstAt:journal.journal.rateLimitFirstAt??null,
+    rateLimitLastAt:journal.journal.rateLimitLastAt??null,
     videoDetailCalls,checkedTmdbReads:tmdbReads,
     savedNewCandidateFilms,finishedWithoutCandidates,
     runCompletedFilms:completedFilms,

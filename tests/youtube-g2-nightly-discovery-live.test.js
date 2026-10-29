@@ -2,6 +2,8 @@ import {describe,it,expect,vi} from 'vitest'
 import {readFileSync} from 'node:fs'
 import {runNightlyDiscovery,validateNightlyDiscoveryPreflight}
   from '../scripts/youtube-g2-nightly-discovery-live.mjs'
+import {REAL_QUOTA_RATE_RETRY_GAPS_MS,REAL_QUOTA_RATE_RETRY_WINDOW_MS}
+  from '../scripts/youtube-g2-real-quota-nightly.mjs'
 import {
   loadNightlyQueue,
 } from '../scripts/youtube-g2-nightly-queue.mjs'
@@ -194,13 +196,69 @@ describe('scheduled nightly movie research: shared 50 PT calls and private resum
       terminationReason:'youtube-search-rate-limit-not-confirmed-quota',
     })
     expect(svc.youtubeApi).toHaveBeenCalledTimes(10)
-    expect(Math.max(...waits)).toBeGreaterThanOrEqual(180000)
+    expect(REAL_QUOTA_RATE_RETRY_GAPS_MS).toEqual(
+      [1,2,3,4,5,6,9,12,18].map(minutes=>minutes*60000))
+    expect(REAL_QUOTA_RATE_RETRY_WINDOW_MS).toBe(60*60000)
+    expect(waits).toEqual(REAL_QUOTA_RATE_RETRY_GAPS_MS)
+    expect(waits.reduce((sum,ms)=>sum+ms,0)).toBe(3600000)
     const journal=JSON.parse([...b.objects].find(([k])=>
       k.includes('private-nightly-search-journal'))[1].bytes.toString('utf8'))
     expect(journal).toMatchObject({
       state:'rate-limited',attempts:10,successful:0,
       rateLimited:10,pendingAttempts:0,quotaRejected:0,
     })
+  })
+  it('resumes immediately after a later success and keeps durable counts',async()=>{
+    const b=await seededBucket(),svc=services(),waits=[]
+    let n=0
+    svc.youtubeApi.mockImplementation(async endpoint=>{
+      if(endpoint==='search'&&++n<=3)
+        throw Error('YouTube API: HTTP 429 bei search [RATE_LIMITED]')
+      return {items:[]}
+    })
+    const result=await runNightlyDiscovery({
+      publicIndex:publicIndex(),bucket:b,quotaObservationMode:true,
+      preflight:null,runId:630154,now:()=>NOW,
+      wait:async ms=>{waits.push(ms)},...svc,
+    })
+    expect(result).toMatchObject({
+      status:'completed',searchCalls:5,successfulSearchCalls:2,
+      rateLimitResponses:3,quotaExceededConfirmed:false,
+      rateLimitFirstAt:NOW,rateLimitLastAt:NOW,
+    })
+    expect(waits.slice(0,3)).toEqual(REAL_QUOTA_RATE_RETRY_GAPS_MS.slice(0,3))
+    expect(svc.youtubeApi.mock.calls.filter(([e])=>e==='search')).toHaveLength(5)
+  })
+  it('respects bounded Google Retry-After and records only safe diagnostics',async()=>{
+    const b=await seededBucket(),svc=services(),waits=[]
+    let first=true
+    svc.youtubeApi.mockImplementation(async endpoint=>{
+      if(endpoint==='search'&&first){
+        first=false
+        const e=Error('YouTube API: HTTP 429 bei search [RATE_LIMITED]')
+        e.youtubeHttpStatus=429
+        e.youtubeFailureClass='RATE_LIMITED'
+        e.retryAfterMs=5*60000
+        throw e
+      }
+      return {items:[]}
+    })
+    const r=await runNightlyDiscovery({
+      publicIndex:publicIndex(),bucket:b,quotaObservationMode:true,
+      preflight:null,runId:630155,now:()=>NOW,
+      wait:async ms=>{waits.push(ms)},...svc,
+    })
+    expect(waits[0]).toBe(5*60000)
+    expect(r).toMatchObject({
+      status:'completed',searchCalls:3,successfulSearchCalls:2,
+      rateLimitResponses:1,rateLimitHttp429:1,
+      rateLimitHttp403:0,rateLimitRetryAfterHints:1,
+      rateLimitUnclassified:0,rateLimitFirstAt:NOW,rateLimitLastAt:NOW,
+    })
+    const journal=JSON.parse([...b.objects].find(([k])=>
+      k.includes('private-nightly-search-journal'))[1].bytes.toString('utf8'))
+    expect(journal.rateLimitRetryAfterHints).toBe(1)
+    expect(JSON.stringify(journal)).not.toContain('YouTube API:')
   })
   it('does not retry an already finalized rate-limited GitHub run',async()=>{
     const b=await seededBucket(),svc=services()

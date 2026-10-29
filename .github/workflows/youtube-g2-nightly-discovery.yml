@@ -37,7 +37,7 @@ jobs:
            (github.event_name == 'push' &&
             contains(github.event.head_commit.message, '[youtube-nightly-once]'))) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150
     env:
       GOOGLE_CLOUD_PROJECT: movie-hub-62459
       DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
@@ -54,11 +54,13 @@ jobs:
           node --check scripts/youtube-g2-nightly-discovery-live.mjs
           node --check scripts/youtube-g2-nightly-search-journal.mjs
           node --check scripts/youtube-g2-real-quota-nightly.mjs
+          node --check scripts/youtube-api-smoke.mjs
           node --check scripts/youtube-g2-nightly-failure-report.mjs
           npx vitest run tests/youtube-g2-nightly-queue.test.js \
             tests/youtube-g2-nightly-discovery-live.test.js \
             tests/youtube-g2-nightly-failure-report.test.js \
             tests/youtube-g2-nightly-search-journal.test.js \
+            tests/youtube-api-smoke.test.js \
             tests/youtube-g2-atomic-search-budget-ledger.test.js \
             tests/youtube-g2-tmdb-first-link-pilot.test.js
       - name: Authenticate trusted OIDC principal to read private GCS and research data
@@ -108,6 +110,11 @@ jobs:
             ||r.rateLimitResponses+r.successfulSearchCalls
                +r.uncertainSearchAttempts>r.searchCalls)
             throw Error('YOUTUBE_NIGHTLY_SEARCH_COUNTERS_INVALID')
+          if(!failed && ['rateLimitHttp429','rateLimitHttp403',
+            'rateLimitUnclassified','rateLimitRetryAfterHints'].some(k=>!count(r[k])))
+            throw Error('YOUTUBE_NIGHTLY_RATE_DIAGNOSTICS_INVALID')
+          if(!failed && r.rateLimitHttp429+r.rateLimitHttp403>r.rateLimitResponses)
+            throw Error('YOUTUBE_NIGHTLY_RATE_CODE_COUNTERS_INVALID')
           if(!failed && r.quotaExceededConfirmed===true
             &&(r.status!=='quota-exhausted-confirmed'
               ||r.searchCalls<1
@@ -123,6 +130,10 @@ jobs:
             '- Nightly started search.list attempts: '+(r.searchCalls??'unknown'),
             '- Successful search.list responses: '+(r.successfulSearchCalls??'unknown'),
             '- Rate-limit responses: '+(r.rateLimitResponses??'unknown'),
+            '- HTTP 429 / 403 throttles: '+(r.rateLimitHttp429??'unknown')+' / '+(r.rateLimitHttp403??'unknown'),
+            '- Ambiguous Google throttle codes: '+(r.rateLimitUnclassified??'unknown'),
+            '- Google Retry-After hints: '+(r.rateLimitRetryAfterHints??'unknown'),
+            '- First / last throttle observed: '+(r.rateLimitFirstAt??'unknown')+' / '+(r.rateLimitLastAt??'unknown'),
             '- Uncertain attempts after crash: '+(r.uncertainSearchAttempts??'unknown'),
             '- Google confirmed daily quota exhaustion: '+(r.quotaExceededConfirmed===true?'YES':'NO'),
             '- End reason: '+(r.terminationReason??r.failureCategory??'not specified'),
