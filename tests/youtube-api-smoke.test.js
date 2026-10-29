@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { getRegionSignal, isVideoId, safeTitle, runSmoke, youtubeGet, SOURCES } from '../scripts/youtube-api-smoke.mjs'
+import { getRegionSignal, isVideoId, safeTitle, runSmoke, youtubeGet,
+  safeYoutubeRetryAfterMs, SOURCES } from '../scripts/youtube-api-smoke.mjs'
 
 describe('YouTube G1 read-only smoke contracts', () => {
   it('keeps region metadata distinct from proven playback', () => {
@@ -67,6 +68,32 @@ describe('YouTube G1 read-only smoke contracts', () => {
       .rejects.toThrow('RATE_LIMIT_OR_QUOTA_UNCLASSIFIED')
   })
 
+  it('parses only sanitized Retry-After seconds or HTTP dates',async()=>{
+    const h=value=>({get:key=>key==='retry-after'?value:null})
+    const start=Date.parse('2026-10-29T12:00:00.000Z')
+    expect(safeYoutubeRetryAfterMs(h('300'),start)).toBe(300000)
+    expect(safeYoutubeRetryAfterMs(h('Thu, 29 Oct 2026 12:05:00 GMT'),start))
+      .toBe(300000)
+    expect(safeYoutubeRetryAfterMs(h('7200'),start)).toBe(3600000)
+    expect(safeYoutubeRetryAfterMs(h('invalid'),start)).toBe(null)
+    expect(safeYoutubeRetryAfterMs(h('x'.repeat(100)),start)).toBe(null)
+    expect(safeYoutubeRetryAfterMs(undefined,start)).toBe(null)
+    const key='SECRET_SHOULD_NOT_BE_IN_ERROR'
+    const raw='GOOGLE_RAW_ERROR_BODY_MUST_NOT_APPEAR'
+    const fake=async()=>({ok:false,status:429,
+      headers:h('300'),json:async()=>({error:{message:raw,
+        errors:[{reason:'rateLimitExceeded',message:raw}]}})})
+    try{
+      await youtubeGet('search',{q:'known'},key,fake)
+      throw Error('Expected rate limit')
+    }catch(error){
+      expect(error.message).toContain('[RATE_LIMITED]')
+      expect(error.youtubeHttpStatus).toBe(429)
+      expect(error.youtubeFailureClass).toBe('RATE_LIMITED')
+      expect(error.retryAfterMs).toBe(300000)
+      expect(JSON.stringify(error)).not.toMatch(/SECRET_|GOOGLE_RAW/)
+    }
+  })
   it('reports both publishers, without inferring legal full films or TMDB matches', async () => {
     const first = 'abcdefghijk'
     const second = 'zbcdefghijk'
