@@ -2,14 +2,14 @@ name: YouTube G2 – nightly bounded public-movie discovery (private, no offers)
 
 on:
   # Scheduled centrally by MovieHub Nightly Pipeline at 00:10 Berlin.
-  # Also callable directly and manually, with unchanged private quota guards.
+  # Also callable directly and manually, using Google's quota response.
   workflow_call:
   workflow_dispatch:
   # A single carefully reviewed one-off acceptance run can be started by
   # a squash merge with [youtube-nightly-once]. Ordinary code pushes skip.
   # Its successful trusted main-branch completion must trigger the separate
   # videos.list-only workflow_run recheck; this push is NOT a schedule proof.
-  # Live Google quota errors, durable per-PT-day CAS and no-retry offer guards.
+  # Live Google quota errors, durable per-request journal, no offer claims.
   push:
     branches: [main]
     paths:
@@ -34,7 +34,7 @@ jobs:
            (github.event_name == 'push' &&
             contains(github.event.head_commit.message, '[youtube-nightly-once]'))) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       GOOGLE_CLOUD_PROJECT: movie-hub-62459
       DATA_CHECKPOINT_BUCKET: movie-hub-62459-nightly-checkpoints
@@ -49,10 +49,13 @@ jobs:
           npm ci
           node --check scripts/youtube-g2-nightly-queue.mjs
           node --check scripts/youtube-g2-nightly-discovery-live.mjs
+          node --check scripts/youtube-g2-nightly-search-journal.mjs
+          node --check scripts/youtube-g2-real-quota-nightly.mjs
           node --check scripts/youtube-g2-nightly-failure-report.mjs
           npx vitest run tests/youtube-g2-nightly-queue.test.js \
             tests/youtube-g2-nightly-discovery-live.test.js \
             tests/youtube-g2-nightly-failure-report.test.js \
+            tests/youtube-g2-nightly-search-journal.test.js \
             tests/youtube-g2-atomic-search-budget-ledger.test.js \
             tests/youtube-g2-tmdb-first-link-pilot.test.js
       - name: Authenticate trusted OIDC principal to read private GCS and research data
@@ -65,71 +68,72 @@ jobs:
       - name: Resume film queue until confirmed YouTube search quotaExceeded
         id: nightly_discovery
         run: node scripts/youtube-g2-nightly-discovery-live.mjs
-      - name: Verify safe, anonymized nightly budget summary
+      - name: Verify safe, anonymized nightly search accounting
         if: ${{ always() && steps.nightly_discovery.outcome != 'skipped' }}
         run: |
           node --input-type=module <<'NODE'
           import {readFileSync,appendFileSync} from 'node:fs'
           const r=JSON.parse(readFileSync('artifacts/youtube-g2/nightly-discovery/summary.json','utf8'))
           const failed=r.status==='failed'
+          const count=x=>Number.isSafeInteger(x)&&x>=0
           if(r.kind!=='moviehub-youtube-g2-nightly-budgeted-discovery'
-            ||r.dayLimit!==200
+            ||r.quotaMode!=='google-enforced-no-internal-daily-cap'
+            ||r.dayLimit!==null
             ||r.independentlyVerifiedDEOffers!==0
             ||r.publicationPermitted!==false
             ||r.publishedPlaybackRoutes!==0
             ||['firestoreWrites','providerWrites','catalogWrites','badgeWrites'].some(k=>r[k]!==0)
             ||Object.keys(r).some(k=>/videoId|watchUrl|secret/i.test(k)))
-            throw Error('YOUTUBE_NIGHTLY_BUDGET_OR_PUBLICATION_GUARD_FAILED')
+            throw Error('YOUTUBE_NIGHTLY_PUBLICATION_GUARD_FAILED')
           if(failed){
-            // A GCS reservation is NOT proof of an actual search.list call.
-            if(r.searchCalls!==null||r.actualSearchCallsMeasured!==false
-              ||!['youtube-rate-limit','authorization-or-api-block',
-                  'checkpoint-consistency','quota-preflight-or-monitoring',
-                  'tmdb-source','other-unclassified'].includes(r.failureCategory)
-              ||(r.selectedForSearch!==null
-                 &&(!Number.isInteger(r.selectedForSearch)
-                     ||r.selectedForSearch<0||r.selectedForSearch>200))
-              ||(r.sharedDayReserved!==null
-                 &&(!Number.isInteger(r.sharedDayReserved)
-                     ||r.sharedDayReserved<0||r.sharedDayReserved>200))
-              ||(r.priorReserved!==null
-                 &&r.priorReserved+r.selectedForSearch!==r.sharedDayReserved))
+            if(!['youtube-rate-limit','youtube-quota-exhausted-unexpected',
+                'authorization-or-api-block','checkpoint-consistency',
+                'checkpoint-storage-transient','quota-preflight-or-monitoring',
+                'tmdb-source','other-unclassified'].includes(r.failureCategory)
+              ||r.actualSearchCallsMeasured!==false
+              ||r.searchCalls!==null&&!count(r.searchCalls)
+              ||r.successfulSearchCalls!==null&&!count(r.successfulSearchCalls)
+              ||r.searchCalls!==null&&r.selectedForSearch!==r.searchCalls
+              ||r.searchCalls!==null&&r.successfulSearchCalls>r.searchCalls)
               throw Error('YOUTUBE_NIGHTLY_FAILURE_REPORT_NOT_TRUSTED')
-          }else if(!Number.isInteger(r.searchCalls)||r.searchCalls<0
-            ||r.searchCalls>r.selectedForSearch
-            ||r.selectedForSearch>200||r.priorReserved>200
-            ||r.selectedForSearch+r.priorReserved>200)
-            throw Error('YOUTUBE_NIGHTLY_BUDGET_OR_PUBLICATION_GUARD_FAILED')
-          if(r.quotaExceededConfirmed===true
+          }else if(!count(r.searchCalls)
+            ||r.searchCalls!==r.selectedForSearch
+            ||!count(r.successfulSearchCalls)
+            ||r.successfulSearchCalls>r.searchCalls
+            ||!count(r.rateLimitResponses)
+            ||!count(r.uncertainSearchAttempts)
+            ||r.rateLimitResponses+r.successfulSearchCalls
+               +r.uncertainSearchAttempts>r.searchCalls)
+            throw Error('YOUTUBE_NIGHTLY_SEARCH_COUNTERS_INVALID')
+          if(!failed && r.quotaExceededConfirmed===true
             &&(r.status!=='quota-exhausted-confirmed'
               ||r.searchCalls<1
-              ||r.successfulSearchCalls!==r.searchCalls-1))
+              ||r.successfulSearchCalls>=r.searchCalls))
             throw Error('YOUTUBE_NIGHTLY_QUOTA_CLAIM_UNTRUSTED')
-          if(r.quotaExceededConfirmed!==true
+          if(!failed && r.quotaExceededConfirmed!==true
             &&r.status==='quota-exhausted-confirmed')
             throw Error('YOUTUBE_NIGHTLY_FALSE_QUOTA_EXCEEDED')
           const lines=[
-            '## YouTube nightly private, budgeted TMDB-first discovery','',
-            '- Pacific research day: '+r.pacificDate,
-            '- Shared conservative daily search cap: '+r.dayLimit,
-            '- Prior manual/research reservations: '+r.priorReserved,
-            '- Nightly reserved search attempts: '+(r.selectedForSearch??'unknown'),
-            '- Actual search.list attempts (including quota-rejected): '+(r.searchCalls??'unknown after failure'),
-            '- Successful search.list calls: '+(r.successfulSearchCalls??'unknown'),
-            '- Confirmed YouTube quotaExceeded: '+(r.quotaExceededConfirmed===true?'YES':'NO'),
-            '- Stop reason: '+(r.terminationReason??'no quota boundary observed'),
-            '- New privately stored film candidates: '+(r.savedNewCandidateFilms??'unknown after failure'),
-            '- Total still-eligible public badge films at scan: '+(r.stillEligible??'unknown'),
-            '- Completed cursor entries this run: '+(r.runCompletedFilms??'not measured'),
-            '- Failure category: '+(r.failureCategory??'none'),
+            '## YouTube nightly TMDB-first discovery','',
+            '- Pacific search day: '+r.pacificDate,
+            '- Daily limit: enforced by Google (not a local cutoff)',
+            '- Nightly started search.list attempts: '+(r.searchCalls??'unknown'),
+            '- Successful search.list responses: '+(r.successfulSearchCalls??'unknown'),
+            '- Rate-limit responses: '+(r.rateLimitResponses??'unknown'),
+            '- Uncertain attempts after crash: '+(r.uncertainSearchAttempts??'unknown'),
+            '- Google confirmed daily quota exhaustion: '+(r.quotaExceededConfirmed===true?'YES':'NO'),
+            '- End reason: '+(r.terminationReason??r.failureCategory??'not specified'),
+            '- New privately stored film candidates: '+(r.savedNewCandidateFilms??'unknown'),
+            '- Remaining eligible TMDB films at scan: '+(r.stillEligible??'unknown'),
+            '- Completed films this run: '+(r.runCompletedFilms??'not measured'),
             '- Outcome: '+r.status,
             '- Published DE offers, badges and direct playback routes: **0**',
-            '- Personal profile/private film IDs: not exported',
+            '- Private IDs and API credentials: not exported',
           ]
           appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n')
           console.log(JSON.stringify({pacificDay:r.pacificDate,
-            reserved:r.selectedForSearch,searches:r.searchCalls,
-            actualSearchCallsKnown:!failed,
+            attempts:r.searchCalls,successes:r.successfulSearchCalls,
+            quotaExceededConfirmed:r.quotaExceededConfirmed===true,
             result:r.status,productionWrites:0}))
           NODE
       - name: Upload counts only (no private candidate or video IDs)

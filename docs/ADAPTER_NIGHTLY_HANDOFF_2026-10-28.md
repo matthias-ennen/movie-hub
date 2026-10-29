@@ -1,6 +1,14 @@
 # Movie Hub – verbindliche Adapter- und Nachtlauf-Übergabe
 **Stand: 28.10.2026, nach PR #693 · gültig ab dem nächsten regulären Nachtlauf**
 
+## Nachtrag 29.10.2026 – fehlgeschlagener realer Nachtlauf und Korrektur #695
+
+- **Echter zentraler [Nachtlauf 40805699042](https://github.com/matthias-ennen/movie-hub/actions/runs/40805699042) vom 29.10.: insgesamt FAILURE**, während Gate, Known-Video-Recheck, Firebase-Import/Deploy und Aggregatbericht liefen. **Nur Discovery G2 scheiterte** nach der bisherigen 199er-Vorabreservierung mit der unscharfen Kategorie `youtube-rate-limit`. Die ursprüngliche GCS-Reservierungszahl 199 war **kein Nachweis von 199 echten YouTube-Suchen**. Der tatsächliche Suchverbrauch dieses Laufs war nicht belastbar gemessen. EPG-, Joyn-, Waipu-, Firebase- und YouTube-Best-Effort-Folgearbeiten liefen trotz des Fehlers.
+- **[PR #695](https://github.com/matthias-ennen/movie-hub/pull/695)** ersetzt die produktive Nacht-Discovery durch eine Suche pro geeignetem Film, **ohne pauschale Vorabreservierung und ohne interne 200er-Quotengrenze**. Google selbst beendet `search.list` bei bestätigtem `403 quotaExceeded`; wenn es keine geeigneten Filme mehr gibt, endet der Lauf ohne künstliche Dummy-Suchen. Transiente Rate-Limits/Netzwerkfehler erhalten begrenzte Backoff-Wiederholungen, jede Wiederholung zählt separat.
+- **Neues privates GCS-CAS-Journal je PT-Tag und GitHub-Run:** Suchversuch wird **vor** dem Transport dauerhaft registriert, Antwort anschließend verbucht. Der Bericht nennt gestartete Versuche, erfolgreiche Suchantworten, Rate-Limit-Antworten und bestätigtes Quotenende. Ein Prozessabsturz kann einen nicht eindeutig quittierten Transport hinterlassen; diese Versuche bleiben als **unsicher** ausgewiesen. Google-Quotenverbräuche anderer unabhängiger Clients sind ohne gemeinsame Messung **nicht** automatisch ablesbar, und werden nicht erfunden.
+- **Altes Forschungsledger bleibt für separate historische manuelle Workflows**, es begrenzt die neue produktive Nacht-Discovery nicht. `#388` bleibt bis zur realen erfolgreichen Abnahme offen. **Stand dieses Nachtrags: #695 als PR zur CI-/Live-Prüfung eingereicht, nicht als vollständig abgenommener Nachtlauf behaupten.**
+- **Nächster verbindlicher Kontrollpunkt:** CI/Unit-Tests für #695 prüfen; nach erfolgreichem Merge einen isolierten echten Discovery-Durchlauf oder die nächste zentrale Nacht beobachten. Präzise G2-Zähler, Google-Endgrund, private Kandidaten, Known-ID-Recheck und Firebase-Readback kontrollieren. **Keine sofortige Vollquoten-Nutzung aus Unit-Tests allein behaupten.**
+
 > **Diese Seite ist die aktuelle Wiedereinstiegsstelle für neue Chats.** Historische Statusmeldungen in #388, #271, README und Forschungsdokumenten sind datierte Momentaufnahmen, nicht die aktuelle nächste Arbeitsanweisung. Erst Live-Run und Build-Status auf GitHub prüfen, dann entscheiden.
 
 ## Kurzstatus
