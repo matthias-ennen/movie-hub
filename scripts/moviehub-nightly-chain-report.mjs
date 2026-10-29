@@ -39,14 +39,17 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
   const quota=d?{
     status:['completed','quota-exhausted-confirmed','internal-safety-cap-reached',
       'daily-budget-exhausted','no-unknown-public-films',
-      'no-current-offer-candidates','failed'].includes(d.status)?d.status:'unknown',
-    mode:d.quotaMode==='real-google-quota-until-confirmed-403'
+      'no-current-offer-candidates','rate-limited-stalled','failed'].includes(d.status)?d.status:'unknown',
+    mode:['real-google-quota-until-confirmed-403',
+      'google-enforced-no-internal-daily-cap'].includes(d.quotaMode)
       ?d.quotaMode:'other-or-unknown',
     pacificDay:typeof d.pacificDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.pacificDate)
       ?d.pacificDate:null,
     priorReserved:n(d.priorReserved),reservedForNight:n(d.selectedForSearch),
     actualSearchAttempts:n(d.searchCalls),
     successfulSearchCalls:n(d.successfulSearchCalls),
+    rateLimitResponses:n(d.rateLimitResponses),
+    uncertainSearchAttempts:n(d.uncertainSearchAttempts),
     rejectedSearchCalls:n(d.searchCalls)!==null&&n(d.successfulSearchCalls)!==null
       ?Math.max(0,d.searchCalls-d.successfulSearchCalls):null,
     quotaExceededConfirmed:d.quotaExceededConfirmed===true,
@@ -56,7 +59,8 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
     pendingCandidateFilms:n(d.stillEligible),
     terminationReason:['youtube-search-list-403-quotaExceeded',
       'internal-safety-cap-not-google-exceeded',
-      'eligible-tmdb-film-candidates-exhausted'].includes(d.terminationReason)
+      'eligible-tmdb-film-candidates-exhausted',
+      'youtube-search-rate-limit-not-confirmed-quota'].includes(d.terminationReason)
       ?d.terminationReason:null,
   }:null
   const qa={
@@ -90,7 +94,8 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
   const missingQA=Object.entries(qa).filter(([,v])=>!v).map(([k])=>k)
   const status=!firebaseSucceeded?'publish-not-confirmed'
     :missingQA.length?'incomplete-evidence'
-      :steps.discovery==='success'&&steps.known==='success'?'success':'degraded'
+      :steps.discovery==='success'&&steps.known==='success'
+        &&quota?.status!=='rate-limited-stalled'?'success':'degraded'
   const id=n(Number(runId)),attempt=n(Number(runAttempt))
   const goodRepo=typeof repository==='string'
     &&/^[-\w]+\/[-\w.]+$/.test(repository)?repository:null
@@ -132,6 +137,8 @@ export function nightlyMarkdown(report){
       '- Für diese Nacht reserviert: '+(report.youtubeDiscoveryQuota.reservedForNight??'unbekannt'),
       '- Tatsächliche search.list-Versuche: '+(report.youtubeDiscoveryQuota.actualSearchAttempts??'nicht messbar'),
       '- Erfolgreiche search.list-Aufrufe: '+(report.youtubeDiscoveryQuota.successfulSearchCalls??'nicht messbar'),
+      '- Rate-Limit-Antworten: '+(report.youtubeDiscoveryQuota.rateLimitResponses??'nicht messbar'),
+      '- Nicht sicher quittierte Versuche: '+(report.youtubeDiscoveryQuota.uncertainSearchAttempts??'nicht messbar'),
       '- Abgewiesene bzw. fehlgeschlagene Versuche: '+(report.youtubeDiscoveryQuota.rejectedSearchCalls??'nicht messbar'),
       '- Google quotaExceeded bestätigt: '+(report.youtubeDiscoveryQuota.quotaExceededConfirmed?'JA':'NEIN'),
       '- Endgrund: '+(report.youtubeDiscoveryQuota.terminationReason??report.youtubeDiscoveryQuota.status),
