@@ -68,6 +68,22 @@ describe('private live-nightly Google quota journal',()=>{
       state:'completed',attempts:1,successful:1,pendingAttempts:0,
     })
   })
+  it('records a final rate-limit as stalled, never as exhausted quota',async()=>{
+    const b=bucket()
+    let x=await ensureSearchJournal(b,{now:NOW,runId:RUN})
+    x=await advance(b,x,'attempt')
+    x=await advance(b,x,'rate-limit')
+    x=await advance(b,x,'rate-limited-stop')
+    expect(x.journal).toMatchObject({
+      state:'rate-limited',attempts:1,rateLimited:1,
+      quotaRejected:0,pendingAttempts:0,
+    })
+    await expect(advance(b,x,'attempt')).rejects.toThrow('G2_NIGHTLY_SEARCH_AFTER_STOP')
+    expect((await loadSearchJournal(b,{now:NOW,runId:RUN})).journal.state)
+      .toBe('rate-limited')
+    expect(()=>validateSearchJournal({...x.journal,rateLimited:0},
+      {day:x.day,runId:RUN})).toThrow('G2_NIGHTLY_SEARCH_JOURNAL_NOT_TRUSTED')
+  })
   it('preserves uncertain attempts on a crashed or retried run',async()=>{
     const b=bucket()
     let x=await ensureSearchJournal(b,{now:NOW,runId:RUN})
