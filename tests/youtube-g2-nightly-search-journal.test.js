@@ -84,6 +84,28 @@ describe('private live-nightly Google quota journal',()=>{
     expect(()=>validateSearchJournal({...x.journal,rateLimited:0},
       {day:x.day,runId:RUN})).toThrow('G2_NIGHTLY_SEARCH_JOURNAL_NOT_TRUSTED')
   })
+  it('persists only safe HTTP diagnostics and exact throttle observation bounds',async()=>{
+    const b=bucket()
+    let x=await ensureSearchJournal(b,{now:NOW,runId:RUN})
+    x=await advance(b,x,'attempt')
+    x=await changeSearchJournal(b,x,{now:NOW,runId:RUN,event:'rate-limit',
+      rateLimitMeta:{
+        httpStatus:429,failureClass:'RATE_LIMIT_OR_QUOTA_UNCLASSIFIED',
+        retryAfterMs:300000,apiKey:'SECRET_PRIVATE',
+      }})
+    x=await advance(b,x,'rate-limited-stop')
+    expect(x.journal).toMatchObject({
+      state:'rate-limited',rateLimited:1,rateLimitHttp429:1,
+      rateLimitHttp403:0,rateLimitUnclassified:1,
+      rateLimitRetryAfterHints:1,rateLimitFirstAt:NOW,rateLimitLastAt:NOW,
+    })
+    expect(JSON.stringify(x.journal)).not.toMatch(/SECRET_PRIVATE|apiKey|failureClass|retryAfterMs/)
+    expect(()=>validateSearchJournal({...x.journal,rateLimitHttp429:2},
+      {day:x.day,runId:RUN})).toThrow('G2_NIGHTLY_SEARCH_JOURNAL_NOT_TRUSTED')
+    expect(()=>validateSearchJournal({...x.journal,
+      rateLimitLastAt:'<script>alert(1)</script>'},
+    {day:x.day,runId:RUN})).toThrow('G2_NIGHTLY_SEARCH_JOURNAL_NOT_TRUSTED')
+  })
   it('preserves uncertain attempts on a crashed or retried run',async()=>{
     const b=bucket()
     let x=await ensureSearchJournal(b,{now:NOW,runId:RUN})
