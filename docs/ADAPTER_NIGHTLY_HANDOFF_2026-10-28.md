@@ -1,5 +1,14 @@
 # Movie Hub – verbindliche Adapter- und Nachtlauf-Übergabe
-**Stand: 28.10.2026, nach PR #693 · gültig ab dem nächsten regulären Nachtlauf**
+**Stand: 29.10.2026, nach PR #697 · nächste Live-/Nachtlaufabnahme ausstehend**
+
+## Nachtrag 29.10.2026 – dauerhafte Rate-Limit-Stabilisierung auf main (#697)
+
+- **[PR #697](https://github.com/matthias-ennen/movie-hub/pull/697) gemergt** (SHA `24264850`, 29.10. 11:27 UTC); CI [40865173289](https://github.com/matthias-ennen/movie-hub/actions/runs/40865173289) und Android-Build [40865173302](https://github.com/matthias-ennen/movie-hub/actions/runs/40865173302) bestanden. Die Anpassungen sind produktiver Code, **kein nachgewiesener erfolgreicher Scheduled-Nachtlauf**.
+- **Zusätzliche Live-Evidenz vor #697:** [40851399086](https://github.com/matthias-ennen/movie-hub/actions/runs/40851399086) auf dem #696-Stand: 17 persistierte `search.list`-Versuche, 4 erfolgreiche Antworten, 13 Rate-Limits, `quotaExceededConfirmed=false`. Der Code hat nach wiederholter Drosselung den Job als Failure beendet. Die erste Live-Probe [40841149137](https://github.com/matthias-ennen/movie-hub/actions/runs/40841149137) hatte 128 Versuche / 114 Erfolge, danach Rate-Limit-Failure. **Google-Quote nicht nachweislich aufgebraucht.**
+- **Neues Terminalverhalten:** Nach zehn einzeln journalisierten, adaptiv verzögerten rate-limitierten Versuchen ist `rate-limited-stalled` eine dauerhaft gespeicherte, technisch reguläre Rückgabe; Quotenbestätigung bleibt **false**. Ein Replay desselben GitHub-Run-IDs führt dann keine weitere Suche aus. Kein Fehlgruppieren von GCS-/TMDB-Problemen, keine künstliche Suchobergrenze, keine zusätzliche API-Schleife bei Kandidatenmangel.
+- **Aggregatbericht:** `rate-limited-stalled` ergibt sichtbar **degraded**, selbst wenn Discovery/Known/Firebase-Workflowjobs technisch erfolgreich sind. Suchversuche, echte Sucherfolge, Rate-Limit-Antworten und ungewisse Versuche bleiben getrennt; Google-Restquote wird nicht erfunden. Der normale Quoten-Endstatus `quota-exhausted-confirmed` bleibt unverändert, wenn Google ausdrücklich `quotaExceeded` zurückgibt.
+- **Nächster Abnahmeschritt:** Einen **echten zentralen `event=schedule`-Nachtlauf auf SHA >= `24264850`** prüfen, die Discovery-Terminalklasse und Journalzähler mit dem aggregierten Morgenbericht abgleichen, Known-ID-Recheck und Firebase-Readback bestätigen. Anhaltende Rate-Limits ehrlich als extern blockiert kennzeichnen; nicht „vollständig ausgeschöpft“ behaupten. Issue [#388](https://github.com/matthias-ennen/movie-hub/issues/388) bleibt offen bis mehrere reale Abläufe und ausdrückliche Nutzerabnahme vorliegen. Bestehende 06:00-Überwachung weiterverwenden.
+
 
 ## Weiterer Nachtrag 29.10.2026 – echte Discovery hat 114 Antworten verarbeitet; Rate-Limit-Fix #696
 
