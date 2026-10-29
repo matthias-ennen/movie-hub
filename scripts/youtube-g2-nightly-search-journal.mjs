@@ -19,9 +19,9 @@ export function validateSearchJournal(value,{day,runId}={}){
     ||value.pacificDate!==day?.date||value.runId!==runId
     ||!['running','completed','quota-exhausted'].includes(value.state)
     ||!['attempts','successful','quotaRejected','rateLimited',
-      'failed','pendingAttempts'].every(k=>validCount(value[k]))
+      'failed','pendingAttempts','uncertain'].every(k=>validCount(value[k]))
     ||value.attempts!==value.successful+value.quotaRejected+
-      value.rateLimited+value.failed+value.pendingAttempts
+      value.rateLimited+value.failed+value.pendingAttempts+value.uncertain
     ||value.quotaRejected>1
     ||value.state==='quota-exhausted'&&value.quotaRejected!==1
     ||value.state!=='running'&&value.pendingAttempts!==0)
@@ -55,7 +55,7 @@ export async function changeSearchJournal(bucket,snapshot,{now,runId,event}={}){
   const old=snapshot.journal||{
     kind:SEARCH_JOURNAL_KIND,schemaVersion:1,runId,pacificDate:day.date,
     state:'running',attempts:0,successful:0,quotaRejected:0,
-    rateLimited:0,failed:0,pendingAttempts:0,
+    rateLimited:0,failed:0,pendingAttempts:0,uncertain:0,
   }
   const next=copy(old)
   if(event==='init'){
@@ -71,6 +71,10 @@ export async function changeSearchJournal(bucket,snapshot,{now,runId,event}={}){
     if(event==='quota'){next.quotaRejected++;next.state='quota-exhausted'}
     if(event==='rate-limit')next.rateLimited++
     if(event==='failed')next.failed++
+  }else if(event==='recover'){
+    if(next.state!=='running')throw Error('G2_NIGHTLY_SEARCH_RECOVERY_UNSAFE')
+    next.uncertain+=next.pendingAttempts
+    next.pendingAttempts=0
   }else if(event==='complete'){
     if(next.state!=='running'||next.pendingAttempts!==0)
       throw Error('G2_NIGHTLY_SEARCH_COMPLETION_UNSAFE')
