@@ -1,4 +1,5 @@
-import { collection, deleteField, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
+import { throwIfAborted, yieldToMain, withDeadline } from '../performance/cooperativeWork.js'
+import { collection, deleteField, doc, getDocs, serverTimestamp, setDoc, query, orderBy, documentId, limit, startAfter } from 'firebase/firestore'
 import { firebaseReady } from './firebase.js'
 import {
   PERSONAL_CRYPTO_VERSION,
@@ -41,15 +42,32 @@ function addFieldResult(summary, result) {
   if (result.status === 'empty') summary.empty++
 }
 
-async function migrateProfileNotes(db, userId, report) {
-  const profiles = await getDocs(collection(db, 'users', userId, 'profiles'))
-  report.profileDocuments = profiles.size
+// Never skip verification merely because a past run succeeded: an older client
+// may have written plaintext since. Page the audit after interactive startup,
+// yield between documents, and allow account teardown to cancel future work.
+async function* migrationDocuments(reference, signal) {
+  let cursor = null
+  while (true) {
+    throwIfAborted(signal)
+    const constraints = [orderBy(documentId()), limit(50)]
+    if (cursor) constraints.push(startAfter(cursor))
+    const page = await withDeadline(getDocs(query(reference, ...constraints)), 8000)
+    throwIfAborted(signal)
+    for (const document of page.docs) {
+      await yieldToMain(signal)
+      yield document
+    }
+    if (page.size < 50) return
+    cursor = page.docs[page.docs.length - 1]
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+}
 
-  for (const profile of profiles.docs) {
-    const titles = await getDocs(collection(profile.ref, 'titles'))
-    report.titleDocuments += titles.size
-
-    for (const title of titles.docs) {
+async function migrateProfileNotes(db, userId, report, signal) {
+  for await (const profile of migrationDocuments(collection(db, 'users', userId, 'profiles'), signal)) {
+    report.profileDocuments++
+    for await (const title of migrationDocuments(collection(profile.ref, 'titles'), signal)) {
+      report.titleDocuments++
       const raw = title.data()
       try {
         const result = planPersonalValueCleanup({
@@ -81,15 +99,11 @@ async function migrateProfileNotes(db, userId, report) {
   }
 }
 
-async function migrateSharedMedia(db, userId, report) {
-  const parents = await getDocs(collection(db, 'users', userId, 'sharedMedia'))
-  report.sharedMediaDocuments = parents.size
-
-  for (const parent of parents.docs) {
-    const entries = await getDocs(collection(parent.ref, 'entries'))
-    report.sharedMediaEntries += entries.size
-
-    for (const entry of entries.docs) {
+async function migrateSharedMedia(db, userId, report, signal) {
+  for await (const parent of migrationDocuments(collection(db, 'users', userId, 'sharedMedia'), signal)) {
+    report.sharedMediaDocuments++
+    for await (const entry of migrationDocuments(collection(parent.ref, 'entries'), signal)) {
+      report.sharedMediaEntries++
       const raw = entry.data()
       const patch = {}
       const fieldResults = []
@@ -146,7 +160,7 @@ async function migrateSharedMedia(db, userId, report) {
   }
 }
 
-async function executeMigration(userId) {
+async function executeMigration(userId, signal) {
   if (!userId) throw new Error('Firebase-Benutzer für die Verschlüsselungsmigration fehlt.')
   if (!canEncryptPersonalData()) {
     return { status: 'unavailable', cryptoVersion: PERSONAL_CRYPTO_VERSION }
@@ -168,8 +182,9 @@ async function executeMigration(userId) {
     errors: [],
   }
 
-  await migrateProfileNotes(db, userId, report)
-  await migrateSharedMedia(db, userId, report)
+  await migrateProfileNotes(db, userId, report, signal)
+  await migrateSharedMedia(db, userId, report, signal)
+  throwIfAborted(signal)
   report.status = report.errors.length ? 'failed' : 'complete'
 
   await setDoc(doc(db, 'users', userId, 'diagnostics', 'personal-data-encryption-v1'), {
@@ -183,7 +198,10 @@ async function executeMigration(userId) {
   return report
 }
 
-export function runPersonalDataEncryptionMigration(userId) {
-  if (!migrationRuns.has(userId)) migrationRuns.set(userId, executeMigration(userId))
+export function runPersonalDataEncryptionMigration(userId, { signal } = {}) {
+  if (!migrationRuns.has(userId)) migrationRuns.set(userId, executeMigration(userId, signal).catch(error => {
+    migrationRuns.delete(userId)
+    throw error
+  }))
   return migrationRuns.get(userId)
 }

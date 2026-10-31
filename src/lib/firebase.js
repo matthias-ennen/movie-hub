@@ -1,3 +1,4 @@
+import { recordPerformanceEvent } from '../performance/performanceDiagnostics.js'
 import { getApps, initializeApp } from 'firebase/app'
 import { browserLocalPersistence, getAuth, setPersistence } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
@@ -50,5 +51,6 @@ export const firebaseReady = loadFirebaseConfig().then(async (firebaseConfig) =>
   db = getFirestore(app)
   await setPersistence(auth, browserLocalPersistence)
 
+  recordPerformanceEvent('startup:firebase-ready')
   return { app, auth, db }
 })

@@ -20,3 +20,6 @@ artifacts/profile-email-browser/
 gha-creds-*.json
 # Ad hoc evidence is private to its run; only deliberately reviewed manifests are versioned.
 artifacts/youtube-g2-independent-approvals.json
+
+# Rebuilt from the current public catalog before dev/build.
+/public/startup/

@@ -1,7 +1,10 @@
 import { loadRuntimeTitleMetadata } from '../catalog/runtimeTitleMetadata.js'
-import { titleNeedsMetadataEnrichment } from '../catalog/titleMetadata.js'
+import { titleNeedsMetadataEnrichment, metadataChecksComplete, isUsableTitle } from '../catalog/titleMetadata.js'
 
 export function heroNeedsCanonicalMetadata(item) {
+  // A validated listing retains videos/artwork/provider and descriptive fields.
+  // Missing cast, seasons and collection details do not require a Hero fetch.
+  if (item?.detailDeferred && metadataChecksComplete(item) && isUsableTitle(item.title)) return false
   return Boolean(item?.tmdbId)
     && titleNeedsMetadataEnrichment(item, { requireContract: true })
 }

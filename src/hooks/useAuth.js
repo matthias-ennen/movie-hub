@@ -1,3 +1,4 @@
+import { recordPerformanceEvent } from '../performance/performanceDiagnostics.js'
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { firebaseReady } from '../lib/firebase.js'
@@ -19,6 +20,7 @@ export function useAuth() {
           auth,
           (nextUser) => {
             if (!active) return
+            recordPerformanceEvent('startup:auth-ready', { signedIn: Boolean(nextUser) })
             setUser(nextUser)
             setLoading(false)
           },

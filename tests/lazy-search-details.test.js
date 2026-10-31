@@ -146,11 +146,11 @@ describe('lazy search details', () => {
     const first = await loadSearchDetail(entry(), { fetchImpl, storage: fakeStorage, now: 1000 })
     expect(first.description).toBe('Aus dem Shard')
     expect(fetchImpl).toHaveBeenCalledTimes(2)
-    expect(fetchImpl).toHaveBeenNthCalledWith(1, '/search-details/manifest.json?t=1000', { cache: 'no-store' })
+    expect(fetchImpl).toHaveBeenNthCalledWith(1, '/search-details/manifest.json?t=1000', expect.objectContaining({ cache: 'no-store', signal: expect.any(AbortSignal) }))
     expect(fetchImpl).toHaveBeenNthCalledWith(
       2,
       `/search-details/01.json?v=${encodeURIComponent(`1:${MANIFEST_GENERATION}`)}`,
-      { cache: 'no-store' },
+      expect.objectContaining({ cache: 'no-store', signal: expect.any(AbortSignal) }),
     )
 
     clearSearchDetailMemoryCache()

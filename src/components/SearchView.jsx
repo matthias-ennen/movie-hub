@@ -13,7 +13,7 @@ import { enrichSearchPosterEntries } from '../search/searchPosterEvidence.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { ProgressivePosterGrid } from './ProgressiveContent.jsx'
 
-export default function SearchView({ metadataTitles, personalTitles, statesByKey, actorNames, fullTitles, onOpen }) {
+export default function SearchView({ metadataTitles, personalTitles, statesByKey, actorNames, actorNamesLoading = false, fullTitles, onOpen }) {
   const [query, setQuery] = useState('')
   const [remoteIndex, setRemoteIndex] = useState(null)
   const [curatedYoutubeFeed, setCuratedYoutubeFeed] = useState(null)
@@ -123,7 +123,7 @@ export default function SearchView({ metadataTitles, personalTitles, statesByKey
         </p>
       )}
 
-      {indexLoading && <p className="loading-copy">Suchindex wird geladen …</p>}
+      {(indexLoading || actorNamesLoading) && <p className="loading-copy">Suchindex wird geladen …</p>}
       {indexError && <p className="settings-hint">Der separate Suchindex ist momentan nicht erreichbar. Movie Hub verwendet vorübergehend den geladenen Katalog als Suchfallback.</p>}
 
       {normalizedLength >= SEARCH_MIN_QUERY_LENGTH && searchResult.results.length === 0 && !indexLoading && (

@@ -38,6 +38,8 @@ function safeResourcePath(name) {
     const path = url.pathname
     const allowed = [
       '/catalog.json',
+      '/startup/',
+      '/search-details/',
       '/youtube-curated-new-films.json',
       '/search-index.json',
       '/live-availability-index.json',
