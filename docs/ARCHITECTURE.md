@@ -284,6 +284,8 @@ Beim nativen Kaltstart gilt zusätzlich ein expliziter Handshake: Der anfänglic
 
 ### TV-Runtime und Lazy-Ladepfad
 
+Die erste Runde von #703 entkoppelt den optionalen YouTube-Neufilmfeed vom Hauptkatalog: Er startet erst nach der Home-Bereitschaft und ergänzt anschließend den bestehenden Katalog über dieselben Validierungs-/Deduplizierungsregeln. Katalogrequests haben einen abbrechbaren Timeout einschließlich JSON-Body; der Hauptkatalog behält seine abgestuften Wiederholungen. Die native Intro-Dauer bleibt bestehen. Prüfstand und noch offene Geräteabnahme: [FOUNDATION_RUNTIME_703.md](FOUNDATION_RUNTIME_703.md).
+
 Der interaktive TV-Reiter liest nicht mehr vollständige Waipu-/Joyn-Titelkataloge in den Client. Der Datenworkflow verdichtet die benötigten Informationen in kleine veröffentlichte Runtime-Artefakte:
 
 - `/tv-runtime/hero.json` für den TV-Hero aus dem vollständigen 14-Tage-Bestand;
@@ -304,6 +306,8 @@ Der TV-Ablauf bleibt strikt Hero-first:
 Seit #346 liegt die TV-spezifische Runtime in einem eigenen lazy geladenen `TvFeature`. `App.jsx` behält nur globale, seitenübergreifend notwendige Live-Verfügbarkeit und die Station-Selection-Hooks. Dadurch bleiben Home/Filme/Serien/Meine Inhalte unabhängig von der großen TV-Runtime.
 
 Die zentrale Prime-Time-Grenze ist **20:15 Uhr Europe/Berlin**. TV Top 10 verwendet dieselbe Popularitätslogik für Tages- und 14-Tage-Ansicht.
+
+Datumsformatierer werden mit begrenztem Cache nach Locale und Optionen wiederverwendet; Tages-/DST-Ergebnisse werden nicht gecacht. Der Tagesreihenpfad lässt die dort ungenutzte Hero-Auswahl aus, während der sichtbare Runtime-Hero unverändert bleibt. Die Diagnose unterscheidet Runtime-Schedule, tatsächliches Reihenmodell, Commit/Frame und Zeitübergänge. Unterstützende Browser liefern zusätzlich numerische Long-Task-Ereignisse; ältere WebViews behalten die expliziten Modellmessungen.
 
 ### Automatische Hero-Trailer-Sequenz
 

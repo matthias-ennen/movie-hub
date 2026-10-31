@@ -44,6 +44,7 @@ import { AnnouncementsView, BellButton, StartupAnnouncement } from './notificati
 import { preloadHeroImage } from './performance/progressiveRendering.js'
 import { prepareForActiveView, prepareRowsForActiveView } from './performance/contentRowPreparation.js'
 import { loadCatalogWithRetry } from './performance/catalogStartup.js'
+import { fetchJsonWithTimeout } from './performance/fetchJson.js'
 import { notifyNativeStartupReady } from './performance/nativeStartup.js'
 import {
   LazyAboutView,
@@ -58,6 +59,7 @@ import {
 import {
   cancelPerformanceSpan,
   finishPerformanceSpan,
+  measurePerformance,
   recordPerformanceEvent,
   startPerformanceSpan,
 } from './performance/performanceDiagnostics.js'
@@ -535,28 +537,20 @@ function MovieHub({ user }) {
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     startPerformanceSpan('catalog', 'startup')
 
     async function loadCatalog() {
       try {
         const data = await loadCatalogWithRetry(async () => {
-          const [response, youtubeResponse] = await Promise.all([
-            fetch('/catalog.json', { cache: 'no-store' }),
-            // Optional metadata companion: Firebase deploy may temporarily
-            // contain an older catalog generation or no YouTube additions.
-            fetch(YOUTUBE_NEW_FILMS_PUBLIC_URL, { cache: 'no-store' }).catch(() => null),
-          ])
-          if (!response.ok) throw new Error(`Katalog konnte nicht geladen werden (${response.status})`)
-          const loadedCatalog = await response.json()
+          const loadedCatalog = await fetchJsonWithTimeout('/catalog.json', { signal: controller.signal })
 
           if (!Array.isArray(loadedCatalog.titles)
               || !loadedCatalog.titles.length
               || !Array.isArray(loadedCatalog.rowDefinitions)) {
             throw new Error('Der geladene Katalog ist unvollständig.')
           }
-          const youtubeFeed = youtubeResponse?.ok
-            ? await youtubeResponse.json().catch(() => null) : null
-          return mergeYoutubeNewFilmsIntoCatalog(loadedCatalog, youtubeFeed)
+          return loadedCatalog
         }, { shouldCancel: () => cancelled })
 
         if (!cancelled) {
@@ -589,9 +583,35 @@ function MovieHub({ user }) {
     loadCatalog()
     return () => {
       cancelled = true
+      controller.abort()
       cancelPerformanceSpan('catalog', 'startup', { reason: 'unmounted' })
     }
   }, [])
+
+  useEffect(() => {
+    if (!homeStartupReady) return undefined
+    const controller = new AbortController()
+    startPerformanceSpan('catalog:youtube-companion', 'startup')
+    // These optional new-film additions must never hold the native Home gate.
+    // Existing TMDB metadata and the validated merge rules stay authoritative.
+    fetchJsonWithTimeout(YOUTUBE_NEW_FILMS_PUBLIC_URL, { signal: controller.signal })
+      .then((feed) => {
+        if (controller.signal.aborted) return
+        setCatalog((current) => current.status === 'ready'
+          ? mergeYoutubeNewFilmsIntoCatalog(current, feed)
+          : current)
+        finishPerformanceSpan('catalog:youtube-companion', 'startup', { outcome: 'received' })
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return
+        finishPerformanceSpan('catalog:youtube-companion', 'startup', { outcome: 'unavailable' })
+        console.warn('Optionale YouTube-Filmergänzungen konnten nicht geladen werden.', error)
+      })
+    return () => {
+      controller.abort()
+      cancelPerformanceSpan('catalog:youtube-companion', 'startup', { reason: 'unmounted' })
+    }
+  }, [homeStartupReady])
 
   useEffect(() => {
     if (!homeStartupReady || liveAvailabilityRequestedRef.current) return
@@ -662,6 +682,7 @@ function MovieHub({ user }) {
     if (!Number.isFinite(nextTransition)) return undefined
     const timeout = window.setTimeout(() => {
       const now = Date.now()
+      recordPerformanceEvent('live:time-transition', { latenessMs: now - nextTransition })
       setLiveAvailabilityEntries((entries) => advanceLiveAvailabilityEntries(entries, { now }))
       setLiveAvailabilityClock(now)
     }, Math.max(0, Math.min(2_147_483_647, nextTransition - Date.now() + 1_000)))
@@ -700,7 +721,9 @@ function MovieHub({ user }) {
     enabledProviderIds, disabledWaipuStationIds: disabledStationIds, disabledJoynStationIds,
   }), [enabledProviderIds, disabledStationIds, disabledJoynStationIds])
   const rawTitles = useMemo(
-    () => mergeLiveAvailability(preLiveTitles, liveAvailabilityEntries, { now: liveAvailabilityClock, acceptLiveProvider }),
+    () => measurePerformance('live:catalog-merge', () => mergeLiveAvailability(
+      preLiveTitles, liveAvailabilityEntries, { now: liveAvailabilityClock, acceptLiveProvider },
+    ), { titleCount: preLiveTitles.length, entryCount: liveAvailabilityEntries.length }),
     [liveAvailabilityClock, liveAvailabilityEntries, preLiveTitles, acceptLiveProvider],
   )
   const titles = useMemo(

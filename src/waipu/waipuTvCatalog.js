@@ -1,4 +1,5 @@
 import { WAIPU_LIVE_CATALOG_VERSION } from './waipuLiveCatalog.js'
+import { getDateTimeFormatter } from '../performance/dateTimeFormat.js'
 import {
   isTvAiringOnAir,
   isTvAiringSoon,
@@ -237,7 +238,7 @@ export async function loadWaipuTvAirings(stations = [], {
 }
 
 function zonedDateKey(value, timeZone) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  const parts = getDateTimeFormatter('en-CA', {
     year: 'numeric', month: '2-digit', day: '2-digit', timeZone,
   }).formatToParts(new Date(value))
   const get = (type) => parts.find((part) => part.type === type)?.value
@@ -259,7 +260,7 @@ export const TV_GENRE_CATEGORIES = Object.freeze([
 ])
 
 function zonedParts(value, timeZone = TV_TIME_ZONE) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  const parts = getDateTimeFormatter('en-CA', {
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit',
     hourCycle: 'h23', timeZone,
@@ -582,6 +583,7 @@ export function buildWaipuTvViewModel({
   availableDays = [],
   now = Date.now(),
   timeZone = TV_TIME_ZONE,
+  includeHero = true,
 } = {}) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
   const stationRank = new Map((Array.isArray(stationOrder) ? stationOrder : [])
@@ -607,7 +609,7 @@ export function buildWaipuTvViewModel({
   return {
     periods,
     selectedPeriod,
-    heroItems: selectWaipuTvHeroItems(items, { now: timestamp }),
+    heroItems: includeHero ? selectWaipuTvHeroItems(items, { now: timestamp }) : [],
     rows: selectedPeriod.kind === 'all'
       ? buildRowsForAll(periodItems, stationRank, timeZone)
       : buildRowsForDay(periodItems, selectedPeriod, stationRank, timeZone),
@@ -620,7 +622,7 @@ function dayTitle(key, now, timeZone) {
   const tomorrowDate = new Date(now)
   tomorrowDate.setUTCDate(tomorrowDate.getUTCDate() + 1)
   const tomorrow = zonedDateKey(tomorrowDate, timeZone)
-  const date = new Intl.DateTimeFormat('de-DE', {
+  const date = getDateTimeFormatter('de-DE', {
     weekday: 'long', day: '2-digit', month: 'long', timeZone: 'UTC',
   }).format(midday)
   if (key === today) return `Heute · ${date}`

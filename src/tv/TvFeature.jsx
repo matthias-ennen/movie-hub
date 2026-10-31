@@ -6,6 +6,7 @@ import { isTvPresentationReady } from '../performance/liveCatalogStartup.js'
 import {
   cancelPerformanceSpan,
   finishPerformanceSpan,
+  measurePerformance,
   recordPerformanceEvent,
   startPerformanceSpan,
 } from '../performance/performanceDiagnostics.js'
@@ -300,7 +301,10 @@ export default function TvFeature({
     const nextTransition = nextTvAiringTransition(tvSchedule.airings, tvClock)
     if (!Number.isFinite(nextTransition)) return undefined
     const timeout = window.setTimeout(
-      () => setTvClock(Date.now()),
+      () => {
+        recordPerformanceEvent('tv:time-transition', { latenessMs: Date.now() - nextTransition })
+        setTvClock(Date.now())
+      },
       Math.max(0, Math.min(2_147_483_647, nextTransition - Date.now() + 1_000)),
     )
     return () => window.clearTimeout(timeout)
@@ -312,7 +316,7 @@ export default function TvFeature({
     [artworkOptions, tvSchedule.titles],
   )
 
-  const baseTvViewModel = useMemo(() => buildWaipuTvViewModel({
+  const baseTvViewModel = useMemo(() => measurePerformance('tv:rows-model', () => buildWaipuTvViewModel({
     airings: tvSchedule.airings,
     titles: tvPresentationTitles,
     titleEntries: liveAvailabilityEntries,
@@ -320,7 +324,9 @@ export default function TvFeature({
     selectedPeriodId: tvPeriodId,
     availableDays: combinedTvDays,
     now: tvClock,
-  }), [
+    // TvFeature uses the separate runtime snapshot for its visible hero.
+    includeHero: false,
+  }), { airingCount: tvSchedule.airings.length, periodId: tvPeriodId }), [
     combinedTvDays,
     combinedTvStationOrder,
     liveAvailabilityEntries,
@@ -332,7 +338,7 @@ export default function TvFeature({
 
   const tv14DayRows = useMemo(() => (
     tvPeriodId === '14-days' && tv14DaySummary.status === 'ready'
-      ? buildTv14DayRows({
+      ? measurePerformance('tv:summary-rows', () => buildTv14DayRows({
           enabledProviderIds,
           entries: tv14DaySummary.entries,
           titles: tvPresentationTitles,
@@ -340,7 +346,7 @@ export default function TvFeature({
           activeJoynStationIds: activeJoynStations.map((station) => station.id),
           artworkOptions,
           now: tvClock,
-        })
+        }), { entryCount: tv14DaySummary.entries.length })
       : []
   ), [
     enabledProviderIds,
@@ -359,6 +365,26 @@ export default function TvFeature({
       ? { ...baseTvViewModel, rows: tv14DayRows }
       : baseTvViewModel
   ), [baseTvViewModel, tv14DayRows, tvPeriodId])
+
+  useEffect(() => {
+    if (tvSchedule.status !== 'ready') return undefined
+    const startedAt = performance.now()
+    const detail = { periodId: tvPeriodId, rowCount: tvViewModel.rows.length }
+    recordPerformanceEvent('tv:rows-committed', detail)
+    let secondFrame = null
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        recordPerformanceEvent('tv:rows-frame', {
+          ...detail,
+          durationMs: Math.round(performance.now() - startedAt),
+        })
+      })
+    })
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
+    }
+  }, [tvPeriodId, tvSchedule.status, tvViewModel])
 
   const tvHeroItems = useMemo(
     () => buildTvRuntimeHeroItems(tvRuntimeHero.entries, {
