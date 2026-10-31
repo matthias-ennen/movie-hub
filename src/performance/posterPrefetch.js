@@ -1,5 +1,6 @@
 import { posterImageProps, posterSourceUrl } from './posterImages.js'
 import { recordPerformanceEvent } from './performanceDiagnostics.js'
+import { loadBudgetedImage } from './imageAdmission.js'
 
 export const POSTER_PREFETCH_AHEAD = 5
 export const POSTER_PREFETCH_BEHIND = 1
@@ -15,7 +16,7 @@ export function getPosterPrefetchWindow(items, focusIndex, { ahead = POSTER_PREF
 }
 
 export function createPosterPrefetchQueue({ ImageClass, concurrency = POSTER_PREFETCH_CONCURRENCY,
-  cacheLimit = POSTER_PREFETCH_CACHE_LIMIT, timeoutMs = 10000 } = {}) {
+  cacheLimit = POSTER_PREFETCH_CACHE_LIMIT, timeoutMs = 10000, loadImage = null } = {}) {
   const owners = new Map(), active = new Map(), completed = new Map()
   let pending = []
   let pumping = false
@@ -24,7 +25,7 @@ export function createPosterPrefetchQueue({ ImageClass, concurrency = POSTER_PRE
     const job = active.get(key)
     if (!job) return
     clearTimeout(job.timer)
-    job.image.onload = null; job.image.onerror = null
+    if (job.image) { job.image.onload = null; job.image.onerror = null }
     active.delete(key)
     if (success) {
       completed.delete(key); completed.set(key, true)
@@ -38,6 +39,14 @@ export function createPosterPrefetchQueue({ ImageClass, concurrency = POSTER_PRE
     while (active.size < concurrency && pending.length) {
       const request = pending.shift()
       if (!wanted(request.key) || active.has(request.key) || completed.has(request.key)) continue
+      if (loadImage) {
+        const job = { cancel: null }
+        active.set(request.key, job)
+        job.cancel = loadImage(request, {
+          onLoad: () => finish(request.key, true), onError: () => finish(request.key, false),
+        })
+        continue
+      }
       const image = new ImageClass()
       const timer = setTimeout(() => { finish(request.key, false); image.src = '' }, timeoutMs)
       active.set(request.key, { image, timer })
@@ -58,6 +67,7 @@ export function createPosterPrefetchQueue({ ImageClass, concurrency = POSTER_PRE
     )).slice(0, 24)
     for (const [key, job] of active) {
       if (wanted(key)) continue
+      if (job.cancel) { active.delete(key); job.cancel(); continue }
       clearTimeout(job.timer); job.image.onload = null; job.image.onerror = null
       active.delete(key); job.image.src = ''
     }
@@ -84,7 +94,9 @@ let queueImageClass = null
 export function prefetchPosterWindow(items, focusIndex, options = {}) {
   if (typeof Image === 'undefined') return []
   if (!queue || queueImageClass !== Image) {
-    queue?.clear(); queueImageClass = Image; queue = createPosterPrefetchQueue({ ImageClass: Image })
+    queue?.clear(); queueImageClass = Image; queue = createPosterPrefetchQueue({ ImageClass: Image,
+      loadImage: (props, handlers) => loadBudgetedImage(props, { ...handlers, ImageClass: Image, priority: 0 }),
+    })
   }
   const requests = getPosterPrefetchWindow(items, focusIndex, options).filter(posterSourceUrl).map((item) => {
     const props = posterImageProps(item, { variant: options.variant || 'standard' })

@@ -1,3 +1,4 @@
+import { imageAdmission } from '../performance/imageAdmission.js'
 import { resolvePresentationArtwork } from '../catalog/artworkRotation.js'
 import { loadRuntimeTitleMetadata } from '../catalog/runtimeTitleMetadata.js'
 import { normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
@@ -100,21 +101,24 @@ export function preloadDetailImage(url, {
   return new Promise((resolve) => {
     let settled = false
     let timeout = null
-    const image = createImage()
+    let image = null
+    let cancelRequest = () => {}
+    let releaseSlot = () => {}
 
     const finish = (result) => {
       if (settled) return
       settled = true
       if (timeout !== null && typeof clearTask === 'function') clearTask(timeout)
       signal?.removeEventListener?.('abort', handleAbort)
-      image.onload = null
-      image.onerror = null
+      if (image) { image.onload = null; image.onerror = null }
+      cancelRequest()
+      releaseSlot()
       resolve(result)
     }
 
     const handleAbort = () => {
       try {
-        image.removeAttribute?.('src')
+        image?.removeAttribute?.('src')
       } catch {
         // Best effort only. The session result is still discarded safely.
       }
@@ -123,22 +127,29 @@ export function preloadDetailImage(url, {
 
     signal?.addEventListener?.('abort', handleAbort, { once: true })
 
-    image.onload = async () => {
-      if (typeof image.decode === 'function') {
-        try {
-          await image.decode()
-        } catch {
-          // Das geladene Bild darf auch erscheinen, wenn decode() auf einer
-          // älteren Fire-TV-WebView nicht zuverlässig unterstützt wird.
-        }
-      }
-      finish('loaded')
-    }
-    image.onerror = () => finish('error')
     if (typeof scheduleTask === 'function') {
       timeout = scheduleTask(() => finish('timeout'), timeoutMs)
     }
-    image.src = url
-    if (image.complete) image.onload()
+    cancelRequest = imageAdmission.request({
+      priority: 4,
+      cancel: () => { image?.removeAttribute?.('src') },
+      start: (release) => {
+        releaseSlot = release
+        image = createImage()
+        image.onload = async () => {
+          if (typeof image.decode === 'function') {
+            try {
+              await image.decode()
+            } catch {
+              // Older Fire-TV WebViews may not support decode reliably.
+            }
+          }
+          finish('loaded')
+        }
+        image.onerror = () => finish('error')
+        image.src = url
+        if (image.complete) image.onload()
+      },
+    })
   })
 }

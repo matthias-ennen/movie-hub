@@ -1,7 +1,7 @@
 # Fundamenthärtung #703 – Start, TV-Laufzeit und Navigation
 
-Stand: 31.10.2026. Diese gemeinsame Fortsetzung baut auf der veröffentlichten
-Erstrunde #704 (`47b25d99b9425638171499d637f02192a8767f8d`) auf. Sie ersetzt den
+Stand: 31.10.2026. Die gemeinsame Rendering-Nachbesserung baut auf #705
+(`00317dfbf8a6afee8fb92a253cb03260c15b2fc5`) und der Erstrunde #704 auf. Sie ersetzt den
 vorherigen Zwischenstand dieses Dokuments; die Historie bleibt im Git-Verlauf.
 #703 und der ergänzende Navigations-Messauftrag #386 bleiben für die reale
 Fire-TV-Abnahme offen.
@@ -81,12 +81,26 @@ horizontale Position; entfernte Titel/Reihen erhalten einen erreichbaren
 Nachfolger. Detailrückkehr kann den Anker auch nach einem Zeitwechsel oder
 Virtualisierung wiederherstellen. Änderungen stehlen keinen Fokus von anderen
 Bedienelementen. Scroll-/Fokusimpulse erweitern Poster höchstens einmal pro Frame.
-Das vorhandene 30er-Posterfenster bleibt bestehen.
+TV und Verlauf verwenden jetzt wie Standardreihen ein anfängliches 12er-Fenster
+und 12er-Erweiterungen; die fachlichen Obergrenzen 150/100/50 bleiben erhalten.
+Vertikaler Overscan ist eine Reihe. Neue virtuelle Reihen werden einzeln über
+Frames zugelassen; D-Pad und Fokuswiederherstellung können weiter nachladen.
 
-Bildvorladen erlaubt höchstens zwei aktive und 24 wartende Bilder, acht aktive
-Reihenbesitzer und 256 erfolgreiche Cacheeinträge. Überholte Aufträge und
-Unmount-Arbeit werden verworfen; laufende Image-Requests werden bestmöglich
-abgebrochen. Ein Fehlschlag blockiert spätere Versuche nicht dauerhaft.
+Eine gemeinsame Bildzulassung begrenzt echte Poster-, Hero- und Detailbilder
+einschließlich spekulativem Vorladen auf zwei aktive Lade-/Decode-Aufträge.
+Poster erhalten ihre Quelle erst in Viewportnähe (120 px) oder bei Fokus.
+Hero/Details haben Vorrang vor wartenden Postern und können spekulative Aufträge
+verdrängen. Der Slot bleibt bis nach `decode()` belegt; ein aktiver Auftrag läuft
+höchstens zehn Sekunden. Detailvorbereitung behält ihr kürzeres 1,5-s-Budget.
+Unmount/Quellwechsel entfernt wartende Aufträge und bricht aktive Transporte
+bestmöglich ab; späte Decode-Ergebnisse werden ignoriert. Das ist keine harte
+Obergrenze für den internen Browser-/GPU-Bildcache oder alle Bilder der App.
+
+Das spekulative Posterfenster behält zusätzlich höchstens zwei angemeldete und
+24 wartende Bilder, acht Reihenbesitzer und 256 erfolgreiche Cacheeinträge.
+Hero-Vorladen merkt höchstens 64 erfolgreiche Quellen. Fehlgeschlagene Bilder
+gelten nicht als erfolgreich vorgeladen. Die Suche nutzt denselben progressiven
+12er-Grid-Aufbau und setzt das Fenster bei neuem Suchtext zurück.
 D-Pad-Geometrie wird innerhalb eines Navigationsschritts wiederverwendet.
 
 Identische Einstellungen erzeugen keine neuen Auswahllisten. Persönliche
@@ -97,6 +111,16 @@ wartende Arbeit wird beim Kontowechsel/Unmount geleert.
 
 ## Nachweise und Grenzen
 
+- Anlass der Nachbesserung: gemeldeter zuverlässiger Fire-TV-Abbruch kurz nach
+  TV-Hero/Fokus. Ohne Gerätelog ist weder ein Speicherabbruch noch ein nativer
+  Crash als Ursache bewiesen. Im Browser reproduziert: anfänglich 90 Karten
+  (3 × 30) und ein veraltetes `no-hero`-Signal, das trotz später vorhandenem,
+  noch ladendem Hero bereits Poster freigab. Beide Mechanismen existierten
+  bereits vor #705; keine daraus abgeleitete Behauptung einer neuen Regression.
+- Hero-Freigabe wird jetzt am aktuellen Hero und dessen Datenbereitschaft
+  entschieden. Es wird kein frühes Leersignal zwischengespeichert. Der bestehende
+  1,6-s-Bild-Fallback beginnt erst nach Datenbereitschaft; defekte oder ausbleibende
+  Bilder dürfen die Seite weiterhin nicht dauerhaft blockieren.
 - Produktionsbuild und vollständige Anwendungstests; endgültige Prüfergebnisse
   stehen zusätzlich in der zugehörigen Pull-Request- und Issue-Dokumentation.
 - `npm run test:startup:browser`: echte App, Hero, Reihen und native Bereitschaft
@@ -108,6 +132,12 @@ wartende Arbeit wird beim Kontowechsel/Unmount geleert.
   Tageszeitwechsel, überholte Tagesantworten und 06:00-Wechsel. Reale
   Poster-/Reihen-/D-Pad-Komponenten prüfen ID-Erhalt, Nachbarfokus, Detailanker,
   verschwundene Reihen und lange Posterfenster.
+- `npm run test:rendering:browser`: echter TV-Feature-/View-/Hero-/Reihen-/Posterpfad
+  mit 200 synthetischen Titeln und echter App-CSS; verzögertes Hero-JSON und Bild,
+  Tag erst nach Hero, erste 12 Karten, höchstens zwei tatsächliche gleichzeitige
+  Bildrequests, Hero-Fokus. Zusätzlich derselbe gemeinsame Seitenrahmen für alle
+  fünf Seitenkennungen, echte Suche sowie Bildquellwechsel/Unmount mit verspäteten
+  Antworten. Kontodienste und Netzwerk sind synthetisch; kein Fire-TV-Emulator.
 - Unit-Tests prüfen Modellparität, Abbruch, Referenzerhalt, DST, Hintergrund/
   Foreground, rückwärts verstellte Uhr, Generationskonflikte, Ressourcenlimits,
   Transport-Timeouts und öffentlichen Preload mit unabhängigem Abbruch.
@@ -139,6 +169,7 @@ window.__movieHubPerformance.snapshot()
 | `tv:rows-model:ready`, `tv:summary-rows:ready` | vollständige asynchrone Reihenaufbereitung |
 | `tv:rows-committed`, `tv:rows-frame` | React-Commit und zwei folgende Frames |
 | `poster:batch`, `poster:prefetch` | Posterfenster und begrenzte Bildwarteschlange |
+| `rows:admit`, `images:budget` | schrittweise Reihenfreigabe und gemeinsame Bildlast |
 | `navigation:focus`, `navigation:frame` | D-Pad-Arbeit und Weg zum nächsten Frame |
 | `main-thread:long-task` | Long-Task-Dauer, falls unterstützt |
 
@@ -146,6 +177,15 @@ Asynchrone Modelldauern enthalten Wartezeiten zwischen Arbeitsabschnitten;
 `runtime:work` misst nur die abgeteilte Kartenarbeit und nicht nachfolgende
 Sortierung, Commit oder Bilddecode. Der Ring enthält maximal 200 Ereignisse,
 keine Nutzer-/Titelobjekte und keine serverseitige Diagnoseübertragung.
+
+Die neue native APK speichert bei `onRenderProcessGone` genau den letzten
+Renderer-Ausfall lokal: Zeitpunkt, `didCrash`, Rendererpriorität, WebView-Version,
+Android-API und APK-Build. **Über diese App → Laufzeitdiagnose** zeigt Laufzeit und
+letzten Ausfall; Logcat verwendet `web_renderer_gone`. Ein vom System beendeter
+Renderer ist damit von `didCrash=true` unterscheidbar, aber noch kein Beweis für
+eine konkrete Speicherursache. Gesamte Prozessabbrüche/ANRs ohne diesen Callback
+brauchen weiterhin Gerätelogs. Alte APKs bleiben mit der Web-Korrektur kompatibel;
+die neue Diagnose setzt die neue APK voraus.
 
 Für die reale Endabnahme Web-Build unter **Über diese App → Web-Oberfläche**
 festhalten; vollständig schließen und neu öffnen. Kalt-/Warmstart, alle Seiten,

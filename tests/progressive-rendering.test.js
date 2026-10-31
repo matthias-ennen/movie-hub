@@ -54,7 +54,7 @@ describe('Hero-first und progressives Rendering', () => {
       displayHeroBackdropUrl: 'https://image.tmdb.org/t/p/w1280/hero.jpg',
     }], { delayMs: 0 })).toBe(true)
 
-    vi.runAllTimers()
+    vi.advanceTimersByTime(0)
 
     expect(requested).toEqual(['https://image.tmdb.org/t/p/w780/hero.jpg'])
     expect(srcsets).toEqual([

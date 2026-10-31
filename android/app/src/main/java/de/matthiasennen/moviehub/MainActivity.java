@@ -50,6 +50,7 @@ public final class MainActivity extends ComponentActivity {
 
     private FrameLayout container;
     private WebView webView;
+    private String webViewVersion = "unknown";
     private View loadingView;
     private View offlineView;
     private Button retryButton;
@@ -173,6 +174,12 @@ public final class MainActivity extends ComponentActivity {
         webView = new WebView(this);
         webView.setBackgroundColor(Color.rgb(9, 10, 16));
         MovieHubWebViewPolicy.configure(webView);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                android.content.pm.PackageInfo info = WebView.getCurrentWebViewPackage();
+                if (info != null) webViewVersion = info.versionName;
+            }
+        } catch (Exception ignored) { /* Runtime diagnostics are optional. */ }
         webView.addJavascriptInterface(new NativeBridge(), "MovieHubNative");
         webView.addJavascriptInterface(new PersonalDataCryptoBridge(), "MovieHubCrypto");
         webView.addJavascriptInterface(new HeroTrailerLaunchBridge(this), "MovieHubTrailer");
@@ -612,6 +619,17 @@ public final class MainActivity extends ComponentActivity {
         }
 
         @JavascriptInterface
+        public String getWebViewRuntime() {
+            return "Android API " + Build.VERSION.SDK_INT + " · WebView " + webViewVersion;
+        }
+
+        @JavascriptInterface
+        public String getLastRendererFailure() {
+            return getSharedPreferences("runtime-diagnostics", MODE_PRIVATE)
+                    .getString("last-renderer-failure", "");
+        }
+
+        @JavascriptInterface
         public int getBridgeContractVersion() {
             return NATIVE_BRIDGE_CONTRACT_VERSION;
         }
@@ -866,6 +884,21 @@ public final class MainActivity extends ComponentActivity {
 
         @Override
         public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+            try {
+                JSONObject failure = new JSONObject();
+                failure.put("at", System.currentTimeMillis());
+                failure.put("crashed", detail.didCrash());
+                failure.put("priority", detail.rendererPriorityAtExit());
+                failure.put("webView", webViewVersion);
+                failure.put("sdk", Build.VERSION.SDK_INT);
+                failure.put("apk", getInstalledVersionCode());
+                String report = failure.toString();
+                getSharedPreferences("runtime-diagnostics", MODE_PRIVATE).edit()
+                        .putString("last-renderer-failure", report).apply();
+                Log.e(PERFORMANCE_LOG_TAG, "web_renderer_gone=" + report);
+            } catch (Exception ignored) {
+                Log.e(PERFORMANCE_LOG_TAG, "web_renderer_gone: diagnostic unavailable");
+            }
             handleWebRendererGone(view);
             return true;
         }

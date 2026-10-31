@@ -1,4 +1,5 @@
 import { heroBackdropSourceUrl, heroImageProps } from './heroImages.js'
+import { loadBudgetedImage } from './imageAdmission.js'
 
 export const HERO_READY_TIMEOUT_MS = 1600
 export const INITIAL_VISIBLE_ROWS = 1
@@ -21,6 +22,7 @@ export function nextVisibleCount(current, total, batchSize) {
 const preloadedHeroImages = new Set()
 let pendingHeroPreloadTimer = null
 let pendingHeroPreloadUrl = null
+let activeHeroPreload = null
 
 function heroImageCandidate(items) {
   const firstItem = Array.isArray(items) ? items[0] : items
@@ -34,17 +36,20 @@ function heroImageCandidate(items) {
 
 function startHeroImagePreload(candidate) {
   if (!candidate?.sourceUrl || preloadedHeroImages.has(candidate.sourceUrl)) return false
-  preloadedHeroImages.add(candidate.sourceUrl)
-  const image = new Image()
-  image.decoding = 'async'
-  image.fetchPriority = 'high'
-  if (candidate.imageProps?.sizes) image.sizes = candidate.imageProps.sizes
-  if (candidate.imageProps?.srcSet) image.srcset = candidate.imageProps.srcSet
-  image.src = candidate.imageProps?.src || candidate.sourceUrl
+  activeHeroPreload = loadBudgetedImage(candidate.imageProps, { priority: 0,
+    onLoad: () => {
+      preloadedHeroImages.add(candidate.sourceUrl)
+      while (preloadedHeroImages.size > 64) preloadedHeroImages.delete(preloadedHeroImages.values().next().value)
+      activeHeroPreload = null
+    },
+    onError: () => { activeHeroPreload = null },
+  })
   return true
 }
 
 export function cancelHeroImagePreload() {
+  activeHeroPreload?.()
+  activeHeroPreload = null
   if (pendingHeroPreloadTimer !== null && typeof clearTimeout === 'function') {
     clearTimeout(pendingHeroPreloadTimer)
   }
