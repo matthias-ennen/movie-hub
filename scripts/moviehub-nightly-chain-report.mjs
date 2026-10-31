@@ -65,7 +65,8 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
     terminationReason:['youtube-search-list-403-quotaExceeded',
       'internal-safety-cap-not-google-exceeded',
       'eligible-tmdb-film-candidates-exhausted',
-      'youtube-search-rate-limit-not-confirmed-quota'].includes(d.terminationReason)
+      'youtube-search-rate-limit-not-confirmed-quota',
+      'controlled-stop-before-github-timeout'].includes(d.terminationReason)
       ?d.terminationReason:null,
   }:null
   const qa={
