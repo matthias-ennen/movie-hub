@@ -99,6 +99,16 @@ describe('safe end-of-chain adapter summary (#388)',()=>{
     expect(printed).toContain('youtube-search-rate-limit-not-confirmed-quota')
     expect(JSON.stringify(report)+printed).not.toContain('PRIVATE_NEVER_EXPORT')
   })
+  it.each(['time-budget-reached','running'])('keeps %s visible despite successful downstream jobs',status=>{
+    const discovery={kind:'moviehub-youtube-g2-nightly-budgeted-discovery',
+      status,quotaMode:'google-enforced-no-internal-daily-cap',
+      searchCalls:12,selectedForSearch:12,successfulSearchCalls:10,
+      quotaExceededConfirmed:false,terminationReason:'controlled-stop-before-github-timeout'}
+    const r=buildNightlyReport({...base,sourceData:{...qa,discovery}})
+    expect(r.status).toBe('degraded')
+    expect(r.youtubeDiscoveryQuota).toMatchObject({status,actualSearchAttempts:12,
+      quotaExceededConfirmed:false})
+  })
   it('reports a quota-blocked discovery as degraded if known video and Firebase succeeded',()=>{
     const r=buildNightlyReport({...base,stages:{...base.stages,discovery:'failure'}})
     expect(r.status).toBe('degraded')
