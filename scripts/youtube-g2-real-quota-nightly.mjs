@@ -16,6 +16,7 @@ import {ensureSearchJournal,changeSearchJournal}
   from './youtube-g2-nightly-search-journal.mjs'
 import {pacificSearchDay} from './youtube-g2-pacific-search-preflight.mjs'
 
+export const REAL_QUOTA_MAX_RUNTIME_MS=135*60000
 export const REAL_QUOTA_MAX_PREFLIGHT_FILMS=600
 export const REAL_QUOTA_MIN_SEARCH_INTERVAL_MS=2000
 // Temporary throttling must get a meaningful cooldown. A 429 without an
@@ -47,7 +48,18 @@ const protectedResult=data=>({
 export async function runRealQuotaNightly({
   publicIndex,bucket,tmdbGet,youtubeApi,runId,
   now=()=>new Date().toISOString(),wait=sleep,
+  clock=Date.now,maxRuntimeMs=REAL_QUOTA_MAX_RUNTIME_MS,onProgress=async()=>{},
 }={}){
+  const deadline=clock()+maxRuntimeMs
+  const checkTime=()=>{
+    if(clock()>=deadline)throw Error('G2_NIGHTLY_TIME_BUDGET_REACHED')
+  }
+  const boundedWait=async ms=>{
+    checkTime()
+    if(clock()+ms>=deadline)throw Error('G2_NIGHTLY_TIME_BUDGET_REACHED')
+    await wait(ms)
+    checkTime()
+  }
   const start=now(),day=pacificSearchDay(start)
   let progress=await loadNightlyQueue(bucket)
   let candidates=await loadDurableCandidateCheckpoint(bucket)
@@ -159,12 +171,14 @@ export async function runRealQuotaNightly({
       if(lastSearchAt!==null&&!retryCooldownDone){
         const pause=Math.max(0,adaptiveIntervalMs-
           (Date.now()-lastSearchAt))
-        if(pause>0)await wait(pause)
+        if(pause>0)await boundedWait(pause)
       }
+      checkTime()
       retryCooldownDone=false
       journal=await changeSearchJournal(bucket,journal,{
         now:now(),runId,event:'attempt',
       })
+      await onProgress(report('running','search-attempt-started'))
       lastSearchAt=Date.now()
       let answer,error
       try{answer=await youtubeApi(endpoint,params)}
@@ -179,6 +193,8 @@ export async function runRealQuotaNightly({
           retryAfterMs:error.retryAfterMs,
         }}:{}),
       })
+      await onProgress(report(isQuota(error)?'quota-exhausted-confirmed':'running',
+        isQuota(error)?'youtube-search-list-403-quotaExceeded':'search-attempt-finished'))
       if(!error){
         // Gradually return to normal search speed only after real successes.
         adaptiveIntervalMs=Math.max(REAL_QUOTA_MIN_SEARCH_INTERVAL_MS,
@@ -201,7 +217,7 @@ export async function runRealQuotaNightly({
         const retryAfter=isRate(error)&&Number.isSafeInteger(error.retryAfterMs)
           &&error.retryAfterMs>=0
           ?Math.min(error.retryAfterMs,REAL_QUOTA_RATE_RETRY_WINDOW_MS):0
-        await wait(Math.max(scheduled,retryAfter))
+        await boundedWait(Math.max(scheduled,retryAfter))
         retryCooldownDone=isRate(error)
         continue
       }
@@ -234,10 +250,13 @@ export async function runRealQuotaNightly({
     videoDetailCalls,checkedTmdbReads:tmdbReads,
     savedNewCandidateFilms,finishedWithoutCandidates,
     runCompletedFilms:completedFilms,
-    runUnfinishedFilms:['quota-exhausted-confirmed',
-      'rate-limited-stalled'].includes(status)?1:0,
+    runUnfinishedFilms:progress.queue.entries.filter(
+      entry=>entry.runId===runId&&entry.state==='started').length,
   })
+  await onProgress(report('running','discovery-started'))
   for(const tmdbId of eligible){
+    if(clock()>=deadline)return report('time-budget-reached',
+      'controlled-stop-before-github-timeout')
     if(pacificSearchDay(now()).date!==day.date)
       throw Error('G2_NIGHTLY_PACIFIC_DAY_CHANGED_MID_RUN')
     progress=await saveNightlyQueue(bucket,putNightlyResult(progress.queue,{
@@ -252,6 +271,8 @@ export async function runRealQuotaNightly({
         tmdbGet:guardedTmdb,youtubeApi:search,
       })
     }catch(error){
+      if(error?.message==='G2_NIGHTLY_TIME_BUDGET_REACHED')
+        return report('time-budget-reached','controlled-stop-before-github-timeout')
       if(isQuota(error))
         return report('quota-exhausted-confirmed',
           'youtube-search-list-403-quotaExceeded')
@@ -295,6 +316,7 @@ export async function runRealQuotaNightly({
         'known-candidate':'no-video-candidates',runId,now:now(),
     }),{expectedGeneration:progress.generation})
     completedFilms++
+    await onProgress(report('running','film-checkpoint-saved'))
   }
   journal=await changeSearchJournal(bucket,journal,{
     now:now(),runId,event:'complete',

@@ -7,7 +7,7 @@
  *
  * This makes no DE-offer, film-cut, rights or playback-route approvals.
  */
-import {readFile,mkdir,writeFile} from 'node:fs/promises'
+import {readFile,mkdir,writeFile,rename} from 'node:fs/promises'
 import {pathToFileURL} from 'node:url'
 import {getSecret,youtubeGet} from './youtube-api-smoke.mjs'
 import {loadPublicMovieHubIndex,runTmdbFirstLinkPilot}
@@ -64,7 +64,7 @@ export function validateNightlyDiscoveryPreflight(preflight,{now}={}){
 export async function runNightlyDiscovery({
   publicIndex,bucket,tmdbGet,youtubeApi,
   preflight,runId,quotaObservationMode=false,now=()=>new Date().toISOString(),
-  wait=sleep,
+  wait=sleep,clock=Date.now,maxRuntimeMs,onProgress,
 }={}){
   if(!isId(runId)||typeof now!=='function'||typeof wait!=='function'
     ||typeof tmdbGet!=='function'||typeof youtubeApi!=='function'
@@ -72,7 +72,7 @@ export async function runNightlyDiscovery({
     throw Error('G2_NIGHTLY_RUNNER_CONTEXT_INVALID')
   if(quotaObservationMode)
     return runRealQuotaNightly({
-      publicIndex,bucket,tmdbGet,youtubeApi,runId,now,wait,
+      publicIndex,bucket,tmdbGet,youtubeApi,runId,now,wait,clock,maxRuntimeMs,onProgress,
     })
   const startedAt=now()
   const {day,degradedOneSearch}=quotaObservationMode
@@ -308,13 +308,17 @@ export async function liveNightlyDiscovery({
       apiKey??=getSecret()
       return youtubeGet(path,params,apiKey)
     }
+    const persistSummary=async summary=>{
+      await mkdir('artifacts/youtube-g2/nightly-discovery',{recursive:true})
+      await writeFile(NIGHTLY_DISCOVERY_REPORT+'.tmp',
+        JSON.stringify(summary,null,2)+'\n',{mode:0o600})
+      await rename(NIGHTLY_DISCOVERY_REPORT+'.tmp',NIGHTLY_DISCOVERY_REPORT)
+    }
     const summary=await runNightlyDiscovery({
-      publicIndex,bucket,preflight,runId,quotaObservationMode,
+      publicIndex,bucket,preflight,runId,quotaObservationMode,onProgress:persistSummary,
       tmdbGet:(p,q)=>tmdbLive(p,q,token),youtubeApi:guardedYoutube,
     })
-    await mkdir('artifacts/youtube-g2/nightly-discovery',{recursive:true})
-    await writeFile(NIGHTLY_DISCOVERY_REPORT,
-      JSON.stringify(summary,null,2)+'\n',{mode:0o600})
+    await persistSummary(summary)
     console.log(JSON.stringify(summary))
     return summary
   }finally{

@@ -39,7 +39,7 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
   const quota=d?{
     status:['completed','quota-exhausted-confirmed','internal-safety-cap-reached',
       'daily-budget-exhausted','no-unknown-public-films',
-      'no-current-offer-candidates','rate-limited-stalled','failed'].includes(d.status)?d.status:'unknown',
+      'no-current-offer-candidates','rate-limited-stalled','time-budget-reached','running','failed'].includes(d.status)?d.status:'unknown',
     mode:['real-google-quota-until-confirmed-403',
       'google-enforced-no-internal-daily-cap'].includes(d.quotaMode)
       ?d.quotaMode:'other-or-unknown',
@@ -65,7 +65,8 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
     terminationReason:['youtube-search-list-403-quotaExceeded',
       'internal-safety-cap-not-google-exceeded',
       'eligible-tmdb-film-candidates-exhausted',
-      'youtube-search-rate-limit-not-confirmed-quota'].includes(d.terminationReason)
+      'youtube-search-rate-limit-not-confirmed-quota',
+      'controlled-stop-before-github-timeout'].includes(d.terminationReason)
       ?d.terminationReason:null,
   }:null
   const qa={
@@ -100,7 +101,7 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
   const status=!firebaseSucceeded?'publish-not-confirmed'
     :missingQA.length?'incomplete-evidence'
       :steps.discovery==='success'&&steps.known==='success'
-        &&quota?.status!=='rate-limited-stalled'?'success':'degraded'
+        &&!['rate-limited-stalled','time-budget-reached','running'].includes(quota?.status)?'success':'degraded'
   const id=n(Number(runId)),attempt=n(Number(runAttempt))
   const goodRepo=typeof repository==='string'
     &&/^[-\w]+\/[-\w.]+$/.test(repository)?repository:null

@@ -98,3 +98,23 @@
 - Neue Hauptfunktions-PRs #690–#693 gemergt. **Keine aktuell offen gebliebenen PRs** nach Bereinigung.
 - Alle gegenwärtig offenen GitHub-Issues sind **keinem Milestone zugeordnet** (GitHub-Issue-Metadaten geprüft). Eine separate vollständige Milestone-Liste war über den verbundenen Repository-Zugang nicht verfügbar; deshalb keine bestehenden Milestones erfinden oder pauschal ändern. **Verbindliche Reihenfolge steht in #271, `docs/ROADMAP.md` und `docs/ISSUE_PLAN.md`.**
 - Andere offene Produkt-/Fehler-Backlogs wie #481 (Joyn), #329 (Waipu), #112 (Compliance), #386 (Fire TV), #482–#484 (später) bleiben absichtlich erhalten. Sie sind nicht Beweise für einen unfertigen YouTube-Basisadapter.
+
+## Betriebsfix 31.10.2026 – kontrollierter Discovery-Abschluss
+
+Der Schedule-Run 41159114587 wurde nach 150 Minuten Discovery abgebrochen;
+`summary.json` fehlte, die nachgelagerte Zählerprüfung scheiterte mit ENOENT.
+Known-ID-Recheck und Firebase-Veröffentlichung liefen trotzdem erfolgreich.
+
+Die Discovery erhält eine Laufzeitgrenze von 135 Minuten ab Runner-Start,
+unterhalb des unveränderten 150-Minuten-GitHub-Joblimits. Vor weiteren
+Suchaufrufen und Retry-Pausen wird geprüft, ob noch Zeit bleibt. Ein zu langer
+Retry wird nicht begonnen. `time-budget-reached` beendet die Discovery regulär,
+bleibt aber im Gesamtbericht als `degraded` sichtbar und behauptet kein Quotenende.
+Zähler werden vor/nach jedem Suchversuch und nach jedem Film-Checkpoint atomar
+lokal gespeichert. Bei einem harten Abbruch bleibt so der letzte Zwischenstand
+mit gegebenenfalls ungewissem Suchversuch erhalten. Der private GCS-Journalpfad
+bleibt die dauerhafte Nachweisquelle. Echte API-/Speicherfehler bleiben Fehler.
+Explizites Google `quotaExceeded` wird weiterhin ohne Retry regulär beendet;
+HTTP 429 allein beweist keine Tagesquotenerschöpfung. Keine neue Tages-Suchgrenze,
+keine zusätzliche geplante Aufgabe und keine Änderung am Playlist-Matching.
+Produktive Bestätigung erfolgt erst durch den nächsten echten Nachtlauf.
