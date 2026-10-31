@@ -85,7 +85,9 @@ export async function readPublicCatalogDetail(item, options = {}) {
 }
 
 export async function readPublicFilterOptions({ signal } = {}) {
-  const catalog = await readPublicCatalog({ signal })
+  throwIfAborted(signal)
+  // The editor belongs to the displayed catalog, even after the preload TTL.
+  const catalog = cached || await readPublicCatalog({ signal })
   if (!catalog.generation) return catalog.smartFilterOptions || {}
   const payload = await metadataRequests.load(startupResourcePath(catalog.generation, 'filters.json'), { signal, cache: 'default' })
   if (payload?.kind !== 'moviehub-startup-filters' || payload.generation !== catalog.generation) throw new Error('Filterauswahl konnte nicht geladen werden.')

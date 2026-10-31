@@ -64,6 +64,17 @@ describe('performance diagnostics', () => {
     expect(performance.getEntriesByName('moviehub:tv:time-transition')).toHaveLength(1)
   })
 
+  it('retains the bounded startup evidence after the runtime event ring rotates', () => {
+    recordPerformanceEvent('startup:interactive', { activityToVisibleMs: 6400 })
+    for (let index = 0; index < 300; index++) recordPerformanceEvent('tv:time-transition')
+    expect(getPerformanceDiagnosticsSnapshot().events).toHaveLength(200)
+    expect(getPerformanceDiagnosticsSnapshot().startup.events).toEqual([
+      expect.objectContaining({ name: 'startup:interactive', detail: { activityToVisibleMs: 6400 } }),
+    ])
+    clearPerformanceDiagnostics()
+    expect(getPerformanceDiagnosticsSnapshot().startup.events).toEqual([])
+  })
+
   it('tolerates old WebViews and records only numeric long-task evidence on supported engines', () => {
     expect(installPerformanceDiagnostics({}).longTasksSupported).toBe(false)
     let callback

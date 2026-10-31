@@ -2,6 +2,8 @@ const MAX_EVENTS = 200
 const MAX_RESOURCES = 120
 const events = []
 const spans = new Map()
+const startupEvents = new Map()
+let startupResources = null
 
 function now() {
   return typeof performance !== 'undefined' && typeof performance.now === 'function'
@@ -84,6 +86,9 @@ export function recordPerformanceEvent(name, detail = {}) {
     atMs: round(now()),
     detail: safeDetail,
   }
+  if ((normalizedName.startsWith('startup:') || normalizedName === 'app:render-start')
+      && !startupEvents.has(normalizedName) && startupEvents.size < 24) startupEvents.set(normalizedName, event)
+  if (normalizedName === 'startup:interactive' && startupResources === null) startupResources = resourceSnapshot()
   events.push(event)
   trimEvents()
 
@@ -160,12 +165,16 @@ export function getPerformanceDiagnosticsSnapshot() {
     events: events.map((event) => ({ ...event, detail: { ...event.detail } })),
     resources: resourceSnapshot(),
     activeSpanCount: spans.size,
+    startup: { events: [...startupEvents.values()].map(event => ({ ...event, detail: { ...event.detail } })),
+      resources: (startupResources || []).map(resource => ({ ...resource })) },
   }
 }
 
 export function clearPerformanceDiagnostics() {
   events.length = 0
   spans.clear()
+  startupEvents.clear()
+  startupResources = null
 }
 
 export function installPerformanceDiagnostics(target = globalThis.window) {

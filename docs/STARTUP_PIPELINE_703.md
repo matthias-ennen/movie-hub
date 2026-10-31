@@ -121,7 +121,9 @@ Der tatsächliche neue Hostingtransfer wird nach Veröffentlichung separat gepr�
 
 Diagnostik trennt Firebase/Auth, Profil, persönliche Markierungen, Katalogdownload,
 JSON-Parse, Normalisierung, Home-Modell, Web-ready, nativen Fokus und spätere
-Hintergrundfreigabe. Die neue APK ergänzt `activityToReadyMs`,
+Hintergrundfreigabe. Ein separater begrenzter Start-Snapshot bleibt erhalten,
+auch wenn der normale Ereignispuffer durch spätere Navigation überschrieben wird.
+Die neue APK ergänzt `activityToReadyMs`,
 `activityToVisibleMs` und `reportFullyDrawn()`. Diese Werte beginnen bei
 Activity-Erstellung, nicht beim OS-Prozessstart. Die bisherige Messung
 `startup_ready_ms` ab `loadMovieHub()` bleibt erhalten. Webänderungen funktionieren

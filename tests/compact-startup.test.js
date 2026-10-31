@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildStartupPublication } from '../scripts/generate-startup-catalog.mjs'
 import { projectStartupTitle, validStartupCatalog, startupResourcePath } from '../src/catalog/startupCatalog.js'
-import { loadStartupCatalog, preloadPublicCatalog, readPublicCatalogDetail, resetPublicCatalogForTests } from '../src/performance/publicCatalog.js'
+import { loadStartupCatalog, preloadPublicCatalog, readPublicCatalogDetail, readPublicFilterOptions, resetPublicCatalogForTests } from '../src/performance/publicCatalog.js'
 import { mergeEnrichedTitle, titleNeedsMetadataEnrichment } from '../src/catalog/titleMetadata.js'
 import { heroNeedsCanonicalMetadata } from '../src/components/heroMetadata.js'
 import { buildPersonalSmartRows } from '../src/catalog/personalSmartRows.js'
@@ -100,4 +100,17 @@ describe('compact startup publication and generation contract', () => {
     expect(detail).toMatchObject({ canonicalPublished: true, detailDeferred: false, cast: movie.cast, collectionDetails: movie.collectionDetails })
     expect(fetchImpl.mock.calls.map(([url]) => url)).toEqual(['/startup/manifest.json', startupResourcePath(manifest.generation, 'catalog.json'), startupResourcePath(manifest.generation, 'details-01.json')])
   })
+  it('keeps filter options bound to the displayed generation after the preload TTL', async () => {
+    const { manifest, files } = buildStartupPublication(source)
+    const fetchImpl = vi.fn(async url => response(url.endsWith('manifest.json') ? manifest : files.get(url.split('/').at(-1))))
+    vi.stubGlobal('fetch', fetchImpl)
+    await preloadPublicCatalog()
+    const originalNow = Date.now()
+    const spy = vi.spyOn(Date, 'now').mockReturnValue(originalNow + 600000)
+    try {
+      expect(await readPublicFilterOptions()).toEqual(source.smartFilterOptions)
+      expect(fetchImpl.mock.calls.map(([url]) => url)).toEqual(['/startup/manifest.json', startupResourcePath(manifest.generation, 'catalog.json'), startupResourcePath(manifest.generation, 'filters.json')])
+    } finally { spy.mockRestore() }
+  })
+
 })
