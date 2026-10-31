@@ -1,3 +1,6 @@
+import { nextTvAiringTransition } from '../waipu/waipuAiringStatus.js'
+import { fetchJsonWithTimeout } from '../performance/fetchJson.js'
+import { mapCooperatively, reuseRows, throwIfAborted } from '../performance/cooperativeWork.js'
 import { createLiveProviderFilter } from '../sources/liveProviderSelection.js'
 import { selectProviderMap } from '../sources/providerLiveRoute.js'
 import { mergeProviderOffers } from '../providers/providerOfferSnapshot.js'
@@ -18,6 +21,7 @@ const TV_GENRE_CATEGORIES = Object.freeze([
 ])
 
 let cachedSummary = null
+let summaryLoadedAt = 0
 let cachedPromise = null
 
 function mediaType(value) {
@@ -183,19 +187,16 @@ export async function loadTv14DaySummary({
 } = {}) {
   const usesDefaultFetch = fetchImpl === fetch
   const sharePendingRequest = usesDefaultFetch && !signal
-  if (!force && usesDefaultFetch && cachedSummary) return cachedSummary
+  if (!force && usesDefaultFetch && cachedSummary && Date.now() - summaryLoadedAt < 5 * 60 * 1000) return cachedSummary
   if (!force && sharePendingRequest && cachedPromise) return cachedPromise
 
-  const requestOptions = signal ? { cache: 'no-store', signal } : { cache: 'no-store' }
-  const request = Promise.resolve(fetchImpl(TV_14_DAY_SUMMARY_URL, requestOptions))
-    .then((response) => {
-      if (!response?.ok) throw new Error(`14-Tage-TV-Summary konnte nicht geladen werden (${response?.status ?? 'unbekannt'})`)
-      return response.json()
-    })
+  throwIfAborted(signal)
+  const request = fetchJsonWithTimeout(TV_14_DAY_SUMMARY_URL, { fetchImpl, signal })
     .then((payload) => {
       const normalized = normalizeTv14DaySummary(payload)
       if (!normalized) throw new Error('14-Tage-TV-Summary hat ein ungültiges Format.')
-      if (usesDefaultFetch) cachedSummary = normalized
+      throwIfAborted(signal)
+      if (usesDefaultFetch) { cachedSummary = normalized; summaryLoadedAt = Date.now() }
       return normalized
     })
     .finally(() => {
@@ -219,6 +220,7 @@ export function buildTv14DayRows({
   activeJoynStationIds = [],
   artworkOptions = {},
   now = Date.now(),
+  preparedItems = null,
 } = {}) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
   const acceptProvider = createLiveProviderFilter({ enabledProviderIds, activeWaipuStationIds, activeJoynStationIds })
@@ -226,9 +228,9 @@ export function buildTv14DayRows({
     .map((title) => [titleKey(title), title])
     .filter(([key]) => key))
 
-  const normalItems = []
-  const primeItems = []
-  for (const entry of Array.isArray(entries) ? entries : []) {
+  const normalItems = preparedItems ? preparedItems.map((pair) => pair.normal).filter(Boolean) : []
+  const primeItems = preparedItems ? preparedItems.map((pair) => pair.prime).filter(Boolean) : []
+  for (const entry of preparedItems ? [] : (Array.isArray(entries) ? entries : [])) {
     const normalAiring = nextEnabledOption(entry?.airingOptions, acceptProvider, timestamp)
     const primeAiring = nextEnabledOption(entry?.primeTimeOptions, acceptProvider, timestamp)
     const normal = itemFromSummary(entry, normalAiring, titleByKey, artworkOptions, timestamp)
@@ -263,4 +265,47 @@ export function buildTv14DayRows({
     ...(topTen.length ? [{ id: 'top-ten-tv', title: 'TV Top 10', variant: 'top-ten', items: topTen }] : []),
     ...rows.slice(index),
   ]
+}
+
+export function createTv14DayRowsBuilder() {
+  let cache = new Map()
+  let previous = []
+  let configuration = null
+  return async (input, { signal } = {}) => {
+    const { entries = [], titles = [], artworkOptions, now, enabledProviderIds, activeWaipuStationIds = [], activeJoynStationIds = [] } = input
+    const selectionKey = JSON.stringify([enabledProviderIds, activeWaipuStationIds, activeJoynStationIds])
+    if (!configuration || configuration.selectionKey !== selectionKey || configuration.titles !== titles || configuration.artworkOptions !== artworkOptions) {
+      cache = new Map()
+      configuration = { selectionKey, titles, artworkOptions }
+    }
+    const accept = createLiveProviderFilter(input)
+    const titleByKey = new Map(titles.map((title) => [titleKey(title), title]))
+    const nextCache = new Map()
+    const preparedItems = await mapCooperatively(entries, (entry) => {
+      let pair = cache.get(entry)
+      if (!pair || now < pair.at || now >= pair.until) {
+        const normalAiring = nextEnabledOption(entry.airingOptions, accept, now)
+        const primeAiring = nextEnabledOption(entry.primeTimeOptions, accept, now)
+        const normal = itemFromSummary(entry, normalAiring, titleByKey, artworkOptions, now)
+        const prime = itemFromSummary(entry, primeAiring, titleByKey, artworkOptions, now)
+        if (normal) normal.genreIds = entry.genreIds || []
+        if (prime) prime.genreIds = entry.genreIds || []
+        pair = { normal, prime, at: now, until: nextTvAiringTransition([...(entry.airingOptions || []), ...(entry.primeTimeOptions || [])], now, 60 * 60 * 1000) ?? Infinity }
+      }
+      nextCache.set(entry, pair)
+      return pair
+    }, { signal })
+    const rows = reuseRows(previous, buildTv14DayRows({ ...input, preparedItems }))
+    cache = nextCache
+    previous = rows
+    return rows
+  }
+}
+
+export function nextTv14DayTransition(entries, now) {
+  let next = Infinity
+  for (const entry of entries) {
+    next = Math.min(next, nextTvAiringTransition([...(entry.airingOptions || []), ...(entry.primeTimeOptions || [])], now, 60 * 60 * 1000) ?? Infinity)
+  }
+  return next
 }

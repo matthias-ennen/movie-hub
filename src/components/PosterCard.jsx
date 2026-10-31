@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import ProviderBadges from './ProviderBadges.jsx'
 import { formatTvAiringCard } from '../tv/tvAiringPresentation.js'
@@ -6,7 +7,7 @@ import { useYoutubeVerifiedOffers, useYoutubeCuratedEditorialHints } from '../pr
 import { withVerifiedYoutubeTitleOffer } from '../providers/youtubeVerifiedTitlePresentation.js'
 import { posterImageProps, posterSourceUrl } from '../performance/posterImages.js'
 
-export default function PosterCard({
+function PosterCard({
   item,
   onOpen,
   rank = null,
@@ -29,9 +30,10 @@ export default function PosterCard({
       type="button"
       className={rank ? 'poster-card top-ten-poster-card' : 'poster-card'}
       onClick={() => onOpen(item, posterUrl)}
-      onFocus={onFocus || undefined}
+      onFocus={onFocus ? () => onFocus(posterIndex, item.id) : undefined}
       data-focusable="true"
       data-poster-index={posterIndex ?? undefined}
+      data-poster-id={item.id}
       data-top-ten-rank={rank || undefined}
       aria-label={rank ? `Platz ${rank}: ${item.title} öffnen` : `${item.title} öffnen`}
       style={{ '--poster-accent': item.accent, '--poster-accent-2': item.accent2 }}
@@ -79,3 +81,5 @@ export default function PosterCard({
     </button>
   )
 }
+
+export default memo(PosterCard)

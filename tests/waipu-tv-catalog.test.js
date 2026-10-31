@@ -64,8 +64,8 @@ describe('Waipu TV catalog', () => {
       status: 'unavailable',
       stations: [],
     })
-    expect(fetchImpl).toHaveBeenCalledWith(WAIPU_LIVE_INDEX_URL, { cache: 'no-store' })
-    expect(fetchImpl).toHaveBeenCalledWith(WAIPU_LIVE_STATIONS_URL, { cache: 'no-store' })
+    expect(fetchImpl).toHaveBeenCalledWith(WAIPU_LIVE_INDEX_URL, { cache: 'no-store', signal: expect.any(AbortSignal) })
+    expect(fetchImpl).toHaveBeenCalledWith(WAIPU_LIVE_STATIONS_URL, { cache: 'no-store', signal: expect.any(AbortSignal) })
   })
 
   it('filters expired and structurally invalid shard entries', () => {

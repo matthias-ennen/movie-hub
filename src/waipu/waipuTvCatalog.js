@@ -1,3 +1,5 @@
+import { mapCooperatively, reuseRows, sameItems } from '../performance/cooperativeWork.js'
+import { fetchJsonWithTimeout } from '../performance/fetchJson.js'
 import { WAIPU_LIVE_CATALOG_VERSION } from './waipuLiveCatalog.js'
 import { getDateTimeFormatter } from '../performance/dateTimeFormat.js'
 import {
@@ -131,14 +133,13 @@ export function normalizeWaipuDayShard(raw, expectedKey, stations = [], { now = 
 
 export async function loadWaipuLiveStationCatalog({ fetchImpl = fetch, signal } = {}) {
   try {
-    const [indexResponse, stationsResponse] = await Promise.all([
-      fetchImpl(WAIPU_LIVE_INDEX_URL, { cache: 'no-store', signal }),
-      fetchImpl(WAIPU_LIVE_STATIONS_URL, { cache: 'no-store', signal }),
+    const [index, stations] = await Promise.all([
+      fetchJsonWithTimeout(WAIPU_LIVE_INDEX_URL, { fetchImpl, signal }),
+      fetchJsonWithTimeout(WAIPU_LIVE_STATIONS_URL, { fetchImpl, signal }),
     ])
-    if (!indexResponse.ok || !stationsResponse.ok) return { status: 'unavailable', stations: [] }
     return normalizeWaipuLiveStationCatalog(
-      await indexResponse.json(),
-      await stationsResponse.json(),
+      index,
+      stations,
     ) || { status: 'unavailable', stations: [] }
   } catch {
     return { status: 'unavailable', stations: [] }
@@ -303,6 +304,24 @@ export function tvDayRange(key, timeZone = TV_TIME_ZONE) {
   }
 }
 
+// Immutable airing objects are shared by successive clock snapshots.
+const airingTimes = new WeakMap()
+function airingTime(airing, timeZone = TV_TIME_ZONE) {
+  let zones = airingTimes.get(airing)
+  if (!zones) { zones = new Map(); airingTimes.set(airing, zones) }
+  if (!zones.has(timeZone)) {
+    const start = Date.parse(airing.startTime)
+    zones.set(timeZone, { start, stop: Date.parse(airing.stopTime),
+      day: tvDayKey(start, timeZone), hour: zonedParts(airing.startTime, timeZone).hour,
+      prime: isPrimeTimeStart(airing.startTime, timeZone) })
+  }
+  return zones.get(timeZone)
+}
+
+export function nextTvDayBoundary(now = Date.now()) {
+  return tvDayRange(tvDayKey(now)).endExclusive
+}
+
 function shortDate(key) {
   const [year, month, day] = String(key).split('-')
   return `${day}.${month}.${year.slice(-2)}`
@@ -325,7 +344,7 @@ export function buildTvPeriodOptions(airings = [], {
     const start = Date.parse(airing?.startTime)
     const stop = Date.parse(airing?.stopTime)
     if (!Number.isFinite(start) || !Number.isFinite(stop) || stop <= timestamp) continue
-    keys.add(tvDayKey(start, timeZone))
+    keys.add(airingTime(airing, timeZone).day)
   }
   const sortedKeys = [...keys].filter((key) => key >= todayKey).sort()
   return [
@@ -448,10 +467,13 @@ function comparePopularity(left, right) {
     || canonicalKey(left).localeCompare(canonicalKey(right), 'de')
 }
 
+const genreSets = new WeakMap()
 function genreIdSet(item) {
-  return new Set((Array.isArray(item?.genres) ? item.genres : [])
-    .map((genre) => Number(genre?.id ?? genre))
-    .filter(Number.isFinite))
+  const genres = item?.genres
+  if (!Array.isArray(genres)) return new Set()
+  if (!genreSets.has(genres)) genreSets.set(genres, new Set(genres
+    .map((genre) => Number(genre?.id ?? genre)).filter(Number.isFinite)))
+  return genreSets.get(genres)
 }
 
 function matchesTvCategory(item, category) {
@@ -482,7 +504,7 @@ function dailyHeading(kind, period) {
 
 function buildRowsForAll(items, stationRank, timeZone) {
   const canonical = earliestUnique(items).sort((a, b) => compareChronological(a, b, stationRank))
-  const primeTime = earliestUnique(items.filter((item) => isPrimeTimeStart(item?.tvAiring?.startTime, timeZone)))
+  const primeTime = earliestUnique(items.filter((item) => airingTime(item.tvAiring, timeZone).prime))
     .sort((a, b) => compareChronological(a, b, stationRank))
   const rows = [
     normalRow('tv-14-days-movies', 'Filme in den nächsten 14 Tagen', canonical.filter((item) => item.type === 'movie')),
@@ -509,9 +531,9 @@ function buildRowsForDay(items, period, stationRank, timeZone) {
   const rows = [
     normalRow(`tv-${period.key}-movies`, dailyHeading('Filme', period), daily.filter((item) => item.type === 'movie')),
     normalRow(`tv-${period.key}-series`, dailyHeading('Serien', period), daily.filter((item) => item.type === 'series')),
-    normalRow(`tv-${period.key}-prime-time`, 'Zur Prime Time', dedupeDaily(chronological.filter((item) => isPrimeTimeStart(item?.tvAiring?.startTime, timeZone)))),
+    normalRow(`tv-${period.key}-prime-time`, 'Zur Prime Time', dedupeDaily(chronological.filter((item) => airingTime(item.tvAiring, timeZone).prime))),
     normalRow(`tv-${period.key}-night`, 'Nachtprogramm', dedupeDaily(chronological.filter((item) => {
-      const hour = zonedParts(item?.tvAiring?.startTime, timeZone).hour
+      const hour = airingTime(item.tvAiring, timeZone).hour
       return hour >= 23 || hour < TV_DAY_START_HOUR
     }))),
     ...TV_GENRE_CATEGORIES.map((category) => normalRow(
@@ -584,12 +606,13 @@ export function buildWaipuTvViewModel({
   now = Date.now(),
   timeZone = TV_TIME_ZONE,
   includeHero = true,
+  preparedItems = null,
 } = {}) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
   const stationRank = new Map((Array.isArray(stationOrder) ? stationOrder : [])
     .map((id, index) => [id, index]))
-  const items = buildAiringItems({ airings, titles, titleEntries, now: timestamp })
-    .sort((a, b) => compareChronological(a, b, stationRank))
+  const items = (preparedItems || buildAiringItems({ airings, titles, titleEntries, now: timestamp }))
+    .slice().sort((a, b) => compareChronological(a, b, stationRank))
   const periods = buildTvPeriodOptions(airings, { now: timestamp, timeZone, availableDays })
   const todayId = `day:${tvDayKey(timestamp, timeZone)}`
   const selectedPeriod = periods.find((period) => period.id === selectedPeriodId)
@@ -613,6 +636,67 @@ export function buildWaipuTvViewModel({
     rows: selectedPeriod.kind === 'all'
       ? buildRowsForAll(periodItems, stationRank, timeZone)
       : buildRowsForDay(periodItems, selectedPeriod, stationRank, timeZone),
+  }
+}
+
+// Instance scoped to one mounted TV feature. Only changed flags/metadata replace
+// a card; immutable time classifications survive clock-only updates.
+export function createWaipuTvViewModelBuilder() {
+  let cache = new Map()
+  let previous = null
+  let previousInput = null
+  let previousPrepared = []
+  let titlesRef = null, entriesRef = null, titleByKey, entryByKey
+  return async (input, { signal } = {}) => {
+    const { airings = [], titles = [], titleEntries = [], now = Date.now(), timeZone = TV_TIME_ZONE } = input
+    if (titlesRef !== titles) { titlesRef = titles; titleByKey = new Map(titles.map((title) => [titleKey(title), title])) }
+    if (entriesRef !== titleEntries) { entriesRef = titleEntries; entryByKey = new Map(titleEntries.map((entry) => [entry.key || titleKey(entry), entry])) }
+    const nextCache = new Map()
+    let flagsOnly = true
+    const prepared = await mapCooperatively(airings, (airing) => {
+      const key = titleKey(airing)
+      const identity = stableAiringIdentity(airing)
+      const stop = Date.parse(airing?.stopTime)
+      if (!key || nextCache.has(identity) || !Number.isFinite(stop) || stop <= now) return null
+      const base = titleByKey.get(key)
+      const entry = entryByKey.get(key)
+      const old = cache.get(identity)
+      if (!old || old.base !== base || old.entry !== entry || old.airing !== airing) flagsOnly = false
+      const onAir = isTvAiringOnAir(airing, now)
+      const soon = isTvAiringSoon(airing, now)
+      const item = old && old.base === base && old.entry === entry && old.airing === airing
+        && old.item.tvAiringOnAir === onAir && old.item.tvAiringSoon === soon
+        ? old.item : attachAiring(base || fallbackTitle(airing, entry), airing, entry, now)
+      airingTime(airing, timeZone)
+      nextCache.set(identity, { base, entry, airing, item })
+      return item
+    }, { signal })
+    const items = prepared.filter(Boolean)
+    const samePeriod = previousInput && previousInput.selectedPeriodId === input.selectedPeriodId
+      && previousInput.availableDays === input.availableDays && previousInput.stationOrder === input.stationOrder
+      && previousInput.timeZone === input.timeZone && tvDayKey(previousInput.now, timeZone) === tvDayKey(now, timeZone)
+    if (previous && input.includeHero === false && samePeriod && flagsOnly && nextCache.size === cache.size
+        && items.length === previousPrepared.length && items.every((item, index) => item.id === previousPrepared[index].id)) {
+      const byId = new Map(items.map((item) => [item.id, item]))
+      const rows = reuseRows(previous.rows, previous.rows.map((row) => ({ ...row, items: row.items.map((item) => byId.get(item.id)) })))
+      if (rows !== previous.rows) previous = { ...previous, rows }
+      cache = nextCache; previousPrepared = items; previousInput = { ...input, now }
+      return previous
+    }
+    const next = buildWaipuTvViewModel({ ...input, preparedItems: items })
+    next.rows = reuseRows(previous?.rows, next.rows)
+    if (previous && JSON.stringify(previous.periods) === JSON.stringify(next.periods)) {
+      next.periods = previous.periods
+      next.selectedPeriod = next.periods.find((period) => period.id === next.selectedPeriod.id)
+    }
+    if (previous && sameItems(previous.heroItems, next.heroItems)) next.heroItems = previous.heroItems
+    const result = previous && previous.rows === next.rows && previous.periods === next.periods
+      && previous.selectedPeriod === next.selectedPeriod && previous.heroItems === next.heroItems ? previous : next
+    cache = nextCache
+    previousPrepared = items
+    previousInput = { ...input, now }
+    previous = result
+    return result
   }
 }
 

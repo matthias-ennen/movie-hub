@@ -30,7 +30,7 @@ describe('TV-Feature wird aus dem Kaltstart ausgelagert', () => {
 
   it('behält Hero-first: Posterphase und Senderkataloge starten erst nach Hero-Bereitschaft', () => {
     expect(featureSource).toMatch(/handleTvHeroReady[\s\S]*recordPerformanceEvent\('tv:poster-phase:start'\)[\s\S]*setTvScheduleRequested\(true\)[\s\S]*onStationCatalogsRequested\?\.\(true\)/)
-    expect(featureSource).toContain("loadTvRuntimeHero({ signal: controller.signal })")
+    expect(featureSource).toContain("loadTvRuntimeHero({ signal: controller.signal, force: resourceRevision > 0 })")
   })
 
   it('hält PosterCard vom großen Waipu-TV-Modul getrennt', () => {
@@ -39,7 +39,7 @@ describe('TV-Feature wird aus dem Kaltstart ausgelagert', () => {
   })
 
   it('hält den globalen Live-Availability-Pfad außerhalb des TV-Features', () => {
-    expect(appSource).toContain('loadLiveAvailabilityIndex()')
+    expect(appSource).toContain('loadLiveAvailabilityIndex({ signal: controller.signal })')
     expect(appSource).toContain('mergeLiveAvailability(')
     expect(featureSource).not.toContain('loadLiveAvailabilityIndex')
   })

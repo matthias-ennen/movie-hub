@@ -1,3 +1,4 @@
+import { withDeadline } from '../performance/cooperativeWork.js'
 import { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react'
 import { collection, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
 import { LibraryProvider } from '../library/LibraryProvider.jsx'
@@ -83,7 +84,7 @@ export function ProfileProvider({ user, children }) {
       try {
         const { db } = await firebaseReady
         const profilesRef = collection(db, 'users', user.uid, 'profiles')
-        let snapshot = await getDocs(profilesRef)
+        let snapshot = await withDeadline(getDocs(profilesRef), 8000, 'Profile konnten nicht rechtzeitig geladen werden.')
 
         if (snapshot.empty) {
           await setDoc(doc(db, 'users', user.uid, 'profiles', 'main'), {
@@ -97,7 +98,7 @@ export function ProfileProvider({ user, children }) {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           })
-          snapshot = await getDocs(profilesRef)
+          snapshot = await withDeadline(getDocs(profilesRef), 8000, 'Profile konnten nicht rechtzeitig geladen werden.')
         }
 
         if (cancelled) return

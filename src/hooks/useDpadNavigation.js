@@ -1,3 +1,4 @@
+import { recordPerformanceEvent } from '../performance/performanceDiagnostics.js'
 import { useEffect } from 'react'
 import { PROGRESSIVE_ROW_REQUEST_EVENT } from '../performance/progressiveRendering.js'
 import { navigateDetailRows } from '../navigation/detailDpadNavigation.js'
@@ -81,13 +82,17 @@ function getPosterClosestToViewportX(cards, sourceCenterX) {
 
   const fullyVisible = []
   const partiallyVisible = []
+  const rectangles = new Map()
+  const trackBounds = new Map()
 
   cards.forEach((card) => {
     const track = card.closest?.('.poster-track')
     if (!track) return
 
     const rect = card.getBoundingClientRect()
-    const bounds = getTrackVisibleBounds(track, 12)
+    rectangles.set(card, rect)
+    if (!trackBounds.has(track)) trackBounds.set(track, getTrackVisibleBounds(track, 12))
+    const bounds = trackBounds.get(track)
 
     if (rect.left >= bounds.left && rect.right <= bounds.right) {
       fullyVisible.push(card)
@@ -103,7 +108,7 @@ function getPosterClosestToViewportX(cards, sourceCenterX) {
       : cards
 
   return pool.reduce((best, candidate) => {
-    const rect = candidate.getBoundingClientRect()
+    const rect = rectangles.get(candidate) || candidate.getBoundingClientRect()
     const centerX = rect.left + (rect.width / 2)
     const distance = Math.abs(centerX - sourceCenterX)
 
@@ -418,6 +423,8 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
   useEffect(() => {
     let lastArrowKey = null
     let lastArrowAt = 0
+    let navigationSequence = 0
+    let navigationFrame = null
 
     const resetRepeatState = () => {
       lastArrowKey = null
@@ -457,6 +464,7 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
       }
       lastArrowKey = event.key
       lastArrowAt = now
+      navigationSequence += 1
 
       const scope = document.querySelector('.notification-dialog') || getTopMediaPanel()
         || (exitDialogOpen
@@ -545,12 +553,25 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
       if (ARROW_KEYS.has(event.key)) resetRepeatState()
     }
 
-    window.addEventListener('keydown', handleKeyDown)
+    function measuredKeyDown(event) {
+      const startedAt = performance.now()
+      const sequence = navigationSequence
+      handleKeyDown(event)
+      if (navigationSequence === sequence) return
+      recordPerformanceEvent('navigation:focus', { key: event.key, durationMs: performance.now() - startedAt })
+      if (navigationFrame !== null) window.cancelAnimationFrame(navigationFrame)
+      navigationFrame = window.requestAnimationFrame(() => {
+        navigationFrame = null
+        recordPerformanceEvent('navigation:frame', { key: event.key, durationMs: performance.now() - startedAt })
+      })
+    }
+    window.addEventListener('keydown', measuredKeyDown)
     window.addEventListener('keyup', handleKeyUp)
     window.addEventListener('blur', resetRepeatState)
     return () => {
       window.cancelAnimationFrame(initialFocus)
-      window.removeEventListener('keydown', handleKeyDown)
+      if (navigationFrame !== null) window.cancelAnimationFrame(navigationFrame)
+      window.removeEventListener('keydown', measuredKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('blur', resetRepeatState)
     }

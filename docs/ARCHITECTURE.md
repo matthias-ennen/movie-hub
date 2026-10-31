@@ -1,6 +1,6 @@
 # Movie Hub – Architektur
 
-Stand: 2. Oktober 2026
+Stand: 31. Oktober 2026
 
 ## Ziel
 
@@ -284,7 +284,7 @@ Beim nativen Kaltstart gilt zusätzlich ein expliziter Handshake: Der anfänglic
 
 ### TV-Runtime und Lazy-Ladepfad
 
-Die erste Runde von #703 entkoppelt den optionalen YouTube-Neufilmfeed vom Hauptkatalog: Er startet erst nach der Home-Bereitschaft und ergänzt anschließend den bestehenden Katalog über dieselben Validierungs-/Deduplizierungsregeln. Katalogrequests haben einen abbrechbaren Timeout einschließlich JSON-Body; der Hauptkatalog behält seine abgestuften Wiederholungen. Die native Intro-Dauer bleibt bestehen. Prüfstand und noch offene Geräteabnahme: [FOUNDATION_RUNTIME_703.md](FOUNDATION_RUNTIME_703.md).
+#703 lädt den öffentlichen Hauptkatalog bereits parallel zur Anmeldung und Profilauswahl; ein geteilter Request verhindert doppelte Abrufe. Die Home-Bereitschaft berücksichtigt den aufbereiteten Katalog, das aktive Profil und die Anbietereinstellungen. Erst danach folgen Live-Verfügbarkeit, optionale YouTube-Laufzeitdaten und Metadatenreparaturen mit begrenzter Parallelität. Hauptkatalog-Wiederholungen haben zusammen 22,5 Sekunden Netzwerkbudget; Fehler führen zu einem sichtbaren Hinweis und bedienbarem Ersatzbestand. Anmeldung, Profil-Lesezugriffe und Anbieterinitialisierung besitzen begrenzte Fehlerpfade. Die native Intro-Dauer bleibt bestehen. Prüfstand, Grenzen und Geräteabnahme: [FOUNDATION_RUNTIME_703.md](FOUNDATION_RUNTIME_703.md).
 
 Der interaktive TV-Reiter liest nicht mehr vollständige Waipu-/Joyn-Titelkataloge in den Client. Der Datenworkflow verdichtet die benötigten Informationen in kleine veröffentlichte Runtime-Artefakte:
 
@@ -307,7 +307,9 @@ Seit #346 liegt die TV-spezifische Runtime in einem eigenen lazy geladenen `TvFe
 
 Die zentrale Prime-Time-Grenze ist **20:15 Uhr Europe/Berlin**. TV Top 10 verwendet dieselbe Popularitätslogik für Tages- und 14-Tage-Ansicht.
 
-Datumsformatierer werden mit begrenztem Cache nach Locale und Optionen wiederverwendet; Tages-/DST-Ergebnisse werden nicht gecacht. Der Tagesreihenpfad lässt die dort ungenutzte Hero-Auswahl aus, während der sichtbare Runtime-Hero unverändert bleibt. Die Diagnose unterscheidet Runtime-Schedule, tatsächliches Reihenmodell, Commit/Frame und Zeitübergänge. Unterstützende Browser liefern zusätzlich numerische Long-Task-Ereignisse; ältere WebViews behalten die expliziten Modellmessungen.
+Eine gemeinsame Deadline-Uhr steuert globale Live- und TV-Übergänge einschließlich der eigenen 14-Tage-Optionen, 06:00-Tagesgrenze und Foreground-Nachholung. Unveränderte Einträge, Karten und Reihen behalten ihre Referenzen; große Aufbereitungsschritte geben den Hauptthread kooperativ frei und verwerfen überholte Ergebnisse. Runtime-JSON-Requests sind zeitlich begrenzt, Fehler erzeugen keine statusgetriebene Request-Schleife. Index-/Hero-/Summary-Caches werden nach fünf Minuten erneuert; Tages-Shards werden gegen die Indexgeneration geprüft, mit genau einem Nachholversuch bei Publikationswechsel. Die Summary bleibt wegen ihres separaten Publishers davon unabhängig.
+
+Fokusanker verwenden stabile Titel-/Reihen-IDs und einen Nachbarindex, auch für Detailrückkehr und Virtualisierung. Poster-Nachladen wird pro Frame zusammengefasst; Bildvorladen ist auf zwei aktive Requests und begrenzte Warteschlangen/Caches beschränkt. Konten-/Profilwechsel geben keine Bibliotheksdaten des vorherigen Scopes frei. Datumsformatierer bleiben begrenzt gecacht; der Tagesreihenpfad berechnet keinen ungenutzten Hero. Die Diagnose unterscheidet aktive Teilabschnitte, vollständige asynchrone Modelldauer, Commit/Frame, D-Pad und Bildqueue. Long-Task-Daten ergänzen dies, soweit die WebView sie unterstützt.
 
 ### Automatische Hero-Trailer-Sequenz
 

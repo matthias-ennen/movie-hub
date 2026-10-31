@@ -261,10 +261,12 @@ describe('TV runtime client', () => {
       signal: controller.signal,
     })
 
+    await Promise.resolve()
     expect(fetchImpl).toHaveBeenCalledOnce()
-    expect(fetchImpl.mock.calls[0][1].signal).toBe(controller.signal)
+    expect(fetchImpl.mock.calls[0][1].signal.aborted).toBe(false)
 
     controller.abort()
+    expect(fetchImpl.mock.calls[0][1].signal.aborted).toBe(true)
 
     await expect(request).rejects.toMatchObject({ name: 'AbortError' })
   })
@@ -272,7 +274,7 @@ describe('TV runtime client', () => {
   it('keeps only the three most recently used day shards in the runtime cache', async () => {
     const fetchImpl = vi.fn(async (url) => {
       const key = String(url).match(/days\/(\d{4}-\d{2}-\d{2})\.json/)?.[1]
-      return { ok: true, json: async () => emptyDayPayload(key) }
+      return { ok: true, json: async () => ({ ...emptyDayPayload(key), generatedAt: 'generation-a' }) }
     })
     vi.stubGlobal('fetch', fetchImpl)
 

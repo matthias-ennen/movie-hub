@@ -1,3 +1,5 @@
+import { fetchJsonWithTimeout } from '../performance/fetchJson.js'
+import { throwIfAborted } from '../performance/cooperativeWork.js'
 import { createLiveProviderFilter } from '../sources/liveProviderSelection.js'
 import { selectProviderMap } from '../sources/providerLiveRoute.js'
 import {
@@ -10,6 +12,9 @@ import {
 export const TV_RUNTIME_INDEX_URL = '/tv-runtime/index.json'
 export const TV_RUNTIME_HERO_URL = '/tv-runtime/hero.json'
 export const TV_RUNTIME_DAY_CACHE_LIMIT = 3
+export const TV_RUNTIME_CACHE_MAX_AGE_MS = 5 * 60 * 1000
+let indexLoadedAt = 0
+let heroLoadedAt = 0
 
 let cachedIndex = null
 let indexPromise = null
@@ -136,19 +141,16 @@ export async function loadTvRuntimeHero({
 } = {}) {
   const usesDefaultFetch = fetchImpl === fetch
   const sharePendingRequest = usesDefaultFetch && !signal
-  if (!force && usesDefaultFetch && cachedHero) return cachedHero
+  if (!force && usesDefaultFetch && cachedHero && Date.now() - heroLoadedAt < TV_RUNTIME_CACHE_MAX_AGE_MS) return cachedHero
   if (!force && sharePendingRequest && heroPromise) return heroPromise
 
-  const requestOptions = signal ? { cache: 'no-store', signal } : { cache: 'no-store' }
-  const request = Promise.resolve(fetchImpl(TV_RUNTIME_HERO_URL, requestOptions))
-    .then((response) => {
-      if (!response?.ok) throw new Error(`TV-Runtime-Hero konnte nicht geladen werden (${response?.status ?? 'unbekannt'})`)
-      return response.json()
-    })
+  throwIfAborted(signal)
+  const request = fetchJsonWithTimeout(TV_RUNTIME_HERO_URL, { fetchImpl, signal })
     .then((payload) => {
       const normalized = normalizeTvRuntimeHero(payload)
       if (!normalized) throw new Error('TV-Runtime-Hero hat ein ungültiges Format.')
-      if (usesDefaultFetch) cachedHero = normalized
+      throwIfAborted(signal)
+      if (usesDefaultFetch) { cachedHero = normalized; heroLoadedAt = Date.now() }
       return normalized
     })
     .finally(() => {
@@ -162,24 +164,23 @@ export async function loadTvRuntimeHero({
 export async function loadTvRuntimeIndex({
   fetchImpl = fetch,
   force = false,
+  signal = null,
 } = {}) {
-  if (!force && fetchImpl === fetch && cachedIndex) return cachedIndex
-  if (!force && fetchImpl === fetch && indexPromise) return indexPromise
-  const request = Promise.resolve(fetchImpl(TV_RUNTIME_INDEX_URL, { cache: 'no-store' }))
-    .then((response) => {
-      if (!response?.ok) throw new Error(`TV-Runtime-Index konnte nicht geladen werden (${response?.status ?? 'unbekannt'})`)
-      return response.json()
-    })
+  if (!force && fetchImpl === fetch && cachedIndex && Date.now() - indexLoadedAt < TV_RUNTIME_CACHE_MAX_AGE_MS) return cachedIndex
+  if (!force && fetchImpl === fetch && !signal && indexPromise) return indexPromise
+  throwIfAborted(signal)
+  const request = fetchJsonWithTimeout(TV_RUNTIME_INDEX_URL, { fetchImpl, signal })
     .then((payload) => {
       const normalized = normalizeTvRuntimeIndex(payload)
       if (!normalized) throw new Error('TV-Runtime-Index hat ein ungültiges Format.')
-      if (fetchImpl === fetch) cachedIndex = normalized
+      throwIfAborted(signal)
+      if (fetchImpl === fetch) { cachedIndex = normalized; indexLoadedAt = Date.now() }
       return normalized
     })
     .finally(() => {
-      if (fetchImpl === fetch) indexPromise = null
+      if (fetchImpl === fetch && !signal) indexPromise = null
     })
-  if (fetchImpl === fetch) indexPromise = request
+  if (fetchImpl === fetch && !signal) indexPromise = request
   return request
 }
 
@@ -202,15 +203,15 @@ export async function loadTvRuntimeDay(key, {
   if (!force && sharePendingRequest && dayPromises.has(cacheKey)) return dayPromises.get(cacheKey)
 
   const query = generation ? `?v=${encodeURIComponent(generation)}` : ''
-  const requestOptions = signal ? { cache: 'no-store', signal } : { cache: 'no-store' }
-  const request = Promise.resolve(fetchImpl(`/tv-runtime/days/${dayKey}.json${query}`, requestOptions))
-    .then((response) => {
-      if (!response?.ok) throw new Error(`TV-Runtime-Tag konnte nicht geladen werden (${response?.status ?? 'unbekannt'})`)
-      return response.json()
-    })
+  throwIfAborted(signal)
+  const request = fetchJsonWithTimeout(`/tv-runtime/days/${dayKey}.json${query}`, { fetchImpl, signal })
     .then((payload) => {
       const normalized = normalizeTvRuntimeDay(payload, dayKey)
       if (!normalized) throw new Error('TV-Runtime-Tag hat ein ungültiges Format.')
+      if (generation && normalized.generatedAt !== generation) {
+        throw Object.assign(new Error('TV-Veröffentlichung hat sich geändert.'), { name: 'GenerationMismatchError' })
+      }
+      throwIfAborted(signal)
       if (usesDefaultFetch) cacheDay(cacheKey, normalized)
       return normalized
     })
@@ -451,4 +452,17 @@ export function clearTvRuntimeCache() {
   heroPromise = null
   dayCache.clear()
   dayPromises.clear()
+}
+
+// Publication may switch between index and shard requests. One index refresh
+// and one retry are sufficient; never turn a generation conflict into a loop.
+export async function loadConsistentTvRuntimeDay(key, index, options = {}) {
+  try {
+    return { index, day: await loadTvRuntimeDay(key, { ...options, generation: index.generatedAt }) }
+  } catch (error) {
+    if (error?.name !== 'GenerationMismatchError') throw error
+    const refreshed = await loadTvRuntimeIndex({ ...options, force: true })
+    const day = await loadTvRuntimeDay(key, { ...options, force: true, generation: refreshed.generatedAt })
+    return { index: refreshed, day }
+  }
 }

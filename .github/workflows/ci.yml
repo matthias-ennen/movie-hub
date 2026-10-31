@@ -78,6 +78,9 @@ jobs:
       - name: Check Home startup with delayed and unavailable optional metadata
         run: npm run test:startup:browser
 
+      - name: Check TV time transitions, bounded errors and focus preservation
+        run: npm run test:runtime:browser
+
       - name: Check profile email UI with local Firestore and render mail templates
         run: npm run test:email:browser
 

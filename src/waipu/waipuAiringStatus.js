@@ -20,13 +20,14 @@ export function isTvAiringSoon(airing, now = Date.now(), windowMs = TV_AIRING_SO
     && startTime - timestamp <= Math.max(0, Number(windowMs) || 0)
 }
 
-export function nextTvAiringTransition(airings = [], now = Date.now()) {
+export function nextTvAiringTransition(airings = [], now = Date.now(), windowMs = TV_AIRING_SOON_WINDOW_MS) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
-  const transitions = (Array.isArray(airings) ? airings : [])
-    .flatMap((airing) => {
-      const start = Date.parse(airing?.startTime)
-      return [start - TV_AIRING_SOON_WINDOW_MS, start, Date.parse(airing?.stopTime)]
-    })
-    .filter((value) => Number.isFinite(value) && value > timestamp)
-  return transitions.length ? Math.min(...transitions) : null
+  let next = Infinity
+  for (const airing of Array.isArray(airings) ? airings : []) {
+    const start = Date.parse(airing?.startTime)
+    for (const deadline of [start - windowMs, start, Date.parse(airing?.stopTime)]) {
+      if (Number.isFinite(deadline) && deadline > timestamp && deadline < next) next = deadline
+    }
+  }
+  return Number.isFinite(next) ? next : null
 }

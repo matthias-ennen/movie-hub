@@ -1,3 +1,4 @@
+import { sameItems } from '../performance/cooperativeWork.js'
 import { DEFAULT_ENABLED_PROVIDER_IDS, normalizeEnabledProviderIds } from './providerSelectionModel.js'
 
 let snapshot = {
@@ -24,13 +25,16 @@ export function subscribeProviderSelection(listener) {
 }
 
 export function updateProviderSelectionSnapshot(patch) {
-  snapshot = {
+  const next = {
     ...snapshot,
     ...patch,
     enabledProviderIds: patch.enabledProviderIds === undefined
       ? snapshot.enabledProviderIds
       : normalizeEnabledProviderIds(patch.enabledProviderIds),
   }
+  if (Array.isArray(next.enabledProviderIds) && sameItems(snapshot.enabledProviderIds, next.enabledProviderIds)) next.enabledProviderIds = snapshot.enabledProviderIds
+  if (Object.keys(next).every((key) => Object.is(snapshot[key], next[key]))) return snapshot
+  snapshot = next
   emit()
   return snapshot
 }

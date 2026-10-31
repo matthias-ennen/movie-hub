@@ -1,4 +1,6 @@
-import { isTvAiringOnAir, isTvAiringSoon } from '../waipu/waipuAiringStatus.js'
+import { fetchJsonWithTimeout } from '../performance/fetchJson.js'
+import { mapCooperatively, sameItems } from '../performance/cooperativeWork.js'
+import { isTvAiringOnAir, isTvAiringSoon, nextTvAiringTransition } from '../waipu/waipuAiringStatus.js'
 import { getDateTimeFormatter } from '../performance/dateTimeFormat.js'
 import { episodeReference } from '../catalog/episodeContext.js'
 
@@ -198,12 +200,16 @@ export function normalizeLiveAvailabilityIndex(raw, { now = Date.now() } = {}) {
     .filter(Boolean)
 }
 
+const normalizedEntries = new WeakSet()
+
 export function advanceLiveAvailabilityEntries(entries = [], { now = Date.now() } = {}) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
-  return (Array.isArray(entries) ? entries : [])
+  const result = (Array.isArray(entries) ? entries : [])
     .map((entry) => {
+      if (normalizedEntries.has(entry) && entry.airings.every((airing) => Date.parse(airing.stopTime) > timestamp)) return entry
       const providers = (Array.isArray(entry?.providers) ? entry.providers : [])
-        .map((provider) => normalizeProviderEntry(provider, timestamp))
+        .map((provider) => normalizedEntries.has(entry) && provider.airings.every((airing) => Date.parse(airing.stopTime) > timestamp)
+          ? provider : normalizeProviderEntry(provider, timestamp))
         .filter(Boolean)
       if (!providers.length) return null
       const airings = providers.flatMap((provider) => provider.airings)
@@ -218,6 +224,8 @@ export function advanceLiveAvailabilityEntries(entries = [], { now = Date.now() 
       }
     })
     .filter(Boolean)
+  for (const entry of result) normalizedEntries.add(entry)
+  return sameItems(entries, result) ? entries : result
 }
 
 function tmdbProviderIds(item) {
@@ -264,9 +272,9 @@ function buildProviderEvidence(title, liveAvailability) {
   return evidence
 }
 
-export function mergeLiveAvailability(titles = [], entries = [], { now = Date.now(), acceptLiveProvider = null } = {}) {
+export function mergeLiveAvailability(titles = [], entries = [], { now = Date.now(), acceptLiveProvider = null, entryMap = null } = {}) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
-  const byKey = new Map((Array.isArray(entries) ? entries : [])
+  const byKey = entryMap || new Map((Array.isArray(entries) ? entries : [])
     .map((entry) => [entry?.key || titleKey(entry), entry])
     .filter(([key]) => key))
 
@@ -407,12 +415,30 @@ export function formatLiveAiring(providerAvailability, {
     .join(' · ')
 }
 
-export async function loadLiveAvailabilityIndex({ fetchImpl = fetch, now = Date.now } = {}) {
-  try {
-    const response = await fetchImpl(LIVE_AVAILABILITY_INDEX_URL, { cache: 'no-store' })
-    if (!response.ok) return []
-    return normalizeLiveAvailabilityIndex(await response.json(), { now })
-  } catch {
-    return []
+export async function loadLiveAvailabilityIndex({ fetchImpl = fetch, now = Date.now, signal } = {}) {
+  const payload = await fetchJsonWithTimeout(LIVE_AVAILABILITY_INDEX_URL, { fetchImpl, signal })
+  const entries = normalizeLiveAvailabilityIndex(payload, { now })
+  for (const entry of entries) normalizedEntries.add(entry)
+  return entries
+}
+
+export function createLiveAvailabilityMerger() {
+  const cache = new WeakMap()
+  let previous = []
+  return async (titles, entries, { now, acceptLiveProvider, signal } = {}) => {
+    const entryMap = new Map(entries.map((entry) => [entry.key || titleKey(entry), entry]))
+    const next = await mapCooperatively(titles, (title) => {
+      const entry = entryMap.get(titleKey(title))
+      const old = cache.get(title)
+      if (old && old.entry === entry && old.accept === acceptLiveProvider && now >= old.from && now < old.until) return old.value
+      const value = mergeLiveAvailability([title], entries, { now, acceptLiveProvider, entryMap })[0]
+      const airings = [...(entry?.airings || []), ...Object.values(title.liveAvailability || {}).flatMap((provider) => provider?.airings || [])]
+      for (const provider of [title.waipuLive, title.joynLive]) if (provider) airings.push(...(provider.airings || [provider.nextAiring].filter(Boolean)))
+      cache.set(title, { entry, accept: acceptLiveProvider, from: now,
+        until: nextTvAiringTransition(airings, now) ?? Infinity, value })
+      return value
+    }, { signal })
+    if (!sameItems(previous, next)) previous = next
+    return previous
   }
 }

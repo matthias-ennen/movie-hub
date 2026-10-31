@@ -1,4 +1,5 @@
 import { normalizeTvDayTitles } from '../sources/tvDayTitleMetadata.js'
+import { fetchJsonWithTimeout } from '../performance/fetchJson.js'
 export const JOYN_LIVE_CATALOG_VERSION = 1
 export const JOYN_LIVE_INDEX_URL = '/joyn-live/index.json'
 export const JOYN_LIVE_STATIONS_URL = '/joyn-live/stations.json'
@@ -50,14 +51,13 @@ export function normalizeJoynLiveStationCatalog(indexRaw, stationsRaw) {
 
 export async function loadJoynLiveStationCatalog({ fetchImpl = fetch, signal } = {}) {
   try {
-    const [indexResponse, stationsResponse] = await Promise.all([
-      fetchImpl(JOYN_LIVE_INDEX_URL, { cache: 'no-store', signal }),
-      fetchImpl(JOYN_LIVE_STATIONS_URL, { cache: 'no-store', signal }),
+    const [index, stations] = await Promise.all([
+      fetchJsonWithTimeout(JOYN_LIVE_INDEX_URL, { fetchImpl, signal }),
+      fetchJsonWithTimeout(JOYN_LIVE_STATIONS_URL, { fetchImpl, signal }),
     ])
-    if (!indexResponse.ok || !stationsResponse.ok) return { status: 'unavailable', stations: [], days: [] }
     return normalizeJoynLiveStationCatalog(
-      await indexResponse.json(),
-      await stationsResponse.json(),
+      index,
+      stations,
     ) || { status: 'unavailable', stations: [], days: [] }
   } catch {
     return { status: 'unavailable', stations: [], days: [] }
