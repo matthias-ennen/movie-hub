@@ -135,6 +135,35 @@ describe('scheduled nightly movie research: shared 50 PT calls and private resum
     const candidates=await loadDurableCandidateCheckpoint(b)
     expect(candidates.checkpoint.entries).toHaveLength(1)
   })
+  it('stops before a retry would exceed runtime and preserves measured counters',async()=>{
+    const b=await seededBucket(),svc=services(),snapshots=[],waits=[]
+    svc.youtubeApi.mockRejectedValue(Error('YouTube API: HTTP 429 bei search [RATE_LIMITED]'))
+    const r=await runNightlyDiscovery({
+      publicIndex:publicIndex(),bucket:b,quotaObservationMode:true,
+      runId:630099,now:()=>NOW,clock:()=>0,maxRuntimeMs:30000,
+      wait:async ms=>waits.push(ms),onProgress:async r=>snapshots.push(r),...svc,
+    })
+    expect(r).toMatchObject({status:'time-budget-reached',searchCalls:1,
+      successfulSearchCalls:0,rateLimitResponses:1,uncertainSearchAttempts:0,
+      quotaExceededConfirmed:false,terminationReason:'controlled-stop-before-github-timeout'})
+    expect(waits).toEqual([])
+    expect(snapshots.at(-1)).toMatchObject({searchCalls:1,rateLimitResponses:1})
+    expect(snapshots.some(r=>r.uncertainSearchAttempts===1)).toBe(true)
+  })
+  it('keeps completed film counters when the runtime ends between films',async()=>{
+    const b=await seededBucket(),svc=services()
+    let elapsed=0
+    const r=await runNightlyDiscovery({
+      publicIndex:publicIndex(),bucket:b,quotaObservationMode:true,
+      runId:630098,now:()=>NOW,clock:()=>elapsed,maxRuntimeMs:1000,
+      wait:async()=>{},onProgress:async r=>{
+        if(r.terminationReason==='film-checkpoint-saved')elapsed=1000
+      },...svc,
+    })
+    expect(r).toMatchObject({status:'time-budget-reached',searchCalls:1,
+      successfulSearchCalls:1,runCompletedFilms:1,quotaExceededConfirmed:false})
+    expect(svc.youtubeApi).toHaveBeenCalledTimes(1)
+  })
   it('stops on confirmed Google quota and journals every attempted search',async()=>{
     const b=await seededBucket(),svc=services()
     let calls=0
