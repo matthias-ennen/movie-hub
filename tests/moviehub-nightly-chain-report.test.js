@@ -107,7 +107,7 @@ describe('safe end-of-chain adapter summary (#388)',()=>{
     const r=buildNightlyReport({...base,sourceData:{...qa,discovery}})
     expect(r.status).toBe('degraded')
     expect(r.youtubeDiscoveryQuota).toMatchObject({status,actualSearchAttempts:12,
-      quotaExceededConfirmed:false})
+      quotaExceededConfirmed:false,terminationReason:'controlled-stop-before-github-timeout'})
   })
   it('reports a quota-blocked discovery as degraded if known video and Firebase succeeded',()=>{
     const r=buildNightlyReport({...base,stages:{...base.stages,discovery:'failure'}})
