@@ -218,6 +218,7 @@ export function titleNeedsMetadataEnrichment(item, {
   requireContract = false,
 } = {}) {
   if (!item?.tmdbId) return false
+  if (item.detailDeferred === true) return true
   if (!isUsableTitle(item.title)) return true
   const metadataVersion = Number(item.metadataVersion || 0)
   if (requireContract && metadataVersion < CURRENT_TITLE_METADATA_VERSION) return true
@@ -406,6 +407,9 @@ export function mergeEnrichedTitle(base, enriched) {
     metadataChecks,
     metadataComplete: false,
     metadataUpdatedAt: latestTimestamp(base.metadataUpdatedAt, enriched.metadataUpdatedAt),
+  }
+  if (base.detailDeferred || enriched.detailDeferred !== undefined) {
+    mergedTitle.detailDeferred = ![base, enriched].some(source => source.detailDeferred !== true && metadataChecksComplete(source))
   }
   mergedTitle.metadataComplete = isUsableTitle(title) && (metadataVersion >= CURRENT_TITLE_METADATA_VERSION
     ? metadataChecksComplete(mergedTitle)

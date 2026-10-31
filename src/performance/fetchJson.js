@@ -1,3 +1,5 @@
+import { recordPerformanceEvent, measurePerformance } from './performanceDiagnostics.js'
+
 export const CATALOG_REQUEST_TIMEOUT_MS = 10_000
 
 // Bound the complete request, including the body. Cancellation also settles
@@ -6,6 +8,8 @@ export async function fetchJsonWithTimeout(url, {
   fetchImpl = fetch,
   signal,
   timeoutMs = CATALOG_REQUEST_TIMEOUT_MS,
+  cache = 'no-store',
+  measureAs = null,
 } = {}) {
   const controller = new AbortController()
   let timeoutError = null
@@ -27,8 +31,16 @@ export async function fetchJsonWithTimeout(url, {
     if (signal?.aborted) controller.abort()
     const request = Promise.resolve().then(async () => {
       if (controller.signal.aborted) return aborted
-      const response = await fetchImpl(url, { cache: 'no-store', signal: controller.signal })
+      const startedAt = performance.now()
+      const response = await fetchImpl(url, { cache, signal: controller.signal })
+      if (controller.signal.aborted) return aborted
       if (!response.ok) throw new Error(`Daten konnten nicht geladen werden (${response.status})`)
+      if (measureAs && typeof response.text === 'function') {
+        const text = await response.text()
+        if (controller.signal.aborted) return aborted
+        recordPerformanceEvent(`${measureAs}:download`, { durationMs: performance.now() - startedAt, characters: text.length })
+        return measurePerformance(`${measureAs}:parse`, () => JSON.parse(text))
+      }
       return response.json()
     })
     return await Promise.race([request, aborted])

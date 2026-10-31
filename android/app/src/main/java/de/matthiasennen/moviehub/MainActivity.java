@@ -69,10 +69,14 @@ public final class MainActivity extends ComponentActivity {
     private String pendingHeroTrailerOutcome;
     private int heroTrailerResultAttempts;
     private long startupSessionStartedElapsedRealtime;
+    private long activityCreatedElapsedRealtime;
+    private long activityToReadyMs;
+    private boolean startupVisibleReported;
     private ActivityResultLauncher<Intent> heroTrailerLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        activityCreatedElapsedRealtime = SystemClock.elapsedRealtime();
         super.onCreate(savedInstanceState);
         heroTrailerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -275,6 +279,7 @@ public final class MainActivity extends ComponentActivity {
 
     private void loadMovieHub() {
         startupSessionStartedElapsedRealtime = SystemClock.elapsedRealtime();
+        startupVisibleReported = false;
         resetStartupRecovery();
         startMovieHubLoad();
     }
@@ -419,7 +424,15 @@ public final class MainActivity extends ComponentActivity {
             retryButton.requestFocus();
         } else if (hostedUiReady && canUseWebView() && webView.getVisibility() == View.VISIBLE) {
             webView.requestFocus();
-            String script = "window.__movieHubStartupFocusReady=true;"
+            long activityToVisibleMs = SystemClock.elapsedRealtime() - activityCreatedElapsedRealtime;
+            if (!startupVisibleReported) {
+                startupVisibleReported = true;
+                Log.i(PERFORMANCE_LOG_TAG, "startup_visible_ms=" + activityToVisibleMs);
+                reportFullyDrawn();
+            }
+            String script = "window.__movieHubNativeStartupTimings={activityToReadyMs:"
+                    + activityToReadyMs + ",activityToVisibleMs:" + activityToVisibleMs + "};"
+                    + "window.__movieHubStartupFocusReady=true;"
                     + "window.dispatchEvent(new Event('" + STARTUP_FOCUS_READY_EVENT + "'));";
             webView.post(() -> webView.evaluateJavascript(script, null));
         }
@@ -437,6 +450,7 @@ public final class MainActivity extends ComponentActivity {
         cancelStartupTimeout();
         cancelStartupRetry();
         hostedUiReady = true;
+        activityToReadyMs = SystemClock.elapsedRealtime() - activityCreatedElapsedRealtime;
         offlineView.setVisibility(View.GONE);
         hideLoadingView();
         webView.setVisibility(View.VISIBLE);

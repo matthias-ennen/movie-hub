@@ -1,3 +1,6 @@
+import { metadataRequests } from '../performance/metadataRequests.js'
+import { readPublicCatalogDetail } from '../performance/publicCatalog.js'
+import { throwIfAborted } from '../performance/cooperativeWork.js'
 import { normalizeSeriesSeasons } from '../catalog/seriesNavigation.js'
 import { mergeEnrichedTitle } from '../catalog/titleMetadata.js'
 
@@ -9,7 +12,6 @@ export const SEARCH_DETAIL_MANIFEST_TTL_MS = 5 * 60 * 1000
 
 const STORAGE_KEY = 'movie-hub-search-detail-cache-v1'
 const memoryDetails = new Map()
-const shardPromises = new Map()
 let manifestState = null
 let manifestPromise = null
 let manifestFetchImpl = null
@@ -172,13 +174,7 @@ async function loadPublishedGeneration(fetchImpl, now) {
   if (manifestPromise && manifestFetchImpl === fetchImpl) return manifestPromise
 
   manifestFetchImpl = fetchImpl
-  manifestPromise = Promise.resolve(fetchImpl(`/search-details/manifest.json?t=${encodeURIComponent(now)}`, {
-    cache: 'no-store',
-  }))
-    .then((response) => {
-      if (!response?.ok) throw new Error(`Detail-Manifest konnte nicht geladen werden (${response?.status ?? 'unbekannt'})`)
-      return response.json()
-    })
+  manifestPromise = metadataRequests.load(`/search-details/manifest.json?t=${encodeURIComponent(now)}`, { fetchImpl })
     .then((payload) => publishedGeneration(payload))
     .catch(() => null)
     .then((generation) => {
@@ -190,41 +186,33 @@ async function loadPublishedGeneration(fetchImpl, now) {
   return manifestPromise
 }
 
-async function loadShard(bucket, fetchImpl, generation) {
+async function loadShard(bucket, fetchImpl, generation, options) {
   if (!bucket) return null
-  const shardKey = `${generation || 'unversioned'}:${bucket}`
-  if (!shardPromises.has(shardKey)) {
-    const generationQuery = generation ? `?v=${encodeURIComponent(generation)}` : ''
-    shardPromises.set(shardKey, Promise.resolve(fetchImpl(`/search-details/${bucket}.json${generationQuery}`, {
-      cache: 'no-store',
-    }))
-      .then((response) => {
-        if (!response?.ok) throw new Error(`Detail-Shard konnte nicht geladen werden (${response?.status ?? 'unbekannt'})`)
-        return response.json()
-      })
-      .then((payload) => {
-        if (payload?.kind !== 'search-detail-shard' || !Array.isArray(payload?.entries)) {
-          throw new Error('Detail-Shard hat ein ungültiges Format.')
-        }
-        return payload
-      })
-      .catch((error) => {
-        shardPromises.delete(shardKey)
-        throw error
-      }))
-  }
-  return shardPromises.get(shardKey)
+  const generationQuery = generation ? `?v=${encodeURIComponent(generation)}` : ''
+  const payload = await metadataRequests.load(`/search-details/${bucket}.json${generationQuery}`, { ...options, fetchImpl })
+  if (payload?.kind !== 'search-detail-shard' || !Array.isArray(payload.entries)) throw new Error('Detail-Shard hat ein ungültiges Format.')
+  return payload
 }
 
 export async function loadSearchDetail(entry, {
   fetchImpl = globalThis.fetch,
   storage = globalThis.localStorage,
   now = Date.now(),
+  signal,
+  priority = 10,
 } = {}) {
+  throwIfAborted(signal)
   if (!entry?.id) return toSearchDetailFallback(entry)
+  // Reuse the exact catalog generation before consulting the larger search pool.
+  try {
+    const catalogDetail = await readPublicCatalogDetail(entry, { signal, priority, fetchImpl })
+    if (catalogDetail) return mergeSearchDetail(entry, catalogDetail)
+  } catch (error) { if (error?.name === 'AbortError') throw error }
+
   const canFetch = typeof fetchImpl === 'function'
   const generation = canFetch ? await loadPublishedGeneration(fetchImpl, now) : null
 
+  throwIfAborted(signal)
   const inMemory = memoryDetails.get(entry.id)
   if (inMemory && cacheMatchesGeneration(inMemory, generation)) {
     return mergeSearchDetail(entry, inMemory.value)
@@ -232,7 +220,7 @@ export async function loadSearchDetail(entry, {
 
   const persistent = getPersistentDetail(storage, entry.id, now, generation)
   if (persistent) {
-    memoryDetails.set(entry.id, { value: persistent, generation })
+    rememberDetail(entry.id, persistent, generation)
     return mergeSearchDetail(entry, persistent)
   }
 
@@ -240,7 +228,8 @@ export async function loadSearchDetail(entry, {
   const bucket = searchDetailBucket(entry)
   if (!bucket) return toSearchDetailFallback(entry)
 
-  const shard = await loadShard(bucket, fetchImpl, generation)
+  const shard = await loadShard(bucket, fetchImpl, generation, { signal, priority })
+  throwIfAborted(signal)
   const entryType = entry.type === 'series' ? 'series' : 'movie'
   const detail = shard.entries.find((candidate) => candidate?.id === entry.id)
     || shard.entries.find((candidate) => (
@@ -249,14 +238,20 @@ export async function loadSearchDetail(entry, {
     ))
   if (!detail) return toSearchDetailFallback(entry)
 
-  memoryDetails.set(entry.id, { value: detail, generation })
+  rememberDetail(entry.id, detail, generation)
   writePersistentCache(storage, entry.id, detail, now, generation)
   return mergeSearchDetail(entry, detail)
 }
 
+function rememberDetail(id, value, generation) {
+  memoryDetails.delete(id)
+  memoryDetails.set(id, { value, generation })
+  while (memoryDetails.size > SEARCH_DETAIL_CACHE_LIMIT) memoryDetails.delete(memoryDetails.keys().next().value)
+}
+
 export function clearSearchDetailMemoryCache() {
   memoryDetails.clear()
-  shardPromises.clear()
+  metadataRequests.clear()
   manifestState = null
   manifestPromise = null
   manifestFetchImpl = null

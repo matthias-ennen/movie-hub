@@ -11,7 +11,10 @@ import {
   getTitleStateKey,
   hasPersonalTitleState,
 } from './libraryState.js'
-import { hydratePersonalTitleState } from './personalTitleMetadata.js'
+import { bootstrapPersonalTitleState, hydratePersonalStates } from './personalTitleMetadata.js'
+import { mapCooperatively, withDeadline } from '../performance/cooperativeWork.js'
+import { useBackgroundReady } from '../performance/startupPhase.js'
+import { recordPerformanceEvent } from '../performance/performanceDiagnostics.js'
 
 const LibraryContext = createContext(null)
 const EMPTY_STATES = Object.freeze({})
@@ -38,9 +41,13 @@ export function LibraryProvider({ user, activeProfile, children }) {
   const statesByKey = loadedScope === scope ? storedStates : EMPTY_STATES
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const backgroundReady = useBackgroundReady(user.uid)
+  const [hydrationSource, setHydrationSource] = useState(null)
+  const [hydratedScope, setHydratedScope] = useState(null)
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
 
     async function loadStates() {
       if (!activeProfile?.id) {
@@ -51,32 +58,38 @@ export function LibraryProvider({ user, activeProfile, children }) {
 
       setLoading(true)
       setError(null)
+      setHydratedScope(null)
+      setHydrationSource(null)
 
       try {
         const { db } = await firebaseReady
-        const snapshot = await getDocs(collection(
+        const snapshot = await withDeadline(getDocs(collection(
           db,
           'users', user.uid,
           'profiles', activeProfile.id,
           'titles',
-        ))
+        )), 8000, 'Persönliche Markierungen konnten nicht rechtzeitig geladen werden.')
 
         if (cancelled) return
 
-        const entries = await Promise.all(snapshot.docs.map(async (stateDocument) => {
+        const entries = await mapCooperatively(snapshot.docs, (stateDocument) => {
           const raw = stateDocument.data()
           try {
             const note = readStoredNote(raw)
-            const state = await hydratePersonalTitleState({ ...raw, note })
+            const state = bootstrapPersonalTitleState({ ...raw, note })
             return [stateDocument.id, state]
           } catch (cryptoError) {
             console.warn(`Persönliche Notiz ${stateDocument.id} konnte nicht entschlüsselt werden.`, cryptoError)
-            const state = await hydratePersonalTitleState({ ...raw, note: '' })
+            const state = bootstrapPersonalTitleState({ ...raw, note: '' })
             return [stateDocument.id, state]
           }
-        }))
+        }, { signal: controller.signal })
         const nextStates = Object.fromEntries(entries)
-        if (!cancelled) { setStatesByKey(nextStates); setLoadedScope(scope) }
+        if (!cancelled) {
+          setStatesByKey(nextStates); setLoadedScope(scope)
+          setHydrationSource({ scope, states: nextStates })
+          recordPerformanceEvent('startup:personal-flags-ready', { titleCount: entries.length })
+        }
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError)
@@ -89,8 +102,32 @@ export function LibraryProvider({ user, activeProfile, children }) {
     }
 
     loadStates()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [activeProfile?.id, user.uid, scope])
+
+  useEffect(() => {
+    if (!backgroundReady || hydrationSource?.scope !== scope) return undefined
+    const controller = new AbortController()
+    hydratePersonalStates(hydrationSource.states, {
+      signal: controller.signal,
+      onBatch: entries => {
+        if (controller.signal.aborted || currentScopeRef.current !== scope) return
+        setStatesByKey(current => {
+          const next = { ...current }
+          // Preserve personal actions performed while metadata was in flight.
+          for (const [key, original, hydrated] of entries) if (current[key] === original) next[key] = hydrated
+          return next
+        })
+      },
+    }).then(() => {
+      if (!controller.signal.aborted && currentScopeRef.current === scope) {
+        setHydratedScope(scope)
+        recordPerformanceEvent('library:hydration-ready')
+      }
+    })
+      .catch(error => { if (error?.name !== 'AbortError') console.warn('Persönliche Metadaten konnten nicht ergänzt werden.', error) })
+    return () => controller.abort()
+  }, [backgroundReady, hydrationSource, scope])
 
   const getTitleState = useCallback((item) => {
     const key = getTitleStateKey(item)
@@ -152,11 +189,12 @@ export function LibraryProvider({ user, activeProfile, children }) {
   const value = useMemo(() => ({
     loading: loading || loadedScope !== scope,
     error,
+    metadataLoading: !error && hydrationSource?.scope === scope && hydratedScope !== scope,
     statesByKey,
     getTitleState,
     updateTitleState,
     hasPersonalState: (item) => hasPersonalTitleState(getTitleState(item)),
-  }), [loading, loadedScope, scope, error, statesByKey, getTitleState, updateTitleState])
+  }), [loading, loadedScope, scope, error, hydrationSource, hydratedScope, statesByKey, getTitleState, updateTitleState])
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>
 }

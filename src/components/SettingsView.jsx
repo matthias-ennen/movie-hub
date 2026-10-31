@@ -23,6 +23,8 @@ export default function SettingsView({
   joynStationStatus = 'loading',
   personalRowTitles = [],
   smartFilterOptions = {},
+  smartFilterStatus = 'ready',
+  onRetrySmartFilters,
 }) {
   const { activeProfile } = useProfiles()
   const current = SETTINGS_PAGES[page] || SETTINGS_PAGES.overview
@@ -53,7 +55,11 @@ export default function SettingsView({
       {page === 'appearance' && <DisplaySettings />}
       {page === 'design' && <ThemeSettings />}
       {page === 'categories' && <CategorySettings />}
-      {page === 'personal' && <PersonalRowsSettings titles={personalRowTitles} filterOptions={smartFilterOptions} />}
+      {page === 'personal' && (smartFilterStatus === 'ready'
+        ? <PersonalRowsSettings titles={personalRowTitles} filterOptions={smartFilterOptions} />
+        : <section className="settings-panel"><p role="status">{smartFilterStatus === 'error' ? 'Die Filterauswahl konnte nicht geladen werden.' : 'Filterauswahl wird geladen …'}</p>
+          {smartFilterStatus === 'error' && <SettingsButton onClick={onRetrySmartFilters}>Erneut versuchen</SettingsButton>}
+        </section>)}
       {page === 'sorting' && <ContentDisplaySettings />}
       {page === 'providers' && <ProviderSettings availableTmdbProviderIds={availableTmdbProviderIds} />}
       {page === 'waipu' && <WaipuStationSettings stations={waipuStations} canonicalStations={waipuStations} status={waipuStationStatus} />}

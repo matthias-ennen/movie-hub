@@ -41,11 +41,17 @@ export async function loadRuntimeTitleMetadata(item, {
   loadComplete = loadCompleteTitleMetadata,
   requireContract = false,
   requireComplete = false,
+  signal,
 } = {}) {
   const key = runtimeTitleKey(item)
   const current = readRuntimeTitleMetadata(item)
   const enrichmentOptions = { requireContract }
   if (!titleNeedsMetadataEnrichment(current, enrichmentOptions)) return current
+
+  if (signal) {
+    const detail = await loadComplete(current, { requireContract, requireComplete, signal })
+    return mergeWithRuntimeDetail(item, rememberRuntimeTitleMetadata(detail))
+  }
 
   if (!key) {
     return loadComplete(current, { requireContract, requireComplete })

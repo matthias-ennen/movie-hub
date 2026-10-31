@@ -1,3 +1,4 @@
+import { useBackgroundReady } from '../performance/startupPhase.js'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import '../styles/issue128.css'
 import '../styles/issue128-hero-boundary.css'
@@ -176,6 +177,7 @@ export default function Hero({
   const activeItem = activeBaseItem
     ? resolvedMetadataById[activeBaseItem.id] || activeBaseItem
     : null
+  const metadataBackgroundReady = useBackgroundReady()
   const activeMetadataSettled = !heroNeedsCanonicalMetadata(activeBaseItem)
     || settledMetadataIds.has(activeBaseItem?.id)
   const activeBackdropUrl = activeItem?.displayHeroBackdropUrl || activeItem?.backdropUrl || null
@@ -183,7 +185,7 @@ export default function Hero({
   const activeAutoTrailer = useMemo(() => selectHeroTrailer(activeItem?.videos), [activeItem?.videos])
 
   useEffect(() => {
-    if (!activeBaseItem || !heroNeedsCanonicalMetadata(activeBaseItem)) return undefined
+    if (!metadataBackgroundReady || !activeBaseItem || !heroNeedsCanonicalMetadata(activeBaseItem)) return undefined
 
     let cancelled = false
     resolveHeroMetadata(activeBaseItem)
@@ -205,6 +207,7 @@ export default function Hero({
 
     return () => { cancelled = true }
   }, [
+    metadataBackgroundReady,
     activeBaseItem?.id,
     activeBaseItem?.metadataUpdatedAt,
     activeBaseItem?.metadataVersion,

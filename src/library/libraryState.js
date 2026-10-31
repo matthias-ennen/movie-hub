@@ -119,6 +119,7 @@ export function createTitleSnapshot(item) {
     collectionDetails,
     metadataVersion: Math.max(1, Number(item.metadataVersion) || 1),
     metadataComplete: item.metadataComplete === true,
+    ...(item.detailDeferred ? { detailDeferred: true } : {}),
     metadataUpdatedAt: item.metadataUpdatedAt ? String(item.metadataUpdatedAt) : null,
     ageRating: SUPPORTED_AGE_RATINGS.has(ageRating) ? ageRating : null,
     accent: item.accent ? String(item.accent).slice(0, 32) : '#657184',

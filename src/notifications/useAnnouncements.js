@@ -5,7 +5,7 @@ import { activeAnnouncement, visibleProfileAnnouncements, visiblePersonalReadSta
 
 const EMPTY_READS = new Map()
 
-export function useAnnouncements(userId, profileId) {
+export function useAnnouncements(userId, profileId, enabled = true) {
   const [announcements, setAnnouncements] = useState([])
   const [globalReadSnapshot, setGlobalReadSnapshot] = useState({ ownerUserId: null, ids: new Set() })
   const [personal, setPersonal] = useState([])
@@ -19,7 +19,7 @@ export function useAnnouncements(userId, profileId) {
   useEffect(() => {
     setGlobalReadSnapshot({ ownerUserId: null, ids: new Set() })
     setReadsReady(false)
-    if (!userId || !db) return undefined
+    if (!enabled || !userId || !db) return undefined
     const unsubscribeAnnouncements = onSnapshot(
       query(collection(db, 'announcements'), where('status', '==', 'published')),
       (snapshot) => {
@@ -35,13 +35,13 @@ export function useAnnouncements(userId, profileId) {
     )
     const clock = window.setInterval(() => setNow(Date.now()), 30_000)
     return () => { unsubscribeAnnouncements(); unsubscribeReads(); window.clearInterval(clock) }
-  }, [userId])
+  }, [userId, enabled])
 
   useEffect(() => {
     setPersonal([])
     setPersonalReads({ ownerUserId: userId, profileId, byId: EMPTY_READS })
     setPersonalReady(false)
-    if (!userId || !profileId || !db) { setPersonalReady(true); return undefined }
+    if (!enabled || !userId || !profileId || !db) { setPersonalReady(true); return undefined }
     const path = ['users', userId, 'profiles', profileId]
     const unsubscribePersonal = onSnapshot(
       query(collection(db, ...path, 'notifications'), where('expiresAt', '>', Timestamp.now())),
@@ -56,7 +56,7 @@ export function useAnnouncements(userId, profileId) {
       }),
       () => setError('Persönlicher Lesestatus konnte nicht geladen werden.'))
     return () => { unsubscribePersonal(); unsubscribeReads() }
-  }, [userId, profileId])
+  }, [userId, profileId, enabled])
 
   // Scope the cached inbox and read-state snapshots before React paints a new
   // account/profile. Prior listeners are torn down by effects only afterwards.
@@ -86,5 +86,5 @@ export function useAnnouncements(userId, profileId) {
     })
   }
 
-  return { items, readIds, unreadCount, ready: announcementsReady && readsReady && globalReadSnapshot.ownerUserId === userId && personalReady, error, markRead }
+  return { items, readIds, unreadCount, ready: enabled && announcementsReady && readsReady && globalReadSnapshot.ownerUserId === userId && personalReady, error, markRead }
 }

@@ -12,6 +12,7 @@ const DETAIL_IMAGE_WAIT_MS = 1_500
 
 export async function prepareDetailRequestItem(item, {
   artworkOptions = {},
+  signal,
   liveAvailabilityEntries = [],
   liveAvailabilityNow = Date.now(),
   acceptLiveProvider = null,
@@ -23,6 +24,7 @@ export async function prepareDetailRequestItem(item, {
   const [detail, availableSeasons] = await Promise.all([loadComplete(item, {
     requireContract: true,
     requireComplete: true,
+    ...(signal ? { signal } : {}),
   }), isSeries ? loadAvailability(item.tmdbId) : null])
   const [liveDetail = detail] = mergeLiveAvailability(
     [detail],
