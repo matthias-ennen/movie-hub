@@ -1,4 +1,5 @@
 import { isTvAiringOnAir, isTvAiringSoon } from '../waipu/waipuAiringStatus.js'
+import { getDateTimeFormatter } from '../performance/dateTimeFormat.js'
 import { episodeReference } from '../catalog/episodeContext.js'
 
 export const LIVE_AVAILABILITY_INDEX_VERSION = 1
@@ -395,10 +396,10 @@ export function formatLiveAiring(providerAvailability, {
   const airing = providerAvailability?.nextAiring
   const start = new Date(airing?.startTime)
   if (!Number.isFinite(start.getTime())) return null
-  const date = new Intl.DateTimeFormat(locale, {
+  const date = getDateTimeFormatter(locale, {
     weekday: 'long', day: 'numeric', month: 'long', timeZone,
   }).format(start)
-  const time = new Intl.DateTimeFormat(locale, {
+  const time = getDateTimeFormatter(locale, {
     hour: '2-digit', minute: '2-digit', hour12: false, timeZone,
   }).format(start)
   return [date, `${time} Uhr`, text(airing?.stationName)]

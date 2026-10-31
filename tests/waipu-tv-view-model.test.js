@@ -186,4 +186,12 @@ describe('TV-Videothek-Ansichtsmodell', () => {
     expect(isTvAiringSoon(next, NOW)).toBe(true)
     expect(isTvAiringSoon(next, Date.parse('2026-09-21T08:00:00.000Z'))).toBe(false)
   })
+
+  it('can omit the unused hero while preserving every period, row and airing flag', () => {
+    for (const now of [NOW, Date.parse('2026-09-21T18:15:00Z'), Date.parse('2026-09-21T20:15:00Z')]) {
+      const complete = buildWaipuTvViewModel({ airings, titles, now })
+      const rowsOnly = buildWaipuTvViewModel({ airings, titles, now, includeHero: false })
+      expect(rowsOnly).toEqual({ ...complete, heroItems: [] })
+    }
+  })
 })

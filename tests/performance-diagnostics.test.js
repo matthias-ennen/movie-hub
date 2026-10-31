@@ -4,6 +4,8 @@ import {
   clearPerformanceDiagnostics,
   finishPerformanceSpan,
   getPerformanceDiagnosticsSnapshot,
+  installPerformanceDiagnostics,
+  measurePerformance,
   recordPerformanceEvent,
   startPerformanceSpan,
 } from '../src/performance/performanceDiagnostics.js'
@@ -45,5 +47,40 @@ describe('performance diagnostics', () => {
     expect(cancelled.detail.requireComplete).toBe(true)
     expect(cancelled.detail.reason).toBe('closed')
     expect(getPerformanceDiagnosticsSnapshot().activeSpanCount).toBe(0)
+  })
+
+  it('measures real synchronous work, preserves its result and rethrows failures', () => {
+    const result = { rows: [] }
+    expect(measurePerformance('tv:rows-model', () => result, { airingCount: 3 })).toBe(result)
+    const failure = new Error('model failed')
+    expect(() => measurePerformance('tv:rows-model', () => { throw failure })).toThrow(failure)
+    expect(getPerformanceDiagnosticsSnapshot().events.map((event) => event.name))
+      .toEqual(['tv:rows-model:ready', 'tv:rows-model:error'])
+  })
+
+  it('keeps both diagnostic events and browser marks bounded during repeated updates', () => {
+    for (let index = 0; index < 250; index += 1) recordPerformanceEvent('tv:time-transition')
+    expect(getPerformanceDiagnosticsSnapshot().events).toHaveLength(200)
+    expect(performance.getEntriesByName('moviehub:tv:time-transition')).toHaveLength(1)
+  })
+
+  it('tolerates old WebViews and records only numeric long-task evidence on supported engines', () => {
+    expect(installPerformanceDiagnostics({}).longTasksSupported).toBe(false)
+    let callback
+    let observes = 0
+    class Observer {
+      static supportedEntryTypes = ['longtask']
+      constructor(handler) { callback = handler }
+      observe() { observes += 1 }
+    }
+    const target = { PerformanceObserver: Observer }
+    const api = installPerformanceDiagnostics(target)
+    expect(installPerformanceDiagnostics(target)).toBe(api)
+    expect(observes).toBe(1)
+    callback({ getEntries: () => [{ startTime: 42, duration: 85, attribution: [{ private: true }] }] })
+    expect(getPerformanceDiagnosticsSnapshot().events[0]).toMatchObject({
+      name: 'main-thread:long-task', detail: { startTimeMs: 42, durationMs: 85 },
+    })
+    expect(getPerformanceDiagnosticsSnapshot().events[0].detail).not.toHaveProperty('attribution')
   })
 })

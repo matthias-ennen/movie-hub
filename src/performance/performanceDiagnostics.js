@@ -38,6 +38,7 @@ function safeResourcePath(name) {
     const path = url.pathname
     const allowed = [
       '/catalog.json',
+      '/youtube-curated-new-films.json',
       '/search-index.json',
       '/live-availability-index.json',
       '/tv-14-days-summary.json',
@@ -85,12 +86,26 @@ export function recordPerformanceEvent(name, detail = {}) {
   trimEvents()
 
   try {
+    // Keep the browser's mark buffer bounded as well as our event ring.
+    performance?.clearMarks?.(`moviehub:${normalizedName}`)
     performance?.mark?.(`moviehub:${normalizedName}`, { detail: safeDetail })
   } catch {
     // Older WebViews may not support PerformanceMarkOptions.detail.
     try { performance?.mark?.(`moviehub:${normalizedName}`) } catch { /* diagnostics only */ }
   }
   return event
+}
+
+export function measurePerformance(name, work, detail = {}) {
+  const startedAt = now()
+  try {
+    const result = work()
+    recordPerformanceEvent(`${name}:ready`, { ...detail, durationMs: round(now() - startedAt) })
+    return result
+  } catch (error) {
+    recordPerformanceEvent(`${name}:error`, { ...detail, durationMs: round(now() - startedAt) })
+    throw error
+  }
 }
 
 export function startPerformanceSpan(name, key, detail = {}) {
@@ -153,9 +168,30 @@ export function clearPerformanceDiagnostics() {
 
 export function installPerformanceDiagnostics(target = globalThis.window) {
   if (!target || target.__movieHubPerformance) return target?.__movieHubPerformance || null
+  // Unsupported on some Fire-TV WebViews. The explicit model timings remain
+  // available there; lack of this observer must never affect app startup.
+  const Observer = target.PerformanceObserver
+  let longTaskObserver = null
+  try {
+    if (Observer?.supportedEntryTypes?.includes('longtask')) {
+      longTaskObserver = new Observer((list) => {
+        for (const entry of list.getEntries()) {
+          recordPerformanceEvent('main-thread:long-task', {
+            startTimeMs: round(entry.startTime),
+            durationMs: round(entry.duration),
+          })
+        }
+      })
+      longTaskObserver.observe({ type: 'longtask', buffered: true })
+    }
+  } catch {
+    longTaskObserver?.disconnect()
+    longTaskObserver = null
+  }
   const api = Object.freeze({
     snapshot: getPerformanceDiagnosticsSnapshot,
     clear: clearPerformanceDiagnostics,
+    longTasksSupported: Boolean(longTaskObserver),
   })
   Object.defineProperty(target, '__movieHubPerformance', {
     value: api,
