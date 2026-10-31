@@ -1,3 +1,5 @@
+import { useBackgroundReady } from '../performance/startupPhase.js'
+import { createWorkQueue } from '../performance/cooperativeWork.js'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
   collection,
@@ -214,6 +216,10 @@ export function TmdbCatalogProvider({ user, children }) {
   const [syncMessage, setSyncMessage] = useState('')
   const [metadataRepairs, setMetadataRepairs] = useState({})
   const repairInFlightRef = useRef(new Set())
+  const repairQueueRef = useRef(null)
+  if (!repairQueueRef.current) repairQueueRef.current = createWorkQueue(2)
+  const backgroundReady = useBackgroundReady(user?.uid)
+  useEffect(() => () => repairQueueRef.current.clear(), [user?.uid])
   const activeUidRef = useRef(null)
 
   useEffect(() => {
@@ -260,6 +266,7 @@ export function TmdbCatalogProvider({ user, children }) {
 
     return () => {
       disposed = true
+      activeUidRef.current = null
       unsubscribeCatalog()
       unsubscribeState()
     }
@@ -277,7 +284,7 @@ export function TmdbCatalogProvider({ user, children }) {
   }), [normalizedDocuments, metadataRepairs])
 
   useEffect(() => {
-    if (!user?.uid) return
+    if (!backgroundReady || !user?.uid) return
 
     const candidates = normalizedDocuments
       .filter((item) => !isUsableTitle(item.title))
@@ -291,28 +298,30 @@ export function TmdbCatalogProvider({ user, children }) {
     for (const item of candidates) {
       const key = tmdbCatalogKey(item)
       const token = `${user.uid}:${key}`
-      repairInFlightRef.current.add(token)
+      repairQueueRef.current.add(token, async () => {
+        if (activeUidRef.current !== user.uid) return
+        repairInFlightRef.current.add(token)
+        await loadCompleteTitleMetadata(item)
+          .then(async (detail) => {
+            if (!isUsableTitle(detail?.title) || activeUidRef.current !== user.uid) return
+            const repaired = mergeEnrichedTitle(item, detail)
+            setMetadataRepairs((current) => ({ ...current, [key]: repaired }))
 
-      loadCompleteTitleMetadata(item)
-        .then(async (detail) => {
-          if (!isUsableTitle(detail?.title) || activeUidRef.current !== user.uid) return
-          const repaired = mergeEnrichedTitle(item, detail)
-          setMetadataRepairs((current) => ({ ...current, [key]: repaired }))
-
-          const { db } = await firebaseReady
-          if (activeUidRef.current !== user.uid) return
-          await setDoc(
-            doc(db, 'users', user.uid, 'tmdbCatalog', key),
-            firestoreTitleRepairPatch(repaired),
-            { merge: true },
-          )
-        })
-        .catch((nextError) => {
-          console.warn(`TMDB-Platzhaltertitel ${key} konnte nicht automatisch repariert werden.`, nextError)
-        })
-        .finally(() => repairInFlightRef.current.delete(token))
+            const { db } = await firebaseReady
+            if (activeUidRef.current !== user.uid) return
+            await setDoc(
+              doc(db, 'users', user.uid, 'tmdbCatalog', key),
+              firestoreTitleRepairPatch(repaired),
+              { merge: true },
+            )
+          })
+          .catch((nextError) => {
+            console.warn(`TMDB-Platzhaltertitel ${key} konnte nicht automatisch repariert werden.`, nextError)
+          })
+          .finally(() => repairInFlightRef.current.delete(token))
+      })
     }
-  }, [user?.uid, normalizedDocuments])
+  }, [backgroundReady, user?.uid, normalizedDocuments])
 
   useEffect(() => {
     if (!user?.uid) return undefined

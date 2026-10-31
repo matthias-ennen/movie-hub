@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { collection, deleteField, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
 import { firebaseReady } from '../lib/firebase.js'
 import {
@@ -14,6 +14,7 @@ import {
 import { hydratePersonalTitleState } from './personalTitleMetadata.js'
 
 const LibraryContext = createContext(null)
+const EMPTY_STATES = Object.freeze({})
 const NOTE_PURPOSE = 'profile.note'
 
 function readStoredNote(raw) {
@@ -29,7 +30,12 @@ function encryptedNoteFields(note) {
 }
 
 export function LibraryProvider({ user, activeProfile, children }) {
-  const [statesByKey, setStatesByKey] = useState({})
+  const [storedStates, setStatesByKey] = useState({})
+  const [loadedScope, setLoadedScope] = useState(null)
+  const scope = `${user.uid}:${activeProfile?.id || ''}`
+  const currentScopeRef = useRef(scope)
+  currentScopeRef.current = scope
+  const statesByKey = loadedScope === scope ? storedStates : EMPTY_STATES
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -70,11 +76,12 @@ export function LibraryProvider({ user, activeProfile, children }) {
           }
         }))
         const nextStates = Object.fromEntries(entries)
-        if (!cancelled) setStatesByKey(nextStates)
+        if (!cancelled) { setStatesByKey(nextStates); setLoadedScope(scope) }
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError)
           setStatesByKey({})
+          setLoadedScope(scope)
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -83,7 +90,7 @@ export function LibraryProvider({ user, activeProfile, children }) {
 
     loadStates()
     return () => { cancelled = true }
-  }, [activeProfile?.id, user.uid])
+  }, [activeProfile?.id, user.uid, scope])
 
   const getTitleState = useCallback((item) => {
     const key = getTitleStateKey(item)
@@ -91,7 +98,7 @@ export function LibraryProvider({ user, activeProfile, children }) {
   }, [statesByKey])
 
   const updateTitleState = useCallback(async (item, patch) => {
-    if (!activeProfile?.id) throw new Error('Kein aktives Movie-Hub-Profil.')
+    if (!activeProfile?.id || loadedScope !== scope) throw new Error('Das gewählte Profil wird noch geladen.')
 
     const key = getTitleStateKey(item)
     if (!key) throw new Error('Titel hat keine stabile Referenz.')
@@ -137,19 +144,19 @@ export function LibraryProvider({ user, activeProfile, children }) {
       await setDoc(stateRef, payload, { merge: true })
       return next
     } catch (writeError) {
-      setStatesByKey((current) => ({ ...current, [key]: previous }))
+      if (currentScopeRef.current === scope) setStatesByKey((current) => ({ ...current, [key]: previous }))
       throw writeError
     }
-  }, [activeProfile?.id, statesByKey, user.uid])
+  }, [activeProfile?.id, loadedScope, scope, statesByKey, user.uid])
 
   const value = useMemo(() => ({
-    loading,
+    loading: loading || loadedScope !== scope,
     error,
     statesByKey,
     getTitleState,
     updateTitleState,
     hasPersonalState: (item) => hasPersonalTitleState(getTitleState(item)),
-  }), [loading, error, statesByKey, getTitleState, updateTitleState])
+  }), [loading, loadedScope, scope, error, statesByKey, getTitleState, updateTitleState])
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>
 }

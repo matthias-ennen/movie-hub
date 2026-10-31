@@ -1,86 +1,157 @@
-# Fundamenthärtung #703 – erste Testrunde
+# Fundamenthärtung #703 – Start, TV-Laufzeit und Navigation
 
-Stand 31.10.2026. Grundlage: `6eeefa801c6d10d15404b3c42015cc6d6bd35987`.
-Dieses Dokument beschreibt eine erste begrenzte Umsetzung, nicht die Endabnahme
-des gesamten Arbeitspakets. #386 bleibt der ergänzende Navigations-Messauftrag.
+Stand: 31.10.2026. Diese gemeinsame Fortsetzung baut auf der veröffentlichten
+Erstrunde #704 (`47b25d99b9425638171499d637f02192a8767f8d`) auf. Sie ersetzt den
+vorherigen Zwischenstand dieses Dokuments; die Historie bleibt im Git-Verlauf.
+#703 und der ergänzende Navigations-Messauftrag #386 bleiben für die reale
+Fire-TV-Abnahme offen.
 
-## Verhalten
+## Startreihenfolge und Fehlerfälle
 
-- Home wartet nur auf den Hauptkatalog. Die optionale
-  `/youtube-curated-new-films.json` startet nach dem Home-Ready-Signal.
-  Ein späteres gültiges Ergebnis wird mit den bisherigen Validierungs- und
-  Deduplizierungsregeln ergänzt. Ein Fehler verändert den fertigen Katalog nicht.
-- Requests für Hauptkatalog und Ergänzung werden nach zehn Sekunden inklusive
-  Body-Verarbeitung abgebrochen. Der Hauptkatalog behält seine vorhandenen
-  Wiederholungen; Unmount bricht den aktiven Request ab. Der native 30-s-Watchdog
-  kann weiterhin vor dem Ende sämtlicher Netzwerk-Wiederholungen greifen.
-- `Intl.DateTimeFormat` wird pro Locale/Optionen wiederverwendet, mit maximal
-  16 Cacheeinträgen. Kein Datum, Zeitzonenoffset oder Sommerzeit-Ergebnis wird
-  gecacht. Dies entlastet Tagesleiste, Prime Time, Nachtprogramm und Live-Labels.
-- `TvFeature` berechnet keinen zweiten ungenutzten Hero im Tagesreihenmodell.
-  Der sichtbare Hero verwendet weiterhin seinen eigenen Runtime-Snapshot.
-- Die fünf Sekunden Mindesthaltezeit des nativen Intros bleiben unverändert.
+1. Der öffentliche Katalog beginnt bereits parallel zur Anmeldung und
+   Profilauswahl. Ein geteilter Request und ein fünf Minuten gültiger Cache
+   vermeiden doppelte Downloads; es werden keine persönlichen Daten vorgezogen.
+2. Profil, Darstellung und Anbieterauswahl bestimmen die erste Home-Ansicht.
+   Home meldet Bereitschaft erst nach der anfänglichen Katalogaufbereitung,
+   den wesentlichen Einstellungen und dem vorhandenen Hero-/Reihen-Handshake.
+3. Erst danach beginnen Live-Verfügbarkeit, optionale YouTube-Ergänzungen,
+   verifizierte YouTube-Laufzeitdaten und die verschobenen Metadatenreparaturen.
+   Reparaturen laufen höchstens zu zweit; maximal 20 Aufträge warten.
+4. TV bleibt lazy und Hero-first: Senderverzeichnisse, Index und genau der
+   gewählte Tag folgen auf den Hero. Die 14-Tage-Summary lädt bei ihrer Auswahl.
 
-## Nachweise
+Der öffentliche Katalog hat drei Versuche mit jeweils sieben Sekunden inklusive
+Body-Verarbeitung und 0,5/1 Sekunde Abstand: höchstens 22,5 Sekunden Netzwerkbudget.
+Das ist keine Garantie für die gesamte Startdauer: Profil-/Renderarbeit und
+Gerätelast sind zusätzliche Faktoren. Ein erschöpfter Katalogpfad zeigt einen
+sichtbaren Fehlerhinweis und den lokalen Ersatzkatalog, soweit die gewählten
+Anbieter ihn zulassen; Navigation und native Bereitschaft funktionieren weiter.
+Die Anmeldung erhält nach zwölf Sekunden einen Fehlerzustand, Profil-Lesezugriffe
+und der erste Anbieter-Snapshot nach acht Sekunden. Spätere gültige Anmeldung
+beziehungsweise Anbieter-Snapshots dürfen sich erholen.
 
-- Produktionsbuild erfolgreich.
-- 300 Testdateien / 1.959 Anwendungstests bestanden, einschließlich Timeout,
-  Abbruch, Wiederholung, Zeitzonen, Sommer-/Winterzeit, Prime-Time-Grenzen,
-  identischen Reihen bei ausgelassener Hero-Berechnung und Diagnostik.
-- Lokal Node v24.22.1 mit `NODE_OPTIONS=--test-reporter=tap`: Einige ältere
-  YouTube-Wrapper prüfen ausdrücklich das TAP-Ausgabeformat. Ohne diese reine
-  Runner-Einstellung meldet Node 24 vierzehn Format-Assertions, obwohl die
-  jeweiligen Kindprozesse erfolgreich sind. Produktcode/Assertions unverändert;
-  reguläre CI verwendet weiterhin Node 22.
-- `npm run test:startup:browser` prüft die echte App-/Hero-/Reihen-Darstellung
-  mit synthetischen Kontodiensten: verspätete Ergänzung, hängender Request und
-  HTTP 503. In allen Fällen erscheint Home vor der optionalen Antwort, Navigation
-  zu Filme funktioniert, und ein späterer gültiger Titel erscheint ohne einen
-  zweiten nativen Startup-Handshake. Keine produktiven Dienste oder Konten.
-- Der isolierte Vergleich mit dem Ausgangsmodell liefert bei 1.000 und 3.000
-  synthetischen Ausstrahlungen identische vollständige Modelle. Mit
-  `includeHero: false` bleiben alle Perioden, Reihen und Airing-Flags identisch.
-  Laufzeiten sind Rechner-/Fixturewerte; sie ersetzen keine Fire-TV-Messung.
+TV-Hero, Index, Tage, Summary, Live-Index und Senderverzeichnisse verwenden
+abbrechbare, auf zehn Sekunden begrenzte JSON-Requests. Fehler lösen keine
+statusgetriebene Endlosschleife aus. Eine bestehende gültige Ansicht bleibt bei
+einem fehlgeschlagenen Hintergrundrefresh sichtbar. Manuelles erneutes Öffnen
+oder der nächste geplante Refresh kann erneut laden. Die nativen fünf Sekunden
+Mindestintro und der vorhandene 30-Sekunden-Watchdog bleiben unverändert.
 
-## Diagnose auf einem angeschlossenen Testgerät
+## Zeitmodell und inkrementelle Aufbereitung
 
-In der WebView-Konsole nach dem gewünschten Start-/TV-Vorgang:
+- Eine gemeinsame Deadline-Uhr verwaltet einen aktiven Timer. Nur fällige
+  Abonnenten erhalten einen neuen Snapshot; gleichzeitige Übergänge verwenden
+  denselben Zeitwert. Im Hintergrund pausiert der Timer, bei Rückkehr wird
+  nachgezogen. Doppelte Foreground-Ereignisse werden zusammengefasst.
+- Tagesprogramm und Hero berücksichtigen ihre Sendezeiten. Die 14-Tage-Summary
+  registriert eigene Optionen auch ohne geladenen Tag. Ihre bestehende
+  Ein-Stunden-BALD-Regel und die Zwei-Stunden-Regel des Tagesprogramms bleiben
+  fachlich unverändert.
+- Die Heute-Auswahl folgt der nächsten TV-Tagesgrenze um 06:00 Europe/Berlin,
+  auch über Sommer-/Winterzeit. Eine bewusst gewählte gültige Zukunftsauswahl
+  bleibt erhalten. Ungültig gewordene Tage werden kontrolliert ersetzt.
+- Aktive TV-/Live-Ressourcen werden nach fünf Minuten, nach mindestens
+  30 Sekunden seit dem letzten Refresh auch bei Foreground-Rückkehr, erneuert.
+  Index, Hero und Summary haben begrenzte Cachegültigkeit. Tages-Shards bleiben
+  auf drei Generation/Tag-Schlüssel begrenzt.
+- Ein Tages-Shard muss zur angeforderten Indexgeneration passen. Bei Wechsel
+  gibt es genau einen frischen Index und einen erneuten Tagesabruf. Ein weiterer
+  Konflikt beendet den Versuch. Ein abweichender Hero wird einmal je
+  Generationspaar abgeglichen; die separat publizierte Summary besitzt bewusst
+  keinen Gleichheitszwang zu diesen Generationen.
+- Unveränderte Live-Einträge, Karten und Reihen behalten ihre Referenzen.
+  Sendezeit-/Genreklassifikation wird wiederverwendet. Reine Flagwechsel können
+  Karten in den bestehenden Reihen ersetzen, ohne erneut zu sortieren.
+- Große Karten-/Live-Merges und Präsentationsschritte geben den Hauptthread
+  kooperativ frei. Das Zielbudget beträgt acht Millisekunden, geprüft nach je
+  16 Einträgen; ein einzelner teurer Schritt oder GC kann es überschreiten.
+  Ergebnisse werden vollständig übernommen; abgebrochene oder überholte Arbeit
+  wird nicht angezeigt. Profil-/Anbieterwechsel bekommen einen eigenen Scope.
+
+Die initiale Sortierung, Reihenbildung, JSON-Verarbeitung, React-Commits und
+Bilddecodes sind damit nicht pauschal kostenfrei oder vollständig ausgelagert.
+Ein Worker wurde nicht eingeführt: zunächst greifen Cache, inkrementelle Updates
+und kooperative Verarbeitung. Ein Geräte-Trace kann weiteren Bedarf belegen.
+
+## Navigation, Bilder und Kontogrenzen
+
+Poster und Reihen sind memoisiert. Fokusanker speichern Titel- und Reihen-ID
+sowie einen Nachbarindex. Einfügungen erhalten den fokussierten Titel und seine
+horizontale Position; entfernte Titel/Reihen erhalten einen erreichbaren
+Nachfolger. Detailrückkehr kann den Anker auch nach einem Zeitwechsel oder
+Virtualisierung wiederherstellen. Änderungen stehlen keinen Fokus von anderen
+Bedienelementen. Scroll-/Fokusimpulse erweitern Poster höchstens einmal pro Frame.
+Das vorhandene 30er-Posterfenster bleibt bestehen.
+
+Bildvorladen erlaubt höchstens zwei aktive und 24 wartende Bilder, acht aktive
+Reihenbesitzer und 256 erfolgreiche Cacheeinträge. Überholte Aufträge und
+Unmount-Arbeit werden verworfen; laufende Image-Requests werden bestmöglich
+abgebrochen. Ein Fehlschlag blockiert spätere Versuche nicht dauerhaft.
+D-Pad-Geometrie wird innerhalb eines Navigationsschritts wiederverwendet.
+
+Identische Einstellungen erzeugen keine neuen Auswahllisten. Persönliche
+Bibliotheksdaten werden nur für den tatsächlich geladenen Konto-/Profil-Scope
+freigegeben; verspätete Rollbacks dürfen den neuen Scope nicht verändern.
+Metadaten-Reparaturen prüfen die Kontoidentität vor Übernahme und Speicherung;
+wartende Arbeit wird beim Kontowechsel/Unmount geleert.
+
+## Nachweise und Grenzen
+
+- Produktionsbuild und vollständige Anwendungstests; endgültige Prüfergebnisse
+  stehen zusätzlich in der zugehörigen Pull-Request- und Issue-Dokumentation.
+- `npm run test:startup:browser`: echte App, Hero, Reihen und native Bereitschaft
+  mit synthetischen Kontodiensten. Verspätete, hängende und fehlerhafte optionale
+  Ergänzung; verzögerte Anbietereinstellungen; fehlender Hauptkatalog;
+  ausbleibende Anmeldung. Keine produktiven Konten oder Dienste.
+- `npm run test:runtime:browser`: echte TV-Lade-/Zeit-/Modelllogik mit reduzierter
+  Testansicht; HTTP-503 ohne Request-Schleife, Summary-Zeitwechsel ohne Tagesdaten,
+  Tageszeitwechsel, überholte Tagesantworten und 06:00-Wechsel. Reale
+  Poster-/Reihen-/D-Pad-Komponenten prüfen ID-Erhalt, Nachbarfokus, Detailanker,
+  verschwundene Reihen und lange Posterfenster.
+- Unit-Tests prüfen Modellparität, Abbruch, Referenzerhalt, DST, Hintergrund/
+  Foreground, rückwärts verstellte Uhr, Generationskonflikte, Ressourcenlimits,
+  Transport-Timeouts und öffentlichen Preload mit unabhängigem Abbruch.
+- Lokaler Vergleich mit #704: 3.000 synthetische Ausstrahlungen, fünf Messungen
+  nach drei Aufwärmrunden, unveränderte Inhalte bei fortschreitender Uhr.
+  Median 65,9 ms vorher gegenüber 7,4 ms jetzt, inklusive kooperativer Wartezeit.
+  Vorher 0/3.000 Karten und 0/6 Reihen wiederverwendet; jetzt 3.000/3.000 und 6/6,
+  bei vollständig identischem Modellinhalt. Initialaufbereitung 137 ms inklusive
+  Freigaben; längster gemessener Kartenvorbereitungsschritt 16,9 ms. Diese
+  Rechner-/Fixturewerte ersetzen keine Fire-TV-Messung oder Gerätegarantie.
+- Lokal Node 24: `NODE_OPTIONS=--test-reporter=tap npm run test:unit`, weil ältere
+  Wrapper das TAP-Ausgabeformat prüfen. CI verwendet Node 22; keine Lockerung
+  dieser Assertions oder Änderung der bestehenden Produktionsworkflows.
+
+## Diagnose und Geräteabnahme
 
 ```js
 window.__movieHubPerformance.snapshot()
 ```
 
-Relevante Ereignisse:
-
 | Ereignis | Bedeutung |
 |---|---|
-| `startup:home-ready` | Web-Inhalt bereit; nicht gleich Ende des nativen Intros |
-| `catalog:youtube-companion:start/ready` | optionale Nachladephase / Fehlerausgang |
-| `live:time-transition` | globale Live-Aktualisierung |
-| `live:catalog-merge:ready` | Dauer des öffentlichen Live-Katalog-Merges |
-| `tv:time-transition` | TV-Sendezeitübergang und Verspätung des Timers |
-| `tv:view-model:ready` | bestehender Runtime-Schedule-Aufbau nach Datenabruf |
-| `tv:rows-model:ready` | tatsächlich wiederholte Tages-/Reihenberechnung |
-| `tv:summary-rows:ready` | 14-Tage-Reihenberechnung |
-| `tv:rows-committed` | React-Effekt nach dem Commit |
-| `tv:rows-frame` | zwei weitere Animationsframes; kein Bilddecode-Nachweis |
-| `main-thread:long-task` | numerische Long-Task-Dauer, falls vom Browser unterstützt |
+| `startup:home-ready` | Web-Inhalt bereit; nicht Ende des nativen Intros |
+| `catalog:youtube-companion:start/ready` | optionale Nachladephase |
+| `runtime:clock` | Deadline-/Foreground-Aktualisierung |
+| `runtime:work` | Eintragszahl, aktive Arbeitszeit, längster Teilabschnitt, Freigaben |
+| `live:catalog-merge:ready` | vollständige asynchrone Live-Aufbereitung |
+| `tv:view-model:ready` | Runtime-Schedule nach Datenabruf |
+| `tv:rows-model:ready`, `tv:summary-rows:ready` | vollständige asynchrone Reihenaufbereitung |
+| `tv:rows-committed`, `tv:rows-frame` | React-Commit und zwei folgende Frames |
+| `poster:batch`, `poster:prefetch` | Posterfenster und begrenzte Bildwarteschlange |
+| `navigation:focus`, `navigation:frame` | D-Pad-Arbeit und Weg zum nächsten Frame |
+| `main-thread:long-task` | Long-Task-Dauer, falls unterstützt |
 
-Der Ring enthält maximal 200 Ereignisse. Browser-Marks werden pro Ereignisname
-ersetzt. Es werden keine Nutzer-/Titelobjekte oder Long-Task-Attributionsdaten
-gespeichert und keine Diagnosewerte an einen Server gesendet.
+Asynchrone Modelldauern enthalten Wartezeiten zwischen Arbeitsabschnitten;
+`runtime:work` misst nur die abgeteilte Kartenarbeit und nicht nachfolgende
+Sortierung, Commit oder Bilddecode. Der Ring enthält maximal 200 Ereignisse,
+keine Nutzer-/Titelobjekte und keine serverseitige Diagnoseübertragung.
 
-## Noch offene Geräteabnahme / Folgerunden
-
-1. Exakte APK-/Web-Build-Kombination festhalten; Web-Veröffentlichung ist nötig,
-   weil die APK die gehostete Oberfläche lädt.
-2. Kalt-/Warmstart und Home/Filme/Serien/Meine Inhalte/TV prüfen.
-3. TV mindestens zehn Minuten horizontal und vertikal bedienen, insbesondere
-   über BALD-/Start-/Ende-Übergänge hinweg. Auf abgelaufene fokussierte Titel,
-   neue Sendungen und unveränderte Fokus-/Scrollposition achten.
-4. Bei verbleibendem Freeze Diagnose und Geräte-Trace korrelieren. Danach
-   gemeinsame Zeitsteuerung, inkrementelle Reihen, 14-Tage-Uhr, Resume/
-   Tageswechsel und Poster-/D-Pad-/Bildkosten gezielt bearbeiten.
-
-Die erste Runde führt noch keine gemeinsame Uhr, Worker oder neue
-Virtualisierung ein und erklärt #703/#386 nicht als abgeschlossen.
+Für die reale Endabnahme Web-Build unter **Über diese App → Web-Oberfläche**
+festhalten; vollständig schließen und neu öffnen. Kalt-/Warmstart, alle Seiten,
+Profil-/Anbieterwechsel, schwaches Netz, Standby/Rückkehr und mindestens zehn
+Minuten horizontale/vertikale TV-Navigation mit BALD-/Start-/Ende-Übergängen
+prüfen. Auf Fokus, Scrollposition und Detailrückkehr achten. Bei verbleibendem
+Freeze Diagnose mit Geräte-Trace korrelieren; JSON-/Sortier-, Render-/Bild- oder
+GPU-Kosten danach gezielt bearbeiten. #703/#386 werden nicht ohne diese Abnahme
+als vollständig erledigt oder absolut optimiert bezeichnet.

@@ -1,3 +1,4 @@
+import { sameItems } from '../performance/cooperativeWork.js'
 import {
   normalizeDisabledJoynStationIds,
   normalizeJoynStationOrder,
@@ -28,7 +29,7 @@ export function subscribeJoynStationSelection(listener) {
 }
 
 export function updateJoynStationSelectionSnapshot(patch) {
-  snapshot = {
+  const next = {
     ...snapshot,
     ...patch,
     disabledStationIds: patch.disabledStationIds === undefined
@@ -38,6 +39,10 @@ export function updateJoynStationSelectionSnapshot(patch) {
       ? snapshot.stationOrder
       : normalizeJoynStationOrder(patch.stationOrder),
   }
+  if (Array.isArray(next.disabledStationIds) && sameItems(snapshot.disabledStationIds, next.disabledStationIds)) next.disabledStationIds = snapshot.disabledStationIds
+  if (Array.isArray(next.stationOrder) && sameItems(snapshot.stationOrder, next.stationOrder)) next.stationOrder = snapshot.stationOrder
+  if (Object.keys(next).every((key) => Object.is(snapshot[key], next[key]))) return snapshot
+  snapshot = next
   emit()
   return snapshot
 }

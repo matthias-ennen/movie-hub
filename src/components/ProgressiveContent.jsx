@@ -1,3 +1,4 @@
+import { RESTORE_POSTER_FOCUS_EVENT, focusPosterAnchor, resolvePosterIndex } from '../navigation/posterFocus.js'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSharedMediaCatalog } from '../library/useSharedMediaCatalog.js'
@@ -72,6 +73,9 @@ export function ProgressiveRows({
 }) {
   const listRef = useRef(null)
   const rowStateRef = useRef(new Map())
+  const lastFocusRef = useRef(null)
+  const restoreFrameRef = useRef(null)
+  const [, setFocusRevision] = useState(0)
   const initialReadyReportedRef = useRef(false)
   const [scrollMargin, setScrollMargin] = useState(0)
   const experiencePage = inferExperiencePage(rows, className)
@@ -112,6 +116,41 @@ export function ProgressiveRows({
       observer?.disconnect()
     }
   }, [heroReady, visibleRows.length])
+
+  useLayoutEffect(() => {
+    if (!heroReady) return undefined
+    const restore = (anchor) => {
+      let index = activeRows.findIndex((row) => row.id === anchor.rowId)
+      if (index < 0) index = Math.max(0, Math.min(activeRows.length - 1, anchor.rowIndex))
+      const row = activeRows[index]
+      if (!row) return false
+      const itemIndex = resolvePosterIndex(row.items, anchor.itemId, anchor.index)
+      const next = { rowId: row.id, rowIndex: index, itemId: row.items[itemIndex]?.id, index: itemIndex }
+      const saved = rowStateRef.current.get(row.id) || {}
+      rowStateRef.current.set(row.id, { ...saved, focusIndex: itemIndex, focusId: next.itemId })
+      setFocusRevision((revision) => revision + 1)
+      if (!document.querySelector(`[data-row-index="${index}"]`)) rowVirtualizer.scrollToIndex(index, { align: 'center', behavior: 'auto' })
+      let attempts = 0
+      if (restoreFrameRef.current !== null) window.cancelAnimationFrame(restoreFrameRef.current)
+      const attempt = () => {
+        restoreFrameRef.current = null
+        if (focusPosterAnchor(next, listRef.current)) return
+        if (++attempts < 10) restoreFrameRef.current = window.requestAnimationFrame(attempt)
+      }
+      restoreFrameRef.current = window.requestAnimationFrame(attempt)
+      return true
+    }
+    const handleRestore = (event) => { event.detail.handled = restore(event.detail.anchor) }
+    window.addEventListener(RESTORE_POSTER_FOCUS_EVENT, handleRestore)
+    const anchor = lastFocusRef.current
+    if (anchor && document.activeElement === document.body && !activeRows.some((row) => row.id === anchor.rowId)) restore(anchor)
+    const liveIds = new Set(activeRows.map((row) => row.id))
+    for (const id of rowStateRef.current.keys()) if (!liveIds.has(id)) rowStateRef.current.delete(id)
+    return () => {
+      window.removeEventListener(RESTORE_POSTER_FOCUS_EVENT, handleRestore)
+      if (restoreFrameRef.current !== null) window.cancelAnimationFrame(restoreFrameRef.current)
+    }
+  }, [activeRows, heroReady, rowVirtualizer])
 
   useEffect(() => {
     if (!heroReady) return undefined
@@ -180,7 +219,23 @@ export function ProgressiveRows({
         {virtualItems.map((virtualRow) => {
           const row = activeRows[virtualRow.index]
           if (!row) return null
-          const savedState = rowStateRef.current.get(row.id) || { scrollLeft: 0, focusIndex: 0 }
+          let savedState = rowStateRef.current.get(row.id)
+          if (!savedState?.onTrackScroll) {
+            savedState = { scrollLeft: 0, focusIndex: 0, ...savedState,
+              onTrackScroll: (scrollLeft) => {
+                const current = rowStateRef.current.get(row.id)
+                if (current) current.scrollLeft = scrollLeft
+              },
+              onPosterFocus: (focusIndex, focusId) => {
+                const current = rowStateRef.current.get(row.id)
+                if (current) { current.focusIndex = focusIndex; current.focusId = focusId }
+                lastFocusRef.current = { rowId: row.id, rowIndex: current?.rowIndex ?? virtualRow.index, itemId: focusId, index: focusIndex }
+              },
+            }
+            rowStateRef.current.set(row.id, savedState)
+          }
+
+          savedState.rowIndex = virtualRow.index
 
           return (
             <div
@@ -207,14 +262,9 @@ export function ProgressiveRows({
                 virtualized
                 initialScrollLeft={savedState.scrollLeft}
                 initialFocusIndex={savedState.focusIndex}
-                onTrackScroll={(scrollLeft) => {
-                  const previous = rowStateRef.current.get(row.id) || {}
-                  rowStateRef.current.set(row.id, { ...previous, scrollLeft })
-                }}
-                onPosterFocus={(focusIndex) => {
-                  const previous = rowStateRef.current.get(row.id) || {}
-                  rowStateRef.current.set(row.id, { ...previous, focusIndex })
-                }}
+                initialFocusId={savedState.focusId}
+                onTrackScroll={savedState.onTrackScroll}
+                onPosterFocus={savedState.onPosterFocus}
               />
             </div>
           )

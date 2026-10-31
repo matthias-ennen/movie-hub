@@ -20,6 +20,7 @@ let dbRef = null
 let authUnsubscribe = null
 let userUnsubscribe = null
 let migrationUid = null
+let settingsTimeout = null
 
 function startProviderSelectionSync() {
   if (started) return
@@ -30,6 +31,7 @@ function startProviderSelectionSync() {
       dbRef = db
       authUnsubscribe = onAuthStateChanged(auth, (user) => {
         userUnsubscribe?.()
+        clearTimeout(settingsTimeout)
         userUnsubscribe = null
 
         if (!user) {
@@ -45,11 +47,18 @@ function startProviderSelectionSync() {
           savingProviderId: null,
         })
 
+        settingsTimeout = setTimeout(() => {
+          const current = getProviderSelectionSnapshot()
+          if (current.uid === user.uid && current.loading) updateProviderSelectionSnapshot({
+            loading: false, error: new Error('Anbietereinstellungen konnten nicht rechtzeitig geladen werden.'),
+          })
+        }, 8000)
         const userRef = doc(db, 'users', user.uid)
         userUnsubscribe = onSnapshot(
           userRef,
           (snapshot) => {
             if (getProviderSelectionSnapshot().uid !== user.uid) return
+            clearTimeout(settingsTimeout)
             const storedSettings = snapshot.data()?.providerSettings
             const normalized = normalizeStoredProviderSelection(
               storedSettings?.enabledProviderIds,
@@ -78,6 +87,7 @@ function startProviderSelectionSync() {
           },
           (error) => {
             if (getProviderSelectionSnapshot().uid !== user.uid) return
+            clearTimeout(settingsTimeout)
             updateProviderSelectionSnapshot({ loading: false, error, savingProviderId: null })
           },
         )
@@ -133,6 +143,7 @@ export function useProviderSelection() {
 }
 
 export function stopProviderSelectionSyncForTests() {
+  clearTimeout(settingsTimeout)
   userUnsubscribe?.()
   authUnsubscribe?.()
   userUnsubscribe = null

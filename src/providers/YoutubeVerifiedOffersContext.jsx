@@ -1,3 +1,4 @@
+import { useBackgroundReady } from '../performance/startupPhase.js'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { loadYoutubeVerifiedTitleRoutes } from './youtubeVerifiedRouteRuntime.js'
 import { loadYoutubeCuratedTitleHints } from './youtubeCuratedEditorialRuntime.js'
@@ -13,7 +14,9 @@ export function YoutubeVerifiedOffersProvider({ children }) {
   const [index, setIndex] = useState(null)
   const [curated, setCurated] = useState(null)
   const [bestEffort, setBestEffort] = useState(null)
+  const backgroundReady = useBackgroundReady()
   useEffect(() => {
+    if (!backgroundReady) { setIndex(null); setCurated(null); setBestEffort(null); return undefined }
     const controller = createYoutubeLinkRefreshController({
       loadVerified: loadYoutubeVerifiedTitleRoutes,
       loadCurated: loadYoutubeCuratedTitleHints,
@@ -33,7 +36,7 @@ export function YoutubeVerifiedOffersProvider({ children }) {
       document.removeEventListener('visibilitychange', onResume)
       window.removeEventListener('focus', onResume)
     }
-  }, [])
+  }, [backgroundReady])
   return (
     <YoutubeVerifiedOffersContext.Provider value={{index,curated,bestEffort}}>
       {children}

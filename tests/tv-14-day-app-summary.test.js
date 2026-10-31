@@ -29,10 +29,12 @@ describe('TV 14-day app summary', () => {
       signal: controller.signal,
     })
 
+    await Promise.resolve()
     expect(fetchImpl).toHaveBeenCalledOnce()
-    expect(fetchImpl.mock.calls[0][1].signal).toBe(controller.signal)
+    expect(fetchImpl.mock.calls[0][1].signal.aborted).toBe(false)
 
     controller.abort()
+    expect(fetchImpl.mock.calls[0][1].signal.aborted).toBe(true)
 
     await expect(request).rejects.toMatchObject({ name: 'AbortError' })
   })

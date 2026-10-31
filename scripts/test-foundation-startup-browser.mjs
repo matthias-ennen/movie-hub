@@ -11,7 +11,7 @@ const modulePath = process.env.MOVIE_HUB_PLAYWRIGHT_MODULE
 const { chromium } = await import(modulePath ? pathToFileURL(resolve(modulePath)).href : 'playwright')
 const mocks = {
   'src/hooks/useAuth.js': `const user={uid:'synthetic',email:'test@example.invalid'};
-    export const useAuth=()=>({user,loading:false,error:null});`,
+    export const useAuth=()=>({user:window.__holdAuth?null:user,loading:Boolean(window.__holdAuth),error:null});`,
   'src/lib/firebase.js': `export const firebaseReady=Promise.resolve({});`,
   'src/profiles/ProfileProvider.jsx': `import {DEFAULT_THEME_SETTINGS} from '/src/theme/themeConfig.js';
     const activeProfile={id:'main',displayName:'Testprofil',themeSettings:DEFAULT_THEME_SETTINGS};
@@ -28,9 +28,13 @@ const mocks = {
     export const LibraryProvider=({children})=>children;`,
   'src/library/useSharedMediaCatalog.js': `const state={entries:[],hasTitle:()=>false,loading:false};
     export const useSharedMediaCatalog=()=>state;`,
-  'src/settings/useProviderSelection.js': `const enabledProviderIds=['youtube','waipu','joyn','moviehub'];
-    const state={enabledProviderIds,loading:false,isProviderEnabled:id=>enabledProviderIds.includes(id)};
-    export const useProviderSelection=()=>state;`,
+  'src/settings/useProviderSelection.js': `import {useSyncExternalStore} from 'react';
+    const enabledProviderIds=['youtube','waipu','joyn','moviehub'],listeners=new Set();
+    const isProviderEnabled=id=>enabledProviderIds.includes(id);let loading=Boolean(window.__holdSettings);
+    window.__releaseSettings=()=>{loading=false;for(const listener of listeners)listener()};
+    const subscribe=listener=>{listeners.add(listener);return()=>listeners.delete(listener)};
+    export const useProviderSelection=()=>({enabledProviderIds,isProviderEnabled,
+      loading:useSyncExternalStore(subscribe,()=>loading,()=>loading)});`,
   'src/settings/useWaipuStationSelection.js': `const state={disabledStationIds:[],loading:false};
     export const useWaipuStationSelection=()=>state;`,
   'src/settings/useJoynStationSelection.js': `const state={disabledStationIds:[],loading:false};
@@ -78,27 +82,30 @@ try {
   browser = await chromium.launch({ headless: true, args: JSON.parse(process.env.MOVIE_HUB_BROWSER_ARGS || '[]'),
     ...(process.env.MOVIE_HUB_CHROMIUM_PATH ? { executablePath: process.env.MOVIE_HUB_CHROMIUM_PATH } : {}),
   })
-  for (const outcome of ['delayed-success', 'timeout', 'unavailable']) {
+  for (const outcome of ['delayed-success', 'timeout', 'unavailable', 'delayed-settings', 'catalog-unavailable', 'auth-timeout']) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 720 } })
     const page = await context.newPage()
     const errors = []
     page.on('pageerror', error => errors.push(error.message))
-    await page.addInitScript(() => {
+    await page.addInitScript((scenario) => {
+      window.__holdSettings = scenario === 'delayed-settings'
+      window.__holdAuth = scenario === 'auth-timeout'
       window.__readyCalls = 0
       window.MovieHubNative = {
         notifyStartupReady() { window.__readyCalls += 1 },
         getHeroSequenceContractVersion() { return 1 },
       }
-    })
+    }, outcome)
     let companionRequest
     await page.route('**/*', async route => {
       const url = new URL(route.request().url())
       if (url.origin !== origin) return route.abort()
-      if (url.pathname === '/catalog.json') return route.fulfill({ json: catalog })
+      if (url.pathname === '/catalog.json') return outcome === 'catalog-unavailable'
+        ? route.fulfill({ status: 503, body: 'unavailable' }) : route.fulfill({ json: catalog })
       if (url.pathname === '/youtube-curated-new-films.json') {
         assert.ok(await page.evaluate(() => window.__readyCalls > 0), 'optional feed started before Home readiness')
         companionRequest = route
-        if (outcome === 'unavailable') return route.fulfill({ status: 503, body: 'unavailable' })
+        if (['unavailable', 'delayed-settings', 'catalog-unavailable'].includes(outcome)) return route.fulfill({ status: 503, body: 'unavailable' })
         return // Deliberately leave this response pending.
       }
       if (url.pathname === '/fixture.svg') return route.fulfill({
@@ -110,7 +117,30 @@ try {
     })
     try {
       await page.goto(origin, { waitUntil: 'domcontentloaded' })
-      await page.waitForFunction(() => window.__readyCalls > 0, null, { timeout: 15000 })
+      if (outcome === 'delayed-settings') {
+        await page.waitForFunction(() => window.__movieHubPerformance.snapshot().events.some(e => e.name === 'catalog:ready'))
+        assert.equal(await page.evaluate(() => window.__readyCalls), 0, 'Home must wait for essential provider settings')
+        await page.evaluate(() => window.__releaseSettings())
+      }
+      await page.waitForFunction(() => window.__readyCalls > 0, null, { timeout: 18000 })
+      if (outcome === 'auth-timeout') {
+        await page.getByText('Anmeldung konnte nicht rechtzeitig geladen werden.', { exact: false }).waitFor()
+        assert.equal(await page.evaluate(() => window.__readyCalls), 1)
+        assert.deepEqual(errors, [])
+        console.log('PASS auth-timeout: bounded error screen releases native startup')
+        continue
+      }
+      if (outcome === 'catalog-unavailable') {
+        await page.waitForFunction(() => window.__movieHubPerformance.snapshot().events.some(
+          e => e.name === 'catalog:ready' && e.detail.outcome === 'error',
+        ))
+        await page.getByRole('alert').filter({ hasText: 'Der aktuelle Katalog konnte nicht geladen werden.' }).waitFor()
+        await page.getByRole('button', { name: 'Filme', exact: true }).click()
+        await page.locator('[data-content-page="movies"]').waitFor()
+        assert.deepEqual(errors, [])
+        console.log('PASS catalog-unavailable: bounded fallback releases native startup and navigation')
+        continue
+      }
       await page.locator('main[data-page-load-state="rows"] .poster-card').first().waitFor()
       await page.waitForFunction(() => window.__movieHubPerformance.snapshot().events
         .some(e => e.name === 'catalog:youtube-companion:start'))

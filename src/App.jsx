@@ -1,3 +1,9 @@
+import { capturePosterAnchor, restorePosterAnchor } from './navigation/posterFocus.js'
+import { useRuntimeClock } from './hooks/useRuntimeClock.js'
+import { useAsyncModelState, useAsyncModel } from './hooks/useAsyncModel.js'
+import { createItemTransform, mapCooperatively, sameItems } from './performance/cooperativeWork.js'
+import { readPublicCatalog, preloadPublicCatalog } from './performance/publicCatalog.js'
+import { setStartupAccount, markStartupReady } from './performance/startupPhase.js'
 import { catalogTmdbProviderIds } from './settings/providerSelectionModel.js'
 import { useYoutubeVerifiedOffers, useYoutubeCuratedEditorialHints } from './providers/YoutubeVerifiedOffersContext.jsx'
 import { withVerifiedYoutubeTitleOffer } from './providers/youtubeVerifiedTitlePresentation.js'
@@ -43,7 +49,6 @@ import { useAnnouncements } from './notifications/useAnnouncements.js'
 import { AnnouncementsView, BellButton, StartupAnnouncement } from './notifications/AnnouncementsView.jsx'
 import { preloadHeroImage } from './performance/progressiveRendering.js'
 import { prepareForActiveView, prepareRowsForActiveView } from './performance/contentRowPreparation.js'
-import { loadCatalogWithRetry } from './performance/catalogStartup.js'
 import { fetchJsonWithTimeout } from './performance/fetchJson.js'
 import { notifyNativeStartupReady } from './performance/nativeStartup.js'
 import {
@@ -59,7 +64,6 @@ import {
 import {
   cancelPerformanceSpan,
   finishPerformanceSpan,
-  measurePerformance,
   recordPerformanceEvent,
   startPerformanceSpan,
 } from './performance/performanceDiagnostics.js'
@@ -74,6 +78,7 @@ import {
   advanceLiveAvailabilityEntries,
   loadLiveAvailabilityIndex,
   mergeLiveAvailability,
+  createLiveAvailabilityMerger,
 } from './sources/liveAvailabilityIndex.js'
 
 function NativeStartupSignal() {
@@ -335,12 +340,13 @@ function HomeView({
   onOpen,
   liveTmdb,
   catalogStatus,
+  startupSettingsReady = true,
   onStartupReady,
   activationRequest,
   onActivationUnavailable,
 }) {
   const startupReadyReportedRef = useRef(false)
-  const catalogReady = catalogStatus === 'ready'
+  const catalogReady = catalogStatus !== 'loading' && startupSettingsReady
   const handleInitialContentReady = useCallback(({ visibleRowCount = 0 } = {}) => {
     if (!catalogReady || startupReadyReportedRef.current) return
     startupReadyReportedRef.current = true
@@ -353,7 +359,7 @@ function HomeView({
     <HeroFirstPage
       pageId="home"
       heroItems={heroItems}
-      readyEnabled={catalogStatus !== 'loading'}
+      readyEnabled={catalogReady}
       activationRequest={activationRequest}
       onActivationUnavailable={onActivationUnavailable}
       onOpen={onOpen}
@@ -455,7 +461,7 @@ function MovieHub({ user }) {
   const [startupFocusReady, setStartupFocusReady] = useState(() => !window.MovieHubNative || Boolean(window.__movieHubStartupFocusReady))
   const { getTitleState, statesByKey, loading: libraryLoading, error: libraryError } = useLibrary()
   const { personalTitles: tmdbPersonalTitles } = useTmdbCatalog()
-  const { enabledProviderIds } = useProviderSelection()
+  const { enabledProviderIds, loading: providerSelectionLoading, error: providerSelectionError } = useProviderSelection()
   const youtubeVerifiedRoutes = useYoutubeVerifiedOffers()
   const youtubeCuratedHints = useYoutubeCuratedEditorialHints()
   const {
@@ -491,8 +497,7 @@ function MovieHub({ user }) {
     collections: {},
     smartFilterOptions: normalizeSmartFilterOptions(),
   })
-  const [liveAvailabilityEntries, setLiveAvailabilityEntries] = useState([])
-  const [liveAvailabilityClock, setLiveAvailabilityClock] = useState(() => Date.now())
+  const [liveAvailabilitySource, setLiveAvailabilityEntries] = useState([])
   const [waipuStationCatalog, setWaipuStationCatalog] = useState({
     status: 'loading',
     stations: [],
@@ -512,9 +517,29 @@ function MovieHub({ user }) {
   const contentActivationSequenceRef = useRef(0)
   const detailRequestSequenceRef = useRef(0)
   const detailPerformanceRequestRef = useRef(null)
-  const liveAvailabilityRequestedRef = useRef(false)
+  const liveRefreshAtRef = useRef(Date.now() + 5 * 60 * 1000)
+  const liveLastRefreshRef = useRef(Date.now())
+  const [liveResourceRevision, setLiveResourceRevision] = useState(0)
   const detailReturnFocusRef = useRef(null)
   const detailSessionActiveRef = useRef(false)
+
+  const liveAirings = useMemo(() => liveAvailabilitySource.flatMap((entry) => entry.airings || []), [liveAvailabilitySource])
+  const liveClock = useRuntimeClock((now) => Math.min(
+    nextTvAiringTransition(liveAirings, now) ?? Infinity, liveRefreshAtRef.current,
+  ), homeStartupReady)
+  const liveAvailabilityClock = liveClock.now
+  const liveAvailabilityEntries = useMemo(() => advanceLiveAvailabilityEntries(liveAvailabilitySource, {
+    now: liveAvailabilityClock,
+  }), [liveAvailabilitySource, liveAvailabilityClock])
+  useEffect(() => {
+    if (!homeStartupReady) return
+    if ((liveClock.reason === 'resume' && liveAvailabilityClock - liveLastRefreshRef.current >= 30_000)
+        || liveAvailabilityClock >= liveRefreshAtRef.current) {
+      liveLastRefreshRef.current = liveAvailabilityClock
+      liveRefreshAtRef.current = liveAvailabilityClock + 5 * 60 * 1000
+      setLiveResourceRevision((revision) => revision + 1)
+    }
+  }, [homeStartupReady, liveAvailabilityClock, liveClock.reason])
 
   useEffect(() => {
     if (startupFocusReady) return undefined
@@ -542,16 +567,7 @@ function MovieHub({ user }) {
 
     async function loadCatalog() {
       try {
-        const data = await loadCatalogWithRetry(async () => {
-          const loadedCatalog = await fetchJsonWithTimeout('/catalog.json', { signal: controller.signal })
-
-          if (!Array.isArray(loadedCatalog.titles)
-              || !loadedCatalog.titles.length
-              || !Array.isArray(loadedCatalog.rowDefinitions)) {
-            throw new Error('Der geladene Katalog ist unvollständig.')
-          }
-          return loadedCatalog
-        }, { shouldCancel: () => cancelled })
+        const data = await readPublicCatalog({ signal: controller.signal })
 
         if (!cancelled) {
           finishPerformanceSpan('catalog', 'startup', {
@@ -614,25 +630,25 @@ function MovieHub({ user }) {
   }, [homeStartupReady])
 
   useEffect(() => {
-    if (!homeStartupReady || liveAvailabilityRequestedRef.current) return
-    liveAvailabilityRequestedRef.current = true
+    if (!homeStartupReady) return undefined
+    const controller = new AbortController()
     startPerformanceSpan('live:index', 'availability')
-    loadLiveAvailabilityIndex()
+    loadLiveAvailabilityIndex({ signal: controller.signal })
       .then((entries) => {
-        const loadedAt = Date.now()
+        if (controller.signal.aborted) return
         setLiveAvailabilityEntries(entries)
-        setLiveAvailabilityClock(loadedAt)
         finishPerformanceSpan('live:index', 'availability', {
           outcome: 'ready',
           entryCount: entries.length,
         })
       })
       .catch((error) => {
+        if (controller.signal.aborted) return
         console.warn('Live-Verfügbarkeitsindex konnte nicht geladen werden.', error)
-        setLiveAvailabilityEntries([])
         finishPerformanceSpan('live:index', 'availability', { outcome: 'error' })
       })
-  }, [homeStartupReady])
+    return () => { controller.abort(); cancelPerformanceSpan('live:index', 'availability', { reason: 'superseded' }) }
+  }, [homeStartupReady, liveResourceRevision])
 
   useEffect(() => {
     if (!liveStationsRequested || waipuStationCatalog.status === 'ready') return undefined
@@ -675,25 +691,10 @@ function MovieHub({ user }) {
   }, [liveStationsRequested, joynStationCatalog.status])
 
   useEffect(() => {
-    const airings = liveAvailabilityEntries.flatMap((entry) => (
-      Array.isArray(entry?.airings) ? entry.airings : [entry?.nextAiring]
-    )).filter(Boolean)
-    const nextTransition = nextTvAiringTransition(airings, liveAvailabilityClock)
-    if (!Number.isFinite(nextTransition)) return undefined
-    const timeout = window.setTimeout(() => {
-      const now = Date.now()
-      recordPerformanceEvent('live:time-transition', { latenessMs: now - nextTransition })
-      setLiveAvailabilityEntries((entries) => advanceLiveAvailabilityEntries(entries, { now }))
-      setLiveAvailabilityClock(now)
-    }, Math.max(0, Math.min(2_147_483_647, nextTransition - Date.now() + 1_000)))
-    return () => window.clearTimeout(timeout)
-  }, [liveAvailabilityClock, liveAvailabilityEntries])
-
-  useEffect(() => {
-    if (sharedMediaCatalogLoading || !user?.uid || !sharedMediaCatalogEntries.length) return
+    if (!homeStartupReady || sharedMediaCatalogLoading || !user?.uid || !sharedMediaCatalogEntries.length) return
     refreshSharedMediaCatalogMetadata(user.uid, sharedMediaCatalogEntries)
       .catch((error) => console.warn('Movie-Hub-Katalogmetadaten konnten nicht profilgebunden ergänzt werden.', error))
-  }, [user?.uid, sharedMediaCatalogLoading, sharedMediaCatalogEntries])
+  }, [homeStartupReady, user?.uid, sharedMediaCatalogLoading, sharedMediaCatalogEntries])
 
   const publicTitles = catalog.titles.length ? catalog.titles : fallbackTitles
   const contentDisplaySettings = useMemo(
@@ -720,23 +721,33 @@ function MovieHub({ user }) {
   const acceptLiveProvider = useMemo(() => createLiveProviderFilter({
     enabledProviderIds, disabledWaipuStationIds: disabledStationIds, disabledJoynStationIds,
   }), [enabledProviderIds, disabledStationIds, disabledJoynStationIds])
-  const rawTitles = useMemo(
-    () => measurePerformance('live:catalog-merge', () => mergeLiveAvailability(
-      preLiveTitles, liveAvailabilityEntries, { now: liveAvailabilityClock, acceptLiveProvider },
-    ), { titleCount: preLiveTitles.length, entryCount: liveAvailabilityEntries.length }),
-    [liveAvailabilityClock, liveAvailabilityEntries, preLiveTitles, acceptLiveProvider],
-  )
-  const titles = useMemo(
-    () => rawTitles.map((item) => resolvePresentationArtwork(
-      withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes, {curatedIndex: youtubeCuratedHints}), artworkOptions)),
-    [rawTitles, artworkOptions, youtubeVerifiedRoutes, youtubeCuratedHints],
-  )
-  const movieHubTitles = useMemo(
-    () => mergeLiveAvailability(rawMovieHubTitles, liveAvailabilityEntries, { now: liveAvailabilityClock, acceptLiveProvider })
-      .map((item) => resolvePresentationArtwork(
-        withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes, {curatedIndex: youtubeCuratedHints}), artworkOptions)),
-    [artworkOptions, liveAvailabilityClock, liveAvailabilityEntries, rawMovieHubTitles, acceptLiveProvider, youtubeVerifiedRoutes, youtubeCuratedHints],
-  )
+  const liveMergerRef = useRef(null)
+  const movieHubMergerRef = useRef(null)
+  if (!liveMergerRef.current) liveMergerRef.current = createLiveAvailabilityMerger()
+  if (!movieHubMergerRef.current) movieHubMergerRef.current = createLiveAvailabilityMerger()
+  const presentItem = useMemo(() => createItemTransform((item) => resolvePresentationArtwork(
+    withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes, { curatedIndex: youtubeCuratedHints }), artworkOptions,
+  )), [artworkOptions, youtubeVerifiedRoutes, youtubeCuratedHints])
+  const presentationScope = `${user.uid}:${activeProfile?.id}:${enabledProviderIds.join('|')}:${disabledStationIds.join('|')}:${disabledJoynStationIds.join('|')}`
+  const previousPresentedRef = useRef([])
+  const previousMovieHubRef = useRef([])
+  const prepareLiveTitles = useCallback(async (signal) => {
+    const raw = await liveMergerRef.current(preLiveTitles, liveAvailabilityEntries, { now: liveAvailabilityClock, acceptLiveProvider, signal })
+    const presented = await mapCooperatively(raw, presentItem, { signal })
+    if (!sameItems(previousPresentedRef.current, presented)) previousPresentedRef.current = presented
+    return { raw, titles: previousPresentedRef.current }
+  }, [preLiveTitles, liveAvailabilityEntries, liveAvailabilityClock, acceptLiveProvider, presentItem])
+  const liveModel = useAsyncModelState(prepareLiveTitles, presentationScope,
+    { raw: preLiveTitles, titles: preLiveTitles }, 'live:catalog-merge')
+  const rawTitles = liveModel.value.raw
+  const titles = liveModel.value.titles
+  const prepareMovieHubTitles = useCallback(async (signal) => {
+    const raw = await movieHubMergerRef.current(rawMovieHubTitles, liveAvailabilityEntries, { now: liveAvailabilityClock, acceptLiveProvider, signal })
+    const presented = await mapCooperatively(raw, presentItem, { signal })
+    if (!sameItems(previousMovieHubRef.current, presented)) previousMovieHubRef.current = presented
+    return previousMovieHubRef.current
+  }, [rawMovieHubTitles, liveAvailabilityEntries, liveAvailabilityClock, acceptLiveProvider, presentItem])
+  const movieHubTitles = useAsyncModel(prepareMovieHubTitles, presentationScope, rawMovieHubTitles, 'live:personal-merge')
   const rowDefinitions = catalog.rowDefinitions.length ? catalog.rowDefinitions : fallbackRowDefinitions
   const activeSortMode = useMemo(
     () => resolveContentSortMode(contentDisplaySettings, activeProfile?.id, new Date()),
@@ -779,7 +790,7 @@ function MovieHub({ user }) {
     setProfileOpen(false)
     if (!detailSessionActiveRef.current) {
       const active = document.activeElement
-      detailReturnFocusRef.current = active instanceof HTMLElement ? active : null
+      detailReturnFocusRef.current = active instanceof HTMLElement ? { element: active, anchor: capturePosterAnchor(active) } : null
       detailSessionActiveRef.current = true
     }
 
@@ -878,7 +889,7 @@ function MovieHub({ user }) {
         : current)
     })
 
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [
     artworkOptions,
     detailRequest,
@@ -893,14 +904,14 @@ function MovieHub({ user }) {
 
   const restoreDetailReturnFocus = useCallback(() => {
     const target = detailReturnFocusRef.current
-    if (!target?.isConnected) return
+    if (!target) return
     window.requestAnimationFrame(() => {
-      if (target.isConnected) target.focus({ preventScroll: true })
+      if (target.element?.isConnected) target.element.focus({ preventScroll: true })
+      else if (!restorePosterAnchor(target.anchor)) document.querySelector(`[data-content-view="${currentView}"]`)?.focus({ preventScroll: true })
     })
-  }, [])
+  }, [currentView])
 
   const closeDetail = useCallback(() => {
-    const detailWasMounted = Boolean(selectedTitle)
     if (detailPerformanceRequestRef.current !== null) {
       cancelPerformanceSpan('detail', String(detailPerformanceRequestRef.current), { reason: 'closed' })
       detailPerformanceRequestRef.current = null
@@ -911,8 +922,8 @@ function MovieHub({ user }) {
     setDetailSharedMediaLoadError('')
     setDetailPrimaryImageUrl(undefined)
     detailSessionActiveRef.current = false
-    if (!detailWasMounted) restoreDetailReturnFocus()
-  }, [restoreDetailReturnFocus, selectedTitle])
+    restoreDetailReturnFocus()
+  }, [restoreDetailReturnFocus])
 
   const cancelDetailLoading = useCallback(() => {
     if (detailPerformanceRequestRef.current !== null) {
@@ -1510,6 +1521,8 @@ function MovieHub({ user }) {
         onProfileSelect={selectProfile}
         onViewIntent={handleViewIntent}
       />
+      {providerSelectionError && <p className="error" role="alert">Anbietereinstellungen konnten nicht geladen werden. Bitte Verbindung prüfen und erneut starten.</p>}
+      {catalog.status === 'error' && <p className="error" role="alert">Der aktuelle Katalog konnte nicht geladen werden. Angezeigt wird der lokale Ersatzkatalog. Bitte Verbindung prüfen und erneut starten.</p>}
       {currentView === 'home' && (
         <HomeView
           heroItems={homeHeroes}
@@ -1517,7 +1530,8 @@ function MovieHub({ user }) {
           onOpen={handleOpenTitle}
           liveTmdb={liveTmdb}
           catalogStatus={catalog.status}
-          onStartupReady={() => setHomeStartupReady(true)}
+          startupSettingsReady={!providerSelectionLoading && (homeStartupReady || !liveModel.pending)}
+          onStartupReady={() => { setHomeStartupReady(true); markStartupReady(user.uid) }}
           activationRequest={contentActivationRequest?.viewId === 'home' ? contentActivationRequest : null}
           onActivationUnavailable={handleHeroActivationUnavailable}
         />
@@ -1651,7 +1665,7 @@ function MovieHub({ user }) {
           sharedMediaPreloaded
           sharedMediaLoadError={detailSharedMediaLoadError}
           liveAvailabilityNow={liveAvailabilityClock}
-          returnFocusTarget={detailReturnFocusRef.current}
+          returnFocusTarget={detailReturnFocusRef.current?.element}
           onSelectTitle={handleOpenTitle}
           onClose={closeDetail}
         />
@@ -1710,9 +1724,18 @@ function AuthenticatedMovieHub({ user }) {
 }
 
 export default function App() {
-  const { user, loading, error } = useAuth()
+  const { user, loading, error: authError } = useAuth()
+  const [authTimedOut, setAuthTimedOut] = useState(false)
+  useEffect(() => {
+    if (!loading) { setAuthTimedOut(false); return undefined }
+    const timer = setTimeout(() => setAuthTimedOut(true), 12000)
+    return () => clearTimeout(timer)
+  }, [loading])
+  const error = authError || (loading && authTimedOut ? new Error('Anmeldung konnte nicht rechtzeitig geladen werden. Bitte Verbindung prüfen und erneut starten.') : null)
+  useEffect(() => { void preloadPublicCatalog().catch(() => {}) }, [])
+  useEffect(() => { setStartupAccount(user?.uid || null) }, [user?.uid])
 
-  if (loading) return <main className="auth-shell"><p className="loading-copy">Movie Hub wird geladen …</p></main>
+  if (loading && !authTimedOut) return <main className="auth-shell"><p className="loading-copy">Movie Hub wird geladen …</p></main>
 
   if (error) {
     return (
@@ -1730,7 +1753,7 @@ export default function App() {
   }
 
   return user ? (
-    <ProfileProvider user={user}>
+    <ProfileProvider key={user.uid} user={user}>
       <TmdbCatalogProvider user={user}>
         <AuthenticatedMovieHub user={user} />
       </TmdbCatalogProvider>

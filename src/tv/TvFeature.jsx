@@ -1,39 +1,47 @@
 import { orderTvStations, combinedTvStationOrder as getCombinedStationOrder } from '../settings/stationOrder.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useRuntimeClock } from '../hooks/useRuntimeClock.js'
+import { useAsyncModel } from '../hooks/useAsyncModel.js'
 import TvView from '../components/TvView.jsx'
 import { resolvePresentationArtwork } from '../catalog/artworkRotation.js'
 import { isTvPresentationReady } from '../performance/liveCatalogStartup.js'
 import {
   cancelPerformanceSpan,
   finishPerformanceSpan,
-  measurePerformance,
   recordPerformanceEvent,
   startPerformanceSpan,
 } from '../performance/performanceDiagnostics.js'
 import {
   buildWaipuTvViewModel,
+  createWaipuTvViewModelBuilder,
+  nextTvDayBoundary,
   nextTvAiringTransition,
   tvDayKey,
 } from '../waipu/waipuTvCatalog.js'
-import { buildTv14DayRows, loadTv14DaySummary } from './tv14DaySummary.js'
+import { createTv14DayRowsBuilder, loadTv14DaySummary, nextTv14DayTransition } from './tv14DaySummary.js'
 import {
   buildTvRuntimeHeroItems,
   buildTvRuntimeSchedule,
-  loadTvRuntimeDay,
   loadTvRuntimeHero,
   loadTvRuntimeIndex,
+  loadConsistentTvRuntimeDay,
+  TV_RUNTIME_CACHE_MAX_AGE_MS,
 } from './tvRuntimeClient.js'
+
+const EMPTY_LIST = Object.freeze([])
+const EMPTY_OPTIONS = Object.freeze({})
+const LIVE_PROVIDERS = Object.freeze(['waipu', 'joyn'])
 
 export default function TvFeature({
   waipuStationCatalog,
   joynStationCatalog,
-  disabledWaipuStationIds = [],
-  disabledJoynStationIds = [],
-  enabledProviderIds = ['waipu', 'joyn'],
+  disabledWaipuStationIds = EMPTY_LIST,
+  disabledJoynStationIds = EMPTY_LIST,
+  enabledProviderIds = LIVE_PROVIDERS,
   stationSelectionLoading = true,
   joynStationSelectionLoading = true,
-  liveAvailabilityEntries = [],
-  artworkOptions = {},
+  liveAvailabilityEntries = EMPTY_LIST,
+  artworkOptions = EMPTY_OPTIONS,
   activationRequest = null,
   onActivationUnavailable,
   onStationCatalogsRequested,
@@ -53,11 +61,41 @@ export default function TvFeature({
     days: [],
   })
   const [tvScheduleRequested, setTvScheduleRequested] = useState(false)
-  const [tvClock, setTvClock] = useState(() => Date.now())
   const [tvPeriodId, setTvPeriodId] = useState(() => `day:${tvDayKey(Date.now())}`)
   const tvPerformanceSequenceRef = useRef(0)
+  const preparedScheduleRef = useRef(null)
+  const reconciledHeroRef = useRef(null)
   const tvRuntimeHeroRequestRef = useRef(null)
   const tvPosterPhaseStartedRef = useRef(false)
+
+  const [resourceRevision, setResourceRevision] = useState(0)
+  const refreshAtRef = useRef(Date.now() + TV_RUNTIME_CACHE_MAX_AGE_MS)
+  const lastRefreshRef = useRef(Date.now())
+  const transitionAirings = useMemo(() => [
+    ...tvSchedule.airings,
+    ...tvRuntimeHero.entries.flatMap((entry) => entry.airings || []),
+  ], [tvSchedule.airings, tvRuntimeHero.entries, tv14DaySummary.entries, tvPeriodId])
+  const clock = useRuntimeClock((now) => Math.min(
+    nextTvAiringTransition(transitionAirings, now) ?? Infinity,
+    tvPeriodId === '14-days' ? nextTv14DayTransition(tv14DaySummary.entries, now) : Infinity,
+    nextTvDayBoundary(now), refreshAtRef.current,
+  ))
+  const tvClock = clock.now
+  const previousTodayRef = useRef(tvDayKey(tvClock))
+  useEffect(() => {
+    const today = tvDayKey(tvClock)
+    if (today !== previousTodayRef.current) {
+      const previous = previousTodayRef.current
+      previousTodayRef.current = today
+      setTvPeriodId((period) => period === `day:${previous}` ? `day:${today}` : period)
+    }
+    const resumeRefresh = clock.reason === 'resume' && tvClock - lastRefreshRef.current >= 30_000
+    if (resumeRefresh || tvClock >= refreshAtRef.current) {
+      lastRefreshRef.current = tvClock
+      refreshAtRef.current = tvClock + TV_RUNTIME_CACHE_MAX_AGE_MS
+      setResourceRevision((revision) => revision + 1)
+    }
+  }, [clock.reason, tvClock])
 
   useEffect(() => () => {
     onStationCatalogsRequested?.(false)
@@ -66,10 +104,10 @@ export default function TvFeature({
   useEffect(() => {
     const controller = new AbortController()
     tvRuntimeHeroRequestRef.current = controller
-    setTvRuntimeHero((current) => ({ ...current, status: 'loading' }))
+    setTvRuntimeHero((current) => current.status === 'ready' ? current : ({ ...current, status: 'loading' }))
     startPerformanceSpan('tv:hero-snapshot', 'runtime')
 
-    loadTvRuntimeHero({ signal: controller.signal })
+    loadTvRuntimeHero({ signal: controller.signal, force: resourceRevision > 0 })
       .then((hero) => {
         if (controller.signal.aborted) return
         setTvRuntimeHero({
@@ -85,7 +123,7 @@ export default function TvFeature({
       .catch((error) => {
         if (error?.name === 'AbortError') return
         console.warn('TV-Runtime-Hero konnte nicht geladen werden.', error)
-        setTvRuntimeHero({ status: 'unavailable', generatedAt: null, entries: [] })
+        setTvRuntimeHero((current) => current.status === 'ready' ? current : { status: 'unavailable', generatedAt: null, entries: [] })
         finishPerformanceSpan('tv:hero-snapshot', 'runtime', { outcome: 'error' })
       })
       .finally(() => {
@@ -101,18 +139,16 @@ export default function TvFeature({
       }
       cancelPerformanceSpan('tv:hero-snapshot', 'runtime', { reason: 'view-left' })
     }
-  }, [])
+  }, [resourceRevision])
 
   useEffect(() => {
     if (!tvScheduleRequested) return undefined
-    if (tvRuntimeIndex.status === 'ready'
-        || tvRuntimeIndex.status === 'loading'
-        || tvRuntimeIndex.status === 'unavailable') return undefined
-
-    setTvRuntimeIndex((current) => ({ ...current, status: 'loading' }))
+    const controller = new AbortController()
+    setTvRuntimeIndex((current) => current.status === 'ready' ? current : ({ ...current, status: 'loading' }))
     startPerformanceSpan('tv:index', 'runtime')
-    loadTvRuntimeIndex()
+    loadTvRuntimeIndex({ signal: controller.signal, force: resourceRevision > 0 })
       .then((index) => {
+        if (controller.signal.aborted) return
         finishPerformanceSpan('tv:index', 'runtime', {
           dayCount: index.days.length,
           providerCount: index.providers.length,
@@ -125,9 +161,10 @@ export default function TvFeature({
         })
       })
       .catch((error) => {
+        if (controller.signal.aborted) return
         finishPerformanceSpan('tv:index', 'runtime', { outcome: 'error' })
         console.warn('TV-Runtime-Index konnte nicht geladen werden.', error)
-        setTvRuntimeIndex({
+        setTvRuntimeIndex((current) => current.status === 'ready' ? current : {
           status: 'unavailable',
           generatedAt: null,
           providers: [],
@@ -135,8 +172,27 @@ export default function TvFeature({
         })
       })
 
-    return undefined
-  }, [tvRuntimeIndex.status, tvScheduleRequested])
+    return () => { controller.abort(); cancelPerformanceSpan('tv:index', 'runtime', { reason: 'superseded' }) }
+  }, [resourceRevision, tvScheduleRequested])
+
+  useEffect(() => {
+    const heroGeneration = tvRuntimeHero.generatedAt
+    const indexGeneration = tvRuntimeIndex.generatedAt
+    if (!heroGeneration || !indexGeneration || heroGeneration === indexGeneration
+        || tvRuntimeIndex.status !== 'ready' || tvRuntimeHero.status !== 'ready') return undefined
+    const pair = `${heroGeneration}|${indexGeneration}`
+    if (reconciledHeroRef.current === pair) return undefined
+    reconciledHeroRef.current = pair
+    const controller = new AbortController()
+    loadTvRuntimeHero({ signal: controller.signal, force: true }).then((hero) => {
+      if (controller.signal.aborted) return
+      setTvRuntimeHero(hero.generatedAt === indexGeneration
+        ? { ...hero, status: 'ready' } : { status: 'unavailable', generatedAt: null, entries: [] })
+    }).catch(() => {
+      if (!controller.signal.aborted) setTvRuntimeHero({ status: 'unavailable', generatedAt: null, entries: [] })
+    })
+    return () => controller.abort()
+  }, [tvRuntimeHero.generatedAt, tvRuntimeHero.status, tvRuntimeIndex.generatedAt, tvRuntimeIndex.status])
 
   const activeWaipuStations = useMemo(() => {
     const disabled = new Set(disabledWaipuStationIds)
@@ -158,18 +214,27 @@ export default function TvFeature({
     () => tvRuntimeIndex.status === 'ready' ? tvRuntimeIndex.days : [],
     [tvRuntimeIndex.days, tvRuntimeIndex.status],
   )
+  useEffect(() => {
+    if (tvRuntimeIndex.status !== 'ready' || tvPeriodId === '14-days') return
+    const today = `day:${tvDayKey(tvClock)}`
+    const available = combinedTvDays.filter((day) => day.key >= tvDayKey(tvClock))
+    if (tvPeriodId !== today && !available.some((day) => `day:${day.key}` === tvPeriodId)) {
+      setTvPeriodId(available.some((day) => `day:${day.key}` === today) ? today
+        : available.length ? `day:${available[0].key}` : today)
+    }
+  }, [combinedTvDays, tvClock, tvPeriodId, tvRuntimeIndex.status])
+
   const combinedTvStationOrder = useMemo(() => getCombinedStationOrder(
     activeWaipuStations, activeJoynStations, waipuStationCatalog?.stations || [],
   ), [activeJoynStations, activeWaipuStations, waipuStationCatalog?.stations])
 
   useEffect(() => {
     if (!tvScheduleRequested || tvPeriodId !== '14-days') return undefined
-    if (tv14DaySummary.status === 'ready') return undefined
     let cancelled = false
     const controller = new AbortController()
-    setTv14DaySummary((current) => ({ ...current, status: 'loading' }))
+    setTv14DaySummary((current) => current.status === 'ready' ? current : ({ ...current, status: 'loading' }))
     startPerformanceSpan('tv:14-day', 'summary')
-    loadTv14DaySummary({ signal: controller.signal })
+    loadTv14DaySummary({ signal: controller.signal, force: resourceRevision > 0 })
       .then((summary) => {
         if (cancelled) return
         finishPerformanceSpan('tv:14-day', 'summary', { entryCount: summary.entries.length })
@@ -179,14 +244,14 @@ export default function TvFeature({
         if (cancelled || error?.name === 'AbortError') return
         finishPerformanceSpan('tv:14-day', 'summary', { outcome: 'error' })
         console.warn('14-Tage-TV-Summary konnte nicht geladen werden.', error)
-        setTv14DaySummary({ status: 'unavailable', entries: [] })
+        setTv14DaySummary((current) => current.status === 'ready' ? current : { status: 'unavailable', entries: [] })
       })
     return () => {
       cancelled = true
       controller.abort()
       cancelPerformanceSpan('tv:14-day', 'summary', { reason: 'superseded' })
     }
-  }, [tv14DaySummary.status, tvPeriodId, tvScheduleRequested])
+  }, [resourceRevision, tvPeriodId, tvScheduleRequested])
 
   useEffect(() => {
     if (!tvScheduleRequested) return undefined
@@ -235,31 +300,34 @@ export default function TvFeature({
     const controller = new AbortController()
     tvPerformanceSequenceRef.current += 1
     const performanceKey = `${dayKey}:${tvPerformanceSequenceRef.current}`
-    setTvSchedule({ status: 'loading', airings: [], titles: [] })
+    setTvSchedule((current) => current.dayKey === dayKey && current.status === 'ready' ? current : { status: 'loading', airings: [], titles: [] })
     startPerformanceSpan('tv:day', performanceKey, { dayKey })
-    loadTvRuntimeDay(dayKey, {
-      generation: tvRuntimeIndex.generatedAt,
-      signal: controller.signal,
-    })
-      .then((day) => {
+    loadConsistentTvRuntimeDay(dayKey, tvRuntimeIndex, { signal: controller.signal })
+      .then(({ day, index }) => {
         if (cancelled) return
         finishPerformanceSpan('tv:day', performanceKey, {
           dayKey,
           entryCount: day.entries.length,
         })
         startPerformanceSpan('tv:view-model', performanceKey, { dayKey })
-        const schedule = buildTvRuntimeSchedule(day, {
-          enabledProviderIds,
-          activeWaipuStationIds: activeWaipuStations.map((station) => station.id),
-          activeJoynStationIds: activeJoynStations.map((station) => station.id),
-        })
+        const selectionKey = JSON.stringify([enabledProviderIds, activeWaipuStationKey, activeJoynStationKey])
+        const cached = preparedScheduleRef.current
+        const schedule = cached?.day === day && cached.selectionKey === selectionKey ? cached.schedule
+          : buildTvRuntimeSchedule(day, {
+              enabledProviderIds,
+              activeWaipuStationIds: activeWaipuStations.map((station) => station.id),
+              activeJoynStationIds: activeJoynStations.map((station) => station.id),
+            })
+        preparedScheduleRef.current = { day, selectionKey, schedule }
         finishPerformanceSpan('tv:view-model', performanceKey, {
           dayKey,
           airingCount: schedule.airings.length,
           titleCount: schedule.titles.length,
         })
-        setTvClock(Date.now())
-        setTvSchedule({
+        if (index.generatedAt !== tvRuntimeIndex.generatedAt) setTvRuntimeIndex({ ...index, status: 'ready' })
+        setTvSchedule((current) => current.status === 'ready' && current.dayKey === dayKey && current.airings === schedule.airings
+          ? current : {
+          dayKey,
           status: 'ready',
           airings: schedule.airings,
           titles: schedule.titles,
@@ -269,7 +337,7 @@ export default function TvFeature({
         if (cancelled || error?.name === 'AbortError') return
         finishPerformanceSpan('tv:day', performanceKey, { dayKey, outcome: 'error' })
         console.warn('TV-Runtime-Tag konnte nicht geladen werden.', error)
-        setTvSchedule({ status: 'unavailable', airings: [], titles: [] })
+        setTvSchedule((current) => current.dayKey === dayKey && current.status === 'ready' ? current : { status: 'unavailable', airings: [], titles: [] })
       })
 
     return () => {
@@ -279,6 +347,7 @@ export default function TvFeature({
       cancelPerformanceSpan('tv:view-model', performanceKey, { dayKey, reason: 'superseded' })
     }
   }, [
+    resourceRevision,
     enabledProviderIds,
     activeJoynStationKey,
     activeJoynStations,
@@ -296,69 +365,34 @@ export default function TvFeature({
     waipuStationCatalog?.status,
   ])
 
-  useEffect(() => {
-    if (!tvScheduleRequested || tvSchedule.status !== 'ready') return undefined
-    const nextTransition = nextTvAiringTransition(tvSchedule.airings, tvClock)
-    if (!Number.isFinite(nextTransition)) return undefined
-    const timeout = window.setTimeout(
-      () => {
-        recordPerformanceEvent('tv:time-transition', { latenessMs: Date.now() - nextTransition })
-        setTvClock(Date.now())
-      },
-      Math.max(0, Math.min(2_147_483_647, nextTransition - Date.now() + 1_000)),
-    )
-    return () => window.clearTimeout(timeout)
-  }, [tvClock, tvSchedule.airings, tvSchedule.status, tvScheduleRequested])
-
   const tvPresentationTitles = useMemo(
     () => (Array.isArray(tvSchedule.titles) ? tvSchedule.titles : [])
       .map((item) => resolvePresentationArtwork(item, artworkOptions)),
     [artworkOptions, tvSchedule.titles],
   )
 
-  const baseTvViewModel = useMemo(() => measurePerformance('tv:rows-model', () => buildWaipuTvViewModel({
-    airings: tvSchedule.airings,
-    titles: tvPresentationTitles,
-    titleEntries: liveAvailabilityEntries,
-    stationOrder: combinedTvStationOrder,
-    selectedPeriodId: tvPeriodId,
-    availableDays: combinedTvDays,
-    now: tvClock,
-    // TvFeature uses the separate runtime snapshot for its visible hero.
-    includeHero: false,
-  }), { airingCount: tvSchedule.airings.length, periodId: tvPeriodId }), [
-    combinedTvDays,
-    combinedTvStationOrder,
-    liveAvailabilityEntries,
-    tvClock,
-    tvPeriodId,
-    tvPresentationTitles,
-    tvSchedule.airings,
-  ])
-
-  const tv14DayRows = useMemo(() => (
-    tvPeriodId === '14-days' && tv14DaySummary.status === 'ready'
-      ? measurePerformance('tv:summary-rows', () => buildTv14DayRows({
-          enabledProviderIds,
-          entries: tv14DaySummary.entries,
-          titles: tvPresentationTitles,
-          activeWaipuStationIds: activeWaipuStations.map((station) => station.id),
-          activeJoynStationIds: activeJoynStations.map((station) => station.id),
-          artworkOptions,
-          now: tvClock,
-        }), { entryCount: tv14DaySummary.entries.length })
-      : []
-  ), [
-    enabledProviderIds,
-    activeJoynStationKey,
-    activeWaipuStationKey,
-    artworkOptions,
-    tv14DaySummary.entries,
-    tv14DaySummary.status,
-    tvClock,
-    tvPeriodId,
-    tvPresentationTitles,
-  ])
+  const modelBuilderRef = useRef(null)
+  const summaryBuilderRef = useRef(null)
+  if (!modelBuilderRef.current) modelBuilderRef.current = createWaipuTvViewModelBuilder()
+  if (!summaryBuilderRef.current) summaryBuilderRef.current = createTv14DayRowsBuilder()
+  const emptyModel = useMemo(() => buildWaipuTvViewModel({
+    availableDays: combinedTvDays, selectedPeriodId: tvPeriodId, now: tvClock, includeHero: false,
+  }), [combinedTvDays, tvClock, tvPeriodId])
+  const buildModel = useCallback((signal) => modelBuilderRef.current({
+    airings: tvSchedule.airings, titles: tvPresentationTitles, titleEntries: liveAvailabilityEntries,
+    stationOrder: combinedTvStationOrder, selectedPeriodId: tvPeriodId,
+    availableDays: combinedTvDays, now: tvClock, includeHero: false,
+  }, { signal }), [combinedTvDays, combinedTvStationOrder, liveAvailabilityEntries, tvClock, tvPeriodId, tvPresentationTitles, tvSchedule.airings])
+  const selectionScope = `${tvPeriodId}:${enabledProviderIds.join('|')}:${activeWaipuStationKey}:${activeJoynStationKey}`
+  const baseTvViewModel = useAsyncModel(buildModel, selectionScope, emptyModel, 'tv:rows-model')
+  const buildSummary = useCallback((signal) => tvPeriodId === '14-days' && tv14DaySummary.status === 'ready'
+    ? summaryBuilderRef.current({ enabledProviderIds, entries: tv14DaySummary.entries, titles: tvPresentationTitles,
+        activeWaipuStationIds: activeWaipuStations.map((station) => station.id),
+        activeJoynStationIds: activeJoynStations.map((station) => station.id), artworkOptions, now: tvClock,
+      }, { signal }) : Promise.resolve(EMPTY_LIST),
+  [enabledProviderIds, activeJoynStations, activeWaipuStations, artworkOptions, tv14DaySummary.entries,
+    tv14DaySummary.status, tvClock, tvPeriodId, tvPresentationTitles])
+  const tv14DayRows = useAsyncModel(buildSummary, selectionScope, EMPTY_LIST, 'tv:summary-rows')
 
   const tvViewModel = useMemo(() => (
     tvPeriodId === '14-days'
