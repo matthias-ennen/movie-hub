@@ -8,6 +8,7 @@ import {
   isExperienceModuleVisible,
 } from '../profiles/profileExperienceRuntime.js'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
+import ManagedImage from './ManagedImage.jsx'
 import {
   consumeHeroAutoplayActivation,
   didTrailerComplete,
@@ -73,6 +74,7 @@ export default function Hero({
   onOpen,
   eyebrow = 'Heute im Fokus',
   onReady,
+  readyEnabled = true,
   activationRequest = null,
   activationAvailabilitySettled = true,
   onActivationUnavailable,
@@ -313,19 +315,21 @@ export default function Hero({
   }, [heroVisit, safeIndex, signature, slides.length])
 
   const reportReady = useCallback((reason) => {
+    if (!readyEnabled) return
     setReadySignature(signature)
     if (readyReportedRef.current) return
     readyReportedRef.current = true
     onReady?.({ item: activeItem, reason })
-  }, [activeItem, onReady, signature])
+  }, [activeItem, onReady, readyEnabled, signature])
 
   useEffect(() => {
+    if (!readyEnabled) return undefined
     const frame = window.requestAnimationFrame(() => {
       const image = activeImageRef.current
       if (!activeBackdropUrl) {
         reportReady(slides.length ? 'no-image' : heroVisible ? 'no-hero' : 'hidden')
-      } else if (image?.complete) {
-        reportReady(image.naturalWidth > 0 ? 'cached' : 'error')
+      } else if (image?.dataset.imageSettled) {
+        reportReady(image.dataset.imageSettled === 'loaded' ? 'cached' : 'error')
       }
     })
     const timeout = window.setTimeout(() => reportReady('timeout'), HERO_READY_TIMEOUT_MS)
@@ -334,7 +338,7 @@ export default function Hero({
       window.cancelAnimationFrame(frame)
       window.clearTimeout(timeout)
     }
-  }, [activeBackdropUrl, heroVisible, reportReady, slides.length])
+  }, [activeBackdropUrl, heroVisible, readyEnabled, reportReady, slides.length])
 
   useEffect(() => {
     const requestId = activationRequest?.id
@@ -534,7 +538,9 @@ export default function Hero({
         </div>
         <div className={heroBackdropUrl ? 'hero-art has-image' : 'hero-art'} aria-hidden="true">
           {heroBackdropUrl && (
-            <img
+            <ManagedImage
+              key={`${entry.id}:${heroImage.src}`}
+              priority={3}
               ref={entry.id === activeItem.id ? activeImageRef : null}
               className="hero-art-image"
               src={heroImage.src}
@@ -545,8 +551,8 @@ export default function Hero({
               fetchPriority="high"
               decoding="async"
               draggable="false"
-              onLoad={() => reportReady('loaded')}
-              onError={() => reportReady('error')}
+              onLoad={({ currentTarget }) => { if (currentTarget === activeImageRef.current) reportReady('loaded') }}
+              onError={({ currentTarget }) => { if (currentTarget === activeImageRef.current) reportReady('error') }}
             />
           )}
         </div>

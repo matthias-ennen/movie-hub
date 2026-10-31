@@ -137,7 +137,9 @@ try {
       await page.evaluate(() => window.changeRows([['second',['d','e','f']]]))
       await page.waitForFunction(() => ['d','e','f'].includes(document.activeElement?.dataset.posterId))
       await page.evaluate(() => window.changeRows([['second',Array.from({length:65},(_,i)=>`item-${i}`)]]))
-      await page.locator('[data-poster-id="item-25"]').focus()
+      for (const index of [7, 19, 31]) {
+        await page.locator(`[data-poster-id="item-${index}"]`).focus()
+      }
       await page.locator('[data-poster-id="item-45"]').waitFor()
       await page.locator('[data-poster-id="item-45"]').focus()
       await page.evaluate(() => window.changeRows([['second',Array.from({length:64},(_,i)=>`item-${i+1}`)]]))

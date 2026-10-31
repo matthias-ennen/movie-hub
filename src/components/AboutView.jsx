@@ -54,6 +54,10 @@ export default function AboutView() {
   const nativeVersion = readNativeValue('getAppVersion')
   const nativeBuild = readNativeValue('getAppBuild') || deriveBuildFromVersion(nativeVersion)
   const nativePlatform = readNativeValue('getPlatformLabel') || (nativeVersion ? 'Android / Fire TV' : 'Web')
+  const webViewRuntime = readNativeValue('getWebViewRuntime')
+  const rendererFailure = (() => {
+    try { return JSON.parse(readNativeValue('getLastRendererFailure') || 'null') } catch { return null }
+  })()
   const webBuild = typeof __MOVIE_HUB_WEB_BUILD__ !== 'undefined' ? __MOVIE_HUB_WEB_BUILD__ : 'local'
   const webBuiltAt = typeof __MOVIE_HUB_WEB_BUILT_AT__ !== 'undefined' ? __MOVIE_HUB_WEB_BUILT_AT__ : null
   const dataStatus = dataState.value
@@ -136,6 +140,11 @@ export default function AboutView() {
           </article>
         </div>
       </section>
+
+      {webViewRuntime && <section className="settings-panel about-panel" aria-label="Laufzeitdiagnose">
+        <h2>Laufzeitdiagnose</h2><p>{webViewRuntime}</p>
+        {rendererFailure && <p>Letzter Renderer-Ausfall: {formatBuildTime(rendererFailure.at)} · {rendererFailure.crashed ? 'Renderer abgestürzt' : 'Renderer vom System beendet'} · APK {rendererFailure.apk} · Priorität {rendererFailure.priority}</p>}
+      </section>}
 
       <section className="settings-panel about-panel about-data-panel" aria-labelledby="about-data-heading">
         <div className="settings-heading">

@@ -81,6 +81,9 @@ jobs:
       - name: Check TV time transitions, bounded errors and focus preservation
         run: npm run test:runtime:browser
 
+      - name: Check real TV rendering and shared image admission
+        run: npm run test:rendering:browser
+
       - name: Check profile email UI with local Firestore and render mail templates
         run: npm run test:email:browser
 

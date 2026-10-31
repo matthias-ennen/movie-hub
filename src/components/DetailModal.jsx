@@ -1,3 +1,4 @@
+import ManagedImage from './ManagedImage.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   getProviderDestination,
@@ -463,7 +464,8 @@ export default function DetailModal({
             alertActive={includedShownOn || titleAlerts.isEnabled(item, 'tv') || titleAlerts.isEnabled(item, 'available')} notePresent={Boolean(personalState.note)} />} artwork={
         <div className={detailPosterUrl ? 'detail-art has-image' : 'detail-art'} style={{ '--poster-accent': item.accent, '--poster-accent-2': item.accent2 }}>
           {detailPosterUrl && (
-            <img
+            <ManagedImage
+              priority={4}
               className="detail-art-image"
               src={detailPosterUrl}
               alt={`Poster zu ${item.title}`}

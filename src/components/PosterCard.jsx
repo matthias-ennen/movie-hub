@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import ManagedImage from './ManagedImage.jsx'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import ProviderBadges from './ProviderBadges.jsx'
 import { formatTvAiringCard } from '../tv/tvAiringPresentation.js'
@@ -40,7 +41,7 @@ function PosterCard({
     >
       <span className={`${hasPoster ? 'poster-art has-image' : 'poster-art'}${tvAiring ? ' has-tv-airing' : ''}`} aria-hidden="true">
         {hasPoster && (
-          <img
+          <ManagedImage
             className="poster-image"
             src={posterImage.src}
             srcSet={posterImage.srcSet}

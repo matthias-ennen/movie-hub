@@ -53,7 +53,7 @@ describe('Fire-TV Posterreihen-Last', () => {
       .toHaveLength(HISTORY_POSTER_ROW_LIMIT)
     expect(limitPosterRowItems(Array.from({ length: 200 }, (_, index) => title(index + 1)), 'tv'))
       .toHaveLength(TV_POSTER_ROW_LIMIT)
-    expect(ROW_VIRTUAL_OVERSCAN).toBe(2)
+    expect(ROW_VIRTUAL_OVERSCAN).toBe(1)
     expect(estimatePosterRowHeight('top-ten')).toBeGreaterThan(estimatePosterRowHeight('standard'))
   })
 
@@ -72,11 +72,12 @@ describe('Fire-TV Posterreihen-Last', () => {
 
   it('rendert TV-Reihen horizontal progressiv statt sofort alle 150 Karten', () => {
     expect(tvPosterRenderCountForIndex(150, 0)).toBe(TV_INITIAL_RENDERED_POSTERS)
-    expect(tvPosterRenderCountForIndex(150, 55)).toBe(90)
+    expect(tvPosterRenderCountForIndex(150, 55)).toBe(72)
     expect(nextTvPosterRenderCount(TV_INITIAL_RENDERED_POSTERS, 150))
       .toBe(TV_INITIAL_RENDERED_POSTERS + TV_RENDER_BATCH_SIZE)
-    expect(shouldExpandTvPosterWindow(21, 30, 150)).toBe(false)
-    expect(shouldExpandTvPosterWindow(22, 30, 150)).toBe(true)
+    expect(TV_INITIAL_RENDERED_POSTERS).toBe(STANDARD_INITIAL_RENDERED_POSTERS)
+    expect(shouldExpandTvPosterWindow(6, 12, 150)).toBe(false)
+    expect(shouldExpandTvPosterWindow(7, 12, 150)).toBe(true)
     expect(shouldExpandTvPosterWindow(149, 150, 150)).toBe(false)
   })
 

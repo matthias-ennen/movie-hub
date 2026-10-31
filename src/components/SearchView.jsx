@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSharedMediaCatalog } from '../library/useSharedMediaCatalog.js'
 import { getTitleStateKey } from '../library/libraryState.js'
 import {
   SEARCH_MIN_QUERY_LENGTH,
@@ -12,7 +11,7 @@ import { buildActorSearchIndex } from '../search/searchActors.js'
 import { mergeLiveAiringStatus } from '../search/searchLiveAiringStatus.js'
 import { enrichSearchPosterEntries } from '../search/searchPosterEvidence.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
-import PosterCard from './PosterCard.jsx'
+import { ProgressivePosterGrid } from './ProgressiveContent.jsx'
 
 export default function SearchView({ metadataTitles, personalTitles, statesByKey, actorNames, fullTitles, onOpen }) {
   const [query, setQuery] = useState('')
@@ -21,9 +20,7 @@ export default function SearchView({ metadataTitles, personalTitles, statesByKey
   const [curatedYoutubeSearchTitleFeed, setCuratedYoutubeSearchTitleFeed] = useState(null)
   const [indexLoading, setIndexLoading] = useState(true)
   const [indexError, setIndexError] = useState(null)
-  const { enabledProviderIds, isProviderEnabled } = useProviderSelection()
-  const { hasTitle: hasMovieHubTitle } = useSharedMediaCatalog()
-  const movieHubEnabled = isProviderEnabled('moviehub')
+  const { enabledProviderIds } = useProviderSelection()
 
   useEffect(() => {
     let cancelled = false
@@ -138,16 +135,7 @@ export default function SearchView({ metadataTitles, personalTitles, statesByKey
       )}
 
       {searchResult.results.length > 0 && (
-        <div className="poster-grid">
-          {searchResult.results.map((item) => (
-            <PosterCard
-              key={item.id}
-              item={item}
-              onOpen={openEntry}
-              hasMovieHub={movieHubEnabled && hasMovieHubTitle(item)}
-            />
-          ))}
-        </div>
+        <ProgressivePosterGrid key={query.trim().toLowerCase()} items={searchResult.results} heroReady onOpen={openEntry} />
       )}
     </main>
   )

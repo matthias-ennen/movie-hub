@@ -94,6 +94,26 @@ export function ProgressiveRows({
   })
 
   const virtualItems = heroReady ? rowVirtualizer.getVirtualItems() : []
+  const [admittedRows, setAdmittedRows] = useState(() => new Set())
+  const requestedRowsKey = virtualItems.map((item) => item.key).join('|')
+  useEffect(() => {
+    const keys = virtualItems.map((item) => item.key)
+    const allowed = new Set(keys)
+    setAdmittedRows((current) => new Set([...current].filter((key) => allowed.has(key))))
+    let frame, index = 0
+    const admit = () => {
+      const key = keys[index++]
+      if (key !== undefined) setAdmittedRows((current) => {
+        if (current.has(key)) return current
+        recordPerformanceEvent('rows:admit', { pageId: experiencePage, windowIndex: index - 1 })
+        return new Set([...current, key])
+      })
+      if (index < keys.length) frame = window.requestAnimationFrame(admit)
+    }
+    if (keys.length) frame = window.requestAnimationFrame(admit)
+    return () => window.cancelAnimationFrame(frame)
+  }, [requestedRowsKey, heroReady, experiencePage])
+  const renderedVirtualItems = virtualItems.filter((item) => admittedRows.has(item.key))
 
   useLayoutEffect(() => {
     if (!heroReady) {
@@ -188,12 +208,12 @@ export function ProgressiveRows({
       reportReady(0)
       return undefined
     }
-    if (!virtualItems.length) return undefined
+    if (!renderedVirtualItems.length) return undefined
 
     let secondFrame = null
     const firstFrame = window.requestAnimationFrame(() => {
       secondFrame = window.requestAnimationFrame(() => {
-        reportReady(virtualItems.length)
+        reportReady(renderedVirtualItems.length)
       })
     })
 
@@ -201,7 +221,7 @@ export function ProgressiveRows({
       window.cancelAnimationFrame(firstFrame)
       if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
     }
-  }, [activeRows.length, experiencePage, heroReady, onInitialContentReady, virtualItems.length])
+  }, [activeRows.length, experiencePage, heroReady, onInitialContentReady, renderedVirtualItems.length, virtualItems.length])
 
   return (
     <div
@@ -209,14 +229,14 @@ export function ProgressiveRows({
       aria-busy={!heroReady}
       data-progressive-rows="true"
       data-virtualized-rows="true"
-      data-visible-row-count={virtualItems.length}
+      data-visible-row-count={renderedVirtualItems.length}
     >
       <div
         ref={listRef}
         className="virtualized-row-list"
         style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}
       >
-        {virtualItems.map((virtualRow) => {
+        {renderedVirtualItems.map((virtualRow) => {
           const row = activeRows[virtualRow.index]
           if (!row) return null
           let savedState = rowStateRef.current.get(row.id)

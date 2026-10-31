@@ -269,7 +269,7 @@ describe('stabiler Detail-Ladezustand', () => {
   })
 
   it('blockiert die Detailseite bei einem langsamen Bild nicht unbegrenzt', async () => {
-    const image = { complete: false }
+    const image = { complete: false, removeAttribute: vi.fn() }
     let timeoutCallback = null
     const promise = preloadDetailImage('https://example.test/slow.jpg', {
       createImage: () => image,
@@ -282,5 +282,7 @@ describe('stabiler Detail-Ladezustand', () => {
 
     timeoutCallback()
     await expect(promise).resolves.toBe('timeout')
+    expect(image.removeAttribute).toHaveBeenCalledWith('src')
+    expect(image.onload).toBeNull()
   })
 })
