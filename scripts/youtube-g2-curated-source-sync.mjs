@@ -18,6 +18,7 @@ import {
   runTwoCuratedPlaylistAudit,
   validateTwoCuratedPlaylists,
   preferredCuratedPlaylistMode,
+  preferredConfiguredPlaylistMode, YOUTUBE_ALL_PLAYLIST_MODES,
 } from './youtube-g2-curated-two-playlists.mjs'
 
 export const CURATED_FREE_PLAYLIST='PL9hLFbkmRD8nBj_e8FfntoBporPAqqeSJ'
@@ -33,22 +34,32 @@ const validTmdb=ref=>(ref?.mediaType==='movie'||ref?.mediaType==='series')
 const validIso=s=>Number.isFinite(Date.parse(s))
 const sourceIdForMode=mode=>mode==='free'
   ?CURATED_FREE_PLAYLIST:mode==='rent-buy'?CURATED_RENT_BUY_PLAYLIST:null
+const isMode = mode => YOUTUBE_ALL_PLAYLIST_MODES.includes(mode)
+const expectedMode = (audit, modes) => audit.mode === 'CURATED_DYNAMIC_PLAYLISTS_READ_ONLY'
+  ? preferredConfiguredPlaylistMode(modes) : preferredCuratedPlaylistMode(modes)
 // Editorial FREE and R&B may never publish an availability with the opposite tariff.
-const accessMatchesMode=(mode,accessType)=>mode==='free'
-  ?accessType==='free'||accessType==='ads'
-  :mode==='rent-buy'&&(accessType==='rent'||accessType==='buy')
+const accessMatchesMode=(mode,accessType)=>({
+  free:['free','ads'],ads:['ads'],flatrate:['flatrate'],
+  rent:['rent'],buy:['buy'],'rent-buy':['rent','buy'],
+})[mode]?.includes(accessType) === true
 
 export function validateCuratedSyncAudit(audit,{
   now=new Date().toISOString(),
 }={}){
-  const t=Date.parse(now),source=validateTwoCuratedPlaylists(CURATED_INPUTS)
-  if(!validIso(now)||audit?.mode!=='CURATED_TWO_PLAYLISTS_READ_ONLY'
+  const t=Date.parse(now),dynamic=audit?.mode==='CURATED_DYNAMIC_PLAYLISTS_READ_ONLY'
+  const source=dynamic
+    ?audit?.playlistSummaries?.map(({mode,playlistId})=>({mode,playlistId}))
+    :validateTwoCuratedPlaylists(CURATED_INPUTS)
+  if(!validIso(now)||!['CURATED_TWO_PLAYLISTS_READ_ONLY','CURATED_DYNAMIC_PLAYLISTS_READ_ONLY'].includes(audit?.mode)
     ||audit?.fullyScanned!==true||audit?.publicationPermitted!==false
     ||audit?.catalogWrites!==0||audit?.firestoreWrites!==0
     ||audit?.providerWrites!==0||audit?.badgeWrites!==0
     ||audit?.nightlyWrites!==0||!Array.isArray(audit.candidates)
-    ||audit.candidates.length>500 ||!Array.isArray(audit.playlistSummaries)
-    ||audit.playlistSummaries.length!==2
+    ||audit.candidates.length>(dynamic?10000:500) ||!Array.isArray(audit.playlistSummaries)
+    ||audit.playlistSummaries.length<(dynamic?1:2)
+    ||(!dynamic&&audit.playlistSummaries.length!==2)
+    ||new Set(audit.playlistSummaries.map(p=>p.playlistId)).size!==audit.playlistSummaries.length
+    ||audit.playlistSummaries.some(p=>!isMode(p.mode)||p.fullyScanned!==true)
     ||audit.uniqueVideoIds!==audit.candidates.length
     ||!validIso(audit.observedAt)
     ||Date.parse(audit.observedAt)>t+60000
@@ -60,10 +71,10 @@ export function validateCuratedSyncAudit(audit,{
       ||c.accepted!==false||c.toImport!==false
       ||c.verifiedOfferType!==null||c.playbackRoute!==null
       ||!Array.isArray(c.playlistModes)||c.playlistModes.length<1
-      ||c.playlistModes.some(mode=>!sourceIdForMode(mode))
-      ||!Array.isArray(c.playlistIds)
-      ||c.playlistModes.some(mode=>!c.playlistIds.includes(sourceIdForMode(mode)))
-      ||c.editorialOfferHint!==preferredCuratedPlaylistMode(c.playlistModes))) {
+      ||c.playlistModes.some(mode=>!isMode(mode)||(!dynamic&&!sourceIdForMode(mode)))
+      ||!Array.isArray(c.playlistIds)||c.playlistIds.length<1
+      ||c.playlistIds.some(id=>!source.some(p=>p.playlistId===id))
+      ||c.editorialOfferHint!==expectedMode(audit,c.playlistModes))) {
     throw Error('YOUTUBE_CURATED_SOURCE_INCOMPLETE_OR_UNTRUSTED')
   }
   return audit
@@ -84,7 +95,7 @@ function approvedRows(bundle,now){
       ||seen.has(a.videoId)||!validTmdb(a.titleRef)
       ||a.approvalSource!=='independent-manual-review'
       ||a.approvalStatus!=='approved'
-      ||!sourceIdForMode(a.playlistMode)
+      ||!isMode(a.playlistMode)
       ||!validIso(a.verifiedAt)
       ||Date.parse(a.verifiedAt)>Date.parse(now)+60000
       ||Date.parse(now)-Date.parse(a.verifiedAt)>MAX_VERIFICATION_AGE_DAYS*86400000
@@ -144,7 +155,7 @@ export function reconcileCuratedYoutubeSource({
     generatedAt:now,fetchedAt:audit.observedAt,
     sourceGenerationId:'youtube:curated:'+audit.observedAt,
     sourceCoverage:{
-      playlistIds:validateTwoCuratedPlaylists(CURATED_INPUTS).map(x=>x.playlistId),
+      playlistIds:audit.playlistSummaries.map(x=>x.playlistId),
       playlistInventoryVideoIds:audit.uniqueVideoIds,
       playlistFullyScanned:audit.fullyScanned,
       // Metadata-only candidates are not a confirmed availability.
@@ -155,7 +166,7 @@ export function reconcileCuratedYoutubeSource({
   return {
     mode:'YOUTUBE_G2_CANONICAL_CURATED_SYNC',
     observedAt:audit.observedAt,
-    playlistSources:2,
+    playlistSources:audit.playlistSummaries.length,
     inventoryVideoIds:audit.uniqueVideoIds,
     approvedInputRows:signedOff.length,
     publishedVerifiedAvailabilities:availabilities.length,
@@ -167,10 +178,10 @@ export function reconcileCuratedYoutubeSource({
 }
 
 export async function runCuratedYoutubeSourceSync({
-  youtubeApi, now=()=>new Date().toISOString(),approvals=null,
+  youtubeApi, sources=null, now=()=>new Date().toISOString(),approvals=null,
 }={}){
   const audit=await runTwoCuratedPlaylistAudit({
-    playlists:CURATED_INPUTS,youtubeApi,at:now,
+    playlists:sources==null?CURATED_INPUTS:undefined,sources,youtubeApi,at:now,
   })
   return {audit,...reconcileCuratedYoutubeSource({audit,approvals,now:audit.observedAt})}
 }
