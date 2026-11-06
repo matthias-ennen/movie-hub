@@ -46,6 +46,8 @@ export async function runYoutubeSeriesEpisodeReview({
       '',
       '- Erfasste Videos: '+report.processedVideoIds,
       '- Videos mit expliziter Folgenkennung: '+report.episodeMarkedVideos,
+      '- Videos mit exaktem, einzelnem TMDB-Folgentitel: '+report.episodeTitleOnlyCandidates,
+      '- Alle privaten Episoden-Prüffälle: '+report.episodeIdentityReviewCases,
       '- Eindeutige TMDB-Folgen-Kandidaten: '+report.canonicalEpisodeProposals,
       '- Prüfstatus: '+JSON.stringify(report.reviewStatusCounts),
       '- Bestätigte DE-Angebote: 0; veröffentlichte Episoden-Links: 0.',
@@ -62,6 +64,8 @@ export async function runYoutubeSeriesEpisodeReview({
   ])
   console.log(JSON.stringify({
     checked:report.processedVideoIds,explicitEpisodes:report.episodeMarkedVideos,
+    exactTitleOnlyEpisodes:report.episodeTitleOnlyCandidates,
+    episodeReviewCases:report.episodeIdentityReviewCases,
     canonicalEpisodeProposals:report.canonicalEpisodeProposals,
     status:report.reviewStatusCounts,
     verifiedEpisodeOffers:0,publicEpisodeLinks:0,extraApiCalls:0,
