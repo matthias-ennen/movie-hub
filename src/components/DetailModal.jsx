@@ -20,7 +20,7 @@ import { useWaipuStationSelection } from '../settings/useWaipuStationSelection.j
 import { useJoynStationSelection } from '../settings/useJoynStationSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
-import { revalidateYoutubeEpisodePlaylistRouteAtLaunch } from '../providers/youtubeEpisodePlaylistRoute.js'
+import { selectYoutubeEpisodePlaylistRoute, revalidateYoutubeEpisodePlaylistRouteAtLaunch, EPISODE_YOUTUBE_MODE_LABELS } from '../providers/youtubeEpisodePlaylistRoute.js'
 import { useYoutubeVerifiedOffers, useYoutubeCuratedEditorialHints, useYoutubeBestEffortLinks } from '../providers/YoutubeVerifiedOffersContext.jsx'
 import { enrichTitleProviderRoutes, TITLE_ROUTE_EVIDENCE } from '../providers/titleProviderRouteEnrichment.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
@@ -133,6 +133,13 @@ export default function DetailModal({
   const initialEpisode = navigationEpisode(episodeReference(automaticTvAiring))
     || (automaticTvAiring ? null : openingEpisode(item))
   const selectedEpisode = manualEpisode === undefined ? initialEpisode : manualEpisode
+  // The canonical episode picker carries its own playlist hint. Show it at
+  // title-detail level only when THIS episode was selected; never advertise
+  // an episode shortcut as a series-wide YouTube streaming offer.
+  const selectedEpisodeYoutubeRoute = item.type === 'series' && isProviderEnabled('youtube')
+    ? selectYoutubeEpisodePlaylistRoute(selectedEpisode?.youtubePlaylistHint, selectedEpisode, {
+      now: liveAvailabilityNow,
+    }) : null
   const selectedSeasonNumber = selectedEpisode?.seasonNumber ?? null
   const personalBusyRef = useRef(false)
   const artworkOptions = {
@@ -609,6 +616,26 @@ export default function DetailModal({
           )}
 
           <h3>Wo anschauen?</h3>
+          {selectedEpisodeYoutubeRoute && (
+            <section className="provider-availability-group" aria-label="YouTube nur für die ausgewählte Folge">
+              <p className="settings-kicker">
+                YouTube-Playlist · Staffel {selectedEpisode.seasonNumber} · Folge {selectedEpisode.episodeNumber}
+                {' · '}{EPISODE_YOUTUBE_MODE_LABELS[selectedEpisodeYoutubeRoute.playlistMode]}
+              </p>
+              <div className="provider-actions" aria-label="YouTube-Anbieter für die ausgewählte Folge">
+                <button type="button" className="action-button provider-action"
+                  data-focusable="true"
+                  aria-label={`Diese Folge auf YouTube öffnen: ${selectedEpisode.title}`}
+                  onClick={() => openExactYoutubeEpisode(selectedEpisodeYoutubeRoute, selectedEpisode)}>
+                  <ProviderBadge providerId="youtube" item={item} />
+                  Diese Folge auf YouTube ansehen
+                </button>
+              </div>
+              <p className="settings-kicker">
+                Playlist-Zuordnung; tatsächliche Verfügbarkeit und Angebotsart noch nicht unabhängig bestätigt.
+              </p>
+            </section>
+          )}
           {item.type === 'series' && currentTitleLoad?.status === 'loading' && (
             <p role="status" className="settings-kicker">Weitere TV-Ausstrahlungstermine werden geladen …</p>
           )}
