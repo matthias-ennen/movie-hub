@@ -639,12 +639,21 @@ export default function DetailModal({
                       <p className="detail-tv-airing">{formatDetailTvAiring(airing)}</p>
                       <div className="provider-actions" aria-label="Anbieter für diesen Termin">
                         {(airing.providerIds || []).filter((id) => providers[id] && isProviderEnabled(id))
-                          .map((providerId) => (
-                            <button type="button" className="action-button" data-focusable="true"
-                              key={providerId} onClick={() => openAdditionalLiveAiring(airing, providerId)}>
-                              {providers[providerId].label || providerId}
-                            </button>
-                          ))}
+                          .map((providerId) => {
+                            const providerLabel = providers[providerId].label || providerId
+                            const providerItem = { ...item, tvAiring: airing, liveAvailability: {} }
+                            const route = resolveBoundLiveProviderRoutes(providerItem, [providerId], {
+                              now: liveAvailabilityNow,
+                            })[providerId]
+                            return route
+                              ? <button type="button" className="action-button" data-focusable="true"
+                                  key={providerId} onClick={() => openAdditionalLiveAiring(airing, providerId)}>
+                                  {providerLabel}
+                                </button>
+                              : <span key={providerId} className="provider-action provider-action-static">
+                                  {providerLabel}
+                                </span>
+                          })}
                       </div>
                     </div>
                   ))}
