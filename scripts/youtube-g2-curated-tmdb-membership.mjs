@@ -11,6 +11,7 @@ import { applyExplicitCastGuard } from './youtube-g2-curated-cast-evidence.mjs'
 import { applyExplicitDirectorGuard } from './youtube-g2-exclusive-director-evidence.mjs'
 import { reviewTvSearchAlternatives } from './youtube-g2-tv-alternative-evidence.mjs'
 import {YOUTUBE_ALL_PLAYLIST_MODES,preferredConfiguredPlaylistMode} from './youtube-g2-curated-two-playlists.mjs'
+import {parseExplicitYoutubeEpisode} from './youtube-g2-series-episode-matching.mjs'
 
 export const CURATED_TMDB_MODE = 'CURATED_PLAYLIST_TMDB_PUBLIC_MEMBERSHIP_READ_ONLY'
 export const CURATED_TMDB_MAX_CASES = 200
@@ -118,6 +119,21 @@ export async function runCuratedTmdbMembership({
       sourceStatus: c.status, sourceVideoDetailAvailable: Boolean(c.videoTitle),
       playbackRoute: null, verifiedOfferType: null, verifiedTmdbId: null,
       verifiedDEPlayback: false, toImport: false, publicationPermitted: false,
+    }
+    // An explicit episode is NEVER a film candidate. Preserve one row per
+    // source video for intake/review accounting, but do not issue movie/TMDB
+    // search calls or manufacture a movie provider match from its title.
+    const episodeMarker = parseExplicitYoutubeEpisode(c.videoTitle)
+    if (episodeMarker.episodeLike) {
+      rows.push({
+        ...base, matchStatus: 'review-episodic-video',
+        episodeMarker: episodeMarker.status==='candidate'
+          ? {seasonNumber:episodeMarker.seasonNumber,
+            episodeNumber:episodeMarker.episodeNumber} : null,
+        topCandidates: [], alternativeTvIds: [], tmdbQueries: [],
+        publicIndexMembership: 'unknown', errors: [],
+      })
+      continue
     }
     // Missing/blocked/short videos cannot be promoted; category overlap
     // may be searched for film identity but never resolve its offer type.

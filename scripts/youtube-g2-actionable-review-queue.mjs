@@ -76,6 +76,12 @@ function laneFor(item,research,rec,{competingVideoIds=[]}={}){
   const verdict=research?.matchStatus
   // A rejected, *known* source must not be misreported as missing metadata.
   // Both cases are still pending, but require DIFFERENT next steps.
+  // Episode markers are explicitly removed from film matching. Give them
+  // their own review lane even if the ordinary full-film duration screen fails.
+  if(verdict==='review-episodic-video')return {
+    lane:'series-episode-identity-review',priority:1,
+    nextAction:'Check series ID, season, episode and full-episode playback separately; never create a movie link or a series-wide route.',
+  }
   if(item.regionSignal==='excluded')return {
     lane:'region-excluded',priority:3,
     nextAction:'DE is excluded in YouTube source metadata; keep unlinked and recheck only after source-region changes.'}
