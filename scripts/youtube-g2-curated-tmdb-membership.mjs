@@ -83,12 +83,54 @@ export function validateCuratedTmdbInputs(audit, publicIndex, observedAt) {
   return true
 }
 
+
+/**
+ * Exact read-only episode snapshot from the same YouTube scan.
+ * All identified OR ambiguous episode candidates are excluded from movie matching.
+ * Missing, stale or contradictory review evidence fails closed.
+ */
+export function validatePrivateYoutubeEpisodeReview(review,audit) {
+  const ids=new Set(audit?.candidates?.map(c=>c.videoId) || [])
+  const cases=review?.cases
+  if(review?.kind!=='moviehub-youtube-episode-identity-review'
+    ||review.schemaVersion!==1||review.privateArtifact!==true
+    ||review.publicationPermitted!==false
+    ||review.sourceQAObservedAt!==audit?.observedAt
+    ||review.sourceVideoIds!==audit?.uniqueVideoIds
+    ||review.processedVideoIds!==audit?.uniqueVideoIds
+    ||review.verifiedDEEpisodeOffers!==0||review.publishedEpisodeLinks!==0
+    ||['catalogWrites','firestoreWrites','providerWrites'].some(k=>review[k]!==0)
+    ||!Array.isArray(cases)
+    ||review.episodeIdentityReviewCases!==cases.length
+    ||review.canonicalEpisodeProposals!==cases.filter(c=>c.canonicalEpisodeProposal).length
+    ||!Number.isFinite(Date.parse(review.generatedAt))
+    ||Date.parse(review.generatedAt)<Date.parse(audit.observedAt)-60000
+    ||Date.parse(review.generatedAt)>Date.parse(audit.observedAt)+24*3600_000
+    ||new Set(cases.map(c=>c.videoId)).size!==cases.length
+    ||cases.some(c=>!ids.has(c.videoId)
+      ||c.approved!==false||c.publishedPlaybackRoute!==null
+      ||c.verifiedDEOffer!==false||c.independentlyVerifiedEpisode!==false
+      ||!Array.isArray(c.playlistIds)||c.playlistIds.length===0
+      ||!audit.candidates.find(x=>x.videoId===c.videoId
+        &&x.editorialOfferHint===c.playlistOfferHint
+        &&c.playlistIds.every(p=>x.playlistIds.includes(p)))
+      ||(c.canonicalEpisodeProposal
+        &&(c.status!=='review-exact-episode-metadata-candidate'
+          ||c.canonicalEpisodeProposal.mediaType!=='episode'
+          ||!['seriesTmdbId','episodeTmdbId','seasonNumber','episodeNumber']
+            .every(k=>Number.isSafeInteger(c.canonicalEpisodeProposal[k])
+              &&c.canonicalEpisodeProposal[k]>0)))))
+    throw Error('CURATED_EPISODE_REVIEW_MISSING_OR_INVALID')
+  return new Set(cases.map(c=>c.videoId))
+}
+
 export async function runCuratedTmdbMembership({
-  audit, publicIndex, tmdbGet, now = () => new Date().toISOString(),
+  audit, publicIndex, tmdbGet, episodeReview=null, now = () => new Date().toISOString(),
 } = {}) {
   if (typeof tmdbGet !== 'function') throw new Error('READ_ONLY_TMDB_CALLBACK_REQUIRED')
   const observedAt = new Date(now()).toISOString()
   validateCuratedTmdbInputs(audit, publicIndex, observedAt)
+  const episodicVideoIds = episodeReview ? validatePrivateYoutubeEpisodeReview(episodeReview,audit) : new Set()
   const publicMovies = new Set(publicIndex.entries
     .filter(e => e?.type === 'movie').map(e => positiveId(e?.tmdbId)).filter(Boolean))
   let tmdbCalls = 0
@@ -124,12 +166,16 @@ export async function runCuratedTmdbMembership({
     // source video for intake/review accounting, but do not issue movie/TMDB
     // search calls or manufacture a movie provider match from its title.
     const episodeMarker = parseExplicitYoutubeEpisode(c.videoTitle)
-    if (episodeMarker.episodeLike) {
+    if (episodeMarker.episodeLike || episodicVideoIds.has(c.videoId)) {
       rows.push({
         ...base, matchStatus: 'review-episodic-video',
         episodeMarker: episodeMarker.status==='candidate'
           ? {seasonNumber:episodeMarker.seasonNumber,
-            episodeNumber:episodeMarker.episodeNumber} : null,
+            episodeNumber:episodeMarker.episodeNumber}
+          : episodeReview?.cases?.find(e=>e.videoId===c.videoId)?.canonicalEpisodeProposal
+            ? {seasonNumber:episodeReview.cases.find(e=>e.videoId===c.videoId).canonicalEpisodeProposal.seasonNumber,
+              episodeNumber:episodeReview.cases.find(e=>e.videoId===c.videoId).canonicalEpisodeProposal.episodeNumber}
+            : null,
         topCandidates: [], alternativeTvIds: [], tmdbQueries: [],
         publicIndexMembership: 'unknown', errors: [],
       })
