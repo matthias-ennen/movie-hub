@@ -70,7 +70,7 @@ export function summarizeYoutubeEditorialCatalogPublication({
       &&allowedClass(e.playlistClass)
       &&hints.entries.some(x=>x.videoId===e.videoId
         &&x.key==='movie:'+e.tmdbId
-        &&x.playlistMode===CLASSES[e.playlistClass])))
+        &&x.playlistMode===CLASSES[e.playlistClass]))
   const scanMeasured=sourceStep==='success'&&intakeStep==='success'&&intakeValid
     &&reconcileStep==='success'&&reconciliationValid
   const published=scanMeasured&&metadataStep==='success'&&filmStep==='success'
