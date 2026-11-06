@@ -13,6 +13,7 @@ import {getSecret,youtubeGet} from './youtube-api-smoke.mjs'
 import {runCuratedYoutubeSourceSync} from './youtube-g2-curated-source-sync.mjs'
 import {buildYoutubeSourceEnvelope} from '../src/sources/adapters/youtubeContractMapper.js'
 import {collectVerifiedTmdbFirstYoutubeAvailabilities} from './youtube-g2-tmdb-first-approved-source.mjs'
+import {loadAdminPlaylistSnapshot} from './youtube-admin-playlist-config.mjs'
 
 export const OUTPUT='artifacts/youtube-g2/curated-production-sync'
 export const APPROVAL_INPUT='artifacts/youtube-g2-independent-approvals.json'
@@ -31,9 +32,13 @@ export const PUBLIC_SUMMARY='public/youtube-curated-source-status.json'
 export const YOUTUBE_DEPLOY_API_LIMITS=Object.freeze({
   playlists:1,playlistItems:10,videos:20,total:31,
 })
-export function createBudgetedYoutubeDeployApi(youtubeApi){
+export function createBudgetedYoutubeDeployApi(youtubeApi,playlistCount=2){
   if(typeof youtubeApi!=='function')
     throw Error('YOUTUBE_DEPLOY_API_CALLBACK_REQUIRED')
+  const limits=playlistCount===2?YOUTUBE_DEPLOY_API_LIMITS:Object.freeze({
+    playlists:Math.ceil(playlistCount/50),playlistItems:playlistCount*20,
+    videos:200,total:Math.ceil(playlistCount/50)+playlistCount*20+200,
+  })
   const calls={playlists:0,playlistItems:0,videos:0}
   const snapshot=()=>({
     ...calls,total:calls.playlists+calls.playlistItems+calls.videos,
@@ -42,15 +47,15 @@ export function createBudgetedYoutubeDeployApi(youtubeApi){
     if(!Object.hasOwn(calls,endpoint))
       throw Error('YOUTUBE_DEPLOY_ENDPOINT_NOT_ALLOWED')
     const current=snapshot()
-    if(current[endpoint]>=YOUTUBE_DEPLOY_API_LIMITS[endpoint]
-      ||current.total>=YOUTUBE_DEPLOY_API_LIMITS.total)
+    if(current[endpoint]>=limits[endpoint]
+      ||current.total>=limits.total)
       throw Error('YOUTUBE_DEPLOY_SHARED_API_BUDGET_EXCEEDED')
     // Reserve BEFORE the attempted request; failures must never be refunded
     // and no transport-level retry is performed by this wrapper.
     calls[endpoint]++
     return youtubeApi(endpoint,params)
   }
-  return {api,snapshot}
+  return {api,snapshot,limits}
 }
 
 async function readApprovalFile(path){
@@ -69,7 +74,7 @@ export async function loadApprovals(input=APPROVAL_INPUT,reviewedInput=REVIEWED_
   return runtime.present?runtime.body:reviewed.body
 }
 export async function runProductionCuratedSync({
-  youtubeApi,approvals=undefined,tmdbFirstApprovals=undefined,
+  youtubeApi,sources=null,approvals=undefined,tmdbFirstApprovals=undefined,
   now=()=>new Date().toISOString(),
   output=OUTPUT,approvalInput=APPROVAL_INPUT,
   reviewedApprovalInput=REVIEWED_APPROVAL_INPUT,
@@ -78,11 +83,11 @@ export async function runProductionCuratedSync({
   publicSummaryOutput=PUBLIC_SUMMARY,
 }={}){
   if(process.env.YOUTUBE_G2_WRITE_MODE)throw Error('YOUTUBE_CURATED_CANONICAL_NO_PRODUCT_WRITES')
-  const budget=createBudgetedYoutubeDeployApi(youtubeApi)
+  const budget=createBudgetedYoutubeDeployApi(youtubeApi,sources?.length??2)
   const verifiedApprovals=approvals===undefined
     ?await loadApprovals(approvalInput,reviewedApprovalInput):approvals
   const result=await runCuratedYoutubeSourceSync({
-    youtubeApi:budget.api,approvals:verifiedApprovals,now,
+    youtubeApi:budget.api,sources,approvals:verifiedApprovals,now,
   })
   const tmdbFirstBundle=tmdbFirstApprovals===undefined
     ?(await readApprovalFile(tmdbFirstApprovalInput)).body:tmdbFirstApprovals
@@ -122,7 +127,7 @@ export async function runProductionCuratedSync({
     kind:'moviehub-youtube-curated-source-status',
     generatedAt:result.observedAt,
     sourceId:'youtube',
-    sourcePlaylistCount:2,
+    sourcePlaylistCount:result.audit.playlistSummaries.length,
     playlistIds:result.audit.playlistSummaries.map(s=>s.playlistId),
     inventoryVideoIds:result.inventoryVideoIds,
     videoDetailsResolved:result.audit.candidates.filter(c=>Boolean(c.videoTitle)).length,
@@ -135,7 +140,7 @@ export async function runProductionCuratedSync({
     fullyScanned:true,
     providerBadgeAuthority:'tmdb-preserved',
     unmatchedTitleBehavior:'original-youtube-search-link',
-    apiUsage,apiLimits:YOUTUBE_DEPLOY_API_LIMITS,
+    apiUsage,apiLimits:budget.limits,
   }
   // Data-pipeline local files, not Firestore writes or a parallel film catalog.
   await mkdir(output,{recursive:true})
@@ -148,12 +153,12 @@ export async function runProductionCuratedSync({
   await writeFile(verifiedEnvelopeOutput,JSON.stringify(combinedEnvelope)+'\n',{mode:0o600})
   await writeFile(publicSummaryOutput,JSON.stringify(status)+'\n','utf8')
   console.log(JSON.stringify({
-    twoPlaylistsScanned:true,uniqueVideoIds:status.inventoryVideoIds,
+    configuredPlaylistsScanned:status.sourcePlaylistCount,uniqueVideoIds:status.inventoryVideoIds,
     resolvedVideoDetails:status.videoDetailsResolved,
     verifiedDEOfferRoutes:status.approvedDEOfferRoutes,
     tmdbFirstVerifiedVideoRoutes:status.tmdbFirstVerifiedVideoRoutes,
     tmdbFirstVideoLookups:tmdbFirst.videoLookupCalls,
-    youtubeApiUsage:apiUsage,youtubeApiLimits:YOUTUBE_DEPLOY_API_LIMITS,
+    youtubeApiUsage:apiUsage,youtubeApiLimits:budget.limits,
     searchLinkFallbackPreserved:true,
     youtubeSearchApiCalls:0,
     catalogWrites:0,firestoreWrites:0,badgeWrites:0,
@@ -162,7 +167,9 @@ export async function runProductionCuratedSync({
 }
 async function main(){
   const key=getSecret()
+  const config=await loadAdminPlaylistSnapshot()
   await runProductionCuratedSync({
+    sources:config.sources,
     youtubeApi:(endpoint,params)=>youtubeGet(endpoint,params,key),
   })
 }
