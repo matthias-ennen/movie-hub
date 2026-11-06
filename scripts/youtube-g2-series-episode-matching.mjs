@@ -1,5 +1,5 @@
 /**
- * YouTube G2: explicit SxxExx / Staffel X Folge Y evidence -> a PRIVATE
+ * YouTube G2: explicit episode markers OR unique canonical episode titles -> a PRIVATE
  * episode-specific TMDB identity proposal. It never authorizes playback,
  * creates an episode, writes Firestore or publishes a provider link.
  */
@@ -70,11 +70,52 @@ function canonicalRows(seasons) {
       rows.push({
         seriesTmdbId,seasonNumber,episodeNumber,episodeTmdbId,
         seriesTitle:title,episodeTitle:String(ep?.title||ep?.name||'').trim(),
+        episodeAliases:Array.isArray(ep?.titleAliases)
+          ?ep.titleAliases.filter(x=>typeof x==='string').slice(0,12):[],
         runtimeMinutes:NUM(ep?.runtimeMinutes??ep?.runtime),
       })
     }
   }
   return rows
+}
+// Some user playlists contain just the episode's localized name, e.g.
+// 'Stur, zwanghaft und unflexibel', without S01E01 or a series title.
+// Match those titles only if they are specific, exactly equal to canonical
+// TMDB episode metadata and unique across every cached series/season.
+function titleOnlyKey(title) {
+  const key=fold(title)
+  if (key.length<12 || key.split(' ').length<2
+    || /^(?:folge|episode|staffel|season|teil|part)\\s*\\d+$/u.test(key)
+    || /^(?:pilot|finale|the end|intro|trailer)$/u.test(key)) return null
+  return key
+}
+function indexEpisodeNames(canonical) {
+  const map=new Map()
+  for(const entry of canonical) {
+    const names=[entry.episodeTitle,...entry.episodeAliases]
+    for(const raw of names) {
+      const key=titleOnlyKey(raw)
+      if(!key)continue
+      const current=map.get(key)||new Map()
+      current.set(entry.seriesTmdbId+':'+entry.seasonNumber+':'
+        +entry.episodeNumber+':'+entry.episodeTmdbId,entry)
+      map.set(key,current)
+    }
+  }
+  return map
+}
+function plausibleRuntime(video, canonical) {
+  const actual=Number(video.minutes),runtime=Number(canonical.runtimeMinutes)
+  return Number.isFinite(actual) && runtime>0
+    && Math.abs(actual-runtime)<=Math.max(5,Math.ceil(runtime*0.25))
+}
+function episodeRef(found) {
+  return {
+    mediaType:'episode',seriesTmdbId:found.seriesTmdbId,
+    episodeTmdbId:found.episodeTmdbId,
+    seasonNumber:found.seasonNumber,episodeNumber:found.episodeNumber,
+    seriesTitle:found.seriesTitle,episodeTitle:found.episodeTitle,
+  }
 }
 function hasWholeName(title, series) {
   const key=seriesKey(series)
@@ -103,10 +144,17 @@ export function buildYoutubeEpisodeIdentityReview(audit, seasons, {
     throw Error('YOUTUBE_EPISODE_AUDIT_NOT_TRUSTED')
   }
   const canonical=canonicalRows(seasons)
+  const byName=indexEpisodeNames(canonical)
   const cases=[]
+  let explicitEpisodeMarkers=0,episodeTitleOnlyCandidates=0
   for (const video of audit.candidates) {
     const marker=parseExplicitYoutubeEpisode(video.videoTitle)
-    if (!marker.episodeLike) continue
+    const matchesByName=!marker.episodeLike
+      && video.videoTitle && Number(video.minutes)>=10 && Number(video.minutes)<=58
+      ?[...(byName.get(titleOnlyKey(video.videoTitle))?.values()||[])]:[]
+    if (!marker.episodeLike && matchesByName.length===0) continue
+    if (marker.episodeLike) explicitEpisodeMarkers++
+    else episodeTitleOnlyCandidates++
     const base={
       videoId:video.videoId,
       videoTitle:String(video.videoTitle||'').slice(0,180),
@@ -117,7 +165,28 @@ export function buildYoutubeEpisodeIdentityReview(audit, seasons, {
       verifiedDEOffer:false,independentlyVerifiedEpisode:false,
       publishedPlaybackRoute:null,approved:false,
     }
-    let status=marker.status,ref=null
+    let status=marker.episodeLike?marker.status:'review-episode-title-unconfirmed',ref=null
+    let matched=null
+    if (!marker.episodeLike) {
+      // Only one canonical episode may own an episode-title-only YouTube name.
+      // Do not treat overlapping names, clips or unavailable regional metadata
+      // as confirmed identity, even when the source is in a R&B playlist.
+      if (risky.test(String(video.videoTitle))) {
+        status='review-trailer-clip-or-review'
+      } else if(video.deRegionSignal==='excluded' || !video.youtubeWatchUrl) {
+        status='review-unavailable-region-or-runtime'
+      } else if(matchesByName.length!==1) {
+        status='review-episode-title-collision'
+      } else if(!matchesByName[0].runtimeMinutes) {
+        status='review-canonical-runtime-unavailable'
+      } else if(!plausibleRuntime(video,matchesByName[0])) {
+        status='review-runtime-disagrees-with-episode'
+      } else {
+        status='review-exact-episode-metadata-candidate'
+        matched=matchesByName[0]
+        ref=episodeRef(matched)
+      }
+    }
     if (status==='candidate') {
       if (video.deRegionSignal==='excluded' || !video.youtubeWatchUrl
         || !(Number(video.minutes)>=10 && Number(video.minutes)<=120)) {
@@ -132,24 +201,21 @@ export function buildYoutubeEpisodeIdentityReview(audit, seasons, {
         } else {
           const found=matches[0],runtime=found.runtimeMinutes
           if (!runtime) status='review-canonical-runtime-unavailable'
-          else if (Math.abs(Number(video.minutes)-runtime)>Math.max(5,Math.ceil(runtime*0.25))) {
+          else if (!plausibleRuntime(video,found)) {
             status='review-runtime-disagrees-with-episode'
           } else {
             status='review-exact-episode-metadata-candidate'
-            ref={
-              mediaType:'episode',seriesTmdbId:found.seriesTmdbId,
-              episodeTmdbId:found.episodeTmdbId,
-              seasonNumber:found.seasonNumber,episodeNumber:found.episodeNumber,
-              seriesTitle:found.seriesTitle,episodeTitle:found.episodeTitle,
-            }
+            matched=found
+            ref=episodeRef(found)
           }
         }
       }
     }
-    cases.push({...base,status,
+    cases.push({...base,status,identityEvidence:marker.episodeLike
+      ?'explicit-season-episode-markers':'exact-unique-canonical-episode-title',
       ...(marker.seasonNumber&&marker.episodeNumber?{
         seasonNumber:marker.seasonNumber,episodeNumber:marker.episodeNumber,
-      }:{}),
+      }:matched?{seasonNumber:matched.seasonNumber,episodeNumber:matched.episodeNumber}:{}),
       canonicalEpisodeProposal:ref,
     })
   }
@@ -159,7 +225,10 @@ export function buildYoutubeEpisodeIdentityReview(audit, seasons, {
     kind:YOUTUBE_EPISODE_REVIEW_KIND,schemaVersion:1,
     generatedAt:now,sourceQAObservedAt:audit.observedAt,
     sourceVideoIds:audit.uniqueVideoIds,processedVideoIds:audit.candidates.length,
-    episodeMarkedVideos:cases.length,canonicalEpisodeProposals:cases.filter(
+    episodeMarkedVideos:explicitEpisodeMarkers,
+    episodeTitleOnlyCandidates,
+    episodeIdentityReviewCases:cases.length,
+    canonicalEpisodeProposals:cases.filter(
       c=>c.canonicalEpisodeProposal).length,reviewStatusCounts:groups,
     verifiedDEEpisodeOffers:0,publishedEpisodeLinks:0,
     firestoreWrites:0,catalogWrites:0,providerWrites:0,
