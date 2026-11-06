@@ -72,9 +72,14 @@ jobs:
         run: |
           set -euo pipefail
           source_path="artifacts/youtube-g2/production-download/artifacts/youtube-g2/curated-production-sync/qa.json"
+          episode_path="artifacts/youtube-g2/production-download/artifacts/youtube-g2/series-episode-review/qa.json"
           test -s "$source_path"
-          mkdir -p artifacts/youtube-g2/curated-playlists
+          # Both source QA and private episode classification must originate
+          # from the SAME completed Firebase run; missing review fails closed.
+          test -s "$episode_path"
+          mkdir -p artifacts/youtube-g2/curated-playlists artifacts/youtube-g2/series-episode-review
           cp "$source_path" artifacts/youtube-g2/curated-playlists/qa.json
+          cp "$episode_path" artifacts/youtube-g2/series-episode-review/qa.json
       - name: Live read-only TMDB research and PUBLIC MovieHub index membership
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
