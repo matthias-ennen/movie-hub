@@ -15,6 +15,7 @@ on:
       - 'scripts/youtube-g2-curated-title-query-plan.mjs'
       - 'scripts/youtube-g2-curated-tmdb-membership.mjs'
       - 'scripts/youtube-g2-first-offer-acceptance-pack.mjs'
+      - 'scripts/youtube-g2-first-offer-acceptance-pack.mjs'
 
 permissions:
   contents: read
@@ -26,7 +27,7 @@ concurrency:
 
 jobs:
   curated-tmdb-research:
-    name: Current production exact video IDs -> TMDB hypotheses (max 200; no writes)
+    name: Current production videos -> TMDB film/episode-separated hypotheses (no writes)
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -75,6 +76,10 @@ jobs:
           test -s "$source_path"
           mkdir -p artifacts/youtube-g2/curated-playlists
           cp "$source_path" artifacts/youtube-g2/curated-playlists/qa.json
+          episode_path="artifacts/youtube-g2/production-download/artifacts/youtube-g2/series-episode-review/qa.json"
+          test -s "$episode_path"
+          mkdir -p artifacts/youtube-g2/series-episode-review
+          cp "$episode_path" artifacts/youtube-g2/series-episode-review/qa.json
       - name: Live read-only TMDB research and PUBLIC MovieHub index membership
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
