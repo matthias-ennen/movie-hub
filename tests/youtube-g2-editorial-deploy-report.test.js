@@ -122,3 +122,51 @@ describe('YouTube current deployment report uses real published projections',()=
     expect(o.intake.stock).toBe('Playlist-Intake nicht bestätigt')
   })
 })
+
+
+describe('Admin-Konfiguration mit beliebigen Playlist-Angebotsarten',()=>{
+  it('bestätigt echten 3-Playlist-Lauf und Filme ohne alte Zwei-Listen-Annahme',()=>{
+    const baseline=data()
+    const configured={...baseline.intake,twoUserDefinedPlaylists:false,
+      allConfiguredPlaylists:true,configuredPlaylistCount:3,
+      uniqueVideoIds:180,processedVideoIds:180,
+      playlistClasses:{FREE:58,'R&B':122}}
+    const reconciliation={...baseline.reconciliation,totalVideoIds:180,
+      processedVideoIds:180}
+    const films={...baseline.films,sourceVideoIds:180}
+    const hints={...baseline.hints,sourceVideoIds:180}
+    const report=summarizeYoutubeEditorialCatalogPublication({
+      intake:configured,reconciliation,films,hints,...steps,reportedAt:now})
+    expect(report).toMatchObject({publicationMeasured:true,
+      intake:{status:'✅ erfolgreich',stock:'180/180 Videos geprüft'},
+      films:{status:'✅ veröffentlicht und zurückgelesen'}})
+  })
+  it('unterstützt FREE, ADS, FLAT, RENT, BUY und R&B, aber keine falsche Angebotsart',()=>{
+    const baseline=data()
+    const classes={FREE:11,ADS:12,FLAT:13,RENT:14,BUY:15,'R&B':21}
+    const total=Object.values(classes).reduce((a,b)=>a+b,0)
+    const intake={...baseline.intake,twoUserDefinedPlaylists:false,
+      allConfiguredPlaylists:true,configuredPlaylistCount:6,
+      uniqueVideoIds:total,processedVideoIds:total,playlistClasses:classes}
+    const reconciliation={...baseline.reconciliation,totalVideoIds:total,processedVideoIds:total}
+    const films={...baseline.films,sourceVideoIds:total,
+      entries:[...baseline.films.entries].map((x,i)=>({
+        ...x,playlistClass:['FREE','ADS','FLAT','RENT','BUY','R&B'][i],
+      }))}
+    const modes={FREE:'free',ADS:'ads',FLAT:'flatrate',RENT:'rent',BUY:'buy','R&B':'rent-buy'}
+    const hints={...baseline.hints,sourceVideoIds:total,
+      entries:baseline.hints.entries.map(x=>{
+        const film=films.entries.find(y=>y.videoId===x.videoId)
+        return film?{...x,playlistMode:modes[film.playlistClass]}:x
+      })}
+    const good=summarizeYoutubeEditorialCatalogPublication({
+      intake,reconciliation,films,hints,...steps,reportedAt:now})
+    expect(good.publicationMeasured).toBe(true)
+    expect(good.intake.activity).toContain('12 ADS')
+    expect(good.intake.activity).toContain('13 FLAT')
+    const invalid=summarizeYoutubeEditorialCatalogPublication({
+      intake:{...intake,playlistClasses:{...classes,UNKNOWN:1}},
+      reconciliation,films,hints,...steps,reportedAt:now})
+    expect(invalid.publicationMeasured).toBe(false)
+  })
+})
