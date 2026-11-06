@@ -152,3 +152,71 @@ describe('#13 explicitly tagged YouTube series episodes',()=>{
     }finally{await rm(temp,{recursive:true,force:true})}
   })
 })
+
+
+describe('#13 title-only episodes in the third MovieHub Admin playlist', () => {
+  const third='PLUGwm4p6v-gI'
+  const titleOnly=(id,title,minutes=21.1)=>({
+    ...video(id,title,minutes),playlistIds:[third],playlistModes:['rent-buy'],
+    editorialOfferHint:'rent-buy',
+  })
+  const twoHalfMen={
+    seriesTmdbId:2691,seasonNumber:1,seriesTitle:'Two and a Half Men',
+    episodes:[
+      {tmdbId:900001,episodeNumber:1,title:'Stur, zwanghaft und unflexibel',runtimeMinutes:22},
+      {tmdbId:900010,episodeNumber:10,title:'Der Truthahn und die Männlichkeit',runtimeMinutes:21},
+      {tmdbId:900013,episodeNumber:13,title:'Penny und die Physiker',runtimeMinutes:22},
+    ],
+  }
+  it('matches only exact, unique episode titles and plausible full-episode runtime',()=>{
+    const titles=[
+      titleOnly('abcdefghijk','Stur, zwanghaft und unflexibel',22.8),
+      titleOnly('bcdefghijkl','Der Truthahn und die Männlichkeit',21),
+      titleOnly('cdefghijklm','Penny und die Physiker',21.5),
+      titleOnly('defghijklmn','Dissimilar full-length feature',91),
+    ]
+    expect(parseExplicitYoutubeEpisode(titles[0].videoTitle).episodeLike).toBe(false)
+    const report=buildYoutubeEpisodeIdentityReview(audit(titles),[twoHalfMen],{now})
+    expect(report.episodeMarkedVideos).toBe(0)
+    expect(report.episodeTitleOnlyCandidates).toBe(3)
+    expect(report.episodeIdentityReviewCases).toBe(3)
+    expect(report.canonicalEpisodeProposals).toBe(3)
+    expect(report.cases.map(x=>x.canonicalEpisodeProposal?.episodeTmdbId))
+      .toEqual([900001,900010,900013])
+    expect(report.cases.every(x=>x.identityEvidence==='exact-unique-canonical-episode-title'
+      &&x.status==='review-exact-episode-metadata-candidate'
+      &&x.approved===false&&x.publishedPlaybackRoute===null)).toBe(true)
+    expect(report.publishedEpisodeLinks).toBe(0)
+  })
+  it('rejects ambiguous titles, clips and implausible runtimes without guessing a series',()=>{
+    const collision={...twoHalfMen,seriesTmdbId:9999,seriesTitle:'Different Sitcom',
+      episodes:[{tmdbId:990010,episodeNumber:3,title:'Stur, zwanghaft und unflexibel',runtimeMinutes:22}]}
+    const items=[
+      titleOnly('abcdefghijk','Stur, zwanghaft und unflexibel',22),
+      titleOnly('bcdefghijkl','Der Truthahn und die Männlichkeit',60),
+      titleOnly('cdefghijklm','Penny und die Physiker Trailer',21),
+      titleOnly('defghijklmn','Die Show',20),
+    ]
+    const report=buildYoutubeEpisodeIdentityReview(audit(items),[twoHalfMen,collision],{now})
+    expect(report.episodeIdentityReviewCases).toBe(1)
+    expect(report.cases[0]).toMatchObject({
+      status:'review-episode-title-collision',identityEvidence:'exact-unique-canonical-episode-title',
+      canonicalEpisodeProposal:null,
+    })
+    expect(report.publishedEpisodeLinks).toBe(0)
+  })
+  it('matches localized title aliases but does not accept generic titles',()=>{
+    const local={...twoHalfMen,episodes:[
+      {tmdbId:900090,episodeNumber:9,title:'A Different Tie',
+        titleAliases:['Die andere Seite der Krawatte'],runtimeMinutes:20},
+      {tmdbId:900091,episodeNumber:10,title:'Pilot',runtimeMinutes:20},
+    ]}
+    const source=audit([titleOnly('abcdefghijk','Die andere Seite der Krawatte',20.1),
+      titleOnly('bcdefghijkl','Pilot',20)])
+    const result=buildYoutubeEpisodeIdentityReview(source,[local],{now})
+    expect(result.episodeTitleOnlyCandidates).toBe(1)
+    expect(result.cases[0].canonicalEpisodeProposal).toMatchObject({
+      mediaType:'episode',episodeTmdbId:900090,seasonNumber:1,episodeNumber:9,
+    })
+  })
+})
