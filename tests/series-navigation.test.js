@@ -143,6 +143,25 @@ describe('Staffel- und Folgenkatalog', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 
+  it('lädt denselben Shard nach einem fehlgeschlagenen Fetch erneut', async () => {
+    const series = { tmdbId: 1399, title: 'Game of Thrones' }
+    const season = { seasonNumber: 1 }
+    const bucket = seriesSeasonBucket(1399)
+    const fetchImpl = vi.fn()
+      .mockRejectedValueOnce(new Error('Hosting kurzfristig nicht erreichbar'))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        kind: 'series-season-shard', version: 1, bucket,
+        entries: [{ seriesTmdbId: 1399, seasonNumber: 1,
+          episodes: [{ tmdbId: 111, episodeNumber: 1, title: 'Wieder da' }] }],
+      }), { status: 200 }))
+    const now = Date.parse('2026-11-06T12:00:00Z')
+    await expect(loadSeriesSeasonDetail(series, season, { fetchImpl, now }))
+      .rejects.toThrow('Hosting kurzfristig nicht erreichbar')
+    await expect(loadSeriesSeasonDetail(series, season, { fetchImpl, now: now + 1 }))
+      .resolves.toMatchObject({ episodes: [expect.objectContaining({ title: 'Wieder da' })] })
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+  })
+
   it('sammelt jede Staffel je Serie genau einmal für den CI-Katalog', () => {
     const references = collectSeriesSeasonReferences([
       { type: 'series', tmdbId: 20, title: 'Serie B', numberOfSeasons: 2 },
