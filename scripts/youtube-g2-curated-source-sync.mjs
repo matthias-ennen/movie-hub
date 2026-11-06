@@ -38,8 +38,8 @@ const isMode = mode => YOUTUBE_ALL_PLAYLIST_MODES.includes(mode)
 const expectedMode = (audit, modes) => audit.mode === 'CURATED_DYNAMIC_PLAYLISTS_READ_ONLY'
   ? preferredConfiguredPlaylistMode(modes) : preferredCuratedPlaylistMode(modes)
 // Editorial FREE and R&B may never publish an availability with the opposite tariff.
-const accessMatchesMode=(mode,accessType)=>({
-  free:['free','ads'],ads:['ads'],flatrate:['flatrate'],
+const accessMatchesMode=(mode,accessType,dynamic=false)=>({
+  free:dynamic?['free']:['free','ads'],ads:['ads'],flatrate:['flatrate'],
   rent:['rent'],buy:['buy'],'rent-buy':['rent','buy'],
 })[mode]?.includes(accessType) === true
 
@@ -80,7 +80,7 @@ export function validateCuratedSyncAudit(audit,{
   return audit
 }
 
-function approvedRows(bundle,now){
+function approvedRows(bundle,now,dynamic=false){
   if(bundle==null)return []
   if(bundle?.kind!==APPROVAL_BUNDLE_KIND
     ||bundle?.schemaVersion!==APPROVAL_BUNDLE_VERSION
@@ -103,7 +103,7 @@ function approvedRows(bundle,now){
       ||a.workIdentityVerified!==true||a.fullWorkOrValidCutVerified!==true
       ||a.dePlaybackVerified!==true||a.offerTypeVerified!==true
       ||a.sourceUseAuthorized!==true
-      ||!accessMatchesMode(a.playlistMode,a.accessType)){
+      ||!accessMatchesMode(a.playlistMode,a.accessType,dynamic)){
       throw Error('YOUTUBE_APPROVAL_MISSING_INDEPENDENT_EVIDENCE')
     }
     seen.add(a.videoId)
@@ -119,7 +119,7 @@ export function reconcileCuratedYoutubeSource({
   audit, approvals=null, now=new Date().toISOString(),
 }={}){
   validateCuratedSyncAudit(audit,{now})
-  const signedOff=approvedRows(approvals,now)
+  const signedOff=approvedRows(approvals,now,audit.mode==='CURATED_DYNAMIC_PLAYLISTS_READ_ONLY')
   const videos=new Map(audit.candidates.map(c=>[c.videoId,c]))
   const availabilities=[]
   const blocked=[]
