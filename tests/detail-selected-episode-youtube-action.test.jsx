@@ -65,7 +65,7 @@ describe('#717 episode-scoped YouTube action visible at main series detail after
     expect(view).toContain('provider-badge provider-youtube')
     expect(view).toContain('noch nicht unabhängig bestätigt')
     expect(view.indexOf('Diese Folge auf YouTube ansehen'))
-      .toBeLessThan(view.indexOf('TV-Ausstrahlung'))
+      .toBeGreaterThan(view.indexOf('Wo anschauen?'))
   })
   it('never leaks an episode shortcut to another episode or missing hint', () => {
     expect(render({ ...episode, episodeNumber: 2 })).not.toContain('Diese Folge auf YouTube ansehen')
