@@ -35,6 +35,7 @@ import DetailLayout from './detail/DetailLayout.jsx'
 import DetailCard from './detail/DetailCard.jsx'
 import DetailActions, { DialogHeading } from './detail/DetailActions.jsx'
 import SeriesNavigation from './detail/SeriesNavigation.jsx'
+import DetailLiveProviderAction from './detail/DetailLiveProviderAction.jsx'
 import { availableSeriesSeasons } from '../catalog/seriesAvailability.js'
 import TitleAlertDialog from './detail/TitleAlertDialog.jsx'
 import TitleEditor from './detail/TitleEditor.jsx'
@@ -602,35 +603,11 @@ export default function DetailModal({
               <p className="detail-tv-airing">{detailTvAiringLabel}</p>
               {hasLiveProviders && (
                 <div className="provider-actions" aria-label="Live-TV-Anbieter für diese Ausstrahlung">
-                  {liveProviderEntries.map(({ providerId, canLaunch }) => {
-                    const provider = providers[providerId]
-                    if (!provider) return null
-                    if (!canLaunch) {
-                      return (
-                        <span
-                          key={providerId}
-                          className="provider-action provider-action-static"
-                          aria-label={`${provider.label} für diese TV-Ausstrahlung verfügbar`}
-                        >
-                          <ProviderBadge providerId={providerId} item={detailProviderItem} context="airing" />
-                          {provider.label}
-                        </span>
-                      )
-                    }
-                    return (
-                      <button
-                        type="button"
-                        key={providerId}
-                        className="action-button provider-action"
-                        data-focusable="true"
-                        onClick={() => openLiveProvider(providerId)}
-                        aria-label={`${provider.label} für diese TV-Ausstrahlung öffnen`}
-                      >
-                        <ProviderBadge providerId={providerId} item={detailProviderItem} context="airing" />
-                        {provider.label}
-                      </button>
-                    )
-                  })}
+                  {liveProviderEntries.map(({ providerId, canLaunch }) => (
+                    <DetailLiveProviderAction key={providerId} providerId={providerId}
+                      item={detailProviderItem} canLaunch={canLaunch}
+                      onOpen={() => openLiveProvider(providerId)} />
+                  ))}
                 </div>
               )}
               {additionalTvAirings.length > 0 && (
@@ -643,19 +620,13 @@ export default function DetailModal({
                       <div className="provider-actions" aria-label="Anbieter für diesen Termin">
                         {(airing.providerIds || []).filter((id) => providers[id] && isProviderEnabled(id))
                           .map((providerId) => {
-                            const providerLabel = providers[providerId].label || providerId
                             const providerItem = { ...item, tvAiring: airing, liveAvailability: {} }
                             const route = resolveBoundLiveProviderRoutes(providerItem, [providerId], {
                               now: liveAvailabilityNow,
                             })[providerId]
-                            return route
-                              ? <button type="button" className="action-button" data-focusable="true"
-                                  key={providerId} onClick={() => openAdditionalLiveAiring(airing, providerId)}>
-                                  {providerLabel}
-                                </button>
-                              : <span key={providerId} className="provider-action provider-action-static">
-                                  {providerLabel}
-                                </span>
+                            return <DetailLiveProviderAction key={providerId} providerId={providerId}
+                              item={providerItem} canLaunch={Boolean(route)} subject="diesen Sendetermin"
+                              onOpen={() => openAdditionalLiveAiring(airing, providerId)} />
                           })}
                       </div>
                     </div>
