@@ -21,6 +21,7 @@ import { useJoynStationSelection } from '../settings/useJoynStationSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
 import { selectYoutubeEpisodePlaylistRoute, revalidateYoutubeEpisodePlaylistRouteAtLaunch, EPISODE_YOUTUBE_MODE_LABELS } from '../providers/youtubeEpisodePlaylistRoute.js'
+import { orderProviderIds } from '../providers/providerPresentation.js'
 import { useYoutubeVerifiedOffers, useYoutubeCuratedEditorialHints, useYoutubeBestEffortLinks } from '../providers/YoutubeVerifiedOffersContext.jsx'
 import { enrichTitleProviderRoutes, TITLE_ROUTE_EVIDENCE } from '../providers/titleProviderRouteEnrichment.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
@@ -136,7 +137,9 @@ export default function DetailModal({
   // The canonical episode picker carries its own playlist hint. Show it at
   // title-detail level only when THIS episode was selected; never advertise
   // an episode shortcut as a series-wide YouTube streaming offer.
-  const selectedEpisodeYoutubeRoute = item.type === 'series' && isProviderEnabled('youtube')
+  const selectedEpisodeYoutubeRoute = item.type === 'series'
+    && Number(selectedEpisode?.seriesTmdbId) === Number(item.tmdbId)
+    && isProviderEnabled('youtube')
     ? selectYoutubeEpisodePlaylistRoute(selectedEpisode?.youtubePlaylistHint, selectedEpisode, {
       now: liveAvailabilityNow,
     }) : null
@@ -198,12 +201,17 @@ export default function DetailModal({
     providers,
     liveRouteSnapshot,
   )
-  const streamingProviderIds = buildDetailStreamingProviderIds(
+  const titleStreamingProviderIds = buildDetailStreamingProviderIds(
     titleProviderPresentation,
     providers,
     liveProviderEntries,
     titleWithVerifiedOffers,
   )
+  // Keep the existing, unchanged provider actions. An exact playlist link
+  // adds YouTube to this list for the selected canonical episode only.
+  const streamingProviderIds = selectedEpisodeYoutubeRoute
+    ? orderProviderIds([...titleStreamingProviderIds, 'youtube'])
+    : titleStreamingProviderIds
   const hasLiveProviders = liveProviderEntries.length > 0
   const hasStreamingProviders = streamingProviderIds.length > 0
   const hasTvAiring = Boolean(detailTvAiringLabel)
@@ -400,6 +408,12 @@ export default function DetailModal({
   }
 
   function openStreamingProvider(providerId) {
+    // Reuse the standard YouTube button while taking its route from the
+    // selected episode, never from the series-wide title search/index.
+    if (providerId === 'youtube' && selectedEpisodeYoutubeRoute) {
+      openExactYoutubeEpisode(selectedEpisodeYoutubeRoute, selectedEpisode)
+      return
+    }
     const destination = getProviderDestination(providerId, item.title, {
       waipuMode: 'vod',
     })
@@ -575,7 +589,6 @@ export default function DetailModal({
             onSelectSeason={seasonNumber => setManualEpisode({ seasonNumber, episodeNumber: null, title: '' })}
             titleAirings={filteredTitleAirings} airingsStatus={currentTitleLoad?.status}
             airingsNow={liveAvailabilityNow} onOpenEpisodeAiring={openAdditionalLiveAiring}
-            onOpenEpisodeYoutube={openExactYoutubeEpisode}
             isProviderEnabled={isProviderEnabled} />}
 
           {hasFilmCollection && (
@@ -616,26 +629,6 @@ export default function DetailModal({
           )}
 
           <h3>Wo anschauen?</h3>
-          {selectedEpisodeYoutubeRoute && (
-            <section className="provider-availability-group" aria-label="YouTube nur für die ausgewählte Folge">
-              <p className="settings-kicker">
-                YouTube-Playlist · Staffel {selectedEpisode.seasonNumber} · Folge {selectedEpisode.episodeNumber}
-                {' · '}{EPISODE_YOUTUBE_MODE_LABELS[selectedEpisodeYoutubeRoute.playlistMode]}
-              </p>
-              <div className="provider-actions" aria-label="YouTube-Anbieter für die ausgewählte Folge">
-                <button type="button" className="action-button provider-action"
-                  data-focusable="true"
-                  aria-label={`Diese Folge auf YouTube öffnen: ${selectedEpisode.title}`}
-                  onClick={() => openExactYoutubeEpisode(selectedEpisodeYoutubeRoute, selectedEpisode)}>
-                  <ProviderBadge providerId="youtube" item={item} />
-                  Diese Folge auf YouTube ansehen
-                </button>
-              </div>
-              <p className="settings-kicker">
-                Playlist-Zuordnung; tatsächliche Verfügbarkeit und Angebotsart noch nicht unabhängig bestätigt.
-              </p>
-            </section>
-          )}
           {item.type === 'series' && currentTitleLoad?.status === 'loading' && (
             <p role="status" className="settings-kicker">Weitere TV-Ausstrahlungstermine werden geladen …</p>
           )}
@@ -713,13 +706,18 @@ export default function DetailModal({
                       className="action-button provider-action"
                       data-focusable="true"
                       onClick={() => openStreamingProvider(providerId)}
-                      aria-label={providerId === 'youtube' && titleWithVerifiedOffers.curatedPlaylistTitleOffer
+                      aria-label={providerId === 'youtube' && selectedEpisodeYoutubeRoute
+                        ? `YouTube für Staffel ${selectedEpisode.seasonNumber}, Folge ${selectedEpisode.episodeNumber} öffnen`
+                        : providerId === 'youtube' && titleWithVerifiedOffers.curatedPlaylistTitleOffer
                         ? 'YouTube-Playlist-Link öffnen (Playlist-Klasse ' + (titleWithVerifiedOffers.curatedPlaylistTitleOffer.playlistMode === 'free' ? 'FREE' : 'R&B') + '; Filmfassung und Wiedergabe nicht unabhängig bestätigt)'
                         : possibleYoutubeLink
                           ? 'Möglichen YouTube-Filmtreffer öffnen (Zuordnung und Wiedergabe nicht garantiert)'
                           : `${provider.label} als Streaming- oder Mediathek-Anbieter öffnen`}
                     >
-                      <ProviderBadge providerId={providerId} item={titleWithVerifiedOffers} context="title" />
+                      <ProviderBadge providerId={providerId} item={titleWithVerifiedOffers} context="title"
+                        resolvedOfferLabel={providerId === 'youtube' && selectedEpisodeYoutubeRoute
+                          ? EPISODE_YOUTUBE_MODE_LABELS[selectedEpisodeYoutubeRoute.playlistMode]
+                          : undefined} />
                       {provider.label}
                     </button>
                   )
