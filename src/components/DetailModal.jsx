@@ -137,7 +137,9 @@ export default function DetailModal({
   // The canonical episode picker carries its own playlist hint. Show it at
   // title-detail level only when THIS episode was selected; never advertise
   // an episode shortcut as a series-wide YouTube streaming offer.
-  const selectedEpisodeYoutubeRoute = item.type === 'series' && isProviderEnabled('youtube')
+  const selectedEpisodeYoutubeRoute = item.type === 'series'
+    && Number(selectedEpisode?.seriesTmdbId) === Number(item.tmdbId)
+    && isProviderEnabled('youtube')
     ? selectYoutubeEpisodePlaylistRoute(selectedEpisode?.youtubePlaylistHint, selectedEpisode, {
       now: liveAvailabilityNow,
     }) : null
