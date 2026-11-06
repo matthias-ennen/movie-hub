@@ -203,6 +203,26 @@
   white-space: pre-line;
 }
 
+
+/* Episode detail follows the accepted title detail hierarchy while retaining
+   the actual landscape episode still instead of stretching a series poster. */
+.episode-detail-panel .episode-detail-copy .detail-copy-content > h2 {
+  font-size: clamp(1.6rem, 3.4vw, 2.7rem);
+  line-height: 1.12;
+}
+.episode-detail-panel .episode-detail-copy .eyebrow {
+  color: var(--color-muted);
+  margin: 0 0 0.6rem;
+}
+.episode-detail-airing + .episode-detail-airing {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-line);
+}
+.episode-detail-airing .provider-actions {
+  margin-bottom: 0.25rem;
+}
+
 @media (max-width: 760px) {
   .series-navigation-heading {
     align-items: stretch;
