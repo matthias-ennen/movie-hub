@@ -32,10 +32,10 @@ export const PUBLIC_SUMMARY='public/youtube-curated-source-status.json'
 export const YOUTUBE_DEPLOY_API_LIMITS=Object.freeze({
   playlists:1,playlistItems:10,videos:20,total:31,
 })
-export function createBudgetedYoutubeDeployApi(youtubeApi,playlistCount=2){
+export function createBudgetedYoutubeDeployApi(youtubeApi,playlistCount=2,dynamic=false){
   if(typeof youtubeApi!=='function')
     throw Error('YOUTUBE_DEPLOY_API_CALLBACK_REQUIRED')
-  const limits=playlistCount===2?YOUTUBE_DEPLOY_API_LIMITS:Object.freeze({
+  const limits=!dynamic?YOUTUBE_DEPLOY_API_LIMITS:Object.freeze({
     playlists:Math.ceil(playlistCount/50),playlistItems:playlistCount*20,
     videos:200,total:Math.ceil(playlistCount/50)+playlistCount*20+200,
   })
@@ -83,7 +83,7 @@ export async function runProductionCuratedSync({
   publicSummaryOutput=PUBLIC_SUMMARY,
 }={}){
   if(process.env.YOUTUBE_G2_WRITE_MODE)throw Error('YOUTUBE_CURATED_CANONICAL_NO_PRODUCT_WRITES')
-  const budget=createBudgetedYoutubeDeployApi(youtubeApi,sources?.length??2)
+  const budget=createBudgetedYoutubeDeployApi(youtubeApi,sources?.length??2,sources!=null)
   const verifiedApprovals=approvals===undefined
     ?await loadApprovals(approvalInput,reviewedApprovalInput):approvals
   const result=await runCuratedYoutubeSourceSync({
