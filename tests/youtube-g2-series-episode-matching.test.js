@@ -220,3 +220,49 @@ describe('#13 title-only episodes in the third MovieHub Admin playlist', () => {
     })
   })
 })
+
+
+describe('#13 film pipeline consumes the private episode review from the same nightly scan',()=>{
+  it('never searches for a movie whose standalone title matches a unique episode',async()=>{
+    const episode={seriesTmdbId:2691,seasonNumber:1,seriesTitle:'Two and a Half Men',episodes:[
+      {tmdbId:90112,episodeNumber:1,title:'Stur, zwanghaft und unflexibel',runtimeMinutes:22},
+    ]}
+    const source=audit([video('abcdefghijk','Stur, zwanghaft und unflexibel',22)])
+    const review=buildYoutubeEpisodeIdentityReview(source,[episode],{now})
+    expect(review.canonicalEpisodeProposals).toBe(1)
+    const index={kind:'search-index',version:1,country:'DE',source:'tmdb',
+      generatedAt:observed,count:1,entries:[{type:'movie',tmdbId:9999,title:'Similar name'}]}
+    const tmdbGet=vi.fn(async()=>{throw Error('Episode title must not search movies')})
+    const result=await runCuratedTmdbMembership({
+      audit:source,publicIndex:index,episodeReview:review,tmdbGet,now:()=>now,
+    })
+    expect(result.rows).toHaveLength(1)
+    expect(result.rows[0]).toMatchObject({matchStatus:'review-episodic-video',
+      topCandidates:[],episodeMarker:{seasonNumber:1,episodeNumber:1},
+      verifiedTmdbId:null,toImport:false,playbackRoute:null})
+    expect(result.summary.tmdbCalls).toBe(0)
+    expect(tmdbGet).not.toHaveBeenCalled()
+  })
+  it('fails closed if episode review is stale, incomplete or belongs to a different source',async()=>{
+    const ep={seriesTmdbId:2691,seasonNumber:1,seriesTitle:'Two and a Half Men',episodes:[
+      {tmdbId:90112,episodeNumber:1,title:'Stur, zwanghaft und unflexibel',runtimeMinutes:22},
+    ]}
+    const source=audit([video('abcdefghijk','Stur, zwanghaft und unflexibel',22)])
+    const review=buildYoutubeEpisodeIdentityReview(source,[ep],{now})
+    const index={kind:'search-index',version:1,country:'DE',source:'tmdb',
+      generatedAt:observed,count:1,entries:[{type:'movie',tmdbId:100,title:'Movie'}]}
+    const tmdbGet=vi.fn()
+    for(const bad of [
+      {...review,sourceQAObservedAt:'2026-11-05T11:00:00Z'},
+      {...review,episodeIdentityReviewCases:0},
+      {...review,cases:[{...review.cases[0],videoId:'XXXXXXXXXXX'}]},
+      {...review,verifiedDEEpisodeOffers:1},
+      {...review,cases:[{...review.cases[0],approved:true}]},
+    ]){
+      await expect(runCuratedTmdbMembership({
+        audit:source,publicIndex:index,episodeReview:bad,tmdbGet,now:()=>now,
+      })).rejects.toThrow('CURATED_EPISODE_REVIEW_MISSING_OR_INVALID')
+    }
+    expect(tmdbGet).not.toHaveBeenCalled()
+  })
+})
