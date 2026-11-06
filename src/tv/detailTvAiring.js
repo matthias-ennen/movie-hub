@@ -40,7 +40,9 @@ export function listDetailTvAirings(item, {
   // station's old opening context from a stale compact card.
   const hasOpened = opened && (!Array.isArray(fullAirings)
     || groups[0].some((airing) => areEquivalentTvAirings(airing, opened)))
-  const airings = mergeTvAirings(...groups, hasOpened ? [opened] : [])
+  // A fresh full shard is authoritative: anchor a prior click for ordering
+  // only, never merge its possibly stale playback routes into new evidence.
+  const airings = mergeTvAirings(...groups, hasOpened && !Array.isArray(fullAirings) ? [opened] : [])
   const filtered = type === 'series' && selection !== undefined
     ? airings.filter((airing) => {
       const episode = episodeReference(airing)
