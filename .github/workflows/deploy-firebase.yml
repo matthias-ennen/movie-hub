@@ -344,10 +344,16 @@ jobs:
       - name: Setup Cloud SDK for existing read-only YouTube Secret Manager adapter
         uses: google-github-actions/setup-gcloud@v3
 
-      # YouTube G2: refresh BOTH pinned playlists through the official API.
+      # YouTube G2: read ALL active playlists and their offer kinds exclusively from MovieHub Admin.
       # Never treat playlist labels or matcher hypotheses as confirmed offers.
       # Failure leaves all TMDB YouTube badges and standard search links intact.
-      - name: Refresh both curated YouTube playlists through canonical source contract
+      - name: Load authoritative playlist configuration from MovieHub Admin
+        id: youtube_admin_config
+        env:
+          GOOGLE_CLOUD_PROJECT: movie-hub-62459
+        run: node scripts/youtube-admin-playlist-config.mjs
+
+      - name: Refresh admin-configured YouTube playlists through canonical source contract
         id: youtube_curated_source
         continue-on-error: true
         run: node scripts/youtube-g2-curated-source-sync-live.mjs
