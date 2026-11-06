@@ -543,7 +543,10 @@ export default function DetailModal({
             selectedSeason={selectedSeason} selectedEpisode={selectedEpisode}
             onSelectEpisode={setManualEpisode}
             onBeginNavigation={() => setManualEpisode(selectedEpisode)}
-            onSelectSeason={seasonNumber => setManualEpisode({ seasonNumber, episodeNumber: null, title: '' })} />}
+            onSelectSeason={seasonNumber => setManualEpisode({ seasonNumber, episodeNumber: null, title: '' })}
+            titleAirings={filteredTitleAirings} airingsStatus={currentTitleLoad?.status}
+            airingsNow={liveAvailabilityNow} onOpenEpisodeAiring={openAdditionalLiveAiring}
+            isProviderEnabled={isProviderEnabled} />}
 
           {hasFilmCollection && (
             <DetailCard className="film-collection-summary" id="film-collection-heading" title="Filmreihe">
