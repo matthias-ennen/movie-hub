@@ -15,7 +15,6 @@ on:
       - 'scripts/youtube-g2-curated-title-query-plan.mjs'
       - 'scripts/youtube-g2-curated-tmdb-membership.mjs'
       - 'scripts/youtube-g2-first-offer-acceptance-pack.mjs'
-      - 'scripts/youtube-g2-first-offer-acceptance-pack.mjs'
 
 permissions:
   contents: read
@@ -73,12 +72,13 @@ jobs:
         run: |
           set -euo pipefail
           source_path="artifacts/youtube-g2/production-download/artifacts/youtube-g2/curated-production-sync/qa.json"
-          test -s "$source_path"
-          mkdir -p artifacts/youtube-g2/curated-playlists
-          cp "$source_path" artifacts/youtube-g2/curated-playlists/qa.json
           episode_path="artifacts/youtube-g2/production-download/artifacts/youtube-g2/series-episode-review/qa.json"
+          # Both must come from the same completed Firebase run. Missing
+          # private episode review fails closed; never match episodes as movies.
+          test -s "$source_path"
           test -s "$episode_path"
-          mkdir -p artifacts/youtube-g2/series-episode-review
+          mkdir -p artifacts/youtube-g2/curated-playlists artifacts/youtube-g2/series-episode-review
+          cp "$source_path" artifacts/youtube-g2/curated-playlists/qa.json
           cp "$episode_path" artifacts/youtube-g2/series-episode-review/qa.json
       - name: Live read-only TMDB research and PUBLIC MovieHub index membership
         env:
