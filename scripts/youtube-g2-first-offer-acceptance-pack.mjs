@@ -1,5 +1,5 @@
 /**
- * Internal G2 pilot acceptance pack from two ORIGINAL read-only QA artifacts.
+ * Internal G2 pilot acceptance pack from one exact read-only QA generation.
  * This is a reproducible manual test list, NEVER an approval bundle.
  * No YouTube/TMDB API calls and no catalog, badge, route or Firestore writes.
  */
@@ -22,7 +22,7 @@ export function buildFirstOfferAcceptancePack(production,research,{
 }={}) {
   const audit=production?.audit ?? production
   const summary=research?.summary
-  if(audit?.mode!=='CURATED_TWO_PLAYLISTS_READ_ONLY'
+  if(!['CURATED_TWO_PLAYLISTS_READ_ONLY','CURATED_DYNAMIC_PLAYLISTS_READ_ONLY'].includes(audit?.mode)
     ||audit?.fullyScanned!==true||audit?.publicationPermitted!==false
     ||!Array.isArray(audit?.candidates)
     ||audit.uniqueVideoIds!==audit.candidates.length
@@ -48,7 +48,7 @@ export function buildFirstOfferAcceptancePack(production,research,{
   const candidates=cases.map(selected=>{
     const c=source.get(selected.videoId), r=membership.get(selected.videoId)
     if(!VIDEO_ID.test(String(selected.videoId||''))
-      ||!['free','rent-buy'].includes(selected.mode)
+      ||!['free','ads','flatrate','rent','buy','rent-buy'].includes(selected.mode)
       ||!c||!r||c.screened!==true||!c.videoTitle||!c.channelId
       ||c.deRegionSignal==='excluded'
       ||c.editorialOfferHint!==selected.mode
@@ -146,6 +146,30 @@ export function renderFirstOfferAcceptancePack(pack) {
   return lines.join('\n')+'\n'
 }
 
+// Prefer concrete, present videos from the active Admin lists, not the two
+// historical hardcoded video IDs that can disappear between playlist edits.
+export function selectCurrentFirstOfferCases(production) {
+  const audit=production?.audit??production
+  if(!Array.isArray(audit?.candidates))throw Error('YOUTUBE_CURRENT_PILOT_SOURCE_MISSING')
+  const eligible=audit.candidates.filter(c=>VIDEO_ID.test(String(c?.videoId||''))
+    &&c.screened===true&&Boolean(c.videoTitle)&&Boolean(c.channelId)
+    &&c.deRegionSignal!=='excluded'&&Number(c.minutes)>=30
+    &&['free','ads','flatrate','rent','buy','rent-buy'].includes(c.editorialOfferHint))
+    .sort((a,b)=>a.videoId.localeCompare(b.videoId))
+  const chosen=[],modes=new Set()
+  for(const c of eligible){
+    if(modes.has(c.editorialOfferHint))continue
+    chosen.push(c);modes.add(c.editorialOfferHint)
+    if(chosen.length>=3)break
+  }
+  for(const c of eligible){
+    if(chosen.length>=3)break
+    if(!chosen.some(x=>x.videoId===c.videoId))chosen.push(c)
+  }
+  return chosen.map(c=>({videoId:c.videoId,mode:c.editorialOfferHint,
+    purpose:'Current Admin playlist video: independent playback and work-identity review'}))
+}
+
 export async function writeFirstOfferAcceptancePack({
   sourcePath='artifacts/youtube-g2/curated-playlists/qa.json',
   researchPath='artifacts/youtube-g2/curated-tmdb-membership/qa.json',
@@ -155,7 +179,9 @@ export async function writeFirstOfferAcceptancePack({
     readFile(sourcePath,'utf8').then(JSON.parse),
     readFile(researchPath,'utf8').then(JSON.parse),
   ])
-  const pack=buildFirstOfferAcceptancePack(production,research)
+  const current=selectCurrentFirstOfferCases(production)
+  if(!current.length)throw Error('YOUTUBE_CURRENT_PILOT_NO_ELIGIBLE_VIDEOS')
+  const pack=buildFirstOfferAcceptancePack(production,research,{cases:current})
   await mkdir(outputDir,{recursive:true})
   await writeFile(outputDir+'/qa.json',JSON.stringify(pack,null,2)+'\n',{mode:0o600})
   await writeFile(outputDir+'/checklist.md',renderFirstOfferAcceptancePack(pack),{mode:0o600})
