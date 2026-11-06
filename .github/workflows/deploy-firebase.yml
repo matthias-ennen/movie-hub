@@ -447,6 +447,13 @@ jobs:
         continue-on-error: true
         run: node scripts/youtube-g2-series-episode-review-live.mjs
 
+      # Add only episode-scoped editorial links to the CANONICAL TMDB season
+      # shards during data preparation. No additional app-side matching,
+      # no new runtime requests; absent videos revoke stale links.
+      - name: Build exact YouTube episode playlist hints in TMDB season shards
+        id: youtube_episode_catalog
+        run: node scripts/publish-youtube-episode-catalog-live.mjs
+
       # Playlist modes describe the user's editorial classification, not
       # independently verified access/rights. Match only conservative film
       # candidates and keep provisional hints separate from verified routes.
@@ -581,6 +588,9 @@ jobs:
           REQUIRE_JOYN_14_DAYS: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
         run: node scripts/verify-published-data.mjs --prepared
 
+      - name: Validate precomputed episode playlist links in season data
+        run: node scripts/verify-youtube-episode-catalog-publication.mjs --prepared
+
       - name: Verify complete YouTube search companion before deploy (no API calls)
         run: node scripts/verify-youtube-search-companion-publication.mjs --prepared
 
@@ -593,6 +603,10 @@ jobs:
         env:
           REQUIRE_JOYN_14_DAYS: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
         run: node scripts/verify-published-data.mjs
+
+      - name: Verify hosted episode-specific YouTube links in season shards
+        if: ${{ !cancelled() && steps.firebase_deploy.outcome == 'success' }}
+        run: node scripts/verify-youtube-episode-catalog-publication.mjs
 
       - name: Verify hosted YouTube film search companion and no-store headers
         if: ${{ !cancelled() && steps.firebase_deploy.outcome == 'success' }}
@@ -681,6 +695,7 @@ jobs:
           SUMMARY_JOYN_CATALOG: ${{ steps.joyn_catalog.outcome }}
           SUMMARY_YOUTUBE_SYNC: ${{ steps.youtube_curated_source.outcome }}
           SUMMARY_YOUTUBE_EPISODES: ${{ steps.youtube_episode_review.outcome }}
+          SUMMARY_YOUTUBE_EPISODE_CATALOG: ${{ steps.youtube_episode_catalog.outcome }}
           SUMMARY_YOUTUBE_ROUTES: ${{ steps.youtube_verified_routes.outcome }}
           SUMMARY_YOUTUBE_EDITORIAL: ${{ steps.youtube_editorial_hints.outcome }}
           SUMMARY_YOUTUBE_INTAKE: ${{ steps.youtube_complete_intake.outcome }}
