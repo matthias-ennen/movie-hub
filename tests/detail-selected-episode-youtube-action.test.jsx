@@ -55,29 +55,42 @@ const render = (entry = episode, overrides = {}) => renderToStaticMarkup(
     liveAvailabilityNow={now} onClose={() => {}} />,
 )
 
-describe('#717 episode-scoped YouTube action visible at main series detail after selection', () => {
-  it('renders one directly launchable YouTube badge above TV airings, not a series-wide offer', () => {
+describe('#717 episode YouTube must reuse the existing streaming provider badge', () => {
+  it('shows exactly one standard YouTube provider in Streaming/Mediathek with playlist R&B', () => {
     const view = render()
-    expect(view).toContain('YouTube nur für die ausgewählte Folge')
-    expect(view).toContain('Staffel 1')
-    expect(view).toContain('Folge 1')
-    expect(view).toContain('Diese Folge auf YouTube ansehen')
-    expect(view).toContain('provider-badge provider-youtube')
-    expect(view).toContain('noch nicht unabhängig bestätigt')
-    expect(view.indexOf('Diese Folge auf YouTube ansehen'))
-      .toBeGreaterThan(view.indexOf('Wo anschauen?'))
+    const start = view.indexOf('Streaming / Mediathek')
+    const youtube = view.indexOf('provider-badge provider-youtube')
+    expect(start).toBeGreaterThan(-1)
+    expect(youtube).toBeGreaterThan(start)
+    expect(view.match(/provider-badge provider-youtube/g)).toHaveLength(1)
+    expect(view).toContain('Angebotsart R&amp;B')
+    expect(view).not.toContain('YouTube nur für die ausgewählte Folge')
+    expect(view).not.toContain('Diese Folge auf YouTube ansehen')
+    expect(view).not.toContain('Playlist-Zuordnung; tatsächliche Verfügbarkeit')
   })
-  it('never leaks an episode shortcut to another episode or missing hint', () => {
-    expect(render({ ...episode, episodeNumber: 2 })).not.toContain('Diese Folge auf YouTube ansehen')
-    expect(render({ ...episode, tmdbId: 211789 })).not.toContain('Diese Folge auf YouTube ansehen')
-    expect(render({ ...episode, youtubePlaylistHint: null })).not.toContain('Diese Folge auf YouTube ansehen')
+  it('keeps existing title-wide YouTube as just ONE badge and prefers episode playlist mode', () => {
+    const view = render(episode, { providerIds: ['youtube'], tmdbProviderOffers: [
+      {id: 'youtube', offerTypes: ['ads']},
+    ] })
+    expect(view.match(/provider-badge provider-youtube/g)).toHaveLength(1)
+    expect(view).toContain('Angebotsart R&amp;B')
+    expect(view).not.toContain('Angebotsart ADS')
   })
-  it('does not show an expired or forged episode route', () => {
-    expect(render({ ...episode, youtubePlaylistHint: {
-      ...hint, expiresAt: '2026-11-06T17:34:00.000Z',
-    } })).not.toContain('Diese Folge auf YouTube ansehen')
-    expect(render({ ...episode, youtubePlaylistHint: {
-      ...hint, watchUrl: 'https://www.youtube.com/results?search_query=episode',
-    } })).not.toContain('Diese Folge auf YouTube ansehen')
+  it('never adds an episode-specific badge for other episodes, absent hints or bad IDs', () => {
+    for (const other of [
+      {...episode, episodeNumber: 2},
+      {...episode, tmdbId: 211789},
+      {...episode, youtubePlaylistHint: null},
+      {...episode, seriesTmdbId: 2692},
+    ]) {
+      expect(render(other)).not.toContain('provider-badge provider-youtube')
+    }
+  })
+  it('does not add an episode badge for expired or forged links', () => {
+    for (const invalid of [
+      { ...hint, expiresAt: '2026-11-06T17:34:00.000Z' },
+      { ...hint, watchUrl: 'https://www.youtube.com/results?search_query=episode' },
+    ]) expect(render({ ...episode, youtubePlaylistHint: invalid }))
+      .not.toContain('provider-badge provider-youtube')
   })
 })
