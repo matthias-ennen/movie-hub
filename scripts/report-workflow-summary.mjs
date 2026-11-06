@@ -186,7 +186,7 @@ const REPORT_ROWS = [
   'Laufüberwachung', 'Quellen-Schema', 'TMDB-Änderungen', 'TMDB Browse-Katalog',
   'Waipu EPG', 'Waipu → TMDB', 'Waipu-Quelldaten',
   'Joyn EPG', 'Joyn → TMDB', 'Joyn-Suchqualität', 'Joyn-Quelldaten',
-  'Quellen-Merge-Test', 'YouTube · 2 Playlists', 'YouTube · vollständiger Playlist-Intake', 'Bestandsmigration',
+  'Quellen-Merge-Test', 'YouTube · Admin-Playlisten', 'YouTube · vollständiger Playlist-Intake', 'Bestandsmigration',
   'Kanonische Titelkandidaten', 'Prioritätsvorschau', 'Kanonischer Executor',
   'YouTube → TMDB-Neutitel', 'YouTube · offene Playlist-Prüfliste', 'Suchindex', 'Suchdetails', 'Serienstaffeln', 'TV · 14-Tage-Vorschau',
   'Gemeinsame App-Daten', 'YouTube · TMDB-Badge-Abgleich', 'YouTube · TMDB-first-Verifikation', 'YouTube · Direktlink-Freigabe',
