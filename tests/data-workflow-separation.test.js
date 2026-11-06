@@ -66,3 +66,24 @@ describe('Firebase workflow data separation', () => {
     expect(workflow).not.toContain('name: Enrich personal TMDB catalog metadata')
   })
 })
+
+
+describe('YouTube read-only membership same-run episode handoff', () => {
+  it('recovers both exact source QA and its private episode review before film matching', async () => {
+    const workflow = await readFile('.github/workflows/youtube-g2-curated-tmdb-membership.yml', 'utf8')
+    const handoff = workflow.slice(
+      workflow.indexOf('name: Recover original read-only audit'),
+      workflow.indexOf('name: Live read-only TMDB research'),
+    )
+    expect(handoff).toContain('curated-production-sync/qa.json')
+    expect(handoff).toContain('production-download/artifacts/youtube-g2/series-episode-review/qa.json')
+    expect(handoff).toContain('test -s "$episode_path"')
+    expect(handoff).toContain('cp "$episode_path" artifacts/youtube-g2/series-episode-review/qa.json')
+    expect(handoff.indexOf('cp "$episode_path"')).toBeLessThan(handoff.length)
+    // The review is validated against source QA in the matcher, not re-created
+    // from the current checkout or a different Firebase run.
+    const matcher = await readFile('scripts/youtube-g2-curated-tmdb-membership-live.mjs', 'utf8')
+    expect(matcher).toContain("const episodeReview = JSON.parse(await readFile(EPISODE_REVIEW, 'utf8'))")
+    expect(matcher).toContain('audit,publicIndex: index,episodeReview,')
+  })
+})
