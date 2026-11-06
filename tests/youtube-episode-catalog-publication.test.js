@@ -7,7 +7,7 @@ import {publishYoutubeEpisodePlaylistHints,projectYoutubeEpisodePlaylistHints}
   from '../scripts/publish-youtube-episode-catalog-live.mjs'
 import {verifyYoutubeEpisodeCatalogPublication}
   from '../scripts/verify-youtube-episode-catalog-publication.mjs'
-import {selectYoutubeEpisodePlaylistRoute}
+import {selectYoutubeEpisodePlaylistRoute,revalidateYoutubeEpisodePlaylistRouteAtLaunch}
   from '../src/providers/youtubeEpisodePlaylistRoute.js'
 import {normalizeSeasonEpisode} from '../src/catalog/seriesNavigation.js'
 
@@ -80,6 +80,15 @@ describe('#13 canonical, episode-only YouTube playlist enrichment',()=>{
         now:Date.parse(now)+1000})).toBeNull()
       expect(selectYoutubeEpisodePlaylistRoute(hint,episode,{
         now:Date.parse(hint.expiresAt)+1000})).toBeNull()
+      expect(revalidateYoutubeEpisodePlaylistRouteAtLaunch(route,episode,{
+        now:Date.parse(hint.expiresAt)+1000,
+      })).toBeNull()
+      expect(revalidateYoutubeEpisodePlaylistRouteAtLaunch({
+        ...route,videoId:'bcdefghijkl',
+      },episode,{now:Date.parse(now)+1000})).toBeNull()
+      expect(revalidateYoutubeEpisodePlaylistRouteAtLaunch(route,episode,{
+        now:Date.parse(now)+1000,
+      })).toMatchObject({target:'https://www.youtube.com/watch?v=abcdefghijk'})
       const fetch=vi.fn(async url=>({ok:true,json:()=>read(join(dir,url.pathname.replace(/^\//,'')))}))
       await expect(verifyYoutubeEpisodeCatalogPublication({
         publicDir:dir,request:fetch,prepared:false,
