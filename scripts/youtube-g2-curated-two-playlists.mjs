@@ -6,6 +6,29 @@
 import { normalizeYoutubeVideoCandidate } from '../src/sources/adapters/youtubeContractMapper.js'
 
 export const YOUTUBE_CURATED_PLAYLIST_MODES = Object.freeze(['free', 'rent-buy'])
+export const YOUTUBE_ALL_PLAYLIST_MODES = Object.freeze(['free','flatrate','ads','rent-buy','rent','buy'])
+export const PLAYLIST_OFFER_PRIORITY = Object.freeze([...YOUTUBE_ALL_PLAYLIST_MODES])
+export function preferredConfiguredPlaylistMode(modes) {
+  return PLAYLIST_OFFER_PRIORITY.find(mode => Array.isArray(modes) && modes.includes(mode)) || null
+}
+export function classForPlaylistMode(mode) {
+  return ({free:'FREE',flatrate:'FLAT',ads:'ADS','rent-buy':'R&B',rent:'RENT',buy:'BUY'})[mode] || null
+}
+export function modeForPlaylistClass(klass) {
+  return ({FREE:'free',FLAT:'flatrate',ADS:'ads','R&B':'rent-buy',RENT:'rent',BUY:'buy'})[klass] || null
+}
+export function validateConfiguredPlaylists(sources) {
+  if (!Array.isArray(sources) || sources.length < 1) throw Error('YOUTUBE_ADMIN_NO_ENABLED_PLAYLISTS')
+  const used = new Set()
+  return sources.map(source => {
+    const playlistId = playlistIdFromInput(source?.playlistId)
+    if (!playlistId || used.has(playlistId) || !YOUTUBE_ALL_PLAYLIST_MODES.includes(source.mode)) {
+      throw Error('YOUTUBE_ADMIN_PLAYLIST_INVALID_OR_DUPLICATE')
+    }
+    used.add(playlistId)
+    return Object.freeze({playlistId, mode:source.mode, name:String(source.name||'').slice(0,100)})
+  })
+}
 // The user-defined editorial precedence is independent of offer verification.
 export function preferredCuratedPlaylistMode(modes) {
   if (!Array.isArray(modes)) return null
@@ -15,7 +38,7 @@ export function preferredCuratedPlaylistMode(modes) {
 export const YOUTUBE_CURATED_MAX_PAGES_PER_LIST = 5
 export const YOUTUBE_CURATED_PAGE_SIZE = 50
 export const YOUTUBE_CURATED_MAX_VIDEOS = 500
-const VALID_PLAYLIST_ID = /^PL[A-Za-z0-9_-]{10,120}$/
+const VALID_PLAYLIST_ID = /^(?:PL|UU|OLAK5uy_)[A-Za-z0-9_-]{10,120}$/
 const VALID_VIDEO_ID = /^[A-Za-z0-9_-]{11}$/
 const safe = v => String(v ?? '').replace(/[\r\n<>|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180)
 
@@ -45,26 +68,32 @@ export function validateTwoCuratedPlaylists({ free, rentBuy } = {}) {
 }
 
 export async function runTwoCuratedPlaylistAudit({
-  playlists, youtubeApi, at = () => new Date().toISOString(),
+  playlists, sources = null, youtubeApi, at = () => new Date().toISOString(),
 } = {}) {
   if (typeof youtubeApi !== 'function') throw new Error('READ_ONLY_YOUTUBE_CALLBACK_REQUIRED')
-  const sources = validateTwoCuratedPlaylists(playlists)
+  const chosen = sources == null ? validateTwoCuratedPlaylists(playlists) : validateConfiguredPlaylists(sources)
+  const dynamic = sources != null
   const observedAt = new Date(at()).toISOString()
   const calls = { playlists: 0, playlistItems: 0, videos: 0, search: 0, tmdb: 0 }
   const get = async (endpoint, params) => {
     if (!Object.hasOwn(calls, endpoint) || ['search', 'tmdb'].includes(endpoint)) {
       throw new Error('CURATED_ENDPOINT_NOT_ALLOWED')
     }
-    const max = endpoint === 'playlists' ? 1 : endpoint === 'playlistItems' ? 10 : 10
+    const max = endpoint === 'playlists' ? Math.ceil(chosen.length / 50)
+      : endpoint === 'playlistItems' ? (dynamic ? chosen.length * 20 : 10)
+      : (dynamic ? 200 : 10)
     if (++calls[endpoint] > max) throw new Error('CURATED_CALL_BUDGET_EXCEEDED')
     return youtubeApi(endpoint, params)
   }
-  const meta = await get('playlists', {
-    part: 'snippet,status', id: sources.map(x => x.playlistId).join(','),
-  })
-  const byId = new Map((meta?.items || []).map(x => [x.id, x]))
+  const byId = new Map()
+  for (let i=0; i<chosen.length; i+=50) {
+    const meta = await get('playlists', {
+      part: 'snippet,status', id: chosen.slice(i,i+50).map(x => x.playlistId).join(','),
+    })
+    for (const item of meta?.items || []) byId.set(item.id, item)
+  }
   const ownersByPlaylistId = new Map()
-  for (const source of sources) {
+  for (const source of chosen) {
     const playlist = byId.get(source.playlistId)
     const owner = playlist?.snippet?.channelId
     const privacy = playlist?.status?.privacyStatus
@@ -99,16 +128,16 @@ export async function runTwoCuratedPlaylistAudit({
           videoId, playlistModes: [], playlistIds: [], playlistPositions: {},
         })
         const row = rows.get(videoId)
-        if (!row.playlistModes.includes(source.mode)) {
-          row.playlistModes.push(source.mode)
-          row.playlistIds.push(source.playlistId)
-        }
-        row.playlistPositions[source.mode] = Number.isInteger(item?.snippet?.position)
-          ? item.snippet.position : null
+        if (!row.playlistModes.includes(source.mode)) row.playlistModes.push(source.mode)
+        if (!row.playlistIds.includes(source.playlistId)) row.playlistIds.push(source.playlistId)
+        const position = Number.isInteger(item?.snippet?.position) ? item.snippet.position : null
+        row.playlistPositions[source.playlistId] = position
+        // Preserve historical API shape for the two fixed-list fixture.
+        if (!dynamic) row.playlistPositions[source.mode] = position
       }
       token = typeof answer?.nextPageToken === 'string' && answer.nextPageToken
         ? answer.nextPageToken : null
-    } while (token && pages < YOUTUBE_CURATED_MAX_PAGES_PER_LIST)
+    } while (token && pages < (dynamic ? 20 : YOUTUBE_CURATED_MAX_PAGES_PER_LIST))
     perPlaylist.push({
       mode: source.mode, playlistId: source.playlistId, pages,
       ownerChannelId: ownersByPlaylistId.get(source.playlistId).channelId,
@@ -116,7 +145,7 @@ export async function runTwoCuratedPlaylistAudit({
       distinctVideoIds: foundIds.size, fullyScanned: token === null,
     })
   }
-  if (rows.size > YOUTUBE_CURATED_MAX_VIDEOS) {
+  if (rows.size > (dynamic ? 10000 : YOUTUBE_CURATED_MAX_VIDEOS)) {
     throw new Error('CURATED_VIDEO_BUDGET_EXCEEDED')
   }
   const ids = [...rows.keys()]
@@ -137,7 +166,8 @@ export async function runTwoCuratedPlaylistAudit({
     const raw = details.get(id)
     const video = raw ? normalizeYoutubeVideoCandidate(raw, { observedAt }) : null
     // A video may appear in both playlists; FREE wins, and both source IDs remain.
-    const preferredMode = preferredCuratedPlaylistMode(row.playlistModes)
+    const preferredMode = dynamic ? preferredConfiguredPlaylistMode(row.playlistModes)
+      : preferredCuratedPlaylistMode(row.playlistModes)
     const disposition = !video ? 'review-video-missing-or-private'
       : !video.screening.eligible ? 'review-screening-rejected'
       : 'review-tmdb-work-identity'
@@ -158,7 +188,7 @@ export async function runTwoCuratedPlaylistAudit({
   const totals = Object.fromEntries([...new Set(candidates.map(x => x.status))]
     .map(status => [status, candidates.filter(x => x.status === status).length]))
   return {
-    mode: 'CURATED_TWO_PLAYLISTS_READ_ONLY',
+    mode: dynamic ? 'CURATED_DYNAMIC_PLAYLISTS_READ_ONLY' : 'CURATED_TWO_PLAYLISTS_READ_ONLY',
     observedAt, playlistOwnerChannelIds: ownerIds,
     playlistsHaveSameOwner: ownerIds.length === 1,
     playlistSummaries: perPlaylist, uniqueVideoIds: ids.length,
