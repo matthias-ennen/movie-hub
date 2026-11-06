@@ -102,3 +102,38 @@ describe('#708 episode detail follows title detail without leaking series eviden
     expect(episodeAirDateLabel(null)).toBeNull()
   })
 })
+
+
+describe('#13 YouTube link belongs only to the selected canonical episode',()=>{
+  const generatedAt='2026-11-06T09:55:00.000Z'
+  const youtubePlaylistHint={
+    kind:'moviehub-youtube-editorial-episode-hint',schemaVersion:1,
+    providerId:'youtube',seriesTmdbId:4242,episodeTmdbId:12345,
+    seasonNumber:2,episodeNumber:11,videoId:'abcdefghijk',
+    watchUrl:'https://www.youtube.com/watch?v=abcdefghijk',
+    playlistMode:'rent-buy',verificationStatus:'not-independently-verified',
+    evidence:'exact-unique-canonical-episode-title',
+    generatedAt,expiresAt:'2026-11-09T09:55:00.000Z',
+  }
+  it('renders an exact episode-only YouTube action without a verified offer claim',()=>{
+    const view=html({
+      episode:{...episode,youtubePlaylistHint},
+      onOpenYoutube:vi.fn(),
+    })
+    expect(view).toContain('Diese Folge auf YouTube ansehen')
+    expect(view).toContain('YouTube-Playlist · R&amp;B')
+    expect(view).toContain('Verfügbarkeit und Angebotsart noch nicht unabhängig bestätigt')
+    expect(view).not.toContain('Streaming / Mediathek')
+  })
+  it('never leaks another episode, a disabled provider or an expired link',()=>{
+    const other=html({episode:{...episode,tmdbId:99999,youtubePlaylistHint},
+      onOpenYoutube:vi.fn()})
+    expect(other).not.toContain('Diese Folge auf YouTube ansehen')
+    const disabled=html({episode:{...episode,youtubePlaylistHint},
+      onOpenYoutube:vi.fn(),isProviderEnabled:id=>id!=='youtube'})
+    expect(disabled).not.toContain('Diese Folge auf YouTube ansehen')
+    const expired=html({episode:{...episode,youtubePlaylistHint},
+      onOpenYoutube:vi.fn(),now:Date.parse('2026-11-10T10:00:00Z')})
+    expect(expired).not.toContain('Diese Folge auf YouTube ansehen')
+  })
+})

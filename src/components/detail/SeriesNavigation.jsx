@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { loadSeriesSeasonDetail } from '../../catalog/seriesNavigation.js'
+import { loadSeriesSeasonDetail, SERIES_SEASON_CACHE_TTL_MS } from '../../catalog/seriesNavigation.js'
 import { episodeNumberLabel, matchingEpisode } from '../../catalog/episodeContext.js'
 import DetailDialog from './DetailDialog.jsx'
 import { DialogHeading } from './DetailActions.jsx'
@@ -9,10 +9,11 @@ import DetailCard from './DetailCard.jsx'
 export default function SeriesNavigation({
   item, seasons, selectedSeason, selectedEpisode, onSelectEpisode, onSelectSeason, onBeginNavigation,
   titleAirings = null, airingsStatus = null, airingsNow = Date.now(),
-  onOpenEpisodeAiring, isProviderEnabled = () => true,
+  onOpenEpisodeAiring, onOpenEpisodeYoutube, isProviderEnabled = () => true,
 }) {
   const [picker, setPicker] = useState(null)
   const [detail, setDetail] = useState(null)
+  const [detailLoadedAt, setDetailLoadedAt] = useState(0)
   const [loading, setLoading] = useState(false)
   const [episode, setEpisode] = useState(null)
   const request = useRef(0)
@@ -31,13 +32,19 @@ export default function SeriesNavigation({
     if (!selectedSeason) return
     onBeginNavigation?.()
     setPicker('episodes')
-    if (detail?.seasonNumber === selectedSeason.seasonNumber) return
+    // The component can stay mounted for days; re-open after cache expiry
+    // must consume the freshly published (or revoked) YouTube episode hints.
+    const openedAt = Date.now()
+    if (detail?.seasonNumber === selectedSeason.seasonNumber
+      && openedAt >= detailLoadedAt
+      && openedAt - detailLoadedAt < SERIES_SEASON_CACHE_TTL_MS) return
     const id = ++request.current
     setLoading(true)
     try {
       const loaded = await loadSeriesSeasonDetail(item, selectedSeason)
       if (request.current !== id) return
       setDetail(loaded)
+      setDetailLoadedAt(Date.now())
     } catch {
       if (request.current === id) setDetail(null)
     } finally {
@@ -112,7 +119,8 @@ export default function SeriesNavigation({
       <EpisodeDetail item={item} episode={episode} now={airingsNow}
         titleAirings={titleAirings} airingsStatus={airingsStatus}
         onClose={() => setEpisode(null)}
-        onOpenAiring={onOpenEpisodeAiring} isProviderEnabled={isProviderEnabled} />
+        onOpenAiring={onOpenEpisodeAiring} onOpenYoutube={onOpenEpisodeYoutube}
+        isProviderEnabled={isProviderEnabled} />
     </DetailDialog>}
   </>
 }

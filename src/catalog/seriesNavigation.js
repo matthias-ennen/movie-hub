@@ -94,6 +94,7 @@ export function normalizeSeasonEpisode(raw, { seriesTmdbId, seriesTitle, seasonN
     description: String(raw?.description || raw?.overview || ''),
     airDate: isoDate(raw?.airDate ?? raw?.air_date),
     runtimeMinutes: positiveInteger(rawRuntime),
+    ...(raw?.youtubePlaylistHint ? { youtubePlaylistHint: raw.youtubePlaylistHint } : {}),
     voteAverage: Number.isFinite(Number(rawVoteAverage)) ? Number(rawVoteAverage) : null,
     stillPath,
     stillUrl: raw?.stillUrl || buildImageUrl(stillPath, 'w780'),
@@ -137,34 +138,48 @@ export function seriesSeasonDetailPath(seriesTmdbId) {
   return `/series-details/${seriesSeasonBucket(seriesTmdbId)}.json`
 }
 
+// Reuse one hosted shard across series/season selections, but never forever:
+// YouTube episode links are revoked and republished by the nightly pipeline.
+export const SERIES_SEASON_CACHE_TTL_MS = 30 * 60 * 1000
 const seasonShardCache = new Map()
 
-export async function loadSeriesSeasonDetail(series, season, { fetchImpl = fetch } = {}) {
+export async function loadSeriesSeasonDetail(series, season, {
+  fetchImpl = fetch, now = Date.now(),
+} = {}) {
   const seriesTmdbId = positiveInteger(series?.tmdbId ?? season?.seriesTmdbId)
   const seasonNumber = positiveInteger(season?.seasonNumber)
   if (!seriesTmdbId || !seasonNumber) throw new Error('Ungültige Serien- oder Staffel-ID.')
   const bucket = seriesSeasonBucket(seriesTmdbId)
+  const timestamp = Number(now)
+  if (!Number.isFinite(timestamp)) throw new Error('Ungültiger Zeitpunkt für Staffeldaten.')
 
-  let request = seasonShardCache.get(bucket)
-  if (!request) request = fetchImpl(seriesSeasonDetailPath(seriesTmdbId), { cache: 'no-store' })
-    .then(async (response) => {
-      if (!response.ok) throw new Error(`Staffeldaten konnten nicht geladen werden (${response.status}).`)
-      const payload = await response.json()
-      if (
-        payload?.kind !== 'series-season-shard'
-        || Number(payload?.version) !== SERIES_SEASON_DATA_VERSION
-        || payload?.bucket !== bucket
-        || !Array.isArray(payload?.entries)
-      ) throw new Error('Der geladene Staffel-Datenbestand ist ungültig.')
-      return payload.entries
-    })
-    .catch((error) => {
-      seasonShardCache.delete(bucket)
-      throw error
-    })
-
-  seasonShardCache.set(bucket, request)
-  const entries = await request
+  let entry = seasonShardCache.get(bucket)
+  if (!entry || timestamp - entry.loadedAt >= SERIES_SEASON_CACHE_TTL_MS
+    || timestamp < entry.loadedAt - 60000) {
+    // Keep concurrent requests coalesced, and never let a failed older
+    // request evict a newer successful generation of this shard.
+    entry = { loadedAt: timestamp, request: null }
+    const current = entry
+    current.request = Promise.resolve()
+      .then(() => fetchImpl(seriesSeasonDetailPath(seriesTmdbId), { cache: 'no-store' }))
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Staffeldaten konnten nicht geladen werden (${response.status}).`)
+        const payload = await response.json()
+        if (
+          payload?.kind !== 'series-season-shard'
+          || Number(payload?.version) !== SERIES_SEASON_DATA_VERSION
+          || payload?.bucket !== bucket
+          || !Array.isArray(payload?.entries)
+        ) throw new Error('Der geladene Staffel-Datenbestand ist ungültig.')
+        return payload.entries
+      })
+      .catch((error) => {
+        if (seasonShardCache.get(bucket) === current) seasonShardCache.delete(bucket)
+        throw error
+      })
+    seasonShardCache.set(bucket, current)
+  }
+  const entries = await entry.request
   const payload = entries.find((entry) => (
     Number(entry?.seriesTmdbId) === seriesTmdbId
     && Number(entry?.seasonNumber) === seasonNumber

@@ -1,6 +1,7 @@
 import {describe,it,expect} from 'vitest'
 import {
   PILOT_CASES,buildFirstOfferAcceptancePack,renderFirstOfferAcceptancePack,
+  selectCurrentFirstOfferCases,
 } from '../scripts/youtube-g2-first-offer-acceptance-pack.mjs'
 
 const NOW='2026-10-23T09:48:00.000Z'
@@ -95,5 +96,25 @@ describe('YouTube G2 first manually verified offer pilot (QA only)',()=>{
     expect(()=>buildFirstOfferAcceptancePack(source,research,{
       cases:[...PILOT_CASES,{videoId:'NotKnown000',mode:'free'}],
     })).toThrow('YOUTUBE_PILOT_CASE_NOT_SAFE_OR_MISSING')
+  })
+})
+
+
+describe('Admin-defined current playlist QA uses only present videos',()=>{
+  it('chooses distinct offer modes without hardcoded legacy IDs or episode-length videos',()=>{
+    const {source,research}=make()
+    source.audit.mode='CURATED_DYNAMIC_PLAYLISTS_READ_ONLY'
+    source.audit.candidates[0].editorialOfferHint='ads'
+    source.audit.candidates[0].playlistModes=['ads']
+    source.audit.candidates[1].minutes=21
+    research.rows[0].editorialOfferHint='ads'
+    research.rows[0].playlistModes=['ads']
+    const chosen=selectCurrentFirstOfferCases(source)
+    expect(chosen.map(x=>x.videoId)).toEqual([ids[0],ids[2]])
+    expect(chosen.map(x=>x.mode)).toEqual(['ads','rent-buy'])
+    const report=buildFirstOfferAcceptancePack(source,research,{cases:chosen})
+    expect(report.candidates).toHaveLength(2)
+    expect(report.candidates[0].verificationStatus).toBe('not-tested')
+    expect(report.publicationPermitted).toBe(false)
   })
 })

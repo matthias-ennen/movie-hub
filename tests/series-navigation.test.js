@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   clearSeriesSeasonDetailCache,
+  SERIES_SEASON_CACHE_TTL_MS,
   loadSeriesSeasonDetail,
   normalizeSeriesSeasonDetail,
   normalizeSeriesSeasons,
@@ -84,6 +85,81 @@ describe('Staffel- und Folgenkatalog', () => {
 
     expect(fetchImpl).toHaveBeenCalledTimes(1)
     expect(fetchImpl).toHaveBeenCalledWith(seriesSeasonDetailPath(1399), { cache: 'no-store' })
+  })
+
+  it('aktualisiert nach TTL das Hosting-Shard und entfernt widerrufene Episodenlinks', async () => {
+    const series = { tmdbId: 1399, title: 'Game of Thrones' }
+    const season = { seasonNumber: 1 }
+    const bucket = seriesSeasonBucket(1399)
+    const item = withHint => ({
+      kind: 'series-season-shard', version: 1, bucket,
+      entries: [{ seriesTmdbId: 1399, seasonNumber: 1,
+        episodes: [{ tmdbId: 111, episodeNumber: 1, title: 'Der Winter naht',
+          ...(withHint ? { youtubePlaylistHint: { videoId: 'abcdefghijk' } } : {}) }],
+      }],
+    })
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(item(true)), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(item(false)), { status: 200 }))
+
+    const start = Date.parse('2026-11-06T12:00:00Z')
+    const first = await loadSeriesSeasonDetail(series, season, { fetchImpl, now: start })
+    expect(first.episodes[0].youtubePlaylistHint).toMatchObject({ videoId: 'abcdefghijk' })
+    const reuse = await loadSeriesSeasonDetail(series, season, {
+      fetchImpl, now: start + SERIES_SEASON_CACHE_TTL_MS - 1,
+    })
+    expect(reuse.episodes[0].youtubePlaylistHint).toMatchObject({ videoId: 'abcdefghijk' })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    const refreshed = await loadSeriesSeasonDetail(series, season, {
+      fetchImpl, now: start + SERIES_SEASON_CACHE_TTL_MS + 1,
+    })
+    expect(refreshed.episodes[0].youtubePlaylistHint).toBeUndefined()
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+  })
+
+  it('teilt gleichzeitige Shard-Anfragen; veraltete Fehler löschen keinen frischen Cache', async () => {
+    const series = { tmdbId: 1399, title: 'Game of Thrones' }
+    const season = { seasonNumber: 1 }
+    const bucket = seriesSeasonBucket(1399)
+    let rejectOlder
+    const older = new Promise((_, reject) => { rejectOlder = reject })
+    const payload = { kind: 'series-season-shard', version: 1, bucket,
+      entries: [{ seriesTmdbId: 1399, seasonNumber: 1,
+        episodes: [{ tmdbId: 111, episodeNumber: 1, title: 'Aktuell' }] }] }
+    const fetchImpl = vi.fn()
+      .mockReturnValueOnce(older)
+      .mockResolvedValue(new Response(JSON.stringify(payload), { status: 200 }))
+    const now = Date.parse('2026-11-06T12:00:00Z')
+    const pending = loadSeriesSeasonDetail(series, season, { fetchImpl, now })
+    const refreshed = await loadSeriesSeasonDetail(series, season, {
+      fetchImpl, now: now + SERIES_SEASON_CACHE_TTL_MS + 1,
+    })
+    expect(refreshed.episodes[0].title).toBe('Aktuell')
+    rejectOlder(new Error('Alte Generation fehlgeschlagen'))
+    await expect(pending).rejects.toThrow('Alte Generation fehlgeschlagen')
+    await loadSeriesSeasonDetail(series, season, {
+      fetchImpl, now: now + SERIES_SEASON_CACHE_TTL_MS + 2,
+    })
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+  })
+
+  it('lädt denselben Shard nach einem fehlgeschlagenen Fetch erneut', async () => {
+    const series = { tmdbId: 1399, title: 'Game of Thrones' }
+    const season = { seasonNumber: 1 }
+    const bucket = seriesSeasonBucket(1399)
+    const fetchImpl = vi.fn()
+      .mockRejectedValueOnce(new Error('Hosting kurzfristig nicht erreichbar'))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        kind: 'series-season-shard', version: 1, bucket,
+        entries: [{ seriesTmdbId: 1399, seasonNumber: 1,
+          episodes: [{ tmdbId: 111, episodeNumber: 1, title: 'Wieder da' }] }],
+      }), { status: 200 }))
+    const now = Date.parse('2026-11-06T12:00:00Z')
+    await expect(loadSeriesSeasonDetail(series, season, { fetchImpl, now }))
+      .rejects.toThrow('Hosting kurzfristig nicht erreichbar')
+    await expect(loadSeriesSeasonDetail(series, season, { fetchImpl, now: now + 1 }))
+      .resolves.toMatchObject({ episodes: [expect.objectContaining({ title: 'Wieder da' })] })
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 
   it('sammelt jede Staffel je Serie genau einmal für den CI-Katalog', () => {

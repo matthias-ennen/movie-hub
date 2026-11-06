@@ -20,6 +20,7 @@ import { useWaipuStationSelection } from '../settings/useWaipuStationSelection.j
 import { useJoynStationSelection } from '../settings/useJoynStationSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
+import { revalidateYoutubeEpisodePlaylistRouteAtLaunch } from '../providers/youtubeEpisodePlaylistRoute.js'
 import { useYoutubeVerifiedOffers, useYoutubeCuratedEditorialHints, useYoutubeBestEffortLinks } from '../providers/YoutubeVerifiedOffersContext.jsx'
 import { enrichTitleProviderRoutes, TITLE_ROUTE_EVIDENCE } from '../providers/titleProviderRouteEnrichment.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
@@ -371,6 +372,26 @@ export default function DetailModal({
     else window.open(route.target, '_blank', 'noopener,noreferrer')
   }
 
+  function openExactYoutubeEpisode(route, episode) {
+    // Selecting an episode never marks the WHOLE series as watched.
+    // Re-check the displayed hint at click time: a long-open dialog must
+    // not launch a link after expiry or a changed canonical episode.
+    if (!isProviderEnabled('youtube')) return
+    const fresh = revalidateYoutubeEpisodePlaylistRouteAtLaunch(route, episode, {
+      now: Date.now(),
+    })
+    if (!fresh) return
+    if (launchProviderPlaybackRoute({
+      providerId:'youtube',title:episode.title,route:fresh,
+      fallbackUrl:fresh.target,
+    })) return
+    if (window.MovieHubNative?.openExternalUrl) {
+      window.MovieHubNative.openExternalUrl(fresh.target)
+    } else {
+      window.open(fresh.target,'_blank','noopener,noreferrer')
+    }
+  }
+
   function openStreamingProvider(providerId) {
     const destination = getProviderDestination(providerId, item.title, {
       waipuMode: 'vod',
@@ -547,6 +568,7 @@ export default function DetailModal({
             onSelectSeason={seasonNumber => setManualEpisode({ seasonNumber, episodeNumber: null, title: '' })}
             titleAirings={filteredTitleAirings} airingsStatus={currentTitleLoad?.status}
             airingsNow={liveAvailabilityNow} onOpenEpisodeAiring={openAdditionalLiveAiring}
+            onOpenEpisodeYoutube={openExactYoutubeEpisode}
             isProviderEnabled={isProviderEnabled} />}
 
           {hasFilmCollection && (
