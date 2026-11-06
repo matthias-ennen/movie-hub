@@ -85,7 +85,7 @@ function canonicalRows(seasons) {
 function titleOnlyKey(title) {
   const key=fold(title)
   if (key.length<12 || key.split(' ').length<2
-    || /^(?:folge|episode|staffel|season|teil|part)\\s*\\d+$/u.test(key)
+    || /^(?:folge|episode|staffel|season|teil|part)\s*\d+$/u.test(key)
     || /^(?:pilot|finale|the end|intro|trailer)$/u.test(key)) return null
   return key
 }
