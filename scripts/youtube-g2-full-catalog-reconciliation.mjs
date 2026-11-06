@@ -1,4 +1,5 @@
 import { hasDominantFilmHypothesis } from '../src/providers/youtubeCuratedEditorialIndex.js'
+import {modeForPlaylistClass} from './youtube-g2-curated-two-playlists.mjs'
 import { hasExclusiveActorCanonicalFilmEvidence } from './youtube-g2-exclusive-actor-canonical-film.mjs'
 import {hasExclusiveBilledPairFilmHypothesis} from './youtube-g2-exclusive-pair-evidence.mjs'
 import {hasExclusiveReportedYearFilmHypothesis} from './youtube-g2-exclusive-source-year-film.mjs'
@@ -20,7 +21,7 @@ const dateOk=t=>typeof t==='string'&&Number.isFinite(Date.parse(t))
 function ensureInput(intake,inventory,research,now){
   const nowMs=Date.parse(now)
   if(intake?.mode!=='YOUTUBE_G2_COMPLETE_PLAYLIST_INTAKE_STAGING_ONLY'
-    ||intake.fullScan!==true||intake.twoUserDefinedPlaylists!==true
+    ||intake.fullScan!==true||(!intake.twoUserDefinedPlaylists&&!intake.allConfiguredPlaylists)
     ||intake.publicationPermitted!==false
     ||!Array.isArray(intake.items)||!Number.isInteger(intake.uniqueVideoIds)
     ||intake.uniqueVideoIds<1||intake.processedVideoIds!==intake.uniqueVideoIds
@@ -51,7 +52,7 @@ function ensureInput(intake,inventory,research,now){
     ||new Set(intake.items.map(x=>x.videoId)).size!==intake.uniqueVideoIds
     ||new Set(research.rows.map(x=>x.videoId)).size!==intake.uniqueVideoIds
     ||intake.items.some(x=>!VIDEO_ID.test(String(x?.videoId||''))
-      ||!['FREE','R&B'].includes(x.playlistClass)
+      ||!modeForPlaylistClass(x.playlistClass)
       ||x.matchConfidence!=='hypothesis-not-verified'
       ||x.approvedFilmIdentity!==false||x.automatedCatalogImport!==false
       ||x.newCatalogTitleCreated!==false
@@ -101,7 +102,7 @@ export function reconcileYoutubeWithCompleteCatalog(intake,inventory,research,{
     x=>refKey(x.suggestedFilmRef))
   const entries=intake.items.map(item=>{
     const row=researchById.get(item.videoId)
-    if(!row||row.editorialOfferHint!==(item.playlistClass==='FREE'?'free':'rent-buy')
+    if(!row||row.editorialOfferHint!==modeForPlaylistClass(item.playlistClass)
       ||row.matchStatus!==item.identityResearchStatus
       ||row.publicIndexMembership!==item.publicCatalogMembership){
       throw Error('YOUTUBE_FULL_CATALOG_RESEARCH_VIDEO_MISMATCH')

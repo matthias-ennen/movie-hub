@@ -4,8 +4,9 @@
  * This is NOT a catalog import or proof of a playable/rights-cleared offer.
  */
 import { buildCuratedEditorialTitleIndex } from '../src/providers/youtubeCuratedEditorialIndex.js'
+import {classForPlaylistMode,modeForPlaylistClass,preferredConfiguredPlaylistMode} from './youtube-g2-curated-two-playlists.mjs'
 const VID=/^[A-Za-z0-9_-]{11}$/
-const HINTS=new Set(['free','rent-buy'])
+const HINTS=new Set(['free','flatrate','ads','rent-buy','rent','buy'])
 const STATUSES=new Set([
   'linked-existing-editorial',
   'existing-film-match-review',
@@ -67,7 +68,7 @@ export function planCompleteYoutubePlaylistIntake(source,research,{
     if(!STATUSES.has(status))throw Error('YOUTUBE_COMPLETE_INTAKE_STATUS_INVALID')
     return {
       videoId:c.videoId,
-      playlistClass:c.editorialOfferHint==='free'?'FREE':'R&B',
+      playlistClass:classForPlaylistMode(c.editorialOfferHint),
       playlistModes:[...c.playlistModes],playlistIds:[...c.playlistIds],
       sourceTitle:safe(c.videoTitle)||null,channelTitle:safe(c.channelTitle)||null,
       sourceScreened:c.screened===true,
@@ -91,8 +92,8 @@ export function planCompleteYoutubePlaylistIntake(source,research,{
   const unique=new Set(items.map(i=>i.videoId))
   if(unique.size!==audit.candidates.length
     ||items.filter(i=>i.existingEditorialLink).length!==hints.count
-    ||items.some(i=>!HINTS.has(i.playlistModes.includes('free')?'free':'rent-buy')
-      ||i.playlistClass!==(i.playlistModes.includes('free')?'FREE':'R&B'))){
+    ||items.some(i=>!HINTS.has(preferredConfiguredPlaylistMode(i.playlistModes))
+      ||i.playlistClass!==classForPlaylistMode(preferredConfiguredPlaylistMode(i.playlistModes)))){
     throw Error('YOUTUBE_COMPLETE_INTAKE_COVERAGE_MISMATCH')
   }
   const stages=countsBy(items,i=>i.stage)
@@ -104,7 +105,9 @@ export function planCompleteYoutubePlaylistIntake(source,research,{
     generatedAt:new Date(now).toISOString(),
     sourceQAObservedAt:audit.observedAt,
     researchObservedAt:research.summary.generatedAt,
-    fullScan:true,twoUserDefinedPlaylists:true,
+    fullScan:true,twoUserDefinedPlaylists:audit.mode==='CURATED_TWO_PLAYLISTS_READ_ONLY',
+    allConfiguredPlaylists:audit.mode==='CURATED_DYNAMIC_PLAYLISTS_READ_ONLY',
+    configuredPlaylistCount:audit.playlistSummaries.length,
     uniqueVideoIds:audit.uniqueVideoIds,
     processedVideoIds:items.length,unaccountedForVideoIds:audit.uniqueVideoIds-items.length,
     playlistClasses,stages,identityStatuses,publicCatalogMembership:membership,

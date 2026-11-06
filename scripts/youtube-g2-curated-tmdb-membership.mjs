@@ -10,6 +10,7 @@ import { scoreCandidateV11, classifyVideoV11 } from './youtube-g2-matcher-v1-1.m
 import { applyExplicitCastGuard } from './youtube-g2-curated-cast-evidence.mjs'
 import { applyExplicitDirectorGuard } from './youtube-g2-exclusive-director-evidence.mjs'
 import { reviewTvSearchAlternatives } from './youtube-g2-tv-alternative-evidence.mjs'
+import {YOUTUBE_ALL_PLAYLIST_MODES,preferredConfiguredPlaylistMode} from './youtube-g2-curated-two-playlists.mjs'
 
 export const CURATED_TMDB_MODE = 'CURATED_PLAYLIST_TMDB_PUBLIC_MEMBERSHIP_READ_ONLY'
 export const CURATED_TMDB_MAX_CASES = 200
@@ -40,20 +41,24 @@ export function explicitSourceOrCutRisk(sourceTitle) {
 }
 
 export function validateCuratedTmdbInputs(audit, publicIndex, observedAt) {
-  if (audit?.mode !== 'CURATED_TWO_PLAYLISTS_READ_ONLY'
+  const dynamic=audit?.mode==='CURATED_DYNAMIC_PLAYLISTS_READ_ONLY'
+  if (!['CURATED_TWO_PLAYLISTS_READ_ONLY','CURATED_DYNAMIC_PLAYLISTS_READ_ONLY'].includes(audit?.mode)
     || audit?.fullyScanned !== true || audit?.publicationPermitted !== false
-    || !Array.isArray(audit?.playlistSummaries) || audit.playlistSummaries.length !== 2
-    || Object.entries(IDS).some(([mode, id]) =>
+    || !Array.isArray(audit?.playlistSummaries)
+    || audit.playlistSummaries.length < (dynamic?1:2)
+    || (!dynamic&&audit.playlistSummaries.length!==2)
+    || (!dynamic&&Object.entries(IDS).some(([mode, id]) =>
       !audit.playlistSummaries.some(p =>
-        p.mode === mode && p.playlistId === id && p.fullyScanned === true))
+        p.mode === mode && p.playlistId === id && p.fullyScanned === true)))
     || !Array.isArray(audit?.candidates)
-    || audit.candidates.length < 1 || audit.candidates.length > CURATED_TMDB_MAX_CASES
+    || audit.candidates.length < 1 || audit.candidates.length > (dynamic?10000:CURATED_TMDB_MAX_CASES)
     || audit.uniqueVideoIds !== audit.candidates.length
     || new Set(audit.candidates.map(c => c.videoId)).size !== audit.candidates.length
     || audit.candidates.some(c => !VIDEO_ID.test(String(c.videoId))
       || !Array.isArray(c.playlistModes) || c.playlistModes.length < 1
-      || c.playlistModes.some(mode => mode !== 'free' && mode !== 'rent-buy')
-      || c.editorialOfferHint !== (c.playlistModes.includes('free') ? 'free' : 'rent-buy')
+      || c.playlistModes.some(mode => !YOUTUBE_ALL_PLAYLIST_MODES.includes(mode))
+      || c.editorialOfferHint !== (dynamic ? preferredConfiguredPlaylistMode(c.playlistModes)
+        : c.playlistModes.includes('free') ? 'free' : 'rent-buy')
       || c.accepted !== false || c.toImport !== false
       || c.playbackRoute !== null || c.verifiedOfferType !== null)
     || ['catalogWrites','firestoreWrites','providerWrites','badgeWrites','nightlyWrites']
@@ -93,7 +98,7 @@ export async function runCuratedTmdbMembership({
     }
     const key = path + ':' + JSON.stringify(params)
     if (cache.has(key)) return cache.get(key)
-    if (++tmdbCalls > CURATED_TMDB_MAX_GETS) throw new Error('CURATED_TMDB_GET_BUDGET_EXCEEDED')
+    if (++tmdbCalls > (audit.mode==='CURATED_DYNAMIC_PLAYLISTS_READ_ONLY'?15000:CURATED_TMDB_MAX_GETS)) throw new Error('CURATED_TMDB_GET_BUDGET_EXCEEDED')
     const data = await tmdbGet(path, params)
     cache.set(key, data)
     return data
@@ -107,7 +112,7 @@ export async function runCuratedTmdbMembership({
       castEvidence: null, castChangedTopId: false,
       identityRisk: explicitAlternateWorkFormRisk(c.videoTitle)
         || explicitSourceOrCutRisk(c.videoTitle),
-      hasPlaylistOverlap: c.playlistModes.length > 1,
+      hasPlaylistOverlap: c.playlistIds?.length > 1 || c.playlistModes.length > 1,
       // Historical field: overlap is now resolved by FREE precedence, not a conflict.
       hasPlaylistOfferConflict: false,
       sourceStatus: c.status, sourceVideoDetailAvailable: Boolean(c.videoTitle),
