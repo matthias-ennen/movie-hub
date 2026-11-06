@@ -371,6 +371,21 @@ export default function DetailModal({
     else window.open(route.target, '_blank', 'noopener,noreferrer')
   }
 
+  function openExactYoutubeEpisode(route, episode) {
+    // Selecting an episode never marks the WHOLE series as watched.
+    if (!isProviderEnabled('youtube') || !route?.episodeScoped
+      || route.episodeTmdbId !== Number(episode?.tmdbId)) return
+    if (launchProviderPlaybackRoute({
+      providerId:'youtube',title:episode.title,route,
+      fallbackUrl:route.target,
+    })) return
+    if (window.MovieHubNative?.openExternalUrl) {
+      window.MovieHubNative.openExternalUrl(route.target)
+    } else {
+      window.open(route.target,'_blank','noopener,noreferrer')
+    }
+  }
+
   function openStreamingProvider(providerId) {
     const destination = getProviderDestination(providerId, item.title, {
       waipuMode: 'vod',
@@ -547,6 +562,7 @@ export default function DetailModal({
             onSelectSeason={seasonNumber => setManualEpisode({ seasonNumber, episodeNumber: null, title: '' })}
             titleAirings={filteredTitleAirings} airingsStatus={currentTitleLoad?.status}
             airingsNow={liveAvailabilityNow} onOpenEpisodeAiring={openAdditionalLiveAiring}
+            onOpenEpisodeYoutube={openExactYoutubeEpisode}
             isProviderEnabled={isProviderEnabled} />}
 
           {hasFilmCollection && (
