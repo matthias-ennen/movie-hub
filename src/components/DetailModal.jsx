@@ -158,11 +158,11 @@ export default function DetailModal({
   const hasFilmCollection = item.type === 'movie' && collectionParts.length > 1
   const detailTvAirings = useMemo(() => listDetailTvAirings(item, {
     now: liveAvailabilityNow,
-    selection: manualEpisode === undefined ? item?.detailSelection : manualEpisode,
+    selection: manualEpisode === undefined ? selectedEpisode : manualEpisode,
     fullAirings: filteredTitleAirings,
-  }), [item, liveAvailabilityNow, manualEpisode, filteredTitleAirings])
+  }), [item, liveAvailabilityNow, manualEpisode, selectedEpisode, filteredTitleAirings])
   const detailTvAiring = detailTvAirings[0] || null
-  const additionalTvAirings = detailTvAirings.slice(1)
+  const additionalTvAirings = selectedEpisode?.episodeNumber != null ? detailTvAirings.slice(1) : []
   const detailTvAiringLabel = useMemo(
     () => formatDetailTvAiring(detailTvAiring),
     [detailTvAiring],
@@ -597,26 +597,6 @@ export default function DetailModal({
             <section className="provider-availability-group" aria-label="TV-Ausstrahlung">
               <p className="settings-kicker">TV-Ausstrahlung</p>
               <p className="detail-tv-airing">{detailTvAiringLabel}</p>
-              {additionalTvAirings.length > 0 && (
-                <div className="detail-tv-additional-airings" aria-label="Weitere bekannte Ausstrahlungstermine">
-                  <p className="settings-kicker">Weitere Ausstrahlungstermine</p>
-                  {additionalTvAirings.map((airing, index) => (
-                    <div className="detail-tv-additional-airing"
-                      key={`${airing.stationId}:${airing.startTime}:${index}`}>
-                      <p className="detail-tv-airing">{formatDetailTvAiring(airing)}</p>
-                      <div className="provider-actions" aria-label="Anbieter für diesen Termin">
-                        {(airing.providerIds || []).filter((id) => providers[id] && isProviderEnabled(id))
-                          .map((providerId) => (
-                            <button type="button" className="action-button" data-focusable="true"
-                              key={providerId} onClick={() => openAdditionalLiveAiring(airing, providerId)}>
-                              {providers[providerId].name || providerId}
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
               {hasLiveProviders && (
                 <div className="provider-actions" aria-label="Live-TV-Anbieter für diese Ausstrahlung">
                   {liveProviderEntries.map(({ providerId, canLaunch }) => {
@@ -648,6 +628,26 @@ export default function DetailModal({
                       </button>
                     )
                   })}
+                </div>
+              )}
+              {additionalTvAirings.length > 0 && (
+                <div className="detail-tv-additional-airings" aria-label="Weitere bekannte Ausstrahlungstermine">
+                  <p className="settings-kicker">Weitere Ausstrahlungstermine</p>
+                  {additionalTvAirings.map((airing, index) => (
+                    <div className="detail-tv-additional-airing"
+                      key={`${airing.stationId}:${airing.startTime}:${index}`}>
+                      <p className="detail-tv-airing">{formatDetailTvAiring(airing)}</p>
+                      <div className="provider-actions" aria-label="Anbieter für diesen Termin">
+                        {(airing.providerIds || []).filter((id) => providers[id] && isProviderEnabled(id))
+                          .map((providerId) => (
+                            <button type="button" className="action-button" data-focusable="true"
+                              key={providerId} onClick={() => openAdditionalLiveAiring(airing, providerId)}>
+                              {providers[providerId].label || providerId}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </section>
