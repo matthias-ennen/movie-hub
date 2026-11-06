@@ -2,11 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { loadSeriesSeasonDetail } from '../../catalog/seriesNavigation.js'
 import { episodeNumberLabel, matchingEpisode } from '../../catalog/episodeContext.js'
 import DetailDialog from './DetailDialog.jsx'
-import DetailActions, { DialogHeading } from './DetailActions.jsx'
-import DetailLayout from './DetailLayout.jsx'
+import { DialogHeading } from './DetailActions.jsx'
+import EpisodeDetail from './EpisodeDetail.jsx'
 import DetailCard from './DetailCard.jsx'
 
-export default function SeriesNavigation({ item, seasons, selectedSeason, selectedEpisode, onSelectEpisode, onSelectSeason, onBeginNavigation }) {
+export default function SeriesNavigation({
+  item, seasons, selectedSeason, selectedEpisode, onSelectEpisode, onSelectSeason, onBeginNavigation,
+  titleAirings = null, airingsStatus = null, airingsNow = Date.now(),
+  onOpenEpisodeAiring, isProviderEnabled = () => true,
+}) {
   const [picker, setPicker] = useState(null)
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -101,21 +105,14 @@ export default function SeriesNavigation({ item, seasons, selectedSeason, select
       </div>}
     </DetailDialog>}
 
-    {episode && <DetailDialog className="media-panel episode-detail-panel detail-layout-panel" label={`Details zu ${episode.title}`}
-      backdropClassName="media-layer detail-backdrop episode-detail-layer" onClose={() => setEpisode(null)}>
-      <DetailLayout episode actions={<DetailActions onClose={() => setEpisode(null)} />} artwork={
-      <div className={episode.stillUrl ? 'episode-detail-art has-image' : 'episode-detail-art'}>
-        {episode.stillUrl && <img src={episode.stillUrl} alt="" />}
-        <span className="episode-detail-type">EPISODE</span>
-      </div>}>
-        <p className="eyebrow">{item.title}</p>
-        <h2>{episode.title}</h2>
-        <div className="episode-detail-meta"><strong>{episodeNumberLabel(episode)}</strong>
-          {episode.airDate && <span>{episode.airDate}</span>}
-          {episode.runtimeMinutes && <span>{episode.runtimeMinutes} Min.</span>}
-        </div>
-        {episode.description && <p className="episode-detail-description">{episode.description}</p>}
-      </DetailLayout>
+    {episode && <DetailDialog className="media-panel episode-detail-panel detail-layout-panel"
+      label={`Details zu ${episode.title}`}
+      backdropClassName="media-layer detail-backdrop episode-detail-layer"
+      onClose={() => setEpisode(null)}>
+      <EpisodeDetail item={item} episode={episode} now={airingsNow}
+        titleAirings={titleAirings} airingsStatus={airingsStatus}
+        onClose={() => setEpisode(null)}
+        onOpenAiring={onOpenEpisodeAiring} isProviderEnabled={isProviderEnabled} />
     </DetailDialog>}
   </>
 }
