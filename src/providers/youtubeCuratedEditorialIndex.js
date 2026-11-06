@@ -95,12 +95,12 @@ export function hasExclusiveSourceActorFilmHypothesis(results, castEvidence) {
       &&winner.score-runner.score>=25
   })
 }
-const ALLOWED=new Set(['free','rent-buy'])
+const ALLOWED=new Set(['free','flatrate','ads','rent-buy','rent','buy'])
 const NO_WRITE=['catalogWrites','firestoreWrites','providerWrites','badgeWrites','nightlyWrites']
 const validDate=v=>Number.isFinite(Date.parse(v))
 const key=(type,id)=>type==='movie'&&Number.isInteger(Number(id))&&Number(id)>0
   ?'movie:'+Number(id):null
-const preferred=modes=>modes.includes('free')?'free':modes.includes('rent-buy')?'rent-buy':null
+const preferred=modes=>['free','flatrate','ads','rent-buy','rent','buy'].find(x=>modes.includes(x))||null
 const watch=id=>'https://www.youtube.com/watch?v='+id
 const empty=(generatedAt,sourceVideoIds=0)=>({
   kind:CURATED_HINT_KIND,schemaVersion:CURATED_HINT_VERSION,
@@ -118,7 +118,7 @@ function validInput(audit,research,now){
     &&Date.parse(s.generatedAt)>=Date.parse(audit.observedAt)
     &&Date.parse(now)>=Date.parse(s.generatedAt)-60000
     &&Date.parse(now)-Date.parse(audit.observedAt)<=CURATED_HINT_MAX_AGE_MS
-    &&audit.mode==='CURATED_TWO_PLAYLISTS_READ_ONLY'
+    &&['CURATED_TWO_PLAYLISTS_READ_ONLY','CURATED_DYNAMIC_PLAYLISTS_READ_ONLY'].includes(audit.mode)
     &&audit.fullyScanned===true&&audit.publicationPermitted===false
     &&s.mode==='CURATED_PLAYLIST_TMDB_PUBLIC_MEMBERSHIP_READ_ONLY'
     &&s.publicationPermitted===false&&s.publicIndexOnly===true
@@ -152,7 +152,7 @@ export function buildCuratedEditorialTitleIndex(source,research,{
   const candidates=new Map()
   const conflicts=new Set()
   for(const c of audit.candidates){
-    out.classificationCounts[c.editorialOfferHint]++
+    out.classificationCounts[c.editorialOfferHint]=(out.classificationCounts[c.editorialOfferHint]||0)+1
     const r=matches.get(c.videoId)
     if(!r||r.editorialOfferHint!==c.editorialOfferHint
       ||r.sourceStatus!==c.status
@@ -163,7 +163,7 @@ export function buildCuratedEditorialTitleIndex(source,research,{
       ||(r.matchStatus!==GOOD_STATUS
         &&r.matchStatus!==MOVIE_PLAYLIST_WITH_TV_SEARCH_HITS)
       ||r.identityRisk!==null||r.hasPlaylistOfferConflict!==false
-      ||r.hasPlaylistOverlap!==(c.playlistModes.length>1)
+      ||r.hasPlaylistOverlap!==(c.playlistIds?.length>1||c.playlistModes.length>1)
       ||r.publicIndexMembership!=='public-present'
       // A newly boosted director score cannot bypass the stricter check
       // for near-era/unrelated TV candidates through ordinary film dominance.

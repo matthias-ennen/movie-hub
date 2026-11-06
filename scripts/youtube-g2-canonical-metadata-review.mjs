@@ -1,3 +1,4 @@
+import {modeForPlaylistClass} from './youtube-g2-curated-two-playlists.mjs'
 import { hasDominantFilmHypothesis } from '../src/providers/youtubeCuratedEditorialIndex.js'
 import { hasExclusiveActorCanonicalFilmEvidence } from './youtube-g2-exclusive-actor-canonical-film.mjs'
 import {hasExclusiveBilledPairFilmHypothesis} from './youtube-g2-exclusive-pair-evidence.mjs'
@@ -50,7 +51,7 @@ export function planYoutubeNewFilmMetadataReview(full,intake,research,{
   const selected=[]
   for(const entry of full.entries){
     if(!VIDEO_ID.test(String(entry.videoId||''))
-      ||!['FREE','R&B'].includes(entry.playlistClass)
+      ||!modeForPlaylistClass(entry.playlistClass)
       ||entry.filmIdentityApproved!==false||entry.newMovieImported!==false
       ||entry.verifiedOffer!==false){
       throw Error('YOUTUBE_METADATA_REVIEW_UNSAFE_STATUS')
@@ -58,7 +59,7 @@ export function planYoutubeNewFilmMetadataReview(full,intake,research,{
     const source=sources.get(entry.videoId)
     const row=researched.get(entry.videoId)
     if(!source||!row||source.playlistClass!==entry.playlistClass
-      ||row.editorialOfferHint!==(entry.playlistClass==='FREE'?'free':'rent-buy')
+      ||row.editorialOfferHint!==modeForPlaylistClass(entry.playlistClass)
       ||row.matchStatus!==source.identityResearchStatus){
       throw Error('YOUTUBE_METADATA_REVIEW_SOURCE_MISMATCH')
     }

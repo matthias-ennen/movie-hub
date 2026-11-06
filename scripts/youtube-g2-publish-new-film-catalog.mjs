@@ -1,3 +1,4 @@
+import {modeForPlaylistClass} from './youtube-g2-curated-two-playlists.mjs'
 /**
  * Public editorial TMDB movie metadata for new YouTube playlist film matches.
  *
@@ -9,7 +10,7 @@ import {canonicalForIdentity} from './execute-title-priority-queue.mjs'
 
 export const CURATED_NEW_FILMS_KIND='moviehub-youtube-curated-new-film-metadata'
 const VID=/^[A-Za-z0-9_-]{11}$/
-const CLASS=new Set(['FREE','R&B'])
+const CLASS=new Set(['FREE','FLAT','ADS','R&B','RENT','BUY'])
 const keyOf=t=>t?.type==='movie'&&Number.isInteger(Number(t?.tmdbId))&&Number(t.tmdbId)>0
   ?'movie:'+Number(t.tmdbId):null
 const idKey=k=>/^movie:[1-9]\d*$/.test(String(k))
@@ -96,7 +97,7 @@ export function buildYoutubeNewFilmCatalogProjection({
     hints.push({
       key:filmKey,mediaType:'movie',tmdbId,videoId:rec.videoId,
       watchUrl:videoUrl(rec.videoId),
-      playlistMode:src.playlistClass==='FREE'?'free':'rent-buy',
+      playlistMode:modeForPlaylistClass(src.playlistClass),
       playlistIds:[...src.playlistIds],sourceTitle:src.sourceTitle,
       channelTitle:src.channelTitle||'',deRegionSignal:src.regionSignal,
       evidence:'playlist-declared-plus-review-matcher',
@@ -135,7 +136,7 @@ export function buildYoutubeNewFilmCatalogProjection({
     }
     allIds.add(videoId);allKeys.add(filmKey)
     const movie=canonicalForIdentity(metadata,{type:'movie',tmdbId:approvedMetadata.tmdbId})
-    const playlistMode=approvedMetadata.playlistClass==='FREE'?'free':'rent-buy'
+    const playlistMode=modeForPlaylistClass(approvedMetadata.playlistClass)
     entries.push({
       videoId,tmdbId:approvedMetadata.tmdbId,
       playlistClass:approvedMetadata.playlistClass,

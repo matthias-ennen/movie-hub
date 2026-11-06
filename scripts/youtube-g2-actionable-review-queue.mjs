@@ -1,3 +1,4 @@
+import {modeForPlaylistClass} from './youtube-g2-curated-two-playlists.mjs'
 /**
  * Lossless, PRIVATE YouTube G2 review list.
  * All 86+ playlist IDs are accounted for: published editorial links and
@@ -169,7 +170,7 @@ export function buildYoutubeActionableReviewQueue({
     if(!VIDEO.test(String(film.videoId||''))
       ||!Number.isInteger(film.tmdbId)||film.tmdbId<=0
       ||hint?.key!=='movie:'+film.tmdbId
-      ||hint.playlistMode!==(film.playlistClass==='FREE'?'free':'rent-buy')
+      ||hint.playlistMode!==modeForPlaylistClass(film.playlistClass)
       ||film.film?.tmdbId!==film.tmdbId||film.film?.type!=='movie'
       ||film.film?.source!=='tmdb')throw Error('YOUTUBE_REVIEW_QUEUE_PUBLISHED_FILM_NOT_MATCHED')
   }
@@ -179,12 +180,12 @@ export function buildYoutubeActionableReviewQueue({
     const hint=published.get(item.videoId)
     if(!r||!rec
       ||rec.playlistClass!==item.playlistClass
-      ||r.editorialOfferHint!==(item.playlistClass==='FREE'?'free':'rent-buy')
+      ||r.editorialOfferHint!==modeForPlaylistClass(item.playlistClass)
       ||r.matchStatus!==item.identityResearchStatus
       ||rec.suggestedFilmKey!==(item.suggestedFilmRef
         ?'movie:'+item.suggestedFilmRef.tmdbId:null)
       ||(hint&&(
-        hint.playlistMode!==(item.playlistClass==='FREE'?'free':'rent-buy')
+        hint.playlistMode!==modeForPlaylistClass(item.playlistClass)
         ||hint.videoId!==item.videoId
         ||hint.key!==rec.suggestedFilmKey
         ||hint.watchUrl!=='https://www.youtube.com/watch?v='+item.videoId))){

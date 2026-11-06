@@ -1,3 +1,4 @@
+import {modeForPlaylistClass,YOUTUBE_ALL_PLAYLIST_MODES} from './youtube-g2-curated-two-playlists.mjs'
 /**
  * G2 AP1: PRIVATE coverage baseline for BOTH directions, one read-only QA.
  * Track A: pinned FREE/R&B YouTube source videos -> canonical TMDB films.
@@ -88,7 +89,7 @@ export function buildYoutubeG2BidirectionalCoverage({
       ||!(/^[A-Za-z0-9_-]{11}$/).test(String(e.videoId||''))
       ||e.watchUrl!=='https://www.youtube.com/watch?v='+e.videoId
       ||e.mediaType!=='movie'
-      ||!['free','rent-buy'].includes(e.playlistMode)
+      ||!YOUTUBE_ALL_PLAYLIST_MODES.includes(e.playlistMode)
       ||e.verificationStatus!=='not-independently-verified'
       ||playlistKeys.has(k)||playlistVideoIds.has(e.videoId))
       throw Error('YOUTUBE_G2_BIDIRECTIONAL_EDITORIAL_KEYS_INVALID')
@@ -112,7 +113,7 @@ export function buildYoutubeG2BidirectionalCoverage({
   for(const e of reviewQueue.items){
     if(!(/^[A-Za-z0-9_-]{11}$/).test(String(e?.videoId||''))
       ||seenVideos.has(e.videoId)
-      ||!['FREE','R&B'].includes(e.playlistClass))
+      ||!modeForPlaylistClass(e.playlistClass))
       throw Error('YOUTUBE_G2_BIDIRECTIONAL_REVIEW_VIDEO_INVALID')
     seenVideos.add(e.videoId)
     const actual=playlistVideoIds.has(e.videoId)
