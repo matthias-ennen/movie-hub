@@ -53,14 +53,14 @@ describe('data-flow ordered deploy report: YouTube source, verification, publish
   it('includes all real source numbers and distinguishes measured zero approved links',()=>{
     const result=summary()
     const rows=result.rows
-    expect(rows.find(r=>r.area==='YouTube · 2 Playlists')).toMatchObject({
+    expect(rows.find(r=>r.area==='YouTube · Admin-Playlisten')).toMatchObject({
       status:'✅ erfolgreich',stock:'37 Video-IDs · 28 mit Metadaten · 2 Playlists',
     })
-    expect(rows.find(r=>r.area==='YouTube · 2 Playlists').activity)
+    expect(rows.find(r=>r.area==='YouTube · Admin-Playlisten').activity)
       .toContain('9 ohne Videodetails · 1 redaktionelle Überschneidungen')
-    expect(rows.find(r=>r.area==='YouTube · 2 Playlists').open)
+    expect(rows.find(r=>r.area==='YouTube · Admin-Playlisten').open)
       .toContain('37 Playlist-Videos ohne unabhängig bestätigte DE-Angebotsroute')
-    expect(rows.find(r=>r.area==='YouTube · 2 Playlists').open)
+    expect(rows.find(r=>r.area==='YouTube · Admin-Playlisten').open)
       .not.toContain('ungeprüfte IDs')
     expect(rows.find(r=>r.area==='YouTube · Direktlink-Freigabe')).toMatchObject({
       status:'✅ erfolgreich',stock:'0 verifizierte Filmrouten',
@@ -70,10 +70,10 @@ describe('data-flow ordered deploy report: YouTube source, verification, publish
     const position=area=>areas.indexOf(area)
     expect(position('TMDB-Änderungen')).toBeLessThan(position('Waipu EPG'))
     expect(position('Waipu-Quelldaten')).toBeLessThan(position('Joyn EPG'))
-    expect(position('Joyn-Quelldaten')).toBeLessThan(position('YouTube · 2 Playlists'))
-    expect(position('YouTube · 2 Playlists')).toBeLessThan(position('YouTube · vollständiger Playlist-Intake'))
+    expect(position('Joyn-Quelldaten')).toBeLessThan(position('YouTube · Admin-Playlisten'))
+    expect(position('YouTube · Admin-Playlisten')).toBeLessThan(position('YouTube · vollständiger Playlist-Intake'))
     expect(position('YouTube · vollständiger Playlist-Intake')).toBeLessThan(position('Kanonische Titelkandidaten'))
-    expect(position('YouTube · 2 Playlists')).toBeLessThan(position('Kanonische Titelkandidaten'))
+    expect(position('YouTube · Admin-Playlisten')).toBeLessThan(position('Kanonische Titelkandidaten'))
     expect(position('Kanonischer Executor')).toBeLessThan(position('Suchindex'))
     expect(position('Kanonischer Executor')).toBeLessThan(position('YouTube → TMDB-Neutitel'))
     expect(position('YouTube → TMDB-Neutitel')).toBeLessThan(position('Suchindex'))
@@ -228,7 +228,7 @@ describe('data-flow ordered deploy report: YouTube source, verification, publish
     expect(missingSource.routes.status).toBe('⚠️ Quellenabgleich nicht bestätigt')
     expect(missingSource.tmdbFirst.stock).toBe('TMDB-first-Verifikationsstand nicht verfügbar')
     const absent=summary(null,null,'failure','skipped')
-    expect(absent.rows.find(r=>r.area==='YouTube · 2 Playlists').status).toContain('fehlgeschlagen')
+    expect(absent.rows.find(r=>r.area==='YouTube · Admin-Playlisten').status).toContain('fehlgeschlagen')
     expect(absent.rows.find(r=>r.area==='YouTube · Direktlink-Freigabe').stock)
       .toBe('veröffentlichbare Filmrouten nicht verfügbar')
   })
@@ -265,5 +265,46 @@ describe('data-flow ordered deploy report: YouTube source, verification, publish
       await expect(verifyYoutubePublishedReports({directory,prepared:true}))
         .rejects.toThrow('YouTube-Routenmanifest im Build fehlt')
     }finally{await rm(directory,{recursive:true,force:true})}
+  })
+})
+
+
+describe('dynamische Admin-Playlisten: Bericht darf aus 3 Listen keine falsche Warnung erzeugen',()=>{
+  it('prüft 3 Playlist-IDs mit aktueller Ausführung und bestätigt saubere Nullrouten',()=>{
+    const three={...source,sourcePlaylistCount:3,playlistIds:[
+      ...source.playlistIds,'PLUGwm4p6v-gI',
+    ],inventoryVideoIds:180,videoDetailsResolved:177,
+      reviewOnlyCandidates:180,playlistOverlapConflicts:0}
+    const coverage={...badgeCoverage,
+      youtubeFirst:{sourceVideos:180,editorialDirectLinks:93,reviewOnlyVideos:87},
+      tmdbFirst:{...badgeCoverage.tmdbFirst,
+        publicYoutubeBadgedMovies:3005,canonicalAndPublicMovieBadges:1046,
+        publicSearchOnlyMovieBadges:1959,
+        movieBadgesWithCuratedPlaylistLinks:47,
+        movieBadgesWithAnyExactRoute:47,
+        movieBadgesStillUsingSearchFallback:2958,
+        movieBadgesWithIndependentlyVerifiedRoutes:0}}
+    const report=summarizeYoutubeDeployment({status:three,routes,coverage,
+      sourceStep:'success',routeStep:'success',coverageStep:'success',
+      reportedAt:at})
+    expect(report.source).toMatchObject({area:'YouTube · Admin-Playlisten',
+      status:'✅ erfolgreich'})
+    expect(report.source.stock).toContain('3 Playlists')
+    expect(report.tmdbFirst.status).toBe('✅ erfolgreich')
+    expect(report.badges.status).toBe('✅ erfolgreich')
+    expect(report.routes).toMatchObject({status:'✅ erfolgreich',
+      stock:'0 verifizierte Filmrouten'})
+  })
+  it('lehnt widersprüchliche Listenanzahl, doppelte oder falsche IDs weiter ab',()=>{
+    const three={...source,sourcePlaylistCount:3,playlistIds:[
+      ...source.playlistIds,'PLUGwm4p6v-gI']}
+    for(const bad of [
+      {...three,sourcePlaylistCount:2},
+      {...three,playlistIds:[source.playlistIds[0],source.playlistIds[0],source.playlistIds[1]]},
+      {...three,playlistIds:[source.playlistIds[0],source.playlistIds[1],'not-a-playlist']},
+    ]){
+      expect(summarizeYoutubeDeployment({status:bad,routes,sourceStep:'success',
+        routeStep:'success',reportedAt:at}).source.status).not.toBe('✅ erfolgreich')
+    }
   })
 })

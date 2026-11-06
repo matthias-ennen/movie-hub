@@ -6,6 +6,13 @@
  * Germany playback offers. Missing output is UNKNOWN, not 0 imports.
  */
 const number=n=>n.toLocaleString('de-DE')
+const CLASSES={FREE:'free',FLAT:'flatrate',ADS:'ads','R&B':'rent-buy',RENT:'rent',BUY:'buy'}
+const allowedClass=k=>Object.hasOwn(CLASSES,k)
+const classCounts=counts=>counts && typeof counts==='object'
+  && !Array.isArray(counts)
+  && Object.entries(counts).every(([k,v])=>allowedClass(k)&&count(v))
+const classSummary=classes=>Object.entries(classes)
+  .filter(([,n])=>n>0).map(([klass,n])=>number(n)+' '+klass).join(' · ')
 const count=n=>Number.isInteger(n)&&n>=0
 const validTime=x=>typeof x==='string'&&Number.isFinite(Date.parse(x))
 const tsFresh=(value,at)=>{
@@ -19,13 +26,15 @@ export function summarizeYoutubeEditorialCatalogPublication({
   reportedAt=new Date().toISOString(),
 }={}){
   const intakeValid=intake?.mode==='YOUTUBE_G2_COMPLETE_PLAYLIST_INTAKE_STAGING_ONLY'
-    &&intake.fullScan===true&&intake.twoUserDefinedPlaylists===true
+    &&intake.fullScan===true
+    &&(intake.twoUserDefinedPlaylists===true
+      ||(intake.allConfiguredPlaylists===true
+        &&count(intake.configuredPlaylistCount)&&intake.configuredPlaylistCount>0))
     &&intake.unaccountedForVideoIds===0
     &&count(intake.uniqueVideoIds)&&intake.uniqueVideoIds>0
     &&intake.processedVideoIds===intake.uniqueVideoIds
-    &&count(intake.playlistClasses?.FREE)
-    &&count(intake.playlistClasses?.['R&B'])
-    &&intake.playlistClasses.FREE+intake.playlistClasses['R&B']===intake.uniqueVideoIds
+    &&classCounts(intake.playlistClasses)
+    &&Object.values(intake.playlistClasses).reduce((sum,n)=>sum+n,0)===intake.uniqueVideoIds
     &&intake.publicationPermitted===false
     &&validTime(intake.generatedAt)&&tsFresh(intake.generatedAt,reportedAt)
   const reconciliationValid=reconciliation?.kind==='moviehub-youtube-full-catalog-reconciliation'
@@ -58,10 +67,10 @@ export function summarizeYoutubeEditorialCatalogPublication({
       &&e.film.source==='tmdb'&&e.film.metadataComplete===true
       &&e.film.tmdbId===e.tmdbId
       &&e.film.id==='tmdb-movie-'+e.tmdbId
-      &&['FREE','R&B'].includes(e.playlistClass)
+      &&allowedClass(e.playlistClass)
       &&hints.entries.some(x=>x.videoId===e.videoId
         &&x.key==='movie:'+e.tmdbId
-        &&x.playlistMode===(e.playlistClass==='FREE'?'free':'rent-buy')))
+        &&x.playlistMode===CLASSES[e.playlistClass]))
   const scanMeasured=sourceStep==='success'&&intakeStep==='success'&&intakeValid
     &&reconcileStep==='success'&&reconciliationValid
   const published=scanMeasured&&metadataStep==='success'&&filmStep==='success'
@@ -77,7 +86,7 @@ export function summarizeYoutubeEditorialCatalogPublication({
         ?number(intake.uniqueVideoIds)+'/'+number(intake.uniqueVideoIds)+' Videos geprüft'
         :'Playlist-Intake nicht bestätigt',
       activity:scanMeasured
-        ?number(intake.playlistClasses.FREE)+' FREE · '+number(intake.playlistClasses['R&B'])+' R&B'
+        ?classSummary(intake.playlistClasses)
         :'Playlist-Klassifikation nicht nachgewiesen',
       open:scanMeasured
         ?number(reconciliation.catalogCandidateCount)+' kanonische Titelkandidaten im vollständigen Bestandsabgleich · 0 ausgelassen'

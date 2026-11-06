@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url'
 import { runCuratedTmdbMembership } from './youtube-g2-curated-tmdb-membership.mjs'
 export const INPUT = 'artifacts/youtube-g2/curated-playlists/qa.json'
 export const OUTPUT = 'artifacts/youtube-g2/curated-tmdb-membership'
+export const EPISODE_REVIEW = 'artifacts/youtube-g2/series-episode-review/qa.json'
 const INDEX = 'https://movie-hub-62459.web.app/search-index.json'
 const MAX_INDEX_BYTES = 30 * 1024 * 1024
 
@@ -44,7 +45,7 @@ async function tmdbRead(path, params, token) {
 }
 export function membershipReport({ summary, rows }) {
   const lines = [
-    '# YouTube G2 – two user-curated playlists → TMDB v1.1 (READ ONLY)',
+    '# YouTube G2 – Admin playlists → TMDB film membership (READ ONLY)',
     '',
     '- Source QA at: ' + summary.sourceQAObservedAt,
     '- Published MovieHub search index at: ' + summary.publishedIndexGeneratedAt,
@@ -79,9 +80,12 @@ async function main() {
   // its canonical sync result; the older standalone research job wrote it bare.
   const input = JSON.parse(await readFile(INPUT, 'utf8'))
   const audit = input?.audit ?? input
+  // Required same-night private episode review: no title-only episode may
+  // quietly enter the film matcher when the upstream review is unavailable.
+  const episodeReview = JSON.parse(await readFile(EPISODE_REVIEW, 'utf8'))
   const index = await readPublicIndex()
   const data = await runCuratedTmdbMembership({
-    audit, publicIndex: index,
+    audit,publicIndex: index,episodeReview,
     tmdbGet: (p, q) => tmdbRead(p, q, token),
   })
   await mkdir(OUTPUT, { recursive: true })

@@ -14,7 +14,7 @@ export function summarizeYoutubeDeployment({
   sourceStep = 'skipped', routeStep = 'skipped', coverageStep = 'skipped',
   reportedAt = new Date().toISOString(),
 } = {}) {
-  // TMDB-first approved videos are outside the two playlist inventories.
+  // TMDB-first approved videos are outside the dynamically configured playlist inventory.
   // Check each source population independently before comparing their sum
   // to the canonical merged route index. Never classify valid extra routes
   // as invented playlist videos.
@@ -24,9 +24,11 @@ export function summarizeYoutubeDeployment({
   const playlistApproved = status?.approvedDEOfferRoutes - verifiedTmdbFirst
   const sourceValid = status?.kind === 'moviehub-youtube-curated-source-status'
     && status.sourceId === 'youtube'
-    && status.sourcePlaylistCount === 2
-    && Array.isArray(status.playlistIds) && status.playlistIds.length === 2
-    && new Set(status.playlistIds).size === 2
+    && Number.isSafeInteger(status.sourcePlaylistCount) && status.sourcePlaylistCount > 0
+    && Array.isArray(status.playlistIds)
+    && status.playlistIds.length === status.sourcePlaylistCount
+    && status.playlistIds.every(id => /^(?:PL|UU|OLAK5uy_)[A-Za-z0-9_-]{10,120}$/.test(String(id || '')))
+    && new Set(status.playlistIds).size === status.sourcePlaylistCount
     && status.fullyScanned === true
     && iso(status.generatedAt) && fresh(status.generatedAt, reportedAt)
     && validInt(status.inventoryVideoIds)
@@ -97,13 +99,13 @@ export function summarizeYoutubeDeployment({
               : '✅ erfolgreich'
   return {
     source: {
-      area: 'YouTube · 2 Playlists', status: sourceState,
+      area: 'YouTube · Admin-Playlisten', status: sourceState,
       stock: sourceMeasured
         ? fmt(status.inventoryVideoIds)+' Video-IDs · '+fmt(status.videoDetailsResolved)+' mit Metadaten · '+fmt(status.sourcePlaylistCount)+' Playlists'
         : 'Quellenbestand nicht verfügbar',
       activity: sourceMeasured
         ? fmt(status.inventoryVideoIds-status.videoDetailsResolved)+' ohne Videodetails · '+fmt(status.playlistOverlapConflicts)+' redaktionelle Überschneidungen'
-        : 'kein aktueller vollständiger Zwei-Playlist-Nachweis',
+        : 'kein aktueller vollständiger Playlist-Nachweis',
       open: sourceMeasured
         ? fmt(status.reviewOnlyCandidates)+' Playlist-Videos ohne unabhängig bestätigte DE-Angebotsroute · '+fmt(playlistApproved)+' Playlist-Angebote bestätigt · Stand '+new Date(status.generatedAt).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })
         : 'TMDB-Badges und YouTube-Suchfallback bleiben maßgeblich; kein Datenverlust behauptet',
