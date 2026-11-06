@@ -94,6 +94,7 @@ export function normalizeSeasonEpisode(raw, { seriesTmdbId, seriesTitle, seasonN
     description: String(raw?.description || raw?.overview || ''),
     airDate: isoDate(raw?.airDate ?? raw?.air_date),
     runtimeMinutes: positiveInteger(rawRuntime),
+    ...(raw?.youtubePlaylistHint ? { youtubePlaylistHint: raw.youtubePlaylistHint } : {}),
     voteAverage: Number.isFinite(Number(rawVoteAverage)) ? Number(rawVoteAverage) : null,
     stillPath,
     stillUrl: raw?.stillUrl || buildImageUrl(stillPath, 'w780'),
