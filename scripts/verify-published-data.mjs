@@ -37,8 +37,14 @@ export async function verifyYoutubePublishedReports({
     throw new Error('YouTube-Routenmanifest im Build fehlt oder ist ungültig')
   }
   if (source && (source.kind !== 'moviehub-youtube-curated-source-status'
-    || source.sourcePlaylistCount !== 2 || !source.fullyScanned
-    || !Number.isInteger(source.approvedDEOfferRoutes))) {
+    || !Number.isSafeInteger(source.sourcePlaylistCount) || source.sourcePlaylistCount < 1
+    || !Array.isArray(source.playlistIds)
+    || source.playlistIds.length !== source.sourcePlaylistCount
+    || new Set(source.playlistIds).size !== source.sourcePlaylistCount
+    || source.playlistIds.some(id => !/^(?:PL|UU|OLAK5uy_)[A-Za-z0-9_-]{10,120}$/.test(String(id || '')))
+    || source.fullyScanned !== true
+    || !Number.isSafeInteger(source.inventoryVideoIds) || source.inventoryVideoIds < 0
+    || !Number.isSafeInteger(source.approvedDEOfferRoutes) || source.approvedDEOfferRoutes < 0)) {
     throw new Error('YouTube-Playlist-Quellenbericht im Build ungültig')
   }
   if (prepared) return { directRoutes: route.count, sourceReportAvailable: Boolean(source) }
