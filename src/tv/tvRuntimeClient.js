@@ -2,6 +2,7 @@ import { fetchJsonWithTimeout } from '../performance/fetchJson.js'
 import { throwIfAborted } from '../performance/cooperativeWork.js'
 import { createLiveProviderFilter } from '../sources/liveProviderSelection.js'
 import { selectProviderMap } from '../sources/providerLiveRoute.js'
+import { tvRuntimeTitleShardKey, tvRuntimeTitleIdentity, TV_RUNTIME_TITLE_KIND, TV_RUNTIME_TITLE_SHARD_COUNT } from './tvRuntimeTitleIndex.js'
 import {
   TV_RUNTIME_DAY_KIND,
   TV_RUNTIME_HERO_KIND,
@@ -12,6 +13,7 @@ import {
 export const TV_RUNTIME_INDEX_URL = '/tv-runtime/index.json'
 export const TV_RUNTIME_HERO_URL = '/tv-runtime/hero.json'
 export const TV_RUNTIME_DAY_CACHE_LIMIT = 3
+export const TV_RUNTIME_TITLE_CACHE_LIMIT = 3
 export const TV_RUNTIME_CACHE_MAX_AGE_MS = 5 * 60 * 1000
 let indexLoadedAt = 0
 let heroLoadedAt = 0
@@ -22,6 +24,8 @@ let cachedHero = null
 let heroPromise = null
 const dayCache = new Map()
 const dayPromises = new Map()
+const titleShardCache = new Map()
+const titleShardPromises = new Map()
 
 function getCachedDay(cacheKey) {
   if (!dayCache.has(cacheKey)) return null
@@ -62,6 +66,7 @@ export function normalizeTvRuntimeIndex(raw) {
       || !Array.isArray(raw?.days)) return null
   return {
     generatedAt: text(raw.generatedAt),
+    titleShardCount: raw.titleShardCount === TV_RUNTIME_TITLE_SHARD_COUNT ? TV_RUNTIME_TITLE_SHARD_COUNT : 0,
     providers: Array.isArray(raw.providers) ? raw.providers.map(String).filter(Boolean) : [],
     days: raw.days
       .map((day) => ({
@@ -221,6 +226,100 @@ export async function loadTvRuntimeDay(key, {
 
   if (sharePendingRequest) dayPromises.set(cacheKey, request)
   return request
+}
+
+
+function cacheTitleShard(cacheKey, value) {
+  titleShardCache.delete(cacheKey)
+  titleShardCache.set(cacheKey, value)
+  while (titleShardCache.size > TV_RUNTIME_TITLE_CACHE_LIMIT) {
+    titleShardCache.delete(titleShardCache.keys().next().value)
+  }
+}
+
+export function normalizeTvRuntimeTitleShard(raw, expectedShard = null) {
+  const shard = String(raw?.shard || '')
+  if (raw?.kind !== TV_RUNTIME_TITLE_KIND || raw?.schemaVersion !== TV_RUNTIME_SNAPSHOT_VERSION
+    || !/^\\d{2}$/.test(shard) || Number(shard) >= TV_RUNTIME_TITLE_SHARD_COUNT
+    || (expectedShard !== null && shard !== expectedShard)
+    || !Number.isFinite(Date.parse(raw?.generatedAt)) || !Array.isArray(raw?.entries)
+    || raw.count !== raw.entries.length) return null
+  const entries = raw.entries.filter((entry) => {
+    const identity = tvRuntimeTitleIdentity(entry)
+    return identity && tvRuntimeTitleShardKey(entry) === shard && Array.isArray(entry.airings)
+  })
+  if (entries.length !== raw.entries.length || new Set(entries.map(e => tvRuntimeTitleIdentity(e).key)).size !== entries.length) return null
+  return { generatedAt: raw.generatedAt, shard, entries }
+}
+
+async function loadTitleShard(shard, generation, { fetchImpl = fetch, signal = null, force = false } = {}) {
+  const key = `${generation}:${shard}`
+  const share = fetchImpl === fetch && !signal
+  if (!force && fetchImpl === fetch && titleShardCache.has(key)) {
+    const cached = titleShardCache.get(key)
+    titleShardCache.delete(key)
+    titleShardCache.set(key, cached)
+    return cached
+  }
+  if (!force && share && titleShardPromises.has(key)) return titleShardPromises.get(key)
+  throwIfAborted(signal)
+  const request = fetchJsonWithTimeout(`/tv-runtime/titles/${shard}.json?v=${encodeURIComponent(generation)}`,
+    { fetchImpl, signal })
+    .then((raw) => {
+      const result = normalizeTvRuntimeTitleShard(raw, shard)
+      if (!result) throw new Error('TV-Titelterminindex hat ein ungültiges Format.')
+      if (result.generatedAt !== generation) throw Object.assign(
+        new Error('TV-Veröffentlichung hat sich geändert.'), { name: 'GenerationMismatchError' },
+      )
+      throwIfAborted(signal)
+      if (fetchImpl === fetch) cacheTitleShard(key, result)
+      return result
+    })
+    .finally(() => { if (share) titleShardPromises.delete(key) })
+  if (share) titleShardPromises.set(key, request)
+  return request
+}
+
+/** Called only when a real title detail opens. Never download 14 day shards. */
+export async function loadTvRuntimeTitleAirings(item, { fetchImpl = fetch, signal = null, force = false } = {}) {
+  const identity = tvRuntimeTitleIdentity(item)
+  if (!identity) return []
+  const shard = tvRuntimeTitleShardKey(item)
+  let index = await loadTvRuntimeIndex({ fetchImpl, signal, force })
+  if (index.titleShardCount !== TV_RUNTIME_TITLE_SHARD_COUNT) {
+    throw new Error('Der vollständige TV-Titelterminindex ist noch nicht veröffentlicht.')
+  }
+  let data
+  try {
+    data = await loadTitleShard(shard, index.generatedAt, { fetchImpl, signal, force })
+  } catch (error) {
+    if (error?.name !== 'GenerationMismatchError') throw error
+    // One retry for an atomic generation switch; never poll in a loop.
+    index = await loadTvRuntimeIndex({ fetchImpl, signal, force: true })
+    if (index.titleShardCount !== TV_RUNTIME_TITLE_SHARD_COUNT) throw error
+    data = await loadTitleShard(shard, index.generatedAt, { fetchImpl, signal, force: true })
+  }
+  const entry = data.entries.find((candidate) => tvRuntimeTitleIdentity(candidate)?.key === identity.key)
+  return (entry?.airings || []).map((airing) => ({
+    ...airing, type: identity.type, tmdbId: identity.tmdbId,
+  }))
+}
+
+/** Apply live provider/station choices and expiry without losing exact routes. */
+export function filterTvRuntimeTitleAirings(airings, {
+  enabledProviderIds = null,
+  disabledWaipuStationIds = [],
+  disabledJoynStationIds = [],
+  now = Date.now(),
+} = {}) {
+  const accepts = createLiveProviderFilter({
+    enabledProviderIds, disabledWaipuStationIds, disabledJoynStationIds,
+  })
+  return (Array.isArray(airings) ? airings : [])
+    .filter(airing => Date.parse(airing?.stopTime) > Number(now))
+    .map((airing) => filterAiringBySelection(airing, accepts))
+    .filter(Boolean)
+    .sort((left, right) => String(left.startTime).localeCompare(String(right.startTime)))
 }
 
 function filterAiringBySelection(airing, acceptProvider) {
@@ -442,6 +541,8 @@ export function getTvRuntimeCacheDiagnostics() {
     dayCacheLimit: TV_RUNTIME_DAY_CACHE_LIMIT,
     dayCacheKeys: [...dayCache.keys()],
     pendingDayKeys: [...dayPromises.keys()],
+    titleShardCacheLimit: TV_RUNTIME_TITLE_CACHE_LIMIT,
+    titleShardCacheKeys: [...titleShardCache.keys()],
   }
 }
 
@@ -452,6 +553,8 @@ export function clearTvRuntimeCache() {
   heroPromise = null
   dayCache.clear()
   dayPromises.clear()
+  titleShardCache.clear()
+  titleShardPromises.clear()
 }
 
 // Publication may switch between index and shard requests. One index refresh
