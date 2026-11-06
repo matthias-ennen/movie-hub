@@ -109,7 +109,7 @@ export async function runTwoCuratedPlaylistAudit({
   const ownerIds = [...new Set([...ownersByPlaylistId.values()].map(x => x.channelId))]
   const rows = new Map()
   const perPlaylist = []
-  for (const source of sources) {
+  for (const source of chosen) {
     const foundIds = new Set()
     let token = null
     let pages = 0
