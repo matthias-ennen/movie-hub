@@ -9,7 +9,7 @@ import DetailCard from './DetailCard.jsx'
 export default function SeriesNavigation({
   item, seasons, selectedSeason, selectedEpisode, onSelectEpisode, onSelectSeason, onBeginNavigation,
   titleAirings = null, airingsStatus = null, airingsNow = Date.now(),
-  onOpenEpisodeAiring, onOpenEpisodeYoutube, isProviderEnabled = () => true,
+  onOpenEpisodeAiring, isProviderEnabled = () => true,
 }) {
   const [picker, setPicker] = useState(null)
   const [detail, setDetail] = useState(null)
@@ -119,7 +119,7 @@ export default function SeriesNavigation({
       <EpisodeDetail item={item} episode={episode} now={airingsNow}
         titleAirings={titleAirings} airingsStatus={airingsStatus}
         onClose={() => setEpisode(null)}
-        onOpenAiring={onOpenEpisodeAiring} onOpenYoutube={onOpenEpisodeYoutube}
+        onOpenAiring={onOpenEpisodeAiring}
         isProviderEnabled={isProviderEnabled} />
     </DetailDialog>}
   </>
