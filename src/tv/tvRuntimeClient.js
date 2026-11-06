@@ -240,7 +240,7 @@ function cacheTitleShard(cacheKey, value) {
 export function normalizeTvRuntimeTitleShard(raw, expectedShard = null) {
   const shard = String(raw?.shard || '')
   if (raw?.kind !== TV_RUNTIME_TITLE_KIND || raw?.schemaVersion !== TV_RUNTIME_SNAPSHOT_VERSION
-    || !/^\\d{2}$/.test(shard) || Number(shard) >= TV_RUNTIME_TITLE_SHARD_COUNT
+    || !/^\d{2}$/.test(shard) || Number(shard) >= TV_RUNTIME_TITLE_SHARD_COUNT
     || (expectedShard !== null && shard !== expectedShard)
     || !Number.isFinite(Date.parse(raw?.generatedAt)) || !Array.isArray(raw?.entries)
     || raw.count !== raw.entries.length) return null
