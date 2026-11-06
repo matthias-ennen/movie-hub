@@ -6,6 +6,7 @@ import { providers } from '../../data/catalog.js'
 import { episodeNumberLabel } from '../../catalog/episodeContext.js'
 import { listDetailTvAirings, formatDetailTvAiring } from '../../tv/detailTvAiring.js'
 import { resolveBoundLiveProviderRoutes } from '../../providers/liveProviderRoutes.js'
+import {selectYoutubeEpisodePlaylistRoute,EPISODE_YOUTUBE_MODE_LABELS} from '../../providers/youtubeEpisodePlaylistRoute.js'
 
 export function episodeAirDateLabel(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null
@@ -23,7 +24,7 @@ export function episodeAirDateLabel(value) {
  */
 export default function EpisodeDetail({
   item, episode, now = Date.now(), titleAirings = null, airingsStatus = null,
-  onClose, onOpenAiring, isProviderEnabled = () => true,
+  onClose, onOpenAiring, onOpenYoutube, isProviderEnabled = () => true,
 }) {
   const date = episodeAirDateLabel(episode.airDate)
   const rating = Number(episode.voteAverage)
@@ -32,6 +33,8 @@ export default function EpisodeDetail({
   })
   const hasStatus = airingsStatus === 'loading' || airingsStatus === 'error'
   const stillUrl = episode?.stillUrl || null
+  const youtubeEpisodeRoute = isProviderEnabled('youtube')
+    ? selectYoutubeEpisodePlaylistRoute(episode?.youtubePlaylistHint,episode,{now}) : null
   return (
     <DetailLayout episode actions={<DetailActions onClose={onClose}
       closeLabel="Folgendetails schließen" />} artwork={
@@ -54,6 +57,19 @@ export default function EpisodeDetail({
         fallback="Für diese Folge liegt noch keine Beschreibung vor." />
 
       <h3>Wo anschauen?</h3>
+      {youtubeEpisodeRoute && typeof onOpenYoutube === 'function' && (
+        <section className="provider-availability-group" aria-label="YouTube-Link für genau diese Folge">
+          <p className="settings-kicker">YouTube-Playlist · {EPISODE_YOUTUBE_MODE_LABELS[youtubeEpisodeRoute.playlistMode]}</p>
+          <button type="button" className="action-button provider-action"
+            data-focusable="true"
+            aria-label={`Diese Folge auf YouTube öffnen: ${episode.title}`}
+            onClick={() => onOpenYoutube(youtubeEpisodeRoute, episode)}>
+            <span className="provider-badge provider-youtube"><span className="provider-badge-symbol">YT</span></span>
+            Diese Folge auf YouTube ansehen
+          </button>
+          <p className="settings-kicker">Playlist-Zuordnung; tatsächliche Verfügbarkeit und Angebotsart noch nicht unabhängig bestätigt.</p>
+        </section>
+      )}
       {hasStatus && <p role="status" className="settings-kicker">
         {airingsStatus === 'loading'
           ? 'Weitere TV-Ausstrahlungstermine werden geladen …'
