@@ -105,6 +105,28 @@ describe('#708 full on-demand title TV dates', () => {
     })).toEqual([])
   })
 
+  it('never copies obsolete opening-card routes into an authoritative full shard', () => {
+    const pub = publication()
+    const full = pub.titleShards[series.tmdbId % 64].entries[0].airings.map(a => ({
+      ...a, type: 'series', tmdbId: series.tmdbId,
+    }))
+    const current = full.find(a => a.stationId === 'rtl' && a.episode?.episodeNumber === 11)
+    const stale = {
+      ...current,
+      playbackRoutes: [{
+        providerId: 'waipu', mode: 'APP_DEEP_LINK',
+        scope: 'program', target: 'https://example.invalid/obsolete-program',
+      }],
+    }
+    const [selected] = listDetailTvAirings({ ...series, detailAiring: stale }, {
+      now, selection: { seasonNumber: 1, episodeNumber: 11, title: 'Folge 11' },
+      fullAirings: full,
+    })
+    expect(selected.stationId).toBe('rtl')
+    expect(selected.playbackRoutes.map(r => r.target)).not.toContain('https://example.invalid/obsolete-program')
+    expect(selected.playbackRoutes).toEqual(current.playbackRoutes)
+  })
+
   it('rejects stale generations and performs one bounded index refresh', async () => {
     const pub = publication()
     const newer = '2026-11-07T12:00:00.000Z'
