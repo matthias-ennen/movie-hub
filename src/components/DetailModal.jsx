@@ -16,6 +16,8 @@ import { launchMovieHubMedia } from '../library/providerMediaLaunch.js'
 import { ProviderBadge } from './ProviderBadges.jsx'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
+import { useWaipuStationSelection } from '../settings/useWaipuStationSelection.js'
+import { useJoynStationSelection } from '../settings/useJoynStationSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
 import { useYoutubeVerifiedOffers, useYoutubeCuratedEditorialHints, useYoutubeBestEffortLinks } from '../providers/YoutubeVerifiedOffersContext.jsx'
@@ -24,7 +26,8 @@ import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { includedSwitchShownAsOn, ignoreCompletedIncludedClick } from '../notifications/includedSwitchSession.js'
 import { resolveProviderPresentation } from '../providers/providerPresentation.js'
-import { formatDetailTvAiring, resolveDetailTvAiring } from '../tv/detailTvAiring.js'
+import { formatDetailTvAiring, listDetailTvAirings, resolveDetailTvAiring } from '../tv/detailTvAiring.js'
+import { loadTvRuntimeTitleAirings, filterTvRuntimeTitleAirings } from '../tv/tvRuntimeClient.js'
 import { buildDetailLiveProviderEntries, buildDetailStreamingProviderIds } from './detailProviderPresentation.js'
 
 import DetailDialog from './detail/DetailDialog.jsx'
@@ -58,7 +61,9 @@ export default function DetailModal({
   const { user } = useAuth()
   const { getTitleState, updateTitleState, loading: libraryLoading } = useLibrary()
   const titleAlerts = useTitleAlerts(user?.uid, activeProfile?.id)
-  const { isProviderEnabled } = useProviderSelection()
+  const { isProviderEnabled, enabledProviderIds } = useProviderSelection()
+  const { disabledStationIds: disabledWaipuStationIds } = useWaipuStationSelection()
+  const { disabledStationIds: disabledJoynStationIds } = useJoynStationSelection()
   const [personalMessage, setPersonalMessage] = useState('')
   const youtubeVerifiedRoutes = useYoutubeVerifiedOffers()
   const youtubeCuratedHints = useYoutubeCuratedEditorialHints()
@@ -92,7 +97,37 @@ export default function DetailModal({
   const [collectionPickerOpen, setCollectionPickerOpen] = useState(false)
   const [collectionBusyId, setCollectionBusyId] = useState(null)
   const [manualEpisode, setManualEpisode] = useState(undefined)
-  const automaticTvAiring = useMemo(() => resolveDetailTvAiring(item, { now: liveAvailabilityNow }), [item, liveAvailabilityNow])
+  // Full EPG title shard is fetched only for an opened series detail.
+  // Cache is generation-scoped, bounded and independent from Home/TV startup.
+  const titleKey = item?.type === 'series' && Number.isSafeInteger(Number(item?.tmdbId))
+    ? `series:${Number(item.tmdbId)}` : null
+  const [titleAiringsLoad, setTitleAiringsLoad] = useState(null)
+  useEffect(() => {
+    if (!titleKey) return undefined
+    const controller = new AbortController()
+    setTitleAiringsLoad({ key: titleKey, status: 'loading', airings: null })
+    loadTvRuntimeTitleAirings({ type: 'series', tmdbId: item.tmdbId }, { signal: controller.signal })
+      .then((airings) => {
+        if (!controller.signal.aborted) setTitleAiringsLoad({ key: titleKey, status: 'ready', airings })
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          console.warn('Vollständige TV-Titeltermine nicht verfügbar.', error)
+          setTitleAiringsLoad({ key: titleKey, status: 'error', airings: null })
+        }
+      })
+    return () => controller.abort()
+  }, [titleKey])
+  const currentTitleLoad = titleAiringsLoad?.key === titleKey ? titleAiringsLoad : null
+  const filteredTitleAirings = useMemo(() => currentTitleLoad?.status === 'ready'
+    ? filterTvRuntimeTitleAirings(currentTitleLoad.airings, {
+      enabledProviderIds, disabledWaipuStationIds, disabledJoynStationIds, now: liveAvailabilityNow,
+    }) : null, [
+      currentTitleLoad, enabledProviderIds, disabledWaipuStationIds, disabledJoynStationIds, liveAvailabilityNow,
+    ])
+  const automaticTvAiring = useMemo(() => resolveDetailTvAiring(item, {
+    now: liveAvailabilityNow, fullAirings: filteredTitleAirings,
+  }), [item, liveAvailabilityNow, filteredTitleAirings])
   const initialEpisode = navigationEpisode(episodeReference(automaticTvAiring))
     || (automaticTvAiring ? null : openingEpisode(item))
   const selectedEpisode = manualEpisode === undefined ? initialEpisode : manualEpisode
@@ -121,11 +156,13 @@ export default function DetailModal({
   )
   const currentCollectionIndex = collectionParts.findIndex((part) => Number(part.tmdbId) === Number(item.tmdbId))
   const hasFilmCollection = item.type === 'movie' && collectionParts.length > 1
-  const detailTvAiring = useMemo(
-    () => manualEpisode === undefined ? automaticTvAiring
-      : resolveDetailTvAiring(item, { now: liveAvailabilityNow, selection: manualEpisode }),
-    [item, liveAvailabilityNow, manualEpisode, automaticTvAiring],
-  )
+  const detailTvAirings = useMemo(() => listDetailTvAirings(item, {
+    now: liveAvailabilityNow,
+    selection: manualEpisode === undefined ? selectedEpisode : manualEpisode,
+    fullAirings: filteredTitleAirings,
+  }), [item, liveAvailabilityNow, manualEpisode, selectedEpisode, filteredTitleAirings])
+  const detailTvAiring = detailTvAirings[0] || null
+  const additionalTvAirings = selectedEpisode?.episodeNumber != null ? detailTvAirings.slice(1) : []
   const detailTvAiringLabel = useMemo(
     () => formatDetailTvAiring(detailTvAiring),
     [detailTvAiring],
@@ -323,6 +360,16 @@ export default function DetailModal({
     window.open(launchRoute.target, '_blank', 'noopener,noreferrer')
   }
 
+  function openAdditionalLiveAiring(airing, providerId) {
+    const providerItem = { ...item, tvAiring: airing, liveAvailability: {} }
+    const route = resolveBoundLiveProviderRoutes(providerItem, [providerId], { now: Date.now() })[providerId]
+    if (!route || !isProviderEnabled(providerId)) return
+    markWatchedFromProvider()
+    if (launchProviderPlaybackRoute({ providerId, title: item.title, route, fallbackUrl: route.target })) return
+    if (window.MovieHubNative?.openExternalUrl) window.MovieHubNative.openExternalUrl(route.target)
+    else window.open(route.target, '_blank', 'noopener,noreferrer')
+  }
+
   function openStreamingProvider(providerId) {
     const destination = getProviderDestination(providerId, item.title, {
       waipuMode: 'vod',
@@ -496,7 +543,10 @@ export default function DetailModal({
             selectedSeason={selectedSeason} selectedEpisode={selectedEpisode}
             onSelectEpisode={setManualEpisode}
             onBeginNavigation={() => setManualEpisode(selectedEpisode)}
-            onSelectSeason={seasonNumber => setManualEpisode({ seasonNumber, episodeNumber: null, title: '' })} />}
+            onSelectSeason={seasonNumber => setManualEpisode({ seasonNumber, episodeNumber: null, title: '' })}
+            titleAirings={filteredTitleAirings} airingsStatus={currentTitleLoad?.status}
+            airingsNow={liveAvailabilityNow} onOpenEpisodeAiring={openAdditionalLiveAiring}
+            isProviderEnabled={isProviderEnabled} />}
 
           {hasFilmCollection && (
             <DetailCard className="film-collection-summary" id="film-collection-heading" title="Filmreihe">
@@ -536,6 +586,16 @@ export default function DetailModal({
           )}
 
           <h3>Wo anschauen?</h3>
+          {item.type === 'series' && currentTitleLoad?.status === 'loading' && (
+            <p role="status" className="settings-kicker">Weitere TV-Ausstrahlungstermine werden geladen …</p>
+          )}
+          {item.type === 'series' && currentTitleLoad?.status === 'error' && (
+            <p role="status" className="settings-kicker">Vollständige TV-Termine konnten nicht geladen werden. Die vorhandene Vorschau bleibt verfügbar.</p>
+          )}
+          {item.type === 'series' && currentTitleLoad?.status === 'ready' && !hasTvAiring
+            && selectedEpisode?.episodeNumber != null && (
+              <p className="settings-kicker">Für diese Folge ist derzeit kein zugeordneter TV-Termin bekannt.</p>
+            )}
           {hasTvAiring && (
             <section className="provider-availability-group" aria-label="TV-Ausstrahlung">
               <p className="settings-kicker">TV-Ausstrahlung</p>
@@ -571,6 +631,35 @@ export default function DetailModal({
                       </button>
                     )
                   })}
+                </div>
+              )}
+              {additionalTvAirings.length > 0 && (
+                <div className="detail-tv-additional-airings" aria-label="Weitere bekannte Ausstrahlungstermine">
+                  <p className="settings-kicker">Weitere Ausstrahlungstermine</p>
+                  {additionalTvAirings.map((airing, index) => (
+                    <div className="detail-tv-additional-airing"
+                      key={`${airing.stationId}:${airing.startTime}:${index}`}>
+                      <p className="detail-tv-airing">{formatDetailTvAiring(airing)}</p>
+                      <div className="provider-actions" aria-label="Anbieter für diesen Termin">
+                        {(airing.providerIds || []).filter((id) => providers[id] && isProviderEnabled(id))
+                          .map((providerId) => {
+                            const providerLabel = providers[providerId].label || providerId
+                            const providerItem = { ...item, tvAiring: airing, liveAvailability: {} }
+                            const route = resolveBoundLiveProviderRoutes(providerItem, [providerId], {
+                              now: liveAvailabilityNow,
+                            })[providerId]
+                            return route
+                              ? <button type="button" className="action-button" data-focusable="true"
+                                  key={providerId} onClick={() => openAdditionalLiveAiring(airing, providerId)}>
+                                  {providerLabel}
+                                </button>
+                              : <span key={providerId} className="provider-action provider-action-static">
+                                  {providerLabel}
+                                </span>
+                          })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </section>

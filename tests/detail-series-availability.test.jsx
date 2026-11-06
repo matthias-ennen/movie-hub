@@ -6,6 +6,8 @@ vi.mock('../src/profiles/ProfileProvider.jsx', () => ({ useProfiles: () => ({ ac
 vi.mock('../src/hooks/useAuth.js', () => ({ useAuth: () => ({ user: null }) }))
 vi.mock('../src/library/LibraryProvider.jsx', () => ({ useLibrary: () => ({ getTitleState: () => ({ note: '' }), loading: false }) }))
 vi.mock('../src/settings/useProviderSelection.js', () => ({ useProviderSelection: () => ({ isProviderEnabled: () => true }) }))
+vi.mock('../src/settings/useWaipuStationSelection.js', () => ({ useWaipuStationSelection: () => ({ disabledStationIds: [] }) }))
+vi.mock('../src/settings/useJoynStationSelection.js', () => ({ useJoynStationSelection: () => ({ disabledStationIds: [] }) }))
 vi.mock('../src/notifications/useTitleAlerts.js', () => ({ useTitleAlerts: () => ({ isEnabled: () => false, canWatch: () => true }) }))
 vi.mock('../src/library/sharedMedia.js', () => ({ loadSharedMedia: vi.fn(), saveSharedMedia: vi.fn(), removeSharedMedia: vi.fn() }))
 

@@ -3,6 +3,7 @@ import { mergeTvAirings } from '../sources/mergeTvAirings.js'
 import { episodeReference } from '../catalog/episodeContext.js'
 import { ensureProviderLiveRoute } from '../sources/providerLiveRoute.js'
 import { tvDayKey } from '../waipu/waipuTvCatalog.js'
+import { buildTvRuntimeTitleShards, TV_RUNTIME_TITLE_SHARD_COUNT } from './tvRuntimeTitleIndex.js'
 
 export const TV_RUNTIME_SNAPSHOT_VERSION = 1
 export const TV_RUNTIME_SNAPSHOT_KIND = 'moviehub-tv-runtime-index'
@@ -557,6 +558,8 @@ export function buildTvRuntimeSnapshot({
       }
     })
 
+  const titleShards = buildTvRuntimeTitleShards(dayPayloads, { generatedAt: new Date(nowMs).toISOString() })
+
   const providers = (Array.isArray(sourceCatalogs) ? sourceCatalogs : [])
     .map((source) => text(source?.providerId))
     .filter(Boolean)
@@ -578,6 +581,8 @@ export function buildTvRuntimeSnapshot({
       titleCount: dayPayloads.reduce((total, day) => total + day.count, 0),
       airingCount: dayPayloads.reduce((total, day) => total + day.airingCount, 0),
       heroCount: hero.count,
+      titleShardCount: TV_RUNTIME_TITLE_SHARD_COUNT,
+      titleShardTitleCount: titleShards.reduce((total, shard) => total + shard.count, 0),
       days: dayPayloads.map((day) => ({
         key: day.key,
         count: day.count,
@@ -586,5 +591,6 @@ export function buildTvRuntimeSnapshot({
     },
     hero,
     days: dayPayloads,
+    titleShards,
   }
 }

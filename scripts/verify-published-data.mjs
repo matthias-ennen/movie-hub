@@ -3,6 +3,8 @@ import { pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 import { evaluatePublishedData, fetchPublishedData } from './validate-publication-health.mjs'
+import { TV_RUNTIME_TITLE_SHARD_COUNT } from '../src/tv/tvRuntimeTitleIndex.js'
+import { normalizeTvRuntimeTitleShard } from '../src/tv/tvRuntimeClient.js'
 
 const YOUTUBE_PUBLIC_ORIGIN = 'https://movie-hub-62459.web.app'
 const YOUTUBE_PUBLIC_REPORTS = [
@@ -138,6 +140,54 @@ export async function verifyYoutubeEditorialFilmPublication({
   return {feedPresent:true,editorialLinks:hints.count,newFilmTitles:films.count}
 }
 
+/**
+ * #708: Require all 64 prepared title shards and the exact same generation as
+ * the day-index. Hosting readback probes four deterministic shards (including
+ * a populated shard when available) without re-fetching all EPG data.
+ */
+export async function verifyTvRuntimeTitlePublication({
+  fetchImpl = fetch, directory = 'public', origin = YOUTUBE_PUBLIC_ORIGIN,
+  prepared = false,
+} = {}) {
+  const index = JSON.parse(await readFile(resolve(directory, 'tv-runtime/index.json'), 'utf8'))
+  if (index?.titleShardCount !== TV_RUNTIME_TITLE_SHARD_COUNT
+    || !Number.isFinite(Date.parse(index?.generatedAt))
+    || !Number.isInteger(index?.titleShardTitleCount) || index.titleShardTitleCount < 0) {
+    throw new Error('TV full title shard index missing or invalid')
+  }
+  const shards = await Promise.all(Array.from({ length: TV_RUNTIME_TITLE_SHARD_COUNT }, async (_, i) => {
+    const key = String(i).padStart(2, '0')
+    const payload = JSON.parse(await readFile(resolve(directory, 'tv-runtime/titles', key + '.json'), 'utf8'))
+    const normalized = normalizeTvRuntimeTitleShard(payload, key)
+    if (!normalized || normalized.generatedAt !== index.generatedAt) {
+      throw new Error('TV full title shard invalid or generation mismatch: ' + key)
+    }
+    return payload
+  }))
+  if (shards.reduce((sum, shard) => sum + shard.count, 0) !== index.titleShardTitleCount) {
+    throw new Error('TV full title shard title count inconsistent with index')
+  }
+  if (!prepared) {
+    const populated = shards.find(shard => shard.count > 0)?.shard || '00'
+    const sample = new Set(['00', '31', '63', populated])
+    for (const key of sample) {
+      const url = new URL('/tv-runtime/titles/' + key + '.json', origin)
+      url.searchParams.set('watchdog', String(Date.now()))
+      const response = await fetchImpl(url, { cache: 'no-store', signal: AbortSignal.timeout(20_000) })
+      if (!response?.ok || !String(response.headers?.get('content-type') || '').includes('json')
+        || !String(response.headers?.get('cache-control') || '').includes('no-store')) {
+        throw new Error('TV full title shard not publicly accessible with no-store JSON: ' + key)
+      }
+      const actual = await response.json()
+      const expected = shards[Number(key)]
+      if (!isDeepStrictEqual(actual, expected)) {
+        throw new Error('Published generation differs from build: tv-runtime/titles/' + key + '.json')
+      }
+    }
+  }
+  return { shards: shards.length, titles: index.titleShardTitleCount }
+}
+
 export function validatePreparedGeneration(expected, { requireJoynHorizon = true, now = new Date() } = {}) {
   const scheduledAt = new Date(Math.min(Date.parse(expected[1]?.generatedAt), Date.parse(expected[2]?.generatedAt))).toISOString()
   const result = evaluatePublishedData(expected[0], expected[1], { scheduledAt, now,
@@ -162,7 +212,9 @@ export async function verifyPublishedGeneration({ fetchImpl = fetch, directory =
   const result = validatePreparedGeneration(actual, { requireJoynHorizon })
   const youtube = await verifyYoutubePublishedReports({ fetchImpl, directory })
   const youtubeEditorial = await verifyYoutubeEditorialFilmPublication({ fetchImpl, directory })
+  const titleShards = await verifyTvRuntimeTitlePublication({ fetchImpl, directory })
   console.log(`Published Waipu + Joyn generations and app indexes verified: ${result.activeTitles} active titles.`)
+  console.log(`TV full title shards published: ${titleShards.shards} shards / ${titleShards.titles} titles.`)
   console.log('YouTube published routes verified: ' + youtube.directRoutes + ' independent title links; source report present: ' + youtube.sourceReportAvailable + '.')
   console.log('YouTube editorial publication: ' + (youtubeEditorial.feedPresent ? youtubeEditorial.newFilmTitles + ' new TMDB movies / ' + youtubeEditorial.editorialLinks + ' playlist links' : 'not present') + '.')
   return result
@@ -213,6 +265,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
       validatePreparedGeneration(expected,{requireJoynHorizon})
       await verifyYoutubePublishedReports({prepared:true})
       await verifyYoutubeEditorialFilmPublication({prepared:true})
+      await verifyTvRuntimeTitlePublication({prepared:true})
       console.log('Prepared source generations, YouTube routes and app data verified before deployment.')
     }else await verifyPublishedGeneration({requireJoynHorizon})
   }
