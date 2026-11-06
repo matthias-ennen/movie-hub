@@ -1,7 +1,7 @@
 import DetailActions from './DetailActions.jsx'
 import DetailLayout from './DetailLayout.jsx'
 import TitleDescription from './TitleDescription.jsx'
-import { ProviderBadge } from '../ProviderBadges.jsx'
+import DetailLiveProviderAction from './DetailLiveProviderAction.jsx'
 import { providers } from '../../data/catalog.js'
 import { episodeNumberLabel } from '../../catalog/episodeContext.js'
 import { listDetailTvAirings, formatDetailTvAiring } from '../../tv/detailTvAiring.js'
@@ -72,21 +72,10 @@ export default function EpisodeDetail({
                   <p className="detail-tv-airing">{formatDetailTvAiring(airing)}</p>
                   {providerIds.length > 0 && <div className="provider-actions" aria-label="TV-Anbieter für diesen Termin">
                     {providerIds.map((providerId) => {
-                      const provider = providers[providerId]
-                      const label = provider.label || providerId
-                      return routes[providerId] && onOpenAiring
-                        ? <button key={providerId} type="button"
-                            className="action-button provider-action" data-focusable="true"
-                            aria-label={`${label} für diesen Sendetermin öffnen`}
-                            onClick={() => onOpenAiring(airing, providerId)}>
-                            <ProviderBadge providerId={providerId} item={providerItem} context="airing" />
-                            {label}
-                          </button>
-                        : <span key={providerId} className="provider-action provider-action-static"
-                            aria-label={`${label} für diesen Sendetermin verfügbar`}>
-                            <ProviderBadge providerId={providerId} item={providerItem} context="airing" />
-                            {label}
-                          </span>
+                      return <DetailLiveProviderAction key={providerId} providerId={providerId}
+                        item={providerItem} canLaunch={Boolean(routes[providerId])}
+                        onOpen={onOpenAiring ? () => onOpenAiring(airing, providerId) : null}
+                        subject="diesen Sendetermin" />
                     })}
                   </div>}
                 </div>
