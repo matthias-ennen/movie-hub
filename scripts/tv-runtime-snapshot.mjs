@@ -46,15 +46,21 @@ export async function writeTvRuntimeSnapshot({
 
   await rm(output, { recursive: true, force: true })
   await mkdir(resolve(output, 'days'), { recursive: true })
+  await mkdir(resolve(output, 'titles'), { recursive: true })
   await writeFile(resolve(output, 'index.json'), `${JSON.stringify(publication.index)}\n`, 'utf8')
   await writeFile(resolve(output, 'hero.json'), `${JSON.stringify(publication.hero)}\n`, 'utf8')
   for (const day of publication.days) {
     await writeFile(resolve(output, 'days', `${day.key}.json`), `${JSON.stringify(day)}\n`, 'utf8')
   }
 
+  for (const shard of publication.titleShards) {
+    await writeFile(resolve(output, 'titles', `${shard.shard}.json`), `${JSON.stringify(shard)}\n`, 'utf8')
+  }
+
+  const titleShardByteSize = publication.titleShards.reduce((total, shard) => total + Buffer.byteLength(JSON.stringify(shard)), 0)
   const heroByteSize = Buffer.byteLength(JSON.stringify(publication.hero))
   const byteSize = Buffer.byteLength(JSON.stringify(publication.index))
-    + heroByteSize
+    + heroByteSize + titleShardByteSize
     + publication.days.reduce((total, day) => total + Buffer.byteLength(JSON.stringify(day)), 0)
 
 
@@ -69,6 +75,8 @@ export async function writeTvRuntimeSnapshot({
     heroCandidates: publication.hero.count,
     heroSourceTitles: publication.hero.sourceTitleCount,
     heroByteSize,
+    titleShardCount: publication.titleShards.length,
+    titleShardByteSize,
     byteSize,
   }, null, 2) + '\n')
   return publication
