@@ -803,7 +803,14 @@ p {
   gap: var(--space-3);
 }
 
-.provider-availability-streaming {
+/* Repeated TV airings begin with the same section spacing as Streaming /
+   Mediathek; the next heading must not stick to the preceding provider badge. */
+.provider-availability-streaming,
+.detail-tv-additional-airings {
+  margin-top: var(--space-4);
+}
+
+.detail-tv-additional-airing + .detail-tv-additional-airing {
   margin-top: var(--space-4);
 }
 
