@@ -42,3 +42,18 @@ export function selectYoutubeEpisodePlaylistRoute(raw,episode,{now=Date.now()}={
     episodeTmdbId:raw.episodeTmdbId,
   }
 }
+
+/** Recheck age and exact identity at the moment of the user click.
+ * The detail dialog may stay open after a nightly revocation/expiry;
+ * never launch an already expired or replaced route from a stale button.
+ */
+export function revalidateYoutubeEpisodePlaylistRouteAtLaunch(displayed, episode, {
+  now = Date.now(),
+} = {}) {
+  const fresh = selectYoutubeEpisodePlaylistRoute(episode?.youtubePlaylistHint, episode, { now })
+  if (!fresh || !displayed?.episodeScoped
+    || displayed.episodeTmdbId !== fresh.episodeTmdbId
+    || displayed.videoId !== fresh.videoId
+    || displayed.target !== fresh.target) return null
+  return fresh
+}
