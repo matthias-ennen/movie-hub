@@ -34,6 +34,7 @@ import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } fr
 import { useAuth } from './hooks/useAuth.js'
 import { useDpadNavigation } from './hooks/useDpadNavigation.js'
 import { useCurationClock } from './hooks/useCurationClock.js'
+import { useSeasonalCalendarClock } from './hooks/useSeasonalCalendarClock.js'
 import { useProviderSelection } from './settings/useProviderSelection.js'
 import { useWaipuStationSelection } from './settings/useWaipuStationSelection.js'
 import { useJoynStationSelection } from './settings/useJoynStationSelection.js'
@@ -483,6 +484,7 @@ function MovieHub({ user }) {
     loading: sharedMediaCatalogLoading,
   } = useSharedMediaCatalog()
   const curationDayKey = useCurationClock()
+  const seasonalCalendarKey = useSeasonalCalendarClock()
   const [currentView, setCurrentView] = useState('home')
   const [settingsPage, setSettingsPage] = useState('overview')
   const filterOptions = useCatalogFilterOptions(currentView === 'search' || (currentView === 'settings' && settingsPage === 'personal'))
@@ -765,7 +767,7 @@ function MovieHub({ user }) {
   )
   const activeSeasonId = useMemo(
     () => resolveSeasonalContent(contentDisplaySettings.seasonalContent, new Date()),
-    [contentDisplaySettings.seasonalContent, curationDayKey],
+    [contentDisplaySettings.seasonalContent, seasonalCalendarKey],
   )
   const curationPeriodKey = contentDisplaySettings.autoSwitch.enabled
     ? getContentPeriodKey(contentDisplaySettings.autoSwitch.interval, new Date())
