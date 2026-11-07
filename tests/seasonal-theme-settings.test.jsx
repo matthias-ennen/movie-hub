@@ -95,7 +95,7 @@ describe('#484 seasonal independent design settings and shared calendar',()=>{
     expect(resolveSeasonalContent(withSeasonalContentEnabled(nonAuto,false),june)).toBe('classic')
     expect(normalizeContentDisplaySettings({seasonalContent:content}).seasonalContent).toEqual(content)
     expect(normalizeThemeSettings({seasonalTheme:style}).seasonalTheme).toEqual(style)
-    expect(seasonalCalendarPeriod(at('2027-01-06T22:59:00Z')).seasonId).toBe('christmas')
+    expect(seasonalCalendarPeriod(at('2027-01-06T22:59:00Z')).seasonId).toBe('newyear')
   })
 
   it('keeps seasonal visual controls on the existing Design page with effective selection',()=>{
@@ -129,7 +129,7 @@ describe('#484 seasonal independent design settings and shared calendar',()=>{
     expect(css).toContain('prefers-reduced-motion')
   })
 
-  it.each(['halloween','christmas','easter','pentecost'])(
+  it.each(['halloween','christmas','easter','pentecost','newyear','filmfestival','hollywood','summer-cinema'])(
     'keeps all accents and focus outlines readable for every base theme with %s',season=>{
       const dark=palette(css,":root[data-season='"+season+"']")
       const light=palette(css,":root[data-theme='bright'][data-season='"+season+"']")
