@@ -59,8 +59,9 @@ describe('Firebase workflow data separation', () => {
     const workflow = await readFile('.github/workflows/deploy-firebase.yml', 'utf8')
 
     expect(workflow).toContain('id: tmdb_catalog_strict')
-    expect(workflow).toContain("github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')")
-    expect(workflow).toMatch(/name: Execute canonical title priority queue[\s\S]*?if:.*github\.event_name != 'push'/)
+    expect(workflow).toContain("(github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true')")
+    expect(workflow).toContain("contains(github.event.head_commit.message, '[waipu-refresh]')")
+    expect(workflow).toMatch(/name: Execute canonical title priority queue[\s\S]*?if:.*env\.MOVIEHUB_LIGHT_MODE != 'true'/)
     expect(workflow).toContain('run: npm run title:priority:execute')
     expect(workflow).not.toContain('name: Enrich personal Movie-Hub provider metadata')
     expect(workflow).not.toContain('name: Enrich personal TMDB catalog metadata')
