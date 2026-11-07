@@ -37,7 +37,7 @@ const themeMockRequest = vi.fn(async(path,params)=>{
   const base=Number(params.with_keywords||5)*100000+(kind==='movie'?0:50000)
   return {
     total_pages:3,
-    results:Array.from({length:20},(_,i)=>({
+    results:Array.from({length:5},(_,i)=>({
       id:base+i+params.page*100,adult:false,vote_count:900,vote_average:8.4,
     })),
   }
