@@ -8,6 +8,7 @@ import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { SEASONAL_CONTENT_MODES } from '../src/catalog/seasonalContent.js'
 import { seasonalVisualAssets } from '../src/theme/seasonalPresentation.js'
+import { verifyPublicationWithBoundedConvergence } from './verify-published-data.mjs'
 
 const DEFAULT_ORIGIN='https://movie-hub-62459.web.app'
 const files=()=>SEASONAL_CONTENT_MODES.flatMap(({id})=>Object.values(seasonalVisualAssets(id)))
@@ -41,7 +42,9 @@ export async function verifySeasonalAtmospherePublication({
   return summary
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
-  verifySeasonalAtmospherePublication().catch(e=>{
+  verifyPublicationWithBoundedConvergence({
+    verify:()=>verifySeasonalAtmospherePublication(),maxAttempts:8,
+  }).catch(e=>{
     console.error('SEASONAL_ASSET_PUBLICATION_FAILED: '+e.message)
     process.exitCode=1
   })
