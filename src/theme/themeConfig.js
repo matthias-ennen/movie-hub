@@ -1,3 +1,5 @@
+import { normalizeSeasonalContent } from '../catalog/seasonalContent.js'
+
 export const THEMES = [
   { id: 'midnight', label: 'Midnight', description: 'Der aktuelle dunkle Movie-Hub-Look.' },
   { id: 'cinema', label: 'Cinema', description: 'Große Poster, großer Hero und stark visuelle Inszenierung.' },
@@ -18,6 +20,7 @@ export const AUTO_SWITCH_INTERVAL_IDS = AUTO_SWITCH_INTERVALS.map((interval) => 
 
 export const DEFAULT_THEME_SETTINGS = {
   themeId: 'midnight',
+  seasonalTheme: { enabled: false, seasonId: 'classic', autoSwitch: { enabled: true, periodKey: null } },
   autoSwitch: {
     enabled: false,
     interval: 'daily',
@@ -72,6 +75,7 @@ export function normalizeThemeSettings(value) {
 
   return {
     themeId,
+    seasonalTheme: normalizeSeasonalContent(value?.seasonalTheme),
     autoSwitch: {
       enabled: Boolean(value?.autoSwitch?.enabled),
       interval,
@@ -88,6 +92,7 @@ export function resolveThemeForStartup(value, date = new Date(), random = Math.r
   if (settings.autoSwitch.periodKey === currentPeriodKey) return settings
 
   return {
+    ...settings,
     themeId: chooseRandomTheme(settings.themeId, random),
     autoSwitch: {
       ...settings.autoSwitch,
