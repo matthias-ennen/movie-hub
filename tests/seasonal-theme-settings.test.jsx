@@ -118,7 +118,7 @@ describe('#484 seasonal independent design settings and shared calendar',()=>{
   it('reuses profile persistence, one calendar signal and existing base theme styling',()=>{
     expect(provider).toContain('updateActiveProfileThemeSettings(settings)')
     expect(provider).toContain('withManualSeasonalContent')
-    expect(provider).toContain('document.documentElement.dataset.season')
+    expect(provider).toContain('root.dataset.season = activeVisualSeason')
     expect(provider).toContain('document.documentElement.dataset.theme = settings.themeId')
     expect(provider).not.toContain('document.documentElement.dataset.theme = activeVisualSeason')
     expect(provider).toContain('useSeasonalCalendarClock()')
@@ -143,6 +143,9 @@ describe('#484 seasonal independent design settings and shared calendar',()=>{
         for(const key of ['--theme-avatar-start','--theme-avatar-end'])
           expect(contrast(currentPalette[key],'#ffffff'),`${season} avatar ${key}`).toBeGreaterThanOrEqual(4.5)
       }
-      expect(css).toContain(`data-season-preview='${season}'`)
+      expect(readFileSync(new URL('../src/components/ThemeSettings.jsx', import.meta.url), 'utf8'))
+        .toContain('data-season-preview={mode.id}')
+      expect(readFileSync(new URL('../src/styles/seasonal-atmosphere.css', import.meta.url), 'utf8'))
+        .toContain('--season-preview-art')
     })
 })
