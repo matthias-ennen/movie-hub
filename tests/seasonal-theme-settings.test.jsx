@@ -139,6 +139,10 @@ describe('#484 seasonal independent design settings and shared calendar',()=>{
       }
       for(const key of ['--color-brand-accent','--color-eyebrow','--color-focus'])
         expect(contrast(light[key],'#f3f5f8'),`${season} bright ${key}`).toBeGreaterThanOrEqual(4.5)
+      for(const currentPalette of [dark,light]) {
+        for(const key of ['--theme-avatar-start','--theme-avatar-end'])
+          expect(contrast(currentPalette[key],'#ffffff'),`${season} avatar ${key}`).toBeGreaterThanOrEqual(4.5)
+      }
       expect(css).toContain(`data-season-preview='${season}'`)
     })
   )
