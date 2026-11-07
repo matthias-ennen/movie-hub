@@ -74,13 +74,15 @@ export default function Hero({
   items,
   onOpen,
   eyebrow = 'Heute im Fokus',
+  pageId,
   onReady,
   readyEnabled = true,
   activationRequest = null,
   activationAvailabilitySettled = true,
   onActivationUnavailable,
 }) {
-  const page = visibilityPage(eyebrow)
+  const page = pageId === 'library' ? 'myContent'
+    : ['home','movies','series','tv'].includes(pageId) ? pageId : visibilityPage(eyebrow)
   const heroCount = getActiveHeroCount()
   const heroTrailerSettings = getActiveHeroTrailerSettings()
   const heroVisible = isExperienceModuleVisible(page, 'hero')
