@@ -28,6 +28,7 @@ import { buildPersonalTopTen, buildProviderTopTen } from './catalog/topTenRows.j
 import { assembleTopTenPageRows, visiblePageRows } from './catalog/pageRowContract.js'
 import { curateCatalogRows, curateTitles, hasEnabledAvailability, PUBLIC_POSTER_ROW_LIMIT } from './catalog/contentCuration.js'
 import { getContentPeriodKey, normalizeContentDisplaySettings, resolveContentSortMode } from './catalog/contentDisplaySettings.js'
+import { resolveSeasonalContent, isSeasonalRowVisible, buildThemedBrowseRows } from './catalog/seasonalContent.js'
 import { resolvePresentationArtwork } from './catalog/artworkRotation.js'
 import { rowDefinitions as fallbackRowDefinitions, titles as fallbackTitles } from './data/catalog.js'
 import { useAuth } from './hooks/useAuth.js'
@@ -762,6 +763,10 @@ function MovieHub({ user }) {
     () => resolveContentSortMode(contentDisplaySettings, activeProfile?.id, new Date()),
     [contentDisplaySettings, activeProfile?.id, curationDayKey],
   )
+  const activeSeasonId = useMemo(
+    () => resolveSeasonalContent(contentDisplaySettings.seasonalContent, new Date()),
+    [contentDisplaySettings.seasonalContent, curationDayKey],
+  )
   const curationPeriodKey = contentDisplaySettings.autoSwitch.enabled
     ? getContentPeriodKey(contentDisplaySettings.autoSwitch.interval, new Date())
     : 'manual'
@@ -1064,15 +1069,24 @@ function MovieHub({ user }) {
   }), [catalog.providerCatalogs, titles, liveAvailabilityClock, acceptLiveProvider])
   const titlesById = useMemo(() => new Map(titles.map(item => [item.id, item])), [titles])
   const rawHomeRows = useMemo(
-    () => prepareRowsForActiveView(currentView, 'home', () => [
-      ...buildProviderHomeRows(providerCatalogModel, titles),
-      ...rowDefinitions.filter((row) => !row.providerId).map((row) => ({
-        ...row,
-        displayLimit: Array.isArray(row.ids) ? row.ids.length : 0,
-        items: (Array.isArray(row.ids) ? row.ids : []).map((id) => titlesById.get(id)).filter(Boolean),
-      })),
-    ].filter((row) => row.items.length)),
-    [providerCatalogModel, currentView, rowDefinitions, titles, titlesById, activeProfile?.experienceSettings?.posterRowLimit],
+    () => prepareRowsForActiveView(currentView, 'home', () => {
+      const themed = rowDefinitions.filter(row => !row.providerId
+        && isSeasonalRowVisible(row, activeSeasonId)).map(row => ({
+          ...row,
+          displayLimit: Array.isArray(row.ids) ? row.ids.length : 0,
+          items: (Array.isArray(row.ids) ? row.ids : [])
+            .map(id => titlesById.get(id)).filter(Boolean),
+        }))
+      // Seasonal rows sit before regular provider rows but use the same
+      // availability, curation and Fire-TV poster-row mechanisms.
+      return [
+        ...themed.filter(row => row.seasonId),
+        ...buildProviderHomeRows(providerCatalogModel, titles),
+        ...themed.filter(row => !row.seasonId),
+      ].filter(row => row.items.length)
+    }),
+    [providerCatalogModel, currentView, rowDefinitions, titles, titlesById,
+      activeSeasonId, activeProfile?.experienceSettings?.posterRowLimit],
   )
   const personalMetadataTitles = useMemo(
     () => preparePersonalSmartTitles(mergeCatalogWithPersonalSnapshots(preLiveTitles, statesByKey)),
@@ -1440,13 +1454,22 @@ function MovieHub({ user }) {
     })),
     [titles, activeProfile?.categorySettings?.enabledSeriesCategoryIds, activeProfile?.categorySettings?.seriesCategoryOrder, enabledProviderIds, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey, activeProfile?.experienceSettings?.posterRowLimit],
   )
+  const themedBrowseRows = useMemo(
+    () => ({
+      movies: buildThemedBrowseRows(rowDefinitions, titlesById,
+        activeSeasonId, 'movie', item => hasEnabledAvailability(item, enabledProviderIds, hasMovieHubTitle)),
+      series: buildThemedBrowseRows(rowDefinitions, titlesById,
+        activeSeasonId, 'series', item => hasEnabledAvailability(item, enabledProviderIds, hasMovieHubTitle)),
+    }),
+    [rowDefinitions, titlesById, activeSeasonId, enabledProviderIds, hasMovieHubTitle],
+  )
   const movieBrowseBaseRows = useMemo(
     () => prepareRowsForActiveView(
       currentView,
       'movies',
-      () => [...movieCategoryRows, ...movieHubMovieRows, ...providerMovieRows],
+      () => [...themedBrowseRows.movies, ...movieCategoryRows, ...movieHubMovieRows, ...providerMovieRows],
     ),
-    [currentView, movieCategoryRows, movieHubMovieRows, providerMovieRows],
+    [currentView, themedBrowseRows, movieCategoryRows, movieHubMovieRows, providerMovieRows],
   )
   const movieBrowseRows = useMemo(
     () => prepareRowsForActiveView(currentView, 'movies', () => assembleTopTenPageRows({
@@ -1464,9 +1487,9 @@ function MovieHub({ user }) {
     () => prepareRowsForActiveView(
       currentView,
       'series',
-      () => [...seriesCategoryRows, ...movieHubSeriesRows, ...providerSeriesRows],
+      () => [...themedBrowseRows.series, ...seriesCategoryRows, ...movieHubSeriesRows, ...providerSeriesRows],
     ),
-    [currentView, seriesCategoryRows, movieHubSeriesRows, providerSeriesRows],
+    [currentView, themedBrowseRows, seriesCategoryRows, movieHubSeriesRows, providerSeriesRows],
   )
   const seriesBrowseRows = useMemo(
     () => prepareRowsForActiveView(currentView, 'series', () => assembleTopTenPageRows({
