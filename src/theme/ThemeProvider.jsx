@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import { useSeasonalCalendarClock } from '../hooks/useSeasonalCalendarClock.js'
 import { seasonalVisualAssets } from './seasonalPresentation.js'
+import { isCinematicSeasonMediaReady } from './seasonalMediaManifest.js'
 import {
   SEASONAL_CONTENT_MODES,
   resolveSeasonalContent,
@@ -65,6 +66,7 @@ export function ThemeProvider({ children }) {
     const root = document.documentElement
     root.dataset.season = activeVisualSeason
     root.dataset.seasonEnabled = settings.seasonalTheme.enabled ? 'true' : 'false'
+    root.dataset.seasonMedia = isCinematicSeasonMediaReady(activeVisualSeason) ? 'cinematic' : 'legacy'
     const artwork = seasonalVisualAssets(activeVisualSeason)
     root.style.setProperty('--season-wallpaper', `url("${artwork.wallpaper}")`)
     root.style.setProperty('--season-corner', `url("${artwork.corner}")`)
@@ -72,6 +74,7 @@ export function ThemeProvider({ children }) {
       if (root.dataset.season === activeVisualSeason) {
         delete root.dataset.season
         delete root.dataset.seasonEnabled
+        delete root.dataset.seasonMedia
         root.style.removeProperty('--season-wallpaper')
         root.style.removeProperty('--season-corner')
       }
