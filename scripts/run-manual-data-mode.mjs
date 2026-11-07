@@ -20,7 +20,9 @@ import {
 import { SEARCH_DETAIL_BUCKET_COUNT } from '../src/search/lazySearchDetails.js'
 
 export const MANUAL_DATA_MODES = Object.freeze(['compact', 'themes'])
-export const MAX_TARGETED_NEW_TITLE_DETAILS = 80
+// Nine thematic strategies (eight seasons + quality) × movie/TV × up to 8
+// provider-verified titles per row; a hard ceiling, not a minimum target.
+export const MAX_TARGETED_NEW_TITLE_DETAILS = 144
 const THEMATIC_ROW_PREFIX = 'themed-'
 const hasProvider = item => Array.isArray(item?.providerIds) && item.providerIds.length > 0
 const tmdbKey = item => `${item?.type === 'series' || item?.mediaType === 'tv' ? 'tv' : 'movie'}:${Number(item?.tmdbId ?? item?.id)}`
@@ -158,7 +160,7 @@ async function atomicJson(path, value) {
 /**
  * Explicit mode entry point: compact performs zero TMDB/YouTube requests.
  * Targeted mode performs <=8 keyword+36 discovery pages, followed by
- * <=80 canonical title resolutions (four TMDB endpoints each before retries).
+ * <=144 canonical title resolutions (four TMDB endpoints each before retries).
  */
 export async function runManualDataMode({
   mode, root = resolve('public'), request = tmdbFetch,
