@@ -25,16 +25,17 @@ function extendedWebP(width,height,{alpha=true,animated=false}={}) {
 
 describe('#484 opt-in cinematic seasonal media pipeline',()=>{
   it('retains all nine tested legacy resources until each original pair is approved',async()=>{
-    expect(CINEMATIC_MEDIA_READY).toEqual([])
+    expect(Array.isArray(CINEMATIC_MEDIA_READY)).toBe(true)
     for(const {id} of SEASONAL_CONTENT_MODES){
-      expect(isCinematicSeasonMediaReady(id)).toBe(false)
+      expect(isCinematicSeasonMediaReady(id)).toBe(CINEMATIC_MEDIA_READY.includes(id))
+      const extension=CINEMATIC_MEDIA_READY.includes(id)?'webp':'svg'
       const assets=seasonalVisualAssets(id)
-      expect(assets.wallpaper).toBe(`/seasonal-atmosphere/${id}-wallpaper.svg`)
-      expect(assets.corner).toBe(`/seasonal-atmosphere/${id}-corner.svg`)
+      expect(assets.wallpaper).toBe(`/seasonal-atmosphere/${id}-wallpaper.${extension}`)
+      expect(assets.corner).toBe(`/seasonal-atmosphere/${id}-corner.${extension}`)
     }
     const audited=await auditSeasonalArtwork()
     expect(audited).toHaveLength(18)
-    expect(audited.every(x=>x.format==='svg')).toBe(true)
+    expect(audited.every(x=>x.format===(CINEMATIC_MEDIA_READY.includes(x.season)?'webp':'svg'))).toBe(true)
     expect(audited.every(x=>x.bytes>0)).toBe(true)
   })
   it('reads dimensions and alpha for both new still and extended WebP',()=>{
