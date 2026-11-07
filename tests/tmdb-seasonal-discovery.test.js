@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { readFileSync } from 'node:fs'
@@ -9,6 +9,7 @@ import {
   SEASONAL_PAGE_BUDGET,
 } from '../scripts/tmdb-seasonal-discovery.mjs'
 import { buildThemedBrowseRows } from '../src/catalog/seasonalContent.js'
+import { restoreLiveSeasonalDiscovery } from '../scripts/restore-live-seasonal-discovery.mjs'
 
 const keywords={ halloween:11, christmas:22, easter:33, pentecost:44 }
 const request=vi.fn(async(path,params)=>{
@@ -115,5 +116,62 @@ describe('#728 bounded weekly seasonal TMDB discovery',()=>{
     expect(workflow).toContain('node scripts/restore-live-seasonal-discovery.mjs')
     expect(workflow.indexOf('Restore last published seasonal TMDB discovery snapshot'))
       .toBeLessThan(workflow.indexOf('Generate TMDB catalog for strict refresh'))
+  })
+})
+
+
+describe('#728 Firebase first-publish seasonal snapshot bootstrap',()=>{
+  async function fixture(rows,run){
+    const dir=await mkdtemp(join(tmpdir(),'moviehub-seasonal-bootstrap-'))
+    const catalogPath=join(dir,'catalog.json')
+    try {
+      if(rows!==undefined)
+        await writeFile(catalogPath,JSON.stringify({ rowDefinitions: rows }))
+      await run({catalogPath,path:join(dir,'seasonal.json')})
+    } finally {await rm(dir,{recursive:true,force:true})}
+  }
+  const spaFallback=vi.fn(async()=>({
+    ok:true,status:200,headers:{get: key=>key==='content-type'?'text/html; charset=utf-8':null},
+  }))
+  const notFound=vi.fn(async()=>({
+    ok:false,status:404,headers:{get:()=> 'text/html'},
+  }))
+  it('recognizes Firebase SPA HTML as missing only during first canonical publication',async()=>{
+    await fixture([{id:'provider-prime'}],async files=>{
+      await expect(restoreLiveSeasonalDiscovery({
+        ...files,request:spaFallback,
+      })).resolves.toBeNull()
+      await expect(restoreLiveSeasonalDiscovery({
+        ...files,request:notFound,
+      })).resolves.toBeNull()
+    })
+  })
+  it('fails closed if a previous catalog already published themed or quality rows',async()=>{
+    await fixture([{id:'themed-christmas-movies',seasonId:'christmas'}],async files=>{
+      await expect(restoreLiveSeasonalDiscovery({
+        ...files,request:spaFallback,
+      })).rejects.toThrow('SEASONAL_SNAPSHOT_MISSING_FOR_PUBLISHED_THEME_ROWS')
+    })
+    await fixture([{id:'themed-quality-series',discoveryKind:'quality'}],async files=>{
+      await expect(restoreLiveSeasonalDiscovery({
+        ...files,request:notFound,
+      })).rejects.toThrow('SEASONAL_SNAPSHOT_MISSING_FOR_PUBLISHED_THEME_ROWS')
+    })
+  })
+  it('never allows bootstrap without proof from a valid canonical catalog',async()=>{
+    await fixture(undefined,async files=>{
+      await expect(restoreLiveSeasonalDiscovery({
+        ...files,request:spaFallback,
+      })).rejects.toThrow()
+    })
+  })
+  it('fails on real HTTP/server errors, not treating them as bootstrap',async()=>{
+    await fixture([],async files=>{
+      await expect(restoreLiveSeasonalDiscovery({
+        ...files,request:vi.fn(async()=>({
+          ok:false,status:503,headers:{get:()=> 'text/html'},
+        })),
+      })).rejects.toThrow('SEASONAL_SNAPSHOT_FETCH_FAILED_CLOSED')
+    })
   })
 })
