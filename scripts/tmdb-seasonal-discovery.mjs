@@ -148,7 +148,7 @@ export async function readSeasonalDiscovery(path=resolve(SEASONAL_DISCOVERY_FILE
 }
 
 export async function refreshSeasonalDiscovery({
-  request, now=new Date(), path=resolve(SEASONAL_DISCOVERY_FILE), force=false,
+  request, now=new Date(), path=resolve(SEASONAL_DISCOVERY_FILE), force=false, requireFresh=false,
 }={}){
   const previous=await readSeasonalDiscovery(path)
   const current=now instanceof Date?now:new Date(now)
