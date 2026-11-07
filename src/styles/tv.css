@@ -8,7 +8,9 @@
   padding-bottom: calc(var(--poster-focus-safe) + var(--space-2));
   padding-left: var(--poster-focus-safe);
   scroll-padding-inline: var(--poster-focus-safe);
-  scroll-behavior: smooth;
+  /* Default/programmatic reflow restoration must not animate. D-pad
+     navigation requests smooth scrolling explicitly when appropriate. */
+  scroll-behavior: auto;
 }
 
 .hero-carousel,

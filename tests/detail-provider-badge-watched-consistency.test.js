@@ -2,7 +2,7 @@ import {describe,it,expect} from 'vitest'
 import {readFileSync} from 'node:fs'
 
 const detail=readFileSync(new URL('../src/components/DetailModal.jsx',import.meta.url),'utf8')
-const streaming=detail.match(/function openStreamingProvider\(providerId\) \{([\s\S]*?)\n  \}\n/)?.[1]
+const streaming=detail.match(/function openStreamingProvider\(providerId(?:, episodeForRoute = selectedEpisode)?\) \{([\s\S]*?)\n  \}\n/)?.[1]
 const live=detail.match(/function openLiveProvider\(providerId\) \{([\s\S]*?)\n  \}\n/)?.[1]
 
 describe('detail page: provider badge click always marks watched',()=>{

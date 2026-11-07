@@ -37,6 +37,17 @@ export default function InitialHomeFocus() {
     let done = false
     let observer = null
     let legacyFallbackTimer = null
+    // The legacy native startup handshake may arrive up to 12 seconds late.
+    // It must never override a deliberate tab click or D-pad selection.
+    const cancelForUserIntent = () => {
+      done = true
+      observer?.disconnect()
+      observer = null
+      if (legacyFallbackTimer !== null) window.clearTimeout(legacyFallbackTimer)
+    }
+    window.addEventListener('keydown', cancelForUserIntent, true)
+    window.addEventListener('pointerdown', cancelForUserIntent, true)
+    window.addEventListener('touchstart', cancelForUserIntent, true)
 
     const focusInitialTarget = () => {
       if (done) return true
@@ -84,6 +95,9 @@ export default function InitialHomeFocus() {
     }
 
     return () => {
+      window.removeEventListener('keydown', cancelForUserIntent, true)
+      window.removeEventListener('pointerdown', cancelForUserIntent, true)
+      window.removeEventListener('touchstart', cancelForUserIntent, true)
       observer?.disconnect()
       window.removeEventListener(INITIAL_HOME_FOCUS_EVENT, handleNativeStartupFocus)
       if (legacyFallbackTimer !== null) window.clearTimeout(legacyFallbackTimer)

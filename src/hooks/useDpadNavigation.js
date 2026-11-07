@@ -7,6 +7,7 @@ const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
 const BACK_KEYS = new Set(['Escape', 'BrowserBack', 'GoBack'])
 const DPAD_REPEAT_INTERVAL_MS = 90
 const VIRTUAL_ROW_FOCUS_RETRIES = 10
+let virtualRowFocusGeneration = 0
 
 function isEditable(element) {
   if (!element) return false
@@ -151,7 +152,12 @@ function focusCandidate(candidate, { posterHorizontal = 'center', scrollBehavior
 
   if (isPoster && !isInsideDialog) {
     scrollPageToPosterCandidate(candidate, scrollBehavior)
-    window.requestAnimationFrame(() => scrollPosterTrackToCandidate(candidate, posterHorizontal, scrollBehavior))
+    window.requestAnimationFrame(() => {
+      // Older focus requests must never scroll a row after focus moved on.
+      if (candidate.isConnected && document.activeElement === candidate) {
+        scrollPosterTrackToCandidate(candidate, posterHorizontal, scrollBehavior)
+      }
+    })
     return
   }
 
@@ -254,7 +260,11 @@ function focusMountedPosterRow(targetRowIndex, active, scrollBehavior = 'smooth'
   return true
 }
 
-function focusVirtualPosterRow(targetRowIndex, sourceCenterX, scrollBehavior = 'smooth', attempt = 0) {
+function focusVirtualPosterRow(
+  targetRowIndex, sourceCenterX, scrollBehavior = 'smooth', attempt = 0,
+  generation = virtualRowFocusGeneration, originPage = null,
+) {
+  if (generation !== virtualRowFocusGeneration || (originPage && !originPage.isConnected)) return
   const targetTrack = document.querySelector(`.content-row[data-row-index="${targetRowIndex}"] .poster-track`)
   const targetCards = getPosterCards(targetTrack)
 
@@ -267,7 +277,9 @@ function focusVirtualPosterRow(targetRowIndex, sourceCenterX, scrollBehavior = '
   }
 
   if (attempt >= VIRTUAL_ROW_FOCUS_RETRIES) return
-  window.requestAnimationFrame(() => focusVirtualPosterRow(targetRowIndex, sourceCenterX, scrollBehavior, attempt + 1))
+  window.requestAnimationFrame(() => focusVirtualPosterRow(
+    targetRowIndex, sourceCenterX, scrollBehavior, attempt + 1, generation, originPage,
+  ))
 }
 
 function requestAndFocusPosterRow(active, currentTrack = null, direction = 1, scrollBehavior = 'smooth') {
@@ -284,10 +296,12 @@ function requestAndFocusPosterRow(active, currentTrack = null, direction = 1, sc
   window.dispatchEvent(new CustomEvent(PROGRESSIVE_ROW_REQUEST_EVENT, { detail }))
   if (!detail.handled || !Number.isInteger(detail.targetRowIndex)) return false
 
+  // The virtualizer may mount the requested row several frames later. Cancel
+  // this deferred focus as soon as any subsequent user intent wins.
+  const generation = ++virtualRowFocusGeneration
+  const originPage = document.querySelector('main[data-content-page]')
   window.requestAnimationFrame(() => focusVirtualPosterRow(
-    detail.targetRowIndex,
-    sourceCenterX,
-    scrollBehavior,
+    detail.targetRowIndex, sourceCenterX, scrollBehavior, 0, generation, originPage,
   ))
   return true
 }
@@ -434,11 +448,17 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
     const initialFocus = window.requestAnimationFrame(() => {
       const active = document.activeElement
       if (!active || active === document.body) {
-        focusCandidate(getPreferredTopbarTarget() || getFocusableCandidates(null)[0])
+        // Initial browser focus must not trigger an unsolicited page scroll.
+        (getPreferredTopbarTarget() || getFocusableCandidates(null)[0])?.focus({ preventScroll: true })
       }
     })
 
     function handleKeyDown(event) {
+      // Any new navigation/activation supersedes unresolved virtual row focus.
+      if (ARROW_KEYS.has(event.key) || BACK_KEYS.has(event.key)
+        || event.key === 'Enter' || event.key === 'Backspace') {
+        virtualRowFocusGeneration += 1
+      }
       const active = document.activeElement
       const editable = isEditable(active)
       const isBackspaceNavigation = event.key === 'Backspace' && !editable
@@ -565,14 +585,20 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
         recordPerformanceEvent('navigation:frame', { key: event.key, durationMs: performance.now() - startedAt })
       })
     }
+    const cancelVirtualFocus = () => { virtualRowFocusGeneration += 1 }
     window.addEventListener('keydown', measuredKeyDown)
     window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('pointerdown', cancelVirtualFocus, true)
+    window.addEventListener('touchstart', cancelVirtualFocus, true)
     window.addEventListener('blur', resetRepeatState)
     return () => {
+      cancelVirtualFocus()
       window.cancelAnimationFrame(initialFocus)
       if (navigationFrame !== null) window.cancelAnimationFrame(navigationFrame)
       window.removeEventListener('keydown', measuredKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('pointerdown', cancelVirtualFocus, true)
+      window.removeEventListener('touchstart', cancelVirtualFocus, true)
       window.removeEventListener('blur', resetRepeatState)
     }
   }, [detailOpen, profileMenuOpen, exitDialogOpen, onBack])

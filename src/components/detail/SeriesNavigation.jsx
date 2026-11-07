@@ -10,6 +10,8 @@ export default function SeriesNavigation({
   item, seasons, selectedSeason, selectedEpisode, onSelectEpisode, onSelectSeason, onBeginNavigation,
   titleAirings = null, airingsStatus = null, airingsNow = Date.now(),
   onOpenEpisodeAiring, isProviderEnabled = () => true,
+  streamingProviderIds = [], titleProviderItem = null, showMovieHubProvider = false,
+  onOpenMovieHub = null, movieHubActionLabel = undefined, onOpenStreamingProvider = null,
 }) {
   const [picker, setPicker] = useState(null)
   const [detail, setDetail] = useState(null)
@@ -120,6 +122,9 @@ export default function SeriesNavigation({
         titleAirings={titleAirings} airingsStatus={airingsStatus}
         onClose={() => setEpisode(null)}
         onOpenAiring={onOpenEpisodeAiring}
+        streamingProviderIds={streamingProviderIds} titleProviderItem={titleProviderItem}
+        showMovieHubProvider={showMovieHubProvider} onOpenMovieHub={onOpenMovieHub}
+        movieHubActionLabel={movieHubActionLabel} onOpenStreamingProvider={onOpenStreamingProvider}
         isProviderEnabled={isProviderEnabled} />
     </DetailDialog>}
   </>

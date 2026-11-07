@@ -13,17 +13,16 @@ import { useAuth } from '../hooks/useAuth.js'
 import { loadSharedMedia, removeSharedMedia, saveSharedMedia } from '../library/sharedMedia.js'
 import { isSmbMediaUrl, normaliseMedia } from '../library/sharedMediaModel.js'
 import { launchMovieHubMedia } from '../library/providerMediaLaunch.js'
-import { ProviderBadge } from './ProviderBadges.jsx'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { useWaipuStationSelection } from '../settings/useWaipuStationSelection.js'
 import { useJoynStationSelection } from '../settings/useJoynStationSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
-import { selectYoutubeEpisodePlaylistRoute, revalidateYoutubeEpisodePlaylistRouteAtLaunch, EPISODE_YOUTUBE_MODE_LABELS } from '../providers/youtubeEpisodePlaylistRoute.js'
+import { selectYoutubeEpisodePlaylistRoute, revalidateYoutubeEpisodePlaylistRouteAtLaunch } from '../providers/youtubeEpisodePlaylistRoute.js'
 import { orderProviderIds } from '../providers/providerPresentation.js'
 import { useYoutubeVerifiedOffers, useYoutubeCuratedEditorialHints, useYoutubeBestEffortLinks } from '../providers/YoutubeVerifiedOffersContext.jsx'
-import { enrichTitleProviderRoutes, TITLE_ROUTE_EVIDENCE } from '../providers/titleProviderRouteEnrichment.js'
+import { enrichTitleProviderRoutes } from '../providers/titleProviderRouteEnrichment.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { includedSwitchShownAsOn, ignoreCompletedIncludedClick } from '../notifications/includedSwitchSession.js'
@@ -38,6 +37,7 @@ import DetailCard from './detail/DetailCard.jsx'
 import DetailActions, { DialogHeading } from './detail/DetailActions.jsx'
 import SeriesNavigation from './detail/SeriesNavigation.jsx'
 import DetailLiveProviderAction from './detail/DetailLiveProviderAction.jsx'
+import StreamingProviderActions from './detail/StreamingProviderActions.jsx'
 import { availableSeriesSeasons } from '../catalog/seriesAvailability.js'
 import TitleAlertDialog from './detail/TitleAlertDialog.jsx'
 import TitleEditor from './detail/TitleEditor.jsx'
@@ -391,29 +391,34 @@ export default function DetailModal({
     // Selecting an episode never marks the WHOLE series as watched.
     // Re-check the displayed hint at click time: a long-open dialog must
     // not launch a link after expiry or a changed canonical episode.
-    if (!isProviderEnabled('youtube')) return
+    if (!isProviderEnabled('youtube')) return false
     const fresh = revalidateYoutubeEpisodePlaylistRouteAtLaunch(route, episode, {
       now: Date.now(),
     })
-    if (!fresh) return
+    if (!fresh) return false
     if (launchProviderPlaybackRoute({
       providerId:'youtube',title:episode.title,route:fresh,
       fallbackUrl:fresh.target,
-    })) return
+    })) return true
     if (window.MovieHubNative?.openExternalUrl) {
       window.MovieHubNative.openExternalUrl(fresh.target)
     } else {
       window.open(fresh.target,'_blank','noopener,noreferrer')
     }
+    return true
   }
 
-  function openStreamingProvider(providerId) {
-    // Reuse the standard YouTube button while taking its route from the
-    // selected episode, never from the series-wide title search/index.
-    if (providerId === 'youtube' && selectedEpisodeYoutubeRoute) {
-      openExactYoutubeEpisode(selectedEpisodeYoutubeRoute, selectedEpisode)
-      return
-    }
+  function openStreamingProvider(providerId, episodeForRoute = selectedEpisode) {
+    // Resolve from the selected canonical episode (including the nested
+    // episode dialog). No provider is hidden when only a series fallback exists.
+    const episodeRoute = providerId === 'youtube'
+      && Number(episodeForRoute?.seriesTmdbId) === Number(item.tmdbId)
+      && isProviderEnabled('youtube')
+      ? (episodeForRoute === selectedEpisode
+        ? selectedEpisodeYoutubeRoute
+        : selectYoutubeEpisodePlaylistRoute(episodeForRoute?.youtubePlaylistHint, episodeForRoute))
+      : null
+    if (episodeRoute && openExactYoutubeEpisode(episodeRoute, episodeForRoute)) return
     const destination = getProviderDestination(providerId, item.title, {
       waipuMode: 'vod',
     })
@@ -589,6 +594,14 @@ export default function DetailModal({
             onSelectSeason={seasonNumber => setManualEpisode({ seasonNumber, episodeNumber: null, title: '' })}
             titleAirings={filteredTitleAirings} airingsStatus={currentTitleLoad?.status}
             airingsNow={liveAvailabilityNow} onOpenEpisodeAiring={openAdditionalLiveAiring}
+            streamingProviderIds={titleStreamingProviderIds}
+            titleProviderItem={titleWithVerifiedOffers}
+            showMovieHubProvider={showMovieHubProvider}
+            onOpenMovieHub={() => sharedMedia.length === 1 ? launchMedia(sharedMedia[0]) : setMediaPickerOpen(true)}
+            movieHubActionLabel={sharedMedia.length === 1
+              ? `${sharedMedia[0].label} über Movie Hub öffnen`
+              : 'Eigene Movie-Hub-Links und Videos auswählen'}
+            onOpenStreamingProvider={openStreamingProvider}
             isProviderEnabled={isProviderEnabled} />}
 
           {hasFilmCollection && (
@@ -680,49 +693,16 @@ export default function DetailModal({
           {(showMovieHubProvider || hasStreamingProviders) && (
             <section className={hasTvAiring ? 'provider-availability-group provider-availability-streaming' : 'provider-availability-group'} aria-label="Streaming und Mediathek">
               <p className="settings-kicker">Streaming / Mediathek</p>
-              <div className="provider-actions" aria-label="Streaming- und Mediathek-Anbieter">
-                {showMovieHubProvider && (
-                  <button
-                    type="button"
-                    className="action-button provider-action movie-hub-action"
-                    data-focusable="true"
-                    onClick={() => sharedMedia.length === 1 ? launchMedia(sharedMedia[0]) : setMediaPickerOpen(true)}
-                    aria-label={sharedMedia.length === 1 ? `${sharedMedia[0].label} über Movie Hub öffnen` : 'Eigene Movie-Hub-Links und Videos auswählen'}
-                  >
-                    <ProviderBadge providerId="moviehub" item={item} />
-                    Movie Hub
-                  </button>
-                )}
-                {streamingProviderIds.map((providerId) => {
-                  const provider = providers[providerId]
-                  if (!provider) return null
-                  const possibleYoutubeLink = providerId === 'youtube'
-                    && titleWithVerifiedOffers.titleProviderRouteEvidence?.youtube?.source
-                      === TITLE_ROUTE_EVIDENCE.BEST_EFFORT
-                  return (
-                    <button
-                      type="button"
-                      key={providerId}
-                      className="action-button provider-action"
-                      data-focusable="true"
-                      onClick={() => openStreamingProvider(providerId)}
-                      aria-label={providerId === 'youtube' && selectedEpisodeYoutubeRoute
-                        ? `YouTube für Staffel ${selectedEpisode.seasonNumber}, Folge ${selectedEpisode.episodeNumber} öffnen`
-                        : providerId === 'youtube' && titleWithVerifiedOffers.curatedPlaylistTitleOffer
-                        ? 'YouTube-Playlist-Link öffnen (Playlist-Klasse ' + (titleWithVerifiedOffers.curatedPlaylistTitleOffer.playlistMode === 'free' ? 'FREE' : 'R&B') + '; Filmfassung und Wiedergabe nicht unabhängig bestätigt)'
-                        : possibleYoutubeLink
-                          ? 'Möglichen YouTube-Filmtreffer öffnen (Zuordnung und Wiedergabe nicht garantiert)'
-                          : `${provider.label} als Streaming- oder Mediathek-Anbieter öffnen`}
-                    >
-                      <ProviderBadge providerId={providerId} item={titleWithVerifiedOffers} context="title"
-                        resolvedOfferLabel={providerId === 'youtube' && selectedEpisodeYoutubeRoute
-                          ? EPISODE_YOUTUBE_MODE_LABELS[selectedEpisodeYoutubeRoute.playlistMode]
-                          : undefined} />
-                      {provider.label}
-                    </button>
-                  )
-                })}
-              </div>
+              <StreamingProviderActions
+                item={titleWithVerifiedOffers} providerIds={streamingProviderIds}
+                episode={selectedEpisode} youtubeEpisodeRoute={selectedEpisodeYoutubeRoute}
+                showMovieHubProvider={showMovieHubProvider}
+                onOpenMovieHub={() => sharedMedia.length === 1 ? launchMedia(sharedMedia[0]) : setMediaPickerOpen(true)}
+                movieHubActionLabel={sharedMedia.length === 1
+                  ? `${sharedMedia[0].label} über Movie Hub öffnen`
+                  : 'Eigene Movie-Hub-Links und Videos auswählen'}
+                onOpenProvider={openStreamingProvider}
+              />
             </section>
           )}
           {!showMovieHubProvider && !hasProviders && !hasTvAiring && (

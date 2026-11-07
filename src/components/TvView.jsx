@@ -22,6 +22,8 @@ export function TvProgramContent({
 
   return (
     <section className="browse-page tv-program-content">
+      <PeriodSelector periods={periods} selectedPeriodId={selectedPeriodId}
+        onPeriodChange={onPeriodChange} />
       {status === 'loading' && (
         <section className="library-empty-state tv-program-empty" aria-live="polite">
           <p className="settings-kicker">TV-Programm</p>
@@ -47,14 +49,7 @@ export function TvProgramContent({
       )}
 
       {status === 'ready' && (
-        <>
-          <PeriodSelector
-            periods={periods}
-            selectedPeriodId={selectedPeriodId}
-            onPeriodChange={onPeriodChange}
-          />
-
-          {rowCount === 0 ? (
+        rowCount === 0 ? (
             <section className="library-empty-state tv-program-empty">
               <p className="settings-kicker">Keine Sendetermine</p>
               <h2>Für diesen Zeitraum wurden keine zugeordneten Filme oder Serien gefunden.</h2>
@@ -66,8 +61,7 @@ export function TvProgramContent({
               onOpen={onOpen}
               className="rows-wrap tv-program-rows"
             />
-          )}
-        </>
+          )
       )}
     </section>
   )
