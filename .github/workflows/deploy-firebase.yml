@@ -14,14 +14,20 @@ on:
         type: string
         required: false
         default: 'unknown'
+      data_mode:
+        type: string
+        required: false
+        default: 'standard'
   workflow_dispatch:
     inputs:
       data_mode:
-        description: Datenaufbau pro Lauf
+        description: "Manuell: Kompakt, TMDB-Themen, Vollständig oder beschleunigt"
         required: true
         default: standard
         type: choice
         options:
+          - compact
+          - themes
           - standard
           - accelerated
 
@@ -68,6 +74,7 @@ jobs:
     env:
       DATA_CHECKPOINT_BUCKET: ${{ vars.MOVIE_HUB_CHECKPOINT_BUCKET }}
       DATA_CHECKPOINT_ENABLED: ${{ vars.MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED }}
+      MOVIEHUB_LIGHT_MODE: ${{ github.event_name == 'workflow_dispatch' && (inputs.data_mode == 'compact' || inputs.data_mode == 'themes') && 'true' || 'false' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -109,7 +116,7 @@ jobs:
           restore-keys: title-candidate-state-v1-
 
       - name: Restore persistent TMDB change state
-        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
+        if: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         id: tmdb_change_cache
         uses: actions/cache/restore@v6
         with:
@@ -121,7 +128,7 @@ jobs:
       # refresh path when workflow_dispatch is unavailable. Ordinary code pushes
       # keep skipping the comparatively expensive live Waipu import.
       - name: Restore persistent Waipu import state
-        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
+        if: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         id: waipu_cache
         uses: actions/cache/restore@v6
         with:
@@ -138,7 +145,7 @@ jobs:
             waipu-seven-v1-
 
       - name: Authenticate for private checkpoint restore
-        if: ${{ (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
+        if: ${{ ((github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
         uses: google-github-actions/auth@v3
         with:
           project_id: movie-hub-62459
@@ -146,15 +153,15 @@ jobs:
           service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
 
       - name: Restore verified private TMDB checkpoint
-        if: ${{ (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
+        if: ${{ ((github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
         run: node scripts/durable-data-checkpoint.mjs restore tmdb
 
       - name: Restore verified private Waipu checkpoint and cache
-        if: ${{ (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
+        if: ${{ ((github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
         run: node scripts/durable-data-checkpoint.mjs restore waipu
 
       - name: Seed verified Waipu stability history
-        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
+        if: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         run: |
           mkdir -p artifacts/waipu-sync
           if [ ! -f artifacts/waipu-sync/checkpoint.json ]; then
@@ -168,7 +175,7 @@ jobs:
         run: npm run joyn:restore
 
       - name: Restore persistent Joyn import state
-        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
+        if: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
         uses: actions/cache/restore@v6
         with:
           path: |
@@ -180,11 +187,11 @@ jobs:
           restore-keys: joyn-14-v1-
 
       - name: Restore verified private Joyn checkpoint and cache
-        if: ${{ (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
+        if: ${{ ((github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' }}
         run: node scripts/durable-data-checkpoint.mjs restore joyn
 
       - name: Restore validated live TMDB data for code deploy
-        if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') }}
+        if: ${{ (github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]')) || env.MOVIEHUB_LIGHT_MODE == 'true' }}
         run: npm run tmdb:restore
 
       - name: Restore incremental search-detail metadata
@@ -205,19 +212,30 @@ jobs:
       # YouTube summary; private QA is intentionally NOT regenerated here.
       - name: Restore published YouTube episode and film search projections for code-only deploy
         id: youtube_code_projection_restore
-        if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') && !contains(github.event.head_commit.message, '[episode-refresh]') && !contains(github.event.head_commit.message, '[youtube-refresh]') }}
+        if: ${{ (github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') && !contains(github.event.head_commit.message, '[episode-refresh]') && !contains(github.event.head_commit.message, '[youtube-refresh]')) || env.MOVIEHUB_LIGHT_MODE == 'true' }}
         run: node scripts/restore-live-youtube-code-projections.mjs
+
+      # The manual light modes must not call the broad TMDB, YouTube, Joyn
+      # or Waipu source adapters. Only themes calls bounded TMDB discovery.
+      - name: Reproject existing data with optional targeted TMDB themes
+        id: manual_data_projection
+        if: ${{ env.MOVIEHUB_LIGHT_MODE == 'true' }}
+        env:
+          TMDB_API_READ_TOKEN: ${{ inputs.data_mode == 'themes' && secrets.TMDB_API_READ_TOKEN || '' }}
+          TMDB_LANGUAGE: de-DE
+          TMDB_COUNTRY: DE
+        run: node scripts/run-manual-data-mode.mjs --mode=${{ inputs.data_mode }}
 
       - name: Collect TMDB movie and series changes
         id: tmdb_changes
-        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
+        if: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
         run: npm run tmdb:changes
 
       - name: Generate TMDB catalog for strict refresh
         id: tmdb_catalog_strict
-        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
+        if: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
@@ -235,7 +253,7 @@ jobs:
 
       - name: Refresh curated 228-station Waipu grid
         id: waipu_sync
-        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
+        if: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         continue-on-error: true
         env:
           WAIPU_SYNC_LIVE: '1'
@@ -247,7 +265,7 @@ jobs:
 
       - name: Match and publish curated 228-station Waipu catalog
         id: waipu_catalog
-        if: ${{ (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && steps.waipu_sync.outcome == 'success' }}
+        if: ${{ ((github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]')) && steps.waipu_sync.outcome == 'success' }}
         continue-on-error: true
         env:
           WAIPU_CATALOG_LIVE: '1'
@@ -267,7 +285,7 @@ jobs:
 
       - name: Build independent Joyn live catalog
         id: joyn_catalog
-        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
+        if: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
         continue-on-error: true
         env:
           JOYN_LIVE_OUTPUT: public/joyn-live
@@ -329,7 +347,7 @@ jobs:
         run: npm run tmdb:changes:ack -- waipu-catalog
 
       - name: Save persistent Waipu import state
-        if: ${{ always() && (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) }}
+        if: ${{ always() && ((github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]')) }}
         uses: actions/cache/save@v6
         with:
           path: |
@@ -341,7 +359,7 @@ jobs:
 
       - name: Save verified private Waipu checkpoint and cache
         id: waipu_checkpoint_upload
-        if: ${{ always() && (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' && steps.waipu_sync.outcome != 'skipped' }}
+        if: ${{ always() && ((github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]')) && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET != '' && steps.waipu_sync.outcome != 'skipped' }}
         run: node scripts/durable-data-checkpoint.mjs upload waipu
 
       - name: Probe uploaded private Waipu checkpoint and cache
@@ -364,14 +382,14 @@ jobs:
       # Failure leaves all TMDB YouTube badges and standard search links intact.
       - name: Load authoritative playlist configuration from MovieHub Admin
         id: youtube_admin_config
-        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[episode-refresh]') || contains(github.event.head_commit.message, '[youtube-refresh]') }}
+        if: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[episode-refresh]') || contains(github.event.head_commit.message, '[youtube-refresh]') }}
         env:
           GOOGLE_CLOUD_PROJECT: movie-hub-62459
         run: node scripts/youtube-admin-playlist-config.mjs
 
       - name: Refresh admin-configured YouTube playlists through canonical source contract
         id: youtube_curated_source
-        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[episode-refresh]') || contains(github.event.head_commit.message, '[youtube-refresh]') }}
+        if: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[episode-refresh]') || contains(github.event.head_commit.message, '[youtube-refresh]') }}
         continue-on-error: true
         run: node scripts/youtube-g2-curated-source-sync-live.mjs
 
@@ -385,21 +403,21 @@ jobs:
       # executor resolves and fans out the selected identities.
       - name: Inventory canonical title candidates
         id: candidate_inventory
-        continue-on-error: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') }}
+        continue-on-error: ${{ (github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]')) || env.MOVIEHUB_LIGHT_MODE == 'true' }}
         env:
           GOOGLE_CLOUD_PROJECT: movie-hub-62459
         run: npm run title:candidates:inventory
 
       - name: Preview canonical title priority queue
         id: priority_preview
-        continue-on-error: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') }}
+        continue-on-error: ${{ (github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]')) || env.MOVIEHUB_LIGHT_MODE == 'true' }}
         env:
           TITLE_PRIORITY_PREVIEW_LIMIT: ${{ (inputs.data_mode == 'accelerated' || contains(github.event.head_commit.message, '[data-bootstrap]')) && '2000' || '800' }}
         run: npm run title:priority:preview
 
       - name: Execute canonical title priority queue
         id: canonical_executor
-        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
+        if: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') }}
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
@@ -423,7 +441,7 @@ jobs:
 
       - name: Complete series seasons including current TV source titles
         id: series_details
-        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[episode-refresh]') }}
+        if: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[episode-refresh]') }}
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
@@ -607,7 +625,7 @@ jobs:
       - name: Validate prepared source generations and app data
         id: prepared_verify
         env:
-          REQUIRE_JOYN_14_DAYS: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
+          REQUIRE_JOYN_14_DAYS: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
         run: node scripts/verify-published-data.mjs --prepared
 
       - name: Validate precomputed episode playlist links in season data
@@ -623,7 +641,7 @@ jobs:
       - name: Verify actually published source generations and app data
         id: publication_verify
         env:
-          REQUIRE_JOYN_14_DAYS: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
+          REQUIRE_JOYN_14_DAYS: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
         run: node scripts/verify-published-data.mjs
 
       - name: Verify hosted episode-specific YouTube links in season shards
@@ -679,7 +697,7 @@ jobs:
       # publication checkpoint (the regression previously seen in deploy #939).
       - name: Check observed titles for personal in-app notifications
         id: title_alerts
-        if: ${{ github.event_name != 'push' && steps.publication_verify.outcome == 'success' }}
+        if: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') && steps.publication_verify.outcome == 'success' }}
         continue-on-error: true
         env:
           GOOGLE_CLOUD_PROJECT: movie-hub-62459
@@ -744,7 +762,7 @@ jobs:
         run: npm run workflow:summary
 
       - name: Upload search-index diagnostics
-        if: ${{ always() && (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) }}
+        if: ${{ always() && ((github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]')) }}
         uses: actions/upload-artifact@v7
         with:
           name: search-index-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
@@ -813,7 +831,7 @@ jobs:
           retention-days: 30
 
       - name: Report failed scheduled Waipu refresh
-        if: ${{ always() && (github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]')) && (steps.waipu_sync.outcome != 'success' || steps.waipu_catalog.outcome != 'success') }}
+        if: ${{ always() && ((github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]')) && (steps.waipu_sync.outcome != 'success' || steps.waipu_catalog.outcome != 'success') }}
         run: |
           echo "::error::Waipu refresh failed; the last validated catalog remained in public/waipu-live."
           exit 1
