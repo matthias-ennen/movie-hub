@@ -2,10 +2,13 @@ import DetailActions from './DetailActions.jsx'
 import DetailLayout from './DetailLayout.jsx'
 import TitleDescription from './TitleDescription.jsx'
 import DetailLiveProviderAction from './DetailLiveProviderAction.jsx'
+import StreamingProviderActions from './StreamingProviderActions.jsx'
 import { providers } from '../../data/catalog.js'
 import { episodeNumberLabel } from '../../catalog/episodeContext.js'
 import { listDetailTvAirings, formatDetailTvAiring } from '../../tv/detailTvAiring.js'
 import { resolveBoundLiveProviderRoutes } from '../../providers/liveProviderRoutes.js'
+import { selectYoutubeEpisodePlaylistRoute } from '../../providers/youtubeEpisodePlaylistRoute.js'
+import { orderProviderIds } from '../../providers/providerPresentation.js'
 
 export function episodeAirDateLabel(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null
@@ -18,12 +21,15 @@ export function episodeAirDateLabel(value) {
 
 /**
  * One canonical episode, shown with the same detail primitives as a title.
- * Series-wide VOD offers and personal title controls must NOT be represented
- * as episode offers/actions. All TV links are scoped to the selected episode.
+ * Show the parent series' known provider destinations for navigation, using an
+ * exact episode link when available and the series/search fallback otherwise.
+ * TV broadcasts are scoped strictly to the episode; personal states remain title-wide.
  */
 export default function EpisodeDetail({
   item, episode, now = Date.now(), titleAirings = null, airingsStatus = null,
   onClose, onOpenAiring, isProviderEnabled = () => true,
+  streamingProviderIds = [], titleProviderItem = null, showMovieHubProvider = false,
+  onOpenMovieHub = null, movieHubActionLabel = undefined, onOpenStreamingProvider = null,
 }) {
   const date = episodeAirDateLabel(episode.airDate)
   const rating = Number(episode.voteAverage)
@@ -32,6 +38,14 @@ export default function EpisodeDetail({
   })
   const hasStatus = airingsStatus === 'loading' || airingsStatus === 'error'
   const stillUrl = episode?.stillUrl || null
+  const youtubeEpisodeRoute = Number(episode?.seriesTmdbId) === Number(item?.tmdbId)
+    && isProviderEnabled('youtube')
+    ? selectYoutubeEpisodePlaylistRoute(episode?.youtubePlaylistHint, episode, { now })
+    : null
+  const providerIds = youtubeEpisodeRoute
+    ? orderProviderIds([...streamingProviderIds, 'youtube'])
+    : streamingProviderIds
+  const hasStreamingOffers = providerIds.length > 0 || showMovieHubProvider
   return (
     <DetailLayout episode actions={<DetailActions onClose={onClose}
       closeLabel="Folgendetails schließen" />} artwork={
@@ -85,6 +99,17 @@ export default function EpisodeDetail({
         : <p className="prototype-note">
             Für diese Folge ist im derzeit bekannten TV-Zeitraum kein Ausstrahlungstermin hinterlegt.
           </p>}
+      {hasStreamingOffers && (
+        <section className="provider-availability-group provider-availability-streaming"
+          aria-label="Streaming und Mediathek">
+          <p className="settings-kicker">Streaming / Mediathek</p>
+          <StreamingProviderActions item={titleProviderItem || item}
+            providerIds={providerIds} episode={episode} youtubeEpisodeRoute={youtubeEpisodeRoute}
+            showMovieHubProvider={showMovieHubProvider} onOpenMovieHub={onOpenMovieHub}
+            movieHubActionLabel={movieHubActionLabel}
+            onOpenProvider={onOpenStreamingProvider} />
+        </section>
+      )}
       {episode.tmdbId && <p className="tmdb-credit">Episodendaten: TMDB · ID {episode.tmdbId}</p>}
     </DetailLayout>
   )
