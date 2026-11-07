@@ -196,10 +196,10 @@ jobs:
       # On normal code pushes, canonical episode shards are already restored
       # from the last verified Hosting release. Preserve the matching public
       # YouTube summary; private QA is intentionally NOT regenerated here.
-      - name: Restore published YouTube episode summary for code-only deploy
-        id: youtube_episode_summary_restore
+      - name: Restore published YouTube episode and film search projections for code-only deploy
+        id: youtube_code_projection_restore
         if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') && !contains(github.event.head_commit.message, '[episode-refresh]') && !contains(github.event.head_commit.message, '[youtube-refresh]') }}
-        run: node scripts/restore-live-youtube-episode-summary.mjs
+        run: node scripts/restore-live-youtube-code-projections.mjs
 
       - name: Collect TMDB movie and series changes
         id: tmdb_changes
