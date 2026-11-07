@@ -233,7 +233,7 @@ async function getRowCandidates(row) {
   )
 }
 
-async function resolveCandidate(candidate, observeWatchProviders = null) {
+export async function resolveCandidate(candidate, observeWatchProviders = null) {
   const detailPath = candidate.mediaType === 'tv' ? `/tv/${candidate.id}` : `/movie/${candidate.id}`
   const providerPath = candidate.mediaType === 'tv'
     ? `/tv/${candidate.id}/watch/providers`
