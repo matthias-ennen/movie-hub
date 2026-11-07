@@ -644,6 +644,12 @@ jobs:
           REQUIRE_JOYN_14_DAYS: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
         run: node scripts/verify-published-data.mjs
 
+      # Check all 18 original seasonal SVG assets after every Hosting deploy.
+      # Firebase SPA HTML fallback must NOT mask a missing image resource.
+      - name: Verify all hosted seasonal atmosphere graphics
+        if: ${{ !cancelled() && steps.firebase_deploy.outcome == 'success' }}
+        run: node scripts/verify-seasonal-atmosphere-publication.mjs
+
       # Manual modes also alter the canonical catalog and (for targeted themes)
       # broad search index; compare the ACTUAL hosted JSON with the prepared files.
       - name: Verify exact hosted manual catalog and thematic projection
