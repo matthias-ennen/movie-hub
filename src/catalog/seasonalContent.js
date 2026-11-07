@@ -108,3 +108,20 @@ export function withManualSeasonalContent(value, seasonId, date = new Date()) {
 export function isSeasonalRowVisible(row, activeSeasonId) {
   return !row?.seasonId || (activeSeasonId !== 'classic' && row.seasonId === activeSeasonId)
 }
+
+/**
+ * Reuse the published canonical title model for Movies/Series browse rows.
+ * Availability is checked by the caller's existing provider-selection logic.
+ */
+export function buildThemedBrowseRows(rowDefinitions, titlesById, seasonId, mediaType, isAvailable) {
+  const selected = (Array.isArray(rowDefinitions) ? rowDefinitions : [])
+    .filter(row => ['seasonal','quality'].includes(row?.discoveryKind)
+      && row.mediaType === (mediaType === 'series' ? 'tv' : 'movie')
+      && isSeasonalRowVisible(row, seasonId))
+  return selected.map(row => ({
+    id: row.id, title: row.title, preserveOrder: true,
+    items: (Array.isArray(row.ids) ? row.ids : [])
+      .map(id => titlesById.get(id))
+      .filter(item => item && (typeof isAvailable !== 'function' || isAvailable(item))),
+  })).filter(row => row.items.length >= 6)
+}
