@@ -80,6 +80,39 @@ describe('#728 bounded weekly seasonal TMDB discovery',()=>{
       expect(written).toEqual(first)
     }finally{await rm(dir,{recursive:true,force:true})}
   })
+  it('accepts published v1 snapshot during safe restore but upgrades it on the next real discovery',async()=>{
+    const dir=await mkdtemp(join(tmpdir(),'moviehub-themes-legacy-'))
+    const path=join(dir,'seasonal.json')
+    try{
+      const v2=await buildSeasonalDiscovery({request,generatedAt:'2026-11-07T06:00:00Z'})
+      const strategies=v2.strategies.filter(s=>['halloween','christmas','easter','pentecost','quality'].includes(s.id))
+      const legacy={...v2,version:1,keywordLookups:4,strategies,
+        pagesFetched:strategies.reduce((n,s)=>n+s.pagesFetched,0),
+        uniqueCandidates:new Set(strategies.flatMap(s=>s.candidates.map(c=>c.mediaType+':'+c.id))).size}
+      expect(validateSeasonalDiscovery(legacy)).toBe(true)
+      await writeFile(path,JSON.stringify(legacy))
+      expect((await readSeasonalDiscovery(path)).version).toBe(1)
+      request.mockClear()
+      const upgraded=await refreshSeasonalDiscovery({request,path,now:new Date('2026-11-08T07:00:00Z')})
+      expect(upgraded.version).toBe(2)
+      expect(upgraded.strategies).toHaveLength(18)
+      expect(request).toHaveBeenCalledTimes(44)
+    }finally{await rm(dir,{recursive:true,force:true})}
+  })
+  it('does not imply award wins or festival participation from generic fallback discovery',async()=>{
+    const noKeywords=vi.fn(async(path)=>path==='/search/keyword'
+      ? {results:[]} : {total_pages:1,results:Array.from({length:8},(_,i)=>({
+        id:1000+i,adult:false,vote_average:8.6,vote_count:700,
+      }))})
+    const snapshot=await buildSeasonalDiscovery({request:noKeywords})
+    const hollywood=snapshot.strategies.find(s=>s.id==='hollywood'&&s.mediaType==='movie')
+    expect(hollywood.status).toBe('fallback')
+    expect(hollywood.keywordId).toBeNull()
+    const row=seasonalDiscoveryRows(snapshot).find(r=>r.id==='themed-hollywood-movies')
+    expect(row.title).toMatch(/^Großes Kino/)
+    expect(row).not.toHaveProperty('awardWinner')
+    expect(snapshot.pagesFetched).toBeLessThanOrEqual(SEASONAL_PAGE_BUDGET)
+  })
   it('keeps the prior verified snapshot when the source temporarily fails',async()=>{
     const dir=await mkdtemp(join(tmpdir(),'moviehub-themes-'))
     const path=join(dir,'seasonal.json')
