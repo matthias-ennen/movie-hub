@@ -172,7 +172,7 @@ export async function runManualDataMode({
   const index = validateLiveSearchIndex(await json(indexPath))
   const snapshotPath = resolve(root, 'seasonal-discovery.json')
   const snapshot = mode === 'themes'
-    ? await refreshSeasonalDiscovery({ request, now, path: snapshotPath, force: true })
+    ? await refreshSeasonalDiscovery({ request, now, path: snapshotPath, force: true, requireFresh: true })
     : await readSeasonalDiscovery(snapshotPath)
   if (mode === 'themes'
     && (!snapshot || Math.abs(now.getTime() - Date.parse(snapshot.generatedAt)) > 60_000
