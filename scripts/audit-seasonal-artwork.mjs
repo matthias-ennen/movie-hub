@@ -74,7 +74,7 @@ export async function auditSeasonalArtwork({
       } else {
         const svg=value.toString('utf8')
         if(!svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg"')
-          || /<script|<image|foreignObject|href\\s*=\\s*['\"]https?:|url\\s*\\(\\s*['\"]?https?:/i.test(svg)
+          || /<script|<image|foreignObject|href=[\"']https?:/i.test(svg)
           || value.length>30000)throw Error('SEASONAL_SVG_UNSAFE: '+path)
         audited.push({season:id,type,format:extension,bytes:value.length})
       }
