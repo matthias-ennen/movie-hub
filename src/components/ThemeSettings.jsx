@@ -162,7 +162,8 @@ export default function ThemeSettings() {
                   data-focusable="true"
                   onClick={() => selectSeasonalTheme(mode.id)}
                 >
-                  <span className="seasonal-theme-swatch" data-season-preview={mode.id} aria-hidden="true">
+                  <span className="seasonal-theme-swatch" data-season-preview={mode.id} aria-hidden="true"
+                    style={{ '--season-preview-art': `url("${seasonalVisualAssets(mode.id).corner}")` }}>
                     <i /><i /><i />
                   </span>
                   <span className="content-sort-choice-title">
