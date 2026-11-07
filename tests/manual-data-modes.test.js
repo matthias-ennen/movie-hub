@@ -119,7 +119,7 @@ describe('#728 selectable manual data modes',()=>{
     await fixture(async options=>{
       await expect(runManualDataMode({
         mode:'themes',now,request,resolveTitle:validCandidateTitle,...options,
-      })).rejects.toThrow('MANUAL_THEME_REFRESH_NOT_VERIFIED')
+      })).rejects.toThrow('TMDB unavailable')
       const saved=JSON.parse(await readFile(join(options.root,'catalog.json'),'utf8'))
       expect(saved).toEqual(baseCatalog)
     })
