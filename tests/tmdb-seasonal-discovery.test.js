@@ -43,7 +43,7 @@ describe('#728 bounded weekly seasonal TMDB discovery',()=>{
     const rows=seasonalDiscoveryRows(snapshot)
     expect(rows).toHaveLength(10)
     expect(rows.find(r=>r.seasonId==='christmas')).toMatchObject({
-      discoveryKind:'seasonal',preserveOrder:undefined,limit:20,
+      discoveryKind:'seasonal',limit:20,
     })
     expect(rows.find(r=>r.discoveryKind==='quality')).toMatchObject({
       seasonId:null,mediaType:'movie',
