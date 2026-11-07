@@ -96,9 +96,9 @@ describe('#728 selectable manual data modes',()=>{
         mode:'themes',now,request:themeMockRequest,resolveTitle,...options,
       })
       expect(report.mode).toBe('themes')
-      expect(report.discoveryPages).toBe(30)
-      expect(report.keywordLookups).toBe(4)
-      expect(themeMockRequest).toHaveBeenCalledTimes(34)
+      expect(report.discoveryPages).toBe(36)
+      expect(report.keywordLookups).toBe(8)
+      expect(themeMockRequest).toHaveBeenCalledTimes(44)
       expect(resolveTitle.mock.calls.length).toBeLessThanOrEqual(MAX_TARGETED_NEW_TITLE_DETAILS)
       expect(report.newCandidateDetailsAttempted).toBeLessThanOrEqual(MAX_TARGETED_NEW_TITLE_DETAILS)
       expect(report.netNewTitles).toBeGreaterThan(0)

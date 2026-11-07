@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 import { useSeasonalCalendarClock } from '../hooks/useSeasonalCalendarClock.js'
+import { seasonalVisualAssets } from './seasonalPresentation.js'
 import {
   SEASONAL_CONTENT_MODES,
   resolveSeasonalContent,
@@ -61,13 +62,21 @@ export function ThemeProvider({ children }) {
   // Theme overlay is independent of active provider, poster and base-theme
   // selection. No new network calls or component-level decoration animation.
   useLayoutEffect(() => {
-    document.documentElement.dataset.season = activeVisualSeason
+    const root = document.documentElement
+    root.dataset.season = activeVisualSeason
+    root.dataset.seasonEnabled = settings.seasonalTheme.enabled ? 'true' : 'false'
+    const artwork = seasonalVisualAssets(activeVisualSeason)
+    root.style.setProperty('--season-wallpaper', `url("${artwork.wallpaper}")`)
+    root.style.setProperty('--season-corner', `url("${artwork.corner}")`)
     return () => {
-      if (document.documentElement.dataset.season === activeVisualSeason) {
-        delete document.documentElement.dataset.season
+      if (root.dataset.season === activeVisualSeason) {
+        delete root.dataset.season
+        delete root.dataset.seasonEnabled
+        root.style.removeProperty('--season-wallpaper')
+        root.style.removeProperty('--season-corner')
       }
     }
-  }, [activeVisualSeason])
+  }, [activeVisualSeason, settings.seasonalTheme.enabled])
 
   useEffect(() => {
     if (!activeProfile || hydratedProfileId !== activeProfile.id) return undefined

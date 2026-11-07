@@ -25,6 +25,7 @@ import './styles/notifications.css'
 import './styles/detail.css'
 import './styles/poster-unified.css'
 import './styles/seasonal-themes.css'
+import './styles/seasonal-atmosphere.css'
 
 installPerformanceDiagnostics()
 recordPerformanceEvent('app:render-start')

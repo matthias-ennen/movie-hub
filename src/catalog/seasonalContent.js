@@ -2,10 +2,14 @@
 // Dates and boundaries are evaluated in Europe/Berlin, never UTC or device locale.
 export const SEASONAL_CONTENT_MODES = Object.freeze([
   { id: 'classic', label: 'Klassisch', description: 'Die bisherige MovieHub-Auswahl ohne saisonale Bevorzugung.' },
-  { id: 'halloween', label: 'Halloween', description: 'Gezielt passende Grusel- und Halloween-Titel.' },
-  { id: 'christmas', label: 'Weihnachten', description: 'Weihnachtsfilme und passende Serien entdecken.' },
+  { id: 'filmfestival', label: 'Filmfestival', description: 'Internationale Filmperlen und unabhängiges Kino entdecken.' },
+  { id: 'hollywood', label: 'Hollywood', description: 'Großes Kino rund um die Filmpreiszeit.' },
   { id: 'easter', label: 'Ostern', description: 'Passende Osterfilme und besondere Entdeckungen.' },
   { id: 'pentecost', label: 'Pfingsten', description: 'Passende Feiertagstitel, sofern verfügbar.' },
+  { id: 'summer-cinema', label: 'Sommerkino', description: 'Abenteuer, Roadmovies und lange Sommerabende.' },
+  { id: 'halloween', label: 'Halloween', description: 'Gezielt passende Grusel- und Halloween-Titel.' },
+  { id: 'christmas', label: 'Weihnachten', description: 'Weihnachtsfilme und passende Serien entdecken.' },
+  { id: 'newyear', label: 'Silvester & Neujahr', description: 'Neuanfänge und großes Kino zum Jahreswechsel.' },
 ])
 const SEASON_IDS = new Set(SEASONAL_CONTENT_MODES.map(x => x.id))
 const DAY_MS = 86400000
@@ -39,22 +43,57 @@ export function easterSunday(year) {
   return dayOf(year, month, date)
 }
 
-function windows(year) {
+/**
+ * Annual event dates verified with the organizers (2026/2027 Berlinale, and
+ * 2026/2027/2028 Academy). Unknown future dates use an explicitly editorial
+ * approximation and must NOT be presented as a confirmed ceremony schedule.
+ * Dates may be updated here without modifying per-profile preferences.
+ */
+export const VERIFIED_FESTIVAL_DATES = Object.freeze({
+  2026: Object.freeze({ start: '2026-02-12', end: '2026-02-22' }),
+  2027: Object.freeze({ start: '2027-02-10', end: '2027-02-21' }),
+})
+export const VERIFIED_AWARDS_DATES = Object.freeze({
+  2026: '2026-03-15', 2027: '2027-03-14', 2028: '2028-03-05',
+})
+const parseDay = date => Math.floor(Date.parse(date + 'T00:00:00Z') / DAY_MS)
+function nthWeekday(year, month, weekday, ordinal) {
+  const first = dayOf(year, month, 1)
+  return first + (weekday - new Date(first * DAY_MS).getUTCDay() + 7) % 7
+    + 7 * (ordinal - 1)
+}
+
+export function seasonalCalendarWindows(year) {
   const easter = easterSunday(year)
   const pentecost = easter + 49
+  const verifiedFestival = VERIFIED_FESTIVAL_DATES[year]
+  const festivalStart = verifiedFestival
+    ? parseDay(verifiedFestival.start) : nthWeekday(year, 2, 4, 2)
+  const festivalEnd = verifiedFestival
+    ? parseDay(verifiedFestival.end) + 1 : festivalStart + 12
+  const awardsDay = VERIFIED_AWARDS_DATES[year]
+    ? parseDay(VERIFIED_AWARDS_DATES[year]) : nthWeekday(year, 3, 0, 1)
+  // Hollywood has explicit priority over Easter on overlapping dates
+  // (14 March 2027). All end points are EXCLUSIVE in Berlin civil days.
   return [
-    { id: 'christmas', start: dayOf(year, 12, 1), end: dayOf(year + 1, 1, 7) },
-    { id: 'halloween', start: dayOf(year, 10, 15), end: dayOf(year, 11, 1) },
-    { id: 'easter', start: easter - 14, end: easter + 8 },
-    { id: 'pentecost', start: pentecost - 7, end: pentecost + 3 },
-  ]
+    { id: 'hollywood', start: awardsDay - 7, end: awardsDay + 1, priority: 100 },
+    { id: 'easter', start: easter - 14, end: easter + 8, priority: 90 },
+    { id: 'newyear', start: dayOf(year, 12, 31), end: dayOf(year + 1, 1, 8), priority: 80 },
+    { id: 'christmas', start: dayOf(year, 12, 1), end: dayOf(year, 12, 31), priority: 70 },
+    { id: 'halloween', start: dayOf(year, 10, 15), end: dayOf(year, 11, 1), priority: 60 },
+    { id: 'filmfestival', start: festivalStart, end: festivalEnd, priority: 50 },
+    { id: 'pentecost', start: pentecost - 7, end: pentecost + 3, priority: 40 },
+    { id: 'summer-cinema', start: dayOf(year, 8, 1), end: dayOf(year, 8, 15), priority: 30 },
+  ].map(window => ({ ...window, startDate: dayIso(window.start),
+    endDateInclusive: dayIso(window.end - 1) }))
 }
 
 export function seasonalCalendarPeriod(value = new Date()) {
   const current = civilDay(value)
   const year = new Date(current * DAY_MS).getUTCFullYear()
-  const all = [year - 1, year, year + 1].flatMap(windows)
-  const active = all.find(w => current >= w.start && current < w.end)
+  const all = [year - 1, year, year + 1].flatMap(seasonalCalendarWindows)
+  const active = all.filter(w => current >= w.start && current < w.end)
+    .sort((a, b) => b.priority - a.priority || a.start - b.start)[0]
   if (active) return { seasonId: active.id, periodKey: `${active.id}:${dayIso(active.start)}` }
   const latestBoundary = Math.max(...all.flatMap(w => [w.start, w.end]).filter(day => day <= current))
   return { seasonId: 'classic', periodKey: `classic:${dayIso(latestBoundary)}` }
@@ -68,7 +107,7 @@ export function normalizeSeasonalContent(value) {
     autoSwitch: {
       enabled: seasonal.autoSwitch?.enabled !== false,
       periodKey: typeof seasonal.autoSwitch?.periodKey === 'string'
-        && /^[a-z]+:\d{4}-\d{2}-\d{2}$/.test(seasonal.autoSwitch.periodKey)
+        && /^[a-z-]+:\d{4}-\d{2}-\d{2}$/.test(seasonal.autoSwitch.periodKey)
         ? seasonal.autoSwitch.periodKey : null,
     },
   }

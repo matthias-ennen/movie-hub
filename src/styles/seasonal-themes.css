@@ -57,6 +57,58 @@
   --theme-auth-glow: rgba(41, 133, 118, 0.2);
 }
 
+
+/* Four additional film worlds. These are only semantic token changes;
+ * downloaded artwork is controlled by the optional seasonal visual switch. */
+:root[data-season='newyear'] {
+  --color-brand-accent: #e5c27e;
+  --color-eyebrow: #bbceef;
+  --color-focus: #fff0b8;
+  --season-ambient-side: rgba(103, 118, 196, .08);
+  --season-highlight: #e5c27e;
+  --theme-app-ambient: rgba(74, 91, 160, .23);
+  --theme-avatar-start: #745a32;
+  --theme-avatar-end: #415785;
+  --theme-topbar-border: rgba(225, 189, 114, .2);
+  --theme-hover-bg: rgba(225, 189, 114, .11);
+}
+:root[data-season='filmfestival'] {
+  --color-brand-accent: #e0b7ca;
+  --color-eyebrow: #f3d4bf;
+  --color-focus: #ffe4d5;
+  --season-ambient-side: rgba(133, 74, 94, .075);
+  --season-highlight: #e0b7ca;
+  --theme-app-ambient: rgba(113, 61, 84, .19);
+  --theme-avatar-start: #824d62;
+  --theme-avatar-end: #5a4054;
+  --theme-topbar-border: rgba(224, 183, 202, .22);
+  --theme-hover-bg: rgba(224, 183, 202, .1);
+}
+:root[data-season='hollywood'] {
+  --color-brand-accent: #ead19a;
+  --color-eyebrow: #ead19a;
+  --color-focus: #ffe9ae;
+  --season-ambient-side: rgba(146, 109, 63, .065);
+  --season-highlight: #ead19a;
+  --theme-app-ambient: rgba(142, 96, 38, .18);
+  --theme-avatar-start: #805b2f;
+  --theme-avatar-end: #5b4228;
+  --theme-topbar-border: rgba(234, 209, 154, .21);
+  --theme-hover-bg: rgba(234, 209, 154, .1);
+}
+:root[data-season='summer-cinema'] {
+  --color-brand-accent: #9cd8d8;
+  --color-eyebrow: #f2d4a3;
+  --color-focus: #ceffff;
+  --season-ambient-side: rgba(212, 143, 77, .055);
+  --season-highlight: #9cd8d8;
+  --theme-app-ambient: rgba(62, 127, 160, .22);
+  --theme-avatar-start: #2c6678;
+  --theme-avatar-end: #6a502f;
+  --theme-topbar-border: rgba(156, 216, 216, .21);
+  --theme-hover-bg: rgba(156, 216, 216, .11);
+}
+
 /* Bright must retain its pale surfaces, dark text and strongly readable
  * focus rings. Seasonal colors intentionally differ from the dark variants. */
 :root[data-theme='bright'][data-season='halloween'] {
@@ -98,6 +150,40 @@
   --theme-avatar-start: #166e63;
   --theme-avatar-end: #5d6930;
   --theme-topbar-border: rgba(24, 107, 90, 0.2);
+}
+
+
+:root[data-theme='bright'][data-season='newyear'] {
+  --color-brand-accent: #765115;
+  --color-eyebrow: #3c5583;
+  --color-focus: #654718;
+  --theme-app-ambient: rgba(87, 105, 171, .13);
+  --theme-avatar-start: #75552e;
+  --theme-avatar-end: #415785;
+}
+:root[data-theme='bright'][data-season='filmfestival'] {
+  --color-brand-accent: #773a55;
+  --color-eyebrow: #773a55;
+  --color-focus: #74334f;
+  --theme-app-ambient: rgba(131, 81, 104, .12);
+  --theme-avatar-start: #754159;
+  --theme-avatar-end: #5a4054;
+}
+:root[data-theme='bright'][data-season='hollywood'] {
+  --color-brand-accent: #694b19;
+  --color-eyebrow: #694b19;
+  --color-focus: #654512;
+  --theme-app-ambient: rgba(143, 104, 62, .13);
+  --theme-avatar-start: #74542b;
+  --theme-avatar-end: #5b4228;
+}
+:root[data-theme='bright'][data-season='summer-cinema'] {
+  --color-brand-accent: #175e72;
+  --color-eyebrow: #765122;
+  --color-focus: #175e72;
+  --theme-app-ambient: rgba(78, 148, 174, .11);
+  --theme-avatar-start: #235f70;
+  --theme-avatar-end: #6a502f;
 }
 
 :root[data-season]:not([data-season='classic']) .app-shell {

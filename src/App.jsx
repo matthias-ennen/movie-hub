@@ -74,7 +74,8 @@ import {
 import { shouldLoadLiveStations } from './performance/liveCatalogStartup.js'
 import { INITIAL_HOME_FOCUS_EVENT } from './components/InitialHomeFocus.jsx'
 import { ProfileProvider, useProfiles } from './profiles/ProfileProvider.jsx'
-import { ThemeProvider } from './theme/ThemeProvider.jsx'
+import { ThemeProvider, useTheme } from './theme/ThemeProvider.jsx'
+import { seasonalPageHeading } from './theme/seasonalPresentation.js'
 import { TmdbCatalogProvider, useTmdbCatalog } from './tmdb/TmdbCatalogProvider.jsx'
 import { buildTmdbCatalogRows, mergePublicAndPersonalCatalog } from './tmdb/tmdbCatalogModel.js'
 import { nextTvAiringTransition } from './waipu/waipuAiringStatus.js'
@@ -304,12 +305,14 @@ function BrowseView({
   onActivationUnavailable,
   onOpen,
 }) {
+  const { activeVisualSeason } = useTheme()
+  const seasonHeading = seasonalPageHeading(activeVisualSeason, viewId) || title
   return (
     <HeroFirstPage
       pageId={viewId}
       className="category-page"
       heroItems={heroItems}
-      heroEyebrow={title}
+      heroEyebrow={seasonHeading}
       readyEnabled={readyEnabled}
       activationRequest={activationRequest}
       onActivationUnavailable={onActivationUnavailable}
@@ -319,7 +322,7 @@ function BrowseView({
         <section className="browse-page">
           <div className="page-heading">
             <p className="eyebrow">Movie Hub</p>
-            <h1>{title}</h1>
+            <h1>{seasonHeading}</h1>
             <p>{subtitle}</p>
           </div>
           {rows.length > 0 ? (
@@ -349,6 +352,8 @@ function HomeView({
   activationRequest,
   onActivationUnavailable,
 }) {
+  const { activeVisualSeason } = useTheme()
+  const homeHeading = seasonalPageHeading(activeVisualSeason, 'home')
   const startupReadyReportedRef = useRef(false)
   const catalogReady = catalogStatus !== 'loading' && startupSettingsReady
   const handleInitialContentReady = useCallback(({ visibleRowCount = 0 } = {}) => {
@@ -363,6 +368,7 @@ function HomeView({
     <HeroFirstPage
       pageId="home"
       heroItems={heroItems}
+      heroEyebrow={homeHeading}
       readyEnabled={catalogReady}
       activationRequest={activationRequest}
       onActivationUnavailable={onActivationUnavailable}
@@ -398,12 +404,14 @@ function PersonalLibraryView({
   activationRequest,
   onActivationUnavailable,
 }) {
+  const { activeVisualSeason } = useTheme()
+  const libraryHeading = seasonalPageHeading(activeVisualSeason, 'library')
   return (
     <HeroFirstPage
       pageId="library"
       className="personal-library-shell"
       heroItems={heroItems}
-      heroEyebrow="Meine Inhalte"
+      heroEyebrow={libraryHeading}
       readyEnabled={!loading && (!enriching || rows.length > 0 || heroItems.length > 0)}
       activationRequest={activationRequest}
       onActivationUnavailable={onActivationUnavailable}
@@ -413,7 +421,7 @@ function PersonalLibraryView({
         <section className="browse-page personal-library-page">
           <div className="page-heading">
             <p className="eyebrow">{profileName ?? 'Movie Hub'}</p>
-            <h1>Meine Inhalte</h1>
+            <h1>{libraryHeading}</h1>
             <p>Deine Movie-Hub-Watchlist, Favoriten und Bewertungen sowie deine synchronisierten persönlichen TMDB-Listen.</p>
           </div>
 

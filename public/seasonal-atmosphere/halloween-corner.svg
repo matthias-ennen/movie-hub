@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 230" width="300" height="230" aria-hidden="true">
+<defs><radialGradient id="soft"><stop stop-color="#9e69b4" stop-opacity=".7"/><stop offset="1" stop-color="#9e69b4" stop-opacity="0"/></radialGradient><radialGradient id="soft2"><stop stop-color="#f2a65b" stop-opacity=".5"/><stop offset="1" stop-color="#f2a65b" stop-opacity="0"/></radialGradient></defs>
+<path d="M0 0H300V230H0Z" fill="url(#soft)" opacity=".2"/>
+<g color="#f2a65b" opacity=".75" transform="translate(0 0)"><g stroke="currentColor" fill="none"><circle cx="224" cy="52" r="31" stroke-width="3" opacity=".65"/><path d="M214 12a32 32 0 1 0 35 48a30 30 0 0 1-35-48Z" fill="currentColor" stroke="none" opacity=".24"/><path d="M30 164Q12 122 52 105Q74 98 87 114Q111 90 134 116Q164 110 171 140Q176 169 140 187Q84 211 45 185Z" stroke-width="4" opacity=".56"/><path d="M80 104Q88 89 103 93M75 123q-22 29 0 60m40-62q22 30 0 63m-22-73v-15" stroke-width="3" opacity=".6"/><path d="M156 56l18-8 18 7 19-12-10 19-12 3-16-7-17 10z" fill="currentColor" stroke="none" opacity=".39"/></g></g>
+<path d="M0 0H300V230H0Z" fill="url(#soft)" opacity=".10"/>
+</svg>

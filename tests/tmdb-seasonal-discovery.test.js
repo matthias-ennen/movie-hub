@@ -11,7 +11,7 @@ import {
 import { buildThemedBrowseRows } from '../src/catalog/seasonalContent.js'
 import { restoreLiveSeasonalDiscovery } from '../scripts/restore-live-seasonal-discovery.mjs'
 
-const keywords={ halloween:11, christmas:22, easter:33, pentecost:44 }
+const keywords={ halloween:11, christmas:22, easter:33, pentecost:44, 'new year':55, 'film festival':66, hollywood:77, summer:88 }
 const request=vi.fn(async(path,params)=>{
   if(path==='/search/keyword')return {results:[{id:keywords[params.query],name:params.query}]}
   const mediaType=path==='/discover/movie'?'movie':'tv'
@@ -33,16 +33,16 @@ describe('#728 bounded weekly seasonal TMDB discovery',()=>{
       'vote_average.gte':7.5,'vote_count.gte':150})
     expect(quality).not.toHaveProperty('with_keywords')
   })
-  it('runs no more than 30 discover pages plus 4 verified keyword lookups',async()=>{
+  it('runs no more than 36 discover pages plus 8 verified keyword lookups',async()=>{
     request.mockClear()
     const snapshot=await buildSeasonalDiscovery({request,generatedAt:'2026-11-07T06:00:00Z'})
     expect(validateSeasonalDiscovery(snapshot)).toBe(true)
-    expect(snapshot.strategies).toHaveLength(10)
-    expect(snapshot.pagesFetched).toBe(30)
+    expect(snapshot.strategies).toHaveLength(18)
+    expect(snapshot.pagesFetched).toBe(36)
     expect(snapshot.pagesFetched).toBeLessThanOrEqual(SEASONAL_PAGE_BUDGET)
-    expect(request).toHaveBeenCalledTimes(34)
+    expect(request).toHaveBeenCalledTimes(44)
     const rows=seasonalDiscoveryRows(snapshot)
-    expect(rows).toHaveLength(10)
+    expect(rows).toHaveLength(18)
     expect(rows.find(r=>r.seasonId==='christmas')).toMatchObject({
       discoveryKind:'seasonal',limit:20,
     })
@@ -59,9 +59,9 @@ describe('#728 bounded weekly seasonal TMDB discovery',()=>{
     const full=vi.fn(async(path,params)=>path==='/search/keyword'
       ? await get(path,params) : {total_pages:1,results:[]})
     const result=await buildSeasonalDiscovery({request:full})
-    expect(result.strategies.filter(s=>s.status==='no-keyword')).toHaveLength(8)
+    expect(result.strategies.filter(s=>s.status==='no-keyword')).toHaveLength(6)
     expect(result.strategies.filter(s=>s.id==='quality'&&s.status==='complete')).toHaveLength(2)
-    expect(result.pagesFetched).toBe(2)
+    expect(result.pagesFetched).toBe(12)
   })
   it('reuses a valid weekly snapshot without any TMDB API requests',async()=>{
     const dir=await mkdtemp(join(tmpdir(),'moviehub-themes-'))
@@ -70,7 +70,7 @@ describe('#728 bounded weekly seasonal TMDB discovery',()=>{
       request.mockClear()
       const first=await refreshSeasonalDiscovery({request,path,now:new Date('2026-11-07T07:00:00Z')})
       expect(first.uniqueCandidates).toBeGreaterThan(0)
-      expect(request).toHaveBeenCalledTimes(34)
+      expect(request).toHaveBeenCalledTimes(44)
       request.mockClear()
       const cached=await refreshSeasonalDiscovery({request,path,now:new Date('2026-11-12T07:00:00Z')})
       expect(cached.generatedAt).toBe(first.generatedAt)
@@ -79,6 +79,39 @@ describe('#728 bounded weekly seasonal TMDB discovery',()=>{
       const written=JSON.parse(await readFile(path,'utf8'))
       expect(written).toEqual(first)
     }finally{await rm(dir,{recursive:true,force:true})}
+  })
+  it('accepts published v1 snapshot during safe restore but upgrades it on the next real discovery',async()=>{
+    const dir=await mkdtemp(join(tmpdir(),'moviehub-themes-legacy-'))
+    const path=join(dir,'seasonal.json')
+    try{
+      const v2=await buildSeasonalDiscovery({request,generatedAt:'2026-11-07T06:00:00Z'})
+      const strategies=v2.strategies.filter(s=>['halloween','christmas','easter','pentecost','quality'].includes(s.id))
+      const legacy={...v2,version:1,keywordLookups:4,strategies,
+        pagesFetched:strategies.reduce((n,s)=>n+s.pagesFetched,0),
+        uniqueCandidates:new Set(strategies.flatMap(s=>s.candidates.map(c=>c.mediaType+':'+c.id))).size}
+      expect(validateSeasonalDiscovery(legacy)).toBe(true)
+      await writeFile(path,JSON.stringify(legacy))
+      expect((await readSeasonalDiscovery(path)).version).toBe(1)
+      request.mockClear()
+      const upgraded=await refreshSeasonalDiscovery({request,path,now:new Date('2026-11-08T07:00:00Z')})
+      expect(upgraded.version).toBe(2)
+      expect(upgraded.strategies).toHaveLength(18)
+      expect(request).toHaveBeenCalledTimes(44)
+    }finally{await rm(dir,{recursive:true,force:true})}
+  })
+  it('does not imply award wins or festival participation from generic fallback discovery',async()=>{
+    const noKeywords=vi.fn(async(path)=>path==='/search/keyword'
+      ? {results:[]} : {total_pages:1,results:Array.from({length:8},(_,i)=>({
+        id:1000+i,adult:false,vote_average:8.6,vote_count:700,
+      }))})
+    const snapshot=await buildSeasonalDiscovery({request:noKeywords})
+    const hollywood=snapshot.strategies.find(s=>s.id==='hollywood'&&s.mediaType==='movie')
+    expect(hollywood.status).toBe('fallback')
+    expect(hollywood.keywordId).toBeNull()
+    const row=seasonalDiscoveryRows(snapshot).find(r=>r.id==='themed-hollywood-movies')
+    expect(row.title).toMatch(/^Großes Kino/)
+    expect(row).not.toHaveProperty('awardWinner')
+    expect(snapshot.pagesFetched).toBeLessThanOrEqual(SEASONAL_PAGE_BUDGET)
   })
   it('keeps the prior verified snapshot when the source temporarily fails',async()=>{
     const dir=await mkdtemp(join(tmpdir(),'moviehub-themes-'))
