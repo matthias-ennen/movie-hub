@@ -33,6 +33,7 @@ export default function HeroFirstPage({
       data-page-load-state={heroReady ? 'rows' : 'hero'}
     >
       <Hero
+        pageId={pageId}
         items={heroItems}
         onOpen={onOpen}
         eyebrow={heroEyebrow}
