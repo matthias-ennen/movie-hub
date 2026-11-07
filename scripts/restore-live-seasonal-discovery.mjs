@@ -19,7 +19,13 @@ export async function restoreLiveSeasonalDiscovery({
     headers:{Accept:'application/json'},cache:'no-store',redirect:'error',
     signal:AbortSignal.timeout(20000),
   })
-  if(response?.status===404){
+  const responseType=String(response?.headers?.get?.('content-type')||'').toLowerCase()
+  // Firebase Hosting's SPA rewrite may serve index.html with HTTP 200 when
+  // this new public file has never existed. Treat it as a bootstrap ONLY if
+  // the last published canonical catalog has no thematic/quality rows.
+  const absentSource=response?.status===404
+    || (response?.ok===true && responseType.includes('text/html'))
+  if(absentSource){
     let hadThematicRows=false
     try{
       const catalog=JSON.parse(await readFile(catalogPath,'utf8'))
@@ -31,7 +37,7 @@ export async function restoreLiveSeasonalDiscovery({
     console.log('Seasonal discovery: first-generation bootstrap; no published snapshot yet.')
     return null
   }
-  if(!response?.ok || !String(response.headers?.get?.('content-type')||'').includes('application/json'))
+  if(!response?.ok || !responseType.includes('application/json'))
     throw Error('SEASONAL_SNAPSHOT_FETCH_FAILED_CLOSED')
   const data=await response.json()
   if(!validateSeasonalDiscovery(data))throw Error('SEASONAL_SNAPSHOT_INVALID')
