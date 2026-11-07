@@ -7,6 +7,10 @@ import { restorePublishedYoutubeEpisodeSummary }
   from '../scripts/restore-live-youtube-episode-summary.mjs'
 import { verifyYoutubeEpisodeCatalogPublication }
   from '../scripts/verify-youtube-episode-catalog-publication.mjs'
+import { restorePublishedYoutubeSearchCompanion }
+  from '../scripts/restore-live-youtube-code-projections.mjs'
+import { YOUTUBE_SEARCH_PUBLIC_PATHS, verifyYoutubeSearchCompanionPublication }
+  from '../scripts/verify-youtube-search-companion-publication.mjs'
 
 const generation = '2026-11-06T18:49:20.000Z'
 const summary = {
@@ -108,11 +112,105 @@ describe('#724 code-only deploy preserves canonical YouTube episode generation',
 
   it('keeps the workflow QA dependency explicit and separates code-only from source refresh', () => {
     const workflow = readFileSync(new URL('../.github/workflows/deploy-firebase.yml', import.meta.url), 'utf8')
-    expect(workflow).toContain('Restore published YouTube episode summary for code-only deploy')
-    expect(workflow).toContain('scripts/restore-live-youtube-episode-summary.mjs')
+    expect(workflow).toContain('Restore published YouTube episode and film search projections for code-only deploy')
+    expect(workflow).toContain('scripts/restore-live-youtube-code-projections.mjs')
     expect(workflow).toContain("steps.youtube_episode_review.outcome == 'success'")
     expect(workflow).toContain("!contains(github.event.head_commit.message, '[youtube-refresh]')")
     expect(workflow).toContain("contains(github.event.head_commit.message, '[youtube-refresh]')")
     expect(workflow).toContain("contains(github.event.head_commit.message, '[episode-refresh]')")
+  })
+})
+
+
+const searchGeneration = '2026-11-06T18:51:20.000Z'
+const searchNow = Date.parse('2026-11-07T12:00:00.000Z')
+const videoId = 'abcdefghijk'
+const filmId = 12594
+const canonicalFilm = {
+  type: 'movie', source: 'tmdb', tmdbId: filmId, id: 'tmdb-movie-' + filmId,
+  title: 'Film 12594', description: 'Canonical TMDB metadata',
+  posterUrl: 'https://image.tmdb.org/t/p/w500/sample.jpg',
+  metadataComplete: true, providerIds: ['youtube'],
+}
+const searchTriplet = () => [
+  {
+    kind: 'moviehub-youtube-curated-editorial-title-hints',
+    schemaVersion: 1, providerId: 'youtube',
+    publicationAuthority: 'editorial-playlist-only',
+    generatedAt: searchGeneration, sourceVideoIds: 2,
+    verifiedDEOffers: 0, verifiedPlaybackRoutes: 0,
+    count: 1, entries: [{
+      key: 'movie:' + filmId, mediaType: 'movie', tmdbId: filmId,
+      videoId, watchUrl: 'https://www.youtube.com/watch?v=' + videoId,
+      playlistMode: 'free', verificationStatus: 'not-independently-verified',
+    }],
+  },
+  {
+    kind: 'moviehub-youtube-curated-new-film-metadata',
+    schemaVersion: 1, providerId: 'youtube',
+    offerVerification: 'editorial-only-not-independent',
+    generatedAt: searchGeneration, sourceVideoIds: 2,
+    count: 1, entries: [{ tmdbId: filmId, videoId, playlistClass: 'FREE', film: canonicalFilm }],
+  },
+  {
+    kind: 'moviehub-youtube-curated-search-title-metadata',
+    schemaVersion: 1, providerId: 'youtube',
+    sourceType: 'user-curated-playlists-with-tmdb-metadata',
+    offerVerification: 'editorial-only-not-independent',
+    generatedAt: searchGeneration, sourceVideoIds: 2,
+    count: 1, entries: [{ tmdbId: filmId, film: canonicalFilm }],
+  },
+]
+const searchRequest = (files = searchTriplet(), { cache = 'public, no-store' } = {}) =>
+  vi.fn(async uri => ({
+    ok: true,
+    headers: { get: key => key === 'cache-control' ? cache : 'application/json' },
+    json: async () => files[YOUTUBE_SEARCH_PUBLIC_PATHS.findIndex(path => uri.pathname === '/' + path)],
+  }))
+
+describe('#724 code-only deploy preserves curated YouTube search companion', () => {
+  it('restores the complete validated film search projection with the same canonical generation', async () => {
+    await fixture(async dir => {
+      const request = searchRequest()
+      const result = await restorePublishedYoutubeSearchCompanion({
+        publicDir: dir, request, now: searchNow,
+      })
+      expect(result).toEqual({ published: true, count: 1, revoked: false })
+      expect(request).toHaveBeenCalledTimes(3)
+      for (const path of YOUTUBE_SEARCH_PUBLIC_PATHS) {
+        expect(JSON.parse(await readFile(join(dir, path), 'utf8')))
+          .toEqual(searchTriplet()[YOUTUBE_SEARCH_PUBLIC_PATHS.indexOf(path)])
+      }
+      expect(await verifyYoutubeSearchCompanionPublication({
+        directory: dir, prepared: true, now: searchNow,
+      })).toMatchObject({ published: true, count: 1 })
+    })
+  })
+
+  it('rejects mixed source generations without modifying any previous public file', async () => {
+    await fixture(async dir => {
+      const file = join(dir, YOUTUBE_SEARCH_PUBLIC_PATHS[0])
+      await writeFile(file, 'previous published film metadata')
+      const mixed = searchTriplet()
+      mixed[2] = { ...mixed[2], generatedAt: '2026-11-05T12:00:00.000Z' }
+      await expect(restorePublishedYoutubeSearchCompanion({
+        publicDir: dir, request: searchRequest(mixed), now: searchNow,
+      })).rejects.toThrow('YOUTUBE_SEARCH_COMPANION_BUILD_OR_GENERATION_INVALID')
+      expect(await readFile(file, 'utf8')).toBe('previous published film metadata')
+    })
+  })
+
+  it('rejects cacheable or incomplete hosted companions, never silently revokes films', async () => {
+    await fixture(async dir => {
+      await expect(restorePublishedYoutubeSearchCompanion({
+        publicDir: dir, request: searchRequest(searchTriplet(), { cache: 'max-age=3600' }),
+        now: searchNow,
+      })).rejects.toThrow('YOUTUBE_SEARCH_RESTORE_UNAVAILABLE_OR_CACHEABLE')
+      const missing = searchTriplet()
+      missing[1] = null
+      await expect(restorePublishedYoutubeSearchCompanion({
+        publicDir: dir, request: searchRequest(missing), now: searchNow,
+      })).rejects.toThrow()
+    })
   })
 })
