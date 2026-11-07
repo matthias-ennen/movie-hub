@@ -116,3 +116,40 @@
     transition: none;
   }
 }
+
+/*
+ * Audited cinematic WebP pairs are enabled only by seasonalMediaManifest.js.
+ * Legacy SVG seasons retain their original styling until their complete
+ * image pair is present and has passed exact Hosting readback.
+ *
+ * No animated/filter-heavy layers: the photographic depth lives inside
+ * the optimized WebP itself, preserving Fire TV scroll/focus performance.
+ */
+:root[data-season-enabled='true'][data-season-media='cinematic'] [data-content-page] > .rows-wrap,
+:root[data-season-enabled='true'][data-season-media='cinematic'] [data-content-page] > .browse-page {
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: top center;
+}
+:root[data-season-enabled='true'][data-season-media='cinematic'] .detail-layout-panel::after {
+  width: clamp(150px, 24vw, 320px);
+  height: clamp(120px, 20vw, 260px);
+  opacity: .82;
+  background-position: top right;
+}
+:root[data-season-enabled='true'][data-season-media='cinematic'] .hero-carousel-eyebrow::before {
+  width: 9px;
+  height: 9px;
+  margin-right: .6rem;
+  border-radius: 50%;
+  background-image: none;
+  background-color: var(--season-highlight, var(--color-brand-accent));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--season-highlight, var(--color-brand-accent)) 55%, transparent);
+}
+@media (max-width: 600px) {
+  :root[data-season-enabled='true'][data-season-media='cinematic'] .detail-layout-panel::after {
+    width: 135px;
+    height: 115px;
+    opacity: .58;
+  }
+}
