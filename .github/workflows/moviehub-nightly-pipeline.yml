@@ -7,6 +7,16 @@ on:
     - cron: '10 0 * * *'
       timezone: Europe/Berlin
   workflow_dispatch:
+    inputs:
+      run_mode:
+        description: "Ausführung: vollständig / kompakt aus Bestand / gezielte TMDB-Themen"
+        type: choice
+        required: true
+        default: full
+        options:
+          - full
+          - compact
+          - themes
   # A narrowly scoped, explicitly marked one-off commit may launch a genuine
   # workflow_dispatch of THIS central chain. Ordinary pushes do not run it.
   push:
@@ -69,7 +79,7 @@ jobs:
   discovery:
     name: Real-quota YouTube discovery (until confirmed quotaExceeded or candidates exhausted)
     needs: night-gate
-    if: ${{ !cancelled() && needs.night-gate.outputs.should_run == 'true' }}
+    if: ${{ !cancelled() && needs.night-gate.outputs.should_run == 'true' && (github.event_name == 'schedule' || inputs.run_mode == 'full') }}
     uses: ./.github/workflows/youtube-g2-nightly-discovery.yml
     permissions:
       contents: read
@@ -80,7 +90,7 @@ jobs:
     name: Trusted known YouTube videos.list recheck (no searches)
     needs: [night-gate, discovery]
     # Real YouTube quota exhaustion or discovery failure MUST NOT block known IDs.
-    if: ${{ always() && !cancelled() && needs.night-gate.outputs.should_run == 'true' }}
+    if: ${{ always() && !cancelled() && needs.night-gate.outputs.should_run == 'true' && (github.event_name == 'schedule' || inputs.run_mode == 'full') }}
     uses: ./.github/workflows/youtube-g2-global-known-no-search.yml
     permissions:
       contents: read
@@ -96,6 +106,7 @@ jobs:
     with:
       nightly_chain: true
       youtube_known_recheck: ${{ needs.known-videos.result }}
+      data_mode: ${{ github.event_name == 'workflow_dispatch' && (inputs.run_mode == 'compact' || inputs.run_mode == 'themes') && inputs.run_mode || 'standard' }}
     permissions:
       actions: read
       contents: read
@@ -105,7 +116,7 @@ jobs:
   report:
     name: Aggregate adapter QA, step results and publication evidence
     needs: [night-gate, discovery, known-videos, firebase]
-    if: ${{ always() && !cancelled() && needs.night-gate.outputs.should_run == 'true' }}
+    if: ${{ always() && !cancelled() && needs.night-gate.outputs.should_run == 'true' && (github.event_name == 'schedule' || inputs.run_mode == 'full') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

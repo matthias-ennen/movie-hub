@@ -148,11 +148,11 @@ export async function readSeasonalDiscovery(path=resolve(SEASONAL_DISCOVERY_FILE
 }
 
 export async function refreshSeasonalDiscovery({
-  request, now=new Date(), path=resolve(SEASONAL_DISCOVERY_FILE),
+  request, now=new Date(), path=resolve(SEASONAL_DISCOVERY_FILE), force=false, requireFresh=false,
 }={}){
   const previous=await readSeasonalDiscovery(path)
   const current=now instanceof Date?now:new Date(now)
-  if(previous && current.getTime()-Date.parse(previous.generatedAt)>=0
+  if(!force && previous && current.getTime()-Date.parse(previous.generatedAt)>=0
     &&current.getTime()-Date.parse(previous.generatedAt)<SEASONAL_REFRESH_AGE_MS){
     console.log(`Seasonal TMDB discovery: reuse ${previous.generatedAt}, ${previous.uniqueCandidates} candidate IDs, 0 API requests.`)
     return previous
@@ -163,6 +163,7 @@ export async function refreshSeasonalDiscovery({
     console.log(`Seasonal TMDB discovery: ${snapshot.keywordLookups} keyword lookups, ${snapshot.pagesFetched} discovery pages, ${snapshot.uniqueCandidates} unique candidates.`)
     return snapshot
   }catch(error){
+    if(requireFresh)throw error
     if(!previous){
       console.warn('Seasonal discovery unavailable: keeping core TMDB catalog unchanged',error.message)
       return null

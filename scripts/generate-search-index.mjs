@@ -263,7 +263,7 @@ export function searchDetailFromDiscover(raw, mediaType, genreNamesById = new Ma
   }
 }
 
-function searchDetailFromCatalogTitle(title) {
+export function searchDetailFromCatalogTitle(title) {
   const genreNames = Array.isArray(title?.genres)
     ? title.genres.map((genre) => typeof genre === 'string' ? genre : genre?.name).filter(Boolean)
     : String(title?.genre || '')
