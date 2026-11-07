@@ -391,20 +391,21 @@ export default function DetailModal({
     // Selecting an episode never marks the WHOLE series as watched.
     // Re-check the displayed hint at click time: a long-open dialog must
     // not launch a link after expiry or a changed canonical episode.
-    if (!isProviderEnabled('youtube')) return
+    if (!isProviderEnabled('youtube')) return false
     const fresh = revalidateYoutubeEpisodePlaylistRouteAtLaunch(route, episode, {
       now: Date.now(),
     })
-    if (!fresh) return
+    if (!fresh) return false
     if (launchProviderPlaybackRoute({
       providerId:'youtube',title:episode.title,route:fresh,
       fallbackUrl:fresh.target,
-    })) return
+    })) return true
     if (window.MovieHubNative?.openExternalUrl) {
       window.MovieHubNative.openExternalUrl(fresh.target)
     } else {
       window.open(fresh.target,'_blank','noopener,noreferrer')
     }
+    return true
   }
 
   function openStreamingProvider(providerId, episodeForRoute = selectedEpisode) {
@@ -417,10 +418,7 @@ export default function DetailModal({
         ? selectedEpisodeYoutubeRoute
         : selectYoutubeEpisodePlaylistRoute(episodeForRoute?.youtubePlaylistHint, episodeForRoute))
       : null
-    if (episodeRoute) {
-      openExactYoutubeEpisode(episodeRoute, episodeForRoute)
-      return
-    }
+    if (episodeRoute && openExactYoutubeEpisode(episodeRoute, episodeForRoute)) return
     const destination = getProviderDestination(providerId, item.title, {
       waipuMode: 'vod',
     })
