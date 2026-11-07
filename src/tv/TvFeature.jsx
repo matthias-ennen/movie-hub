@@ -459,8 +459,10 @@ export default function TvFeature({
       activationRequest={activationRequest}
       onActivationUnavailable={onActivationUnavailable}
       onHeroReady={handleTvHeroReady}
-      periods={tvViewModel.periods}
-      selectedPeriodId={tvViewModel.selectedPeriod.id}
+      // Period controls come from the synchronous selection model, not the
+      // asynchronously swapped poster-row result.
+      periods={emptyModel.periods}
+      selectedPeriodId={emptyModel.selectedPeriod.id}
       onPeriodChange={setTvPeriodId}
       status={tvScheduleRequested && tvSchedule.status === 'idle' ? 'loading' : tvSchedule.status}
       onOpen={onOpen}
