@@ -1,6 +1,14 @@
 import { useTheme } from '../theme/ThemeProvider.jsx'
 import SettingsButton from './SettingsButton.jsx'
 
+const SEASON_DESIGN_DESCRIPTIONS = {
+  classic: 'Dein gewohntes MovieHub-Design ohne saisonale Akzente.',
+  halloween: 'Dezente violette und warme orangefarbene Gruselakzente.',
+  christmas: 'Zurückhaltendes Tannengrün, warme Goldtöne und festliche Akzente.',
+  easter: 'Sanfte Frühlingsfarben mit Lavendel- und Grüntönen.',
+  pentecost: 'Helle, ruhige Akzente in Türkis und Frühlingsgrün.',
+}
+
 export default function ThemeSettings() {
   const {
     themeId,
@@ -156,7 +164,7 @@ export default function ThemeSettings() {
                     <strong>{mode.label}</strong>
                     {effective && <span className="active-mark">Wirksam</span>}
                   </span>
-                  <span>{mode.description}</span>
+                  <span>{SEASON_DESIGN_DESCRIPTIONS[mode.id]}</span>
                   <small>{selected ? 'Ausgewählt' : 'Auswählen'}</small>
                 </SettingsButton>
               })}
