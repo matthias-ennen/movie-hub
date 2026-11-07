@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { inspectSeasonalWebP } from '../scripts/audit-seasonal-artwork.mjs'
 import {
   SEASONAL_CONTENT_MODES, seasonalCalendarWindows, seasonalCalendarPeriod,
   withManualSeasonalContent, withSeasonalAutoSwitch, resolveSeasonalContent,
@@ -103,10 +104,17 @@ describe('#484 fully resourced visual system',()=>{
       for(const value of Object.values(assets)){
         const file=new URL('../public'+value,import.meta.url)
         expect(existsSync(fileURLToPath(file)),`Missing ${value}`).toBe(true)
-        const svg=readFileSync(file,'utf8')
-        expect(svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg"/)
-        expect(svg).not.toMatch(/<script|foreignObject|<image|https?:\/\/[^"]+\.(?:svg|png|jpg)/i)
-        expect(svg.length).toBeLessThan(2600)
+        if(value.endsWith('.svg')){
+          const svg=readFileSync(file,'utf8')
+          expect(svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg"/)
+          expect(svg).not.toMatch(/<script|foreignObject|<image|https?:\/\/[^"]+\.(?:svg|png|jpg)/i)
+          expect(svg.length).toBeLessThan(2600)
+        }else{
+          const info=inspectSeasonalWebP(readFileSync(file))
+          expect(info.animated).toBe(false)
+          expect(info.bytes).toBeLessThan(1_500_000)
+          if(value.includes('-corner.'))expect(info.alpha).toBe(true)
+        }
       }
     }
     const css=read('../src/styles/seasonal-atmosphere.css')

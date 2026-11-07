@@ -96,6 +96,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Audit seasonal artwork dimensions and alpha before publication
+        run: node scripts/audit-seasonal-artwork.mjs
+
       - name: Generate source schema baseline report
         id: source_schema_baseline
         continue-on-error: true
