@@ -124,6 +124,19 @@ describe('#728 selectable manual data modes',()=>{
       expect(saved).toEqual(baseCatalog)
     })
   })
+  it('rejects failed forced discovery even when the old snapshot was generated seconds earlier',async()=>{
+    const previous=await buildSeasonalDiscovery({
+      request:themeMockRequest,generatedAt:now.toISOString(),
+    })
+    await fixture(async options=>{
+      const failed=vi.fn(async()=>{throw Error('TMDB 503')})
+      await expect(runManualDataMode({
+        mode:'themes',now,request:failed,resolveTitle:validCandidateTitle,...options,
+      })).rejects.toThrow('TMDB 503')
+      const catalog=JSON.parse(await readFile(join(options.root,'catalog.json'),'utf8'))
+      expect(catalog).toEqual(baseCatalog)
+    },{snapshot:previous})
+  })
   it('rejects untrusted mode selection or a missing snapshot for previously published thematic rows',async()=>{
     await fixture(async options=>{
       await expect(runManualDataMode({mode:'typo',now,...options})).rejects.toThrow('MANUAL_DATA_MODE_INVALID')
