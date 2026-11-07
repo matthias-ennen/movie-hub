@@ -193,6 +193,14 @@ jobs:
       - name: Restore incremental series-season metadata
         run: npm run series:details:restore
 
+      # On normal code pushes, canonical episode shards are already restored
+      # from the last verified Hosting release. Preserve the matching public
+      # YouTube summary; private QA is intentionally NOT regenerated here.
+      - name: Restore published YouTube episode and film search projections for code-only deploy
+        id: youtube_code_projection_restore
+        if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]') && !contains(github.event.head_commit.message, '[episode-refresh]') && !contains(github.event.head_commit.message, '[youtube-refresh]') }}
+        run: node scripts/restore-live-youtube-code-projections.mjs
+
       - name: Collect TMDB movie and series changes
         id: tmdb_changes
         if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') }}
@@ -349,12 +357,14 @@ jobs:
       # Failure leaves all TMDB YouTube badges and standard search links intact.
       - name: Load authoritative playlist configuration from MovieHub Admin
         id: youtube_admin_config
+        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[episode-refresh]') || contains(github.event.head_commit.message, '[youtube-refresh]') }}
         env:
           GOOGLE_CLOUD_PROJECT: movie-hub-62459
         run: node scripts/youtube-admin-playlist-config.mjs
 
       - name: Refresh admin-configured YouTube playlists through canonical source contract
         id: youtube_curated_source
+        if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[episode-refresh]') || contains(github.event.head_commit.message, '[youtube-refresh]') }}
         continue-on-error: true
         run: node scripts/youtube-g2-curated-source-sync-live.mjs
 
@@ -452,6 +462,7 @@ jobs:
       # no new runtime requests; absent videos revoke stale links.
       - name: Build exact YouTube episode playlist hints in TMDB season shards
         id: youtube_episode_catalog
+        if: ${{ steps.youtube_episode_review.outcome == 'success' }}
         run: node scripts/publish-youtube-episode-catalog-live.mjs
 
       # Playlist modes describe the user's editorial classification, not
