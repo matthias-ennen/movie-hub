@@ -145,5 +145,4 @@ describe('#484 seasonal independent design settings and shared calendar',()=>{
       }
       expect(css).toContain(`data-season-preview='${season}'`)
     })
-  )
 })
