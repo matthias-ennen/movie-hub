@@ -1,0 +1,119 @@
+import { describe, it, expect, vi } from 'vitest'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { readFileSync } from 'node:fs'
+import {
+  buildSeasonalDiscovery, refreshSeasonalDiscovery, seasonalDiscoverParams,
+  seasonalDiscoveryRows, readSeasonalDiscovery, validateSeasonalDiscovery,
+  SEASONAL_PAGE_BUDGET,
+} from '../scripts/tmdb-seasonal-discovery.mjs'
+import { buildThemedBrowseRows } from '../src/catalog/seasonalContent.js'
+
+const keywords={ halloween:11, christmas:22, easter:33, pentecost:44 }
+const request=vi.fn(async(path,params)=>{
+  if(path==='/search/keyword')return {results:[{id:keywords[params.query],name:params.query}]}
+  const mediaType=path==='/discover/movie'?'movie':'tv'
+  const id=Number(params.with_keywords||5)
+  const offset=mediaType==='movie'?0:500000
+  const base=id*10000+offset+params.page*100
+  return {total_pages:3,results:Array.from({length:5},(_,i)=>({
+    id:base+i,adult:false,vote_count:600,vote_average:8.2,
+  }))}
+})
+describe('#728 bounded weekly seasonal TMDB discovery',()=>{
+  it('uses the documented TMDB discover filters without fabricating availability',()=>{
+    const movie=seasonalDiscoverParams({id:'christmas',mediaType:'movie',keywordId:22},1)
+    expect(movie).toMatchObject({with_keywords:22,watch_region:'DE',page:1,
+      with_watch_monetization_types:'flatrate|free|ads|rent|buy',include_adult:false})
+    expect(movie).not.toHaveProperty('with_watch_providers')
+    const quality=seasonalDiscoverParams({id:'quality',mediaType:'tv'},2)
+    expect(quality).toMatchObject({sort_by:'vote_average.desc',
+      'vote_average.gte':7.5,'vote_count.gte':150})
+    expect(quality).not.toHaveProperty('with_keywords')
+  })
+  it('runs no more than 30 discover pages plus 4 verified keyword lookups',async()=>{
+    request.mockClear()
+    const snapshot=await buildSeasonalDiscovery({request,generatedAt:'2026-11-07T06:00:00Z'})
+    expect(validateSeasonalDiscovery(snapshot)).toBe(true)
+    expect(snapshot.strategies).toHaveLength(10)
+    expect(snapshot.pagesFetched).toBe(30)
+    expect(snapshot.pagesFetched).toBeLessThanOrEqual(SEASONAL_PAGE_BUDGET)
+    expect(request).toHaveBeenCalledTimes(34)
+    const rows=seasonalDiscoveryRows(snapshot)
+    expect(rows).toHaveLength(10)
+    expect(rows.find(r=>r.seasonId==='christmas')).toMatchObject({
+      discoveryKind:'seasonal',preserveOrder:undefined,limit:20,
+    })
+    expect(rows.find(r=>r.discoveryKind==='quality')).toMatchObject({
+      seasonId:null,mediaType:'movie',
+    })
+  })
+  it('uses only exact verified keyword identities and never general horror for Halloween',async()=>{
+    const get=vi.fn(async(path,params)=>{
+      if(path==='/search/keyword')return {results:[{id:3333,name:params.query+' film'}]}
+      throw Error('Should not query discover if seasonal keyword was not verified')
+    })
+    // Quality discovery still operates independently of seasonal keywords.
+    const full=vi.fn(async(path,params)=>path==='/search/keyword'
+      ? await get(path,params) : {total_pages:1,results:[]})
+    const result=await buildSeasonalDiscovery({request:full})
+    expect(result.strategies.filter(s=>s.status==='no-keyword')).toHaveLength(8)
+    expect(result.strategies.filter(s=>s.id==='quality'&&s.status==='complete')).toHaveLength(2)
+    expect(result.pagesFetched).toBe(2)
+  })
+  it('reuses a valid weekly snapshot without any TMDB API requests',async()=>{
+    const dir=await mkdtemp(join(tmpdir(),'moviehub-themes-'))
+    const path=join(dir,'seasonal.json')
+    try{
+      request.mockClear()
+      const first=await refreshSeasonalDiscovery({request,path,now:new Date('2026-11-07T07:00:00Z')})
+      expect(first.uniqueCandidates).toBeGreaterThan(0)
+      expect(request).toHaveBeenCalledTimes(34)
+      request.mockClear()
+      const cached=await refreshSeasonalDiscovery({request,path,now:new Date('2026-11-12T07:00:00Z')})
+      expect(cached.generatedAt).toBe(first.generatedAt)
+      expect(request).not.toHaveBeenCalled()
+      expect(await readSeasonalDiscovery(path)).toEqual(first)
+      const written=JSON.parse(await readFile(path,'utf8'))
+      expect(written).toEqual(first)
+    }finally{await rm(dir,{recursive:true,force:true})}
+  })
+  it('keeps the prior verified snapshot when the source temporarily fails',async()=>{
+    const dir=await mkdtemp(join(tmpdir(),'moviehub-themes-'))
+    const path=join(dir,'seasonal.json')
+    try{
+      const first=await refreshSeasonalDiscovery({request,path,now:new Date('2026-11-07T07:00:00Z')})
+      const no=vi.fn(async()=>{throw Error('TMDB 503')})
+      const fallback=await refreshSeasonalDiscovery({
+        request:no,path,now:new Date('2026-11-16T07:00:00Z'),
+      })
+      expect(fallback).toEqual(first)
+      expect(await readSeasonalDiscovery(path)).toEqual(first)
+    }finally{await rm(dir,{recursive:true,force:true})}
+  })
+  it('reuses canonical title identities and filters unavailable providers',()=>{
+    const ids=['tmdb-movie-100','tmdb-movie-200','tmdb-movie-300',
+      'tmdb-movie-400','tmdb-movie-500','tmdb-movie-600','tmdb-movie-700']
+    const map=new Map(ids.map((id,i)=>[id,{id,providerIds:i===0?[]:['netflix'],type:'movie'}]))
+    const rows=[{id:'themed-christmas-movies',title:'Weihnachten · Filme',
+      seasonId:'christmas',discoveryKind:'seasonal',mediaType:'movie',ids},
+      {id:'themed-quality-movies',title:'Besonders gut bewertete Filme',
+        discoveryKind:'quality',mediaType:'movie',ids}]
+    const visible=buildThemedBrowseRows(rows,map,'christmas','movie',
+      item=>item.providerIds.includes('netflix'))
+    expect(visible.map(r=>r.id)).toEqual(['themed-christmas-movies','themed-quality-movies'])
+    expect(visible[0].items).toHaveLength(6)
+    expect(buildThemedBrowseRows(rows,map,'classic','movie',
+      item=>item.providerIds.includes('netflix')).map(r=>r.id))
+      .toEqual(['themed-quality-movies'])
+    expect(buildThemedBrowseRows(rows,map,'halloween','series')).toEqual([])
+  })
+  it('nightly pipeline restores snapshot before canonical catalog and preserves others on code-only',()=>{
+    const workflow=readFileSync(new URL('../.github/workflows/deploy-firebase.yml',import.meta.url),'utf8')
+    expect(workflow).toContain('Restore last published seasonal TMDB discovery snapshot')
+    expect(workflow).toContain('node scripts/restore-live-seasonal-discovery.mjs')
+    expect(workflow.indexOf('Restore last published seasonal TMDB discovery snapshot'))
+      .toBeLessThan(workflow.indexOf('Generate TMDB catalog for strict refresh'))
+  })
+})
