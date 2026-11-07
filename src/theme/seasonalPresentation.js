@@ -1,3 +1,4 @@
+import { isCinematicSeasonMediaReady } from './seasonalMediaManifest.js'
 /**
  * Copy and asset contracts for the visual season. This MUST use the visual
  * season, not seasonalContent (provider/poster selection); both controls
@@ -47,8 +48,8 @@ export const SEASONAL_ATMOSPHERE_SLOTS = Object.freeze([
 ])
 const ASSETS = Object.freeze(Object.fromEntries(Object.keys(CONTENT).map(id => [
   id, Object.freeze({
-    wallpaper: `/seasonal-atmosphere/${id}-wallpaper.svg`,
-    corner: `/seasonal-atmosphere/${id}-corner.svg`,
+    wallpaper: `/seasonal-atmosphere/${id}-wallpaper.${isCinematicSeasonMediaReady(id) ? 'webp' : 'svg'}`,
+    corner: `/seasonal-atmosphere/${id}-corner.${isCinematicSeasonMediaReady(id) ? 'webp' : 'svg'}`,
   }),
 ])))
 export const SEASONAL_ATMOSPHERE_ASSETS = ASSETS
