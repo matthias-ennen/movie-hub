@@ -7,6 +7,10 @@ const SEASON_DESIGN_DESCRIPTIONS = {
   christmas: 'Zurückhaltendes Tannengrün, warme Goldtöne und festliche Akzente.',
   easter: 'Sanfte Frühlingsfarben mit Lavendel- und Grüntönen.',
   pentecost: 'Helle, ruhige Akzente in Türkis und Frühlingsgrün.',
+  newyear: 'Mitternachtsblau, goldene Lichtspuren und dezente Sternreflexe.',
+  filmfestival: 'Bordeaux, Silber und feine Kino-Scheinwerfer.',
+  hollywood: 'Dunkles Champagnergold und die Atmosphäre einer großen Filmpremiere.',
+  'summer-cinema': 'Warme Abendsonne, tiefes Blau und ruhige Open-Air-Kinostimmung.',
 }
 
 export default function ThemeSettings() {
@@ -120,8 +124,8 @@ export default function ThemeSettings() {
             <p className="settings-kicker">Jahreszeiten</p>
             <h2 id="seasonal-design-heading">Saisonale Gestaltung</h2>
             <p className="settings-description">
-              Eine dezente Farbwelt für die gewählte Saison. Unabhängig von deinen
-              saisonalen Posterreihen und deinem Grunddesign.
+              Dezente Hintergrundgrafiken, Akzente und Farbwelten für deine Saison.
+              Unabhängig von den saisonalen Posterreihen und deinem Grunddesign.
             </p>
             <p className="settings-hint" role="status">
               Aktiv: {seasonalThemeSettings.enabled
