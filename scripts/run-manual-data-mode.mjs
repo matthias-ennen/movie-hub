@@ -20,7 +20,7 @@ import {
 import { SEARCH_DETAIL_BUCKET_COUNT } from '../src/search/lazySearchDetails.js'
 
 export const MANUAL_DATA_MODES = Object.freeze(['compact', 'themes'])
-export const MAX_TARGETED_NEW_TITLE_DETAILS = 40
+export const MAX_TARGETED_NEW_TITLE_DETAILS = 80
 const THEMATIC_ROW_PREFIX = 'themed-'
 const hasProvider = item => Array.isArray(item?.providerIds) && item.providerIds.length > 0
 const tmdbKey = item => `${item?.type === 'series' || item?.mediaType === 'tv' ? 'tv' : 'movie'}:${Number(item?.tmdbId ?? item?.id)}`
@@ -32,24 +32,31 @@ export function selectNewThematicCandidates(snapshot, knownTitles, budget = MAX_
     || budget < 0 || budget > MAX_TARGETED_NEW_TITLE_DETAILS) {
     throw Error('MANUAL_THEME_CANDIDATE_BUDGET_OR_SNAPSHOT_INVALID')
   }
-  const known = new Set(knownTitles.map(tmdbKey))
-  const seen = new Set(known)
+  const known = new Map(knownTitles.map(title => [tmdbKey(title), title]))
+  const selected = new Map()
   const strategies = snapshot.strategies.filter(s => s.status === 'complete')
-  const selected = []
-  // Round robin across categories so Christmas/quality are not starved by
-  // Halloween candidates when the strict detail budget is reached.
-  for (let index = 0; index < 20 && selected.length < budget; index++) {
+  const perStrategyCoverage = new Map(strategies.map(s => [
+    `${s.id}:${s.mediaType}`,
+    s.candidates.filter(c => hasProvider(known.get(candidateKey(c)))).length,
+  ]))
+  // Resolve at most eight available titles per strategy. Round-robin avoids
+  // letting one seasonal genre exhaust the entire global TMDB detail budget.
+  for (let index = 0; index < 20 && selected.size < budget; index++) {
     for (const strategy of strategies) {
+      const key = `${strategy.id}:${strategy.mediaType}`
+      if (perStrategyCoverage.get(key) >= 8) continue
       const candidate = strategy.candidates[index]
       if (!candidate) continue
-      const key = candidateKey(candidate)
-      if (seen.has(key)) continue
-      seen.add(key)
-      selected.push(candidate)
-      if (selected.length === budget) break
+      const identity = candidateKey(candidate)
+      if (hasProvider(known.get(identity))) continue
+      if (!selected.has(identity)) {
+        if (selected.size >= budget) break
+        selected.set(identity, candidate)
+      }
+      perStrategyCoverage.set(key, perStrategyCoverage.get(key) + 1)
     }
   }
-  return selected
+  return [...selected.values()]
 }
 
 export function projectManualThematicCatalog(catalog, snapshot, extraTitles = [], now = new Date()) {
@@ -147,11 +154,12 @@ async function atomicJson(path, value) {
 /**
  * Explicit mode entry point: compact performs zero TMDB/YouTube requests.
  * Targeted mode performs <=4 keyword+30 discovery pages, followed by
- * <=40 canonical title resolutions (four TMDB endpoints each before retries).
+ * <=80 canonical title resolutions (four TMDB endpoints each before retries).
  */
 export async function runManualDataMode({
   mode, root = resolve('public'), request = tmdbFetch,
   resolveTitle = resolveCandidate, now = new Date(),
+  reportPath = resolve('artifacts/manual-data-mode-report.json'),
 } = {}) {
   if (!MANUAL_DATA_MODES.includes(mode)) throw Error('MANUAL_DATA_MODE_INVALID')
   const catalogPath = resolve(root, 'catalog.json')
@@ -207,7 +215,7 @@ export async function runManualDataMode({
     themedRows: projected.rows.map(row => ({ id: row.id, titleCount: row.ids.length })),
     noYoutubeOrAdapterDiscovery: true,
   }
-  await atomicJson(resolve('artifacts/manual-data-mode-report.json'), report)
+  await atomicJson(reportPath, report)
   console.log(JSON.stringify(report))
   return report
 }
