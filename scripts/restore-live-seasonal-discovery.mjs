@@ -26,14 +26,13 @@ export async function restoreLiveSeasonalDiscovery({
   const absentSource=response?.status===404
     || (response?.ok===true && responseType.includes('text/html'))
   if(absentSource){
-    let hadThematicRows=false
-    try{
-      const catalog=JSON.parse(await readFile(catalogPath,'utf8'))
-      hadThematicRows=Array.isArray(catalog?.rowDefinitions)&&catalog.rowDefinitions.some(
-        row=>row?.seasonId||row?.discoveryKind==='quality',
-      )
-    }catch{}
-    if(hadThematicRows)throw Error('SEASONAL_SNAPSHOT_MISSING_FOR_PUBLISHED_THEME_ROWS')
+    // Bootstrap is allowed only when an intact, already restored canonical
+    // catalog proves this release has never published thematic rows.
+    const catalog=JSON.parse(await readFile(catalogPath,'utf8'))
+    if(!Array.isArray(catalog?.rowDefinitions))
+      throw Error('SEASONAL_BOOTSTRAP_REQUIRES_VALID_CANONICAL_CATALOG')
+    if(catalog.rowDefinitions.some(row=>row?.seasonId||row?.discoveryKind==='quality'))
+      throw Error('SEASONAL_SNAPSHOT_MISSING_FOR_PUBLISHED_THEME_ROWS')
     console.log('Seasonal discovery: first-generation bootstrap; no published snapshot yet.')
     return null
   }
