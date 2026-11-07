@@ -479,8 +479,12 @@ jobs:
           cp artifacts/youtube-g2/curated-production-sync/qa.json artifacts/youtube-g2/curated-playlists/qa.json
           node scripts/youtube-g2-curated-tmdb-membership-live.mjs
 
+      # Never replace the restored, validated editorial title hints with the
+      # generator's empty fallback on a code-only deploy (no private QA).
+      # Reproject only from fresh, successful YouTube source + TMDB research.
       - name: Publish provisional YouTube playlist title hints, never verified offers
         id: youtube_editorial_hints
+        if: ${{ steps.youtube_curated_source.outcome == 'success' && steps.youtube_editorial_research.outcome == 'success' }}
         run: node scripts/generate-youtube-curated-editorial-index.mjs
 
       # Full two-playlist intake is 1:1 with audited video IDs. Individual

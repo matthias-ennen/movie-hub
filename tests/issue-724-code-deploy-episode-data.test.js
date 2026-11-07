@@ -118,6 +118,16 @@ describe('#724 code-only deploy preserves canonical YouTube episode generation',
     expect(workflow).toContain("!contains(github.event.head_commit.message, '[youtube-refresh]')")
     expect(workflow).toContain("contains(github.event.head_commit.message, '[youtube-refresh]')")
     expect(workflow).toContain("contains(github.event.head_commit.message, '[episode-refresh]')")
+    // Previously this unguarded step overwrote restored 93 editorial hints
+    // with the generator's empty fallback when no private source QA was present.
+    const editorialStep = workflow.slice(
+      workflow.indexOf('- name: Publish provisional YouTube playlist title hints, never verified offers'),
+      workflow.indexOf('- name: Stage complete YouTube playlist intake for catalog reconciliation'),
+    )
+    expect(editorialStep).toContain("steps.youtube_curated_source.outcome == 'success'")
+    expect(editorialStep).toContain("steps.youtube_editorial_research.outcome == 'success'")
+    expect(editorialStep).toContain('node scripts/generate-youtube-curated-editorial-index.mjs')
+    expect(workflow).toContain('Restore published YouTube episode and film search projections for code-only deploy')
   })
 })
 
