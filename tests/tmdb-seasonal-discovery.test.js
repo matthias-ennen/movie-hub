@@ -94,10 +94,40 @@ describe('#728 bounded weekly seasonal TMDB discovery',()=>{
       expect((await readSeasonalDiscovery(path)).version).toBe(1)
       request.mockClear()
       const upgraded=await refreshSeasonalDiscovery({request,path,now:new Date('2026-11-08T07:00:00Z')})
-      expect(upgraded.version).toBe(2)
+      expect(upgraded.version).toBe(3)
       expect(upgraded.strategies).toHaveLength(18)
       expect(request).toHaveBeenCalledTimes(44)
     }finally{await rm(dir,{recursive:true,force:true})}
+  })
+  it('keeps a bounded festival editorial search even with an exact festival keyword',async()=>{
+    const calls=[]
+    const festivalSearch=vi.fn(async(path,params)=>{
+      if(path==='/search/keyword'){
+        return {results:params.query==='film festival'?[{id:66,name:'film festival'}]:[]}
+      }
+      calls.push({path,...params})
+      const isFestivalKeyword=params.with_keywords===66
+      const base=isFestivalKeyword?6000:9000
+      return {total_pages:2,results:Array.from({length:12},(_,i)=>({
+        id:base+i+(path.endsWith('/tv')?50000:0),
+        adult:false,vote_average:8.1,vote_count:600,
+      }))}
+    })
+    const snapshot=await buildSeasonalDiscovery({request:festivalSearch})
+    const festival=snapshot.strategies.find(s=>s.id==='filmfestival'&&s.mediaType==='movie')
+    expect(festival.status).toBe('complete')
+    expect(festival.keywordId).toBe(66)
+    expect(festival.candidates).toHaveLength(20)
+    expect(festival.candidates.some(c=>c.id>=6000 && c.id<9000)).toBe(true)
+    expect(festival.candidates.some(c=>c.id>=9000 && c.id<10000)).toBe(true)
+    const festivalCalls=calls.filter(c=>c.path==='/discover/movie'
+      && (c.with_keywords===66 || c['vote_average.gte']===7.2))
+    expect(festivalCalls.some(c=>c.with_keywords===66)).toBe(true)
+    expect(festivalCalls.some(c=>c['vote_average.gte']===7.2
+      && c['vote_count.gte']===250)).toBe(true)
+    const row=seasonalDiscoveryRows(snapshot).find(r=>r.id==='themed-filmfestival-movies')
+    expect(row.title).toBe('Internationale Kino-Entdeckungen · Filme')
+    expect(snapshot.pagesFetched).toBeLessThanOrEqual(SEASONAL_PAGE_BUDGET)
   })
   it('does not imply award wins or festival participation from generic fallback discovery',async()=>{
     const noKeywords=vi.fn(async(path)=>path==='/search/keyword'
