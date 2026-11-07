@@ -12,6 +12,7 @@ import {
   withArtworkRotation,
 } from '../catalog/contentDisplaySettings.js'
 import { ARTWORK_ROTATION_MODES } from '../catalog/artworkRotation.js'
+import { SEASONAL_CONTENT_MODES, resolveSeasonalContent, withSeasonalContentEnabled, withSeasonalAutoSwitch, withManualSeasonalContent } from '../catalog/seasonalContent.js'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
 
 export default function ContentDisplaySettings() {
@@ -20,6 +21,9 @@ export default function ContentDisplaySettings() {
   const [message, setMessage] = useState('')
   const settings = normalizeContentDisplaySettings(activeProfile?.contentDisplaySettings)
   const activeModeId = resolveContentSortMode(settings, activeProfile?.id)
+  const seasonal = settings.seasonalContent
+  const effectiveSeasonId = resolveSeasonalContent(seasonal)
+  const effectiveSeason = SEASONAL_CONTENT_MODES.find(mode => mode.id === effectiveSeasonId) || SEASONAL_CONTENT_MODES[0]
   const activeMode = useMemo(
     () => CONTENT_SORT_MODES.find((mode) => mode.id === activeModeId) || CONTENT_SORT_MODES[0],
     [activeModeId],
@@ -119,6 +123,66 @@ export default function ContentDisplaySettings() {
         <p className="settings-hint">
           Eine manuelle Auswahl bleibt bis zum nächsten täglichen oder wöchentlichen Wechsel wirksam. Innerhalb einer Periode bleibt die Reihenfolge stabil.
         </p>
+      </div>
+
+      <div className="content-display-subsection" aria-label="Saisonale Abwechslung">
+        <div className="settings-heading auto-switch-heading-row">
+          <div>
+            <h3>Saisonale Abwechslung</h3>
+            <p>Passende Filme und Serien zur Jahreszeit hervorheben – unabhängig vom ausgewählten Design.</p>
+            <p className="settings-hint">Aktiv: {seasonal.enabled ? effectiveSeason.label : 'Aus (Klassisch)'}</p>
+          </div>
+          <SettingsButton type="button" className={seasonal.enabled ? 'switch-control active' : 'switch-control'}
+            role="switch" aria-checked={seasonal.enabled} data-focusable="true"
+            aria-label="Saisonale Abwechslung ein- oder ausschalten"
+            disabled={Boolean(savingKey)}
+            onClick={() => save({ ...settings, seasonalContent: withSeasonalContentEnabled(seasonal, !seasonal.enabled) }, 'season:enabled')}>
+            <span className="switch-knob" />
+            <span className="switch-label">{seasonal.enabled ? 'Ein' : 'Aus'}</span>
+          </SettingsButton>
+        </div>
+
+        {seasonal.enabled && (
+          <>
+            <div className="content-sort-grid" aria-label="Saison auswählen">
+              {SEASONAL_CONTENT_MODES.map(mode => (
+                <SettingsButton type="button" key={mode.id}
+                  className={seasonal.seasonId === mode.id ? 'content-sort-choice active' : 'content-sort-choice'}
+                  aria-pressed={seasonal.seasonId === mode.id} data-focusable="true"
+                  disabled={Boolean(savingKey)}
+                  onClick={() => save({ ...settings,
+                    seasonalContent: withManualSeasonalContent(seasonal, mode.id),
+                  }, `season:${mode.id}`)}>
+                  <span className="content-sort-choice-title">
+                    <strong>{mode.label}</strong>
+                    {effectiveSeasonId === mode.id && <span className="active-mark">Wirksam</span>}
+                  </span>
+                  <span>{mode.description}</span>
+                  <small>{savingKey === `season:${mode.id}` ? 'Speichert …' : seasonal.seasonId === mode.id ? 'Ausgewählt' : 'Auswählen'}</small>
+                </SettingsButton>
+              ))}
+            </div>
+            <div className="settings-heading auto-switch-heading-row">
+              <div>
+                <h3>Automatisch zur Jahreszeit wechseln</h3>
+                <p>Weihnachten, Halloween und bewegliche Feiertage erscheinen in den passenden Zeiträumen. Dazwischen gilt Klassisch.</p>
+              </div>
+              <SettingsButton type="button"
+                className={seasonal.autoSwitch.enabled ? 'switch-control active' : 'switch-control'}
+                role="switch" aria-checked={seasonal.autoSwitch.enabled} data-focusable="true"
+                aria-label="Saison automatisch wechseln" disabled={Boolean(savingKey)}
+                onClick={() => save({ ...settings,
+                  seasonalContent: withSeasonalAutoSwitch(seasonal, !seasonal.autoSwitch.enabled),
+                }, 'season:auto')}>
+                <span className="switch-knob" />
+                <span className="switch-label">{seasonal.autoSwitch.enabled ? 'Ein' : 'Aus'}</span>
+              </SettingsButton>
+            </div>
+            <p className="settings-hint">Eine manuell gewählte Saison ist jederzeit möglich, auch außerhalb der Jahreszeit.
+              Bei eingeschalteter Automatik bleibt sie bis zur nächsten Saison-Grenze wirksam.
+              Ohne Automatik bleibt deine Auswahl bestehen.</p>
+          </>
+        )}
       </div>
 
       <div className="content-display-subsection">

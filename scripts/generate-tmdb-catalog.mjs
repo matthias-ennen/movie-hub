@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises'
+import { refreshSeasonalDiscovery, seasonalDiscoveryRows } from './tmdb-seasonal-discovery.mjs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -285,7 +286,7 @@ async function mapWithConcurrency(values, limit, callback) {
 
 export function buildRowDefinitions(rows, titlesByCandidate) {
   return rows
-    .map(({ id, title, candidates, limit }) => {
+    .map(({ id, title, candidates, limit, seasonId, discoveryKind, mediaType }) => {
       const ids = candidates
         .map((candidate) => titlesByCandidate.get(candidateKey(candidate)))
         .filter((item) => item?.providerIds?.length)
@@ -301,7 +302,12 @@ export function buildRowDefinitions(rows, titlesByCandidate) {
         return null
       }
 
-      return { id, title, ids }
+      return {
+        id, title, ids,
+        ...(seasonId ? { seasonId } : {}),
+        ...(discoveryKind ? { discoveryKind, mediaType } : {}),
+        ...(discoveryKind ? { preserveOrder: true } : {}),
+      }
     })
     .filter(Boolean)
 }
@@ -380,24 +386,31 @@ export async function generateCatalog() {
     throw new Error('TMDB_API_READ_TOKEN is missing. Catalog generation must run only in a trusted server/CI context.')
   }
 
-  const [rowsWithCandidates, providerResult] = await Promise.all([
+  const [baseRows, providerResult, seasonalSnapshot] = await Promise.all([
     Promise.all(CATALOG_ROWS.map(async (row) => ({
       ...row,
       candidates: await getRowCandidates(row),
     }))),
     generateProviderCatalogs({ observeWatchProviders: (payload, context) => watchProviderObserver.observe(payload, context) }),
+    refreshSeasonalDiscovery({
+      request: (path, params) => tmdbFetch(path, params),
+    }),
   ])
 
-  const candidates = uniqueCandidates(rowsWithCandidates.flatMap((row) => row.candidates))
-  console.log(`TMDB catalog: resolving ${candidates.length} current discovery candidates`)
-  const resolvedTitles = await mapWithConcurrency(candidates, REQUEST_CONCURRENCY, (candidate) => resolveCandidate(candidate, (payload, context) => watchProviderObserver.observe(payload, context)))
-  const titlesByCandidate = new Map(
-    resolvedTitles.map((title) => [`${title.type === 'series' ? 'tv' : 'movie'}-${title.tmdbId}`, title]),
-  )
-
-  for (const providerTitle of providerResult.titles) {
-    const key = `${providerTitle.type === 'series' ? 'tv' : 'movie'}-${providerTitle.tmdbId}`
-    titlesByCandidate.set(key, mergeProviderCatalogTitle(titlesByCandidate.get(key), providerTitle))
+  const rowsWithCandidates = [...baseRows, ...seasonalDiscoveryRows(seasonalSnapshot)]
+  // Resolve a TMDB identity only once. Most thematic hits already belong to
+  // the full provider catalog and should reuse its enriched metadata.
+  const titlesByCandidate = new Map(providerResult.titles.map(title => [
+    `${title.type === 'series' ? 'tv' : 'movie'}-${title.tmdbId}`, title,
+  ]))
+  const missingCandidates = uniqueCandidates(rowsWithCandidates.flatMap(row => row.candidates))
+    .filter(candidate => !titlesByCandidate.has(candidateKey(candidate)))
+  console.log(`TMDB catalog: resolving ${missingCandidates.length} new discovery candidates after provider-catalog reuse`)
+  const resolvedTitles = await mapWithConcurrency(missingCandidates, REQUEST_CONCURRENCY,
+    (candidate) => resolveCandidate(candidate, (payload, context) => watchProviderObserver.observe(payload, context)))
+  for (const title of resolvedTitles) {
+    const key = `${title.type === 'series' ? 'tv' : 'movie'}-${title.tmdbId}`
+    titlesByCandidate.set(key, mergeProviderCatalogTitle(titlesByCandidate.get(key), title))
   }
 
   const discoveryRows = buildRowDefinitions(rowsWithCandidates, titlesByCandidate)

@@ -1,3 +1,4 @@
+import { normalizeSeasonalContent } from './seasonalContent.js'
 export const CONTENT_SORT_MODES = Object.freeze([
   {
     id: 'balanced',
@@ -57,6 +58,7 @@ export const DEFAULT_CONTENT_DISPLAY_SETTINGS = Object.freeze({
   sortMode: 'balanced',
   watchedMode: 'normal',
   artworkRotation: 'daily',
+  seasonalContent: Object.freeze({ enabled: false, seasonId: 'classic', autoSwitch: Object.freeze({ enabled: true, periodKey: null }) }),
   autoSwitch: Object.freeze({
     enabled: false,
     interval: 'daily',
@@ -74,6 +76,7 @@ export function normalizeContentDisplaySettings(value) {
   return {
     sortMode: SORT_MODE_IDS.has(settings.sortMode) ? settings.sortMode : DEFAULT_CONTENT_DISPLAY_SETTINGS.sortMode,
     watchedMode: WATCHED_MODE_IDS.has(settings.watchedMode) ? settings.watchedMode : DEFAULT_CONTENT_DISPLAY_SETTINGS.watchedMode,
+    seasonalContent: normalizeSeasonalContent(settings.seasonalContent),
     artworkRotation: ['daily', 'weekly', 'off'].includes(settings.artworkRotation)
       ? settings.artworkRotation
       : DEFAULT_CONTENT_DISPLAY_SETTINGS.artworkRotation,
