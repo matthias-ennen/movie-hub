@@ -644,6 +644,21 @@ jobs:
           REQUIRE_JOYN_14_DAYS: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
         run: node scripts/verify-published-data.mjs
 
+      # Manual modes also alter the canonical catalog and (for targeted themes)
+      # broad search index; compare the ACTUAL hosted JSON with the prepared files.
+      - name: Verify exact hosted manual catalog and thematic projection
+        if: ${{ !cancelled() && env.MOVIEHUB_LIGHT_MODE == 'true' && steps.publication_verify.outcome == 'success' }}
+        run: node scripts/verify-manual-data-publication.mjs --mode=${{ inputs.data_mode }}
+
+      - name: Upload compact and thematic manual data run diagnostics
+        if: ${{ always() && env.MOVIEHUB_LIGHT_MODE == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: manual-data-${{ inputs.data_mode }}-${{ github.run_id }}
+          path: artifacts/manual-data-mode-report.json
+          if-no-files-found: ignore
+          retention-days: 30
+
       - name: Verify hosted episode-specific YouTube links in season shards
         if: ${{ !cancelled() && steps.firebase_deploy.outcome == 'success' }}
         run: node scripts/verify-youtube-episode-catalog-publication.mjs
