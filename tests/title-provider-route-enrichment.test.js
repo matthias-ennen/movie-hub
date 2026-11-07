@@ -198,8 +198,12 @@ describe('one canonical TMDB title view: source-specific YouTube link enrichment
     const file=readFileSync(new URL('../src/components/DetailModal.jsx',
       import.meta.url),'utf8')
     expect(file).toContain('enrichTitleProviderRoutes(item,')
-    expect(file).toContain('titleWithVerifiedOffers.titleProviderRouteEvidence')
+    const actions=readFileSync(new URL('../src/components/detail/StreamingProviderActions.jsx',
+      import.meta.url),'utf8')
+    expect(file).toContain('item={titleWithVerifiedOffers} providerIds={streamingProviderIds}')
+    expect(actions).toContain("item?.titleProviderRouteEvidence?.youtube?.source")
     expect(file).toContain('.titleProviderRoutes?.youtube')
+    expect(actions).toContain('ProviderBadge providerId={providerId} item={item}')
     expect(file).not.toContain('selectYoutubeBestEffortTitleRoute(')
     expect(file).not.toContain('selectCuratedEditorialTitleHint(')
     expect(file).not.toContain('selectYoutubeVerifiedTitleRoute(')
