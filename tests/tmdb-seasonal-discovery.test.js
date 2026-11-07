@@ -126,7 +126,7 @@ describe('#728 Firebase first-publish seasonal snapshot bootstrap',()=>{
     const catalogPath=join(dir,'catalog.json')
     try {
       if(rows!==undefined)
-        await writeFile(catalogPath,JSON.stringify({ rowDefinitions: rows })+'\\n')
+        await writeFile(catalogPath,JSON.stringify({ rowDefinitions: rows }))
       await run({catalogPath,path:join(dir,'seasonal.json')})
     } finally {await rm(dir,{recursive:true,force:true})}
   }
