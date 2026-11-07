@@ -193,6 +193,13 @@ jobs:
       - name: Restore incremental series-season metadata
         run: npm run series:details:restore
 
+      # Snapshot is generated at most once per seven days by tmdb:catalog.
+      # Both code-only and nightly deployments must retain the last complete
+      # version until a new validated discovery refresh is available.
+      - name: Restore last published seasonal TMDB discovery snapshot
+        id: seasonal_discovery_restore
+        run: node scripts/restore-live-seasonal-discovery.mjs
+
       # On normal code pushes, canonical episode shards are already restored
       # from the last verified Hosting release. Preserve the matching public
       # YouTube summary; private QA is intentionally NOT regenerated here.
