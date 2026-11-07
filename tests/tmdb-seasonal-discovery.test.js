@@ -61,7 +61,8 @@ describe('#728 bounded weekly seasonal TMDB discovery',()=>{
     const result=await buildSeasonalDiscovery({request:full})
     expect(result.strategies.filter(s=>s.status==='no-keyword')).toHaveLength(6)
     expect(result.strategies.filter(s=>s.id==='quality'&&s.status==='complete')).toHaveLength(2)
-    expect(result.pagesFetched).toBe(12)
+    // Filmfestival now deliberately reads a second neutral editorial page.
+    expect(result.pagesFetched).toBe(14)
   })
   it('reuses a valid weekly snapshot without any TMDB API requests',async()=>{
     const dir=await mkdtemp(join(tmpdir(),'moviehub-themes-'))
