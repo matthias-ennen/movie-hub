@@ -34,7 +34,7 @@ export function selectNewThematicCandidates(snapshot, knownTitles, budget = MAX_
   }
   const known = new Map(knownTitles.map(title => [tmdbKey(title), title]))
   const selected = new Map()
-  const strategies = snapshot.strategies.filter(s => s.status === 'complete')
+  const strategies = snapshot.strategies.filter(s => s.status === 'complete' || s.status === 'fallback')
   const perStrategyCoverage = new Map(strategies.map(s => [
     `${s.id}:${s.mediaType}`,
     s.candidates.filter(c => hasProvider(known.get(candidateKey(c)))).length,
@@ -157,7 +157,7 @@ async function atomicJson(path, value) {
 
 /**
  * Explicit mode entry point: compact performs zero TMDB/YouTube requests.
- * Targeted mode performs <=4 keyword+30 discovery pages, followed by
+ * Targeted mode performs <=8 keyword+36 discovery pages, followed by
  * <=80 canonical title resolutions (four TMDB endpoints each before retries).
  */
 export async function runManualDataMode({
