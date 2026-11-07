@@ -24,6 +24,7 @@ import './styles/issue287-focus-detail.css'
 import './styles/notifications.css'
 import './styles/detail.css'
 import './styles/poster-unified.css'
+import './styles/seasonal-themes.css'
 
 installPerformanceDiagnostics()
 recordPerformanceEvent('app:render-start')

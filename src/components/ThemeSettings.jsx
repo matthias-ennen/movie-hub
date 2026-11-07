@@ -1,6 +1,14 @@
 import { useTheme } from '../theme/ThemeProvider.jsx'
 import SettingsButton from './SettingsButton.jsx'
 
+const SEASON_DESIGN_DESCRIPTIONS = {
+  classic: 'Dein gewohntes MovieHub-Design ohne saisonale Akzente.',
+  halloween: 'Dezente violette und warme orangefarbene Gruselakzente.',
+  christmas: 'Zurückhaltendes Tannengrün, warme Goldtöne und festliche Akzente.',
+  easter: 'Sanfte Frühlingsfarben mit Lavendel- und Grüntönen.',
+  pentecost: 'Helle, ruhige Akzente in Türkis und Frühlingsgrün.',
+}
+
 export default function ThemeSettings() {
   const {
     themeId,
@@ -11,6 +19,12 @@ export default function ThemeSettings() {
     selectTheme,
     setAutoSwitchEnabled,
     setAutoSwitchInterval,
+    seasonalThemes,
+    seasonalThemeSettings,
+    activeVisualSeason,
+    setSeasonalThemeEnabled,
+    setSeasonalThemeAutoSwitch,
+    selectSeasonalTheme,
   } = useTheme()
   return <>
       <section className="settings-panel" aria-labelledby="theme-heading">
@@ -98,6 +112,92 @@ export default function ThemeSettings() {
         <p className="settings-hint">
           Eine manuelle Designwahl schaltet die Automatik nicht aus. Das manuell gewählte Design bleibt bis zum nächsten planmäßigen Wechsel aktiv.
         </p>
+      </section>
+
+      <section className="settings-panel seasonal-design-panel" aria-labelledby="seasonal-design-heading">
+        <div className="settings-heading auto-switch-heading-row">
+          <div>
+            <p className="settings-kicker">Jahreszeiten</p>
+            <h2 id="seasonal-design-heading">Saisonale Gestaltung</h2>
+            <p className="settings-description">
+              Eine dezente Farbwelt für die gewählte Saison. Unabhängig von deinen
+              saisonalen Posterreihen und deinem Grunddesign.
+            </p>
+            <p className="settings-hint" role="status">
+              Aktiv: {seasonalThemeSettings.enabled
+                ? seasonalThemes.find(mode => mode.id === activeVisualSeason)?.label || 'Klassisch'
+                : 'Aus (Klassisch)'}
+            </p>
+          </div>
+          <SettingsButton
+            type="button"
+            className={seasonalThemeSettings.enabled ? 'switch-control active' : 'switch-control'}
+            role="switch"
+            aria-checked={seasonalThemeSettings.enabled}
+            aria-label="Saisonale Gestaltung ein- oder ausschalten"
+            data-focusable="true"
+            onClick={() => setSeasonalThemeEnabled(!seasonalThemeSettings.enabled)}
+          >
+            <span className="switch-knob" />
+            <span className="switch-label">{seasonalThemeSettings.enabled ? 'Ein' : 'Aus'}</span>
+          </SettingsButton>
+        </div>
+
+        {seasonalThemeSettings.enabled && (
+          <>
+            <div className="content-sort-grid seasonal-design-choices" aria-label="Saisonales Design auswählen">
+              {seasonalThemes.map(mode => {
+                const selected = seasonalThemeSettings.seasonId === mode.id
+                const effective = activeVisualSeason === mode.id
+                return <SettingsButton
+                  key={mode.id}
+                  type="button"
+                  className={selected ? 'content-sort-choice active' : 'content-sort-choice'}
+                  aria-pressed={selected}
+                  data-focusable="true"
+                  onClick={() => selectSeasonalTheme(mode.id)}
+                >
+                  <span className="seasonal-theme-swatch" data-season-preview={mode.id} aria-hidden="true">
+                    <i /><i /><i />
+                  </span>
+                  <span className="content-sort-choice-title">
+                    <strong>{mode.label}</strong>
+                    {effective && <span className="active-mark">Wirksam</span>}
+                  </span>
+                  <span>{SEASON_DESIGN_DESCRIPTIONS[mode.id]}</span>
+                  <small>{selected ? 'Ausgewählt' : 'Auswählen'}</small>
+                </SettingsButton>
+              })}
+            </div>
+
+            <div className="settings-heading auto-switch-heading-row seasonal-design-automation">
+              <div>
+                <h3>Automatisch zur Jahreszeit wechseln</h3>
+                <p className="settings-description">
+                  Verwendet denselben Kalender wie die saisonalen Posterreihen.
+                  Außerhalb der Saison bleibt dein normales Design erhalten.
+                </p>
+              </div>
+              <SettingsButton
+                type="button"
+                className={seasonalThemeSettings.autoSwitch.enabled ? 'switch-control active' : 'switch-control'}
+                role="switch"
+                aria-checked={seasonalThemeSettings.autoSwitch.enabled}
+                aria-label="Saisonales Design automatisch wechseln"
+                data-focusable="true"
+                onClick={() => setSeasonalThemeAutoSwitch(!seasonalThemeSettings.autoSwitch.enabled)}
+              >
+                <span className="switch-knob" />
+                <span className="switch-label">{seasonalThemeSettings.autoSwitch.enabled ? 'Ein' : 'Aus'}</span>
+              </SettingsButton>
+            </div>
+            <p className="settings-hint">
+              Du kannst beispielsweise Weihnachten im Juni wählen. Ist die
+              Automatik eingeschaltet, übernimmt sie erst beim nächsten Saisonwechsel.
+              Ohne Automatik bleibt deine manuelle Auswahl erhalten.
+            </p>
+          </>
+        )}
       </section>
 
   </>

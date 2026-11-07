@@ -1,5 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useProfiles } from '../profiles/ProfileProvider.jsx'
+import { useSeasonalCalendarClock } from '../hooks/useSeasonalCalendarClock.js'
+import {
+  SEASONAL_CONTENT_MODES,
+  resolveSeasonalContent,
+  withSeasonalContentEnabled,
+  withSeasonalAutoSwitch,
+  withManualSeasonalContent,
+} from '../catalog/seasonalContent.js'
 import {
   AUTO_SWITCH_INTERVALS,
   DEFAULT_THEME_SETTINGS,
@@ -31,8 +39,13 @@ function settingsEqual(a, b) {
 
 export function ThemeProvider({ children }) {
   const { activeProfile, updateActiveProfileThemeSettings } = useProfiles()
+  const seasonalCalendarKey = useSeasonalCalendarClock()
   const [settings, setSettings] = useState(() => resolveThemeForStartup(activeProfile?.themeSettings ?? loadLegacyThemeSettings()))
   const [hydratedProfileId, setHydratedProfileId] = useState(activeProfile?.id ?? null)
+  const activeVisualSeason = useMemo(
+    () => resolveSeasonalContent(settings.seasonalTheme),
+    [settings.seasonalTheme, seasonalCalendarKey],
+  )
 
   useEffect(() => {
     if (!activeProfile) return
@@ -44,6 +57,17 @@ export function ThemeProvider({ children }) {
     document.documentElement.dataset.theme = settings.themeId
     document.documentElement.style.colorScheme = settings.themeId === 'bright' ? 'light' : 'dark'
   }, [settings.themeId])
+
+  // Theme overlay is independent of active provider, poster and base-theme
+  // selection. No new network calls or component-level decoration animation.
+  useLayoutEffect(() => {
+    document.documentElement.dataset.season = activeVisualSeason
+    return () => {
+      if (document.documentElement.dataset.season === activeVisualSeason) {
+        delete document.documentElement.dataset.season
+      }
+    }
+  }, [activeVisualSeason])
 
   useEffect(() => {
     if (!activeProfile || hydratedProfileId !== activeProfile.id) return undefined
@@ -106,6 +130,27 @@ export function ThemeProvider({ children }) {
     }))
   }, [])
 
+  const setSeasonalThemeEnabled = useCallback((enabled) => {
+    setSettings(current => ({
+      ...current,
+      seasonalTheme: withSeasonalContentEnabled(current.seasonalTheme, enabled),
+    }))
+  }, [])
+
+  const setSeasonalThemeAutoSwitch = useCallback((enabled) => {
+    setSettings(current => ({
+      ...current,
+      seasonalTheme: withSeasonalAutoSwitch(current.seasonalTheme, enabled),
+    }))
+  }, [])
+
+  const selectSeasonalTheme = useCallback((seasonId) => {
+    setSettings(current => ({
+      ...current,
+      seasonalTheme: withManualSeasonalContent(current.seasonalTheme, seasonId),
+    }))
+  }, [])
+
   const value = useMemo(() => ({
     themeId: settings.themeId,
     themes: THEMES,
@@ -115,7 +160,15 @@ export function ThemeProvider({ children }) {
     selectTheme,
     setAutoSwitchEnabled,
     setAutoSwitchInterval,
-  }), [settings, selectTheme, setAutoSwitchEnabled, setAutoSwitchInterval])
+    seasonalThemes: SEASONAL_CONTENT_MODES,
+    seasonalThemeSettings: settings.seasonalTheme,
+    activeVisualSeason,
+    setSeasonalThemeEnabled,
+    setSeasonalThemeAutoSwitch,
+    selectSeasonalTheme,
+  }), [settings, selectTheme, setAutoSwitchEnabled, setAutoSwitchInterval,
+    activeVisualSeason, setSeasonalThemeEnabled, setSeasonalThemeAutoSwitch,
+    selectSeasonalTheme])
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }

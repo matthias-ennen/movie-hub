@@ -1,0 +1,185 @@
+/*
+ * Seasonal visual overlay for #484. The five base themes keep their layout,
+ * typography, focus geometry and provider badge semantics.
+ * No images, animations or client-side API work.
+ * The same Berlin calendar also drives the separate #728 content setting.
+ */
+:root[data-season='halloween'] {
+  --color-brand-accent: #eda9ff;
+  --color-eyebrow: #f5b86b;
+  --color-focus: #ffe4b2;
+  --season-ambient-side: rgba(162, 78, 190, 0.08);
+  --season-highlight: #d28bfa;
+  --theme-app-ambient: rgba(132, 61, 158, 0.23);
+  --theme-avatar-start: #9b54b2;
+  --theme-avatar-end: #4f266c;
+  --theme-topbar-border: rgba(237, 169, 255, 0.19);
+  --theme-hover-bg: rgba(237, 169, 255, 0.1);
+  --theme-auth-glow: rgba(152, 70, 176, 0.19);
+}
+:root[data-season='christmas'] {
+  --color-brand-accent: #f6d27d;
+  --color-eyebrow: #b7e9b5;
+  --color-focus: #ffdea0;
+  --season-ambient-side: rgba(176, 37, 53, 0.075);
+  --season-highlight: #f6d27d;
+  --theme-app-ambient: rgba(35, 130, 87, 0.24);
+  --theme-avatar-start: #217a56;
+  --theme-avatar-end: #802c41;
+  --theme-topbar-border: rgba(175, 228, 169, 0.2);
+  --theme-hover-bg: rgba(146, 209, 161, 0.11);
+  --theme-auth-glow: rgba(37, 131, 82, 0.2);
+}
+:root[data-season='easter'] {
+  --color-brand-accent: #d6b0fa;
+  --color-eyebrow: #c5eab0;
+  --color-focus: #f3d2ff;
+  --season-ambient-side: rgba(159, 184, 93, 0.09);
+  --season-highlight: #d6b0fa;
+  --theme-app-ambient: rgba(147, 92, 191, 0.2);
+  --theme-avatar-start: #77529d;
+  --theme-avatar-end: #356d5b;
+  --theme-topbar-border: rgba(214, 176, 250, 0.2);
+  --theme-hover-bg: rgba(214, 176, 250, 0.11);
+  --theme-auth-glow: rgba(150, 92, 186, 0.18);
+}
+:root[data-season='pentecost'] {
+  --color-brand-accent: #8be7d0;
+  --color-eyebrow: #c2df96;
+  --color-focus: #c8fff0;
+  --season-ambient-side: rgba(191, 173, 71, 0.065);
+  --season-highlight: #8be7d0;
+  --theme-app-ambient: rgba(33, 135, 123, 0.2);
+  --theme-avatar-start: #166f68;
+  --theme-avatar-end: #526a34;
+  --theme-topbar-border: rgba(139, 231, 208, 0.22);
+  --theme-hover-bg: rgba(139, 231, 208, 0.11);
+  --theme-auth-glow: rgba(41, 133, 118, 0.2);
+}
+
+/* Bright must retain its pale surfaces, dark text and strongly readable
+ * focus rings. Seasonal colors intentionally differ from the dark variants. */
+:root[data-theme='bright'][data-season='halloween'] {
+  --color-brand-accent: #773890;
+  --color-eyebrow: #74388c;
+  --color-focus: #69307e;
+  --season-ambient-side: rgba(193, 127, 206, 0.07);
+  --theme-app-ambient: rgba(145, 78, 174, 0.13);
+  --theme-avatar-start: #773890;
+  --theme-avatar-end: #673580;
+  --theme-topbar-border: rgba(107, 47, 128, 0.2);
+}
+:root[data-theme='bright'][data-season='christmas'] {
+  --color-brand-accent: #146643;
+  --color-eyebrow: #935021;
+  --color-focus: #146643;
+  --season-ambient-side: rgba(190, 81, 90, 0.07);
+  --theme-app-ambient: rgba(50, 143, 96, 0.12);
+  --theme-avatar-start: #26764d;
+  --theme-avatar-end: #853748;
+  --theme-topbar-border: rgba(23, 105, 68, 0.21);
+}
+:root[data-theme='bright'][data-season='easter'] {
+  --color-brand-accent: #684091;
+  --color-eyebrow: #684091;
+  --color-focus: #60347f;
+  --season-ambient-side: rgba(120, 161, 91, 0.07);
+  --theme-app-ambient: rgba(153, 107, 191, 0.14);
+  --theme-avatar-start: #735394;
+  --theme-avatar-end: #356c5a;
+  --theme-topbar-border: rgba(99, 55, 138, 0.2);
+}
+:root[data-theme='bright'][data-season='pentecost'] {
+  --color-brand-accent: #12695d;
+  --color-eyebrow: #12695d;
+  --color-focus: #0b6254;
+  --season-ambient-side: rgba(191, 173, 71, 0.07);
+  --theme-app-ambient: rgba(49, 137, 122, 0.12);
+  --theme-avatar-start: #166e63;
+  --theme-avatar-end: #5d6930;
+  --theme-topbar-border: rgba(24, 107, 90, 0.2);
+}
+
+:root[data-season]:not([data-season='classic']) .app-shell {
+  background:
+    radial-gradient(circle at 83% 0%, var(--theme-app-ambient), transparent 30rem),
+    radial-gradient(circle at 7% 18%, var(--season-ambient-side), transparent 28rem),
+    var(--color-bg);
+}
+
+/* A slender, layout-neutral ornament makes the season visible even before
+ * posters have loaded. It never catches taps or D-pad focus. */
+:root[data-season]:not([data-season='classic']) .hero {
+  box-shadow: inset 0 2px 0 color-mix(in srgb, var(--season-highlight) 24%, transparent);
+}
+
+:root[data-season]:not([data-season='classic']) .topbar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--season-highlight), transparent);
+  opacity: 0.7;
+}
+
+/* Lightweight seasonal previews, no copyrighted graphics or large bitmaps. */
+.seasonal-design-panel .settings-description {
+  margin-top: 0.4rem;
+}
+.seasonal-design-panel .settings-heading .settings-hint {
+  margin-top: 0.5rem;
+}
+.seasonal-design-choices .content-sort-choice {
+  align-content: start;
+}
+.seasonal-theme-swatch {
+  --swatch-a: var(--color-bg);
+  --swatch-b: var(--color-surface-soft);
+  --swatch-c: var(--color-brand-accent);
+  display: flex;
+  align-items: flex-end;
+  gap: 0.4rem;
+  height: 3.5rem;
+  padding: 0.55rem;
+  border-radius: var(--radius-control);
+  background: linear-gradient(135deg, var(--swatch-a), var(--swatch-b));
+  border: 1px solid var(--color-line-strong);
+}
+.seasonal-theme-swatch i {
+  display: block;
+  width: 28%;
+  height: 58%;
+  border-radius: 0.22rem;
+  background: var(--swatch-c);
+}
+.seasonal-theme-swatch i:nth-child(2) {
+  height: 85%;
+  background: color-mix(in srgb, var(--swatch-c) 45%, var(--swatch-b));
+}
+.seasonal-theme-swatch i:nth-child(3) { height: 42%; }
+.seasonal-theme-swatch[data-season-preview='classic'] {
+  --swatch-a: #202731; --swatch-b: #485467; --swatch-c: #b8c6d8;
+}
+.seasonal-theme-swatch[data-season-preview='halloween'] {
+  --swatch-a: #25142c; --swatch-b: #6b286d; --swatch-c: #f8b663;
+}
+.seasonal-theme-swatch[data-season-preview='christmas'] {
+  --swatch-a: #102d27; --swatch-b: #275f46; --swatch-c: #f9d18a;
+}
+.seasonal-theme-swatch[data-season-preview='easter'] {
+  --swatch-a: #45405c; --swatch-b: #907bb2; --swatch-c: #e1c0ed;
+}
+.seasonal-theme-swatch[data-season-preview='pentecost'] {
+  --swatch-a: #17443e; --swatch-b: #4f8b75; --swatch-c: #e0de93;
+}
+.seasonal-design-automation {
+  margin-top: var(--space-6);
+}
+@media (prefers-reduced-motion: reduce) {
+  .seasonal-design-panel .content-sort-choice {
+    transition: none;
+  }
+}
