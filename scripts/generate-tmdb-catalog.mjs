@@ -409,17 +409,21 @@ export async function generateCatalog() {
     .filter(candidate => !titlesByCandidate.has(candidateKey(candidate)))
   const seen = new Set(missingBase.map(candidateKey))
   const thematicExtra = []
-  const THEME_DETAIL_BUDGET = 80
+  const THEME_DETAIL_BUDGET = 144
+  const coverage = new Map(themedRows.map(row => [row.id,
+    row.candidates.filter(candidate => titlesByCandidate.has(candidateKey(candidate))).length]))
   // Round robin across movie/TV strategies: Halloween cannot crowd out
   // Festival, Hollywood or the new New-Year discovery dimension.
   for (let index = 0; index < 20 && thematicExtra.length < THEME_DETAIL_BUDGET; index++) {
     for (const row of themedRows) {
+      if (coverage.get(row.id) >= 8) continue
       const candidate = row.candidates[index]
       if (!candidate) continue
       const key = candidateKey(candidate)
       if (seen.has(key) || titlesByCandidate.has(key)) continue
       seen.add(key)
       thematicExtra.push(candidate)
+      coverage.set(row.id, coverage.get(row.id) + 1)
       if (thematicExtra.length >= THEME_DETAIL_BUDGET) break
     }
   }
