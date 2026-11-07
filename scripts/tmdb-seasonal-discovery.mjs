@@ -4,7 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 export const SEASONAL_DISCOVERY_FILE = 'public/seasonal-discovery.json'
-export const SEASONAL_DISCOVERY_VERSION = 2
+export const SEASONAL_DISCOVERY_VERSION = 3
 export const SEASONAL_REFRESH_AGE_MS = 7 * 86400000
 // Eight season strategies + quality, movie and TV, each with <=2 pages.
 // Strict global discovery budget excludes the eight bounded keyword lookups.
@@ -29,11 +29,11 @@ const validCandidate = c => Number.isInteger(c?.id) && c.id > 0
   && ['movie', 'tv'].includes(c?.mediaType)
 
 export function validateSeasonalDiscovery(value) {
-  // v1 snapshots are still valid for rollback and code-only restores.
-  // They are NEVER mistaken for a current v2 generation: the nightly
-  // refresh explicitly upgrades them even when they are younger than 7 days.
+  // v1/v2 snapshots remain valid for rollback and code-only restores,
+  // but the next actual discovery upgrades them to the mixed festival
+  // strategy even if the old generation is younger than seven days.
   const version = value?.version
-  if(version !== 1 && version !== SEASONAL_DISCOVERY_VERSION)return false
+  if(![1,2,SEASONAL_DISCOVERY_VERSION].includes(version))return false
   const ids = version === 1
     ? ['halloween','christmas','easter','pentecost','quality'] : STRATEGY_IDS
   const count = ids.length * MEDIA_TYPES.length
@@ -118,8 +118,19 @@ export async function buildSeasonalDiscovery({
       const seen=new Set()
       let totalPages=1
       let pagesFetched=0
-      for(let page=1;page<=Math.min(SEASONAL_PAGE_LIMIT_PER_STRATEGY,totalPages);page++){
-        const params=seasonalDiscoverParams({id:spec.id,mediaType,keywordId,fallback:keywordId?null:spec.fallback},page)
+      // A festival keyword is not a reliable list of festival selections,
+      // and a popular/highly rated title is not proof of festival attendance.
+      // Reserve one of the two bounded pages for broadly available film art,
+      // even when the exact keyword exists. Publish this as an editorial
+      // "Kino-Entdeckungen" row, never as festival winners or nominees.
+      const mixedFestival=spec.id==='filmfestival'
+      for(let page=1;page<=SEASONAL_PAGE_LIMIT_PER_STRATEGY;page++){
+        if(!mixedFestival && page>totalPages)break
+        const editorialFestival=mixedFestival && (!keywordId || page===2)
+        const fetchPage=mixedFestival?1:page
+        const effectiveKeyword=editorialFestival?null:keywordId
+        const effectiveFallback=editorialFestival?'film-art':(keywordId?null:spec.fallback)
+        const params=seasonalDiscoverParams({id:spec.id,mediaType,keywordId:effectiveKeyword,fallback:effectiveFallback},fetchPage)
         const result=await request(`/discover/${mediaType}`,params)
         if(!Number.isFinite(Number(result?.total_pages))||!Array.isArray(result?.results))
           throw Error('SEASONAL_TMDB_INCOMPLETE_RESPONSE')
@@ -130,11 +141,13 @@ export async function buildSeasonalDiscovery({
           if(!Number.isInteger(id)||id<=0||seen.has(id))continue
           seen.add(id)
           if(entry.adult===true)continue
-          if((spec.id==='quality' || (!keywordId && ['highlights','film-art'].includes(spec.fallback)))
-            && (Number(entry.vote_average)<(spec.fallback==='film-art'?7.2:spec.id==='quality'?7.5:7.4)
+          if((spec.id==='quality' || ['highlights','film-art'].includes(effectiveFallback))
+            && (Number(entry.vote_average)<(effectiveFallback==='film-art'?7.2:spec.id==='quality'?7.5:7.4)
             || Number(entry.vote_count)<(spec.id==='quality'?(mediaType==='movie'?400:150):(mediaType==='movie'?250:120))))continue
           candidates.push({id,mediaType})
-          if(candidates.length===MAX_IDS_PER_STRATEGY)break
+          // Ten genuine TMDB keyword candidates + ten editorial candidates
+          // when both searches exist: ensures the second page can add films.
+          if(candidates.length===(mixedFestival && page===1 && keywordId?10:MAX_IDS_PER_STRATEGY))break
         }
         if(candidates.length===MAX_IDS_PER_STRATEGY)break
       }
@@ -165,7 +178,7 @@ export function seasonalDiscoveryRows(snapshot) {
         : ({
           halloween:'Halloween',christmas:'Weihnachten',easter:'Ostern',pentecost:'Pfingsten',
           newyear:s.status==='fallback'?'Filmhighlights zum Jahreswechsel':'Silvester & Neujahr',
-          filmfestival:s.status==='fallback'?'Internationale Kino-Entdeckungen':'Filmfestival',
+          filmfestival:'Internationale Kino-Entdeckungen',
           hollywood:s.status==='fallback'?'Großes Kino':'Hollywood',
           'summer-cinema':s.status==='fallback'?'Sommerliche Abenteuer':'Sommerkino',
         }[s.id]+' · '+(s.mediaType==='movie'?'Filme':'Serien')),
