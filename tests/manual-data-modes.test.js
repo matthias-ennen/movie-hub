@@ -9,6 +9,7 @@ import {
 } from '../scripts/run-manual-data-mode.mjs'
 import { buildSeasonalDiscovery } from '../scripts/tmdb-seasonal-discovery.mjs'
 import { buildSearchIndexArtifact } from '../src/search/searchIndex.js'
+import { verifyManualDataPublication } from '../scripts/verify-manual-data-publication.mjs'
 
 const now = new Date('2026-11-07T14:00:00.000Z')
 const baseTitle = {
@@ -179,5 +180,47 @@ describe('#728 selectable manual data modes',()=>{
     expect(deploy).toContain('Validate prepared source generations and app data')
     expect(deploy).toContain('Verify actually published source generations and app data')
     expect(deploy).toContain('Deploy Hosting and Firestore Rules')
+  })
+})
+
+
+describe('#728 exact Hosting readback of manual data modes',()=>{
+  it('accepts exactly the published canonical catalog, search index and thematic snapshot',async()=>{
+    const dir=await mkdtemp(join(tmpdir(),'moviehub-manual-hosting-'))
+    try{
+      const paths={
+        'catalog.json':{source:'tmdb',generatedAt:now.toISOString(),titles:[baseTitle],rowDefinitions:baseCatalog.rowDefinitions},
+        'search-index.json':{kind:'search-index',count:1,entries:[{id:baseTitle.id}]},
+        'seasonal-discovery.json':{kind:'moviehub-seasonal-discovery',generatedAt:now.toISOString(),uniqueCandidates:23},
+      }
+      for(const [name,data] of Object.entries(paths))
+        await writeFile(join(dir,name),JSON.stringify(data))
+      const request=vi.fn(async url=>({
+        ok:true,headers:{get:()=> 'application/json'},json:async()=>paths[url.pathname.slice(1)],
+      }))
+      const full=await verifyManualDataPublication({root:dir,mode:'themes',request})
+      expect(full.map(s=>s.path)).toEqual(Object.keys(paths))
+      expect(request).toHaveBeenCalledTimes(3)
+      request.mockClear()
+      const compact=await verifyManualDataPublication({root:dir,mode:'compact',request})
+      expect(compact).toHaveLength(2)
+      expect(request).toHaveBeenCalledTimes(2)
+    }finally{await rm(dir,{recursive:true,force:true})}
+  })
+  it('blocks publishing when the hosted search index differs from prepared generation',async()=>{
+    const dir=await mkdtemp(join(tmpdir(),'moviehub-manual-hosting-'))
+    try{
+      await writeFile(join(dir,'catalog.json'),JSON.stringify({generatedAt:now.toISOString()}))
+      await writeFile(join(dir,'search-index.json'),JSON.stringify({count:100}))
+      const request=vi.fn(async url=>({
+        ok:true,headers:{get:()=> 'application/json'},
+        json:async()=>url.pathname.endsWith('catalog.json')
+          ? {generatedAt:now.toISOString()} : {count:99},
+      }))
+      await expect(verifyManualDataPublication({
+        root:dir,mode:'compact',request,
+      })).rejects.toThrow('Published generation differs from build: search-index.json')
+      expect(request).toHaveBeenCalledTimes(2)
+    }finally{await rm(dir,{recursive:true,force:true})}
   })
 })
