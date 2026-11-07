@@ -42,9 +42,10 @@ export default function EpisodeDetail({
     && isProviderEnabled('youtube')
     ? selectYoutubeEpisodePlaylistRoute(episode?.youtubePlaylistHint, episode, { now })
     : null
+  const enabledStreamingIds = streamingProviderIds.filter(isProviderEnabled)
   const providerIds = youtubeEpisodeRoute
-    ? orderProviderIds([...streamingProviderIds, 'youtube'])
-    : streamingProviderIds
+    ? orderProviderIds([...enabledStreamingIds, 'youtube'])
+    : enabledStreamingIds
   const hasStreamingOffers = providerIds.length > 0 || showMovieHubProvider
   return (
     <DetailLayout episode actions={<DetailActions onClose={onClose}
