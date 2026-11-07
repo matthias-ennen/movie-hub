@@ -1,5 +1,6 @@
 import { useTheme } from '../theme/ThemeProvider.jsx'
 import SettingsButton from './SettingsButton.jsx'
+import { seasonalVisualAssets } from '../theme/seasonalPresentation.js'
 
 const SEASON_DESIGN_DESCRIPTIONS = {
   classic: 'Dein gewohntes MovieHub-Design ohne saisonale Akzente.',
