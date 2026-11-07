@@ -151,7 +151,12 @@ function focusCandidate(candidate, { posterHorizontal = 'center', scrollBehavior
 
   if (isPoster && !isInsideDialog) {
     scrollPageToPosterCandidate(candidate, scrollBehavior)
-    window.requestAnimationFrame(() => scrollPosterTrackToCandidate(candidate, posterHorizontal, scrollBehavior))
+    window.requestAnimationFrame(() => {
+      // Older focus requests must never scroll a row after focus moved on.
+      if (candidate.isConnected && document.activeElement === candidate) {
+        scrollPosterTrackToCandidate(candidate, posterHorizontal, scrollBehavior)
+      }
+    })
     return
   }
 
@@ -434,7 +439,8 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
     const initialFocus = window.requestAnimationFrame(() => {
       const active = document.activeElement
       if (!active || active === document.body) {
-        focusCandidate(getPreferredTopbarTarget() || getFocusableCandidates(null)[0])
+        // Initial browser focus must not trigger an unsolicited page scroll.
+        (getPreferredTopbarTarget() || getFocusableCandidates(null)[0])?.focus({ preventScroll: true })
       }
     })
 
