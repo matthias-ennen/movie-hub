@@ -6,7 +6,7 @@ import { SEASONAL_CONTENT_MODES } from '../src/catalog/seasonalContent.js'
 import { seasonalVisualAssets } from '../src/theme/seasonalPresentation.js'
 import { verifySeasonalAtmospherePublication } from '../scripts/verify-seasonal-atmosphere-publication.mjs'
 
-async function fixture(callback,{format='svg'}={}) {
+async function fixture(callback,{format='auto'}={}) {
   const root=await mkdtemp(join(tmpdir(),'moviehub-seasonal-art-'))
   const published=new Map()
   try {
@@ -18,7 +18,7 @@ async function fixture(callback,{format='svg'}={}) {
            '/seasonal-atmosphere/'+id+'-corner.webp']
         : Object.values(seasonalVisualAssets(id))
       for(const path of paths){
-        const content=format==='webp'
+        const content=(format==='webp' || path.endsWith('.webp'))
           ? Buffer.concat([Buffer.from('RIFF'),Buffer.alloc(4),Buffer.from('WEBPVP8 '),Buffer.alloc(16)])
           : '<svg xmlns="http://www.w3.org/2000/svg">'+path+'</svg>'
         await writeFile(join(directory,path.slice('/seasonal-atmosphere/'.length)),content)
@@ -35,7 +35,8 @@ function response(body,ok=true,type='image/svg+xml') {
 describe('#484 seasonal SVG exact Hosting publication',()=>{
   it('verifies every design resource without any TMDB or YouTube network',async()=>{
     await fixture(async({root,published})=>{
-      const request=vi.fn(async url=>response(published.get(url.pathname)))
+      const request=vi.fn(async url=>response(published.get(url.pathname),true,
+        url.pathname.endsWith('.webp')?'image/webp':'image/svg+xml'))
       const result=await verifySeasonalAtmospherePublication({
         root,request,origin:'https://example.com',
       })
@@ -81,7 +82,10 @@ describe('#484 seasonal SVG exact Hosting publication',()=>{
   })
   it('rejects stale or modified SVG assets even if content type is valid',async()=>{
     await fixture(async({root})=>{
-      const request=vi.fn(async()=>response('<svg xmlns="http://www.w3.org/2000/svg"/>'))
+      const request=vi.fn(async url=>response(
+        url.pathname.endsWith('.webp')?Buffer.alloc(32):'<svg xmlns="http://www.w3.org/2000/svg"/>',
+        true,url.pathname.endsWith('.webp')?'image/webp':'image/svg+xml',
+      ))
       await expect(verifySeasonalAtmospherePublication({root,request})).rejects
         .toThrow('SEASONAL_HOSTED_ASSET_MISMATCH')
     })
