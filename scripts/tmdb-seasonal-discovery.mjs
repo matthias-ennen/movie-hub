@@ -163,6 +163,7 @@ export async function refreshSeasonalDiscovery({
     console.log(`Seasonal TMDB discovery: ${snapshot.keywordLookups} keyword lookups, ${snapshot.pagesFetched} discovery pages, ${snapshot.uniqueCandidates} unique candidates.`)
     return snapshot
   }catch(error){
+    if(requireFresh)throw error
     if(!previous){
       console.warn('Seasonal discovery unavailable: keeping core TMDB catalog unchanged',error.message)
       return null
