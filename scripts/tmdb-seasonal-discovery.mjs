@@ -127,7 +127,7 @@ export async function buildSeasonalDiscovery({
       for(let page=1;page<=SEASONAL_PAGE_LIMIT_PER_STRATEGY;page++){
         if(!mixedFestival && page>totalPages)break
         const editorialFestival=mixedFestival && (!keywordId || page===2)
-        const fetchPage=mixedFestival?1:page
+        const fetchPage=mixedFestival && keywordId ? 1 : page
         const effectiveKeyword=editorialFestival?null:keywordId
         const effectiveFallback=editorialFestival?'film-art':(keywordId?null:spec.fallback)
         const params=seasonalDiscoverParams({id:spec.id,mediaType,keywordId:effectiveKeyword,fallback:effectiveFallback},fetchPage)
