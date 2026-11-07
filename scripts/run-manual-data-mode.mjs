@@ -69,8 +69,12 @@ export function projectManualThematicCatalog(catalog, snapshot, extraTitles = []
   const existingIds = new Set(catalog.titles.map(title => title.id))
   const allowed = new Set((snapshot?.strategies || [])
     .flatMap(strategy => strategy.candidates.map(candidateKey)))
-  const additional = extraTitles.filter(title => !existingIds.has(title.id)
-    && allowed.has(tmdbKey(title)) && hasProvider(title))
+  const additional = extraTitles.filter(title => {
+    if (!title?.id || existingIds.has(title.id)
+      || !allowed.has(tmdbKey(title)) || !hasProvider(title)) return false
+    existingIds.add(title.id)
+    return true
+  })
   const combined = [...catalog.titles, ...additional]
   const byKey = new Map(combined.map(title => [tmdbKey(title).replace(':', '-'), title]))
   const themed = snapshot
