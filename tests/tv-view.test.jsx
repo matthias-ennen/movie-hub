@@ -88,3 +88,29 @@ describe('TV Hero-first-Seitenrahmen', () => {
     expect(markup).toBe('')
   })
 })
+
+
+describe('#724 TV navigation never unmounts during poster-only reloads', () => {
+  const periods = [
+    { id: '14-days', label: '14 Tage' },
+    { id: 'day:2026-09-21', label: 'Heute' },
+    { id: 'day:2026-09-22', label: 'Morgen' },
+  ]
+
+  for (const status of ['loading', 'ready', 'unavailable', 'no-stations']) {
+    it(`keeps all date buttons mounted for status ${status}`, () => {
+      const view = renderToStaticMarkup(
+        <TvProgramContent heroReady rows={[]} periods={periods}
+          selectedPeriodId="day:2026-09-22" onPeriodChange={vi.fn()}
+          status={status} onOpen={vi.fn()} />,
+      )
+      expect(view).toContain('class="tv-period-shell"')
+      expect(view).toContain('14 Tage')
+      expect(view).toContain('Heute')
+      expect(view).toContain('Morgen')
+      expect(view).toContain('class="tv-period-button active"')
+      expect(view).toContain('aria-selected="true"')
+      expect(view.match(/data-tv-period="true"/g)).toHaveLength(3)
+    })
+  }
+})
