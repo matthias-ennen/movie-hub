@@ -195,31 +195,30 @@
 }
 
 
-/* #740: Move only the carousel indicators up by one 12px dot diameter.
- * The transform is visual-only: viewport height, poster rows and controls
- * retain their measured positions in the document flow. */
+/* #740: Lift only the complete carousel dot navigation strip. The first
+ * -12px is already published; the requested extra -15px yields -27px total.
+ * Visual-only translation: no changes to Hero height or poster layout. */
 .hero-first-page .hero-dots {
-  transform: translateY(-12px);
+  transform: translateY(-27px);
 }
 
-/* #740: The cinematic wallpaper belongs behind the entire page, including
- * the Hero. Do not use opacity on the Hero itself: its text, buttons, focus
- * and film artwork must remain fully opaque. Classic is unchanged.
- *
- * The central anthracite tint is 25% opaque and fades gently to completely
- * transparent at all four edges; the second localized dark veil makes the
- * copy readable without a full-width opaque plate. */
+/* #740: Keep an ACTUAL continuous anthracite surface over the central 70%
+ * of the Hero radius (~70% of its overall width/height), feathering out only
+ * within the outer ~15% on each side. 'closest-side' reaches transparency at
+ * all four outer edges without a sharp rectangular cut. The localized text
+ * contrast veil is separate; neither texts nor art inherit reduced opacity.
+ * Only cinematic seasons are affected: Classic and SVG themes stay intact. */
 :root[data-season-enabled='true'][data-season-media='cinematic']:not([data-season='classic']) .hero-first-page .hero-carousel .hero {
   background:
-    radial-gradient(ellipse 51% 65% at 41% 50%,
-      rgba(7, 9, 13, 0.50) 0%,
-      rgba(7, 9, 13, 0.32) 30%,
-      rgba(7, 9, 13, 0.08) 58%,
-      transparent 78%),
-    radial-gradient(ellipse 65% 71% at 50% 50%,
-      rgba(32, 35, 40, 0.25) 0%,
-      rgba(32, 35, 40, 0.19) 40%,
-      transparent 71%);
+    radial-gradient(ellipse 32% 50% at 32% 50%,
+      rgba(7, 9, 13, 0.22) 0%,
+      rgba(7, 9, 13, 0.20) 45%,
+      transparent 100%),
+    radial-gradient(ellipse closest-side at 50% 50%,
+      rgba(32, 35, 40, 0.30) 0%,
+      rgba(32, 35, 40, 0.30) 70%,
+      rgba(32, 35, 40, 0.16) 88%,
+      transparent 100%);
 }
 
 /* The former opaque bottom fade and the navigation strip would hide the
