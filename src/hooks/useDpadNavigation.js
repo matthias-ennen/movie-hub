@@ -2,6 +2,7 @@ import { recordPerformanceEvent } from '../performance/performanceDiagnostics.js
 import { useEffect } from 'react'
 import { PROGRESSIVE_ROW_REQUEST_EVENT } from '../performance/progressiveRendering.js'
 import { navigateDetailRows } from '../navigation/detailDpadNavigation.js'
+import { restoreTopScrollForHeaderFocus } from '../navigation/headerTopScroll.js'
 
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
 const BACK_KEYS = new Set(['Escape', 'BrowserBack', 'GoBack'])
@@ -147,6 +148,8 @@ function scrollPageToPosterCandidate(candidate, behavior = 'smooth') {
 function focusCandidate(candidate, { posterHorizontal = 'center', scrollBehavior = 'smooth' } = {}) {
   if (!candidate) return
   candidate.focus({ preventScroll: true })
+  // Sticky header controls must reveal the actual page start, not just themselves.
+  if (restoreTopScrollForHeaderFocus(candidate)) return
   const isInsideDialog = candidate.closest('.detail-modal, .media-panel, .exit-dialog, .notification-dialog, .profile-menu')
   const isPoster = candidate.matches?.('.poster-card')
 
@@ -586,6 +589,10 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
       })
     }
     const cancelVirtualFocus = () => { virtualRowFocusGeneration += 1 }
+    // Covers D-pad focus, mouse/touch clicks and programmatic focus restoration.
+    const revealHeaderOnFocus = (event) => { restoreTopScrollForHeaderFocus(event.target) }
+    document.addEventListener('focusin', revealHeaderOnFocus)
+    document.addEventListener('click', revealHeaderOnFocus, true)
     window.addEventListener('keydown', measuredKeyDown)
     window.addEventListener('keyup', handleKeyUp)
     window.addEventListener('pointerdown', cancelVirtualFocus, true)
@@ -593,6 +600,8 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
     window.addEventListener('blur', resetRepeatState)
     return () => {
       cancelVirtualFocus()
+      document.removeEventListener('focusin', revealHeaderOnFocus)
+      document.removeEventListener('click', revealHeaderOnFocus, true)
       window.cancelAnimationFrame(initialFocus)
       if (navigationFrame !== null) window.cancelAnimationFrame(navigationFrame)
       window.removeEventListener('keydown', measuredKeyDown)
