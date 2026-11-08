@@ -28,22 +28,17 @@ export function calculateTvPairScrollTop({
   const dateTop = clamp(currentTop + periodRect.top - safeTop, 0, maxTop)
   if (!posterRect) return dateTop
 
-  const shiftedPosterTop = posterRect.top - (dateTop - currentTop)
-  const shiftedPosterBottom = posterRect.bottom - (dateTop - currentTop)
-  const fitsAtDate = shiftedPosterTop >= safeTop - 1
-    && shiftedPosterBottom <= viewportHeight - BOTTOM_GAP + 1
-
-  // On wide TV viewports the date-at-top placement already shows the full
-  // first row. This is the shared, fixed anchor for both focus regions.
-  if (fitsAtDate) return dateTop
-
+  // The current first-poster centering is the source of truth for BOTH
+  // focus regions. On a TV-sized viewport the date strip should sit above
+  // that centered row without a separate date-focused scroll position.
   const centered = calculatePosterScrollTop({
     currentTop, scrollHeight, viewportHeight, topbarBottom, posterRect,
   })
   const dateTopIfCentered = periodRect.top - (centered - currentTop)
 
-  // On smaller viewports, only prefer poster centering if the date bar is
-  // still accessible above it; otherwise retain date visibility.
+  // Only when a small screen would hide the date strip behind the sticky
+  // header do we clamp to the safe date-at-top position. That same choice
+  // is applied when the first poster itself gains focus, preventing jumps.
   return dateTopIfCentered >= safeTop - 1 ? centered : dateTop
 }
 
