@@ -93,6 +93,7 @@ describe('dynamic MovieHub Admin playlists are exclusive source',()=>{
     })
     const {createBudgetedYoutubeDeployApi}=await import('../scripts/youtube-g2-curated-source-sync-live.mjs')
     const budget=createBudgetedYoutubeDeployApi(underlying,configured.length,true)
+    expect(budget.limits).toMatchObject({playlistItems:1200,total:1401})
     const audit=await runTwoCuratedPlaylistAudit({sources:configured,youtubeApi:budget.api,
       at:()=> '2026-11-08T04:00:00Z'})
     expect(audit.fullyScanned).toBe(true)
