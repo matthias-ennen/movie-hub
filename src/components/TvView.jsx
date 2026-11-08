@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import '../styles/tv-period-anchor.css'
 import HeroFirstPage from './HeroFirstPage.jsx'
 import { ProgressiveRows } from './ProgressiveContent.jsx'
 
@@ -24,45 +25,47 @@ export function TvProgramContent({
     <section className="browse-page tv-program-content">
       <PeriodSelector periods={periods} selectedPeriodId={selectedPeriodId}
         onPeriodChange={onPeriodChange} />
-      {status === 'loading' && (
-        <section className="library-empty-state tv-program-empty" aria-live="polite">
-          <p className="settings-kicker">TV-Programm</p>
-          <h2>Sendetermine werden geladen …</h2>
-          <p>Der TV-Hero ist bereit. Die Posterreihen werden jetzt vorbereitet.</p>
-        </section>
-      )}
-
-      {status === 'unavailable' && (
-        <section className="library-empty-state tv-program-empty">
-          <p className="settings-kicker">Noch nicht veröffentlicht</p>
-          <h2>Das TV-Programm ist derzeit nicht verfügbar.</h2>
-          <p>Der TV-Reiter bleibt leer, bis mindestens ein vollständig geprüfter Live-TV-Katalog freigegeben wurde.</p>
-        </section>
-      )}
-
-      {status === 'no-stations' && (
-        <section className="library-empty-state tv-program-empty">
-          <p className="settings-kicker">Keine TV-Angebote ausgewählt</p>
-          <h2>Aktiviere einen TV-Anbieter und mindestens einen seiner Sender.</h2>
-          <p>Die Auswahl findest du unter Einstellungen → Anbieter & Sender.</p>
-        </section>
-      )}
-
-      {status === 'ready' && (
-        rowCount === 0 ? (
-            <section className="library-empty-state tv-program-empty">
-              <p className="settings-kicker">Keine Sendetermine</p>
-              <h2>Für diesen Zeitraum wurden keine zugeordneten Filme oder Serien gefunden.</h2>
-            </section>
-          ) : (
-            <ProgressiveRows
-              rows={rows}
-              heroReady
-              onOpen={onOpen}
-              className="rows-wrap tv-program-rows"
-            />
-          )
-      )}
+      <div className="tv-program-results">
+        {status === 'loading' && (
+          <section className="library-empty-state tv-program-empty" aria-live="polite">
+            <p className="settings-kicker">TV-Programm</p>
+            <h2>Sendetermine werden geladen …</h2>
+            <p>Der TV-Hero ist bereit. Die Posterreihen werden jetzt vorbereitet.</p>
+          </section>
+        )}
+  
+        {status === 'unavailable' && (
+          <section className="library-empty-state tv-program-empty">
+            <p className="settings-kicker">Noch nicht veröffentlicht</p>
+            <h2>Das TV-Programm ist derzeit nicht verfügbar.</h2>
+            <p>Der TV-Reiter bleibt leer, bis mindestens ein vollständig geprüfter Live-TV-Katalog freigegeben wurde.</p>
+          </section>
+        )}
+  
+        {status === 'no-stations' && (
+          <section className="library-empty-state tv-program-empty">
+            <p className="settings-kicker">Keine TV-Angebote ausgewählt</p>
+            <h2>Aktiviere einen TV-Anbieter und mindestens einen seiner Sender.</h2>
+            <p>Die Auswahl findest du unter Einstellungen → Anbieter & Sender.</p>
+          </section>
+        )}
+  
+        {status === 'ready' && (
+          rowCount === 0 ? (
+              <section className="library-empty-state tv-program-empty">
+                <p className="settings-kicker">Keine Sendetermine</p>
+                <h2>Für diesen Zeitraum wurden keine zugeordneten Filme oder Serien gefunden.</h2>
+              </section>
+            ) : (
+              <ProgressiveRows
+                rows={rows}
+                heroReady
+                onOpen={onOpen}
+                className="rows-wrap tv-program-rows"
+              />
+            )
+        )}
+      </div>
     </section>
   )
 }
@@ -96,6 +99,7 @@ function PeriodSelector({ periods, selectedPeriodId, onPeriodChange }) {
 export default function TvView({
   rows,
   heroItems,
+  heroHeading = 'TV-Programm',
   heroReadyEnabled,
   activationRequest,
   onActivationUnavailable,
@@ -111,7 +115,7 @@ export default function TvView({
       pageId="tv"
       className="category-page tv-program-page"
       heroItems={heroItems}
-      heroEyebrow="TV"
+      heroEyebrow={heroHeading}
       readyEnabled={heroReadyEnabled}
       activationRequest={activationRequest}
       onActivationUnavailable={onActivationUnavailable}

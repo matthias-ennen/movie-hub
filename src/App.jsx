@@ -467,6 +467,7 @@ function ExitConfirmationDialog({ onCancel, onClose }) {
 
 function MovieHub({ user }) {
   const { profiles, activeProfile, selectProfile } = useProfiles()
+  const { activeVisualSeason } = useTheme()
   const backgroundReady = useBackgroundReady(user.uid)
   const { items: announcements, readIds, unreadCount, ready: announcementsReady, error: announcementsError, markRead } = useAnnouncements(user.uid, activeProfile?.id, backgroundReady)
   const [dismissedStartupIds, setDismissedStartupIds] = useState(() => new Set())
@@ -1645,6 +1646,7 @@ function MovieHub({ user }) {
       {currentView === 'tv' && (
         <Suspense fallback={<LazyViewLoading label="TV" className="browse-page tv-program-page" />}>
           <LazyTvFeature
+            heroHeading={seasonalPageHeading(activeVisualSeason, 'tv')}
             waipuStationCatalog={waipuStationCatalog}
             joynStationCatalog={joynStationCatalog}
             disabledWaipuStationIds={disabledStationIds}

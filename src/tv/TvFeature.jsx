@@ -42,6 +42,7 @@ export default function TvFeature({
   joynStationSelectionLoading = true,
   liveAvailabilityEntries = EMPTY_LIST,
   artworkOptions = EMPTY_OPTIONS,
+  heroHeading = 'TV-Programm',
   activationRequest = null,
   onActivationUnavailable,
   onStationCatalogsRequested,
@@ -458,6 +459,7 @@ export default function TvFeature({
     <TvView
       rows={tvViewModel.rows}
       heroItems={tvHeroItems}
+      heroHeading={heroHeading}
       heroReadyEnabled={tvHeroCatalogReady}
       activationRequest={activationRequest}
       onActivationUnavailable={onActivationUnavailable}

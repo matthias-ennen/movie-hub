@@ -100,10 +100,22 @@ describe('#740 G/H: deterministic vertical navigation', () => {
     expect(env.windowRef.scrollTo).toHaveBeenCalledTimes(1)
   })
 
-  it('has a stable fallback before the first progressive TV row is mounted', () => {
-    const env = mockViewport({ posterExists: false })
-    expect(alignTvFirstRowAndPeriod(env)).toBe(true)
-    expect(env.scroller.scrollTop).toBe(678)
+  it('uses the identical TV anchor before and after the first progressive row is mounted', () => {
+    const pending = mockViewport({ posterExists: false })
+    const ready = mockViewport({ posterExists: true })
+    expect(alignTvFirstRowAndPeriod(pending)).toBe(true)
+    expect(alignTvFirstRowAndPeriod(ready)).toBe(true)
+    expect(pending.scroller.scrollTop).toBe(565)
+    expect(ready.scroller.scrollTop).toBe(pending.scroller.scrollTop)
+
+    // A changed/removed first poster must not re-target the date strip.
+    expect(calculateTvPairScrollTop({
+      currentTop: 0, scrollHeight: 3500, viewportHeight: 900, topbarBottom: 88,
+      periodRect: { top: 790, height: 70 },
+      posterRect: { top: 940, height: 300 },
+    })).toBe(pending.scroller.scrollTop)
+    expect(alignTvFirstRowAndPeriod(pending)).toBe(true)
+    expect(pending.windowRef.scrollTo).toHaveBeenCalledTimes(1)
   })
 
   it('respects page boundaries when the target is impossible', () => {
@@ -117,12 +129,22 @@ describe('#740 G/H: deterministic vertical navigation', () => {
 
 const dpad = readFileSync(new URL('../src/hooks/useDpadNavigation.js', import.meta.url), 'utf8')
 const css = readFileSync(new URL('../src/styles/seasonal-atmosphere.css', import.meta.url), 'utf8')
+const tvView = readFileSync(new URL('../src/components/TvView.jsx', import.meta.url), 'utf8')
+const tvAnchorCss = readFileSync(new URL('../src/styles/tv-period-anchor.css', import.meta.url), 'utf8')
 
 describe('#740 follow-up integration contracts', () => {
   it('does not issue vertical centering on every left/right step inside one poster row', () => {
     expect(dpad).toContain('const sameRow = previous?.matches?.(\'.poster-card\')')
     expect(dpad).toContain('if (!sameRow) scrollPageToPosterCandidate(candidate, scrollBehavior)')
     expect(dpad).toContain('scrollPosterTrackToCandidate(candidate, posterHorizontal, scrollBehavior)')
+  })
+
+  it('keeps the period track mounted and enough scroll range when daily rows reload', () => {
+    expect(tvView).toContain('<PeriodSelector periods={periods}')
+    expect(tvView).toContain('<div className="tv-program-results">')
+    expect(tvView).toContain("status === 'loading'")
+    expect(tvAnchorCss).toContain('min-height: 115vh')
+    expect(tvAnchorCss).not.toContain('position: fixed')
   })
 
   it('uses TV pair alignment on entry but not when switching date buttons horizontally', () => {

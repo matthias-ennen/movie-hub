@@ -20,28 +20,21 @@ export function calculatePosterScrollTop({
   return clamp(currentTop + posterCenter - visibleCenter, 0, Math.max(0, scrollHeight - viewportHeight))
 }
 
+// One stable viewport anchor for both the TV date strip and the first poster
+// row. It deliberately depends on neither a mounted poster nor async row data:
+// switching TV dates must not change the vertical target when rows unmount.
+const TV_PERIOD_VIEWPORT_ANCHOR_RATIO = 0.25
+
 export function calculateTvPairScrollTop({
-  currentTop, scrollHeight, viewportHeight, topbarBottom = 0, periodRect, posterRect = null,
+  currentTop, scrollHeight, viewportHeight, topbarBottom = 0, periodRect,
 }) {
   const safeTop = Math.max(0, topbarBottom) + TOP_GAP
-  const maxTop = Math.max(0, scrollHeight - viewportHeight)
-  // Always keep the date controls immediately below the sticky header if
-  // there is sufficient scroll range.
-  const dateTop = clamp(currentTop + periodRect.top - safeTop, 0, maxTop)
-  if (!posterRect) return dateTop
-
-  // The current first-poster centering is the source of truth for BOTH
-  // focus regions. On a TV-sized viewport the date strip should sit above
-  // that centered row without a separate date-focused scroll position.
-  const centered = calculatePosterScrollTop({
-    currentTop, scrollHeight, viewportHeight, topbarBottom, posterRect,
-  })
-  const dateTopIfCentered = periodRect.top - (centered - currentTop)
-
-  // Only when a small screen would hide the date strip behind the sticky
-  // header do we clamp to the safe date-at-top position. That same choice
-  // is applied when the first poster itself gains focus, preventing jumps.
-  return dateTopIfCentered >= safeTop - 1 ? centered : dateTop
+  const anchorTop = Math.max(safeTop, Math.round(viewportHeight * TV_PERIOD_VIEWPORT_ANCHOR_RATIO))
+  return clamp(
+    currentTop + periodRect.top - anchorTop,
+    0,
+    Math.max(0, scrollHeight - viewportHeight),
+  )
 }
 
 export function viewportScrollState(documentRef = document, windowRef = window) {
@@ -90,11 +83,9 @@ export function alignTvFirstRowAndPeriod({ documentRef = document, windowRef = w
   if (!period) return false
   const state = viewportScrollState(documentRef, windowRef)
   if (!state) return false
-  const poster = documentRef.querySelector?.('.tv-program-page .tv-program-rows .content-row[data-row-index="0"] .poster-card')
   const top = calculateTvPairScrollTop({
     ...state,
     periodRect: period.getBoundingClientRect(),
-    posterRect: poster?.getBoundingClientRect?.() || null,
   })
   settlePageAt(top, { documentRef, windowRef, behavior })
   return true
