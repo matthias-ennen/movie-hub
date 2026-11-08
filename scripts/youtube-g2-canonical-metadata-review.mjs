@@ -11,7 +11,8 @@ import {hasExclusiveDirectorFeatureFilmEvidence} from './youtube-g2-exclusive-di
  * successful TMDB lookup; source playback rights are never inferred.
  */
 export const YOUTUBE_METADATA_REVIEW_KIND = 'moviehub-youtube-canonical-new-film-metadata-review'
-export const YOUTUBE_METADATA_REVIEW_LIMIT = 40
+export const YOUTUBE_METADATA_REVIEW_LIMIT = 40 // Per-batch limit
+export const YOUTUBE_METADATA_REVIEW_TOTAL_LIMIT = 600 // Hard upper bound per live run
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/
 const zeroFields = ['catalogWrites','firestoreWrites','badgeWrites','providerWrites','nightlyWrites']
 const validDate = v => typeof v === 'string' && Number.isFinite(Date.parse(v))
@@ -95,11 +96,13 @@ export function planYoutubeNewFilmMetadataReview(full,intake,research,{
     })
   }
   if(selected.length!==full.metadataReviewCandidateCount
-    ||selected.length > YOUTUBE_METADATA_REVIEW_LIMIT){
+    ||selected.length > YOUTUBE_METADATA_REVIEW_TOTAL_LIMIT){
     throw Error('YOUTUBE_METADATA_REVIEW_BUDGET_OR_COUNT_MISMATCH')
   }
   return {generatedAt:now,totalVideoIds:full.totalVideoIds,
-    candidateCount:selected.length,candidates:selected}
+    candidateCount:selected.length,batchSize:YOUTUBE_METADATA_REVIEW_LIMIT,
+    batchesPlanned:Math.ceil(selected.length/YOUTUBE_METADATA_REVIEW_LIMIT),
+    candidates:selected}
 }
 
 export async function inspectYoutubeNewFilmMetadata(plan,{
@@ -107,10 +110,14 @@ export async function inspectYoutubeNewFilmMetadata(plan,{
 }={}){
   if(!Array.isArray(plan?.candidates)
     ||plan.candidateCount!==plan.candidates.length
+    ||plan.candidateCount>YOUTUBE_METADATA_REVIEW_TOTAL_LIMIT
+    ||(plan.batchSize!==undefined&&plan.batchSize!==YOUTUBE_METADATA_REVIEW_LIMIT)
     ||typeof loadTitle!=='function'
     ||!validDate(now))throw Error('YOUTUBE_METADATA_REVIEW_PLAN_INVALID')
   const inspected=[]
-  for(const c of plan.candidates){
+  // Keep each API processing batch bounded while covering all validated candidates.
+  for(let offset=0;offset<plan.candidates.length;offset+=YOUTUBE_METADATA_REVIEW_LIMIT){
+    for(const c of plan.candidates.slice(offset,offset+YOUTUBE_METADATA_REVIEW_LIMIT)){
     let status='tmdb-metadata-review'
     let metadata=null
     let reason=null
@@ -145,12 +152,15 @@ export async function inspectYoutubeNewFilmMetadata(plan,{
       status,reason,tmdb:metadata,
       workIdentityApproved:false,newMovieImported:false,offerPublished:false,
     })
+    }
   }
   return {
     kind:YOUTUBE_METADATA_REVIEW_KIND,schemaVersion:1,
     generatedAt:now,totalVideoIds:plan.totalVideoIds,
     candidatesSelected:plan.candidateCount,
     metadataReviewed:inspected.length,
+    batchesReviewed:Math.ceil(inspected.length/YOUTUBE_METADATA_REVIEW_LIMIT),
+    metadataHeld:inspected.filter(x=>x.status!=='tmdb-metadata-review').length,
     metadataPreviewReady:inspected.filter(x=>x.tmdb).length,
     counts:counts(inspected,x=>x.status),
     approvedFilmIdentities:0,newMoviesImported:0,
@@ -171,6 +181,8 @@ export function youtubeMetadataReviewMarkdown(data){
     '- Source videos processed by parent pipeline: '+data.totalVideoIds,
     '- New-film hypotheses selected: '+data.candidatesSelected,
     '- Canonical TMDB metadata retrieved and runtime-checked: '+data.metadataPreviewReady,
+    '- Review batches completed: '+data.batchesReviewed,
+    '- Held for further review (never published): '+data.metadataHeld,
     '- Outcome counts: '+JSON.stringify(data.counts),
     '- No imported films, offer approvals, provider writes or Firestore writes.',
     '- This PRIVATE review is a metadata step, not an independent film identity approval.',
