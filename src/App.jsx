@@ -50,7 +50,7 @@ import { mergeSharedMediaCatalogTitles, mergeTitlesWithSharedMediaCatalog } from
 import { firebaseReady } from './lib/firebase.js'
 import { useAnnouncements } from './notifications/useAnnouncements.js'
 import { AnnouncementsView, BellButton, StartupAnnouncement } from './notifications/AnnouncementsView.jsx'
-import { preloadHeroImage } from './performance/progressiveRendering.js'
+import { cancelHeroImagePreload, preloadHeroImage } from './performance/progressiveRendering.js'
 import { prepareForActiveView, prepareRowsForActiveView } from './performance/contentRowPreparation.js'
 import { fetchJsonWithTimeout } from './performance/fetchJson.js'
 import { notifyNativeStartupReady } from './performance/nativeStartup.js'
@@ -782,6 +782,9 @@ function MovieHub({ user }) {
   const curationSeed = `${activeProfile?.id || 'profile'}:${curationPeriodKey}:${catalog.generatedAt || 'catalog'}`
 
   const handleViewChange = useCallback((nextView) => {
+    // A previously focused header tab must not keep a speculative backdrop
+    // request alive after any tab/action is actually activated.
+    cancelHeroImagePreload()
     if (nextView === 'settings') setSettingsPage('overview')
     recordPerformanceEvent('view:activate', { viewId: nextView })
     setProfileOpen(false)
@@ -1073,6 +1076,13 @@ function MovieHub({ user }) {
     await signOut(auth)
   }
 
+  // Profile visibility is a loading rule too: do not build hidden provider
+  // groups merely to discard them after expensive sorting/curation.
+  const providerRowsVisible = {
+    home: activeProfile?.experienceSettings?.visibility?.home?.providerRows !== false,
+    movies: activeProfile?.experienceSettings?.visibility?.movies?.providerRows !== false,
+    series: activeProfile?.experienceSettings?.visibility?.series?.providerRows !== false,
+  }
   // The provider browse model is only consumed by Home, Movies and Series.
   // Do not rebuild it while TV or the personal library is doing heavy work.
   const providerCatalogModel = useMemo(
@@ -1097,12 +1107,12 @@ function MovieHub({ user }) {
       // availability, curation and Fire-TV poster-row mechanisms.
       return [
         ...themed.filter(row => row.seasonId),
-        ...buildProviderHomeRows(providerCatalogModel, titles),
+        ...(providerRowsVisible.home ? buildProviderHomeRows(providerCatalogModel, titles) : []),
         ...themed.filter(row => !row.seasonId),
       ].filter(row => row.items.length)
     }),
     [providerCatalogModel, currentView, rowDefinitions, titles, titlesById,
-      activeSeasonId, activeProfile?.experienceSettings?.posterRowLimit],
+      activeSeasonId, activeProfile?.experienceSettings?.posterRowLimit, providerRowsVisible.home],
   )
   // Personal title presentation is not needed by TV, Movies, Series or the
   // notification/about views. Keep Fire TV's main thread free on those tabs.
@@ -1350,28 +1360,31 @@ function MovieHub({ user }) {
     () => prepareForActiveView(
       currentView,
       'home',
-      () => curateMovieHubTitles(movieHubTitles, 'home'),
+      () => providerRowsVisible.home && enabledProviderIds.includes('moviehub')
+        ? curateMovieHubTitles(movieHubTitles, 'home') : [],
       [],
     ),
-    [currentView, movieHubTitles, curateMovieHubTitles],
+    [currentView, movieHubTitles, curateMovieHubTitles, providerRowsVisible.home, enabledProviderIds],
   )
   const curatedMovieHubMovieTitles = useMemo(
     () => prepareForActiveView(
       currentView,
       'movies',
-      () => curateMovieHubTitles(movieHubTitles.filter((item) => item.type === 'movie'), 'movies'),
+      () => providerRowsVisible.movies && enabledProviderIds.includes('moviehub')
+        ? curateMovieHubTitles(movieHubTitles.filter((item) => item.type === 'movie'), 'movies') : [],
       [],
     ),
-    [currentView, movieHubTitles, curateMovieHubTitles],
+    [currentView, movieHubTitles, curateMovieHubTitles, providerRowsVisible.movies, enabledProviderIds],
   )
   const curatedMovieHubSeriesTitles = useMemo(
     () => prepareForActiveView(
       currentView,
       'series',
-      () => curateMovieHubTitles(movieHubTitles.filter((item) => item.type === 'series'), 'series'),
+      () => providerRowsVisible.series && enabledProviderIds.includes('moviehub')
+        ? curateMovieHubTitles(movieHubTitles.filter((item) => item.type === 'series'), 'series') : [],
       [],
     ),
-    [currentView, movieHubTitles, curateMovieHubTitles],
+    [currentView, movieHubTitles, curateMovieHubTitles, providerRowsVisible.series, enabledProviderIds],
   )
   const movieHubHomeRows = useMemo(
     () => prepareRowsForActiveView(
@@ -1400,7 +1413,7 @@ function MovieHub({ user }) {
   const hasProviderCatalogs = Object.keys(providerCatalogModel || {}).length > 0
   const providerMovieRows = useMemo(
     () => prepareRowsForActiveView(currentView, 'movies', () => (
-      hasProviderCatalogs ? curateCatalogRows(
+      hasProviderCatalogs && providerRowsVisible.movies ? curateCatalogRows(
         buildProviderBrowseRows(providerCatalogModel, titles, 'movie')
           .filter((row) => !row.providerId || enabledProviderIds.includes(row.providerId))
           .map((row) => ({
@@ -1416,11 +1429,11 @@ function MovieHub({ user }) {
         },
       ) : []
     )),
-    [providerCatalogModel, titles, hasProviderCatalogs, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle, activeProfile?.experienceSettings?.posterRowLimit],
+    [providerCatalogModel, titles, hasProviderCatalogs, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle, activeProfile?.experienceSettings?.posterRowLimit, providerRowsVisible.movies],
   )
   const providerSeriesRows = useMemo(
     () => prepareRowsForActiveView(currentView, 'series', () => (
-      hasProviderCatalogs ? curateCatalogRows(
+      hasProviderCatalogs && providerRowsVisible.series ? curateCatalogRows(
         buildProviderBrowseRows(providerCatalogModel, titles, 'series')
           .filter((row) => !row.providerId || enabledProviderIds.includes(row.providerId))
           .map((row) => ({
@@ -1436,7 +1449,7 @@ function MovieHub({ user }) {
         },
       ) : []
     )),
-    [providerCatalogModel, titles, hasProviderCatalogs, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle, activeProfile?.experienceSettings?.posterRowLimit],
+    [providerCatalogModel, titles, hasProviderCatalogs, activeSortMode, curationSeed, contentDisplaySettings.watchedMode, currentView, getTitleState, statesByKey, enabledProviderIds, hasMovieHubTitle, activeProfile?.experienceSettings?.posterRowLimit, providerRowsVisible.series],
   )
   const movieCategoryRows = useMemo(
     () => prepareRowsForActiveView(currentView, 'movies', () => buildCategoryRows({
