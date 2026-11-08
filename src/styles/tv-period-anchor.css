@@ -1,0 +1,7 @@
+/* #724/#740: TV dates and the first poster row share a stable viewport anchor.
+ * The date control is persistent; keep enough document scroll range when
+ * async day/14-day results are swapped for the loading/empty state.
+ * Reserve layout space only: no expensive paints, transforms or focus work. */
+.tv-program-content .tv-program-results {
+  min-height: 115vh;
+}
