@@ -1073,9 +1073,16 @@ function MovieHub({ user }) {
     await signOut(auth)
   }
 
-  const providerCatalogModel = useMemo(() => buildProviderCatalogModel(catalog.providerCatalogs, titles, {
-    now: liveAvailabilityClock, acceptLiveProvider,
-  }), [catalog.providerCatalogs, titles, liveAvailabilityClock, acceptLiveProvider])
+  // The provider browse model is only consumed by Home, Movies and Series.
+  // Do not rebuild it while TV or the personal library is doing heavy work.
+  const providerCatalogModel = useMemo(
+    () => ['home', 'movies', 'series'].includes(currentView)
+      ? buildProviderCatalogModel(catalog.providerCatalogs, titles, {
+        now: liveAvailabilityClock, acceptLiveProvider,
+      })
+      : {},
+    [currentView, catalog.providerCatalogs, titles, liveAvailabilityClock, acceptLiveProvider],
+  )
   const titlesById = useMemo(() => new Map(titles.map(item => [item.id, item])), [titles])
   const rawHomeRows = useMemo(
     () => prepareRowsForActiveView(currentView, 'home', () => {
@@ -1097,15 +1104,22 @@ function MovieHub({ user }) {
     [providerCatalogModel, currentView, rowDefinitions, titles, titlesById,
       activeSeasonId, activeProfile?.experienceSettings?.posterRowLimit],
   )
+  // Personal title presentation is not needed by TV, Movies, Series or the
+  // notification/about views. Keep Fire TV's main thread free on those tabs.
+  const needsPersonalPresentation = ['home', 'library', 'search', 'settings'].includes(currentView)
   const personalMetadataTitles = useMemo(
-    () => preparePersonalSmartTitles(mergeCatalogWithPersonalSnapshots(preLiveTitles, statesByKey)),
-    [preLiveTitles, statesByKey],
+    () => needsPersonalPresentation
+      ? preparePersonalSmartTitles(mergeCatalogWithPersonalSnapshots(preLiveTitles, statesByKey))
+      : [],
+    [needsPersonalPresentation, preLiveTitles, statesByKey],
   )
   const personalCatalogTitles = useMemo(
-    () => mergeLiveAvailability(personalMetadataTitles, liveAvailabilityEntries, { now: liveAvailabilityClock, acceptLiveProvider })
-      .map((item) => resolvePresentationArtwork(
-        withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes, {curatedIndex: youtubeCuratedHints}), artworkOptions)),
-    [personalMetadataTitles, liveAvailabilityEntries, liveAvailabilityClock, artworkOptions, acceptLiveProvider, youtubeVerifiedRoutes, youtubeCuratedHints],
+    () => needsPersonalPresentation
+      ? mergeLiveAvailability(personalMetadataTitles, liveAvailabilityEntries, { now: liveAvailabilityClock, acceptLiveProvider })
+        .map((item) => resolvePresentationArtwork(
+          withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes, {curatedIndex: youtubeCuratedHints}), artworkOptions))
+      : [],
+    [needsPersonalPresentation, personalMetadataTitles, liveAvailabilityEntries, liveAvailabilityClock, artworkOptions, acceptLiveProvider, youtubeVerifiedRoutes, youtubeCuratedHints],
   )
   const getPersonalSmartFilterOptions = useMemo(() => {
     let options = null
@@ -1115,8 +1129,10 @@ function MovieHub({ user }) {
     }
   }, [personalMetadataTitles, catalog.smartFilterOptions, filterOptions.options, publicTitles])
   const personalRows = useMemo(
-    () => buildPersonalRows(personalCatalogTitles, getTitleState),
-    [personalCatalogTitles, getTitleState, statesByKey, activeProfile?.experienceSettings?.posterRowLimit],
+    () => (currentView === 'home' || currentView === 'library')
+      ? buildPersonalRows(personalCatalogTitles, getTitleState)
+      : [],
+    [currentView, personalCatalogTitles, getTitleState, statesByKey, activeProfile?.experienceSettings?.posterRowLimit],
   )
   const personalTopHundredRows = useMemo(
     () => prepareRowsForActiveView(
@@ -1281,26 +1297,14 @@ function MovieHub({ user }) {
   const seriesHeroes = coordinatedHeroes.series
   const movies = curatedMovieTitles
   const series = curatedSeriesTitles
+  // A hidden personal Hero must never rebuild Top-100 and smart rows.
+  // These sources are already prepared on the active library tab.
   const personalHeroes = useMemo(
-    () => !backgroundReady && currentView !== 'library' ? [] : selectPersonalHeroItemsFromSources([
+    () => currentView !== 'library' ? [] : selectPersonalHeroItemsFromSources([
       () => personalRows.filter((row) => row.id !== 'my-ratings'),
-      () => currentView === 'library'
-        ? personalTopHundredRows
-        : buildPersonalTopHundredRows(personalCatalogTitles, getTitleState),
-      () => (currentView === 'home' || currentView === 'library')
-        ? tmdbRows
-        : buildTmdbCatalogRows(titles),
-      () => currentView === 'library'
-        ? personalSmartRows
-        : buildPersonalSmartRows(
-          personalCatalogTitles,
-          activeProfile?.contentRowSettings,
-          undefined,
-          (items, row) => curateTitles(items, {
-            mode: activeSortMode,
-            seed: `${curationSeed}:smart:${row.id}`,
-          }),
-        ),
+      () => personalTopHundredRows,
+      () => tmdbRows,
+      () => personalSmartRows,
     ]),
     [
       backgroundReady,
@@ -1465,12 +1469,16 @@ function MovieHub({ user }) {
   )
   const themedBrowseRows = useMemo(
     () => ({
-      movies: buildThemedBrowseRows(rowDefinitions, titlesById,
-        activeSeasonId, 'movie', item => hasEnabledAvailability(item, enabledProviderIds, hasMovieHubTitle)),
-      series: buildThemedBrowseRows(rowDefinitions, titlesById,
-        activeSeasonId, 'series', item => hasEnabledAvailability(item, enabledProviderIds, hasMovieHubTitle)),
+      movies: currentView === 'movies'
+        ? buildThemedBrowseRows(rowDefinitions, titlesById,
+          activeSeasonId, 'movie', item => hasEnabledAvailability(item, enabledProviderIds, hasMovieHubTitle))
+        : [],
+      series: currentView === 'series'
+        ? buildThemedBrowseRows(rowDefinitions, titlesById,
+          activeSeasonId, 'series', item => hasEnabledAvailability(item, enabledProviderIds, hasMovieHubTitle))
+        : [],
     }),
-    [rowDefinitions, titlesById, activeSeasonId, enabledProviderIds, hasMovieHubTitle],
+    [currentView, rowDefinitions, titlesById, activeSeasonId, enabledProviderIds, hasMovieHubTitle],
   )
   const movieBrowseBaseRows = useMemo(
     () => prepareRowsForActiveView(
