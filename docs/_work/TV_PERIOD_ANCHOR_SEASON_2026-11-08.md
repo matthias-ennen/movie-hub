@@ -47,6 +47,8 @@ Die Texte auf Home, Filme, Serien und Meine Inhalte sowie die unabhängige saiso
 1. **#747 / #743:** gezielte Fire-TV-Stabilität, insbesondere Crash-/Fokus-Abnahme und Speicherdruck beim Reenter in den Hero.
 2. **#724 / #740:** restliche Fokus-, TV- und Layout-Regressionen aus den jeweils offenen Checklisten, nicht pauschal als erledigt markieren.
 3. **#717 / #723 / #720:** Serienfolgen-Provider, beste Deeplinks, kompakte Liste weiterer Ausstrahlungstermine.
-4. **#388:** YouTube-Playlisten/Serienfolgen-Adapter, Nightly-Lauf und reale Endabnahme.
+4. **#481:** Joyn-EPG-Falschzuordnung („Uncharted“/Red Bull TV) separat überprüfen.
+
+**Bereits geschlossen:** #388 (YouTube-Adapter V1) wurde am 06.11.2026 geschlossen. Folgefragen zu Serienfolgen gehören in das offene #717; Nightly-/Matcher-Probleme gesondert anhand des jeweiligen Laufs prüfen.
 
 Diese Liste ist eine technische Reihenfolge zur Wiederaufnahme, keine behauptete Schließung/Endabnahme.
