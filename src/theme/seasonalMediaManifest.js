@@ -1,15 +1,21 @@
 /**
- * Quality-controlled seasonal media upgrade.
+ * Quality-controlled cinematic seasonal media, Issue #484.
+ * All nine original WebP pairs were independently generated, user-approved,
+ * imported byte-for-byte and validated with scripts/audit-seasonal-artwork.mjs.
  *
- * Never add a season here until BOTH original production files have been
- * committed, alpha / file-size / readability checks have passed and the
- * user-approved previews show the intended cinematic composition.
- *
- * Each season not listed here continues to load the published SVGs.
- * This is intentionally independent from the seasonal content setting.
+ * Disable any season here to fall back immediately to its published SVG pair.
+ * This remains independent of the user's seasonal-content preferences.
  */
 export const CINEMATIC_MEDIA_READY = Object.freeze([
-  // e.g. 'christmas' — enable after both audited WebPs are in public/
+  'classic',
+  'filmfestival',
+  'hollywood',
+  'easter',
+  'pentecost',
+  'summer-cinema',
+  'halloween',
+  'christmas',
+  'newyear',
 ])
 
 export function isCinematicSeasonMediaReady(seasonId) {
