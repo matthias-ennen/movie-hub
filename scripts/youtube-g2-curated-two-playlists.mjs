@@ -38,6 +38,10 @@ export function preferredCuratedPlaylistMode(modes) {
 export const YOUTUBE_CURATED_MAX_PAGES_PER_LIST = 5
 export const YOUTUBE_CURATED_PAGE_SIZE = 50
 export const YOUTUBE_CURATED_MAX_VIDEOS = 500
+// Dynamic Admin sources may contain substantially more than 1,000 playlist items.
+// Keep the entire read bounded; never claim completeness after a truncated scan.
+export const YOUTUBE_CURATED_DYNAMIC_MAX_PAGES_PER_LIST = 200
+export const YOUTUBE_CURATED_DYNAMIC_MAX_VIDEOS = 10000
 const VALID_PLAYLIST_ID = /^(?:PL|UU|OLAK5uy_)[A-Za-z0-9_-]{10,120}$/
 const VALID_VIDEO_ID = /^[A-Za-z0-9_-]{11}$/
 const safe = v => String(v ?? '').replace(/[\r\n<>|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180)
@@ -80,7 +84,7 @@ export async function runTwoCuratedPlaylistAudit({
       throw new Error('CURATED_ENDPOINT_NOT_ALLOWED')
     }
     const max = endpoint === 'playlists' ? Math.ceil(chosen.length / 50)
-      : endpoint === 'playlistItems' ? (dynamic ? chosen.length * 20 : 10)
+      : endpoint === 'playlistItems' ? (dynamic ? chosen.length * YOUTUBE_CURATED_DYNAMIC_MAX_PAGES_PER_LIST : 10)
       : (dynamic ? 200 : 10)
     if (++calls[endpoint] > max) throw new Error('CURATED_CALL_BUDGET_EXCEEDED')
     return youtubeApi(endpoint, params)
@@ -127,6 +131,9 @@ export async function runTwoCuratedPlaylistAudit({
         if (!rows.has(videoId)) rows.set(videoId, {
           videoId, playlistModes: [], playlistIds: [], playlistPositions: {},
         })
+        if (rows.size > (dynamic ? YOUTUBE_CURATED_DYNAMIC_MAX_VIDEOS : YOUTUBE_CURATED_MAX_VIDEOS)) {
+          throw new Error('CURATED_VIDEO_BUDGET_EXCEEDED')
+        }
         const row = rows.get(videoId)
         if (!row.playlistModes.includes(source.mode)) row.playlistModes.push(source.mode)
         if (!row.playlistIds.includes(source.playlistId)) row.playlistIds.push(source.playlistId)
@@ -137,7 +144,7 @@ export async function runTwoCuratedPlaylistAudit({
       }
       token = typeof answer?.nextPageToken === 'string' && answer.nextPageToken
         ? answer.nextPageToken : null
-    } while (token && pages < (dynamic ? 20 : YOUTUBE_CURATED_MAX_PAGES_PER_LIST))
+    } while (token && pages < (dynamic ? YOUTUBE_CURATED_DYNAMIC_MAX_PAGES_PER_LIST : YOUTUBE_CURATED_MAX_PAGES_PER_LIST))
     perPlaylist.push({
       mode: source.mode, playlistId: source.playlistId, pages,
       ownerChannelId: ownersByPlaylistId.get(source.playlistId).channelId,
@@ -145,7 +152,7 @@ export async function runTwoCuratedPlaylistAudit({
       distinctVideoIds: foundIds.size, fullyScanned: token === null,
     })
   }
-  if (rows.size > (dynamic ? 10000 : YOUTUBE_CURATED_MAX_VIDEOS)) {
+  if (rows.size > (dynamic ? YOUTUBE_CURATED_DYNAMIC_MAX_VIDEOS : YOUTUBE_CURATED_MAX_VIDEOS)) {
     throw new Error('CURATED_VIDEO_BUDGET_EXCEEDED')
   }
   const ids = [...rows.keys()]

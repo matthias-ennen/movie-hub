@@ -631,7 +631,11 @@ jobs:
           REQUIRE_JOYN_14_DAYS: ${{ (github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]') || contains(github.event.head_commit.message, '[joyn-refresh]') }}
         run: node scripts/verify-published-data.mjs --prepared
 
+      # A source outage may skip the episode generator. Do not turn an optional
+      # YouTube refresh into a hard blocker for otherwise valid TV data.
+      # When episode links were generated/restored, full verification remains mandatory.
       - name: Validate precomputed episode playlist links in season data
+        if: ${{ steps.youtube_episode_catalog.outcome == 'success' || steps.youtube_code_projection_restore.outcome == 'success' }}
         run: node scripts/verify-youtube-episode-catalog-publication.mjs --prepared
 
       - name: Verify complete YouTube search companion before deploy (no API calls)
@@ -669,7 +673,7 @@ jobs:
           retention-days: 30
 
       - name: Verify hosted episode-specific YouTube links in season shards
-        if: ${{ !cancelled() && steps.firebase_deploy.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.firebase_deploy.outcome == 'success' && (steps.youtube_episode_catalog.outcome == 'success' || steps.youtube_code_projection_restore.outcome == 'success') }}
         run: node scripts/verify-youtube-episode-catalog-publication.mjs
 
       - name: Verify hosted YouTube film search companion and no-store headers
