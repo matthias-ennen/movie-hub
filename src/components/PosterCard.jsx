@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import ManagedImage from './ManagedImage.jsx'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import ProviderBadges from './ProviderBadges.jsx'
@@ -22,7 +22,8 @@ function PosterCard({
   const displayItem = withVerifiedYoutubeTitleOffer(item, youtubeVerifiedRoutes, {curatedIndex: youtubeCuratedHints})
   const posterUrl = posterSourceUrl(item)
   const posterImage = posterImageProps(item, { variant: rank ? 'top-ten' : variant })
-  const hasPoster = Boolean(posterUrl)
+  const [failedPosterSrc, setFailedPosterSrc] = useState(null)
+  const hasPoster = Boolean(posterImage.src && posterImage.src !== failedPosterSrc)
   const tvAiring = formatTvAiringCard(item.tvAiring)
   const providerModel = resolvePosterProviderModel(displayItem, { hasMovieHub })
 
@@ -50,6 +51,7 @@ function PosterCard({
             loading="lazy"
             fetchPriority="low"
             decoding="async"
+            onError={() => setFailedPosterSrc(posterImage.src)}
           />
         )}
         {rank && <span className="top-ten-rank">{rank}</span>}

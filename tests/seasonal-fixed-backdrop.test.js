@@ -28,6 +28,7 @@ describe('#484 viewport-fixed seasonal backdrop without giant poster-row scaling
     const backdrop = rule(fixedBackdrop)
     expect(backdrop).toContain("content: '';")
     expect(backdrop).toContain('position: fixed;')
+    expect(backdrop).toContain('inset: 0;')
     expect(backdrop).toContain('z-index: -1;')
     expect(backdrop).toContain('pointer-events: none;')
     expect(backdrop).toContain('var(--season-wallpaper)')

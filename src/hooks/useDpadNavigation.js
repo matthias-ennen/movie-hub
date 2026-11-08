@@ -3,13 +3,15 @@ import { useEffect } from 'react'
 import { PROGRESSIVE_ROW_REQUEST_EVENT } from '../performance/progressiveRendering.js'
 import { navigateDetailRows } from '../navigation/detailDpadNavigation.js'
 import { restoreTopScrollForHeaderFocus, restoreTopScrollForHeroAction } from '../navigation/headerTopScroll.js'
-import { alignPosterVertically, alignTvFirstRowAndPeriod } from '../navigation/pageRowScroll.js'
+import { alignPosterVertically, alignTvFirstRowAndPeriod, settlePageAt } from '../navigation/pageRowScroll.js'
+import { moveScrollCoordinate } from '../navigation/navigationMotion.js'
 
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
 const BACK_KEYS = new Set(['Escape', 'BrowserBack', 'GoBack'])
 const DPAD_REPEAT_INTERVAL_MS = 90
 const VIRTUAL_ROW_FOCUS_RETRIES = 10
 let virtualRowFocusGeneration = 0
+let programmaticDpadFocus = false
 
 function isEditable(element) {
   if (!element) return false
@@ -76,7 +78,7 @@ function scrollPosterTrackToCandidate(candidate, mode = 'center', behavior = 'sm
 
   const clampedLeft = Math.max(0, Math.min(targetLeft, maxLeft))
   if (Math.abs(track.scrollLeft - clampedLeft) > 1) {
-    track.scrollTo({ left: clampedLeft, behavior })
+    moveScrollCoordinate(track, 'x', clampedLeft, { behavior })
   }
 }
 
@@ -123,10 +125,8 @@ function getPosterClosestToViewportX(cards, sourceCenterX) {
 }
 
 function scrollPageToPosterCandidate(candidate, behavior = 'smooth') {
-  // Vertical row changes settle immediately; horizontal movement retains its
-  // own explicitly requested behavior and never re-centers the window.
-  void behavior
-  alignPosterVertically(candidate)
+  // A shared motion policy drives both axes. Do not re-center on same-row moves.
+  alignPosterVertically(candidate, { behavior })
 }
 
 function scrollTvPeriodTrackToCandidate(candidate, behavior = 'smooth') {
@@ -138,15 +138,21 @@ function scrollTvPeriodTrackToCandidate(candidate, behavior = 'smooth') {
   if (rect.left < bounds.left + 12) desired -= bounds.left + 12 - rect.left
   else if (rect.right > bounds.right - 12) desired += rect.right - (bounds.right - 12)
   const target = Math.max(0, Math.min(desired, Math.max(0, track.scrollWidth - track.clientWidth)))
-  if (Math.abs(target - track.scrollLeft) > 1) track.scrollTo({ left: target, behavior })
+  if (Math.abs(target - track.scrollLeft) > 1) moveScrollCoordinate(track, 'x', target, { behavior })
 }
 
 function focusCandidate(candidate, { posterHorizontal = 'center', scrollBehavior = 'smooth' } = {}) {
   if (!candidate) return
   const previous = document.activeElement
-  candidate.focus({ preventScroll: true })
+  programmaticDpadFocus = true
+  try { candidate.focus({ preventScroll: true }) } finally { programmaticDpadFocus = false }
   // Sticky header and Hero action controls always expose the true page top.
-  if (restoreTopScrollForHeaderFocus(candidate) || restoreTopScrollForHeroAction(candidate)) return
+  if (restoreTopScrollForHeaderFocus(candidate, { behavior: scrollBehavior })
+    || restoreTopScrollForHeroAction(candidate, { behavior: scrollBehavior })) return
+  if (candidate.matches?.('.hero-carousel')) {
+    settlePageAt(0, { behavior: scrollBehavior })
+    return
+  }
   const isInsideDialog = candidate.closest('.detail-modal, .media-panel, .exit-dialog, .notification-dialog, .profile-menu')
   const isPoster = candidate.matches?.('.poster-card')
 
@@ -170,7 +176,7 @@ function focusCandidate(candidate, { posterHorizontal = 'center', scrollBehavior
     // Date ↔ first row share an identical vertical anchor. Merely moving
     // left/right between dates must never issue a new vertical scroll.
     if (!track || previous?.closest?.('.tv-period-track') !== track) {
-      alignTvFirstRowAndPeriod()
+      alignTvFirstRowAndPeriod({ behavior: scrollBehavior })
     }
     scrollTvPeriodTrackToCandidate(candidate, scrollBehavior)
     return
@@ -306,6 +312,7 @@ function requestAndFocusPosterRow(active, currentTrack = null, direction = 1, sc
     currentRowIndex: Number.isInteger(currentRowIndex) ? currentRowIndex : -1,
     direction,
     sourceCenterX,
+    scrollBehavior,
   }
 
   window.dispatchEvent(new CustomEvent(PROGRESSIVE_ROW_REQUEST_EVENT, { detail }))
@@ -603,6 +610,7 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
     const cancelVirtualFocus = () => { virtualRowFocusGeneration += 1 }
     // Covers D-pad focus, mouse/touch clicks and programmatic focus restoration.
     const revealHeaderOnFocus = (event) => {
+      if (programmaticDpadFocus) return
       if (restoreTopScrollForHeaderFocus(event.target)) return
       if (event.type === 'click') return
       if (restoreTopScrollForHeroAction(event.target)) return

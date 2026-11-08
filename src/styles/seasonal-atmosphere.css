@@ -146,14 +146,14 @@
 :root[data-season-enabled='true'][data-season-media='cinematic'] .hero-first-page[data-content-page]::before {
   content: '';
   position: fixed;
-  inset: var(--topbar-height) 0 0;
+  inset: 0;
   z-index: -1;
   pointer-events: none;
   /* Blend edges instead of repeating or using a costly per-frame blur. */
   background-image:
     linear-gradient(180deg,
-      var(--color-bg) 0%, transparent 22%,
-      transparent 72%, var(--color-bg) 100%),
+      color-mix(in srgb, var(--color-bg) 38%, transparent) 0%, transparent 16%,
+      transparent 74%, var(--color-bg) 100%),
     linear-gradient(90deg,
       var(--color-bg) 0%, transparent 12%,
       transparent 88%, var(--color-bg) 100%),
@@ -202,31 +202,50 @@
   transform: translateY(-27px);
 }
 
-/* #740: Keep an ACTUAL continuous anthracite surface over the central 70%
- * of the Hero radius (~70% of its overall width/height), feathering out only
- * within the outer ~15% on each side. 'closest-side' reaches transparency at
- * all four outer edges without a sharp rectangular cut. The localized text
- * contrast veil is separate; neither texts nor art inherit reduced opacity.
- * Only cinematic seasons are affected: Classic and SVG themes stay intact. */
-:root[data-season-enabled='true'][data-season-media='cinematic']:not([data-season='classic']) .hero-first-page .hero-carousel .hero {
+/* Common feathered Hero surface for ALL nine cinematic worlds including classic.
+ * Keep the text veil separate; do not reduce the text/image opacity. */
+:root[data-season-enabled='true'][data-season-media='cinematic'] .hero-first-page .hero-carousel .hero {
   background:
     radial-gradient(ellipse 32% 50% at 32% 50%,
       rgba(7, 9, 13, 0.22) 0%,
       rgba(7, 9, 13, 0.20) 45%,
       transparent 100%),
     radial-gradient(ellipse closest-side at 50% 50%,
-      rgba(32, 35, 40, 0.30) 0%,
-      rgba(32, 35, 40, 0.30) 70%,
-      rgba(32, 35, 40, 0.16) 88%,
+      rgba(32, 35, 40, 0.40) 0%,
+      rgba(32, 35, 40, 0.40) 70%,
+      rgba(32, 35, 40, 0.20) 88%,
       transparent 100%);
 }
 
-/* The former opaque bottom fade and the navigation strip would hide the
- * same fixed wallpaper directly beneath the Hero. */
-:root[data-season-enabled='true'][data-season-media='cinematic']:not([data-season='classic']) .hero-first-page .hero-carousel .hero::after {
-  background: none;
+/* Same geometry and 40/20/0 alpha, but light tint in Bright for dark text. */
+:root[data-theme='bright'][data-season-enabled='true'][data-season-media='cinematic'] .hero-first-page .hero-carousel .hero {
+  background:
+    radial-gradient(ellipse 32% 50% at 32% 50%,
+      rgba(249, 250, 252, 0.22) 0%,
+      rgba(249, 250, 252, 0.20) 45%,
+      transparent 100%),
+    radial-gradient(ellipse closest-side at 50% 50%,
+      rgba(232, 237, 243, 0.40) 0%,
+      rgba(232, 237, 243, 0.40) 70%,
+      rgba(232, 237, 243, 0.20) 88%,
+      transparent 100%);
 }
 
-:root[data-season-enabled='true'][data-season-media='cinematic']:not([data-season='classic']) .hero-first-page .hero-dots {
+/* A local light contrast veil beneath Bright's left-hand text only. */
+:root[data-theme='bright'][data-season-enabled='true'][data-season-media='cinematic'] .hero-first-page .hero-carousel .hero-copy::before {
+  content: '';
+  position: absolute;
+  inset: -1rem -1.4rem;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 75% 75% at 35% 50%,
+    rgba(246, 248, 251, 0.80) 0%, rgba(246, 248, 251, 0.62) 58%, transparent 100%);
+}
+
+/* No opaque lower Hero strip hiding the fixed photo, including classic. */
+:root[data-season-enabled='true'][data-season-media='cinematic'] .hero-first-page .hero-carousel .hero::after {
+  background: none;
+}
+:root[data-season-enabled='true'][data-season-media='cinematic'] .hero-first-page .hero-dots {
   background: transparent;
 }

@@ -594,29 +594,6 @@ export default function Hero({
           {renderHeroPanel(activeItem, panelClass)}
         </div>
 
-        {slides.length > 1 && (
-          <>
-            <button
-              type="button"
-              className="hero-nav hero-nav-prev"
-              aria-label="Vorherigen Hero anzeigen"
-              tabIndex={-1}
-              disabled={safeIndex === 0}
-              onClick={() => stepHero(-1)}
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              className="hero-nav hero-nav-next"
-              aria-label="Nächsten Hero anzeigen"
-              tabIndex={-1}
-              onClick={() => stepHero(1)}
-            >
-              ›
-            </button>
-          </>
-        )}
       </div>
 
       {slides.length > 1 && (
