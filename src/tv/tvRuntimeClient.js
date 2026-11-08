@@ -1,5 +1,5 @@
 import { fetchJsonWithTimeout } from '../performance/fetchJson.js'
-import { throwIfAborted } from '../performance/cooperativeWork.js'
+import { mapCooperatively, throwIfAborted } from '../performance/cooperativeWork.js'
 import { createLiveProviderFilter } from '../sources/liveProviderSelection.js'
 import { selectProviderMap } from '../sources/providerLiveRoute.js'
 import { tvRuntimeTitleShardKey, tvRuntimeTitleIdentity, TV_RUNTIME_TITLE_KIND, TV_RUNTIME_TITLE_SHARD_COUNT } from './tvRuntimeTitleIndex.js'
@@ -495,45 +495,57 @@ function titleFromEntry(entry) {
   }
 }
 
-export function buildTvRuntimeSchedule(day, {
-  enabledProviderIds = null,
-  activeWaipuStationIds = [],
-  activeJoynStationIds = [],
-} = {}) {
-  const acceptProvider = createLiveProviderFilter({ enabledProviderIds, activeWaipuStationIds, activeJoynStationIds })
-  const airings = []
-  const titles = []
-
-  for (const entry of Array.isArray(day?.entries) ? day.entries : []) {
-    const title = titleFromEntry(entry)
-    const accepted = []
-    for (const airing of Array.isArray(entry?.airings) ? entry.airings : []) {
-      const providerIds = (airing.providerIds || []).filter((id) => acceptProvider(id, airing))
-      if (!providerIds.length) continue
-      accepted.push({
-        ...airing,
-        tmdbId: title.tmdbId,
-        type: title.type,
-        title: title.title,
-        providerIds,
-        providerStationIds: selectProviderMap(airing?.providerStationIds, providerIds),
-        providerProgramIds: selectProviderMap(airing?.providerProgramIds, providerIds),
-        playbackRoutes: (Array.isArray(airing?.playbackRoutes) ? airing.playbackRoutes : [])
-          .filter((route) => providerIds.includes(route?.providerId)),
-      })
-    }
-    if (!accepted.length) continue
-    titles.push(title)
-    airings.push(...accepted)
+function appendTvRuntimeEntry(entry, acceptProvider, airings, titles) {
+  const title = titleFromEntry(entry)
+  const accepted = []
+  for (const airing of Array.isArray(entry?.airings) ? entry.airings : []) {
+    const providerIds = (airing.providerIds || []).filter((id) => acceptProvider(id, airing))
+    if (!providerIds.length) continue
+    accepted.push({
+      ...airing,
+      tmdbId: title.tmdbId,
+      type: title.type,
+      title: title.title,
+      providerIds,
+      providerStationIds: selectProviderMap(airing?.providerStationIds, providerIds),
+      providerProgramIds: selectProviderMap(airing?.providerProgramIds, providerIds),
+      playbackRoutes: (Array.isArray(airing?.playbackRoutes) ? airing.playbackRoutes : [])
+        .filter((route) => providerIds.includes(route?.providerId)),
+    })
   }
+  if (!accepted.length) return
+  titles.push(title)
+  airings.push(...accepted)
+}
 
+function finishTvRuntimeSchedule(airings, titles) {
   airings.sort((left, right) => (
     String(left?.startTime || '').localeCompare(String(right?.startTime || ''))
     || String(left?.stationId || '').localeCompare(String(right?.stationId || ''))
     || Number(left?.tmdbId) - Number(right?.tmdbId)
   ))
-
   return { airings, titles }
+}
+
+// Keep the synchronous API for publication/parity consumers.
+export function buildTvRuntimeSchedule(day, options = {}) {
+  const acceptProvider = createLiveProviderFilter(options)
+  const airings = [], titles = []
+  for (const entry of Array.isArray(day?.entries) ? day.entries : []) {
+    appendTvRuntimeEntry(entry, acceptProvider, airings, titles)
+  }
+  return finishTvRuntimeSchedule(airings, titles)
+}
+
+// Runtime-only path: yield between title batches so Fire TV can paint and
+// respond to D-Pad input. Aborted tab/day switches never publish a partial day.
+export async function buildTvRuntimeScheduleCooperatively(day, options = {}, { signal } = {}) {
+  const acceptProvider = createLiveProviderFilter(options)
+  const airings = [], titles = []
+  await mapCooperatively(Array.isArray(day?.entries) ? day.entries : [],
+    (entry) => appendTvRuntimeEntry(entry, acceptProvider, airings, titles), { signal })
+  throwIfAborted(signal)
+  return finishTvRuntimeSchedule(airings, titles)
 }
 
 export function getTvRuntimeCacheDiagnostics() {

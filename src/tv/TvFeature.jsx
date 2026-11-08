@@ -21,7 +21,7 @@ import {
 import { createTv14DayRowsBuilder, loadTv14DaySummary, nextTv14DayTransition } from './tv14DaySummary.js'
 import {
   buildTvRuntimeHeroItems,
-  buildTvRuntimeSchedule,
+  buildTvRuntimeScheduleCooperatively,
   loadTvRuntimeHero,
   loadTvRuntimeIndex,
   loadConsistentTvRuntimeDay,
@@ -303,8 +303,8 @@ export default function TvFeature({
     setTvSchedule((current) => current.dayKey === dayKey && current.status === 'ready' ? current : { status: 'loading', airings: [], titles: [] })
     startPerformanceSpan('tv:day', performanceKey, { dayKey })
     loadConsistentTvRuntimeDay(dayKey, tvRuntimeIndex, { signal: controller.signal })
-      .then(({ day, index }) => {
-        if (cancelled) return
+      .then(async ({ day, index }) => {
+        if (cancelled || controller.signal.aborted) return
         finishPerformanceSpan('tv:day', performanceKey, {
           dayKey,
           entryCount: day.entries.length,
@@ -313,11 +313,14 @@ export default function TvFeature({
         const selectionKey = JSON.stringify([enabledProviderIds, activeWaipuStationKey, activeJoynStationKey])
         const cached = preparedScheduleRef.current
         const schedule = cached?.day === day && cached.selectionKey === selectionKey ? cached.schedule
-          : buildTvRuntimeSchedule(day, {
+          : await buildTvRuntimeScheduleCooperatively(day, {
               enabledProviderIds,
               activeWaipuStationIds: activeWaipuStations.map((station) => station.id),
               activeJoynStationIds: activeJoynStations.map((station) => station.id),
-            })
+            }, { signal: controller.signal })
+        // A newer tab/day/provider selection may have replaced this job while
+        // the cooperative computation yielded to the WebView event loop.
+        if (cancelled || controller.signal.aborted) return
         preparedScheduleRef.current = { day, selectionKey, schedule }
         finishPerformanceSpan('tv:view-model', performanceKey, {
           dayKey,

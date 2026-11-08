@@ -79,11 +79,12 @@ export function ProgressiveRows({
   const initialReadyReportedRef = useRef(false)
   const [scrollMargin, setScrollMargin] = useState(0)
   const experiencePage = inferExperiencePage(rows, className)
-  const visibleRows = useMemo(
-    () => filterRowsByExperienceVisibility(rows, experiencePage),
-    [experiencePage, rows],
+  // All content pages share the same Hero-first contract. Do not filter or
+  // prepare poster rows before their Hero is ready, including on Fire TV.
+  const activeRows = useMemo(
+    () => heroReady ? filterRowsByExperienceVisibility(rows, experiencePage) : [],
+    [experiencePage, heroReady, rows],
   )
-  const activeRows = heroReady ? visibleRows : []
 
   const rowVirtualizer = useWindowVirtualizer({
     count: activeRows.length,
@@ -135,7 +136,7 @@ export function ProgressiveRows({
       window.removeEventListener('resize', updateMargin)
       observer?.disconnect()
     }
-  }, [heroReady, visibleRows.length])
+  }, [heroReady, activeRows.length])
 
   useLayoutEffect(() => {
     if (!heroReady) return undefined

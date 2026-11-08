@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   buildTvRuntimeHeroItems,
   buildTvRuntimeSchedule,
+  buildTvRuntimeScheduleCooperatively,
   clearTvRuntimeCache,
   getTvRuntimeCacheDiagnostics,
   loadTvRuntimeDay,
@@ -300,6 +301,36 @@ describe('TV runtime client', () => {
     await loadTvRuntimeDay('2026-10-02', { generation: 'generation-a' })
     expect(fetchImpl).toHaveBeenCalledTimes(5)
     expect(getTvRuntimeCacheDiagnostics().dayCacheKeys).toHaveLength(TV_RUNTIME_DAY_CACHE_LIMIT)
+  })
+
+  it('builds the same ordered and filtered TV schedule in bounded cooperative slices', async () => {
+    const entries = Array.from({ length: 60 }, (_, index) => ({
+      ...dayPayload.entries[0],
+      key: `movie:${16281 + index}`,
+      tmdbId: 16281 + index,
+      title: `Film ${index}`,
+    }))
+    const day = { ...dayPayload, entries }
+    for (const selection of [
+      { enabledProviderIds: ['waipu', 'joyn'], activeWaipuStationIds: ['kabeleinsclassics'], activeJoynStationIds: ['kabeleinsclassics-de-hd'] },
+      { enabledProviderIds: ['joyn'], activeWaipuStationIds: [], activeJoynStationIds: ['kabeleinsclassics-de-hd'] },
+      { enabledProviderIds: ['waipu'], activeWaipuStationIds: ['kabeleinsclassics'], activeJoynStationIds: [] },
+    ]) {
+      const expected = buildTvRuntimeSchedule(day, selection)
+      const actual = await buildTvRuntimeScheduleCooperatively(day, selection)
+      expect(actual).toEqual(expected)
+      expect(actual.titles).toHaveLength(60)
+    }
+  })
+
+  it('does not publish a partial TV schedule after an obsolete tab/day request is aborted', async () => {
+    const controller = new AbortController()
+    const pending = buildTvRuntimeScheduleCooperatively(dayPayload, {
+      activeWaipuStationIds: ['kabeleinsclassics'],
+      activeJoynStationIds: ['kabeleinsclassics-de-hd'],
+    }, { signal: controller.signal })
+    controller.abort()
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
   })
 
   it('keeps both providers when both source stations are active', () => {
