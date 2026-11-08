@@ -425,7 +425,6 @@ function PersonalLibraryView({
             <p>Deine Movie-Hub-Watchlist, Favoriten und Bewertungen sowie deine synchronisierten persönlichen TMDB-Listen.</p>
           </div>
 
-          {(loading || enriching) && <p className="loading-copy">Persönliche Inhalte werden geladen …</p>}
           {error && <p className="error">Persönliche Inhalte konnten nicht geladen werden: {error.message}</p>}
 
           {!loading && !enriching && !error && rows.length === 0 && (
