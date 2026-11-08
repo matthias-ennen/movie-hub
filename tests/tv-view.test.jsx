@@ -42,6 +42,11 @@ function renderTvView(overrides = {}) {
 }
 
 describe('TV Hero-first-Seitenrahmen', () => {
+  it('zeigt den saisonalen TV-Hero-Titel ohne zusätzlichen ThemeProvider', () => {
+    const markup = renderTvView({ heroHeading: 'Festliches im TV' })
+    expect(markup).toContain('Festliches im TV')
+  })
+
   it('rendert während der Hero-Phase ausschließlich den Hero', () => {
     const markup = renderTvView()
 
