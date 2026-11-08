@@ -26,11 +26,14 @@ describe('TV seasonal Hero heading', () => {
     expect(seasonalPageHeading('unrecognised-season', 'tv')).toBe('TV-Programm')
   })
 
-  it('wires TV through the same visual theme resolver as the other tabs', () => {
-    const source = readFileSync(new URL('../src/components/TvView.jsx', import.meta.url), 'utf8')
-    expect(source).toContain('const { activeVisualSeason } = useTheme()')
-    expect(source).toContain("seasonalPageHeading(activeVisualSeason, 'tv')")
-    expect(source).toContain('heroEyebrow={tvHeading}')
-    expect(source).not.toContain('heroEyebrow="TV"')
+  it('wires TV through the visual-theme resolver without forcing a context in the presentational view', () => {
+    const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8')
+    const feature = readFileSync(new URL('../src/tv/TvFeature.jsx', import.meta.url), 'utf8')
+    const view = readFileSync(new URL('../src/components/TvView.jsx', import.meta.url), 'utf8')
+    expect(app).toContain("heroHeading={seasonalPageHeading(activeVisualSeason, 'tv')}")
+    expect(feature).toContain('heroHeading={heroHeading}')
+    expect(view).toContain('heroEyebrow={heroHeading}')
+    expect(view).not.toContain('heroEyebrow="TV"')
+    expect(view).not.toContain('useTheme()')
   })
 })
