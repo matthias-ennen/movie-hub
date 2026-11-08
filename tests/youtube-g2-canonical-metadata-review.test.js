@@ -178,6 +178,58 @@ describe('YouTube G2 TMDB new-film metadata review (not a catalog import)',()=>{
       tmdb:null,newMovieImported:false,
     })
   })
+  it('processes all 338 valid metadata candidates in bounded 40-item batches',async()=>{
+    const {full,intake,research}=make()
+    const size=338
+    const videos=Array.from({length:size},(_,i)=>'V'+String(i).padStart(10,'0'))
+    full.entries=videos.map((videoId,i)=>({
+      ...structuredClone(full.entries[0]),videoId,
+      suggestedFilmKey:'movie:'+(100000+i),
+    }))
+    intake.items=videos.map(videoId=>({...structuredClone(intake.items[0]),videoId}))
+    research.rows=videos.map((videoId,i)=>({
+      ...structuredClone(research.rows[0]),videoId,
+      topCandidates:[{...research.rows[0].topCandidates[0],tmdbId:100000+i}],
+    }))
+    full.totalVideoIds=full.processedVideoIds=intake.uniqueVideoIds=size
+    research.summary.sourceVideoIds=research.summary.processedRows=size
+    full.metadataReviewCandidateCount=size
+    const plan=planYoutubeNewFilmMetadataReview(full,intake,research,{now:NOW})
+    expect(plan).toMatchObject({candidateCount:338,batchSize:40,batchesPlanned:9})
+    const out=await inspectYoutubeNewFilmMetadata(plan,{
+      loadTitle:async ref=>({
+        id:'tmdb-movie-'+ref.tmdbId,tmdbId:ref.tmdbId,type:'movie',
+        source:'tmdb',title:'Valid test film',runtimeMinutes:91,
+        posterUrl:'https://image.tmdb.org/t/p/w500/mock.jpg',
+      }),now:NOW,
+    })
+    expect(out).toMatchObject({candidatesSelected:338,
+      metadataReviewed:338,metadataPreviewReady:338,metadataHeld:0,
+      batchesReviewed:9,newMoviesImported:0,verifiedDEOffers:0})
+    expect(out.items).toHaveLength(338)
+    full.metadataReviewCandidateCount=size+1
+    expect(()=>planYoutubeNewFilmMetadataReview(full,intake,research,{now:NOW}))
+      .toThrow('YOUTUBE_METADATA_REVIEW_BUDGET_OR_COUNT_MISMATCH')
+    // A forged or oversized queue remains blocked, even with a larger source.
+    const over={...plan,candidateCount:601,candidates:Array(601).fill(plan.candidates[0])}
+    await expect(inspectYoutubeNewFilmMetadata(over,{
+      loadTitle:async()=>({}),now:NOW,
+    })).rejects.toThrow('YOUTUBE_METADATA_REVIEW_PLAN_INVALID')
+  })
+  it('counts unresolved TMDB metadata separately rather than approving it',async()=>{
+    const {full,intake,research}=make()
+    const plan=planYoutubeNewFilmMetadataReview(full,intake,research,{now:NOW})
+    const report=await inspectYoutubeNewFilmMetadata(plan,{
+      loadTitle:async()=>({id:'tmdb-movie-9730',tmdbId:9730,
+        type:'movie',source:'tmdb',title:'Wrong cut',runtimeMinutes:200}),
+      now:NOW,
+    })
+    expect(report).toMatchObject({candidatesSelected:1,metadataReviewed:1,
+      metadataPreviewReady:0,metadataHeld:1,publicationPermitted:false,
+      verifiedDEOffers:0})
+    expect(report.items[0]).toMatchObject({tmdb:null,
+      status:'identity-or-duration-review',offerPublished:false})
+  })
   it('fails closed on changed verification, tampered identity or nonprivate source',()=>{
     const baseline=make()
     for(const alter of [
