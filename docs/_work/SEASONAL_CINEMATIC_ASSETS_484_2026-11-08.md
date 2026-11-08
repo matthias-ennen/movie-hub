@@ -17,7 +17,7 @@ Nine independent original wallpaper/corner pairs, 18 WebP files. All are locally
 | `public/seasonal-atmosphere/christmas-wallpaper.webp` | 151424 | `320e07cae4462e70cb4f7c67f01bbfa0dacf489c122165ebfb28738a8d591ec3` | `28db1a66070a02aa45fe4784d712e197a70bc280` |
 | `public/seasonal-atmosphere/classic-corner.webp` | 305334 | `ce65f2430a694dbbf404c4c5986020db71700f54a67d467af5cfc4ec00045a39` | `b008b992a4c2ef0564a9e27dade661714133032c` |
 | `public/seasonal-atmosphere/classic-wallpaper.webp` | 243728 | `4f2246219d626101bcee5d8dd385c307c0b60efdcb3f1a140c47f18fc06ad03b` | `855f0342c44f29076d411f149a38b0305d3bdadd` |
-| `public/seasonal-atmosphere/easter-corner.webp` | 253352 | `b91bfaff0f49153cf2fca2db70d6044c0db0e0f795d0e09378bb018c86b18281` | `0972275ab735888ddaeeba3dd555b27d93f1503d` |
+| `public/seasonal-atmosphere/easter-corner.webp` | 324474 | `228a98f0dd9a1334016c26cad5a8cabce02fd16530a885830019d18867967b78` | `fbceb29bc5d0d70a74db08b0aee0bfd7eb434378` |
 | `public/seasonal-atmosphere/easter-wallpaper.webp` | 459724 | `5526ffc8151de38302d3604b0a53e266c272cdd88a97a0c79efed83d6358e793` | `e5243beb2b0ec90c1191a1d37e54e4dee49ed82b` |
 | `public/seasonal-atmosphere/filmfestival-corner.webp` | 186712 | `1966ce723c3395cc518e9987d354bfae6f680bd335079b1012600c155f3c18d6` | `b2738e6e057277aabfed63e79f598ea15241abc9` |
 | `public/seasonal-atmosphere/filmfestival-wallpaper.webp` | 363980 | `30e03902b63d1e98de464c0c61ba021a517e1c6c5491c7437f9390112d5548e2` | `3fe6b5c6fbc37d29a7f7400f10aa3053604a781b` |
@@ -35,3 +35,8 @@ Nine independent original wallpaper/corner pairs, 18 WebP files. All are locally
 ## Rollback
 
 Revert this PR or remove affected IDs from `CINEMATIC_MEDIA_READY`; the original SVG assets have not been deleted. Validate resulting manifest through the artwork audit before redeploy.
+
+
+### 2026-11-08 – Ostern-Eckmotiv korrigiert
+
+Das bisherige nach unten rechts ausgerichtete Ostermotiv wurde auf ausdrückliche visuelle Nutzerfreigabe durch eine **neu generierte, transparente obere rechte Ecke** ersetzt (Blüten, Ostereier, goldenes Band; nach links und unten auslaufend). Nur `easter-corner.webp` geändert; alle übrigen 17 WebP-Dateien bleiben bytegleich. Original: 1448×1086 RGBA PNG, Produktionsdatei: 1152×864 RGBA WebP. Für die Bildausrichtung ist auf Android/Fire TV weiterhin eine visuelle Abnahme nötig.
