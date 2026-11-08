@@ -591,8 +591,8 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
     const cancelVirtualFocus = () => { virtualRowFocusGeneration += 1 }
     // Covers D-pad focus, mouse/touch clicks and programmatic focus restoration.
     const revealHeaderOnFocus = (event) => { restoreTopScrollForHeaderFocus(event.target) }
-    document.addEventListener('focusin', revealHeaderOnFocus)
-    document.addEventListener('click', revealHeaderOnFocus, true)
+    document.addEventListener?.('focusin', revealHeaderOnFocus)
+    document.addEventListener?.('click', revealHeaderOnFocus, true)
     window.addEventListener('keydown', measuredKeyDown)
     window.addEventListener('keyup', handleKeyUp)
     window.addEventListener('pointerdown', cancelVirtualFocus, true)
@@ -600,8 +600,8 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
     window.addEventListener('blur', resetRepeatState)
     return () => {
       cancelVirtualFocus()
-      document.removeEventListener('focusin', revealHeaderOnFocus)
-      document.removeEventListener('click', revealHeaderOnFocus, true)
+      document.removeEventListener?.('focusin', revealHeaderOnFocus)
+      document.removeEventListener?.('click', revealHeaderOnFocus, true)
       window.cancelAnimationFrame(initialFocus)
       if (navigationFrame !== null) window.cancelAnimationFrame(navigationFrame)
       window.removeEventListener('keydown', measuredKeyDown)
