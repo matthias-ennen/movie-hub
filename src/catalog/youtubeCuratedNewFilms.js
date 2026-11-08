@@ -4,6 +4,7 @@
  * and may NOT turn an editorial playlist hint into a verified availability.
  */
 export const YOUTUBE_NEW_FILMS_PUBLIC_URL='/youtube-curated-new-films.json'
+export const YOUTUBE_NEW_FILMS_MAX_ENTRIES=600
 const kind='moviehub-youtube-curated-new-film-metadata'
 const vid=/^[A-Za-z0-9_-]{11}$/
 const validDate=s=>typeof s==='string'&&Number.isFinite(Date.parse(s))
@@ -16,7 +17,7 @@ export function validateYoutubeNewFilmFeed(feed,{now=Date.now()}={}){
     ||!validDate(feed.generatedAt)
     ||Date.parse(feed.generatedAt)>Number(now)+60000
     ||Number(now)-Date.parse(feed.generatedAt)>7*86400000
-    ||!Number.isInteger(feed.count)||feed.count>50||feed.count<0
+    ||!Number.isInteger(feed.count)||feed.count>YOUTUBE_NEW_FILMS_MAX_ENTRIES||feed.count<0
     ||!Array.isArray(feed.entries)||feed.entries.length!==feed.count
     ||!Number.isInteger(feed.sourceVideoIds)||feed.sourceVideoIds<feed.count){
     return false
