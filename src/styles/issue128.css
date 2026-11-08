@@ -161,45 +161,6 @@
   pointer-events: none;
 }
 
-.hero-nav {
-  position: absolute;
-  z-index: 7;
-  top: 50%;
-  width: 3.2rem;
-  height: 4.6rem;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: var(--radius-pill);
-  background: rgba(7, 9, 13, 0.58);
-  color: var(--color-focus);
-  font-size: 2.7rem;
-  line-height: 1;
-  transform: translateY(-50%);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
-  transition: opacity var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
-}
-
-.hero-nav:hover {
-  background: rgba(7, 9, 13, 0.78);
-  transform: translateY(-50%) scale(1.04);
-}
-
-.hero-nav:disabled {
-  opacity: 0.25;
-  cursor: default;
-}
-
-.hero-nav-prev {
-  left: clamp(0.65rem, 1.4vw, 1.4rem);
-}
-
-.hero-nav-next {
-  right: clamp(0.65rem, 1.4vw, 1.4rem);
-}
-
 .hero-dots {
   position: absolute;
   z-index: 6;

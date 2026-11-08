@@ -136,3 +136,11 @@
     --poster-offer-height: 0.88rem;
   }
 }
+
+/* Missing/failed TMDB posters match the film detail placeholder exactly. */
+.poster-art:not(.has-image),
+.detail-art:not(.has-image) {
+  background:
+    radial-gradient(circle at 70% 25%, rgba(255, 255, 255, 0.25), transparent 11%),
+    linear-gradient(155deg, var(--poster-accent), var(--poster-accent-2) 68%, #080a0f);
+}

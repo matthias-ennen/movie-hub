@@ -1,3 +1,4 @@
+import { moveScrollCoordinate } from '../navigation/navigationMotion.js'
 import { RESTORE_POSTER_FOCUS_EVENT, focusPosterAnchor, resolvePosterIndex } from '../navigation/posterFocus.js'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -185,7 +186,16 @@ export function ProgressiveRows({
 
       event.detail.handled = true
       event.detail.targetRowIndex = targetIndex
-      rowVirtualizer.scrollToIndex(targetIndex, { align: 'center', behavior: 'auto' })
+      // Prepare offscreen virtual rows during the SAME 260ms scroll rather
+      // than teleporting to them. Restore/rapid-repeat still uses instant.
+      const estimated = rowVirtualizer.getOffsetForIndex?.(targetIndex, 'center')
+      const targetTop = Array.isArray(estimated) ? estimated[0] : null
+      const scroller = document.scrollingElement || document.documentElement
+      if (event.detail.scrollBehavior === 'smooth' && Number.isFinite(targetTop) && scroller) {
+        moveScrollCoordinate(scroller, 'y', targetTop)
+      } else {
+        rowVirtualizer.scrollToIndex(targetIndex, { align: 'center', behavior: 'auto' })
+      }
     }
 
     window.addEventListener(PROGRESSIVE_ROW_REQUEST_EVENT, handleRowRequest)

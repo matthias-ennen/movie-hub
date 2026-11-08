@@ -73,13 +73,14 @@ describe('#740: presentation rules stay scoped and non-destructive', () => {
   it('handles both D-pad and direct header focus/click without taking over poster scroll', () => {
     expect(nav).toContain("document.addEventListener?.('focusin', revealHeaderOnFocus)")
     expect(nav).toContain("document.addEventListener?.('click', revealHeaderOnFocus, true)")
-    expect(nav).toContain('if (restoreTopScrollForHeaderFocus(candidate) || restoreTopScrollForHeroAction(candidate)) return')
+    expect(nav).toContain('restoreTopScrollForHeaderFocus(candidate, { behavior: scrollBehavior })')
+    expect(nav).toContain('restoreTopScrollForHeroAction(candidate, { behavior: scrollBehavior })')
     expect(nav).toContain('scrollPageToPosterCandidate(candidate, scrollBehavior)')
   })
 
-  it('keeps the classic palette and content fully opaque while feathering cinematic background', () => {
-    expect(seasonal).toContain(":not([data-season='classic']) .hero-first-page .hero-carousel .hero {")
-    expect(seasonal).toContain('rgba(32, 35, 40, 0.30) 70%')
+  it('applies the shared feather even in Classic while preserving fully opaque content', () => {
+    expect(seasonal).toContain("[data-season-media='cinematic'] .hero-first-page .hero-carousel .hero {")
+    expect(seasonal).toContain('rgba(32, 35, 40, 0.40) 70%')
     expect(seasonal).toContain('radial-gradient(ellipse closest-side at 50% 50%')
     expect(seasonal).toContain('transparent 100%')
     expect(seasonal).toContain('.hero-first-page .hero-carousel .hero::after {\n  background: none;')

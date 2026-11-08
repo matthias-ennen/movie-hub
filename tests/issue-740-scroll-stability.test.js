@@ -133,8 +133,8 @@ describe('#740 follow-up integration contracts', () => {
   })
 
   it('keeps a central opaque-looking 30% anthracite area with transparent feathered edges', () => {
-    expect(css).toContain('rgba(32, 35, 40, 0.30) 0%')
-    expect(css).toContain('rgba(32, 35, 40, 0.30) 70%')
+    expect(css).toContain('rgba(32, 35, 40, 0.40) 0%')
+    expect(css).toContain('rgba(32, 35, 40, 0.40) 70%')
     expect(css).toContain('radial-gradient(ellipse closest-side at 50% 50%')
     expect(css).toContain('transparent 100%')
     expect(css).toContain('transform: translateY(-27px)')

@@ -52,6 +52,13 @@
 .tv-period-button:focus-visible {
   position: relative;
   z-index: 2;
+  outline: none;
+  box-shadow: inset 0 0 0 var(--focus-width-control) var(--color-focus);
+}
+
+/* The selected pill already has the focus color as its fill. */
+.tv-period-button.active:focus-visible {
+  box-shadow: inset 0 0 0 var(--focus-width-control) var(--color-bg);
 }
 
 .tv-program-rows {

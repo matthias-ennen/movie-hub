@@ -1,3 +1,6 @@
+import { settlePageAt } from './pageRowScroll.js'
+import { cancelNavigationMotion } from './navigationMotion.js'
+
 // The header is sticky: scrollIntoView({ block: 'nearest' }) can leave the
 // document far below its true start. Header focus needs an explicit top edge.
 const HEADER_CONTROL = '.brand-button[data-focusable="true"], .nav-link[data-focusable="true"], .icon-button[data-focusable="true"], .profile-button[data-focusable="true"]'
@@ -7,11 +10,14 @@ const HEADER_CONTROL = '.brand-button[data-focusable="true"], .nav-link[data-foc
 export function restoreTopScrollForHeroAction(target, {
   documentRef = document,
   windowRef = window,
+  behavior = 'instant',
 } = {}) {
   if (!target?.matches?.('.hero-actions .action-button[data-focusable="true"]')) return false
   const scroller = documentRef.scrollingElement || documentRef.documentElement
   if (!scroller) return false
   if ((scroller.scrollTop || 0) > 0 || (windowRef.scrollY || 0) > 0) {
+    if (behavior === 'smooth') { settlePageAt(0, { documentRef, windowRef, behavior }); return true }
+    cancelNavigationMotion(scroller)
     try { windowRef.scrollTo?.({ top: 0, behavior: 'instant' }) } catch { /* legacy fallback below */ }
     if (scroller.scrollTop !== 0) scroller.scrollTop = 0
   }
@@ -21,6 +27,7 @@ export function restoreTopScrollForHeroAction(target, {
 export function restoreTopScrollForHeaderFocus(target, {
   documentRef = document,
   windowRef = window,
+  behavior = 'instant',
 } = {}) {
   const control = target?.closest?.(HEADER_CONTROL)
   if (!control?.closest?.('.topbar') || control.closest?.('.profile-menu')) return false
@@ -29,6 +36,8 @@ export function restoreTopScrollForHeaderFocus(target, {
   if (!scroller) return false
 
   if ((scroller.scrollTop || 0) > 0 || (windowRef.scrollY || 0) > 0) {
+    if (behavior === 'smooth') { settlePageAt(0, { documentRef, windowRef, behavior }); return true }
+    cancelNavigationMotion(scroller)
     // An instant request cancels a pending native smooth-scroll animation.
     // The direct scrollTop assignment covers older embedded WebViews.
     try {
