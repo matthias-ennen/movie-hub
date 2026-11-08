@@ -2,7 +2,8 @@ import { recordPerformanceEvent } from '../performance/performanceDiagnostics.js
 import { useEffect } from 'react'
 import { PROGRESSIVE_ROW_REQUEST_EVENT } from '../performance/progressiveRendering.js'
 import { navigateDetailRows } from '../navigation/detailDpadNavigation.js'
-import { restoreTopScrollForHeaderFocus } from '../navigation/headerTopScroll.js'
+import { restoreTopScrollForHeaderFocus, restoreTopScrollForHeroAction } from '../navigation/headerTopScroll.js'
+import { alignPosterVertically, alignTvFirstRowAndPeriod } from '../navigation/pageRowScroll.js'
 
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
 const BACK_KEYS = new Set(['Escape', 'BrowserBack', 'GoBack'])
@@ -122,45 +123,56 @@ function getPosterClosestToViewportX(cards, sourceCenterX) {
 }
 
 function scrollPageToPosterCandidate(candidate, behavior = 'smooth') {
-  if (!candidate) return
+  // Vertical row changes settle immediately; horizontal movement retains its
+  // own explicitly requested behavior and never re-centers the window.
+  void behavior
+  alignPosterVertically(candidate)
+}
 
-  const scrollingElement = document.scrollingElement || document.documentElement
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight
-  if (!scrollingElement || !viewportHeight) return
-
-  const cardRect = candidate.getBoundingClientRect()
-  const topbarRect = document.querySelector('.topbar')?.getBoundingClientRect()
-  const safeTop = Math.max(0, topbarRect?.bottom || 0) + 24
-  const safeBottom = Math.max(safeTop, viewportHeight - 32)
-  const targetCenterY = safeTop + ((safeBottom - safeTop) / 2)
-  const cardCenterY = cardRect.top + (cardRect.height / 2)
-  const deltaY = cardCenterY - targetCenterY
-
-  if (Math.abs(deltaY) <= 1) return
-
-  const currentTop = scrollingElement.scrollTop || window.scrollY || 0
-  const maxTop = Math.max(0, scrollingElement.scrollHeight - viewportHeight)
-  const targetTop = Math.max(0, Math.min(currentTop + deltaY, maxTop))
-
-  window.scrollTo({ top: targetTop, behavior })
+function scrollTvPeriodTrackToCandidate(candidate, behavior = 'smooth') {
+  const track = candidate?.closest?.('.tv-period-track')
+  if (!track) return
+  const bounds = track.getBoundingClientRect()
+  const rect = candidate.getBoundingClientRect()
+  let desired = track.scrollLeft
+  if (rect.left < bounds.left + 12) desired -= bounds.left + 12 - rect.left
+  else if (rect.right > bounds.right - 12) desired += rect.right - (bounds.right - 12)
+  const target = Math.max(0, Math.min(desired, Math.max(0, track.scrollWidth - track.clientWidth)))
+  if (Math.abs(target - track.scrollLeft) > 1) track.scrollTo({ left: target, behavior })
 }
 
 function focusCandidate(candidate, { posterHorizontal = 'center', scrollBehavior = 'smooth' } = {}) {
   if (!candidate) return
+  const previous = document.activeElement
   candidate.focus({ preventScroll: true })
-  // Sticky header controls must reveal the actual page start, not just themselves.
-  if (restoreTopScrollForHeaderFocus(candidate)) return
+  // Sticky header and Hero action controls always expose the true page top.
+  if (restoreTopScrollForHeaderFocus(candidate) || restoreTopScrollForHeroAction(candidate)) return
   const isInsideDialog = candidate.closest('.detail-modal, .media-panel, .exit-dialog, .notification-dialog, .profile-menu')
   const isPoster = candidate.matches?.('.poster-card')
 
   if (isPoster && !isInsideDialog) {
-    scrollPageToPosterCandidate(candidate, scrollBehavior)
+    const row = candidate.closest?.('.content-row')
+    const sameRow = previous?.matches?.('.poster-card')
+      && row && previous.closest?.('.content-row') === row
+    // Only entering a different row may change the vertical page position.
+    if (!sameRow) scrollPageToPosterCandidate(candidate, scrollBehavior)
     window.requestAnimationFrame(() => {
       // Older focus requests must never scroll a row after focus moved on.
       if (candidate.isConnected && document.activeElement === candidate) {
         scrollPosterTrackToCandidate(candidate, posterHorizontal, scrollBehavior)
       }
     })
+    return
+  }
+
+  if (candidate.matches?.('.tv-period-button') && !isInsideDialog) {
+    const track = candidate.closest?.('.tv-period-track')
+    // Date ↔ first row share an identical vertical anchor. Merely moving
+    // left/right between dates must never issue a new vertical scroll.
+    if (!track || previous?.closest?.('.tv-period-track') !== track) {
+      alignTvFirstRowAndPeriod()
+    }
+    scrollTvPeriodTrackToCandidate(candidate, scrollBehavior)
     return
   }
 
@@ -590,7 +602,15 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
     }
     const cancelVirtualFocus = () => { virtualRowFocusGeneration += 1 }
     // Covers D-pad focus, mouse/touch clicks and programmatic focus restoration.
-    const revealHeaderOnFocus = (event) => { restoreTopScrollForHeaderFocus(event.target) }
+    const revealHeaderOnFocus = (event) => {
+      if (restoreTopScrollForHeaderFocus(event.target)) return
+      if (event.type === 'click') return
+      if (restoreTopScrollForHeroAction(event.target)) return
+      if (event.target?.matches?.('.tv-period-button')
+        && !event.relatedTarget?.closest?.('.tv-period-track')) {
+        alignTvFirstRowAndPeriod()
+      }
+    }
     document.addEventListener?.('focusin', revealHeaderOnFocus)
     document.addEventListener?.('click', revealHeaderOnFocus, true)
     window.addEventListener('keydown', measuredKeyDown)
