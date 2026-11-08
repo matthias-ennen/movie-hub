@@ -11,6 +11,7 @@ import {readFile, mkdir, writeFile} from 'node:fs/promises'
 import {pathToFileURL} from 'node:url'
 import {getSecret,youtubeGet} from './youtube-api-smoke.mjs'
 import {runCuratedYoutubeSourceSync} from './youtube-g2-curated-source-sync.mjs'
+import {YOUTUBE_CURATED_DYNAMIC_MAX_PAGES_PER_LIST} from './youtube-g2-curated-two-playlists.mjs'
 import {buildYoutubeSourceEnvelope} from '../src/sources/adapters/youtubeContractMapper.js'
 import {collectVerifiedTmdbFirstYoutubeAvailabilities} from './youtube-g2-tmdb-first-approved-source.mjs'
 import {loadAdminPlaylistSnapshot} from './youtube-admin-playlist-config.mjs'
@@ -26,7 +27,8 @@ export const PUBLIC_SUMMARY='public/youtube-curated-source-status.json'
 
 // This is a hard, per-Firebase-deploy API envelope, shared by BOTH approved
 // source paths. It is not a reservation of Google's project-wide daily quota.
-// The curated reader has 1 playlists + 10 playlistItems + 10 videos calls;
+// The legacy fixed two-playlist reader has 1 playlists + 10 playlistItems + 10 videos calls;
+// Admin-configured playlists use the matching bounded dynamic page budget.
 // at most 500 independently reviewed TMDB-first rows add 10 videos batches.
 // No YouTube search.list or other endpoints are permitted by production.
 export const YOUTUBE_DEPLOY_API_LIMITS=Object.freeze({
@@ -36,7 +38,7 @@ export function createBudgetedYoutubeDeployApi(youtubeApi,playlistCount=2,dynami
   if(typeof youtubeApi!=='function')
     throw Error('YOUTUBE_DEPLOY_API_CALLBACK_REQUIRED')
   const limits=!dynamic?YOUTUBE_DEPLOY_API_LIMITS:Object.freeze({
-    playlists:Math.ceil(playlistCount/50),playlistItems:playlistCount*20,
+    playlists:Math.ceil(playlistCount/50),playlistItems:playlistCount*YOUTUBE_CURATED_DYNAMIC_MAX_PAGES_PER_LIST,
     videos:200,total:Math.ceil(playlistCount/50)+playlistCount*20+200,
   })
   const calls={playlists:0,playlistItems:0,videos:0}
