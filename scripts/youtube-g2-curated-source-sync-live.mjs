@@ -39,7 +39,7 @@ export function createBudgetedYoutubeDeployApi(youtubeApi,playlistCount=2,dynami
     throw Error('YOUTUBE_DEPLOY_API_CALLBACK_REQUIRED')
   const limits=!dynamic?YOUTUBE_DEPLOY_API_LIMITS:Object.freeze({
     playlists:Math.ceil(playlistCount/50),playlistItems:playlistCount*YOUTUBE_CURATED_DYNAMIC_MAX_PAGES_PER_LIST,
-    videos:200,total:Math.ceil(playlistCount/50)+playlistCount*20+200,
+    videos:200,total:Math.ceil(playlistCount/50)+playlistCount*YOUTUBE_CURATED_DYNAMIC_MAX_PAGES_PER_LIST+200,
   })
   const calls={playlists:0,playlistItems:0,videos:0}
   const snapshot=()=>({
