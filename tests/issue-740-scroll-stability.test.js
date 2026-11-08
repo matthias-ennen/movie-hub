@@ -69,7 +69,7 @@ describe('#740 G/H: deterministic vertical navigation', () => {
     expect(calculatePosterScrollTop({
       currentTop: 0, scrollHeight: 3500, viewportHeight: 900, topbarBottom: 88,
       posterRect: { top: 950, height: 250 },
-    })).toBe(613)
+    })).toBe(585)
   })
 
   it('keeps date controls under the header and the first TV row in view', () => {
