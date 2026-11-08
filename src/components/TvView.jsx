@@ -1,6 +1,4 @@
 import { useEffect } from 'react'
-import { useTheme } from '../theme/ThemeProvider.jsx'
-import { seasonalPageHeading } from '../theme/seasonalPresentation.js'
 import '../styles/tv-period-anchor.css'
 import HeroFirstPage from './HeroFirstPage.jsx'
 import { ProgressiveRows } from './ProgressiveContent.jsx'
@@ -101,6 +99,7 @@ function PeriodSelector({ periods, selectedPeriodId, onPeriodChange }) {
 export default function TvView({
   rows,
   heroItems,
+  heroHeading = 'TV-Programm',
   heroReadyEnabled,
   activationRequest,
   onActivationUnavailable,
@@ -111,14 +110,12 @@ export default function TvView({
   status,
   onOpen,
 }) {
-  const { activeVisualSeason } = useTheme()
-  const tvHeading = seasonalPageHeading(activeVisualSeason, 'tv')
   return (
     <HeroFirstPage
       pageId="tv"
       className="category-page tv-program-page"
       heroItems={heroItems}
-      heroEyebrow={tvHeading}
+      heroEyebrow={heroHeading}
       readyEnabled={heroReadyEnabled}
       activationRequest={activationRequest}
       onActivationUnavailable={onActivationUnavailable}
