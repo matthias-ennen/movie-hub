@@ -105,22 +105,46 @@ export function getPersonalSmartRowMatchCount(titles, row) {
 export function buildPersonalSmartRows(titles, settings, limit = getActivePosterRowLimit(), sortItems = null) {
   const normalized = normalizePersonalSmartRowSettings(settings)
   const safeLimit = Math.min(Math.max(0, Number(limit) || 0), getActivePosterRowLimit())
-  return normalized.rows
-    .filter((row) => row.enabled)
-    .map((row) => {
-      const unique = new Map()
-      for (const item of Array.isArray(titles) ? titles : []) {
-        if (item?.id && matchesPersonalSmartRow(item, row) && !unique.has(getTitleStateKey(item))) unique.set(getTitleStateKey(item), item)
-      }
-      const items = [...unique.values()]
-      const ranked = typeof sortItems === 'function' ? sortItems(items, row) : items.sort(byCatalogRank)
-      return {
-        id: `personal-smart-${row.id}`,
-        title: row.title,
-        items: ranked.slice(0, safeLimit),
-      }
-    })
-    .filter((row) => row.items.length > 0)
+  const enabledRows = normalized.rows.filter((row) => row.enabled)
+  if (!enabledRows.length || !safeLimit) return []
+
+  // One pass over the titles for all enabled rows. Previously every enabled
+  // cast/creator/keyword/collection/decade row scanned the entire catalogue.
+  // Keep per-row Maps to preserve input order and canonical deduplication.
+  const grouped = new Map()
+  const filters = new Map()
+  for (const row of enabledRows) {
+    grouped.set(row.id, new Map())
+    if (!filters.has(row.type)) filters.set(row.type, new Map())
+    filters.get(row.type).set(row.valueId, row.id)
+  }
+
+  for (const item of Array.isArray(titles) ? titles : []) {
+    if (!item?.id) continue
+    const facets = item.facets || {}
+    const key = getTitleStateKey(item)
+    const add = (type, valueId) => {
+      const rowId = filters.get(type)?.get(valueId)
+      if (rowId === undefined) return
+      const unique = grouped.get(rowId)
+      if (!unique.has(key)) unique.set(key, item)
+    }
+    for (const id of Array.isArray(facets.castPersonIds) ? facets.castPersonIds : []) add('cast', id)
+    for (const id of Array.isArray(facets.creatorPersonIds) ? facets.creatorPersonIds : []) add('creator', id)
+    for (const id of Array.isArray(facets.keywordIds) ? facets.keywordIds : []) add('keyword', id)
+    add('collection', Number(facets.collectionId))
+    add('decade', Number(facets.decade))
+  }
+
+  return enabledRows.map((row) => {
+    const items = [...grouped.get(row.id).values()]
+    const ranked = typeof sortItems === 'function' ? sortItems(items, row) : items.sort(byCatalogRank)
+    return {
+      id: `personal-smart-${row.id}`,
+      title: row.title,
+      items: ranked.slice(0, safeLimit),
+    }
+  }).filter((row) => row.items.length > 0)
 }
 
 function normalizeDirectoryEntry(raw) {
