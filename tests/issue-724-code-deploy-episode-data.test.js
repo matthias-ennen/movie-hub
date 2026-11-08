@@ -128,6 +128,10 @@ describe('#724 code-only deploy preserves canonical YouTube episode generation',
     expect(editorialStep).toContain("steps.youtube_editorial_research.outcome == 'success'")
     expect(editorialStep).toContain('node scripts/generate-youtube-curated-editorial-index.mjs')
     expect(workflow).toContain('Restore published YouTube episode and film search projections for code-only deploy')
+    // Optional YouTube outage must not block Waipu/Joyn publication via a missing
+    // episode summary. A generated/restored generation still needs full readback.
+    expect(workflow).toContain("if: ${{ steps.youtube_episode_catalog.outcome == 'success' || steps.youtube_code_projection_restore.outcome == 'success' }}")
+    expect(workflow).toContain("steps.firebase_deploy.outcome == 'success' && (steps.youtube_episode_catalog.outcome == 'success' || steps.youtube_code_projection_restore.outcome == 'success')")
   })
 })
 
