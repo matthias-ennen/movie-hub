@@ -50,6 +50,13 @@ export function validateCuratedSyncAudit(audit,{
   const source=dynamic
     ?audit?.playlistSummaries?.map(({mode,playlistId})=>({mode,playlistId}))
     :validateTwoCuratedPlaylists(CURATED_INPUTS)
+  // This is the usual cause of a structurally valid audit being rejected.
+  // Report only ordinal, mode and counts; never leak private playlist IDs.
+  if(audit?.fullyScanned===false||audit?.playlistSummaries?.some(p=>p.fullyScanned!==true)){
+    const truncated=(audit?.playlistSummaries||[]).flatMap((p,index)=>
+      p.fullyScanned===true?[]:[`${index+1}:${p.mode}:${p.pages}pages:${p.distinctVideoIds}videos`])
+    throw Error('YOUTUBE_CURATED_SOURCE_INCOMPLETE_OR_UNTRUSTED: truncated-playlists='+truncated.join(','))
+  }
   if(!validIso(now)||!['CURATED_TWO_PLAYLISTS_READ_ONLY','CURATED_DYNAMIC_PLAYLISTS_READ_ONLY'].includes(audit?.mode)
     ||audit?.fullyScanned!==true||audit?.publicationPermitted!==false
     ||audit?.catalogWrites!==0||audit?.firestoreWrites!==0
