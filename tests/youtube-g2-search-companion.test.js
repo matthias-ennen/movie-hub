@@ -4,6 +4,7 @@ import {searchIndex} from '../src/search/searchIndex.js'
 import {getTitleStateKey} from '../src/library/libraryState.js'
 import {buildYoutubeCuratedSearchTitleFeed} from '../scripts/youtube-g2-publish-search-title-companion.mjs'
 import {validateYoutubeCuratedSearchTitleFeed} from '../src/catalog/youtubeCuratedSearchTitles.js'
+import {validateYoutubeNewFilmFeed} from '../src/catalog/youtubeCuratedNewFilms.js'
 
 const AT='2026-10-24T08:40:00.000Z'
 const BASIC={
@@ -149,6 +150,37 @@ describe('YouTube G2 new TMDB films are immediately searchable',()=>{
     const twice=mergeYoutubeCuratedSearchTitles(once,durable(),{now:Date.parse(AT)})
     expect(twice).toHaveLength(1)
     expect(twice[0]).toBe(base)
+  })
+  it('accepts full six-playlist-scale editorial feeds while rejecting oversized ones',()=>{
+    const count=488
+    const hintIndex=publishedHintIndex()
+    hintIndex.sourceVideoIds=2971
+    hintIndex.entries=Array.from({length:count},(_,i)=>{
+      const tmdbId=100000+i,videoId='V'+String(i).padStart(10,'0')
+      return {key:'movie:'+tmdbId,mediaType:'movie',tmdbId,videoId,
+        watchUrl:'https://www.youtube.com/watch?v='+videoId,
+        playlistMode:'free',verificationStatus:'not-independently-verified'}
+    })
+    hintIndex.count=count
+    const films=hintIndex.entries.map(x=>({...BASIC,
+      id:'tmdb-movie-'+x.tmdbId,tmdbId:x.tmdbId}))
+    const feed=buildYoutubeCuratedSearchTitleFeed(hintIndex,films,{now:AT})
+    expect(feed.count).toBe(488)
+    expect(validateYoutubeCuratedSearchTitleFeed(feed,{now:Date.parse(AT)})).toBe(true)
+    const newFeed=makeFeed()
+    newFeed.sourceVideoIds=2971
+    newFeed.entries=hintIndex.entries.slice(0,338).map(x=>({
+      videoId:x.videoId,tmdbId:x.tmdbId,playlistClass:'FREE',
+      film:{...BASIC,id:'tmdb-movie-'+x.tmdbId,tmdbId:x.tmdbId},
+    }))
+    newFeed.count=newFeed.entries.length
+    expect(validateYoutubeNewFilmFeed(newFeed,{now:Date.parse(AT)})).toBe(true)
+    newFeed.entries=Array.from({length:601},(_,i)=>({
+      videoId:'V'+String(i).padStart(10,'0'),tmdbId:100000+i,
+      playlistClass:'FREE',film:{...BASIC,id:'tmdb-movie-'+(100000+i),tmdbId:100000+i},
+    }))
+    newFeed.count=601
+    expect(validateYoutubeNewFilmFeed(newFeed,{now:Date.parse(AT)})).toBe(false)
   })
   it('does not expose personal-only titles from the public companion',()=>{
     const bad=makeFeed()

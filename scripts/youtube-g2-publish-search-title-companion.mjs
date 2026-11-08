@@ -8,6 +8,8 @@ import { canonicalForIdentity } from './execute-title-priority-queue.mjs'
 
 export const YOUTUBE_SEARCH_TITLES_KIND='moviehub-youtube-curated-search-title-metadata'
 export const YOUTUBE_SEARCH_TITLES_OUTPUT='public/youtube-curated-search-titles.json'
+// All validated Admin playlists may yield more than 200 editorial film candidates.
+export const YOUTUBE_SEARCH_TITLE_MAX_ENTRIES=2000
 
 export function buildYoutubeCuratedSearchTitleFeed(editorialIndex,canonicalMovies,{
   now=new Date().toISOString(),
@@ -21,7 +23,7 @@ export function buildYoutubeCuratedSearchTitleFeed(editorialIndex,canonicalMovie
     ||!Number.isInteger(editorialIndex.sourceVideoIds)
     ||!Array.isArray(editorialIndex.entries)
     ||editorialIndex.count!==editorialIndex.entries.length
-    ||editorialIndex.count>200
+    ||editorialIndex.count>YOUTUBE_SEARCH_TITLE_MAX_ENTRIES
     ||!Array.isArray(canonicalMovies)
     ||!Number.isFinite(Date.parse(now)))throw Error('YOUTUBE_SEARCH_COMPANION_INPUT_NOT_TRUSTED')
   const byId=new Map()

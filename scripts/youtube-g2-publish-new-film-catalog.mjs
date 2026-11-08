@@ -23,9 +23,12 @@ function sourceReady(review,reconciliation,intake,editorial){
     ||!Array.isArray(review.items)||review.items.length!==review.candidatesSelected
     ||review.totalVideoIds!==reconciliation?.totalVideoIds
     ||review.metadataReviewed!==review.candidatesSelected
-    ||review.metadataPreviewReady!==review.candidatesSelected
-    ||review.items.some(x=>x.status!=='tmdb-metadata-review'
-      ||!x.tmdb||x.workIdentityApproved!==false
+    ||review.metadataPreviewReady!==review.items.filter(x=>
+      x.status==='tmdb-metadata-review').length
+    ||review.items.some(x=>
+      !['tmdb-metadata-review','tmdb-request-review','identity-or-duration-review'].includes(x.status)
+      ||(x.status==='tmdb-metadata-review'?!x.tmdb:x.tmdb!==null)
+      ||x.workIdentityApproved!==false
       ||x.newMovieImported!==false||x.offerPublished!==false)
     ||reconciliation?.kind!=='moviehub-youtube-full-catalog-reconciliation'
     ||reconciliation.privateArtifact!==true
@@ -51,7 +54,7 @@ export function buildYoutubeNewFilmCatalogProjection({
 }={}){
   sourceReady(metadataReview,reconciliation,intake,editorialIndex)
   if(!Array.isArray(canonicalTitles)
-    ||canonicalTitles.length!==metadataReview.candidatesSelected
+    ||canonicalTitles.length!==metadataReview.metadataPreviewReady
     ||!Number.isFinite(Date.parse(now)))throw Error('YOUTUBE_NEW_FILM_PUBLISHER_CANONICAL_MISSING')
   const byVideo=new Map(intake.items.map(x=>[x.videoId,x]))
   const byDecision=new Map(reconciliation.entries.map(x=>[x.videoId,x]))
@@ -105,7 +108,10 @@ export function buildYoutubeNewFilmCatalogProjection({
     })
     linkedAdditionalExisting++
   }
-  for(const approvedMetadata of metadataReview.items){
+  // Only fully checked TMDB metadata may be published. Unresolved candidates
+  // remain in the private review report; none become assumed DE offers.
+  for(const approvedMetadata of metadataReview.items.filter(x=>
+    x.status==='tmdb-metadata-review')){
     const videoId=approvedMetadata.videoId
     const src=byVideo.get(videoId)
     const rec=byDecision.get(videoId)
@@ -166,6 +172,7 @@ export function buildYoutubeNewFilmCatalogProjection({
       ...editorialIndex,generatedAt:now,count:hints.length,entries:hints,
     },
     summary:{sourceVideos:metadataReview.totalVideoIds,newTmdbFilms:entries.length,
+      heldNewFilmCandidates:metadataReview.candidatesSelected-metadataReview.metadataPreviewReady,
       editorialLinks:hints.length,additionalExistingCanonicalLinks:linkedAdditionalExisting,
       firestoreWrites:0,badgeDatabaseWrites:0,
       independentlyVerifiedDEOffers:0},

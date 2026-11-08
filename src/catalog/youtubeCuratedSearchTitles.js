@@ -4,6 +4,7 @@
  * This feed DOES NOT independently verify YouTube offers or playback rights.
  */
 export const YOUTUBE_SEARCH_TITLES_PUBLIC_URL='/youtube-curated-search-titles.json'
+export const YOUTUBE_SEARCH_TITLES_MAX_ENTRIES=2000
 const KIND='moviehub-youtube-curated-search-title-metadata'
 const validAt=value=>typeof value==='string'&&Number.isFinite(Date.parse(value))
 export function validateYoutubeCuratedSearchTitleFeed(feed,{now=Date.now()}={}){
@@ -14,7 +15,7 @@ export function validateYoutubeCuratedSearchTitleFeed(feed,{now=Date.now()}={}){
     ||!validAt(feed.generatedAt)
     ||Date.parse(feed.generatedAt)>Number(now)+60000
     ||Number(now)-Date.parse(feed.generatedAt)>7*86400000
-    ||!Number.isInteger(feed.count)||feed.count<0||feed.count>200
+    ||!Number.isInteger(feed.count)||feed.count<0||feed.count>YOUTUBE_SEARCH_TITLES_MAX_ENTRIES
     ||!Number.isInteger(feed.sourceVideoIds)||feed.sourceVideoIds<feed.count
     ||!Array.isArray(feed.entries)||feed.entries.length!==feed.count)return false
   const seen=new Set()

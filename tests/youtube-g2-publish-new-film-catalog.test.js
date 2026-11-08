@@ -241,6 +241,20 @@ describe('new YouTube playlist movies use canonical TMDB metadata, no verified a
     }
   })
 
+  it('holds unconfirmed new-film metadata without losing safe existing editorial hints',()=>{
+    const x=inputs()
+    x.metadataReview.items[0].status='identity-or-duration-review'
+    x.metadataReview.items[0].tmdb=null
+    x.metadataReview.metadataPreviewReady=0
+    x.canonicalTitles=[]
+    const model=buildYoutubeNewFilmCatalogProjection(x)
+    expect(model.summary).toMatchObject({newTmdbFilms:0,heldNewFilmCandidates:1,
+      editorialLinks:1,independentlyVerifiedDEOffers:0})
+    expect(model.filmFeed.entries).toEqual([])
+    expect(model.editorialIndex.entries[0].key).toBe('movie:10586')
+    x.metadataReview.items[0].status='tmdb-metadata-review'
+    expect(()=>buildYoutubeNewFilmCatalogProjection(x)).toThrow()
+  })
   it('never duplicates an existing film and never rewrites TMDB metadata',()=>{
     const model=buildYoutubeNewFilmCatalogProjection(inputs())
     const existing={...base(),titles:[...base().titles,structuredClone(movie)]}
