@@ -532,21 +532,10 @@ export function useDpadNavigation({ detailOpen, profileMenuOpen, exitDialogOpen,
         return
       }
 
-      const episodeScrollContainer = [...(active.closest?.('.episode-detail-panel')
-        ?.querySelectorAll('[data-dpad-scroll-container="true"]') || [])]
-        .find((element) => element.scrollHeight > element.clientHeight)
-      if (
-        episodeScrollContainer
-        && (event.key === 'ArrowUp' || event.key === 'ArrowDown')
-        && episodeScrollContainer.scrollHeight > episodeScrollContainer.clientHeight
-      ) {
-        consume(event)
-        episodeScrollContainer.scrollBy({
-          top: event.key === 'ArrowDown' ? 180 : -180,
-          behavior: event.repeat ? 'auto' : 'smooth',
-        })
-        return
-      }
+      // Nested episode dialogs must follow the same focus-first navigation as
+      // title details. Unconditional scrollBy here consumed ArrowUp/ArrowDown
+      // before “Mehr lesen” and actionable provider buttons could gain focus.
+      // navigateDetailRows moves focus, then scrolls its actual scroll parent.
 
       if (navigateDetailRows(scope, candidates, active, event.key, event.repeat ? 'auto' : 'smooth')) {
         consume(event)
