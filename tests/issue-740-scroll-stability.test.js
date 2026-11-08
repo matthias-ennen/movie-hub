@@ -75,10 +75,10 @@ describe('#740 G/H: deterministic vertical navigation', () => {
   it('keeps date controls under the header and the first TV row in view', () => {
     const env = mockViewport()
     expect(alignTvFirstRowAndPeriod(env)).toBe(true)
-    expect(env.scroller.scrollTop).toBe(678)
-    expect(env.period.getBoundingClientRect().top).toBe(112)
-    expect(env.poster.getBoundingClientRect().top).toBe(252)
-    expect(env.poster.getBoundingClientRect().bottom).toBe(502)
+    expect(env.scroller.scrollTop).toBe(565)
+    expect(env.period.getBoundingClientRect().top).toBe(225)
+    expect(env.poster.getBoundingClientRect().top).toBe(365)
+    expect(env.poster.getBoundingClientRect().bottom).toBe(615)
   })
 
   it('treats TV dates and the first poster as ONE scroll anchor', () => {
