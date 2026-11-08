@@ -125,11 +125,51 @@
  * No animated/filter-heavy layers: the photographic depth lives inside
  * the optimized WebP itself, preserving Fire TV scroll/focus performance.
  */
+/*
+ * #484 fixed cinematic atmosphere: a single viewport-anchored decorative
+ * layer, not a background stretched to the total height of all poster rows.
+ * The scrolling content never owns a gigantic background-size:cover surface.
+ * A CSS fixed pseudo-element avoids background-attachment:fixed (unreliable
+ * in some Android/Fire TV WebViews), JS scroll listeners and animated layers.
+ */
 :root[data-season-enabled='true'][data-season-media='cinematic'] [data-content-page] > .rows-wrap,
 :root[data-season-enabled='true'][data-season-media='cinematic'] [data-content-page] > .browse-page {
+  background-image: none;
+}
+
+/* Stacking context keeps the fixed image behind the Hero/poster content and
+ * above the app-shell color; it does not intercept input or focus. */
+:root[data-season-enabled='true'][data-season-media='cinematic'] .hero-first-page[data-content-page] {
+  isolation: isolate;
+}
+
+:root[data-season-enabled='true'][data-season-media='cinematic'] .hero-first-page[data-content-page]::before {
+  content: '';
+  position: fixed;
+  inset: var(--topbar-height) 0 0;
+  z-index: -1;
+  pointer-events: none;
+  /* Blend edges instead of repeating or using a costly per-frame blur. */
+  background-image:
+    linear-gradient(180deg,
+      var(--color-bg) 0%, transparent 22%,
+      transparent 72%, var(--color-bg) 100%),
+    linear-gradient(90deg,
+      var(--color-bg) 0%, transparent 12%,
+      transparent 88%, var(--color-bg) 100%),
+    var(--season-wallpaper);
   background-repeat: no-repeat;
-  background-size: cover;
-  background-position: top center;
+  background-position: center, center, center 46%;
+  /* Never scale the 1600 x 900 source beyond its CSS-pixel width. */
+  background-size: 100% 100%, 100% 100%, min(100vw, 1600px) auto;
+  opacity: .58;
+}
+
+@media (max-width: 600px) {
+  :root[data-season-enabled='true'][data-season-media='cinematic'] .hero-first-page[data-content-page]::before {
+    background-position: center, center, center 34%;
+    opacity: .48;
+  }
 }
 :root[data-season-enabled='true'][data-season-media='cinematic'] .detail-layout-panel::after {
   width: clamp(150px, 24vw, 320px);
