@@ -6,39 +6,39 @@ import { isCinematicSeasonMediaReady } from './seasonalMediaManifest.js'
  */
 const CONTENT = Object.freeze({
   classic: {
-    home:'Deine nächste Entdeckung', movies:'Filme', series:'Serien', library:'Meine Inhalte',
+    home:'Deine nächste Entdeckung', movies:'Filme', series:'Serien', tv:'TV-Programm', library:'Meine Inhalte',
   },
   halloween: {
     home:'Zeit für Gänsehaut', movies:'Filme für dunkle Abende',
-    series:'Serien für lange Nächte', library:'Meine Inhalte · Gänsehautzeit',
+    series:'Serien für lange Nächte', tv:'Gruselzeit im TV', library:'Meine Inhalte · Gänsehautzeit',
   },
   christmas: {
     home:'Zeit für Filmzauber', movies:'Filme für Winterabende',
-    series:'Serien für gemütliche Stunden', library:'Meine Inhalte · Winterzauber',
+    series:'Serien für gemütliche Stunden', tv:'Festliches im TV', library:'Meine Inhalte · Winterzauber',
   },
   newyear: {
     home:'Neues Jahr. Große Geschichten.', movies:'Filme zum Jahreswechsel',
-    series:'Serien für lange Nächte', library:'Meine Inhalte · Neuanfang',
+    series:'Serien für lange Nächte', tv:'Highlights zum Jahreswechsel', library:'Meine Inhalte · Neuanfang',
   },
   easter: {
     home:'Frischer Wind für deine Filmzeit', movies:'Filme für Frühlingstage',
-    series:'Serien für freie Stunden', library:'Meine Inhalte · Frühlingszeit',
+    series:'Serien für freie Stunden', tv:'TV für die Feiertage', library:'Meine Inhalte · Frühlingszeit',
   },
   pentecost: {
     home:'Zeit für neue Geschichten', movies:'Filme fürs lange Wochenende',
-    series:'Serien zum Abschalten', library:'Meine Inhalte · Zeit für dich',
+    series:'Serien zum Abschalten', tv:'TV fürs lange Wochenende', library:'Meine Inhalte · Zeit für dich',
   },
   filmfestival: {
     home:'Kino, das bewegt', movies:'Besondere Filmperlen',
-    series:'Geschichten mit Charakter', library:'Meine Inhalte · Filmfestival',
+    series:'Geschichten mit Charakter', tv:'Filmhighlights im TV', library:'Meine Inhalte · Filmfestival',
   },
   hollywood: {
     home:'Die große Filmnacht', movies:'Großes Hollywood-Kino',
-    series:'Serien mit Starqualität', library:'Meine Inhalte · Roter Teppich',
+    series:'Serien mit Starqualität', tv:'Hollywood im TV', library:'Meine Inhalte · Roter Teppich',
   },
   'summer-cinema': {
     home:'Filmabende voller Sommer', movies:'Filme für lange Abende',
-    series:'Serien für den Sommer', library:'Meine Inhalte · Sommerzeit',
+    series:'Serien für den Sommer', tv:'TV für laue Sommerabende', library:'Meine Inhalte · Sommerzeit',
   },
 })
 export const SEASONAL_PAGE_HEADINGS = CONTENT
