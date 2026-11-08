@@ -10,8 +10,16 @@ import {
 
 function mockViewport({ viewportHeight = 900, initialTop = 0, dateY = 790, posterY = 930, posterHeight = 250, posterExists = true } = {}) {
   const scroller = { scrollTop: initialTop, scrollHeight: 3500 }
+  const button = {
+    getBoundingClientRect: () => ({
+      top: dateY + 12 - scroller.scrollTop,
+      height: 44,
+      bottom: dateY + 56 - scroller.scrollTop,
+    }),
+  }
   const period = {
-    getBoundingClientRect: () => ({ top: dateY - scroller.scrollTop, height: 70, bottom: dateY + 70 - scroller.scrollTop }),
+    querySelector: selector => selector === '.tv-period-button' ? button : null,
+    getBoundingClientRect: () => ({ top: dateY - scroller.scrollTop, height: 76, bottom: dateY + 76 - scroller.scrollTop }),
   }
   const row = { dataset: { rowIndex: '0' }, closest: selector => selector === '.tv-program-rows' ? {} : null }
   const poster = {
@@ -36,7 +44,7 @@ function mockViewport({ viewportHeight = 900, initialTop = 0, dateY = 790, poste
     get scrollY() { return scroller.scrollTop },
     scrollTo: vi.fn(({ top }) => { scroller.scrollTop = top }),
   }
-  return { documentRef, windowRef, scroller, poster, period }
+  return { documentRef, windowRef, scroller, poster, period, button }
 }
 
 describe('#740 E: Hero action focus reveals the top without activating anything', () => {
@@ -75,10 +83,13 @@ describe('#740 G/H: deterministic vertical navigation', () => {
   it('keeps date controls under the header and the first TV row in view', () => {
     const env = mockViewport()
     expect(alignTvFirstRowAndPeriod(env)).toBe(true)
-    expect(env.scroller.scrollTop).toBe(565)
-    expect(env.period.getBoundingClientRect().top).toBe(225)
-    expect(env.poster.getBoundingClientRect().top).toBe(365)
-    expect(env.poster.getBoundingClientRect().bottom).toBe(615)
+    expect(env.scroller.scrollTop).toBe(668)
+    expect(env.period.getBoundingClientRect().top).toBe(122)
+    expect(env.poster.getBoundingClientRect().top).toBe(262)
+    expect(env.poster.getBoundingClientRect().bottom).toBe(512)
+    // The imaginary line is half the date button height above its top,
+    // and lands below the 88px fixed header + 24px safe gap.
+    expect(env.button.getBoundingClientRect().top - env.button.getBoundingClientRect().height / 2).toBe(112)
   })
 
   it('treats TV dates and the first poster as ONE scroll anchor', () => {
@@ -95,7 +106,7 @@ describe('#740 G/H: deterministic vertical navigation', () => {
   it('prioritizes the date bar on narrow screens where both cannot fit', () => {
     const env = mockViewport({ viewportHeight: 360, dateY: 700, posterY: 820, posterHeight: 320 })
     alignTvFirstRowAndPeriod(env)
-    expect(env.period.getBoundingClientRect().top).toBe(112)
+    expect(env.button.getBoundingClientRect().top).toBe(134)
     alignPosterVertically(env.poster, env)
     expect(env.windowRef.scrollTo).toHaveBeenCalledTimes(1)
   })
@@ -105,17 +116,33 @@ describe('#740 G/H: deterministic vertical navigation', () => {
     const ready = mockViewport({ posterExists: true })
     expect(alignTvFirstRowAndPeriod(pending)).toBe(true)
     expect(alignTvFirstRowAndPeriod(ready)).toBe(true)
-    expect(pending.scroller.scrollTop).toBe(565)
+    expect(pending.scroller.scrollTop).toBe(668)
     expect(ready.scroller.scrollTop).toBe(pending.scroller.scrollTop)
 
     // A changed/removed first poster must not re-target the date strip.
     expect(calculateTvPairScrollTop({
       currentTop: 0, scrollHeight: 3500, viewportHeight: 900, topbarBottom: 88,
-      periodRect: { top: 790, height: 70 },
+      periodRect: { top: 790, height: 76 },
+      buttonRect: { top: 802, height: 44 },
       posterRect: { top: 940, height: 300 },
     })).toBe(pending.scroller.scrollTop)
     expect(alignTvFirstRowAndPeriod(pending)).toBe(true)
     expect(pending.windowRef.scrollTo).toHaveBeenCalledTimes(1)
+  })
+
+  it('measures the DATE BUTTON instead of a fixed 25% viewport position', () => {
+    const one = calculateTvPairScrollTop({
+      currentTop: 0, scrollHeight: 3500, viewportHeight: 900, topbarBottom: 88,
+      periodRect: { top: 790, height: 76 },
+      buttonRect: { top: 802, height: 44 },
+    })
+    const largerViewport = calculateTvPairScrollTop({
+      currentTop: 0, scrollHeight: 3500, viewportHeight: 1200, topbarBottom: 88,
+      periodRect: { top: 790, height: 76 },
+      buttonRect: { top: 802, height: 44 },
+    })
+    expect(one).toBe(668)
+    expect(largerViewport).toBe(one)
   })
 
   it('respects page boundaries when the target is impossible', () => {
