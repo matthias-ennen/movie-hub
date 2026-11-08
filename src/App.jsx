@@ -1107,12 +1107,15 @@ function MovieHub({ user }) {
   // Personal title presentation is not needed by TV, Movies, Series or the
   // notification/about views. Keep Fire TV's main thread free on those tabs.
   const needsPersonalPresentation = ['home', 'library', 'search', 'settings'].includes(currentView)
-  const personalMetadataTitles = useMemo(
-    () => needsPersonalPresentation
-      ? preparePersonalSmartTitles(mergeCatalogWithPersonalSnapshots(preLiveTitles, statesByKey))
-      : [],
-    [needsPersonalPresentation, preLiveTitles, statesByKey],
-  )
+  const needsPersonalFacets = currentView === 'library' || currentView === 'search'
+    || (currentView === 'settings' && settingsPage === 'personal')
+  const personalMetadataTitles = useMemo(() => {
+    if (!needsPersonalPresentation) return []
+    const merged = mergeCatalogWithPersonalSnapshots(preLiveTitles, statesByKey)
+    // Home only needs watchlist/favorite flags; faceting every public title on
+    // every launch wastes allocations before the first Hero/rows can paint.
+    return needsPersonalFacets ? preparePersonalSmartTitles(merged) : merged
+  }, [needsPersonalPresentation, needsPersonalFacets, preLiveTitles, statesByKey])
   const personalCatalogTitles = useMemo(
     () => needsPersonalPresentation
       ? mergeLiveAvailability(personalMetadataTitles, liveAvailabilityEntries, { now: liveAvailabilityClock, acceptLiveProvider })
