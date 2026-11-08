@@ -73,7 +73,7 @@ describe('#740: presentation rules stay scoped and non-destructive', () => {
   it('handles both D-pad and direct header focus/click without taking over poster scroll', () => {
     expect(nav).toContain("document.addEventListener?.('focusin', revealHeaderOnFocus)")
     expect(nav).toContain("document.addEventListener?.('click', revealHeaderOnFocus, true)")
-    expect(nav).toContain('if (restoreTopScrollForHeaderFocus(candidate)) return')
+    expect(nav).toContain('if (restoreTopScrollForHeaderFocus(candidate) || restoreTopScrollForHeroAction(candidate)) return')
     expect(nav).toContain('scrollPageToPosterCandidate(candidate, scrollBehavior)')
   })
 
