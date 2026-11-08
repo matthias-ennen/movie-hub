@@ -23,12 +23,19 @@ export async function publishYoutubeCuratedNewFilmMetadata({
     [reviewPath,reconciliationPath,intakePath,editorialPath]
       .map(x=>readFile(x,'utf8').then(JSON.parse)))
   if(!loadTitle&&!token)throw Error('YOUTUBE_CANONICAL_METADATA_TOKEN_MISSING')
+  const readyMetadata=metadataReview.items.filter(x=>x.status==='tmdb-metadata-review')
+  const existingCandidates=reconciliation.entries.filter(x=>
+    x.decision==='exists-in-complete-catalog-review'&&x.strongMetadataCandidate===true).length
+  // Account for new films, existing editorial hints and newly linked existing
+  // titles. Keep a hard per-run TMDB ceiling rather than the legacy 250-call cap.
+  const maxRequests=Math.min(5000,Math.max(250,
+    4*(readyMetadata.length+editorialIndex.entries.length+existingCandidates)))
   const client=loadTitle?null:new WaipuTmdbMetadataClient({
-    token,language:'de-DE',country:'DE',maxRequests:250,maxRetries:2,
+    token,language:'de-DE',country:'DE',maxRequests,maxRetries:2,
   })
   const readCanonical=loadTitle||((ref,at)=>client.loadTitle(ref,at))
   const canonicalTitles=[]
-  for(const entry of metadataReview.items){
+  for(const entry of readyMetadata){
     const movie=await readCanonical({
       type:'movie',tmdbId:entry.tmdbId,
     },now)
@@ -58,6 +65,7 @@ export async function publishYoutubeCuratedNewFilmMetadata({
   ])
   console.log(JSON.stringify({
     ...projected.summary,tmdbApiRequests:client?.requestsStarted||0,
+    heldMetadataReviewCandidates:metadataReview.items.length-readyMetadata.length,
     publishedNewCanonicalMovieTitles:projected.filmFeed.count,
     searchableEditorialPlaylistMovies:searchFeed.count,
     catalogOrFirestoreDatabaseWrites:0,
