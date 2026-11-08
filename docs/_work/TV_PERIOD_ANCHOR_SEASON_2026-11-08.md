@@ -14,7 +14,7 @@ Verknüpfungen: #724 (TV-D-Pad/Fokus), #740 (Scroll-/Hero-Ausrichtung), #484 (vi
 
 ### Saisonüberschriften
 
-`src/theme/seasonalPresentation.js` enthält nun auch `tv` für alle neun Saisonwelten. `TvView` liest `activeVisualSeason` aus `ThemeProvider` und setzt den Hero-Text über `seasonalPageHeading(activeVisualSeason, 'tv')` statt dem hartkodierten `TV`:
+`src/theme/seasonalPresentation.js` enthält nun auch `tv` für alle neun Saisonwelten. `MovieHub` liest `activeVisualSeason` aus dem vorhandenen `ThemeProvider` und übergibt `seasonalPageHeading(activeVisualSeason, 'tv')` durch die lazy-geladene `TvFeature` an die rein präsentierende `TvView`. Damit bleiben die Komponenten ohne erzwungenen ThemeProvider einzeln testbar und der hartkodierte Text `TV` entfällt:
 
 | Saison | TV-Titel |
 |---|---|
