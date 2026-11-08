@@ -60,11 +60,6 @@ function ContentRow({
     if (Math.abs(track.scrollLeft - desired) > 1) track.scrollLeft = desired
   }, [initialScrollLeft, rowId])
 
-  useEffect(() => {
-    if (!visibleItems.length) return
-    prefetchPosterWindow(visibleItems, restoredFocusIndex, { variant, owner: prefetchOwner })
-  }, [restoredFocusIndex, variant, visibleItems, prefetchOwner])
-
   useEffect(() => () => {
     releasePosterPrefetch(prefetchOwner)
     if (expansionFrameRef.current !== null) window.cancelAnimationFrame(expansionFrameRef.current)
@@ -117,7 +112,7 @@ function ContentRow({
     const card = trackRef.current?.querySelector(`[data-poster-index="${index}"]`)
     focusRef.current = { id, index, left: card?.getBoundingClientRect().left, owned: true }
     onPosterFocus?.(index, id)
-    prefetchPosterWindow(visibleItems, index, { variant, owner: prefetchOwner })
+    prefetchPosterWindow(visibleItems, index, { variant, owner: prefetchOwner, track: trackRef.current })
     if (progressive && shouldExpandPosterWindow(index, renderedCount, visibleItems.length, variant)) {
       expandProgressivePosters()
     }
@@ -129,7 +124,11 @@ function ContentRow({
     <section
       className={topTen ? 'content-row top-ten-row' : 'content-row'}
       onBlur={(event) => {
-        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget) && focusRef.current) focusRef.current.owned = false
+        if (!event.relatedTarget || event.currentTarget.contains(event.relatedTarget)) return
+        if (focusRef.current) focusRef.current.owned = false
+        // The old row's speculative images must not compete with the Hero,
+        // another row or a new tab after focus has moved away.
+        releasePosterPrefetch(prefetchOwner)
       }}
       data-row-id={rowId || undefined}
       data-row-index={rowIndex ?? undefined}
