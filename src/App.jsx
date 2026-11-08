@@ -1083,6 +1083,13 @@ function MovieHub({ user }) {
     movies: activeProfile?.experienceSettings?.visibility?.movies?.providerRows !== false,
     series: activeProfile?.experienceSettings?.visibility?.series?.providerRows !== false,
   }
+  const topTenVisible = {
+    home: activeProfile?.experienceSettings?.visibility?.home?.top10 !== false,
+    movies: activeProfile?.experienceSettings?.visibility?.movies?.top10 !== false,
+    series: activeProfile?.experienceSettings?.visibility?.series?.top10 !== false,
+    library: activeProfile?.experienceSettings?.visibility?.myContent?.top10 !== false,
+  }
+  const historyVisible = activeProfile?.experienceSettings?.visibility?.myContent?.history !== false
   // The provider browse model is only consumed by Home, Movies and Series.
   // Do not rebuild it while TV or the personal library is doing heavy work.
   const providerCatalogModel = useMemo(
@@ -1159,9 +1166,9 @@ function MovieHub({ user }) {
     () => prepareRowsForActiveView(
       currentView,
       'library',
-      () => buildWatchedHistoryRows(personalCatalogTitles, getTitleState),
+      () => historyVisible ? buildWatchedHistoryRows(personalCatalogTitles, getTitleState) : [],
     ),
-    [currentView, personalCatalogTitles, getTitleState, statesByKey],
+    [currentView, personalCatalogTitles, getTitleState, statesByKey, historyVisible],
   )
   const tmdbRows = useMemo(
     () => (currentView === 'home' || currentView === 'library')
@@ -1198,10 +1205,10 @@ function MovieHub({ user }) {
     () => prepareForActiveView(
       currentView,
       'library',
-      () => buildPersonalTopTen(combinedPersonalRows, getTitleState),
+      () => topTenVisible.library ? buildPersonalTopTen(combinedPersonalRows, getTitleState) : [],
       [],
     ),
-    [combinedPersonalRows, currentView, getTitleState, statesByKey],
+    [combinedPersonalRows, currentView, getTitleState, statesByKey, topTenVisible.library],
   )
   const personalDisplayRows = useMemo(
     () => prepareRowsForActiveView(currentView, 'library', () => {
@@ -1243,28 +1250,28 @@ function MovieHub({ user }) {
     () => prepareForActiveView(
       currentView,
       'home',
-      () => buildProviderTopTen(providerTopTenInput),
+      () => topTenVisible.home ? buildProviderTopTen(providerTopTenInput) : [],
       [],
     ),
-    [currentView, providerTopTenInput],
+    [currentView, providerTopTenInput, topTenVisible.home],
   )
   const movieTopTen = useMemo(
     () => prepareForActiveView(
       currentView,
       'movies',
-      () => buildProviderTopTen({ ...providerTopTenInput, mediaType: 'movie' }),
+      () => topTenVisible.movies ? buildProviderTopTen({ ...providerTopTenInput, mediaType: 'movie' }) : [],
       [],
     ),
-    [currentView, providerTopTenInput],
+    [currentView, providerTopTenInput, topTenVisible.movies],
   )
   const seriesTopTen = useMemo(
     () => prepareForActiveView(
       currentView,
       'series',
-      () => buildProviderTopTen({ ...providerTopTenInput, mediaType: 'series' }),
+      () => topTenVisible.series ? buildProviderTopTen({ ...providerTopTenInput, mediaType: 'series' }) : [],
       [],
     ),
-    [currentView, providerTopTenInput],
+    [currentView, providerTopTenInput, topTenVisible.series],
   )
   const eligiblePublicTitles = useMemo(
     () => titles.filter((item) => hasEnabledAvailability(item, enabledProviderIds, hasMovieHubTitle)),
