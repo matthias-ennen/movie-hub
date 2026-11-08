@@ -193,3 +193,41 @@
     opacity: .58;
   }
 }
+
+
+/* #740: Move only the carousel indicators up by one 12px dot diameter.
+ * The transform is visual-only: viewport height, poster rows and controls
+ * retain their measured positions in the document flow. */
+.hero-first-page .hero-dots {
+  transform: translateY(-12px);
+}
+
+/* #740: The cinematic wallpaper belongs behind the entire page, including
+ * the Hero. Do not use opacity on the Hero itself: its text, buttons, focus
+ * and film artwork must remain fully opaque. Classic is unchanged.
+ *
+ * The central anthracite tint is 25% opaque and fades gently to completely
+ * transparent at all four edges; the second localized dark veil makes the
+ * copy readable without a full-width opaque plate. */
+:root[data-season-enabled='true'][data-season-media='cinematic']:not([data-season='classic']) .hero-first-page .hero-carousel .hero {
+  background:
+    radial-gradient(ellipse 51% 65% at 41% 50%,
+      rgba(7, 9, 13, 0.50) 0%,
+      rgba(7, 9, 13, 0.32) 30%,
+      rgba(7, 9, 13, 0.08) 58%,
+      transparent 78%),
+    radial-gradient(ellipse 65% 71% at 50% 50%,
+      rgba(32, 35, 40, 0.25) 0%,
+      rgba(32, 35, 40, 0.19) 40%,
+      transparent 71%);
+}
+
+/* The former opaque bottom fade and the navigation strip would hide the
+ * same fixed wallpaper directly beneath the Hero. */
+:root[data-season-enabled='true'][data-season-media='cinematic']:not([data-season='classic']) .hero-first-page .hero-carousel .hero::after {
+  background: none;
+}
+
+:root[data-season-enabled='true'][data-season-media='cinematic']:not([data-season='classic']) .hero-first-page .hero-dots {
+  background: transparent;
+}
