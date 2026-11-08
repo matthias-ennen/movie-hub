@@ -1,6 +1,24 @@
 # Movie Hub – Adapterprogramm und Quellen-Ausbau
 
-## OPERATIVER STAND / MAẞGEBLICHE ÜBERGABE – 28.10.2026
+## Verbindliche Projektübergabe – 08.11.2026 (ersetzt überholte Status-/Prioritätstexte darunter)
+
+**Aktueller freigegebener MovieHub-Stand:** `main`-Commit `002a142ff1c6599c22d36fff324b8b46d0679b77`, CI/APK/Firebase Hosting jeweils erfolgreich. Der Nutzer hat diese App-Version als aktuellen Stand abgenommen. Die abgeschlossenen Korrektur-/Design-Issues **#723, #724, #740, #747 und #484** sind `closed/completed`; #708 und YouTube-V1 #388 waren bereits erledigt.
+
+**YouTube-Episodenadapter #717:** Am 08.11.2026 ausdrücklich **vollständig und ohne Vorbehalte abgenommen** und `closed/completed`. Keine Restprüfungen oder nachträglichen Abnahmevorbehalte aus historisch älteren Issue-Checklisten übernehmen. Später neu beobachtete konkrete Fehler werden als neue Bugs erfasst, nicht pauschal als Wiedereröffnung von #717.
+
+**Nächste verbindliche Entwicklungsreihenfolge unter dem Quellen-Rahmenissue #271:**
+
+1. **[#336 DVB-I – G0-Zugangspilot](https://github.com/matthias-ennen/movie-hub/issues/336)**: deutsche offizielle Service-Listen-/Registry-, Content-Guide-/EPG-, Region-, Rechte- und Playback-Signalisierung prüfen, begrenzte Parser-/SourceEnvelope-Fixtures und Go-/No-Go-Bericht. Kein ungeprüfter Produktionseinsatz.
+2. **DVB-I – G1/Daten- und Integrationsprobe nur bei G0-Go:** konforme Normalisierung, TMDB-Medientyp/-ID, Senderereignisse und PlaybackRoutes, belastbare Provider-/Fehlerisolierung; Produktionsintegration ausschließlich nach zusätzlicher begründeter Freigabe. Falls produktiver Zugang nicht verfügbar: Pilot mit Referenz-/No-Go-Ergebnis abschließen und nicht blockiert auf einen imaginären Feed warten.
+3. **[#391 Prime Video – nächster eigenständiger Quellenpilot](https://github.com/matthias-ennen/movie-hub/issues/391)**: bestehendes titelgenaues Fire-TV-GTI-Absprungmuster anhand einer belastbaren offiziellen ID-/Verfügbarkeitsquelle prüfen; zunächst Recherche und Go/No-Go, kein frei erfundener Datenadapter.
+
+**Nur Wartung oder später:** #720 (kompakte zusätzliche TV-Ausstrahlungstermine) auf ausdrücklichen Wunsch zurückgestellt; #751 nur reguläre Nightly-Folgeverifikation im bereits existierenden 06:00-Bericht, **kein** neues aktives Reparaturprojekt; #743 Stabilitätsreserve nur bei neuem Gerätedefekt; #481 Joyn-Falschidentität und #329 Waipu-Nacharbeit eigenständige Datenqualitätspunkte. Keine neue App-Änderung und kein zusätzlicher Nightly-Run durch diesen Dokumentationsabschluss.
+
+**Hinweis zur Historie:** Die ursprünglichen Abschnitte vom 16.–28.10. und 06.–07.11. bleiben darunter zur Nachvollziehbarkeit, sind aber hinsichtlich damaliger offener YouTube-Gates/Grafikproduktion oder der Reihenfolge nicht mehr der gültige Auftragsstand.
+
+---
+
+## HISTORISCHER OPERATIVER STAND / ÜBERGABE – 28.10.2026
 
 **Ersetzt alle älteren untenstehenden G0/G1-No-Go-Priorisierungen als Beschreibung des IST-Implementierungsstands, nicht deren historische Forschungsergebnisse.** Waipu und Joyn laufen produktiv; YouTube hat die implementierte V1-Plattform mit **zwei Playlists, TMDB-first-Suche, Matchv1.1, privatem Kandidaten-Checkpoint, `videos.list`-Known-Recheck und automatischer Veröffentlichung eindeutiger Best-Effort-Video-Watch-Links am bereits bestehenden YouTube-Badge**. Die letzten produktiven Schritte sind [PR #692](https://github.com/matthias-ennen/movie-hub/pull/692) und [PR #693](https://github.com/matthias-ennen/movie-hub/pull/693).
 
