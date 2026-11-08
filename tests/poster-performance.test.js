@@ -174,6 +174,29 @@ describe('Fire-TV Posterreihen-Last', () => {
     expect(windowItems.map((item) => item.tmdbId)).toEqual([3, 4, 5, 6, 7, 8, 9])
   })
 
+  it('prefetcht bei Fokus weder das aktuelle noch bereits vom DOM geladene Poster erneut', () => {
+    const requested = []
+    globalThis.Image = class MockImage {
+      set src(value) { requested.push(value) }
+      set decoding(_value) {}
+      set fetchPriority(_value) {}
+    }
+
+    const items = Array.from({ length: 8 }, (_, index) => title(index + 1))
+    const track = {
+      querySelectorAll: () => [
+        { getAttribute: () => items[3].posterUrl },
+      ],
+    }
+    const result = prefetchPosterWindow(items, 2, { track, owner: 'focused' })
+
+    expect(result).not.toContain(items[2].posterUrl)
+    expect(result).not.toContain(items[3].posterUrl)
+    expect(result).toContain(items[4].posterUrl)
+    expect(requested).not.toContain(items[2].posterUrl)
+    expect(requested).not.toContain(items[3].posterUrl)
+  })
+
   it('dedupliziert bereits angeforderte Posterbilder', () => {
     const requested = []
     globalThis.Image = class MockImage {

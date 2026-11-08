@@ -12,9 +12,11 @@ import {
 } from '../performance/progressiveRendering.js'
 import { estimatePosterRowHeight, ROW_VIRTUAL_OVERSCAN } from '../performance/posterRows.js'
 import { recordPerformanceEvent } from '../performance/performanceDiagnostics.js'
+import { orderVirtualRowsForAdmission, ROW_ADMISSION_STAGGER_MS } from '../performance/rowAdmission.js'
 import {
   filterRowsByExperienceVisibility,
   inferExperiencePage,
+  rowExperienceModule,
 } from '../profiles/profileExperienceRuntime.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import ContentRow from './ContentRow.jsx'
@@ -99,22 +101,45 @@ export function ProgressiveRows({
   const [admittedRows, setAdmittedRows] = useState(() => new Set())
   const requestedRowsKey = virtualItems.map((item) => item.key).join('|')
   useEffect(() => {
-    const keys = virtualItems.map((item) => item.key)
-    const allowed = new Set(keys)
-    setAdmittedRows((current) => new Set([...current].filter((key) => allowed.has(key))))
-    let frame, index = 0
+    const scroller = document.scrollingElement || document.documentElement
+    const ordered = orderVirtualRowsForAdmission(virtualItems, {
+      scrollTop: scroller?.scrollTop || window.scrollY || 0,
+      viewportHeight: window.innerHeight || document.documentElement.clientHeight,
+    })
+    const allowed = new Set(ordered.map((item) => item.key))
+    setAdmittedRows((current) => {
+      const retained = new Set([...current].filter((key) => allowed.has(key)))
+      return retained.size === current.size ? current : retained
+    })
+
+    let frame = null, timer = null, index = 0
     const admit = () => {
-      const key = keys[index++]
-      if (key !== undefined) setAdmittedRows((current) => {
-        if (current.has(key)) return current
-        recordPerformanceEvent('rows:admit', { pageId: experiencePage, windowIndex: index - 1 })
-        return new Set([...current, key])
+      frame = null
+      const virtualRow = ordered[index++]
+      if (virtualRow) setAdmittedRows((current) => {
+        if (current.has(virtualRow.key)) return current
+        const row = activeRows[virtualRow.index]
+        recordPerformanceEvent('rows:admit', {
+          pageId: experiencePage,
+          windowIndex: virtualRow.index,
+          group: rowExperienceModule(row, experiencePage)
+            || (String(row?.id || '').startsWith('category-') ? 'categoryRows' : 'catalogRows'),
+        })
+        return new Set([...current, virtualRow.key])
       })
-      if (index < keys.length) frame = window.requestAnimationFrame(admit)
+      // Admit one viewport/overscan row at a time. Never hold focus-driven
+      // navigation: the requested row is promoted synchronously below.
+      if (index < ordered.length) timer = window.setTimeout(() => {
+        timer = null
+        frame = window.requestAnimationFrame(admit)
+      }, ROW_ADMISSION_STAGGER_MS)
     }
-    if (keys.length) frame = window.requestAnimationFrame(admit)
-    return () => window.cancelAnimationFrame(frame)
-  }, [requestedRowsKey, heroReady, experiencePage])
+    if (ordered.length) frame = window.requestAnimationFrame(admit)
+    return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame)
+      if (timer !== null) window.clearTimeout(timer)
+    }
+  }, [requestedRowsKey, heroReady, experiencePage, activeRows])
   const renderedVirtualItems = virtualItems.filter((item) => admittedRows.has(item.key))
 
   useLayoutEffect(() => {
@@ -150,6 +175,8 @@ export function ProgressiveRows({
       const next = { rowId: row.id, rowIndex: index, itemId: row.items[itemIndex]?.id, index: itemIndex }
       const saved = rowStateRef.current.get(row.id) || {}
       rowStateRef.current.set(row.id, { ...saved, focusIndex: itemIndex, focusId: next.itemId })
+      // Detail return must never wait for the background row stagger.
+      setAdmittedRows((current) => current.has(row.id) ? current : new Set([...current, row.id]))
       setFocusRevision((revision) => revision + 1)
       if (!document.querySelector(`[data-row-index="${index}"]`)) rowVirtualizer.scrollToIndex(index, { align: 'center', behavior: 'auto' })
       let attempts = 0
@@ -186,6 +213,10 @@ export function ProgressiveRows({
 
       event.detail.handled = true
       event.detail.targetRowIndex = targetIndex
+      // D-pad requests bypass the background admission interval entirely.
+      const targetKey = activeRows[targetIndex]?.id
+      if (targetKey) setAdmittedRows((current) =>
+        current.has(targetKey) ? current : new Set([...current, targetKey]))
       // Prepare offscreen virtual rows during the SAME 260ms scroll rather
       // than teleporting to them. Restore/rapid-repeat still uses instant.
       const estimated = rowVirtualizer.getOffsetForIndex?.(targetIndex, 'center')
@@ -200,7 +231,7 @@ export function ProgressiveRows({
 
     window.addEventListener(PROGRESSIVE_ROW_REQUEST_EVENT, handleRowRequest)
     return () => window.removeEventListener(PROGRESSIVE_ROW_REQUEST_EVENT, handleRowRequest)
-  }, [activeRows.length, heroReady, rowVirtualizer])
+  }, [activeRows, heroReady, rowVirtualizer])
 
   useEffect(() => {
     if (!heroReady || initialReadyReportedRef.current) return undefined

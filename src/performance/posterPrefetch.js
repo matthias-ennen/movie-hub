@@ -98,10 +98,22 @@ export function prefetchPosterWindow(items, focusIndex, options = {}) {
       loadImage: (props, handlers) => loadBudgetedImage(props, { ...handlers, ImageClass: Image, priority: 0 }),
     })
   }
-  const requests = getPosterPrefetchWindow(items, focusIndex, options).filter(posterSourceUrl).map((item) => {
-    const props = posterImageProps(item, { variant: options.variant || 'standard' })
-    return { ...props, key: `${props.src}|${props.srcSet || ''}|${props.sizes || ''}` }
-  })
+  // When a focused row already owns a real DOM image, a second Image()
+  // download/decode provides no benefit. The row's ManagedImage owns that
+  // source with a higher priority than speculative prefetch.
+  const displayedSources = new Set(
+    [...(options.track?.querySelectorAll?.('img[data-managed-image="true"][src]') || [])]
+      .map((image) => image.getAttribute('src')).filter(Boolean),
+  )
+  const focused = Array.isArray(items) ? items[focusIndex] : null
+  const requests = getPosterPrefetchWindow(items, focusIndex, options)
+    .filter((item) => !options.track || item !== focused)
+    .filter(posterSourceUrl)
+    .map((item) => {
+      const props = posterImageProps(item, { variant: options.variant || 'standard' })
+      return { ...props, key: `${props.src}|${props.srcSet || ''}|${props.sizes || ''}` }
+    })
+    .filter((props) => !displayedSources.has(props.src))
   return queue.setWindow(options.owner || 'default', requests)
 }
 export function releasePosterPrefetch(owner) { queue?.release(owner) }

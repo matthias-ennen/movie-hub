@@ -46,6 +46,19 @@ describe('shared image admission', () => {
     expect(starts).toEqual(['prefetch', 'hero', 'next prefetch'])
   })
 
+  it('gives an actual visible poster a slot before speculative prefetch completes', () => {
+    const queue = createImageAdmission({ concurrency: 1 })
+    const events = []
+    queue.request({
+      priority: 0,
+      start: () => events.push('prefetch'),
+      cancel: () => events.push('prefetch-cancelled'),
+    })
+    queue.request({ priority: 1, start: () => events.push('visible-poster') })
+    expect(events).toEqual(['prefetch', 'prefetch-cancelled', 'visible-poster'])
+    expect(queue.snapshot()).toEqual({ active: 1, pending: 0 })
+  })
+
   it('releases failed, timed out and aborted image work and ignores late decode results', async () => {
     vi.useFakeTimers()
     const images = [], loaded = vi.fn(), failed = vi.fn()

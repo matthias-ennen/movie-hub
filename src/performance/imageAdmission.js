@@ -1,7 +1,8 @@
 import { recordPerformanceEvent } from './performanceDiagnostics.js'
 
 // One budget for real DOM images and speculative Image requests. Foreground
-// hero/details can displace speculative work; owner release cancels transport.
+// visible DOM images (including Hero) displace speculative work;
+// owner release cancels transport.
 export function createImageAdmission({ concurrency = 2 } = {}) {
   const pending = new Map(), active = new Map()
   let sequence = 0, pumping = false
@@ -22,7 +23,7 @@ export function createImageAdmission({ concurrency = 2 } = {}) {
     request({ priority = 1, start, cancel = () => {} }) {
       const id = ++sequence
       pending.set(id, { id, priority, start, cancel })
-      if (priority >= 3 && active.size >= concurrency) {
+      if (priority >= 1 && active.size >= concurrency) {
         const speculative = [...active.values()].find((job) => job.priority === 0)
         if (speculative) { active.delete(speculative.id); speculative.cancel() }
       }
