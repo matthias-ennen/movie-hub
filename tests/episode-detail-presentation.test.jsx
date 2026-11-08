@@ -96,6 +96,20 @@ describe('#708 episode detail follows title detail without leaking series eviden
     expect(preview).toContain('RTL')
   })
 
+  it('renders the long episode description toggle as a D-pad focusable action', () => {
+    const view = html({ episode: { ...episode, description: 'Folgenhandlung '.repeat(45) } })
+    expect(view).toMatch(/<button[^>]*class="detail-text-toggle"[^>]*data-focusable="true"[^>]*aria-expanded="false"[^>]*>Mehr lesen<\/button>/)
+  })
+
+  it('renders actionable episode TV and streaming providers as focusable buttons', () => {
+    const view = html({
+      streamingProviderIds: ['netflix'],
+      onOpenStreamingProvider: vi.fn(),
+    })
+    expect(view).toMatch(/<button[^>]*data-focusable="true"[^>]*aria-label="Netflix als Streaming- oder Mediathek-Anbieter öffnen"/)
+    expect(view).toMatch(/<button[^>]*data-focusable="true"[^>]*aria-label="Waipu[^"]*für diesen Sendetermin öffnen"/i)
+  })
+
   it('accepts only real calendar dates as release metadata', () => {
     expect(episodeAirDateLabel('2026-11-01')).toBe('1. November 2026')
     expect(episodeAirDateLabel('2026-02-30')).toBeNull()

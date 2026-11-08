@@ -20,18 +20,19 @@ export function calculatePosterScrollTop({
   return clamp(currentTop + posterCenter - visibleCenter, 0, Math.max(0, scrollHeight - viewportHeight))
 }
 
-// One stable viewport anchor for both the TV date strip and the first poster
-// row. It deliberately depends on neither a mounted poster nor async row data:
-// switching TV dates must not change the vertical target when rows unmount.
-const TV_PERIOD_VIEWPORT_ANCHOR_RATIO = 0.25
-
+// Both the TV dates and the first poster row use the same line: it sits
+// HALF A DATE BUTTON HEIGHT above the button, not at 25% of the viewport.
+// Align that imagined line just below the sticky header's safe zone. Because
+// the reference is a persistent date button, asynchronous poster unmounts
+// and date changes cannot change this target.
 export function calculateTvPairScrollTop({
-  currentTop, scrollHeight, viewportHeight, topbarBottom = 0, periodRect,
+  currentTop, scrollHeight, viewportHeight, topbarBottom = 0, periodRect, buttonRect = null,
 }) {
   const safeTop = Math.max(0, topbarBottom) + TOP_GAP
-  const anchorTop = Math.max(safeTop, Math.round(viewportHeight * TV_PERIOD_VIEWPORT_ANCHOR_RATIO))
+  const reference = buttonRect || periodRect
+  const lineTop = reference.top - reference.height / 2
   return clamp(
-    currentTop + periodRect.top - anchorTop,
+    currentTop + lineTop - safeTop,
     0,
     Math.max(0, scrollHeight - viewportHeight),
   )
@@ -83,9 +84,12 @@ export function alignTvFirstRowAndPeriod({ documentRef = document, windowRef = w
   if (!period) return false
   const state = viewportScrollState(documentRef, windowRef)
   if (!state) return false
+  const button = period.querySelector?.('.tv-period-button')
+    || documentRef.querySelector?.('.tv-program-page .tv-period-shell .tv-period-button')
   const top = calculateTvPairScrollTop({
     ...state,
     periodRect: period.getBoundingClientRect(),
+    buttonRect: button?.getBoundingClientRect?.() || null,
   })
   settlePageAt(top, { documentRef, windowRef, behavior })
   return true
