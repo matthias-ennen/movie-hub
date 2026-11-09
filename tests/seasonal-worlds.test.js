@@ -127,6 +127,22 @@ describe('#484 fully resourced visual system',()=>{
     expect(theme).toContain('root.dataset.seasonEnabled')
     expect(theme).toContain('seasonalVisualAssets(activeVisualSeason)')
   })
+
+  it('keeps the seasonal detail corner behind movie, series and episode controls',()=> {
+    const atmosphere=read('../src/styles/seasonal-atmosphere.css')
+    const detailCss=read('../src/styles/detail.css')
+    const titleModal=read('../src/components/DetailModal.jsx')
+    const seriesNavigation=read('../src/components/detail/SeriesNavigation.jsx')
+    const episodeDetail=read('../src/components/detail/EpisodeDetail.jsx')
+    const layout=read('../src/components/detail/DetailLayout.jsx')
+    expect(detailCss).toMatch(/\.detail-layout-panel\s*\{[^}]*isolation:\s*isolate;/s)
+    expect(detailCss).toMatch(/\.detail-layout-panel\s*>\s*\.detail-layout\s*\{[^}]*z-index:\s*1;/s)
+    expect(atmosphere).toMatch(/\.detail-layout-panel::after\s*\{[^}]*pointer-events:\s*none;[^}]*z-index:\s*0;/s)
+    expect(titleModal).toContain('className="detail-modal detail-layout-panel"')
+    expect(seriesNavigation).toContain('className="media-panel episode-detail-panel detail-layout-panel"')
+    expect(episodeDetail).toContain('<DetailLayout episode')
+    expect(layout).toContain('className={`detail-layout')
+  })
   it('does not change tabs or hero visibility depending on translated promotional copy',()=>{
     const app=read('../src/App.jsx'),first=read('../src/components/HeroFirstPage.jsx'),hero=read('../src/components/Hero.jsx')
     expect(app).toContain('seasonalPageHeading(activeVisualSeason')
