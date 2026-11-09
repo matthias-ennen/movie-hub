@@ -3,7 +3,7 @@ import {pathToFileURL} from 'node:url'
 import {WaipuTmdbMetadataClient} from './waipu-title-metadata.mjs'
 import {buildYoutubeNewFilmCatalogProjection} from './youtube-g2-publish-new-film-catalog.mjs'
 import {
-  buildYoutubeCuratedSearchTitleFeed,YOUTUBE_SEARCH_TITLES_OUTPUT,
+  prepareYoutubeCuratedSearchPublication,YOUTUBE_SEARCH_TITLES_OUTPUT,
 } from './youtube-g2-publish-search-title-companion.mjs'
 
 export const REVIEW='artifacts/youtube-g2/canonical-new-film-metadata-review/qa.json'
@@ -55,13 +55,16 @@ export async function publishYoutubeCuratedNewFilmMetadata({
     const movie=await readCanonical({type:'movie',tmdbId:Number(hint.tmdbId)},now)
     searchMovies.set(Number(hint.tmdbId),movie)
   }
-  const searchFeed=buildYoutubeCuratedSearchTitleFeed(
-    projected.editorialIndex,[...searchMovies.values()],{now})
-  // Prepare all three files within the same trusted Firebase build.
+  const publication=prepareYoutubeCuratedSearchPublication({
+    editorialIndex:projected.editorialIndex,
+    filmFeed:projected.filmFeed,canonicalById:searchMovies,now,
+  })
+  // Publish an internally consistent triplet: a metadata-incomplete canonical
+  // film cannot retain an orphan public editorial link or search result.
   await Promise.all([
-    writeFile(output,JSON.stringify(projected.filmFeed)+'\n','utf8'),
-    writeFile(editorialPath,JSON.stringify(projected.editorialIndex)+'\n','utf8'),
-    writeFile(searchOutput,JSON.stringify(searchFeed)+'\n','utf8'),
+    writeFile(output,JSON.stringify(publication.filmFeed)+'\n','utf8'),
+    writeFile(editorialPath,JSON.stringify(publication.editorialIndex)+'\n','utf8'),
+    writeFile(searchOutput,JSON.stringify(publication.searchFeed)+'\n','utf8'),
   ])
   if(projected.summary.heldUnsafeNewFilmCandidates
     ||projected.summary.heldUnsafeExistingFilmLinks){
@@ -69,15 +72,21 @@ export async function publishYoutubeCuratedNewFilmMetadata({
       +'safe films and editorial hints retained. Aggregate reasons: '
       +JSON.stringify(projected.summary.heldCandidateReasons))
   }
+  if(publication.heldSummary.heldEditorialHints){
+    console.warn('YouTube search companion: held metadata-incomplete film links '
+      +'without publishing their watch hints. Aggregate reasons: '
+      +JSON.stringify(publication.heldSummary.heldReasons))
+  }
   console.log(JSON.stringify({
     ...projected.summary,tmdbApiRequests:client?.requestsStarted||0,
     heldMetadataReviewCandidates:metadataReview.items.length-readyMetadata.length,
-    publishedNewCanonicalMovieTitles:projected.filmFeed.count,
-    searchableEditorialPlaylistMovies:searchFeed.count,
+    ...publication.heldSummary,
+    publishedNewCanonicalMovieTitles:publication.filmFeed.count,
+    searchableEditorialPlaylistMovies:publication.searchFeed.count,
     catalogOrFirestoreDatabaseWrites:0,
     verifiedDEOffers:0,
   }))
-  return {...projected,searchFeed}
+  return {...projected,...publication}
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   publishYoutubeCuratedNewFilmMetadata().catch(e=>{
