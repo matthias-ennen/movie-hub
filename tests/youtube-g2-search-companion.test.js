@@ -2,7 +2,7 @@ import {describe,it,expect} from 'vitest'
 import {buildSearchCatalog,mergeYoutubeCuratedSearchTitles} from '../src/search/searchCatalog.js'
 import {searchIndex} from '../src/search/searchIndex.js'
 import {getTitleStateKey} from '../src/library/libraryState.js'
-import {buildYoutubeCuratedSearchTitleFeed} from '../scripts/youtube-g2-publish-search-title-companion.mjs'
+import {buildYoutubeCuratedSearchTitleFeed,prepareYoutubeCuratedSearchPublication} from '../scripts/youtube-g2-publish-search-title-companion.mjs'
 import {validateYoutubeCuratedSearchTitleFeed} from '../src/catalog/youtubeCuratedSearchTitles.js'
 import {validateYoutubeNewFilmFeed} from '../src/catalog/youtubeCuratedNewFilms.js'
 
@@ -32,7 +32,7 @@ const index={kind:'search-index',version:1,country:'DE',
 const publishedHintIndex=()=>({
   kind:'moviehub-youtube-curated-editorial-title-hints',
   schemaVersion:1,providerId:'youtube',
-  publicationAuthority:'editorial-playlist-only',
+  publicationAuthority:'editorial-playlist-only',generatedAt:AT,
   verifiedDEOffers:0,verifiedPlaybackRoutes:0,
   sourceVideoIds:87,count:1,entries:[{
     key:'movie:10782',mediaType:'movie',tmdbId:10782,
@@ -186,5 +186,116 @@ describe('YouTube G2 new TMDB films are immediately searchable',()=>{
     const bad=makeFeed()
     bad.entries[0].film.curatedPlaylistTitleOffer={playlistMode:'free'}
     expect(mergeYoutubeCuratedSearchTitles([],bad,{now:Date.parse(AT)})).toEqual([])
+  })
+
+  it('holds one incomplete existing TMDB film and its hint without suppressing a valid new film',()=>{
+    const index=publishedHintIndex()
+    index.sourceVideoIds=10
+    const previous={...index.entries[0],
+      key:'movie:12594',tmdbId:12594,videoId:'xlRAr36rWo0',
+      watchUrl:'https://www.youtube.com/watch?v=xlRAr36rWo0',
+      playlistMode:'rent-buy',
+    }
+    index.entries.push(previous);index.count=2
+    const feed=makeFeed();feed.sourceVideoIds=10
+    const candidates=new Map([
+      [10782,{...BASIC}],
+      [12594,{...BASIC,id:'tmdb-movie-12594',tmdbId:12594,
+        title:'Incomplete existing film',description:''}],
+    ])
+    const result=prepareYoutubeCuratedSearchPublication({
+      editorialIndex:index,filmFeed:feed,canonicalById:candidates,now:AT,
+    })
+    expect(result.heldSummary).toMatchObject({
+      sourceEditorialHints:2,publishedEditorialHints:1,
+      heldEditorialHints:1,publishedNewFilms:1,heldNewFilms:0,
+      heldReasons:{'description-missing':1},
+    })
+    expect(result.editorialIndex.entries.map(x=>x.tmdbId)).toEqual([10782])
+    expect(result.filmFeed.entries.map(x=>x.tmdbId)).toEqual([10782])
+    expect(result.searchFeed.entries.map(x=>x.tmdbId)).toEqual([10782])
+    expect(validateYoutubeNewFilmFeed(result.filmFeed,{now:Date.parse(AT)}))
+      .toBe(true)
+    expect(validateYoutubeCuratedSearchTitleFeed(result.searchFeed,{now:Date.parse(AT)}))
+      .toBe(true)
+    expect(result.editorialIndex.verifiedDEOffers).toBe(0)
+    expect(result.editorialIndex.verifiedPlaybackRoutes).toBe(0)
+  })
+
+  it('holds an invalid candidate across all three public files, including its watch hint',()=>{
+    const candidates=new Map([[10782,{...BASIC,posterUrl:null}]])
+    const feed=makeFeed();feed.sourceVideoIds=87
+    const result=prepareYoutubeCuratedSearchPublication({
+      editorialIndex:publishedHintIndex(),filmFeed:feed,
+      canonicalById:candidates,now:AT,
+    })
+    expect(result.editorialIndex.count).toBe(0)
+    expect(result.filmFeed.count).toBe(0)
+    expect(result.searchFeed.count).toBe(0)
+    expect(result.heldSummary).toMatchObject({
+      heldEditorialHints:1,heldNewFilms:1,
+      heldReasons:{'poster-missing':1},
+    })
+    expect(validateYoutubeNewFilmFeed(result.filmFeed,{now:Date.parse(AT)}))
+      .toBe(true)
+    expect(validateYoutubeCuratedSearchTitleFeed(result.searchFeed,{now:Date.parse(AT)}))
+      .toBe(true)
+  })
+
+  it('keeps forged links, broken batches and missing canonical rows as hard failures',()=>{
+    const index=publishedHintIndex()
+    const feed=makeFeed();feed.sourceVideoIds=index.sourceVideoIds
+    const candidates=new Map([[10782,{...BASIC}]])
+    const good=()=>prepareYoutubeCuratedSearchPublication({
+      editorialIndex:index,filmFeed:feed,canonicalById:candidates,now:AT,
+    })
+    expect(good().searchFeed.count).toBe(1)
+
+    index.entries[0].watchUrl='https://example.org/watch?v=yszdWjYOtLU'
+    expect(good).toThrow('YOUTUBE_SEARCH_COMPANION_SOURCE_LINK_INVALID')
+    index.entries[0].watchUrl='https://www.youtube.com/watch?v=yszdWjYOtLU'
+
+    feed.entries[0].videoId='xlRAr36rWo0'
+    expect(good).toThrow('YOUTUBE_SEARCH_COMPANION_NEW_FILM_LINK_INVALID')
+    feed.entries[0].videoId='yszdWjYOtLU'
+
+    candidates.clear()
+    expect(good).toThrow('YOUTUBE_SEARCH_COMPANION_CANONICAL_COVERAGE_INVALID')
+    candidates.set(10782,{...BASIC})
+    index.verifiedDEOffers=1
+    expect(good).toThrow('YOUTUBE_SEARCH_COMPANION_PUBLICATION_SOURCE_INVALID')
+  })
+
+  it('counts incomplete, personal and TMDB-identity-mismatched candidates without logging IDs',()=>{
+    const index=publishedHintIndex()
+    index.sourceVideoIds=20
+    const videos=['xlRAr36rWo0','G-ETE-RO7Q4','ucRKSNwzM_w']
+    for(let i=0;i<3;i++){
+      const tmdbId=12594+i
+      index.entries.push({...index.entries[0],
+        key:'movie:'+tmdbId,tmdbId,videoId:videos[i],
+        watchUrl:'https://www.youtube.com/watch?v='+videos[i],
+      })
+    }
+    index.count=4
+    const feed=makeFeed();feed.sourceVideoIds=20
+    const canonicalById=new Map([
+      [10782,{...BASIC}],
+      [12594,{...BASIC,id:'tmdb-movie-12594',tmdbId:12594,
+        metadataComplete:false}],
+      [12595,{...BASIC,id:'tmdb-movie-12595',tmdbId:12595,
+        personal:true}],
+      [12596,{...BASIC,id:'tmdb-movie-777',tmdbId:777}],
+    ])
+    const result=prepareYoutubeCuratedSearchPublication({
+      editorialIndex:index,filmFeed:feed,canonicalById,now:AT,
+    })
+    expect(result.heldSummary.heldEditorialHints).toBe(3)
+    expect(result.heldSummary.heldReasons).toEqual({
+      'metadata-incomplete':1,
+      'non-public-canonical-fields':1,
+      'canonical-identity-mismatch':1,
+    })
+    expect(result.searchFeed.count).toBe(1)
   })
 })
