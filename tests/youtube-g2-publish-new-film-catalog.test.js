@@ -293,4 +293,90 @@ describe('new YouTube playlist movies use canonical TMDB metadata, no verified a
     expect(mergeYoutubeNewFilmsIntoCatalog(base(),null,{now:Date.parse(NOW)}).titles)
       .toHaveLength(1)
   })
+
+  it('quarantines an unsafe new film while still preparing safe films and original hints',()=>{
+    const x=inputs()
+    const secondId='G-ETE-RO7Q4',secondTmdb=998
+    x.metadataReview.totalVideoIds=3
+    x.metadataReview.candidatesSelected=2
+    x.metadataReview.metadataReviewed=2
+    x.metadataReview.metadataPreviewReady=2
+    x.reconciliation.totalVideoIds=3
+    x.intake.uniqueVideoIds=3
+    x.editorialIndex.sourceVideoIds=3
+    x.metadataReview.items.push({
+      videoId:secondId,tmdbId:secondTmdb,playlistClass:'R&B',
+      status:'tmdb-metadata-review',
+      tmdb:{id:'tmdb-movie-998',title:'Missing artwork',runtimeMinutes:91},
+      workIdentityApproved:false,newMovieImported:false,offerPublished:false,
+    })
+    x.reconciliation.entries.push({
+      videoId:secondId,decision:'new-tmdb-metadata-review',
+      strongMetadataCandidate:true,suggestedFilmKey:'movie:998',
+      completeCatalogMembership:'not-in-canonical-inventory',
+    })
+    x.intake.items.push({
+      videoId:secondId,playlistClass:'R&B',
+      suggestedFilmRef:{mediaType:'movie',tmdbId:secondTmdb},
+      sourceScreened:true,regionSignal:'unknown',sourceTitle:'Missing artwork',
+      durationMinutes:90,playlistIds:['R&B-PLAYLIST'],
+    })
+    x.canonicalTitles.push({
+      ...movie,id:'tmdb-movie-998',tmdbId:secondTmdb,
+      title:'Missing artwork',runtimeMinutes:91,posterUrl:null,
+    })
+
+    // The library's strict contract remains available for corruption tests.
+    expect(()=>buildYoutubeNewFilmCatalogProjection(x))
+      .toThrow('YOUTUBE_NEW_FILM_PUBLISHER_IDENTITY_OR_METADATA_UNSAFE')
+    const projection=buildYoutubeNewFilmCatalogProjection({
+      ...x,unsafeCandidatePolicy:'hold',
+    })
+    expect(projection.filmFeed.entries).toHaveLength(1)
+    expect(projection.filmFeed.entries[0].tmdbId).toBe(12594)
+    expect(projection.editorialIndex.entries.map(e=>e.tmdbId).sort((a,b)=>a-b))
+      .toEqual([10586,12594])
+    expect(projection.summary).toMatchObject({
+      newTmdbFilms:1,heldNewFilmCandidates:1,heldUnsafeNewFilmCandidates:1,
+      heldUnsafeExistingFilmLinks:0,
+      heldCandidateReasons:{'new-canonical-metadata-incomplete-or-changed':1},
+      firestoreWrites:0,independentlyVerifiedDEOffers:0,
+    })
+    expect(validateYoutubeNewFilmFeed(projection.filmFeed,{now:Date.parse(NOW)}))
+      .toBe(true)
+    expect(projection.editorialIndex.verifiedDEOffers).toBe(0)
+    expect(projection.editorialIndex.verifiedPlaybackRoutes).toBe(0)
+
+    // Missing rows in a canonical batch are a global integrity failure.
+    x.canonicalTitles.pop()
+    expect(()=>buildYoutubeNewFilmCatalogProjection({
+      ...x,unsafeCandidatePolicy:'hold',
+    })).toThrow('YOUTUBE_NEW_FILM_PUBLISHER_CANONICAL_MISSING')
+    x.canonicalTitles.push({
+      ...movie,id:'tmdb-movie-998',tmdbId:secondTmdb,
+      title:'Missing artwork',runtimeMinutes:91,posterUrl:null,
+    })
+
+    // A malformed global source envelope must never be quarantined and ignored.
+    x.metadataReview.privateArtifact=false
+    expect(()=>buildYoutubeNewFilmCatalogProjection({
+      ...x,unsafeCandidatePolicy:'hold',
+    })).toThrow('YOUTUBE_NEW_FILM_PUBLICATION_SOURCE_NOT_READY')
+  })
+
+  it('holds conflicting video/source identities without fabricating a route',()=>{
+    const x=inputs()
+    x.intake.items[0].regionSignal='excluded'
+    const safe=buildYoutubeNewFilmCatalogProjection({
+      ...x,unsafeCandidatePolicy:'hold',
+    })
+    expect(safe.filmFeed.count).toBe(0)
+    expect(safe.editorialIndex.entries).toHaveLength(1)
+    expect(safe.summary.heldCandidateReasons).toEqual({
+      'new-identity-or-source-conflict':1,
+    })
+    expect(safe.summary.heldNewFilmCandidates).toBe(1)
+    expect(validateYoutubeNewFilmFeed(safe.filmFeed,{now:Date.parse(NOW)}))
+      .toBe(true)
+  })
 })
