@@ -1,4 +1,9 @@
 import {describe,it,expect} from 'vitest'
+import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises'
+import {tmpdir} from 'node:os'
+import {join} from 'node:path'
+import {publishYoutubeCuratedNewFilmMetadata} from '../scripts/youtube-g2-publish-new-film-catalog-live.mjs'
+import {verifyYoutubeSearchCompanionPublication} from '../scripts/verify-youtube-search-companion-publication.mjs'
 import {buildYoutubeNewFilmCatalogProjection} from '../scripts/youtube-g2-publish-new-film-catalog.mjs'
 import {
   mergeYoutubeNewFilmsIntoCatalog,validateYoutubeNewFilmFeed,
@@ -378,5 +383,49 @@ describe('new YouTube playlist movies use canonical TMDB metadata, no verified a
     expect(safe.summary.heldNewFilmCandidates).toBe(1)
     expect(validateYoutubeNewFilmFeed(safe.filmFeed,{now:Date.parse(NOW)}))
       .toBe(true)
+  })
+
+  it('publishes a consistent prepared triplet even if an older linked movie has no TMDB synopsis',async()=>{
+    const dir=await mkdtemp(join(tmpdir(),'youtube-new-film-qa-'))
+    try{
+      const x=inputs()
+      const locations={
+        reviewPath:join(dir,'review.json'),
+        reconciliationPath:join(dir,'reconciliation.json'),
+        intakePath:join(dir,'intake.json'),
+        editorialPath:join(dir,'youtube-curated-title-hints.json'),
+        output:join(dir,'youtube-curated-new-films.json'),
+        searchOutput:join(dir,'youtube-curated-search-titles.json'),
+      }
+      await Promise.all([
+        writeFile(locations.reviewPath,JSON.stringify(x.metadataReview)),
+        writeFile(locations.reconciliationPath,JSON.stringify(x.reconciliation)),
+        writeFile(locations.intakePath,JSON.stringify(x.intake)),
+        writeFile(locations.editorialPath,JSON.stringify(x.editorialIndex)),
+      ])
+      const result=await publishYoutubeCuratedNewFilmMetadata({
+        ...locations,now:NOW,
+        loadTitle:async ({tmdbId})=>tmdbId===12594
+          ?structuredClone(movie)
+          :{...movie,id:'tmdb-movie-10586',tmdbId:10586,
+            title:'The Ghost and the Darkness',description:null},
+      })
+      expect(result.heldSummary).toMatchObject({
+        sourceEditorialHints:2,publishedEditorialHints:1,
+        heldEditorialHints:1,publishedNewFilms:1,
+        heldReasons:{'description-missing':1},
+      })
+      const [hints,films,search]=await Promise.all([
+        locations.editorialPath,locations.output,locations.searchOutput,
+      ].map(async file=>JSON.parse(await readFile(file,'utf8'))))
+      expect(hints.entries.map(x=>x.tmdbId)).toEqual([12594])
+      expect(films.entries.map(x=>x.tmdbId)).toEqual([12594])
+      expect(search.entries.map(x=>x.tmdbId)).toEqual([12594])
+      expect(await verifyYoutubeSearchCompanionPublication({
+        directory:dir,prepared:true,now:Date.parse(NOW),
+      })).toEqual({published:true,count:1,revoked:false})
+    }finally{
+      await rm(dir,{recursive:true,force:true})
+    }
   })
 })
