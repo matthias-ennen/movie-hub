@@ -50,12 +50,23 @@ function sourceReady(review,reconciliation,intake,editorial){
 }
 export function buildYoutubeNewFilmCatalogProjection({
   metadataReview,reconciliation,intake,editorialIndex,
-  canonicalTitles,now=new Date().toISOString(),
+  canonicalTitles,now=new Date().toISOString(),unsafeCandidatePolicy='throw',
 }={}){
   sourceReady(metadataReview,reconciliation,intake,editorialIndex)
+  // The scheduled publisher may quarantine individual unsafe movie hypotheses,
+  // but a structurally invalid source envelope must still fail closed above.
+  if(!['throw','hold'].includes(unsafeCandidatePolicy))
+    throw Error('YOUTUBE_NEW_FILM_PUBLISHER_POLICY_INVALID')
+  const holdUnsafe=unsafeCandidatePolicy==='hold'
   if(!Array.isArray(canonicalTitles)
-    ||canonicalTitles.length!==metadataReview.metadataPreviewReady
+    ||(!holdUnsafe&&canonicalTitles.length!==metadataReview.metadataPreviewReady)
     ||!Number.isFinite(Date.parse(now)))throw Error('YOUTUBE_NEW_FILM_PUBLISHER_CANONICAL_MISSING')
+  const heldReasons={}
+  const reject=(code,reason)=>{
+    if(!holdUnsafe)throw Error(code)
+    heldReasons[reason]=(heldReasons[reason]||0)+1
+  }
+  let heldUnsafeNewFilms=0,heldUnsafeExistingLinks=0
   const byVideo=new Map(intake.items.map(x=>[x.videoId,x]))
   const byDecision=new Map(reconciliation.entries.map(x=>[x.videoId,x]))
   const byFilm=new Map(canonicalTitles.map(x=>[keyOf(x),x]))
@@ -89,12 +100,17 @@ export function buildYoutubeNewFilmCatalogProjection({
       ||rec.filmIdentityApproved!==false||rec.newMovieImported!==false
       ||rec.verifiedOffer!==false
       ||allIds.has(rec.videoId)||allKeys.has(filmKey)) {
-      throw Error('YOUTUBE_EXISTING_FILM_EDITORIAL_LINK_UNSAFE')
+      reject('YOUTUBE_EXISTING_FILM_EDITORIAL_LINK_UNSAFE',
+        'existing-identity-or-source-conflict')
+      heldUnsafeExistingLinks++
+      continue
     }
     // Another video proposing the same TMDB identity is a collision even if
     // that video is currently held in the manual review lane.
     if(reconciliation.entries.filter(x=>x.suggestedFilmKey===filmKey).length!==1){
-      throw Error('YOUTUBE_EXISTING_FILM_VIDEO_COLLISION')
+      reject('YOUTUBE_EXISTING_FILM_VIDEO_COLLISION','existing-video-collision')
+      heldUnsafeExistingLinks++
+      continue
     }
     allIds.add(rec.videoId);allKeys.add(filmKey)
     hints.push({
@@ -118,27 +134,34 @@ export function buildYoutubeNewFilmCatalogProjection({
     const filmKey='movie:'+approvedMetadata.tmdbId
     const metadata=byFilm.get(filmKey)
     const m=approvedMetadata.tmdb
-    if(!VID.test(String(videoId||''))
-      ||rec?.decision!=='new-tmdb-metadata-review'
-      ||rec.strongMetadataCandidate!==true
-      ||rec.suggestedFilmKey!==filmKey
-      ||rec.completeCatalogMembership!=='not-in-canonical-inventory'
-      ||src?.suggestedFilmRef?.tmdbId!==approvedMetadata.tmdbId
-      ||src.sourceScreened!==true||src.regionSignal==='excluded'
-      ||!CLASS.has(src.playlistClass)
-      ||src.playlistClass!==approvedMetadata.playlistClass
-      ||src.videoId!==videoId||!Array.isArray(src.playlistIds)
-      ||src.playlistIds.length===0
-      ||!metadata||!idKey(filmKey)
-      ||metadata.type!=='movie'||metadata.source!=='tmdb'
-      ||metadata.id!=='tmdb-movie-'+approvedMetadata.tmdbId
-      ||metadata.title!==m?.title
-      ||Number(metadata.runtimeMinutes)!==Number(m?.runtimeMinutes)
-      ||Math.abs(Number(metadata.runtimeMinutes)-Number(src.durationMinutes))>10
-      ||metadata.metadataComplete!==true
-      ||!metadata.description||!metadata.posterUrl
-      ||allIds.has(videoId)||allKeys.has(filmKey)){
-      throw Error('YOUTUBE_NEW_FILM_PUBLISHER_IDENTITY_OR_METADATA_UNSAFE')
+    // Keep source/identity, metadata completeness and collisions separate in
+    // diagnostics. Only safe rows enter filmFeed or the public editorial index.
+    const sourceSafe=VID.test(String(videoId||''))
+      &&rec?.decision==='new-tmdb-metadata-review'
+      &&rec.strongMetadataCandidate===true
+      &&rec.suggestedFilmKey===filmKey
+      &&rec.completeCatalogMembership==='not-in-canonical-inventory'
+      &&src?.suggestedFilmRef?.tmdbId===approvedMetadata.tmdbId
+      &&src.sourceScreened===true&&src.regionSignal!=='excluded'
+      &&CLASS.has(src.playlistClass)
+      &&src.playlistClass===approvedMetadata.playlistClass
+      &&src.videoId===videoId&&Array.isArray(src.playlistIds)
+      &&src.playlistIds.length>0&&idKey(filmKey)
+    const canonicalSafe=metadata?.type==='movie'&&metadata.source==='tmdb'
+      &&metadata.id==='tmdb-movie-'+approvedMetadata.tmdbId
+      &&metadata.title===m?.title
+      &&Number(metadata.runtimeMinutes)===Number(m?.runtimeMinutes)
+      &&Number.isFinite(Number(src?.durationMinutes))
+      &&Math.abs(Number(metadata.runtimeMinutes)-Number(src.durationMinutes))<=10
+      &&metadata.metadataComplete===true
+      &&Boolean(metadata.description)&&Boolean(metadata.posterUrl)
+    const reason=!sourceSafe?'new-identity-or-source-conflict'
+      :!canonicalSafe?'new-canonical-metadata-incomplete-or-changed'
+      :(allIds.has(videoId)||allKeys.has(filmKey))?'new-editorial-collision':null
+    if(reason){
+      reject('YOUTUBE_NEW_FILM_PUBLISHER_IDENTITY_OR_METADATA_UNSAFE',reason)
+      heldUnsafeNewFilms++
+      continue
     }
     allIds.add(videoId);allKeys.add(filmKey)
     const movie=canonicalForIdentity(metadata,{type:'movie',tmdbId:approvedMetadata.tmdbId})
@@ -172,7 +195,11 @@ export function buildYoutubeNewFilmCatalogProjection({
       ...editorialIndex,generatedAt:now,count:hints.length,entries:hints,
     },
     summary:{sourceVideos:metadataReview.totalVideoIds,newTmdbFilms:entries.length,
-      heldNewFilmCandidates:metadataReview.candidatesSelected-metadataReview.metadataPreviewReady,
+      heldNewFilmCandidates:metadataReview.candidatesSelected-metadataReview.metadataPreviewReady
+        +heldUnsafeNewFilms,
+      heldUnsafeNewFilmCandidates:heldUnsafeNewFilms,
+      heldUnsafeExistingFilmLinks:heldUnsafeExistingLinks,
+      heldCandidateReasons:heldReasons,
       editorialLinks:hints.length,additionalExistingCanonicalLinks:linkedAdditionalExisting,
       firestoreWrites:0,badgeDatabaseWrites:0,
       independentlyVerifiedDEOffers:0},
