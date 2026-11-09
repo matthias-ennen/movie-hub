@@ -49,7 +49,7 @@ export async function publishYoutubeCuratedNewFilmMetadata({
   // user's canonical catalog. Keep it searchable by generating a SEPARATE
   // public TMDB-only companion from ALL current editorial-linked film IDs.
   // Never publish account-scoped membership or mark an offer verified.
-  const searchMovies=new Map(canonicalTitles.map(movie=>[Number(movie.tmdbId),movie]))
+  const searchMovies=new Map(projected.filmFeed.entries.map(({film})=>[Number(film.tmdbId),film]))
   for(const hint of projected.editorialIndex.entries){
     if(searchMovies.has(Number(hint.tmdbId)))continue
     const movie=await readCanonical({type:'movie',tmdbId:Number(hint.tmdbId)},now)
