@@ -32,7 +32,7 @@ const index={kind:'search-index',version:1,country:'DE',
 const publishedHintIndex=()=>({
   kind:'moviehub-youtube-curated-editorial-title-hints',
   schemaVersion:1,providerId:'youtube',
-  publicationAuthority:'editorial-playlist-only',
+  publicationAuthority:'editorial-playlist-only',generatedAt:AT,
   verifiedDEOffers:0,verifiedPlaybackRoutes:0,
   sourceVideoIds:87,count:1,entries:[{
     key:'movie:10782',mediaType:'movie',tmdbId:10782,
@@ -224,8 +224,9 @@ describe('YouTube G2 new TMDB films are immediately searchable',()=>{
 
   it('holds an invalid candidate across all three public files, including its watch hint',()=>{
     const candidates=new Map([[10782,{...BASIC,posterUrl:null}]])
+    const feed=makeFeed();feed.sourceVideoIds=87
     const result=prepareYoutubeCuratedSearchPublication({
-      editorialIndex:publishedHintIndex(),filmFeed:makeFeed(),
+      editorialIndex:publishedHintIndex(),filmFeed:feed,
       canonicalById:candidates,now:AT,
     })
     expect(result.editorialIndex.count).toBe(0)
@@ -243,7 +244,7 @@ describe('YouTube G2 new TMDB films are immediately searchable',()=>{
 
   it('keeps forged links, broken batches and missing canonical rows as hard failures',()=>{
     const index=publishedHintIndex()
-    const feed=makeFeed()
+    const feed=makeFeed();feed.sourceVideoIds=index.sourceVideoIds
     const candidates=new Map([[10782,{...BASIC}]])
     const good=()=>prepareYoutubeCuratedSearchPublication({
       editorialIndex:index,filmFeed:feed,canonicalById:candidates,now:AT,
