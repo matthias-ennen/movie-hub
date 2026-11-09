@@ -38,7 +38,8 @@
   background-size: contain;
   opacity: .22;
   pointer-events: none;
-  z-index: 1;
+  /* Behind the shared detail content (z-index: 1), above the panel background. */
+  z-index: 0;
 }
 
 /* 3. Static navigation / masthead: keep the existing 2px season line and
