@@ -5,6 +5,7 @@ import { isDeepStrictEqual } from 'node:util'
 import { evaluatePublishedData, fetchPublishedData } from './validate-publication-health.mjs'
 import { TV_RUNTIME_TITLE_SHARD_COUNT } from '../src/tv/tvRuntimeTitleIndex.js'
 import { normalizeTvRuntimeTitleShard } from '../src/tv/tvRuntimeClient.js'
+import { YOUTUBE_NEW_FILMS_MAX_ENTRIES } from '../src/catalog/youtubeCuratedNewFilms.js'
 
 const YOUTUBE_PUBLIC_ORIGIN = 'https://movie-hub-62459.web.app'
 const YOUTUBE_PUBLIC_REPORTS = [
@@ -97,7 +98,8 @@ export async function verifyYoutubeEditorialFilmPublication({
     || films.offerVerification !== 'editorial-only-not-independent'
     || films.sourceType !== 'user-curated-playlists-with-tmdb-metadata'
     || !Array.isArray(films.entries) || films.count !== films.entries.length
-    || films.count < 0 || films.count > 50
+    || !Number.isInteger(films.count)
+    || films.count < 0 || films.count > YOUTUBE_NEW_FILMS_MAX_ENTRIES
     || !Number.isInteger(films.sourceVideoIds)
     || films.sourceVideoIds !== hints.sourceVideoIds
     || films.count > hints.count
