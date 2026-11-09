@@ -347,6 +347,16 @@ describe('new YouTube playlist movies use canonical TMDB metadata, no verified a
     expect(projection.editorialIndex.verifiedDEOffers).toBe(0)
     expect(projection.editorialIndex.verifiedPlaybackRoutes).toBe(0)
 
+    // Missing rows in a canonical batch are a global integrity failure.
+    x.canonicalTitles.pop()
+    expect(()=>buildYoutubeNewFilmCatalogProjection({
+      ...x,unsafeCandidatePolicy:'hold',
+    })).toThrow('YOUTUBE_NEW_FILM_PUBLISHER_CANONICAL_MISSING')
+    x.canonicalTitles.push({
+      ...movie,id:'tmdb-movie-998',tmdbId:secondTmdb,
+      title:'Missing artwork',runtimeMinutes:91,posterUrl:null,
+    })
+
     // A malformed global source envelope must never be quarantined and ignored.
     x.metadataReview.privateArtifact=false
     expect(()=>buildYoutubeNewFilmCatalogProjection({
