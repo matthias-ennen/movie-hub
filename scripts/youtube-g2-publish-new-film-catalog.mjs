@@ -59,7 +59,7 @@ export function buildYoutubeNewFilmCatalogProjection({
     throw Error('YOUTUBE_NEW_FILM_PUBLISHER_POLICY_INVALID')
   const holdUnsafe=unsafeCandidatePolicy==='hold'
   if(!Array.isArray(canonicalTitles)
-    ||(!holdUnsafe&&canonicalTitles.length!==metadataReview.metadataPreviewReady)
+    ||canonicalTitles.length!==metadataReview.metadataPreviewReady
     ||!Number.isFinite(Date.parse(now)))throw Error('YOUTUBE_NEW_FILM_PUBLISHER_CANONICAL_MISSING')
   const heldReasons={}
   const reject=(code,reason)=>{
