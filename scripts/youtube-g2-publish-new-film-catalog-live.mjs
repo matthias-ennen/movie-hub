@@ -43,7 +43,7 @@ export async function publishYoutubeCuratedNewFilmMetadata({
   }
   const projected=buildYoutubeNewFilmCatalogProjection({
     metadataReview,reconciliation,intake,editorialIndex,
-    canonicalTitles,now,
+    canonicalTitles,now,unsafeCandidatePolicy:'hold',
   })
   // A film stops being "new" when its TMDB identity subsequently enters the
   // user's canonical catalog. Keep it searchable by generating a SEPARATE
@@ -63,6 +63,12 @@ export async function publishYoutubeCuratedNewFilmMetadata({
     writeFile(editorialPath,JSON.stringify(projected.editorialIndex)+'\n','utf8'),
     writeFile(searchOutput,JSON.stringify(searchFeed)+'\n','utf8'),
   ])
+  if(projected.summary.heldUnsafeNewFilmCandidates
+    ||projected.summary.heldUnsafeExistingFilmLinks){
+    console.warn('YouTube new-film catalog: isolated unsafe film hypotheses; '
+      +'safe films and editorial hints retained. Aggregate reasons: '
+      +JSON.stringify(projected.summary.heldCandidateReasons))
+  }
   console.log(JSON.stringify({
     ...projected.summary,tmdbApiRequests:client?.requestsStarted||0,
     heldMetadataReviewCandidates:metadataReview.items.length-readyMetadata.length,
