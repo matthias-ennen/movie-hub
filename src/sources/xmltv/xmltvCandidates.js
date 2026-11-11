@@ -12,7 +12,9 @@ const clean = (v) => String(v ?? '').trim() || null
 const bounded = (v, max = MAX_FIELD) => (clean(v) || '').slice(0, max) || null
 
 function mappedStation(sourceId, sourceStationId, mappings) {
-  const entry = mappings?.[sourceId]?.[sourceStationId]
+  const sourceRows = mappings && Object.hasOwn(mappings, sourceId) ? mappings[sourceId] : null
+  const entry = sourceRows && Object.hasOwn(sourceRows, sourceStationId)
+    ? sourceRows[sourceStationId] : null
   const stationId = clean(entry?.stationId)
   const stationName = clean(entry?.stationName)
   return stationId && stationName ? { stationId, stationName } : null
