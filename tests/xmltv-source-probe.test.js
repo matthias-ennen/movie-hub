@@ -79,6 +79,18 @@ describe('XMLTV source probe (offline, without external requests)', () => {
     expect(result.sources[0].error).toContain('503')
   })
 
+  it('compares station programme fingerprints regardless of XML ordering', () => {
+    const channel = '<channel id="ZDF.de"><display-name>ZDF</display-name></channel>'
+    const first = '<programme channel="ZDF.de" start="20261112190000 +0100" stop="20261112200000 +0100"><title>A</title></programme>'
+    const second = '<programme channel="ZDF.de" start="20261112200000 +0100" stop="20261112210000 +0100"><title>B</title></programme>'
+    const a = analyzeXmltvDocument('<tv>' + channel + first + second + '</tv>', { now: TODAY })
+    const b = analyzeXmltvDocument('<tv>' + channel + second + first + '</tv>', { now: TODAY })
+    expect(a.keyChannels.ZDF.matchedVariants[0].fingerprint)
+      .toBe(b.keyChannels.ZDF.matchedVariants[0].fingerprint)
+    expect(a.keyChannels.ZDF.matchedVariants[0].fingerprint).toMatch(/^[a-f0-9]{64}$/)
+    expect(JSON.stringify(a)).not.toContain('<title>')
+  })
+
   it('forbids arbitrary URLs before making any network request', async () => {
     let called = false
     await expect(downloadXmltvFeed('https://example.invalid/epg.xml', {
