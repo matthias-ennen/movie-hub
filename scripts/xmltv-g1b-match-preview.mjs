@@ -94,6 +94,8 @@ export async function matchXmltvLocalCandidates(candidates, {
     const match = await matchProgram({
       title: candidate.title, type,
       description: candidate.description,
+      // XMLTV <date> may be original-air year; treat as evidence, not identity.
+      productionYear: type === 'movie' ? candidate.productionYearEvidence ?? null : null,
       seasonNumber: candidate.episode?.seasonNumber ?? null,
       episodeNumber: candidate.episode?.episodeNumber ?? null,
       broadcastDurationMinutes: durationMinutes,
@@ -111,6 +113,16 @@ export async function matchXmltvLocalCandidates(candidates, {
     // typed local-title match. Soft matches remain candidates for human review.
     if (match.match.score !== 100 || match.match.type !== type) {
       decisions.push(basicDiagnostic(candidate, 'nonexact_match_requires_review'))
+      continue
+    }
+    // A unique exact title may still identify the wrong remake. Do not accept
+    // an explicit, materially conflicting year in a film candidate.
+    const epgYear = Number(candidate.productionYearEvidence)
+    const tmdbYear = Number(match.match.year)
+    if (type === 'movie' && Number.isInteger(epgYear) && epgYear >= 1888 &&
+        Number.isInteger(tmdbYear) && tmdbYear >= 1888 &&
+        Math.abs(epgYear - tmdbYear) > 1) {
+      decisions.push(basicDiagnostic(candidate, 'production_year_conflict'))
       continue
     }
     const event = projectConfirmedXmltvBroadcastEvent(candidate, {
