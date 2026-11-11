@@ -38,5 +38,7 @@ export const XMLTV_REVIEWED_STATION_MAPPINGS = Object.freeze({
 
 /** An explicit mapping only. No fallback by display-name or approximate alias. */
 export function reviewedXmltvStation(sourceId, rawStationId) {
-  return XMLTV_REVIEWED_STATION_MAPPINGS[sourceId]?.[rawStationId] || null
+  if (!Object.hasOwn(XMLTV_REVIEWED_STATION_MAPPINGS, sourceId)) return null
+  const rows = XMLTV_REVIEWED_STATION_MAPPINGS[sourceId]
+  return Object.hasOwn(rows, rawStationId) ? rows[rawStationId] : null
 }
