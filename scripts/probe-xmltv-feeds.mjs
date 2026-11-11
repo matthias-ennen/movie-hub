@@ -110,7 +110,7 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
     if (!channels.has(key)) {
       channels.set(key, {
         id: key, names: [], total: 0, future: 0,
-        days: new Set(), latest: null, signatureHashes: [],
+        days: new Set(), latest: null, signatureHashes: [], intervals: [],
       })
     }
     return channels.get(key)
@@ -173,6 +173,7 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
     }
     if (!/[+-]\d{4}|Z$/.test(programme.start)) withoutUtcOffset += 1
     station.total += 1
+    station.intervals.push([begin, end])
     // A sorted station-specific fingerprint enables cross-feed overlap analysis
     // without publishing raw show titles or individual programme entries.
     station.signatureHashes.push(createHash('sha256')
@@ -194,6 +195,29 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
 
   function stationFingerprint(c) {
     return createHash('sha256').update(c.signatureHashes.sort().join('\n')).digest('hex')
+  }
+  function coverage120h(c) {
+    const endWindow = now + 120 * 3_600_000
+    const intervals = c.intervals
+      .filter(([start, end]) => end > now && start < endWindow)
+      .map(([start, end]) => [Math.max(start, now), Math.min(end, endWindow)])
+      .sort((a, b) => a[0] - b[0])
+    let covered = 0
+    let longestGap = 0
+    let cursor = now
+    for (const [start, end] of intervals) {
+      if (end <= cursor) continue
+      if (start > cursor) longestGap = Math.max(longestGap, start - cursor)
+      const coveredStart = Math.max(start, cursor)
+      if (end > coveredStart) covered += end - coveredStart
+      cursor = Math.max(cursor, end)
+    }
+    longestGap = Math.max(longestGap, endWindow - cursor)
+    return {
+      coveragePercent: Math.round((covered / (120 * 3_600_000)) * 1000) / 10,
+      coveredHours: Math.round(covered / 360_000) / 10,
+      longestGapHours: Math.round(longestGap / 360_000) / 10,
+    }
   }
   const hoursAhead = (latest) => latest && latest > now
     ? Math.round((latest - now) / 360_000) / 10 : 0
@@ -219,6 +243,7 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
         names: c.names.slice(0, 3),
         futureProgrammes: c.future,
         horizonHours: hoursAhead(c.latest),
+        next120h: coverage120h(c),
         fingerprint: stationFingerprint(c),
       }))
     checkChannels[name] = {
@@ -228,11 +253,13 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
         names: c.names.slice(0, 3),
         futureProgrammes: c.future,
         horizonHours: hoursAhead(c.latest),
+        next120h: coverage120h(c),
         fingerprint: stationFingerprint(c),
       })),
       channelEntries: candidates.length,
       futureProgrammes: candidates.reduce((total, c) => total + c.future, 0),
       horizonHours: Math.max(0, ...candidates.map((c) => hoursAhead(c.latest))),
+      best120hCoveragePercent: Math.max(0, ...candidates.map((c) => coverage120h(c).coveragePercent)),
       daysFromToday: contiguousDays(days, today),
       daysFromTomorrow: contiguousDays(days, offsetDayKey(today, 1)),
       lastProgrammeEnd: candidates.reduce((last, c) =>
@@ -327,14 +354,15 @@ export async function runXmltvSourceProbe({
 
 function markdownSummary(report) {
   const rows = ['## XMLTV G0 – read-only source comparison', '',
-    '| Source | Status | Channels with EPG | Future programmes | ZDF horizon (hours) |',
-    '|---|---|---:|---:|---:|']
+    '| Source | Status | Channels with EPG | Future programmes | ZDF horizon (hours) | ZDF 120h coverage |',
+    '|---|---|---:|---:|---:|---:|']
   for (const item of report.sources) {
     const zdf = item.keyChannels?.ZDF
     rows.push('| ' + item.source + ' | ' + item.status +
       ' | ' + (item.channelsWithProgrammes ?? '—') +
       ' | ' + (item.futureProgrammes ?? '—') +
-      ' | ' + (zdf ? zdf.horizonHours : '—') + ' |')
+      ' | ' + (zdf ? zdf.horizonHours : '—') +
+      ' | ' + (zdf ? zdf.best120hCoveragePercent + '%' : '—') + ' |')
   }
   rows.push('', 'No data was published to MovieHub. Feed presence does not establish rights, reliability over time or playable links.')
   return rows.join('\n') + '\n'
