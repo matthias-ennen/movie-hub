@@ -159,6 +159,7 @@ export class SharedEpgIdentityIndex {
     records = [],
   } = {}) {
     if (!Number.isFinite(now) || !Number.isFinite(maxAgeMs) || maxAgeMs < 1 ||
+        maxAgeMs > SHARED_EPG_POSITIVE_MAX_AGE_MS ||
         !Number.isSafeInteger(maxEntries) || maxEntries < 1 ||
         maxEntries > SHARED_EPG_MAX_ENTRIES) throw new RangeError('Invalid index bounds')
     this.now = now
