@@ -2,6 +2,24 @@
 
 Status: 11.11.2026 – zunächst read-only Quellendiagnose, keine Produktivintegration.
 
+## Echte Live-Messung – 11.11.2026
+
+Der isolierte G0-Workflow wurde tatsächlich erfolgreich ausgeführt, ohne eine Produktionsveröffentlichung: [Originalrun 43082266491](https://github.com/matthias-ennen/movie-hub/actions/runs/43082266491) (JSON-Artefakt mit den originalen Zählern und anonymen Programm-Fingerprints).
+
+| Feed | Kanäle mit EPG | Zukunftsausstrahlungen (Stand 19:50 CET, gerundet) | Episodennummern | Besondere Beobachtung |
+|---|---:|---:|---:|---|
+| EPGSHARE01 | 251 | 22.439 | 8.859 (gesamtes XML) | für große Sender 4–5 **berührte Kalendertage**, jedoch keine 5 vollständigen Zukunftstage bestätigt |
+| FreeEPG | 692 | 81.142 | 0 (gesamtes XML) | 38 MiB große Antwort, trotz `.gz`-Dateiname unkomprimiertes XML; viele regionale bzw. alternative Sender-IDs |
+| IPTV-EPG.org | 438 | 64.435 | 23.405 (gesamtes XML) | `DE - Sendername`-Varianten; anfänglicher einfacher Sendername-Abgleich erfasste diese nicht automatisch |
+
+**Wichtiger Unabhängigkeitsbefund:** Die Programm-Fingerprints der Sender `ZDF.de`, `DasErste.de`, `RTL.de`, `ProSieben.de`, `SAT1.de` und `VOX.de` aus dem `DE - ...`-Block sind bei **FreeEPG und IPTV-EPG.org identisch**. Das zeigt, dass diese Feeds für diese Sender **dieselben Programmpläne** ausliefern. Zwei Hosts sind deshalb **keine zwei unabhängigen Inhaltsquellen**. EPGSHARE01 hat abweichende Fingerprints und ist ein wichtiger separater Vergleichskandidat. Herkunft/Langzeitstabilität der zugrunde liegenden Grabber sind weiterhin ungeklärt.
+
+**Messkorrektur:** Der Probelauf hatte zunächst Kalenderdaten gezählt, die auch nur von einer einzigen Sendung berührt sein können. Das beweist **kein** fünf Tage vorausreichendes EPG. Das Skript misst deshalb inzwischen die **reale restliche Zukunftsreichweite in Stunden je Sender** und zeigt mögliche Sendernamen nur als prüfpflichtige Alias-Kandidaten. Ein neuer Report mit diesem korrigierten Messwert ist für die endgültige Bewertung maßgeblich.
+
+**Betriebsstatus:** Kein Produktivadapter, keine TV-App-Anzeige, keine Streamingroute eingerichtet, keine Daten in Firebase publiziert. Keine belastbare Langzeitgarantie durch einen einzelnen Probelauf.
+
+---
+
 ## Fachlich verbindliche Vorgaben
 
 - **5 Tage** tatsächliche, fortlaufende EPG-Vorschau für wesentliche deutsche Sender sind ausreichend; **7 Tage** bevorzugt; **14 Tage** willkommen, aber keine Bedingung.
