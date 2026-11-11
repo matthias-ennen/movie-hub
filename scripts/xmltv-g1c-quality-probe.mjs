@@ -21,7 +21,6 @@ const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const HOURS = 120
 const WINDOW_MS = HOURS * 3_600_000
 const MAX_SAMPLE = 1800
-const MAX_HISTORY_CANDIDATES = 300
 const META_CATEGORIES = 15
 
 function key(value) {
@@ -132,6 +131,8 @@ export async function measureXmltvG1c(xml, {
       withDescription: stationEntries.filter((entry) => entry.description).length,
       withSubtitle: stationEntries.filter((entry) => entry.subtitle).length,
       withParsedEpisode: stationEntries.filter((entry) => entry.episode).length,
+      withAnyEpisodeField: stationEntries.filter((entry) => entry.episodeEvidence?.length).length,
+      withProductionYearEvidence: stationEntries.filter((entry) => entry.productionYearEvidence).length,
     }]
   }))
   const match = await matchFunction(sample, {
@@ -156,6 +157,10 @@ export async function measureXmltvG1c(xml, {
       descriptions: sample.filter((c) => c.description).length,
       subtitles: sample.filter((c) => c.subtitle).length,
       parsedEpisodes: sample.filter((c) => c.episode).length,
+      anyEpisodeFields: sample.filter((c) => c.episodeEvidence?.length).length,
+      episodeSystems: count(sample.flatMap((c) => (c.episodeEvidence || [])
+        .map((entry) => entry.system || 'missing-system'))),
+      productionYearEvidence: sample.filter((c) => c.productionYearEvidence).length,
       explicitZone: sample.filter((c) => c.timestampsExplicitlyZoned).length,
       categoryTop: topCategories(sample),
       stations: stationMetrics,
