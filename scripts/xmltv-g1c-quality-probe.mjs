@@ -33,6 +33,16 @@ function count(values) {
   return Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)))
 }
 
+/** Diagnose only: parse *format*, never infer S/E identity from vague labels. */
+export function xmltvEpisodeLabelFormat(raw) {
+  const value = String(raw || '').trim()
+  if (/^s\d{1,3}\s*e\d{1,4}$/i.test(value)) return 'explicit-season-episode'
+  if (/^\d{1,3}\.\d{1,4}\.?$/.test(value)) return 'numeric-dotted'
+  if (/^(?:folge|episode|ep\.?)\s*\d{1,4}$/i.test(value)) return 'episode-word-number'
+  if (/^\d{1,4}(?:\/\d{1,4})?$/.test(value)) return 'number-or-fraction'
+  return value ? 'other' : 'blank'
+}
+
 function topCategories(candidates) {
   const values = new Map()
   for (const candidate of candidates) {
@@ -160,6 +170,8 @@ export async function measureXmltvG1c(xml, {
       anyEpisodeFields: sample.filter((c) => c.episodeEvidence?.length).length,
       episodeSystems: count(sample.flatMap((c) => (c.episodeEvidence || [])
         .map((entry) => entry.system || 'missing-system'))),
+      episodeLabelFormats: count(sample.flatMap((c) => (c.episodeEvidence || [])
+        .map((entry) => xmltvEpisodeLabelFormat(entry.raw)))),
       productionYearEvidence: sample.filter((c) => c.productionYearEvidence).length,
       explicitZone: sample.filter((c) => c.timestampsExplicitlyZoned).length,
       categoryTop: topCategories(sample),
