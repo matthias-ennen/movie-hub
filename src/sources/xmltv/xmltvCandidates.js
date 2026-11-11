@@ -25,14 +25,27 @@ function bestLanguage(oldField, field) {
   return !oldField || (isGerman(field) && !isGerman(oldField)) ? field : oldField
 }
 
-/** Strict zero-based XMLTV_NS: 0.9. or 0.9/12. becomes S01E10. */
+/** Zero-based XMLTV_NS, or strictly explicit one-based SxxEyy onscreen
+ * notation when the system is "onscreen" or unspecified. Never infer from
+ * vague strings like "Folge 15", season-less integers or fractional labels. */
 export function parseXmltvEpisodeNumber(raw, system) {
-  if (clean(system)?.toLowerCase() !== 'xmltv_ns') return null
-  const parts = clean(raw)?.match(/^(\d+)\.(\d+)(?:\/\d+)?\.(?:\d+(?:\/\d+)?)?$/)
-  if (!parts) return null
-  const seasonNumber = Number(parts[1]) + 1
-  const episodeNumber = Number(parts[2]) + 1
-  return Number.isSafeInteger(seasonNumber) && Number.isSafeInteger(episodeNumber)
+  const kind = clean(system)?.toLowerCase() || null
+  const value = clean(raw)
+  let seasonNumber
+  let episodeNumber
+  if (kind === 'xmltv_ns') {
+    const parts = value?.match(/^(\d+)\.(\d+)(?:\/\d+)?\.(?:\d+(?:\/\d+)?)?$/)
+    if (!parts) return null
+    seasonNumber = Number(parts[1]) + 1
+    episodeNumber = Number(parts[2]) + 1
+  } else if (kind === 'onscreen' || kind === null) {
+    const parts = value?.match(/^S0*(\d{1,3})\s*E0*(\d{1,4})$/i)
+    if (!parts) return null
+    seasonNumber = Number(parts[1])
+    episodeNumber = Number(parts[2])
+  } else return null
+  return Number.isSafeInteger(seasonNumber) && Number.isSafeInteger(episodeNumber) &&
+    seasonNumber > 0 && seasonNumber <= 200 && episodeNumber > 0 && episodeNumber <= 1500
     ? { seasonNumber, episodeNumber } : null
 }
 
