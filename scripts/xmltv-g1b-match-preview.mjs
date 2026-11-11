@@ -132,7 +132,13 @@ export async function matchXmltvLocalCandidates(candidates, {
 export function buildXmltvConfirmedEnvelope(sourceId, events, {
   generatedAt = new Date().toISOString(),
   fetchedAt = generatedAt,
+  sourceStatus = null,
 } = {}) {
+  // A healthy feed can legitimately yield zero confidently matched titles.
+  // Only independently measured source-health evidence may set this value.
+  if (!['healthy', 'degraded', 'stale', 'failed'].includes(sourceStatus)) {
+    throw new TypeError('G1b sourceStatus must be supplied from independent EPG health checks')
+  }
   const records = (Array.isArray(events) ? events : []).filter(Boolean)
   if (!records.every((event) => (event.sourceRefs || [])
     .some((ref) => ref.sourceId === 'xmltv:' + sourceId))) {
@@ -144,7 +150,7 @@ export function buildXmltvConfirmedEnvelope(sourceId, events, {
     sourceId: 'xmltv:' + sourceId,
     sourceGenerationId: 'xmltv:' + sourceId + ':' + generatedAt,
     generatedAt, fetchedAt, expiresAt: latest ? new Date(latest).toISOString() : null,
-    sourceStatus: records.length ? 'healthy' : 'degraded',
+    sourceStatus,
     sourceCoverage: { matchedEventCount: records.length },
     extensions: { xmltv: { sourceId, matchedEventCount: records.length } },
     records,
