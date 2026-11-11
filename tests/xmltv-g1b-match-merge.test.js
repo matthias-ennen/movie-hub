@@ -81,12 +81,20 @@ describe('G1b bounded reuse of the existing Joyn/TMDB matching decision', () => 
     })
     expect(event.playbackRoutes).toEqual([])
     expect(event.sourceRefs[0]).toMatchObject({ sourceId: 'xmltv:iptv-epg-org' })
-    expect(buildXmltvConfirmedEnvelope('iptv-epg-org', result.confirmedEvents)).toMatchObject({
+    expect(buildXmltvConfirmedEnvelope('iptv-epg-org', result.confirmedEvents, {
+      sourceStatus: 'healthy',
+    })).toMatchObject({
       sourceId: 'xmltv:iptv-epg-org', sourceStatus: 'healthy',
       records: [expect.objectContaining({ kind: 'broadcast' })],
     })
-    expect(() => buildXmltvConfirmedEnvelope('epgshare01', result.confirmedEvents))
-      .toThrow(/provenance/)
+    expect(() => buildXmltvConfirmedEnvelope('epgshare01', result.confirmedEvents, {
+      sourceStatus: 'healthy',
+    })).toThrow(/provenance/)
+    expect(() => buildXmltvConfirmedEnvelope('iptv-epg-org', result.confirmedEvents))
+      .toThrow(/sourceStatus/)
+    expect(buildXmltvConfirmedEnvelope('iptv-epg-org', [], {
+      sourceStatus: 'healthy',
+    }).sourceStatus).toBe('healthy')
   })
 
   it('keeps conflicting type signals, unknown titles and absent timezones out of confirmed results', async () => {
