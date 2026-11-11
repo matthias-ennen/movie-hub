@@ -58,6 +58,17 @@ function routeKey(route) {
   return [text(route?.providerId), text(route?.mode), text(route?.target)].join('|')
 }
 
+function distinctSourceRefs(...airings) {
+  const refs = new Map()
+  for (const ref of airings.flatMap((airing) =>
+    Array.isArray(airing?.sourceRefs) ? airing.sourceRefs : [])) {
+    if (!text(ref?.sourceId)) continue
+    const key = [text(ref.sourceId), text(ref.externalId), text(ref.observedAt)].join('|')
+    if (!refs.has(key)) refs.set(key, ref)
+  }
+  return [...refs.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, ref]) => ref)
+}
+
 function providerValueMap(airing, mapField, fallbackFields = []) {
   const explicit = airing?.[mapField]
   if (explicit && typeof explicit === 'object' && !Array.isArray(explicit)) {
@@ -79,8 +90,10 @@ function mergePair(previous, airing) {
     [...(previous.playbackRoutes || []), ...(Array.isArray(airing.playbackRoutes) ? airing.playbackRoutes : [])]
       .map((route) => [routeKey(route), route]),
   )
+  const sourceRefs = distinctSourceRefs(previous, airing)
   return {
     ...previous,
+    ...(sourceRefs.length ? { sourceRefs } : {}),
     ...(episode ? { episode, seasonNumber: episode.seasonNumber,
       episodeNumber: episode.episodeNumber, episodeTitle: episode.title } : {}),
     providerIds: [...new Set([
