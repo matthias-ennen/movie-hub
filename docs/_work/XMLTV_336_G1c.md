@@ -2,6 +2,33 @@
 
 **Status:** technischer, **ausschließlich lesender** Quellenprobe-PR, keine Nightly-/Firebase-/App-Integration.
 
+## Echt gemessene Ergebnisse – 11.11.2026
+
+**Live-Bericht:** [GitHub Actions G1c #43094482884](https://github.com/matthias-ennen/movie-hub/actions/runs/43094482884), erfolgreich (Original-JSON-Artefakt), 11.11.2026 ca. 21:14 Uhr Europe/Berlin. Sechs explizit gemappte Hauptsender, nach vorn rollendes 120h-Fenster; lokaler Referenzkatalog **nur 107 historische, nicht vollständige TMDB-Titel**.
+
+| Beobachtung | EPGSHARE01 | FreeEPG | IPTV-EPG.org |
+|---|---:|---:|---:|
+| Sendungen im 120h-Fenster, 6 Sender | 560 | 854 | 854 |
+| Mit Beschreibung | 560 | 854 | 854 |
+| Mit `sub-title` | 317 | 0 | 0 |
+| Mit 4-stelligem XMLTV-Jahr | 514 | 0 | 851 |
+| `episode-num`-Felder insgesamt | 224 | 0 | 540 |
+| Davon sicher als `SxxEyy` erkannt | 2 | 0 | **391** |
+| Als Film/Serie klassifiziert | 179 (2 Filme, 177 Serien) | 73 (Serien) | **391 Serien** |
+| Exakter, lokal referenzierter Matcher-Treffer (nur 107 Titel!) | 118 | 54 | **181** |
+
+**Interpretation:** Eine akzeptierte lokale Titelentscheidung ist ein **Sendungsereignis**, keine einzigartige TMDB-Titelidentität und kein Beleg einer echten TMDB-Gesamt-Matchquote. Noch können im 5-Tage-Fenster 463/854 IPTV-EPG.org-Programme nicht sicher als Film/Serie klassifiziert werden; viele davon sind Nachrichten, Shows oder Genres wie `Krimi`/`Drama`, die Film **oder** Serie sein können. Dies ist **kein EPG-Feed-Ausfall**.
+
+**Episodensyntax:** In der IPTV-Datei haben 540 Sendungen ein `episode-num` ohne explizites `system`; 391 davon enthalten ein eindeutig interpretierbares `SxxEyy`, 149 weitere sind weiterhin unklar. EPGSHARE01 führt 224 `onscreen`-Labels, davon nur 2 in diesem eindeutigen Format; 222 bleiben ungeparst. G1c erweitert den XMLTV-Parser **ausschließlich für dieses eindeutige Format**. Bisherige echte XMLTV_NS-Angaben werden unverändert korrekt dekodiert. Staffel-/Folgennummern werden nicht aus `Folge 15`, Quotenangaben oder geratenen Zeichenfolgen konstruiert.
+
+**Herkunft und Priorität:** Der Grund-Sendeplan von FreeEPG und IPTV-EPG.org stimmt bei den sechs geprüften Sendern anhand aller 854 Sender-/Start-/End-/Titel-Fingerprints exakt überein, die Zusatzmetadaten **nicht**. EPGSHARE01 teilt 333 der 560 Programme mit beiden anderen, ist also abweichende Basis und reicht kürzer (ca. 3,2 Tage). **Technischer G1c-Favorit ist IPTV-EPG.org** wegen der Kombination aus 5-Tage-Horizont und Zusatzmetadaten, mit EPGSHARE01 als kürzerem unabhängigerem Kandidaten. **Keine Langzeitgarantie, keine Produktionsfreigabe**.
+
+**Qualitätsschranke:** Bei einem exakt gleichen Filmtitel mit stark widersprüchlicher 4-stelliger Jahresangabe akzeptiert der lokale Matcher keinen stillschweigenden Werk-Treffer. Der G1c-Read-only-Probelauf speichert keine vollständigen Programmtitellisten und veröffentlicht keine AIR-Links.
+
+---
+
+
+
 ## Anlass und Ziel
 
 Nach den in `main` gemergten G0 (#758), G1a (#759) und G1b (#760) ist die Senderidentität bei sechs Hauptsendern technisch gesichert. G0 hat in einem einzelnen Live-Snapshot bei Das Erste, ZDF, RTL, ProSieben, SAT.1 und VOX 120/120 Stunden Sendezeit gefunden. G1c muss nun anhand **realer** XMLTV-Programmtitel messen, welche Kategorien, Beschreibungen, Episodennummern und übereinstimmende Programmpläne vorliegen. Ein lückenloser Zeitplan ist **noch keine korrekte Filmtitel-/TMDB-Zuordnung**.
