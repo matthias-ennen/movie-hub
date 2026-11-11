@@ -29,7 +29,7 @@ Der bestehende React-Code (`src/components/detail/DetailLiveProviderAction.jsx`,
 
 ## G0: isolierte, manuelle Realfeed-Probe
 
-Ein Skript `scripts/probe-xmltv-feeds.mjs` und der **nur manuell auslösbare** Workflow `.github/workflows/xmltv-source-probe.yml` vergleichen aktuell drei vorausgewählte DE-Feeds. Erlaubt sind genau:
+Ein Skript `scripts/probe-xmltv-feeds.mjs` und der **manuell auslösbare und für den #336-PR isoliert automatisch geprüfte** Workflow `.github/workflows/xmltv-source-probe.yml` vergleichen aktuell drei vorausgewählte DE-Feeds. Erlaubt sind genau:
 
 - EPGSHARE01: `https://epgshare01.online/epgshare01/epg_ripper_DE1.xml.gz`
 - FreeEPG.de: `https://free-epg.de/api/epg/de.xml.gz`
@@ -44,7 +44,7 @@ Ein Skript `scripts/probe-xmltv-feeds.mjs` und der **nur manuell auslösbare** W
 ### Abnahme-Reihenfolge
 
 1. PR-CI / Offline-Tests erfolgreich (XML-Zeiten, Dateigrenzen, Parser-Sicherheit, getrennte Quellfehler).
-2. Manuell den G0-Probe-Workflow ausführen; originales JSON-Artefakt auswerten. **Ein erfolgreicher Test ist keine langfristige Stabilitätsgarantie.**
+2. Den isolierten G0-Probelauf aus PR-CI oder später manuell starten; originales JSON-Artefakt auswerten. **Ein erfolgreicher Test ist keine langfristige Stabilitätsgarantie.**
 3. Unabhängige Haupt-/Ersatzquelle anhand wiederholter, zeitlich getrennter Proben auswählen.
 4. Isolierten XMLTV-Parser/Normalizer, kanonisches Sender-ID-Mapping, Cache und deduplizierte BroadcastEvents konzipieren und testen.
 5. Konkrete Senderziele im Dialog abstimmen, pro Android/Fire TV verifizieren. Erst dann Sender-AIR-Badges implementieren.
