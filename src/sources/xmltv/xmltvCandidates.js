@@ -43,7 +43,7 @@ export function parseXmltvEpisodeNumber(raw, system) {
  */
 export function parseXmltvCandidates(xml, {
   sourceId, stationMappings = {}, observedAt = new Date().toISOString(),
-  maxRecords = MAX_RECORDS,
+  maxRecords = MAX_RECORDS, mappedOnly = false,
 } = {}) {
   const source = clean(sourceId)
   if (!source || source.length > 128 || !/^[a-z0-9][a-z0-9-]*$/.test(source)) {
@@ -52,6 +52,7 @@ export function parseXmltvCandidates(xml, {
   if (!clean(xml)) throw new TypeError('XMLTV document required')
   const observed = new Date(observedAt)
   if (!Number.isFinite(observed.getTime())) throw new TypeError('Invalid observedAt')
+  if (typeof mappedOnly !== 'boolean') throw new TypeError('Invalid mappedOnly option')
   if (!Number.isInteger(maxRecords) || maxRecords < 1 || maxRecords > MAX_RECORDS) {
     throw new RangeError('Invalid maxRecords')
   }
@@ -60,7 +61,8 @@ export function parseXmltvCandidates(xml, {
   const dedupe = new Set()
   const stack = []
   const diagnostic = { sourceRecords: 0, skippedInvalid: 0, skippedMissingTitle: 0,
-    duplicates: 0, missingTimeZone: 0, mappedCandidates: 0, unmappedCandidates: 0 }
+    duplicates: 0, missingTimeZone: 0, mappedCandidates: 0, unmappedCandidates: 0,
+    skippedUnmapped: 0 }
   let root = false
   let channel = null
   let programme = null
@@ -139,6 +141,7 @@ export function parseXmltvCandidates(xml, {
       if (!p.channel || begin === null || end === null || end <= begin ||
           end - begin > 36 * 3_600_000) diagnostic.skippedInvalid++
       else if (!p.title?.value) diagnostic.skippedMissingTitle++
+      else if (mappedOnly && !mappedStation(source, p.channel, stationMappings)) diagnostic.skippedUnmapped++
       else {
         const startAt = new Date(begin).toISOString()
         const endAt = new Date(end).toISOString()
