@@ -24,12 +24,12 @@ const BERLIN_DAY = new Intl.DateTimeFormat('en-GB', {
 })
 
 const CHECK_CHANNELS = Object.freeze({
-  'Das Erste': ['daserste', 'daserstehd', 'arddaserste', 'arddaserstehd'],
-  ZDF: ['zdf', 'zdfhd'],
-  RTL: ['rtl', 'rtlhd', 'rtltelevision'],
-  ProSieben: ['prosieben', 'prosiebenhd'],
-  'Sat.1': ['sat1', 'sat1hd'],
-  VOX: ['vox', 'voxhd'],
+  'Das Erste': ['daserste', 'daserstehd', 'arddaserste', 'arddaserstehd', 'dedaserste', 'dedaserstehd'],
+  ZDF: ['zdf', 'zdfhd', 'zdfde', 'dezdf', 'dezdfhd'],
+  RTL: ['rtl', 'rtlhd', 'rtltelevision', 'rtlde', 'dertl', 'dertlhd'],
+  ProSieben: ['prosieben', 'prosiebenhd', 'prosiebende', 'deprosieben', 'deprosiebenhd'],
+  'Sat.1': ['sat1', 'sat1hd', 'sat1de', 'desat1', 'desat1hd'],
+  VOX: ['vox', 'voxhd', 'voxde', 'devox', 'devoxhd'],
 })
 
 function clean(value) {
