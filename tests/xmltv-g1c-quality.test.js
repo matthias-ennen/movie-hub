@@ -4,6 +4,7 @@ import { inferXmltvMediaType, reviewedXmltvCategoryType } from '../scripts/xmltv
 import { XMLTV_REVIEWED_STATION_MAPPINGS } from '../src/sources/xmltv/xmltvStationMappings.js'
 import {
   buildLocalTitleIndex, compareSourceEventHashes, measureXmltvG1c, runG1cProbe,
+  xmltvEpisodeLabelFormat,
 } from '../scripts/xmltv-g1c-quality-probe.mjs'
 
 const NOW = Date.parse('2026-11-11T19:00:00Z')
@@ -130,6 +131,14 @@ describe('G1c real source quality audit (offline fixtures)', () => {
     })
     expect(measured.report.localReferenceMatches).toBe(0)
     expect(measured.report.localReferenceDecisionCounts.production_year_conflict).toBe(1)
+  })
+
+  it('distinguishes onscreen episode-label formats without inventing episode IDs', () => {
+    expect(xmltvEpisodeLabelFormat('S03E12')).toBe('explicit-season-episode')
+    expect(xmltvEpisodeLabelFormat('3.12.')).toBe('numeric-dotted')
+    expect(xmltvEpisodeLabelFormat('Folge 5')).toBe('episode-word-number')
+    expect(xmltvEpisodeLabelFormat('7/12')).toBe('number-or-fraction')
+    expect(xmltvEpisodeLabelFormat('Abenteuer in zwei Teilen')).toBe('other')
   })
 
   it('enforces a sampling budget', async () => {
