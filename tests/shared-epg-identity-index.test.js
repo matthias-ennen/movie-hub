@@ -151,6 +151,13 @@ describe('G1d optional shared EPG identity index – independence and source saf
       .toThrow(/snapshot/)
   })
 
+  it('cannot extend approved evidence retention beyond 30 days through config', () => {
+    expect(() => new SharedEpgIdentityIndex({
+      now: NOW,
+      maxAgeMs: 31 * 24 * 3600_000,
+    })).toThrow(/bounds/)
+  })
+
   it('falls back to each adapter original matcher if the index is missing, corrupt or mismatched', async () => {
     const independent = vi.fn(async () => ({ status: 'matched', tmdbId: 999 }))
     for (const index of [null, { lookup() { throw new Error('offline') } },
