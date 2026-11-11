@@ -87,13 +87,14 @@ export function parseXmltvCandidates(xml, {
         start: bounded(tag.attributes.start, 60),
         stop: bounded(tag.attributes.stop, 60),
         title: null, subtitle: null, description: null, categories: [], episodeFields: [],
+        productionYearEvidence: null,
       }
     }
     if (parent === 'channel' && channel && tag.name === 'display-name') {
       captured = { depth: stack.length, field: tag.name, value: '' }
     }
     if (parent === 'programme' && programme &&
-        ['title', 'sub-title', 'desc', 'category', 'episode-num'].includes(tag.name)) {
+        ['title', 'sub-title', 'desc', 'category', 'episode-num', 'date'].includes(tag.name)) {
       captured = { depth: stack.length, field: tag.name, value: '',
         language: clean(tag.attributes.lang), system: clean(tag.attributes.system) }
     }
@@ -117,6 +118,12 @@ export function parseXmltvCandidates(xml, {
         if (name === 'sub-title') programme.subtitle = bestLanguage(programme.subtitle, field)
         if (name === 'desc') programme.description = bestLanguage(programme.description, field)
         if (name === 'category' && programme.categories.length < 12) programme.categories.push(value)
+        if (name === 'date' && /^\d{4}$/.test(value)) {
+          const year = Number(value)
+          if (year >= 1888 && year <= new Date().getUTCFullYear() + 1) {
+            programme.productionYearEvidence = year
+          }
+        }
         if (name === 'episode-num' && programme.episodeFields.length < 5) {
           programme.episodeFields.push({ raw: value, system: captured.system })
         }
@@ -166,6 +173,7 @@ export function parseXmltvCandidates(xml, {
             subtitle: p.subtitle?.value || null,
             description: p.description?.value || null,
             categories: p.categories, episode, episodeEvidence: p.episodeFields,
+            productionYearEvidence: p.productionYearEvidence,
             startAt, endAt, timestampsExplicitlyZoned: zoned,
             sourceRef: {
               sourceId: 'xmltv:' + source,
