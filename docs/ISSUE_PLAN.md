@@ -1,5 +1,16 @@
 # Movie Hub – Issue-Plan
 
+## Verbindliche Präzisierung vom 11.11.2026 – XMLTV-Multi-Source-EPG #336
+
+**Diese Entscheidung ersetzt für #336 die bislang als nächster Schritt geplante exklusive DVB-I-Zugangsprüfung vom 08.11.2026.** Der Nutzer hat die technische Ausrichtung als **quellunabhängigen Multi-Source-XMLTV-Adapter** vollständig freigegeben. **5 Tage** Vorschau je relevantem Sender reichen, **7 Tage** sind bevorzugt, **14 Tage** ein Bonus. Zunächst 3 freie deutsche XMLTV-Feeds **nur lesen und messen**; mehrere unabhängige Quellen mit fehlertoleranter Aggregation/Cache vorsehen. KodiNerds-/Grabber-Ansätze sind mögliche Ergänzungen, keine ungeprüfte Produktionsabhängigkeit.
+
+**Fachliches Ziel:** XMLTV ist nur Lieferant von EPG-Ereignissen. Jede kanonische TV-Station kann für ihre konkrete Ausstrahlung **einen senderbezogenen AIR-Badge** mit **gemeinsam manuell gepflegter und gerätegeprüfter** fester `WEB_LINK + channel`- bzw. `APP_DEEP_LINK + channel`-Route erhalten. Ein Sender ohne bestätigte Route liefert EPG, aber keinen inaktiven Pseudo-Button. Der Sender-Livestream öffnet immer den **aktuellen Sender**, nicht automatisch den im EPG gewählten späteren Film. Keine Vermischung mit TMDB-Streamingangeboten oder fiktiven Programm-Deep-Links.
+
+**Operativ:** [#336](https://github.com/matthias-ennen/movie-hub/issues/336) bleibt der einzige aktive Pilot; technischer G0-Baustein in [PR #758](https://github.com/matthias-ennen/movie-hub/pull/758) ist **isoliert/read-only**, nicht in Nightly/Firebase/TV-UI integriert. Die erste Voraussetzung für Weiterentwicklung ist der wirkliche Datentest und Bericht, nicht ein angenommener 5-/7-/14-Tage-Erfolg. [Technisches G0-Handbuch](_work/XMLTV_336_G0.md) (liegt derzeit auf dem PR-Zweig). Offizielle DVB-I-Datenzugänge bleiben ein optionaler späterer Eingangsweg, kein Blocker; nach Abschluss des EPG-Pakets folgt weiter [#391 Prime Video](https://github.com/matthias-ennen/movie-hub/issues/391). Frühere Übergabeabschnitte bleiben aus historischen Gründen stehen, sind hinsichtlich #336 aber nicht mehr vorrangig.
+
+---
+
+
 Stand: 8. November 2026
 
 ## Verbindliche Projektübergabe – 08.11.2026 (ersetzt überholte Status-/Prioritätstexte darunter)
