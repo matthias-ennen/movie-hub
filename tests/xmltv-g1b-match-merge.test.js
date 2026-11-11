@@ -54,6 +54,9 @@ describe('G1b source-specific XMLTV-to-MovieHub station registry', () => {
     expect(reviewedXmltvStation('iptv-epg-org', 'RTLHBNDS.de')).toBeNull()
     expect(reviewedXmltvStation('iptv-epg-org', 'ZDF.DE')).toBeNull()
     expect(reviewedXmltvStation('unknown-source', 'ZDF.de')).toBeNull()
+    expect(reviewedXmltvStation('freeepg', '__proto__')).toBeNull()
+    expect(reviewedXmltvStation('freeepg', 'constructor')).toBeNull()
+    expect(reviewedXmltvStation('__proto__', 'ZDF.de')).toBeNull()
     expect(candidates('iptv-epg-org')[0]).toMatchObject({
       canonicalStationId: 'zdf', stationMappingStatus: 'mapped',
     })
