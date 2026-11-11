@@ -2,6 +2,12 @@ name: XMLTV G0 feed source probe (read-only)
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/probe-xmltv-feeds.mjs
+      - tests/xmltv-source-probe.test.js
+      - .github/workflows/xmltv-source-probe.yml
 
 permissions:
   contents: read
@@ -11,6 +17,9 @@ jobs:
     name: Compare German XMLTV feeds without publishing
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    # The G0 PR gets a bounded one-off live source comparison, and future
+    # manual dispatches remain available. No deployment secrets are provided.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/336-xmltv-feed-probe' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
