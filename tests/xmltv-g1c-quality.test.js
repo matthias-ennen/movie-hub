@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseXmltvCandidates } from '../src/sources/xmltv/xmltvCandidates.js'
+import { inferXmltvMediaType, reviewedXmltvCategoryType } from '../scripts/xmltv-g1b-match-preview.mjs'
 import { XMLTV_REVIEWED_STATION_MAPPINGS } from '../src/sources/xmltv/xmltvStationMappings.js'
 import {
   buildLocalTitleIndex, compareSourceEventHashes, measureXmltvG1c, runG1cProbe,
@@ -12,7 +13,7 @@ const xml = [
   '<channel id="ZDF.de"><display-name>DE - ZDF</display-name></channel>',
   '<channel id="ZDFneo.de"><display-name>DE - ZDFneo</display-name></channel>',
   '<programme channel="ZDF.de" start="20261112190000 +0100" stop="20261112210000 +0100">',
-  '<title lang="de">Testfilm</title><category lang="de">Film</category>',
+  '<title lang="de">Testfilm</title><category lang="de">Film</category><date>2020</date>',
   '<desc>Ein Film</desc></programme>',
   '<programme channel="ZDF.de" start="20261112210000 +0100" stop="20261112220000 +0100">',
   '<title lang="de">Testserie</title><category lang="de">Serie</category>',
@@ -54,6 +55,9 @@ describe('G1c real source quality audit (offline fixtures)', () => {
     expect(result.report.stations.zdf.programmesIn120h).toBe(3)
     expect(result.report.typed).toEqual({ movie: 1, series: 1, unclassified: 1 })
     expect(result.report.parsedEpisodes).toBe(1)
+    expect(result.report.anyEpisodeFields).toBe(1)
+    expect(result.report.episodeSystems).toEqual({ xmltv_ns: 1 })
+    expect(result.report.productionYearEvidence).toBe(1)
     expect(result.report.descriptions).toBe(1)
     expect(result.report.subtitles).toBe(1)
     expect(result.report.localReferenceTitleCount ?? result.report.localReferenceTitles).toBe(2)
@@ -100,6 +104,21 @@ describe('G1c real source quality audit (offline fixtures)', () => {
     expect(report.sources[1].localReferenceMatches).toBe(2)
     expect(report.sources[0].error).toContain('503')
     expect(JSON.stringify(report)).not.toContain('Testfilm')
+  })
+
+  it('extends explicit German Film/Serie labels without guessing ambiguous genres', () => {
+    expect(reviewedXmltvCategoryType('Krimiserie')).toBe('series')
+    expect(reviewedXmltvCategoryType('Zeichentrickserie')).toBe('series')
+    expect(reviewedXmltvCategoryType('Comedyserie')).toBe('series')
+    expect(reviewedXmltvCategoryType('Sitcom')).toBe('series')
+    expect(reviewedXmltvCategoryType('Dokumentarfilm')).toBe('movie')
+    expect(reviewedXmltvCategoryType('Fernsehfilm')).toBe('movie')
+    expect(reviewedXmltvCategoryType('Krimi')).toBeNull()
+    expect(reviewedXmltvCategoryType('Drama')).toBeNull()
+    expect(reviewedXmltvCategoryType('Animation')).toBeNull()
+    expect(inferXmltvMediaType({ categories: ['Krimiserie'] })).toBe('series')
+    expect(inferXmltvMediaType({ categories: ['Krimi', 'Action'] })).toBeNull()
+    expect(inferXmltvMediaType({ categories: ['Fernsehfilm', 'Sitcom'] })).toBeNull()
   })
 
   it('enforces a sampling budget', async () => {
