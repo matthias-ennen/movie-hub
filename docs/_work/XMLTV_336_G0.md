@@ -12,9 +12,24 @@ Der isolierte G0-Workflow wurde tatsächlich erfolgreich ausgeführt, ohne eine 
 | FreeEPG | 692 | 81.142 | 0 (gesamtes XML) | 38 MiB große Antwort, trotz `.gz`-Dateiname unkomprimiertes XML; viele regionale bzw. alternative Sender-IDs |
 | IPTV-EPG.org | 438 | 64.435 | 23.405 (gesamtes XML) | `DE - Sendername`-Varianten; anfänglicher einfacher Sendername-Abgleich erfasste diese nicht automatisch |
 
+### Präzise Zukunftsreichweite – bestätigter Folgelauf
+
+[Originalrun 43082648593](https://github.com/matthias-ennen/movie-hub/actions/runs/43082648593) mit messbarer **Restreichweite in Stunden ab Probezeitpunkt** (11.11.2026, 19:58 CET).
+
+| Sender | EPGSHARE01 (direkter Sender) | FreeEPG numerischer Sender | DE-Senderblock FreeEPG/IPTV-EPG.org |
+|---|---:|---:|---:|
+| Das Erste | 77,3 h | 69 h | 124,0 h |
+| ZDF | 77,2 h | 69 h | 125,3 h |
+| RTL | 77,1 h | 69 h | 124,0 h |
+| ProSieben | 80,2 h | 69 h | 125,0 h |
+| Sat.1 | 78,3 h | 69 h | 124,4 h |
+| VOX | 77,5 h | 69 h | 124,5 h |
+
+**Schlussfolgerung:** **Erstmals realer Nachweis eines mehr als 120 Stunden in die Zukunft reichenden EPG-Horizonts** für die sechs wichtigen Sender im eindeutig bezeichneten `DE - ...`-Block. Dies ist noch kein vollständiger Beleg lückenloser Sendeminuten oder dauerhaft stabiler Daten. Die `DE - ...`-Sender entsprechen Namens-/ID-Kandidaten, deren endgültiges kanonisches Mapping separat geprüft wird. Dieser Block ist bei FreeEPG und IPTV-EPG.org identisch und deshalb **eine** Inhaltsfamilie, nicht zwei echte unabhängige Planungsquellen. EPGSHARE01 ist als kürzerer **Fallback** geeignet, sofern er über wiederholte Tests stabil bleibt.
+
 **Wichtiger Unabhängigkeitsbefund:** Die Programm-Fingerprints der Sender `ZDF.de`, `DasErste.de`, `RTL.de`, `ProSieben.de`, `SAT1.de` und `VOX.de` aus dem `DE - ...`-Block sind bei **FreeEPG und IPTV-EPG.org identisch**. Das zeigt, dass diese Feeds für diese Sender **dieselben Programmpläne** ausliefern. Zwei Hosts sind deshalb **keine zwei unabhängigen Inhaltsquellen**. EPGSHARE01 hat abweichende Fingerprints und ist ein wichtiger separater Vergleichskandidat. Herkunft/Langzeitstabilität der zugrunde liegenden Grabber sind weiterhin ungeklärt.
 
-**Messkorrektur:** Der Probelauf hatte zunächst Kalenderdaten gezählt, die auch nur von einer einzigen Sendung berührt sein können. Das beweist **kein** fünf Tage vorausreichendes EPG. Das Skript misst deshalb inzwischen die **reale restliche Zukunftsreichweite in Stunden je Sender** und zeigt mögliche Sendernamen nur als prüfpflichtige Alias-Kandidaten. Ein neuer Report mit diesem korrigierten Messwert ist für die endgültige Bewertung maßgeblich.
+**Messkorrektur:** Der Probelauf hatte zunächst Kalenderdaten gezählt, die auch nur von einer einzigen Sendung berührt sein können. Das beweist **kein** fünf Tage vorausreichendes EPG. Das Skript misst deshalb inzwischen die **reale restliche Zukunftsreichweite in Stunden je Sender** und zeigt mögliche Sendernamen nur als prüfpflichtige Alias-Kandidaten. Der neue Originalreport #43082648593 enthält die korrigierten Stundenwerte; damit ist ein fünf Tage in die Zukunft reichender Horizont für den DE-Senderblock belegt, die Lückenfreiheit und dauerhafte Verfügbarkeit bleiben separat zu prüfen.
 
 **Betriebsstatus:** Kein Produktivadapter, keine TV-App-Anzeige, keine Streamingroute eingerichtet, keine Daten in Firebase publiziert. Keine belastbare Langzeitgarantie durch einen einzelnen Probelauf.
 
@@ -68,4 +83,4 @@ Ein Skript `scripts/probe-xmltv-feeds.mjs` und der **manuell auslösbare und fü
 5. Konkrete Senderziele im Dialog abstimmen, pro Android/Fire TV verifizieren. Erst dann Sender-AIR-Badges implementieren.
 6. Kontrollierter Integrationslauf, Diff gegen Waipu/Joyn, technische und Geräteabnahme, danach erst Nightly-/Firebase-Freigabe.
 
-**Status dieser PR:** nur G0-Instrumentierung. Keine bewiesene Live-Feed-Abdeckung und keine produktive Adapterfunktion.
+**Status dieser PR:** nur G0-Instrumentierung. Die aktuelle Feed-Erreichbarkeit und der >120-h-Horizont sind nachgewiesen; **noch keine** produktive Adapterfunktion, Kontinuitäts- oder Geräteabnahme.
