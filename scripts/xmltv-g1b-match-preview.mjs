@@ -106,7 +106,8 @@ export async function matchXmltvLocalCandidates(candidates, {
     }
     const event = projectConfirmedXmltvBroadcastEvent(candidate, {
       accepted: true, mediaType: type, tmdbId: match.match.tmdbId,
-      confidence: 1, reason: 'joyn-matcher-v' + match.matcherVersion + ':local-exact',
+      // An exact title match is not a measured probability of work identity.
+      confidence: null, reason: 'joyn-matcher-v' + match.matcherVersion + ':local-exact',
     })
     if (!event) {
       decisions.push(basicDiagnostic(candidate, 'projection_rejected'))
