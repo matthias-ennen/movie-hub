@@ -195,6 +195,8 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
   function stationFingerprint(c) {
     return createHash('sha256').update(c.signatureHashes.sort().join('\n')).digest('hex')
   }
+  const hoursAhead = (latest) => latest && latest > now
+    ? Math.round((latest - now) / 360_000) / 10 : 0
   const today = berlinDayKey(now)
   const checkChannels = {}
   for (const [name, aliases] of Object.entries(CHECK_CHANNELS)) {
@@ -216,6 +218,7 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
         id: c.id.slice(0, 100),
         names: c.names.slice(0, 3),
         futureProgrammes: c.future,
+        horizonHours: hoursAhead(c.latest),
         fingerprint: stationFingerprint(c),
       }))
     checkChannels[name] = {
@@ -224,10 +227,12 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
         id: c.id.slice(0, 100),
         names: c.names.slice(0, 3),
         futureProgrammes: c.future,
+        horizonHours: hoursAhead(c.latest),
         fingerprint: stationFingerprint(c),
       })),
       channelEntries: candidates.length,
       futureProgrammes: candidates.reduce((total, c) => total + c.future, 0),
+      horizonHours: Math.max(0, ...candidates.map((c) => hoursAhead(c.latest))),
       daysFromToday: contiguousDays(days, today),
       daysFromTomorrow: contiguousDays(days, offsetDayKey(today, 1)),
       lastProgrammeEnd: candidates.reduce((last, c) =>
@@ -322,14 +327,14 @@ export async function runXmltvSourceProbe({
 
 function markdownSummary(report) {
   const rows = ['## XMLTV G0 – read-only source comparison', '',
-    '| Source | Status | Channels with EPG | Future programmes | ZDF days (today / tomorrow) |',
-    '|---|---|---:|---:|---|']
+    '| Source | Status | Channels with EPG | Future programmes | ZDF horizon (hours) |',
+    '|---|---|---:|---:|---:|']
   for (const item of report.sources) {
     const zdf = item.keyChannels?.ZDF
     rows.push('| ' + item.source + ' | ' + item.status +
       ' | ' + (item.channelsWithProgrammes ?? '—') +
       ' | ' + (item.futureProgrammes ?? '—') +
-      ' | ' + (zdf ? zdf.daysFromToday + ' / ' + zdf.daysFromTomorrow : '—') + ' |')
+      ' | ' + (zdf ? zdf.horizonHours : '—') + ' |')
   }
   rows.push('', 'No data was published to MovieHub. Feed presence does not establish rights, reliability over time or playable links.')
   return rows.join('\n') + '\n'
