@@ -29,6 +29,8 @@ Die positive Titelentscheidung ergibt hier zunächst einen **G1b-Vorschau-Broadc
 
 `src/sources/mergeTvAirings.js` bleibt der **einzige** kanonische Airing-Merge. Für gleiche stationId, TMDB-Identität und überlappende Sendezeit werden gleichwertige Ausstrahlungen zusammengeführt. Die Quellen-Einträge `sourceRefs` werden nun zusätzlich gesammelt (ohne vorhandene Anbieter/PlaybackRoutes zu verlieren).
 
+Ein generierter `SourceEnvelope` verlangt zusätzlich einen **unabhängig aus dem EPG-Quellenzustand gemessenen `sourceStatus`**. Die Zahl der sicher zugeordneten TMDB-Titel beweist weder `healthy` noch `degraded`; bei null Zuordnungen kann die Quelle trotzdem vollständig gesund sein.
+
 Die XMLTV-Projektion setzt absichtlich `providerIds: []` und `playbackRoutes: []`; **XMLTV als Quellhost ist kein Live-TV-Anbieter**. Senderbezogene `AIR`-Aktionen und feste `scope=channel`-Links werden erst eingerichtet, wenn der Nutzer diese Senderziele gemeinsam festgelegt und auf Android/Fire TV getestet hat. Mediathek-Provider aus TMDB bleiben unabhängig (ZDF FREE / ZDF AIR können gleichzeitig existieren).
 
 ## 4. G1b-Abnahme und verbleibende Arbeit
