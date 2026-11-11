@@ -1,0 +1,39 @@
+name: XMLTV G0 feed source probe (read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Compare German XMLTV feeds without publishing
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Validate offline XMLTV parser and report model
+        run: npx vitest run tests/xmltv-source-probe.test.js
+
+      - name: Probe only approved XMLTV German feeds
+        run: node scripts/probe-xmltv-feeds.mjs
+
+      - name: Save source comparison report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: xmltv-source-probe-${{ github.run_id }}
+          path: artifacts/xmltv-source-probe/report.json
+          if-no-files-found: warn
+          retention-days: 7
