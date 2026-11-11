@@ -1,0 +1,40 @@
+name: XMLTV G1c real-feed quality sample (read-only)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/xmltv-g1c-quality-probe.mjs
+      - tests/xmltv-g1c-quality.test.js
+      - src/sources/xmltv/xmltvCandidates.js
+      - .github/workflows/xmltv-g1c-quality.yml
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/336-xmltv-g1c-quality-probe' }}
+    name: Check real German XMLTV data and existing local TMDB titles
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install without executing setup hooks
+        run: npm ci --ignore-scripts
+      - name: Offline G1a/G1b/G1c guardrail tests
+        run: npx vitest run tests/xmltv-candidates.test.js tests/xmltv-g1b-match-merge.test.js tests/xmltv-g1c-quality.test.js
+      - name: One bounded comparison of three approved feeds
+        run: node scripts/xmltv-g1c-quality-probe.mjs
+      - name: Save aggregate nonpublishing quality report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: xmltv-g1c-quality-${{ github.run_id }}
+          path: artifacts/xmltv-g1c-quality/report.json
+          if-no-files-found: warn
+          retention-days: 7
