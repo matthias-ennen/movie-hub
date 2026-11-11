@@ -1,5 +1,16 @@
 # Movie Hub – Roadmap
 
+## Aktueller operativer Stand 11.11.2026 – XMLTV #336 nach G1b
+
+**Verbindlich und neuer als alle folgenden historischen Abschnitte:** Die XMLTV-Quellenprobe [G0 #758](https://github.com/matthias-ennen/movie-hub/pull/758), der sichere Rohparser [G1a #759](https://github.com/matthias-ennen/movie-hub/pull/759) und die quellgebundene Sender-/TMDB-/Merge-Vorschau [G1b #760](https://github.com/matthias-ennen/movie-hub/pull/760) sind **nach vollständiger grüner CI und Android-Build in `main` übernommen**. Letzter G1b-Merge: `990140dcf303a0e1bdc6b7bc9c5a129cf7f0716a`.
+
+**Technischer Nachweis:** In echter G0-Quelle war das rollierende 120-Stunden-Programmfenster für Das Erste, ZDF, RTL, ProSieben, SAT.1 und VOX lückenlos. IPTV-EPG.org/FreeEPG liefern für diese sechs den **gleichen Datenblock** (keine zwei unabhängigen Inhaltsquellen). EPGSHARE01 liefert abweichende, aber derzeit nur rund 3,2 Tage umfassende EPG-Daten. G1b übernimmt **nur die sechs nach Originalfeed verifizierten Sender-IDs** in den existierenden Waipu-/Joyn-Stationskatalog, normalisiert sichere Kandidaten über den bestehenden Joyn/TMDB-Matcher und erhält beim neutralen Merge alle echten `sourceRefs` und Anbieter-PlaybackRoutes.
+
+**Nächste freigegebene technische Etappe: G1c Originaltitel-/Matcher-Qualitätsprobe**, erst danach eventuelle G2-Produktionsintegration. EPG-Quelle, einzelner Sender und Wiedergabeangebot bleiben unabhängig; die **senderbezogenen AIR-Badges und festen Live-Links** werden später gemeinsam und gerätegetestet festgelegt. **Kein** XMLTV-Produktivimport, kein Nightly-/Firebase-/App-Umbau, kein neuer Streaminglink durch G0–G1b. [Detailliertes Arbeitspaket #336](https://github.com/matthias-ennen/movie-hub/issues/336), [G1b-Übergabe](_work/XMLTV_336_G1b.md). Frühere Plantexte unten zur Historie behalten, aber **nicht als aktuelle To-dos interpretieren**.
+
+---
+
+
 ## Verbindliche Präzisierung vom 11.11.2026 – XMLTV-Multi-Source-EPG #336
 
 **Diese Entscheidung ersetzt für #336 die bislang als nächster Schritt geplante exklusive DVB-I-Zugangsprüfung vom 08.11.2026.** Der Nutzer hat die technische Ausrichtung als **quellunabhängigen Multi-Source-XMLTV-Adapter** vollständig freigegeben. **5 Tage** Vorschau je relevantem Sender reichen, **7 Tage** sind bevorzugt, **14 Tage** ein Bonus. Zunächst 3 freie deutsche XMLTV-Feeds **nur lesen und messen**; mehrere unabhängige Quellen mit fehlertoleranter Aggregation/Cache vorsehen. KodiNerds-/Grabber-Ansätze sind mögliche Ergänzungen, keine ungeprüfte Produktionsabhängigkeit.
