@@ -63,26 +63,9 @@ function contiguousDays(days, firstDay, maxDays = 16) {
   return count
 }
 
-/**
- * XMLTV basic time: YYYYMMDDHHMMSS +0100 (offset and seconds optional).
- * Missing offsets are interpreted as UTC and explicitly counted as uncertain
- * by the caller. Do not silently interpret them in the runner's timezone.
- */
-export function parseXmltvTimestamp(raw) {
-  const match = clean(raw).match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})?\s*(?:([+-])(\d{2})(\d{2})|Z)?$/)
-  if (!match) return null
-  const [, year, month, day, hour, minute, second = '00', sign, tzHour = '00', tzMinute = '00'] = match
-  const fields = [year, month, day, hour, minute, second].map(Number)
-  const [y, mo, d, h, mi, s] = fields
-  if (+tzHour > 23 || +tzMinute > 59 || y < 1970 || y > 2100) return null
-  const utc = Date.UTC(y, mo - 1, d, h, mi, s)
-  const probe = new Date(utc)
-  if (probe.getUTCFullYear() !== y || probe.getUTCMonth() !== mo - 1 ||
-      probe.getUTCDate() !== d || probe.getUTCHours() !== h ||
-      probe.getUTCMinutes() !== mi || probe.getUTCSeconds() !== s) return null
-  const offsetMinutes = sign ? (sign === '+' ? 1 : -1) * (+tzHour * 60 + +tzMinute) : 0
-  return utc - offsetMinutes * 60_000
-}
+import { parseXmltvTimestamp } from '../src/sources/xmltv/xmltvTime.js'
+export { parseXmltvTimestamp }
+
 
 /**
  * Extract only aggregated, safe diagnostics. No XML DOM, full programme titles,
