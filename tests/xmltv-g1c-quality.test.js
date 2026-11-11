@@ -26,7 +26,7 @@ const xml = [
 ].join('')
 
 const rows = [
-  { tmdbId: 101, type: 'movie', title: 'Testfilm', originalTitle: 'Test Film', year: 2022 },
+  { tmdbId: 101, type: 'movie', title: 'Testfilm', originalTitle: 'Test Film', year: 2020 },
   { tmdbId: 202, type: 'series', title: 'Testserie', year: 2012 },
 ]
 
@@ -119,6 +119,17 @@ describe('G1c real source quality audit (offline fixtures)', () => {
     expect(inferXmltvMediaType({ categories: ['Krimiserie'] })).toBe('series')
     expect(inferXmltvMediaType({ categories: ['Krimi', 'Action'] })).toBeNull()
     expect(inferXmltvMediaType({ categories: ['Fernsehfilm', 'Sitcom'] })).toBeNull()
+  })
+
+  it('rejects a movie with an exact title but a contradictory TMDB release year', async () => {
+    const localIndex = buildLocalTitleIndex([
+      { tmdbId: 33, type: 'movie', title: 'Testfilm', year: 1981 },
+    ])
+    const measured = await measureXmltvG1c(xml, {
+      sourceId: 'iptv-epg-org', now: NOW, localIndex,
+    })
+    expect(measured.report.localReferenceMatches).toBe(0)
+    expect(measured.report.localReferenceDecisionCounts.production_year_conflict).toBe(1)
   })
 
   it('enforces a sampling budget', async () => {
