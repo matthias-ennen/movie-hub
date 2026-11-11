@@ -4,6 +4,25 @@ Status: 11.11.2026 – zunächst read-only Quellendiagnose, keine Produktivinteg
 
 ## Echte Live-Messung – 11.11.2026
 
+### 120-Stunden-Lückenprüfung – technisches G0-Mindestziel erreicht
+
+**Echter erfolgreicher G0-Run:** [#43083401056](https://github.com/matthias-ennen/movie-hub/actions/runs/43083401056), 11.11.2026 gegen 20:03 CET. Der XMLTV-Probeparser führt alle Programm-Start-/End-Intervalle je Sender zusammen, zählt die tatsächlich abgedeckten Minuten im **rollierenden nächsten 120-Stunden-Fenster** und ermittelt die längste unbelegte Zeitlücke.
+
+| Sender | IPTV-EPG.org / identischer FreeEPG-DE-Block | EPGSHARE01 |
+|---|---:|---:|
+| Das Erste | **100 %**, 0 h Lücke | 64,3 %, letzte Daten ~77 h voraus |
+| ZDF | **100 %**, 0 h Lücke | 64,3 %, letzte Daten ~77 h voraus |
+| RTL | **100 %**, 0 h Lücke | 64,2 %, letzte Daten ~77 h voraus |
+| ProSieben | **100 %**, 0 h Lücke | 66,8 %, letzte Daten ~80 h voraus |
+| Sat.1 | **100 %**, 0 h Lücke | 65,2 %, letzte Daten ~78 h voraus |
+| VOX | **100 %**, 0 h Lücke | 64,5 %, letzte Daten ~77 h voraus |
+
+**G0-Datenresultat: Das technische Mindestziel „fünf Tage EPG“ ist für diese sechs Sender im Live-Snapshot sowohl als Zukunftshorizont als auch hinsichtlich lückenloser Belegung der Programmzeiten nachgewiesen.** Der zugehörige `DE - ...`-Datensatz ist über zwei Domains erreichbar, trägt aber **identische Inhalts-Fingerprints** und ist deshalb als **eine EPG-Inhaltsquelle mit zwei Auslieferungsorten** zu bewerten. Für einen inhaltlich anderen Fallback liefert EPGSHARE01 momentan nur rund 3,2–3,3 Tage.
+
+**Noch offen für einen Produktions-Go:** Weiterer Live-Test an unterschiedlichen Tagen, Aktualisierungs-/Ausfallverhalten, verifizierter fachlicher Inhalt (richtige Titel/Staffeln/Folgen), vollständiger Senderstamm inkl. regionaler Sender, stabiler quellspezifischer ID-Abgleich, Quellnutzungsbedingungen und Qualitätsgates. Keine automatisch erzeugten Sender-/Playback-Links; keine Daten in App oder Firebase veröffentlicht.
+
+
+
 Der isolierte G0-Workflow wurde tatsächlich erfolgreich ausgeführt, ohne eine Produktionsveröffentlichung: [Originalrun 43082266491](https://github.com/matthias-ennen/movie-hub/actions/runs/43082266491) (JSON-Artefakt mit den originalen Zählern und anonymen Programm-Fingerprints).
 
 | Feed | Kanäle mit EPG | Zukunftsausstrahlungen (Stand 19:50 CET, gerundet) | Episodennummern | Besondere Beobachtung |
