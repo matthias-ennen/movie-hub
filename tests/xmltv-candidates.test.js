@@ -117,7 +117,7 @@ describe('XMLTV G1 candidate staging', () => {
     expect(parseXmltvEpisodeNumber('0.9/12.', 'xmltv_ns')).toEqual({
       seasonNumber: 1, episodeNumber: 10,
     })
-    expect(parseXmltvEpisodeNumber('S01E10', 'onscreen')).toBeNull()
+    expect(parseXmltvEpisodeNumber('S01E10', 'onscreen')).toEqual({ seasonNumber: 1, episodeNumber: 10 })
     expect(parseXmltvEpisodeNumber('0.9.', 'onscreen')).toBeNull()
     const doc = '<tv><programme channel="ZDF.de" start="20261111200000" stop="20261111210000">' +
       '<title>Uncertain Zone</title></programme></tv>'
