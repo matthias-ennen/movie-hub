@@ -80,6 +80,19 @@ describe('XMLTV source probe (offline, without external requests)', () => {
     expect(result.sources[0].error).toContain('503')
   })
 
+  it('recognizes DE - ZDF without accidentally merging DE - ZDFneo', () => {
+    const doc = '<tv>' +
+      '<channel id="ZDF.de"><display-name>DE - ZDF</display-name></channel>' +
+      '<channel id="ZDFneo.de"><display-name>DE - ZDFneo</display-name></channel>' +
+      '<programme channel="ZDF.de" start="20261112190000 +0100" stop="20261112200000 +0100"><title>A</title></programme>' +
+      '<programme channel="ZDFneo.de" start="20261112190000 +0100" stop="20261112200000 +0100"><title>B</title></programme>' +
+      '</tv>'
+    const report = analyzeXmltvDocument(doc, { now: TODAY })
+    expect(report.keyChannels.ZDF.channelEntries).toBe(1)
+    expect(report.keyChannels.ZDF.matchedVariants[0].id).toBe('ZDF.de')
+    expect(report.keyChannels.ZDF.futureProgrammes).toBe(1)
+  })
+
   it('compares station programme fingerprints regardless of XML ordering', () => {
     const channel = '<channel id="ZDF.de"><display-name>ZDF</display-name></channel>'
     const first = '<programme channel="ZDF.de" start="20261112190000 +0100" stop="20261112200000 +0100"><title>A</title></programme>'
