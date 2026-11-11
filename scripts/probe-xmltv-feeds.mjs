@@ -14,8 +14,8 @@ export const FEEDS = Object.freeze([
   { id: 'iptv-epg-org', url: 'https://iptv-epg.org/files/epg-de.xml.gz' },
 ])
 
-const MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024
-const MAX_XML_BYTES = 160 * 1024 * 1024
+const MAX_DOWNLOAD_BYTES = 60 * 1024 * 1024
+const MAX_XML_BYTES = 300 * 1024 * 1024
 const FETCH_TIMEOUT_MS = 40_000
 const DAY_MS = 24 * 60 * 60 * 1000
 const BERLIN_DAY = new Intl.DateTimeFormat('en-GB', {
@@ -193,7 +193,22 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
       aliases.includes(normalizedChannel(c.id))
     ))
     const days = new Set(candidates.flatMap((c) => [...c.days]))
+    // Diagnostic only: show possible naming variants without treating them
+    // as safe, canonical station mappings or adding them to the count.
+    const possibleMatches = [...channels.values()]
+      .filter((c) => !candidates.includes(c))
+      .filter((c) => [...c.names, c.id].some((entry) => {
+        const normalized = normalizedChannel(entry)
+        return aliases.some((alias) => normalized.includes(alias))
+      }))
+      .slice(0, 8)
+      .map((c) => ({
+        id: c.id.slice(0, 100),
+        names: c.names.slice(0, 3),
+        futureProgrammes: c.future,
+      }))
     checkChannels[name] = {
+      possibleMatches,
       channelEntries: candidates.length,
       futureProgrammes: candidates.reduce((total, c) => total + c.future, 0),
       daysFromToday: contiguousDays(days, today),
