@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseXmltvCandidates } from '../src/sources/xmltv/xmltvCandidates.js'
+import { parseXmltvCandidates, parseXmltvEpisodeNumber } from '../src/sources/xmltv/xmltvCandidates.js'
 import { inferXmltvMediaType, reviewedXmltvCategoryType } from '../scripts/xmltv-g1b-match-preview.mjs'
 import { XMLTV_REVIEWED_STATION_MAPPINGS } from '../src/sources/xmltv/xmltvStationMappings.js'
 import {
@@ -139,6 +139,20 @@ describe('G1c real source quality audit (offline fixtures)', () => {
     expect(xmltvEpisodeLabelFormat('Folge 5')).toBe('episode-word-number')
     expect(xmltvEpisodeLabelFormat('7/12')).toBe('number-or-fraction')
     expect(xmltvEpisodeLabelFormat('Abenteuer in zwei Teilen')).toBe('other')
+  })
+
+  it('accepts only explicit SxxEyy season/episode syntax without an XMLTV system', () => {
+    expect(parseXmltvEpisodeNumber('S01E05', null)).toEqual({ seasonNumber: 1, episodeNumber: 5 })
+    expect(parseXmltvEpisodeNumber('s2e101', 'onscreen'))
+      .toEqual({ seasonNumber: 2, episodeNumber: 101 })
+    expect(parseXmltvEpisodeNumber('S0E05', null)).toBeNull()
+    expect(parseXmltvEpisodeNumber('S01E00', 'onscreen')).toBeNull()
+    expect(parseXmltvEpisodeNumber('S01E05', 'thetvdb')).toBeNull()
+    expect(parseXmltvEpisodeNumber('Folge 5', 'onscreen')).toBeNull()
+    expect(parseXmltvEpisodeNumber('2/10', null)).toBeNull()
+    expect(parseXmltvEpisodeNumber('0.4.', 'xmltv_ns'))
+      .toEqual({ seasonNumber: 1, episodeNumber: 5 })
+    expect(parseXmltvEpisodeNumber('S01E05', 'xmltv_ns')).toBeNull()
   })
 
   it('enforces a sampling budget', async () => {
