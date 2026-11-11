@@ -19,8 +19,8 @@ const MAX_PROBE_CANDIDATES = 2_000
  * and "Animation" deliberately remain unclassified. */
 export function reviewedXmltvCategoryType(value) {
   const category = text(value).toLocaleLowerCase('de').trim()
-  if (FILM_CATEGORIES.has(category) || /^[\\p{L} -]*film$/u.test(category)) return 'movie'
-  if (SERIES_CATEGORIES.has(category) || /^[\\p{L} -]*serien?$/u.test(category)) return 'series'
+  if (FILM_CATEGORIES.has(category) || /^[\p{L} -]*film$/u.test(category)) return 'movie'
+  if (SERIES_CATEGORIES.has(category) || /^[\p{L} -]*serien?$/u.test(category)) return 'series'
   return null
 }
 
