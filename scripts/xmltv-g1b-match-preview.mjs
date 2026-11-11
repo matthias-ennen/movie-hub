@@ -12,15 +12,24 @@ import { mergeTvAirings } from '../src/sources/mergeTvAirings.js'
 
 const text = (value) => String(value ?? '').trim()
 const FILM_CATEGORIES = new Set(['film', 'spielfilm', 'fernsehfilm', 'movie', 'feature film', 'kinofilm'])
-const SERIES_CATEGORIES = new Set(['serie', 'serien', 'series', 'tv-serie', 'fernsehserie', 'tv series'])
+const SERIES_CATEGORIES = new Set(['serie', 'serien', 'series', 'tv-serie', 'fernsehserie', 'tv series', 'sitcom', 'telenovela'])
 const MAX_PROBE_CANDIDATES = 2_000
+
+/** Reviewed explicit type labels; generic genres such as "Krimi", "Drama"
+ * and "Animation" deliberately remain unclassified. */
+export function reviewedXmltvCategoryType(value) {
+  const category = text(value).toLocaleLowerCase('de').trim()
+  if (FILM_CATEGORIES.has(category) || /^[\\p{L} -]*film$/u.test(category)) return 'movie'
+  if (SERIES_CATEGORIES.has(category) || /^[\\p{L} -]*serien?$/u.test(category)) return 'series'
+  return null
+}
 
 export function inferXmltvMediaType(candidate) {
   const categories = new Set((Array.isArray(candidate?.categories) ? candidate.categories : [])
     .map((value) => text(value).toLocaleLowerCase('de')))
-  const movie = [...categories].some((category) => FILM_CATEGORIES.has(category))
+  const movie = [...categories].some((category) => reviewedXmltvCategoryType(category) === 'movie')
   const series = Boolean(candidate?.episode) ||
-    [...categories].some((category) => SERIES_CATEGORIES.has(category))
+    [...categories].some((category) => reviewedXmltvCategoryType(category) === 'series')
   if (movie && series) return null
   if (movie) return 'movie'
   if (series) return 'series'
