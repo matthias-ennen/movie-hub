@@ -43,6 +43,7 @@ describe('XMLTV source probe (offline, without external requests)', () => {
     expect(report.programmesWithEpisodeNumber).toBe(1)
     expect(report.programmesWithSubtitle).toBe(1)
     expect(report.keyChannels.ZDF.channelEntries).toBe(1)
+    expect(report.keyChannels.ZDF.horizonHours).toBe(32.3)
     expect(report.keyChannels.ZDF.daysFromToday).toBe(2)
     expect(report.keyChannels.ZDF.daysFromTomorrow).toBe(1)
     expect(report.keyChannels.RTL.daysFromToday).toBe(0)
