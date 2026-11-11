@@ -4,6 +4,7 @@
  * Intended for a manually started GitHub Actions workflow.
  */
 import { mkdir, writeFile, appendFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { resolve, dirname } from 'node:path'
 import { gunzipSync } from 'node:zlib'
 import { SaxesParser } from 'saxes'
@@ -109,7 +110,7 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
     if (!channels.has(key)) {
       channels.set(key, {
         id: key, names: [], total: 0, future: 0,
-        days: new Set(), latest: null,
+        days: new Set(), latest: null, signatureHashes: [],
       })
     }
     return channels.get(key)
@@ -128,11 +129,11 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
         station: clean(tag.attributes.channel),
         start: clean(tag.attributes.start),
         stop: clean(tag.attributes.stop),
-        desc: false, episode: false, subtitle: false,
+        desc: false, episode: false, subtitle: false, title: '',
       }
     }
     if ((channel && name === 'display-name') ||
-        (programme && ['desc', 'sub-title', 'episode-num'].includes(name))) {
+        (programme && ['title', 'desc', 'sub-title', 'episode-num'].includes(name))) {
       activeField = name
       valueText = ''
     }
@@ -150,6 +151,7 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
       if (name === 'display-name' && value && channel && channel.names.length < 12 &&
           !channel.names.includes(value)) channel.names.push(value)
       if (programme && value) {
+        if (name === 'title') programme.title = value
         if (name === 'desc') programme.desc = true
         if (name === 'sub-title') programme.subtitle = true
         if (name === 'episode-num') programme.episode = true
@@ -171,6 +173,11 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
     }
     if (!/[+-]\d{4}|Z$/.test(programme.start)) withoutUtcOffset += 1
     station.total += 1
+    // A sorted station-specific fingerprint enables cross-feed overlap analysis
+    // without publishing raw show titles or individual programme entries.
+    station.signatureHashes.push(createHash('sha256')
+      .update(begin + '|' + end + '|' + programme.title.toLowerCase().trim())
+      .digest('hex'))
     if (programme.desc) withDescription += 1
     if (programme.episode) withEpisodeNum += 1
     if (programme.subtitle) withSubtitle += 1
@@ -185,6 +192,9 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
   parser.write(xml).close()
   if (!root) throw new Error('Not an XMLTV <tv> root document')
 
+  function stationFingerprint(c) {
+    return createHash('sha256').update(c.signatureHashes.sort().join('\n')).digest('hex')
+  }
   const today = berlinDayKey(now)
   const checkChannels = {}
   for (const [name, aliases] of Object.entries(CHECK_CHANNELS)) {
@@ -206,9 +216,16 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
         id: c.id.slice(0, 100),
         names: c.names.slice(0, 3),
         futureProgrammes: c.future,
+        fingerprint: stationFingerprint(c),
       }))
     checkChannels[name] = {
       possibleMatches,
+      matchedVariants: candidates.map((c) => ({
+        id: c.id.slice(0, 100),
+        names: c.names.slice(0, 3),
+        futureProgrammes: c.future,
+        fingerprint: stationFingerprint(c),
+      })),
       channelEntries: candidates.length,
       futureProgrammes: candidates.reduce((total, c) => total + c.future, 0),
       daysFromToday: contiguousDays(days, today),
