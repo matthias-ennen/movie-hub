@@ -1,0 +1,52 @@
+name: Shared EPG G1e – historical A/B prerequisites (read-only)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/epg-g1e-real-ab-readiness.mjs
+      - tests/epg-g1e-real-ab-readiness.test.js
+      - .github/workflows/shared-epg-g1e-ab-readiness.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  readiness:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/336-g1e-real-ab-readiness-gate' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    name: Verify real archived source evidence and identify missing original match inputs
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install locked dependencies without lifecycle hooks
+        run: npm ci --ignore-scripts
+      - name: Prove published airings are not matcher approvals
+        run: npx vitest run tests/epg-g1e-real-ab-readiness.test.js tests/shared-epg-evidence-preview.test.js tests/shared-epg-identity-index.test.js
+      - name: Download exact last successful fully populated Waipu/Joyn Nightly artifact
+        run: |
+          mkdir -p artifacts/g1e-readiness-source
+          gh run download 43150253272 --repo "$GH_REPO" --name source-adapter-artifacts-43150253272-1 --dir artifacts/g1e-readiness-source
+          test -s artifacts/g1e-readiness-source/artifacts/source-adapters/waipu-v1.json
+          test -s artifacts/g1e-readiness-source/artifacts/source-adapters/joyn-v1-diagnostic.json
+      - name: Inspect actual source-generations without exposing programme titles or IDs
+        run: |
+          node --max-old-space-size=4096 scripts/epg-g1e-real-ab-readiness.mjs \
+            --root artifacts/g1e-readiness-source \
+            --output artifacts/g1e-real-ab-readiness/aggregate.json
+      - name: Upload aggregate-only readiness audit
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: g1e-real-ab-readiness-${{ github.run_id }}
+          path: artifacts/g1e-real-ab-readiness/aggregate.json
+          if-no-files-found: warn
+          retention-days: 7
