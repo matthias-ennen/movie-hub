@@ -106,6 +106,60 @@ describe('G1e opt-in post-generation Waipu evidence capture', () => {
     expect(oversized.status).toBe('unavailable')
   })
 
+  it('rejects conflicting duplicate Waipu source rows instead of choosing the last raw title', async () => {
+    const result = await buildWaipuLiveCatalog(fixture())
+    const first = {
+      programId: 'program-1', stationId: 'zdf',
+      startTime: START, stopTime: END,
+      title: 'The Man from Toronto', episodeTitle: null,
+      seasonNumber: null, episodeNumber: null,
+    }
+    const second = { ...first, title: 'Private conflicting original title' }
+    // A third row equal to the first must not clear the ambiguity.
+    const report = collectApprovedWaipuEvidence({
+      adapterEnvelope: result.adapterEnvelope,
+      sourceBroadcasts: [first, second, first],
+      matchesByProgram: new Map([['program-1', {
+        input: { title: first.title, type: 'movie' },
+        decision: { status: 'matched' },
+      }]]),
+    })
+    expect(report).toMatchObject({
+      status: 'complete',
+      counts: { examined: 1, accepted: 0, rejected: 1 },
+      rejectedReasons: { ambiguous_original_grid_duplicate: 1 },
+      approvedEvidence: [],
+    })
+    expect(JSON.stringify(report)).not.toContain('Private conflicting original title')
+  })
+
+  it('rejects conflicting episode metadata but permits harmless identical source duplicates', async () => {
+    const result = await buildWaipuLiveCatalog(fixture())
+    const source = {
+      programId: 'program-1', stationId: 'zdf',
+      startTime: START, stopTime: END,
+      title: 'The Man from Toronto', seasonNumber: 1,
+      episodeNumber: 2,
+    }
+    const conflicts = collectApprovedWaipuEvidence({
+      adapterEnvelope: result.adapterEnvelope,
+      sourceBroadcasts: [source, { ...source, episodeNumber: 3 }],
+      matchesByProgram: new Map(),
+    })
+    expect(conflicts.rejectedReasons).toEqual({
+      ambiguous_original_grid_duplicate: 1,
+    })
+    const identical = collectApprovedWaipuEvidence({
+      adapterEnvelope: result.adapterEnvelope,
+      sourceBroadcasts: [source, { ...source }],
+      matchesByProgram: new Map(),
+    })
+    expect(identical.counts).toEqual({ examined: 1, accepted: 0, rejected: 1 })
+    expect(identical.rejectedReasons).toEqual({
+      missing_original_grid_and_match: 1,
+    })
+  })
+
   it('does not synthesize the original EPG title if grid and sourceRef do not match', async () => {
     const result = await buildWaipuLiveCatalog(fixture())
     const report = collectApprovedWaipuEvidence({
