@@ -114,6 +114,11 @@ describe('G1e-2d explicitly isolated, real-matcher TMDB HTTP transport A/B', () 
         identicalStartingCacheFingerprint: true,
         originalMatcherIdentityPreserved: true,
         safeToConsiderFurtherPilot: true,
+        nonEmptyReplay: true,
+        verifiedPositiveEvidenceRecords: 1,
+        observedTrustedReuse: true,
+        transportRequestsNonIncreasing: true,
+        measuredReplayHttpReduction: true,
         measuredProductionSavings: null,
       },
     })
@@ -146,6 +151,12 @@ describe('G1e-2d explicitly isolated, real-matcher TMDB HTTP transport A/B', () 
       measuredReplayHttpRequestDifference: 0,
     })
     expect(factory.fetchImpl).not.toHaveBeenCalled()
+    expect(report.gate).toMatchObject({
+      observedTrustedReuse: true,
+      measuredReplayHttpReduction: false,
+      safeToConsiderFurtherPilot: true,
+      measuredProductionSavings: null,
+    })
   })
 
   it('falls back to original matcher on absent or failed shared index', async () => {
@@ -183,6 +194,80 @@ describe('G1e-2d explicitly isolated, real-matcher TMDB HTTP transport A/B', () 
       originalMatcherIdentityPreserved: false,
       safeToConsiderFurtherPilot: false,
       measuredProductionSavings: null,
+    })
+  })
+
+  it('never admits an empty replay or a replay without verified positive evidence', async () => {
+    const factory = sessionFactory()
+    const empty = await compareOptionalSharedEpgIndexAb({
+      inputs: [], createSession: factory.createSession,
+      approvedEvidence: approved, now: NOW,
+    })
+    expect(empty.gate).toMatchObject({
+      nonEmptyReplay: false, observedTrustedReuse: false,
+      safeToConsiderFurtherPilot: false, measuredProductionSavings: null,
+    })
+    const none = await compareOptionalSharedEpgIndexAb({
+      inputs: [first], createSession: sessionFactory().createSession,
+      approvedEvidence: [], now: NOW,
+    })
+    expect(none.gate).toMatchObject({
+      nonEmptyReplay: true, verifiedPositiveEvidenceRecords: 0,
+      observedTrustedReuse: false, safeToConsiderFurtherPilot: false,
+    })
+    const invalid = await compareOptionalSharedEpgIndexAb({
+      inputs: [first], createSession: sessionFactory().createSession,
+      approvedEvidence: [{ ...approved[0], matchStatus: 'unmatched' }], now: NOW,
+    })
+    expect(invalid.gate.verifiedPositiveEvidenceRecords).toBe(0)
+    expect(invalid.gate.safeToConsiderFurtherPilot).toBe(false)
+  })
+
+  it('does not admit hand-written index hits, even when their TMDB IDs happen to agree', async () => {
+    const report = await compareOptionalSharedEpgIndexAb({
+      inputs: [first], createSession: sessionFactory().createSession,
+      approvedEvidence: approved, now: NOW,
+      sharedIndex: {
+        lookup: () => ({
+          status: 'hit', scope: 'mock', identity: { type: 'movie', tmdbId: 329865 },
+          sourceIds: ['untrusted'],
+        }),
+      },
+    })
+    expect(report.counts.indexReuses).toBe(1)
+    expect(report.counts.identityMismatches).toBe(0)
+    expect(report.gate).toMatchObject({
+      verifiedPositiveEvidenceRecords: 0, observedTrustedReuse: false,
+      safeToConsiderFurtherPilot: false, measuredProductionSavings: null,
+    })
+  })
+
+  it('rejects an indexed replay that starts extra TMDB transports despite identical identities', async () => {
+    const factory = sessionFactory()
+    const report = await compareOptionalSharedEpgIndexAb({
+      inputs: [first, second], approvedEvidence: approved, now: NOW,
+      createSession: mode => {
+        const session = factory.createSession(mode)
+        if (mode === 'indexed') {
+          const original = session.matchIndependently
+          session.matchIndependently = async input => {
+            await session.client.search({ type: 'movie', title: 'unrelated QA search A' })
+            await session.client.search({ type: 'movie', title: 'unrelated QA search B' })
+            return original(input)
+          }
+        }
+        return session
+      },
+    })
+    expect(report.counts).toMatchObject({
+      indexReuses: 1, identityMismatches: 0,
+      baselineTmdbHttpRequests: 2, indexedTmdbHttpRequests: 3,
+      measuredReplayHttpRequestDifference: -1,
+    })
+    expect(report.gate).toMatchObject({
+      originalMatcherIdentityPreserved: true, observedTrustedReuse: true,
+      transportRequestsNonIncreasing: false, measuredReplayHttpReduction: false,
+      safeToConsiderFurtherPilot: false, measuredProductionSavings: null,
     })
   })
 

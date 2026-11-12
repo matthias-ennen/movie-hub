@@ -142,6 +142,10 @@ export async function compareOptionalSharedEpgIndexAb({
     now, maxEntries: Math.max(1, approvedEvidence.length),
     records: approvedEvidence,
   })
+  // Caller-provided index stubs are useful for fallback and failure tests,
+  // but are NOT evidence that a real approved cross-adapter index exists.
+  const verifiedPositiveEvidenceRecords = sharedIndex === null &&
+    index instanceof SharedEpgIdentityIndex ? index.records.length : 0
   const originalDecisions = []
   let baselineMatched = 0
   for (const input of inputs) {
@@ -183,6 +187,12 @@ export async function compareOptionalSharedEpgIndexAb({
   const baselineHttpRequests = baselineAfter - beforeBaseline
   const indexedHttpRequests = indexedAfter - beforeIndexed
   const admissibleComparison = identityMismatches === 0
+  const transportRequestsNonIncreasing = indexedHttpRequests <= baselineHttpRequests
+  const observedTrustedReuse = verifiedPositiveEvidenceRecords > 0 && reused > 0
+  // A zero-case comparison or a hand-written test index can be internally
+  // consistent but must never be used as authorization for a real pilot.
+  const safeToConsiderFurtherPilot = inputs.length > 0 && observedTrustedReuse &&
+    admissibleComparison && transportRequestsNonIncreasing
   return {
     kind: 'g1e-shared-epg-isolated-ab',
     mode: 'explicit-test-only',
@@ -203,9 +213,14 @@ export async function compareOptionalSharedEpgIndexAb({
       identicalStartingCacheFingerprint: true,
       verifiedFromCanonicalCacheSnapshots: true,
       originalMatcherIdentityPreserved: admissibleComparison,
-      safeToConsiderFurtherPilot: admissibleComparison,
+      nonEmptyReplay: inputs.length > 0,
+      verifiedPositiveEvidenceRecords,
+      observedTrustedReuse,
+      transportRequestsNonIncreasing,
+      measuredReplayHttpReduction: baselineHttpRequests > indexedHttpRequests,
+      safeToConsiderFurtherPilot,
       measuredProductionSavings: null,
     },
-    limitations: 'Isolated replay only; transport may be stubbed. Real-source end-to-end TMDB savings still unverified.',
+    limitations: 'Isolated replay only; transport may be stubbed. Passing the admission gates is NOT a proof of production savings. Real-source end-to-end TMDB savings still unverified.',
   }
 }
