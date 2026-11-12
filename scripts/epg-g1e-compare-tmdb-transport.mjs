@@ -19,6 +19,9 @@ import {
 } from '../src/sources/sharedEpgIdentityIndex.js'
 
 const MAX_INPUTS = 10_000
+// This G1e pilot compares independent Waipu/Joyn adapter matchers only.
+// Future XMLTV provenance needs its own reviewed receipt contract.
+const PILOT_SOURCE_IDS = new Set(['waipu-epg', 'joyn-epg'])
 
 function requireCount(value, label) {
   if (!Number.isSafeInteger(value) || value < 0) {
@@ -88,7 +91,8 @@ function normalizeSession(session, expectedMode) {
 
 /**
  * @param {object[]} inputs Original source matcher + airing inputs. Each item
- *   has {candidate} for shared-index lookup; independent matcher handles its
+ *   has {sourceId:'waipu-epg'|'joyn-epg',candidate} for shared-index lookup.
+ *   A session processes exactly ONE source; independent matcher handles its
  *   own normalized matcher input, source-identity and caches.
  * @param {(mode:'baseline'|'indexed') => Promise<object>|object} createSession
  *   Creates TWO DISTINCT original-adapter matcher instances with identically
@@ -118,9 +122,16 @@ export async function compareOptionalSharedEpgIndexAb({
     throw new TypeError('G1e A/B requires bounded candidate/evidence arrays and an explicit factory')
   }
   for (const record of inputs) {
-    if (!record || !record.candidate || typeof record.candidate !== 'object') {
-      throw new TypeError('Every replay input needs its original candidate metadata')
+    if (!record || !record.candidate || typeof record.candidate !== 'object' ||
+        !PILOT_SOURCE_IDS.has(record.sourceId)) {
+      throw new TypeError('Every replay input needs its original candidate and supported sourceId')
     }
+  }
+  // One baseline/indexed matcher factory must never silently compare two
+  // different adapter implementations under the same cache fingerprint.
+  const targetSourceId = inputs[0]?.sourceId ?? null
+  if (inputs.some(record => record.sourceId !== targetSourceId)) {
+    throw new TypeError('G1e replay requires one source adapter per matcher session')
   }
   const baseline = normalizeSession(await createSession('baseline'), 'baseline')
   const indexed = normalizeSession(await createSession('indexed'), 'indexed')
@@ -145,7 +156,8 @@ export async function compareOptionalSharedEpgIndexAb({
   // Caller-provided index stubs are useful for fallback and failure tests,
   // but are NOT evidence that a real approved cross-adapter index exists.
   const verifiedPositiveEvidenceRecords = sharedIndex === null &&
-    index instanceof SharedEpgIdentityIndex ? index.records.length : 0
+    index instanceof SharedEpgIdentityIndex
+    ? index.records.filter(record => PILOT_SOURCE_IDS.has(record.sourceId)).length : 0
   const originalDecisions = []
   let baselineMatched = 0
   for (const input of inputs) {
@@ -156,6 +168,7 @@ export async function compareOptionalSharedEpgIndexAb({
   }
 
   let reused = 0
+  let nonCrossAdapterHitsDiscarded = 0
   let fallback = 0
   let indexConflicts = 0
   let identityMismatches = 0
@@ -168,8 +181,19 @@ export async function compareOptionalSharedEpgIndexAb({
     })
     let identity
     if (result.reuse) {
-      reused++
-      identity = result.identity
+      // A matching own-source cached decision is NOT cross-adapter reuse.
+      // If provenance is missing or untrusted, run the original matcher.
+      const hasOtherSource = Array.isArray(result.sourceIds) &&
+        result.sourceIds.some(sourceId => PILOT_SOURCE_IDS.has(sourceId) &&
+          sourceId !== input.sourceId)
+      if (hasOtherSource) {
+        reused++
+        identity = result.identity
+      } else {
+        nonCrossAdapterHitsDiscarded++
+        fallback++
+        identity = identityFromOriginal(await indexed.matchIndependently(input))
+      }
     } else {
       fallback++
       if (result.indexStatus === 'conflict') indexConflicts++
@@ -200,7 +224,9 @@ export async function compareOptionalSharedEpgIndexAb({
     counts: {
       programs: inputs.length,
       baselineMatched, indexedMatched,
+      // indexReuses counts ONLY verified other-source hits (never self hits).
       indexReuses: reused,
+      nonCrossAdapterHitsDiscarded,
       originalMatcherFallbacks: fallback,
       indexConflicts, identityMismatches,
       baselineTmdbHttpRequests: baselineHttpRequests,
@@ -214,6 +240,7 @@ export async function compareOptionalSharedEpgIndexAb({
       verifiedFromCanonicalCacheSnapshots: true,
       originalMatcherIdentityPreserved: admissibleComparison,
       nonEmptyReplay: inputs.length > 0,
+      replaySourcePresent: targetSourceId !== null,
       verifiedPositiveEvidenceRecords,
       observedTrustedReuse,
       transportRequestsNonIncreasing,
@@ -221,6 +248,6 @@ export async function compareOptionalSharedEpgIndexAb({
       safeToConsiderFurtherPilot,
       measuredProductionSavings: null,
     },
-    limitations: 'Isolated replay only; transport may be stubbed. Passing the admission gates is NOT a proof of production savings. Real-source end-to-end TMDB savings still unverified.',
+    limitations: 'Isolated single-adapter replay only; index reuse requires verified provenance from the other adapter. Transport may be stubbed; neither approvedEvidence inputs nor session wiring are independently authenticated here. Real-source end-to-end TMDB savings still unverified.',
   }
 }
