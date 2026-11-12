@@ -1,3 +1,17 @@
+## G1e – Joyn-Großcache nur lesend zählen
+
+Der zweite echte, private GitHub-Audit [#43202254720](https://github.com/matthias-ennen/movie-hub/actions/runs/43202254720) war erfolgreich. Waipu: 19.152 Checkpoint-Slots, **78** Originaltitel in begrenzter Rohdatenstichprobe, **27.629** Matcher-Entscheidungscacheeinträge. Joyn: 56 EPG-Fenster, **14.935** Originaltitel in der Stichprobe. **Eine** originale private Cachedatei überschritt das 128-MiB-Leselimit; die Anzahl der Joyn-Entscheidungen blieb daher bislang unbekannt.
+
+**Neue schreibgeschützte Streaming-Auswertung:** `scripts/epg-g1e-stream-private-cache-count.mjs` verarbeitet private Joyn-Match-/TMDB-Response-Cachedateien blockweise (standardmäßig 128 KiB statt des vollständigen JSON). Es prüft kontrolliert die JSON-Objekt-/Arraystruktur, die Cacheart (`joyn-match-cache` bzw. `joyn-lookup-cache`), `schemaVersion: 1`, das direkte `entries`-Objekt sowie vollständige Schlüssel/Wertegrenzen. **Es zählt nur abgeschlossene direkte Entries**, lädt keine Diagnostiken, TMDB-Antworten, privaten Cache-Schlüssel oder EPG-Originaltitel in den Bericht. Defekte, zu tief verschachtelte oder über **1 GiB** große Quelldateien werden nicht als gültige Belege akzeptiert.
+
+Der geschützte Audit nutzt Streaming **nur** für die Dateien oberhalb der alten 128-MiB-Grenze. Er behält die Grenze für vollständiges Cache-Deserialisieren bei; die Anzahl kann zwar überprüft werden, der Cache gilt damit **nicht** als vollständiger, für den A/B-Originalmatcher verwendbarer Snapshot. Übergrößen und eventuelle Parser-Fehler werden mit neutralen Zählern/Beleg-Gates dokumentiert. Weder `fullMatchApprovalReceiptsAvailable` noch `canRunUnmodifiedOriginalMatcherAb` werden dadurch automatisch aktiv, und echte vermiedene TMDB-HTTP-Aufrufe bleiben ausdrücklich **unbekannt**.
+
+**Regressionen:** Grenzübergreifende Sonderzeichen-/Escape-Sequenzen, nested JSON, Originaltitel-Isolation, falsch behaupteter Cachetyp, doppelter `entries`-Block, kaputte Dateien und der vollständige A/B-No-Go trotz gefundener Cache-Einträge.
+
+Der Cloud-Zugriff verbleibt auf dem bereits existierenden geschützten G1e-Audit in `main`. Pull-Request-Tests nutzen nur synthetische Daten. Einmaliger nächster privater Lauf erst nach grüner Spezialprüfung, CI und Android APK, ausgelöst durch den expliziten Merge-Marker. Der gemeinsame Index bleibt unverändert standardmäßig **ausgeschaltet**.
+
+---
+
 ## Beobachtung und Korrektur nach dem ersten realen privaten Lauf
 
 Der nach PR #773 einmalig gestartete private GitHub-Lesetest [#43200414776](https://github.com/matthias-ennen/movie-hub/actions/runs/43200414776) konnte **beide echten Checkpoints authentifiziert und ohne Quelldatenanfragen restaurieren**: Waipu-Archiv **222.962.780 Bytes** (Checkpoint vom 12.11.2026, 06:55 UTC), Joyn-Archiv **48.041.003 Bytes** (06:53 UTC). Der isolierte QA-Job scheiterte anschließend **an einer absichtlich begrenzten Datei-Lesegrenze**, nicht an defekten Quellcaches oder fehlendem Speicherzugriff.
