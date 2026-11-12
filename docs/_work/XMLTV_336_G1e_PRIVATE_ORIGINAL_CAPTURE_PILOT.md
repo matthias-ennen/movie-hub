@@ -3,6 +3,18 @@
 
 
 
+## 12.11.2026 – Gründe der 181 lokalen Joyn-Matcher-Ablehnungen (reiner Diagnostikschritt)
+
+Der erfolgreiche geschützte [Read-only-Lauf #43289483491](https://github.com/matthias-ennen/movie-hub/actions/runs/43289483491) hat von **623** unterschiedlichen fehlenden Originalcache-Schlüsseln **17** rein lokal zuordenbare Fälle, **425** ohne lokalen Kandidaten und **181** ungelöste Fälle **mit** lokalen TMDB-Kandidaten ermittelt. Diese 181 Fälle werden jetzt nach den **festen Gründen des existierenden Originalmatchers** aufgeschlüsselt, nicht mittels eines neuen oder weicheren Matchers.
+
+Die Erweiterung der geschützten Offline-Prüfung liest nur die bereits lokal berechneten `result.status`- und `result.reason`-Werte. Sie gibt ausschließlich die vier fest benannten Zähler `noCandidateAboveMinimumScore` (kein Kandidat mit mindestens 70 Punkten), `belowAcceptanceScore` (Kandidat unter Freigabeschwelle), `ambiguousScoreMargin` (zu geringer Vorsprung) und `ambiguousExactTitle` (mehrere exakt gleichnamige TMDB-Kandidaten) aus. Zusätzlich folgen feste Oberkategorien **ein Kandidat / mehrere Kandidaten** und, für exakte Mehrdeutigkeiten, **mit / ohne Original-Quellenbeschreibung**. Damit lassen sich Konflikte von wirklich fehlenden Suchergebnissen unterscheiden, ohne das System mit unbekannten Titeln zu ergänzen.
+
+Jede Anzahl ist **ausschließlich ein privater, anonym aggregierter Diagnostikwert**. Unbekannte Matcher-Gründe, unzulässige Ergebnisformen oder widersprüchliche Summen führen zum Abbruch; niemals werden Original- oder Kandidatentitel, TMDB-IDs, Quellenidentitäten, Hashes oder freie Begründungstexte in Logs oder Artefakten ausgegeben. Der private Test läuft nur auf dem geschützten Runner; PRs erhalten ausschließlich synthetische Testdaten.
+
+Die **tatsächlich im Produktivmatcher vorhandenen** Eindeutigkeitsschwellen, Titel- und Quellenidentitätsregeln bleiben unangetastet. Eine Beschreibung allein berechtigt noch nicht zum Auflösen einer Mehrdeutigkeit; auch eine spätere Typklärung darf nur aus gesicherter Quellenprovenienz stammen. Keine TMDB-/Joyn-/Algolia-Anfrage, kein HTTP-Pilot, keine neuen G1e-Originalquittungen, keine behauptete produktive Einsparung und kein Shared-Index-Go.
+
+---
+
 ## 12.11.2026 – Fehlende Originalschlüssel: rein lokaler Matcher-Vordurchlauf
 
 Aus dem geschützten [Lauf #43285326590](https://github.com/matthias-ennen/movie-hub/actions/runs/43285326590) sind unter 50.596 noch relevanten Originalprogramm-IDs **623 unterschiedliche fehlende Original-Cache-Schlüssel** bekannt. Diese Zahl ist **nicht** mit der Zahl künftig benötigter TMDB-HTTP-Suchanfragen gleichzusetzen.
