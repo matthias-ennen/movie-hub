@@ -42,6 +42,20 @@ export class JoynMatchCache {
     this.hits += 1
     return entry.diagnostic
   }
+  /**
+   * Opt-in G1e evidence view, retaining the ORIGINAL cache timestamp.
+   * Calls the existing cache lookup exactly once, preserving all TTL, source
+   * failure and candidate-context checks. Never re-dates cached decisions.
+   */
+  getWithProvenance(candidate, localCandidates = null) {
+    const diagnostic = this.get(candidate, localCandidates)
+    if (!diagnostic) return null
+    return {
+      diagnostic,
+      checkedAt: this.values[key(candidate)]?.checkedAt ?? null,
+      origin: 'cache',
+    }
+  }
   set(candidate, diagnostic, localCandidates = diagnostic.localCandidates || []) {
     if (diagnostic?.decision?.reason?.includes('ambiguous') || diagnostic?.decision?.status === 'ambiguous' || diagnostic?.decision?.reason?.includes('budget')
         || joynTechnicalFailure(diagnostic.joynClassification)
