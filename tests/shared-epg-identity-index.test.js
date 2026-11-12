@@ -126,6 +126,30 @@ describe('G1d optional shared EPG identity index – independence and source saf
     } })).status).toBe('hit')
   })
 
+  it('never reuses a title/year match if the candidate airing has an invalid time or year', async () => {
+    const index = new SharedEpgIdentityIndex({ now: NOW, records: [record()] })
+    const badCandidates = [
+      query({ stationId: 'zdf', productionYear: 2022, startTime: null }),
+      query({ stationId: 'zdf', productionYear: 2022, endTime: 'not-a-time' }),
+      query({ stationId: 'zdf', productionYear: 2022,
+        endTime: '2026-11-14T07:00:00.000Z' }),
+      query({ stationId: 'zdf', productionYear: 2022,
+        endTime: '2026-11-16T20:00:00.000Z' }),
+      query({ stationId: 'zdf', productionYear: 2300 }),
+    ]
+    for (const candidate of badCandidates) {
+      expect(index.lookup(candidate)).toMatchObject({
+        status: 'miss', reason: 'incomplete_candidate',
+      })
+      const fallback = await matchWithOptionalSharedEpgIndex(candidate, {
+        index, matchIndependently: async () => 'own-adapter-answer',
+      })
+      expect(fallback).toMatchObject({
+        source: 'independent-matcher', reuse: false, result: 'own-adapter-answer',
+      })
+    }
+  })
+
   it('ignores unapproved, stale, invalid or title-free untrusted EPG evidence', () => {
     const index = new SharedEpgIdentityIndex({ now: NOW })
     expect(index.addConfirmed(record({ approved: false }))).toBe(false)
