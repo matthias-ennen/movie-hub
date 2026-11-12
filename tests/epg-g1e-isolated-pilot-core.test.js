@@ -130,6 +130,12 @@ describe('G1e secured in-memory original-source pilot orchestration', () => {
       counts: { selected: 0, joynReceipts: 0 },
       gate: { readyForIsolatedReplay: false },
       waipuInputs: [],
+      joynEvidenceCapture: {
+        status: 'complete',
+        sourceGenerationId: JOYN_GEN,
+        counts: { examined: 0, accepted: 0, rejected: 0 },
+        approvedEvidence: [],
+      },
     }
     args.generateWaipu = vi.fn(async options => {
       options.onCompletedEvidence(
