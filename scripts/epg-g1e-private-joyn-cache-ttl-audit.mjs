@@ -9,7 +9,6 @@ import { dirname, resolve, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { JOYN_MATCHER_VERSION } from './joyn-tmdb-matcher.mjs'
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DAY = 86_400_000
 const MAX_FILE_BYTES = 600 * 1024 * 1024
 const MAX_ENTRIES = 250_000
