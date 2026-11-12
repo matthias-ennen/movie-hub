@@ -121,7 +121,7 @@ describe('G1e private Joyn original-source stage trace: privacy and provenance',
 
   it('distinguishes present-but-unverified matcher data from a missing matcher report', () => {
     const invalid = [
-      { ...matching(), total: 100_000 },
+      { ...matching(), total: 200_001 },
       { ...matching(), tmdbRequests: 31 },
       { ...matching(), seriesDetailRequests: -1 },
       { ...matching(), privateRawTitle: privateTitle, status: 'unsupported' },
@@ -136,6 +136,15 @@ describe('G1e private Joyn original-source stage trace: privacy and provenance',
       expect(isSafePrivateJoynTrace(result)).toBe(true)
       expect(JSON.stringify(result)).not.toContain(privateTitle)
     }
+    // A real private checkpoint already held >64k historical entries.
+    // Large *anonymous* full-horizon counters must remain inspectable,
+    // without increasing the separate original receipt limit.
+    const large = run(epg(), { ...matching(), total: 110_000, matchCacheHits: 64_044 })
+    expect(large).toMatchObject({
+      phase: 'original-matcher', matcherReportStatus: 'validated',
+      matcher: { totalOriginalPrograms: 110_000, originalMatchCacheHits: 64_044 },
+    })
+    expect(isSafePrivateJoynTrace(large)).toBe(true)
     const missing = run(epg(), undefined)
     expect(missing.matcherReportStatus).toBe('absent')
     expect(isSafePrivateJoynTrace(missing)).toBe(true)
