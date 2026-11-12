@@ -287,6 +287,9 @@ export async function buildWaipuLiveCatalog({
   cachedProgramIds = null,
   now = Date.now,
   onProgress = null,
+  // Explicit, disabled-by-default G1e dry-run callback. Never used in
+  // production import and never affects its result on failure.
+  onCompletedEvidence = null,
 } = {}) {
   if (typeof loadProgramDetail !== 'function') throw new TypeError('loadProgramDetail must be a function.')
   const generatedAt = new Date(now()).toISOString()
@@ -638,8 +641,30 @@ export async function buildWaipuLiveCatalog({
     },
   })
 
+  // Collect strictly confirmed source-title proof only on explicit opt-in,
+  // once this complete healthy SourceAdapter envelope is fully constructed.
+  // Never write proof records into public/ or let test callback failures break
+  // Waipu's own matched catalog generation.
+  let sourceEvidenceCapture = null
+  if (typeof onCompletedEvidence === 'function') {
+    try {
+      const { collectApprovedWaipuEvidence } = await import('./epg-g1e-waipu-evidence-capture.mjs')
+      const capture = collectApprovedWaipuEvidence({
+        adapterEnvelope,
+        sourceBroadcasts: activeBroadcasts,
+        matchesByProgram,
+      })
+      if (capture.status === 'complete') await onCompletedEvidence(capture)
+      const { status, counts, rejectedReasons } = capture
+      sourceEvidenceCapture = { status, counts, rejectedReasons }
+    } catch {
+      sourceEvidenceCapture = { status: 'unavailable', counts: null, rejectedReasons: {} }
+    }
+  }
+
   return {
     adapterEnvelope,
+    ...(sourceEvidenceCapture !== null ? { sourceEvidenceCapture } : {}),
     index: {
       schemaVersion: WAIPU_LIVE_CATALOG_VERSION,
       kind: 'waipu-live-index',
