@@ -45,6 +45,15 @@ function selectedCounts(value) {
       value.counts.selected !== value.waipuInputs.length ||
       value.counts.joynReceipts < 0 ||
       value.counts.joynReceipts > MAX_WAIPU_REPLAY ||
+      value.joynEvidenceCapture?.status !== 'complete' ||
+      !Array.isArray(value.joynEvidenceCapture.approvedEvidence) ||
+      value.joynEvidenceCapture.approvedEvidence.length !==
+        value.counts.joynReceipts ||
+      value.joynEvidenceCapture.counts?.accepted !==
+        value.counts.joynReceipts ||
+      value.joynEvidenceCapture.approvedEvidence.some(row =>
+        row?.sourceId !== 'joyn-epg' || row.approved !== true ||
+        row.matchStatus !== 'matched') ||
       value.gate?.readyForIsolatedReplay !==
         (value.waipuInputs.length > 0)) return null
   if (value.waipuInputs.length &&
@@ -121,7 +130,10 @@ export async function runIsolatedG1eCapturePilot({
       waipu?.sourceEvidenceCapture?.status !== 'complete' ||
       !validSourceGeneration(waipu.adapterEnvelope.sourceGenerationId,
         'waipu:', clock()) ||
-      !counts || selection.waipuInputs.some(input =>
+      !counts ||
+      selection.joynEvidenceCapture.sourceGenerationId !==
+        privateJoyn.sourceGenerationId ||
+      selection.waipuInputs.some(input =>
         input.sourceGenerationId !== waipu.adapterEnvelope.sourceGenerationId)) {
     throw new Error('G1E_WAIPU_ORIGINAL_REPLAY_NOT_APPROVED')
   }
@@ -155,9 +167,36 @@ export async function runIsolatedG1eCapturePilot({
         ab.gate?.measuredProductionSavings !== null) {
       throw new Error('G1E_ISOLATED_AB_RESULT_NOT_VERIFIED')
     }
+    // Never allow future A/B metadata fields to accidentally serialize raw
+    // source records or TMDB identities. Explicit aggregate-only allowlist.
+    const numberFields = [
+      'programs', 'baselineMatched', 'indexedMatched', 'indexReuses',
+      'nonCrossAdapterHitsDiscarded', 'originalMatcherFallbacks',
+      'indexConflicts', 'identityMismatches',
+      'baselineTmdbHttpRequests', 'indexedTmdbHttpRequests',
+      'measuredReplayHttpRequestDifference',
+    ]
+    const booleanFields = [
+      'identicalStartingCacheFingerprint',
+      'verifiedFromCanonicalCacheSnapshots',
+      'originalMatcherIdentityPreserved', 'nonEmptyReplay',
+      'replaySourcePresent', 'observedTrustedReuse',
+      'transportRequestsNonIncreasing', 'measuredReplayHttpReduction',
+      'safeToConsiderFurtherPilot',
+    ]
     report.ab = {
-      counts: { ...ab.counts },
-      gate: { ...ab.gate },
+      counts: Object.fromEntries(numberFields
+        .filter(key => Number.isSafeInteger(ab.counts[key]))
+        .map(key => [key, ab.counts[key]])),
+      gate: {
+        ...Object.fromEntries(booleanFields
+          .filter(key => typeof ab.gate[key] === 'boolean')
+          .map(key => [key, ab.gate[key]])),
+        verifiedPositiveEvidenceRecords:
+          Number.isSafeInteger(ab.gate.verifiedPositiveEvidenceRecords)
+            ? ab.gate.verifiedPositiveEvidenceRecords : null,
+        measuredProductionSavings: null,
+      },
       mode: ab.mode,
     }
   }
