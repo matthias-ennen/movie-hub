@@ -1,5 +1,44 @@
 # MovieHub #336 – G1e-2d: kontrollierter TMDB-HTTP-Transportvergleich
 
+## Ergänzung: G1e-Test muss die **andere** EPG-Quelle nachweisen (PR #778)
+
+Die bisherige isolierte A/B-Logik konnte den Treffer eines bereits bestätigten
+**eigenen** Adapters fälschlich als zusätzlichen *adapterübergreifenden*
+Shared-Index-Erfolg zählen. Für Waipu/Joyn ist damit noch keine echte Einsparung
+gegenüber ihren **bereits vorhandenen eigenen** Caches belegt.
+
+Für G1e Waipu/Joyn gelten nun strengere Testkontrakte:
+
+- Jedes `inputs[]`-Element nennt die Originalquelle ausdrücklich als
+  `sourceId: 'waipu-epg'` oder `'joyn-epg'`. Eine A/B-Session darf nur
+  **einen** Quelladapter abbilden. Ein vermischter Satz wird vor dem Matching
+  abgelehnt; verschiedene Originalmatcher gehören in **getrennte** A/B-Replays.
+- Ein Shared-Index-Hit darf den Originalmatcher nur ersetzen, wenn dessen
+  normalisierte `sourceIds` auch mindestens **einen anderen unterstützten**
+  Adapter enthalten. Reine Eigenquellen-Hits, Treffer ohne Herkunft und
+  unbekannte angebliche Fremdquellen führen stattdessen zum ursprünglichen
+  unabhängigen Matcher zurück.
+- `counts.indexReuses` zählt somit nur tatsächlich als **quellenübergreifend**
+  zugelassene Testtreffer. `counts.nonCrossAdapterHitsDiscarded` dokumentiert
+  anonym, wie oft ein Treffer wegen fehlender Fremdherkunft verworfen wurde.
+  `gate.verifiedPositiveEvidenceRecords` zählt nur zulässige Waipu-/Joyn-
+  Herkunftskennungen. `gate.replaySourcePresent` prüft eine explizite
+  Zielquellenangabe.
+- Selbst solche Testtreffer sind **noch nicht** bestätigte vermiedene
+  Produktions-HTTP-Requests. Der Testtransport kann simuliert sein; der
+  Pilotcontroller übernimmt seine bereits vorab authentifizierten Quittungen
+  und tatsächlichen Originalmatcher-Sessions als Eingabe. Ein eigener,
+  gesondert freizugebender privater Real-A/B-Workflow fehlt weiterhin.
+
+Die Regressionen prüfen: nur Waipu-Eigenquelle führt zu 1/1 HTTP-Teststarts
+statt fälschlich 1/0, Waipu + Joyn gleicher positiver Beleg erlaubt den
+Fremdquellenfall, unbekannte Herkunft führt zur Baseline zurück, gemischte
+oder fehlende Zielquellen werden nicht als vergleichbare Session akzeptiert.
+Kein produktiver Index und **keine zusätzlichen echten** TMDB-/EPG-Requests
+durch diese Änderung.
+
+---
+
 ## Ergänzung: Pilotfreigabe nicht durch leere oder künstliche A/B-Läufe (PR #777)
 
 Das isolierte `safeToConsiderFurtherPilot`-Gate verlangt jetzt **alle**
