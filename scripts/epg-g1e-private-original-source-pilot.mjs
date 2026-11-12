@@ -123,7 +123,7 @@ async function runOriginalPilot({ mode }) {
   try {
     const report = await withQuietPrivateSources(() =>
       runIsolatedG1eCapturePilot({
-        mode, now: Date.now(),
+        mode, now: Date.now,
         generateJoyn: options => runJoynAdapterDiagnostic({
           ...options,
           fetchImpl: boundary.fetchImpl,
