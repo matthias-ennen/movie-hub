@@ -170,8 +170,8 @@ export function inspectPrivateG1eSourceState({
       failedCacheStreamCounts,
     },
     gate: {
-      existingPrivateSourceDataAccessible: rawSourceTitlesSampled &&
-        waipuSlots > 0 && joynWindows > 0,
+      existingPrivateSourceDataAccessible: sourceStatusAvailable &&
+        rawSourceTitlesSampled && waipuSlots > 0 && joynWindows > 0,
       originalCachesPresent: cacheSnapshotsPresent,
       originalCachesFullyLoadableWithinAuditLimit:
         cacheSnapshotsPresent && oversizedMatcherCacheFiles === 0,
