@@ -70,6 +70,45 @@ export function sanitizePrivatePilotFailure(error, telemetry = {}) {
     measuredProductionSavings: null,
   }
 }
+
+/**
+ * The original source sync already writes an ephemeral status.json on a
+ * budget exception. Its error.message and coverage may contain private data.
+ * Whitelist only numeric window counters, and only for a just-failed
+ * Joyn EPG budget stop. No source titles/stations/time windows are emitted.
+ */
+export function summarizePrivateJoynEpgBudgetFailure(status, {
+  now = Date.now(), maxRequests = 180,
+} = {}) {
+  const m = status?.metrics
+  const time = Date.parse(status?.generatedAt)
+  const integer = (x, upper) =>
+    Number.isSafeInteger(x) && x >= 0 && x <= upper
+  if (status?.kind !== 'joyn-sync-status' ||
+      status.schemaVersion !== 1 || status.status !== 'failed' ||
+      status.failure?.code !== 'JOYN_EPG_REQUEST_BUDGET' ||
+      !Number.isFinite(now) || !Number.isFinite(time) ||
+      time > now || now - time > 10 * 60_000 ||
+      !integer(maxRequests, 300) || maxRequests < 73 ||
+      !integer(m?.requestsStarted, maxRequests) ||
+      m.requestsStarted !== maxRequests ||
+      !integer(m?.windowsProcessed, 56) ||
+      !integer(m?.cacheHits, 56) ||
+      m.cacheHits > m.windowsProcessed ||
+      !integer(m?.splitWindows, maxRequests) ||
+      !integer(m?.retries, maxRequests)) return null
+  return {
+    baseWindows: 56,
+    processedWindows: m.windowsProcessed,
+    cacheHits: m.cacheHits,
+    subdividedWindows: m.splitWindows,
+    startedEpgRequests: m.requestsStarted,
+    retryAttempts: m.retries,
+    configuredEpgBudget: maxRequests,
+    completedFullHorizon: false,
+  }
+}
+
 const ALLOWED_HOSTS = new Set([
   'auth.joyn.de', 'api.joyn.de', 'www.joyn.de',
   'ffqrv35svv-dsn.algolia.net', 'api.themoviedb.org',
@@ -242,6 +281,20 @@ async function main(args) {
   } catch (error) {
     // Intentional: do not log a raw source exception on an isolated QA run.
     result = sanitizePrivatePilotFailure(error, telemetry)
+    if (result.phase === 'joyn-original-generation' &&
+        result.failureClass === 'JOYN_EPG_REQUEST_BUDGET') {
+      try {
+        const latestStatus = await readBoundedJson(
+          join(ROOT, 'artifacts/joyn-sync/status.json'), 1024 * 1024)
+        const epg = summarizePrivateJoynEpgBudgetFailure(latestStatus, {
+          now: Date.now(),
+          maxRequests: Number(process.env.JOYN_EPG_REQUEST_BUDGET),
+        })
+        if (epg) result.joynEpg = epg
+      } catch {
+        // A missing or contradictory private status must not be exposed.
+      }
+    }
     await mkdir(dirname(output), { recursive: true })
     await writeFile(output, JSON.stringify(result, null, 2) + '\n', 'utf8')
     process.stdout.write(JSON.stringify(result, null, 2) + '\n')

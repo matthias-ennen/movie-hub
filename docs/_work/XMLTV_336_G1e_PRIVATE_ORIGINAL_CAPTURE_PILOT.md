@@ -94,6 +94,57 @@ neues Host-Allowlist-Element oder ein zu knappes API-Budget signalisieren.
 Das ist dann ein **bewusst geschlossenes Test-Gate** und darf nicht durch
 Ausgabe der originalen Anfrage oder unlimitierte Wiederholung umgangen werden.
 
+## G1e – überprüfte Fensteraufteilung und neuer begrenzter Joyn-Test (12.11.2026)
+
+Der zweite Echtversuch
+[Actions #43245305473](https://github.com/matthias-ennen/movie-hub/actions/runs/43245305473)
+hatte anonym bestätigt: `phase=joyn-original-generation`,
+`failureClass=JOYN_EPG_REQUEST_BUDGET`, **105 von 300** erlaubten
+HTTPS-Fetches gesamt. Die getrennte Obergrenze von **72 gestarteten
+Joyn-EPG-Requests** war erreicht; der 14-Tage-Lauf noch nicht beendet.
+
+Nach Codeprüfung: `syncJoynEpg` betrachtet **56 feste
+Sechs-Stunden-Basisfenster**. Jeder Request mit **1.000 oder mehr**
+Quellprogrammen gilt als gekappte Antwort; das betroffene Fenster
+wird jeweils **rekursiv halbiert**, bis die Antwort vollständig
+unter 1.000 Einträgen liegt. Zusätzlich sind begrenzte Wiederholungen
+bei 429/5xx möglich. Ein alter/nicht mehr gültiger Checkpoint kann
+Fenster nicht als Cachehit zählen. Daher ist **56 nur die Basis**,
+nicht die zugesicherte Gesamtanzahl an API-Abfragen. Aus dem alten
+Anonymbericht lässt sich die konkrete Aufteilung noch nicht ablesen.
+
+**Pilot-only Änderung:** Erhöhung des *separaten* Joyn-EPG-Budgets von
+**72 auf 180**. Das lässt höchstens 124 zusätzliche Requeststarts über
+der Zahl der Basisfenster zu (Aufteilungen und begrenzte Retries,
+abzüglich gültiger Cachehits). **Unverändert** bleiben: globale Obergrenze
+**300 erlaubte HTTPS-Starts**, Host-Allowlist, Joyn-TMDB/Algolia- und
+Metadatenlimits, ausschließlich die Originalmatcher-Freigaben,
+`capture` ohne zusätzlichen Waipu-A/B-TMDB-Vergleich und die
+produktiven Scheduler/Adapter.
+
+**Neue Aggregat-Telemetrie:** Wenn die neue 180er-Grenze erneut
+erreicht wird, liest der Runner das ohnehin lokal erzeugte
+`artifacts/joyn-sync/status.json` *nur im ephemeren Prozess*,
+prüft `kind`, `schemaVersion`, `status=failed`, exakt
+`JOYN_EPG_REQUEST_BUDGET`, frischen Zeitstempel und konsistente,
+ganzzahlige Obergrenzen. Der herunterladbare Report enthält dann nur:
+`baseWindows=56`, `processedWindows`, `cacheHits`,
+`subdividedWindows`, `startedEpgRequests`,
+`retryAttempts`, `configuredEpgBudget=180`
+und `completedFullHorizon=false`. Keine Rohfenster,
+Sender, Originaltitel, TMDB-IDs, privaten Fehlertexte oder URLs.
+Der Workflow validiert die Felder und Werte vor Upload nochmals.
+Bei unpassendem Status entfällt dieser Diagnoseteil vollständig.
+
+Ein Test gilt erst als erfolgreich, wenn die echte gesunde
+Joyn-Originalgeneration die frischen Quittungen vollständig
+erfasst und die lokale Waipu-Originalauswahl erfolgreich abgeschlossen
+hat. **Keine Behauptung produktiver Einsparungen** aus Cache-Kennzahlen.
+Der neue Einmallauf erfolgt separat per `[g1e-joyn-capture-once]`
+nach grünen PR-Checks und wird im Issue #336 nachgewiesen.
+
+---
+
 ## Erster realer Test und anonymisierter Fehlerbericht
 
 [Einmallauf #43242852401](https://github.com/matthias-ennen/movie-hub/actions/runs/43242852401)

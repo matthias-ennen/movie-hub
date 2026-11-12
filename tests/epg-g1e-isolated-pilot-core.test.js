@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { spawnSync } from 'node:child_process'
 import { runIsolatedG1eCapturePilot } from
   '../scripts/epg-g1e-isolated-pilot-core.mjs'
-import { networkBoundary, sanitizePrivatePilotFailure } from
-  '../scripts/epg-g1e-private-original-source-pilot.mjs'
+import {
+  networkBoundary, sanitizePrivatePilotFailure,
+  summarizePrivateJoynEpgBudgetFailure,
+} from '../scripts/epg-g1e-private-original-source-pilot.mjs'
 
 const NOW = Date.parse('2026-11-12T14:30:00.000Z')
 const JOYN_GEN = 'joyn-catalog:2026-11-12T14:00:00.000Z'
@@ -305,6 +307,53 @@ describe('G1e secured in-memory original-source pilot orchestration', () => {
       failureClass: 'JOYN_EPG_REQUEST_BUDGET',
       boundedAllowlistedFetches: null,
     })
+  })
+
+  it('summarizes only actual recent PRIVATE EPG window counts after the exact 180-request budget stop', () => {
+    const status = {
+      kind: 'joyn-sync-status', schemaVersion: 1, status: 'failed',
+      generatedAt: new Date(NOW - 90_000).toISOString(),
+      failure: {
+        code: 'JOYN_EPG_REQUEST_BUDGET',
+        message: 'PRIVATE programme ' + secretTitle + ' token=secret',
+      },
+      coverage: [{ title: secretTitle, originalId: 667739 }],
+      metrics: {
+        requestsStarted: 180,
+        retries: 3, splitWindows: 67, windowsProcessed: 35,
+        cacheHits: 4, privateTitle: secretTitle,
+      },
+    }
+    const aggregate = summarizePrivateJoynEpgBudgetFailure(status, {
+      now: NOW, maxRequests: 180,
+    })
+    expect(aggregate).toEqual({
+      baseWindows: 56, processedWindows: 35, cacheHits: 4,
+      subdividedWindows: 67, startedEpgRequests: 180, retryAttempts: 3,
+      configuredEpgBudget: 180, completedFullHorizon: false,
+    })
+    expect(JSON.stringify(aggregate)).not.toContain(secretTitle)
+    expect(JSON.stringify(aggregate)).not.toContain('667739')
+    const invalid = [
+      { ...status, status: 'complete' },
+      { ...status, kind: 'other' },
+      { ...status, failure: { code: 'SOMETHING_ELSE' } },
+      { ...status, generatedAt: new Date(NOW - 20 * 60_000).toISOString() },
+      { ...status, generatedAt: new Date(NOW + 60_000).toISOString() },
+      { ...status, metrics: { ...status.metrics, requestsStarted: 72 } },
+      { ...status, metrics: { ...status.metrics, windowsProcessed: 57 } },
+      { ...status, metrics: { ...status.metrics, cacheHits: 36 } },
+      { ...status, metrics: { ...status.metrics, splitWindows: 999 } },
+      { ...status, metrics: null },
+    ]
+    for (const entry of invalid) {
+      expect(summarizePrivateJoynEpgBudgetFailure(entry, {
+        now: NOW, maxRequests: 180,
+      })).toBeNull()
+    }
+    expect(summarizePrivateJoynEpgBudgetFailure(status, {
+      now: NOW, maxRequests: 0,
+    })).toBeNull()
   })
 
   it('uses a clock after Joyn generation rather than rejecting legitimate fresh match receipts as future', async () => {
