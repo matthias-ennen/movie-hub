@@ -14,6 +14,9 @@ function key(candidate) {
   })).digest('hex')
 }
 
+// Read-only G1e inspection uses the exact same key as JoynMatchCache.get.
+export const joynOriginalCacheKey = key
+
 function candidateContext(values = []) {
   return createHash('sha256').update(JSON.stringify(values.slice(0, 20).map(value => ({
     type: value.type, tmdbId: value.tmdbId, title: value.title, originalTitle: value.originalTitle ?? null,
