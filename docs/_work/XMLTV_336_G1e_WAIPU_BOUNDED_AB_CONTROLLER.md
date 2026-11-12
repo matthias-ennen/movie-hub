@@ -62,6 +62,44 @@ Strenge Vorbedingungen:
    identische initiale Cache-Inhalte, ausschließlich andere Quellherkunft,
    Identitätskonflikte und Mehrverkehr bleiben vollständig aktiv.
 
+## In-Memory-Brücke aus der gesunden Waipu-Originalgeneration (Folgeschritt #782)
+
+Der Waipu-Builder hält den **wirklich verwendeten** normalisierten
+Originalmatcherinput und seine **wirklich verwendeten** lokalen
+TMDB-Kandidaten in einer lokalen Matchermap. Bislang konnte ein unabhängiger
+Testcontroller sie nicht ohne erneute Rekonstruktion oder privaten Datenexport
+für den A/B-Vergleich erhalten.
+
+Nur im bereits vorhandenen **freiwilligen**
+`buildWaipuLiveCatalog({ onCompletedEvidence })`-Zweig bekommt der private
+Callback nun zusätzlich zu den bestätigten Waipu-Belegen einen zweiten
+In-Memory-Parameter: `selectBoundedWaipuReplayInputs(joynEvidenceCapture, {now})`.
+Ein neuer, separat getesteter Collector
+`scripts/epg-g1e-waipu-replay-input-selection.mjs` verbindet dafür
+Original-Waipu-Grid, gesunden SourceEnvelope, ursprüngliche Matchermap,
+**dieselbe** lokale Kandidaten-Lookup-Funktion des Originalmatchers und
+gesonderte, bereits geprüfte `joyn-catalog`-Quittungen.
+
+Die Auswahl bleibt strikt auf **20 Waipu-Ereignisse** begrenzt,
+erhält nur passende Originaltitel/Sender/Zeitfenster und verwirft
+widersprüchliche Waipu-Originalzeilen, abweichende Originalmatcher-
+identitäten, zu große lokale Kandidatensätze und Joyn-Indexkonflikte.
+Nur tatsächlich bestätigte Joyn-Fremdquellen-Quittungen werden in einem
+**auf höchstens 20 Einträge reduzierten** Capturesatz mitgegeben.
+Das Ergebnis enthält Originaltitel und Originalmatcherinputs: **privat,
+ausschließlich im Prozessspeicher**, weder in Logs, öffentlichem
+SourceEnvelope, regulärem Builder-Rückgabewert, Action-Artefakten noch
+Firebase zu veröffentlichen.
+
+Dies verbindet zwei bereits existierende sichere Schnittstellen zu
+passenden A/B-Eingaben, erzeugt aber **keine neuen** Matcherquittungen,
+keinen Workflow für eine vollständige frische Joyn-Generation und
+**noch keine** echten TMDB-HTTP-Messwerte. Die Unit-Tests nutzen einen
+unveränderten echten Waipu-Originalmatcher, synthetische Joyn-Belege
+und lokale/Stub-Inputs. Der Produktivpfad ohne Callback bleibt unverändert.
+
+---
+
 ## Datensparsamkeit und Nachweiskraft
 
 Die Rückgabe besteht ausschließlich aus aggregierten A/B-Zählern und
