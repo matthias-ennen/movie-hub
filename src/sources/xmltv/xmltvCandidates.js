@@ -25,14 +25,27 @@ function bestLanguage(oldField, field) {
   return !oldField || (isGerman(field) && !isGerman(oldField)) ? field : oldField
 }
 
-/** Strict zero-based XMLTV_NS: 0.9. or 0.9/12. becomes S01E10. */
+/** Zero-based XMLTV_NS, or strictly explicit one-based SxxEyy onscreen
+ * notation when the system is "onscreen" or unspecified. Never infer from
+ * vague strings like "Folge 15", season-less integers or fractional labels. */
 export function parseXmltvEpisodeNumber(raw, system) {
-  if (clean(system)?.toLowerCase() !== 'xmltv_ns') return null
-  const parts = clean(raw)?.match(/^(\d+)\.(\d+)(?:\/\d+)?\.(?:\d+(?:\/\d+)?)?$/)
-  if (!parts) return null
-  const seasonNumber = Number(parts[1]) + 1
-  const episodeNumber = Number(parts[2]) + 1
-  return Number.isSafeInteger(seasonNumber) && Number.isSafeInteger(episodeNumber)
+  const kind = clean(system)?.toLowerCase() || null
+  const value = clean(raw)
+  let seasonNumber
+  let episodeNumber
+  if (kind === 'xmltv_ns') {
+    const parts = value?.match(/^(\d+)\.(\d+)(?:\/\d+)?\.(?:\d+(?:\/\d+)?)?$/)
+    if (!parts) return null
+    seasonNumber = Number(parts[1]) + 1
+    episodeNumber = Number(parts[2]) + 1
+  } else if (kind === 'onscreen' || kind === null) {
+    const parts = value?.match(/^S0*(\d{1,3})\s*E0*(\d{1,4})$/i)
+    if (!parts) return null
+    seasonNumber = Number(parts[1])
+    episodeNumber = Number(parts[2])
+  } else return null
+  return Number.isSafeInteger(seasonNumber) && Number.isSafeInteger(episodeNumber) &&
+    seasonNumber > 0 && seasonNumber <= 200 && episodeNumber > 0 && episodeNumber <= 1500
     ? { seasonNumber, episodeNumber } : null
 }
 
@@ -43,7 +56,7 @@ export function parseXmltvEpisodeNumber(raw, system) {
  */
 export function parseXmltvCandidates(xml, {
   sourceId, stationMappings = {}, observedAt = new Date().toISOString(),
-  maxRecords = MAX_RECORDS,
+  maxRecords = MAX_RECORDS, mappedOnly = false,
 } = {}) {
   const source = clean(sourceId)
   if (!source || source.length > 128 || !/^[a-z0-9][a-z0-9-]*$/.test(source)) {
@@ -52,6 +65,7 @@ export function parseXmltvCandidates(xml, {
   if (!clean(xml)) throw new TypeError('XMLTV document required')
   const observed = new Date(observedAt)
   if (!Number.isFinite(observed.getTime())) throw new TypeError('Invalid observedAt')
+  if (typeof mappedOnly !== 'boolean') throw new TypeError('Invalid mappedOnly option')
   if (!Number.isInteger(maxRecords) || maxRecords < 1 || maxRecords > MAX_RECORDS) {
     throw new RangeError('Invalid maxRecords')
   }
@@ -60,7 +74,8 @@ export function parseXmltvCandidates(xml, {
   const dedupe = new Set()
   const stack = []
   const diagnostic = { sourceRecords: 0, skippedInvalid: 0, skippedMissingTitle: 0,
-    duplicates: 0, missingTimeZone: 0, mappedCandidates: 0, unmappedCandidates: 0 }
+    duplicates: 0, missingTimeZone: 0, mappedCandidates: 0, unmappedCandidates: 0,
+    skippedUnmapped: 0 }
   let root = false
   let channel = null
   let programme = null
@@ -85,13 +100,14 @@ export function parseXmltvCandidates(xml, {
         start: bounded(tag.attributes.start, 60),
         stop: bounded(tag.attributes.stop, 60),
         title: null, subtitle: null, description: null, categories: [], episodeFields: [],
+        productionYearEvidence: null,
       }
     }
     if (parent === 'channel' && channel && tag.name === 'display-name') {
       captured = { depth: stack.length, field: tag.name, value: '' }
     }
     if (parent === 'programme' && programme &&
-        ['title', 'sub-title', 'desc', 'category', 'episode-num'].includes(tag.name)) {
+        ['title', 'sub-title', 'desc', 'category', 'episode-num', 'date'].includes(tag.name)) {
       captured = { depth: stack.length, field: tag.name, value: '',
         language: clean(tag.attributes.lang), system: clean(tag.attributes.system) }
     }
@@ -115,6 +131,12 @@ export function parseXmltvCandidates(xml, {
         if (name === 'sub-title') programme.subtitle = bestLanguage(programme.subtitle, field)
         if (name === 'desc') programme.description = bestLanguage(programme.description, field)
         if (name === 'category' && programme.categories.length < 12) programme.categories.push(value)
+        if (name === 'date' && /^\d{4}$/.test(value)) {
+          const year = Number(value)
+          if (year >= 1888 && year <= new Date().getUTCFullYear() + 1) {
+            programme.productionYearEvidence = year
+          }
+        }
         if (name === 'episode-num' && programme.episodeFields.length < 5) {
           programme.episodeFields.push({ raw: value, system: captured.system })
         }
@@ -139,6 +161,7 @@ export function parseXmltvCandidates(xml, {
       if (!p.channel || begin === null || end === null || end <= begin ||
           end - begin > 36 * 3_600_000) diagnostic.skippedInvalid++
       else if (!p.title?.value) diagnostic.skippedMissingTitle++
+      else if (mappedOnly && !mappedStation(source, p.channel, stationMappings)) diagnostic.skippedUnmapped++
       else {
         const startAt = new Date(begin).toISOString()
         const endAt = new Date(end).toISOString()
@@ -163,6 +186,7 @@ export function parseXmltvCandidates(xml, {
             subtitle: p.subtitle?.value || null,
             description: p.description?.value || null,
             categories: p.categories, episode, episodeEvidence: p.episodeFields,
+            productionYearEvidence: p.productionYearEvidence,
             startAt, endAt, timestampsExplicitlyZoned: zoned,
             sourceRef: {
               sourceId: 'xmltv:' + source,

@@ -12,15 +12,24 @@ import { mergeTvAirings } from '../src/sources/mergeTvAirings.js'
 
 const text = (value) => String(value ?? '').trim()
 const FILM_CATEGORIES = new Set(['film', 'spielfilm', 'fernsehfilm', 'movie', 'feature film', 'kinofilm'])
-const SERIES_CATEGORIES = new Set(['serie', 'serien', 'series', 'tv-serie', 'fernsehserie', 'tv series'])
+const SERIES_CATEGORIES = new Set(['serie', 'serien', 'series', 'tv-serie', 'fernsehserie', 'tv series', 'sitcom', 'telenovela'])
 const MAX_PROBE_CANDIDATES = 2_000
+
+/** Reviewed explicit type labels; generic genres such as "Krimi", "Drama"
+ * and "Animation" deliberately remain unclassified. */
+export function reviewedXmltvCategoryType(value) {
+  const category = text(value).toLocaleLowerCase('de').trim()
+  if (FILM_CATEGORIES.has(category) || /^[\p{L} -]*film$/u.test(category)) return 'movie'
+  if (SERIES_CATEGORIES.has(category) || /^[\p{L} -]*serien?$/u.test(category)) return 'series'
+  return null
+}
 
 export function inferXmltvMediaType(candidate) {
   const categories = new Set((Array.isArray(candidate?.categories) ? candidate.categories : [])
     .map((value) => text(value).toLocaleLowerCase('de')))
-  const movie = [...categories].some((category) => FILM_CATEGORIES.has(category))
+  const movie = [...categories].some((category) => reviewedXmltvCategoryType(category) === 'movie')
   const series = Boolean(candidate?.episode) ||
-    [...categories].some((category) => SERIES_CATEGORIES.has(category))
+    [...categories].some((category) => reviewedXmltvCategoryType(category) === 'series')
   if (movie && series) return null
   if (movie) return 'movie'
   if (series) return 'series'
@@ -85,6 +94,8 @@ export async function matchXmltvLocalCandidates(candidates, {
     const match = await matchProgram({
       title: candidate.title, type,
       description: candidate.description,
+      // XMLTV <date> may be original-air year; treat as evidence, not identity.
+      productionYear: type === 'movie' ? candidate.productionYearEvidence ?? null : null,
       seasonNumber: candidate.episode?.seasonNumber ?? null,
       episodeNumber: candidate.episode?.episodeNumber ?? null,
       broadcastDurationMinutes: durationMinutes,
@@ -102,6 +113,16 @@ export async function matchXmltvLocalCandidates(candidates, {
     // typed local-title match. Soft matches remain candidates for human review.
     if (match.match.score !== 100 || match.match.type !== type) {
       decisions.push(basicDiagnostic(candidate, 'nonexact_match_requires_review'))
+      continue
+    }
+    // A unique exact title may still identify the wrong remake. Do not accept
+    // an explicit, materially conflicting year in a film candidate.
+    const epgYear = Number(candidate.productionYearEvidence)
+    const tmdbYear = Number(match.match.year)
+    if (type === 'movie' && Number.isInteger(epgYear) && epgYear >= 1888 &&
+        Number.isInteger(tmdbYear) && tmdbYear >= 1888 &&
+        Math.abs(epgYear - tmdbYear) > 1) {
+      decisions.push(basicDiagnostic(candidate, 'production_year_conflict'))
       continue
     }
     const event = projectConfirmedXmltvBroadcastEvent(candidate, {
