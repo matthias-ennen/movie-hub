@@ -118,13 +118,19 @@ function normalCandidate(raw) {
   const stationId = clean(raw?.stationId || raw?.canonicalStationId)
   const title = epgIdentityTitleKey(raw?.title)
   const type = mediaType(raw?.type)
-  if (!type || !title || !stationId) return null
+  const startTime = raw?.startTime ?? raw?.startAt ?? null
+  const endTime = raw?.endTime ?? raw?.endAt ?? null
+  const slot = validInterval(startTime, endTime)
+  // Do not turn an invalid EPG interval into a generic title/year hit.
+  if (!type || !title || !stationId || !slot) return null
+  const knownYear = year(raw?.productionYear)
+  if (raw?.productionYear != null && knownYear === null) return null
   return {
     stationId, title, type,
-    productionYear: year(raw?.productionYear),
+    productionYear: knownYear,
     episode: type === 'series' ? episode(raw?.episode) : null,
-    startTime: raw?.startTime ?? raw?.startAt ?? null,
-    endTime: raw?.endTime ?? raw?.endAt ?? null,
+    startTime: new Date(slot.start).toISOString(),
+    endTime: new Date(slot.end).toISOString(),
   }
 }
 
