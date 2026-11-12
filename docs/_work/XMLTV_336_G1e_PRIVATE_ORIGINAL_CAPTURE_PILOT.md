@@ -1,6 +1,19 @@
 # MovieHub #336 – G1e: echter privater Joyn-Originalmatcher-Pilot (isoliert, opt-in)
 
 
+
+## 12.11.2026 – nächster Schritt: zeitliche Cache-Gültigkeit ohne TMDB-Anfragen
+
+Der vollständig geschützte **read-only** Checkpoint-Audit #43233887430 hatte 64.044 historische Joyn-Matcherentscheidungen gezählt. Diese Bestandszahl sagt allein noch nichts über die aktuelle Cache-Wiederverwendbarkeit aus: `JoynMatchCache` hat **30 Tage** TTL für positive Zuordnungen, **7 Tage** für negative; der separate `JoynLookupCache` hat **7 Tage** für gespeicherte Original-Antworten. Änderungen an Titel, Untertitel, Beschreibung, Sendedauer oder lokalen Kandidaten können trotz einer gültigen TTL weitere Suchen nötig machen.
+
+Der neue `scripts/epg-g1e-private-joyn-cache-ttl-audit.mjs` prüft ausschließlich die **bereits privat restaurierten** JSON-Caches lokal auf exakte Schema-/Matcher-Version, Zeitgrenzen und konservative Altersklassen. Er meldet **nur feste aggregierte Zahlen**, getrennt nach TTL-geeigneten positiven/negativen Entscheidungseinträgen, abgelaufenen/ungültigen Zeitstempeln und TTL-geeigneten Antwortcache-Einträgen. Die Zahlen sind ausdrücklich **nur Obergrenzen**: Es findet weder eine aktuelle Originalprogramm-Schlüsselprüfung noch lokale Kandidatenprüfung, technische Quellenvalidierung oder neue Matchfreigabe statt.
+
+Sicherheitsgrenzen: maximal 600 MiB je regulärer Quelldatei, höchstens 250.000 Cacheeinträge; nur der geschützte `main`-Readiness-Job mit Authentisierung darf private Cacheinhalte lesen, der PR führt nur synthetische Tests ohne Secrets aus. Keine Joyn-EPG-Abfrage, kein TMDB-HTTP, kein Cloud-Upload von Cache oder Titel, kein geänderter Nightly, keine Index-Freigabe. Das feste Berichtsschema hält `currentProgrammeCacheHitsVerified=false`, `freshOriginalMatcherReceiptsApproved=false` und `measuredProductionSavings=null`.
+
+Erst die realen TTL-Zahlen sollen helfen, einen eng begrenzten, weiterhin getrennt freizugebenden Originalmatcher-Stichprobenlauf zu dimensionieren. Wiederholung des vollständigen 14-Tage-Echtlaufs allein zur Cache-Diagnose ist nicht erforderlich.
+
+---
+
 ## 12.11.2026 – G1e: Matcher-Berichtsprüfung nach #787 präzisiert
 
 Der neueste echte geschützte [Lauf #43272834198](https://github.com/matthias-ennen/movie-hub/actions/runs/43272834198) hat die vollständigen 56 Joyn-EPG-Basisfenster mit 194 Requests, null Cachehits, 69 Fensterteilungen und ohne Retry abgeschlossen. Der separate Original-Joyn-TMDB-Suchdeckel (30) führte danach zu `JOYN_TMDB_REQUEST_BUDGET`. Die Gesamtgrenze von 450 HTTPS-Starts wurde bei 299 nicht erreicht. Es gab **keine** vollständige Joyn-Originalmatcherfreigabe, keinen Waipu-A/B-HTTP-Test und keine gemessene Produktionseinsparung.
