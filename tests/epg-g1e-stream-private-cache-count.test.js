@@ -71,7 +71,16 @@ describe('G1e streaming original PRIVATE Joyn JSON cache read-only counts', () =
       expect((await countPrivateCacheEntries(path, {
         expectedKind: 'joyn-match-cache', chunkBytes: 1,
       })).entries).toBe(0)
-      await writeFile(path, '{"schemaVersion":1,"kind":"joyn-match-cache","entries":{"encoded\\\\\\\"key": {"description":"abc\\\\\\\\} and \\\\\" {", "list":[{},[],[{"a":1}]]}}}')
+      const escaped = {
+        schemaVersion: 1, kind: 'joyn-match-cache',
+        entries: {
+          ['encoded"key']: {
+            description: 'abc\\} and " {',
+            list: [{}, [], [{ a: 1 }]],
+          },
+        },
+      }
+      await writeFile(path, JSON.stringify(escaped))
       expect((await countPrivateCacheEntries(path, {
         expectedKind: 'joyn-match-cache', chunkBytes: 2,
       })).entries).toBe(1)
@@ -89,7 +98,7 @@ describe('G1e streaming original PRIVATE Joyn JSON cache read-only counts', () =
       '{"kind":"joyn-match-cache","schemaVersion":2,"entries":{}}',
       '{"kind":"joyn-match-cache","schemaVersion":1,"entries":{},"entries":{}}',
       '{"kind":"joyn-match-cache","schemaVersion":1,"entries":{},"kind":"joyn-match-cache"}',
-      '{"kind":"joyn-match-cache","schemaVersion":1,"entries":{"bad":"\\\\u0x00"}}',
+      String.raw`{"kind":"joyn-match-cache","schemaVersion":1,"entries":{"bad":"\u0x00"}}`,
     ]
     await temporaryCache(async path => {
       for (const content of invalid) {
