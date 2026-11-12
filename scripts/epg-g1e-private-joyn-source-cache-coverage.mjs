@@ -63,6 +63,38 @@ export function trustedCachedJoynSearchType(value, title) {
   return value.type
 }
 
+/**
+ * Diagnostic-only classification of a cached SearchQ result that did NOT
+ * establish a single original Joyn type. Never infer a TMDB identity from
+ * these buckets. Validate the original title and internal SearchQ consistency
+ * before classifying any private cached response.
+ */
+export function classifyCachedJoynSearchWithoutType(value, title) {
+  const expected = normalizeWaipuText(title)
+  if (!expected || !object(value) || value.type !== null ||
+      !Array.isArray(value.exactTypes) ||
+      !Array.isArray(value.exactResults) ||
+      !integer(value.exactCount, 10) ||
+      value.exactResults.length !== value.exactCount) return 'other_or_invalid'
+  const types = new Set()
+  for (const hit of value.exactResults) {
+    if (!object(hit) || normalizeWaipuText(hit.title) !== expected ||
+        !['movie', 'series'].includes(hit.type) ||
+        (hit.type === 'movie'
+          ? hit.joynType !== 'Movie'
+          : !['Series', 'Episode'].includes(hit.joynType))) return 'other_or_invalid'
+    types.add(hit.type)
+  }
+  if (value.reason === 'no_joyn_type' &&
+      value.exactCount === 0 && value.exactTypes.length === 0) return 'no_exact_type'
+  if (value.reason === 'ambiguous_joyn_search' &&
+      types.size === 2 && value.exactTypes.length === 2 &&
+      value.exactTypes.includes('movie') && value.exactTypes.includes('series')) {
+    return 'both_types'
+  }
+  return 'other_or_invalid'
+}
+
 function sourceHorizon(status, checkpoint, now) {
   if (!object(status) || status.kind !== 'joyn-sync-status' ||
       status.schemaVersion !== 1 || status.status !== 'complete' ||
@@ -257,10 +289,17 @@ export async function inspectJoynRestoredSourceCacheCoverage({
     ambiguousKeysInspected: 0,
     noValidCachedJoynSearch: 0,
     cachedSearchWithoutTrustedType: 0,
+    cachedBothMovieAndSeries: 0,
+    cachedNoExactType: 0,
+    cachedOtherOrInvalidType: 0,
     trustedMovieType: 0,
     trustedSeriesType: 0,
     matchedAfterTrustedType: 0,
     stillUnresolvedAfterTrustedType: 0,
+    typedNoCandidate: 0,
+    typedBelowThreshold: 0,
+    typedAmbiguousMargin: 0,
+    typedAmbiguousExactTitle: 0,
     externalRequestsStarted: 0,
   }
   for (const candidate of missingKeyRepresentatives.values()) {
@@ -315,6 +354,10 @@ export async function inspectJoynRestoredSourceCacheCoverage({
           const type = trustedCachedJoynSearchType(cachedSource, candidate.title)
           if (!type) {
             trustedTypeReplay.cachedSearchWithoutTrustedType++
+            const category = classifyCachedJoynSearchWithoutType(cachedSource, candidate.title)
+            if (category === 'both_types') trustedTypeReplay.cachedBothMovieAndSeries++
+            else if (category === 'no_exact_type') trustedTypeReplay.cachedNoExactType++
+            else trustedTypeReplay.cachedOtherOrInvalidType++
           } else {
             if (type === 'movie') trustedTypeReplay.trustedMovieType++
             else trustedTypeReplay.trustedSeriesType++
@@ -330,7 +373,14 @@ export async function inspectJoynRestoredSourceCacheCoverage({
               throw new Error('Unexpected offline trusted Joyn type replay')
             }
             if (typed.status === 'matched') trustedTypeReplay.matchedAfterTrustedType++
-            else trustedTypeReplay.stillUnresolvedAfterTrustedType++
+            else {
+              trustedTypeReplay.stillUnresolvedAfterTrustedType++
+              if (typed.reason === 'no_candidate') trustedTypeReplay.typedNoCandidate++
+              else if (typed.reason === 'below_threshold') trustedTypeReplay.typedBelowThreshold++
+              else if (typed.reason === 'ambiguous_margin') trustedTypeReplay.typedAmbiguousMargin++
+              else if (typed.reason === 'ambiguous_exact_title') trustedTypeReplay.typedAmbiguousExactTitle++
+              else throw new Error('Unexpected offline typed Joyn matcher rejection')
+            }
           }
         }
       }
@@ -351,7 +401,14 @@ export async function inspectJoynRestoredSourceCacheCoverage({
         trustedTypeReplay.trustedMovieType + trustedTypeReplay.trustedSeriesType ||
       trustedTypeReplay.trustedMovieType + trustedTypeReplay.trustedSeriesType !==
         trustedTypeReplay.matchedAfterTrustedType +
-        trustedTypeReplay.stillUnresolvedAfterTrustedType) {
+        trustedTypeReplay.stillUnresolvedAfterTrustedType ||
+      trustedTypeReplay.cachedSearchWithoutTrustedType !==
+        trustedTypeReplay.cachedBothMovieAndSeries +
+        trustedTypeReplay.cachedNoExactType +
+        trustedTypeReplay.cachedOtherOrInvalidType ||
+      trustedTypeReplay.stillUnresolvedAfterTrustedType !==
+        trustedTypeReplay.typedNoCandidate + trustedTypeReplay.typedBelowThreshold +
+        trustedTypeReplay.typedAmbiguousMargin + trustedTypeReplay.typedAmbiguousExactTitle) {
     throw new Error('Trusted Joyn type replay counts inconsistent')
   }
   const versionCompatible = matchCache.matcherVersion === JOYN_MATCHER_VERSION
@@ -461,18 +518,29 @@ export function isSafeJoynRestoredSourceCoverage(value) {
     cc.exactAmbiguityWithSourceDescription +
       cc.exactAmbiguityWithoutSourceDescription === rr.ambiguousExactTitle &&
     keysExactly(tr, ['ambiguousKeysInspected', 'noValidCachedJoynSearch',
-      'cachedSearchWithoutTrustedType', 'trustedMovieType', 'trustedSeriesType',
+      'cachedSearchWithoutTrustedType', 'cachedBothMovieAndSeries',
+      'cachedNoExactType', 'cachedOtherOrInvalidType',
+      'trustedMovieType', 'trustedSeriesType',
       'matchedAfterTrustedType', 'stillUnresolvedAfterTrustedType',
-      'externalRequestsStarted']) &&
+      'typedNoCandidate', 'typedBelowThreshold', 'typedAmbiguousMargin',
+      'typedAmbiguousExactTitle', 'externalRequestsStarted']) &&
     ['ambiguousKeysInspected', 'noValidCachedJoynSearch',
-      'cachedSearchWithoutTrustedType', 'trustedMovieType', 'trustedSeriesType',
-      'matchedAfterTrustedType', 'stillUnresolvedAfterTrustedType'].every(x => integer(tr[x], MAX_RAW_EVENTS)) &&
+      'cachedSearchWithoutTrustedType', 'cachedBothMovieAndSeries',
+      'cachedNoExactType', 'cachedOtherOrInvalidType',
+      'trustedMovieType', 'trustedSeriesType',
+      'matchedAfterTrustedType', 'stillUnresolvedAfterTrustedType',
+      'typedNoCandidate', 'typedBelowThreshold', 'typedAmbiguousMargin',
+      'typedAmbiguousExactTitle'].every(x => integer(tr[x], MAX_RAW_EVENTS)) &&
     tr.externalRequestsStarted === 0 &&
     tr.ambiguousKeysInspected === rr.ambiguousExactTitle &&
     tr.ambiguousKeysInspected === tr.noValidCachedJoynSearch +
       tr.cachedSearchWithoutTrustedType + tr.trustedMovieType + tr.trustedSeriesType &&
     tr.trustedMovieType + tr.trustedSeriesType ===
       tr.matchedAfterTrustedType + tr.stillUnresolvedAfterTrustedType &&
+    tr.cachedSearchWithoutTrustedType === tr.cachedBothMovieAndSeries +
+      tr.cachedNoExactType + tr.cachedOtherOrInvalidType &&
+    tr.stillUnresolvedAfterTrustedType === tr.typedNoCandidate +
+      tr.typedBelowThreshold + tr.typedAmbiguousMargin + tr.typedAmbiguousExactTitle &&
     s.normalizedRemainingOriginalPrograms ===
       m.exactOriginalSourceKeyPresent + m.exactOriginalSourceKeyAbsent &&
     m.exactOriginalSourceKeyPresent === m.reusablePositiveDecisions +
