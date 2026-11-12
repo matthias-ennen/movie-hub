@@ -13,6 +13,7 @@ const movies = {
   'The Man from Toronto': { id: 667739, release_date: '2022-06-24', title: 'The Man from Toronto' },
 }
 const first = {
+  sourceId: 'waipu-epg',
   candidate: {
     stationId: 'ard', title: 'Arrival', type: 'movie',
     productionYear: 2016, startTime: START, endTime: END,
@@ -20,6 +21,7 @@ const first = {
   matcherInput: { type: 'movie', title: 'Arrival', productionYear: 2016 },
 }
 const second = {
+  sourceId: 'waipu-epg',
   candidate: {
     stationId: 'zdf', title: 'The Man from Toronto', type: 'movie',
     productionYear: 2022, startTime: START, endTime: END,
@@ -104,7 +106,7 @@ describe('G1e-2d explicitly isolated, real-matcher TMDB HTTP transport A/B', () 
       mode: 'explicit-test-only',
       counts: {
         programs: 2, baselineMatched: 2, indexedMatched: 2,
-        indexReuses: 1, originalMatcherFallbacks: 1,
+        indexReuses: 1, nonCrossAdapterHitsDiscarded: 0, originalMatcherFallbacks: 1,
         indexConflicts: 0, identityMismatches: 0,
         baselineTmdbHttpRequests: 2,
         indexedTmdbHttpRequests: 1,
@@ -234,12 +236,81 @@ describe('G1e-2d explicitly isolated, real-matcher TMDB HTTP transport A/B', () 
         }),
       },
     })
-    expect(report.counts.indexReuses).toBe(1)
+    expect(report.counts.indexReuses).toBe(0)
+    expect(report.counts.nonCrossAdapterHitsDiscarded).toBe(1)
+    expect(report.counts.originalMatcherFallbacks).toBe(1)
     expect(report.counts.identityMismatches).toBe(0)
     expect(report.gate).toMatchObject({
       verifiedPositiveEvidenceRecords: 0, observedTrustedReuse: false,
       safeToConsiderFurtherPilot: false, measuredProductionSavings: null,
     })
+  })
+
+  it('ignores own-adapter index evidence and does not credit pseudo savings', async () => {
+    const report = await compareOptionalSharedEpgIndexAb({
+      inputs: [first], createSession: sessionFactory().createSession,
+      approvedEvidence: [{ ...approved[0], sourceId: 'waipu-epg' }], now: NOW,
+    })
+    expect(report.counts).toMatchObject({
+      indexReuses: 0, nonCrossAdapterHitsDiscarded: 1,
+      originalMatcherFallbacks: 1,
+      baselineTmdbHttpRequests: 1, indexedTmdbHttpRequests: 1,
+      measuredReplayHttpRequestDifference: 0,
+    })
+    expect(report.gate).toMatchObject({
+      verifiedPositiveEvidenceRecords: 1,
+      observedTrustedReuse: false, safeToConsiderFurtherPilot: false,
+      measuredProductionSavings: null,
+    })
+  })
+
+  it('accepts a mixed-source evidence hit only when another adapter supplied it', async () => {
+    const report = await compareOptionalSharedEpgIndexAb({
+      inputs: [first], createSession: sessionFactory().createSession,
+      approvedEvidence: [
+        { ...approved[0], sourceId: 'waipu-epg' },
+        { ...approved[0], sourceId: 'joyn-epg' },
+      ], now: NOW,
+    })
+    expect(report.counts).toMatchObject({
+      indexReuses: 1, nonCrossAdapterHitsDiscarded: 0,
+      baselineTmdbHttpRequests: 1, indexedTmdbHttpRequests: 0,
+    })
+    expect(report.gate).toMatchObject({
+      verifiedPositiveEvidenceRecords: 2, observedTrustedReuse: true,
+      safeToConsiderFurtherPilot: true, measuredProductionSavings: null,
+    })
+  })
+
+  it('does not count unsupported evidence sources as a different provider', async () => {
+    const report = await compareOptionalSharedEpgIndexAb({
+      inputs: [first], createSession: sessionFactory().createSession,
+      approvedEvidence: [{ ...approved[0], sourceId: 'unreviewed-source' }],
+      now: NOW,
+    })
+    expect(report.counts).toMatchObject({
+      indexReuses: 0, nonCrossAdapterHitsDiscarded: 1,
+      baselineTmdbHttpRequests: 1, indexedTmdbHttpRequests: 1,
+    })
+    expect(report.gate).toMatchObject({
+      verifiedPositiveEvidenceRecords: 0,
+      safeToConsiderFurtherPilot: false,
+    })
+  })
+
+  it('requires one named source adapter per comparable A/B matcher session', async () => {
+    for (const sourceId of [undefined, null, '', 'unreviewed-source']) {
+      await expect(compareOptionalSharedEpgIndexAb({
+        inputs: [{ ...first, sourceId }],
+        createSession: sessionFactory().createSession,
+        approvedEvidence: approved, now: NOW,
+      })).rejects.toThrow(/supported sourceId/)
+    }
+    await expect(compareOptionalSharedEpgIndexAb({
+      inputs: [first, { ...second, sourceId: 'joyn-epg' }],
+      createSession: sessionFactory().createSession,
+      approvedEvidence: approved, now: NOW,
+    })).rejects.toThrow(/one source adapter/)
   })
 
   it('rejects an indexed replay that starts extra TMDB transports despite identical identities', async () => {
