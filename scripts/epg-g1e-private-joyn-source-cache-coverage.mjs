@@ -11,7 +11,7 @@ import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { joynV2Streams } from './joyn-epg-sync.mjs'
 import { JoynMatchCache, joynOriginalCacheKey, sharedJoynTmdbMetadata } from './joyn-match-cache.mjs'
-import { JOYN_MATCHER_VERSION } from './joyn-tmdb-matcher.mjs'
+import { JOYN_MATCHER_VERSION, matchJoynProgram } from './joyn-tmdb-matcher.mjs'
 import { titleLookup } from './joyn-adapter-diagnostic.mjs'
 import { localTmdbCandidates } from './waipu-live-catalog.mjs'
 import { normalizeJoynLiveChannelsAndEpg } from '../src/sources/joyn/joynEpgNormalizer.js'
@@ -82,7 +82,7 @@ function sourceHorizon(status, checkpoint, now) {
  * Testable isolated ORIGINAL logic. The caller owns the private objects;
  * the only returned material is a small numeric, fixed-schema summary.
  */
-export function inspectJoynRestoredSourceCacheCoverage({
+export async function inspectJoynRestoredSourceCacheCoverage({
   status, checkpoint, windowRecords, matchCache, catalog, searchIndex,
   previousJoynTitles = { entries: [] }, waipuTitles = { entries: [] },
   now = Date.now(),
@@ -157,6 +157,8 @@ export function inspectJoynRestoredSourceCacheCoverage({
   // space. Several programme IDs can share one exact, duration-aware key.
   // Hashes remain private in memory; only fixed aggregate counts are emitted.
   const keyOutcomes = new Map()
+  let missingKeysMatchedByLocalFirstPass = 0
+  let missingKeysWithoutLocalFirstPassMatch = 0
   for (const candidate of uniquePrograms.values()) {
     const key = joynOriginalCacheKey(candidate)
     const hasKey = Object.hasOwn(matchCache.entries, key)
@@ -166,10 +168,26 @@ export function inspectJoynRestoredSourceCacheCoverage({
     const outcome = !hasKey ? 'absent'
       : !original ? 'rejected'
         : original.decision?.status === 'matched' ? 'positive' : 'negative'
-    if (keyOutcomes.has(key) && keyOutcomes.get(key) !== outcome) {
+    const firstOccurrence = !keyOutcomes.has(key)
+    if (!firstOccurrence && keyOutcomes.get(key) !== outcome) {
       throw new Error('Inconsistent original cache key classification')
     }
     keyOutcomes.set(key, outcome)
+    if (outcome === 'absent' && firstOccurrence) {
+      const startMs = Date.parse(candidate.startTime)
+      const endMs = Date.parse(candidate.endTime)
+      const broadcastDurationMinutes = Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs
+        ? (endMs - startMs) / 60_000 : null
+      // EXACT first pass from runJoynAdapterDiagnostic: NO type hint,
+      // external Joyn classification, TMDB search or detail fetch.
+      const localDecision = await matchJoynProgram({
+        title: candidate.title,
+        description: candidate.description,
+        broadcastDurationMinutes,
+      }, { localCandidates: candidatesFor(candidate.title), searchTmdb: null, loadTmdbDetails: null })
+      if (localDecision.status === 'matched') missingKeysMatchedByLocalFirstPass++
+      else missingKeysWithoutLocalFirstPassMatch++
+    }
     if (!original) {
       if (hasKey) exactKeyRejectedByOriginalPolicy++
       continue
@@ -187,7 +205,8 @@ export function inspectJoynRestoredSourceCacheCoverage({
     unique.absent <= exactKeyAbsent &&
     unique.rejected <= exactKeyRejectedByOriginalPolicy &&
     unique.positive <= reusablePositiveDecisions &&
-    unique.negative <= reusableNegativeDecisions
+    unique.negative <= reusableNegativeDecisions &&
+    unique.absent === missingKeysMatchedByLocalFirstPass + missingKeysWithoutLocalFirstPassMatch
   if (!complete || decisions.hits !== reusablePositiveDecisions + reusableNegativeDecisions) {
     throw new Error('Original matcher counters inconsistent')
   }
@@ -216,6 +235,8 @@ export function inspectJoynRestoredSourceCacheCoverage({
       distinctRejectedOriginalKeys: unique.rejected,
       distinctReusablePositiveKeys: unique.positive,
       distinctReusableNegativeKeys: unique.negative,
+      distinctMissingKeysLocallyMatched: missingKeysMatchedByLocalFirstPass,
+      distinctMissingKeysNotLocallyMatched: missingKeysWithoutLocalFirstPassMatch,
     },
     gate: {
       sourceKeyAndCandidateContextCompared: true,
@@ -246,14 +267,18 @@ export function isSafeJoynRestoredSourceCoverage(value) {
       'exactKeyRejectedByOriginalPolicy', 'reusablePositiveDecisions',
       'reusableNegativeDecisions', 'distinctOriginalSourceKeys',
       'distinctMissingOriginalKeys', 'distinctRejectedOriginalKeys',
-      'distinctReusablePositiveKeys', 'distinctReusableNegativeKeys']) &&
+      'distinctReusablePositiveKeys', 'distinctReusableNegativeKeys',
+      'distinctMissingKeysLocallyMatched', 'distinctMissingKeysNotLocallyMatched']) &&
     typeof m.compatibleMatcherVersion === 'boolean' &&
     ['originalCacheEntries', 'exactOriginalSourceKeyPresent', 'exactOriginalSourceKeyAbsent',
       'exactKeyRejectedByOriginalPolicy', 'reusablePositiveDecisions',
       'reusableNegativeDecisions', 'distinctOriginalSourceKeys',
       'distinctMissingOriginalKeys', 'distinctRejectedOriginalKeys',
-      'distinctReusablePositiveKeys', 'distinctReusableNegativeKeys'
+      'distinctReusablePositiveKeys', 'distinctReusableNegativeKeys',
+      'distinctMissingKeysLocallyMatched', 'distinctMissingKeysNotLocallyMatched'
     ].every(x => integer(m[x], MAX_RAW_EVENTS)) &&
+    m.distinctMissingOriginalKeys === m.distinctMissingKeysLocallyMatched +
+      m.distinctMissingKeysNotLocallyMatched &&
     m.distinctOriginalSourceKeys === m.distinctMissingOriginalKeys +
       m.distinctRejectedOriginalKeys + m.distinctReusablePositiveKeys +
       m.distinctReusableNegativeKeys &&
@@ -320,7 +345,7 @@ async function main(argv) {
     }
     windowRecords.push(await readJsonBounded(path, MAX_WINDOW_BYTES))
   }
-  const report = inspectJoynRestoredSourceCacheCoverage({
+  const report = await inspectJoynRestoredSourceCacheCoverage({
     status, checkpoint, windowRecords, matchCache,
     catalog, searchIndex, previousJoynTitles, waipuTitles, now,
   })
