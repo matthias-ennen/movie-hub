@@ -10,13 +10,14 @@ import { lstat, readFile, mkdir, writeFile } from 'node:fs/promises'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { joynV2Streams } from './joyn-epg-sync.mjs'
-import { JoynMatchCache, joynOriginalCacheKey, sharedJoynTmdbMetadata } from './joyn-match-cache.mjs'
+import { JoynMatchCache, JoynLookupCache, joynOriginalCacheKey, sharedJoynTmdbMetadata } from './joyn-match-cache.mjs'
 import { JOYN_MATCHER_VERSION, matchJoynProgram } from './joyn-tmdb-matcher.mjs'
 import { titleLookup } from './joyn-adapter-diagnostic.mjs'
 import { localTmdbCandidates } from './waipu-live-catalog.mjs'
 import { normalizeJoynLiveChannelsAndEpg } from '../src/sources/joyn/joynEpgNormalizer.js'
 import { enrichJoynCandidatesWithV2 } from '../src/sources/joyn/joynEpgV2Enrichment.js'
 import { buildJoynStationMapping } from './joyn-station-mapping.mjs'
+import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -32,6 +33,35 @@ const object = x => x !== null && typeof x === 'object' && !Array.isArray(x)
 const integer = (x, max = MAX_JSON_COUNT) => Number.isSafeInteger(x) && x >= 0 && x <= max
 const keysExactly = (x, allowed) => object(x) &&
   Object.keys(x).sort().join('|') === [...allowed].sort().join('|')
+
+/**
+ * Only the ORIGINAL exact Joyn SearchQ response, validated by its structural
+ * evidence, can supply an offline type hint. Cache TTL and technical-failure
+ * safeguards are applied separately by JoynLookupCache.get. This returns
+ * only a fixed type or null: never an inferred/guessed TMDB identity.
+ */
+export function trustedCachedJoynSearchType(value, title) {
+  const expected = normalizeWaipuText(title)
+  if (!object(value) || value.reason !== 'exact_joyn_search' ||
+      !['movie', 'series'].includes(value.type) ||
+      !Array.isArray(value.exactTypes) || value.exactTypes.length !== 1 ||
+      value.exactTypes[0] !== value.type ||
+      !integer(value.exactCount, 10) || value.exactCount === 0 ||
+      !Array.isArray(value.exactResults) ||
+      value.exactResults.length !== value.exactCount || !expected) {
+    return null
+  }
+  for (const hit of value.exactResults) {
+    if (!object(hit) || hit.type !== value.type ||
+        normalizeWaipuText(hit.title) !== expected ||
+        (value.type === 'movie'
+          ? hit.joynType !== 'Movie'
+          : !['Series', 'Episode'].includes(hit.joynType))) {
+      return null
+    }
+  }
+  return value.type
+}
 
 function sourceHorizon(status, checkpoint, now) {
   if (!object(status) || status.kind !== 'joyn-sync-status' ||
@@ -83,7 +113,9 @@ function sourceHorizon(status, checkpoint, now) {
  * the only returned material is a small numeric, fixed-schema summary.
  */
 export async function inspectJoynRestoredSourceCacheCoverage({
-  status, checkpoint, windowRecords, matchCache, catalog, searchIndex,
+  status, checkpoint, windowRecords, matchCache, lookupCache = {
+    kind: 'joyn-lookup-cache', schemaVersion: 1, entries: {},
+  }, catalog, searchIndex,
   previousJoynTitles = { entries: [] }, waipuTitles = { entries: [] },
   now = Date.now(),
 } = {}) {
@@ -93,6 +125,9 @@ export async function inspectJoynRestoredSourceCacheCoverage({
       matchCache.kind !== 'joyn-match-cache' || matchCache.schemaVersion !== 1 ||
       !object(matchCache.entries) ||
       Object.keys(matchCache.entries).length > MAX_JSON_COUNT ||
+      !object(lookupCache) || lookupCache.kind !== 'joyn-lookup-cache' ||
+      lookupCache.schemaVersion !== 1 || !object(lookupCache.entries) ||
+      Object.keys(lookupCache.entries).length > MAX_JSON_COUNT ||
       !Array.isArray(catalog?.titles) || !Array.isArray(searchIndex?.entries)) {
     throw new Error('Missing or unbounded private original cache inputs')
   }
@@ -147,6 +182,7 @@ export async function inspectJoynRestoredSourceCacheCoverage({
   const local = localTmdbCandidates({ catalog, searchIndex, liveTitles: shared })
   const candidatesFor = titleLookup(local)
   const decisions = new JoynMatchCache(matchCache.entries, now)
+  const privateSourceLookups = new JoynLookupCache(lookupCache.entries, now)
 
   let exactSourceKeyPresent = 0
   let exactKeyAbsent = 0
@@ -217,6 +253,16 @@ export async function inspectJoynRestoredSourceCacheCoverage({
     exactAmbiguityWithSourceDescription: 0,
     exactAmbiguityWithoutSourceDescription: 0,
   }
+  const trustedTypeReplay = {
+    ambiguousKeysInspected: 0,
+    noValidCachedJoynSearch: 0,
+    cachedSearchWithoutTrustedType: 0,
+    trustedMovieType: 0,
+    trustedSeriesType: 0,
+    matchedAfterTrustedType: 0,
+    stillUnresolvedAfterTrustedType: 0,
+    externalRequestsStarted: 0,
+  }
   for (const candidate of missingKeyRepresentatives.values()) {
     const start = Date.parse(candidate.startTime)
     const end = Date.parse(candidate.endTime)
@@ -255,6 +301,39 @@ export async function inspectJoynRestoredSourceCacheCoverage({
           unresolvedContext.exactAmbiguityWithoutSourceDescription++
         }
       } else throw new Error('Unexpected original matcher rejection classification')
+
+      // Original Joyn first collects a SearchQ classification AFTER the first
+      // local attempt. Inspect the *already cached* exact source evidence,
+      // never call SearchQ/Algolia/TMDB. Replay only when the cached SearchQ
+      // response proves one unambiguous original movie/series type.
+      if (result.reason === 'ambiguous_exact_title') {
+        trustedTypeReplay.ambiguousKeysInspected++
+        const cachedSource = privateSourceLookups.get('joyn-title-v1', candidate.title)
+        if (!cachedSource) {
+          trustedTypeReplay.noValidCachedJoynSearch++
+        } else {
+          const type = trustedCachedJoynSearchType(cachedSource, candidate.title)
+          if (!type) {
+            trustedTypeReplay.cachedSearchWithoutTrustedType++
+          } else {
+            if (type === 'movie') trustedTypeReplay.trustedMovieType++
+            else trustedTypeReplay.trustedSeriesType++
+            const typed = await matchJoynProgram({
+              title: candidate.title,
+              type,
+              description: candidate.description,
+              broadcastDurationMinutes,
+            }, { localCandidates, searchTmdb: null, loadTmdbDetails: null })
+            if (typed?.matcherVersion !== JOYN_MATCHER_VERSION ||
+                !['matched', 'unmatched'].includes(typed.status) ||
+                !['local', 'local+year', 'local+description'].includes(typed.source)) {
+              throw new Error('Unexpected offline trusted Joyn type replay')
+            }
+            if (typed.status === 'matched') trustedTypeReplay.matchedAfterTrustedType++
+            else trustedTypeReplay.stillUnresolvedAfterTrustedType++
+          }
+        }
+      }
     }
   }
   const reasonTotal = Object.values(unresolvedReasons).reduce((sum, count) => sum + count, 0)
@@ -264,6 +343,16 @@ export async function inspectJoynRestoredSourceCacheCoverage({
       unresolvedContext.exactAmbiguityWithSourceDescription +
         unresolvedContext.exactAmbiguityWithoutSourceDescription !== unresolvedReasons.ambiguousExactTitle) {
     throw new Error('Offline local Joyn matcher count mismatch')
+  }
+  if (trustedTypeReplay.ambiguousKeysInspected !== unresolvedReasons.ambiguousExactTitle ||
+      trustedTypeReplay.ambiguousKeysInspected !==
+        trustedTypeReplay.noValidCachedJoynSearch +
+        trustedTypeReplay.cachedSearchWithoutTrustedType +
+        trustedTypeReplay.trustedMovieType + trustedTypeReplay.trustedSeriesType ||
+      trustedTypeReplay.trustedMovieType + trustedTypeReplay.trustedSeriesType !==
+        trustedTypeReplay.matchedAfterTrustedType +
+        trustedTypeReplay.stillUnresolvedAfterTrustedType) {
+    throw new Error('Trusted Joyn type replay counts inconsistent')
   }
   const versionCompatible = matchCache.matcherVersion === JOYN_MATCHER_VERSION
   return {
@@ -300,6 +389,7 @@ export async function inspectJoynRestoredSourceCacheCoverage({
     },
     offlineLocalRejectionReasons: unresolvedReasons,
     offlineLocalCandidateContext: unresolvedContext,
+    offlineTrustedJoynTypeReplay: trustedTypeReplay,
     gate: {
       sourceKeyAndCandidateContextCompared: true,
       usableForCurrentHorizon: horizon.sourceRecent && horizon.horizonIncludesNow && versionCompatible,
@@ -313,10 +403,10 @@ export async function inspectJoynRestoredSourceCacheCoverage({
 export function isSafeJoynRestoredSourceCoverage(value) {
   const s = value?.source, m = value?.match, o = value?.offlineLocalPreflight
   const rr = value?.offlineLocalRejectionReasons, cc = value?.offlineLocalCandidateContext
-  const g = value?.gate
+  const tr = value?.offlineTrustedJoynTypeReplay, g = value?.gate
   return keysExactly(value, ['kind', 'schemaVersion', 'mode', 'source', 'match',
     'offlineLocalPreflight', 'offlineLocalRejectionReasons',
-    'offlineLocalCandidateContext', 'gate', 'limitations']) &&
+    'offlineLocalCandidateContext', 'offlineTrustedJoynTypeReplay', 'gate', 'limitations']) &&
     value.kind === 'g1e-private-joyn-original-cache-coverage' &&
     value.schemaVersion === 1 && value.mode === 'private-read-only' &&
     typeof value.limitations === 'string' &&
@@ -370,6 +460,19 @@ export function isSafeJoynRestoredSourceCoverage(value) {
     cc.exactlyOneLocalCandidate + cc.multipleLocalCandidates === o.unresolvedWithLocalCandidates &&
     cc.exactAmbiguityWithSourceDescription +
       cc.exactAmbiguityWithoutSourceDescription === rr.ambiguousExactTitle &&
+    keysExactly(tr, ['ambiguousKeysInspected', 'noValidCachedJoynSearch',
+      'cachedSearchWithoutTrustedType', 'trustedMovieType', 'trustedSeriesType',
+      'matchedAfterTrustedType', 'stillUnresolvedAfterTrustedType',
+      'externalRequestsStarted']) &&
+    ['ambiguousKeysInspected', 'noValidCachedJoynSearch',
+      'cachedSearchWithoutTrustedType', 'trustedMovieType', 'trustedSeriesType',
+      'matchedAfterTrustedType', 'stillUnresolvedAfterTrustedType'].every(x => integer(tr[x], MAX_RAW_EVENTS)) &&
+    tr.externalRequestsStarted === 0 &&
+    tr.ambiguousKeysInspected === rr.ambiguousExactTitle &&
+    tr.ambiguousKeysInspected === tr.noValidCachedJoynSearch +
+      tr.cachedSearchWithoutTrustedType + tr.trustedMovieType + tr.trustedSeriesType &&
+    tr.trustedMovieType + tr.trustedSeriesType ===
+      tr.matchedAfterTrustedType + tr.stillUnresolvedAfterTrustedType &&
     s.normalizedRemainingOriginalPrograms ===
       m.exactOriginalSourceKeyPresent + m.exactOriginalSourceKeyAbsent &&
     m.exactOriginalSourceKeyPresent === m.reusablePositiveDecisions +
@@ -405,11 +508,12 @@ async function main(argv) {
   }
   const root = resolve(argv[1]), output = resolve(argv[3])
   const now = Date.now()
-  const [status, checkpoint, matchCache, catalog, searchIndex,
+  const [status, checkpoint, matchCache, lookupCache, catalog, searchIndex,
     previousJoynTitles, waipuTitles] = await Promise.all([
     readJsonBounded(join(root, 'artifacts/joyn-sync/status.json'), 1024 * 1024),
     readJsonBounded(join(root, 'artifacts/joyn-sync/checkpoint.json'), 1024 * 1024),
     readJsonBounded(join(root, 'artifacts/joyn-live/match-cache.json'), MAX_CACHE_BYTES),
+    readJsonBounded(join(root, 'artifacts/joyn-live/lookup-cache.json'), MAX_CACHE_BYTES),
     readJsonBounded(join(root, 'public/catalog.json'), MAX_PUBLIC_BYTES),
     readJsonBounded(join(root, 'public/search-index.json'), MAX_PUBLIC_BYTES),
     readOptionalPublic(join(root, 'public/joyn-live/titles.json')),
@@ -429,7 +533,7 @@ async function main(argv) {
     windowRecords.push(await readJsonBounded(path, MAX_WINDOW_BYTES))
   }
   const report = await inspectJoynRestoredSourceCacheCoverage({
-    status, checkpoint, windowRecords, matchCache,
+    status, checkpoint, windowRecords, matchCache, lookupCache,
     catalog, searchIndex, previousJoynTitles, waipuTitles, now,
   })
   if (!isSafeJoynRestoredSourceCoverage(report)) {

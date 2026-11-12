@@ -3,6 +3,20 @@
 
 
 
+## 12.11.2026 – Korrekte PRIVATE Joyn-Quellen-Typklassifikation aus bestehendem Cache prüfen
+
+Der gesicherte [Read-only-Run #43292722861](https://github.com/matthias-ennen/movie-hub/actions/runs/43292722861) zeigte: Die **181/181 lokalen Kollisionen** haben `ambiguous_exact_title` als Ursache; 170 Originalsendungen besitzen eine Beschreibung und 11 keine. Ein Titel kann sowohl in mehreren TMDB-Filmen als auch mehreren Serien vorkommen. Das bloße Vorhandensein einer Beschreibung oder mehrerer Kandidaten ist daher **keine** Freigabegrundlage.
+
+Der nächste private Offline-Audit liest den bereits restaurierten `artifacts/joyn-live/lookup-cache.json` mit der **originalen** `JoynLookupCache.get('joyn-title-v1', originalTitle)`-Methode (7-Tage-TTL und bestehende technische Fehlerprüfung). Eine Film-/Serientypkennung gilt *nur für die nachfolgende Diagnose* als zulässiger privater Quellhinweis, wenn der **gespeicherte originale Joyn-SearchQ-Beleg** `reason=exact_joyn_search`, genau einen `exactTypes`-Wert (`movie` oder `series`), eine positive und konsistente Anzahl und ausschließlich zum Originaltitel exakt passende `Movie`-/`Series`-/`Episode`-Belege dieser einen Typkategorie enthält. Keine heuristische Typzuweisung aus Filmtitel, Cover oder TMDB-Kandidat.
+
+Für einen solchen privat gültigen Original-Suchbeleg wird der **bestehende** lokale `matchJoynProgram({ title, type, description, broadcastDurationMinutes }, { localCandidates, searchTmdb:null, loadTmdbDetails:null })` als zweite **rein lesende** Projektion ausgeführt. Die ursprüngliche lokale Mehrdeutigkeit bleibt separat dokumentiert; eine Auflösung im zweiten Durchlauf ist **keine** neu freigegebene G1e-Quittung, kein Produktivmatching und keine gemessene TMDB-Einsparung. Die Identitätsregeln bleiben unverändert.
+
+Öffentlich sichtbar werden ausschließlich feste numerische Aggregate: geprüfte exakt mehrdeutige Schlüssel; fehlende/abgelaufene Joyn-SearchQ-Caches; vorhandene Antworten ohne belastbare eindeutige Typklassifikation; trusted Film-/Serien-Typbelege; dadurch lokal lösbare bzw. weiterhin ungelöste Schlüssel; und immer 0 externe Requests. Die privaten Rohantworten, Titel, IDs, Hashes oder Zuordnungen verlassen den geschützten Runner nicht. Summen und Schema werden strikt geprüft; Tests verwenden nur synthetische Werte.
+
+Die Tests selbst dürfen ausschließlich auf PRs ohne Zugriff auf private Checkpoints laufen. Der echte Offline-Audit wird erst nach grüner PR-CI auf `main` explizit ausgelöst. Produktiver Nightly, EPG-/TMDB-Budgets, die Joyn-Adapterlogik und der deaktivierte Shared EPG Index bleiben unangetastet.
+
+---
+
 ## 12.11.2026 – Gründe der 181 lokalen Joyn-Matcher-Ablehnungen (reiner Diagnostikschritt)
 
 Der erfolgreiche geschützte [Read-only-Lauf #43289483491](https://github.com/matthias-ennen/movie-hub/actions/runs/43289483491) hat von **623** unterschiedlichen fehlenden Originalcache-Schlüsseln **17** rein lokal zuordenbare Fälle, **425** ohne lokalen Kandidaten und **181** ungelöste Fälle **mit** lokalen TMDB-Kandidaten ermittelt. Diese 181 Fälle werden jetzt nach den **festen Gründen des existierenden Originalmatchers** aufgeschlüsselt, nicht mittels eines neuen oder weicheren Matchers.
