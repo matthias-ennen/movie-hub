@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { spawnSync } from 'node:child_process'
 import { runIsolatedG1eCapturePilot } from
   '../scripts/epg-g1e-isolated-pilot-core.mjs'
-import { networkBoundary } from
+import { networkBoundary, sanitizePrivatePilotFailure } from
   '../scripts/epg-g1e-private-original-source-pilot.mjs'
 
 const NOW = Date.parse('2026-11-12T14:30:00.000Z')
@@ -273,6 +273,72 @@ describe('G1e secured in-memory original-source pilot orchestration', () => {
         'G1E_NETWORK_DESTINATION_BLOCKED')
     }
     expect(bound.count()).toBe(2)
+  })
+
+  it('reveals only a fixed safe failure stage, reason and request count, never original source errors', () => {
+    const raw = new Error('Private search failed for ' + secretTitle +
+      ' with token TOP_SECRET_URL_https://evil.invalid')
+    const aggregate = sanitizePrivatePilotFailure(raw, {
+      mode: 'capture', stage: 'joyn-original-generation', fetches: 83,
+    })
+    expect(aggregate).toMatchObject({
+      kind: 'g1e-isolated-private-original-source-capture',
+      status: 'failed-closed', mode: 'capture',
+      phase: 'joyn-original-generation',
+      failureClass: 'UNCLASSIFIED_ORIGINAL_SOURCE_ERROR',
+      boundedAllowlistedFetches: 83,
+      originalTitlesOrIdsInReport: false,
+      measuredProductionSavings: null,
+    })
+    expect(JSON.stringify(aggregate)).not.toContain(secretTitle)
+    expect(JSON.stringify(aggregate)).not.toContain('TOP_SECRET')
+    expect(sanitizePrivatePilotFailure(
+      new Error('G1E_NETWORK_REQUEST_LIMIT'),
+      { mode: 'capture', stage: 'joyn-original-generation', fetches: 300 },
+    )).toMatchObject({ failureClass: 'G1E_NETWORK_REQUEST_LIMIT' })
+    expect(sanitizePrivatePilotFailure(
+      Object.assign(new Error('TOP_SECRET'), {
+        code: 'JOYN_EPG_REQUEST_BUDGET',
+      }), { mode: 'capture', stage: 'private-title-' + secretTitle, fetches: 999 },
+    )).toMatchObject({
+      phase: 'private-checkpoint-preflight',
+      failureClass: 'JOYN_EPG_REQUEST_BUDGET',
+      boundedAllowlistedFetches: null,
+    })
+  })
+
+  it('uses a clock after Joyn generation rather than rejecting legitimate fresh match receipts as future', async () => {
+    let current = NOW - 15 * 60_000
+    const steps = []
+    const args = fixture({
+      now: () => current,
+      onStage: stage => steps.push(stage),
+    })
+    const originalJoyn = args.generateJoyn
+    args.generateJoyn = async options => {
+      // Real Joyn matching can run many minutes after it started.
+      current = NOW
+      return originalJoyn(options)
+    }
+    const originalWaipu = args.generateWaipu
+    args.generateWaipu = async options =>
+      originalWaipu({
+        ...options,
+        onCompletedEvidence: (capture, caps) => {
+          const select = caps.selectBoundedWaipuReplayInputs
+          return options.onCompletedEvidence(capture, {
+            selectBoundedWaipuReplayInputs: (joynCapture, config) => {
+              expect(config.now).toBe(NOW)
+              return select(joynCapture, config)
+            },
+          })
+        },
+      })
+    const result = await runIsolatedG1eCapturePilot(args)
+    expect(result.replay.selectedOriginalWaipuPrograms).toBe(1)
+    expect(steps).toEqual([
+      'joyn-original-generation', 'waipu-original-rehydration',
+    ])
   })
 
   it('CLI does not start ANY source or TMDB request without the exact private opt-in', () => {

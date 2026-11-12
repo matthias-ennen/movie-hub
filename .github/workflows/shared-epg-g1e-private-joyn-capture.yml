@@ -12,6 +12,8 @@ on:
     branches: [main]
     paths:
       - .github/workflows/shared-epg-g1e-private-joyn-capture.yml
+      - scripts/epg-g1e-private-original-source-pilot.mjs
+      - scripts/epg-g1e-isolated-pilot-core.mjs
   workflow_dispatch:
     inputs:
       mode:
@@ -131,6 +133,21 @@ jobs:
         run: |
           node --max-old-space-size=4096 scripts/epg-g1e-private-original-source-pilot.mjs \
             --mode "$G1E_PRIVATE_MODE"
+      - name: Verify only fixed-schema anonymous pilot report is eligible for upload
+        if: ${{ always() }}
+        run: |
+          if [ -s artifacts/g1e-private-pilot/aggregate.json ]; then
+            node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              const x = JSON.parse(readFileSync("artifacts/g1e-private-pilot/aggregate.json", "utf8"));
+              if (x.kind !== "g1e-isolated-private-original-source-capture") process.exit(1);
+              if (!["failed-closed", undefined].includes(x.status)) process.exit(1);
+              const raw = JSON.stringify(x);
+              if (raw.length > 12000 || raw.includes("approvedEvidence") ||
+                  raw.includes("matcherInput") || raw.includes("sourceRefs") ||
+                  raw.includes("Bearer ") || raw.includes("joynProgramId")) process.exit(1);
+            '
+          fi
       - name: Upload ONLY anonymized small aggregate QA reports (no raw source or cache files)
         if: ${{ always() }}
         uses: actions/upload-artifact@v7

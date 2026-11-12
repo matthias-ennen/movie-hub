@@ -27,6 +27,49 @@ import { runIsolatedG1eCapturePilot } from
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const MAX_GLOBAL_FETCHES = 300
+
+// Report ONLY exact-reviewed reason codes. Source exception messages may
+// contain query titles, request URLs, tokens, or programme IDs.
+const SAFE_FAILURE_CODES = new Set([
+  'G1E_NETWORK_REQUEST_LIMIT',
+  'G1E_NETWORK_DESTINATION_BLOCKED',
+  'G1E_PRIVATE_TMDB_TOKEN_REQUIRED',
+  'G1E_PRIVATE_CHECKPOINT_PREFLIGHT_FAILED',
+  'G1E_PRIVATE_INPUT_BOUNDS',
+  'G1E_ORIGINAL_WAIPU_SOURCE_MISSING',
+  'G1E_ORIGINAL_LOCAL_MATCHER_DATA_MISSING',
+  'G1E_JOYN_ORIGINAL_EVIDENCE_NOT_APPROVED',
+  'G1E_WAIPU_ORIGINAL_REPLAY_NOT_APPROVED',
+  'G1E_ISOLATED_AB_RESULT_NOT_VERIFIED',
+  'JOYN_EPG_REQUEST_BUDGET',
+  'TMDB_REQUEST_BUDGET',
+])
+
+export function sanitizePrivatePilotFailure(error, telemetry = {}) {
+  const rawCode = typeof error?.code === 'string' ? error.code :
+    typeof error?.message === 'string' ? error.message : ''
+  const currentStage = String(telemetry.stage ?? '')
+  const stages = new Set([
+    'private-checkpoint-preflight', 'joyn-original-generation',
+    'waipu-original-rehydration', 'waipu-ab-transport-comparison',
+  ])
+  return {
+    kind: 'g1e-isolated-private-original-source-capture',
+    schemaVersion: 1,
+    status: 'failed-closed',
+    mode: ['capture', 'ab'].includes(telemetry.mode)
+      ? telemetry.mode : 'unavailable',
+    phase: stages.has(currentStage) ? currentStage : 'private-checkpoint-preflight',
+    failureClass: SAFE_FAILURE_CODES.has(rawCode)
+      ? rawCode : 'UNCLASSIFIED_ORIGINAL_SOURCE_ERROR',
+    boundedAllowlistedFetches: Number.isSafeInteger(telemetry.fetches) &&
+      telemetry.fetches >= 0 && telemetry.fetches <= MAX_GLOBAL_FETCHES
+      ? telemetry.fetches : null,
+    globalFetchBudget: MAX_GLOBAL_FETCHES,
+    originalTitlesOrIdsInReport: false,
+    measuredProductionSavings: null,
+  }
+}
 const ALLOWED_HOSTS = new Set([
   'auth.joyn.de', 'api.joyn.de', 'www.joyn.de',
   'ffqrv35svv-dsn.algolia.net', 'api.themoviedb.org',
@@ -79,7 +122,8 @@ async function withQuietPrivateSources(fn) {
   }
 }
 
-async function runOriginalPilot({ mode }) {
+async function runOriginalPilot({ mode, telemetry }) {
+  telemetry.stage = 'private-checkpoint-preflight'
   const token = String(process.env.TMDB_API_READ_TOKEN ?? '').trim()
   if (!token) throw new Error('G1E_PRIVATE_TMDB_TOKEN_REQUIRED')
   const [waipuStatus, joynStatus, snapshot] = await Promise.all([
@@ -124,6 +168,7 @@ async function runOriginalPilot({ mode }) {
     const report = await withQuietPrivateSources(() =>
       runIsolatedG1eCapturePilot({
         mode, now: Date.now,
+        onStage: stage => { telemetry.stage = stage },
         generateJoyn: options => runJoynAdapterDiagnostic({
           ...options,
           fetchImpl: boundary.fetchImpl,
@@ -171,6 +216,7 @@ async function runOriginalPilot({ mode }) {
       },
     }
   } finally {
+    telemetry.fetches = boundary.count()
     globalThis.fetch = originalFetch
   }
 }
@@ -188,8 +234,20 @@ async function main(args) {
       process.env.G1E_PRIVATE_PILOT_ISOLATED !== '1') {
     throw new Error('G1E_PRIVATE_EXPLICIT_CONFIRMATION_REQUIRED')
   }
-  const result = await runOriginalPilot({ mode })
   const output = resolve(ROOT, 'artifacts/g1e-private-pilot/aggregate.json')
+  const telemetry = { mode, stage: 'private-checkpoint-preflight', fetches: 0 }
+  let result
+  try {
+    result = await runOriginalPilot({ mode, telemetry })
+  } catch (error) {
+    // Intentional: do not log a raw source exception on an isolated QA run.
+    result = sanitizePrivatePilotFailure(error, telemetry)
+    await mkdir(dirname(output), { recursive: true })
+    await writeFile(output, JSON.stringify(result, null, 2) + '\n', 'utf8')
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n')
+    process.exitCode = 1
+    return
+  }
   await mkdir(dirname(output), { recursive: true })
   await writeFile(output, JSON.stringify(result, null, 2) + '\n', 'utf8')
   process.stdout.write(JSON.stringify(result, null, 2) + '\n')

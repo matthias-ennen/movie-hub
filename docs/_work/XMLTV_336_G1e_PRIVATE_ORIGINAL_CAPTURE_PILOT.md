@@ -94,6 +94,37 @@ neues Host-Allowlist-Element oder ein zu knappes API-Budget signalisieren.
 Das ist dann ein **bewusst geschlossenes Test-Gate** und darf nicht durch
 Ausgabe der originalen Anfrage oder unlimitierte Wiederholung umgangen werden.
 
+## Erster realer Test und anonymisierter Fehlerbericht
+
+[Einmallauf #43242852401](https://github.com/matthias-ennen/movie-hub/actions/runs/43242852401)
+hat die Original-Checkpoints und den unabhängigen 24-MiB-Waipu-Preflight
+**erfolgreich** bestanden; der originale Joyn-Quell-/Matcher-Schritt ist
+dagegen **sicher rot abgebrochen**. Der erste Driver hat den eigentlichen
+Quellfehler aus Datenschutzgründen völlig verschluckt; damit ist die Ursache
+des Fehlers **noch offen**. Es darf daher weder von gesammelten neuen
+Originalbelegen noch von realen TMDB-Einsparungen gesprochen werden.
+
+Der private Runner schreibt ab sofort auch bei Fehlern genau **einen
+anonymisierten Diagnosereport** mit folgenden Feldern:
+
+- `phase` aus einer **festen Liste**: private Checkpoint-Vorabprüfung,
+  Joyn-Originalgeneration, Waipu-Originalrehydration oder Waipu-A/B-Transport
+- `failureClass` aus explizit freigegebenen Fehlercodes wie
+  `G1E_NETWORK_REQUEST_LIMIT`, `G1E_NETWORK_DESTINATION_BLOCKED`,
+  `JOYN_EPG_REQUEST_BUDGET` oder `G1E_JOYN_ORIGINAL_EVIDENCE_NOT_APPROVED`.
+  Alle anderen Rohfehler (einschließlich ihrer vielleicht vertraulichen
+  Nachricht) erhalten nur `UNCLASSIFIED_ORIGINAL_SOURCE_ERROR`
+- Anzahl der begonnenen erlaubten HTTPS-Fetches und die bekannte globale
+  Obergrenze 300, **niemals** angefragte Titel, URLs, IDs oder Tokens
+
+Die privaten Source-/Matcher-Logs bleiben unterdrückt. Die neue Action
+prüft vor Artefakt-Upload nochmals die erlaubte Struktur und verbietet
+einige bekannte Rohdatenfeldnamen ausdrücklich. **Ein positiver oder
+negativer Replay-Wert darf erst nach einem tatsächlich erfolgreichen
+privaten Pilotlauf gemeldet werden.**
+
+---
+
 ## Kein Produktions-Go
 
 Der erste Capture-Erfolg bestätigt nur das tatsächliche Vorliegen

@@ -77,7 +77,7 @@ function selectedCounts(value) {
  */
 export async function runIsolatedG1eCapturePilot({
   generateJoyn, generateWaipu, compareWaipu,
-  now = Date.now(), mode = 'capture',
+  now = Date.now(), mode = 'capture', onStage = null,
 } = {}) {
   const clock = typeof now === 'function' ? now : () => now
   if (!Number.isFinite(clock()) || !['capture', 'ab'].includes(mode) ||
@@ -87,6 +87,10 @@ export async function runIsolatedG1eCapturePilot({
     throw new TypeError('Invalid isolated G1e private pilot configuration')
   }
 
+  const noteStage = phase => {
+    if (typeof onStage === 'function') onStage(phase)
+  }
+  noteStage('joyn-original-generation')
   let privateJoyn = null
   let joynCallbackCount = 0
   const joyn = await generateJoyn({
@@ -108,6 +112,7 @@ export async function runIsolatedG1eCapturePilot({
     throw new Error('G1E_JOYN_ORIGINAL_EVIDENCE_NOT_APPROVED')
   }
 
+  noteStage('waipu-original-rehydration')
   let selection = null
   let waipuCallbackCount = 0
   const waipu = await generateWaipu({
@@ -159,6 +164,7 @@ export async function runIsolatedG1eCapturePilot({
     },
   }
   if (mode === 'ab' && counts.selected > 0) {
+    noteStage('waipu-ab-transport-comparison')
     // No private original content returned to the caller or printed.
     const ab = await compareWaipu(selection)
     if (ab?.kind !== 'g1e-shared-epg-isolated-ab' ||
