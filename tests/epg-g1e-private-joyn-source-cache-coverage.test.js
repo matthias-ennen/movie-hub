@@ -94,8 +94,8 @@ function input() {
 }
 
 describe('G1e original private source key/context coverage without network calls', () => {
-  it('uses the original normalized title/description/duration and negative candidate context', () => {
-    const report = inspectJoynRestoredSourceCacheCoverage(input())
+  it('uses the original normalized title/description/duration and negative candidate context', async () => {
+    const report = await inspectJoynRestoredSourceCacheCoverage(input())
     expect(report).toMatchObject({
       kind: 'g1e-private-joyn-original-cache-coverage',
       mode: 'private-read-only',
@@ -115,6 +115,13 @@ describe('G1e original private source key/context coverage without network calls
         distinctReusablePositiveKeys: 1,
         distinctReusableNegativeKeys: 1,
       },
+      offlineLocalPreflight: {
+        distinctMissingKeysInspected: 1,
+        locallyMatchedWithoutExternalCalls: 0,
+        unresolvedWithoutLocalCandidates: 1,
+        unresolvedWithLocalCandidates: 0,
+        providerOrTmdbQueriesStarted: 0,
+      },
       gate: {
         sourceKeyAndCandidateContextCompared: true,
         usableForCurrentHorizon: true,
@@ -128,7 +135,7 @@ describe('G1e original private source key/context coverage without network calls
     expect(JSON.stringify(report)).not.toContain('Private source description')
   })
 
-  it('deduplicates repeated programme IDs into one missing ORIGINAL key without leaking IDs', () => {
+  it('deduplicates repeated programme IDs into one missing ORIGINAL key without leaking IDs', async () => {
     const value = input()
     const original = value.windowRecords[2].items[2] // synthetic missing key
     const repeat = {
@@ -139,7 +146,7 @@ describe('G1e original private source key/context coverage without network calls
     value.windowRecords[2].items.push(repeat)
     const key = `${value.windowRecords[2].from}_${value.windowRecords[2].to}`
     value.checkpoint.windows[key].count++
-    const report = inspectJoynRestoredSourceCacheCoverage(value)
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
     expect(report.source).toMatchObject({
       originalRawWindowRows: 6, normalizedRemainingOriginalPrograms: 6,
     })
@@ -150,16 +157,58 @@ describe('G1e original private source key/context coverage without network calls
       reusablePositiveDecisions: 1,
       reusableNegativeDecisions: 1,
     })
+    expect(report.offlineLocalPreflight).toMatchObject({
+      distinctMissingKeysInspected: 1,
+      unresolvedWithoutLocalCandidates: 1,
+      providerOrTmdbQueriesStarted: 0,
+    })
     expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
     expect(JSON.stringify(report)).not.toContain('private-repeated-programme')
     expect(JSON.stringify(report)).not.toContain(SECRET)
   })
 
-  it('honours modified original source description and duration in hash identity', () => {
+  it('counts local-only successful matches without any remote TMDB or source calls', async () => {
+    const value = input()
+    value.catalog.titles.push({
+      type: 'movie', tmdbId: 203, title: programs[2].title,
+    })
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.match.distinctMissingOriginalKeys).toBe(1)
+    expect(report.offlineLocalPreflight).toEqual({
+      distinctMissingKeysInspected: 1,
+      locallyMatchedWithoutExternalCalls: 1,
+      unresolvedWithoutLocalCandidates: 0,
+      unresolvedWithLocalCandidates: 0,
+      providerOrTmdbQueriesStarted: 0,
+    })
+    expect(report.gate.freshOriginalMatcherReceiptsApproved).toBe(false)
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+    expect(JSON.stringify(report)).not.toContain(programs[2].title)
+    expect(JSON.stringify(report)).not.toContain('203')
+  })
+
+  it('distinguishes ambiguous local candidates from no local candidate', async () => {
+    const value = input()
+    value.catalog.titles.push(
+      { type: 'movie', tmdbId: 205, title: programs[2].title },
+      { type: 'series', tmdbId: 206, title: programs[2].title },
+    )
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.offlineLocalPreflight).toMatchObject({
+      distinctMissingKeysInspected: 1,
+      locallyMatchedWithoutExternalCalls: 0,
+      unresolvedWithoutLocalCandidates: 0,
+      unresolvedWithLocalCandidates: 1,
+      providerOrTmdbQueriesStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+  })
+
+  it('honours modified original source description and duration in hash identity', async () => {
     const value = input()
     value.windowRecords[2].items[0].program.description = 'Different original description'
     value.windowRecords[2].items[4].end += 60
-    const report = inspectJoynRestoredSourceCacheCoverage(value)
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
     expect(report.match).toMatchObject({
       exactOriginalSourceKeyPresent: 2,
       exactOriginalSourceKeyAbsent: 3,
@@ -168,32 +217,32 @@ describe('G1e original private source key/context coverage without network calls
     })
   })
 
-  it('never marks a stale but otherwise complete original source as current', () => {
+  it('never marks a stale but otherwise complete original source as current', async () => {
     const value = input()
     value.status.generatedAt = new Date(NOW - 5 * 86_400_000).toISOString()
-    const report = inspectJoynRestoredSourceCacheCoverage(value)
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
     expect(report.source.sourceRecent).toBe(false)
     expect(report.gate.usableForCurrentHorizon).toBe(false)
     expect(report.gate.freshOriginalMatcherReceiptsApproved).toBe(false)
   })
 
-  it('rejects mismatched windows, incomplete 14-day source and corrupt snapshots', () => {
+  it('rejects mismatched windows, incomplete 14-day source and corrupt snapshots', async () => {
     const wrong = input()
     wrong.windowRecords[2].items.pop()
-    expect(() => inspectJoynRestoredSourceCacheCoverage(wrong)).toThrow()
+    await expect(inspectJoynRestoredSourceCacheCoverage(wrong)).rejects.toThrow()
     const status = input()
     status.status.status = 'failed'
-    expect(() => inspectJoynRestoredSourceCacheCoverage(status)).toThrow()
+    await expect(inspectJoynRestoredSourceCacheCoverage(status)).rejects.toThrow()
     const gap = input()
     gap.windowRecords.pop()
-    expect(() => inspectJoynRestoredSourceCacheCoverage(gap)).toThrow()
+    await expect(inspectJoynRestoredSourceCacheCoverage(gap)).rejects.toThrow()
     const badCache = input()
     badCache.matchCache.schemaVersion = 99
-    expect(() => inspectJoynRestoredSourceCacheCoverage(badCache)).toThrow()
+    await expect(inspectJoynRestoredSourceCacheCoverage(badCache)).rejects.toThrow()
   })
 
-  it('accepts only exact fixed aggregate schema and never an arbitrary raw title', () => {
-    const report = inspectJoynRestoredSourceCacheCoverage(input())
+  it('accepts only exact fixed aggregate schema and never an arbitrary raw title', async () => {
+    const report = await inspectJoynRestoredSourceCacheCoverage(input())
     const rejected = [
       { ...report, rawOriginal: SECRET },
       { ...report, source: { ...report.source, title: SECRET } },
@@ -202,6 +251,10 @@ describe('G1e original private source key/context coverage without network calls
       { ...report, match: { ...report.match, distinctReusablePositiveKeys: 1000 } },
       { ...report, match: { ...report.match, distinctOriginalSourceKeys: 99999 } },
       { ...report, match: { ...report.match, rawOriginalHash: SECRET } },
+      { ...report, offlineLocalPreflight: { ...report.offlineLocalPreflight, privateTitle: SECRET } },
+      { ...report, offlineLocalPreflight: { ...report.offlineLocalPreflight, distinctMissingKeysInspected: 0 } },
+      { ...report, offlineLocalPreflight: { ...report.offlineLocalPreflight, providerOrTmdbQueriesStarted: 1 } },
+      { ...report, offlineLocalPreflight: { ...report.offlineLocalPreflight, locallyMatchedWithoutExternalCalls: 999 } },
       { ...report, gate: { ...report.gate, freshOriginalMatcherReceiptsApproved: true } },
       { ...report, gate: { ...report.gate, measuredProductionSavings: 100 } },
       { ...report, mode: SECRET },

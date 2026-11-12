@@ -3,6 +3,18 @@
 
 
 
+## 12.11.2026 – Fehlende Originalschlüssel: rein lokaler Matcher-Vordurchlauf
+
+Aus dem geschützten [Lauf #43285326590](https://github.com/matthias-ennen/movie-hub/actions/runs/43285326590) sind unter 50.596 noch relevanten Originalprogramm-IDs **623 unterschiedliche fehlende Original-Cache-Schlüssel** bekannt. Diese Zahl ist **nicht** mit der Zahl künftig benötigter TMDB-HTTP-Suchanfragen gleichzusetzen.
+
+Die Erweiterung des existierenden G1e-Read-only-Audits spielt für **jeden unterschiedlichen fehlenden Schlüssel genau einmal** den bereits produktiv genutzten Aufruf `matchJoynProgram({ title, description, broadcastDurationMinutes }, { localCandidates, searchTmdb: null, loadTmdbDetails: null })` nach. Die lokalen Kandidaten stammen aus der bereits verwendeten Projektion aus öffentlichem TMDB-Katalog und vorhandenen veröffentlichten Live-Titeln. Keine externe TMDB-Suche, keine Joyn-/Algolia-HTTP-Abfrage, keine Runtime-Detail-API, keine neue Matcher-Cache-Entscheidung und kein Schreiben der Rohdaten.
+
+Der private Bericht enthält nur die feste `offlineLocalPreflight`-Struktur: Anzahl geprüfter **unterschiedlicher fehlender Originalschlüssel**, davon lokal ohne externe Anfrage zuordenbar, ungelöst ohne vorhandene lokale Kandidaten und ungelöst trotz lokaler Kandidaten sowie die auf **null** festgeschriebenen externen Anfrage-Starts. Alle Summen müssen exakt der Anzahl fehlender unterschiedlicher Originalschlüssel entsprechen. Originalschlüssel, Titel, IDs, Kandidaten und Entscheidungen verlassen den ephemeren Runner **nicht**. Auf PRs werden ausschließlich synthetische Tests ausgeführt; echte private Rohdaten bleiben dem geschützten Job vorbehalten.
+
+**Ein lokal erfolgreiches Replay ist noch keine frische G1e-Matcher-Freigabequittung** und keine gemessene produktive TMDB-Ersparnis. Das Produktivverhalten, die EPG- und TMDB-Budgets und der deaktivierte Shared-Index bleiben unverändert. Die anschließend gemessenen noch ungelösten Schlüssel bestimmen die Größe einer zukünftigen streng begrenzten Originalmatcher-HTTP-Stichprobe.
+
+---
+
 ## 12.11.2026 – Unterschiedliche noch offene Matcher-Schlüssel statt Programm-IDs
 
 Der erfolgreiche private Read-only-Audit [#43283391309](https://github.com/matthias-ennen/movie-hub/actions/runs/43283391309) wies unter **50.669** ursprünglichen, noch relevanten Joyn-Programm-IDs **2.038** IDs ohne passenden Cache-Schlüssel sowie **einen** vorhandenen, aber vom Originalcache verworfenen Schlüssel nach. Das bedeutet nicht, dass tatsächlich 2.038 unterschiedliche TMDB-Suchfälle vorliegen: Wiederholungen desselben Titels mit gleicher Beschreibung, Untertitel und Laufzeit ergeben denselben ursprünglichen SHA-Schlüssel.
