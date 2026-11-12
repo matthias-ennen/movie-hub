@@ -654,7 +654,26 @@ export async function buildWaipuLiveCatalog({
         sourceBroadcasts: activeBroadcasts,
         matchesByProgram,
       })
-      if (capture.status === 'complete') await onCompletedEvidence(capture)
+      if (capture.status === 'complete') {
+        // The optional QA callback can request a bounded, in-memory Waipu
+        // original-input selection matched against approved Joyn receipts.
+        // Keep the actual source title, local matcher input and candidates
+        // OUT of all published catalog results and routine status logs.
+        const { selectBoundedWaipuReplayInputs } = await import(
+          './epg-g1e-waipu-replay-input-selection.mjs'
+        )
+        await onCompletedEvidence(capture, {
+          selectBoundedWaipuReplayInputs: (joynEvidenceCapture, options = {}) =>
+            selectBoundedWaipuReplayInputs({
+              adapterEnvelope,
+              sourceBroadcasts: activeBroadcasts,
+              matchesByProgram,
+              localCandidatesFor: candidatesFor,
+              joynEvidenceCapture,
+              ...options,
+            }),
+        })
+      }
       const { status, counts, rejectedReasons } = capture
       sourceEvidenceCapture = { status, counts, rejectedReasons }
     } catch {
