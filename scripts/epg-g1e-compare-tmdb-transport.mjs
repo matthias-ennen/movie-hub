@@ -12,6 +12,7 @@
  *
  * Do not interpret simulated/stubbed transport calls as real API savings.
  */
+import { createHash } from 'node:crypto'
 import {
   SharedEpgIdentityIndex,
   matchWithOptionalSharedEpgIndex,
@@ -41,13 +42,47 @@ function sameIdentity(left, right) {
     left.type === right.type && left.tmdbId === right.tmdbId)
 }
 
+const MAX_CACHE_SNAPSHOT_BYTES = 24 * 1024 * 1024
+
+function canonicalCacheJson(input, depth = 0) {
+  if (depth > 32) throw new TypeError('Cache snapshots must be bounded JSON data')
+  if (input === null || typeof input === 'string' || typeof input === 'boolean') return input
+  if (typeof input === 'number' && Number.isFinite(input)) return input
+  if (Array.isArray(input)) {
+    return input.map(item => canonicalCacheJson(item, depth + 1))
+  }
+  if (input && typeof input === 'object' &&
+      (Object.getPrototypeOf(input) === Object.prototype ||
+        Object.getPrototypeOf(input) === null)) {
+    return Object.fromEntries(
+      Object.keys(input).sort().map(k => [k, canonicalCacheJson(input[k], depth + 1)]),
+    )
+  }
+  throw new TypeError('Cache snapshots must be bounded JSON data')
+}
+
+function verifiedCacheSnapshot(session, expectedMode) {
+  const state = session?.initialCacheState
+  if (!state || typeof state !== 'object' || Array.isArray(state) ||
+      !state.matchDecisions || typeof state.matchDecisions !== 'object' ||
+      Array.isArray(state.matchDecisions) ||
+      !state.tmdbResponses || typeof state.tmdbResponses !== 'object' ||
+      Array.isArray(state.tmdbResponses)) {
+    throw new TypeError(expectedMode + ' requires both original matching and TMDB response cache snapshots')
+  }
+  const encoded = JSON.stringify(canonicalCacheJson(state))
+  if (!encoded || Buffer.byteLength(encoded, 'utf8') > MAX_CACHE_SNAPSHOT_BYTES) {
+    throw new RangeError('Initial cache snapshots exceed safe size limits')
+  }
+  return createHash('sha256').update(encoded).digest('hex')
+}
+
 function normalizeSession(session, expectedMode) {
   if (!session || typeof session.matchIndependently !== 'function' ||
-      typeof session.startedTmdbHttpRequests !== 'function' ||
-      typeof session.startingCacheFingerprint !== 'string' ||
-      !session.startingCacheFingerprint.trim()) {
-    throw new TypeError(expectedMode + ' requires original matcher, real transport counter and initial-cache fingerprint')
+      typeof session.startedTmdbHttpRequests !== 'function') {
+    throw new TypeError(expectedMode + ' requires original matcher and actual HTTP transport counter')
   }
+  verifiedCacheSnapshot(session, expectedMode)
   return session
 }
 
@@ -58,7 +93,10 @@ function normalizeSession(session, expectedMode) {
  * @param {(mode:'baseline'|'indexed') => Promise<object>|object} createSession
  *   Creates TWO DISTINCT original-adapter matcher instances with identically
  *   initialized and immutable initial local cache snapshots; no shared mutable
- *   decision/response caches between the arms.
+ *   decision/response caches between the arms. Each session MUST expose
+ *   initialCacheState = { matchDecisions, tmdbResponses } as separate JSON
+ *   copies of the actual initialized matcher/response caches. The harness
+ *   derives both SHA-256 digests itself; a caller-supplied string is NOT proof.
  * @param {object[]} approvedEvidence Only already-verified positive receipts,
  *   e.g. the results of G1e Waipu/Joyn strict opt-in capture. This is NOT a
  *   live source import and the source evidence is not returned in the report.
@@ -86,9 +124,13 @@ export async function compareOptionalSharedEpgIndexAb({
   }
   const baseline = normalizeSession(await createSession('baseline'), 'baseline')
   const indexed = normalizeSession(await createSession('indexed'), 'indexed')
-  if (baseline === indexed ||
-      baseline.startingCacheFingerprint !== indexed.startingCacheFingerprint) {
-    throw new TypeError('A/B arms must use DISTINCT matcher sessions from IDENTICAL initial cache states')
+  if (baseline === indexed || baseline.initialCacheState === indexed.initialCacheState ||
+      baseline.initialCacheState.matchDecisions === indexed.initialCacheState.matchDecisions ||
+      baseline.initialCacheState.tmdbResponses === indexed.initialCacheState.tmdbResponses) {
+    throw new TypeError('A/B arms must use DISTINCT matcher sessions and DISTINCT initial cache objects')
+  }
+  if (verifiedCacheSnapshot(baseline, 'baseline') !== verifiedCacheSnapshot(indexed, 'indexed')) {
+    throw new TypeError('A/B arms require IDENTICAL canonical initial cache snapshots')
   }
   const beforeBaseline = requireCount(await baseline.startedTmdbHttpRequests(), 'baseline starting counter')
   const beforeIndexed = requireCount(await indexed.startedTmdbHttpRequests(), 'indexed starting counter')
@@ -159,6 +201,7 @@ export async function compareOptionalSharedEpgIndexAb({
     },
     gate: {
       identicalStartingCacheFingerprint: true,
+      verifiedFromCanonicalCacheSnapshots: true,
       originalMatcherIdentityPreserved: admissibleComparison,
       safeToConsiderFurtherPilot: admissibleComparison,
       measuredProductionSavings: null,
