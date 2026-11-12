@@ -122,6 +122,18 @@ describe('G1e original private source key/context coverage without network calls
         unresolvedWithLocalCandidates: 0,
         providerOrTmdbQueriesStarted: 0,
       },
+      offlineLocalRejectionReasons: {
+        noCandidateAboveMinimumScore: 0,
+        belowAcceptanceScore: 0,
+        ambiguousScoreMargin: 0,
+        ambiguousExactTitle: 0,
+      },
+      offlineLocalCandidateContext: {
+        exactlyOneLocalCandidate: 0,
+        multipleLocalCandidates: 0,
+        exactAmbiguityWithSourceDescription: 0,
+        exactAmbiguityWithoutSourceDescription: 0,
+      },
       gate: {
         sourceKeyAndCandidateContextCompared: true,
         usableForCurrentHorizon: true,
@@ -201,7 +213,38 @@ describe('G1e original private source key/context coverage without network calls
       unresolvedWithLocalCandidates: 1,
       providerOrTmdbQueriesStarted: 0,
     })
+    expect(report.offlineLocalRejectionReasons).toEqual({
+      noCandidateAboveMinimumScore: 0,
+      belowAcceptanceScore: 0,
+      ambiguousScoreMargin: 0,
+      ambiguousExactTitle: 1,
+    })
+    expect(report.offlineLocalCandidateContext).toEqual({
+      exactlyOneLocalCandidate: 0,
+      multipleLocalCandidates: 1,
+      exactAmbiguityWithSourceDescription: 1,
+      exactAmbiguityWithoutSourceDescription: 0,
+    })
     expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+  })
+
+  it('counts ambiguous exact-title reasons separately when the source description is absent', async () => {
+    const value = input()
+    value.windowRecords[2].items[2].program.description = null
+    value.catalog.titles.push(
+      { type: 'movie', tmdbId: 305, title: programs[2].title },
+      { type: 'movie', tmdbId: 306, title: programs[2].title },
+    )
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.offlineLocalRejectionReasons.ambiguousExactTitle).toBe(1)
+    expect(report.offlineLocalCandidateContext).toEqual({
+      exactlyOneLocalCandidate: 0,
+      multipleLocalCandidates: 1,
+      exactAmbiguityWithSourceDescription: 0,
+      exactAmbiguityWithoutSourceDescription: 1,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+    expect(JSON.stringify(report)).not.toContain(programs[2].title)
   })
 
   it('honours modified original source description and duration in hash identity', async () => {
@@ -255,6 +298,10 @@ describe('G1e original private source key/context coverage without network calls
       { ...report, offlineLocalPreflight: { ...report.offlineLocalPreflight, distinctMissingKeysInspected: 0 } },
       { ...report, offlineLocalPreflight: { ...report.offlineLocalPreflight, providerOrTmdbQueriesStarted: 1 } },
       { ...report, offlineLocalPreflight: { ...report.offlineLocalPreflight, locallyMatchedWithoutExternalCalls: 999 } },
+      { ...report, offlineLocalRejectionReasons: { ...report.offlineLocalRejectionReasons, rawReason: SECRET } },
+      { ...report, offlineLocalRejectionReasons: { ...report.offlineLocalRejectionReasons, ambiguousExactTitle: 1 } },
+      { ...report, offlineLocalCandidateContext: { ...report.offlineLocalCandidateContext, rawTitle: SECRET } },
+      { ...report, offlineLocalCandidateContext: { ...report.offlineLocalCandidateContext, multipleLocalCandidates: 2 } },
       { ...report, gate: { ...report.gate, freshOriginalMatcherReceiptsApproved: true } },
       { ...report, gate: { ...report.gate, measuredProductionSavings: 100 } },
       { ...report, mode: SECRET },

@@ -203,6 +203,20 @@ export async function inspectJoynRestoredSourceCacheCoverage({
   let resolvedLocally = 0
   let unresolvedNoLocalCandidate = 0
   let unresolvedWithLocalCandidates = 0
+  // Fixed, allowlisted reason counters only. Raw reason strings are NEVER
+  // included in the output; unexpected matcher results fail closed.
+  const unresolvedReasons = {
+    noCandidateAboveMinimumScore: 0,
+    belowAcceptanceScore: 0,
+    ambiguousScoreMargin: 0,
+    ambiguousExactTitle: 0,
+  }
+  const unresolvedContext = {
+    exactlyOneLocalCandidate: 0,
+    multipleLocalCandidates: 0,
+    exactAmbiguityWithSourceDescription: 0,
+    exactAmbiguityWithoutSourceDescription: 0,
+  }
   for (const candidate of missingKeyRepresentatives.values()) {
     const start = Date.parse(candidate.startTime)
     const end = Date.parse(candidate.endTime)
@@ -219,11 +233,36 @@ export async function inspectJoynRestoredSourceCacheCoverage({
         result.source !== 'local') {
       throw new Error('Unexpected original offline Joyn matcher outcome')
     }
-    if (result.status === 'matched') resolvedLocally++
-    else if (localCandidates.length === 0) unresolvedNoLocalCandidate++
-    else unresolvedWithLocalCandidates++
+    if (result.status === 'matched') {
+      resolvedLocally++
+    } else if (localCandidates.length === 0) {
+      // When there are no candidates, the original matcher must give this
+      // stable reason; any different result indicates changed semantics.
+      if (result.reason !== 'no_candidate') throw new Error('Unexpected empty local candidate reason')
+      unresolvedNoLocalCandidate++
+    } else {
+      unresolvedWithLocalCandidates++
+      if (localCandidates.length === 1) unresolvedContext.exactlyOneLocalCandidate++
+      else unresolvedContext.multipleLocalCandidates++
+      if (result.reason === 'no_candidate') unresolvedReasons.noCandidateAboveMinimumScore++
+      else if (result.reason === 'below_threshold') unresolvedReasons.belowAcceptanceScore++
+      else if (result.reason === 'ambiguous_margin') unresolvedReasons.ambiguousScoreMargin++
+      else if (result.reason === 'ambiguous_exact_title') {
+        unresolvedReasons.ambiguousExactTitle++
+        if (String(candidate.description || '').trim()) {
+          unresolvedContext.exactAmbiguityWithSourceDescription++
+        } else {
+          unresolvedContext.exactAmbiguityWithoutSourceDescription++
+        }
+      } else throw new Error('Unexpected original matcher rejection classification')
+    }
   }
-  if (resolvedLocally + unresolvedNoLocalCandidate + unresolvedWithLocalCandidates !== unique.absent) {
+  const reasonTotal = Object.values(unresolvedReasons).reduce((sum, count) => sum + count, 0)
+  if (resolvedLocally + unresolvedNoLocalCandidate + unresolvedWithLocalCandidates !== unique.absent ||
+      reasonTotal !== unresolvedWithLocalCandidates ||
+      unresolvedContext.exactlyOneLocalCandidate + unresolvedContext.multipleLocalCandidates !== unresolvedWithLocalCandidates ||
+      unresolvedContext.exactAmbiguityWithSourceDescription +
+        unresolvedContext.exactAmbiguityWithoutSourceDescription !== unresolvedReasons.ambiguousExactTitle) {
     throw new Error('Offline local Joyn matcher count mismatch')
   }
   const versionCompatible = matchCache.matcherVersion === JOYN_MATCHER_VERSION
@@ -259,6 +298,8 @@ export async function inspectJoynRestoredSourceCacheCoverage({
       unresolvedWithLocalCandidates,
       providerOrTmdbQueriesStarted: 0,
     },
+    offlineLocalRejectionReasons: unresolvedReasons,
+    offlineLocalCandidateContext: unresolvedContext,
     gate: {
       sourceKeyAndCandidateContextCompared: true,
       usableForCurrentHorizon: horizon.sourceRecent && horizon.horizonIncludesNow && versionCompatible,
@@ -270,9 +311,12 @@ export async function inspectJoynRestoredSourceCacheCoverage({
 }
 
 export function isSafeJoynRestoredSourceCoverage(value) {
-  const s = value?.source, m = value?.match, o = value?.offlineLocalPreflight, g = value?.gate
+  const s = value?.source, m = value?.match, o = value?.offlineLocalPreflight
+  const rr = value?.offlineLocalRejectionReasons, cc = value?.offlineLocalCandidateContext
+  const g = value?.gate
   return keysExactly(value, ['kind', 'schemaVersion', 'mode', 'source', 'match',
-    'offlineLocalPreflight', 'gate', 'limitations']) &&
+    'offlineLocalPreflight', 'offlineLocalRejectionReasons',
+    'offlineLocalCandidateContext', 'gate', 'limitations']) &&
     value.kind === 'g1e-private-joyn-original-cache-coverage' &&
     value.schemaVersion === 1 && value.mode === 'private-read-only' &&
     typeof value.limitations === 'string' &&
@@ -315,6 +359,17 @@ export function isSafeJoynRestoredSourceCoverage(value) {
     o.distinctMissingKeysInspected === m.distinctMissingOriginalKeys &&
     o.distinctMissingKeysInspected === o.locallyMatchedWithoutExternalCalls +
       o.unresolvedWithoutLocalCandidates + o.unresolvedWithLocalCandidates &&
+    keysExactly(rr, ['noCandidateAboveMinimumScore', 'belowAcceptanceScore',
+      'ambiguousScoreMargin', 'ambiguousExactTitle']) &&
+    Object.values(rr).every(x => integer(x, MAX_RAW_EVENTS)) &&
+    rr.noCandidateAboveMinimumScore + rr.belowAcceptanceScore +
+      rr.ambiguousScoreMargin + rr.ambiguousExactTitle === o.unresolvedWithLocalCandidates &&
+    keysExactly(cc, ['exactlyOneLocalCandidate', 'multipleLocalCandidates',
+      'exactAmbiguityWithSourceDescription', 'exactAmbiguityWithoutSourceDescription']) &&
+    Object.values(cc).every(x => integer(x, MAX_RAW_EVENTS)) &&
+    cc.exactlyOneLocalCandidate + cc.multipleLocalCandidates === o.unresolvedWithLocalCandidates &&
+    cc.exactAmbiguityWithSourceDescription +
+      cc.exactAmbiguityWithoutSourceDescription === rr.ambiguousExactTitle &&
     s.normalizedRemainingOriginalPrograms ===
       m.exactOriginalSourceKeyPresent + m.exactOriginalSourceKeyAbsent &&
     m.exactOriginalSourceKeyPresent === m.reusablePositiveDecisions +
