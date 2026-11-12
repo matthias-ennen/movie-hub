@@ -153,23 +153,41 @@ export function inspectJoynRestoredSourceCacheCoverage({
   let exactKeyRejectedByOriginalPolicy = 0
   let reusablePositiveDecisions = 0
   let reusableNegativeDecisions = 0
+  // Distinct original cache KEYS measure the size of the unresolved search
+  // space. Several programme IDs can share one exact, duration-aware key.
+  // Hashes remain private in memory; only fixed aggregate counts are emitted.
+  const keyOutcomes = new Map()
   for (const candidate of uniquePrograms.values()) {
     const key = joynOriginalCacheKey(candidate)
     const hasKey = Object.hasOwn(matchCache.entries, key)
     if (hasKey) exactSourceKeyPresent++
     else exactKeyAbsent++
     const original = decisions.get(candidate, candidatesFor(candidate.title))
+    const outcome = !hasKey ? 'absent'
+      : !original ? 'rejected'
+        : original.decision?.status === 'matched' ? 'positive' : 'negative'
+    if (keyOutcomes.has(key) && keyOutcomes.get(key) !== outcome) {
+      throw new Error('Inconsistent original cache key classification')
+    }
+    keyOutcomes.set(key, outcome)
     if (!original) {
       if (hasKey) exactKeyRejectedByOriginalPolicy++
       continue
     }
-    if (original.decision?.status === 'matched') reusablePositiveDecisions++
+    if (outcome === 'positive') reusablePositiveDecisions++
     else reusableNegativeDecisions++
   }
+  const unique = { absent: 0, rejected: 0, positive: 0, negative: 0 }
+  for (const outcome of keyOutcomes.values()) unique[outcome]++
   const complete = uniquePrograms.size > 0 &&
     exactSourceKeyPresent === reusablePositiveDecisions +
       reusableNegativeDecisions + exactKeyRejectedByOriginalPolicy &&
-    uniquePrograms.size === exactSourceKeyPresent + exactKeyAbsent
+    uniquePrograms.size === exactSourceKeyPresent + exactKeyAbsent &&
+    keyOutcomes.size === unique.absent + unique.rejected + unique.positive + unique.negative &&
+    unique.absent <= exactKeyAbsent &&
+    unique.rejected <= exactKeyRejectedByOriginalPolicy &&
+    unique.positive <= reusablePositiveDecisions &&
+    unique.negative <= reusableNegativeDecisions
   if (!complete || decisions.hits !== reusablePositiveDecisions + reusableNegativeDecisions) {
     throw new Error('Original matcher counters inconsistent')
   }
@@ -193,6 +211,11 @@ export function inspectJoynRestoredSourceCacheCoverage({
       exactKeyRejectedByOriginalPolicy,
       reusablePositiveDecisions,
       reusableNegativeDecisions,
+      distinctOriginalSourceKeys: keyOutcomes.size,
+      distinctMissingOriginalKeys: unique.absent,
+      distinctRejectedOriginalKeys: unique.rejected,
+      distinctReusablePositiveKeys: unique.positive,
+      distinctReusableNegativeKeys: unique.negative,
     },
     gate: {
       sourceKeyAndCandidateContextCompared: true,
@@ -221,11 +244,24 @@ export function isSafeJoynRestoredSourceCoverage(value) {
     keysExactly(m, ['compatibleMatcherVersion', 'originalCacheEntries',
       'exactOriginalSourceKeyPresent', 'exactOriginalSourceKeyAbsent',
       'exactKeyRejectedByOriginalPolicy', 'reusablePositiveDecisions',
-      'reusableNegativeDecisions']) &&
+      'reusableNegativeDecisions', 'distinctOriginalSourceKeys',
+      'distinctMissingOriginalKeys', 'distinctRejectedOriginalKeys',
+      'distinctReusablePositiveKeys', 'distinctReusableNegativeKeys']) &&
     typeof m.compatibleMatcherVersion === 'boolean' &&
     ['originalCacheEntries', 'exactOriginalSourceKeyPresent', 'exactOriginalSourceKeyAbsent',
       'exactKeyRejectedByOriginalPolicy', 'reusablePositiveDecisions',
-      'reusableNegativeDecisions'].every(x => integer(m[x], MAX_RAW_EVENTS)) &&
+      'reusableNegativeDecisions', 'distinctOriginalSourceKeys',
+      'distinctMissingOriginalKeys', 'distinctRejectedOriginalKeys',
+      'distinctReusablePositiveKeys', 'distinctReusableNegativeKeys'
+    ].every(x => integer(m[x], MAX_RAW_EVENTS)) &&
+    m.distinctOriginalSourceKeys === m.distinctMissingOriginalKeys +
+      m.distinctRejectedOriginalKeys + m.distinctReusablePositiveKeys +
+      m.distinctReusableNegativeKeys &&
+    m.distinctOriginalSourceKeys <= s.normalizedRemainingOriginalPrograms &&
+    m.distinctMissingOriginalKeys <= m.exactOriginalSourceKeyAbsent &&
+    m.distinctRejectedOriginalKeys <= m.exactKeyRejectedByOriginalPolicy &&
+    m.distinctReusablePositiveKeys <= m.reusablePositiveDecisions &&
+    m.distinctReusableNegativeKeys <= m.reusableNegativeDecisions &&
     s.normalizedRemainingOriginalPrograms ===
       m.exactOriginalSourceKeyPresent + m.exactOriginalSourceKeyAbsent &&
     m.exactOriginalSourceKeyPresent === m.reusablePositiveDecisions +

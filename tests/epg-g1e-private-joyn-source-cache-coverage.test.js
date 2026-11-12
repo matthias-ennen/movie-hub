@@ -109,6 +109,11 @@ describe('G1e original private source key/context coverage without network calls
         exactOriginalSourceKeyPresent: 4, exactOriginalSourceKeyAbsent: 1,
         exactKeyRejectedByOriginalPolicy: 2,
         reusablePositiveDecisions: 1, reusableNegativeDecisions: 1,
+        distinctOriginalSourceKeys: 5,
+        distinctMissingOriginalKeys: 1,
+        distinctRejectedOriginalKeys: 2,
+        distinctReusablePositiveKeys: 1,
+        distinctReusableNegativeKeys: 1,
       },
       gate: {
         sourceKeyAndCandidateContextCompared: true,
@@ -121,6 +126,33 @@ describe('G1e original private source key/context coverage without network calls
     expect(JSON.stringify(report)).not.toContain(SECRET)
     expect(JSON.stringify(report)).not.toContain('channel-one')
     expect(JSON.stringify(report)).not.toContain('Private source description')
+  })
+
+  it('deduplicates repeated programme IDs into one missing ORIGINAL key without leaking IDs', () => {
+    const value = input()
+    const original = value.windowRecords[2].items[2] // synthetic missing key
+    const repeat = {
+      ...original, livestream: { ...original.livestream },
+      program: { ...original.program, id: 'private-repeated-programme' },
+      start: original.start + 3600, end: original.end + 3600,
+    }
+    value.windowRecords[2].items.push(repeat)
+    const key = `${value.windowRecords[2].from}_${value.windowRecords[2].to}`
+    value.checkpoint.windows[key].count++
+    const report = inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.source).toMatchObject({
+      originalRawWindowRows: 6, normalizedRemainingOriginalPrograms: 6,
+    })
+    expect(report.match).toMatchObject({
+      exactOriginalSourceKeyAbsent: 2,
+      distinctMissingOriginalKeys: 1,
+      distinctOriginalSourceKeys: 5,
+      reusablePositiveDecisions: 1,
+      reusableNegativeDecisions: 1,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+    expect(JSON.stringify(report)).not.toContain('private-repeated-programme')
+    expect(JSON.stringify(report)).not.toContain(SECRET)
   })
 
   it('honours modified original source description and duration in hash identity', () => {
@@ -166,6 +198,10 @@ describe('G1e original private source key/context coverage without network calls
       { ...report, rawOriginal: SECRET },
       { ...report, source: { ...report.source, title: SECRET } },
       { ...report, match: { ...report.match, exactOriginalSourceKeyAbsent: 9999 } },
+      { ...report, match: { ...report.match, distinctMissingOriginalKeys: 1000 } },
+      { ...report, match: { ...report.match, distinctReusablePositiveKeys: 1000 } },
+      { ...report, match: { ...report.match, distinctOriginalSourceKeys: 99999 } },
+      { ...report, match: { ...report.match, rawOriginalHash: SECRET } },
       { ...report, gate: { ...report.gate, freshOriginalMatcherReceiptsApproved: true } },
       { ...report, gate: { ...report.gate, measuredProductionSavings: 100 } },
       { ...report, mode: SECRET },
