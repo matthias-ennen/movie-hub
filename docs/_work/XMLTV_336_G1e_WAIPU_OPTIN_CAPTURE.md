@@ -22,6 +22,28 @@ Ergebnis ist ein **ausschließlich in-memory** gespeichertes optionales Aggregat
 
 Die isolierten Tests benutzen **`buildWaipuLiveCatalog` mit echtem bestehenden Waipu-Matcher und SourceAdapter-Mapper**; sie prüfen Default-Inaktivität, validen Capture, fehlerhaften Sink, fehlerhafte/zu große Generation und eindeutige Quell-Provenienz.
 
+## Schutz vor widersprüchlichen Originalzeilen (Folgeschritt)
+
+Eine ursprüngliche Waipu-Programm-ID, ein Sender und ein Start-/Endzeitfenster
+sind noch **kein** eindeutiger Beleg, wenn mehrere Grid-Zeilen mit
+unterschiedlichen Originaltiteln, Episodenfeldern, Produktionsjahr oder
+Quellklassifizierung existieren. Der Capture-Collector überschreibt deshalb
+eine bereits erfasste Quellzeile **nicht mehr** mit einer später gefundenen
+Duplikat-Zeile. Stimmen die relevanten Originalfelder aller Wiederholungen
+überein, wird die identische Zeile einmal betrachtet. Bei der ersten
+Widersprüchlichkeit bleibt dieser Programmschlüssel für die **gesamte
+Generation abgelehnt** – auch wenn spätere Zeilen wieder der ersten gleichen.
+
+Der ausschließlich aggregierte Ablehnungsgrund lautet
+`ambiguous_original_grid_duplicate`. Es werden weiterhin weder Originaltitel
+noch Quell-IDs, Replaykandidaten oder private Matcherentscheidungen in
+Dateien, Logs, Firebase oder Actions-Artefakte geschrieben. Waipus eigener
+produktiver Matcher ist von dieser zusätzlichen optionalen Evidenzkontrolle
+**nicht** betroffen. Neue Tests nutzen den realen Waipu-Mapper und simulieren
+widersprüchliche Titel sowie Episoden und harmlose identische Mehrfachzeilen.
+
+---
+
 ## Noch offen vor realer Einsparungsmessung
 
 1. Joyn analog ausschließlich in einer **explizit aktivierten** abgeschlossenen Generation erfassen, mitsamt originalem `JoynMatchCache.getWithProvenance()`-Zeitstempel.
