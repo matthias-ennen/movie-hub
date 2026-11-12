@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { inspectPrivateG1eSourceState } from
-  '../scripts/epg-g1e-private-checkpoint-readiness.mjs'
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import {
+  inspectPrivateG1eSourceState, sampleJsonFiles, readOptionalBoundedJson,
+} from '../scripts/epg-g1e-private-checkpoint-readiness.mjs'
 
 const NOW = Date.parse('2026-11-12T11:00:00.000Z')
 function input() {
@@ -126,6 +130,39 @@ describe('G1e private SOURCE checkpoint audit without public data leakage', () =
       Array.from({ length: 400_001 }, (_, i) => ['k' + i, null]),
     )
     expect(() => inspectPrivateG1eSourceState(huge)).toThrow(/exceeds bounded audit limits/)
+  })
+
+  it('reports oversized source sample files without parsing or leaking their content', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'g1e-private-safe-sampling-'))
+    try {
+      await mkdir(join(directory, 'grid'))
+      await writeFile(join(directory, 'grid', 'a.json'),
+        JSON.stringify({ kind: 'grid', value: [{ id: 'source-id', title: 'Original' }] }))
+      await writeFile(join(directory, 'grid', 'b.json'),
+        JSON.stringify({ confidentialRawOriginalTitle: 'not in QA report', payload: 'x'.repeat(500) }))
+      const sampled = await sampleJsonFiles(join(directory, 'grid'), { maxBytes: 120 })
+      expect(sampled).toMatchObject({ oversizedFiles: 1 })
+      expect(sampled.records).toHaveLength(1)
+      expect(sampled.records[0]).toMatchObject({ kind: 'grid' })
+      expect(await readOptionalBoundedJson(join(directory, 'grid', 'b.json'),
+        { maxBytes: 120 })).toBeNull()
+      expect(await readOptionalBoundedJson(join(directory, 'grid', 'missing.json'),
+        { maxBytes: 120 })).toBeNull()
+      const state = inspectPrivateG1eSourceState({
+        ...input(), waipuGridSamples: sampled.records, oversizedWaipuSampleFiles: 1,
+        oversizedMatcherCacheFiles: 1,
+      })
+      expect(state.auditLimits).toMatchObject({
+        oversizedWaipuSampleFiles: 1, oversizedMatcherCacheFiles: 1,
+      })
+      expect(state.gate.missing).toEqual(expect.arrayContaining([
+        'sampled_raw_source_files_above_safe_read_limit',
+        'matcher_cache_files_above_safe_read_limit',
+      ]))
+      expect(JSON.stringify(state)).not.toContain('not in QA report')
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
   })
 
   it('does not treat downstream matchConfidence as original approval evidence', () => {
