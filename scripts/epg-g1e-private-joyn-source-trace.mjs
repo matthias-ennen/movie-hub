@@ -97,10 +97,19 @@ export function summarizePrivateJoynCaptureFailureTrace({
   // Matching proof may only be considered after a complete current-run EPG.
   const matcher = epg.status === 'complete'
     ? safeMatcher(matcherProgress, clock) : null
+  // A missing report differs from an existing but unverified report. In the
+  // latter case the original matcher may already have run and failed.
+  const matcherReportStatus = epg.status !== 'complete' ? null
+    : matcher ? 'validated'
+      : matcherProgress == null ? 'absent'
+        : !generatedThisRun(matcherProgress, clock) ? 'not-current'
+          : 'rejected-by-schema-or-bounds'
   const phase = epg.status === 'failed'
     ? 'epg-sync'
     : !matcher
-      ? 'post-epg-before-matcher'
+      ? matcherReportStatus === 'absent'
+        ? 'post-epg-before-matcher'
+        : 'matcher-progress-unverified'
       : matcher.status === 'complete'
         ? 'post-matcher-publication'
         : 'original-matcher'
@@ -108,6 +117,7 @@ export function summarizePrivateJoynCaptureFailureTrace({
     kind: 'g1e-private-joyn-source-stage',
     phase,
     epg,
+    ...(matcherReportStatus ? { matcherReportStatus } : {}),
     ...(matcher ? { matcher } : {}),
   }
 }
@@ -115,8 +125,8 @@ export function summarizePrivateJoynCaptureFailureTrace({
 export function isSafePrivateJoynTrace(value) {
   if (!object(value) || value.kind !== 'g1e-private-joyn-source-stage' ||
       !['epg-sync', 'post-epg-before-matcher',
-        'original-matcher', 'post-matcher-publication'].includes(value.phase) ||
-      Object.keys(value).some(k => !['kind', 'phase', 'epg', 'matcher'].includes(k))) {
+        'matcher-progress-unverified', 'original-matcher', 'post-matcher-publication'].includes(value.phase) ||
+      Object.keys(value).some(k => !['kind', 'phase', 'epg', 'matcher', 'matcherReportStatus'].includes(k))) {
     return false
   }
   // Reuse the exact numeric/type allowlist by round-tripping the original
@@ -142,10 +152,16 @@ export function isSafePrivateJoynTrace(value) {
        !['JOYN_EPG_REQUEST_BUDGET', 'OTHER_EPG_SOURCE_ERROR'].includes(epg.failureClass))) return false
   const match = value.matcher
   if (!match) {
-    return value.phase === (epg.status === 'failed'
-      ? 'epg-sync' : 'post-epg-before-matcher')
+    if (epg.status === 'failed') {
+      return value.phase === 'epg-sync' && value.matcherReportStatus === undefined
+    }
+    return (value.phase === 'post-epg-before-matcher' &&
+        value.matcherReportStatus === 'absent') ||
+      (value.phase === 'matcher-progress-unverified' &&
+        ['not-current', 'rejected-by-schema-or-bounds'].includes(value.matcherReportStatus))
   }
-  if (epg.status !== 'complete' || !object(match) ||
+  if (epg.status !== 'complete' || value.matcherReportStatus !== 'validated' ||
+      !object(match) ||
       Object.keys(match).sort().join('|') !== [
         'status', 'processedOriginalPrograms', 'totalOriginalPrograms',
         'originalMatchCacheHits', 'startedTmdbSearches',
