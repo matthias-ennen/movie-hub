@@ -1,5 +1,29 @@
 # MovieHub #336 – G1e-2d: kontrollierter TMDB-HTTP-Transportvergleich
 
+## Ergänzung: Pilotfreigabe nicht durch leere oder künstliche A/B-Läufe (PR #777)
+
+Das isolierte `safeToConsiderFurtherPilot`-Gate verlangt jetzt **alle**
+folgenden Bedingungen gleichzeitig: mindestens ein Originalmatcher-Replay-Eintrag,
+mindestens einen vom eingebauten `SharedEpgIdentityIndex` angenommenen
+positiven Quellbeleg, eine tatsächlich beobachtete Wiederverwendung aus diesem
+Index, **keine** Abweichung der TMDB-Werkidentitäten und **keinen zusätzlichen**
+TMDB-HTTP-Transport im Indexarm. Ein manuell übergebener Index-Stub darf weiter
+Fallback-/Fehlertests bedienen, aber **niemals** die Pilotfreigabe auslösen.
+Unbestätigte Quellbelege, Nullfälle und Mehrverkehr fallen sicher durch.
+
+Die neuen aggregierten Prüfwerte
+`nonEmptyReplay`, `verifiedPositiveEvidenceRecords`,
+`observedTrustedReuse`, `transportRequestsNonIncreasing` und
+`measuredReplayHttpReduction` unterscheiden verlässliche Testabdeckung
+von einer echten HTTP-Einsparung. **0 gegen 0 HTTP-Aufrufe** kann bei
+korrekter Identität zwar qualitätsseitig zulässig sein, beweist aber **keine
+Einsparung**. Ein positives Testdelta (auch mit HTTP-Stub) bleibt ausschließlich
+ein Replay-Ergebnis; Produktionsersparnis ist stets `null`.
+Der private echte A/B-Pilot mit frisch bestätigten Original-EPG-Quittungen und
+identischen unabhängig geklonten Originalcaches ist weiterhin **nicht** gestartet.
+
+---
+
 **Stand 12.11.2026: nur Testinfrastruktur, noch keine reale Nightly-Ersparnis.** Kein Einbau in produktive Adapter und kein Feature-Flag zum automatischen Überspringen von TMDB-Anfragen.
 
 ## Wieso nicht einfach 10.481 identische Ausstrahlungen als Einsparung zählen?
