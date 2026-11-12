@@ -53,6 +53,7 @@ describe('G1e private Joyn original-source stage trace: privacy and provenance',
     expect(trace).toEqual({
       kind: 'g1e-private-joyn-source-stage',
       phase: 'original-matcher',
+      matcherReportStatus: 'validated',
       epg: {
         status: 'complete', processedBaseWindows: 56,
         expectedBaseWindows: 56, cachedBaseWindows: 0,
@@ -90,7 +91,7 @@ describe('G1e private Joyn original-source stage trace: privacy and provenance',
 
   it('distinguishes after-EPG, post-matcher, and unknown matcher errors', () => {
     expect(run(epg(), null)).toMatchObject({
-      phase: 'post-epg-before-matcher',
+      phase: 'post-epg-before-matcher', matcherReportStatus: 'absent',
     })
     expect(run(epg(), matching('complete'))).toMatchObject({
       phase: 'post-matcher-publication',
@@ -107,11 +108,46 @@ describe('G1e private Joyn original-source stage trace: privacy and provenance',
   it('never publishes old restored original progress or fake fresh timestamps', () => {
     const stale = new Date(STARTED - 4 * 60_000).toISOString()
     expect(run({ ...epg(), generatedAt: stale }, matching())).toBeNull()
-    expect(run(epg(), { ...matching(), generatedAt: stale }))
-      .not.toHaveProperty('matcher')
+    const rejectedStale = run(epg(), { ...matching(), generatedAt: stale })
+    expect(rejectedStale).toMatchObject({
+      phase: 'matcher-progress-unverified', matcherReportStatus: 'not-current',
+    })
+    expect(rejectedStale).not.toHaveProperty('matcher')
+    expect(isSafePrivateJoynTrace(rejectedStale)).toBe(true)
     expect(run(epg(), matching(), { startedAt: NaN })).toBeNull()
     expect(run(epg(), matching(), { now: STARTED - 1 })).toBeNull()
     expect(run(epg(), matching(), { maxEpgRequests: 400 })).toBeNull()
+  })
+
+  it('distinguishes present-but-unverified matcher data from a missing matcher report', () => {
+    const invalid = [
+      { ...matching(), total: 200_001 },
+      { ...matching(), tmdbRequests: 31 },
+      { ...matching(), seriesDetailRequests: -1 },
+      { ...matching(), privateRawTitle: privateTitle, status: 'unsupported' },
+    ]
+    for (const progress of invalid) {
+      const result = run(epg(), progress)
+      expect(result).toMatchObject({
+        phase: 'matcher-progress-unverified',
+        matcherReportStatus: 'rejected-by-schema-or-bounds',
+      })
+      expect(result).not.toHaveProperty('matcher')
+      expect(isSafePrivateJoynTrace(result)).toBe(true)
+      expect(JSON.stringify(result)).not.toContain(privateTitle)
+    }
+    // A real private checkpoint already held >64k historical entries.
+    // Large *anonymous* full-horizon counters must remain inspectable,
+    // without increasing the separate original receipt limit.
+    const large = run(epg(), { ...matching(), total: 110_000, matchCacheHits: 64_044 })
+    expect(large).toMatchObject({
+      phase: 'original-matcher', matcherReportStatus: 'validated',
+      matcher: { totalOriginalPrograms: 110_000, originalMatchCacheHits: 64_044 },
+    })
+    expect(isSafePrivateJoynTrace(large)).toBe(true)
+    const missing = run(epg(), undefined)
+    expect(missing.matcherReportStatus).toBe('absent')
+    expect(isSafePrivateJoynTrace(missing)).toBe(true)
   })
 
   it('rejects extra original titles in either aggregate layer, impossible bounds and invented codes', () => {
@@ -125,6 +161,11 @@ describe('G1e private Joyn original-source stage trace: privacy and provenance',
       { ...original, epg: { ...original.epg, startedEpgRequests: 251 } },
       { ...original, epg: { ...original.epg, expectedBaseWindows: 55 } },
       { ...original, phase: privateTitle },
+      { ...original, matcherReportStatus: privateTitle },
+      { ...original, matcherReportStatus: 'absent' },
+      { ...original, matcher: undefined },
+      { ...run(epg(), null), matcherReportStatus: 'validated' },
+      { ...run(epg(), null), phase: 'matcher-progress-unverified' },
     ]
     for (const entry of bad) expect(isSafePrivateJoynTrace(entry)).toBe(false)
     expect(isSafePrivateJoynTrace(null)).toBe(false)
