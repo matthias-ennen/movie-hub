@@ -251,8 +251,8 @@ describe('G1e-2d explicitly isolated, real-matcher TMDB HTTP transport A/B', () 
         if (mode === 'indexed') {
           const original = session.matchIndependently
           session.matchIndependently = async input => {
-            await session.client.search('unrelated QA search A')
-            await session.client.search('unrelated QA search B')
+            await session.client.search({ type: 'movie', title: 'unrelated QA search A' })
+            await session.client.search({ type: 'movie', title: 'unrelated QA search B' })
             return original(input)
           }
         }
