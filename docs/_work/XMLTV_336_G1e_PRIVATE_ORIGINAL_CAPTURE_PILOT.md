@@ -1,5 +1,18 @@
 # MovieHub #336 – G1e: echter privater Joyn-Originalmatcher-Pilot (isoliert, opt-in)
 
+
+## 12.11.2026 – G1e: Matcher-Berichtsprüfung nach #787 präzisiert
+
+Der neueste echte geschützte [Lauf #43272834198](https://github.com/matthias-ennen/movie-hub/actions/runs/43272834198) hat die vollständigen 56 Joyn-EPG-Basisfenster mit 194 Requests, null Cachehits, 69 Fensterteilungen und ohne Retry abgeschlossen. Der separate Original-Joyn-TMDB-Suchdeckel (30) führte danach zu `JOYN_TMDB_REQUEST_BUDGET`. Die Gesamtgrenze von 450 HTTPS-Starts wurde bei 299 nicht erreicht. Es gab **keine** vollständige Joyn-Originalmatcherfreigabe, keinen Waipu-A/B-HTTP-Test und keine gemessene Produktionseinsparung.
+
+Die bisherige anonyme `sourceTrace.phase=post-epg-before-matcher` **beweist nicht**, dass der Matcher noch nicht gestartet wurde: Der private Bericht wird nur eingelesen, wenn sein Schema und alle Zahlen im alten Grenzrahmen (max. 50.000 Programme) validieren. Der vorhandene geschützte [read-only Checkpoint-Lauf #43233887430](https://github.com/matthias-ennen/movie-hub/actions/runs/43233887430) hatte bereits **64.044 historische Joyn-Entscheidungs-Cacheeinträge** gezählt (nicht gleichzusetzen mit aktuellen Cachetreffern oder Freigabequittungen).
+
+Dieser reine Diagnostik-Fix differenziert darum in `matcherReportStatus` strikt zwischen `absent`, `not-current`, `rejected-by-schema-or-bounds` und `validated`. Ein aktueller, aber abgewiesener Bericht erscheint nur als `phase=matcher-progress-unverified`, **nicht** als vermeintlich noch nicht gestarteter Matcher. Die rein numerische Grenze für originale Matcher-**Zähler** wird auf 200.000 begrenzt erhöht, um größere 14-Tage-Programmeaggregate diagnostizieren zu können. **Unverändert** bleiben die maximal 50.000 separat freigebbaren Original-Quittungen, 30 Joyn-TMDB-Suchstarts, 250 EPG-Starts, 450 globale HTTPS-Starts, Privatsphärenprüfungen und sämtliche Produktivpfade.
+
+Die Änderung selbst startet **keinen** privaten Echtlauf. Der nächste gesondert genehmigte Test sollte eine kleine, budgetierte, korrekte Originalmatcher-Stichprobe statt eines wiederholten vollständigen 14-Tage-Exports sein. Die Cacheverfügbarkeit und -Frische bleibt separat zu klären; eine historische Cacheentscheidung ist keine neue G1e-Belegquittung.
+
+---
+
 ## Zielgenaue Fehlerlokalisierung nach echtem Capture #43267851778 (#787)
 
 Der letzte isolierte echte [Joyn-Capture #43267851778](https://github.com/matthias-ennen/movie-hub/actions/runs/43267851778) hat nach erneutem erfolgreichen privaten Quellenrestore **sicher abgebrochen**, aber **nicht** am globalen Anfragebudget:
