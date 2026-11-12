@@ -152,6 +152,7 @@ export function isSafePrivateJoynTrace(value) {
        !['JOYN_EPG_REQUEST_BUDGET', 'OTHER_EPG_SOURCE_ERROR'].includes(epg.failureClass))) return false
   const match = value.matcher
   if (!match) {
+    if (Object.hasOwn(value, 'matcher')) return false
     if (epg.status === 'failed') {
       return value.phase === 'epg-sync' && value.matcherReportStatus === undefined
     }
