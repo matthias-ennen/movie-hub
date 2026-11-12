@@ -78,6 +78,8 @@ export function inspectPrivateG1eSourceState({
   waipuCheckpoint, joynCheckpoint, waipuStatus = null, joynStatus = null,
   waipuDecisions = null, joynMatchCache = null, joynLookupCache = null,
   waipuGridSamples = [], joynWindowSamples = [],
+  oversizedWaipuSampleFiles = 0, oversizedJoynSampleFiles = 0,
+  oversizedMatcherCacheFiles = 0,
   now = Date.now(),
 } = {}) {
   if (!Number.isFinite(now) || !Array.isArray(waipuGridSamples) ||
@@ -121,6 +123,12 @@ export function inspectPrivateG1eSourceState({
   if (!cacheSnapshotsPresent) missing.push('all_original_matcher_and_response_caches')
   // G1e approved receipts are generated only by the explicit live matcher
   // callbacks. A restored decision cache is not itself such a receipt.
+  if (oversizedWaipuSampleFiles || oversizedJoynSampleFiles) {
+    missing.push('sampled_raw_source_files_above_safe_read_limit')
+  }
+  if (oversizedMatcherCacheFiles) {
+    missing.push('matcher_cache_files_above_safe_read_limit')
+  }
   missing.push('fresh_explicit_original_matcher_approval_receipts')
 
   return {
@@ -141,6 +149,11 @@ export function inspectPrivateG1eSourceState({
       originalMatcherCacheEntries: joynDecisionEntries,
       tmdbResponseCacheEntries: joynResponseEntries,
     },
+    auditLimits: {
+      oversizedWaipuSampleFiles,
+      oversizedJoynSampleFiles,
+      oversizedMatcherCacheFiles,
+    },
     gate: {
       existingPrivateSourceDataAccessible: rawSourceTitlesSampled &&
         waipuSlots > 0 && joynWindows > 0,
@@ -160,31 +173,54 @@ async function readJson(path, { required = true, maxBytes = MAX_JSON_BYTES } = {
     if (!required && error?.code === 'ENOENT') return null
     throw error
   }
-  if (!info.isFile() || info.size > maxBytes) {
-    throw new RangeError('Private checkpoint input exceeds bounded file size')
+  if (!info.isFile()) throw new TypeError('Private checkpoint input is not a regular file')
+  if (info.size > maxBytes) {
+    // Optional cache snapshots may be huge. A read-only audit should report
+    // their bounded-availability status, not try to load or inflate them.
+    if (!required) return null
+    throw new RangeError('Required private checkpoint input exceeds bounded file size')
   }
   return JSON.parse(await readFile(path, 'utf8'))
 }
 
-async function sampleJsonFiles(directory) {
+export async function sampleJsonFiles(directory, { maxBytes = MAX_SAMPLE_FILE_BYTES } = {}) {
   let files
   try { files = (await readdir(directory)).filter(name => name.endsWith('.json')).sort() }
   catch (error) {
-    if (error?.code === 'ENOENT') return []
+    if (error?.code === 'ENOENT') return { records: [], oversizedFiles: 0 }
     throw error
   }
   if (files.length > MAX_CACHE_ROWS) throw new RangeError('Private source cache has excessive file count')
   const selected = []
+  let oversizedFiles = 0
   // Deterministic spacing samples early/middle/late positions, not filename
   // content or random/private identifiers.
   const count = Math.min(files.length, MAX_SAMPLE_FILES)
   for (let i = 0; i < count; i++) {
     const index = count === 1 ? 0 : Math.floor(i * (files.length - 1) / (count - 1))
-    selected.push(await readJson(join(directory, files[index]), {
-      maxBytes: MAX_SAMPLE_FILE_BYTES,
-    }))
+    const path = join(directory, files[index])
+    const info = await stat(path)
+    if (!info.isFile() || info.size > maxBytes) {
+      oversizedFiles++
+      continue
+    }
+    selected.push(await readJson(path, { maxBytes }))
   }
-  return selected
+  return { records: selected, oversizedFiles }
+}
+
+export async function readOptionalBoundedJson(path, { maxBytes = MAX_JSON_BYTES } = {}) {
+  return readJson(path, { required: false, maxBytes })
+}
+
+async function exceedsLimit(path, limit) {
+  try {
+    const info = await stat(path)
+    return info.isFile() && info.size > limit
+  } catch (error) {
+    if (error?.code === 'ENOENT') return false
+    throw error
+  }
 }
 
 function args(argv) {
@@ -212,6 +248,10 @@ function markdown(report) {
     '**No original matcher approval receipts are reconstructed from cached decisions.**',
     '**No real TMDB request reduction has been measured.**',
     '',
+    'Size-limited sampled files: ' +
+      (report.auditLimits.oversizedWaipuSampleFiles + report.auditLimits.oversizedJoynSampleFiles) +
+      '; oversized original caches: ' + report.auditLimits.oversizedMatcherCacheFiles,
+    '',
   ].join('\n')
 }
 
@@ -233,9 +273,19 @@ async function main(argv) {
     sampleJsonFiles(file('artifacts/waipu-sync/cache/grid')),
     sampleJsonFiles(file('artifacts/joyn-sync/cache')),
   ])
+  const cacheOverLimits = await Promise.all([
+    'artifacts/waipu-live/match-decisions.json',
+    'artifacts/joyn-live/match-cache.json',
+    'artifacts/joyn-live/lookup-cache.json',
+  ].map(path => exceedsLimit(file(path), MAX_JSON_BYTES)))
   const report = inspectPrivateG1eSourceState({
     waipuCheckpoint, joynCheckpoint, waipuStatus, joynStatus, waipuDecisions,
-    joynMatchCache, joynLookupCache, waipuGridSamples, joynWindowSamples,
+    joynMatchCache, joynLookupCache,
+    waipuGridSamples: waipuGridSamples.records,
+    joynWindowSamples: joynWindowSamples.records,
+    oversizedWaipuSampleFiles: waipuGridSamples.oversizedFiles,
+    oversizedJoynSampleFiles: joynWindowSamples.oversizedFiles,
+    oversizedMatcherCacheFiles: cacheOverLimits.filter(Boolean).length,
   })
   await mkdir(dirname(output), { recursive: true })
   await writeFile(output, JSON.stringify(report, null, 2) + '\n')
