@@ -540,7 +540,7 @@ export function trustedJoynSeriesDetailPaths(classification) {
   return [...new Set(values.map(joynText).filter(Boolean))].slice(0, 2)
 }
 
-function titleLookup(candidates) {
+export function titleLookup(candidates) {
   const map = new Map()
   for (const candidate of candidates) {
     for (const value of [candidate?.title, candidate?.originalTitle, ...(candidate?.aliases || [])]) {
