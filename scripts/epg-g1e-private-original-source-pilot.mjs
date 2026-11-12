@@ -26,7 +26,10 @@ import { runIsolatedG1eCapturePilot } from
   './epg-g1e-isolated-pilot-core.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const MAX_GLOBAL_FETCHES = 300
+// A 14-day 56-window source run required 180 requests for 46 windows;
+// allow the measured ~220 + bounded margin, plus limited matcher activity.
+// NEVER used by productive Nightly; source-specific ceilings remain intact.
+const MAX_GLOBAL_FETCHES = 450
 
 // Report ONLY exact-reviewed reason codes. Source exception messages may
 // contain query titles, request URLs, tokens, or programme IDs.
@@ -78,7 +81,7 @@ export function sanitizePrivatePilotFailure(error, telemetry = {}) {
  * Joyn EPG budget stop. No source titles/stations/time windows are emitted.
  */
 export function summarizePrivateJoynEpgBudgetFailure(status, {
-  now = Date.now(), maxRequests = 180,
+  now = Date.now(), maxRequests = 250,
 } = {}) {
   const m = status?.metrics
   const time = Date.parse(status?.generatedAt)
@@ -89,7 +92,7 @@ export function summarizePrivateJoynEpgBudgetFailure(status, {
       status.failure?.code !== 'JOYN_EPG_REQUEST_BUDGET' ||
       !Number.isFinite(now) || !Number.isFinite(time) ||
       time > now || now - time > 10 * 60_000 ||
-      !integer(maxRequests, 300) || maxRequests < 73 ||
+      !integer(maxRequests, 250) || maxRequests < 73 ||
       !integer(m?.requestsStarted, maxRequests) ||
       m.requestsStarted !== maxRequests ||
       !integer(m?.windowsProcessed, 56) ||
