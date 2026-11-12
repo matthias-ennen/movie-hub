@@ -7,6 +7,8 @@ on:
       - scripts/epg-g1e-private-checkpoint-readiness.mjs
       - scripts/epg-g1e-private-waipu-ab-preflight.mjs
       - scripts/epg-g1e-stream-private-cache-count.mjs
+      - scripts/epg-g1e-private-joyn-cache-ttl-audit.mjs
+      - tests/epg-g1e-private-joyn-cache-ttl-audit.test.js
       - tests/epg-g1e-private-checkpoint-readiness.test.js
       - tests/epg-g1e-private-waipu-ab-preflight.test.js
       - tests/epg-g1e-stream-private-cache-count.test.js
@@ -18,6 +20,7 @@ on:
       - scripts/epg-g1e-private-checkpoint-readiness.mjs
       - scripts/epg-g1e-private-waipu-ab-preflight.mjs
       - scripts/epg-g1e-stream-private-cache-count.mjs
+      - scripts/epg-g1e-private-joyn-cache-ttl-audit.mjs
   workflow_dispatch:
 
 permissions:
@@ -39,7 +42,7 @@ jobs:
           node-version: '22'
       - run: npm ci --ignore-scripts
       - name: Only synthetic mock data are permitted in PR tests
-        run: npx vitest run tests/epg-g1e-stream-private-cache-count.test.js tests/epg-g1e-private-checkpoint-readiness.test.js tests/epg-g1e-real-ab-readiness.test.js tests/epg-g1e-compare-tmdb-transport.test.js tests/epg-g1e-private-waipu-ab-preflight.test.js
+        run: npx vitest run tests/epg-g1e-private-joyn-cache-ttl-audit.test.js tests/epg-g1e-stream-private-cache-count.test.js tests/epg-g1e-private-checkpoint-readiness.test.js tests/epg-g1e-real-ab-readiness.test.js tests/epg-g1e-compare-tmdb-transport.test.js tests/epg-g1e-private-waipu-ab-preflight.test.js
 
   private-readiness:
     name: Restore real PRIVATE Waipu/Joyn checkpoints without source API calls
@@ -84,6 +87,11 @@ jobs:
           node --max-old-space-size=4096 scripts/epg-g1e-private-checkpoint-readiness.mjs \
             --root . \
             --output artifacts/g1e-private-checkpoint-audit/aggregate.json
+      - name: Audit private Joyn matcher and lookup cache TTL age (no external source calls)
+        run: |
+          node --max-old-space-size=4096 scripts/epg-g1e-private-joyn-cache-ttl-audit.mjs \
+            --root . \
+            --output artifacts/g1e-private-checkpoint-audit/joyn-cache-ttl.json
       - name: Preflight original Waipu A/B cache size and source-generation health (read-only)
         run: |
           node scripts/epg-g1e-private-waipu-ab-preflight.mjs \
