@@ -1,3 +1,17 @@
+## G1e – unabhängiges Sync-Gesundheits-Gate (PR nach #775)
+
+Die aggregierte Vorabprüfung trennt **historisch zugängliche EPG-Rohdaten**
+von einer **vollständig gesunden** Waipu-/Joyn-Quellgeneration. Der Gate-Wert
+`existingPrivateSourceDataAccessible` ist nur dann wahr, wenn **beide**
+Sync-Statuswerte ausdrücklich `complete` melden **und** die begrenzten
+Originaltitel-/Checkpoint-Proben positiv sind. Verbleibende Caches aus
+fehlgeschlagenen oder unvollständigen Imports sind keine Freigabe.
+Regressionstests prüfen ausgefallenes Waipu bzw. Joyn bei weiterhin vorhandenen
+Rohdaten und Matcher-Caches. Der echte A/B-Test bleibt weiterhin gesperrt;
+kein produktiver Shared-Index, kein neuer externer Request.
+
+---
+
 ## G1e – Joyn-Großcache nur lesend zählen
 
 Der zweite echte, private GitHub-Audit [#43202254720](https://github.com/matthias-ennen/movie-hub/actions/runs/43202254720) war erfolgreich. Waipu: 19.152 Checkpoint-Slots, **78** Originaltitel in begrenzter Rohdatenstichprobe, **27.629** Matcher-Entscheidungscacheeinträge. Joyn: 56 EPG-Fenster, **14.935** Originaltitel in der Stichprobe. **Eine** originale private Cachedatei überschritt das 128-MiB-Leselimit; die Anzahl der Joyn-Entscheidungen blieb daher bislang unbekannt.
