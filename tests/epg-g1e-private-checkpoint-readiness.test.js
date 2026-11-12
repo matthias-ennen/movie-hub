@@ -106,6 +106,21 @@ describe('G1e private SOURCE checkpoint audit without public data leakage', () =
     })
   })
 
+  it('fails closed on a failed sync even when historical originals and cache snapshots still exist', () => {
+    const values = input()
+    for (const source of ['waipuStatus', 'joynStatus']) {
+      const failed = { ...values, [source]: { status: 'failed' } }
+      const report = inspectPrivateG1eSourceState(failed)
+      expect(report.gate.existingPrivateSourceDataAccessible).toBe(false)
+      expect(report.gate.canRunUnmodifiedOriginalMatcherAb).toBe(false)
+      expect(report.gate.missing).toContain('complete_waipu_and_joyn_sync_status')
+      expect(report.gate.actualAvoidedTmdbRequests).toBeNull()
+      expect(report.gate.originalCachesPresent).toBe(true)
+      expect(JSON.stringify(report)).not.toContain('privateCacheKey')
+    }
+    expect(inspectPrivateG1eSourceState(values).gate.existingPrivateSourceDataAccessible).toBe(true)
+  })
+
   it('never fabricates an original EPG title from a TMDB title or match decision', () => {
     const values = input()
     values.waipuGridSamples = [{ kind: 'grid', value: [{
