@@ -12,7 +12,10 @@
  */
 const MAX_AGE_MS = 40 * 60_000
 const MAX_WINDOWS = 56
-const MAX_MATCHER_PROGRAMS = 50_000
+// An actual private Joyn checkpoint contained 64,044 older decision-cache entries.
+// The original full-horizon programme count may exceed 50k; widen ONLY this
+// anonymous aggregate-counter guard, not the approved-receipt or API limits.
+const MAX_MATCHER_PROGRAMS = 200_000
 const MATCH_CODES = new Set([
   'JOYN_TMDB_REQUEST_BUDGET',
   'JOYN_CLASSIFICATION_BUDGET',
