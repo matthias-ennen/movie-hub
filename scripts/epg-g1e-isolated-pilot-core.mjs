@@ -70,7 +70,8 @@ export async function runIsolatedG1eCapturePilot({
   generateJoyn, generateWaipu, compareWaipu,
   now = Date.now(), mode = 'capture',
 } = {}) {
-  if (!Number.isFinite(now) || !['capture', 'ab'].includes(mode) ||
+  const clock = typeof now === 'function' ? now : () => now
+  if (!Number.isFinite(clock()) || !['capture', 'ab'].includes(mode) ||
       typeof generateJoyn !== 'function' ||
       typeof generateWaipu !== 'function' ||
       (mode === 'ab' && typeof compareWaipu !== 'function')) {
@@ -91,8 +92,8 @@ export async function runIsolatedG1eCapturePilot({
       joyn?.envelope?.sourceStatus !== 'healthy' ||
       joyn?.sourceEvidenceCapture?.status !== 'complete' ||
       !validSourceGeneration(joyn.envelope.sourceGenerationId,
-        'joyn-catalog:', now) ||
-      !validateJoynCapture(privateJoyn, now) ||
+        'joyn-catalog:', clock()) ||
+      !validateJoynCapture(privateJoyn, clock()) ||
       privateJoyn.sourceGenerationId !==
         joyn.envelope.sourceGenerationId) {
     throw new Error('G1E_JOYN_ORIGINAL_EVIDENCE_NOT_APPROVED')
@@ -107,7 +108,11 @@ export async function runIsolatedG1eCapturePilot({
           typeof capabilities?.selectBoundedWaipuReplayInputs !== 'function') {
         return
       }
-      selection = capabilities.selectBoundedWaipuReplayInputs(privateJoyn, { now })
+      // The actual Joyn matcher may have checked new decisions AFTER the
+      // run began; an initial timestamp would falsely mark them 'future'.
+      selection = capabilities.selectBoundedWaipuReplayInputs(privateJoyn, {
+        now: clock(),
+      })
     },
   })
   const counts = selectedCounts(selection)
@@ -115,7 +120,7 @@ export async function runIsolatedG1eCapturePilot({
       waipu?.adapterEnvelope?.sourceStatus !== 'healthy' ||
       waipu?.sourceEvidenceCapture?.status !== 'complete' ||
       !validSourceGeneration(waipu.adapterEnvelope.sourceGenerationId,
-        'waipu:', now) ||
+        'waipu:', clock()) ||
       !counts || selection.waipuInputs.some(input =>
         input.sourceGenerationId !== waipu.adapterEnvelope.sourceGenerationId)) {
     throw new Error('G1E_WAIPU_ORIGINAL_REPLAY_NOT_APPROVED')
