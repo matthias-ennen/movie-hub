@@ -1,5 +1,59 @@
 # MovieHub #336 – G1e: echter privater Joyn-Originalmatcher-Pilot (isoliert, opt-in)
 
+## Zielgenaue Fehlerlokalisierung nach echtem Capture #43267851778 (#787)
+
+Der letzte isolierte echte [Joyn-Capture #43267851778](https://github.com/matthias-ennen/movie-hub/actions/runs/43267851778) hat nach erneutem erfolgreichen privaten Quellenrestore **sicher abgebrochen**, aber **nicht** am globalen Anfragebudget:
+`status=failed-closed`, `phase=joyn-original-generation`,
+`failureClass=UNCLASSIFIED_ORIGINAL_SOURCE_ERROR`,
+`boundedAllowlistedFetches=299` von maximal `450`.
+Das ist **keine** erfolgreiche EPG-Originalgeneration, kein bestätigter Joyn-Beleg,
+kein Waipu-A/B-HTTP-Vergleich und **keine** Produktiveinsparung.
+Die erhöhten Budgets nochmals pauschal anzuheben wäre damit nicht begründet.
+
+Die technische Folgekorrektur nutzt **nur privat bereits entstehende
+Statusdateien**: `artifacts/joyn-sync/status.json` (ursprüngliche
+56-Fenster-Synchronisierung) und
+`artifacts/joyn-live/matching-progress.json`
+(ursprünglicher Matcher). Nach einem fehlgeschlagenen Pilotlauf wird
+ausschließlich für **frisch im selben Prozess entstandene Generationen**
+`sourceTrace` erzeugt. Ein restaurierter alter Status ist **keine** zulässige
+Echtlauf-Evidenz. Fehlt der aktuelle originale Status, entfällt die
+Zusatzdiagnose vollständig.
+
+Der neue, feste Privacy-Bericht enthält ausschließlich:
+
+- `phase`: `epg-sync`, `post-epg-before-matcher`,
+  `original-matcher` oder `post-matcher-publication`
+- Aus der echten EPG-Sync-Datei:
+  `processedBaseWindows` (maximal 56),
+  `cachedBaseWindows`, `recursiveWindowSplits`,
+  `retryStarts`, `startedEpgRequests` (maximal 250),
+  `epgBudget` und eine **statisch geprüfte** Fehlerklasse
+- Nur nach **vollständigem** EPG-Status aus der Matcher-Statusdatei:
+  `processedOriginalPrograms`, `totalOriginalPrograms`,
+  `originalMatchCacheHits`, begonnenen TMDB-/Algolia-/
+  Serienseiten-Anfragen innerhalb ihrer separaten Budgets,
+  plus ausschließlich fest definierte `JOYN_...`-Budgetfehlerklassen
+  (alle fremden Strings werden `OTHER_MATCHER_ERROR`)
+
+Weder rohe Exceptions noch Serien-/Filmtitel, Zeitfenster,
+Senderkennungen, URLs, API-Tokens, TMDB-IDs oder Matcherentscheidungen
+dürfen diesen Bericht verlassen. Vor Artefakt-Upload wird das gesamte
+`sourceTrace` zusätzlich auf **exakte Schlüssel**, feste Enums,
+logische Konsistenz und numerische Grenzen geprüft. Tests belegen
+die Zurückweisung von injizierten Originaltiteln, fremden Feldern,
+alten Checkpoints und ungültigen Größen.
+
+Es wurde **keine** automatische Wiederholung oder Anhebung der bisherigen
+250-EPG-/450-Gesamt-HTTPS-Grenzen eingebaut, und der produktive
+Joyn-/Waipu-Adapter, Nightly und gemeinsame Index bleiben unverändert.
+Erst nach grünen Checks kann ein **einziger** neuer geschützter
+`capture`-Einmallauf mittels bereits bestehendem Marker die genaue
+anonymisierte Phase ermitteln.
+
+---
+
+
 ## Folgemessung und gezielt dimensionierter zweiter Budgetsprung (#786)
 
 Die gesonderte echte
