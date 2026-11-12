@@ -1,0 +1,87 @@
+name: Shared EPG G1e – private source checkpoint readiness (read-only)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/epg-g1e-private-checkpoint-readiness.mjs
+      - tests/epg-g1e-private-checkpoint-readiness.test.js
+      - .github/workflows/shared-epg-g1e-private-checkpoint-readiness.yml
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/shared-epg-g1e-private-checkpoint-readiness.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: g1e-private-checkpoint-readiness
+  cancel-in-progress: false
+
+jobs:
+  unit-tests:
+    name: Verify aggregate-only private checkpoint audit code
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Only synthetic mock data are permitted in PR tests
+        run: npx vitest run tests/epg-g1e-private-checkpoint-readiness.test.js tests/epg-g1e-real-ab-readiness.test.js tests/epg-g1e-compare-tmdb-transport.test.js
+
+  private-readiness:
+    name: Restore real PRIVATE Waipu/Joyn checkpoints without source API calls
+    needs: unit-tests
+    if: >-
+      ${{ github.ref == 'refs/heads/main' &&
+          (github.event_name == 'workflow_dispatch' ||
+           (github.event_name == 'push' &&
+            contains(github.event.head_commit.message, '[g1e-private-readiness-once]'))) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DATA_CHECKPOINT_ENABLED: ${{ vars.MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED }}
+      DATA_CHECKPOINT_BUCKET: ${{ vars.MOVIE_HUB_CHECKPOINT_BUCKET }}
+      GOOGLE_CLOUD_PROJECT: movie-hub-62459
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Fail closed unless dedicated private durable-data checkpoint is enabled
+        run: |
+          test "$DATA_CHECKPOINT_ENABLED" = "true"
+          test "$DATA_CHECKPOINT_BUCKET" = "movie-hub-62459-nightly-checkpoints"
+          test "${{ github.ref }}" = "refs/heads/main"
+      - run: npm ci --ignore-scripts
+      - name: Authenticate only to existing private checkpoint storage
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Read existing Waipu checkpoint (never upload or fetch new Waipu EPG)
+        run: node scripts/durable-data-checkpoint.mjs restore waipu
+      - name: Read existing Joyn checkpoint (never upload or fetch new Joyn EPG)
+        run: node scripts/durable-data-checkpoint.mjs restore joyn
+      - name: Audit original title and matcher-cache presence without external calls
+        run: |
+          node --max-old-space-size=4096 scripts/epg-g1e-private-checkpoint-readiness.mjs \
+            --root . \
+            --output artifacts/g1e-private-checkpoint-audit/aggregate.json
+      - name: Upload ONLY anonymized aggregates – never raw programme caches
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: g1e-private-checkpoint-aggregates-${{ github.run_id }}
+          path: artifacts/g1e-private-checkpoint-audit/aggregate.json
+          retention-days: 7
+          if-no-files-found: warn
