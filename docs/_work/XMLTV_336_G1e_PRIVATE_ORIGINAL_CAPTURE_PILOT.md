@@ -3,6 +3,18 @@
 
 
 
+## 12.11.2026 – Unterschiedliche noch offene Matcher-Schlüssel statt Programm-IDs
+
+Der erfolgreiche private Read-only-Audit [#43283391309](https://github.com/matthias-ennen/movie-hub/actions/runs/43283391309) wies unter **50.669** ursprünglichen, noch relevanten Joyn-Programm-IDs **2.038** IDs ohne passenden Cache-Schlüssel sowie **einen** vorhandenen, aber vom Originalcache verworfenen Schlüssel nach. Das bedeutet nicht, dass tatsächlich 2.038 unterschiedliche TMDB-Suchfälle vorliegen: Wiederholungen desselben Titels mit gleicher Beschreibung, Untertitel und Laufzeit ergeben denselben ursprünglichen SHA-Schlüssel.
+
+Die Erweiterung des **bestehenden** geschützten Original-Checkpoint-Audits sammelt die ursprünglichen SHA-Schlüssel ausschließlich flüchtig als private `Map` und berichtet nur fünf überprüfte Aggregate: Anzahl unterschiedlicher Schlüssel insgesamt, unterschiedlicher fehlender Schlüssel, verworfener Schlüssel, wiederverwendbarer positiver und wiederverwendbarer negativer Schlüssel. Zusätzliche Tests beweisen, dass zwei unterschiedliche Programm-IDs mit exakt gleichem ursprünglichem Schlüssel **nur einen** fehlenden Suchfall ergeben. Widersprüchliche Statusklassifikationen für denselben Schlüssel werden geschlossen abgebrochen.
+
+Wie zuvor werden **keine** Roh-Hashes, Titel, Sender-/Programm-IDs oder Suchtexte gespeichert, ausgegeben oder hochgeladen. Der feste Bericht wird sowohl beim Erstellen als auch vor dem Upload gegen ganzzahlige Grenzen und Konsistenzgleichungen geprüft. Keine neue Joyn-Quelle, keine TMDB-API, kein Matcher-HTTP, kein höheres Budget, keine Veröffentlichung, keine Shared-EPG-Freigabe.
+
+**Wichtig:** Eine Zahl unterschiedlicher fehlender Schlüssel ist **keine** vorhergesagte Anzahl von TMDB-HTTP-Anfragen. Ein Originalmatcher-Suchfall kann mehrere Suchen und zusätzliche Kontextabfragen auslösen; wiederverwendbare negative Entscheidungen sind keine gefundenen TMDB-Identitäten. Erst diese neue Messung erlaubt, die nächste kleine, geschützte Offline-Stichprobe sinnvoll festzulegen.
+
+---
+
 ## 12.11.2026 – G1e: echte Quell-Cache-Schlüsselabdeckung aus privatem Checkpoint
 
 Die vorangegangene geschützte [TTL-Messung #43278792468](https://github.com/matthias-ennen/movie-hub/actions/runs/43278792468) bestätigte im restaurierten Joyn-Cache 64.044 historische Entscheidungen, davon 33.925 positive (30-Tage-TTL) und 11.154 negative (7-Tage-TTL) innerhalb der Altersgrenzen. **Diese 45.079 historisch zeitlich geeigneten Einträge sind noch keine nachgewiesenen Treffer für das aktuelle EPG.** Separate 23.292 Lookup-Antworten lagen ebenfalls innerhalb der 7-Tage-TTL; deren tatsächliche Anwendbarkeit wurde nicht überprüft.
