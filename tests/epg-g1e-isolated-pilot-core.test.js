@@ -309,7 +309,7 @@ describe('G1e secured in-memory original-source pilot orchestration', () => {
     })
   })
 
-  it('summarizes only actual recent PRIVATE EPG window counts after the exact 180-request budget stop', () => {
+  it('summarizes only actual recent PRIVATE EPG window counts after the exact 250-request budget stop', () => {
     const status = {
       kind: 'joyn-sync-status', schemaVersion: 1, status: 'failed',
       generatedAt: new Date(NOW - 90_000).toISOString(),
@@ -319,18 +319,18 @@ describe('G1e secured in-memory original-source pilot orchestration', () => {
       },
       coverage: [{ title: secretTitle, originalId: 667739 }],
       metrics: {
-        requestsStarted: 180,
+        requestsStarted: 250,
         retries: 3, splitWindows: 67, windowsProcessed: 35,
         cacheHits: 4, privateTitle: secretTitle,
       },
     }
     const aggregate = summarizePrivateJoynEpgBudgetFailure(status, {
-      now: NOW, maxRequests: 180,
+      now: NOW, maxRequests: 250,
     })
     expect(aggregate).toEqual({
       baseWindows: 56, processedWindows: 35, cacheHits: 4,
-      subdividedWindows: 67, startedEpgRequests: 180, retryAttempts: 3,
-      configuredEpgBudget: 180, completedFullHorizon: false,
+      subdividedWindows: 67, startedEpgRequests: 250, retryAttempts: 3,
+      configuredEpgBudget: 250, completedFullHorizon: false,
     })
     expect(JSON.stringify(aggregate)).not.toContain(secretTitle)
     expect(JSON.stringify(aggregate)).not.toContain('667739')
@@ -340,7 +340,7 @@ describe('G1e secured in-memory original-source pilot orchestration', () => {
       { ...status, failure: { code: 'SOMETHING_ELSE' } },
       { ...status, generatedAt: new Date(NOW - 20 * 60_000).toISOString() },
       { ...status, generatedAt: new Date(NOW + 60_000).toISOString() },
-      { ...status, metrics: { ...status.metrics, requestsStarted: 72 } },
+      { ...status, metrics: { ...status.metrics, requestsStarted: 180 } },
       { ...status, metrics: { ...status.metrics, windowsProcessed: 57 } },
       { ...status, metrics: { ...status.metrics, cacheHits: 36 } },
       { ...status, metrics: { ...status.metrics, splitWindows: 999 } },
@@ -348,7 +348,7 @@ describe('G1e secured in-memory original-source pilot orchestration', () => {
     ]
     for (const entry of invalid) {
       expect(summarizePrivateJoynEpgBudgetFailure(entry, {
-        now: NOW, maxRequests: 180,
+        now: NOW, maxRequests: 250,
       })).toBeNull()
     }
     expect(summarizePrivateJoynEpgBudgetFailure(status, {
@@ -388,6 +388,20 @@ describe('G1e secured in-memory original-source pilot orchestration', () => {
     expect(steps).toEqual([
       'joyn-original-generation', 'waipu-original-rehydration',
     ])
+  })
+
+  it('permits exactly 450 mock HTTPS attempts and denies attempt 451 without calling the source', async () => {
+    const fake = vi.fn(async () => ({ ok: true }))
+    const limited = networkBoundary(fake)
+    for (let i = 0; i < 450; i++) {
+      await limited.fetchImpl('https://api.joyn.de/graphql')
+    }
+    expect(limited.count()).toBe(450)
+    expect(fake).toHaveBeenCalledTimes(450)
+    await expect(limited.fetchImpl('https://api.joyn.de/graphql'))
+      .rejects.toThrow('G1E_NETWORK_REQUEST_LIMIT')
+    expect(limited.count()).toBe(450)
+    expect(fake).toHaveBeenCalledTimes(450)
   })
 
   it('CLI does not start ANY source or TMDB request without the exact private opt-in', () => {
