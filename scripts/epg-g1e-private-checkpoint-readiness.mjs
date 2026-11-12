@@ -12,6 +12,7 @@
 import { readFile, readdir, mkdir, stat, writeFile, appendFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { countPrivateCacheEntries } from './epg-g1e-stream-private-cache-count.mjs'
 
 const MAX_JSON_BYTES = 128 * 1024 * 1024
 const MAX_SAMPLE_FILES = 12
@@ -80,6 +81,8 @@ export function inspectPrivateG1eSourceState({
   waipuGridSamples = [], joynWindowSamples = [],
   oversizedWaipuSampleFiles = 0, oversizedJoynSampleFiles = 0,
   oversizedMatcherCacheFiles = 0,
+  joynMatchStream = null, joynLookupStream = null,
+  failedCacheStreamCounts = 0,
   now = Date.now(),
 } = {}) {
   if (!Number.isFinite(now) || !Array.isArray(waipuGridSamples) ||
@@ -103,9 +106,17 @@ export function inspectPrivateG1eSourceState({
   const waipuDecisionEntries = waipuDecisions?.kind === 'waipu-tmdb-match-decisions' &&
     waipuDecisions?.schemaVersion === 1 ? countObject(waipuDecisions.decisions) : null
   const joynDecisionEntries = joynMatchCache?.kind === 'joyn-match-cache' &&
-    joynMatchCache?.schemaVersion === 1 ? countObject(joynMatchCache.entries) : null
+    joynMatchCache?.schemaVersion === 1 ? countObject(joynMatchCache.entries)
+    : joynMatchStream?.kind === 'joyn-match-cache' && joynMatchStream?.schemaVersion === 1 &&
+      joynMatchStream?.streamed === true &&
+      Number.isSafeInteger(joynMatchStream?.entries) && joynMatchStream.entries >= 0
+      ? joynMatchStream.entries : null
   const joynResponseEntries = joynLookupCache?.kind === 'joyn-lookup-cache' &&
-    joynLookupCache?.schemaVersion === 1 ? countObject(joynLookupCache.entries) : null
+    joynLookupCache?.schemaVersion === 1 ? countObject(joynLookupCache.entries)
+    : joynLookupStream?.kind === 'joyn-lookup-cache' && joynLookupStream?.schemaVersion === 1 &&
+      joynLookupStream?.streamed === true &&
+      Number.isSafeInteger(joynLookupStream?.entries) && joynLookupStream.entries >= 0
+      ? joynLookupStream.entries : null
 
   const cacheSnapshotsPresent = waipuDecisionEntries !== null &&
     joynDecisionEntries !== null && joynResponseEntries !== null
@@ -129,6 +140,7 @@ export function inspectPrivateG1eSourceState({
   if (oversizedMatcherCacheFiles) {
     missing.push('matcher_cache_files_above_safe_read_limit')
   }
+  if (failedCacheStreamCounts) missing.push('private_cache_stream_count_failed')
   missing.push('fresh_explicit_original_matcher_approval_receipts')
 
   return {
@@ -153,11 +165,16 @@ export function inspectPrivateG1eSourceState({
       oversizedWaipuSampleFiles,
       oversizedJoynSampleFiles,
       oversizedMatcherCacheFiles,
+      streamedJoynMatchCache: joynMatchStream?.streamed === true,
+      streamedJoynResponseCache: joynLookupStream?.streamed === true,
+      failedCacheStreamCounts,
     },
     gate: {
       existingPrivateSourceDataAccessible: rawSourceTitlesSampled &&
         waipuSlots > 0 && joynWindows > 0,
       originalCachesPresent: cacheSnapshotsPresent,
+      originalCachesFullyLoadableWithinAuditLimit:
+        cacheSnapshotsPresent && oversizedMatcherCacheFiles === 0,
       fullMatchApprovalReceiptsAvailable: false,
       canRunUnmodifiedOriginalMatcherAb: false,
       actualAvoidedTmdbRequests: null,
@@ -248,6 +265,10 @@ function markdown(report) {
     '**No original matcher approval receipts are reconstructed from cached decisions.**',
     '**No real TMDB request reduction has been measured.**',
     '',
+    'Large Joyn caches streamed: matcher=' + report.auditLimits.streamedJoynMatchCache +
+      ', TMDB response=' + report.auditLimits.streamedJoynResponseCache +
+      ', failed scans=' + report.auditLimits.failedCacheStreamCounts,
+    '',
     'Size-limited sampled files: ' +
       (report.auditLimits.oversizedWaipuSampleFiles + report.auditLimits.oversizedJoynSampleFiles) +
       '; oversized original caches: ' + report.auditLimits.oversizedMatcherCacheFiles,
@@ -278,9 +299,27 @@ async function main(argv) {
     'artifacts/joyn-live/match-cache.json',
     'artifacts/joyn-live/lookup-cache.json',
   ].map(path => exceedsLimit(file(path), MAX_JSON_BYTES)))
+  let failedCacheStreamCounts = 0
+  async function countOversizedJoynCache(path, expectedKind, isOversized) {
+    if (!isOversized) return null
+    try {
+      return await countPrivateCacheEntries(file(path), { expectedKind })
+    } catch {
+      // No raw JSON contents or private filesystem error text ever appear.
+      failedCacheStreamCounts++
+      return null
+    }
+  }
+  const [joynMatchStream, joynLookupStream] = await Promise.all([
+    countOversizedJoynCache('artifacts/joyn-live/match-cache.json',
+      'joyn-match-cache', cacheOverLimits[1]),
+    countOversizedJoynCache('artifacts/joyn-live/lookup-cache.json',
+      'joyn-lookup-cache', cacheOverLimits[2]),
+  ])
   const report = inspectPrivateG1eSourceState({
     waipuCheckpoint, joynCheckpoint, waipuStatus, joynStatus, waipuDecisions,
-    joynMatchCache, joynLookupCache,
+    joynMatchCache, joynLookupCache, joynMatchStream, joynLookupStream,
+    failedCacheStreamCounts,
     waipuGridSamples: waipuGridSamples.records,
     joynWindowSamples: joynWindowSamples.records,
     oversizedWaipuSampleFiles: waipuGridSamples.oversizedFiles,
