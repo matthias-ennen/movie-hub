@@ -1,5 +1,16 @@
 # MovieHub #336 – G1e: echter privater Joyn-Originalmatcher-Pilot (isoliert, opt-in)
 
+## 12.11.2026 – G1e: die verbleibenden SearchQ-Mehrdeutigkeiten rein lokal unterscheiden
+
+Der geschützte Read-only-Lauf [#43294753080](https://github.com/matthias-ennen/movie-hub/actions/runs/43294753080) mit PR #794 ergab für **181** exakt mehrdeutige Originaltitel: **0** fehlende/ungültige Lookup-Cacheantworten, **159** Antworten ohne vertrauenswürdigen eindeutigen Quelltyp, **8** belegte Movie- und **14** belegte Series-Typen. Im rein lokalen Matcher-Zweitdurchlauf wurde **1** zusätzlicher Fall nur hypothetisch aufgelöst; **21** der typisierten Fälle bleiben offen. Es bestehen weiter 622 unterschiedliche fehlende Originalcache-Schlüssel; es gibt keine neuen freigegebenen Quittungen.
+
+Der nächste **ausschließlich offline** laufende Diagnoseschritt zerlegt die 159 nicht eindeutigen vorhandenen SearchQ-Antworten nur bei überprüfter Originaltitel- und Antwortkonsistenz in `both_types` (Film **und** Serie), `no_exact_type` (keine passende typisierte Originalantwort) und `other_or_invalid` (nicht belastbar/abweichend). Die 21 typisiert, aber weiter abgelehnten Originalmatcher-Projektionen werden in dessen **unveränderte** vier feste Ablehnungsgründe aufgeteilt. Beide Teilmengen müssen rechnerisch exakt aufsummieren; die Sicherheitsprüfung blockiert fremde Felder, inkonsistente Summen und jede externe Requestzahl größer null.
+
+**Keine** Rohantworten, Programmtitel, IDs, Schlüssel, privaten Matchentscheidungen oder spekulativen Nachklassifikationen werden ausgegeben. Keine Joyn-/TMDB-/Algolia-Netzwerkabfrage, neue Originalgeneration, Produktivpublikation, Live-Einsparungsmessung, Budgetänderung oder Freigabe des gemeinsamen EPG-Index. Erst nach grüner CI auf `main` ist ein neuer privater Read-only-Audit mit ausschließlich numerischen Aggregaten zulässig. Issue #336 bleibt offen.
+
+---
+
+
 
 
 

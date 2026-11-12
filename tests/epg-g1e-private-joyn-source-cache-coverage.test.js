@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   inspectJoynRestoredSourceCacheCoverage, isSafeJoynRestoredSourceCoverage,
-  trustedCachedJoynSearchType,
+  trustedCachedJoynSearchType, classifyCachedJoynSearchWithoutType,
 } from '../scripts/epg-g1e-private-joyn-source-cache-coverage.mjs'
 import { JoynMatchCache, JoynLookupCache } from '../scripts/joyn-match-cache.mjs'
 import { JOYN_MATCHER_VERSION } from '../scripts/joyn-tmdb-matcher.mjs'
@@ -268,10 +268,17 @@ describe('G1e original private source key/context coverage without network calls
       ambiguousKeysInspected: 1,
       noValidCachedJoynSearch: 0,
       cachedSearchWithoutTrustedType: 0,
+      cachedBothMovieAndSeries: 0,
+      cachedNoExactType: 0,
+      cachedOtherOrInvalidType: 0,
       trustedMovieType: 1,
       trustedSeriesType: 0,
       matchedAfterTrustedType: 1,
       stillUnresolvedAfterTrustedType: 0,
+      typedNoCandidate: 0,
+      typedBelowThreshold: 0,
+      typedAmbiguousMargin: 0,
+      typedAmbiguousExactTitle: 0,
       externalRequestsStarted: 0,
     })
     expect(isSafeJoynRestoredSourceCoverage(result)).toBe(true)
@@ -294,7 +301,8 @@ describe('G1e original private source key/context coverage without network calls
     const result = await inspectJoynRestoredSourceCacheCoverage(value)
     expect(result.offlineTrustedJoynTypeReplay).toMatchObject({
       trustedMovieType: 1, matchedAfterTrustedType: 0,
-      stillUnresolvedAfterTrustedType: 1, externalRequestsStarted: 0,
+      stillUnresolvedAfterTrustedType: 1, typedAmbiguousExactTitle: 1,
+      externalRequestsStarted: 0,
     })
     expect(isSafeJoynRestoredSourceCoverage(result)).toBe(true)
   })
@@ -328,6 +336,59 @@ describe('G1e original private source key/context coverage without network calls
       trustedSeriesType: 0, matchedAfterTrustedType: 0,
     })
     expect(isSafeJoynRestoredSourceCoverage(result)).toBe(true)
+  })
+
+  it('separates well-formed cached SearchQ dual-type and no-type evidence from malformed responses', async () => {
+    const title = programs[2].title
+    const bothTypes = {
+      type: null, reason: 'ambiguous_joyn_search',
+      exactTypes: ['movie', 'series'], exactCount: 2,
+      exactResults: [
+        { type: 'movie', joynType: 'Movie', title },
+        { type: 'series', joynType: 'Series', title },
+      ],
+    }
+    const noType = {
+      type: null, reason: 'no_joyn_type',
+      exactTypes: [], exactCount: 0, exactResults: [],
+    }
+    expect(classifyCachedJoynSearchWithoutType(bothTypes, title)).toBe('both_types')
+    expect(classifyCachedJoynSearchWithoutType(noType, title)).toBe('no_exact_type')
+    expect(classifyCachedJoynSearchWithoutType({ ...bothTypes,
+      exactResults: [{ ...bothTypes.exactResults[0], title: 'wrong title' },
+        bothTypes.exactResults[1]] }, title)).toBe('other_or_invalid')
+    expect(classifyCachedJoynSearchWithoutType({
+      ...bothTypes, exactTypes: ['movie', 'movie'],
+    }, title)).toBe('other_or_invalid')
+    expect(classifyCachedJoynSearchWithoutType({
+      ...noType, exactCount: 1,
+    }, title)).toBe('other_or_invalid')
+
+    for (const [cached, classification] of [
+      [bothTypes, 'cachedBothMovieAndSeries'],
+      [noType, 'cachedNoExactType'],
+      [{ ...noType, reason: 'untrusted' }, 'cachedOtherOrInvalidType'],
+    ]) {
+      const value = input()
+      value.catalog.titles.push(
+        { type: 'movie', tmdbId: 499, title },
+        { type: 'series', tmdbId: 500, title },
+      )
+      const lookup = new JoynLookupCache({}, NOW)
+      lookup.set('joyn-title-v1', title, cached)
+      value.lookupCache.entries = lookup.entries
+      const report = await inspectJoynRestoredSourceCacheCoverage(value)
+      expect(report.offlineTrustedJoynTypeReplay).toMatchObject({
+        cachedSearchWithoutTrustedType: 1,
+        cachedBothMovieAndSeries: classification === 'cachedBothMovieAndSeries' ? 1 : 0,
+        cachedNoExactType: classification === 'cachedNoExactType' ? 1 : 0,
+        cachedOtherOrInvalidType: classification === 'cachedOtherOrInvalidType' ? 1 : 0,
+        trustedMovieType: 0, trustedSeriesType: 0,
+        externalRequestsStarted: 0,
+      })
+      expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+      expect(JSON.stringify(report)).not.toContain(title)
+    }
   })
 
   it('honours the original 7-day Joyn lookup-cache expiry before typing', async () => {
@@ -411,6 +472,8 @@ describe('G1e original private source key/context coverage without network calls
       { ...report, offlineTrustedJoynTypeReplay: { ...report.offlineTrustedJoynTypeReplay, rawTitle: SECRET } },
       { ...report, offlineTrustedJoynTypeReplay: { ...report.offlineTrustedJoynTypeReplay, externalRequestsStarted: 1 } },
       { ...report, offlineTrustedJoynTypeReplay: { ...report.offlineTrustedJoynTypeReplay, ambiguousKeysInspected: 12 } },
+      { ...report, offlineTrustedJoynTypeReplay: { ...report.offlineTrustedJoynTypeReplay, cachedNoExactType: 1 } },
+      { ...report, offlineTrustedJoynTypeReplay: { ...report.offlineTrustedJoynTypeReplay, typedAmbiguousExactTitle: 1 } },
       { ...report, gate: { ...report.gate, freshOriginalMatcherReceiptsApproved: true } },
       { ...report, gate: { ...report.gate, measuredProductionSavings: 100 } },
       { ...report, mode: SECRET },
