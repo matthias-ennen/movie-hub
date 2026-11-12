@@ -2,9 +2,10 @@
  * #336 G1e — replay the ORIGINAL Joyn source/cache decision path, READ ONLY.
  *
  * The protected runner restores the PRIVATE Joyn checkpoint and decision cache
- * and the existing PUBLIC TMDB catalog. No Joyn/TMDB matching is run, no
- * external provider APIs are called, and no raw programme/key/candidate is
- * logged, returned, persisted or uploaded.
+ * and the existing PUBLIC TMDB catalog. The ORIGINAL Joyn matcher is replayed
+ * only against already local candidates, with its remote callbacks disabled.
+ * No Joyn/Algolia/TMDB API calls are made and no raw programme/key/candidate
+ * is logged, returned, persisted or uploaded.
  */
 import { lstat, readFile, mkdir, writeFile } from 'node:fs/promises'
 import { resolve, dirname, join } from 'node:path'
