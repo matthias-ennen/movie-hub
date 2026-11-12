@@ -1,5 +1,61 @@
 # MovieHub #336 – G1e: echter privater Joyn-Originalmatcher-Pilot (isoliert, opt-in)
 
+## Folgemessung und gezielt dimensionierter zweiter Budgetsprung (#786)
+
+Die gesonderte echte
+[Capture #43265178996](https://github.com/matthias-ennen/movie-hub/actions/runs/43265178996)
+hat nach erneuter erfolgreicher privater Checkpoint-Wiederherstellung und
+Waipu-Originalcache-Prüfung nochmals `JOYN_EPG_REQUEST_BUDGET` gemeldet –
+**bei exakt 180 gestarteten Joyn-EPG-Anfragen**. Der anonymisierte
+`joynEpg`-Bericht liefert erstmals:
+
+| EPG-Fenster-/Transportkennzahl | Echte Messung |
+| --- | ---: |
+| Basisfenster, 14 Tage × 4 | 56 |
+| Vollständig verarbeitete Basisfenster | 46 |
+| Verbleibende Basisfenster | 10 |
+| Cachehits | 0 |
+| Zusätzliche Fensterteilungen (binär) | 67 |
+| EPG-Requeststarts | 180 |
+| Retry-Versuche | 0 |
+| Alle erlaubten HTTPS-Fetches inklusive vorgelagerter Quellzugriffe | 213/300 |
+
+Die Original-Sync-Semantik erklärt die 180 Requeststarts exakt:
+**46 Basisfenster + 2 × 67 Kindfenster = 180**.
+Der Mehrbedarf ist also tatsächliche Aufteilung von bei 1.000
+Ergebnissen gekappten EPG-Fenstern, **kein Retry- oder fehlgeschlagener
+Upstream-Request**. Die hochgerechnete Gesamtzahl bei gleicher
+Dichte ist rund **219** (180 × 56 / 46); der Wert ist nur eine
+**Planungsschätzung**, kein echtes vollständiges 14-Tage-Messergebnis.
+
+**Eng kontrollierte Korrektur – nur QA-Einmaljob, nicht Produktiv:**
+
+- Gesondertes Joyn-EPG-Budget **180 → 250**. Das lässt rund 30
+  zusätzliche Requests über der plausiblen Schätzung zu, ohne eine
+  unbegrenzte Quelle zu öffnen.
+- Der private globale HTTPS-Deckel **300 → 450**. Denn die bisher
+  unabhängig vor EPG-Matching angefallenen 33 erlaubten Requests
+  plus eine voraussichtliche EPG-Vollmenge um 219 benötigen anschließend
+  einen explizit abgezäunten Puffer für den tatsächlich ursprünglichen
+  Joyn-Matcher. **450 ist ein harter Gesamtdeckel**; der 451. Versuch
+  wird vor dem tatsächlichen `fetch` blockiert (synthetisch getestet).
+- Andere explizite Grenzen (TMDB-Suchen 30, Details 10,
+  Metadaten 30, Algolia 90, Serienseiten 20, Episoden 30,
+  erlaubte HTTPS-Hosts, keine unbegrenzten Retries) bleiben
+  unverändert. Der `capture`-Modus gibt **keinen zusätzlichen**
+  Waipu-A/B-Request frei.
+- Die anonyme Fensterdiagnose bleibt bei einem erneuten Budgetstopp
+  strikt auf geprüfte Zahlen begrenzt; vor Upload gelten
+  `configuredEpgBudget=250`, `startedEpgRequests=250`, sonst
+  **fail closed**. Keine Zeitfenster, Programmtitel oder IDs.
+
+Noch kein tatsächlicher Joyn-Capture-Erfolg und **keine**
+behauptete TMDB-Einsparung. Erst der nächste echte Einmallauf kann
+Original-Matcher-Quittungen bestätigen. Der Produktivindex bleibt aus.
+
+---
+
+
 **Stand: 12. November 2026.** Dieser Schritt schließt die technische
 Verbindung zwischen #780 (Waipu-A/B mit zwei originalen Matcherinstanzen),
 #781 (24-MiB-Originalcache nachweislich nutzbar) und #782 (im Prozessspeicher
