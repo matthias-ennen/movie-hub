@@ -5,13 +5,16 @@ on:
     branches: [main]
     paths:
       - scripts/epg-g1e-private-checkpoint-readiness.mjs
+      - scripts/epg-g1e-stream-private-cache-count.mjs
       - tests/epg-g1e-private-checkpoint-readiness.test.js
+      - tests/epg-g1e-stream-private-cache-count.test.js
       - .github/workflows/shared-epg-g1e-private-checkpoint-readiness.yml
   push:
     branches: [main]
     paths:
       - .github/workflows/shared-epg-g1e-private-checkpoint-readiness.yml
       - scripts/epg-g1e-private-checkpoint-readiness.mjs
+      - scripts/epg-g1e-stream-private-cache-count.mjs
   workflow_dispatch:
 
 permissions:
@@ -33,7 +36,7 @@ jobs:
           node-version: '22'
       - run: npm ci --ignore-scripts
       - name: Only synthetic mock data are permitted in PR tests
-        run: npx vitest run tests/epg-g1e-private-checkpoint-readiness.test.js tests/epg-g1e-real-ab-readiness.test.js tests/epg-g1e-compare-tmdb-transport.test.js
+        run: npx vitest run tests/epg-g1e-stream-private-cache-count.test.js tests/epg-g1e-private-checkpoint-readiness.test.js tests/epg-g1e-real-ab-readiness.test.js tests/epg-g1e-compare-tmdb-transport.test.js
 
   private-readiness:
     name: Restore real PRIVATE Waipu/Joyn checkpoints without source API calls
