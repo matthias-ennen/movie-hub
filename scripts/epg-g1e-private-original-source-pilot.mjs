@@ -24,6 +24,8 @@ import { compareBoundedWaipuWithJoynEvidence } from
   './epg-g1e-waipu-bounded-ab-controller.mjs'
 import { runIsolatedG1eCapturePilot } from
   './epg-g1e-isolated-pilot-core.mjs'
+import { summarizePrivateJoynCaptureFailureTrace } from
+  './epg-g1e-private-joyn-source-trace.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 // A 14-day 56-window source run required 180 requests for 46 windows;
@@ -45,6 +47,9 @@ const SAFE_FAILURE_CODES = new Set([
   'G1E_WAIPU_ORIGINAL_REPLAY_NOT_APPROVED',
   'G1E_ISOLATED_AB_RESULT_NOT_VERIFIED',
   'JOYN_EPG_REQUEST_BUDGET',
+  'JOYN_TMDB_REQUEST_BUDGET',
+  'JOYN_CLASSIFICATION_BUDGET',
+  'JOYN_CLASSIFICATION_UNAVAILABLE',
   'TMDB_REQUEST_BUDGET',
 ])
 
@@ -211,12 +216,17 @@ async function runOriginalPilot({ mode, telemetry }) {
       runIsolatedG1eCapturePilot({
         mode, now: Date.now,
         onStage: stage => { telemetry.stage = stage },
-        generateJoyn: options => runJoynAdapterDiagnostic({
-          ...options,
-          fetchImpl: boundary.fetchImpl,
-          now: Date.now(),
-          publicationOutput: join(ROOT, 'artifacts/g1e-private-pilot/joyn-local'),
-        }),
+        generateJoyn: options => {
+          // Only a monotonic source-run boundary is retained. No original
+          // title/programme identity is ever copied into telemetry.
+          telemetry.joynStartedAt = Date.now()
+          return runJoynAdapterDiagnostic({
+            ...options,
+            fetchImpl: boundary.fetchImpl,
+            now: Date.now(),
+            publicationOutput: join(ROOT, 'artifacts/g1e-private-pilot/joyn-local'),
+          })
+        },
         generateWaipu: options => buildWaipuLiveCatalog({
           gridRecords, stations,
           horizon: waipuStatus.horizon,
@@ -297,6 +307,24 @@ async function main(args) {
       } catch {
         // A missing or contradictory private status must not be exposed.
       }
+    }
+    if (result.phase === 'joyn-original-generation') {
+      let epgStatus = null
+      let matcherProgress = null
+      try {
+        epgStatus = await readBoundedJson(
+          join(ROOT, 'artifacts/joyn-sync/status.json'), 1024 * 1024)
+      } catch { /* No raw source errors in a failed pilot report. */ }
+      try {
+        matcherProgress = await readBoundedJson(
+          join(ROOT, 'artifacts/joyn-live/matching-progress.json'), 1024 * 1024)
+      } catch { /* Original matcher state may not exist yet. */ }
+      const sourceTrace = summarizePrivateJoynCaptureFailureTrace({
+        epgStatus, matcherProgress, startedAt: telemetry.joynStartedAt,
+        now: Date.now(),
+        maxEpgRequests: Number(process.env.JOYN_EPG_REQUEST_BUDGET),
+      })
+      if (sourceTrace) result.sourceTrace = sourceTrace
     }
     await mkdir(dirname(output), { recursive: true })
     await writeFile(output, JSON.stringify(result, null, 2) + '\n', 'utf8')

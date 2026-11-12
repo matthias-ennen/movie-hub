@@ -6,6 +6,8 @@ on:
     paths:
       - scripts/epg-g1e-isolated-pilot-core.mjs
       - scripts/epg-g1e-private-original-source-pilot.mjs
+      - scripts/epg-g1e-private-joyn-source-trace.mjs
+      - tests/epg-g1e-private-joyn-source-trace.test.js
       - tests/epg-g1e-isolated-pilot-core.test.js
       - .github/workflows/shared-epg-g1e-private-joyn-capture.yml
   push:
@@ -13,6 +15,7 @@ on:
     paths:
       - .github/workflows/shared-epg-g1e-private-joyn-capture.yml
       - scripts/epg-g1e-private-original-source-pilot.mjs
+      - scripts/epg-g1e-private-joyn-source-trace.mjs
       - scripts/epg-g1e-isolated-pilot-core.mjs
   workflow_dispatch:
     inputs:
@@ -51,6 +54,7 @@ jobs:
         run: >-
           npx vitest run
           tests/epg-g1e-isolated-pilot-core.test.js
+          tests/epg-g1e-private-joyn-source-trace.test.js
           tests/epg-g1e-waipu-replay-input-selection.test.js
           tests/epg-g1e-waipu-bounded-ab-controller.test.js
           tests/epg-g1e-private-waipu-ab-preflight.test.js
@@ -139,6 +143,7 @@ jobs:
           if [ -s artifacts/g1e-private-pilot/aggregate.json ]; then
             node --input-type=module -e '
               import { readFileSync } from "node:fs";
+              import { isSafePrivateJoynTrace } from "./scripts/epg-g1e-private-joyn-source-trace.mjs";
               const x = JSON.parse(readFileSync("artifacts/g1e-private-pilot/aggregate.json", "utf8"));
               if (x.kind !== "g1e-isolated-private-original-source-capture") process.exit(1);
               if (!["failed-closed", undefined].includes(x.status)) process.exit(1);
@@ -146,6 +151,13 @@ jobs:
               if (raw.length > 12000 || raw.includes("approvedEvidence") ||
                   raw.includes("matcherInput") || raw.includes("sourceRefs") ||
                   raw.includes("Bearer ") || raw.includes("joynProgramId")) process.exit(1);
+              // The optional source trace is ONLY an explicitly validated
+              // aggregate derived from the CURRENT isolated source attempt.
+              if (x.sourceTrace !== undefined &&
+                  (x.status !== "failed-closed" ||
+                   x.phase !== "joyn-original-generation" ||
+                   !isSafePrivateJoynTrace(x.sourceTrace) ||
+                   x.sourceTrace.epg.epgBudget !== 250)) process.exit(1);
               if (x.joynEpg !== undefined) {
                 const e = x.joynEpg;
                 const required = [
