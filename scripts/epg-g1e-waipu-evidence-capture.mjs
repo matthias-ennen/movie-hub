@@ -9,6 +9,15 @@
 import { buildWaipuApprovedEpgReceipt } from './epg-g1e-waipu-match-receipt.mjs'
 
 const MAX_CAPTURE_EVENTS = 50_000
+// A repeated broadcast row may be harmless; a changed original title,
+// episode or source classification at the SAME source+station+slot is not.
+// Never choose the first/last winner for reusable cross-adapter evidence.
+const ORIGINAL_ROW_FIELDS = [
+  'title', 'episodeTitle', 'seriesId', 'seasonNumber', 'episodeNumber',
+  'productionYear', 'gridGenre', 'type',
+]
+const sameOriginalRow = (left, right) => ORIGINAL_ROW_FIELDS.every(field =>
+  String(left?.[field] ?? '') === String(right?.[field] ?? ''))
 
 function key(programId, stationId, startAt, endAt) {
   const start = Date.parse(startAt)
@@ -45,10 +54,21 @@ export function collectApprovedWaipuEvidence({
     }
   }
   const sources = new Map()
+  const ambiguousSourceKeys = new Set()
   for (const broadcast of sourceBroadcasts) {
     const code = key(broadcast?.programId, broadcast?.stationId,
       broadcast?.startTime, broadcast?.stopTime)
-    if (code) sources.set(code, broadcast)
+    if (!code || ambiguousSourceKeys.has(code)) continue
+    if (sources.has(code)) {
+      if (!sameOriginalRow(sources.get(code), broadcast)) {
+        // Do not silently overwrite conflicting source metadata, even if a
+        // later duplicate happens to equal the first one again.
+        ambiguousSourceKeys.add(code)
+        sources.delete(code)
+      }
+      continue
+    }
+    sources.set(code, broadcast)
   }
   const approvedEvidence = []
   const reasons = Object.create(null)
@@ -61,7 +81,9 @@ export function collectApprovedWaipuEvidence({
     const broadcast = code === null ? null : sources.get(code)
     const approved = broadcast && matchesByProgram.get(broadcast.programId)
     let result
-    if (!broadcast || !approved) {
+    if (code !== null && ambiguousSourceKeys.has(code)) {
+      result = { accepted: false, reason: 'ambiguous_original_grid_duplicate' }
+    } else if (!broadcast || !approved) {
       result = { accepted: false, reason: 'missing_original_grid_and_match' }
     } else {
       result = buildWaipuApprovedEpgReceipt({
