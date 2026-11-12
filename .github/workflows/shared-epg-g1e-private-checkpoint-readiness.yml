@@ -11,6 +11,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/shared-epg-g1e-private-checkpoint-readiness.yml
+      - scripts/epg-g1e-private-checkpoint-readiness.mjs
   workflow_dispatch:
 
 permissions:

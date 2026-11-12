@@ -1,3 +1,13 @@
+## Beobachtung und Korrektur nach dem ersten realen privaten Lauf
+
+Der nach PR #773 einmalig gestartete private GitHub-Lesetest [#43200414776](https://github.com/matthias-ennen/movie-hub/actions/runs/43200414776) konnte **beide echten Checkpoints authentifiziert und ohne Quelldatenanfragen restaurieren**: Waipu-Archiv **222.962.780 Bytes** (Checkpoint vom 12.11.2026, 06:55 UTC), Joyn-Archiv **48.041.003 Bytes** (06:53 UTC). Der isolierte QA-Job scheiterte anschließend **an einer absichtlich begrenzten Datei-Lesegrenze**, nicht an defekten Quellcaches oder fehlendem Speicherzugriff.
+
+Die Korrektur hält diese Obergrenzen bei, ersetzt aber den Komplettabbruch durch einen **fail-closed aggregierten Unvollständigkeitsbericht**: sehr große optionale Original-Matcher-/Response-Caches werden nicht eingelesen und als `matcher_cache_files_above_safe_read_limit` gemeldet. Zu große gesampelte EPG-Grid-/Fensterdateien werden nicht geöffnet; die Anzahl und `sampled_raw_source_files_above_safe_read_limit` werden dokumentiert. Bei fehlenden Belegen ist ein echter A/B-Test weiterhin **nicht freigegeben**; keinerlei frei geratene TMDB-Ersparnis.
+
+Die Workflow-Push-Filter nehmen nun Änderungen am Audit-Skript auf. Der private Job bleibt ausschließlich durch den expliziten Merge-Tag `[g1e-private-readiness-once]` auf `main` oder durch eine manuelle `workflow_dispatch`-Aktion startbar.
+
+---
+
 # MovieHub #336 – G1e: private, nur lesende Originalquellen- und Cacheprüfung
 
 **Stand: 12.11.2026. Kein produktiver Index, keine neuen TMDB-/Waipu-/Joyn-Requests, kein Datenexport.**
