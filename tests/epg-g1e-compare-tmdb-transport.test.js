@@ -5,6 +5,7 @@ import { compareOptionalSharedEpgIndexAb } from
   '../scripts/epg-g1e-compare-tmdb-transport.mjs'
 
 const NOW = Date.parse('2026-11-12T09:30:00.000Z')
+const CHECKED = '2026-11-12T09:30:00.000Z'
 const START = '2026-11-14T08:00:00.000Z'
 const END = '2026-11-14T10:00:00.000Z'
 const movies = {
@@ -43,7 +44,7 @@ const approved = [{
  */
 function sessionFactory({
   cacheSnapshot = {},
-  fingerprint = 'original-empty-matcher-cache',
+  responseSnapshot = {},
   fetchImpl = vi.fn(async url => {
     const query = new URL(String(url)).searchParams.get('query')
     const item = movies[query]
@@ -56,16 +57,27 @@ function sessionFactory({
 } = {}) {
   const sessions = []
   const createSession = mode => {
+    // A/B session states are independently cloned from the SAME original
+    // decision and TMDB response caches; no shared mutable cache objects.
+    const initialCacheState = {
+      matchDecisions: JSON.parse(JSON.stringify(cacheSnapshot)),
+      tmdbResponses: JSON.parse(JSON.stringify(responseSnapshot)),
+    }
     const decisions = new WaipuMatchDecisionStore(
-      JSON.parse(JSON.stringify(cacheSnapshot)),
+      JSON.parse(JSON.stringify(initialCacheState.matchDecisions)),
     )
+    const responseEntries = JSON.parse(JSON.stringify(initialCacheState.tmdbResponses))
+    const responseCache = {
+      get: key => Object.prototype.hasOwnProperty.call(responseEntries, key)
+        ? responseEntries[key] : null,
+      set: (key, value) => { responseEntries[key] = value },
+    }
     const client = new WaipuTmdbSearchClient({
       token: 'nonfunctional-test-token',
-      fetchImpl, maxRequests: 100, paceMs: 0, maxRetries: 0,
+      fetchImpl, responseCache, maxRequests: 100, paceMs: 0, maxRetries: 0,
     })
     const session = {
-      mode, decisions, client,
-      startingCacheFingerprint: fingerprint,
+      mode, decisions, client, initialCacheState,
       matchIndependently: input => matchWaipuProgram(input.matcherInput, {
         localCandidates: [],
         decisions,
@@ -123,7 +135,6 @@ describe('G1e-2d explicitly isolated, real-matcher TMDB HTTP transport A/B', () 
     })
     const factory = sessionFactory({
       cacheSnapshot: cached.toJSON().decisions,
-      fingerprint: 'cached-exact-positive-entry',
     })
     const report = await compareOptionalSharedEpgIndexAb({
       inputs: [first], createSession: factory.createSession,
@@ -183,15 +194,55 @@ describe('G1e-2d explicitly isolated, real-matcher TMDB HTTP transport A/B', () 
     })).rejects.toThrow(/DISTINCT/)
     await expect(compareOptionalSharedEpgIndexAb({
       inputs: [first], approvedEvidence: approved, now: NOW,
-      createSession: mode => sessionFactory({ fingerprint: mode }).createSession(mode),
+      createSession: mode => sessionFactory({
+        cacheSnapshot: mode === 'baseline'
+          ? { firstGeneration: { checkedAt: CHECKED } }
+          : { secondGeneration: { checkedAt: CHECKED } },
+      }).createSession(mode),
     })).rejects.toThrow(/IDENTICAL/)
+  })
+
+  it('does not accept a caller-written fake matching fingerprint when actual caches differ', async () => {
+    await expect(compareOptionalSharedEpgIndexAb({
+      inputs: [first], approvedEvidence: approved, now: NOW,
+      createSession: mode => {
+        const session = sessionFactory({
+          cacheSnapshot: mode === 'baseline' ? { a: 1 } : { b: 1 },
+        }).createSession(mode)
+        session.startingCacheFingerprint = 'same-untrusted-label'
+        return session
+      },
+    })).rejects.toThrow(/IDENTICAL/)
+  })
+
+  it('canonically compares identical JSON caches regardless of object key order', async () => {
+    const report = await compareOptionalSharedEpgIndexAb({
+      inputs: [first], approvedEvidence: approved, now: NOW,
+      createSession: mode => sessionFactory({
+        cacheSnapshot: mode === 'baseline'
+          ? { extra: { x: true, y: false } }
+          : { extra: { y: false, x: true } },
+      }).createSession(mode),
+    })
+    expect(report.gate.verifiedFromCanonicalCacheSnapshots).toBe(true)
+  })
+
+  it('refuses to compare sessions sharing a mutable matcher-cache object', async () => {
+    const factory = sessionFactory()
+    const original = factory.createSession('baseline')
+    const indexed = factory.createSession('indexed')
+    indexed.initialCacheState.matchDecisions = original.initialCacheState.matchDecisions
+    await expect(compareOptionalSharedEpgIndexAb({
+      inputs: [first], approvedEvidence: approved, now: NOW,
+      createSession: mode => mode === 'baseline' ? original : indexed,
+    })).rejects.toThrow(/DISTINCT/)
   })
 
   it('rejects fake, missing or regressing HTTP counters instead of estimating savings', async () => {
     await expect(compareOptionalSharedEpgIndexAb({
       inputs: [first], now: NOW,
       createSession: mode => ({
-        startingCacheFingerprint: 'same',
+        initialCacheState: { matchDecisions: {}, tmdbResponses: {} },
         matchIndependently: () => ({ status: 'unmatched' }),
         startedTmdbHttpRequests: () => mode === 'baseline' ? -1 : 0,
       }),
