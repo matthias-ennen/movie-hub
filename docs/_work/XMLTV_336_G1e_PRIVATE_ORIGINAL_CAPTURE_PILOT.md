@@ -2,6 +2,26 @@
 
 
 
+
+## 12.11.2026 – G1e: echte Quell-Cache-Schlüsselabdeckung aus privatem Checkpoint
+
+Die vorangegangene geschützte [TTL-Messung #43278792468](https://github.com/matthias-ennen/movie-hub/actions/runs/43278792468) bestätigte im restaurierten Joyn-Cache 64.044 historische Entscheidungen, davon 33.925 positive (30-Tage-TTL) und 11.154 negative (7-Tage-TTL) innerhalb der Altersgrenzen. **Diese 45.079 historisch zeitlich geeigneten Einträge sind noch keine nachgewiesenen Treffer für das aktuelle EPG.** Separate 23.292 Lookup-Antworten lagen ebenfalls innerhalb der 7-Tage-TTL; deren tatsächliche Anwendbarkeit wurde nicht überprüft.
+
+Der nächste Schritt verwendet **nur den vorhandenen privat restaurierten vollständigen 14-Tage-Joyn-Sync**, seine 56 Originalcache-Fenster und den unveränderten Joyn-Entscheidungs-Cache. Die vorhandene **öffentliche** TMDB-Katalogfassung wird mittels `npm run tmdb:restore` abgerufen (nur veröffentlichte Daten, **kein** TMDB-API-Aufruf). Für jedes noch nicht beendete Originalprogramm im restaurierten Horizont werden exakt die **produktiv genutzte** Normalisierung, V2-Anreicherung, Senderzuordnung, Auswahl des ersten Programmeintrags, originaler SHA-Cache-Schlüssel, lokaler TMDB-Kandidatenkontext und `JoynMatchCache.get` ausgeführt — ausschließlich lesend und ohne eine neue Matcherentscheidung.
+
+Der feste anonyme Diagnosebericht trennt:
+- vollständige 56 geprüfte Originalfenster, Rohzeilenzahl und nach Programm-ID eindeutige verbleibende Programme;
+- Anzahl der **exakt vorhandenen Original-Cache-Schlüssel** bzw. fehlenden Schlüssel;
+- die nach **originaler Cache-Policy** tatsächlich wiederverwendbaren positiven und negativen Cacheentscheidungen (TTL, technische Fehler und bei negativen Treffern aktueller lokaler Kandidatenkontext);
+- vorhandene, aber durch die Original-Policy abgewiesene Schlüssel;
+- ein gesondertes Flag, ob der vollständige Source-Status zum Prüftermin noch innerhalb der geprüften 72-Stunden-Frische und des 14-Tage-Horizonts liegt.
+
+**Grenze der Evidenz:** Dies ist eine *statische Replay-Projektion* aus dem privaten Checkpoint, **keine** frische Joyn-Originalgenerierung, kein externer Match-HTTP-Vergleich, kein Produktiv-Beleg. Ein rekonstruierter Cachetreffer darf nicht als neu freigegebene G1e-Matcher-Quittung gelten. Es werden keine Titel, Sender, Roh-IDs, Hashes, URLs, Kandidatenlisten, EPG-Einträge oder Tokens ins GitHub-Log oder Artefakt geschrieben. Die originale Quellprüfung bricht bei fehlenden/abweichenden Fenstern, ungültigen Metadaten und übergroßen Quellen geschlossen ab. Der neue Prüfjob ist geschützt; auf PRs laufen ausschließlich synthetische Tests.
+
+Budgets, Adapter, produktiver Nightly, Firebase-Datenmodell und der deaktivierte Shared EPG Index bleiben unverändert. Erst die **gemessene** Schlüssel-/Kontextabdeckung soll die Größe des folgenden getrennten, budgetierten Originalmatcher-Stichprobenlaufs begründen.
+
+---
+
 ## 12.11.2026 – nächster Schritt: zeitliche Cache-Gültigkeit ohne TMDB-Anfragen
 
 Der vollständig geschützte **read-only** Checkpoint-Audit #43233887430 hatte 64.044 historische Joyn-Matcherentscheidungen gezählt. Diese Bestandszahl sagt allein noch nichts über die aktuelle Cache-Wiederverwendbarkeit aus: `JoynMatchCache` hat **30 Tage** TTL für positive Zuordnungen, **7 Tage** für negative; der separate `JoynLookupCache` hat **7 Tage** für gespeicherte Original-Antworten. Änderungen an Titel, Untertitel, Beschreibung, Sendedauer oder lokalen Kandidaten können trotz einer gültigen TTL weitere Suchen nötig machen.
