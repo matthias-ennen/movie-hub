@@ -11,7 +11,7 @@ import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { joynV2Streams } from './joyn-epg-sync.mjs'
 import { JoynMatchCache, joynOriginalCacheKey, sharedJoynTmdbMetadata } from './joyn-match-cache.mjs'
-import { JOYN_MATCHER_VERSION } from './joyn-tmdb-matcher.mjs'
+import { JOYN_MATCHER_VERSION, matchJoynProgram } from './joyn-tmdb-matcher.mjs'
 import { titleLookup } from './joyn-adapter-diagnostic.mjs'
 import { localTmdbCandidates } from './waipu-live-catalog.mjs'
 import { normalizeJoynLiveChannelsAndEpg } from '../src/sources/joyn/joynEpgNormalizer.js'
@@ -82,7 +82,7 @@ function sourceHorizon(status, checkpoint, now) {
  * Testable isolated ORIGINAL logic. The caller owns the private objects;
  * the only returned material is a small numeric, fixed-schema summary.
  */
-export function inspectJoynRestoredSourceCacheCoverage({
+export async function inspectJoynRestoredSourceCacheCoverage({
   status, checkpoint, windowRecords, matchCache, catalog, searchIndex,
   previousJoynTitles = { entries: [] }, waipuTitles = { entries: [] },
   now = Date.now(),
@@ -157,6 +157,7 @@ export function inspectJoynRestoredSourceCacheCoverage({
   // space. Several programme IDs can share one exact, duration-aware key.
   // Hashes remain private in memory; only fixed aggregate counts are emitted.
   const keyOutcomes = new Map()
+  const missingKeyRepresentatives = new Map()
   for (const candidate of uniquePrograms.values()) {
     const key = joynOriginalCacheKey(candidate)
     const hasKey = Object.hasOwn(matchCache.entries, key)
@@ -170,6 +171,9 @@ export function inspectJoynRestoredSourceCacheCoverage({
       throw new Error('Inconsistent original cache key classification')
     }
     keyOutcomes.set(key, outcome)
+    if (outcome === 'absent' && !missingKeyRepresentatives.has(key)) {
+      missingKeyRepresentatives.set(key, candidate)
+    }
     if (!original) {
       if (hasKey) exactKeyRejectedByOriginalPolicy++
       continue
@@ -188,8 +192,39 @@ export function inspectJoynRestoredSourceCacheCoverage({
     unique.rejected <= exactKeyRejectedByOriginalPolicy &&
     unique.positive <= reusablePositiveDecisions &&
     unique.negative <= reusableNegativeDecisions
-  if (!complete || decisions.hits !== reusablePositiveDecisions + reusableNegativeDecisions) {
+  if (!complete || decisions.hits !== reusablePositiveDecisions + reusableNegativeDecisions ||
+      missingKeyRepresentatives.size !== unique.absent) {
     throw new Error('Original matcher counters inconsistent')
+  }
+  // Run the same LOCAL matcher call as the productive Joyn adapter, once per
+  // distinct missing original hash. Explicitly omit searchTmdb and
+  // loadTmdbDetails: no Joyn, TMDB, Algolia or other network operations.
+  // Never persist representative programmes, hashes, decisions or TMDB IDs.
+  let resolvedLocally = 0
+  let unresolvedNoLocalCandidate = 0
+  let unresolvedWithLocalCandidates = 0
+  for (const candidate of missingKeyRepresentatives.values()) {
+    const start = Date.parse(candidate.startTime)
+    const end = Date.parse(candidate.endTime)
+    const broadcastDurationMinutes = Number.isFinite(start) &&
+      Number.isFinite(end) && end > start ? (end - start) / 60_000 : null
+    const localCandidates = candidatesFor(candidate.title)
+    const result = await matchJoynProgram({
+      title: candidate.title,
+      description: candidate.description,
+      broadcastDurationMinutes,
+    }, { localCandidates, searchTmdb: null, loadTmdbDetails: null })
+    if (result?.matcherVersion !== JOYN_MATCHER_VERSION ||
+        !['matched', 'unmatched'].includes(result.status) ||
+        result.source !== 'local') {
+      throw new Error('Unexpected original offline Joyn matcher outcome')
+    }
+    if (result.status === 'matched') resolvedLocally++
+    else if (localCandidates.length === 0) unresolvedNoLocalCandidate++
+    else unresolvedWithLocalCandidates++
+  }
+  if (resolvedLocally + unresolvedNoLocalCandidate + unresolvedWithLocalCandidates !== unique.absent) {
+    throw new Error('Offline local Joyn matcher count mismatch')
   }
   const versionCompatible = matchCache.matcherVersion === JOYN_MATCHER_VERSION
   return {
@@ -217,6 +252,13 @@ export function inspectJoynRestoredSourceCacheCoverage({
       distinctReusablePositiveKeys: unique.positive,
       distinctReusableNegativeKeys: unique.negative,
     },
+    offlineLocalPreflight: {
+      distinctMissingKeysInspected: unique.absent,
+      locallyMatchedWithoutExternalCalls: resolvedLocally,
+      unresolvedWithoutLocalCandidates: unresolvedNoLocalCandidate,
+      unresolvedWithLocalCandidates,
+      providerOrTmdbQueriesStarted: 0,
+    },
     gate: {
       sourceKeyAndCandidateContextCompared: true,
       usableForCurrentHorizon: horizon.sourceRecent && horizon.horizonIncludesNow && versionCompatible,
@@ -228,8 +270,9 @@ export function inspectJoynRestoredSourceCacheCoverage({
 }
 
 export function isSafeJoynRestoredSourceCoverage(value) {
-  const s = value?.source, m = value?.match, g = value?.gate
-  return keysExactly(value, ['kind', 'schemaVersion', 'mode', 'source', 'match', 'gate', 'limitations']) &&
+  const s = value?.source, m = value?.match, o = value?.offlineLocalPreflight, g = value?.gate
+  return keysExactly(value, ['kind', 'schemaVersion', 'mode', 'source', 'match',
+    'offlineLocalPreflight', 'gate', 'limitations']) &&
     value.kind === 'g1e-private-joyn-original-cache-coverage' &&
     value.schemaVersion === 1 && value.mode === 'private-read-only' &&
     typeof value.limitations === 'string' &&
@@ -262,6 +305,16 @@ export function isSafeJoynRestoredSourceCoverage(value) {
     m.distinctRejectedOriginalKeys <= m.exactKeyRejectedByOriginalPolicy &&
     m.distinctReusablePositiveKeys <= m.reusablePositiveDecisions &&
     m.distinctReusableNegativeKeys <= m.reusableNegativeDecisions &&
+    keysExactly(o, ['distinctMissingKeysInspected', 'locallyMatchedWithoutExternalCalls',
+      'unresolvedWithoutLocalCandidates', 'unresolvedWithLocalCandidates',
+      'providerOrTmdbQueriesStarted']) &&
+    ['distinctMissingKeysInspected', 'locallyMatchedWithoutExternalCalls',
+      'unresolvedWithoutLocalCandidates', 'unresolvedWithLocalCandidates']
+      .every(x => integer(o[x], MAX_RAW_EVENTS)) &&
+    o.providerOrTmdbQueriesStarted === 0 &&
+    o.distinctMissingKeysInspected === m.distinctMissingOriginalKeys &&
+    o.distinctMissingKeysInspected === o.locallyMatchedWithoutExternalCalls +
+      o.unresolvedWithoutLocalCandidates + o.unresolvedWithLocalCandidates &&
     s.normalizedRemainingOriginalPrograms ===
       m.exactOriginalSourceKeyPresent + m.exactOriginalSourceKeyAbsent &&
     m.exactOriginalSourceKeyPresent === m.reusablePositiveDecisions +
@@ -320,7 +373,7 @@ async function main(argv) {
     }
     windowRecords.push(await readJsonBounded(path, MAX_WINDOW_BYTES))
   }
-  const report = inspectJoynRestoredSourceCacheCoverage({
+  const report = await inspectJoynRestoredSourceCacheCoverage({
     status, checkpoint, windowRecords, matchCache,
     catalog, searchIndex, previousJoynTitles, waipuTitles, now,
   })
