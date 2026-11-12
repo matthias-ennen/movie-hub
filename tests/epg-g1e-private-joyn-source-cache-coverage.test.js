@@ -62,9 +62,6 @@ function input() {
   match.set(makeCandidate(3), { decision: { status: 'matched' } }, [])
   match.set(makeCandidate(4), { decision: { status: 'unmatched' } }, candidatesFor(programs[4].title))
   // Matching source key but expired positive TTL.
-  const expiredKey = Object.keys(match.values).find(k =>
-    match.values[k]?.diagnostic?.decision?.status === 'matched' &&
-    match.values[k]?.checkedAt === new Date(NOW).toISOString())
   const positiveKeys = Object.keys(match.values).filter(k =>
     match.values[k]?.diagnostic?.decision?.status === 'matched')
   expect(positiveKeys).toHaveLength(2)
