@@ -597,6 +597,8 @@ export async function runJoynAdapterDiagnostic({
   sourceGenerationPrefix = 'joyn-diagnostic',
   fullHorizon = sourceGenerationPrefix === 'joyn-catalog',
   sourceHealth = () => null,
+  // Opt-in private G1e QA only; absent in the productive Nightly invocation.
+  onCompletedEvidence = null,
 } = {}) {
   const generatedAt = new Date(now).toISOString()
   const loaded = await loadJoynEpg(fetchImpl)
@@ -692,6 +694,9 @@ export async function runJoynAdapterDiagnostic({
 
   const decisions = new Map()
   const programDiagnostics = new Map()
+  // Only the explicit G1e QA path retains original match/cache timestamps.
+  const provenanceByProgram = typeof onCompletedEvidence === 'function'
+    ? new Map() : null
   const rejected = {}
   const joynClassification = { movie: 0, series: 0, unknown: 0 }
   const algoliaClassification = { movie: 0, series: 0, unknown: 0 }
@@ -728,12 +733,20 @@ export async function runJoynAdapterDiagnostic({
   try {
     for (const [programId, entry] of uniquePrograms) {
       const localCandidates = candidatesFor(entry.candidate.title)
-      const cached = matchCache.get(entry.candidate, localCandidates)
+      const cachedProof = provenanceByProgram
+        ? matchCache.getWithProvenance(entry.candidate, localCandidates) : null
+      const cached = provenanceByProgram
+        ? cachedProof?.diagnostic : matchCache.get(entry.candidate, localCandidates)
       if (cached) {
         const diagnostic = { ...cached, joynProgramId: programId, channelId: entry.channelId,
           channelTitle: entry.candidate.channelTitle, startTime: entry.candidate.startTime, endTime: entry.candidate.endTime }
         decisions.set(programId, diagnostic.decision)
         programDiagnostics.set(programId, diagnostic)
+        if (provenanceByProgram) {
+          provenanceByProgram.set(programId, {
+            origin: 'cache', cachedMatch: cachedProof,
+          })
+        }
         if (diagnostic.decision.status !== 'matched') rejected[diagnostic.decision.reason || 'unmatched'] = (rejected[diagnostic.decision.reason || 'unmatched'] || 0) + 1
         await matchingProgress()
         continue
@@ -1037,6 +1050,13 @@ export async function runJoynAdapterDiagnostic({
       })
 
       decisions.set(programId, decision)
+      if (provenanceByProgram) {
+        // Record the actual completion time of the original matcher path,
+        // never a fabricated "new" date for an older cache decision.
+        provenanceByProgram.set(programId, {
+          origin: 'fresh', checkedAt: new Date().toISOString(),
+        })
+      }
       await matchingProgress()
       matchCache.set(entry.candidate, programDiagnostics.get(programId), localCandidates)
       if (fullHorizon && (tmdbBudgetExhausted || (decision.status !== 'matched'
@@ -1365,8 +1385,27 @@ export async function runJoynAdapterDiagnostic({
     markdownPath: resolve(root, 'artifacts/source-schema/joyn-epg-upstream.md'),
   })
 
+  let sourceEvidenceCapture = null
+  if (provenanceByProgram) {
+    try {
+      const { runOptionalJoynEvidenceCapture } =
+        await import('./epg-g1e-joyn-evidence-capture.mjs')
+      sourceEvidenceCapture = await runOptionalJoynEvidenceCapture(onCompletedEvidence, {
+        adapterEnvelope: envelope,
+        sourceEntries: mapped,
+        matcherDecisions: decisions,
+        provenanceByProgram,
+      })
+    } catch {
+      sourceEvidenceCapture = { status: 'unavailable', counts: null, rejectedReasons: {} }
+    }
+  }
+
   process.stdout.write(JSON.stringify(summary, null, 2) + '\n')
-  return { summary, envelope, publication }
+  return {
+    summary, envelope, publication,
+    ...(sourceEvidenceCapture !== null ? { sourceEvidenceCapture } : {}),
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
