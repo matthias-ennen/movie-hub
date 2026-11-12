@@ -121,7 +121,7 @@ jobs:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           TMDB_LANGUAGE: de-DE
           TMDB_COUNTRY: DE
-          JOYN_EPG_REQUEST_BUDGET: '72'
+          JOYN_EPG_REQUEST_BUDGET: '180'
           JOYN_TMDB_REQUEST_BUDGET: '30'
           JOYN_TMDB_DETAIL_REQUEST_BUDGET: '10'
           JOYN_TMDB_METADATA_REQUEST_BUDGET: '30'
@@ -146,6 +146,26 @@ jobs:
               if (raw.length > 12000 || raw.includes("approvedEvidence") ||
                   raw.includes("matcherInput") || raw.includes("sourceRefs") ||
                   raw.includes("Bearer ") || raw.includes("joynProgramId")) process.exit(1);
+              if (x.joynEpg !== undefined) {
+                const e = x.joynEpg;
+                const required = [
+                  "baseWindows", "processedWindows", "cacheHits",
+                  "subdividedWindows", "startedEpgRequests", "retryAttempts",
+                  "configuredEpgBudget", "completedFullHorizon",
+                ];
+                if (x.status !== "failed-closed" ||
+                    x.phase !== "joyn-original-generation" ||
+                    x.failureClass !== "JOYN_EPG_REQUEST_BUDGET" ||
+                    Object.keys(e).some(key => !required.includes(key)) ||
+                    required.some(key => !(key in e)) ||
+                    e.baseWindows !== 56 || e.configuredEpgBudget !== 180 ||
+                    e.startedEpgRequests !== 180 ||
+                    e.completedFullHorizon !== false ||
+                    [e.processedWindows, e.cacheHits, e.subdividedWindows, e.retryAttempts]
+                      .some(n => !Number.isSafeInteger(n) || n < 0 || n > 180) ||
+                    e.processedWindows > 56 ||
+                    e.cacheHits > e.processedWindows) process.exit(1);
+              }
             '
           fi
       - name: Upload ONLY anonymized small aggregate QA reports (no raw source or cache files)
