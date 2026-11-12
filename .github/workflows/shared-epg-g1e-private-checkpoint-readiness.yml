@@ -8,6 +8,10 @@ on:
       - scripts/epg-g1e-private-waipu-ab-preflight.mjs
       - scripts/epg-g1e-stream-private-cache-count.mjs
       - scripts/epg-g1e-private-joyn-cache-ttl-audit.mjs
+      - scripts/epg-g1e-private-joyn-source-cache-coverage.mjs
+      - scripts/joyn-match-cache.mjs
+      - scripts/joyn-adapter-diagnostic.mjs
+      - tests/epg-g1e-private-joyn-source-cache-coverage.test.js
       - tests/epg-g1e-private-joyn-cache-ttl-audit.test.js
       - tests/epg-g1e-private-checkpoint-readiness.test.js
       - tests/epg-g1e-private-waipu-ab-preflight.test.js
@@ -21,6 +25,7 @@ on:
       - scripts/epg-g1e-private-waipu-ab-preflight.mjs
       - scripts/epg-g1e-stream-private-cache-count.mjs
       - scripts/epg-g1e-private-joyn-cache-ttl-audit.mjs
+      - scripts/epg-g1e-private-joyn-source-cache-coverage.mjs
   workflow_dispatch:
 
 permissions:
@@ -42,7 +47,7 @@ jobs:
           node-version: '22'
       - run: npm ci --ignore-scripts
       - name: Only synthetic mock data are permitted in PR tests
-        run: npx vitest run tests/epg-g1e-private-joyn-cache-ttl-audit.test.js tests/epg-g1e-stream-private-cache-count.test.js tests/epg-g1e-private-checkpoint-readiness.test.js tests/epg-g1e-real-ab-readiness.test.js tests/epg-g1e-compare-tmdb-transport.test.js tests/epg-g1e-private-waipu-ab-preflight.test.js
+        run: npx vitest run tests/epg-g1e-private-joyn-source-cache-coverage.test.js tests/joyn-match-cache.test.js tests/epg-g1e-private-joyn-cache-ttl-audit.test.js tests/epg-g1e-stream-private-cache-count.test.js tests/epg-g1e-private-checkpoint-readiness.test.js tests/epg-g1e-real-ab-readiness.test.js tests/epg-g1e-compare-tmdb-transport.test.js tests/epg-g1e-private-waipu-ab-preflight.test.js
 
   private-readiness:
     name: Restore real PRIVATE Waipu/Joyn checkpoints without source API calls
@@ -53,7 +58,7 @@ jobs:
            (github.event_name == 'push' &&
             contains(github.event.head_commit.message, '[g1e-private-readiness-once]'))) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
       id-token: write
@@ -92,6 +97,21 @@ jobs:
           node --max-old-space-size=4096 scripts/epg-g1e-private-joyn-cache-ttl-audit.mjs \
             --root . \
             --output artifacts/g1e-private-checkpoint-audit/joyn-cache-ttl.json
+      - name: Restore PUBLIC TMDB catalog for exact local candidate context (no TMDB API)
+        run: npm run tmdb:restore
+      - name: Audit restored original Joyn source programme keys and matcher policy (read-only)
+        run: |
+          node --max-old-space-size=4096 scripts/epg-g1e-private-joyn-source-cache-coverage.mjs \
+            --root . \
+            --output artifacts/g1e-private-checkpoint-audit/joyn-source-cache-coverage.json
+      - name: Verify fixed-schema numeric Joyn coverage report before artifact upload
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            import { isSafeJoynRestoredSourceCoverage } from "./scripts/epg-g1e-private-joyn-source-cache-coverage.mjs";
+            const value = JSON.parse(readFileSync("artifacts/g1e-private-checkpoint-audit/joyn-source-cache-coverage.json", "utf8"));
+            if (!isSafeJoynRestoredSourceCoverage(value) || JSON.stringify(value).length > 4096) process.exit(1);
+          '
       - name: Preflight original Waipu A/B cache size and source-generation health (read-only)
         run: |
           node scripts/epg-g1e-private-waipu-ab-preflight.mjs \
