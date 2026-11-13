@@ -15,6 +15,7 @@ import { JoynMatchCache, JoynLookupCache, joynOriginalCacheKey, sharedJoynTmdbMe
 import { JOYN_MATCHER_VERSION, matchJoynProgram } from './joyn-tmdb-matcher.mjs'
 import { titleLookup } from './joyn-adapter-diagnostic.mjs'
 import { localTmdbCandidates } from './waipu-live-catalog.mjs'
+import { normalizeTmdbMatchCandidate } from './waipu-tmdb-matcher.mjs'
 import { normalizeJoynLiveChannelsAndEpg } from '../src/sources/joyn/joynEpgNormalizer.js'
 import { enrichJoynCandidatesWithV2 } from '../src/sources/joyn/joynEpgV2Enrichment.js'
 import { buildJoynStationMapping } from './joyn-station-mapping.mjs'
@@ -295,6 +296,11 @@ export async function inspectJoynRestoredSourceCacheCoverage({
     unmatchedBelowThreshold: 0,
     unmatchedAmbiguousMargin: 0,
     unmatchedAmbiguousExactTitle: 0,
+    crossTypeOnly: 0,
+    sameTypeOnly: 0,
+    crossAndSame: 0,
+    otherExactAmbiguity: 0,
+    ambiguousTyped: 0,
     externalRequestsStarted: 0,
   }
   const noLocalTmdbFirstPassCache = {
@@ -656,6 +662,34 @@ export async function inspectJoynRestoredSourceCacheCoverage({
       offlineCachedTmdbMatcherReplay.unmatchedAmbiguousMargin++
     } else if (matched.reason === 'ambiguous_exact_title') {
       offlineCachedTmdbMatcherReplay.unmatchedAmbiguousExactTitle++
+      if (kind !== null) offlineCachedTmdbMatcherReplay.ambiguousTyped++
+      // Reconstruct the ORIGINAL exact-alias check privately, respecting
+      // matcher candidate type filters and the type:tmdbId dedupe.
+      // Report only aggregate counts, never examples, IDs or private titles.
+      const exactByIdentity = new Map()
+      const title = normalizeWaipuText(representative.title)
+      for (const raw of replayCandidates) {
+        const normalized = normalizeTmdbMatchCandidate(raw, raw.source)
+        if (!normalized || (kind !== null && normalized.type !== kind)) {
+          throw new Error('Unsafe cached TMDB matcher candidate type')
+        }
+        const aliases = [normalized.title, normalized.originalTitle,
+          ...(Array.isArray(raw.aliases) ? raw.aliases : [])]
+        exactByIdentity.set(`${normalized.type}:${normalized.tmdbId}`, {
+          type: normalized.type,
+          exact: aliases.some(alias => normalizeWaipuText(alias) === title),
+        })
+      }
+      const exact = [...exactByIdentity.values()].filter(v => v.exact)
+      const movie = exact.filter(v => v.type === 'movie').length
+      const series = exact.filter(v => v.type === 'series').length
+      if (movie > 0 && series > 0 && (movie > 1 || series > 1)) {
+        offlineCachedTmdbMatcherReplay.crossAndSame++
+      } else if (movie > 0 && series > 0) {
+        offlineCachedTmdbMatcherReplay.crossTypeOnly++
+      } else if (movie > 1 || series > 1) {
+        offlineCachedTmdbMatcherReplay.sameTypeOnly++
+      } else offlineCachedTmdbMatcherReplay.otherExactAmbiguity++
     } else throw new Error('Unexpected cached TMDB matcher rejection')
   }
   noLocalCachedTypesByTitle.clear()
@@ -742,6 +776,14 @@ export async function inspectJoynRestoredSourceCacheCoverage({
         offlineCachedTmdbMatcherReplay.unmatchedBelowThreshold +
         offlineCachedTmdbMatcherReplay.unmatchedAmbiguousMargin +
         offlineCachedTmdbMatcherReplay.unmatchedAmbiguousExactTitle ||
+      offlineCachedTmdbMatcherReplay.unmatchedAmbiguousExactTitle !==
+        offlineCachedTmdbMatcherReplay.crossTypeOnly +
+        offlineCachedTmdbMatcherReplay.sameTypeOnly +
+        offlineCachedTmdbMatcherReplay.crossAndSame +
+        offlineCachedTmdbMatcherReplay.otherExactAmbiguity ||
+      offlineCachedTmdbMatcherReplay.ambiguousTyped >
+        offlineCachedTmdbMatcherReplay.replayedTypedMovie +
+        offlineCachedTmdbMatcherReplay.replayedTypedSeries ||
       reasonTotal !== unresolvedWithLocalCandidates ||
       unresolvedContext.exactlyOneLocalCandidate + unresolvedContext.multipleLocalCandidates !== unresolvedWithLocalCandidates ||
       unresolvedContext.exactAmbiguityWithSourceDescription +
@@ -947,12 +989,15 @@ export function isSafeJoynRestoredSourceCoverage(value) {
       'replayedTypedSeries', 'replayedUntyped', 'hypotheticalMatched',
       'unmatchedNoCandidate', 'unmatchedBelowThreshold',
       'unmatchedAmbiguousMargin', 'unmatchedAmbiguousExactTitle',
-      'externalRequestsStarted']) &&
+      'crossTypeOnly', 'sameTypeOnly', 'crossAndSame', 'otherExactAmbiguity',
+      'ambiguousTyped', 'externalRequestsStarted']) &&
     ['titleGroupsInspected', 'completeFirstPassCache',
       'skippedMissingCache', 'skippedUnsafeResponse', 'replayedTypedMovie',
       'replayedTypedSeries', 'replayedUntyped', 'hypotheticalMatched',
       'unmatchedNoCandidate', 'unmatchedBelowThreshold',
-      'unmatchedAmbiguousMargin', 'unmatchedAmbiguousExactTitle']
+      'unmatchedAmbiguousMargin', 'unmatchedAmbiguousExactTitle',
+      'crossTypeOnly', 'sameTypeOnly', 'crossAndSame',
+      'otherExactAmbiguity', 'ambiguousTyped']
       .every(x => integer(tm[x], MAX_RAW_EVENTS)) &&
     tm.externalRequestsStarted === 0 &&
     tm.titleGroupsInspected === tq.uniqueTitleGroupsInspected &&
@@ -966,6 +1011,9 @@ export function isSafeJoynRestoredSourceCoverage(value) {
     tm.completeFirstPassCache === tm.hypotheticalMatched +
       tm.unmatchedNoCandidate + tm.unmatchedBelowThreshold +
       tm.unmatchedAmbiguousMargin + tm.unmatchedAmbiguousExactTitle &&
+    tm.unmatchedAmbiguousExactTitle === tm.crossTypeOnly +
+      tm.sameTypeOnly + tm.crossAndSame + tm.otherExactAmbiguity &&
+    tm.ambiguousTyped <= tm.replayedTypedMovie + tm.replayedTypedSeries &&
     keysExactly(rr, ['noCandidateAboveMinimumScore', 'belowAcceptanceScore',
       'ambiguousScoreMargin', 'ambiguousExactTitle']) &&
     Object.values(rr).every(x => integer(x, MAX_RAW_EVENTS)) &&

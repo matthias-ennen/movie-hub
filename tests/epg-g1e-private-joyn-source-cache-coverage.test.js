@@ -769,7 +769,9 @@ describe('G1e original private source key/context coverage without network calls
       replayedTypedMovie: 0, replayedTypedSeries: 0, replayedUntyped: 0,
       hypotheticalMatched: 0, unmatchedNoCandidate: 0,
       unmatchedBelowThreshold: 0, unmatchedAmbiguousMargin: 0,
-      unmatchedAmbiguousExactTitle: 0, externalRequestsStarted: 0,
+      unmatchedAmbiguousExactTitle: 0, crossTypeOnly: 0, sameTypeOnly: 0,
+      crossAndSame: 0, otherExactAmbiguity: 0, ambiguousTyped: 0,
+      externalRequestsStarted: 0,
     })
     expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
     expect(JSON.stringify(report)).not.toContain(programs[2].title)
@@ -820,7 +822,56 @@ describe('G1e original private source key/context coverage without network calls
       titleGroupsInspected: 1, completeFirstPassCache: 1,
       replayedUntyped: 1, hypotheticalMatched: 0,
       unmatchedAmbiguousExactTitle: 1,
+      crossTypeOnly: 1, sameTypeOnly: 0,
+      crossAndSame: 0, otherExactAmbiguity: 0, ambiguousTyped: 0,
       externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+    expect(JSON.stringify(report)).not.toContain(title)
+  })
+
+
+  it('classifies same-type exact-title collisions without promoting a match', async () => {
+    const value = input()
+    const title = programs[2].title
+    const lookup = new JoynLookupCache({}, NOW)
+    lookup.set('joyn-title-v1', title, {
+      type: 'movie', reason: 'exact_joyn_search', exactTypes: ['movie'],
+      exactCount: 1, exactResults: [{ type: 'movie', joynType: 'Movie', title }],
+    })
+    lookup.set('tmdb-search-v1', JSON.stringify(['/search/movie', {
+      language: 'de-DE', query: title, include_adult: 'false',
+    }]), { results: [{ id: 511, title }, { id: 512, title }] })
+    value.lookupCache.entries = lookup.entries
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.offlineCachedTmdbMatcherReplay).toMatchObject({
+      completeFirstPassCache: 1, replayedTypedMovie: 1,
+      hypotheticalMatched: 0, unmatchedAmbiguousExactTitle: 1,
+      sameTypeOnly: 1, crossTypeOnly: 0, crossAndSame: 0,
+      otherExactAmbiguity: 0, ambiguousTyped: 1,
+      externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+    expect(JSON.stringify(report)).not.toContain(title)
+  })
+
+  it('separates mixed movie/series and duplicate same-type collisions', async () => {
+    const value = input()
+    const title = programs[2].title
+    const lookup = new JoynLookupCache({}, NOW)
+    lookup.set('tmdb-search-v1', JSON.stringify(['/search/movie', {
+      language: 'de-DE', query: title, include_adult: 'false',
+    }]), { results: [{ id: 511, title }, { id: 512, title }] })
+    lookup.set('tmdb-search-v1', JSON.stringify(['/search/tv', {
+      language: 'de-DE', query: title, include_adult: 'false',
+    }]), { results: [{ id: 513, name: title }] })
+    value.lookupCache.entries = lookup.entries
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.offlineCachedTmdbMatcherReplay).toMatchObject({
+      completeFirstPassCache: 1, hypotheticalMatched: 0,
+      unmatchedAmbiguousExactTitle: 1, crossTypeOnly: 0,
+      sameTypeOnly: 0, crossAndSame: 1,
+      otherExactAmbiguity: 0, ambiguousTyped: 0, externalRequestsStarted: 0,
     })
     expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
     expect(JSON.stringify(report)).not.toContain(title)
@@ -933,6 +984,8 @@ describe('G1e original private source key/context coverage without network calls
       { ...report, offlineCachedTmdbMatcherReplay: { ...report.offlineCachedTmdbMatcherReplay, rawTmdbId: SECRET } },
       { ...report, offlineCachedTmdbMatcherReplay: { ...report.offlineCachedTmdbMatcherReplay, externalRequestsStarted: 1 } },
       { ...report, offlineCachedTmdbMatcherReplay: { ...report.offlineCachedTmdbMatcherReplay, hypotheticalMatched: 99 } },
+      { ...report, offlineCachedTmdbMatcherReplay: { ...report.offlineCachedTmdbMatcherReplay, crossTypeOnly: 99 } },
+      { ...report, offlineCachedTmdbMatcherReplay: { ...report.offlineCachedTmdbMatcherReplay, ambiguousTyped: 99 } },
       { ...report, gate: { ...report.gate, freshOriginalMatcherReceiptsApproved: true } },
       { ...report, gate: { ...report.gate, measuredProductionSavings: 100 } },
       { ...report, mode: SECRET },
