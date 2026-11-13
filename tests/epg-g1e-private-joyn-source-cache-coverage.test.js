@@ -909,8 +909,12 @@ describe('G1e original private source key/context coverage without network calls
       sameTypeGroupsInspected: 1, movieOnlyGroups: 1, seriesOnlyGroups: 0,
       trustedSourceTypeGroups: 1, sourceDescriptionGroups: 1,
       allExactTmdbOverviewsGroups: 1, sourceDescriptionAndAllOverviewsGroups: 1,
+      typedSourceDescriptionAndAllOverviewsGroups: 1,
       differentTmdbReleaseYearsGroups: 1, typedMoviesWithBroadcastDuration: 1,
-      typedMoviesWithAllCachedRuntimeDetails: 1, externalRequestsStarted: 0,
+      typedMoviesWithAllCachedRuntimeDetails: 1,
+      typedMoviesWithVerifiedRuntimeDetails: 1,
+      runtimeReplayHypotheticalMatched: 1, runtimeReplayStillAmbiguous: 0,
+      externalRequestsStarted: 0,
     })
     expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
     for (const secret of [title, '511', '512', 'PRIVATE_DESCRIPTION_FOR']) {
@@ -925,9 +929,59 @@ describe('G1e original private source key/context coverage without network calls
     const stale = await inspectJoynRestoredSourceCacheCoverage(value)
     expect(stale.offlineSameTypeAmbiguityEvidence).toMatchObject({
       sameTypeGroupsInspected: 1, typedMoviesWithBroadcastDuration: 1,
-      typedMoviesWithAllCachedRuntimeDetails: 0, externalRequestsStarted: 0,
+      typedMoviesWithAllCachedRuntimeDetails: 0,
+      typedMoviesWithVerifiedRuntimeDetails: 0,
+      runtimeReplayHypotheticalMatched: 0, runtimeReplayStillAmbiguous: 0,
+      externalRequestsStarted: 0,
     })
     expect(isSafeJoynRestoredSourceCoverage(stale)).toBe(true)
+  })
+
+  it('keeps both plausible cached movies ambiguous under the unchanged runtime rule', async () => {
+    const value = input()
+    const title = programs[2].title
+    const lookup = new JoynLookupCache({}, NOW)
+    lookup.set('joyn-title-v1', title, {
+      type: 'movie', reason: 'exact_joyn_search', exactTypes: ['movie'],
+      exactCount: 1, exactResults: [{ type: 'movie', joynType: 'Movie', title }],
+    })
+    const searchKey = JSON.stringify(['/search/movie', {
+      language: 'de-DE', query: title, include_adult: 'false',
+    }])
+    lookup.set('tmdb-search-v1', searchKey, { results: [
+      { id: 701, title }, { id: 702, title },
+    ] })
+    for (const [id, runtime] of [[701, 11], [702, 19]]) {
+      lookup.set('tmdb-search-v1', JSON.stringify([`/movie/${id}`, {
+        language: 'de-DE',
+      }]), { id, runtime })
+    }
+    value.lookupCache.entries = lookup.entries
+    const ambiguous = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(ambiguous.offlineSameTypeAmbiguityEvidence).toMatchObject({
+      sameTypeGroupsInspected: 1, typedMoviesWithVerifiedRuntimeDetails: 1,
+      runtimeReplayHypotheticalMatched: 0, runtimeReplayStillAmbiguous: 1,
+      typedSourceDescriptionAndAllOverviewsGroups: 0,
+      externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(ambiguous)).toBe(true)
+
+    // A cached detail under an unexpected TMDB ID cannot authorize replay.
+    const detailKey = lookup.cacheKey('tmdb-search-v1',
+      JSON.stringify(['/movie/702', { language: 'de-DE' }]))
+    lookup.entries[detailKey].value.id = 999
+    value.lookupCache.entries = lookup.entries
+    const mismatch = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(mismatch.offlineSameTypeAmbiguityEvidence).toMatchObject({
+      typedMoviesWithAllCachedRuntimeDetails: 1,
+      typedMoviesWithVerifiedRuntimeDetails: 0,
+      runtimeReplayHypotheticalMatched: 0, runtimeReplayStillAmbiguous: 0,
+      externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(mismatch)).toBe(true)
+    for (const secret of [title, '701', '702', '999']) {
+      expect(JSON.stringify(mismatch)).not.toContain(secret)
+    }
   })
 
   it('classifies two exact series TMDB candidates without pretending they have trusted Joyn type', async () => {
@@ -953,8 +1007,12 @@ describe('G1e original private source key/context coverage without network calls
       sameTypeGroupsInspected: 1, movieOnlyGroups: 0, seriesOnlyGroups: 1,
       trustedSourceTypeGroups: 0, sourceDescriptionGroups: 1,
       allExactTmdbOverviewsGroups: 0, sourceDescriptionAndAllOverviewsGroups: 0,
+      typedSourceDescriptionAndAllOverviewsGroups: 0,
       differentTmdbReleaseYearsGroups: 1, typedMoviesWithBroadcastDuration: 0,
-      typedMoviesWithAllCachedRuntimeDetails: 0, externalRequestsStarted: 0,
+      typedMoviesWithAllCachedRuntimeDetails: 0,
+      typedMoviesWithVerifiedRuntimeDetails: 0,
+      runtimeReplayHypotheticalMatched: 0, runtimeReplayStillAmbiguous: 0,
+      externalRequestsStarted: 0,
     })
     expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
   })
@@ -1072,6 +1130,8 @@ describe('G1e original private source key/context coverage without network calls
       { ...report, offlineSameTypeAmbiguityEvidence: { ...report.offlineSameTypeAmbiguityEvidence, externalRequestsStarted: 1 } },
       { ...report, offlineSameTypeAmbiguityEvidence: { ...report.offlineSameTypeAmbiguityEvidence, sameTypeGroupsInspected: 88 } },
       { ...report, offlineSameTypeAmbiguityEvidence: { ...report.offlineSameTypeAmbiguityEvidence, typedMoviesWithAllCachedRuntimeDetails: 7 } },
+      { ...report, offlineSameTypeAmbiguityEvidence: { ...report.offlineSameTypeAmbiguityEvidence, runtimeReplayHypotheticalMatched: 1 } },
+      { ...report, offlineSameTypeAmbiguityEvidence: { ...report.offlineSameTypeAmbiguityEvidence, typedSourceDescriptionAndAllOverviewsGroups: 12 } },
       { ...report, gate: { ...report.gate, freshOriginalMatcherReceiptsApproved: true } },
       { ...report, gate: { ...report.gate, measuredProductionSavings: 100 } },
       { ...report, mode: SECRET },
