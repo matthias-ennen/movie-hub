@@ -1,5 +1,18 @@
 # MovieHub #336 – G1e: echter privater Joyn-Originalmatcher-Pilot (isoliert, opt-in)
 
+## 13.11.2026 – G1e: Original-Quelltypbelege für 136 nicht lokal vorhandene Joyn-Titel abgleichen
+
+Die geschützte [Read-only-Messung #43372798332](https://github.com/matthias-ennen/movie-hub/actions/runs/43372798332) hat **393** unterschiedliche fehlende Originalschlüssel ohne lokale TMDB-Kandidaten in **136** unterschiedliche normalisierte Originalsendungstitel zerlegt (davon 35 Mehrfachgruppen, 257 zusätzliche Schlüssel). Das reduziert die diagnostische Titelsuchfläche, ist aber keine belastbare Vorhersage der TMDB-HTTP-Kosten.
+
+Der folgende ausschließlich lokale Audit liest pro Originalsendung ausschließlich schon gespeicherte **Joyn-SearchQ**- und **Algolia-Hit-Antworten** über die unveränderte `JoynLookupCache.get`-Methode einschließlich Original-TTL und technischer Fehlerprüfungen. Ein `movie`-/`series`-Typ ist nur dann als diagnostischer Quellenhinweis gültig, wenn entweder `trustedCachedJoynSearchType` einen im Original-SearchQ exakt belegten Typ liefert oder die Originalfunktion `classifyJoynAlgoliaHits` anhand bereits vorhandener Hits einen validierten Typ ermittelt. Wird innerhalb einer normalisierten Titelgruppe beides widersprüchlich oder verschieden klassifiziert, gilt die gesamte Gruppe als `conflicting`, **niemals** als eindeutig typisiert.
+
+Veröffentlicht werden ausschließlich feste numerische Zähler: Anzahl unterschiedlicher Originaltitel, Gruppen mit einer noch gültigen gecachten SearchQ-Antwort, Gruppen mit Algolia-Antwort, darunter jeweils belastbare Typbelege, und die disjunkten Kategorien **nur Filmtyp**, **nur Serientyp**, **widersprüchliche Typen** und **ohne belastbaren Typ**. Die disjunkten Kategorien müssen exakt alle unterschiedlichen normalisierten Titel abdecken; Schema, Summen, externe Anfragezahl `0` und obere Zählgrenzen werden vor dem Artefakt-Upload strikt geprüft.
+
+**Nicht** enthalten: Rohsendungstitel, IDs, Hashes, Beispiele, rohe Suchhits, verschärfte/gemilderte Matchingregeln, Produktivzuordnungen, neue Provider- oder TMDB-HTTP-Anfragen, Budgeterhöhungen, EPG-Neugeneration, echte Matchfreigabequittungen, eine gemessene TMDB-Einsparung oder ein Shared-EPG-Go. Ein hypothetisch vorhandener Quelltyp liefert ausdrücklich **keine** TMDB-Identität. Nach grünen synthetischen PR-Tests nur einmalige geschützte Read-only-Messung auf `main` via bewährtem Marker.
+
+---
+
+
 ## 13.11.2026 – G1e: fehlende lokale TMDB-Kandidaten nach Original-Quelltitel deduplizieren
 
 Der geschützte vollständige Offline-Quellaudit [#43371696383](https://github.com/matthias-ennen/movie-hub/actions/runs/43371696383) ergab im wandernden 14-Tage-Horizont **593** unterschiedliche fehlende Originalcache-Schlüssel, darunter **395** ohne jeden lokalen TMDB-Kandidaten und **181** bekannte Titelkollisionen. Die vorherigen 159 `no_joyn_type`-Fälle wurden über bereits gecachte private Algolia-Hits geprüft: 158 ohne validierten Titelbeleg, 1 widersprüchliche Typfamilie, **0** eindeutig aufgelöste Typen, **0** neue externe Requests.
