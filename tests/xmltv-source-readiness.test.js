@@ -13,13 +13,17 @@ const iso = t => new Date(t).toISOString()
 function fiveDays(sourceId, { gapStation = null, gaps = false, zone = true } = {}) {
   return XMLTV_REVIEWED_STATIONS.flatMap(station => {
     const missingMiddleHour = gaps && gapStation === station.stationId
-    return [
-      [0, 60], [missingMiddleHour ? 61 : 60, 120],
-    ].map(([start, end]) => ({
+    // The production parser rejects individual programmes longer than 36h.
+    // Five realistic 24h intervals cover the entire 120h window.
+    return [0, 24, 48, 72, 96].map(startHour => {
+      const start = missingMiddleHour && startHour === 24 ? 25 : startHour
+      const end = startHour + 24
+      return {
       sourceId, canonicalStationId: station.stationId,
       title: PRIVATE, timestampsExplicitlyZoned: zone,
       startAt: iso(NOW + start * HOUR), endAt: iso(NOW + end * HOUR),
-    }))
+    }
+    })
   })
 }
 
@@ -42,7 +46,7 @@ describe('XMLTV #336: five-day real coverage and independent source families, is
     expect(full.completeStations).toBe(6)
     expect(full.allReviewedStationsComplete).toBe(true)
     expect(full.stations.zdf).toEqual({
-      programmeIntervals: 4,
+      programmeIntervals: 10,
       coveredMinutes: 7200, missingMinutes: 0,
       longestGapMinutes: 0, complete120h: true,
     })
@@ -67,7 +71,7 @@ describe('XMLTV #336: five-day real coverage and independent source families, is
     const unzoned = measureXmltvFiveDayCoverage(fiveDays(sourceId, { zone: false }), {
       sourceId, now: NOW,
     })
-    expect(unzoned.rejectedUnzoned).toBe(12)
+    expect(unzoned.rejectedUnzoned).toBe(30)
     expect(unzoned.completeStations).toBe(0)
     expect(unzoned.stations.zdf.coveredMinutes).toBe(0)
     const mutated = fiveDays(sourceId)
