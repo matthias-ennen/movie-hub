@@ -843,9 +843,9 @@ export async function inspectJoynRestoredSourceCacheCoverage({
         offlineSameTypeAmbiguityEvidence.sameTypeGroupsInspected ||
       offlineSameTypeAmbiguityEvidence.allExactTmdbOverviewsGroups >
         offlineSameTypeAmbiguityEvidence.sameTypeGroupsInspected ||
-      offlineSameTypeAmbiguityEvidence.descriptionAndAllOverviewsGroups >
+      offlineSameTypeAmbiguityEvidence.sourceDescriptionAndAllOverviewsGroups >
         offlineSameTypeAmbiguityEvidence.sourceDescriptionGroups ||
-      offlineSameTypeAmbiguityEvidence.descriptionAndAllOverviewsGroups >
+      offlineSameTypeAmbiguityEvidence.sourceDescriptionAndAllOverviewsGroups >
         offlineSameTypeAmbiguityEvidence.allExactTmdbOverviewsGroups ||
       offlineSameTypeAmbiguityEvidence.differentTmdbReleaseYearsGroups >
         offlineSameTypeAmbiguityEvidence.sameTypeGroupsInspected ||
@@ -955,7 +955,6 @@ export function isSafeJoynRestoredSourceCoverage(value) {
     'offlineNoLocalCachedTypeEvidence', 'offlineNoLocalTmdbFirstPassCache',
     'offlineCachedTmdbMatcherReplay', 'offlineSameTypeAmbiguityEvidence',
     'gate', 'limitations']) &&
-    (console.log('G1E_SYNTHETIC_VALIDATOR_ROOT_OK'), true) &&
     value.kind === 'g1e-private-joyn-original-cache-coverage' &&
     value.schemaVersion === 1 && value.mode === 'private-read-only' &&
     typeof value.limitations === 'string' &&
@@ -1089,7 +1088,6 @@ export function isSafeJoynRestoredSourceCoverage(value) {
     tm.unmatchedAmbiguousExactTitle === tm.crossTypeOnly +
       tm.sameTypeOnly + tm.crossAndSame + tm.otherExactAmbiguity &&
     tm.ambiguousTyped <= tm.replayedTypedMovie + tm.replayedTypedSeries &&
-    (console.log('G1E_SYNTHETIC_VALIDATOR_PRE_EVIDENCE_OK'), true) &&
     keysExactly(se, ["sameTypeGroupsInspected","movieOnlyGroups","seriesOnlyGroups","trustedSourceTypeGroups","sourceDescriptionGroups","allExactTmdbOverviewsGroups","sourceDescriptionAndAllOverviewsGroups","differentTmdbReleaseYearsGroups","typedMoviesWithBroadcastDuration","typedMoviesWithAllCachedRuntimeDetails","externalRequestsStarted"]) &&
     ["sameTypeGroupsInspected","movieOnlyGroups","seriesOnlyGroups","trustedSourceTypeGroups","sourceDescriptionGroups","allExactTmdbOverviewsGroups","sourceDescriptionAndAllOverviewsGroups","differentTmdbReleaseYearsGroups","typedMoviesWithBroadcastDuration","typedMoviesWithAllCachedRuntimeDetails"].every(k => integer(se[k], MAX_RAW_EVENTS)) &&
     se.externalRequestsStarted === 0 &&
@@ -1099,13 +1097,12 @@ export function isSafeJoynRestoredSourceCoverage(value) {
     se.trustedSourceTypeGroups <= se.sameTypeGroupsInspected &&
     se.sourceDescriptionGroups <= se.sameTypeGroupsInspected &&
     se.allExactTmdbOverviewsGroups <= se.sameTypeGroupsInspected &&
-    se.descriptionAndAllOverviewsGroups <= se.sourceDescriptionGroups &&
-    se.descriptionAndAllOverviewsGroups <= se.allExactTmdbOverviewsGroups &&
+    se.sourceDescriptionAndAllOverviewsGroups <= se.sourceDescriptionGroups &&
+    se.sourceDescriptionAndAllOverviewsGroups <= se.allExactTmdbOverviewsGroups &&
     se.differentTmdbReleaseYearsGroups <= se.sameTypeGroupsInspected &&
     se.typedMoviesWithBroadcastDuration <= se.trustedSourceTypeGroups &&
     se.typedMoviesWithBroadcastDuration <= se.movieOnlyGroups &&
     se.typedMoviesWithAllCachedRuntimeDetails <= se.typedMoviesWithBroadcastDuration &&
-    (console.log('G1E_SYNTHETIC_VALIDATOR_EVIDENCE_OK'), true) &&
     keysExactly(rr, ['noCandidateAboveMinimumScore', 'belowAcceptanceScore',
       'ambiguousScoreMargin', 'ambiguousExactTitle']) &&
     Object.values(rr).every(x => integer(x, MAX_RAW_EVENTS)) &&
