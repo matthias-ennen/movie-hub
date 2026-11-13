@@ -83,6 +83,11 @@ describe('#336 G2e separate-runner private synthetic checkpoint', () => {
     await expect(uploadSyntheticXmltvCheckpoint({
       bucket, runId: ID, sourceId: 'epgshare01', generation: approved, now: NOW,
     })).rejects.toThrow()
+    const hidden = makeSyntheticGeneration({ now: NOW })
+    hidden.records[0].productionYearEvidence = { rawSourceTitle: FORBIDDEN }
+    await expect(uploadSyntheticXmltvCheckpoint({
+      bucket, runId: ID, sourceId: 'epgshare01', generation: hidden, now: NOW,
+    })).rejects.toThrow()
     expect(bucket.objects.size).toBe(0)
   })
 
