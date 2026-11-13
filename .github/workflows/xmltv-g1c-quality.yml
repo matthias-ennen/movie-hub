@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - scripts/xmltv-g1c-quality-probe.mjs
+      - src/sources/xmltv/xmltvSourceReadiness.js
+      - tests/xmltv-source-readiness.test.js
       - tests/xmltv-g1c-quality.test.js
       - src/sources/xmltv/xmltvCandidates.js
       - .github/workflows/xmltv-g1c-quality.yml
@@ -15,7 +17,7 @@ permissions:
 
 jobs:
   quality:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/336-xmltv-g1c-quality-probe' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/336-xmltv-g1c-quality-probe' || github.head_ref == 'feature/336-xmltv-g1c-station-fallback-gate' }}
     name: Check real German XMLTV data and existing local TMDB titles
     runs-on: ubuntu-latest
     timeout-minutes: 16
@@ -27,7 +29,7 @@ jobs:
       - name: Install without executing setup hooks
         run: npm ci --ignore-scripts
       - name: Offline G1a/G1b/G1c guardrail tests
-        run: npx vitest run tests/xmltv-candidates.test.js tests/xmltv-g1b-match-merge.test.js tests/xmltv-g1c-quality.test.js
+        run: npx vitest run tests/xmltv-candidates.test.js tests/xmltv-g1b-match-merge.test.js tests/xmltv-g1c-quality.test.js tests/xmltv-source-readiness.test.js
       - name: One bounded comparison of three approved feeds
         run: node scripts/xmltv-g1c-quality-probe.mjs
       - name: Save aggregate nonpublishing quality report

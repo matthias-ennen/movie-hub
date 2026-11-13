@@ -137,6 +137,90 @@ describe('XMLTV #336: five-day real coverage and independent source families, is
     expect(down.availableIndependentFamilies).toBe(1)
   })
 
+  it('does NOT count two cloned hosts as independent backup on ANY station', () => {
+    const data = assessXmltvIndependentCoverage([
+      report('freeepg'), report('iptv-epg-org'),
+    ], { now: NOW })
+    expect(data.stationsWithIndependentFallback).toBe(0)
+    expect(data.stationsWithFiveDayCoverageInAnyFamily).toBe(6)
+    expect(data.stationsWithTwoCompleteIndependentFamilies).toBe(0)
+    expect(data.allStationsHaveIndependentFallback).toBe(false)
+    expect(data.stationFallback.zdf).toEqual({
+      availableIndependentFamilies: 1,
+      completeIndependentFamilies: 1,
+      primaryCoverageMinutes: 7200,
+      independentFallbackCoverageMinutes: 0,
+    })
+  })
+
+  it('shows a 119-hour independent backup as a PARTIAL fallback, never a second full feed', () => {
+    const data = assessXmltvIndependentCoverage([
+      report('freeepg'),
+      report('epgshare01', { gapStation: 'zdf', gaps: true }),
+    ], { now: NOW })
+    expect(data).toMatchObject({
+      primaryFiveDaySnapshot: true,
+      independentFallbackSnapshot: true,
+      sufficientIndependentCoverageSnapshot: false,
+      stationsWithIndependentFallback: 6,
+      stationsWithFiveDayCoverageInAnyFamily: 6,
+      stationsWithTwoCompleteIndependentFamilies: 5,
+      allStationsHaveIndependentFallback: true,
+      stationFallback: {
+        zdf: {
+          availableIndependentFamilies: 2, completeIndependentFamilies: 1,
+          primaryCoverageMinutes: 7200, independentFallbackCoverageMinutes: 7140,
+        },
+        ard: {
+          availableIndependentFamilies: 2, completeIndependentFamilies: 2,
+          primaryCoverageMinutes: 7200, independentFallbackCoverageMinutes: 7200,
+        },
+      },
+    })
+    expect(JSON.stringify(data)).not.toContain(PRIVATE)
+  })
+
+  it('does not infer per-station redundancy from a source that covers only ZDF', () => {
+    const short = report('epgshare01')
+    for (const station of XMLTV_REVIEWED_STATIONS) {
+      if (station.stationId === 'zdf') continue
+      Object.assign(short.coverage.stations[station.stationId], {
+        programmeIntervals: 0,
+        coveredMinutes: 0, missingMinutes: 7200,
+        longestGapMinutes: 7200, complete120h: false,
+      })
+    }
+    short.coverage.completeStations = 1
+    short.coverage.allReviewedStationsComplete = false
+    const data = assessXmltvIndependentCoverage([
+      report('iptv-epg-org'), short,
+    ], { now: NOW })
+    expect(data).toMatchObject({
+      availableIndependentFamilies: 2,
+      independentFallbackSnapshot: true,
+      stationsWithIndependentFallback: 1,
+      allStationsHaveIndependentFallback: false,
+      stationFallback: {
+        zdf: { independentFallbackCoverageMinutes: 7200 },
+        ard: { independentFallbackCoverageMinutes: 0 },
+      },
+    })
+  })
+
+  it('ignores stale or malformed family coverage instead of inventing station backups', () => {
+    const stale = report('epgshare01', { observedAt: NOW - 48 * HOUR })
+    const fake = report('epgshare01')
+    fake.coverage.stations.zdf.coveredMinutes = 8000
+    for (const other of [stale, fake]) {
+      const data = assessXmltvIndependentCoverage([
+        report('freeepg'), other,
+      ], { now: NOW })
+      expect(data.stationsWithIndependentFallback).toBe(0)
+      expect(data.allStationsHaveIndependentFallback).toBe(false)
+      expect(data.stationFallback.zdf.availableIndependentFamilies).toBe(1)
+    }
+  })
+
   it('rejects duplicate sources, source-family spoofing and invalid input bounds', () => {
     expect(() => assessXmltvIndependentCoverage([
       report('freeepg'), report('freeepg'),

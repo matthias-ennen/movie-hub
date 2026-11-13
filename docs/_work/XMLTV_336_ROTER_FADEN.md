@@ -143,6 +143,23 @@ Acht synthetische Testfälle in `tests/epg-g1i-isolated-joyn-capture.test.js` nu
 
 **Nächster Nachweis, nicht hier vorgetäuscht:** Ein *separat ausdrücklich ausgelöster* PRIVAT-`workflow_dispatch` mit exaktem Bestätigungstoken muss vollständige echte Original-Joyn-Suchantworten sehen. Nur darauf aufbauend können wir das exakte anonyme Waipu/Joyn-Request-Overlap-Gate und ein wirklich gleich initialisiertes A/B der TMDB-Transportstarts entwerfen. **Noch kein solcher echter Mitschnitt durchgeführt.** Weitere unabhängige fünf-Tage-XMLTV-Quellen, Rechte und AIR-Device-Checks sind weiterhin Teil von #336.
 
+
+## G2a – Tatsächliche unabhängige XMLTV-Ersatzabdeckung pro Sender statt nur Quellenzählung
+
+**Zurück zum Hauptziel von #336:** Für die sechs explizit kuratierten Sender Das Erste, ZDF, RTL, ProSieben, SAT.1 und VOX ist eine fremde Feed-URL **kein** verifizierter Ersatz. Zwei Hosts derselben Inhaltsfamilie `de-shared-schedule` zählen zusammen nur als **eine** unabhängige Familie. `epgshare01` ist die zweite, nach bisherigem Stichprobenbeleg getrennte Familie.
+
+`src/sources/xmltv/xmltvSourceReadiness.js` ermittelt jetzt in der G1c-/G2a-Diagnose für **jeden einzelnen kanonischen Sender** aus echten XMLTV-Programmzeitintervallen die eindeutigen Inhaltsfamilien, deren maximale Zukunftsdeckung und die Deckung der **zweitbesten unabhängigen Familie**. Das Ergebnis verwendet Minuten (maximal 7.200 pro Sender für fünf Tage) und meldet getrennt:
+- `stationsWithIndependentFallback` = wie viele Sender überhaupt eine eigenständige zweite Familie mit realen künftigen Programmminuten besitzen;
+- `stationsWithFiveDayCoverageInAnyFamily` = wie viele Sender in mindestens einer Familie lückenlos volle 120 Stunden haben (ohne zu behaupten, dass es für alle derselbe Feed ist);
+- `stationsWithTwoCompleteIndependentFamilies` = wie viele Sender in **zwei unterschiedlichen** Inhaltsfamilien jeweils volle 120 Stunden haben;
+- `stationFallback[stationId].primaryCoverageMinutes` / `independentFallbackCoverageMinutes` = genau die Deckung der besten und zweitbesten **Inhaltsfamilie**, niemals die doppelt gezählten Minuten zweier Kopie-Hosts.
+
+Die G1c-Realfeed-QA erweitert ihren ausschließlich anonymen Report um eine **Sechs-Sender-Tabelle** mit kanonischen Sender-IDs und numerischer Deckung. Er ist weiter **read-only**, mit maximal drei fest freigegebenen deutschen XMLTV-Quellen, ohne TMDB-HTTP, ohne öffentliche Sendungs-/TMDB-/Playback-Daten und ohne app-/Firebase-Produktivänderungen. Fehlende, ungültige und veraltete Feed-Coverage dürfen keine Ausfallreserve vortäuschen. Synthetische Tests prüfen konkret vollständig identische Kopie-Feeds, einen unabhängigen 119-Stunden-Ersatz, den nur auf einem von sechs Sendern tatsächlich vorhandenen unabhängigen Ersatz und invalidierte Feed-Reports.
+
+**Echter Messpunkt:** Im einmaligen Pull-Request-Gate `xmltv-g1c-quality.yml` werden die drei bereits zugelassenen deutschen XMLTV-Feeds erneut geladen und die aktuelle 120-Stunden-Abdeckung je Sender verifiziert. Ein grüner Workflow bedeutet nur erfolgreich ausgeführte QA – **kein** bestandener Quellenredundanztest. Die Bewertung muss die echten Zahlen lesen; insbesondere sind die bisher beobachteten rund 3,2 Tage bei epgshare01 ausdrücklich **kein** fünf­tägiger Ersatz. Keine automatische Veröffentlichung oder AIR-Route.
+
+**Danach:** Aus den neu gemessenen sechs Sender-Differenzen die fehlenden Zeiträume und eine tatsächlich unabhängige, rechtlich nutzbare zweite Feedfamilie priorisieren; erst dann eine nichtpublizierende LKG-/Failover-Simulation mit Fünf-Tage-Vollständigkeitsprüfung für beide realen Feedfamilien und danach G2/G3-Integration. Der getrennte Joyn-HTTP-Mitschnitt aus G1m bleibt bewusst opt-in und darf keine dieser XMLTV-Freigaben ersetzen.
+
 ## Nächste zwei technisch sinnvolle Arbeiten nach G1f
 
 **Erstens** G1c/G1f read-only über unterschiedliche Tage wiederholen, um Veränderung, reale Lücken, Quellfrische und die tatsächliche Unabhängigkeit zu prüfen; nie bloß ältere Messungen als neue ausgeben. **Zweitens** einen isolierten Last-known-good-/Failover-Test für mindestens zwei Quellfamilien einführen, der bei zeitweise leerem Feed **nicht** ohne Altersprüfung alte Programmdaten oder ungeprüfte TMDB-Identitäten publiziert. G2 erst nach den entsprechenden Gates planen.

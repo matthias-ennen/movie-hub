@@ -202,6 +202,21 @@ function markdownSummary(report) {
       ' | ' + (r.parsedEpisodes ?? '—') +
       ' | ' + (r.localReferenceMatches ?? '—') + ' |')
   }
+  // Do not equate a partially available independent feed with a complete
+  // 120h fallback on every station. No raw programme names or provider URLs.
+  const fallback = report.readiness
+  lines.push('', '**Per-station independent fallback:** ' +
+    fallback.stationsWithIndependentFallback + '/6 reviewed stations have a second CONTENT family; ' +
+    fallback.stationsWithTwoCompleteIndependentFamilies +
+    '/6 have TWO families each covering 120h. These counts are NOT a rights or publication approval.',
+    '', '| Canonical station | Primary coverage (minutes / 7200) | Independent second-family coverage (minutes / 7200) |',
+    '|---|---:|---:|')
+  for (const station of XMLTV_REVIEWED_STATIONS) {
+    const coverage = fallback.stationFallback[station.stationId]
+    lines.push('| ' + station.stationId + ' | ' +
+      coverage.primaryCoverageMinutes + ' | ' +
+      coverage.independentFallbackCoverageMinutes + ' |')
+  }
   lines.push('', '**Five-day EPG snapshot:** Primary: ' +
     (report.readiness.primaryFiveDaySnapshot ? 'full 120h across six stations' : 'not proven') +
     '; independent available source families: ' + report.readiness.availableIndependentFamilies +
