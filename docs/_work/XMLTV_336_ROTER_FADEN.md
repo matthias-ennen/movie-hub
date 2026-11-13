@@ -4,7 +4,7 @@
 
 ## Ziel / Definition of Done
 
-Ein **quellunabhängiger XMLTV-Multi-Source-Adapter** ergänzt Waipu und Joyn: mindestens zwei austauschbare Feedquellen, davon **mindestens eine mit tatsächlich gemessenen fünf Tagen** EPG auf den freigegebenen Sendern; sieben Tage sind besser, vierzehn optional. Nicht jede unabhängige Backupquelle muss zwingend selbst fünf Tage liefern; ihre echte Abdeckung und die Folgen bei Ausfall werden transparent gemacht. Es braucht belastbare Beobachtung an mehreren Tagen, nicht nur einen Momentbefund.
+Ein **quellunabhängiger XMLTV-Multi-Source-Adapter** ergänzt Waipu und Joyn: Ziel sind mindestens zwei voneinander unabhängige nutzbare Feedquellen. **14 Tage Programmvorschau sind der Idealfall, fünf Tage ein Qualitätsziel – keines davon ist eine harte Mindestlaufzeit für einen Adapter.** Liefert eine Quelle nur zwei, drei oder vier Tage, bleibt sie als Quelle für diese tatsächlich vorhandenen Sendungen erhalten; sogar eine senderbezogene Teilabdeckung ist nutzbar, wenn der Rest nicht als vollständig dargestellt wird. Wir lesen bei jeder erlaubten Quelle so viel überprüfbare Vorschau bis maximal 14 Tage ein, wie sie liefert, und benennen Lücken, Ausfälle und Rechtevorbehalte transparent. Es braucht belastbare Beobachtung über mehrere Tage, nicht nur einen Momentbefund.
 
 Die Quellen liefern EPG-Sendedaten. **Senderbezogene AIR-Aktionen** sind davon getrennt und erhalten nur später einzeln kuratierte, auf Android und Fire TV getestete `scope=channel`-PlaybackRoutes. Ohne freigegebene Route **kein toter Button**; eine lineare TV-Ausstrahlung ist **kein** TMDB-/JustWatch-VOD-Angebot. Alle Programme und Sender bleiben nachvollziehbar ihrer Quelle zuordenbar, identische Ausstrahlungen werden dedupliziert. Bei Fehlern darf die andere Quelle unabhängig weiterarbeiten.
 
@@ -30,7 +30,7 @@ Produktive Aktivierung ist erst nach Quellenqualität, Nutzungsbedingungen/Recht
 Der bestätigte G1c-Messwert von **854** identischen Basis-Sendeereignissen bei **FreeEPG und IPTV-EPG.org** macht diese zwei Hosts für die sechs überprüften Sender zunächst zu **einer Inhaltsfamilie**. Als unabhängigerer Kandidat existiert EPGSHARE01, dessen gemessene Vorschau bisher aber nur etwa 3,2 Tage betrug. Die frühere Gleichsetzung von „zwei Downloads“ mit „zwei robuste EPG-Quellen“ wäre deshalb ein Abnahmefehler.
 
 Die G1f-Prüfung arbeitet **nur mit bereits geparsten Kandidaten** und sechs ausdrücklich freigegebenen Sender-IDs. Sie zählt die tatsächliche Vereinigungsmenge belegter Sendezeitintervalle im nächsten 120h-Fenster; eine hohe Programmzahl ohne lückenlose Stunden ist **kein** 5-Tage-Beweis. Sie unterscheidet bewusst drei Signale:
-1. mindestens **eine** vollständig 120h deckende Primärquelle;
+1. ob eine vollständig 120h deckende Primärquelle als **Qualitätsziel** nachweisbar ist (fehlender Nachweis sperrt keine kürzeren gültigen Quellen);
 2. eine zusätzliche **unabhängige** frische Inhaltsfamilie mit tatsächlich vorhandenen zukünftigen Programmen (darf kürzer sein);
 3. die strengere, nur optional zusätzliche Resilienzlage: zwei unabhängige Familien mit jeweils vollen 120h.
 
@@ -43,7 +43,7 @@ Ein einzelner gesunder G1f-Snapshot ist **noch kein** Nachweis mehrtägiger Zuve
 
 ### Rein lokaler Last-known-good-Vorabtest (kein G2-Go)
 
-`src/sources/xmltv/xmltvLastKnownGoodPreview.js` ist ausdrücklich **nur eine offline geprüfte Diagnose**: Aktuelle Quelle hat Vorrang; bei Fehlzustand wird ein bereits vorhandener Last-known-good-Snapshot nur bei identischer Quell-ID, Status `ok`, echtem UTC-Beobachtungszeitpunkt (höchstens 36h alt), validen explizit zonierten Sendungen und **noch vorhandener Zukunftsdeckung aller sechs Sender** berücksichtigt. Die Restdeckung wird aus den **alten Programmzeiten zum aktuellen Zeitpunkt** neu berechnet; nach 24 Stunden wird eine ursprünglich 120h-vollständige Datei daher nicht fälschlich wieder als 120h vollständig ausgegeben. Gleiche Feed-Inhaltsfamilien zählen als **ein** Fallback. Ergebnis enthält ausschließlich feste Aggregate, keine Programme, TMDB-IDs, Quittungen oder Links. `publishApproved=false` und `tmdbReuseApproved=false` sind fest. Dies ist weder ein persistierender Produktivcache noch ein aktivierter Adapter.
+`src/sources/xmltv/xmltvLastKnownGoodPreview.js` ist ausdrücklich **nur eine offline geprüfte Diagnose**: Aktuelle Quelle hat Vorrang; bei Fehlzustand wird ein bereits vorhandener Last-known-good-Snapshot nur bei identischer Quell-ID, Status `ok`, echtem UTC-Beobachtungszeitpunkt (höchstens 36h alt), validen explizit zonierten Sendungen und **noch vorhandener Zukunftsdeckung mindestens eines explizit gemappten Senders** berücksichtigt. Die anderen Sender werden separat als nicht abgedeckt ausgewiesen; ein unvollständiger Feed wird nicht komplett verworfen. Die Restdeckung wird aus den **alten Programmzeiten zum aktuellen Zeitpunkt** neu berechnet; nach 24 Stunden wird eine ursprünglich 120h-vollständige Datei daher nicht fälschlich wieder als 120h vollständig ausgegeben. Gleiche Feed-Inhaltsfamilien zählen als **ein** Fallback. Ergebnis enthält ausschließlich feste Aggregate, keine Programme, TMDB-IDs, Quittungen oder Links. `publishApproved=false` und `tmdbReuseApproved=false` sind fest. Dies ist weder ein persistierender Produktivcache noch ein aktivierter Adapter.
 
 ## Verbindlicher Abschlussvertrag: gemeinsamer TMDB-Cache und Matcher für Waipu, Joyn, XMLTV
 
@@ -159,6 +159,19 @@ Die G1c-Realfeed-QA erweitert ihren ausschließlich anonymen Report um eine **Se
 **Echter Messpunkt:** Im einmaligen Pull-Request-Gate `xmltv-g1c-quality.yml` werden die drei bereits zugelassenen deutschen XMLTV-Feeds erneut geladen und die aktuelle 120-Stunden-Abdeckung je Sender verifiziert. Ein grüner Workflow bedeutet nur erfolgreich ausgeführte QA – **kein** bestandener Quellenredundanztest. Die Bewertung muss die echten Zahlen lesen; insbesondere sind die bisher beobachteten rund 3,2 Tage bei epgshare01 ausdrücklich **kein** fünf­tägiger Ersatz. Keine automatische Veröffentlichung oder AIR-Route.
 
 **Danach:** Aus den neu gemessenen sechs Sender-Differenzen die fehlenden Zeiträume und eine tatsächlich unabhängige, rechtlich nutzbare zweite Feedfamilie priorisieren; erst dann eine nichtpublizierende LKG-/Failover-Simulation mit Fünf-Tage-Vollständigkeitsprüfung für beide realen Feedfamilien und danach G2/G3-Integration. Der getrennte Joyn-HTTP-Mitschnitt aus G1m bleibt bewusst opt-in und darf keine dieser XMLTV-Freigaben ersetzen.
+
+
+## G2b – Flexible XMLTV-Vorschau: 14 Tage ideal, fünf Tage Ziel, zwei Tage trotzdem nutzbar
+
+**Präzisierung des Nutzers am 13.11.2026:** Der Adapter darf **nicht** durchfallen oder gelöscht werden, nur weil ein Feed weniger als fünf Tage liefert. Unsere Priorität ist maximal viel korrektes EPG einzulesen und zu zeigen, ohne Lücken und Ausfälle zu verschweigen: **14 Tage nach Möglichkeit**, sonst sieben/fünf/drei/zwei/eine vorhandene Tagesdeckung – jeweils exakt die wirklich belegten Sendungen. Der separate Qualitätsnachweis „fünf Tage lückenlos“ bleibt als Messgröße bestehen, aber **keine Import-, Quellen- oder Fallback-Zulassungsgrenze**.
+
+**Technisch in G2b:**
+- `src/sources/xmltv/xmltvAvailableHorizon.js` misst aus denselben bereits geparsten, durch 250.000 Programme, geprüfte Source-IDs und UTC-Zeitstempel begrenzten XMLTV-Originalereignissen **bis zu 14 Tage je der sechs Sender**, ohne zusätzliche HTTP-Anfragen. Es trennt `coveredMinutes` (Vereinigung echter Programmzeiten), `continuousFromNowMinutes` (ab jetzt tatsächlich lückenlos), `latestProgrammeEndMinutes` (letztes EPG-Ereignis, **keine** Vollständigkeitsbehauptung). 2-Tage-Feedergebnisse bleiben `hasAnyFutureProgramme=true`, selbst wenn `completeFiveDaysFromNow=false`. Ein Feed mit nur noch ZDF-Daten bleibt für ZDF sichtbar.
+- Die bestehende G1c-Read-only-Diagnose führt diese 14-Tage-Messung an **denselben drei streng festgelegten echten Feedquellen** zusätzlich zur bisherigen 120h-Qualitätsmessung durch und schreibt ausschließlich numerische Senderaggregate – keine Sendungstitel, Rohschlüssel, TMDB-IDs oder Sender-Routen.
+- `src/sources/xmltv/xmltvLastKnownGoodPreview.js` verwirft einen gesunden, weniger als 36h alten Originalsnapshot nicht mehr, wenn **einer** der sechs Sender keine Zukunftsprogramme hat; es prüft die Teilabdeckung einzeln. Eine unabhängige Ersatzquelle für nur ZDF wird nicht als sechsfache Ersatzdeckung gezählt; zwei Quellen, die unterschiedliche Sender bedienen, erzeugen **keinen** falschen Fallback. Der LKG-/Failover-Baustein bleibt diagnostisch, `publishApproved=false`, `tmdbReuseApproved=false`; keine ältere Datei wird auf fünf Tage aufgefüllt.
+- Offline-Regressionstests belegen zwei, fünf, sieben und vierzehn Tage, Lücken, Duplikate, das letzte Sendungsende ohne durchgehende Abdeckung, teilweise fehlende Sender sowie Quellenunabhängigkeit und Abschaltung sämtlicher Produktivfreigaben.
+
+**Kein G2/G3/G4-Go:** Diese flexiblere Produktanforderung ändert **nicht** die Rechteprüfung, die Provenienz, eindeutige TMDB-Matches oder kuratierte AIR-Routen. Keine ungültigen, nicht mit UTC-Zeitzone belegten oder zu alten Daten werden als Sendungen nutzbar gemacht. Der echte 14-Tage-Read-only-Feedprobe-Nachweis ist von den anschließend durchzuführenden Nightly- und Geräteabnahmen getrennt.
 
 ## Nächste zwei technisch sinnvolle Arbeiten nach G1f
 

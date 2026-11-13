@@ -15,6 +15,7 @@ import { FEEDS, downloadXmltvFeed } from './probe-xmltv-feeds.mjs'
 import { parseXmltvCandidates } from '../src/sources/xmltv/xmltvCandidates.js'
 import { XMLTV_REVIEWED_STATION_MAPPINGS, XMLTV_REVIEWED_STATIONS } from '../src/sources/xmltv/xmltvStationMappings.js'
 import { measureXmltvFiveDayCoverage, assessXmltvIndependentCoverage } from '../src/sources/xmltv/xmltvSourceReadiness.js'
+import { measureXmltvAvailableHorizon } from '../src/sources/xmltv/xmltvAvailableHorizon.js'
 import { inferXmltvMediaType, matchXmltvLocalCandidates } from './xmltv-g1b-match-preview.mjs'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 
@@ -160,6 +161,11 @@ export async function measureXmltvG1c(xml, {
     report: {
       source: sourceId, observedAt: stage.observedAt,
       coverage: measureXmltvFiveDayCoverage(stage.candidates, { sourceId, now }),
+      // The 120h goal is NOT a minimum for accepting a source. Reuse the same
+      // already-parsed original feed; no second HTTP download or TMDB call.
+      availableHorizon: measureXmltvAvailableHorizon(stage.candidates, {
+        sourceId, now, maxDays: 14,
+      }),
       scannedProgrammes: stage.diagnostics.sourceRecords,
       mappedProgrammes: stage.diagnostics.mappedCandidates,
       skippedOtherStations: stage.diagnostics.skippedUnmapped,
@@ -182,7 +188,7 @@ export async function measureXmltvG1c(xml, {
       localReferenceTitles: localIndex.titleCount,
       localReferenceMatches: match.counts.accepted,
       localReferenceDecisionCounts: match.counts.reasons,
-      dataLimitations: 'Only six reviewed stations, a one-time 120h snapshot, a small historical local TMDB corpus; no full-TMDB recall.',
+      dataLimitations: 'Only six reviewed stations; 14-day availability inspection (not a publication gate), 120h local matcher sample; no full-TMDB recall or rights claim.',
     },
   }
 }
@@ -217,7 +223,22 @@ function markdownSummary(report) {
       coverage.primaryCoverageMinutes + ' | ' +
       coverage.independentFallbackCoverageMinutes + ' |')
   }
-  lines.push('', '**Five-day EPG snapshot:** Primary: ' +
+  lines.push('', '**Actual available XMLTV programmes up to 14 days:**' ,
+    'A feed remains useful even if it delivers only 2–4 days. The last event endpoint is NOT continuous coverage.',
+    '',
+    '| Source | Station | Covered minutes (max. 20160) | Continuous minutes from NOW | Last event endpoint (minutes from NOW) |',
+    '|---|---|---:|---:|---:|')
+  for (const source of report.sources) {
+    if (source.status !== 'ok' || !source.availableHorizon) continue
+    for (const station of XMLTV_REVIEWED_STATIONS) {
+      const horizon = source.availableHorizon.stations[station.stationId]
+      lines.push('| ' + source.source + ' | ' + station.stationId +
+        ' | ' + horizon.coveredMinutes +
+        ' | ' + horizon.continuousFromNowMinutes +
+        ' | ' + horizon.latestProgrammeEndMinutes + ' |')
+    }
+  }
+  lines.push('', '**Five-day EPG quality snapshot:** Primary: ' +
     (report.readiness.primaryFiveDaySnapshot ? 'full 120h across six stations' : 'not proven') +
     '; independent available source families: ' + report.readiness.availableIndependentFamilies +
     '; independent fallback observed: ' +

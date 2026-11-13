@@ -76,13 +76,75 @@ describe('XMLTV #336 last-known-good selection is diagnostic and fail-closed', (
     }
   })
 
-  it('refuses a cached source that no longer has any future coverage on one station', () => {
+  it('retains a fresh LAST-KNOWN-GOOD source even if one station has no programmes', () => {
     const partial = healthy('freeepg', NOW - 24 * HOUR)
     partial.candidates = partial.candidates.filter(c => c.canonicalStationId !== 'zdf')
     const report = previewXmltvLastKnownGood('freeepg', {
       lastKnownGood: partial, now: NOW,
     })
-    expect(report.selected).toBe('unavailable')
+    expect(report).toMatchObject({
+      selected: 'last-known-good', hasAnyFutureCoverage: true,
+      hasFutureCoverageOnAllStations: false, availableStations: 5,
+      fiveDayCompleteNow: false, completeStationsNow: 0,
+      publishApproved: false, tmdbReuseApproved: false,
+      coveredMinutesByStation: { zdf: 0, ard: 5760 },
+    })
+    expect(JSON.stringify(report)).not.toContain(PRIVATE)
+  })
+
+  it('keeps an exact two-day XMLTV preview; five days are a goal not a cutoff', () => {
+    const short = healthy('epgshare01')
+    short.candidates = short.candidates.filter(candidate =>
+      Date.parse(candidate.startAt) < NOW + 48 * HOUR)
+    const report = previewXmltvLastKnownGood('epgshare01', {
+      current: short, now: NOW,
+    })
+    expect(report).toMatchObject({
+      selected: 'current', hasAnyFutureCoverage: true,
+      hasFutureCoverageOnAllStations: true, availableStations: 6,
+      fiveDayCompleteNow: false, completeStationsNow: 0,
+      coveredMinutesByStation: { zdf: 2880, ard: 2880 },
+      publishApproved: false, tmdbReuseApproved: false,
+    })
+  })
+
+  it('never mistakes a ZDF-only second source for an ALL-STATIONS failover', () => {
+    const partial = healthy('epgshare01')
+    partial.candidates = partial.candidates.filter(candidate =>
+      candidate.canonicalStationId === 'zdf')
+    const result = previewXmltvMultiSourceLastKnownGood([
+      { sourceId: 'freeepg', current: healthy('freeepg') },
+      { sourceId: 'iptv-epg-org', current: healthy('iptv-epg-org') },
+      { sourceId: 'epgshare01', current: partial },
+    ], { now: NOW })
+    expect(result).toMatchObject({
+      availableIndependentFamilies: 2,
+      stationsWithFutureCoverage: 6,
+      stationsWithIndependentFallback: 1,
+      hasIndependentFallbackPreview: true,
+      hasIndependentFallbackOnAllStations: false,
+      stationFallback: {
+        zdf: { independentAvailableFamilies: 2, hasIndependentFallback: true },
+        ard: { independentAvailableFamilies: 1, hasIndependentFallback: false },
+      },
+      publishApproved: false,
+    })
+  })
+
+  it('does not invent redundancy from two sources covering DIFFERENT stations', () => {
+    const first = healthy('epgshare01')
+    first.candidates = first.candidates.filter(c => c.canonicalStationId === 'zdf')
+    const second = healthy('freeepg')
+    second.candidates = second.candidates.filter(c => c.canonicalStationId === 'ard')
+    const result = previewXmltvMultiSourceLastKnownGood([
+      { sourceId: 'epgshare01', current: first },
+      { sourceId: 'freeepg', current: second },
+    ], { now: NOW })
+    expect(result.availableIndependentFamilies).toBe(2)
+    expect(result.stationsWithFutureCoverage).toBe(2)
+    expect(result.stationsWithIndependentFallback).toBe(0)
+    expect(result.hasIndependentFallbackPreview).toBe(false)
+    expect(result.hasIndependentFallbackOnAllStations).toBe(false)
   })
 
   it('counts correlated hosts once and a separate fallback family only once', () => {
@@ -96,6 +158,8 @@ describe('XMLTV #336 last-known-good selection is diagnostic and fail-closed', (
       completeIndependentFamilies: 1,
       hasFiveDayPrimaryPreview: true,
       hasIndependentFallbackPreview: true,
+      hasIndependentFallbackOnAllStations: true,
+      stationsWithIndependentFallback: 6,
       publishApproved: false, tmdbReuseApproved: false,
     })
     expect(result.sourceStatuses[2].fiveDayCompleteNow).toBe(false)
