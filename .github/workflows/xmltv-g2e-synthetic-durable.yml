@@ -101,7 +101,7 @@ jobs:
   cleanup:
     name: Delete ONLY this run's two synthetic G2e objects
     needs: [write-synthetic, read-synthetic]
-    if: ${{ always() && needs.write-synthetic.result == 'success' }}
+    if: ${{ always() && needs.write-synthetic.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     permissions:
