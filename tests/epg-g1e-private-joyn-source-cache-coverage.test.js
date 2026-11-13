@@ -877,6 +877,88 @@ describe('G1e original private source key/context coverage without network calls
     expect(JSON.stringify(report)).not.toContain(title)
   })
 
+
+  it('counts only private same-type ambiguity metadata and existing TMDB runtime cache, never identity', async () => {
+    const value = input()
+    const title = programs[2].title
+    const lookup = new JoynLookupCache({}, NOW)
+    lookup.set('joyn-title-v1', title, {
+      type: 'movie', reason: 'exact_joyn_search', exactTypes: ['movie'],
+      exactCount: 1, exactResults: [{ type: 'movie', joynType: 'Movie', title }],
+    })
+    lookup.set('tmdb-search-v1', JSON.stringify(['/search/movie', {
+      language: 'de-DE', query: title, include_adult: 'false',
+    }]), { results: [
+      { id: 511, title, release_date: '1995-04-04',
+        overview: 'PRIVATE_DESCRIPTION_FOR_ONE_OF_TWO_DIFFERENT_TMDB_FILMS' },
+      { id: 512, title, release_date: '2005-04-04',
+        overview: 'PRIVATE_DESCRIPTION_FOR_ANOTHER_TMDB_FILM' },
+    ] })
+    for (const id of [511, 512]) {
+      lookup.set('tmdb-search-v1', JSON.stringify([`/movie/${id}`, {
+        language: 'de-DE',
+      }]), { id, runtime: id === 511 ? 12 : 38 })
+    }
+    value.lookupCache.entries = lookup.entries
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.offlineCachedTmdbMatcherReplay).toMatchObject({
+      sameTypeOnly: 1, unmatchedAmbiguousExactTitle: 1,
+      hypotheticalMatched: 0, externalRequestsStarted: 0,
+    })
+    expect(report.offlineSameTypeAmbiguityEvidence).toEqual({
+      sameTypeGroupsInspected: 1, movieOnlyGroups: 1, seriesOnlyGroups: 0,
+      trustedSourceTypeGroups: 1, sourceDescriptionGroups: 1,
+      allExactTmdbOverviewsGroups: 1, sourceDescriptionAndAllOverviewsGroups: 1,
+      differentTmdbReleaseYearsGroups: 1, typedMoviesWithBroadcastDuration: 1,
+      typedMoviesWithAllCachedRuntimeDetails: 1, externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+    for (const secret of [title, '511', '512', 'PRIVATE_DESCRIPTION_FOR']) {
+      expect(JSON.stringify(report)).not.toContain(secret)
+    }
+
+    // The actual seven-day cache TTL is honored for detail evidence too.
+    const detailKey = lookup.cacheKey('tmdb-search-v1',
+      JSON.stringify(['/movie/512', { language: 'de-DE' }]))
+    lookup.entries[detailKey].checkedAt = new Date(NOW - 8 * 86_400_000).toISOString()
+    value.lookupCache.entries = lookup.entries
+    const stale = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(stale.offlineSameTypeAmbiguityEvidence).toMatchObject({
+      sameTypeGroupsInspected: 1, typedMoviesWithBroadcastDuration: 1,
+      typedMoviesWithAllCachedRuntimeDetails: 0, externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(stale)).toBe(true)
+  })
+
+  it('classifies two exact series TMDB candidates without pretending they have trusted Joyn type', async () => {
+    const value = input()
+    const title = programs[2].title
+    const lookup = new JoynLookupCache({}, NOW)
+    lookup.set('tmdb-search-v1', JSON.stringify(['/search/movie', {
+      language: 'de-DE', query: title, include_adult: 'false',
+    }]), { results: [] })
+    lookup.set('tmdb-search-v1', JSON.stringify(['/search/tv', {
+      language: 'de-DE', query: title, include_adult: 'false',
+    }]), { results: [
+      { id: 911, name: title, first_air_date: '1991-01-01' },
+      { id: 912, name: title, first_air_date: '1992-01-01' },
+    ] })
+    value.lookupCache.entries = lookup.entries
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.offlineCachedTmdbMatcherReplay).toMatchObject({
+      sameTypeOnly: 1, unmatchedAmbiguousExactTitle: 1,
+      hypotheticalMatched: 0, externalRequestsStarted: 0,
+    })
+    expect(report.offlineSameTypeAmbiguityEvidence).toEqual({
+      sameTypeGroupsInspected: 1, movieOnlyGroups: 0, seriesOnlyGroups: 1,
+      trustedSourceTypeGroups: 0, sourceDescriptionGroups: 1,
+      allExactTmdbOverviewsGroups: 0, sourceDescriptionAndAllOverviewsGroups: 0,
+      differentTmdbReleaseYearsGroups: 1, typedMoviesWithBroadcastDuration: 0,
+      typedMoviesWithAllCachedRuntimeDetails: 0, externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+  })
+
   it('skips partial and malformed cached responses instead of assuming an empty search', async () => {
     const value = input()
     const title = programs[2].title
@@ -986,6 +1068,10 @@ describe('G1e original private source key/context coverage without network calls
       { ...report, offlineCachedTmdbMatcherReplay: { ...report.offlineCachedTmdbMatcherReplay, hypotheticalMatched: 99 } },
       { ...report, offlineCachedTmdbMatcherReplay: { ...report.offlineCachedTmdbMatcherReplay, crossTypeOnly: 99 } },
       { ...report, offlineCachedTmdbMatcherReplay: { ...report.offlineCachedTmdbMatcherReplay, ambiguousTyped: 99 } },
+      { ...report, offlineSameTypeAmbiguityEvidence: { ...report.offlineSameTypeAmbiguityEvidence, originalPrivateTitle: SECRET } },
+      { ...report, offlineSameTypeAmbiguityEvidence: { ...report.offlineSameTypeAmbiguityEvidence, externalRequestsStarted: 1 } },
+      { ...report, offlineSameTypeAmbiguityEvidence: { ...report.offlineSameTypeAmbiguityEvidence, sameTypeGroupsInspected: 88 } },
+      { ...report, offlineSameTypeAmbiguityEvidence: { ...report.offlineSameTypeAmbiguityEvidence, typedMoviesWithAllCachedRuntimeDetails: 7 } },
       { ...report, gate: { ...report.gate, freshOriginalMatcherReceiptsApproved: true } },
       { ...report, gate: { ...report.gate, measuredProductionSavings: 100 } },
       { ...report, mode: SECRET },
