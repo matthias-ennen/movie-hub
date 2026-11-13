@@ -212,6 +212,12 @@ describe('#336 G2c actual source generations, isolated staging only', () => {
       parsed.candidates[0].endAt,
       parsed.candidates[0].title,
     ].join('|')
+    parsed.candidates[0].canonicalStationId = 'ard'
+    expect(buildXmltvPrivateSourceGeneration(parsed, { now: NOW }).stagedProgrammes).toBe(0)
+    parsed.candidates[0].canonicalStationId = 'zdf'
+    parsed.candidates[0].stationName = 'FAKE CHANNEL DISPLAY NAME'
+    expect(buildXmltvPrivateSourceGeneration(parsed, { now: NOW }).stagedProgrammes).toBe(0)
+    parsed.candidates[0].stationName = 'ZDF'
     parsed.candidates[0].timestampsExplicitlyZoned = false
     expect(buildXmltvPrivateSourceGeneration(parsed, { now: NOW }).stagedProgrammes).toBe(0)
     expect(() => buildXmltvPrivateSourceGeneration(parsed, { now: NOW + 37 * 3_600_000 }))
