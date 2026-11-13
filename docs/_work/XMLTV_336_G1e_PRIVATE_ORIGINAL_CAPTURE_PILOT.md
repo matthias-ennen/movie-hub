@@ -1,5 +1,16 @@
 # MovieHub #336 – G1e: echter privater Joyn-Originalmatcher-Pilot (isoliert, opt-in)
 
+## 13.11.2026 – G1e: Root-Cause-Klassifikation der 125 exakten Cache-Replay-Mehrdeutigkeiten
+
+Der [geschützte Audit #43403300222](https://github.com/matthias-ennen/movie-hub/actions/runs/43403300222) nach #801 bestätigt **136** Titelgruppen, **127** vollständig gecachte jahresfreie Basisreplays und **9** wegen fehlender Cacheantworten übersprungene Gruppen. Unter 127 Replays gab es **0** hypothetische Matches, **125** `ambiguous_exact_title` und **2** `no_candidate`. Alle Messungen erfolgten ohne Provider-/TMDB-HTTP und ohne produktive Matcherentscheidungen.
+
+Der nächste rein lokale Analyseschritt trennt mit demselben Original-TMDB-Erstsuchcache die **125 exakten Kollisionen** nach konkurrierenden Identitäten: ausschließlich **Film-gegen-Serie**, ausschließlich **mehrere unterschiedliche TMDB-IDs desselben Typs**, **beides gleichzeitig** oder ein expliziter **nicht näher erklärter Restfall**. Die Originalmatcher-`type`-Filter werden beachtet; dublette identische `type:tmdbId`-Kandidaten zählen nur einmal. Exakte Titel werden allein in privatem Runner-Speicher mit `normalizeWaipuText` über Originaltitel/Alias verglichen; keine Rohprogramme, Sendungstitel, TMDB-IDs oder Beispiele gehen in Ausgaben. Zusätzlich wird ausschließlich als Zahl erfasst, bei wie vielen mehrdeutigen Fällen der Quelltyp bereits eindeutig belegt war. Die Kategorien sind disjunkt und summieren sich zwingend auf die Zahl `unmatchedAmbiguousExactTitle`; die Eingabebasis, Cache-TTL und die Ausgabe-Schema-Gates bleiben unverändert.
+
+Auch das ist keine Lockerung der Regeln und keine Matchfreigabe. Eine ursprüngliche Quelltyp-Klassifikation per SearchQ/Algolia kann die Film-/Serie-Kollision auflösen, aber nicht automatisch zwei gleichnamige Filme oder zwei gleichnamige Serien unterscheiden. Produktionsjahr, Beschreibung, Sendedauer und verlässliche Original-Metadaten müssen gegebenenfalls getrennt und weiterhin gegen die Original-Entscheidungsregeln geprüft werden. Keine neue externe Stichprobe, kein EPG-Neusync, `freshOriginalMatcherReceiptsApproved=false`, `measuredProductionSavings=null`, Shared EPG Index bleibt aus.
+
+---
+
+
 ## 13.11.2026 – G1e: rein offline Originalmatcher-Replay gegen vollständig gecachte TMDB-Erstsuchantworten
 
 **Ausgangspunkt:** Der erfolgreiche geschützte [read-only Audit #43391342657](https://github.com/matthias-ennen/movie-hub/actions/runs/43391342657) bestätigt bei 136 unterschiedlichen Joyn-Quelltiteln ohne lokale TMDB-Kandidaten **248 gültige von 264** modellierten jahresfreien TMDB-Basissuchantworten, 212 davon nichtleer, 16 fehlen. Die 136 Titelgruppen teilen sich in zwei mit ausschließlich `movie`-, sechs mit ausschließlich `series`-Typ und 128 mit unbekanntem Typ.
