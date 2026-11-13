@@ -217,7 +217,7 @@ function markdownSummary(report) {
       coverage.primaryCoverageMinutes + ' | ' +
       coverage.independentFallbackCoverageMinutes + ' |')
   }
-  lines.push('', '**Five-day EPG snapshot:** Primary:  +
+  lines.push('', '**Five-day EPG snapshot:** Primary: ' +
     (report.readiness.primaryFiveDaySnapshot ? 'full 120h across six stations' : 'not proven') +
     '; independent available source families: ' + report.readiness.availableIndependentFamilies +
     '; independent fallback observed: ' +
