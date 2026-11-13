@@ -115,6 +115,10 @@ export function assessXmltvIndependentCoverage(sourceReports, {
 
   const fullHorizonFamilies = new Set()
   const freshAvailableFamilies = new Set()
+  // Independent failover is a PER-STATION property, not merely a count of
+  // successful source downloads. The same content family can have multiple
+  // distribution hosts but is never a second independent backup.
+  const stationFamilyCoverage = new Map(STATIONS.map(id => [id, new Map()]))
   const sources = []
   const seen = new Set()
   for (const report of sourceReports) {
@@ -146,6 +150,14 @@ export function assessXmltvIndependentCoverage(sourceReports, {
         coverage.stations[stationId].complete120h).length &&
       coverage.allReviewedStationsComplete ===
         (coverage.completeStations === STATIONS.length)
+    if (validShape) {
+      for (const stationId of STATIONS) {
+        const minutes = coverage.stations[stationId].coveredMinutes
+        if (minutes <= 0) continue
+        const families = stationFamilyCoverage.get(stationId)
+        families.set(family, Math.max(families.get(family) || 0, minutes))
+      }
+    }
     const hasAnyRealCoverage = validShape && STATIONS.some(stationId =>
       coverage.stations[stationId].coveredMinutes > 0)
     const complete = validShape && coverage.allReviewedStationsComplete
@@ -155,8 +167,37 @@ export function assessXmltvIndependentCoverage(sourceReports, {
       observedWithin36h: freshObservation, hasRealFutureCoverage: Boolean(hasAnyRealCoverage),
       completeFiveDayCoverage: Boolean(complete) })
   }
+  // Coverage is reported independently for each explicitly reviewed station.
+  // The max family per station is the primary candidate. The second greatest
+  // DIFFERENT content family is a possible independent backup, not a union
+  // of the same copied schedule or a claim that either feed is licensed.
+  const stationFallback = Object.fromEntries(STATIONS.map(stationId => {
+    const coverageMinutes = [...stationFamilyCoverage.get(stationId).values()]
+      .sort((a, b) => b - a)
+    return [stationId, {
+      availableIndependentFamilies: coverageMinutes.length,
+      completeIndependentFamilies: coverageMinutes.filter(m => m === XMLTV_FIVE_DAY_HOURS * 60).length,
+      primaryCoverageMinutes: coverageMinutes[0] || 0,
+      independentFallbackCoverageMinutes: coverageMinutes[1] || 0,
+    }]
+  }))
+  const stationsWithIndependentFallback = STATIONS.filter(id =>
+    stationFallback[id].availableIndependentFamilies >= 2).length
+  const stationsWithFiveDayCoverageInAnyFamily = STATIONS.filter(id =>
+    stationFallback[id].completeIndependentFamilies >= 1).length
+  const stationsWithTwoCompleteIndependentFamilies = STATIONS.filter(id =>
+    stationFallback[id].completeIndependentFamilies >= 2).length
   return {
     requiredIndependentFamilies: 2,
+    stationFallback,
+    stationsWithIndependentFallback,
+    stationsWithFiveDayCoverageInAnyFamily,
+    stationsWithTwoCompleteIndependentFamilies,
+    allStationsHaveIndependentFallback: stationsWithIndependentFallback === STATIONS.length,
+    // A per-station full feed is not proof one single family covers ALL six.
+    // For that the separate primaryFiveDaySnapshot flag is authoritative.
+    allStationsHaveFiveDayCoverageInAnyFamily:
+      stationsWithFiveDayCoverageInAnyFamily === STATIONS.length,
     availableIndependentFamilies: freshAvailableFamilies.size,
     completeIndependentFamilies: fullHorizonFamilies.size,
     primaryFiveDaySnapshot: fullHorizonFamilies.size >= 1,
