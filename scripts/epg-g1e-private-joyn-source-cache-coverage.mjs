@@ -278,6 +278,24 @@ export async function inspectJoynRestoredSourceCacheCoverage({
   // Per-normalized-title evidence is held only in memory: the source lookup
   // and Algolia cache remain subject to their ORIGINAL seven-day TTL.
   const noLocalCachedTypesByTitle = new Map()
+  // A cache-only lower-complexity *first-pass* model. The original
+  // WaipuTmdbSearchClient uses this exact year-free query key, but the
+  // actual matcher can issue YEAR/FALLBACK/DETAIL/RETRY requests.
+  // Never use these counts as a production HTTP budget or savings proof.
+  const noLocalTmdbFirstPassCache = {
+    uniqueTitleGroupsInspected: 0,
+    movieOnlyGroups: 0,
+    seriesOnlyGroups: 0,
+    unknownOrConflictingGroups: 0,
+    modelMovieSearchSlots: 0,
+    modelSeriesSearchSlots: 0,
+    modelTotalSearchSlots: 0,
+    cachedReadySearchResponses: 0,
+    cachedNonemptySearchResponses: 0,
+    missingSearchResponses: 0,
+    invalidCachedSearchResponses: 0,
+    externalRequestsStarted: 0,
+  }
   const noLocalCachedTypeEvidence = {
     uniqueNormalizedSourceTitlesInspected: 0,
     titleGroupsWithCachedJoynSearch: 0,
@@ -376,7 +394,9 @@ export async function inspectJoynRestoredSourceCacheCoverage({
         let group = noLocalCachedTypesByTitle.get(normalizedSourceTitle)
         if (!group) {
           group = { joynCached: false, algoliaCached: false,
-            joynTyped: false, algoliaTyped: false, types: new Set() }
+            joynTyped: false, algoliaTyped: false, types: new Set(),
+            // Original representative query string, private in-memory only.
+            queryTitle: candidate.title }
           noLocalCachedTypesByTitle.set(normalizedSourceTitle, group)
         }
         const source = privateSourceLookups.get('joyn-title-v1', candidate.title)
@@ -523,6 +543,36 @@ export async function inspectJoynRestoredSourceCacheCoverage({
     else if (group.types.has('series')) noLocalCachedTypeEvidence.titleGroupsWithOnlySeriesType++
     else throw new Error('Unexpected Joyn no-local cached type')
   }
+  // Model one representative, year-free first-pass request per reliable
+  // type; unknown types need BOTH movie and TV requests. This is diagnostic,
+  // never an approval to issue network traffic. Keep the original request
+  // cache key shape, including property order and original case of title.
+  noLocalTmdbFirstPassCache.uniqueTitleGroupsInspected = noLocalCachedTypesByTitle.size
+  for (const group of noLocalCachedTypesByTitle.values()) {
+    const kind = group.types.size === 1 ? [...group.types][0] : null
+    if (kind === 'movie') noLocalTmdbFirstPassCache.movieOnlyGroups++
+    else if (kind === 'series') noLocalTmdbFirstPassCache.seriesOnlyGroups++
+    else noLocalTmdbFirstPassCache.unknownOrConflictingGroups++
+    const endpoints = kind === 'movie' ? ['/search/movie']
+      : kind === 'series' ? ['/search/tv']
+        : ['/search/movie', '/search/tv']
+    for (const endpoint of endpoints) {
+      if (endpoint === '/search/movie') noLocalTmdbFirstPassCache.modelMovieSearchSlots++
+      else noLocalTmdbFirstPassCache.modelSeriesSearchSlots++
+      noLocalTmdbFirstPassCache.modelTotalSearchSlots++
+      const requestKey = JSON.stringify([endpoint, {
+        language: 'de-DE', query: group.queryTitle, include_adult: 'false',
+      }])
+      const cachedResponse = privateSourceLookups.get('tmdb-search-v1', requestKey)
+      if (cachedResponse === null) noLocalTmdbFirstPassCache.missingSearchResponses++
+      else if (object(cachedResponse) && Array.isArray(cachedResponse.results)) {
+        noLocalTmdbFirstPassCache.cachedReadySearchResponses++
+        if (cachedResponse.results.length > 0) {
+          noLocalTmdbFirstPassCache.cachedNonemptySearchResponses++
+        }
+      } else noLocalTmdbFirstPassCache.invalidCachedSearchResponses++
+    }
+  }
   noLocalCachedTypesByTitle.clear()
   noLocalTitleGrouping.uniqueNormalizedSourceTitles = noLocalTitleCounts.size
   noLocalTitleGrouping.repeatedNormalizedTitleGroups =
@@ -557,6 +607,34 @@ export async function inspectJoynRestoredSourceCacheCoverage({
         noLocalCachedTypeEvidence.titleGroupsWithCachedJoynSearch ||
       noLocalCachedTypeEvidence.titleGroupsWithValidatedAlgoliaType >
         noLocalCachedTypeEvidence.titleGroupsWithCachedAlgoliaHits ||
+      noLocalTmdbFirstPassCache.uniqueTitleGroupsInspected !==
+        noLocalTitleGrouping.uniqueNormalizedSourceTitles ||
+      noLocalTmdbFirstPassCache.uniqueTitleGroupsInspected !==
+        noLocalTmdbFirstPassCache.movieOnlyGroups +
+        noLocalTmdbFirstPassCache.seriesOnlyGroups +
+        noLocalTmdbFirstPassCache.unknownOrConflictingGroups ||
+      noLocalTmdbFirstPassCache.movieOnlyGroups !==
+        noLocalCachedTypeEvidence.titleGroupsWithOnlyMovieType ||
+      noLocalTmdbFirstPassCache.seriesOnlyGroups !==
+        noLocalCachedTypeEvidence.titleGroupsWithOnlySeriesType ||
+      noLocalTmdbFirstPassCache.unknownOrConflictingGroups !==
+        noLocalCachedTypeEvidence.titleGroupsWithoutTrustedType +
+        noLocalCachedTypeEvidence.titleGroupsWithConflictingTypes ||
+      noLocalTmdbFirstPassCache.modelMovieSearchSlots !==
+        noLocalTmdbFirstPassCache.movieOnlyGroups +
+        noLocalTmdbFirstPassCache.unknownOrConflictingGroups ||
+      noLocalTmdbFirstPassCache.modelSeriesSearchSlots !==
+        noLocalTmdbFirstPassCache.seriesOnlyGroups +
+        noLocalTmdbFirstPassCache.unknownOrConflictingGroups ||
+      noLocalTmdbFirstPassCache.modelTotalSearchSlots !==
+        noLocalTmdbFirstPassCache.modelMovieSearchSlots +
+        noLocalTmdbFirstPassCache.modelSeriesSearchSlots ||
+      noLocalTmdbFirstPassCache.modelTotalSearchSlots !==
+        noLocalTmdbFirstPassCache.cachedReadySearchResponses +
+        noLocalTmdbFirstPassCache.missingSearchResponses +
+        noLocalTmdbFirstPassCache.invalidCachedSearchResponses ||
+      noLocalTmdbFirstPassCache.cachedNonemptySearchResponses >
+        noLocalTmdbFirstPassCache.cachedReadySearchResponses ||
       reasonTotal !== unresolvedWithLocalCandidates ||
       unresolvedContext.exactlyOneLocalCandidate + unresolvedContext.multipleLocalCandidates !== unresolvedWithLocalCandidates ||
       unresolvedContext.exactAmbiguityWithSourceDescription +
@@ -617,6 +695,7 @@ export async function inspectJoynRestoredSourceCacheCoverage({
     },
     offlineNoLocalTitleGroups: noLocalTitleGrouping,
     offlineNoLocalCachedTypeEvidence: noLocalCachedTypeEvidence,
+    offlineNoLocalTmdbFirstPassCache: noLocalTmdbFirstPassCache,
     offlineLocalPreflight: {
       distinctMissingKeysInspected: unique.absent,
       locallyMatchedWithoutExternalCalls: resolvedLocally,
@@ -643,12 +722,14 @@ export function isSafeJoynRestoredSourceCoverage(value) {
   const rr = value?.offlineLocalRejectionReasons, cc = value?.offlineLocalCandidateContext
   const tr = value?.offlineTrustedJoynTypeReplay, ar = value?.offlineCachedAlgoliaReplay
   const ng = value?.offlineNoLocalTitleGroups
-  const nt = value?.offlineNoLocalCachedTypeEvidence, g = value?.gate
+  const nt = value?.offlineNoLocalCachedTypeEvidence
+  const tq = value?.offlineNoLocalTmdbFirstPassCache, g = value?.gate
   return keysExactly(value, ['kind', 'schemaVersion', 'mode', 'source', 'match',
     'offlineLocalPreflight', 'offlineLocalRejectionReasons',
     'offlineLocalCandidateContext', 'offlineTrustedJoynTypeReplay',
     'offlineCachedAlgoliaReplay', 'offlineNoLocalTitleGroups',
-    'offlineNoLocalCachedTypeEvidence', 'gate', 'limitations']) &&
+    'offlineNoLocalCachedTypeEvidence', 'offlineNoLocalTmdbFirstPassCache',
+    'gate', 'limitations']) &&
     value.kind === 'g1e-private-joyn-original-cache-coverage' &&
     value.schemaVersion === 1 && value.mode === 'private-read-only' &&
     typeof value.limitations === 'string' &&
@@ -726,6 +807,32 @@ export function isSafeJoynRestoredSourceCoverage(value) {
     nt.titleGroupsWithCachedAlgoliaHits <= nt.uniqueNormalizedSourceTitlesInspected &&
     nt.titleGroupsWithTrustedJoynType <= nt.titleGroupsWithCachedJoynSearch &&
     nt.titleGroupsWithValidatedAlgoliaType <= nt.titleGroupsWithCachedAlgoliaHits &&
+    keysExactly(tq, ['uniqueTitleGroupsInspected', 'movieOnlyGroups',
+      'seriesOnlyGroups', 'unknownOrConflictingGroups', 'modelMovieSearchSlots',
+      'modelSeriesSearchSlots', 'modelTotalSearchSlots',
+      'cachedReadySearchResponses', 'cachedNonemptySearchResponses',
+      'missingSearchResponses', 'invalidCachedSearchResponses',
+      'externalRequestsStarted']) &&
+    ['uniqueTitleGroupsInspected', 'movieOnlyGroups',
+      'seriesOnlyGroups', 'unknownOrConflictingGroups', 'modelMovieSearchSlots',
+      'modelSeriesSearchSlots', 'modelTotalSearchSlots',
+      'cachedReadySearchResponses', 'cachedNonemptySearchResponses',
+      'missingSearchResponses', 'invalidCachedSearchResponses']
+      .every(x => integer(tq[x], MAX_RAW_EVENTS)) &&
+    tq.externalRequestsStarted === 0 &&
+    tq.uniqueTitleGroupsInspected === nt.uniqueNormalizedSourceTitlesInspected &&
+    tq.uniqueTitleGroupsInspected === tq.movieOnlyGroups +
+      tq.seriesOnlyGroups + tq.unknownOrConflictingGroups &&
+    tq.movieOnlyGroups === nt.titleGroupsWithOnlyMovieType &&
+    tq.seriesOnlyGroups === nt.titleGroupsWithOnlySeriesType &&
+    tq.unknownOrConflictingGroups === nt.titleGroupsWithoutTrustedType +
+      nt.titleGroupsWithConflictingTypes &&
+    tq.modelMovieSearchSlots === tq.movieOnlyGroups + tq.unknownOrConflictingGroups &&
+    tq.modelSeriesSearchSlots === tq.seriesOnlyGroups + tq.unknownOrConflictingGroups &&
+    tq.modelTotalSearchSlots === tq.modelMovieSearchSlots + tq.modelSeriesSearchSlots &&
+    tq.modelTotalSearchSlots === tq.cachedReadySearchResponses +
+      tq.missingSearchResponses + tq.invalidCachedSearchResponses &&
+    tq.cachedNonemptySearchResponses <= tq.cachedReadySearchResponses &&
     keysExactly(rr, ['noCandidateAboveMinimumScore', 'belowAcceptanceScore',
       'ambiguousScoreMargin', 'ambiguousExactTitle']) &&
     Object.values(rr).every(x => integer(x, MAX_RAW_EVENTS)) &&

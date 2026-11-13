@@ -1,5 +1,18 @@
 # MovieHub #336 – G1e: echter privater Joyn-Originalmatcher-Pilot (isoliert, opt-in)
 
+## 13.11.2026 – G1e: vorhandenen TMDB-Antwortcache vor Mini-Originalmatcher-Stichprobe prüfen
+
+**Ausgangspunkt:** Die erfolgreiche [private Messung #43388690063](https://github.com/matthias-ennen/movie-hub/actions/runs/43388690063) bestätigt im aktuellen 14-Tage-Horizont **136** verschiedene Joyn-Originaltitel ohne lokale TMDB-Kandidaten, darunter **2** mit ausschließlich bestätigtem Quelltyp `movie`, **6** mit `series` und **128** ohne eindeutigen Typ. Es liegen **keine** freigegebenen frischen Originalmatcherquittungen und **keine** gemessenen produktiven HTTP-Einsparungen vor.
+
+**Neuer privater rein lokaler Preflight:** Für jeweils **einen repräsentativen Originaltitel je normalisierter Titelgruppe** modellieren wir die minimalen *jahresfreien ersten TMDB-Suchslots* des unveränderten `JoynTmdbSearchClient`: bekannter Film → `/search/movie`, bekannte Serie → `/search/tv`, unbekannter oder widersprüchlicher Typ → **beide** Endpunkte. Das sind unter dem obigen Datenstand **264 theoretische erste Slots** (130 Filme, 134 Serien), ausdrücklich **keine Garantie** der späteren Requests und kein genehmigtes Budget.
+
+Die Anfragekeys werden **bytegleich** in der originalen Form `JSON.stringify([endpoint, {language:'de-DE', query:originalTitle, include_adult:'false'}])` mit dem vorhandenen 7-Tage-`JoynLookupCache.get('tmdb-search-v1', key)` geprüft. Numerisch getrennt zählen wir noch gültige Antworten mit `results`-Array, darunter nichtleere Ergebnisse, fehlende/abgelaufene Caches und strukturell ungültige Cacheantworten. Die Originaltitel bleiben ausschließlich im ephemeren geschützten Runner. Das Ergebnis enthält nur feste ganzzahlige Summen; sämtliche Summengleichungen und `externalRequestsStarted=0` sind harte Gates.
+
+**Grenzen:** Der echte Originalmatcher kann jahresgebundene Suchen, Fallback-Suchen, mehrere Aliase, Detailaufrufe und Wiederholungen nutzen. Die Modellrechnung erfasst **nur jahresfreie Basisabfragen für eine Titelrepräsentanz**, nicht notwendigerweise die künftig exakten Requestkeys, nicht alle Schreibweisen und keine HTTP-Prognose. Andere Sprachen, produktive Matchingregeln und Budgets bleiben unverändert. Dieser Schritt startet **keine** Joyn-/Algolia-/TMDB-HTTP-Anfrage, erzeugt keine EPG-Neusynchronisierung und schaltet den Shared Index nicht ein. Eine spätere wirklich externe Mini-Stichprobe braucht gesonderte explizite Freigabe und einen unabhängig überwachten harten Startdeckel.
+
+---
+
+
 ## 13.11.2026 – G1e: Original-Quelltypbelege für 136 nicht lokal vorhandene Joyn-Titel abgleichen
 
 Die geschützte [Read-only-Messung #43372798332](https://github.com/matthias-ennen/movie-hub/actions/runs/43372798332) hat **393** unterschiedliche fehlende Originalschlüssel ohne lokale TMDB-Kandidaten in **136** unterschiedliche normalisierte Originalsendungstitel zerlegt (davon 35 Mehrfachgruppen, 257 zusätzliche Schlüssel). Das reduziert die diagnostische Titelsuchfläche, ist aber keine belastbare Vorhersage der TMDB-HTTP-Kosten.
