@@ -1,5 +1,18 @@
 # MovieHub #336 – G1e: echter privater Joyn-Originalmatcher-Pilot (isoliert, opt-in)
 
+## 13.11.2026 – G1e: rein offline Originalmatcher-Replay gegen vollständig gecachte TMDB-Erstsuchantworten
+
+**Ausgangspunkt:** Der erfolgreiche geschützte [read-only Audit #43391342657](https://github.com/matthias-ennen/movie-hub/actions/runs/43391342657) bestätigt bei 136 unterschiedlichen Joyn-Quelltiteln ohne lokale TMDB-Kandidaten **248 gültige von 264** modellierten jahresfreien TMDB-Basissuchantworten, 212 davon nichtleer, 16 fehlen. Die 136 Titelgruppen teilen sich in zwei mit ausschließlich `movie`-, sechs mit ausschließlich `series`-Typ und 128 mit unbekanntem Typ.
+
+**Nächster Schritt (weiterhin rein lokal, keine externen Requests):** In demselben geschützten Preflight wird pro normalisierter Gruppe genau **eine Originaltitel-Repräsentanz** mit ihrer tatsächlichen Originalbeschreibung und Sendedauer genommen. Der unveränderte exportierte `matchJoynProgram` wird nur aufgerufen, wenn **alle** für die Basisrecherche notwendigen `tmdb-search-v1`-Antworten noch innerhalb ihrer originalen Sieben-Tage-TTL vorliegen: bei eindeutig belegtem Film-/Serientyp eine zum Typ passende Anfrage, bei unbekanntem/widersprüchlichem Typ beide `/search/movie` und `/search/tv`. Die Original-Response-Objekte werden intern wie beim `WaipuTmdbSearchClient.search` mit festem `type` und `source='tmdb-search'` versehen; durch eine in-memory-Callbackfunktion erhält der Originalmatcher genau diese Searchkandidaten. `loadTmdbDetails` bleibt `null`. Es existiert **kein Fetch, Token, HTTP-Transport oder Live-TMDB-Client** im Replay. Die Replayedaten, Titel, Quellhashes und IDs bleiben ausschließlich im ephemeren Runner; kein Match oder Cache wird gespeichert.
+
+**Fail-closed:** Ein fehlender/abgelaufener Endpunkt (auch wenn der andere Treffer liefert) wird **nie** als leere Antwort interpretiert. Beschädigte/ungewöhnliche Ergebnisse, nichtpositive TMDB-IDs oder mehr als 20 Resultate pro Searchresponse überspringen die ganze Gruppe. `matchJoynProgram` muss die Original-Matcher-Version und eine feste bekannte Ergebniskategorie mit `local+tmdb-search` liefern. Unter den vollständigen Replaygruppen zählen wir ausschließlich anonymisierte hypothetische Matches, keine Kandidaten, Score-/Marginwerte oder IDs. Mehrdeutige Titel bleiben mehrdeutig; die unterbundene Detailauflösung bedeutet, dass ein vorläufiges `ambiguous_exact_title` **keine** definitive produktive Absage ist.
+
+**Ausdrückliche Einschränkung:** Die Eingabe enthält keine neu recherchierten Jahres-/Alias- und Episodenfelder, sondern nur den belegten Quelltyp, Originaltitel, private Beschreibung und Sendedauer. Der produktive Adapter kann zusätzliche datenabhängige SearchQ-/Algolia-Typ-/Jahresbelege, Details, Aliasvarianten und Jahr-/Fallback-Suchschritte verwenden. Deshalb heißt dieser Schritt *hypothetisches Offline-Replay*, nicht vollständiger Produktionslauf, nicht produktive Matcherentscheidung, nicht EPG- oder TMDB-Ersparnisnachweis. Das vorhandene boolesche G1e-Freigabegate bleibt `false`, Einsparung `null`, der Shared EPG Index weiterhin abgeschaltet.
+
+---
+
+
 ## 13.11.2026 – G1e: vorhandenen TMDB-Antwortcache vor Mini-Originalmatcher-Stichprobe prüfen
 
 **Ausgangspunkt:** Die erfolgreiche [private Messung #43388690063](https://github.com/matthias-ennen/movie-hub/actions/runs/43388690063) bestätigt im aktuellen 14-Tage-Horizont **136** verschiedene Joyn-Originaltitel ohne lokale TMDB-Kandidaten, darunter **2** mit ausschließlich bestätigtem Quelltyp `movie`, **6** mit `series` und **128** ohne eindeutigen Typ. Es liegen **keine** freigegebenen frischen Originalmatcherquittungen und **keine** gemessenen produktiven HTTP-Einsparungen vor.
