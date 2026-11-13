@@ -110,7 +110,12 @@ jobs:
             import { readFileSync } from "node:fs";
             import { isSafeJoynRestoredSourceCoverage } from "./scripts/epg-g1e-private-joyn-source-cache-coverage.mjs";
             const value = JSON.parse(readFileSync("artifacts/g1e-private-checkpoint-audit/joyn-source-cache-coverage.json", "utf8"));
-            if (!isSafeJoynRestoredSourceCoverage(value) || JSON.stringify(value).length > 4096) process.exit(1);
+            // Fixed allowlisted numeric fields grew with the Same-Type audit (#803).
+            // Real aggregate was 4,367 ASCII characters; keep a small 5-KiB
+            // envelope without permitting private raw titles or identifiers.
+            const MAX_FIXED_AGGREGATE_CHARS = 5120;
+            if (!isSafeJoynRestoredSourceCoverage(value) ||
+                JSON.stringify(value).length > MAX_FIXED_AGGREGATE_CHARS) process.exit(1);
           '
       - name: Preflight original Waipu A/B cache size and source-generation health (read-only)
         run: |
