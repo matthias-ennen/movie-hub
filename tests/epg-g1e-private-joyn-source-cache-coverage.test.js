@@ -391,6 +391,125 @@ describe('G1e original private source key/context coverage without network calls
     }
   })
 
+  it('replays only the existing original cached Algolia response for a no-exact-Joyn-type case', async () => {
+    const title = programs[2].title
+    const value = input()
+    value.catalog.titles.push(
+      { type: 'movie', tmdbId: 601, title },
+      { type: 'series', tmdbId: 602, title },
+    )
+    const lookup = new JoynLookupCache({}, NOW)
+    lookup.set('joyn-title-v1', title, {
+      type: null, reason: 'no_joyn_type', exactTypes: [], exactCount: 0, exactResults: [],
+    })
+    lookup.set('algolia-hits-v1', title, {
+      status: 'ready', hits: [{ type: 'MOVIE', titles: { DE: title },
+        id: 'PRIVATE_ALGOLIA_HIT_NEVER_PUBLIC' }],
+    })
+    value.lookupCache.entries = lookup.entries
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.offlineTrustedJoynTypeReplay).toMatchObject({ cachedNoExactType: 1 })
+    expect(report.offlineCachedAlgoliaReplay).toEqual({
+      noExactJoynTypeInspected: 1,
+      noValidCachedAlgoliaHits: 0,
+      cachedAlgoliaInvalidResponse: 0,
+      cachedAlgoliaNoValidatedHit: 0,
+      cachedAlgoliaConflictingTypes: 0,
+      cachedAlgoliaMovieType: 1,
+      cachedAlgoliaSeriesType: 0,
+      matchedAfterAlgoliaType: 1,
+      stillUnresolvedAfterAlgoliaType: 0,
+      stillAmbiguousExactTitle: 0,
+      otherUnresolvedReasons: 0,
+      externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+    expect(JSON.stringify(report)).not.toContain(title)
+    expect(JSON.stringify(report)).not.toContain('PRIVATE_ALGOLIA')
+  })
+
+  it('reports missing, expired, conflicting, unusable and still-ambiguous private Algolia evidence', async () => {
+    const title = programs[2].title
+    const cases = [
+      { hits: null, expected: { noValidCachedAlgoliaHits: 1 } },
+      { hits: { status: 'ready', hits: [] },
+        expected: { cachedAlgoliaNoValidatedHit: 1 } },
+      { hits: { status: 'ready', hits: [
+        { type: 'MOVIE', titles: { DE: title } },
+        { type: 'SERIES', titles: { DE: title } },
+      ] }, expected: { cachedAlgoliaConflictingTypes: 1 } },
+      { hits: { status: 'unavailable', hits: [] },
+        expected: { cachedAlgoliaInvalidResponse: 1 } },
+      { hits: { status: 'ready', hits: [{ type: 'SERIES', titles: { DE: title } }] },
+        expected: { cachedAlgoliaSeriesType: 1, matchedAfterAlgoliaType: 1 } },
+    ]
+    for (const item of cases) {
+      const value = input()
+      value.catalog.titles.push(
+        { type: 'movie', tmdbId: 610, title },
+        { type: 'series', tmdbId: 611, title },
+      )
+      const lookup = new JoynLookupCache({}, NOW)
+      lookup.set('joyn-title-v1', title, {
+        type: null, reason: 'no_joyn_type', exactTypes: [], exactCount: 0, exactResults: [],
+      })
+      if (item.hits) lookup.set('algolia-hits-v1', title, item.hits)
+      value.lookupCache.entries = lookup.entries
+      const report = await inspectJoynRestoredSourceCacheCoverage(value)
+      expect(report.offlineCachedAlgoliaReplay).toMatchObject({
+        noExactJoynTypeInspected: 1, externalRequestsStarted: 0, ...item.expected,
+      })
+      expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+      expect(JSON.stringify(report)).not.toContain(title)
+    }
+
+    const sameFamily = input()
+    sameFamily.catalog.titles.push(
+      { type: 'movie', tmdbId: 612, title },
+      { type: 'movie', tmdbId: 613, title },
+    )
+    const lookup = new JoynLookupCache({}, NOW)
+    lookup.set('joyn-title-v1', title, {
+      type: null, reason: 'no_joyn_type', exactTypes: [], exactCount: 0, exactResults: [],
+    })
+    lookup.set('algolia-hits-v1', title, {
+      status: 'ready', hits: [{ type: 'MOVIE', titles: { DE: title } }],
+    })
+    sameFamily.lookupCache.entries = lookup.entries
+    const result = await inspectJoynRestoredSourceCacheCoverage(sameFamily)
+    expect(result.offlineCachedAlgoliaReplay).toMatchObject({
+      cachedAlgoliaMovieType: 1, matchedAfterAlgoliaType: 0,
+      stillUnresolvedAfterAlgoliaType: 1, stillAmbiguousExactTitle: 1,
+      externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(result)).toBe(true)
+  })
+
+  it('rejects cache types from stale private Algolia responses before offline replay', async () => {
+    const title = programs[2].title
+    const value = input()
+    value.catalog.titles.push(
+      { type: 'movie', tmdbId: 621, title },
+      { type: 'series', tmdbId: 622, title },
+    )
+    const lookup = new JoynLookupCache({}, NOW)
+    lookup.set('joyn-title-v1', title, {
+      type: null, reason: 'no_joyn_type', exactTypes: [], exactCount: 0, exactResults: [],
+    })
+    lookup.set('algolia-hits-v1', title, {
+      status: 'ready', hits: [{ type: 'MOVIE', titles: { DE: title } }],
+    })
+    const key = lookup.cacheKey('algolia-hits-v1', title)
+    lookup.entries[key].checkedAt = new Date(NOW - 8 * 86_400_000).toISOString()
+    value.lookupCache.entries = lookup.entries
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.offlineCachedAlgoliaReplay).toMatchObject({
+      noExactJoynTypeInspected: 1, noValidCachedAlgoliaHits: 1,
+      cachedAlgoliaMovieType: 0, externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+  })
+
   it('honours the original 7-day Joyn lookup-cache expiry before typing', async () => {
     const value = input()
     value.catalog.titles.push(
@@ -474,6 +593,9 @@ describe('G1e original private source key/context coverage without network calls
       { ...report, offlineTrustedJoynTypeReplay: { ...report.offlineTrustedJoynTypeReplay, ambiguousKeysInspected: 12 } },
       { ...report, offlineTrustedJoynTypeReplay: { ...report.offlineTrustedJoynTypeReplay, cachedNoExactType: 1 } },
       { ...report, offlineTrustedJoynTypeReplay: { ...report.offlineTrustedJoynTypeReplay, typedAmbiguousExactTitle: 1 } },
+      { ...report, offlineCachedAlgoliaReplay: { ...report.offlineCachedAlgoliaReplay, privateTitle: SECRET } },
+      { ...report, offlineCachedAlgoliaReplay: { ...report.offlineCachedAlgoliaReplay, externalRequestsStarted: 1 } },
+      { ...report, offlineCachedAlgoliaReplay: { ...report.offlineCachedAlgoliaReplay, cachedAlgoliaMovieType: 1 } },
       { ...report, gate: { ...report.gate, freshOriginalMatcherReceiptsApproved: true } },
       { ...report, gate: { ...report.gate, measuredProductionSavings: 100 } },
       { ...report, mode: SECRET },
