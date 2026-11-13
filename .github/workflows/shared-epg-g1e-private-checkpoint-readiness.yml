@@ -23,6 +23,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/shared-epg-g1e-private-checkpoint-readiness.yml
+      - scripts/epg-g1i-private-joyn-original-loader.mjs
       - scripts/epg-g1e-private-checkpoint-readiness.mjs
       - scripts/epg-g1e-private-waipu-ab-preflight.mjs
       - scripts/epg-g1e-stream-private-cache-count.mjs
@@ -126,7 +127,9 @@ jobs:
             --output artifacts/g1e-private-checkpoint-audit/waipu-ab-preflight.json
       - name: Read both ORIGINAL Joyn cache readers under a bounded private memory budget
         run: |
-          node --max-old-space-size=4096 scripts/epg-g1i-private-joyn-original-loader.mjs             --root .             --output artifacts/g1e-private-checkpoint-audit/joyn-original-reader.json
+          node --max-old-space-size=4096 scripts/epg-g1i-private-joyn-original-loader.mjs \
+            --root . \
+            --output artifacts/g1e-private-checkpoint-audit/joyn-original-reader.json
       - name: Verify G1i original reader report has no private fields or inferred approvals
         run: |
           node --input-type=module -e '
