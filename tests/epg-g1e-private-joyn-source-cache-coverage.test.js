@@ -98,11 +98,6 @@ function input() {
 describe('G1e original private source key/context coverage without network calls', () => {
   it('uses the original normalized title/description/duration and negative candidate context', async () => {
     const report = await inspectJoynRestoredSourceCacheCoverage(input())
-    console.log('G1E_SYNTHETIC_GATE_DEBUG', JSON.stringify({
-      keys: Object.keys(report),
-      se: report.offlineSameTypeAmbiguityEvidence,
-      tm: report.offlineCachedTmdbMatcherReplay,
-    }))
     expect(report).toMatchObject({
       kind: 'g1e-private-joyn-original-cache-coverage',
       mode: 'private-read-only',
