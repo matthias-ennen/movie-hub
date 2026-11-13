@@ -19,6 +19,7 @@ import { normalizeJoynLiveChannelsAndEpg } from '../src/sources/joyn/joynEpgNorm
 import { enrichJoynCandidatesWithV2 } from '../src/sources/joyn/joynEpgV2Enrichment.js'
 import { buildJoynStationMapping } from './joyn-station-mapping.mjs'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
+import { classifyJoynAlgoliaHits } from '../src/sources/joyn/joynAlgoliaClassifier.js'
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -286,6 +287,20 @@ export async function inspectJoynRestoredSourceCacheCoverage({
     exactAmbiguityWithSourceDescription: 0,
     exactAmbiguityWithoutSourceDescription: 0,
   }
+  const cachedAlgoliaReplay = {
+    noExactJoynTypeInspected: 0,
+    noValidCachedAlgoliaHits: 0,
+    cachedAlgoliaInvalidResponse: 0,
+    cachedAlgoliaNoValidatedHit: 0,
+    cachedAlgoliaConflictingTypes: 0,
+    cachedAlgoliaMovieType: 0,
+    cachedAlgoliaSeriesType: 0,
+    matchedAfterAlgoliaType: 0,
+    stillUnresolvedAfterAlgoliaType: 0,
+    stillAmbiguousExactTitle: 0,
+    otherUnresolvedReasons: 0,
+    externalRequestsStarted: 0,
+  }
   const trustedTypeReplay = {
     ambiguousKeysInspected: 0,
     noValidCachedJoynSearch: 0,
@@ -357,8 +372,53 @@ export async function inspectJoynRestoredSourceCacheCoverage({
             trustedTypeReplay.cachedSearchWithoutTrustedType++
             const category = classifyCachedJoynSearchWithoutType(cachedSource, candidate.title)
             if (category === 'both_types') trustedTypeReplay.cachedBothMovieAndSeries++
-            else if (category === 'no_exact_type') trustedTypeReplay.cachedNoExactType++
-            else trustedTypeReplay.cachedOtherOrInvalidType++
+            else if (category === 'no_exact_type') {
+              trustedTypeReplay.cachedNoExactType++
+              // Reuse the ORIGINAL cached Algolia-hit response and classifier.
+              // The original matcher is replayed only with local candidates;
+              // private hits, titles and identities never leave this runner.
+              cachedAlgoliaReplay.noExactJoynTypeInspected++
+              const cachedHits = privateSourceLookups.get('algolia-hits-v1', candidate.title)
+              if (!cachedHits) {
+                cachedAlgoliaReplay.noValidCachedAlgoliaHits++
+              } else if (!object(cachedHits) || cachedHits.status !== 'ready' ||
+                  !Array.isArray(cachedHits.hits) || cachedHits.hits.length > 20) {
+                cachedAlgoliaReplay.cachedAlgoliaInvalidResponse++
+              } else {
+                const classified = classifyJoynAlgoliaHits({
+                  title: candidate.title,
+                  secondaryTitle: candidate.secondaryTitle,
+                }, cachedHits.hits)
+                if (classified?.type === null && classified?.reason === 'algolia_no_validated_hit') {
+                  cachedAlgoliaReplay.cachedAlgoliaNoValidatedHit++
+                } else if (classified?.type === null && classified?.reason === 'algolia_conflicting_types') {
+                  cachedAlgoliaReplay.cachedAlgoliaConflictingTypes++
+                } else if (['movie', 'series'].includes(classified?.type) &&
+                    classified?.reason === 'validated_algolia_search') {
+                  if (classified.type === 'movie') cachedAlgoliaReplay.cachedAlgoliaMovieType++
+                  else cachedAlgoliaReplay.cachedAlgoliaSeriesType++
+                  const typed = await matchJoynProgram({
+                    title: candidate.title,
+                    type: classified.type,
+                    description: candidate.description,
+                    broadcastDurationMinutes,
+                  }, { localCandidates, searchTmdb: null, loadTmdbDetails: null })
+                  if (typed?.matcherVersion !== JOYN_MATCHER_VERSION ||
+                      !['matched', 'unmatched'].includes(typed.status) ||
+                      !['local', 'local+year', 'local+description'].includes(typed.source)) {
+                    throw new Error('Unexpected offline cached Algolia matcher projection')
+                  }
+                  if (typed.status === 'matched') cachedAlgoliaReplay.matchedAfterAlgoliaType++
+                  else {
+                    cachedAlgoliaReplay.stillUnresolvedAfterAlgoliaType++
+                    if (typed.reason === 'ambiguous_exact_title') cachedAlgoliaReplay.stillAmbiguousExactTitle++
+                    else if (['no_candidate', 'below_threshold', 'ambiguous_margin'].includes(typed.reason)) {
+                      cachedAlgoliaReplay.otherUnresolvedReasons++
+                    } else throw new Error('Unexpected offline cached Algolia matcher rejection')
+                  }
+                } else cachedAlgoliaReplay.cachedAlgoliaInvalidResponse++
+              }
+            } else trustedTypeReplay.cachedOtherOrInvalidType++
           } else {
             if (type === 'movie') trustedTypeReplay.trustedMovieType++
             else trustedTypeReplay.trustedSeriesType++
@@ -409,7 +469,16 @@ export async function inspectJoynRestoredSourceCacheCoverage({
         trustedTypeReplay.cachedOtherOrInvalidType ||
       trustedTypeReplay.stillUnresolvedAfterTrustedType !==
         trustedTypeReplay.typedNoCandidate + trustedTypeReplay.typedBelowThreshold +
-        trustedTypeReplay.typedAmbiguousMargin + trustedTypeReplay.typedAmbiguousExactTitle) {
+        trustedTypeReplay.typedAmbiguousMargin + trustedTypeReplay.typedAmbiguousExactTitle ||
+      cachedAlgoliaReplay.noExactJoynTypeInspected !== trustedTypeReplay.cachedNoExactType ||
+      cachedAlgoliaReplay.noExactJoynTypeInspected !==
+        cachedAlgoliaReplay.noValidCachedAlgoliaHits + cachedAlgoliaReplay.cachedAlgoliaInvalidResponse +
+        cachedAlgoliaReplay.cachedAlgoliaNoValidatedHit + cachedAlgoliaReplay.cachedAlgoliaConflictingTypes +
+        cachedAlgoliaReplay.cachedAlgoliaMovieType + cachedAlgoliaReplay.cachedAlgoliaSeriesType ||
+      cachedAlgoliaReplay.cachedAlgoliaMovieType + cachedAlgoliaReplay.cachedAlgoliaSeriesType !==
+        cachedAlgoliaReplay.matchedAfterAlgoliaType + cachedAlgoliaReplay.stillUnresolvedAfterAlgoliaType ||
+      cachedAlgoliaReplay.stillUnresolvedAfterAlgoliaType !==
+        cachedAlgoliaReplay.stillAmbiguousExactTitle + cachedAlgoliaReplay.otherUnresolvedReasons) {
     throw new Error('Trusted Joyn type replay counts inconsistent')
   }
   const versionCompatible = matchCache.matcherVersion === JOYN_MATCHER_VERSION
@@ -448,6 +517,7 @@ export async function inspectJoynRestoredSourceCacheCoverage({
     offlineLocalRejectionReasons: unresolvedReasons,
     offlineLocalCandidateContext: unresolvedContext,
     offlineTrustedJoynTypeReplay: trustedTypeReplay,
+    offlineCachedAlgoliaReplay: cachedAlgoliaReplay,
     gate: {
       sourceKeyAndCandidateContextCompared: true,
       usableForCurrentHorizon: horizon.sourceRecent && horizon.horizonIncludesNow && versionCompatible,
@@ -461,10 +531,11 @@ export async function inspectJoynRestoredSourceCacheCoverage({
 export function isSafeJoynRestoredSourceCoverage(value) {
   const s = value?.source, m = value?.match, o = value?.offlineLocalPreflight
   const rr = value?.offlineLocalRejectionReasons, cc = value?.offlineLocalCandidateContext
-  const tr = value?.offlineTrustedJoynTypeReplay, g = value?.gate
+  const tr = value?.offlineTrustedJoynTypeReplay, ar = value?.offlineCachedAlgoliaReplay, g = value?.gate
   return keysExactly(value, ['kind', 'schemaVersion', 'mode', 'source', 'match',
     'offlineLocalPreflight', 'offlineLocalRejectionReasons',
-    'offlineLocalCandidateContext', 'offlineTrustedJoynTypeReplay', 'gate', 'limitations']) &&
+    'offlineLocalCandidateContext', 'offlineTrustedJoynTypeReplay',
+    'offlineCachedAlgoliaReplay', 'gate', 'limitations']) &&
     value.kind === 'g1e-private-joyn-original-cache-coverage' &&
     value.schemaVersion === 1 && value.mode === 'private-read-only' &&
     typeof value.limitations === 'string' &&
@@ -542,6 +613,24 @@ export function isSafeJoynRestoredSourceCoverage(value) {
       tr.cachedNoExactType + tr.cachedOtherOrInvalidType &&
     tr.stillUnresolvedAfterTrustedType === tr.typedNoCandidate +
       tr.typedBelowThreshold + tr.typedAmbiguousMargin + tr.typedAmbiguousExactTitle &&
+    keysExactly(ar, ['noExactJoynTypeInspected', 'noValidCachedAlgoliaHits',
+      'cachedAlgoliaInvalidResponse', 'cachedAlgoliaNoValidatedHit',
+      'cachedAlgoliaConflictingTypes', 'cachedAlgoliaMovieType', 'cachedAlgoliaSeriesType',
+      'matchedAfterAlgoliaType', 'stillUnresolvedAfterAlgoliaType',
+      'stillAmbiguousExactTitle', 'otherUnresolvedReasons', 'externalRequestsStarted']) &&
+    ['noExactJoynTypeInspected', 'noValidCachedAlgoliaHits',
+      'cachedAlgoliaInvalidResponse', 'cachedAlgoliaNoValidatedHit',
+      'cachedAlgoliaConflictingTypes', 'cachedAlgoliaMovieType', 'cachedAlgoliaSeriesType',
+      'matchedAfterAlgoliaType', 'stillUnresolvedAfterAlgoliaType',
+      'stillAmbiguousExactTitle', 'otherUnresolvedReasons'].every(x => integer(ar[x], MAX_RAW_EVENTS)) &&
+    ar.externalRequestsStarted === 0 &&
+    ar.noExactJoynTypeInspected === tr.cachedNoExactType &&
+    ar.noExactJoynTypeInspected === ar.noValidCachedAlgoliaHits +
+      ar.cachedAlgoliaInvalidResponse + ar.cachedAlgoliaNoValidatedHit +
+      ar.cachedAlgoliaConflictingTypes + ar.cachedAlgoliaMovieType + ar.cachedAlgoliaSeriesType &&
+    ar.cachedAlgoliaMovieType + ar.cachedAlgoliaSeriesType ===
+      ar.matchedAfterAlgoliaType + ar.stillUnresolvedAfterAlgoliaType &&
+    ar.stillUnresolvedAfterAlgoliaType === ar.stillAmbiguousExactTitle + ar.otherUnresolvedReasons &&
     s.normalizedRemainingOriginalPrograms ===
       m.exactOriginalSourceKeyPresent + m.exactOriginalSourceKeyAbsent &&
     m.exactOriginalSourceKeyPresent === m.reusablePositiveDecisions +

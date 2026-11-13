@@ -1,5 +1,18 @@
 # MovieHub #336 – G1e: echter privater Joyn-Originalmatcher-Pilot (isoliert, opt-in)
 
+## 13.11.2026 – G1e: vorhandene private Algolia-Hits für 159 fehlende Joyn-Quelltypen auswerten
+
+Der letzte bestätigte geschützte Audit [#43312369870](https://github.com/matthias-ennen/movie-hub/actions/runs/43312369870) lieferte für einen aktuellen Quellenhorizont **159** ohne eindeutigen SearchQ-Originaltyp (`no_joyn_type`); weitere **21** weiterhin offene Fälle sind trotz eindeutigem Typ innerhalb desselben Typs exakt titelmehrdeutig. Alle übrigen Klassifikationsfamilien und Summen bleiben unverändert.
+
+Der nächste *rein lokale und geschützte* Read-only-Audit nutzt **ausschließlich** den bereits restaurierten privaten `JoynLookupCache.get('algolia-hits-v1', originalTitle)` mit originaler **7-Tage-TTL**. Nur `status=ready` und höchstens **20** Hits werden über den **unveränderten originalen** `classifyJoynAlgoliaHits({ title, secondaryTitle }, cached.hits)` geprüft. Die Ausgabe gruppiert lediglich feste numerische Zähler: cache missing/stale, ungültige gecachte Antwort, keine validierten Treffer, konfligierende Film-/Serientypen, konservativ validierte Movie-/Series-Klassifikation. Für letztere erfolgt ausschließlich eine **hypothetische** Offline-Zweitprüfung per bestehendem Original-`matchJoynProgram` mit `searchTmdb:null` und `loadTmdbDetails:null`. Bereits bestehende gleichnamige TMDB-Kollisionen werden **nicht** heuristisch aufgelöst.
+
+**Beide Rechensummen sind Sicherheitsgates:** Alle 159 SearchQ-No-Type-Fälle müssen exakt auf die Algolia-Kategorien aufgeteilt werden, alle typisierten lokalen Zweitprüfungen exakt auf aufgelöst und weiterhin offen. Ergebnisfelder, Feldnamen und numerische Grenzen werden vor jedem Bericht/Upload strikt allowlist-geprüft; `externalRequestsStarted=0` ist obligatorisch. Ausschließlich synthetische Regressionen auf PR-Branches, private Quell- und Cache-Rohdaten nur auf geschütztem `main` im ephemeren Runner.
+
+**Keine** Originaltitel/IDs/Hashes/Rohhits oder personenbezogenen Daten in Artefakten oder Logs. Keine Joyn-/Algolia-/TMDB-Anfragen, keine neue 14-Tage-Synchronisierung, kein A/B-HTTP-Vergleich, kein Produktionsmatching, kein behaupteter TMDB-Einspareffekt, keine G1e-Quittungsfreigabe und **keine** Aktivierung des Shared EPG Index. G0-Lizenz- und Quellenfragen für XMLTV bleiben separat offen.
+
+---
+
+
 ## 12.11.2026 – G1e: die verbleibenden SearchQ-Mehrdeutigkeiten rein lokal unterscheiden
 
 Der geschützte Read-only-Lauf [#43294753080](https://github.com/matthias-ennen/movie-hub/actions/runs/43294753080) mit PR #794 ergab für **181** exakt mehrdeutige Originaltitel: **0** fehlende/ungültige Lookup-Cacheantworten, **159** Antworten ohne vertrauenswürdigen eindeutigen Quelltyp, **8** belegte Movie- und **14** belegte Series-Typen. Im rein lokalen Matcher-Zweitdurchlauf wurde **1** zusätzlicher Fall nur hypothetisch aufgelöst; **21** der typisierten Fälle bleiben offen. Es bestehen weiter 622 unterschiedliche fehlende Originalcache-Schlüssel; es gibt keine neuen freigegebenen Quittungen.
