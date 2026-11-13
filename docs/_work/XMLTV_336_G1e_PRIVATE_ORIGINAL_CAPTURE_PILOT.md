@@ -1,5 +1,18 @@
 # MovieHub #336 – G1e: echter privater Joyn-Originalmatcher-Pilot (isoliert, opt-in)
 
+## 13.11.2026 – G1e: originaler Filmlaufzeit-Matcher gegen ausschließlich geprüfte Cache-Details
+
+**Ausgangslage:** Der vollständig grüne private [Bestands-Audit #43418701677](https://github.com/matthias-ennen/movie-hub/actions/runs/43418701677) nach #803/#804 bestätigt bei **79** rein gleichartigen exakten Titeldubletten **6** mit sicherem Quelltyp und **6** mit Quelle+allen TMDB-Beschreibungen (unbekannte Schnittmenge). Es gibt **genau eine** verlässlich als Film typisierte Titelgruppe mit positiver Original-Sendedauer und sämtlichen aktuellen TMDB-Laufzeitantworten.
+
+**Neuer Offline-Folgeschritt:** Der geschützte Code zählt zunächst als zusätzliche reine Summe, bei wie vielen Same-Type-Gruppen **Quelltyp + Quellbeschreibung + ausnahmslos alle exakten TMDB-Overviews gleichzeitig** vorliegen. Er überprüft dann die originale Laufzeitregel ausschließlich bei sicherem Quelltyp `movie` mit mindestens zwei gleichnamigen Movie-IDs, positiver Original-Sendedauer und vollständig stillgültigen `tmdb-search-v1`-Detailantworten. Neben der ursprünglichen 7-Tage-TTL und den vorhandenen gültigen Minutenwerten muss **jede** gespeicherte Detailantwort die erwartete echte TMDB-ID korrekt ausweisen. Sind die IDs nicht überprüfbar, wird kein Laufzeit-Replay gestartet; es gibt keine Ersatzannahmen.
+
+Zur eigentlichen Prüfung dient *ausschließlich* der unveränderte `matchJoynProgram` samt seiner unveränderten Originalfunktion `disambiguateMovieByBroadcastDuration`. Zwei fest im Speicher gebundene, rein lokale Callbacks liefern die schon vollständig gespeicherten Erstsuchtreffer und exakt überprüften Minutenwerte; es existiert im Prüfpfad **kein** HTTP-Client/Token/Providerfetch. Die Laufzeitauflösung ist nur dann hypothetisch erfolgreich, wenn die Originalregel **exakt einen** plausiblen Film und **alle** weiteren Filme mit nachweislich unmöglicher Laufzeit findet. Andernfalls bleibt der Titel exakt mehrdeutig. Die Zahl der tatsächlich beanspruchten Detailcallbacks muss der Zahl aller unterschiedlichen exakten Filmidentitäten entsprechen. Rückgaben, Logs und Artefakte enthalten ausschließlich feste aggregierte nichtnegative Integer-Zähler und nie konkrete Titel, TMDB-IDs, Laufzeiten, Beschreibungen, Aliasnamen oder Matchobjekte.
+
+**Wichtige Begrenzung:** Die Laufzeit-Stichprobe ist eine **hypothetische, cache-only Projektion** auf einen repräsentativen Originaltitel mit jahrfreier Basissuche. Der produktive Originalmatcher wird nicht umgebaut und keine Entscheidung zurückgeschrieben. Die ursprüngliche `offlineCachedTmdbMatcherReplay.hypotheticalMatched`-Zahl bleibt unverändert; erfolgreich über Laufzeit aufgelöste Fälle werden separat als `runtimeReplayHypotheticalMatched` gezählt. Daraus folgt **weder** sofortiger Einsatz noch realer Einsparungsnachweis. Kein neuer Quelllauf, keine TMDB-/Joyn-/Algolia-API, keine Umgehung der G0-Rechteprüfung, `freshOriginalMatcherReceiptsApproved=false`, `measuredProductionSavings=null`, Shared EPG Index bleibt deaktiviert.
+
+---
+
+
 ## 13.11.2026 – G1e: feste Aggregatgröße nach erweitertem Same-Type-Preflight
 
 Der geschützte [Audit #43417244710](https://github.com/matthias-ennen/movie-hub/actions/runs/43417244710) nach PR #803 hat aus dem originalen privaten Checkpoint erfolgreich einen **schema- und zahlengeprüften** Bericht erstellt, scheiterte jedoch nach der Berechnung am **zweiten Artefaktgate**: das erlaubte kompakte JSON war mit **4.367 ASCII-Zeichen** länger als die bisherige pauschale 4.096-Zeichen-Schwelle. Die Rohdaten, Quellen und Matches wurden dadurch nicht veröffentlicht; der geschützte Lauf ist wegen des blockierten aggregierten Artefakts zu Recht **rot**, nicht grün.
