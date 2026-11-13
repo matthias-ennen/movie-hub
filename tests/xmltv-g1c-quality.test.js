@@ -123,6 +123,42 @@ describe('G1c real source quality audit (offline fixtures)', () => {
     expect(JSON.stringify(report)).not.toContain('Testfilm')
   })
 
+  it('includes real parser output in a six-station independent fallback QA, without titles', async () => {
+    const feeds = [
+      { id: 'freeepg', url: 'https://test.invalid/freeepg' },
+      { id: 'epgshare01', url: 'https://test.invalid/epgshare01' },
+    ]
+    const data = await runG1cProbe({
+      now: NOW, feedList: feeds, catalogEntries: rows,
+      downloader: async () => ({
+        xml, compressedBytes: 1234, xmlBytes: xml.length,
+      }),
+    })
+    expect(data).toMatchObject({
+      mode: 'read-only', sixStationsOnly: true,
+      readiness: {
+        availableIndependentFamilies: 2,
+        stationsWithIndependentFallback: 1,
+        stationsWithFiveDayCoverageInAnyFamily: 0,
+        stationsWithTwoCompleteIndependentFamilies: 0,
+        allStationsHaveIndependentFallback: false,
+        primaryFiveDaySnapshot: false,
+        stationFallback: {
+          zdf: {
+            availableIndependentFamilies: 2, primaryCoverageMinutes: 240,
+            independentFallbackCoverageMinutes: 240,
+          },
+          ard: {
+            availableIndependentFamilies: 0, primaryCoverageMinutes: 0,
+            independentFallbackCoverageMinutes: 0,
+          },
+        },
+      },
+    })
+    expect(JSON.stringify(data)).not.toContain('Testfilm')
+    expect(JSON.stringify(data)).not.toContain('Testserie')
+  })
+
   it('extends explicit German Film/Serie labels without guessing ambiguous genres', () => {
     expect(reviewedXmltvCategoryType('Krimiserie')).toBe('series')
     expect(reviewedXmltvCategoryType('Zeichentrickserie')).toBe('series')
