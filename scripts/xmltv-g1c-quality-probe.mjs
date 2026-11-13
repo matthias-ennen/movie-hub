@@ -202,11 +202,13 @@ function markdownSummary(report) {
       ' | ' + (r.parsedEpisodes ?? '—') +
       ' | ' + (r.localReferenceMatches ?? '—') + ' |')
   }
-  lines.push('', '**Five-day readiness:** ' +
-    report.readiness.completeIndependentFamilies + '/' +
-    report.readiness.requiredIndependentFamilies +
-    ' independently sourced content families fully cover all six stations for 120h at this observation. ' +
-    (report.readiness.sufficientIndependentCoverageSnapshot ? 'Snapshot requirement met.' : 'Snapshot requirement NOT met.'),
+  lines.push('', '**Five-day EPG snapshot:** Primary: ' +
+    (report.readiness.primaryFiveDaySnapshot ? 'full 120h across six stations' : 'not proven') +
+    '; independent available source families: ' + report.readiness.availableIndependentFamilies +
+    '; independent fallback observed: ' +
+    (report.readiness.independentFallbackSnapshot ? 'yes' : 'no') +
+    '; full 120h in two independent families: ' +
+    (report.readiness.sufficientIndependentCoverageSnapshot ? 'yes' : 'no') + '.',
     '', '**Interpretation:** local-reference hits are NOT overall TMDB match coverage.',
     'Only reviewed six stations, titles are not printed, no MovieHub data is published.')
   return lines.join('\n') + '\n'
