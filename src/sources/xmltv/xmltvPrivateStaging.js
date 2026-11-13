@@ -6,7 +6,7 @@
  * Each source is its own generation, even when two hosts share content.
  * Source-specific horizons of two, three or fewer days remain useful.
  */
-import { XMLTV_REVIEWED_STATIONS } from './xmltvStationMappings.js'
+import { XMLTV_REVIEWED_STATIONS, reviewedXmltvStation } from './xmltvStationMappings.js'
 import { XMLTV_VERIFIED_SOURCE_FAMILIES } from './xmltvSourceReadiness.js'
 import { measureXmltvAvailableHorizon } from './xmltvAvailableHorizon.js'
 
@@ -35,6 +35,11 @@ function validProvenance(row, sourceId, observedAt) {
     row.title.length > 12_000 ||
     row.timestampsExplicitlyZoned !== true) return false
 
+  // Caller-independent identity check. A forged candidate must not claim
+  // ZDF sourceStationId while borrowing ARD's canonical channel identity.
+  const mapped = reviewedXmltvStation(sourceId, row.sourceStationId)
+  if (!mapped || mapped.stationId !== row.canonicalStationId ||
+      mapped.stationName !== row.stationName) return false
   const ref = row.sourceRef
   if (ref?.sourceId !== 'xmltv:' + sourceId ||
     ref.observedAt !== observedAt ||
