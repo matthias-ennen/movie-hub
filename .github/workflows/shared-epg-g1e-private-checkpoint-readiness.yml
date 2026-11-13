@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - scripts/epg-g1e-private-checkpoint-readiness.mjs
+      - scripts/epg-g1i-private-joyn-original-loader.mjs
+      - tests/epg-g1i-private-joyn-original-loader.test.js
       - scripts/epg-g1e-private-waipu-ab-preflight.mjs
       - scripts/epg-g1e-stream-private-cache-count.mjs
       - scripts/epg-g1e-private-joyn-cache-ttl-audit.mjs
@@ -47,7 +49,7 @@ jobs:
           node-version: '22'
       - run: npm ci --ignore-scripts
       - name: Only synthetic mock data are permitted in PR tests
-        run: npx vitest run tests/epg-g1e-private-joyn-source-cache-coverage.test.js tests/joyn-match-cache.test.js tests/epg-g1e-private-joyn-cache-ttl-audit.test.js tests/epg-g1e-stream-private-cache-count.test.js tests/epg-g1e-private-checkpoint-readiness.test.js tests/epg-g1e-real-ab-readiness.test.js tests/epg-g1e-compare-tmdb-transport.test.js tests/epg-g1e-private-waipu-ab-preflight.test.js
+        run: npx vitest run tests/epg-g1e-private-joyn-source-cache-coverage.test.js tests/joyn-match-cache.test.js tests/epg-g1e-private-joyn-cache-ttl-audit.test.js tests/epg-g1e-stream-private-cache-count.test.js tests/epg-g1e-private-checkpoint-readiness.test.js tests/epg-g1i-private-joyn-original-loader.test.js tests/epg-g1e-real-ab-readiness.test.js tests/epg-g1e-compare-tmdb-transport.test.js tests/epg-g1e-private-waipu-ab-preflight.test.js
 
   private-readiness:
     name: Restore real PRIVATE Waipu/Joyn checkpoints without source API calls
@@ -122,6 +124,17 @@ jobs:
           node scripts/epg-g1e-private-waipu-ab-preflight.mjs \
             --root . \
             --output artifacts/g1e-private-checkpoint-audit/waipu-ab-preflight.json
+      - name: Read both ORIGINAL Joyn cache readers under a bounded private memory budget
+        run: |
+          node --max-old-space-size=4096 scripts/epg-g1i-private-joyn-original-loader.mjs             --root .             --output artifacts/g1e-private-checkpoint-audit/joyn-original-reader.json
+      - name: Verify G1i original reader report has no private fields or inferred approvals
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            import { isSafeG1iOriginalReaderReport } from "./scripts/epg-g1i-private-joyn-original-loader.mjs";
+            const x = JSON.parse(readFileSync("artifacts/g1e-private-checkpoint-audit/joyn-original-reader.json", "utf8"));
+            if (!isSafeG1iOriginalReaderReport(x)) process.exit(1);
+          '
       - name: Upload ONLY anonymized aggregates – never raw programme caches
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
