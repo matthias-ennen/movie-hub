@@ -19,6 +19,7 @@ const MAX_SAMPLE_FILES = 12
 const MAX_SAMPLE_FILE_BYTES = 16 * 1024 * 1024
 const MAX_CACHE_ROWS = 400_000
 const DAY = 86_400_000
+const G1I_MAX_SOURCE_STATUS_AGE_MS = 48 * 60 * 60 * 1000
 
 const safeObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
 const validTime = (value) => typeof value === 'string' && Number.isFinite(Date.parse(value))
@@ -36,6 +37,19 @@ function ageDays(value, now) {
   const elapsed = now - Date.parse(value)
   if (elapsed < 0 || elapsed > 3650 * DAY) return null
   return Math.round(elapsed / DAY * 10) / 10
+}
+
+// A healthy sync status from a historical checkpoint is not proof that its
+// programme data are current. Only UTC status timestamps within 48 hours may
+// pass the G1i private staging PRE-FLIGHT, never the actual production gate.
+function recentSourceStatus(value, now) {
+  if (typeof value !== 'string' ||
+      !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(value)) return null
+  const stamp = Date.parse(value)
+  if (!Number.isFinite(stamp) || stamp > now) return null
+  const ageMs = now - stamp
+  if (ageMs > G1I_MAX_SOURCE_STATUS_AGE_MS) return null
+  return Math.round(ageMs / 3_600_000 * 10) / 10
 }
 
 function waipuProgrammeCount(records) {
@@ -126,9 +140,19 @@ export function inspectPrivateG1eSourceState({
   const waipuSyncComplete = waipuStatus?.status === 'complete'
   const joynSyncComplete = joynStatus?.status === 'complete'
   const sourceStatusAvailable = waipuSyncComplete && joynSyncComplete
+  const waipuStatusAgeHours = recentSourceStatus(waipuStatus?.generatedAt, now)
+  const joynStatusAgeHours = recentSourceStatus(joynStatus?.generatedAt, now)
+  const recentHealthySourceStatuses = sourceStatusAvailable &&
+    waipuStatusAgeHours !== null && joynStatusAgeHours !== null
+  const privateCapturePreflightSuitable = recentHealthySourceStatuses &&
+    waipuSlots > 0 && joynWindows > 0 && rawSourceTitlesSampled &&
+    cacheSnapshotsPresent && oversizedWaipuSampleFiles === 0 &&
+    oversizedJoynSampleFiles === 0 && oversizedMatcherCacheFiles === 0 &&
+    failedCacheStreamCounts === 0
 
   const missing = []
   if (!sourceStatusAvailable) missing.push('complete_waipu_and_joyn_sync_status')
+  if (!recentHealthySourceStatuses) missing.push('recent_waipu_and_joyn_source_statuses')
   if (waipuSlots === 0 || joynWindows === 0) missing.push('populated_source_checkpoint')
   if (!rawSourceTitlesSampled) missing.push('original_raw_epg_title_sample')
   if (!cacheSnapshotsPresent) missing.push('all_original_matcher_and_response_caches')
@@ -151,11 +175,13 @@ export function inspectPrivateG1eSourceState({
       syncComplete: waipuSyncComplete,
       checkpointSlots: waipuSlots,
       checkpointAgeDays: ageDays(waipuCheckpoint.updatedAt, now),
+      statusAgeHours: waipuStatusAgeHours,
       ...waipuCount,
       originalMatcherCacheEntries: waipuDecisionEntries,
     },
     joyn: {
       syncComplete: joynSyncComplete,
+      statusAgeHours: joynStatusAgeHours,
       checkpointWindows: joynWindows,
       ...joynCount,
       originalMatcherCacheEntries: joynDecisionEntries,
@@ -170,6 +196,12 @@ export function inspectPrivateG1eSourceState({
       failedCacheStreamCounts,
     },
     gate: {
+      // This only authorizes further isolated staging PREPARATION, not API
+      // calls, shared-cache reads, matching decisions, or production use.
+      recentHealthyOriginalSourceStatuses: recentHealthySourceStatuses,
+      g1iPrivateCapturePreflightSuitable: privateCapturePreflightSuitable,
+      g1iLiveSourceRequestApproval: false,
+      g1iActualSharedCacheSnapshotObserved: false,
       existingPrivateSourceDataAccessible: sourceStatusAvailable &&
         rawSourceTitlesSampled && waipuSlots > 0 && joynWindows > 0,
       originalCachesPresent: cacheSnapshotsPresent,
@@ -180,7 +212,7 @@ export function inspectPrivateG1eSourceState({
       actualAvoidedTmdbRequests: null,
       missing,
     },
-    limitations: 'Sampled PRIVATE source caches only; no matching, TMDB requests, provider routes or cache publication.',
+    limitations: 'Sampled PRIVATE source caches and recent status timestamps only; timestamp freshness cannot prove programme completeness, source license, matcher approvals or safe live API-call budget. No matching, TMDB requests, provider routes or cache publication.',
   }
 }
 
