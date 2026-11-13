@@ -760,6 +760,103 @@ describe('G1e original private source key/context coverage without network calls
     expect(isSafeJoynRestoredSourceCoverage(stale)).toBe(true)
   })
 
+
+  it('does not replay a Joyn title with missing cached original TMDB first responses', async () => {
+    const report = await inspectJoynRestoredSourceCacheCoverage(input())
+    expect(report.offlineCachedTmdbMatcherReplay).toEqual({
+      titleGroupsInspected: 1, completeFirstPassCache: 0,
+      skippedMissingCache: 1, skippedUnsafeResponse: 0,
+      replayedTypedMovie: 0, replayedTypedSeries: 0, replayedUntyped: 0,
+      hypotheticalMatched: 0, unmatchedNoCandidate: 0,
+      unmatchedBelowThreshold: 0, unmatchedAmbiguousMargin: 0,
+      unmatchedAmbiguousExactTitle: 0, externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+    expect(JSON.stringify(report)).not.toContain(programs[2].title)
+  })
+
+  it('replays only the ORIGINAL matcher on one complete cached trusted-movie response', async () => {
+    const value = input()
+    const title = programs[2].title
+    const lookup = new JoynLookupCache({}, NOW)
+    lookup.set('joyn-title-v1', title, {
+      type: 'movie', reason: 'exact_joyn_search', exactTypes: ['movie'],
+      exactCount: 1, exactResults: [{ type: 'movie', joynType: 'Movie', title }],
+    })
+    lookup.set('tmdb-search-v1', JSON.stringify(['/search/movie', {
+      language: 'de-DE', query: title, include_adult: 'false',
+    }]), { results: [{
+      id: 88321, title, original_title: title, release_date: '2001-01-01',
+      overview: 'PRIVATE_TMDB_OVERVIEW_MUST_NOT_LEAK',
+    }] })
+    value.lookupCache.entries = lookup.entries
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.offlineCachedTmdbMatcherReplay).toMatchObject({
+      titleGroupsInspected: 1, completeFirstPassCache: 1,
+      skippedMissingCache: 0, skippedUnsafeResponse: 0,
+      replayedTypedMovie: 1, replayedTypedSeries: 0, replayedUntyped: 0,
+      hypotheticalMatched: 1, unmatchedNoCandidate: 0,
+      unmatchedAmbiguousExactTitle: 0, externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+    for (const raw of [title, '88321', 'PRIVATE_TMDB_OVERVIEW_MUST_NOT_LEAK']) {
+      expect(JSON.stringify(report)).not.toContain(raw)
+    }
+  })
+
+  it('does not promote two cached exact TMDB identities of an unknown type', async () => {
+    const value = input()
+    const title = programs[2].title
+    const lookup = new JoynLookupCache({}, NOW)
+    lookup.set('tmdb-search-v1', JSON.stringify(['/search/movie', {
+      language: 'de-DE', query: title, include_adult: 'false',
+    }]), { results: [{ id: 511, title }] })
+    lookup.set('tmdb-search-v1', JSON.stringify(['/search/tv', {
+      language: 'de-DE', query: title, include_adult: 'false',
+    }]), { results: [{ id: 512, name: title }] })
+    value.lookupCache.entries = lookup.entries
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.offlineCachedTmdbMatcherReplay).toMatchObject({
+      titleGroupsInspected: 1, completeFirstPassCache: 1,
+      replayedUntyped: 1, hypotheticalMatched: 0,
+      unmatchedAmbiguousExactTitle: 1,
+      externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+    expect(JSON.stringify(report)).not.toContain(title)
+  })
+
+  it('skips partial and malformed cached responses instead of assuming an empty search', async () => {
+    const value = input()
+    const title = programs[2].title
+    const lookup = new JoynLookupCache({}, NOW)
+    const movieKey = JSON.stringify(['/search/movie', {
+      language: 'de-DE', query: title, include_adult: 'false',
+    }])
+    lookup.set('tmdb-search-v1', movieKey, {
+      results: [{ id: 'PRIVATE_INVALID_TMDB_ID', title }],
+    })
+    value.lookupCache.entries = lookup.entries
+    const unsafe = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(unsafe.offlineCachedTmdbMatcherReplay).toMatchObject({
+      titleGroupsInspected: 1, completeFirstPassCache: 0,
+      skippedMissingCache: 0, skippedUnsafeResponse: 1,
+      hypotheticalMatched: 0, externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(unsafe)).toBe(true)
+    expect(JSON.stringify(unsafe)).not.toContain('PRIVATE_INVALID_TMDB_ID')
+
+    lookup.entries[lookup.cacheKey('tmdb-search-v1', movieKey)].checkedAt =
+      new Date(NOW - 8 * 86_400_000).toISOString()
+    value.lookupCache.entries = lookup.entries
+    const expired = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(expired.offlineCachedTmdbMatcherReplay).toMatchObject({
+      completeFirstPassCache: 0, skippedMissingCache: 1,
+      skippedUnsafeResponse: 0, externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(expired)).toBe(true)
+  })
+
   it('honours modified original source description and duration in hash identity', async () => {
     const value = input()
     value.windowRecords[2].items[0].program.description = 'Different original description'
@@ -833,6 +930,9 @@ describe('G1e original private source key/context coverage without network calls
       { ...report, offlineNoLocalTmdbFirstPassCache: { ...report.offlineNoLocalTmdbFirstPassCache, externalRequestsStarted: 1 } },
       { ...report, offlineNoLocalTmdbFirstPassCache: { ...report.offlineNoLocalTmdbFirstPassCache, modelMovieSearchSlots: 99 } },
       { ...report, offlineNoLocalTmdbFirstPassCache: { ...report.offlineNoLocalTmdbFirstPassCache, cachedReadySearchResponses: 2 } },
+      { ...report, offlineCachedTmdbMatcherReplay: { ...report.offlineCachedTmdbMatcherReplay, rawTmdbId: SECRET } },
+      { ...report, offlineCachedTmdbMatcherReplay: { ...report.offlineCachedTmdbMatcherReplay, externalRequestsStarted: 1 } },
+      { ...report, offlineCachedTmdbMatcherReplay: { ...report.offlineCachedTmdbMatcherReplay, hypotheticalMatched: 99 } },
       { ...report, gate: { ...report.gate, freshOriginalMatcherReceiptsApproved: true } },
       { ...report, gate: { ...report.gate, measuredProductionSavings: 100 } },
       { ...report, mode: SECRET },
