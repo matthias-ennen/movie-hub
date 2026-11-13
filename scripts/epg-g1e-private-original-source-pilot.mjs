@@ -26,6 +26,10 @@ import { runIsolatedG1eCapturePilot } from
   './epg-g1e-isolated-pilot-core.mjs'
 import { summarizePrivateJoynCaptureFailureTrace } from
   './epg-g1e-private-joyn-source-trace.mjs'
+import {
+  openIsolatedJoynTmdbCapture,
+  finishIsolatedJoynTmdbCapture,
+} from './epg-g1i-isolated-joyn-capture.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 // A 14-day 56-window source run required 180 requests for 46 windows;
@@ -208,6 +212,13 @@ async function runOriginalPilot({ mode, telemetry }) {
   const candidates = localTmdbCandidates({ catalog, searchIndex })
   if (!candidates.length) throw new Error('G1E_ORIGINAL_LOCAL_MATCHER_DATA_MISSING')
 
+  // Only explicit isolated PRIVATE pilot runs may record new ORIGINAL Joyn
+  // TMDB HTTP search replies; there are no shared cache reads or new calls.
+  const tmdbCapture = await openIsolatedJoynTmdbCapture({
+    explicitOptIn: process.env.MOVIEHUB_SHARED_TMDB_CAPTURE,
+    isPrivatePilot: process.env.G1E_PRIVATE_PILOT_ISOLATED === '1',
+    projectRoot: ROOT, now,
+  })
   const originalFetch = globalThis.fetch
   const boundary = networkBoundary(originalFetch)
   globalThis.fetch = boundary.fetchImpl
@@ -225,6 +236,7 @@ async function runOriginalPilot({ mode, telemetry }) {
             fetchImpl: boundary.fetchImpl,
             now: Date.now(),
             publicationOutput: join(ROOT, 'artifacts/g1e-private-pilot/joyn-local'),
+            tmdbResponseCapture: tmdbCapture,
           })
         },
         generateWaipu: options => buildWaipuLiveCatalog({
@@ -255,8 +267,15 @@ async function runOriginalPilot({ mode, telemetry }) {
           }),
       }),
     )
+    // A failed or incomplete G1e original source generation never publishes
+    // a partial shared response snapshot. G1e success is only capture
+    // eligibility, NOT permission to reuse any TMDB identity or call an API.
+    const privateTmdbCapture = await finishIsolatedJoynTmdbCapture({
+      capture: tmdbCapture, pilotReport: report,
+    })
     return {
       ...report,
+      ...(privateTmdbCapture ? { privateTmdbCapture } : {}),
       network: {
         boundedAllowlistedFetches: boundary.count(),
         globalFetchBudget: MAX_GLOBAL_FETCHES,
