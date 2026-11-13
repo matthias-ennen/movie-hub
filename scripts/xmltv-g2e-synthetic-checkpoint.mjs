@@ -46,7 +46,17 @@ const fakeOrInvalid = value =>
     (Array.isArray(row?.categories) && row.categories.length))
 
 function checkedReport(sourceId, generation, now) {
-  if (fakeOrInvalid(generation)) throw new TypeError('Non-synthetic XMLTV data prohibited')
+  // Compare the ENTIRE deterministic source-generation structure, including
+  // nested episode/metadata/provenance, against fresh code-generated QA data.
+  // Checking only the title would permit original source material to sneak
+  // into optional fields and then be retained by Cloud Storage.
+  if (fakeOrInvalid(generation) ||
+      !utc(generation?.observedAt) ||
+      JSON.stringify(generation) !== JSON.stringify(makeSyntheticGeneration({
+        sourceId, now: Date.parse(generation.observedAt),
+      }))) {
+    throw new TypeError('Non-synthetic XMLTV data prohibited')
+  }
   const report = replayXmltvPrivateLkg([
     { sourceId, lastKnownGood: generation },
   ], { now })
