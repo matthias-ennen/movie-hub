@@ -19,7 +19,7 @@ const roots = []
 const iso = ms => new Date(ms).toISOString()
 function utcXmltv(ms) {
   const date = new Date(ms)
-  return date.toISOString().replace(/[-:]/g, '').slice(0, 14) + ' +0000'
+  return date.toISOString().replace(/[-:T]/g, '').slice(0, 14) + ' +0000'
 }
 const sourceStationId = (sourceId, stationId) => {
   const entries = XMLTV_REVIEWED_STATION_MAPPINGS[sourceId]
