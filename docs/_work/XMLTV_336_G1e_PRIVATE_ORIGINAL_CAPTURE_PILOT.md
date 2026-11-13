@@ -1,5 +1,14 @@
 # MovieHub #336 – G1e: echter privater Joyn-Originalmatcher-Pilot (isoliert, opt-in)
 
+## 13.11.2026 – G1e: feste Aggregatgröße nach erweitertem Same-Type-Preflight
+
+Der geschützte [Audit #43417244710](https://github.com/matthias-ennen/movie-hub/actions/runs/43417244710) nach PR #803 hat aus dem originalen privaten Checkpoint erfolgreich einen **schema- und zahlengeprüften** Bericht erstellt, scheiterte jedoch nach der Berechnung am **zweiten Artefaktgate**: das erlaubte kompakte JSON war mit **4.367 ASCII-Zeichen** länger als die bisherige pauschale 4.096-Zeichen-Schwelle. Die Rohdaten, Quellen und Matches wurden dadurch nicht veröffentlicht; der geschützte Lauf ist wegen des blockierten aggregierten Artefakts zu Recht **rot**, nicht grün.
+
+Dieser Fix erweitert **nur** das Längenlimit auf **5.120 Zeichen** und behält unverändert die strikte `isSafeJoynRestoredSourceCoverage`-Prüfung mit exakt erlaubten Feldnamen, nichtnegativen Integerzählern, Summenbeziehungen und `externalRequestsStarted=0`. Das Log führte nur numerische Aggregate, keine Originaltitel, IDs, Hashes oder Beschreibungen. Weder das Produktivmatching noch TMDB- oder Provider-Budgets werden geändert. Eine erneute geschützte Bestandsprüfung ist erst nach grünen PR-Checks, Merge und explizitem einmaligem Read-only-Marker gestattet.
+
+---
+
+
 ## 13.11.2026 – G1e: zusätzliche Evidenz für gleichnamige Film-/Serien-IDs (weiterhin offline)
 
 Der [private Originalmatcher-Audit #43404733445](https://github.com/matthias-ennen/movie-hub/actions/runs/43404733445) auf #802 zählt **135** noch relevante Titelgruppen (davon **126** vollständige TMDB-Cache-Erstantwortgruppen); **124** von 126 ursprünglichen Matchversuchen bleiben exakt titelmehrdeutig (79 nur Kollisionen **innerhalb eines Medientyps**, 7 nur Film/Serie, 38 kombiniert), **2** haben keinen gültigen Kandidaten, **0** wurden hypothetisch gematcht. Der Unterschied zu vorherigen 136/127/125 ist dem fortschreitenden 14-Tage-Fenster geschuldet.
