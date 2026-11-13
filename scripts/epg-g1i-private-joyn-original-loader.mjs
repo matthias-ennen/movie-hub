@@ -85,12 +85,43 @@ export async function inspectOriginalJoynCacheLoad({
   }
 }
 
+/** Reject everything except fixed enums/numeric aggregates before upload. */
+export function isSafeG1iOriginalReaderReport(value) {
+  const keys = (value, wanted) => value && typeof value === 'object' &&
+    !Array.isArray(value) && Object.keys(value).sort().join('|') === wanted.slice().sort().join('|')
+  const row = value => keys(value, ['status', 'count', 'sizeMiB']) &&
+    ['loaded', 'unavailable', 'too_large'].includes(value.status) &&
+    (value.status === 'loaded'
+      ? Number.isSafeInteger(value.count) && value.count >= 0 &&
+        value.count <= G1I_ORIGINAL_LOAD_MAX_ROWS &&
+        typeof value.sizeMiB === 'number' && Number.isFinite(value.sizeMiB) &&
+        value.sizeMiB >= 0 && value.sizeMiB <= 600
+      : value.count === null && value.sizeMiB === null)
+  const g = value?.gate
+  return keys(value, ['kind', 'schemaVersion', 'mode', 'matcher', 'responses', 'gate']) &&
+    value.kind === 'g1i-private-joyn-original-cache-reader' &&
+    value.schemaVersion === 1 && value.mode === 'private-read-only' &&
+    row(value.matcher) && row(value.responses) &&
+    keys(g, ['bothOriginalReadersLoadable', 'sourceFreshnessSeparatelyRequired',
+      'originalMatcherReceiptsApproved', 'liveSourceRequestApproved',
+      'sharedTmdbCacheReadsApproved', 'measuredProductionSavings']) &&
+    g.bothOriginalReadersLoadable ===
+      (value.matcher.status === 'loaded' && value.responses.status === 'loaded') &&
+    g.sourceFreshnessSeparatelyRequired === true &&
+    g.originalMatcherReceiptsApproved === false &&
+    g.liveSourceRequestApproved === false &&
+    g.sharedTmdbCacheReadsApproved === false &&
+    g.measuredProductionSavings === null &&
+    JSON.stringify(value).length < 1200
+}
+
 async function main(argv) {
   if (argv.length !== 4 || argv[0] !== '--root' || argv[2] !== '--output') {
     throw new TypeError('Expected explicit private root and aggregate output path')
   }
   const outputPath = resolve(argv[3])
   const result = await inspectOriginalJoynCacheLoad({ root: argv[1] })
+  if (!isSafeG1iOriginalReaderReport(result)) throw new TypeError('Unsafe private aggregate')
   const file = await (async () => {
     await mkdir(dirname(outputPath), { recursive: true, mode: 0o700 })
     return open(outputPath, 'wx', 0o600)
