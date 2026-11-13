@@ -1,0 +1,129 @@
+name: XMLTV G2e private SYNTHETIC durable checkpoint QA (no original EPG)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/xmltv-g2e-synthetic-checkpoint.mjs
+      - tests/xmltv-g2e-synthetic-checkpoint.test.js
+      - .github/workflows/xmltv-g2e-synthetic-durable.yml
+  push:
+    branches: [main]
+    paths:
+      - scripts/xmltv-g2e-synthetic-checkpoint.mjs
+      - .github/workflows/xmltv-g2e-synthetic-durable.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xmltv-g2e-synthetic-qa
+  cancel-in-progress: false
+
+jobs:
+  unit-tests:
+    name: Verify G2e immutable private QA checkpoint with offline fake storage
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Assert synthetic-only writes, integrity, source isolation, TTL and no-publication
+        run: npx vitest run tests/xmltv-g2e-synthetic-checkpoint.test.js tests/xmltv-g2-private-lkg-replay.test.js
+
+  write-synthetic:
+    name: Store ONLY one synthetic XMLTV programme in separate private GCS prefix
+    needs: unit-tests
+    if: >-
+      ${{
+        github.event_name == 'push' &&
+        github.ref == 'refs/heads/main' &&
+        contains(github.event.head_commit.message, '[xmltv-g2e-qa-once]')
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DATA_CHECKPOINT_ENABLED: ${{ vars.MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED }}
+      DATA_CHECKPOINT_BUCKET: ${{ vars.MOVIE_HUB_CHECKPOINT_BUCKET }}
+      MOVIEHUB_G2E_SYNTHETIC_QA: enabled
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: |
+          test "$DATA_CHECKPOINT_ENABLED" = "true"
+          test "$DATA_CHECKPOINT_BUCKET" = "movie-hub-62459-nightly-checkpoints"
+      - run: npm ci --ignore-scripts
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Immutable isolated write of ONE synthetic programme only
+        run: node scripts/xmltv-g2e-synthetic-checkpoint.mjs write
+
+  read-synthetic:
+    name: Fresh runner restores and revalidates SYNTHETIC G2e checkpoint
+    needs: write-synthetic
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DATA_CHECKPOINT_ENABLED: ${{ vars.MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED }}
+      DATA_CHECKPOINT_BUCKET: ${{ vars.MOVIE_HUB_CHECKPOINT_BUCKET }}
+      MOVIEHUB_G2E_SYNTHETIC_QA: enabled
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: |
+          test "$DATA_CHECKPOINT_ENABLED" = "true"
+          test "$DATA_CHECKPOINT_BUCKET" = "movie-hub-62459-nightly-checkpoints"
+      - run: npm ci --ignore-scripts
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Read SHA-256 manifest and revalidate source on different runner
+        run: node scripts/xmltv-g2e-synthetic-checkpoint.mjs read
+
+  cleanup:
+    name: Delete ONLY this run's two synthetic G2e objects
+    needs: [write-synthetic, read-synthetic]
+    if: ${{ always() && needs.write-synthetic.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DATA_CHECKPOINT_ENABLED: ${{ vars.MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED }}
+      DATA_CHECKPOINT_BUCKET: ${{ vars.MOVIE_HUB_CHECKPOINT_BUCKET }}
+      MOVIEHUB_G2E_SYNTHETIC_QA: enabled
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: |
+          test "$DATA_CHECKPOINT_ENABLED" = "true"
+          test "$DATA_CHECKPOINT_BUCKET" = "movie-hub-62459-nightly-checkpoints"
+      - run: npm ci --ignore-scripts
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Clean up ONLY synthetic QA objects, never nightly checkpoint data
+        run: node scripts/xmltv-g2e-synthetic-checkpoint.mjs cleanup
