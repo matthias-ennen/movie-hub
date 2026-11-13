@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url'
 import { FEEDS, downloadXmltvFeed } from './probe-xmltv-feeds.mjs'
 import { parseXmltvCandidates } from '../src/sources/xmltv/xmltvCandidates.js'
 import { XMLTV_REVIEWED_STATION_MAPPINGS, XMLTV_REVIEWED_STATIONS } from '../src/sources/xmltv/xmltvStationMappings.js'
+import { measureXmltvFiveDayCoverage, assessXmltvIndependentCoverage } from '../src/sources/xmltv/xmltvSourceReadiness.js'
 import { inferXmltvMediaType, matchXmltvLocalCandidates } from './xmltv-g1b-match-preview.mjs'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 
@@ -157,7 +158,9 @@ export async function measureXmltvG1c(xml, {
     source: sourceId,
     eventHashes, // internal only; never written to the public report.
     report: {
-      source: sourceId, scannedProgrammes: stage.diagnostics.sourceRecords,
+      source: sourceId, observedAt: stage.observedAt,
+      coverage: measureXmltvFiveDayCoverage(stage.candidates, { sourceId, now }),
+      scannedProgrammes: stage.diagnostics.sourceRecords,
       mappedProgrammes: stage.diagnostics.mappedCandidates,
       skippedOtherStations: stage.diagnostics.skippedUnmapped,
       reviewedStations: stage.channels.filter((c) => c.stationMappingStatus === 'mapped').length,
@@ -199,7 +202,12 @@ function markdownSummary(report) {
       ' | ' + (r.parsedEpisodes ?? '—') +
       ' | ' + (r.localReferenceMatches ?? '—') + ' |')
   }
-  lines.push('', '**Interpretation:** local-reference hits are NOT overall TMDB match coverage.',
+  lines.push('', '**Five-day readiness:** ' +
+    report.readiness.completeIndependentFamilies + '/' +
+    report.readiness.requiredIndependentFamilies +
+    ' independently sourced content families fully cover all six stations for 120h at this observation. ' +
+    (report.readiness.sufficientIndependentCoverageSnapshot ? 'Snapshot requirement met.' : 'Snapshot requirement NOT met.'),
+    '', '**Interpretation:** local-reference hits are NOT overall TMDB match coverage.',
     'Only reviewed six stations, titles are not printed, no MovieHub data is published.')
   return lines.join('\n') + '\n'
 }
@@ -236,6 +244,7 @@ export async function runG1cProbe({
     sixStationsOnly: true,
     localReferenceTitleCount: localIndex.titleCount,
     comparison: compareSourceEventHashes(internals),
+    readiness: assessXmltvIndependentCoverage(sources, { now }),
     sources,
   }
 }
