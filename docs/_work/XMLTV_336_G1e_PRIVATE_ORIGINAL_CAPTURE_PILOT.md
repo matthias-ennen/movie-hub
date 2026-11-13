@@ -1,5 +1,16 @@
 # MovieHub #336 – G1e: echter privater Joyn-Originalmatcher-Pilot (isoliert, opt-in)
 
+## 13.11.2026 – G1e: fehlende lokale TMDB-Kandidaten nach Original-Quelltitel deduplizieren
+
+Der geschützte vollständige Offline-Quellaudit [#43371696383](https://github.com/matthias-ennen/movie-hub/actions/runs/43371696383) ergab im wandernden 14-Tage-Horizont **593** unterschiedliche fehlende Originalcache-Schlüssel, darunter **395** ohne jeden lokalen TMDB-Kandidaten und **181** bekannte Titelkollisionen. Die vorherigen 159 `no_joyn_type`-Fälle wurden über bereits gecachte private Algolia-Hits geprüft: 158 ohne validierten Titelbeleg, 1 widersprüchliche Typfamilie, **0** eindeutig aufgelöste Typen, **0** neue externe Requests.
+
+**Bevor neue TMDB-HTTP-Anfragen überhaupt budgetiert werden**, prüft der nächste geschützte Read-only-Audit die 395 aktuell fehlenden Originalcache-**Schlüssel** ohne lokale Kandidaten nach ihrem **unveränderten `normalizeWaipuText(originalTitle)`**. Mehrere Originalcache-Schlüssel können unterschiedliche Beschreibungen, Episodentitel oder Laufzeiten derselben Sendung repräsentieren. Die ausschließlich lokal gehaltene Map der normierten Titel zählt (1) verschiedene nichtleere Titelformen, (2) Titelgruppen mit mehr als einem Originalschlüssel, (3) durch Wiederholungen zusätzliche Schlüssel, (4) gegebenenfalls leere Titelformen, (5) Schlüssel mit Quellenbeschreibung und (6) Schlüssel mit Untertitel. Eine Titeldeduplizierung ist hier **nur eine Planungsmetrik**, kein freigegebener Matcher-Schlüssel und keine Prognose tatsächlich benötigter TMDB-Requests.
+
+Ausschließlich feste numerische Aggregate mit strenger Summen- und Schemaprüfung; alle privaten Originaltitel, IDs, Hashes und Kandidatendaten verbleiben im Runner. Originalmatcher und seine Schwellen bleiben unverändert. **0 externe Requests**, keine neue 14-Tage-Quellgeneration, kein Produktivmatching oder A/B-Transporttest, keine Freigabe neuer Originalquittungen, keine Budgeterhöhung, kein Shared-EPG-Go. Nach grünen PR-Tests einmalige markierte private Read-only-Prüfung auf `main`.
+
+---
+
+
 ## 13.11.2026 – G1e: vorhandene private Algolia-Hits für 159 fehlende Joyn-Quelltypen auswerten
 
 Der letzte bestätigte geschützte Audit [#43312369870](https://github.com/matthias-ennen/movie-hub/actions/runs/43312369870) lieferte für einen aktuellen Quellenhorizont **159** ohne eindeutigen SearchQ-Originaltyp (`no_joyn_type`); weitere **21** weiterhin offene Fälle sind trotz eindeutigem Typ innerhalb desselben Typs exakt titelmehrdeutig. Alle übrigen Klassifikationsfamilien und Summen bleiben unverändert.
