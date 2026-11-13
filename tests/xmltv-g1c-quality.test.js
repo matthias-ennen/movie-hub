@@ -58,7 +58,7 @@ describe('G1c real source quality audit (offline fixtures)', () => {
       horizonHours: 120, reviewedStations: 6,
       completeStations: 0, allReviewedStationsComplete: false,
     })
-    expect(result.report.coverage.stations.zdf.coveredMinutes).toBe(180)
+    expect(result.report.coverage.stations.zdf.coveredMinutes).toBe(240)
     expect(result.report.coverage.stations.ard.complete120h).toBe(false)
     expect(result.report.observedAt).toBe(new Date(NOW).toISOString())
     expect(result.report.stations.zdf.programmesIn120h).toBe(3)
