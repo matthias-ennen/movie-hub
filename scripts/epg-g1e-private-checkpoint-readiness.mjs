@@ -294,6 +294,14 @@ function markdown(report) {
     '| Checkpoint slots/windows | ' +
       report.waipu.checkpointSlots + ' | ' + report.joyn.checkpointWindows + ' |',
     '',
+    '| Last complete source status age (hours; null = not eligible) | ' +
+      (report.waipu.statusAgeHours ?? 'unknown/stale') + ' | ' +
+      (report.joyn.statusAgeHours ?? 'unknown/stale') + ' |',
+    '',
+    'G1i private capture preflight (fresh source statuses and bounded caches): ' +
+      (report.gate.g1iPrivateCapturePreflightSuitable ? 'READY FOR FURTHER REVIEW' : 'NOT READY'),
+    'This is not permission to call live APIs, reuse shared TMDB responses or release XMLTV.',
+    '',
     '**No original matcher approval receipts are reconstructed from cached decisions.**',
     '**No real TMDB request reduction has been measured.**',
     '',
