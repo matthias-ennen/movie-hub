@@ -273,6 +273,18 @@ export async function inspectJoynRestoredSourceCacheCoverage({
   let resolvedLocally = 0
   let unresolvedNoLocalCandidate = 0
   let unresolvedWithLocalCandidates = 0
+  // Private normalized titles must never escape; only fixed aggregates may.
+  const noLocalTitleCounts = new Map()
+  const noLocalTitleGrouping = {
+    missingOriginalKeysInspected: 0,
+    uniqueNormalizedSourceTitles: 0,
+    repeatedNormalizedTitleGroups: 0,
+    duplicateOriginalKeysWithinTitleGroups: 0,
+    originalKeysWithoutNormalizedTitle: 0,
+    originalKeysWithSourceDescription: 0,
+    originalKeysWithSecondaryTitle: 0,
+    externalRequestsStarted: 0,
+  }
   // Fixed, allowlisted reason counters only. Raw reason strings are NEVER
   // included in the output; unexpected matcher results fail closed.
   const unresolvedReasons = {
@@ -341,6 +353,14 @@ export async function inspectJoynRestoredSourceCacheCoverage({
       // stable reason; any different result indicates changed semantics.
       if (result.reason !== 'no_candidate') throw new Error('Unexpected empty local candidate reason')
       unresolvedNoLocalCandidate++
+      noLocalTitleGrouping.missingOriginalKeysInspected++
+      const normalizedSourceTitle = normalizeWaipuText(candidate.title)
+      if (normalizedSourceTitle) {
+        noLocalTitleCounts.set(normalizedSourceTitle,
+          (noLocalTitleCounts.get(normalizedSourceTitle) || 0) + 1)
+      } else noLocalTitleGrouping.originalKeysWithoutNormalizedTitle++
+      if (String(candidate.description || '').trim()) noLocalTitleGrouping.originalKeysWithSourceDescription++
+      if (String(candidate.secondaryTitle || '').trim()) noLocalTitleGrouping.originalKeysWithSecondaryTitle++
     } else {
       unresolvedWithLocalCandidates++
       if (localCandidates.length === 1) unresolvedContext.exactlyOneLocalCandidate++
@@ -447,8 +467,25 @@ export async function inspectJoynRestoredSourceCacheCoverage({
       }
     }
   }
+  // Grouping is diagnostic only, not a remote-query budget or identity match.
+  noLocalTitleGrouping.uniqueNormalizedSourceTitles = noLocalTitleCounts.size
+  noLocalTitleGrouping.repeatedNormalizedTitleGroups =
+    [...noLocalTitleCounts.values()].filter(count => count > 1).length
+  noLocalTitleGrouping.duplicateOriginalKeysWithinTitleGroups =
+    [...noLocalTitleCounts.values()].reduce((sum, count) => sum + count - 1, 0)
+  // Do not retain source titles after aggregating.
+  noLocalTitleCounts.clear()
   const reasonTotal = Object.values(unresolvedReasons).reduce((sum, count) => sum + count, 0)
   if (resolvedLocally + unresolvedNoLocalCandidate + unresolvedWithLocalCandidates !== unique.absent ||
+      noLocalTitleGrouping.missingOriginalKeysInspected !== unresolvedNoLocalCandidate ||
+      noLocalTitleGrouping.missingOriginalKeysInspected !==
+        noLocalTitleGrouping.uniqueNormalizedSourceTitles +
+        noLocalTitleGrouping.duplicateOriginalKeysWithinTitleGroups +
+        noLocalTitleGrouping.originalKeysWithoutNormalizedTitle ||
+      noLocalTitleGrouping.repeatedNormalizedTitleGroups >
+        noLocalTitleGrouping.uniqueNormalizedSourceTitles ||
+      noLocalTitleGrouping.originalKeysWithSourceDescription > unresolvedNoLocalCandidate ||
+      noLocalTitleGrouping.originalKeysWithSecondaryTitle > unresolvedNoLocalCandidate ||
       reasonTotal !== unresolvedWithLocalCandidates ||
       unresolvedContext.exactlyOneLocalCandidate + unresolvedContext.multipleLocalCandidates !== unresolvedWithLocalCandidates ||
       unresolvedContext.exactAmbiguityWithSourceDescription +
@@ -507,6 +544,7 @@ export async function inspectJoynRestoredSourceCacheCoverage({
       distinctReusablePositiveKeys: unique.positive,
       distinctReusableNegativeKeys: unique.negative,
     },
+    offlineNoLocalTitleGroups: noLocalTitleGrouping,
     offlineLocalPreflight: {
       distinctMissingKeysInspected: unique.absent,
       locallyMatchedWithoutExternalCalls: resolvedLocally,
@@ -531,11 +569,12 @@ export async function inspectJoynRestoredSourceCacheCoverage({
 export function isSafeJoynRestoredSourceCoverage(value) {
   const s = value?.source, m = value?.match, o = value?.offlineLocalPreflight
   const rr = value?.offlineLocalRejectionReasons, cc = value?.offlineLocalCandidateContext
-  const tr = value?.offlineTrustedJoynTypeReplay, ar = value?.offlineCachedAlgoliaReplay, g = value?.gate
+  const tr = value?.offlineTrustedJoynTypeReplay, ar = value?.offlineCachedAlgoliaReplay
+  const ng = value?.offlineNoLocalTitleGroups, g = value?.gate
   return keysExactly(value, ['kind', 'schemaVersion', 'mode', 'source', 'match',
     'offlineLocalPreflight', 'offlineLocalRejectionReasons',
     'offlineLocalCandidateContext', 'offlineTrustedJoynTypeReplay',
-    'offlineCachedAlgoliaReplay', 'gate', 'limitations']) &&
+    'offlineCachedAlgoliaReplay', 'offlineNoLocalTitleGroups', 'gate', 'limitations']) &&
     value.kind === 'g1e-private-joyn-original-cache-coverage' &&
     value.schemaVersion === 1 && value.mode === 'private-read-only' &&
     typeof value.limitations === 'string' &&
@@ -578,6 +617,21 @@ export function isSafeJoynRestoredSourceCoverage(value) {
     o.distinctMissingKeysInspected === m.distinctMissingOriginalKeys &&
     o.distinctMissingKeysInspected === o.locallyMatchedWithoutExternalCalls +
       o.unresolvedWithoutLocalCandidates + o.unresolvedWithLocalCandidates &&
+    keysExactly(ng, ['missingOriginalKeysInspected', 'uniqueNormalizedSourceTitles',
+      'repeatedNormalizedTitleGroups', 'duplicateOriginalKeysWithinTitleGroups',
+      'originalKeysWithoutNormalizedTitle', 'originalKeysWithSourceDescription',
+      'originalKeysWithSecondaryTitle', 'externalRequestsStarted']) &&
+    ['missingOriginalKeysInspected', 'uniqueNormalizedSourceTitles',
+      'repeatedNormalizedTitleGroups', 'duplicateOriginalKeysWithinTitleGroups',
+      'originalKeysWithoutNormalizedTitle', 'originalKeysWithSourceDescription',
+      'originalKeysWithSecondaryTitle'].every(x => integer(ng[x], MAX_RAW_EVENTS)) &&
+    ng.externalRequestsStarted === 0 &&
+    ng.missingOriginalKeysInspected === o.unresolvedWithoutLocalCandidates &&
+    ng.missingOriginalKeysInspected === ng.uniqueNormalizedSourceTitles +
+      ng.duplicateOriginalKeysWithinTitleGroups + ng.originalKeysWithoutNormalizedTitle &&
+    ng.repeatedNormalizedTitleGroups <= ng.uniqueNormalizedSourceTitles &&
+    ng.originalKeysWithSourceDescription <= ng.missingOriginalKeysInspected &&
+    ng.originalKeysWithSecondaryTitle <= ng.missingOriginalKeysInspected &&
     keysExactly(rr, ['noCandidateAboveMinimumScore', 'belowAcceptanceScore',
       'ambiguousScoreMargin', 'ambiguousExactTitle']) &&
     Object.values(rr).every(x => integer(x, MAX_RAW_EVENTS)) &&
