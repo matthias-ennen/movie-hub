@@ -101,8 +101,10 @@ export function measureXmltvFiveDayCoverage(candidates, {
 }
 
 /**
- * Combine READ-ONLY coverage summaries. Deliberately require two separate
- * content families with complete coverage, not merely two HTTP endpoints.
+ * Combine READ-ONLY coverage summaries. Report the 5-day primary and
+ * independent (possibly shorter) fallback SEPARATELY; two fully covering
+ * content families would be stronger redundancy, but are not silently
+ * introduced as a user-mandated five-day condition for EVERY feed.
  * This is one instant of coverage, never a long-term SLA or a G2 approval.
  */
 export function assessXmltvIndependentCoverage(sourceReports, {
@@ -111,7 +113,8 @@ export function assessXmltvIndependentCoverage(sourceReports, {
   if (!Array.isArray(sourceReports) || sourceReports.length > 16 ||
       !Number.isFinite(now)) throw new TypeError('Invalid source readiness reports')
 
-  const healthyFamilies = new Set()
+  const fullHorizonFamilies = new Set()
+  const freshAvailableFamilies = new Set()
   const sources = []
   const seen = new Set()
   for (const report of sourceReports) {
@@ -124,23 +127,43 @@ export function assessXmltvIndependentCoverage(sourceReports, {
     const freshObservation = observed !== null && observed <= now &&
       now - observed <= MAX_AGE
     const coverage = report?.coverage
-    const complete = report.status === 'ok' && freshObservation &&
+    const validShape = report.status === 'ok' && freshObservation &&
       coverage?.sourceId === id && coverage?.contentFamily === family &&
       coverage?.horizonHours === XMLTV_FIVE_DAY_HOURS &&
       coverage?.reviewedStations === STATIONS.length &&
-      coverage?.completeStations === STATIONS.length &&
-      coverage?.allReviewedStationsComplete === true &&
-      STATIONS.every(stationId => coverage?.stations?.[stationId]?.complete120h === true &&
-        coverage.stations[stationId].coveredMinutes === XMLTV_FIVE_DAY_HOURS * 60 &&
-        coverage.stations[stationId].missingMinutes === 0)
-    if (complete) healthyFamilies.add(family)
+      Number.isInteger(coverage?.completeStations) &&
+      coverage.completeStations >= 0 && coverage.completeStations <= STATIONS.length &&
+      STATIONS.every(stationId => {
+        const metrics = coverage?.stations?.[stationId]
+        return Number.isInteger(metrics?.coveredMinutes) &&
+          metrics.coveredMinutes >= 0 && metrics.coveredMinutes <= XMLTV_FIVE_DAY_HOURS * 60 &&
+          Number.isInteger(metrics?.missingMinutes) &&
+          metrics.missingMinutes >= 0 &&
+          metrics.coveredMinutes + metrics.missingMinutes === XMLTV_FIVE_DAY_HOURS * 60 &&
+          metrics.complete120h === (metrics.coveredMinutes === XMLTV_FIVE_DAY_HOURS * 60)
+      }) &&
+      coverage.completeStations === STATIONS.filter(stationId =>
+        coverage.stations[stationId].complete120h).length &&
+      coverage.allReviewedStationsComplete ===
+        (coverage.completeStations === STATIONS.length)
+    const hasAnyRealCoverage = validShape && STATIONS.some(stationId =>
+      coverage.stations[stationId].coveredMinutes > 0)
+    const complete = validShape && coverage.allReviewedStationsComplete
+    if (hasAnyRealCoverage) freshAvailableFamilies.add(family)
+    if (complete) fullHorizonFamilies.add(family)
     sources.push({ sourceId: id, contentFamily: family,
-      observedWithin36h: freshObservation, completeFiveDayCoverage: complete })
+      observedWithin36h: freshObservation, hasRealFutureCoverage: Boolean(hasAnyRealCoverage),
+      completeFiveDayCoverage: Boolean(complete) })
   }
   return {
     requiredIndependentFamilies: 2,
-    completeIndependentFamilies: healthyFamilies.size,
-    sufficientIndependentCoverageSnapshot: healthyFamilies.size >= 2,
+    availableIndependentFamilies: freshAvailableFamilies.size,
+    completeIndependentFamilies: fullHorizonFamilies.size,
+    primaryFiveDaySnapshot: fullHorizonFamilies.size >= 1,
+    independentFallbackSnapshot: freshAvailableFamilies.size >= 2,
+    // More conservative than the user's minimum: TWO independently full
+    // five-day feeds. It is reported as a separate resilience signal.
+    sufficientIndependentCoverageSnapshot: fullHorizonFamilies.size >= 2,
     sourceStatuses: sources,
     caveat: 'Single read-only point-in-time snapshot; not uptime, legal reuse, TMDB coverage, playable channel routes or a production release approval.',
   }
