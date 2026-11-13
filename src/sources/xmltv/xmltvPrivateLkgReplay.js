@@ -1,0 +1,242 @@
+/**
+ * #336 G2d: source/station-specific, PRIVATE, read-only replay of actual G2c
+ * original XMLTV staging generations. This is NOT a durable checkpoint store.
+ *
+ * Preserve each source's original programme provenance. A missing/partial
+ * current source may use a verified <=36h old source-specific generation,
+ * independently by station, with coverage always recalculated at replay time.
+ * No TMDB matching, rights approval, AIR links, publishing or network access.
+ */
+import { XMLTV_REVIEWED_STATIONS, reviewedXmltvStation } from './xmltvStationMappings.js'
+import { XMLTV_VERIFIED_SOURCE_FAMILIES } from './xmltvSourceReadiness.js'
+import { measureXmltvAvailableHorizon } from './xmltvAvailableHorizon.js'
+import { XMLTV_LKG_MAX_AGE_MS } from './xmltvLastKnownGoodPreview.js'
+
+const HOUR = 60 * 60 * 1000
+const DAY = 24 * HOUR
+const MAX_RECORDS = 250_000
+const STATIONS = Object.freeze(XMLTV_REVIEWED_STATIONS.map(s => s.stationId))
+const SOURCES = Object.freeze(Object.keys(XMLTV_VERIFIED_SOURCE_FAMILIES))
+const MODES = new Set(['current', 'last-known-good', 'unavailable'])
+const RECORD_KEYS = [
+  'kind', 'sourceId', 'sourceStationId', 'canonicalStationId', 'stationName',
+  'stationMappingStatus', 'title', 'titleLanguage', 'subtitle', 'description',
+  'categories', 'episode', 'episodeEvidence', 'productionYearEvidence',
+  'startAt', 'endAt', 'timestampsExplicitlyZoned', 'previewStartAt',
+  'previewEndAt', 'sourceRef',
+]
+const REF_KEYS = ['sourceId', 'externalId', 'observedAt', 'expiresAt']
+const keysEqual = (obj, names) =>
+  obj !== null && typeof obj === 'object' && !Array.isArray(obj) &&
+  Object.keys(obj).sort().join('|') === [...names].sort().join('|')
+const utc = s => {
+  if (typeof s !== 'string' ||
+      !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(s)) return null
+  const t = Date.parse(s)
+  return Number.isFinite(t) ? t : null
+}
+
+/** Strictly revalidate actual serialized G2c source records before replay. */
+function inspect(sourceId, generation, now) {
+  const observed = utc(generation?.observedAt)
+  const from = utc(generation?.previewFrom)
+  const until = utc(generation?.previewUntil)
+  if (generation?.kind !== 'xmltv-private-source-staging' ||
+      generation.schemaVersion !== 1 ||
+      generation.sourceId !== sourceId ||
+      generation.contentFamily !== XMLTV_VERIFIED_SOURCE_FAMILIES[sourceId] ||
+      generation.originalProvenancePreserved !== true ||
+      generation.publishApproved !== false ||
+      generation.tmdbIdentityApproved !== false ||
+      generation.playbackRoutesApproved !== false ||
+      generation.reuseRightsApproved !== false ||
+      !Number.isInteger(generation.maxDays) ||
+      generation.maxDays < 1 || generation.maxDays > 14 ||
+      observed === null || from === null || until === null ||
+      observed > now || now - observed > XMLTV_LKG_MAX_AGE_MS ||
+      from < observed || from - observed > HOUR ||
+      until - from !== generation.maxDays * DAY ||
+      generation.sourceGenerationId !== 'xmltv:' + sourceId + ':' + generation.observedAt ||
+      !Array.isArray(generation.records) ||
+      generation.records.length === 0 ||
+      generation.records.length > MAX_RECORDS ||
+      generation.stagedProgrammes !== generation.records.length ||
+      !keysEqual(generation.stationCounts, STATIONS)) return null
+
+  const counts = Object.fromEntries(STATIONS.map(id => [id, 0]))
+  for (const row of generation.records) {
+    if (!keysEqual(row, RECORD_KEYS) ||
+        !keysEqual(row.sourceRef, REF_KEYS) ||
+        row.kind !== 'xmltv-candidate' || row.sourceId !== sourceId ||
+        row.stationMappingStatus !== 'mapped' ||
+        row.timestampsExplicitlyZoned !== true ||
+        typeof row.title !== 'string' || !row.title.trim() ||
+        row.title.length > 12_000 ||
+        typeof row.sourceStationId !== 'string' ||
+        row.sourceStationId.length < 1 || row.sourceStationId.length > 200 ||
+        !STATIONS.includes(row.canonicalStationId)) return null
+    const mapped = reviewedXmltvStation(sourceId, row.sourceStationId)
+    const start = utc(row.startAt)
+    const end = utc(row.endAt)
+    const previewStart = utc(row.previewStartAt)
+    const previewEnd = utc(row.previewEndAt)
+    if (!mapped || mapped.stationId !== row.canonicalStationId ||
+        mapped.stationName !== row.stationName ||
+        start === null || end === null || end <= start ||
+        end - start > 36 * HOUR ||
+        previewStart === null || previewEnd === null ||
+        previewStart !== Math.max(from, start) ||
+        previewEnd !== Math.min(until, end) ||
+        previewStart >= previewEnd ||
+        row.sourceRef.sourceId !== 'xmltv:' + sourceId ||
+        row.sourceRef.observedAt !== generation.observedAt ||
+        row.sourceRef.expiresAt !== row.endAt ||
+        row.sourceRef.externalId !== [
+          row.sourceStationId, row.startAt, row.endAt, row.title,
+        ].join('|')) return null
+    counts[row.canonicalStationId]++
+  }
+  if (STATIONS.some(id => generation.stationCounts[id] !== counts[id])) return null
+  try {
+    // Do NOT use generation.coverage: it describes a historical clock.
+    return measureXmltvAvailableHorizon(generation.records, { sourceId, now })
+  } catch {
+    return null
+  }
+}
+
+function replayOne(source, now) {
+  const sourceId = source?.sourceId
+  if (!SOURCES.includes(sourceId)) throw new TypeError('Unreviewed XMLTV replay source')
+  const current = inspect(sourceId, source.current, now)
+  const previous = inspect(sourceId, source.lastKnownGood, now)
+  const byStation = {}
+  for (const id of STATIONS) {
+    const live = current?.stations[id]
+    const lkg = previous?.stations[id]
+    const useLive = Boolean(live?.coveredMinutes > 0)
+    const useLkg = !useLive && Boolean(lkg?.coveredMinutes > 0)
+    const selected = useLive ? live : useLkg ? lkg : null
+    byStation[id] = {
+      mode: useLive ? 'current' : useLkg ? 'last-known-good' : 'unavailable',
+      coveredMinutes: selected?.coveredMinutes ?? 0,
+      completeFiveDaysFromNow: selected?.completeFiveDaysFromNow ?? false,
+    }
+  }
+  const decisions = Object.values(byStation)
+  return {
+    sourceId, contentFamily: XMLTV_VERIFIED_SOURCE_FAMILIES[sourceId],
+    currentStations: decisions.filter(s => s.mode === 'current').length,
+    restoredStations: decisions.filter(s => s.mode === 'last-known-good').length,
+    unavailableStations: decisions.filter(s => s.mode === 'unavailable').length,
+    byStation,
+  }
+}
+
+/**
+ * Exposes ONLY verified source IDs and bounded numerical QA, never programme
+ * titles, external IDs, original URLs or private snapshot fields.
+ */
+export function replayXmltvPrivateLkg(sources, { now = Date.now() } = {}) {
+  if (!Array.isArray(sources) || sources.length < 1 ||
+      sources.length > SOURCES.length || !Number.isFinite(now)) {
+    throw new TypeError('Invalid bounded XMLTV replay')
+  }
+  const seen = new Set()
+  const statuses = sources.map(source => {
+    if (seen.has(source?.sourceId)) throw new TypeError('Duplicate XMLTV replay source')
+    seen.add(source?.sourceId)
+    return replayOne(source, now)
+  })
+  const independentFamiliesByStation = Object.fromEntries(STATIONS.map(id => [
+    id, new Set(statuses.filter(s => s.byStation[id].coveredMinutes > 0)
+      .map(s => s.contentFamily)).size,
+  ]))
+  const availableFamilies = new Set(statuses.flatMap(s =>
+    Object.values(s.byStation).some(x => x.coveredMinutes > 0)
+      ? [s.contentFamily] : []))
+  const report = {
+    kind: 'xmltv-g2d-private-lkg-replay-aggregate',
+    schemaVersion: 1,
+    mode: 'same-run-offline-no-publication',
+    sources: statuses,
+    independentFamiliesByStation,
+    availableIndependentFamilies: availableFamilies.size,
+    stationsWithIndependentFallback:
+      STATIONS.filter(id => independentFamiliesByStation[id] >= 2).length,
+    restoredStationDecisions:
+      statuses.reduce((sum, s) => sum + s.restoredStations, 0),
+    fiveDaysRequiredToKeepSource: false,
+    durableCheckpointVerified: false,
+    publishApproved: false,
+    tmdbIdentityApproved: false,
+    playbackRoutesApproved: false,
+    reuseRightsApproved: false,
+  }
+  if (!isSafeXmltvG2dReplayReport(report)) throw new TypeError('Unsafe replay report')
+  return report
+}
+
+export function isSafeXmltvG2dReplayReport(report) {
+  if (!keysEqual(report, [
+    'kind', 'schemaVersion', 'mode', 'sources',
+    'independentFamiliesByStation', 'availableIndependentFamilies',
+    'stationsWithIndependentFallback', 'restoredStationDecisions',
+    'fiveDaysRequiredToKeepSource', 'durableCheckpointVerified',
+    'publishApproved', 'tmdbIdentityApproved',
+    'playbackRoutesApproved', 'reuseRightsApproved',
+  ]) || report.kind !== 'xmltv-g2d-private-lkg-replay-aggregate' ||
+      report.schemaVersion !== 1 || report.mode !== 'same-run-offline-no-publication' ||
+      report.fiveDaysRequiredToKeepSource !== false ||
+      report.durableCheckpointVerified !== false ||
+      report.publishApproved !== false ||
+      report.tmdbIdentityApproved !== false ||
+      report.playbackRoutesApproved !== false ||
+      report.reuseRightsApproved !== false ||
+      !Array.isArray(report.sources) || report.sources.length < 1 ||
+      report.sources.length > SOURCES.length ||
+      !keysEqual(report.independentFamiliesByStation, STATIONS)) return false
+
+  const seen = new Set()
+  let restored = 0
+  for (const source of report.sources) {
+    if (!keysEqual(source, [
+      'sourceId', 'contentFamily', 'currentStations', 'restoredStations',
+      'unavailableStations', 'byStation',
+    ]) || !SOURCES.includes(source.sourceId) || seen.has(source.sourceId) ||
+        source.contentFamily !== XMLTV_VERIFIED_SOURCE_FAMILIES[source.sourceId] ||
+        !keysEqual(source.byStation, STATIONS)) return false
+    seen.add(source.sourceId)
+    for (const id of STATIONS) {
+      const station = source.byStation[id]
+      if (!keysEqual(station, ['mode', 'coveredMinutes', 'completeFiveDaysFromNow']) ||
+          !MODES.has(station.mode) ||
+          !Number.isSafeInteger(station.coveredMinutes) ||
+          station.coveredMinutes < 0 || station.coveredMinutes > 14 * 24 * 60 ||
+          typeof station.completeFiveDaysFromNow !== 'boolean' ||
+          (station.mode === 'unavailable' &&
+            (station.coveredMinutes !== 0 || station.completeFiveDaysFromNow)) ||
+          (station.mode !== 'unavailable' && station.coveredMinutes === 0) ||
+          (station.completeFiveDaysFromNow && station.coveredMinutes < 5 * 24 * 60)) {
+        return false
+      }
+    }
+    const modes = Object.values(source.byStation).map(x => x.mode)
+    const count = mode => modes.filter(x => x === mode).length
+    if (source.currentStations !== count('current') ||
+        source.restoredStations !== count('last-known-good') ||
+        source.unavailableStations !== count('unavailable')) return false
+    restored += source.restoredStations
+  }
+  const counts = STATIONS.map(id =>
+    new Set(report.sources.filter(s => s.byStation[id].coveredMinutes > 0)
+      .map(s => s.contentFamily)).size)
+  if (STATIONS.some((id, i) => report.independentFamiliesByStation[id] !== counts[i])) return false
+  const families = new Set(report.sources.filter(s =>
+    Object.values(s.byStation).some(x => x.coveredMinutes > 0))
+    .map(s => s.contentFamily))
+  return report.availableIndependentFamilies === families.size &&
+    report.stationsWithIndependentFallback === counts.filter(n => n >= 2).length &&
+    report.restoredStationDecisions === restored &&
+    JSON.stringify(report).length < 4200
+}
