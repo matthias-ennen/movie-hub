@@ -121,3 +121,7 @@ export function createSharedTmdbSearchResponseCache(lookupCache) {
     },
   })
 }
+
+// Strict request/response contracts reused by the isolated persistent store.
+// Exporting validators does not activate any adapter or alter lookup behavior.
+export { requestForKey as sharedTmdbRequestPath, safeResponse as copySafeTmdbResponse }
