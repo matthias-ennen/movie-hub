@@ -95,6 +95,18 @@ Der Modus ist absichtlich nur **Capture**:
 
 **Als Nächstes unbedingt:** Nach grüner PR-CI den kontrollierten und vollständig privaten Originalgenerationen-Mitschnitt im gesonderten Staging durchführen (mit echten Quellen, nicht nur Offline-Fakes). Danach anhand dieser tatsächlich beobachteten TMDB-Request-Keys die Waipu/Joyn-Überlappung, Cachewriter- und Checkpoint-Stabilität messen. Erst dann ein getrennt freizugebendes *Read-/A/B*-Gate; XMLTV zunächst beim gesicherten lokalen Matcher belassen und kontrolliert integrieren. `measuredProductionSavings=null`, Shared-EPG-Identitätsindex deaktiviert und G2–G4 offen.
 
+
+## G1j – Private Quellenfrische als nachprüfbare Vorbedingung (read-only)
+
+Die vorhandene sichere, **nur bereits gespeicherte PRIVAT-Checkpoints lesende** GitHub Action `Shared EPG G1e – private source checkpoint readiness (read-only)` wird als nächster echter QA-Nachweis herangezogen; sie führt **keine** neuen Waipu-, Joyn-, XMLTV- oder TMDB-API-Anfragen aus. Das Prüfmodul `scripts/epg-g1e-private-checkpoint-readiness.mjs` unterscheidet jetzt zusätzlich explizit **vorhandene private Caches** von **frischen, vollständigen Waipu-/Joyn-Quellstatusmeldungen**:
+
+- Für eine **G1i-Staging-Vorprüfung** müssen die originalen `status.json` beider Quellen `complete` ausweisen und einen korrekten UTC-`generatedAt` innerhalb von **48 Stunden** vor dem echten Prüfzeitpunkt haben. Fehlende, unbekannte, zukünftige oder überalterte Zeitstempel scheitern ausdrücklich. Beide originalen Source-Checkpoints und begrenzte Original-Einträge müssen vorhanden und stichprobenartig nachvollziehbar sein.
+- Korrupte/größenbegrenzte private Quell- oder Matcherdateien beziehungsweise fehlgeschlagene Cache-Streamzählungen verhindern diese Vorprüfung. Die bisherige Prüfung auf vorhandene Roh-EPG-Originaltitel bleibt unabhängig von TMDB-Titeln und historischen Matcherentscheidungen.
+- Neue Felder `gate.recentHealthyOriginalSourceStatuses` und `gate.g1iPrivateCapturePreflightSuitable` sind **nur neutrale Prüfwerte**. `gate.g1iLiveSourceRequestApproval=false`, `gate.g1iActualSharedCacheSnapshotObserved=false` und `gate.actualAvoidedTmdbRequests=null` bleiben fest. Ein vorhandener Cachesnapshot liefert **weder** freigegebene Originalbelege **noch** eine Live-API-Freigabe.
+- Die zusammenfassende Ausgabe nennt ausschließlich gerundete Altersstunden und feste Flags; **keine** Rohprogrammtitel, Sender-/Programmschlüssel, Cacheinhalte, TMDB-IDs oder HTTP-Header. Neue Regressionstests belegen Frischegrenze, Zukunftszeiten, fehlende Zeitzonen, altersbedingte Sperrung und private Grenzen.
+
+**Ziel des folgenden einmaligen, sicheren Echtchecks:** Auf `main` den vorhandenen PRIVAT-Checkpoint-Read-only-Lauf **mit dem dafür vorgesehenen expliziten Einmalmarker** starten und den tatsächlichen Quellenstatus samt Grenzen belegen, ohne Livequellen abzufragen oder produktive Adapter umzuschalten. Ein Staging-Capture mit echten Originalquellgenerationen bleibt danach gesondert zu planen; die gemeinsame TMDB-Suchantwort-Datei aus #809/#810 hat weiterhin **keine** nachgewiesene Produktionsersparnis. XMLTV-G2/G3/G4 bleiben unverändert offen.
+
 ## Nächste zwei technisch sinnvolle Arbeiten nach G1f
 
 **Erstens** G1c/G1f read-only über unterschiedliche Tage wiederholen, um Veränderung, reale Lücken, Quellfrische und die tatsächliche Unabhängigkeit zu prüfen; nie bloß ältere Messungen als neue ausgeben. **Zweitens** einen isolierten Last-known-good-/Failover-Test für mindestens zwei Quellfamilien einführen, der bei zeitweise leerem Feed **nicht** ohne Altersprüfung alte Programmdaten oder ungeprüfte TMDB-Identitäten publiziert. G2 erst nach den entsprechenden Gates planen.

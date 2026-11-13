@@ -18,8 +18,8 @@ function input() {
       kind: 'joyn-sync-checkpoint', schemaVersion: 1,
       windows: { '1762940000_1762950000': { count: 1 } },
     },
-    waipuStatus: { status: 'complete' },
-    joynStatus: { status: 'complete' },
+    waipuStatus: { status: 'complete', generatedAt: '2026-11-12T09:00:00.000Z' },
+    joynStatus: { status: 'complete', generatedAt: '2026-11-12T10:00:00.000Z' },
     waipuDecisions: {
       kind: 'waipu-tmdb-match-decisions',
       schemaVersion: 1,
@@ -56,18 +56,22 @@ describe('G1e private SOURCE checkpoint audit without public data leakage', () =
       kind: 'g1e-private-checkpoint-readiness',
       mode: 'private-read-only',
       waipu: {
-        syncComplete: true, checkpointSlots: 1, checkpointAgeDays: 0.2,
+        syncComplete: true, checkpointSlots: 1, checkpointAgeDays: 0.2, statusAgeHours: 2,
         cacheGridRecordsInspected: 1, programmesWithId: 1,
         programmesWithOriginalTitle: 1, originalMatcherCacheEntries: 1,
       },
       joyn: {
-        syncComplete: true, checkpointWindows: 1,
+        syncComplete: true, checkpointWindows: 1, statusAgeHours: 1,
         rawWindowsInspected: 1, programmesWithId: 1,
         programmesWithOriginalTitle: 1, originalMatcherCacheEntries: 1,
         tmdbResponseCacheEntries: 1,
       },
       gate: {
         existingPrivateSourceDataAccessible: true,
+        recentHealthyOriginalSourceStatuses: true,
+        g1iPrivateCapturePreflightSuitable: true,
+        g1iLiveSourceRequestApproval: false,
+        g1iActualSharedCacheSnapshotObserved: false,
         originalCachesPresent: true,
         fullMatchApprovalReceiptsAvailable: false,
         canRunUnmodifiedOriginalMatcherAb: false,
@@ -198,4 +202,63 @@ describe('G1e private SOURCE checkpoint audit without public data leakage', () =
     expect(r.waipu.originalMatcherCacheEntries).toBeNull()
     expect(r.joyn.originalMatcherCacheEntries).toBeNull()
   })
+  it('does not authorize staging if a source status is stale even when original caches look complete', () => {
+    const values = input()
+    values.waipuStatus.generatedAt = '2026-11-10T10:59:59.000Z'
+    const report = inspectPrivateG1eSourceState(values)
+    expect(report.gate).toMatchObject({
+      originalCachesPresent: true,
+      existingPrivateSourceDataAccessible: true,
+      recentHealthyOriginalSourceStatuses: false,
+      g1iPrivateCapturePreflightSuitable: false,
+      g1iLiveSourceRequestApproval: false,
+      missing: expect.arrayContaining(['recent_waipu_and_joyn_source_statuses']),
+    })
+    expect(report.waipu.statusAgeHours).toBeNull()
+    expect(report.joyn.statusAgeHours).toBe(1)
+    expect(report.gate.actualAvoidedTmdbRequests).toBeNull()
+  })
+
+  it('rejects future, invalid, unzoned or missing original source status times', () => {
+    const badTimestamps = [
+      '2026-11-12T11:00:01.000Z',
+      '2026-11-12T11:00:00+00:00',
+      '2026-11-12',
+      'not-a-date',
+      undefined,
+    ]
+    for (const generatedAt of badTimestamps) {
+      const values = input()
+      values.joynStatus.generatedAt = generatedAt
+      const result = inspectPrivateG1eSourceState(values)
+      expect(result.gate.g1iPrivateCapturePreflightSuitable).toBe(false)
+      expect(result.gate.recentHealthyOriginalSourceStatuses).toBe(false)
+      expect(result.gate.missing).toContain('recent_waipu_and_joyn_source_statuses')
+      expect(result.joyn.statusAgeHours).toBeNull()
+    }
+  })
+
+  it('accepts the 48-hour freshness boundary as preliminary evidence only', () => {
+    const values = input()
+    values.waipuStatus.generatedAt = '2026-11-10T11:00:00.000Z'
+    values.joynStatus.generatedAt = '2026-11-10T11:00:00.000Z'
+    const result = inspectPrivateG1eSourceState(values)
+    expect(result.gate.g1iPrivateCapturePreflightSuitable).toBe(true)
+    expect(result.waipu.statusAgeHours).toBe(48)
+    expect(result.joyn.statusAgeHours).toBe(48)
+    expect(result.gate.g1iLiveSourceRequestApproval).toBe(false)
+    expect(result.gate.canRunUnmodifiedOriginalMatcherAb).toBe(false)
+    expect(result.gate.actualAvoidedTmdbRequests).toBeNull()
+  })
+
+  it('does not approve capture when private cache scanning cannot prove complete boundaries', () => {
+    const values = input()
+    values.failedCacheStreamCounts = 1
+    const r = inspectPrivateG1eSourceState(values)
+    expect(r.gate.existingPrivateSourceDataAccessible).toBe(true)
+    expect(r.gate.g1iPrivateCapturePreflightSuitable).toBe(false)
+    expect(r.gate.missing).toContain('private_cache_stream_count_failed')
+    expect(r.gate.g1iLiveSourceRequestApproval).toBe(false)
+  })
+
 })
