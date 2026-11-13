@@ -53,6 +53,14 @@ describe('G1c real source quality audit (offline fixtures)', () => {
       sourceId: 'iptv-epg-org', now: NOW, localIndex,
     })
     expect(result.report.programmesInNext120h).toBe(3)
+    expect(result.report.coverage).toMatchObject({
+      sourceId: 'iptv-epg-org', contentFamily: 'de-shared-schedule',
+      horizonHours: 120, reviewedStations: 6,
+      completeStations: 0, allReviewedStationsComplete: false,
+    })
+    expect(result.report.coverage.stations.zdf.coveredMinutes).toBe(240)
+    expect(result.report.coverage.stations.ard.complete120h).toBe(false)
+    expect(result.report.observedAt).toBe(new Date(NOW).toISOString())
     expect(result.report.stations.zdf.programmesIn120h).toBe(3)
     expect(result.report.typed).toEqual({ movie: 1, series: 1, unclassified: 1 })
     expect(result.report.parsedEpisodes).toBe(1)
@@ -104,6 +112,14 @@ describe('G1c real source quality audit (offline fixtures)', () => {
     expect(report.sources.map((item) => item.status)).toEqual(['error', 'ok'])
     expect(report.sources[1].localReferenceMatches).toBe(2)
     expect(report.sources[0].error).toContain('503')
+    expect(report.readiness).toMatchObject({
+      requiredIndependentFamilies: 2,
+      availableIndependentFamilies: 1,
+      completeIndependentFamilies: 0,
+      primaryFiveDaySnapshot: false,
+      independentFallbackSnapshot: false,
+      sufficientIndependentCoverageSnapshot: false,
+    })
     expect(JSON.stringify(report)).not.toContain('Testfilm')
   })
 
