@@ -275,6 +275,21 @@ export async function inspectJoynRestoredSourceCacheCoverage({
   let unresolvedWithLocalCandidates = 0
   // Private normalized titles must never escape; only fixed aggregates may.
   const noLocalTitleCounts = new Map()
+  // Per-normalized-title evidence is held only in memory: the source lookup
+  // and Algolia cache remain subject to their ORIGINAL seven-day TTL.
+  const noLocalCachedTypesByTitle = new Map()
+  const noLocalCachedTypeEvidence = {
+    uniqueNormalizedSourceTitlesInspected: 0,
+    titleGroupsWithCachedJoynSearch: 0,
+    titleGroupsWithCachedAlgoliaHits: 0,
+    titleGroupsWithTrustedJoynType: 0,
+    titleGroupsWithValidatedAlgoliaType: 0,
+    titleGroupsWithOnlyMovieType: 0,
+    titleGroupsWithOnlySeriesType: 0,
+    titleGroupsWithConflictingTypes: 0,
+    titleGroupsWithoutTrustedType: 0,
+    externalRequestsStarted: 0,
+  }
   const noLocalTitleGrouping = {
     missingOriginalKeysInspected: 0,
     uniqueNormalizedSourceTitles: 0,
@@ -358,6 +373,33 @@ export async function inspectJoynRestoredSourceCacheCoverage({
       if (normalizedSourceTitle) {
         noLocalTitleCounts.set(normalizedSourceTitle,
           (noLocalTitleCounts.get(normalizedSourceTitle) || 0) + 1)
+        let group = noLocalCachedTypesByTitle.get(normalizedSourceTitle)
+        if (!group) {
+          group = { joynCached: false, algoliaCached: false,
+            joynTyped: false, algoliaTyped: false, types: new Set() }
+          noLocalCachedTypesByTitle.set(normalizedSourceTitle, group)
+        }
+        const source = privateSourceLookups.get('joyn-title-v1', candidate.title)
+        if (source) {
+          group.joynCached = true
+          const type = trustedCachedJoynSearchType(source, candidate.title)
+          if (type) { group.joynTyped = true; group.types.add(type) }
+        }
+        const algolia = privateSourceLookups.get('algolia-hits-v1', candidate.title)
+        if (algolia) {
+          group.algoliaCached = true
+          if (object(algolia) && algolia.status === 'ready' &&
+              Array.isArray(algolia.hits) && algolia.hits.length <= 20) {
+            const classified = classifyJoynAlgoliaHits({
+              title: candidate.title, secondaryTitle: candidate.secondaryTitle,
+            }, algolia.hits)
+            if (classified?.reason === 'validated_algolia_search' &&
+                ['movie', 'series'].includes(classified.type)) {
+              group.algoliaTyped = true
+              group.types.add(classified.type)
+            }
+          }
+        }
       } else noLocalTitleGrouping.originalKeysWithoutNormalizedTitle++
       if (String(candidate.description || '').trim()) noLocalTitleGrouping.originalKeysWithSourceDescription++
       if (String(candidate.secondaryTitle || '').trim()) noLocalTitleGrouping.originalKeysWithSecondaryTitle++
@@ -468,6 +510,20 @@ export async function inspectJoynRestoredSourceCacheCoverage({
     }
   }
   // Grouping is diagnostic only, not a remote-query budget or identity match.
+  // A title group with contradicting trusted types is NEVER treated as typed.
+  noLocalCachedTypeEvidence.uniqueNormalizedSourceTitlesInspected = noLocalCachedTypesByTitle.size
+  for (const group of noLocalCachedTypesByTitle.values()) {
+    if (group.joynCached) noLocalCachedTypeEvidence.titleGroupsWithCachedJoynSearch++
+    if (group.algoliaCached) noLocalCachedTypeEvidence.titleGroupsWithCachedAlgoliaHits++
+    if (group.joynTyped) noLocalCachedTypeEvidence.titleGroupsWithTrustedJoynType++
+    if (group.algoliaTyped) noLocalCachedTypeEvidence.titleGroupsWithValidatedAlgoliaType++
+    if (group.types.size === 0) noLocalCachedTypeEvidence.titleGroupsWithoutTrustedType++
+    else if (group.types.size > 1) noLocalCachedTypeEvidence.titleGroupsWithConflictingTypes++
+    else if (group.types.has('movie')) noLocalCachedTypeEvidence.titleGroupsWithOnlyMovieType++
+    else if (group.types.has('series')) noLocalCachedTypeEvidence.titleGroupsWithOnlySeriesType++
+    else throw new Error('Unexpected Joyn no-local cached type')
+  }
+  noLocalCachedTypesByTitle.clear()
   noLocalTitleGrouping.uniqueNormalizedSourceTitles = noLocalTitleCounts.size
   noLocalTitleGrouping.repeatedNormalizedTitleGroups =
     [...noLocalTitleCounts.values()].filter(count => count > 1).length
@@ -486,6 +542,21 @@ export async function inspectJoynRestoredSourceCacheCoverage({
         noLocalTitleGrouping.uniqueNormalizedSourceTitles ||
       noLocalTitleGrouping.originalKeysWithSourceDescription > unresolvedNoLocalCandidate ||
       noLocalTitleGrouping.originalKeysWithSecondaryTitle > unresolvedNoLocalCandidate ||
+      noLocalCachedTypeEvidence.uniqueNormalizedSourceTitlesInspected !==
+        noLocalTitleGrouping.uniqueNormalizedSourceTitles ||
+      noLocalCachedTypeEvidence.uniqueNormalizedSourceTitlesInspected !==
+        noLocalCachedTypeEvidence.titleGroupsWithoutTrustedType +
+        noLocalCachedTypeEvidence.titleGroupsWithConflictingTypes +
+        noLocalCachedTypeEvidence.titleGroupsWithOnlyMovieType +
+        noLocalCachedTypeEvidence.titleGroupsWithOnlySeriesType ||
+      noLocalCachedTypeEvidence.titleGroupsWithCachedJoynSearch >
+        noLocalCachedTypeEvidence.uniqueNormalizedSourceTitlesInspected ||
+      noLocalCachedTypeEvidence.titleGroupsWithCachedAlgoliaHits >
+        noLocalCachedTypeEvidence.uniqueNormalizedSourceTitlesInspected ||
+      noLocalCachedTypeEvidence.titleGroupsWithTrustedJoynType >
+        noLocalCachedTypeEvidence.titleGroupsWithCachedJoynSearch ||
+      noLocalCachedTypeEvidence.titleGroupsWithValidatedAlgoliaType >
+        noLocalCachedTypeEvidence.titleGroupsWithCachedAlgoliaHits ||
       reasonTotal !== unresolvedWithLocalCandidates ||
       unresolvedContext.exactlyOneLocalCandidate + unresolvedContext.multipleLocalCandidates !== unresolvedWithLocalCandidates ||
       unresolvedContext.exactAmbiguityWithSourceDescription +
@@ -545,6 +616,7 @@ export async function inspectJoynRestoredSourceCacheCoverage({
       distinctReusableNegativeKeys: unique.negative,
     },
     offlineNoLocalTitleGroups: noLocalTitleGrouping,
+    offlineNoLocalCachedTypeEvidence: noLocalCachedTypeEvidence,
     offlineLocalPreflight: {
       distinctMissingKeysInspected: unique.absent,
       locallyMatchedWithoutExternalCalls: resolvedLocally,
@@ -570,11 +642,13 @@ export function isSafeJoynRestoredSourceCoverage(value) {
   const s = value?.source, m = value?.match, o = value?.offlineLocalPreflight
   const rr = value?.offlineLocalRejectionReasons, cc = value?.offlineLocalCandidateContext
   const tr = value?.offlineTrustedJoynTypeReplay, ar = value?.offlineCachedAlgoliaReplay
-  const ng = value?.offlineNoLocalTitleGroups, g = value?.gate
+  const ng = value?.offlineNoLocalTitleGroups
+  const nt = value?.offlineNoLocalCachedTypeEvidence, g = value?.gate
   return keysExactly(value, ['kind', 'schemaVersion', 'mode', 'source', 'match',
     'offlineLocalPreflight', 'offlineLocalRejectionReasons',
     'offlineLocalCandidateContext', 'offlineTrustedJoynTypeReplay',
-    'offlineCachedAlgoliaReplay', 'offlineNoLocalTitleGroups', 'gate', 'limitations']) &&
+    'offlineCachedAlgoliaReplay', 'offlineNoLocalTitleGroups',
+    'offlineNoLocalCachedTypeEvidence', 'gate', 'limitations']) &&
     value.kind === 'g1e-private-joyn-original-cache-coverage' &&
     value.schemaVersion === 1 && value.mode === 'private-read-only' &&
     typeof value.limitations === 'string' &&
@@ -632,6 +706,26 @@ export function isSafeJoynRestoredSourceCoverage(value) {
     ng.repeatedNormalizedTitleGroups <= ng.uniqueNormalizedSourceTitles &&
     ng.originalKeysWithSourceDescription <= ng.missingOriginalKeysInspected &&
     ng.originalKeysWithSecondaryTitle <= ng.missingOriginalKeysInspected &&
+    keysExactly(nt, ['uniqueNormalizedSourceTitlesInspected',
+      'titleGroupsWithCachedJoynSearch', 'titleGroupsWithCachedAlgoliaHits',
+      'titleGroupsWithTrustedJoynType', 'titleGroupsWithValidatedAlgoliaType',
+      'titleGroupsWithOnlyMovieType', 'titleGroupsWithOnlySeriesType',
+      'titleGroupsWithConflictingTypes', 'titleGroupsWithoutTrustedType',
+      'externalRequestsStarted']) &&
+    ['uniqueNormalizedSourceTitlesInspected', 'titleGroupsWithCachedJoynSearch',
+      'titleGroupsWithCachedAlgoliaHits', 'titleGroupsWithTrustedJoynType',
+      'titleGroupsWithValidatedAlgoliaType', 'titleGroupsWithOnlyMovieType',
+      'titleGroupsWithOnlySeriesType', 'titleGroupsWithConflictingTypes',
+      'titleGroupsWithoutTrustedType'].every(x => integer(nt[x], MAX_RAW_EVENTS)) &&
+    nt.externalRequestsStarted === 0 &&
+    nt.uniqueNormalizedSourceTitlesInspected === ng.uniqueNormalizedSourceTitles &&
+    nt.uniqueNormalizedSourceTitlesInspected ===
+      nt.titleGroupsWithoutTrustedType + nt.titleGroupsWithConflictingTypes +
+      nt.titleGroupsWithOnlyMovieType + nt.titleGroupsWithOnlySeriesType &&
+    nt.titleGroupsWithCachedJoynSearch <= nt.uniqueNormalizedSourceTitlesInspected &&
+    nt.titleGroupsWithCachedAlgoliaHits <= nt.uniqueNormalizedSourceTitlesInspected &&
+    nt.titleGroupsWithTrustedJoynType <= nt.titleGroupsWithCachedJoynSearch &&
+    nt.titleGroupsWithValidatedAlgoliaType <= nt.titleGroupsWithCachedAlgoliaHits &&
     keysExactly(rr, ['noCandidateAboveMinimumScore', 'belowAcceptanceScore',
       'ambiguousScoreMargin', 'ambiguousExactTitle']) &&
     Object.values(rr).every(x => integer(x, MAX_RAW_EVENTS)) &&
