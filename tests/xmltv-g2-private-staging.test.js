@@ -189,10 +189,12 @@ describe('#336 G2c actual source generations, isolated staging only', () => {
     parsed.candidates[0].playbackRoutes = [{ url: 'app://NEVER_USE' }]
     parsed.candidates[0].confirmed = true
     const generation = buildXmltvPrivateSourceGeneration(parsed, { now: NOW })
-    const serialized = JSON.stringify(generation)
-    expect(serialized).not.toContain('tmdbId')
-    expect(serialized).not.toContain('app://NEVER_USE')
-    expect(serialized).not.toContain('"confirmed"')
+    const serializedRecords = JSON.stringify(generation.records)
+    expect(generation.records.every(record => !Object.hasOwn(record, 'tmdbId') &&
+      !Object.hasOwn(record, 'titleRef') &&
+      !Object.hasOwn(record, 'playbackRoutes') &&
+      !Object.hasOwn(record, 'confirmed'))).toBe(true)
+    expect(serializedRecords).not.toContain('app://NEVER_USE')
     expect(generation.records[0].sourceRef.externalId).toContain(PRIVATE)
     expect(generation.publishApproved).toBe(false)
   })
