@@ -89,7 +89,9 @@ describe('XMLTV #336: five-day real coverage and independent source families, is
       report('freeepg'), report('iptv-epg-org'),
     ], { now: NOW })
     expect(assessed).toMatchObject({
-      requiredIndependentFamilies: 2, completeIndependentFamilies: 1,
+      requiredIndependentFamilies: 2, availableIndependentFamilies: 1,
+      completeIndependentFamilies: 1,
+      primaryFiveDaySnapshot: true, independentFallbackSnapshot: false,
       sufficientIndependentCoverageSnapshot: false,
     })
     expect(assessed.sourceStatuses.every(s => s.completeFiveDayCoverage)).toBe(true)
@@ -101,7 +103,8 @@ describe('XMLTV #336: five-day real coverage and independent source families, is
       report('iptv-epg-org'), report('epgshare01'),
     ], { now: NOW })
     expect(good).toMatchObject({
-      completeIndependentFamilies: 2,
+      availableIndependentFamilies: 2, completeIndependentFamilies: 2,
+      primaryFiveDaySnapshot: true, independentFallbackSnapshot: true,
       sufficientIndependentCoverageSnapshot: true,
     })
     // A shorter but independent source is valuable as a backup, yet NOT a
@@ -110,18 +113,24 @@ describe('XMLTV #336: five-day real coverage and independent source families, is
       report('iptv-epg-org'),
       report('epgshare01', { gaps: true, gapStation: 'zdf' }),
     ], { now: NOW })
-    expect(degraded.completeIndependentFamilies).toBe(1)
-    expect(degraded.sufficientIndependentCoverageSnapshot).toBe(false)
+    expect(degraded).toMatchObject({
+      availableIndependentFamilies: 2, completeIndependentFamilies: 1,
+      primaryFiveDaySnapshot: true, independentFallbackSnapshot: true,
+      sufficientIndependentCoverageSnapshot: false,
+    })
     const stale = assessXmltvIndependentCoverage([
       report('iptv-epg-org'), report('epgshare01', {
         observedAt: NOW - 48 * HOUR,
       }),
     ], { now: NOW })
     expect(stale.completeIndependentFamilies).toBe(1)
+    expect(stale.availableIndependentFamilies).toBe(1)
+    expect(stale.independentFallbackSnapshot).toBe(false)
     const down = assessXmltvIndependentCoverage([
       report('iptv-epg-org'), report('epgshare01', { status: 'error' }),
     ], { now: NOW })
     expect(down.completeIndependentFamilies).toBe(1)
+    expect(down.availableIndependentFamilies).toBe(1)
   })
 
   it('rejects duplicate sources, source-family spoofing and invalid input bounds', () => {
@@ -132,6 +141,7 @@ describe('XMLTV #336: five-day real coverage and independent source families, is
     altered.coverage.contentFamily = 'invented-independent'
     const result = assessXmltvIndependentCoverage([altered], { now: NOW })
     expect(result.completeIndependentFamilies).toBe(0)
+    expect(result.availableIndependentFamilies).toBe(0)
     expect(result.sufficientIndependentCoverageSnapshot).toBe(false)
     expect(() => measureXmltvFiveDayCoverage(new Array(250001).fill(null), {
       sourceId: 'freeepg', now: NOW,
