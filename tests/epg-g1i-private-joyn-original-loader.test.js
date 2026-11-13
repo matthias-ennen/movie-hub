@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   G1I_ORIGINAL_LOAD_MAX_BYTES,
-  inspectOriginalJoynCacheLoad,
+  inspectOriginalJoynCacheLoad, isSafeG1iOriginalReaderReport,
 } from '../scripts/epg-g1i-private-joyn-original-loader.mjs'
 
 const roots = []
@@ -53,6 +53,7 @@ describe('G1i: original Joyn cache-read feasibility without source/API calls', (
         measuredProductionSavings: null,
       },
     })
+    expect(isSafeG1iOriginalReaderReport(result)).toBe(true)
     const safe = JSON.stringify(result)
     for (const secret of ['PRIVATE_MOVIE_NEVER_REPORT', 'secretProgrammeAndTitle',
       'secretRawHash', '1234', 'joynProgramId']) expect(safe).not.toContain(secret)
@@ -109,4 +110,21 @@ describe('G1i: original Joyn cache-read feasibility without source/API calls', (
     expect(result.responses.status).toBe('unavailable')
     expect(result.gate.measuredProductionSavings).toBeNull()
   })
+  it('prevents private title/query fields or fabricated approvals in uploaded aggregates', async () => {
+    const root = await setup()
+    const report = await inspectOriginalJoynCacheLoad({ root, now: NOW })
+    expect(isSafeG1iOriginalReaderReport(report)).toBe(true)
+    expect(isSafeG1iOriginalReaderReport({
+      ...report, privateTitle: 'NEVER_UPLOAD',
+    })).toBe(false)
+    expect(isSafeG1iOriginalReaderReport({
+      ...report,
+      matcher: { ...report.matcher, privateFilename: 'NEVER_UPLOAD' },
+    })).toBe(false)
+    expect(isSafeG1iOriginalReaderReport({
+      ...report,
+      gate: { ...report.gate, liveSourceRequestApproved: true },
+    })).toBe(false)
+  })
+
 })
