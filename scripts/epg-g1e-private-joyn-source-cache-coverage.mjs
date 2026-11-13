@@ -293,9 +293,13 @@ export async function inspectJoynRestoredSourceCacheCoverage({
     sourceDescriptionGroups: 0,
     allExactTmdbOverviewsGroups: 0,
     sourceDescriptionAndAllOverviewsGroups: 0,
+    typedSourceDescriptionAndAllOverviewsGroups: 0,
     differentTmdbReleaseYearsGroups: 0,
     typedMoviesWithBroadcastDuration: 0,
     typedMoviesWithAllCachedRuntimeDetails: 0,
+    typedMoviesWithVerifiedRuntimeDetails: 0,
+    runtimeReplayHypotheticalMatched: 0,
+    runtimeReplayStillAmbiguous: 0,
     externalRequestsStarted: 0,
   }
   const offlineCachedTmdbMatcherReplay = {
@@ -717,7 +721,10 @@ export async function inspectJoynRestoredSourceCacheCoverage({
         if (hasDescription) ev.sourceDescriptionGroups++
         const fullOverviews = exact.every(item => item.hasOverview)
         if (fullOverviews) ev.allExactTmdbOverviewsGroups++
-        if (hasDescription && fullOverviews) ev.sourceDescriptionAndAllOverviewsGroups++
+        if (hasDescription && fullOverviews) {
+          ev.sourceDescriptionAndAllOverviewsGroups++
+          if (kind !== null) ev.typedSourceDescriptionAndAllOverviewsGroups++
+        }
         const years = new Set(exact.map(item => item.year)
           .filter(y => Number.isInteger(y) && y >= 1870 && y <= 2200))
         if (years.size > 1) ev.differentTmdbReleaseYearsGroups++
@@ -727,13 +734,58 @@ export async function inspectJoynRestoredSourceCacheCoverage({
         if (kind === 'movie' && movie > 1 &&
             Number.isFinite(duration) && duration > 0) {
           ev.typedMoviesWithBroadcastDuration++
-          const detailsReady = exact.every(item => {
+          const runtimeDetails = new Map()
+          let detailsReady = true
+          let verifiedIds = true
+          for (const item of exact) {
             const detailKey = JSON.stringify([`/movie/${item.tmdbId}`, { language: 'de-DE' }])
             const cached = privateSourceLookups.get('tmdb-search-v1', detailKey)
-            return object(cached) && Number.isSafeInteger(cached.runtime)
-              && cached.runtime > 0 && cached.runtime <= 1440
-          })
+            if (!object(cached) || !Number.isSafeInteger(cached.runtime) ||
+                cached.runtime <= 0 || cached.runtime > 1440) {
+              detailsReady = false
+            } else {
+              runtimeDetails.set(item.tmdbId, cached.runtime)
+              if (!Number.isSafeInteger(cached.id) || cached.id !== item.tmdbId) {
+                verifiedIds = false
+              }
+            }
+          }
           if (detailsReady) ev.typedMoviesWithAllCachedRuntimeDetails++
+          if (detailsReady && verifiedIds) {
+            ev.typedMoviesWithVerifiedRuntimeDetails++
+            // Original unchanged duration resolver, with solely valid
+            // ID-verified private cached detail replies. Never HTTP.
+            let detailCallbacks = 0
+            const runtimeReplay = await matchJoynProgram({
+              title: representative.title, type: 'movie',
+              description: representative.description,
+              broadcastDurationMinutes: duration,
+            }, {
+              localCandidates: [],
+              searchTmdb: async () => replayCandidates,
+              loadTmdbDetails: async (item) => {
+                if (!item || !runtimeDetails.has(item.tmdbId)) {
+                  throw new Error('Unexpected offline runtime identity')
+                }
+                detailCallbacks++
+                return { runtimeMinutes: runtimeDetails.get(item.tmdbId) }
+              },
+            })
+            if (detailCallbacks !== exact.length ||
+                runtimeReplay?.matcherVersion !== JOYN_MATCHER_VERSION) {
+              throw new Error('Original runtime replay consistency failure')
+            }
+            if (runtimeReplay.status === 'matched' &&
+                runtimeReplay.source === 'local+tmdb-search+duration') {
+              ev.runtimeReplayHypotheticalMatched++
+            } else if (runtimeReplay.status === 'unmatched' &&
+                runtimeReplay.reason === 'ambiguous_exact_title' &&
+                runtimeReplay.source === 'local+tmdb-search') {
+              ev.runtimeReplayStillAmbiguous++
+            } else {
+              throw new Error('Unsafe original runtime replay outcome')
+            }
+          }
         }
       } else offlineCachedTmdbMatcherReplay.otherExactAmbiguity++
     } else throw new Error('Unexpected cached TMDB matcher rejection')
@@ -847,6 +899,10 @@ export async function inspectJoynRestoredSourceCacheCoverage({
         offlineSameTypeAmbiguityEvidence.sourceDescriptionGroups ||
       offlineSameTypeAmbiguityEvidence.sourceDescriptionAndAllOverviewsGroups >
         offlineSameTypeAmbiguityEvidence.allExactTmdbOverviewsGroups ||
+      offlineSameTypeAmbiguityEvidence.typedSourceDescriptionAndAllOverviewsGroups >
+        offlineSameTypeAmbiguityEvidence.sourceDescriptionAndAllOverviewsGroups ||
+      offlineSameTypeAmbiguityEvidence.typedSourceDescriptionAndAllOverviewsGroups >
+        offlineSameTypeAmbiguityEvidence.trustedSourceTypeGroups ||
       offlineSameTypeAmbiguityEvidence.differentTmdbReleaseYearsGroups >
         offlineSameTypeAmbiguityEvidence.sameTypeGroupsInspected ||
       offlineSameTypeAmbiguityEvidence.typedMoviesWithBroadcastDuration >
@@ -855,6 +911,11 @@ export async function inspectJoynRestoredSourceCacheCoverage({
         offlineSameTypeAmbiguityEvidence.movieOnlyGroups ||
       offlineSameTypeAmbiguityEvidence.typedMoviesWithAllCachedRuntimeDetails >
         offlineSameTypeAmbiguityEvidence.typedMoviesWithBroadcastDuration ||
+      offlineSameTypeAmbiguityEvidence.typedMoviesWithVerifiedRuntimeDetails >
+        offlineSameTypeAmbiguityEvidence.typedMoviesWithAllCachedRuntimeDetails ||
+      offlineSameTypeAmbiguityEvidence.typedMoviesWithVerifiedRuntimeDetails !==
+        offlineSameTypeAmbiguityEvidence.runtimeReplayHypotheticalMatched +
+        offlineSameTypeAmbiguityEvidence.runtimeReplayStillAmbiguous ||
       reasonTotal !== unresolvedWithLocalCandidates ||
       unresolvedContext.exactlyOneLocalCandidate + unresolvedContext.multipleLocalCandidates !== unresolvedWithLocalCandidates ||
       unresolvedContext.exactAmbiguityWithSourceDescription +
@@ -1088,8 +1149,8 @@ export function isSafeJoynRestoredSourceCoverage(value) {
     tm.unmatchedAmbiguousExactTitle === tm.crossTypeOnly +
       tm.sameTypeOnly + tm.crossAndSame + tm.otherExactAmbiguity &&
     tm.ambiguousTyped <= tm.replayedTypedMovie + tm.replayedTypedSeries &&
-    keysExactly(se, ["sameTypeGroupsInspected","movieOnlyGroups","seriesOnlyGroups","trustedSourceTypeGroups","sourceDescriptionGroups","allExactTmdbOverviewsGroups","sourceDescriptionAndAllOverviewsGroups","differentTmdbReleaseYearsGroups","typedMoviesWithBroadcastDuration","typedMoviesWithAllCachedRuntimeDetails","externalRequestsStarted"]) &&
-    ["sameTypeGroupsInspected","movieOnlyGroups","seriesOnlyGroups","trustedSourceTypeGroups","sourceDescriptionGroups","allExactTmdbOverviewsGroups","sourceDescriptionAndAllOverviewsGroups","differentTmdbReleaseYearsGroups","typedMoviesWithBroadcastDuration","typedMoviesWithAllCachedRuntimeDetails"].every(k => integer(se[k], MAX_RAW_EVENTS)) &&
+    keysExactly(se, ["sameTypeGroupsInspected","movieOnlyGroups","seriesOnlyGroups","trustedSourceTypeGroups","sourceDescriptionGroups","allExactTmdbOverviewsGroups","sourceDescriptionAndAllOverviewsGroups","typedSourceDescriptionAndAllOverviewsGroups","differentTmdbReleaseYearsGroups","typedMoviesWithBroadcastDuration","typedMoviesWithAllCachedRuntimeDetails","typedMoviesWithVerifiedRuntimeDetails","runtimeReplayHypotheticalMatched","runtimeReplayStillAmbiguous","externalRequestsStarted"]) &&
+    ["sameTypeGroupsInspected","movieOnlyGroups","seriesOnlyGroups","trustedSourceTypeGroups","sourceDescriptionGroups","allExactTmdbOverviewsGroups","sourceDescriptionAndAllOverviewsGroups","typedSourceDescriptionAndAllOverviewsGroups","differentTmdbReleaseYearsGroups","typedMoviesWithBroadcastDuration","typedMoviesWithAllCachedRuntimeDetails","typedMoviesWithVerifiedRuntimeDetails","runtimeReplayHypotheticalMatched","runtimeReplayStillAmbiguous"].every(k => integer(se[k], MAX_RAW_EVENTS)) &&
     se.externalRequestsStarted === 0 &&
     se.sameTypeGroupsInspected === tm.sameTypeOnly &&
     se.sameTypeGroupsInspected === se.movieOnlyGroups + se.seriesOnlyGroups &&
@@ -1099,10 +1160,15 @@ export function isSafeJoynRestoredSourceCoverage(value) {
     se.allExactTmdbOverviewsGroups <= se.sameTypeGroupsInspected &&
     se.sourceDescriptionAndAllOverviewsGroups <= se.sourceDescriptionGroups &&
     se.sourceDescriptionAndAllOverviewsGroups <= se.allExactTmdbOverviewsGroups &&
+    se.typedSourceDescriptionAndAllOverviewsGroups <= se.sourceDescriptionAndAllOverviewsGroups &&
+    se.typedSourceDescriptionAndAllOverviewsGroups <= se.trustedSourceTypeGroups &&
     se.differentTmdbReleaseYearsGroups <= se.sameTypeGroupsInspected &&
     se.typedMoviesWithBroadcastDuration <= se.trustedSourceTypeGroups &&
     se.typedMoviesWithBroadcastDuration <= se.movieOnlyGroups &&
     se.typedMoviesWithAllCachedRuntimeDetails <= se.typedMoviesWithBroadcastDuration &&
+    se.typedMoviesWithVerifiedRuntimeDetails <= se.typedMoviesWithAllCachedRuntimeDetails &&
+    se.typedMoviesWithVerifiedRuntimeDetails ===
+      se.runtimeReplayHypotheticalMatched + se.runtimeReplayStillAmbiguous &&
     keysExactly(rr, ['noCandidateAboveMinimumScore', 'belowAcceptanceScore',
       'ambiguousScoreMargin', 'ambiguousExactTitle']) &&
     Object.values(rr).every(x => integer(x, MAX_RAW_EVENTS)) &&
