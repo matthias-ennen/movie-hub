@@ -12,6 +12,7 @@ import { mapJoynCandidateToBroadcastEvent, buildJoynSourceEnvelope } from '../sr
 import { SourceSchemaObserver } from '../src/sources/sourceSchemaObserver.js'
 import { syncJoynEpg, joynImportHorizon, writeJoynJson } from './joyn-epg-sync.mjs'
 import { JoynMatchCache, JoynLookupCache, sharedJoynTmdbMetadata } from './joyn-match-cache.mjs'
+import { joynOriginalFirstResponseCache } from './shared-tmdb-adapter-capture-stage.mjs'
 import { enrichJoynEpisodeReferences } from './joyn-episode-enrichment.mjs'
 import { readTmdbChangeSet, tmdbChangedTitleTimes } from './tmdb-change-queue.mjs'
 import { joynTechnicalFailure } from './joyn-source-guard.mjs'
@@ -599,6 +600,8 @@ export async function runJoynAdapterDiagnostic({
   sourceHealth = () => null,
   // Opt-in private G1e QA only; absent in the productive Nightly invocation.
   onCompletedEvidence = null,
+  // Opt-in G1i only: record original TMDB transport responses, no shared reads.
+  tmdbResponseCapture = null,
 } = {}) {
   const generatedAt = new Date(now).toISOString()
   const loaded = await loadJoynEpg(fetchImpl)
@@ -684,7 +687,7 @@ export async function runJoynAdapterDiagnostic({
   const tmdbSearch = process.env.TMDB_API_READ_TOKEN
     ? new JoynTmdbSearchClient({
       token: process.env.TMDB_API_READ_TOKEN,
-      responseCache: { get: (key) => lookupCache.get('tmdb-search-v1', key), set: (key, value) => lookupCache.set('tmdb-search-v1', key, value) },
+      responseCache: joynOriginalFirstResponseCache(lookupCache, tmdbResponseCapture),
       language: process.env.TMDB_LANGUAGE || 'de-DE',
       maxRequests: Number(process.env.JOYN_TMDB_REQUEST_BUDGET || 6000),
       paceMs: Number(process.env.JOYN_TMDB_PACE_MS || 200),

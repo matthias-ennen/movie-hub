@@ -4,6 +4,9 @@ import { runJoynAdapterDiagnostic } from './joyn-adapter-diagnostic.mjs'
 import { writeJoynLivePublicationAtomic } from './joyn-live-publication.mjs'
 import { withWaipuSingleFlight } from './waipu-sync-coordinator.mjs'
 import { JoynSourceGuard } from './joyn-source-guard.mjs'
+import {
+  SHARED_TMDB_CAPTURE_OPT_IN, openOptionalSharedTmdbCapture,
+} from './shared-tmdb-adapter-capture-stage.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 
@@ -20,16 +23,31 @@ export async function runJoynLiveCatalog({
         seriesDetail: Number(process.env.JOYN_SERIES_DETAIL_REQUEST_BUDGET || 100) } })
     try {
       await guard.waitUntilAvailable()
+      // Explicit private G1i capture only. The normal production job never
+      // supplies this token, and no shared-cache HIT can affect the matcher.
+      const sharedTmdbCapture = process.env.MOVIEHUB_SHARED_TMDB_CAPTURE === SHARED_TMDB_CAPTURE_OPT_IN
+        ? await openOptionalSharedTmdbCapture({
+          sourceId: 'joyn', enabled: true, projectRoot: root, now,
+        }) : null
       const { summary, envelope, publication } = await runJoynAdapterDiagnostic({
         now,
         publicationOutput: candidateOutput,
         sourceGenerationPrefix: 'joyn-catalog',
         fetchImpl: guard.fetch,
         sourceHealth: () => guard.snapshot(),
+        tmdbResponseCapture: sharedTmdbCapture,
       })
 
       const validation = await writeJoynLivePublicationAtomic(publication, outputDirectory)
       await guard.finish('complete')
+      // Save once, only after atomic source publication and healthy guard.
+      // Failure is isolated from the original Joyn catalogue publication.
+      if (sharedTmdbCapture) {
+        const capture = await sharedTmdbCapture.complete({
+          sourceGenerationComplete: validation.valid === true,
+        })
+        process.stdout.write(`Private TMDB capture (Joyn): ${capture.status}; stored=${capture.stored}\n`)
+      }
       process.stdout.write(JSON.stringify({
         kind: 'joyn-live-catalog-publication',
         generatedAt: new Date(now).toISOString(),

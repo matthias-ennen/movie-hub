@@ -80,6 +80,21 @@ Regressionen `tests/shared-tmdb-response-store.test.js` prüfen die Originalclie
 
 **Grenze:** Dieses Modul ist reine Entwicklungs-/Staging-Vorbereitung; es ist weder in Waipu-/Joyn-Nightly eingehängt noch ein XMLTV-TMDB-Sucher. `measuredProductionSavings=null`, sämtliche G1d/G1e/G2/G3/G4-Gates offen. Danach zunächst kontrollierte Staging-Anbindung mit einem einzigen Writer und echten originalen Request-/Source-Quittungen; erst bei nachgewiesener gleichbleibender Identität und niedrigeren tatsächlichen HTTP-Aufrufen die Produktivfreigabe erwägen.
 
+
+## G1i – echte Originaladapter im privaten Cache-Mitschnittmodus (keine produktive Umstellung)
+
+**Neu im nachfolgenden kleinen PR:** `scripts/shared-tmdb-adapter-capture-stage.mjs` wird über den **exakten, sonst nicht gesetzten Opt-in-Wert** `MOVIEHUB_SHARED_TMDB_CAPTURE=private-stage-capture-v1` in die originalen Laufwege `scripts/waipu-live-catalog.mjs` und `scripts/joyn-live-catalog.mjs` eingebunden. Die bestehenden GitHub-Workflows setzen dieses Flag **nicht**. Default bleiben Waipu und Joyn wie zuvor. Kein zusätzlicher TMDB-Request wird vom Mitschnitt ausgelöst, und es werden keine produktiven HTTP-Aufrufe eingespart oder Limits verändert.
+
+Der Modus ist absichtlich nur **Capture**:
+- Waipu benutzt weiterhin sein unabhängiges Originalmatching mit seinen bisherigen Cacheentscheidungen. Beim **erfolgreich zurückgegebenen** TMDB-Such-HTTP-Payload wird zusätzlich ein streng validierter Antwortdatensatz im separaten privaten Speicher vorgemerkt. Der neue Shared-Cache liefert in diesem Modus `get()=null` und kann keinen Match übernehmen.
+- Joyn liest Antworten weiterhin **ausschließlich aus seinem bisherigen `JoynLookupCache`**, inklusive der unveränderten Original-TTL. Ein **neu von TMDB geladener** Suchpayload wird in den Originalcache geschrieben und zusätzlich privat mitgeschnitten. Ein Originalcache-Hit wird nicht als neuer HTTP-Aufruf oder neue Shared-Cache-Ersparnis verkauft.
+- Beide Laufwege speichern den privaten Shared-Cache höchstens **einmal nach vollständigem erfolgreichem Originalkatalog**: Waipu nach seinen Publikationsdateien, Joyn erst nach atomar validierter Veröffentlichung und `guard.finish('complete')`. Abgebrochene Quellgenerationen schreiben die noch ungesicherten Shared-Einträge nicht.
+- Private Datei `artifacts/shared-tmdb/private/shared-tmdb-response-cache.json` ist **nicht** in GitHub-Artefakten/Firebase-/Android-Publikation oder bestehenden Actions-Caches enthalten. Optionaler Cachefehler, kaputte Datei oder Revisionskonflikt verändern nicht die Original-Matcherentscheidung. Die bereits getestete Writer-Lock- und Revisionsprüfung bleibt erhalten.
+
+**Nachweisweg:** `tests/shared-tmdb-adapter-capture-stage.test.js` benutzt die *echten* Waipu-/Joyn-TMDB-Suchclientklassen mit isoliertem deterministischen HTTP-Testtransport. Es prüft Originalcache-Hit, frische echte Clientrequest-Starts, konsekutive getrennte Quellgenerationen, Revisionskonflikte, beschädigte Stores, fehlende Produktionsaktivierung, Abbruch ohne Publikation und Fehlantworten. Der echte produktive Nachtlauf wurde mit diesem Flag noch **nicht** durchgeführt.
+
+**Als Nächstes unbedingt:** Nach grüner PR-CI den kontrollierten und vollständig privaten Originalgenerationen-Mitschnitt im gesonderten Staging durchführen (mit echten Quellen, nicht nur Offline-Fakes). Danach anhand dieser tatsächlich beobachteten TMDB-Request-Keys die Waipu/Joyn-Überlappung, Cachewriter- und Checkpoint-Stabilität messen. Erst dann ein getrennt freizugebendes *Read-/A/B*-Gate; XMLTV zunächst beim gesicherten lokalen Matcher belassen und kontrolliert integrieren. `measuredProductionSavings=null`, Shared-EPG-Identitätsindex deaktiviert und G2–G4 offen.
+
 ## Nächste zwei technisch sinnvolle Arbeiten nach G1f
 
 **Erstens** G1c/G1f read-only über unterschiedliche Tage wiederholen, um Veränderung, reale Lücken, Quellfrische und die tatsächliche Unabhängigkeit zu prüfen; nie bloß ältere Messungen als neue ausgeben. **Zweitens** einen isolierten Last-known-good-/Failover-Test für mindestens zwei Quellfamilien einführen, der bei zeitweise leerem Feed **nicht** ohne Altersprüfung alte Programmdaten oder ungeprüfte TMDB-Identitäten publiziert. G2 erst nach den entsprechenden Gates planen.

@@ -3,6 +3,9 @@ import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promise
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { WaipuEpgCache, WaipuPublicApiClient } from './waipu-public-data.mjs'
+import {
+  SHARED_TMDB_CAPTURE_OPT_IN, openOptionalSharedTmdbCapture,
+} from './shared-tmdb-adapter-capture-stage.mjs'
 import { withWaipuSingleFlight } from './waipu-sync-coordinator.mjs'
 import { WaipuProgramDetailLoader } from './waipu-program-detail-loader.mjs'
 import {
@@ -914,12 +917,20 @@ async function main() {
   const selected = new Set((syncStatus.stations || []).map(({ id }) => id))
   const stations = stationDirectory.filter(({ id }) => selected.has(id))
   const decisionsPath = resolve(process.env.WAIPU_MATCH_CACHE || resolve(projectRoot, 'artifacts/waipu-live/match-decisions.json'))
+  // Private G1i shadow capture only, disabled in the default Nightly.
+  const sharedTmdbCapture = live &&
+    process.env.MOVIEHUB_SHARED_TMDB_CAPTURE === SHARED_TMDB_CAPTURE_OPT_IN
+    ? await openOptionalSharedTmdbCapture({
+      sourceId: 'waipu', enabled: true, projectRoot,
+    })
+    : null
   const tmdbSearchClient = process.env.TMDB_API_READ_TOKEN
     ? new WaipuTmdbSearchClient({
       token: process.env.TMDB_API_READ_TOKEN,
       language: process.env.TMDB_LANGUAGE || 'de-DE',
       maxRequests: Number(process.env.WAIPU_TMDB_REQUEST_BUDGET || 100),
       paceMs: Number(process.env.WAIPU_TMDB_PACE_MS || 250),
+      responseCache: sharedTmdbCapture?.responseCache ?? null,
     })
     : null
   const tmdbMetadataClient = process.env.TMDB_API_READ_TOKEN
@@ -1035,6 +1046,13 @@ async function main() {
           jsonPath: resolve(projectRoot, 'artifacts/source-schema/waipu-program-upstream.json'),
           markdownPath: resolve(projectRoot, 'artifacts/source-schema/waipu-program-upstream.md'),
         })
+      }
+      if (sharedTmdbCapture) {
+        const capture = await sharedTmdbCapture.complete({
+          sourceGenerationComplete: liveCatalog.index.status === 'complete'
+            && syncStatus.status === 'complete',
+        })
+        process.stdout.write(`Private TMDB capture (Waipu): ${capture.status}; stored=${capture.stored}\n`)
       }
       process.stdout.write(`${JSON.stringify({
         ...liveCatalog.index,
