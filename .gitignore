@@ -14,6 +14,8 @@ artifacts/free-epg-quality/
 artifacts/waipu-account-probe/
 artifacts/waipu-sync/
 artifacts/waipu-live/
+# G2c original XMLTV source-title and programme snapshots are PRIVATE runner-only.
+artifacts/xmltv-g2/private/
 artifacts/waipu-station-inventory/
 artifacts/profile-email-browser/
 .DS_Store

@@ -1,0 +1,57 @@
+name: XMLTV G2c isolated original-source staging (no publication)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - src/sources/xmltv/xmltvPrivateStaging.js
+      - src/sources/xmltv/xmltvAvailableHorizon.js
+      - src/sources/xmltv/xmltvCandidates.js
+      - src/sources/xmltv/xmltvStationMappings.js
+      - scripts/xmltv-g2-private-staging.mjs
+      - tests/xmltv-g2-private-staging.test.js
+      - .github/workflows/xmltv-g2-private-staging.yml
+
+permissions:
+  contents: read
+
+jobs:
+  original-source-staging:
+    # The real public feed downloads are limited to this explicit PR branch or
+    # a user-initiated workflow_dispatch. No Nightly or deployment trigger.
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/336-g2c-private-xmltv-staging'
+    name: Stage real reviewed XMLTV programmes privately (max 14d, 3 feeds)
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install dependencies without setup hooks
+        run: npm ci --ignore-scripts
+      - name: Test source parser, provenance, 14-day bounded staging, isolation and no-approval gates
+        run: npx vitest run tests/xmltv-g2-private-staging.test.js tests/xmltv-candidates.test.js tests/xmltv-available-horizon.test.js tests/xmltv-last-known-good-preview.test.js
+      - name: Stage three fixed real sources into PRIVATE runner workspace only
+        run: node scripts/xmltv-g2-private-staging.mjs
+      - name: Verify ONLY safe numeric G2c aggregate can be uploaded
+        run: |
+          node --input-type=module -e '
+            import { readFileSync, readdirSync } from "node:fs";
+            import { isSafeXmltvG2StagingReport } from "./scripts/xmltv-g2-private-staging.mjs";
+            const r = JSON.parse(readFileSync("artifacts/xmltv-g2/report.json", "utf8"));
+            if (!isSafeXmltvG2StagingReport(r) || !r.stagedSourceCount) process.exit(1);
+            const staged = readdirSync("artifacts/xmltv-g2/private");
+            if (staged.length !== r.stagedSourceCount ||
+                staged.some(name => !/^(epgshare01|freeepg|iptv-epg-org)\.json$/.test(name))) {
+              process.exit(1);
+            }
+          '
+      - name: Upload ONLY vetted aggregate, never original source programmes
+        uses: actions/upload-artifact@v7
+        with:
+          name: xmltv-g2c-source-staging-aggregate
+          path: artifacts/xmltv-g2/report.json
+          if-no-files-found: error
+          retention-days: 7
