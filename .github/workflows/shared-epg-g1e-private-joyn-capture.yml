@@ -6,6 +6,8 @@ on:
     paths:
       - scripts/epg-g1e-isolated-pilot-core.mjs
       - scripts/epg-g1e-private-original-source-pilot.mjs
+      - scripts/epg-g1i-isolated-joyn-capture.mjs
+      - tests/epg-g1i-isolated-joyn-capture.test.js
       - scripts/epg-g1e-private-joyn-source-trace.mjs
       - tests/epg-g1e-private-joyn-source-trace.test.js
       - tests/epg-g1e-isolated-pilot-core.test.js
@@ -15,6 +17,7 @@ on:
     paths:
       - .github/workflows/shared-epg-g1e-private-joyn-capture.yml
       - scripts/epg-g1e-private-original-source-pilot.mjs
+      - scripts/epg-g1i-isolated-joyn-capture.mjs
       - scripts/epg-g1e-private-joyn-source-trace.mjs
       - scripts/epg-g1e-isolated-pilot-core.mjs
   workflow_dispatch:
@@ -58,6 +61,7 @@ jobs:
           tests/epg-g1e-waipu-replay-input-selection.test.js
           tests/epg-g1e-waipu-bounded-ab-controller.test.js
           tests/epg-g1e-private-waipu-ab-preflight.test.js
+          tests/epg-g1i-isolated-joyn-capture.test.js
 
   isolated-private-capture:
     name: Explicit one-shot PRIVATE original Joyn/Waipu capture (no publication)
@@ -84,6 +88,9 @@ jobs:
       G1E_PRIVATE_PILOT_ISOLATED: '1'
       G1E_PRIVATE_PILOT_CONFIRM: ${{ github.event_name == 'push' && 'PRIVATE_G1E_CAPTURE_ONLY' || inputs.confirmation }}
       G1E_PRIVATE_MODE: ${{ github.event_name == 'push' && 'capture' || inputs.mode }}
+      # Scoped only to the explicitly confirmed isolated private job.
+      # Never to productive Nightly, Firebase, Android or PR tests.
+      MOVIEHUB_SHARED_TMDB_CAPTURE: 'private-stage-capture-v1'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -144,8 +151,12 @@ jobs:
             node --input-type=module -e '
               import { readFileSync } from "node:fs";
               import { isSafePrivateJoynTrace } from "./scripts/epg-g1e-private-joyn-source-trace.mjs";
+              import { isSafeIsolatedJoynCaptureSummary } from "./scripts/epg-g1i-isolated-joyn-capture.mjs";
               const x = JSON.parse(readFileSync("artifacts/g1e-private-pilot/aggregate.json", "utf8"));
               if (x.kind !== "g1e-isolated-private-original-source-capture") process.exit(1);
+              if (x.privateTmdbCapture !== undefined &&
+                  (x.status === "failed-closed" ||
+                   !isSafeIsolatedJoynCaptureSummary(x.privateTmdbCapture))) process.exit(1);
               if (!["failed-closed", undefined].includes(x.status)) process.exit(1);
               const raw = JSON.stringify(x);
               if (raw.length > 12000 || raw.includes("approvedEvidence") ||
