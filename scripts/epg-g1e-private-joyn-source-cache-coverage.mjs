@@ -283,6 +283,21 @@ export async function inspectJoynRestoredSourceCacheCoverage({
   // WaipuTmdbSearchClient uses this exact year-free query key, but the
   // actual matcher can issue YEAR/FALLBACK/DETAIL/RETRY requests.
   // Never use these counts as a production HTTP budget or savings proof.
+  // Offline-only metadata readiness for exact collisions of a SINGLE type.
+  // Strictly aggregate: no title, identifier, metadata or response escapes.
+  const offlineSameTypeAmbiguityEvidence = {
+    sameTypeGroupsInspected: 0,
+    movieOnlyGroups: 0,
+    seriesOnlyGroups: 0,
+    trustedSourceTypeGroups: 0,
+    sourceDescriptionGroups: 0,
+    allExactTmdbOverviewsGroups: 0,
+    sourceDescriptionAndAllOverviewsGroups: 0,
+    differentTmdbReleaseYearsGroups: 0,
+    typedMoviesWithBroadcastDuration: 0,
+    typedMoviesWithAllCachedRuntimeDetails: 0,
+    externalRequestsStarted: 0,
+  }
   const offlineCachedTmdbMatcherReplay = {
     titleGroupsInspected: 0,
     completeFirstPassCache: 0,
@@ -677,6 +692,9 @@ export async function inspectJoynRestoredSourceCacheCoverage({
           ...(Array.isArray(raw.aliases) ? raw.aliases : [])]
         exactByIdentity.set(`${normalized.type}:${normalized.tmdbId}`, {
           type: normalized.type,
+          tmdbId: normalized.tmdbId,
+          year: normalized.year,
+          hasOverview: Boolean(String(normalized.description || '').trim()),
           exact: aliases.some(alias => normalizeWaipuText(alias) === title),
         })
       }
@@ -689,6 +707,34 @@ export async function inspectJoynRestoredSourceCacheCoverage({
         offlineCachedTmdbMatcherReplay.crossTypeOnly++
       } else if (movie > 1 || series > 1) {
         offlineCachedTmdbMatcherReplay.sameTypeOnly++
+        const ev = offlineSameTypeAmbiguityEvidence
+        ev.sameTypeGroupsInspected++
+        if (movie > 1 && series === 0) ev.movieOnlyGroups++
+        else if (series > 1 && movie === 0) ev.seriesOnlyGroups++
+        else throw new Error('Invalid same-type cached TMDB ambiguity')
+        if (kind !== null) ev.trustedSourceTypeGroups++
+        const hasDescription = Boolean(String(representative.description || '').trim())
+        if (hasDescription) ev.sourceDescriptionGroups++
+        const fullOverviews = exact.every(item => item.hasOverview)
+        if (fullOverviews) ev.allExactTmdbOverviewsGroups++
+        if (hasDescription && fullOverviews) ev.sourceDescriptionAndAllOverviewsGroups++
+        const years = new Set(exact.map(item => item.year)
+          .filter(y => Number.isInteger(y) && y >= 1870 && y <= 2200))
+        if (years.size > 1) ev.differentTmdbReleaseYearsGroups++
+        // The original matcher only supports runtime disambiguation of a
+        // confirmed movie, and only with a positive broadcast slot. This
+        // checks for existing cached detail replies; it does NOT load them.
+        if (kind === 'movie' && movie > 1 &&
+            Number.isFinite(duration) && duration > 0) {
+          ev.typedMoviesWithBroadcastDuration++
+          const detailsReady = exact.every(item => {
+            const detailKey = JSON.stringify([`/movie/${item.tmdbId}`, { language: 'de-DE' }])
+            const cached = privateSourceLookups.get('tmdb-search-v1', detailKey)
+            return object(cached) && Number.isSafeInteger(cached.runtime)
+              && cached.runtime > 0 && cached.runtime <= 1440
+          })
+          if (detailsReady) ev.typedMoviesWithAllCachedRuntimeDetails++
+        }
       } else offlineCachedTmdbMatcherReplay.otherExactAmbiguity++
     } else throw new Error('Unexpected cached TMDB matcher rejection')
   }
@@ -784,6 +830,31 @@ export async function inspectJoynRestoredSourceCacheCoverage({
       offlineCachedTmdbMatcherReplay.ambiguousTyped >
         offlineCachedTmdbMatcherReplay.replayedTypedMovie +
         offlineCachedTmdbMatcherReplay.replayedTypedSeries ||
+      offlineSameTypeAmbiguityEvidence.sameTypeGroupsInspected !==
+        offlineCachedTmdbMatcherReplay.sameTypeOnly ||
+      offlineSameTypeAmbiguityEvidence.sameTypeGroupsInspected !==
+        offlineSameTypeAmbiguityEvidence.movieOnlyGroups +
+        offlineSameTypeAmbiguityEvidence.seriesOnlyGroups ||
+      offlineSameTypeAmbiguityEvidence.trustedSourceTypeGroups >
+        offlineCachedTmdbMatcherReplay.ambiguousTyped ||
+      offlineSameTypeAmbiguityEvidence.trustedSourceTypeGroups >
+        offlineSameTypeAmbiguityEvidence.sameTypeGroupsInspected ||
+      offlineSameTypeAmbiguityEvidence.sourceDescriptionGroups >
+        offlineSameTypeAmbiguityEvidence.sameTypeGroupsInspected ||
+      offlineSameTypeAmbiguityEvidence.allExactTmdbOverviewsGroups >
+        offlineSameTypeAmbiguityEvidence.sameTypeGroupsInspected ||
+      offlineSameTypeAmbiguityEvidence.sourceDescriptionAndAllOverviewsGroups >
+        offlineSameTypeAmbiguityEvidence.sourceDescriptionGroups ||
+      offlineSameTypeAmbiguityEvidence.sourceDescriptionAndAllOverviewsGroups >
+        offlineSameTypeAmbiguityEvidence.allExactTmdbOverviewsGroups ||
+      offlineSameTypeAmbiguityEvidence.differentTmdbReleaseYearsGroups >
+        offlineSameTypeAmbiguityEvidence.sameTypeGroupsInspected ||
+      offlineSameTypeAmbiguityEvidence.typedMoviesWithBroadcastDuration >
+        offlineSameTypeAmbiguityEvidence.trustedSourceTypeGroups ||
+      offlineSameTypeAmbiguityEvidence.typedMoviesWithBroadcastDuration >
+        offlineSameTypeAmbiguityEvidence.movieOnlyGroups ||
+      offlineSameTypeAmbiguityEvidence.typedMoviesWithAllCachedRuntimeDetails >
+        offlineSameTypeAmbiguityEvidence.typedMoviesWithBroadcastDuration ||
       reasonTotal !== unresolvedWithLocalCandidates ||
       unresolvedContext.exactlyOneLocalCandidate + unresolvedContext.multipleLocalCandidates !== unresolvedWithLocalCandidates ||
       unresolvedContext.exactAmbiguityWithSourceDescription +
@@ -846,6 +917,7 @@ export async function inspectJoynRestoredSourceCacheCoverage({
     offlineNoLocalCachedTypeEvidence: noLocalCachedTypeEvidence,
     offlineNoLocalTmdbFirstPassCache: noLocalTmdbFirstPassCache,
     offlineCachedTmdbMatcherReplay,
+    offlineSameTypeAmbiguityEvidence,
     offlineLocalPreflight: {
       distinctMissingKeysInspected: unique.absent,
       locallyMatchedWithoutExternalCalls: resolvedLocally,
@@ -874,13 +946,15 @@ export function isSafeJoynRestoredSourceCoverage(value) {
   const ng = value?.offlineNoLocalTitleGroups
   const nt = value?.offlineNoLocalCachedTypeEvidence
   const tq = value?.offlineNoLocalTmdbFirstPassCache
-  const tm = value?.offlineCachedTmdbMatcherReplay, g = value?.gate
+  const tm = value?.offlineCachedTmdbMatcherReplay
+  const se = value?.offlineSameTypeAmbiguityEvidence, g = value?.gate
   return keysExactly(value, ['kind', 'schemaVersion', 'mode', 'source', 'match',
     'offlineLocalPreflight', 'offlineLocalRejectionReasons',
     'offlineLocalCandidateContext', 'offlineTrustedJoynTypeReplay',
     'offlineCachedAlgoliaReplay', 'offlineNoLocalTitleGroups',
     'offlineNoLocalCachedTypeEvidence', 'offlineNoLocalTmdbFirstPassCache',
-    'offlineCachedTmdbMatcherReplay', 'gate', 'limitations']) &&
+    'offlineCachedTmdbMatcherReplay', 'offlineSameTypeAmbiguityEvidence',
+    'gate', 'limitations']) &&
     value.kind === 'g1e-private-joyn-original-cache-coverage' &&
     value.schemaVersion === 1 && value.mode === 'private-read-only' &&
     typeof value.limitations === 'string' &&
@@ -1014,6 +1088,21 @@ export function isSafeJoynRestoredSourceCoverage(value) {
     tm.unmatchedAmbiguousExactTitle === tm.crossTypeOnly +
       tm.sameTypeOnly + tm.crossAndSame + tm.otherExactAmbiguity &&
     tm.ambiguousTyped <= tm.replayedTypedMovie + tm.replayedTypedSeries &&
+    keysExactly(se, ["sameTypeGroupsInspected","movieOnlyGroups","seriesOnlyGroups","trustedSourceTypeGroups","sourceDescriptionGroups","allExactTmdbOverviewsGroups","sourceDescriptionAndAllOverviewsGroups","differentTmdbReleaseYearsGroups","typedMoviesWithBroadcastDuration","typedMoviesWithAllCachedRuntimeDetails","externalRequestsStarted"]) &&
+    ["sameTypeGroupsInspected","movieOnlyGroups","seriesOnlyGroups","trustedSourceTypeGroups","sourceDescriptionGroups","allExactTmdbOverviewsGroups","sourceDescriptionAndAllOverviewsGroups","differentTmdbReleaseYearsGroups","typedMoviesWithBroadcastDuration","typedMoviesWithAllCachedRuntimeDetails"].every(k => integer(se[k], MAX_RAW_EVENTS)) &&
+    se.externalRequestsStarted === 0 &&
+    se.sameTypeGroupsInspected === tm.sameTypeOnly &&
+    se.sameTypeGroupsInspected === se.movieOnlyGroups + se.seriesOnlyGroups &&
+    se.trustedSourceTypeGroups <= tm.ambiguousTyped &&
+    se.trustedSourceTypeGroups <= se.sameTypeGroupsInspected &&
+    se.sourceDescriptionGroups <= se.sameTypeGroupsInspected &&
+    se.allExactTmdbOverviewsGroups <= se.sameTypeGroupsInspected &&
+    se.sourceDescriptionAndAllOverviewsGroups <= se.sourceDescriptionGroups &&
+    se.sourceDescriptionAndAllOverviewsGroups <= se.allExactTmdbOverviewsGroups &&
+    se.differentTmdbReleaseYearsGroups <= se.sameTypeGroupsInspected &&
+    se.typedMoviesWithBroadcastDuration <= se.trustedSourceTypeGroups &&
+    se.typedMoviesWithBroadcastDuration <= se.movieOnlyGroups &&
+    se.typedMoviesWithAllCachedRuntimeDetails <= se.typedMoviesWithBroadcastDuration &&
     keysExactly(rr, ['noCandidateAboveMinimumScore', 'belowAcceptanceScore',
       'ambiguousScoreMargin', 'ambiguousExactTitle']) &&
     Object.values(rr).every(x => integer(x, MAX_RAW_EVENTS)) &&

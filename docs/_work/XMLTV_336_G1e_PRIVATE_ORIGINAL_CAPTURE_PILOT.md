@@ -1,5 +1,22 @@
 # MovieHub #336 – G1e: echter privater Joyn-Originalmatcher-Pilot (isoliert, opt-in)
 
+## 13.11.2026 – G1e: zusätzliche Evidenz für gleichnamige Film-/Serien-IDs (weiterhin offline)
+
+Der [private Originalmatcher-Audit #43404733445](https://github.com/matthias-ennen/movie-hub/actions/runs/43404733445) auf #802 zählt **135** noch relevante Titelgruppen (davon **126** vollständige TMDB-Cache-Erstantwortgruppen); **124** von 126 ursprünglichen Matchversuchen bleiben exakt titelmehrdeutig (79 nur Kollisionen **innerhalb eines Medientyps**, 7 nur Film/Serie, 38 kombiniert), **2** haben keinen gültigen Kandidaten, **0** wurden hypothetisch gematcht. Der Unterschied zu vorherigen 136/127/125 ist dem fortschreitenden 14-Tage-Fenster geschuldet.
+
+Dieser PR untersucht **ausschließlich die 79 Same-Type-Fälle** anhand bereits vorhandener, niemals veröffentlichter Metadaten in derselben geschützten Laufzeitumgebung. Er zählt nur feste Aggregate für:
+- gleichnamige Kandidaten ausschließlich **Film** oder ausschließlich **Serie**; bereits beweiskräftig bestätigten Quellmedientyp;
+- Quellbeschreibung vorhanden; **sämtliche** exakten TMDB-Treffer mit nichtleerer Übersicht/Beschreibung; Schnittmenge beider Voraussetzungen;
+- mindestens zwei unterschiedliche, bekannte TMDB-Erstausstrahlungs-/Erscheinungsjahre (kein Nachweis für ein passendes **Quell**-Produktionsjahr);
+- nur bei eindeutigem Quelltyp **Film**: positive Sendedauer sowie zusätzlich für **alle** exakt gleichnamigen Film-IDs noch gültige TMDB-Filmdetailantworten mit plausibler Laufzeit im originalen `tmdb-search-v1`-Cache.
+
+Nur bei diesen Voraussetzungen könnte eine **spätere** kontrollierte Prüfung der bestehenden Originalregeln für Beschreibungs-/Laufzeitabgleich aussichtsreich sein. Weder dieses Audit noch die obigen nackten Merkmale ordnen automatisch einen TMDB-Titel zu. Ein Quell-Produktionsjahr wird im bisherigen jahresfreien Replay nicht an den Matcher übergeben; zwei unterschiedliche TMDB-Jahreszahlen reichen ausdrücklich **nicht** zur Zuordnung. Die Original-Regeln für Beschreibung (hohe Überlappung und ausreichend Vorsprung), Dauer (ein plausibler Kandidat, alle übrigen nachgewiesen unmöglich) und Typ müssen weiter gelten.
+
+**Sicherheit und Grenzen:** Alle Berichte sind ausschließlich numerisch, fix-schlüsselig, intern arithmetisch begrenzt und fail-closed. Private Titel, IDs, Beschreibungen, Jahre, Runtime-Werte, Hashes und Originalantworten werden nie exportiert. Die ursprüngliche 7-Tage-Cache-TTL gilt auch für Detailantworten; fehlende/abgelaufene Details werden nicht nachgeladen. Die 14-Tage-EPG-Quelle wird nicht neu erzeugt. Alle Provider-/TMDB-HTTP-Abfragen bleiben auf **0**, produktive Matcherentscheidungen und G0/Shared-EPG-Freigabe unverändert.
+
+---
+
+
 ## 13.11.2026 – G1e: Root-Cause-Klassifikation der 125 exakten Cache-Replay-Mehrdeutigkeiten
 
 Der [geschützte Audit #43403300222](https://github.com/matthias-ennen/movie-hub/actions/runs/43403300222) nach #801 bestätigt **136** Titelgruppen, **127** vollständig gecachte jahresfreie Basisreplays und **9** wegen fehlender Cacheantworten übersprungene Gruppen. Unter 127 Replays gab es **0** hypothetische Matches, **125** `ambiguous_exact_title` und **2** `no_candidate`. Alle Messungen erfolgten ohne Provider-/TMDB-HTTP und ohne produktive Matcherentscheidungen.
