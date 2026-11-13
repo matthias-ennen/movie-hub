@@ -533,6 +533,57 @@ describe('G1e original private source key/context coverage without network calls
     expect(isSafeJoynRestoredSourceCoverage(result)).toBe(true)
   })
 
+  it('groups different original cache hashes by normalized source title without leaking either', async () => {
+    const value = input()
+    const original = value.windowRecords[2].items[2]
+    const repeat = {
+      ...original, livestream: { ...original.livestream },
+      program: { ...original.program, id: 'PRIVATE_REPEAT_NEW_HASH',
+        secondaryTitle: 'Synthetic episode variation', description: 'Another episode description' },
+      start: original.start + 3600, end: original.end + 3600,
+    }
+    value.windowRecords[2].items.push(repeat)
+    const windowKey = `${value.windowRecords[2].from}_${value.windowRecords[2].to}`
+    value.checkpoint.windows[windowKey].count++
+    const result = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(result.match.distinctMissingOriginalKeys).toBe(2)
+    expect(result.offlineLocalPreflight.unresolvedWithoutLocalCandidates).toBe(2)
+    expect(result.offlineNoLocalTitleGroups).toEqual({
+      missingOriginalKeysInspected: 2,
+      uniqueNormalizedSourceTitles: 1,
+      repeatedNormalizedTitleGroups: 1,
+      duplicateOriginalKeysWithinTitleGroups: 1,
+      originalKeysWithoutNormalizedTitle: 0,
+      originalKeysWithSourceDescription: 2,
+      originalKeysWithSecondaryTitle: 1,
+      externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(result)).toBe(true)
+    expect(JSON.stringify(result)).not.toContain(programs[2].title)
+    expect(JSON.stringify(result)).not.toContain('PRIVATE_REPEAT_NEW_HASH')
+    expect(JSON.stringify(result)).not.toContain('Synthetic episode variation')
+  })
+
+  it('does not mistake two genuinely different normalized source titles for the same search', async () => {
+    const value = input()
+    const original = value.windowRecords[2].items[2]
+    value.windowRecords[2].items.push({
+      ...original,
+      program: { ...original.program, id: 'PRIVATE_DIFFERENT_TITLE', title: `${original.program.title} second` },
+      start: original.start + 3600, end: original.end + 3600,
+    })
+    const windowKey = `${value.windowRecords[2].from}_${value.windowRecords[2].to}`
+    value.checkpoint.windows[windowKey].count++
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.offlineNoLocalTitleGroups).toMatchObject({
+      missingOriginalKeysInspected: 2, uniqueNormalizedSourceTitles: 2,
+      repeatedNormalizedTitleGroups: 0, duplicateOriginalKeysWithinTitleGroups: 0,
+      externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+    expect(JSON.stringify(report)).not.toContain('PRIVATE_DIFFERENT_TITLE')
+  })
+
   it('honours modified original source description and duration in hash identity', async () => {
     const value = input()
     value.windowRecords[2].items[0].program.description = 'Different original description'
@@ -596,6 +647,9 @@ describe('G1e original private source key/context coverage without network calls
       { ...report, offlineCachedAlgoliaReplay: { ...report.offlineCachedAlgoliaReplay, privateTitle: SECRET } },
       { ...report, offlineCachedAlgoliaReplay: { ...report.offlineCachedAlgoliaReplay, externalRequestsStarted: 1 } },
       { ...report, offlineCachedAlgoliaReplay: { ...report.offlineCachedAlgoliaReplay, cachedAlgoliaMovieType: 1 } },
+      { ...report, offlineNoLocalTitleGroups: { ...report.offlineNoLocalTitleGroups, privateTitle: SECRET } },
+      { ...report, offlineNoLocalTitleGroups: { ...report.offlineNoLocalTitleGroups, externalRequestsStarted: 1 } },
+      { ...report, offlineNoLocalTitleGroups: { ...report.offlineNoLocalTitleGroups, uniqueNormalizedSourceTitles: 99 } },
       { ...report, gate: { ...report.gate, freshOriginalMatcherReceiptsApproved: true } },
       { ...report, gate: { ...report.gate, measuredProductionSavings: 100 } },
       { ...report, mode: SECRET },
