@@ -584,6 +584,96 @@ describe('G1e original private source key/context coverage without network calls
     expect(JSON.stringify(report)).not.toContain('PRIVATE_DIFFERENT_TITLE')
   })
 
+
+  it('counts cached Joyn/Algolia type evidence for no-local titles without inventing TMDB matches', async () => {
+    const title = programs[2].title
+    const value = input()
+    const lookup = new JoynLookupCache({}, NOW)
+    lookup.set('joyn-title-v1', title, {
+      type: 'movie', reason: 'exact_joyn_search',
+      exactTypes: ['movie'], exactCount: 1,
+      exactResults: [{ type: 'movie', joynType: 'Movie',
+        title, id: 'PRIVATE_JOYN_SOURCE_IDENTIFIER' }],
+    })
+    lookup.set('algolia-hits-v1', title, {
+      status: 'ready', hits: [{ type: 'MOVIE', titles: { DE: title },
+        id: 'PRIVATE_ALGOLIA_SOURCE_IDENTIFIER' }],
+    })
+    value.lookupCache.entries = lookup.entries
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.offlineNoLocalCachedTypeEvidence).toEqual({
+      uniqueNormalizedSourceTitlesInspected: 1,
+      titleGroupsWithCachedJoynSearch: 1,
+      titleGroupsWithCachedAlgoliaHits: 1,
+      titleGroupsWithTrustedJoynType: 1,
+      titleGroupsWithValidatedAlgoliaType: 1,
+      titleGroupsWithOnlyMovieType: 1,
+      titleGroupsWithOnlySeriesType: 0,
+      titleGroupsWithConflictingTypes: 0,
+      titleGroupsWithoutTrustedType: 0,
+      externalRequestsStarted: 0,
+    })
+    expect(report.offlineLocalPreflight.locallyMatchedWithoutExternalCalls).toBe(0)
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+    for (const secret of [title, 'PRIVATE_JOYN_SOURCE_IDENTIFIER', 'PRIVATE_ALGOLIA_SOURCE_IDENTIFIER']) {
+      expect(JSON.stringify(report)).not.toContain(secret)
+    }
+  })
+
+  it('classifies contradictory cached Joyn vs Algolia types as conflicts for one title', async () => {
+    const title = programs[2].title
+    const value = input()
+    const lookup = new JoynLookupCache({}, NOW)
+    lookup.set('joyn-title-v1', title, {
+      type: 'movie', reason: 'exact_joyn_search',
+      exactTypes: ['movie'], exactCount: 1,
+      exactResults: [{ type: 'movie', joynType: 'Movie', title }],
+    })
+    lookup.set('algolia-hits-v1', title, {
+      status: 'ready', hits: [{ type: 'SERIES', titles: { DE: title } }],
+    })
+    value.lookupCache.entries = lookup.entries
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.offlineNoLocalCachedTypeEvidence).toMatchObject({
+      titleGroupsWithTrustedJoynType: 1,
+      titleGroupsWithValidatedAlgoliaType: 1,
+      titleGroupsWithOnlyMovieType: 0,
+      titleGroupsWithOnlySeriesType: 0,
+      titleGroupsWithConflictingTypes: 1,
+      titleGroupsWithoutTrustedType: 0, externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+  })
+
+  it('does not count expired or invalid cached type evidence for no-local titles', async () => {
+    const title = programs[2].title
+    const value = input()
+    const lookup = new JoynLookupCache({}, NOW)
+    lookup.set('joyn-title-v1', title, {
+      type: 'series', reason: 'exact_joyn_search',
+      exactTypes: ['series'], exactCount: 1,
+      exactResults: [{ type: 'series', joynType: 'Series', title }],
+    })
+    lookup.set('algolia-hits-v1', title, {
+      status: 'ready', hits: [{ type: 'SERIES', titles: { DE: 'Different title' } }],
+    })
+    const originalKey = lookup.cacheKey('joyn-title-v1', title)
+    lookup.entries[originalKey].checkedAt = new Date(NOW - 8 * 86_400_000).toISOString()
+    value.lookupCache.entries = lookup.entries
+    const report = await inspectJoynRestoredSourceCacheCoverage(value)
+    expect(report.offlineNoLocalCachedTypeEvidence).toMatchObject({
+      titleGroupsWithCachedJoynSearch: 0,
+      titleGroupsWithCachedAlgoliaHits: 1,
+      titleGroupsWithTrustedJoynType: 0,
+      titleGroupsWithValidatedAlgoliaType: 0,
+      titleGroupsWithOnlyMovieType: 0,
+      titleGroupsWithOnlySeriesType: 0,
+      titleGroupsWithoutTrustedType: 1,
+      externalRequestsStarted: 0,
+    })
+    expect(isSafeJoynRestoredSourceCoverage(report)).toBe(true)
+  })
+
   it('honours modified original source description and duration in hash identity', async () => {
     const value = input()
     value.windowRecords[2].items[0].program.description = 'Different original description'
@@ -650,6 +740,9 @@ describe('G1e original private source key/context coverage without network calls
       { ...report, offlineNoLocalTitleGroups: { ...report.offlineNoLocalTitleGroups, privateTitle: SECRET } },
       { ...report, offlineNoLocalTitleGroups: { ...report.offlineNoLocalTitleGroups, externalRequestsStarted: 1 } },
       { ...report, offlineNoLocalTitleGroups: { ...report.offlineNoLocalTitleGroups, uniqueNormalizedSourceTitles: 99 } },
+      { ...report, offlineNoLocalCachedTypeEvidence: { ...report.offlineNoLocalCachedTypeEvidence, privateTitle: SECRET } },
+      { ...report, offlineNoLocalCachedTypeEvidence: { ...report.offlineNoLocalCachedTypeEvidence, titleGroupsWithOnlyMovieType: 99 } },
+      { ...report, offlineNoLocalCachedTypeEvidence: { ...report.offlineNoLocalCachedTypeEvidence, externalRequestsStarted: 1 } },
       { ...report, gate: { ...report.gate, freshOriginalMatcherReceiptsApproved: true } },
       { ...report, gate: { ...report.gate, measuredProductionSavings: 100 } },
       { ...report, mode: SECRET },
