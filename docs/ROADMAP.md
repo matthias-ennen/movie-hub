@@ -1,5 +1,19 @@
 # Movie Hub – Roadmap
 
+## Verbindlicher Planungsnachtrag – 14.11.2026: Curated Adapter vor Prime Video
+
+**Neue, ausdrücklich festgelegte Adapterreihenfolge unter [#271](https://github.com/matthias-ennen/movie-hub/issues/271):**
+
+1. **[#336 XMLTV-Multi-Source-EPG](https://github.com/matthias-ennen/movie-hub/issues/336):** laufende Hauptstrecke zu Ende bearbeiten, alle bisherigen Qualitäts- und Produktionsgates beibehalten.
+2. **[#838 MovieHub Curated Adapter](https://github.com/matthias-ennen/movie-hub/issues/838):** **nächstes Arbeitspaket vor Prime Video**. Erst produktiven Film-/Serienbestand, Genres, Poster-/Metadatenqualität und reale Reihenfilter inventarisieren (Hollywood als konkreter Regressionsfall); danach bestehende Such-/Filterlogik und begrenzte, cache-/budgetbewusste TMDB-Discovery für schwach besetzte Genres verbessern; zusätzlich versionierte JSON-Listen als redaktionelle Katalogmitgliedschaften über den normalen Nightly/TMDB-/Search-/Row-Pfad einlesen.
+3. **[#391 Prime Video](https://github.com/matthias-ennen/movie-hub/issues/391):** erst nach #838 als gesonderten GTI-/Quellenpilot behandeln.
+
+**Architektur- und Sichtbarkeitsentscheidung:** TMDB bleibt kanonische Metadaten-/Genre- und Identitätsquelle; redaktionelle Kategorien/Empfehlungen werden getrennt geführt. Neue JSON-Einträge werden über Medientyp + TMDB-ID dedupliziert, mit validiertem Titel-/Jahr-Match als Fallback. Kuratierte MovieHub-Reihen dürfen Werke **ohne** belegten Anbieter anzeigen; reine Provider-Reihen nicht. Keine fiktiven Provider-/PlaybackRoutes, keine erzwungene Genre-Umetikettierung und kein zweiter Titelspeicher. Korrekturen erfolgen an den Ursachen; API-Budgets, Caches, Fehlerisolation und Last-known-good-Publikation bleiben erhalten. Vor einem produktiven Umbau ist ein Baseline-/Qualitätsbericht erforderlich.
+
+**Status dieses Nachtrags:** Nur Priorisierung und verbindliche Planung. Es wurden hierdurch **keine** Adapter-, UI-, Nightly- oder Firebase-Implementierungen freigegeben. Die älteren Status-/Priorisierungsabschnitte weiter unten bleiben als Historie erhalten und sind hinsichtlich der **Reihenfolge** überholt.
+
+---
+
 ## Aktueller operativer Stand 11.11.2026 – XMLTV #336 nach G1b
 
 **Verbindlich und neuer als alle folgenden historischen Abschnitte:** Die XMLTV-Quellenprobe [G0 #758](https://github.com/matthias-ennen/movie-hub/pull/758), der sichere Rohparser [G1a #759](https://github.com/matthias-ennen/movie-hub/pull/759) und die quellgebundene Sender-/TMDB-/Merge-Vorschau [G1b #760](https://github.com/matthias-ennen/movie-hub/pull/760) sind **nach vollständiger grüner CI und Android-Build in `main` übernommen**. Letzter G1b-Merge: `990140dcf303a0e1bdc6b7bc9c5a129cf7f0716a`.
@@ -255,6 +269,6 @@ Vor einer öffentlichen Version 1.0 sollen mindestens folgende Blöcke abgeschlo
 
 ## Aktuelle Reihenfolge
 
-`#271 / #388 YouTube-Analyse + Pilot → #336 DVB-I → #391 Prime-Video-Analyse → weitere Quellen nach Go/No-Go → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
+`#271 / abgeschlossener YouTube-V1-Ausbau → #336 XMLTV-Multi-Source-EPG → #838 Curated Adapter + Katalog-/Genrequalität → #391 Prime-Video-Analyse → weitere Quellen nach Go/No-Go → Verfügbarkeitsdarstellung und Produkt-Finish → #112 Release-Gate → 1.0`
 
-#346, #315, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. #426 ist einschließlich aller Nachträge abgenommen und abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Die Adapter #388 (YouTube), #336 (DVB-I) und #391 (Prime Video) bilden die neu priorisierte Hauptstrecke unter #271; #314/#385 sind abgeschlossen.
+#346, #315, #118, #312, #380, #381, #382, #383, #387 und `movie-hub-admin#11` sind abgeschlossen. #426 ist einschließlich aller Nachträge abgenommen und abgeschlossen. #329 bleibt Wartung. Die verbleibende Fire-TV-Nacharbeit ist in #386 separat erfasst; sie öffnet #346 nicht wieder. Die reguläre Datenfortschreibung ist am 12.10.2026 bestätigt; Startverzögerungen bleiben unter Beobachtung. #413/#415 sind durch Matthias abgenommen und geschlossen. Die aktuelle geplante Hauptstrecke unter #271 verläuft nach dem YouTube-V1-Ausbau über #336 (XMLTV), **#838 (Curated Adapter/Katalogqualität)** und erst danach #391 (Prime Video); #314/#385 sind abgeschlossen.

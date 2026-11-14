@@ -1,5 +1,17 @@
 # Movie Hub – Adapterprogramm und Quellen-Ausbau
 
+## Verbindliche Programmergänzung – 14.11.2026: #838 zwischen XMLTV und Prime
+
+**Neue Nutzerentscheidung:** Adapter-Reihenfolge ist **[#336 XMLTV](https://github.com/matthias-ennen/movie-hub/issues/336) abschließen → [#838 MovieHub Curated Adapter](https://github.com/matthias-ennen/movie-hub/issues/838) → [#391 Prime Video](https://github.com/matthias-ennen/movie-hub/issues/391)**. #336 bleibt das aktuelle technische Arbeitspaket. Frühere Aussagen „Prime direkt nach XMLTV“ in historischen Abschnitten sind hiermit überholt. #271 bleibt Rahmen-Issue.
+
+**Umfang #838:** (1) Live-Baseline des öffentlichen Katalogs, Suchindex, Genres, Metadaten, Anbieter-/Quellenmitgliedschaften und tatsächlichen Posterreihen inklusive Hollywood-Filterverlusten; (2) zuerst Ursachen vorhandener Filter-/Discover-Unterabdeckung beheben und kleine, gedrosselte, deduplizierte TMDB-Genre-Nachsuche für echte Lücken einbauen, ohne pauschal jede Nacht alle Genres komplett neu zu crawlen; (3) versionierte JSON-Listen als eigene redaktionelle Katalogmitgliedschaft ohne erfundene Verfügbarkeit in die reguläre TMDB-Anreicherung und den zentralen Nightly aufnehmen; (4) konfigurierbare redaktionelle Home-/Film-/Serien-Reihen und prüfbare 06:00-Qualitätszähler; (5) Tests, Publikations-/Geräte-/Profilabnahme.
+
+**Korrekte Modellgrenze:** Bestehender `SourceEnvelope` kennt derzeit `broadcast` und `availability`; redaktionelle `catalogMembership` ist ein **eigenständiger** Vertrag/Projektion, kein Pseudo-Provider. TMDB-Genres nicht durch Nutzer-Tags überschreiben. Kuratierte Titel ohne bekannten Anbieter dürfen nur in ausdrücklich dafür gedachten Katalog-/Empfehlungsansichten erscheinen; tatsächliche Provider-Reihen und Wiedergabebadges bleiben angebotsgebunden. Kein neuer öffentlicher Persistenzstamm, keine persönlichen Daten im Repository.
+
+**Keine Umsetzung durch diese Dokumentationsänderung:** Plan und Reihenfolge wurden festgelegt, Umsetzung/Meilensteine folgen nach #336 gemäß dem ausführlichen [Issue #838](https://github.com/matthias-ennen/movie-hub/issues/838).
+
+---
+
 ## Aktueller operativer Stand 11.11.2026 – XMLTV #336 nach G1b
 
 **Verbindlich und neuer als alle folgenden historischen Abschnitte:** Die XMLTV-Quellenprobe [G0 #758](https://github.com/matthias-ennen/movie-hub/pull/758), der sichere Rohparser [G1a #759](https://github.com/matthias-ennen/movie-hub/pull/759) und die quellgebundene Sender-/TMDB-/Merge-Vorschau [G1b #760](https://github.com/matthias-ennen/movie-hub/pull/760) sind **nach vollständiger grüner CI und Android-Build in `main` übernommen**. Letzter G1b-Merge: `990140dcf303a0e1bdc6b7bc9c5a129cf7f0716a`.
