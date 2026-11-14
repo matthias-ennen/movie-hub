@@ -195,7 +195,14 @@ function replayOne(source, now) {
   const sourceId = source?.sourceId
   if (!SOURCES.includes(sourceId)) throw new TypeError('Unreviewed XMLTV replay source')
   const current = inspect(sourceId, source.current, now)
-  const previous = inspect(sourceId, source.lastKnownGood, now)
+  const checkedPrevious = inspect(sourceId, source.lastKnownGood, now)
+  // A last-known-good snapshot must be genuinely OLDER than the current
+  // generation. A duplicated or newer one must not manufacture lost-preview
+  // minutes or restore stations from a chronologically inverted source.
+  // Only compare timestamps after both source generations passed inspect().
+  const previous = checkedPrevious && (!current ||
+    Date.parse(source.lastKnownGood.observedAt) <
+      Date.parse(source.current.observedAt)) ? checkedPrevious : null
   const byStation = {}
   const windowsByStation = Object.fromEntries(STATIONS.map(id => [id, []]))
   for (const id of STATIONS) {
