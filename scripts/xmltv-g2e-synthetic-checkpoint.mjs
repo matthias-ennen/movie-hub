@@ -133,8 +133,13 @@ function validateManifest(manifest, { runId, sourceId, now }) {
   }
 }
 
-/** Can be called on a fresh runner, entirely separate from the upload runner. */
-export async function restoreSyntheticXmltvCheckpoint({
+/**
+ * Verified SYNTHETIC generation for the G2k next-run source selector.
+ * The entire payload must match our deterministic local QA generator,
+ * including every nested field. Real or edited original programme content
+ * cannot be restored through this API.
+ */
+export async function readVerifiedSyntheticXmltvGeneration({
   bucket, runId, sourceId, now = Date.now(),
 }) {
   assertIds(runId, sourceId)
@@ -154,6 +159,14 @@ export async function restoreSyntheticXmltvCheckpoint({
   }
   const generation = JSON.parse(payload.toString('utf8'))
   const report = checkedReport(sourceId, generation, now)
+  return { generation, report }
+}
+
+/** Existing numeric-only G2e restore contract; never returns a programme. */
+export async function restoreSyntheticXmltvCheckpoint(args) {
+  const { generation, report } = await readVerifiedSyntheticXmltvGeneration(args)
+  // Keep no internal generation references in the returned/reporting result.
+  void generation
   return {
     kind: 'xmltv-g2e-synthetic-qa-result',
     schemaVersion: 1, restoredStations: report.restoredStationDecisions,
