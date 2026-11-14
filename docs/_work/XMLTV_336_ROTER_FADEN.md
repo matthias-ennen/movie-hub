@@ -2,6 +2,22 @@
 
 **Verbindlicher Arbeitsstand: 14.11.2026.** Dieses Blatt ist der kurze Gesamt-Checkpoint neben dem sehr langen [Issue #336](https://github.com/matthias-ennen/movie-hub/issues/336). Es ersetzt keine technischen Testergebnisse, sondern verhindert, dass die Original-Joyn-Matcher-Diagnose das eigentliche XMLTV-Produktziel verdrängt.
 
+## Aktiver technischer Fahrplan zum Normalbetrieb – 14.11.2026
+
+**Priorität/Scope:** [#336](https://github.com/matthias-ennen/movie-hub/issues/336) ist und bleibt die **technische Implementierung**. Die separate spätere Quellen-/Rechteprüfung liegt jetzt in [#825](https://github.com/matthias-ennen/movie-hub/issues/825); das breitere öffentliche Release-/Compliancepaket bleibt [#112](https://github.com/matthias-ennen/movie-hub/issues/112). #336-Fortschrittsberichte sollen den technischen Weg behandeln, nicht die spätere Prüfung wiederholt ausdiskutieren. Bestehende Sicherheitssperren bleiben bis zu einer expliziten, späteren Freigabe bestehen.
+
+| Stufe | Konkrete technische Fertigstellung | Stand |
+|---|---|---|
+| **A** Quellenaufnahme | Drei überprüfte XMLTV-Feeds, sechs verifizierte Sender; kurze 2–3-Tage-Feeds behalten, 14 Tage ideal; zusätzliche Sender/Feedfamilien später nach Beleg | **Isolierte Live-Probe vorhanden, keine produktive Aktivierung** |
+| **B** Datenfluss Quelle → Auswahl → Matcher → Merge | Pro Sender aktuelle vs. echtes älteres LKG auswählen, validierte Originalprogramme nur privat in den bestehenden exakten lokalen Matcher und deduplizierten Waipu/Joyn-TV-Merge leiten | **G2j isolierte Integrationsstufe in Arbeit**, noch ohne Speicherung/Publikation |
+| **C** Ausfalltechnik über getrennte Nachtläufe | Atomare Checkpoints je Source, Original-/Feed-Fails, Frische, Lücken, Rollback, echtes Wiederanlaufen; zunächst **synthetische** unabhängige Läufe | **Synthetischer Cloud-Runner-Restore vorhanden, echter Mehrnachtbetrieb offen** |
+| **D** Gemeinsamer TMDB-Datenfluss | Waipu/Joyn/XMLTV-Response-Cache/-Identitätsverträge zusammenführen und mit echtem A/B-HTTP-Zähler sowie korrekter Film-/Episodenidentität abnehmen | **Opt-in-Brücke/privater Capture vorhanden, produktive Integration offen** |
+| **E** Senderbezogene AIR-Routen | Echte Sender-/App-Links je Station unabhängig von EPG-Ereignis; keine toten Badges; Android- und Fire-TV-Einzelabnahme | **Offen** |
+| **F** Nightly + Firebase/App | Gestaffelt hinter kontrolliertem Feature-Flag einschalten, Quellenfehler isolieren, Dedupe, Status/06:00-Report, Stabilität ohne Änderung an bewährten Waipu-/Joyn-Wegen | **Offen** |
+| **G** Normalbetrieb/Abnahme | Mehrere aufeinanderfolgende gesunde planmäßige Runs, Frische-/Matchquoten, Geräteprüfung, Rollbacktest, bewusste Freigabe | **Offen** |
+
+**Abnahme ist erst vollständig, wenn diese Ende-zu-Ende-Kette nachweislich funktioniert.** Die vorhandenen Parser-, Replay- und QA-Bausteine sind Teilergebnisse, keine bereits produktive XMLTV-Quelle. Ein Feed mit zwei Tagen echter Vorschau scheitert **nicht** am bloßen Horizont.
+
 ## Ziel / Definition of Done
 
 Ein **quellunabhängiger XMLTV-Multi-Source-Adapter** ergänzt Waipu und Joyn: Ziel sind mindestens zwei voneinander unabhängige nutzbare Feedquellen. **14 Tage Programmvorschau sind der Idealfall, fünf Tage ein Qualitätsziel – keines davon ist eine harte Mindestlaufzeit für einen Adapter.** Liefert eine Quelle nur zwei, drei oder vier Tage, bleibt sie als Quelle für diese tatsächlich vorhandenen Sendungen erhalten; sogar eine senderbezogene Teilabdeckung ist nutzbar, wenn der Rest nicht als vollständig dargestellt wird. Wir lesen bei jeder erlaubten Quelle so viel überprüfbare Vorschau bis maximal 14 Tage ein, wie sie liefert, und benennen Lücken, Ausfälle und Rechtevorbehalte transparent. Es braucht belastbare Beobachtung über mehrere Tage, nicht nur einen Momentbefund.
