@@ -306,6 +306,27 @@ jobs:
           TMDB_COUNTRY: DE
         run: npm run joyn:catalog
 
+      # #336 G2s: ONLY on an actual completed original source import,
+      # capture existing original TMDB client request-start counters.
+      # Never run on code-only deploys; do not query TMDB/EPG or alter sources.
+      # This optional audit cannot block the existing production publication.
+      - name: Observe original Waipu/Joyn TMDB search transport (count-only, no API)
+        id: shared_tmdb_g2s_original_baseline
+        if: ${{ github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true' && steps.waipu_catalog.outcome == 'success' && steps.joyn_catalog.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          G2S_ORIGINAL_BASELINE_READONLY: '1'
+        run: node scripts/shared-tmdb-g2s-nightly-original-baseline.mjs
+
+      - name: Upload ONLY anonymized original-client search counters
+        if: ${{ steps.shared_tmdb_g2s_original_baseline.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: g2s-original-tmdb-search-baseline-${{ github.run_id }}
+          path: artifacts/shared-tmdb/g2s-nightly-baseline/aggregate.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Acknowledge Joyn change consumer
         if: ${{ steps.joyn_catalog.outcome == 'success' && steps.tmdb_changes.outcome == 'success' }}
         run: npm run tmdb:changes:ack -- joyn-catalog

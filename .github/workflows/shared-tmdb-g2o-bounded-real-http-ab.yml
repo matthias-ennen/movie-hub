@@ -8,6 +8,9 @@ on:
       - tests/shared-tmdb-g2o-bounded-real-http-ab.test.js
       - scripts/shared-tmdb-g2r-multi-run-synthetic-ab.mjs
       - tests/shared-tmdb-g2r-multi-run-synthetic-ab.test.js
+      - scripts/shared-tmdb-g2s-nightly-original-baseline.mjs
+      - tests/shared-tmdb-g2s-nightly-original-baseline.test.js
+      - .github/workflows/deploy-firebase.yml
       - scripts/shared-tmdb-g2n-private-response-replay.mjs
       - scripts/shared-tmdb-response-store.mjs
       - scripts/waipu-tmdb-matcher.mjs
@@ -20,6 +23,9 @@ on:
       - tests/shared-tmdb-g2o-bounded-real-http-ab.test.js
       - scripts/shared-tmdb-g2r-multi-run-synthetic-ab.mjs
       - tests/shared-tmdb-g2r-multi-run-synthetic-ab.test.js
+      - scripts/shared-tmdb-g2s-nightly-original-baseline.mjs
+      - tests/shared-tmdb-g2s-nightly-original-baseline.test.js
+      - .github/workflows/deploy-firebase.yml
       - .github/workflows/shared-tmdb-g2o-bounded-real-http-ab.yml
   workflow_dispatch:
     inputs:
@@ -51,6 +57,7 @@ jobs:
           npx vitest run
           tests/shared-tmdb-g2o-bounded-real-http-ab.test.js
           tests/shared-tmdb-g2r-multi-run-synthetic-ab.test.js
+          tests/shared-tmdb-g2s-nightly-original-baseline.test.js
           tests/shared-tmdb-g2n-private-response-replay.test.js
           tests/shared-tmdb-response-store.test.js
           tests/shared-tmdb-search-response-cache.test.js
