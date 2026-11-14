@@ -15,11 +15,13 @@ on:
       - scripts/xmltv-g2-private-lkg-replay.mjs
       - scripts/xmltv-g2j-private-integration-preview.mjs
       - scripts/xmltv-g2l-private-adapter-coordinator.mjs
+      - scripts/xmltv-g2m-live-catalog-match-preview.mjs
       - scripts/xmltv-g2f-original-retention-preflight.mjs
       - tests/xmltv-g2-private-staging.test.js
       - tests/xmltv-g2-private-lkg-replay.test.js
-      - tests/xmltv-g2j-private-integration-preview.test.js tests/xmltv-g2l-private-adapter-coordinator.test.js
+      - tests/xmltv-g2j-private-integration-preview.test.js
       - tests/xmltv-g2l-private-adapter-coordinator.test.js
+      - tests/xmltv-g2m-live-catalog-match-preview.test.js
       - tests/xmltv-g2f-original-retention.test.js
       - .github/workflows/xmltv-g2-private-staging.yml
 
@@ -30,7 +32,7 @@ jobs:
   original-source-staging:
     # The real public feed downloads are limited to this explicit PR branch or
     # a user-initiated workflow_dispatch. No Nightly or deployment trigger.
-    if: github.event_name == 'workflow_dispatch' || (github.head_ref == 'feature/336-g2c-private-xmltv-staging' || github.head_ref == 'feature/336-g2d-private-xmltv-lkg-replay' || github.head_ref == 'feature/336-g2f-xmltv-original-rights-gate' || github.head_ref == 'feature/336-g2f-independent-overlap-qa' || github.head_ref == 'feature/336-g2h-lkg-shortened-preview-audit' || github.head_ref == 'feature/336-g2i-lkg-generation-order' || github.head_ref == 'feature/336-g2j-private-source-to-merge' || github.head_ref == 'feature/336-g2l-real-private-adapter-coordinator')
+    if: github.event_name == 'workflow_dispatch' || (github.head_ref == 'feature/336-g2c-private-xmltv-staging' || github.head_ref == 'feature/336-g2d-private-xmltv-lkg-replay' || github.head_ref == 'feature/336-g2f-xmltv-original-rights-gate' || github.head_ref == 'feature/336-g2f-independent-overlap-qa' || github.head_ref == 'feature/336-g2h-lkg-shortened-preview-audit' || github.head_ref == 'feature/336-g2i-lkg-generation-order' || github.head_ref == 'feature/336-g2j-private-source-to-merge' || github.head_ref == 'feature/336-g2l-real-private-adapter-coordinator' || github.head_ref == 'feature/336-g2m-verified-live-tmdb-catalog-local-match')
     name: Stage real reviewed XMLTV programmes privately (max 14d, 3 feeds)
     runs-on: ubuntu-latest
     timeout-minutes: 18
@@ -42,12 +44,17 @@ jobs:
       - name: Install dependencies without setup hooks
         run: npm ci --ignore-scripts
       - name: Test source parser, provenance, 14-day bounded staging, isolation and no-approval gates
-        run: npx vitest run tests/xmltv-g2-private-staging.test.js tests/xmltv-g2-private-lkg-replay.test.js tests/xmltv-g2f-original-retention.test.js tests/xmltv-candidates.test.js tests/xmltv-available-horizon.test.js tests/xmltv-last-known-good-preview.test.js tests/xmltv-g2j-private-integration-preview.test.js
+        run: npx vitest run tests/xmltv-g2-private-staging.test.js tests/xmltv-g2-private-lkg-replay.test.js tests/xmltv-g2f-original-retention.test.js tests/xmltv-candidates.test.js tests/xmltv-available-horizon.test.js tests/xmltv-last-known-good-preview.test.js tests/xmltv-g2j-private-integration-preview.test.js tests/xmltv-g2l-private-adapter-coordinator.test.js tests/xmltv-g2m-live-catalog-match-preview.test.js
       - name: Stage three fixed real sources into PRIVATE runner workspace only
         run: node scripts/xmltv-g2-private-staging.mjs
       - name: G2l integrate REAL private G2c snapshots through source selection, offline matcher and shared TV merge
         if: github.head_ref == 'feature/336-g2l-real-private-adapter-coordinator' || github.event_name == 'workflow_dispatch'
         run: node scripts/xmltv-g2l-private-adapter-coordinator.mjs
+      - name: G2m resolve actual private XMLTV programmes against already-published MovieHub TMDB catalog (no TMDB API)
+        if: github.head_ref == 'feature/336-g2m-verified-live-tmdb-catalog-local-match'
+        env:
+          MOVIEHUB_XMLTV_G2M_PRIVATE_QA: enabled
+        run: node scripts/xmltv-g2m-live-catalog-match-preview.mjs
       - name: Replay REAL private XMLTV snapshots offline with one source outage (G2d)
         if: github.head_ref == 'feature/336-g2d-private-xmltv-lkg-replay' || github.head_ref == 'feature/336-g2f-independent-overlap-qa' || github.head_ref == 'feature/336-g2h-lkg-shortened-preview-audit' || github.head_ref == 'feature/336-g2i-lkg-generation-order' || github.event_name == 'workflow_dispatch'
         run: node scripts/xmltv-g2-private-lkg-replay.mjs
