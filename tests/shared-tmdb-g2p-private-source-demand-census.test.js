@@ -3,6 +3,7 @@ import {
   G2P_CONFIRMATION, g2pExactPotentialRequest,
   computeG2pPrivateOverlap, isSafeG2pOverlapAggregate,
   safeG2pFailureCode, runG2pPrivateOriginalSourceCensus,
+  collectG2pWaipuCensusBroadcasts,
 } from '../scripts/shared-tmdb-g2p-private-source-demand-census.mjs'
 import { parseXmltvCandidates } from '../src/sources/xmltv/xmltvCandidates.js'
 import { buildXmltvPrivateSourceGeneration } from '../src/sources/xmltv/xmltvPrivateStaging.js'
@@ -40,7 +41,7 @@ function snapshot(sourceId,items=[
 }
 function waipu(title,id,type) {
   return { programId:id, title,
-    genre:type==='movie'?'Film':'Serie',
+    gridGenre:type==='movie'?'Film':'Serie',
     stationId:'zdf',startTime:utc(NOW+3600000),stopTime:utc(NOW+7200000),
   }
 }
@@ -120,6 +121,32 @@ describe('#336 G2p private original-source potential TMDB search demand census',
       'externalId','tmdbId','Bearer']) {
       expect(out).not.toContain(item)
     }
+  })
+
+  it('uses the real Waipu grid broadcast shape and excludes old cached slots',()=>{
+    const records=[{kind:'grid',key:'zdf|private-slot',value:[
+      {id:'w1',title:film,genre:'Film',
+        startTime:utc(NOW+3600000),stopTime:utc(NOW+7200000)},
+      {id:'w3',title:fourth,genre:'Film',
+        startTime:utc(NOW-7200000),stopTime:utc(NOW-3600000)},
+    ]}]
+    const stations=[{id:'zdf',displayName:'ZDF'}]
+    const horizon={start:utc(NOW),endExclusive:utc(NOW+24*3600000)}
+    const broadcasts=collectG2pWaipuCensusBroadcasts(records,stations,horizon)
+    expect(broadcasts).toHaveLength(1)
+    expect(broadcasts[0]).toMatchObject({
+      programId:'w1',gridGenre:'Film',stationId:'zdf',
+    })
+    const out=computeG2pPrivateOverlap({...base(),waipuBroadcasts:broadcasts})
+    expect(out.waipuProgrammesInspected).toBe(1)
+    expect(out.waipuTypedDemandCandidates).toBe(1)
+    expect(out.waipuJoynOverlapKeys).toBe(1)
+    expect(out.waipuXmltvOverlapKeys).toBe(1)
+    expect(()=>collectG2pWaipuCensusBroadcasts(records,stations,{
+      start:utc(NOW+24*3600000),endExclusive:utc(NOW),
+    })).toThrow('G2P_WAIPU_HORIZON_REJECTED')
+    expect(safeG2pFailureCode(new Error('G2P_WAIPU_HORIZON_REJECTED')))
+      .toBe('G2P_WAIPU_HORIZON_REJECTED')
   })
 
   it('rejects unreviewed conflicting source provenance rather than counting forged rows',()=>{
