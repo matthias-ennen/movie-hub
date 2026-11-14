@@ -22,6 +22,8 @@ import { inferXmltvMediaType } from './xmltv-g1b-match-preview.mjs'
 import { isSafeXmltvG2StagingReport } from './xmltv-g2-private-staging.mjs'
 import { replayXmltvPrivateLkg } from '../src/sources/xmltv/xmltvPrivateLkgReplay.js'
 import { sharedTmdbRequestPath } from './shared-tmdb-search-response-cache.mjs'
+import { JoynLookupCache } from './joyn-match-cache.mjs'
+import { trustedCachedJoynSearchType } from './epg-g1e-private-joyn-source-cache-coverage.mjs'
 import { XMLTV_VERIFIED_SOURCE_FAMILIES } from '../src/sources/xmltv/xmltvSourceReadiness.js'
 
 export const G2P_CONFIRMATION = 'PRIVATE_G2P_SOURCE_KEY_CENSUS_NO_TMDB'
@@ -31,6 +33,7 @@ const MAX_SOURCE_KEYS = 45_000
 const MAX_JOYN_WINDOWS = 56
 const MAX_JSON_BYTES = 96 * 1024 * 1024
 const MAX_TOTAL_JOYN_BYTES = 256 * 1024 * 1024
+const MAX_JOYN_LOOKUP_BYTES = 600 * 1024 * 1024
 const MAX_SOURCE_AGE_MS = 36 * 60 * 60 * 1000
 // Diagnostic identifiers only: never include an OS error, filename, title,
 // URL, request key, internal source object or a thrown stack in Actions logs.
@@ -41,6 +44,7 @@ const PRIVATE_ERROR_CODES = Object.freeze([
   'G2P_WAIPU_STATIONS_REJECTED',
   'G2P_WAIPU_DETAILS_REJECTED',
   'G2P_JOYN_WINDOWS_REJECTED',
+  'G2P_JOYN_LOOKUP_REJECTED',
   'G2P_XMLTV_GENERATIONS_REJECTED',
   'G2P_WAIPU_DEMAND_REJECTED',
   'G2P_JOYN_DEMAND_REJECTED',
@@ -63,6 +67,7 @@ const PAIRS = [['waipu','joyn'],['waipu','xmltv'],['joyn','xmltv']]
 const KEYS = [
   'kind','schemaVersion','mode','waipuProgrammesInspected',
   'joynProgrammesInspected','xmltvProgrammesInspected',
+  'joynLookupCacheAvailable','joynTrustedCachedTypeCandidates',
   'waipuTypedDemandCandidates','joynTypedDemandCandidates',
   'xmltvTypedDemandCandidates','waipuDistinctSearchKeys',
   'joynDistinctSearchKeys','xmltvDistinctSearchKeys',
@@ -144,28 +149,40 @@ function waipuKeys(broadcasts, details) {
   return { keys, inspected:broadcasts.length, typed, untyped }
 }
 
-/** Ambiguous Joyn EpgEntry is NOT silently classified as a film or series. */
-function joynKeys(items) {
-  if (!Array.isArray(items) || items.length > MAX_SOURCE_RECORDS) {
-    throw new TypeError('Unbounded Joyn source input')
+/**
+ * Joyn's V2 EPG records are generic EpgEntryV2. Use only the original
+ * seven-day JoynLookupCache.get policy plus its strict original SearchQ
+ * proof validator, never a guessed title/genre type or a TMDB identity.
+ */
+function joynKeys(items, lookupCache = null) {
+  if (!Array.isArray(items) || items.length > MAX_SOURCE_RECORDS ||
+      (lookupCache !== null && !(lookupCache instanceof JoynLookupCache))) {
+    throw new TypeError('Unbounded or unverified Joyn source input')
   }
   const keys = new Set()
   let typed = 0
   let untyped = 0
+  let trustedCacheTypeCandidates = 0
   for (const item of items) {
     const p = item?.program
-    const type = p?.__typename === 'Movie' ? 'movie' :
+    const title = String(p?.title ?? '').trim()
+    const explicitType = p?.__typename === 'Movie' ? 'movie' :
       ['Series','Episode'].includes(p?.__typename) ? 'series' : null
-    const key = type && g2pExactPotentialRequest({
-      title: String(p?.title ?? '').trim(), type,
-    })
+    const generic = ['EpgEntry','EpgEntryV2'].includes(p?.__typename)
+    const proof = generic && lookupCache
+      ? lookupCache.get('joyn-title-v1', title) : null
+    const trustedType = proof ? trustedCachedJoynSearchType(proof, title) : null
+    const type = explicitType || trustedType
+    const key = type && g2pExactPotentialRequest({ title, type })
     if (key) {
       typed++
       keys.add(key)
+      if (!explicitType && trustedType) trustedCacheTypeCandidates++
     } else untyped++
     if (keys.size > MAX_SOURCE_KEYS) throw new RangeError('Joyn key cap')
   }
-  return { keys, inspected:items.length, typed, untyped }
+  return { keys, inspected:items.length, typed, untyped,
+    trustedCacheTypeCandidates }
 }
 
 /**
@@ -222,6 +239,7 @@ function xmltvKeys(generations, { now }) {
 /** All source strings/keys remain in memory; export ONLY anonymized counts. */
 export function computeG2pPrivateOverlap({
   waipuBroadcasts, waipuDetails, joynItems, xmltvGenerations,
+  joynLookupCache = null,
   now = Date.now(),
 } = {}) {
   if (!Number.isFinite(now)) throw new TypeError('Invalid overlap clock')
@@ -230,7 +248,7 @@ export function computeG2pPrivateOverlap({
   let a,b,c
   try { a=waipuKeys(waipuBroadcasts,waipuDetails) }
   catch { throw new Error('G2P_WAIPU_DEMAND_REJECTED') }
-  try { b=joynKeys(joynItems) }
+  try { b=joynKeys(joynItems,joynLookupCache) }
   catch { throw new Error('G2P_JOYN_DEMAND_REJECTED') }
   try { c=xmltvKeys(xmltvGenerations,{now}) }
   catch { throw new Error('G2P_XMLTV_DEMAND_REJECTED') }
@@ -244,6 +262,8 @@ export function computeG2pPrivateOverlap({
     mode:'source-backed-query-demand-not-http',
     waipuProgrammesInspected:a.inspected,
     joynProgrammesInspected:b.inspected,
+    joynLookupCacheAvailable:joynLookupCache !== null,
+    joynTrustedCachedTypeCandidates:b.trustedCacheTypeCandidates,
     xmltvProgrammesInspected:c.inspected,
     waipuTypedDemandCandidates:a.typed,
     joynTypedDemandCandidates:b.typed,
@@ -281,6 +301,10 @@ export function isSafeG2pOverlapAggregate(x) {
       x.mode!=='source-backed-query-demand-not-http' ||
       !integer(x.waipuProgrammesInspected,MAX_SOURCE_RECORDS) ||
       !integer(x.joynProgrammesInspected,MAX_SOURCE_RECORDS) ||
+      typeof x.joynLookupCacheAvailable !== 'boolean' ||
+      !integer(x.joynTrustedCachedTypeCandidates,MAX_SOURCE_RECORDS) ||
+      x.joynTrustedCachedTypeCandidates>x.joynTypedDemandCandidates ||
+      (!x.joynLookupCacheAvailable && x.joynTrustedCachedTypeCandidates!==0) ||
       !integer(x.xmltvProgrammesInspected,MAX_SOURCE_RECORDS) ||
       !integer(x.waipuTypedDemandCandidates,MAX_SOURCE_RECORDS) ||
       !integer(x.joynTypedDemandCandidates,MAX_SOURCE_RECORDS) ||
@@ -348,6 +372,31 @@ async function requireSourceStatus(path,sourceId,now) {
     throw new TypeError('Private EPG source generation incomplete or stale')
   }
   return s
+}
+
+/**
+ * Optional restored ORIGINAL lookup cache; a missing cache provides no proof.
+ * A corrupt/oversized cache is a closed failure, not fabricated type evidence.
+ * JoynLookupCache.get enforces its production 7-day TTL on every candidate.
+ */
+async function restoreOriginalJoynLookupCache(root, now) {
+  const filename=join(root,'artifacts/joyn-live/lookup-cache.json')
+  let info
+  try { info=await lstat(filename) }
+  catch(error) {
+    if (error?.code==='ENOENT') return null
+    throw error
+  }
+  if (!info.isFile() || info.isSymbolicLink() ||
+      info.size<1 || info.size>MAX_JOYN_LOOKUP_BYTES) {
+    throw new TypeError('Untrusted original Joyn lookup file')
+  }
+  const cache=await JoynLookupCache.load(filename,now)
+  if (!isPlain(cache.entries) ||
+      Object.keys(cache.entries).length>MAX_SOURCE_RECORDS) {
+    throw new TypeError('Unbounded original Joyn lookup cache')
+  }
+  return cache
 }
 
 async function restoreOriginalJoynWindows(root) {
@@ -444,6 +493,10 @@ export async function runG2pPrivateOriginalSourceCensus({
     classified('G2P_XMLTV_GENERATIONS_REJECTED',
       () => readXmltvSourceGenerations(root,now)),
   ])
+  // Read the already restored original source-type receipts only AFTER source
+  // loading. This is a separate bounded private read, not a provider request.
+  const joynLookupCache=await classified('G2P_JOYN_LOOKUP_REJECTED',
+    () => restoreOriginalJoynLookupCache(root,now))
   const stationIds=new Set((waipuStatus.stations||[]).map(row=>row?.id).filter(Boolean))
   const allowed=(stations[0]?.value||[]).filter(row=>stationIds.has(row?.id))
   if (!allowed.length || !grid.length || !details.length || !joynItems.length) {
@@ -454,7 +507,7 @@ export async function runG2pPrivateOriginalSourceCensus({
     return computeG2pPrivateOverlap({
       waipuBroadcasts:broadcasts,
       waipuDetails:new Map(details.map(row=>[row.key,row.value])),
-      joynItems,xmltvGenerations,now,
+      joynItems,xmltvGenerations,joynLookupCache,now,
     })
   })
 }
