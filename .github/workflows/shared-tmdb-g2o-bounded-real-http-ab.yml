@@ -1,0 +1,81 @@
+name: Shared TMDB G2o bounded REAL HTTP A/B (manual only)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/shared-tmdb-g2o-bounded-real-http-ab.mjs
+      - tests/shared-tmdb-g2o-bounded-real-http-ab.test.js
+      - scripts/shared-tmdb-g2n-private-response-replay.mjs
+      - scripts/shared-tmdb-response-store.mjs
+      - scripts/waipu-tmdb-matcher.mjs
+      - scripts/joyn-tmdb-matcher.mjs
+      - .github/workflows/shared-tmdb-g2o-bounded-real-http-ab.yml
+  push:
+    branches: [main]
+    paths:
+      - scripts/shared-tmdb-g2o-bounded-real-http-ab.mjs
+      - tests/shared-tmdb-g2o-bounded-real-http-ab.test.js
+      - .github/workflows/shared-tmdb-g2o-bounded-real-http-ab.yml
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'EXACT PRIVATE_G2O_HTTP_AB_MAX_6: up to 6 real TMDB searches, 1 public movie + 1 series'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shared-tmdb-g2o-bounded-private-http-ab
+  cancel-in-progress: false
+
+jobs:
+  offline-tests:
+    name: Verify source contracts, transport cap and G2n replay with FAKE HTTP only
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Verify narrow G2o A/B and prior G2n cache safety
+        run: >-
+          npx vitest run
+          tests/shared-tmdb-g2o-bounded-real-http-ab.test.js
+          tests/shared-tmdb-g2n-private-response-replay.test.js
+          tests/shared-tmdb-response-store.test.js
+          tests/shared-tmdb-search-response-cache.test.js
+          tests/shared-tmdb-adapter-capture-stage.test.js
+
+  real-tmdb-http-ab:
+    name: Manual PRIVATE maximum-six REAL TMDB searches using original clients
+    needs: offline-tests
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' &&
+          github.ref == 'refs/heads/main' &&
+          inputs.confirmation == 'PRIVATE_G2O_HTTP_AB_MAX_6' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      G2O_CONFIRMATION: ${{ inputs.confirmation }}
+      TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Fail-closed manual approval, main branch and exact credential
+        run: |
+          test "${GITHUB_EVENT_NAME}" = "workflow_dispatch"
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${G2O_CONFIRMATION}" = "PRIVATE_G2O_HTTP_AB_MAX_6"
+          test -n "${TMDB_API_READ_TOKEN}"
+      - name: EXACTLY 2 public catalog works; cap real TMDB API starts at 6; publish NUMERIC summary only
+        run: node scripts/shared-tmdb-g2o-bounded-real-http-ab.mjs
