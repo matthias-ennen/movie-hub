@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   G2P_CONFIRMATION, g2pExactPotentialRequest,
   computeG2pPrivateOverlap, isSafeG2pOverlapAggregate,
+  safeG2pFailureCode, runG2pPrivateOriginalSourceCensus,
 } from '../scripts/shared-tmdb-g2p-private-source-demand-census.mjs'
 import { parseXmltvCandidates } from '../src/sources/xmltv/xmltvCandidates.js'
 import { buildXmltvPrivateSourceGeneration } from '../src/sources/xmltv/xmltvPrivateStaging.js'
@@ -125,10 +126,10 @@ describe('#336 G2p private original-source potential TMDB search demand census',
     const input=base()
     input.xmltvGenerations[0].records[0].sourceRef.externalId='forged'
     expect(()=>computeG2pPrivateOverlap(input))
-      .toThrow(/not validated/)
+      .toThrow('G2P_XMLTV_DEMAND_REJECTED')
     expect(()=>computeG2pPrivateOverlap({...base(),xmltvGenerations:[
       snapshot('epgshare01'),snapshot('epgshare01'),
-    ]})).toThrow(/Unreviewed/)
+    ]})).toThrow('G2P_XMLTV_DEMAND_REJECTED')
   })
 
   it('only counts explicit XMLTV movie/series categories, not generic genres',()=>{
@@ -189,5 +190,18 @@ describe('#336 G2p private original-source potential TMDB search demand census',
     input.xmltvGenerations[0].publishApproved=true
     expect(()=>computeG2pPrivateOverlap(input))
       .toThrow(/not validated/)
+  })
+
+  it('rejects missing original source checkpoints with a fixed private-safe diagnostic code',async()=>{
+    await expect(runG2pPrivateOriginalSourceCensus({
+      root:'/this/path/does/not/contain/movie-hub-source-files',now:NOW,
+    })).rejects.toThrow('G2P_CHECKPOINT_STATUS_REJECTED')
+    expect(safeG2pFailureCode(new Error(SECRET+' external file title')))
+      .toBe('G2P_UNCLASSIFIED_FAILURE')
+    expect(safeG2pFailureCode(new Error('G2P_JOYN_WINDOWS_REJECTED')))
+      .toBe('G2P_JOYN_WINDOWS_REJECTED')
+    expect(safeG2pFailureCode({
+      message:'G2P_XMLTV_DEMAND_REJECTED',extra:SECRET,
+    })).toBe('G2P_XMLTV_DEMAND_REJECTED')
   })
 })
