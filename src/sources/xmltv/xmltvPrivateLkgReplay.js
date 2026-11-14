@@ -148,6 +148,49 @@ function independentOverlapMinutes(detailed, stationId, now) {
   return Math.floor(overlapMs / MINUTE)
 }
 
+// G2h: report, but DO NOT automatically publish, old same-source intervals
+// that are absent from a shorter current generation. This audit covers the
+// full 14-day permissible horizon; it is NOT a licence or a fallback approval.
+const AUDIT_HORIZON_MS = 14 * DAY
+function mergedStationIntervals(generation, stationId, now) {
+  const intervals = []
+  if (!generation) return intervals
+  for (const row of generation.records) {
+    if (row.canonicalStationId !== stationId) continue
+    const a = Math.max(now, Date.parse(row.startAt))
+    const b = Math.min(now + AUDIT_HORIZON_MS, Date.parse(row.endAt))
+    if (b > a) intervals.push([a, b])
+  }
+  intervals.sort((a, b) => a[0] - b[0] || a[1] - b[1])
+  const union = []
+  for (const [start, end] of intervals) {
+    const last = union.at(-1)
+    if (last && start <= last[1]) last[1] = Math.max(last[1], end)
+    else union.push([start, end])
+  }
+  return union
+}
+
+function unpublishedLkgOnlyMinutes(currentGeneration, lkgGeneration, stationId, now) {
+  const live = mergedStationIntervals(currentGeneration, stationId, now)
+  const prior = mergedStationIntervals(lkgGeneration, stationId, now)
+  let uncoveredMs = 0
+  let j = 0
+  for (const [from, until] of prior) {
+    let cursor = from
+    while (j < live.length && live[j][1] <= cursor) j++
+    let k = j
+    while (k < live.length && live[k][0] < until) {
+      if (live[k][0] > cursor) uncoveredMs += live[k][0] - cursor
+      cursor = Math.max(cursor, live[k][1])
+      if (cursor >= until) break
+      k++
+    }
+    if (cursor < until) uncoveredMs += until - cursor
+  }
+  return Math.floor(uncoveredMs / MINUTE)
+}
+
 function replayOne(source, now) {
   const sourceId = source?.sourceId
   if (!SOURCES.includes(sourceId)) throw new TypeError('Unreviewed XMLTV replay source')
@@ -165,6 +208,11 @@ function replayOne(source, now) {
       mode: useLive ? 'current' : useLkg ? 'last-known-good' : 'unavailable',
       coveredMinutes: selected?.coveredMinutes ?? 0,
       completeFiveDaysFromNow: selected?.completeFiveDaysFromNow ?? false,
+      // Potential extra LKG time never selected or published when a current
+      // partial feed exists. Old programmes might have been withdrawn.
+      unpublishedLkgOnlyMinutes: useLive && lkg?.coveredMinutes > 0
+        ? unpublishedLkgOnlyMinutes(source.current, source.lastKnownGood, id, now)
+        : 0,
     }
     // inspect() has already revalidated the ENTIRE generation, its station
     // mapping, timestamps and original provenance before it can be selected.
@@ -184,6 +232,8 @@ function replayOne(source, now) {
     currentStations: decisions.filter(s => s.mode === 'current').length,
     restoredStations: decisions.filter(s => s.mode === 'last-known-good').length,
     unavailableStations: decisions.filter(s => s.mode === 'unavailable').length,
+    stationsWithUnpublishedLkgOnlyMinutes:
+      decisions.filter(s => s.unpublishedLkgOnlyMinutes > 0).length,
     byStation,
   } }
 }
@@ -267,17 +317,24 @@ export function isSafeXmltvG2dReplayReport(report) {
   for (const source of report.sources) {
     if (!keysEqual(source, [
       'sourceId', 'contentFamily', 'currentStations', 'restoredStations',
-      'unavailableStations', 'byStation',
+      'unavailableStations', 'stationsWithUnpublishedLkgOnlyMinutes', 'byStation',
     ]) || !SOURCES.includes(source.sourceId) || seen.has(source.sourceId) ||
         source.contentFamily !== XMLTV_VERIFIED_SOURCE_FAMILIES[source.sourceId] ||
         !keysEqual(source.byStation, STATIONS)) return false
     seen.add(source.sourceId)
     for (const id of STATIONS) {
       const station = source.byStation[id]
-      if (!keysEqual(station, ['mode', 'coveredMinutes', 'completeFiveDaysFromNow']) ||
+      if (!keysEqual(station, [
+        'mode', 'coveredMinutes', 'completeFiveDaysFromNow',
+        'unpublishedLkgOnlyMinutes',
+      ]) ||
           !MODES.has(station.mode) ||
           !Number.isSafeInteger(station.coveredMinutes) ||
           station.coveredMinutes < 0 || station.coveredMinutes > 14 * 24 * 60 ||
+          !Number.isSafeInteger(station.unpublishedLkgOnlyMinutes) ||
+          station.unpublishedLkgOnlyMinutes < 0 ||
+          station.unpublishedLkgOnlyMinutes > 14 * 24 * 60 ||
+          (station.mode !== 'current' && station.unpublishedLkgOnlyMinutes !== 0) ||
           typeof station.completeFiveDaysFromNow !== 'boolean' ||
           (station.mode === 'unavailable' &&
             (station.coveredMinutes !== 0 || station.completeFiveDaysFromNow)) ||
@@ -290,7 +347,10 @@ export function isSafeXmltvG2dReplayReport(report) {
     const count = mode => modes.filter(x => x === mode).length
     if (source.currentStations !== count('current') ||
         source.restoredStations !== count('last-known-good') ||
-        source.unavailableStations !== count('unavailable')) return false
+        source.unavailableStations !== count('unavailable') ||
+        source.stationsWithUnpublishedLkgOnlyMinutes !==
+          Object.values(source.byStation).filter(x =>
+            x.unpublishedLkgOnlyMinutes > 0).length) return false
     restored += source.restoredStations
   }
   const counts = STATIONS.map(id =>
