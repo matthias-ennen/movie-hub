@@ -36,6 +36,7 @@ const MAX_SOURCE_AGE_MS = 36 * 60 * 60 * 1000
 // URL, request key, internal source object or a thrown stack in Actions logs.
 const PRIVATE_ERROR_CODES = Object.freeze([
   'G2P_CHECKPOINT_STATUS_REJECTED',
+  'G2P_WAIPU_HORIZON_REJECTED',
   'G2P_WAIPU_GRID_REJECTED',
   'G2P_WAIPU_STATIONS_REJECTED',
   'G2P_WAIPU_DETAILS_REJECTED',
@@ -97,6 +98,20 @@ export function g2pExactPotentialRequest({ title, type, productionYear = null } 
   return sharedTmdbRequestPath(key) ? key : null
 }
 
+/**
+ * Use the exact horizon and grid projection from the original Waipu importer.
+ * Historical cache slots must never inflate the current private EPG census.
+ */
+export function collectG2pWaipuCensusBroadcasts(gridRecords, stations, horizon) {
+  if (!iso(horizon?.start) || !iso(horizon?.endExclusive) ||
+      Date.parse(horizon.endExclusive) <= Date.parse(horizon.start)) {
+    throw new Error('G2P_WAIPU_HORIZON_REJECTED')
+  }
+  return collectWaipuBroadcasts(gridRecords, {
+    stations, startTime:horizon.start, endTimeExclusive:horizon.endExclusive,
+  })
+}
+
 function waipuKeys(broadcasts, details) {
   if (!Array.isArray(broadcasts) || broadcasts.length > MAX_SOURCE_RECORDS ||
       !(details instanceof Map)) {
@@ -107,8 +122,14 @@ function waipuKeys(broadcasts, details) {
   let untyped = 0
   for (const entry of broadcasts) {
     const detail = details.get(entry?.programId) ?? null
-    const classification = classifyWaipuProgram(entry, detail)
-    const normalized = normalizeWaipuProgram(entry, detail, classification)
+    // collectWaipuBroadcasts returns gridGenre/programId, while the original
+    // classifier expects genre/id. Preserve its actual input contract.
+    const gridProgram = {
+      id:entry?.programId, title:entry?.title, genre:entry?.gridGenre,
+      episodeTitle:entry?.episodeTitle, seriesId:entry?.seriesId,
+    }
+    const classification = classifyWaipuProgram(gridProgram, detail)
+    const normalized = normalizeWaipuProgram(gridProgram, detail, classification)
     const key = normalized && g2pExactPotentialRequest({
       title: normalized.title, type: normalized.type,
       productionYear: normalized.type === 'movie' &&
@@ -429,7 +450,7 @@ export async function runG2pPrivateOriginalSourceCensus({
     throw new Error('G2P_AGGREGATE_REJECTED')
   }
   return classified('G2P_AGGREGATE_REJECTED', async () => {
-    const broadcasts=collectWaipuBroadcasts(grid,{stations:allowed})
+    const broadcasts=collectG2pWaipuCensusBroadcasts(grid,allowed,waipuStatus.horizon)
     return computeG2pPrivateOverlap({
       waipuBroadcasts:broadcasts,
       waipuDetails:new Map(details.map(row=>[row.key,row.value])),
