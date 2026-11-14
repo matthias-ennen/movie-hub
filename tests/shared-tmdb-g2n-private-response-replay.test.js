@@ -244,7 +244,7 @@ describe('#336 G2n actual original TMDB client response store private replay',()
     expect(result.counts).toMatchObject({received:1,accepted:1,rejected:0})
     expect(result.confirmedEvents).toHaveLength(1)
     expect(result.confirmedEvents[0].titleRef.tmdbId).toBe(MOVIE.id)
-    expect(result.confirmedEvents[0].playbackRoutes).toBeUndefined()
+    expect(result.confirmedEvents[0].playbackRoutes).toEqual([])
     expect(resolver.counts().writes).toBe(0)
   })
 
