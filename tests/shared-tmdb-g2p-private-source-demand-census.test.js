@@ -278,7 +278,7 @@ describe('#336 G2p private original-source potential TMDB search demand census',
       {...valid,playbackRoutesApproved:true},
       {...valid,allThreeOverlapKeys:2},
       {...valid,unionDistinctSearchKeys:5},
-      {...valid,joynLookupCacheAvailable:true},
+      {...valid,joynLookupCacheAvailable:'true'},
       {...valid,joynTrustedCachedTypeCandidates:1},
     ]
     for(const x of invalid) expect(isSafeG2pOverlapAggregate(x)).toBe(false)
