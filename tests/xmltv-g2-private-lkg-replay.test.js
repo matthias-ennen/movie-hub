@@ -71,7 +71,7 @@ describe('#336 G2d replay of PRIVATE real-format G2c source records', () => {
   })
 
   it('prefers fresh current data per station but restores missing stations from same-source LKG', () => {
-    const previous = generation('freeepg', 5, ['ard', 'zdf'])
+    const previous = generation('freeepg', 5, ['ard', 'zdf'], NOW - HOUR)
     const current = generation('freeepg', 1, ['zdf'])
     const report = replayXmltvPrivateLkg([
       entry('freeepg', current, previous),
@@ -235,7 +235,7 @@ describe('#336 G2f+ independent same-minute source overlap QA', () => {
 describe('#336 G2h shortened current source vs unused private LKG audit', () => {
   it('counts only the three extra days not selected from an older 5-day source', () => {
     const current = generation('freeepg', 2, ['zdf'])
-    const previous = generation('freeepg', 5, ['zdf'])
+    const previous = generation('freeepg', 5, ['zdf'], NOW - HOUR)
     const result = replayXmltvPrivateLkg([
       entry('freeepg', current, previous),
     ], { now: NOW })
@@ -251,7 +251,7 @@ describe('#336 G2h shortened current source vs unused private LKG audit', () => 
 
   it('counts original LKG-only programme gaps rather than just its latest end', () => {
     const current = delayedGeneration('freeepg', 2, 2)
-    const previous = generation('freeepg', 5, ['zdf'])
+    const previous = generation('freeepg', 5, ['zdf'], NOW - HOUR)
     const result = replayXmltvPrivateLkg([
       entry('freeepg', current, previous),
     ], { now: NOW })
@@ -269,14 +269,14 @@ describe('#336 G2h shortened current source vs unused private LKG audit', () => 
     ], { now: NOW })
     expect(result.sources[0].byStation.zdf.unpublishedLkgOnlyMinutes).toBe(0)
     const stale = replayXmltvPrivateLkg([
-      entry('freeepg', current, generation('freeepg', 5)),
+      entry('freeepg', current, generation('freeepg', 5, ['zdf'], NOW - HOUR)),
     ], { now: NOW + 37 * HOUR })
     expect(stale.sources[0].byStation.zdf.unpublishedLkgOnlyMinutes).toBe(0)
   })
 
   it('rejects made-up unused coverage and never treats these figures as publication rights', () => {
     const report = replayXmltvPrivateLkg([
-      entry('freeepg', generation('freeepg', 2), generation('freeepg', 5)),
+      entry('freeepg', generation('freeepg', 2), generation('freeepg', 5, ['zdf'], NOW - HOUR)),
     ], { now: NOW })
     const inflated = structuredClone(report)
     inflated.sources[0].byStation.zdf.unpublishedLkgOnlyMinutes = 20161
@@ -286,5 +286,52 @@ describe('#336 G2h shortened current source vs unused private LKG audit', () => 
     expect(isSafeXmltvG2dReplayReport(forgedCount)).toBe(false)
     expect(report.reuseRightsApproved).toBe(false)
     expect(report.durableCheckpointVerified).toBe(false)
+  })
+})
+
+describe('#336 G2i trusted chronology for private source-specific LKG', () => {
+  it('never replays a same-generation duplicate as older backup', () => {
+    const sameTimeCurrent = generation('freeepg', 1, ['zdf'])
+    const sameTimeLkg = generation('freeepg', 5, ['ard', 'zdf'])
+    const report = replayXmltvPrivateLkg([
+      entry('freeepg', sameTimeCurrent, sameTimeLkg),
+    ], { now: NOW })
+    expect(report.sources[0]).toMatchObject({
+      currentStations: 1, restoredStations: 0,
+      stationsWithUnpublishedLkgOnlyMinutes: 0,
+    })
+    expect(report.sources[0].byStation.zdf.unpublishedLkgOnlyMinutes).toBe(0)
+    expect(report.sources[0].byStation.ard.mode).toBe('unavailable')
+    expect(isSafeXmltvG2dReplayReport(report)).toBe(true)
+  })
+
+  it('rejects chronologically inverted LKG without throwing away valid current data', () => {
+    const current = generation('freeepg', 1, ['zdf'], NOW)
+    const newerAsOld = generation('freeepg', 5, ['ard', 'zdf'], NOW + HOUR)
+    const report = replayXmltvPrivateLkg([
+      entry('freeepg', current, newerAsOld),
+    ], { now: NOW + HOUR })
+    expect(report.sources[0].byStation.zdf.mode).toBe('current')
+    expect(report.sources[0].byStation.ard.mode).toBe('unavailable')
+    expect(report.sources[0].byStation.zdf.unpublishedLkgOnlyMinutes).toBe(0)
+    expect(report.sources[0].restoredStations).toBe(0)
+    expect(report.publishApproved).toBe(false)
+  })
+
+  it('accepts a strictly earlier verified same-source snapshot and preserves a 2-day current feed', () => {
+    const current = generation('freeepg', 2, ['zdf'], NOW)
+    const previous = generation('freeepg', 5, ['ard', 'zdf'], NOW - HOUR)
+    const report = replayXmltvPrivateLkg([
+      entry('freeepg', current, previous),
+    ], { now: NOW })
+    expect(report.sources[0].byStation.zdf).toMatchObject({
+      mode: 'current',
+      coveredMinutes: 2880,
+      unpublishedLkgOnlyMinutes: 4320,
+    })
+    expect(report.sources[0].byStation.ard.mode).toBe('last-known-good')
+    expect(report.sources[0].restoredStations).toBe(1)
+    expect(report.reuseRightsApproved).toBe(false)
+    expect(JSON.stringify(report)).not.toContain(PRIVATE)
   })
 })
