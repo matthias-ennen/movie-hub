@@ -19,7 +19,7 @@ on:
       - scripts/xmltv-g2f-original-retention-preflight.mjs
       - tests/xmltv-g2-private-staging.test.js
       - tests/xmltv-g2-private-lkg-replay.test.js
-      - tests/xmltv-g2j-private-integration-preview.test.js tests/xmltv-g2l-private-adapter-coordinator.test.js tests/xmltv-g2m-live-catalog-match-preview.test.js
+      - tests/xmltv-g2j-private-integration-preview.test.js
       - tests/xmltv-g2l-private-adapter-coordinator.test.js
       - tests/xmltv-g2m-live-catalog-match-preview.test.js
       - tests/xmltv-g2f-original-retention.test.js
@@ -44,7 +44,7 @@ jobs:
       - name: Install dependencies without setup hooks
         run: npm ci --ignore-scripts
       - name: Test source parser, provenance, 14-day bounded staging, isolation and no-approval gates
-        run: npx vitest run tests/xmltv-g2-private-staging.test.js tests/xmltv-g2-private-lkg-replay.test.js tests/xmltv-g2f-original-retention.test.js tests/xmltv-candidates.test.js tests/xmltv-available-horizon.test.js tests/xmltv-last-known-good-preview.test.js tests/xmltv-g2j-private-integration-preview.test.js
+        run: npx vitest run tests/xmltv-g2-private-staging.test.js tests/xmltv-g2-private-lkg-replay.test.js tests/xmltv-g2f-original-retention.test.js tests/xmltv-candidates.test.js tests/xmltv-available-horizon.test.js tests/xmltv-last-known-good-preview.test.js tests/xmltv-g2j-private-integration-preview.test.js tests/xmltv-g2l-private-adapter-coordinator.test.js tests/xmltv-g2m-live-catalog-match-preview.test.js
       - name: Stage three fixed real sources into PRIVATE runner workspace only
         run: node scripts/xmltv-g2-private-staging.mjs
       - name: G2l integrate REAL private G2c snapshots through source selection, offline matcher and shared TV merge
