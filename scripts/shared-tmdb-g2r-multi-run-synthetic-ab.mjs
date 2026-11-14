@@ -82,73 +82,62 @@ function fakeFetcher(counter) {
   }
 }
 
-async function withClients({ now, baseline, file, seededStore, counter }) {
+async function withClients({ now, baseline, file, seededJoynRows = null, counter }) {
   const outcomes = []
   let starts = 0
   let hits = 0
   let restored = null
-  for (const source of SOURCE) {
-    const input = {type:source.type,title:source.title}
-    let jc = null
-    let wc = null
-    if (!baseline) {
-      if (seededStore) {
-        jc = createSharedTmdbSearchResponseCache(seededStore)
-      } else {
-        const replay = await openG2nPrivateSharedTmdbRead({
+  for (let i=0;i<SOURCE.length;i++) {
+    const source=SOURCE[i]
+    const input={type:source.type,title:source.title}
+    let joynRows
+    if (seededJoynRows) {
+      // Day 0 Joyn responses were obtained by the original seeding clients.
+      // Do not run a second synthetic Joyn client and inflate cache hits.
+      joynRows=seededJoynRows[i]
+      if (!Array.isArray(joynRows)) throw new TypeError('Missing original seed results')
+    } else {
+      let responseCache=null
+      let replay=null
+      if (!baseline) {
+        replay=await openG2nPrivateSharedTmdbRead({
           file,now,sourceId:'joyn',enabled:true,
         })
         if (replay?.loadStatus !== 'loaded') {
           throw new TypeError('Separated Joyn replay unavailable')
         }
-        jc = replay.responseCache
-        restored = replay.summary().restoredExactSearchResponses
+        responseCache=replay.responseCache
+        restored=replay.summary().restoredExactSearchResponses
       }
-    }
-    const joyn = new JoynTmdbSearchClient(options(fakeFetcher(counter),jc))
-    const joynRows = await joyn.search(input)
-    starts += joyn.requestsStarted
-    if (!baseline && !seededStore) {
-      // The replay object itself owns its counters; no raw query output.
-      const report = await (async() => {
-        // Re-open with a separate consumer to measure a real cache hit below.
-        return null
-      })()
-      void report
+      const joyn=new JoynTmdbSearchClient(options(fakeFetcher(counter),responseCache))
+      joynRows=await joyn.search(input)
+      starts+=joyn.requestsStarted
+      if (replay) hits+=replay.summary().sharedResponseHits
     }
 
+    let responseCache=null
+    let replay=null
     if (!baseline) {
-      const replay = await openG2nPrivateSharedTmdbRead({
+      replay=await openG2nPrivateSharedTmdbRead({
         file,now,sourceId:'waipu',enabled:true,
       })
       if (replay?.loadStatus !== 'loaded') {
         throw new TypeError('Separated Waipu replay unavailable')
       }
-      wc = replay.responseCache
-      restored = replay.summary().restoredExactSearchResponses
-      const waipu = new WaipuTmdbSearchClient(options(fakeFetcher(counter),wc))
-      const waipuRows = await waipu.search(input)
-      starts += waipu.requestsStarted
-      hits += replay.summary().sharedResponseHits
-      outcomes.push({
-        source, joynRows,waipuRows,
-        joynMatch:await matchJoynProgram(input,{localCandidates:joynRows}),
-        waipuMatch:await matchWaipuProgram(input,{
-          localCandidates:waipuRows,now:()=>now,
-        }),
-      })
-    } else {
-      const waipu = new WaipuTmdbSearchClient(options(fakeFetcher(counter)))
-      const waipuRows = await waipu.search(input)
-      starts += waipu.requestsStarted
-      outcomes.push({
-        source,joynRows,waipuRows,
-        joynMatch:await matchJoynProgram(input,{localCandidates:joynRows}),
-        waipuMatch:await matchWaipuProgram(input,{
-          localCandidates:waipuRows,now:()=>now,
-        }),
-      })
+      responseCache=replay.responseCache
+      restored=replay.summary().restoredExactSearchResponses
     }
+    const waipu=new WaipuTmdbSearchClient(options(fakeFetcher(counter),responseCache))
+    const waipuRows=await waipu.search(input)
+    starts+=waipu.requestsStarted
+    if (replay) hits+=replay.summary().sharedResponseHits
+    outcomes.push({
+      source, joynRows,waipuRows,
+      joynMatch:await matchJoynProgram(input,{localCandidates:joynRows}),
+      waipuMatch:await matchWaipuProgram(input,{
+        localCandidates:waipuRows,now:()=>now,
+      }),
+    })
   }
   return {outcomes,starts,hits,restored}
 }
@@ -219,9 +208,10 @@ export async function runG2rSyntheticMultiRunAb({now=Date.now()}={}) {
         throw new TypeError('Original baseline mock transport inconsistent')
       }
       const sharedCounter={calls:0}
-      let seed=null
+      let seedJoynRows=null
       if (day === 0) {
-        seed=new SharedTmdbResponseStore({now:clock})
+        const seed=new SharedTmdbResponseStore({now:clock})
+        seedJoynRows=[]
         // The original client writes into the private in-memory seed first.
         // Persist before distinct Waipu consumers reopen the saved snapshot.
         for (const source of SOURCE) {
@@ -229,7 +219,7 @@ export async function runG2rSyntheticMultiRunAb({now=Date.now()}={}) {
             fakeFetcher(sharedCounter),
             createSharedTmdbSearchResponseCache(seed),
           ))
-          await j.search({type:source.type,title:source.title})
+          seedJoynRows.push(await j.search({type:source.type,title:source.title}))
           if (j.requestsStarted !== 1) {
             throw new TypeError('Original seed did not start one search')
           }
@@ -243,10 +233,10 @@ export async function runG2rSyntheticMultiRunAb({now=Date.now()}={}) {
       }
       const result=await withClients({
         now:clock,baseline:false,file,counter:sharedCounter,
-        seededStore:day === 0 ? seed : null,
+        seededJoynRows:seedJoynRows,
       })
       const sharedOnThisDay=sharedCounter.calls
-      if (result.starts !== (day === 0 ? sharedOnThisDay+2 : sharedOnThisDay)) {
+      if (result.starts !== (day === 0 ? sharedOnThisDay-2 : sharedOnThisDay)) {
         // Day zero's two pre-seed Joyn HTTP starts are counted separately.
         throw new TypeError('Original shared mock transport inconsistent')
       }
