@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { JoynLookupCache } from '../scripts/joyn-match-cache.mjs'
 import {
   G2P_CONFIRMATION, g2pExactPotentialRequest,
   computeG2pPrivateOverlap, isSafeG2pOverlapAggregate,
@@ -15,6 +16,10 @@ const series='Gemeinsame Serie'
 const third='Titel nur bei Joyn'
 const fourth='Titel nur bei Waipu'
 const utc=n=>new Date(n).toISOString()
+const joynSearchProof=(title,type)=>({
+  type,reason:'exact_joyn_search',exactTypes:[type],exactCount:1,
+  exactResults:[{title,type,joynType:type==='movie'?'Movie':'Series'}],
+})
 const xmltime=n=>utc(n).replace(/[-:T]/g,'').slice(0,14)+' +0000'
 const station=sourceId=>Object.entries(XMLTV_REVIEWED_STATION_MAPPINGS[sourceId])
   .find(([,row])=>row.stationId==='zdf')[0]
@@ -101,6 +106,7 @@ describe('#336 G2p private original-source potential TMDB search demand census',
     const result=computeG2pPrivateOverlap(base())
     expect(result).toMatchObject({
       waipuProgrammesInspected:3,joynProgrammesInspected:3,
+      joynLookupCacheAvailable:false,joynTrustedCachedTypeCandidates:0,
       xmltvProgrammesInspected:6,
       waipuTypedDemandCandidates:3,joynTypedDemandCandidates:2,
       xmltvTypedDemandCandidates:6,
@@ -121,6 +127,70 @@ describe('#336 G2p private original-source potential TMDB search demand census',
       'externalId','tmdbId','Bearer']) {
       expect(out).not.toContain(item)
     }
+  })
+
+  it('types generic original Joyn EpgEntryV2 only from valid cached SearchQ proofs',()=>{
+    const cache=new JoynLookupCache({},NOW)
+    cache.set('joyn-title-v1',film,joynSearchProof(film,'movie'))
+    cache.set('joyn-title-v1',series,joynSearchProof(series,'series'))
+    const input=base()
+    input.joynItems=[
+      joyn(film,'j1','EpgEntryV2'),
+      joyn(series,'j2','EpgEntryV2'),
+      joyn(third,'j3','EpgEntryV2'),
+    ]
+    input.joynLookupCache=cache
+    const out=computeG2pPrivateOverlap(input)
+    expect(out.joynLookupCacheAvailable).toBe(true)
+    expect(out.joynTrustedCachedTypeCandidates).toBe(2)
+    expect(out.joynTypedDemandCandidates).toBe(2)
+    expect(out.joynDistinctSearchKeys).toBe(2)
+    expect(out.waipuJoynOverlapKeys).toBe(2)
+    expect(out.joynXmltvOverlapKeys).toBe(2)
+    expect(out.allThreeOverlapKeys).toBe(2)
+    expect(out.measuredAvoidedProductionRequests).toBeNull()
+    expect(isSafeG2pOverlapAggregate(out)).toBe(true)
+    for (const privateTitle of [film,series,third,SECRET]) {
+      expect(JSON.stringify(out)).not.toContain(privateTitle)
+    }
+  })
+
+  it('rejects expired, mismatched and generic unverified Joyn classifications',()=>{
+    const historical=new JoynLookupCache({},NOW-8*86400000)
+    historical.set('joyn-title-v1',film,joynSearchProof(film,'movie'))
+    const stale=new JoynLookupCache(historical.entries,NOW)
+    const current=new JoynLookupCache({},NOW)
+    current.set('joyn-title-v1',series,joynSearchProof(third,'series'))
+    for (const [title,cache] of [[film,stale],[series,current]]) {
+      const input=base()
+      input.joynItems=[joyn(title,'j1','EpgEntryV2')]
+      input.joynLookupCache=cache
+      const out=computeG2pPrivateOverlap(input)
+      expect(out.joynLookupCacheAvailable).toBe(true)
+      expect(out.joynTrustedCachedTypeCandidates).toBe(0)
+      expect(out.joynTypedDemandCandidates).toBe(0)
+      expect(out.joynDistinctSearchKeys).toBe(0)
+      expect(out.untypedProgrammesExcluded).toBe(1)
+    }
+    const noCache=computeG2pPrivateOverlap({
+      ...base(),joynItems:[joyn(film,'j1','EpgEntryV2')],
+    })
+    expect(noCache.joynLookupCacheAvailable).toBe(false)
+    expect(noCache.joynTypedDemandCandidates).toBe(0)
+  })
+
+  it('keeps explicit original Joyn types and rejects fake cache readers',()=>{
+    const cache=new JoynLookupCache({},NOW)
+    cache.set('joyn-title-v1',film,joynSearchProof(film,'series'))
+    const out=computeG2pPrivateOverlap({
+      ...base(),joynItems:[joyn(film,'j1','Movie')],joynLookupCache:cache,
+    })
+    expect(out.joynTypedDemandCandidates).toBe(1)
+    expect(out.joynTrustedCachedTypeCandidates).toBe(0)
+    expect(out.waipuJoynOverlapKeys).toBe(1)
+    expect(()=>computeG2pPrivateOverlap({
+      ...base(),joynLookupCache:{get:()=>joynSearchProof(film,'movie')},
+    })).toThrow('G2P_JOYN_DEMAND_REJECTED')
   })
 
   it('uses the real Waipu grid broadcast shape and excludes old cached slots',()=>{
@@ -208,6 +278,8 @@ describe('#336 G2p private original-source potential TMDB search demand census',
       {...valid,playbackRoutesApproved:true},
       {...valid,allThreeOverlapKeys:2},
       {...valid,unionDistinctSearchKeys:5},
+      {...valid,joynLookupCacheAvailable:true},
+      {...valid,joynTrustedCachedTypeCandidates:1},
     ]
     for(const x of invalid) expect(isSafeG2pOverlapAggregate(x)).toBe(false)
   })
@@ -227,6 +299,8 @@ describe('#336 G2p private original-source potential TMDB search demand census',
       .toBe('G2P_UNCLASSIFIED_FAILURE')
     expect(safeG2pFailureCode(new Error('G2P_JOYN_WINDOWS_REJECTED')))
       .toBe('G2P_JOYN_WINDOWS_REJECTED')
+    expect(safeG2pFailureCode(new Error('G2P_JOYN_LOOKUP_REJECTED')))
+      .toBe('G2P_JOYN_LOOKUP_REJECTED')
     expect(safeG2pFailureCode({
       message:'G2P_XMLTV_DEMAND_REJECTED',extra:SECRET,
     })).toBe('G2P_XMLTV_DEMAND_REJECTED')
