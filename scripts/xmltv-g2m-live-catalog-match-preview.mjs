@@ -30,7 +30,7 @@ const keys = (obj, names) => obj && typeof obj === 'object' &&
   Object.keys(obj).sort().join('|') === [...names].sort().join('|')
 const int = (n, max) => Number.isSafeInteger(n) && n >= 0 && n <= max
 const time = value => typeof value === 'string' &&
-  /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(value) &&
+  /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(value) &&
   Number.isFinite(Date.parse(value))
 const validYear = n => Number.isInteger(n) && n >= 1888 && n <= 2100
 const catalogMediaType = type => type === 'movie' ? 'movie' :
