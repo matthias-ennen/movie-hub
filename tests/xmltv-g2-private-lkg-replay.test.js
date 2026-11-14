@@ -230,3 +230,61 @@ describe('#336 G2f+ independent same-minute source overlap QA', () => {
     })).toBe(false)
   })
 })
+
+
+describe('#336 G2h shortened current source vs unused private LKG audit', () => {
+  it('counts only the three extra days not selected from an older 5-day source', () => {
+    const current = generation('freeepg', 2, ['zdf'])
+    const previous = generation('freeepg', 5, ['zdf'])
+    const result = replayXmltvPrivateLkg([
+      entry('freeepg', current, previous),
+    ], { now: NOW })
+    expect(result.sources[0].byStation.zdf).toMatchObject({
+      mode: 'current', coveredMinutes: 2880, unpublishedLkgOnlyMinutes: 4320,
+    })
+    expect(result.sources[0].stationsWithUnpublishedLkgOnlyMinutes).toBe(1)
+    expect(result.stationsWithIndependentFallback).toBe(0)
+    expect(result.publishApproved).toBe(false)
+    expect(isSafeXmltvG2dReplayReport(result)).toBe(true)
+    expect(JSON.stringify(result)).not.toContain(PRIVATE)
+  })
+
+  it('counts original LKG-only programme gaps rather than just its latest end', () => {
+    const current = delayedGeneration('freeepg', 2, 2)
+    const previous = generation('freeepg', 5, ['zdf'])
+    const result = replayXmltvPrivateLkg([
+      entry('freeepg', current, previous),
+    ], { now: NOW })
+    // Fresh day 3+4 but older candidate covers day 1+2 and day 5.
+    expect(result.sources[0].byStation.zdf.unpublishedLkgOnlyMinutes).toBe(3 * 1440)
+    expect(result.sources[0].byStation.zdf.mode).toBe('current')
+  })
+
+  it('does not suggest extra minutes from unavailable, expired or forged originals', () => {
+    const current = generation('freeepg', 1, ['zdf'])
+    const invalid = generation('freeepg', 5, ['zdf'])
+    invalid.records[0].sourceRef.externalId = 'TAMPERED'
+    const result = replayXmltvPrivateLkg([
+      entry('freeepg', current, invalid),
+    ], { now: NOW })
+    expect(result.sources[0].byStation.zdf.unpublishedLkgOnlyMinutes).toBe(0)
+    const stale = replayXmltvPrivateLkg([
+      entry('freeepg', current, generation('freeepg', 5)),
+    ], { now: NOW + 37 * HOUR })
+    expect(stale.sources[0].byStation.zdf.unpublishedLkgOnlyMinutes).toBe(0)
+  })
+
+  it('rejects made-up unused coverage and never treats these figures as publication rights', () => {
+    const report = replayXmltvPrivateLkg([
+      entry('freeepg', generation('freeepg', 2), generation('freeepg', 5)),
+    ], { now: NOW })
+    const inflated = structuredClone(report)
+    inflated.sources[0].byStation.zdf.unpublishedLkgOnlyMinutes = 20161
+    expect(isSafeXmltvG2dReplayReport(inflated)).toBe(false)
+    const forgedCount = structuredClone(report)
+    forgedCount.sources[0].stationsWithUnpublishedLkgOnlyMinutes = 0
+    expect(isSafeXmltvG2dReplayReport(forgedCount)).toBe(false)
+    expect(report.reuseRightsApproved).toBe(false)
+    expect(report.durableCheckpointVerified).toBe(false)
+  })
+})
