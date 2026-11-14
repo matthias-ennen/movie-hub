@@ -155,3 +155,78 @@ describe('#336 G2d replay of PRIVATE real-format G2c source records', () => {
     })).toBe(false)
   })
 })
+
+
+function delayedGeneration(sourceId, firstDay, days = 2) {
+  const channel = sourceStationId(sourceId, 'zdf')
+  const lines = ['<?xml version="1.0" encoding="UTF-8"?><tv>',
+    '<channel id="' + channel + '"><display-name>ZDF</display-name></channel>']
+  for (let day = firstDay; day < firstDay + days; day++) {
+    lines.push('<programme channel="' + channel +
+      '" start="' + xmlTime(NOW + day * DAY) +
+      '" stop="' + xmlTime(NOW + (day + 1) * DAY) +
+      '"><title lang="de">' + PRIVATE + '</title></programme>')
+  }
+  lines.push('</tv>')
+  const parsed = parseXmltvCandidates(lines.join(''), {
+    sourceId, observedAt: utc(NOW),
+    stationMappings: XMLTV_REVIEWED_STATION_MAPPINGS,
+    mappedOnly: true,
+  })
+  return buildXmltvPrivateSourceGeneration(parsed, { now: NOW })
+}
+
+describe('#336 G2f+ independent same-minute source overlap QA', () => {
+  it('measures real 120h overlapping minutes between two independent content families', () => {
+    const report = replayXmltvPrivateLkg([
+      entry('freeepg', generation('freeepg', 5)),
+      entry('iptv-epg-org', generation('iptv-epg-org', 5)),
+      entry('epgshare01', null, generation('epgshare01', 2)),
+    ], { now: NOW + HOUR })
+    expect(report.independentFamiliesByStation.zdf).toBe(2)
+    expect(report.independentOverlapMinutesByStation.zdf).toBe(47 * 60)
+    expect(report.stationsWithIndependentOverlap).toBe(1)
+    expect(report.independentOverlapMinutesByStation.ard).toBe(0)
+    expect(isSafeXmltvG2dReplayReport(report)).toBe(true)
+    expect(JSON.stringify(report)).not.toContain(PRIVATE)
+  })
+
+  it('does not count two identical-host-family feeds as backup time', () => {
+    const report = replayXmltvPrivateLkg([
+      entry('freeepg', generation('freeepg', 5)),
+      entry('iptv-epg-org', generation('iptv-epg-org', 5)),
+    ], { now: NOW })
+    expect(report.independentFamiliesByStation.zdf).toBe(1)
+    expect(report.independentOverlapMinutesByStation.zdf).toBe(0)
+    expect(report.stationsWithIndependentOverlap).toBe(0)
+  })
+
+  it('separates two available families from an actually overlapping backup', () => {
+    const report = replayXmltvPrivateLkg([
+      entry('freeepg', delayedGeneration('freeepg', 0, 2)),
+      entry('epgshare01', delayedGeneration('epgshare01', 2, 2)),
+    ], { now: NOW })
+    // Two future sources, but exactly zero concurrent backup minutes.
+    expect(report.stationsWithIndependentFallback).toBe(1)
+    expect(report.independentFamiliesByStation.zdf).toBe(2)
+    expect(report.independentOverlapMinutesByStation.zdf).toBe(0)
+    expect(report.stationsWithIndependentOverlap).toBe(0)
+  })
+
+  it('ignores stale or forged LKG data and rejects inflated backup reports', () => {
+    const report = replayXmltvPrivateLkg([
+      entry('epgshare01', null, generation('epgshare01', 2)),
+      entry('freeepg', delayedGeneration('freeepg', 2, 2)),
+    ], { now: NOW + 37 * HOUR })
+    expect(report.sources[0].restoredStations).toBe(0)
+    expect(report.independentOverlapMinutesByStation.zdf).toBe(0)
+    expect(isSafeXmltvG2dReplayReport({
+      ...report, independentOverlapMinutesByStation: {
+        ...report.independentOverlapMinutesByStation, zdf: 7_201,
+      },
+    })).toBe(false)
+    expect(isSafeXmltvG2dReplayReport({
+      ...report, originalProgrammeTitle: PRIVATE,
+    })).toBe(false)
+  })
+})
