@@ -105,12 +105,56 @@ function inspect(sourceId, generation, now) {
   }
 }
 
+// Backup minutes must overlap IN TIME across different programme families.
+// Merely having two feeds somewhere in the next 120h is not a live failover.
+const OVERLAP_HORIZON_MS = 120 * HOUR
+const MINUTE = 60_000
+function independentOverlapMinutes(detailed, stationId, now) {
+  const windowsByFamily = new Map()
+  for (const { status, windowsByStation } of detailed) {
+    const windows = windowsByStation[stationId]
+    if (!windows.length) continue
+    if (!windowsByFamily.has(status.contentFamily)) {
+      windowsByFamily.set(status.contentFamily, [])
+    }
+    windowsByFamily.get(status.contentFamily).push(...windows)
+  }
+  const changes = new Map()
+  const change = (time, count) => changes.set(time, (changes.get(time) || 0) + count)
+  for (const windows of windowsByFamily.values()) {
+    // Each content family contributes at most one vote per instant, even
+    // when two hosts carry the same schedule or programme intervals overlap.
+    windows.sort((a, b) => a[0] - b[0] || a[1] - b[1])
+    let start = null
+    let end = null
+    const flush = () => {
+      if (start !== null) { change(start, 1); change(end, -1) }
+    }
+    for (const [a, b] of windows) {
+      if (start === null) { start = a; end = b }
+      else if (a <= end) end = Math.max(end, b)
+      else { flush(); start = a; end = b }
+    }
+    flush()
+  }
+  let activeFamilies = 0
+  let prev = now
+  let overlapMs = 0
+  for (const [time, delta] of [...changes].sort((a, b) => a[0] - b[0])) {
+    if (activeFamilies >= 2) overlapMs += time - prev
+    activeFamilies += delta
+    prev = time
+  }
+  return Math.floor(overlapMs / MINUTE)
+}
+
 function replayOne(source, now) {
   const sourceId = source?.sourceId
   if (!SOURCES.includes(sourceId)) throw new TypeError('Unreviewed XMLTV replay source')
   const current = inspect(sourceId, source.current, now)
   const previous = inspect(sourceId, source.lastKnownGood, now)
   const byStation = {}
+  const windowsByStation = Object.fromEntries(STATIONS.map(id => [id, []]))
   for (const id of STATIONS) {
     const live = current?.stations[id]
     const lkg = previous?.stations[id]
@@ -122,15 +166,26 @@ function replayOne(source, now) {
       coveredMinutes: selected?.coveredMinutes ?? 0,
       completeFiveDaysFromNow: selected?.completeFiveDaysFromNow ?? false,
     }
+    // inspect() has already revalidated the ENTIRE generation, its station
+    // mapping, timestamps and original provenance before it can be selected.
+    const generation = useLive ? source.current : useLkg ? source.lastKnownGood : null
+    if (generation) {
+      for (const row of generation.records) {
+        if (row.canonicalStationId !== id) continue
+        const start = Math.max(now, Date.parse(row.startAt))
+        const end = Math.min(now + OVERLAP_HORIZON_MS, Date.parse(row.endAt))
+        if (end > start) windowsByStation[id].push([start, end])
+      }
+    }
   }
   const decisions = Object.values(byStation)
-  return {
+  return { windowsByStation, status: {
     sourceId, contentFamily: XMLTV_VERIFIED_SOURCE_FAMILIES[sourceId],
     currentStations: decisions.filter(s => s.mode === 'current').length,
     restoredStations: decisions.filter(s => s.mode === 'last-known-good').length,
     unavailableStations: decisions.filter(s => s.mode === 'unavailable').length,
     byStation,
-  }
+  } }
 }
 
 /**
@@ -143,11 +198,14 @@ export function replayXmltvPrivateLkg(sources, { now = Date.now() } = {}) {
     throw new TypeError('Invalid bounded XMLTV replay')
   }
   const seen = new Set()
-  const statuses = sources.map(source => {
+  const detailed = sources.map(source => {
     if (seen.has(source?.sourceId)) throw new TypeError('Duplicate XMLTV replay source')
     seen.add(source?.sourceId)
     return replayOne(source, now)
   })
+  const statuses = detailed.map(item => item.status)
+  const independentOverlapMinutesByStation = Object.fromEntries(
+    STATIONS.map(id => [id, independentOverlapMinutes(detailed, id, now)]))
   const independentFamiliesByStation = Object.fromEntries(STATIONS.map(id => [
     id, new Set(statuses.filter(s => s.byStation[id].coveredMinutes > 0)
       .map(s => s.contentFamily)).size,
@@ -164,6 +222,11 @@ export function replayXmltvPrivateLkg(sources, { now = Date.now() } = {}) {
     availableIndependentFamilies: availableFamilies.size,
     stationsWithIndependentFallback:
       STATIONS.filter(id => independentFamiliesByStation[id] >= 2).length,
+    // Distinct from "two sources exist": actual overlapping future minutes
+    // only, from validated original programme intervals, in a 120h window.
+    independentOverlapMinutesByStation,
+    stationsWithIndependentOverlap: STATIONS.filter(id =>
+      independentOverlapMinutesByStation[id] > 0).length,
     restoredStationDecisions:
       statuses.reduce((sum, s) => sum + s.restoredStations, 0),
     fiveDaysRequiredToKeepSource: false,
@@ -182,6 +245,7 @@ export function isSafeXmltvG2dReplayReport(report) {
     'kind', 'schemaVersion', 'mode', 'sources',
     'independentFamiliesByStation', 'availableIndependentFamilies',
     'stationsWithIndependentFallback', 'restoredStationDecisions',
+    'independentOverlapMinutesByStation', 'stationsWithIndependentOverlap',
     'fiveDaysRequiredToKeepSource', 'durableCheckpointVerified',
     'publishApproved', 'tmdbIdentityApproved',
     'playbackRoutesApproved', 'reuseRightsApproved',
@@ -195,7 +259,8 @@ export function isSafeXmltvG2dReplayReport(report) {
       report.reuseRightsApproved !== false ||
       !Array.isArray(report.sources) || report.sources.length < 1 ||
       report.sources.length > SOURCES.length ||
-      !keysEqual(report.independentFamiliesByStation, STATIONS)) return false
+      !keysEqual(report.independentFamiliesByStation, STATIONS) ||
+      !keysEqual(report.independentOverlapMinutesByStation, STATIONS)) return false
 
   const seen = new Set()
   let restored = 0
@@ -235,8 +300,17 @@ export function isSafeXmltvG2dReplayReport(report) {
   const families = new Set(report.sources.filter(s =>
     Object.values(s.byStation).some(x => x.coveredMinutes > 0))
     .map(s => s.contentFamily))
+  if (STATIONS.some(id =>
+    !Number.isSafeInteger(report.independentOverlapMinutesByStation[id]) ||
+    report.independentOverlapMinutesByStation[id] < 0 ||
+    report.independentOverlapMinutesByStation[id] > 120 * 60 ||
+    (report.independentFamiliesByStation[id] < 2 &&
+      report.independentOverlapMinutesByStation[id] !== 0))) return false
   return report.availableIndependentFamilies === families.size &&
     report.stationsWithIndependentFallback === counts.filter(n => n >= 2).length &&
+    report.stationsWithIndependentOverlap === STATIONS.filter(id =>
+      report.independentOverlapMinutesByStation[id] > 0).length &&
+    report.stationsWithIndependentOverlap <= report.stationsWithIndependentFallback &&
     report.restoredStationDecisions === restored &&
-    JSON.stringify(report).length < 4200
+    JSON.stringify(report).length < 4800
 }
