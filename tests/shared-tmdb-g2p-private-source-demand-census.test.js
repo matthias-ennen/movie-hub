@@ -189,7 +189,7 @@ describe('#336 G2p private original-source potential TMDB search demand census',
     const input=base()
     input.xmltvGenerations[0].publishApproved=true
     expect(()=>computeG2pPrivateOverlap(input))
-      .toThrow(/not validated/)
+      .toThrow('G2P_XMLTV_DEMAND_REJECTED')
   })
 
   it('rejects missing original source checkpoints with a fixed private-safe diagnostic code',async()=>{
