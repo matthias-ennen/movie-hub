@@ -32,6 +32,30 @@ const MAX_JOYN_WINDOWS = 56
 const MAX_JSON_BYTES = 96 * 1024 * 1024
 const MAX_TOTAL_JOYN_BYTES = 256 * 1024 * 1024
 const MAX_SOURCE_AGE_MS = 36 * 60 * 60 * 1000
+// Diagnostic identifiers only: never include an OS error, filename, title,
+// URL, request key, internal source object or a thrown stack in Actions logs.
+const PRIVATE_ERROR_CODES = Object.freeze([
+  'G2P_CHECKPOINT_STATUS_REJECTED',
+  'G2P_WAIPU_GRID_REJECTED',
+  'G2P_WAIPU_STATIONS_REJECTED',
+  'G2P_WAIPU_DETAILS_REJECTED',
+  'G2P_JOYN_WINDOWS_REJECTED',
+  'G2P_XMLTV_GENERATIONS_REJECTED',
+  'G2P_WAIPU_DEMAND_REJECTED',
+  'G2P_JOYN_DEMAND_REJECTED',
+  'G2P_XMLTV_DEMAND_REJECTED',
+  'G2P_AGGREGATE_REJECTED',
+])
+const classified = async (code, work) => {
+  if (!PRIVATE_ERROR_CODES.includes(code) || typeof work !== 'function') {
+    throw new TypeError('Unsafe G2p checkpoint error category')
+  }
+  try { return await work() } catch {
+    throw new Error(code)
+  }
+}
+export const safeG2pFailureCode = error =>
+  PRIVATE_ERROR_CODES.includes(error?.message) ? error.message : 'G2P_UNCLASSIFIED_FAILURE'
 const SOURCES = Object.keys(XMLTV_VERIFIED_SOURCE_FAMILIES)
 const PAIRS = [['waipu','joyn'],['waipu','xmltv'],['joyn','xmltv']]
 const KEYS = [
@@ -179,9 +203,15 @@ export function computeG2pPrivateOverlap({
   now = Date.now(),
 } = {}) {
   if (!Number.isFinite(now)) throw new TypeError('Invalid overlap clock')
-  const a=waipuKeys(waipuBroadcasts,waipuDetails)
-  const b=joynKeys(joynItems)
-  const c=xmltvKeys(xmltvGenerations,{now})
+  // Categories are static and independent of the private programme content.
+  // Preserve the root fault DOMAIN without ever exposing raw exception text.
+  let a,b,c
+  try { a=waipuKeys(waipuBroadcasts,waipuDetails) }
+  catch { throw new Error('G2P_WAIPU_DEMAND_REJECTED') }
+  try { b=joynKeys(joynItems) }
+  catch { throw new Error('G2P_JOYN_DEMAND_REJECTED') }
+  try { c=xmltvKeys(xmltvGenerations,{now}) }
+  catch { throw new Error('G2P_XMLTV_DEMAND_REJECTED') }
   const sizes=[a.keys.size,b.keys.size,c.keys.size]
   const union=new Set([...a.keys,...b.keys,...c.keys])
   const repeated=sizes.reduce((x,y)=>x+y,0)-union.size
@@ -374,27 +404,36 @@ export async function runG2pPrivateOriginalSourceCensus({
   if (!Number.isFinite(now) || typeof root!=='string' || !root.trim()) {
     throw new TypeError('Invalid G2p original source context')
   }
-  const [waipuStatus]=await Promise.all([
-    requireSourceStatus(join(root,'artifacts/waipu-sync/status.json'),'waipu',now),
-    requireSourceStatus(join(root,'artifacts/joyn-sync/status.json'),'joyn',now),
-  ])
+  const [waipuStatus] = await classified('G2P_CHECKPOINT_STATUS_REJECTED',
+    () => Promise.all([
+      requireSourceStatus(join(root,'artifacts/waipu-sync/status.json'),'waipu',now),
+      requireSourceStatus(join(root,'artifacts/joyn-sync/status.json'),'joyn',now),
+    ]))
+  const cacheRoot=join(root,'artifacts/waipu-sync/cache')
   const [grid,stations,details,joynItems,xmltvGenerations]=await Promise.all([
-    readWaipuCacheRecords(join(root,'artifacts/waipu-sync/cache'),'grid'),
-    readWaipuCacheRecords(join(root,'artifacts/waipu-sync/cache'),'stations'),
-    readWaipuCacheRecords(join(root,'artifacts/waipu-sync/cache'),'program'),
-    restoreOriginalJoynWindows(root),
-    readXmltvSourceGenerations(root,now),
+    classified('G2P_WAIPU_GRID_REJECTED',
+      () => readWaipuCacheRecords(cacheRoot,'grid')),
+    classified('G2P_WAIPU_STATIONS_REJECTED',
+      () => readWaipuCacheRecords(cacheRoot,'stations')),
+    classified('G2P_WAIPU_DETAILS_REJECTED',
+      () => readWaipuCacheRecords(cacheRoot,'program')),
+    classified('G2P_JOYN_WINDOWS_REJECTED',
+      () => restoreOriginalJoynWindows(root)),
+    classified('G2P_XMLTV_GENERATIONS_REJECTED',
+      () => readXmltvSourceGenerations(root,now)),
   ])
   const stationIds=new Set((waipuStatus.stations||[]).map(row=>row?.id).filter(Boolean))
   const allowed=(stations[0]?.value||[]).filter(row=>stationIds.has(row?.id))
   if (!allowed.length || !grid.length || !details.length || !joynItems.length) {
-    throw new TypeError('Incomplete current source records for G2p')
+    throw new Error('G2P_AGGREGATE_REJECTED')
   }
-  const broadcasts=collectWaipuBroadcasts(grid,{stations:allowed})
-  return computeG2pPrivateOverlap({
-    waipuBroadcasts:broadcasts,
-    waipuDetails:new Map(details.map(row=>[row.key,row.value])),
-    joynItems,xmltvGenerations,now,
+  return classified('G2P_AGGREGATE_REJECTED', async () => {
+    const broadcasts=collectWaipuBroadcasts(grid,{stations:allowed})
+    return computeG2pPrivateOverlap({
+      waipuBroadcasts:broadcasts,
+      waipuDetails:new Map(details.map(row=>[row.key,row.value])),
+      joynItems,xmltvGenerations,now,
+    })
   })
 }
 
@@ -410,8 +449,9 @@ async function main() {
 }
 if (process.argv[1] &&
     pathToFileURL(resolve(process.argv[1])).href===import.meta.url) {
-  main().catch(()=>{
-    console.error('G2p private original source demand census failed closed')
+  main().catch(error=>{
+    console.error('G2p private census failed closed; category='+
+      safeG2pFailureCode(error))
     process.exitCode=1
   })
 }
