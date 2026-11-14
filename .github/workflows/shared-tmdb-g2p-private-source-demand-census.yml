@@ -90,4 +90,4 @@ jobs:
       - name: Collect current three reviewed XMLTV feeds into PRIVATE runner files only
         run: node scripts/xmltv-g2-private-staging.mjs
       - name: Only anonymized exact request-demand overlap counts (NO TMDB HTTP)
-        run: node scripts/shared-tmdb-g2p-private-source-demand-census.mjs
+        run: node --max-old-space-size=4096 scripts/shared-tmdb-g2p-private-source-demand-census.mjs
