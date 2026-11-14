@@ -1,0 +1,103 @@
+name: XMLTV G2k SYNTHETIC cross-workflow-run failover QA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/xmltv-g2e-synthetic-checkpoint.mjs
+      - scripts/xmltv-g2k-synthetic-cross-run.mjs
+      - scripts/xmltv-g2j-private-integration-preview.mjs
+      - tests/xmltv-g2e-synthetic-checkpoint.test.js
+      - tests/xmltv-g2k-synthetic-cross-run.test.js
+      - .github/workflows/xmltv-g2k-synthetic-cross-run.yml
+  push:
+    branches: [main]
+    paths:
+      - scripts/xmltv-g2e-synthetic-checkpoint.mjs
+      - scripts/xmltv-g2k-synthetic-cross-run.mjs
+      - tests/xmltv-g2k-synthetic-cross-run.test.js
+      - .github/workflows/xmltv-g2k-synthetic-cross-run.yml
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "EXPLICIT synthetic QA only: seed, replay or cleanup"
+        required: true
+        default: seed
+        type: choice
+        options: [seed, replay, cleanup]
+      seed_run_id:
+        description: "Only for replay/cleanup: exact completed seed workflow run id (6-20 digits)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xmltv-g2k-synthetic-cross-run-qa
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    name: Strict G2e/G2j/G2k synthetic source isolation and failover tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Verify synthetic-only manifest integrity, next-run outage, fresh peers and cleanup
+        run: npx vitest run tests/xmltv-g2e-synthetic-checkpoint.test.js tests/xmltv-g2k-synthetic-cross-run.test.js tests/xmltv-g2j-private-integration-preview.test.js tests/xmltv-g2-private-lkg-replay.test.js
+
+  private-synthetic-storage:
+    name: Manual PRIVATE synthetic-only seed / replay / cleanup (GCS)
+    needs: tests
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DATA_CHECKPOINT_ENABLED: ${{ vars.MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED }}
+      DATA_CHECKPOINT_BUCKET: ${{ vars.MOVIE_HUB_CHECKPOINT_BUCKET }}
+      MOVIEHUB_G2K_SYNTHETIC_QA: enabled
+      G2K_SEED_RUN_ID: ${{ inputs.seed_run_id }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: |
+          test "$DATA_CHECKPOINT_ENABLED" = "true"
+          test "$DATA_CHECKPOINT_BUCKET" = "movie-hub-62459-nightly-checkpoints"
+      - run: npm ci --ignore-scripts
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Execute ONLY explicitly chosen synthetic operation
+        env:
+          G2K_OPERATION: ${{ inputs.operation }}
+        run: |
+          set -euo pipefail
+          case "$G2K_OPERATION" in
+            seed)
+              test -z "$G2K_SEED_RUN_ID"
+              node scripts/xmltv-g2k-synthetic-cross-run.mjs seed
+              ;;
+            replay)
+              [[ "$G2K_SEED_RUN_ID" =~ ^[0-9]{6,20}$ ]]
+              test "$G2K_SEED_RUN_ID" != "$GITHUB_RUN_ID"
+              node scripts/xmltv-g2k-synthetic-cross-run.mjs replay
+              ;;
+            cleanup)
+              [[ "$G2K_SEED_RUN_ID" =~ ^[0-9]{6,20}$ ]]
+              test "$G2K_SEED_RUN_ID" != "$GITHUB_RUN_ID"
+              node scripts/xmltv-g2k-synthetic-cross-run.mjs cleanup
+              ;;
+            *) exit 1 ;;
+          esac
