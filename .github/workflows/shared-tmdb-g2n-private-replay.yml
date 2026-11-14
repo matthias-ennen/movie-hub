@@ -1,0 +1,49 @@
+name: Shared TMDB G2n private response replay QA (offline, no live HTTP)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/shared-tmdb-response-store.mjs
+      - scripts/shared-tmdb-search-response-cache.mjs
+      - scripts/shared-tmdb-g2n-private-response-replay.mjs
+      - scripts/waipu-tmdb-matcher.mjs
+      - scripts/joyn-tmdb-matcher.mjs
+      - tests/shared-tmdb-response-store.test.js
+      - tests/shared-tmdb-search-response-cache.test.js
+      - tests/shared-tmdb-adapter-capture-stage.test.js
+      - tests/shared-tmdb-g2n-private-response-replay.test.js
+      - .github/workflows/shared-tmdb-g2n-private-replay.yml
+  push:
+    branches: [main]
+    paths:
+      - scripts/shared-tmdb-response-store.mjs
+      - scripts/shared-tmdb-g2n-private-response-replay.mjs
+      - tests/shared-tmdb-g2n-private-response-replay.test.js
+      - .github/workflows/shared-tmdb-g2n-private-replay.yml
+
+permissions:
+  contents: read
+
+jobs:
+  offline-private-replay:
+    name: Exact Waipu/Joyn/XMLTV TMDB response contracts, offline A/B and no-publish gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Run existing cache regressions AND new original-client cross-run replay tests
+        run: >-
+          npx vitest run
+          tests/shared-tmdb-response-store.test.js
+          tests/shared-tmdb-search-response-cache.test.js
+          tests/shared-tmdb-adapter-capture-stage.test.js
+          tests/shared-tmdb-g2n-private-response-replay.test.js
+      - name: Exercise original Joyn/Waipu clients against synthetic HTTP, save and restore private file
+        env:
+          MOVIEHUB_G2N_OFFLINE_QA: enabled
+        run: node scripts/shared-tmdb-g2n-private-response-replay.mjs

@@ -114,8 +114,9 @@ export async function loadOptionalSharedTmdbResponses(file, { now = Date.now() }
   if (!validFile(file)) return { status: 'invalid_path', store: empty(), entries: 0 }
   try {
     const stats = await lstat(file)
-    if (!stats.isFile() || stats.size < 1 ||
-        stats.size > SHARED_TMDB_RESPONSE_STORE_MAX_BYTES) throw new TypeError('Invalid cache file')
+    if (!stats.isFile() || stats.isSymbolicLink() ||
+        (stats.mode & 0o077) !== 0 || stats.size < 1 ||
+        stats.size > SHARED_TMDB_RESPONSE_STORE_MAX_BYTES) throw new TypeError('Invalid private cache file')
     const parsed = JSON.parse(await readFile(file, 'utf8'))
     if (parsed?.kind !== KIND ||
         parsed.schemaVersion !== SHARED_TMDB_RESPONSE_STORE_VERSION ||
