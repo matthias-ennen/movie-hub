@@ -50,7 +50,8 @@ const classified = async (code, work) => {
   if (!PRIVATE_ERROR_CODES.includes(code) || typeof work !== 'function') {
     throw new TypeError('Unsafe G2p checkpoint error category')
   }
-  try { return await work() } catch {
+  try { return await work() } catch (error) {
+    if (PRIVATE_ERROR_CODES.includes(error?.message)) throw error
     throw new Error(code)
   }
 }
