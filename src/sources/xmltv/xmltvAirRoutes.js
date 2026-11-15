@@ -34,6 +34,16 @@ export const XMLTV_AIR_PUBLISH_ENABLED = false
 
 export const isXmltvAirProviderId = (id) => XMLTV_AIR_ROUTE_CANDIDATES.some((row) => row.providerId === id)
 
+/** Shared exact station-route validation for both runtime index builders. */
+export function isExactXmltvAirAiring(airing, providerId) {
+  const row = XMLTV_AIR_ROUTE_CANDIDATES.find((candidate) => candidate.providerId === providerId)
+  if (!row || airing?.stationId !== row.stationId || airing?.canonicalStationId !== row.stationId) return false
+  const routes = airing.playbackRoutes
+  return Array.isArray(routes) && routes.length === 1 && routes.every((route) =>
+    route?.providerId === providerId && route.mode === 'WEB_LINK' &&
+    route.scope === 'channel' && route.target === row.target)
+}
+
 export function createXmltvAirRouteRegistry({ deviceReceipts = [], now = Date.now() } = {}) {
   const approved = new Map()
   for (const candidate of XMLTV_AIR_ROUTE_CANDIDATES) {

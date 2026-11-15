@@ -1,3 +1,5 @@
+import { isXmltvAirProviderId } from '../sources/xmltv/xmltvAirRoutes.js'
+
 // Compact, verified TMDB offer evidence for poster/view-model publication.
 // Never derive an access type from a provider ID alone.
 const TYPES = new Set(['free', 'ads', 'flatrate', 'rent', 'buy'])
@@ -14,7 +16,7 @@ export function mergeProviderOffers(...collections) {
   for (const values of collections) {
     for (const value of Array.isArray(values) ? values : []) {
       const id = String(value?.id || '').trim()
-      if (!id) continue
+      if (!id || isXmltvAirProviderId(id)) continue
       const types = (Array.isArray(value?.offerTypes) ? value.offerTypes : [])
         .filter((type) => TYPES.has(type))
       if (!types.length) continue

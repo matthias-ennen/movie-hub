@@ -1,3 +1,4 @@
+import { isXmltvAirProviderId, isExactXmltvAirAiring } from '../sources/xmltv/xmltvAirRoutes.js'
 import { compactProviderOffers, mergeProviderOffers } from '../providers/providerOfferSnapshot.js'
 import { mergeTvAirings } from '../sources/mergeTvAirings.js'
 import { episodeReference } from '../catalog/episodeContext.js'
@@ -36,7 +37,7 @@ export function tvRuntimeTitleKey(value) {
 
 function tmdbProviderIds(value) {
   if (Array.isArray(value?.tmdbProviderIds)) {
-    return [...new Set(value.tmdbProviderIds.map(String).filter(Boolean))]
+    return [...new Set(value.tmdbProviderIds.map(String).filter((id) => id && !isXmltvAirProviderId(id)))]
   }
   const offers = Array.isArray(value?.tmdbProviderOffers)
     ? value.tmdbProviderOffers
@@ -46,14 +47,15 @@ function tmdbProviderIds(value) {
   const fromOffers = offers
     .filter((offer) => Number.isFinite(Number(offer?.tmdbProviderId)))
     .map((offer) => text(offer?.id))
-    .filter(Boolean)
+    .filter((id) => id && !isXmltvAirProviderId(id))
   if (fromOffers.length) return [...new Set(fromOffers)]
   return [...new Set((Array.isArray(value?.providerIds) ? value.providerIds : [])
     .map(String)
     .filter((providerId) => providerId
       && providerId !== 'moviehub'
       && providerId !== 'waipu'
-      && providerId !== 'joyn'))]
+      && providerId !== 'joyn'
+      && !isXmltvAirProviderId(providerId)))]
 }
 
 function genreIds(value) {
@@ -433,6 +435,7 @@ function normalizeProviderAiring(raw, providerId, type, tmdbId) {
   const sourceStationId = text(raw?.sourceStationId)
   const providerStationId = sourceStationId || stationId || canonicalStationId
   const programId = text(raw?.programId)
+  if (providerId.startsWith('air-') && !isExactXmltvAirAiring(raw, providerId)) return null
   return {
     providerId,
     providerIds: [providerId],
