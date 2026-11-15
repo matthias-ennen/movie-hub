@@ -29,6 +29,8 @@ export const XMLTV_AIR_ROUTE_CANDIDATES = Object.freeze([
 // Intentionally empty until the exact URL has been exercised through MovieHub
 // on both device families. An official web page is not a device test.
 export const XMLTV_AIR_DEVICE_APPROVALS = Object.freeze([])
+// Independent release decision: device approvals alone never publish AIR.
+export const XMLTV_AIR_PUBLISH_ENABLED = false
 
 export const isXmltvAirProviderId = (id) => XMLTV_AIR_ROUTE_CANDIDATES.some((row) => row.providerId === id)
 
@@ -87,6 +89,8 @@ export function createXmltvAirRouteRegistry({ deviceReceipts = [], now = Date.no
   })
 }
 
-const registry = createXmltvAirRouteRegistry({ deviceReceipts: XMLTV_AIR_DEVICE_APPROVALS })
+const registry = createXmltvAirRouteRegistry({
+  deviceReceipts: XMLTV_AIR_PUBLISH_ENABLED ? XMLTV_AIR_DEVICE_APPROVALS : [],
+})
 export const APPROVED_XMLTV_AIR_PROVIDERS = registry.providers
 export const xmltvAirFieldsForEvent = registry.fieldsForEvent

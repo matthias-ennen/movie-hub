@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import {
-  XMLTV_AIR_ROUTE_CANDIDATES, APPROVED_XMLTV_AIR_PROVIDERS,
+  XMLTV_AIR_ROUTE_CANDIDATES, APPROVED_XMLTV_AIR_PROVIDERS, XMLTV_AIR_PUBLISH_ENABLED,
   createXmltvAirRouteRegistry, xmltvAirFieldsForEvent,
 } from '../src/sources/xmltv/xmltvAirRoutes.js'
 import { XMLTV_REVIEWED_STATION_MAPPINGS } from '../src/sources/xmltv/xmltvStationMappings.js'
@@ -33,6 +33,7 @@ const eventFor = (candidate, source = 'epgshare01') => {
 describe('XMLTV G3 verified sender-only routes', () => {
   it('keeps all six unapproved stations private and out of the VOD catalogue', () => {
     expect(XMLTV_AIR_ROUTE_CANDIDATES).toHaveLength(6)
+    expect(XMLTV_AIR_PUBLISH_ENABLED).toBe(false)
     expect(APPROVED_XMLTV_AIR_PROVIDERS).toEqual([])
     for (const row of XMLTV_AIR_ROUTE_CANDIDATES) {
       expect(PROVIDER_BY_ID[row.providerId]).toBeUndefined()
