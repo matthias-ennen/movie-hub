@@ -1,6 +1,6 @@
 /**
- * G2t: two exactly shared original demand keys, verified against the full
- * existing catalog. Uses G2p's bounded private checkpoint census and G2o's
+ * G2t: two exactly shared original demand keys, verified against the published
+ * browse catalog and broader public search index. Uses G2p's bounded private checkpoint census and G2o's
  * original clients, exact egress boundary and six-start maximum.
  * This is a source-backed narrow transport/decision test, NOT the original
  * adapters' actual matcher workload or measured production savings.
@@ -17,7 +17,8 @@ import { fetchExistingMovieHubTmdbCatalog } from './xmltv-g2m-live-catalog-match
 const SAFE_CODES=Object.freeze([
   'G2T_APPROVAL_REJECTED','G2T_SOURCE_PROOF_REJECTED','G2T_CATALOG_READ_REJECTED',
   'G2T_CATALOG_TIMEOUT','G2T_CATALOG_SIZE_REJECTED','G2T_CATALOG_CONTRACT_REJECTED',
-  'G2T_CATALOG_UNAVAILABLE','G2T_CATALOG_SELECTION_REJECTED','G2T_SAMPLE_NOT_READY','G2T_TOKEN_MISSING',
+  'G2T_CATALOG_UNAVAILABLE','G2T_SEARCH_INDEX_READ_REJECTED','G2T_SEARCH_INDEX_CONTRACT_REJECTED',
+  'G2T_CATALOG_SELECTION_REJECTED','G2T_SAMPLE_NOT_READY','G2T_TOKEN_MISSING',
   'G2T_HTTP_COMPARISON_REJECTED','G2T_PARITY_REJECTED',
 ])
 export function safeG2tFailureCode(error) {
@@ -52,6 +53,79 @@ async function readCatalog(now) {
     catch(next) { throw new Error(safeG2tCatalogReadFailureCode(next)) }
   }
 }
+const SEARCH_INDEX_URL='https://movie-hub-62459.web.app/search-index.json'
+const MAX_SEARCH_INDEX_BYTES=96*1024*1024
+const MAX_PUBLIC_TITLES=150000
+const MAX_INDEX_AGE=14*86400000
+const validIndexTitle = x => x?.scope==='public' && x?.source==='tmdb' &&
+  ['movie','series'].includes(x?.type) &&
+  Number.isSafeInteger(x.tmdbId) && x.tmdbId>0 && x.tmdbId<100000000 &&
+  x.id===`tmdb-${x.type}-${x.tmdbId}` &&
+  typeof x.title==='string' && x.title.trim().length>0 && x.title.length<=400 &&
+  (x.originalTitle==null || (typeof x.originalTitle==='string' && x.originalTitle.length<=400))
+
+/** Supplement the browse projection with the already-published discovery index.
+ * Identity/alias collisions still go through the original catalog resolver.
+ * Nothing is published, fetched from TMDB, or inferred from a title alone.
+ */
+export function combineG2tPublishedTitles(catalog,index,now=Date.now()) {
+  const at=Date.parse(index?.generatedAt)
+  if (index?.kind!=='search-index' || index.version!==1 || index.source!=='tmdb' ||
+      index.language!=='de-DE' || index.country!=='DE' ||
+      !Number.isFinite(at) || at>now || now-at>MAX_INDEX_AGE ||
+      !Array.isArray(index.entries) || index.entries.length===0 ||
+      index.count!==index.entries.length || index.entries.length>MAX_PUBLIC_TITLES ||
+      !Array.isArray(catalog?.titles) || catalog.titles.length===0 ||
+      catalog.titles.length>MAX_PUBLIC_TITLES) throw new Error('G2T_SEARCH_INDEX_CONTRACT_REJECTED')
+  const titleRows=[...catalog.titles]
+  const seen=new Set(titleRows.map(x=>JSON.stringify([x.type,x.tmdbId,x.title,x.originalTitle??null])))
+  let indexVerified=0
+  for (const x of index.entries) {
+    if (!validIndexTitle(x)) continue
+    indexVerified++
+    const k=JSON.stringify([x.type,x.tmdbId,x.title,x.originalTitle??null])
+    if (seen.has(k)) continue
+    seen.add(k)
+    // Keep only public identity evidence, not unrelated search-index metadata.
+    titleRows.push({source:'tmdb',type:x.type,tmdbId:x.tmdbId,title:x.title,
+      originalTitle:x.originalTitle??null})
+    if (titleRows.length>MAX_PUBLIC_TITLES) throw new Error('G2T_SEARCH_INDEX_CONTRACT_REJECTED')
+  }
+  if (!indexVerified) throw new Error('G2T_SEARCH_INDEX_CONTRACT_REJECTED')
+  return {
+    catalog:{...catalog,titles:titleRows},
+    counts:{browseTitleRows:catalog.titles.length,publicSearchIndexEntries:index.entries.length,
+      verifiedPublicSearchIndexEntries:indexVerified,combinedTitleRows:titleRows.length},
+  }
+}
+
+export async function fetchG2tPublishedSearchIndex({fetchImpl=fetch}={}) {
+  const response=await fetchImpl(SEARCH_INDEX_URL,{
+    method:'GET',redirect:'error',headers:{accept:'application/json'},
+    signal:AbortSignal.timeout(45_000),
+  })
+  if (!response?.ok || !String(response.headers?.get('content-type')||'').toLowerCase().includes('application/json')) {
+    throw new Error('G2T_SEARCH_INDEX_READ_REJECTED')
+  }
+  const contentLength=response.headers.get('content-length')
+  if (contentLength && Number(contentLength)>MAX_SEARCH_INDEX_BYTES) throw new Error('G2T_SEARCH_INDEX_CONTRACT_REJECTED')
+  const reader=response.body?.getReader?.()
+  if (!reader) throw new Error('G2T_SEARCH_INDEX_READ_REJECTED')
+  let size=0
+  const bytes=[]
+  try {
+    while (true) {
+      const {done,value}=await reader.read()
+      if (done) break
+      size+=value.byteLength
+      if (size>MAX_SEARCH_INDEX_BYTES) throw new Error('G2T_SEARCH_INDEX_CONTRACT_REJECTED')
+      bytes.push(Buffer.from(value))
+    }
+  } finally { reader.releaseLock() }
+  try { return JSON.parse(Buffer.concat(bytes,size).toString('utf8')) }
+  catch { throw new Error('G2T_SEARCH_INDEX_CONTRACT_REJECTED') }
+}
+
 const readinessKeys=[
   'kind','waipuJoynExactDemandOverlap','sourceMovieKeys','sourceSeriesKeys',
   'eligibleMovieKeys','eligibleSeriesKeys','catalogTitles','eligibleSelectedWorkTypes',
@@ -108,7 +182,10 @@ async function main() {
     joynDistinctSearchKeys:census.joynDistinctSearchKeys,
     newTmdbHttpStarted:0,
   }))
-  const catalog = await classified('G2T_CATALOG_READ_REJECTED',()=>readCatalog(now))
+  const browse = await classified('G2T_CATALOG_READ_REJECTED',()=>readCatalog(now))
+  const index = await classified('G2T_SEARCH_INDEX_READ_REJECTED',()=>fetchG2tPublishedSearchIndex())
+  const {catalog,counts} = combineG2tPublishedTitles(browse,index,now)
+  console.log(JSON.stringify({kind:'g2t-published-identity-coverage-counts',...counts,newTmdbHttpStarted:0}))
   const readiness = await classified('G2T_CATALOG_SELECTION_REJECTED',
     ()=>createG2tReadinessReport(catalog,requiredSharedKeys,now))
   console.log(JSON.stringify(readiness))
