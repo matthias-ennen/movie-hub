@@ -146,7 +146,9 @@ jobs:
           appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n')
           mkdirSync('artifacts/nightly-metrics',{recursive:true})
           const safe=Object.fromEntries(['globalStoredCandidateFilms','sharedCheckpointCandidateFilms','deferredCandidateFilms','crossTitleCollisionFilms','currentBadgeCachedFilms','cachedFilmsWithoutCurrentPublicBadge','filmsWithCurrentTmdbDeYoutubeOffers','filmsWithoutCurrentTmdbDeYoutubeOffers','reusedVideoCandidateIds','avoidedYoutubeSearchCalls','rowsChecked','searchCalls','videosListBatches','tmdbReadCalls'].map(key=>[key,Number.isSafeInteger(summary[key])&&summary[key]>=0?summary[key]:null]))
-          writeFileSync('artifacts/nightly-metrics/known.json',JSON.stringify({kind:'moviehub-nightly-known-counts',...safe})+'\n',{mode:0o600})
+          const allowedStatuses=["review-single-video-candidate","review-multiple-video-editions","review-weak-or-unresolved-videos","no-video-candidate","no-current-tmdb-de-youtube-offer","no-current-public-youtube-badge"]
+          const reviewStatuses=Object.fromEntries(allowedStatuses.map(key=>[key,summary.reviewStatuses&&Number.isSafeInteger(summary.reviewStatuses[key]??0)?summary.reviewStatuses[key]??0:null]))
+          writeFileSync('artifacts/nightly-metrics/known.json',JSON.stringify({kind:'moviehub-nightly-known-counts',...safe,reviewStatuses})+'\n',{mode:0o600})
           console.log(JSON.stringify(summary))
           NODE
       - name: Upload sanitized counts for the central Nightly report

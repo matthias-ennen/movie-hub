@@ -8,7 +8,7 @@ export const count=v=>Number.isSafeInteger(v)&&v>=0?v:null
 const num=(v,keys)=>keys.split(' ').reduce((o,k)=>({...o,[k]:count(v?.[k])}),{})
 const status=v=>['success','failure','skipped','cancelled'].includes(v)?v:'unknown'
 const iso=v=>typeof v==='string'&&Number.isFinite(Date.parse(v))?new Date(v).toISOString():null
-const days=(from,to)=>iso(from)&&iso(to)&&Date.parse(to)>Date.parse(from)?Math.round((Date.parse(to)-Date.parse(from))/8640000*10)/10:null
+const days=(from,to)=>iso(from)&&iso(to)&&Date.parse(to)>Date.parse(from)?Math.round((Date.parse(to)-Date.parse(from))/86400000*10)/10:null
 const ratio=(a,b)=>count(a)!==null&&count(b)>0&&a<=b?Math.round(a/b*1000)/10:null
 const sum=values=>values.every(v=>count(v)!==null)?values.reduce((a,b)=>a+b,0):null
 export async function readJson(p,input=readFile){try{return JSON.parse(await input(p,'utf8'))}catch{return null}}
@@ -42,13 +42,13 @@ const waipuIndex=v=>v?.kind==='waipu-live-index'?v:null
 const joynIndex=v=>v?.kind==='joyn-live-index'?v:null
 const fields={
   catalog:'TMDB-Katalog',movies:'TMDB Filme',series:'TMDB Serien',search:'Suchindex',
-  waipuStations:'Waipu Sender',waipuAirings:'Waipu Ausstrahlungen',
-  joynStations:'Joyn Sender',joynAirings:'Joyn Ausstrahlungen',
-  xmltvStations:'XMLTV Sender',xmltvAirings:'XMLTV Ausstrahlungen',
+  waipuStations:'Waipu Sender',waipuAirings:'Waipu Ausstrahlungen',waipuRead:'Waipu Eingangsprogramme',
+  joynStations:'Joyn Sender',joynAirings:'Joyn Ausstrahlungen',joynRead:'Joyn Eingangsprogramme',
+  xmltvStations:'XMLTV Sender',xmltvAirings:'XMLTV Ausstrahlungen',xmltvStagedRows:'XMLTV Eingangsprogramme',xmltvSources:'XMLTV verfügbare Feeds',
   tvTitles:'TV Titel',tvAirings:'TV Ausstrahlungen',
   youtubeVideos:'YouTube Playlist-Videos',youtubeLinks:'YouTube redaktionelle Direktlinks',
 }
-const group={catalog:'tmdb',movies:'tmdb',series:'tmdb',search:'tmdb',waipuStations:'waipu',waipuAirings:'waipu',joynStations:'joyn',joynAirings:'joyn',xmltvStations:'xmltv',xmltvAirings:'xmltv',tvTitles:'tv',tvAirings:'tv',youtubeVideos:'youtube',youtubeLinks:'youtube'}
+const group={catalog:'tmdb',movies:'tmdb',series:'tmdb',search:'tmdb',waipuStations:'waipu',waipuAirings:'waipu',waipuRead:'waipu',joynStations:'joyn',joynAirings:'joyn',joynRead:'joyn',xmltvStations:'xmltv',xmltvAirings:'xmltv',xmltvStagedRows:'xmltvInput',xmltvSources:'xmltvInput',tvTitles:'tv',tvAirings:'tv',youtubeVideos:'youtube',youtubeLinks:'youtube'}
 const pickStock=v=>Object.fromEntries(Object.keys(fields).map(k=>[k,count(v?.[k])]))
 export function buildDataMetrics(d={},steps={}){
   const w=waipuIndex(d.waipu),j=joynIndex(d.joyn),bW=waipuIndex(d.baselineWaipu),bJ=joynIndex(d.baselineJoyn)
@@ -113,12 +113,12 @@ export function berlinDay(value){
 const validDay=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))
 export function compareNightly(report,history=[],day=berlinDay(report.generatedAt)){
   const m=report.dataMetrics,qa=report.adapters
-  const current=pickStock({...m?.tmdb,waipuStations:m?.waipu?.stations,waipuAirings:m?.waipu?.airings,joynStations:m?.joyn?.stations,joynAirings:m?.joyn?.airings,
-    xmltvStations:m?.xmltv?.publication?.stations,xmltvAirings:m?.xmltv?.publication?.airings,tvTitles:qa.tv?.titles,tvAirings:qa.tv?.airings,
+  const current=pickStock({...m?.tmdb,waipuStations:m?.waipu?.stations,waipuAirings:m?.waipu?.airings,waipuRead:m?.waipu?.read,joynStations:m?.joyn?.stations,joynAirings:m?.joyn?.airings,joynRead:m?.joyn?.read,
+    xmltvStations:m?.xmltv?.publication?.stations,xmltvAirings:m?.xmltv?.publication?.airings,xmltvStagedRows:m?.xmltv?.stagedRows,xmltvSources:m?.xmltv?.stagedSources,tvTitles:qa.tv?.titles,tvAirings:qa.tv?.airings,
     youtubeVideos:qa.youtube?.sourceVideos,youtubeLinks:qa.youtube?.playlistEditorialLinks})
   const fresh={tmdb:m?.steps.tmdb==='success',waipu:m?.steps.waipu==='success',joyn:m?.steps.joyn==='success',
     xmltv:m?.steps.xmltvStage==='success'&&m?.steps.xmltvMatch==='success'&&m?.steps.xmltvPublish==='success'&&m?.xmltv?.publication?.retainedStations===0,
-    youtube:m?.steps.youtube==='success',tv:m?.steps.tv==='success'}
+    xmltvInput:m?.steps.xmltvStage==='success',youtube:m?.steps.youtube==='success',tv:m?.steps.tv==='success'}
   const prev=Array.isArray(history)&&validDay(day)?history.filter(x=>validDay(x?.day)&&x.day<day&&Date.parse(day)-Date.parse(x.day)<=7*86400000)
     .map(x=>({day:x.day,stock:pickStock(x.stock)})).sort((a,b)=>a.day.localeCompare(b.day)).slice(-7):[]
   const rows=Object.entries(fields).map(([key,label])=>{
@@ -129,7 +129,7 @@ export function compareNightly(report,history=[],day=berlinDay(report.generatedA
     const delta=(a,b)=>a!==null&&b!==null&&b>0?Math.round((a-b)/b*1000)/10:null
     const pct=delta(value,previous),trend=delta(value,mean)
     const worst=Math.min(pct??0,trend??0)
-    const severity=value===null?'unknown':!fresh[group[key]]?'stale':value===0&&(previous>0||mean>0)?'critical':worst<=-20?'critical':worst<=-10?'review':worst<=-5?'warning':previous===null&&mean===null?'no-baseline':'ok'
+    const severity=value===null?'unknown':!fresh[group[key]]?'stale':value===0&&(previous>0||mean>0)?'critical':worst<=-20?'critical':worst<=-10?'review':worst<=-5?'warning':Math.max(pct??0,trend??0)>=20?'increase':previous===null&&mean===null?'no-baseline':'ok'
     return {key,label,value,previous,previousDay:last?.day??null,previousIsPublishedBaseline:!last&&previous!==null,mean,samples:samples.length,delta:pct,trend,severity}
   })
   const accepted=report.steps.firebase==='success'&&m?.steps.publish==='success'

@@ -101,6 +101,7 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
   }
   const dataMetrics=sanitizeDataMetrics(sourceData.dataMetrics)
   const known=sourceData.known?.kind==='moviehub-nightly-known-counts'?Object.fromEntries(['globalStoredCandidateFilms','sharedCheckpointCandidateFilms','deferredCandidateFilms','crossTitleCollisionFilms','currentBadgeCachedFilms','cachedFilmsWithoutCurrentPublicBadge','filmsWithCurrentTmdbDeYoutubeOffers','filmsWithoutCurrentTmdbDeYoutubeOffers','reusedVideoCandidateIds','avoidedYoutubeSearchCalls','rowsChecked','searchCalls','videosListBatches','tmdbReadCalls'].map(k=>[k,n(sourceData.known[k])])):null
+  if(known)known.reviewStatuses=Object.fromEntries(["review-single-video-candidate","review-multiple-video-editions","review-weak-or-unresolved-videos","no-video-candidate","no-current-tmdb-de-youtube-offer","no-current-public-youtube-badge"].map(k=>[k,n(sourceData.known.reviewStatuses?.[k])]))
   const firebaseSucceeded=steps.firebase==='success'
   const missingQA=Object.entries(qa).filter(([,v])=>!v).map(([k])=>k)
   const status=!firebaseSucceeded?'publish-not-confirmed'
@@ -154,6 +155,7 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
     if(!dataMetrics.xmltv.match||!dataMetrics.xmltv.publication)warnings.push('XMLTV: Zuordnungs- oder Veröffentlichungszähler fehlen.')
   }
   for(const row of comparisons.rows)if(['critical','review','warning'].includes(row.severity))warnings.push(row.label+': Rückgang gegenüber Vergleichsstand; Ursache prüfen.')
+  else if(row.severity==='increase')warnings.push(row.label+': Zunahme von mindestens 20 %; Wachstum oder Duplikate prüfen.')
   else if(expectMetrics&&['stale','unknown'].includes(row.severity))warnings.push(row.label+': kein bestätigter frischer Messwert.')
   if(expectMetrics&&!report.phaseTimings.some(p=>p.start))warnings.push('GitHub-Laufzeiten nicht verfügbar.')
   if(dataMetrics&&dataMetrics.steps.publish!=='success')report.status='publish-not-confirmed'
@@ -178,6 +180,7 @@ function dataMarkdown(report){
   if(k)lines.push('- Geprüfte Filmidentitäten: '+fmt(k.globalStoredCandidateFilms)+' von '+fmt(k.sharedCheckpointCandidateFilms)+' · '+fmt(k.deferredCandidateFilms)+' noch offen',
     '- Filme mit / ohne aktuelles öffentliches Badge: '+fmt(k.currentBadgeCachedFilms)+' / '+fmt(k.cachedFilmsWithoutCurrentPublicBadge),
     '- Wiederverwendete Video-Kandidaten: '+fmt(k.reusedVideoCandidateIds)+' · videos.list: '+fmt(k.videosListBatches)+' · search.list: '+fmt(k.searchCalls),
+    '- Kandidatenprüfung: '+fmt(k.reviewStatuses?.['review-single-video-candidate'])+' eindeutige starke Kandidaten · '+fmt(k.reviewStatuses?.['review-multiple-video-editions'])+' mehrere starke Varianten · '+fmt(k.reviewStatuses?.['review-weak-or-unresolved-videos'])+' schwach/ungeklärt · '+fmt(k.reviewStatuses?.['no-video-candidate'])+' ohne Kandidat · '+fmt(k.reviewStatuses?.['no-current-tmdb-de-youtube-offer'])+' ohne aktuelles TMDB-Angebot.',
     '- Gemessene vermiedene Suchanfragen: '+fmt(k.avoidedYoutubeSearchCalls)+'; kein Beleg für ein neues verifiziertes Angebot.')
   else lines.push('- Kein bestätigter Zähler aus der Bestandsprüfung.')
   lines.push('','## TMDB – Katalog und Suchindex','')
@@ -211,10 +214,10 @@ function dataMarkdown(report){
   return lines
 }
 function comparisonMarkdown(report){
-  const icons={critical:'🔴 kritisch',review:'🟠 prüfen',warning:'🟡 auffällig',ok:'🟢 unauffällig',unknown:'⚪ nicht messbar',stale:'🟡 nicht frisch','no-baseline':'⚪ Ausgangswert'}
+  const icons={critical:'🔴 kritisch',review:'🟠 prüfen',warning:'🟡 auffällig',ok:'🟢 unauffällig',unknown:'⚪ nicht messbar',stale:'🟡 nicht frisch','no-baseline':'⚪ Ausgangswert',increase:'🟡 starke Zunahme'}
   return ['| Kennzahl | Heute | Letzter Vergleich | Abweichung | 7-Tage-Mittel (n) | Abweichung | Bewertung |','|---|---:|---:|---:|---:|---:|---|',
     ...(report.comparison||[]).map(r=>'| '+r.label+' | '+fmt(r.value)+' | '+fmt(r.previous)+(r.previousDay?' ('+r.previousDay+')':r.previousIsPublishedBaseline?' (vorher veröffentlicht)':'')+' | '+pc(r.delta)+' | '+fmt(r.mean)+' ('+r.samples+') | '+pc(r.trend)+' | '+icons[r.severity]+' |'),
-    '', 'Rückgänge ab 5 % auffällig, ab 10 % prüfbedürftig, ab 20 % kritisch; Nullbestand nach positivem Vergleich kritisch. Nur bestätigte frische Messwerte gehen in die Historie ein. Das 7-Tage-Mittel wächst mit den gemessenen Läufen; fehlende Werte sind keine Nullen.',
+    '', 'Rückgänge ab 5 % auffällig, ab 10 % prüfbedürftig, ab 20 % kritisch; Nullbestand nach positivem Vergleich kritisch; Zunahmen ab 20 % zur Plausibilitätsprüfung. Nur bestätigte frische Messwerte gehen in die Historie ein. Das 7-Tage-Mittel wächst mit den gemessenen Läufen; fehlende Werte sind keine Nullen.',
     '', ...(report.warnings?.length?report.warnings.map(x=>'- '+x):['- Keine konkreten Auffälligkeiten in den vorhandenen Messwerten.'])]
 }
 export function nightlyMarkdown(report){
