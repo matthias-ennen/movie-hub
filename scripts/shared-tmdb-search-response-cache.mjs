@@ -108,7 +108,10 @@ export function createSharedTmdbSearchResponseCache(lookupCache) {
         return false
       }
       try {
-        lookupCache.set(SHARED_TMDB_SEARCH_NAMESPACE, key, safe)
+        if (lookupCache.set(SHARED_TMDB_SEARCH_NAMESPACE, key, safe) === false) {
+          counters.rejected++
+          return false
+        }
         counters.stored++
         return true
       } catch {

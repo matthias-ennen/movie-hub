@@ -5,7 +5,8 @@ import { writeJoynLivePublicationAtomic } from './joyn-live-publication.mjs'
 import { withWaipuSingleFlight } from './waipu-sync-coordinator.mjs'
 import { JoynSourceGuard } from './joyn-source-guard.mjs'
 import {
-  SHARED_TMDB_CAPTURE_OPT_IN, openOptionalSharedTmdbCapture,
+  SHARED_TMDB_CAPTURE_OPT_IN, SHARED_TMDB_REUSE_OPT_IN, openOptionalSharedTmdbCapture,
+  g2uSameRunObservation,
 } from './shared-tmdb-adapter-capture-stage.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
@@ -23,11 +24,11 @@ export async function runJoynLiveCatalog({
         seriesDetail: Number(process.env.JOYN_SERIES_DETAIL_REQUEST_BUDGET || 100) } })
     try {
       await guard.waitUntilAvailable()
-      // Explicit private G1i capture only. The normal production job never
-      // supplies this token, and no shared-cache HIT can affect the matcher.
-      const sharedTmdbCapture = process.env.MOVIEHUB_SHARED_TMDB_CAPTURE === SHARED_TMDB_CAPTURE_OPT_IN
+      // Explicit same-run pilot only; original Joyn lookups retain priority.
+      const sharedTmdbReuse = process.env.MOVIEHUB_SHARED_TMDB_REUSE === SHARED_TMDB_REUSE_OPT_IN
+      const sharedTmdbCapture = (sharedTmdbReuse || process.env.MOVIEHUB_SHARED_TMDB_CAPTURE === SHARED_TMDB_CAPTURE_OPT_IN)
         ? await openOptionalSharedTmdbCapture({
-          sourceId: 'joyn', enabled: true, projectRoot: root, now,
+          sourceId: 'joyn', enabled: true, projectRoot: root, now, reuse: sharedTmdbReuse,
         }) : null
       const { summary, envelope, publication } = await runJoynAdapterDiagnostic({
         now,
@@ -47,6 +48,10 @@ export async function runJoynLiveCatalog({
           sourceGenerationComplete: validation.valid === true,
         })
         process.stdout.write(`Private TMDB capture (Joyn): ${capture.status}; stored=${capture.stored}\n`)
+        if (sharedTmdbReuse) {
+          try { console.log(JSON.stringify(g2uSameRunObservation('joyn', sharedTmdbCapture, capture, summary?.matching?.tmdbRequests || 0))) }
+          catch { console.log('G2u count-only observation unavailable') }
+        }
       }
       process.stdout.write(JSON.stringify({
         kind: 'joyn-live-catalog-publication',
