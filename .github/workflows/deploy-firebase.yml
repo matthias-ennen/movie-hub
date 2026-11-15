@@ -18,6 +18,10 @@ on:
         type: boolean
         required: false
         default: false
+      xmltv_canonical_handoff:
+        type: boolean
+        required: false
+        default: false
       youtube_known_recheck:
         type: string
         required: false
@@ -346,7 +350,7 @@ jobs:
           MOVIEHUB_G2V_PERSISTENT: 'private-persistent-reuse-v1'
         run: node scripts/shared-tmdb-g2v-private-checkpoint.mjs save
 
-      # G2w: private preview only; no XMLTV cloud originals, app writes or TMDB HTTP.
+      # G2w remains private and read-only unless an independent canonical handoff is requested.
       - name: Stage reviewed XMLTV feeds privately (explicit G2w)
         id: g2w_stage
         if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.nightly_chain && inputs.data_mode == 'standard' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true && steps.g2v_save.outcome == 'success' }}
@@ -359,6 +363,7 @@ jobs:
         continue-on-error: true
         env:
           MOVIEHUB_XMLTV_PRIVATE_PREVIEW: enabled
+          MOVIEHUB_XMLTV_CANONICAL_HANDOFF: ${{ inputs.xmltv_canonical_handoff == true && 'enabled' || '' }}
         run: node scripts/xmltv-g2w-shared-cache-preview.mjs
 
       # #336 G2s: ONLY on an actual completed original source import,
@@ -485,6 +490,7 @@ jobs:
         continue-on-error: ${{ (github.event_name == 'push' && !contains(github.event.head_commit.message, '[waipu-refresh]')) || env.MOVIEHUB_LIGHT_MODE == 'true' }}
         env:
           GOOGLE_CLOUD_PROJECT: movie-hub-62459
+          MOVIEHUB_XMLTV_CANONICAL_HANDOFF: ${{ inputs.xmltv_canonical_handoff == true && steps.g2w_preview.outcome == 'success' && 'enabled' || '' }}
         run: npm run title:candidates:inventory
 
       - name: Preview canonical title priority queue
@@ -505,7 +511,14 @@ jobs:
           TITLE_CANONICAL_TMDB_REQUEST_BUDGET: 5000
           TITLE_CANONICAL_CONCURRENCY: 3
           TITLE_CANONICAL_MAX_AGE_DAYS: 7
+          MOVIEHUB_XMLTV_CANONICAL_HANDOFF: ${{ inputs.xmltv_canonical_handoff == true && steps.g2w_preview.outcome == 'success' && 'enabled' || '' }}
         run: npm run title:priority:execute
+
+      - name: Validate XMLTV source plan after canonical executor (counts only)
+        if: ${{ inputs.xmltv_canonical_handoff == true && steps.g2w_preview.outcome == 'success' && steps.canonical_executor.outcome == 'success' }}
+        env:
+          MOVIEHUB_XMLTV_CANONICAL_HANDOFF: enabled
+        run: node scripts/xmltv-air-post-canonical-plan.mjs
 
       - name: Acknowledge Movie-Hub metadata change consumer
         if: ${{ steps.canonical_executor.outcome == 'success' }}

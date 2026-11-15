@@ -142,8 +142,14 @@ async function main(){
   if(process.argv.length!==2||process.env.GITHUB_EVENT_NAME!=='workflow_dispatch'||
      process.env.GITHUB_REF!=='refs/heads/main'||process.env.MOVIEHUB_XMLTV_PRIVATE_PREVIEW!=='enabled')
     throw new Error('G2W_APPROVAL_REJECTED')
-  const result=await runG2wXmltvSharedCachePreview()
+  const enabled=process.env.MOVIEHUB_XMLTV_CANONICAL_HANDOFF==='enabled'
+  let handoff=null
+  const result=await runG2wXmltvSharedCachePreview({captureHandoff:enabled?value=>{handoff=value}:null})
   if(result.runtimeReadiness.runtimeOverlap.existingSourceCount!==2)throw new Error('G2W_EXISTING_SOURCE_MISSING')
+  if(enabled&&result.validatedSources){
+    const {writeXmltvSameRunHandoff}=await import('./xmltv-same-run-handoff.mjs')
+    await writeXmltvSameRunHandoff(handoff)
+  }
   console.log(JSON.stringify(result))
   if(!result.validatedSources) process.exitCode=1
 }
