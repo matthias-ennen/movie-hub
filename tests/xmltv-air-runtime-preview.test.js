@@ -21,7 +21,7 @@ const event = {
   sourceRefs: [{ sourceId: 'xmltv:epgshare01', externalId: 'ZDF.de|test' }],
   extensions: { xmltv: { sourceStationId: 'ZDF.de', timestampsExplicitlyZoned: true, rawTitle: 'untrusted' } },
 }
-const catalog = { titles: [{ type: 'movie', tmdbId: 42, title: 'Testfilm', posterPath: '/test.jpg',
+const catalog = { titles: [{ source: 'tmdb', type: 'movie', tmdbId: 42, title: 'Testfilm', posterPath: '/test.jpg',
   providerIds: ['zdf', 'air-zdf'], tmdbProviderOffers: [
     { id: 'zdf', offerTypes: ['free'] }, { id: 'air-zdf', offerTypes: ['buy'] },
   ] }] }

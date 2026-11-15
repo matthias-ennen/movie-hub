@@ -163,6 +163,8 @@ describe('#336 G2m: existing live MovieHub TMDB catalog as local XMLTV candidate
       playbackRoutesApproved:false,
     })
     expect(isSafeXmltvG2mPrivateReport(result)).toBe(true)
+    expect(result.runtimeReadiness).toEqual({matchedRows:6,catalogReadyRows:0,missingCatalogRows:6,
+      missingCatalogUniqueTitles:1,deviceReadyRows:0,runtimeReadyRows:0,deduplicatedRuntimeAirings:0})
     expect(JSON.stringify(result)).not.toContain(TITLE)
     expect(JSON.stringify(result)).not.toContain('sourceRef')
     expect(JSON.stringify(result)).not.toContain('Another original title')

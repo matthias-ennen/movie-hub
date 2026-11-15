@@ -13,6 +13,8 @@ import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 import { normalizeTmdbMatchCandidate } from './waipu-tmdb-matcher.mjs'
 import { runXmltvG2lPrivateAdapterCoordinator, isSafeXmltvG2lPrivateAdapterReport } from './xmltv-g2l-private-adapter-coordinator.mjs'
 
+import { isSafePrivateXmltvRuntimeReadiness } from './xmltv-g3-private-runtime-readiness.mjs'
+
 const ROOT = resolve(fileURLToPath(new URL('..',import.meta.url)))
 const SNAPSHOT = 'artifacts/shared-tmdb/private/shared-tmdb-response-cache.json'
 const CATALOG = 'public/catalog.json'
@@ -73,8 +75,9 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     throw new Error('G2W_COORDINATOR_OPTIONS_REJECTED')
   const options={stagingReportPath:join(root,'artifacts/xmltv-g2/report.json'),privateRoot:join(root,'artifacts/xmltv-g2/private'),...coordinatorOptions,now}
   const baseline=await runXmltvG2lPrivateAdapterCoordinator({...options,localCandidatesFor:local.localCandidatesFor})
-  const combined=await runXmltvG2lPrivateAdapterCoordinator({...options,localCandidatesFor:enhanced.localCandidatesFor})
+  const combined=await runXmltvG2lPrivateAdapterCoordinator({...options,localCandidatesFor:enhanced.localCandidatesFor,runtimeCatalog:catalog})
   if(!isSafeXmltvG2lPrivateAdapterReport(baseline)||!isSafeXmltvG2lPrivateAdapterReport(combined)||
+    !isSafePrivateXmltvRuntimeReadiness(combined.runtimeReadiness,combined.locallyMatchedCount)||
     baseline.selectedCandidateCount!==combined.selectedCandidateCount||
     baseline.selectedSources!==combined.selectedSources||
     baseline.locallyMatchedCount>combined.locallyMatchedCount||
@@ -93,6 +96,7 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     additionalMatched:extra,baselineMergedAirings:baseline.mergedAiringsWithXmltvPreview,
     combinedMergedAirings:combined.mergedAiringsWithXmltvPreview,
     ...c,cacheResponseHits:hits.hits,cacheResponseMisses:hits.misses,
+    runtimeReadiness:combined.runtimeReadiness,
     newTmdbApiRequests:0,cacheWrites:0,productiveWrites:0,publishApproved:false,
   }
 }

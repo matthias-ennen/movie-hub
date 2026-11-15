@@ -18,6 +18,8 @@ import {
   matchXmltvLocalCandidates, mergeConfirmedXmltvAirings,
 } from './xmltv-g1b-match-preview.mjs'
 
+import { summarizePrivateXmltvRuntimeReadiness } from './xmltv-g3-private-runtime-readiness.mjs'
+
 const DAY = 86_400_000
 const MATCH_BATCH_SIZE = 2_000
 const MAX_PRIVATE_QA_CANDIDATES = 20_000
@@ -34,6 +36,7 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
   waipuAirings = [],
   joynAirings = [],
   maxCandidates = MAX_PRIVATE_QA_CANDIDATES,
+  runtimeCatalog = null,
 } = {}) {
   if (!Number.isFinite(now) || typeof localCandidatesFor !== 'function' ||
       !Number.isSafeInteger(maxCandidates) || maxCandidates < 1 ||
@@ -135,5 +138,6 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
     publishApproved: false,
     tmdbIdentityApproved: false,
     playbackRoutesApproved: false,
+    ...(runtimeCatalog === null ? {} : { runtimeReadiness: summarizePrivateXmltvRuntimeReadiness(allConfirmedEvents, runtimeCatalog, { now }) }),
   }
 }

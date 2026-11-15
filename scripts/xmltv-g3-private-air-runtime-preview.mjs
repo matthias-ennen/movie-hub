@@ -20,7 +20,7 @@ export function buildPrivateXmltvAirRuntimePreview({
   const titles = new Map()
   for (const item of Array.isArray(catalog?.titles) ? catalog.titles : []) {
     const key = tvRuntimeTitleKey(item)
-    if (key && typeof item.title === 'string' && item.title.trim()) titles.set(key, item)
+    if (key && item.source === 'tmdb' && typeof item.title === 'string' && item.title.trim()) titles.set(key, item)
   }
   const byProvider = new Map()
   for (const event of Array.isArray(confirmedEvents) ? confirmedEvents : []) {
