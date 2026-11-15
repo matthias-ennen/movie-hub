@@ -14,14 +14,15 @@ async function readJson(path) {
   return JSON.parse(await readFile(path, 'utf8'))
 }
 
-export async function discoverLiveSourceCatalogs(directory = publicDir, { resolveEpisodes = true } = {}) {
+export async function discoverLiveSourceCatalogs(directory = publicDir, { resolveEpisodes = true, providerFilter = null } = {}) {
   const dirents = await readdir(directory, { withFileTypes: true })
   const sources = []
   const approvedAirIds = new Set(APPROVED_XMLTV_AIR_PROVIDERS.map((provider) => provider.id))
   for (const dirent of dirents) {
     if (!dirent.isDirectory() || !dirent.name.endsWith('-live')) continue
     const providerId = dirent.name.slice(0, -5).trim()
-    if (!providerId || (providerId.startsWith('air-') && !approvedAirIds.has(providerId))) continue
+    if (!providerId || (providerId.startsWith('air-') && !approvedAirIds.has(providerId)) ||
+      (providerFilter && !providerFilter(providerId))) continue
     try {
       const raw = await readJson(resolve(directory, dirent.name, 'titles.json'))
       const index = await readJson(resolve(directory, dirent.name, 'index.json')).catch((error) => {
@@ -67,3 +68,4 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.exitCode = 1
   })
 }
+
