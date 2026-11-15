@@ -103,6 +103,7 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
   if(!isSafeXmltvG2lPrivateAdapterReport(baseline)||!isSafeXmltvG2lPrivateAdapterReport(combined)||
     !isSafePrivateXmltvRuntimeReadiness(combined.runtimeReadiness,combined.locallyMatchedCount)||
     combined.runtimeReadiness.runtimeOverlap?.existingSourceCount!==runtimeSources.length||
+    !combined.runtimeReadiness.metadataDemand||
     baseline.selectedCandidateCount!==combined.selectedCandidateCount||
     baseline.selectedSources!==combined.selectedSources||
     baseline.locallyMatchedCount>combined.locallyMatchedCount||

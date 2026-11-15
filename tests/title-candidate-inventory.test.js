@@ -208,6 +208,15 @@ describe('kanonischer Titelkandidatenbestand', () => {
     expect(summary).not.toHaveProperty('searchOnly.keys')
     expect(summary.unresolvedWaipu).not.toHaveProperty('entries')
   })
+  it('hands trusted XMLTV typed identities to the same queue without inventing TMDB metadata',()=>{
+    const inventory=buildTitleCandidateInventory({catalog:{titles:[{source:'tmdb',type:'movie',tmdbId:11}]},
+      xmltvApprovedTitles:[{type:'movie',tmdbId:11},{type:'series',tmdbId:11},
+        {type:'series',tmdbId:11},{type:'movie',tmdbId:0},{type:'movie',tmdbId:99,title:'raw EPG'}]})
+    expect(inventory.candidates.map(x=>x.key)).toEqual(['movie:11','series:11'])
+    expect(inventory.candidates[0].sources).toEqual(['browse','xmltv'])
+    expect(inventory.candidates[1].metadata).toMatchObject({canonicalPublicationPending:true,freshCompleteAvailable:false,incompleteReferences:0})
+    expect(inventory.sourceStats.xmltv).toMatchObject({rawReferences:5,eligibleReferences:3,rejectedReferences:2,uniqueTitles:2})
+  })
 
   it('kennzeichnet fehlende Waipu-Einzeldiagnosen und nutzt nur die Laufmetriken', () => {
     const inventory = buildTitleCandidateInventory({
@@ -221,3 +230,4 @@ describe('kanonischer Titelkandidatenbestand', () => {
     })
   })
 })
+
