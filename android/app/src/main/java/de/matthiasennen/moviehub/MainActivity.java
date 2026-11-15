@@ -1028,6 +1028,11 @@ public final class MainActivity extends ComponentActivity {
 
     private void launchProviderRoute(String providerId, String title, String mode,
                                      String scope, Uri targetUri, Uri fallbackUri) {
+        if (providerId != null && providerId.startsWith("air-")) {
+            AirStationLauncher.open(this, providerId, mode, scope,
+                    targetUri.toString(), fallbackUri.toString());
+            return;
+        }
         if (ProviderLaunchPolicy.preservesExactTarget(scope)) {
             launchBoundProviderRoute(providerId, mode, targetUri);
             return;
