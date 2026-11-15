@@ -4,7 +4,7 @@ import { buildPrivateXmltvAirRuntimePreview } from './xmltv-g3-private-air-runti
 import { tvRuntimeTitleKey } from '../src/tv/tvRuntimePublication.js'
 
 const FIELDS = ['matchedRows','catalogReadyRows','missingCatalogRows','missingCatalogUniqueTitles',
-  'deviceReadyRows','runtimeReadyRows','deduplicatedRuntimeAirings']
+  'androidReadyRows','fireTvConfirmedRows','runtimeReadyRows','deduplicatedRuntimeAirings']
 export function isSafePrivateXmltvRuntimeReadiness(report, matchedRows) {
   return report && typeof report === 'object' && !Array.isArray(report) &&
     Object.keys(report).sort().join('|') === [...FIELDS].sort().join('|') &&
@@ -12,8 +12,8 @@ export function isSafePrivateXmltvRuntimeReadiness(report, matchedRows) {
     report.matchedRows === matchedRows &&
     report.catalogReadyRows + report.missingCatalogRows === matchedRows &&
     report.missingCatalogUniqueTitles <= report.missingCatalogRows &&
-    report.deviceReadyRows <= matchedRows &&
-    report.runtimeReadyRows <= Math.min(report.catalogReadyRows, report.deviceReadyRows) &&
+    report.androidReadyRows <= matchedRows && report.fireTvConfirmedRows <= report.androidReadyRows &&
+    report.runtimeReadyRows <= Math.min(report.catalogReadyRows, report.androidReadyRows) &&
     report.deduplicatedRuntimeAirings <= report.runtimeReadyRows
 }
 
@@ -28,21 +28,24 @@ export function summarizePrivateXmltvRuntimeReadiness(confirmedEvents, catalog, 
   // device receipts can be rehearsed privately before release approval.
   const registry = createXmltvAirRouteRegistry({ deviceReceipts: XMLTV_AIR_DEVICE_APPROVALS, now })
   const missing = new Set()
-  let catalogReadyRows = 0, deviceReadyRows = 0
+  let catalogReadyRows = 0, androidReadyRows = 0, fireTvConfirmedRows = 0
   for (const event of confirmedEvents) {
     const key = tvRuntimeTitleKey(event.titleRef)
     if (!key) throw new TypeError('Invalid confirmed identity')
     if (available.has(key)) catalogReadyRows++
     else missing.add(key)
-    if (registry.fieldsForEvent(event).providerIds.length === 1) deviceReadyRows++
+    if (registry.fieldsForEvent(event).providerIds.length === 1) {
+      androidReadyRows++
+      if (registry.verifiedDevices(event.channelId).includes('fire-tv')) fireTvConfirmedRows++
+    }
   }
   // Skip the heavier index build until a device-approved route exists.
-  const preview = deviceReadyRows > 0 ?
+  const preview = androidReadyRows > 0 ?
     buildPrivateXmltvAirRuntimePreview({ confirmedEvents, catalog, now, fieldsForEvent: registry.fieldsForEvent }) : null
   const report = {
     matchedRows: confirmedEvents.length, catalogReadyRows,
     missingCatalogRows: confirmedEvents.length - catalogReadyRows, missingCatalogUniqueTitles: missing.size,
-    deviceReadyRows, runtimeReadyRows: preview?.counts.projected ?? 0,
+    androidReadyRows, fireTvConfirmedRows, runtimeReadyRows: preview?.counts.projected ?? 0,
     deduplicatedRuntimeAirings: preview?.tvRuntime.index.airingCount ?? 0,
   }
   if (!isSafePrivateXmltvRuntimeReadiness(report, confirmedEvents.length)) throw new TypeError('Unsafe readiness result')

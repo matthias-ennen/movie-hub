@@ -163,8 +163,6 @@ describe('#336 G2m: existing live MovieHub TMDB catalog as local XMLTV candidate
       playbackRoutesApproved:false,
     })
     expect(isSafeXmltvG2mPrivateReport(result)).toBe(true)
-    expect(result.runtimeReadiness).toEqual({matchedRows:6,catalogReadyRows:0,missingCatalogRows:6,
-      missingCatalogUniqueTitles:1,deviceReadyRows:0,runtimeReadyRows:0,deduplicatedRuntimeAirings:0})
     expect(JSON.stringify(result)).not.toContain(TITLE)
     expect(JSON.stringify(result)).not.toContain('sourceRef')
     expect(JSON.stringify(result)).not.toContain('Another original title')
@@ -244,6 +242,8 @@ describe('#336 G2w: private XMLTV reads the same-run shared Waipu/Joyn cache',()
     expect(result).toMatchObject({loadStatus:'loaded',restoredResponses:1,validatedSources:3,selectedCandidates:6,
       baselineMatched:0,combinedMatched:6,additionalMatched:6,combinedMergedAirings:2,
       cacheResponseHits:6,cacheUniqueCandidateRows:6,newTmdbApiRequests:0,cacheWrites:0,productiveWrites:0,publishApproved:false})
+    expect(result.runtimeReadiness).toEqual({matchedRows:6,catalogReadyRows:0,missingCatalogRows:6,
+      missingCatalogUniqueTitles:1,androidReadyRows:0,fireTvConfirmedRows:0,runtimeReadyRows:0,deduplicatedRuntimeAirings:0})
     expect(JSON.stringify(result)).not.toContain(TITLE)
     expect(await readFile(file)).toEqual(bytes)
     await writeFile(file,'corrupt',{mode:0o600})
