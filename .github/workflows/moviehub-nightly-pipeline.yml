@@ -31,6 +31,11 @@ on:
         type: boolean
         required: false
         default: false
+      xmltv_canonical_handoff:
+        description: "XMLTV-TMDB-Titel integrieren (zusätzlich XMLTV-Privatvorschau aktivieren; keine Sender-Badges)"
+        type: boolean
+        required: false
+        default: false
   # A narrowly scoped, explicitly marked one-off commit may launch a genuine
   # workflow_dispatch of THIS central chain. Ordinary pushes do not run it.
   push:
@@ -121,6 +126,7 @@ jobs:
       nightly_chain: true
       shared_tmdb_cache: ${{ github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-reuse' && 'private-reuse' || github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent' && 'private-persistent' || 'off' }}
       xmltv_private_preview: ${{ github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true }}
+      xmltv_canonical_handoff: ${{ github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true && inputs.xmltv_canonical_handoff == true }}
       youtube_known_recheck: ${{ needs.known-videos.result }}
       data_mode: ${{ github.event_name == 'workflow_dispatch' && (inputs.run_mode == 'compact' || inputs.run_mode == 'themes') && inputs.run_mode || 'standard' }}
     permissions:

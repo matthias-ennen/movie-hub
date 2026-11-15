@@ -47,6 +47,17 @@ function canonicalKey(value) {
   return canonicalTitleIdentity(value)?.key || null
 }
 
+// The queue and inventory are not independent permission to publish XMLTV
+// identities: both must agree with the trusted same-run handoff.
+export function validateXmltvCanonicalHandoff(titleRefs,inventory,selectedEntries){
+  const keys=new Set(titleRefs.map(canonicalKey))
+  const inventoryKeys=new Set(inventory.candidates.filter(entry=>entry.sources?.includes('xmltv')).map(entry=>entry.key))
+  if(keys.has(null)||inventoryKeys.size!==keys.size||[...inventoryKeys].some(key=>!keys.has(key))||
+    selectedEntries.some(entry=>Boolean(entry.sources?.includes('xmltv'))!==keys.has(entry.key)))
+    throw new Error('XMLTV canonical handoff identity parity rejected')
+  return keys
+}
+
 export function canonicalForIdentity(value, entry) {
   const type = entry.type === 'series' ? 'series' : 'movie'
   const publicMetadata = Object.fromEntries(PUBLIC_TITLE_FIELDS
@@ -499,6 +510,8 @@ async function commitFirestoreWrites(db, writes, deleteFieldValue) {
 }
 
 async function main() {
+  const {readXmltvSameRunHandoff}=await import('./xmltv-same-run-handoff.mjs')
+  const xmltv=await readXmltvSameRunHandoff()
   const [{ applicationDefault, initializeApp }, { FieldValue, getFirestore }] = await Promise.all([
     import('firebase-admin/app'),
     import('firebase-admin/firestore'),
@@ -529,12 +542,13 @@ async function main() {
     movieHubDocuments: movieHubSnapshot.docs,
   })
   const selectedEntries = selectedQueueEntries(preview)
-  if(selectedEntries.some(entry=>entry.sources?.includes('xmltv')))
-    throw new Error('XMLTV canonical publication handoff is not enabled')
+  const xmltvApprovedKeys=validateXmltvCanonicalHandoff(xmltv.titleRefs,inventory,selectedEntries)
   const executionNow = new Date()
   const maxAgeDays = Number(process.env.TITLE_CANONICAL_MAX_AGE_DAYS || CANONICAL_METADATA_MAX_AGE_DAYS)
   const needsTmdb = selectedEntries.some(entry => entry.action === 'fetch-tmdb'
-    || !selectReusableCanonical(candidateValues.get(entry.key), { now: executionNow, maxAgeDays }))
+    || !selectReusableCanonical(xmltvApprovedKeys.has(entry.key)?(candidateValues.get(entry.key)||[])
+      .map(v=>canonicalXmltvMetadata(v,entry)).filter(Boolean):candidateValues.get(entry.key),
+      { now: executionNow, maxAgeDays, requireFacets:Number(entry.metadata?.facetGapReferences)>0 }))
   if (needsTmdb && !process.env.TMDB_API_READ_TOKEN) throw new Error('TMDB_API_READ_TOKEN is missing for the canonical title executor.')
   const client = needsTmdb ? new WaipuTmdbMetadataClient({
     token: process.env.TMDB_API_READ_TOKEN,
@@ -563,6 +577,7 @@ async function main() {
     youtubeApprovedKeys: new Set(inventory.candidates
       .filter(entry => entry.type === 'movie' && entry.sources?.includes('youtube'))
       .map(entry => entry.key)),
+    xmltvApprovedKeys,
     generatedAt: execution.summary.generatedAt,
   })
 

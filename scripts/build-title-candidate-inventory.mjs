@@ -393,6 +393,8 @@ async function writeJson(path, value) {
 }
 
 async function main() {
+  const {readXmltvSameRunHandoff}=await import('./xmltv-same-run-handoff.mjs')
+  const xmltv=await readXmltvSameRunHandoff()
   const [{ applicationDefault, initializeApp }, { getFirestore }] = await Promise.all([
     import('firebase-admin/app'),
     import('firebase-admin/firestore'),
@@ -415,6 +417,7 @@ async function main() {
   // publisher, not playlist/video-matcher confidence or editorial labels.
   const approved = buildYoutubeVerifiedRouteIndex(youtubeSourceEnvelope)
   const inventory = buildTitleCandidateInventory({
+    xmltvApprovedTitles:xmltv.titleRefs,
     youtubeApprovedTitles: approved.entries
       .filter(entry => entry.mediaType === 'movie')
       .map(entry => ({ type: 'movie', tmdbId: entry.tmdbId, verified: true })),
