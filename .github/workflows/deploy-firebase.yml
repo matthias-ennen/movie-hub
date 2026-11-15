@@ -10,6 +10,10 @@ on:
       nightly_chain:
         type: boolean
         required: true
+      shared_tmdb_cache:
+        type: string
+        required: false
+        default: 'off'
       youtube_known_recheck:
         type: string
         required: false
@@ -266,12 +270,25 @@ jobs:
           WAIPU_SYNC_JITTER_MS: '75'
         run: npm run waipu:sync -- --live --stage=228
 
+      # G2u is a one-run opt-in, never a scheduled/default activation.
+      # A new runner starts without a shared snapshot; no cloud restore.
+      - name: Verify empty private same-run TMDB cache boundary
+        id: g2u_preflight
+        if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.nightly_chain && inputs.data_mode == 'standard' && inputs.shared_tmdb_cache == 'private-reuse' }}
+        continue-on-error: true
+        run: |
+          test ! -e artifacts/shared-tmdb/private/shared-tmdb-response-cache.json
+          test ! -L artifacts/shared-tmdb/private/shared-tmdb-response-cache.json
+          test ! -e artifacts/shared-tmdb/private/shared-tmdb-response-cache.json.lock
+          test ! -L artifacts/shared-tmdb/private
+
       - name: Match and publish curated 228-station Waipu catalog
         id: waipu_catalog
         if: ${{ ((github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true') || contains(github.event.head_commit.message, '[waipu-refresh]')) && steps.waipu_sync.outcome == 'success' }}
         continue-on-error: true
         env:
           WAIPU_CATALOG_LIVE: '1'
+          MOVIEHUB_SHARED_TMDB_REUSE: ${{ steps.g2u_preflight.outcome == 'success' && 'private-stage-reuse-v1' || '' }}
           WAIPU_LIVE_OUTPUT: public/waipu-live
           WAIPU_DETAIL_REQUEST_BUDGET: '10000'
           WAIPU_DETAIL_PACE_MS: '400'
@@ -292,6 +309,7 @@ jobs:
         continue-on-error: true
         env:
           JOYN_LIVE_OUTPUT: public/joyn-live
+          MOVIEHUB_SHARED_TMDB_REUSE: ${{ steps.g2u_preflight.outcome == 'success' && steps.waipu_catalog.outcome == 'success' && 'private-stage-reuse-v1' || '' }}
           JOYN_EPG_REQUEST_BUDGET: '500'
           JOYN_ALGOLIA_REQUEST_BUDGET: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[joyn-bootstrap]') && '18000' || '3600' }}
           JOYN_SERIES_DETAIL_REQUEST_BUDGET: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[joyn-bootstrap]') && '500' || '100' }}
@@ -312,7 +330,7 @@ jobs:
       # This optional audit cannot block the existing production publication.
       - name: Observe original Waipu/Joyn TMDB search transport (count-only, no API)
         id: shared_tmdb_g2s_original_baseline
-        if: ${{ github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true' && steps.waipu_catalog.outcome == 'success' && steps.joyn_catalog.outcome == 'success' }}
+        if: ${{ github.event_name != 'push' && env.MOVIEHUB_LIGHT_MODE != 'true' && inputs.shared_tmdb_cache != 'private-reuse' && steps.waipu_catalog.outcome == 'success' && steps.joyn_catalog.outcome == 'success' }}
         continue-on-error: true
         env:
           G2S_ORIGINAL_BASELINE_READONLY: '1'

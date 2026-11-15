@@ -6,8 +6,8 @@ import { JoynLookupCache } from '../scripts/joyn-match-cache.mjs'
 import { JoynTmdbSearchClient } from '../scripts/joyn-tmdb-matcher.mjs'
 import { WaipuTmdbSearchClient } from '../scripts/waipu-tmdb-matcher.mjs'
 import {
-  SHARED_TMDB_CAPTURE_OPT_IN,
-  openOptionalSharedTmdbCapture,
+  SHARED_TMDB_CAPTURE_OPT_IN, SHARED_TMDB_REUSE_OPT_IN,
+  openOptionalSharedTmdbCapture, g2uSameRunObservation,
   joynOriginalFirstResponseCache,
 } from '../scripts/shared-tmdb-adapter-capture-stage.mjs'
 import {
@@ -204,7 +204,56 @@ describe('#336: actual Waipu/Joyn TMDB transports in private capture-only stagin
       .toBe('no_new_responses')
   })
 
-  it('has no activation in the deployed Nightly workflow', async () => {
+  it('G2u reuses a completed Waipu original response for a fresh Joyn client', async () => {
+    const root = await privateRoot()
+    const waipu = await session('waipu', root)
+    const wf = vi.fn(async () => response())
+    const w = new WaipuTmdbSearchClient({token:'test',fetchImpl:wf,responseCache:waipu.responseCache,paceMs:0,maxRetries:0})
+    const input={type:'movie',title:TITLE}
+    const baseline = await w.search(input)
+    await waipu.complete({sourceGenerationComplete:true})
+    const reader = await openOptionalSharedTmdbCapture({sourceId:'joyn',enabled:true,projectRoot:root,now:NOW+1000,reuse:true})
+    const legacy = new JoynLookupCache({}, NOW+1000)
+    const jf=vi.fn(async()=>{ throw Error('no HTTP for shared hit') })
+    const j = new JoynTmdbSearchClient({token:'test',fetchImpl:jf,responseCache:joynOriginalFirstResponseCache(legacy,reader),paceMs:0,maxRetries:0})
+    expect(await j.search(input)).toEqual(baseline)
+    expect(j.requestsStarted).toBe(0)
+    expect(jf).not.toHaveBeenCalled()
+    expect(legacy.get(SHARED_TMDB_SEARCH_NAMESPACE,KEY)).toBeNull()
+    const completed=await reader.complete({sourceGenerationComplete:true})
+    const stats=g2uSameRunObservation('joyn',reader,completed,j.requestsStarted)
+    expect(stats).toMatchObject({sharedResponseHits:1,avoidedInitialSearches:1,actualSearchStarts:0,restoredResponses:1,capturedResponses:0,measuredWholeNightSavings:null})
+    expect(JSON.stringify(stats)).not.toContain(TITLE)
+    expect(completed.status).toBe('no_new_responses')
+  })
+  it('G2u legacy Joyn hits still win and new writes never count as preceding-source hits',async()=>{
+    const root=await privateRoot()
+    const producer=await session('waipu',root)
+    producer.responseCache.set(KEY,{results:[MOVIE]})
+    await producer.complete({sourceGenerationComplete:true})
+    const reader=await openOptionalSharedTmdbCapture({sourceId:'joyn',enabled:true,projectRoot:root,now:NOW+1000,reuse:true})
+    const legacy=new JoynLookupCache({},NOW+1000)
+    legacy.set(SHARED_TMDB_SEARCH_NAMESPACE,KEY,{results:[{...MOVIE,id:222}]})
+    const cache=joynOriginalFirstResponseCache(legacy,reader)
+    expect(cache.get(KEY).results[0].id).toBe(222)
+    expect(reader.summary().sharedResponseHits).toBe(0)
+    const otherKey=JSON.stringify(['/search/movie',{language:'de-DE',query:'Another literal title',include_adult:'false'}])
+    reader.responseCache.set(otherKey,{results:[MOVIE]})
+    expect(reader.responseCache.get(otherKey)).toBeNull()
+    expect(reader.summary().sharedResponseHits).toBe(0)
+    await expect(openOptionalSharedTmdbCapture({sourceId:'waipu',enabled:true,projectRoot:root,reuse:true})).rejects.toThrow(/second adapter/)
+  })
+  it('G2u is only a manual full central Nightly opt-in and never an ordinary run',async()=>{
+    const workflow = await readFile('.github/workflows/deploy-firebase.yml','utf8')
+    const central = await readFile('.github/workflows/moviehub-nightly-pipeline.yml','utf8')
+    expect(SHARED_TMDB_REUSE_OPT_IN).toBe('private-stage-reuse-v1')
+    expect(central).toContain("github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-reuse'")
+    expect(workflow).toContain("github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.nightly_chain && inputs.data_mode == 'standard' && inputs.shared_tmdb_cache == 'private-reuse'")
+    expect(workflow).toContain("steps.g2u_preflight.outcome == 'success' && steps.waipu_catalog.outcome == 'success'")
+    expect(workflow).toContain("inputs.shared_tmdb_cache != 'private-reuse'")
+    expect(workflow).not.toContain('path: artifacts/shared-tmdb/private')
+  })
+  it('has no capture-only activation in the deployed Nightly workflow', async () => {
     const { readFile } = await import('node:fs/promises')
     const workflow = await readFile('.github/workflows/deploy-firebase.yml', 'utf8')
     expect(workflow).not.toContain('MOVIEHUB_SHARED_TMDB_CAPTURE')

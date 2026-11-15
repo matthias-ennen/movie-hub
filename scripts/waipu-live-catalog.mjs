@@ -4,7 +4,8 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { WaipuEpgCache, WaipuPublicApiClient } from './waipu-public-data.mjs'
 import {
-  SHARED_TMDB_CAPTURE_OPT_IN, openOptionalSharedTmdbCapture,
+  SHARED_TMDB_CAPTURE_OPT_IN, SHARED_TMDB_REUSE_OPT_IN, openOptionalSharedTmdbCapture,
+  g2uSameRunObservation,
 } from './shared-tmdb-adapter-capture-stage.mjs'
 import { withWaipuSingleFlight } from './waipu-sync-coordinator.mjs'
 import { WaipuProgramDetailLoader } from './waipu-program-detail-loader.mjs'
@@ -917,9 +918,10 @@ async function main() {
   const selected = new Set((syncStatus.stations || []).map(({ id }) => id))
   const stations = stationDirectory.filter(({ id }) => selected.has(id))
   const decisionsPath = resolve(process.env.WAIPU_MATCH_CACHE || resolve(projectRoot, 'artifacts/waipu-live/match-decisions.json'))
-  // Private G1i shadow capture only, disabled in the default Nightly.
+  // Waipu is the first same-run producer; it never reads shared responses.
+  const sharedTmdbReuse = live && process.env.MOVIEHUB_SHARED_TMDB_REUSE === SHARED_TMDB_REUSE_OPT_IN
   const sharedTmdbCapture = live &&
-    process.env.MOVIEHUB_SHARED_TMDB_CAPTURE === SHARED_TMDB_CAPTURE_OPT_IN
+    (sharedTmdbReuse || process.env.MOVIEHUB_SHARED_TMDB_CAPTURE === SHARED_TMDB_CAPTURE_OPT_IN)
     ? await openOptionalSharedTmdbCapture({
       sourceId: 'waipu', enabled: true, projectRoot,
     })
@@ -1053,6 +1055,10 @@ async function main() {
             && syncStatus.status === 'complete',
         })
         process.stdout.write(`Private TMDB capture (Waipu): ${capture.status}; stored=${capture.stored}\n`)
+        if (sharedTmdbReuse) {
+          try { console.log(JSON.stringify(g2uSameRunObservation('waipu', sharedTmdbCapture, capture, tmdbSearchClient?.requestsStarted || 0))) }
+          catch { console.log('G2u count-only observation unavailable') }
+        }
       }
       process.stdout.write(`${JSON.stringify({
         ...liveCatalog.index,
