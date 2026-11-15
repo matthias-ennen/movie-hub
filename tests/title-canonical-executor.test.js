@@ -289,6 +289,41 @@ describe('kanonischer Titel-Executor', () => {
     expect(plan.searchIndex.entries).toHaveLength(1)
   })
 
+  it('reuses an exact fresh TMDB copy for a missing XMLTV title, even when the preview lacked the restored search shard', async()=>{
+    const canonical={...completeMovie(77,'Canonical film'),source:'tmdb',tmdbProviderIds:['netflix'],
+      providerIds:['netflix','waipu','air-zdf'],airings:[{rawTitle:'DO NOT COPY'}]}
+    const entry={...queueEntry('movie:77','fetch-tmdb'),sources:['xmltv'],reasons:['new-catalog-relevant'],
+      metadata:{canonicalPublicationPending:true}}
+    const loadTitle=vi.fn(async()=>canonical)
+    const result=await executeTitlePriorityQueue({preview:{kind:'title-priority-preview',queue:[entry],selectedKeys:[entry.key]},
+      now:new Date('2026-09-20T05:00:00.000Z'),candidateValues:new Map([[entry.key,[canonical]]]),loadTitle})
+    expect(loadTitle).not.toHaveBeenCalled()
+    expect(result.summary.counts).toMatchObject({reused:1,fetched:0})
+    expect(result.updates.get(entry.key).providerIds).toEqual(['netflix'])
+    expect(result.updates.get(entry.key)).not.toHaveProperty('airings')
+    const changed={...entry,reasons:['tmdb-changed']}
+    await executeTitlePriorityQueue({preview:{kind:'title-priority-preview',queue:[changed],selectedKeys:[changed.key]},
+      now:new Date('2026-09-20T05:00:00.000Z'),candidateValues:new Map([[entry.key,[canonical]]]),loadTitle})
+    expect(loadTitle).toHaveBeenCalledTimes(1)
+  })
+
+  it('adds only approved exact complete XMLTV movies and series, without linear provider membership or raw EPG',()=>{
+    const movie={...completeMovie(77,'Canonical movie'),source:'tmdb',tmdbProviderIds:['netflix'],
+      providerIds:['waipu','air-zdf','netflix'],rawTitle:'PRIVATE',airings:[{stationId:'zdf'}]}
+    const series={...movie,id:'tmdb-series-77',type:'series',mediaType:'tv',metadataChecks:{...movieChecks,seasons:'present'}}
+    const updates=new Map([['movie:77',movie],['series:77',series],['movie:88',{...movie,id:'tmdb-movie-88',tmdbId:88}]])
+    const plan=buildCanonicalFanoutPlan({updates,xmltvApprovedKeys:new Set(['movie:77','series:77','movie:99']),catalog:{titles:[]}})
+    expect(plan.catalog.titles.map(x=>`${x.type}:${x.tmdbId}`)).toEqual(['movie:77','series:77'])
+    expect(plan.counts.xmltvCatalogAdded).toBe(2)
+    for(const item of plan.catalog.titles){
+      expect(item.providerIds).toEqual(['netflix'])
+      expect(item).not.toHaveProperty('airings')
+      expect(item).not.toHaveProperty('rawTitle')
+    }
+    expect(buildCanonicalFanoutPlan({updates,xmltvApprovedKeys:new Set(['movie:77','series:77']),catalog:plan.catalog}).counts.xmltvCatalogAdded).toBeUndefined()
+    expect(()=>buildCanonicalFanoutPlan({updates:new Map([['movie:99',movie]]),xmltvApprovedKeys:new Set(['movie:99'])})).toThrow(/XMLTV canonical fan-out rejected/)
+  })
+
   it('publishes a profile-only title to the shared search detail before discarding its bootstrap', () => {
     const canonical = completeMovie(77, 'Profilfilm')
     const profileDocument = {
@@ -327,3 +362,4 @@ describe('kanonischer Titel-Executor', () => {
     })
   })
 })
+
