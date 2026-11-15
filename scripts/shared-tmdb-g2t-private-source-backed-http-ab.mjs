@@ -128,7 +128,7 @@ export async function fetchG2tPublishedSearchIndex({fetchImpl=fetch}={}) {
 
 const readinessKeys=[
   'kind','waipuJoynExactDemandOverlap','sourceMovieKeys','sourceSeriesKeys',
-  'eligibleMovieKeys','eligibleSeriesKeys','catalogTitles','eligibleSelectedWorkTypes',
+  'eligibleMovieKeys','eligibleSeriesKeys','catalogTitles','eligibleSelectedWorkTypes','eligibleSelectedQueryCount',
   'newTmdbHttpStarted','productiveWrites','measuredProductionSavings','publishApproved',
 ]
 export function isSafeG2tReadinessReport(x) {
@@ -143,6 +143,7 @@ export function isSafeG2tReadinessReport(x) {
     count(x.eligibleSeriesKeys,x.sourceSeriesKeys) &&
     count(x.catalogTitles,150000) &&
     x.eligibleSelectedWorkTypes===Number(x.eligibleMovieKeys>0)+Number(x.eligibleSeriesKeys>0) &&
+    x.eligibleSelectedQueryCount===Math.min(2,x.eligibleMovieKeys+x.eligibleSeriesKeys) &&
     x.newTmdbHttpStarted===0 && x.productiveWrites===0 &&
     x.measuredProductionSavings===null && x.publishApproved===false
 }
@@ -151,7 +152,8 @@ export function createG2tReadinessReport(catalog,requiredSharedKeys,now) {
   const report={
     kind:'g2t-source-backed-private-readiness-counts',
     waipuJoynExactDemandOverlap:requiredSharedKeys.size,
-    ...counts,eligibleSelectedWorkTypes:inputs.length,
+    ...counts,eligibleSelectedWorkTypes:new Set(inputs.map(x=>x.type)).size,
+    eligibleSelectedQueryCount:inputs.length,
     newTmdbHttpStarted:0,productiveWrites:0,
     measuredProductionSavings:null,publishApproved:false,
   }
@@ -189,7 +191,7 @@ async function main() {
   const readiness = await classified('G2T_CATALOG_SELECTION_REJECTED',
     ()=>createG2tReadinessReport(catalog,requiredSharedKeys,now))
   console.log(JSON.stringify(readiness))
-  if (readiness.eligibleSelectedWorkTypes!==2) throw new Error('G2T_SAMPLE_NOT_READY')
+  if (readiness.eligibleSelectedQueryCount!==2) throw new Error('G2T_SAMPLE_NOT_READY')
   if (prepare) return
   const token = String(process.env.TMDB_API_READ_TOKEN || '').trim()
   if (!token) throw new Error('G2T_TOKEN_MISSING')

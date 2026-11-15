@@ -190,9 +190,9 @@ describe('#336 G2t source-backed private A/B subset',()=>{
     expect(()=>selectG2oCatalogSamples(c,{now:NOW,requiredSharedKeys:new Set([
       key('movie',FILM,{year:'2020'}),key('series',SERIES),
     ])})).toThrow(/two unique/)
-    expect(()=>selectG2oCatalogSamples(c,{now:NOW,requiredSharedKeys:new Set([
+    expect(selectG2oCatalogSamples(c,{now:NOW,requiredSharedKeys:new Set([
       key('movie',FILM.toLowerCase()),key('series',SERIES),
-    ])})).toThrow(/two unique/)
+    ])})[0]).toEqual({type:'movie',title:FILM.toLowerCase(),expectedTmdbId:movie.id})
     expect(()=>selectG2oCatalogSamples(c,{now:NOW,requiredSharedKeys:new Set()}))
       .toThrow(/two unique/)
     expect(()=>selectG2oCatalogSamples(c,{now:NOW,requiredSharedKeys:[]}))
@@ -203,6 +203,22 @@ describe('#336 G2t source-backed private A/B subset',()=>{
       {source:'tmdb',type:'movie',tmdbId:90001,title:FILM}])
     expect(()=>selectG2oCatalogSamples(c,{now:NOW,requiredSharedKeys:sourceKeys()}))
       .toThrow(/two unique/)
+  })
+  it('uses two independent source-backed series queries without claiming movie coverage',async()=>{
+    const other='Zweite unabhängige Testserie'
+    const c=catalog([...catalog().titles,{source:'tmdb',type:'series',tmdbId:70001,title:other}])
+    const keys=new Set([key('series',SERIES),key('series',other)])
+    const ready=createG2tReadinessReport(c,keys,NOW)
+    expect(ready).toMatchObject({eligibleSelectedWorkTypes:1,eligibleSelectedQueryCount:2,eligibleMovieKeys:0,eligibleSeriesKeys:2})
+    expect(isSafeG2tReadinessReport(ready)).toBe(true)
+    expect(isSafeG2tReadinessReport({...ready,eligibleSelectedQueryCount:1})).toBe(false)
+    const fake=responder({tvResults:[tv,{id:70001,name:other,first_air_date:'2021-01-01'}]})
+    const report=await compareG2oBoundedOriginalClients({catalog:c,now:NOW,token:'FAKE',fetchImpl:fake.fetchImpl,requiredSharedKeys:keys})
+    expect(report).toMatchObject({catalogTypesCompared:1,baselineTransportStarts:4,sharedTransportStarts:2,sharedExactResponseHits:2,expectedCatalogTmdbIdsPresent:2,responsesIdenticalAcrossArms:true,matcherDecisionsEquivalent:true})
+    expect(isSafeG2oAbReport(report)).toBe(true)
+    expect(isSafeG2oAbReport({...report,kind:'g2o-original-client-real-http-ab-aggregate',originalEpgUsed:false})).toBe(false)
+    expect(fake.requests.every(x=>x.pathname.endsWith('/tv'))).toBe(true)
+    expect(()=>selectG2oCatalogSamples(c,{now:NOW,requiredSharedKeys:new Set([key('series',SERIES)])})).toThrow(/two unique/)
   })
   it('runs only selected keys, preserves count-only report and separate authorization',async()=>{
     const fake=responder()
@@ -263,7 +279,7 @@ describe('#336 G2t classified readiness, literal original-title aliases',()=>{
       {...catalog().titles[1]}, {source:'tmdb',type:'movie',tmdbId:90002,title:'Anderer Film',originalTitle:alias}])
     const keys=new Set([key('movie',alias),key('series',SERIES)])
     expect(inspectG2oCatalogSamples(c,{now:NOW,requiredSharedKeys:keys}).counts.eligibleMovieKeys).toBe(0)
-    expect(inspectG2oCatalogSamples(catalog(),{now:NOW,requiredSharedKeys:new Set([key('movie',FILM.toLowerCase())])}).counts.eligibleMovieKeys).toBe(0)
+    expect(inspectG2oCatalogSamples(catalog(),{now:NOW,requiredSharedKeys:new Set([key('movie',FILM.toLowerCase())])}).counts.eligibleMovieKeys).toBe(1)
   })
 })
 

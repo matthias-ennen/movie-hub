@@ -84,9 +84,12 @@ export function inspectG2oCatalogSamples(catalog, {
     frequencies.set(key, values)
   }
   const chosen = new Map()
-  const candidates = {movie:new Set(),series:new Set()}
+  const candidates = {movie:new Map(),series:new Map()}
   let sourceMovieKeys=0,sourceSeriesKeys=0
   if (requiredSharedKeys !== null) {
+    // Start with the actual shared wire key, not the catalog display string.
+    // Normalization is used ONLY to verify a unique identity; the verbatim
+    // original query remains the HTTP/cache key in both arms.
     for (const key of requiredSharedKeys) {
       if (typeof key !== 'string' || key.length > 2000) continue
       let parts
@@ -100,32 +103,36 @@ export function inspectG2oCatalogSamples(catalog, {
           key !== exactNoYearKey({type,title})) continue
       if (type==='movie') sourceMovieKeys++
       else sourceSeriesKeys++
+      const matching=resolver.localCandidatesFor({title},type)
+      if (matching.length!==1 || !positiveId(matching[0].tmdbId) ||
+          !titleKey({source:'tmdb',type,title,tmdbId:matching[0].tmdbId})) continue
+      candidates[type].set(key,Object.freeze({type,title,expectedTmdbId:matching[0].tmdbId}))
+    }
+    // Prefer movie + series. If only a single type has real source evidence,
+    // two different exact requests still test transport/cache parity. Never
+    // invent a missing type or report two types when only one was compared.
+    for (const type of MATCH_TYPES) {
+      const first=candidates[type].values().next().value
+      if (first) chosen.set(type,first)
+    }
+  } else {
+    for (const row of catalog.titles) {
+      const key=titleKey(row)
+      if (!key || frequencies.get(key)?.size!==1) continue
+      const requestKey=exactNoYearKey(row)
+      const sample=Object.freeze({type:row.type,title:row.title,expectedTmdbId:row.tmdbId})
+      candidates[row.type].set(requestKey,sample)
+      if (!chosen.has(row.type)) chosen.set(row.type,sample)
     }
   }
-  for (const row of catalog.titles) {
-    const key = titleKey(row)
-    if (!key || frequencies.get(key)?.size !== 1) continue
-    // Source-backed samples may use a literal verified catalog original-title
-    // alias as the query; never replace the original exact request string.
-    const aliases = requiredSharedKeys === null ? [row.title] :
-      [...new Set([row.title,row.originalTitle].filter(Boolean))]
-    for (const title of aliases) {
-      const candidate={...row,title}
-      if (!titleKey(candidate)) continue
-      const requestKey=exactNoYearKey(candidate)
-      if (requiredSharedKeys !== null) {
-        if (!requiredSharedKeys.has(requestKey)) continue
-        const matching=resolver.localCandidatesFor({title},row.type)
-        if (matching.length!==1 || matching[0].tmdbId!==row.tmdbId) continue
-      }
-      candidates[row.type].add(requestKey)
-      if (!chosen.has(row.type)) {
-        chosen.set(row.type,Object.freeze({type:row.type,title,expectedTmdbId:row.tmdbId}))
-      }
-    }
+  const inputs=MATCH_TYPES.filter(type=>chosen.has(type)).map(type=>chosen.get(type))
+  if (requiredSharedKeys!==null && inputs.length===1) {
+    const alternatives=[...candidates[inputs[0].type].values()].filter(x=>x.title!==inputs[0].title)
+    const second=alternatives.find(x=>x.expectedTmdbId!==inputs[0].expectedTmdbId) ?? alternatives[0]
+    if (second) inputs.push(second)
   }
   return {
-    inputs:MATCH_TYPES.filter(type=>chosen.has(type)).map(type=>chosen.get(type)),
+    inputs,
     counts:{
       sourceMovieKeys,sourceSeriesKeys,
       eligibleMovieKeys:candidates.movie.size,
@@ -135,7 +142,7 @@ export function inspectG2oCatalogSamples(catalog, {
   }
 }
 
-/** Two current catalog entries, type-distinct, without ambiguous aliases. */
+/** Two verified distinct requests; G2o requires both types, G2t prefers both. */
 export function selectG2oCatalogSamples(catalog, options = {}) {
   const {inputs}=inspectG2oCatalogSamples(catalog,options)
   if (inputs.length !== MATCH_TYPES.length) {
@@ -150,6 +157,7 @@ export function createG2oTmdbNetworkBoundary({
 } = {}) {
   if (typeof fetchImpl !== 'function' || !String(token || '').trim() ||
       !Array.isArray(inputs) || inputs.length !== 2 ||
+      new Set(inputs.map(exactNoYearKey)).size !== 2 ||
       !Number.isInteger(maxStarts) || maxStarts < 1 ||
       maxStarts > G2O_MAX_HTTP_STARTS) {
     throw new TypeError('Invalid bounded TMDB HTTP context')
@@ -224,7 +232,7 @@ export function isSafeG2oAbReport(x) {
       x.originalEpgUsed === true) &&
     x.schemaVersion === 1 &&
     ['fixture-only', 'manual-private-real-http'].includes(x.mode) &&
-    x.catalogTypesCompared === 2 &&
+    (x.catalogTypesCompared === 2 || (x.originalEpgUsed === true && x.catalogTypesCompared === 1)) &&
     count(x.baselineTransportStarts, 4) &&
     count(x.sharedTransportStarts, 2) &&
     x.totalTransportStarts ===
@@ -363,7 +371,7 @@ export async function compareG2oBoundedOriginalClients({
         : 'g2t-source-backed-original-client-http-ab-aggregate',
       schemaVersion: 1,
       mode,
-      catalogTypesCompared: inputs.length,
+      catalogTypesCompared: new Set(inputs.map(x=>x.type)).size,
       baselineTransportStarts: baselineStarted,
       sharedTransportStarts: sharedStarted,
       totalTransportStarts: boundary.starts(),
