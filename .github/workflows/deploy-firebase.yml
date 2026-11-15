@@ -86,6 +86,7 @@ jobs:
     env:
       DATA_CHECKPOINT_BUCKET: ${{ vars.MOVIE_HUB_CHECKPOINT_BUCKET }}
       DATA_CHECKPOINT_ENABLED: ${{ vars.MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED }}
+      MOVIEHUB_TRUSTED_CENTRAL_NIGHTLY: ${{ inputs.nightly_chain && 'true' || 'false' }}
       MOVIEHUB_LIGHT_MODE: ${{ github.event_name == 'workflow_dispatch' && (inputs.data_mode == 'compact' || inputs.data_mode == 'themes') && 'true' || 'false' }}
     steps:
       - name: Checkout
@@ -290,9 +291,9 @@ jobs:
           test ! -e artifacts/shared-tmdb/private/shared-tmdb-response-cache.json.lock
           test ! -L artifacts/shared-tmdb/private
 
-      - name: Restore private shared TMDB checkpoint (explicit G2v)
+      - name: Restore private shared TMDB checkpoint (G2v)
         id: g2v_restore
-        if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.nightly_chain && inputs.data_mode == 'standard' && inputs.shared_tmdb_cache == 'private-persistent' && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET == 'movie-hub-62459-nightly-checkpoints' }}
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && inputs.nightly_chain && inputs.data_mode == 'standard' && inputs.shared_tmdb_cache == 'private-persistent' && env.DATA_CHECKPOINT_ENABLED == 'true' && env.DATA_CHECKPOINT_BUCKET == 'movie-hub-62459-nightly-checkpoints' }}
         continue-on-error: true
         env:
           MOVIEHUB_G2V_PERSISTENT: 'private-persistent-reuse-v1'
@@ -342,7 +343,7 @@ jobs:
           TMDB_COUNTRY: DE
         run: npm run joyn:catalog
 
-      - name: Save verified private shared TMDB checkpoint (explicit G2v)
+      - name: Save verified private shared TMDB checkpoint (G2v)
         id: g2v_save
         if: ${{ steps.g2v_restore.outcome == 'success' && steps.waipu_catalog.outcome == 'success' && steps.joyn_catalog.outcome == 'success' }}
         continue-on-error: true
@@ -350,10 +351,10 @@ jobs:
           MOVIEHUB_G2V_PERSISTENT: 'private-persistent-reuse-v1'
         run: node scripts/shared-tmdb-g2v-private-checkpoint.mjs save
 
-      # G2w remains private and read-only unless an independent canonical handoff is requested.
-      - name: Stage reviewed XMLTV feeds privately (explicit G2w)
+      # G2w raw inputs remain private; only an approved same-run canonical handoff can feed AIR publication.
+      - name: Stage reviewed XMLTV feeds privately (G2w)
         id: g2w_stage
-        if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.nightly_chain && inputs.data_mode == 'standard' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true && steps.g2v_save.outcome == 'success' }}
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && inputs.nightly_chain && inputs.data_mode == 'standard' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true && steps.g2v_save.outcome == 'success' }}
         continue-on-error: true
         run: node scripts/xmltv-g2-private-staging.mjs
 

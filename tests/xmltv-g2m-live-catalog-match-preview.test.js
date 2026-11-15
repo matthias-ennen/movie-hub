@@ -289,10 +289,11 @@ describe('#336 G2w: private XMLTV reads the same-run shared Waipu/Joyn cache',()
     const r=createG2wXmltvCandidateResolver(local,createG2nXmltvCachedResponseResolver(store))
     expect(r.localCandidatesFor({title:TITLE},'movie')).toEqual([])
   })
-  it('uses the manual full Nightly flag and never uploads raw XMLTV or shared responses',async()=>{
+  it('uses central scheduled or manually opted-in full Nightly and never uploads raw XMLTV or shared responses',async()=>{
     const central=await readFile('.github/workflows/moviehub-nightly-pipeline.yml','utf8')
     const deploy=await readFile('.github/workflows/deploy-firebase.yml','utf8')
-    expect(central).toContain("inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true")
+    expect(central).toContain("xmltv_private_preview: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true) }}")
+    expect(central).toContain("xmltv_canonical_handoff: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch'")
     expect(deploy).toContain("inputs.xmltv_private_preview == true && steps.g2v_save.outcome == 'success'")
     expect(deploy).not.toContain('path: artifacts/xmltv-g2/private')
     expect(deploy).not.toContain('path: artifacts/shared-tmdb/private')

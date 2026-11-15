@@ -2,6 +2,7 @@
  * #336 G2v: single private, generation-conditional GCS snapshot.
  * No public artifact, no raw key logging, no extra TMDB transport.
  */
+import { isTrustedCentralNightlyEvent } from './trusted-central-nightly-event.mjs'
 import { createHash } from 'node:crypto'
 import { appendFile, lstat, mkdir, mkdtemp, readFile, rm, writeFile, rename } from 'node:fs/promises'
 import { dirname, resolve, join } from 'node:path'
@@ -99,7 +100,7 @@ export async function saveG2vCheckpoint({root,bucket,now=Date.now()}) {
 async function main(){
   const [mode]=process.argv.slice(2)
   if(!['restore','save'].includes(mode)||process.argv.length!==3||
-     process.env.GITHUB_EVENT_NAME!=='workflow_dispatch'||process.env.GITHUB_REF!=='refs/heads/main'||
+     !isTrustedCentralNightlyEvent(process.env)||
      process.env.MOVIEHUB_G2V_PERSISTENT!==G2V_OPT_IN||
      process.env.DATA_CHECKPOINT_ENABLED!=='true'||
      process.env.DATA_CHECKPOINT_BUCKET!=='movie-hub-62459-nightly-checkpoints')

@@ -100,12 +100,13 @@ it('rolling cap evicts oldest fetched entry, and invalid responses cannot evict'
   expect(s.values.size).toBe(SHARED_TMDB_RESPONSE_STORE_MAX_ENTRIES)
 })
 
-it('workflow keeps persistent reuse manual, full, private and default-off',async()=>{
+it('workflow keeps persistent reuse central, full and private with scheduled production defaults',async()=>{
   const central=await readFile('.github/workflows/moviehub-nightly-pipeline.yml','utf8')
   const deploy=await readFile('.github/workflows/deploy-firebase.yml','utf8')
-  expect(central).toContain("default: 'off'")
+  expect(central).toContain("default: 'private-persistent'")
+  expect(central).toContain("github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent')")
   expect(central).toContain("github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent'")
-  expect(deploy).toContain("github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.nightly_chain && inputs.data_mode == 'standard' && inputs.shared_tmdb_cache == 'private-persistent'")
+  expect(deploy).toContain("(github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && inputs.nightly_chain && inputs.data_mode == 'standard' && inputs.shared_tmdb_cache == 'private-persistent'")
   expect(deploy).toContain("steps.g2v_restore.outcome == 'success' && steps.waipu_catalog.outcome == 'success' && steps.joyn_catalog.outcome == 'success'")
   expect(deploy).not.toContain('path: artifacts/shared-tmdb/private')
 })

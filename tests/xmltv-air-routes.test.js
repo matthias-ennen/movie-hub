@@ -32,15 +32,15 @@ const eventFor = (candidate, source = 'epgshare01') => {
 }
 
 describe('XMLTV G3 verified sender-only routes', () => {
-  it('keeps all six unpublished stations private and out of the VOD catalogue', () => {
+  it('activates only the six reviewed linear stations and keeps them out of the VOD catalogue', () => {
     expect(XMLTV_AIR_ROUTE_CANDIDATES).toHaveLength(6)
-    expect(XMLTV_AIR_PUBLISH_ENABLED).toBe(false)
-    expect(APPROVED_XMLTV_AIR_PROVIDERS).toEqual([])
+    expect(XMLTV_AIR_PUBLISH_ENABLED).toBe(true)
+    expect(APPROVED_XMLTV_AIR_PROVIDERS.map(p=>p.id)).toEqual(XMLTV_AIR_ROUTE_CANDIDATES.map(p=>p.providerId))
     for (const row of XMLTV_AIR_ROUTE_CANDIDATES) {
-      expect(PROVIDER_BY_ID[row.providerId]).toBeUndefined()
+      expect(PROVIDER_BY_ID[row.providerId]).toMatchObject({id:row.providerId,liveTvSource:'xmltv'})
       expect(TMDB_PROVIDER_REGISTRY.some((provider) => provider.id === row.providerId)).toBe(false)
-      expect(xmltvAirFieldsForEvent(eventFor(row))).toEqual({ providerIds: [], playbackRoutes: [] })
-      expect(projectXmltvAiring(eventFor(row)).playbackRoutes).toEqual([])
+      expect(xmltvAirFieldsForEvent(eventFor(row)).providerIds).toEqual([row.providerId])
+      expect(projectXmltvAiring(eventFor(row)).playbackRoutes[0]).toMatchObject({providerId:row.providerId,target:row.target,scope:'channel'})
     }
   })
 
@@ -64,12 +64,12 @@ describe('XMLTV G3 verified sender-only routes', () => {
     expect(registry.providers[0].searchUrl).toBeNull()
   })
 
-  it('records six Android confirmations but no Fire TV confirmation or publication', () => {
+  it('records six Android confirmations and no fabricated Fire TV confirmation', () => {
     expect(XMLTV_AIR_DEVICE_APPROVALS).toHaveLength(6)
     expect(XMLTV_AIR_DEVICE_APPROVALS.every((receipt) => receipt.device === 'android')).toBe(true)
     const registry = createXmltvAirRouteRegistry({ deviceReceipts: XMLTV_AIR_DEVICE_APPROVALS, now })
     expect(registry.providers).toHaveLength(6)
-    expect(APPROVED_XMLTV_AIR_PROVIDERS).toEqual([])
+    expect(APPROVED_XMLTV_AIR_PROVIDERS).toHaveLength(6)
   })
 
   it.each(XMLTV_AIR_ROUTE_CANDIDATES)('binds $label to reviewed source stations only', (row) => {

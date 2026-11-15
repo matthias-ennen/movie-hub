@@ -158,8 +158,8 @@ describe('G1b reuse of the shared airing merge without source or provider loss',
     }
     const merged = mergeConfirmedXmltvAirings([waipu], [joyn], confirmedEvents)
     expect(merged).toHaveLength(1)
-    expect(merged[0].providerIds).toEqual(['joyn', 'waipu'])
-    expect(merged[0].playbackRoutes).toHaveLength(2)
+    expect(merged[0].providerIds).toEqual(['air-zdf', 'joyn', 'waipu'])
+    expect(merged[0].playbackRoutes).toHaveLength(3)
     expect(merged[0].sourceRefs.map((ref) => ref.sourceId).sort()).toEqual([
       'joyn-epg', 'waipu-epg', 'xmltv:freeepg', 'xmltv:iptv-epg-org',
     ])

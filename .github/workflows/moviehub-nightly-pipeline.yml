@@ -21,21 +21,21 @@ on:
         description: "Gemeinsamer TMDB-Cache: einmalig oder persistent (nur full, sonst aus)"
         type: choice
         required: false
-        default: 'off'
+        default: 'private-persistent'
         options:
           - 'off'
           - private-reuse
           - private-persistent
       xmltv_private_preview:
-        description: "XMLTV privat prüfen (full + private-persistent; keine Veröffentlichung)"
+        description: "XMLTV-Programme importieren (full + private-persistent)"
         type: boolean
         required: false
-        default: false
+        default: true
       xmltv_canonical_handoff:
-        description: "XMLTV-TMDB-Titel integrieren (zusätzlich XMLTV-Privatvorschau aktivieren; keine Sender-Badges)"
+        description: "XMLTV-TMDB-Titel und geprüfte Sender-Ausstrahlungen integrieren (zusätzlich XMLTV aktivieren)"
         type: boolean
         required: false
-        default: false
+        default: true
   # A narrowly scoped, explicitly marked one-off commit may launch a genuine
   # workflow_dispatch of THIS central chain. Ordinary pushes do not run it.
   push:
@@ -124,9 +124,9 @@ jobs:
     uses: ./.github/workflows/deploy-firebase.yml
     with:
       nightly_chain: true
-      shared_tmdb_cache: ${{ github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-reuse' && 'private-reuse' || github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent' && 'private-persistent' || 'off' }}
-      xmltv_private_preview: ${{ github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true }}
-      xmltv_canonical_handoff: ${{ github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true && inputs.xmltv_canonical_handoff == true }}
+      shared_tmdb_cache: ${{ github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-reuse' && 'private-reuse' || (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent')) && 'private-persistent' || 'off' }}
+      xmltv_private_preview: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true) }}
+      xmltv_canonical_handoff: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true && inputs.xmltv_canonical_handoff == true) }}
       youtube_known_recheck: ${{ needs.known-videos.result }}
       data_mode: ${{ github.event_name == 'workflow_dispatch' && (inputs.run_mode == 'compact' || inputs.run_mode == 'themes') && inputs.run_mode || 'standard' }}
     permissions:

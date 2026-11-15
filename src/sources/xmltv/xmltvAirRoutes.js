@@ -44,7 +44,7 @@ export const XMLTV_AIR_DEVICE_APPROVALS = Object.freeze([
     target: 'https://plus.rtl.de/rtlde-vox', result: 'exact-channel-confirmed', viaMovieHub: true },
 ].map((receipt) => Object.freeze(receipt)))
 // Independent release decision: device approvals alone never publish AIR.
-export const XMLTV_AIR_PUBLISH_ENABLED = false
+export const XMLTV_AIR_PUBLISH_ENABLED = true
 
 export const isXmltvAirProviderId = (id) => XMLTV_AIR_ROUTE_CANDIDATES.some((row) => row.providerId === id)
 

@@ -38,6 +38,14 @@ describe('same-run XMLTV central pipeline handoff',()=>{
     await chmod(path,0o644)
     await expect(readXmltvSameRunHandoff({root,env,now})).rejects.toThrow(/FILE_REJECTED/)
   })
+  it('accepts the scheduled central job but rejects unrelated schedules and branches',async()=>{
+    const root=await fixture(),payload=buildConfirmedAiringHandoff([event],{now})
+    const scheduled={...env,GITHUB_EVENT_NAME:'schedule',MOVIEHUB_TRUSTED_CENTRAL_NIGHTLY:'true'}
+    await expect(writeXmltvSameRunHandoff(payload,{root,env:{...scheduled,MOVIEHUB_TRUSTED_CENTRAL_NIGHTLY:'false'},now})).rejects.toThrow(/WORKFLOW/)
+    await expect(writeXmltvSameRunHandoff(payload,{root,env:{...scheduled,GITHUB_REF:'refs/heads/other'},now})).rejects.toThrow(/WORKFLOW/)
+    await writeXmltvSameRunHandoff(payload,{root,env:scheduled,now})
+    expect((await readXmltvSameRunHandoff({root,env:scheduled,now})).events).toHaveLength(1)
+  })
   it('reuses a complete canonical copy, adds the title once and prepares the actual source plan without AIR files',async()=>{
     const root=await fixture(), catalog={titles:[]}
     await writeXmltvSameRunHandoff(buildConfirmedAiringHandoff([event,event],{now}),{root,env,now})

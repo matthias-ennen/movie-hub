@@ -1,5 +1,6 @@
 /** #336: private, single trusted runner handoff between the XMLTV matcher
  * and the existing central title inventory/executor. Never restored or uploaded. */
+import { isTrustedCentralNightlyEvent } from './trusted-central-nightly-event.mjs'
 import { lstat, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { readConfirmedAiringHandoff } from './xmltv-confirmed-airing-handoff.mjs'
@@ -10,7 +11,7 @@ const FIXED_NAME='confirmed-airings.json'
 const flag='MOVIEHUB_XMLTV_CANONICAL_HANDOFF'
 
 function runIdentity(env){
-  if(env[flag]!=='enabled'||env.GITHUB_EVENT_NAME!=='workflow_dispatch'||env.GITHUB_REF!=='refs/heads/main'||
+  if(env[flag]!=='enabled'||!isTrustedCentralNightlyEvent(env)||
     !/^[1-9]\d*$/.test(env.GITHUB_RUN_ID||'')||!/^[1-9]\d*$/.test(env.GITHUB_RUN_ATTEMPT||'')||
     !/^[a-f0-9]{40}$/.test(env.GITHUB_SHA||'')) throw new Error('XMLTV_HANDOFF_WORKFLOW_REJECTED')
   return {runId:env.GITHUB_RUN_ID,attempt:env.GITHUB_RUN_ATTEMPT,sha:env.GITHUB_SHA}

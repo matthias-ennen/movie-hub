@@ -32,8 +32,8 @@ const waipu = { providerId: 'waipu', entries: [{ type: 'movie', tmdbId: 42, titl
 }] }] }
 
 describe('G3b private XMLTV AIR indexes', () => {
-  it('adds no station catalog by default while release remains disabled', () => {
-    const preview = buildPrivateXmltvAirRuntimePreview({ confirmedEvents: [event], catalog, existingSources: [waipu], now })
+  it('adds no station catalog without a verified route', () => {
+    const preview = buildPrivateXmltvAirRuntimePreview({ confirmedEvents: [event], catalog, existingSources: [waipu], now, fieldsForEvent: createXmltvAirRouteRegistry({deviceReceipts:[],now}).fieldsForEvent })
     expect(preview.sourceCatalogs).toEqual([])
     expect(preview.counts.noApprovedRoute).toBe(1)
     expect(preview.tvRuntime.index.providers).toEqual(['waipu'])
@@ -74,7 +74,7 @@ describe('G3b private XMLTV AIR indexes', () => {
     expect(buildTvRuntimeSnapshot({ sourceCatalogs: [badSource], catalog, now }).index.airingCount).toBe(0)
     expect(buildLiveAvailabilityIndex([badSource], { now }).count).toBe(0)
   })
-  it('public disk discovery ignores unapproved or unknown AIR files', async () => {
+  it('public disk discovery admits reviewed AIR IDs and ignores unknown ones', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'moviehub-air-gate-'))
     try {
       for (const id of ['air-zdf', 'air-unknown', 'waipu']) {
@@ -83,7 +83,7 @@ describe('G3b private XMLTV AIR indexes', () => {
         await writeFile(join(path, 'titles.json'), JSON.stringify({ entries: waipu.entries }))
       }
       const sources = await discoverLiveSourceCatalogs(dir, { resolveEpisodes: false })
-      expect(sources.map((source) => source.providerId)).toEqual(['waipu'])
+      expect(sources.map((source) => source.providerId)).toEqual(['air-zdf','waipu'])
     } finally {
       await rm(dir, { recursive: true, force: true })
     }

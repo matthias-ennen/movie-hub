@@ -16,7 +16,7 @@ export const PROVIDER_OPTIONS = ORDERED_PROVIDERS.map((provider) => ({
 
 export const DEFAULT_ENABLED_PROVIDER_IDS = [...REGISTRY_DEFAULTS]
 export const KNOWN_PROVIDER_IDS = PROVIDER_REGISTRY.map((provider) => provider.id)
-export const PROVIDER_SELECTION_VERSION = 2
+export const PROVIDER_SELECTION_VERSION = 3
 
 const providerIdSet = new Set(KNOWN_PROVIDER_IDS)
 
@@ -29,15 +29,24 @@ export function normalizeEnabledProviderIds(value) {
 export function normalizeStoredProviderSelection(value, version = null) {
   const hasStoredSelection = Array.isArray(value)
   const normalized = normalizeEnabledProviderIds(value)
-  const legacy = Number(version) !== PROVIDER_SELECTION_VERSION
-  const enabledProviderIds = legacy && hasStoredSelection && !normalized.includes('moviehub')
-    ? normalizeEnabledProviderIds(['moviehub', ...normalized])
+  const storedVersion = Number(version)
+  const legacyVersion = Number.isFinite(storedVersion) ? storedVersion : 0
+  // Migrations are additive only for the version that introduced the provider.
+  // A v2 account may already have deliberately disabled Movie Hub.
+  const migratedDefaults = [
+    ...(legacyVersion < 2 ? ['moviehub'] : []),
+    ...(legacyVersion < 3 ? PROVIDER_REGISTRY
+      .filter((provider) => provider.liveTvSource === 'xmltv' && provider.defaultEnabled)
+      .map((provider) => provider.id) : []),
+  ]
+  const enabledProviderIds = hasStoredSelection
+    ? normalizeEnabledProviderIds([...normalized, ...migratedDefaults])
     : normalized
 
   return {
     enabledProviderIds,
     version: PROVIDER_SELECTION_VERSION,
-    needsMigration: legacy,
+    needsMigration: legacyVersion < PROVIDER_SELECTION_VERSION,
   }
 }
 
