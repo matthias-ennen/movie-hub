@@ -1,4 +1,4 @@
-import { isXmltvAirProviderId } from './xmltv/xmltvAirRoutes.js'
+import { isXmltvAirProviderId, isExactXmltvAirAiring } from './xmltv/xmltvAirRoutes.js'
 import { fetchJsonWithTimeout } from '../performance/fetchJson.js'
 import { mapCooperatively, sameItems } from '../performance/cooperativeWork.js'
 import { isTvAiringOnAir, isTvAiringSoon, nextTvAiringTransition } from '../waipu/waipuAiringStatus.js'
@@ -44,6 +44,7 @@ function compactRoute(route, providerId) {
 }
 
 function compactAiring(raw, providerId) {
+  if (providerId.startsWith('air-') && !isExactXmltvAirAiring(raw, providerId)) return null
   const startTime = text(raw?.startTime ?? raw?.startAt)
   const stopTime = text(raw?.stopTime ?? raw?.endAt)
   if (!startTime || !stopTime || !Number.isFinite(Date.parse(startTime)) || !Number.isFinite(Date.parse(stopTime))) {

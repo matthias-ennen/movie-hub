@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
 import { buildLiveAvailabilityIndex } from '../src/sources/liveAvailabilityIndex.js'
+import { APPROVED_XMLTV_AIR_PROVIDERS } from '../src/sources/xmltv/xmltvAirRoutes.js'
 import { enrichTvSourceEpisodes, readEpisodeSeasons } from './tv-episode-resolution.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -16,10 +17,11 @@ async function readJson(path) {
 export async function discoverLiveSourceCatalogs(directory = publicDir, { resolveEpisodes = true } = {}) {
   const dirents = await readdir(directory, { withFileTypes: true })
   const sources = []
+  const approvedAirIds = new Set(APPROVED_XMLTV_AIR_PROVIDERS.map((provider) => provider.id))
   for (const dirent of dirents) {
     if (!dirent.isDirectory() || !dirent.name.endsWith('-live')) continue
     const providerId = dirent.name.slice(0, -5).trim()
-    if (!providerId) continue
+    if (!providerId || (providerId.startsWith('air-') && !approvedAirIds.has(providerId))) continue
     try {
       const raw = await readJson(resolve(directory, dirent.name, 'titles.json'))
       const index = await readJson(resolve(directory, dirent.name, 'index.json')).catch((error) => {
