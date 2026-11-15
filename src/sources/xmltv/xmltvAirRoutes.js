@@ -3,7 +3,6 @@ import { normalizePlaybackRoute } from '../sourceAdapterContract.js'
 import { reviewedXmltvStation } from './xmltvStationMappings.js'
 
 export const XMLTV_AIR_SOURCE_REVIEWED_AT = '2026-11-15T00:00:00.000Z'
-const DEVICES = Object.freeze(['android', 'fire-tv'])
 
 export const XMLTV_AIR_ROUTE_CANDIDATES = Object.freeze([
   { stationId: 'ard', providerId: 'air-ard', label: 'Das Erste', short: 'ARD',
@@ -26,9 +25,24 @@ export const XMLTV_AIR_ROUTE_CANDIDATES = Object.freeze([
     requiresAuth: true, requiresSubscription: true },
 ].map((entry) => Object.freeze(entry)))
 
-// Intentionally empty until the exact URL has been exercised through MovieHub
-// on both device families. An official web page is not a device test.
-export const XMLTV_AIR_DEVICE_APPROVALS = Object.freeze([])
+// Matthias reported all six exact links working in the Android test app on
+// 2026-11-15; checkedAt is the report time, not a precise playback timestamp.
+// Fire TV was explicitly deferred to final acceptance of the completed app.
+// Targets are literal: editing a candidate URL must never transfer approval.
+export const XMLTV_AIR_DEVICE_APPROVALS = Object.freeze([
+  { stationId: 'ard', device: 'android', checkedAt: '2026-11-15T14:56:15.000Z',
+    target: 'https://www.ardmediathek.de/live/Y3JpZDovL2Rhc2Vyc3RlLmRlL2xpdmUvY2xpcC9hYmNhMDdhMy0zNDc2LTQ4NTEtYjE2Mi1mZGU4ZjY0NmQ0YzQ', result: 'exact-channel-confirmed', viaMovieHub: true },
+  { stationId: 'zdf', device: 'android', checkedAt: '2026-11-15T14:56:15.000Z',
+    target: 'https://www.zdf.de/live-tv/zdf-live-beitrag-100', result: 'exact-channel-confirmed', viaMovieHub: true },
+  { stationId: 'rtl', device: 'android', checkedAt: '2026-11-15T14:56:15.000Z',
+    target: 'https://plus.rtl.de/rtlde-rtl', result: 'exact-channel-confirmed', viaMovieHub: true },
+  { stationId: 'pro7', device: 'android', checkedAt: '2026-11-15T14:56:15.000Z',
+    target: 'https://www.joyn.de/live-tv/prosieben', result: 'exact-channel-confirmed', viaMovieHub: true },
+  { stationId: 'sat1', device: 'android', checkedAt: '2026-11-15T14:56:15.000Z',
+    target: 'https://www.joyn.de/live-tv/sat1', result: 'exact-channel-confirmed', viaMovieHub: true },
+  { stationId: 'vox', device: 'android', checkedAt: '2026-11-15T14:56:15.000Z',
+    target: 'https://plus.rtl.de/rtlde-vox', result: 'exact-channel-confirmed', viaMovieHub: true },
+].map((receipt) => Object.freeze(receipt)))
 // Independent release decision: device approvals alone never publish AIR.
 export const XMLTV_AIR_PUBLISH_ENABLED = false
 
@@ -47,24 +61,30 @@ export function isExactXmltvAirAiring(airing, providerId) {
 export function createXmltvAirRouteRegistry({ deviceReceipts = [], now = Date.now() } = {}) {
   const approved = new Map()
   for (const candidate of XMLTV_AIR_ROUTE_CANDIDATES) {
-    const receipts = DEVICES.map((device) => {
+    const checkDevice = (device, required) => {
       const matching = deviceReceipts.filter((receipt) => receipt?.device === device &&
-        receipt.stationId === candidate.stationId && receipt.target === candidate.target)
-      // Duplicate/conflicting receipts must be reviewed, not picked arbitrarily.
+        receipt.stationId === candidate.stationId)
+      if (!matching.length && !required) return undefined
+      // Duplicate, wrong-target and negative receipts never become approval.
       if (matching.length !== 1) return null
       const receipt = matching[0]
       const checked = Date.parse(receipt.checkedAt)
-      return receipt.result === 'exact-channel-confirmed' && receipt.viaMovieHub === true &&
-        Number.isFinite(checked) && checked >= Date.parse(XMLTV_AIR_SOURCE_REVIEWED_AT) &&
-        checked <= Number(now) ? checked : null
-    })
-    if (receipts.some((receipt) => receipt === null)) continue
+      return receipt.target === candidate.target && receipt.result === 'exact-channel-confirmed' &&
+        receipt.viaMovieHub === true && Number.isFinite(checked) &&
+        checked >= Date.parse(XMLTV_AIR_SOURCE_REVIEWED_AT) && checked <= Number(now) ? checked : null
+    }
+    const android = checkDevice('android', true)
+    const fireTv = checkDevice('fire-tv', false)
+    // Android is the route prerequisite; Fire TV is the final actual-app QA.
+    // If a Fire TV test exists and failed, block that station, not just its badge.
+    if (android === null || fireTv === null) continue
     approved.set(candidate.stationId, Object.freeze({
-      ...candidate, route: Object.freeze(normalizePlaybackRoute({
+      ...candidate, verifiedDevices: Object.freeze(fireTv === undefined ? ['android'] : ['android', 'fire-tv']),
+      route: Object.freeze(normalizePlaybackRoute({
         providerId: candidate.providerId, mode: 'WEB_LINK', scope: 'channel',
         target: candidate.target, geoRegion: 'DE', requiresAuth: candidate.requiresAuth,
         requiresSubscription: candidate.requiresSubscription,
-        verifiedAt: new Date(Math.min(...receipts)).toISOString(),
+        verifiedAt: new Date(fireTv === undefined ? android : Math.min(android, fireTv)).toISOString(),
       })),
     }))
   }
@@ -76,6 +96,7 @@ export function createXmltvAirRouteRegistry({ deviceReceipts = [], now = Date.no
       aliases: Object.freeze([]), searchUrl: null,
       description: 'Linearen Sender ' + row.label + ' öffnen.',
     }))),
+    verifiedDevices(stationId) { return approved.get(stationId)?.verifiedDevices || Object.freeze([]) },
     fieldsForEvent(event) {
       const noRoute = () => ({ providerIds: [], playbackRoutes: [] })
       if (event?.kind !== 'broadcast' || !Number.isInteger(event?.titleRef?.tmdbId) ||

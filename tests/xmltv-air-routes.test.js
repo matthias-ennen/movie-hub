@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import {
   XMLTV_AIR_ROUTE_CANDIDATES, APPROVED_XMLTV_AIR_PROVIDERS, XMLTV_AIR_PUBLISH_ENABLED,
+  XMLTV_AIR_DEVICE_APPROVALS,
   createXmltvAirRouteRegistry, xmltvAirFieldsForEvent,
 } from '../src/sources/xmltv/xmltvAirRoutes.js'
 import { XMLTV_REVIEWED_STATION_MAPPINGS } from '../src/sources/xmltv/xmltvStationMappings.js'
@@ -31,7 +32,7 @@ const eventFor = (candidate, source = 'epgshare01') => {
 }
 
 describe('XMLTV G3 verified sender-only routes', () => {
-  it('keeps all six unapproved stations private and out of the VOD catalogue', () => {
+  it('keeps all six unpublished stations private and out of the VOD catalogue', () => {
     expect(XMLTV_AIR_ROUTE_CANDIDATES).toHaveLength(6)
     expect(XMLTV_AIR_PUBLISH_ENABLED).toBe(false)
     expect(APPROVED_XMLTV_AIR_PROVIDERS).toEqual([])
@@ -43,20 +44,32 @@ describe('XMLTV G3 verified sender-only routes', () => {
     }
   })
 
-  it('requires two matching, unique, successful in-app device receipts', () => {
+  it('requires Android success, defers Fire TV, and rejects conflicting receipts', () => {
     const row = XMLTV_AIR_ROUTE_CANDIDATES[0]
     const [android, fire] = receipts(row)
     for (const invalid of [
-      [android], [fire], [android, android, fire],
+      [fire], [android, android, fire],
       [android, { ...fire, target: 'https://example.org' }],
       [android, { ...fire, result: 'failed' }],
       [android, { ...fire, viaMovieHub: false }],
       [android, { ...fire, checkedAt: '2026-11-14T00:00:00Z' }],
       [android, { ...fire, checkedAt: '2026-11-17T00:00:00Z' }],
     ]) expect(createXmltvAirRouteRegistry({ deviceReceipts: invalid, now }).providers).toEqual([])
+    const androidOnly = createXmltvAirRouteRegistry({ deviceReceipts: [android], now })
+    expect(androidOnly.providers.map((provider) => provider.id)).toEqual([row.providerId])
+    expect(androidOnly.verifiedDevices(row.stationId)).toEqual(['android'])
     const registry = createXmltvAirRouteRegistry({ deviceReceipts: [android, fire], now })
+    expect(registry.verifiedDevices(row.stationId)).toEqual(['android', 'fire-tv'])
     expect(registry.providers.map((provider) => provider.id)).toEqual([row.providerId])
     expect(registry.providers[0].searchUrl).toBeNull()
+  })
+
+  it('records six Android confirmations but no Fire TV confirmation or publication', () => {
+    expect(XMLTV_AIR_DEVICE_APPROVALS).toHaveLength(6)
+    expect(XMLTV_AIR_DEVICE_APPROVALS.every((receipt) => receipt.device === 'android')).toBe(true)
+    const registry = createXmltvAirRouteRegistry({ deviceReceipts: XMLTV_AIR_DEVICE_APPROVALS, now })
+    expect(registry.providers).toHaveLength(6)
+    expect(APPROVED_XMLTV_AIR_PROVIDERS).toEqual([])
   })
 
   it.each(XMLTV_AIR_ROUTE_CANDIDATES)('binds $label to reviewed source stations only', (row) => {

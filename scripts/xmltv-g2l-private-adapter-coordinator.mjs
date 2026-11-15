@@ -17,6 +17,8 @@ import { runXmltvG2jPrivateIntegrationPreview } from
 import { XMLTV_VERIFIED_SOURCE_FAMILIES } from
   '../src/sources/xmltv/xmltvSourceReadiness.js'
 
+import { isSafePrivateXmltvRuntimeReadiness } from './xmltv-g3-private-runtime-readiness.mjs'
+
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const DEFAULT_REPORT = join(ROOT, 'artifacts/xmltv-g2/report.json')
 const DEFAULT_PRIVATE = join(ROOT, 'artifacts/xmltv-g2/private')
@@ -52,6 +54,8 @@ export function isSafeXmltvG2lPrivateAdapterReport(report) {
     'originalCloudObjectsCreated', 'productiveWrites',
     'publishApproved', 'tmdbIdentityApproved', 'playbackRoutesApproved',
   ]
+  const hasRuntime = Boolean(report && Object.hasOwn(report, 'runtimeReadiness'))
+  if (hasRuntime) fields.push('runtimeReadiness')
   if (!keys(report, fields) ||
       report.kind !== 'xmltv-g2l-private-adapter-aggregate' ||
       report.schemaVersion !== 1 ||
@@ -79,7 +83,8 @@ export function isSafeXmltvG2lPrivateAdapterReport(report) {
       report.productiveWrites !== 0 ||
       report.publishApproved !== false ||
       report.tmdbIdentityApproved !== false ||
-      report.playbackRoutesApproved !== false) return false
+      report.playbackRoutesApproved !== false ||
+      (hasRuntime && !isSafePrivateXmltvRuntimeReadiness(report.runtimeReadiness, report.locallyMatchedCount))) return false
   const seen = new Set()
   for (const source of report.sources) {
     if (!keys(source, [
@@ -116,7 +121,7 @@ export function isSafeXmltvG2lPrivateAdapterReport(report) {
     report.availableIndependentFamilies <= new Set(report.sources
       .filter(source => source.status === 'selected')
       .map(source => source.contentFamily)).size &&
-    JSON.stringify(report).length < 1700
+    JSON.stringify(report).length < (hasRuntime ? 2200 : 1700)
 }
 
 /**
@@ -130,6 +135,7 @@ export async function runXmltvG2lPrivateAdapterCoordinator({
   privateRoot = DEFAULT_PRIVATE,
   localCandidatesFor = null,
   maxCandidates = 20_000,
+  runtimeCatalog = null,
 } = {}) {
   if (!Number.isFinite(now) || typeof stagingReportPath !== 'string' ||
       !stagingReportPath.trim() || typeof privateRoot !== 'string' ||
@@ -200,7 +206,7 @@ export async function runXmltvG2lPrivateAdapterCoordinator({
   // airing merge code used for Waipu/Joyn. With NO local TMDB catalogue,
   // explicitly return 0 matches; this is not a quality-rate measurement.
   const match = await runXmltvG2jPrivateIntegrationPreview(entries, {
-    now, maxCandidates,
+    now, maxCandidates, runtimeCatalog,
     localCandidatesFor: localCandidatesFor ?? (async () => []),
   })
   const perSource = report.sources.map(source => {
@@ -239,6 +245,7 @@ export async function runXmltvG2lPrivateAdapterCoordinator({
     publishApproved: false,
     tmdbIdentityApproved: false,
     playbackRoutesApproved: false,
+    ...(runtimeCatalog === null ? {} : { runtimeReadiness: match.runtimeReadiness }),
   }
   if (!isSafeXmltvG2lPrivateAdapterReport(out)) {
     throw new TypeError('Unsafe private XMLTV adapter result')
