@@ -2,11 +2,20 @@
 import { XMLTV_AIR_DEVICE_APPROVALS, createXmltvAirRouteRegistry } from '../src/sources/xmltv/xmltvAirRoutes.js'
 import { buildPrivateXmltvAirRuntimePreview } from './xmltv-g3-private-air-runtime-preview.mjs'
 import { buildTvRuntimeSnapshot, tvRuntimeTitleKey } from '../src/tv/tvRuntimePublication.js'
+import { prepareXmltvCanonicalTitleDemand } from './xmltv-canonical-title-handoff.mjs'
 
 const FIELDS = ['matchedRows','catalogReadyRows','missingCatalogRows','missingCatalogUniqueTitles',
   'androidReadyRows','fireTvConfirmedRows','runtimeReadyRows','deduplicatedRuntimeAirings']
 const OVERLAP_FIELDS = ['existingSourceCount','combinedRuntimeAirings','xmltvOnlyRuntimeAirings',
   'sharedRuntimeAirings','existingOnlyRuntimeAirings']
+const DEMAND_FIELDS=['approvedUniqueTitles','missingApprovedUniqueTitles','reusableFromCurrentSources','fetchNeededFromCurrentSources']
+function isSafeMetadataDemand(value,report){
+  return value && typeof value==='object'&&!Array.isArray(value)&&
+    Object.keys(value).sort().join('|')===[...DEMAND_FIELDS].sort().join('|')&&
+    DEMAND_FIELDS.every(k=>Number.isSafeInteger(value[k])&&value[k]>=0&&value[k]<=20000)&&
+    value.approvedUniqueTitles<=report.androidReadyRows&&value.missingApprovedUniqueTitles<=Math.min(value.approvedUniqueTitles,report.missingCatalogUniqueTitles)&&
+    value.reusableFromCurrentSources+value.fetchNeededFromCurrentSources===value.missingApprovedUniqueTitles
+}
 function isSafeRuntimeOverlap(value, readyRows) {
   return value && typeof value === 'object' && !Array.isArray(value) &&
     Object.keys(value).sort().join('|') === [...OVERLAP_FIELDS].sort().join('|') &&
@@ -18,8 +27,9 @@ function isSafeRuntimeOverlap(value, readyRows) {
 }
 export function isSafePrivateXmltvRuntimeReadiness(report, matchedRows) {
   const hasOverlap = Boolean(report && Object.hasOwn(report,'runtimeOverlap'))
+  const hasDemand = Boolean(report && Object.hasOwn(report,'metadataDemand'))
   return report && typeof report === 'object' && !Array.isArray(report) &&
-    Object.keys(report).sort().join('|') === [...FIELDS,...(hasOverlap ? ['runtimeOverlap'] : [])].sort().join('|') &&
+    Object.keys(report).sort().join('|') === [...FIELDS,...(hasOverlap ? ['runtimeOverlap'] : []),...(hasDemand?['metadataDemand']:[])].sort().join('|') &&
     FIELDS.every(k => Number.isSafeInteger(report[k]) && report[k] >= 0 && report[k] <= 20000) &&
     report.matchedRows === matchedRows &&
     report.catalogReadyRows + report.missingCatalogRows === matchedRows &&
@@ -27,7 +37,8 @@ export function isSafePrivateXmltvRuntimeReadiness(report, matchedRows) {
     report.androidReadyRows <= matchedRows && report.fireTvConfirmedRows <= report.androidReadyRows &&
     report.runtimeReadyRows <= Math.min(report.catalogReadyRows, report.androidReadyRows) &&
     report.deduplicatedRuntimeAirings <= report.runtimeReadyRows &&
-    (!hasOverlap || isSafeRuntimeOverlap(report.runtimeOverlap,report.runtimeReadyRows))
+    (!hasOverlap || isSafeRuntimeOverlap(report.runtimeOverlap,report.runtimeReadyRows)) &&
+    (!hasDemand || (hasOverlap && isSafeMetadataDemand(report.metadataDemand,report)))
 }
 
 /** Real device receipts are independent of production publication. No
@@ -79,6 +90,7 @@ export function summarizePrivateXmltvRuntimeReadiness(confirmedEvents, catalog, 
       else throw new TypeError('Unexpected runtime provider')
     }
     report.runtimeOverlap=overlap
+    report.metadataDemand=prepareXmltvCanonicalTitleDemand(confirmedEvents,catalog,{now,existingSources})
   }
   if (!isSafePrivateXmltvRuntimeReadiness(report, confirmedEvents.length)) throw new TypeError('Unsafe readiness result')
   return report

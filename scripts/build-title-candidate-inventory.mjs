@@ -7,7 +7,7 @@ import { CANONICAL_METADATA_MAX_AGE_DAYS } from './canonical-metadata-policy.mjs
 import { buildYoutubeVerifiedRouteIndex } from '../src/providers/youtubeVerifiedRouteIndex.js'
 
 export const TITLE_CANDIDATE_INVENTORY_VERSION = 2
-export const CANDIDATE_SOURCES = Object.freeze(['browse', 'personal-tmdb', 'profile-state', 'movie-hub', 'waipu', 'joyn', 'youtube'])
+export const CANDIDATE_SOURCES = Object.freeze(['browse', 'personal-tmdb', 'profile-state', 'movie-hub', 'waipu', 'joyn', 'youtube', 'xmltv'])
 
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || 'movie-hub-62459'
 const inventoryPath = resolve(process.env.TITLE_CANDIDATE_INVENTORY || 'artifacts/title-candidate-inventory.json')
@@ -56,7 +56,7 @@ function hasCatalogRelevantProfileState(value) {
     || (Number.isInteger(value?.rating) && value.rating >= 1 && value.rating <= 10)
 }
 
-function sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles, joynTitles, youtubeApprovedTitles }) {
+function sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles, joynTitles, youtubeApprovedTitles, xmltvApprovedTitles }) {
   const browseKeys = new Set((Array.isArray(catalog?.titles) ? catalog.titles : [])
     .map(value => canonicalTitleIdentity(value)?.key).filter(Boolean))
   return {
@@ -96,6 +96,14 @@ function sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDo
           && canonicalTitleIdentity(value) !== null,
         canonicalPublicationPending: !browseKeys.has(canonicalTitleIdentity(value)?.key),
       })),
+    // Trusted callers must first derive these typed identities from confirmed,
+    // currently valid XMLTV broadcasts. No source titles, airings or metadata.
+    xmltv: (Array.isArray(xmltvApprovedTitles) ? xmltvApprovedTitles : [])
+      .map(value => ({ value,
+        eligible: value && Object.keys(value).sort().join('|') === 'tmdbId|type' &&
+          ['movie','series'].includes(value.type) && Number.isSafeInteger(value.tmdbId) && value.tmdbId > 0,
+        canonicalPublicationPending: !browseKeys.has(canonicalTitleIdentity(value)?.key),
+      })),
   }
 }
 
@@ -108,7 +116,7 @@ function timestampIso(value) {
 }
 
 function metadataObservation(source, value, { now, maxAgeDays }, reference = {}) {
-  if (source === 'youtube') {
+  if (source === 'youtube' || source === 'xmltv') {
     // SourceEnvelope attests an offer and a TMDB identity, NOT TMDB metadata.
     // Its references must not pollute metadata completeness or staleness.
     return {
@@ -170,7 +178,7 @@ function metadataObservation(source, value, { now, maxAgeDays }, reference = {})
 
 function summarizeCandidateMetadata(observations) {
   const values = Array.isArray(observations) ? observations : []
-  const metadataReferences = values.filter(({ source }) => source !== 'youtube')
+  const metadataReferences = values.filter(({ source }) => source !== 'youtube' && source !== 'xmltv')
   const sourceStates = Object.fromEntries(CANDIDATE_SOURCES
     .map((source) => {
       const matching = values.filter((observation) => observation.source === source)
@@ -278,6 +286,7 @@ export function buildTitleCandidateInventory({
   profileDocuments = [],
   movieHubDocuments = [],
   youtubeApprovedTitles = [],
+  xmltvApprovedTitles = [],
   generatedAt = new Date().toISOString(),
   maxAgeDays = CANONICAL_METADATA_MAX_AGE_DAYS,
 } = {}) {
@@ -287,7 +296,7 @@ export function buildTitleCandidateInventory({
     maxAgeDays: Math.max(1, Number(maxAgeDays) || CANONICAL_METADATA_MAX_AGE_DAYS),
   }
   const candidates = new Map()
-  const sources = sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles, joynTitles, youtubeApprovedTitles })
+  const sources = sourceValues({ catalog, personalDocuments, profileDocuments, movieHubDocuments, waipuTitles, joynTitles, youtubeApprovedTitles, xmltvApprovedTitles })
   const sourceStats = Object.fromEntries(CANDIDATE_SOURCES.map((source) => [
     source,
     collectSource(source, sources[source], candidates, metadataOptions),
@@ -436,3 +445,4 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(1)
   })
 }
+

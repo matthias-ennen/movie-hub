@@ -121,7 +121,7 @@ export function isSafeXmltvG2lPrivateAdapterReport(report) {
     report.availableIndependentFamilies <= new Set(report.sources
       .filter(source => source.status === 'selected')
       .map(source => source.contentFamily)).size &&
-    JSON.stringify(report).length < (hasRuntime ? 2200 : 1700)
+    JSON.stringify(report).length < (hasRuntime ? 2500 : 1700)
 }
 
 /**

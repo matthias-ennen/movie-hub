@@ -250,7 +250,8 @@ describe('#336 G2w: private XMLTV reads the same-run shared Waipu/Joyn cache',()
       cacheResponseHits:6,cacheUniqueCandidateRows:6,newTmdbApiRequests:0,cacheWrites:0,productiveWrites:0,publishApproved:false})
     expect(result.runtimeReadiness).toEqual({matchedRows:6,catalogReadyRows:0,missingCatalogRows:6,
       missingCatalogUniqueTitles:1,androidReadyRows:0,fireTvConfirmedRows:0,runtimeReadyRows:0,deduplicatedRuntimeAirings:0,
-      runtimeOverlap:{existingSourceCount:2,combinedRuntimeAirings:1,xmltvOnlyRuntimeAirings:0,sharedRuntimeAirings:0,existingOnlyRuntimeAirings:1}})
+      runtimeOverlap:{existingSourceCount:2,combinedRuntimeAirings:1,xmltvOnlyRuntimeAirings:0,sharedRuntimeAirings:0,existingOnlyRuntimeAirings:1},
+      metadataDemand:{approvedUniqueTitles:0,missingApprovedUniqueTitles:0,reusableFromCurrentSources:0,fetchNeededFromCurrentSources:0}})
     expect(JSON.stringify(result)).not.toContain(TITLE)
     expect(await readFile(file)).toEqual(bytes)
     await writeFile(file,'corrupt',{mode:0o600})
