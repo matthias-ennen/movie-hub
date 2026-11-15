@@ -66,16 +66,15 @@ function titleKey(row) {
   return key.length > 3 ? row.type + ':' + key : null
 }
 
-/** Two current catalog entries, type-distinct, without ambiguous aliases. */
-export function selectG2oCatalogSamples(catalog, {
+/** Count eligible literal source queries without exporting the selected titles. */
+export function inspectG2oCatalogSamples(catalog, {
   now = Date.now(), requiredSharedKeys = null,
 } = {}) {
   if (requiredSharedKeys !== null && (!(requiredSharedKeys instanceof Set) ||
       requiredSharedKeys.size > MAX_SOURCE_KEYS)) {
     throw new TypeError('Invalid private exact source-key set')
   }
-  // Same validated, fresh source as the already-green G2m real catalog pilot.
-  createXmltvG2mVerifiedLocalResolver(catalog, { now })
+  const resolver = createXmltvG2mVerifiedLocalResolver(catalog, { now })
   const frequencies = new Map()
   for (const row of catalog.titles) {
     const key = titleKey(row)
@@ -85,19 +84,64 @@ export function selectG2oCatalogSamples(catalog, {
     frequencies.set(key, values)
   }
   const chosen = new Map()
+  const candidates = {movie:new Set(),series:new Set()}
+  let sourceMovieKeys=0,sourceSeriesKeys=0
+  if (requiredSharedKeys !== null) {
+    for (const key of requiredSharedKeys) {
+      if (typeof key !== 'string' || key.length > 2000) continue
+      let parts
+      try { parts=JSON.parse(key) } catch { continue }
+      const [path,params]=Array.isArray(parts)?parts:[]
+      const type=path==='/search/movie'?'movie':path==='/search/tv'?'series':null
+      const title=params?.query
+      if (!type || typeof title !== 'string' || title !== title.trim() ||
+          title.length < 5 || title.length > MAX_TITLE_LENGTH ||
+          /[\u0000-\u001f\u007f]/u.test(title) ||
+          key !== exactNoYearKey({type,title})) continue
+      if (type==='movie') sourceMovieKeys++
+      else sourceSeriesKeys++
+    }
+  }
   for (const row of catalog.titles) {
     const key = titleKey(row)
-    if (!key || frequencies.get(key)?.size !== 1 ||
-        chosen.has(row.type) || (requiredSharedKeys !== null &&
-          !requiredSharedKeys.has(exactNoYearKey(row)))) continue
-    chosen.set(row.type, Object.freeze({
-      type: row.type, title: row.title, expectedTmdbId: row.tmdbId,
-    }))
+    if (!key || frequencies.get(key)?.size !== 1) continue
+    // Source-backed samples may use a literal verified catalog original-title
+    // alias as the query; never replace the original exact request string.
+    const aliases = requiredSharedKeys === null ? [row.title] :
+      [...new Set([row.title,row.originalTitle].filter(Boolean))]
+    for (const title of aliases) {
+      const candidate={...row,title}
+      if (!titleKey(candidate)) continue
+      const requestKey=exactNoYearKey(candidate)
+      if (requiredSharedKeys !== null) {
+        if (!requiredSharedKeys.has(requestKey)) continue
+        const matching=resolver.localCandidatesFor({title},row.type)
+        if (matching.length!==1 || matching[0].tmdbId!==row.tmdbId) continue
+      }
+      candidates[row.type].add(requestKey)
+      if (!chosen.has(row.type)) {
+        chosen.set(row.type,Object.freeze({type:row.type,title,expectedTmdbId:row.tmdbId}))
+      }
+    }
   }
-  if (chosen.size !== MATCH_TYPES.length) {
+  return {
+    inputs:MATCH_TYPES.filter(type=>chosen.has(type)).map(type=>chosen.get(type)),
+    counts:{
+      sourceMovieKeys,sourceSeriesKeys,
+      eligibleMovieKeys:candidates.movie.size,
+      eligibleSeriesKeys:candidates.series.size,
+      catalogTitles:catalog.titles.length,
+    },
+  }
+}
+
+/** Two current catalog entries, type-distinct, without ambiguous aliases. */
+export function selectG2oCatalogSamples(catalog, options = {}) {
+  const {inputs}=inspectG2oCatalogSamples(catalog,options)
+  if (inputs.length !== MATCH_TYPES.length) {
     throw new TypeError('Live catalog lacks two unique, typed TMDB samples')
   }
-  return MATCH_TYPES.map(type => chosen.get(type))
+  return inputs
 }
 
 /** Strict boundary around the REAL original clients, including all retries. */
