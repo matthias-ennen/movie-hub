@@ -25,7 +25,19 @@ export function planXmltvAirSourceFiles({ confirmedEvents, catalog, now=Date.now
     const safe=canonicalXmltvMetadata(value,{key,type,tmdbId:Number(id)})
     if(safe) complete.set(key,safe)
   }
-  const preview=buildPrivateXmltvAirRuntimePreview({confirmedEvents:events,
+  // XMLTV episode labels are original feed text, not TMDB metadata. Only
+  // numeric evidence and conflict state may enter the source-file plan; the
+  // existing season resolver can independently supply canonical episode names.
+  const safeEvents=events.map(event=>{
+    const episode=event.episode
+    const validNumber=(value,minimum)=>Number.isSafeInteger(value)&&value>=minimum?value:null
+    return {...event,episode:episode?{
+      seasonNumber:validNumber(episode.seasonNumber,0),
+      episodeNumber:validNumber(episode.episodeNumber,1),
+      ...(episode.conflict===true?{conflict:true}:{}),
+    }:null}
+  })
+  const preview=buildPrivateXmltvAirRuntimePreview({confirmedEvents:safeEvents,
     catalog:{titles:[...complete.values()]},now,fieldsForEvent:registry.fieldsForEvent})
   const files=preview.sourceCatalogs.map(({providerId,generatedAt,sourceGenerationId,entries})=>({
     providerId, directory:providerId+'-live',

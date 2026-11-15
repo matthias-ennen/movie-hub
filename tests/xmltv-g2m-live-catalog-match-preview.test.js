@@ -13,6 +13,8 @@ import {
 } from '../scripts/xmltv-g2m-live-catalog-match-preview.mjs'
 
 import { createG2wXmltvCandidateResolver, runG2wXmltvSharedCachePreview, readG2wExistingRuntimeSources } from '../scripts/xmltv-g2w-shared-cache-preview.mjs'
+import { buildTitleCandidateInventory } from '../scripts/build-title-candidate-inventory.mjs'
+import { readConfirmedAiringHandoff } from '../scripts/xmltv-confirmed-airing-handoff.mjs'
 import { createG2nXmltvCachedResponseResolver } from '../scripts/shared-tmdb-g2n-private-response-replay.mjs'
 import { SharedTmdbResponseStore, saveOptionalSharedTmdbResponses, SHARED_TMDB_RESPONSE_STORE_TTL_MS } from '../scripts/shared-tmdb-response-store.mjs'
 import { SHARED_TMDB_SEARCH_NAMESPACE } from '../scripts/shared-tmdb-search-response-cache.mjs'
@@ -39,14 +41,14 @@ const row = (tmdbId, title = TITLE, type = 'movie', originalTitle = null) =>
   ({ source: 'tmdb', tmdbId, type, title, originalTitle })
 const resolverInput = title => ({ title })
 
-async function fixture(daysBySource) {
+async function fixture(daysBySource, current=NOW) {
   const root = await mkdtemp(join(tmpdir(), 'moviehub-xmltv-g2m-'))
   dirs.push(root)
   const privateRoot = join(root, 'private')
   const stagingReportPath = join(root, 'report.json')
   const list = FEEDS.filter(item => Object.hasOwn(daysBySource, item.id))
   const report = await runXmltvG2PrivateStaging({
-    now: NOW, feedList: list, privateRoot,
+    now: current, feedList: list, privateRoot,
     downloader: async url => {
       const source = FEEDS.find(feed => feed.url === url).id
       const stationId = channel(source)
@@ -54,8 +56,8 @@ async function fixture(daysBySource) {
         '<channel id="' + stationId + '"><display-name>ZDF</display-name></channel>']
       for (let day = 0; day < daysBySource[source]; day++) {
         lines.push('<programme channel="' + stationId +
-          '" start="' + tvTime(NOW + day * DAY) +
-          '" stop="' + tvTime(NOW + (day + 1) * DAY) +
+          '" start="' + tvTime(current + day * DAY) +
+          '" stop="' + tvTime(current + (day + 1) * DAY) +
           '"><title>' + TITLE + '</title>' +
           '<category>Film</category></programme>')
       }
@@ -259,6 +261,25 @@ describe('#336 G2w: private XMLTV reads the same-run shared Waipu/Joyn cache',()
     expect(fallback).toMatchObject({loadStatus:'unavailable',baselineMatched:0,combinedMatched:0,additionalMatched:0})
     await writeFile(join(root,'public/waipu-live/titles.json'),JSON.stringify({entries:[]}))
     await expect(readG2wExistingRuntimeSources(root)).rejects.toThrow(/SOURCE_CATALOG_REJECTED/)
+  })
+  it('hands off only confirmed typed airing evidence after same-run parity validation',async()=>{
+    const current=Date.parse('2026-11-16T00:00:00Z')
+    const files=await fixture({epgshare01:2,freeepg:2},current)
+    const root=dirname(files.privateRoot)
+    await mkdir(join(root,'public'),{recursive:true})
+    await writeFile(join(root,'public/catalog.json'),JSON.stringify(catalog([row(99,TITLE)],iso(current))))
+    let handoff
+    const result=await runG2wXmltvSharedCachePreview({root,now:current,coordinatorOptions:files,
+      captureHandoff:value=>{handoff=value}})
+    expect(result.combinedMatched).toBe(4)
+    expect(handoff.rows).toHaveLength(4)
+    expect(JSON.stringify(handoff)).not.toContain(TITLE)
+    expect(JSON.stringify(result)).not.toContain('evidenceDigest')
+    const {titleRefs}=readConfirmedAiringHandoff(handoff,{now:current})
+    expect(titleRefs).toEqual([{type:'movie',tmdbId:99}])
+    const inventory=buildTitleCandidateInventory({xmltvApprovedTitles:titleRefs,catalog:{titles:[]},generatedAt:iso(current)})
+    expect(inventory.candidates).toHaveLength(1)
+    expect(inventory.candidates[0]).toMatchObject({key:'movie:99',sources:['xmltv']})
   })
   it('never consumes expired responses',()=>{
     const store=new SharedTmdbResponseStore({now:NOW+SHARED_TMDB_RESPONSE_STORE_TTL_MS,entries:[

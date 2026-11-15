@@ -3,7 +3,8 @@
  *
  * This is a technical integration rehearsal only. Original XMLTV candidates
  * and merged sourceRefs (whose externalId includes a title) NEVER leave this
- * function. Only an allowlisted numerical report is returned. No files,
+ * function. Only an allowlisted numerical report is returned; an explicitly
+ * requested, stripped identity handoff may be captured in memory. No files,
  * Firebase, TMDB HTTP, playback routes, Nightly or cloud checkpoints here.
  *
  * The same original G2d full-generation validator is authoritative for
@@ -19,6 +20,7 @@ import {
 } from './xmltv-g1b-match-preview.mjs'
 
 import { summarizePrivateXmltvRuntimeReadiness } from './xmltv-g3-private-runtime-readiness.mjs'
+import { buildConfirmedAiringHandoff } from './xmltv-confirmed-airing-handoff.mjs'
 
 const DAY = 86_400_000
 const MATCH_BATCH_SIZE = 2_000
@@ -38,13 +40,15 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
   maxCandidates = MAX_PRIVATE_QA_CANDIDATES,
   runtimeCatalog = null,
   runtimeSources = null,
+  captureHandoff = null,
 } = {}) {
   if (!Number.isFinite(now) || typeof localCandidatesFor !== 'function' ||
       !Number.isSafeInteger(maxCandidates) || maxCandidates < 1 ||
       maxCandidates > MAX_PRIVATE_QA_CANDIDATES ||
       !Array.isArray(waipuAirings) || !Array.isArray(joynAirings) ||
       waipuAirings.length > MAX_EXISTING_AIRINGS ||
-      joynAirings.length > MAX_EXISTING_AIRINGS) {
+      joynAirings.length > MAX_EXISTING_AIRINGS ||
+      (captureHandoff !== null && typeof captureHandoff !== 'function')) {
     throw new TypeError('Invalid bounded private XMLTV integration input')
   }
 
@@ -122,7 +126,7 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
   const merged = mergeConfirmedXmltvAirings(
     waipuAirings, joynAirings, allConfirmedEvents,
   )
-  return {
+  const report = {
     kind: 'xmltv-g2j-private-integration-aggregate',
     schemaVersion: 1,
     mode: 'offline-ephemeral-no-publication',
@@ -141,5 +145,9 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
     playbackRoutesApproved: false,
     ...(runtimeCatalog === null ? {} : { runtimeReadiness: summarizePrivateXmltvRuntimeReadiness(allConfirmedEvents, runtimeCatalog, { now, existingSources: runtimeSources }) }),
   }
+  // Only the explicitly allowlisted projection can leave the matcher, in
+  // memory; the anonymous report does not contain this payload.
+  if (captureHandoff) captureHandoff(buildConfirmedAiringHandoff(allConfirmedEvents,{now}))
+  return report
 }
 
