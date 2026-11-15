@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { mkdtemp, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, writeFile, readFile, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
 import { FEEDS } from '../scripts/probe-xmltv-feeds.mjs'
 import { XMLTV_REVIEWED_STATION_MAPPINGS } from
   '../src/sources/xmltv/xmltvStationMappings.js'
@@ -11,6 +11,11 @@ import {
   fetchExistingMovieHubTmdbCatalog, runXmltvG2mPrivateLiveCatalogPreview,
   isSafeXmltvG2mPrivateReport,
 } from '../scripts/xmltv-g2m-live-catalog-match-preview.mjs'
+
+import { createG2wXmltvCandidateResolver, runG2wXmltvSharedCachePreview } from '../scripts/xmltv-g2w-shared-cache-preview.mjs'
+import { createG2nXmltvCachedResponseResolver } from '../scripts/shared-tmdb-g2n-private-response-replay.mjs'
+import { SharedTmdbResponseStore, saveOptionalSharedTmdbResponses, SHARED_TMDB_RESPONSE_STORE_TTL_MS } from '../scripts/shared-tmdb-response-store.mjs'
+import { SHARED_TMDB_SEARCH_NAMESPACE } from '../scripts/shared-tmdb-search-response-cache.mjs'
 
 const NOW = Date.parse('2026-11-14T10:30:00Z')
 const DAY = 86_400_000
@@ -188,5 +193,75 @@ describe('#336 G2m: existing live MovieHub TMDB catalog as local XMLTV candidate
       kind:'xmltv-g2m-private-live-catalog-match-aggregate',
       tmdbIdentityApproved:true,
     })).toBe(false)
+  })
+})
+
+const cacheKey=(title,type='movie')=>JSON.stringify([type==='movie'?'/search/movie':'/search/tv',{language:'de-DE',query:title,include_adult:'false'}])
+function storeWith(title,results,type='movie',now=NOW){
+  const store=new SharedTmdbResponseStore({now})
+  expect(store.set(SHARED_TMDB_SEARCH_NAMESPACE,cacheKey(title,type),{results})).toBe(true)
+  return store
+}
+const movie=(id,title=TITLE)=>({id,title,release_date:'2020-01-01'})
+describe('#336 G2w: private XMLTV reads the same-run shared Waipu/Joyn cache',()=>{
+  it('preserves catalog precedence and never bypasses catalog ambiguity',()=>{
+    const local=createXmltvG2mVerifiedLocalResolver(catalog([row(5,TITLE),row(6,'conflict'),row(7,'conflict')]),{now:NOW})
+    const cache=createG2nXmltvCachedResponseResolver(storeWith(TITLE,[movie(99)]))
+    const spy=vi.spyOn({read:cache.localCandidatesFor},'read')
+    const r=createG2wXmltvCandidateResolver(local,{localCandidatesFor:spy})
+    expect(r.localCandidatesFor({title:TITLE},'movie').map(x=>x.tmdbId)).toEqual([5])
+    expect(r.localCandidatesFor({title:'conflict'},'movie')).toEqual([])
+    expect(spy).not.toHaveBeenCalled()
+    expect(r.counts()).toMatchObject({localHits:1,localConflicts:1,cacheLookups:0})
+  })
+  it('looks up the literal key, rejects ambiguity, type mismatch and fuzzy-only results',()=>{
+    const local=createXmltvG2mVerifiedLocalResolver(catalog([row(5,'unrelated')]),{now:NOW})
+    const store=storeWith(TITLE,[movie(99),movie(100)])
+    store.set(SHARED_TMDB_SEARCH_NAMESPACE,cacheKey('fuzzy'),{results:[movie(4,'fuzzy other')]})
+    store.set(SHARED_TMDB_SEARCH_NAMESPACE,cacheKey('series','series'),{results:[{id:8,name:'series',first_air_date:'2020-01-01'}]})
+    const cache=createG2nXmltvCachedResponseResolver(store)
+    const r=createG2wXmltvCandidateResolver(local,cache)
+    expect(r.localCandidatesFor({title:TITLE},'movie')).toEqual([])
+    expect(r.localCandidatesFor({title:TITLE.toLowerCase()},'movie')).toEqual([])
+    expect(r.localCandidatesFor({title:'fuzzy'},'movie')).toEqual([])
+    expect(r.localCandidatesFor({title:'series'},'movie')).toEqual([])
+    expect(r.localCandidatesFor({title:'series'},'series')).toMatchObject([{tmdbId:8,type:'series'}])
+    expect(r.counts()).toMatchObject({cacheLookups:5,cacheAmbiguousRows:1,cacheUniqueCandidateRows:1,cacheNoExactCandidateRows:3})
+    expect(cache.counts().writes).toBe(0)
+  })
+  it('joins real parser-staged synthetic programmes through the existing matcher and merge, with no writes or renewed TTL',async()=>{
+    const files=await fixture({epgshare01:2,freeepg:2,'iptv-epg-org':2})
+    const root=dirname(files.privateRoot),privateDir=join(root,'artifacts/shared-tmdb/private')
+    await mkdir(join(root,'public'),{recursive:true})
+    await writeFile(join(root,'public/catalog.json'),JSON.stringify(catalog([row(55,'Unrelated')])))
+    const file=join(privateDir,'shared-tmdb-response-cache.json')
+    const store=storeWith(TITLE,[movie(99)])
+    expect((await saveOptionalSharedTmdbResponses(file,store)).status).toBe('saved')
+    const bytes=await readFile(file)
+    const result=await runG2wXmltvSharedCachePreview({root,now:NOW,coordinatorOptions:files})
+    expect(result).toMatchObject({loadStatus:'loaded',restoredResponses:1,validatedSources:3,selectedCandidates:6,
+      baselineMatched:0,combinedMatched:6,additionalMatched:6,combinedMergedAirings:2,
+      cacheResponseHits:6,cacheUniqueCandidateRows:6,newTmdbApiRequests:0,cacheWrites:0,productiveWrites:0,publishApproved:false})
+    expect(JSON.stringify(result)).not.toContain(TITLE)
+    expect(await readFile(file)).toEqual(bytes)
+    await writeFile(file,'corrupt',{mode:0o600})
+    const fallback=await runG2wXmltvSharedCachePreview({root,now:NOW,coordinatorOptions:files})
+    expect(fallback).toMatchObject({loadStatus:'unavailable',baselineMatched:0,combinedMatched:0,additionalMatched:0})
+  })
+  it('never consumes expired responses',()=>{
+    const store=new SharedTmdbResponseStore({now:NOW+SHARED_TMDB_RESPONSE_STORE_TTL_MS,entries:[
+      {requestKey:cacheKey(TITLE),checkedAt:iso(NOW),value:{results:[movie(99)]}},
+    ]})
+    const local=createXmltvG2mVerifiedLocalResolver(catalog([row(55,'Unrelated')]),{now:NOW})
+    const r=createG2wXmltvCandidateResolver(local,createG2nXmltvCachedResponseResolver(store))
+    expect(r.localCandidatesFor({title:TITLE},'movie')).toEqual([])
+  })
+  it('uses the manual full Nightly flag and never uploads raw XMLTV or shared responses',async()=>{
+    const central=await readFile('.github/workflows/moviehub-nightly-pipeline.yml','utf8')
+    const deploy=await readFile('.github/workflows/deploy-firebase.yml','utf8')
+    expect(central).toContain("inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true")
+    expect(deploy).toContain("inputs.xmltv_private_preview == true && steps.g2v_save.outcome == 'success'")
+    expect(deploy).not.toContain('path: artifacts/xmltv-g2/private')
+    expect(deploy).not.toContain('path: artifacts/shared-tmdb/private')
   })
 })

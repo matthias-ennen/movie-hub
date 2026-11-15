@@ -162,9 +162,11 @@ export function createXmltvG2mVerifiedLocalResolver(catalog, {
   let ambiguousAliases = 0
   let uniqueAliases = 0
   const exact = new Map()
+  const conflicts = new Set()
   for (const [key, values] of byAlias) {
     if (values.size !== 1) {
       ambiguousAliases++
+      conflicts.add(key)
       continue
     }
     uniqueAliases++
@@ -177,18 +179,22 @@ export function createXmltvG2mVerifiedLocalResolver(catalog, {
     uniqueExactAliases: uniqueAliases,
     ambiguousAliases,
   })
+  function lookup(candidate, type) {
+    if (!['movie', 'series'].includes(type) ||
+        typeof candidate?.title !== 'string' ||
+        candidate.title.length > MAX_TITLE_CHARS) return {status:'invalid',candidates:[]}
+    const alias = normalizeWaipuText(candidate.title)
+    if (!alias) return {status:'invalid',candidates:[]}
+    const key=type+':'+alias
+    if(conflicts.has(key)) return {status:'ambiguous',candidates:[]}
+    const result=exact.get(key)
+    return result ? {status:'hit',candidates:[result]} : {status:'missing',candidates:[]}
+  }
   return Object.freeze({
     summary,
-    // G2j calls with ORIGINAL candidate and independently inferred type.
-    // No partial/fuzzy catalog scan or fallback to network allowed.
-    localCandidatesFor(candidate, type) {
-      if (!['movie', 'series'].includes(type) ||
-          typeof candidate?.title !== 'string' ||
-          candidate.title.length > MAX_TITLE_CHARS) return []
-      const alias = normalizeWaipuText(candidate.title)
-      const result = exact.get(type + ':' + alias)
-      return result ? [result] : []
-    },
+    lookup,
+    // Existing semantics: ambiguous aliases remain unmatched.
+    localCandidatesFor(candidate, type) { return lookup(candidate,type).candidates },
   })
 }
 

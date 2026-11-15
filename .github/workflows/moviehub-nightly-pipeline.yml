@@ -26,6 +26,11 @@ on:
           - 'off'
           - private-reuse
           - private-persistent
+      xmltv_private_preview:
+        description: "XMLTV privat prüfen (full + private-persistent; keine Veröffentlichung)"
+        type: boolean
+        required: false
+        default: false
   # A narrowly scoped, explicitly marked one-off commit may launch a genuine
   # workflow_dispatch of THIS central chain. Ordinary pushes do not run it.
   push:
@@ -115,6 +120,7 @@ jobs:
     with:
       nightly_chain: true
       shared_tmdb_cache: ${{ github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-reuse' && 'private-reuse' || github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent' && 'private-persistent' || 'off' }}
+      xmltv_private_preview: ${{ github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true }}
       youtube_known_recheck: ${{ needs.known-videos.result }}
       data_mode: ${{ github.event_name == 'workflow_dispatch' && (inputs.run_mode == 'compact' || inputs.run_mode == 'themes') && inputs.run_mode || 'standard' }}
     permissions:
