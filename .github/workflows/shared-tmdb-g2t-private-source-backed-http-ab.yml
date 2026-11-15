@@ -1,0 +1,106 @@
+name: Shared TMDB G2t PRIVATE source-backed bounded A/B
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/shared-tmdb-g2p-private-source-demand-census.mjs
+      - scripts/shared-tmdb-g2t-private-source-backed-http-ab.mjs
+      - scripts/shared-tmdb-g2o-bounded-real-http-ab.mjs
+      - tests/shared-tmdb-g2o-bounded-real-http-ab.test.js
+      - tests/shared-tmdb-g2p-private-source-demand-census.test.js
+      - .github/workflows/shared-tmdb-g2t-private-source-backed-http-ab.yml
+  push:
+    branches: [main]
+    paths:
+      - scripts/shared-tmdb-g2p-private-source-demand-census.mjs
+      - scripts/shared-tmdb-g2t-private-source-backed-http-ab.mjs
+      - scripts/shared-tmdb-g2o-bounded-real-http-ab.mjs
+      - tests/shared-tmdb-g2o-bounded-real-http-ab.test.js
+      - tests/shared-tmdb-g2p-private-source-demand-census.test.js
+      - .github/workflows/shared-tmdb-g2t-private-source-backed-http-ab.yml
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Exact PRIVATE_G2T_SOURCE_BACKED_PREPARE_NO_TMDB or PRIVATE_G2T_SOURCE_BACKED_HTTP_AB_MAX_6'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shared-tmdb-g2t-private-source-backed-http-ab
+  cancel-in-progress: false
+
+jobs:
+  offline-privacy-tests:
+    name: Exact potential search requests, strict private data provenance and count-only output
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Test G2p plus prior XMLTV private source and G2n/G2o cache compatibility
+        run: >-
+          npx vitest run
+          tests/shared-tmdb-g2p-private-source-demand-census.test.js
+          tests/xmltv-g2-private-staging.test.js
+          tests/xmltv-g2-private-lkg-replay.test.js
+          tests/shared-tmdb-g2n-private-response-replay.test.js
+          tests/shared-tmdb-g2o-bounded-real-http-ab.test.js
+
+  real-private-census:
+    name: Manual PRIVATE verified source-backed two-title A/B (or prepare only)
+    needs: offline-privacy-tests
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' &&
+          github.ref == 'refs/heads/main' &&
+          (inputs.confirmation == 'PRIVATE_G2T_SOURCE_BACKED_PREPARE_NO_TMDB' ||
+           inputs.confirmation == 'PRIVATE_G2T_SOURCE_BACKED_HTTP_AB_MAX_6') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DATA_CHECKPOINT_ENABLED: ${{ vars.MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED }}
+      DATA_CHECKPOINT_BUCKET: ${{ vars.MOVIE_HUB_CHECKPOINT_BUCKET }}
+      GOOGLE_CLOUD_PROJECT: movie-hub-62459
+      G2T_CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Check exact manual main-only private source census opt-in
+        run: |
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$G2T_CONFIRMATION" = "PRIVATE_G2T_SOURCE_BACKED_PREPARE_NO_TMDB" || test "$G2T_CONFIRMATION" = "PRIVATE_G2T_SOURCE_BACKED_HTTP_AB_MAX_6"
+          test "$DATA_CHECKPOINT_ENABLED" = "true"
+          test "$DATA_CHECKPOINT_BUCKET" = "movie-hub-62459-nightly-checkpoints"
+      - run: npm ci --ignore-scripts
+      - name: Authenticate ONLY for private original read-only checkpoint restore
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: movie-hub-62459
+          workload_identity_provider: projects/612913221205/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-movie-hub-deploy@movie-hub-62459.iam.gserviceaccount.com
+      - name: Read-only restore original Waipu source checkpoint into this ephemeral runner
+        run: node scripts/durable-data-checkpoint.mjs restore waipu
+      - name: Read-only restore original Joyn source checkpoint into this ephemeral runner
+        run: node scripts/durable-data-checkpoint.mjs restore joyn
+      - name: Collect current three reviewed XMLTV feeds into PRIVATE runner files only
+        run: node scripts/xmltv-g2-private-staging.mjs
+      - name: Prepare only, count-only overlap and sample readiness (no TMDB HTTP)
+        if: inputs.confirmation == 'PRIVATE_G2T_SOURCE_BACKED_PREPARE_NO_TMDB'
+        run: node --max-old-space-size=4096 scripts/shared-tmdb-g2t-private-source-backed-http-ab.mjs
+      - name: Explicitly authorized bounded real TMDB A/B, maximum six starts
+        if: inputs.confirmation == 'PRIVATE_G2T_SOURCE_BACKED_HTTP_AB_MAX_6'
+        env:
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+        run: node --max-old-space-size=4096 scripts/shared-tmdb-g2t-private-source-backed-http-ab.mjs

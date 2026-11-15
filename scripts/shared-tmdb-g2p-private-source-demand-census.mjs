@@ -241,8 +241,12 @@ export function computeG2pPrivateOverlap({
   waipuBroadcasts, waipuDetails, joynItems, xmltvGenerations,
   joynLookupCache = null,
   now = Date.now(),
+  onVerifiedWaipuJoynOverlap = null,
 } = {}) {
-  if (!Number.isFinite(now)) throw new TypeError('Invalid overlap clock')
+  if (!Number.isFinite(now) || (onVerifiedWaipuJoynOverlap !== null &&
+      typeof onVerifiedWaipuJoynOverlap !== 'function')) {
+    throw new TypeError('Invalid overlap clock or private callback')
+  }
   // Categories are static and independent of the private programme content.
   // Preserve the root fault DOMAIN without ever exposing raw exception text.
   let a,b,c
@@ -289,6 +293,10 @@ export function computeG2pPrivateOverlap({
   }
   if (!isSafeG2pOverlapAggregate(report)) {
     throw new TypeError('Unsafe private source overlap report')
+  }
+  // Private in-process consumer only: never add keys to the public aggregate.
+  if (onVerifiedWaipuJoynOverlap) {
+    onVerifiedWaipuJoynOverlap(new Set([...a.keys].filter(key => b.keys.has(key))))
   }
   return report
 }
@@ -470,16 +478,20 @@ async function readXmltvSourceGenerations(root,now) {
 
 /** Read only restored, privately verified original source records. */
 export async function runG2pPrivateOriginalSourceCensus({
-  root=ROOT, now=Date.now(),
+  root=ROOT, now=Date.now(), onVerifiedWaipuJoynOverlap=null,
 }={}) {
   if (!Number.isFinite(now) || typeof root!=='string' || !root.trim()) {
     throw new TypeError('Invalid G2p original source context')
   }
-  const [waipuStatus] = await classified('G2P_CHECKPOINT_STATUS_REJECTED',
+  const [waipuStatus, joynStatus] = await classified('G2P_CHECKPOINT_STATUS_REJECTED',
     () => Promise.all([
       requireSourceStatus(join(root,'artifacts/waipu-sync/status.json'),'waipu',now),
       requireSourceStatus(join(root,'artifacts/joyn-sync/status.json'),'joyn',now),
     ]))
+  if (onVerifiedWaipuJoynOverlap && Math.abs(Date.parse(waipuStatus.generatedAt)-
+      Date.parse(joynStatus.generatedAt)) > 12*60*60*1000) {
+    throw new Error('G2P_CHECKPOINT_STATUS_REJECTED')
+  }
   const cacheRoot=join(root,'artifacts/waipu-sync/cache')
   const [grid,stations,details,joynItems,xmltvGenerations]=await Promise.all([
     classified('G2P_WAIPU_GRID_REJECTED',
@@ -507,7 +519,7 @@ export async function runG2pPrivateOriginalSourceCensus({
     return computeG2pPrivateOverlap({
       waipuBroadcasts:broadcasts,
       waipuDetails:new Map(details.map(row=>[row.key,row.value])),
-      joynItems,xmltvGenerations,joynLookupCache,now,
+      joynItems,xmltvGenerations,joynLookupCache,now,onVerifiedWaipuJoynOverlap,
     })
   })
 }
