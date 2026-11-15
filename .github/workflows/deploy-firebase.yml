@@ -14,6 +14,10 @@ on:
         type: string
         required: false
         default: 'off'
+      xmltv_private_preview:
+        type: boolean
+        required: false
+        default: false
       youtube_known_recheck:
         type: string
         required: false
@@ -341,6 +345,21 @@ jobs:
         env:
           MOVIEHUB_G2V_PERSISTENT: 'private-persistent-reuse-v1'
         run: node scripts/shared-tmdb-g2v-private-checkpoint.mjs save
+
+      # G2w: private preview only; no XMLTV cloud originals, app writes or TMDB HTTP.
+      - name: Stage reviewed XMLTV feeds privately (explicit G2w)
+        id: g2w_stage
+        if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.nightly_chain && inputs.data_mode == 'standard' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true && steps.g2v_save.outcome == 'success' }}
+        continue-on-error: true
+        run: node scripts/xmltv-g2-private-staging.mjs
+
+      - name: Compare XMLTV local matching with shared TMDB replies (private G2w)
+        id: g2w_preview
+        if: ${{ steps.g2w_stage.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          MOVIEHUB_XMLTV_PRIVATE_PREVIEW: enabled
+        run: node scripts/xmltv-g2w-shared-cache-preview.mjs
 
       # #336 G2s: ONLY on an actual completed original source import,
       # capture existing original TMDB client request-start counters.
