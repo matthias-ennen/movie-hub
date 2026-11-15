@@ -102,6 +102,21 @@ describe('G2 AP1: full bidirectional inventory coverage without changing provide
     expect(markdown).toContain('TMDB-first PUBLIC movies without exact links (search fallback): 1')
     expect(markdown).not.toContain('personal-tmdb')
   })
+  it('accepts the XMLTV canonical handoff without inferring YouTube badges',()=>{
+    const a=fixtures()
+    a.inventory.policy.candidateSources=[...sources,'xmltv']
+    a.inventory.sourceStats.xmltv={eligibleReferences:2}
+    a.inventory.candidates[0].sources.push('xmltv')
+    a.inventory.candidates.push({key:'movie:40',type:'movie',tmdbId:40,sources:['xmltv']})
+    a.inventory.counts.canonicalCandidates++
+    const r=buildYoutubeG2BidirectionalCoverage({...a,now})
+    expect(r.tmdbFirst).toMatchObject({publicYoutubeBadgedMovies:3,
+      canonicalAndPublicMovieBadges:2,publicSearchOnlyMovieBadges:1})
+    expect(r.publicationPermitted).toBe(false)
+    a.inventory.candidates.at(-1).sources=['unreviewed-source']
+    expect(()=>buildYoutubeG2BidirectionalCoverage({...a,now}))
+      .toThrow('G2_FULL_CANONICAL_INVENTORY_REQUIRED')
+  })
   it('fails closed if public index is stale, incomplete or another provider',()=>{
     const a=fixtures();a.publicIndex.country='US'
     expect(()=>buildYoutubeG2BidirectionalCoverage({...a,now}))
