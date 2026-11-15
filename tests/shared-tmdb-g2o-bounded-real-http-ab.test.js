@@ -5,7 +5,7 @@ import {
   compareG2oBoundedOriginalClients, isSafeG2oAbReport,
 } from '../scripts/shared-tmdb-g2o-bounded-real-http-ab.mjs'
 
-import { createG2tReadinessReport, isSafeG2tReadinessReport, safeG2tFailureCode, safeG2tCatalogReadFailureCode } from '../scripts/shared-tmdb-g2t-private-source-backed-http-ab.mjs'
+import { createG2tReadinessReport, isSafeG2tReadinessReport, safeG2tFailureCode, safeG2tCatalogReadFailureCode, combineG2tPublishedTitles, fetchG2tPublishedSearchIndex } from '../scripts/shared-tmdb-g2t-private-source-backed-http-ab.mjs'
 
 const NOW = Date.parse('2026-11-14T14:00:00.000Z')
 const FILM = 'Unverwechselbarer privater Testfilm'
@@ -264,5 +264,54 @@ describe('#336 G2t classified readiness, literal original-title aliases',()=>{
     const keys=new Set([key('movie',alias),key('series',SERIES)])
     expect(inspectG2oCatalogSamples(c,{now:NOW,requiredSharedKeys:keys}).counts.eligibleMovieKeys).toBe(0)
     expect(inspectG2oCatalogSamples(catalog(),{now:NOW,requiredSharedKeys:new Set([key('movie',FILM.toLowerCase())])}).counts.eligibleMovieKeys).toBe(0)
+  })
+})
+
+describe('#336 G2t public discovery identity coverage',()=>{
+  const key=(type,title)=>JSON.stringify([type==='movie'?'/search/movie':'/search/tv',
+    {language:'de-DE',query:title,include_adult:'false'}])
+  const keys=new Set([key('movie',FILM),key('series',SERIES)])
+  const filmEntry={id:'tmdb-movie-'+movie.id,source:'tmdb',scope:'public',
+    type:'movie',tmdbId:movie.id,title:FILM}
+  const index=(entries=[filmEntry],generatedAt=new Date(NOW).toISOString())=>({
+    source:'tmdb',kind:'search-index',version:1,language:'de-DE',country:'DE',
+    generatedAt,count:entries.length,entries,
+  })
+  it('uses broader published search identity coverage without changing the exact source query',()=>{
+    const browse=catalog([catalog().titles[1]])
+    expect(createG2tReadinessReport(browse,keys,NOW).eligibleMovieKeys).toBe(0)
+    const combined=combineG2tPublishedTitles(browse,index(),NOW)
+    expect(combined.counts).toEqual({browseTitleRows:1,publicSearchIndexEntries:1,
+      verifiedPublicSearchIndexEntries:1,combinedTitleRows:2})
+    expect(createG2tReadinessReport(combined.catalog,keys,NOW))
+      .toMatchObject({eligibleMovieKeys:1,eligibleSeriesKeys:1,eligibleSelectedWorkTypes:2})
+    expect(selectG2oCatalogSamples(combined.catalog,{now:NOW,requiredSharedKeys:keys})[0])
+      .toEqual({type:'movie',title:FILM,expectedTmdbId:movie.id})
+  })
+  it('rejects cross-projection same-title different-ID ambiguity',()=>{
+    const other={...filmEntry,id:'tmdb-movie-90003',tmdbId:90003}
+    const {catalog:combined}=combineG2tPublishedTitles(catalog(),index([other]),NOW)
+    expect(createG2tReadinessReport(combined,keys,NOW).eligibleMovieKeys).toBe(0)
+  })
+  it('does not accept private, malformed or non-TMDB identity rows',()=>{
+    const malformed=[{...filmEntry,scope:'personal'},{...filmEntry,source:'manual'},{...filmEntry,id:'wrong'}]
+    expect(()=>combineG2tPublishedTitles(catalog(),index(malformed),NOW)).toThrow(/CONTRACT/)
+    const {counts}=combineG2tPublishedTitles(catalog(),index([filmEntry,...malformed]),NOW)
+    expect(counts.verifiedPublicSearchIndexEntries).toBe(1)
+    expect(counts.combinedTitleRows).toBe(2)
+    expect(()=>combineG2tPublishedTitles(catalog(),index([filmEntry],new Date(NOW-15*86400000).toISOString()),NOW)).toThrow(/CONTRACT/)
+    expect(()=>combineG2tPublishedTitles(catalog(),{...index(),count:2},NOW)).toThrow(/CONTRACT/)
+    expect(()=>combineG2tPublishedTitles(catalog(),{...index(),country:'US'},NOW)).toThrow(/CONTRACT/)
+  })
+  it('reads only the fixed public index with no credentials, writes or TMDB transport',async()=>{
+    const fetchImpl=vi.fn(async(url,options)=>{
+      expect(url).toBe('https://movie-hub-62459.web.app/search-index.json')
+      expect(options.method).toBe('GET')
+      expect(options.redirect).toBe('error')
+      expect(options.headers).toEqual({accept:'application/json'})
+      return new Response(JSON.stringify(index()),{headers:{'content-type':'application/json'}})
+    })
+    expect(await fetchG2tPublishedSearchIndex({fetchImpl})).toEqual(index())
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
 })
