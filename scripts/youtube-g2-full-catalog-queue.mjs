@@ -26,7 +26,9 @@ export const YOUTUBE_SEARCH_DEFAULT_DAILY_CALL_LIMIT = 100
 export const YOUTUBE_RESEARCH_MAX_ESTIMATED_SEARCH_QUOTA = YOUTUBE_RESEARCH_MAX_TITLES
   * YOUTUBE_SEARCHES_PER_TITLE * YOUTUBE_SEARCH_QUOTA_UNITS
 const REQUIRED_SOURCES = Object.freeze(['browse', 'personal-tmdb', 'profile-state', 'movie-hub', 'waipu', 'joyn'])
-const SOURCES = Object.freeze([...REQUIRED_SOURCES, 'youtube'])
+// XMLTV is an optional, canonical identity-only source, like YouTube.
+// Historical inventories without it remain valid; unknown sources still fail closed.
+const SOURCES = Object.freeze([...REQUIRED_SOURCES, 'youtube', 'xmltv'])
 const OFFERS = new Set(['free', 'ads', 'flatrate', 'rent', 'buy'])
 const validId = x => Number.isInteger(Number(x)) && Number(x) > 0 ? Number(x) : null
 const safe = x => String(x ?? '').replace(/[<>\r\n|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
