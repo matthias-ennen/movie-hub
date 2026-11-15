@@ -1,3 +1,4 @@
+import {observeNightly} from './nightly-report-metrics.mjs'
 /**
  * #336 G2w: first real adapter integration boundary for the third shared
  * TMDB search-response consumer. This is a private read-only Nightly preview,
@@ -150,6 +151,7 @@ async function main(){
     const {writeXmltvSameRunHandoff}=await import('./xmltv-same-run-handoff.mjs')
     await writeXmltvSameRunHandoff(handoff)
   }
+  await observeNightly('xmltv-match',result)
   console.log(JSON.stringify(result))
   if(!result.validatedSources) process.exitCode=1
 }

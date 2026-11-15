@@ -894,12 +894,32 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+      - name: Collect sanitized detailed Nightly metrics
+        if: ${{ always() && inputs.nightly_chain }}
+        continue-on-error: true
+        env:
+          NIGHT_METRIC_TMDB: ${{ steps.tmdb_catalog_strict.outcome }}
+          NIGHT_METRIC_WAIPUSYNC: ${{ steps.waipu_sync.outcome }}
+          NIGHT_METRIC_WAIPU: ${{ steps.waipu_catalog.outcome }}
+          NIGHT_METRIC_JOYN: ${{ steps.joyn_catalog.outcome }}
+          NIGHT_METRIC_CACHERESTORE: ${{ steps.g2v_restore.outcome }}
+          NIGHT_METRIC_CACHESAVE: ${{ steps.g2v_save.outcome }}
+          NIGHT_METRIC_XMLTVSTAGE: ${{ steps.g2w_stage.outcome }}
+          NIGHT_METRIC_XMLTVMATCH: ${{ steps.g2w_preview.outcome }}
+          NIGHT_METRIC_XMLTVPUBLISH: ${{ steps.xmltv_air_publication.outcome }}
+          NIGHT_METRIC_YOUTUBE: ${{ steps.youtube_curated_source.outcome }}
+          NIGHT_METRIC_TV: ${{ steps.tv_runtime_snapshot.outcome }}
+          NIGHT_METRIC_CANONICAL: ${{ steps.canonical_executor.outcome }}
+          NIGHT_METRIC_PUBLISH: ${{ steps.publication_verify.outcome }}
+        run: node scripts/nightly-report-metrics.mjs
+
       - name: Upload source adapter artifacts
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
           name: source-adapter-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
+            artifacts/nightly-metrics/aggregate.json
             artifacts/source-adapters/*.json
             artifacts/source-merge/*.json
             artifacts/youtube-g2/curated-production-sync/qa.json

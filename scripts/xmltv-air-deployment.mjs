@@ -1,3 +1,4 @@
+import {observeNightly} from './nightly-report-metrics.mjs'
 /** #336: common deployment boundary, run before series and TV projections.
  * Disabled releases publish ONLY an empty manifest to enable an unambiguous
  * first activation; there are no AIR broadcasts or links in that manifest. */
@@ -61,7 +62,11 @@ export async function verifyXmltvAirDeployment({directory='public',dist='dist',p
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
   const action=process.argv[2]
   try{
-    if(action==='prepare')console.log(JSON.stringify(await prepareXmltvAirDeployment()))
+    if(action==='prepare'){
+      const result=await prepareXmltvAirDeployment()
+      await observeNightly('xmltv-publication',result)
+      console.log(JSON.stringify(result))
+    }
     else if(action==='verify-prepared'||action==='verify-hosted')console.log(JSON.stringify(await verifyXmltvAirDeployment({prepared:action==='verify-prepared'})))
     else throw new Error('Invalid AIR deployment action')
   }catch(error){console.error(error.message);process.exitCode=1}

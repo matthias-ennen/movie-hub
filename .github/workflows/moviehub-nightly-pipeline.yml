@@ -159,14 +159,36 @@ jobs:
         with:
           name: youtube-g2-nightly-budget-summary-${{ github.run_id }}
           path: artifacts/youtube-g2/nightly-discovery
+      - name: Read sanitized YouTube known-video counters from this exact attempt
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: nightly-known-counts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/nightly-metrics
+      - name: Restore rolling Nightly count history
+        continue-on-error: true
+        uses: actions/cache/restore@v6
+        with:
+          path: artifacts/moviehub-nightly/history.json
+          key: nightly-count-history-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: nightly-count-history-v1-
       - name: Write aggregate complete chain report (never video IDs or private raw data)
         env:
+          GITHUB_TOKEN: ${{ github.token }}
+          NIGHT_EXPECT_METRICS: '1'
           NIGHT_GATE_RESULT: ${{ needs.night-gate.result }}
           NIGHT_DISCOVERY_RESULT: ${{ needs.discovery.result }}
           NIGHT_KNOWN_RESULT: ${{ needs.known-videos.result }}
           NIGHT_FIREBASE_RESULT: ${{ needs.firebase.result }}
           NIGHT_ARTIFACT_READ_RESULT: ${{ steps.reports.outcome }}
         run: node scripts/moviehub-nightly-chain-report.mjs
+      - name: Save rolling Nightly count history
+        if: ${{ success() && needs.firebase.result == 'success' }}
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: artifacts/moviehub-nightly/history.json
+          key: nightly-count-history-v1-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Upload bounded anonymized cross-adapter report
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
