@@ -8,6 +8,7 @@
 import { matchJoynProgram } from './joyn-tmdb-matcher.mjs'
 import { projectConfirmedXmltvBroadcastEvent } from '../src/sources/xmltv/xmltvCandidates.js'
 import { normalizeSourceEnvelope, SOURCE_ADAPTER_CONTRACT_VERSION } from '../src/sources/sourceAdapterContract.js'
+import { xmltvAirFieldsForEvent } from '../src/sources/xmltv/xmltvAirRoutes.js'
 import { mergeTvAirings } from '../src/sources/mergeTvAirings.js'
 
 const text = (value) => String(value ?? '').trim()
@@ -178,7 +179,7 @@ export function buildXmltvConfirmedEnvelope(sourceId, events, {
   })
 }
 
-/** No XMLTV station/provider badge yet; only matched EPG programme evidence. */
+/** Only explicitly device-approved station links may accompany matched EPG evidence. */
 export function projectXmltvAiring(event) {
   if (event?.kind !== 'broadcast' || !event?.titleRef?.tmdbId ||
       !(event?.sourceRefs || []).some((ref) => text(ref.sourceId).startsWith('xmltv:'))) return null
@@ -195,8 +196,7 @@ export function projectXmltvAiring(event) {
     sourceStationId: event.extensions?.xmltv?.sourceStationId || null,
     sourceStationIds: [event.extensions?.xmltv?.sourceStationId].filter(Boolean),
     sourceRefs: event.sourceRefs,
-    providerIds: [],
-    playbackRoutes: [],
+    ...xmltvAirFieldsForEvent(event),
   }
 }
 

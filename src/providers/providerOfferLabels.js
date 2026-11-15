@@ -1,3 +1,5 @@
+import { isXmltvAirProviderId } from '../sources/xmltv/xmltvAirRoutes.js'
+
 // A display label is not a replacement for the underlying offer types.
 // Multiple TMDB offers stay available to notification checks and detail pages.
 const OFFER_TYPES = new Set(['flatrate', 'free', 'ads', 'rent', 'buy'])
@@ -25,6 +27,12 @@ export function providerOfferLabel(item, providerId, { context = 'title' } = {})
   const exactAiring = item?.tvAiring
   const airedBy = exactAiring?.providerIds || (exactAiring?.source ? [exactAiring.source] : [])
   if (context === 'airing' && (Array.isArray(airedBy) && airedBy.includes(providerId))) return 'AIR'
+
+  if (isXmltvAirProviderId(providerId)) {
+    if (context === 'airing') return null
+    const live = item?.liveAvailability?.[providerId]
+    return (Array.isArray(live?.airings) ? live.airings.length > 0 : Boolean(live?.nextAiring)) ? 'AIR' : null
+  }
 
   // When the exact YouTube video comes from a user-curated playlist, the
   // displayed offer classification must describe THAT selected source video.
