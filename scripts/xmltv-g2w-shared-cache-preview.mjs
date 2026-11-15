@@ -14,6 +14,7 @@ import { normalizeTmdbMatchCandidate } from './waipu-tmdb-matcher.mjs'
 import { runXmltvG2lPrivateAdapterCoordinator, isSafeXmltvG2lPrivateAdapterReport } from './xmltv-g2l-private-adapter-coordinator.mjs'
 
 import { isSafePrivateXmltvRuntimeReadiness } from './xmltv-g3-private-runtime-readiness.mjs'
+import { readConfirmedAiringHandoff } from './xmltv-confirmed-airing-handoff.mjs'
 
 const ROOT = resolve(fileURLToPath(new URL('..',import.meta.url)))
 const SNAPSHOT = 'artifacts/shared-tmdb/private/shared-tmdb-response-cache.json'
@@ -82,7 +83,8 @@ export function createG2wXmltvCandidateResolver(local, shared) {
   })
 }
 
-export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),coordinatorOptions={}}={}){
+export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),coordinatorOptions={},captureHandoff=null}={}){
+  if(captureHandoff!==null&&typeof captureHandoff!=='function') throw new TypeError('Invalid XMLTV handoff receiver')
   // Fixed runner-local paths: no arbitrary source URLs, cloud reads or writes.
   const file=join(root,CATALOG)
   const info=await lstat(file)
@@ -99,7 +101,9 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     throw new Error('G2W_COORDINATOR_OPTIONS_REJECTED')
   const options={stagingReportPath:join(root,'artifacts/xmltv-g2/report.json'),privateRoot:join(root,'artifacts/xmltv-g2/private'),...coordinatorOptions,now}
   const baseline=await runXmltvG2lPrivateAdapterCoordinator({...options,localCandidatesFor:local.localCandidatesFor})
-  const combined=await runXmltvG2lPrivateAdapterCoordinator({...options,localCandidatesFor:enhanced.localCandidatesFor,runtimeCatalog:catalog,runtimeSources})
+  let handoff=null
+  const combined=await runXmltvG2lPrivateAdapterCoordinator({...options,localCandidatesFor:enhanced.localCandidatesFor,runtimeCatalog:catalog,runtimeSources,
+    captureHandoff:captureHandoff?value=>{handoff=value}:null})
   if(!isSafeXmltvG2lPrivateAdapterReport(baseline)||!isSafeXmltvG2lPrivateAdapterReport(combined)||
     !isSafePrivateXmltvRuntimeReadiness(combined.runtimeReadiness,combined.locallyMatchedCount)||
     combined.runtimeReadiness.runtimeOverlap?.existingSourceCount!==runtimeSources.length||
@@ -114,6 +118,13 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     extra>c.cacheUniqueCandidateRows||hits.hits>c.cacheLookups||
     c.localHits+c.localConflicts+c.invalidLocal+c.cacheLookups>combined.selectedCandidateCount)
     throw new Error('G2W_COUNTS_REJECTED')
+  if(captureHandoff){
+    const checked=readConfirmedAiringHandoff(handoff,{now})
+    if(checked.events.length!==combined.runtimeReadiness.androidReadyRows||
+      checked.titleRefs.length!==combined.runtimeReadiness.metadataDemand.approvedUniqueTitles)
+      throw new Error('G2W_HANDOFF_PARITY_REJECTED')
+    captureHandoff(handoff)
+  }
   return {
     kind:'xmltv-g2w-private-shared-cache-preview',schemaVersion:1,
     loadStatus:loaded.status,restoredResponses:loaded.entries,

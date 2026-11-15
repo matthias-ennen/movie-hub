@@ -137,13 +137,14 @@ export async function runXmltvG2lPrivateAdapterCoordinator({
   maxCandidates = 20_000,
   runtimeCatalog = null,
   runtimeSources = null,
+  captureHandoff = null,
 } = {}) {
   if (!Number.isFinite(now) || typeof stagingReportPath !== 'string' ||
       !stagingReportPath.trim() || typeof privateRoot !== 'string' ||
       !privateRoot.trim() ||
       (localCandidatesFor !== null && typeof localCandidatesFor !== 'function') ||
       !Number.isSafeInteger(maxCandidates) || maxCandidates < 1 ||
-      maxCandidates > 20_000) {
+      maxCandidates > 20_000 || (captureHandoff !== null && typeof captureHandoff !== 'function')) {
     throw new TypeError('Invalid private XMLTV adapter coordinator options')
   }
   const folder = await lstat(privateRoot)
@@ -206,8 +207,10 @@ export async function runXmltvG2lPrivateAdapterCoordinator({
   // Real source data now pass through G2j's local matcher and the same shared
   // airing merge code used for Waipu/Joyn. With NO local TMDB catalogue,
   // explicitly return 0 matches; this is not a quality-rate measurement.
+  let handoff=null
   const match = await runXmltvG2jPrivateIntegrationPreview(entries, {
     now, maxCandidates, runtimeCatalog, runtimeSources,
+    captureHandoff: captureHandoff ? value=>{handoff=value} : null,
     localCandidatesFor: localCandidatesFor ?? (async () => []),
   })
   const perSource = report.sources.map(source => {
@@ -251,6 +254,7 @@ export async function runXmltvG2lPrivateAdapterCoordinator({
   if (!isSafeXmltvG2lPrivateAdapterReport(out)) {
     throw new TypeError('Unsafe private XMLTV adapter result')
   }
+  if(captureHandoff) captureHandoff(handoff)
   return out
 }
 

@@ -31,6 +31,16 @@ describe('XMLTV AIR source file plan',()=>{
     expect(plan.counts.pendingUniqueTitles).toBe(2)
     expect(plan.counts.unresolved).toBe(2)
   })
+  it('keeps episode number evidence but never feed episode titles or injected TMDB episode metadata',()=>{
+    const series={...movie,type:'series',mediaType:'tv',metadataChecks:{...movie.metadataChecks,seasons:'present'}}
+    const plan=planXmltvAirSourceFiles({confirmedEvents:[{...event,titleRef:{mediaType:'series',tmdbId:42},
+      episode:{seasonNumber:2,episodeNumber:4,title:'PRIVATE EPISODE',catalog:{tmdbId:987,seasonNumber:2,episodeNumber:4,title:'UNVERIFIED'}}}],
+      catalog:{titles:[series]},now})
+    const airing=plan.files[0].titles.entries[0].airings[0]
+    expect(airing.episode).toEqual({seasonNumber:2,episodeNumber:4,title:''})
+    expect(JSON.stringify(plan.files)).not.toContain('PRIVATE EPISODE')
+    expect(JSON.stringify(plan.files)).not.toContain('UNVERIFIED')
+  })
   it('rejects invalid station mapping, expired events and events outside preview horizon',()=>{
     const plan=planXmltvAirSourceFiles({confirmedEvents:[{...event,channelId:'ard'},
       {...event,startAt:'2026-11-15T18:00:00Z',endAt:'2026-11-15T20:00:00Z'},
