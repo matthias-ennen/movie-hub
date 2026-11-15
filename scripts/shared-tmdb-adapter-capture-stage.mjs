@@ -25,6 +25,7 @@ import {
 
 export const SHARED_TMDB_CAPTURE_OPT_IN = 'private-stage-capture-v1'
 export const SHARED_TMDB_REUSE_OPT_IN = 'private-stage-reuse-v1'
+export const SHARED_TMDB_PERSISTENT_OPT_IN = 'private-persistent-reuse-v1'
 const SOURCE_IDS = new Set(['waipu', 'joyn'])
 const RELATIVE_CACHE_FILE = 'artifacts/shared-tmdb/private/shared-tmdb-response-cache.json'
 
@@ -37,12 +38,14 @@ const RELATIVE_CACHE_FILE = 'artifacts/shared-tmdb/private/shared-tmdb-response-
  */
 export async function openOptionalSharedTmdbCapture({
   sourceId, enabled = false, projectRoot, now = Date.now(), reuse = false,
+  persistent = false, runStartedAt = null,
 } = {}) {
   if (!SOURCE_IDS.has(sourceId)) throw new TypeError('Unsupported capture source')
   if (enabled !== true) return null
   if (typeof projectRoot !== 'string' || !projectRoot.trim() ||
       !Number.isFinite(now)) throw new TypeError('Invalid private capture context')
-  if (reuse !== false && (reuse !== true || sourceId !== 'joyn')) throw new TypeError('Same-run reuse is permitted only for the second adapter Joyn')
+  if (persistent && (reuse !== true || !Number.isSafeInteger(runStartedAt) || runStartedAt <= 0 || runStartedAt > now || now-runStartedAt > 86400000)) return null
+  if (reuse !== false && (reuse !== true || (!persistent && sourceId !== 'joyn'))) throw new TypeError('Same-run reuse is permitted only for the second adapter Joyn')
   const file = resolve(projectRoot, RELATIVE_CACHE_FILE)
   const loaded = await loadOptionalSharedTmdbResponses(file, { now })
   if (!['loaded', 'missing'].includes(loaded.status)) {
@@ -50,19 +53,43 @@ export async function openOptionalSharedTmdbCapture({
       sourceId,
       loadStatus: loaded.status,
       responseCache: null,
-      summary: () => ({ loadStatus: loaded.status, restoredResponses: 0, sharedResponseHits: 0, capturedResponses: 0 }),
+      summary: () => ({ loadStatus: loaded.status, restoredResponses: 0, sharedResponseHits: 0, capturedResponses: 0, ...(persistent ? {priorRunHits:0,sameRunHits:0,evictedResponses:0} : {}) }),
       async complete() { return { status: 'unavailable', stored: 0 } },
     })
   }
 
-  const bridge = createSharedTmdbSearchResponseCache(loaded.store)
-  // Only answers present at second-process startup are eligible.
+  let evictedResponses=0, priorRunHits=0, sameRunHits=0
+  const rollingStore = {
+    get: (namespace,key)=>loaded.store.get(namespace,key),
+    set(namespace,key,value) {
+      const before = loaded.store.values.size
+      const existed = loaded.store.values.has(key)
+      const accepted = loaded.store.set(namespace,key,value,{rolling:true})
+      if (accepted && !existed && loaded.store.values.size===before) evictedResponses++
+      return accepted
+    },
+  }
+  const bridge = createSharedTmdbSearchResponseCache(persistent ? rollingStore : loaded.store)
+  // Only responses present at process startup qualify; writes in this process
+  // do not become new shared hits. Separate previous-night vs same-run reuse.
   const initialKeys = reuse && loaded.status === 'loaded'
-    ? new Set(loaded.store.snapshot().entries.map(entry => entry.requestKey)) : new Set()
+    ? new Map(loaded.store.snapshot().entries.map(entry => [entry.requestKey,Date.parse(entry.checkedAt)])) : new Map()
   let completed = false
   const responseCache = Object.freeze({
-    get(key) { return initialKeys.has(key) ? bridge.get(key) : null },
-    set(requestKey, payload) { return bridge.set(requestKey, payload) },
+    get(key) {
+      if (!initialKeys.has(key)) return null
+      const value=bridge.get(key)
+      if (persistent && value!=null) {
+        if (initialKeys.get(key)<runStartedAt) priorRunHits++
+        else sameRunHits++
+      }
+      return value
+    },
+    set(requestKey, payload) {
+      const accepted=bridge.set(requestKey,payload)
+      if(persistent && accepted) initialKeys.delete(requestKey)
+      return accepted
+    },
   })
   return Object.freeze({
     sourceId,
@@ -71,7 +98,8 @@ export async function openOptionalSharedTmdbCapture({
     summary() {
       const counts = bridge.counts()
       return { loadStatus: loaded.status, restoredResponses: loaded.entries,
-        sharedResponseHits: counts.hits, capturedResponses: counts.stored }
+        sharedResponseHits: counts.hits, capturedResponses: counts.stored,
+        ...(persistent ? {priorRunHits,sameRunHits,evictedResponses} : {}) }
     },
     async complete({ sourceGenerationComplete = false } = {}) {
       if (completed) return { status: 'already_finalized', stored: 0 }
@@ -83,6 +111,7 @@ export async function openOptionalSharedTmdbCapture({
       if (counts.stored === 0) {
         return { status: 'no_new_responses', stored: 0 }
       }
+      if (persistent) evictedResponses+=loaded.store.pruneSnapshotBytes()
       const write = await saveOptionalSharedTmdbResponses(file, loaded.store)
       return { status: write.status, stored: counts.stored }
     },
@@ -123,4 +152,14 @@ export function g2uSameRunObservation(sourceId, session, completion, actualSearc
     restoredResponses:counts.restoredResponses,sharedResponseHits:counts.sharedResponseHits,
     avoidedInitialSearches:counts.sharedResponseHits,capturedResponses:counts.capturedResponses,
     loadStatus:counts.loadStatus,saveStatus:completion.status,measuredWholeNightSavings:null}
+}
+
+/** Count-only persistent reuse; distinguish prior-run and within-run hits. */
+export function g2vPersistentObservation(sourceId,session,completion,actualSearchStarts) {
+  if (!SOURCE_IDS.has(sourceId)||!Number.isSafeInteger(actualSearchStarts)||actualSearchStarts<0) throw new TypeError('Invalid G2v observation')
+  const counts=session.summary()
+  if (![counts.restoredResponses,counts.sharedResponseHits,counts.capturedResponses,counts.priorRunHits,counts.sameRunHits,counts.evictedResponses].every(v=>Number.isSafeInteger(v)&&v>=0)||
+      counts.priorRunHits+counts.sameRunHits!==counts.sharedResponseHits) throw new TypeError('Invalid G2v counts')
+  return {kind:'g2v-original-adapter-persistent-reuse',sourceId,actualSearchStarts,
+    ...counts,avoidedInitialSearches:counts.sharedResponseHits,saveStatus:completion.status,measuredWholeNightSavings:null}
 }
