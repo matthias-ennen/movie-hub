@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { WaipuEpgCache, WaipuPublicApiClient } from './waipu-public-data.mjs'
 import {
   SHARED_TMDB_CAPTURE_OPT_IN, SHARED_TMDB_REUSE_OPT_IN, openOptionalSharedTmdbCapture,
-  g2uSameRunObservation,
+  g2uSameRunObservation, SHARED_TMDB_PERSISTENT_OPT_IN, g2vPersistentObservation,
 } from './shared-tmdb-adapter-capture-stage.mjs'
 import { withWaipuSingleFlight } from './waipu-sync-coordinator.mjs'
 import { WaipuProgramDetailLoader } from './waipu-program-detail-loader.mjs'
@@ -918,12 +918,14 @@ async function main() {
   const selected = new Set((syncStatus.stations || []).map(({ id }) => id))
   const stations = stationDirectory.filter(({ id }) => selected.has(id))
   const decisionsPath = resolve(process.env.WAIPU_MATCH_CACHE || resolve(projectRoot, 'artifacts/waipu-live/match-decisions.json'))
-  // Waipu is the first same-run producer; it never reads shared responses.
+  // Waipu reads previous-run responses only in explicit persistent mode.
+  const sharedTmdbPersistent = live && process.env.MOVIEHUB_SHARED_TMDB_REUSE === SHARED_TMDB_PERSISTENT_OPT_IN
   const sharedTmdbReuse = live && process.env.MOVIEHUB_SHARED_TMDB_REUSE === SHARED_TMDB_REUSE_OPT_IN
   const sharedTmdbCapture = live &&
-    (sharedTmdbReuse || process.env.MOVIEHUB_SHARED_TMDB_CAPTURE === SHARED_TMDB_CAPTURE_OPT_IN)
+    (sharedTmdbPersistent || sharedTmdbReuse || process.env.MOVIEHUB_SHARED_TMDB_CAPTURE === SHARED_TMDB_CAPTURE_OPT_IN)
     ? await openOptionalSharedTmdbCapture({
-      sourceId: 'waipu', enabled: true, projectRoot,
+      sourceId: 'waipu', enabled: true, projectRoot, reuse: sharedTmdbPersistent,
+      persistent: sharedTmdbPersistent, runStartedAt: Number(process.env.MOVIEHUB_SHARED_TMDB_RUN_STARTED_AT),
     })
     : null
   const tmdbSearchClient = process.env.TMDB_API_READ_TOKEN
@@ -1055,9 +1057,9 @@ async function main() {
             && syncStatus.status === 'complete',
         })
         process.stdout.write(`Private TMDB capture (Waipu): ${capture.status}; stored=${capture.stored}\n`)
-        if (sharedTmdbReuse) {
-          try { console.log(JSON.stringify(g2uSameRunObservation('waipu', sharedTmdbCapture, capture, tmdbSearchClient?.requestsStarted || 0))) }
-          catch { console.log('G2u count-only observation unavailable') }
+        if (sharedTmdbReuse || sharedTmdbPersistent) {
+          try { console.log(JSON.stringify((sharedTmdbPersistent ? g2vPersistentObservation : g2uSameRunObservation)('waipu', sharedTmdbCapture, capture, tmdbSearchClient?.requestsStarted || 0))) }
+          catch { console.log('Shared TMDB count-only observation unavailable') }
         }
       }
       process.stdout.write(`${JSON.stringify({

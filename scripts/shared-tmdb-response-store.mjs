@@ -8,7 +8,7 @@
  * The store implements JoynLookupCache's get(namespace,key)/set(namespace,key)
  * interface and works with createSharedTmdbSearchResponseCache(). It stores
  * raw *exact* TMDB request keys plus response bodies, NOT matcher decisions.
- * Nothing imports this from the productive Nightly/adapter pipeline.
+ * The central Nightly uses it only via explicit manual opt-in.
  *
  * A failed/corrupt/missing read returns an EMPTY store; an existing corrupt
  * file is NEVER silently overwritten. A lock and revision comparison protect
@@ -86,14 +86,45 @@ export class SharedTmdbResponseStore {
     return copySafeTmdbResponse(entry.value, path)
   }
 
-  set(namespace, key, response) {
+  set(namespace, key, response, { rolling = false } = {}) {
     if (namespace !== SHARED_TMDB_SEARCH_NAMESPACE) return false
     const path = sharedTmdbRequestPath(key)
     const value = path ? copySafeTmdbResponse(response, path) : null
-    if (!value || (this.values.size >= SHARED_TMDB_RESPONSE_STORE_MAX_ENTRIES &&
-        !this.values.has(key))) return false
+    if (!value) return false
+    if (this.values.size >= SHARED_TMDB_RESPONSE_STORE_MAX_ENTRIES && !this.values.has(key)) {
+      if (!rolling) return false
+      this.evictOldest()
+    }
     this.values.set(key, { checkedAt: new Date(this.now).toISOString(), value })
     return true
+  }
+
+  // Oldest fetch timestamp first, never a read timestamp. Keep the
+  // default non-rolling behavior for every other store consumer.
+  evictOldest() {
+    let oldest = null
+    for (const [key, entry] of this.values) {
+      if (!oldest || entry.checkedAt < oldest[1]) oldest = [key,entry.checkedAt]
+    }
+    if (oldest) this.values.delete(oldest[0])
+    return oldest?.[0] ?? null
+  }
+
+  pruneSnapshotBytes() {
+    // Account for the new UUID and newline before the atomic save.
+    const snapshot = this.snapshot('00000000-0000-0000-0000-000000000000')
+    let bytes = Buffer.byteLength(JSON.stringify(snapshot)+'\n')
+    let removed = 0
+    if (bytes > SHARED_TMDB_RESPONSE_STORE_MAX_BYTES) {
+      const ordered = snapshot.entries.sort((a,b)=>a.checkedAt.localeCompare(b.checkedAt))
+      for (const entry of ordered) {
+        if (bytes <= SHARED_TMDB_RESPONSE_STORE_MAX_BYTES) break
+        this.values.delete(entry.requestKey)
+        bytes -= Buffer.byteLength(JSON.stringify(entry))+1
+        removed++
+      }
+    }
+    return removed
   }
 
   snapshot(nextRevision = this.revision) {
@@ -120,7 +151,7 @@ export async function loadOptionalSharedTmdbResponses(file, { now = Date.now() }
     const parsed = JSON.parse(await readFile(file, 'utf8'))
     if (parsed?.kind !== KIND ||
         parsed.schemaVersion !== SHARED_TMDB_RESPONSE_STORE_VERSION ||
-        dateMs(parsed.generatedAt) === null ||
+        dateMs(parsed.generatedAt) === null || dateMs(parsed.generatedAt) > now ||
         typeof parsed.revision !== 'string') throw new TypeError('Unrecognized cache schema')
     const store = new SharedTmdbResponseStore({
       now, revision: parsed.revision, entries: parsed.entries,

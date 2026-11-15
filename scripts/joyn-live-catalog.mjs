@@ -6,7 +6,7 @@ import { withWaipuSingleFlight } from './waipu-sync-coordinator.mjs'
 import { JoynSourceGuard } from './joyn-source-guard.mjs'
 import {
   SHARED_TMDB_CAPTURE_OPT_IN, SHARED_TMDB_REUSE_OPT_IN, openOptionalSharedTmdbCapture,
-  g2uSameRunObservation,
+  g2uSameRunObservation, SHARED_TMDB_PERSISTENT_OPT_IN, g2vPersistentObservation,
 } from './shared-tmdb-adapter-capture-stage.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
@@ -25,10 +25,12 @@ export async function runJoynLiveCatalog({
     try {
       await guard.waitUntilAvailable()
       // Explicit same-run pilot only; original Joyn lookups retain priority.
+      const sharedTmdbPersistent = process.env.MOVIEHUB_SHARED_TMDB_REUSE === SHARED_TMDB_PERSISTENT_OPT_IN
       const sharedTmdbReuse = process.env.MOVIEHUB_SHARED_TMDB_REUSE === SHARED_TMDB_REUSE_OPT_IN
-      const sharedTmdbCapture = (sharedTmdbReuse || process.env.MOVIEHUB_SHARED_TMDB_CAPTURE === SHARED_TMDB_CAPTURE_OPT_IN)
+      const sharedTmdbCapture = (sharedTmdbPersistent || sharedTmdbReuse || process.env.MOVIEHUB_SHARED_TMDB_CAPTURE === SHARED_TMDB_CAPTURE_OPT_IN)
         ? await openOptionalSharedTmdbCapture({
-          sourceId: 'joyn', enabled: true, projectRoot: root, now, reuse: sharedTmdbReuse,
+          sourceId: 'joyn', enabled: true, projectRoot: root, now, reuse: sharedTmdbReuse || sharedTmdbPersistent,
+          persistent: sharedTmdbPersistent, runStartedAt: Number(process.env.MOVIEHUB_SHARED_TMDB_RUN_STARTED_AT),
         }) : null
       const { summary, envelope, publication } = await runJoynAdapterDiagnostic({
         now,
@@ -48,9 +50,9 @@ export async function runJoynLiveCatalog({
           sourceGenerationComplete: validation.valid === true,
         })
         process.stdout.write(`Private TMDB capture (Joyn): ${capture.status}; stored=${capture.stored}\n`)
-        if (sharedTmdbReuse) {
-          try { console.log(JSON.stringify(g2uSameRunObservation('joyn', sharedTmdbCapture, capture, summary?.matching?.tmdbRequests || 0))) }
-          catch { console.log('G2u count-only observation unavailable') }
+        if (sharedTmdbReuse || sharedTmdbPersistent) {
+          try { console.log(JSON.stringify((sharedTmdbPersistent ? g2vPersistentObservation : g2uSameRunObservation)('joyn', sharedTmdbCapture, capture, summary?.matching?.tmdbRequests || 0))) }
+          catch { console.log('Shared TMDB count-only observation unavailable') }
         }
       }
       process.stdout.write(JSON.stringify({

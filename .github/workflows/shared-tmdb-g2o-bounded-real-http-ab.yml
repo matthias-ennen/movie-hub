@@ -11,6 +11,8 @@ on:
       - scripts/shared-tmdb-g2s-nightly-original-baseline.mjs
       - tests/shared-tmdb-g2s-nightly-original-baseline.test.js
       - .github/workflows/deploy-firebase.yml
+      - scripts/shared-tmdb-g2v-private-checkpoint.mjs
+      - tests/shared-tmdb-g2v-private-checkpoint.test.js
       - scripts/shared-tmdb-g2n-private-response-replay.mjs
       - scripts/shared-tmdb-response-store.mjs
       - scripts/waipu-tmdb-matcher.mjs
@@ -26,6 +28,8 @@ on:
       - scripts/shared-tmdb-g2s-nightly-original-baseline.mjs
       - tests/shared-tmdb-g2s-nightly-original-baseline.test.js
       - .github/workflows/deploy-firebase.yml
+      - scripts/shared-tmdb-g2v-private-checkpoint.mjs
+      - tests/shared-tmdb-g2v-private-checkpoint.test.js
       - .github/workflows/shared-tmdb-g2o-bounded-real-http-ab.yml
   workflow_dispatch:
     inputs:
@@ -62,6 +66,7 @@ jobs:
           tests/shared-tmdb-response-store.test.js
           tests/shared-tmdb-search-response-cache.test.js
           tests/shared-tmdb-adapter-capture-stage.test.js
+          tests/shared-tmdb-g2v-private-checkpoint.test.js
 
   real-tmdb-http-ab:
     name: Manual PRIVATE maximum-six REAL TMDB searches using original clients
