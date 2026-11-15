@@ -172,6 +172,24 @@
             "value": "public, max-age=31536000, immutable"
           }
         ]
+      },
+      {
+        "source": "/xmltv-air/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store"
+          }
+        ]
+      },
+      {
+        "source": "/air-*-live/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store"
+          }
+        ]
       }
     ],
     "rewrites": [
