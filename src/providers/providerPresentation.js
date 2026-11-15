@@ -1,3 +1,5 @@
+import { isXmltvAirProviderId } from '../sources/xmltv/xmltvAirRoutes.js'
+
 function text(value) {
   return String(value ?? '').trim()
 }
@@ -51,14 +53,14 @@ export function resolveProviderPresentation(item, {
   context = 'title',
   hasMovieHub = false,
 } = {}) {
-  const tmdbIds = tmdbProviderIds(item)
+  const tmdbIds = tmdbProviderIds(item).filter((id) => !isXmltvAirProviderId(id))
   // Independently verified title-wide offers are additive. They must never
   // impersonate TMDB evidence or a live-TV airing.
   const verifiedTitleIds = unique(
     (Array.isArray(item?.verifiedTitleOffers) ? item.verifiedTitleOffers : [])
       .filter((offer) => Array.isArray(offer?.offerTypes) && offer.offerTypes.length)
       .map((offer) => offer?.id),
-  )
+  ).filter((id) => !isXmltvAirProviderId(id))
   const preview = item?.curatedPlaylistTitleOffer
   const editorialTitleIds = preview?.id === 'youtube'
     && preview?.provenance === 'playlist-declared-not-verified'

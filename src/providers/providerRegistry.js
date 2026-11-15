@@ -1,3 +1,5 @@
+import { APPROVED_XMLTV_AIR_PROVIDERS } from '../sources/xmltv/xmltvAirRoutes.js'
+
 export const PROVIDER_REGISTRY = [
   {
     id: 'moviehub',
@@ -226,6 +228,7 @@ export const PROVIDER_REGISTRY = [
     searchUrl: () => 'https://app.waipu.tv/waiputhek',
     liveFallbackUrl: 'https://www.waipu.tv/fernsehen/',
   },
+  ...APPROVED_XMLTV_AIR_PROVIDERS,
 ]
 
 export const PROVIDER_BY_ID = Object.fromEntries(PROVIDER_REGISTRY.map((provider) => [provider.id, provider]))

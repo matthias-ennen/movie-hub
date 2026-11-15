@@ -20,6 +20,19 @@ final class ProviderUrlPolicy {
             return false;
         }
 
+        // Linear station identities are bound to one exact reviewed URL.
+        if (providerId != null && providerId.startsWith("air-")) {
+            switch (providerId) {
+                case "air-ard": return "https://www.ardmediathek.de/live/Y3JpZDovL2Rhc2Vyc3RlLmRlL2xpdmUvY2xpcC9hYmNhMDdhMy0zNDc2LTQ4NTEtYjE2Mi1mZGU4ZjY0NmQ0YzQ".equals(rawUrl);
+                case "air-zdf": return "https://www.zdf.de/live-tv/zdf-live-beitrag-100".equals(rawUrl);
+                case "air-rtl": return "https://plus.rtl.de/rtlde-rtl".equals(rawUrl);
+                case "air-pro7": return "https://www.joyn.de/live-tv/prosieben".equals(rawUrl);
+                case "air-sat1": return "https://www.joyn.de/live-tv/sat1".equals(rawUrl);
+                case "air-vox": return "https://plus.rtl.de/rtlde-vox".equals(rawUrl);
+                default: return false;
+            }
+        }
+
         String host = uri.getHost().toLowerCase(Locale.ROOT);
         for (String domain : domainsFor(providerId)) {
             if (domain.equals(host) || host.endsWith("." + domain)) return true;

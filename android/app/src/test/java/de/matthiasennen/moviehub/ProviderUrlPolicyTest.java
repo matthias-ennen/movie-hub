@@ -19,6 +19,25 @@ public final class ProviderUrlPolicyTest {
     }
 
     @Test
+    public void acceptsOnlyExactReviewedLinearStationTargets() {
+        assertTrue(ProviderUrlPolicy.isAllowed("air-ard", "https://www.ardmediathek.de/live/Y3JpZDovL2Rhc2Vyc3RlLmRlL2xpdmUvY2xpcC9hYmNhMDdhMy0zNDc2LTQ4NTEtYjE2Mi1mZGU4ZjY0NmQ0YzQ"));
+        assertFalse(ProviderUrlPolicy.isAllowed("air-ard", "https://www.ardmediathek.de/live/Y3JpZDovL2Rhc2Vyc3RlLmRlL2xpdmUvY2xpcC9hYmNhMDdhMy0zNDc2LTQ4NTEtYjE2Mi1mZGU4ZjY0NmQ0YzQ?redirect=other"));
+        assertTrue(ProviderUrlPolicy.isAllowed("air-zdf", "https://www.zdf.de/live-tv/zdf-live-beitrag-100"));
+        assertFalse(ProviderUrlPolicy.isAllowed("air-zdf", "https://www.zdf.de/live-tv/zdf-live-beitrag-100?redirect=other"));
+        assertTrue(ProviderUrlPolicy.isAllowed("air-rtl", "https://plus.rtl.de/rtlde-rtl"));
+        assertFalse(ProviderUrlPolicy.isAllowed("air-rtl", "https://plus.rtl.de/rtlde-rtl?redirect=other"));
+        assertTrue(ProviderUrlPolicy.isAllowed("air-pro7", "https://www.joyn.de/live-tv/prosieben"));
+        assertFalse(ProviderUrlPolicy.isAllowed("air-pro7", "https://www.joyn.de/live-tv/prosieben?redirect=other"));
+        assertTrue(ProviderUrlPolicy.isAllowed("air-sat1", "https://www.joyn.de/live-tv/sat1"));
+        assertFalse(ProviderUrlPolicy.isAllowed("air-sat1", "https://www.joyn.de/live-tv/sat1?redirect=other"));
+        assertTrue(ProviderUrlPolicy.isAllowed("air-vox", "https://plus.rtl.de/rtlde-vox"));
+        assertFalse(ProviderUrlPolicy.isAllowed("air-vox", "https://plus.rtl.de/rtlde-vox?redirect=other"));
+        assertFalse(ProviderUrlPolicy.isAllowed("air-rtl", "https://plus.rtl.de/rtlde-vox"));
+        assertFalse(ProviderUrlPolicy.isAllowed("air-pro7", "https://www.joyn.de/live-tv/sat1"));
+        assertFalse(ProviderUrlPolicy.isAllowed("air-unknown", "https://www.zdf.de/live-tv/zdf-live-beitrag-100"));
+    }
+
+    @Test
     public void rejectsMismatchedSpoofedAndInsecureUrls() {
         assertFalse(ProviderUrlPolicy.isAllowed("disney", "https://www.netflix.com/title/81914143"));
         assertFalse(ProviderUrlPolicy.isAllowed("netflix", "https://netflix.com.example.org/title/81914143"));

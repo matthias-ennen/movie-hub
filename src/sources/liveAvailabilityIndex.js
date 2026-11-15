@@ -1,3 +1,4 @@
+import { isXmltvAirProviderId } from './xmltv/xmltvAirRoutes.js'
 import { fetchJsonWithTimeout } from '../performance/fetchJson.js'
 import { mapCooperatively, sameItems } from '../performance/cooperativeWork.js'
 import { isTvAiringOnAir, isTvAiringSoon, nextTvAiringTransition } from '../waipu/waipuAiringStatus.js'
@@ -230,7 +231,7 @@ export function advanceLiveAvailabilityEntries(entries = [], { now = Date.now() 
 
 function tmdbProviderIds(item) {
   if (Array.isArray(item?.tmdbProviderIds)) {
-    return [...new Set(item.tmdbProviderIds.map(String).filter(Boolean))]
+    return [...new Set(item.tmdbProviderIds.map(String).filter((id) => id && !isXmltvAirProviderId(id)))]
   }
   const offers = Array.isArray(item?.tmdbProviderOffers)
     ? item.tmdbProviderOffers
@@ -240,7 +241,7 @@ function tmdbProviderIds(item) {
   const fromOffers = offers
     .filter((offer) => Number.isFinite(Number(offer?.tmdbProviderId)))
     .map((offer) => text(offer?.id))
-    .filter(Boolean)
+    .filter((id) => id && !isXmltvAirProviderId(id))
   if (fromOffers.length) return [...new Set(fromOffers)]
   if (Array.isArray(item?.providerIds)) {
     const liveIds = new Set(Object.keys(item?.liveAvailability || {}))
@@ -249,6 +250,7 @@ function tmdbProviderIds(item) {
       .filter((providerId) => providerId
         && providerId !== 'moviehub'
         && providerId !== 'waipu'
+        && !isXmltvAirProviderId(providerId)
         && !liveIds.has(providerId)))]
   }
   return []
