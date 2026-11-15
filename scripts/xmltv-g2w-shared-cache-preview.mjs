@@ -3,6 +3,7 @@
  * TMDB search-response consumer. This is a private read-only Nightly preview,
  * not publication or an identity-index enablement. No extra TMDB HTTP starts.
  */
+import { isTrustedCentralNightlyEvent } from './trusted-central-nightly-event.mjs'
 import { lstat, readFile } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -139,8 +140,7 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
 }
 
 async function main(){
-  if(process.argv.length!==2||process.env.GITHUB_EVENT_NAME!=='workflow_dispatch'||
-     process.env.GITHUB_REF!=='refs/heads/main'||process.env.MOVIEHUB_XMLTV_PRIVATE_PREVIEW!=='enabled')
+  if(process.argv.length!==2||!isTrustedCentralNightlyEvent(process.env)||process.env.MOVIEHUB_XMLTV_PRIVATE_PREVIEW!=='enabled')
     throw new Error('G2W_APPROVAL_REJECTED')
   const enabled=process.env.MOVIEHUB_XMLTV_CANONICAL_HANDOFF==='enabled'
   let handoff=null

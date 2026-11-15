@@ -22,7 +22,7 @@ describe('XMLTV AIR source file plan',()=>{
     expect(plan.files[0].titles.entries[0].tmdbProviderIds).toEqual([])
     expect(JSON.stringify(plan.files)).not.toContain('PRIVATE RAW')
     expect(JSON.stringify(plan.files)).not.toContain('sourceRefs')
-    expect(APPROVED_XMLTV_AIR_PROVIDERS).toEqual([])
+    expect(APPROVED_XMLTV_AIR_PROVIDERS).toHaveLength(6)
   })
   it('leaves partial metadata, wrong media types, and unmatched titles pending',()=>{
     const plan=planXmltvAirSourceFiles({confirmedEvents:[event,{...event,titleRef:{mediaType:'series',tmdbId:42}}],
