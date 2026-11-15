@@ -20,6 +20,29 @@ const SNAPSHOT = 'artifacts/shared-tmdb/private/shared-tmdb-response-cache.json'
 const CATALOG = 'public/catalog.json'
 const MAX_CATALOG_BYTES=96*1024*1024
 
+// These are the exact same runner-local catalogue files used by the normal
+// TV runtime publication, after both original source adapters have succeeded.
+// Never scan other source directories or accept an external path/URL.
+export async function readG2wExistingRuntimeSources(root){
+  const sources=[]
+  for(const providerId of ['joyn','waipu']){
+    const dir=join(root,'public',providerId+'-live')
+    let folder
+    try{folder=await lstat(dir)}catch(error){if(error.code==='ENOENT')continue;throw error}
+    if(!folder.isDirectory()||folder.isSymbolicLink())throw new Error('G2W_SOURCE_DIRECTORY_REJECTED')
+    const file=join(dir,'titles.json'),info=await lstat(file)
+    if(!info.isFile()||info.isSymbolicLink()||info.size<1||info.size>MAX_CATALOG_BYTES)
+      throw new Error('G2W_SOURCE_CATALOG_REJECTED')
+    const raw=JSON.parse(await readFile(file,'utf8'))
+    if(!Array.isArray(raw?.entries)||!raw.entries.length||raw.entries.length>100000||
+      raw.entries.some(e=>!e||typeof e!=='object'||Array.isArray(e))||
+      raw.entries.reduce((n,e)=>n+(Array.isArray(e.airings)?e.airings.length:e.nextAiring?1:0),0)>250000)
+      throw new Error('G2W_SOURCE_CATALOG_REJECTED')
+    sources.push({providerId,entries:raw.entries})
+  }
+  return sources
+}
+
 /** G2m local candidates remain authoritative, including its ambiguity block.
  * Only a genuine local miss looks up a literal, typed G2n request. Do not turn
  * any ambiguous cached result into an artificially unique candidate. */
@@ -66,6 +89,7 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
   if(!info.isFile()||info.isSymbolicLink()||info.size<1||info.size>MAX_CATALOG_BYTES)
     throw new Error('G2W_CATALOG_REJECTED')
   const catalog=JSON.parse(await readFile(file,'utf8'))
+  const runtimeSources=await readG2wExistingRuntimeSources(root)
   const local=createXmltvG2mVerifiedLocalResolver(catalog,{now})
   const loaded=await loadOptionalSharedTmdbResponses(join(root,SNAPSHOT),{now})
   const shared=createG2nXmltvCachedResponseResolver(loaded.store)
@@ -75,9 +99,10 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     throw new Error('G2W_COORDINATOR_OPTIONS_REJECTED')
   const options={stagingReportPath:join(root,'artifacts/xmltv-g2/report.json'),privateRoot:join(root,'artifacts/xmltv-g2/private'),...coordinatorOptions,now}
   const baseline=await runXmltvG2lPrivateAdapterCoordinator({...options,localCandidatesFor:local.localCandidatesFor})
-  const combined=await runXmltvG2lPrivateAdapterCoordinator({...options,localCandidatesFor:enhanced.localCandidatesFor,runtimeCatalog:catalog})
+  const combined=await runXmltvG2lPrivateAdapterCoordinator({...options,localCandidatesFor:enhanced.localCandidatesFor,runtimeCatalog:catalog,runtimeSources})
   if(!isSafeXmltvG2lPrivateAdapterReport(baseline)||!isSafeXmltvG2lPrivateAdapterReport(combined)||
     !isSafePrivateXmltvRuntimeReadiness(combined.runtimeReadiness,combined.locallyMatchedCount)||
+    combined.runtimeReadiness.runtimeOverlap?.existingSourceCount!==runtimeSources.length||
     baseline.selectedCandidateCount!==combined.selectedCandidateCount||
     baseline.selectedSources!==combined.selectedSources||
     baseline.locallyMatchedCount>combined.locallyMatchedCount||
@@ -106,8 +131,10 @@ async function main(){
      process.env.GITHUB_REF!=='refs/heads/main'||process.env.MOVIEHUB_XMLTV_PRIVATE_PREVIEW!=='enabled')
     throw new Error('G2W_APPROVAL_REJECTED')
   const result=await runG2wXmltvSharedCachePreview()
+  if(result.runtimeReadiness.runtimeOverlap.existingSourceCount!==2)throw new Error('G2W_EXISTING_SOURCE_MISSING')
   console.log(JSON.stringify(result))
   if(!result.validatedSources) process.exitCode=1
 }
 if(process.argv[1]&&pathToFileURL(resolve(process.argv[1])).href===import.meta.url)
   main().catch(()=>{console.error('G2w private XMLTV preview unavailable; Waipu/Joyn and published data unchanged');process.exitCode=1})
+

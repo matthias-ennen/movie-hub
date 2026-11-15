@@ -37,6 +37,7 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
   joynAirings = [],
   maxCandidates = MAX_PRIVATE_QA_CANDIDATES,
   runtimeCatalog = null,
+  runtimeSources = null,
 } = {}) {
   if (!Number.isFinite(now) || typeof localCandidatesFor !== 'function' ||
       !Number.isSafeInteger(maxCandidates) || maxCandidates < 1 ||
@@ -138,6 +139,7 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
     publishApproved: false,
     tmdbIdentityApproved: false,
     playbackRoutesApproved: false,
-    ...(runtimeCatalog === null ? {} : { runtimeReadiness: summarizePrivateXmltvRuntimeReadiness(allConfirmedEvents, runtimeCatalog, { now }) }),
+    ...(runtimeCatalog === null ? {} : { runtimeReadiness: summarizePrivateXmltvRuntimeReadiness(allConfirmedEvents, runtimeCatalog, { now, existingSources: runtimeSources }) }),
   }
 }
+
