@@ -61,6 +61,25 @@ export function canonicalForIdentity(value, entry) {
   }
 }
 
+// XMLTV attests a broadcast and a typed identity, never TMDB metadata or a
+// streaming offer. Reuse only an exact, complete canonical TMDB copy and
+// retain provider evidence from TMDB itself, not linear-source membership.
+export function canonicalXmltvMetadata(value, entry) {
+  if(value?.source!=='tmdb'||canonicalKey(entry)!==entry?.key||canonicalKey(value)!==entry?.key||
+    titleNeedsMetadataEnrichment(value,{requireContract:true})) return null
+  const validId=id=>typeof id==='string'&&id.length>0&&id!=='waipu'&&id!=='moviehub'&&!id.startsWith('air-')
+  const offers=(Array.isArray(value.tmdbProviderOffers)?value.tmdbProviderOffers:
+    Array.isArray(value.providerOffers)?value.providerOffers:[])
+    .filter(o=>validId(o?.id)&&Number.isSafeInteger(Number(o.tmdbProviderId))&&Number(o.tmdbProviderId)>0)
+  const ids=[...new Set((Array.isArray(value.tmdbProviderIds)?value.tmdbProviderIds:offers.map(o=>o.id)).filter(validId))]
+  // A nonempty provider list with no authoritative proof cannot be reused.
+  if(value.metadataChecks?.providers==='present'&&!Array.isArray(value.tmdbProviderIds)&&
+    Array.isArray(value.providerIds)&&value.providerIds.length&&!offers.length) return null
+  const tmdbOffers=offers.filter(o=>ids.includes(o.id))
+  return {...canonicalForIdentity(value,entry),providerIds:ids,tmdbProviderIds:ids,
+    providerOffers:tmdbOffers,tmdbProviderOffers:tmdbOffers}
+}
+
 export function selectReusableCanonical(values, {
   now = Date.now(),
   maxAgeDays = CANONICAL_METADATA_MAX_AGE_DAYS,
@@ -125,14 +144,18 @@ export async function executeTitlePriorityQueue({
   // allowed to fan it out to files or Firestore.
   const resolved = await mapWithConcurrency(selected, concurrency, async (entry) => {
     let canonical = null
-    if (entry.action === 'reuse-canonical') {
-      canonical = selectReusableCanonical(candidateValues.get(entry.key), {
+    const xmltv=entry.sources?.includes('xmltv')===true
+    const allowXmltvReuse=xmltv&&entry.action==='fetch-tmdb'&&entry.metadata?.canonicalPublicationPending===true&&
+      !entry.reasons?.includes('tmdb-changed')
+    if (entry.action === 'reuse-canonical' || allowXmltvReuse) {
+      const values=candidateValues.get(entry.key)
+      canonical = selectReusableCanonical(xmltv?(Array.isArray(values)?values:[]).map(v=>canonicalXmltvMetadata(v,entry)).filter(Boolean):values, {
         now, maxAgeDays, requireFacets: Number(entry.metadata?.facetGapReferences) > 0,
       })
       if (canonical) reused += 1
-      else reuseFallbacks += 1
+      else if(entry.action==='reuse-canonical') reuseFallbacks += 1
     }
-    if (entry.action === 'fetch-tmdb' || (entry.action === 'reuse-canonical' && !canonical)) {
+    if (!canonical && ['fetch-tmdb','reuse-canonical'].includes(entry.action)) {
       if (typeof loadTitle !== 'function') throw new Error(`TMDB loader is unavailable for ${entry.key}.`)
       try {
         canonical = await loadTitle(entry, generatedAt)
@@ -142,11 +165,11 @@ export async function executeTitlePriorityQueue({
         notFound += 1
         return null
       }
-    } else if (entry.action !== 'reuse-canonical') {
+    } else if (!['fetch-tmdb','reuse-canonical'].includes(entry.action)) {
       throw new Error(`Unsupported title priority action for ${entry.key}: ${entry.action}`)
     }
-    const normalized = canonicalForIdentity(canonical, entry)
-    if (titleNeedsMetadataEnrichment(normalized, { requireContract: true })) {
+    const normalized = xmltv?canonicalXmltvMetadata(canonical,entry):canonicalForIdentity(canonical, entry)
+    if (!normalized || titleNeedsMetadataEnrichment(normalized, { requireContract: true })) {
       throw new Error(`Canonical metadata is incomplete for ${entry.key}.`)
     }
     return [entry.key, normalized]
@@ -264,8 +287,20 @@ export function buildCanonicalFanoutPlan({
   profileDocuments = [],
   movieHubDocuments = [],
   youtubeApprovedKeys = new Set(),
+  xmltvApprovedKeys = new Set(),
   generatedAt = new Date().toISOString(),
 } = {}) {
+  // Explicitly approved XMLTV identities only. The live CLI does not supply
+  // this set until the independent source-publication handoff is enabled.
+  const xmltvKeys=xmltvApprovedKeys instanceof Set?xmltvApprovedKeys:new Set()
+  updates=new Map(updates)
+  for(const key of xmltvKeys){
+    if(!updates.has(key))continue
+    const identity=canonicalTitleIdentity(updates.get(key))
+    const canonical=identity?.key===key?canonicalXmltvMetadata(updates.get(key),identity):null
+    if(!canonical)throw new Error('XMLTV canonical fan-out rejected')
+    updates.set(key,canonical)
+  }
   const catalogResult = updateMatchingEntries(catalog.titles, updates)
   // Only positively verified YouTube source identities may add a film to
   // the existing browse/catalog surface. TMDB metadata remains authoritative.
@@ -279,6 +314,12 @@ export function buildCanonicalFanoutPlan({
     existingCatalogKeys.add(key)
   }
   youtubeCatalogAdditions.sort((left, right) => canonicalKey(left).localeCompare(canonicalKey(right)))
+  const xmltvCatalogAdditions=[]
+  for(const key of [...xmltvKeys].sort()){
+    if(existingCatalogKeys.has(key)||!updates.has(key))continue
+    xmltvCatalogAdditions.push(updates.get(key))
+    existingCatalogKeys.add(key)
+  }
   const waipuResult = updateMatchingEntries(waipuTitles.entries, updates)
   const joynResult = updateMatchingEntries(joynTitles.entries, updates)
   const nextSearchShards = new Map([...searchShards].map(([bucket, shard]) => [bucket, {
@@ -384,7 +425,7 @@ export function buildCanonicalFanoutPlan({
   }
 
   return {
-    catalog: { ...catalog, titles: [...catalogResult.entries, ...youtubeCatalogAdditions] },
+    catalog: { ...catalog, titles: [...catalogResult.entries, ...youtubeCatalogAdditions,...xmltvCatalogAdditions] },
     searchIndex: {
       ...searchIndex,
       generatedAt,
@@ -398,6 +439,7 @@ export function buildCanonicalFanoutPlan({
     counts: {
       catalogUpdated: catalogResult.updated,
       ...(youtubeCatalogAdditions.length ? { youtubeCatalogAdded: youtubeCatalogAdditions.length } : {}),
+      ...(xmltvCatalogAdditions.length ? { xmltvCatalogAdded: xmltvCatalogAdditions.length } : {}),
       waipuUpdated: waipuResult.updated,
       joynUpdated: joynResult.updated,
       searchDetailsUpdated,
@@ -487,6 +529,8 @@ async function main() {
     movieHubDocuments: movieHubSnapshot.docs,
   })
   const selectedEntries = selectedQueueEntries(preview)
+  if(selectedEntries.some(entry=>entry.sources?.includes('xmltv')))
+    throw new Error('XMLTV canonical publication handoff is not enabled')
   const executionNow = new Date()
   const maxAgeDays = Number(process.env.TITLE_CANONICAL_MAX_AGE_DAYS || CANONICAL_METADATA_MAX_AGE_DAYS)
   const needsTmdb = selectedEntries.some(entry => entry.action === 'fetch-tmdb'
@@ -569,3 +613,4 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(1)
   })
 }
+
