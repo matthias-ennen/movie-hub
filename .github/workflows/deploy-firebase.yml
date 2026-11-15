@@ -520,6 +520,12 @@ jobs:
           MOVIEHUB_XMLTV_CANONICAL_HANDOFF: enabled
         run: node scripts/xmltv-air-post-canonical-plan.mjs
 
+      - name: Restore and prepare verified XMLTV station generations
+        id: xmltv_air_publication
+        env:
+          MOVIEHUB_XMLTV_CANONICAL_HANDOFF: ${{ inputs.xmltv_canonical_handoff == true && steps.g2w_preview.outcome == 'success' && steps.canonical_executor.outcome == 'success' && 'enabled' || '' }}
+        run: node scripts/xmltv-air-deployment.mjs prepare
+
       - name: Acknowledge Movie-Hub metadata change consumer
         if: ${{ steps.canonical_executor.outcome == 'success' }}
         run: npm run tmdb:changes:ack -- moviehub-metadata

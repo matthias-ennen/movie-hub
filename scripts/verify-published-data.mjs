@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import { verifyXmltvAirDeployment } from './xmltv-air-deployment.mjs'
 import { pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
@@ -276,6 +277,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
       await verifyTvRuntimeTitlePublication({prepared:true})
       console.log('Prepared source generations, YouTube routes and app data verified before deployment.')
     }else await verifyPublishedGeneration({requireJoynHorizon})
+    const air=await verifyXmltvAirDeployment({prepared})
+    console.log('XMLTV AIR manifest verified: '+air.stations+' stations.')
   }
   try{
     await verifyPublicationWithBoundedConvergence({
