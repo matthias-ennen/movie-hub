@@ -137,6 +137,13 @@ android {
     }
 
     buildTypes {
+        // Side-by-side device QA: never replaces the installed MovieHub app.
+        airQa {
+            initWith debug
+            applicationIdSuffix '.airqa'
+            versionNameSuffix '-airqa'
+            matchingFallbacks = ['debug']
+        }
         release {
             if (signingPropertiesFile.exists()) {
                 signingConfig signingConfigs.release

@@ -117,7 +117,7 @@ describe('XMLTV G3 verified sender-only routes', () => {
     const native = readFileSync(new URL('../android/app/src/main/java/de/matthiasennen/moviehub/ProviderUrlPolicy.java',
       import.meta.url), 'utf8')
     for (const row of XMLTV_AIR_ROUTE_CANDIDATES) {
-      expect(native).toContain('case "' + row.providerId + '": return "' + row.target + '".equals(rawUrl);')
+      expect(native).toContain('case "' + row.providerId + '": return "' + row.target + '";')
     }
   })
 })

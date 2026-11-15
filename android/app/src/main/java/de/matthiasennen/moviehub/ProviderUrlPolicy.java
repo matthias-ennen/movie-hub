@@ -22,15 +22,8 @@ final class ProviderUrlPolicy {
 
         // Linear station identities are bound to one exact reviewed URL.
         if (providerId != null && providerId.startsWith("air-")) {
-            switch (providerId) {
-                case "air-ard": return "https://www.ardmediathek.de/live/Y3JpZDovL2Rhc2Vyc3RlLmRlL2xpdmUvY2xpcC9hYmNhMDdhMy0zNDc2LTQ4NTEtYjE2Mi1mZGU4ZjY0NmQ0YzQ".equals(rawUrl);
-                case "air-zdf": return "https://www.zdf.de/live-tv/zdf-live-beitrag-100".equals(rawUrl);
-                case "air-rtl": return "https://plus.rtl.de/rtlde-rtl".equals(rawUrl);
-                case "air-pro7": return "https://www.joyn.de/live-tv/prosieben".equals(rawUrl);
-                case "air-sat1": return "https://www.joyn.de/live-tv/sat1".equals(rawUrl);
-                case "air-vox": return "https://plus.rtl.de/rtlde-vox".equals(rawUrl);
-                default: return false;
-            }
+            String exact = airStationTarget(providerId);
+            return exact != null && exact.equals(rawUrl);
         }
 
         String host = uri.getHost().toLowerCase(Locale.ROOT);
@@ -38,6 +31,20 @@ final class ProviderUrlPolicy {
             if (domain.equals(host) || host.endsWith("." + domain)) return true;
         }
         return false;
+    }
+
+    /** The exact shared target for the production launcher and the private device QA. */
+    static String airStationTarget(String providerId) {
+        if (providerId == null) return null;
+        switch (providerId) {
+            case "air-ard": return "https://www.ardmediathek.de/live/Y3JpZDovL2Rhc2Vyc3RlLmRlL2xpdmUvY2xpcC9hYmNhMDdhMy0zNDc2LTQ4NTEtYjE2Mi1mZGU4ZjY0NmQ0YzQ";
+            case "air-zdf": return "https://www.zdf.de/live-tv/zdf-live-beitrag-100";
+            case "air-rtl": return "https://plus.rtl.de/rtlde-rtl";
+            case "air-pro7": return "https://www.joyn.de/live-tv/prosieben";
+            case "air-sat1": return "https://www.joyn.de/live-tv/sat1";
+            case "air-vox": return "https://plus.rtl.de/rtlde-vox";
+            default: return null;
+        }
     }
 
     private static String[] domainsFor(String providerId) {

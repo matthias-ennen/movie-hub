@@ -6,6 +6,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      build_air_qa:
+        description: 'Build separate Movie Hub AIR test APK (no publication)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -42,6 +47,32 @@ jobs:
 
       - name: Build debug APK
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+
+      - name: Build isolated AIR device-test APK
+        if: (github.event_name == 'pull_request' && startsWith(github.head_ref, 'work/336-g3-air-qa-')) || inputs.build_air_qa == true
+        run: gradle --no-daemon :app:assembleAirQa
+
+      - name: Verify AIR APK cannot replace production APK
+        if: (github.event_name == 'pull_request' && startsWith(github.head_ref, 'work/336-g3-air-qa-')) || inputs.build_air_qa == true
+        run: |
+          apk="$(find app/build/outputs/apk/airQa -maxdepth 1 -name '*.apk' -type f -print -quit)"
+          test -n "$apk"
+          badging="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk")"
+          printf '%s\n' "$badging" | grep -F "package: name='de.matthiasennen.moviehub.airqa'"
+          printf '%s\n' "$badging" | grep -F "launchable-activity: name='de.matthiasennen.moviehub.AirQaActivity'"
+          if "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$apk" AndroidManifest.xml | grep -E 'android:name.*(MainActivity|TvLauncherAlias)'; then
+            echo 'Production launcher unexpectedly present in QA manifest' >&2
+            exit 1
+          fi
+
+      - name: Upload isolated AIR device-test APK
+        if: (github.event_name == 'pull_request' && startsWith(github.head_ref, 'work/336-g3-air-qa-')) || inputs.build_air_qa == true
+        uses: actions/upload-artifact@v7
+        with:
+          name: movie-hub-air-device-test-apk
+          path: android/app/build/outputs/apk/airQa/*.apk
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Configure release signing
         id: signing

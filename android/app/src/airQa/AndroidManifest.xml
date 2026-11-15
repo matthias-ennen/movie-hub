@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application android:name="android.app.Application"
+        android:label="Movie Hub AIR Test"
+        tools:replace="android:name,android:label">
+        <!-- No hosted WebView, account, real catalog or production launcher. -->
+        <activity android:name=".MainActivity" tools:node="remove" />
+        <activity-alias android:name=".TvLauncherAlias" tools:node="remove" />
+        <activity android:name=".AirQaActivity" android:exported="true"
+            android:label="Movie Hub AIR Test">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
