@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   G2O_CONFIRMATION, G2O_MAX_HTTP_STARTS, G2T_CONFIRMATION,
-  selectG2oCatalogSamples, createG2oTmdbNetworkBoundary,
+  selectG2oCatalogSamples, inspectG2oCatalogSamples, createG2oTmdbNetworkBoundary,
   compareG2oBoundedOriginalClients, isSafeG2oAbReport,
 } from '../scripts/shared-tmdb-g2o-bounded-real-http-ab.mjs'
+
+import { createG2tReadinessReport, isSafeG2tReadinessReport, safeG2tFailureCode, safeG2tCatalogReadFailureCode } from '../scripts/shared-tmdb-g2t-private-source-backed-http-ab.mjs'
 
 const NOW = Date.parse('2026-11-14T14:00:00.000Z')
 const FILM = 'Unverwechselbarer privater Testfilm'
@@ -224,5 +226,43 @@ describe('#336 G2t source-backed private A/B subset',()=>{
       requiredSharedKeys:new Set(),mode:'manual-private-real-http',
     })).rejects.toThrow(/manual private approval/)
     expect(blocked.requests).toHaveLength(0)
+  })
+})
+
+describe('#336 G2t classified readiness, literal original-title aliases',()=>{
+  const key=(type,title)=>JSON.stringify([type==='movie'?'/search/movie':'/search/tv',
+    {language:'de-DE',query:title,include_adult:'false'}])
+  const alias='Originale private Filmbezeichnung'
+  it('keeps the literal source query when its exact catalog originalTitle is unique',()=>{
+    const c=catalog([{...catalog().titles[0],originalTitle:alias},catalog().titles[1]])
+    const keys=new Set([key('movie',alias),key('series',SERIES)])
+    const selected=selectG2oCatalogSamples(c,{now:NOW,requiredSharedKeys:keys})
+    expect(selected[0]).toEqual({type:'movie',title:alias,expectedTmdbId:movie.id})
+    const report=createG2tReadinessReport(c,keys,NOW)
+    expect(report).toMatchObject({sourceMovieKeys:1,sourceSeriesKeys:1,
+      eligibleMovieKeys:1,eligibleSeriesKeys:1,eligibleSelectedWorkTypes:2})
+    expect(isSafeG2tReadinessReport(report)).toBe(true)
+    expect(JSON.stringify(report)).not.toContain(alias)
+  })
+  it('reports missing work types before failing readiness without leaking source data',()=>{
+    const keys=new Set([key('movie',FILM)])
+    const report=createG2tReadinessReport(catalog(),keys,NOW)
+    expect(report).toMatchObject({sourceMovieKeys:1,sourceSeriesKeys:0,
+      eligibleMovieKeys:1,eligibleSeriesKeys:0,eligibleSelectedWorkTypes:1})
+    expect(isSafeG2tReadinessReport({...report,privateTitle:FILM})).toBe(false)
+    expect(isSafeG2tReadinessReport({...report,eligibleSelectedWorkTypes:2})).toBe(false)
+    expect(safeG2tFailureCode(new Error('G2P_WAIPU_GRID_REJECTED'))).toBe('G2P_WAIPU_GRID_REJECTED')
+    expect(safeG2tFailureCode(new Error('G2T_CATALOG_READ_REJECTED'))).toBe('G2T_CATALOG_READ_REJECTED')
+    expect(safeG2tFailureCode(new Error(FILM))).toBe('G2T_UNCLASSIFIED_FAILURE')
+    expect(safeG2tCatalogReadFailureCode(new DOMException(FILM,'TimeoutError'))).toBe('G2T_CATALOG_TIMEOUT')
+    expect(safeG2tCatalogReadFailureCode(new Error('Private TMDB catalog size cap exceeded'))).toBe('G2T_CATALOG_SIZE_REJECTED')
+    expect(safeG2tCatalogReadFailureCode(new Error(FILM))).toBe('G2T_CATALOG_READ_REJECTED')
+  })
+  it('rejects ambiguous original-title aliases and does not normalize exact request strings',()=>{
+    const c=catalog([{...catalog().titles[0],originalTitle:alias},
+      {...catalog().titles[1]}, {source:'tmdb',type:'movie',tmdbId:90002,title:'Anderer Film',originalTitle:alias}])
+    const keys=new Set([key('movie',alias),key('series',SERIES)])
+    expect(inspectG2oCatalogSamples(c,{now:NOW,requiredSharedKeys:keys}).counts.eligibleMovieKeys).toBe(0)
+    expect(inspectG2oCatalogSamples(catalog(),{now:NOW,requiredSharedKeys:new Set([key('movie',FILM.toLowerCase())])}).counts.eligibleMovieKeys).toBe(0)
   })
 })
