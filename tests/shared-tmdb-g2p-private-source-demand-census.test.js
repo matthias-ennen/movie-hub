@@ -129,6 +129,24 @@ describe('#336 G2p private original-source potential TMDB search demand census',
     }
   })
 
+  it('hands only the verified exact two-source intersection to the isolated callback, never the output',()=>{
+    const received=[]
+    const out=computeG2pPrivateOverlap({
+      ...base(),onVerifiedWaipuJoynOverlap:keys=>received.push(keys),
+    })
+    expect(received).toHaveLength(1)
+    expect(received[0]).toEqual(new Set([g2pExactPotentialRequest({title:film,type:'movie'})]))
+    expect(received[0].size).toBe(out.waipuJoynOverlapKeys)
+    expect(JSON.stringify(out)).not.toContain(film)
+    expect(JSON.stringify(out)).not.toContain('onVerifiedWaipuJoynOverlap')
+    const input=base()
+    input.waipuDetails.get('w1').productionYear=2020
+    computeG2pPrivateOverlap({...input,onVerifiedWaipuJoynOverlap:keys=>received.push(keys)})
+    expect(received[1].size).toBe(0)
+    expect(()=>computeG2pPrivateOverlap({...base(),onVerifiedWaipuJoynOverlap:'invalid'}))
+      .toThrow(/callback/)
+  })
+
   it('types generic original Joyn EpgEntryV2 only from valid cached SearchQ proofs',()=>{
     const cache=new JoynLookupCache({},NOW)
     cache.set('joyn-title-v1',film,joynSearchProof(film,'movie'))

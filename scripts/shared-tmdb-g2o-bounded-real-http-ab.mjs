@@ -29,6 +29,12 @@ import {
 
 export const G2O_CONFIRMATION = 'PRIVATE_G2O_HTTP_AB_MAX_6'
 export const G2O_MAX_HTTP_STARTS = 6
+export const G2T_CONFIRMATION = 'PRIVATE_G2T_SOURCE_BACKED_HTTP_AB_MAX_6'
+const MAX_SOURCE_KEYS = 45_000
+const exactNoYearKey = ({type,title}) => JSON.stringify([
+  type === 'movie' ? '/search/movie' : '/search/tv',
+  {language:'de-DE', query:title, include_adult:'false'},
+])
 const API = 'api.themoviedb.org'
 const MAX_TITLE_LENGTH = 110
 const MATCH_TYPES = ['movie', 'series']
@@ -61,7 +67,13 @@ function titleKey(row) {
 }
 
 /** Two current catalog entries, type-distinct, without ambiguous aliases. */
-export function selectG2oCatalogSamples(catalog, { now = Date.now() } = {}) {
+export function selectG2oCatalogSamples(catalog, {
+  now = Date.now(), requiredSharedKeys = null,
+} = {}) {
+  if (requiredSharedKeys !== null && (!(requiredSharedKeys instanceof Set) ||
+      requiredSharedKeys.size > MAX_SOURCE_KEYS)) {
+    throw new TypeError('Invalid private exact source-key set')
+  }
   // Same validated, fresh source as the already-green G2m real catalog pilot.
   createXmltvG2mVerifiedLocalResolver(catalog, { now })
   const frequencies = new Map()
@@ -76,7 +88,8 @@ export function selectG2oCatalogSamples(catalog, { now = Date.now() } = {}) {
   for (const row of catalog.titles) {
     const key = titleKey(row)
     if (!key || frequencies.get(key)?.size !== 1 ||
-        chosen.has(row.type)) continue
+        chosen.has(row.type) || (requiredSharedKeys !== null &&
+          !requiredSharedKeys.has(exactNoYearKey(row)))) continue
     chosen.set(row.type, Object.freeze({
       type: row.type, title: row.title, expectedTmdbId: row.tmdbId,
     }))
@@ -161,7 +174,10 @@ const clientMatch = async (sourceId, input, rows, now) =>
 export function isSafeG2oAbReport(x) {
   const count = (n, max) => Number.isSafeInteger(n) && n >= 0 && n <= max
   return shape(x) &&
-    x.kind === 'g2o-original-client-real-http-ab-aggregate' &&
+    (x.kind === 'g2o-original-client-real-http-ab-aggregate' &&
+      x.originalEpgUsed === false ||
+      x.kind === 'g2t-source-backed-original-client-http-ab-aggregate' &&
+      x.originalEpgUsed === true) &&
     x.schemaVersion === 1 &&
     ['fixture-only', 'manual-private-real-http'].includes(x.mode) &&
     x.catalogTypesCompared === 2 &&
@@ -183,7 +199,6 @@ export function isSafeG2oAbReport(x) {
     x.savingsWithinPrivatePilot ===
       x.baselineTransportStarts - x.sharedTransportStarts &&
     x.measuredProductionSavings === null &&
-    x.originalEpgUsed === false &&
     x.productiveWrites === 0 &&
     x.publishApproved === false &&
     x.playbackRoutesApproved === false &&
@@ -192,14 +207,16 @@ export function isSafeG2oAbReport(x) {
 }
 
 /**
- * No source EPG, no productive cache. Original TMDB clients, empty initial
+ * G2o uses the public catalog alone; G2t additionally restricts samples to
+ * the validated original-source exact demand intersection. No productive
+ * cache. Original TMDB clients, empty initial
  * caches in BOTH A/B arms. All four client sessions are independent.
  * The shared arm persists an ephemeral 0600 response store; Waipu restores
  * it as a fresh client, demonstrating process-independent reuse.
  */
 export async function compareG2oBoundedOriginalClients({
   catalog, now = Date.now(), token, fetchImpl,
-  mode = 'fixture-only',
+  mode = 'fixture-only', requiredSharedKeys = null,
 } = {}) {
   if (!['fixture-only', 'manual-private-real-http'].includes(mode) ||
       !Number.isFinite(now) ||
@@ -209,10 +226,12 @@ export async function compareG2oBoundedOriginalClients({
   if (mode === 'manual-private-real-http' && (
     process.env.GITHUB_EVENT_NAME !== 'workflow_dispatch' ||
     process.env.GITHUB_REF !== 'refs/heads/main' ||
-    process.env.G2O_CONFIRMATION !== G2O_CONFIRMATION
+    (requiredSharedKeys === null
+      ? process.env.G2O_CONFIRMATION !== G2O_CONFIRMATION
+      : process.env.G2T_CONFIRMATION !== G2T_CONFIRMATION)
   )) throw new TypeError('Real TMDB HTTP requires exact manual private approval')
 
-  const inputs = selectG2oCatalogSamples(catalog, { now })
+  const inputs = selectG2oCatalogSamples(catalog, { now, requiredSharedKeys })
   const boundary = createG2oTmdbNetworkBoundary({fetchImpl, token, inputs})
   const tempDir = await mkdtemp(join(tmpdir(), 'moviehub-g2o-private-'))
   const snapshot = join(tempDir, 'shared-tmdb-response-cache.json')
@@ -295,7 +314,9 @@ export async function compareG2oBoundedOriginalClients({
       n + Number(item.joynMatch?.status === 'matched') +
         Number(item.waipuMatch?.status === 'matched'), 0)
     const report = {
-      kind: 'g2o-original-client-real-http-ab-aggregate',
+      kind: requiredSharedKeys === null
+        ? 'g2o-original-client-real-http-ab-aggregate'
+        : 'g2t-source-backed-original-client-http-ab-aggregate',
       schemaVersion: 1,
       mode,
       catalogTypesCompared: inputs.length,
@@ -312,7 +333,7 @@ export async function compareG2oBoundedOriginalClients({
         ? boundary.starts() : 0,
       savingsWithinPrivatePilot: baselineStarted - sharedStarted,
       measuredProductionSavings: null,
-      originalEpgUsed: false,
+      originalEpgUsed: requiredSharedKeys !== null,
       productiveWrites: 0,
       publishApproved: false,
       playbackRoutesApproved: false,
