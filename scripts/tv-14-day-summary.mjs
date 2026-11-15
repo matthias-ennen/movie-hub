@@ -5,6 +5,8 @@ import { compactProviderOffers, mergeProviderOffers } from '../src/providers/pro
 import { mergeTvAirings } from '../src/sources/mergeTvAirings.js'
 import { ensureProviderLiveRoute } from '../src/sources/providerLiveRoute.js'
 import { isPrimeTimeStart } from '../src/tv/tvPrimeTime.js'
+import { isXmltvAirProviderId, isExactXmltvAirAiring } from '../src/sources/xmltv/xmltvAirRoutes.js'
+import { discoverLiveSourceCatalogs } from './live-availability-index.mjs'
 
 export const TV_14_DAY_SUMMARY_VERSION = 1
 export const TV_14_DAY_ROW_CANDIDATE_LIMIT = 120
@@ -146,12 +148,14 @@ function selectCandidatePool(entries, limit = TV_14_DAY_ROW_CANDIDATE_LIMIT) {
   return [...selected.values()].sort(compareSummaryQuality)
 }
 
-function providerEntries(payload, providerId) {
+function providerEntries(payload, providerId, now) {
   return (Array.isArray(payload?.entries) ? payload.entries : [])
     .map((entry) => {
       const key = canonicalKey(entry)
       if (!key) return null
       const airings = (Array.isArray(entry.airings) ? entry.airings : [entry.nextAiring].filter(Boolean))
+        .filter(airing=>!providerId.startsWith('air-')||(isExactXmltvAirAiring(airing,providerId)&&
+          Number.isFinite(Date.parse(airing.startTime))&&Date.parse(airing.stopTime)>Math.max(now,Date.parse(airing.startTime))))
         .map((airing) => normalizeAiring(airing, providerId, canonicalType(entry?.type ?? entry?.mediaType), Number(entry?.tmdbId)))
         .filter(Boolean)
         .sort((left, right) => left.startTime.localeCompare(right.startTime))
@@ -185,6 +189,7 @@ function buildMetadataLookup(catalog, searchIndex) {
 export function buildTv14DaySummary({
   waipuTitles = null,
   joynTitles = null,
+  additionalSources = [],
   catalog = null,
   searchIndex = null,
   generatedAt = new Date().toISOString(),
@@ -193,8 +198,10 @@ export function buildTv14DaySummary({
   const grouped = new Map()
 
   for (const source of [
-    ...providerEntries(waipuTitles, 'waipu'),
-    ...providerEntries(joynTitles, 'joyn'),
+    ...providerEntries(waipuTitles, 'waipu',Date.parse(generatedAt)),
+    ...providerEntries(joynTitles, 'joyn',Date.parse(generatedAt)),
+    ...additionalSources.filter(source=>isXmltvAirProviderId(source?.providerId))
+      .flatMap(source=>providerEntries(source,source.providerId,Date.parse(generatedAt))),
   ]) {
     if (!grouped.has(source.key)) grouped.set(source.key, { sources: [], airings: [] })
     grouped.get(source.key).sources.push(source)
@@ -204,11 +211,11 @@ export function buildTv14DaySummary({
   const entries = [...grouped.entries()].map(([key, group]) => {
     const sourceEntryMetadata = group.sources.map(({ entry }) => entry)
     const metadataSources = [metadataByKey.get(key), ...sourceEntryMetadata]
-    const tmdbProviderOffers = mergeProviderOffers(...metadataSources.map(compactProviderOffers))
+    const tmdbProviderOffers = mergeProviderOffers(...metadataSources.map(compactProviderOffers)).filter(offer=>!String(offer.id).startsWith('air-'))
     const tmdbProviderIds = [...new Set([
       ...metadataSources.flatMap((source) => Array.isArray(source?.tmdbProviderIds) ? source.tmdbProviderIds : []),
       ...tmdbProviderOffers.map((offer) => offer.id),
-    ])]
+    ])].filter(id=>!String(id).startsWith('air-'))
     const metadata = {
       ...rankingMetadata(bestMetadata(...metadataSources)),
       tmdbProviderIds,
@@ -276,17 +283,21 @@ export async function writeTv14DaySummary({
   catalogPath = resolve(root, 'public/catalog.json'),
   searchIndexPath = resolve(root, 'public/search-index.json'),
   outputPath = resolve(root, 'public/tv-14-days-summary.json'),
+  airSourcesDirectory = dirname(dirname(waipuPath)),
   now = Date.now(),
 } = {}) {
-  const [waipuTitles, joynTitles, catalog, searchIndex] = await Promise.all([
+  const [waipuTitles, joynTitles, catalog, searchIndex, additionalSources] = await Promise.all([
     readJson(waipuPath),
     readJson(joynPath),
     readJson(catalogPath),
     readJson(searchIndexPath),
+    discoverLiveSourceCatalogs(airSourcesDirectory,{resolveEpisodes:false,providerFilter:isXmltvAirProviderId})
+      .catch(error=>{if(error.code==='ENOENT')return [];throw error}),
   ])
   const summary = buildTv14DaySummary({
     waipuTitles,
     joynTitles,
+    additionalSources,
     catalog,
     searchIndex,
     generatedAt: new Date(now).toISOString(),
