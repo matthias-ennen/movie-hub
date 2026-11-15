@@ -1,3 +1,4 @@
+import {observeNightly} from './nightly-report-metrics.mjs'
 import { randomUUID } from 'node:crypto'
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
@@ -1058,7 +1059,11 @@ async function main() {
         })
         process.stdout.write(`Private TMDB capture (Waipu): ${capture.status}; stored=${capture.stored}\n`)
         if (sharedTmdbReuse || sharedTmdbPersistent) {
-          try { console.log(JSON.stringify((sharedTmdbPersistent ? g2vPersistentObservation : g2uSameRunObservation)('waipu', sharedTmdbCapture, capture, tmdbSearchClient?.requestsStarted || 0))) }
+          try {
+            const observation = (sharedTmdbPersistent ? g2vPersistentObservation : g2uSameRunObservation)('waipu', sharedTmdbCapture, capture, tmdbSearchClient?.requestsStarted || 0)
+            console.log(JSON.stringify(observation))
+            if (sharedTmdbPersistent) await observeNightly('waipu-cache', observation)
+          }
           catch { console.log('Shared TMDB count-only observation unavailable') }
         }
       }

@@ -98,7 +98,7 @@ jobs:
       - name: Publish aggregate outcome only to Actions summary (not MovieHub catalog)
         run: |
           node --input-type=module <<'NODE'
-          import {readFileSync,appendFileSync} from 'node:fs'
+          import {readFileSync,appendFileSync,mkdirSync,writeFileSync} from 'node:fs'
           const p='artifacts/youtube-g2/global-known-no-search-review/qa.json'
           const {summary,rows}=JSON.parse(readFileSync(p,'utf8'))
           if(summary.kind!=='moviehub-youtube-g2-global-known-video-no-search-recheck'
@@ -144,8 +144,20 @@ jobs:
             '',
           ]
           appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n')
+          mkdirSync('artifacts/nightly-metrics',{recursive:true})
+          const safe=Object.fromEntries(['globalStoredCandidateFilms','sharedCheckpointCandidateFilms','deferredCandidateFilms','crossTitleCollisionFilms','currentBadgeCachedFilms','cachedFilmsWithoutCurrentPublicBadge','filmsWithCurrentTmdbDeYoutubeOffers','filmsWithoutCurrentTmdbDeYoutubeOffers','reusedVideoCandidateIds','avoidedYoutubeSearchCalls','rowsChecked','searchCalls','videosListBatches','tmdbReadCalls'].map(key=>[key,Number.isSafeInteger(summary[key])&&summary[key]>=0?summary[key]:null]))
+          const allowedStatuses=["review-single-video-candidate","review-multiple-video-editions","review-weak-or-unresolved-videos","no-video-candidate","no-current-tmdb-de-youtube-offer","no-current-public-youtube-badge"]
+          const reviewStatuses=Object.fromEntries(allowedStatuses.map(key=>[key,summary.reviewStatuses&&Number.isSafeInteger(summary.reviewStatuses[key]??0)?summary.reviewStatuses[key]??0:null]))
+          writeFileSync('artifacts/nightly-metrics/known.json',JSON.stringify({kind:'moviehub-nightly-known-counts',...safe,reviewStatuses})+'\n',{mode:0o600})
           console.log(JSON.stringify(summary))
           NODE
+      - name: Upload sanitized counts for the central Nightly report
+        uses: actions/upload-artifact@v7
+        with:
+          name: nightly-known-counts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/nightly-metrics/known.json
+          retention-days: 30
+          if-no-files-found: warn
       - name: Upload protected baseline review only – no publicly exposed direct routes
         uses: actions/upload-artifact@v7
         with:

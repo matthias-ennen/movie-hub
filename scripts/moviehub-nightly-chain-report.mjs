@@ -7,6 +7,7 @@
 import {readFile,mkdir,writeFile,appendFile} from 'node:fs/promises'
 import {dirname} from 'node:path'
 import {pathToFileURL} from 'node:url'
+import {sanitizeDataMetrics,compareNightly,phaseTimings,fetchNightlyJobs,writeJson,berlinDay} from './nightly-report-metrics.mjs'
 
 const OUT='artifacts/moviehub-nightly'
 const source={
@@ -15,6 +16,8 @@ const source={
   waipu:'public/waipu-live/index.json',
   joyn:'public/joyn-live/index.json',
   tv:'public/tv-runtime/index.json',
+  dataMetrics:'artifacts/nightly-metrics/aggregate.json',
+  known:'artifacts/nightly-metrics/known.json',
 }
 const n=x=>Number.isSafeInteger(x)&&x>=0?x:null
 const safeTime=x=>typeof x==='string'&&!Number.isNaN(Date.parse(x))
@@ -26,7 +29,7 @@ async function load(input,path){
   catch{return null}
 }
 export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=null,
-  repository=null,generatedAt=new Date().toISOString()}={}){
+  repository=null,generatedAt=new Date().toISOString(),jobs=[],history=[],expectMetrics=false,runDay=null}={}){
   const steps=Object.fromEntries(
     ['gate','discovery','known','firebase'].map(k=>[k,result(stages?.[k])]))
   const youtube=sourceData.youtube?.kind==='moviehub-youtube-g2-bidirectional-coverage-baseline'
@@ -96,6 +99,9 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
       observedAt:safeTime(tv.generatedAt),
     }:null,
   }
+  const dataMetrics=sanitizeDataMetrics(sourceData.dataMetrics)
+  const known=sourceData.known?.kind==='moviehub-nightly-known-counts'?Object.fromEntries(['globalStoredCandidateFilms','sharedCheckpointCandidateFilms','deferredCandidateFilms','crossTitleCollisionFilms','currentBadgeCachedFilms','cachedFilmsWithoutCurrentPublicBadge','filmsWithCurrentTmdbDeYoutubeOffers','filmsWithoutCurrentTmdbDeYoutubeOffers','reusedVideoCandidateIds','avoidedYoutubeSearchCalls','rowsChecked','searchCalls','videosListBatches','tmdbReadCalls'].map(k=>[k,n(sourceData.known[k])])):null
+  if(known)known.reviewStatuses=Object.fromEntries(["review-single-video-candidate","review-multiple-video-editions","review-weak-or-unresolved-videos","no-video-candidate","no-current-tmdb-de-youtube-offer","no-current-public-youtube-badge"].map(k=>[k,n(sourceData.known.reviewStatuses?.[k])]))
   const firebaseSucceeded=steps.firebase==='success'
   const missingQA=Object.entries(qa).filter(([,v])=>!v).map(([k])=>k)
   const status=!firebaseSucceeded?'publish-not-confirmed'
@@ -105,15 +111,15 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
   const id=n(Number(runId)),attempt=n(Number(runAttempt))
   const goodRepo=typeof repository==='string'
     &&/^[-\w]+\/[-\w.]+$/.test(repository)?repository:null
-  return {
-    kind:'moviehub-nightly-complete-chain',schemaVersion:1,
+  const report={
+    kind:'moviehub-nightly-complete-chain',schemaVersion:2,
     generatedAt:safeTime(generatedAt),
     run:id&&id>0&&goodRepo?{
       id,attempt,url:`https://github.com/${goodRepo}/actions/runs/${id}`,
     }:null,
     status,steps,sourceQaAvailability:Object.fromEntries(
       Object.entries(qa).map(([k,v])=>[k,Boolean(v)])),
-    adapters:qa,
+    adapters:qa,dataMetrics,knownVideoReview:known,phaseTimings:phaseTimings(jobs),
     youtubeDiscoveryQuota:quota,
     // A reservation is not proof of an actual search call. This report does
     // not have authenticated quota data or make any offer/right assertions.
@@ -122,6 +128,97 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
     sourceVideoIdsIncluded:false,verifiedDEOfferInferred:false,
     productionMutationsByReport:0,
   }
+  if(dataMetrics){
+    const phaseSteps={tmdb:['tmdb'],waipu:['waipuSync','waipu'],joyn:['joyn'],cache:['cacheRestore','cacheSave'],xmltv:['xmltvStage','xmltvMatch'],canonical:['youtube','canonical','xmltvPublish'],tv:['tv'],publish:['publish']}
+    for(const p of report.phaseTimings){
+      const states=phaseSteps[p.key]?.map(k=>dataMetrics.steps[k])
+      if(states?.includes('failure'))p.result='failure'
+      else if(states?.includes('cancelled'))p.result='cancelled'
+      else if(states?.every(x=>x==='skipped'))p.result='skipped'
+      else if(states?.some(x=>x!=='success'))p.result='unknown'
+    }
+  }
+  const comparisons=compareNightly(report,history,runDay||berlinDay(report.generatedAt))
+  report.comparison=comparisons.rows
+  report.history=comparisons.history
+  report.historyAccepted=comparisons.accepted
+  const required=['tmdb','waipuSync','waipu','joyn','cacheRestore','cacheSave','xmltvStage','xmltvMatch','xmltvPublish','youtube','tv','canonical','publish']
+  const warnings=[]
+  if(expectMetrics&&!dataMetrics)warnings.push('Messdaten aus dem Datenlauf fehlen; detaillierte Bewertung nicht möglich.')
+  if(expectMetrics&&!known)warnings.push('Zähler der YouTube-Bestandsprüfung fehlen.')
+  if(expectMetrics&&!quota)warnings.push('Zähler der YouTube-Suche fehlen.')
+  if(dataMetrics){
+    for(const k of required)if(dataMetrics.steps[k]!=='success')warnings.push('Phase '+k+': '+dataMetrics.steps[k]+'; Datenstand und Ersatzdaten prüfen.')
+    if(dataMetrics.xmltv.publication?.retainedStations>0)warnings.push('XMLTV: mindestens ein Sender nutzt den vorherigen Stand.')
+    if(dataMetrics.xmltv.publication?.stations===0)warnings.push('XMLTV: keine Sender veröffentlicht; Quelleneinlesung und Zuordnung prüfen.')
+    if(!dataMetrics.cache.waipu||!dataMetrics.cache.joyn)warnings.push('Gemeinsamer Cache: Messung mindestens eines Adapters fehlt.')
+    if(!dataMetrics.xmltv.match||!dataMetrics.xmltv.publication)warnings.push('XMLTV: Zuordnungs- oder Veröffentlichungszähler fehlen.')
+  }
+  for(const row of comparisons.rows)if(['critical','review','warning'].includes(row.severity))warnings.push(row.label+': Rückgang gegenüber Vergleichsstand; Ursache prüfen.')
+  else if(row.severity==='increase')warnings.push(row.label+': Zunahme von mindestens 20 %; Wachstum oder Duplikate prüfen.')
+  else if(expectMetrics&&['stale','unknown'].includes(row.severity))warnings.push(row.label+': kein bestätigter frischer Messwert.')
+  if(expectMetrics&&!report.phaseTimings.some(p=>p.start))warnings.push('GitHub-Laufzeiten nicht verfügbar.')
+  if(dataMetrics&&dataMetrics.steps.publish!=='success')report.status='publish-not-confirmed'
+  report.warnings=warnings
+  if(report.status==='success'&&warnings.length)report.status='degraded'
+  return report
+}
+const fmt=v=>v===null||v===undefined?'nicht verfügbar':typeof v==='number'?v.toLocaleString('de-DE'):String(v)
+const pc=v=>v===null||v===undefined?'nicht verfügbar':fmt(v)+' %'
+const localTime=v=>v?new Intl.DateTimeFormat('de-DE',{timeZone:'Europe/Berlin',dateStyle:'short',timeStyle:'medium'}).format(new Date(v)):'–'
+const dur=v=>v===null?'–':Math.floor(v/3600)+' h '+Math.floor(v%3600/60)+' min '+v%60+' s'
+const phaseStatus={success:'🟢 erfolgreich',failure:'🔴 fehlgeschlagen',unknown:'⚪ nicht belegt',skipped:'⏭️ übersprungen',cancelled:'🔴 abgebrochen'}
+function timingMarkdown(phases=[]){
+  return ['','### Zeitlicher Ablauf (MEZ/MESZ)','',
+    '| Phase | Beginn | Ende | Zeitspanne | Ergebnis |','|---|---|---|---:|---|',
+    ...phases.map(p=>'| '+p.label+' | '+localTime(p.start)+' | '+localTime(p.end)+' | '+dur(p.seconds)+' | '+phaseStatus[p.result]+' |'),
+    '', 'Zeitspannen umfassen die zugehörigen Arbeitsschritte; übergreifende Phasen können sich überschneiden.','']
+}
+function dataMarkdown(report){
+  const m=report.dataMetrics,k=report.knownVideoReview,t=m?.tmdb,x=m?.xmltv,c=m?.cache
+  const lines=['## YouTube – Bestandsprüfung ohne Suche','']
+  if(k)lines.push('- Geprüfte Filmidentitäten: '+fmt(k.globalStoredCandidateFilms)+' von '+fmt(k.sharedCheckpointCandidateFilms)+' · '+fmt(k.deferredCandidateFilms)+' noch offen',
+    '- Filme mit / ohne aktuelles öffentliches Badge: '+fmt(k.currentBadgeCachedFilms)+' / '+fmt(k.cachedFilmsWithoutCurrentPublicBadge),
+    '- Wiederverwendete Video-Kandidaten: '+fmt(k.reusedVideoCandidateIds)+' · videos.list: '+fmt(k.videosListBatches)+' · search.list: '+fmt(k.searchCalls),
+    '- Kandidatenprüfung: '+fmt(k.reviewStatuses?.['review-single-video-candidate'])+' eindeutige starke Kandidaten · '+fmt(k.reviewStatuses?.['review-multiple-video-editions'])+' mehrere starke Varianten · '+fmt(k.reviewStatuses?.['review-weak-or-unresolved-videos'])+' schwach/ungeklärt · '+fmt(k.reviewStatuses?.['no-video-candidate'])+' ohne Kandidat · '+fmt(k.reviewStatuses?.['no-current-tmdb-de-youtube-offer'])+' ohne aktuelles TMDB-Angebot.',
+    '- Gemessene vermiedene Suchanfragen: '+fmt(k.avoidedYoutubeSearchCalls)+'; kein Beleg für ein neues verifiziertes Angebot.')
+  else lines.push('- Kein bestätigter Zähler aus der Bestandsprüfung.')
+  lines.push('','## TMDB – Katalog und Suchindex','')
+  if(t)lines.push('- Browse-Bestand: '+fmt(t.catalog)+' Titel ('+fmt(t.movies)+' Filme, '+fmt(t.series)+' Serien)',
+    '- Suchindex: '+fmt(t.search)+' Titel ('+fmt(t.searchMovies)+' Filme, '+fmt(t.searchSeries)+' Serien)',
+    '- Suchindex neu / entfernt / Angebote geändert: '+fmt(t.addedCount)+' / '+fmt(t.removedCount)+' / '+fmt(t.changedOfferCount),
+    '- Änderungen von TMDB gemeldet (Filme / Serien): '+fmt(t.changedMovies)+' / '+fmt(t.changedSeries),
+    '- Vollständige Details / offene Details: '+fmt(t.completeDetails)+' / '+fmt(t.pendingDetails),
+    '- Verfügbare / angeforderte Staffeln: '+fmt(t.seasonAvailable)+' / '+fmt(t.seasonRequested),
+    '- Suchläufe abgeschlossen / geplant / begrenzt: '+fmt(t.completed)+' / '+fmt(t.expected)+' / '+fmt(t.capped))
+  else lines.push('- Keine bestätigten Katalogkennzahlen.')
+  lines.push('','## EPG – Einlesen und Zuordnung','',
+    '| Quelle | Sender | Eingelesen | Kandidaten | Zugeordnet | Quote | Veröffentlichte Ausstrahlungen | Vorschau |',
+    '|---|---:|---:|---:|---:|---:|---:|---:|')
+  for(const [name,a] of [['Waipu',m?.waipu],['Joyn',m?.joyn]])lines.push('| '+name+(a&&!a.fresh?' (vorheriger Bestand)':'')+' | '+[a?.stations,a?.read,a?.candidates,a?.matched].map(fmt).join(' | ')+' | '+pc(a?.matchPercent)+' | '+fmt(a?.airings)+' | '+fmt(a?.horizonDays)+' Tage |')
+  lines.push('| XMLTV | '+[x?.availableStations,x?.stagedRows,x?.match?.selectedCandidates,x?.match?.combinedMatched].map(fmt).join(' | ')+' | '+pc(x?.matchPercent)+' | '+fmt(x?.publication?.airings)+' | '+fmt(x?.maxHorizonDays)+' Tage |',
+    '', 'Zuordnungsquote = zugeordnete / geprüfte Kandidaten derselben Quelle; die Kandidateneinheit unterscheidet sich je Adapter. XMLTV-Vorschau = maximaler beobachteter Horizont, kein garantierter lückenloser Zeitraum.',
+    '- XMLTV: '+fmt(x?.stagedSources)+' Feeds, '+fmt(x?.families)+' unabhängige Familien · '+fmt(x?.publication?.freshStations)+' neue Sendergenerationen, '+fmt(x?.publication?.retainedStations)+' beibehaltene Sendergenerationen.',
+    '- XMLTV: '+fmt(x?.match?.additionalMatched)+' zusätzliche Zuordnungen durch Cache; '+fmt(x?.match?.approvedUniqueTitles)+' eindeutige freigegebene Titel im Vorabvergleich; '+fmt(x?.match?.deduplicatedRuntimeAirings)+' eindeutige Ausstrahlungen in dessen Vorschau.',
+    '- XMLTV: '+fmt(x?.match?.runtimeReadyRows!==null&&x?.match?.runtimeReadyRows!==undefined&&x?.match?.deduplicatedRuntimeAirings!==null&&x?.match?.deduplicatedRuntimeAirings!==undefined?Math.max(0,x.match.runtimeReadyRows-x.match.deduplicatedRuntimeAirings):null)+' Duplikate in der Vorschau entfernt.',
+    '- XMLTV veröffentlicht: '+fmt(x?.publication?.stations)+' Sender, '+fmt(x?.publication?.airings)+' Ausstrahlungen · '+fmt(x?.publication?.expiredAirings)+' abgelaufen · '+fmt(x?.publication?.missingCanonicalAirings)+' ohne vollständige kanonische Metadaten.',
+    '','## Gemeinsamer TMDB-Cache','',
+    '| Adapter | Tatsächliche Suchstarts | Vermiedene Starts durch Cache | Vortags-/Laufübergreifend | Im selben Lauf |','|---|---:|---:|---:|---:|')
+  for(const [name,a] of [['Waipu',c?.waipu],['Joyn',c?.joyn]])lines.push('| '+name+' | '+[a?.actualSearchStarts,a?.avoidedInitialSearches,a?.priorRunHits,a?.sameRunHits].map(fmt).join(' | ')+' |')
+  lines.push('| Gesamt (Waipu + Joyn) | '+fmt(c?.actualSearchStarts)+' | '+fmt(c?.avoidedInitialSearches)+' | – | – |',
+    '', '- XMLTV: '+fmt(x?.match?.cacheResponseHits)+' Cache-Antworttreffer, '+fmt(x?.match?.newTmdbApiRequests)+' zusätzliche Suchrequests im Matching.',
+    '- Vermiedene initiale Suchstarts sind gemessen; keine Hochrechnung auf alle TMDB-Aufrufe.',
+    '','## Gemeinsame TV-Daten / Veröffentlichung','',
+    '- TV-Runtime: '+fmt(report.adapters.tv?.titles)+' eindeutige Titel · '+fmt(report.adapters.tv?.airings)+' Ausstrahlungen · '+fmt(report.adapters.tv?.providerCount)+' Anbieter.',
+    '- Hosting-Readback: '+(phaseStatus[m?.steps.publish]||'⚪ nicht belegt')+'.','')
+  return lines
+}
+function comparisonMarkdown(report){
+  const icons={critical:'🔴 kritisch',review:'🟠 prüfen',warning:'🟡 auffällig',ok:'🟢 unauffällig',unknown:'⚪ nicht messbar',stale:'🟡 nicht frisch','no-baseline':'⚪ Ausgangswert',increase:'🟡 starke Zunahme'}
+  return ['| Kennzahl | Heute | Letzter Vergleich | Abweichung | 7-Tage-Mittel (n) | Abweichung | Bewertung |','|---|---:|---:|---:|---:|---:|---|',
+    ...(report.comparison||[]).map(r=>'| '+r.label+' | '+fmt(r.value)+' | '+fmt(r.previous)+(r.previousDay?' ('+r.previousDay+')':r.previousIsPublishedBaseline?' (vorher veröffentlicht)':'')+' | '+pc(r.delta)+' | '+fmt(r.mean)+' ('+r.samples+') | '+pc(r.trend)+' | '+icons[r.severity]+' |'),
+    '', 'Rückgänge ab 5 % auffällig, ab 10 % prüfbedürftig, ab 20 % kritisch; Nullbestand nach positivem Vergleich kritisch; Zunahmen ab 20 % zur Plausibilitätsprüfung. Nur bestätigte frische Messwerte gehen in die Historie ein. Das 7-Tage-Mittel wächst mit den gemessenen Läufen; fehlende Werte sind keine Nullen.',
+    '', ...(report.warnings?.length?report.warnings.map(x=>'- '+x):['- Keine konkreten Auffälligkeiten in den vorhandenen Messwerten.'])]
 }
 export function nightlyMarkdown(report){
   const stageNames={gate:'00:10 Start-/Doppellauf-Gate',
@@ -132,9 +229,13 @@ export function nightlyMarkdown(report){
     '- Ergebnis: **'+report.status+'**',
     '- Zeitpunkt: '+(report.generatedAt??'unknown'),
     ...(report.run?['- GitHub: '+report.run.url]:[]),'',
+    '## Zusammenfassung','',
+    report.status==='success'?'Alle belegten Phasen erfolgreich; keine Warnung erkannt.':report.status==='degraded'?'Veröffentlichung erfolgt, aber mindestens ein Teilbereich benötigt Aufmerksamkeit.':'Veröffentlichung oder vollständige Belege fehlen.',
+    ...(report.warnings?.length?['',...report.warnings.map(x=>'- '+x)]:[]),'',
     '## Ablauf','',
     ...Object.entries(stageNames).map(([k,name])=>'- '+name+': **'+report.steps[k]+'**'),
     '',
+    ...timingMarkdown(report.phaseTimings),
     '## YouTube-API: echte Suchanfragen','',
     ...(report.youtubeDiscoveryQuota?[
       '- Pacific-Tag: '+(report.youtubeDiscoveryQuota.pacificDay??'unbekannt'),
@@ -155,7 +256,8 @@ export function nightlyMarkdown(report){
       '- Neue Filmkandidaten in privater Prüfung: '+(report.youtubeDiscoveryQuota.newCandidateFilms??'unbekannt'),
     ]:['- Discovery-Zähler nicht verfügbar; kein API-Verbrauch aus Reservierungen abgeleitet.']),
     '',
-    '## Adapter und Datenquellen','',
+    ...dataMarkdown(report),
+    '## Adapter und Datenquellen (Bestand und ergänzende Belege)','',
   ]
   for(const [key,title,props] of [
     ['youtube','YouTube',['sourceVideos','playlistEditorialLinks','playlistReviewCases','newCanonicalTmdbMetadata','publicYoutubeBadgedMovies','independentlyVerifiedDETitleRoutes']],
@@ -170,7 +272,8 @@ export function nightlyMarkdown(report){
     if(a?.observedAt)lines.push('- Datenstand: '+a.observedAt)
     lines.push('')
   }
-  lines.push('## Sicherheit und Interpretation','',
+  lines.push('## Abweichungen und Handlungsbedarf','',...comparisonMarkdown(report),'',
+    '## Sicherheit und Interpretation','',
     '- Discovery-Fehler bleiben sichtbar; Firebase kann den letzten validierten Datenstand weiter veröffentlichen.',
     '- Keine YouTube-Restquote aus diesem Bericht abgeleitet; keine Such-Reservierung durch den Bericht.',
     '- Playlist-/Best-Effort-Links sind keine unabhängig belegten deutschen Kauf-/Leih-/Gratisangebote.',
@@ -178,7 +281,11 @@ export function nightlyMarkdown(report){
     '- GitHub-Run-Status und tatsächliche Firebase-Hosting-Readbacks sind getrennt zu prüfen.','')
   return lines.join('\n')
 }
-export async function saveNightlyReport({env=process.env,input=readFile,out=OUT}={}){
+export async function saveNightlyReport({env=process.env,input=readFile,out=OUT,fetchImpl=fetch}={}){
+  const historyPath=out+'/history.json'
+  const history=await load(input,historyPath)
+  const jobs=await fetchNightlyJobs(env,fetchImpl)
+  const runDay=berlinDay(jobs.find(j=>j.name==='Enforce one trusted scheduled night per Berlin day')?.started_at)
   const report=buildNightlyReport({
     stages:{
       gate:env.NIGHT_GATE_RESULT,discovery:env.NIGHT_DISCOVERY_RESULT,
@@ -188,10 +295,12 @@ export async function saveNightlyReport({env=process.env,input=readFile,out=OUT}
       Object.entries(source).map(async ([k,p])=>[k,await load(input,p)]))),
     repository:env.GITHUB_REPOSITORY,
     runId:env.GITHUB_RUN_ID,runAttempt:env.GITHUB_RUN_ATTEMPT,
+    jobs,history,expectMetrics:env.NIGHT_EXPECT_METRICS==='1',runDay,
   })
   const jsonPath=out+'/summary.json',mdPath=out+'/report.md'
   await mkdir(dirname(jsonPath),{recursive:true})
   await writeFile(jsonPath,JSON.stringify(report,null,2)+'\n',{mode:0o600})
+  if(report.historyAccepted)await writeJson(historyPath,report.history)
   const md=nightlyMarkdown(report)
   await writeFile(mdPath,md+'\n',{mode:0o600})
   if(env.GITHUB_STEP_SUMMARY)await appendFile(env.GITHUB_STEP_SUMMARY,md+'\n')

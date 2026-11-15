@@ -1,3 +1,4 @@
+import {observeNightly} from './nightly-report-metrics.mjs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { runJoynAdapterDiagnostic } from './joyn-adapter-diagnostic.mjs'
@@ -51,7 +52,11 @@ export async function runJoynLiveCatalog({
         })
         process.stdout.write(`Private TMDB capture (Joyn): ${capture.status}; stored=${capture.stored}\n`)
         if (sharedTmdbReuse || sharedTmdbPersistent) {
-          try { console.log(JSON.stringify((sharedTmdbPersistent ? g2vPersistentObservation : g2uSameRunObservation)('joyn', sharedTmdbCapture, capture, summary?.matching?.tmdbRequests || 0))) }
+          try {
+            const observation = (sharedTmdbPersistent ? g2vPersistentObservation : g2uSameRunObservation)('joyn', sharedTmdbCapture, capture, summary?.matching?.tmdbRequests || 0)
+            console.log(JSON.stringify(observation))
+            if (sharedTmdbPersistent) await observeNightly('joyn-cache', observation)
+          }
           catch { console.log('Shared TMDB count-only observation unavailable') }
         }
       }
