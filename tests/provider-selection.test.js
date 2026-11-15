@@ -13,13 +13,15 @@ import {
   updateProviderSelectionSnapshot,
 } from '../src/settings/providerSelectionRuntime.js'
 
+const xmltvDefaults = ['air-ard', 'air-zdf', 'air-rtl', 'air-pro7', 'air-sat1', 'air-vox']
+
 afterEach(() => {
   resetProviderSelectionSnapshot({ loading: false })
 })
 
 describe('kontoweite Streaminganbieter-Auswahl', () => {
   it('adds Movie Hub first while preserving the accepted external defaults', () => {
-    expect(DEFAULT_ENABLED_PROVIDER_IDS).toEqual(['moviehub', 'netflix', 'prime', 'disney', 'youtube', 'joyn', 'waipu'])
+    expect(DEFAULT_ENABLED_PROVIDER_IDS).toEqual(['moviehub', 'netflix', 'prime', 'disney', 'youtube', 'joyn', 'waipu', ...xmltvDefaults])
     expect(KNOWN_PROVIDER_IDS[0]).toBe('moviehub')
     expect(KNOWN_PROVIDER_IDS).toContain('joyn')
     expect(KNOWN_PROVIDER_IDS).toContain('ard')
@@ -28,13 +30,29 @@ describe('kontoweite Streaminganbieter-Auswahl', () => {
 
   it('enables Movie Hub once for legacy accounts without overriding later opt-out', () => {
     expect(normalizeStoredProviderSelection(['netflix', 'prime'], null)).toMatchObject({
-      enabledProviderIds: ['moviehub', 'netflix', 'prime'],
+      enabledProviderIds: ['moviehub', 'netflix', 'prime', ...xmltvDefaults],
       needsMigration: true,
     })
     expect(normalizeStoredProviderSelection(['netflix', 'prime'], PROVIDER_SELECTION_VERSION)).toMatchObject({
       enabledProviderIds: ['netflix', 'prime'],
       needsMigration: false,
     })
+  })
+
+  it('enables six XMLTV stations once for v2 accounts while preserving existing choices', () => {
+    expect(normalizeStoredProviderSelection(['netflix', 'prime'], 2)).toEqual({
+      enabledProviderIds: ['netflix', 'prime', ...xmltvDefaults],
+      version: 3,
+      needsMigration: true,
+    })
+    expect(normalizeStoredProviderSelection(['moviehub', 'air-zdf'], 3)).toEqual({
+      enabledProviderIds: ['moviehub', 'air-zdf'],
+      version: 3,
+      needsMigration: false,
+    })
+    expect(normalizeStoredProviderSelection([], 3).enabledProviderIds).toEqual([])
+    expect(normalizeStoredProviderSelection(undefined, null).enabledProviderIds)
+      .toEqual(DEFAULT_ENABLED_PROVIDER_IDS)
   })
 
   it('normalizes persisted selections and accepts known new provider ids', () => {
