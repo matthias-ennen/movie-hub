@@ -136,6 +136,7 @@ export async function runXmltvG2lPrivateAdapterCoordinator({
   localCandidatesFor = null,
   maxCandidates = 20_000,
   runtimeCatalog = null,
+  runtimeSources = null,
 } = {}) {
   if (!Number.isFinite(now) || typeof stagingReportPath !== 'string' ||
       !stagingReportPath.trim() || typeof privateRoot !== 'string' ||
@@ -206,7 +207,7 @@ export async function runXmltvG2lPrivateAdapterCoordinator({
   // airing merge code used for Waipu/Joyn. With NO local TMDB catalogue,
   // explicitly return 0 matches; this is not a quality-rate measurement.
   const match = await runXmltvG2jPrivateIntegrationPreview(entries, {
-    now, maxCandidates, runtimeCatalog,
+    now, maxCandidates, runtimeCatalog, runtimeSources,
     localCandidatesFor: localCandidatesFor ?? (async () => []),
   })
   const perSource = report.sources.map(source => {
@@ -269,3 +270,4 @@ if (process.argv[1] &&
     process.exitCode = 1
   })
 }
+

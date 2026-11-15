@@ -12,7 +12,7 @@ import {
   isSafeXmltvG2mPrivateReport,
 } from '../scripts/xmltv-g2m-live-catalog-match-preview.mjs'
 
-import { createG2wXmltvCandidateResolver, runG2wXmltvSharedCachePreview } from '../scripts/xmltv-g2w-shared-cache-preview.mjs'
+import { createG2wXmltvCandidateResolver, runG2wXmltvSharedCachePreview, readG2wExistingRuntimeSources } from '../scripts/xmltv-g2w-shared-cache-preview.mjs'
 import { createG2nXmltvCachedResponseResolver } from '../scripts/shared-tmdb-g2n-private-response-replay.mjs'
 import { SharedTmdbResponseStore, saveOptionalSharedTmdbResponses, SHARED_TMDB_RESPONSE_STORE_TTL_MS } from '../scripts/shared-tmdb-response-store.mjs'
 import { SHARED_TMDB_SEARCH_NAMESPACE } from '../scripts/shared-tmdb-search-response-cache.mjs'
@@ -234,6 +234,12 @@ describe('#336 G2w: private XMLTV reads the same-run shared Waipu/Joyn cache',()
     const root=dirname(files.privateRoot),privateDir=join(root,'artifacts/shared-tmdb/private')
     await mkdir(join(root,'public'),{recursive:true})
     await writeFile(join(root,'public/catalog.json'),JSON.stringify(catalog([row(55,'Unrelated')])))
+    for(const providerId of ['waipu','joyn']){
+      const dir=join(root,'public',providerId+'-live')
+      await mkdir(dir)
+      await writeFile(join(dir,'titles.json'),JSON.stringify({entries:[{type:'movie',tmdbId:55,title:'Unrelated',
+        airings:[{stationId:'zdf',canonicalStationId:'zdf',startTime:iso(NOW),stopTime:iso(NOW+DAY)}]}]}))
+    }
     const file=join(privateDir,'shared-tmdb-response-cache.json')
     const store=storeWith(TITLE,[movie(99)])
     expect((await saveOptionalSharedTmdbResponses(file,store)).status).toBe('saved')
@@ -243,12 +249,15 @@ describe('#336 G2w: private XMLTV reads the same-run shared Waipu/Joyn cache',()
       baselineMatched:0,combinedMatched:6,additionalMatched:6,combinedMergedAirings:2,
       cacheResponseHits:6,cacheUniqueCandidateRows:6,newTmdbApiRequests:0,cacheWrites:0,productiveWrites:0,publishApproved:false})
     expect(result.runtimeReadiness).toEqual({matchedRows:6,catalogReadyRows:0,missingCatalogRows:6,
-      missingCatalogUniqueTitles:1,androidReadyRows:0,fireTvConfirmedRows:0,runtimeReadyRows:0,deduplicatedRuntimeAirings:0})
+      missingCatalogUniqueTitles:1,androidReadyRows:0,fireTvConfirmedRows:0,runtimeReadyRows:0,deduplicatedRuntimeAirings:0,
+      runtimeOverlap:{existingSourceCount:2,combinedRuntimeAirings:1,xmltvOnlyRuntimeAirings:0,sharedRuntimeAirings:0,existingOnlyRuntimeAirings:1}})
     expect(JSON.stringify(result)).not.toContain(TITLE)
     expect(await readFile(file)).toEqual(bytes)
     await writeFile(file,'corrupt',{mode:0o600})
     const fallback=await runG2wXmltvSharedCachePreview({root,now:NOW,coordinatorOptions:files})
     expect(fallback).toMatchObject({loadStatus:'unavailable',baselineMatched:0,combinedMatched:0,additionalMatched:0})
+    await writeFile(join(root,'public/waipu-live/titles.json'),JSON.stringify({entries:[]}))
+    await expect(readG2wExistingRuntimeSources(root)).rejects.toThrow(/SOURCE_CATALOG_REJECTED/)
   })
   it('never consumes expired responses',()=>{
     const store=new SharedTmdbResponseStore({now:NOW+SHARED_TMDB_RESPONSE_STORE_TTL_MS,entries:[
@@ -267,3 +276,4 @@ describe('#336 G2w: private XMLTV reads the same-run shared Waipu/Joyn cache',()
     expect(deploy).not.toContain('path: artifacts/shared-tmdb/private')
   })
 })
+

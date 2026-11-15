@@ -30,4 +30,19 @@ describe('private runtime eligibility aggregate',()=>{
       matchedRows:0,catalogReadyRows:0,missingCatalogRows:0,missingCatalogUniqueTitles:0,
       androidReadyRows:0,fireTvConfirmedRows:0,runtimeReadyRows:0,deduplicatedRuntimeAirings:0})
   })
+  it('counts actual production-runtime overlaps without treating an added route as a new broadcast',()=>{
+    const event={...row(1),channelName:'ZDF',sourceRefs:[{sourceId:'xmltv:epgshare01',externalId:'ZDF.de|test'}],
+      extensions:{xmltv:{sourceStationId:'ZDF.de',timestampsExplicitlyZoned:true}}}
+    const airing={stationId:'zdf',canonicalStationId:'zdf',startTime:event.startAt,stopTime:event.endAt}
+    const catalog={titles:[{source:'tmdb',tmdbId:1,type:'movie',title:'Test'},{source:'tmdb',tmdbId:2,type:'movie',title:'Another'}]}
+    const existingSources=[{providerId:'waipu',entries:[{type:'movie',tmdbId:1,title:'Test',airings:[airing]}]},
+      {providerId:'joyn',entries:[{type:'movie',tmdbId:2,title:'Another',airings:[airing]}]}]
+    const result=summarizePrivateXmltvRuntimeReadiness([event,{...event,startAt:'2026-11-17T19:00:00Z',endAt:'2026-11-17T21:00:00Z'}],catalog,{now,existingSources})
+    expect(result.runtimeOverlap).toEqual({existingSourceCount:2,combinedRuntimeAirings:3,xmltvOnlyRuntimeAirings:1,
+      sharedRuntimeAirings:1,existingOnlyRuntimeAirings:1})
+    expect(isSafePrivateXmltvRuntimeReadiness(result,2)).toBe(true)
+    expect(isSafePrivateXmltvRuntimeReadiness({...result,runtimeOverlap:{...result.runtimeOverlap,sharedRuntimeAirings:5}},2)).toBe(false)
+    expect(JSON.stringify(result)).not.toContain('Another')
+  })
 })
+
