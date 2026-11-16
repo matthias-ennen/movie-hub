@@ -85,7 +85,7 @@ export { parseXmltvTimestamp }
  * Extract only aggregated, safe diagnostics. No XML DOM, full programme titles,
  * descriptions, private links or programme IDs are included in the report.
  */
-export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
+export function analyzeXmltvDocument(xml, { now = Date.now(), includeInventory = false } = {}) {
   if (typeof xml !== 'string' || !xml.trim()) throw new Error('Empty XMLTV document')
   const channels = new Map()
   let root = false
@@ -279,6 +279,13 @@ export function analyzeXmltvDocument(xml, { now = Date.now() } = {}) {
     programmesWithSubtitle: withSubtitle,
     programmesWithoutExplicitTimeZone: withoutUtcOffset,
     keyChannels: checkChannels,
+    ...(includeInventory ? { channelInventory: [...channels.values()]
+      .filter(c => c.future > 0).sort((a,b) => a.id.localeCompare(b.id))
+      .slice(0, 5000).map(c => ({ id: c.id.slice(0, 160),
+        names: c.names.slice(0, 3).map(n => n.slice(0, 160)),
+        futureProgrammes: c.future, horizonHours: hoursAhead(c.latest),
+        next120hCoveragePercent: coverage120h(c).coveragePercent })),
+      channelInventoryTruncated: [...channels.values()].filter(c => c.future > 0).length > 5000 } : {}),
   }
 }
 
@@ -324,14 +331,14 @@ export async function downloadXmltvFeed(url, {
 }
 
 export async function runXmltvSourceProbe({
-  now = Date.now(), downloader = downloadXmltvFeed, feeds = FEEDS,
+  now = Date.now(), downloader = downloadXmltvFeed, feeds = FEEDS, includeInventory = false,
 } = {}) {
   const results = []
   for (const feed of feeds) {
     const started = Date.now()
     try {
       const data = await downloader(feed.url)
-      const assessment = analyzeXmltvDocument(data.xml, { now })
+      const assessment = analyzeXmltvDocument(data.xml, { now, includeInventory })
       results.push({
         source: feed.id, status: 'ok', url: feed.url,
         elapsedMs: Date.now() - started, compressedBytes: data.compressedBytes ?? null,
@@ -381,7 +388,7 @@ function markdownSummary(report) {
 
 async function main() {
   const out = resolve('artifacts/xmltv-source-probe/report.json')
-  const report = await runXmltvSourceProbe()
+  const report = await runXmltvSourceProbe({ includeInventory: process.env.MOVIEHUB_XMLTV_CHANNEL_INVENTORY === '1' })
   await mkdir(dirname(out), { recursive: true })
   await writeFile(out, JSON.stringify(report, null, 2) + '\n')
   const summary = markdownSummary(report)

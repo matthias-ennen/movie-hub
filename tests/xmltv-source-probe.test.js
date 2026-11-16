@@ -53,6 +53,19 @@ describe('XMLTV source probe (offline, without external requests)', () => {
     expect(JSON.stringify(report)).not.toContain('Folge 2')
   })
 
+  it('optionally inventories only future-programme channels without exporting programme titles', () => {
+    expect(analyzeXmltvDocument(SAMPLE, { now: TODAY })).not.toHaveProperty('channelInventory')
+    const result = analyzeXmltvDocument(SAMPLE, { now: TODAY, includeInventory: true })
+    expect(result.channelInventory).toEqual([
+      { id: 'other', names: ['Other TV'], futureProgrammes: 1, horizonHours: 31,
+        next120hCoveragePercent: 0.8 },
+      { id: 'zdf.example', names: ['ZDF HD'], futureProgrammes: 2, horizonHours: 32.3,
+        next120hCoveragePercent: 3.3 },
+    ])
+    expect(result.channelInventoryTruncated).toBe(false)
+    expect(JSON.stringify(result.channelInventory)).not.toContain('Folge 2')
+  })
+
   it('rejects non-XMLTV roots, invalid times and DOCTYPE documents', () => {
     expect(() => analyzeXmltvDocument('<html/>')).toThrow('Not an XMLTV')
     expect(() => analyzeXmltvDocument('<!DOCTYPE tv [<!ENTITY x SYSTEM "file:///etc/passwd">]><tv/>'))
