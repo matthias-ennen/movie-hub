@@ -5,7 +5,7 @@ import org.junit.Test;
 
 public final class AirStationRoutePolicyTest {
     @Test public void acceptsOnlySameExactStationInChannelWebMode() {
-        String[] ids = {"air-ard", "air-zdf", "air-rtl", "air-pro7", "air-sat1", "air-vox"};
+        String[] ids = {"air-ard", "air-zdf", "air-rtl", "air-pro7", "air-sat1", "air-vox", "air-arte", "air-3sat", "air-zdfneo", "air-zdfinfo", "air-einsfestival", "air-kabeleins", "air-rtl2", "air-superrtl", "air-tele5", "air-prosieben_maxx", "air-sat1gold", "air-rtlnitro"};
         for (String id : ids) {
             String target = ProviderUrlPolicy.airStationTarget(id);
             assertNotNull(target);
