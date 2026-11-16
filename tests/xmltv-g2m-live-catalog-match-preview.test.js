@@ -13,6 +13,7 @@ import {
 } from '../scripts/xmltv-g2m-live-catalog-match-preview.mjs'
 
 import { createG2wXmltvCandidateResolver, runG2wXmltvSharedCachePreview, readG2wExistingRuntimeSources } from '../scripts/xmltv-g2w-shared-cache-preview.mjs'
+import { openXmltvBoundedSearchSession } from '../scripts/xmltv-bounded-search-session.mjs'
 import { buildTitleCandidateInventory } from '../scripts/build-title-candidate-inventory.mjs'
 import { readConfirmedAiringHandoff } from '../scripts/xmltv-confirmed-airing-handoff.mjs'
 import { createG2nXmltvCachedResponseResolver } from '../scripts/shared-tmdb-g2n-private-response-replay.mjs'
@@ -289,6 +290,29 @@ describe('#336 G2w: private XMLTV reads the same-run shared Waipu/Joyn cache',()
     expect(inventory.candidates).toHaveLength(1)
     expect(inventory.candidates[0]).toMatchObject({key:'movie:99',sources:['xmltv']})
   })
+  it('queries each genuine missing key once and replays the verified XMLTV response in a fresh session',async()=>{
+    const files=await fixture({epgshare01:2,freeepg:2})
+    const root=dirname(files.privateRoot)
+    await mkdir(join(root,'public'),{recursive:true})
+    await writeFile(join(root,'public/catalog.json'),JSON.stringify(catalog([row(55,'Unrelated')])))
+    const fetchImpl=vi.fn(async()=>({ok:true,status:200,headers:new Headers(),json:async()=>({results:[movie(99)]}),text:async()=>''}))
+    const searchSession=await openXmltvBoundedSearchSession({projectRoot:root,token:'SYNTHETIC',fetchImpl,now:NOW,runStartedAt:NOW-1000,sleep:async()=>{}})
+    const result=await runG2wXmltvSharedCachePreview({root,now:NOW,coordinatorOptions:files,searchSession})
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(result).toMatchObject({combinedMatched:4,apiLookupRows:4,apiCandidateRows:4,apiDistinctKeys:1,apiRepeatedKeys:3,newTmdbApiRequests:1,cacheWrites:1})
+    expect(JSON.stringify(result)).not.toContain(TITLE)
+    const replay=await runG2wXmltvSharedCachePreview({root,now:NOW,coordinatorOptions:files})
+    expect(replay).toMatchObject({combinedMatched:4,cacheResponseHits:4,newTmdbApiRequests:0})
+  })
+  it('cached empty results and ambiguous local titles never initiate a new search',()=>{
+    const local=createXmltvG2mVerifiedLocalResolver(catalog([row(5,'conflict'),row(6,'conflict')]),{now:NOW})
+    const cache=createG2nXmltvCachedResponseResolver(storeWith(TITLE,[]))
+    const lookup=vi.fn()
+    const r=createG2wXmltvCandidateResolver(local,cache,{lookup})
+    expect(r.localCandidatesFor({title:TITLE},'movie')).toEqual([])
+    expect(r.localCandidatesFor({title:'conflict'},'movie')).toEqual([])
+    expect(lookup).not.toHaveBeenCalled()
+  })
   it('never consumes expired responses',()=>{
     const store=new SharedTmdbResponseStore({now:NOW+SHARED_TMDB_RESPONSE_STORE_TTL_MS,entries:[
       {requestKey:cacheKey(TITLE),checkedAt:iso(NOW),value:{results:[movie(99)]}},
@@ -308,6 +332,8 @@ describe('#336 G2w: private XMLTV reads the same-run shared Waipu/Joyn cache',()
     expect(stage).not.toContain('steps.g2v_save.outcome')
     const preview = deploy.slice(deploy.indexOf('id: g2w_preview'), deploy.indexOf('# #336 G2s'))
     expect(preview).toContain("steps.g2w_stage.outcome == 'success'")
+    expect(preview).toContain("steps.g2v_restore.outcome == 'success' && 'enabled'")
+    expect(preview).toContain('MOVIEHUB_SHARED_TMDB_RUN_STARTED_AT:')
     expect(preview).not.toContain("steps.waipu_catalog.outcome")
     expect(preview).not.toContain("steps.joyn_catalog.outcome")
     expect(deploy).not.toContain('path: artifacts/xmltv-g2/private')
