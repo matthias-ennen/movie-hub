@@ -13,12 +13,23 @@ public final class TrailerPlayerHtmlTest {
         assertTrue(html.contains("onStateChange:mhState"));
         assertTrue(html.contains("MovieHubTrailerEvents.autoplayBlocked()"));
         assertFalse(html.contains("autoplay:1"));
-        assertFalse(html.contains("seekTo("));
-        assertEquals(1, html.split("p\\.playVideo\\(\\)", -1).length - 1);
+        String startup = html.substring(html.indexOf("function mhStart()"), html.indexOf("function mhPause()"));
+        assertFalse(startup.contains("seekTo("));
+        assertEquals(1, startup.split("p\\.playVideo\\(\\)", -1).length - 1);
     }
 
     @Test public void preservesSoundPreference() {
         assertTrue(TrailerPlayerActivity.buildPlayerHtml("example1234", true).contains("wantSound=true"));
         assertTrue(TrailerPlayerActivity.buildPlayerHtml("example1234", false).contains("wantSound=false"));
+    }
+
+    @Test public void keepsOfficialControlsAndUsesDocumentedRemoteApi() {
+        String html = TrailerPlayerActivity.buildPlayerHtml("example1234", true);
+        assertTrue(html.contains("controls:1,disablekb:0"));
+        assertTrue(html.contains("p.getIframe()"));
+        assertTrue(html.contains("document.activeElement!==f"));
+        assertTrue(html.contains("p.getPlayerState()"));
+        assertTrue(html.contains("p.seekTo(Math.max(0,Math.min(d,t+"));
+        assertTrue(html.contains("c==='forward'?10:-10"));
     }
 }
