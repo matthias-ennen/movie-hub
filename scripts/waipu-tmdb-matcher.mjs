@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
+import { sharedTmdbRequestPath, copySafeTmdbResponse } from './shared-tmdb-search-response-cache.mjs'
 
 export const WAIPU_MATCHER_VERSION = 5
 export const WAIPU_MATCH_CACHE_KEY_VERSION = 1
@@ -334,6 +335,18 @@ export class WaipuTmdbSearchClient {
       type: input.type,
       source: 'tmdb-search',
     }))
+  }
+
+  // Literal shared-cache request only: no fallback, extra fields or fuzzy query.
+  async searchExactSharedResponse(key) {
+    const path = sharedTmdbRequestPath(key)
+    if (!path) throw new TypeError('Invalid exact TMDB search request')
+    const [, params] = JSON.parse(key)
+    if (params.language !== this.language) throw new TypeError('Unexpected TMDB search language')
+    const payload = await this.#searchRequest(path, params)
+    const validated = copySafeTmdbResponse(payload, path)
+    if (validated === null) throw new TypeError('Invalid exact TMDB search response')
+    return validated
   }
 
   // Opt-in G1 diagnostic lookup. Production search() remains untouched.
