@@ -20,6 +20,9 @@ import {
   runXmltvG2jPrivateIntegrationPreview,
 } from './xmltv-g2j-private-integration-preview.mjs'
 
+import { XMLTV_REVIEWED_STATIONS } from '../src/sources/xmltv/xmltvStationMappings.js'
+
+const STATION_COUNT = XMLTV_REVIEWED_STATIONS.length
 const SOURCES = Object.freeze(['epgshare01', 'freeepg', 'iptv-epg-org'])
 const HOUR = 60 * 60 * 1000
 const runIdValid = value => typeof value === 'string' && /^[0-9]{6,20}$/.test(value)
@@ -50,14 +53,14 @@ export function isSafeXmltvG2kSyntheticReport(report) {
     int(report.sourcesRestored, SOURCES.length) &&
     report.sourceRestoreUnavailable === SOURCES.length - report.sourcesRestored &&
     SOURCES.includes(report.simulatedOutageSource) &&
-    int(report.currentStationDecisions, 18) &&
-    int(report.restoredStationDecisions, 18) &&
-    int(report.unavailableStationDecisions, 18) &&
+    int(report.currentStationDecisions, SOURCES.length * STATION_COUNT) &&
+    int(report.restoredStationDecisions, SOURCES.length * STATION_COUNT) &&
+    int(report.unavailableStationDecisions, SOURCES.length * STATION_COUNT) &&
     report.currentStationDecisions + report.restoredStationDecisions +
-      report.unavailableStationDecisions === SOURCES.length * 6 &&
+      report.unavailableStationDecisions === SOURCES.length * STATION_COUNT &&
     report.currentStationDecisions === 2 &&
     int(report.independentFamiliesWithFutureCoverage, 2) &&
-    int(report.stationsWithIndependentOverlap, 6) &&
+    int(report.stationsWithIndependentOverlap, STATION_COUNT) &&
     int(report.selectedSyntheticCandidates, SOURCES.length) &&
     report.selectedSyntheticCandidates ===
       report.currentStationDecisions + report.restoredStationDecisions &&
