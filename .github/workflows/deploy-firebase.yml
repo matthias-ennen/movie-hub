@@ -343,16 +343,6 @@ jobs:
           TMDB_COUNTRY: DE
         run: npm run joyn:catalog
 
-      # Each adapter finalizes only a complete validated generation; a failed
-      # peer must not discard the surviving adapter's verified search responses.
-      - name: Save verified private shared TMDB checkpoint (G2v)
-        id: g2v_save
-        if: ${{ steps.g2v_restore.outcome == 'success' && (steps.waipu_catalog.outcome == 'success' || steps.joyn_catalog.outcome == 'success') }}
-        continue-on-error: true
-        env:
-          MOVIEHUB_G2V_PERSISTENT: 'private-persistent-reuse-v1'
-        run: node scripts/shared-tmdb-g2v-private-checkpoint.mjs save
-
       # G2w raw inputs remain private. Intake does not depend on adapter/cache success.
       # Match against the canonical TMDB catalog and optional validated peer catalogs.
       - name: Stage reviewed XMLTV feeds privately (G2w)
@@ -367,6 +357,9 @@ jobs:
         continue-on-error: true
         env:
           MOVIEHUB_XMLTV_PRIVATE_PREVIEW: enabled
+          MOVIEHUB_XMLTV_BOUNDED_SEARCH: ${{ steps.g2v_restore.outcome == 'success' && 'enabled' || '' }}
+          MOVIEHUB_SHARED_TMDB_RUN_STARTED_AT: ${{ steps.g2v_restore.outputs.started_at }}
+          TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
           MOVIEHUB_XMLTV_CANONICAL_HANDOFF: ${{ inputs.xmltv_canonical_handoff == true && 'enabled' || '' }}
         run: node scripts/xmltv-g2w-shared-cache-preview.mjs
 
@@ -390,6 +383,16 @@ jobs:
           path: artifacts/shared-tmdb/g2s-nightly-baseline/aggregate.json
           if-no-files-found: error
           retention-days: 14
+
+      # Each adapter finalizes only a complete validated generation; a failed
+      # peer must not discard the surviving adapter's verified search responses.
+      - name: Save verified private shared TMDB checkpoint (G2v)
+        id: g2v_save
+        if: ${{ steps.g2v_restore.outcome == 'success' && (steps.waipu_catalog.outcome == 'success' || steps.joyn_catalog.outcome == 'success' || steps.g2w_preview.outcome == 'success') }}
+        continue-on-error: true
+        env:
+          MOVIEHUB_G2V_PERSISTENT: 'private-persistent-reuse-v1'
+        run: node scripts/shared-tmdb-g2v-private-checkpoint.mjs save
 
       - name: Acknowledge Joyn change consumer
         if: ${{ steps.joyn_catalog.outcome == 'success' && steps.tmdb_changes.outcome == 'success' }}

@@ -218,14 +218,16 @@ function dataMarkdown(report){
   lines.push('| XMLTV | '+[x?.availableStations,x?.stagedRows,x?.match?.selectedCandidates,x?.match?.combinedMatched].map(fmt).join(' | ')+' | '+pc(x?.matchPercent)+' | '+fmt(x?.publication?.airings)+' | '+fmt(x?.maxHorizonDays)+' Tage |',
     '', 'Zuordnungsquote = zugeordnete / geprüfte Kandidaten derselben Quelle; die Kandidateneinheit unterscheidet sich je Adapter. XMLTV-Vorschau = maximaler beobachteter Horizont, kein garantierter lückenloser Zeitraum.',
     '- XMLTV: '+fmt(x?.stagedSources)+' Feeds, '+fmt(x?.families)+' unabhängige Familien · '+fmt(x?.publication?.freshStations)+' neue Sendergenerationen, '+fmt(x?.publication?.retainedStations)+' beibehaltene Sendergenerationen.',
-    '- XMLTV: '+fmt(x?.match?.additionalMatched)+' zusätzliche Zuordnungen durch Cache; '+fmt(x?.match?.approvedUniqueTitles)+' eindeutige freigegebene Titel im Vorabvergleich; '+fmt(x?.match?.deduplicatedRuntimeAirings)+' eindeutige Ausstrahlungen in dessen Vorschau.',
+    '- XMLTV: '+fmt(x?.match?.additionalMatched)+' zusätzliche Zuordnungen durch gemeinsamen Cache / begrenzte Suche; '+fmt(x?.match?.approvedUniqueTitles)+' eindeutige freigegebene Titel im Vorabvergleich; '+fmt(x?.match?.deduplicatedRuntimeAirings)+' eindeutige Ausstrahlungen in dessen Vorschau.',
     '- XMLTV nach dem kanonischen Abgleich: '+fmt(x?.canonical?.received)+' Programmzeilen, '+fmt(x?.canonical?.eligible)+' zulässig, '+fmt(x?.canonical?.completeUniqueTitles)+' vollständige Titel, '+fmt(x?.canonical?.pendingUniqueTitles)+' offene Titel, '+fmt(x?.canonical?.unresolved)+' unaufgelöst, '+fmt(x?.canonical?.deduplicated)+' Dubletten entfernt.',
     '- XMLTV veröffentlicht: '+fmt(x?.publication?.stations)+' Sender, '+fmt(x?.publication?.airings)+' Ausstrahlungen · '+fmt(x?.publication?.expiredAirings)+' abgelaufen · '+fmt(x?.publication?.missingCanonicalAirings)+' ohne vollständige kanonische Metadaten.',
     '','## Gemeinsamer TMDB-Cache','',
     '| Adapter | Tatsächliche Suchstarts | Vermiedene Starts durch Cache | Vortags-/Laufübergreifend | Im selben Lauf |','|---|---:|---:|---:|---:|')
   for(const [name,a] of [['Waipu',c?.waipu],['Joyn',c?.joyn]])lines.push('| '+name+' | '+[a?.actualSearchStarts,a?.avoidedInitialSearches,a?.priorRunHits,a?.sameRunHits].map(fmt).join(' | ')+' |')
   lines.push('| Gesamt (Waipu + Joyn) | '+fmt(c?.actualSearchStarts)+' | '+fmt(c?.avoidedInitialSearches)+' | – | – |',
-    '', '- XMLTV: '+fmt(x?.match?.cacheResponseHits)+' Cache-Antworttreffer, '+fmt(x?.match?.newTmdbApiRequests)+' zusätzliche Suchrequests im Matching.',
+    '', '- XMLTV: '+fmt(x?.match?.cacheResponseHits)+' Cache-Antworttreffer, '+fmt(x?.match?.newTmdbApiRequests)+' zusätzliche Suchrequests im Matching; '+fmt(x?.match?.cacheWrites)+' neu erfasste Antworten.',
+    '- XMLTV: '+fmt(x?.match?.apiLookupRows)+' Zeilen mit Suchbedarf, '+fmt(x?.match?.apiDistinctKeys)+' eindeutige Schlüssel, '+fmt(x?.match?.apiRepeatedKeys)+' wiederverwendete Schlüssel; '+fmt(x?.match?.apiCandidateRows)+' Zeilen mit eindeutigem Suchkandidaten.',
+    '- XMLTV: '+fmt(x?.match?.apiBudgetMisses)+' wegen Budget nicht gesuchte Schlüssel, '+fmt(x?.match?.apiFailedRequests)+' fehlgeschlagene Requests, '+fmt(x?.match?.apiStoppedMisses)+' nach Transportfehler nicht gesuchte Schlüssel.',
     '- Vermiedene initiale Suchstarts sind gemessen; keine Hochrechnung auf alle TMDB-Aufrufe.',
     '','## Gemeinsame TV-Daten / Veröffentlichung','',
     '- TV-Runtime: '+fmt(report.adapters.tv?.titles)+' eindeutige Titel · '+fmt(report.adapters.tv?.titleDayEntries)+' Titel-Tages-Einträge (derselbe Titel an mehreren Tagen zählt mehrfach) · '+fmt(report.adapters.tv?.airings)+' Ausstrahlungen · '+fmt(report.adapters.tv?.providerCount)+' Anbieter.',

@@ -20,7 +20,7 @@ export function safeObservation(kind,value){
   }
   if(kind==='xmltv-match'){
     if(value?.kind!=='xmltv-g2w-private-shared-cache-preview')return null
-    return {...num(value,'validatedSources selectedCandidates baselineMatched combinedMatched additionalMatched cacheResponseHits cacheResponseMisses newTmdbApiRequests'),
+    return {...num(value,'validatedSources selectedCandidates baselineMatched combinedMatched additionalMatched cacheResponseHits cacheResponseMisses newTmdbApiRequests cacheWrites apiLookupRows apiCandidateRows apiDistinctKeys apiRepeatedKeys apiBudgetMisses apiFailedRequests apiStoppedMisses'),
       ...num(value.runtimeReadiness,'androidReadyRows catalogReadyRows runtimeReadyRows deduplicatedRuntimeAirings missingCatalogRows'),
       ...num(value.runtimeReadiness?.metadataDemand,'approvedUniqueTitles missingApprovedUniqueTitles fetchNeededFromCurrentSources')}
   }
@@ -60,7 +60,7 @@ export function buildDataMetrics(d={},steps={}){
   const wFresh=status(steps.waipu)==='success',jFresh=status(steps.joyn)==='success'
   const xmlFresh=status(steps.xmltvMatch)==='success',xmlPublish=status(steps.xmltvPublish)==='success'
   const wm=wFresh?w?.metrics:null,jm=jFresh?jDiag?.matching:null
-  const xm=xmlFresh&&d.xmltvMatch?num(d.xmltvMatch,'validatedSources selectedCandidates baselineMatched combinedMatched additionalMatched cacheResponseHits cacheResponseMisses newTmdbApiRequests androidReadyRows catalogReadyRows runtimeReadyRows deduplicatedRuntimeAirings missingCatalogRows approvedUniqueTitles missingApprovedUniqueTitles fetchNeededFromCurrentSources'):null
+  const xm=xmlFresh&&d.xmltvMatch?num(d.xmltvMatch,'validatedSources selectedCandidates baselineMatched combinedMatched additionalMatched cacheResponseHits cacheResponseMisses newTmdbApiRequests cacheWrites apiLookupRows apiCandidateRows apiDistinctKeys apiRepeatedKeys apiBudgetMisses apiFailedRequests apiStoppedMisses androidReadyRows catalogReadyRows runtimeReadyRows deduplicatedRuntimeAirings missingCatalogRows approvedUniqueTitles missingApprovedUniqueTitles fetchNeededFromCurrentSources'):null
   const xp=xmlPublish&&d.xmltvPublish?num(d.xmltvPublish,'stations freshStations retainedStations airings expiredAirings missingCanonicalAirings'):null
   const cache=(v,fresh)=>v&&fresh?num(v,'actualSearchStarts restoredResponses sharedResponseHits capturedResponses priorRunHits sameRunHits evictedResponses avoidedInitialSearches'):null
   const wc=cache(d.waipuCache,wFresh),jc=cache(d.joynCache,jFresh)
@@ -101,7 +101,7 @@ export function sanitizeDataMetrics(v){
     tmdb:v.tmdb?num(v.tmdb,'catalog movies series search searchMovies searchSeries completeDetails pendingDetails seasonAvailable seasonRequested changedMovies changedSeries addedCount removedCount changedOfferCount completed expected capped'):null,
     waipu:adapter(v.waipu),joyn:adapter(v.joyn),
     xmltv:{...num(v.xmltv,'stagedSources families stagedRows availableStations'),maxHorizonDays:horizon(v.xmltv?.maxHorizonDays),matchPercent:percent(v.xmltv?.matchPercent),
-      match:match?num(match,'validatedSources selectedCandidates baselineMatched combinedMatched additionalMatched cacheResponseHits cacheResponseMisses newTmdbApiRequests androidReadyRows catalogReadyRows runtimeReadyRows deduplicatedRuntimeAirings missingCatalogRows approvedUniqueTitles missingApprovedUniqueTitles fetchNeededFromCurrentSources'):null,
+      match:match?num(match,'validatedSources selectedCandidates baselineMatched combinedMatched additionalMatched cacheResponseHits cacheResponseMisses newTmdbApiRequests cacheWrites apiLookupRows apiCandidateRows apiDistinctKeys apiRepeatedKeys apiBudgetMisses apiFailedRequests apiStoppedMisses androidReadyRows catalogReadyRows runtimeReadyRows deduplicatedRuntimeAirings missingCatalogRows approvedUniqueTitles missingApprovedUniqueTitles fetchNeededFromCurrentSources'):null,
       canonical:canonical?num(canonical,'received eligible completeUniqueTitles pendingUniqueTitles projected unresolved deduplicated stationsWithAirings'):null,
       publication:publication?num(publication,'stations freshStations retainedStations airings expiredAirings missingCanonicalAirings'):null},
     cache:{waipu:cache(v.cache?.waipu),joyn:cache(v.cache?.joyn),...num(v.cache,'avoidedInitialSearches actualSearchStarts')},

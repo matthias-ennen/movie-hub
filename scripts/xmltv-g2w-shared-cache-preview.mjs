@@ -1,8 +1,8 @@
 import {observeNightly} from './nightly-report-metrics.mjs'
 /**
  * #336 G2w: first real adapter integration boundary for the third shared
- * TMDB search-response consumer. This is a private read-only Nightly preview,
- * not publication or an identity-index enablement. No extra TMDB HTTP starts.
+ * TMDB search-response consumer. Bounded exact HTTP fallback is optional;
+ * validated canonical handoff remains distinct from response-cache capture.
  */
 import { isTrustedCentralNightlyEvent } from './trusted-central-nightly-event.mjs'
 import { lstat, readFile } from 'node:fs/promises'
@@ -10,6 +10,7 @@ import { resolve, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createXmltvG2mVerifiedLocalResolver } from './xmltv-g2m-live-catalog-match-preview.mjs'
 import { createG2nXmltvCachedResponseResolver } from './shared-tmdb-g2n-private-response-replay.mjs'
+import { openXmltvBoundedSearchSession } from './xmltv-bounded-search-session.mjs'
 import { loadOptionalSharedTmdbResponses } from './shared-tmdb-response-store.mjs'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 import { normalizeTmdbMatchCandidate } from './waipu-tmdb-matcher.mjs'
@@ -50,11 +51,12 @@ export async function readG2wExistingRuntimeSources(root){
 /** G2m local candidates remain authoritative, including its ambiguity block.
  * Only a genuine local miss looks up a literal, typed G2n request. Do not turn
  * any ambiguous cached result into an artificially unique candidate. */
-export function createG2wXmltvCandidateResolver(local, shared) {
+export function createG2wXmltvCandidateResolver(local, shared, searchSession=null) {
   if(typeof local?.lookup!=='function'||typeof shared?.localCandidatesFor!=='function')
     throw new TypeError('Invalid private XMLTV cache resolver')
+  if(searchSession&&(typeof shared.lookup!=='function'||typeof searchSession.lookup!=='function'))throw new TypeError('Invalid XMLTV bounded search session')
   const counts={localHits:0,localConflicts:0,invalidLocal:0,cacheLookups:0,
-    cacheUniqueCandidateRows:0,cacheAmbiguousRows:0,cacheNoExactCandidateRows:0}
+    cacheUniqueCandidateRows:0,cacheAmbiguousRows:0,cacheNoExactCandidateRows:0,apiLookupRows:0,apiCandidateRows:0}
   return Object.freeze({
     localCandidatesFor(row,type){
       const result=local.lookup(row,type)
@@ -62,31 +64,41 @@ export function createG2wXmltvCandidateResolver(local, shared) {
       if(result.status==='ambiguous'){counts.localConflicts++;return []}
       if(result.status!=='missing'){counts.invalidLocal++;return []}
       counts.cacheLookups++
-      const alias=normalizeWaipuText(row.title)
-      const exact=new Map()
-      // The G2n cache uses EXACT original request parameters. The *returned*
-      // candidates still need the unchanged original G1b/Joyn matcher checks.
-      for(const item of shared.localCandidatesFor(row,type)){
-        const normalized=normalizeTmdbMatchCandidate(item,'tmdb-shared-search-response')
-        if(normalized?.type!==type||!Number.isSafeInteger(normalized.tmdbId)) continue
-        if(![normalized.title,normalized.originalTitle].map(normalizeWaipuText).includes(alias))continue
-        // A duplicate response identity with conflicting evidence is not a
-        // license to collapse it to an apparently unique choice.
-        if(exact.has(normalized.tmdbId)){
-          counts.cacheAmbiguousRows++;return []
+      const finish=(items,fromApi=false)=>{
+        const alias=normalizeWaipuText(row.title)
+        const exact=new Map()
+        // The G2n cache uses EXACT original request parameters. The *returned*
+        // candidates still need the unchanged original G1b/Joyn matcher checks.
+        for(const item of items){
+          const normalized=normalizeTmdbMatchCandidate(item,'tmdb-shared-search-response')
+          if(normalized?.type!==type||!Number.isSafeInteger(normalized.tmdbId)) continue
+          if(![normalized.title,normalized.originalTitle].map(normalizeWaipuText).includes(alias))continue
+          // A duplicate response identity with conflicting evidence is not a
+          // license to collapse it to an apparently unique choice.
+          if(exact.has(normalized.tmdbId)){
+            counts.cacheAmbiguousRows++;return []
+          }
+          exact.set(normalized.tmdbId,normalized)
         }
-        exact.set(normalized.tmdbId,normalized)
+        if(exact.size>1){counts.cacheAmbiguousRows++;return []}
+        if(!exact.size){counts.cacheNoExactCandidateRows++;return []}
+        counts.cacheUniqueCandidateRows++
+        if(fromApi)counts.apiCandidateRows++
+        return [...exact.values()]
+  
       }
-      if(exact.size>1){counts.cacheAmbiguousRows++;return []}
-      if(!exact.size){counts.cacheNoExactCandidateRows++;return []}
-      counts.cacheUniqueCandidateRows++
-      return [...exact.values()]
+      if(!searchSession)return finish(shared.localCandidatesFor(row,type))
+      const cached=shared.lookup(row,type)
+      const typed=payload=>(payload?.results??[]).map(item=>({...item,type,source:'tmdb-shared-search-response'}))
+      if(cached!==null)return finish(typed(cached))
+      counts.apiLookupRows++
+      return searchSession.lookup(row,type).then(payload=>finish(typed(payload),true))
     },
     counts(){return {...counts}},
   })
 }
 
-export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),coordinatorOptions={},captureHandoff=null}={}){
+export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),coordinatorOptions={},captureHandoff=null,searchSession=null}={}){
   if(captureHandoff!==null&&typeof captureHandoff!=='function') throw new TypeError('Invalid XMLTV handoff receiver')
   // Fixed runner-local paths: no arbitrary source URLs, cloud reads or writes.
   const file=join(root,CATALOG)
@@ -98,7 +110,7 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
   const local=createXmltvG2mVerifiedLocalResolver(catalog,{now})
   const loaded=await loadOptionalSharedTmdbResponses(join(root,SNAPSHOT),{now})
   const shared=createG2nXmltvCachedResponseResolver(loaded.store)
-  const enhanced=createG2wXmltvCandidateResolver(local,shared)
+  const enhanced=createG2wXmltvCandidateResolver(local,shared,searchSession)
   if(!coordinatorOptions||typeof coordinatorOptions!=='object'||Array.isArray(coordinatorOptions)||
     Object.keys(coordinatorOptions).some(k=>!['stagingReportPath','privateRoot','maxCandidates'].includes(k)))
     throw new Error('G2W_COORDINATOR_OPTIONS_REJECTED')
@@ -128,6 +140,8 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
       throw new Error('G2W_HANDOFF_PARITY_REJECTED')
     captureHandoff(handoff)
   }
+  const search=searchSession?await searchSession.complete({sourceGenerationComplete:combined.selectedSources>0}):null
+  const api=searchSession?.counts()??{}
   return {
     kind:'xmltv-g2w-private-shared-cache-preview',schemaVersion:1,
     loadStatus:loaded.status,restoredResponses:loaded.entries,
@@ -137,7 +151,11 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     combinedMergedAirings:combined.mergedAiringsWithXmltvPreview,
     ...c,cacheResponseHits:hits.hits,cacheResponseMisses:hits.misses,
     runtimeReadiness:combined.runtimeReadiness,
-    newTmdbApiRequests:0,cacheWrites:0,productiveWrites:0,publishApproved:false,
+    newTmdbApiRequests:search?.actualSearchStarts??0,
+    cacheWrites:search?.saveStatus==='saved'?search.capturedResponses:0,
+    apiDistinctKeys:api.distinctKeys??0,apiRepeatedKeys:api.repeatedKeys??0,
+    apiBudgetMisses:api.budgetMisses??0,apiFailedRequests:api.failedRequests??0,apiStoppedMisses:api.stoppedMisses??0,
+    productiveWrites:0,publishApproved:false,
   }
 }
 
@@ -146,7 +164,13 @@ async function main(){
     throw new Error('G2W_APPROVAL_REJECTED')
   const enabled=process.env.MOVIEHUB_XMLTV_CANONICAL_HANDOFF==='enabled'
   let handoff=null
-  const result=await runG2wXmltvSharedCachePreview({captureHandoff:enabled?value=>{handoff=value}:null})
+  let searchSession=null
+  if(process.env.MOVIEHUB_XMLTV_BOUNDED_SEARCH==='enabled'){
+    try{searchSession=await openXmltvBoundedSearchSession({projectRoot:ROOT,token:process.env.TMDB_API_READ_TOKEN,
+      fetchImpl:fetch,runStartedAt:Number(process.env.MOVIEHUB_SHARED_TMDB_RUN_STARTED_AT)})}
+    catch{console.warn('XMLTV bounded exact search unavailable; read-only cache matching retained')}
+  }
+  const result=await runG2wXmltvSharedCachePreview({captureHandoff:enabled?value=>{handoff=value}:null,searchSession})
   if(enabled&&result.validatedSources){
     const {writeXmltvSameRunHandoff}=await import('./xmltv-same-run-handoff.mjs')
     await writeXmltvSameRunHandoff(handoff)
