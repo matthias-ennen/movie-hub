@@ -11,6 +11,8 @@ on:
       - src/sources/xmltv/xmltvAvailableHorizon.js
       - src/sources/xmltv/xmltvCandidates.js
       - src/sources/xmltv/xmltvStationMappings.js
+      - scripts/xmltv-a3-station-expansion-preview.mjs
+      - tests/xmltv-a3-station-expansion-preview.test.js
       - scripts/xmltv-g2-private-staging.mjs
       - scripts/xmltv-g2-private-lkg-replay.mjs
       - scripts/xmltv-g2j-private-integration-preview.mjs
@@ -80,4 +82,31 @@ jobs:
           name: xmltv-g2c-source-staging-aggregate
           path: artifacts/xmltv-g2/report.json
           if-no-files-found: error
+          retention-days: 7
+
+
+  a3-station-expansion-preview:
+    if: github.event_name == 'pull_request' && github.head_ref == 'work/838-xmltv-18-station-private-preview'
+    name: Rehearse 18 reviewed stations against verified local catalog (no publication)
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Validate 18-station provenance, offline matching and deduplication
+        run: npx vitest run tests/xmltv-a3-station-expansion-preview.test.js tests/xmltv-g2-private-staging.test.js tests/xmltv-available-horizon.test.js
+      - name: Rehearse real original feeds against the currently deployed verified catalog
+        env:
+          MOVIEHUB_XMLTV_A3_PRIVATE_QA: enabled
+        run: node scripts/xmltv-a3-station-expansion-preview.mjs
+      - name: Upload only fixed aggregate counts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: xmltv-a3-station-expansion-aggregate
+          path: artifacts/xmltv-a3/report.json
+          if-no-files-found: ignore
           retention-days: 7
