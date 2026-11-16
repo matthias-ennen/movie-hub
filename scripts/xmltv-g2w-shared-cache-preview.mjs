@@ -24,7 +24,8 @@ const CATALOG = 'public/catalog.json'
 const MAX_CATALOG_BYTES=96*1024*1024
 
 // These are the exact same runner-local catalogue files used by the normal
-// TV runtime publication, after both original source adapters have succeeded.
+// TV runtime publication, including last validated catalogs after a failed refresh.
+// Absent peers are allowed; present invalid files still fail closed.
 // Never scan other source directories or accept an external path/URL.
 export async function readG2wExistingRuntimeSources(root){
   const sources=[]
@@ -146,7 +147,6 @@ async function main(){
   const enabled=process.env.MOVIEHUB_XMLTV_CANONICAL_HANDOFF==='enabled'
   let handoff=null
   const result=await runG2wXmltvSharedCachePreview({captureHandoff:enabled?value=>{handoff=value}:null})
-  if(result.runtimeReadiness.runtimeOverlap.existingSourceCount!==2)throw new Error('G2W_EXISTING_SOURCE_MISSING')
   if(enabled&&result.validatedSources){
     const {writeXmltvSameRunHandoff}=await import('./xmltv-same-run-handoff.mjs')
     await writeXmltvSameRunHandoff(handoff)
