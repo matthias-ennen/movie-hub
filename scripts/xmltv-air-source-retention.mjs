@@ -1,8 +1,7 @@
 /** #336: reconcile validated AIR station catalogs across ordinary deployments.
  * A fresh station replaces its old generation. An absent station retains only
  * still-current, exact canonical broadcasts from its last valid generation. */
-import { XMLTV_AIR_ROUTE_CANDIDATES, XMLTV_AIR_DEVICE_APPROVALS, isExactXmltvAirAiring } from '../src/sources/xmltv/xmltvAirRoutes.js'
-import { normalizePlaybackRoute } from '../src/sources/sourceAdapterContract.js'
+import { XMLTV_AIR_ROUTE_CANDIDATES, XMLTV_AIR_DEVICE_APPROVALS, XMLTV_AIR_DIRECT_LINK_APPROVALS, createXmltvAirRouteRegistry, isExactXmltvAirAiring } from '../src/sources/xmltv/xmltvAirRoutes.js'
 import { canonicalXmltvMetadata } from './execute-title-priority-queue.mjs'
 import { tvRuntimeTitleKey } from '../src/tv/tvRuntimePublication.js'
 import { mergeTvAirings } from '../src/sources/mergeTvAirings.js'
@@ -27,6 +26,7 @@ function collect(files){
 
 export function reconcileXmltvAirSources({freshFiles=[],retainedFiles=[],catalog,now=Date.now()}={}){
   if(!Array.isArray(catalog?.titles)||!Number.isFinite(now))throw new TypeError('Invalid canonical AIR context')
+  const registry=createXmltvAirRouteRegistry({deviceReceipts:XMLTV_AIR_DEVICE_APPROVALS,directLinkApprovals:XMLTV_AIR_DIRECT_LINK_APPROVALS,now})
   const fresh=collect(freshFiles),retained=collect(retainedFiles)
   const canonical=new Map(),duplicates=new Set()
   for(const value of catalog.titles){
@@ -43,10 +43,8 @@ export function reconcileXmltvAirSources({freshFiles=[],retainedFiles=[],catalog
     const generation=Date.parse(source.index.generatedAt)
     if(generation>now)throw new Error('Future XMLTV station generation')
     if(now-generation>14*DAY)continue
-    const receipt=XMLTV_AIR_DEVICE_APPROVALS.find(row=>row.stationId===station.stationId&&row.device==='android'&&row.target===station.target&&row.result==='exact-channel-confirmed'&&row.viaMovieHub)
-    if(!receipt||Date.parse(receipt.checkedAt)>now)throw new Error('Unapproved XMLTV station')
-    const route=normalizePlaybackRoute({providerId,mode:'WEB_LINK',scope:'channel',target:station.target,
-      geoRegion:'DE',requiresAuth:station.requiresAuth,requiresSubscription:station.requiresSubscription,verifiedAt:receipt.checkedAt})
+    const route=registry.approvedRoute(station.stationId)
+    if(!route)throw new Error('Unapproved XMLTV station')
     const entries=[]
     const keys=new Set()
     for(const entry of source.titles.entries){
