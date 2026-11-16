@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import {
   XMLTV_AIR_ROUTE_CANDIDATES, APPROVED_XMLTV_AIR_PROVIDERS, XMLTV_AIR_PUBLISH_ENABLED,
-  XMLTV_AIR_DEVICE_APPROVALS, XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES,
+  XMLTV_AIR_DEVICE_APPROVALS, XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES, XMLTV_AIR_DIRECT_LINK_APPROVALS,
   createXmltvAirRouteRegistry, xmltvAirFieldsForEvent,
 } from '../src/sources/xmltv/xmltvAirRoutes.js'
 import { XMLTV_REVIEWED_STATION_MAPPINGS, XMLTV_REVIEWED_EXPANSION_STATIONS } from '../src/sources/xmltv/xmltvStationMappings.js'
@@ -32,8 +32,8 @@ const eventFor = (candidate, source = 'epgshare01') => {
 }
 
 describe('XMLTV G3 verified sender-only routes', () => {
-  it('activates only the six reviewed linear stations and keeps them out of the VOD catalogue', () => {
-    expect(XMLTV_AIR_ROUTE_CANDIDATES).toHaveLength(6)
+  it('activates eighteen reviewed linear stations and keeps them out of the VOD catalogue', () => {
+    expect(XMLTV_AIR_ROUTE_CANDIDATES).toHaveLength(18)
     expect(XMLTV_AIR_PUBLISH_ENABLED).toBe(true)
     expect(APPROVED_XMLTV_AIR_PROVIDERS.map(p=>p.id)).toEqual(XMLTV_AIR_ROUTE_CANDIDATES.map(p=>p.providerId))
     for (const row of XMLTV_AIR_ROUTE_CANDIDATES) {
@@ -69,7 +69,7 @@ describe('XMLTV G3 verified sender-only routes', () => {
     expect(XMLTV_AIR_DEVICE_APPROVALS.every((receipt) => receipt.device === 'android')).toBe(true)
     const registry = createXmltvAirRouteRegistry({ deviceReceipts: XMLTV_AIR_DEVICE_APPROVALS, now })
     expect(registry.providers).toHaveLength(6)
-    expect(APPROVED_XMLTV_AIR_PROVIDERS).toHaveLength(6)
+    expect(APPROVED_XMLTV_AIR_PROVIDERS).toHaveLength(18)
   })
 
   it.each(XMLTV_AIR_ROUTE_CANDIDATES)('binds $label to reviewed source stations only', (row) => {
@@ -126,7 +126,7 @@ describe('XMLTV G3 verified sender-only routes', () => {
     expect(providerOfferLabel({ ...item, liveAvailability: { 'air-rtl': { airings: [{}] } } }, 'air-rtl')).toBe('AIR')
   })
 
-  it('keeps all twelve prospective routes device-testable but outside the production provider registry', () => {
+  it('keeps the twelve provisional links separate from device receipts', () => {
     const native = readFileSync(new URL('../android/app/src/main/java/de/matthiasennen/moviehub/ProviderUrlPolicy.java', import.meta.url), 'utf8')
     const qa = readFileSync(new URL('../android/app/src/airQa/java/de/matthiasennen/moviehub/AirQaActivity.java', import.meta.url), 'utf8')
     expect(XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES).toHaveLength(12)
@@ -135,10 +135,17 @@ describe('XMLTV G3 verified sender-only routes', () => {
     for (const row of XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES) {
       expect(native).toContain('case "' + row.providerId + '": return "' + row.target + '";')
       expect(qa).toContain('"' + row.providerId + '", "' + row.label + '"')
-      expect(APPROVED_XMLTV_AIR_PROVIDERS.some(provider=>provider.id===row.providerId)).toBe(false)
-      expect(PROVIDER_BY_ID[row.providerId]).toBeUndefined()
+      expect(APPROVED_XMLTV_AIR_PROVIDERS.some(provider=>provider.id===row.providerId)).toBe(true)
+      expect(PROVIDER_BY_ID[row.providerId]).toMatchObject({id:row.providerId,liveTvSource:'xmltv'})
       expect(XMLTV_AIR_DEVICE_APPROVALS.some(receipt=>receipt.stationId===row.stationId)).toBe(false)
-      expect(createXmltvAirRouteRegistry({deviceReceipts: receipts(row), now}).providers).toEqual([])
+      const direct = XMLTV_AIR_DIRECT_LINK_APPROVALS.find(x=>x.stationId===row.stationId)
+      const registry=createXmltvAirRouteRegistry({directLinkApprovals:[direct],now})
+      expect(registry.providers.map(x=>x.id)).toEqual([row.providerId])
+      expect(registry.verifiedDevices(row.stationId)).toEqual([])
+      expect(registry.fieldsForEvent(eventFor(row)).providerIds).toEqual([row.providerId])
+      expect(createXmltvAirRouteRegistry({directLinkApprovals:[{...direct,target:'https://wrong.example'}],now}).providers).toEqual([])
+      expect(createXmltvAirRouteRegistry({directLinkApprovals:[direct,direct],now}).providers).toEqual([])
+      expect(createXmltvAirRouteRegistry({directLinkApprovals:[direct],deviceReceipts:[{...receipts(row)[0],result:'failed'}],now}).providers).toEqual([])
     }
   })
 
