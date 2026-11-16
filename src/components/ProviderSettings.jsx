@@ -1,11 +1,11 @@
-import { visibleProviderOptions } from '../settings/providerSelectionModel.js'
+import { visibleStreamingProviderOptions } from '../settings/providerSelectionModel.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { ProviderBadge } from './ProviderBadges.jsx'
 import SettingsToggle from './SettingsToggle.jsx'
 
 export default function ProviderSettings({ availableTmdbProviderIds }) {
   const { enabledProviderIds, loading, savingProviderId, error, setProviderEnabled } = useProviderSelection()
-  const options = visibleProviderOptions(availableTmdbProviderIds)
+  const options = visibleStreamingProviderOptions(availableTmdbProviderIds)
   const busy = loading || Boolean(savingProviderId)
   return <section className="settings-panel">
     <div className="settings-heading"><h2>Streaminganbieter</h2><span className="settings-status">Konto · {options.filter(({ id }) => enabledProviderIds.includes(id)).length} von {options.length} aktiv</span></div>

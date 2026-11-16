@@ -9,6 +9,7 @@ export const SETTINGS_PAGES = {
   providers: { title: 'Streaminganbieter', parent: 'overview', group: 'account', description: 'Anbieter ein- oder ausschalten' },
   waipu: { title: 'Waipu-Sender', parent: 'overview', group: 'account', description: 'Sender bei waipu.tv auswählen' },
   joyn: { title: 'Joyn-Sender', parent: 'overview', group: 'account', description: 'Sender bei Joyn auswählen' },
+  xmltv: { title: 'TV-Sender', parent: 'overview', group: 'account', description: 'Lineare TV-Sender auswählen' },
   network: { title: 'Netzlaufwerke', parent: 'overview', group: 'device', description: 'Freigaben im Heimnetz verbinden und verwalten' },
   tmdb: { title: 'TMDB-Verbindung', parent: 'overview', group: 'device', description: 'TMDB-Zugang einrichten und Inhalte synchronisieren' },
 }
@@ -26,4 +27,4 @@ export function settingsScopeLabel(group, profileName) {
 }
 
 export function settingsParent(page) { return SETTINGS_PAGES[page]?.parent || null }
-export function settingsNeedStations(page) { return page === 'waipu' || page === 'joyn' }
+export function settingsNeedStations(page) { return page === 'waipu' || page === 'joyn' || page === 'xmltv' }

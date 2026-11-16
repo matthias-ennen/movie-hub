@@ -3,9 +3,10 @@ import { orderTvStations } from '../settings/stationOrder.js'
 import { useWaipuStationSelection } from '../settings/useWaipuStationSelection.js'
 import { useJoynStationSelection } from '../settings/useJoynStationSelection.js'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
+import { XMLTV_STATION_OPTIONS, disabledXmltvStationIds } from '../settings/providerSelectionModel.js'
 import SettingsToggle from './SettingsToggle.jsx'
 
-function StationSettings({ providerId, title, stations, canonicalStations, status, selection }) {
+function StationSettings({ providerId, title, stations, canonicalStations, status, selection, description = 'Wähle die Sender dieses Anbieters. Die Auswahl gilt auf allen Geräten für TV-Angebote. Neue Sender sind automatisch eingeschaltet.' }) {
   const [query, setQuery] = useState('')
   const { isProviderEnabled } = useProviderSelection()
   const { disabledStationIds, loading, savingStationId, error, setStationEnabled } = selection
@@ -18,8 +19,8 @@ function StationSettings({ providerId, title, stations, canonicalStations, statu
   const busy = loading || Boolean(savingStationId)
   return <section className="settings-panel">
     <div className="settings-heading"><h2>{title}</h2><span className="settings-status">Konto · {ordered.filter(({ id }) => !disabled.has(id)).length} von {ordered.length} aktiv</span></div>
-    <p className="settings-description">Wähle die Sender dieses Anbieters. Die Auswahl gilt auf allen Geräten für TV-Angebote. Neue Sender sind automatisch eingeschaltet.</p>
-    {!isProviderEnabled(providerId) && <p className="settings-hint">Der Anbieter ist ausgeschaltet. Deine Senderauswahl bleibt für das nächste Einschalten erhalten.</p>}
+    <p className="settings-description">{description}</p>
+    {providerId && !isProviderEnabled(providerId) && <p className="settings-hint">Der Anbieter ist ausgeschaltet. Deine Senderauswahl bleibt für das nächste Einschalten erhalten.</p>}
     {status === 'ready' ? <>
       <label className="settings-search">Sender suchen<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} data-focusable="true" /></label>
       <div className="provider-selection-list">
@@ -41,4 +42,13 @@ export function WaipuStationSettings(props) {
 export function JoynStationSettings(props) {
   const selection = useJoynStationSelection()
   return <StationSettings {...props} providerId="joyn" title="Joyn-Sender" selection={selection} />
+}
+
+export function XmltvStationSettings({ canonicalStations }) {
+  const { enabledProviderIds, loading, savingProviderId, error, setProviderEnabled } = useProviderSelection()
+  const disabledStationIds = useMemo(() => disabledXmltvStationIds(enabledProviderIds), [enabledProviderIds])
+  return <StationSettings title="TV-Sender" stations={XMLTV_STATION_OPTIONS}
+    canonicalStations={canonicalStations} status="ready"
+    description="Wähle deine TV-Sender. Die Auswahl gilt auf allen Geräten für TV-Angebote. Neu freigegebene Sender sind automatisch eingeschaltet."
+    selection={{ disabledStationIds, loading, savingStationId: savingProviderId, error, setStationEnabled: setProviderEnabled }} />
 }

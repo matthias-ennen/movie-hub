@@ -1,4 +1,4 @@
-import { XMLTV_AIR_PILOT_ROUTE_CANDIDATES, XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES } from '../sources/xmltv/xmltvAirRoutes.js'
+import { XMLTV_AIR_PILOT_ROUTE_CANDIDATES, XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES, XMLTV_AIR_ROUTE_CANDIDATES } from '../sources/xmltv/xmltvAirRoutes.js'
 import { ORDERED_PROVIDERS } from '../providers/providerOrder.js'
 import {
   DEFAULT_ENABLED_PROVIDER_IDS as REGISTRY_DEFAULTS,
@@ -79,4 +79,23 @@ export function visibleProviderOptions(availableTmdbProviderIds) {
   return PROVIDER_OPTIONS.filter((provider) => provider.source === 'moviehub'
     || Boolean(provider.liveTvSource) || provider.id === 'waipu'
     || (available ? available.has(provider.id) : provider.defaultEnabled))
+}
+
+// UI grouping only: XMLTV stays in the account-wide provider registry.
+export function visibleStreamingProviderOptions(availableTmdbProviderIds) {
+  return visibleProviderOptions(availableTmdbProviderIds).filter(provider => provider.liveTvSource !== 'xmltv')
+}
+
+const xmltvCanonicalIds = new Map(XMLTV_AIR_ROUTE_CANDIDATES.map(row => [row.providerId, row.stationId]))
+export const XMLTV_STATION_OPTIONS = Object.freeze(PROVIDER_OPTIONS
+  .filter(provider => provider.liveTvSource === 'xmltv')
+  .map(provider => Object.freeze({
+    id: provider.id,
+    name: provider.label,
+    canonicalId: xmltvCanonicalIds.get(provider.id),
+  })))
+
+export function disabledXmltvStationIds(enabledProviderIds) {
+  const enabled = new Set(enabledProviderIds)
+  return XMLTV_STATION_OPTIONS.filter(station => !enabled.has(station.id)).map(station => station.id)
 }
