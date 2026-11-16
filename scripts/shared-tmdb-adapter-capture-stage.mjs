@@ -27,6 +27,7 @@ export const SHARED_TMDB_CAPTURE_OPT_IN = 'private-stage-capture-v1'
 export const SHARED_TMDB_REUSE_OPT_IN = 'private-stage-reuse-v1'
 export const SHARED_TMDB_PERSISTENT_OPT_IN = 'private-persistent-reuse-v1'
 const SOURCE_IDS = new Set(['waipu', 'joyn'])
+const PERSISTENT_SOURCE_IDS = new Set([...SOURCE_IDS, 'xmltv'])
 const RELATIVE_CACHE_FILE = 'artifacts/shared-tmdb/private/shared-tmdb-response-cache.json'
 
 /**
@@ -40,7 +41,7 @@ export async function openOptionalSharedTmdbCapture({
   sourceId, enabled = false, projectRoot, now = Date.now(), reuse = false,
   persistent = false, runStartedAt = null,
 } = {}) {
-  if (!SOURCE_IDS.has(sourceId)) throw new TypeError('Unsupported capture source')
+  if (!(persistent ? PERSISTENT_SOURCE_IDS : SOURCE_IDS).has(sourceId)) throw new TypeError('Unsupported capture source')
   if (enabled !== true) return null
   if (typeof projectRoot !== 'string' || !projectRoot.trim() ||
       !Number.isFinite(now)) throw new TypeError('Invalid private capture context')
@@ -156,7 +157,7 @@ export function g2uSameRunObservation(sourceId, session, completion, actualSearc
 
 /** Count-only persistent reuse; distinguish prior-run and within-run hits. */
 export function g2vPersistentObservation(sourceId,session,completion,actualSearchStarts) {
-  if (!SOURCE_IDS.has(sourceId)||!Number.isSafeInteger(actualSearchStarts)||actualSearchStarts<0) throw new TypeError('Invalid G2v observation')
+  if (!PERSISTENT_SOURCE_IDS.has(sourceId)||!Number.isSafeInteger(actualSearchStarts)||actualSearchStarts<0) throw new TypeError('Invalid G2v observation')
   const counts=session.summary()
   if (![counts.restoredResponses,counts.sharedResponseHits,counts.capturedResponses,counts.priorRunHits,counts.sameRunHits,counts.evictedResponses].every(v=>Number.isSafeInteger(v)&&v>=0)||
       counts.priorRunHits+counts.sameRunHits!==counts.sharedResponseHits) throw new TypeError('Invalid G2v counts')
