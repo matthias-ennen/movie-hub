@@ -9,12 +9,15 @@ import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -38,6 +41,11 @@ import java.util.Locale;
 public final class SmbPlayerActivity extends ComponentActivity {
     public static final String EXTRA_LABEL = "movie_hub_media_label";
     public static final String EXTRA_URL = "movie_hub_smb_url";
+    public static final String EXTRA_USER = "movie_hub_smb_user";
+    public static final String EXTRA_PROFILE = "movie_hub_smb_profile";
+    public static final String EXTRA_MEDIA_ID = "movie_hub_smb_media_id";
+    public static final String EXTRA_PROGRESS = "movie_hub_smb_progress";
+    public static final String EXTRA_PALETTE = "movie_hub_smb_palette";
 
     private static final int MIN_BUFFER_MS = 30_000;
     private static final int MAX_BUFFER_MS = 60_000;
@@ -59,12 +67,30 @@ public final class SmbPlayerActivity extends ComponentActivity {
     private final PlayerRemoteWakeState remoteWakeState = new PlayerRemoteWakeState();
     private boolean controllerVisible;
     private boolean closing;
+    private FrameLayout root;
+    private SmbProgressStore progressStore;
+    private SmbProgressStore.Record savedProgress;
+    private String userId, profileId, mediaId;
+    private final Handler progressHandler = new Handler(Looper.getMainLooper());
+    private boolean hasPlayed, completed, initialReady, resumed;
+    private long requestedPosition;
+    private final Runnable checkpoint = new Runnable() {
+        @Override public void run() {
+            saveProgress();
+            if (!closing && player != null && player.isPlaying()) progressHandler.postDelayed(this, 30_000);
+        }
+    };
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         hideSystemUi();
         createContent(getIntent().getStringExtra(EXTRA_LABEL));
+        userId = getIntent().getStringExtra(EXTRA_USER);
+        profileId = getIntent().getStringExtra(EXTRA_PROFILE);
+        mediaId = getIntent().getStringExtra(EXTRA_MEDIA_ID);
+        progressStore = new SmbProgressStore(this);
+        savedProgress = progressStore.resolve(userId, profileId, mediaId, getIntent().getStringExtra(EXTRA_PROGRESS));
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -92,12 +118,12 @@ public final class SmbPlayerActivity extends ComponentActivity {
             showStatus("Für " + location.getDisplayEndpoint()
                     + " fehlen lokale Zugangsdaten. Bitte unter Einstellungen → Netzlaufwerke einrichten.");
         } else {
-            crtTransition.runWhenVisible(this::startPlayback);
+            crtTransition.runWhenVisible(this::askResumeOrStart);
         }
     }
 
     private void createContent(String rawLabel) {
-        FrameLayout root = new FrameLayout(this);
+        root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
 
         playerView = new PlayerView(this);
@@ -169,6 +195,28 @@ public final class SmbPlayerActivity extends ComponentActivity {
         crtTransition = PlayerCrtTransition.install(this, root, this::finishImmediately);
     }
 
+    private void askResumeOrStart() {
+        if (closing) return;
+        if (savedProgress == null || savedProgress.position == 0) {
+            startPlayback(0);
+            return;
+        }
+        setChromeVisibility(View.GONE);
+        statusView.setVisibility(View.GONE);
+        int focusPolicy = playerView.getDescendantFocusability();
+        playerView.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+        playerView.setFocusable(false);
+        playerView.setFocusableInTouchMode(false);
+        new SmbResumeDialog(this, getIntent().getStringExtra(EXTRA_PALETTE)).show(root, savedProgress, position -> {
+            if (closing) return;
+            playerView.setDescendantFocusability(focusPolicy);
+            playerView.setFocusable(true);
+            playerView.setFocusableInTouchMode(true);
+            setChromeVisibility(View.VISIBLE);
+            startPlayback(position);
+        });
+    }
+
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (closing || playerView == null || player == null) return super.dispatchKeyEvent(event);
@@ -221,8 +269,10 @@ public final class SmbPlayerActivity extends ComponentActivity {
         return credentialStore.load(location.getCredentialKey());
     }
 
-    private void startPlayback() {
+    private void startPlayback(long position) {
         releasePlayer();
+        requestedPosition = position;
+        initialReady = false;
         showStatus("Verbindung zu " + location.getDisplayEndpoint() + " wird hergestellt …");
         try {
             SmbCredentials playbackCredentials = credentials;
@@ -249,24 +299,57 @@ public final class SmbPlayerActivity extends ComponentActivity {
                 public void onPlaybackStateChanged(int playbackState) {
                     if (playbackState == Player.STATE_READY) {
                         statusView.setVisibility(View.GONE);
+                        if (!initialReady) {
+                            initialReady = true;
+                            // A file replaced at the same path must not inherit an incompatible position.
+                            long duration = player.getDuration();
+                            if (requestedPosition > 0 && (savedProgress == null || !player.isCurrentMediaItemSeekable() || duration <= requestedPosition
+                                    || Math.abs(duration - savedProgress.duration) > 5000)) {
+                                requestedPosition = 0;
+                                player.seekTo(0);
+                            }
+                            if (resumed) player.play();
+                        }
                     } else if (playbackState == Player.STATE_BUFFERING) {
                         showStatus("Netzwerkvideo wird geladen …");
                     } else if (playbackState == Player.STATE_ENDED) {
+                        if (!hasPlayed && requestedPosition > 0) {
+                            requestedPosition = 0;
+                            initialReady = false;
+                            player.seekTo(0);
+                            return;
+                        }
+                        completed = true;
+                        progressStore.save(userId, profileId, mediaId, 0, player.getDuration());
                         requestClose();
                     }
                 }
 
                 @Override
                 public void onPlayerError(PlaybackException error) {
+                    saveProgress();
                     showStatus(readableError(error));
                 }
+
+                @Override public void onIsPlayingChanged(boolean isPlaying) {
+                    progressHandler.removeCallbacks(checkpoint);
+                    if (isPlaying) {
+                        if (!hasPlayed && requestedPosition == 0) progressStore.save(userId, profileId, mediaId, 0, player.getDuration());
+                        hasPlayed = true;
+                        progressHandler.postDelayed(checkpoint, 30_000);
+                    } else saveProgress();
+                }
             });
-            player.setMediaSource(mediaSource);
+            player.setMediaSource(mediaSource, position);
             player.prepare();
-            player.play();
         } catch (Exception error) {
             showStatus(readableError(error));
         }
+    }
+
+    private void saveProgress() {
+        if (!hasPlayed || completed || player == null || !player.isCurrentMediaItemSeekable()) return;
+        progressStore.save(userId, profileId, mediaId, player.getCurrentPosition(), player.getDuration());
     }
 
     private String readableError(Throwable error) {
@@ -300,6 +383,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
     }
 
     private void releasePlayer() {
+        progressHandler.removeCallbacks(checkpoint);
         if (player != null) {
             playerView.setPlayer(null);
             player.release();
@@ -309,6 +393,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
 
     private void requestClose() {
         if (closing) return;
+        saveProgress();
         closing = true;
         remoteWakeState.clear();
         if (player != null) player.pause();
@@ -326,13 +411,22 @@ public final class SmbPlayerActivity extends ComponentActivity {
 
     @Override
     protected void onPause() {
+        resumed = false;
+        saveProgress();
         remoteWakeState.clear();
         if (player != null) player.pause();
         super.onPause();
     }
 
+    @Override protected void onResume() {
+        super.onResume();
+        resumed = true;
+        if (!closing && player != null && initialReady && !hasPlayed) player.play();
+    }
+
     @Override
     protected void onDestroy() {
+        saveProgress();
         if (crtTransition != null) crtTransition.destroy();
         releasePlayer();
         super.onDestroy();

@@ -39,6 +39,26 @@ service cloud.firestore {
       match /profiles/{profileId} {
         allow read, write: if ownsUserData(userId);
 
+        // Only profile-private, opaque network-video IDs and numerical progress.
+        match /smbProgress/{mediaId} {
+          function validProgress() {
+            let data = request.resource.data;
+            return mediaId.matches('^[a-f0-9]{64}$')
+              && exists(/databases/$(database)/documents/users/$(userId)/profiles/$(profileId))
+              && data.keys().hasOnly(['schemaVersion', 'positionMs', 'durationMs', 'updatedAtMs', 'updatedAt'])
+              && data.schemaVersion == 1 && data.positionMs is int && data.durationMs is int
+              && data.durationMs > 0 && data.durationMs <= 604800000
+              && data.positionMs >= 0 && data.positionMs <= data.durationMs
+              && data.updatedAtMs is int && data.updatedAtMs > 0 && data.updatedAtMs <= 9007199254740991
+              && data.updatedAt == request.time;
+          }
+          allow read: if ownsUserData(userId);
+          allow create: if ownsUserData(userId) && validProgress();
+          allow update: if ownsUserData(userId) && validProgress()
+            && request.resource.data.updatedAtMs > resource.data.updatedAtMs;
+          allow delete: if false;
+        }
+
         // Desired recipient/consent only. A client can never grant verification
         // or create a mail job. Keep monotonic versions across address changes.
         match /emailPreferences/{settingsId} {

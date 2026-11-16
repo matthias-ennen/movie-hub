@@ -13,6 +13,7 @@ import { useAuth } from '../hooks/useAuth.js'
 import { loadSharedMedia, removeSharedMedia, saveSharedMedia } from '../library/sharedMedia.js'
 import { isSmbMediaUrl, normaliseMedia } from '../library/sharedMediaModel.js'
 import { launchMovieHubMedia } from '../library/providerMediaLaunch.js'
+import { launchSmbWithResume } from '../library/smbProgressSync.js'
 import AgeRatingBadge from './AgeRatingBadge.jsx'
 import { useProviderSelection } from '../settings/useProviderSelection.js'
 import { useWaipuStationSelection } from '../settings/useWaipuStationSelection.js'
@@ -62,6 +63,11 @@ export default function DetailModal({
 }) {
   const { activeProfile } = useProfiles()
   const { user } = useAuth()
+  const smbLaunchScope = useRef(null)
+  const smbLaunching = useRef(false)
+  const smbMounted = useRef(true)
+  smbLaunchScope.current = `${user?.uid}:${activeProfile?.id}:${item.id}`
+  useEffect(() => { smbMounted.current = true; return () => { smbMounted.current = false } }, [])
   const { getTitleState, updateTitleState, loading: libraryLoading } = useLibrary()
   const titleAlerts = useTitleAlerts(user?.uid, activeProfile?.id)
   const { isProviderEnabled, enabledProviderIds } = useProviderSelection()
@@ -540,6 +546,19 @@ export default function DetailModal({
       openUrl,
       playInline: setPlaying,
       reportUnavailable: setMediaMessage,
+      playSmb: async (networkEntry) => {
+        if (smbLaunching.current) return
+        smbLaunching.current = true
+        const scope = smbLaunchScope.current
+        try {
+          await launchSmbWithResume(networkEntry, {
+            userId: user?.uid, profileId: activeProfile?.id, item, nativeBridge: window.MovieHubNative,
+            isCurrent: () => smbMounted.current && smbLaunchScope.current === scope,
+          })
+        } catch {
+          if (smbMounted.current && smbLaunchScope.current === scope) setMediaMessage('Netzwerkvideo konnte nicht geöffnet werden.')
+        } finally { smbLaunching.current = false }
+      },
     })
   }
 
