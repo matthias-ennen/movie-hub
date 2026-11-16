@@ -30,6 +30,20 @@ const CHECK_CHANNELS = Object.freeze({
   ProSieben: ['prosieben', 'prosiebenhd', 'prosiebende', 'deprosieben', 'deprosiebenhd'],
   'Sat.1': ['sat1', 'sat1hd', 'sat1de', 'desat1', 'desat1hd'],
   VOX: ['vox', 'voxhd', 'voxde', 'devox', 'devoxhd'],
+  // Phase A3 (#838): diagnostics only, never a canonical station approval.
+  // Exact normalized aliases keep related and regional channels distinct.
+  'arte': ['arte', 'artehd', 'artede', 'dearte', 'deartehd'],
+  '3sat': ['3sat', '3sathd', '3satde', 'de3sat', 'de3sathd'],
+  ZDFneo: ['zdfneo', 'zdfneohd', 'zdfneode', 'dezdfneo', 'dezdfneohd'],
+  ZDFinfo: ['zdfinfo', 'zdfinfohd', 'zdfinfode', 'dezdfinfo', 'dezdfinfohd'],
+  ONE: ['one', 'onehd', 'onede', 'deone', 'deonehd', 'ardone', 'ardonehd'],
+  'kabel eins': ['kabeleins', 'kabeleinshd', 'kabeleinsde', 'dekabeleins', 'dekabeleinshd', 'kabel1', 'kabel1hd', 'kabel1de', 'dekabel1'],
+  'RTL Zwei': ['rtl2', 'rtl2hd', 'rtl2de', 'dertl2', 'dertl2hd', 'rtlzwei', 'rtlzweihd', 'rtlzweide', 'dertlzwei', 'dertlzweihd'],
+  'Super RTL': ['superrtl', 'superrtlhd', 'superrtlde', 'desuperrtl', 'desuperrtlhd'],
+  'TELE 5': ['tele5', 'tele5hd', 'tele5de', 'detele5', 'detele5hd'],
+  'ProSieben MAXX': ['prosiebenmaxx', 'prosiebenmaxxhd', 'prosiebenmaxxde', 'deprosiebenmaxx', 'deprosiebenmaxxhd'],
+  'SAT.1 Gold': ['sat1gold', 'sat1goldhd', 'sat1goldde', 'desat1gold', 'desat1goldhd'],
+  'NITRO': ['nitro', 'nitrohd', 'nitrode', 'denitro', 'denitrohd', 'rtlnitro', 'rtlnitrode', 'dertlnitro'],
 })
 
 function clean(value) {
@@ -347,6 +361,20 @@ function markdownSummary(report) {
       ' | ' + (zdf ? zdf.horizonHours : '—') +
       ' | ' + (zdf ? zdf.best120hCoveragePercent + '%' : '—') + ' |')
   }
+  rows.push('', '### Station coverage candidates (not approved mappings)', '',
+    '| Station | ' + report.sources.map(s => s.source).join(' | ') + ' |',
+    '|---|' + report.sources.map(() => '---:').join('|') + '|')
+  for (const name of Object.keys(CHECK_CHANNELS)) {
+    const values = report.sources.map(s => {
+      const c = s.keyChannels?.[name]
+      if (!c) return '—'
+      if (!c.channelEntries) return '0 variants'
+      return c.channelEntries + ' variants; ' + c.horizonHours + 'h; ' + c.best120hCoveragePercent + '%'
+    })
+    rows.push('| ' + name + ' | ' + values.join(' | ') + ' |')
+  }
+  rows.push('', 'Cells: exact diagnostic variants, longest horizon, best next-120h coverage. Variants may overlap and do not establish distinct senders.',
+    'Exact source IDs and candidate fingerprints are in the count-only JSON report. Never auto-enable station IDs or playback URLs.')
   rows.push('', 'No data was published to MovieHub. Feed presence does not establish rights, reliability over time or playable links.')
   return rows.join('\n') + '\n'
 }
