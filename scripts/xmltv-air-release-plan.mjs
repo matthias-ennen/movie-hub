@@ -1,14 +1,14 @@
 /** #336: plan the exact AIR source files from the already enriched canonical
  * catalog. Private only; never writes files or enables public discovery. */
 import { buildPrivateXmltvAirRuntimePreview } from './xmltv-g3-private-air-runtime-preview.mjs'
-import { XMLTV_AIR_DEVICE_APPROVALS, createXmltvAirRouteRegistry } from '../src/sources/xmltv/xmltvAirRoutes.js'
+import { XMLTV_AIR_DIRECT_LINK_APPROVALS, XMLTV_AIR_DEVICE_APPROVALS, createXmltvAirRouteRegistry } from '../src/sources/xmltv/xmltvAirRoutes.js'
 import { canonicalXmltvMetadata } from './execute-title-priority-queue.mjs'
 import { tvRuntimeTitleKey } from '../src/tv/tvRuntimePublication.js'
 
 export function planXmltvAirSourceFiles({ confirmedEvents, catalog, now=Date.now() }={}) {
   if (!Array.isArray(confirmedEvents) || confirmedEvents.length>20000 ||
       !Array.isArray(catalog?.titles) || !Number.isFinite(now)) throw new TypeError('Invalid XMLTV release input')
-  const registry=createXmltvAirRouteRegistry({deviceReceipts:XMLTV_AIR_DEVICE_APPROVALS,now})
+  const registry=createXmltvAirRouteRegistry({deviceReceipts:XMLTV_AIR_DEVICE_APPROVALS,directLinkApprovals:XMLTV_AIR_DIRECT_LINK_APPROVALS,now})
   const events=confirmedEvents.filter(event=>{
     const start=Date.parse(event?.startAt), end=Date.parse(event?.endAt)
     return Number.isFinite(start)&&Number.isFinite(end)&&end>start&&end>now&&start<now+14*86400000&&
