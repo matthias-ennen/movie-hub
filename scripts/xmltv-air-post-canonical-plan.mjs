@@ -1,5 +1,6 @@
 /** After the existing central executor, validate the real same-run XMLTV
  * source-file plan without writing any AIR/public source files yet. */
+import {observeNightly} from './nightly-report-metrics.mjs'
 import { lstat, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -18,7 +19,7 @@ export async function checkPostCanonicalXmltvPlan({root=resolve('.'),env=process
     stationsWithAirings:plan.files.length,publicAirFilesWritten:0}
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
-  checkPostCanonicalXmltvPlan().then(report=>console.log(JSON.stringify(report))).catch(()=>{
+  checkPostCanonicalXmltvPlan().then(async report=>{await observeNightly('xmltv-canonical',report);console.log(JSON.stringify(report))}).catch(()=>{
     console.error('XMLTV post-canonical plan rejected; no AIR files written')
     process.exitCode=1
   })

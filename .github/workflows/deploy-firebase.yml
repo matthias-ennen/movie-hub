@@ -516,6 +516,7 @@ jobs:
         run: npm run title:priority:execute
 
       - name: Validate XMLTV source plan after canonical executor (counts only)
+        id: xmltv_post_canonical
         if: ${{ inputs.xmltv_canonical_handoff == true && steps.g2w_preview.outcome == 'success' && steps.canonical_executor.outcome == 'success' }}
         env:
           MOVIEHUB_XMLTV_CANONICAL_HANDOFF: enabled
@@ -906,6 +907,7 @@ jobs:
           NIGHT_METRIC_CACHESAVE: ${{ steps.g2v_save.outcome }}
           NIGHT_METRIC_XMLTVSTAGE: ${{ steps.g2w_stage.outcome }}
           NIGHT_METRIC_XMLTVMATCH: ${{ steps.g2w_preview.outcome }}
+          NIGHT_METRIC_XMLTVCANONICAL: ${{ steps.xmltv_post_canonical.outcome }}
           NIGHT_METRIC_XMLTVPUBLISH: ${{ steps.xmltv_air_publication.outcome }}
           NIGHT_METRIC_YOUTUBE: ${{ steps.youtube_curated_source.outcome }}
           NIGHT_METRIC_TV: ${{ steps.tv_runtime_snapshot.outcome }}

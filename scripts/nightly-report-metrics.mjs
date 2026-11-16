@@ -24,6 +24,7 @@ export function safeObservation(kind,value){
       ...num(value.runtimeReadiness,'androidReadyRows catalogReadyRows runtimeReadyRows deduplicatedRuntimeAirings missingCatalogRows'),
       ...num(value.runtimeReadiness?.metadataDemand,'approvedUniqueTitles missingApprovedUniqueTitles fetchNeededFromCurrentSources')}
   }
+  if(kind==='xmltv-canonical'&&value?.kind==='xmltv-post-canonical-air-plan')return num(value,'received eligible completeUniqueTitles pendingUniqueTitles projected unresolved deduplicated stationsWithAirings')
   if(kind==='xmltv-publication')return num(value,'stations freshStations retainedStations airings expiredAirings missingCanonicalAirings')
   return null
 }
@@ -45,10 +46,10 @@ const fields={
   waipuStations:'Waipu Sender',waipuAirings:'Waipu Ausstrahlungen',waipuRead:'Waipu Eingangsprogramme',
   joynStations:'Joyn Sender',joynAirings:'Joyn Ausstrahlungen',joynRead:'Joyn Eingangsprogramme',
   xmltvStations:'XMLTV Sender',xmltvAirings:'XMLTV Ausstrahlungen',xmltvStagedRows:'XMLTV Eingangsprogramme',xmltvSources:'XMLTV verfügbare Feeds',
-  tvTitles:'TV Titel',tvAirings:'TV Ausstrahlungen',
+  tvUniqueTitles:'TV eindeutige Titel',tvTitleDayEntries:'TV Titel-Tages-Einträge',tvAirings:'TV Ausstrahlungen',
   youtubeVideos:'YouTube Playlist-Videos',youtubeLinks:'YouTube redaktionelle Direktlinks',
 }
-const group={catalog:'tmdb',movies:'tmdb',series:'tmdb',search:'tmdb',waipuStations:'waipu',waipuAirings:'waipu',waipuRead:'waipu',joynStations:'joyn',joynAirings:'joyn',joynRead:'joyn',xmltvStations:'xmltv',xmltvAirings:'xmltv',xmltvStagedRows:'xmltvInput',xmltvSources:'xmltvInput',tvTitles:'tv',tvAirings:'tv',youtubeVideos:'youtube',youtubeLinks:'youtube'}
+const group={catalog:'tmdb',movies:'tmdb',series:'tmdb',search:'tmdb',waipuStations:'waipu',waipuAirings:'waipu',waipuRead:'waipu',joynStations:'joyn',joynAirings:'joyn',joynRead:'joyn',xmltvStations:'xmltv',xmltvAirings:'xmltv',xmltvStagedRows:'xmltvInput',xmltvSources:'xmltvInput',tvUniqueTitles:'tv',tvTitleDayEntries:'tv',tvAirings:'tv',youtubeVideos:'youtube',youtubeLinks:'youtube'}
 const pickStock=v=>Object.fromEntries(Object.keys(fields).map(k=>[k,count(v?.[k])]))
 export function buildDataMetrics(d={},steps={}){
   const w=waipuIndex(d.waipu),j=joynIndex(d.joyn),bW=waipuIndex(d.baselineWaipu),bJ=joynIndex(d.baselineJoyn)
@@ -65,7 +66,7 @@ export function buildDataMetrics(d={},steps={}){
   const wc=cache(d.waipuCache,wFresh),jc=cache(d.joynCache,jFresh)
   return {
     kind:'moviehub-nightly-data-metrics',schemaVersion:1,
-    steps:Object.fromEntries(['tmdb','waipuSync','waipu','joyn','cacheRestore','cacheSave','xmltvStage','xmltvMatch','xmltvPublish','youtube','tv','canonical','publish'].map(k=>[k,status(steps[k])])),
+    steps:Object.fromEntries(['tmdb','waipuSync','waipu','joyn','cacheRestore','cacheSave','xmltvStage','xmltvMatch','xmltvCanonical','xmltvPublish','youtube','tv','canonical','publish'].map(k=>[k,status(steps[k])])),
     tmdb:tmdb?{...tmdb,changedMovies:count(d.tmdbChanges?.fetched?.movie),changedSeries:count(d.tmdbChanges?.fetched?.series),...num(d.searchRun?.index,'addedCount removedCount changedOfferCount'),...num(d.searchRun?.scans,'completed expected capped')}:null,
     waipu:w?{stations:count(w.counts?.stations),titles:count(w.counts?.titles),airings:count(w.counts?.broadcasts),observedAt:iso(w.generatedAt),horizonDays:days(w.horizon?.start,w.horizon?.endExclusive),
       fresh:wFresh,candidates:count(wm?.candidatePrograms),matched:count(wm?.matchedPrograms),matchPercent:ratio(wm?.matchedPrograms,wm?.candidatePrograms),read:count(wm?.broadcastsRead),inWindow:count(wm?.broadcastsInWindow),duplicatesRemoved:count(wm?.duplicateBroadcastsRemoved)}:null,
@@ -74,7 +75,7 @@ export function buildDataMetrics(d={},steps={}){
     xmltv:{stagedSources:count(s?.stagedSourceCount),families:count(s?.availableIndependentFamilies),stagedRows:count(s?.totalStagedProgrammes),
       availableStations:x?new Set(x.flatMap(r=>Object.entries(r.stationCounts||{}).filter(([,v])=>count(v)>0).map(([k])=>k))).size:null,
       maxHorizonDays:x?.length?Math.round(Math.max(...x.map(r=>count(r.maxLatestProgrammeMinutes)??0))/144)/10:null,
-      match:xm,matchPercent:ratio(xm?.combinedMatched,xm?.selectedCandidates),publication:xp},
+      match:xm,matchPercent:ratio(xm?.combinedMatched,xm?.selectedCandidates),canonical:status(steps.xmltvCanonical)==='success'&&d.xmltvCanonical?num(d.xmltvCanonical,'received eligible completeUniqueTitles pendingUniqueTitles projected unresolved deduplicated stationsWithAirings'):null,publication:xp},
     cache:{waipu:wc,joyn:jc,avoidedInitialSearches:sum([wc?.avoidedInitialSearches,jc?.avoidedInitialSearches]),actualSearchStarts:sum([wc?.actualSearchStarts,jc?.actualSearchStarts])},
     baseline:pickStock({...baseline,waipuStations:bW?.counts?.stations,waipuAirings:bW?.counts?.broadcasts,joynStations:bJ?.stationCount,joynAirings:bJ?.airingCount}),
   }
@@ -83,24 +84,25 @@ export async function collectDataMetrics({env=process.env,input=readFile}={}){
   const paths={data:'public/data-status.json',baselineData:'artifacts/workflow-baseline/data-status.json',waipu:'public/waipu-live/index.json',joyn:'public/joyn-live/index.json',
     baselineWaipu:'artifacts/workflow-baseline/waipu-index.json',baselineJoyn:'artifacts/workflow-baseline/joyn-index.json',
     joynDiagnostic:'artifacts/joyn-adapter/diagnostic.json',tmdbChanges:'artifacts/tmdb-data/change-set.json',searchRun:'artifacts/search-index-run-report.json',xmltvStage:'artifacts/xmltv-g2/report.json',
-    waipuCache:DIR+'/waipu-cache.json',joynCache:DIR+'/joyn-cache.json',xmltvMatch:DIR+'/xmltv-match.json',xmltvPublish:DIR+'/xmltv-publication.json'}
+    waipuCache:DIR+'/waipu-cache.json',joynCache:DIR+'/joyn-cache.json',xmltvMatch:DIR+'/xmltv-match.json',xmltvCanonical:DIR+'/xmltv-canonical.json',xmltvPublish:DIR+'/xmltv-publication.json'}
   const d=Object.fromEntries(await Promise.all(Object.entries(paths).map(async([k,p])=>[k,await readJson(p,input)])))
-  const steps=Object.fromEntries(['tmdb','waipuSync','waipu','joyn','cacheRestore','cacheSave','xmltvStage','xmltvMatch','xmltvPublish','youtube','tv','canonical','publish'].map(k=>[k,env['NIGHT_METRIC_'+k.toUpperCase()]]))
+  const steps=Object.fromEntries(['tmdb','waipuSync','waipu','joyn','cacheRestore','cacheSave','xmltvStage','xmltvMatch','xmltvCanonical','xmltvPublish','youtube','tv','canonical','publish'].map(k=>[k,env['NIGHT_METRIC_'+k.toUpperCase()]]))
   return buildDataMetrics(d,steps)
 }
 export function sanitizeDataMetrics(v){
   if(v?.kind!=='moviehub-nightly-data-metrics'||v.schemaVersion!==1)return null
-  const match=v.xmltv?.match,publication=v.xmltv?.publication
+  const match=v.xmltv?.match,canonical=v.xmltv?.canonical,publication=v.xmltv?.publication
   const percent=(x)=>typeof x==='number'&&Number.isFinite(x)&&x>=0&&x<=100?x:null
   const horizon=(x)=>typeof x==='number'&&Number.isFinite(x)&&x>=0&&x<=31?x:null
   const adapter=x=>x?{...num(x,'stations titles airings candidates matched read inWindow duplicatesRemoved'),observedAt:iso(x.observedAt),fresh:x.fresh===true,matchPercent:percent(x.matchPercent),horizonDays:horizon(x.horizonDays)}:null
   const cache=x=>x?num(x,'actualSearchStarts restoredResponses sharedResponseHits capturedResponses priorRunHits sameRunHits evictedResponses avoidedInitialSearches'):null
   return {kind:v.kind,schemaVersion:1,
-    steps:Object.fromEntries(['tmdb','waipuSync','waipu','joyn','cacheRestore','cacheSave','xmltvStage','xmltvMatch','xmltvPublish','youtube','tv','canonical','publish'].map(k=>[k,status(v.steps?.[k])])),
-    tmdb:v.tmdb?num(v.tmdb,'catalog movies series search searchMovies searchSeries completeDetails pendingDetails seasonAvailable seasonRequested movie series addedCount removedCount changedOfferCount completed expected capped'):null,
+    steps:Object.fromEntries(['tmdb','waipuSync','waipu','joyn','cacheRestore','cacheSave','xmltvStage','xmltvMatch','xmltvCanonical','xmltvPublish','youtube','tv','canonical','publish'].map(k=>[k,status(v.steps?.[k])])),
+    tmdb:v.tmdb?num(v.tmdb,'catalog movies series search searchMovies searchSeries completeDetails pendingDetails seasonAvailable seasonRequested changedMovies changedSeries addedCount removedCount changedOfferCount completed expected capped'):null,
     waipu:adapter(v.waipu),joyn:adapter(v.joyn),
     xmltv:{...num(v.xmltv,'stagedSources families stagedRows availableStations'),maxHorizonDays:horizon(v.xmltv?.maxHorizonDays),matchPercent:percent(v.xmltv?.matchPercent),
       match:match?num(match,'validatedSources selectedCandidates baselineMatched combinedMatched additionalMatched cacheResponseHits cacheResponseMisses newTmdbApiRequests androidReadyRows catalogReadyRows runtimeReadyRows deduplicatedRuntimeAirings missingCatalogRows approvedUniqueTitles missingApprovedUniqueTitles fetchNeededFromCurrentSources'):null,
+      canonical:canonical?num(canonical,'received eligible completeUniqueTitles pendingUniqueTitles projected unresolved deduplicated stationsWithAirings'):null,
       publication:publication?num(publication,'stations freshStations retainedStations airings expiredAirings missingCanonicalAirings'):null},
     cache:{waipu:cache(v.cache?.waipu),joyn:cache(v.cache?.joyn),...num(v.cache,'avoidedInitialSearches actualSearchStarts')},
     baseline:pickStock(v.baseline)}
@@ -114,13 +116,13 @@ const validDay=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isF
 export function compareNightly(report,history=[],day=berlinDay(report.generatedAt)){
   const m=report.dataMetrics,qa=report.adapters
   const current=pickStock({...m?.tmdb,waipuStations:m?.waipu?.stations,waipuAirings:m?.waipu?.airings,waipuRead:m?.waipu?.read,joynStations:m?.joyn?.stations,joynAirings:m?.joyn?.airings,joynRead:m?.joyn?.read,
-    xmltvStations:m?.xmltv?.publication?.stations,xmltvAirings:m?.xmltv?.publication?.airings,xmltvStagedRows:m?.xmltv?.stagedRows,xmltvSources:m?.xmltv?.stagedSources,tvTitles:qa.tv?.titles,tvAirings:qa.tv?.airings,
+    xmltvStations:m?.xmltv?.publication?.stations,xmltvAirings:m?.xmltv?.publication?.airings,xmltvStagedRows:m?.xmltv?.stagedRows,xmltvSources:m?.xmltv?.stagedSources,tvUniqueTitles:qa.tv?.titles,tvTitleDayEntries:qa.tv?.titleDayEntries,tvAirings:qa.tv?.airings,
     youtubeVideos:qa.youtube?.sourceVideos,youtubeLinks:qa.youtube?.playlistEditorialLinks})
   const fresh={tmdb:m?.steps.tmdb==='success',waipu:m?.steps.waipu==='success',joyn:m?.steps.joyn==='success',
     xmltv:m?.steps.xmltvStage==='success'&&m?.steps.xmltvMatch==='success'&&m?.steps.xmltvPublish==='success'&&m?.xmltv?.publication?.retainedStations===0,
     xmltvInput:m?.steps.xmltvStage==='success',youtube:m?.steps.youtube==='success',tv:m?.steps.tv==='success'}
   const prev=Array.isArray(history)&&validDay(day)?history.filter(x=>validDay(x?.day)&&x.day<day&&Date.parse(day)-Date.parse(x.day)<=7*86400000)
-    .map(x=>({day:x.day,stock:pickStock(x.stock)})).sort((a,b)=>a.day.localeCompare(b.day)).slice(-7):[]
+    .map(x=>({day:x.day,stock:pickStock({...x.stock,tvTitleDayEntries:x.stock?.tvTitleDayEntries??x.stock?.tvTitles})})).sort((a,b)=>a.day.localeCompare(b.day)).slice(-7):[]
   const rows=Object.entries(fields).map(([key,label])=>{
     const value=current[key],last=prev.filter(x=>x.stock[key]!==null).at(-1)
     const previous=last?.stock[key]??m?.baseline?.[key]??null
@@ -148,6 +150,7 @@ const PHASES=[
  ['xmltv','XMLTV Import und Matching',['Stage reviewed XMLTV feeds privately (G2w)','Compare XMLTV local matching with shared TMDB replies (private G2w)']],
  ['canonical','YouTube Playlists / kanonische Titel und XMLTV-Veröffentlichung',['Refresh admin-configured YouTube playlists through canonical source contract','Execute canonical title priority queue','Restore and prepare verified XMLTV station generations']],
  ['tv','TV-Zusammenführung',['Build compact 14-day TV summary','Build generic live availability index','Build premerged TV runtime snapshot']],
+ ['youtubeEditorial','YouTube Playlist-TMDB-Zuordnung und Veröffentlichung',['Match explicit YouTube series episodes against canonical TMDB seasons (private)','Build exact YouTube episode playlist hints in TMDB season shards','Read-only YouTube playlist candidate TMDB matching','Reconcile all YouTube IDs with complete account-scoped MovieHub catalog','Review canonical TMDB metadata for missing YouTube films','Publish new YouTube playlist films as canonical TMDB metadata','Measure bidirectional YouTube inventory and exact-link coverage (private)','Attach same-night strong YouTube video matches to existing badges']],
  ['publish','Firebase und Hosting-Prüfung',['Deploy Hosting and Firestore Rules','Verify actually published source generations and app data']],
 ]
 export function phaseTimings(jobs=[]){
