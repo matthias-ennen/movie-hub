@@ -138,11 +138,14 @@ export function createG2nXmltvCachedResponseResolver(store, {
     throw new TypeError('XMLTV shared response resolver requires verified private store')
   }
   const bridge = createSharedTmdbSearchResponseCache(store)
+  const lookup = (row,type) => {
+    const key = xmltvExactTmdbSearchKey(row,type,language)
+    return key === null ? null : bridge.get(key)
+  }
   return Object.freeze({
+    lookup,
     localCandidatesFor(row, type) {
-      const key = xmltvExactTmdbSearchKey(row, type, language)
-      if (key === null) return []
-      const response = bridge.get(key)
+      const response = lookup(row,type)
       return Array.isArray(response?.results)
         ? response.results.map(item => ({ ...item, type,
           source: 'tmdb-shared-search-response' }))
