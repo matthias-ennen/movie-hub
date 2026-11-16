@@ -4,16 +4,24 @@ import android.annotation.SuppressLint;
 import android.graphics.Color;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.activity.ComponentActivity;
@@ -37,9 +45,20 @@ public final class TrailerPlayerActivity extends ComponentActivity {
     private static final Pattern VIDEO_ID = Pattern.compile("^[A-Za-z0-9_-]{6,20}$");
     private static final float SWIPE_CLOSE_SCREEN_FRACTION = 0.25f;
     private static final float SWIPE_HORIZONTAL_DOMINANCE = 1.4f;
+    private static final String LOG_TAG = "MovieHubTrailer";
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private Runnable waitTimeout;
 
     private WebView playerWebView;
     private TextView statusView;
+    private LinearLayout statusPanel;
+    private Button closeButton;
+    private TrailerPlaybackSession playback;
+    private boolean ready;
+    private boolean startRequested;
+    private boolean failed;
+    private boolean closing;
+    private boolean resumed;
     private float touchStartX;
     private float touchStartY;
     private boolean touchTracking;
@@ -69,7 +88,7 @@ public final class TrailerPlayerActivity extends ComponentActivity {
         });
 
         if (!VIDEO_ID.matcher(videoId).matches()) {
-            showStatus("Der Trailer-Link ist ungültig.");
+            showFailure("Der Trailer-Link ist ungültig.");
             return;
         }
 
@@ -93,9 +112,15 @@ public final class TrailerPlayerActivity extends ComponentActivity {
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) {
-                    outcome = OUTCOME_ERROR;
-                    showStatus("Der Trailer konnte nicht geladen werden.");
+                    showFailure("Der Trailer konnte nicht geladen werden. Bitte erneut versuchen.");
                 }
+            }
+
+            @Override
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                destroyPlayerWebView();
+                showFailure("Der Videoplayer wurde beendet. Bitte erneut versuchen.");
+                return true;
             }
         });
         playerWebView.addJavascriptInterface(new TrailerEvents(), "MovieHubTrailerEvents");
@@ -103,8 +128,11 @@ public final class TrailerPlayerActivity extends ComponentActivity {
         root.addView(playerWebView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
 
-        // Nur während Laden/Fehler sichtbar. Sobald YouTube bereit ist, bleibt
-        // ausschließlich der YouTube-Player mit seinen eigenen Controls sichtbar.
+        // The official iframe owns its controls and buffering UI. This native panel
+        // is only shown INSTEAD of the player in a terminal error state.
+        statusPanel = new LinearLayout(this);
+        statusPanel.setOrientation(LinearLayout.VERTICAL);
+        statusPanel.setGravity(android.view.Gravity.CENTER);
         statusView = new TextView(this);
         statusView.setTextColor(Color.WHITE);
         statusView.setTextSize(18);
@@ -115,8 +143,13 @@ public final class TrailerPlayerActivity extends ComponentActivity {
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT,
                 android.view.Gravity.CENTER);
         statusParams.setMargins(dp(48), 0, dp(48), 0);
-        root.addView(statusView, statusParams);
-        statusView.setVisibility(View.GONE);
+        statusPanel.addView(statusView);
+        closeButton = new Button(this);
+        closeButton.setText("Schließen");
+        closeButton.setOnClickListener(view -> requestClose());
+        statusPanel.addView(closeButton);
+        root.addView(statusPanel, statusParams);
+        statusPanel.setVisibility(View.GONE);
 
         crtTransition = PlayerCrtTransition.install(this, root, this::finishImmediately);
     }
@@ -157,7 +190,9 @@ public final class TrailerPlayerActivity extends ComponentActivity {
     }
 
     private void startYouTubePlayer(String videoId, boolean soundEnabled) {
-        showStatus("Trailer wird geladen …");
+        if (closing || failed || playerWebView == null) return;
+        playback = new TrailerPlaybackSession(SystemClock.elapsedRealtime());
+        updateWaitTimeout();
         String html = buildPlayerHtml(videoId, soundEnabled);
         playerWebView.loadDataWithBaseURL(
                 "https://movie-hub-62459.web.app/",
@@ -167,22 +202,24 @@ public final class TrailerPlayerActivity extends ComponentActivity {
                 null);
     }
 
-    private String buildPlayerHtml(String videoId, boolean soundEnabled) {
+    static String buildPlayerHtml(String videoId, boolean soundEnabled) {
         String soundLiteral = soundEnabled ? "true" : "false";
         return "<!doctype html><html><head><meta charset='utf-8'>"
                 + "<meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1'>"
                 + "<style>html,body,#player{margin:0;width:100%;height:100%;overflow:hidden;background:#000;}"
                 + "iframe{width:100%!important;height:100%!important;border:0;}</style></head>"
-                + "<body><div id='player'></div><script>"
-                + "const wantSound=" + soundLiteral + ";let p=null;let fallbackTried=false;"
+                + "<body><div id='player' style='display:grid;place-items:center;color:white;font:18px sans-serif'>Trailer wird geladen …</div><script>"
+                + "const wantSound=" + soundLiteral + ";let p=null;let startIssued=false;"
                 + "function mhError(c){try{MovieHubTrailerEvents.error(String(c));}catch(e){}}"
-                + "function tryPlay(){try{if(!p)return;if(wantSound){p.unMute();p.setVolume(100);}else{p.mute();}p.playVideo();}catch(e){mhError('play');}}"
+                + "function mhStart(){try{if(!p||startIssued)return;startIssued=true;if(wantSound){p.unMute();p.setVolume(100);}else{p.mute();}p.playVideo();}catch(e){mhError('play');}}"
+                + "function mhPause(){try{if(p&&startIssued)p.pauseVideo();}catch(e){}}"
+                + "function mhState(e){let fraction=-1,position=-1;try{fraction=e.target.getVideoLoadedFraction();position=e.target.getCurrentTime();}catch(x){}try{MovieHubTrailerEvents.stateChanged(e.data,Number.isFinite(fraction)?fraction:-1,Number.isFinite(position)?position:-1);}catch(x){}}"
                 + "window.onYouTubeIframeAPIReady=function(){p=new YT.Player('player',{videoId:'" + videoId + "',"
-                + "playerVars:{autoplay:1,controls:1,disablekb:0,fs:1,iv_load_policy:3,playsinline:1,rel:0,origin:'https://movie-hub-62459.web.app'},"
-                + "events:{onReady:function(e){try{MovieHubTrailerEvents.ready();}catch(x){}tryPlay();},"
-                + "onStateChange:function(e){if(e.data===YT.PlayerState.ENDED){try{MovieHubTrailerEvents.ended();}catch(x){}}},"
+                + "playerVars:{autoplay:0,controls:1,disablekb:0,fs:1,iv_load_policy:3,playsinline:1,rel:0,origin:'https://movie-hub-62459.web.app'},"
+                + "events:{onReady:function(e){try{MovieHubTrailerEvents.ready();}catch(x){}},"
+                + "onStateChange:mhState,"
                 + "onError:function(e){mhError(e&&e.data!=null?e.data:'youtube');},"
-                + "onAutoplayBlocked:function(){if(fallbackTried)return;fallbackTried=true;try{p.mute();p.playVideo();}catch(e){mhError('autoplay');}}}});};"
+                + "onAutoplayBlocked:function(){try{MovieHubTrailerEvents.autoplayBlocked();}catch(x){}}}});};"
                 + "const s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';"
                 + "s.onerror=function(){mhError('iframe-api');};document.head.appendChild(s);"
                 + "</script></body></html>";
@@ -191,35 +228,112 @@ public final class TrailerPlayerActivity extends ComponentActivity {
     private final class TrailerEvents {
         @JavascriptInterface
         public void ready() {
-            runOnUiThread(() -> statusView.setVisibility(View.GONE));
+            runOnUiThread(() -> {
+                if (!canHandleEvents() || ready) return;
+                ready = true;
+                Log.i(LOG_TAG, "iframe ready; waiting for actual playback");
+                maybeStartPlayback();
+            });
         }
 
         @JavascriptInterface
-        public void ended() {
+        public void stateChanged(int state, double loadedFraction, double positionSeconds) {
             runOnUiThread(() -> {
-                outcome = OUTCOME_COMPLETED;
-                requestClose();
+                if (!canHandleEvents() || !playback.updateState(state, SystemClock.elapsedRealtime())) return;
+                Log.i(LOG_TAG, "state=" + state + " loadedFraction=" + loadedFraction
+                        + " positionSeconds=" + positionSeconds + " startupMs=" + playback.startupMs());
+                updateWaitTimeout();
+                if (state == TrailerPlaybackSession.ENDED) {
+                    outcome = OUTCOME_COMPLETED;
+                    requestClose();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void autoplayBlocked() {
+            runOnUiThread(() -> {
+                if (!canHandleEvents()) return;
+                playback.autoplayBlocked();
+                updateWaitTimeout();
+                // Keep YouTube's Play button available; do not silently change the sound preference.
+                Log.i(LOG_TAG, "autoplay blocked; manual start available");
+                playerWebView.requestFocus();
             });
         }
 
         @JavascriptInterface
         public void error(String code) {
             runOnUiThread(() -> {
-                outcome = OUTCOME_ERROR;
-                showStatus("Der YouTube-Trailer konnte nicht abgespielt werden. Fehler: " + code);
+                if (!canHandleEvents()) return;
+                String safeCode = code != null && code.matches("[a-z0-9-]{1,20}") ? code : "youtube";
+                showFailure("Der YouTube-Trailer konnte nicht abgespielt werden. Fehler: " + safeCode);
             });
         }
     }
 
-    private void showStatus(String message) {
+    private boolean canHandleEvents() {
+        return !closing && !failed && playback != null && playerWebView != null;
+    }
+
+    private void maybeStartPlayback() {
+        if (!canHandleEvents() || !resumed || !ready || startRequested) return;
+        startRequested = true;
+        playerWebView.evaluateJavascript("mhStart()", null);
+    }
+
+    private void updateWaitTimeout() {
+        if (!canHandleEvents() || !resumed || !playback.isWaiting()) {
+            clearWaitTimeout();
+            return;
+        }
+        if (waitTimeout != null) return;
+        waitTimeout = () -> {
+            waitTimeout = null;
+            if (canHandleEvents() && resumed && playback.isWaiting()) {
+                showFailure("Der Trailer lädt zu lange. Bitte die Verbindung prüfen und erneut versuchen.");
+            }
+        };
+        handler.postDelayed(waitTimeout, TrailerPlaybackSession.WAIT_TIMEOUT_MS);
+    }
+
+    private void clearWaitTimeout() {
+        if (waitTimeout != null) handler.removeCallbacks(waitTimeout);
+        waitTimeout = null;
+    }
+
+    private void logSummary() {
+        if (playback == null) return;
+        long now = SystemClock.elapsedRealtime();
+        playback.finishRebuffer(now);
+        Log.i(LOG_TAG, "outcome=" + outcome + " startupMs=" + playback.startupMs()
+                + " rebufferCount=" + playback.rebufferCount() + " rebufferMs=" + playback.rebufferMs(now));
+    }
+
+    private void showFailure(String message) {
+        if (closing || failed) return;
+        failed = true;
+        outcome = OUTCOME_ERROR;
+        clearWaitTimeout();
+        if (playerWebView != null) {
+            playerWebView.evaluateJavascript("try{mhPause();}catch(e){}", null);
+            playerWebView.stopLoading();
+            playerWebView.loadUrl("about:blank");
+            playerWebView.setVisibility(View.GONE);
+        }
         statusView.setText(message);
-        statusView.setVisibility(View.VISIBLE);
+        statusPanel.setVisibility(View.VISIBLE);
+        closeButton.requestFocus();
     }
 
     private void requestClose() {
+        if (closing) return;
+        closing = true;
+        clearWaitTimeout();
+        logSummary();
         if (playerWebView != null) {
             playerWebView.evaluateJavascript(
-                    "try{if(p)p.pauseVideo();}catch(e){}",
+                    "try{mhPause();}catch(e){}",
                     null);
         }
         if (crtTransition == null) {
@@ -242,7 +356,10 @@ public final class TrailerPlayerActivity extends ComponentActivity {
 
     @Override
     protected void onPause() {
+        resumed = false;
+        clearWaitTimeout();
         if (playerWebView != null) {
+            if (startRequested) playerWebView.evaluateJavascript("try{mhPause();}catch(e){}", null);
             playerWebView.onPause();
             playerWebView.pauseTimers();
         }
@@ -252,25 +369,34 @@ public final class TrailerPlayerActivity extends ComponentActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        resumed = true;
         if (playerWebView != null) {
             playerWebView.onResume();
             playerWebView.resumeTimers();
         }
+        maybeStartPlayback();
+        updateWaitTimeout();
         hideSystemUi();
     }
 
     @Override
     protected void onDestroy() {
+        closing = true;
+        clearWaitTimeout();
         if (crtTransition != null) crtTransition.destroy();
-        if (playerWebView != null) {
-            playerWebView.loadUrl("about:blank");
-            playerWebView.removeJavascriptInterface("MovieHubTrailerEvents");
-            playerWebView.setWebChromeClient(null);
-            playerWebView.setWebViewClient(null);
-            playerWebView.destroy();
-            playerWebView = null;
-        }
+        destroyPlayerWebView();
         super.onDestroy();
+    }
+
+    private void destroyPlayerWebView() {
+        if (playerWebView == null) return;
+        WebView view = playerWebView;
+        playerWebView = null;
+        if (view.getParent() instanceof ViewGroup) ((ViewGroup) view.getParent()).removeView(view);
+        view.removeJavascriptInterface("MovieHubTrailerEvents");
+        view.setWebChromeClient(null);
+        view.setWebViewClient(null);
+        view.destroy();
     }
 
     @Override

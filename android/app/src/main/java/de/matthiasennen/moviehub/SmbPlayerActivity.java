@@ -13,6 +13,7 @@ import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -55,6 +56,9 @@ public final class SmbPlayerActivity extends ComponentActivity {
     private TextView titleView;
     private Button closeButton;
     private PlayerCrtTransition crtTransition;
+    private final PlayerRemoteWakeState remoteWakeState = new PlayerRemoteWakeState();
+    private boolean controllerVisible;
+    private boolean closing;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -102,10 +106,16 @@ public final class SmbPlayerActivity extends ComponentActivity {
         playerView.setControllerShowTimeoutMs(5000);
         playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING);
         playerView.setKeepScreenOn(true);
+        playerView.setFocusable(true);
+        playerView.setFocusableInTouchMode(true);
         playerView.setControllerVisibilityListener(new PlayerView.ControllerVisibilityListener() {
             @Override
             public void onVisibilityChanged(int visibility) {
+                controllerVisible = visibility == View.VISIBLE;
                 setChromeVisibility(visibility);
+                if (!controllerVisible && !closing && player != null && !playerView.isInTouchMode()) {
+                    playerView.requestFocus();
+                }
             }
         });
         root.addView(playerView, new FrameLayout.LayoutParams(
@@ -159,6 +169,33 @@ public final class SmbPlayerActivity extends ComponentActivity {
         crtTransition = PlayerCrtTransition.install(this, root, this::finishImmediately);
     }
 
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (closing || playerView == null || player == null) return super.dispatchKeyEvent(event);
+        int key = event.getKeyCode();
+        if (PlayerRemoteWakeState.isNavigationKey(key)) {
+            if (remoteWakeState.consumeNavigation(key, event.getAction(), !controllerVisible)) {
+                if (event.getAction() == KeyEvent.ACTION_DOWN && !controllerVisible) {
+                    showControlsWithFocus();
+                }
+                return true;
+            }
+            // Keep the timeout alive even when focus is on the separate close button.
+            if (event.getAction() == KeyEvent.ACTION_DOWN) playerView.showController();
+        } else if (PlayerRemoteWakeState.isMediaKey(key)) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN) playerView.showController();
+            // Dedicated transport buttons must work regardless of which view has focus.
+            if (playerView.dispatchMediaKeyEvent(event)) return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    private void showControlsWithFocus() {
+        playerView.showController();
+        View playPause = playerView.findViewById(androidx.media3.ui.R.id.exo_play_pause);
+        if (playPause == null || !playPause.requestFocus()) playerView.requestFocus();
+    }
+
     private GradientDrawable makeCloseBackground(boolean focused) {
         GradientDrawable background = new GradientDrawable();
         background.setShape(GradientDrawable.OVAL);
@@ -205,6 +242,8 @@ public final class SmbPlayerActivity extends ComponentActivity {
                     .setLoadControl(loadControl)
                     .build();
             playerView.setPlayer(player);
+            playerView.requestFocus();
+            playerView.showController();
             player.addListener(new Player.Listener() {
                 @Override
                 public void onPlaybackStateChanged(int playbackState) {
@@ -269,6 +308,9 @@ public final class SmbPlayerActivity extends ComponentActivity {
     }
 
     private void requestClose() {
+        if (closing) return;
+        closing = true;
+        remoteWakeState.clear();
         if (player != null) player.pause();
         if (crtTransition == null) {
             finishImmediately();
@@ -284,6 +326,7 @@ public final class SmbPlayerActivity extends ComponentActivity {
 
     @Override
     protected void onPause() {
+        remoteWakeState.clear();
         if (player != null) player.pause();
         super.onPause();
     }
