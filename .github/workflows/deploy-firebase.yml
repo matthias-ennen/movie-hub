@@ -327,7 +327,7 @@ jobs:
         continue-on-error: true
         env:
           JOYN_LIVE_OUTPUT: public/joyn-live
-          MOVIEHUB_SHARED_TMDB_REUSE: ${{ steps.g2v_restore.outcome == 'success' && steps.waipu_catalog.outcome == 'success' && 'private-persistent-reuse-v1' || steps.g2u_preflight.outcome == 'success' && steps.waipu_catalog.outcome == 'success' && 'private-stage-reuse-v1' || '' }}
+          MOVIEHUB_SHARED_TMDB_REUSE: ${{ steps.g2v_restore.outcome == 'success' && 'private-persistent-reuse-v1' || steps.g2u_preflight.outcome == 'success' && steps.waipu_catalog.outcome == 'success' && 'private-stage-reuse-v1' || '' }}
           MOVIEHUB_SHARED_TMDB_RUN_STARTED_AT: ${{ steps.g2v_restore.outputs.started_at }}
           JOYN_EPG_REQUEST_BUDGET: '500'
           JOYN_ALGOLIA_REQUEST_BUDGET: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[joyn-bootstrap]') && '18000' || '3600' }}
@@ -343,9 +343,11 @@ jobs:
           TMDB_COUNTRY: DE
         run: npm run joyn:catalog
 
+      # Each adapter finalizes only a complete validated generation; a failed
+      # peer must not discard the surviving adapter's verified search responses.
       - name: Save verified private shared TMDB checkpoint (G2v)
         id: g2v_save
-        if: ${{ steps.g2v_restore.outcome == 'success' && steps.waipu_catalog.outcome == 'success' && steps.joyn_catalog.outcome == 'success' }}
+        if: ${{ steps.g2v_restore.outcome == 'success' && (steps.waipu_catalog.outcome == 'success' || steps.joyn_catalog.outcome == 'success') }}
         continue-on-error: true
         env:
           MOVIEHUB_G2V_PERSISTENT: 'private-persistent-reuse-v1'

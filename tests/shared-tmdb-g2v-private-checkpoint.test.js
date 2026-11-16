@@ -100,6 +100,39 @@ it('rolling cap evicts oldest fetched entry, and invalid responses cannot evict'
   expect(s.values.size).toBe(SHARED_TMDB_RESPONSE_STORE_MAX_ENTRIES)
 })
 
+
+it('persists the surviving adapter across a peer failure without saving incomplete responses',async()=>{
+  const bucket=fakeBucket(),first=await root(),next=await root(),later=await root()
+  await restoreG2vCheckpoint({root:first,bucket,now:N})
+  const seeded=await session(first,'waipu',N+1000,N)
+  seeded.responseCache.set(key('old'),answer)
+  await seeded.complete({sourceGenerationComplete:true})
+  await saveG2vCheckpoint({root:first,bucket,now:N+2000})
+  const day=N+86400000
+  await restoreG2vCheckpoint({root:next,bucket,now:day})
+  const failed=await session(next,'waipu',day+1000,day)
+  failed.responseCache.set(key('incomplete'),answer)
+  expect(await failed.complete({sourceGenerationComplete:false})).toMatchObject({status:'not_complete'})
+  const survivor=await session(next,'joyn',day+2000,day)
+  expect(survivor.responseCache.get(key('old'))).toEqual(answer)
+  expect(survivor.responseCache.get(key('incomplete'))).toBeNull()
+  survivor.responseCache.set(key('joyn'),answer)
+  await survivor.complete({sourceGenerationComplete:true})
+  expect(await saveG2vCheckpoint({root:next,bucket,now:day+3000})).toMatchObject({status:'saved_verified',savedResponses:2})
+  const d2=day+86400000
+  await restoreG2vCheckpoint({root:later,bucket,now:d2})
+  const w=await session(later,'waipu',d2+1000,d2)
+  expect(w.responseCache.get(key('joyn'))).toEqual(answer)
+  w.responseCache.set(key('waipu'),answer)
+  await w.complete({sourceGenerationComplete:true})
+  const j=await session(later,'joyn',d2+2000,d2)
+  j.responseCache.set(key('incomplete-joyn'),answer)
+  await j.complete({sourceGenerationComplete:false})
+  expect(await saveG2vCheckpoint({root:later,bucket,now:d2+3000})).toMatchObject({status:'saved_verified',savedResponses:3})
+  const raw=JSON.parse(await readFile(snapshot(later),'utf8'))
+  expect(raw.entries.map(e=>e.requestKey)).not.toContain(key('incomplete-joyn'))
+})
+
 it('workflow keeps persistent reuse central, full and private with scheduled production defaults',async()=>{
   const central=await readFile('.github/workflows/moviehub-nightly-pipeline.yml','utf8')
   const deploy=await readFile('.github/workflows/deploy-firebase.yml','utf8')
@@ -107,6 +140,17 @@ it('workflow keeps persistent reuse central, full and private with scheduled pro
   expect(central).toContain("github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent')")
   expect(central).toContain("github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent'")
   expect(deploy).toContain("(github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && inputs.nightly_chain && inputs.data_mode == 'standard' && inputs.shared_tmdb_cache == 'private-persistent'")
-  expect(deploy).toContain("steps.g2v_restore.outcome == 'success' && steps.waipu_catalog.outcome == 'success' && steps.joyn_catalog.outcome == 'success'")
+  const joyn = deploy.slice(deploy.indexOf('id: joyn_catalog'), deploy.indexOf('id: g2v_save'))
+  expect(joyn).toContain("steps.g2v_restore.outcome == 'success' && 'private-persistent-reuse-v1'")
+  const save = deploy.match(/id: g2v_save\s+if: \$\{\{ ([^\n]+?) \}\}/)?.[1]
+  expect(save).toBeTruthy()
+  const allowed = Function('steps','return '+save)
+  for (const waipu of ['success','failure','skipped']) {
+    for (const joyn of ['success','failure','skipped']) {
+      const steps={g2v_restore:{outcome:'success'},waipu_catalog:{outcome:waipu},joyn_catalog:{outcome:joyn}}
+      expect(allowed(steps)).toBe(waipu==='success'||joyn==='success')
+      expect(allowed({...steps,g2v_restore:{outcome:'failure'}})).toBe(false)
+    }
+  }
   expect(deploy).not.toContain('path: artifacts/shared-tmdb/private')
 })
