@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { XMLTV_REVIEWED_STATION_MAPPINGS, XMLTV_REVIEWED_STATIONS,
+  XMLTV_REVIEWED_EXPANSION_STATIONS, XMLTV_REVIEWED_EXPANSION_STATION_MAPPINGS,
   reviewedXmltvStation } from '../src/sources/xmltv/xmltvStationMappings.js'
 import { parseXmltvCandidates } from '../src/sources/xmltv/xmltvCandidates.js'
 import { WAIPU_MOVIE_HUB_STATIONS } from '../scripts/waipu-station-order.mjs'
@@ -61,6 +62,49 @@ describe('G1b source-specific XMLTV-to-MovieHub station registry', () => {
       canonicalStationId: 'zdf', stationMappingStatus: 'mapped',
     })
     expect(candidates('epgshare01', sample('Das.Erste.de'))[0].canonicalStationId).toBe('ard')
+  })
+})
+
+describe('#838 A3 source-reviewed expansion (not production-enabled)', () => {
+  const twelve = [
+    ['arte', 'ARTE', 'ARTE.de', 'ARTE.de'],
+    ['3sat', '3sat', '3sat.de', '3sat.de'],
+    ['zdfneo', 'ZDFneo', 'ZDFneo.de', 'zdf_neo.de'],
+    ['zdfinfo', 'ZDFinfo', 'ZDFinfo.de', 'ZDFinfo.de'],
+    ['einsfestival', 'ONE', 'ONE.de', 'ONE.de'],
+    ['kabeleins', 'Kabel Eins', 'kabel.eins.de', 'KabelEins.de'],
+    ['rtl2', 'RTLZWEI', 'RTLZWEI.de', 'RTLZWEI.de'],
+    ['superrtl', 'SUPER RTL', 'SUPER.RTL.de', 'SuperRTL.de'],
+    ['tele5', 'TELE 5', 'Tele.5.de', 'Tele5.de'],
+    ['prosieben_maxx', 'ProSieben MAXX', 'ProSieben.MAXX.de', 'ProSiebenMAXX.de'],
+    ['sat1gold', 'SAT.1 GOLD', 'SAT.1.Gold.de', 'SAT1GOLD.de'],
+    ['rtlnitro', 'NITRO', 'NITRO.de', 'NITRO.de'],
+  ]
+  it('parses exact live identifiers for all twelve stations with existing canonical ids', () => {
+    const existing = new Map(WAIPU_MOVIE_HUB_STATIONS.map(({ id, name }) => [id, name]))
+    expect(XMLTV_REVIEWED_EXPANSION_STATIONS).toHaveLength(12)
+    expect(XMLTV_REVIEWED_STATIONS).toHaveLength(6)
+    for (const [id, name, epgshare, common] of twelve) {
+      expect(existing.get(id)).toBe(name)
+      for (const [sourceId, rawId] of [['freeepg', common], ['iptv-epg-org', common], ['epgshare01', epgshare]]) {
+        const mapping = XMLTV_REVIEWED_EXPANSION_STATION_MAPPINGS[sourceId]
+        expect(mapping[rawId]).toEqual({ stationId: id, stationName: name })
+        expect(reviewedXmltvStation(sourceId, rawId)).toBeNull()
+        const result = parseXmltvCandidates(sample(rawId), {
+          sourceId, stationMappings: XMLTV_REVIEWED_EXPANSION_STATION_MAPPINGS, observedAt: observed,
+        })
+        expect(result.candidates[0]).toMatchObject({
+          canonicalStationId: id, stationMappingStatus: 'mapped',
+        })
+      }
+    }
+  })
+  it('excludes alternate numeric grids and wrong-source spellings', () => {
+    for (const id of ['76641', '76682', '76739', '76718', '76738', '76792', '438457', '76767', '76708', '76702', '76716', '76787']) {
+      expect(Object.hasOwn(XMLTV_REVIEWED_EXPANSION_STATION_MAPPINGS.freeepg, id)).toBe(false)
+    }
+    expect(Object.hasOwn(XMLTV_REVIEWED_EXPANSION_STATION_MAPPINGS.freeepg, 'ZDFneo.de')).toBe(false)
+    expect(Object.hasOwn(XMLTV_REVIEWED_EXPANSION_STATION_MAPPINGS.epgshare01, 'zdf_neo.de')).toBe(false)
   })
 })
 
