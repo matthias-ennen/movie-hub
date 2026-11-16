@@ -12,12 +12,18 @@ import android.widget.TextView;
 /** Local-only test surface. There is no login, Firebase UI or catalog access. */
 public final class AirQaActivity extends Activity {
     private static final String[][] STATIONS = {
-        { "air-ard", "Das Erste", "Öffentlicher Livestream" },
-        { "air-zdf", "ZDF", "Öffentlicher Livestream" },
-        { "air-rtl", "RTL", "RTL+ Abo/Anmeldung" },
-        { "air-pro7", "ProSieben", "Joyn Anmeldung" },
-        { "air-sat1", "SAT.1", "Joyn Anmeldung" },
-        { "air-vox", "VOX", "RTL+ Abo/Anmeldung" },
+        { "air-arte", "ARTE", "Öffentlicher Livestream" },
+        { "air-3sat", "3sat", "Öffentlicher Livestream" },
+        { "air-zdfneo", "ZDFneo", "Öffentlicher Livestream" },
+        { "air-zdfinfo", "ZDFinfo", "Öffentlicher Livestream" },
+        { "air-einsfestival", "ONE", "Öffentlicher Livestream" },
+        { "air-kabeleins", "Kabel Eins", "Joyn Anmeldung ggf. erforderlich" },
+        { "air-rtl2", "RTLZWEI", "RTL+ Abo/Anmeldung" },
+        { "air-superrtl", "SUPER RTL", "RTL+ Abo/Anmeldung" },
+        { "air-tele5", "TELE 5", "Joyn Anmeldung ggf. erforderlich" },
+        { "air-prosieben_maxx", "ProSieben MAXX", "Joyn Anmeldung ggf. erforderlich" },
+        { "air-sat1gold", "SAT.1 GOLD", "Joyn Anmeldung ggf. erforderlich" },
+        { "air-rtlnitro", "NITRO", "RTL+ Abo/Anmeldung" },
     };
     private TextView status;
 
@@ -32,13 +38,13 @@ public final class AirQaActivity extends Activity {
         scroll.addView(content);
 
         TextView headline = new TextView(this);
-        headline.setText("Movie Hub – AIR Gerätetest");
+        headline.setText("Movie Hub – AIR Gerätetest (12 neue Sender)");
         headline.setTextSize(24);
         headline.setTextColor(Color.WHITE);
         content.addView(headline);
 
         status = new TextView(this);
-        status.setText("Sender auswählen. Prüfe den konkreten Livestream und kehre mit Zurück zurück. Keine Daten werden übertragen oder gespeichert.");
+        status.setText("Neue Sender auswählen. Prüfe den konkreten Livestream und kehre mit Zurück zurück. Keine Daten werden übertragen oder gespeichert.");
         status.setTextSize(16);
         status.setTextColor(Color.WHITE);
         status.setPadding(0, dp(8), 0, dp(12));
