@@ -46,7 +46,6 @@ final class PlayerCrtTransition {
 
         FrameLayout playerSurface = new FrameLayout(activity);
         playerSurface.setBackgroundColor(Color.BLACK);
-        playerSurface.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         playerSurface.addView(content, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
@@ -92,10 +91,18 @@ final class PlayerCrtTransition {
             animator.cancel();
             animator = null;
         }
+        setAnimatingLayer(false);
+    }
+
+    private void setAnimatingLayer(boolean animating) {
+        // Cache the transformed surface only while animating. During video playback,
+        // let Android composite the WebView/PlayerView normally, with GPU acceleration intact.
+        playerSurface.setLayerType(animating ? View.LAYER_TYPE_HARDWARE : View.LAYER_TYPE_NONE, null);
     }
 
     private void startSwitchOn() {
         if (destroyed || !host.isAttachedToWindow()) return;
+        setAnimatingLayer(true);
         animator = CrtTransitionAnimator.createSwitchOn(playerSurface, glowLine, coreLine);
         animator.addListener(new AnimatorListenerAdapter() {
             private boolean handled;
@@ -106,6 +113,7 @@ final class PlayerCrtTransition {
                 handled = true;
                 entering = false;
                 animator = null;
+                setAnimatingLayer(false);
                 if (closeRequested) {
                     startSwitchOff();
                 } else if (whenVisible != null) {
@@ -123,6 +131,7 @@ final class PlayerCrtTransition {
             finishOnce();
             return;
         }
+        setAnimatingLayer(true);
         animator = CrtTransitionAnimator.createSwitchOff(playerSurface, glowLine, coreLine);
         animator.addListener(new AnimatorListenerAdapter() {
             private boolean handled;
@@ -141,6 +150,7 @@ final class PlayerCrtTransition {
                 if (handled || destroyed) return;
                 handled = true;
                 animator = null;
+                setAnimatingLayer(false);
                 finishOnce();
             }
         });
