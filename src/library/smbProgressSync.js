@@ -1,10 +1,10 @@
 import { doc, getDocFromServer, runTransaction, serverTimestamp } from 'firebase/firestore'
-import { firebaseReady } from '../lib/firebase.js'
 import { withDeadline } from '../performance/cooperativeWork.js'
 import { titleMediaKey } from './sharedMediaModel.js'
 import { movieHubPlayerPalette, normalizeSmbProgress, shouldSyncSmbProgress, validSmbProgressId } from './smbProgressModel.js'
 
 const syncing = new Map()
+const syncAgain = new Set()
 const progressRef = (db, uid, profileId, id) => doc(db, 'users', uid, 'profiles', profileId, 'smbProgress', id)
 
 /** New native clients receive the freshest available cloud checkpoint; older APKs still play normally. */
@@ -22,6 +22,7 @@ export async function launchSmbWithResume(entry, { userId, profileId, item, nati
   let remote = null
   try {
     remote = await withDeadline((async () => {
+      const { firebaseReady } = await import('../lib/firebase.js')
       const { db, auth } = await firebaseReady
       if (auth.currentUser?.uid !== userId) return null
       const snap = await getDocFromServer(progressRef(db, userId, profileId, id))
@@ -40,8 +41,12 @@ export function flushSmbProgress(userId, profileId, nativeBridge = window.MovieH
   if (!userId || !profileId || typeof nativeBridge?.pendingSmbProgress !== 'function'
       || typeof nativeBridge?.acknowledgeSmbProgress !== 'function') return Promise.resolve()
   const scope = `${userId}:${profileId}`
-  if (syncing.has(scope)) return syncing.get(scope)
+  if (syncing.has(scope)) {
+    syncAgain.add(scope)
+    return syncing.get(scope)
+  }
   const promise = (async () => {
+    const { firebaseReady } = await import('../lib/firebase.js')
     const { db, auth } = await firebaseReady
     if (auth.currentUser?.uid !== userId) return
     const records = JSON.parse(nativeBridge.pendingSmbProgress(userId, profileId))
@@ -63,7 +68,10 @@ export function flushSmbProgress(userId, profileId, nativeBridge = window.MovieH
       nativeBridge.acknowledgeSmbProgress(userId, profileId, raw.id, String(local.updatedAtMs), JSON.stringify(accepted))
     }
   })().catch(() => { /* Keep the durable native outbox for the next online/resume event. */ })
-    .finally(() => syncing.delete(scope))
+    .finally(() => {
+      syncing.delete(scope)
+      if (syncAgain.delete(scope)) void flushSmbProgress(userId, profileId, nativeBridge)
+    })
   syncing.set(scope, promise)
   return promise
 }
