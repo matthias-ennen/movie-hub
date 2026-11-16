@@ -38,7 +38,7 @@ const acceptedMatches = (input) => [{
 describe('G1b source-specific XMLTV-to-MovieHub station registry', () => {
   it('uses exactly the verified live G0 identifiers and reuses existing Waipu/Joyn canonical ids', () => {
     const existing = new Map(WAIPU_MOVIE_HUB_STATIONS.map(({ id, name }) => [id, name]))
-    expect(XMLTV_REVIEWED_STATIONS).toHaveLength(6)
+    expect(XMLTV_REVIEWED_STATIONS).toHaveLength(18)
     for (const [id, name, shared, epgshare] of six) {
       expect(existing.get(id)).toBe(name)
       expect(reviewedXmltvStation('iptv-epg-org', shared)).toEqual({
@@ -65,7 +65,7 @@ describe('G1b source-specific XMLTV-to-MovieHub station registry', () => {
   })
 })
 
-describe('#838 A3 source-reviewed expansion (not production-enabled)', () => {
+describe('#838 A3 source-reviewed production expansion', () => {
   const twelve = [
     ['arte', 'ARTE', 'ARTE.de', 'ARTE.de'],
     ['3sat', '3sat', '3sat.de', '3sat.de'],
@@ -83,13 +83,13 @@ describe('#838 A3 source-reviewed expansion (not production-enabled)', () => {
   it('parses exact live identifiers for all twelve stations with existing canonical ids', () => {
     const existing = new Map(WAIPU_MOVIE_HUB_STATIONS.map(({ id, name }) => [id, name]))
     expect(XMLTV_REVIEWED_EXPANSION_STATIONS).toHaveLength(12)
-    expect(XMLTV_REVIEWED_STATIONS).toHaveLength(6)
+    expect(XMLTV_REVIEWED_STATIONS).toHaveLength(18)
     for (const [id, name, epgshare, common] of twelve) {
       expect(existing.get(id)).toBe(name)
       for (const [sourceId, rawId] of [['freeepg', common], ['iptv-epg-org', common], ['epgshare01', epgshare]]) {
         const mapping = XMLTV_REVIEWED_EXPANSION_STATION_MAPPINGS[sourceId]
         expect(mapping[rawId]).toEqual({ stationId: id, stationName: name })
-        expect(reviewedXmltvStation(sourceId, rawId)).toBeNull()
+        expect(reviewedXmltvStation(sourceId, rawId)).toEqual({ stationId: id, stationName: name })
         const result = parseXmltvCandidates(sample(rawId), {
           sourceId, stationMappings: XMLTV_REVIEWED_EXPANSION_STATION_MAPPINGS, observedAt: observed,
         })
