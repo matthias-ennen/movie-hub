@@ -11,7 +11,7 @@
  *  - continuousFromNowMinutes: no gap from NOW (strict quality observation)
  *  - latestProgrammeEndMinutes: the farthest future end (NOT gap-free)
  */
-import { XMLTV_REVIEWED_STATIONS } from './xmltvStationMappings.js'
+import { xmltvStationRegistry } from './xmltvStationMappings.js'
 import { XMLTV_VERIFIED_SOURCE_FAMILIES } from './xmltvSourceReadiness.js'
 
 const MINUTE = 60_000
@@ -21,7 +21,6 @@ const MAX_PROGRAMMES = 250_000
 const MAX_EVENT_LENGTH = 36 * HOUR
 export const XMLTV_MAX_PREVIEW_DAYS = 14
 
-const STATIONS = Object.freeze(XMLTV_REVIEWED_STATIONS.map(s => s.stationId))
 const utcInstant = input => {
   if (typeof input !== 'string' ||
       !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(input)) return null
@@ -35,7 +34,7 @@ const utcInstant = input => {
  * than inventing a five-day minimum for adapter eligibility.
  */
 export function measureXmltvAvailableHorizon(candidates, {
-  sourceId, now = Date.now(), maxDays = XMLTV_MAX_PREVIEW_DAYS,
+  sourceId, now = Date.now(), maxDays = XMLTV_MAX_PREVIEW_DAYS, stationSet = 'production',
 } = {}) {
   if (!Object.hasOwn(XMLTV_VERIFIED_SOURCE_FAMILIES, sourceId) ||
       !Array.isArray(candidates) || candidates.length > MAX_PROGRAMMES ||
@@ -44,6 +43,7 @@ export function measureXmltvAvailableHorizon(candidates, {
     throw new TypeError('Invalid bounded reviewed XMLTV horizon')
   }
 
+  const STATIONS = xmltvStationRegistry(stationSet).stations.map(s => s.stationId)
   const horizonEnd = now + maxDays * DAY
   const windows = new Map(STATIONS.map(id => [id, []]))
   let rejectedUnzoned = 0
