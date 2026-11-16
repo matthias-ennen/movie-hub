@@ -95,6 +95,29 @@ describe('XMLTV source probe (offline, without external requests)', () => {
     expect(report.keyChannels.ZDF.futureProgrammes).toBe(1)
   })
 
+  it('reports additional candidate stations without counting similarly named variants as exact matches', () => {
+    const channels = [
+      ['ZDF.de', 'DE - ZDF'], ['ZDFneo.de', 'DE - ZDFneo'],
+      ['arte.de', 'arte HD'], ['arte.fr', 'arte France'],
+      ['RTL.de', 'DE - RTL'], ['RTL2.de', 'DE - RTL Zwei'],
+      ['SuperRTL.de', 'DE - Super RTL'], ['SAT.1.Gold.de', 'SAT.1 Gold'],
+    ]
+    const doc = '<tv>' + channels.map(([id, name]) =>
+      '<channel id="' + id + '"><display-name>' + name + '</display-name></channel>' +
+      '<programme channel="' + id + '" start="20261112190000 +0100" stop="20261112200000 +0100"><title>Test only</title></programme>').join('') + '</tv>'
+    const report = analyzeXmltvDocument(doc, { now: TODAY })
+    for (const [name, id] of [
+      ['ZDF', 'ZDF.de'], ['ZDFneo', 'ZDFneo.de'], ['arte', 'arte.de'],
+      ['RTL', 'RTL.de'], ['RTL Zwei', 'RTL2.de'], ['Super RTL', 'SuperRTL.de'],
+      ['SAT.1 Gold', 'SAT.1.Gold.de'],
+    ]) {
+      expect(report.keyChannels[name].matchedVariants.map(c => c.id)).toEqual([id])
+      expect(report.keyChannels[name].futureProgrammes).toBe(1)
+    }
+    expect(report.keyChannels['TELE 5'].channelEntries).toBe(0)
+    expect(JSON.stringify(report)).not.toContain('Test only')
+  })
+
   it('compares station programme fingerprints regardless of XML ordering', () => {
     const channel = '<channel id="ZDF.de"><display-name>ZDF</display-name></channel>'
     const first = '<programme channel="ZDF.de" start="20261112190000 +0100" stop="20261112200000 +0100"><title>A</title></programme>'
