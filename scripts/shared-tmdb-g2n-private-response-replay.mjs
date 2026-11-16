@@ -113,6 +113,23 @@ export async function openG2nPrivateSharedTmdbRead({
  * Only a literal, unambiguous TMDB SEARCH request already in the verified
  * shared store is considered. No year-agnostic/fuzzy lookup is synthesized.
  */
+export function xmltvExactTmdbSearchKey(row, type, language = 'de-DE') {
+  if (!LANGUAGES.has(language)) return null
+  if (!kinds.includes(type) || typeof row?.title !== 'string' ||
+      row.title !== row.title.trim() || !row.title ||
+      row.title.length > MAX_QUERY) return null
+  const endpoint = type === 'movie' ? '/search/movie' : '/search/tv'
+  const params = { language, query: row.title, include_adult: 'false' }
+  // The Waipu original search uses a year only for movies; TV years
+  // need the original firstAirDateYear flag, unavailable in raw XMLTV.
+  const year = Number(row.productionYearEvidence)
+  if (type === 'movie' && Number.isInteger(year) &&
+      year >= 1888 && year <= 2100) {
+    params.year = String(year)
+  }
+  return JSON.stringify([endpoint, params])
+}
+
 export function createG2nXmltvCachedResponseResolver(store, {
   language = 'de-DE',
 } = {}) {
@@ -123,19 +140,8 @@ export function createG2nXmltvCachedResponseResolver(store, {
   const bridge = createSharedTmdbSearchResponseCache(store)
   return Object.freeze({
     localCandidatesFor(row, type) {
-      if (!kinds.includes(type) || typeof row?.title !== 'string' ||
-          row.title !== row.title.trim() || !row.title ||
-          row.title.length > MAX_QUERY) return []
-      const endpoint = type === 'movie' ? '/search/movie' : '/search/tv'
-      const params = { language, query: row.title, include_adult: 'false' }
-      // The Waipu original search uses a year only for movies; TV years
-      // need the original firstAirDateYear flag, unavailable in raw XMLTV.
-      const year = Number(row.productionYearEvidence)
-      if (type === 'movie' && Number.isInteger(year) &&
-          year >= 1888 && year <= 2100) {
-        params.year = String(year)
-      }
-      const key = JSON.stringify([endpoint, params])
+      const key = xmltvExactTmdbSearchKey(row, type, language)
+      if (key === null) return []
       const response = bridge.get(key)
       return Array.isArray(response?.results)
         ? response.results.map(item => ({ ...item, type,
