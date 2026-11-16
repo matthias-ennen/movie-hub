@@ -1,5 +1,16 @@
 # Movie Hub – Issue-Plan
 
+## Verbindlicher aktueller Stand – 16.11.2026 abends
+
+**Aktueller Wiedereinstieg:** [#838 (Issue-Kopf)](https://github.com/matthias-ennen/movie-hub/issues/838), unter Rahmenissue [#271](https://github.com/matthias-ennen/movie-hub/issues/271). #336 XMLTV-Pilot sowie die Player-Zwischenpakete #877/#879/#881 abgeschlossen und geschlossen.
+
+**Nächster konkreter Schritt:** Regulären Full-Nightly am 17.11. (00:10 Europe/Berlin geplant) analysieren, danach Phase A weiterführen: 18 XMLTV-Sender, gemeinsame Cache- und Ausfallarchitektur produktiv verifizieren, Matchqualität und Sendertranchen/Absprungziele verbessern. [Nightly #38](https://github.com/matthias-ennen/movie-hub/actions/runs/43793611859) ist die grüne Sechs-Sender-Baseline. Die spätere 18-Sender-Produktion ist noch nicht nachgewiesen.
+
+**Verbindliche Reihenfolge:** #838 Phase A (Adapter-/Cache-/Ausfallsicherheit und XMLTV) → [#858](https://github.com/matthias-ennen/movie-hub/issues/858) Phase B (YouTube-Effizienz) → #838 Phase C (Curated/Custom, Genre-/Discover-Qualität und JSON-Listen) → [#391](https://github.com/matthias-ennen/movie-hub/issues/391) Prime Video. Der detaillierte Checkpoint und die QA-/Abnahmekriterien stehen im Issue-Kopf #838. Ältere Planungs- und Statusabschnitte unten sind historisch; **ihre einstige Priorisierung ist überschrieben**.
+
+---
+
+
 ## Aktueller operativer Stand 11.11.2026 – XMLTV #336 nach G1b
 
 **Verbindlich und neuer als alle folgenden historischen Abschnitte:** Die XMLTV-Quellenprobe [G0 #758](https://github.com/matthias-ennen/movie-hub/pull/758), der sichere Rohparser [G1a #759](https://github.com/matthias-ennen/movie-hub/pull/759) und die quellgebundene Sender-/TMDB-/Merge-Vorschau [G1b #760](https://github.com/matthias-ennen/movie-hub/pull/760) sind **nach vollständiger grüner CI und Android-Build in `main` übernommen**. Letzter G1b-Merge: `990140dcf303a0e1bdc6b7bc9c5a129cf7f0716a`.
