@@ -10,7 +10,7 @@ const data={
   joyn:{kind:'joyn-live-index',stationCount:30,airingCount:2000},
   joynDiagnostic:{kind:'joyn-adapter-diagnostic',mapped:{uniquePrograms:100},matching:{matchedPrograms:50}},
   xmltvStage:{kind:'xmltv-g2-private-staging-aggregate',stagedSourceCount:3,availableIndependentFamilies:2,totalStagedProgrammes:1000,sources:[{status:'staged',stationCounts:{ard:10},maxLatestProgrammeMinutes:7200},{status:'staged',stationCounts:{zdf:10},maxLatestProgrammeMinutes:3600}]},
-  xmltvMatch:{selectedCandidates:100,combinedMatched:40,additionalMatched:5,newTmdbApiRequests:0,deduplicatedRuntimeAirings:35},
+  xmltvMatch:{selectedCandidates:100,combinedMatched:40,additionalMatched:5,newTmdbApiRequests:2,cacheWrites:2,apiLookupRows:5,apiDistinctKeys:3,apiRepeatedKeys:2,apiCandidateRows:4,apiBudgetMisses:1,apiFailedRequests:0,apiStoppedMisses:0,deduplicatedRuntimeAirings:35},
   xmltvCanonical:{received:40,eligible:40,completeUniqueTitles:12,pendingUniqueTitles:0,projected:40,unresolved:0,deduplicated:5,stationsWithAirings:2},
   xmltvPublish:{stations:2,freshStations:2,retainedStations:0,airings:35},
   waipuCache:{actualSearchStarts:20,avoidedInitialSearches:80,priorRunHits:70,sameRunHits:10},
@@ -34,7 +34,9 @@ describe('detailed counts-only Nightly report',()=>{
     expect(report.history.at(-1).stock).toMatchObject({tvUniqueTitles:5,tvTitleDayEntries:15})
     expect(report.comparison.find(r=>r.key==='xmltvStations').severity).toBe('no-baseline')
     expect(report.status).toBe('degraded')
-    expect(nightlyMarkdown(report)).toContain('XMLTV')
+    expect(report.dataMetrics.xmltv.match).toMatchObject({newTmdbApiRequests:2,cacheWrites:2,apiDistinctKeys:3,apiBudgetMisses:1})
+    expect(nightlyMarkdown(report)).toContain('2 zusätzliche Suchrequests im Matching; 2 neu erfasste Antworten')
+    expect(nightlyMarkdown(report)).toContain('1 wegen Budget nicht gesuchte Schlüssel')
   })
   it('reports failed imports as stale, excludes them and substitutes no zero for missing counters',()=>{
     const m=buildDataMetrics({...data,joynCache:null},{...steps,joyn:'failure',xmltvMatch:'failure'})
