@@ -6,7 +6,7 @@
  * Each source is its own generation, even when two hosts share content.
  * Source-specific horizons of two, three or fewer days remain useful.
  */
-import { XMLTV_REVIEWED_STATIONS, reviewedXmltvStation } from './xmltvStationMappings.js'
+import { xmltvStationRegistry } from './xmltvStationMappings.js'
 import { XMLTV_VERIFIED_SOURCE_FAMILIES } from './xmltvSourceReadiness.js'
 import { measureXmltvAvailableHorizon } from './xmltvAvailableHorizon.js'
 
@@ -14,7 +14,6 @@ const DAY = 24 * 60 * 60 * 1000
 const HOUR = 60 * 60 * 1000
 const MAX_CANDIDATES = 250_000
 const MAX_OBSERVATION_AGE_MS = 36 * HOUR
-const STATIONS = Object.freeze(XMLTV_REVIEWED_STATIONS.map(s => s.stationId))
 const SOURCE_IDS = Object.freeze(Object.keys(XMLTV_VERIFIED_SOURCE_FAMILIES))
 const instant = s => {
   if (typeof s !== 'string' ||
@@ -23,11 +22,11 @@ const instant = s => {
   return Number.isFinite(t) ? t : null
 }
 
-function validProvenance(row, sourceId, observedAt) {
+function validProvenance(row, sourceId, observedAt, registry) {
   if (row?.kind !== 'xmltv-candidate' ||
     row.sourceId !== sourceId ||
     row.stationMappingStatus !== 'mapped' ||
-    !STATIONS.includes(row.canonicalStationId) ||
+    !registry.stations.some(station => station.stationId === row.canonicalStationId) ||
     typeof row.sourceStationId !== 'string' ||
     row.sourceStationId.length < 1 || row.sourceStationId.length > 200 ||
     typeof row.stationName !== 'string' || !row.stationName.trim() ||
@@ -37,7 +36,8 @@ function validProvenance(row, sourceId, observedAt) {
 
   // Caller-independent identity check. A forged candidate must not claim
   // ZDF sourceStationId while borrowing ARD's canonical channel identity.
-  const mapped = reviewedXmltvStation(sourceId, row.sourceStationId)
+  const mappings = registry.mappings[sourceId]
+  const mapped = Object.hasOwn(mappings, row.sourceStationId) ? mappings[row.sourceStationId] : null
   if (!mapped || mapped.stationId !== row.canonicalStationId ||
       mapped.stationName !== row.stationName) return false
   const ref = row.sourceRef
@@ -56,7 +56,7 @@ function validProvenance(row, sourceId, observedAt) {
  * public artifacts, logs, Firebase, the app, or the normal Nightly pipeline.
  */
 export function buildXmltvPrivateSourceGeneration(parsed, {
-  now = Date.now(), maxDays = 14,
+  now = Date.now(), maxDays = 14, stationSet = 'production',
 } = {}) {
   const sourceId = parsed?.sourceId
   const observed = instant(parsed?.observedAt)
@@ -70,13 +70,15 @@ export function buildXmltvPrivateSourceGeneration(parsed, {
     throw new TypeError('Invalid or stale reviewed XMLTV staging source')
   }
 
+  const registry = xmltvStationRegistry(stationSet)
+  const STATIONS = registry.stations.map(station => station.stationId)
   const until = now + maxDays * DAY
   const records = []
   let rejected = 0
   for (const row of parsed.candidates) {
     const begin = instant(row?.startAt)
     const end = instant(row?.endAt)
-    if (!validProvenance(row, sourceId, parsed.observedAt) ||
+    if (!validProvenance(row, sourceId, parsed.observedAt, registry) ||
       begin === null || end === null || end <= begin ||
       end - begin > 36 * HOUR || end <= now || begin >= until) {
       rejected++
@@ -124,7 +126,7 @@ export function buildXmltvPrivateSourceGeneration(parsed, {
     id, records.filter(r => r.canonicalStationId === id).length,
   ]))
   const coverage = measureXmltvAvailableHorizon(records, {
-    sourceId, now, maxDays,
+    sourceId, now, maxDays, stationSet,
   })
 
   return {
