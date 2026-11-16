@@ -22,8 +22,12 @@ describe('Firebase workflow data separation', () => {
     const previewAllowed = Function('steps', 'return ' + preview)
     const steps = {g2w_stage:{outcome:'success'}, waipu_catalog:{outcome:'success'}, joyn_catalog:{outcome:'success'}, g2v_save:{outcome:'failure'}}
     expect(previewAllowed(steps)).toBe(true)
-    for (const key of ['g2w_stage', 'waipu_catalog', 'joyn_catalog']) {
-      expect(previewAllowed({...steps, [key]: {outcome:'failure'}})).toBe(false)
+    for (const waipu of ['success','failure','skipped']) {
+      for (const joyn of ['success','failure','skipped']) {
+        const peers={...steps,waipu_catalog:{outcome:waipu},joyn_catalog:{outcome:joyn}}
+        expect(previewAllowed(peers)).toBe(true)
+        expect(previewAllowed({...peers,g2w_stage:{outcome:'failure'}})).toBe(false)
+      }
     }
   })
 

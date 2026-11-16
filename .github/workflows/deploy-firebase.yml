@@ -354,7 +354,7 @@ jobs:
         run: node scripts/shared-tmdb-g2v-private-checkpoint.mjs save
 
       # G2w raw inputs remain private. Intake does not depend on adapter/cache success.
-      # Keep the validated two-catalog publication boundary until Phase A makes it independent.
+      # Match against the canonical TMDB catalog and optional validated peer catalogs.
       - name: Stage reviewed XMLTV feeds privately (G2w)
         id: g2w_stage
         if: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && inputs.nightly_chain && inputs.data_mode == 'standard' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true }}
@@ -363,7 +363,7 @@ jobs:
 
       - name: Compare XMLTV local matching with shared TMDB replies (private G2w)
         id: g2w_preview
-        if: ${{ steps.g2w_stage.outcome == 'success' && steps.waipu_catalog.outcome == 'success' && steps.joyn_catalog.outcome == 'success' }}
+        if: ${{ steps.g2w_stage.outcome == 'success' }}
         continue-on-error: true
         env:
           MOVIEHUB_XMLTV_PRIVATE_PREVIEW: enabled
