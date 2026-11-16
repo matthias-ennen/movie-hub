@@ -16,7 +16,7 @@ const qa={
   joyn:{kind:'joyn-live-index',status:'complete',generatedAt:'2026-10-28T10:32:00Z',
     stationCount:125,airingCount:22772,rows:[{id:'PRIVATE_STATION_ID'}]},
   tv:{kind:'moviehub-tv-runtime-index',generatedAt:'2026-10-28T17:04:00Z',
-    providers:['joyn','waipu'],titleCount:4444,airingCount:66727},
+    providers:['joyn','waipu'],titleCount:15682,titleShardTitleCount:4444,airingCount:66727},
 }
 const base={stages:{gate:'success',discovery:'success',known:'success',firebase:'success'},
   sourceData:qa,runId:601,runAttempt:1,repository:'test/movie-hub'}
@@ -32,7 +32,7 @@ describe('safe end-of-chain adapter summary (#388)',()=>{
     })
     expect(r.adapters.waipu).toMatchObject({stations:228,titles:3426,broadcasts:43955})
     expect(r.adapters.joyn).toMatchObject({stations:125,airings:22772})
-    expect(r.adapters.tv).toMatchObject({titles:4444,airings:66727,providerCount:2})
+    expect(r.adapters.tv).toMatchObject({titles:4444,titleDayEntries:15682,airings:66727,providerCount:2})
     expect(r.run.url).toBe('https://github.com/test/movie-hub/actions/runs/601')
     const printed=JSON.stringify(r)+nightlyMarkdown(r)
     expect(printed).not.toMatch(/PRIVATE_|SECRET_API_TOKEN|videoId|watchUrl/)
@@ -92,6 +92,8 @@ describe('safe end-of-chain adapter summary (#388)',()=>{
       quotaExceededConfirmed:false,
     })
     const printed=nightlyMarkdown(report)
+    expect(report.warnings.some(s=>s.includes('YouTube Discovery')&&s.includes('Drosselungen'))).toBe(true)
+    expect(printed).not.toContain('Keine konkreten Auffälligkeiten')
     expect(printed).toContain('Rate-Limit-Antworten: 13')
     expect(printed).toContain('HTTP 429 / 403 Drosselungen: 12 / 1')
     expect(printed).toContain('Retry-After-Hinweise von Google: 2')
