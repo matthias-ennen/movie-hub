@@ -8,6 +8,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -102,6 +103,11 @@ public final class TrailerPlayerActivity extends ComponentActivity {
 
         playerWebView = new WebView(this);
         playerWebView.setBackgroundColor(Color.BLACK);
+        playerWebView.setFocusable(true);
+        playerWebView.setFocusableInTouchMode(true);
+        playerWebView.setOnFocusChangeListener((view, hasFocus) -> {
+            if (hasFocus) focusYouTubeFrame();
+        });
         playerWebView.getSettings().setJavaScriptEnabled(true);
         playerWebView.getSettings().setDomStorageEnabled(true);
         playerWebView.getSettings().setMediaPlaybackRequiresUserGesture(false);
@@ -152,6 +158,50 @@ public final class TrailerPlayerActivity extends ComponentActivity {
         statusPanel.setVisibility(View.GONE);
 
         crtTransition = PlayerCrtTransition.install(this, root, this::finishImmediately);
+        playerWebView.requestFocus();
+    }
+
+    /** The WebView and the iframe are two different focus scopes. Do not reset an
+     * already-focused frame: its own selected control must remain selected. */
+    private void focusYouTubeFrame() {
+        if (canHandleEvents() && ready && resumed && playerWebView.hasFocus()) {
+            playerWebView.evaluateJavascript("mhFocus()", null);
+        }
+    }
+
+    private void restorePlayerFocus() {
+        if (!canHandleEvents() || !ready || !resumed) return;
+        if (!playerWebView.hasFocus()) playerWebView.requestFocus();
+        else focusYouTubeFrame();
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (!canHandleEvents() || !ready || !resumed) return super.dispatchKeyEvent(event);
+        int key = event.getKeyCode();
+        String command = TrailerRemoteInput.transportCommand(key);
+        if (command != null && (event.getAction() == KeyEvent.ACTION_DOWN
+                || event.getAction() == KeyEvent.ACTION_UP)) {
+            // Consume both halves of the press; the WebView must not toggle again.
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                playerWebView.evaluateJavascript("mhRemote('" + command + "')", null);
+            }
+            return true;
+        }
+        if (PlayerRemoteWakeState.isNavigationKey(key)) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                restorePlayerFocus();
+            }
+            // Enter is the browser's normal focused-button activation key. Forward
+            // both down and up, without simulating a tap or stealing iframe focus.
+            int webKey = TrailerRemoteInput.webNavigationKey(key);
+            if (webKey != key) {
+                event = new KeyEvent(event.getDownTime(), event.getEventTime(), event.getAction(),
+                        webKey, event.getRepeatCount(), event.getMetaState(), event.getDeviceId(),
+                        0, event.getFlags(), event.getSource());
+            }
+        }
+        return super.dispatchKeyEvent(event);
     }
 
     private boolean handlePlayerTouch(MotionEvent event) {
@@ -213,6 +263,13 @@ public final class TrailerPlayerActivity extends ComponentActivity {
                 + "function mhError(c){try{MovieHubTrailerEvents.error(String(c));}catch(e){}}"
                 + "function mhStart(){try{if(!p||startIssued)return;startIssued=true;if(wantSound){p.unMute();p.setVolume(100);}else{p.mute();}p.playVideo();}catch(e){mhError('play');}}"
                 + "function mhPause(){try{if(p&&startIssued)p.pauseVideo();}catch(e){}}"
+                + "function mhFocus(){try{if(p){const f=p.getIframe();if(f&&document.activeElement!==f){f.focus();}}}catch(e){}}"
+                + "function mhRemote(c){try{if(!p||!startIssued)return;"
+                + "if(c==='toggle'){const s=p.getPlayerState();if(s===1||s===3){p.pauseVideo();}else{p.playVideo();}}"
+                + "else if(c==='play'){p.playVideo();}else if(c==='pause'){p.pauseVideo();}"
+                + "else if(c==='forward'||c==='rewind'){const t=p.getCurrentTime(),d=p.getDuration();"
+                + "if(Number.isFinite(t)&&Number.isFinite(d)&&d>0){p.seekTo(Math.max(0,Math.min(d,t+(c==='forward'?10:-10))),true);}}"
+                + "}catch(e){}}"
                 + "function mhState(e){let fraction=-1,position=-1;try{fraction=e.target.getVideoLoadedFraction();position=e.target.getCurrentTime();}catch(x){}try{MovieHubTrailerEvents.stateChanged(e.data,Number.isFinite(fraction)?fraction:-1,Number.isFinite(position)?position:-1);}catch(x){}}"
                 + "window.onYouTubeIframeAPIReady=function(){p=new YT.Player('player',{videoId:'" + videoId + "',"
                 + "playerVars:{autoplay:0,controls:1,disablekb:0,fs:1,iv_load_policy:3,playsinline:1,rel:0,origin:'https://movie-hub-62459.web.app'},"
@@ -232,6 +289,7 @@ public final class TrailerPlayerActivity extends ComponentActivity {
                 if (!canHandleEvents() || ready) return;
                 ready = true;
                 Log.i(LOG_TAG, "iframe ready; waiting for actual playback");
+                restorePlayerFocus();
                 maybeStartPlayback();
             });
         }
@@ -258,7 +316,7 @@ public final class TrailerPlayerActivity extends ComponentActivity {
                 updateWaitTimeout();
                 // Keep YouTube's Play button available; do not silently change the sound preference.
                 Log.i(LOG_TAG, "autoplay blocked; manual start available");
-                playerWebView.requestFocus();
+                restorePlayerFocus();
             });
         }
 
@@ -375,6 +433,7 @@ public final class TrailerPlayerActivity extends ComponentActivity {
             playerWebView.resumeTimers();
         }
         maybeStartPlayback();
+        restorePlayerFocus();
         updateWaitTimeout();
         hideSystemUi();
     }
@@ -402,7 +461,10 @@ public final class TrailerPlayerActivity extends ComponentActivity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) hideSystemUi();
+        if (hasFocus) {
+            hideSystemUi();
+            restorePlayerFocus();
+        }
     }
 
     @SuppressWarnings("deprecation")
