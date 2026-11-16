@@ -15,6 +15,7 @@ import { bootstrapPersonalTitleState, hydratePersonalStates } from './personalTi
 import { mapCooperatively, withDeadline } from '../performance/cooperativeWork.js'
 import { useBackgroundReady } from '../performance/startupPhase.js'
 import { recordPerformanceEvent } from '../performance/performanceDiagnostics.js'
+import { flushSmbProgress } from './smbProgressSync.js'
 
 const LibraryContext = createContext(null)
 const EMPTY_STATES = Object.freeze({})
@@ -44,6 +45,20 @@ export function LibraryProvider({ user, activeProfile, children }) {
   const backgroundReady = useBackgroundReady(user.uid)
   const [hydrationSource, setHydrationSource] = useState(null)
   const [hydratedScope, setHydratedScope] = useState(null)
+
+  useEffect(() => {
+    if (!activeProfile?.id) return undefined
+    const flush = () => { void flushSmbProgress(user.uid, activeProfile.id) }
+    flush()
+    window.addEventListener('moviehub:smb-progress-ready', flush)
+    window.addEventListener('online', flush)
+    window.addEventListener('focus', flush)
+    return () => {
+      window.removeEventListener('moviehub:smb-progress-ready', flush)
+      window.removeEventListener('online', flush)
+      window.removeEventListener('focus', flush)
+    }
+  }, [user.uid, activeProfile?.id])
 
   useEffect(() => {
     let cancelled = false

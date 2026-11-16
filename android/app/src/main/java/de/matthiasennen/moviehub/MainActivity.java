@@ -539,6 +539,7 @@ public final class MainActivity extends ComponentActivity {
             webView.onResume();
             webView.resumeTimers();
             schedulePendingHeroTrailerResult(HERO_TRAILER_RESULT_RETRY_MS);
+            webView.evaluateJavascript("window.dispatchEvent(new Event('moviehub:smb-progress-ready'))", null);
         }
         hideSystemUi();
     }
@@ -841,6 +842,36 @@ public final class MainActivity extends ComponentActivity {
          * protected, device-local credential store or asks the user. */
         @JavascriptInterface
         public void playSmbMedia(String label, String rawUrl) {
+            launchSmb(label, rawUrl, null, null, null, null, null);
+        }
+
+        @JavascriptInterface
+        public String smbProgressId(String titleKey, String entryId, String rawUrl) {
+            try { return SmbProgressStore.mediaId(titleKey, entryId, SmbLocation.parse(rawUrl).getUri().toString()); }
+            catch (IllegalArgumentException ignored) { return ""; }
+        }
+
+        @JavascriptInterface
+        public void playSmbMediaWithResume(String label, String rawUrl, String userId, String profileId,
+                                          String mediaId, String remoteProgress, String palette) {
+            if (!SmbProgressStore.validScope(userId) || !SmbProgressStore.validScope(profileId)
+                    || !SmbProgressStore.validId(mediaId)) return;
+            launchSmb(label, rawUrl, userId, profileId, mediaId, remoteProgress, palette);
+        }
+
+        @JavascriptInterface
+        public String pendingSmbProgress(String userId, String profileId) {
+            return new SmbProgressStore(MainActivity.this).pending(userId, profileId);
+        }
+
+        @JavascriptInterface
+        public void acknowledgeSmbProgress(String userId, String profileId, String mediaId, String timestamp, String accepted) {
+            try { new SmbProgressStore(MainActivity.this).acknowledge(userId, profileId, mediaId, Long.parseLong(timestamp), accepted); }
+            catch (NumberFormatException ignored) {}
+        }
+
+        private void launchSmb(String label, String rawUrl, String userId, String profileId,
+                               String mediaId, String remoteProgress, String palette) {
             final SmbLocation location;
             try {
                 location = SmbLocation.parse(rawUrl);
@@ -853,6 +884,11 @@ public final class MainActivity extends ComponentActivity {
                 intent.putExtra(SmbPlayerActivity.EXTRA_LABEL,
                         label == null ? "Netzwerkvideo" : label.trim());
                 intent.putExtra(SmbPlayerActivity.EXTRA_URL, location.getUri().toString());
+                intent.putExtra(SmbPlayerActivity.EXTRA_USER, userId);
+                intent.putExtra(SmbPlayerActivity.EXTRA_PROFILE, profileId);
+                intent.putExtra(SmbPlayerActivity.EXTRA_MEDIA_ID, mediaId);
+                intent.putExtra(SmbPlayerActivity.EXTRA_PROGRESS, remoteProgress);
+                intent.putExtra(SmbPlayerActivity.EXTRA_PALETTE, palette);
                 startActivity(intent);
             });
         }

@@ -38,6 +38,24 @@ afterAll(async () => {
 
 describe('Firestore Security Rules', () => {
 
+  it('isolates SMB playback checkpoints and rejects stale or invalid writes', async () => {
+    const alice = testEnv.authenticatedContext('alice').firestore()
+    const bob = testEnv.authenticatedContext('bob').firestore()
+    const prefix = ['users', 'alice', 'profiles', 'smb-resume']
+    await setDoc(doc(alice, ...prefix), { displayName: 'SMB' })
+    const id = 'a'.repeat(64)
+    const ref = doc(alice, ...prefix, 'smbProgress', id)
+    const value = { schemaVersion: 1, positionMs: 100_000, durationMs: 500_000, updatedAtMs: 1000, updatedAt: serverTimestamp() }
+    await assertSucceeds(setDoc(ref, value))
+    await assertFails(getDoc(doc(bob, ...prefix, 'smbProgress', id)))
+    await assertFails(setDoc(doc(bob, ...prefix, 'smbProgress', id), value))
+    await assertFails(setDoc(ref, { ...value, updatedAtMs: 1001, positionMs: 600_000 }))
+    await assertFails(setDoc(ref, { ...value, updatedAtMs: 1001, url: 'smb://nas/private' }))
+    await assertSucceeds(setDoc(ref, { ...value, updatedAtMs: 1100, positionMs: 0 }))
+    await assertFails(setDoc(ref, { ...value, updatedAtMs: 1002 }))
+    await assertFails(setDoc(doc(alice, ...prefix, 'smbProgress', 'bad-id'), value))
+  })
+
   it('allows an available watch but never lets a client forge its availability event', async () => {
     const alice = testEnv.authenticatedContext('alice').firestore()
     const bob = testEnv.authenticatedContext('bob').firestore()

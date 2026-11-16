@@ -6,6 +6,7 @@ export function launchMovieHubMedia(entry, {
   openUrl,
   playInline,
   reportUnavailable,
+  playSmb,
 } = {}) {
   if (!entry?.url || (entry.type !== 'video' && entry.type !== 'web')) return false
 
@@ -15,7 +16,8 @@ export function launchMovieHubMedia(entry, {
       return false
     }
     markWatched?.()
-    nativeBridge.playSmbMedia(entry.label, entry.url)
+    if (playSmb) playSmb(entry)
+    else nativeBridge.playSmbMedia(entry.label, entry.url)
     return true
   }
 
