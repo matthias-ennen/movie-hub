@@ -8,7 +8,7 @@ import CategorySettings from './CategorySettings.jsx'
 import PersonalRowsSettings from './PersonalRowsSettings.jsx'
 import ContentDisplaySettings from './ContentDisplaySettings.jsx'
 import ProviderSettings from './ProviderSettings.jsx'
-import { WaipuStationSettings, JoynStationSettings } from './StationSettings.jsx'
+import { WaipuStationSettings, JoynStationSettings, XmltvStationSettings } from './StationSettings.jsx'
 import { NetworkSettings, TmdbConnectionSettings } from './ConnectionSettings.jsx'
 import TitleWatchSettings from './TitleWatchSettings.jsx'
 
@@ -64,6 +64,7 @@ export default function SettingsView({
       {page === 'providers' && <ProviderSettings availableTmdbProviderIds={availableTmdbProviderIds} />}
       {page === 'waipu' && <WaipuStationSettings stations={waipuStations} canonicalStations={waipuStations} status={waipuStationStatus} />}
       {page === 'joyn' && <JoynStationSettings stations={joynStations} canonicalStations={waipuStations} status={joynStationStatus} />}
+      {page === 'xmltv' && <XmltvStationSettings canonicalStations={waipuStations} />}
       {page === 'notifications' && <TitleWatchSettings userId={userId} profileId={activeProfile?.id} profileName={activeProfile?.displayName} />}
       {page === 'network' && <NetworkSettings />}
       {page === 'tmdb' && <TmdbConnectionSettings />}
