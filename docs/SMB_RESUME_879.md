@@ -6,7 +6,7 @@ Die bereits authentifizierte Web-App synchronisiert die lokale Outbox nach Rück
 
 Nach dem vollständigen CRT-Switch-on (1 s) erscheint nur bei gültiger Position (ab 10 s, mehr als 15 s Restzeit) ein modaler Dialog in der nativen Activity, mit der aktiven Movie-Hub-Farbpalette und sichtbarem D-Pad-Fokus. Vor Auswahl startet das Video nicht. Zurück schließt den Player ohne Änderung; Fortsetzen startet mit dem gespeicherten Seek; Von Anfang an ersetzt die Position erst, wenn die neue Wiedergabe tatsächlich beginnt. Am regulären Ende wird Position 0 gespeichert. Alle übrigen Player/Provider bleiben unverändert.
 
-## Geräteabnahme
+## Geräteabnahme (historischer Testplan / Regression)
 
 1. Auf Fire TV Netzwerkvideo erstmalig öffnen: CRT, kein Dialog, Wiedergabe von Anfang. Über 30 s laufen lassen, pausieren und schließen.
 2. Erneut öffnen: erst CRT vollständig, dann zentrierter Dialog; Position und Dauer korrekt. Mit Steuerkreuz beide Knöpfe fokussieren, Fortsetzen wählen; nahe gespeicherter Position startet Wiedergabe. Bedienelemente aus #877 weiterhin aufrufbar.
@@ -15,4 +15,4 @@ Nach dem vollständigen CRT-Switch-on (1 s) erscheint nur bei gültiger Position
 5. Nach Start und Schließen eines Netzvideos in Movie Hub warten, anschließend auf zweitem Gerät mit gleichem Profil und installiertem Update öffnen: Position übernommen; anderes Profil getrennt. Beide müssen auf die SMB-Freigabe zugreifen können. Offline-Test: ohne Internet weiter lokal, nach erneuter Verbindung Sync.
 6. Bright, Cinema, Midnight und übrige Designs, Touch und Fire-TV-D-Pad; Sound/CRT, SMB-Puffer und externe Links unverändert.
 
-Die Geräteabnahme (einschließlich realer Firebase-Synchronisierung zwischen zwei Geräten) bleibt bis zur Bestätigung offen.
+**16.11.2026:** Das gesamte Player-Zwischenpaket wurde von Matthias ausdrücklich freigegeben; #879 ist abgeschlossen. PR #880 gemergt, CI #2470, APK #2394, Firebase #1429 grün. Keine gesonderten geräteübergreifenden Messwerte über die Gesamtfreigabe hinaus dokumentiert.

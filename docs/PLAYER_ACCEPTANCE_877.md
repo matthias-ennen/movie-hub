@@ -1,12 +1,14 @@
 # #877 – Player-Abnahme
 
+> **Abschluss 16.11.2026:** Matthias hat das gesamte Player-Zwischenpaket ausdrücklich abgenommen; #877, #879 und #881 sind geschlossen. PRs #878, #880 und #882 in main; CI #2472, APK #2396 und Firebase #1430 grün. Die nachfolgende Prüfliste ist die technische Referenz, keine Behauptung separat protokollierter Messwerte. YouTube-Fernbedienungsnacharbeit (#881): offizielles UI, WebView-/IFrame-Fokus, D-Pad/OK sowie Play/Pause und ±10s per IFrame-API.
+
 ## Technischer Umfang
 
 - SMB: Activity-weite Steuerkreuz-/Medientasten-Behandlung; erster Navigationstastendruck weckt Controller, einschließlich Wiederholungen und Loslassen. Der bestehende Media3-Controller bleibt für Bedienung und Spulen zuständig.
 - CRT: erzwungene Vollbild-Hardware-Layer nur während der Ein-/Ausblendanimation. Danach Standard-Compositing; die Hardwarebeschleunigung bleibt aktiv.
 - Trailer: offizieller sichtbarer YouTube-IFrame-Player, ein Startpfad, Soundpräferenz, Zustandsereignisse und 30 Sekunden Timeout für einen nicht startenden bzw. dauerhaft puffernden Stream. Nach Autoplay-Blockierung bleiben die offiziellen Steuerelemente für den manuellen Start verfügbar. Bei Fehler kann der Player geschlossen und neu gestartet werden. Kein verstecktes Vorab-Abspielen, keine erzwungene Qualität oder garantierte Pufferreserve.
 
-## Geräteprüfung (noch offen; vor Schließen des Issues)
+## Geräteprüfung (historischer Testplan / Regression)
 
 | Plattform | Test | Soll |
 |---|---|---|

@@ -2,15 +2,16 @@
 
 Movie Hub ist eine persönliche, TV-optimierte Filmzentrale für Fire TV, Android-Smartphones und Tablets. Die Anwendung bündelt Filme und Serien aus Streaming-Diensten sowie linearem Fernsehen über Waipu und Joyn in einer gemeinsamen Oberfläche und verbindet Streaming-Verfügbarkeit mit persönlichen Bewertungen, Listen, eigenen Medien und TMDB-Daten.
 
-## Aktueller Arbeitsstand – 28. Oktober 2026
+## Aktueller Arbeitsstand – 16. November 2026
 
-**Technisches Adapter-Grundpaket: Waipu, Joyn und YouTube implementiert.** Der zentrale Nightly-Workflow läuft planmäßig **00:10 Uhr Europe/Berlin**; der erste echte Schedule-Gesamtlauf nach den YouTube-PRs #692/#693 steht ab 29.10.2026 noch aus. [CI](https://github.com/matthias-ennen/movie-hub/actions/runs/40775805198), [Android](https://github.com/matthias-ennen/movie-hub/actions/runs/40775805275) und [Firebase-Push](https://github.com/matthias-ennen/movie-hub/actions/runs/40775805203) für den Implementierungsstand sind erfolgreich; Push-Deploy ist keine Schedule-Abnahme.
+**Neuer Chat / verbindlicher Wiedereinstieg:** [#838 – Curated/Custom Adapter, aktueller Issue-Kopf](https://github.com/matthias-ennen/movie-hub/issues/838). Dieser ist die führende laufende Übergabe; ältere Übergabedokumente sind historische Referenzen.
 
-**Für neue Chats zuerst lesen: [Verbindliche Adapter-/Nachtlauf-Übergabe](docs/ADAPTER_NIGHTLY_HANDOFF_2026-10-28.md).** [YouTube #388](https://github.com/matthias-ennen/movie-hub/issues/388) bleibt **für 2–3 Nachtläufe, datengetriebene Matcher-Nacharbeit und ausdrückliche Nutzer-Endabnahme** offen. Eindeutig gematchte Videos werden bereits automatisch als **Best-Effort-Watch-Deep-Link am bestehenden YouTube-Badge** eingebunden, ohne neue Tarif-Freigabe. In DE abspielbares Rent-/Buy-Angebot wird daraus nicht behauptet.
+- [#336 XMLTV-Pilot](https://github.com/matthias-ennen/movie-hub/issues/336) abgeschlossen; produktive Sechs-Sender-Referenz im [Nightly #38](https://github.com/matthias-ennen/movie-hub/actions/runs/43793611859) grün. Am 16.11. technisch auf 18 Sender und gleichberechtigteren gemeinsamen TMDB-Responsecache erweitert; echte Produktionszahlen nach Ausbau stehen noch aus.
+- Player-Zwischenpakete [#877](https://github.com/matthias-ennen/movie-hub/issues/877), [#879](https://github.com/matthias-ennen/movie-hub/issues/879), [#881](https://github.com/matthias-ennen/movie-hub/issues/881) vollständig vom Nutzer abgenommen und geschlossen. Main CI #2472, Android APK #2396 und Firebase #1430 erfolgreich.
+- **Nächster Schritt:** regulären Full-Nightly am 17.11. (00:10 Europe/Berlin geplant; Actions-Verzögerungen möglich) abschließen lassen und den echten Bericht/Hosting-Readback einschließlich 18-Sender-Ausbau, Match-/Cache-/API-Daten, Laufzeit und Quellenausfällen analysieren. Kein zusätzlicher manueller Full-Run ohne Anlass.
+- **Reihenfolge danach:** #838 Phase A (Quellenunabhängigkeit, Resilienz, XMLTV-Ausbau, produktive Abnahme) → [#858](https://github.com/matthias-ennen/movie-hub/issues/858) Phase B (YouTube-Effizienz) → #838 Phase C (Curated/Custom: Genre/Discover/JSON-Listen) → [#391 Prime Video](https://github.com/matthias-ennen/movie-hub/issues/391).
 
-**Parallel nächstes planbares Arbeitspaket:** [#336 DVB-I G0-Datenzugangs-/EPG-Pilot](https://github.com/matthias-ennen/movie-hub/issues/336), unter [#271 Quellenplattform](https://github.com/matthias-ennen/movie-hub/issues/271); danach [#391 Prime Video](https://github.com/matthias-ennen/movie-hub/issues/391). Waipu/Joyn verbleiben im regulären Betrieb; konkrete Matcher-/Fehlerverbesserungen sind eigenständige kleine Folgeschritte.
-
-> **Historischer Stand ab „## Status“ weiter unten:** Aussagen vom 16.10. über „noch kein YouTube-Produktivadapter“ sind durch den Implementierungsstand vom 28.10. ersetzt. Die aktuelle Übergabe hat Vorrang.
+> Die Abschnitte ab „## Status“ und die ältere [Adapter-/Nachtlauf-Übergabe vom 28.10.2026](docs/ADAPTER_NIGHTLY_HANDOFF_2026-10-28.md) dokumentieren historische Entwicklungsstände. Der aktuelle Issue-Kopf #838 hat für die Fortsetzung Vorrang.
 
 ## Zielbild
 
