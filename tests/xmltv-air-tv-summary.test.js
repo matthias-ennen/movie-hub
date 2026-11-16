@@ -21,6 +21,13 @@ describe('XMLTV AIR in the common 14-day TV summary',()=>{
     expect(title.airingCount).toBe(1)
     expect(title.nextAiring.playbackRoutes.map(r=>r.providerId).sort()).toEqual(['air-zdf','waipu'])
   })
+  it('retains a later direct station broadcast when the earlier option is Waipu-only',()=>{
+    const earlier={...airing,startTime:'2026-11-16T17:00:00Z',stopTime:'2026-11-16T18:30:00Z',
+      stationId:'waipu-zdf',providerIds:['waipu'],programId:'example',playbackRoutes:[]}
+    const waipuTitles={entries:[{type:'movie',tmdbId:42,title:'Canonical film',airings:[earlier]}]}
+    const result=buildTv14DaySummary({waipuTitles,catalog,additionalSources:[airSource([airing])],generatedAt})
+    expect(result.entries[0].airingOptions.map(a=>a.providerIds)).toEqual([['waipu'],['air-zdf']])
+  })
   it('ignores unverified and expired XMLTV airings and unknown AIR provider IDs',()=>{
     const invalid={...airing,playbackRoutes:[{...airing.playbackRoutes[0],target:'https://wrong.example'}]}
     const expired={...airing,startTime:'2026-11-15T19:00:00Z',stopTime:'2026-11-15T21:00:00Z'}

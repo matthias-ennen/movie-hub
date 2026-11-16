@@ -226,14 +226,18 @@ export function buildTv14DaySummary({
     const firstPrimeByStation = new Map()
     for (const airing of mergedAirings) {
       const stationIdentity = airing.canonicalStationId || airing.stationId || airing.sourceStationId || ''
-      if (!firstByStation.has(stationIdentity)) firstByStation.set(stationIdentity, airing)
-      if (isPrimeTimeStart(airing?.startTime, TV_TIME_ZONE) && !firstPrimeByStation.has(stationIdentity)) {
-        firstPrimeByStation.set(stationIdentity, airing)
+      // Keep the earliest option per provider AND station, not just per
+      // station. Different providers may cover different broadcasts there.
+      const prime = isPrimeTimeStart(airing?.startTime, TV_TIME_ZONE)
+      for (const providerId of airing.providerIds || []) {
+        const key = JSON.stringify([providerId, airing.providerStationIds?.[providerId] || stationIdentity])
+        if (!firstByStation.has(key)) firstByStation.set(key, airing)
+        if (prime && !firstPrimeByStation.has(key)) firstPrimeByStation.set(key, airing)
       }
     }
-    const airingOptions = [...firstByStation.values()]
+    const airingOptions = [...new Set(firstByStation.values())]
       .sort((left, right) => left.startTime.localeCompare(right.startTime))
-    const primeTimeOptions = [...firstPrimeByStation.values()]
+    const primeTimeOptions = [...new Set(firstPrimeByStation.values())]
       .sort((left, right) => left.startTime.localeCompare(right.startTime))
     const nextAiring = airingOptions[0] || null
     const nextPrimeTimeAiring = primeTimeOptions[0] || null
