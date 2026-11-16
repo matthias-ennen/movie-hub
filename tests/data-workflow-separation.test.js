@@ -2,6 +2,31 @@ import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 
 describe('Firebase workflow data separation', () => {
+  it('stages XMLTV independently of Waipu, Joyn and checkpoint results without enabling light or code-only runs', async () => {
+    const workflow = await readFile('.github/workflows/deploy-firebase.yml', 'utf8')
+    const expression = workflow.match(/id: g2w_stage\s+if: \$\{\{ ([^\n]+?) \}\}/)?.[1]
+    expect(expression).toBeTruthy()
+    const evaluate = Function('github', 'inputs', 'steps', 'return ' + expression)
+    const github = {event_name: 'schedule', ref: 'refs/heads/main'}
+    const inputs = {nightly_chain: true, data_mode: 'standard', shared_tmdb_cache: 'private-persistent', xmltv_private_preview: true}
+    for (const outcome of ['success', 'failure', 'skipped']) {
+      const steps = Object.fromEntries(['waipu_catalog', 'joyn_catalog', 'g2v_save', 'g2v_restore'].map(k => [k, {outcome}]))
+      expect(evaluate(github, inputs, steps)).toBe(true)
+      expect(evaluate({...github, event_name: 'push'}, inputs, steps)).toBe(false)
+      expect(evaluate({...github, ref: 'refs/heads/test'}, inputs, steps)).toBe(false)
+      expect(evaluate(github, {...inputs, data_mode: 'accelerated'}, steps)).toBe(false)
+      expect(evaluate(github, {...inputs, xmltv_private_preview: false}, steps)).toBe(false)
+      expect(evaluate(github, {...inputs, nightly_chain: false}, steps)).toBe(false)
+    }
+    const preview = workflow.match(/id: g2w_preview\s+if: \$\{\{ ([^\n]+?) \}\}/)?.[1]
+    const previewAllowed = Function('steps', 'return ' + preview)
+    const steps = {g2w_stage:{outcome:'success'}, waipu_catalog:{outcome:'success'}, joyn_catalog:{outcome:'success'}, g2v_save:{outcome:'failure'}}
+    expect(previewAllowed(steps)).toBe(true)
+    for (const key of ['g2w_stage', 'waipu_catalog', 'joyn_catalog']) {
+      expect(previewAllowed({...steps, [key]: {outcome:'failure'}})).toBe(false)
+    }
+  })
+
   it('generates seasons once after current TV imports and before both TV publications', async () => {
     const workflow = await readFile('.github/workflows/deploy-firebase.yml', 'utf8')
     expect(workflow).toContain("TMDB_SERIES_DETAILS_DEFER: '1'")
