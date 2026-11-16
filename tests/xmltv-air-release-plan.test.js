@@ -22,7 +22,15 @@ describe('XMLTV AIR source file plan',()=>{
     expect(plan.files[0].titles.entries[0].tmdbProviderIds).toEqual([])
     expect(JSON.stringify(plan.files)).not.toContain('PRIVATE RAW')
     expect(JSON.stringify(plan.files)).not.toContain('sourceRefs')
-    expect(APPROVED_XMLTV_AIR_PROVIDERS).toHaveLength(6)
+    expect(APPROVED_XMLTV_AIR_PROVIDERS).toHaveLength(18)
+  })
+  it('creates a provisional expansion station source using the same canonical completeness gate',()=>{
+    const expansion={...event,channelId:'arte',channelName:'ARTE',
+      sourceRefs:[{sourceId:'xmltv:epgshare01',externalId:'ARTE.de|test'}],
+      extensions:{xmltv:{sourceStationId:'ARTE.de',timestampsExplicitlyZoned:true}}}
+    const plan=planXmltvAirSourceFiles({confirmedEvents:[expansion],catalog:{titles:[movie]},now})
+    expect(plan.files[0].providerId).toBe('air-arte')
+    expect(plan.counts.eligible).toBe(1)
   })
   it('leaves partial metadata, wrong media types, and unmatched titles pending',()=>{
     const plan=planXmltvAirSourceFiles({confirmedEvents:[event,{...event,titleRef:{mediaType:'series',tmdbId:42}}],
