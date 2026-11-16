@@ -1,13 +1,13 @@
 /** #336: confirmed XMLTV identities enter the existing canonical title queue.
  * No raw EPG fields, new matcher, network requests or persistent writes.
  * The caller decides whether to execute the queue; G2w only counts demand. */
-import { createXmltvAirRouteRegistry, XMLTV_AIR_DEVICE_APPROVALS } from '../src/sources/xmltv/xmltvAirRoutes.js'
+import { createXmltvAirRouteRegistry, XMLTV_AIR_DIRECT_LINK_APPROVALS, XMLTV_AIR_DEVICE_APPROVALS } from '../src/sources/xmltv/xmltvAirRoutes.js'
 import { buildTitleCandidateInventory, canonicalTitleIdentity } from './build-title-candidate-inventory.mjs'
 import { buildTitlePriorityPreview } from './build-title-priority-preview.mjs'
 
 export function deriveXmltvCanonicalTitleRefs(events, {now=Date.now()}={}) {
   if (!Array.isArray(events)||events.length>20000||!Number.isFinite(now)) throw new TypeError('Invalid XMLTV title handoff')
-  const registry=createXmltvAirRouteRegistry({deviceReceipts:XMLTV_AIR_DEVICE_APPROVALS,now})
+  const registry=createXmltvAirRouteRegistry({deviceReceipts:XMLTV_AIR_DEVICE_APPROVALS,directLinkApprovals:XMLTV_AIR_DIRECT_LINK_APPROVALS,now})
   const unique=new Map()
   for (const event of events) {
     const start=Date.parse(event?.startAt), end=Date.parse(event?.endAt)

@@ -1,5 +1,5 @@
 /** Anonymous same-run readiness report. Never returns source records or titles. */
-import { XMLTV_AIR_DEVICE_APPROVALS, createXmltvAirRouteRegistry } from '../src/sources/xmltv/xmltvAirRoutes.js'
+import { XMLTV_AIR_DIRECT_LINK_APPROVALS, XMLTV_AIR_DEVICE_APPROVALS, createXmltvAirRouteRegistry } from '../src/sources/xmltv/xmltvAirRoutes.js'
 import { buildPrivateXmltvAirRuntimePreview } from './xmltv-g3-private-air-runtime-preview.mjs'
 import { buildTvRuntimeSnapshot, tvRuntimeTitleKey } from '../src/tv/tvRuntimePublication.js'
 import { prepareXmltvCanonicalTitleDemand } from './xmltv-canonical-title-handoff.mjs'
@@ -13,7 +13,7 @@ function isSafeMetadataDemand(value,report){
   return value && typeof value==='object'&&!Array.isArray(value)&&
     Object.keys(value).sort().join('|')===[...DEMAND_FIELDS].sort().join('|')&&
     DEMAND_FIELDS.every(k=>Number.isSafeInteger(value[k])&&value[k]>=0&&value[k]<=20000)&&
-    value.approvedUniqueTitles<=report.androidReadyRows&&value.missingApprovedUniqueTitles<=Math.min(value.approvedUniqueTitles,report.missingCatalogUniqueTitles)&&
+    value.approvedUniqueTitles<=report.androidReadyRows+(report.provisionalReadyRows??0)&&value.missingApprovedUniqueTitles<=Math.min(value.approvedUniqueTitles,report.missingCatalogUniqueTitles)&&
     value.reusableFromCurrentSources+value.fetchNeededFromCurrentSources===value.missingApprovedUniqueTitles
 }
 function isSafeRuntimeOverlap(value, readyRows) {
@@ -27,15 +27,18 @@ function isSafeRuntimeOverlap(value, readyRows) {
 }
 export function isSafePrivateXmltvRuntimeReadiness(report, matchedRows) {
   const hasOverlap = Boolean(report && Object.hasOwn(report,'runtimeOverlap'))
+  const hasProvisional = Boolean(report && Object.hasOwn(report,'provisionalReadyRows'))
   const hasDemand = Boolean(report && Object.hasOwn(report,'metadataDemand'))
   return report && typeof report === 'object' && !Array.isArray(report) &&
-    Object.keys(report).sort().join('|') === [...FIELDS,...(hasOverlap ? ['runtimeOverlap'] : []),...(hasDemand?['metadataDemand']:[])].sort().join('|') &&
+    Object.keys(report).sort().join('|') === [...FIELDS,...(hasProvisional?['provisionalReadyRows']:[]),...(hasOverlap ? ['runtimeOverlap'] : []),...(hasDemand?['metadataDemand']:[])].sort().join('|') &&
     FIELDS.every(k => Number.isSafeInteger(report[k]) && report[k] >= 0 && report[k] <= 20000) &&
     report.matchedRows === matchedRows &&
     report.catalogReadyRows + report.missingCatalogRows === matchedRows &&
     report.missingCatalogUniqueTitles <= report.missingCatalogRows &&
-    report.androidReadyRows <= matchedRows && report.fireTvConfirmedRows <= report.androidReadyRows &&
-    report.runtimeReadyRows <= Math.min(report.catalogReadyRows, report.androidReadyRows) &&
+    (!hasProvisional || (Number.isSafeInteger(report.provisionalReadyRows) && report.provisionalReadyRows >= 0)) &&
+    report.androidReadyRows+(report.provisionalReadyRows??0) <= matchedRows &&
+    report.fireTvConfirmedRows <= report.androidReadyRows+(report.provisionalReadyRows??0) &&
+    report.runtimeReadyRows <= Math.min(report.catalogReadyRows, report.androidReadyRows+(report.provisionalReadyRows??0)) &&
     report.deduplicatedRuntimeAirings <= report.runtimeReadyRows &&
     (!hasOverlap || isSafeRuntimeOverlap(report.runtimeOverlap,report.runtimeReadyRows)) &&
     (!hasDemand || (hasOverlap && isSafeMetadataDemand(report.metadataDemand,report)))
@@ -53,26 +56,27 @@ export function summarizePrivateXmltvRuntimeReadiness(confirmedEvents, catalog, 
     .map(tvRuntimeTitleKey).filter(Boolean))
   // Deliberately independent of the still-closed publish flag, so verified
   // device receipts can be rehearsed privately before release approval.
-  const registry = createXmltvAirRouteRegistry({ deviceReceipts: XMLTV_AIR_DEVICE_APPROVALS, now })
+  const registry = createXmltvAirRouteRegistry({ deviceReceipts: XMLTV_AIR_DEVICE_APPROVALS, directLinkApprovals: XMLTV_AIR_DIRECT_LINK_APPROVALS, now })
   const missing = new Set()
-  let catalogReadyRows = 0, androidReadyRows = 0, fireTvConfirmedRows = 0
+  let catalogReadyRows = 0, androidReadyRows = 0, fireTvConfirmedRows = 0, provisionalReadyRows = 0
   for (const event of confirmedEvents) {
     const key = tvRuntimeTitleKey(event.titleRef)
     if (!key) throw new TypeError('Invalid confirmed identity')
     if (available.has(key)) catalogReadyRows++
     else missing.add(key)
     if (registry.fieldsForEvent(event).providerIds.length === 1) {
-      androidReadyRows++
+      if (registry.verifiedDevices(event.channelId).includes('android')) androidReadyRows++
+      else provisionalReadyRows++
       if (registry.verifiedDevices(event.channelId).includes('fire-tv')) fireTvConfirmedRows++
     }
   }
   // Skip the heavier index build until a device-approved route exists.
-  const preview = androidReadyRows > 0 ?
+  const preview = androidReadyRows + provisionalReadyRows > 0 ?
     buildPrivateXmltvAirRuntimePreview({ confirmedEvents, catalog, now, fieldsForEvent: registry.fieldsForEvent }) : null
   const report = {
     matchedRows: confirmedEvents.length, catalogReadyRows,
     missingCatalogRows: confirmedEvents.length - catalogReadyRows, missingCatalogUniqueTitles: missing.size,
-    androidReadyRows, fireTvConfirmedRows, runtimeReadyRows: preview?.counts.projected ?? 0,
+    androidReadyRows, ...(provisionalReadyRows ? {provisionalReadyRows} : {}), fireTvConfirmedRows, runtimeReadyRows: preview?.counts.projected ?? 0,
     deduplicatedRuntimeAirings: preview?.tvRuntime.index.airingCount ?? 0,
   }
   if (existingSources !== null) {

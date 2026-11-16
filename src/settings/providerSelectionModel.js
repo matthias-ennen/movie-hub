@@ -1,3 +1,4 @@
+import { XMLTV_AIR_PILOT_ROUTE_CANDIDATES, XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES } from '../sources/xmltv/xmltvAirRoutes.js'
 import { ORDERED_PROVIDERS } from '../providers/providerOrder.js'
 import {
   DEFAULT_ENABLED_PROVIDER_IDS as REGISTRY_DEFAULTS,
@@ -16,7 +17,7 @@ export const PROVIDER_OPTIONS = ORDERED_PROVIDERS.map((provider) => ({
 
 export const DEFAULT_ENABLED_PROVIDER_IDS = [...REGISTRY_DEFAULTS]
 export const KNOWN_PROVIDER_IDS = PROVIDER_REGISTRY.map((provider) => provider.id)
-export const PROVIDER_SELECTION_VERSION = 3
+export const PROVIDER_SELECTION_VERSION = 4
 
 const providerIdSet = new Set(KNOWN_PROVIDER_IDS)
 
@@ -35,9 +36,8 @@ export function normalizeStoredProviderSelection(value, version = null) {
   // A v2 account may already have deliberately disabled Movie Hub.
   const migratedDefaults = [
     ...(legacyVersion < 2 ? ['moviehub'] : []),
-    ...(legacyVersion < 3 ? PROVIDER_REGISTRY
-      .filter((provider) => provider.liveTvSource === 'xmltv' && provider.defaultEnabled)
-      .map((provider) => provider.id) : []),
+    ...(legacyVersion < 3 ? XMLTV_AIR_PILOT_ROUTE_CANDIDATES.map(row=>row.providerId) : []),
+    ...(legacyVersion < 4 ? XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES.map(row=>row.providerId) : []),
   ]
   const enabledProviderIds = hasStoredSelection
     ? normalizeEnabledProviderIds([...normalized, ...migratedDefaults])

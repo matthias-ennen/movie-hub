@@ -25,6 +25,13 @@ describe('private runtime eligibility aggregate',()=>{
     expect(result).toEqual({matchedRows:1,catalogReadyRows:1,missingCatalogRows:0,missingCatalogUniqueTitles:0,
       androidReadyRows:1,fireTvConfirmedRows:0,runtimeReadyRows:1,deduplicatedRuntimeAirings:1})
   })
+  it('counts accepted provisional routes separately from actual device confirmations',()=>{
+    const event={...row(1),channelId:'arte',channelName:'ARTE',sourceRefs:[{sourceId:'xmltv:epgshare01',externalId:'ARTE.de|test'}],
+      extensions:{xmltv:{sourceStationId:'ARTE.de',timestampsExplicitlyZoned:true}}}
+    const result=summarizePrivateXmltvRuntimeReadiness([event],{titles:[{source:'tmdb',tmdbId:1,type:'movie',title:'Test'}]},{now})
+    expect(result).toMatchObject({androidReadyRows:0,provisionalReadyRows:1,fireTvConfirmedRows:0,runtimeReadyRows:1})
+    expect(isSafePrivateXmltvRuntimeReadiness({...result,provisionalReadyRows:2},1)).toBe(false)
+  })
   it('reports valid empty results without inventing device or metadata coverage',()=>{
     expect(summarizePrivateXmltvRuntimeReadiness([], {titles:[]},{now})).toEqual({
       matchedRows:0,catalogReadyRows:0,missingCatalogRows:0,missingCatalogUniqueTitles:0,

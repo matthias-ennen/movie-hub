@@ -13,7 +13,9 @@ import {
   updateProviderSelectionSnapshot,
 } from '../src/settings/providerSelectionRuntime.js'
 
-const xmltvDefaults = ['air-ard', 'air-zdf', 'air-rtl', 'air-pro7', 'air-sat1', 'air-vox']
+const xmltvPilot = ['air-ard', 'air-zdf', 'air-rtl', 'air-pro7', 'air-sat1', 'air-vox']
+const xmltvExpansion = ['air-arte','air-3sat','air-zdfneo','air-zdfinfo','air-einsfestival','air-kabeleins','air-rtl2','air-superrtl','air-tele5','air-prosieben_maxx','air-sat1gold','air-rtlnitro']
+const xmltvDefaults = [...xmltvPilot,...xmltvExpansion]
 
 afterEach(() => {
   resetProviderSelectionSnapshot({ loading: false })
@@ -39,18 +41,19 @@ describe('kontoweite Streaminganbieter-Auswahl', () => {
     })
   })
 
-  it('enables six XMLTV stations once for v2 accounts while preserving existing choices', () => {
+  it('migrates v2 and v3 XMLTV defaults without re-enabling previously disabled providers', () => {
     expect(normalizeStoredProviderSelection(['netflix', 'prime'], 2)).toEqual({
       enabledProviderIds: ['netflix', 'prime', ...xmltvDefaults],
-      version: 3,
+      version: 4,
       needsMigration: true,
     })
     expect(normalizeStoredProviderSelection(['moviehub', 'air-zdf'], 3)).toEqual({
-      enabledProviderIds: ['moviehub', 'air-zdf'],
-      version: 3,
-      needsMigration: false,
+      enabledProviderIds: ['moviehub', 'air-zdf', ...xmltvExpansion],
+      version: 4,
+      needsMigration: true,
     })
-    expect(normalizeStoredProviderSelection([], 3).enabledProviderIds).toEqual([])
+    expect(normalizeStoredProviderSelection([], 3).enabledProviderIds).toEqual(xmltvExpansion)
+    expect(normalizeStoredProviderSelection([], 4).enabledProviderIds).toEqual([])
     expect(normalizeStoredProviderSelection(undefined, null).enabledProviderIds)
       .toEqual(DEFAULT_ENABLED_PROVIDER_IDS)
   })
