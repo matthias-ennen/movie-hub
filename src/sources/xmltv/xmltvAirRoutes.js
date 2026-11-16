@@ -162,7 +162,7 @@ export function createXmltvAirRouteRegistry({ deviceReceipts = [], directLinkApp
 
   return Object.freeze({
     providers: Object.freeze([...approved.values()].map((row) => Object.freeze({
-      id: row.providerId, label: row.label + ' (Live-TV)', short: row.short,
+      id: row.providerId, label: row.label, short: row.short,
       source: 'special', liveTvSource: 'xmltv', defaultEnabled: true,
       aliases: Object.freeze([]), searchUrl: null,
       description: 'Linearen Sender ' + row.label + ' öffnen.',
