@@ -6,7 +6,7 @@
  * unchanged from MovieHub's existing Waipu / Joyn TV station identity.
  *
  * Names are presentation metadata, NEVER runtime/fuzzy-match inputs. This is
- * deliberately a six-station pilot, not an inference for every feed channel.
+ * deliberately an eighteen-station registry, not an inference for every feed channel.
  * Numeric FreeEPG alternate grids and regional variants require a separate
  * review; never silently merge them into these canonical channels.
  */
@@ -20,7 +20,7 @@ const REVIEWED_STATIONS = Object.freeze([
 ])
 
 // #838 A3: exact identities from repeated G0 runs on 2026-11-16.
-// Source-reviewed only; not part of the production allowlist until activation.
+// Source-reviewed and rehearsed before production import activation; AIR eligibility remains separate.
 const EXPANSION_STATIONS = Object.freeze([
   { stationId: 'arte', stationName: 'ARTE', epgshare01: 'ARTE.de', commonDe: 'ARTE.de' },
   { stationId: '3sat', stationName: '3sat', epgshare01: '3sat.de', commonDe: '3sat.de' },
@@ -40,12 +40,14 @@ export const XMLTV_REVIEWED_EXPANSION_STATIONS = Object.freeze(
   EXPANSION_STATIONS.map(({ stationId, stationName }) => Object.freeze({ stationId, stationName })),
 )
 
-export const XMLTV_STATION_MAPPING_VERSION = 1
+const ALL_REVIEWED_STATIONS = Object.freeze([...REVIEWED_STATIONS, ...EXPANSION_STATIONS])
+
+export const XMLTV_STATION_MAPPING_VERSION = 2
 export const XMLTV_REVIEWED_STATIONS = Object.freeze(
-  REVIEWED_STATIONS.map(({ stationId, stationName }) => Object.freeze({ stationId, stationName })),
+  ALL_REVIEWED_STATIONS.map(({ stationId, stationName }) => Object.freeze({ stationId, stationName })),
 )
 
-function mappingsFor(key, stations = REVIEWED_STATIONS) {
+function mappingsFor(key, stations = ALL_REVIEWED_STATIONS) {
   return Object.freeze(Object.fromEntries(stations.map((station) => [
     station[key], Object.freeze({ stationId: station.stationId, stationName: station.stationName }),
   ])))
@@ -57,7 +59,7 @@ export const XMLTV_REVIEWED_STATION_MAPPINGS = Object.freeze({
   'iptv-epg-org': mappingsFor('commonDe'),
 })
 
-// Separate, opt-in registry for offline verification. Never use as a production default.
+// Expansion subset for measuring newly added station coverage.
 export const XMLTV_REVIEWED_EXPANSION_STATION_MAPPINGS = Object.freeze({
   epgshare01: mappingsFor('epgshare01', EXPANSION_STATIONS),
   freeepg: mappingsFor('commonDe', EXPANSION_STATIONS),
@@ -72,17 +74,10 @@ export function reviewedXmltvStation(sourceId, rawStationId) {
 }
 
 
-/** Fixed, explicit station registry for isolated expansion QA. Production stays at six. */
+/** Fixed registry. Retain the expansion-preview name for reproducible QA. */
 export function xmltvStationRegistry(stationSet = 'production') {
-  if (stationSet === 'production') {
-    return Object.freeze({ stations: XMLTV_REVIEWED_STATIONS, mappings: XMLTV_REVIEWED_STATION_MAPPINGS })
+  if (stationSet !== 'production' && stationSet !== 'expansion-preview') {
+    throw new TypeError('Unknown XMLTV station set')
   }
-  if (stationSet !== 'expansion-preview') throw new TypeError('Unknown XMLTV station set')
-  return Object.freeze({
-    stations: Object.freeze([...XMLTV_REVIEWED_STATIONS, ...XMLTV_REVIEWED_EXPANSION_STATIONS]),
-    mappings: Object.freeze(Object.fromEntries(Object.keys(XMLTV_REVIEWED_STATION_MAPPINGS).map(sourceId => [
-      sourceId, Object.freeze({ ...XMLTV_REVIEWED_STATION_MAPPINGS[sourceId],
-        ...XMLTV_REVIEWED_EXPANSION_STATION_MAPPINGS[sourceId] }),
-    ]))),
-  })
+  return Object.freeze({ stations: XMLTV_REVIEWED_STATIONS, mappings: XMLTV_REVIEWED_STATION_MAPPINGS })
 }
