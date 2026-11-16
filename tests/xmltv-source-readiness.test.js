@@ -36,14 +36,14 @@ function report(source, options = {}) {
 }
 
 describe('XMLTV #336: five-day real coverage and independent source families, isolated', () => {
-  it('counts the UNION of programme intervals over all six explicitly mapped stations', () => {
+  it('counts the UNION of programme intervals over all eighteen explicitly mapped stations', () => {
     const sourceId = 'iptv-epg-org'
     const full = measureXmltvFiveDayCoverage([
       ...fiveDays(sourceId),
       ...fiveDays(sourceId), // repeated programmes must not double count
     ], { sourceId, now: NOW })
     expect(full.horizonHours).toBe(XMLTV_FIVE_DAY_HOURS)
-    expect(full.completeStations).toBe(6)
+    expect(full.completeStations).toBe(18)
     expect(full.allReviewedStationsComplete).toBe(true)
     expect(full.stations.zdf).toEqual({
       programmeIntervals: 10,
@@ -57,7 +57,7 @@ describe('XMLTV #336: five-day real coverage and independent source families, is
     const result = measureXmltvFiveDayCoverage(fiveDays('iptv-epg-org', {
       gapStation: 'zdf', gaps: true,
     }), { sourceId: 'iptv-epg-org', now: NOW })
-    expect(result.completeStations).toBe(5)
+    expect(result.completeStations).toBe(17)
     expect(result.allReviewedStationsComplete).toBe(false)
     expect(result.stations.zdf).toMatchObject({
       coveredMinutes: 7140, missingMinutes: 60,
@@ -71,7 +71,7 @@ describe('XMLTV #336: five-day real coverage and independent source families, is
     const unzoned = measureXmltvFiveDayCoverage(fiveDays(sourceId, { zone: false }), {
       sourceId, now: NOW,
     })
-    expect(unzoned.rejectedUnzoned).toBe(30)
+    expect(unzoned.rejectedUnzoned).toBe(90)
     expect(unzoned.completeStations).toBe(0)
     expect(unzoned.stations.zdf.coveredMinutes).toBe(0)
     const mutated = fiveDays(sourceId)
@@ -82,7 +82,7 @@ describe('XMLTV #336: five-day real coverage and independent source families, is
     })
     const screened = measureXmltvFiveDayCoverage(mutated, { sourceId, now: NOW })
     expect(screened.ignoredInvalid).toBe(1)
-    expect(screened.completeStations).toBe(6)
+    expect(screened.completeStations).toBe(18)
     expect(() => measureXmltvFiveDayCoverage([], { sourceId: 'unknown-source', now: NOW })).toThrow()
   })
 
@@ -142,7 +142,7 @@ describe('XMLTV #336: five-day real coverage and independent source families, is
       report('freeepg'), report('iptv-epg-org'),
     ], { now: NOW })
     expect(data.stationsWithIndependentFallback).toBe(0)
-    expect(data.stationsWithFiveDayCoverageInAnyFamily).toBe(6)
+    expect(data.stationsWithFiveDayCoverageInAnyFamily).toBe(18)
     expect(data.stationsWithTwoCompleteIndependentFamilies).toBe(0)
     expect(data.allStationsHaveIndependentFallback).toBe(false)
     expect(data.stationFallback.zdf).toEqual({
@@ -162,9 +162,9 @@ describe('XMLTV #336: five-day real coverage and independent source families, is
       primaryFiveDaySnapshot: true,
       independentFallbackSnapshot: true,
       sufficientIndependentCoverageSnapshot: false,
-      stationsWithIndependentFallback: 6,
-      stationsWithFiveDayCoverageInAnyFamily: 6,
-      stationsWithTwoCompleteIndependentFamilies: 5,
+      stationsWithIndependentFallback: 18,
+      stationsWithFiveDayCoverageInAnyFamily: 18,
+      stationsWithTwoCompleteIndependentFamilies: 17,
       allStationsHaveIndependentFallback: true,
       stationFallback: {
         zdf: {

@@ -36,7 +36,7 @@ describe('XMLTV #336 last-known-good selection is diagnostic and fail-closed', (
     })
     expect(result).toMatchObject({
       selected: 'current', ageMinutes: 0, hasFutureCoverageOnAllStations: true,
-      fiveDayCompleteNow: true, completeStationsNow: 6,
+      fiveDayCompleteNow: true, completeStationsNow: 18,
       publishApproved: false, tmdbReuseApproved: false,
     })
     expect(JSON.stringify(result)).not.toContain(PRIVATE)
@@ -84,7 +84,7 @@ describe('XMLTV #336 last-known-good selection is diagnostic and fail-closed', (
     })
     expect(report).toMatchObject({
       selected: 'last-known-good', hasAnyFutureCoverage: true,
-      hasFutureCoverageOnAllStations: false, availableStations: 5,
+      hasFutureCoverageOnAllStations: false, availableStations: 17,
       fiveDayCompleteNow: false, completeStationsNow: 0,
       publishApproved: false, tmdbReuseApproved: false,
       coveredMinutesByStation: { zdf: 0, ard: 5760 },
@@ -101,7 +101,7 @@ describe('XMLTV #336 last-known-good selection is diagnostic and fail-closed', (
     })
     expect(report).toMatchObject({
       selected: 'current', hasAnyFutureCoverage: true,
-      hasFutureCoverageOnAllStations: true, availableStations: 6,
+      hasFutureCoverageOnAllStations: true, availableStations: 18,
       fiveDayCompleteNow: false, completeStationsNow: 0,
       coveredMinutesByStation: { zdf: 2880, ard: 2880 },
       publishApproved: false, tmdbReuseApproved: false,
@@ -119,7 +119,7 @@ describe('XMLTV #336 last-known-good selection is diagnostic and fail-closed', (
     ], { now: NOW })
     expect(result).toMatchObject({
       availableIndependentFamilies: 2,
-      stationsWithFutureCoverage: 6,
+      stationsWithFutureCoverage: 18,
       stationsWithIndependentFallback: 1,
       hasIndependentFallbackPreview: true,
       hasIndependentFallbackOnAllStations: false,
@@ -159,7 +159,7 @@ describe('XMLTV #336 last-known-good selection is diagnostic and fail-closed', (
       hasFiveDayPrimaryPreview: true,
       hasIndependentFallbackPreview: true,
       hasIndependentFallbackOnAllStations: true,
-      stationsWithIndependentFallback: 6,
+      stationsWithIndependentFallback: 18,
       publishApproved: false, tmdbReuseApproved: false,
     })
     expect(result.sourceStatuses[2].fiveDayCompleteNow).toBe(false)

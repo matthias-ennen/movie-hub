@@ -379,5 +379,5 @@ export function isSafeXmltvG2dReplayReport(report) {
       report.independentOverlapMinutesByStation[id] > 0).length &&
     report.stationsWithIndependentOverlap <= report.stationsWithIndependentFallback &&
     report.restoredStationDecisions === restored &&
-    JSON.stringify(report).length < 4800
+    JSON.stringify(report).length < 16_384
 }

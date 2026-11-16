@@ -5,7 +5,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseXmltvCandidates } from '../src/sources/xmltv/xmltvCandidates.js'
-import { XMLTV_REVIEWED_STATION_MAPPINGS } from '../src/sources/xmltv/xmltvStationMappings.js'
+import { XMLTV_REVIEWED_STATION_MAPPINGS, XMLTV_REVIEWED_STATIONS } from '../src/sources/xmltv/xmltvStationMappings.js'
 import { buildXmltvPrivateSourceGeneration } from '../src/sources/xmltv/xmltvPrivateStaging.js'
 import { FEEDS } from '../scripts/probe-xmltv-feeds.mjs'
 import {
@@ -25,7 +25,7 @@ const sourceStationId = (sourceId, stationId) => {
   const entries = XMLTV_REVIEWED_STATION_MAPPINGS[sourceId]
   return Object.entries(entries).find(([, x]) => x.stationId === stationId)?.[0]
 }
-function makeXml(sourceId, days, stations = ['ard', 'zdf', 'rtl', 'pro7', 'sat1', 'vox']) {
+function makeXml(sourceId, days, stations = XMLTV_REVIEWED_STATIONS.map(s => s.stationId)) {
   const lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<tv>']
   for (const stationId of stations) {
     const sourceStation = sourceStationId(sourceId, stationId)
@@ -86,13 +86,13 @@ describe('#336 G2c actual source generations, isolated staging only', () => {
     expect(fetcher).toHaveBeenCalledOnce()
     expect(result).toMatchObject({
       mode: 'ephemeral-private-no-publication', maxPreviewDays: 14,
-      totalStagedProgrammes: 12, stagedSourceCount: 1,
+      totalStagedProgrammes: 36, stagedSourceCount: 1,
       availableIndependentFamilies: 1, fiveDaysRequiredToKeepSource: false,
       publishApproved: false, tmdbIdentityApproved: false,
       playbackRoutesApproved: false, reuseRightsApproved: false,
       sources: [{
-        sourceId: 'epgshare01', status: 'staged', stagedProgrammes: 12,
-        stationsWithProgrammes: 6, fiveDayCompleteStations: 0,
+        sourceId: 'epgshare01', status: 'staged', stagedProgrammes: 36,
+        stationsWithProgrammes: 18, fiveDayCompleteStations: 0,
         maxContinuousMinutes: 2880, maxLatestProgrammeMinutes: 2880,
         recordedInPrivateWorkspace: true,
       }],
@@ -103,10 +103,10 @@ describe('#336 G2c actual source generations, isolated staging only', () => {
     expect(JSON.stringify(result)).not.toContain('sourceRef')
     const path = join(directory, 'epgshare01.json')
     const privateFile = JSON.parse(await readFile(path, 'utf8'))
-    expect(privateFile.records).toHaveLength(12)
+    expect(privateFile.records).toHaveLength(36)
     expect(privateFile.records[0]).toMatchObject({
       sourceId: 'epgshare01', kind: 'xmltv-candidate', title: PRIVATE,
-      canonicalStationId: 'ard', timestampsExplicitlyZoned: true,
+      canonicalStationId: '3sat', timestampsExplicitlyZoned: true,
       sourceRef: { sourceId: 'xmltv:epgshare01', observedAt: iso(NOW) },
     })
     expect(privateFile.records.every(x => !Object.hasOwn(x, 'tmdbId') &&
@@ -127,11 +127,11 @@ describe('#336 G2c actual source generations, isolated staging only', () => {
       }), privateRoot: directory,
     })
     expect(result.stagedSourceCount).toBe(3)
-    expect(result.totalStagedProgrammes).toBe(72)
+    expect(result.totalStagedProgrammes).toBe(216)
     expect(result.availableIndependentFamilies).toBe(2)
     expect(result.sources.map(x => x.status)).toEqual(['staged', 'staged', 'staged'])
     expect(result.sources[0].fiveDayCompleteStations).toBe(0)
-    expect(result.sources[1].fiveDayCompleteStations).toBe(6)
+    expect(result.sources[1].fiveDayCompleteStations).toBe(18)
     expect((await stat(join(directory, 'freeepg.json'))).isFile()).toBe(true)
     expect((await stat(join(directory, 'iptv-epg-org.json'))).isFile()).toBe(true)
     expect(isSafeXmltvG2StagingReport(result)).toBe(true)
@@ -150,7 +150,7 @@ describe('#336 G2c actual source generations, isolated staging only', () => {
       'unavailable', 'staged', 'unavailable',
     ])
     expect(result.stagedSourceCount).toBe(1)
-    expect(result.totalStagedProgrammes).toBe(12)
+    expect(result.totalStagedProgrammes).toBe(36)
     expect(JSON.stringify(result)).not.toContain(PRIVATE)
     await expect(readFile(join(directory, 'epgshare01.json'))).rejects.toMatchObject({
       code: 'ENOENT',

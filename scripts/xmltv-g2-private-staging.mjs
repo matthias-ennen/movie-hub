@@ -212,7 +212,7 @@ export function isSafeXmltvG2StagingReport(report) {
       .filter(source => source.status === 'staged').length &&
     int(report.availableIndependentFamilies, FEEDS.length) &&
     report.availableIndependentFamilies === expectedFamilies.size &&
-    JSON.stringify(report).length < 2500
+    JSON.stringify(report).length < 4096
 }
 
 async function main() {

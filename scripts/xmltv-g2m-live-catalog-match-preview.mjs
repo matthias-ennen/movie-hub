@@ -289,8 +289,8 @@ async function main() {
   if (process.argv.length !== 2 ||
       process.env.MOVIEHUB_XMLTV_G2M_PRIVATE_QA !== 'enabled' ||
       process.env.GITHUB_EVENT_NAME !== 'pull_request' ||
-      process.env.GITHUB_HEAD_REF !==
-        'feature/336-g2m-verified-live-tmdb-catalog-local-match') {
+      !['feature/336-g2m-verified-live-tmdb-catalog-local-match',
+        'work/838-xmltv-production-18-stations'].includes(process.env.GITHUB_HEAD_REF)) {
     throw new TypeError('G2m private real-source/catalog test not opted in')
   }
   const now = Date.now()

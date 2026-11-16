@@ -20,12 +20,12 @@ const evaluate = (rows, sourceId = 'epgshare01', args = {}) =>
   measureXmltvAvailableHorizon(rows, { sourceId, now: NOW, ...args })
 
 describe('#336 G2b: adaptive XMLTV availability, 14d is best and 5d is NOT an eligibility cutoff', () => {
-  it('keeps an independent original feed with only two days for ALL six stations', () => {
+  it('keeps an independent original feed with only two days for ALL eighteen stations', () => {
     const rows = programmes('epgshare01', 2)
     const out = evaluate(rows)
     expect(out).toMatchObject({
       kind: 'xmltv-available-horizon-preview', maxDays: 14,
-      reviewedStations: 6, usableStations: 6,
+      reviewedStations: 18, usableStations: 18,
       hasAnyFutureProgramme: true, allStationsHaveFutureProgrammes: true,
       fiveDaysIsQualityTargetNotEligibility: true, publishApproved: false,
       tmdbIdentityApproved: false, playbackRoutesApproved: false,
@@ -50,7 +50,7 @@ describe('#336 G2b: adaptive XMLTV availability, 14d is best and 5d is NOT an el
       expect(out.stations.zdf.latestProgrammeEndMinutes).toBe(days * 1440)
       expect(out.stations.zdf.completeFiveDaysFromNow).toBe(five)
       expect(out.stations.zdf.completeFourteenDaysFromNow).toBe(fourteen)
-      expect(out.usableStations).toBe(6)
+      expect(out.usableStations).toBe(18)
       expect(out.publishApproved).toBe(false)
     }
     expect(XMLTV_MAX_PREVIEW_DAYS).toBe(14)
@@ -79,7 +79,7 @@ describe('#336 G2b: adaptive XMLTV availability, 14d is best and 5d is NOT an el
     const rows = programmes('freeepg', 4)
       .filter(x => x.canonicalStationId !== 'ard')
     const out = evaluate(rows, 'freeepg')
-    expect(out.usableStations).toBe(5)
+    expect(out.usableStations).toBe(17)
     expect(out.hasAnyFutureProgramme).toBe(true)
     expect(out.allStationsHaveFutureProgrammes).toBe(false)
     expect(out.stations.zdf.coveredMinutes).toBe(5760)

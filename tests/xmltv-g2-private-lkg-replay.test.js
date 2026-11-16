@@ -56,7 +56,7 @@ describe('#336 G2d replay of PRIVATE real-format G2c source records', () => {
       playbackRoutesApproved: false,
       reuseRightsApproved: false,
       sources: [{
-        currentStations: 0, restoredStations: 1, unavailableStations: 5,
+        currentStations: 0, restoredStations: 1, unavailableStations: 17,
         byStation: {
           zdf: { mode: 'last-known-good',
             coveredMinutes: 2820, completeFiveDaysFromNow: false },
@@ -77,7 +77,7 @@ describe('#336 G2d replay of PRIVATE real-format G2c source records', () => {
       entry('freeepg', current, previous),
     ], { now: NOW })
     expect(report.sources[0]).toMatchObject({
-      currentStations: 1, restoredStations: 1, unavailableStations: 4,
+      currentStations: 1, restoredStations: 1, unavailableStations: 16,
       byStation: {
         zdf: { mode: 'current', coveredMinutes: 1440 },
         ard: { mode: 'last-known-good', coveredMinutes: 7200,
@@ -111,7 +111,7 @@ describe('#336 G2d replay of PRIVATE real-format G2c source records', () => {
       entry('epgshare01', null, old),
     ], { now: NOW + 37 * HOUR })
     expect(stale.sources[0].restoredStations).toBe(0)
-    expect(stale.sources[0].unavailableStations).toBe(6)
+    expect(stale.sources[0].unavailableStations).toBe(18)
 
     const recent = generation('epgshare01', 1, ['zdf'], NOW + 30 * HOUR)
     const expiredProgramme = replayXmltvPrivateLkg([
@@ -132,7 +132,7 @@ describe('#336 G2d replay of PRIVATE real-format G2c source records', () => {
       entry('freeepg', mismapped),
       entry('iptv-epg-org', approved),
     ], { now: NOW })
-    expect(report.sources.every(s => s.unavailableStations === 6)).toBe(true)
+    expect(report.sources.every(s => s.unavailableStations === 18)).toBe(true)
     expect(report.availableIndependentFamilies).toBe(0)
     expect(report.restoredStationDecisions).toBe(0)
   })

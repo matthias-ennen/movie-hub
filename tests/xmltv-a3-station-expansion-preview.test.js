@@ -13,14 +13,14 @@ const fixture = sourceId => '<tv>' + Object.keys(registry.mappings[sourceId]).ma
 ).join('') + '</tv>'
 
 describe('#838 A3 isolated 18-station real-chain rehearsal', () => {
-  it('keeps production six and rejects untrusted station identities even in expansion QA', () => {
-    expect(xmltvStationRegistry().stations).toHaveLength(6)
+  it('imports all eighteen in production and rejects untrusted station identities even in expansion QA', () => {
+    expect(xmltvStationRegistry().stations).toHaveLength(18)
     expect(registry.stations).toHaveLength(18)
     expect(()=>xmltvStationRegistry('arbitrary')).toThrow()
     const parsed = parseXmltvCandidates(fixture('freeepg'), {
       sourceId:'freeepg', stationMappings:registry.mappings, observedAt:new Date(now).toISOString(), mappedOnly:true,
     })
-    expect(buildXmltvPrivateSourceGeneration(parsed,{now}).stagedProgrammes).toBe(6)
+    expect(buildXmltvPrivateSourceGeneration(parsed,{now}).stagedProgrammes).toBe(18)
     const staged = buildXmltvPrivateSourceGeneration(parsed,{now,stationSet:'expansion-preview'})
     expect(staged.stagedProgrammes).toBe(18)
     expect(staged.coverage.reviewedStations).toBe(18)
