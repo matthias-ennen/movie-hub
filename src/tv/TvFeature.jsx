@@ -1,5 +1,7 @@
 import { orderTvStations, combinedTvStationOrder as getCombinedStationOrder } from '../settings/stationOrder.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { APPROVED_XMLTV_AIR_PROVIDERS } from '../sources/xmltv/xmltvAirRoutes.js'
+import { resolveTvDaySourceStatus } from './tvDaySourceStatus.js'
 import { useRuntimeClock } from '../hooks/useRuntimeClock.js'
 import { useAsyncModel } from '../hooks/useAsyncModel.js'
 import TvView from '../components/TvView.jsx'
@@ -30,7 +32,7 @@ import {
 
 const EMPTY_LIST = Object.freeze([])
 const EMPTY_OPTIONS = Object.freeze({})
-const LIVE_PROVIDERS = Object.freeze(['waipu', 'joyn'])
+const LIVE_PROVIDERS = Object.freeze(['waipu', 'joyn', ...APPROVED_XMLTV_AIR_PROVIDERS.map(({ id }) => id)])
 
 export default function TvFeature({
   waipuStationCatalog,
@@ -268,22 +270,19 @@ export default function TvFeature({
       return undefined
     }
 
-    const waipuLoading = waipuStationCatalog?.status === 'loading' || stationSelectionLoading
-    const joynLoading = joynStationCatalog?.status === 'loading' || joynStationSelectionLoading
-    const waipuReady = waipuStationCatalog?.status === 'ready'
-    const joynReady = joynStationCatalog?.status === 'ready'
-    const runtimeLoading = tvRuntimeIndex.status === 'idle' || tvRuntimeIndex.status === 'loading'
-
-    if (runtimeLoading || ((waipuLoading || joynLoading) && !waipuReady && !joynReady)) {
-      setTvSchedule({ status: 'loading', airings: [], titles: [] })
-      return undefined
-    }
-    if (tvRuntimeIndex.status !== 'ready' || (!waipuReady && !joynReady)) {
-      setTvSchedule({ status: 'unavailable', airings: [], titles: [] })
-      return undefined
-    }
-    if ((!waipuReady || !activeWaipuStations.length) && (!joynReady || !activeJoynStations.length)) {
-      setTvSchedule({ status: 'no-stations', airings: [], titles: [] })
+    const sourceStatus = resolveTvDaySourceStatus({
+      runtimeStatus: tvRuntimeIndex.status,
+      runtimeProviderIds: tvRuntimeIndex.providers,
+      enabledProviderIds,
+      waipuStatus: waipuStationCatalog?.status,
+      joynStatus: joynStationCatalog?.status,
+      stationSelectionLoading,
+      joynStationSelectionLoading,
+      activeWaipuCount: activeWaipuStations.length,
+      activeJoynCount: activeJoynStations.length,
+    })
+    if (sourceStatus !== 'ready') {
+      setTvSchedule({ status: sourceStatus, airings: [], titles: [] })
       return undefined
     }
 
@@ -364,6 +363,7 @@ export default function TvFeature({
     tvPeriodId,
     tvRuntimeIndex.days,
     tvRuntimeIndex.generatedAt,
+    tvRuntimeIndex.providers,
     tvRuntimeIndex.status,
     tvScheduleRequested,
     waipuStationCatalog?.status,

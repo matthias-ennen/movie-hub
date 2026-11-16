@@ -94,6 +94,29 @@ describe('#385 canonical TV poster and detail provider parity', () => {
     expect(providerOfferLabel(item, 'joyn', { context: 'title' })).toBe('ADS')
   })
 
+  it('renders the exact direct broadcaster even when Movie Hub, both aggregators and VOD fill the poster', () => {
+    updateProviderSelectionSnapshot({
+      enabledProviderIds: ['moviehub', 'waipu', 'joyn', 'netzkino', 'air-zdf'],
+    })
+    const item = {
+      id: 'tmdb-movie-42', type: 'movie', title: 'Live film',
+      tmdbProviderOffers: [{ id: 'netzkino', offerTypes: ['ads'] }],
+      tvAiring: { providerIds: ['waipu', 'joyn', 'air-zdf'], stationName: 'ZDF' },
+    }
+    const model = resolvePosterProviderModel(item, { hasMovieHub: true })
+    expect(model.providerIds).toEqual(['moviehub', 'air-zdf', 'waipu'])
+    expect(model.offerLabels['air-zdf']).toBe('AIR')
+    expect(model.allProviderIds).toEqual(['moviehub', 'air-zdf', 'waipu', 'joyn', 'netzkino'])
+    const markup = renderToStaticMarkup(createElement(PosterCard, { item, hasMovieHub: true, onOpen: () => {} }))
+    expect(markup).toContain('provider-air-zdf')
+    expect(markup).toContain('ZDF')
+    const live = resolveProviderPresentation(item, { context: 'airing' })
+    expect(buildDetailLiveProviderEntries(live, providers).map(entry => entry.providerId)).toEqual(['air-zdf', 'waipu', 'joyn'])
+    expect(resolvePosterProviderModel({ ...item, tvAiring: { providerIds: ['waipu'] } }).providerIds).not.toContain('air-zdf')
+    updateProviderSelectionSnapshot({ enabledProviderIds: ['moviehub', 'waipu', 'joyn', 'netzkino'] })
+    expect(resolvePosterProviderModel(item).providerIds).not.toContain('air-zdf')
+  })
+
   it('never invents an access type from a bare provider ID', () => {
     const item = { tmdbProviderIds: ['joyn'], tvAiring: { providerIds: ['waipu'] } }
     const poster = resolvePosterProviderModel(item)

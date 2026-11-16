@@ -74,12 +74,20 @@ export function resolveProviderPresentation(item, {
   // Treat its TMDB evidence as title-wide streaming, even when the same
   // provider (for example Joyn) is registered as a live-TV adapter.
   // Only concreteAiringIds can make a provider AIR for this broadcast.
-  const providerIds = orderProviderIds([
+  const orderedProviderIds = orderProviderIds([
     ...tmdbIds,
     ...verifiedTitleIds,
     ...editorialTitleIds,
     ...(context === 'airing' ? concreteAiringIds : titleLiveIds),
   ])
+
+  // The three-slot poster must not hide an exact station behind generic VOD
+  // or aggregator badges. This priority is local to a concrete airing and
+  // never turns a later/different airing into availability for this broadcast.
+  const directStationIds = context === 'airing'
+    ? orderedProviderIds.filter((id) => isXmltvAirProviderId(id) && concreteAiringIds.includes(id))
+    : []
+  const providerIds = [...directStationIds, ...orderedProviderIds.filter((id) => !directStationIds.includes(id))]
 
   return {
     context,
