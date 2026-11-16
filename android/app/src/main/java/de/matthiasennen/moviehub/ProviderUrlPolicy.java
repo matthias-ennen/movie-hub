@@ -43,6 +43,18 @@ final class ProviderUrlPolicy {
             case "air-pro7": return "https://www.joyn.de/live-tv/prosieben";
             case "air-sat1": return "https://www.joyn.de/live-tv/sat1";
             case "air-vox": return "https://plus.rtl.de/rtlde-vox";
+            case "air-arte": return "https://www.ardmediathek.de/live/arte-deutsch/Y3JpZDovL2FydGUuZGUvTGl2ZXN0cmVhbS1BUlRF";
+            case "air-3sat": return "https://www.zdf.de/live-tv/3sat-live-beitrag-100";
+            case "air-zdfneo": return "https://www.zdf.de/live-tv/zdfneo-live-beitrag-100";
+            case "air-zdfinfo": return "https://www.zdf.de/live-tv/zdfinfo-live-beitrag-100";
+            case "air-einsfestival": return "https://www.ardmediathek.de/live/one/Y3JpZDovL3dkci5kZS9CZWl0cmFnLTFlNjA0YWFlLTViODctNGMzNC04ZDhmLTg4OWI1ZjE2ZDU3Mw";
+            case "air-kabeleins": return "https://www.joyn.de/live-tv/kabel-eins";
+            case "air-rtl2": return "https://plus.rtl.de/rtlde-rtlzwei";
+            case "air-superrtl": return "https://plus.rtl.de/rtlde-super-rtl";
+            case "air-tele5": return "https://www.joyn.de/live-tv/tele-5";
+            case "air-prosieben_maxx": return "https://www.joyn.de/live-tv/prosieben-maxx";
+            case "air-sat1gold": return "https://www.joyn.de/live-tv/sat1-gold";
+            case "air-rtlnitro": return "https://plus.rtl.de/rtlde-nitro";
             default: return null;
         }
     }

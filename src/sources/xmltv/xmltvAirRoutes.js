@@ -25,6 +25,47 @@ export const XMLTV_AIR_ROUTE_CANDIDATES = Object.freeze([
     requiresAuth: true, requiresSubscription: true },
 ].map((entry) => Object.freeze(entry)))
 
+// #838 A3: official prospective live pages; not part of the production registry.
+// No receipt or published provider is inferred from URL availability.
+export const XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES = Object.freeze([
+  { stationId: 'arte', providerId: 'air-arte', label: 'ARTE', short: 'ARTE',
+    target: 'https://www.ardmediathek.de/live/arte-deutsch/Y3JpZDovL2FydGUuZGUvTGl2ZXN0cmVhbS1BUlRF',
+    requiresAuth: false, requiresSubscription: false },
+  { stationId: '3sat', providerId: 'air-3sat', label: '3sat', short: '3SAT',
+    target: 'https://www.zdf.de/live-tv/3sat-live-beitrag-100',
+    requiresAuth: false, requiresSubscription: false },
+  { stationId: 'zdfneo', providerId: 'air-zdfneo', label: 'ZDFneo', short: 'ZDFneo',
+    target: 'https://www.zdf.de/live-tv/zdfneo-live-beitrag-100',
+    requiresAuth: false, requiresSubscription: false },
+  { stationId: 'zdfinfo', providerId: 'air-zdfinfo', label: 'ZDFinfo', short: 'ZDFinfo',
+    target: 'https://www.zdf.de/live-tv/zdfinfo-live-beitrag-100',
+    requiresAuth: false, requiresSubscription: false },
+  { stationId: 'einsfestival', providerId: 'air-einsfestival', label: 'ONE', short: 'ONE',
+    target: 'https://www.ardmediathek.de/live/one/Y3JpZDovL3dkci5kZS9CZWl0cmFnLTFlNjA0YWFlLTViODctNGMzNC04ZDhmLTg4OWI1ZjE2ZDU3Mw',
+    requiresAuth: false, requiresSubscription: false },
+  { stationId: 'kabeleins', providerId: 'air-kabeleins', label: 'Kabel Eins', short: 'K1',
+    target: 'https://www.joyn.de/live-tv/kabel-eins',
+    requiresAuth: true, requiresSubscription: false },
+  { stationId: 'rtl2', providerId: 'air-rtl2', label: 'RTLZWEI', short: 'RTL2',
+    target: 'https://plus.rtl.de/rtlde-rtlzwei',
+    requiresAuth: true, requiresSubscription: true },
+  { stationId: 'superrtl', providerId: 'air-superrtl', label: 'SUPER RTL', short: 'SRTL',
+    target: 'https://plus.rtl.de/rtlde-super-rtl',
+    requiresAuth: true, requiresSubscription: true },
+  { stationId: 'tele5', providerId: 'air-tele5', label: 'TELE 5', short: 'TELE5',
+    target: 'https://www.joyn.de/live-tv/tele-5',
+    requiresAuth: true, requiresSubscription: false },
+  { stationId: 'prosieben_maxx', providerId: 'air-prosieben_maxx', label: 'ProSieben MAXX', short: 'MAXX',
+    target: 'https://www.joyn.de/live-tv/prosieben-maxx',
+    requiresAuth: true, requiresSubscription: false },
+  { stationId: 'sat1gold', providerId: 'air-sat1gold', label: 'SAT.1 GOLD', short: 'SAT1G',
+    target: 'https://www.joyn.de/live-tv/sat1-gold',
+    requiresAuth: true, requiresSubscription: false },
+  { stationId: 'rtlnitro', providerId: 'air-rtlnitro', label: 'NITRO', short: 'NITRO',
+    target: 'https://plus.rtl.de/rtlde-nitro',
+    requiresAuth: true, requiresSubscription: true },
+].map(entry => Object.freeze(entry)))
+
 // Matthias reported all six exact links working in the Android test app on
 // 2026-11-15; checkedAt is the report time, not a precise playback timestamp.
 // Fire TV was explicitly deferred to final acceptance of the completed app.
