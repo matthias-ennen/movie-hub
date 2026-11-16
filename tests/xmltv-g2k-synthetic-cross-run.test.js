@@ -55,7 +55,7 @@ describe('#336 G2k: independent-workflow-run synthetic source fallback', () => {
       sourcesRestored: 3, sourceRestoreUnavailable: 0,
       simulatedOutageSource: 'epgshare01',
       currentStationDecisions: 2, restoredStationDecisions: 1,
-      unavailableStationDecisions: 15,
+      unavailableStationDecisions: 51,
       independentFamiliesWithFutureCoverage: 2,
       stationsWithIndependentOverlap: 1,
       selectedSyntheticCandidates: 3,
@@ -85,7 +85,7 @@ describe('#336 G2k: independent-workflow-run synthetic source fallback', () => {
     expect(result).toMatchObject({
       sourcesRestored: 2, sourceRestoreUnavailable: 1,
       currentStationDecisions: 2, restoredStationDecisions: 0,
-      unavailableStationDecisions: 16, selectedSyntheticCandidates: 2,
+      unavailableStationDecisions: 52, selectedSyntheticCandidates: 2,
       independentFamiliesWithFutureCoverage: 1,
       stationsWithIndependentOverlap: 0,
     })
@@ -102,7 +102,7 @@ describe('#336 G2k: independent-workflow-run synthetic source fallback', () => {
     expect(result).toMatchObject({
       sourcesRestored: 0, sourceRestoreUnavailable: 3,
       currentStationDecisions: 2, restoredStationDecisions: 0,
-      unavailableStationDecisions: 16,
+      unavailableStationDecisions: 52,
       independentFamiliesWithFutureCoverage: 1,
     })
     expect(isSafeXmltvG2kSyntheticReport(result)).toBe(true)
