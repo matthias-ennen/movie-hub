@@ -103,3 +103,25 @@ Ein Skript `scripts/probe-xmltv-feeds.mjs` und der **manuell auslösbare und fü
 6. Kontrollierter Integrationslauf, Diff gegen Waipu/Joyn, technische und Geräteabnahme, danach erst Nightly-/Firebase-Freigabe.
 
 **Status dieser PR:** nur G0-Instrumentierung. Die aktuelle Feed-Erreichbarkeit und der >120-h-Horizont sind nachgewiesen; **noch keine** produktive Adapterfunktion, Kontinuitäts- oder Geräteabnahme.
+
+
+## #838 A3 – bestätigte zusätzliche Sender (16.11.2026)
+
+Die beiden erfolgreichen Live-Proben [#18](https://github.com/matthias-ennen/movie-hub/actions/runs/43871057225) und [#19](https://github.com/matthias-ennen/movie-hub/actions/runs/43882399749) bestätigen alle zwölf exakten IDs zusätzlich zu den sechs bisherigen Sendern. In beiden Proben decken FreeEPG und IPTV-EPG.org bei allen 18 Sendern 120 Stunden lückenlos ab; ihre Inhalts-Fingerprints sind identisch (eine Inhaltsfamilie). EPGSHARE01 liefert eine unabhängige Inhaltsfamilie mit in der zweiten Probe rund 61–62 Stunden Vorschau. Numerische Alternativ-IDs werden nicht übernommen.
+
+| Sender | Kanonische ID | EPGSHARE01 | FreeEPG/IPTV-EPG.org |
+|---|---|---|---|
+| ARTE | `arte` | `ARTE.de` | `ARTE.de` |
+| 3sat | `3sat` | `3sat.de` | `3sat.de` |
+| ZDFneo | `zdfneo` | `ZDFneo.de` | `zdf_neo.de` |
+| ZDFinfo | `zdfinfo` | `ZDFinfo.de` | `ZDFinfo.de` |
+| ONE | `einsfestival` | `ONE.de` | `ONE.de` |
+| Kabel Eins | `kabeleins` | `kabel.eins.de` | `KabelEins.de` |
+| RTLZWEI | `rtl2` | `RTLZWEI.de` | `RTLZWEI.de` |
+| SUPER RTL | `superrtl` | `SUPER.RTL.de` | `SuperRTL.de` |
+| TELE 5 | `tele5` | `Tele.5.de` | `Tele5.de` |
+| ProSieben MAXX | `prosieben_maxx` | `ProSieben.MAXX.de` | `ProSiebenMAXX.de` |
+| SAT.1 GOLD | `sat1gold` | `SAT.1.Gold.de` | `SAT1GOLD.de` |
+| NITRO | `rtlnitro` | `NITRO.de` | `NITRO.de` |
+
+Status: Quellidentitäten geprüft, separates nicht-produktives Mapping und Parser-Tests; Produktions-Allowlist und Mapping-Version unverändert. Vor Aktivierung: private Integrationsprobe, Mengengrenzen prüfen, Matchquote und deduplizierte Ausstrahlungen messen. AIR-Routen pro Sender separat kuratieren und über MovieHub auf dem Gerät bestätigen; fehlende Route darf keine falsche Wiedergabeaktion erzeugen.

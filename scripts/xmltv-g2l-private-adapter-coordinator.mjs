@@ -19,6 +19,9 @@ import { XMLTV_VERIFIED_SOURCE_FAMILIES } from
 
 import { isSafePrivateXmltvRuntimeReadiness } from './xmltv-g3-private-runtime-readiness.mjs'
 
+import { XMLTV_REVIEWED_STATIONS } from '../src/sources/xmltv/xmltvStationMappings.js'
+
+const STATION_LIMIT = XMLTV_REVIEWED_STATIONS.length
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const DEFAULT_REPORT = join(ROOT, 'artifacts/xmltv-g2/report.json')
 const DEFAULT_PRIVATE = join(ROOT, 'artifacts/xmltv-g2/private')
@@ -69,7 +72,7 @@ export function isSafeXmltvG2lPrivateAdapterReport(report) {
       report.selectedSources + report.unavailableSources +
         report.invalidSources !== report.sources.length ||
       !int(report.availableIndependentFamilies, 2) ||
-      !int(report.stationsWithIndependentOverlap, 6) ||
+      !int(report.stationsWithIndependentOverlap, STATION_LIMIT) ||
       !int(report.selectedCandidateCount, 20_000) ||
       !int(report.locallyMatchedCount, 20_000) ||
       !int(report.locallyUnmatchedCount, 20_000) ||
@@ -93,7 +96,7 @@ export function isSafeXmltvG2lPrivateAdapterReport(report) {
     ]) || !IDS.includes(source.sourceId) || seen.has(source.sourceId) ||
         source.contentFamily !== XMLTV_VERIFIED_SOURCE_FAMILIES[source.sourceId] ||
         !STATUSES.includes(source.status) ||
-        !int(source.currentStations, 6) ||
+        !int(source.currentStations, STATION_LIMIT) ||
         !int(source.selectedCandidates, 20_000) ||
         !int(source.matchedCandidates, 20_000) ||
         !int(source.unmatchedCandidates, 20_000) ||
