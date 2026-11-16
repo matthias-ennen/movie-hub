@@ -7,11 +7,18 @@ import {
   normalizeEnabledProviderIds,
   normalizeStoredProviderSelection,
   providerIdForRowTitle,
+  visibleStreamingProviderOptions,
+  XMLTV_STATION_OPTIONS,
+  disabledXmltvStationIds,
 } from '../src/settings/providerSelectionModel.js'
 import {
   resetProviderSelectionSnapshot,
   updateProviderSelectionSnapshot,
 } from '../src/settings/providerSelectionRuntime.js'
+
+import { orderTvStations } from '../src/settings/stationOrder.js'
+import { SETTINGS_GROUPS, SETTINGS_PAGES, settingsNeedStations, settingsParent } from '../src/settings/settingsNavigation.js'
+import { XMLTV_AIR_ROUTE_CANDIDATES } from '../src/sources/xmltv/xmltvAirRoutes.js'
 
 const xmltvPilot = ['air-ard', 'air-zdf', 'air-rtl', 'air-pro7', 'air-sat1', 'air-vox']
 const xmltvExpansion = ['air-arte','air-3sat','air-zdfneo','air-zdfinfo','air-einsfestival','air-kabeleins','air-rtl2','air-superrtl','air-tele5','air-prosieben_maxx','air-sat1gold','air-rtlnitro']
@@ -92,5 +99,42 @@ describe('kontoweite Streaminganbieter-Auswahl', () => {
     expect(providers.prime?.label).toBe('Prime Video')
     expect(providers.joyn?.label).toBe('Joyn')
     expect(providers.moviehub?.label).toBe('Movie Hub')
+  })
+})
+
+
+describe('separate XMLTV station settings', () => {
+  it('adds TV-Sender after Joyn without changing the account scope', () => {
+    expect(SETTINGS_GROUPS.find(group => group.id === 'account').pages.map(([id]) => id))
+      .toEqual(['providers', 'waipu', 'joyn', 'xmltv'])
+    expect(SETTINGS_PAGES.xmltv.title).toBe('TV-Sender')
+    expect(settingsParent('xmltv')).toBe('overview')
+    expect(settingsNeedStations('xmltv')).toBe(true)
+  })
+
+  it('lists approved XMLTV providers separately with clean names and stable IDs, independent of EPG data', () => {
+    expect(XMLTV_STATION_OPTIONS.map(station => station.id).sort()).toEqual([...xmltvDefaults].sort())
+    for (const row of XMLTV_AIR_ROUTE_CANDIDATES) {
+      expect(XMLTV_STATION_OPTIONS).toContainEqual({ id: row.providerId, name: row.label, canonicalId: row.stationId })
+      expect(providerDirectory[row.providerId].label).toBe(row.label)
+    }
+    for (const ids of [null, [], [...KNOWN_PROVIDER_IDS]]) {
+      expect(visibleStreamingProviderOptions(ids).some(provider => provider.liveTvSource === 'xmltv')).toBe(false)
+      expect(visibleStreamingProviderOptions(ids).map(provider => provider.id)).toEqual(expect.arrayContaining(['moviehub', 'waipu', 'joyn']))
+    }
+    expect(visibleStreamingProviderOptions(['ard', 'zdf']).map(provider => provider.id)).toEqual(expect.arrayContaining(['ard', 'zdf']))
+  })
+
+  it('uses the canonical common channel order, then alphabetic fallback', () => {
+    const stations = orderTvStations(XMLTV_STATION_OPTIONS, [{ id: 'zdf' }, { id: 'ard' }])
+    expect(stations.slice(0, 4).map(station => station.name)).toEqual(['ZDF', 'Das Erste', '3sat', 'ARTE'])
+  })
+
+  it('reflects existing provider choices without a migration or a second setting', () => {
+    const enabled = normalizeStoredProviderSelection(['air-ard', 'air-arte', 'netflix'], 4)
+    expect(enabled.needsMigration).toBe(false)
+    expect(disabledXmltvStationIds(enabled.enabledProviderIds).sort()).toEqual(xmltvDefaults.filter(id => !['air-ard', 'air-arte'].includes(id)).sort())
+    expect(disabledXmltvStationIds(DEFAULT_ENABLED_PROVIDER_IDS)).toEqual([])
+    expect(disabledXmltvStationIds([])).toHaveLength(xmltvDefaults.length)
   })
 })
