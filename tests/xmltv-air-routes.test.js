@@ -37,7 +37,7 @@ describe('XMLTV G3 verified sender-only routes', () => {
     expect(XMLTV_AIR_PUBLISH_ENABLED).toBe(true)
     expect(APPROVED_XMLTV_AIR_PROVIDERS.map(p=>p.id)).toEqual(XMLTV_AIR_ROUTE_CANDIDATES.map(p=>p.providerId))
     for (const row of XMLTV_AIR_ROUTE_CANDIDATES) {
-      expect(PROVIDER_BY_ID[row.providerId]).toMatchObject({id:row.providerId,liveTvSource:'xmltv'})
+      expect(PROVIDER_BY_ID[row.providerId]).toMatchObject({id:row.providerId,label:row.label,liveTvSource:'xmltv'})
       expect(TMDB_PROVIDER_REGISTRY.some((provider) => provider.id === row.providerId)).toBe(false)
       expect(xmltvAirFieldsForEvent(eventFor(row)).providerIds).toEqual([row.providerId])
       expect(projectXmltvAiring(eventFor(row)).playbackRoutes[0]).toMatchObject({providerId:row.providerId,target:row.target,scope:'channel'})
@@ -136,7 +136,7 @@ describe('XMLTV G3 verified sender-only routes', () => {
       expect(native).toContain('case "' + row.providerId + '": return "' + row.target + '";')
       expect(qa).toContain('"' + row.providerId + '", "' + row.label + '"')
       expect(APPROVED_XMLTV_AIR_PROVIDERS.some(provider=>provider.id===row.providerId)).toBe(true)
-      expect(PROVIDER_BY_ID[row.providerId]).toMatchObject({id:row.providerId,liveTvSource:'xmltv'})
+      expect(PROVIDER_BY_ID[row.providerId]).toMatchObject({id:row.providerId,label:row.label,liveTvSource:'xmltv'})
       expect(XMLTV_AIR_DEVICE_APPROVALS.some(receipt=>receipt.stationId===row.stationId)).toBe(false)
       const direct = XMLTV_AIR_DIRECT_LINK_APPROVALS.find(x=>x.stationId===row.stationId)
       const registry=createXmltvAirRouteRegistry({directLinkApprovals:[direct],now})
