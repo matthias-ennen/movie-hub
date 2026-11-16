@@ -27,3 +27,25 @@ The RTL+ destinations are specific station pages, not guaranteed one-click autop
 - Build type `airQa`, application ID `de.matthiasennen.moviehub.airqa`, launcher label **Movie Hub AIR Test**. It installs alongside the existing MovieHub APK and cannot replace its data, profile or settings. No hosted catalog or account access.
 - Download and extract the `movie-hub-air-device-test-apk` artifact from the Android APK PR run for the G3a branch, or manually build it using Android APK workflow input `build_air_qa=true`. The ordinary CI/Android builds remain intact and no Nightly launch is needed.
 - Open the test APK, select each station, confirm correct live channel (including account/subscription prompt where applicable), and return with Back. A system intent accepted is not evidence of correct playback; note failures and device type, and do not approve a sender until its actual result is confirmed. The same native dispatcher validates these six exact URLs for the real MovieHub app; actual TV-card UI/publishing still requires separate staged acceptance.
+
+
+## #838 A3: twelve additional device-test destinations (16.11.2026)
+
+The private real 18-station rehearsal passed ([run 43884914711](https://github.com/matthias-ennen/movie-hub/actions/runs/43884914711)): 7,672 input programmes, 1,061 exact local matches, 670 deduplicated airings (231 original + 439 expansion). There are no device approvals for the expansion yet. The isolated AIR test APK now contains **only the twelve additional destinations**; existing six do not need to be repeated. Native target allowlist accepts exact reviewed URLs only. Production JS registry remains six; no new provider activation. Required: actual Android result per exact station, including access/redirect behaviour; Fire TV final integrated app test.
+
+| Station | Candidate provider ID | Official target | Expected access (verify on device) |
+|---|---|---|---|
+| ARTE | `air-arte` | [Live page](https://www.ardmediathek.de/live/arte-deutsch/Y3JpZDovL2FydGUuZGUvTGl2ZXN0cmVhbS1BUlRF) | Public |
+| 3sat | `air-3sat` | [Live page](https://www.zdf.de/live-tv/3sat-live-beitrag-100) | Public |
+| ZDFneo | `air-zdfneo` | [Live page](https://www.zdf.de/live-tv/zdfneo-live-beitrag-100) | Public |
+| ZDFinfo | `air-zdfinfo` | [Live page](https://www.zdf.de/live-tv/zdfinfo-live-beitrag-100) | Public |
+| ONE | `air-einsfestival` | [Live page](https://www.ardmediathek.de/live/one/Y3JpZDovL3dkci5kZS9CZWl0cmFnLTFlNjA0YWFlLTViODctNGMzNC04ZDhmLTg4OWI1ZjE2ZDU3Mw) | Public |
+| Kabel Eins | `air-kabeleins` | [Live page](https://www.joyn.de/live-tv/kabel-eins) | Joyn login may be required |
+| RTLZWEI | `air-rtl2` | [Live page](https://plus.rtl.de/rtlde-rtlzwei) | RTL+ login/subscription |
+| SUPER RTL | `air-superrtl` | [Live page](https://plus.rtl.de/rtlde-super-rtl) | RTL+ login/subscription |
+| TELE 5 | `air-tele5` | [Live page](https://www.joyn.de/live-tv/tele-5) | Joyn login may be required |
+| ProSieben MAXX | `air-prosieben_maxx` | [Live page](https://www.joyn.de/live-tv/prosieben-maxx) | Joyn login may be required |
+| SAT.1 GOLD | `air-sat1gold` | [Live page](https://www.joyn.de/live-tv/sat1-gold) | Joyn login may be required |
+| NITRO | `air-rtlnitro` | [Live page](https://plus.rtl.de/rtlde-nitro) | RTL+ login/subscription |
+
+SUPER RTL especially: confirm the selected actual live station, not a generic RTL+ overview or TOGGO PLUS. Do not store a positive receipt if the wrong channel opens. The two zero-match stations ARTE and ZDFinfo remain in the import review; a device test does not establish matching quality.
