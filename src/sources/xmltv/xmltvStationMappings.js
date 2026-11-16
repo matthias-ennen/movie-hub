@@ -70,3 +70,19 @@ export function reviewedXmltvStation(sourceId, rawStationId) {
   const rows = XMLTV_REVIEWED_STATION_MAPPINGS[sourceId]
   return Object.hasOwn(rows, rawStationId) ? rows[rawStationId] : null
 }
+
+
+/** Fixed, explicit station registry for isolated expansion QA. Production stays at six. */
+export function xmltvStationRegistry(stationSet = 'production') {
+  if (stationSet === 'production') {
+    return Object.freeze({ stations: XMLTV_REVIEWED_STATIONS, mappings: XMLTV_REVIEWED_STATION_MAPPINGS })
+  }
+  if (stationSet !== 'expansion-preview') throw new TypeError('Unknown XMLTV station set')
+  return Object.freeze({
+    stations: Object.freeze([...XMLTV_REVIEWED_STATIONS, ...XMLTV_REVIEWED_EXPANSION_STATIONS]),
+    mappings: Object.freeze(Object.fromEntries(Object.keys(XMLTV_REVIEWED_STATION_MAPPINGS).map(sourceId => [
+      sourceId, Object.freeze({ ...XMLTV_REVIEWED_STATION_MAPPINGS[sourceId],
+        ...XMLTV_REVIEWED_EXPANSION_STATION_MAPPINGS[sourceId] }),
+    ]))),
+  })
+}
