@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import {
   XMLTV_AIR_ROUTE_CANDIDATES, APPROVED_XMLTV_AIR_PROVIDERS, XMLTV_AIR_PUBLISH_ENABLED,
-  XMLTV_AIR_DEVICE_APPROVALS,
+  XMLTV_AIR_DEVICE_APPROVALS, XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES,
   createXmltvAirRouteRegistry, xmltvAirFieldsForEvent,
 } from '../src/sources/xmltv/xmltvAirRoutes.js'
-import { XMLTV_REVIEWED_STATION_MAPPINGS } from '../src/sources/xmltv/xmltvStationMappings.js'
+import { XMLTV_REVIEWED_STATION_MAPPINGS, XMLTV_REVIEWED_EXPANSION_STATIONS } from '../src/sources/xmltv/xmltvStationMappings.js'
 import { PROVIDER_BY_ID, TMDB_PROVIDER_REGISTRY } from '../src/providers/providerRegistry.js'
 import { providerOfferLabel } from '../src/providers/providerOfferLabels.js'
 import { resolveProviderPresentation } from '../src/providers/providerPresentation.js'
@@ -124,6 +124,22 @@ describe('XMLTV G3 verified sender-only routes', () => {
     expect(providerOfferLabel(item, 'air-rtl')).toBeNull()
     expect(resolveProviderPresentation(item).providerIds).toEqual(['rtlplus'])
     expect(providerOfferLabel({ ...item, liveAvailability: { 'air-rtl': { airings: [{}] } } }, 'air-rtl')).toBe('AIR')
+  })
+
+  it('keeps all twelve prospective routes device-testable but outside the production provider registry', () => {
+    const native = readFileSync(new URL('../android/app/src/main/java/de/matthiasennen/moviehub/ProviderUrlPolicy.java', import.meta.url), 'utf8')
+    const qa = readFileSync(new URL('../android/app/src/airQa/java/de/matthiasennen/moviehub/AirQaActivity.java', import.meta.url), 'utf8')
+    expect(XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES).toHaveLength(12)
+    expect(new Set(XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES.map(row=>row.stationId))).toEqual(
+      new Set(XMLTV_REVIEWED_EXPANSION_STATIONS.map(row=>row.stationId)))
+    for (const row of XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES) {
+      expect(native).toContain('case "' + row.providerId + '": return "' + row.target + '";')
+      expect(qa).toContain('"' + row.providerId + '", "' + row.label + '"')
+      expect(APPROVED_XMLTV_AIR_PROVIDERS.some(provider=>provider.id===row.providerId)).toBe(false)
+      expect(PROVIDER_BY_ID[row.providerId]).toBeUndefined()
+      expect(XMLTV_AIR_DEVICE_APPROVALS.some(receipt=>receipt.stationId===row.stationId)).toBe(false)
+      expect(createXmltvAirRouteRegistry({deviceReceipts: receipts(row), now}).providers).toEqual([])
+    }
   })
 
   it('shares the exact native allowlist with the curated registry', () => {
