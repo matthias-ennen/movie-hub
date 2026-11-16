@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 12
     # The G0 PR gets a bounded one-off live source comparison, and future
     # manual dispatches remain available. No deployment secrets are provided.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/336-xmltv-feed-probe' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/336-xmltv-feed-probe' || github.head_ref == 'work/838-xmltv-channel-inventory' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -36,6 +36,8 @@ jobs:
         run: npx vitest run tests/xmltv-source-probe.test.js
 
       - name: Probe only approved XMLTV German feeds
+        env:
+          MOVIEHUB_XMLTV_CHANNEL_INVENTORY: '1'
         run: node scripts/probe-xmltv-feeds.mjs
 
       - name: Save source comparison report
