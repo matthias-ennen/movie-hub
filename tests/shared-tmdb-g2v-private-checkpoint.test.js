@@ -140,16 +140,19 @@ it('workflow keeps persistent reuse central, full and private with scheduled pro
   expect(central).toContain("github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent')")
   expect(central).toContain("github.event_name == 'workflow_dispatch' && inputs.run_mode == 'full' && inputs.shared_tmdb_cache == 'private-persistent'")
   expect(deploy).toContain("(github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && inputs.nightly_chain && inputs.data_mode == 'standard' && inputs.shared_tmdb_cache == 'private-persistent'")
-  const joyn = deploy.slice(deploy.indexOf('id: joyn_catalog'), deploy.indexOf('id: g2v_save'))
+  const joyn = deploy.slice(deploy.indexOf('id: joyn_catalog'), deploy.indexOf('id: g2w_stage'))
   expect(joyn).toContain("steps.g2v_restore.outcome == 'success' && 'private-persistent-reuse-v1'")
+  expect(deploy.indexOf('id: g2v_save')).toBeGreaterThan(deploy.indexOf('id: g2w_preview'))
   const save = deploy.match(/id: g2v_save\s+if: \$\{\{ ([^\n]+?) \}\}/)?.[1]
   expect(save).toBeTruthy()
   const allowed = Function('steps','return '+save)
   for (const waipu of ['success','failure','skipped']) {
     for (const joyn of ['success','failure','skipped']) {
-      const steps={g2v_restore:{outcome:'success'},waipu_catalog:{outcome:waipu},joyn_catalog:{outcome:joyn}}
-      expect(allowed(steps)).toBe(waipu==='success'||joyn==='success')
-      expect(allowed({...steps,g2v_restore:{outcome:'failure'}})).toBe(false)
+      for (const xmltv of ['success','failure','skipped']) {
+        const steps={g2v_restore:{outcome:'success'},waipu_catalog:{outcome:waipu},joyn_catalog:{outcome:joyn},g2w_preview:{outcome:xmltv}}
+        expect(allowed(steps)).toBe(waipu==='success'||joyn==='success'||xmltv==='success')
+        expect(allowed({...steps,g2v_restore:{outcome:'failure'}})).toBe(false)
+      }
     }
   }
   expect(deploy).not.toContain('path: artifacts/shared-tmdb/private')
