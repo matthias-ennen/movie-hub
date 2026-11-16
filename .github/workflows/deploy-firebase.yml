@@ -351,16 +351,17 @@ jobs:
           MOVIEHUB_G2V_PERSISTENT: 'private-persistent-reuse-v1'
         run: node scripts/shared-tmdb-g2v-private-checkpoint.mjs save
 
-      # G2w raw inputs remain private; only an approved same-run canonical handoff can feed AIR publication.
+      # G2w raw inputs remain private. Intake does not depend on adapter/cache success.
+      # Keep the validated two-catalog publication boundary until Phase A makes it independent.
       - name: Stage reviewed XMLTV feeds privately (G2w)
         id: g2w_stage
-        if: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && inputs.nightly_chain && inputs.data_mode == 'standard' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true && steps.g2v_save.outcome == 'success' }}
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && inputs.nightly_chain && inputs.data_mode == 'standard' && inputs.shared_tmdb_cache == 'private-persistent' && inputs.xmltv_private_preview == true }}
         continue-on-error: true
         run: node scripts/xmltv-g2-private-staging.mjs
 
       - name: Compare XMLTV local matching with shared TMDB replies (private G2w)
         id: g2w_preview
-        if: ${{ steps.g2w_stage.outcome == 'success' }}
+        if: ${{ steps.g2w_stage.outcome == 'success' && steps.waipu_catalog.outcome == 'success' && steps.joyn_catalog.outcome == 'success' }}
         continue-on-error: true
         env:
           MOVIEHUB_XMLTV_PRIVATE_PREVIEW: enabled
