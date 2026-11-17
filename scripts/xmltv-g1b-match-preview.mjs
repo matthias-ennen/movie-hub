@@ -37,6 +37,11 @@ export function inferXmltvMediaType(candidate) {
   return null
 }
 
+function hasConflictingXmltvType(candidate) {
+  const types = new Set((Array.isArray(candidate.categories) ? candidate.categories : []).map(reviewedXmltvCategoryType))
+  return types.has('movie') && (types.has('series') || Boolean(candidate.episode))
+}
+
 function basicDiagnostic(candidate, reason) {
   return {
     sourceId: candidate?.sourceId || null,
@@ -56,6 +61,7 @@ export async function matchXmltvLocalCandidates(candidates, {
   localCandidatesFor,
   maxCandidates = MAX_PROBE_CANDIDATES,
   matchProgram = matchJoynProgram,
+  peerAiringFor = null,
 } = {}) {
   if (typeof localCandidatesFor !== 'function') {
     throw new TypeError('G1b requires an explicit local TMDB candidate resolver')
@@ -63,6 +69,7 @@ export async function matchXmltvLocalCandidates(candidates, {
   if (!Number.isInteger(maxCandidates) || maxCandidates < 1 ||
       maxCandidates > MAX_PROBE_CANDIDATES) throw new RangeError('Invalid G1b candidate limit')
   if (typeof matchProgram !== 'function') throw new TypeError('Invalid existing TMDB matcher')
+  if (peerAiringFor !== null && typeof peerAiringFor !== 'function') throw new TypeError('Invalid peer airing resolver')
   const input = Array.isArray(candidates) ? candidates : []
   if (input.length > maxCandidates) throw new RangeError('G1b input exceeds bounded candidate limit')
   const decisions = []
@@ -82,6 +89,20 @@ export async function matchXmltvLocalCandidates(candidates, {
     }
     const type = inferXmltvMediaType(candidate)
     if (!type) {
+      // Never override explicit contradictory metadata. Only a verified same
+      // broadcast may recover type and identity without another TMDB lookup.
+      if (peerAiringFor && !hasConflictingXmltvType(candidate)) {
+        const peer = peerAiringFor(candidate)
+        const event = peer && projectConfirmedXmltvBroadcastEvent(candidate, {
+          ...peer, accepted: true, confidence: null, reason: 'confirmed-peer-same-broadcast-v1',
+        })
+        if (event) {
+          confirmedEvents.push(event)
+          decisions.push({ ...basicDiagnostic(candidate,'accepted'), tmdbId:event.titleRef.tmdbId,
+            mediaType:event.titleRef.mediaType })
+          continue
+        }
+      }
       decisions.push(basicDiagnostic(candidate, 'unclassified_media'))
       continue
     }
