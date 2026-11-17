@@ -42,6 +42,7 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
   runtimeSources = null,
   captureHandoff = null,
   captureStationDiagnostics = null,
+  peerAiringFor = null,
 } = {}) {
   if (!Number.isFinite(now) || typeof localCandidatesFor !== 'function' ||
       !Number.isSafeInteger(maxCandidates) || maxCandidates < 1 ||
@@ -50,6 +51,7 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
       waipuAirings.length > MAX_EXISTING_AIRINGS ||
       joynAirings.length > MAX_EXISTING_AIRINGS ||
       (captureHandoff !== null && typeof captureHandoff !== 'function') ||
+      (peerAiringFor !== null && typeof peerAiringFor !== 'function') ||
       (captureStationDiagnostics !== null && typeof captureStationDiagnostics !== 'function')) {
     throw new TypeError('Invalid bounded private XMLTV integration input')
   }
@@ -105,7 +107,7 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
     for (let offset = 0; offset < selected.length; offset += MATCH_BATCH_SIZE) {
       const batch = await matchXmltvLocalCandidates(
         selected.slice(offset, offset + MATCH_BATCH_SIZE), {
-          localCandidatesFor, maxCandidates: MATCH_BATCH_SIZE,
+          localCandidatesFor, maxCandidates: MATCH_BATCH_SIZE, peerAiringFor,
         },
       )
       matched += batch.counts.accepted
