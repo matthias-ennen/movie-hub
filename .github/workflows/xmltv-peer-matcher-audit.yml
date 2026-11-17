@@ -1,0 +1,37 @@
+name: XMLTV same-broadcast matcher evidence (read-only)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/xmltv-peer-matcher-audit.mjs
+      - tests/xmltv-peer-matcher-audit.test.js
+      - .github/workflows/xmltv-peer-matcher-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  evidence:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.head_ref == 'work/885-xmltv-matcher-diagnosis' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: npx vitest run tests/xmltv-peer-matcher-audit.test.js
+      - name: Compare approved source rows with one hosted TV generation
+        run: |
+          mkdir -p artifacts/xmltv-peer-audit
+          node scripts/xmltv-peer-matcher-audit.mjs > artifacts/xmltv-peer-audit/report.json
+          node -e "const r=require('./artifacts/xmltv-peer-audit/report.json'); console.log(JSON.stringify({...r,sources:r.sources.map(({stations,...s})=>s)},null,2))"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: xmltv-peer-matcher-audit-${{ github.run_id }}
+          path: artifacts/xmltv-peer-audit/report.json
+          if-no-files-found: error
+          retention-days: 7
