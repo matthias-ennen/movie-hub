@@ -41,6 +41,7 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
   runtimeCatalog = null,
   runtimeSources = null,
   captureHandoff = null,
+  captureStationDiagnostics = null,
 } = {}) {
   if (!Number.isFinite(now) || typeof localCandidatesFor !== 'function' ||
       !Number.isSafeInteger(maxCandidates) || maxCandidates < 1 ||
@@ -48,7 +49,8 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
       !Array.isArray(waipuAirings) || !Array.isArray(joynAirings) ||
       waipuAirings.length > MAX_EXISTING_AIRINGS ||
       joynAirings.length > MAX_EXISTING_AIRINGS ||
-      (captureHandoff !== null && typeof captureHandoff !== 'function')) {
+      (captureHandoff !== null && typeof captureHandoff !== 'function') ||
+      (captureStationDiagnostics !== null && typeof captureStationDiagnostics !== 'function')) {
     throw new TypeError('Invalid bounded private XMLTV integration input')
   }
 
@@ -59,6 +61,12 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
     throw new TypeError('Unsafe private XMLTV source selection')
   }
 
+  // Fixed station keys and fixed reason buckets only: no raw titles or matcher reasons.
+  const diagnostics = Object.fromEntries(XMLTV_REVIEWED_STATIONS.map(({stationId}) =>
+    [stationId,{selected:0,accepted:0,unclassified:0,noCandidates:0,nonexact:0,yearConflict:0,other:0}]))
+  const buckets = new Map([['accepted','accepted'],['unclassified_media','unclassified'],
+    ['no_local_tmdb_candidates','noCandidates'],['nonexact_match_requires_review','nonexact'],
+    ['production_year_conflict','yearConflict']])
   const allConfirmedEvents = []
   const sourceCounts = []
   let totalSelected = 0
@@ -102,6 +110,12 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
       )
       matched += batch.counts.accepted
       rejected += batch.counts.rejected
+      if(captureStationDiagnostics) for(const decision of batch.decisions){
+        const station = Object.hasOwn(diagnostics,decision.canonicalStationId) ? diagnostics[decision.canonicalStationId] : null
+        if(!station) throw new Error('Invalid XMLTV station diagnostic')
+        station.selected++
+        station[buckets.get(decision.reason)??'other']++
+      }
       // Do not serialize raw candidates or matched events into any report.
       allConfirmedEvents.push(...batch.confirmedEvents)
     }
@@ -148,6 +162,7 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
   // Only the explicitly allowlisted projection can leave the matcher, in
   // memory; the anonymous report does not contain this payload.
   if (captureHandoff) captureHandoff(buildConfirmedAiringHandoff(allConfirmedEvents,{now}))
+  if (captureStationDiagnostics) captureStationDiagnostics(diagnostics)
   return report
 }
 

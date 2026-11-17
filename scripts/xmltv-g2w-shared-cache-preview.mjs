@@ -17,6 +17,7 @@ import { normalizeTmdbMatchCandidate } from './waipu-tmdb-matcher.mjs'
 import { runXmltvG2lPrivateAdapterCoordinator, isSafeXmltvG2lPrivateAdapterReport } from './xmltv-g2l-private-adapter-coordinator.mjs'
 
 import { isSafePrivateXmltvRuntimeReadiness } from './xmltv-g3-private-runtime-readiness.mjs'
+import { XMLTV_REVIEWED_STATIONS } from '../src/sources/xmltv/xmltvStationMappings.js'
 import { readConfirmedAiringHandoff } from './xmltv-confirmed-airing-handoff.mjs'
 
 const ROOT = resolve(fileURLToPath(new URL('..',import.meta.url)))
@@ -116,9 +117,10 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     throw new Error('G2W_COORDINATOR_OPTIONS_REJECTED')
   const options={stagingReportPath:join(root,'artifacts/xmltv-g2/report.json'),privateRoot:join(root,'artifacts/xmltv-g2/private'),...coordinatorOptions,now}
   const baseline=await runXmltvG2lPrivateAdapterCoordinator({...options,localCandidatesFor:local.localCandidatesFor})
-  let handoff=null
+  let handoff=null,stationDiagnostics=null
   const combined=await runXmltvG2lPrivateAdapterCoordinator({...options,localCandidatesFor:enhanced.localCandidatesFor,runtimeCatalog:catalog,runtimeSources,
-    captureHandoff:captureHandoff?value=>{handoff=value}:null})
+    captureHandoff:captureHandoff?value=>{handoff=value}:null,
+    captureStationDiagnostics:value=>{stationDiagnostics=value}})
   if(!isSafeXmltvG2lPrivateAdapterReport(baseline)||!isSafeXmltvG2lPrivateAdapterReport(combined)||
     !isSafePrivateXmltvRuntimeReadiness(combined.runtimeReadiness,combined.locallyMatchedCount)||
     combined.runtimeReadiness.runtimeOverlap?.existingSourceCount!==runtimeSources.length||
@@ -128,6 +130,16 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     baseline.locallyMatchedCount>combined.locallyMatchedCount||
     baseline.mergedAiringsWithXmltvPreview>combined.mergedAiringsWithXmltvPreview)
     throw new Error('G2W_BASELINE_PARITY_REJECTED')
+  // Reject unexpected fields and count drift before the aggregate may be logged.
+  const stations=XMLTV_REVIEWED_STATIONS.map(x=>x.stationId).sort()
+  const fields=['accepted','noCandidates','nonexact','other','selected','unclassified','yearConflict']
+  if(!stationDiagnostics||Object.keys(stationDiagnostics).sort().join('|')!==stations.join('|')||
+    Object.values(stationDiagnostics).some(row=>Object.keys(row).sort().join('|')!==fields.join('|')||
+      Object.values(row).some(n=>!Number.isSafeInteger(n)||n<0||n>20000)||
+      row.selected!==row.accepted+row.noCandidates+row.nonexact+row.other+row.unclassified+row.yearConflict)||
+    Object.values(stationDiagnostics).reduce((sum,row)=>sum+row.selected,0)!==combined.selectedCandidateCount||
+    Object.values(stationDiagnostics).reduce((sum,row)=>sum+row.accepted,0)!==combined.locallyMatchedCount)
+    throw new Error('G2W_STATION_DIAGNOSTICS_REJECTED')
   const c=enhanced.counts(),hits=shared.counts(),extra=combined.locallyMatchedCount-baseline.locallyMatchedCount
   if(c.cacheLookups!==c.cacheUniqueCandidateRows+c.cacheAmbiguousRows+c.cacheNoExactCandidateRows||
     extra>c.cacheUniqueCandidateRows||hits.hits>c.cacheLookups||
@@ -150,7 +162,7 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     additionalMatched:extra,baselineMergedAirings:baseline.mergedAiringsWithXmltvPreview,
     combinedMergedAirings:combined.mergedAiringsWithXmltvPreview,
     ...c,cacheResponseHits:hits.hits,cacheResponseMisses:hits.misses,
-    runtimeReadiness:combined.runtimeReadiness,
+    runtimeReadiness:combined.runtimeReadiness,stationDiagnostics,
     newTmdbApiRequests:search?.actualSearchStarts??0,
     cacheWrites:search?.saveStatus==='saved'?search.capturedResponses:0,
     apiDistinctKeys:api.distinctKeys??0,apiRepeatedKeys:api.repeatedKeys??0,
@@ -183,7 +195,7 @@ async function main(){
 export function g2wFailureCode(error){
   const allowed=new Set(['G2W_SOURCE_DIRECTORY_REJECTED','G2W_SOURCE_CATALOG_REJECTED',
     'G2W_CATALOG_REJECTED','G2W_COORDINATOR_OPTIONS_REJECTED','G2W_BASELINE_PARITY_REJECTED',
-    'G2W_COUNTS_REJECTED','G2W_HANDOFF_PARITY_REJECTED','G2W_APPROVAL_REJECTED'])
+    'G2W_COUNTS_REJECTED','G2W_STATION_DIAGNOSTICS_REJECTED','G2W_HANDOFF_PARITY_REJECTED','G2W_APPROVAL_REJECTED'])
   return allowed.has(error?.message)?error.message:'G2W_UNCLASSIFIED_FAILURE'
 }
 
