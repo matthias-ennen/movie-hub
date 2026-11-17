@@ -142,6 +142,7 @@ export async function runXmltvG2lPrivateAdapterCoordinator({
   runtimeSources = null,
   captureHandoff = null,
   captureStationDiagnostics = null,
+  peerAiringFor = null,
 } = {}) {
   if (!Number.isFinite(now) || typeof stagingReportPath !== 'string' ||
       !stagingReportPath.trim() || typeof privateRoot !== 'string' ||
@@ -149,6 +150,7 @@ export async function runXmltvG2lPrivateAdapterCoordinator({
       (localCandidatesFor !== null && typeof localCandidatesFor !== 'function') ||
       !Number.isSafeInteger(maxCandidates) || maxCandidates < 1 ||
       maxCandidates > 20_000 || (captureHandoff !== null && typeof captureHandoff !== 'function') ||
+      (peerAiringFor !== null && typeof peerAiringFor !== 'function') ||
       (captureStationDiagnostics !== null && typeof captureStationDiagnostics !== 'function')) {
     throw new TypeError('Invalid private XMLTV adapter coordinator options')
   }
@@ -217,6 +219,7 @@ export async function runXmltvG2lPrivateAdapterCoordinator({
     now, maxCandidates, runtimeCatalog, runtimeSources,
     captureHandoff: captureHandoff ? value=>{handoff=value} : null,
     captureStationDiagnostics,
+    peerAiringFor,
     localCandidatesFor: localCandidatesFor ?? (async () => []),
   })
   const perSource = report.sources.map(source => {
