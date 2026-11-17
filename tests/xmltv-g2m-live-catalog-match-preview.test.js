@@ -42,7 +42,7 @@ const row = (tmdbId, title = TITLE, type = 'movie', originalTitle = null) =>
   ({ source: 'tmdb', tmdbId, type, title, originalTitle })
 const resolverInput = title => ({ title })
 
-async function fixture(daysBySource, current=NOW, includeArte=false) {
+async function fixture(daysBySource, current=NOW, includeArte=false, includeUnclassified=false) {
   const root = await mkdtemp(join(tmpdir(), 'moviehub-xmltv-g2m-'))
   dirs.push(root)
   const privateRoot = join(root, 'private')
@@ -67,6 +67,13 @@ async function fixture(daysBySource, current=NOW, includeArte=false) {
         for (let day=0; day<daysBySource[source]; day++){
           lines.push('<programme channel="ARTE.de" start="'+tvTime(current+day*DAY)+
             '" stop="'+tvTime(current+(day+1)*DAY)+'"><title>Expansion film</title><category>Film</category></programme>')
+        }
+      }
+      if(includeUnclassified && source==='epgshare01'){
+        lines.push('<channel id="ZDFinfo.de"><display-name>ZDFinfo</display-name></channel>')
+        for(let day=0;day<daysBySource[source];day++){
+          lines.push('<programme channel="ZDFinfo.de" start="'+tvTime(current+day*DAY)+
+            '" stop="'+tvTime(current+(day+1)*DAY)+'"><title>PRIVATE DOCUMENTARY</title><category>Dokumentation</category></programme>')
         }
       }
       return { xml: lines.concat('</tv>').join('') }
@@ -311,6 +318,18 @@ describe('#336 G2w: private XMLTV reads the same-run shared Waipu/Joyn cache',()
     const confirmed=readConfirmedAiringHandoff(handoff,{now:current})
     expect(confirmed.events.map(x=>x.channelId).sort()).toEqual(['arte','arte','zdf','zdf'])
     expect(confirmed.titleRefs).toEqual([{type:'movie',tmdbId:100},{type:'movie',tmdbId:99}])
+  })
+  it('counts accepted, missing candidate and unclassified programmes by canonical station without leaking titles',async()=>{
+    const current=Date.parse('2026-11-17T00:00:00Z')
+    const files=await fixture({epgshare01:2},current,true,true)
+    const root=dirname(files.privateRoot)
+    await mkdir(join(root,'public'),{recursive:true})
+    await writeFile(join(root,'public/catalog.json'),JSON.stringify(catalog([row(99,TITLE)],iso(current))))
+    const result=await runG2wXmltvSharedCachePreview({root,now:current,coordinatorOptions:files})
+    expect(result.stationDiagnostics.zdf).toMatchObject({selected:2,accepted:2})
+    expect(result.stationDiagnostics.arte).toMatchObject({selected:2,accepted:0,noCandidates:2})
+    expect(result.stationDiagnostics.zdfinfo).toMatchObject({selected:2,accepted:0,unclassified:2})
+    expect(JSON.stringify(result.stationDiagnostics)).not.toMatch(/PRIVATE DOCUMENTARY|Expansion film|RESTRICTED_XMLTV/)
   })
   it('reports only sanitized fixed diagnostic codes',()=>{
     expect(g2wFailureCode(new Error('G2W_HANDOFF_PARITY_REJECTED'))).toBe('G2W_HANDOFF_PARITY_REJECTED')
