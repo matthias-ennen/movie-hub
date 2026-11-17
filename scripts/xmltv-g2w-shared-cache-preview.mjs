@@ -19,6 +19,7 @@ import { runXmltvG2lPrivateAdapterCoordinator, isSafeXmltvG2lPrivateAdapterRepor
 import { isSafePrivateXmltvRuntimeReadiness } from './xmltv-g3-private-runtime-readiness.mjs'
 import { XMLTV_REVIEWED_STATIONS } from '../src/sources/xmltv/xmltvStationMappings.js'
 import { readConfirmedAiringHandoff } from './xmltv-confirmed-airing-handoff.mjs'
+import { createXmltvPeerAiringResolver } from './xmltv-peer-airing-resolver.mjs'
 
 const ROOT = resolve(fileURLToPath(new URL('..',import.meta.url)))
 const SNAPSHOT = 'artifacts/shared-tmdb/private/shared-tmdb-response-cache.json'
@@ -99,7 +100,7 @@ export function createG2wXmltvCandidateResolver(local, shared, searchSession=nul
   })
 }
 
-export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),coordinatorOptions={},captureHandoff=null,searchSession=null}={}){
+export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),coordinatorOptions={},captureHandoff=null,searchSession=null,peerReconciliation=false}={}){
   if(captureHandoff!==null&&typeof captureHandoff!=='function') throw new TypeError('Invalid XMLTV handoff receiver')
   // Fixed runner-local paths: no arbitrary source URLs, cloud reads or writes.
   const file=join(root,CATALOG)
@@ -108,6 +109,8 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     throw new Error('G2W_CATALOG_REJECTED')
   const catalog=JSON.parse(await readFile(file,'utf8'))
   const runtimeSources=await readG2wExistingRuntimeSources(root)
+  if(typeof peerReconciliation!=='boolean')throw new TypeError('Invalid peer reconciliation option')
+  const peer=peerReconciliation?createXmltvPeerAiringResolver(runtimeSources,{now}):null
   const local=createXmltvG2mVerifiedLocalResolver(catalog,{now})
   const loaded=await loadOptionalSharedTmdbResponses(join(root,SNAPSHOT),{now})
   const shared=createG2nXmltvCachedResponseResolver(loaded.store)
@@ -119,6 +122,7 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
   const baseline=await runXmltvG2lPrivateAdapterCoordinator({...options,localCandidatesFor:local.localCandidatesFor})
   let handoff=null,stationDiagnostics=null
   const combined=await runXmltvG2lPrivateAdapterCoordinator({...options,localCandidatesFor:enhanced.localCandidatesFor,runtimeCatalog:catalog,runtimeSources,
+    peerAiringFor:peer?.lookup??null,
     captureHandoff:captureHandoff?value=>{handoff=value}:null,
     captureStationDiagnostics:value=>{stationDiagnostics=value}})
   if(!isSafeXmltvG2lPrivateAdapterReport(baseline)||!isSafeXmltvG2lPrivateAdapterReport(combined)||
@@ -141,8 +145,10 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     Object.values(stationDiagnostics).reduce((sum,row)=>sum+row.accepted,0)!==combined.locallyMatchedCount)
     throw new Error('G2W_STATION_DIAGNOSTICS_REJECTED')
   const c=enhanced.counts(),hits=shared.counts(),extra=combined.locallyMatchedCount-baseline.locallyMatchedCount
+  const peerCounts=peer?.counts()??null
+  const peerAccepted=(peerCounts?.peerAcceptedMovie??0)+(peerCounts?.peerAcceptedSeries??0)
   if(c.cacheLookups!==c.cacheUniqueCandidateRows+c.cacheAmbiguousRows+c.cacheNoExactCandidateRows||
-    extra>c.cacheUniqueCandidateRows||hits.hits>c.cacheLookups||
+    extra>c.cacheUniqueCandidateRows+peerAccepted||extra<peerAccepted||hits.hits>c.cacheLookups||
     c.localHits+c.localConflicts+c.invalidLocal+c.cacheLookups>combined.selectedCandidateCount)
     throw new Error('G2W_COUNTS_REJECTED')
   if(captureHandoff){
@@ -162,6 +168,7 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     additionalMatched:extra,baselineMergedAirings:baseline.mergedAiringsWithXmltvPreview,
     combinedMergedAirings:combined.mergedAiringsWithXmltvPreview,
     ...c,cacheResponseHits:hits.hits,cacheResponseMisses:hits.misses,
+    ...(peerCounts?{peerReconciliation:peerCounts}:{}),
     runtimeReadiness:combined.runtimeReadiness,stationDiagnostics,
     newTmdbApiRequests:search?.actualSearchStarts??0,
     cacheWrites:search?.saveStatus==='saved'?search.capturedResponses:0,
