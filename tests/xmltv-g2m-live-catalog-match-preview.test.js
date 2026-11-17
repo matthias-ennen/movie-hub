@@ -12,7 +12,7 @@ import {
   isSafeXmltvG2mPrivateReport,
 } from '../scripts/xmltv-g2m-live-catalog-match-preview.mjs'
 
-import { createG2wXmltvCandidateResolver, runG2wXmltvSharedCachePreview, readG2wExistingRuntimeSources } from '../scripts/xmltv-g2w-shared-cache-preview.mjs'
+import { createG2wXmltvCandidateResolver, runG2wXmltvSharedCachePreview, readG2wExistingRuntimeSources, g2wFailureCode } from '../scripts/xmltv-g2w-shared-cache-preview.mjs'
 import { openXmltvBoundedSearchSession } from '../scripts/xmltv-bounded-search-session.mjs'
 import { buildTitleCandidateInventory } from '../scripts/build-title-candidate-inventory.mjs'
 import { readConfirmedAiringHandoff } from '../scripts/xmltv-confirmed-airing-handoff.mjs'
@@ -42,7 +42,7 @@ const row = (tmdbId, title = TITLE, type = 'movie', originalTitle = null) =>
   ({ source: 'tmdb', tmdbId, type, title, originalTitle })
 const resolverInput = title => ({ title })
 
-async function fixture(daysBySource, current=NOW) {
+async function fixture(daysBySource, current=NOW, includeArte=false) {
   const root = await mkdtemp(join(tmpdir(), 'moviehub-xmltv-g2m-'))
   dirs.push(root)
   const privateRoot = join(root, 'private')
@@ -61,6 +61,13 @@ async function fixture(daysBySource, current=NOW) {
           '" stop="' + tvTime(current + (day + 1) * DAY) +
           '"><title>' + TITLE + '</title>' +
           '<category>Film</category></programme>')
+      }
+      if(includeArte && source==='epgshare01'){
+        lines.push('<channel id="ARTE.de"><display-name>ARTE</display-name></channel>')
+        for (let day=0; day<daysBySource[source]; day++){
+          lines.push('<programme channel="ARTE.de" start="'+tvTime(current+day*DAY)+
+            '" stop="'+tvTime(current+(day+1)*DAY)+'"><title>Expansion film</title><category>Film</category></programme>')
+        }
       }
       return { xml: lines.concat('</tv>').join('') }
     },
@@ -289,6 +296,25 @@ describe('#336 G2w: private XMLTV reads the same-run shared Waipu/Joyn cache',()
     const inventory=buildTitleCandidateInventory({xmltvApprovedTitles:titleRefs,catalog:{titles:[]},generatedAt:iso(current)})
     expect(inventory.candidates).toHaveLength(1)
     expect(inventory.candidates[0]).toMatchObject({key:'movie:99',sources:['xmltv']})
+  })
+  it('preserves expansion routes through real staging, matching and same-run parity',async()=>{
+    const current=Date.parse('2026-11-17T00:00:00Z')
+    const files=await fixture({epgshare01:2},current,true)
+    const root=dirname(files.privateRoot)
+    await mkdir(join(root,'public'),{recursive:true})
+    await writeFile(join(root,'public/catalog.json'),JSON.stringify(catalog([row(99,TITLE),row(100,'Expansion film')],iso(current))))
+    let handoff
+    const result=await runG2wXmltvSharedCachePreview({root,now:current,coordinatorOptions:files,
+      captureHandoff:value=>{handoff=value}})
+    expect(result.runtimeReadiness).toMatchObject({androidReadyRows:2,provisionalReadyRows:2,
+      metadataDemand:{approvedUniqueTitles:2}})
+    const confirmed=readConfirmedAiringHandoff(handoff,{now:current})
+    expect(confirmed.events.map(x=>x.channelId).sort()).toEqual(['arte','arte','zdf','zdf'])
+    expect(confirmed.titleRefs).toEqual([{type:'movie',tmdbId:100},{type:'movie',tmdbId:99}])
+  })
+  it('reports only sanitized fixed diagnostic codes',()=>{
+    expect(g2wFailureCode(new Error('G2W_HANDOFF_PARITY_REJECTED'))).toBe('G2W_HANDOFF_PARITY_REJECTED')
+    expect(g2wFailureCode(new Error(TITLE))).toBe('G2W_UNCLASSIFIED_FAILURE')
   })
   it('queries each genuine missing key once and replays the verified XMLTV response in a fresh session',async()=>{
     const files=await fixture({epgshare01:2,freeepg:2})

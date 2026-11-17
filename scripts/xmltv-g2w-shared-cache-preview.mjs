@@ -135,7 +135,7 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     throw new Error('G2W_COUNTS_REJECTED')
   if(captureHandoff){
     const checked=readConfirmedAiringHandoff(handoff,{now})
-    if(checked.events.length!==combined.runtimeReadiness.androidReadyRows||
+    if(checked.events.length!==combined.runtimeReadiness.androidReadyRows+(combined.runtimeReadiness.provisionalReadyRows??0)||
       checked.titleRefs.length!==combined.runtimeReadiness.metadataDemand.approvedUniqueTitles)
       throw new Error('G2W_HANDOFF_PARITY_REJECTED')
     captureHandoff(handoff)
@@ -179,6 +179,14 @@ async function main(){
   console.log(JSON.stringify(result))
   if(!result.validatedSources) process.exitCode=1
 }
+// Only fixed internal reason codes may leave the private preview.
+export function g2wFailureCode(error){
+  const allowed=new Set(['G2W_SOURCE_DIRECTORY_REJECTED','G2W_SOURCE_CATALOG_REJECTED',
+    'G2W_CATALOG_REJECTED','G2W_COORDINATOR_OPTIONS_REJECTED','G2W_BASELINE_PARITY_REJECTED',
+    'G2W_COUNTS_REJECTED','G2W_HANDOFF_PARITY_REJECTED','G2W_APPROVAL_REJECTED'])
+  return allowed.has(error?.message)?error.message:'G2W_UNCLASSIFIED_FAILURE'
+}
+
 if(process.argv[1]&&pathToFileURL(resolve(process.argv[1])).href===import.meta.url)
-  main().catch(()=>{console.error('G2w private XMLTV preview unavailable; Waipu/Joyn and published data unchanged');process.exitCode=1})
+  main().catch(error=>{console.error('G2w private XMLTV preview unavailable; Waipu/Joyn and published data unchanged ('+g2wFailureCode(error)+')');process.exitCode=1})
 
