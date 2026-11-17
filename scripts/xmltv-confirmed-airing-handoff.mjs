@@ -1,7 +1,7 @@
 /** #336: minimal runner-local verified XMLTV -> canonical queue / AIR handoff.
  * Never includes feed titles, descriptions, raw programme IDs or raw XML. */
 import { createHash } from 'node:crypto'
-import { createXmltvAirRouteRegistry, XMLTV_AIR_DEVICE_APPROVALS } from '../src/sources/xmltv/xmltvAirRoutes.js'
+import { createXmltvAirRouteRegistry, XMLTV_AIR_DEVICE_APPROVALS, XMLTV_AIR_DIRECT_LINK_APPROVALS } from '../src/sources/xmltv/xmltvAirRoutes.js'
 import { reviewedXmltvStation } from '../src/sources/xmltv/xmltvStationMappings.js'
 import { deriveXmltvCanonicalTitleRefs } from './xmltv-canonical-title-handoff.mjs'
 
@@ -14,7 +14,7 @@ const validNumber=(value,minimum)=>Number.isSafeInteger(value)&&value>=minimum
 /** Project only evidence required for subsequent exact station checks. */
 export function buildConfirmedAiringHandoff(events,{now=Date.now()}={}) {
   if(!Array.isArray(events)||events.length>maxRows||!Number.isFinite(now)) throw new TypeError('Invalid XMLTV handoff input')
-  const registry=createXmltvAirRouteRegistry({deviceReceipts:XMLTV_AIR_DEVICE_APPROVALS,now})
+  const registry=createXmltvAirRouteRegistry({deviceReceipts:XMLTV_AIR_DEVICE_APPROVALS,directLinkApprovals:XMLTV_AIR_DIRECT_LINK_APPROVALS,now})
   const rows=[]
   for(const event of events){
     const start=Date.parse(event?.startAt),end=Date.parse(event?.endAt)
@@ -45,7 +45,7 @@ export function readConfirmedAiringHandoff(payload,{now=Date.now()}={}){
     payload.kind!=='xmltv-confirmed-airing-handoff'||payload.version!==1||!Array.isArray(payload.rows)||payload.rows.length>maxRows||
     !Number.isFinite(Date.parse(payload.generatedAt))||Date.parse(payload.generatedAt)>now||now-Date.parse(payload.generatedAt)>24*60*60*1000)
     throw new Error('Invalid or stale XMLTV handoff')
-  const registry=createXmltvAirRouteRegistry({deviceReceipts:XMLTV_AIR_DEVICE_APPROVALS,now})
+  const registry=createXmltvAirRouteRegistry({deviceReceipts:XMLTV_AIR_DEVICE_APPROVALS,directLinkApprovals:XMLTV_AIR_DIRECT_LINK_APPROVALS,now})
   const events=[]
   for(const row of payload.rows){
     if(!objectKeys(row,['type','tmdbId','stationId','sourceId','rawStation','startAt','endAt','evidenceDigest','episode'])||

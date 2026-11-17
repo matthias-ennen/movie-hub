@@ -17,6 +17,17 @@ describe('XMLTV confirmed airing handoff',()=>{
     expect(read.events).toHaveLength(3)
     expect(read.events[0].episode).toEqual({seasonNumber:2,episodeNumber:4,conflict:false})
   })
+  it('roundtrips both device-confirmed and provisionally accepted expansion routes',()=>{
+    const arte={...row,channelId:'arte',channelName:'ARTE',titleRef:{mediaType:'movie',tmdbId:43},
+      sourceRefs:[{sourceId:'xmltv:epgshare01',externalId:'ARTE.de|PRIVATE FILM'}],
+      extensions:{xmltv:{sourceStationId:'ARTE.de',timestampsExplicitlyZoned:true}},episode:null}
+    const handoff=buildConfirmedAiringHandoff([row,arte],{now})
+    expect(handoff.rows.map(x=>x.stationId)).toEqual(['zdf','arte'])
+    expect(readConfirmedAiringHandoff(handoff,{now}).titleRefs).toEqual([{type:'movie',tmdbId:43},{type:'series',tmdbId:42}])
+    expect(JSON.stringify(handoff)).not.toContain('PRIVATE')
+    expect(()=>readConfirmedAiringHandoff({...handoff,rows:[{...handoff.rows[1],stationId:'zdf'}]},{now})).toThrow(/Invalid/)
+    expect(buildConfirmedAiringHandoff([{...arte,sourceRefs:[]}],{now}).rows).toEqual([])
+  })
   it('rejects unreviewed, mismatched or expired inputs before handoff',()=>{
     const payload=buildConfirmedAiringHandoff([{...row,channelId:'ard'},
       {...row,endAt:'2026-11-15T12:00:00Z'}, {...row,sourceRefs:[]}],{now})
