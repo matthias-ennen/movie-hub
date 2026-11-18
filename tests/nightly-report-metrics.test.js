@@ -38,6 +38,15 @@ describe('detailed counts-only Nightly report',()=>{
     expect(nightlyMarkdown(report)).toContain('2 zusätzliche Suchrequests im Matching; 2 neu erfasste Antworten')
     expect(nightlyMarkdown(report)).toContain('1 wegen Budget nicht gesuchte Schlüssel')
   })
+  it('reports confirmed peer-airing reuse separately without exporting titles',()=>{
+    const obs=safeObservation('xmltv-match',{kind:'xmltv-g2w-private-shared-cache-preview',selectedCandidates:100,combinedMatched:40,peerReconciliation:{peerLookups:30,peerAcceptedMovie:3,peerAcceptedSeries:12,peerMissing:13,peerAmbiguous:1,peerYearConflict:1,title:'PRIVATE_TITLE'}})
+    const m=buildDataMetrics({...data,xmltvMatch:obs},steps)
+    const report=buildNightlyReport({...run,sourceData:{...qa,dataMetrics:m}})
+    expect(report.dataMetrics.xmltv.match).toMatchObject({peerLookups:30,peerAcceptedMovie:3,peerAcceptedSeries:12,peerMissing:13,peerAmbiguous:1,peerYearConflict:1})
+    expect(nightlyMarkdown(report)).toContain('3 Film- und 12 Serien-Programmzeilen')
+    expect(JSON.stringify(report)).not.toContain('PRIVATE_TITLE')
+    expect(buildDataMetrics(data,steps).xmltv.match.peerAcceptedMovie).toBeNull()
+  })
   it('reports failed imports as stale, excludes them and substitutes no zero for missing counters',()=>{
     const m=buildDataMetrics({...data,joynCache:null},{...steps,joyn:'failure',xmltvMatch:'failure'})
     expect(m.joyn).toMatchObject({fresh:false,matched:null,matchPercent:null})

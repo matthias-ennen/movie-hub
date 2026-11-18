@@ -178,6 +178,12 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
   }
 }
 
+// Only the already-approved canonical handoff of a trusted main Nightly enables peer reuse.
+export function isXmltvPeerReconciliationEnabled(env=process.env){
+  return isTrustedCentralNightlyEvent(env) && env.MOVIEHUB_XMLTV_PRIVATE_PREVIEW==='enabled' &&
+    env.MOVIEHUB_XMLTV_CANONICAL_HANDOFF==='enabled'
+}
+
 async function main(){
   if(process.argv.length!==2||!isTrustedCentralNightlyEvent(process.env)||process.env.MOVIEHUB_XMLTV_PRIVATE_PREVIEW!=='enabled')
     throw new Error('G2W_APPROVAL_REJECTED')
@@ -189,7 +195,8 @@ async function main(){
       fetchImpl:fetch,runStartedAt:Number(process.env.MOVIEHUB_SHARED_TMDB_RUN_STARTED_AT)})}
     catch{console.warn('XMLTV bounded exact search unavailable; read-only cache matching retained')}
   }
-  const result=await runG2wXmltvSharedCachePreview({captureHandoff:enabled?value=>{handoff=value}:null,searchSession})
+  const result=await runG2wXmltvSharedCachePreview({captureHandoff:enabled?value=>{handoff=value}:null,searchSession,
+    peerReconciliation:isXmltvPeerReconciliationEnabled(process.env)})
   if(enabled&&result.validatedSources){
     const {writeXmltvSameRunHandoff}=await import('./xmltv-same-run-handoff.mjs')
     await writeXmltvSameRunHandoff(handoff)

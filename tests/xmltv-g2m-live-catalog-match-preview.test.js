@@ -12,7 +12,7 @@ import {
   isSafeXmltvG2mPrivateReport,
 } from '../scripts/xmltv-g2m-live-catalog-match-preview.mjs'
 
-import { createG2wXmltvCandidateResolver, runG2wXmltvSharedCachePreview, readG2wExistingRuntimeSources, g2wFailureCode } from '../scripts/xmltv-g2w-shared-cache-preview.mjs'
+import { createG2wXmltvCandidateResolver, runG2wXmltvSharedCachePreview, readG2wExistingRuntimeSources, g2wFailureCode, isXmltvPeerReconciliationEnabled } from '../scripts/xmltv-g2w-shared-cache-preview.mjs'
 import { openXmltvBoundedSearchSession } from '../scripts/xmltv-bounded-search-session.mjs'
 import { buildTitleCandidateInventory } from '../scripts/build-title-candidate-inventory.mjs'
 import { readConfirmedAiringHandoff } from '../scripts/xmltv-confirmed-airing-handoff.mjs'
@@ -387,6 +387,16 @@ describe('#336 G2w: private XMLTV reads the same-run shared Waipu/Joyn cache',()
     const local=createXmltvG2mVerifiedLocalResolver(catalog([row(55,'Unrelated')]),{now:NOW})
     const r=createG2wXmltvCandidateResolver(local,createG2nXmltvCachedResponseResolver(store))
     expect(r.localCandidatesFor({title:TITLE},'movie')).toEqual([])
+  })
+  it('enables peer reuse only in a trusted canonical XMLTV Nightly',()=>{
+    const env={GITHUB_REF:'refs/heads/main',GITHUB_EVENT_NAME:'schedule',MOVIEHUB_TRUSTED_CENTRAL_NIGHTLY:'true',MOVIEHUB_XMLTV_PRIVATE_PREVIEW:'enabled',MOVIEHUB_XMLTV_CANONICAL_HANDOFF:'enabled'}
+    expect(isXmltvPeerReconciliationEnabled(env)).toBe(true)
+    expect(isXmltvPeerReconciliationEnabled({...env,GITHUB_EVENT_NAME:'workflow_dispatch'})).toBe(true)
+    expect(isXmltvPeerReconciliationEnabled({...env,MOVIEHUB_XMLTV_CANONICAL_HANDOFF:''})).toBe(false)
+    expect(isXmltvPeerReconciliationEnabled({...env,MOVIEHUB_XMLTV_PRIVATE_PREVIEW:''})).toBe(false)
+    expect(isXmltvPeerReconciliationEnabled({...env,MOVIEHUB_TRUSTED_CENTRAL_NIGHTLY:'false'})).toBe(false)
+    expect(isXmltvPeerReconciliationEnabled({...env,GITHUB_REF:'refs/heads/work/test'})).toBe(false)
+    expect(isXmltvPeerReconciliationEnabled({...env,GITHUB_EVENT_NAME:'push'})).toBe(false)
   })
   it('uses central scheduled or manually opted-in full Nightly and never uploads raw XMLTV or shared responses',async()=>{
     const central=await readFile('.github/workflows/moviehub-nightly-pipeline.yml','utf8')
