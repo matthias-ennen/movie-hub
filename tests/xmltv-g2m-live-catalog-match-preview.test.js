@@ -12,7 +12,7 @@ import {
   isSafeXmltvG2mPrivateReport,
 } from '../scripts/xmltv-g2m-live-catalog-match-preview.mjs'
 
-import { createG2wXmltvCandidateResolver, runG2wXmltvSharedCachePreview, readG2wExistingRuntimeSources, g2wFailureCode } from '../scripts/xmltv-g2w-shared-cache-preview.mjs'
+import { createG2wXmltvCandidateResolver, runG2wXmltvSharedCachePreview, readG2wExistingRuntimeSources, g2wFailureCode, isXmltvPeerReconciliationEnabled } from '../scripts/xmltv-g2w-shared-cache-preview.mjs'
 import { openXmltvBoundedSearchSession } from '../scripts/xmltv-bounded-search-session.mjs'
 import { buildTitleCandidateInventory } from '../scripts/build-title-candidate-inventory.mjs'
 import { readConfirmedAiringHandoff } from '../scripts/xmltv-confirmed-airing-handoff.mjs'
@@ -335,6 +335,28 @@ describe('#336 G2w: private XMLTV reads the same-run shared Waipu/Joyn cache',()
     expect(g2wFailureCode(new Error('G2W_HANDOFF_PARITY_REJECTED'))).toBe('G2W_HANDOFF_PARITY_REJECTED')
     expect(g2wFailureCode(new Error(TITLE))).toBe('G2W_UNCLASSIFIED_FAILURE')
   })
+  it('opt-in same-broadcast peer reconciliation adds unclassified rows to the existing handoff without TMDB searches',async()=>{
+    const current=Date.parse('2026-11-17T00:00:00Z')
+    const files=await fixture({epgshare01:2},current,true,true)
+    const root=dirname(files.privateRoot)
+    await mkdir(join(root,'public'),{recursive:true})
+    await writeFile(join(root,'public/catalog.json'),JSON.stringify(catalog([row(99,TITLE),row(100,'Expansion film'),row(101,'PRIVATE DOCUMENTARY','series')],iso(current))))
+    for(const providerId of ['waipu','joyn']){
+      const dir=join(root,'public',providerId+'-live')
+      await mkdir(dir)
+      await writeFile(join(dir,'titles.json'),JSON.stringify({entries:[{type:'series',tmdbId:101,title:'PRIVATE DOCUMENTARY',
+        airings:[0,1].map(day=>({stationId:'zdfinfo',canonicalStationId:'zdfinfo',startTime:iso(current+day*DAY),stopTime:iso(current+(day+1)*DAY)}))}]}))
+    }
+    const baseline=await runG2wXmltvSharedCachePreview({root,now:current,coordinatorOptions:files})
+    let handoff
+    const result=await runG2wXmltvSharedCachePreview({root,now:current,coordinatorOptions:files,peerReconciliation:true,captureHandoff:value=>{handoff=value}})
+    expect(baseline.combinedMatched).toBe(4)
+    expect(result).toMatchObject({combinedMatched:6,additionalMatched:2,newTmdbApiRequests:0,peerReconciliation:{peerLookups:2,peerAcceptedSeries:2}})
+    expect(result.stationDiagnostics.zdfinfo).toMatchObject({selected:2,accepted:2,unclassified:0})
+    expect(readConfirmedAiringHandoff(handoff,{now:current}).events.filter(e=>e.channelId==='zdfinfo')).toHaveLength(2)
+    expect(result.runtimeReadiness.runtimeOverlap.sharedRuntimeAirings).toBe(2)
+    expect(JSON.stringify(result)).not.toContain('PRIVATE DOCUMENTARY')
+  })
   it('queries each genuine missing key once and replays the verified XMLTV response in a fresh session',async()=>{
     const files=await fixture({epgshare01:2,freeepg:2})
     const root=dirname(files.privateRoot)
@@ -365,6 +387,16 @@ describe('#336 G2w: private XMLTV reads the same-run shared Waipu/Joyn cache',()
     const local=createXmltvG2mVerifiedLocalResolver(catalog([row(55,'Unrelated')]),{now:NOW})
     const r=createG2wXmltvCandidateResolver(local,createG2nXmltvCachedResponseResolver(store))
     expect(r.localCandidatesFor({title:TITLE},'movie')).toEqual([])
+  })
+  it('enables peer reuse only in a trusted canonical XMLTV Nightly',()=>{
+    const env={GITHUB_REF:'refs/heads/main',GITHUB_EVENT_NAME:'schedule',MOVIEHUB_TRUSTED_CENTRAL_NIGHTLY:'true',MOVIEHUB_XMLTV_PRIVATE_PREVIEW:'enabled',MOVIEHUB_XMLTV_CANONICAL_HANDOFF:'enabled'}
+    expect(isXmltvPeerReconciliationEnabled(env)).toBe(true)
+    expect(isXmltvPeerReconciliationEnabled({...env,GITHUB_EVENT_NAME:'workflow_dispatch'})).toBe(true)
+    expect(isXmltvPeerReconciliationEnabled({...env,MOVIEHUB_XMLTV_CANONICAL_HANDOFF:''})).toBe(false)
+    expect(isXmltvPeerReconciliationEnabled({...env,MOVIEHUB_XMLTV_PRIVATE_PREVIEW:''})).toBe(false)
+    expect(isXmltvPeerReconciliationEnabled({...env,MOVIEHUB_TRUSTED_CENTRAL_NIGHTLY:'false'})).toBe(false)
+    expect(isXmltvPeerReconciliationEnabled({...env,GITHUB_REF:'refs/heads/work/test'})).toBe(false)
+    expect(isXmltvPeerReconciliationEnabled({...env,GITHUB_EVENT_NAME:'push'})).toBe(false)
   })
   it('uses central scheduled or manually opted-in full Nightly and never uploads raw XMLTV or shared responses',async()=>{
     const central=await readFile('.github/workflows/moviehub-nightly-pipeline.yml','utf8')

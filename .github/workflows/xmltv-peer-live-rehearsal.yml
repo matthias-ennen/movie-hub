@@ -1,0 +1,36 @@
+name: XMLTV peer matching real A-B (read-only)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/xmltv-peer-live-rehearsal.mjs
+      - .github/workflows/xmltv-peer-live-rehearsal.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rehearsal:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.head_ref == 'work/885-xmltv-peer-reconciliation' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: npx vitest run tests/xmltv-peer-airing-resolver.test.js tests/xmltv-g2m-live-catalog-match-preview.test.js
+      - name: Run actual private staging and matcher with and without peer evidence
+        run: |
+          mkdir -p artifacts/xmltv-peer-live-rehearsal
+          node scripts/xmltv-peer-live-rehearsal.mjs > artifacts/xmltv-peer-live-rehearsal/report.json
+          node -e "const r=require('./artifacts/xmltv-peer-live-rehearsal/report.json'); for(const k of ['baseline','withPeers']) delete r[k].stationDiagnostics; console.log(JSON.stringify(r,null,2))"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: xmltv-peer-live-rehearsal-${{ github.run_id }}
+          path: artifacts/xmltv-peer-live-rehearsal/report.json
+          if-no-files-found: error
+          retention-days: 7
