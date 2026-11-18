@@ -2,6 +2,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
+import { auditJoynWaipuPeerAirings } from './joyn-peer-airing-audit.mjs'
+import { isTrustedCentralNightlyEvent } from './trusted-central-nightly-event.mjs'
 import { localTmdbCandidates } from './waipu-live-catalog.mjs'
 import { JoynTmdbSearchClient, matchJoynProgram } from './joyn-tmdb-matcher.mjs'
 import { normalizeJoynLiveChannelsAndEpg } from '../src/sources/joyn/joynEpgNormalizer.js'
@@ -607,8 +609,9 @@ export async function runJoynAdapterDiagnostic({
   const loaded = await loadJoynEpg(fetchImpl)
   let raw = loaded.data
   let epgSync = null
+  let waipuIndex = null
   if (fullHorizon) {
-    const waipu = await readJson(resolve(root, 'public/waipu-live/index.json'), {})
+    const waipu = waipuIndex = await readJson(resolve(root, 'public/waipu-live/index.json'), {})
     const waipuAt = Date.parse(waipu.generatedAt)
     const horizon = Number.isFinite(waipuAt) && waipuAt <= now && now - waipuAt < 12 * 3600000
       && Date.parse(waipu.horizon?.endExclusive) - Date.parse(waipu.horizon?.start) === 14 * 86400000
@@ -1292,6 +1295,12 @@ export async function runJoynAdapterDiagnostic({
     withJoynType: 0,
   })
 
+  // Read-only, fail-isolated shadow audit. No match-cache or publication change.
+  let peerAudit = null
+  if (fullHorizon && isTrustedCentralNightlyEvent(process.env)) {
+    try { peerAudit = auditJoynWaipuPeerAirings({unresolvedPrograms,stationMapping,waipuTitles,waipuIndex,now}) }
+    catch { peerAudit = {status:'unavailable'} }
+  }
   const summary = {
     schemaVersion: 1,
     sourceHealth: sourceHealth(),
@@ -1359,6 +1368,7 @@ export async function runJoynAdapterDiagnostic({
       rejected,
       unresolvedByReason,
       unresolvedSignalCoverage,
+      ...(peerAudit ? {peerAudit} : {}),
     },
     playback: playbackCoverage,
     output: {
