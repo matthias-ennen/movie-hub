@@ -182,8 +182,10 @@ public final class TrailerPlayerActivity extends ComponentActivity {
         String command = TrailerRemoteInput.transportCommand(key);
         if (command != null && (event.getAction() == KeyEvent.ACTION_DOWN
                 || event.getAction() == KeyEvent.ACTION_UP)) {
-            // Consume both halves of the press; the WebView must not toggle again.
+            // Consume down and up to avoid double actions in the YouTube iframe.
             if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                // OK always toggles playback, even if YouTube moved focus to another control.
+                if (key == KeyEvent.KEYCODE_DPAD_CENTER) restorePlayerFocus();
                 playerWebView.evaluateJavascript("mhRemote('" + command + "')", null);
             }
             return true;
@@ -191,14 +193,6 @@ public final class TrailerPlayerActivity extends ComponentActivity {
         if (PlayerRemoteWakeState.isNavigationKey(key)) {
             if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
                 restorePlayerFocus();
-            }
-            // Enter is the browser's normal focused-button activation key. Forward
-            // both down and up, without simulating a tap or stealing iframe focus.
-            int webKey = TrailerRemoteInput.webNavigationKey(key);
-            if (webKey != key) {
-                event = new KeyEvent(event.getDownTime(), event.getEventTime(), event.getAction(),
-                        webKey, event.getRepeatCount(), event.getMetaState(), event.getDeviceId(),
-                        0, event.getFlags(), event.getSource());
             }
         }
         return super.dispatchKeyEvent(event);
