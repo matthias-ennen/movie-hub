@@ -50,20 +50,25 @@ export default function ProviderBadges({
   const resolved = model || (item && !Array.isArray(providerIds)
     ? resolvePosterProviderModel(item, { hasMovieHub: includeMovieHub, context, maxVisible })
     : null)
-  const visibleProviderIds = resolved?.providerIds
-    || prioritizeProviderBadges(providerIds, { includeMovieHub, maxVisible })
-  if (!visibleProviderIds.length) return null
+  const entries = resolved?.entries || prioritizeProviderBadges(providerIds, { includeMovieHub, maxVisible })
+    .map(providerId => ({ providerId, context: context || 'title' }))
+  if (!entries.length) return null
+  const stackDepth = resolved?.stackDepth || 0
+  const overflow = resolved?.overflowCount || 0
 
   return (
-    <div className="provider-badges" aria-label="Verfügbare Anbieter">
-      {visibleProviderIds.map((providerId) => (
-        <ProviderBadge
-          providerId={providerId} item={item}
-          context={resolved?.context || context || 'title'}
-          resolvedOfferLabel={resolved?.offerLabels[providerId]}
-          key={providerId}
-        />
-      ))}
+    <div className={stackDepth ? 'provider-badges provider-badges-stacked' : 'provider-badges'} aria-label={overflow ? 'Verfügbare Anbieter, weitere Angebote in den Details' : 'Verfügbare Anbieter'}>
+      {entries.map((entry, index) => {
+        const badge = <ProviderBadge providerId={entry.providerId} item={item}
+          context={entry.context} resolvedOfferLabel={entry.offerLabel} />
+        const key = `${entry.context}:${entry.providerId}:${index}`
+        return index === 2 && stackDepth > 0
+          ? <span key={key} className="provider-badge-stack" data-stack-depth={stackDepth}>
+              {badge}
+            </span>
+          : <ProviderBadge key={key} providerId={entry.providerId} item={item}
+              context={entry.context} resolvedOfferLabel={entry.offerLabel} />
+      })}
     </div>
   )
 }

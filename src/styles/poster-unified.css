@@ -75,6 +75,43 @@
   overflow: visible;
 }
 
+/* The third visible offer is the front of a decorative stack. Its outline
+   copies the badge theme, never its text, offer tag or interaction target. */
+.provider-badge-stack {
+  position: relative;
+  isolation: isolate;
+  display: inline-grid;
+  flex: 0 0 auto;
+}
+.provider-badge-stack > .provider-badge { z-index: 1; }
+.provider-badge-stack::before,
+.provider-badge-stack[data-stack-depth="2"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--theme-provider-border);
+  border-radius: var(--radius-sm);
+  background: var(--theme-provider-bg);
+  pointer-events: none;
+  z-index: -1;
+  transform: translate(0.24rem, -0.22rem);
+}
+.provider-badge-stack[data-stack-depth="2"]::after {
+  transform: translate(0.48rem, -0.44rem);
+  z-index: -2;
+}
+/* Keep the offset inside the existing poster even in narrow Compact rows.
+   The ordinary badge size remains the preferred width. */
+.poster-card .provider-badges-stacked,
+.collection-part-card .provider-badges-stacked { padding-right: 0.48rem; }
+.poster-card .provider-badges-stacked > .provider-badge,
+.collection-part-card .provider-badges-stacked > .provider-badge,
+.provider-badges-stacked > .provider-badge-stack {
+  flex: 0 1 var(--poster-badge-min-width);
+  min-width: 0;
+}
+.provider-badges-stacked .provider-badge-stack > .provider-badge { min-width: 0; }
+
 /* Provider badge top border crosses the small label at 60% of its height. */
 .provider-badge .provider-offer-tag {
   top: 0;
