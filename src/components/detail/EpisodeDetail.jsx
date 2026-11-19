@@ -9,6 +9,7 @@ import { listDetailTvAirings, formatDetailTvAiring } from '../../tv/detailTvAiri
 import { resolveBoundLiveProviderRoutes } from '../../providers/liveProviderRoutes.js'
 import { selectYoutubeEpisodePlaylistRoute } from '../../providers/youtubeEpisodePlaylistRoute.js'
 import { orderProviderIds } from '../../providers/providerPresentation.js'
+import { liveOfferEntries } from '../../providers/providerAvailabilityModel.js'
 
 export function episodeAirDateLabel(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null
@@ -79,16 +80,16 @@ export default function EpisodeDetail({
             <p className="settings-kicker">TV-Ausstrahlung</p>
             {airings.map((airing, index) => {
               const providerItem = { ...item, tvAiring: airing, liveAvailability: {} }
-              const providerIds = (Array.isArray(airing.providerIds) ? airing.providerIds : [])
-                .filter((id) => providers[id] && isProviderEnabled(id))
+              const entries = liveOfferEntries(item, airing, providers).filter(entry => isProviderEnabled(entry.providerId))
+              const providerIds = entries.map(entry => entry.providerId)
               const routes = resolveBoundLiveProviderRoutes(providerItem, providerIds, { now })
               return (
                 <div className="episode-detail-airing" key={`${airing.stationId}:${airing.startTime}:${index}`}>
                   <p className="detail-tv-airing">{formatDetailTvAiring(airing)}</p>
                   {providerIds.length > 0 && <div className="provider-actions" aria-label="TV-Anbieter für diesen Termin">
-                    {providerIds.map((providerId) => {
+                    {entries.map(({ providerId, offerLabel }) => {
                       return <DetailLiveProviderAction key={providerId} providerId={providerId}
-                        item={providerItem} canLaunch={Boolean(routes[providerId])}
+                        item={providerItem} canLaunch={Boolean(routes[providerId])} offerLabel={offerLabel}
                         onOpen={onOpenAiring ? () => onOpenAiring(airing, providerId) : null}
                         subject="diesen Sendetermin" />
                     })}

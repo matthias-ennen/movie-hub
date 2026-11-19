@@ -20,17 +20,15 @@ import { useWaipuStationSelection } from '../settings/useWaipuStationSelection.j
 import { useJoynStationSelection } from '../settings/useJoynStationSelection.js'
 import { loadSearchDetail, toSearchDetailFallback } from '../search/lazySearchDetails.js'
 import { launchProviderPlaybackRoute } from '../providers/providerPlaybackLaunch.js'
-import { selectYoutubeEpisodePlaylistRoute, revalidateYoutubeEpisodePlaylistRouteAtLaunch } from '../providers/youtubeEpisodePlaylistRoute.js'
-import { orderProviderIds } from '../providers/providerPresentation.js'
+import { selectYoutubeEpisodePlaylistRoute, revalidateYoutubeEpisodePlaylistRouteAtLaunch, EPISODE_YOUTUBE_MODE_LABELS } from '../providers/youtubeEpisodePlaylistRoute.js'
 import { useYoutubeVerifiedOffers, useYoutubeCuratedEditorialHints, useYoutubeBestEffortLinks } from '../providers/YoutubeVerifiedOffersContext.jsx'
 import { enrichTitleProviderRoutes } from '../providers/titleProviderRouteEnrichment.js'
 import { resolveBoundLiveProviderRoutes } from '../providers/liveProviderRoutes.js'
 import { useTitleAlerts } from '../notifications/useTitleAlerts.js'
 import { includedSwitchShownAsOn, ignoreCompletedIncludedClick } from '../notifications/includedSwitchSession.js'
-import { resolveProviderPresentation } from '../providers/providerPresentation.js'
+import { buildProviderAvailabilityModel } from '../providers/providerAvailabilityModel.js'
 import { formatDetailTvAiring, listDetailTvAirings, resolveDetailTvAiring } from '../tv/detailTvAiring.js'
 import { loadTvRuntimeTitleAirings, filterTvRuntimeTitleAirings } from '../tv/tvRuntimeClient.js'
-import { buildDetailLiveProviderEntries, buildDetailStreamingProviderIds } from './detailProviderPresentation.js'
 
 import DetailDialog from './detail/DetailDialog.jsx'
 import DetailLayout from './detail/DetailLayout.jsx'
@@ -176,7 +174,7 @@ export default function DetailModal({
   const hasFilmCollection = item.type === 'movie' && collectionParts.length > 1
   const detailTvAirings = useMemo(() => listDetailTvAirings(item, {
     now: liveAvailabilityNow,
-    selection: manualEpisode === undefined ? selectedEpisode : manualEpisode,
+    selection: manualEpisode === undefined ? selectedEpisode || undefined : manualEpisode,
     fullAirings: filteredTitleAirings,
   }), [item, liveAvailabilityNow, manualEpisode, selectedEpisode, filteredTitleAirings])
   const detailTvAiring = detailTvAirings[0] || null
@@ -189,40 +187,21 @@ export default function DetailModal({
     () => ({ ...item, tvAiring: detailTvAiring }),
     [detailTvAiring, item],
   )
-  const liveProviderPresentation = useMemo(
-    () => resolveProviderPresentation(detailProviderItem, { context: 'airing' }),
-    [detailProviderItem],
-  )
-  const titleProviderPresentation = useMemo(
-    () => resolveProviderPresentation(titleWithVerifiedOffers, { context: 'title' }),
-    [titleWithVerifiedOffers],
-  )
-  const liveRouteSnapshot = useMemo(() => {
-    const providerIds = liveProviderPresentation.liveProviderIds
-      .filter((providerId) => Boolean(providers[providerId]))
-    return resolveBoundLiveProviderRoutes(detailProviderItem, providerIds, { now: liveAvailabilityNow })
-  }, [detailProviderItem, liveAvailabilityNow, liveProviderPresentation])
-  const liveProviderEntries = buildDetailLiveProviderEntries(
-    liveProviderPresentation,
-    providers,
-    liveRouteSnapshot,
-  )
-  const titleStreamingProviderIds = buildDetailStreamingProviderIds(
-    titleProviderPresentation,
-    providers,
-    liveProviderEntries,
-    titleWithVerifiedOffers,
-  )
-  // Keep the existing, unchanged provider actions. An exact playlist link
-  // adds YouTube to this list for the selected canonical episode only.
-  const streamingProviderIds = selectedEpisodeYoutubeRoute
-    ? orderProviderIds([...titleStreamingProviderIds, 'youtube'])
-    : titleStreamingProviderIds
+  const showMovieHubProvider = sharedMedia.length > 0 && isProviderEnabled('moviehub')
+  const availability = buildProviderAvailabilityModel({ item, titleItem: titleWithVerifiedOffers,
+    airings: [detailTvAiring, ...additionalTvAirings], providers,
+    hasMovieHub: showMovieHubProvider,
+    youtubeEpisodeLabel: selectedEpisodeYoutubeRoute ? EPISODE_YOUTUBE_MODE_LABELS[selectedEpisodeYoutubeRoute.playlistMode] : null,
+  })
+  const firstLiveEntries = availability.liveGroups[0]?.entries || []
+  const liveRouteSnapshot = resolveBoundLiveProviderRoutes(detailProviderItem,
+    firstLiveEntries.map(entry => entry.providerId), { now: liveAvailabilityNow })
+  const liveProviderEntries = firstLiveEntries.map(entry => ({ ...entry, canLaunch: Boolean(liveRouteSnapshot[entry.providerId]) }))
+  const { titleStreamingProviderIds, streamingProviderIds } = availability
   const hasLiveProviders = liveProviderEntries.length > 0
   const hasStreamingProviders = streamingProviderIds.length > 0
   const hasTvAiring = Boolean(detailTvAiringLabel)
   const hasProviders = hasLiveProviders || hasStreamingProviders
-  const showMovieHubProvider = sharedMedia.length > 0 && isProviderEnabled('moviehub')
   const cast = Array.isArray(item.cast) ? item.cast.slice(0, 5) : []
   const automaticVideos = Array.isArray(item.videos) ? item.videos : []
   // This modal is unmounted when closed. A successful activation stays
@@ -677,9 +656,9 @@ export default function DetailModal({
               <p className="detail-tv-airing">{detailTvAiringLabel}</p>
               {hasLiveProviders && (
                 <div className="provider-actions" aria-label="Live-TV-Anbieter für diese Ausstrahlung">
-                  {liveProviderEntries.map(({ providerId, canLaunch }) => (
+                  {liveProviderEntries.map(({ providerId, canLaunch, offerLabel }) => (
                     <DetailLiveProviderAction key={providerId} providerId={providerId}
-                      item={detailProviderItem} canLaunch={canLaunch}
+                      item={detailProviderItem} canLaunch={canLaunch} offerLabel={offerLabel}
                       onOpen={() => openLiveProvider(providerId)} />
                   ))}
                 </div>
@@ -687,19 +666,18 @@ export default function DetailModal({
               {additionalTvAirings.length > 0 && (
                 <div className="detail-tv-additional-airings" aria-label="Weitere bekannte Ausstrahlungstermine">
                   <p className="settings-kicker">Weitere Ausstrahlungstermine</p>
-                  {additionalTvAirings.map((airing, index) => (
+                  {availability.liveGroups.slice(1).map(({ airing, entries }, index) => (
                     <div className="detail-tv-additional-airing"
                       key={`${airing.stationId}:${airing.startTime}:${index}`}>
                       <p className="detail-tv-airing">{formatDetailTvAiring(airing)}</p>
                       <div className="provider-actions" aria-label="Anbieter für diesen Termin">
-                        {(airing.providerIds || []).filter((id) => providers[id] && isProviderEnabled(id))
-                          .map((providerId) => {
+                        {entries.map(({ providerId, offerLabel }) => {
                             const providerItem = { ...item, tvAiring: airing, liveAvailability: {} }
                             const route = resolveBoundLiveProviderRoutes(providerItem, [providerId], {
                               now: liveAvailabilityNow,
                             })[providerId]
                             return <DetailLiveProviderAction key={providerId} providerId={providerId}
-                              item={providerItem} canLaunch={Boolean(route)} subject="diesen Sendetermin"
+                              item={providerItem} canLaunch={Boolean(route)} subject="diesen Sendetermin" offerLabel={offerLabel}
                               onOpen={() => openAdditionalLiveAiring(airing, providerId)} />
                           })}
                       </div>
@@ -714,6 +692,7 @@ export default function DetailModal({
               <p className="settings-kicker">Streaming / Mediathek</p>
               <StreamingProviderActions
                 item={titleWithVerifiedOffers} providerIds={streamingProviderIds}
+                offerEntries={availability.streamingEntries}
                 episode={selectedEpisode} youtubeEpisodeRoute={selectedEpisodeYoutubeRoute}
                 showMovieHubProvider={showMovieHubProvider}
                 onOpenMovieHub={() => sharedMedia.length === 1 ? launchMedia(sharedMedia[0]) : setMediaPickerOpen(true)}

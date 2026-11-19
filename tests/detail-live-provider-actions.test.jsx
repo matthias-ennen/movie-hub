@@ -3,6 +3,9 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { readFileSync } from 'node:fs'
 import DetailLiveProviderAction from '../src/components/detail/DetailLiveProviderAction.jsx'
 import DetailModal from '../src/components/DetailModal.jsx'
+import PosterCard from '../src/components/PosterCard.jsx'
+import { resolvePosterProviderModel } from '../src/providers/posterProviderModel.js'
+import { updateProviderSelectionSnapshot, resetProviderSelectionSnapshot } from '../src/settings/providerSelectionRuntime.js'
 
 vi.mock('../src/profiles/ProfileProvider.jsx', () => ({
   useProfiles: () => ({ activeProfile: { id: 'test', displayName: 'Test' } }),
@@ -86,5 +89,74 @@ describe('#708 consistent live provider badges for repeated TV airings', () => {
     expect(view).toContain('provider-badge provider-joyn')
     const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
     expect(css).toMatch(/\.provider-availability-streaming,\s*\.detail-tv-additional-airings\s*\{\s*margin-top:\s*var\(--space-4\);/)
+  })
+})
+
+describe('#885 poster is the first three offers of the actual detail reading order', () => {
+  const badgeTitles = html => Array.from(html.matchAll(/class="provider-badge provider-[^"]+" title="([^"]+)"/g), match => match[1])
+  const movie = { id: 'movie-42', type: 'movie', tmdbId: 42, title: 'Testfilm' }
+  const broadcast = { ...first, type: 'movie', tmdbId: 42, stationId: 'zdf', stationName: 'ZDF',
+    providerIds: ['waipu', 'joyn'], episode: null }
+
+  function verify(item, { hasMovieHub = false, count, depth }) {
+    vi.setSystemTime(new Date(now))
+    try {
+      const poster = renderToStaticMarkup(<PosterCard item={item} hasMovieHub={hasMovieHub} onOpen={() => {}} />)
+      const detail = renderToStaticMarkup(<DetailModal item={{ ...item, detailAiring: item.tvAiring }}
+        liveAvailabilityNow={now} onClose={() => {}} sharedMediaPreloaded
+        initialSharedMedia={hasMovieHub ? [{ id: 'personal', label: 'Eigenes Video' }] : []} initialPrimaryImageUrl={null} />)
+      const titles = badgeTitles(detail)
+      expect(titles).toHaveLength(count)
+      expect(badgeTitles(poster)).toEqual(titles.slice(0, 3))
+      expect(resolvePosterProviderModel(item, { hasMovieHub, now }).stackDepth).toBe(depth)
+      if (depth) expect(poster).toContain(`data-stack-depth="${depth}"`)
+      else expect(poster).not.toContain('provider-badge-stack')
+      expect(poster.match(/data-focusable="true"/g)).toHaveLength(1)
+      return titles
+    } finally { vi.useRealTimers() }
+  }
+
+  it('renders Joyn AIR and Joyn FLAT as two real, consecutive offers', () => {
+    const titles = verify({ ...movie, tvAiring: broadcast,
+      tmdbProviderOffers: [{ id: 'joyn', offerTypes: ['flatrate'] }] }, { count: 3, depth: 0 })
+    expect(titles).toEqual(['waipu.tv · AIR', 'Joyn · AIR', 'Joyn · FLAT'])
+  })
+
+  it('adds exactly one empty layer for four offers', () => {
+    verify({ ...movie, tvAiring: broadcast,
+      tmdbProviderOffers: [{ id: 'joyn', offerTypes: ['flatrate'] }, { id: 'netflix', offerTypes: ['flatrate'] }] },
+    { count: 4, depth: 1 })
+  })
+
+  it('caps the stack at two for five or more offers, with MovieHub after TV', () => {
+    const airing = { ...broadcast, providerIds: ['air-zdf', 'waipu', 'joyn'] }
+    const titles = verify({ ...movie, tvAiring: airing,
+      tmdbProviderOffers: [{ id: 'joyn', offerTypes: ['flatrate'] }, { id: 'netflix', offerTypes: ['flatrate'] }] },
+    { hasMovieHub: true, count: 6, depth: 2 })
+    expect(titles.slice(0, 3)).toEqual(['ZDF · AIR', 'waipu.tv · AIR', 'Joyn · AIR'])
+    expect(titles[3]).toContain('Movie Hub')
+  })
+
+  it('uses the first known broadcast for a normal catalogue title, not all unrelated live IDs', () => {
+    const other = { ...broadcast, stationId: 'rtl', stationName: 'RTL', providerIds: ['waipu'],
+      startTime: next.startTime, stopTime: next.stopTime }
+    const titles = verify({ ...movie, liveAvailability: {
+      joyn: { airings: [{ ...broadcast, providerIds: ['joyn'] }] }, waipu: { airings: [other] },
+    }, tmdbProviderOffers: [{ id: 'netflix', offerTypes: ['flatrate'] }] }, { count: 2, depth: 0 })
+    expect(titles).toEqual(['Joyn · AIR', 'Netflix · FLAT'])
+  })
+
+  it('counts later real airings of the same selected episode, without deduping provider IDs', () => {
+    const titles = verify({ ...series, tvAiring: first, liveAvailability: { waipu: { airings: [first, next] } },
+      tmdbProviderOffers: [{ id: 'netflix', offerTypes: ['flatrate'] }] }, { count: 3, depth: 0 })
+    expect(titles).toEqual(['waipu.tv · AIR', 'waipu.tv · AIR', 'Netflix · FLAT'])
+  })
+
+  it('does not count disabled providers as visible or hidden offers', () => {
+    updateProviderSelectionSnapshot({ enabledProviderIds: ['waipu', 'netflix', 'moviehub'], loading: false })
+    try {
+      verify({ ...movie, tvAiring: broadcast, tmdbProviderOffers: [{ id: 'joyn', offerTypes: ['flatrate'] },
+        { id: 'netflix', offerTypes: ['flatrate'] }] }, { count: 2, depth: 0 })
+    } finally { resetProviderSelectionSnapshot() }
   })
 })

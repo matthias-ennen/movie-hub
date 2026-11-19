@@ -2,6 +2,7 @@ import { providers } from '../../data/catalog.js'
 import { ProviderBadge } from '../ProviderBadges.jsx'
 import { TITLE_ROUTE_EVIDENCE } from '../../providers/titleProviderRouteEnrichment.js'
 import { EPISODE_YOUTUBE_MODE_LABELS } from '../../providers/youtubeEpisodePlaylistRoute.js'
+import { streamingOfferEntries } from '../../providers/providerAvailabilityModel.js'
 
 /**
  * One provider-action presentation for both title and nested episode details.
@@ -12,18 +13,22 @@ export default function StreamingProviderActions({
   item, providerIds = [], episode = null, youtubeEpisodeRoute = null,
   showMovieHubProvider = false, onOpenMovieHub = null,
   movieHubActionLabel = 'Eigene Movie-Hub-Links und Videos auswählen',
-  onOpenProvider,
+  onOpenProvider, offerEntries = null,
 }) {
+  const entries = offerEntries || streamingOfferEntries(item, providerIds, providers, {
+    hasMovieHub: showMovieHubProvider,
+    youtubeEpisodeLabel: youtubeEpisodeRoute ? EPISODE_YOUTUBE_MODE_LABELS[youtubeEpisodeRoute.playlistMode] : null,
+  })
   return (
     <div className="provider-actions" aria-label="Streaming- und Mediathek-Anbieter">
-      {showMovieHubProvider && (
-        <button type="button" className="action-button provider-action movie-hub-action"
-          data-focusable="true" onClick={onOpenMovieHub} aria-label={movieHubActionLabel}>
-          <ProviderBadge providerId="moviehub" item={item} />
-          Movie Hub
-        </button>
-      )}
-      {providerIds.map((providerId) => {
+      {entries.map(({ providerId, offerLabel }) => {
+        if (providerId === 'moviehub') return (
+          <button key={providerId} type="button" className="action-button provider-action movie-hub-action"
+            data-focusable="true" onClick={onOpenMovieHub} aria-label={movieHubActionLabel}>
+            <ProviderBadge providerId="moviehub" item={item} resolvedOfferLabel={offerLabel} />
+            Movie Hub
+          </button>
+        )
         const provider = providers[providerId]
         if (!provider) return null
         const possibleYoutubeLink = providerId === 'youtube'
@@ -43,9 +48,7 @@ export default function StreamingProviderActions({
                   ? 'Möglichen YouTube-Filmtreffer öffnen (Zuordnung und Wiedergabe nicht garantiert)'
                   : `${provider.label} als Streaming- oder Mediathek-Anbieter öffnen`}>
             <ProviderBadge providerId={providerId} item={item} context="title"
-              resolvedOfferLabel={selectedYoutube
-                ? EPISODE_YOUTUBE_MODE_LABELS[youtubeEpisodeRoute.playlistMode]
-                : undefined} />
+              resolvedOfferLabel={offerLabel} />
             {provider.label}
           </button>
         )

@@ -54,11 +54,11 @@ describe('#385 canonical TV poster and detail provider parity', () => {
       const liveEntries = buildDetailLiveProviderEntries(live, providers)
       const streamingIds = buildDetailStreamingProviderIds(titleWide, providers, liveEntries, item)
       // This is the canonical unique order on the detail page; it must match the poster prefix.
-      const uniqueDetailProviders = [...new Set([
+      const detailProviders = [
         ...liveEntries.map((entry) => entry.providerId),
         ...streamingIds,
-      ])]
-      expect(uniqueDetailProviders.slice(0, 3)).toEqual(expectedProviders)
+      ]
+      expect(detailProviders.slice(0, 3)).toEqual(expectedProviders)
       expect(streamingIds).toEqual(offerCases.map(([id]) => id).sort((a,b) => titleWide.providerIds.indexOf(a) - titleWide.providerIds.indexOf(b)))
       expect(liveEntries.map((entry) => entry.providerId)).toEqual(['waipu'])
       expect(providerOfferLabel(item, 'joyn', { context: 'airing' })).not.toBe('AIR')
@@ -84,7 +84,8 @@ describe('#385 canonical TV poster and detail provider parity', () => {
       tvAiring: { providerIds: ['waipu', 'joyn'] },
     }
     const poster = resolvePosterProviderModel(item)
-    expect(poster.providerIds).toEqual(['waipu', 'joyn'])
+    expect(poster.providerIds).toEqual(['waipu', 'joyn', 'joyn'])
+    expect(poster.entries.map(entry => entry.offerLabel)).toEqual(['AIR', 'AIR', 'ADS'])
     expect(poster.offerLabels.joyn).toBe('AIR')
     const airing = resolveProviderPresentation(item, { context: 'airing' })
     const vod = resolveProviderPresentation(item, { context: 'title' })
@@ -104,12 +105,14 @@ describe('#385 canonical TV poster and detail provider parity', () => {
       tvAiring: { providerIds: ['waipu', 'joyn', 'air-zdf'], stationName: 'ZDF' },
     }
     const model = resolvePosterProviderModel(item, { hasMovieHub: true })
-    expect(model.providerIds).toEqual(['moviehub', 'air-zdf', 'waipu'])
+    expect(model.providerIds).toEqual(['air-zdf', 'waipu', 'joyn'])
     expect(model.offerLabels['air-zdf']).toBe('AIR')
-    expect(model.allProviderIds).toEqual(['moviehub', 'air-zdf', 'waipu', 'joyn', 'netzkino'])
+    expect(model.allProviderIds).toEqual(['air-zdf', 'waipu', 'joyn', 'moviehub', 'netzkino'])
+    expect(model.stackDepth).toBe(2)
     const markup = renderToStaticMarkup(createElement(PosterCard, { item, hasMovieHub: true, onOpen: () => {} }))
     expect(markup).toContain('provider-air-zdf')
     expect(markup).toContain('ZDF')
+    expect(markup).toContain('data-stack-depth="2"')
     const live = resolveProviderPresentation(item, { context: 'airing' })
     expect(buildDetailLiveProviderEntries(live, providers).map(entry => entry.providerId)).toEqual(['air-zdf', 'waipu', 'joyn'])
     expect(resolvePosterProviderModel({ ...item, tvAiring: { providerIds: ['waipu'] } }).providerIds).not.toContain('air-zdf')
