@@ -8,7 +8,7 @@ import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { FEEDS, downloadXmltvFeed } from './probe-xmltv-feeds.mjs'
 import { parseXmltvCandidates } from '../src/sources/xmltv/xmltvCandidates.js'
-import { xmltvStationRegistry, XMLTV_REVIEWED_EXPANSION_STATIONS } from '../src/sources/xmltv/xmltvStationMappings.js'
+import { xmltvStationRegistry, XMLTV_REVIEWED_EXPANSION_STATIONS, XMLTV_REVIEWED_TRANCHE_2_STATIONS } from '../src/sources/xmltv/xmltvStationMappings.js'
 import { buildXmltvPrivateSourceGeneration } from '../src/sources/xmltv/xmltvPrivateStaging.js'
 import { XMLTV_VERIFIED_SOURCE_FAMILIES } from '../src/sources/xmltv/xmltvSourceReadiness.js'
 import { fetchExistingMovieHubTmdbCatalog, createXmltvG2mVerifiedLocalResolver } from './xmltv-g2m-live-catalog-match-preview.mjs'
@@ -16,7 +16,7 @@ import { matchXmltvLocalCandidates, mergeConfirmedXmltvAirings } from './xmltv-g
 
 const registry = xmltvStationRegistry('expansion-preview')
 const ids = registry.stations.map(s => s.stationId)
-const expansionIds = new Set(XMLTV_REVIEWED_EXPANSION_STATIONS.map(s => s.stationId))
+const expansionIds = new Set([...XMLTV_REVIEWED_EXPANSION_STATIONS, ...XMLTV_REVIEWED_TRANCHE_2_STATIONS].map(s => s.stationId))
 const MAX_CANDIDATES = 20_000
 const BATCH_SIZE = 2_000
 const keys = (obj, wanted) => obj && typeof obj === 'object' && !Array.isArray(obj) &&

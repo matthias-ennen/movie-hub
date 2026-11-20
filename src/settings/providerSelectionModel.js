@@ -1,4 +1,4 @@
-import { XMLTV_AIR_PILOT_ROUTE_CANDIDATES, XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES, XMLTV_AIR_ROUTE_CANDIDATES } from '../sources/xmltv/xmltvAirRoutes.js'
+import { XMLTV_AIR_PILOT_ROUTE_CANDIDATES, XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES, XMLTV_AIR_TRANCHE_2_ROUTE_CANDIDATES, XMLTV_AIR_ROUTE_CANDIDATES } from '../sources/xmltv/xmltvAirRoutes.js'
 import { ORDERED_PROVIDERS } from '../providers/providerOrder.js'
 import {
   DEFAULT_ENABLED_PROVIDER_IDS as REGISTRY_DEFAULTS,
@@ -17,7 +17,7 @@ export const PROVIDER_OPTIONS = ORDERED_PROVIDERS.map((provider) => ({
 
 export const DEFAULT_ENABLED_PROVIDER_IDS = [...REGISTRY_DEFAULTS]
 export const KNOWN_PROVIDER_IDS = PROVIDER_REGISTRY.map((provider) => provider.id)
-export const PROVIDER_SELECTION_VERSION = 4
+export const PROVIDER_SELECTION_VERSION = 5
 
 const providerIdSet = new Set(KNOWN_PROVIDER_IDS)
 
@@ -38,6 +38,7 @@ export function normalizeStoredProviderSelection(value, version = null) {
     ...(legacyVersion < 2 ? ['moviehub'] : []),
     ...(legacyVersion < 3 ? XMLTV_AIR_PILOT_ROUTE_CANDIDATES.map(row=>row.providerId) : []),
     ...(legacyVersion < 4 ? XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES.map(row=>row.providerId) : []),
+    ...(legacyVersion < 5 ? XMLTV_AIR_TRANCHE_2_ROUTE_CANDIDATES.map(row=>row.providerId) : []),
   ]
   const enabledProviderIds = hasStoredSelection
     ? normalizeEnabledProviderIds([...normalized, ...migratedDefaults])

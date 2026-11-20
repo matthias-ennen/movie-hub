@@ -65,8 +65,35 @@ export const XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES = Object.freeze([
     requiresAuth: true, requiresSubscription: true },
 ].map(entry => Object.freeze(entry)))
 
+// #885: provisionally accepted exact links (17 Nov); Disney Channel is staged
+// but excluded until an exact live target is independently verified.
+export const XMLTV_AIR_TRANCHE_2_ROUTE_CANDIDATES = Object.freeze([
+  { stationId: 'comedy_central', providerId: 'air-comedy_central', label: 'Comedy Central', short: 'CC',
+    target: 'https://www.joyn.de/live-tv/comedy-central', requiresAuth: true, requiresSubscription: false },
+  { stationId: 'sixx', providerId: 'air-sixx', label: 'sixx', short: 'SIXX',
+    target: 'https://www.joyn.de/live-tv/sixx', requiresAuth: true, requiresSubscription: false },
+  { stationId: 'dmax', providerId: 'air-dmax', label: 'DMAX', short: 'DMAX',
+    target: 'https://www.joyn.de/live-tv/dmax', requiresAuth: true, requiresSubscription: false },
+  { stationId: 'tlc', providerId: 'air-tlc', label: 'TLC', short: 'TLC',
+    target: 'https://www.joyn.de/live-tv/tlc', requiresAuth: true, requiresSubscription: false },
+  { stationId: 'brsued', providerId: 'air-brsued', label: 'BR Süd', short: 'BR',
+    target: 'https://www.ardmediathek.de/br/live/Y3JpZDovL2JyLmRlL0xpdmVzdHJlYW0tQlItU8O8ZA', requiresAuth: false, requiresSubscription: false },
+  { stationId: 'hr', providerId: 'air-hr', label: 'hr-fernsehen', short: 'HR',
+    target: 'https://www.ardmediathek.de/live/hr/Y3JpZDovL2hyLmRlL0xpdmVzdHJlYW0tSFI', requiresAuth: false, requiresSubscription: false },
+  { stationId: 'n3_hamburg', providerId: 'air-n3_hamburg', label: 'NDR Hamburg', short: 'NDR',
+    target: 'https://www.ardmediathek.de/live/ndr-hamburg/Y3JpZDovL25kci5kZS9MaXZlc3RyZWFtLU5EUi1IYW1idXJn', requiresAuth: false, requiresSubscription: false },
+  { stationId: 'wdr_koeln', providerId: 'air-wdr_koeln', label: 'WDR Köln', short: 'WDR',
+    target: 'https://www.ardmediathek.de/live/wdr/Y3JpZDovL3dkci5kZS9CZWl0cmFnLTNkYTY2NGRlLTE4YzItNDY1MC1hNGZmLTRmNjQxNDcyMDcyYg', requiresAuth: false, requiresSubscription: false },
+  { stationId: 'kika', providerId: 'air-kika', label: 'KiKA', short: 'KiKA',
+    target: 'https://www.kika.de/live/live-100', requiresAuth: false, requiresSubscription: false },
+  { stationId: 'phoenix', providerId: 'air-phoenix', label: 'phoenix', short: 'PHX',
+    target: 'https://www.phoenix.de/livestream.html', requiresAuth: false, requiresSubscription: false },
+  { stationId: 'n24', providerId: 'air-n24', label: 'WELT', short: 'WELT',
+    target: 'https://www.welt.de/tv-programm-live-stream/', requiresAuth: false, requiresSubscription: false },
+].map(entry => Object.freeze(entry)))
+
 export const XMLTV_AIR_ROUTE_CANDIDATES = Object.freeze([
-  ...XMLTV_AIR_PILOT_ROUTE_CANDIDATES, ...XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES,
+  ...XMLTV_AIR_PILOT_ROUTE_CANDIDATES, ...XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES, ...XMLTV_AIR_TRANCHE_2_ROUTE_CANDIDATES,
 ])
 
 // #838 user accepted the presented links provisionally on this date. Date-only
@@ -84,6 +111,17 @@ export const XMLTV_AIR_DIRECT_LINK_APPROVALS = Object.freeze([
   { stationId: 'prosieben_maxx', target: 'https://www.joyn.de/live-tv/prosieben-maxx', approvedOn: '2026-11-16', result: 'provisional-direct-link-accepted' },
   { stationId: 'sat1gold', target: 'https://www.joyn.de/live-tv/sat1-gold', approvedOn: '2026-11-16', result: 'provisional-direct-link-accepted' },
   { stationId: 'rtlnitro', target: 'https://plus.rtl.de/rtlde-nitro', approvedOn: '2026-11-16', result: 'provisional-direct-link-accepted' },
+  { stationId: 'comedy_central', target: 'https://www.joyn.de/live-tv/comedy-central', approvedOn: '2026-11-17', result: 'provisional-direct-link-accepted' },
+  { stationId: 'sixx', target: 'https://www.joyn.de/live-tv/sixx', approvedOn: '2026-11-17', result: 'provisional-direct-link-accepted' },
+  { stationId: 'dmax', target: 'https://www.joyn.de/live-tv/dmax', approvedOn: '2026-11-17', result: 'provisional-direct-link-accepted' },
+  { stationId: 'tlc', target: 'https://www.joyn.de/live-tv/tlc', approvedOn: '2026-11-17', result: 'provisional-direct-link-accepted' },
+  { stationId: 'brsued', target: 'https://www.ardmediathek.de/br/live/Y3JpZDovL2JyLmRlL0xpdmVzdHJlYW0tQlItU8O8ZA', approvedOn: '2026-11-17', result: 'provisional-direct-link-accepted' },
+  { stationId: 'hr', target: 'https://www.ardmediathek.de/live/hr/Y3JpZDovL2hyLmRlL0xpdmVzdHJlYW0tSFI', approvedOn: '2026-11-17', result: 'provisional-direct-link-accepted' },
+  { stationId: 'n3_hamburg', target: 'https://www.ardmediathek.de/live/ndr-hamburg/Y3JpZDovL25kci5kZS9MaXZlc3RyZWFtLU5EUi1IYW1idXJn', approvedOn: '2026-11-17', result: 'provisional-direct-link-accepted' },
+  { stationId: 'wdr_koeln', target: 'https://www.ardmediathek.de/live/wdr/Y3JpZDovL3dkci5kZS9CZWl0cmFnLTNkYTY2NGRlLTE4YzItNDY1MC1hNGZmLTRmNjQxNDcyMDcyYg', approvedOn: '2026-11-17', result: 'provisional-direct-link-accepted' },
+  { stationId: 'kika', target: 'https://www.kika.de/live/live-100', approvedOn: '2026-11-17', result: 'provisional-direct-link-accepted' },
+  { stationId: 'phoenix', target: 'https://www.phoenix.de/livestream.html', approvedOn: '2026-11-17', result: 'provisional-direct-link-accepted' },
+  { stationId: 'n24', target: 'https://www.welt.de/tv-programm-live-stream/', approvedOn: '2026-11-17', result: 'provisional-direct-link-accepted' },
 ].map(row => Object.freeze(row)))
 
 // Matthias reported all six exact links working in the Android test app on
@@ -140,7 +178,7 @@ export function createXmltvAirRouteRegistry({ deviceReceipts = [], directLinkApp
     // Failed or conflicting device evidence always blocks that route.
     const links = directLinkApprovals.filter(row => row?.stationId === candidate.stationId)
     const link = links[0]
-    const linkAt = links.length === 1 && XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES.includes(candidate) &&
+    const linkAt = links.length === 1 && (XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES.includes(candidate) || XMLTV_AIR_TRANCHE_2_ROUTE_CANDIDATES.includes(candidate)) &&
       link.target === candidate.target && link.result === 'provisional-direct-link-accepted' &&
       /^\d{4}-\d{2}-\d{2}$/.test(link.approvedOn) ? Date.parse(link.approvedOn) : NaN
     const provisional = Number.isFinite(linkAt) && linkAt >= Date.parse(XMLTV_AIR_SOURCE_REVIEWED_AT) && linkAt <= Number(now)

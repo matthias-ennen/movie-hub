@@ -38,7 +38,7 @@ const acceptedMatches = (input) => [{
 describe('G1b source-specific XMLTV-to-MovieHub station registry', () => {
   it('uses exactly the verified live G0 identifiers and reuses existing Waipu/Joyn canonical ids', () => {
     const existing = new Map(WAIPU_MOVIE_HUB_STATIONS.map(({ id, name }) => [id, name]))
-    expect(XMLTV_REVIEWED_STATIONS).toHaveLength(18)
+    expect(XMLTV_REVIEWED_STATIONS).toHaveLength(30)
     for (const [id, name, shared, epgshare] of six) {
       expect(existing.get(id)).toBe(name)
       expect(reviewedXmltvStation('iptv-epg-org', shared)).toEqual({
@@ -83,7 +83,7 @@ describe('#838 A3 source-reviewed production expansion', () => {
   it('parses exact live identifiers for all twelve stations with existing canonical ids', () => {
     const existing = new Map(WAIPU_MOVIE_HUB_STATIONS.map(({ id, name }) => [id, name]))
     expect(XMLTV_REVIEWED_EXPANSION_STATIONS).toHaveLength(12)
-    expect(XMLTV_REVIEWED_STATIONS).toHaveLength(18)
+    expect(XMLTV_REVIEWED_STATIONS).toHaveLength(30)
     for (const [id, name, epgshare, common] of twelve) {
       expect(existing.get(id)).toBe(name)
       for (const [sourceId, rawId] of [['freeepg', common], ['iptv-epg-org', common], ['epgshare01', epgshare]]) {
@@ -105,6 +105,20 @@ describe('#838 A3 source-reviewed production expansion', () => {
     }
     expect(Object.hasOwn(XMLTV_REVIEWED_EXPANSION_STATION_MAPPINGS.freeepg, 'ZDFneo.de')).toBe(false)
     expect(Object.hasOwn(XMLTV_REVIEWED_EXPANSION_STATION_MAPPINGS.epgshare01, 'zdf_neo.de')).toBe(false)
+  })
+  it('uses independently reviewed tranche-2 identities and decodes WDR XML entities without aliases', () => {
+    expect(Object.keys(XMLTV_REVIEWED_STATION_MAPPINGS.epgshare01)).toHaveLength(27)
+    expect(Object.keys(XMLTV_REVIEWED_STATION_MAPPINGS.freeepg)).toHaveLength(30)
+    expect(Object.keys(XMLTV_REVIEWED_STATION_MAPPINGS['iptv-epg-org'])).toHaveLength(30)
+    for (const raw of ['BR.de', 'NDR.de', 'WDR.de', 'BR.Fernsehen.de', 'NDR.Fernsehen.de', 'WDR.Fernsehen.de']) {
+      expect(reviewedXmltvStation('epgshare01', raw)).toBeNull()
+      expect(reviewedXmltvStation('freeepg', raw)).toBeNull()
+    }
+    for (const [raw, id] of [['BRFernsehenSud.de','brsued'], ['NDRFernsehenHamburg.de','n3_hamburg'], ['WDRFernsehenK&#xF6;ln.de','wdr_koeln']]) {
+      expect(candidates('freeepg', sample(raw))[0].canonicalStationId).toBe(id)
+      expect(candidates('iptv-epg-org', sample(raw))[0].canonicalStationId).toBe(id)
+      expect(candidates('epgshare01', sample(raw))[0].canonicalStationId).toBeNull()
+    }
   })
 })
 

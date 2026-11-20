@@ -108,7 +108,7 @@ describe('#336 G2j: selected private source -> original local matcher -> shared 
     ], { now: NOW + HOUR, localCandidatesFor: catalog })
     expect(summary.sources[0]).toMatchObject({
       selectedCurrent: 0, selectedLastKnownGood: 2,
-      restoredStations: 1, unavailableStations: 17,
+      restoredStations: 1, unavailableStations: 29,
     })
     expect(summary.selectedOriginalCandidates).toBe(2)
     expect(summary.publishApproved).toBe(false)
