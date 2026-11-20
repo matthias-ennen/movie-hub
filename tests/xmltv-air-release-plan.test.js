@@ -22,7 +22,7 @@ describe('XMLTV AIR source file plan',()=>{
     expect(plan.files[0].titles.entries[0].tmdbProviderIds).toEqual([])
     expect(JSON.stringify(plan.files)).not.toContain('PRIVATE RAW')
     expect(JSON.stringify(plan.files)).not.toContain('sourceRefs')
-    expect(APPROVED_XMLTV_AIR_PROVIDERS).toHaveLength(18)
+    expect(APPROVED_XMLTV_AIR_PROVIDERS).toHaveLength(29)
   })
   it('creates a provisional expansion station source using the same canonical completeness gate',()=>{
     const expansion={...event,channelId:'arte',channelName:'ARTE',

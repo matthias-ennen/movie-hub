@@ -22,7 +22,8 @@ import { XMLTV_AIR_ROUTE_CANDIDATES } from '../src/sources/xmltv/xmltvAirRoutes.
 
 const xmltvPilot = ['air-ard', 'air-zdf', 'air-rtl', 'air-pro7', 'air-sat1', 'air-vox']
 const xmltvExpansion = ['air-arte','air-3sat','air-zdfneo','air-zdfinfo','air-einsfestival','air-kabeleins','air-rtl2','air-superrtl','air-tele5','air-prosieben_maxx','air-sat1gold','air-rtlnitro']
-const xmltvDefaults = [...xmltvPilot,...xmltvExpansion]
+const xmltvTranche2 = ["air-comedy_central","air-sixx","air-dmax","air-tlc","air-brsued","air-hr","air-n3_hamburg","air-wdr_koeln","air-kika","air-phoenix","air-n24"]
+const xmltvDefaults = [...xmltvPilot,...xmltvExpansion,...xmltvTranche2]
 
 afterEach(() => {
   resetProviderSelectionSnapshot({ loading: false })
@@ -51,16 +52,17 @@ describe('kontoweite Streaminganbieter-Auswahl', () => {
   it('migrates v2 and v3 XMLTV defaults without re-enabling previously disabled providers', () => {
     expect(normalizeStoredProviderSelection(['netflix', 'prime'], 2)).toEqual({
       enabledProviderIds: ['netflix', 'prime', ...xmltvDefaults],
-      version: 4,
+      version: 5,
       needsMigration: true,
     })
     expect(normalizeStoredProviderSelection(['moviehub', 'air-zdf'], 3)).toEqual({
-      enabledProviderIds: ['moviehub', 'air-zdf', ...xmltvExpansion],
-      version: 4,
+      enabledProviderIds: ['moviehub', 'air-zdf', ...xmltvExpansion, ...xmltvTranche2],
+      version: 5,
       needsMigration: true,
     })
-    expect(normalizeStoredProviderSelection([], 3).enabledProviderIds).toEqual(xmltvExpansion)
-    expect(normalizeStoredProviderSelection([], 4).enabledProviderIds).toEqual([])
+    expect(normalizeStoredProviderSelection([], 3).enabledProviderIds).toEqual([...xmltvExpansion, ...xmltvTranche2])
+    expect(normalizeStoredProviderSelection([], 4).enabledProviderIds).toEqual(xmltvTranche2)
+    expect(normalizeStoredProviderSelection([], 5).enabledProviderIds).toEqual([])
     expect(normalizeStoredProviderSelection(undefined, null).enabledProviderIds)
       .toEqual(DEFAULT_ENABLED_PROVIDER_IDS)
   })
@@ -131,7 +133,7 @@ describe('separate XMLTV station settings', () => {
   })
 
   it('reflects existing provider choices without a migration or a second setting', () => {
-    const enabled = normalizeStoredProviderSelection(['air-ard', 'air-arte', 'netflix'], 4)
+    const enabled = normalizeStoredProviderSelection(['air-ard', 'air-arte', 'netflix'], 5)
     expect(enabled.needsMigration).toBe(false)
     expect(disabledXmltvStationIds(enabled.enabledProviderIds).sort()).toEqual(xmltvDefaults.filter(id => !['air-ard', 'air-arte'].includes(id)).sort())
     expect(disabledXmltvStationIds(DEFAULT_ENABLED_PROVIDER_IDS)).toEqual([])

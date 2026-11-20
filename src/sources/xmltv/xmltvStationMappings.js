@@ -6,7 +6,7 @@
  * unchanged from MovieHub's existing Waipu / Joyn TV station identity.
  *
  * Names are presentation metadata, NEVER runtime/fuzzy-match inputs. This is
- * deliberately an eighteen-station registry, not an inference for every feed channel.
+ * deliberately an explicit reviewed registry, not an inference for every feed channel.
  * Numeric FreeEPG alternate grids and regional variants require a separate
  * review; never silently merge them into these canonical channels.
  */
@@ -40,15 +40,34 @@ export const XMLTV_REVIEWED_EXPANSION_STATIONS = Object.freeze(
   EXPANSION_STATIONS.map(({ stationId, stationName }) => Object.freeze({ stationId, stationName })),
 )
 
-const ALL_REVIEWED_STATIONS = Object.freeze([...REVIEWED_STATIONS, ...EXPANSION_STATIONS])
+// #885 tranche 2: G0 #21 (44133251427), 17 November 2026. Regional
+// variants have no exact epgshare01 ID; never substitute its generic grids.
+const TRANCHE_2_STATIONS = Object.freeze([
+  { stationId: 'comedy_central', stationName: 'Comedy Central', epgshare01: 'Comedy.Central.de', commonDe: 'ComedyCentral.de' },
+  { stationId: 'disney', stationName: 'Disney Channel', epgshare01: 'Disney.Channel.de', commonDe: 'DisneyChannel.de' },
+  { stationId: 'sixx', stationName: 'sixx', epgshare01: 'sixx.de', commonDe: 'sixx.de' },
+  { stationId: 'dmax', stationName: 'DMAX', epgshare01: 'DMAX.de', commonDe: 'DMAX.de' },
+  { stationId: 'tlc', stationName: 'TLC', epgshare01: 'TLC.de', commonDe: 'TLC.de' },
+  { stationId: 'brsued', stationName: 'BR Süd', commonDe: 'BRFernsehenSud.de' },
+  { stationId: 'hr', stationName: 'hr-fernsehen', epgshare01: 'HR.de', commonDe: 'hr.de' },
+  { stationId: 'n3_hamburg', stationName: 'NDR Hamburg', commonDe: 'NDRFernsehenHamburg.de' },
+  { stationId: 'wdr_koeln', stationName: 'WDR Köln', commonDe: 'WDRFernsehenKöln.de' },
+  { stationId: 'kika', stationName: 'KiKA', epgshare01: 'KIKA.de', commonDe: 'KiKA.de' },
+  { stationId: 'phoenix', stationName: 'phoenix', epgshare01: 'PHOENIX.de', commonDe: 'phoenix.de' },
+  { stationId: 'n24', stationName: 'WELT', epgshare01: 'WELT.de', commonDe: 'WELT.de' },
+])
+export const XMLTV_REVIEWED_TRANCHE_2_STATIONS = Object.freeze(
+  TRANCHE_2_STATIONS.map(({ stationId, stationName }) => Object.freeze({ stationId, stationName })),
+)
+const ALL_REVIEWED_STATIONS = Object.freeze([...REVIEWED_STATIONS, ...EXPANSION_STATIONS, ...TRANCHE_2_STATIONS])
 
-export const XMLTV_STATION_MAPPING_VERSION = 2
+export const XMLTV_STATION_MAPPING_VERSION = 3
 export const XMLTV_REVIEWED_STATIONS = Object.freeze(
   ALL_REVIEWED_STATIONS.map(({ stationId, stationName }) => Object.freeze({ stationId, stationName })),
 )
 
 function mappingsFor(key, stations = ALL_REVIEWED_STATIONS) {
-  return Object.freeze(Object.fromEntries(stations.map((station) => [
+  return Object.freeze(Object.fromEntries(stations.filter(station => station[key]).map((station) => [
     station[key], Object.freeze({ stationId: station.stationId, stationName: station.stationName }),
   ])))
 }

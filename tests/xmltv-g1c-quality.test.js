@@ -55,13 +55,13 @@ describe('G1c real source quality audit (offline fixtures)', () => {
     expect(result.report.programmesInNext120h).toBe(3)
     expect(result.report.coverage).toMatchObject({
       sourceId: 'iptv-epg-org', contentFamily: 'de-shared-schedule',
-      horizonHours: 120, reviewedStations: 18,
+      horizonHours: 120, reviewedStations: 30,
       completeStations: 0, allReviewedStationsComplete: false,
     })
     expect(result.report.coverage.stations.zdf.coveredMinutes).toBe(240)
     expect(result.report.availableHorizon).toMatchObject({
       kind: 'xmltv-available-horizon-preview', maxDays: 14,
-      sourceId: 'iptv-epg-org', reviewedStations: 18, usableStations: 1,
+      sourceId: 'iptv-epg-org', reviewedStations: 30, usableStations: 1,
       hasAnyFutureProgramme: true, fiveDaysIsQualityTargetNotEligibility: true,
       publishApproved: false, tmdbIdentityApproved: false,
       stations: {

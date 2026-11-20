@@ -55,6 +55,17 @@ final class ProviderUrlPolicy {
             case "air-prosieben_maxx": return "https://www.joyn.de/live-tv/prosieben-maxx";
             case "air-sat1gold": return "https://www.joyn.de/live-tv/sat1-gold";
             case "air-rtlnitro": return "https://plus.rtl.de/rtlde-nitro";
+            case "air-comedy_central": return "https://www.joyn.de/live-tv/comedy-central";
+            case "air-sixx": return "https://www.joyn.de/live-tv/sixx";
+            case "air-dmax": return "https://www.joyn.de/live-tv/dmax";
+            case "air-tlc": return "https://www.joyn.de/live-tv/tlc";
+            case "air-brsued": return "https://www.ardmediathek.de/br/live/Y3JpZDovL2JyLmRlL0xpdmVzdHJlYW0tQlItU8O8ZA";
+            case "air-hr": return "https://www.ardmediathek.de/live/hr/Y3JpZDovL2hyLmRlL0xpdmVzdHJlYW0tSFI";
+            case "air-n3_hamburg": return "https://www.ardmediathek.de/live/ndr-hamburg/Y3JpZDovL25kci5kZS9MaXZlc3RyZWFtLU5EUi1IYW1idXJn";
+            case "air-wdr_koeln": return "https://www.ardmediathek.de/live/wdr/Y3JpZDovL3dkci5kZS9CZWl0cmFnLTNkYTY2NGRlLTE4YzItNDY1MC1hNGZmLTRmNjQxNDcyMDcyYg";
+            case "air-kika": return "https://www.kika.de/live/live-100";
+            case "air-phoenix": return "https://www.phoenix.de/livestream.html";
+            case "air-n24": return "https://www.welt.de/tv-programm-live-stream/";
             default: return null;
         }
     }
