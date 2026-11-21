@@ -93,7 +93,8 @@ describe('safe end-of-chain adapter summary (#388)',()=>{
     expect(r.youtubePlaylistTmdb.actualTmdbCalls).toBeNull()
     expect(r.youtubePlaylistTmdb.shadow.byEndpoint.searchMovie).toBeNull()
     expect(r.warnings.some(s=>s.includes('YouTube-TMDB-Cache'))).toBe(true)
-    expect(r.status).toBe('success')
+    expect(r.status).toBe('degraded')
+    expect(r.steps.firebase).toBe('success')
     expect(buildNightlyReport(base).youtubePlaylistTmdb).toBeNull()
   })
   it('keeps a rate-limited yet cleanly terminated discovery visibly degraded',()=>{
