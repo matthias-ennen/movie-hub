@@ -12,6 +12,7 @@ import { applyExplicitDirectorGuard } from './youtube-g2-exclusive-director-evid
 import { reviewTvSearchAlternatives } from './youtube-g2-tv-alternative-evidence.mjs'
 import {YOUTUBE_ALL_PLAYLIST_MODES,preferredConfiguredPlaylistMode} from './youtube-g2-curated-two-playlists.mjs'
 import {parseExplicitYoutubeEpisode} from './youtube-g2-series-episode-matching.mjs'
+import {createMembershipRequestAudit,membershipInputFingerprints} from './youtube-g2-membership-audit.mjs'
 
 export const CURATED_TMDB_MODE = 'CURATED_PLAYLIST_TMDB_PUBLIC_MEMBERSHIP_READ_ONLY'
 export const CURATED_TMDB_MAX_CASES = 200
@@ -135,14 +136,22 @@ export async function runCuratedTmdbMembership({
     .filter(e => e?.type === 'movie').map(e => positiveId(e?.tmdbId)).filter(Boolean))
   let tmdbCalls = 0
   const cache = new Map()
+  const requestAudit = createMembershipRequestAudit()
   const get = async (path, params = {}) => {
     if (!/^\/(?:search\/(?:movie|tv)|movie\/[1-9]\d*)$/.test(path)) {
       throw new Error('CURATED_TMDB_ENDPOINT_NOT_APPROVED')
     }
     const key = path + ':' + JSON.stringify(params)
-    if (cache.has(key)) return cache.get(key)
-    if (++tmdbCalls > (audit.mode==='CURATED_DYNAMIC_PLAYLISTS_READ_ONLY'?15000:CURATED_TMDB_MAX_GETS)) throw new Error('CURATED_TMDB_GET_BUDGET_EXCEEDED')
-    const data = await tmdbGet(path, params)
+    const measurement = requestAudit.track(path, params)
+    if (cache.has(key)) { measurement.cacheHit(); return cache.get(key) }
+    if (++tmdbCalls > (audit.mode==='CURATED_DYNAMIC_PLAYLISTS_READ_ONLY'?15000:CURATED_TMDB_MAX_GETS)) {
+      measurement.skipped()
+      throw new Error('CURATED_TMDB_GET_BUDGET_EXCEEDED')
+    }
+    measurement.start()
+    let data
+    try { data = await tmdbGet(path, params); measurement.success() }
+    catch (error) { measurement.fail(); throw error }
     cache.set(key, data)
     return data
   }
@@ -291,7 +300,9 @@ export async function runCuratedTmdbMembership({
     counts[row.matchStatus] = (counts[row.matchStatus] || 0) + 1
     membership[row.publicIndexMembership] = (membership[row.publicIndexMembership] || 0) + 1
   }
+  const observedRequests = requestAudit.finish()
   return {
+    membershipAudit: {schemaVersion:1,inputs:membershipInputFingerprints(audit.candidates,episodicVideoIds),queries:observedRequests.queries},
     summary: {
       mode: CURATED_TMDB_MODE, generatedAt: observedAt,
       sourceQAObservedAt: audit.observedAt,
@@ -308,7 +319,7 @@ export async function runCuratedTmdbMembership({
         n+(x.tvSearchEvidence?.unrelatedTvIds.length||0),0),
       castChangedTopIds: rows.filter(x => x.castChangedTopId).length,
       publicIndexMembership: membership,
-      tmdbCalls, verifiedFilms: 0, verifiedDEOffers: 0, newMovieImports: 0,
+      tmdbCalls, tmdbRequestAudit:observedRequests.byEndpoint, verifiedFilms: 0, verifiedDEOffers: 0, newMovieImports: 0,
       publicationPermitted: false,
       catalogWrites: 0, firestoreWrites: 0, providerWrites: 0,
       badgeWrites: 0, nightlyWrites: 0,
