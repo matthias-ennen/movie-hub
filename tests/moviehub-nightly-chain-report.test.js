@@ -64,6 +64,39 @@ describe('safe end-of-chain adapter summary (#388)',()=>{
     expect(printed).toContain('Tatsächliche search.list-Versuche: 96')
     expect(printed).not.toMatch(/SHOULD_NOT_BE_INCLUDED|NOT_EXPORTED/)
   })
+  it('separates real playlist requests and possible shadow hits without leaking raw evidence',()=>{
+    const youtubeMembership={summary:{
+      mode:'CURATED_PLAYLIST_TMDB_PUBLIC_MEMBERSHIP_READ_ONLY',
+      generatedAt:'2026-10-28T17:08:00Z',tmdbCalls:12,
+      tmdbRequestAudit:{searchMovie:{actualStarts:7,cacheHits:3,persistentHits:0,sharedHits:0},movieDetail:{actualStarts:5}},
+      tmdbCacheShadow:{mode:'shadow',status:'saved_verified',
+        byEndpoint:{searchMovie:{persistentWouldHit:4,sharedWouldHit:3,persistentCompared:3,persistentEqual:2,sharedCompared:3,sharedEqual:2,admitted:6,rejected:1}},
+        cache:{entries:6,bytes:999,recorded:6,renewed:2,changed:1,evicted:0,secret:'SHADOW_PRIVATE'}},
+      sourcePlaylistIds:['PLAYLIST_PRIVATE']},rows:[{videoId:'VIDEO_PRIVATE'}],
+      membershipAudit:{inputs:[{video:'FINGERPRINT_PRIVATE'}]}}
+    const report=buildNightlyReport({...base,sourceData:{...qa,youtubeMembership}})
+    const m=report.youtubePlaylistTmdb
+    expect(m.actualTmdbCalls).toBe(12)
+    expect(m.byEndpoint.searchTv).toBeNull()
+    expect(m.byEndpoint.searchMovie).toMatchObject({actualStarts:7,cacheHits:3,persistentHits:0,sharedHits:0})
+    expect(m.shadow.byEndpoint.searchMovie).toMatchObject({persistentWouldHit:4,persistentCompared:3,persistentEqual:2})
+    const md=nightlyMarkdown(report)
+    expect(md).toContain('Tatsächliche TMDB-Aufrufe: 12')
+    expect(md).toContain('| searchMovie | 4 | 3 / 1 | 3 | 3 / 1 | 6 / 1 |')
+    expect(md).toContain('keine Live-Anfrage durch diese Beobachtung ersetzt')
+    expect(JSON.stringify(report)+md).not.toMatch(/SHADOW_PRIVATE|PLAYLIST_PRIVATE|VIDEO_PRIVATE|FINGERPRINT_PRIVATE/)
+  })
+  it('keeps missing or failed shadow evidence separate from zero and warns on unavailable persistence',()=>{
+    const youtubeMembership={summary:{mode:'CURATED_PLAYLIST_TMDB_PUBLIC_MEMBERSHIP_READ_ONLY',
+      tmdbCalls:-5,tmdbCacheShadow:{mode:'shadow',status:'restore_unavailable'}}}
+    const r=buildNightlyReport({...base,sourceData:{...qa,youtubeMembership}})
+    expect(r.youtubePlaylistTmdb.actualTmdbCalls).toBeNull()
+    expect(r.youtubePlaylistTmdb.shadow.byEndpoint.searchMovie).toBeNull()
+    expect(r.warnings.some(s=>s.includes('YouTube-TMDB-Cache'))).toBe(true)
+    expect(r.status).toBe('degraded')
+    expect(r.steps.firebase).toBe('success')
+    expect(buildNightlyReport(base).youtubePlaylistTmdb).toBeNull()
+  })
   it('keeps a rate-limited yet cleanly terminated discovery visibly degraded',()=>{
     const discovery={
       kind:'moviehub-youtube-g2-nightly-budgeted-discovery',
@@ -147,3 +180,4 @@ describe('safe end-of-chain adapter summary (#388)',()=>{
     }finally{await rm(tmp,{recursive:true,force:true})}
   })
 })
+
