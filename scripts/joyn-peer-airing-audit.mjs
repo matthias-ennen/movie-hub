@@ -25,10 +25,8 @@ function trustedProductionYears(classification){
     .map(r=>year(r.productionYear)).filter(Boolean)
 }
 
-export function auditJoynWaipuPeerAirings({unresolvedPrograms,matchedPrograms=[],stationMapping,waipuTitles,waipuIndex,now=Date.now()}={}){
-  if(!Array.isArray(unresolvedPrograms)||unresolvedPrograms.length>200000||
-    !Array.isArray(matchedPrograms)||unresolvedPrograms.length+matchedPrograms.length>200000||
-    !Array.isArray(stationMapping?.entries)||stationMapping.entries.length>1000||
+export function buildJoynWaipuPeerIndex({stationMapping,waipuTitles,waipuIndex,now=Date.now()}={}){
+  if(!Array.isArray(stationMapping?.entries)||stationMapping.entries.length>1000||
     !Number.isFinite(now))throw new Error('JOYN_PEER_AUDIT_INPUT')
   const observedAt=timestamp(waipuIndex?.generatedAt)
   if(waipuTitles?.kind!=='waipu-live-titles'||waipuIndex?.kind!=='waipu-live-index'||
@@ -54,10 +52,25 @@ export function auditJoynWaipuPeerAirings({unresolvedPrograms,matchedPrograms=[]
       if(!indexed.has(station))indexed.set(station,new Map())
       const buckets=indexed.get(station)
       if(!buckets.has(bucket))buckets.set(bucket,[])
-      buckets.get(bucket).push({...t,type,tmdbId,aliases,year:year(entry.year)})
+      buckets.get(bucket).push({...t,type,tmdbId,aliases,year:year(entry.year),
+        seasonNumber:airing.seasonNumber,episodeNumber:airing.episodeNumber})
     }
   }
   if(airings!==waipuIndex.counts?.broadcasts)return {status:'unavailable'}
+  return {status:'ready',stations,find(station,start,end){
+    const t=timing(start,end)
+    if(!t||t.end<=now||!stations.has(station))return []
+    const buckets=indexed.get(station),bucket=Math.floor(t.start/WINDOW)
+    return [-1,0,1].flatMap(delta=>buckets?.get(bucket+delta)??[]).filter(p=>overlaps(t,p))
+  }}
+}
+
+export function auditJoynWaipuPeerAirings({unresolvedPrograms,matchedPrograms=[],stationMapping,waipuTitles,waipuIndex,now=Date.now()}={}){
+  if(!Array.isArray(unresolvedPrograms)||unresolvedPrograms.length>200000||
+    !Array.isArray(matchedPrograms)||unresolvedPrograms.length+matchedPrograms.length>200000)throw new Error('JOYN_PEER_AUDIT_INPUT')
+  const index=buildJoynWaipuPeerIndex({stationMapping,waipuTitles,waipuIndex,now})
+  if(index.status!=='ready')return {status:'unavailable'}
+  const {stations}=index
   const counts={unresolved:unresolvedPrograms.length,untyped:0,reviewedStation:0,
     stationUnavailable:0,invalidTimingOrTitle:0,noTimeOverlap:0,timeOverlap:0,ambiguousSlot:0,
     typeConflict:0,yearConflict:0,nonExactTitle:0,candidateMovie:0,candidateSeries:0,candidateUntyped:0,
@@ -74,8 +87,7 @@ export function auditJoynWaipuPeerAirings({unresolvedPrograms,matchedPrograms=[]
     result.reviewedStation++
     const t=timing(row.startTime,row.endTime),title=exactTitleKey(row.title)
     if(!t||t.end<=now||!title){result.invalidTimingOrTitle++;return null}
-    const buckets=indexed.get(row.channelId),bucket=Math.floor(t.start/WINDOW)
-    const matches=[-1,0,1].flatMap(delta=>buckets?.get(bucket+delta)??[]).filter(p=>overlaps(t,p))
+    const matches=index.find(row.channelId,row.startTime,row.endTime)
     if(!matches.length){result.noTimeOverlap++;return null}
     result.timeOverlap++
     if(new Set(matches.map(idOf)).size!==1){result.ambiguousSlot++;return null}

@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 import { auditJoynWaipuPeerAirings } from './joyn-peer-airing-audit.mjs'
 import { auditJoynMovieRuntime } from './joyn-runtime-conflict-audit.mjs'
+import { auditJoynEpisodeConflicts } from './joyn-episode-conflict-audit.mjs'
 import { isTrustedCentralNightlyEvent } from './trusted-central-nightly-event.mjs'
 import { localTmdbCandidates } from './waipu-live-catalog.mjs'
 import { JoynTmdbSearchClient, matchJoynProgram } from './joyn-tmdb-matcher.mjs'
@@ -701,6 +702,7 @@ export async function runJoynAdapterDiagnostic({
 
   const decisions = new Map()
   const programDiagnostics = new Map()
+  const cachedProgramIds = new Set()
   // Only the explicit G1e QA path retains original match/cache timestamps.
   const provenanceByProgram = typeof onCompletedEvidence === 'function'
     ? new Map() : null
@@ -745,6 +747,7 @@ export async function runJoynAdapterDiagnostic({
       const cached = provenanceByProgram
         ? cachedProof?.diagnostic : matchCache.get(entry.candidate, localCandidates)
       if (cached) {
+        cachedProgramIds.add(programId)
         const diagnostic = { ...cached, joynProgramId: programId, channelId: entry.channelId,
           channelTitle: entry.candidate.channelTitle, startTime: entry.candidate.startTime, endTime: entry.candidate.endTime }
         decisions.set(programId, diagnostic.decision)
@@ -1299,11 +1302,19 @@ export async function runJoynAdapterDiagnostic({
   // Read-only, fail-isolated shadow audit. No match-cache or publication change.
   let peerAudit = null
   let runtimeConflictAudit = null
+  let episodeConflictAudit = null
   if (fullHorizon && isTrustedCentralNightlyEvent(process.env)) {
     try { peerAudit = auditJoynWaipuPeerAirings({unresolvedPrograms,matchedPrograms:[...programDiagnostics.values()].filter(entry=>entry.decision?.status==='matched'),stationMapping,waipuTitles,waipuIndex,now}) }
     catch { peerAudit = {status:'unavailable'} }
-    try { runtimeConflictAudit = auditJoynMovieRuntime({envelope,titles:publication.titles.entries,programDiagnostics}) }
+    const severeRows=[]
+    try { runtimeConflictAudit = auditJoynMovieRuntime({envelope,titles:publication.titles.entries,programDiagnostics,
+      onSevereRow:(event,possibleSplit)=>severeRows.push({event,possibleSplit})}) }
     catch { runtimeConflictAudit = {status:'unavailable'} }
+    if(runtimeConflictAudit.status==='ready'){
+      try { episodeConflictAudit = await auditJoynEpisodeConflicts({severeRows,stationMapping,waipuTitles,waipuIndex,now,
+        programDiagnostics,cachedProgramIds,readSeasonShard:bucket=>readJson(resolve(root,`public/series-details/${bucket}.json`),null)}) }
+      catch { episodeConflictAudit = {status:'unavailable'} }
+    }
   }
   const summary = {
     schemaVersion: 1,
@@ -1375,6 +1386,7 @@ export async function runJoynAdapterDiagnostic({
       unresolvedSignalCoverage,
       ...(peerAudit ? {peerAudit} : {}),
       ...(runtimeConflictAudit ? {runtimeConflictAudit} : {}),
+      ...(episodeConflictAudit ? {episodeConflictAudit} : {}),
     },
     playback: playbackCoverage,
     output: {

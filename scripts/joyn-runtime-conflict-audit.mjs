@@ -6,7 +6,7 @@ const gapToleranceMs=5*60_000
 const validId=value=>Number.isSafeInteger(value)&&value>0
 const descriptionKey=value=>String(value??'').normalize('NFKC').toLocaleLowerCase('de').replace(/\s+/g,' ').trim()
 
-export function auditJoynMovieRuntime({envelope,titles,programDiagnostics=new Map()}={}) {
+export function auditJoynMovieRuntime({envelope,titles,programDiagnostics=new Map(),onSevereRow}={}) {
   if(envelope?.sourceId!=='joyn'||envelope.sourceStatus!=='healthy'||!Array.isArray(envelope.records)||envelope.records.length>200000||
     !Array.isArray(titles)||titles.length>100000||!(programDiagnostics instanceof Map))return {status:'unavailable'}
   const runtimes=new Map()
@@ -32,7 +32,7 @@ export function auditJoynMovieRuntime({envelope,titles,programDiagnostics=new Ma
     if(!Number.isFinite(duration)||duration<=0){counts.invalidSlot++;continue}
     if(runtime-duration>5)counts.overrun5Minutes++
     const source=event.extensions?.joyn??{},station=event.channelId,title=exactTitleKey(source.rawTitle)
-    const row={start,end,duration,runtime,description:descriptionKey(source.description),title,station,id,severe:false,possibleSplit:false}
+    const row={start,end,duration,runtime,description:descriptionKey(source.description),title,station,id,severe:false,possibleSplit:false,event}
     if(runtime>=60&&duration<=runtime/2&&runtime-duration>=30) {
       row.severe=true;severeRows.push(row);severeWorks.add(id)
       counts.severeRuntimeConflict++
@@ -62,5 +62,6 @@ export function auditJoynMovieRuntime({envelope,titles,programDiagnostics=new Ma
   }
   counts.possibleAdjacentSplitAirings=severeRows.filter(row=>row.possibleSplit).length
   counts.severeDistinctWorks=severeWorks.size
+  if(typeof onSevereRow==='function')for(const row of severeRows)onSevereRow(row.event,row.possibleSplit)
   return counts
 }
