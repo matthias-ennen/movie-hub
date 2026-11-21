@@ -496,6 +496,17 @@ describe('Waipu to TMDB matching', () => {
       .rejects.toMatchObject({ code: 'TMDB_REQUEST_BUDGET' })
   })
 
+  it('never sends null, blank or invalid year filters and shares the unfiltered lookup', async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ results: [] }) }))
+    const client = new WaipuTmdbSearchClient({ token: 'test', fetchImpl, maxRequests: 2, paceMs: 0 })
+    for (const productionYear of [null, undefined, '', ' ', 0, 'not a year', 2020.5]) {
+      await client.search({ type: 'movie', title: 'Unknown film', productionYear })
+      await client.search({ type: 'series', title: 'Unknown series', productionYear, firstAirDateYear: true })
+    }
+    expect(fetchImpl.mock.calls.map(([url]) => [url.searchParams.get('year'), url.searchParams.get('first_air_date_year')])).toEqual([[null, null], [null, null]])
+    expect(client.requestsStarted).toBe(2)
+  })
+
   it('retries a failed search instead of retaining it as an empty result', async () => {
     const fetchImpl = vi.fn()
       .mockRejectedValueOnce(new Error('connection lost'))

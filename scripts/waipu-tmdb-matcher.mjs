@@ -312,18 +312,20 @@ export class WaipuTmdbSearchClient {
       query,
       include_adult: 'false',
     }
-    if (input.type === 'movie' && Number.isInteger(Number(input.productionYear))) {
-      params.year = String(input.productionYear)
+    const productionYear = finiteNumber(input.productionYear)
+    const hasProductionYear = Number.isInteger(productionYear) && productionYear >= 1000 && productionYear <= 9999
+    if (input.type === 'movie' && hasProductionYear) {
+      params.year = String(productionYear)
     }
     if (input.type === 'series'
         && input.firstAirDateYear === true
-        && Number.isInteger(Number(input.productionYear))) {
-      params.first_air_date_year = String(input.productionYear)
+        && hasProductionYear) {
+      params.first_air_date_year = String(productionYear)
     }
     const payload = await this.#searchRequest(endpoint, params)
     let results = Array.isArray(payload?.results) ? payload.results : []
     if (input.type === 'movie'
-        && Number.isInteger(Number(input.productionYear))
+        && hasProductionYear
         && results.length === 0) {
       const fallbackParams = { ...params }
       delete fallbackParams.year
