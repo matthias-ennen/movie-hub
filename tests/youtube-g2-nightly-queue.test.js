@@ -62,7 +62,7 @@ describe('private nightly movie cursor / capped public badge queue',()=>{
     })
     expect(selected).toMatchObject({
       movieIds:[102,103,104],totalPublicBadgeMovies:4,
-      knownCandidateMovies:1,pendingMovies:3,
+      knownCandidateMovies:1,pendingMovies:3,selectedWithoutProgress:3,selectedWithPriorProgress:0,
       verifiedDEOffers:0,publicationPermitted:false,
     })
     expect(selected).not.toHaveProperty('personalData')
@@ -82,7 +82,7 @@ describe('private nightly movie cursor / capped public badge queue',()=>{
     const index={...publicIndex(),generatedAt:'2026-11-25T17:00:00.000Z'}
     expect(selectNightlyPublicBadgeMovies({
       publicIndex:index,checkpoint,progress,now:later,
-    }).movieIds).toEqual([104,102,103])
+    })).toMatchObject({movieIds:[104,102,103],selectedWithoutProgress:1,selectedWithPriorProgress:2})
   })
   it('holds interrupted films for two days; completion under same run cannot be restarted',()=>{
     let progress=putNightlyResult(initialNightlyQueue(AT),{

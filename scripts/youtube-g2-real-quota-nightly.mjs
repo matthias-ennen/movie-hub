@@ -81,6 +81,8 @@ export async function runRealQuotaNightly({
     publicBadgeFilms:plan.totalPublicBadgeMovies,
     previouslyKnownVideoFilms:plan.knownCandidateMovies,
     stillEligible:plan.pendingMovies,checkedNoOffer:0,
+    selectedWithoutProgress:plan.selectedWithoutProgress,selectedWithPriorProgress:plan.selectedWithPriorProgress,
+    heldByFreshProgress:plan.recentProgressMovies,invocationNewSearchAttempts:0,invocationRevisitSearchAttempts:0,invocationRetryAttempts:0,
     savedNewCandidateFilms:0,finishedWithoutCandidates:0,
     terminationReason:null,
   }
@@ -151,6 +153,10 @@ export async function runRealQuotaNightly({
   let retryCooldownDone=false
   let videoDetailCalls=0,savedNewCandidateFilms=0
   let finishedWithoutCandidates=0,completedFilms=0
+  // Invocation-only counts: durable journal totals can include attempts before a job restart.
+  let invocationNewSearchAttempts=0,invocationRevisitSearchAttempts=0,invocationRetryAttempts=0
+  const revisits=new Set(plan.movieIds.slice(plan.selectedWithoutProgress))
+  let currentRevisit=false
 
   const search=async(endpoint,params)=>{
     if(endpoint==='videos'){
@@ -181,6 +187,9 @@ export async function runRealQuotaNightly({
       await onProgress(report('running','search-attempt-started'))
       lastSearchAt=Date.now()
       let answer,error
+      if(currentRevisit)invocationRevisitSearchAttempts++
+      else invocationNewSearchAttempts++
+      if(retry>0)invocationRetryAttempts++
       try{answer=await youtubeApi(endpoint,params)}
       catch(e){error=e}
       journal=await changeSearchJournal(bucket,journal,{
@@ -248,6 +257,7 @@ export async function runRealQuotaNightly({
     rateLimitFirstAt:journal.journal.rateLimitFirstAt??null,
     rateLimitLastAt:journal.journal.rateLimitLastAt??null,
     videoDetailCalls,checkedTmdbReads:tmdbReads,
+    invocationNewSearchAttempts,invocationRevisitSearchAttempts,invocationRetryAttempts,
     savedNewCandidateFilms,finishedWithoutCandidates,
     runCompletedFilms:completedFilms,
     runUnfinishedFilms:progress.queue.entries.filter(
@@ -255,6 +265,7 @@ export async function runRealQuotaNightly({
   })
   await onProgress(report('running','discovery-started'))
   for(const tmdbId of eligible){
+    currentRevisit=revisits.has(tmdbId)
     if(clock()>=deadline)return report('time-budget-reached',
       'controlled-stop-before-github-timeout')
     if(pacificSearchDay(now()).date!==day.date)
