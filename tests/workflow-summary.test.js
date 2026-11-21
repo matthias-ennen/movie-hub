@@ -5,6 +5,16 @@ import {
 } from '../scripts/report-workflow-summary.mjs'
 
 describe('kompakter Workflow-Datenbericht', () => {
+  it('reports current Joyn cache outcomes without counting historical diagnostics as current', () => {
+    const counts = { reads: { hitMatched: 8, hitUnmatched: 4, noEntry: 2, expiredMatched: 1,
+      expiredUnmatched: 3, changedCandidateContext: 5, invalidTimestamp: 0, technicalFailure: 0 } }
+    const joynDiagnostic = { matching: { matchCacheDiagnostics: counts } }
+    const row = input => buildWorkflowSummary({ joynDiagnostic, ...input }).rows.find(r => r.area === 'Joyn-Suchqualität').open
+    expect(row({ steps: { joynCatalog: 'success' } })).toContain('8 positive / 4 negative Treffer · 2 ohne Schlüssel · 1 positive / 3 negative abgelaufen · 5 Kandidatenkontext geändert')
+    expect(row({ steps: { joynCatalog: 'failure' } })).not.toContain('Match-Cache:')
+    expect(row({ steps: { joynCatalog: 'failure' }, joynProgress: { matchCacheDiagnostics: counts } })).toContain('5 Kandidatenkontext geändert')
+    expect(row({ steps: { joynCatalog: 'skipped' } })).not.toContain('Match-Cache:')
+  })
   it('reports episode mapping gaps separately from successful season generation', () => {
     const result = buildWorkflowSummary({ steps: { seriesDetails: 'success', availability: 'success' },
       seriesManifest: { tvPendingSeasonCount: 12 }, availabilityIndex: { episodeResolution: { joyn: {

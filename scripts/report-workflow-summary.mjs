@@ -256,6 +256,11 @@ export function buildWorkflowSummary({
   const joynSeries = joynEntries.filter((entry) => entry?.type === 'series').length
   const joynSources = waipuSourceCoverage(joynTitles, 'joyn')
   const joynMatching = joynDiagnostic.matching || {}
+  const joynCacheReads = (steps.joynCatalog === 'failure'
+    ? joynProgress.matchCacheDiagnostics : steps.joynCatalog === 'success' ? joynMatching.matchCacheDiagnostics : null)?.reads
+  const joynCacheSummary = joynCacheReads
+    ? ` · Match-Cache: ${measured(joynCacheReads.hitMatched)} positive / ${measured(joynCacheReads.hitUnmatched)} negative Treffer · ${measured(joynCacheReads.noEntry)} ohne Schlüssel · ${measured(joynCacheReads.expiredMatched)} positive / ${measured(joynCacheReads.expiredUnmatched)} negative abgelaufen · ${measured(joynCacheReads.changedCandidateContext)} Kandidatenkontext geändert · ${measured(joynCacheReads.invalidTimestamp)} Zeitstempelfehler · ${measured(joynCacheReads.technicalFailure)} technische Alt-Einträge`
+    : ''
   const joynPlayback = joynDiagnostic.playback || {}
   const health = joynHealth.run ? joynHealth : joynDiagnostic.sourceHealth || {}
   const runtime = joynIndex.runtime || {}
@@ -424,7 +429,7 @@ export function buildWorkflowSummary({
         status: outcome(steps.joynCatalog),
         stock: steps.joynCatalog === 'failure' ? 'kein neuer veröffentlichter Bestand' : `${measured(joynMatching.matchedPrograms)} zugeordnete Programme`,
         activity: `${measured(joynMatching.rejected?.no_candidate)} ohne Kandidat · ${measured(joynMatching.rejected?.ambiguous_exact_title)} mehrdeutig · ${measured(joynMatching.rejected?.below_threshold)} unter Vertrauensschwelle`,
-        open: `${health.run ? (sourceErrors || '0 technische Quellenfehler') : 'Quellenfehler nicht verfügbar'} · ${health.run ? measured(health.run.retries) : 'nicht verfügbar'} Retries · ${protection}${health.run?.failure ? ' · ' + health.run.failure.code : ''}${responseDiagnostic}${health.run?.pauseWaitMs ? ' · Schutzpause abgewartet' : ''}`,
+        open: `${health.run ? (sourceErrors || '0 technische Quellenfehler') : 'Quellenfehler nicht verfügbar'} · ${health.run ? measured(health.run.retries) : 'nicht verfügbar'} Retries · ${protection}${health.run?.failure ? ' · ' + health.run.failure.code : ''}${responseDiagnostic}${health.run?.pauseWaitMs ? ' · Schutzpause abgewartet' : ''}${joynCacheSummary}`,
       },
       {
         area: 'Joyn-Quelldaten',
