@@ -96,8 +96,8 @@ describe('detailed counts-only Nightly report',()=>{
     expect(report.comparison.find(r=>r.key==='tvTitleDayEntries').previous).toBe(15)
   })
   it('warns about a delayed Berlin-local scheduled start',()=>{
-    const report=buildNightlyReport({...run,scheduled:true,sourceData:{...qa,dataMetrics:buildDataMetrics(data,steps)},jobs:[{name:'Enforce one trusted scheduled night per Berlin day',conclusion:'success',started_at:'2026-11-16T02:40:42Z',completed_at:'2026-11-16T02:40:49Z'}]})
-    expect(report.warnings.some(x=>x.includes('210 Minuten später'))).toBe(true)
+    const report=buildNightlyReport({...run,scheduled:true,sourceData:{...qa,dataMetrics:buildDataMetrics(data,steps)},jobs:[{name:'Enforce one trusted scheduled night per Berlin day',conclusion:'success',started_at:'2026-11-22T02:40:42Z',completed_at:'2026-11-22T02:40:49Z'}]})
+    expect(report.warnings.some(x=>x.includes('220 Minuten später'))).toBe(true)
   })
   it('projects only allowed fields and never raw inputs or private IDs',()=>{
     const m=buildDataMetrics(data,steps)
