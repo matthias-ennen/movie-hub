@@ -5,6 +5,7 @@ import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 import { auditJoynWaipuPeerAirings } from './joyn-peer-airing-audit.mjs'
 import { auditJoynMovieRuntime } from './joyn-runtime-conflict-audit.mjs'
 import { auditJoynEpisodeConflicts } from './joyn-episode-conflict-audit.mjs'
+import { summarizeJoynClassificationCoverage } from './joyn-classification-coverage.mjs'
 import { isTrustedCentralNightlyEvent } from './trusted-central-nightly-event.mjs'
 import { localTmdbCandidates } from './waipu-live-catalog.mjs'
 import { JoynTmdbSearchClient, matchJoynProgram } from './joyn-tmdb-matcher.mjs'
@@ -1303,7 +1304,10 @@ export async function runJoynAdapterDiagnostic({
   let peerAudit = null
   let runtimeConflictAudit = null
   let episodeConflictAudit = null
+  let classificationCoverage = null
   if (fullHorizon && isTrustedCentralNightlyEvent(process.env)) {
+    try { classificationCoverage = summarizeJoynClassificationCoverage(programDiagnostics, cachedProgramIds) }
+    catch { classificationCoverage = { status: 'unavailable' } }
     try { peerAudit = auditJoynWaipuPeerAirings({unresolvedPrograms,matchedPrograms:[...programDiagnostics.values()].filter(entry=>entry.decision?.status==='matched'),stationMapping,waipuTitles,waipuIndex,now}) }
     catch { peerAudit = {status:'unavailable'} }
     const severeRows=[]
@@ -1387,6 +1391,7 @@ export async function runJoynAdapterDiagnostic({
       ...(peerAudit ? {peerAudit} : {}),
       ...(runtimeConflictAudit ? {runtimeConflictAudit} : {}),
       ...(episodeConflictAudit ? {episodeConflictAudit} : {}),
+      ...(classificationCoverage ? {classificationCoverage} : {}),
     },
     playback: playbackCoverage,
     output: {
