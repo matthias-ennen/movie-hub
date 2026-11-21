@@ -1298,7 +1298,7 @@ export async function runJoynAdapterDiagnostic({
   // Read-only, fail-isolated shadow audit. No match-cache or publication change.
   let peerAudit = null
   if (fullHorizon && isTrustedCentralNightlyEvent(process.env)) {
-    try { peerAudit = auditJoynWaipuPeerAirings({unresolvedPrograms,stationMapping,waipuTitles,waipuIndex,now}) }
+    try { peerAudit = auditJoynWaipuPeerAirings({unresolvedPrograms,matchedPrograms:[...programDiagnostics.values()].filter(entry=>entry.decision?.status==='matched'),stationMapping,waipuTitles,waipuIndex,now}) }
     catch { peerAudit = {status:'unavailable'} }
   }
   const summary = {
