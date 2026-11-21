@@ -1,7 +1,11 @@
 /** Replay exactly the audited two-playlist video IDs using TMDB (read-only). */
 import { readFile, mkdir, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
+import { resolve } from 'node:path'
 import { runCuratedTmdbMembership } from './youtube-g2-curated-tmdb-membership.mjs'
+import {openYoutubeTmdbShadowSession,youtubeTmdbShadowAllowed} from './youtube-g2-tmdb-cache-shadow.mjs'
+import {loadOptionalSharedTmdbResponses} from './shared-tmdb-response-store.mjs'
+import {createSharedTmdbSearchResponseCache} from './shared-tmdb-search-response-cache.mjs'
 export const INPUT = 'artifacts/youtube-g2/curated-playlists/qa.json'
 export const OUTPUT = 'artifacts/youtube-g2/curated-tmdb-membership'
 export const EPISODE_REVIEW = 'artifacts/youtube-g2/series-episode-review/qa.json'
@@ -84,10 +88,34 @@ async function main() {
   // quietly enter the film matcher when the upstream review is unavailable.
   const episodeReview = JSON.parse(await readFile(EPISODE_REVIEW, 'utf8'))
   const index = await readPublicIndex()
-  const data = await runCuratedTmdbMembership({
-    audit,publicIndex: index,episodeReview,
-    tmdbGet: (p, q) => tmdbRead(p, q, token),
-  })
+  let shadow=null,dispose=null,shadowStatus=null
+  if(youtubeTmdbShadowAllowed()){
+    try{
+      const [{applicationDefault,initializeApp,deleteApp},{getStorage}]=await Promise.all([
+        import('firebase-admin/app'),import('firebase-admin/storage')])
+      const app=initializeApp({credential:applicationDefault(),projectId:'movie-hub-62459'},'youtube-tmdb-shadow')
+      dispose=()=>deleteApp(app)
+      const bucket=getStorage(app).bucket(process.env.DATA_CHECKPOINT_BUCKET)
+      let sharedResponseCache=null
+      if(process.env.MOVIEHUB_YOUTUBE_TMDB_SHARED_SHADOW==='true'){
+        const shared=await loadOptionalSharedTmdbResponses(resolve('artifacts/shared-tmdb/private/shared-tmdb-response-cache.json'))
+        if(shared.status==='loaded')sharedResponseCache=createSharedTmdbSearchResponseCache(shared.store)
+      }
+      shadow=await openYoutubeTmdbShadowSession({bucket,sharedResponseCache})
+    }catch{shadowStatus={mode:'shadow',status:'init_unavailable'}}
+  }
+  let data
+  try{
+    data=await runCuratedTmdbMembership({
+      audit,publicIndex: index,episodeReview,
+      tmdbGet:(p,q)=>tmdbRead(p,q,token),
+      persistentCache:shadow?.adapter??null,
+    })
+    if(shadow)shadowStatus=await shadow.finish()
+  }finally{
+    if(dispose)try{await dispose()}catch{}
+  }
+  if(shadowStatus)data.summary.tmdbCacheShadow=shadowStatus
   await mkdir(OUTPUT, { recursive: true })
   await writeFile(OUTPUT + '/qa.json', JSON.stringify(data, null, 2) + '\n', { mode: 0o600 })
   await writeFile(OUTPUT + '/report.md', membershipReport(data) + '\n', { mode: 0o600 })
@@ -99,3 +127,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exitCode = 1
   })
 }
+
