@@ -17,6 +17,7 @@ export function listDetailTvAirings(item, {
   now = Date.now(),
   selection = item?.detailSelection,
   fullAirings = null,
+  automaticSelection = false,
 } = {}) {
   const timestamp = typeof now === 'function' ? Number(now()) : Number(now)
   const type = mediaType(item?.type ?? item?.mediaType)
@@ -43,6 +44,15 @@ export function listDetailTvAirings(item, {
   // A fresh full shard is authoritative: anchor a prior click for ordering
   // only, never merge its possibly stale playback routes into new evidence.
   const airings = mergeTvAirings(...groups, hasOpened && !Array.isArray(fullAirings) ? [opened] : [])
+  // An automatically opened broadcast is proven by its airing identity even
+  // when its episode metadata is incomplete or conflicting. Keep that exact
+  // airing, but do not use the unresolved episode to infer other broadcasts.
+  // Explicit episode navigation must continue to require a verified match.
+  if (type === 'series' && automaticSelection && selection) {
+    const automatic = (hasOpened && airings.find(airing => areEquivalentTvAirings(airing, opened))) || airings[0]
+    const reference = episodeReference(automatic)
+    if (reference && !sameEpisode(reference, navigationEpisode(reference))) return [automatic]
+  }
   const filtered = type === 'series' && selection !== undefined
     ? airings.filter((airing) => {
       const episode = episodeReference(airing)

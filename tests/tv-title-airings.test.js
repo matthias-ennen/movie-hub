@@ -127,6 +127,25 @@ describe('#708 full on-demand title TV dates', () => {
     expect(selected.playbackRoutes).toEqual(current.playbackRoutes)
   })
 
+  it.each([
+    { episodeNumber: 7, title: '' },
+    { seasonNumber: 1, episodeNumber: 7, catalogConflict: true },
+    { conflict: true, title: 'Widersprüchliche Folge' },
+  ])('keeps only the independently verified automatic broadcast with unresolved episode %j', (episode) => {
+    const clicked = { ...airing(7, '07', '12'), episode, type: 'series', tmdbId: series.tmdbId,
+      providerIds: ['waipu', 'joyn', 'air-rtl'] }
+    const other = { ...airing(7, '07', '14'), episode, type: 'series', tmdbId: series.tmdbId, providerIds: ['waipu'] }
+    const item = { ...series, detailAiring: clicked }
+    const options = { now, selection: episode, fullAirings: [other, clicked] }
+    const automatic = listDetailTvAirings(item, { ...options, automaticSelection: true })
+    expect(automatic).toHaveLength(1)
+    expect(automatic[0].startTime).toBe(clicked.startTime)
+    expect(automatic[0].providerIds).toEqual(expect.arrayContaining(clicked.providerIds))
+    expect(listDetailTvAirings(item, options)).toEqual([])
+    expect(listDetailTvAirings(item, { ...options, automaticSelection: true, fullAirings: [] })).toEqual([])
+    expect(listDetailTvAirings(item, { ...options, automaticSelection: true, fullAirings: [{ ...clicked, providerIds: ['joyn'] }] })[0].providerIds).toEqual(['joyn'])
+  })
+
   it('rejects stale generations and performs one bounded index refresh', async () => {
     const pub = publication()
     const newer = '2026-11-07T12:00:00.000Z'

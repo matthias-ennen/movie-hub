@@ -23,7 +23,7 @@ function posterAirings(item, context, now) {
     return [clicked]
   }
   const selected = navigationEpisode(episodeReference(first)) || (!first ? openingEpisode(item) : null)
-  const airings = listDetailTvAirings(source, { now, selection: selected || undefined })
+  const airings = listDetailTvAirings(source, { now, selection: selected || undefined, automaticSelection: Boolean(first) })
   return selected?.episodeNumber != null ? airings : airings.slice(0, 1)
 }
 

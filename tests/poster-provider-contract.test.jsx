@@ -92,4 +92,19 @@ describe('#385 common provider contract across poster surfaces', () => {
     expect(model.offerLabels.waipu).toBe('AIR')
     expect(model.providerIds).toHaveLength(3)
   })
+
+  it('keeps the three real live offers and stacks further offers when the clicked episode is unresolved', () => {
+    updateProviderSelectionSnapshot({ enabledProviderIds: ['waipu', 'joyn', 'air-zdf', 'moviehub'] })
+    const now = Date.parse('2026-11-21T08:00:00Z')
+    const model = resolvePosterProviderModel({
+      type: 'series', tmdbId: 42, title: 'Testserie',
+      tvAiring: { stationId: 'zdf', canonicalStationId: 'zdf', providerIds: ['waipu', 'joyn', 'air-zdf'],
+        startTime: '2026-11-21T08:15:00Z', stopTime: '2026-11-21T09:15:00Z',
+        episode: { seasonNumber: 1, episodeNumber: 7, catalogConflict: true } },
+    }, { now, hasMovieHub: true })
+    expect(model.entries).toHaveLength(3)
+    expect(model.entries.every(entry => entry.context === 'airing')).toBe(true)
+    expect(model.providerIds).toEqual(expect.arrayContaining(['waipu', 'joyn', 'air-zdf']))
+    expect(model.stackDepth).toBe(1)
+  })
 })

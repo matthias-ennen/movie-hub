@@ -1,0 +1,37 @@
+name: TV coverage and live Badge audit (read-only)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/tv-coverage-audit.mjs
+      - tests/tv-coverage-audit.test.js
+      - .github/workflows/tv-coverage-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    if: ${{ github.event_name == 'workflow_dispatch' || github.head_ref == 'work/885-tv-coverage-audit' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: npx vitest run tests/tv-coverage-audit.test.js
+      - name: Read verified hosted generation, aggregate airing and badge counts only
+        run: |
+          mkdir -p artifacts/tv-coverage-audit
+          node scripts/tv-coverage-audit.mjs > artifacts/tv-coverage-audit/report.json
+          node -e "const r=require('./artifacts/tv-coverage-audit/report.json'); const {stations,...summary}=r; console.log(JSON.stringify(summary,null,2))"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tv-coverage-audit-${{ github.run_id }}
+          path: artifacts/tv-coverage-audit/report.json
+          if-no-files-found: error
+          retention-days: 7

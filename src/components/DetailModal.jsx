@@ -175,8 +175,9 @@ export default function DetailModal({
   const detailTvAirings = useMemo(() => listDetailTvAirings(item, {
     now: liveAvailabilityNow,
     selection: manualEpisode === undefined ? selectedEpisode || undefined : manualEpisode,
+    automaticSelection: manualEpisode === undefined && Boolean(automaticTvAiring),
     fullAirings: filteredTitleAirings,
-  }), [item, liveAvailabilityNow, manualEpisode, selectedEpisode, filteredTitleAirings])
+  }), [item, liveAvailabilityNow, manualEpisode, selectedEpisode, filteredTitleAirings, automaticTvAiring])
   const detailTvAiring = detailTvAirings[0] || null
   const additionalTvAirings = selectedEpisode?.episodeNumber != null ? detailTvAirings.slice(1) : []
   const detailTvAiringLabel = useMemo(
