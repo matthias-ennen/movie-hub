@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 import { auditJoynWaipuPeerAirings } from './joyn-peer-airing-audit.mjs'
+import { auditJoynMovieRuntime } from './joyn-runtime-conflict-audit.mjs'
 import { isTrustedCentralNightlyEvent } from './trusted-central-nightly-event.mjs'
 import { localTmdbCandidates } from './waipu-live-catalog.mjs'
 import { JoynTmdbSearchClient, matchJoynProgram } from './joyn-tmdb-matcher.mjs'
@@ -1297,9 +1298,12 @@ export async function runJoynAdapterDiagnostic({
 
   // Read-only, fail-isolated shadow audit. No match-cache or publication change.
   let peerAudit = null
+  let runtimeConflictAudit = null
   if (fullHorizon && isTrustedCentralNightlyEvent(process.env)) {
     try { peerAudit = auditJoynWaipuPeerAirings({unresolvedPrograms,matchedPrograms:[...programDiagnostics.values()].filter(entry=>entry.decision?.status==='matched'),stationMapping,waipuTitles,waipuIndex,now}) }
     catch { peerAudit = {status:'unavailable'} }
+    try { runtimeConflictAudit = auditJoynMovieRuntime({envelope,titles:publication.titles.entries,programDiagnostics}) }
+    catch { runtimeConflictAudit = {status:'unavailable'} }
   }
   const summary = {
     schemaVersion: 1,
@@ -1370,6 +1374,7 @@ export async function runJoynAdapterDiagnostic({
       unresolvedByReason,
       unresolvedSignalCoverage,
       ...(peerAudit ? {peerAudit} : {}),
+      ...(runtimeConflictAudit ? {runtimeConflictAudit} : {}),
     },
     playback: playbackCoverage,
     output: {
