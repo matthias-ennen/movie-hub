@@ -605,6 +605,9 @@ jobs:
         continue-on-error: true
         env:
           TMDB_API_READ_TOKEN: ${{ secrets.TMDB_API_READ_TOKEN }}
+          # Shadow only: all live requests still run, no cached response changes a decision.
+          MOVIEHUB_YOUTUBE_TMDB_SHADOW: ${{ github.event_name == 'schedule' && inputs.nightly_chain && inputs.data_mode == 'standard' && 'private-shadow-v1' || 'off' }}
+          MOVIEHUB_YOUTUBE_TMDB_SHARED_SHADOW: ${{ steps.g2v_restore.outcome == 'success' && steps.g2v_save.outcome == 'success' && 'true' || 'false' }}
         run: |
           mkdir -p artifacts/youtube-g2/curated-playlists
           cp artifacts/youtube-g2/curated-production-sync/qa.json artifacts/youtube-g2/curated-playlists/qa.json
@@ -993,3 +996,4 @@ jobs:
         run: |
           echo "::error::Joyn refresh failed; the last validated catalog remained in public/joyn-live."
           exit 1
+
