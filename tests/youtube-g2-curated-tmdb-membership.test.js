@@ -81,6 +81,20 @@ describe('G2 curated playlist exact IDs -> TMDB-only identity hypotheses', () =>
     })
     expect(tmdb.mock.calls.every(c=> /^\/(?:search\/(?:movie|tv)|movie\/\d+)$/.test(c[0]))).toBe(true)
   })
+  it('records actual endpoint starts and same-run hits without changing matches or exposing raw keys',async()=>{
+    tmdb.mockClear()
+    const same={...available,videoId:'xWkLYgaorAI'}
+    const result=await runCuratedTmdbMembership({audit:qa([available,same]),publicIndex:idx(),tmdbGet:tmdb,now:()=>AT})
+    const counts=Object.values(result.summary.tmdbRequestAudit)
+    expect(counts.reduce((n,c)=>n+c.actualStarts,0)).toBe(tmdb.mock.calls.length)
+    expect(counts.reduce((n,c)=>n+c.actualStarts,0)).toBe(result.summary.tmdbCalls)
+    expect(counts.reduce((n,c)=>n+c.cacheHits,0)).toBeGreaterThan(0)
+    expect(counts.every(c=>c.lookups===c.actualStarts+c.cacheHits+c.budgetSkipped&&c.actualStarts===c.successes+c.failures)).toBe(true)
+    expect(result.rows[0].topCandidates).toEqual(result.rows[1].topCandidates)
+    expect(result.membershipAudit.inputs).toHaveLength(2)
+    expect(JSON.stringify(result.membershipAudit)).not.toContain(available.videoTitle)
+    expect(JSON.stringify(result.membershipAudit)).not.toContain(available.videoId)
+  })
   it('sends only the extracted movie name to live TMDB search, without publishing a speculative match',async()=>{
     const movie=vi.fn(async(path,params)=>{
       if(path==='/search/movie'){
