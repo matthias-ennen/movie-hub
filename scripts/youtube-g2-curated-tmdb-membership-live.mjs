@@ -107,7 +107,7 @@ async function main() {
   let data
   try{
     data=await runCuratedTmdbMembership({
-      audit,publicIndex:index,episodeReview,
+      audit,publicIndex: index,episodeReview,
       tmdbGet:(p,q)=>tmdbRead(p,q,token),
       persistentCache:shadow?.adapter??null,
     })
