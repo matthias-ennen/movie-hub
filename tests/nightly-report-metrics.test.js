@@ -38,6 +38,27 @@ describe('detailed counts-only Nightly report',()=>{
     expect(nightlyMarkdown(report)).toContain('2 zusätzliche Suchrequests im Matching; 2 neu erfasste Antworten')
     expect(nightlyMarkdown(report)).toContain('1 wegen Budget nicht gesuchte Schlüssel')
   })
+  it('reports source-specific classification counts with no false equivalent denominator',()=>{
+    const classificationCoverage={all:{total:100,matched:50,unresolved:50,byClassification:{
+      movie:{total:20,matched:15,unresolved:5},series:{total:30,matched:20,unresolved:10},
+      notNeeded:{total:10,matched:10,unresolved:0},unknown:{total:40,matched:5,unresolved:35}}}}
+    const obs=safeObservation('xmltv-match',{kind:'xmltv-g2w-private-shared-cache-preview',selectedCandidates:100,combinedMatched:40,
+      stationDiagnostics:{privateStation:{selected:100,accepted:40,unclassified:25,title:'PRIVATE_TITLE'}}})
+    const input={...data,waipu:{...data.waipu,metrics:{...data.waipu.metrics,classifiedPrograms:90}},
+      joynDiagnostic:{...data.joynDiagnostic,matching:{...data.joynDiagnostic.matching,classificationCoverage}},
+      xmltvMatch:obs}
+    const report=buildNightlyReport({...run,sourceData:{...qa,dataMetrics:buildDataMetrics(input,steps)}})
+    expect(report.dataMetrics.classification).toEqual({waipu:{classified:90,classifiedUnresolved:10,notClassified:10},
+      joyn:{sourceMovie:20,sourceSeries:30,notNeeded:10,unknown:40,unknownUnresolved:35},xmltv:{unclassified:25}})
+    expect(nightlyMarkdown(report)).toContain('35 davon unaufgelöst')
+    expect(JSON.stringify(report)).not.toContain('PRIVATE_TITLE')
+    expect(buildDataMetrics(input,{...steps,waipu:'failure',joyn:'failure',xmltvMatch:'failure'}).classification).toEqual({waipu:null,joyn:null,xmltv:null})
+    expect(buildDataMetrics(data,steps).classification).toEqual({waipu:null,joyn:null,xmltv:null})
+    expect(safeObservation('xmltv-match',{kind:'xmltv-g2w-private-shared-cache-preview',selectedCandidates:100,combinedMatched:40,
+      stationDiagnostics:{bad:{selected:99,accepted:40,unclassified:25}}}).unclassifiedRows).toBeNull()
+    classificationCoverage.all.byClassification.unknown.total=41
+    expect(buildDataMetrics(input,steps).classification.joyn).toBeNull()
+  })
   it('reports confirmed peer-airing reuse separately without exporting titles',()=>{
     const obs=safeObservation('xmltv-match',{kind:'xmltv-g2w-private-shared-cache-preview',selectedCandidates:100,combinedMatched:40,peerReconciliation:{peerLookups:30,peerAcceptedMovie:3,peerAcceptedSeries:12,peerMissing:13,peerAmbiguous:1,peerYearConflict:1,title:'PRIVATE_TITLE'}})
     const m=buildDataMetrics({...data,xmltvMatch:obs},steps)

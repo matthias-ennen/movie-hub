@@ -11,6 +11,33 @@ const iso=v=>typeof v==='string'&&Number.isFinite(Date.parse(v))?new Date(v).toI
 const days=(from,to)=>iso(from)&&iso(to)&&Date.parse(to)>Date.parse(from)?Math.round((Date.parse(to)-Date.parse(from))/86400000*10)/10:null
 const ratio=(a,b)=>count(a)!==null&&count(b)>0&&a<=b?Math.round(a/b*1000)/10:null
 const sum=values=>values.every(v=>count(v)!==null)?values.reduce((a,b)=>a+b,0):null
+// Classification evidence is source-specific, not a shared matchable denominator.
+const within=(n,total)=>count(n)!==null&&count(total)!==null&&n<=total
+function xmltvUnclassified(value){
+  const rows=Object.values(value?.stationDiagnostics||{})
+  if(!rows.length||rows.some(r=>!within(r?.unclassified,r?.selected)||!within(r?.accepted,r?.selected)||r.unclassified+r.accepted>r.selected))return null
+  if(sum(rows.map(r=>r.selected))!==count(value.selectedCandidates)||sum(rows.map(r=>r.accepted))!==count(value.combinedMatched))return null
+  return sum(rows.map(r=>r.unclassified))
+}
+function joynClassificationCounts(bucket,total,matched){
+  if(!bucket||count(total)===null||count(matched)===null||bucket.total!==total||bucket.matched!==matched||sum([bucket.matched,bucket.unresolved])!==total)return null
+  const parts=['movie','series','notNeeded','unknown'].map(k=>bucket.byClassification?.[k])
+  if(parts.some(r=>!r||count(r.total)===null||sum([r.matched,r.unresolved])!==r.total)||
+    sum(parts.map(r=>r.total))!==total||sum(parts.map(r=>r.matched))!==matched)return null
+  return {sourceMovie:parts[0].total,sourceSeries:parts[1].total,notNeeded:parts[2].total,unknown:parts[3].total,unknownUnresolved:parts[3].unresolved}
+}
+function classificationMetrics(raw,w,j,x,steps){
+  const wClass=raw?.waipu?.classified
+  const waipu=steps?.waipu==='success'&&w?.fresh===true&&within(wClass,w.candidates)&&within(w.matched,wClass)
+    ?{classified:wClass,classifiedUnresolved:wClass-w.matched,notClassified:w.candidates-wClass}:null
+  const jc=raw?.joyn
+  const joyn=steps?.joyn==='success'&&j?.fresh===true&&jc&&count(j.candidates)!==null&&
+    sum([jc.sourceMovie,jc.sourceSeries,jc.notNeeded,jc.unknown])===j.candidates&&within(jc.unknownUnresolved,jc.unknown)&&within(j.matched,j.candidates)&&jc.unknownUnresolved<=j.candidates-j.matched
+    ?num(jc,'sourceMovie sourceSeries notNeeded unknown unknownUnresolved'):null
+  const xu=raw?.xmltv?.unclassified
+  const xmltv=steps?.xmltvMatch==='success'&&within(x?.combinedMatched,x?.selectedCandidates)&&within(xu,x.selectedCandidates-x.combinedMatched)?{unclassified:xu}:null
+  return {waipu,joyn,xmltv}
+}
 export async function readJson(p,input=readFile){try{return JSON.parse(await input(p,'utf8'))}catch{return null}}
 export async function writeJson(p,value){await mkdir(dirname(p),{recursive:true});await writeFile(p,JSON.stringify(value)+'\n',{mode:0o600})}
 export function safeObservation(kind,value){
@@ -20,7 +47,7 @@ export function safeObservation(kind,value){
   }
   if(kind==='xmltv-match'){
     if(value?.kind!=='xmltv-g2w-private-shared-cache-preview')return null
-    return {...num(value,'validatedSources selectedCandidates baselineMatched combinedMatched additionalMatched cacheResponseHits cacheResponseMisses newTmdbApiRequests cacheWrites apiLookupRows apiCandidateRows apiDistinctKeys apiRepeatedKeys apiBudgetMisses apiFailedRequests apiStoppedMisses'),
+    return {unclassifiedRows:xmltvUnclassified(value),...num(value,'validatedSources selectedCandidates baselineMatched combinedMatched additionalMatched cacheResponseHits cacheResponseMisses newTmdbApiRequests cacheWrites apiLookupRows apiCandidateRows apiDistinctKeys apiRepeatedKeys apiBudgetMisses apiFailedRequests apiStoppedMisses'),
       ...num(value.peerReconciliation,'peerLookups peerAcceptedMovie peerAcceptedSeries peerMissing peerAmbiguous peerYearConflict'),
       ...num(value.runtimeReadiness,'androidReadyRows provisionalReadyRows catalogReadyRows runtimeReadyRows deduplicatedRuntimeAirings missingCatalogRows'),
       ...num(value.runtimeReadiness?.metadataDemand,'approvedUniqueTitles missingApprovedUniqueTitles fetchNeededFromCurrentSources')}
@@ -65,8 +92,13 @@ export function buildDataMetrics(d={},steps={}){
   const xp=xmlPublish&&d.xmltvPublish?num(d.xmltvPublish,'stations freshStations retainedStations airings expiredAirings missingCanonicalAirings'):null
   const cache=(v,fresh)=>v&&fresh?num(v,'actualSearchStarts restoredResponses sharedResponseHits capturedResponses priorRunHits sameRunHits evictedResponses avoidedInitialSearches'):null
   const wc=cache(d.waipuCache,wFresh),jc=cache(d.joynCache,jFresh)
+  const wcClass={classified:count(wm?.classifiedPrograms)}
+  const jcClass=joynClassificationCounts(jm?.classificationCoverage?.all,jDiag?.mapped?.uniquePrograms,jm?.matchedPrograms)
+  const classification=classificationMetrics({waipu:wcClass,joyn:jcClass,xmltv:{unclassified:count(d.xmltvMatch?.unclassifiedRows)}},
+    {fresh:wFresh,candidates:count(wm?.candidatePrograms),matched:count(wm?.matchedPrograms)},
+    {fresh:jFresh,candidates:count(jDiag?.mapped?.uniquePrograms),matched:count(jm?.matchedPrograms)},xm,steps)
   return {
-    kind:'moviehub-nightly-data-metrics',schemaVersion:1,
+    kind:'moviehub-nightly-data-metrics',schemaVersion:1,classification,
     steps:Object.fromEntries(['tmdb','waipuSync','waipu','joyn','cacheRestore','cacheSave','xmltvStage','xmltvMatch','xmltvCanonical','xmltvPublish','youtube','tv','canonical','publish'].map(k=>[k,status(steps[k])])),
     tmdb:tmdb?{...tmdb,changedMovies:count(d.tmdbChanges?.fetched?.movie),changedSeries:count(d.tmdbChanges?.fetched?.series),...num(d.searchRun?.index,'addedCount removedCount changedOfferCount'),...num(d.searchRun?.scans,'completed expected capped')}:null,
     waipu:w?{stations:count(w.counts?.stations),titles:count(w.counts?.titles),airings:count(w.counts?.broadcasts),observedAt:iso(w.generatedAt),horizonDays:days(w.horizon?.start,w.horizon?.endExclusive),
@@ -97,7 +129,7 @@ export function sanitizeDataMetrics(v){
   const horizon=(x)=>typeof x==='number'&&Number.isFinite(x)&&x>=0&&x<=31?x:null
   const adapter=x=>x?{...num(x,'stations titles airings candidates matched read inWindow duplicatesRemoved'),observedAt:iso(x.observedAt),fresh:x.fresh===true,matchPercent:percent(x.matchPercent),horizonDays:horizon(x.horizonDays)}:null
   const cache=x=>x?num(x,'actualSearchStarts restoredResponses sharedResponseHits capturedResponses priorRunHits sameRunHits evictedResponses avoidedInitialSearches'):null
-  return {kind:v.kind,schemaVersion:1,
+  return {kind:v.kind,schemaVersion:1,classification:classificationMetrics(v.classification,v.waipu,v.joyn,match,v.steps),
     steps:Object.fromEntries(['tmdb','waipuSync','waipu','joyn','cacheRestore','cacheSave','xmltvStage','xmltvMatch','xmltvCanonical','xmltvPublish','youtube','tv','canonical','publish'].map(k=>[k,status(v.steps?.[k])])),
     tmdb:v.tmdb?num(v.tmdb,'catalog movies series search searchMovies searchSeries completeDetails pendingDetails seasonAvailable seasonRequested changedMovies changedSeries addedCount removedCount changedOfferCount completed expected capped'):null,
     waipu:adapter(v.waipu),joyn:adapter(v.joyn),
