@@ -65,7 +65,7 @@ function descriptionTokens(value) {
     .filter((token) => token.length >= 4 && !DESCRIPTION_STOPWORDS.has(token))
 }
 
-function descriptionEvidence(left, right) {
+export function descriptionEvidence(left, right) {
   const a = new Set(descriptionTokens(left))
   const b = new Set(descriptionTokens(right))
   if (!a.size || !b.size) return { score: 0, overlap: 0 }
