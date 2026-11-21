@@ -5,6 +5,14 @@ import {
 } from '../scripts/report-workflow-summary.mjs'
 
 describe('kompakter Workflow-Datenbericht', () => {
+  it('reports the peer shadow reference separately from actual Joyn matches', () => {
+    const peerAudit={status:'ready',positiveReference:{eligible:100,agree:99,disagree:1},candidateWithLocalAgreement:3,candidateWithCompetingLocalIdentity:4,candidateWithoutLocalExact:5}
+    const joynDiagnostic={matching:{peerAudit,matchedPrograms:200}}
+    const row = status => buildWorkflowSummary({steps:{joynCatalog:status},joynDiagnostic}).rows.find(r=>r.area==='Joyn-Suchqualität')
+    expect(row('success').stock).toContain('200 zugeordnete Programme')
+    expect(row('success').open).toContain('99/100 bestehende Identitäten gleich · 1 abweichend · 3 offene Kandidaten mit lokaler Übereinstimmung · 4 mit Konkurrenz · 5 ohne lokalen Exakttreffer')
+    expect(row('failure').open).not.toContain('Waipu-Peer')
+  })
   it('reports current Joyn cache outcomes without counting historical diagnostics as current', () => {
     const counts = { reads: { hitMatched: 8, hitUnmatched: 4, noEntry: 2, expiredMatched: 1,
       expiredUnmatched: 3, changedCandidateContext: 5, invalidTimestamp: 0, technicalFailure: 0 } }

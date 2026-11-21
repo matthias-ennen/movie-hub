@@ -1,7 +1,7 @@
 /** #885: counts-only, same-broadcast Joyn/Waipu shadow diagnostic.
  * Never changes a matcher decision, cache, title, episode or playback route.
  */
-import { normalizeWaipuText } from './waipu-program-classifier.mjs'
+import { exactTitleKey } from './tmdb-title-evidence.mjs'
 
 const WINDOW=5*60_000
 const MAX_AGE=12*60*60_000
@@ -25,8 +25,9 @@ function trustedProductionYears(classification){
     .map(r=>year(r.productionYear)).filter(Boolean)
 }
 
-export function auditJoynWaipuPeerAirings({unresolvedPrograms,stationMapping,waipuTitles,waipuIndex,now=Date.now()}={}){
+export function auditJoynWaipuPeerAirings({unresolvedPrograms,matchedPrograms=[],stationMapping,waipuTitles,waipuIndex,now=Date.now()}={}){
   if(!Array.isArray(unresolvedPrograms)||unresolvedPrograms.length>200000||
+    !Array.isArray(matchedPrograms)||unresolvedPrograms.length+matchedPrograms.length>200000||
     !Array.isArray(stationMapping?.entries)||stationMapping.entries.length>1000||
     !Number.isFinite(now))throw new Error('JOYN_PEER_AUDIT_INPUT')
   const observedAt=timestamp(waipuIndex?.generatedAt)
@@ -40,7 +41,7 @@ export function auditJoynWaipuPeerAirings({unresolvedPrograms,stationMapping,wai
   let airings=0
   for(const entry of waipuTitles.entries){
     const type=typeOf(entry?.type),tmdbId=entry?.tmdbId
-    const aliases=new Set([entry?.title,entry?.originalTitle].map(normalizeWaipuText).filter(Boolean))
+    const aliases=new Set([entry?.title,entry?.originalTitle].map(exactTitleKey).filter(Boolean))
     if(!validType(type)||!Number.isSafeInteger(tmdbId)||tmdbId<=0||!aliases.size||!Array.isArray(entry.airings))
       return {status:'unavailable'}
     airings+=entry.airings.length
@@ -59,29 +60,58 @@ export function auditJoynWaipuPeerAirings({unresolvedPrograms,stationMapping,wai
   if(airings!==waipuIndex.counts?.broadcasts)return {status:'unavailable'}
   const counts={unresolved:unresolvedPrograms.length,untyped:0,reviewedStation:0,
     stationUnavailable:0,invalidTimingOrTitle:0,noTimeOverlap:0,timeOverlap:0,ambiguousSlot:0,
-    typeConflict:0,yearConflict:0,nonExactTitle:0,candidateMovie:0,candidateSeries:0,candidateUntyped:0}
-  for(const row of unresolvedPrograms){
+    typeConflict:0,yearConflict:0,nonExactTitle:0,candidateMovie:0,candidateSeries:0,candidateUntyped:0,
+    candidateWithLocalAgreement:0,candidateWithCompetingLocalIdentity:0,candidateWithoutLocalExact:0}
+  // Same selection predicates for known and unknown identities. Positive
+  // agreement is a consistency check, not an independent ground-truth proof.
+  const reference={total:matchedPrograms.length,reviewedStation:0,stationUnavailable:0,invalidTimingOrTitle:0,
+    noTimeOverlap:0,timeOverlap:0,ambiguousSlot:0,typeConflict:0,yearConflict:0,nonExactTitle:0,
+    eligible:0,agree:0,disagree:0,invalidKnownIdentity:0}
+  function select(row,result){
     const classification=row?.joynClassification??{},type=typeOf(classification.type)
-    if(!validType(type))counts.untyped++
     // Original Joyn diagnostic.channelId is the reviewed canonical station ID if mapped.
-    if(!stations.has(row?.channelId)){counts.stationUnavailable++;continue}
-    counts.reviewedStation++
-    const t=timing(row.startTime,row.endTime),title=normalizeWaipuText(row.title)
-    if(!t||t.end<=now||!title){counts.invalidTimingOrTitle++;continue}
+    if(!stations.has(row?.channelId)){result.stationUnavailable++;return null}
+    result.reviewedStation++
+    const t=timing(row.startTime,row.endTime),title=exactTitleKey(row.title)
+    if(!t||t.end<=now||!title){result.invalidTimingOrTitle++;return null}
     const buckets=indexed.get(row.channelId),bucket=Math.floor(t.start/WINDOW)
     const matches=[-1,0,1].flatMap(delta=>buckets?.get(bucket+delta)??[]).filter(p=>overlaps(t,p))
-    if(!matches.length){counts.noTimeOverlap++;continue}
-    counts.timeOverlap++
-    if(new Set(matches.map(idOf)).size!==1){counts.ambiguousSlot++;continue}
+    if(!matches.length){result.noTimeOverlap++;return null}
+    result.timeOverlap++
+    if(new Set(matches.map(idOf)).size!==1){result.ambiguousSlot++;return null}
     const exact=matches.filter(p=>p.aliases.has(title))
-    if(!exact.length){counts.nonExactTitle++;continue}
+    if(!exact.length){result.nonExactTitle++;return null}
     const peer=exact[0]
-    if(validType(type)&&type!==peer.type){counts.typeConflict++;continue}
+    if(validType(type)&&type!==peer.type){result.typeConflict++;return null}
     const years=exact.map(p=>p.year).filter(Boolean),requestedYears=trustedProductionYears(classification)
     if(peer.type==='movie'&&((years.length>1&&Math.max(...years)-Math.min(...years)>1)||
-      requestedYears.some(y=>years.some(p=>Math.abs(p-y)>1)))){counts.yearConflict++;continue}
+      requestedYears.some(y=>years.some(p=>Math.abs(p-y)>1)))){result.yearConflict++;return null}
+    return peer
+  }
+  for(const row of unresolvedPrograms){
+    const type=typeOf(row?.joynClassification?.type)
+    if(!validType(type))counts.untyped++
+    const peer=select(row,counts)
+    if(!peer)continue
     counts[peer.type==='movie'?'candidateMovie':'candidateSeries']++
     if(!validType(type))counts.candidateUntyped++
+    const title=exactTitleKey(row.title)
+    const localExact=(Array.isArray(row.localCandidates)?row.localCandidates:[]).filter(c=>
+      validType(typeOf(c?.type))&&Number.isSafeInteger(c.tmdbId)&&c.tmdbId>0&&
+      [c.title,c.originalTitle].map(exactTitleKey).includes(title))
+    const keys=new Set(localExact.map(c=>idOf({...c,type:typeOf(c.type)})))
+    if([...keys].some(k=>k!==idOf(peer)))counts.candidateWithCompetingLocalIdentity++
+    else if(keys.has(idOf(peer)))counts.candidateWithLocalAgreement++
+    else counts.candidateWithoutLocalExact++
   }
-  return {status:'ready',...counts}
+  for(const row of matchedPrograms){
+    const known=row?.decision?.match, type=typeOf(known?.type)
+    if(row?.decision?.status!=='matched'||!validType(type)||!Number.isSafeInteger(known.tmdbId)||known.tmdbId<=0){reference.invalidKnownIdentity++;continue}
+    const peer=select(row,reference)
+    if(!peer)continue
+    reference.eligible++
+    if(idOf({...known,type})===idOf(peer))reference.agree++
+    else reference.disagree++
+  }
+  return {status:'ready',...counts,positiveReference:reference}
 }

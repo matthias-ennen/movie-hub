@@ -4,6 +4,7 @@ import {
   WaipuTmdbSearchClient,
 } from './waipu-tmdb-matcher.mjs'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
+import { exactTitleKey as titleMatchKey, hasNonLatinLetters } from './tmdb-title-evidence.mjs'
 
 // Cache compatibility epoch: ambiguous decisions are not persisted, so the
 // lossless title guard below takes effect on their next normal evaluation.
@@ -24,22 +25,6 @@ const DESCRIPTION_STOPWORDS = new Set([
   'than','that','the','their','them','then','there','these','they','this','through','under','very','was','were','what',
   'when','where','which','while','who','with','would',
 ])
-
-// The legacy Latin normalizer is appropriate for German/English titles, but
-// must not make a mixed-script original title an exact Latin alias by deleting
-// its other letters (e.g. a Japanese film title containing "NARUTO").
-// Preserve the entire original title for exact comparisons in other scripts;
-// keep fuzzy Latin scoring unchanged and do not infer cross-script aliases.
-function hasNonLatinLetters(value) {
-  return [...String(value || '').normalize('NFKD')]
-    .some(character => /\p{L}/u.test(character) && !/\p{Script=Latin}/u.test(character))
-}
-
-function titleMatchKey(value) {
-  if (!hasNonLatinLetters(value)) return normalizeWaipuText(value)
-  return String(value || '').normalize('NFKC').toLocaleLowerCase('de')
-    .replace(/[^\p{L}\p{N}\p{M}]+/gu, ' ').trim()
-}
 
 function aliases(value) {
   return [...new Set([

@@ -25,4 +25,27 @@ describe('Joyn peer shadow audit',()=>{
     expect(auditJoynWaipuPeerAirings({...data,waipuIndex:{...data.waipuIndex,generatedAt:time(-13)}})).toEqual({status:'unavailable'})
     expect(auditJoynWaipuPeerAirings({...data,waipuIndex:{...data.waipuIndex,counts:{titles:2,broadcasts:99}}})).toEqual({status:'unavailable'})
   })
+  it('preserves non-Latin exact identity and rejects lossy aliases',()=>{
+    const mixed={...film(1,'Other title'),originalTitle:'劇場版 NARUTO 大活劇'}
+    const data=inputs([row('Naruto'),row('劇場版 NARUTO 大活劇')],[mixed])
+    expect(auditJoynWaipuPeerAirings(data)).toMatchObject({nonExactTitle:1,candidateMovie:1})
+  })
+  it('separates local identity agreement, competition and missing exact evidence',()=>{
+    const local=(tmdbId,title='Example',type='movie')=>({type,tmdbId,title})
+    const data=inputs([
+      {...row('Example'),localCandidates:[local(1)]},
+      {...row('Example'),localCandidates:[local(1),local(2)]},
+      {...row('Example'),localCandidates:[local(3,'Another')]},
+    ],[film(1,'Example')])
+    expect(auditJoynWaipuPeerAirings(data)).toMatchObject({candidateMovie:3,candidateWithLocalAgreement:1,candidateWithCompetingLocalIdentity:1,candidateWithoutLocalExact:1})
+  })
+  it('compares existing matches using identical selection rules without publishing identity details',()=>{
+    const matched=(tmdbId,overrides={})=>({...row('Example'),decision:{status:'matched',match:{type:'movie',tmdbId}},...overrides})
+    const data={...inputs([row('Example')],[film(1,'Example')]),matchedPrograms:[matched(1),matched(2),matched(3,{title:'PRIVATE_OTHER'}),matched(4,{channelId:'unreviewed'}),matched(0)]}
+    const result=auditJoynWaipuPeerAirings(data)
+    expect(result.positiveReference).toMatchObject({total:5,reviewedStation:3,stationUnavailable:1,timeOverlap:3,nonExactTitle:1,eligible:2,agree:1,disagree:1,invalidKnownIdentity:1})
+    expect(result.candidateMovie).toBe(1)
+    expect(JSON.stringify(result)).not.toContain('PRIVATE_OTHER')
+    expect(JSON.stringify(result)).not.toContain('tmdbId')
+  })
 })
