@@ -1,9 +1,45 @@
 import { describe, expect, it, vi } from 'vitest'
-import { JoynMatchCache, JoynLookupCache, sharedJoynTmdbMetadata } from '../scripts/joyn-match-cache.mjs'
+import { JoynMatchCache, JoynLookupCache, joynOriginalCacheKey, sharedJoynTmdbMetadata } from '../scripts/joyn-match-cache.mjs'
 import { WaipuTmdbSearchClient } from '../scripts/waipu-tmdb-matcher.mjs'
 const now = Date.parse('2026-10-07T00:00:00Z')
 const candidate = { title: 'Serie', secondaryTitle: 'Folge 1', description: 'Inhalt', startTime: '2026-10-07T01:00:00Z', endTime: '2026-10-07T02:00:00Z' }
 describe('persistent Joyn matching evidence', () => {
+  it('counts every read outcome exactly once without changing match decisions or persisted entries', () => {
+    const cache = new JoynMatchCache({}, now)
+    const positive = { decision: { status: 'matched', match: { tmdbId: 1 } } }
+    const negative = { decision: { status: 'unmatched', reason: 'no_candidate' } }
+    const entryKey = joynOriginalCacheKey(candidate)
+    expect(cache.get(candidate)).toBeNull()
+    cache.set(candidate, positive)
+    expect(cache.getWithProvenance(candidate)?.diagnostic).toBe(positive)
+    cache.values[entryKey].checkedAt = new Date(now - 30 * 86400000).toISOString()
+    expect(cache.get(candidate)).toBeNull()
+    cache.set(candidate, negative, [])
+    expect(cache.get(candidate, [])).toBe(negative)
+    expect(cache.get(candidate, [{ type: 'series', tmdbId: 1 }])).toBeNull()
+    cache.values[entryKey].checkedAt = new Date(now - 7 * 86400000).toISOString()
+    expect(cache.get(candidate)).toBeNull()
+    cache.values[entryKey].checkedAt = 'invalid'
+    expect(cache.get(candidate)).toBeNull()
+    cache.values[entryKey] = { checkedAt: new Date(now).toISOString(), diagnostic: { ...negative, joynClassification: { reason: 'http_error' } } }
+    expect(cache.get(candidate)).toBeNull()
+    expect(cache.hits).toBe(2)
+    expect(cache.diagnosticCounters()).toEqual({
+      reads: { hitMatched: 1, hitUnmatched: 1, noEntry: 1, invalidTimestamp: 1, expiredMatched: 1, expiredUnmatched: 1, technicalFailure: 1, changedCandidateContext: 1 },
+      writes: { stored: 2, ambiguous: 0, budget: 0, technicalFailure: 0, classificationRejected: 0 },
+    })
+    cache.diagnosticCounters().reads.noEntry = 100
+    expect(cache.diagnosticCounters().reads.noEntry).toBe(1)
+    expect(Object.keys(cache.values)).toEqual([entryKey])
+  })
+  it('counts non-persisted ambiguity, budget and technical failures without saving them', () => {
+    const cache = new JoynMatchCache({}, now)
+    cache.set(candidate, { decision: { status: 'ambiguous' } })
+    cache.set(candidate, { decision: { status: 'unmatched', reason: 'tmdb_budget_exhausted' } })
+    cache.set(candidate, { decision: { status: 'unmatched' }, joynClassification: { reason: 'http_error' } })
+    expect(cache.diagnosticCounters().writes).toMatchObject({ stored: 0, ambiguous: 1, budget: 1, technicalFailure: 1 })
+    expect(cache.values).toEqual({})
+  })
   it('shares canonical TMDB metadata without copying Waipu availability or private state', () => {
     const [metadata] = sharedJoynTmdbMetadata([{ type: 'movie', tmdbId: 11, title: 'Film', description: 'TMDB', providerIds: ['netflix', 'waipu'], airings: [{ stationId: 'waipu-zdf' }], nextAiring: {}, favorite: true }])
     expect(metadata).toMatchObject({ type: 'movie', tmdbId: 11, description: 'TMDB', providerIds: ['netflix'] })

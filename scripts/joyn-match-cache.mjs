@@ -25,7 +25,15 @@ function candidateContext(values = []) {
 }
 
 export class JoynMatchCache {
-  constructor(values = {}, now = Date.now()) { this.values = values; this.now = now; this.hits = 0 }
+  constructor(values = {}, now = Date.now()) {
+    this.values = values; this.now = now; this.hits = 0
+    this.readReasons = { hitMatched: 0, hitUnmatched: 0, noEntry: 0, invalidTimestamp: 0,
+      expiredMatched: 0, expiredUnmatched: 0, technicalFailure: 0, changedCandidateContext: 0 }
+    this.writeReasons = { stored: 0, ambiguous: 0, budget: 0, technicalFailure: 0, classificationRejected: 0 }
+  }
+  diagnosticCounters() {
+    return { reads: { ...this.readReasons }, writes: { ...this.writeReasons } }
+  }
   static async load(path, now) {
     try {
       const data = JSON.parse(await readFile(path, 'utf8'))
@@ -35,14 +43,20 @@ export class JoynMatchCache {
   }
   get(candidate, localCandidates = null) {
     const entry = this.values[key(candidate)]
-    const days = entry?.diagnostic?.decision?.status === 'matched' ? 30 : 7
+    const matched = entry?.diagnostic?.decision?.status === 'matched'
+    const days = matched ? 30 : 7
     const age = this.now - Date.parse(entry?.checkedAt)
-    if (!entry || !Number.isFinite(age) || age < 0 || age >= days * 86400000) return null
-    if (joynTechnicalFailure(entry.diagnostic?.joynClassification)) return null
-    if (entry.diagnostic?.decision?.status !== 'matched' && localCandidates !== null) {
-      if ((entry.localCandidatesContext || candidateContext(entry.diagnostic.localCandidates)) !== candidateContext(localCandidates)) return null
+    if (!entry) { this.readReasons.noEntry += 1; return null }
+    if (!Number.isFinite(age) || age < 0) { this.readReasons.invalidTimestamp += 1; return null }
+    if (age >= days * 86400000) { this.readReasons[matched ? 'expiredMatched' : 'expiredUnmatched'] += 1; return null }
+    if (joynTechnicalFailure(entry.diagnostic?.joynClassification)) { this.readReasons.technicalFailure += 1; return null }
+    if (!matched && localCandidates !== null) {
+      if ((entry.localCandidatesContext || candidateContext(entry.diagnostic.localCandidates)) !== candidateContext(localCandidates)) {
+        this.readReasons.changedCandidateContext += 1; return null
+      }
     }
     this.hits += 1
+    this.readReasons[matched ? 'hitMatched' : 'hitUnmatched'] += 1
     return entry.diagnostic
   }
   /**
@@ -60,10 +74,12 @@ export class JoynMatchCache {
     }
   }
   set(candidate, diagnostic, localCandidates = diagnostic.localCandidates || []) {
-    if (diagnostic?.decision?.reason?.includes('ambiguous') || diagnostic?.decision?.status === 'ambiguous' || diagnostic?.decision?.reason?.includes('budget')
-        || joynTechnicalFailure(diagnostic.joynClassification)
-        || JSON.stringify(diagnostic.joynClassification || {}).match(/budget_exhausted|_error|"error"/)) return
+    if (diagnostic?.decision?.reason?.includes('ambiguous') || diagnostic?.decision?.status === 'ambiguous') { this.writeReasons.ambiguous += 1; return }
+    if (diagnostic?.decision?.reason?.includes('budget')) { this.writeReasons.budget += 1; return }
+    if (joynTechnicalFailure(diagnostic.joynClassification)) { this.writeReasons.technicalFailure += 1; return }
+    if (JSON.stringify(diagnostic.joynClassification || {}).match(/budget_exhausted|_error|"error"/)) { this.writeReasons.classificationRejected += 1; return }
     this.values[key(candidate)] = { checkedAt: new Date(this.now).toISOString(), diagnostic, localCandidatesContext: candidateContext(localCandidates) }
+    this.writeReasons.stored += 1
   }
   async save(path) {
     for (const [key, entry] of Object.entries(this.values)) {

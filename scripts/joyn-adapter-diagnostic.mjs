@@ -732,7 +732,7 @@ export async function runJoynAdapterDiagnostic({
   async function matchingProgress() {
     if (decisions.size % 100 !== 0 && decisions.size !== uniquePrograms.size) return
     const progress = { kind: 'joyn-matching-progress', generatedAt, updatedAt: new Date().toISOString(), status: 'running',
-      processed: decisions.size, total: uniquePrograms.size, ...matchingCounters() }
+      processed: decisions.size, total: uniquePrograms.size, ...matchingCounters(), matchCacheDiagnostics: matchCache.diagnosticCounters() }
     console.log(`Joyn-Zuordnung: ${progress.processed}/${progress.total} Programme · ${progress.matchCacheHits} aus Cache · ${progress.tmdbRequests}/${progress.tmdbRequestBudget} TMDB · ${algoliaRequests}/${algoliaRequestBudget} Algolia · ${seriesDetailRequests}/${seriesDetailRequestBudget} Serienseiten`)
     await writeJson(resolve(root, 'artifacts/joyn-live/matching-progress.json'), progress)
   }
@@ -1087,7 +1087,7 @@ export async function runJoynAdapterDiagnostic({
   } catch (error) {
     await writeJson(resolve(root, 'artifacts/joyn-live/matching-progress.json'), {
       kind: 'joyn-matching-progress', generatedAt, status: 'failed',
-      processed: decisions.size, total: uniquePrograms.size, ...matchingCounters(),
+      processed: decisions.size, total: uniquePrograms.size, ...matchingCounters(), matchCacheDiagnostics: matchCache.diagnosticCounters(),
       failure: { code: error.code || 'JOYN_MATCH_FAILED', message: error.message },
     })
     throw error
@@ -1098,7 +1098,7 @@ export async function runJoynAdapterDiagnostic({
 
   await writeJson(resolve(root, 'artifacts/joyn-live/matching-progress.json'), {
     kind: 'joyn-matching-progress', generatedAt, status: 'complete', processed: decisions.size, total: uniquePrograms.size,
-    ...matchingCounters(),
+    ...matchingCounters(), matchCacheDiagnostics: matchCache.diagnosticCounters(),
   })
 
   // Title matching (including match-cache hits) has finished. Optional episode
@@ -1335,6 +1335,7 @@ export async function runJoynAdapterDiagnostic({
     matching: {
       episodeEnrichment: episodeEnrichment.metrics,
       matchCacheHits: matchCache.hits,
+      matchCacheDiagnostics: matchCache.diagnosticCounters(),
       localTmdbCandidates: tmdbCandidates.length,
       matchedPrograms: [...decisions.values()].filter((d) => d.status === 'matched').length,
       localOnlyMatches: [...decisions.values()].filter((d) => d.status === 'matched' && d.source === 'local').length,
