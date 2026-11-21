@@ -13,6 +13,7 @@ const OUT='artifacts/moviehub-nightly'
 const source={
   discovery:'artifacts/youtube-g2/nightly-discovery/summary.json',
   youtube:'artifacts/youtube-g2/bidirectional-coverage/qa.json',
+  youtubeMembership:'artifacts/youtube-g2/curated-tmdb-membership/qa.json',
   waipu:'public/waipu-live/index.json',
   joyn:'public/joyn-live/index.json',
   tv:'public/tv-runtime/index.json',
@@ -23,6 +24,27 @@ const n=x=>Number.isSafeInteger(x)&&x>=0?x:null
 const safeTime=x=>typeof x==='string'&&!Number.isNaN(Date.parse(x))
   ?new Date(x).toISOString():null
 const result=x=>['success','failure','skipped','cancelled'].includes(x)?x:'unknown'
+
+const membershipEndpoints=['searchMovie','searchTv','movieDetail']
+const countFields=(row,fields)=>Object.fromEntries(fields.map(k=>[k,n(row?.[k])]))
+const endpointCounts=(rows,fields)=>Object.fromEntries(membershipEndpoints.map(k=>[
+  k,rows?.[k]?countFields(rows[k],fields):null]))
+const unequal=(compared,equal)=>n(compared)!==null&&n(equal)!==null&&equal<=compared?compared-equal:null
+function membershipMetrics(input){
+  const s=input?.summary
+  if(s?.mode!=='CURATED_PLAYLIST_TMDB_PUBLIC_MEMBERSHIP_READ_ONLY')return null
+  const shadow=s.tmdbCacheShadow
+  const observed=shadow?.mode==='shadow'?{
+    status:['saved_verified','no_new_evidence','restore_unavailable','save_unavailable',
+      'observation_unavailable','init_unavailable'].includes(shadow.status)?shadow.status:'unknown',
+    byEndpoint:endpointCounts(shadow.byEndpoint,['lookups','persistentWouldHit','sharedWouldHit',
+      'persistentCompared','sharedCompared','persistentEqual','sharedEqual','admitted','rejected']),
+    cache:shadow.cache?countFields(shadow.cache,['entries','bytes','recorded','renewed','changed','rejected','evicted','expired']):null,
+  }:null
+  return {actualTmdbCalls:n(s.tmdbCalls),observedAt:safeTime(s.generatedAt),
+    byEndpoint:endpointCounts(s.tmdbRequestAudit,['lookups','actualStarts','cacheHits','successes','failures','budgetSkipped','persistentHits','sharedHits']),
+    shadow:observed}
+}
 
 async function load(input,path){
   try{return JSON.parse(await input(path,'utf8'))}
@@ -124,6 +146,7 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
       Object.entries(qa).map(([k,v])=>[k,Boolean(v)])),
     adapters:qa,dataMetrics,knownVideoReview:known,phaseTimings:phaseTimings(jobs),
     youtubeDiscoveryQuota:quota,
+    youtubePlaylistTmdb:membershipMetrics(sourceData.youtubeMembership),
     // A reservation is not proof of an actual search call. This report does
     // not have authenticated quota data or make any offer/right assertions.
     youtubeSearchCallsMeasuredHere:quota?.actualSearchAttempts!==null&&quota!==null,
@@ -169,6 +192,10 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
   if(expectMetrics&&!dataMetrics)warnings.push('Messdaten aus dem Datenlauf fehlen; detaillierte Bewertung nicht möglich.')
   if(expectMetrics&&!known)warnings.push('Zähler der YouTube-Bestandsprüfung fehlen.')
   if(expectMetrics&&!quota)warnings.push('Zähler der YouTube-Suche fehlen.')
+  if(expectMetrics&&!report.youtubePlaylistTmdb)warnings.push('Zähler der YouTube-Playlist-TMDB-Zuordnung fehlen.')
+  if(report.youtubePlaylistTmdb?.shadow&&
+    !['saved_verified','no_new_evidence'].includes(report.youtubePlaylistTmdb.shadow.status))
+    warnings.push('YouTube-TMDB-Cache: Beobachtung oder private Speicherung nicht vollständig bestätigt; Live-Matcher blieb unverändert.')
   if(dataMetrics){
     for(const k of required)if(dataMetrics.steps[k]!=='success')warnings.push('Phase '+k+': '+dataMetrics.steps[k]+'; Datenstand und Ersatzdaten prüfen.')
     if(dataMetrics.xmltv.publication?.retainedStations>0)warnings.push('XMLTV: mindestens ein Sender nutzt den vorherigen Stand.')
@@ -248,6 +275,29 @@ function comparisonMarkdown(report){
     '', 'Rückgänge ab 5 % auffällig, ab 10 % prüfbedürftig, ab 20 % kritisch; Nullbestand nach positivem Vergleich kritisch; Zunahmen ab 20 % zur Plausibilitätsprüfung. Nur bestätigte frische Messwerte gehen in die Historie ein. Das 7-Tage-Mittel wächst mit den gemessenen Läufen; fehlende Werte sind keine Nullen.',
     '', ...(report.warnings?.length?report.warnings.map(x=>'- '+x):['- Keine konkreten Auffälligkeiten in den vorhandenen Messwerten.'])]
 }
+function membershipMarkdown(m){
+  const lines=['## YouTube Playlists – TMDB-Abfragen und Cache-Beobachtung','']
+  if(!m)return [...lines,'- Keine belegten Zähler aus diesem Lauf.','']
+  lines.push('- Tatsächliche TMDB-Aufrufe: '+fmt(m.actualTmdbCalls),
+    '| Endpunkt | Live-Starts | Treffer im selben Lauf | Persistente Treffer | Gemeinsame Treffer |',
+    '|---|---:|---:|---:|---:|')
+  for(const k of membershipEndpoints){
+    const x=m.byEndpoint[k]
+    lines.push('| '+k+' | '+[x?.actualStarts,x?.cacheHits,x?.persistentHits,x?.sharedHits].map(fmt).join(' | ')+' |')
+  }
+  const s=m.shadow
+  if(!s)return [...lines,'','- Kein beobachteter persistenter Cache aus diesem Lauf.','']
+  lines.push('','- Shadow-Status: '+s.status+' · '+fmt(s.cache?.entries)+' Einträge im Arbeitscache · '+fmt(s.cache?.bytes)+' Bytes.',
+    '- Neu erfasste/erneuerte Einträge: '+fmt(s.cache?.recorded)+'; davon verlängert: '+fmt(s.cache?.renewed)+' · geänderte Antworten: '+fmt(s.cache?.changed)+' · verdrängt: '+fmt(s.cache?.evicted)+'.',
+    '| Endpunkt | Persistente mögliche Treffer | Verglichen / abweichend | Gemeinsame mögliche Treffer | Verglichen / abweichend | Zulässig / verworfen |',
+    '|---|---:|---:|---:|---:|---:|')
+  for(const k of membershipEndpoints){
+    const x=s.byEndpoint[k]
+    lines.push('| '+k+' | '+fmt(x?.persistentWouldHit)+' | '+fmt(x?.persistentCompared)+' / '+fmt(unequal(x?.persistentCompared,x?.persistentEqual))+' | '+fmt(x?.sharedWouldHit)+' | '+fmt(x?.sharedCompared)+' / '+fmt(unequal(x?.sharedCompared,x?.sharedEqual))+' | '+fmt(x?.admitted)+' / '+fmt(x?.rejected)+' |')
+  }
+  lines.push('','- Shadow: keine Live-Anfrage durch diese Beobachtung ersetzt. Treffer beider Quellen können sich überschneiden; Abweichungen betreffen Rohantworten, nicht automatisch falsche Zuordnungen.','')
+  return lines
+}
 export function nightlyMarkdown(report){
   const stageNames={gate:'00:10 Start-/Doppellauf-Gate',
     discovery:'YouTube Discovery (limitierte Suche)',
@@ -286,6 +336,7 @@ export function nightlyMarkdown(report){
       '- Neue Filmkandidaten in privater Prüfung: '+(report.youtubeDiscoveryQuota.newCandidateFilms??'unbekannt'),
     ]:['- Discovery-Zähler nicht verfügbar; kein API-Verbrauch aus Reservierungen abgeleitet.']),
     '',
+    ...membershipMarkdown(report.youtubePlaylistTmdb),
     ...dataMarkdown(report),
     '## Adapter und Datenquellen (Bestand und ergänzende Belege)','',
   ]
@@ -343,3 +394,4 @@ export async function saveNightlyReport({env=process.env,input=readFile,out=OUT,
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)
   saveNightlyReport().catch(e=>{console.error(e.message);process.exitCode=1})
+
