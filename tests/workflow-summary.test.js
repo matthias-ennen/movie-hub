@@ -5,6 +5,13 @@ import {
 } from '../scripts/report-workflow-summary.mjs'
 
 describe('kompakter Workflow-Datenbericht', () => {
+  it('reports strong film runtime conflicts only as current QA and not as match losses',()=>{
+    const joynDiagnostic={matching:{matchedPrograms:1000,runtimeConflictAudit:{status:'ready',movieAirings:100,severeRuntimeConflict:20,severeDistinctWorks:4,possibleAdjacentSplitAirings:6,recurringDistinctDescriptionAirings:10,runtimeMissing:1}}}
+    const row=status=>buildWorkflowSummary({steps:{joynCatalog:status},joynDiagnostic}).rows.find(r=>r.area==='Joyn-Suchqualität')
+    expect(row('success').stock).toContain('1.000 zugeordnete Programme')
+    expect(row('success').open).toContain('20/100 Filmausstrahlungen mit starkem Laufzeitkonflikt · 4 Filme · 6 mögliche Teilungen · 10 wiederkehrende Kurzslots')
+    expect(row('failure').open).not.toContain('Laufzeit-QA')
+  })
   it('reports the peer shadow reference separately from actual Joyn matches', () => {
     const peerAudit={status:'ready',positiveReference:{eligible:100,agree:99,disagree:1},candidateWithLocalAgreement:3,candidateWithCompetingLocalIdentity:4,candidateWithoutLocalExact:5}
     const joynDiagnostic={matching:{peerAudit,matchedPrograms:200}}
