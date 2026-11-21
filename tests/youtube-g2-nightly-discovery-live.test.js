@@ -145,6 +145,8 @@ describe('scheduled nightly movie research: shared 50 PT calls and private resum
     })
     expect(r).toMatchObject({status:'time-budget-reached',searchCalls:1,
       successfulSearchCalls:0,rateLimitResponses:1,uncertainSearchAttempts:0,
+      invocationNewSearchAttempts:1,invocationRevisitSearchAttempts:0,invocationRetryAttempts:0,
+      selectedWithoutProgress:3,selectedWithPriorProgress:0,heldByFreshProgress:0,
       quotaExceededConfirmed:false,terminationReason:'controlled-stop-before-github-timeout'})
     expect(waits).toEqual([])
     expect(snapshots.at(-1)).toMatchObject({searchCalls:1,rateLimitResponses:1})
@@ -220,7 +222,7 @@ describe('scheduled nightly movie research: shared 50 PT calls and private resum
     })
     expect(result).toMatchObject({
       status:'rate-limited-stalled',quotaExceededConfirmed:false,
-      searchCalls:10,rateLimitResponses:10,
+      searchCalls:10,rateLimitResponses:10,invocationNewSearchAttempts:10,invocationRevisitSearchAttempts:0,invocationRetryAttempts:9,
       successfulSearchCalls:0,
       terminationReason:'youtube-search-rate-limit-not-confirmed-quota',
     })

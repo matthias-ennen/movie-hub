@@ -106,8 +106,11 @@ export function selectNightlyPublicBadgeMovies({
   // nightly cursor spans the full set instead of restarting from film #1.
   available.sort((a,b)=>Number(a.revisit)-Number(b.revisit)
     ||a.tmdbId-b.tmdbId)
+  const selected=available.slice(0,limit)
+  const selectedWithoutProgress=selected.filter(x=>!x.revisit).length
   return {
-    movieIds:available.slice(0,limit).map(x=>x.tmdbId),
+    movieIds:selected.map(x=>x.tmdbId),
+    selectedWithoutProgress,selectedWithPriorProgress:selected.length-selectedWithoutProgress,
     totalPublicBadgeMovies:movieIds.size,knownCandidateMovies:blockedByCheckpoint,
     recentProgressMovies:blockedByFreshProgress,
     pendingMovies:available.length,queueTruncated:available.length>limit,
