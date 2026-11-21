@@ -13,6 +13,7 @@ import { reviewTvSearchAlternatives } from './youtube-g2-tv-alternative-evidence
 import {YOUTUBE_ALL_PLAYLIST_MODES,preferredConfiguredPlaylistMode} from './youtube-g2-curated-two-playlists.mjs'
 import {parseExplicitYoutubeEpisode} from './youtube-g2-series-episode-matching.mjs'
 import {createMembershipRequestAudit,membershipInputFingerprints} from './youtube-g2-membership-audit.mjs'
+import {readSharedYoutubeTmdbResponse} from './youtube-g2-adaptive-tmdb-cache.mjs'
 
 export const CURATED_TMDB_MODE = 'CURATED_PLAYLIST_TMDB_PUBLIC_MEMBERSHIP_READ_ONLY'
 export const CURATED_TMDB_MAX_CASES = 200
@@ -127,6 +128,7 @@ export function validatePrivateYoutubeEpisodeReview(review,audit) {
 
 export async function runCuratedTmdbMembership({
   audit, publicIndex, tmdbGet, episodeReview=null, now = () => new Date().toISOString(),
+  persistentCache=null, sharedResponseCache=null,
 } = {}) {
   if (typeof tmdbGet !== 'function') throw new Error('READ_ONLY_TMDB_CALLBACK_REQUIRED')
   const observedAt = new Date(now()).toISOString()
@@ -136,7 +138,7 @@ export async function runCuratedTmdbMembership({
     .filter(e => e?.type === 'movie').map(e => positiveId(e?.tmdbId)).filter(Boolean))
   let tmdbCalls = 0
   const cache = new Map()
-  const requestAudit = createMembershipRequestAudit()
+  const requestAudit = createMembershipRequestAudit({external:!!(persistentCache||sharedResponseCache)})
   const get = async (path, params = {}) => {
     if (!/^\/(?:search\/(?:movie|tv)|movie\/[1-9]\d*)$/.test(path)) {
       throw new Error('CURATED_TMDB_ENDPOINT_NOT_APPROVED')
@@ -144,6 +146,10 @@ export async function runCuratedTmdbMembership({
     const key = path + ':' + JSON.stringify(params)
     const measurement = requestAudit.track(path, params)
     if (cache.has(key)) { measurement.cacheHit(); return cache.get(key) }
+    const persisted=persistentCache?.get(path,params)
+    if(persisted!=null){measurement.persistentHit();cache.set(key,persisted);return persisted}
+    const shared=readSharedYoutubeTmdbResponse(sharedResponseCache,path,params)
+    if(shared!=null){measurement.sharedHit();cache.set(key,shared);return shared}
     if (++tmdbCalls > (audit.mode==='CURATED_DYNAMIC_PLAYLISTS_READ_ONLY'?15000:CURATED_TMDB_MAX_GETS)) {
       measurement.skipped()
       throw new Error('CURATED_TMDB_GET_BUDGET_EXCEEDED')
@@ -152,6 +158,7 @@ export async function runCuratedTmdbMembership({
     let data
     try { data = await tmdbGet(path, params); measurement.success() }
     catch (error) { measurement.fail(); throw error }
+    persistentCache?.recordFresh(path,params,data)
     cache.set(key, data)
     return data
   }

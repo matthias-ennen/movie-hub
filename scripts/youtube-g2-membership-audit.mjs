@@ -5,20 +5,22 @@ const hash = value => createHash('sha256').update(JSON.stringify(value)).digest(
 const sorted = value => Array.isArray(value) ? [...value].sort() : []
 const endpoint = path => path === '/search/movie' ? 'searchMovie'
   : path === '/search/tv' ? 'searchTv' : 'movieDetail'
-const counters = () => ({ lookups: 0, cacheHits: 0, actualStarts: 0, successes: 0, failures: 0, budgetSkipped: 0 })
+const counters = external => ({ lookups: 0, cacheHits: 0, actualStarts: 0, successes: 0, failures: 0, budgetSkipped: 0,
+  ...(external ? {persistentHits:0,sharedHits:0} : {}) })
 
-export function createMembershipRequestAudit() {
-  const byEndpoint = { searchMovie: counters(), searchTv: counters(), movieDetail: counters() }
+export function createMembershipRequestAudit({external=false}={}) {
+  const byEndpoint = { searchMovie: counters(external), searchTv: counters(external), movieDetail: counters(external) }
   const queries = new Map()
   function track(path, params) {
     const group = endpoint(path)
     // Sort parameter keys solely for fingerprints, never alter the existing cache key.
     const fingerprint = hash([path, Object.entries(params).sort(([a], [b]) => a.localeCompare(b))])
-    if (!queries.has(fingerprint)) queries.set(fingerprint, { fingerprint, endpoint: group, ...counters() })
+    if (!queries.has(fingerprint)) queries.set(fingerprint, { fingerprint, endpoint: group, ...counters(external) })
     const row = queries.get(fingerprint)
     const increment = field => { byEndpoint[group][field]++; row[field]++ }
     increment('lookups')
     return { cacheHit: () => increment('cacheHits'), start: () => increment('actualStarts'),
+      ...(external ? {persistentHit:()=>increment('persistentHits'),sharedHit:()=>increment('sharedHits')} : {}),
       success: () => increment('successes'), fail: () => increment('failures'), skipped: () => increment('budgetSkipped') }
   }
   return { track, finish: () => ({ byEndpoint, queries: [...queries.values()].sort((a,b) => a.fingerprint.localeCompare(b.fingerprint)) }) }
