@@ -42,6 +42,7 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
   runtimeSources = null,
   captureHandoff = null,
   captureStationDiagnostics = null,
+  captureLossReasons = null,
   peerAiringFor = null,
 } = {}) {
   if (!Number.isFinite(now) || typeof localCandidatesFor !== 'function' ||
@@ -52,7 +53,8 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
       joynAirings.length > MAX_EXISTING_AIRINGS ||
       (captureHandoff !== null && typeof captureHandoff !== 'function') ||
       (peerAiringFor !== null && typeof peerAiringFor !== 'function') ||
-      (captureStationDiagnostics !== null && typeof captureStationDiagnostics !== 'function')) {
+      (captureStationDiagnostics !== null && typeof captureStationDiagnostics !== 'function') ||
+      (captureLossReasons !== null && typeof captureLossReasons !== 'function')) {
     throw new TypeError('Invalid bounded private XMLTV integration input')
   }
 
@@ -69,6 +71,10 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
   const buckets = new Map([['accepted','accepted'],['unclassified_media','unclassified'],
     ['no_local_tmdb_candidates','noCandidates'],['nonexact_match_requires_review','nonexact'],
     ['production_year_conflict','yearConflict']])
+  const reasonCounts=Object.fromEntries(['invalid_candidate','unmapped_station','ambiguous_timezone',
+    'unclassified_media','no_local_tmdb_candidates','no_candidate','below_threshold','ambiguous_exact_title',
+    'ambiguous_margin','tmdb_unmatched','nonexact_match_requires_review','production_year_conflict',
+    'projection_rejected','other'].map(k=>[k,0]))
   const allConfirmedEvents = []
   const sourceCounts = []
   let totalSelected = 0
@@ -112,6 +118,8 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
       )
       matched += batch.counts.accepted
       rejected += batch.counts.rejected
+      if(captureLossReasons) for(const decision of batch.decisions) if(decision.reason!=='accepted')
+        reasonCounts[Object.hasOwn(reasonCounts,decision.reason)?decision.reason:'other']++
       if(captureStationDiagnostics) for(const decision of batch.decisions){
         const station = Object.hasOwn(diagnostics,decision.canonicalStationId) ? diagnostics[decision.canonicalStationId] : null
         if(!station) throw new Error('Invalid XMLTV station diagnostic')
@@ -165,6 +173,7 @@ export async function runXmltvG2jPrivateIntegrationPreview(sources, {
   // memory; the anonymous report does not contain this payload.
   if (captureHandoff) captureHandoff(buildConfirmedAiringHandoff(allConfirmedEvents,{now}))
   if (captureStationDiagnostics) captureStationDiagnostics(diagnostics)
+  if (captureLossReasons) captureLossReasons(reasonCounts)
   return report
 }
 

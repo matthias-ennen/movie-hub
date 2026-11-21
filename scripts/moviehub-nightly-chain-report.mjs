@@ -19,11 +19,23 @@ const source={
   tv:'public/tv-runtime/index.json',
   dataMetrics:'artifacts/nightly-metrics/aggregate.json',
   known:'artifacts/nightly-metrics/known.json',
+  matcherLoss:'artifacts/matcher-loss-report/summary.json',
 }
 const n=x=>Number.isSafeInteger(x)&&x>=0?x:null
 const safeTime=x=>typeof x==='string'&&!Number.isNaN(Date.parse(x))
   ?new Date(x).toISOString():null
 const result=x=>['success','failure','skipped','cancelled'].includes(x)?x:'unknown'
+const lossStatuses=['complete','partial','partial-review-not-final','counts-only-rights-restricted','unavailable']
+function matcherLossSummary(raw,id,attempt,artifactId){
+  if(raw?.kind!=='moviehub-matcher-loss-summary'||raw.schemaVersion!==1||
+    String(raw.run?.id)!==String(id)||String(raw.run?.attempt)!==String(attempt))return null
+  const adapters=Object.fromEntries(['waipu','joyn','xmltv','youtube'].map(k=>{
+    const a=raw.adapters?.[k]
+    if(!a||!lossStatuses.includes(a.status))return [k,null]
+    return [k,{status:a.status,...countFields(a,['total','processed','matched','unprocessed','lossCount','titleRows'])}]
+  }))
+  return {artifact:`matcher-loss-report-${id}-${attempt}`,artifactId:n(Number(artifactId))||null,adapters}
+}
 
 const membershipEndpoints=['searchMovie','searchTv','movieDetail']
 const countFields=(row,fields)=>Object.fromEntries(fields.map(k=>[k,n(row?.[k])]))
@@ -50,7 +62,7 @@ async function load(input,path){
   try{return JSON.parse(await input(path,'utf8'))}
   catch{return null}
 }
-export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=null,
+export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=null,matcherLossArtifactId=null,
   repository=null,generatedAt=new Date().toISOString(),jobs=[],history=[],expectMetrics=false,runDay=null,scheduled=false}={}){
   const steps=Object.fromEntries(
     ['gate','discovery','known','firebase'].map(k=>[k,result(stages?.[k])]))
@@ -147,6 +159,7 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
     adapters:qa,dataMetrics,knownVideoReview:known,phaseTimings:phaseTimings(jobs),
     youtubeDiscoveryQuota:quota,
     youtubePlaylistTmdb:membershipMetrics(sourceData.youtubeMembership),
+    matcherLoss:matcherLossSummary(sourceData.matcherLoss,id,attempt,matcherLossArtifactId),
     // A reservation is not proof of an actual search call. This report does
     // not have authenticated quota data or make any offer/right assertions.
     youtubeSearchCallsMeasuredHere:quota?.actualSearchAttempts!==null&&quota!==null,
@@ -313,6 +326,12 @@ export function nightlyMarkdown(report){
     '## Ablauf','',
     ...Object.entries(stageNames).map(([k,name])=>'- '+name+': **'+report.steps[k]+'**'),
     '',
+    '## Matcher-Verlustbericht','',
+    ...(report.matcherLoss?[
+      '- Beobachtete Nichtzuordnungen (ohne Top-N-Limit), getrennt nach Adapter. Artefakt: `'+report.matcherLoss.artifact+'`'+(report.run&&report.matcherLoss.artifactId?' ([Verlustbericht herunterladen]('+report.run.url+'/artifacts/'+report.matcherLoss.artifactId+'))':report.run?' (Upload nicht bestätigt; [Nightly-Artefakte]('+report.run.url+'#artifacts))':' (Upload nicht bestätigt)'),
+      ...Object.entries(report.matcherLoss.adapters).map(([k,a])=>'- '+k+': '+(a?`${fmt(a.lossCount)} Nichtzuordnungen, ${fmt(a.titleRows)} Titelzeilen, ${fmt(a.unprocessed)} nicht bearbeitet; ${a.status}`:'nicht verfügbar')),
+      '- XMLTV: nur anonyme Gründe/Zählwerte gemäß Quellenrechte-Gate; keine Originaltitel. YouTube: Playlist-Zuordnung, Discovery/Rechecks separat oben/unten im Bericht.',
+    ]:['- Kein bestätigter Verlustbericht aus diesem Lauf verfügbar.']),'',
     ...timingMarkdown(report.phaseTimings),
     '## YouTube-API: echte Suchanfragen','',
     ...(report.youtubeDiscoveryQuota?[
@@ -376,6 +395,7 @@ export async function saveNightlyReport({env=process.env,input=readFile,out=OUT,
       Object.entries(source).map(async ([k,p])=>[k,await load(input,p)]))),
     repository:env.GITHUB_REPOSITORY,
     runId:env.GITHUB_RUN_ID,runAttempt:env.GITHUB_RUN_ATTEMPT,
+    matcherLossArtifactId:env.NIGHT_MATCHER_LOSS_ARTIFACT_ID,
     jobs,history,expectMetrics:env.NIGHT_EXPECT_METRICS==='1',runDay,scheduled:env.GITHUB_EVENT_NAME==='schedule',
   })
   const jsonPath=out+'/summary.json',mdPath=out+'/report.md'
