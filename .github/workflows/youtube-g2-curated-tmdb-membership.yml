@@ -27,7 +27,9 @@ concurrency:
 jobs:
   curated-tmdb-research:
     name: Current production videos -> TMDB film/episode-separated hypotheses (no writes)
-    if: github.ref == 'refs/heads/main'
+    # Explicitly skip only a reviewed offline-only change. Real matcher changes
+    # still trigger the live audit; manual dispatch remains available.
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[tmdb-membership-offline-only]')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
