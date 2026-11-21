@@ -6,6 +6,16 @@ import {
 } from '../src/sources/adapters/joynContractMapper.js'
 
 describe('Joyn TMDB matching', () => {
+  it('uses only the unfiltered movie query when the production year is missing', async () => {
+    const urls = []
+    const client = new JoynTmdbSearchClient({ token: 'test', paceMs: 0, fetchImpl: async url => {
+      urls.push(new URL(url))
+      return { ok: true, json: async () => ({ results: [] }) }
+    } })
+    await client.search({ type: 'movie', title: 'Unknown film', productionYear: null })
+    expect(urls).toHaveLength(1)
+    expect(urls[0].searchParams.has('year')).toBe(false)
+  })
   it('does not turn mixed-script movie originals into exact series aliases', async () => {
     const candidates = [
       { type: 'movie', tmdbId: 16907, title: 'Naruto - The Movie - Geheimmission im Land des ewigen Schnees',
