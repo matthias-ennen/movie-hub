@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   # The sole scheduled production import now comes from the central
-  # MovieHub Nightly Pipeline at 00:10 Europe/Berlin, after YouTube QA.
+  # MovieHub Nightly Pipeline at 00:00 Europe/Berlin, after YouTube QA.
   workflow_call:
     inputs:
       nightly_chain:
@@ -101,7 +101,7 @@ jobs:
         env:
           DATA_WORKFLOW_TIMEZONE: Europe/Berlin
           DATA_WORKFLOW_HOUR: '0'
-          DATA_WORKFLOW_MINUTE: ${{ inputs.nightly_chain && '10' || '17' }}
+          DATA_WORKFLOW_MINUTE: ${{ inputs.nightly_chain && '0' || '17' }}
           DATA_WORKFLOW_MAX_DELAY_MINUTES: '60'
           GITHUB_EVENT_NAME: ${{ inputs.nightly_chain && 'workflow_call' || github.event_name }}
         run: node scripts/check-data-workflow-schedule.mjs --capture
@@ -706,7 +706,7 @@ jobs:
         # REMOVE any stale linkindex. Private QA is never placed under public/.
         run: node scripts/youtube-g2-best-effort-promote.mjs
 
-      # The same 00:10 parent run has completed the official no-search
+      # The same 00:00 parent run has completed the official no-search
       # recheck, including all newly discovered candidates. Publish its
       # strongly matched VIDEO links through the EXISTING best-effort badge
       # route. This does not assert rent/buy/free, offer rights or DE playback.

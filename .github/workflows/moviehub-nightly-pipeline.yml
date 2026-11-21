@@ -3,8 +3,8 @@ name: MovieHub Nightly Pipeline
 on:
   schedule:
     # One daily Berlin-local trigger; GitHub handles CET/CEST automatically.
-    # 00:10 may be delayed by Actions. The actual dependencies enforce order.
-    - cron: '10 0 * * *'
+    # 00:00 may be delayed by Actions. The actual dependencies enforce order.
+    - cron: '0 0 * * *'
       timezone: Europe/Berlin
   workflow_dispatch:
     inputs:
@@ -91,7 +91,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           DATA_WORKFLOW_TIMEZONE: Europe/Berlin
           DATA_WORKFLOW_HOUR: '0'
-          DATA_WORKFLOW_MINUTE: '10'
+          DATA_WORKFLOW_MINUTE: '0'
           DATA_WORKFLOW_NAME: MovieHub Nightly Pipeline
         run: node scripts/check-data-workflow-schedule.mjs --gate
 

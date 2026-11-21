@@ -2,6 +2,8 @@
 
 Movie Hub ist eine persönliche, TV-optimierte Filmzentrale für Fire TV, Android-Smartphones und Tablets. Die Anwendung bündelt Filme und Serien aus Streaming-Diensten sowie linearem Fernsehen über Waipu und Joyn in einer gemeinsamen Oberfläche und verbindet Streaming-Verfügbarkeit mit persönlichen Bewertungen, Listen, eigenen Medien und TMDB-Daten.
 
+**Aktueller Nightly-Zeitplan (ab 21.11.2026):** täglich 00:00 Uhr Europe/Berlin. GitHub kann den tatsächlichen Start verzögern. Der reguläre Lauf und die nachgelagerte Überwachung bleiben unverändert verkettet.
+
 ## Aktueller Arbeitsstand – 16. November 2026
 
 **Neuer Chat / verbindlicher Wiedereinstieg:** [#838 – Curated/Custom Adapter, aktueller Issue-Kopf](https://github.com/matthias-ennen/movie-hub/issues/838). Dieser ist die führende laufende Übergabe; ältere Übergabedokumente sind historische Referenzen.
