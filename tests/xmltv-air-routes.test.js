@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import {
   XMLTV_AIR_ROUTE_CANDIDATES, APPROVED_XMLTV_AIR_PROVIDERS, XMLTV_AIR_PUBLISH_ENABLED,
-  XMLTV_AIR_DEVICE_APPROVALS, XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES, XMLTV_AIR_DIRECT_LINK_APPROVALS,
+  XMLTV_AIR_DEVICE_APPROVALS, XMLTV_AIR_EXPANSION_ROUTE_CANDIDATES, XMLTV_AIR_TRANCHE_2_ROUTE_CANDIDATES, XMLTV_AIR_DIRECT_LINK_APPROVALS,
   createXmltvAirRouteRegistry, xmltvAirFieldsForEvent,
 } from '../src/sources/xmltv/xmltvAirRoutes.js'
 import { XMLTV_REVIEWED_STATION_MAPPINGS, XMLTV_REVIEWED_EXPANSION_STATIONS } from '../src/sources/xmltv/xmltvStationMappings.js'
@@ -20,7 +20,7 @@ const receipts = (candidate) => ['android', 'fire-tv'].map((device) => ({
   stationId: candidate.stationId, target: candidate.target, device, checkedAt,
   result: 'exact-channel-confirmed', viaMovieHub: true,
 }))
-const eventFor = (candidate, source = 'epgshare01') => {
+const eventFor = (candidate, source = 'freeepg') => {
   const raw = Object.entries(XMLTV_REVIEWED_STATION_MAPPINGS[source])
     .find(([, station]) => station.stationId === candidate.stationId)[0]
   return { kind: 'broadcast', titleRef: { mediaType: 'movie', tmdbId: 42 },
@@ -33,7 +33,7 @@ const eventFor = (candidate, source = 'epgshare01') => {
 
 describe('XMLTV G3 verified sender-only routes', () => {
   it('activates eighteen reviewed linear stations and keeps them out of the VOD catalogue', () => {
-    expect(XMLTV_AIR_ROUTE_CANDIDATES).toHaveLength(18)
+    expect(XMLTV_AIR_ROUTE_CANDIDATES).toHaveLength(29)
     expect(XMLTV_AIR_PUBLISH_ENABLED).toBe(true)
     expect(APPROVED_XMLTV_AIR_PROVIDERS.map(p=>p.id)).toEqual(XMLTV_AIR_ROUTE_CANDIDATES.map(p=>p.providerId))
     for (const row of XMLTV_AIR_ROUTE_CANDIDATES) {
@@ -69,12 +69,13 @@ describe('XMLTV G3 verified sender-only routes', () => {
     expect(XMLTV_AIR_DEVICE_APPROVALS.every((receipt) => receipt.device === 'android')).toBe(true)
     const registry = createXmltvAirRouteRegistry({ deviceReceipts: XMLTV_AIR_DEVICE_APPROVALS, now })
     expect(registry.providers).toHaveLength(6)
-    expect(APPROVED_XMLTV_AIR_PROVIDERS).toHaveLength(18)
+    expect(APPROVED_XMLTV_AIR_PROVIDERS).toHaveLength(29)
   })
 
   it.each(XMLTV_AIR_ROUTE_CANDIDATES)('binds $label to reviewed source stations only', (row) => {
     const registry = createXmltvAirRouteRegistry({ deviceReceipts: receipts(row), now })
     for (const source of ['epgshare01', 'freeepg', 'iptv-epg-org']) {
+      if (!Object.values(XMLTV_REVIEWED_STATION_MAPPINGS[source]).some(st => st.stationId === row.stationId)) continue
       const event = eventFor(row, source)
       const fields = registry.fieldsForEvent(event)
       expect(fields.providerIds).toEqual([row.providerId])
@@ -154,6 +155,18 @@ describe('XMLTV G3 verified sender-only routes', () => {
       import.meta.url), 'utf8')
     for (const row of XMLTV_AIR_ROUTE_CANDIDATES) {
       expect(native).toContain('case "' + row.providerId + '": return "' + row.target + '";')
+    }
+  })
+  it('approves only 11 new exact links and leaves Disney Channel staged without a playable AIR route', () => {
+    expect(XMLTV_AIR_TRANCHE_2_ROUTE_CANDIDATES).toHaveLength(11)
+    expect(APPROVED_XMLTV_AIR_PROVIDERS.some(row => row.id === 'air-disney')).toBe(false)
+    expect(xmltvAirFieldsForEvent(eventFor({stationId:'disney', label:'Disney Channel'})).providerIds).toEqual([])
+    for (const row of XMLTV_AIR_TRANCHE_2_ROUTE_CANDIDATES) {
+      const direct = XMLTV_AIR_DIRECT_LINK_APPROVALS.find(x=>x.stationId===row.stationId)
+      const registry = createXmltvAirRouteRegistry({directLinkApprovals:[direct],now:Date.parse('2026-11-20T00:00:00Z')})
+      expect(registry.providers.map(x=>x.id)).toEqual([row.providerId])
+      expect(registry.verifiedDevices(row.stationId)).toEqual([])
+      expect(registry.fieldsForEvent(eventFor(row)).providerIds).toEqual([row.providerId])
     }
   })
 })

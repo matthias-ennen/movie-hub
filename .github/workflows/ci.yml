@@ -84,6 +84,19 @@ jobs:
       - name: Check real TV rendering and shared image admission
         run: npm run test:rendering:browser
 
+      - name: Check ordered provider offerings and stacked outlines in the browser
+        run: |
+          mkdir -p artifacts/provider-stack
+          BADGE_STACK_SCREENSHOT=artifacts/provider-stack/preview.png node scripts/test-provider-stack-browser.mjs
+
+      - name: Upload synthetic provider stack visual check
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: provider-stack-preview-${{ github.run_id }}
+          path: artifacts/provider-stack/preview.png
+          if-no-files-found: ignore
+
       - name: Check profile email UI with local Firestore and render mail templates
         run: npm run test:email:browser
 

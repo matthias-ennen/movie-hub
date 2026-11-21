@@ -9,6 +9,8 @@ import { combinedTvStationOrder } from '../src/settings/stationOrder.js'
 import { KNOWN_PROVIDER_IDS } from '../src/settings/providerSelectionModel.js'
 import { updateProviderSelectionSnapshot } from '../src/settings/providerSelectionRuntime.js'
 import { resolvePosterProviderModel } from '../src/providers/posterProviderModel.js'
+import { episodeReference } from '../src/catalog/episodeContext.js'
+import { navigationEpisode, sameEpisode } from '../src/catalog/episodeResolution.js'
 
 const HOUR = 3600000
 const identity = a => `${a.type}:${a.tmdbId}:${a.canonicalStationId || a.stationId}`
@@ -17,7 +19,8 @@ const counts = () => ({ airings: 0, movie: 0, series: 0, runtimeMatched: 0,
   runtimeMissing: 0, ambiguousRuntime: 0, providerMissing: 0, xmltvOnly: 0,
   waipuAndXmltv: 0, joynAndXmltv: 0, allThree: 0, dailyPoster: 0,
   dailyPosterNotSelected: 0, xmltvBadgeHidden: 0, liveBadgeHidden: 0,
-  liveBadgeHiddenWithMovieHub: 0 })
+  liveBadgeHiddenWithMovieHub: 0, liveOfferMissing: 0, liveOfferOverflow: 0,
+  missingUnresolvedEpisode: 0 })
 
 export function auditTvCoverage({ files, days, stationOrder = [], now = Date.now() }) {
   const today = tvDayKey(now), tomorrow = tvDayKey(now + 24 * HOUR)
@@ -55,8 +58,10 @@ export function auditTvCoverage({ files, days, stationOrder = [], now = Date.now
         const ids = result?.providerIds || []
         const item = posters.get(result)
         const expectedLiveIds = ids.filter(id => id.startsWith('air-') || id === 'waipu' || id === 'joyn')
-        const visible = item ? resolvePosterProviderModel(item).providerIds : []
-        const withMovieHub = item ? resolvePosterProviderModel(item, { hasMovieHub: true }).providerIds : []
+        const model = item ? resolvePosterProviderModel(item, { now }) : null
+        const visible = (model?.entries || []).filter(entry => entry.context === 'airing').map(entry => entry.providerId)
+        const available = (model?.allEntries || []).filter(entry => entry.context === 'airing').map(entry => entry.providerId)
+        const withMovieHub = item ? resolvePosterProviderModel(item, { now, hasMovieHub: true }).providerIds : []
         for (const [key, includes] of Object.entries(windows)) {
           if (!includes(airing)) continue
           for (const bucket of [totals[key], station[key]]) {
@@ -71,6 +76,12 @@ export function auditTvCoverage({ files, days, stationOrder = [], now = Date.now
             bucket.dailyPoster++
             if (!visible.includes(file.providerId)) bucket.xmltvBadgeHidden++
             if (expectedLiveIds.some(id => !visible.includes(id))) bucket.liveBadgeHidden++
+            if (expectedLiveIds.some(id => !available.includes(id))) {
+              bucket.liveOfferMissing++
+              const episode = episodeReference(result)
+              if (result.type === 'series' && episode && !sameEpisode(episode, navigationEpisode(episode))) bucket.missingUnresolvedEpisode++
+            }
+            if (expectedLiveIds.some(id => available.includes(id) && !visible.includes(id))) bucket.liveOfferOverflow++
             if (expectedLiveIds.some(id => !withMovieHub.includes(id))) bucket.liveBadgeHiddenWithMovieHub++
           }
         }
@@ -82,8 +93,7 @@ export function auditTvCoverage({ files, days, stationOrder = [], now = Date.now
     stations: Object.fromEntries(Object.entries(stations).map(([id, groups]) => [id, aggregate(groups)])) }
 }
 
-export async function runHostedTvCoverageAudit() {
-  const now = Date.now()
+export async function runHostedTvCoverageAudit({ now = Date.now() } = {}) {
   const fetchImpl = (path, options) => fetch(new URL(path, AIR_HOST), { ...options, redirect: 'error' })
   const index = await loadTvRuntimeIndex({ fetchImpl })
   const [publication, waipu, joyn] = await Promise.all([

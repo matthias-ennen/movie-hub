@@ -94,6 +94,8 @@ export function registerEmailServiceTests() {
       await prefsRef().set(nextEmailPreferences(prefs, { email: 'new@example.org', enabled: true, expectedRevision: 1 }, new Date(now)))
       await expect(service.applyToken(token)).rejects.toThrow('invalid-link')
     })
+    // Real emulator transactions intentionally compete for the same document;
+    // the SDK may retry contention with backoff on a busy CI runner.
     it('sends once under concurrent/repeated event delivery and keeps a redacted permanent ledger', async () => {
       await trustedSettings()
       const eventId = await includedEvent()
@@ -106,7 +108,7 @@ export function registerEmailServiceTests() {
       expect(jobs.docs[0].data()).not.toHaveProperty('payload')
       expect(jobs.docs[0].data()).not.toHaveProperty('recipient')
       expect(jobs.docs[0].data()).not.toHaveProperty('queueAt')
-    })
+    }, 30_000)
     it('retries an ambiguous send with identical bytes/key and cancels if consent changes', async () => {
       const prefs = await trustedSettings()
       const eventId = await includedEvent()

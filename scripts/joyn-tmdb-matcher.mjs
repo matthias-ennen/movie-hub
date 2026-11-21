@@ -5,6 +5,9 @@ import {
 } from './waipu-tmdb-matcher.mjs'
 import { normalizeWaipuText } from './waipu-program-classifier.mjs'
 
+// Cache compatibility epoch: ambiguous decisions are not persisted, so the
+// lossless title guard below takes effect on their next normal evaluation.
+// Retain the existing cache epoch and TTLs; no broad invalidation/API refill.
 export const JOYN_MATCHER_VERSION = 5
 
 const JOYN_MOVIE_RUNTIME_OVERRUN_TOLERANCE_MINUTES = 5
@@ -22,12 +25,28 @@ const DESCRIPTION_STOPWORDS = new Set([
   'when','where','which','while','who','with','would',
 ])
 
+// The legacy Latin normalizer is appropriate for German/English titles, but
+// must not make a mixed-script original title an exact Latin alias by deleting
+// its other letters (e.g. a Japanese film title containing "NARUTO").
+// Preserve the entire original title for exact comparisons in other scripts;
+// keep fuzzy Latin scoring unchanged and do not infer cross-script aliases.
+function hasNonLatinLetters(value) {
+  return [...String(value || '').normalize('NFKD')]
+    .some(character => /\p{L}/u.test(character) && !/\p{Script=Latin}/u.test(character))
+}
+
+function titleMatchKey(value) {
+  if (!hasNonLatinLetters(value)) return normalizeWaipuText(value)
+  return String(value || '').normalize('NFKC').toLocaleLowerCase('de')
+    .replace(/[^\p{L}\p{N}\p{M}]+/gu, ' ').trim()
+}
+
 function aliases(value) {
   return [...new Set([
     value?.title,
     value?.originalTitle,
     ...(Array.isArray(value?.aliases) ? value.aliases : []),
-  ].map(normalizeWaipuText).filter(Boolean))]
+  ].map(titleMatchKey).filter(Boolean))]
 }
 
 function inputTitles(input) {
@@ -74,11 +93,14 @@ function descriptionEvidence(left, right) {
 }
 
 function score(inputTitle, candidate) {
-  const input = normalizeWaipuText(inputTitle)
+  const input = titleMatchKey(inputTitle)
   const candidateAliases = aliases(candidate)
   if (!input || !candidateAliases.length) return 0
   if (candidateAliases.includes(input)) return 100
-  return Math.max(...candidateAliases.map((alias) => Math.round(dice(input, alias) * 90)))
+  if (hasNonLatinLetters(input)) return 0
+  return Math.max(0, ...candidateAliases
+    .filter(alias => !hasNonLatinLetters(alias))
+    .map(alias => Math.round(dice(input, alias) * 90)))
 }
 
 export function chooseJoynTmdbMatch(input, rawCandidates = []) {

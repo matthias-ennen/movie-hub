@@ -6,6 +6,49 @@ import {
 } from '../src/sources/adapters/joynContractMapper.js'
 
 describe('Joyn TMDB matching', () => {
+  it('does not turn mixed-script movie originals into exact series aliases', async () => {
+    const candidates = [
+      { type: 'movie', tmdbId: 16907, title: 'Naruto - The Movie - Geheimmission im Land des ewigen Schnees',
+        originalTitle: '劇場版 NARUTO 大活劇! 雪姫忍法帖だってばよ!!' },
+      { type: 'movie', tmdbId: 16910, title: 'Naruto - The Movie 2 - Die Legende des Steins von Gelel',
+        originalTitle: '劇場版 NARUTO -ナルト- 大激突!幻の地底遺跡だってばよ' },
+      { type: 'series', tmdbId: 46260, title: 'Naruto', originalTitle: 'ナルト' },
+    ]
+    let searches = 0
+    const result = await matchJoynProgram({ title: 'Naruto' }, {
+      localCandidates: candidates, searchTmdb: async () => { searches++; return [] },
+    })
+    expect(result).toMatchObject({ status: 'matched', source: 'local', match: { type: 'series', tmdbId: 46260 } })
+    expect(searches).toBe(0)
+    expect(chooseJoynTmdbMatch({ title: 'Naruto' }, candidates.slice(0, 2))).toMatchObject({
+      status: 'unmatched', reason: 'no_candidate',
+    })
+  })
+
+  it('preserves genuine full non-Latin original title matches', () => {
+    expect(chooseJoynTmdbMatch({ title: '劇場版 NARUTO 大活劇' }, [
+      { type: 'movie', tmdbId: 10, title: 'Naruto Film', originalTitle: '劇場版 NARUTO 大活劇' },
+      { type: 'series', tmdbId: 11, title: 'Naruto', originalTitle: 'ナルト' },
+    ])).toMatchObject({ status: 'matched', best: { candidate: { tmdbId: 10 }, score: 100 } })
+    expect(chooseJoynTmdbMatch({ title: 'ナルト' }, [
+      { type: 'series', tmdbId: 11, title: 'Naruto', originalTitle: 'ナルト' },
+    ])).toMatchObject({ status: 'matched', best: { candidate: { tmdbId: 11 }, score: 100 } })
+  })
+
+  it('does not change valid Latin aliases or genuine same-title ambiguity', () => {
+    const first = { type: 'movie', tmdbId: 1, title: 'Léon – Der Profi', originalTitle: 'Léon' }
+    expect(chooseJoynTmdbMatch({ title: 'Leon' }, [first])).toMatchObject({ status: 'matched' })
+    expect(chooseJoynTmdbMatch({ title: 'Leon' }, [first,
+      { type: 'series', tmdbId: 2, title: 'Leon', originalTitle: 'Леон' },
+    ])).toMatchObject({ status: 'unmatched', reason: 'ambiguous_exact_title' })
+  })
+
+  it('does not infer cross-script fuzzy matches from shared Latin words', () => {
+    expect(chooseJoynTmdbMatch({ title: 'Science Fiction Adventure Story' }, [
+      { type: 'movie', tmdbId: 1, title: 'Other movie', originalTitle: 'Science Fiction Adventure Story 外伝' },
+    ])).toMatchObject({ status: 'unmatched', reason: 'no_candidate' })
+  })
+
   it('accepts one unique exact title across movie and series candidates', () => {
     const result = chooseJoynTmdbMatch({ title: 'Arrival' }, [
       { type: 'movie', tmdbId: 329865, title: 'Arrival', year: 2016 },

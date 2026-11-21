@@ -7,14 +7,14 @@ import { ProviderBadge } from '../ProviderBadges.jsx'
  * remains visible but must not become a non-functional button.
  */
 export default function DetailLiveProviderAction({
-  providerId, item, canLaunch = false, onOpen, subject = 'diese TV-Ausstrahlung',
+  providerId, item, canLaunch = false, onOpen, subject = 'diese TV-Ausstrahlung', offerLabel = undefined,
 }) {
   const provider = providers[providerId]
   if (!provider) return null
 
   const label = provider.label || providerId
   const contents = <>
-    <ProviderBadge providerId={providerId} item={item} context="airing" />
+    <ProviderBadge providerId={providerId} item={item} context="airing" resolvedOfferLabel={offerLabel} />
     {label}
   </>
 

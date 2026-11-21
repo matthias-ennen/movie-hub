@@ -24,6 +24,17 @@ public final class AirQaActivity extends Activity {
         { "air-prosieben_maxx", "ProSieben MAXX", "Joyn Anmeldung ggf. erforderlich" },
         { "air-sat1gold", "SAT.1 GOLD", "Joyn Anmeldung ggf. erforderlich" },
         { "air-rtlnitro", "NITRO", "RTL+ Abo/Anmeldung" },
+        { "air-comedy_central", "Comedy Central", "Joyn Anmeldung ggf. erforderlich" },
+        { "air-sixx", "sixx", "Joyn Anmeldung ggf. erforderlich" },
+        { "air-dmax", "DMAX", "Joyn Anmeldung ggf. erforderlich" },
+        { "air-tlc", "TLC", "Joyn Anmeldung ggf. erforderlich" },
+        { "air-brsued", "BR Süd", "Öffentlicher Livestream" },
+        { "air-hr", "hr-fernsehen", "Öffentlicher Livestream" },
+        { "air-n3_hamburg", "NDR Hamburg", "Öffentlicher Livestream" },
+        { "air-wdr_koeln", "WDR Köln", "Öffentlicher Livestream" },
+        { "air-kika", "KiKA", "Öffentlicher Livestream" },
+        { "air-phoenix", "phoenix", "Öffentlicher Livestream" },
+        { "air-n24", "WELT", "Öffentlicher Livestream" },
     };
     private TextView status;
 
@@ -38,7 +49,7 @@ public final class AirQaActivity extends Activity {
         scroll.addView(content);
 
         TextView headline = new TextView(this);
-        headline.setText("Movie Hub – AIR Gerätetest (12 neue Sender)");
+        headline.setText("Movie Hub – AIR Gerätetest (" + STATIONS.length + " Sender)");
         headline.setTextSize(24);
         headline.setTextColor(Color.WHITE);
         content.addView(headline);

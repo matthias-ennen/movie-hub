@@ -16,11 +16,23 @@ describe('#885 hosted TV count-only audit', () => {
         days: [{ key: '2026-11-17', entries: [entry([triple, later])] }] })
       expect(result.totals.horizon).toMatchObject({ airings: 3, movie: 3, titles: 1,
         runtimeMatched: 2, runtimeMissing: 1, allThree: 1, xmltvOnly: 1,
-        dailyPoster: 1, dailyPosterNotSelected: 1, liveBadgeHidden: 0, liveBadgeHiddenWithMovieHub: 1 })
+        dailyPoster: 1, dailyPosterNotSelected: 1, liveBadgeHidden: 0, liveBadgeHiddenWithMovieHub: 0,
+        liveOfferMissing: 0, liveOfferOverflow: 0 })
       expect(result.totals.onAir).toMatchObject({ airings: 1, allThree: 1 })
       expect(result.totals.next3h).toMatchObject({ airings: 1, xmltvOnly: 1, dailyPosterNotSelected: 1 })
       expect(result.stations['air-zdf'].horizon.airings).toBe(3)
       expect(JSON.stringify(result)).not.toContain('42')
+    } finally { resetProviderSelectionSnapshot() }
+  })
+
+  it('retains actual live offers for an automatically opened unresolved series episode', () => {
+    try {
+      const episode = { seasonNumber: 1, episodeNumber: 7, catalogConflict: true }
+      const seriesEntry = { key: 'series:43', type: 'series', tmdbId: 43, airings: [{ ...triple, episode }] }
+      const result = auditTvCoverage({ now, files: [{ providerId: 'air-zdf', titles: { entries: [seriesEntry] } }],
+        days: [{ key: '2026-11-17', entries: [seriesEntry] }] })
+      expect(result.totals.horizon).toMatchObject({ airings: 1, allThree: 1, dailyPoster: 1,
+        liveOfferMissing: 0, liveOfferOverflow: 0, missingUnresolvedEpisode: 0 })
     } finally { resetProviderSelectionSnapshot() }
   })
 })
