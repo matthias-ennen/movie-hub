@@ -1,4 +1,4 @@
-import {observeNightly} from './nightly-report-metrics.mjs'
+import {observeNightly,writeJson} from './nightly-report-metrics.mjs'
 /**
  * #336 G2w: first real adapter integration boundary for the third shared
  * TMDB search-response consumer. Bounded exact HTTP fallback is optional;
@@ -120,11 +120,12 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     throw new Error('G2W_COORDINATOR_OPTIONS_REJECTED')
   const options={stagingReportPath:join(root,'artifacts/xmltv-g2/report.json'),privateRoot:join(root,'artifacts/xmltv-g2/private'),...coordinatorOptions,now}
   const baseline=await runXmltvG2lPrivateAdapterCoordinator({...options,localCandidatesFor:local.localCandidatesFor})
-  let handoff=null,stationDiagnostics=null
+  let handoff=null,stationDiagnostics=null,lossReasons=null
   const combined=await runXmltvG2lPrivateAdapterCoordinator({...options,localCandidatesFor:enhanced.localCandidatesFor,runtimeCatalog:catalog,runtimeSources,
     peerAiringFor:peer?.lookup??null,
     captureHandoff:captureHandoff?value=>{handoff=value}:null,
-    captureStationDiagnostics:value=>{stationDiagnostics=value}})
+    captureStationDiagnostics:value=>{stationDiagnostics=value},
+    captureLossReasons:value=>{lossReasons=value}})
   if(!isSafeXmltvG2lPrivateAdapterReport(baseline)||!isSafeXmltvG2lPrivateAdapterReport(combined)||
     !isSafePrivateXmltvRuntimeReadiness(combined.runtimeReadiness,combined.locallyMatchedCount)||
     combined.runtimeReadiness.runtimeOverlap?.existingSourceCount!==runtimeSources.length||
@@ -144,6 +145,9 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     Object.values(stationDiagnostics).reduce((sum,row)=>sum+row.selected,0)!==combined.selectedCandidateCount||
     Object.values(stationDiagnostics).reduce((sum,row)=>sum+row.accepted,0)!==combined.locallyMatchedCount)
     throw new Error('G2W_STATION_DIAGNOSTICS_REJECTED')
+  if(!lossReasons||Object.values(lossReasons).some(n=>!Number.isSafeInteger(n)||n<0)||
+    Object.values(lossReasons).reduce((sum,n)=>sum+n,0)!==combined.selectedCandidateCount-combined.locallyMatchedCount)
+    lossReasons=null // Loss diagnostics must not alter a successful match.
   const c=enhanced.counts(),hits=shared.counts(),extra=combined.locallyMatchedCount-baseline.locallyMatchedCount
   const peerCounts=peer?.counts()??null
   const peerAccepted=(peerCounts?.peerAcceptedMovie??0)+(peerCounts?.peerAcceptedSeries??0)
@@ -169,7 +173,7 @@ export async function runG2wXmltvSharedCachePreview({root=ROOT,now=Date.now(),co
     combinedMergedAirings:combined.mergedAiringsWithXmltvPreview,
     ...c,cacheResponseHits:hits.hits,cacheResponseMisses:hits.misses,
     ...(peerCounts?{peerReconciliation:peerCounts}:{}),
-    runtimeReadiness:combined.runtimeReadiness,stationDiagnostics,
+    runtimeReadiness:combined.runtimeReadiness,stationDiagnostics,lossReasons,
     newTmdbApiRequests:search?.actualSearchStarts??0,
     cacheWrites:search?.saveStatus==='saved'?search.capturedResponses:0,
     apiDistinctKeys:api.distinctKeys??0,apiRepeatedKeys:api.repeatedKeys??0,
@@ -202,6 +206,15 @@ async function main(){
     await writeXmltvSameRunHandoff(handoff)
   }
   await observeNightly('xmltv-match',result)
+  // Source-title retention is explicitly blocked by the XMLTV rights gate.
+  // Only validated station-level counts may cross the runner boundary.
+  try { await writeJson('artifacts/matcher-loss-input/xmltv.json', {
+    kind:'xmltv-matcher-loss-counts', selected:result.selectedCandidates,
+    matched:result.combinedMatched, validatedSources:result.validatedSources,
+    stations:result.stationDiagnostics, lossReasons:result.lossReasons,
+    resolverDiagnostics:Object.fromEntries(['localConflicts','invalidLocal','cacheAmbiguousRows',
+      'cacheNoExactCandidateRows','apiBudgetMisses','apiFailedRequests','apiStoppedMisses'].map(k=>[k,result[k]])),
+  }) } catch { console.warn('XMLTV matcher loss observation unavailable') }
   console.log(JSON.stringify(result))
   if(!result.validatedSources) process.exitCode=1
 }

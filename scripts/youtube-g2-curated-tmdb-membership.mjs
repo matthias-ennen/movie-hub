@@ -274,6 +274,8 @@ export async function runCuratedTmdbMembership({
       asOfYear: Number(observedAt.slice(0,4)) })
     const topCandidates = verdict.topCandidates.map(v => ({
       tmdbId: v.tmdbId, score: v.score,
+      title: tmdbFilms.find(f => Number(f.id) === v.tmdbId)?.title ?? null,
+      year: tmdbFilms.find(f => Number(f.id) === v.tmdbId)?.release_date?.slice(0, 4) ?? null,
       titleLevel: v.titleLevel, runtimeDelta: v.runtimeDelta,
       yearMismatch: v.yearMismatch, sequelConflict: v.sequelConflict,
       quotedActorCreditMatches: v.quotedActorCreditMatches ?? null,

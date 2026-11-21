@@ -16,6 +16,8 @@ artifacts/waipu-sync/
 artifacts/waipu-live/
 # G2c original XMLTV source-title and programme snapshots are PRIVATE runner-only.
 artifacts/xmltv-g2/private/
+artifacts/matcher-loss-input/
+artifacts/matcher-loss-report/
 artifacts/waipu-station-inventory/
 artifacts/profile-email-browser/
 .DS_Store

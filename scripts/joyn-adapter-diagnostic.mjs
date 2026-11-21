@@ -1097,6 +1097,18 @@ export async function runJoynAdapterDiagnostic({
     })
     throw error
   } finally {
+    // The current program decisions (including cache hits) are available even
+    // if budget or transport failure prevented completion of the whole horizon.
+    if (isTrustedCentralNightlyEvent(process.env)) {
+      try { await writeJson(resolve(root, 'artifacts/matcher-loss-input/joyn.json'), {
+        kind: 'joyn-matcher-loss-input', generatedAt,
+        totalPrograms: uniquePrograms.size, processedPrograms: decisions.size,
+        matchedPrograms: [...decisions.values()].filter(d => d.status === 'matched').length,
+        entries: [...programDiagnostics.values()].filter(d => d.decision?.status !== 'matched').map(d => ({
+          ...d, fromCache: cachedProgramIds.has(d.joynProgramId),
+        })),
+      }) } catch { console.warn('Joyn matcher loss observation unavailable') }
+    }
     await matchCache.save(matchCachePath)
     await lookupCache.save(lookupCachePath)
   }

@@ -292,6 +292,7 @@ export async function buildWaipuLiveCatalog({
   cachedProgramIds = null,
   now = Date.now,
   onProgress = null,
+  onMatcherLosses = null,
   // Explicit, disabled-by-default G1e dry-run callback. Never used in
   // production import and never affects its result on failure.
   onCompletedEvidence = null,
@@ -314,6 +315,7 @@ export async function buildWaipuLiveCatalog({
   )
 
   const typeHintForTitle = createGridTitleTypeHints(candidates)
+  const gridExclusions = new Map()
   const candidateBroadcasts = broadcasts.filter((broadcast) => {
     const classification = classifyWaipuGridProgram({
       id: broadcast.programId,
@@ -324,12 +326,19 @@ export async function buildWaipuLiveCatalog({
       typeHint: typeHintForTitle(broadcast.title),
       allowContentGenreFallback: CONTENT_GENRE_FALLBACK_STATIONS.has(broadcast.stationId),
     })
+    if (classification.status !== 'candidate') gridExclusions.set(broadcast.programId, {
+      programId: broadcast.programId, title: broadcast.title,
+      episodeTitle: broadcast.episodeTitle, gridGenre: broadcast.gridGenre,
+      stage: 'grid-classification', reason: classification.reason || 'unclassified',
+      classificationSignals: classification.signals || [],
+    })
     return classification.status === 'candidate'
   })
   metrics.gridCandidates = candidateBroadcasts.length
 
   const byProgram = new Map()
   for (const broadcast of candidateBroadcasts) {
+    gridExclusions.delete(broadcast.programId)
     if (!byProgram.has(broadcast.programId)) byProgram.set(broadcast.programId, [])
     byProgram.get(broadcast.programId).push(broadcast)
   }
@@ -393,7 +402,9 @@ export async function buildWaipuLiveCatalog({
 
   const matchesByProgram = new Map()
   const unresolvedPrograms = []
+  const classificationLosses = [...gridExclusions.values()]
   let programIndex = 0
+  try {
   for (const [programId, programBroadcasts] of byProgram) {
     programIndex += 1
     if (typeof onProgress === 'function' && (programIndex === 1 || programIndex % 250 === 0)) {
@@ -439,26 +450,35 @@ export async function buildWaipuLiveCatalog({
         }
       : null
     const detail = inferredMovieDetail || await loadProgramDetail(programId)
+    const recordClassificationLoss = (reason, stage, signals = []) => classificationLosses.push({
+      programId, title: first.title, episodeTitle: first.episodeTitle,
+      gridGenre: first.gridGenre, productionYear: detail?.productionYear ?? null,
+      mainGenre: detail?.mainGenre ?? null, stage, reason, classificationSignals: signals,
+    })
     if (inferredMovieDetail) metrics.detailsInferredFromLocalIndex += 1
     if (detail?.unavailable === true && [404, 410].includes(detail.status)) {
       metrics.detailsUnavailable += 1
       increment(metrics.classificationRejected, 'detail_unavailable')
+      recordClassificationLoss('detail_unavailable', 'source-detail')
       continue
     }
     if (!detail) {
       metrics.detailsMissing += 1
       increment(metrics.classificationRejected, 'detail_missing')
+      recordClassificationLoss('detail_missing', 'source-detail')
       continue
     }
     metrics.detailsLoaded += 1
     const classification = classifyWaipuProgram(gridProgram, detail)
     if (classification.status !== 'accepted') {
       increment(metrics.classificationRejected, classification.reason || 'unclassified')
+      recordClassificationLoss(classification.reason || 'unclassified', 'detail-classification', classification.signals)
       continue
     }
     const normalized = normalizeWaipuProgram(gridProgram, detail, classification)
     if (!normalized) {
       increment(metrics.classificationRejected, 'normalization_failed')
+      recordClassificationLoss('normalization_failed', 'normalization', classification.signals)
       continue
     }
     metrics.classifiedPrograms += 1
@@ -488,6 +508,8 @@ export async function buildWaipuLiveCatalog({
         classificationConfidence: normalized.classification?.confidence || null,
         classificationSignals: normalized.classification?.signals || [],
         reason: decision.reason || 'unmatched',
+        matcherVersion: decision.matcherVersion || null,
+        checkedAt: decision.checkedAt || null,
         source: decision.source || null,
         cache: decision.cache || null,
         diagnostic: decision.diagnostic || null,
@@ -499,6 +521,14 @@ export async function buildWaipuLiveCatalog({
     }
     metrics.matchedPrograms += 1
     matchesByProgram.set(programId, { input: normalized, decision })
+  }
+  } finally {
+    if (typeof onMatcherLosses === 'function') {
+      try { await onMatcherLosses({ kind: 'waipu-matcher-loss-input', generatedAt,
+        totalPrograms: byProgram.size + gridExclusions.size, matchedPrograms: metrics.matchedPrograms,
+        classificationLosses, unresolvedPrograms }) }
+      catch { console.warn('Waipu matcher loss observation unavailable') }
+    }
   }
   if (typeof onProgress === 'function') {
     onProgress({
@@ -991,6 +1021,7 @@ async function main() {
         releaseChannel: testMode ? 'test' : 'production',
         reuseExactLocalMovieDetails: live,
         cachedProgramIds: new Set(programRecords.map((record) => record.key)),
+        onMatcherLosses: value => writeJsonAtomic(resolve(projectRoot, 'artifacts/matcher-loss-input/waipu.json'), value),
         onProgress: ({ processed, total, detailsLoaded, matchedPrograms }) => {
           process.stdout.write(
             `Waipu-Details: ${processed}/${total} · ${detailsLoaded} geladen · ${matchedPrograms} TMDB-zugeordnet`

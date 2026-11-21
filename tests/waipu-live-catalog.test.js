@@ -879,6 +879,21 @@ describe('Waipu live catalog publication', () => {
     })
   })
 
+  it('observes rejected grid and matcher decisions even when publication is blocked', async () => {
+    const observe = vi.fn()
+    const loadProgramDetail = vi.fn(async () => detail())
+    await expect(buildWaipuLiveCatalog(buildFixture({
+      programs: [gridProgram(),gridProgram({id:'sport',title:'Sports',genre:'Sport'})],
+      loadProgramDetail, candidates: [movieCandidate({title:'Unrelated',originalTitle:'Unrelated'})],
+      onMatcherLosses: observe,
+    }))).rejects.toMatchObject({code:'TMDB_SEARCH_REQUIRED'})
+    expect(loadProgramDetail).toHaveBeenCalledTimes(1)
+    expect(observe).toHaveBeenCalledTimes(1)
+    expect(observe.mock.calls[0][0]).toMatchObject({totalPrograms:2,matchedPrograms:0,
+      classificationLosses:[{title:'Sports',reason:'unsupported_grid_genre'}],
+      unresolvedPrograms:[{title:'The Man from Toronto',reason:'no_candidate'}]})
+  })
+
   it('writes a validated generation through an atomic directory swap', async () => {
     const root = await mkdtemp(resolve(tmpdir(), 'movie-hub-waipu-live-'))
     cleanupPaths.push(root)

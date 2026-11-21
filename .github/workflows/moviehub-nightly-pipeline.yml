@@ -181,6 +181,7 @@ jobs:
           NIGHT_KNOWN_RESULT: ${{ needs.known-videos.result }}
           NIGHT_FIREBASE_RESULT: ${{ needs.firebase.result }}
           NIGHT_ARTIFACT_READ_RESULT: ${{ steps.reports.outcome }}
+          NIGHT_MATCHER_LOSS_ARTIFACT_ID: ${{ needs.firebase.outputs.matcher_loss_artifact_id }}
         run: node scripts/moviehub-nightly-chain-report.mjs
       - name: Save rolling Nightly count history
         if: ${{ success() && needs.firebase.result == 'success' }}

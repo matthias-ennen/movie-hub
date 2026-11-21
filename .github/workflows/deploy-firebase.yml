@@ -6,6 +6,10 @@ on:
   # The sole scheduled production import now comes from the central
   # MovieHub Nightly Pipeline at 00:00 Europe/Berlin, after YouTube QA.
   workflow_call:
+    outputs:
+      matcher_loss_artifact_id:
+        description: ID of the current-run matcher loss artifact
+        value: ${{ jobs.deploy.outputs.matcher_loss_artifact_id }}
     inputs:
       nightly_chain:
         type: boolean
@@ -83,6 +87,8 @@ jobs:
     needs: schedule-gate
     if: ${{ needs.schedule-gate.outputs.should_run == 'true' }}
     runs-on: ubuntu-latest
+    outputs:
+      matcher_loss_artifact_id: ${{ steps.matcher_loss_upload.outputs.artifact-id }}
     env:
       DATA_CHECKPOINT_BUCKET: ${{ vars.MOVIE_HUB_CHECKPOINT_BUCKET }}
       DATA_CHECKPOINT_ENABLED: ${{ vars.MOVIE_HUB_DURABLE_CHECKPOINT_ENABLED }}
@@ -924,6 +930,29 @@ jobs:
           NIGHT_METRIC_PUBLISH: ${{ steps.publication_verify.outcome }}
         run: node scripts/nightly-report-metrics.mjs
 
+      - name: Collect current-run matcher loss reports (read-only)
+        id: matcher_loss
+        if: ${{ always() && inputs.nightly_chain && inputs.data_mode == 'standard' }}
+        continue-on-error: true
+        env:
+          LOSS_WAIPU: ${{ steps.waipu_catalog.outcome }}
+          LOSS_JOYN: ${{ steps.joyn_catalog.outcome }}
+          LOSS_XMLTV: ${{ steps.g2w_preview.outcome }}
+          LOSS_YOUTUBE: ${{ steps.youtube_editorial_research.outcome }}
+          LOSS_EPISODES: ${{ steps.youtube_episode_catalog.outcome }}
+        run: node scripts/matcher-loss-report.mjs
+
+      - name: Upload per-adapter matcher loss reports
+        id: matcher_loss_upload
+        if: ${{ always() && steps.matcher_loss.outcome == 'success' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: matcher-loss-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/matcher-loss-report/*.json
+          if-no-files-found: warn
+          retention-days: 2
+
       - name: Upload source adapter artifacts
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
@@ -931,6 +960,7 @@ jobs:
           name: source-adapter-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             artifacts/nightly-metrics/aggregate.json
+            artifacts/matcher-loss-report/summary.json
             artifacts/source-adapters/*.json
             artifacts/source-merge/*.json
             artifacts/youtube-g2/curated-production-sync/qa.json
