@@ -77,6 +77,12 @@ export function scheduledAtForLocalDate(now = new Date(), options = {}) {
   }, settings.timeZone)
 }
 
+// An early-trigger tolerance must not cross the local calendar-day boundary.
+function earliestAcceptedStart(scheduledAt, settings) {
+  const midnight = scheduledAtForLocalDate(scheduledAt, { ...settings, hour: 0, minute: 0 })
+  return Math.max(scheduledAt.getTime() - 5 * 60_000, midnight.getTime())
+}
+
 export function evaluateScheduleGate(runs, {
   now = new Date(),
   currentRunId,
@@ -93,7 +99,7 @@ export function evaluateScheduleGate(runs, {
   }
 
   const scheduledAt = scheduledAtForLocalDate(now, settings)
-  const earliestAccepted = scheduledAt.getTime() - 5 * 60_000
+  const earliestAccepted = earliestAcceptedStart(scheduledAt, settings)
   if (now.getTime() < earliestAccepted) {
     return {
       shouldRun: false,
@@ -170,7 +176,7 @@ export const isProductionDeployJob = job =>
 export function evaluateScheduledRuns(runs, { now = new Date(), options = {}, jobsByRunId = {}, manualRuns = [] } = {}) {
   const settings = { ...defaultOptions, ...options }
   const scheduledAt = expectedScheduleAt(now, settings)
-  const earliestAccepted = scheduledAt.getTime() - 5 * 60_000
+  const earliestAccepted = earliestAcceptedStart(scheduledAt, settings)
   const candidates = (Array.isArray(runs) ? runs : [])
     .filter((entry) => entry?.name === settings.workflowName && entry?.event === 'schedule')
     .filter((entry) => Date.parse(entry.created_at) >= earliestAccepted)

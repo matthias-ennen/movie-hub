@@ -1,5 +1,5 @@
 /**
- * Bounded, anonymized MovieHub 00:10 chain report (#388).
+ * Bounded, anonymized MovieHub 00:00 chain report (#388).
  * Only project explicitly named numeric QA fields; never copy raw source
  * artifacts, video IDs, watch URLs, titles, private GCS data or API errors.
  * Publishing this report never mutates MovieHub or calls a provider API.
@@ -186,8 +186,8 @@ export function buildNightlyReport({stages,sourceData={},runId=null,runAttempt=n
   const gateStart=report.phaseTimings.find(p=>p.key==='gate')?.start
   if(scheduled&&gateStart){
     const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(gateStart)).map(p=>[p.type,p.value]))
-    const delay=Number(parts.hour)*60+Number(parts.minute)-10
-    if(delay>5)warnings.push('Geplanter Nightly-Start 00:10 Uhr: tatsächlich '+parts.hour+':'+parts.minute+' Uhr ('+delay+' Minuten später). Zeitplan/Runner-Start prüfen.')
+    const delay=Number(parts.hour)*60+Number(parts.minute)
+    if(delay>5)warnings.push('Geplanter Nightly-Start 00:00 Uhr: tatsächlich '+parts.hour+':'+parts.minute+' Uhr ('+delay+' Minuten später). Zeitplan/Runner-Start prüfen.')
   }
   if(expectMetrics&&!dataMetrics)warnings.push('Messdaten aus dem Datenlauf fehlen; detaillierte Bewertung nicht möglich.')
   if(expectMetrics&&!known)warnings.push('Zähler der YouTube-Bestandsprüfung fehlen.')
@@ -299,7 +299,7 @@ function membershipMarkdown(m){
   return lines
 }
 export function nightlyMarkdown(report){
-  const stageNames={gate:'00:10 Start-/Doppellauf-Gate',
+  const stageNames={gate:'00:00 Start-/Doppellauf-Gate',
     discovery:'YouTube Discovery (limitierte Suche)',
     known:'YouTube videos.list Recheck (0 Suchen)',
     firebase:'Firebase Import + Hosting'}

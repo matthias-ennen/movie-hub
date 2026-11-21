@@ -39,6 +39,14 @@ describe('safe end-of-chain adapter summary (#388)',()=>{
     expect(r.googleRemainingQuota).toBe(null)
     expect(r.youtubeSearchCallsMeasuredHere).toBe(false)
   })
+  it('reports delays from the new midnight schedule',()=>{
+    const report=buildNightlyReport({...base,scheduled:true,jobs:[{
+      name:'Enforce one trusted scheduled night per Berlin day',
+      started_at:'2026-11-21T23:06:00Z',completed_at:'2026-11-21T23:07:00Z',conclusion:'success',
+    }]})
+    expect(report.warnings).toContain('Geplanter Nightly-Start 00:00 Uhr: tatsächlich 00:06 Uhr (6 Minuten später). Zeitplan/Runner-Start prüfen.')
+    expect(nightlyMarkdown(report)).toContain('00:00 Start-/Doppellauf-Gate')
+  })
   it('reports measured quotaExceeded as a normal discovery terminal, not inferred quota',()=>{
     const discovery={
       kind:'moviehub-youtube-g2-nightly-budgeted-discovery',

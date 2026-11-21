@@ -22,7 +22,7 @@ describe('Nachtlauf-Zeitplanung', () => {
   })
 
   it('zeigt eine verweigerte Discovery trotz erfolgreichem Firebase-Deploy als degraded', () => {
-    const options={hour:0,minute:10,workflowName:'MovieHub Nightly Pipeline'}
+    const options={hour:0,minute:0,workflowName:'MovieHub Nightly Pipeline'}
     const now=new Date('2026-10-29T05:00:00Z')
     const runs=[{id:801,run_number:44,name:'MovieHub Nightly Pipeline',
       event:'schedule',status:'completed',conclusion:'failure',
@@ -36,6 +36,20 @@ describe('Nachtlauf-Zeitplanung', () => {
     expect(r.deployCompletedAt).toBe('2026-10-29T02:25:00Z')
     expect(watchdogShouldFail(r,{status:'fresh'})).toBe(false)
     expect(watchdogShouldFail(r,{status:'stale'})).toBe(true)
+  })
+
+  it('startet täglich um 00:00 in CET und CEST und lässt den Vortag nicht als heutigen Lauf zählen', () => {
+    const options={hour:0,minute:0,workflowName:'MovieHub Nightly Pipeline'}
+    for(const [midnight,previous] of [['2026-11-21T23:00:00Z','2026-11-21T22:59:00Z'],['2027-07-01T22:00:00Z','2027-07-01T21:59:00Z']]){
+      const now=new Date(midnight)
+      const prior={id:41,name:options.workflowName,event:'schedule',status:'completed',conclusion:'success',created_at:previous}
+      expect(scheduledAtForLocalDate(now,options).getTime()).toBe(now.getTime())
+      expect(expectedScheduleAt(now,options).getTime()).toBe(now.getTime())
+      expect(evaluateScheduleGate([prior],{now,options,eventName:'schedule',currentRunId:42}).shouldRun).toBe(true)
+      expect(evaluateScheduleGate([{...prior,created_at:midnight}],{now,options,eventName:'schedule',currentRunId:42}).shouldRun).toBe(false)
+      expect(evaluateScheduledRuns([prior],{now,options,jobsByRunId:{41:[{name:'deploy',conclusion:'success'}]}}).status).toBe('missing')
+      expect(captureWorkflowTiming({now,options,eventName:'schedule'})).toMatchObject({scheduledLocalTime:'00:00',delayMinutes:0})
+    }
   })
 
   it('plant 00:17 Europe/Berlin korrekt am UTC-Vortag durch Sommer- und Winterzeit', () => {

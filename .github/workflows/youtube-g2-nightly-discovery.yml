@@ -1,7 +1,7 @@
 name: YouTube G2 – nightly bounded public-movie discovery (private, no offers)
 
 on:
-  # Scheduled centrally by MovieHub Nightly Pipeline at 00:10 Berlin.
+  # Scheduled centrally by MovieHub Nightly Pipeline at 00:00 Berlin.
   # Also callable directly and manually, using Google's quota response.
   workflow_call:
   workflow_dispatch:

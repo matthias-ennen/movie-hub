@@ -8,9 +8,9 @@ const known=read('youtube-g2-global-known-no-search')
 const deploy=read('deploy-firebase')
 const watchdog=read('data-workflow-watchdog')
 
-describe('single permanently chained 00:10 Europe/Berlin production night (#388)',()=>{
+describe('single permanently chained 00:00 Europe/Berlin production night (#388)',()=>{
   it('uses exactly one scheduled night start and no obsolete independent 20:17/22:17/00:17 starts',()=>{
-    expect(chain).toMatch(/- cron: '10 0 \* \* \*'\n\s+timezone: Europe\/Berlin/)
+    expect(chain).toMatch(/- cron: '0 0 \* \* \*'\n\s+timezone: Europe\/Berlin/)
     for(const s of [nightly,known,deploy]){
       expect(s).not.toMatch(/^  schedule:/m)
       expect(s).toContain('  workflow_call:')
@@ -19,7 +19,9 @@ describe('single permanently chained 00:10 Europe/Berlin production night (#388)
     expect(deploy).toContain('  push:')
     expect(deploy).toContain('nightly_chain:')
     expect(watchdog).toContain('DATA_WORKFLOW_NAME: MovieHub Nightly Pipeline')
-    expect(watchdog).toContain("DATA_WORKFLOW_MINUTE: '10'")
+    expect(watchdog).toContain("DATA_WORKFLOW_MINUTE: '0'")
+    expect(chain).toContain("DATA_WORKFLOW_MINUTE: '0'")
+    expect(deploy).toContain("inputs.nightly_chain && '0' || '17'")
   })
   it('allows a single marked push to dispatch the real central manual chain',()=>{
     expect(chain).toContain('  workflow_dispatch:')
@@ -50,12 +52,12 @@ describe('single permanently chained 00:10 Europe/Berlin production night (#388)
     expect(deploy).toContain('group: firebase-production')
     expect(deploy).toContain("inputs.nightly_chain && 'workflow_call'")
   })
-  it('preserves Pacific safety guard in both CET and CEST at 00:10, including the new PT day',()=>{
-    for(const start of ['2026-10-28T23:10:00.000Z','2026-12-02T23:10:00.000Z',
-      '2027-07-01T22:10:00.000Z']){
+  it('preserves Pacific safety guard in both CET and CEST at 00:00, including the new PT day',()=>{
+    for(const start of ['2026-10-28T23:00:00.000Z','2026-12-02T23:00:00.000Z',
+      '2027-07-01T22:00:00.000Z']){
       const berlin=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Berlin',
         hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(start))
-      expect(berlin).toBe('00:10')
+      expect(berlin).toBe('00:00')
       const pt=pacificSearchDay(start)
       expect(Date.parse(start)-Date.parse(pt.start)).toBeGreaterThan(2*3600_000)
     }
